@@ -110,7 +110,8 @@ public class GlobalExceptionHandler {
             GradeComponentNotDeletableException.class, GradeComponentSetupNotDeletableException.class,
             MissingLessonContentException.class, MissingCommentContentException.class, HomeworkNextConflictException.class,
             NoUpcomingClassSessionException.class, VideoNotYetQualifiedException.class,
-            QuizAlreadyCompletedException.class, ListeningHintNotUnlockedException.class})
+            QuizAlreadyCompletedException.class, ListeningHintNotUnlockedException.class,
+            ClassSessionNotCheckableException.class})
     public ResponseEntity<Object> handleClassSetupRejected(RuntimeException ex) {
         return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
     }
@@ -136,7 +137,8 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler({OutsideAttendanceWindowException.class, OutsideGpsRadiusException.class,
             BiometricVerificationFailedException.class, NotAWorkingDayException.class,
-            AttendanceMethodNotAvailableException.class})
+            AttendanceMethodNotAvailableException.class, AlreadyCheckedInException.class,
+            AlreadyCheckedOutException.class})
     public ResponseEntity<Object> handleAttendanceRejected(RuntimeException ex) {
         return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
     }

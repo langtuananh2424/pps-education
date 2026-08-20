@@ -152,7 +152,7 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
     void startAttempt_UC27_MainFlow_startsSelfPracticeWithAssignment() {
         ExerciseResponse exercise = createSelfPracticeExerciseWithOneMcQuestion(true, null);
 
-        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), activeAssignmentId(exercise.id()), studentUser.getId());
 
         assertThat(attempt.status()).isEqualTo("IN_PROGRESS");
         assertThat(attempt.exerciseAssignmentId()).isNotNull();
@@ -169,7 +169,9 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("1.0")), teacher.getId());
         // Chưa gọi examService.assignToClass/deliverToClass -> chưa có ExerciseAssignment nào.
 
-        assertThatThrownBy(() -> exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId()))
+        // assignmentId=null: Đề chưa publish -> startAttempt chặn ở bước kiểm tra exercise.getStatus()
+        // trước khi kịp dùng assignmentId (xem ExerciseAttemptService#startAttempt).
+        assertThatThrownBy(() -> exerciseAttemptService.startAttempt(exercise.id(), null, studentUser.getId()))
                 .isInstanceOf(ExerciseNotAvailableException.class);
     }
 
@@ -182,7 +184,9 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("10")), teacher.getId());
         // chưa gọi deliverToClass -> chưa giao cho lớp nào
 
-        assertThatThrownBy(() -> exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId()))
+        // assignmentId=null: Đề chưa publish -> startAttempt chặn ở bước kiểm tra exercise.getStatus()
+        // trước khi kịp dùng assignmentId (xem ExerciseAttemptService#startAttempt).
+        assertThatThrownBy(() -> exerciseAttemptService.startAttempt(exercise.id(), null, studentUser.getId()))
                 .isInstanceOf(ExerciseNotAvailableException.class);
     }
 
@@ -191,7 +195,7 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         QuestionResponse mc1 = createMcQuestion();
         QuestionResponse mc2 = createMcQuestion();
         ExerciseResponse exercise = assignedExerciseWithQuestions(List.of(mc1, mc2), null, false, true);
-        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), activeAssignmentId(exercise.id()), studentUser.getId());
 
         answerCorrectly(attempt.id(), mc1);
         answerCorrectly(attempt.id(), mc2);
@@ -210,7 +214,7 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
                         null, null, new BigDecimal("2.0"), null, null, null, null),
                 teacher.getId());
         ExerciseResponse exercise = assignedExerciseWithQuestions(List.of(mc, essay), null, false, true);
-        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), activeAssignmentId(exercise.id()), studentUser.getId());
 
         answerCorrectly(attempt.id(), mc);
         exerciseAttemptService.saveAnswer(attempt.id(),
@@ -226,7 +230,7 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
     void submitAttempt_UC24_A1_rejectsPastDeadlineWhenLateNotAllowed() {
         QuestionResponse mc = createMcQuestion();
         ExerciseResponse exercise = assignedExerciseWithQuestions(List.of(mc), OffsetDateTime.now().minusDays(1), false, true);
-        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), activeAssignmentId(exercise.id()), studentUser.getId());
         answerCorrectly(attempt.id(), mc);
 
         assertThatThrownBy(() -> exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId()))
@@ -237,7 +241,7 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
     void submitAttempt_UC24_A1_allowsLateSubmissionWhenConfigured() {
         QuestionResponse mc = createMcQuestion();
         ExerciseResponse exercise = assignedExerciseWithQuestions(List.of(mc), OffsetDateTime.now().minusDays(1), true, true);
-        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), activeAssignmentId(exercise.id()), studentUser.getId());
         answerCorrectly(attempt.id(), mc);
 
         ExerciseAttemptResponse submitted = exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
@@ -248,23 +252,23 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
     @Test
     void startAttempt_UC24_A2_rejectsRetakeWhenNotAllowed() {
         ExerciseResponse exercise = createSelfPracticeExerciseWithOneMcQuestion(false, null);
-        ExerciseAttemptResponse first = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
+        ExerciseAttemptResponse first = exerciseAttemptService.startAttempt(exercise.id(), activeAssignmentId(exercise.id()), studentUser.getId());
         exerciseAttemptService.submitAttempt(first.id(), studentUser.getId());
 
-        assertThatThrownBy(() -> exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId()))
+        assertThatThrownBy(() -> exerciseAttemptService.startAttempt(exercise.id(), activeAssignmentId(exercise.id()), studentUser.getId()))
                 .isInstanceOf(RetakeNotAllowedException.class);
     }
 
     @Test
     void startAttempt_UC24_A2_allowsRetakeWithinMaxAttempts() {
         ExerciseResponse exercise = createSelfPracticeExerciseWithOneMcQuestion(true, 2);
-        ExerciseAttemptResponse first = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
+        ExerciseAttemptResponse first = exerciseAttemptService.startAttempt(exercise.id(), activeAssignmentId(exercise.id()), studentUser.getId());
         exerciseAttemptService.submitAttempt(first.id(), studentUser.getId());
 
-        ExerciseAttemptResponse second = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
+        ExerciseAttemptResponse second = exerciseAttemptService.startAttempt(exercise.id(), activeAssignmentId(exercise.id()), studentUser.getId());
 
         assertThat(second.attemptNumber()).isEqualTo(2);
-        assertThatThrownBy(() -> exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId()))
+        assertThatThrownBy(() -> exerciseAttemptService.startAttempt(exercise.id(), activeAssignmentId(exercise.id()), studentUser.getId()))
                 .isInstanceOf(RetakeNotAllowedException.class);
     }
 
@@ -272,7 +276,7 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
     void saveAnswer_rejectsWhenAttemptAlreadySubmitted() {
         QuestionResponse mc = createMcQuestion();
         ExerciseResponse exercise = createSelfPracticeExerciseWithOneMcQuestion(true, null, mc);
-        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), activeAssignmentId(exercise.id()), studentUser.getId());
         answerCorrectly(attempt.id(), mc);
         exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
 
@@ -290,7 +294,7 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
                         List.of(new QuestionChoiceRequest("A", "go", false, 1), new QuestionChoiceRequest("B", "goes", true, 2)), null, null),
                 teacher.getId());
         ExerciseResponse exercise = assignedExerciseWithQuestions(List.of(mc), null, false, true, true);
-        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), activeAssignmentId(exercise.id()), studentUser.getId());
         answerCorrectly(attempt.id(), mc);
         exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
 
@@ -311,7 +315,7 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
                         List.of(new QuestionChoiceRequest("A", "go", false, 1), new QuestionChoiceRequest("B", "goes", true, 2)), null, null),
                 teacher.getId());
         ExerciseResponse exercise = assignedExerciseWithQuestions(List.of(mc), null, false, true, true);
-        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), activeAssignmentId(exercise.id()), studentUser.getId());
         Long wrongChoiceId = mc.choices().stream().filter(c -> !c.isCorrect()).findFirst().orElseThrow().id();
         exerciseAttemptService.saveAnswer(attempt.id(),
                 new SaveAnswerRequest(mc.id(), null, List.of(wrongChoiceId), null, null), studentUser.getId());
@@ -330,7 +334,7 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
                         "Chú ý thì hiện tại đơn.", null, new BigDecimal("2.0"), null, null, null, null),
                 teacher.getId());
         ExerciseResponse exercise = assignedExerciseWithQuestions(List.of(essay), null, false, true, true);
-        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), activeAssignmentId(exercise.id()), studentUser.getId());
         exerciseAttemptService.saveAnswer(attempt.id(),
                 new SaveAnswerRequest(essay.id(), "Bài làm của em...", null, null, null), studentUser.getId());
         exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
@@ -346,7 +350,7 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         QuestionResponse mc = createMcQuestion();
         ExerciseResponse exercise = createSelfPracticeExerciseWithOneMcQuestion(true, 2, mc);
 
-        ExerciseAttemptResponse firstAttempt = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
+        ExerciseAttemptResponse firstAttempt = exerciseAttemptService.startAttempt(exercise.id(), activeAssignmentId(exercise.id()), studentUser.getId());
         answerCorrectly(firstAttempt.id(), mc);
         exerciseAttemptService.submitAttempt(firstAttempt.id(), studentUser.getId());
 
@@ -362,13 +366,13 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         ExerciseResponse exercise = createSelfPracticeExerciseWithOneMcQuestion(true, 2, mc);
 
         // Lượt 1 trả lời SAI (V89: bản giao chỉ đóng khi ĐẠT ngưỡng — cần giữ ACTIVE để còn lượt 2).
-        ExerciseAttemptResponse firstAttempt = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
+        ExerciseAttemptResponse firstAttempt = exerciseAttemptService.startAttempt(exercise.id(), activeAssignmentId(exercise.id()), studentUser.getId());
         Long wrongChoiceId = mc.choices().stream().filter(c -> !c.isCorrect()).findFirst().orElseThrow().id();
         exerciseAttemptService.saveAnswer(firstAttempt.id(),
                 new SaveAnswerRequest(mc.id(), null, List.of(wrongChoiceId), null, null), studentUser.getId());
         exerciseAttemptService.submitAttempt(firstAttempt.id(), studentUser.getId());
 
-        ExerciseAttemptResponse secondAttempt = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
+        ExerciseAttemptResponse secondAttempt = exerciseAttemptService.startAttempt(exercise.id(), activeAssignmentId(exercise.id()), studentUser.getId());
         answerCorrectly(secondAttempt.id(), mc);
         exerciseAttemptService.submitAttempt(secondAttempt.id(), studentUser.getId());
 
@@ -392,7 +396,7 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         commitCurrentTransactionAndStartNew();
         exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId());
 
-        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), activeAssignmentId(exercise.id()), studentUser.getId());
         exerciseAttemptService.saveAnswer(attempt.id(),
                 new SaveAnswerRequest(essay.id(), "Bài làm của em...", null, null, null), studentUser.getId());
         exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
@@ -410,7 +414,7 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
                         new BigDecimal("1.0"), null, null, null, null),
                 teacher.getId());
         ExerciseResponse exercise = assignedExerciseWithQuestions(List.of(fillIn), null, false, true, true);
-        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), activeAssignmentId(exercise.id()), studentUser.getId());
         exerciseAttemptService.saveAnswer(attempt.id(),
                 new SaveAnswerRequest(fillIn.id(), " paris ", null, null, null), studentUser.getId());
 
@@ -431,7 +435,7 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
                         new BigDecimal("1.0"), null, null, null, null),
                 teacher.getId());
         ExerciseResponse exercise = assignedExerciseWithQuestions(List.of(fillIn), null, false, true, true);
-        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), activeAssignmentId(exercise.id()), studentUser.getId());
         exerciseAttemptService.saveAnswer(attempt.id(),
                 new SaveAnswerRequest(fillIn.id(), "Pariss", null, null, null), studentUser.getId());
 
@@ -453,7 +457,7 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
                         Map.of("blanks", List.of("goes", "to")), null),
                 teacher.getId());
         ExerciseResponse exercise = assignedExerciseWithQuestions(List.of(wordBank), null, false, true, true);
-        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), activeAssignmentId(exercise.id()), studentUser.getId());
         exerciseAttemptService.saveAnswer(attempt.id(),
                 new SaveAnswerRequest(wordBank.id(), null, null, null, List.of("goes", "to")), studentUser.getId());
 
@@ -475,7 +479,7 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
                         Map.of("blanks", List.of("goes", "to")), null),
                 teacher.getId());
         ExerciseResponse exercise = assignedExerciseWithQuestions(List.of(wordBank), null, false, true, true);
-        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), activeAssignmentId(exercise.id()), studentUser.getId());
         exerciseAttemptService.saveAnswer(attempt.id(),
                 new SaveAnswerRequest(wordBank.id(), null, null, null, List.of("to", "goes")), studentUser.getId());
 
@@ -497,7 +501,7 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
                         Map.of("chunks", List.of("This", "is", "a test")), null),
                 teacher.getId());
         ExerciseResponse exercise = assignedExerciseWithQuestions(List.of(sentence), null, false, true, true);
-        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), activeAssignmentId(exercise.id()), studentUser.getId());
         exerciseAttemptService.saveAnswer(attempt.id(),
                 new SaveAnswerRequest(sentence.id(), null, null, null, List.of("This", "is", "a test")), studentUser.getId());
 
@@ -520,7 +524,7 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
                         new BigDecimal("2.0"), null, null, null, null),
                 teacher.getId());
         ExerciseResponse exercise = assignedExerciseWithQuestions(List.of(listening), null, false, true, true);
-        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), activeAssignmentId(exercise.id()), studentUser.getId());
         exerciseAttemptService.saveAnswer(attempt.id(),
                 new SaveAnswerRequest(listening.id(), null, null,
                         "https://media.pps.edu.vn/lms/exercise-answer-submissions/audio/answer.mp3", null),
@@ -538,7 +542,7 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
     void submitAttempt_UC24_A_hidesCorrectAnswersWhenShowCorrectAnswersFalse() {
         QuestionResponse mc = createMcQuestion();
         ExerciseResponse exercise = assignedExerciseWithQuestions(List.of(mc), null, false, true, false);
-        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), activeAssignmentId(exercise.id()), studentUser.getId());
         answerCorrectly(attempt.id(), mc);
         exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
 
@@ -551,7 +555,7 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
     void submitAttempt_UC24_hidesCorrectAnswersWhileAttemptStillInProgress() {
         QuestionResponse mc = createMcQuestion();
         ExerciseResponse exercise = assignedExerciseWithQuestions(List.of(mc), null, false, true, true);
-        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), activeAssignmentId(exercise.id()), studentUser.getId());
         answerCorrectly(attempt.id(), mc);
 
         StudentAnswerResponse answer = exerciseAttemptService.listAnswers(attempt.id(), studentUser.getId()).get(0);
@@ -632,7 +636,9 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
                 new RecordTransferRequest("CLASS_CHANGE", schoolClass.id(), otherClass.id(), null, LocalDate.now(), "Chuyển lớp test"),
                 headAcademic.getId());
 
-        assertThatThrownBy(() -> exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId()))
+        // assignmentId: bản giao GỐC (schoolClass cũ) vẫn ACTIVE — resolveActiveAssignmentForStudent
+        // chặn vì học sinh không còn enrollment ACTIVE ở lớp đó (đã chuyển sang otherClass).
+        assertThatThrownBy(() -> exerciseAttemptService.startAttempt(exercise.id(), activeAssignmentId(exercise.id()), studentUser.getId()))
                 .isInstanceOf(ExerciseNotAvailableException.class);
     }
 
@@ -654,7 +660,7 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         commitCurrentTransactionAndStartNew();
         ExerciseAssignment assignment = exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId());
 
-        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), assignment.getId(), studentUser.getId());
         answerCorrectly(attempt.id(), mc1); // chỉ đúng 1/2 -> 50%, dưới ngưỡng mặc định 70%
         ExerciseAttemptResponse submitted = exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
 
@@ -663,13 +669,18 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         ExerciseAssignment refreshed = exerciseAssignmentRepository.findById(assignment.getId()).orElseThrow();
         assertThat(refreshed.getStatus()).isEqualTo(ExerciseAssignment.Status.ACTIVE);
 
-        ExerciseAttemptResponse retry = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
+        ExerciseAttemptResponse retry = exerciseAttemptService.startAttempt(exercise.id(), assignment.getId(), studentUser.getId());
         assertThat(retry.attemptNumber()).isEqualTo(2);
     }
 
-    /** V89: đạt ngưỡng -> đóng bản giao (COMPLETED), không còn hiện "cần làm lại". */
+    /**
+     * V89 (điều chỉnh 2026-08-19): đạt ngưỡng nhưng ĐỀ CÒN LƯỢT làm lại
+     * (allowRetake=true, maxAttempts=null = không giới hạn) -> bản giao vẫn
+     * ACTIVE, học sinh tự nguyện làm lại được để thử điểm cao hơn (VD đạt
+     * 80% muốn thử lại lấy 100%) — không còn tự đóng bản giao ngay khi đạt.
+     */
     @Test
-    void submitAttempt_boSung_atOrAboveThresholdMarksPassedAndCompletesAssignment() {
+    void submitAttempt_boSung_atOrAboveThresholdKeepsAssignmentActiveWhenRetakeAvailable() {
         QuestionResponse mc1 = createMcQuestion();
         QuestionResponse mc2 = createMcQuestion();
         ExerciseResponse exercise = exerciseService.createExercise(
@@ -681,12 +692,43 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         commitCurrentTransactionAndStartNew();
         ExerciseAssignment assignment = exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId());
 
-        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), assignment.getId(), studentUser.getId());
         answerCorrectly(attempt.id(), mc1);
         answerCorrectly(attempt.id(), mc2);
         ExerciseAttemptResponse submitted = exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
 
         assertThat(submitted.percentage()).isEqualByComparingTo("100.00");
+        assertThat(submitted.passed()).isTrue();
+        ExerciseAssignment refreshed = exerciseAssignmentRepository.findById(assignment.getId()).orElseThrow();
+        assertThat(refreshed.getStatus()).isEqualTo(ExerciseAssignment.Status.ACTIVE);
+
+        ExerciseAttemptResponse retry = exerciseAttemptService.startAttempt(exercise.id(), assignment.getId(), studentUser.getId());
+        assertThat(retry.attemptNumber()).isEqualTo(2);
+    }
+
+    /**
+     * V89 (điều chỉnh 2026-08-19): đạt ngưỡng và ĐÃ HẾT lượt làm lại
+     * (maxAttempts=1) -> đóng bản giao (COMPLETED) như cũ, vì không còn lượt
+     * nào để làm lại nữa (khác trường hợp còn lượt ở test phía trên).
+     */
+    @Test
+    void submitAttempt_boSung_atOrAboveThresholdCompletesAssignmentWhenNoAttemptsLeft() {
+        QuestionResponse mc1 = createMcQuestion();
+        QuestionResponse mc2 = createMcQuestion();
+        ExerciseResponse exercise = exerciseService.createExercise(
+                new CreateExerciseRequest(exerciseCode(), "BTVN", defaultExam.id(), null, "SELF_PRACTICE",
+                        new BigDecimal("2"), null, true, 1, true), teacher.getId());
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc1.id(), 1, new BigDecimal("1.0")), teacher.getId());
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc2.id(), 2, new BigDecimal("1.0")), teacher.getId());
+        examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
+        commitCurrentTransactionAndStartNew();
+        ExerciseAssignment assignment = exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId());
+
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), assignment.getId(), studentUser.getId());
+        answerCorrectly(attempt.id(), mc1);
+        answerCorrectly(attempt.id(), mc2);
+        ExerciseAttemptResponse submitted = exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
+
         assertThat(submitted.passed()).isTrue();
         ExerciseAssignment refreshed = exerciseAssignmentRepository.findById(assignment.getId()).orElseThrow();
         assertThat(refreshed.getStatus()).isEqualTo(ExerciseAssignment.Status.COMPLETED);
@@ -707,13 +749,15 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         commitCurrentTransactionAndStartNew();
         ExerciseAssignment assignment = exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId());
 
-        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), assignment.getId(), studentUser.getId());
         answerCorrectly(attempt.id(), mc1); // 50% -> dưới 70% mặc định nhưng TRÊN ngưỡng 40% đã cấu hình
         ExerciseAttemptResponse submitted = exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
 
         assertThat(submitted.passed()).isTrue();
+        // Đề còn lượt làm lại (allowRetake=true, maxAttempts=null) -> bản giao vẫn ACTIVE, xem
+        // submitAttempt_boSung_atOrAboveThresholdKeepsAssignmentActiveWhenRetakeAvailable ở trên.
         ExerciseAssignment refreshed = exerciseAssignmentRepository.findById(assignment.getId()).orElseThrow();
-        assertThat(refreshed.getStatus()).isEqualTo(ExerciseAssignment.Status.COMPLETED);
+        assertThat(refreshed.getStatus()).isEqualTo(ExerciseAssignment.Status.ACTIVE);
     }
 
     /** V89/V100: không truyền passThresholdPercent khi tạo Bài -> mặc định 70%. */
@@ -738,6 +782,16 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         Long correctChoiceId = question.choices().stream().filter(c -> c.isCorrect()).findFirst().orElseThrow().id();
         exerciseAttemptService.saveAnswer(attemptId,
                 new SaveAnswerRequest(question.id(), null, List.of(correctChoiceId), null, null), studentUser.getId());
+    }
+
+    /**
+     * V128: startAttempt giờ nhận thẳng assignmentId thay vì tự đoán bản giao ACTIVE — tra bản giao
+     * ACTIVE (duy nhất, vì mỗi Đề trong file test này chỉ được deliverToClass 1 lần cho schoolClass)
+     * để tái dùng ở các test không cần giữ tham chiếu ExerciseAssignment tường minh.
+     */
+    private Long activeAssignmentId(Long exerciseId) {
+        return exerciseAssignmentRepository.findByExerciseIdAndSchoolClassIdAndStatus(
+                exerciseId, schoolClass.id(), ExerciseAssignment.Status.ACTIVE).get(0).getId();
     }
 
     /**

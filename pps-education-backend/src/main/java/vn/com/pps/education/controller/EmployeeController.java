@@ -1,6 +1,7 @@
 package vn.com.pps.education.controller;
 
 import jakarta.validation.Valid;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import vn.com.pps.education.dto.ClassSessionResponse;
 import vn.com.pps.education.dto.CommendationResponse;
 import vn.com.pps.education.dto.CreateCommendationRequest;
 import vn.com.pps.education.dto.CreateEmployeeRequest;
@@ -27,6 +29,7 @@ import vn.com.pps.education.dto.UpdateOwnEmployeeProfileRequest;
 import vn.com.pps.education.security.AuthenticatedUser;
 import vn.com.pps.education.service.EmployeeService;
 
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -153,5 +156,19 @@ public class EmployeeController {
     @GetMapping("/contracts/expiring")
     public ResponseEntity<List<ExpiringContractResponse>> listExpiringContracts(@RequestParam int withinDays) {
         return ResponseEntity.ok(employeeService.listExpiringContracts(withinDays));
+    }
+
+    /**
+     * V125 (2026-08-17): HR/Điều hành xem lịch dạy của 1 nhân viên bất kỳ,
+     * bổ sung ngoài UC-58 (self-service) — dùng cho tab "Lịch làm việc"
+     * trong hồ sơ nhân sự. Xem docs/uc/phan-he-04-nhan-su.md (UC-70).
+     */
+    @PreAuthorize("hasPermission(null, 'hrm.employee-schedule.view')")
+    @GetMapping("/{id}/teaching-sessions")
+    public ResponseEntity<List<ClassSessionResponse>> listTeachingSessions(
+            @PathVariable Long id,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate) {
+        return ResponseEntity.ok(employeeService.getTeachingSessionsForEmployee(id, fromDate, toDate));
     }
 }

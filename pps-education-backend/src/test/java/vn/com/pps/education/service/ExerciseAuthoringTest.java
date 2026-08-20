@@ -32,6 +32,7 @@ import vn.com.pps.education.dto.QuestionBankResponse;
 import vn.com.pps.education.dto.QuestionChoiceRequest;
 import vn.com.pps.education.dto.QuestionResponse;
 import vn.com.pps.education.dto.UpdateCurriculumRequest;
+import vn.com.pps.education.dto.UpdateExerciseQuestionPointsRequest;
 import vn.com.pps.education.dto.UpdateExerciseRequest;
 import vn.com.pps.education.dto.UpdateQuestionBankStatusRequest;
 import vn.com.pps.education.dto.UpdateQuestionRequest;
@@ -315,6 +316,100 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
 
         assertThatThrownBy(() -> exerciseService.addQuestion(exercise.id(),
                 new AddExerciseQuestionRequest(mc.id(), 2, new BigDecimal("1.0")), teacher.getId()))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-18 — tổng điểm câu hỏi trong 1 Bài
+     * không được vượt quá exercises.total_points đã setup lúc tạo Bài.
+     */
+    @Test
+    void addQuestion_boSung_rejectsWhenTotalPointsExceeded() {
+        QuestionResponse mc1 = createMcQuestion();
+        QuestionResponse mc2 = createMcQuestion();
+        ExerciseResponse exercise = exerciseService.createExercise(
+                new CreateExerciseRequest(exerciseCode(), "Đề giới hạn điểm", defaultExam.id(), null, "SELF_PRACTICE",
+                        new BigDecimal("5"), null, true, null, true),
+                teacher.getId());
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc1.id(), 1, new BigDecimal("4")), teacher.getId());
+
+        assertThatThrownBy(() -> exerciseService.addQuestion(exercise.id(),
+                new AddExerciseQuestionRequest(mc2.id(), 2, new BigDecimal("2")), teacher.getId()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Tổng điểm");
+        assertThat(exerciseService.listQuestions(exercise.id(), teacher.getId())).hasSize(1);
+    }
+
+    /** Ranh giới: tổng điểm khớp CHÍNH XÁC total_points vẫn cho phép (chỉ chặn khi VƯỢT quá). */
+    @Test
+    void addQuestion_boSung_allowsReachingExactlyTotalPoints() {
+        QuestionResponse mc1 = createMcQuestion();
+        QuestionResponse mc2 = createMcQuestion();
+        ExerciseResponse exercise = exerciseService.createExercise(
+                new CreateExerciseRequest(exerciseCode(), "Đề vừa khít điểm", defaultExam.id(), null, "SELF_PRACTICE",
+                        new BigDecimal("5"), null, true, null, true),
+                teacher.getId());
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc1.id(), 1, new BigDecimal("3")), teacher.getId());
+
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc2.id(), 2, new BigDecimal("2")), teacher.getId());
+
+        assertThat(exerciseService.listQuestions(exercise.id(), teacher.getId())).hasSize(2);
+    }
+
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-18 — sửa lại điểm 1 câu đã gắn vào Bài. */
+    @Test
+    void updateQuestionPoints_boSung_MainFlow_updatesPointsWithinTotal() {
+        QuestionResponse mc = createMcQuestion();
+        ExerciseResponse exercise = exerciseService.createExercise(
+                new CreateExerciseRequest(exerciseCode(), "Đề sửa điểm", defaultExam.id(), null, "SELF_PRACTICE",
+                        new BigDecimal("10"), null, true, null, true),
+                teacher.getId());
+        var eq = exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("5")), teacher.getId());
+
+        var updated = exerciseService.updateQuestionPoints(exercise.id(), eq.id(),
+                new UpdateExerciseQuestionPointsRequest(new BigDecimal("8")), teacher.getId());
+
+        assertThat(updated.points()).isEqualByComparingTo("8");
+        assertThat(exerciseService.listQuestions(exercise.id(), teacher.getId()).get(0).points()).isEqualByComparingTo("8");
+    }
+
+    /** A: sửa điểm 1 câu khiến tổng vượt total_points (loại điểm CŨ của chính câu đó trước khi cộng điểm mới) -> chặn. */
+    @Test
+    void updateQuestionPoints_boSung_A_rejectsWhenExceedsTotalPoints() {
+        QuestionResponse mc1 = createMcQuestion();
+        QuestionResponse mc2 = createMcQuestion();
+        ExerciseResponse exercise = exerciseService.createExercise(
+                new CreateExerciseRequest(exerciseCode(), "Đề sửa điểm vượt", defaultExam.id(), null, "SELF_PRACTICE",
+                        new BigDecimal("5"), null, true, null, true),
+                teacher.getId());
+        var eq1 = exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc1.id(), 1, new BigDecimal("3")), teacher.getId());
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc2.id(), 2, new BigDecimal("2")), teacher.getId());
+
+        assertThatThrownBy(() -> exerciseService.updateQuestionPoints(exercise.id(), eq1.id(),
+                new UpdateExerciseQuestionPointsRequest(new BigDecimal("4")), teacher.getId()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Tổng điểm");
+        assertThat(exerciseService.listQuestions(exercise.id(), teacher.getId()))
+                .filteredOn(q -> q.id().equals(eq1.id()))
+                .singleElement()
+                .satisfies(q -> assertThat(q.points()).isEqualByComparingTo("3"));
+    }
+
+    /** A: mirror removeQuestion_boSung_A_rejectsWhenExerciseAlreadyPublished — sửa điểm chỉ làm được khi Bài còn DRAFT. */
+    @Test
+    void updateQuestionPoints_boSung_A_rejectsWhenExerciseAlreadyPublished() {
+        QuestionResponse mc = createMcQuestion();
+        ExerciseResponse exercise = exerciseService.createExercise(
+                new CreateExerciseRequest(exerciseCode(), "Kiểm tra", defaultExam.id(), null, "ASSIGNED",
+                        new BigDecimal("10"), 15, false, 1, true),
+                teacher.getId());
+        var eq = exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("10")), teacher.getId());
+        examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
+        commitCurrentTransactionAndStartNew();
+        exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId());
+
+        assertThatThrownBy(() -> exerciseService.updateQuestionPoints(exercise.id(), eq.id(),
+                new UpdateExerciseQuestionPointsRequest(new BigDecimal("5")), teacher.getId()))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 

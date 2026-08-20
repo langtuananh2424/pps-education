@@ -239,8 +239,14 @@ export default function AssignmentsTab({
         const reflexItems = flat.filter((x) => x.videoType === "REFLEX");
         const reflexStatsList = await Promise.all(
           reflexItems.map(async (x) => {
+            // V128/V129 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-19) — tiến độ nộp bài
+            // nay chấm riêng theo TỪNG lần giao (assignmentId), không còn 1 rollup chung cho cả video.
+            // Mục chỉ nằm trong Kho (chưa có bản giao ACTIVE nào, assignmentId undefined) không có lần
+            // giao nào để tra — coi như chưa có câu hỏi (loại khỏi bộ đếm Cần hoàn thành/Đã nộp qua
+            // isReflexAnswerable), mirror đúng hành vi cũ (API vốn đã 404 cho video chưa được giao).
+            if (x.assignmentId == null) return { totalQuestions: 0, answeredQuestions: 0 };
             const questions = await listReviewVideoQuestions(x.video.id).catch(() => []);
-            const submissions = await Promise.all(questions.map((q) => getMyLatestReviewVideoSubmission(q.id).catch(() => undefined)));
+            const submissions = await Promise.all(questions.map((q) => getMyLatestReviewVideoSubmission(q.id, x.assignmentId!).catch(() => undefined)));
             return {
               totalQuestions: questions.length,
               answeredQuestions: submissions.filter((s) => s != null).length
@@ -250,9 +256,12 @@ export default function AssignmentsTab({
         const statsByVideoId = new Map(reflexItems.map((x, i) => [x.video.id, reflexStatsList[i]]));
 
         // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — CONNECTION giờ đọc lại tiến
-        // độ đã lưu qua GET progress mới, mirror đúng cách REFLEX đọc reflexStats ở trên.
+        // độ đã lưu qua GET progress mới, mirror đúng cách REFLEX đọc reflexStats ở trên. V128/V129:
+        // cũng cần assignmentId — mục chỉ nằm trong Kho bỏ qua, giữ connectionStats undefined.
         const connectionItems = flat.filter((x) => x.videoType === "CONNECTION");
-        const connectionProgressList = await Promise.all(connectionItems.map((x) => getReviewVideoProgress(x.video.id).catch(() => undefined)));
+        const connectionProgressList = await Promise.all(
+          connectionItems.map((x) => (x.assignmentId == null ? Promise.resolve(undefined) : getReviewVideoProgress(x.video.id, x.assignmentId).catch(() => undefined)))
+        );
         const connectionStatsByVideoId = new Map(
           connectionItems.map((x, i) => [x.video.id, connectionProgressList[i]] as const)
         );
@@ -563,6 +572,7 @@ export default function AssignmentsTab({
       {openReviewItem && openReviewItem.videoType === "REFLEX" && (
         <ReflexVideoTaskPage
           video={openReviewItem.video}
+          assignmentId={openReviewItem.assignmentId}
           onClose={() => {
             setOpenReviewItem(null);
             load();
@@ -572,6 +582,7 @@ export default function AssignmentsTab({
       {openReviewItem && openReviewItem.videoType === "CONNECTION" && (
         <ReviewVideoTaskModal
           video={openReviewItem.video}
+          assignmentId={openReviewItem.assignmentId}
           // Chỉ tải lại danh sách khi ĐÓNG popup (không phải mỗi lần nộp 1 câu) — trước đây gọi load()
           // ngay sau khi nộp khiến cả tab set loading=true và unmount luôn cả popup đang mở, nhìn như
           // trang bị tải lại giữa chừng. Trạng thái "vừa nộp" giờ tự hiện ngay trong popup (justSubmitted).

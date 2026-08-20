@@ -27,7 +27,8 @@ import {
   removeExerciseQuestion,
   unassignExamFromClass,
   updateExam,
-  updateExercise
+  updateExercise,
+  updateExerciseQuestionPoints
 } from "../api";
 import CreateAndAssignExerciseModal, { ExerciseQuestionsStep } from "../components/CreateAndAssignExerciseModal";
 import ExercisePreviewModal from "../components/ExercisePreviewModal";
@@ -739,6 +740,22 @@ function ExerciseRow({
   };
 
   /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31 — chỉ hiện nút này khi Bài còn DRAFT (xem điều kiện render bên dưới). */
+  /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-18 — sửa điểm 1 câu, chỉ khi Bài còn DRAFT (backend tự chặn nếu tổng điểm vượt exercise.totalPoints). */
+  const [savingPointsId, setSavingPointsId] = useState<number | null>(null);
+  const handlePointsChange = async (q: ExerciseQuestionResponse, newPoints: number) => {
+    if (Number.isNaN(newPoints) || newPoints === q.points) return;
+    setSavingPointsId(q.id);
+    setError(null);
+    try {
+      const updated = await updateExerciseQuestionPoints(exercise.id, q.id, newPoints);
+      setQuestions((prev) => (prev ? prev.map((x) => (x.id === q.id ? { ...x, points: updated.points } : x)) : prev));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Sửa điểm câu hỏi thất bại.");
+    } finally {
+      setSavingPointsId(null);
+    }
+  };
+
   const handleRemoveQuestion = async (q: ExerciseQuestionResponse) => {
     if (!(await confirmDialog(t("assignPage.exerciseRow.removeQuestionConfirm", { content: q.questionContent }), { danger: true }))) return;
     setRemovingId(q.id);
@@ -795,7 +812,14 @@ function ExerciseRow({
             <p className="text-xs font-bold text-slate-800">
               {exercise.title} <span className="font-mono text-slate-400 font-normal">({exercise.code})</span>
             </p>
-            <p className="text-[10px] text-slate-400 mt-0.5">{t("assignPage.exerciseRow.totalPoints", { points: exercise.totalPoints })}</p>
+            <p className="text-[10px] text-slate-400 mt-0.5">
+              {t("assignPage.exerciseRow.totalPoints", { points: exercise.totalPoints })}
+              {questions && (
+                <span className={questions.reduce((s, q) => s + q.points, 0) > exercise.totalPoints ? "text-rose-500 font-bold" : undefined}>
+                  {t("assignPage.exerciseRow.attachedPoints", { points: questions.reduce((s, q) => s + q.points, 0) })}
+                </span>
+              )}
+            </p>
           </div>
         </button>
         <div className="flex items-center gap-2 shrink-0">
@@ -921,9 +945,23 @@ function ExerciseRow({
                       {q.displayOrder}. {q.questionContent}
                     </span>
                     <span className="flex items-center gap-2 shrink-0">
-                      <span className="text-slate-400">
-                        {q.questionType} · {q.points} {t("common.pointsSuffix")}
-                      </span>
+                      <span className="text-slate-400">{q.questionType} ·</span>
+                      {canManage && exercise.status === "DRAFT" ? (
+                        <input
+                          key={`${q.id}-${q.points}`}
+                          type="number"
+                          min={0}
+                          step="0.5"
+                          defaultValue={q.points}
+                          disabled={savingPointsId === q.id}
+                          onBlur={(e) => handlePointsChange(q, Number(e.target.value))}
+                          title={t("assignPage.exerciseRow.pointsInputDraftOnlyTitle")}
+                          className="w-14 text-[11px] text-right text-slate-500 border border-slate-200 rounded px-1 py-0.5 disabled:opacity-50 focus:outline-none"
+                        />
+                      ) : (
+                        <span className="text-slate-400">{q.points}</span>
+                      )}
+                      <span className="text-slate-400">{t("common.pointsSuffix")}</span>
                       {canManage && (
                         <button
                           onClick={() => handleEditQuestion(q)}

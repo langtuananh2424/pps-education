@@ -107,8 +107,8 @@ public class ReviewVideoReportService {
         List<Long> videoIds = videos.stream().map(ReviewVideo::getId).toList();
 
         List<ReviewVideoAssignmentStudentStatsResponse.StudentRow> rows = set.getVideoType() == ReviewVideoSet.VideoType.CONNECTION
-                ? buildConnectionStudentRows(scopedStudentIds, enrollmentByStudentId, videos, videoIds)
-                : buildReflexStudentRows(scopedStudentIds, enrollmentByStudentId, videos, videoIds);
+                ? buildConnectionStudentRows(scopedStudentIds, enrollmentByStudentId, videos, videoIds, assignmentId)
+                : buildReflexStudentRows(scopedStudentIds, enrollmentByStudentId, videos, videoIds, assignmentId);
 
         return new ReviewVideoAssignmentStudentStatsResponse(header, rows);
     }
@@ -154,10 +154,12 @@ public class ReviewVideoReportService {
 
     private List<ReviewVideoAssignmentStudentStatsResponse.StudentRow> buildConnectionStudentRows(
             List<Long> scopedStudentIds, Map<Long, ClassEnrollment> enrollmentByStudentId,
-            List<ReviewVideo> videos, List<Long> videoIds) {
+            List<ReviewVideo> videos, List<Long> videoIds, Long assignmentId) {
+        // V129 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-19) — lọc đúng lần giao đang
+        // xem báo cáo, tránh trộn tiến độ của lần giao KHÁC cùng bộ+lớp vào chung báo cáo này.
         Map<String, ReviewVideoProgress> progressByKey = videoIds.isEmpty()
                 ? Map.of()
-                : reviewVideoProgressRepository.findByReviewVideoIdIn(videoIds).stream()
+                : reviewVideoProgressRepository.findByReviewVideoIdInAndReviewVideoAssignmentId(videoIds, assignmentId).stream()
                     .collect(Collectors.toMap(p -> p.getReviewVideo().getId() + ":" + p.getStudent().getId(), p -> p));
         List<ReviewVideoConnectionQuestion> questions = videoIds.isEmpty()
                 ? List.of() : reviewVideoConnectionQuestionRepository.findByReviewVideoIdIn(videoIds);
@@ -244,10 +246,10 @@ public class ReviewVideoReportService {
 
     private List<ReviewVideoAssignmentStudentStatsResponse.StudentRow> buildReflexStudentRows(
             List<Long> scopedStudentIds, Map<Long, ClassEnrollment> enrollmentByStudentId,
-            List<ReviewVideo> videos, List<Long> videoIds) {
+            List<ReviewVideo> videos, List<Long> videoIds, Long assignmentId) {
         Map<String, ReviewVideoProgress> progressByKey = videoIds.isEmpty()
                 ? Map.of()
-                : reviewVideoProgressRepository.findByReviewVideoIdIn(videoIds).stream()
+                : reviewVideoProgressRepository.findByReviewVideoIdInAndReviewVideoAssignmentId(videoIds, assignmentId).stream()
                     .collect(Collectors.toMap(p -> p.getReviewVideo().getId() + ":" + p.getStudent().getId(), p -> p));
 
         List<ReviewVideoQuestion> questions = videoIds.stream()

@@ -48,6 +48,7 @@ import vn.com.pps.education.exception.RetakeNotAllowedException;
 import vn.com.pps.education.exception.SubmissionPastDeadlineException;
 import vn.com.pps.education.exception.VideoNotYetQualifiedException;
 import vn.com.pps.education.repository.NotificationRepository;
+import vn.com.pps.education.repository.ReviewVideoAssignmentRepository;
 import vn.com.pps.education.repository.RoleRepository;
 import vn.com.pps.education.repository.SiteRepository;
 import vn.com.pps.education.repository.StudentRepository;
@@ -115,6 +116,9 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
 
     @Autowired
     private NotificationRepository notificationRepository;
+
+    @Autowired
+    private ReviewVideoAssignmentRepository reviewVideoAssignmentRepository;
 
     private User headAcademic;
     private User teacher;
@@ -461,7 +465,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
     void reportProgress_UC23a_MainFlow_upsertsAndComputesCompletionAt100Percent() {
         ReviewVideoResponse video = createPublishedSetWithVideo(100);
         Student student = enrollStudent(schoolClass.id());
-        Long sessionId = startSession(video.id(), student.getUser().getId());
+        Long sessionId = startSession(video.id(), video.reviewVideoSetId(), student.getUser().getId());
 
         // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-11 — CONNECTION giờ LUÔN yêu cầu
         // xem HẾT 100% (cố định, không còn cấu hình được) mới được làm câu hỏi/tính "qualified".
@@ -485,7 +489,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
     void reportProgress_UC23a_MainFlow_watchedSecondsNeverDecreases() {
         ReviewVideoResponse video = createPublishedSetWithVideo(100);
         Student student = enrollStudent(schoolClass.id());
-        Long sessionId = startSession(video.id(), student.getUser().getId());
+        Long sessionId = startSession(video.id(), video.reviewVideoSetId(), student.getUser().getId());
         reportProgress(video.id(), sessionId, 90, student.getUser().getId());
 
         ReviewVideoProgressResponse afterLowerReport = reportProgress(video.id(), sessionId, 30, student.getUser().getId());
@@ -506,7 +510,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         User outsiderStudentUser = newUser("student.outsider3");
         newStudent(outsiderStudentUser);
 
-        assertThatThrownBy(() -> reviewVideoService.startWatchSession(video.id(), outsiderStudentUser.getId()))
+        assertThatThrownBy(() -> reviewVideoService.startWatchSession(video.id(), activeAssignmentId(video.reviewVideoSetId()), outsiderStudentUser.getId()))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 
@@ -520,7 +524,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
     void reportProgress_UC23a_A3_rejectsPastDeadline() {
         ReviewVideoResponse video = createPublishedSetWithVideo(100);
         Student student = enrollStudent(schoolClass.id());
-        Long sessionId = startSession(video.id(), student.getUser().getId());
+        Long sessionId = startSession(video.id(), video.reviewVideoSetId(), student.getUser().getId());
         reviewVideoService.deliverToClass(video.reviewVideoSetId(), schoolClass.id(), OffsetDateTime.now().minusDays(1), teacher.getId());
 
         assertThatThrownBy(() -> reportProgress(video.id(), sessionId, 50, student.getUser().getId()))
@@ -536,14 +540,14 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         // (rỗng ở đây, video chưa thêm câu hỏi) cho đúng session đã qualified (xem ghi chú tại
         // reportProgress_UC23a_MainFlow_upsertsAndComputesCompletionAt100Percent). Bổ sung ngoài SDD
         // gốc, đã xác nhận với người dùng 2026-08-11 — CONNECTION giờ LUÔN yêu cầu xem HẾT 100%.
-        Long firstSessionId = startSession(video.id(), student.getUser().getId());
+        Long firstSessionId = startSession(video.id(), video.reviewVideoSetId(), student.getUser().getId());
         reportProgress(video.id(), firstSessionId, 100, student.getUser().getId());
         ReviewVideoConnectionQuizResultResponse afterFirstSession = reviewVideoService.submitConnectionAnswers(
                 firstSessionId, new SubmitConnectionAnswersRequest(List.of()), student.getUser().getId());
         assertThat(afterFirstSession.progress().viewCount()).isEqualTo(1);
         assertThat(afterFirstSession.progress().completed()).isFalse();
 
-        Long secondSessionId = startSession(video.id(), student.getUser().getId());
+        Long secondSessionId = startSession(video.id(), video.reviewVideoSetId(), student.getUser().getId());
         reportProgress(video.id(), secondSessionId, 100, student.getUser().getId());
         ReviewVideoConnectionQuizResultResponse afterSecondSession = reviewVideoService.submitConnectionAnswers(
                 secondSessionId, new SubmitConnectionAnswersRequest(List.of()), student.getUser().getId());
@@ -555,10 +559,10 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
     void reportProgress_UC59_MainFlow_unqualifiedSessionDoesNotIncrementViewCount() {
         ReviewVideoResponse video = createPublishedSetWithVideo(100, 80, 1);
         Student student = enrollStudent(schoolClass.id());
-        reportProgress(video.id(), startSession(video.id(), student.getUser().getId()), 50, student.getUser().getId());
+        reportProgress(video.id(), startSession(video.id(), video.reviewVideoSetId(), student.getUser().getId()), 50, student.getUser().getId());
 
         ReviewVideoProgressResponse afterUnqualifiedSession = reportProgress(video.id(),
-                startSession(video.id(), student.getUser().getId()), 60, student.getUser().getId());
+                startSession(video.id(), video.reviewVideoSetId(), student.getUser().getId()), 60, student.getUser().getId());
 
         assertThat(afterUnqualifiedSession.viewCount()).isZero();
         assertThat(afterUnqualifiedSession.completed()).isFalse();
@@ -578,9 +582,9 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
                 teacher.getId());
         Student student = enrollStudent(schoolClass.id());
 
-        reportProgress(videoA.id(), startSession(videoA.id(), student.getUser().getId()), 80, student.getUser().getId());
+        reportProgress(videoA.id(), startSession(videoA.id(), videoA.reviewVideoSetId(), student.getUser().getId()), 80, student.getUser().getId());
         ReviewVideoProgressResponse progressB = reportProgress(videoB.id(),
-                startSession(videoB.id(), student.getUser().getId()), 10, student.getUser().getId());
+                startSession(videoB.id(), videoB.reviewVideoSetId(), student.getUser().getId()), 10, student.getUser().getId());
 
         assertThat(progressB.viewCount()).isZero();
         assertThat(progressB.watchedSeconds()).isEqualTo(10);
@@ -592,7 +596,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         Long setId = video.reviewVideoSetId();
         Student watcher = enrollStudent(schoolClass.id());
         Student neverWatched = enrollStudent(schoolClass.id());
-        reportProgress(video.id(), startSession(video.id(), watcher.getUser().getId()), 80, watcher.getUser().getId());
+        reportProgress(video.id(), startSession(video.id(), video.reviewVideoSetId(), watcher.getUser().getId()), 80, watcher.getUser().getId());
 
         ReviewVideoSetStatsResponse stats = reviewVideoService.getStats(setId, schoolClass.id(), teacher.getId());
 
@@ -670,7 +674,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         ReviewVideoQuestionResponse question = addQuestion(video.id(), 53, 15, null);
         Student student = enrollStudent(schoolClass.id());
 
-        ReviewVideoSubmissionResponse submission = reviewVideoService.submitQuestionAudio(question.id(),
+        ReviewVideoSubmissionResponse submission = reviewVideoService.submitQuestionAudio(question.id(), activeAssignmentId(video.reviewVideoSetId()),
                 new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/lms/review-video-submissions/audio/a.mp3", null),
                 student.getUser().getId());
 
@@ -688,7 +692,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         User outsiderStudentUser = newUser("student.outsider4");
         newStudent(outsiderStudentUser);
 
-        assertThatThrownBy(() -> reviewVideoService.submitQuestionAudio(question.id(),
+        assertThatThrownBy(() -> reviewVideoService.submitQuestionAudio(question.id(), activeAssignmentId(video.reviewVideoSetId()),
                 new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/a.mp3", null), outsiderStudentUser.getId()))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
@@ -701,7 +705,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         Student student = enrollStudent(schoolClass.id());
         reviewVideoService.deliverToClass(video.reviewVideoSetId(), schoolClass.id(), OffsetDateTime.now().minusDays(1), teacher.getId());
 
-        assertThatThrownBy(() -> reviewVideoService.submitQuestionAudio(question.id(),
+        assertThatThrownBy(() -> reviewVideoService.submitQuestionAudio(question.id(), activeAssignmentId(video.reviewVideoSetId()),
                 new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/late.mp3", null), student.getUser().getId()))
                 .isInstanceOf(SubmissionPastDeadlineException.class);
     }
@@ -711,12 +715,12 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         ReviewVideoResponse video = createPublishedReflexSetWithVideo(100);
         ReviewVideoQuestionResponse question = addQuestion(video.id(), 53, 15, null);
         Student student = enrollStudent(schoolClass.id());
-        ReviewVideoSubmissionResponse first = reviewVideoService.submitQuestionAudio(question.id(),
+        ReviewVideoSubmissionResponse first = reviewVideoService.submitQuestionAudio(question.id(), activeAssignmentId(video.reviewVideoSetId()),
                 new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/first.mp3", null), student.getUser().getId());
         reviewVideoService.gradeSubmission(first.id(),
                 new GradeReviewVideoSubmissionRequest(new BigDecimal("8.00"), new BigDecimal("10.00"), "Tốt"), teacher.getId());
 
-        ReviewVideoSubmissionResponse second = reviewVideoService.submitQuestionAudio(question.id(),
+        ReviewVideoSubmissionResponse second = reviewVideoService.submitQuestionAudio(question.id(), activeAssignmentId(video.reviewVideoSetId()),
                 new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/second.mp3", null), student.getUser().getId());
 
         assertThat(second.id()).isNotEqualTo(first.id());
@@ -724,7 +728,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         assertThat(second.audioUrl()).isEqualTo("https://media.pps.edu.vn/second.mp3");
         assertThat(second.score()).isNull();
         // Postcondition: giữ lịch sử — attempt 1 vẫn còn nguyên điểm đã chấm, không bị xoá.
-        List<ReviewVideoSubmissionResponse> history = reviewVideoService.listMySubmissionHistory(question.id(), student.getUser().getId());
+        List<ReviewVideoSubmissionResponse> history = reviewVideoService.listMySubmissionHistory(question.id(), activeAssignmentId(video.reviewVideoSetId()), student.getUser().getId());
         assertThat(history).hasSize(2);
         assertThat(history).extracting(ReviewVideoSubmissionResponse::id).containsExactly(second.id(), first.id());
         assertThat(history.get(1).score()).isEqualByComparingTo("8.00");
@@ -735,10 +739,10 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         ReviewVideoResponse video = createPublishedReflexSetWithVideo(100);
         ReviewVideoQuestionResponse question = addQuestion(video.id(), 53, 15, 1);
         Student student = enrollStudent(schoolClass.id());
-        reviewVideoService.submitQuestionAudio(question.id(),
+        reviewVideoService.submitQuestionAudio(question.id(), activeAssignmentId(video.reviewVideoSetId()),
                 new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/first.mp3", null), student.getUser().getId());
 
-        assertThatThrownBy(() -> reviewVideoService.submitQuestionAudio(question.id(),
+        assertThatThrownBy(() -> reviewVideoService.submitQuestionAudio(question.id(), activeAssignmentId(video.reviewVideoSetId()),
                 new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/second.mp3", null), student.getUser().getId()))
                 .isInstanceOf(RetakeNotAllowedException.class);
     }
@@ -748,12 +752,12 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         ReviewVideoResponse video = createPublishedReflexSetWithVideo(100);
         ReviewVideoQuestionResponse question = addQuestion(video.id(), 53, 15, null);
         Student student = enrollStudent(schoolClass.id());
-        reviewVideoService.submitQuestionAudio(question.id(),
+        reviewVideoService.submitQuestionAudio(question.id(), activeAssignmentId(video.reviewVideoSetId()),
                 new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/first.mp3", null), student.getUser().getId());
-        reviewVideoService.submitQuestionAudio(question.id(),
+        reviewVideoService.submitQuestionAudio(question.id(), activeAssignmentId(video.reviewVideoSetId()),
                 new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/second.mp3", null), student.getUser().getId());
 
-        ReviewVideoSubmissionResponse mine = reviewVideoService.getMyLatestSubmission(question.id(), student.getUser().getId());
+        ReviewVideoSubmissionResponse mine = reviewVideoService.getMyLatestSubmission(question.id(), activeAssignmentId(video.reviewVideoSetId()), student.getUser().getId());
 
         assertThat(mine.attemptNumber()).isEqualTo(2);
         assertThat(mine.audioUrl()).isEqualTo("https://media.pps.edu.vn/second.mp3");
@@ -765,7 +769,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         ReviewVideoQuestionResponse question = addQuestion(video.id(), 53, 15, null);
         Student student = enrollStudent(schoolClass.id());
 
-        ReviewVideoSubmissionResponse mine = reviewVideoService.getMyLatestSubmission(question.id(), student.getUser().getId());
+        ReviewVideoSubmissionResponse mine = reviewVideoService.getMyLatestSubmission(question.id(), activeAssignmentId(video.reviewVideoSetId()), student.getUser().getId());
 
         assertThat(mine).isNull();
     }
@@ -777,7 +781,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         User outsiderStudentUser = newUser("student.outsider5");
         newStudent(outsiderStudentUser);
 
-        assertThatThrownBy(() -> reviewVideoService.getMyLatestSubmission(question.id(), outsiderStudentUser.getId()))
+        assertThatThrownBy(() -> reviewVideoService.getMyLatestSubmission(question.id(), activeAssignmentId(video.reviewVideoSetId()), outsiderStudentUser.getId()))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 
@@ -788,9 +792,9 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         Long setId = video.reviewVideoSetId();
         Student submitted = enrollStudent(schoolClass.id());
         Student notSubmitted = enrollStudent(schoolClass.id());
-        reviewVideoService.submitQuestionAudio(question.id(),
+        reviewVideoService.submitQuestionAudio(question.id(), activeAssignmentId(video.reviewVideoSetId()),
                 new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/first.mp3", null), submitted.getUser().getId());
-        reviewVideoService.submitQuestionAudio(question.id(),
+        reviewVideoService.submitQuestionAudio(question.id(), activeAssignmentId(video.reviewVideoSetId()),
                 new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/second.mp3", null), submitted.getUser().getId());
 
         List<ReviewVideoSubmissionResponse> submissions = reviewVideoService.listSubmissionsForTeacher(setId, schoolClass.id(), teacher.getId());
@@ -821,9 +825,9 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         ReviewVideoResponse video2 = createPublishedReflexSetWithVideo(100);
         ReviewVideoQuestionResponse question2 = addQuestion(video2.id(), 53, 15, null);
         Student student = enrollStudent(schoolClass.id());
-        reviewVideoService.submitQuestionAudio(question1.id(),
+        reviewVideoService.submitQuestionAudio(question1.id(), activeAssignmentId(video1.reviewVideoSetId()),
                 new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/a.mp3", null), student.getUser().getId());
-        reviewVideoService.submitQuestionAudio(question2.id(),
+        reviewVideoService.submitQuestionAudio(question2.id(), activeAssignmentId(video2.reviewVideoSetId()),
                 new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/b.mp3", null), student.getUser().getId());
 
         List<PendingGradingClassSummaryResponse> summary = reviewVideoService.getPendingGradingSummaryForTeacher(teacher.getId());
@@ -838,7 +842,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         ReviewVideoResponse video = createPublishedReflexSetWithVideo(100);
         ReviewVideoQuestionResponse question = addQuestion(video.id(), 53, 15, null);
         Student student = enrollStudent(schoolClass.id());
-        ReviewVideoSubmissionResponse submission = reviewVideoService.submitQuestionAudio(question.id(),
+        ReviewVideoSubmissionResponse submission = reviewVideoService.submitQuestionAudio(question.id(), activeAssignmentId(video.reviewVideoSetId()),
                 new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/a.mp3", null), student.getUser().getId());
         reviewVideoService.gradeSubmission(submission.id(),
                 new GradeReviewVideoSubmissionRequest(new BigDecimal("9.00"), new BigDecimal("10.00"), "Tốt"), teacher.getId());
@@ -854,7 +858,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         ReviewVideoResponse video = createPublishedReflexSetWithVideo(100);
         ReviewVideoQuestionResponse question = addQuestion(video.id(), 53, 15, null);
         Student student = enrollStudent(schoolClass.id());
-        reviewVideoService.submitQuestionAudio(question.id(),
+        reviewVideoService.submitQuestionAudio(question.id(), activeAssignmentId(video.reviewVideoSetId()),
                 new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/a.mp3", null), student.getUser().getId());
         User outsider = newUser("outsider.summary");
         assignRole(outsider, "TEACHER");
@@ -876,9 +880,9 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         ReviewVideoResponse video2 = createPublishedReflexSetWithVideo(100);
         ReviewVideoQuestionResponse question2 = addQuestion(video2.id(), 53, 15, null);
         Student student = enrollStudent(schoolClass.id());
-        reviewVideoService.submitQuestionAudio(question1.id(),
+        reviewVideoService.submitQuestionAudio(question1.id(), activeAssignmentId(video1.reviewVideoSetId()),
                 new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/a.mp3", null), student.getUser().getId());
-        reviewVideoService.submitQuestionAudio(question2.id(),
+        reviewVideoService.submitQuestionAudio(question2.id(), activeAssignmentId(video2.reviewVideoSetId()),
                 new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/b.mp3", null), student.getUser().getId());
 
         List<ReviewVideoSubmissionResponse> combined = reviewVideoService.listSubmissionsForTeacherByClass(schoolClass.id(), teacher.getId());
@@ -908,7 +912,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         ReviewVideoResponse video = createPublishedReflexSetWithVideo(100);
         ReviewVideoQuestionResponse question = addQuestion(video.id(), 53, 15, null);
         Student student = enrollStudent(schoolClass.id());
-        ReviewVideoSubmissionResponse submission = reviewVideoService.submitQuestionAudio(question.id(),
+        ReviewVideoSubmissionResponse submission = reviewVideoService.submitQuestionAudio(question.id(), activeAssignmentId(video.reviewVideoSetId()),
                 new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/a.mp3", null), student.getUser().getId());
 
         ReviewVideoSubmissionResponse graded = reviewVideoService.gradeSubmission(submission.id(),
@@ -927,7 +931,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         ReviewVideoResponse video = createPublishedReflexSetWithVideo(100);
         ReviewVideoQuestionResponse question = addQuestion(video.id(), 53, 15, null);
         Student student = enrollStudent(schoolClass.id());
-        ReviewVideoSubmissionResponse submission = reviewVideoService.submitQuestionAudio(question.id(),
+        ReviewVideoSubmissionResponse submission = reviewVideoService.submitQuestionAudio(question.id(), activeAssignmentId(video.reviewVideoSetId()),
                 new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/a.mp3", null), student.getUser().getId());
         User outsider = newUser("outsider.grade");
         assignRole(outsider, "TEACHER");
@@ -972,7 +976,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         ReviewVideoQuestionResponse question = addQuestion(video.id(), 53, 15, null);
         Student student = enrollStudent(schoolClass.id());
         // Buổi 3: học sinh đã nộp và được chấm xong.
-        ReviewVideoSubmissionResponse oldSubmission = reviewVideoService.submitQuestionAudio(question.id(),
+        ReviewVideoSubmissionResponse oldSubmission = reviewVideoService.submitQuestionAudio(question.id(), activeAssignmentId(video.reviewVideoSetId()),
                 new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/old.mp3", null), student.getUser().getId());
         reviewVideoService.gradeSubmission(oldSubmission.id(),
                 new GradeReviewVideoSubmissionRequest(new BigDecimal("9.00"), new BigDecimal("10.00"), "Tốt"), teacher.getId());
@@ -980,10 +984,13 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         // Buổi 7: giao LẠI đúng bộ này cho đúng lớp này ở 1 buổi KHÁC (dueAt khác) — lượt giao mới (V70: dueAt
         // trùng nhau mới coi là request trùng lặp cùng 1 buổi, dueAt khác nhau vẫn là redeliver thật).
         reviewVideoService.deliverToClass(video.reviewVideoSetId(), schoolClass.id(), OffsetDateTime.now().plusDays(7), teacher.getId());
+        // activeAssignmentId() tra lại NGAY tại đây (sau redeliver) -- resolve đúng lần giao MỚI vừa tạo,
+        // không phải lần giao cũ đã bị hủy (CANCELLED) ở dòng trên.
+        Long newAssignmentId = activeAssignmentId(video.reviewVideoSetId());
 
-        ReviewVideoSubmissionResponse mine = reviewVideoService.getMyLatestSubmission(question.id(), student.getUser().getId());
+        ReviewVideoSubmissionResponse mine = reviewVideoService.getMyLatestSubmission(question.id(), newAssignmentId, student.getUser().getId());
         assertThat(mine).as("chưa nộp gì cho lượt giao MỚI dù đã nộp ở lượt giao cũ").isNull();
-        assertThat(reviewVideoService.listMySubmissionHistory(question.id(), student.getUser().getId()))
+        assertThat(reviewVideoService.listMySubmissionHistory(question.id(), newAssignmentId, student.getUser().getId()))
                 .as("lịch sử của lượt giao MỚI phải rỗng, không kéo theo lịch sử lượt giao cũ")
                 .isEmpty();
     }
@@ -994,17 +1001,17 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         ReviewVideoResponse video = createPublishedReflexSetWithVideo(100);
         ReviewVideoQuestionResponse question = addQuestion(video.id(), 53, 15, 1);
         Student student = enrollStudent(schoolClass.id());
-        reviewVideoService.submitQuestionAudio(question.id(),
+        reviewVideoService.submitQuestionAudio(question.id(), activeAssignmentId(video.reviewVideoSetId()),
                 new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/old.mp3", null), student.getUser().getId());
         // Đã hết lượt (maxAttempts=1) ở lượt giao cũ.
-        assertThatThrownBy(() -> reviewVideoService.submitQuestionAudio(question.id(),
+        assertThatThrownBy(() -> reviewVideoService.submitQuestionAudio(question.id(), activeAssignmentId(video.reviewVideoSetId()),
                 new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/old2.mp3", null), student.getUser().getId()))
                 .isInstanceOf(RetakeNotAllowedException.class);
 
         // Redeliver ở buổi KHÁC (dueAt khác) — V70 chỉ tái dùng khi dueAt trùng (cùng 1 đợt gửi).
         reviewVideoService.deliverToClass(video.reviewVideoSetId(), schoolClass.id(), OffsetDateTime.now().plusDays(7), teacher.getId());
 
-        ReviewVideoSubmissionResponse afterRedeliver = reviewVideoService.submitQuestionAudio(question.id(),
+        ReviewVideoSubmissionResponse afterRedeliver = reviewVideoService.submitQuestionAudio(question.id(), activeAssignmentId(video.reviewVideoSetId()),
                 new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/new.mp3", null), student.getUser().getId());
         assertThat(afterRedeliver.attemptNumber()).isEqualTo(1);
     }
@@ -1155,7 +1162,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         Long correctChoiceId = question.choices().stream().filter(c -> Boolean.TRUE.equals(c.isCorrect()))
                 .findFirst().orElseThrow().id();
         Student student = enrollStudent(schoolClass.id());
-        Long sessionId = startSession(video.id(), student.getUser().getId());
+        Long sessionId = startSession(video.id(), video.reviewVideoSetId(), student.getUser().getId());
         reportProgress(video.id(), sessionId, 100, student.getUser().getId());
 
         ReviewVideoConnectionQuizResultResponse result = reviewVideoService.submitConnectionAnswers(sessionId,
@@ -1180,7 +1187,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         Long correctChoiceId = question.choices().stream().filter(c -> Boolean.TRUE.equals(c.isCorrect()))
                 .findFirst().orElseThrow().id();
         Student student = enrollStudent(schoolClass.id());
-        Long sessionId = startSession(video.id(), student.getUser().getId());
+        Long sessionId = startSession(video.id(), video.reviewVideoSetId(), student.getUser().getId());
         reportProgress(video.id(), sessionId, 100, student.getUser().getId());
         reviewVideoService.deliverToClass(video.reviewVideoSetId(), schoolClass.id(), OffsetDateTime.now().minusDays(1), teacher.getId());
 
@@ -1201,7 +1208,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         Long correctChoiceId = question.choices().stream().filter(c -> Boolean.TRUE.equals(c.isCorrect()))
                 .findFirst().orElseThrow().id();
         Student student = enrollStudent(schoolClass.id());
-        Long sessionId = startSession(video.id(), student.getUser().getId());
+        Long sessionId = startSession(video.id(), video.reviewVideoSetId(), student.getUser().getId());
         reportProgress(video.id(), sessionId, 10, student.getUser().getId()); // 10% < ngưỡng 80%
 
         assertThatThrownBy(() -> reviewVideoService.submitConnectionAnswers(sessionId,
@@ -1221,7 +1228,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         Long correctChoiceId = question.choices().stream().filter(c -> Boolean.TRUE.equals(c.isCorrect()))
                 .findFirst().orElseThrow().id();
         Student student = enrollStudent(schoolClass.id());
-        Long sessionId = startSession(video.id(), student.getUser().getId());
+        Long sessionId = startSession(video.id(), video.reviewVideoSetId(), student.getUser().getId());
         reportProgress(video.id(), sessionId, 100, student.getUser().getId());
         reviewVideoService.submitConnectionAnswers(sessionId,
                 new SubmitConnectionAnswersRequest(List.of(new ConnectionAnswerItem(question.id(), correctChoiceId))),
@@ -1317,8 +1324,21 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         return cls;
     }
 
-    private Long startSession(Long videoId, Long actorUserId) {
-        return reviewVideoService.startWatchSession(videoId, actorUserId).sessionId();
+    private Long startSession(Long videoId, Long reviewVideoSetId, Long actorUserId) {
+        return reviewVideoService.startWatchSession(videoId, activeAssignmentId(reviewVideoSetId), actorUserId).sessionId();
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc (chỉnh sửa 2026-08-19): kể từ khi 1 video/bài tập có thể có NHIỀU lần
+     * giao ACTIVE đồng thời cho cùng 1 lớp (giao từ nhiều buổi khác nhau — V128), các API thao tác
+     * trên 1 lượt cụ thể (startWatchSession/submitQuestionAudio/...) không còn tự suy ra "lần giao
+     * ACTIVE duy nhất" — phải truyền tường minh assignmentId. Helper này tra lại lần giao ACTIVE hiện
+     * tại cho (setId, schoolClass) — đúng vì mọi test trong file này KHÔNG dùng ClassSession nguồn
+     * (sourceClassSession luôn null) nên tại 1 thời điểm chỉ có tối đa 1 lần giao ACTIVE khớp.
+     */
+    private Long activeAssignmentId(Long reviewVideoSetId) {
+        return reviewVideoAssignmentRepository.findByReviewVideoSetIdAndSchoolClassIdAndStatus(
+                reviewVideoSetId, schoolClass.id(), ReviewVideoAssignment.Status.ACTIVE).get(0).getId();
     }
 
     private ReviewVideoProgressResponse reportProgress(Long videoId, Long sessionId, int watchedSeconds, Long actorUserId) {

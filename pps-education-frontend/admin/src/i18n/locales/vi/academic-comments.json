@@ -210,7 +210,7 @@
       "applyButton": "Áp dụng cho cả lớp"
     },
     "downloadTemplateButton": "Tải mẫu Excel",
-    "downloadingTemplate": "Đang tải...",
+    "downloadingTemplate": "Đang lưu & tải...",
     "importExcelButton": "Nhập từ Excel",
     "importing": "Đang nhập...",
     "savedAt": "Đã lưu lúc {{time}}",
@@ -279,6 +279,7 @@
       "submitFailed": "Gửi duyệt thất bại.",
       "sendFailed": "Gửi nhận xét thất bại.",
       "downloadTemplateFailed": "Tải file mẫu thất bại.",
+      "saveDraftBeforeDownloadFailed": "Chưa lưu được nháp nên không tải file — {{reason}}",
       "xlsxOnly": "Chỉ hỗ trợ file .xlsx.",
       "importFailed": "Nhập từ Excel thất bại."
     }

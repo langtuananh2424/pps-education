@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
-import { Flag, Save, Send } from "lucide-react";
+import { Flag, History, Save, Send } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { StudentCommentResponse, submitComments, updateComment } from "../api";
+import CommentVersionHistoryModal from "./CommentVersionHistoryModal";
 import {
   ExerciseAssignmentResponse,
   ExerciseResponse,
@@ -75,6 +76,8 @@ export default function CommentHistoryList({
   const [saving, setSaving] = useState(false);
   const [submittingId, setSubmittingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-19) — version history kiểu Google Sheets. */
+  const [historyFor, setHistoryFor] = useState<StudentCommentResponse | null>(null);
   /** V65: nguồn khả dụng cho dropdown — Exercise đã Publish (không phải bản giao). */
   const [grammarOptions, setGrammarOptions] = useState<ExerciseResponse[]>([]);
   const [videoOptions, setVideoOptions] = useState<ReviewVideoSetResponse[]>([]);
@@ -100,18 +103,22 @@ export default function CommentHistoryList({
     setEditAttitude(h.attitude ?? "");
     setEditHomeworkPreviousScore(h.homeworkPreviousScore ?? "");
     setEditHomeworkPreviousSpeakingScore(h.homeworkPreviousSpeakingScore ?? "");
-    setEditGrammarMode(h.homeworkNextExerciseAssignmentId != null ? "ONLINE" : "OFFLINE");
+    // V127: pendingHomeworkNext* (id NGUỒN, chưa Gửi) ưu tiên trước — chỉ dòng REJECTED chưa sửa gì kể
+    // từ lần Gửi trước mới cần fallback tra ngược qua grammarAssignments/videoAssignments (bản giao lần
+    // đó vẫn còn hiệu lực, xem StudentCommentResponse.homeworkNextExerciseAssignmentId).
+    setEditGrammarMode(h.pendingHomeworkNextExerciseId != null || h.homeworkNextExerciseAssignmentId != null ? "ONLINE" : "OFFLINE");
     setEditHomeworkNext(h.homeworkNext ?? "");
-    // V65: response chỉ trả id bản giao — tra ngược qua grammarAssignments/videoAssignments để lấy đúng id nguồn.
     setEditHomeworkNextExerciseId(
-      h.homeworkNextExerciseAssignmentId != null
-        ? grammarAssignments.find((a) => a.id === h.homeworkNextExerciseAssignmentId)?.exerciseId ?? ""
-        : ""
+      h.pendingHomeworkNextExerciseId ??
+        (h.homeworkNextExerciseAssignmentId != null
+          ? grammarAssignments.find((a) => a.id === h.homeworkNextExerciseAssignmentId)?.exerciseId ?? ""
+          : "")
     );
     setEditHomeworkNextReviewVideoSetId(
-      h.homeworkNextReviewVideoAssignmentId != null
-        ? videoAssignments.find((a) => a.id === h.homeworkNextReviewVideoAssignmentId)?.reviewVideoSetId ?? ""
-        : ""
+      h.pendingHomeworkNextReviewVideoSetId ??
+        (h.homeworkNextReviewVideoAssignmentId != null
+          ? videoAssignments.find((a) => a.id === h.homeworkNextReviewVideoAssignmentId)?.reviewVideoSetId ?? ""
+          : "")
     );
     setEditNote(h.note ?? "");
     setError(null);
@@ -334,6 +341,15 @@ export default function CommentHistoryList({
           {t("historyList.editAndResend")}
         </Button>
       )}
+      <button
+        type="button"
+        onClick={() => setHistoryFor(h)}
+        title="Xem lịch sử phiên bản"
+        className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-slate-600"
+      >
+        <History className="w-3.5 h-3.5" />
+        Lịch sử
+      </button>
     </>
   );
 
@@ -411,6 +427,9 @@ export default function CommentHistoryList({
           </tbody>
         </TableContainer>
         <Toast message={toastMessage} />
+        {historyFor && (
+          <CommentVersionHistoryModal commentId={historyFor.id} studentFullName={historyFor.studentFullName} onClose={() => setHistoryFor(null)} />
+        )}
       </div>
     );
   }
@@ -437,6 +456,9 @@ export default function CommentHistoryList({
       ))}
 
       <Toast message={toastMessage} />
+      {historyFor && (
+        <CommentVersionHistoryModal commentId={historyFor.id} studentFullName={historyFor.studentFullName} onClose={() => setHistoryFor(null)} />
+      )}
     </div>
   );
 }

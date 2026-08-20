@@ -37,6 +37,8 @@ import vn.com.pps.education.repository.EmploymentContractRepository;
 import vn.com.pps.education.repository.PositionRepository;
 import vn.com.pps.education.repository.QualificationRepository;
 import vn.com.pps.education.repository.UserRepository;
+import vn.com.pps.education.dto.ClassSessionResponse;
+import java.time.LocalDate;
 
 import java.time.LocalDate;
 import java.util.LinkedHashMap;
@@ -63,6 +65,7 @@ public class EmployeeService {
     private final PositionRepository positionRepository;
     private final UserAccountService userAccountService;
     private final PositionRoleSyncService positionRoleSyncService;
+    private final ClassSessionService classSessionService;
 
     public EmployeeService(EmployeeRepository employeeRepository,
                             EmploymentContractRepository employmentContractRepository,
@@ -74,7 +77,8 @@ public class EmployeeService {
                             DepartmentRepository departmentRepository,
                             PositionRepository positionRepository,
                             UserAccountService userAccountService,
-                            PositionRoleSyncService positionRoleSyncService) {
+                            PositionRoleSyncService positionRoleSyncService,
+                            ClassSessionService classSessionService) {
         this.employeeRepository = employeeRepository;
         this.employmentContractRepository = employmentContractRepository;
         this.qualificationRepository = qualificationRepository;
@@ -86,6 +90,7 @@ public class EmployeeService {
         this.positionRepository = positionRepository;
         this.userAccountService = userAccountService;
         this.positionRoleSyncService = positionRoleSyncService;
+        this.classSessionService = classSessionService;
     }
 
     @Transactional(readOnly = true)
@@ -99,6 +104,18 @@ public class EmployeeService {
     @Transactional(readOnly = true)
     public EmployeeResponse getById(Long id) {
         return toResponse(getEmployeeOrThrow(id));
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, xác nhận 2026-08-17: HR/Điều hành xem lịch dạy
+     * của 1 nhân viên bất kỳ (khác UC-58 self-service). Gate quyền
+     * hrm.employee-schedule.view ở Controller. Xem
+     * docs/uc/phan-he-04-nhan-su.md (UC-70).
+     */
+    @Transactional(readOnly = true)
+    public List<ClassSessionResponse> getTeachingSessionsForEmployee(Long employeeId, LocalDate fromDate, LocalDate toDate) {
+        Employee employee = getEmployeeOrThrow(employeeId);
+        return classSessionService.listSessionsByTeacher(employee.getUser().getId(), fromDate, toDate);
     }
 
     /** UC-63 Main Flow bước 1: nhân viên tự xem hồ sơ của chính mình (FR-USR-07). */

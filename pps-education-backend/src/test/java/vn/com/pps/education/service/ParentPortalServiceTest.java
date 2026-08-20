@@ -196,17 +196,19 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
         link.setRelationship(ParentStudent.Relationship.MOTHER);
         parentStudentRepository.save(link);
 
-        // Cửa sổ "1 giờ trước tới 1 phút trước NGAY LÚC NÀY" (không phải giờ cố định, không dùng
-        // LocalTime.MIN) -- bổ sung 2026-08-14, mirror đúng StudentCommentServiceTest.setUp() (xem
-        // Javadoc ở đó -- requireSessionEndedAndAttendanceTaken đòi buổi ĐÃ KẾT THÚC + LocalTime.MIN bị
-        // hibernate.jdbc.time_zone=UTC quy đổi lệch, vi phạm CHECK chk_session_time).
+        // Cửa sổ bao quanh NGAY LÚC NÀY (không phải giờ cố định, không dùng LocalTime.MIN) -- bổ
+        // sung 2026-08-14, SỬA LẠI 2026-08-18: trước đây đặt buổi ĐÃ KẾT THÚC (now-1h..now-1min) vì
+        // requireSessionEndedAndAttendanceTaken đòi buổi đã kết thúc -- điều kiện đó đã bị BỎ HẲN
+        // 2026-08-18 (xem docs/uc/phan-he-06-hoc-thuat.md UC-21), nhưng StudentAttendanceService.
+        // markAttendance() giờ lại đòi buổi đang TRONG khung giờ diễn ra (UC-15, sửa đổi nghiệp vụ
+        // 2026-08-18) nên buổi phải bao quanh "now" thay vì đã kết thúc. LocalTime.MIN vẫn không
+        // dùng được vì bị hibernate.jdbc.time_zone=UTC quy đổi lệch, vi phạm CHECK chk_session_time.
         session = classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(LocalDate.now(), LocalTime.now().minusHours(1), LocalTime.now().minusMinutes(1), null, "REGULAR", "VIETNAMESE", null),
+                new CreateClassSessionRequest(LocalDate.now(), LocalTime.now().minusMinutes(1), LocalTime.now().plusHours(1), null, "REGULAR", "VIETNAMESE", null),
                 headAcademic.getId());
         // Bắt buộc để submitComments() cho DAILY không bị chặn bởi MissingLessonContentException
         // (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-29).
         studentCommentService.updateLessonContent(session.id(), "Unit 1: Present simple tense.", teacher.getId());
-        // Điểm danh + Lưu điểm danh xong (2026-08-14) -- vế thứ 2 của requireSessionEndedAndAttendanceTaken.
         studentAttendanceService.markAttendance(session.id(),
                 new MarkAttendanceRequest("SESSION_LEVEL", List.of(new EnterAttendanceMarkRequest(student.getId(), "PRESENT", null, null, null))),
                 teacher.getId());

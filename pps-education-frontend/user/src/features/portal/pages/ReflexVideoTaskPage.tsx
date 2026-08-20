@@ -100,6 +100,13 @@ function useAudioRecorder() {
 
 interface ReflexVideoTaskPageProps {
   video: ReviewVideoResponse;
+  /**
+   * V128/V129 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-19) — lần giao ACTIVE cụ thể
+   * đang mở trang này (BE nay yêu cầu bắt buộc để chấm điểm đúng lần giao, không tự đoán). undefined
+   * khi mở từ mục chỉ nằm trong Kho (chưa có bản giao nào) — các thao tác nộp bài sẽ báo lỗi (mirror
+   * hành vi cũ trước V128/V129: mở video chưa được giao vốn đã luôn báo lỗi ở bước tải câu hỏi).
+   */
+  assignmentId: number | undefined;
   onClose: () => void;
 }
 
@@ -109,7 +116,7 @@ interface ReflexVideoTaskPageProps {
  * thời gian mỗi câu hỏi (học sinh không tự bấm ghi âm được), và bản ghi chỉ giữ tạm ở bộ nhớ trình
  * duyệt cho tới khi bấm "Nộp bài" mới đẩy lên backend — "Làm lại" xóa sạch bản ghi tạm, không tính lượt.
  */
-export default function ReflexVideoTaskPage({ video, onClose }: ReflexVideoTaskPageProps) {
+export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: ReflexVideoTaskPageProps) {
   const { t } = useTranslation("portal-exercises");
   const isYouTube = video.sourceType === "YOUTUBE_URL";
   const youTubeVideoId = isYouTube ? extractYouTubeVideoId(video.fileUrl) : null;
@@ -128,14 +135,16 @@ export default function ReflexVideoTaskPage({ video, onClose }: ReflexVideoTaskP
       .then(async (qs) => {
         const sorted = qs.slice().sort((a, b) => a.timestampSeconds - b.timestampSeconds);
         setQuestions(sorted);
-        const entries = await Promise.all(
-          sorted.map(async (q) => [q.id, await getMyLatestReviewVideoSubmission(q.id).catch(() => undefined)] as const)
-        );
+        const entries = assignmentId == null
+          ? []
+          : await Promise.all(
+              sorted.map(async (q) => [q.id, await getMyLatestReviewVideoSubmission(q.id, assignmentId).catch(() => undefined)] as const)
+            );
         setLatestSubmissions(Object.fromEntries(entries));
       })
       .catch((err) => setQuestionsError(friendlyApiErrorMessage(err, t("reflexVideoTask.questionsLoadError"))))
       .finally(() => setLoadingQuestions(false));
-  }, [video.id]);
+  }, [video.id, assignmentId]);
 
   const mediaRef = useRef<HTMLMediaElement | null>(null);
   const youTubePlayerRef = useRef<any>(null);
@@ -327,6 +336,10 @@ export default function ReflexVideoTaskPage({ video, onClose }: ReflexVideoTaskP
 
   const handleSubmit = async () => {
     if (!hasDrafts) return;
+    if (assignmentId == null) {
+      setSubmitError("Video này chưa được giao thành BTVN cho bạn — không thể nộp bài.");
+      return;
+    }
     setSubmitting(true);
     setSubmitError(null);
     try {
@@ -339,6 +352,7 @@ export default function ReflexVideoTaskPage({ video, onClose }: ReflexVideoTaskP
         const { url } = await uploadMedia(file, "REVIEW_VIDEO_SUBMISSION");
         const response = await submitReviewVideoQuestionAudio(
           questionId,
+          assignmentId,
           url,
           firstRequest && events.length > 0 ? { events } : undefined
         );

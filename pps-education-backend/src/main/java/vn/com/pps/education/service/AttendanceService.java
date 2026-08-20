@@ -14,6 +14,9 @@ import vn.com.pps.education.domain.WorkCalendar;
 import vn.com.pps.education.dto.AttendanceCheckRequest;
 import vn.com.pps.education.dto.AttendanceRecordAdminResponse;
 import vn.com.pps.education.dto.AttendanceRecordResponse;
+import vn.com.pps.education.dto.DetectedSiteResponse;
+import vn.com.pps.education.exception.AlreadyCheckedInException;
+import vn.com.pps.education.exception.AlreadyCheckedOutException;
 import vn.com.pps.education.exception.AttendanceMethodNotAvailableException;
 import vn.com.pps.education.exception.ManagementExemptFromAttendanceException;
 import vn.com.pps.education.exception.NotAWorkingDayException;
@@ -29,6 +32,7 @@ import vn.com.pps.education.repository.UserRepository;
 import vn.com.pps.education.repository.WorkCalendarRepository;
 import vn.com.pps.education.service.attendance.AttendanceCheckContext;
 import vn.com.pps.education.service.attendance.AttendanceMethodValidator;
+import vn.com.pps.education.service.attendance.AttendanceSettings;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -76,6 +80,7 @@ public class AttendanceService {
     private final UserRepository userRepository;
     private final ClassSessionRepository classSessionRepository;
     private final List<AttendanceMethodValidator> methodValidators;
+    private final AttendanceSettings attendanceSettings;
 
     public AttendanceService(EmployeeRepository employeeRepository,
                               EmployeeShiftRepository employeeShiftRepository,
@@ -85,7 +90,8 @@ public class AttendanceService {
                               SiteRepository siteRepository,
                               UserRepository userRepository,
                               ClassSessionRepository classSessionRepository,
-                              List<AttendanceMethodValidator> methodValidators) {
+                              List<AttendanceMethodValidator> methodValidators,
+                              AttendanceSettings attendanceSettings) {
         this.employeeRepository = employeeRepository;
         this.employeeShiftRepository = employeeShiftRepository;
         this.workCalendarRepository = workCalendarRepository;
@@ -95,6 +101,22 @@ public class AttendanceService {
         this.userRepository = userRepository;
         this.classSessionRepository = classSessionRepository;
         this.methodValidators = methodValidators;
+        this.attendanceSettings = attendanceSettings;
+    }
+
+    /**
+     * UC-09 bổ sung ngoài Main Flow gốc (tự nhận diện điểm chấm công theo GPS,
+     * xác nhận với người dùng 2026-08-17). Trả về điểm trường ACTIVE gần nhất
+     * trong bán kính attendance.gps_radius_meters quanh vị trí hiện tại, hoặc
+     * null nếu không điểm trường nào khớp -- FE fallback sang chọn thủ công
+     * (dropdown điểm trường đã có sẵn ở SelfAttendanceCard), không chặn luồng
+     * chấm công GPS thường (validate bán kính vẫn theo siteId FE gửi lên).
+     */
+    @Transactional(readOnly = true)
+    public DetectedSiteResponse detectSite(double latitude, double longitude) {
+        return siteRepository.findNearestWithinRadius(latitude, longitude, attendanceSettings.gpsRadiusMeters())
+                .map(s -> new DetectedSiteResponse(s.getId(), s.getName(), s.getDistanceMeters()))
+                .orElse(null);
     }
 
     @Transactional
@@ -191,7 +213,11 @@ public class AttendanceService {
         if (!validator.isEnabled()) {
             throw new AttendanceMethodNotAvailableException("Phương thức " + method + " hiện không khả dụng.");
         }
-        validator.validate(new AttendanceCheckContext(
+        // resolvedSiteId: id điểm trường THỰC SỰ áp dụng cho bản ghi -- với GPS có thể khác
+        // request.siteId() do validator tự phân giải lại theo vị trí thực tế (xem
+        // GpsAttendanceMethodValidator, bổ sung 2026-08-18 -- sửa lỗi chấm công bị chặn/ghi
+        // nhầm điểm trường khi 2 điểm trường có bán kính chồng lấn hoặc FE gửi siteId lệch).
+        Long resolvedSiteId = validator.validate(new AttendanceCheckContext(
                 employee, request.siteId(), request.latitude(), request.longitude(), request.biometricVerified()));
 
         // Main Flow bước 8 -- ghi nhận.
@@ -204,7 +230,19 @@ public class AttendanceService {
                 });
         boolean isNewRecord = record.getId() == null;
 
-        Site site = request.siteId() == null ? null : siteRepository.findById(request.siteId()).orElse(null);
+        // Bổ sung ngoài Main Flow gốc (xác nhận với người dùng 2026-08-18) -- chặn ghi đè giờ
+        // vào/ra thật đã ghi nhận bằng 1 lượt chấm công lặp lại cùng ngày (VD bấm nhầm 2 lần),
+        // tránh mất giờ chấm công thật + status (LATE/EARLY_LEAVE) tính sai theo lần bấm sau.
+        if (isCheckIn && record.getCheckInAt() != null) {
+            throw new AlreadyCheckedInException(
+                    "Đã chấm công vào lúc " + record.getCheckInAt() + " hôm nay, không thể chấm công vào lại.");
+        }
+        if (!isCheckIn && record.getCheckOutAt() != null) {
+            throw new AlreadyCheckedOutException(
+                    "Đã chấm công ra lúc " + record.getCheckOutAt() + " hôm nay, không thể chấm công ra lại.");
+        }
+
+        Site site = resolvedSiteId == null ? null : siteRepository.findById(resolvedSiteId).orElse(null);
 
         if (isCheckIn) {
             record.setCheckInAt(now);

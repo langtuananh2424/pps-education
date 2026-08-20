@@ -16,6 +16,7 @@ import vn.com.pps.education.dto.CreateExerciseRequest;
 import vn.com.pps.education.dto.ExerciseAssignmentResponse;
 import vn.com.pps.education.dto.ExerciseQuestionResponse;
 import vn.com.pps.education.dto.ExerciseResponse;
+import vn.com.pps.education.dto.UpdateExerciseQuestionPointsRequest;
 import vn.com.pps.education.dto.UpdateExerciseRequest;
 import vn.com.pps.education.security.AuthenticatedUser;
 import vn.com.pps.education.service.ExerciseService;
@@ -72,6 +73,16 @@ public class ExerciseController {
     public ResponseEntity<List<ExerciseQuestionResponse>> listQuestions(@PathVariable Long id,
                                                                           @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(exerciseService.listQuestions(id, actor.userId()));
+    }
+
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-18 — sửa điểm 1 câu hỏi đã gắn vào Bài, chỉ khi còn DRAFT. */
+    @PreAuthorize("hasPermission(null, 'lms.exercise.update')")
+    @PutMapping("/api/exercises/{id}/questions/{exerciseQuestionId}/points")
+    public ResponseEntity<ExerciseQuestionResponse> updateQuestionPoints(@PathVariable Long id,
+                                                                          @PathVariable Long exerciseQuestionId,
+                                                                          @Valid @RequestBody UpdateExerciseQuestionPointsRequest request,
+                                                                          @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(exerciseService.updateQuestionPoints(id, exerciseQuestionId, request, actor.userId()));
     }
 
     /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31 — gỡ câu hỏi khỏi Bài, chỉ khi còn DRAFT. */

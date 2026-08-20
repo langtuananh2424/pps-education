@@ -1012,6 +1012,30 @@ export const sessionStatusVariants: Record<string, "success" | "warning" | "dang
   RESCHEDULED: "warning"
 };
 
+/**
+ * UC-71 "Nhận lớp" (bổ sung ngoài SDD gốc, xác nhận 2026-08-18) — nhãn/màu
+ * trạng thái nhận lớp TÍNH RA (ClassSessionCheckInService#listEffectiveStatus).
+ * Dùng chung cho MyTeachingSchedulePage (GV tự xem) và EmployeeSchedulePage
+ * (roster HR/Quản lý điểm trường).
+ */
+export const checkInStatusLabels: Record<string, string> = {
+  NOT_YET_OPEN: "Chưa tới giờ nhận lớp",
+  PENDING: "Chưa nhận lớp",
+  ON_TIME: "Đã nhận lớp — đúng giờ",
+  LATE: "Đã nhận lớp — muộn",
+  ABSENT: "Vắng — không nhận lớp"
+};
+export const checkInStatusVariants: Record<string, "success" | "warning" | "danger" | "info" | "neutral" | "brand"> = {
+  NOT_YET_OPEN: "neutral",
+  PENDING: "warning",
+  ON_TIME: "success",
+  LATE: "warning",
+  ABSENT: "danger"
+};
+
+const teacherTypeLabels: Record<string, string> = { VIETNAMESE: "GV Việt Nam", FOREIGN: "GV nước ngoài" };
+
+const attendanceStatusLabels: Record<string, string> = { DRAFT: "Đã lưu nháp", SUBMITTED: "Đã nộp", LOCKED: "Đã khóa" };
 const attendanceStatusVariants: Record<string, "success" | "warning" | "danger" | "info" | "neutral" | "brand"> = {
   DRAFT: "warning",
   SUBMITTED: "success",
@@ -1023,9 +1047,13 @@ function hasSessionStarted(s: ClassSessionResponse): boolean {
   return new Date(`${s.sessionDate}T${s.startTime}`) <= new Date();
 }
 
-/** V45: GV chỉ điểm danh/sửa đúng NGÀY diễn ra buổi học (StudentAttendanceService.requireCanWriteAttendance). */
-function isToday(s: ClassSessionResponse): boolean {
-  return s.sessionDate === new Date().toISOString().slice(0, 10);
+/**
+ * Sửa đổi 2026-08-18 (thay thế rule V45 "đúng ngày"): GV thường chỉ điểm
+ * danh/sửa được TRONG khung giờ buổi học [startTime, endTime] — đồng bộ
+ * StudentAttendanceService.isWithinSessionWindow / AttendancePage.tsx.
+ */
+function hasSessionEnded(s: ClassSessionResponse): boolean {
+  return new Date(`${s.sessionDate}T${s.endTime}`) < new Date();
 }
 
 function SessionsTab({
@@ -1133,7 +1161,7 @@ function SessionsTab({
                     <Button size="sm" variant="secondary" disabled title={t("classDetail.sessions.notYetTimeTitle")}>
                       {t("classDetail.sessions.notYetTimeButton")}
                     </Button>
-                  ) : !attendanceStatusBySession[s.id] && !hasAttendanceOverride && !isToday(s) ? (
+                  ) : !attendanceStatusBySession[s.id] && !hasAttendanceOverride && hasSessionEnded(s) ? (
                     <Button size="sm" variant="secondary" disabled title={t("classDetail.sessions.pastDateTitle")}>
                       {t("classDetail.sessions.pastDateButton")}
                     </Button>

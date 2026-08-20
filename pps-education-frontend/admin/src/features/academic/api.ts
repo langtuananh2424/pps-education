@@ -665,6 +665,42 @@ export function getMyTeachingSchedule(fromDate?: string, toDate?: string): Promi
   return apiRequest<ClassSessionResponse[]>(`/teachers/me/sessions${query ? `?${query}` : ""}`);
 }
 
+// ===================== Nhận lớp — Giáo viên (UC-71, bổ sung ngoài SDD gốc, xác nhận 2026-08-18) =====================
+
+export interface ClassSessionCheckInResponse {
+  id: number;
+  classSessionId: number;
+  teacherId: number;
+  teacherName: string;
+  checkInTime: string;
+  /** ON_TIME | LATE */
+  status: string;
+}
+
+export interface ClassSessionCheckInStatusResponse {
+  classSessionId: number;
+  /** NOT_YET_OPEN | PENDING | ON_TIME | LATE | ABSENT — tính khi đọc, xem ClassSessionCheckInService#listEffectiveStatus. */
+  effectiveStatus: string;
+  checkInTime: string | null;
+}
+
+/** GV nhận lớp (xác nhận có mặt dạy) cho 1 buổi học cụ thể — cửa sổ [giờ bắt đầu - 15p, giờ kết thúc]. */
+export function checkInClassSession(classSessionId: number, latitude: number, longitude: number): Promise<ClassSessionCheckInResponse> {
+  return apiRequest<ClassSessionCheckInResponse>(`/class-sessions/${classSessionId}/check-in`, {
+    method: "POST",
+    body: JSON.stringify({ latitude, longitude })
+  });
+}
+
+/** Trạng thái nhận lớp (tính ra) của chính GV trong khoảng ngày — dùng cho "Lịch của tôi". */
+export function getMyClassSessionCheckInStatus(fromDate?: string, toDate?: string): Promise<ClassSessionCheckInStatusResponse[]> {
+  const params = new URLSearchParams();
+  if (fromDate) params.set("from", fromDate);
+  if (toDate) params.set("to", toDate);
+  const query = params.toString();
+  return apiRequest<ClassSessionCheckInStatusResponse[]>(`/class-sessions/my-check-in-status${query ? `?${query}` : ""}`);
+}
+
 // ===================== Điểm danh (UC-15) =====================
 
 export interface AttendanceMarkResponse {
@@ -1016,15 +1052,32 @@ export interface StudentCommentResponse {
   // ở trên); kênh Video Ôn tập luôn ONLINE. grammarPreviousProgress/videoPreviousProgress tự tính từ
   // exercise_attempts/review_video_progress|submissions của buổi TRƯỚC, không nhập tay được.
   // V65 (2026-07-30, bổ sung ngoài SDD gốc): 2 field *AssignmentId đều là id BẢN GIAO (ExerciseAssignment/
-  // ReviewVideoAssignment) tự động phát sinh khi chọn nguồn ở Nhận xét — không phải id nguồn (Exercise/
-  // ReviewVideoSet), dùng kèm *Title để hiện tên nguồn. Muốn tra ngược ra id nguồn phải gọi thêm
-  // listAssignmentsForClass (Ngữ pháp)/listReviewVideoAssignmentsForClass (Video) bên lms/api.ts.
+  // ReviewVideoAssignment) — không phải id nguồn (Exercise/ReviewVideoSet), dùng kèm *Title để hiện
+  // tên nguồn. V127 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-19) — CHỈ có giá trị SAU
+  // KHI Gửi nhận xét (giao bài chuyển từ lúc Lưu nháp sang lúc Gửi) — với dòng còn DRAFT/REJECTED (kể
+  // cả vừa sửa lại lựa chọn), 2 field này null, id NGUỒN nằm ở pendingHomeworkNextExerciseId/
+  // pendingHomeworkNextReviewVideoSetId bên dưới (đọc thẳng, KHÔNG cần tra ngược qua
+  // listAssignmentsForClass/listReviewVideoAssignmentsForClass nữa cho case này — chỉ còn cần tra ngược
+  // khi hiện lại lựa chọn GIAO LẦN TRƯỚC của 1 dòng REJECTED chưa sửa gì).
   homeworkNextExerciseAssignmentId: number | null;
   homeworkNextExerciseTitle: string | null;
   homeworkNextReviewVideoAssignmentId: number | null;
   homeworkNextReviewVideoSetTitle: string | null;
   /** Hạn nộp BTVN buổi sau (lấy từ dueAt của bản giao) — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05. */
   homeworkNextDueAt: string | null;
+  /** V127: id/tên Exercise NGUỒN Giáo viên vừa chọn nhưng CHƯA Gửi nhận xét — null nếu chưa chọn gì hoặc đã Gửi. */
+  pendingHomeworkNextExerciseId: number | null;
+  pendingHomeworkNextExerciseTitle: string | null;
+  /** V127: mirror pendingHomeworkNextExerciseId cho kênh Video Ôn tập. */
+  pendingHomeworkNextReviewVideoSetId: number | null;
+  pendingHomeworkNextReviewVideoSetTitle: string | null;
+  /**
+   * V127: hạn nộp tự chọn đi kèm lựa chọn CHƯA giao — chuỗi "yyyy-MM-ddTHH:mm:ss" KHÔNG kèm offset
+   * (LocalDateTime thô phía BE, khác homeworkNextDueAt ở trên là OffsetDateTime đã resolve) — cắt
+   * thẳng 2 phần ngày/giờ được, không cần parse qua Date/quy đổi múi giờ gì cả. Null nếu chưa chọn gì
+   * hoặc đã Gửi.
+   */
+  pendingHomeworkNextDueDate: string | null;
   grammarPreviousProgress: string | null;
   videoPreviousProgress: string | null;
   /** BTVN buổi trước từng giao Offline (chữ tự do) — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06, phân biệt "BTVN buổi trước" có 3 loại (Offline/kênh Bài/kênh Video). Loại trừ với grammarPreviousProgress. */
@@ -1095,6 +1148,58 @@ export function listComments(classId: number, studentId: number): Promise<Studen
  */
 export function listCommentsForClass(classId: number): Promise<StudentCommentResponse[]> {
   return apiRequest<StudentCommentResponse[]>(`/classes/${classId}/comments`);
+}
+
+/**
+ * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-19) — 1 mốc "phiên bản" trong lịch sử
+ * chỉnh sửa (Lưu nháp/Gửi/Duyệt/Từ chối) — kiểu version history Google Sheets, xem lại được TOÀN BỘ
+ * nội dung tại đúng thời điểm đó (không chỉ biết "đã sửa"). `details` khớp đúng key BE
+ * StudentCommentService#buildHistorySnapshot ghi ra — đọc trực tiếp bằng string key, không đoán field.
+ */
+export interface StudentCommentHistoryResponse {
+  id: number;
+  studentCommentId: number;
+  studentId: number;
+  studentFullName: string;
+  changedByUserId: number;
+  changedByName: string;
+  /** CREATED (lần lưu đầu) / UPDATED (mọi lần lưu sau — Lưu nháp, Gửi, Duyệt/Từ chối, sửa PENDING). */
+  action: "CREATED" | "UPDATED";
+  details: {
+    status: StudentCommentResponse["status"];
+    content: string;
+    severity: StudentCommentResponse["severity"];
+    isWarning: boolean;
+    attitude: StudentCommentResponse["attitude"];
+    homeworkPreviousScore: string | null;
+    homeworkPreviousSpeakingScore: string | null;
+    /** % tự động (kênh Ngữ pháp/Video) của "BTVN buổi trước" TẠI thời điểm lưu — xem PreviousProgressCell ở DailyCommentPanel.tsx cho ý nghĩa 2 field này. */
+    grammarPreviousProgress: string | null;
+    videoPreviousProgress: string | null;
+    homeworkNext: string | null;
+    note: string | null;
+    rejectionReason: string | null;
+    homeworkNextExerciseTitle: string | null;
+    homeworkNextReviewVideoSetTitle: string | null;
+    homeworkNextDueAt: string | null;
+    pendingHomeworkNextExerciseTitle: string | null;
+    pendingHomeworkNextReviewVideoSetTitle: string | null;
+    pendingHomeworkNextDueDate: string | null;
+  };
+  createdAt: string;
+}
+
+export function listStudentCommentHistory(commentId: number): Promise<StudentCommentHistoryResponse[]> {
+  return apiRequest<StudentCommentHistoryResponse[]>(`/student-comments/${commentId}/history`);
+}
+
+/**
+ * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-19) — mirror listStudentCommentHistory
+ * nhưng gộp CẢ BUỔI (mọi học sinh), dùng cho nút "Lịch sử phiên bản" ở đầu bảng Nhận xét hàng ngày
+ * (kiểu Google Sheets: 1 nút xem lại TOÀN BỘ bảng tại 1 mốc thời gian, không phải xem riêng từng dòng).
+ */
+export function listStudentCommentHistoryForSession(classSessionId: number): Promise<StudentCommentHistoryResponse[]> {
+  return apiRequest<StudentCommentHistoryResponse[]>(`/class-sessions/${classSessionId}/comments/history`);
 }
 
 export function writeComment(classId: number, request: CreateStudentCommentRequest): Promise<StudentCommentResponse> {

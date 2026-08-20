@@ -42,10 +42,15 @@ public class ExerciseAttemptController {
         this.listeningHintService = listeningHintService;
     }
 
+    // V128 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-19) — assignmentId bắt buộc: từ
+    // khi 1 Bài có thể được giao ĐỘC LẬP nhiều lần (mỗi buổi Nhận xét 1 lần, không còn huỷ lẫn nhau —
+    // xem ExerciseService#deliverToClass), không thể suy ra "bản giao nào" chỉ từ exerciseId nữa. FE
+    // (AssignmentsTab.tsx) đã có sẵn assignmentId trên từng thẻ BTVN, chỉ cần truyền kèm.
     @PostMapping("/api/exercises/{exerciseId}/attempts")
     public ResponseEntity<ExerciseAttemptResponse> startAttempt(@PathVariable Long exerciseId,
+                                                                  @RequestParam Long assignmentId,
                                                                   @AuthenticationPrincipal AuthenticatedUser actor) {
-        return ResponseEntity.ok(exerciseAttemptService.startAttempt(exerciseId, actor.userId()));
+        return ResponseEntity.ok(exerciseAttemptService.startAttempt(exerciseId, assignmentId, actor.userId()));
     }
 
     @GetMapping("/api/exercises/{exerciseId}/attempts")

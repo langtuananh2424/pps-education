@@ -436,6 +436,43 @@ UC-23b: Nộp & Chấm điểm Audio cho Video Phản xạ
 > đầy đủ (áp dụng cho cả kênh Ngữ pháp Online) xem UC-21
 > (`docs/uc/phan-he-06-hoc-thuat.md`).
 
+> **Đảo ngược 1 phần V69/V70 — V128/V129 (bổ sung ngoài SDD gốc, đã xác
+> nhận với người dùng 2026-08-19) — giao CÙNG 1 bộ/đề từ 2 BUỔI KHÁC NHAU
+> nay là 2 lần giao ĐỘC LẬP, không còn hủy-cũ-tạo-mới:** Giáo viên xác
+> nhận qua test UI thật — giao lại ở buổi sau (`dueAt` khác) trước đây hủy
+> hẳn lần giao buổi trước (`status=CANCELLED`), học sinh mất dấu vết bài
+> đã làm; về bản chất 2 lần giao từ 2 buổi khác nhau là **2 bài tập độc
+> lập, mỗi bài 1 kết quả/điểm số chấm riêng**, không phải "sửa/giao lại 1
+> bài". Áp dụng cho cả 3 loại: Ngữ pháp Online (`ExerciseAssignment`),
+> Video REFLEX, Video CONNECTION. Cơ chế:
+> 1. Khoá "cùng 1 lần giao hay khác" đổi từ `(bộ/đề, lớp, dueAt)` sang
+>    thêm `source_class_session_id` (cột đã có sẵn từ V123 — buổi Nhận xét
+>    học viên UC-21 đã chọn "BTVN buổi sau"): `deliverToClass` (cả
+>    `ExerciseService`/`ReviewVideoService`) chỉ hủy-cũ-tạo-mới (quy tắc
+>    V69) khi lần giao mới CÙNG buổi nguồn với lần ACTIVE cũ (sửa lựa chọn
+>    trong cùng 1 buổi đang viết nhận xét — hành vi V69 GIỮ NGUYÊN cho case
+>    này). Giao từ buổi KHÁC: bản giao cũ vẫn ACTIVE nguyên vẹn, tạo thêm 1
+>    bản giao mới song song — học sinh thấy 2 thẻ BTVN, làm/nộp/xem điểm
+>    độc lập từng thẻ. Unique index đổi tương ứng (migration V128).
+> 2. Ngữ pháp Online + Video REFLEX vốn đã chấm theo `exercise_attempts`/
+>    `review_video_question_submissions` gắn `..._assignment_id` (REFLEX từ
+>    V69 ở trên) nên không cần đổi schema — chỉ đổi chỗ học sinh bấm "Làm
+>    bài"/"Trả lời": phải truyền đúng `assignmentId` của thẻ đang mở (Portal
+>    đã tách sẵn 1 thẻ/1 lần giao), không còn để Backend tự đoán "lần giao
+>    ACTIVE duy nhất" (vỡ ngay khi có ≥2 lần giao ACTIVE song song).
+> 3. Video CONNECTION (chấm qua `review_video_watch_sessions`/
+>    `review_video_progress`, rollup viewCount toàn cục theo (video, học
+>    sinh), CHƯA từng scope theo lần giao như REFLEX) — thêm cột
+>    `review_video_assignment_id` vào cả 2 bảng (migration V129, NULL cho
+>    dữ liệu trước migration), viết lại toàn bộ pipeline chấm % lượt xem
+>    theo đúng lần giao. Bộ câu hỏi trắc nghiệm cuối mỗi lượt xem
+>    (`slotIndex` cycling, ngẫu nhiên 1 lần duy nhất cho cả đời học
+>    sinh+video) CỐ TÌNH không đổi — vẫn dùng chung giữa các lần giao, chỉ
+>    riêng viewCount/completed mới tách theo lần giao.
+> 4. Hệ quả với mục 2 (`deliverToClass`) ở trên: "quy tắc hủy-cũ-tạo-mới
+>    của V69" từ nay chỉ áp dụng trong phạm vi CÙNG buổi nguồn, không còn
+>    áp dụng xuyên buổi như mô tả gốc.
+
 > **Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31 — giám
 > sát học sinh thoát ra ngoài khi làm bài (khóa màn hình thật không khả
 > thi trên web, xem UC-24):** bảng mới `attempt_integrity_events`
@@ -627,6 +664,32 @@ UC-24: Làm bài kiểm tra trực tuyến
 |                 |     được (trắc nghiệm/điền khuyết...) --- câu tự   |
 |                 |     luận/Nói chưa áp dụng, tiếp tục theo luồng chờ |
 |                 |     Giáo viên chấm thủ công hiện có (UC-41).        |
+|                 |                                                    |
+|                 | ***A5 --- Ngưỡng đạt (pass threshold)*** (bổ sung  |
+|                 | ngoài SDD gốc, đã xác nhận với người dùng          |
+|                 | 2026-08-05, điều chỉnh lại 2026-08-19 --- áp dụng   |
+|                 | CHUNG cho UC-24/UC-27)                              |
+|                 |                                                    |
+|                 | 1.  Ngay khi 1 lượt làm được chấm xong toàn bộ, hệ |
+|                 |     thống tính % điểm và so với ngưỡng đạt         |
+|                 |     (`exercises.pass_threshold_percent`, mặc định  |
+|                 |     70%, cấu hình theo từng Bài); đánh dấu lượt làm |
+|                 |     đó ĐẠT/CHƯA ĐẠT.                                |
+|                 |                                                    |
+|                 | 2.  Nếu ĐẠT và đề CÒN lượt làm lại (cho phép làm   |
+|                 |     lại + chưa dùng hết `max_attempts`), bản giao   |
+|                 |     vẫn giữ mở --- Học sinh có thể TỰ NGUYỆN làm    |
+|                 |     lại thêm để thử đạt điểm cao hơn (không bắt     |
+|                 |     buộc).                                          |
+|                 |                                                    |
+|                 | 3.  Nếu ĐẠT và đề đã HẾT lượt làm lại (không cho    |
+|                 |     làm lại, hoặc đã dùng hết `max_attempts`), hệ   |
+|                 |     thống đóng bản giao --- Học sinh không làm lại  |
+|                 |     được nữa.                                       |
+|                 |                                                    |
+|                 | 4.  Nếu CHƯA ĐẠT, bản giao luôn giữ mở để Học sinh  |
+|                 |     làm lại, chỉ giới hạn bởi cho phép làm lại/     |
+|                 |     `max_attempts` đã cấu hình (xem A2).            |
 +-----------------+----------------------------------------------------+
 | **Hậu điều kiện | -   Bài làm được lưu, phần trắc nghiệm có điểm     |
 | (P              |     ngay; phần tự luận/Nói (nếu có) chờ chấm thủ   |
@@ -638,6 +701,10 @@ UC-24: Làm bài kiểm tra trực tuyến
 |                 | -   Nếu đề có giới hạn số lần làm lại, đáp án đúng |
 |                 |     + giải thích chỉ hiển thị từ lượt làm cuối     |
 |                 |     cùng (bằng max_attempts) trở đi.                |
+|                 |                                                    |
+|                 | -   Nếu ĐẠT ngưỡng và còn lượt làm lại, bản giao    |
+|                 |     vẫn ACTIVE (xem A5); chỉ đóng khi ĐẠT VÀ hết    |
+|                 |     lượt làm lại.                                   |
 +-----------------+----------------------------------------------------+
 
 > **Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31 — giám
@@ -1010,6 +1077,12 @@ UC-27: Làm bài tập/đề ôn tập
 |                 |     max_attempts trở đi; nếu không giới hạn thì    |
 |                 |     hiện ngay sau khi nộp; không áp dụng cho câu   |
 |                 |     tự luận/Nói --- xem chi tiết ở UC-24).          |
+|                 |                                                    |
+|                 | ***A3 --- Ngưỡng đạt (pass threshold)*** (áp dụng  |
+|                 |     chung quy tắc UC-24/A5: đạt ngưỡng mà còn lượt |
+|                 |     làm lại thì vẫn cho tự nguyện làm lại để thử   |
+|                 |     điểm cao hơn; chỉ khoá khi đạt VÀ hết lượt ---  |
+|                 |     xem chi tiết ở UC-24).                          |
 +-----------------+----------------------------------------------------+
 | **Hậu điều kiện | -   Kết quả luyện tập được lưu vào lịch sử làm bài |
 | (P              |     của Học sinh, không ảnh hưởng tới sổ điểm      |
@@ -1276,6 +1349,26 @@ UC-40: Soạn & giao đề kiểm tra
 > quản lý độc lập; ngân hàng nội bộ không xuất hiện trong danh sách chung
 > với bất kỳ vai trò nào. Không chuyển bank/xóa/clone câu cũ; các liên kết
 > `exercise_questions`/`student_answers` cũ giữ nguyên.
+
+> **Bổ sung điểm từng câu hỏi (2026-08-18, đã xác nhận với người dùng) —
+> ràng buộc tổng điểm + sửa lại được sau khi gắn:** `exercise_questions.
+> points` đã có sẵn từ đầu (mỗi câu 1 điểm riêng, độc lập với `questions.
+> default_points` — điểm mặc định khi câu còn ở ngân hàng) nhưng trước đây
+> (1) FE luôn tự set = `defaultPoints`, GV không sửa được lúc soạn, và (2)
+> BE không validate tổng điểm — có thể gắn câu hỏi vượt quá
+> `exercises.total_points` đã setup mà không báo lỗi. Từ nay:
+> 1. `addQuestion` chặn (400) nếu tổng điểm (câu đã có + câu mới) vượt
+>    `exercises.total_points` — xem `ExerciseService#requireWithinTotalPoints`.
+> 2. Endpoint MỚI `PUT /api/exercises/{id}/questions/{exerciseQuestionId}/points`
+>    (quyền `lms.exercise.update`, `ExerciseService#updateQuestionPoints`)
+>    cho sửa lại điểm 1 câu ĐÃ gắn — mirror `removeQuestion`: chỉ sửa được
+>    khi Bài còn DRAFT, cũng validate tổng điểm (loại điểm cũ của chính câu
+>    đó ra trước khi cộng điểm mới).
+> 3. FE (`CreateAndAssignExerciseModal.tsx`/`ExerciseAssignPage.tsx`) hiện
+>    input điểm sửa được cho từng câu (thay vì chỉ hiển thị), cộng hiển thị
+>    tổng điểm đã gắn so với `exercises.total_points`.
+> 4. Giới hạn ở cấp Bài (`exercises.total_points`), KHÔNG phải cấp Đề
+>    (`exams` chưa có field tổng điểm, 1 Đề chứa nhiều Bài).
 
 > **Bổ sung V84 (2026-08-04, đã xác nhận với người dùng) — Soạn Bài đổi
 > hẳn theo `teacher_type` của Đề, thêm loại Bài "Video phản xạ":**

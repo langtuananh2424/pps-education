@@ -1,11 +1,19 @@
 import React, { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { AlertTriangle, Bell, CheckCircle2, ChevronDown, Clock, GraduationCap, KeyRound, Lock, LogOut, Menu, MapPin, Settings, User } from "lucide-react";
+import { AlertTriangle, Bell, CheckCircle2, ChevronDown, Clock, GraduationCap, KeyRound, Lock, LogOut, Menu, MapPin, MapPinCheck, Settings, User } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useApp } from "@/context/AppContext";
 import { getMyPartnerSite, listSites, listSiteTeachers, SiteResponse, SiteTeacherResponse } from "@/features/facility/api";
 import { useEligibleClasses } from "@/features/academic/hooks/useEligibleClasses";
 import { listMyNotifications, markNotificationRead, NotificationResponse } from "@/features/notifications/api";
+import {
+  ClassSessionCheckInStatusResponse,
+  ClassSessionResponse,
+  getMyClassSessionCheckInStatus,
+  getMyTeachingSchedule,
+  listClasses
+} from "@/features/academic/api";
+import SessionCard from "@/features/academic/components/SessionCard";
 import { AttendanceRecordResponse, getMyTodayAttendance } from "@/features/hrm/api";
 import SelfAttendanceCard from "@/features/hrm/components/SelfAttendanceCard";
 import { UserRole } from "@/types";
@@ -17,6 +25,7 @@ import ProfileModal from "@/features/auth/components/ProfileModal";
 import ChangePasswordModal from "@/features/auth/components/ChangePasswordModal";
 import { useDialog } from "@/components/ui/DialogProvider";
 import { formatDateLong, formatDateTime, formatTimeHm } from "@/lib/i18nFormat";
+import { toISODate } from "@/lib/calendarDates";
 
 const NOTIFICATION_PAGE_SIZE = 15;
 
@@ -64,6 +73,51 @@ export default function Header() {
   useEffect(() => {
     getMyTodayAttendance().then(setMyAttendance).catch(() => setMyAttendance(undefined));
   }, []);
+
+  // UC-71 "Nhận lớp" (bổ sung ngoài SDD gốc, xác nhận 2026-08-18) — pill Header giống pattern
+  // "Chấm công" ở trên, nhưng theo TỪNG buổi dạy hôm nay thay vì 1 lần/ngày. Rỗng (mảng []) với
+  // tài khoản không phải Giáo viên hoặc không có buổi dạy hôm nay -- listMySessions BE trả rỗng,
+  // không lỗi -- nên gọi vô điều kiện cho mọi tài khoản, giống getMyTodayAttendance ở trên.
+  const today = toISODate(new Date());
+  const [todaySessions, setTodaySessions] = useState<ClassSessionResponse[]>([]);
+  const [checkInStatusBySessionId, setCheckInStatusBySessionId] = useState<Record<number, ClassSessionCheckInStatusResponse>>({});
+  const [siteNameByClassId, setSiteNameByClassId] = useState<Record<number, string>>({});
+  const [checkInModalOpen, setCheckInModalOpen] = useState(false);
+
+  useEffect(() => {
+    getMyTeachingSchedule(today, today)
+      .then((sessions) => setTodaySessions(sessions.filter((s) => s.status !== "CANCELLED" && s.status !== "RESCHEDULED")))
+      .catch(() => setTodaySessions([]));
+    getMyClassSessionCheckInStatus(today, today)
+      .then((statuses) => {
+        const map: Record<number, ClassSessionCheckInStatusResponse> = {};
+        statuses.forEach((s) => {
+          map[s.classSessionId] = s;
+        });
+        setCheckInStatusBySessionId(map);
+      })
+      .catch(() => undefined);
+    listClasses()
+      .then((classes) => {
+        const map: Record<number, string> = {};
+        classes.forEach((c) => {
+          map[c.id] = c.siteName;
+        });
+        setSiteNameByClassId(map);
+      })
+      .catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleClassSessionCheckedIn = (status: ClassSessionCheckInStatusResponse) => {
+    setCheckInStatusBySessionId((prev) => ({ ...prev, [status.classSessionId]: status }));
+  };
+
+  const pendingCheckInCount = todaySessions.filter((s) => checkInStatusBySessionId[s.id]?.effectiveStatus === "PENDING").length;
+  const doneCheckInCount = todaySessions.filter((s) => {
+    const st = checkInStatusBySessionId[s.id]?.effectiveStatus;
+    return st === "ON_TIME" || st === "LATE";
+  }).length;
 
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — nối API thật thay cho mảng
   // hardcode trước đây, mirror đúng NotificationBell.tsx bên Portal (GET /notifications +
@@ -318,7 +372,12 @@ export default function Header() {
         {myAttendance && (
           <button
             onClick={() => setAttendanceModalOpen(true)}
-            className={`hidden sm:flex items-center gap-1.5 text-xs font-medium px-3.5 py-2 rounded-full shadow-soft border transition-all cursor-pointer ${
+            aria-label="Chấm công của tôi"
+            // Trước đây "hidden sm:flex" -- ẩn hoàn toàn trên mobile (<640px), yêu cầu người dùng
+            // 2026-08-18: luôn hiện trên mọi kích thước màn hình, chỉ thu gọn còn icon/chấm trạng
+            // thái + ẩn phần chữ mô tả (span "hidden sm:inline" bên dưới) trên mobile để không vỡ
+            // layout Header (đã chật chỗ với nút menu + các pill khác) — chạm vào vẫn mở modal đầy đủ.
+            className={`flex items-center gap-1.5 text-xs font-medium px-3 sm:px-3.5 py-2 rounded-full shadow-soft border transition-all cursor-pointer ${
               myAttendance.id == null
                 ? "bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100"
                 : "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
@@ -333,19 +392,43 @@ export default function Header() {
               <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
             )}
             {myAttendance.id == null ? (
-              <span className="font-semibold">{t("header.attendance.checkIn")}</span>
+              <span className="hidden sm:inline font-semibold">{t("header.attendance.checkIn")}</span>
             ) : myAttendance.checkOutAt ? (
-              <span className="font-semibold">
+              <span className="hidden sm:inline font-semibold">
                 {t("header.attendance.checkedInOut", {
                   checkIn: formatTimeHm(myAttendance.checkInAt, i18n.language),
                   checkOut: formatTimeHm(myAttendance.checkOutAt, i18n.language)
                 })}
               </span>
             ) : (
-              <span className="font-semibold">
+              <span className="hidden sm:inline font-semibold">
                 {t("header.attendance.checkedInOnly", { checkIn: formatTimeHm(myAttendance.checkInAt, i18n.language) })}
               </span>
             )}
+          </button>
+        )}
+
+        {todaySessions.length > 0 && (
+          <button
+            onClick={() => setCheckInModalOpen(true)}
+            aria-label="Nhận lớp hôm nay"
+            className={`flex items-center gap-1.5 text-xs font-medium px-3 sm:px-3.5 py-2 rounded-full shadow-soft border transition-all cursor-pointer ${
+              pendingCheckInCount > 0
+                ? "bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100"
+                : "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
+            }`}
+          >
+            {pendingCheckInCount > 0 ? (
+              <span className="relative flex w-2.5 h-2.5 shrink-0">
+                <span className="animate-ping absolute inline-flex w-full h-full rounded-full bg-amber-400 opacity-75" />
+                <span className="relative inline-flex w-2.5 h-2.5 rounded-full bg-amber-500" />
+              </span>
+            ) : (
+              <MapPinCheck className="w-3.5 h-3.5 shrink-0" />
+            )}
+            <span className="hidden sm:inline font-semibold">
+              {pendingCheckInCount > 0 ? `Nhận lớp (${pendingCheckInCount} buổi)` : `${doneCheckInCount}/${todaySessions.length} đã nhận lớp`}
+            </span>
           </button>
         )}
 
@@ -469,9 +552,34 @@ export default function Header() {
           onClose={() => setAttendanceModalOpen(false)}
           title={t("header.attendance.modalTitle")}
           description={t("header.attendance.modalDescription")}
+          titleClassName="text-lg"
+          descriptionClassName="text-sm"
           size="lg"
         >
           <SelfAttendanceCard sites={sites} onChecked={setMyAttendance} />
+        </Modal>
+      )}
+      {checkInModalOpen && (
+        <Modal
+          open
+          onClose={() => setCheckInModalOpen(false)}
+          title="Nhận lớp hôm nay"
+          description="Xác nhận có mặt để dạy từng buổi học — hệ thống dùng vị trí GPS hiện tại, chỉ nhận được trong bán kính cho phép của điểm trường."
+          titleClassName="text-lg"
+          descriptionClassName="text-sm"
+          size="lg"
+        >
+          <div className="space-y-2.5">
+            {todaySessions.map((s) => (
+              <SessionCard
+                key={s.id}
+                session={s}
+                siteName={siteNameByClassId[s.classId]}
+                checkInStatus={checkInStatusBySessionId[s.id]}
+                onCheckedIn={handleClassSessionCheckedIn}
+              />
+            ))}
+          </div>
         </Modal>
       )}
     </header>

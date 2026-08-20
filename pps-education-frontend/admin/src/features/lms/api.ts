@@ -463,6 +463,17 @@ export function removeExerciseQuestion(exerciseId: number, exerciseQuestionId: n
 }
 
 /**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-18 — sửa điểm 1 câu hỏi đã gắn vào Bài.
+ * Chỉ sửa được khi Bài còn DRAFT; backend chặn nếu tổng điểm vượt quá exercise.totalPoints.
+ */
+export function updateExerciseQuestionPoints(exerciseId: number, exerciseQuestionId: number, points: number): Promise<ExerciseQuestionResponse> {
+  return apiRequest<ExerciseQuestionResponse>(`/exercises/${exerciseId}/questions/${exerciseQuestionId}/points`, {
+    method: "PUT",
+    body: JSON.stringify({ points })
+  });
+}
+
+/**
  * V65 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30): giao đề không còn thao tác
  * riêng ở "Soạn & Giao đề" nữa — id (bản giao) giờ tự động phát sinh khi Giáo viên chọn 1 Exercise
  * làm "BTVN Ngữ pháp buổi sau" ở Nhận xét học viên (xem academic/api.ts CreateStudentCommentRequest.

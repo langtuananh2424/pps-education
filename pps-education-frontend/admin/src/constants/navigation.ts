@@ -9,6 +9,7 @@ import {
   BookUser,
   Calculator,
   CalendarDays,
+  CalendarRange,
   CalendarX,
   ClipboardCheck,
   ClipboardList,
@@ -143,6 +144,9 @@ export const navSections: NavSection[] = [
       // để AttendanceService xác định "ngày làm việc" (UC-09), trước đây không có trang nào.
       { id: "hrm-shifts", label: "Ca làm việc", path: "/hrm/shifts", icon: Clock, requiredPermission: "hrm.shift.create" },
       { id: "hrm-work-calendar", label: "Lịch làm việc/Nghỉ lễ", path: "/hrm/work-calendar", icon: CalendarDays, requiredPermission: "hrm.work-calendar.create" },
+      // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-17 — roster toàn công ty
+      // (ca làm cố định + lịch dạy), thay thế tab đơn-nhân-viên cũ trong EmployeeDetailPanel.
+      { id: "hrm-employee-schedule", label: "Lịch làm việc", path: "/hrm/employee-schedule", icon: CalendarRange, requiredPermission: "hrm.employee-schedule.view" },
       { id: "hrm-leaves", label: "Xin nghỉ phép", path: "/hrm/leaves", icon: CalendarX },
       { id: "hrm-payroll", label: "Tính toán bảng lương", path: "/hrm/payroll", icon: Wallet }
     ]

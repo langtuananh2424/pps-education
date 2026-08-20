@@ -75,7 +75,9 @@ public class ShiftController {
         return ResponseEntity.ok(employeeShiftService.endShift(id, request));
     }
 
+    /** V125 (2026-08-17): xem ca làm của nhân sự khác cần quyền gán ca hoặc quyền xem lịch tổng hợp. */
     @GetMapping("/api/employees/{id}/shifts")
+    @PreAuthorize("hasPermission(null, 'hrm.employee-shift.assign') or hasPermission(null, 'hrm.employee-schedule.view')")
     public ResponseEntity<List<EmployeeShiftResponse>> listEmployeeShifts(@PathVariable Long id) {
         return ResponseEntity.ok(employeeShiftService.listByEmployee(id));
     }

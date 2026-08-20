@@ -210,7 +210,7 @@
       "applyButton": "Apply to whole class"
     },
     "downloadTemplateButton": "Download Excel template",
-    "downloadingTemplate": "Downloading...",
+    "downloadingTemplate": "Saving & downloading...",
     "importExcelButton": "Import from Excel",
     "importing": "Importing...",
     "savedAt": "Saved at {{time}}",
@@ -279,6 +279,7 @@
       "submitFailed": "Failed to submit for review.",
       "sendFailed": "Failed to send comments.",
       "downloadTemplateFailed": "Failed to download the template file.",
+      "saveDraftBeforeDownloadFailed": "Couldn't save the draft, so the file wasn't downloaded — {{reason}}",
       "xlsxOnly": "Only .xlsx files are supported.",
       "importFailed": "Failed to import from Excel."
     }

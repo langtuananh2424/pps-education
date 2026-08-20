@@ -196,6 +196,8 @@
       "subModeListeningGroup": "Nhiều câu — 1 audio nghe",
       "attachedSectionTitle": "Đã gắn vào đề (soạn mới/nhập file)",
       "attachedCount": "Đã gắn vào Bài: {{count}} câu",
+      "pointsInputTitle": "Điểm câu hỏi này trong Bài",
+      "totalPoints": "Tổng điểm: {{total}} / {{max}}",
       "continue": "Tiếp tục",
       "errors": {
         "attachAtLeastOne": "Cần gắn tối thiểu 1 câu hỏi vào đề.",
@@ -309,6 +311,8 @@
       "deleteExerciseFailed": "Xóa Bài thất bại.",
       "exerciseDeletedToast": "Đã xóa Bài thành công!",
       "totalPoints": "Tổng điểm: {{points}}",
+      "attachedPoints": " (đã gắn {{points}})",
+      "pointsInputDraftOnlyTitle": "Điểm câu hỏi này trong Bài (chỉ sửa được khi còn Nháp)",
       "editExerciseTooltip": "Sửa Bài",
       "deleteExerciseTooltip": "Xóa Bài",
       "addQuestions": "+ Thêm câu hỏi",

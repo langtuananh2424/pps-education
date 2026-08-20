@@ -168,7 +168,7 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
 
       let attemptRes: ExerciseAttemptResponse;
       if (item.myLatestAttemptId == null) {
-        attemptRes = await startAttempt(item.exerciseId);
+        attemptRes = await startAttempt(item.exerciseId, item.assignmentId);
       } else {
         const latest = await getAttempt(item.myLatestAttemptId);
         // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05 — lượt gần nhất đã chấm xong
@@ -182,7 +182,7 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
         // được lượt cuối cùng (lượt duy nhất đã lộ đáp án theo rào maxAttempts ở BE).
         const stillHasRetake = meta.maxAttempts == null || latest.attemptNumber < meta.maxAttempts;
         const needsRetake = latest.status === "FULLY_GRADED" && latest.passed === false && stillHasRetake;
-        attemptRes = needsRetake ? await startAttempt(item.exerciseId) : latest;
+        attemptRes = needsRetake ? await startAttempt(item.exerciseId, item.assignmentId) : latest;
       }
 
       const questionRes = await listExerciseQuestions(item.exerciseId);

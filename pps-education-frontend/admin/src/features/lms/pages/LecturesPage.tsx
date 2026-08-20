@@ -473,6 +473,8 @@ export function ContentSourceField({ value, onChange }: { value: ContentSourceVa
   const videoSourceMode: "upload" | "youtube" = value.sourceType === "YOUTUBE_URL" ? "youtube" : "upload";
   const [youtubeUrlInput, setYoutubeUrlInput] = useState(value.sourceType === "YOUTUBE_URL" ? value.fileUrl : "");
   const { containerId, detect, detecting, detectError } = useYouTubeDurationProbe();
+  /** Preview để GV tự kiểm tra link/file vừa nhập đúng nội dung trước khi lưu (không dùng player ẩn dò thời lượng ở trên). */
+  const previewYoutubeVideoId = videoSourceMode === "youtube" ? extractYouTubeVideoId(youtubeUrlInput.trim()) : null;
 
   /**
    * FileUploadField gọi 3 callback RIÊNG BIỆT cho cùng 1 lần chọn file (onUpload dò duration ->
@@ -562,6 +564,18 @@ export function ContentSourceField({ value, onChange }: { value: ContentSourceVa
               </Button>
             </div>
             {detectError && <p className="text-[10px] text-rose-600 font-semibold">{detectError}</p>}
+            {previewYoutubeVideoId && (
+              <div className="rounded-lg overflow-hidden border border-slate-200 bg-black aspect-video max-w-sm">
+                <iframe
+                  key={previewYoutubeVideoId}
+                  src={`https://www.youtube.com/embed/${previewYoutubeVideoId}`}
+                  title="Xem trước video"
+                  className="w-full h-full"
+                  allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            )}
           </div>
         ) : (
           <FileUploadField
@@ -577,6 +591,10 @@ export function ContentSourceField({ value, onChange }: { value: ContentSourceVa
             placeholder={contentKind === "VIDEO" ? t("lectures.contentSource.chooseVideoFile") : t("lectures.contentSource.chooseAudioFile")}
           />
         )}
+        {contentKind === "VIDEO" && videoSourceMode === "upload" && value.fileUrl && (
+          <video src={value.fileUrl} controls className="mt-1.5 w-full max-w-sm max-h-56 rounded-lg border border-slate-200 bg-black" />
+        )}
+        {contentKind === "AUDIO" && value.fileUrl && <audio src={value.fileUrl} controls className="mt-1.5 w-full" />}
       </div>
 
       <p className="text-[10px] text-slate-400">
@@ -1311,6 +1329,35 @@ function EditSetModal({
   );
 }
 
+/** Preview video/audio ĐÃ LƯU trong card — trước đây chỉ hiện link text, GV phải tự copy mở tab khác mới xem lại được. */
+function VideoPreviewCell({ sourceType, fileUrl, title }: { sourceType: ReviewVideoSourceType; fileUrl: string; title: string }) {
+  if (sourceType === "YOUTUBE_URL") {
+    const videoId = extractYouTubeVideoId(fileUrl);
+    if (videoId) {
+      return (
+        <div className="rounded-lg overflow-hidden border border-slate-200 bg-black aspect-video max-w-xs">
+          <iframe
+            src={`https://www.youtube.com/embed/${videoId}`}
+            title={title}
+            className="w-full h-full"
+            allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
+        </div>
+      );
+    }
+    return (
+      <a href={fileUrl} target="_blank" rel="noreferrer" className="text-brand-orange break-all hover:underline block">
+        {fileUrl}
+      </a>
+    );
+  }
+  if (sourceType === "R2_AUDIO") {
+    return <audio src={fileUrl} controls className="w-full" />;
+  }
+  return <video src={fileUrl} controls className="w-full max-w-xs max-h-48 rounded-lg border border-slate-200 bg-black" />;
+}
+
 /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-12 — hiện danh sách video TRỰC TIẾP trong panel chi tiết bộ (trước đây là VideosModal, ẩn sau nút "Video" + modal riêng). */
 function VideoListSection({ set }: { set: ReviewVideoSetResponse }) {
   const { t } = useTranslation("lms-review-video");
@@ -1389,7 +1436,7 @@ function VideoListSection({ set }: { set: ReviewVideoSetResponse }) {
                   </span>
                   <Badge variant="info">{v.sourceType}</Badge>
                 </div>
-                <p className="text-slate-400 break-all">{v.fileUrl}</p>
+                <VideoPreviewCell sourceType={v.sourceType} fileUrl={v.fileUrl} title={v.title} />
                 <p className="text-slate-400">
                   {v.fileSizeBytes ? `${(v.fileSizeBytes / 1024 / 1024).toFixed(1)} MB` : t("lectures.videoList.sizeUnknown")} ·{" "}
                   {t("lectures.videoList.durationMinutes", { minutes: Math.round(v.durationSeconds / 60) })}

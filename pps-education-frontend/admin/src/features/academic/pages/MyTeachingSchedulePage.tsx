@@ -4,76 +4,19 @@ import { Building2, CalendarDays, CalendarRange, ChevronLeft, ChevronRight, MapP
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { cn } from "@/lib/cn";
+import { getMonthGridDates, getWeekDates, toISODate } from "@/lib/calendarDates";
 import { toLocaleTag } from "@/lib/i18nFormat";
 import Badge from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
-import { sessionStatusVariants, teacherTypeLabel } from "../components/ClassDetailPanel";
-import { ClassSessionResponse, getMyTeachingSchedule, listClasses } from "../api";
+import SessionCard from "../components/SessionCard";
+import { checkInStatusLabels, checkInStatusVariants } from "../components/ClassDetailPanel";
+import { ClassSessionCheckInStatusResponse, ClassSessionResponse, getMyClassSessionCheckInStatus, getMyTeachingSchedule, listClasses } from "../api";
 
 /** Thứ tự enum DayOfWeek dùng để tra nhãn qua `enums.weekday.<value>` / `enums.weekdayShort.<value>`
  * (namespace "academic-classes") — weekdayOrderSunFirst khớp Date.getDay() (0=CN), weekdayOrderMonFirst
  * dùng cho header lưới tháng (Thứ 2 → Chủ nhật), dùng chung với BulkGenerateSessionsForm.tsx. */
 const weekdayOrderSunFirst = ["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"] as const;
 const weekdayOrderMonFirst = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"] as const;
-
-function toISODate(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-}
-
-function getWeekDates(refDate: Date): Date[] {
-  const day = refDate.getDay();
-  const diff = refDate.getDate() - day + (day === 0 ? -6 : 1);
-  const monday = new Date(refDate);
-  monday.setDate(diff);
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(monday);
-    d.setDate(monday.getDate() + i);
-    return d;
-  });
-}
-
-/** Lưới 6 tuần x 7 ngày (bắt đầu Thứ 2) phủ trọn tháng chứa refDate — kể cả ngày tháng trước/sau để lấp đầy hàng. */
-function getMonthGridDates(refDate: Date): Date[] {
-  const year = refDate.getFullYear();
-  const month = refDate.getMonth();
-  const firstOfMonth = new Date(year, month, 1);
-  const firstDay = firstOfMonth.getDay();
-  const startOffset = firstDay === 0 ? 6 : firstDay - 1;
-  const gridStart = new Date(year, month, 1 - startOffset);
-  return Array.from({ length: 42 }, (_, i) => new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + i));
-}
-
-function SessionCard({ session, siteName }: { session: ClassSessionResponse; siteName?: string }) {
-  const { t } = useTranslation("academic-classes");
-  return (
-    <div className="border border-slate-150 rounded-lg p-2.5 space-y-1 text-xs">
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <span className="font-mono text-[10px] text-slate-500">{session.startTime}–{session.endTime}</span>
-        <Badge variant={sessionStatusVariants[session.status] ?? "neutral"}>{session.status}</Badge>
-      </div>
-      <p className="font-bold text-slate-800">{session.className}</p>
-      <p className="text-[11px] text-slate-500 flex items-center gap-1">
-        <Building2 className="w-3 h-3 text-slate-400 shrink-0" />
-        {siteName ?? t("myTeachingSchedule.loadingSite")}
-      </p>
-      <p className="text-[11px] text-slate-500 flex items-center gap-1">
-        <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
-        {session.roomName ?? t("myTeachingSchedule.unassignedRoom")}
-      </p>
-      <p className="text-[11px] text-slate-400">
-        {t("myTeachingSchedule.teacherLine", {
-          teacher: session.primaryTeacherName,
-          type: session.teacherType ? ` (${teacherTypeLabel(t, session.teacherType)})` : "",
-          sessionType: t(`enums.sessionType.${session.sessionType}`, { defaultValue: session.sessionType })
-        })}
-      </p>
-      {session.status === "CANCELLED" && session.cancellationReason && (
-        <p className="text-rose-500">{t("myTeachingSchedule.cancellationReason", { reason: session.cancellationReason })}</p>
-      )}
-      {session.lessonContent && <p className="text-slate-500">{t("myTeachingSchedule.lessonContent", { content: session.lessonContent })}</p>}
-    </div>
-  );
-}
 
 /** UC-58: Xem lịch dạy tổng hợp ("Lịch của tôi") — self-service, chỉ hiện buổi dạy của chính tài khoản Giáo viên đang đăng nhập. */
 export default function MyTeachingSchedulePage() {
@@ -86,6 +29,8 @@ export default function MyTeachingSchedulePage() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [siteNameByClassId, setSiteNameByClassId] = useState<Record<number, string>>({});
   const [hoverInfo, setHoverInfo] = useState<{ session: ClassSessionResponse; top: number; left: number } | null>(null);
+  /** UC-71 (bổ sung ngoài SDD gốc, xác nhận 2026-08-18) — trạng thái nhận lớp TÍNH RA theo classSessionId. */
+  const [checkInStatusBySessionId, setCheckInStatusBySessionId] = useState<Record<number, ClassSessionCheckInStatusResponse>>({});
 
   useEffect(() => {
     listClasses()
@@ -112,8 +57,22 @@ export default function MyTeachingSchedulePage() {
       .then(setSessions)
       .catch((err) => setError(err instanceof ApiError ? err.message : t("myTeachingSchedule.loadError")))
       .finally(() => setLoading(false));
+    getMyClassSessionCheckInStatus(rangeStart, rangeEnd)
+      .then((statuses) => {
+        const map: Record<number, ClassSessionCheckInStatusResponse> = {};
+        statuses.forEach((s) => {
+          map[s.classSessionId] = s;
+        });
+        setCheckInStatusBySessionId(map);
+      })
+      .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rangeStart, rangeEnd]);
+
+  /** Cập nhật ngay trạng thái vừa nhận lớp thành công — khỏi phải refetch cả khoảng ngày. */
+  const handleCheckedIn = (status: ClassSessionCheckInStatusResponse) => {
+    setCheckInStatusBySessionId((prev) => ({ ...prev, [status.classSessionId]: status }));
+  };
 
   const sessionsByDate = useMemo(() => {
     const map = new Map<string, ClassSessionResponse[]>();
@@ -221,33 +180,42 @@ export default function MyTeachingSchedulePage() {
                       {daySessions.length === 0 ? (
                         <p className="py-6 text-center text-[10px] text-slate-400 italic">{t("myTeachingSchedule.emptyDay")}</p>
                       ) : (
-                        daySessions.map((s) => (
-                          <div
-                            key={s.id}
-                            onMouseEnter={(e) => {
-                              const rect = e.currentTarget.getBoundingClientRect();
-                              setHoverInfo({ session: s, top: rect.bottom + 6, left: rect.left });
-                            }}
-                            onMouseLeave={() => setHoverInfo(null)}
-                            className="bg-white border border-slate-150 rounded-lg p-2 space-y-1 hover:border-brand-red/50 hover:bg-orange-50/40 transition-colors cursor-default"
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="text-[9px] text-slate-400 font-mono">{s.startTime}–{s.endTime}</span>
-                              
-                            </div>
-                            <p className="text-[10px] font-bold text-slate-800 flex items-center gap-0.5">
-                              <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
-                              <span className="truncate">{s.className ?? t("myTeachingSchedule.unassignedClass")}</span>
-                            </p>
-                            <p className="text-[9px] text-slate-400 flex items-center gap-0.5">
-                              <Building2 className="w-3 h-3 text-slate-400 shrink-0" />
-                              <span className="truncate">{siteNameByClassId[s.classId] ?? t("myTeachingSchedule.loadingSite")}</span>
-                            </p>
-                            <div className="flex items-center justify-between">
-                              {s.status !== "SCHEDULED" && <span className="text-[9px] text-rose-500 font-bold">{s.status}</span>}
+                        daySessions.map((s) => {
+                          const checkInStatus = checkInStatusBySessionId[s.id];
+                          return (
+                            <button
+                              type="button"
+                              key={s.id}
+                              onClick={() => setSelectedDate(dateStr)}
+                              onMouseEnter={(e) => {
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                setHoverInfo({ session: s, top: rect.bottom + 6, left: rect.left });
+                              }}
+                              onMouseLeave={() => setHoverInfo(null)}
+                              className="w-full text-left bg-white border border-slate-150 rounded-lg p-2 space-y-1 hover:border-brand-red/50 hover:bg-orange-50/40 transition-colors"
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="text-[9px] text-slate-400 font-mono">{s.startTime}–{s.endTime}</span>
                               </div>
-                          </div>
-                        ))
+                              <p className="text-[10px] font-bold text-slate-800 flex items-center gap-0.5">
+                                <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+                                <span className="truncate">{s.className ?? t("myTeachingSchedule.unassignedClass")}</span>
+                              </p>
+                              <p className="text-[9px] text-slate-400 flex items-center gap-0.5">
+                                <Building2 className="w-3 h-3 text-slate-400 shrink-0" />
+                                <span className="truncate">{siteNameByClassId[s.classId] ?? t("myTeachingSchedule.loadingSite")}</span>
+                              </p>
+                              <div className="flex items-center justify-between gap-1 flex-wrap">
+                                {s.status !== "SCHEDULED" && <span className="text-[9px] text-rose-500 font-bold">{s.status}</span>}
+                                {checkInStatus && s.status !== "CANCELLED" && s.status !== "RESCHEDULED" && (
+                                  <Badge variant={checkInStatusVariants[checkInStatus.effectiveStatus] ?? "neutral"} className="text-[8px]">
+                                    {checkInStatusLabels[checkInStatus.effectiveStatus] ?? checkInStatus.effectiveStatus}
+                                  </Badge>
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })
                       )}
                     </div>
                   </div>
@@ -373,7 +341,13 @@ export default function MyTeachingSchedulePage() {
       >
         <div className="space-y-2.5">
           {selectedSessions.map((s) => (
-            <SessionCard key={s.id} session={s} siteName={siteNameByClassId[s.classId]} />
+            <SessionCard
+              key={s.id}
+              session={s}
+              siteName={siteNameByClassId[s.classId]}
+              checkInStatus={checkInStatusBySessionId[s.id]}
+              onCheckedIn={handleCheckedIn}
+            />
           ))}
         </div>
       </Modal>

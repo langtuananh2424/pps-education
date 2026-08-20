@@ -248,6 +248,12 @@ function useMediaElementWatchProgress(
 
 interface ReviewVideoTaskModalProps {
   video: ReviewVideoResponse;
+  /**
+   * V128/V129 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-19) — lần giao ACTIVE cụ thể
+   * đang mở modal này (BE nay yêu cầu bắt buộc để ghi tiến độ đúng lần giao, không tự đoán). undefined
+   * khi mở từ mục chỉ nằm trong Kho (chưa có bản giao nào) — mirror ReflexVideoTaskPage.
+   */
+  assignmentId: number | undefined;
   onClose: () => void;
 }
 
@@ -259,7 +265,7 @@ interface ReviewVideoTaskModalProps {
  * này nữa (video khóa hoàn toàn + ghi âm tự động theo mốc thời gian không phù hợp dạng popup dễ
  * bấm-ra-ngoài-là-mất bản ghi nháp).
  */
-export default function ReviewVideoTaskModal({ video, onClose }: ReviewVideoTaskModalProps) {
+export default function ReviewVideoTaskModal({ video, assignmentId, onClose }: ReviewVideoTaskModalProps) {
   const { t } = useTranslation("portal-exercises");
   const isYouTube = video.sourceType === "YOUTUBE_URL";
   const youTubeVideoId = isYouTube ? extractYouTubeVideoId(video.fileUrl) : null;
@@ -294,17 +300,18 @@ export default function ReviewVideoTaskModal({ video, onClose }: ReviewVideoTask
     setSelectedAnswers({});
     setQuizResult(null);
     setQuizError(null);
-    startReviewVideoWatchSession(video.id)
+    if (assignmentId == null) return;
+    startReviewVideoWatchSession(video.id, assignmentId)
       .then((r) => setWatchSessionId(r.sessionId))
       .catch(() => undefined);
     // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — đọc lại tiến độ ĐÃ LƯU ngay khi
     // mở modal (trước đây "Tổng số lượt đã đạt" chỉ hiện SAU khi có report sống trong phiên đang mở,
     // nên mở lần đầu luôn thấy trống dù đã có tiến độ từ trước).
-    getReviewVideoProgress(video.id)
+    getReviewVideoProgress(video.id, assignmentId)
       .then((p) => setProgressSummary({ viewCount: p.viewCount, requiredViewCount: p.requiredViewCount, completed: p.completed }))
       .catch(() => undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [video.id]);
+  }, [video.id, assignmentId]);
 
   /**
    * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-12 — chặn màn hình "Bắt đầu xem" (giống
@@ -361,11 +368,12 @@ export default function ReviewVideoTaskModal({ video, onClose }: ReviewVideoTask
    * sinh không cần tự đóng/mở lại trang để sang lượt kế tiếp.
    */
   const startNextSession = () => {
+    if (assignmentId == null) return;
     setQuizPopupOpen(false);
     setSelectedAnswers({});
     setQuizResult(null);
     setQuizError(null);
-    startReviewVideoWatchSession(video.id)
+    startReviewVideoWatchSession(video.id, assignmentId)
       .then((r) => setWatchSessionId(r.sessionId))
       .catch(() => undefined);
   };

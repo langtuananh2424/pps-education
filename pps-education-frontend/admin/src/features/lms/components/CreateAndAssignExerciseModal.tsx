@@ -13,7 +13,8 @@ import {
   addExerciseQuestion,
   createExercise,
   listExerciseQuestions,
-  publishExercise
+  publishExercise,
+  updateExerciseQuestionPoints
 } from "../api";
 import QuestionEditorForm from "./QuestionEditorForm";
 import QuestionImportPanel from "./QuestionImportPanel";
@@ -207,7 +208,8 @@ function ExerciseInfoStep({
 type QuestionSourceMode = "compose" | "import";
 
 interface AttachedQuestion {
-  id: number;
+  /** id của ExerciseQuestion (dòng gắn câu hỏi vào đề) — dùng để sửa điểm qua updateExerciseQuestionPoints, KHÔNG phải id của Question trong ngân hàng. */
+  exerciseQuestionId: number;
   content: string;
   points: number;
 }
@@ -252,10 +254,16 @@ export function ExerciseQuestionsStep({
   // lại để thêm tiếp, không chỉ lúc soạn mới) — cần biết số câu đã có để displayOrder câu mới không
   // trùng câu cũ (trước đây luôn giả định Bài trống, bắt đầu từ 1).
   const [existingCount, setExistingCount] = useState(0);
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-18 — tổng điểm câu hỏi ĐÃ có sẵn (mở
+  // lại Bài để gắn thêm), dùng cùng existingCount để tính tổng điểm hiện tại so với exercise.totalPoints.
+  const [existingPoints, setExistingPoints] = useState(0);
 
   useEffect(() => {
     listExerciseQuestions(exercise.id)
-      .then((res) => setExistingCount(res.length))
+      .then((res) => {
+        setExistingCount(res.length);
+        setExistingPoints(res.reduce((sum, q) => sum + q.points, 0));
+      })
       .catch(() => undefined);
   }, [exercise.id]);
   // Câu hỏi soạn mới/import hàng loạt được gắn vào đề NGAY khi tạo xong (đã ghi thật vào ngân hàng
@@ -267,8 +275,8 @@ export function ExerciseQuestionsStep({
     onError(null);
     try {
       const points = question.defaultPoints ?? 0;
-      await addExerciseQuestion(exercise.id, { questionId: question.id, displayOrder: existingCount + attached.length + 1, points });
-      setAttached((prev) => [...prev, { id: question.id, content: question.content, points }]);
+      const eq = await addExerciseQuestion(exercise.id, { questionId: question.id, displayOrder: existingCount + attached.length + 1, points });
+      setAttached((prev) => [...prev, { exerciseQuestionId: eq.id, content: question.content, points: eq.points }]);
       setComposeFormKey((k) => k + 1); // remount QuestionEditorForm rỗng để soạn tiếp câu khác
     } catch (err) {
       onError(err instanceof ApiError ? err.message : t("assignModal.questionsStep.errors.attachComposedFailed"));
@@ -287,8 +295,8 @@ export function ExerciseQuestionsStep({
       for (const q of createdQuestions) {
         order += 1;
         const points = q.defaultPoints ?? 0;
-        await addExerciseQuestion(exercise.id, { questionId: q.id, displayOrder: order, points });
-        newlyAttached.push({ id: q.id, content: q.content, points });
+        const eq = await addExerciseQuestion(exercise.id, { questionId: q.id, displayOrder: order, points });
+        newlyAttached.push({ exerciseQuestionId: eq.id, content: q.content, points: eq.points });
       }
       setAttached((prev) => [...prev, ...newlyAttached]);
       setComposeSubMode("single");
@@ -304,14 +312,28 @@ export function ExerciseQuestionsStep({
       const newlyAttached: AttachedQuestion[] = [];
       for (const q of createdQuestions) {
         order += 1;
-        await addExerciseQuestion(exercise.id, { questionId: q.id, displayOrder: order, points: q.defaultPoints });
-        newlyAttached.push({ id: q.id, content: q.content, points: q.defaultPoints });
+        const eq = await addExerciseQuestion(exercise.id, { questionId: q.id, displayOrder: order, points: q.defaultPoints });
+        newlyAttached.push({ exerciseQuestionId: eq.id, content: q.content, points: eq.points });
       }
       setAttached((prev) => [...prev, ...newlyAttached]);
     } catch (err) {
       onError(err instanceof ApiError ? err.message : t("assignModal.questionsStep.errors.attachImportedFailed"));
     }
   };
+
+  /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-18 — sửa điểm 1 câu đã gắn; backend tự chặn nếu tổng điểm vượt exercise.totalPoints. */
+  const handlePointsChange = async (exerciseQuestionId: number, newPoints: number) => {
+    onError(null);
+    try {
+      const eq = await updateExerciseQuestionPoints(exercise.id, exerciseQuestionId, newPoints);
+      setAttached((prev) => prev.map((a) => (a.exerciseQuestionId === exerciseQuestionId ? { ...a, points: eq.points } : a)));
+    } catch (err) {
+      onError(err instanceof ApiError ? err.message : "Sửa điểm câu hỏi thất bại.");
+    }
+  };
+
+  const totalAttachedPoints = existingPoints + attached.reduce((sum, a) => sum + a.points, 0);
+  const overTotalPoints = totalAttachedPoints > exercise.totalPoints;
 
   const handleContinue = () => {
     onError(null);
@@ -426,9 +448,21 @@ export function ExerciseQuestionsStep({
         <div className="border border-emerald-100 bg-emerald-50/50 rounded-lg divide-y divide-emerald-100 max-h-40 overflow-y-auto">
           <div className="px-3 py-1.5 text-[10px] font-bold text-emerald-700 uppercase">{t("assignModal.questionsStep.attachedSectionTitle")}</div>
           {attached.map((a) => (
-            <div key={a.id} className="px-3 py-1.5 text-xs flex items-center justify-between gap-2">
+            <div key={a.exerciseQuestionId} className="px-3 py-1.5 text-xs flex items-center justify-between gap-2">
               <span className="flex-1 truncate">{a.content}</span>
-              <span className="text-[10px] text-slate-500 shrink-0">{a.points} {t("common.pointsSuffix")}</span>
+              <input
+                key={`${a.exerciseQuestionId}-${a.points}`}
+                type="number"
+                min={0}
+                step="0.5"
+                defaultValue={a.points}
+                onBlur={(e) => {
+                  const value = Number(e.target.value);
+                  if (!Number.isNaN(value) && value !== a.points) handlePointsChange(a.exerciseQuestionId, value);
+                }}
+                title={t("assignModal.questionsStep.pointsInputTitle")}
+                className="w-16 text-[11px] text-right text-slate-600 border border-slate-200 rounded px-1 py-0.5 shrink-0 focus:outline-none"
+              />
             </div>
           ))}
         </div>
@@ -436,6 +470,9 @@ export function ExerciseQuestionsStep({
 
       <div className="flex justify-between items-center pt-2">
         <span className="text-[11px] text-slate-500">{t("assignModal.questionsStep.attachedCount", { count: existingCount + attached.length })}</span>
+        <span className={`text-[11px] font-bold ${overTotalPoints ? "text-red-600" : "text-slate-500"}`}>
+          {t("assignModal.questionsStep.totalPoints", { total: totalAttachedPoints, max: exercise.totalPoints })}
+        </span>
         <Button type="button" variant="primary" size="sm" onClick={handleContinue} disabled={attached.length === 0 && existingCount === 0}>
           {t("assignModal.questionsStep.continue")}
         </Button>

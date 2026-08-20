@@ -196,6 +196,8 @@
       "subModeListeningGroup": "Multiple questions — 1 listening audio",
       "attachedSectionTitle": "Attached to the exercise (newly composed/imported)",
       "attachedCount": "Attached to exercise: {{count}} questions",
+      "pointsInputTitle": "This question's points within the exercise",
+      "totalPoints": "Total points: {{total}} / {{max}}",
       "continue": "Continue",
       "errors": {
         "attachAtLeastOne": "At least 1 question must be attached to the exercise.",
@@ -309,6 +311,8 @@
       "deleteExerciseFailed": "Failed to delete the exercise.",
       "exerciseDeletedToast": "Exercise deleted successfully!",
       "totalPoints": "Total points: {{points}}",
+      "attachedPoints": " (attached {{points}})",
+      "pointsInputDraftOnlyTitle": "This question's points within the exercise (editable only while still Draft)",
       "editExerciseTooltip": "Edit exercise",
       "deleteExerciseTooltip": "Delete exercise",
       "addQuestions": "+ Add questions",

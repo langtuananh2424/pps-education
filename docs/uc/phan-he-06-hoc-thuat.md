@@ -1319,20 +1319,21 @@ dùng), `StudentComment.CommentType` nay chỉ còn DAILY.
 -   Luồng thao tác: Giáo viên điểm danh buổi học (UC-15) → nhận xét từng
     học sinh của buổi đó. Học sinh Vắng/Có phép thì không cần điền các
     trường nhận xét.
--   **Ràng buộc thứ tự (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
-    2026-08-13) — thứ tự ở trên nay là BẮT BUỘC, không chỉ là gợi ý luồng
-    thao tác:** ghi/sửa nội dung nhận xét (`writeComment`/`updateComment`)
+-   ~~Ràng buộc thứ tự (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+    2026-08-13): ghi/sửa nội dung nhận xét (`writeComment`/`updateComment`)
     và nhập nhận xét qua Excel (`importComments`) đều bị chặn (422) nếu
-    buổi học (1) **chưa qua giờ kết thúc** (`class_sessions.end_time`) HOẶC
-    (2) **chưa điểm danh xong** (`attendance_sessions.status` khác DRAFT —
-    tức đã "Lưu điểm danh" UC-15 bước 4, không chỉ mới nhập nháp). Không áp
-    dụng cho tài khoản có quyền `academic.comment.approve`/quản lý nhận xét
-    (dùng để bổ sung/khắc phục sai sót, không ràng buộc theo tiến độ buổi
-    học thật). KHÔNG áp dụng cho `buildTemplate` (chỉ tải mẫu Excel) hay 3
-    endpoint metadata cấp buổi (`updateLessonContent`/
-    `updateSessionTeacherType`/`updateActualTeacherName`) — GV vẫn điền
-    được các trường này trong lúc đang dạy, trước khi điểm danh. Xem
-    `StudentCommentService.requireSessionEndedAndAttendanceTaken`.
+    buổi học chưa qua giờ kết thúc HOẶC chưa điểm danh xong.~~ **Đảo ngược
+    2026-08-18 (đã xác nhận với người dùng) — bỏ hẳn rào này:** thực tế cho
+    thấy rào trên chặn cả bước Lưu nháp (GV chưa kịp điểm danh xong đã
+    không lưu nháp được nội dung đang soạn dở, dễ mất dữ liệu — lỗi 422
+    "Buổi học này chưa điểm danh xong"). Quyết định mới: Nhận xét không
+    còn phụ thuộc buổi đã điểm danh xong hay đã kết thúc — GV lưu
+    nháp/sửa/import Excel bất kỳ lúc nào (chỉ còn giữ hạn X ngày kể từ
+    ngày buổi học, xem `requireCanWriteDailyComment`). Điểm danh (UC-15)
+    và Nhận xét (UC-21) từ nay là 2 luồng độc lập hoàn toàn — không còn
+    ràng buộc thứ tự giữa 2 luồng. Đã xóa hẳn
+    `StudentCommentService.requireSessionEndedAndAttendanceTaken` (không
+    còn dùng ở đâu).
 -   **Sửa lại 2026-07-29 (đã xác nhận với người dùng) — "bài học hôm nay"
     chuyển từ Điểm danh sang Nhận xét:** `class_sessions.lesson_content`
     (TEXT, dùng chung cả lớp, không đổi) nay điền qua
@@ -1406,11 +1407,32 @@ dùng), `StudentComment.CommentType` nay chỉ còn DAILY.
         phải chọn CÙNG 1 đề/video cho mỗi kênh (độc lập nhau) — dòng đầu
         tiên khóa lựa chọn, dòng khác chọn khác bị chặn 409
         (`HomeworkNextConflictException`).
-    2.  **Sửa lựa chọn khi còn DRAFT**: hủy bản giao cũ
-        (`status=CANCELLED`), tạo/gắn bản giao mới NGAY — kể cả khi học
-        sinh đã mở bài dở; KHÔNG cascade sang các dòng comment khác cùng
-        buổi (dòng đó phát hiện lệch và bị chặn 409 khi chính GV lưu lại
-        dòng đó).
+    2.  ~~Sửa lựa chọn khi còn DRAFT: hủy bản giao cũ (`status=CANCELLED`),
+        tạo/gắn bản giao mới NGAY — kể cả khi học sinh đã mở bài dở.~~
+        **Đảo ngược V127 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+        2026-08-19) — đổi THỜI ĐIỂM giao bài từ lúc Lưu nháp sang lúc Gửi
+        nhận xét:** trước V127, chọn 1 Exercise/ReviewVideoSet giao bài
+        NGAY LẬP TỨC kể cả khi nhận xét còn DRAFT (chưa qua duyệt, thậm
+        chí chưa Gửi) — Giáo viên phát hiện qua test UI thật, cho là bất
+        hợp lý (học sinh nhận được bài trước khi Giáo viên thực sự "Gửi
+        nhận xét"). Quy tắc mới: `writeComment`/`updateComment`/`importRow`
+        (còn DRAFT/REJECTED) chỉ VALIDATE lựa chọn (còn tồn tại + không
+        xung đột cùng buổi/hạn nộp — vẫn báo lỗi NGAY, giữ nguyên trải
+        nghiệm phản hồi tức thì) rồi lưu TẠM vào 2 cột mới
+        `pending_homework_next_exercise_id`/
+        `pending_homework_next_review_video_set_id` (+ `pending_homework_next_due_date`
+        cho hạn nộp tự chọn) — KHÔNG tạo `ExerciseAssignment`/
+        `ReviewVideoAssignment`, KHÔNG thông báo học sinh. Chỉ
+        `submitComments()` (Gửi nhận xét) mới thật sự materialize lựa chọn
+        pending thành bản giao thật (tái dùng nguyên
+        `resolveExerciseHomework`/`resolveVideoHomework`, không đổi logic
+        huỷ bản cũ/tạo bản mới/thông báo — chỉ đổi THỜI ĐIỂM gọi). Hệ quả:
+        "hủy bản cũ + giao bản mới ngay" (rule cũ) giờ CHỈ còn xảy ra ở
+        đúng 1 case — sửa lựa chọn của 1 comment REJECTED đã từng Gửi (đã
+        có bản giao thật từ lần Gửi trước) rồi Gửi LẠI; sửa lựa chọn lúc
+        còn DRAFT lần đầu (chưa từng Gửi) chỉ ghi đè cột pending, không
+        đụng bản giao nào (vì chưa có gì để đụng). Xem Javadoc
+        `StudentCommentService#submitComments`.
     3.  **Comment bị REJECTED (UC-22)**: KHÔNG ảnh hưởng bài đã giao —
         giao bài và duyệt nhận xét vẫn hoàn toàn tách biệt như trước.
     4.  **Lớp chưa có buổi kế tiếp**: chặn hẳn, báo lỗi rõ
@@ -1426,6 +1448,21 @@ dùng), `StudentComment.CommentType` nay chỉ còn DAILY.
     dù tên gọi "Video phản xạ" gợi ý — xem UC-23). Đề/video Publish nhưng
     chưa từng được chọn: không cần màn theo dõi riêng, chỉ dùng cho
     dropdown ở đây.
+
+-   **Bổ sung 2026-08-18 (đã xác nhận với người dùng) — bỏ ràng buộc loại
+    trừ lẫn nhau giữa `homeworkNext` (offline) và
+    `homeworkNextExerciseAssignment` (online) của kênh Ngữ pháp:** trước
+    đây 1 dòng DAILY chỉ được điền ĐÚNG 1 trong 2 (chặn 400 nếu điền cả
+    hai). Từ nay 2 field hoàn toàn ĐỘC LẬP — 1 buổi giao được ĐỒNG THỜI cả
+    3 loại BTVN cho 1 học sinh: offline (chữ tự do), online Ngữ pháp
+    (Exercise) và Video Ôn tập (kênh riêng, không đổi). API JSON
+    (`writeComment`/`updateComment`) thực ra chưa từng chặn tổ hợp này —
+    chỉ luồng Excel import (`StudentCommentService#parseRow`) còn chặn,
+    nay gỡ bỏ cho nhất quán 2 luồng. FE (`DailyCommentPanel.tsx`) bỏ hành
+    vi tự xoá ô kia khi điền 1 ô (cả bảng nhập từng dòng lẫn "Gán nhanh
+    cho cả lớp"). Kênh Video KHÔNG đổi — 1 buổi vẫn chỉ chọn 1 bộ video
+    (CONNECTION cho GVVN/REFLEX cho GVNN theo `teacherType`, đã phân biệt
+    sẵn qua dropdown lọc theo Loại giáo viên — không cần 2 slot song song).
 
 -   **Bổ sung 2026-08-12 (đã xác nhận với người dùng) — "BTVN buổi trước"
     (V55) đối chiếu theo TỪNG LOẠI GIÁO VIÊN, không còn buổi liền kề tuyệt
@@ -1461,7 +1498,12 @@ dùng), `StudentComment.CommentType` nay chỉ còn DAILY.
     KHÔNG thông báo lại. Với kênh Video, bước tái dùng này chạy TRƯỚC quy
     tắc hủy-giao-cũ của V69 (giao lại ở buổi SAU, `dueAt` khác, vẫn hủy
     ACTIVE cũ + tạo mới + thông báo lại như V69 — chỉ N request trùng
-    `dueAt` trong CÙNG 1 đợt gửi mới được tái dùng).
+    `dueAt` trong CÙNG 1 đợt gửi mới được tái dùng). **Đảo ngược 1 phần bởi
+    V128/V129 (2026-08-19, xem `docs/uc/phan-he-07-lms-portal.md`):** "giao
+    lại ở buổi SAU" nay CHỈ hủy-cũ-tạo-mới nếu buổi sau đó CÙNG
+    `source_class_session_id` với lần ACTIVE cũ (tức đang sửa lựa chọn
+    trong cùng 1 buổi Nhận xét); giao từ 1 buổi Nhận xét THẬT SỰ khác thì
+    không hủy nữa — tạo thêm 1 bản giao ACTIVE song song, độc lập.
 
 -   **Bổ sung V82 (2026-08-04, đã xác nhận với người dùng) — báo Giáo viên
     % hoàn thành cả lớp khi hết hạn BTVN:** áp dụng cho CẢ 2 kênh (Ngữ
@@ -2414,5 +2456,115 @@ thêm bảng snapshot. FE gọi endpoint này 2 lần (1 lần/kỳ) khi actor c
 sánh với kỳ khác" để vẽ 2 đường chồng lên nhau theo `monthIndex` (tháng thứ
 mấy của kỳ, không phải tháng lịch tuyệt đối) — cho phép so sánh công bằng 2
 kỳ có độ dài/thời điểm lịch khác nhau.
+
+---
+
+UC-71: Nhận lớp (bổ sung HOÀN TOÀN ngoài SDD/SRS gốc, đã xác nhận với người
+dùng 2026-08-18)
+
++-----------------+----------------------------------------------------+
+| **Mã Use Case** | UC-71                                              |
++-----------------+----------------------------------------------------+
+| **Tên Use       | Nhận lớp                                           |
+| Case**          |                                                    |
++-----------------+----------------------------------------------------+
+| **Phân hệ**     | Phân hệ 6                                          |
++-----------------+----------------------------------------------------+
+| **Yêu cầu chức  | Bổ sung ngoài SDD/SRS gốc, xác nhận 2026-08-18      |
+| năng gốc**      |                                                    |
++-----------------+----------------------------------------------------+
+| **Tác nhân**    | Giáo viên                                          |
++-----------------+----------------------------------------------------+
+| **Mô tả tóm     | Giáo viên xác nhận có mặt để dạy TỪNG buổi học      |
+| tắt**           | (class_sessions) — độc lập với chấm công ca hành    |
+|                 | chính (UC-09), áp dụng cho MỌI giáo viên (full-time |
+|                 | lẫn part-time) có buổi dạy. Không có check-out; hệ  |
+|                 | thống chỉ ghi nhận đã có mặt để dạy buổi đó hay      |
+|                 | chưa. Ví dụ 2 ca chiều (1-2h, 3-4h) của cùng 1 GV    |
+|                 | cần 2 lượt nhận lớp riêng biệt.                     |
++-----------------+----------------------------------------------------+
+| **Sự kiện kích  | Giáo viên đến điểm trường chuẩn bị dạy 1 buổi học   |
+| hoạt**          | đã được xếp lịch (UC-48).                           |
++-----------------+----------------------------------------------------+
+| **Điều kiện     | -   Buổi học (class_sessions) tồn tại, trạng thái   |
+| tiên quyết      |     KHÔNG phải CANCELLED/RESCHEDULED.               |
+| (               |                                                    |
+| Precondition)** | -   Giáo viên thao tác là primary_teacher_id của    |
+|                 |     đúng buổi học đó tại thời điểm nhận lớp (tự     |
+|                 |     động đúng cả trường hợp dạy thay — UC-10 cập    |
+|                 |     nhật primary_teacher_id theo từng buổi).        |
++-----------------+----------------------------------------------------+
+| **Luồng sự kiện | 1.  Giáo viên mở buổi học cần nhận lớp (từ "Lịch    |
+| chính (Main     |     của tôi" — UC-58), bấm "Nhận lớp".              |
+| Flow)**         |                                                    |
+|                 | 2.  Hệ thống xác định điểm trường của buổi học qua  |
+|                 |     class_sessions.class_id → classes.site_id (KHÔNG |
+|                 |     qua ca/điểm trường gán cho nhân sự như UC-09).  |
+|                 |                                                    |
+|                 | 3.  Hệ thống tính cửa sổ nhận lớp hợp lệ: [giờ bắt  |
+|                 |     đầu buổi học - 15 phút, giờ kết thúc buổi học]. |
+|                 |                                                    |
+|                 | 4.  Hệ thống kiểm tra thời điểm nhận lớp T có thuộc |
+|                 |     cửa sổ hợp lệ hay không (A1, A2).               |
+|                 |                                                    |
+|                 | 5.  Hệ thống kiểm tra buổi học này đã có lượt nhận  |
+|                 |     lớp nào chưa (A3 — chỉ 1 lượt/buổi học).        |
+|                 |                                                    |
+|                 | 6.  Hệ thống kiểm tra vị trí GPS gửi lên có nằm     |
+|                 |     trong bán kính cho phép (system_settings.       |
+|                 |     attendance.gps_radius_meters — DÙNG CHUNG cấu   |
+|                 |     hình bán kính với UC-09, không tạo setting mới) |
+|                 |     quanh điểm trường đã xác định ở bước 2 hay      |
+|                 |     không (A4).                                     |
+|                 |                                                    |
+|                 | 7.  Nếu hợp lệ, hệ thống xác định trạng thái: T <   |
+|                 |     giờ bắt đầu buổi học → ON_TIME (đúng giờ); T ≥  |
+|                 |     giờ bắt đầu (nhưng vẫn trong giờ học, theo cửa  |
+|                 |     sổ bước 3) → LATE (muộn).                       |
+|                 |                                                    |
+|                 | 8.  Hệ thống ghi nhận bản ghi nhận lớp thành công   |
+|                 |     (class_session_check_ins) cho buổi học đó.      |
++-----------------+----------------------------------------------------+
+| **Luồng thay    | ***A1 --- Chưa tới giờ nhận lớp***                  |
+| thế / ngoại lệ  |                                                    |
+| (Alternate      | 1.  T sớm hơn (giờ bắt đầu - 15 phút), hệ thống từ  |
+| Flow)**         |     chối, thông báo chưa tới giờ nhận lớp.          |
+|                 |                                                    |
+|                 | ***A2 --- Hết giờ nhận lớp***                       |
+|                 |                                                    |
+|                 | 1.  T muộn hơn giờ kết thúc buổi học, hệ thống từ   |
+|                 |     chối. Buổi học được coi là "vắng/không nhận     |
+|                 |     lớp" — trạng thái này TÍNH RA khi đọc (không có |
+|                 |     bản ghi trong class_session_check_ins và đã qua |
+|                 |     giờ kết thúc), không cần ghi thêm dữ liệu nào.  |
+|                 |                                                    |
+|                 | ***A3 --- Đã nhận lớp rồi***                        |
+|                 |                                                    |
+|                 | 1.  Buổi học đã có 1 bản ghi nhận lớp (bất kể ai    |
+|                 |     nhận), hệ thống từ chối, không tạo bản ghi mới  |
+|                 |     (idempotent — không có "nhận lại").             |
+|                 |                                                    |
+|                 | ***A4 --- GPS ngoài bán kính***                     |
+|                 |                                                    |
+|                 | 1.  Hệ thống từ chối, yêu cầu giáo viên di chuyển   |
+|                 |     vào phạm vi cho phép quanh điểm trường của buổi |
+|                 |     học rồi thử lại.                                |
++-----------------+----------------------------------------------------+
+| **Hậu điều kiện | -   Bản ghi nhận lớp hợp lệ được lưu (ON_TIME/      |
+| (P              |     LATE), làm đầu vào cho trang thống kê "Lịch làm |
+| ostcondition)** |     việc" (UC-70) và (nếu áp dụng) tính lương giáo  |
+|                 |     viên part-time theo giờ dạy thực tế.            |
+|                 |                                                    |
+|                 | -   Trường hợp bị từ chối (A1-A4): không có bản ghi |
+|                 |     nào được tạo.                                   |
++-----------------+----------------------------------------------------+
+
+**Trạng thái nhận lớp TÍNH RA (không lưu DB) khi hiển thị danh sách buổi
+học** — dùng chung cho "Lịch của tôi" (GV tự xem) và "Lịch làm việc" (UC-70,
+xem ghi chú dưới UC-70 ở docs/uc/phan-he-04-nhan-su.md): `NOT_YET_OPEN`
+(chưa tới giờ mở cửa sổ), `PENDING` (cửa sổ đang mở, chưa nhận), `ON_TIME`/
+`LATE` (đã nhận, lấy nguyên trạng thái đã lưu), `ABSENT` (đã qua giờ kết
+thúc, không có bản ghi). Buổi CANCELLED/RESCHEDULED không tính trạng thái
+này (không cần nhận lớp). Xem `ClassSessionCheckInService#listEffectiveStatus`.
 
 Phân hệ 7 --- Cổng thông tin và E-Learning (Portal & LMS)
