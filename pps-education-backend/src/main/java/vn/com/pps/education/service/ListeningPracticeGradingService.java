@@ -62,7 +62,7 @@ public class ListeningPracticeGradingService {
                 .orElseThrow(() -> new ResourceNotFoundException("error.listeningPracticeGrading.attemptNotFound",
                         new Object[]{attemptId}, "Không tìm thấy lượt luyện id=" + attemptId));
         if (attempt.getPracticeItem().getMode() != ListeningPracticeItem.Mode.SPEAKING) {
-            throw new AnswerNotManuallyGradableException(
+            throw new AnswerNotManuallyGradableException("error.answerNotManuallyGradable.notSpeakingMode", new Object[]{},
                     "Lượt luyện này không thuộc chế độ Nói — không chấm thủ công.");
         }
 

@@ -673,6 +673,8 @@ public class ReviewVideoService {
             int siblingEnd = sibling.getTimestampSeconds() + sibling.getMaxRecordingSeconds();
             if (sibling.getTimestampSeconds() < newEnd && newStart < siblingEnd) {
                 throw new ReviewVideoQuestionOverlapException(
+                        "error.reviewVideoQuestionOverlap.default",
+                        new Object[]{newStart, newEnd, sibling.getTimestampSeconds(), siblingEnd},
                         "Khoảng ghi âm câu hỏi mới (giây " + newStart + "-" + newEnd + ") chồng lấn 1 câu hỏi khác"
                                 + " (giây " + sibling.getTimestampSeconds() + "-" + siblingEnd + ") — video chỉ ghi âm được 1 câu tại 1 thời điểm,"
                                 + " hãy đặt mốc thời gian cách nhau xa hơn hoặc giảm thời lượng ghi âm tối đa.");
@@ -991,11 +993,11 @@ public class ReviewVideoService {
         requireNotPastDeadline(assignment);
         if (!session.isQualified()) {
             throw new VideoNotYetQualifiedException(
-                    "Lượt xem này chưa xem đạt ngưỡng — chưa thể làm câu hỏi.");
+                    "error.videoNotYetQualified.default", new Object[]{}, "Lượt xem này chưa xem đạt ngưỡng — chưa thể làm câu hỏi.");
         }
         if (session.getQuizCompletedAt() != null) {
             throw new QuizAlreadyCompletedException(
-                    "Lượt xem này đã nộp đủ câu hỏi rồi, không thể nộp lại.");
+                    "error.quizAlreadyCompleted.default", new Object[]{}, "Lượt xem này đã nộp đủ câu hỏi rồi, không thể nộp lại.");
         }
 
         List<ReviewVideoConnectionQuestion> questions = reviewVideoConnectionQuestionRepository
@@ -1080,6 +1082,7 @@ public class ReviewVideoService {
                 .countByReviewVideoQuestionIdAndStudentIdAndReviewVideoAssignmentId(questionId, student.getId(), access.assignment().getId());
         if (question.getMaxAttempts() != null && previousAttempts >= question.getMaxAttempts()) {
             throw new RetakeNotAllowedException(
+                    "error.retakeNotAllowed.reviewVideoQuestion", new Object[]{question.getMaxAttempts()},
                     "Câu hỏi này đã hết lượt nộp lại (tối đa " + question.getMaxAttempts() + ").");
         }
 
@@ -1488,6 +1491,7 @@ public class ReviewVideoService {
     private void requireNotPastDeadline(ReviewVideoAssignment assignment) {
         if (assignment.getDueAt() != null && OffsetDateTime.now().isAfter(assignment.getDueAt())) {
             throw new SubmissionPastDeadlineException(
+                    "error.submissionPastDeadline.reviewVideo", new Object[]{assignment.getDueAt()},
                     "Bản giao Video Ôn tập này đã quá hạn nộp (" + assignment.getDueAt() + ").");
         }
     }
@@ -1521,7 +1525,7 @@ public class ReviewVideoService {
         }
         if (!classTeacherRepository.existsBySchoolClassIdAndTeacherIdAndAssignedToIsNull(classId, actorUserId)) {
             throw new NotAssignedTeacherForClassException(
-                    "Bạn không được phân công giảng dạy lớp này.");
+                    "error.notAssignedTeacherForClass.default", new Object[]{}, "Bạn không được phân công giảng dạy lớp này.");
         }
     }
 
@@ -1532,7 +1536,7 @@ public class ReviewVideoService {
         }
         if (!classTeacherRepository.existsBySchoolClass_CurriculumIdAndTeacherIdAndAssignedToIsNull(curriculumId, actorUserId)) {
             throw new NotAssignedTeacherForClassException(
-                    "Bạn không dạy lớp nào thuộc khung chương trình này.");
+                    "error.notAssignedTeacherForClass.noClassInCurriculum", new Object[]{}, "Bạn không dạy lớp nào thuộc khung chương trình này.");
         }
     }
 

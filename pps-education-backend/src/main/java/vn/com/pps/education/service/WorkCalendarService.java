@@ -98,7 +98,8 @@ public class WorkCalendarService {
         try {
             override = workCalendarRepository.saveAndFlush(override);
         } catch (DataIntegrityViolationException ex) {
-            throw new WorkCalendarOverrideAlreadyExistsException(
+            throw new WorkCalendarOverrideAlreadyExistsException("error.workCalendarOverrideAlreadyExists.default",
+                    new Object[]{request.calendarDate(), scope},
                     "Đã có override lịch làm việc cho ngày " + request.calendarDate() + " (phạm vi " + scope + ").");
         }
         return toResponse(override);

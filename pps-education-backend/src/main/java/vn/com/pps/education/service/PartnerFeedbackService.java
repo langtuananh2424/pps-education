@@ -116,6 +116,7 @@ public class PartnerFeedbackService {
         requireSiteManagerForFeedback(feedback, actorUserId);
         if (feedback.getStatus() != PartnerFeedback.Status.NEW) {
             throw new InvalidFeedbackStatusTransitionException(
+                    "error.invalidFeedbackStatusTransition.notNew", new Object[]{feedback.getStatus()},
                     "Phản hồi này phải ở trạng thái Mới để chuyển Đang xử lý (hiện tại: " + feedback.getStatus() + ").");
         }
         feedback.setStatus(PartnerFeedback.Status.IN_PROGRESS);
@@ -134,7 +135,7 @@ public class PartnerFeedbackService {
         PartnerFeedback feedback = getFeedbackOrThrow(feedbackId);
         requireParticipant(feedback, actorUserId);
         if (feedback.getStatus() == PartnerFeedback.Status.CLOSED) {
-            throw new InvalidFeedbackStatusTransitionException("Phản hồi này đã Đóng, không thể trao đổi thêm.");
+            throw new InvalidFeedbackStatusTransitionException("error.invalidFeedbackStatusTransition.closed", new Object[]{}, "Phản hồi này đã Đóng, không thể trao đổi thêm.");
         }
         writeHistory(feedback, getUserOrThrow(actorUserId), PartnerFeedbackHistory.Action.EXCHANGE, Map.of("note", request.note()));
         return toResponse(feedback);
@@ -147,6 +148,7 @@ public class PartnerFeedbackService {
         requireSiteManagerForFeedback(feedback, actorUserId);
         if (feedback.getStatus() != PartnerFeedback.Status.IN_PROGRESS) {
             throw new InvalidFeedbackStatusTransitionException(
+                    "error.invalidFeedbackStatusTransition.notInProgress", new Object[]{feedback.getStatus()},
                     "Phản hồi này phải ở trạng thái Đang xử lý để giải quyết (hiện tại: " + feedback.getStatus() + ").");
         }
         feedback.setResolutionNotes(request.resolutionNotes());
@@ -168,6 +170,7 @@ public class PartnerFeedbackService {
         requireSiteManagerForFeedback(feedback, actorUserId);
         if (feedback.getStatus() != PartnerFeedback.Status.RESOLVED) {
             throw new InvalidFeedbackStatusTransitionException(
+                    "error.invalidFeedbackStatusTransition.notResolved", new Object[]{feedback.getStatus()},
                     "Phản hồi này phải ở trạng thái Đã giải quyết để Đóng (hiện tại: " + feedback.getStatus() + ").");
         }
         feedback.setStatus(PartnerFeedback.Status.CLOSED);
@@ -185,6 +188,7 @@ public class PartnerFeedbackService {
                 .filter(site -> site.getSiteType() == Site.SiteType.PARTNER)
                 .findFirst()
                 .orElseThrow(() -> new NotAuthorizedForPortalAccessException(
+                        "error.notAuthorizedForPortalAccess.noPartnerSiteAssignment", new Object[]{},
                         "Tài khoản của bạn chưa được gán vào điểm trường liên kết (loại PARTNER) nào."));
     }
 
@@ -193,6 +197,7 @@ public class PartnerFeedbackService {
                 feedback.getSite().getId(), actorUserId, SiteManager.RoleType.SITE_MANAGER);
         if (!isManager) {
             throw new NotAuthorizedForFeedbackException(
+                    "error.notAuthorizedForFeedback.notSiteManager", new Object[]{},
                     "Bạn không phụ trách điểm trường liên quan tới phản hồi này.");
         }
     }
@@ -203,6 +208,7 @@ public class PartnerFeedbackService {
                 feedback.getSite().getId(), actorUserId, SiteManager.RoleType.SITE_MANAGER);
         if (!isSubmitter && !isManager) {
             throw new NotAuthorizedForFeedbackException(
+                    "error.notAuthorizedForFeedback.notParticipant", new Object[]{},
                     "Bạn không liên quan tới phản hồi này.");
         }
     }

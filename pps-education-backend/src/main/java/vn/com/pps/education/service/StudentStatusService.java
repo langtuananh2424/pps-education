@@ -60,11 +60,13 @@ public class StudentStatusService {
 
         if (oldStatus == newStatus) {
             throw new InvalidStudentStatusTransitionException(
+                    "error.invalidStudentStatusTransition.sameStatus", new Object[]{oldStatus},
                     "Trạng thái mới trùng với trạng thái hiện tại (" + oldStatus + ").");
         }
         // A1: chặn GRADUATED->ACTIVE, chưa có cơ chế xác nhận đặc biệt.
         if (oldStatus == Student.Status.GRADUATED && newStatus == Student.Status.ACTIVE) {
             throw new InvalidStudentStatusTransitionException(
+                    "error.invalidStudentStatusTransition.graduatedToActiveBlocked", new Object[]{},
                     "Không thể chuyển thẳng từ GRADUATED về ACTIVE mà không có xác nhận đặc biệt.");
         }
 

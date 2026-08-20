@@ -65,13 +65,13 @@ public class ClassSessionCheckInService {
                 .orElseThrow(() -> new ResourceNotFoundException("error.classSessionCheckIn.classSessionNotFound", new Object[]{classSessionId}, "Không tìm thấy buổi học id=" + classSessionId));
 
         if (session.getStatus() == ClassSession.Status.CANCELLED || session.getStatus() == ClassSession.Status.RESCHEDULED) {
-            throw new ClassSessionNotCheckableException("Buổi học đã bị hủy/dời lịch, không thể nhận lớp.");
+            throw new ClassSessionNotCheckableException("error.classSessionNotCheckable.default", new Object[]{}, "Buổi học đã bị hủy/dời lịch, không thể nhận lớp.");
         }
         if (!session.getPrimaryTeacher().getId().equals(actorUserId)) {
-            throw new NotAssignedTeacherForSessionException("Bạn không được phân công dạy buổi học này.");
+            throw new NotAssignedTeacherForSessionException("error.notAssignedTeacherForSession.default", new Object[]{}, "Bạn không được phân công dạy buổi học này.");
         }
         if (classSessionCheckInRepository.existsByClassSessionId(classSessionId)) {
-            throw new AlreadyCheckedInException("Buổi học này đã được nhận lớp.");
+            throw new AlreadyCheckedInException("error.alreadyCheckedIn.classSession", new Object[]{}, "Buổi học này đã được nhận lớp.");
         }
 
         OffsetDateTime now = OffsetDateTime.now();
@@ -81,10 +81,12 @@ public class ClassSessionCheckInService {
 
         if (now.isBefore(windowOpensAt)) {
             throw new OutsideAttendanceWindowException(
+                    "error.outsideAttendanceWindow.checkInTooEarly", new Object[]{OPEN_BEFORE_MINUTES},
                     "Chưa tới giờ nhận lớp — chỉ có thể nhận lớp từ " + OPEN_BEFORE_MINUTES + " phút trước giờ học.");
         }
         if (now.isAfter(sessionEnd)) {
             throw new OutsideAttendanceWindowException(
+                    "error.outsideAttendanceWindow.checkInTooLate", new Object[]{},
                     "Đã hết giờ nhận lớp cho buổi học này — buổi học được coi là vắng.");
         }
 
@@ -93,6 +95,7 @@ public class ClassSessionCheckInService {
                 site.getId(), request.latitude(), request.longitude(), attendanceSettings.gpsRadiusMeters()));
         if (!withinRadius) {
             throw new OutsideGpsRadiusException(
+                    "error.outsideGpsRadius.classSessionCheckIn", new Object[]{site.getName()},
                     "Vị trí GPS hiện tại không nằm trong bán kính cho phép của điểm trường \"" + site.getName() + "\".");
         }
 

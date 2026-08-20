@@ -48,7 +48,8 @@ public class DepartmentService {
     @Transactional
     public DepartmentResponse create(CreateDepartmentRequest request) {
         if (departmentRepository.findByCode(request.code()).isPresent()) {
-            throw new DuplicateDepartmentCodeException("Mã phòng ban đã tồn tại: " + request.code());
+            throw new DuplicateDepartmentCodeException("error.duplicateDepartmentCode.default", new Object[]{request.code()},
+                    "Mã phòng ban đã tồn tại: " + request.code());
         }
 
         Department department = new Department();
@@ -96,15 +97,15 @@ public class DepartmentService {
     public void delete(Long id) {
         Department department = getDepartmentOrThrow(id);
         if (employeeRepository.existsByDepartmentId(id)) {
-            throw new DepartmentNotDeletableException(
+            throw new DepartmentNotDeletableException("error.departmentNotDeletable.hasEmployees", new Object[]{department.getCode()},
                     "Phòng ban '" + department.getCode() + "' đang có nhân sự trực thuộc — chuyển nhân sự sang phòng ban khác trước khi xóa.");
         }
         if (taskRepository.existsByDepartmentId(id)) {
-            throw new DepartmentNotDeletableException(
+            throw new DepartmentNotDeletableException("error.departmentNotDeletable.hasTasks", new Object[]{department.getCode()},
                     "Phòng ban '" + department.getCode() + "' đang được gắn với công việc — không thể xóa.");
         }
         if (departmentRepository.existsByParentDepartmentId(id)) {
-            throw new DepartmentNotDeletableException(
+            throw new DepartmentNotDeletableException("error.departmentNotDeletable.hasChildDepartments", new Object[]{department.getCode()},
                     "Phòng ban '" + department.getCode() + "' đang là phòng ban cha của phòng ban khác — không thể xóa.");
         }
         departmentRepository.delete(department);

@@ -60,7 +60,7 @@ public class FinanceReportService {
                 .map(sm -> sm.getSite().getId()).toList();
         if (siteIds.isEmpty()) {
             throw new NotSiteManagerForSiteException(
-                    "Bạn không được gán phụ trách điểm trường nào.");
+                    "error.notSiteManagerForSite.noneAssigned", new Object[]{}, "Bạn không được gán phụ trách điểm trường nào.");
         }
         return siteIds.stream().map(siteId -> buildSiteReport(siteId, from, to)).toList();
     }

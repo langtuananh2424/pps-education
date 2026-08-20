@@ -57,7 +57,7 @@ public class PositionService {
     @Transactional
     public PositionResponse create(CreatePositionRequest request) {
         if (positionRepository.findByCode(request.code()).isPresent()) {
-            throw new DuplicatePositionCodeException("Mã chức vụ đã tồn tại: " + request.code());
+            throw new DuplicatePositionCodeException("error.duplicatePositionCode.default", new Object[]{request.code()}, "Mã chức vụ đã tồn tại: " + request.code());
         }
         Position position = new Position();
         position.setCode(request.code());
@@ -94,6 +94,7 @@ public class PositionService {
         Position position = getPositionOrThrow(id);
         if (employeeRepository.existsByPositionId(id)) {
             throw new PositionNotDeletableException(
+                    "error.positionNotDeletable.default", new Object[]{position.getCode()},
                     "Chức vụ '" + position.getCode() + "' đang được gán cho nhân sự — chuyển nhân sự sang chức vụ khác trước khi xóa.");
         }
         positionDefaultRoleRepository.deleteAll(positionDefaultRoleRepository.findByPositionId(id));

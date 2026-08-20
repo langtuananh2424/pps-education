@@ -116,7 +116,7 @@ public class CurriculumService {
     @Transactional
     public CurriculumResponse create(CreateCurriculumRequest request, Long actorUserId) {
         if (curriculumRepository.findByCode(request.code()).isPresent()) {
-            throw new DuplicateCurriculumCodeException("Mã khung chương trình đã tồn tại: " + request.code());
+            throw new DuplicateCurriculumCodeException("error.duplicateCurriculumCode.default", new Object[]{request.code()}, "Mã khung chương trình đã tồn tại: " + request.code());
         }
         User actor = userRepository.findById(actorUserId)
                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -153,6 +153,7 @@ public class CurriculumService {
                 .countByCurriculumIdAndStatus(id, SchoolClass.Status.IN_PROGRESS) > 0;
         if (inUseByRunningClass && !request.confirm()) {
             throw new CurriculumUpdateConfirmationRequiredException(
+                    "error.curriculumUpdateConfirmationRequired.default", new Object[]{},
                     "Khung chương trình này đang được lớp IN_PROGRESS sử dụng. "
                             + "Xác nhận lại để tiếp tục lưu.");
         }
@@ -231,10 +232,11 @@ public class CurriculumService {
         Curriculum parent = getCurriculumOrThrow(request.parentCurriculumId());
         if (parent.getSite() != null) {
             throw new CurriculumNotEditableException(
+                    "error.curriculumNotEditable.notStandard", new Object[]{},
                     "Khung chương trình được chọn không phải khung chuẩn (đã là bản tùy biến), không thể dùng làm khung gốc.");
         }
         if (curriculumRepository.findByCode(request.code()).isPresent()) {
-            throw new DuplicateCurriculumCodeException("Mã khung chương trình đã tồn tại: " + request.code());
+            throw new DuplicateCurriculumCodeException("error.duplicateCurriculumCode.default", new Object[]{request.code()}, "Mã khung chương trình đã tồn tại: " + request.code());
         }
         User actor = userRepository.findById(actorUserId)
                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -266,6 +268,7 @@ public class CurriculumService {
         requireSiteManagerForSite(curriculum.getSite().getId(), actorUserId);
         if (curriculum.getStatus() != Curriculum.Status.DRAFT) {
             throw new CurriculumNotEditableException(
+                    "error.curriculumNotEditable.notDraftForEdit", new Object[]{curriculum.getStatus()},
                     "Khung chương trình tùy biến này đang ở trạng thái " + curriculum.getStatus()
                             + " — chỉ chỉnh sửa được khi còn ở trạng thái Nháp (DRAFT).");
         }
@@ -298,6 +301,7 @@ public class CurriculumService {
         requireSiteManagerForSite(curriculum.getSite().getId(), actorUserId);
         if (curriculum.getStatus() != Curriculum.Status.DRAFT) {
             throw new CurriculumNotEditableException(
+                    "error.curriculumNotEditable.notDraftForSubmit", new Object[]{curriculum.getStatus()},
                     "Khung chương trình tùy biến này đang ở trạng thái " + curriculum.getStatus()
                             + " — chỉ gửi duyệt được khi còn ở trạng thái Nháp (DRAFT).");
         }
@@ -347,7 +351,7 @@ public class CurriculumService {
                     "Không tìm thấy đề xuất khung chương trình id=" + approvalFlowId);
         }
         if (flow.getStatus() != ApprovalFlow.Status.PENDING) {
-            throw new ApprovalAlreadyDecidedException("Đề xuất này đã được quyết định (" + flow.getStatus() + ").");
+            throw new ApprovalAlreadyDecidedException("error.approvalAlreadyDecided.curriculum", new Object[]{flow.getStatus()}, "Đề xuất này đã được quyết định (" + flow.getStatus() + ").");
         }
         Curriculum curriculum = getCurriculumOrThrow(flow.getEntityId());
         User actor = userRepository.findById(actorUserId)
@@ -385,6 +389,7 @@ public class CurriculumService {
     private void requireCustomCopy(Curriculum curriculum) {
         if (curriculum.getSite() == null) {
             throw new CurriculumNotEditableException(
+                    "error.curriculumNotEditable.notCustomCopy", new Object[]{},
                     "Khung chương trình này là khung chuẩn, không phải bản tùy biến.");
         }
     }
@@ -393,7 +398,7 @@ public class CurriculumService {
         if (!siteManagerRepository.existsBySiteIdAndUserIdAndRoleTypeAndAssignedToIsNull(
                 siteId, actorUserId, SiteManager.RoleType.SITE_MANAGER)) {
             throw new NotSiteManagerForSiteException(
-                    "Bạn không được gán phụ trách điểm trường này.");
+                    "error.notSiteManagerForSite.default", new Object[]{}, "Bạn không được gán phụ trách điểm trường này.");
         }
     }
 

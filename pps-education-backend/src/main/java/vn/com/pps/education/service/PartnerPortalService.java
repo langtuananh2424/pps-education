@@ -138,6 +138,7 @@ public class PartnerPortalService {
                 .filter(sm -> sm.getSite().getSiteType() == Site.SiteType.PARTNER)
                 .findFirst()
                 .orElseThrow(() -> new NotAuthorizedForPortalAccessException(
+                        "error.notAuthorizedForPortalAccess.noPartnerSiteAssignment", new Object[]{},
                         "Tài khoản của bạn chưa được gán vào điểm trường liên kết (loại PARTNER) nào."));
         return assignment.getSite();
     }

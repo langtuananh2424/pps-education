@@ -119,8 +119,8 @@ public class PartnerContractService {
             partnerContractRepository.findBySiteIdAndStatusAndDeletedAtIsNull(siteId, PartnerContract.Status.ACTIVE)
                     .filter(existing -> !existing.getId().equals(currentContractId))
                     .ifPresent(existing -> {
-                        throw new ActivePartnerContractAlreadyExistsException(
-                                "Điểm trường này đã có hợp đồng đang hoạt động (ACTIVE) khác rồi.");
+                        throw new ActivePartnerContractAlreadyExistsException("error.activePartnerContractAlreadyExists.default",
+                                new Object[]{}, "Điểm trường này đã có hợp đồng đang hoạt động (ACTIVE) khác rồi.");
                     });
         }
 
@@ -182,7 +182,8 @@ public class PartnerContractService {
     public void deleteContract(Long contractId, Long actorUserId) {
         PartnerContract contract = getContractOrThrow(contractId);
         if (contract.getStatus() != PartnerContract.Status.DRAFT) {
-            throw new PartnerContractNotDeletableException(
+            throw new PartnerContractNotDeletableException("error.partnerContractNotDeletable.default",
+                    new Object[]{contract.getStatus()},
                     "Chỉ xóa được hợp đồng đang ở trạng thái Nháp (DRAFT); hợp đồng này đang " + contract.getStatus()
                             + " — dùng chức năng chấm dứt thay thế.");
         }
@@ -218,7 +219,8 @@ public class PartnerContractService {
         long sequence = partnerContractRepository.countByContractNumberStartingWith(prefix) + 1;
         String candidate = prefix + String.format("%04d", sequence);
         if (partnerContractRepository.existsByContractNumber(candidate)) {
-            throw new DuplicatePartnerContractNumberException("Số hợp đồng đã tồn tại: " + candidate);
+            throw new DuplicatePartnerContractNumberException("error.duplicatePartnerContractNumber.default",
+                    new Object[]{candidate}, "Số hợp đồng đã tồn tại: " + candidate);
         }
         return candidate;
     }

@@ -126,7 +126,8 @@ public class UserPermissionOverrideService {
                 .orElseThrow(() -> new ResourceNotFoundException("error.userPermissionOverride.accountNotFound",
                         new Object[]{userId}, "Không tìm thấy tài khoản id=" + userId));
         if (user.getStatus() != User.Status.ACTIVE) {
-            throw new AccountInactiveException("Tài khoản không hoạt động.");
+            throw new AccountInactiveException("error.accountInactive.short", new Object[]{},
+                    "Tài khoản không hoạt động.");
         }
         return user;
     }

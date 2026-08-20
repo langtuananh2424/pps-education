@@ -186,7 +186,8 @@ public class ReportGenerationService {
             throw new UncheckedIOException("Không tạo được file ZIP báo cáo.", ex);
         }
         if (skippedReasons.size() == activeEnrollments.size()) {
-            throw new MissingReportDataException(
+            throw new MissingReportDataException("error.missingReportData.allStudentsSkipped",
+                    new Object[]{activeEnrollments.size(), formatSkippedReasons(skippedReasons)},
                     "Không xuất được báo cáo cho bất kỳ học sinh nào trong lớp (" + activeEnrollments.size()
                             + " học sinh) — chi tiết:\n" + formatSkippedReasons(skippedReasons));
         }
@@ -256,7 +257,9 @@ public class ReportGenerationService {
         try {
             return mergeTemplate(template, mappings, context, outputFormat);
         } catch (MissingReportDataException ex) {
-            throw new MissingReportDataException(targetDescription + " — " + ex.getMessage());
+            throw new MissingReportDataException("error.missingReportData.wrappedWithTarget",
+                    new Object[]{targetDescription, ex.getMessage()},
+                    targetDescription + " — " + ex.getMessage());
         }
     }
 

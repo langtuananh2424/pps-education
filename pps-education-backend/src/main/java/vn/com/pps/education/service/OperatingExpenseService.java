@@ -92,7 +92,8 @@ public class OperatingExpenseService {
     public OperatingExpenseResponse decide(Long id, DecideOperatingExpenseRequest request, Long actorUserId) {
         OperatingExpense expense = getExpenseOrThrow(id);
         if (expense.getStatus() != OperatingExpense.Status.RECORDED) {
-            throw new OperatingExpenseAlreadyDecidedException(
+            throw new OperatingExpenseAlreadyDecidedException("error.operatingExpenseAlreadyDecided.default",
+                    new Object[]{expense.getStatus()},
                     "Khoản chi này đã được quyết định (" + expense.getStatus() + "), không thể duyệt lại.");
         }
         OperatingExpense.Status decision = OperatingExpense.Status.valueOf(request.decision());

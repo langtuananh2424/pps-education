@@ -319,6 +319,7 @@ public class StudentCommentService {
         if (existing != null && existing.getStatus() != StudentComment.Status.DRAFT
                 && existing.getStatus() != StudentComment.Status.REJECTED) {
             throw new StudentCommentNotEditableException(
+                    "error.studentCommentNotEditable.alreadyExists", new Object[]{student.getUser().getFullName(), existing.getStatus()},
                     "Học sinh " + student.getUser().getFullName() + " đã có nhận xét cho buổi học này (trạng thái: "
                             + existing.getStatus() + ") — không thể tạo thêm.");
         }
@@ -360,6 +361,7 @@ public class StudentCommentService {
         requireCanWriteDailyComment(comment.getClassSession(), actorUserId);
         if (comment.getStatus() != StudentComment.Status.DRAFT && comment.getStatus() != StudentComment.Status.REJECTED) {
             throw new StudentCommentNotEditableException(
+                    "error.studentCommentNotEditable.notDraftOrRejected", new Object[]{comment.getStatus()},
                     "Nhận xét này đang ở trạng thái " + comment.getStatus() + " — chỉ sửa được khi Nháp (DRAFT) hoặc Bị từ chối (REJECTED).");
         }
 
@@ -462,6 +464,7 @@ public class StudentCommentService {
             }
             if (comment.getStatus() != StudentComment.Status.DRAFT) {
                 throw new StudentCommentNotEditableException(
+                        "error.studentCommentNotEditable.notDraftForSubmit", new Object[]{comment.getStatus()},
                         "Nhận xét này đang ở trạng thái " + comment.getStatus() + " — chỉ gửi duyệt được khi còn Nháp (DRAFT).");
             }
             // Bổ sung ngoài SDD gốc, xác nhận 2026-08-17 — content không còn @NotBlank ở DTO (lưu nháp
@@ -469,11 +472,12 @@ public class StudentCommentService {
             // trạng thái Chờ duyệt/Đã duyệt (Phụ huynh xem được) luôn có nội dung.
             if (comment.getContent() == null || comment.getContent().isBlank()) {
                 throw new MissingCommentContentException(
+                        "error.missingCommentContent.default", new Object[]{comment.getStudent().getUser().getFullName()},
                         "Học sinh " + comment.getStudent().getUser().getFullName()
                                 + " chưa có nội dung Nhận xét — cần nhập Nhận xét trước khi gửi duyệt.");
             }
             if (comment.getClassSession().getLessonContent() == null || comment.getClassSession().getLessonContent().isBlank()) {
-                throw new MissingLessonContentException("Buổi học này chưa điền bài học hôm nay — không thể gửi duyệt.");
+                throw new MissingLessonContentException("error.missingLessonContent.default", new Object[]{}, "Buổi học này chưa điền bài học hôm nay — không thể gửi duyệt.");
             }
         }
 
@@ -545,6 +549,7 @@ public class StudentCommentService {
             requireSiteManagerForSite(comment.getSchoolClass().getSite().getId(), actorUserId);
             if (comment.getStatus() != StudentComment.Status.PENDING) {
                 throw new ApprovalAlreadyDecidedException(
+                        "error.approvalAlreadyDecided.comment", new Object[]{comment.getStatus()},
                         "Nhận xét này đã được quyết định (" + comment.getStatus() + ").");
             }
             ApprovalFlow flow = comment.getApprovalFlow();
@@ -586,12 +591,13 @@ public class StudentCommentService {
 
         // Kiểm tra quyền nghiêm ngặt giống decideComments
         if (!permissionEvaluationService.hasPermission(actorUserId, "academic.comment.approve")) {
-            throw new NotSiteManagerForSiteException("Tài khoản không có quyền duyệt nhận xét.");
+            throw new NotSiteManagerForSiteException("error.notSiteManagerForSite.noCommentApprovalPermission", new Object[]{}, "Tài khoản không có quyền duyệt nhận xét.");
         }
         requireSiteManagerForSite(comment.getSchoolClass().getSite().getId(), actorUserId);
 
         if (comment.getStatus() != StudentComment.Status.PENDING) {
             throw new StudentCommentNotEditableException(
+                    "error.studentCommentNotEditable.notPendingForManagerEdit", new Object[]{comment.getStatus()},
                     "Nhận xét này đang ở trạng thái " + comment.getStatus() + " — chỉ quản lý mới được sửa khi đang Chờ duyệt (PENDING).");
         }
 
@@ -668,6 +674,7 @@ public class StudentCommentService {
                 .anyMatch(c -> c.getStatus() == StudentComment.Status.PENDING || c.getStatus() == StudentComment.Status.APPROVED);
         if (hasSent) {
             throw new StudentCommentNotEditableException(
+                    "error.studentCommentNotEditable.sessionMetaLocked", new Object[]{},
                     "Buổi học này đã có nhận xét đang chờ duyệt/đã duyệt — không sửa được "
                             + "Loại giáo viên/Bài học hôm nay/Tên giáo viên giảng dạy nữa. Muốn sửa lại, nhờ Quản lý "
                             + "điểm trường từ chối toàn bộ nhận xét của buổi để mở khoá.");
@@ -1273,6 +1280,7 @@ public class StudentCommentService {
                 });
         if (comment.getStatus() != StudentComment.Status.DRAFT && comment.getStatus() != StudentComment.Status.REJECTED) {
             throw new StudentCommentNotEditableException(
+                    "error.studentCommentNotEditable.importNotDraftOrRejected", new Object[]{student.getStudentCode(), comment.getStatus()},
                     "Nhận xét học sinh mã=" + student.getStudentCode() + " đang ở trạng thái "
                             + comment.getStatus() + " — chỉ sửa được khi DRAFT hoặc REJECTED.");
         }
@@ -1496,6 +1504,8 @@ public class StudentCommentService {
             Long siblingChoiceId = existingChoiceId.apply(sibling);
             if (siblingChoiceId != null && !siblingChoiceId.equals(newChoiceId)) {
                 throw new HomeworkNextConflictException(
+                        "error.homeworkNextConflict.channelChoiceLocked",
+                        new Object[]{channelLabel, existingChoiceLabel.apply(sibling), sibling.getStudent().getUser().getFullName(), newChoiceLabel},
                         "BTVN " + channelLabel + " buổi này đã khóa theo lựa chọn \"" + existingChoiceLabel.apply(sibling)
                                 + "\" (chọn cho học sinh " + sibling.getStudent().getUser().getFullName()
                                 + ") — không thể đổi sang \"" + newChoiceLabel + "\" cho học sinh khác trong cùng buổi.");
@@ -1523,6 +1533,7 @@ public class StudentCommentService {
                 List.of(ClassSession.Status.CANCELLED, ClassSession.Status.RESCHEDULED), session.getTeacherType());
         if (upcoming.isEmpty()) {
             throw new NoUpcomingClassSessionException(
+                    "error.noUpcomingClassSession.default", new Object[]{session.getTeacherType()},
                     "Lớp này chưa có buổi học kế tiếp"
                             + (session.getTeacherType() != null ? " cùng loại giáo viên (" + session.getTeacherType() + ")" : "")
                             + " trong lịch — không thể đặt hạn nộp cho BTVN buổi sau.");
@@ -1576,6 +1587,8 @@ public class StudentCommentService {
             OffsetDateTime siblingDueAt = effectiveDueAt(session, sibling);
             if (siblingDueAt != null && !siblingDueAt.isEqual(newDueAt)) {
                 throw new HomeworkNextConflictException(
+                        "error.homeworkNextConflict.dueDateLocked",
+                        new Object[]{siblingDueAt, sibling.getStudent().getUser().getFullName(), newDueAt},
                         "Hạn nộp BTVN buổi này đã khóa theo " + siblingDueAt
                                 + " (chọn cho học sinh " + sibling.getStudent().getUser().getFullName()
                                 + ") — không thể đổi sang " + newDueAt + " cho học sinh khác trong cùng buổi.");
@@ -1695,6 +1708,7 @@ public class StudentCommentService {
         LocalDate deadline = classSession.getSessionDate().plusDays(windowDays);
         if (LocalDate.now().isAfter(deadline)) {
             throw new StudentCommentNotEditableException(
+                    "error.studentCommentNotEditable.outsideEditWindow", new Object[]{windowDays, classSession.getSessionDate(), deadline},
                     "Chỉ nhập/sửa nhận xét trong vòng " + windowDays + " ngày kể từ ngày buổi học ("
                             + classSession.getSessionDate() + "); hạn đã hết ngày " + deadline + ".");
         }
@@ -1797,7 +1811,7 @@ public class StudentCommentService {
         }
         if (!classTeacherRepository.existsBySchoolClassIdAndTeacherIdAndAssignedToIsNull(classId, actorUserId)) {
             throw new NotAssignedTeacherForClassException(
-                    "Bạn không được phân công giảng dạy lớp này.");
+                    "error.notAssignedTeacherForClass.default", new Object[]{}, "Bạn không được phân công giảng dạy lớp này.");
         }
     }
 

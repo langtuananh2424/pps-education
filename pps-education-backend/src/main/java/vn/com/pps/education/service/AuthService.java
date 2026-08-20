@@ -118,7 +118,8 @@ public class AuthService {
         // A1 — không tiết lộ tài khoản có tồn tại hay không
         if (maybeUser.isEmpty()) {
             recordAttempt(input, null, httpRequest, false, LoginAttempt.FailureReason.USER_NOT_FOUND);
-            throw new InvalidCredentialsException("Sai tài khoản hoặc mật khẩu.");
+            throw new InvalidCredentialsException("error.invalidCredentials.default", new Object[]{},
+                    "Sai tài khoản hoặc mật khẩu.");
         }
         User user = maybeUser.get();
 
@@ -127,7 +128,8 @@ public class AuthService {
         if (user.getPasswordHash() == null || !passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             registerFailedAttempt(user, httpRequest);
             recordAttempt(input, user, httpRequest, false, LoginAttempt.FailureReason.WRONG_PASSWORD);
-            throw new InvalidCredentialsException("Sai tài khoản hoặc mật khẩu.");
+            throw new InvalidCredentialsException("error.invalidCredentials.default", new Object[]{},
+                    "Sai tài khoản hoặc mật khẩu.");
         }
 
         recordAttempt(input, user, httpRequest, true, null);
@@ -151,7 +153,7 @@ public class AuthService {
         // A4 — tài khoản chưa được cấp phát, không có đăng ký tự phục vụ qua Google
         if (maybeUser.isEmpty()) {
             recordAttempt(identity.email(), null, httpRequest, false, LoginAttempt.FailureReason.USER_NOT_FOUND);
-            throw new GoogleAccountNotProvisionedException(
+            throw new GoogleAccountNotProvisionedException("error.googleAccountNotProvisioned.default", new Object[]{},
                     "Tài khoản chưa được cấp phát trong hệ thống. Vui lòng liên hệ Quản trị viên.");
         }
         User user = maybeUser.get();
@@ -175,7 +177,8 @@ public class AuthService {
     @Transactional(noRollbackFor = InvalidRefreshTokenException.class)
     public RefreshTokenResponse refresh(RefreshTokenRequest request, HttpServletRequest httpRequest) {
         RefreshToken token = refreshTokenRepository.findByTokenHash(sha256(request.refreshToken()))
-                .orElseThrow(() -> new InvalidRefreshTokenException("Refresh token không hợp lệ."));
+                .orElseThrow(() -> new InvalidRefreshTokenException("error.invalidRefreshToken.invalid",
+                        new Object[]{}, "Refresh token không hợp lệ."));
 
         if (token.getRevokedAt() != null) {
             // Token đã rotate trước đó nhưng vẫn bị dùng lại -- khả năng bị đánh cắp, thu hồi toàn bộ session đang hoạt động
@@ -183,11 +186,13 @@ public class AuthService {
             List<RefreshToken> activeTokens = refreshTokenRepository.findByUserIdAndRevokedAtIsNull(token.getUser().getId());
             activeTokens.forEach(t -> t.setRevokedAt(now));
             refreshTokenRepository.saveAll(activeTokens);
-            throw new InvalidRefreshTokenException("Refresh token không hợp lệ.");
+            throw new InvalidRefreshTokenException("error.invalidRefreshToken.invalid", new Object[]{},
+                    "Refresh token không hợp lệ.");
         }
 
         if (token.getExpiresAt().isBefore(OffsetDateTime.now())) {
-            throw new InvalidRefreshTokenException("Refresh token đã hết hạn.");
+            throw new InvalidRefreshTokenException("error.invalidRefreshToken.expired", new Object[]{},
+                    "Refresh token đã hết hạn.");
         }
 
         User user = token.getUser();
@@ -246,12 +251,13 @@ public class AuthService {
     private void ensureAccountUsable(User user, String identityInput, HttpServletRequest httpRequest) {
         if (user.getLockedUntil() != null && user.getLockedUntil().isAfter(OffsetDateTime.now())) {
             recordAttempt(identityInput, user, httpRequest, false, LoginAttempt.FailureReason.USER_LOCKED);
-            throw new AccountLockedException(
+            throw new AccountLockedException("error.accountLocked.default", new Object[]{user.getLockedUntil()},
                     "Tài khoản đang tạm khóa do đăng nhập sai quá nhiều lần. Thử lại sau: " + user.getLockedUntil());
         }
         if (user.getStatus() != User.Status.ACTIVE) {
             recordAttempt(identityInput, user, httpRequest, false, LoginAttempt.FailureReason.USER_INACTIVE);
-            throw new AccountInactiveException("Tài khoản không hoạt động. Vui lòng liên hệ Quản trị viên.");
+            throw new AccountInactiveException("error.accountInactive.default", new Object[]{},
+                    "Tài khoản không hoạt động. Vui lòng liên hệ Quản trị viên.");
         }
     }
 

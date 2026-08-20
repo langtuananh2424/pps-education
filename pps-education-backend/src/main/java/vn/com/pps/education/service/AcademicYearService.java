@@ -35,7 +35,8 @@ public class AcademicYearService {
     @Transactional
     public AcademicYearResponse create(CreateAcademicYearRequest request, Long actorUserId) {
         if (academicYearRepository.existsByCode(request.code())) {
-            throw new DuplicateAcademicYearCodeException("Mã năm học đã tồn tại: " + request.code());
+            throw new DuplicateAcademicYearCodeException("error.duplicateAcademicYearCode.default",
+                    new Object[]{request.code()}, "Mã năm học đã tồn tại: " + request.code());
         }
         if (request.startDate() != null && request.endDate() != null && request.endDate().isBefore(request.startDate())) {
             throw new IllegalArgumentException("endDate phải sau hoặc bằng startDate.");

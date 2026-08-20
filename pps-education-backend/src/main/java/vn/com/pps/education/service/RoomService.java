@@ -65,7 +65,8 @@ public class RoomService {
     public RoomResponse createRoom(CreateRoomRequest request, Long actorUserId) {
         Site site = getSiteOrThrow(request.siteId());
         if (roomRepository.existsBySiteIdAndCode(request.siteId(), request.code())) {
-            throw new DuplicateRoomCodeException("Mã phòng " + request.code() + " đã tồn tại tại điểm trường này.");
+            throw new DuplicateRoomCodeException("error.duplicateRoomCode.default", new Object[]{request.code()},
+                    "Mã phòng " + request.code() + " đã tồn tại tại điểm trường này.");
         }
         User actor = getUserOrThrow(actorUserId);
 
@@ -110,7 +111,8 @@ public class RoomService {
     @Transactional
     public EquipmentResponse createEquipment(CreateEquipmentRequest request, Long actorUserId) {
         if (equipmentRepository.existsByCode(request.code())) {
-            throw new DuplicateEquipmentCodeException("Mã thiết bị đã tồn tại: " + request.code());
+            throw new DuplicateEquipmentCodeException("error.duplicateEquipmentCode.default", new Object[]{request.code()},
+                    "Mã thiết bị đã tồn tại: " + request.code());
         }
         Room room = request.roomId() == null ? null : getRoomOrThrow(request.roomId());
 

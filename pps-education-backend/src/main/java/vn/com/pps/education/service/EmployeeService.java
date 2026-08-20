@@ -158,10 +158,10 @@ public class EmployeeService {
                         .orElseThrow(() -> new ResourceNotFoundException("error.employee.userNotFound", new Object[]{request.userId()}, "Không tìm thấy tài khoản id=" + request.userId()))
                 : userAccountService.createAccount(request.newAccount());
         if (employeeRepository.findByUserId(user.getId()).isPresent()) {
-            throw new EmployeeAlreadyExistsException("Tài khoản này đã có hồ sơ nhân sự.");
+            throw new EmployeeAlreadyExistsException("error.employeeAlreadyExists.default", new Object[]{}, "Tài khoản này đã có hồ sơ nhân sự.");
         }
         if (employeeRepository.findByEmployeeCode(request.employeeCode()).isPresent()) {
-            throw new DuplicateEmployeeCodeException("Mã nhân sự đã tồn tại: " + request.employeeCode());
+            throw new DuplicateEmployeeCodeException("error.duplicateEmployeeCode.default", new Object[]{request.employeeCode()}, "Mã nhân sự đã tồn tại: " + request.employeeCode());
         }
 
         Employee employee = new Employee();
@@ -293,7 +293,7 @@ public class EmployeeService {
                                                     Long actorUserId) {
         Employee employee = getEmployeeOrThrow(employeeId);
         if (employmentContractRepository.findByContractNumber(request.contractNumber()).isPresent()) {
-            throw new DuplicateContractNumberException("Số hợp đồng đã tồn tại: " + request.contractNumber());
+            throw new DuplicateContractNumberException("error.duplicateContractNumber.default", new Object[]{request.contractNumber()}, "Số hợp đồng đã tồn tại: " + request.contractNumber());
         }
         EmploymentContract.Status status = EmploymentContract.Status.valueOf(request.status());
         if (status == EmploymentContract.Status.ACTIVE) {
@@ -378,6 +378,7 @@ public class EmployeeService {
                 .findByEmployeeIdAndStatusAndDeletedAtIsNull(employeeId, EmploymentContract.Status.ACTIVE)
                 .isPresent()) {
             throw new ActiveContractAlreadyExistsException(
+                    "error.activeContractAlreadyExists.default", new Object[]{},
                     "Nhân sự này đã có hợp đồng đang hoạt động (ACTIVE) — chấm dứt/kết thúc hợp đồng cũ trước.");
         }
     }

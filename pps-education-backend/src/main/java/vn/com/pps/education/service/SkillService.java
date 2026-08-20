@@ -43,7 +43,8 @@ public class SkillService {
     public SkillResponse create(CreateSkillRequest request) {
         String code = request.code().trim().toUpperCase();
         if (skillRepository.findByCode(code).isPresent()) {
-            throw new DuplicateSkillCodeException("Mã kỹ năng đã tồn tại: " + code);
+            throw new DuplicateSkillCodeException("error.duplicateSkillCode.default", new Object[]{code},
+                    "Mã kỹ năng đã tồn tại: " + code);
         }
         Skill skill = new Skill();
         skill.setCode(code);

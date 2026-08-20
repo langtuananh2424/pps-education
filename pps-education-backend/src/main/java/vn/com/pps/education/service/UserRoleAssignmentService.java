@@ -113,7 +113,8 @@ public class UserRoleAssignmentService {
     private User getActiveUserOrThrow(Long userId) {
         User user = getUserOrThrow(userId);
         if (user.getStatus() != User.Status.ACTIVE) {
-            throw new AccountInactiveException("Tài khoản không hoạt động.");
+            throw new AccountInactiveException("error.accountInactive.short", new Object[]{},
+                    "Tài khoản không hoạt động.");
         }
         return user;
     }

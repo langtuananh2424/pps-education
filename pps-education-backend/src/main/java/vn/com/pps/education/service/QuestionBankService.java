@@ -149,7 +149,8 @@ public class QuestionBankService {
         User actor = getUserOrThrow(actorUserId);
         if (rejectActiveDuplicate && questionRepository.existsByQuestionBankIdAndContentAndStatus(
                 bank.getId(), request.content(), Question.Status.ACTIVE)) {
-            throw new DuplicateQuestionContentException(
+            throw new DuplicateQuestionContentException("error.duplicateQuestionContent.default",
+                    new Object[]{bank.getName()},
                     "Câu hỏi này đã tồn tại trong ngân hàng câu hỏi \"" + bank.getName() + "\" (trùng nội dung) — không thể tạo trùng.");
         }
         Question.QuestionType questionType = Question.QuestionType.valueOf(request.questionType());
@@ -208,7 +209,7 @@ public class QuestionBankService {
                 || !Objects.equals(question.getCorrectAnswerText(), request.correctAnswerText())
                 || !Objects.equals(question.getStructuredContent(), request.structuredContent());
         if (changesContent && studentAnswerRepository.existsByQuestionId(id)) {
-            throw new QuestionLockedException(
+            throw new QuestionLockedException("error.questionLocked.default", new Object[]{},
                     "Câu hỏi này đã có học sinh trả lời — không sửa được nội dung/đáp án. Hãy tạo câu hỏi mới rồi lưu trữ (archive) câu này.");
         }
         requireStructuredContentIfNeeded(question.getQuestionType(), request.structuredContent());

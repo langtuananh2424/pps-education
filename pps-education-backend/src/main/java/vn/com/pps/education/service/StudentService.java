@@ -211,7 +211,7 @@ public class StudentService {
         List<Long> allowedSiteIds = resolveAllowedSiteIds(actorUserId);
         if (allowedSiteIds != null && (request.primarySiteId() == null || !allowedSiteIds.contains(request.primarySiteId()))) {
             throw new NotSiteManagerForSiteException(
-                    "Bạn không được gán phụ trách điểm trường này.");
+                    "error.notSiteManagerForSite.default", new Object[]{}, "Bạn không được gán phụ trách điểm trường này.");
         }
         User user;
         if (request.userId() != null) {
@@ -222,12 +222,12 @@ public class StudentService {
             assignRole(user, "STUDENT", actorUserId);
         }
         if (studentRepository.findByUserId(user.getId()).isPresent()) {
-            throw new StudentAlreadyExistsException("Tài khoản này đã có hồ sơ học sinh.");
+            throw new StudentAlreadyExistsException("error.studentAlreadyExists.default", new Object[]{}, "Tài khoản này đã có hồ sơ học sinh.");
         }
 
         // A-mới -- mã học sinh do người dùng tự nhập, phải duy nhất (đổi từ tự sinh sang nhập tay, theo yêu cầu).
         if (studentRepository.findByStudentCode(request.studentCode()).isPresent()) {
-            throw new DuplicateStudentCodeException("Mã học sinh đã tồn tại: " + request.studentCode());
+            throw new DuplicateStudentCodeException("error.duplicateStudentCode.default", new Object[]{request.studentCode()}, "Mã học sinh đã tồn tại: " + request.studentCode());
         }
 
         Student student = new Student();
@@ -286,7 +286,7 @@ public class StudentService {
             assignRole(user, "PARENT", actorUserId);
         }
         if (parentRepository.findByUserId(user.getId()).isPresent()) {
-            throw new ParentAlreadyExistsException("Tài khoản này đã có hồ sơ phụ huynh.");
+            throw new ParentAlreadyExistsException("error.parentAlreadyExists.default", new Object[]{}, "Tài khoản này đã có hồ sơ phụ huynh.");
         }
 
         Parent parent = new Parent();
@@ -364,7 +364,7 @@ public class StudentService {
 
         if (parentStudentRepository.findByParentIdAndStudentId(parent.getId(), student.getId()).isPresent()) {
             throw new ParentStudentLinkAlreadyExistsException(
-                    "Phụ huynh này đã liên kết với học sinh này rồi.");
+                    "error.parentStudentLinkAlreadyExists.default", new Object[]{}, "Phụ huynh này đã liên kết với học sinh này rồi.");
         }
         assertContactRoleAvailable(student.getId(), request.isPrimaryContact(), request.isFinancialResponsible());
 
@@ -395,11 +395,11 @@ public class StudentService {
         List<ParentStudent> existingLinks = parentStudentRepository.findByStudentId(studentId);
         if (primaryContact && existingLinks.stream().anyMatch(ParentStudent::isPrimaryContact)) {
             throw new StudentContactRoleConflictException(
-                    "Học sinh này đã có người liên hệ chính (primary contact).");
+                    "error.studentContactRoleConflict.primaryContact", new Object[]{}, "Học sinh này đã có người liên hệ chính (primary contact).");
         }
         if (financialResponsible && existingLinks.stream().anyMatch(ParentStudent::isFinancialResponsible)) {
             throw new StudentContactRoleConflictException(
-                    "Học sinh này đã có người chịu trách nhiệm tài chính.");
+                    "error.studentContactRoleConflict.financialResponsible", new Object[]{}, "Học sinh này đã có người chịu trách nhiệm tài chính.");
         }
     }
 
@@ -478,7 +478,7 @@ public class StudentService {
                     .findBySchoolClassIdAndStudentIdAndStatus(request.toClassId(), studentId, ClassEnrollment.Status.ACTIVE)
                     .isPresent()) {
                 throw new ClassEnrollmentAlreadyActiveException(
-                        "Học sinh này đã ghi danh ACTIVE trong lớp rồi.");
+                        "error.classEnrollmentAlreadyActive.default", new Object[]{}, "Học sinh này đã ghi danh ACTIVE trong lớp rồi.");
             }
         }
 

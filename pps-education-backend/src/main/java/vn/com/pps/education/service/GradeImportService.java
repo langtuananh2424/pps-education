@@ -294,7 +294,8 @@ public class GradeImportService {
             }
         }
         if (!unmatched.isEmpty()) {
-            throw new GradeImportColumnMismatchException(
+            throw new GradeImportColumnMismatchException("error.gradeImportColumnMismatch.default",
+                    new Object[]{String.join(", ", unmatched)},
                     "Các cột không khớp thành phần điểm nào của setup sổ điểm này: "
                             + String.join(", ", unmatched)
                             + ". Bổ sung thành phần điểm hoặc sửa lại tên cột rồi import lại.");

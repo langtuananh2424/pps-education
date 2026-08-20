@@ -87,10 +87,10 @@ public class TeachingPlanService {
         AcademicYear academicYear = null;
         if (planType == TeachingPlan.PlanType.WEEKLY) {
             if (request.weekStartDate() == null || request.weekEndDate() == null) {
-                throw new InvalidTeachingPlanPeriodException("plan_type=WEEKLY phải có weekStartDate và weekEndDate.");
+                throw new InvalidTeachingPlanPeriodException("error.invalidTeachingPlanPeriod.weeklyMissingDates", new Object[]{}, "plan_type=WEEKLY phải có weekStartDate và weekEndDate.");
             }
         } else if (request.academicYearId() == null) {
-            throw new InvalidTeachingPlanPeriodException("plan_type=YEARLY phải có academicYearId.");
+            throw new InvalidTeachingPlanPeriodException("error.invalidTeachingPlanPeriod.yearlyMissingAcademicYear", new Object[]{}, "plan_type=YEARLY phải có academicYearId.");
         } else {
             academicYear = academicYearRepository.findById(request.academicYearId())
                     .orElseThrow(() -> new ResourceNotFoundException(
@@ -217,7 +217,7 @@ public class TeachingPlanService {
         }
         if (!classTeacherRepository.existsBySchoolClassIdAndTeacherIdAndAssignedToIsNull(classId, actorUserId)) {
             throw new NotAssignedTeacherForClassException(
-                    "Bạn không được phân công giảng dạy lớp này.");
+                    "error.notAssignedTeacherForClass.default", new Object[]{}, "Bạn không được phân công giảng dạy lớp này.");
         }
     }
 

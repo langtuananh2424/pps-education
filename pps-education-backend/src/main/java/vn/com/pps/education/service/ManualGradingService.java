@@ -72,7 +72,7 @@ public class ManualGradingService {
                 .orElseThrow(() -> new ResourceNotFoundException("error.manualGrading.answerNotFound",
                         new Object[]{studentAnswerId}, "Không tìm thấy câu trả lời id=" + studentAnswerId));
         if (answer.isAutoGradable()) {
-            throw new AnswerNotManuallyGradableException(
+            throw new AnswerNotManuallyGradableException("error.answerNotManuallyGradable.autoGradable", new Object[]{},
                     "Câu trả lời này thuộc câu hỏi tự chấm được — không chấm thủ công.");
         }
 

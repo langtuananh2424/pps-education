@@ -71,7 +71,8 @@ public class InvoiceController {
     public ResponseEntity<PaymentResponse> confirmBankWebhook(@RequestHeader("X-Webhook-Secret") String secret,
                                                                  @Valid @RequestBody BankWebhookPaymentRequest request) {
         if (!bankWebhookSecret.equals(secret)) {
-            throw new InvalidWebhookSecretException("Webhook secret không hợp lệ.");
+            throw new InvalidWebhookSecretException("error.invalidWebhookSecret.default", new Object[]{},
+                    "Webhook secret không hợp lệ.");
         }
         return ResponseEntity.ok(invoiceService.confirmBankWebhook(request));
     }

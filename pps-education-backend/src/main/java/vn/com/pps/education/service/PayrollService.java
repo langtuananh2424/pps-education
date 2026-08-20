@@ -93,7 +93,8 @@ public class PayrollService {
         boolean isHrManager = userRoleRepository.findByUserId(actorUserId).stream()
                 .anyMatch(ur -> "HR_MANAGER".equals(ur.getRole().getCode()));
         if (!isHrManager) {
-            throw new NotHrManagerException("Chỉ Quản lý nhân sự được xem bảng lương toàn hệ thống.");
+            throw new NotHrManagerException("error.notHrManager.default", new Object[]{},
+                    "Chỉ Quản lý nhân sự được xem bảng lương toàn hệ thống.");
         }
     }
 

@@ -151,7 +151,7 @@ public class ListeningPracticeService {
     public ListeningPracticeAttemptResponse pauseAttempt(Long attemptId, Integer positionSeconds, Long actorUserId) {
         ListeningPracticeAttempt attempt = attemptOwnedByActor(attemptId, actorUserId);
         if (attempt.getStatus() != ListeningPracticeAttempt.Status.IN_PROGRESS) {
-            throw new AttemptNotEditableException("Lượt luyện này không còn ở trạng thái đang làm (IN_PROGRESS).");
+            throw new AttemptNotEditableException("error.attemptNotEditable.listeningPractice", new Object[]{}, "Lượt luyện này không còn ở trạng thái đang làm (IN_PROGRESS).");
         }
         attempt.setPausedPositionSeconds(positionSeconds);
         attempt = practiceAttemptRepository.save(attempt);
@@ -168,7 +168,7 @@ public class ListeningPracticeService {
     public ListeningPracticeAttemptResponse submitAttempt(Long attemptId, SubmitListeningPracticeAttemptRequest request, Long actorUserId) {
         ListeningPracticeAttempt attempt = attemptOwnedByActor(attemptId, actorUserId);
         if (attempt.getStatus() != ListeningPracticeAttempt.Status.IN_PROGRESS) {
-            throw new AttemptNotEditableException("Lượt luyện này không còn ở trạng thái đang làm (IN_PROGRESS).");
+            throw new AttemptNotEditableException("error.attemptNotEditable.listeningPractice", new Object[]{}, "Lượt luyện này không còn ở trạng thái đang làm (IN_PROGRESS).");
         }
         ListeningPracticeItem item = attempt.getPracticeItem();
         OffsetDateTime now = OffsetDateTime.now();

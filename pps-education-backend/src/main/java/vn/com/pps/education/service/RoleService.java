@@ -76,7 +76,8 @@ public class RoleService {
     @Transactional
     public RoleResponse createRole(CreateRoleRequest request, Long actorUserId) {
         if (roleRepository.findByCode(request.code()).isPresent()) {
-            throw new DuplicateRoleCodeException("Mã vai trò đã tồn tại: " + request.code());
+            throw new DuplicateRoleCodeException("error.duplicateRoleCode.default",
+                    new Object[]{request.code()}, "Mã vai trò đã tồn tại: " + request.code());
         }
         User actor = getUserOrThrow(actorUserId);
 
@@ -102,14 +103,17 @@ public class RoleService {
     public void deleteRole(Long roleId, Long actorUserId) {
         Role role = getRoleOrThrow(roleId);
         if (role.isSystem()) {
-            throw new RoleNotDeletableException("Không thể xóa vai trò hệ thống '" + role.getCode() + "'.");
+            throw new RoleNotDeletableException("error.roleNotDeletable.systemRole",
+                    new Object[]{role.getCode()}, "Không thể xóa vai trò hệ thống '" + role.getCode() + "'.");
         }
         if (!userRoleRepository.findByRoleId(roleId).isEmpty()) {
-            throw new RoleNotDeletableException(
+            throw new RoleNotDeletableException("error.roleNotDeletable.hasAccounts",
+                    new Object[]{role.getCode()},
                     "Vai trò '" + role.getCode() + "' đang được gán cho tài khoản — thu hồi hết (UC-46) trước khi xóa.");
         }
         if (permissionAuditLogRepository.existsByTargetRoleId(roleId)) {
-            throw new RoleNotDeletableException(
+            throw new RoleNotDeletableException("error.roleNotDeletable.hasAuditTrail",
+                    new Object[]{role.getCode()},
                     "Vai trò '" + role.getCode() + "' đã từng được gán/thu hồi cho tài khoản — không thể xóa để giữ đúng chứng cứ tra soát.");
         }
         User actor = getUserOrThrow(actorUserId);
@@ -153,7 +157,8 @@ public class RoleService {
         // A1 -- bỏ hết quyền của role đang có tài khoản active, cần xác nhận lại
         boolean clearingAll = requestedIds.isEmpty() && !currentIds.isEmpty();
         if (clearingAll && !request.confirm() && hasActiveAccounts(roleId)) {
-            throw new RolePermissionConfirmationRequiredException(
+            throw new RolePermissionConfirmationRequiredException("error.rolePermissionConfirmationRequired.default",
+                    new Object[]{role.getCode()},
                     "Role '%s' đang có tài khoản hoạt động. Xác nhận lại (confirm=true) để xóa hết quyền."
                             .formatted(role.getCode()));
         }

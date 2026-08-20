@@ -54,7 +54,8 @@ public class ShiftService {
     @Transactional
     public ShiftResponse createShift(CreateShiftRequest request, Long actorUserId) {
         if (shiftRepository.existsByCode(request.code())) {
-            throw new DuplicateShiftCodeException("Mã ca làm việc đã tồn tại: " + request.code());
+            throw new DuplicateShiftCodeException("error.duplicateShiftCode.default",
+                    new Object[]{request.code()}, "Mã ca làm việc đã tồn tại: " + request.code());
         }
         String weekdays = validateAndNormalizeWeekdays(request.appliesToWeekdays());
         Shift.WeekParity weekParity = parseWeekParity(request.weekParity());

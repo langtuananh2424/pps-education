@@ -101,7 +101,7 @@ public class LeaveRequestService {
 
         // Main Flow bước 1 / A1 -- Ban giám đốc miễn trừ hoàn toàn.
         if (roleCodes.contains("EXECUTIVE")) {
-            throw new ExecutiveExemptFromLeaveRequestException("Ban giám đốc được miễn trừ, không thể nộp đơn từ.");
+            throw new ExecutiveExemptFromLeaveRequestException("error.executiveExemptFromLeaveRequest.default", new Object[]{}, "Ban giám đốc được miễn trừ, không thể nộp đơn từ.");
         }
 
         LeaveRequest.LeaveType leaveType = LeaveRequest.LeaveType.valueOf(request.leaveType());
@@ -293,7 +293,7 @@ public class LeaveRequestService {
         User actor = getUserOrThrow(actorUserId);
         LeaveRequest lr = getLeaveRequestOrThrow(leaveRequestId);
         if (lr.getStatus() != LeaveRequest.Status.PENDING) {
-            throw new LeaveRequestAlreadyFinalizedException("Đơn từ này đã ở trạng thái cuối.");
+            throw new LeaveRequestAlreadyFinalizedException("error.leaveRequestAlreadyFinalized.default", new Object[]{}, "Đơn từ này đã ở trạng thái cuối.");
         }
         LeaveRequestApproval currentApproval = leaveRequestApprovalRepository
                 .findByLeaveRequestIdAndStepOrder(lr.getId(), lr.getCurrentStep())
@@ -306,7 +306,7 @@ public class LeaveRequestService {
                 ? lr.getCurrentApprover().getId().equals(actorUserId)
                 : approverRoleMatchesRoleCodes(currentApproval.getApproverRole(), roleCodes);
         if (!authorized) {
-            throw new NotCurrentApproverException("Bạn không có thẩm quyền duyệt bước hiện tại của đơn từ này.");
+            throw new NotCurrentApproverException("error.notCurrentApprover.default", new Object[]{}, "Bạn không có thẩm quyền duyệt bước hiện tại của đơn từ này.");
         }
 
         LeaveRequestApproval.Decision decision = LeaveRequestApproval.Decision.valueOf(request.decision());

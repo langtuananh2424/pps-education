@@ -339,7 +339,7 @@ public class ExerciseReportService {
         if (!siteManagerRepository.existsBySiteIdAndUserIdAndRoleTypeAndAssignedToIsNull(
                 schoolClass.getSite().getId(), actorUserId, SiteManager.RoleType.SITE_MANAGER)) {
             throw new NotAssignedTeacherForClassException(
-                    "Bạn không có quyền xem thống kê BTVN của lớp này.");
+                    "error.notAssignedTeacherForClass.exerciseReportAccess", new Object[]{}, "Bạn không có quyền xem thống kê BTVN của lớp này.");
         }
     }
 }

@@ -57,7 +57,8 @@ public class PermissionService {
         }
         // A1 -- kiểm tra trùng code trước khi insert, tránh lộ raw DataIntegrityViolationException
         if (permissionRepository.findByCode(request.code()).isPresent()) {
-            throw new DuplicatePermissionCodeException("Mã quyền đã tồn tại: " + request.code());
+            throw new DuplicatePermissionCodeException("error.duplicatePermissionCode.default",
+                    new Object[]{request.code()}, "Mã quyền đã tồn tại: " + request.code());
         }
 
         Permission permission = new Permission();
@@ -93,7 +94,8 @@ public class PermissionService {
                     .collect(Collectors.joining(", "));
             String usernames = referencingOverrides.stream().map(o -> o.getUser().getUsername())
                     .collect(Collectors.joining(", "));
-            throw new PermissionInUseException(
+            throw new PermissionInUseException("error.permissionInUse.default",
+                    new Object[]{permission.getCode(), roleCodes, usernames},
                     "Không thể xóa quyền '%s' vì đang được sử dụng. Role: [%s]. Tài khoản: [%s]."
                             .formatted(permission.getCode(), roleCodes, usernames));
         }

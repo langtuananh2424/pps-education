@@ -89,6 +89,7 @@ public class TuitionPlanService {
                 .orElseThrow(() -> new ResourceNotFoundException("error.tuitionPlan.notFoundById", new Object[]{request.tuitionPlanId()}, "Không tìm thấy định mức phí id=" + request.tuitionPlanId()));
         if (plan.getStatus() != TuitionPlan.Status.ACTIVE) {
             throw new TuitionPlanNotActiveException(
+                    "error.tuitionPlanNotActive.default", new Object[]{},
                     "Định mức phí này đã ngừng áp dụng (INACTIVE), không thể gán cho lớp mới.");
         }
         User actor = getUserOrThrow(actorUserId);

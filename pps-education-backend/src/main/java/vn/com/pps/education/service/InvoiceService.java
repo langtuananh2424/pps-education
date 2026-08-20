@@ -324,6 +324,7 @@ public class InvoiceService {
     private Parent parentOrThrow(Long actorUserId) {
         return parentRepository.findByUserId(actorUserId)
                 .orElseThrow(() -> new NotAuthorizedForPortalAccessException(
+                        "error.notAuthorizedForPortalAccess.noParentProfile", new Object[]{},
                         "Tài khoản của bạn không có hồ sơ phụ huynh."));
     }
 
@@ -332,6 +333,7 @@ public class InvoiceService {
         Parent parent = parentOrThrow(actorUserId);
         if (parentStudentRepository.findByParentIdAndStudentId(parent.getId(), studentId).isEmpty()) {
             throw new NotAuthorizedForPortalAccessException(
+                    "error.notAuthorizedForPortalAccess.parentNotLinkedToStudent", new Object[]{},
                     "Tài khoản của bạn không phải phụ huynh liên kết với học sinh này.");
         }
     }

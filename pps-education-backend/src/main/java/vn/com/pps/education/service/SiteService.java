@@ -78,7 +78,8 @@ public class SiteService {
     @Transactional
     public SiteResponse createSite(CreateSiteRequest request, Long actorUserId) {
         if (siteRepository.existsByCode(request.code())) {
-            throw new DuplicateSiteCodeException("Mã điểm trường đã tồn tại: " + request.code());
+            throw new DuplicateSiteCodeException("error.duplicateSiteCode.default", new Object[]{request.code()},
+                    "Mã điểm trường đã tồn tại: " + request.code());
         }
         Site.SiteType siteType = parseSiteType(request.siteType());
         requirePartnerInfoOnlyForPartner(siteType, request.partnerInfo());
@@ -178,7 +179,7 @@ public class SiteService {
         User teacher = getUserOrThrow(request.teacherUserId());
         User actor = getUserOrThrow(actorUserId);
         if (siteTeacherRepository.existsBySiteIdAndTeacherIdAndAssignedToIsNull(site.getId(), teacher.getId())) {
-            throw new SiteTeacherAlreadyAssignedException(
+            throw new SiteTeacherAlreadyAssignedException("error.siteTeacherAlreadyAssigned.default", new Object[]{},
                     "Giáo viên này đã được gán vào điểm trường này rồi.");
         }
 

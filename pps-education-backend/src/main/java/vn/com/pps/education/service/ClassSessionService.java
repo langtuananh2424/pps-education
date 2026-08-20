@@ -249,11 +249,14 @@ public class ClassSessionService {
                     "Không tìm thấy buổi học id=" + makeupForSessionId + " thuộc lớp id=" + classId);
         }
         if (cancelledSession.getStatus() != ClassSession.Status.CANCELLED) {
-            throw new InvalidClassSessionStatusTransitionException("Chỉ có thể chọn buổi đang CANCELLED để bù (buổi id="
+            throw new InvalidClassSessionStatusTransitionException("error.invalidClassSessionStatusTransition.notCancelledForMakeup",
+                    new Object[]{makeupForSessionId, cancelledSession.getStatus()},
+                    "Chỉ có thể chọn buổi đang CANCELLED để bù (buổi id="
                     + makeupForSessionId + " hiện tại: " + cancelledSession.getStatus() + ").");
         }
         if (classSessionRepository.existsByMakeupForSessionId(makeupForSessionId)) {
-            throw new MakeupSessionAlreadyLinkedException("Buổi học đã hủy này đã có buổi bù khác liên kết rồi.");
+            throw new MakeupSessionAlreadyLinkedException("error.makeupSessionAlreadyLinked.default", new Object[]{},
+                    "Buổi học đã hủy này đã có buổi bù khác liên kết rồi.");
         }
         return cancelledSession;
     }
@@ -522,7 +525,8 @@ public class ClassSessionService {
                 room.getId(), date, startTime, endTime, editingSessionId,
                 List.of(ClassSession.Status.CANCELLED, ClassSession.Status.RESCHEDULED));
         if (!overlapping.isEmpty()) {
-            throw new RoomConflictException("Phòng học này đã có buổi học khác trùng khung giờ ngày " + date + ".");
+            throw new RoomConflictException("error.roomConflict.default", new Object[]{date},
+                    "Phòng học này đã có buổi học khác trùng khung giờ ngày " + date + ".");
         }
     }
 
@@ -537,7 +541,8 @@ public class ClassSessionService {
                 teacher.getId(), date, startTime, endTime, editingSessionId,
                 List.of(ClassSession.Status.CANCELLED, ClassSession.Status.RESCHEDULED));
         if (!overlapping.isEmpty()) {
-            throw new TeacherScheduleConflictException("Giáo viên này đã có buổi dạy khác trùng khung giờ ngày " + date + ".");
+            throw new TeacherScheduleConflictException("error.teacherScheduleConflict.default", new Object[]{date},
+                    "Giáo viên này đã có buổi dạy khác trùng khung giờ ngày " + date + ".");
         }
     }
 
@@ -552,13 +557,15 @@ public class ClassSessionService {
                 classId, date, startTime, endTime, editingSessionId,
                 List.of(ClassSession.Status.CANCELLED, ClassSession.Status.RESCHEDULED));
         if (!overlapping.isEmpty()) {
-            throw new ClassScheduleConflictException("Lớp này đã có buổi học khác trùng khung giờ ngày " + date + ".");
+            throw new ClassScheduleConflictException("error.classScheduleConflict.default", new Object[]{date},
+                    "Lớp này đã có buổi học khác trùng khung giờ ngày " + date + ".");
         }
     }
 
     private void requireScheduled(ClassSession session) {
         if (session.getStatus() != ClassSession.Status.SCHEDULED) {
-            throw new InvalidClassSessionStatusTransitionException(
+            throw new InvalidClassSessionStatusTransitionException("error.invalidClassSessionStatusTransition.notScheduled",
+                    new Object[]{session.getStatus()},
                     "Chỉ có thể hủy/dời lịch buổi học đang ở trạng thái SCHEDULED (hiện tại: " + session.getStatus() + ").");
         }
     }

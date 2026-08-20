@@ -198,7 +198,7 @@ public class ClassService {
     @Transactional
     public ClassResponse create(CreateClassRequest request, Long actorUserId) {
         if (schoolClassRepository.findByClassCode(request.classCode()).isPresent()) {
-            throw new DuplicateClassCodeException("Mã lớp đã tồn tại: " + request.classCode());
+            throw new DuplicateClassCodeException("error.duplicateClassCode.default", new Object[]{request.classCode()}, "Mã lớp đã tồn tại: " + request.classCode());
         }
         Curriculum curriculum = curriculumRepository.findByIdAndDeletedAtIsNull(request.curriculumId())
                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -206,6 +206,7 @@ public class ClassService {
                         "Không tìm thấy khung chương trình id=" + request.curriculumId()));
         if (curriculum.getStatus() != Curriculum.Status.ACTIVE) {
             throw new CurriculumNotActiveException(
+                    "error.curriculumNotActive.default", new Object[]{},
                     "Khung chương trình này chưa ở trạng thái ACTIVE.");
         }
         Site site = siteRepository.findById(request.siteId())
@@ -215,6 +216,7 @@ public class ClassService {
         // UC-17 Postcondition -- khung tùy biến (site_id NOT NULL) chỉ dùng được cho đúng điểm trường đó.
         if (curriculum.getSite() != null && !curriculum.getSite().getId().equals(site.getId())) {
             throw new CurriculumNotAvailableForSiteException(
+                    "error.curriculumNotAvailableForSite.default", new Object[]{},
                     "Khung chương trình này chỉ áp dụng cho điểm trường đã gán sẵn, không dùng được cho điểm trường bạn vừa chọn.");
         }
         SchoolClass.ClassType classType = SchoolClass.ClassType.valueOf(request.classType());
@@ -222,6 +224,7 @@ public class ClassService {
         // A2 -- Lớp liên kết bắt buộc gán Điểm trường loại Trường liên kết (PARTNER).
         if (classType == SchoolClass.ClassType.LINKED && site.getSiteType() != Site.SiteType.PARTNER) {
             throw new LinkedClassRequiresPartnerSiteException(
+                    "error.linkedClassRequiresPartnerSite.default", new Object[]{site.getSiteType()},
                     "Lớp liên kết (LINKED) bắt buộc gán Điểm trường loại PARTNER — điểm trường bạn chọn hiện là "
                             + site.getSiteType() + ".");
         }
@@ -514,6 +517,7 @@ public class ClassService {
                 .findBySchoolClassIdAndStudentIdAndStatus(classId, request.studentId(), ClassEnrollment.Status.ACTIVE)
                 .isPresent()) {
             throw new ClassEnrollmentAlreadyActiveException(
+                    "error.classEnrollmentAlreadyActive.default", new Object[]{},
                     "Học sinh này đã ghi danh ACTIVE trong lớp rồi.");
         }
         User actor = userRepository.findById(actorUserId)
@@ -576,7 +580,7 @@ public class ClassService {
         SchoolClass oldClass = getClassOrThrow(oldClassId);
 
         if (schoolClassRepository.findByClassCode(request.classCode()).isPresent()) {
-            throw new DuplicateClassCodeException("Mã lớp đã tồn tại: " + request.classCode());
+            throw new DuplicateClassCodeException("error.duplicateClassCode.default", new Object[]{request.classCode()}, "Mã lớp đã tồn tại: " + request.classCode());
         }
         AcademicYear academicYear = academicYearRepository.findById(request.academicYearId())
                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -588,11 +592,13 @@ public class ClassService {
                         "Không tìm thấy khung chương trình id=" + request.curriculumId()));
         if (newCurriculum.getStatus() != Curriculum.Status.ACTIVE) {
             throw new CurriculumNotActiveException(
+                    "error.curriculumNotActive.default", new Object[]{},
                     "Khung chương trình này chưa ở trạng thái ACTIVE.");
         }
         // UC-17 Postcondition -- khung tùy biến (site_id NOT NULL) chỉ dùng được cho đúng điểm trường đó (site giữ nguyên từ lớp cũ).
         if (newCurriculum.getSite() != null && !newCurriculum.getSite().getId().equals(oldClass.getSite().getId())) {
             throw new CurriculumNotAvailableForSiteException(
+                    "error.curriculumNotAvailableForSite.default", new Object[]{},
                     "Khung chương trình này chỉ áp dụng cho điểm trường đã gán sẵn, không dùng được cho điểm trường bạn vừa chọn.");
         }
 

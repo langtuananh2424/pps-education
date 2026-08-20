@@ -105,6 +105,7 @@ public class ListeningHintService {
         int playCount = progress == null ? 0 : progress.getPlayCount();
         if (playCount < threshold) {
             throw new ListeningHintNotUnlockedException(
+                    "error.listeningHintNotUnlocked.default", new Object[]{threshold, playCount},
                     "Cần nghe hết audio đủ " + threshold + " lần để xem gợi ý (đã nghe hết " + playCount + " lần).");
         }
 
@@ -125,7 +126,7 @@ public class ListeningHintService {
     /** Chặn gọi thẳng API sau khi đã nộp bài — trước đây chỉ FE ẩn nút "?" khi readOnly, gọi thẳng API vẫn mở được gợi ý cho lượt đã nộp (kể cả khi exercise.showCorrectAnswers=false không muốn lộ đáp án sau khi nộp). */
     private void requireInProgress(ExerciseAttempt attempt) {
         if (attempt.getStatus() != ExerciseAttempt.Status.IN_PROGRESS) {
-            throw new AttemptNotEditableException("Lượt làm bài này không còn ở trạng thái đang làm (IN_PROGRESS).");
+            throw new AttemptNotEditableException("error.attemptNotEditable.default", new Object[]{}, "Lượt làm bài này không còn ở trạng thái đang làm (IN_PROGRESS).");
         }
     }
 

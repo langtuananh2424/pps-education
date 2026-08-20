@@ -353,7 +353,7 @@ public class StudentAttendanceService {
         if (!siteManagerRepository.existsBySiteIdAndUserIdAndRoleTypeAndAssignedToIsNull(
                 siteId, actorUserId, SiteManager.RoleType.SITE_MANAGER)) {
             throw new NotSiteManagerForSiteException(
-                    "Bạn không được gán phụ trách điểm trường này.");
+                    "error.notSiteManagerForSite.default", new Object[]{}, "Bạn không được gán phụ trách điểm trường này.");
         }
         List<SchoolClass> classes = schoolClassRepository.findBySiteIdAndDeletedAtIsNull(siteId);
         return classes.stream()
@@ -405,7 +405,7 @@ public class StudentAttendanceService {
     private void requireAssignedTeacher(ClassSession classSession, Long actorUserId) {
         if (!classSession.getPrimaryTeacher().getId().equals(actorUserId)) {
             throw new NotAssignedTeacherForSessionException(
-                    "Bạn không được phân công giảng dạy buổi học này.");
+                    "error.notAssignedTeacherForSession.attendance", new Object[]{}, "Bạn không được phân công giảng dạy buổi học này.");
         }
     }
 
@@ -443,6 +443,8 @@ public class StudentAttendanceService {
     private void requireWithinSessionWindow(ClassSession classSession) {
         if (!isWithinSessionWindow(classSession)) {
             throw new AttendanceSessionNotEditableException(
+                    "error.attendanceSessionNotEditable.default",
+                    new Object[]{classSession.getSessionDate(), classSession.getStartTime(), classSession.getEndTime(), LocalDate.now(), LocalTime.now()},
                     "Chỉ điểm danh/sửa được trong khung giờ buổi học (" + classSession.getSessionDate() + " "
                             + classSession.getStartTime() + "-" + classSession.getEndTime()
                             + "); hiện tại là " + LocalDate.now() + " " + LocalTime.now()

@@ -103,6 +103,7 @@ public class PortalClassSelectionService {
             }
         }
         throw new NotAuthorizedForPortalAccessException(
+                "error.notAuthorizedForPortalAccess.notStudentOrLinkedParent", new Object[]{},
                 "Tài khoản của bạn không phải học sinh này hoặc phụ huynh liên kết với học sinh này.");
     }
 

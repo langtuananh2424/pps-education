@@ -125,7 +125,7 @@ public class ExerciseAttemptService {
         Student student = studentOrThrow(actorUserId);
         Exercise exercise = exerciseOrThrow(exerciseId);
         if (exercise.getStatus() != Exercise.Status.PUBLISHED) {
-            throw new ExerciseNotAvailableException("Đề này chưa được publish.");
+            throw new ExerciseNotAvailableException("error.exerciseNotAvailable.notPublished", new Object[]{}, "Đề này chưa được publish.");
         }
 
         // Kho đề (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30):
@@ -134,7 +134,7 @@ public class ExerciseAttemptService {
         // còn "mở tự do sau khi Publish" (mirror ExerciseService#requireCanViewExercise).
         ExerciseAssignment assignment = resolveActiveAssignmentForStudent(assignmentId, exercise, student);
         if (assignment.getAvailableFrom().isAfter(OffsetDateTime.now())) {
-            throw new ExerciseNotAvailableException("Đề này chưa tới thời gian mở làm bài.");
+            throw new ExerciseNotAvailableException("error.exerciseNotAvailable.notYetOpen", new Object[]{}, "Đề này chưa tới thời gian mở làm bài.");
         }
 
         // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — fix bug thật: đếm lượt đã làm
@@ -146,10 +146,10 @@ public class ExerciseAttemptService {
         int attemptNumber = (int) previousAttempts + 1;
         if (previousAttempts > 0) {
             if (!exercise.isAllowRetake()) {
-                throw new RetakeNotAllowedException("Đề này không cho phép làm lại.");
+                throw new RetakeNotAllowedException("error.retakeNotAllowed.notAllowed", new Object[]{}, "Đề này không cho phép làm lại.");
             }
             if (exercise.getMaxAttempts() != null && attemptNumber > exercise.getMaxAttempts()) {
-                throw new RetakeNotAllowedException("Đề này đã hết lượt làm (tối đa " + exercise.getMaxAttempts() + ").");
+                throw new RetakeNotAllowedException("error.retakeNotAllowed.maxAttemptsReached", new Object[]{exercise.getMaxAttempts()}, "Đề này đã hết lượt làm (tối đa " + exercise.getMaxAttempts() + ").");
             }
         }
 
@@ -169,7 +169,7 @@ public class ExerciseAttemptService {
     public StudentAnswerResponse saveAnswer(Long attemptId, SaveAnswerRequest request, Long actorUserId) {
         ExerciseAttempt attempt = attemptOwnedByActor(attemptId, actorUserId);
         if (attempt.getStatus() != ExerciseAttempt.Status.IN_PROGRESS) {
-            throw new AttemptNotEditableException("Lượt làm bài này không còn ở trạng thái đang làm (IN_PROGRESS).");
+            throw new AttemptNotEditableException("error.attemptNotEditable.default", new Object[]{}, "Lượt làm bài này không còn ở trạng thái đang làm (IN_PROGRESS).");
         }
         if (!exerciseQuestionRepository.existsByExerciseIdAndQuestionId(attempt.getExercise().getId(), request.questionId())) {
             throw new ResourceNotFoundException("error.exerciseAttempt.answerQuestionMismatch",
@@ -201,14 +201,14 @@ public class ExerciseAttemptService {
     public ExerciseAttemptResponse submitAttempt(Long attemptId, Long actorUserId) {
         ExerciseAttempt attempt = attemptOwnedByActor(attemptId, actorUserId);
         if (attempt.getStatus() != ExerciseAttempt.Status.IN_PROGRESS) {
-            throw new AttemptNotEditableException("Lượt làm bài này không còn ở trạng thái đang làm (IN_PROGRESS).");
+            throw new AttemptNotEditableException("error.attemptNotEditable.default", new Object[]{}, "Lượt làm bài này không còn ở trạng thái đang làm (IN_PROGRESS).");
         }
 
         OffsetDateTime now = OffsetDateTime.now();
         ExerciseAssignment assignment = attempt.getExerciseAssignment();
         if (assignment != null && assignment.getDueAt() != null && now.isAfter(assignment.getDueAt())) {
             if (!assignment.isLateSubmissionAllowed()) {
-                throw new SubmissionPastDeadlineException("Lượt làm bài này đã quá hạn nộp (" + assignment.getDueAt() + ").");
+                throw new SubmissionPastDeadlineException("error.submissionPastDeadline.exerciseAttempt", new Object[]{assignment.getDueAt()}, "Lượt làm bài này đã quá hạn nộp (" + assignment.getDueAt() + ").");
             }
             attempt.setLateSubmission(true);
         }
@@ -503,7 +503,7 @@ public class ExerciseAttemptService {
                 .filter(a -> classEnrollmentRepository
                         .findBySchoolClassIdAndStudentIdAndStatus(a.getSchoolClass().getId(), student.getId(), ClassEnrollment.Status.ACTIVE)
                         .isPresent())
-                .orElseThrow(() -> new ExerciseNotAvailableException("Đề này chưa được giao cho học sinh."));
+                .orElseThrow(() -> new ExerciseNotAvailableException("error.exerciseNotAvailable.notAssigned", new Object[]{}, "Đề này chưa được giao cho học sinh."));
         return assignment;
     }
 
