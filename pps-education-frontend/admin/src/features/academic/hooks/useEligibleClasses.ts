@@ -43,7 +43,9 @@ export function useEligibleClasses() {
         }
         const teacherLists = await Promise.all(allClasses.map((c) => listClassTeachers(c.id).catch(() => [])));
         if (cancelled) return;
-        const assignedClasses = allClasses.filter((_, i) => teacherLists[i].some((t) => t.teacherUserId === currentUser.id));
+        const assignedClasses = allClasses.filter(
+          (c, i) => teacherLists[i].some((t) => t.teacherUserId === currentUser.id && !t.assignedTo) && c.status !== "COMPLETED" && c.status !== "CANCELLED"
+        );
         setMyAssignedClassCount(assignedClasses.length);
         // Có phân công thật thì LUÔN dùng đúng phạm vi đó, dù canSeeAllClasses cũng đúng — quyền
         // quản trị chỉ mở rộng phạm vi cho tài khoản KHÔNG đứng lớp nào thật (admin/site manager thuần).

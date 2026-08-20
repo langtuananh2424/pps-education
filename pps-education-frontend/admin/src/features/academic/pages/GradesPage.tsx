@@ -65,7 +65,7 @@ export default function GradesPage() {
           [...countByClass.entries()].map(async ([classId, pendingCount]) => {
             const cls = await getClass(classId).catch(() => null);
             const teacherName = await listClassTeachers(classId)
-              .then((teachers) => teachers.find((t) => t.teacherRole === "PRIMARY")?.teacherFullName ?? teachers[0]?.teacherFullName ?? null)
+              .then((teachers) => teachers.find((t) => t.teacherRole === "PRIMARY" && !t.assignedTo)?.teacherFullName ?? teachers.find((t) => !t.assignedTo)?.teacherFullName ?? null)
               .catch(() => null);
             return { classId, classCode: cls?.classCode ?? String(classId), className: cls?.name ?? "", teacherName, pendingCount };
           })
