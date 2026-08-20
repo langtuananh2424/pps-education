@@ -1423,11 +1423,32 @@ dùng), `StudentComment.CommentType` nay chỉ còn DAILY.
         phải chọn CÙNG 1 đề/video cho mỗi kênh (độc lập nhau) — dòng đầu
         tiên khóa lựa chọn, dòng khác chọn khác bị chặn 409
         (`HomeworkNextConflictException`).
-    2.  **Sửa lựa chọn khi còn DRAFT**: hủy bản giao cũ
-        (`status=CANCELLED`), tạo/gắn bản giao mới NGAY — kể cả khi học
-        sinh đã mở bài dở; KHÔNG cascade sang các dòng comment khác cùng
-        buổi (dòng đó phát hiện lệch và bị chặn 409 khi chính GV lưu lại
-        dòng đó).
+    2.  ~~Sửa lựa chọn khi còn DRAFT: hủy bản giao cũ (`status=CANCELLED`),
+        tạo/gắn bản giao mới NGAY — kể cả khi học sinh đã mở bài dở.~~
+        **Đảo ngược V127 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+        2026-08-19) — đổi THỜI ĐIỂM giao bài từ lúc Lưu nháp sang lúc Gửi
+        nhận xét:** trước V127, chọn 1 Exercise/ReviewVideoSet giao bài
+        NGAY LẬP TỨC kể cả khi nhận xét còn DRAFT (chưa qua duyệt, thậm
+        chí chưa Gửi) — Giáo viên phát hiện qua test UI thật, cho là bất
+        hợp lý (học sinh nhận được bài trước khi Giáo viên thực sự "Gửi
+        nhận xét"). Quy tắc mới: `writeComment`/`updateComment`/`importRow`
+        (còn DRAFT/REJECTED) chỉ VALIDATE lựa chọn (còn tồn tại + không
+        xung đột cùng buổi/hạn nộp — vẫn báo lỗi NGAY, giữ nguyên trải
+        nghiệm phản hồi tức thì) rồi lưu TẠM vào 2 cột mới
+        `pending_homework_next_exercise_id`/
+        `pending_homework_next_review_video_set_id` (+ `pending_homework_next_due_date`
+        cho hạn nộp tự chọn) — KHÔNG tạo `ExerciseAssignment`/
+        `ReviewVideoAssignment`, KHÔNG thông báo học sinh. Chỉ
+        `submitComments()` (Gửi nhận xét) mới thật sự materialize lựa chọn
+        pending thành bản giao thật (tái dùng nguyên
+        `resolveExerciseHomework`/`resolveVideoHomework`, không đổi logic
+        huỷ bản cũ/tạo bản mới/thông báo — chỉ đổi THỜI ĐIỂM gọi). Hệ quả:
+        "hủy bản cũ + giao bản mới ngay" (rule cũ) giờ CHỈ còn xảy ra ở
+        đúng 1 case — sửa lựa chọn của 1 comment REJECTED đã từng Gửi (đã
+        có bản giao thật từ lần Gửi trước) rồi Gửi LẠI; sửa lựa chọn lúc
+        còn DRAFT lần đầu (chưa từng Gửi) chỉ ghi đè cột pending, không
+        đụng bản giao nào (vì chưa có gì để đụng). Xem Javadoc
+        `StudentCommentService#submitComments`.
     3.  **Comment bị REJECTED (UC-22)**: KHÔNG ảnh hưởng bài đã giao —
         giao bài và duyệt nhận xét vẫn hoàn toàn tách biệt như trước.
     4.  **Lớp chưa có buổi kế tiếp**: chặn hẳn, báo lỗi rõ
@@ -1493,7 +1514,12 @@ dùng), `StudentComment.CommentType` nay chỉ còn DAILY.
     KHÔNG thông báo lại. Với kênh Video, bước tái dùng này chạy TRƯỚC quy
     tắc hủy-giao-cũ của V69 (giao lại ở buổi SAU, `dueAt` khác, vẫn hủy
     ACTIVE cũ + tạo mới + thông báo lại như V69 — chỉ N request trùng
-    `dueAt` trong CÙNG 1 đợt gửi mới được tái dùng).
+    `dueAt` trong CÙNG 1 đợt gửi mới được tái dùng). **Đảo ngược 1 phần bởi
+    V128/V129 (2026-08-19, xem `docs/uc/phan-he-07-lms-portal.md`):** "giao
+    lại ở buổi SAU" nay CHỈ hủy-cũ-tạo-mới nếu buổi sau đó CÙNG
+    `source_class_session_id` với lần ACTIVE cũ (tức đang sửa lựa chọn
+    trong cùng 1 buổi Nhận xét); giao từ 1 buổi Nhận xét THẬT SỰ khác thì
+    không hủy nữa — tạo thêm 1 bản giao ACTIVE song song, độc lập.
 
 -   **Bổ sung V82 (2026-08-04, đã xác nhận với người dùng) — báo Giáo viên
     % hoàn thành cả lớp khi hết hạn BTVN:** áp dụng cho CẢ 2 kênh (Ngữ

@@ -28,9 +28,9 @@ export default function AttendancePage() {
         <p className="text-xs text-slate-500 mt-1">Dữ liệu chấm công thực tế đa phương thức (vân tay, khuôn mặt, GPS).</p>
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-soft p-5">
+      {/* <div className="bg-white rounded-xl border border-slate-200 shadow-soft p-5">
         <SelfAttendanceCard sites={sites} />
-      </div>
+      </div> */}
 
       {canViewAll && <AttendanceAdminSummary sites={sites} />}
     </div>

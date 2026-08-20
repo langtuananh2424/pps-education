@@ -34,6 +34,7 @@ import vn.com.pps.education.dto.DailyCommentImportResponse;
 import vn.com.pps.education.dto.DecideCommentsRequest;
 import vn.com.pps.education.dto.EnterAttendanceMarkRequest;
 import vn.com.pps.education.dto.MarkAttendanceRequest;
+import vn.com.pps.education.dto.StudentCommentHistoryResponse;
 import vn.com.pps.education.dto.StudentCommentResponse;
 import vn.com.pps.education.dto.SubmitCommentsRequest;
 import vn.com.pps.education.dto.UpdateStudentCommentContentRequest;
@@ -287,7 +288,19 @@ public class StudentCommentService {
 
     // ===================== UC-21: Viết nhận xét (TEACHER) =====================
 
-    /** Main Flow bước 1-3: lưu nháp DRAFT. */
+    /**
+     * Main Flow bước 1-3: lưu nháp DRAFT.
+     *
+     * Bổ sung ngoài SDD gốc, xác nhận 2026-08-19 — trước đây tạo {@link StudentComment} mới VÔ ĐIỀU
+     * KIỆN, không kiểm tra đã có bản ghi DAILY nào cho đúng (classSession, student) này chưa. Race giữa
+     * 2 request ghi gần như đồng thời (VD FE gọi lại do timeout, nhiều tab) có thể sinh 2 bản ghi trùng
+     * — vỡ {@link #previousComment(ClassSession, Long)}/{@link #buildTemplate(Long, Long)} (đều dùng
+     * {@code StudentCommentRepository#findByClassSessionIdAndStudentId}, giả định TỐI ĐA 1 dòng, ném
+     * {@code IncorrectResultSizeDataAccessException} khi có 2 — lộ ra FE dưới dạng lỗi 500/mất trắng dữ
+     * liệu buổi kế tiếp). Chặn ở đây: DRAFT/REJECTED có sẵn thì SỬA ĐÈ (idempotent, cùng hành vi với
+     * {@link #updateComment}) thay vì tạo mới; PENDING/APPROVED có sẵn thì báo lỗi rõ ràng thay vì âm
+     * thầm tạo bản ghi trùng.
+     */
     @Transactional
     public StudentCommentResponse writeComment(Long classId, CreateStudentCommentRequest request, Long actorUserId) {
         SchoolClass schoolClass = getClassOrThrow(classId);
@@ -301,7 +314,19 @@ public class StudentCommentService {
         Student student = studentRepository.findByIdAndDeletedAtIsNull(request.studentId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy học sinh id=" + request.studentId()));
 
-        StudentComment comment = new StudentComment();
+        StudentComment existing = studentCommentRepository
+                .findByClassSessionIdAndStudentId(classSession.getId(), student.getId()).orElse(null);
+        if (existing != null && existing.getStatus() != StudentComment.Status.DRAFT
+                && existing.getStatus() != StudentComment.Status.REJECTED) {
+            throw new StudentCommentNotEditableException(
+                    "Học sinh " + student.getUser().getFullName() + " đã có nhận xét cho buổi học này (trạng thái: "
+                            + existing.getStatus() + ") — không thể tạo thêm.");
+        }
+
+        StudentComment comment = existing != null ? existing : new StudentComment();
+        if (existing != null) {
+            comment.setApprovalFlow(null);
+        }
         comment.setStudent(student);
         comment.setSchoolClass(schoolClass);
         comment.setTeacher(actor);
@@ -310,15 +335,16 @@ public class StudentCommentService {
         comment.setAcademicYear(schoolClass.getAcademicYear());
         comment.setCommentDate(request.commentDate());
 
-        ExerciseAssignment grammarAssignment = resolveExerciseHomework(classSession, null, request.homeworkNextExerciseId(), null,
-                request.homeworkNextDueDate(), actorUserId);
-        ReviewVideoAssignment videoAssignment = resolveVideoHomework(classSession, null, request.homeworkNextReviewVideoSetId(), null,
-                request.homeworkNextDueDate(), actorUserId);
+        Long excludeCommentId = existing == null ? null : existing.getId();
+        validatePendingExerciseChoice(classSession, excludeCommentId, request.homeworkNextExerciseId(), request.homeworkNextDueDate());
+        validatePendingVideoChoice(classSession, excludeCommentId, request.homeworkNextReviewVideoSetId(), request.homeworkNextDueDate());
         applyContent(comment, request.content(), request.structuredContent(), request.severity(), request.isWarning(),
                 request.attitude(), request.homeworkPreviousScore(), request.homeworkPreviousSpeakingScore(),
-                request.homeworkNext(), grammarAssignment, videoAssignment, request.note());
+                request.homeworkNext(), request.homeworkNextExerciseId(), request.homeworkNextReviewVideoSetId(),
+                request.homeworkNextDueDate(), request.note());
+        comment.setStatus(StudentComment.Status.DRAFT);
         comment = studentCommentRepository.save(comment);
-        writeHistory(comment, actor, StudentCommentHistory.Action.CREATED);
+        writeHistory(comment, actor, existing != null ? StudentCommentHistory.Action.UPDATED : StudentCommentHistory.Action.CREATED);
         return toResponse(comment);
     }
 
@@ -337,14 +363,17 @@ public class StudentCommentService {
                     "Nhận xét này đang ở trạng thái " + comment.getStatus() + " — chỉ sửa được khi Nháp (DRAFT) hoặc Bị từ chối (REJECTED).");
         }
 
-        ExerciseAssignment grammarAssignment = resolveExerciseHomework(comment.getClassSession(), comment.getId(), request.homeworkNextExerciseId(),
-                comment.getHomeworkNextExerciseAssignment(), request.homeworkNextDueDate(), actorUserId);
-        ReviewVideoAssignment videoAssignment = resolveVideoHomework(comment.getClassSession(), comment.getId(), request.homeworkNextReviewVideoSetId(),
-                comment.getHomeworkNextReviewVideoAssignment(), request.homeworkNextDueDate(), actorUserId);
+        // V127: chỉ validate + lưu tạm lựa chọn (pendingHomeworkNext*) — KHÔNG đụng
+        // homeworkNextExerciseAssignment/homeworkNextReviewVideoAssignment ở đây, kể cả khi comment này
+        // đang REJECTED và đã từng có bản giao thật từ lần Gửi trước (đúng quy tắc "REJECTED không thu
+        // hồi bài đã giao" — huỷ bản cũ + giao bản mới chỉ xảy ra ở submitComments() lần Gửi lại).
+        validatePendingExerciseChoice(comment.getClassSession(), comment.getId(), request.homeworkNextExerciseId(), request.homeworkNextDueDate());
+        validatePendingVideoChoice(comment.getClassSession(), comment.getId(), request.homeworkNextReviewVideoSetId(), request.homeworkNextDueDate());
         comment.setApprovalFlow(null);
         applyContent(comment, request.content(), request.structuredContent(), request.severity(), request.isWarning(),
                 request.attitude(), request.homeworkPreviousScore(), request.homeworkPreviousSpeakingScore(),
-                request.homeworkNext(), grammarAssignment, videoAssignment, request.note());
+                request.homeworkNext(), request.homeworkNextExerciseId(), request.homeworkNextReviewVideoSetId(),
+                request.homeworkNextDueDate(), request.note());
         comment.setStatus(StudentComment.Status.DRAFT);
         comment = studentCommentRepository.save(comment);
         writeHistory(comment, actor, StudentCommentHistory.Action.UPDATED);
@@ -395,7 +424,28 @@ public class StudentCommentService {
         }
     }
 
-    /** Main Flow bước 4-5: Gửi (submit). */
+    /**
+     * Main Flow bước 4-5: Gửi (submit).
+     *
+     * V127 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-19) — ĐIỂM GIAO BÀI THẬT SỰ cho
+     * "BTVN buổi sau": trước V127, giao bài xảy ra ngay lúc Lưu nháp
+     * ({@code writeComment}/{@code updateComment}/{@code importRow} gọi thẳng
+     * {@link #resolveExerciseHomework}/{@link #resolveVideoHomework}); giờ 3 method đó chỉ validate +
+     * lưu tạm lựa chọn vào {@code pendingHomeworkNext*} — CHỈ Ở ĐÂY mới thật sự materialize thành
+     * {@link ExerciseAssignment}/{@link ReviewVideoAssignment} (tái dùng nguyên
+     * resolveExerciseHomework/resolveVideoHomework, không đổi logic giao/huỷ/thông báo — nên cũng tự
+     * động giữ đúng quy tắc "REJECTED không thu hồi bài đã giao": sửa lựa chọn lúc REJECTED chỉ đổi
+     * pending, Gửi lại mới huỷ bản cũ + giao bản mới qua đúng {@code previous != null} branch).
+     *
+     * Tách 2 vòng lặp (khác bản trước gộp 1 vòng) — vòng 1 validate TOÀN BỘ, không side effect nào;
+     * vòng 2 (chỉ chạy khi vòng 1 qua hết) mới thật giao bài + tạo ApprovalFlow + đổi trạng thái + save.
+     * Lý do: {@code deliverToClass()} (bên trong resolveExerciseHomework/resolveVideoHomework) chạy
+     * PROPAGATION_REQUIRES_NEW để né race unique constraint — nếu gộp 1 vòng, 1 comment SAU trong cùng
+     * batch Gửi hàng loạt fail 1 rào nghiệp vụ (thiếu content/lesson content) sẽ rollback transaction
+     * NGOÀI, nhưng bản giao của comment TRƯỚC đó (đã commit riêng qua REQUIRES_NEW, đã báo học sinh)
+     * vẫn tồn tại — kẹt nửa vời (bài đã giao thật nhưng comment lại rollback về DRAFT). Validate hết
+     * trước rồi mới giao giới hạn rủi ro này chỉ còn ở lỗi hạ tầng thật giữa chừng.
+     */
     @Transactional
     public List<StudentCommentResponse> submitComments(Long classId, SubmitCommentsRequest request, Long actorUserId) {
         requireAssignedTeacher(classId, actorUserId);
@@ -404,9 +454,8 @@ public class StudentCommentService {
         if (comments.size() != request.commentIds().size()) {
             throw new ResourceNotFoundException("Có nhận xét không tồn tại trong danh sách commentIds.");
         }
-        UUID batchId = comments.size() > 1 ? UUID.randomUUID() : null;
-        OffsetDateTime now = OffsetDateTime.now();
 
+        // Vòng 1: validate toàn bộ, không side effect nào (xem Javadoc trên).
         for (StudentComment comment : comments) {
             if (!comment.getSchoolClass().getId().equals(classId)) {
                 throw new ResourceNotFoundException("Nhận xét id=" + comment.getId() + " không thuộc lớp id=" + classId);
@@ -426,6 +475,26 @@ public class StudentCommentService {
             if (comment.getClassSession().getLessonContent() == null || comment.getClassSession().getLessonContent().isBlank()) {
                 throw new MissingLessonContentException("Buổi học này chưa điền bài học hôm nay — không thể gửi duyệt.");
             }
+        }
+
+        UUID batchId = comments.size() > 1 ? UUID.randomUUID() : null;
+        OffsetDateTime now = OffsetDateTime.now();
+
+        // Vòng 2: chỉ chạy khi vòng 1 qua hết — giao bài thật (materialize pendingHomeworkNext*) rồi
+        // mới chuyển trạng thái.
+        for (StudentComment comment : comments) {
+            ExerciseAssignment grammarAssignment = resolveExerciseHomework(comment.getClassSession(), comment.getId(),
+                    comment.getPendingHomeworkNextExerciseId(), comment.getHomeworkNextExerciseAssignment(),
+                    comment.getPendingHomeworkNextDueDate(), actorUserId);
+            ReviewVideoAssignment videoAssignment = resolveVideoHomework(comment.getClassSession(), comment.getId(),
+                    comment.getPendingHomeworkNextReviewVideoSetId(), comment.getHomeworkNextReviewVideoAssignment(),
+                    comment.getPendingHomeworkNextDueDate(), actorUserId);
+            comment.setHomeworkNextExerciseAssignment(grammarAssignment);
+            comment.setHomeworkNextReviewVideoAssignment(videoAssignment);
+            comment.setPendingHomeworkNextExerciseId(null);
+            comment.setPendingHomeworkNextReviewVideoSetId(null);
+            comment.setPendingHomeworkNextDueDate(null);
+
             ApprovalFlow flow = new ApprovalFlow();
             flow.setEntityType(ApprovalFlow.EntityType.STUDENT_COMMENT);
             flow.setEntityId(comment.getId());
@@ -661,9 +730,8 @@ public class StudentCommentService {
             row.add(resolvedSpeakingPrevious(existing, previous));
             row.add(resolvedHomeworkOffline(existing));
             row.add(resolvedHomeworkOnlineGrammar(existing));
-            row.add(existing == null || existing.getHomeworkNextReviewVideoAssignment() == null ? null
-                    : videoLabel(existing.getHomeworkNextReviewVideoAssignment().getReviewVideoSet()));
-            row.add(resolvedDueAt(existing));
+            row.add(resolvedHomeworkOnlineVideo(existing));
+            row.add(resolvedDueAt(classSession, existing));
             row.add(existing == null || existing.getAttitude() == null ? null : attitudeLabel(existing.getAttitude()));
             row.add(existing == null ? null : existing.getContent());
             row.add(existing == null ? null : existing.getNote());
@@ -683,7 +751,7 @@ public class StudentCommentService {
                 "1. Cột \"Ngày*\" (" + colLetter(COL_DATE) + "): bắt buộc đúng định dạng yyyy-MM-dd (VD: 2026-08-10), đúng bằng ngày của buổi học đang chọn — sai định dạng hoặc khác ngày sẽ bị từ chối cả dòng.",
                 "2. Cột \"Hạn nộp bài\" (" + colLetter(COL_DUE_DATE) + "): nếu có điền, đúng định dạng yyyy-MM-dd HH:mm (VD: 2026-08-10 17:30) — gõ ĐÚNG y hệt, không để Excel tự chuyển sang định dạng ngày giờ theo máy (dd/mm/yyyy, mm/dd/yyyy...) vì có thể đọc sai khi nhập lại. Nếu Excel tự đổi khi gõ, bôi đen cột này rồi Format Cells > Text trước khi nhập. PHẢI GIỐNG NHAU giữa mọi học sinh trong lớp (chỉ 1 hạn nộp chung cho cả buổi) — khác nhau sẽ bị từ chối CẢ FILE.",
                 "3. Cột \"Tên bài học\" (" + colLetter(COL_LESSON_CONTENT) + ") và \"Tên giáo viên giảng dạy\" (" + colLetter(COL_TEACHER_NAME) + "): cũng phải giống nhau giữa mọi học sinh trong lớp (1 giá trị dùng chung cho cả buổi) — khác nhau sẽ bị từ chối CẢ FILE.",
-                "4. Cột \"BTVN offline\" (" + colLetter(COL_HOMEWORK_OFFLINE) + ") và nhóm \"BTVN online\" (" + colLetter(COL_HOMEWORK_GRAMMAR_NEXT) + "-" + colLetter(COL_HOMEWORK_VIDEO_NEXT) + "): loại trừ nhau — chỉ điền 1 trong 2 cho mỗi học sinh, không điền cả offline lẫn online.",
+                "4. Cột \"BTVN offline\" (" + colLetter(COL_HOMEWORK_OFFLINE) + ") và nhóm \"BTVN online\" (" + colLetter(COL_HOMEWORK_GRAMMAR_NEXT) + "-" + colLetter(COL_HOMEWORK_VIDEO_NEXT) + "): có thể điền đồng thời cả BTVN offline (chữ tự do) và online.",
                 "5. 2 cột con của nhóm \"BTVN online\": chọn đúng 1 giá trị trong danh sách dropdown thả xuống, không tự gõ tên khác — có thể dán uuid thay cho chọn dropdown nếu danh sách quá dài (uuid xem trong Kho đề/Kho Video Ôn tập).",
                 "6. Cột \"Họ và tên\" (" + colLetter(COL_FULL_NAME) + "), \"Ngày sinh\" (" + colLetter(COL_DOB) + "), và cột con \"Offline\" trong nhóm \"BTVN buổi trước\": chỉ hiển thị để đối chiếu — sửa các cột này KHÔNG được lưu lại khi nhập lên.",
                 "7. Cột \"Điểm danh*\" (" + colLetter(COL_ATTENDANCE) + ") và \"Thái độ học tập\" (" + colLetter(COL_ATTITUDE) + "): nên chọn đúng trong dropdown cho chắc chắn, dù hệ thống có chấp nhận thêm vài biến thể viết khác."
@@ -731,7 +799,7 @@ public class StudentCommentService {
      * resolvedGrammarPrevious (đúng 1 trong 2 khác null, không cả hai).
      */
     private String resolvedOfflinePrevious(StudentComment previous) {
-        if (previous == null || previous.getHomeworkNextExerciseAssignment() != null) {
+        if (previous == null) {
             return null;
         }
         return previous.getHomeworkNext();
@@ -753,35 +821,61 @@ public class StudentCommentService {
         return videoPreviousProgressLabel(previous);
     }
 
-    /** "BTVN offline" (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06, tách khỏi cột gộp cũ) — chỉ có giá trị khi CHƯA giao online. */
+    /**
+     * "BTVN offline" — lấy giá trị BTVN offline đã nhập (homeworkNext). Bổ sung ngoài SDD gốc 2026-08-18:
+     * giao đồng thời với BTVN online, không còn bị loại trừ hay ẩn đi khi đã chọn BTVN online.
+     */
     private String resolvedHomeworkOffline(StudentComment existing) {
-        if (existing == null || existing.getHomeworkNextExerciseAssignment() != null) {
+        if (existing == null) {
             return null;
         }
         return existing.getHomeworkNext();
     }
 
-    /** "BTVN online — {Ngữ pháp/Bài nghe}" — chỉ có giá trị khi ĐÃ giao online. */
+    /**
+     * "BTVN online — {Ngữ pháp/Bài nghe}" — chỉ có giá trị khi ĐÃ giao/chọn online. V127: fallback đọc
+     * pendingHomeworkNextExerciseId (chưa Gửi) khi chưa có bản giao thật.
+     */
     private String resolvedHomeworkOnlineGrammar(StudentComment existing) {
-        if (existing == null || existing.getHomeworkNextExerciseAssignment() == null) {
+        if (existing == null) {
             return null;
         }
-        return grammarLabel(existing.getHomeworkNextExerciseAssignment().getExercise());
+        if (existing.getHomeworkNextExerciseAssignment() != null) {
+            return grammarLabel(existing.getHomeworkNextExerciseAssignment().getExercise());
+        }
+        if (existing.getPendingHomeworkNextExerciseId() != null) {
+            return exerciseRepository.findById(existing.getPendingHomeworkNextExerciseId()).map(this::grammarLabel).orElse(null);
+        }
+        return null;
+    }
+
+    /** V127: mirror resolvedHomeworkOnlineGrammar cho kênh Video Ôn tập — thay đoạn tra trực tiếp existing.getHomeworkNextReviewVideoAssignment() inline cũ ở buildTemplate. */
+    private String resolvedHomeworkOnlineVideo(StudentComment existing) {
+        if (existing == null) {
+            return null;
+        }
+        if (existing.getHomeworkNextReviewVideoAssignment() != null) {
+            return videoLabel(existing.getHomeworkNextReviewVideoAssignment().getReviewVideoSet());
+        }
+        if (existing.getPendingHomeworkNextReviewVideoSetId() != null) {
+            return reviewVideoSetRepository.findById(existing.getPendingHomeworkNextReviewVideoSetId()).map(this::videoLabel).orElse(null);
+        }
+        return null;
     }
 
     /**
      * "Hạn nộp bài" (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
      * 2026-08-06) — lấy dueAt từ bản giao Ngữ pháp/Bài nghe hoặc Video (cái
      * nào khác null), format yyyy-MM-dd HH:mm theo múi giờ hệ thống.
+     *
+     * V127: dùng {@link #effectiveDueAt} (thay vì đọc thẳng 2 assignment) — hiện được cả hạn nộp SẼ
+     * giao khi dòng còn DRAFT/REJECTED (chỉ có pendingHomeworkNextDueDate, chưa có bản giao thật).
      */
-    private String resolvedDueAt(StudentComment existing) {
+    private String resolvedDueAt(ClassSession session, StudentComment existing) {
         if (existing == null) {
             return null;
         }
-        OffsetDateTime dueAt = existing.getHomeworkNextExerciseAssignment() != null
-                ? existing.getHomeworkNextExerciseAssignment().getDueAt()
-                : existing.getHomeworkNextReviewVideoAssignment() != null
-                        ? existing.getHomeworkNextReviewVideoAssignment().getDueAt() : null;
+        OffsetDateTime dueAt = effectiveDueAt(session, existing);
         return dueAt == null ? null : dueAt.atZoneSameInstant(APP_ZONE).toLocalDateTime().format(DUE_DATE_FORMAT);
     }
 
@@ -1181,16 +1275,16 @@ public class StudentCommentService {
                             + comment.getStatus() + " — chỉ sửa được khi DRAFT hoặc REJECTED.");
         }
         // "Hạn nộp bài" — 1 giá trị chung cả buổi, đã validate/parse ở importComments (customDueDate=null thì BE tự tính = buổi kế tiếp).
-        ExerciseAssignment grammarAssignment = resolveExerciseHomework(classSession, comment.getId(),
-                grammarExercise == null ? null : grammarExercise.getId(),
-                comment.getHomeworkNextExerciseAssignment(), customDueDate, actor.getId());
-        ReviewVideoAssignment videoAssignment = resolveVideoHomework(classSession, comment.getId(),
-                videoSet == null ? null : videoSet.getId(),
-                comment.getHomeworkNextReviewVideoAssignment(), customDueDate, actor.getId());
+        // V127: chỉ validate + lưu tạm lựa chọn, KHÔNG giao ngay — mirror writeComment/updateComment.
+        validatePendingExerciseChoice(classSession, comment.getId(), grammarExercise == null ? null : grammarExercise.getId(), customDueDate);
+        validatePendingVideoChoice(classSession, comment.getId(), videoSet == null ? null : videoSet.getId(), customDueDate);
         comment.setTeacher(actor);
         comment.setApprovalFlow(null);
         applyContent(comment, content, null, null, false,
-                attitude, homeworkPrevious, homeworkPreviousSpeaking, homeworkNext, grammarAssignment, videoAssignment, note);
+                attitude, homeworkPrevious, homeworkPreviousSpeaking, homeworkNext,
+                grammarExercise == null ? null : grammarExercise.getId(),
+                videoSet == null ? null : videoSet.getId(),
+                customDueDate, note);
         comment.setStatus(StudentComment.Status.DRAFT);
         comment = studentCommentRepository.save(comment);
         writeHistory(comment, actor, StudentCommentHistory.Action.UPDATED);
@@ -1201,8 +1295,8 @@ public class StudentCommentService {
     private void applyContent(StudentComment comment, String content, Map<String, Object> structuredContent,
                                String severity, boolean isWarning, String attitude, String homeworkPreviousScore,
                                String homeworkPreviousSpeakingScore, String homeworkNext,
-                               ExerciseAssignment homeworkNextExerciseAssignment,
-                               ReviewVideoAssignment homeworkNextReviewVideoAssignment, String note) {
+                               Long pendingHomeworkNextExerciseId, Long pendingHomeworkNextReviewVideoSetId,
+                               LocalDateTime pendingHomeworkNextDueDate, String note) {
         // Bổ sung ngoài SDD gốc, xác nhận 2026-08-17 — content không còn @NotBlank ở DTO (cho lưu nháp
         // độc lập Thái độ/BTVN/Ghi chú), nhưng cột DB student_comments.content vẫn NOT NULL (V15,
         // không ALTER) — ghi "" thay vì null khi FE gửi thiếu, tránh vi phạm ràng buộc DB.
@@ -1216,8 +1310,12 @@ public class StudentCommentService {
         comment.setHomeworkPreviousScore(homeworkPreviousScore);
         comment.setHomeworkPreviousSpeakingScore(homeworkPreviousSpeakingScore);
         comment.setHomeworkNext(homeworkNext);
-        comment.setHomeworkNextExerciseAssignment(homeworkNextExerciseAssignment);
-        comment.setHomeworkNextReviewVideoAssignment(homeworkNextReviewVideoAssignment);
+        // V127: BTVN buổi sau (Exercise/ReviewVideoSet) không còn giao NGAY ở đây — chỉ lưu tạm lựa
+        // chọn (đã validate ở validatePendingExerciseChoice/validatePendingVideoChoice, gọi TRƯỚC
+        // applyContent ở cả 3 nơi gọi). Giao bài thật chỉ xảy ra ở submitComments().
+        comment.setPendingHomeworkNextExerciseId(pendingHomeworkNextExerciseId);
+        comment.setPendingHomeworkNextReviewVideoSetId(pendingHomeworkNextReviewVideoSetId);
+        comment.setPendingHomeworkNextDueDate(pendingHomeworkNextDueDate);
         comment.setNote(note);
     }
 
@@ -1231,6 +1329,15 @@ public class StudentCommentService {
      * nhận xét), hạn nộp = buổi học kế tiếp. exerciseId=null → hủy bản
      * giao cũ (nếu có), không giao gì. Không đổi so với previous (cùng
      * Exercise) → giữ nguyên, không tạo lại.
+     *
+     * V127 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-19) —
+     * CHỈ còn gọi từ {@link #submitComments}: {@code exerciseId} truyền vào
+     * là {@code pendingHomeworkNextExerciseId} (lựa chọn đã lưu tạm lúc còn
+     * DRAFT), {@code previous} là bản giao thật từ lần Gửi TRƯỚC (nếu comment
+     * đang REJECTED và đã từng giao). Phần validate (tồn tại + 2 rào xung
+     * đột) dùng chung {@link #validateExerciseChoiceAndConflicts}, cũng
+     * chính là phần {@link #validatePendingExerciseChoice} gọi ở
+     * writeComment/updateComment/importRow (còn DRAFT, chưa giao).
      *
      * @param excludeCommentId null khi đang tạo comment mới (writeComment/
      *                         importRow dòng mới) — loại trừ chính dòng
@@ -1252,22 +1359,15 @@ public class StudentCommentService {
         if (previous != null && previous.getExercise().getId().equals(exerciseId)) {
             return previous;
         }
-        Exercise exercise = exerciseRepository.findById(exerciseId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đề id=" + exerciseId));
-        requireNoHomeworkConflict(session, excludeCommentId, "Ngữ pháp",
-                c -> c.getHomeworkNextExerciseAssignment() == null ? null : c.getHomeworkNextExerciseAssignment().getExercise().getId(),
-                c -> c.getHomeworkNextExerciseAssignment() == null ? null : c.getHomeworkNextExerciseAssignment().getExercise().getTitle(),
-                exerciseId, exercise.getTitle());
-        OffsetDateTime dueAt = resolveDueAt(session, customDueDate);
-        requireNoDueDateConflict(session, excludeCommentId, dueAt);
-        ExerciseAssignment assignment = exerciseService.deliverToClass(exerciseId, session.getSchoolClass().getId(), dueAt, actorUserId, session);
+        ExerciseChoiceValidation validated = validateExerciseChoiceAndConflicts(session, excludeCommentId, exerciseId, customDueDate);
+        ExerciseAssignment assignment = exerciseService.deliverToClass(exerciseId, session.getSchoolClass().getId(), validated.dueAt(), actorUserId, session);
         if (previous != null) {
             exerciseService.cancelAssignment(previous);
         }
         return assignment;
     }
 
-    /** V65: mirror resolveExerciseHomework cho kênh Video Ôn tập — xem Javadoc đó. */
+    /** V65: mirror resolveExerciseHomework cho kênh Video Ôn tập — xem Javadoc đó (kể cả ghi chú V127). */
     private ReviewVideoAssignment resolveVideoHomework(ClassSession session, Long excludeCommentId, Long videoSetId,
                                                         ReviewVideoAssignment previous, LocalDateTime customDueDate, Long actorUserId) {
         if (videoSetId == null) {
@@ -1279,19 +1379,102 @@ public class StudentCommentService {
         if (previous != null && previous.getReviewVideoSet().getId().equals(videoSetId)) {
             return previous;
         }
-        ReviewVideoSet set = reviewVideoSetRepository.findById(videoSetId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bộ video id=" + videoSetId));
-        requireNoHomeworkConflict(session, excludeCommentId, "Video Ôn tập",
-                c -> c.getHomeworkNextReviewVideoAssignment() == null ? null : c.getHomeworkNextReviewVideoAssignment().getReviewVideoSet().getId(),
-                c -> c.getHomeworkNextReviewVideoAssignment() == null ? null : c.getHomeworkNextReviewVideoAssignment().getReviewVideoSet().getTitle(),
-                videoSetId, set.getTitle());
-        OffsetDateTime dueAt = resolveDueAt(session, customDueDate);
-        requireNoDueDateConflict(session, excludeCommentId, dueAt);
-        ReviewVideoAssignment assignment = reviewVideoService.deliverToClass(videoSetId, session.getSchoolClass().getId(), dueAt, actorUserId, session);
+        VideoChoiceValidation validated = validateVideoChoiceAndConflicts(session, excludeCommentId, videoSetId, customDueDate);
+        ReviewVideoAssignment assignment = reviewVideoService.deliverToClass(videoSetId, session.getSchoolClass().getId(), validated.dueAt(), actorUserId, session);
         if (previous != null) {
             reviewVideoService.cancelAssignment(previous);
         }
         return assignment;
+    }
+
+    /**
+     * V127: existence-check + 2 rào xung đột (chọn lựa/hạn nộp) cho kênh Ngữ pháp — dùng CHUNG cho cả
+     * bước validate-only lúc còn DRAFT ({@link #validatePendingExerciseChoice}, KHÔNG giao bài) lẫn
+     * bước giao thật lúc Gửi ({@link #resolveExerciseHomework}, tái dùng {@code dueAt} đã resolve ở
+     * đây thẳng cho {@code deliverToClass}, không resolve lại lần 2) — tránh lặp logic.
+     */
+    private record ExerciseChoiceValidation(Exercise exercise, OffsetDateTime dueAt) {}
+
+    private ExerciseChoiceValidation validateExerciseChoiceAndConflicts(ClassSession session, Long excludeCommentId, Long exerciseId, LocalDateTime customDueDate) {
+        Exercise exercise = exerciseRepository.findById(exerciseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đề id=" + exerciseId));
+        requireNoHomeworkConflict(session, excludeCommentId, "Ngữ pháp",
+                this::effectiveExerciseChoiceId, this::effectiveExerciseChoiceLabel, exerciseId, exercise.getTitle());
+        OffsetDateTime dueAt = resolveDueAt(session, customDueDate);
+        requireNoDueDateConflict(session, excludeCommentId, dueAt);
+        return new ExerciseChoiceValidation(exercise, dueAt);
+    }
+
+    /** V127: mirror validateExerciseChoiceAndConflicts cho kênh Video Ôn tập. */
+    private record VideoChoiceValidation(ReviewVideoSet set, OffsetDateTime dueAt) {}
+
+    private VideoChoiceValidation validateVideoChoiceAndConflicts(ClassSession session, Long excludeCommentId, Long videoSetId, LocalDateTime customDueDate) {
+        ReviewVideoSet set = reviewVideoSetRepository.findById(videoSetId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bộ video id=" + videoSetId));
+        requireNoHomeworkConflict(session, excludeCommentId, "Video Ôn tập",
+                this::effectiveVideoChoiceId, this::effectiveVideoChoiceLabel, videoSetId, set.getTitle());
+        OffsetDateTime dueAt = resolveDueAt(session, customDueDate);
+        requireNoDueDateConflict(session, excludeCommentId, dueAt);
+        return new VideoChoiceValidation(set, dueAt);
+    }
+
+    /**
+     * V127 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-19) — CHỈ validate lựa chọn
+     * Exercise cho "BTVN Ngữ pháp buổi sau" (còn tồn tại + không xung đột cùng buổi/hạn nộp), KHÔNG
+     * giao bài — dùng ở writeComment/updateComment/importRow (còn DRAFT/REJECTED, chưa Gửi). Giao bài
+     * thật (deliverToClass) chỉ xảy ra ở submitComments() qua resolveExerciseHomework — xem Javadoc đó
+     * để hiểu vì sao đổi thời điểm này (trước đây giao ngay lúc Lưu nháp).
+     */
+    private void validatePendingExerciseChoice(ClassSession session, Long excludeCommentId, Long exerciseId, LocalDateTime customDueDate) {
+        if (exerciseId == null) {
+            return;
+        }
+        validateExerciseChoiceAndConflicts(session, excludeCommentId, exerciseId, customDueDate);
+    }
+
+    /** V127: mirror validatePendingExerciseChoice cho kênh Video Ôn tập. */
+    private void validatePendingVideoChoice(ClassSession session, Long excludeCommentId, Long videoSetId, LocalDateTime customDueDate) {
+        if (videoSetId == null) {
+            return;
+        }
+        validateVideoChoiceAndConflicts(session, excludeCommentId, videoSetId, customDueDate);
+    }
+
+    /**
+     * V127: lựa chọn "sẽ giao/đã giao" HIỆU LỰC của 1 comment cho kênh Ngữ pháp — ưu tiên
+     * pendingHomeworkNextExerciseId (chưa Gửi), nếu null thì đọc từ bản đã giao thật (đã Gửi). Dùng
+     * cho MỌI so sánh xung đột (requireNoHomeworkConflict/effectiveDueAt) vì 1 buổi học có thể có
+     * sibling đang Ở LẪN 2 TRẠNG THÁI cùng lúc (1 học sinh đã Gửi = có bản giao thật + pending đã về
+     * null, học sinh khác còn Nháp = chỉ có pending) — nếu chỉ so "pending với pending" sẽ bỏ sót xung
+     * đột ngay khi có ít nhất 1 học sinh trong buổi đã Gửi trước.
+     */
+    private Long effectiveExerciseChoiceId(StudentComment c) {
+        if (c.getPendingHomeworkNextExerciseId() != null) {
+            return c.getPendingHomeworkNextExerciseId();
+        }
+        return c.getHomeworkNextExerciseAssignment() == null ? null : c.getHomeworkNextExerciseAssignment().getExercise().getId();
+    }
+
+    private String effectiveExerciseChoiceLabel(StudentComment c) {
+        if (c.getPendingHomeworkNextExerciseId() != null) {
+            return exerciseRepository.findById(c.getPendingHomeworkNextExerciseId()).map(Exercise::getTitle).orElse("?");
+        }
+        return c.getHomeworkNextExerciseAssignment() == null ? null : c.getHomeworkNextExerciseAssignment().getExercise().getTitle();
+    }
+
+    /** V127: mirror effectiveExerciseChoiceId cho kênh Video Ôn tập. */
+    private Long effectiveVideoChoiceId(StudentComment c) {
+        if (c.getPendingHomeworkNextReviewVideoSetId() != null) {
+            return c.getPendingHomeworkNextReviewVideoSetId();
+        }
+        return c.getHomeworkNextReviewVideoAssignment() == null ? null : c.getHomeworkNextReviewVideoAssignment().getReviewVideoSet().getId();
+    }
+
+    private String effectiveVideoChoiceLabel(StudentComment c) {
+        if (c.getPendingHomeworkNextReviewVideoSetId() != null) {
+            return reviewVideoSetRepository.findById(c.getPendingHomeworkNextReviewVideoSetId()).map(ReviewVideoSet::getTitle).orElse("?");
+        }
+        return c.getHomeworkNextReviewVideoAssignment() == null ? null : c.getHomeworkNextReviewVideoAssignment().getReviewVideoSet().getTitle();
     }
 
     /**
@@ -1370,14 +1553,26 @@ public class StudentCommentService {
      * (ExerciseService/ReviewVideoService#deliverToClass dedupe theo
      * (nguồn, lớp, dueAt) — dueAt khác nhau sẽ âm thầm tạo 2 bản giao riêng
      * biệt nếu không chặn ở đây).
+     *
+     * Sửa 2026-08-19 — so bằng {@code isEqual()} thay vì {@code equals()} (bug tương tự đã gặp và
+     * fix ở {@code ExerciseService#sameDueAt}/{@code ReviewVideoService#deliverToClass}, nhưng bỏ
+     * sót ở đây): {@code newDueAt} tính tươi trong bộ nhớ mang offset hệ thống (VD "+07:00" —
+     * `hibernate.jdbc.time_zone: UTC` ở application.yml không ảnh hưởng object mới tạo, chỉ ảnh
+     * hưởng lúc ĐỌC lại qua JDBC), còn {@code siblingDueAt} đọc từ 1 StudentComment khác vừa
+     * load lại qua Hibernate luôn mang offset UTC "Z". Cùng 1 thời điểm nhưng khác offset khiến
+     * {@code equals()} (so cả offset) luôn coi là KHÁC nhau — "Gán nhanh cho cả lớp" (cùng 1 hạn
+     * nộp cho mọi học sinh trong buổi) sẽ bị chặn nhầm ngay từ học sinh thứ 2 trở đi.
+     *
+     * V127 — đọc hạn nộp của sibling qua {@link #effectiveDueAt} (thay vì trực tiếp từ bản giao thật)
+     * để hoạt động đúng khi sibling còn Nháp (chỉ có pendingHomeworkNextDueDate, chưa có bản giao).
      */
     private void requireNoDueDateConflict(ClassSession session, Long excludeCommentId, OffsetDateTime newDueAt) {
         for (StudentComment sibling : studentCommentRepository.findByClassSessionId(session.getId())) {
             if (excludeCommentId != null && sibling.getId().equals(excludeCommentId)) {
                 continue;
             }
-            OffsetDateTime siblingDueAt = extractHomeworkNextDueAt(sibling);
-            if (siblingDueAt != null && !siblingDueAt.equals(newDueAt)) {
+            OffsetDateTime siblingDueAt = effectiveDueAt(session, sibling);
+            if (siblingDueAt != null && !siblingDueAt.isEqual(newDueAt)) {
                 throw new HomeworkNextConflictException(
                         "Hạn nộp BTVN buổi này đã khóa theo " + siblingDueAt
                                 + " (chọn cho học sinh " + sibling.getStudent().getUser().getFullName()
@@ -1386,9 +1581,24 @@ public class StudentCommentService {
         }
     }
 
-    private OffsetDateTime extractHomeworkNextDueAt(StudentComment c) {
-        return c.getHomeworkNextExerciseAssignment() != null ? c.getHomeworkNextExerciseAssignment().getDueAt()
-                : c.getHomeworkNextReviewVideoAssignment() != null ? c.getHomeworkNextReviewVideoAssignment().getDueAt() : null;
+    /**
+     * V127: hạn nộp HIỆU LỰC của 1 comment — đã giao thật (đọc thẳng từ bản giao, không đổi so với
+     * trước) nếu có, không thì SẼ giao (resolve từ pendingHomeworkNextDueDate, giống hệt cách
+     * resolveExerciseHomework/resolveVideoHomework sẽ resolve lúc Gửi thật) nếu còn đang Nháp có lựa
+     * chọn nào đó, không có gì thì null (chưa chọn kênh nào). Mirror effectiveExerciseChoiceId/
+     * effectiveVideoChoiceId — cùng lý do "sibling có thể lẫn trạng thái Nháp/Đã gửi".
+     */
+    private OffsetDateTime effectiveDueAt(ClassSession session, StudentComment c) {
+        if (c.getHomeworkNextExerciseAssignment() != null) {
+            return c.getHomeworkNextExerciseAssignment().getDueAt();
+        }
+        if (c.getHomeworkNextReviewVideoAssignment() != null) {
+            return c.getHomeworkNextReviewVideoAssignment().getDueAt();
+        }
+        if (c.getPendingHomeworkNextExerciseId() != null || c.getPendingHomeworkNextReviewVideoSetId() != null) {
+            return resolveDueAt(session, c.getPendingHomeworkNextDueDate());
+        }
+        return null;
     }
 
     /** Chấp nhận dán uuid (không giới hạn theo lớp) HOẶC chọn đúng nhãn dropdown (giới hạn theo bài đã gán cho lớp). */
@@ -1435,15 +1645,20 @@ public class StudentCommentService {
      * buổi 3, bỏ qua buổi GVVN xen giữa) — vì 2 mạch bài GVVN/GVNN thường
      * độc lập nhau, gối theo buổi liền kề tuyệt đối sẽ lẫn lộn tiến độ của
      * 2 mạch. Buổi không xác định teacherType (giá trị cũ/tùy chọn) vẫn
-     * giữ hành vi cũ — đối chiếu buổi liền kề tuyệt đối.
+     * giữ hành vi cũ — đối chiếu buổi liền kề tuyệt đối. Sửa 2026-08-19
+     * (đã xác nhận với người dùng, fix bug thật phát hiện qua test dữ liệu
+     * thật lớp 6G): loại CANCELLED/RESCHEDULED khỏi "buổi liền trước" —
+     * trước đây không lọc, chỉ đúng tình cờ nhờ tiebreak idDesc, xem
+     * Javadoc ClassSessionRepository#findFirstBySchoolClassIdAndSessionDateLessThanAndStatusNotInOrderBySessionDateDescIdDesc.
      */
     private StudentComment previousComment(ClassSession classSession, Long studentId) {
         ClassSession.TeacherType teacherType = classSession.getTeacherType();
+        List<ClassSession.Status> excludedStatuses = List.of(ClassSession.Status.CANCELLED, ClassSession.Status.RESCHEDULED);
         Optional<ClassSession> previousSession = teacherType != null
-                ? classSessionRepository.findFirstBySchoolClassIdAndSessionDateLessThanAndTeacherTypeOrderBySessionDateDescIdDesc(
-                        classSession.getSchoolClass().getId(), classSession.getSessionDate(), teacherType)
-                : classSessionRepository.findFirstBySchoolClassIdAndSessionDateLessThanOrderBySessionDateDescIdDesc(
-                        classSession.getSchoolClass().getId(), classSession.getSessionDate());
+                ? classSessionRepository.findFirstBySchoolClassIdAndSessionDateLessThanAndTeacherTypeAndStatusNotInOrderBySessionDateDescIdDesc(
+                        classSession.getSchoolClass().getId(), classSession.getSessionDate(), teacherType, excludedStatuses)
+                : classSessionRepository.findFirstBySchoolClassIdAndSessionDateLessThanAndStatusNotInOrderBySessionDateDescIdDesc(
+                        classSession.getSchoolClass().getId(), classSession.getSessionDate(), excludedStatuses);
         return previousSession
                 .flatMap(prev -> studentCommentRepository.findByClassSessionIdAndStudentId(prev.getId(), studentId))
                 .orElse(null);
@@ -1626,14 +1841,95 @@ public class StudentCommentService {
         history.setStudentComment(comment);
         history.setChangedBy(actor);
         history.setAction(action);
+        history.setDetails(buildHistorySnapshot(comment));
+        studentCommentHistoryRepository.save(history);
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-19) — version
+     * history kiểu Google Sheets: mỗi lần lưu (Lưu nháp/Gửi nhận xét/Duyệt/
+     * Từ chối/sửa PENDING) chụp lại TOÀN BỘ nội dung nhận xét tại đúng thời
+     * điểm đó, không chỉ vài field metadata mỏng như bản gốc. Đề mục
+     * Exercise/ReviewVideoSet chụp bằng TÊN (denormalize), không chỉ id —
+     * để xem lại 1 phiên bản cũ không bị sai lệch nếu đề/video sau này bị
+     * đổi tên hoặc xoá.
+     */
+    private Map<String, Object> buildHistorySnapshot(StudentComment comment) {
         Map<String, Object> snapshot = new LinkedHashMap<>();
-        snapshot.put("studentId", comment.getStudent().getId());
-        snapshot.put("commentType", comment.getCommentType().name());
+        snapshot.put("status", comment.getStatus().name());
+        snapshot.put("content", comment.getContent());
         snapshot.put("severity", comment.getSeverity().name());
         snapshot.put("isWarning", comment.isWarning());
-        snapshot.put("status", comment.getStatus().name());
-        history.setDetails(snapshot);
-        studentCommentHistoryRepository.save(history);
+        snapshot.put("attitude", comment.getAttitude() == null ? null : comment.getAttitude().name());
+        snapshot.put("homeworkPreviousScore", comment.getHomeworkPreviousScore());
+        snapshot.put("homeworkPreviousSpeakingScore", comment.getHomeworkPreviousSpeakingScore());
+        // Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-19) — khớp đủ cột với bảng chính
+        // (Nhận xét học viên có 2 cột "BTVN buổi trước" TỰ ĐỘNG, xem PreviousProgressCell FE) — tính
+        // NGAY tại thời điểm lưu (không chờ đọc lại), đúng tinh thần "snapshot đúng lúc đó", dù giá trị
+        // có thể trùng ở nhiều phiên bản liên tiếp nếu buổi trước không có gì thay đổi thêm.
+        StudentComment previous = previousComment(comment.getClassSession(), comment.getStudent().getId());
+        snapshot.put("grammarPreviousProgress", grammarPreviousProgressLabel(previous));
+        snapshot.put("videoPreviousProgress", videoPreviousProgressLabel(previous));
+        snapshot.put("homeworkNext", comment.getHomeworkNext());
+        snapshot.put("note", comment.getNote());
+        snapshot.put("rejectionReason", comment.getRejectionReason());
+
+        ExerciseAssignment grammarNext = comment.getHomeworkNextExerciseAssignment();
+        ReviewVideoAssignment videoNext = comment.getHomeworkNextReviewVideoAssignment();
+        snapshot.put("homeworkNextExerciseTitle", grammarNext == null ? null : grammarNext.getExercise().getTitle());
+        snapshot.put("homeworkNextReviewVideoSetTitle", videoNext == null ? null : videoNext.getReviewVideoSet().getTitle());
+        OffsetDateTime dueAt = grammarNext != null ? grammarNext.getDueAt() : videoNext != null ? videoNext.getDueAt() : null;
+        snapshot.put("homeworkNextDueAt", dueAt == null ? null : dueAt.toString());
+
+        Long pendingExerciseId = comment.getPendingHomeworkNextExerciseId();
+        snapshot.put("pendingHomeworkNextExerciseTitle", pendingExerciseId == null ? null
+                : exerciseRepository.findById(pendingExerciseId).map(Exercise::getTitle).orElse(null));
+        Long pendingVideoSetId = comment.getPendingHomeworkNextReviewVideoSetId();
+        snapshot.put("pendingHomeworkNextReviewVideoSetTitle", pendingVideoSetId == null ? null
+                : reviewVideoSetRepository.findById(pendingVideoSetId).map(ReviewVideoSet::getTitle).orElse(null));
+        LocalDateTime pendingDueDate = comment.getPendingHomeworkNextDueDate();
+        snapshot.put("pendingHomeworkNextDueDate", pendingDueDate == null ? null : pendingDueDate.toString());
+
+        return snapshot;
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-19) — timeline
+     * version history của 1 nhận xét, mới nhất trước. Không rào quyền riêng
+     * (giống listComments/listCommentsForClass ở trên — endpoint đọc, không
+     * side effect, cùng mức lộ dữ liệu với "Lịch sử nhận xét buổi này" đã
+     * hiển thị sẵn cho cả lớp).
+     */
+    @Transactional(readOnly = true)
+    public List<StudentCommentHistoryResponse> listHistory(Long commentId) {
+        getCommentOrThrow(commentId);
+        return studentCommentHistoryRepository.findByStudentCommentIdOrderByCreatedAtDesc(commentId)
+                .stream().map(this::toHistoryResponse).toList();
+    }
+
+    private StudentCommentHistoryResponse toHistoryResponse(StudentCommentHistory h) {
+        StudentComment comment = h.getStudentComment();
+        return new StudentCommentHistoryResponse(
+                h.getId(), comment.getId(), comment.getStudent().getId(), comment.getStudent().getUser().getFullName(),
+                h.getChangedBy().getId(), h.getChangedBy().getFullName(),
+                h.getAction().name(), h.getDetails(), h.getCreatedAt());
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-19) — timeline
+     * version history của CẢ BUỔI (mọi học sinh, gộp chung 1 danh sách theo
+     * thời gian) — dùng cho nút "Lịch sử phiên bản" ở đầu bảng Nhận xét hàng
+     * ngày (kiểu Google Sheets: 1 nút xem lại TOÀN BỘ bảng tại 1 mốc, không
+     * phải xem riêng từng dòng học sinh — khác {@link #listHistory} ở trên).
+     * FE tự gộp các bản ghi gần nhau thành 1 "phiên bản" (1 lần Lưu nháp/Gửi
+     * thường tạo N bản ghi liên tiếp, 1 bản ghi/học sinh — không có sẵn 1
+     * batch id dùng chung vì "Lưu nháp" hiện là N request riêng biệt/học
+     * sinh, không phải 1 request gộp).
+     */
+    @Transactional(readOnly = true)
+    public List<StudentCommentHistoryResponse> listHistoryForSession(Long classSessionId) {
+        return studentCommentHistoryRepository.findByStudentComment_ClassSession_IdOrderByCreatedAtDesc(classSessionId)
+                .stream().map(this::toHistoryResponse).toList();
     }
 
     private StudentComment getCommentOrThrow(Long id) {
@@ -1668,6 +1964,15 @@ public class StudentCommentService {
         StudentComment previous = previousComment(c.getClassSession(), c.getStudent().getId());
         ExerciseAssignment grammarNext = c.getHomeworkNextExerciseAssignment();
         ReviewVideoAssignment videoNext = c.getHomeworkNextReviewVideoAssignment();
+        // V127: lựa chọn CHƯA giao (còn DRAFT/REJECTED, chưa Gửi lại) — chỉ có id nguồn, tự tra tên
+        // hiển thị cho FE (mirror grammarNext.getExercise().getTitle() ở trên, khác chỗ chưa có bản
+        // giao để đọc thẳng title qua đó).
+        Long pendingExerciseId = c.getPendingHomeworkNextExerciseId();
+        String pendingExerciseTitle = pendingExerciseId == null ? null
+                : exerciseRepository.findById(pendingExerciseId).map(Exercise::getTitle).orElse(null);
+        Long pendingVideoSetId = c.getPendingHomeworkNextReviewVideoSetId();
+        String pendingVideoSetTitle = pendingVideoSetId == null ? null
+                : reviewVideoSetRepository.findById(pendingVideoSetId).map(ReviewVideoSet::getTitle).orElse(null);
         return new StudentCommentResponse(
                 c.getId(), c.getStudent().getId(), c.getStudent().getUser().getFullName(), c.getStudent().getDateOfBirth(),
                 c.getSchoolClass().getId(), c.getTeacher().getId(), c.getCommentType().name(),
@@ -1685,6 +1990,9 @@ public class StudentCommentService {
                 videoNext == null ? null : videoNext.getId(),
                 videoNext == null ? null : videoNext.getReviewVideoSet().getTitle(),
                 grammarNext != null ? grammarNext.getDueAt() : videoNext != null ? videoNext.getDueAt() : null,
+                pendingExerciseId, pendingExerciseTitle,
+                pendingVideoSetId, pendingVideoSetTitle,
+                c.getPendingHomeworkNextDueDate(),
                 grammarPreviousProgressLabel(previous), videoPreviousProgressLabel(previous),
                 resolvedOfflinePrevious(previous),
                 c.getNote(), c.getClassSession().getLessonContent());

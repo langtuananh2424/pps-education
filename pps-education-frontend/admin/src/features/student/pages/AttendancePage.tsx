@@ -168,7 +168,9 @@ export default function AttendancePage() {
       const lateStudents = rows.filter((r) => r.status === "LATE");
       let message = "🔔 BÁO CÁO CHUYÊN CẦN:\n- Hệ thống đã lưu điểm danh lớp học.\n";
       if (absentStudents.length > 0) {
-        message += `- ĐÃ TỰ ĐỘNG GỬI thông báo khẩn qua SMS & Zalo tới phụ huynh học sinh vắng mặt: ${absentStudents.map((s) => s.studentFullName).join(", ")}.\n`;
+        // Kênh gửi thật phụ thuộc NotificationPreference của từng phụ huynh (NotificationService) —
+        // Zalo mặc định TẮT nên không nêu đích danh kênh cụ thể ở đây kẻo sai với phần lớn trường hợp.
+        message += `- ĐÃ TỰ ĐỘNG GỬI thông báo khẩn tới phụ huynh học sinh vắng mặt (qua các kênh đã bật trong cài đặt thông báo của phụ huynh): ${absentStudents.map((s) => s.studentFullName).join(", ")}.\n`;
       }
       if (excusedStudents.length > 0) {
         // Backend chỉ gửi thông báo cho ABSENT/LATE (StudentAttendanceService.notifyParents) — nghỉ có
@@ -176,7 +178,9 @@ export default function AttendancePage() {
         message += `- Nghỉ có phép (không gửi thông báo khẩn): ${excusedStudents.map((s) => s.studentFullName).join(", ")}.\n`;
       }
       if (lateStudents.length > 0) {
-        message += `- Đã gửi tin nhắn đi muộn tới phụ huynh các em: ${lateStudents.map((s) => s.studentFullName).join(", ")}.\n`;
+        // Backend chỉ gửi thông báo cho ABSENT (StudentAttendanceService.submitAttendance) — đi trễ
+        // không gửi, đúng nghiệp vụ chốt 2026-08-04 (không còn coi trễ giờ là tình huống khẩn).
+        message += `- Đi trễ (không gửi thông báo khẩn): ${lateStudents.map((s) => s.studentFullName).join(", ")}.\n`;
       }
       if (absentStudents.length === 0 && excusedStudents.length === 0 && lateStudents.length === 0) {
         message = "✅ Điểm danh thành công! Toàn bộ học sinh trong lớp đã có mặt đầy đủ.";

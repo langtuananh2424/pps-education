@@ -519,8 +519,8 @@ export interface StartWatchSessionResponse {
   sessionId: number;
 }
 
-export function startReviewVideoWatchSession(videoId: number): Promise<StartWatchSessionResponse> {
-  return apiRequest<StartWatchSessionResponse>(`/review-videos/${videoId}/watch-sessions`, { method: "POST" });
+export function startReviewVideoWatchSession(videoId: number, assignmentId: number): Promise<StartWatchSessionResponse> {
+  return apiRequest<StartWatchSessionResponse>(`/review-videos/${videoId}/watch-sessions?assignmentId=${assignmentId}`, { method: "POST" });
 }
 
 /**
@@ -528,8 +528,8 @@ export function startReviewVideoWatchSession(videoId: number): Promise<StartWatc
  * lượt xem mới) — dùng để hiện đúng trạng thái đạt/chưa đạt ngay khi mở modal (không đợi report
  * sống) và để danh sách "Bài tập về nhà" tính đúng CONNECTION vào bộ đếm Cần hoàn thành/Đã nộp.
  */
-export function getReviewVideoProgress(videoId: number): Promise<ReviewVideoProgressResponse> {
-  return apiRequest<ReviewVideoProgressResponse>(`/review-videos/${videoId}/progress`);
+export function getReviewVideoProgress(videoId: number, assignmentId: number): Promise<ReviewVideoProgressResponse> {
+  return apiRequest<ReviewVideoProgressResponse>(`/review-videos/${videoId}/progress?assignmentId=${assignmentId}`);
 }
 
 /** UC-23a Main Flow bước 3 (V59): báo tiến độ xem (giây) cho ĐÚNG 1 lượt xem (watchSessionId) — BE tự lấy max(cũ, mới) trong phạm vi lượt đó, không bao giờ giảm. */
@@ -582,18 +582,19 @@ export interface ReviewVideoSubmissionResponse {
  */
 export function submitReviewVideoQuestionAudio(
   questionId: number,
+  assignmentId: number,
   audioUrl: string,
   integrityEvents?: RecordIntegrityEventsRequest
 ): Promise<ReviewVideoSubmissionResponse> {
-  return apiRequest<ReviewVideoSubmissionResponse>(`/review-video-questions/${questionId}/submissions`, {
+  return apiRequest<ReviewVideoSubmissionResponse>(`/review-video-questions/${questionId}/submissions?assignmentId=${assignmentId}`, {
     method: "PUT",
     body: JSON.stringify({ audioUrl, integrityEvents: integrityEvents ?? null })
   });
 }
 
 /** Attempt MỚI NHẤT đã nộp cho 1 câu hỏi — trả về undefined (204) nếu chưa nộp lần nào. */
-export function getMyLatestReviewVideoSubmission(questionId: number): Promise<ReviewVideoSubmissionResponse | undefined> {
-  return apiRequest<ReviewVideoSubmissionResponse | undefined>(`/review-video-questions/${questionId}/submissions/latest`);
+export function getMyLatestReviewVideoSubmission(questionId: number, assignmentId: number): Promise<ReviewVideoSubmissionResponse | undefined> {
+  return apiRequest<ReviewVideoSubmissionResponse | undefined>(`/review-video-questions/${questionId}/submissions/latest?assignmentId=${assignmentId}`);
 }
 
 /**
@@ -661,8 +662,8 @@ export function submitReviewVideoConnectionAnswers(
 }
 
 /** Toàn bộ lịch sử các lần đã nộp cho 1 câu hỏi (mới nhất trước). */
-export function listMyReviewVideoSubmissionHistory(questionId: number): Promise<ReviewVideoSubmissionResponse[]> {
-  return apiRequest<ReviewVideoSubmissionResponse[]>(`/review-video-questions/${questionId}/submissions/history`);
+export function listMyReviewVideoSubmissionHistory(questionId: number, assignmentId: number): Promise<ReviewVideoSubmissionResponse[]> {
+  return apiRequest<ReviewVideoSubmissionResponse[]>(`/review-video-questions/${questionId}/submissions/history?assignmentId=${assignmentId}`);
 }
 
 /**
@@ -773,8 +774,8 @@ export interface ExerciseAttemptResponse {
 }
 
 /** Main Flow bước 1: mở lượt làm mới — LUÔN tạo attempt mới (không tự resume), chỉ gọi khi thật sự chưa có attempt nào hoặc muốn làm lại. */
-export function startAttempt(exerciseId: number): Promise<ExerciseAttemptResponse> {
-  return apiRequest<ExerciseAttemptResponse>(`/exercises/${exerciseId}/attempts`, { method: "POST" });
+export function startAttempt(exerciseId: number, assignmentId: number): Promise<ExerciseAttemptResponse> {
+  return apiRequest<ExerciseAttemptResponse>(`/exercises/${exerciseId}/attempts?assignmentId=${assignmentId}`, { method: "POST" });
 }
 
 export function getAttempt(attemptId: number): Promise<ExerciseAttemptResponse> {
