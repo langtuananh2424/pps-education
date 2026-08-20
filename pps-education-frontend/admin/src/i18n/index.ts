@@ -22,6 +22,10 @@ import hrmEmployeesEn from "./locales/en/hrm-employees.json";
 import hrmLeavesEn from "./locales/en/hrm-leaves.json";
 import hrmShiftsEn from "./locales/en/hrm-shifts.json";
 import hrmOrgEn from "./locales/en/hrm-org.json";
+import reportsTemplatesEn from "./locales/en/reports-templates.json";
+import reportsStudentProfileEn from "./locales/en/reports-student-profile.json";
+import reportsProgressEn from "./locales/en/reports-progress.json";
+import reportsOperationsEn from "./locales/en/reports-operations.json";
 import commonVi from "./locales/vi/common.json";
 import authVi from "./locales/vi/auth.json";
 import dashboardVi from "./locales/vi/dashboard.json";
@@ -43,6 +47,10 @@ import hrmEmployeesVi from "./locales/vi/hrm-employees.json";
 import hrmLeavesVi from "./locales/vi/hrm-leaves.json";
 import hrmShiftsVi from "./locales/vi/hrm-shifts.json";
 import hrmOrgVi from "./locales/vi/hrm-org.json";
+import reportsTemplatesVi from "./locales/vi/reports-templates.json";
+import reportsStudentProfileVi from "./locales/vi/reports-student-profile.json";
+import reportsProgressVi from "./locales/vi/reports-progress.json";
+import reportsOperationsVi from "./locales/vi/reports-operations.json";
 
 export const LANGUAGE_STORAGE_KEY = "pps_language";
 
@@ -71,7 +79,11 @@ i18n.use(initReactI18next).init({
       "hrm-employees": hrmEmployeesVi,
       "hrm-leaves": hrmLeavesVi,
       "hrm-shifts": hrmShiftsVi,
-      "hrm-org": hrmOrgVi
+      "hrm-org": hrmOrgVi,
+      "reports-templates": reportsTemplatesVi,
+      "reports-student-profile": reportsStudentProfileVi,
+      "reports-progress": reportsProgressVi,
+      "reports-operations": reportsOperationsVi
     },
     en: {
       common: commonEn,
@@ -94,7 +106,11 @@ i18n.use(initReactI18next).init({
       "hrm-employees": hrmEmployeesEn,
       "hrm-leaves": hrmLeavesEn,
       "hrm-shifts": hrmShiftsEn,
-      "hrm-org": hrmOrgEn
+      "hrm-org": hrmOrgEn,
+      "reports-templates": reportsTemplatesEn,
+      "reports-student-profile": reportsStudentProfileEn,
+      "reports-progress": reportsProgressEn,
+      "reports-operations": reportsOperationsEn
     }
   },
   lng: storedLanguage === "en" ? "en" : "vi",
@@ -121,7 +137,11 @@ i18n.use(initReactI18next).init({
     "hrm-employees",
     "hrm-leaves",
     "hrm-shifts",
-    "hrm-org"
+    "hrm-org",
+    "reports-templates",
+    "reports-student-profile",
+    "reports-progress",
+    "reports-operations"
   ],
   interpolation: { escapeValue: false },
   returnEmptyString: false

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { ClipboardCheck, Plus, FileText, Settings, Download, Trash2, FileType } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useApp } from "@/context/AppContext";
 import Button from "@/components/ui/Button";
 import {
@@ -21,6 +22,7 @@ const FILE_FORMAT_COLORS: Record<string, string> = {
 };
 
 export default function ReportTemplatesPage() {
+  const { t } = useTranslation("reports-templates");
   const { hasPermission } = useApp();
   const canManage = hasPermission("report.template.create") || hasPermission("report.template.update");
   const [templates, setTemplates] = useState<ReportTemplateResponse[]>([]);
@@ -37,7 +39,7 @@ export default function ReportTemplatesPage() {
     setLoading(true);
     listReportTemplates()
       .then(setTemplates)
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách mẫu báo cáo."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("reportTemplatesPage.loadError")))
       .finally(() => setLoading(false));
   };
 
@@ -46,13 +48,13 @@ export default function ReportTemplatesPage() {
   }, []);
 
   const handleDelete = async (id: number) => {
-    if (!confirm("Bạn có chắc chắn muốn xoá mẫu báo cáo này?")) return;
+    if (!confirm(t("reportTemplatesPage.confirmDelete"))) return;
     try {
       await deleteReportTemplate(id);
-      showToast("Xoá thành công");
+      showToast(t("reportTemplatesPage.deleteSuccessToast"));
       load();
     } catch (err: any) {
-      alert(err.message || "Lỗi khi xoá");
+      alert(err.message || t("reportTemplatesPage.deleteErrorAlert"));
     }
   };
 
@@ -65,15 +67,15 @@ export default function ReportTemplatesPage() {
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4 flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Mẫu báo cáo tự động</h1>
+          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("reportTemplatesPage.title")}</h1>
           <p className="text-xs text-slate-500 mt-1">
-            Tải lên mẫu DOCX/PDF/HTML, cấu hình mapping và sử dụng để xuất báo cáo tự động.
+            {t("reportTemplatesPage.subtitle")}
           </p>
         </div>
         {canManage && (
           <Button size="sm" onClick={() => setUploadOpen(true)}>
             <Plus className="w-3.5 h-3.5" />
-            Tải lên mẫu mới
+            {t("reportTemplatesPage.uploadNewButton")}
           </Button>
         )}
       </div>
@@ -81,10 +83,10 @@ export default function ReportTemplatesPage() {
       {/* Hướng dẫn cách dùng */}
       <div className="grid grid-cols-4 gap-4">
         {[
-          { step: "1", title: "Tải lên mẫu", desc: "Chọn file .docx/.pdf/.html đã có placeholder [TEN_BIEN]" },
-          { step: "2", title: "Chọn loại báo cáo", desc: "Phân loại để hệ thống biết mẫu dùng cho chức năng nào" },
-          { step: "3", title: "Cấu hình Mapping", desc: "Ánh xạ từng placeholder với dữ liệu thực tế" },
-          { step: "4", title: "Xuất báo cáo", desc: "Dùng mẫu trong các trang Thống kê để xuất file" },
+          { step: "1", title: t("reportTemplatesPage.steps.step1.title"), desc: t("reportTemplatesPage.steps.step1.desc") },
+          { step: "2", title: t("reportTemplatesPage.steps.step2.title"), desc: t("reportTemplatesPage.steps.step2.desc") },
+          { step: "3", title: t("reportTemplatesPage.steps.step3.title"), desc: t("reportTemplatesPage.steps.step3.desc") },
+          { step: "4", title: t("reportTemplatesPage.steps.step4.title"), desc: t("reportTemplatesPage.steps.step4.desc") },
         ].map(({ step, title, desc }) => (
           <div key={step} className="bg-white border border-slate-200 rounded-xl p-4 flex gap-3 shadow-sm">
             <div className="w-7 h-7 rounded-full bg-brand-orange text-white text-xs font-bold flex items-center justify-center shrink-0">{step}</div>
@@ -102,12 +104,12 @@ export default function ReportTemplatesPage() {
         <table className="w-full text-left text-sm">
           <thead className="bg-slate-50/50 border-b border-slate-200/60 text-slate-500 font-medium text-xs">
             <tr>
-              <th className="px-4 py-3">Tên mẫu</th>
-              <th className="px-4 py-3">Loại báo cáo</th>
-              <th className="px-4 py-3">Định dạng</th>
-              <th className="px-4 py-3">Placeholders</th>
-              <th className="px-4 py-3">Trạng thái</th>
-              <th className="px-4 py-3 text-right">Thao tác</th>
+              <th className="px-4 py-3">{t("reportTemplatesPage.table.name")}</th>
+              <th className="px-4 py-3">{t("reportTemplatesPage.table.type")}</th>
+              <th className="px-4 py-3">{t("reportTemplatesPage.table.format")}</th>
+              <th className="px-4 py-3">{t("reportTemplatesPage.table.placeholders")}</th>
+              <th className="px-4 py-3">{t("reportTemplatesPage.table.status")}</th>
+              <th className="px-4 py-3 text-right">{t("reportTemplatesPage.table.actions")}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200/60">
@@ -135,12 +137,12 @@ export default function ReportTemplatesPage() {
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-1.5">
                     <FileType className="w-3.5 h-3.5 text-slate-400" />
-                    <span className="text-xs text-slate-500">{(tpl.placeholderKeys ?? []).length} biến</span>
+                    <span className="text-xs text-slate-500">{t("reportTemplatesPage.placeholderCount", { count: (tpl.placeholderKeys ?? []).length })}</span>
                   </div>
                 </td>
                 <td className="px-4 py-3">
                   <span className={`px-2 py-0.5 rounded text-xs font-semibold ${tpl.active ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
-                    {tpl.active ? "Đang dùng" : "Đã lưu trữ"}
+                    {tpl.active ? t("reportTemplatesPage.statusActive") : t("reportTemplatesPage.statusArchived")}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-right">
@@ -149,7 +151,7 @@ export default function ReportTemplatesPage() {
                       size="sm"
                       variant="secondary"
                       onClick={() => openMapping(tpl)}
-                      title="Cấu hình Mapping"
+                      title={t("reportTemplatesPage.mappingButtonTitle")}
                     >
                       <Settings className="w-3.5 h-3.5 text-slate-500" />
                     </Button>
@@ -157,7 +159,7 @@ export default function ReportTemplatesPage() {
                       size="sm"
                       variant="danger"
                       onClick={() => handleDelete(tpl.id)}
-                      title="Xoá"
+                      title={t("reportTemplatesPage.deleteButtonTitle")}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </Button>
@@ -169,14 +171,14 @@ export default function ReportTemplatesPage() {
               <tr>
                 <td colSpan={6} className="px-4 py-10 text-center text-slate-500">
                   <ClipboardCheck className="w-10 h-10 mx-auto text-slate-200 mb-2" />
-                  <p className="text-sm font-medium">Chưa có mẫu báo cáo nào</p>
-                  <p className="text-xs text-slate-400 mt-1">Bấm "Tải lên mẫu mới" để bắt đầu</p>
+                  <p className="text-sm font-medium">{t("reportTemplatesPage.emptyTitle")}</p>
+                  <p className="text-xs text-slate-400 mt-1">{t("reportTemplatesPage.emptyHint")}</p>
                 </td>
               </tr>
             )}
             {loading && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-slate-400 text-sm">Đang tải...</td>
+                <td colSpan={6} className="px-4 py-8 text-center text-slate-400 text-sm">{t("reportTemplatesPage.loading")}</td>
               </tr>
             )}
           </tbody>
@@ -186,14 +188,14 @@ export default function ReportTemplatesPage() {
       {uploadOpen && (
         <UploadTemplateModal
           onClose={() => setUploadOpen(false)}
-          onSuccess={() => { setUploadOpen(false); showToast("Tải mẫu lên thành công!"); load(); }}
+          onSuccess={() => { setUploadOpen(false); showToast(t("reportTemplatesPage.uploadSuccessToast")); load(); }}
         />
       )}
       {mappingOpen && selectedTemplate && (
         <FieldMappingsDrawer
           template={selectedTemplate}
           onClose={() => setMappingOpen(false)}
-          onSuccess={() => { setMappingOpen(false); showToast("Đã lưu mappings!"); load(); }}
+          onSuccess={() => { setMappingOpen(false); showToast(t("reportTemplatesPage.mappingSuccessToast")); load(); }}
         />
       )}
 

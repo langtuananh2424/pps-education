@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ArrowLeftRight, Download, Filter, LogOut, TrendingDown, TrendingUp, UserPlus, Users } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Select from "@/components/ui/Select";
@@ -50,6 +51,7 @@ const SERIES_COLORS: Record<string, { stroke: string; fill: string; dot: string 
  * màu (không chỉ dựa vào màu để phân biệt).
  */
 function HeadcountTrendChart({ series }: { series: TrendSeries[] }) {
+  const { t } = useTranslation("reports-operations");
   const width = 640;
   const height = 220;
   const padding = { top: 16, right: 16, bottom: 28, left: 36 };
@@ -68,7 +70,7 @@ function HeadcountTrendChart({ series }: { series: TrendSeries[] }) {
   return (
     <div className="bg-white border border-slate-200/60 rounded-xl p-5 shadow-sm">
       <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-        <h3 className="text-sm font-semibold text-slate-700">Xu hướng sĩ số theo tháng</h3>
+        <h3 className="text-sm font-semibold text-slate-700">{t("enrollmentMovementStatsPage.trendChart.title")}</h3>
         {series.length > 1 && (
           <div className="flex items-center gap-4 text-xs text-slate-500">
             {series.map((s) => (
@@ -79,7 +81,7 @@ function HeadcountTrendChart({ series }: { series: TrendSeries[] }) {
           </div>
         )}
       </div>
-      <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-56" role="img" aria-label="Biểu đồ đường xu hướng sĩ số theo tháng">
+      <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-56" role="img" aria-label={t("enrollmentMovementStatsPage.trendChart.ariaLabel")}>
         {/* Gridline ngang + nhãn trục Y */}
         {yTickValues.map((v) => (
           <g key={v}>
@@ -92,7 +94,7 @@ function HeadcountTrendChart({ series }: { series: TrendSeries[] }) {
         {/* Nhãn trục X: Tháng 1..N của kỳ */}
         {Array.from({ length: maxMonth }, (_, i) => i + 1).map((m) => (
           <text key={m} x={x(m)} y={height - 8} textAnchor="middle" className="fill-slate-400" fontSize={10}>
-            T{m}
+            {t("enrollmentMovementStatsPage.trendChart.monthAxis", { month: m })}
           </text>
         ))}
         {series.map((s) => {
@@ -105,7 +107,7 @@ function HeadcountTrendChart({ series }: { series: TrendSeries[] }) {
               <path d={path} fill="none" stroke={c.stroke} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
               {s.points.map((p) => (
                 <circle key={p.monthIndex} cx={x(p.monthIndex)} cy={y(p.headcount)} r={4} fill={c.stroke} stroke="white" strokeWidth={1.5}>
-                  <title>{`${s.label} — Tháng ${p.monthIndex} (${p.periodStart} → ${p.periodEnd}): ${p.headcount} học sinh`}</title>
+                  <title>{t("enrollmentMovementStatsPage.trendChart.tooltip", { label: s.label, month: p.monthIndex, start: p.periodStart, end: p.periodEnd, count: p.headcount })}</title>
                 </circle>
               ))}
             </g>
@@ -117,6 +119,7 @@ function HeadcountTrendChart({ series }: { series: TrendSeries[] }) {
 }
 
 export default function EnrollmentMovementStatsPage() {
+  const { t } = useTranslation("reports-operations");
   const { selectedCampusId, selectedClassId, hasPermission } = useApp();
   const canExport = hasPermission("report.enrollment-stats.view");
 
@@ -164,7 +167,7 @@ export default function EnrollmentMovementStatsPage() {
       .then(setStats)
       .catch((err) => {
         setStats(null);
-        setError(err instanceof ApiError ? err.message : "Không tải được thống kê biến động học sinh.");
+        setError(err instanceof ApiError ? err.message : t("enrollmentMovementStatsPage.loadStatsError"));
       })
       .finally(() => setLoadingStats(false));
   }, [selectedTermId, selectedClassId]);
@@ -200,9 +203,9 @@ export default function EnrollmentMovementStatsPage() {
     try {
       const blob = await exportEnrollmentMovementStats(Number(selectedTermId), selectedClassId ?? undefined);
       downloadBlob(blob, `bien-dong-hoc-sinh-ky-${selectedTermId}.xlsx`);
-      showToast("Xuất file Excel thành công!");
+      showToast(t("enrollmentMovementStatsPage.toasts.exportSuccess"));
     } catch (err) {
-      showToast(err instanceof ApiError ? err.message : "Xuất file thất bại.");
+      showToast(err instanceof ApiError ? err.message : t("enrollmentMovementStatsPage.toasts.exportFailed"));
     } finally {
       setExporting(false);
     }
@@ -213,9 +216,9 @@ export default function EnrollmentMovementStatsPage() {
       {/* Header */}
       <div className="border-b border-slate-200 pb-4 flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Thống kê biến động học sinh theo kỳ</h1>
+          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("enrollmentMovementStatsPage.title")}</h1>
           <p className="text-xs text-slate-500 mt-1">
-            Sĩ số đầu kỳ/cuối kỳ và biến động (nhập học mới, nghỉ/rút, chuyển lớp, hoàn thành) của các lớp trong 1 kỳ học.
+            {t("enrollmentMovementStatsPage.description")}
           </p>
         </div>
         {canExport && (
@@ -226,7 +229,7 @@ export default function EnrollmentMovementStatsPage() {
             className="flex items-center gap-1.5 shadow-sm"
           >
             <Download className="w-4 h-4" />
-            Xuất Excel
+            {t("enrollmentMovementStatsPage.exportButton")}
           </Button>
         )}
       </div>
@@ -235,42 +238,42 @@ export default function EnrollmentMovementStatsPage() {
       {!hasSite ? (
         <div className="bg-amber-50 border border-amber-200/80 rounded-xl p-4 text-amber-800 text-sm flex items-center gap-3">
           <Filter className="w-5 h-5 text-amber-600 shrink-0" />
-          <span>Vui lòng chọn 1 điểm trường cụ thể trên thanh Header (góc trên bên trái) — mỗi Kỳ học luôn gắn 1 điểm trường.</span>
+          <span>{t("enrollmentMovementStatsPage.filters.noSiteSelected")}</span>
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-slate-200/60 shadow-sm p-4">
           <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 mb-3">
-            <Filter className="w-3.5 h-3.5" /> Chọn kỳ học
+            <Filter className="w-3.5 h-3.5" /> {t("enrollmentMovementStatsPage.filters.title")}
           </div>
           <div className="flex flex-wrap gap-3">
             <div className="flex-1 min-w-[260px]">
-              <label className="block text-xs text-slate-500 mb-1">Kỳ học</label>
+              <label className="block text-xs text-slate-500 mb-1">{t("enrollmentMovementStatsPage.filters.termLabel")}</label>
               <Select
                 value={selectedTermId}
                 onChange={(e) => setSelectedTermId(e.target.value ? Number(e.target.value) : "")}
                 disabled={loadingTerms}
                 className="w-full border border-slate-300 rounded-lg text-sm p-2 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
               >
-                <option value="">-- Chọn kỳ học --</option>
-                {terms.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name} ({t.startDate} - {t.endDate})
+                <option value="">{t("enrollmentMovementStatsPage.filters.termPlaceholder")}</option>
+                {terms.map((term) => (
+                  <option key={term.id} value={term.id}>
+                    {t("enrollmentMovementStatsPage.filters.termOption", { name: term.name, startDate: term.startDate, endDate: term.endDate })}
                   </option>
                 ))}
               </Select>
             </div>
             {selectedTermId && comparableTerms.length > 0 && (
               <div className="flex-1 min-w-[260px]">
-                <label className="block text-xs text-slate-500 mb-1">So sánh với kỳ khác (tuỳ chọn)</label>
+                <label className="block text-xs text-slate-500 mb-1">{t("enrollmentMovementStatsPage.filters.comparisonLabel")}</label>
                 <Select
                   value={comparisonTermId}
                   onChange={(e) => setComparisonTermId(e.target.value ? Number(e.target.value) : "")}
                   className="w-full border border-slate-300 rounded-lg text-sm p-2 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
                 >
-                  <option value="">-- Không so sánh --</option>
-                  {comparableTerms.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name} ({t.startDate} - {t.endDate})
+                  <option value="">{t("enrollmentMovementStatsPage.filters.comparisonPlaceholder")}</option>
+                  {comparableTerms.map((term) => (
+                    <option key={term.id} value={term.id}>
+                      {t("enrollmentMovementStatsPage.filters.termOption", { name: term.name, startDate: term.startDate, endDate: term.endDate })}
                     </option>
                   ))}
                 </Select>
@@ -278,7 +281,7 @@ export default function EnrollmentMovementStatsPage() {
             )}
           </div>
           {!loadingTerms && terms.length === 0 && (
-            <p className="text-xs text-slate-400 mt-2">Điểm trường này chưa có kỳ học nào — tạo ở màn "Quản lý Kỳ học".</p>
+            <p className="text-xs text-slate-400 mt-2">{t("enrollmentMovementStatsPage.filters.noTerms")}</p>
           )}
         </div>
       )}
@@ -300,12 +303,12 @@ export default function EnrollmentMovementStatsPage() {
 
           {/* Thống kê tổng quan */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            <StatCard icon={<Users className="w-5 h-5 text-brand-orange" />} label="Đầu kỳ" value={stats.totals.openingHeadcount} />
-            <StatCard icon={<UserPlus className="w-5 h-5 text-emerald-500" />} label="Nhập học mới" value={stats.totals.newEnrollments} color="text-emerald-600" />
-            <StatCard icon={<LogOut className="w-5 h-5 text-rose-500" />} label="Nghỉ/rút" value={stats.totals.withdrawnCount} color="text-rose-600" />
-            <StatCard icon={<ArrowLeftRight className="w-5 h-5 text-amber-500" />} label="Chuyển lớp" value={stats.totals.transferredCount} color="text-amber-600" />
-            <StatCard icon={<TrendingUp className="w-5 h-5 text-blue-500" />} label="Hoàn thành" value={stats.totals.completedCount} color="text-blue-600" />
-            <StatCard icon={<Users className="w-5 h-5 text-brand-orange" />} label="Cuối kỳ" value={stats.totals.closingHeadcount} />
+            <StatCard icon={<Users className="w-5 h-5 text-brand-orange" />} label={t("enrollmentMovementStatsPage.stats.opening")} value={stats.totals.openingHeadcount} />
+            <StatCard icon={<UserPlus className="w-5 h-5 text-emerald-500" />} label={t("enrollmentMovementStatsPage.stats.newEnrollments")} value={stats.totals.newEnrollments} color="text-emerald-600" />
+            <StatCard icon={<LogOut className="w-5 h-5 text-rose-500" />} label={t("enrollmentMovementStatsPage.stats.withdrawn")} value={stats.totals.withdrawnCount} color="text-rose-600" />
+            <StatCard icon={<ArrowLeftRight className="w-5 h-5 text-amber-500" />} label={t("enrollmentMovementStatsPage.stats.transferred")} value={stats.totals.transferredCount} color="text-amber-600" />
+            <StatCard icon={<TrendingUp className="w-5 h-5 text-blue-500" />} label={t("enrollmentMovementStatsPage.stats.completed")} value={stats.totals.completedCount} color="text-blue-600" />
+            <StatCard icon={<Users className="w-5 h-5 text-brand-orange" />} label={t("enrollmentMovementStatsPage.stats.closing")} value={stats.totals.closingHeadcount} />
           </div>
 
           {/* Biểu đồ xu hướng sĩ số theo tháng — so sánh giữa 2 kỳ nếu có chọn */}
@@ -323,26 +326,26 @@ export default function EnrollmentMovementStatsPage() {
           {/* Bảng biến động theo lớp */}
           <div className="bg-white rounded-xl border border-slate-200/60 shadow-sm overflow-hidden">
             <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between gap-3 flex-wrap">
-              <h3 className="text-sm font-semibold text-slate-700">Biến động theo lớp</h3>
-              <span className="text-xs text-slate-400">{stats.classes.length} lớp</span>
+              <h3 className="text-sm font-semibold text-slate-700">{t("enrollmentMovementStatsPage.table.title")}</h3>
+              <span className="text-xs text-slate-400">{t("enrollmentMovementStatsPage.table.classCount", { count: stats.classes.length })}</span>
             </div>
             {stats.classes.length === 0 ? (
               <div className="px-4 py-10 text-center">
                 <Users className="w-10 h-10 mx-auto text-slate-200 mb-2" />
-                <p className="text-sm text-slate-400">Điểm trường này chưa có lớp nào.</p>
+                <p className="text-sm text-slate-400">{t("enrollmentMovementStatsPage.table.empty")}</p>
               </div>
             ) : (
               <table className="w-full text-sm text-left">
                 <thead className="bg-slate-50 border-b border-slate-100 text-xs text-slate-500 font-medium">
                   <tr>
-                    <th className="px-4 py-2.5">Lớp</th>
-                    <th className="px-4 py-2.5 text-right">Đầu kỳ</th>
-                    <th className="px-4 py-2.5 text-right">Nhập mới</th>
-                    <th className="px-4 py-2.5 text-right">Nghỉ/rút</th>
-                    <th className="px-4 py-2.5 text-right">Chuyển lớp</th>
-                    <th className="px-4 py-2.5 text-right">Hoàn thành</th>
-                    <th className="px-4 py-2.5 text-right">Cuối kỳ</th>
-                    <th className="px-4 py-2.5 text-right">Biến động ròng</th>
+                    <th className="px-4 py-2.5">{t("enrollmentMovementStatsPage.table.columns.class")}</th>
+                    <th className="px-4 py-2.5 text-right">{t("enrollmentMovementStatsPage.table.columns.opening")}</th>
+                    <th className="px-4 py-2.5 text-right">{t("enrollmentMovementStatsPage.table.columns.newEnrollments")}</th>
+                    <th className="px-4 py-2.5 text-right">{t("enrollmentMovementStatsPage.table.columns.withdrawn")}</th>
+                    <th className="px-4 py-2.5 text-right">{t("enrollmentMovementStatsPage.table.columns.transferred")}</th>
+                    <th className="px-4 py-2.5 text-right">{t("enrollmentMovementStatsPage.table.columns.completed")}</th>
+                    <th className="px-4 py-2.5 text-right">{t("enrollmentMovementStatsPage.table.columns.closing")}</th>
+                    <th className="px-4 py-2.5 text-right">{t("enrollmentMovementStatsPage.table.columns.netChange")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -372,7 +375,7 @@ export default function EnrollmentMovementStatsPage() {
                 </tbody>
                 <tfoot className="bg-slate-50 border-t-2 border-slate-200 font-bold text-slate-800">
                   <tr>
-                    <td className="px-4 py-3">Tổng cộng</td>
+                    <td className="px-4 py-3">{t("enrollmentMovementStatsPage.table.totalRow")}</td>
                     <td className="px-4 py-3 text-right">{stats.totals.openingHeadcount}</td>
                     <td className="px-4 py-3 text-right text-emerald-700">{stats.totals.newEnrollments}</td>
                     <td className="px-4 py-3 text-right text-rose-700">{stats.totals.withdrawnCount}</td>
@@ -394,14 +397,14 @@ export default function EnrollmentMovementStatsPage() {
       {loadingStats && (
         <div className="text-center py-16 text-slate-400">
           <ArrowLeftRight className="w-14 h-14 mx-auto text-slate-200 mb-3 animate-pulse" />
-          <p className="text-sm font-medium">Đang tải thống kê...</p>
+          <p className="text-sm font-medium">{t("enrollmentMovementStatsPage.loadingStats")}</p>
         </div>
       )}
 
       {hasSite && !selectedTermId && !loadingTerms && terms.length > 0 && (
         <div className="text-center py-16 text-slate-400">
           <ArrowLeftRight className="w-14 h-14 mx-auto text-slate-200 mb-3" />
-          <p className="text-sm font-medium">Chọn 1 kỳ học để xem thống kê biến động</p>
+          <p className="text-sm font-medium">{t("enrollmentMovementStatsPage.selectTermPrompt")}</p>
         </div>
       )}
 

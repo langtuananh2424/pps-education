@@ -8,6 +8,7 @@ import {
   Meh,
   AlertTriangle,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import Button from "@/components/ui/Button";
 import Select from "@/components/ui/Select";
 import { useApp } from "@/context/AppContext";
@@ -30,22 +31,29 @@ import { ApiError, downloadReport } from "@/lib/apiClient";
 import SelectReportTemplateModal from "../components/SelectReportTemplateModal";
 
 
-/** Thang thái độ chốt lại 2026-08-12 (StudentComment.Attitude) — trước đây map này bị lệch 1 bậc
- * (GOOD nhầm thành "Xuất sắc", FAIR nhầm thành "Tốt"...), đã sửa khớp đúng 5 file admin còn lại. */
-const ATTITUDE_LABEL: Record<string, string> = {
-  WEAK: "Yếu",
-  AVERAGE: "Trung bình",
-  FAIR: "Khá",
-  GOOD: "Tốt",
-  EXCELLENT: "Xuất sắc",
-};
-
 const SEVERITY_COLOR: Record<string, string> = {
   POSITIVE: "text-emerald-600 bg-emerald-50",
   NORMAL: "text-slate-500 bg-slate-50",
   CONCERN: "text-amber-600 bg-amber-50",
   WARNING: "text-rose-600 bg-rose-50",
 };
+
+/** Nhãn thái độ dịch qua i18next namespace "reports-operations" — xem src/i18n/locales/{vi,en}/reports-operations.json.
+ * Thang thái độ chốt lại 2026-08-12 (StudentComment.Attitude) — trước đây map này bị lệch 1 bậc
+ * (GOOD nhầm thành "Xuất sắc", FAIR nhầm thành "Tốt"...), đã sửa khớp đúng 5 file admin còn lại. */
+function attitudeLabel(t: (key: string) => string, attitude: string): string {
+  return t(`attitudeStatus.${attitude}`);
+}
+
+/** Nhãn mức độ nhận xét dịch qua i18next. */
+function commentSeverityLabel(t: (key: string) => string, severity: string): string {
+  return t(`commentSeverity.${severity}`);
+}
+
+/** Nhãn trạng thái duyệt nhận xét dịch qua i18next. */
+function commentStatusLabel(t: (key: string) => string, status: string): string {
+  return t(`commentStatus.${status}`);
+}
 
 function StatCard({ icon, label, value, sub }: { icon: React.ReactNode; label: string; value: string | number; sub?: string }) {
   return (
@@ -61,6 +69,7 @@ function StatCard({ icon, label, value, sub }: { icon: React.ReactNode; label: s
 }
 
 export default function DailyCommentsAnalyticsPage() {
+  const { t } = useTranslation("reports-operations");
   const { selectedCampusId, selectedClassId: globalClassId, hasPermission } = useApp();
   const canExport = hasPermission("report.generate");
 
@@ -169,9 +178,9 @@ export default function DailyCommentsAnalyticsPage() {
       } else if (res?.fileUrl) {
         window.open(res.fileUrl, "_blank");
       }
-      showToast("Xuất báo cáo ngày của lớp thành công! Đang tải file...");
+      showToast(t("dailyCommentsAnalyticsPage.toasts.exportClassDaySuccess"));
     } catch (err) {
-      showToast(err instanceof ApiError ? err.message : "Xuất báo cáo thất bại");
+      showToast(err instanceof ApiError ? err.message : t("dailyCommentsAnalyticsPage.toasts.exportFailed"));
     } finally {
       setExporting(false);
     }
@@ -181,7 +190,7 @@ export default function DailyCommentsAnalyticsPage() {
   const handleExportStudentComment = async (studentId: number) => {
     const tplId = commentTemplates[0]?.id;
     if (!tplId) {
-      showToast("Chưa có mẫu nhận xét học sinh (STUDENT_COMMENT)");
+      showToast(t("dailyCommentsAnalyticsPage.toasts.noCommentTemplate"));
       return;
     }
     setExporting(true);
@@ -197,9 +206,9 @@ export default function DailyCommentsAnalyticsPage() {
       } else if (res?.fileUrl) {
         window.open(res.fileUrl, "_blank");
       }
-      showToast("Xuất nhận xét thành công! Đang tải file...");
+      showToast(t("dailyCommentsAnalyticsPage.toasts.exportStudentCommentSuccess"));
     } catch (err) {
-      showToast(err instanceof ApiError ? err.message : "Xuất báo cáo thất bại");
+      showToast(err instanceof ApiError ? err.message : t("dailyCommentsAnalyticsPage.toasts.exportFailed"));
     } finally {
       setExporting(false);
     }
@@ -209,7 +218,7 @@ export default function DailyCommentsAnalyticsPage() {
   const handleExportAllStudentComments = async () => {
     const tplId = commentTemplates[0]?.id;
     if (!tplId) {
-      showToast("Chưa có mẫu nhận xét học sinh (STUDENT_COMMENT)");
+      showToast(t("dailyCommentsAnalyticsPage.toasts.noCommentTemplate"));
       return;
     }
     if (!selectedClassId || !selectedSessionId) return;
@@ -226,9 +235,9 @@ export default function DailyCommentsAnalyticsPage() {
       } else if (res?.fileUrl) {
         window.open(res.fileUrl, "_blank");
       }
-      showToast("Xuất hàng loạt nhận xét thành công! Đang tải file ZIP...");
+      showToast(t("dailyCommentsAnalyticsPage.toasts.exportAllSuccess"));
     } catch (err) {
-      showToast(err instanceof ApiError ? err.message : "Xuất báo cáo thất bại");
+      showToast(err instanceof ApiError ? err.message : t("dailyCommentsAnalyticsPage.toasts.exportFailed"));
     } finally {
       setExporting(false);
     }
@@ -239,8 +248,8 @@ export default function DailyCommentsAnalyticsPage() {
       {/* Header */}
       <div className="border-b border-slate-200 pb-4 flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Thống kê nhận xét ngày</h1>
-          <p className="text-xs text-slate-500 mt-1">Xem và xuất báo cáo nhận xét theo lớp, buổi học.</p>
+          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("dailyCommentsAnalyticsPage.title")}</h1>
+          <p className="text-xs text-slate-500 mt-1">{t("dailyCommentsAnalyticsPage.description")}</p>
         </div>
         {canExport && (
           <Button
@@ -250,7 +259,7 @@ export default function DailyCommentsAnalyticsPage() {
             className="flex items-center gap-1.5 shadow-sm"
           >
             <Download className="w-4 h-4" />
-            Xuất báo cáo ngày của lớp
+            {t("dailyCommentsAnalyticsPage.exportButton")}
           </Button>
         )}
       </div>
@@ -260,27 +269,27 @@ export default function DailyCommentsAnalyticsPage() {
         <div className="bg-white rounded-xl border border-slate-200/60 shadow-sm p-4">
           <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
             <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
-              <Filter className="w-3.5 h-3.5" /> Chọn buổi học
+              <Filter className="w-3.5 h-3.5" /> {t("dailyCommentsAnalyticsPage.filters.title")}
             </div>
             {selectedClass && (
               <div className="text-xs text-brand-orange font-medium bg-orange-50 px-2.5 py-1 rounded-md border border-orange-100">
-                Lớp đang chọn: <span className="font-bold">{selectedClass.name} ({selectedClass.classCode})</span>
+                {t("dailyCommentsAnalyticsPage.filters.selectedClassPrefix")} <span className="font-bold">{selectedClass.name} ({selectedClass.classCode})</span>
               </div>
             )}
           </div>
           <div className="flex flex-wrap gap-3">
             <div className="flex-1 min-w-[240px]">
-              <label className="block text-xs text-slate-500 mb-1">Buổi học</label>
+              <label className="block text-xs text-slate-500 mb-1">{t("dailyCommentsAnalyticsPage.filters.sessionLabel")}</label>
               <Select
                 value={selectedSessionId}
                 onChange={(e) => setSelectedSessionId(e.target.value ? Number(e.target.value) : "")}
                 disabled={loadingSessions}
                 className="w-full border border-slate-300 rounded-lg text-sm p-2 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
               >
-                <option value="">-- Chọn buổi học --</option>
+                <option value="">{t("dailyCommentsAnalyticsPage.filters.sessionPlaceholder")}</option>
                 {sessions.map((s) => (
                   <option key={s.id} value={s.id}>
-                    Buổi {s.sessionNumber} — {s.sessionDate} ({s.status})
+                    {t("dailyCommentsAnalyticsPage.filters.sessionOption", { number: s.sessionNumber, date: s.sessionDate, status: s.status })}
                   </option>
                 ))}
               </Select>
@@ -290,7 +299,7 @@ export default function DailyCommentsAnalyticsPage() {
       ) : (
         <div className="bg-amber-50 border border-amber-200/80 rounded-xl p-4 text-amber-800 text-sm flex items-center gap-3">
           <Filter className="w-5 h-5 text-amber-600 shrink-0" />
-          <span>Vui lòng chọn 1 lớp học trên thanh Header (góc trên bên phải) để xem thống kê nhận xét.</span>
+          <span>{t("dailyCommentsAnalyticsPage.filters.noClassSelected")}</span>
         </div>
       )}
 
@@ -300,14 +309,14 @@ export default function DailyCommentsAnalyticsPage() {
           <div className="bg-gradient-to-r from-orange-500 to-rose-500 rounded-xl p-5 text-white">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="text-xs opacity-80">Buổi {selectedSession.sessionNumber} — {selectedClass?.name}</p>
+                <p className="text-xs opacity-80">{t("dailyCommentsAnalyticsPage.session.label", { number: selectedSession.sessionNumber, className: selectedClass?.name })}</p>
                 <h2 className="text-lg font-bold mt-1">{selectedSession.sessionDate}</h2>
                 {selectedSession.lessonContent && (
                   <p className="text-sm opacity-90 mt-1">📚 {selectedSession.lessonContent}</p>
                 )}
                 <p className="text-xs opacity-75 mt-1">
-                  GV: {selectedSession.actualTeacherName ?? selectedSession.primaryTeacherName}
-                  {selectedSession.teacherType && ` (${selectedSession.teacherType === "VIETNAMESE" ? "VN" : "Nước ngoài"})`}
+                  {t("dailyCommentsAnalyticsPage.session.teacherPrefix")} {selectedSession.actualTeacherName ?? selectedSession.primaryTeacherName}
+                  {selectedSession.teacherType && ` (${selectedSession.teacherType === "VIETNAMESE" ? t("dailyCommentsAnalyticsPage.session.teacherTypeVN") : t("dailyCommentsAnalyticsPage.session.teacherTypeForeign")})`}
                 </p>
               </div>
             </div>
@@ -317,24 +326,24 @@ export default function DailyCommentsAnalyticsPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <StatCard
               icon={<Users className="w-5 h-5 text-brand-orange" />}
-              label="Sĩ số nhận xét"
+              label={t("dailyCommentsAnalyticsPage.stats.commented")}
               value={stats.total}
-              sub={`/ ${enrollments.length} học sinh`}
+              sub={t("dailyCommentsAnalyticsPage.stats.commentedSub", { count: enrollments.length })}
             />
             <StatCard
               icon={<BarChart3 className="w-5 h-5 text-blue-500" />}
-              label="Đã duyệt"
+              label={t("dailyCommentsAnalyticsPage.stats.approved")}
               value={stats.approved}
               sub={stats.total > 0 ? `${Math.round(stats.approved / stats.total * 100)}%` : "—"}
             />
             <StatCard
               icon={<ThumbsUp className="w-5 h-5 text-emerald-500" />}
-              label="Tích cực"
+              label={t("dailyCommentsAnalyticsPage.stats.positive")}
               value={stats.positive}
             />
             <StatCard
               icon={<AlertTriangle className="w-5 h-5 text-amber-500" />}
-              label="Cần chú ý"
+              label={t("dailyCommentsAnalyticsPage.stats.concern")}
               value={stats.concern}
             />
           </div>
@@ -344,9 +353,9 @@ export default function DailyCommentsAnalyticsPage() {
             <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-semibold text-slate-700">
-                  Nhận xét từng học sinh
+                  {t("dailyCommentsAnalyticsPage.table.title")}
                 </h3>
-                <span className="text-xs text-slate-400">{comments.length} bản ghi</span>
+                <span className="text-xs text-slate-400">{t("dailyCommentsAnalyticsPage.table.recordCount", { count: comments.length })}</span>
               </div>
               {canExport && commentTemplates.length > 0 && comments.length > 0 && (
                 <Button
@@ -355,30 +364,30 @@ export default function DailyCommentsAnalyticsPage() {
                   disabled={exporting}
                   onClick={handleExportAllStudentComments}
                   className="flex items-center gap-1.5"
-                  title="Xuất hàng loạt nhận xét toàn bộ học sinh trong buổi học này (file ZIP)"
+                  title={t("dailyCommentsAnalyticsPage.table.exportAllTitle")}
                 >
                   <Download className="w-3.5 h-3.5" />
-                  Xuất hàng loạt
+                  {t("dailyCommentsAnalyticsPage.table.exportAllButton")}
                 </Button>
               )}
             </div>
             {loadingComments ? (
-              <div className="px-4 py-8 text-center text-sm text-slate-400">Đang tải nhận xét...</div>
+              <div className="px-4 py-8 text-center text-sm text-slate-400">{t("dailyCommentsAnalyticsPage.table.loading")}</div>
             ) : comments.length === 0 ? (
               <div className="px-4 py-10 text-center">
                 <Meh className="w-10 h-10 mx-auto text-slate-200 mb-2" />
-                <p className="text-sm text-slate-400">Chưa có nhận xét nào cho buổi học này</p>
+                <p className="text-sm text-slate-400">{t("dailyCommentsAnalyticsPage.table.empty")}</p>
               </div>
             ) : (
               <table className="w-full text-sm text-left">
                 <thead className="bg-slate-50 border-b border-slate-100 text-xs text-slate-500 font-medium">
                   <tr>
-                    <th className="px-4 py-2.5">Học sinh</th>
-                    <th className="px-4 py-2.5">Thái độ</th>
-                    <th className="px-4 py-2.5">Mức độ</th>
-                    <th className="px-4 py-2.5">Nội dung nhận xét</th>
-                    <th className="px-4 py-2.5">Trạng thái</th>
-                    {canExport && <th className="px-4 py-2.5 text-right">Xuất</th>}
+                    <th className="px-4 py-2.5">{t("dailyCommentsAnalyticsPage.table.columns.student")}</th>
+                    <th className="px-4 py-2.5">{t("dailyCommentsAnalyticsPage.table.columns.attitude")}</th>
+                    <th className="px-4 py-2.5">{t("dailyCommentsAnalyticsPage.table.columns.severity")}</th>
+                    <th className="px-4 py-2.5">{t("dailyCommentsAnalyticsPage.table.columns.content")}</th>
+                    <th className="px-4 py-2.5">{t("dailyCommentsAnalyticsPage.table.columns.status")}</th>
+                    {canExport && <th className="px-4 py-2.5 text-right">{t("dailyCommentsAnalyticsPage.table.columns.export")}</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -386,12 +395,12 @@ export default function DailyCommentsAnalyticsPage() {
                     <tr key={c.id} className="hover:bg-slate-50/50 transition-colors">
                       <td className="px-4 py-3 font-medium text-slate-800">{c.studentFullName}</td>
                       <td className="px-4 py-3">
-                        <span className="text-xs">{c.attitude ? ATTITUDE_LABEL[c.attitude] ?? c.attitude : "—"}</span>
+                        <span className="text-xs">{c.attitude ? attitudeLabel(t, c.attitude) : "—"}</span>
                       </td>
                       <td className="px-4 py-3">
                         {c.severity ? (
                           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${SEVERITY_COLOR[c.severity] ?? ""}`}>
-                            {c.severity === "POSITIVE" ? "Tích cực" : c.severity === "NORMAL" ? "Bình thường" : c.severity === "CONCERN" ? "Cần chú ý" : "Cảnh báo"}
+                            {commentSeverityLabel(t, c.severity)}
                           </span>
                         ) : "—"}
                       </td>
@@ -405,7 +414,7 @@ export default function DailyCommentsAnalyticsPage() {
                           c.status === "DRAFT" ? "bg-slate-100 text-slate-600" :
                           "bg-rose-100 text-rose-600"
                         }`}>
-                          {c.status === "APPROVED" ? "Đã duyệt" : c.status === "PENDING" ? "Chờ duyệt" : c.status === "DRAFT" ? "Nháp" : "Bị từ chối"}
+                          {commentStatusLabel(t, c.status === "APPROVED" || c.status === "PENDING" || c.status === "DRAFT" ? c.status : "REJECTED")}
                         </span>
                       </td>
                       {canExport && (
@@ -416,7 +425,7 @@ export default function DailyCommentsAnalyticsPage() {
                               variant="secondary"
                               disabled={exporting}
                               onClick={() => handleExportStudentComment(c.studentId)}
-                              title="Xuất báo cáo nhận xét học sinh"
+                              title={t("dailyCommentsAnalyticsPage.table.exportStudentTitle")}
                             >
                               <Download className="w-3.5 h-3.5" />
                             </Button>
@@ -437,15 +446,15 @@ export default function DailyCommentsAnalyticsPage() {
       {!selectedClassId && (
         <div className="text-center py-16 text-slate-400">
           <BarChart3 className="w-14 h-14 mx-auto text-slate-200 mb-3" />
-          <p className="text-sm font-medium">Chọn lớp học và buổi học để xem thống kê nhận xét</p>
+          <p className="text-sm font-medium">{t("dailyCommentsAnalyticsPage.emptyState")}</p>
         </div>
       )}
 
       <SelectReportTemplateModal
         open={showExportModal}
         onClose={() => setShowExportModal(false)}
-        title="Xuất báo cáo ngày của lớp"
-        description={selectedSession ? `Buổi ${selectedSession.sessionNumber} — ${selectedSession.sessionDate} (${selectedClass?.name})` : "Chọn mẫu báo cáo phù hợp để xuất file."}
+        title={t("dailyCommentsAnalyticsPage.exportModal.title")}
+        description={selectedSession ? t("dailyCommentsAnalyticsPage.exportModal.descriptionWithSession", { number: selectedSession.sessionNumber, date: selectedSession.sessionDate, className: selectedClass?.name }) : t("dailyCommentsAnalyticsPage.exportModal.descriptionDefault")}
         templates={dailyTemplates}
         exporting={exporting}
         onExport={async (templateId, outputFormat) => {

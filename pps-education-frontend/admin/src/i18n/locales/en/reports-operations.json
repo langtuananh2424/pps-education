@@ -1,0 +1,129 @@
+{
+  "attitudeStatus": {
+    "WEAK": "Weak",
+    "AVERAGE": "Average",
+    "FAIR": "Fair",
+    "GOOD": "Good",
+    "EXCELLENT": "Excellent"
+  },
+  "commentSeverity": {
+    "POSITIVE": "Positive",
+    "NORMAL": "Normal",
+    "CONCERN": "Needs attention",
+    "WARNING": "Warning"
+  },
+  "commentStatus": {
+    "APPROVED": "Approved",
+    "PENDING": "Pending approval",
+    "DRAFT": "Draft",
+    "REJECTED": "Rejected"
+  },
+  "dailyCommentsAnalyticsPage": {
+    "title": "Daily Comments Analytics",
+    "description": "View and export comment reports by class and session.",
+    "exportButton": "Export class daily report",
+    "filters": {
+      "title": "Select session",
+      "selectedClassPrefix": "Selected class:",
+      "sessionLabel": "Session",
+      "sessionPlaceholder": "-- Select a session --",
+      "sessionOption": "Session {{number}} — {{date}} ({{status}})",
+      "noClassSelected": "Please select a class from the header (top right) to view comment analytics."
+    },
+    "session": {
+      "label": "Session {{number}} — {{className}}",
+      "teacherPrefix": "Teacher:",
+      "teacherTypeVN": "VN",
+      "teacherTypeForeign": "Foreign"
+    },
+    "stats": {
+      "commented": "Comments recorded",
+      "commentedSub": "/ {{count}} students",
+      "approved": "Approved",
+      "positive": "Positive",
+      "concern": "Needs attention"
+    },
+    "table": {
+      "title": "Comments by student",
+      "recordCount": "{{count}} records",
+      "exportAllButton": "Bulk export",
+      "exportAllTitle": "Bulk-export comments for all students in this session (ZIP file)",
+      "loading": "Loading comments...",
+      "empty": "No comments yet for this session",
+      "exportStudentTitle": "Export student comment report",
+      "columns": {
+        "student": "Student",
+        "attitude": "Attitude",
+        "severity": "Severity",
+        "content": "Comment content",
+        "status": "Status",
+        "export": "Export"
+      }
+    },
+    "exportModal": {
+      "title": "Export class daily report",
+      "descriptionWithSession": "Session {{number}} — {{date}} ({{className}})",
+      "descriptionDefault": "Choose a report template to export the file."
+    },
+    "toasts": {
+      "exportClassDaySuccess": "Class daily report exported successfully! Downloading file...",
+      "exportFailed": "Report export failed",
+      "noCommentTemplate": "No student comment template (STUDENT_COMMENT) available yet",
+      "exportStudentCommentSuccess": "Comment exported successfully! Downloading file...",
+      "exportAllSuccess": "Comments bulk-exported successfully! Downloading ZIP file..."
+    },
+    "emptyState": "Select a class and session to view comment analytics"
+  },
+  "enrollmentMovementStatsPage": {
+    "title": "Enrollment Movement Statistics by Term",
+    "description": "Opening/closing headcount and movement (new enrollments, withdrawals, transfers, completions) of classes within an academic term.",
+    "exportButton": "Export Excel",
+    "filters": {
+      "noSiteSelected": "Please select a specific campus from the header (top left) — each academic term is always tied to one campus.",
+      "title": "Select academic term",
+      "termLabel": "Academic term",
+      "termPlaceholder": "-- Select an academic term --",
+      "termOption": "{{name}} ({{startDate}} - {{endDate}})",
+      "comparisonLabel": "Compare with another term (optional)",
+      "comparisonPlaceholder": "-- No comparison --",
+      "noTerms": "This campus has no academic terms yet — create one in the \"Academic Term Management\" screen."
+    },
+    "loadStatsError": "Could not load enrollment movement statistics.",
+    "stats": {
+      "opening": "Opening",
+      "newEnrollments": "New enrollments",
+      "withdrawn": "Withdrawn",
+      "transferred": "Transferred",
+      "completed": "Completed",
+      "closing": "Closing"
+    },
+    "trendChart": {
+      "title": "Monthly headcount trend",
+      "ariaLabel": "Line chart of monthly headcount trend",
+      "monthAxis": "M{{month}}",
+      "tooltip": "{{label}} — Month {{month}} ({{start}} → {{end}}): {{count}} students"
+    },
+    "table": {
+      "title": "Movement by class",
+      "classCount": "{{count}} classes",
+      "empty": "This campus has no classes yet.",
+      "totalRow": "Total",
+      "columns": {
+        "class": "Class",
+        "opening": "Opening",
+        "newEnrollments": "New",
+        "withdrawn": "Withdrawn",
+        "transferred": "Transferred",
+        "completed": "Completed",
+        "closing": "Closing",
+        "netChange": "Net change"
+      }
+    },
+    "toasts": {
+      "exportSuccess": "Excel file exported successfully!",
+      "exportFailed": "File export failed."
+    },
+    "loadingStats": "Loading statistics...",
+    "selectTermPrompt": "Select an academic term to view movement statistics"
+  }
+}

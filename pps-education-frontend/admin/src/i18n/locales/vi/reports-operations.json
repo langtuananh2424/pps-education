@@ -1,0 +1,129 @@
+{
+  "attitudeStatus": {
+    "WEAK": "Yếu",
+    "AVERAGE": "Trung bình",
+    "FAIR": "Khá",
+    "GOOD": "Tốt",
+    "EXCELLENT": "Xuất sắc"
+  },
+  "commentSeverity": {
+    "POSITIVE": "Tích cực",
+    "NORMAL": "Bình thường",
+    "CONCERN": "Cần chú ý",
+    "WARNING": "Cảnh báo"
+  },
+  "commentStatus": {
+    "APPROVED": "Đã duyệt",
+    "PENDING": "Chờ duyệt",
+    "DRAFT": "Nháp",
+    "REJECTED": "Bị từ chối"
+  },
+  "dailyCommentsAnalyticsPage": {
+    "title": "Thống kê nhận xét ngày",
+    "description": "Xem và xuất báo cáo nhận xét theo lớp, buổi học.",
+    "exportButton": "Xuất báo cáo ngày của lớp",
+    "filters": {
+      "title": "Chọn buổi học",
+      "selectedClassPrefix": "Lớp đang chọn:",
+      "sessionLabel": "Buổi học",
+      "sessionPlaceholder": "-- Chọn buổi học --",
+      "sessionOption": "Buổi {{number}} — {{date}} ({{status}})",
+      "noClassSelected": "Vui lòng chọn 1 lớp học trên thanh Header (góc trên bên phải) để xem thống kê nhận xét."
+    },
+    "session": {
+      "label": "Buổi {{number}} — {{className}}",
+      "teacherPrefix": "GV:",
+      "teacherTypeVN": "VN",
+      "teacherTypeForeign": "Nước ngoài"
+    },
+    "stats": {
+      "commented": "Sĩ số nhận xét",
+      "commentedSub": "/ {{count}} học sinh",
+      "approved": "Đã duyệt",
+      "positive": "Tích cực",
+      "concern": "Cần chú ý"
+    },
+    "table": {
+      "title": "Nhận xét từng học sinh",
+      "recordCount": "{{count}} bản ghi",
+      "exportAllButton": "Xuất hàng loạt",
+      "exportAllTitle": "Xuất hàng loạt nhận xét toàn bộ học sinh trong buổi học này (file ZIP)",
+      "loading": "Đang tải nhận xét...",
+      "empty": "Chưa có nhận xét nào cho buổi học này",
+      "exportStudentTitle": "Xuất báo cáo nhận xét học sinh",
+      "columns": {
+        "student": "Học sinh",
+        "attitude": "Thái độ",
+        "severity": "Mức độ",
+        "content": "Nội dung nhận xét",
+        "status": "Trạng thái",
+        "export": "Xuất"
+      }
+    },
+    "exportModal": {
+      "title": "Xuất báo cáo ngày của lớp",
+      "descriptionWithSession": "Buổi {{number}} — {{date}} ({{className}})",
+      "descriptionDefault": "Chọn mẫu báo cáo phù hợp để xuất file."
+    },
+    "toasts": {
+      "exportClassDaySuccess": "Xuất báo cáo ngày của lớp thành công! Đang tải file...",
+      "exportFailed": "Xuất báo cáo thất bại",
+      "noCommentTemplate": "Chưa có mẫu nhận xét học sinh (STUDENT_COMMENT)",
+      "exportStudentCommentSuccess": "Xuất nhận xét thành công! Đang tải file...",
+      "exportAllSuccess": "Xuất hàng loạt nhận xét thành công! Đang tải file ZIP..."
+    },
+    "emptyState": "Chọn lớp học và buổi học để xem thống kê nhận xét"
+  },
+  "enrollmentMovementStatsPage": {
+    "title": "Thống kê biến động học sinh theo kỳ",
+    "description": "Sĩ số đầu kỳ/cuối kỳ và biến động (nhập học mới, nghỉ/rút, chuyển lớp, hoàn thành) của các lớp trong 1 kỳ học.",
+    "exportButton": "Xuất Excel",
+    "filters": {
+      "noSiteSelected": "Vui lòng chọn 1 điểm trường cụ thể trên thanh Header (góc trên bên trái) — mỗi Kỳ học luôn gắn 1 điểm trường.",
+      "title": "Chọn kỳ học",
+      "termLabel": "Kỳ học",
+      "termPlaceholder": "-- Chọn kỳ học --",
+      "termOption": "{{name}} ({{startDate}} - {{endDate}})",
+      "comparisonLabel": "So sánh với kỳ khác (tuỳ chọn)",
+      "comparisonPlaceholder": "-- Không so sánh --",
+      "noTerms": "Điểm trường này chưa có kỳ học nào — tạo ở màn \"Quản lý Kỳ học\"."
+    },
+    "loadStatsError": "Không tải được thống kê biến động học sinh.",
+    "stats": {
+      "opening": "Đầu kỳ",
+      "newEnrollments": "Nhập học mới",
+      "withdrawn": "Nghỉ/rút",
+      "transferred": "Chuyển lớp",
+      "completed": "Hoàn thành",
+      "closing": "Cuối kỳ"
+    },
+    "trendChart": {
+      "title": "Xu hướng sĩ số theo tháng",
+      "ariaLabel": "Biểu đồ đường xu hướng sĩ số theo tháng",
+      "monthAxis": "T{{month}}",
+      "tooltip": "{{label}} — Tháng {{month}} ({{start}} → {{end}}): {{count}} học sinh"
+    },
+    "table": {
+      "title": "Biến động theo lớp",
+      "classCount": "{{count}} lớp",
+      "empty": "Điểm trường này chưa có lớp nào.",
+      "totalRow": "Tổng cộng",
+      "columns": {
+        "class": "Lớp",
+        "opening": "Đầu kỳ",
+        "newEnrollments": "Nhập mới",
+        "withdrawn": "Nghỉ/rút",
+        "transferred": "Chuyển lớp",
+        "completed": "Hoàn thành",
+        "closing": "Cuối kỳ",
+        "netChange": "Biến động ròng"
+      }
+    },
+    "toasts": {
+      "exportSuccess": "Xuất file Excel thành công!",
+      "exportFailed": "Xuất file thất bại."
+    },
+    "loadingStats": "Đang tải thống kê...",
+    "selectTermPrompt": "Chọn 1 kỳ học để xem thống kê biến động"
+  }
+}

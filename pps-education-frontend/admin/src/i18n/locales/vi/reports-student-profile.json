@@ -1,0 +1,170 @@
+{
+  "studentStatus": {
+    "ACTIVE": "Đang học",
+    "SUSPENDED": "Đình chỉ",
+    "EXPELLED": "Bị đuổi",
+    "GRADUATED": "Tốt nghiệp",
+    "WITHDRAWN": "Rút khỏi",
+    "DEFERRAL": "Tạm hoãn"
+  },
+  "resultStatus": {
+    "DRAFT": "Nháp",
+    "SUBMITTED": "Đã nộp",
+    "OFFICIAL": "Chính thức",
+    "REJECTED": "Từ chối",
+    "PENDING": "Chờ duyệt",
+    "APPROVED": "Đã duyệt"
+  },
+  "attitude": {
+    "WEAK": "Yếu",
+    "AVERAGE": "Trung bình",
+    "FAIR": "Khá",
+    "GOOD": "Tốt",
+    "EXCELLENT": "Xuất sắc"
+  },
+  "homeworkStatus": {
+    "IN_PROGRESS": "Đang làm",
+    "SUBMITTED": "Đã nộp",
+    "AUTO_GRADED": "Đã chấm tự động",
+    "FULLY_GRADED": "Đã chấm xong",
+    "EXPIRED": "Hết hạn"
+  },
+  "attendanceStatus": {
+    "PRESENT": "Có mặt",
+    "LATE": "Đi muộn",
+    "EARLY_LEAVE": "Về sớm",
+    "ABSENT": "Vắng",
+    "EXCUSED": "Có phép"
+  },
+  "modal": {
+    "title": "Hồ sơ học tập",
+    "loading": "Đang tải hồ sơ học tập...",
+    "loadError": "Không tải được hồ sơ học tập.",
+    "tabs": {
+      "overview": "Tổng quan",
+      "grades": "Điểm số",
+      "comments": "Nhận xét",
+      "attendance": "Điểm danh",
+      "homework": "Bài tập về nhà"
+    },
+    "overview": {
+      "enrolledClassesLabel": "Lớp đã học",
+      "enrolledClassesUnit": "lớp",
+      "avgScoreLabel": "Điểm TB",
+      "avgScoreUnit": "qua {{count}} kỳ",
+      "commentsLabel": "Nhận xét",
+      "commentsUnit": "nhận xét ngày",
+      "attendanceLabel": "Điểm danh",
+      "attendancePresentUnit": "có mặt ({{present}}/{{total}})",
+      "enrollmentHistoryTitle": "Lịch sử ghi danh",
+      "noEnrollments": "Chưa có lớp nào",
+      "enrolledOn": "Ghi danh: {{date}}",
+      "withdrawnOn": " · Rút: {{date}}",
+      "enrollmentActive": "Đang học"
+    },
+    "grades": {
+      "filterLabel": "Lọc:",
+      "allYears": "Tất cả năm học",
+      "allTerms": "Tất cả kỳ học",
+      "clearFilter": "Xoá lọc",
+      "resultsTitle": "Kết quả học kỳ",
+      "noGrades": "Chưa có điểm số nào",
+      "noGradesMatchFilter": "Không có kết quả khớp bộ lọc đang chọn",
+      "columns": {
+        "academicYear": "Năm học",
+        "term": "Kỳ học",
+        "type": "Loại",
+        "score": "Điểm",
+        "level": "Xếp hạng",
+        "comment": "Nhận xét",
+        "status": "Trạng thái"
+      },
+      "evaluationType": {
+        "midTerm": "Giữa kỳ",
+        "endTerm": "Cuối kỳ"
+      },
+      "skillTrendTitle": "Biến động điểm theo từng kỹ năng",
+      "noSkillTrends": "Chưa có điểm thành phần theo kỹ năng",
+      "noSkillTrendsMatchFilter": "Không có điểm kỹ năng khớp bộ lọc đang chọn",
+      "compareTitle": "So sánh điểm giữa 2 kỳ",
+      "compareAPlaceholder": "-- Chọn kỳ A --",
+      "compareVs": "so với",
+      "compareBPlaceholder": "-- Chọn kỳ B --",
+      "compareSelectPrompt": "Chọn 2 kỳ để so sánh điểm từng kỹ năng.",
+      "compareNoData": "Không có điểm kỹ năng nào ở 1 trong 2 kỳ đã chọn.",
+      "compareColumns": {
+        "skill": "Kỹ năng",
+        "delta": "Chênh lệch"
+      },
+      "overallSkillLabel": "Overall (Tổng kết)"
+    },
+    "comments": {
+      "filterLabel": "Lọc:",
+      "all": "Tất cả",
+      "dateFromPlaceholder": "Từ ngày",
+      "dateToPlaceholder": "Đến ngày",
+      "clearFilter": "Xoá lọc",
+      "countSuffix": "{{count}} nhận xét",
+      "noComments": "Chưa có nhận xét nào",
+      "noCommentsMatchFilter": "Không có nhận xét nào khớp bộ lọc đang chọn",
+      "dailyBadge": "Hàng ngày",
+      "sessionLabel": "Buổi {{number}} — {{date}}",
+      "noContent": "(không có nội dung)",
+      "attitudePrefix": "Thái độ: ",
+      "notePrefix": "Ghi chú: "
+    },
+    "attendance": {
+      "filterLabel": "Lọc:",
+      "all": "Tất cả",
+      "dateFromPlaceholder": "Từ ngày",
+      "dateToPlaceholder": "Đến ngày",
+      "clearFilter": "Xoá lọc",
+      "countSuffix": "{{filtered}}/{{total}} buổi (tối đa 150 buổi gần nhất)",
+      "presentStat": "Có mặt",
+      "absentStat": "Vắng không phép",
+      "excusedStat": "Vắng có phép",
+      "noAttendance": "Chưa có dữ liệu điểm danh",
+      "noAttendanceMatchFilter": "Không có buổi học nào khớp bộ lọc đang chọn",
+      "sessionNumber": "Buổi {{number}}",
+      "sessionFallback": "Buổi học #{{id}}"
+    },
+    "homework": {
+      "filterLabel": "Lọc:",
+      "allClasses": "Tất cả lớp",
+      "allResults": "Tất cả kết quả",
+      "resultPassed": "Đạt",
+      "resultFailed": "Chưa đạt",
+      "resultUngraded": "Chưa chấm",
+      "clearFilter": "Xoá lọc",
+      "countSuffix": "{{count}} bài",
+      "noHomework": "Chưa có bài tập về nhà nào được giao",
+      "noHomeworkMatchFilter": "Không có bài nào khớp bộ lọc đang chọn",
+      "attemptNumberSuffix": " · Lượt {{number}}",
+      "submittedAtSuffix": " · Nộp: {{datetime}}",
+      "notSubmittedSuffix": " · Chưa nộp",
+      "passed": "Đạt",
+      "failed": "Chưa đạt"
+    }
+  },
+  "skillTrendChart": {
+    "latestLabel": "Gần nhất:",
+    "chartAriaLabel": "Biểu đồ điểm {{skill}} qua các kỳ"
+  },
+  "homeworkAttemptDetail": {
+    "loading": "Đang tải bài làm...",
+    "loadError": "Không tải được chi tiết bài làm.",
+    "noAnswers": "Chưa có dữ liệu câu trả lời.",
+    "wrongCountPrefix": "Sai ",
+    "wrongCountSuffix": "/{{totalCount}} câu",
+    "showWrongOnly": "Chỉ xem câu sai",
+    "showAll": "Xem toàn bộ câu trả lời",
+    "noWrongAnswers": "Không có câu nào làm sai 🎉",
+    "columns": {
+      "question": "Câu hỏi",
+      "studentAnswer": "Học sinh trả lời",
+      "correctAnswer": "Đáp án đúng",
+      "result": "Kết quả"
+    },
+    "noAnswerGiven": "Không trả lời"
+  }
+}

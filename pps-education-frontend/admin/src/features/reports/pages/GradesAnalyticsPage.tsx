@@ -9,6 +9,7 @@ import {
   ChevronUp,
   ChevronDown,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import Button from "@/components/ui/Button";
 import Select from "@/components/ui/Select";
 import { useApp } from "@/context/AppContext";
@@ -34,28 +35,26 @@ import { ApiError, downloadReport } from "@/lib/apiClient";
 
 import SelectReportTemplateModal from "../components/SelectReportTemplateModal";
 
-const EVAL_TYPE_LABELS: Record<string, string> = {
-  MID_TERM: "Giữa kỳ",
-  END_TERM: "Cuối kỳ",
-};
+/** Nhãn loại đánh giá (MID_TERM/END_TERM) dịch qua i18next namespace "reports-progress". */
+function evalTypeLabel(t: (key: string) => string, type: string): string {
+  return t(`gradesAnalyticsPage.evalType.${type}`);
+}
 
-const SCALE_TYPE_LABELS: Record<string, string> = {
-  POINT_10: "Thang 10",
-  PERCENT: "Phần trăm",
-  IELTS: "IELTS band",
-};
+/** Nhãn thang điểm (POINT_10/PERCENT/IELTS). */
+function scaleTypeLabel(t: (key: string) => string, type: string): string {
+  return t(`gradesAnalyticsPage.scaleType.${type}`);
+}
+
+/** Nhãn trạng thái kết quả điểm (DRAFT/SUBMITTED/OFFICIAL/REJECTED). */
+function resultStatusLabel(t: (key: string) => string, status: string): string {
+  return t(`gradesAnalyticsPage.resultStatus.${status}`);
+}
 
 const STATUS_COLORS: Record<string, string> = {
   DRAFT: "bg-slate-100 text-slate-600",
   SUBMITTED: "bg-blue-100 text-blue-700",
   OFFICIAL: "bg-emerald-100 text-emerald-700",
   REJECTED: "bg-rose-100 text-rose-600",
-};
-const STATUS_LABELS: Record<string, string> = {
-  DRAFT: "Nháp",
-  SUBMITTED: "Đã nộp",
-  OFFICIAL: "Chính thức",
-  REJECTED: "Bị từ chối",
 };
 
 type SortKey = "name" | "score" | "status";
@@ -95,6 +94,7 @@ function MiniBarChart({ data }: { data: { label: string; count: number; color: s
 }
 
 export default function GradesAnalyticsPage() {
+  const { t } = useTranslation("reports-progress");
   const { selectedCampusId, selectedClassId: globalClassId, hasPermission } = useApp();
   const canExport = hasPermission("report.generate");
 
@@ -236,10 +236,10 @@ export default function GradesAnalyticsPage() {
       } else if (res?.fileUrl) {
         window.open(res.fileUrl, "_blank");
       }
-      showToast("Xuất báo cáo điểm cả lớp thành công! Đang tải file...");
+      showToast(t("gradesAnalyticsPage.toast.exportClassSuccess"));
       setExportTarget(null);
     } catch (err) {
-      showToast(err instanceof ApiError ? err.message : "Xuất báo cáo thất bại");
+      showToast(err instanceof ApiError ? err.message : t("gradesAnalyticsPage.toast.exportClassFailed"));
     } finally {
       setExporting(false);
     }
@@ -262,10 +262,10 @@ export default function GradesAnalyticsPage() {
       } else if (res?.fileUrl) {
         window.open(res.fileUrl, "_blank");
       }
-      showToast(`Xuất báo cáo điểm cá nhân thành công! Đang tải file...`);
+      showToast(t("gradesAnalyticsPage.toast.exportStudentSuccess"));
       setExportTarget(null);
     } catch (err) {
-      showToast(err instanceof ApiError ? err.message : "Xuất thất bại");
+      showToast(err instanceof ApiError ? err.message : t("gradesAnalyticsPage.toast.exportStudentFailed"));
     } finally {
       setExporting(false);
     }
@@ -284,8 +284,8 @@ export default function GradesAnalyticsPage() {
       {/* Header */}
       <div className="border-b border-slate-200 pb-4 flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Thống kê điểm số</h1>
-          <p className="text-xs text-slate-500 mt-1">Xem phân phối điểm, điểm trung bình và xuất báo cáo theo lớp & kỳ học.</p>
+          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("gradesAnalyticsPage.title")}</h1>
+          <p className="text-xs text-slate-500 mt-1">{t("gradesAnalyticsPage.description")}</p>
         </div>
         {canExport && (
           <Button
@@ -295,7 +295,7 @@ export default function GradesAnalyticsPage() {
             className="flex items-center gap-1.5 shadow-sm"
           >
             <Download className="w-4 h-4" />
-            Xuất báo cáo điểm của lớp
+            {t("gradesAnalyticsPage.exportClassButton")}
           </Button>
         )}
       </div>
@@ -305,27 +305,27 @@ export default function GradesAnalyticsPage() {
         <div className="bg-white rounded-xl border border-slate-200/60 shadow-sm p-4">
           <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
             <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
-              <Filter className="w-3.5 h-3.5" /> Chọn sổ điểm
+              <Filter className="w-3.5 h-3.5" /> {t("gradesAnalyticsPage.filter.sectionTitle")}
             </div>
             {selectedClass && (
               <div className="text-xs text-brand-orange font-medium bg-orange-50 px-2.5 py-1 rounded-md border border-orange-100">
-                Lớp đang chọn: <span className="font-bold">{selectedClass.name} ({selectedClass.classCode})</span>
+                {t("gradesAnalyticsPage.filter.selectedClassLabel", { name: selectedClass.name, code: selectedClass.classCode })}
               </div>
             )}
           </div>
           <div className="flex flex-wrap gap-3">
             <div className="flex-1 min-w-[240px]">
-              <label className="block text-xs text-slate-500 mb-1">Sổ điểm (kỳ & loại)</label>
+              <label className="block text-xs text-slate-500 mb-1">{t("gradesAnalyticsPage.filter.setupLabel")}</label>
               <Select
                 value={selectedSetupId}
                 onChange={(e) => setSelectedSetupId(e.target.value ? Number(e.target.value) : "")}
                 disabled={loadingSetups}
                 className="w-full border border-slate-300 rounded-lg text-sm p-2 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
               >
-                <option value="">-- Chọn sổ điểm --</option>
+                <option value="">{t("gradesAnalyticsPage.filter.setupPlaceholder")}</option>
                 {setups.map((s) => (
                   <option key={s.id} value={s.id}>
-                    {s.academicTermName} — {EVAL_TYPE_LABELS[s.evaluationType]} ({SCALE_TYPE_LABELS[s.scaleType]})
+                    {t("gradesAnalyticsPage.filter.setupOption", { term: s.academicTermName, evalType: evalTypeLabel(t, s.evaluationType), scaleType: scaleTypeLabel(t, s.scaleType) })}
                   </option>
                 ))}
               </Select>
@@ -335,7 +335,7 @@ export default function GradesAnalyticsPage() {
       ) : (
         <div className="bg-amber-50 border border-amber-200/80 rounded-xl p-4 text-amber-800 text-sm flex items-center gap-3">
           <Filter className="w-5 h-5 text-amber-600 shrink-0" />
-          <span>Vui lòng chọn 1 lớp học trên thanh Header (góc trên bên phía bên phải) để xem thống kê điểm số.</span>
+          <span>{t("gradesAnalyticsPage.filter.noClassSelected")}</span>
         </div>
       )}
 
@@ -345,34 +345,34 @@ export default function GradesAnalyticsPage() {
           <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl p-5 text-white flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="text-xs opacity-75">
-                {selectedClass?.name} — {selectedSetup.academicTermName}
+                {t("gradesAnalyticsPage.periodCard.subtitle", { className: selectedClass?.name, termName: selectedSetup.academicTermName })}
               </p>
               <h2 className="text-lg font-bold mt-1">
-                {EVAL_TYPE_LABELS[selectedSetup.evaluationType]} · {SCALE_TYPE_LABELS[selectedSetup.scaleType]}
+                {t("gradesAnalyticsPage.periodCard.heading", { evalType: evalTypeLabel(t, selectedSetup.evaluationType), scaleType: scaleTypeLabel(t, selectedSetup.scaleType) })}
               </h2>
-              <p className="text-xs opacity-70 mt-1">Tính theo danh sách tại: {selectedSetup.rosterAsOfDate}</p>
+              <p className="text-xs opacity-70 mt-1">{t("gradesAnalyticsPage.periodCard.rosterNote", { date: selectedSetup.rosterAsOfDate })}</p>
             </div>
           </div>
 
           {/* Thống kê */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <StatCard icon={<Users className="w-5 h-5 text-brand-orange" />} label="Tổng học sinh" value={stats.total} />
+            <StatCard icon={<Users className="w-5 h-5 text-brand-orange" />} label={t("gradesAnalyticsPage.stats.totalStudents")} value={stats.total} />
             <StatCard
               icon={<BarChart2 className="w-5 h-5 text-indigo-500" />}
-              label="Điểm trung bình"
+              label={t("gradesAnalyticsPage.stats.avgScore")}
               value={stats.avg !== null ? stats.avg : "—"}
               color="text-indigo-600"
             />
             <StatCard
               icon={<TrendingUp className="w-5 h-5 text-emerald-500" />}
-              label="Điểm cao nhất"
+              label={t("gradesAnalyticsPage.stats.maxScore")}
               value={stats.max !== null ? stats.max : "—"}
-              sub={stats.min !== null ? `Thấp nhất: ${stats.min}` : undefined}
+              sub={stats.min !== null ? t("gradesAnalyticsPage.stats.minScoreSub", { min: stats.min }) : undefined}
               color="text-emerald-600"
             />
             <StatCard
               icon={<Award className="w-5 h-5 text-amber-500" />}
-              label="Đã chính thức"
+              label={t("gradesAnalyticsPage.stats.official")}
               value={`${stats.official}/${stats.total}`}
               color="text-amber-600"
             />
@@ -381,7 +381,7 @@ export default function GradesAnalyticsPage() {
           {/* Biểu đồ phân phối */}
           {scoreDistribution.length > 0 && (
             <div className="bg-white border border-slate-200/60 rounded-xl p-5 shadow-sm">
-              <h3 className="text-sm font-semibold text-slate-700 mb-4">Phân phối điểm</h3>
+              <h3 className="text-sm font-semibold text-slate-700 mb-4">{t("gradesAnalyticsPage.distribution.title")}</h3>
               <MiniBarChart data={scoreDistribution} />
             </div>
           )}
@@ -389,47 +389,47 @@ export default function GradesAnalyticsPage() {
           {/* Bảng điểm */}
           <div className="bg-white rounded-xl border border-slate-200/60 shadow-sm overflow-hidden">
             <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between gap-3 flex-wrap">
-              <h3 className="text-sm font-semibold text-slate-700">Bảng điểm học sinh</h3>
+              <h3 className="text-sm font-semibold text-slate-700">{t("gradesAnalyticsPage.table.title")}</h3>
               <input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Tìm theo tên / mã học sinh..."
+                placeholder={t("gradesAnalyticsPage.table.searchPlaceholder")}
                 className="text-xs border border-slate-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-brand-orange w-56"
               />
             </div>
             {loadingResults ? (
-              <div className="px-4 py-8 text-center text-sm text-slate-400">Đang tải điểm...</div>
+              <div className="px-4 py-8 text-center text-sm text-slate-400">{t("gradesAnalyticsPage.table.loading")}</div>
             ) : displayResults.length === 0 ? (
               <div className="px-4 py-10 text-center">
                 <Award className="w-10 h-10 mx-auto text-slate-200 mb-2" />
-                <p className="text-sm text-slate-400">Chưa có điểm nào trong sổ điểm này</p>
+                <p className="text-sm text-slate-400">{t("gradesAnalyticsPage.table.empty")}</p>
               </div>
             ) : (
               <table className="w-full text-sm text-left">
                 <thead className="bg-slate-50 border-b border-slate-100 text-xs text-slate-500 font-medium">
                   <tr>
-                    <th className="px-4 py-2.5">#</th>
+                    <th className="px-4 py-2.5">{t("gradesAnalyticsPage.table.columns.index")}</th>
                     <th
                       className="px-4 py-2.5 cursor-pointer hover:text-slate-700 select-none"
                       onClick={() => toggleSort("name")}
                     >
-                      <span className="flex items-center gap-1">Học sinh <SortIcon k="name" /></span>
+                      <span className="flex items-center gap-1">{t("gradesAnalyticsPage.table.columns.student")} <SortIcon k="name" /></span>
                     </th>
                     <th
                       className="px-4 py-2.5 cursor-pointer hover:text-slate-700 select-none"
                       onClick={() => toggleSort("score")}
                     >
-                      <span className="flex items-center gap-1">Điểm <SortIcon k="score" /></span>
+                      <span className="flex items-center gap-1">{t("gradesAnalyticsPage.table.columns.score")} <SortIcon k="score" /></span>
                     </th>
-                    <th className="px-4 py-2.5">Xếp hạng</th>
+                    <th className="px-4 py-2.5">{t("gradesAnalyticsPage.table.columns.rank")}</th>
                     <th
                       className="px-4 py-2.5 cursor-pointer hover:text-slate-700 select-none"
                       onClick={() => toggleSort("status")}
                     >
-                      <span className="flex items-center gap-1">Trạng thái <SortIcon k="status" /></span>
+                      <span className="flex items-center gap-1">{t("gradesAnalyticsPage.table.columns.status")} <SortIcon k="status" /></span>
                     </th>
-                    {canExport && templates.length > 0 && <th className="px-4 py-2.5 text-right">Xuất</th>}
+                    {canExport && templates.length > 0 && <th className="px-4 py-2.5 text-right">{t("gradesAnalyticsPage.table.columns.export")}</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -450,7 +450,7 @@ export default function GradesAnalyticsPage() {
                       <td className="px-4 py-3 text-xs text-slate-500">{r.level ?? "—"}</td>
                       <td className="px-4 py-3">
                         <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${STATUS_COLORS[r.status] ?? ""}`}>
-                          {STATUS_LABELS[r.status] ?? r.status}
+                          {resultStatusLabel(t, r.status) ?? r.status}
                         </span>
                       </td>
                       {canExport && templates.length > 0 && (
@@ -460,7 +460,7 @@ export default function GradesAnalyticsPage() {
                             variant="secondary"
                             disabled={exporting}
                             onClick={() => setExportTarget({ mode: "SINGLE", studentId: r.studentId })}
-                            title="Xuất bảng điểm cá nhân"
+                            title={t("gradesAnalyticsPage.table.exportRowTitle")}
                           >
                             <Download className="w-3.5 h-3.5" />
                           </Button>
@@ -478,15 +478,15 @@ export default function GradesAnalyticsPage() {
       {!selectedClassId && (
         <div className="text-center py-16 text-slate-400">
           <Award className="w-14 h-14 mx-auto text-slate-200 mb-3" />
-          <p className="text-sm font-medium">Chọn lớp học và sổ điểm để xem thống kê</p>
+          <p className="text-sm font-medium">{t("gradesAnalyticsPage.emptyState")}</p>
         </div>
       )}
 
       <SelectReportTemplateModal
         open={exportTarget !== null}
         onClose={() => setExportTarget(null)}
-        title={exportTarget?.mode === "SINGLE" ? "Xuất bảng điểm cá nhân" : "Xuất báo cáo điểm của lớp"}
-        description={selectedSetup ? `${selectedClass?.name} — ${selectedSetup.academicTermName}` : "Chọn mẫu báo cáo phù hợp để xuất file."}
+        title={exportTarget?.mode === "SINGLE" ? t("gradesAnalyticsPage.exportModal.titleSingle") : t("gradesAnalyticsPage.exportModal.titleBulk")}
+        description={selectedSetup ? t("gradesAnalyticsPage.periodCard.subtitle", { className: selectedClass?.name, termName: selectedSetup.academicTermName }) : t("gradesAnalyticsPage.exportModal.descriptionFallback")}
         templates={gradeTemplates}
         academicTerms={academicTerms}
         exporting={exporting}
