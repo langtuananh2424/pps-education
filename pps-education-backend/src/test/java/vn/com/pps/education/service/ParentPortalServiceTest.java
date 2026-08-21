@@ -297,9 +297,15 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
         studentCommentService.submitComments(schoolClass.id(), new SubmitCommentsRequest(List.of(approved.id())), teacher.getId());
         studentCommentService.decideComments(new DecideCommentsRequest(List.of(approved.id()), "APPROVED", null), siteManagerUser.getId());
 
-        // A1 -- nhận xét khác vẫn DRAFT (chưa gửi/chưa duyệt).
+        // A1 -- nhận xét khác vẫn DRAFT (chưa gửi/chưa duyệt). Phải ở 1 buổi KHÁC session gốc — từ
+        // 2026-08-19 writeComment chặn tạo thêm nhận xét thứ 2 cho cùng 1 buổi đã APPROVED
+        // (StudentCommentNotEditableException, xem StudentCommentService#writeComment).
+        ClassSessionResponse otherSession = classSessionService.createSession(schoolClass.id(),
+                new CreateClassSessionRequest(LocalDate.now(), "MORNING", List.of(2), null, "REGULAR", "VIETNAMESE",
+                        teacher.getId(), null, null, null),
+                headAcademic.getId());
         studentCommentService.writeComment(schoolClass.id(),
-                new CreateStudentCommentRequest(student.getId(), session.id(),
+                new CreateStudentCommentRequest(student.getId(), otherSession.id(),
                         LocalDate.now(), "Nội dung chưa duyệt.", null, null, false, null, null, null, null, null, null, null, null), teacher.getId());
 
         List<StudentCommentResponse> comments = parentPortalService.listComments(student.getId(), schoolClass.id(), parentUser.getId());
@@ -427,8 +433,12 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
 
     /**
      * DAILY nay dùng chung luồng DRAFT->Gửi->PENDING->duyệt (2026-07-29) -- ghi rồi phải Gửi+duyệt mới APPROVED để lộ ra Cổng phụ huynh.
-     * V65: grammarExerciseId/videoSetId khác null tự động giao (deliverToClass) cho cả lớp ngay khi writeComment.
-     * Trả về comment lúc tạo (DRAFT) vì homeworkNext*AssignmentId không đổi qua submit/decide (không cascade).
+     * V127 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-19): giao bài thật
+     * (materialize ExerciseAssignment/ReviewVideoAssignment) chỉ xảy ra ở submitComments(), KHÔNG
+     * còn ở writeComment() nữa (writeComment chỉ lưu tạm lựa chọn vào pendingHomeworkNext*) — xem
+     * Javadoc StudentCommentService#submitComments. Vì vậy phải trả về response SAU submitComments
+     * (giữ nguyên qua decideComments, không cascade đổi lại) mới có homeworkNext*AssignmentId, khác
+     * comment lúc tạo (DRAFT) như trước V127.
      */
     private StudentCommentResponse writeDailyComment(Long grammarExerciseId, Long videoSetId, String homeworkNext) {
         StudentCommentResponse comment = studentCommentService.writeComment(schoolClass.id(),
@@ -436,9 +446,10 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
                         session.sessionDate(), "Nội dung buổi.", null, null, false, null, null, null,
                         homeworkNext, grammarExerciseId, videoSetId, null, null),
                 teacher.getId());
-        studentCommentService.submitComments(schoolClass.id(), new SubmitCommentsRequest(List.of(comment.id())), teacher.getId());
+        List<StudentCommentResponse> submitted = studentCommentService.submitComments(
+                schoolClass.id(), new SubmitCommentsRequest(List.of(comment.id())), teacher.getId());
         studentCommentService.decideComments(new DecideCommentsRequest(List.of(comment.id()), "APPROVED", null), siteManagerUser.getId());
-        return comment;
+        return submitted.get(0);
     }
 
     @Test

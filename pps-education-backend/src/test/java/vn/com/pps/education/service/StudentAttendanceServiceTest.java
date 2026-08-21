@@ -129,6 +129,7 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
 
     private User headAcademic;
     private User teacher;
+    private Site site;
     private ClassSessionResponse session;
     private Student student1;
     private Student student2;
@@ -142,7 +143,19 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
                 new CreateCurriculumRequest(curriculumCode(), "Chuẩn", "MAIN", null, null, null), headAcademic.getId());
         CurriculumResponse activeCurriculum = curriculumService.update(curriculum.id(),
                 new UpdateCurriculumRequest("Chuẩn", null, null, null, "ACTIVE", false), headAcademic.getId());
-        Site site = newSite();
+        site = newSite();
+        // Tiết 2 cùng khung giờ rộng bao quanh "now" như tiết 1 của newSite() -- phục vụ
+        // updatePeriodMark_UC15_MainFlow_overridesSinglePeriod cần buổi có >=2 tiết để override đúng
+        // "1 trong nhiều tiết" (bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-08-21, sau khi
+        // period sinh 1:1 theo periodNumbers thay vì tự chia đều theo phút như trước).
+        SitePeriodTemplate period2 = new SitePeriodTemplate();
+        period2.setSite(site);
+        period2.setPeriodNumber(2);
+        period2.setDayPart(SitePeriodTemplate.DayPart.MORNING);
+        period2.setStartTime(LocalTime.now().minusMinutes(5));
+        period2.setEndTime(LocalTime.now().plusHours(3));
+        period2.setCreatedBy(headAcademic);
+        sitePeriodTemplateRepository.save(period2);
         ClassResponse schoolClass = classService.create(
                 new CreateClassRequest(classCode(), "8A2", site.getId(), activeCurriculum.id(), "OPEN", 20, null,
                         LocalDate.now(), null, null), headAcademic.getId());
@@ -155,7 +168,7 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
         // markAttendance() giờ đòi buổi đang TRONG khung giờ diễn ra [startTime, endTime] (xem
         // requireWithinSessionWindow), giờ cố định làm phần lớn test ở file này flaky theo giờ chạy CI.
         session = classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(LocalDate.now(), "MORNING", List.of(1), null, "REGULAR", "VIETNAMESE",
+                new CreateClassSessionRequest(LocalDate.now(), "MORNING", List.of(1, 2), null, "REGULAR", "VIETNAMESE",
                         teacher.getId(), null, null, null),
                 headAcademic.getId());
 

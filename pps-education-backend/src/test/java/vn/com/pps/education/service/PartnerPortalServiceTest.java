@@ -270,6 +270,7 @@ class PartnerPortalServiceTest extends AbstractIntegrationTest {
         // LocalTime.MIN vẫn không dùng được vì bị hibernate.jdbc.time_zone=UTC quy đổi lệch, vi phạm
         // CHECK chk_session_time.
         seedPeriod(partnerSite, 1, LocalTime.now().minusMinutes(1), LocalTime.now().plusHours(1));
+        seedPeriod(partnerSite, 2, LocalTime.of(8, 0), LocalTime.of(9, 40));
         ClassSessionResponse session = classSessionService.createSession(schoolClass.id(),
                 new CreateClassSessionRequest(LocalDate.now(), "MORNING", List.of(1), null, "REGULAR", "VIETNAMESE",
                         teacher.getId(), null, null, null),
@@ -287,9 +288,15 @@ class PartnerPortalServiceTest extends AbstractIntegrationTest {
         studentCommentService.decideComments(
                 new DecideCommentsRequest(List.of(approvedComment.id()), "APPROVED", "Tốt"), siteManagerUser.getId());
 
-        // Nhan xet con DRAFT (chua submit/duyet) -- khong duoc hien thi cho Doi tac.
+        // Nhan xet con DRAFT (chua submit/duyet) -- khong duoc hien thi cho Doi tac. Phải ở 1 buổi
+        // KHÁC session gốc — từ 2026-08-19 writeComment chặn tạo thêm nhận xét thứ 2 cho cùng 1 buổi
+        // đã APPROVED (StudentCommentNotEditableException, xem StudentCommentService#writeComment).
+        ClassSessionResponse otherSession = classSessionService.createSession(schoolClass.id(),
+                new CreateClassSessionRequest(LocalDate.now(), "MORNING", List.of(2), null, "REGULAR", "VIETNAMESE",
+                        teacher.getId(), null, null, null),
+                headAcademic.getId());
         studentCommentService.writeComment(schoolClass.id(),
-                new CreateStudentCommentRequest(student.getId(), session.id(),
+                new CreateStudentCommentRequest(student.getId(), otherSession.id(),
                         LocalDate.now(), "Nhận xét nháp chưa gửi duyệt.", null, "NORMAL", false, null, null, null, null, null, null, null, null),
                 teacher.getId());
 
