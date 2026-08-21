@@ -33,7 +33,7 @@ import CreateSessionModal, { CreateSessionModalPrefill, QueuedCreatePayload, wee
 
 const HEADER_ROW_HEIGHT = 44;
 const SECTION_ROW_HEIGHT = 24;
-const PERIOD_ROW_HEIGHT = 68;
+const PERIOD_ROW_HEIGHT = 96;
 
 interface ClassPeriodGridProps {
   siteId: number;
@@ -555,7 +555,11 @@ export default function ClassPeriodGrid({ siteId, dates, classId }: ClassPeriodG
         </div>
       </div>
 
-      <div className="p-4 pt-0 overflow-x-auto">
+      {/* Tự cuộn cả 2 chiều bên trong khung riêng (thay vì cuộn theo trang) — nút chức năng ở trên
+          nằm ngoài khung này nên luôn cố định; header Thứ dùng "sticky top-0" NGAY TRONG khung này
+          (không phải theo trang) để tránh vỡ khi card cha có overflow-hidden (bổ sung ngoài SDD gốc,
+          xác nhận với người dùng 2026-08-21). */}
+      <div className="p-4 pt-0 overflow-auto max-h-[70vh]">
         <div
           className="grid min-w-[900px]"
           style={{
@@ -563,9 +567,13 @@ export default function ClassPeriodGrid({ siteId, dates, classId }: ClassPeriodG
             gridTemplateRows: rowHeights.map((h) => `${h}px`).join(" ")
           }}
         >
-          <div className="border-b border-r border-slate-200 bg-slate-50" style={{ gridColumn: 1, gridRow: 1 }} />
+          <div className="sticky top-0 z-20 border-b border-r border-slate-200 bg-slate-50" style={{ gridColumn: 1, gridRow: 1 }} />
           {dates.map((d, i) => (
-            <div key={i} className="border-b border-slate-200 bg-slate-50 flex flex-col items-center justify-center" style={{ gridColumn: i + 2, gridRow: 1 }}>
+            <div
+              key={i}
+              className="sticky top-0 z-20 border-b border-slate-200 bg-slate-50 flex flex-col items-center justify-center"
+              style={{ gridColumn: i + 2, gridRow: 1 }}
+            >
               <span className="text-[11px] font-bold text-slate-700">{d.toLocaleDateString("vi-VN", { weekday: "short" })}</span>
               <span className="text-[9px] text-slate-400 font-mono">{d.getDate()}/{d.getMonth() + 1}</span>
             </div>

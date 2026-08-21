@@ -28,7 +28,7 @@ export default function TimetableSessionCard({ session, style, onClick, onContex
       onContextMenu={onContextMenu}
       style={style}
       className={cn(
-        "text-left rounded-lg border p-1.5 flex flex-col gap-0.5 overflow-hidden transition-all hover:shadow-md hover:z-10 pointer-events-auto",
+        "text-left rounded-lg border p-2.5 flex flex-col gap-1 overflow-hidden transition-all hover:shadow-md hover:z-10 pointer-events-auto",
         pendingKind && "border-dashed",
         cancelled
           ? "bg-rose-50 border-rose-300"
@@ -40,32 +40,32 @@ export default function TimetableSessionCard({ session, style, onClick, onContex
       )}
     >
       {pendingKind && (
-        <span className="text-[8px] font-bold uppercase px-1 py-0.5 rounded w-fit bg-purple-100 text-purple-700">
+        <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded w-fit bg-purple-100 text-purple-700">
           {pendingKind === "create" ? "Mới · chưa lưu" : pendingKind === "cancel" ? "Hủy · chưa lưu" : "Sửa · chưa lưu"}
         </span>
       )}
-      <p className={cn("text-[10px] font-bold truncate", cancelled ? "text-rose-600 line-through" : rescheduled ? "text-slate-500 line-through" : "text-slate-800")}>
+      <p className={cn("text-[12px] font-bold truncate", cancelled ? "text-rose-600 line-through" : rescheduled ? "text-slate-500 line-through" : "text-slate-800")}>
         {session.className}
       </p>
       {!cancelled && (
         <>
-          <p className="text-[9px] text-slate-500 truncate">{session.primaryTeacherName}</p>
+          <p className="text-[10.5px] text-slate-500 truncate">{session.primaryTeacherName}</p>
           {session.cmTeacherName && (
-            <p className="text-[9px] text-slate-400 truncate flex items-center gap-0.5">
-              <Users className="w-2.5 h-2.5 shrink-0" />
+            <p className="text-[10.5px] text-slate-400 truncate flex items-center gap-1">
+              <Users className="w-3 h-3 shrink-0" />
               CM: {session.cmTeacherName}
             </p>
           )}
           {session.roomName && (
-            <p className="text-[9px] text-slate-400 truncate flex items-center gap-0.5">
-              <MapPin className="w-2.5 h-2.5 shrink-0" />
+            <p className="text-[10.5px] text-slate-400 truncate flex items-center gap-1">
+              <MapPin className="w-3 h-3 shrink-0" />
               {session.roomName}
             </p>
           )}
           {session.teacherType && (
             <span
               className={cn(
-                "text-[8px] font-bold px-1 py-0.5 rounded w-fit",
+                "text-[9px] font-bold px-1.5 py-0.5 rounded w-fit",
                 session.teacherType === "FOREIGN" ? "bg-sky-100 text-sky-700" : "bg-orange-100 text-brand-red"
               )}
             >
@@ -74,8 +74,8 @@ export default function TimetableSessionCard({ session, style, onClick, onContex
           )}
         </>
       )}
-      {cancelled && <p className="text-[9px] text-rose-500 font-bold">Đã hủy{session.cancellationReason ? `: ${session.cancellationReason}` : ""}</p>}
-      {rescheduled && <p className="text-[9px] text-amber-600 font-bold">Đã dời lịch</p>}
+      {cancelled && <p className="text-[10.5px] text-rose-500 font-bold">Đã hủy{session.cancellationReason ? `: ${session.cancellationReason}` : ""}</p>}
+      {rescheduled && <p className="text-[10.5px] text-amber-600 font-bold">Đã dời lịch</p>}
     </button>
   );
 }
