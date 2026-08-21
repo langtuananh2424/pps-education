@@ -591,6 +591,7 @@ public class ClassService {
         newClass.setEndDate(request.endDate());
         newClass.setAcademicYear(academicYear);
         newClass.setCreatedBy(actor);
+        newClass.setColor(CLASS_COLOR_PALETTE[ThreadLocalRandom.current().nextInt(CLASS_COLOR_PALETTE.length)]);
         newClass = schoolClassRepository.save(newClass);
         writeClassHistory(newClass, actor, ClassHistory.Action.CREATED);
 
