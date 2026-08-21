@@ -202,12 +202,12 @@ public class GlobalExceptionHandler {
      * định của Spring Boot (khác hẳn {timestamp,status,message} dùng ở mọi handler khác trong class
      * này), FE không đọc được message thống nhất. Gộp field error đầu tiên (đủ dùng cho form 1 lỗi
      * tại 1 thời điểm, khớp cách hiển thị lỗi hiện có ở FE) làm message chính.
-     */
-    /**
-     * Bean Validation (@NotBlank/@Size/...) đa số KHÔNG set `message=` tường minh nên rơi vào message
-     * mặc định tiếng Anh của Hibernate Validator — khác mảng exception nghiệp vụ (tiếng Việt cứng, xử
-     * lý qua LocalizedMessage). Đây là vấn đề riêng, cần `ValidationMessages_vi.properties`/`_en` để xử
-     * lý đúng, KHÔNG thuộc phạm vi đợt này — chỉ dịch câu fallback dùng khi không có field error nào.
+     *
+     * message song ngữ: Spring Boot tự wire bean {@code messageSource} (I18nConfig) vào
+     * LocalValidatorFactoryBean mặc định, nên {@code FieldError.getDefaultMessage()} đã được
+     * interpolate đúng locale TRƯỚC khi tới đây — chỉ cần khai báo key chuẩn Hibernate Validator
+     * (VD {@code jakarta.validation.constraints.NotBlank.message}) trong messages_{vi,en}.properties,
+     * không cần file ValidationMessages riêng.
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Object> handleValidation(MethodArgumentNotValidException ex) {
