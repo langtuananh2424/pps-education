@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { AlertTriangle, Bell, CheckCircle2, ChevronDown, Clock, GraduationCap, KeyRound, Lock, LogOut, Menu, MapPin, MapPinCheck, Settings, User } from "lucide-react";
 import { useApp } from "@/context/AppContext";
+import { cn } from "@/lib/cn";
 import { getMyPartnerSite, listSites, listSiteTeachers, SiteResponse, SiteTeacherResponse } from "@/features/facility/api";
 import { useEligibleClasses } from "@/features/academic/hooks/useEligibleClasses";
 import { listMyNotifications, markNotificationRead, NotificationResponse } from "@/features/notifications/api";
@@ -51,6 +52,8 @@ export default function Header() {
     setSelectedClassId,
     sidebarOpen,
     setSidebarOpen,
+    sidebarCollapsed,
+    setSidebarCollapsed,
     logout,
     hasPermission
   } = useApp();
@@ -269,6 +272,31 @@ export default function Header() {
           className="p-2.5 rounded-xl text-slate-500 hover:text-slate-800 bg-white hover:bg-slate-50 border border-slate-200/50 shadow-soft lg:hidden transition-all"
         >
           <Menu className="w-5 h-5" />
+        </button>
+
+        {/* Nút mở lại Sidebar khi đang thu gọn hẳn (bổ sung ngoài SDD gốc, xác nhận 2026-08-20) — thay
+            cho Sidebar tự nổi 1 ô logo riêng ngoài lề trang (chiếm chỗ cố định dù đã ẩn), nút này nằm
+            NGAY TRONG Header nên không cần chừa khoảng trống riêng nào cho Sidebar nữa — nội dung trang
+            dùng được gần hết chiều rộng còn lại. Chỉ hiện trên desktop khi sidebarCollapsed=true (mobile
+            luôn dùng nút Menu ở trên, không liên quan trạng thái thu gọn desktop). Luôn render trong DOM
+            (không unmount qua &&) để co giãn width/opacity mượt bằng CSS transition thay vì bật/tắt đột
+            ngột; viền trắng (ring-4 ring-white) tách nút khỏi nền brand-bg cam nhạt phía sau. */}
+        <button
+          type="button"
+          onClick={() => setSidebarCollapsed(false)}
+          title="Mở thanh điều hướng"
+          className={cn(
+            "hidden lg:flex items-center justify-center rounded-full bg-white ring-4 ring-white shadow-soft border border-slate-200/50 hover:shadow-glow transition-all duration-300 ease-in-out overflow-hidden shrink-0",
+            sidebarCollapsed
+              ? "lg:w-9 lg:h-9 lg:p-[2px] lg:opacity-100 lg:scale-100"
+              : "lg:w-0 lg:h-9 lg:p-0 lg:opacity-0 lg:scale-75 lg:pointer-events-none lg:border-0 lg:ring-0"
+          )}
+        >
+          <div className="w-full h-full rounded-full bg-gradient-to-tr from-[#EA580C] via-[#F68B1F] to-[#FB923C] p-[1px] flex items-center justify-center shrink-0">
+            <div className="w-full h-full rounded-full bg-white flex items-center justify-center text-[#EA580C] font-display font-black text-xs">
+              P
+            </div>
+          </div>
         </button>
 
         {showUnassignedWarning ? (

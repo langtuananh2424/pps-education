@@ -40,6 +40,7 @@ import SessionVersionHistoryModal from "./SessionVersionHistoryModal";
 import StudentNameLink from "@/features/reports/components/StudentNameLink";
 import Select from "@/components/ui/Select";
 import DatePicker from "@/components/ui/DatePicker";
+import Time24Input from "@/components/ui/Time24Input";
 
 const statusLabels: Record<StudentCommentResponse["status"], string> = { DRAFT: "Nháp", PENDING: "Chờ duyệt", APPROVED: "Đã duyệt", REJECTED: "Bị từ chối" };
 const readOnlyFieldClass = "w-full bg-emerald-50/60 border border-emerald-200 text-xs p-2 rounded-lg text-slate-700 min-h-[34px]";
@@ -1086,11 +1087,10 @@ export default function DailyCommentPanel() {
               </div>
               <div className="min-w-[110px]">
                 <label className="text-[9px] font-bold uppercase text-slate-400 block mb-0.5">Hạn nộp bài — giờ</label>
-                <input
-                  type="time"
+                <Time24Input
                   value={dueTime}
                   disabled={!dueDate}
-                  onChange={(e) => setDueTime(e.target.value)}
+                  onChange={setDueTime}
                   className="w-full bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none disabled:opacity-40"
                 />
               </div>
@@ -1205,7 +1205,12 @@ export default function DailyCommentPanel() {
             giãn cột đó bất kể nội dung, làm việc ổn định với sticky. Các cột KHÔNG sticky vẫn giữ auto
             layout + min-w như cũ, không ảnh hưởng. */}
         <div className="overflow-x-auto overflow-y-auto max-h-[65vh]">
-          <table className="text-xs text-left border-separate border-spacing-0">
+          {/* w-full — bảng <table> mặc định co theo nội dung (auto width), không tự giãn hết chiều
+              rộng vùng chứa, để lại khoảng trắng thừa bên phải khi vùng chứa rộng hơn tổng các cột.
+              table-layout vẫn giữ "auto" (không đổi sang "fixed") nên không ảnh hưởng cơ chế khoá
+              width 3 cột sticky ở trên — w-full chỉ đặt SÀN 100% cho tổng bề rộng bảng, cột không
+              sticky (đặc biệt "Ghi chú" cuối bảng) giãn ra hấp thụ phần dư. */}
+          <table className="w-full text-xs text-left border-separate border-spacing-0">
           {/* sticky trực tiếp trên <thead> (thay vì tính top offset riêng cho từng <tr>) — trình duyệt tự
               ghim NGUYÊN CẢ 2 dòng header làm 1 khối, không cần đoán chiều cao dòng 1 để lệch dòng 2. 3 ô
               góc (Mã học viên/Họ và tên/Ngày sinh) cần thêm sticky left riêng (trục ngang, độc lập với

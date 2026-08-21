@@ -8,6 +8,7 @@ import vn.com.pps.education.domain.AcademicTerm;
 import vn.com.pps.education.domain.Role;
 import vn.com.pps.education.domain.Site;
 import vn.com.pps.education.domain.SiteManager;
+import vn.com.pps.education.domain.SitePeriodTemplate;
 import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.domain.UserRole;
@@ -105,6 +106,9 @@ class PartnerPortalServiceTest extends AbstractIntegrationTest {
     private SiteRepository siteRepository;
 
     @Autowired
+    private vn.com.pps.education.repository.SitePeriodTemplateRepository sitePeriodTemplateRepository;
+
+    @Autowired
     private SiteManagerRepository siteManagerRepository;
 
     @Autowired
@@ -186,8 +190,10 @@ class PartnerPortalServiceTest extends AbstractIntegrationTest {
         // StudentAttendanceService.markAttendance() giờ chặn cả ở API khi ngoài khung giờ buổi học
         // [startTime, endTime] (xem UC-15, sửa đổi nghiệp vụ 2026-08-18), giờ cố định làm test flaky
         // theo giờ chạy CI.
+        seedPeriod(partnerSite, 1, LocalTime.now().minusMinutes(1), LocalTime.now().plusHours(1));
         ClassSessionResponse session = classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(LocalDate.now(), LocalTime.now().minusMinutes(1), LocalTime.now().plusHours(1), null, "REGULAR", "VIETNAMESE", null),
+                new CreateClassSessionRequest(LocalDate.now(), "MORNING", List.of(1), null, "REGULAR", "VIETNAMESE",
+                        teacher.getId(), null, null, null),
                 headAcademic.getId());
         studentAttendanceService.markAttendance(session.id(),
                 new MarkAttendanceRequest("SESSION_LEVEL", List.of(
@@ -263,8 +269,11 @@ class PartnerPortalServiceTest extends AbstractIntegrationTest {
         // (UC-15, sửa đổi nghiệp vụ 2026-08-18) nên buổi phải bao quanh "now" thay vì đã kết thúc.
         // LocalTime.MIN vẫn không dùng được vì bị hibernate.jdbc.time_zone=UTC quy đổi lệch, vi phạm
         // CHECK chk_session_time.
+        seedPeriod(partnerSite, 1, LocalTime.now().minusMinutes(1), LocalTime.now().plusHours(1));
+        seedPeriod(partnerSite, 2, LocalTime.of(8, 0), LocalTime.of(9, 40));
         ClassSessionResponse session = classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(LocalDate.now(), LocalTime.now().minusMinutes(1), LocalTime.now().plusHours(1), null, "REGULAR", "VIETNAMESE", null),
+                new CreateClassSessionRequest(LocalDate.now(), "MORNING", List.of(1), null, "REGULAR", "VIETNAMESE",
+                        teacher.getId(), null, null, null),
                 headAcademic.getId());
         studentCommentService.updateLessonContent(session.id(), "Unit 1: Present simple tense.", teacher.getId());
         studentAttendanceService.markAttendance(session.id(),
@@ -279,9 +288,15 @@ class PartnerPortalServiceTest extends AbstractIntegrationTest {
         studentCommentService.decideComments(
                 new DecideCommentsRequest(List.of(approvedComment.id()), "APPROVED", "Tốt"), siteManagerUser.getId());
 
-        // Nhan xet con DRAFT (chua submit/duyet) -- khong duoc hien thi cho Doi tac.
+        // Nhan xet con DRAFT (chua submit/duyet) -- khong duoc hien thi cho Doi tac. Phải ở 1 buổi
+        // KHÁC session gốc — từ 2026-08-19 writeComment chặn tạo thêm nhận xét thứ 2 cho cùng 1 buổi
+        // đã APPROVED (StudentCommentNotEditableException, xem StudentCommentService#writeComment).
+        ClassSessionResponse otherSession = classSessionService.createSession(schoolClass.id(),
+                new CreateClassSessionRequest(LocalDate.now(), "MORNING", List.of(2), null, "REGULAR", "VIETNAMESE",
+                        teacher.getId(), null, null, null),
+                headAcademic.getId());
         studentCommentService.writeComment(schoolClass.id(),
-                new CreateStudentCommentRequest(student.getId(), session.id(),
+                new CreateStudentCommentRequest(student.getId(), otherSession.id(),
                         LocalDate.now(), "Nhận xét nháp chưa gửi duyệt.", null, "NORMAL", false, null, null, null, null, null, null, null, null),
                 teacher.getId());
 
@@ -332,6 +347,18 @@ class PartnerPortalServiceTest extends AbstractIntegrationTest {
         s.setName("Test Site");
         s.setSiteType(siteType);
         return siteRepository.save(s);
+    }
+
+    /** Bổ sung ngoài SDD gốc, xác nhận 2026-08-19 — session_periods giờ sinh từ site_period_templates thay vì chia đều theo phút. */
+    private void seedPeriod(Site site, int periodNumber, LocalTime start, LocalTime end) {
+        SitePeriodTemplate template = new SitePeriodTemplate();
+        template.setSite(site);
+        template.setPeriodNumber(periodNumber);
+        template.setDayPart(SitePeriodTemplate.DayPart.MORNING);
+        template.setStartTime(start);
+        template.setEndTime(end);
+        template.setCreatedBy(headAcademic);
+        sitePeriodTemplateRepository.save(template);
     }
 
     private AcademicTerm newAcademicTerm(Site site) {

@@ -1,20 +1,23 @@
 package vn.com.pps.education.dto;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 
 import java.time.LocalDate;
-import java.time.LocalTime;
+import java.util.List;
 
 /**
- * UC-48 Alternate Flow A3: Dời lịch buổi. Giáo viên phụ trách buổi mới
- * được hệ thống tự động suy ra lại từ giáo viên chính (PRIMARY) đang
- * active của lớp theo đúng loại giáo viên (VIETNAMESE/FOREIGN) của buổi
- * cũ — không nhập tay (bổ sung ngoài SDD gốc, xác nhận 2026-08-13).
+ * UC-48 A3: dời lịch 1 buổi đang SCHEDULED. Đảo ngược quyết định
+ * 2026-08-13 (xác nhận lại 2026-08-19): newStartTime/newEndTime đổi sang
+ * newPeriodNumbers; giáo viên chính/phụ/CM giữ nguyên từ buổi cũ (không
+ * còn re-derive), sửa GV thì dùng PATCH .../assignment riêng.
+ * newDayPart (V129, xác nhận 2026-08-20): buổi Sáng/Chiều/Tối của tiết mới.
  */
 public record RescheduleClassSessionRequest(
         @NotNull LocalDate newSessionDate,
-        @NotNull LocalTime newStartTime,
-        @NotNull LocalTime newEndTime,
+        @NotBlank String newDayPart,
+        @NotEmpty List<Integer> newPeriodNumbers,
         Long newRoomId,
         String reason
 ) {}

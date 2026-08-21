@@ -10,7 +10,18 @@ import Modal from "@/components/ui/Modal";
 import { cn } from "@/lib/cn";
 
 export default function Sidebar() {
-  const { currentRoleLabel, currentUser, sidebarOpen, setSidebarOpen, hasPermission, logout, hasUnsavedChanges, saveUnsavedChanges } = useApp();
+  const {
+    currentRoleLabel,
+    currentUser,
+    sidebarOpen,
+    setSidebarOpen,
+    sidebarCollapsed,
+    setSidebarCollapsed,
+    hasPermission,
+    logout,
+    hasUnsavedChanges,
+    saveUnsavedChanges
+  } = useApp();
   const navigate = useNavigate();
   // Bổ sung ngoài SDD gốc, xác nhận 2026-08-17 — số lớp đang có bài Video phản xạ chưa chấm, hiện cạnh
   // mục "Hàng chờ chấm bài" (lms-exams) để GV biết ngay có việc cần làm, không phải tự mò từng Bộ+Lớp.
@@ -82,14 +93,28 @@ export default function Sidebar() {
         <div className="fixed inset-0 bg-slate-900/40 z-30 lg:hidden backdrop-blur-xs" onClick={() => setSidebarOpen(false)} />
       )}
 
+      {/* Desktop dùng scale (không phải translate) neo tại lg:origin-top-left — đúng góc nút logo mở
+          lại trong Header (bổ sung ngoài SDD gốc, xác nhận 2026-08-20), tạo hiệu ứng Sidebar "mọc ra"
+          từ đúng vị trí logo thay vì trượt ngang từ mép trái màn hình. Mobile vẫn dùng translate-x (kéo
+          drawer từ mép trái) — không đổi, khác hẳn ngữ cảnh sử dụng trên desktop. */}
       <aside
         className={cn(
-          "fixed top-0 bottom-0 left-0 lg:top-4 lg:bottom-4 lg:left-4 lg:h-[calc(100vh-2rem)] z-40 w-64 bg-white text-slate-700 border-r lg:border border-slate-200/90 lg:rounded-3xl lg:shadow-soft flex flex-col transition-transform duration-300 lg:translate-x-0",
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          "fixed top-0 bottom-0 left-0 lg:top-4 lg:bottom-4 lg:left-4 lg:h-[calc(100vh-2rem)] z-40 w-64 bg-white text-slate-700 border-r lg:border border-slate-200/90 lg:rounded-3xl lg:shadow-soft flex flex-col transition-[transform,opacity] duration-500 ease-out lg:translate-x-0 lg:origin-top-left transform-gpu will-change-transform",
+          sidebarOpen ? "translate-x-0" : "-translate-x-full",
+          sidebarCollapsed ? "lg:scale-0 lg:opacity-0 lg:pointer-events-none" : "lg:scale-100 lg:opacity-100"
         )}
       >
         <div className="h-16 px-6 border-b border-slate-200/90 flex items-center justify-between bg-white lg:rounded-t-3xl shrink-0">
-          <div className="flex items-center gap-2.5">
+          {/* Bấm logo để thu gọn hẳn Sidebar (bổ sung ngoài SDD gốc, xác nhận 2026-08-20) — trên
+              desktop, Sidebar trượt hẳn ra ngoài màn hình (không còn dạng dải icon/hộp logo thu nhỏ
+              nổi ngoài lề như thử trước đó) nên trang không còn phải chừa khoảng trống cố định nào
+              cho nó nữa. Mở lại qua nút logo nhỏ đặt trong Header (xem Header.tsx). */}
+          <button
+            type="button"
+            onClick={() => setSidebarCollapsed(true)}
+            className="flex items-center gap-2.5 cursor-pointer lg:hover:opacity-80 transition-opacity"
+            title="Thu gọn thanh điều hướng"
+          >
             <div className="w-8 h-8 rounded-full bg-white p-[2px] flex items-center justify-center shadow-glow relative shrink-0">
               <div className="w-full h-full rounded-full bg-gradient-to-tr from-[#EA580C] via-[#F68B1F] to-[#FB923C] p-[1px] flex items-center justify-center">
                 <div className="w-full h-full rounded-full bg-white flex items-center justify-center text-[#EA580C] font-display font-black text-xs">
@@ -97,7 +122,7 @@ export default function Sidebar() {
                 </div>
               </div>
             </div>
-            <div>
+            <div className="text-left">
               <span className="font-display font-bold text-slate-900 text-sm tracking-tight block">
                 PPS <span className="text-brand-orange">VIETNAM</span>
               </span>
@@ -105,7 +130,7 @@ export default function Sidebar() {
                 CARING INDIVIDUALS
               </span>
             </div>
-          </div>
+          </button>
           <button
             onClick={() => setSidebarOpen(false)}
             className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-200 lg:hidden"
@@ -114,7 +139,7 @@ export default function Sidebar() {
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
+        <div className="flex-1 overflow-y-auto scrollbar-hide px-4 py-6 space-y-4">
           {navSections.map((section) => {
             const visibleItems = section.items.filter((item) => isNavItemAllowed(item, currentUser?.roleCodes ?? [], hasPermission));
             if (visibleItems.length === 0) return null;

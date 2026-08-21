@@ -85,6 +85,13 @@ export default function SessionCard({ session, siteName, checkInStatus, onChecke
         GV: {session.primaryTeacherName}
         {session.teacherType && ` (${teacherTypeLabels[session.teacherType]})`} · {sessionTypeLabels[session.sessionType] ?? session.sessionType}
       </p>
+      {(session.assistantTeacherName || session.cmTeacherName) && (
+        <p className="text-[11px] text-slate-400">
+          {session.assistantTeacherName && <>GV phụ: {session.assistantTeacherName}</>}
+          {session.assistantTeacherName && session.cmTeacherName && " · "}
+          {session.cmTeacherName && <>CM: {session.cmTeacherName}</>}
+        </p>
+      )}
       {session.status === "CANCELLED" && session.cancellationReason && (
         <p className="text-rose-500">Lý do hủy: {session.cancellationReason}</p>
       )}

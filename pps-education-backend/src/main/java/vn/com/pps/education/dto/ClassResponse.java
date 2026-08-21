@@ -18,5 +18,7 @@ public record ClassResponse(
         LocalDate endDate,
         Long academicYearId,
         String academicYear,
-        String status
+        String status,
+        /** Màu hiển thị trên lịch làm việc dạng lưới — bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-08-21. */
+        String color
 ) {}

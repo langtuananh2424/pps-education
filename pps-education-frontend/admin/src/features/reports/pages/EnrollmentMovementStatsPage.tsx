@@ -2,20 +2,28 @@ import React, { useEffect, useMemo, useState } from "react";
 import { ArrowLeftRight, Download, Filter, LogOut, TrendingDown, TrendingUp, UserPlus, Users } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Select from "@/components/ui/Select";
+import MonthPicker from "@/components/ui/MonthPicker";
 import { useApp } from "@/context/AppContext";
 import {
   AcademicTermResponse,
+  EnrollmentMovementGridResponse,
+  EnrollmentMovementPeriodType,
   EnrollmentMovementStatsResponse,
   EnrollmentMovementTrendResponse,
   exportEnrollmentMovementStats,
+  exportEnrollmentMovementStatsForRange,
+  getEnrollmentMovementGrid,
   getEnrollmentMovementStats,
+  getEnrollmentMovementStatsForRange,
   getEnrollmentMovementTrend,
+  getEnrollmentMovementTrendForRange,
   listAcademicTerms,
 } from "@/features/academic/api";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import { ApiError } from "@/lib/apiClient";
 import { downloadBlob } from "@/lib/xlsxTemplate";
+import { cn } from "@/lib/cn";
 
 function StatCard({ icon, label, value, sub, color = "text-brand-orange" }: {
   icon: React.ReactNode; label: string; value: string | number; sub?: string; color?: string;
@@ -116,13 +124,89 @@ function HeadcountTrendChart({ series }: { series: TrendSeries[] }) {
   );
 }
 
+function toISODate(y: number, m: number, d: number): string {
+  return `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
+function yearMonthOf(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function currentYearMonth(): string {
+  return yearMonthOf(new Date());
+}
+
+/** Tháng liền trước tháng hiện tại — mặc định "Từ tháng" (xác nhận với người dùng 2026-08-20: mặc định xem 2 tháng gần nhất, VD đang Tháng 8 thì mặc định Tháng 7 – Tháng 8). */
+function previousYearMonth(): string {
+  const now = new Date();
+  return yearMonthOf(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+}
+
+/** 1 lựa chọn khoảng thời gian đã "chốt" (bất kể loại Tháng/Kỳ/Năm) — dùng chung cho cả kỳ chính và kỳ so sánh. */
+interface ResolvedPeriod {
+  fromDate: string;
+  toDate: string;
+  label: string;
+  academicTermId: number | null;
+}
+
+const PERIOD_TYPE_LABELS: Record<EnrollmentMovementPeriodType, string> = {
+  MONTH: "Tháng",
+  TERM: "Học kỳ",
+  YEAR: "Năm"
+};
+
+/**
+ * Gộp "Từ tháng"/"đến tháng" (bổ sung ngoài SDD gốc, xác nhận 2026-08-20 — xem biến động NHIỀU
+ * tháng liền nhau thay vì chỉ 1 tháng) thành 1 ResolvedPeriod — tự hoán đổi nếu người dùng chọn
+ * "đến tháng" sớm hơn "Từ tháng". fromYm === toYm thì nhãn hiện dạng 1 tháng như cũ, khác thì hiện
+ * dạng khoảng "Tháng M/YYYY – Tháng M2/YYYY2".
+ */
+function resolveMonthRange(fromYm: string, toYm: string): ResolvedPeriod | null {
+  if (!fromYm || !toYm) return null;
+  const [fy, fm] = fromYm.split("-").map(Number);
+  const [ty, tm] = toYm.split("-").map(Number);
+  const [startY, startM, endY, endM] = fy * 12 + fm <= ty * 12 + tm ? [fy, fm, ty, tm] : [ty, tm, fy, fm];
+  const lastDayOfEnd = new Date(endY, endM, 0).getDate();
+  const label = startY === endY && startM === endM ? `Tháng ${startM}/${startY}` : `Tháng ${startM}/${startY} – Tháng ${endM}/${endY}`;
+  return { fromDate: toISODate(startY, startM, 1), toDate: toISODate(endY, endM, lastDayOfEnd), label, academicTermId: null };
+}
+
+/**
+ * UC-69 mở rộng (bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-08-20): đổi tên "Biến động
+ * học sinh theo kỳ" -> "Thống kê biến động học sinh" + thêm 2 chế độ xem "theo tháng"/"theo năm"
+ * (ngoài "theo kỳ" cũ), mỗi chế độ đều so sánh được với 1 khoảng THỜI GIAN CÙNG LOẠI khác (2 tháng
+ * với nhau, 2 kỳ với nhau, hoặc 2 năm với nhau — không so sánh chéo loại vì trục X biểu đồ
+ * (monthIndex) không có ý nghĩa chung giữa các loại khác nhau).
+ */
 export default function EnrollmentMovementStatsPage() {
   const { selectedCampusId, selectedClassId, hasPermission } = useApp();
   const canExport = hasPermission("report.enrollment-stats.view");
+  const hasSite = selectedCampusId !== "ALL";
+  const siteId = hasSite ? Number(selectedCampusId) : null;
 
+  // Mặc định xem "Tháng" (tháng gần nhất — xem currentYearMonth() ở selectedMonthFrom/To phía dưới),
+  // xác nhận với người dùng 2026-08-20 — trước đây mặc định "Học kỳ", đổi vì tháng gần nhất là nhu
+  // cầu xem thường xuyên hơn khi mới vào trang.
+  const [periodType, setPeriodType] = useState<EnrollmentMovementPeriodType>("MONTH");
+
+  // ----- Chọn kỳ (giữ nguyên hành vi cũ) -----
   const [terms, setTerms] = useState<AcademicTermResponse[]>([]);
   const [selectedTermId, setSelectedTermId] = useState<number | "">("");
+  const [comparisonTermId, setComparisonTermId] = useState<number | "">("");
   const [loadingTerms, setLoadingTerms] = useState(false);
+
+  // ----- Chọn tháng (bổ sung ngoài SDD gốc, xác nhận 2026-08-20: chọn được 1 KHOẢNG nhiều tháng liền
+  // nhau — "Từ tháng" mặc định = "đến tháng" (khoảng 1 tháng, giữ đúng hành vi cũ) cho tới khi người
+  // dùng đổi 1 trong 2 mốc) -----
+  const [selectedMonthFrom, setSelectedMonthFrom] = useState<string>(previousYearMonth());
+  const [selectedMonthTo, setSelectedMonthTo] = useState<string>(currentYearMonth());
+  const [comparisonMonthFrom, setComparisonMonthFrom] = useState<string>("");
+  const [comparisonMonthTo, setComparisonMonthTo] = useState<string>("");
+
+  // ----- Chọn năm -----
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [comparisonYear, setComparisonYear] = useState<number | "">("");
 
   const [stats, setStats] = useState<EnrollmentMovementStatsResponse | null>(null);
   const [loadingStats, setLoadingStats] = useState(false);
@@ -130,12 +214,16 @@ export default function EnrollmentMovementStatsPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [trend, setTrend] = useState<EnrollmentMovementTrendResponse | null>(null);
-  const [comparisonTermId, setComparisonTermId] = useState<number | "">("");
   const [comparisonTrend, setComparisonTrend] = useState<EnrollmentMovementTrendResponse | null>(null);
 
-  const { message: toastMsg, showToast } = useToast();
+  // ----- Chế độ hiển thị dạng LƯỚI (bổ sung ngoài SDD gốc, xác nhận 2026-08-20) — hàng đầu là các
+  // tháng/kỳ/năm (theo periodType đang chọn), cột đầu là từng lớp, mỗi ô là sĩ số cuối đoạn. -----
+  const [displayMode, setDisplayMode] = useState<"detail" | "grid">("detail");
+  const [gridYear, setGridYear] = useState(new Date().getFullYear());
+  const [grid, setGrid] = useState<EnrollmentMovementGridResponse | null>(null);
+  const [loadingGrid, setLoadingGrid] = useState(false);
 
-  const hasSite = selectedCampusId !== "ALL";
+  const { message: toastMsg, showToast } = useToast();
 
   // Kỳ học luôn gắn 1 điểm trường cụ thể (academic_terms.site_id NOT NULL) — tải lại khi đổi điểm trường ở Header.
   useEffect(() => {
@@ -155,51 +243,131 @@ export default function EnrollmentMovementStatsPage() {
       .finally(() => setLoadingTerms(false));
   }, [hasSite, selectedCampusId]);
 
+  // Đổi chế độ xem hoặc đổi kỳ đang xem -- bỏ lựa chọn so sánh cũ (tránh so sánh 2 khoảng trùng nhau
+  // hoặc so sánh lệch loại khi vừa đổi tab).
+  useEffect(() => {
+    setComparisonTermId("");
+    setComparisonMonthFrom("");
+    setComparisonMonthTo("");
+    setComparisonYear("");
+  }, [periodType, selectedTermId, selectedMonthFrom, selectedMonthTo, selectedYear]);
+
+  const currentPeriod: ResolvedPeriod | null = useMemo(() => {
+    if (periodType === "TERM") {
+      const term = terms.find((t) => t.id === selectedTermId);
+      if (!term) return null;
+      return { fromDate: term.startDate, toDate: term.endDate, label: term.name, academicTermId: term.id };
+    }
+    if (periodType === "MONTH") {
+      return resolveMonthRange(selectedMonthFrom, selectedMonthTo);
+    }
+    if (!selectedYear) return null;
+    return { fromDate: toISODate(selectedYear, 1, 1), toDate: toISODate(selectedYear, 12, 31), label: `Năm ${selectedYear}`, academicTermId: null };
+  }, [periodType, terms, selectedTermId, selectedMonthFrom, selectedMonthTo, selectedYear]);
+
+  const comparisonPeriod: ResolvedPeriod | null = useMemo(() => {
+    if (periodType === "TERM") {
+      const term = terms.find((t) => t.id === comparisonTermId);
+      if (!term) return null;
+      return { fromDate: term.startDate, toDate: term.endDate, label: term.name, academicTermId: term.id };
+    }
+    if (periodType === "MONTH") {
+      return resolveMonthRange(comparisonMonthFrom, comparisonMonthTo);
+    }
+    if (!comparisonYear) return null;
+    return { fromDate: toISODate(comparisonYear, 1, 1), toDate: toISODate(comparisonYear, 12, 31), label: `Năm ${comparisonYear}`, academicTermId: null };
+  }, [periodType, terms, comparisonTermId, comparisonMonthFrom, comparisonMonthTo, comparisonYear]);
+
+  const fetchStatsFor = (period: ResolvedPeriod): Promise<EnrollmentMovementStatsResponse> =>
+    period.academicTermId != null
+      ? getEnrollmentMovementStats(period.academicTermId, selectedClassId ?? undefined)
+      : getEnrollmentMovementStatsForRange({
+          siteId: siteId as number,
+          fromDate: period.fromDate,
+          toDate: period.toDate,
+          periodType,
+          periodLabel: period.label,
+          classId: selectedClassId ?? undefined
+        });
+
+  const fetchTrendFor = (period: ResolvedPeriod): Promise<EnrollmentMovementTrendResponse> =>
+    period.academicTermId != null
+      ? getEnrollmentMovementTrend(period.academicTermId, selectedClassId ?? undefined)
+      : getEnrollmentMovementTrendForRange({
+          siteId: siteId as number,
+          fromDate: period.fromDate,
+          toDate: period.toDate,
+          periodType,
+          periodLabel: period.label,
+          classId: selectedClassId ?? undefined
+        });
+
   // classId=null (chưa chọn lớp ở Header) -- xem toàn bộ lớp của điểm trường đang chọn.
   useEffect(() => {
-    if (!selectedTermId) { setStats(null); return; }
+    if (!currentPeriod || !siteId) { setStats(null); return; }
     setLoadingStats(true);
     setError(null);
-    getEnrollmentMovementStats(Number(selectedTermId), selectedClassId ?? undefined)
+    fetchStatsFor(currentPeriod)
       .then(setStats)
       .catch((err) => {
         setStats(null);
         setError(err instanceof ApiError ? err.message : "Không tải được thống kê biến động học sinh.");
       })
       .finally(() => setLoadingStats(false));
-  }, [selectedTermId, selectedClassId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPeriod, siteId, selectedClassId]);
 
-  // Xu hướng theo tháng (kỳ đang chọn) — dùng cho biểu đồ đường.
+  // Xu hướng theo tháng (khoảng đang chọn) — dùng cho biểu đồ đường.
   useEffect(() => {
-    if (!selectedTermId) { setTrend(null); return; }
-    getEnrollmentMovementTrend(Number(selectedTermId), selectedClassId ?? undefined)
+    if (!currentPeriod || !siteId) { setTrend(null); return; }
+    fetchTrendFor(currentPeriod)
       .then(setTrend)
       .catch(() => setTrend(null));
-  }, [selectedTermId, selectedClassId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPeriod, siteId, selectedClassId]);
 
-  // Đổi kỳ đang xem thì bỏ lựa chọn so sánh cũ (tránh so sánh kỳ với chính nó / kỳ đã đổi).
+  // Xu hướng theo tháng (khoảng so sánh, tuỳ chọn) — cùng classId để so sánh công bằng.
   useEffect(() => {
-    setComparisonTermId("");
-    setComparisonTrend(null);
-  }, [selectedTermId]);
-
-  // Xu hướng theo tháng (kỳ so sánh, tuỳ chọn) — cùng classId để so sánh công bằng.
-  useEffect(() => {
-    if (!comparisonTermId) { setComparisonTrend(null); return; }
-    getEnrollmentMovementTrend(Number(comparisonTermId), selectedClassId ?? undefined)
+    if (!comparisonPeriod || !siteId) { setComparisonTrend(null); return; }
+    fetchTrendFor(comparisonPeriod)
       .then(setComparisonTrend)
       .catch(() => setComparisonTrend(null));
-  }, [comparisonTermId, selectedClassId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [comparisonPeriod, siteId, selectedClassId]);
 
-  const selectedTerm = useMemo(() => terms.find((t) => t.id === selectedTermId), [terms, selectedTermId]);
+  // Lưới tổng quan chỉ tải khi đang ở chế độ "grid" -- tránh gọi API thừa (nhiều cột x nhiều lớp) lúc
+  // người dùng chỉ xem chi tiết theo 1 khoảng như trước.
+  useEffect(() => {
+    if (displayMode !== "grid" || !siteId) { return; }
+    setLoadingGrid(true);
+    setError(null);
+    getEnrollmentMovementGrid({
+      siteId,
+      periodType,
+      year: periodType === "MONTH" ? gridYear : undefined,
+      classId: selectedClassId ?? undefined
+    })
+      .then(setGrid)
+      .catch((err) => {
+        setGrid(null);
+        setError(err instanceof ApiError ? err.message : "Không tải được lưới biến động học sinh.");
+      })
+      .finally(() => setLoadingGrid(false));
+  }, [displayMode, siteId, periodType, gridYear, selectedClassId]);
+
   const comparableTerms = useMemo(() => terms.filter((t) => t.id !== selectedTermId), [terms, selectedTermId]);
 
   const handleExport = async () => {
-    if (!selectedTermId) return;
+    if (!currentPeriod || !siteId) return;
     setExporting(true);
     try {
-      const blob = await exportEnrollmentMovementStats(Number(selectedTermId), selectedClassId ?? undefined);
-      downloadBlob(blob, `bien-dong-hoc-sinh-ky-${selectedTermId}.xlsx`);
+      const blob = currentPeriod.academicTermId != null
+        ? await exportEnrollmentMovementStats(currentPeriod.academicTermId, selectedClassId ?? undefined)
+        : await exportEnrollmentMovementStatsForRange({
+            siteId, fromDate: currentPeriod.fromDate, toDate: currentPeriod.toDate,
+            periodType, periodLabel: currentPeriod.label, classId: selectedClassId ?? undefined
+          });
+      downloadBlob(blob, `bien-dong-hoc-sinh-${currentPeriod.fromDate}-${currentPeriod.toDate}.xlsx`);
       showToast("Xuất file Excel thành công!");
     } catch (err) {
       showToast(err instanceof ApiError ? err.message : "Xuất file thất bại.");
@@ -208,20 +376,25 @@ export default function EnrollmentMovementStatsPage() {
     }
   };
 
+  const yearOptions = useMemo(() => {
+    const current = new Date().getFullYear();
+    return Array.from({ length: 6 }, (_, i) => current - i);
+  }, []);
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="border-b border-slate-200 pb-4 flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Thống kê biến động học sinh theo kỳ</h1>
+          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Thống kê biến động học sinh</h1>
           <p className="text-xs text-slate-500 mt-1">
-            Sĩ số đầu kỳ/cuối kỳ và biến động (nhập học mới, nghỉ/rút, chuyển lớp, hoàn thành) của các lớp trong 1 kỳ học.
+            Sĩ số đầu kỳ/cuối kỳ và biến động (nhập học mới, nghỉ/rút, chuyển lớp, hoàn thành) của các lớp — xem theo tháng, học kỳ hoặc năm.
           </p>
         </div>
-        {canExport && (
+        {canExport && displayMode === "detail" && (
           <Button
             variant="primary"
-            disabled={!selectedTermId || exporting || loadingStats}
+            disabled={!currentPeriod || exporting || loadingStats}
             onClick={handleExport}
             className="flex items-center gap-1.5 shadow-sm"
           >
@@ -231,53 +404,189 @@ export default function EnrollmentMovementStatsPage() {
         )}
       </div>
 
+      {/* Chọn loại khoảng thời gian + chế độ hiển thị (Chi tiết 1 khoảng / Lưới tổng quan nhiều khoảng) */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl p-1 w-fit">
+          {(Object.keys(PERIOD_TYPE_LABELS) as EnrollmentMovementPeriodType[]).map((pt) => (
+            <button
+              key={pt}
+              onClick={() => setPeriodType(pt)}
+              className={cn(
+                "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors",
+                periodType === pt ? "bg-brand-gradient text-white shadow-xs" : "text-slate-500 hover:text-slate-700"
+              )}
+            >
+              {PERIOD_TYPE_LABELS[pt]}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl p-1 w-fit">
+          <button
+            onClick={() => setDisplayMode("detail")}
+            className={cn(
+              "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors",
+              displayMode === "detail" ? "bg-brand-gradient text-white shadow-xs" : "text-slate-500 hover:text-slate-700"
+            )}
+          >
+            Chi tiết
+          </button>
+          <button
+            onClick={() => setDisplayMode("grid")}
+            title="Lưới tổng quan — hàng đầu là tháng/kỳ/năm, cột đầu là lớp"
+            className={cn(
+              "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors",
+              displayMode === "grid" ? "bg-brand-gradient text-white shadow-xs" : "text-slate-500 hover:text-slate-700"
+            )}
+          >
+            Lưới tổng quan
+          </button>
+        </div>
+      </div>
+
       {/* Bộ lọc */}
       {!hasSite ? (
         <div className="bg-amber-50 border border-amber-200/80 rounded-xl p-4 text-amber-800 text-sm flex items-center gap-3">
           <Filter className="w-5 h-5 text-amber-600 shrink-0" />
-          <span>Vui lòng chọn 1 điểm trường cụ thể trên thanh Header (góc trên bên trái) — mỗi Kỳ học luôn gắn 1 điểm trường.</span>
+          <span>Vui lòng chọn 1 điểm trường cụ thể trên thanh Header (góc trên bên trái).</span>
+        </div>
+      ) : displayMode === "grid" ? (
+        <div className="bg-white rounded-xl border border-slate-200/60 shadow-sm p-4">
+          <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 mb-3">
+            <Filter className="w-3.5 h-3.5" /> Lưới tổng quan — hàng đầu là {PERIOD_TYPE_LABELS[periodType].toLowerCase()}, cột đầu là lớp
+          </div>
+          {periodType === "MONTH" ? (
+            <div className="max-w-[220px]">
+              <label className="block text-xs text-slate-500 mb-1">Năm (hiển thị đủ 12 tháng)</label>
+              <Select
+                value={gridYear}
+                onChange={(e) => setGridYear(Number(e.target.value))}
+                className="w-full border border-slate-300 rounded-lg text-sm p-2 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
+              >
+                {yearOptions.map((y) => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </Select>
+            </div>
+          ) : periodType === "YEAR" ? (
+            <p className="text-xs text-slate-400">Hiển thị 6 năm gần nhất ({new Date().getFullYear() - 5} — {new Date().getFullYear()}).</p>
+          ) : (
+            <p className="text-xs text-slate-400">Hiển thị toàn bộ kỳ học của điểm trường này, sắp theo thời gian.</p>
+          )}
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-slate-200/60 shadow-sm p-4">
           <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 mb-3">
-            <Filter className="w-3.5 h-3.5" /> Chọn kỳ học
+            <Filter className="w-3.5 h-3.5" /> Chọn {PERIOD_TYPE_LABELS[periodType].toLowerCase()}
           </div>
           <div className="flex flex-wrap gap-3">
-            <div className="flex-1 min-w-[260px]">
-              <label className="block text-xs text-slate-500 mb-1">Kỳ học</label>
-              <Select
-                value={selectedTermId}
-                onChange={(e) => setSelectedTermId(e.target.value ? Number(e.target.value) : "")}
-                disabled={loadingTerms}
-                className="w-full border border-slate-300 rounded-lg text-sm p-2 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
-              >
-                <option value="">-- Chọn kỳ học --</option>
-                {terms.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name} ({t.startDate} - {t.endDate})
-                  </option>
-                ))}
-              </Select>
-            </div>
-            {selectedTermId && comparableTerms.length > 0 && (
-              <div className="flex-1 min-w-[260px]">
-                <label className="block text-xs text-slate-500 mb-1">So sánh với kỳ khác (tuỳ chọn)</label>
-                <Select
-                  value={comparisonTermId}
-                  onChange={(e) => setComparisonTermId(e.target.value ? Number(e.target.value) : "")}
-                  className="w-full border border-slate-300 rounded-lg text-sm p-2 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
-                >
-                  <option value="">-- Không so sánh --</option>
-                  {comparableTerms.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name} ({t.startDate} - {t.endDate})
-                    </option>
-                  ))}
-                </Select>
-              </div>
+            {periodType === "TERM" && (
+              <>
+                <div className="flex-1 min-w-[260px]">
+                  <label className="block text-xs text-slate-500 mb-1">Kỳ học</label>
+                  <Select
+                    value={selectedTermId}
+                    onChange={(e) => setSelectedTermId(e.target.value ? Number(e.target.value) : "")}
+                    disabled={loadingTerms}
+                    className="w-full border border-slate-300 rounded-lg text-sm p-2 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
+                  >
+                    <option value="">-- Chọn kỳ học --</option>
+                    {terms.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name} ({t.startDate} - {t.endDate})
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+                {selectedTermId && comparableTerms.length > 0 && (
+                  <div className="flex-1 min-w-[260px]">
+                    <label className="block text-xs text-slate-500 mb-1">So sánh với kỳ khác (tuỳ chọn)</label>
+                    <Select
+                      value={comparisonTermId}
+                      onChange={(e) => setComparisonTermId(e.target.value ? Number(e.target.value) : "")}
+                      className="w-full border border-slate-300 rounded-lg text-sm p-2 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
+                    >
+                      <option value="">-- Không so sánh --</option>
+                      {comparableTerms.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name} ({t.startDate} - {t.endDate})
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                )}
+              </>
+            )}
+
+            {periodType === "MONTH" && (
+              <>
+                <div className="flex-1 min-w-[220px] flex gap-2">
+                  <div className="flex-1">
+                    <label className="block text-xs text-slate-500 mb-1">Từ tháng</label>
+                    <MonthPicker value={selectedMonthFrom} onChange={setSelectedMonthFrom} />
+                  </div>
+                  <div className="flex-1">
+                    <label className="block text-xs text-slate-500 mb-1">Đến tháng</label>
+                    <MonthPicker value={selectedMonthTo} onChange={setSelectedMonthTo} />
+                  </div>
+                </div>
+                <div className="flex-1 min-w-[220px] flex gap-2">
+                  <div className="flex-1">
+                    <label className="block text-xs text-slate-500 mb-1">So sánh — từ tháng (tuỳ chọn)</label>
+                    <MonthPicker
+                      value={comparisonMonthFrom}
+                      onChange={(v) => {
+                        setComparisonMonthFrom(v);
+                        // Chọn "Từ tháng" so sánh lần đầu -- tự điền "đến tháng" trùng luôn (so sánh 1
+                        // tháng, giống hành vi đơn giản trước đây), người dùng vẫn đổi lại được ngay bên cạnh.
+                        if (v && !comparisonMonthTo) setComparisonMonthTo(v);
+                      }}
+                      placeholder="-- Không so sánh --"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <label className="block text-xs text-slate-500 mb-1">đến tháng</label>
+                    <MonthPicker
+                      value={comparisonMonthTo}
+                      onChange={setComparisonMonthTo}
+                      placeholder="-- Không so sánh --"
+                      disabled={!comparisonMonthFrom}
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+
+            {periodType === "YEAR" && (
+              <>
+                <div className="flex-1 min-w-[220px]">
+                  <label className="block text-xs text-slate-500 mb-1">Năm</label>
+                  <Select
+                    value={selectedYear}
+                    onChange={(e) => setSelectedYear(Number(e.target.value))}
+                    className="w-full border border-slate-300 rounded-lg text-sm p-2 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
+                  >
+                    {yearOptions.map((y) => (
+                      <option key={y} value={y}>{y}</option>
+                    ))}
+                  </Select>
+                </div>
+                <div className="flex-1 min-w-[220px]">
+                  <label className="block text-xs text-slate-500 mb-1">So sánh với năm khác (tuỳ chọn)</label>
+                  <Select
+                    value={comparisonYear}
+                    onChange={(e) => setComparisonYear(e.target.value ? Number(e.target.value) : "")}
+                    className="w-full border border-slate-300 rounded-lg text-sm p-2 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
+                  >
+                    <option value="">-- Không so sánh --</option>
+                    {yearOptions.filter((y) => y !== selectedYear).map((y) => (
+                      <option key={y} value={y}>{y}</option>
+                    ))}
+                  </Select>
+                </div>
+              </>
             )}
           </div>
-          {!loadingTerms && terms.length === 0 && (
+          {periodType === "TERM" && !loadingTerms && terms.length === 0 && (
             <p className="text-xs text-slate-400 mt-2">Điểm trường này chưa có kỳ học nào — tạo ở màn "Quản lý Kỳ học".</p>
           )}
         </div>
@@ -287,13 +596,13 @@ export default function EnrollmentMovementStatsPage() {
         <div className="bg-rose-50 border border-rose-200/80 rounded-xl p-4 text-rose-700 text-sm">{error}</div>
       )}
 
-      {stats && !loadingStats && (
+      {displayMode === "detail" && stats && !loadingStats && (
         <>
           {/* Thẻ thông tin kỳ */}
           <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl p-5 text-white flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="text-xs opacity-75">{stats.siteName}</p>
-              <h2 className="text-lg font-bold mt-1">{stats.academicTermName}</h2>
+              <h2 className="text-lg font-bold mt-1">{stats.periodLabel}</h2>
               <p className="text-xs opacity-70 mt-1">{stats.startDate} — {stats.endDate}</p>
             </div>
           </div>
@@ -308,13 +617,13 @@ export default function EnrollmentMovementStatsPage() {
             <StatCard icon={<Users className="w-5 h-5 text-brand-orange" />} label="Cuối kỳ" value={stats.totals.closingHeadcount} />
           </div>
 
-          {/* Biểu đồ xu hướng sĩ số theo tháng — so sánh giữa 2 kỳ nếu có chọn */}
+          {/* Biểu đồ xu hướng sĩ số theo tháng — so sánh giữa 2 khoảng nếu có chọn */}
           {trend && trend.points.length > 0 && (
             <HeadcountTrendChart
               series={[
-                { label: trend.academicTermName, color: "indigo", points: trend.points },
+                { label: trend.periodLabel, color: "indigo", points: trend.points },
                 ...(comparisonTrend && comparisonTrend.points.length > 0
-                  ? [{ label: comparisonTrend.academicTermName, color: "amber", points: comparisonTrend.points }]
+                  ? [{ label: comparisonTrend.periodLabel, color: "amber", points: comparisonTrend.points }]
                   : []),
               ]}
             />
@@ -391,17 +700,81 @@ export default function EnrollmentMovementStatsPage() {
         </>
       )}
 
-      {loadingStats && (
+      {displayMode === "detail" && loadingStats && (
         <div className="text-center py-16 text-slate-400">
           <ArrowLeftRight className="w-14 h-14 mx-auto text-slate-200 mb-3 animate-pulse" />
           <p className="text-sm font-medium">Đang tải thống kê...</p>
         </div>
       )}
 
-      {hasSite && !selectedTermId && !loadingTerms && terms.length > 0 && (
+      {displayMode === "detail" && hasSite && !currentPeriod && !loadingTerms && (
         <div className="text-center py-16 text-slate-400">
           <ArrowLeftRight className="w-14 h-14 mx-auto text-slate-200 mb-3" />
-          <p className="text-sm font-medium">Chọn 1 kỳ học để xem thống kê biến động</p>
+          <p className="text-sm font-medium">Chọn {PERIOD_TYPE_LABELS[periodType].toLowerCase()} để xem thống kê biến động</p>
+        </div>
+      )}
+
+      {/* Lưới tổng quan (bổ sung ngoài SDD gốc, xác nhận 2026-08-20) — hàng đầu là tháng/kỳ/năm, cột
+          đầu là lớp, mỗi ô là sĩ số cuối đoạn. sticky cột đầu để cuộn ngang vẫn biết đang xem lớp nào,
+          cùng idiom với các bảng cuộn ngang khác trong repo. */}
+      {displayMode === "grid" && loadingGrid && (
+        <div className="text-center py-16 text-slate-400">
+          <ArrowLeftRight className="w-14 h-14 mx-auto text-slate-200 mb-3 animate-pulse" />
+          <p className="text-sm font-medium">Đang tải lưới thống kê...</p>
+        </div>
+      )}
+
+      {displayMode === "grid" && grid && !loadingGrid && (
+        <div className="bg-white rounded-xl border border-slate-200/60 shadow-sm overflow-hidden">
+          <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between gap-3 flex-wrap">
+            <h3 className="text-sm font-semibold text-slate-700">{grid.siteName}</h3>
+          </div>
+          {grid.rows.length === 0 ? (
+            <div className="px-4 py-10 text-center">
+              <Users className="w-10 h-10 mx-auto text-slate-200 mb-2" />
+              <p className="text-sm text-slate-400">Điểm trường này chưa có lớp nào.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              {/* table-fixed + colgroup (bổ sung ngoài SDD gốc, xác nhận 2026-08-20) — mặc định table
+                  co theo nội dung (auto width), để trống nguyên mảng bên phải khi ít cột (VD 12 tháng
+                  nhưng bảng chứa rộng hơn nhiều). w-full ép bảng giãn hết chiều rộng vùng chứa; cột
+                  "Lớp" giữ width cố định, các cột tháng/kỳ/năm còn lại (không set width riêng) tự chia
+                  đều phần còn lại nhờ table-layout: fixed. */}
+              <table className="w-full text-sm text-left table-fixed">
+                <colgroup>
+                  <col style={{ width: 200 }} />
+                  {grid.columns.map((c) => (
+                    <col key={c.key} />
+                  ))}
+                </colgroup>
+                <thead className="bg-slate-50 border-b border-slate-100 text-xs text-slate-500 font-medium">
+                  <tr>
+                    <th className="sticky left-0 bg-slate-50 px-4 py-2.5 z-10">Lớp</th>
+                    {grid.columns.map((c) => (
+                      <th key={c.key} className="px-3 py-2.5 text-right">{c.label}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {grid.rows.map((row) => (
+                    <tr key={row.classId} className="hover:bg-slate-50/50 transition-colors">
+                      <td
+                        className="sticky left-0 bg-white px-4 py-2.5 font-medium text-slate-800 border-r border-slate-100 truncate"
+                        title={`${row.className} (${row.classCode})`}
+                      >
+                        {row.className}
+                        <span className="text-xs text-slate-400 ml-1.5">{row.classCode}</span>
+                      </td>
+                      {grid.columns.map((c) => (
+                        <td key={c.key} className="px-3 py-2.5 text-right text-slate-700">{row.headcountByColumnKey[c.key] ?? 0}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 

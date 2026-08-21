@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Clock, Search } from "lucide-react";
+import { CalendarClock, Clock, Search, Users } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { cn } from "@/lib/cn";
 import { getMonthGridDates, getWeekDates, toISODate } from "@/lib/calendarDates";
@@ -8,8 +8,8 @@ import { useApp } from "@/context/AppContext";
 import { Badge, Modal, TableContainer, Th, Td } from "@/components/ui";
 import Select from "@/components/ui/Select";
 import { checkInStatusLabels, checkInStatusVariants, sessionStatusVariants } from "@/features/academic/components/ClassDetailPanel";
-import { listSites, SiteResponse } from "@/features/facility/api";
-import { listClasses, ClassResponse, ClassSessionCheckInStatusResponse, ClassSessionResponse } from "@/features/academic/api";
+import ClassPeriodGrid from "@/features/academic/components/ClassPeriodGrid";
+import { listClasses, ClassSessionCheckInStatusResponse, ClassSessionResponse } from "@/features/academic/api";
 import {
   DepartmentResponse,
   EmployeeResponse,
@@ -43,8 +43,12 @@ const employeeTypeLabels: Record<EmployeeResponse["employeeType"], string> = {
 
 /** Quá dài để hiện từng cột ngày (VD chọn "Năm") — chuyển sang bảng tổng hợp số liệu. */
 const MAX_DAILY_COLUMNS = 31;
+/** Chế độ xem "Theo lớp học" (ClassPeriodGrid) chỉ hợp lý trong 1 tuần — quá dài thì lưới quá rộng, không đọc được. */
+const MAX_CLASS_GRID_DAYS = 7;
 
 type QuickRange = "day" | "week" | "month" | "year";
+/** Bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-08-20 — thử gộp "Thời khóa biểu" vào đây dưới dạng 1 chế độ xem khác, để so sánh UX trước khi quyết định có bỏ hẳn trang riêng hay không. */
+type ViewMode = "employee" | "classGrid";
 
 function datesBetween(from: string, to: string): Date[] {
   const start = new Date(`${from}T00:00:00`);
@@ -217,23 +221,21 @@ function DailyTimeline({ sessions, checkInStatusBySessionId, siteNameByClassId, 
  * hrm.employee-schedule.view. Xem docs/uc/phan-he-04-nhan-su.md (UC-70).
  */
 export default function EmployeeSchedulePage() {
-  const { hasPermission } = useApp();
+  const { hasPermission, selectedCampusId, selectedClassId } = useApp();
   const canView = hasPermission("hrm.employee-schedule.view");
 
   const today = toISODate(new Date());
+  // Mặc định "Theo lớp học" (xác nhận với người dùng 2026-08-20) — đây là nhu cầu dùng thường xuyên hơn (xếp/xem lịch dạy) so với roster nhân viên.
+  const [viewMode, setViewMode] = useState<ViewMode>("classGrid");
   const [quickRange, setQuickRange] = useState<QuickRange>("week");
   const [from, setFrom] = useState(() => toISODate(getWeekDates(new Date())[0]));
   const [to, setTo] = useState(() => toISODate(getWeekDates(new Date())[6]));
   const [departmentId, setDepartmentId] = useState<number | "">("");
-  const [siteId, setSiteId] = useState<number | "">("");
-  const [classId, setClassId] = useState<number | "">("");
   const [employeeId, setEmployeeId] = useState<number | "">("");
 
   const [departments, setDepartments] = useState<DepartmentResponse[]>([]);
-  const [sites, setSites] = useState<SiteResponse[]>([]);
-  const [classes, setClasses] = useState<ClassResponse[]>([]);
   const [allEmployees, setAllEmployees] = useState<EmployeeResponse[]>([]);
-  /** UC-71 — map classId -> tên điểm trường, tải KHÔNG lọc theo site (khác `classes` ở trên chỉ phục vụ dropdown lọc). */
+  /** UC-71 — map classId -> tên điểm trường, tải KHÔNG lọc theo site/lớp đang chọn ở Header. */
   const [siteNameByClassId, setSiteNameByClassId] = useState<Record<number, string>>({});
 
   const [overview, setOverview] = useState<EmployeeScheduleOverviewResponse | null>(null);
@@ -243,7 +245,6 @@ export default function EmployeeSchedulePage() {
 
   useEffect(() => {
     listDepartments().then(setDepartments).catch(() => setDepartments([]));
-    listSites().then(setSites).catch(() => setSites([]));
     listClasses()
       .then((allClasses) => {
         const map: Record<number, string> = {};
@@ -255,16 +256,11 @@ export default function EmployeeSchedulePage() {
       .catch(() => undefined);
   }, []);
 
-  // classId phụ thuộc site đã chọn -- reset khi đổi site để tránh giữ lại lớp thuộc site cũ.
-  useEffect(() => {
-    if (siteId === "") {
-      setClasses([]);
-      setClassId("");
-      return;
-    }
-    listClasses({ siteId }).then(setClasses).catch(() => setClasses([]));
-    setClassId("");
-  }, [siteId]);
+  const dateRange = useMemo(() => datesBetween(from, to), [from, to]);
+  // Bỏ bộ lọc "Trường"/"Lớp" riêng của trang này (xác nhận với người dùng 2026-08-21) — dùng thẳng
+  // điểm trường/lớp đang chọn ở dropdown Header (AppContext.selectedCampusId/selectedClassId), đỡ
+  // phải chọn 2 lần cùng 1 thứ.
+  const classGridSiteId = selectedCampusId !== "ALL" ? Number(selectedCampusId) : null;
 
   const applyQuickRange = (range: QuickRange, refDate = new Date()) => {
     setQuickRange(range);
@@ -293,8 +289,8 @@ export default function EmployeeSchedulePage() {
       from,
       to,
       departmentId: departmentId === "" ? undefined : departmentId,
-      siteId: siteId === "" ? undefined : siteId,
-      classId: classId === "" ? undefined : classId,
+      siteId: classGridSiteId ?? undefined,
+      classId: selectedClassId ?? undefined,
       employeeId: employeeId === "" ? undefined : employeeId
     })
       .then((res) => {
@@ -312,7 +308,7 @@ export default function EmployeeSchedulePage() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(load, [from, to, departmentId, siteId, classId, employeeId, canView]);
+  useEffect(load, [from, to, departmentId, classGridSiteId, selectedClassId, employeeId, canView]);
 
   // Danh sách nhân viên cho dropdown filter -- tải riêng 1 lần, KHÔNG lọc theo site/class
   // (khác overview.employees vốn đã bị thu hẹp theo filter hiện tại) để không tự xóa lựa
@@ -328,7 +324,6 @@ export default function EmployeeSchedulePage() {
     () => new Map((overview?.classSessionCheckIns ?? []).map((c) => [c.classSessionId, c])),
     [overview]
   );
-  const dateRange = useMemo(() => datesBetween(from, to), [from, to]);
   const showDailyColumns = dateRange.length <= MAX_DAILY_COLUMNS;
   // Yêu cầu người dùng 2026-08-19 -- lọc đúng 1 ngày cụ thể thì xem rõ theo TỪNG GIỜ (bảng phẳng
   // sắp theo giờ bắt đầu, không gộp theo nhân viên) thay vì ô tổng hợp 1 cột như trước.
@@ -378,9 +373,11 @@ export default function EmployeeSchedulePage() {
 
   return (
     <div className="space-y-6">
-      <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Lịch làm việc</h1>
-        <p className="text-xs text-slate-500 mt-1">Ca làm cố định và lịch dạy của toàn bộ nhân viên, lọc theo phòng ban/điểm trường/lớp/nhân viên.</p>
+      <div className="border-b border-slate-200 pb-4 flex items-start justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Lịch làm việc</h1>
+          <p className="text-xs text-slate-500 mt-1">Ca làm cố định và lịch dạy của toàn bộ nhân viên, lọc theo phòng ban/điểm trường/lớp/nhân viên.</p>
+        </div>
       </div>
 
       {!canView ? (
@@ -398,52 +395,97 @@ export default function EmployeeSchedulePage() {
                   ["month", "Tháng"],
                   ["year", "Năm"]
                 ] as const
-              ).map(([key, label]) => (
-                <button
-                  key={key}
-                  onClick={() => applyQuickRange(key)}
-                  className={cn(
-                    "px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-colors",
-                    quickRange === key ? "bg-brand-gradient text-white shadow-xs" : "text-slate-500 hover:text-slate-700"
-                  )}
-                >
-                  {label}
-                </button>
-              ))}
+              ).map(([key, label]) => {
+                // "Theo lớp học" chỉ hợp lý trong khoảng ngắn (lưới quá rộng nếu Tháng/Năm) — bổ
+                // sung ngoài SDD gốc, xác nhận với người dùng 2026-08-20.
+                const disabledInClassGrid = viewMode === "classGrid" && (key === "month" || key === "year");
+                return (
+                  <button
+                    key={key}
+                    onClick={() => !disabledInClassGrid && applyQuickRange(key)}
+                    disabled={disabledInClassGrid}
+                    title={disabledInClassGrid ? "Không áp dụng ở chế độ Theo lớp học — lưới quá rộng để đọc" : undefined}
+                    className={cn(
+                      "px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-colors",
+                      disabledInClassGrid
+                        ? "text-slate-300 cursor-not-allowed"
+                        : quickRange === key
+                        ? "bg-brand-gradient text-white shadow-xs"
+                        : "text-slate-500 hover:text-slate-700"
+                    )}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
             </div>
             <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none" />
             <span className="text-[10px] text-slate-400">đến</span>
             <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none" />
 
-            <Select value={departmentId} onChange={(e) => setDepartmentId(e.target.value === "" ? "" : Number(e.target.value))} className="bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none max-w-[160px]">
-              <option value="">Tất cả phòng ban</option>
-              {departments.map((d) => (
-                <option key={d.id} value={d.id}>{d.name}</option>
-              ))}
-            </Select>
-            <Select value={siteId} onChange={(e) => setSiteId(e.target.value === "" ? "" : Number(e.target.value))} className="bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none max-w-[160px]">
-              <option value="">Tất cả điểm trường</option>
-              {sites.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </Select>
-            <Select value={classId} onChange={(e) => setClassId(e.target.value === "" ? "" : Number(e.target.value))} disabled={siteId === ""} className="bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none max-w-[160px] disabled:opacity-50">
-              <option value="">Tất cả lớp</option>
-              {classes.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </Select>
-            <Select value={employeeId} onChange={(e) => setEmployeeId(e.target.value === "" ? "" : Number(e.target.value))} className="bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none max-w-[160px]">
-              <option value="">Tất cả nhân viên</option>
-              {allEmployees.map((e) => (
-                <option key={e.id} value={e.id}>{e.fullName}</option>
-              ))}
-            </Select>
+            {/* Phòng ban không lọc được gì ở "Theo lớp học" (lưới chỉ theo điểm trường/lớp) — ẩn thay vì để vô tác dụng, xác nhận với người dùng 2026-08-20. */}
+            {viewMode === "employee" && (
+              <Select value={departmentId} onChange={(e) => setDepartmentId(e.target.value === "" ? "" : Number(e.target.value))} className="bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none max-w-[160px]">
+                <option value="">Tất cả phòng ban</option>
+                {departments.map((d) => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </Select>
+            )}
+            {/* Bỏ bộ lọc "Trường"/"Lớp" riêng ở đây (xác nhận với người dùng 2026-08-21) — dùng thẳng
+                dropdown "Điểm trường"/"Lớp" đã có sẵn ở Header, đỡ chọn trùng 2 chỗ. */}
+            {/* Nhân viên không lọc được gì ở "Theo lớp học" (lưới không lọc theo GV) — ẩn thay vì để vô tác dụng. */}
+            {viewMode === "employee" && (
+              <Select value={employeeId} onChange={(e) => setEmployeeId(e.target.value === "" ? "" : Number(e.target.value))} className="bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none max-w-[160px]">
+                <option value="">Tất cả nhân viên</option>
+                {allEmployees.map((e) => (
+                  <option key={e.id} value={e.id}>{e.fullName}</option>
+                ))}
+              </Select>
+            )}
+
+            {/* Chế độ xem — chuyển xuống cùng hàng bộ lọc, ngoài cùng bên phải (xác nhận với người dùng 2026-08-20). */}
+            <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl p-1 ml-auto">
+              <button
+                onClick={() => setViewMode("employee")}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-colors",
+                  viewMode === "employee" ? "bg-brand-gradient text-white shadow-xs" : "text-slate-500 hover:text-slate-700"
+                )}
+              >
+                <Users className="w-3.5 h-3.5" />
+                Theo nhân viên
+              </button>
+              <button
+                onClick={() => {
+                  setViewMode("classGrid");
+                  // Tháng/Năm không dùng được ở chế độ này (lưới quá rộng) — tự thu hẹp về Tuần cho đỡ phải bấm lại.
+                  if (quickRange === "month" || quickRange === "year") applyQuickRange("week");
+                }}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-colors",
+                  viewMode === "classGrid" ? "bg-brand-gradient text-white shadow-xs" : "text-slate-500 hover:text-slate-700"
+                )}
+              >
+                <CalendarClock className="w-3.5 h-3.5" />
+                Theo lớp học
+              </button>
+            </div>
           </div>
 
           {error && <div className="m-4 text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
-          {showHourlyTable ? (
+          {viewMode === "classGrid" ? (
+            classGridSiteId == null ? (
+              <p className="text-xs text-slate-400 italic text-center py-12">Chọn 1 điểm trường ở dropdown "Điểm trường" trên đầu trang để xem theo lớp học.</p>
+            ) : dateRange.length > MAX_CLASS_GRID_DAYS ? (
+              <p className="text-xs text-slate-400 italic text-center py-12">
+                Chọn "Ngày" hoặc "Tuần" để xem theo lớp học — khoảng ngày hiện tại quá dài để hiển thị dạng lưới.
+              </p>
+            ) : (
+              <ClassPeriodGrid siteId={classGridSiteId} dates={dateRange} classId={selectedClassId ?? undefined} />
+            )
+          ) : showHourlyTable ? (
             <DailyTimeline
               sessions={hourlyRows}
               checkInStatusBySessionId={checkInStatusBySessionId}

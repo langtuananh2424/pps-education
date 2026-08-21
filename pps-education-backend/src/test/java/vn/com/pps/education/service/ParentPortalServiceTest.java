@@ -9,6 +9,7 @@ import vn.com.pps.education.domain.Parent;
 import vn.com.pps.education.domain.ParentStudent;
 import vn.com.pps.education.domain.Role;
 import vn.com.pps.education.domain.Site;
+import vn.com.pps.education.domain.SitePeriodTemplate;
 import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.domain.UserRole;
@@ -131,6 +132,9 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
     private SiteRepository siteRepository;
 
     @Autowired
+    private vn.com.pps.education.repository.SitePeriodTemplateRepository sitePeriodTemplateRepository;
+
+    @Autowired
     private StudentRepository studentRepository;
 
     @Autowired
@@ -203,8 +207,11 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
         // markAttendance() giờ lại đòi buổi đang TRONG khung giờ diễn ra (UC-15, sửa đổi nghiệp vụ
         // 2026-08-18) nên buổi phải bao quanh "now" thay vì đã kết thúc. LocalTime.MIN vẫn không
         // dùng được vì bị hibernate.jdbc.time_zone=UTC quy đổi lệch, vi phạm CHECK chk_session_time.
+        seedPeriod(site, 1, LocalTime.now().minusMinutes(1), LocalTime.now().plusHours(1), headAcademic);
+        seedPeriod(site, 2, LocalTime.of(8, 0), LocalTime.of(9, 40), headAcademic);
         session = classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(LocalDate.now(), LocalTime.now().minusMinutes(1), LocalTime.now().plusHours(1), null, "REGULAR", "VIETNAMESE", null),
+                new CreateClassSessionRequest(LocalDate.now(), "MORNING", List.of(1), null, "REGULAR", "VIETNAMESE",
+                        teacher.getId(), null, null, null),
                 headAcademic.getId());
         // Bắt buộc để submitComments() cho DAILY không bị chặn bởi MissingLessonContentException
         // (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-29).
@@ -290,9 +297,15 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
         studentCommentService.submitComments(schoolClass.id(), new SubmitCommentsRequest(List.of(approved.id())), teacher.getId());
         studentCommentService.decideComments(new DecideCommentsRequest(List.of(approved.id()), "APPROVED", null), siteManagerUser.getId());
 
-        // A1 -- nhận xét khác vẫn DRAFT (chưa gửi/chưa duyệt).
+        // A1 -- nhận xét khác vẫn DRAFT (chưa gửi/chưa duyệt). Phải ở 1 buổi KHÁC session gốc — từ
+        // 2026-08-19 writeComment chặn tạo thêm nhận xét thứ 2 cho cùng 1 buổi đã APPROVED
+        // (StudentCommentNotEditableException, xem StudentCommentService#writeComment).
+        ClassSessionResponse otherSession = classSessionService.createSession(schoolClass.id(),
+                new CreateClassSessionRequest(LocalDate.now(), "MORNING", List.of(2), null, "REGULAR", "VIETNAMESE",
+                        teacher.getId(), null, null, null),
+                headAcademic.getId());
         studentCommentService.writeComment(schoolClass.id(),
-                new CreateStudentCommentRequest(student.getId(), session.id(),
+                new CreateStudentCommentRequest(student.getId(), otherSession.id(),
                         LocalDate.now(), "Nội dung chưa duyệt.", null, null, false, null, null, null, null, null, null, null, null), teacher.getId());
 
         List<StudentCommentResponse> comments = parentPortalService.listComments(student.getId(), schoolClass.id(), parentUser.getId());
@@ -329,7 +342,8 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
         classService.assignTeacher(schoolClass.id(),
                 new AssignTeacherRequest(foreignTeacher.getId(), "PRIMARY", null, LocalDate.now(), "FOREIGN"), headAcademic.getId());
         ClassSessionResponse foreignSession = classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(LocalDate.now().plusDays(1), LocalTime.of(8, 0), LocalTime.of(9, 40), null, "REGULAR", "FOREIGN", null),
+                new CreateClassSessionRequest(LocalDate.now().plusDays(1), "MORNING", List.of(2), null, "REGULAR", "FOREIGN",
+                        foreignTeacher.getId(), null, null, null),
                 headAcademic.getId());
 
         List<ClassSessionResponse> schedule = parentPortalService.listSchedule(student.getId(), schoolClass.id(), parentUser.getId());
@@ -342,7 +356,8 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
     @Test
     void listSchedule_boSung_includesSessionNumber() {
         ClassSessionResponse secondSession = classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(session.sessionDate().plusDays(2), LocalTime.of(8, 0), LocalTime.of(9, 40), null, "REGULAR", "VIETNAMESE", null),
+                new CreateClassSessionRequest(session.sessionDate().plusDays(2), "MORNING", List.of(2), null, "REGULAR", "VIETNAMESE",
+                        teacher.getId(), null, null, null),
                 headAcademic.getId());
 
         List<ClassSessionResponse> schedule = parentPortalService.listSchedule(student.getId(), schoolClass.id(), parentUser.getId());
@@ -387,7 +402,8 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
     /** V65: hạn nộp BTVN buổi sau = buổi kế tiếp — cần 1 buổi trong tương lai để resolveNextSessionDueAt không chặn. */
     private void createNextSession() {
         classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(session.sessionDate().plusDays(2), LocalTime.of(8, 0), LocalTime.of(9, 40), null, "REGULAR", "VIETNAMESE", null),
+                new CreateClassSessionRequest(session.sessionDate().plusDays(2), "MORNING", List.of(2), null, "REGULAR", "VIETNAMESE",
+                        teacher.getId(), null, null, null),
                 headAcademic.getId());
     }
 
@@ -417,8 +433,12 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
 
     /**
      * DAILY nay dùng chung luồng DRAFT->Gửi->PENDING->duyệt (2026-07-29) -- ghi rồi phải Gửi+duyệt mới APPROVED để lộ ra Cổng phụ huynh.
-     * V65: grammarExerciseId/videoSetId khác null tự động giao (deliverToClass) cho cả lớp ngay khi writeComment.
-     * Trả về comment lúc tạo (DRAFT) vì homeworkNext*AssignmentId không đổi qua submit/decide (không cascade).
+     * V127 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-19): giao bài thật
+     * (materialize ExerciseAssignment/ReviewVideoAssignment) chỉ xảy ra ở submitComments(), KHÔNG
+     * còn ở writeComment() nữa (writeComment chỉ lưu tạm lựa chọn vào pendingHomeworkNext*) — xem
+     * Javadoc StudentCommentService#submitComments. Vì vậy phải trả về response SAU submitComments
+     * (giữ nguyên qua decideComments, không cascade đổi lại) mới có homeworkNext*AssignmentId, khác
+     * comment lúc tạo (DRAFT) như trước V127.
      */
     private StudentCommentResponse writeDailyComment(Long grammarExerciseId, Long videoSetId, String homeworkNext) {
         StudentCommentResponse comment = studentCommentService.writeComment(schoolClass.id(),
@@ -426,9 +446,10 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
                         session.sessionDate(), "Nội dung buổi.", null, null, false, null, null, null,
                         homeworkNext, grammarExerciseId, videoSetId, null, null),
                 teacher.getId());
-        studentCommentService.submitComments(schoolClass.id(), new SubmitCommentsRequest(List.of(comment.id())), teacher.getId());
+        List<StudentCommentResponse> submitted = studentCommentService.submitComments(
+                schoolClass.id(), new SubmitCommentsRequest(List.of(comment.id())), teacher.getId());
         studentCommentService.decideComments(new DecideCommentsRequest(List.of(comment.id()), "APPROVED", null), siteManagerUser.getId());
-        return comment;
+        return submitted.get(0);
     }
 
     @Test
@@ -545,6 +566,18 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
         s.setName("Test Site");
         s.setSiteType(Site.SiteType.OWNED);
         return siteRepository.save(s);
+    }
+
+    /** Bổ sung ngoài SDD gốc, xác nhận 2026-08-19 — session_periods giờ sinh từ site_period_templates thay vì chia đều theo phút. */
+    private void seedPeriod(Site site, int periodNumber, LocalTime start, LocalTime end, User createdBy) {
+        SitePeriodTemplate template = new SitePeriodTemplate();
+        template.setSite(site);
+        template.setPeriodNumber(periodNumber);
+        template.setDayPart(SitePeriodTemplate.DayPart.MORNING);
+        template.setStartTime(start);
+        template.setEndTime(end);
+        template.setCreatedBy(createdBy);
+        sitePeriodTemplateRepository.save(template);
     }
 
     private AcademicTerm newAcademicTerm(Site site) {

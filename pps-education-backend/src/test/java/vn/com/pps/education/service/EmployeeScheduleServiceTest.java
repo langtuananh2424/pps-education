@@ -262,6 +262,7 @@ class EmployeeScheduleServiceTest extends AbstractIntegrationTest {
         schoolClass.setClassType(SchoolClass.ClassType.OPEN);
         schoolClass.setMaxStudents(20);
         schoolClass.setStartDate(LocalDate.now());
+        schoolClass.setColor("#F97316");
         schoolClass.setCreatedBy(creator);
         return schoolClassRepository.save(schoolClass);
     }

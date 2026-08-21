@@ -1484,8 +1484,18 @@ public class ReviewVideoService {
      * đúng ExerciseAttemptService#submitAttempt (đã xác nhận với người dùng 2026-08-12, sửa lỗ hổng
      * Video Ôn tập trước đây KHÔNG hề chặn theo dueAt, khác Bài Ngữ pháp). Cố tình KHÔNG có cờ kiểu
      * lateSubmissionAllowed như Exercise — chặn cứng, chưa cần tùy chọn nộp trễ cho Video.
+     *
+     * Từ V128 (dedup theo sourceClassSession): giao lại cùng buổi học sẽ HỦY bản giao ACTIVE cũ (xem
+     * {@link #cancelAssignment}) rồi tạo bản giao mới — nhưng phiên xem đã bắt đầu dưới bản giao cũ vẫn
+     * giữ FK trỏ về đúng bản ghi đó (không tự trỏ sang bản mới). Bản giao cũ bị hủy KHÔNG đổi lại dueAt,
+     * nên chỉ kiểm tra dueAt là chưa đủ — phải chặn cả khi bản giao đã bị thay thế/hủy, tránh học sinh
+     * tiếp tục ghi nhận tiến độ vào 1 bản giao GV đã chủ động thay thế (lỗi phát hiện qua CI 2026-08-21,
+     * bổ sung ngoài SDD gốc, xác nhận với người dùng).
      */
     private void requireNotPastDeadline(ReviewVideoAssignment assignment) {
+        if (assignment.getStatus() != ReviewVideoAssignment.Status.ACTIVE) {
+            throw new SubmissionPastDeadlineException("Bản giao Video Ôn tập này đã bị thay thế hoặc hủy, không thể ghi nhận thêm.");
+        }
         if (assignment.getDueAt() != null && OffsetDateTime.now().isAfter(assignment.getDueAt())) {
             throw new SubmissionPastDeadlineException(
                     "Bản giao Video Ôn tập này đã quá hạn nộp (" + assignment.getDueAt() + ").");
@@ -1673,7 +1683,7 @@ public class ReviewVideoService {
                 c.getMaxStudents(), c.getMinStudents(), c.getStartDate(), c.getEndDate(),
                 c.getAcademicYear() == null ? null : c.getAcademicYear().getId(),
                 c.getAcademicYear() == null ? null : c.getAcademicYear().getCode(),
-                c.getStatus().name());
+                c.getStatus().name(), c.getColor());
     }
 
     private ReviewVideoResponse toResponse(ReviewVideo v) {

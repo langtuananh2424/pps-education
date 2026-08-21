@@ -5,11 +5,11 @@ import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.ClassEnrollment;
 import vn.com.pps.education.domain.ClassSession;
 import vn.com.pps.education.domain.ClassSessionHistory;
-import vn.com.pps.education.domain.ClassTeacher;
 import vn.com.pps.education.domain.Room;
 import vn.com.pps.education.domain.SchoolClass;
 import vn.com.pps.education.domain.SessionPeriod;
 import vn.com.pps.education.domain.SessionPeriodHistory;
+import vn.com.pps.education.domain.SitePeriodTemplate;
 import vn.com.pps.education.domain.SiteManager;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.dto.BulkCreateClassSessionRequest;
@@ -19,6 +19,7 @@ import vn.com.pps.education.dto.ClassSessionResponse;
 import vn.com.pps.education.dto.CreateClassSessionRequest;
 import vn.com.pps.education.dto.RescheduleClassSessionRequest;
 import vn.com.pps.education.dto.SessionPeriodResponse;
+import vn.com.pps.education.dto.UpdateSessionAssignmentRequest;
 import vn.com.pps.education.exception.ClassScheduleConflictException;
 import vn.com.pps.education.exception.InvalidClassSessionStatusTransitionException;
 import vn.com.pps.education.exception.MakeupSessionAlreadyLinkedException;
@@ -28,22 +29,21 @@ import vn.com.pps.education.exception.TeacherScheduleConflictException;
 import vn.com.pps.education.repository.ClassEnrollmentRepository;
 import vn.com.pps.education.repository.ClassSessionHistoryRepository;
 import vn.com.pps.education.repository.ClassSessionRepository;
-import vn.com.pps.education.repository.ClassTeacherRepository;
 import vn.com.pps.education.repository.RoomRepository;
 import vn.com.pps.education.repository.SchoolClassRepository;
 import vn.com.pps.education.repository.SessionPeriodHistoryRepository;
 import vn.com.pps.education.repository.SessionPeriodRepository;
 import vn.com.pps.education.repository.SiteManagerRepository;
+import vn.com.pps.education.repository.SitePeriodTemplateRepository;
 import vn.com.pps.education.repository.SiteTeacherRepository;
 import vn.com.pps.education.repository.StudentRepository;
-import vn.com.pps.education.repository.SystemSettingRepository;
 import vn.com.pps.education.repository.UserRepository;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -57,9 +57,14 @@ import java.util.stream.Stream;
  * tế chỉ tạo `classes`/`class_teachers`/`class_enrollments` (xem Javadoc
  * cũ trong git history); UC-48 đã lấp đúng khoảng trống tài liệu này.
  *
- * session_periods tự sinh theo system_settings.academic.default_periods_per_session
- * (key mới, xác nhận với user — SDD chỉ nói "mặc định 2 tiết/buổi theo
- * system_settings" không nêu setting_key cụ thể).
+ * ĐẢO NGƯỢC quyết định 2026-08-13 (xác nhận lại với người dùng
+ * 2026-08-19): session_periods không còn chia đều theo phút
+ * (system_settings.academic.default_periods_per_session, đã bỏ), mà sinh
+ * trực tiếp từ site_period_templates theo periodNumber người dùng chọn
+ * (xem generatePeriodsFromTemplate). Giáo viên chính/phụ/CM của 1 buổi
+ * không còn tự động suy ra từ class_teachers PRIMARY — chọn tay riêng
+ * từng buổi (primaryTeacherId bắt buộc, assistantTeacherId/cmTeacherId
+ * tuỳ chọn), gán trực tiếp trên class_sessions (V128).
  *
  * Authorization qua @PreAuthorize("hasPermission(null,'academic.class.manage')")
  * ở ClassSessionController (Hybrid PBAC — V28, dùng chung permission với
@@ -68,22 +73,19 @@ import java.util.stream.Stream;
 @Service
 public class ClassSessionService {
 
-    private static final String DEFAULT_PERIODS_SETTING_KEY = "academic.default_periods_per_session";
-
     private final ClassSessionRepository classSessionRepository;
     private final SessionPeriodRepository sessionPeriodRepository;
     private final ClassSessionHistoryRepository classSessionHistoryRepository;
     private final SessionPeriodHistoryRepository sessionPeriodHistoryRepository;
     private final SchoolClassRepository schoolClassRepository;
     private final RoomRepository roomRepository;
-    private final SystemSettingRepository systemSettingRepository;
     private final UserRepository userRepository;
     private final SiteTeacherRepository siteTeacherRepository;
     private final SiteManagerRepository siteManagerRepository;
     private final PermissionEvaluationService permissionEvaluationService;
     private final ClassEnrollmentRepository classEnrollmentRepository;
     private final StudentRepository studentRepository;
-    private final ClassTeacherRepository classTeacherRepository;
+    private final SitePeriodTemplateRepository sitePeriodTemplateRepository;
 
     public ClassSessionService(ClassSessionRepository classSessionRepository,
                                 SessionPeriodRepository sessionPeriodRepository,
@@ -91,28 +93,26 @@ public class ClassSessionService {
                                 SessionPeriodHistoryRepository sessionPeriodHistoryRepository,
                                 SchoolClassRepository schoolClassRepository,
                                 RoomRepository roomRepository,
-                                SystemSettingRepository systemSettingRepository,
                                 UserRepository userRepository,
                                 SiteTeacherRepository siteTeacherRepository,
                                 SiteManagerRepository siteManagerRepository,
                                 PermissionEvaluationService permissionEvaluationService,
                                 ClassEnrollmentRepository classEnrollmentRepository,
                                 StudentRepository studentRepository,
-                                ClassTeacherRepository classTeacherRepository) {
+                                SitePeriodTemplateRepository sitePeriodTemplateRepository) {
         this.classSessionRepository = classSessionRepository;
         this.sessionPeriodRepository = sessionPeriodRepository;
         this.classSessionHistoryRepository = classSessionHistoryRepository;
         this.sessionPeriodHistoryRepository = sessionPeriodHistoryRepository;
         this.schoolClassRepository = schoolClassRepository;
         this.roomRepository = roomRepository;
-        this.systemSettingRepository = systemSettingRepository;
         this.userRepository = userRepository;
         this.siteTeacherRepository = siteTeacherRepository;
         this.siteManagerRepository = siteManagerRepository;
         this.permissionEvaluationService = permissionEvaluationService;
         this.classEnrollmentRepository = classEnrollmentRepository;
         this.studentRepository = studentRepository;
-        this.classTeacherRepository = classTeacherRepository;
+        this.sitePeriodTemplateRepository = sitePeriodTemplateRepository;
     }
 
     /** Giáo viên (không có academic.class.manage) chỉ thấy buổi học thuộc site được gán — xem ClassService.resolveAllowedSiteIds. */
@@ -163,6 +163,23 @@ public class ClassSessionService {
     }
 
     /**
+     * Lưới thời khóa biểu toàn điểm trường theo tuần (bổ sung ngoài SDD
+     * gốc, xác nhận 2026-08-19) — mọi buổi của mọi lớp thuộc 1 site, lọc
+     * theo khoảng ngày. actor phải được phép xem site này (giống các
+     * list* khác) — không cần academic.class.manage (self-service xem,
+     * chỉnh sửa vẫn gate riêng ở createSession/updateAssignment/...).
+     */
+    @Transactional(readOnly = true)
+    public List<ClassSessionResponse> listSessionsForSiteTimetable(Long siteId, LocalDate fromDate, LocalDate toDate, Long actorUserId) {
+        List<Long> allowedSiteIds = resolveAllowedSiteIds(actorUserId);
+        if (!isSiteAllowed(siteId, allowedSiteIds)) {
+            return List.of();
+        }
+        return classSessionRepository.findBySiteIdAndDateRange(siteId, fromDate, toDate).stream()
+                .map(this::toResponse).toList();
+    }
+
+    /**
      * null = không giới hạn (actor có academic.class.manage); danh sách rỗng
      * = không thấy buổi/tiết học nào. Hợp nhất site_teachers VÀ site_managers
      * (bổ sung ngoài SDD gốc, đã xác nhận với người dùng — cùng lý do như
@@ -188,36 +205,20 @@ public class ClassSessionService {
     @Transactional
     public ClassSessionResponse createSession(Long classId, CreateClassSessionRequest request, Long actorUserId) {
         SchoolClass schoolClass = getSchoolClassOrThrow(classId);
-        if (!request.endTime().isAfter(request.startTime())) {
-            throw new IllegalArgumentException("endTime phải sau startTime.");
-        }
         ClassSession.TeacherType teacherType = parseTeacherType(request.teacherType());
-        User teacher = resolvePrimaryTeacher(classId, teacherType);
+        SitePeriodTemplate.DayPart dayPart = SitePeriodTemplate.DayPart.valueOf(request.dayPart());
+        User primaryTeacher = getUserOrThrow(request.primaryTeacherId());
+        User assistantTeacher = request.assistantTeacherId() == null ? null : getUserOrThrow(request.assistantTeacherId());
+        User cmTeacher = request.cmTeacherId() == null ? null : getUserOrThrow(request.cmTeacherId());
         User actor = getUserOrThrow(actorUserId);
         Room room = request.roomId() == null ? null : getRoomOrThrow(request.roomId());
         ClassSession.SessionType sessionType = ClassSession.SessionType.valueOf(request.sessionType());
         ClassSession makeupForSession = resolveMakeupForSession(sessionType, request.makeupForSessionId(), classId);
 
-        ClassSession session = createSessionEntity(schoolClass, request.sessionDate(), request.startTime(), request.endTime(),
-                room, teacher, sessionType, actor, teacherType, makeupForSession);
+        ClassSession session = createSessionEntity(schoolClass, request.sessionDate(), dayPart, request.periodNumbers(),
+                room, primaryTeacher, assistantTeacher, cmTeacher, sessionType, actor, teacherType, makeupForSession);
 
         return toResponse(session);
-    }
-
-    /**
-     * UC-48/UC-56/UC-57 (bổ sung ngoài SDD gốc, xác nhận 2026-08-13): suy
-     * ra giáo viên phụ trách buổi học từ giáo viên chính (PRIMARY) đang
-     * active của lớp cùng loại giáo viên (VIETNAMESE/FOREIGN) đã chọn —
-     * không nhập tay.
-     */
-    private User resolvePrimaryTeacher(Long classId, ClassSession.TeacherType teacherType) {
-        ClassTeacher classTeacher = classTeacherRepository
-                .findBySchoolClassIdAndTeacherRoleAndTeacherTypeAndSubjectIdIsNullAndAssignedToIsNull(
-                        classId, ClassTeacher.TeacherRole.PRIMARY, teacherType)
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Lớp này chưa có giáo viên chính loại " + teacherType
-                                + " đang phụ trách — vui lòng gán giáo viên ở Quản lý lớp học trước khi xếp lịch."));
-        return classTeacher.getTeacher();
     }
 
     /**
@@ -262,22 +263,20 @@ public class ClassSessionService {
      * check + sinh session_periods) của createSession/rescheduleSession,
      * không viết lại logic. Ngày nào trùng phòng/trùng giờ GV/trùng giờ
      * lớp bị bỏ qua (ghi lý do), các ngày khác trong lô vẫn tiếp tục tạo
-     * bình thường (giống pattern
-     * lỗi-từng-dòng của batch import UC-35/50/51/53 — không có preview
-     * phòng trống trước, chỉ báo lỗi/bỏ qua sau khi thử tạo).
+     * bình thường.
      */
     @Transactional
     public BulkCreateClassSessionResponse bulkCreateSessions(Long classId, BulkCreateClassSessionRequest request, Long actorUserId) {
         SchoolClass schoolClass = getSchoolClassOrThrow(classId);
-        if (!request.endTime().isAfter(request.startTime())) {
-            throw new IllegalArgumentException("endTime phải sau startTime.");
-        }
         if (request.endDate().isBefore(request.startDate())) {
             throw new IllegalArgumentException("endDate phải sau hoặc bằng startDate.");
         }
         Set<DayOfWeek> daysOfWeek = request.daysOfWeek().stream().map(DayOfWeek::valueOf).collect(Collectors.toSet());
         ClassSession.TeacherType teacherType = parseTeacherType(request.teacherType());
-        User teacher = resolvePrimaryTeacher(classId, teacherType);
+        SitePeriodTemplate.DayPart dayPart = SitePeriodTemplate.DayPart.valueOf(request.dayPart());
+        User primaryTeacher = getUserOrThrow(request.primaryTeacherId());
+        User assistantTeacher = request.assistantTeacherId() == null ? null : getUserOrThrow(request.assistantTeacherId());
+        User cmTeacher = request.cmTeacherId() == null ? null : getUserOrThrow(request.cmTeacherId());
         User actor = getUserOrThrow(actorUserId);
         Room room = request.roomId() == null ? null : getRoomOrThrow(request.roomId());
         ClassSession.SessionType sessionType = ClassSession.SessionType.valueOf(request.sessionType());
@@ -292,8 +291,8 @@ public class ClassSessionService {
             totalDates++;
             try {
                 // makeupForSessionId không áp dụng cho sinh lịch hàng loạt — chỉ có nghĩa cho 1 buổi tạo lẻ (UC-48), ngoài phạm vi UC-56.
-                ClassSession session = createSessionEntity(schoolClass, date, request.startTime(), request.endTime(),
-                        room, teacher, sessionType, actor, teacherType, null);
+                ClassSession session = createSessionEntity(schoolClass, date, dayPart, request.periodNumbers(),
+                        room, primaryTeacher, assistantTeacher, cmTeacher, sessionType, actor, teacherType, null);
                 created.add(toResponse(session));
             } catch (RoomConflictException | TeacherScheduleConflictException | ClassScheduleConflictException ex) {
                 Map<String, Object> reason = new LinkedHashMap<>();
@@ -318,19 +317,20 @@ public class ClassSessionService {
      * khác bean ném lỗi dù caller có bắt lại vẫn làm rollback cả giao
      * dịch bao ngoài).
      */
-    ClassSessionResponse createSessionForImport(Long classId, LocalDate sessionDate, LocalTime startTime, LocalTime endTime,
-                                                 Long roomId, String teacherType, String sessionType, Long actorUserId) {
+    ClassSessionResponse createSessionForImport(Long classId, LocalDate sessionDate, String dayPart, List<Integer> periodNumbers,
+                                                 Long roomId, String teacherType, String sessionType,
+                                                 Long primaryTeacherId, Long assistantTeacherId, Long cmTeacherId, Long actorUserId) {
         SchoolClass schoolClass = getSchoolClassOrThrow(classId);
-        if (!endTime.isAfter(startTime)) {
-            throw new IllegalArgumentException("endTime phải sau startTime.");
-        }
         ClassSession.TeacherType parsedTeacherType = parseTeacherType(teacherType);
-        User teacher = resolvePrimaryTeacher(classId, parsedTeacherType);
+        SitePeriodTemplate.DayPart parsedDayPart = SitePeriodTemplate.DayPart.valueOf(dayPart);
+        User primaryTeacher = getUserOrThrow(primaryTeacherId);
+        User assistantTeacher = assistantTeacherId == null ? null : getUserOrThrow(assistantTeacherId);
+        User cmTeacher = cmTeacherId == null ? null : getUserOrThrow(cmTeacherId);
         User actor = getUserOrThrow(actorUserId);
         Room room = roomId == null ? null : getRoomOrThrow(roomId);
 
         // makeupForSessionId chưa có trong luồng Excel import (UC-57) — ngoài phạm vi yêu cầu bổ sung này.
-        ClassSession session = createSessionEntity(schoolClass, sessionDate, startTime, endTime, room, teacher,
+        ClassSession session = createSessionEntity(schoolClass, sessionDate, parsedDayPart, periodNumbers, room, primaryTeacher, assistantTeacher, cmTeacher,
                 ClassSession.SessionType.valueOf(sessionType), actor, parsedTeacherType, null);
         return toResponse(session);
     }
@@ -399,15 +399,21 @@ public class ClassSessionService {
      * Lõi dùng chung: đã resolve đủ entity, chỉ check trùng phòng + trùng
      * giờ Giáo viên + trùng giờ trong cùng Lớp (2 chặn cuối bổ sung ngoài
      * SDD gốc, đã xác nhận với người dùng 2026-07-30) + save + history +
-     * sinh session_periods.
+     * sinh session_periods từ site_period_templates (thay vì chia đều
+     * theo phút — đảo ngược 2026-08-13, xác nhận lại 2026-08-19).
      */
-    private ClassSession createSessionEntity(SchoolClass schoolClass, LocalDate sessionDate, LocalTime startTime, LocalTime endTime,
-                                              Room room, User teacher, ClassSession.SessionType sessionType, User actor,
+    private ClassSession createSessionEntity(SchoolClass schoolClass, LocalDate sessionDate, SitePeriodTemplate.DayPart dayPart, List<Integer> periodNumbers,
+                                              Room room, User primaryTeacher, User assistantTeacher, User cmTeacher,
+                                              ClassSession.SessionType sessionType, User actor,
                                               ClassSession.TeacherType teacherType, ClassSession makeupForSession) {
+        List<SitePeriodTemplate> templates = resolvePeriodTemplates(schoolClass.getSite().getId(), dayPart, periodNumbers);
+        LocalTime startTime = templates.get(0).getStartTime();
+        LocalTime endTime = templates.get(templates.size() - 1).getEndTime();
+
         if (room != null) {
             checkRoomConflict(room, sessionDate, startTime, endTime, null);
         }
-        checkTeacherConflict(teacher, sessionDate, startTime, endTime, null);
+        checkTeacherConflict(primaryTeacher, sessionDate, startTime, endTime, null);
         checkClassConflict(schoolClass.getId(), sessionDate, startTime, endTime, null);
 
         ClassSession session = new ClassSession();
@@ -416,7 +422,9 @@ public class ClassSessionService {
         session.setStartTime(startTime);
         session.setEndTime(endTime);
         session.setRoom(room);
-        session.setPrimaryTeacher(teacher);
+        session.setPrimaryTeacher(primaryTeacher);
+        session.setAssistantTeacher(assistantTeacher);
+        session.setCmTeacher(cmTeacher);
         session.setSessionType(sessionType);
         session.setTeacherType(teacherType);
         session.setMakeupForSession(makeupForSession);
@@ -424,7 +432,7 @@ public class ClassSessionService {
         session = classSessionRepository.save(session);
 
         writeClassSessionHistory(session, actor, ClassSessionHistory.Action.CREATED);
-        generateDefaultPeriods(session, actor);
+        generatePeriodsFromTemplate(session, templates, actor);
         return session;
     }
 
@@ -452,25 +460,31 @@ public class ClassSessionService {
         return toResponse(session);
     }
 
-    /** UC-48 A3: dời 1 buổi đang SCHEDULED sang buổi mới; buổi cũ chuyển RESCHEDULED và liên kết sang buổi mới. */
+    /**
+     * UC-48 A3: dời 1 buổi đang SCHEDULED sang buổi mới; buổi cũ chuyển
+     * RESCHEDULED và liên kết sang buổi mới. Đảo ngược 2026-08-13 (xác
+     * nhận lại 2026-08-19): KHÔNG re-derive giáo viên nữa — copy nguyên
+     * primaryTeacher/assistantTeacher/cmTeacher/teacherType từ buổi cũ
+     * (sửa GV thì dùng updateAssignment riêng, tách bạch 2 thao tác).
+     */
     @Transactional
     public ClassSessionResponse rescheduleSession(Long classId, Long sessionId, RescheduleClassSessionRequest request, Long actorUserId) {
         ClassSession oldSession = getSessionOrThrow(classId, sessionId);
         requireScheduled(oldSession);
-        if (!request.newEndTime().isAfter(request.newStartTime())) {
-            throw new IllegalArgumentException("newEndTime phải sau newStartTime.");
-        }
-        User newTeacher = resolvePrimaryTeacher(oldSession.getSchoolClass().getId(), oldSession.getTeacherType());
         User actor = getUserOrThrow(actorUserId);
+
+        SitePeriodTemplate.DayPart newDayPart = SitePeriodTemplate.DayPart.valueOf(request.newDayPart());
+        List<SitePeriodTemplate> templates = resolvePeriodTemplates(oldSession.getSchoolClass().getSite().getId(), newDayPart, request.newPeriodNumbers());
+        LocalTime newStartTime = templates.get(0).getStartTime();
+        LocalTime newEndTime = templates.get(templates.size() - 1).getEndTime();
 
         Room newRoom = null;
         if (request.newRoomId() != null) {
             newRoom = getRoomOrThrow(request.newRoomId());
-            checkRoomConflict(newRoom, request.newSessionDate(), request.newStartTime(), request.newEndTime(), oldSession.getId());
+            checkRoomConflict(newRoom, request.newSessionDate(), newStartTime, newEndTime, oldSession.getId());
         }
-        checkTeacherConflict(newTeacher, request.newSessionDate(), request.newStartTime(), request.newEndTime(), oldSession.getId());
-        checkClassConflict(oldSession.getSchoolClass().getId(), request.newSessionDate(), request.newStartTime(), request.newEndTime(),
-                oldSession.getId());
+        checkTeacherConflict(oldSession.getPrimaryTeacher(), request.newSessionDate(), newStartTime, newEndTime, oldSession.getId());
+        checkClassConflict(oldSession.getSchoolClass().getId(), request.newSessionDate(), newStartTime, newEndTime, oldSession.getId());
 
         // Chuyển liên kết bù (nếu buổi đang dời lịch chính là 1 buổi MAKEUP đã liên kết) sang buổi
         // mới — phải gỡ khỏi buổi cũ VÀ flush ngay, vì UNIQUE constraint (V61) không cho 2 buổi
@@ -485,17 +499,19 @@ public class ClassSessionService {
         ClassSession newSession = new ClassSession();
         newSession.setSchoolClass(oldSession.getSchoolClass());
         newSession.setSessionDate(request.newSessionDate());
-        newSession.setStartTime(request.newStartTime());
-        newSession.setEndTime(request.newEndTime());
+        newSession.setStartTime(newStartTime);
+        newSession.setEndTime(newEndTime);
         newSession.setRoom(newRoom);
-        newSession.setPrimaryTeacher(newTeacher);
+        newSession.setPrimaryTeacher(oldSession.getPrimaryTeacher());
+        newSession.setAssistantTeacher(oldSession.getAssistantTeacher());
+        newSession.setCmTeacher(oldSession.getCmTeacher());
         newSession.setSessionType(oldSession.getSessionType());
         newSession.setTeacherType(oldSession.getTeacherType());
         newSession.setMakeupForSession(makeupForSession);
         newSession.setCreatedBy(actor);
         newSession = classSessionRepository.save(newSession);
         writeClassSessionHistory(newSession, actor, ClassSessionHistory.Action.CREATED);
-        generateDefaultPeriods(newSession, actor);
+        generatePeriodsFromTemplate(newSession, templates, actor);
 
         oldSession.setStatus(ClassSession.Status.RESCHEDULED);
         oldSession.setCancellationReason(request.reason());
@@ -504,6 +520,59 @@ public class ClassSessionService {
         writeClassSessionHistory(oldSession, actor, ClassSessionHistory.Action.UPDATED);
 
         return toResponse(newSession);
+    }
+
+    /**
+     * Sửa nhanh tại chỗ (bổ sung ngoài SDD gốc, xác nhận 2026-08-19, phục
+     * vụ click-thẻ trên lưới thời khóa biểu) — sửa phòng/loại GV/GV chính-
+     * phụ-CM/tiết CÙNG NGÀY cho 1 buổi đang SCHEDULED, không tạo buổi mới
+     * (khác reschedule — đổi ngày phải đi qua reschedule để giữ đúng ngữ
+     * nghĩa RESCHEDULED + audit trail).
+     */
+    @Transactional
+    public ClassSessionResponse updateAssignment(Long classId, Long sessionId, UpdateSessionAssignmentRequest request, Long actorUserId) {
+        ClassSession session = getSessionOrThrow(classId, sessionId);
+        requireScheduled(session);
+        User actor = getUserOrThrow(actorUserId);
+
+        SitePeriodTemplate.DayPart dayPart = SitePeriodTemplate.DayPart.valueOf(request.dayPart());
+        List<SitePeriodTemplate> templates = resolvePeriodTemplates(session.getSchoolClass().getSite().getId(), dayPart, request.periodNumbers());
+        LocalTime newStartTime = templates.get(0).getStartTime();
+        LocalTime newEndTime = templates.get(templates.size() - 1).getEndTime();
+
+        Room newRoom = request.roomId() == null ? null : getRoomOrThrow(request.roomId());
+        User primaryTeacher = getUserOrThrow(request.primaryTeacherId());
+        User assistantTeacher = request.assistantTeacherId() == null ? null : getUserOrThrow(request.assistantTeacherId());
+        User cmTeacher = request.cmTeacherId() == null ? null : getUserOrThrow(request.cmTeacherId());
+
+        if (newRoom != null) {
+            checkRoomConflict(newRoom, session.getSessionDate(), newStartTime, newEndTime, session.getId());
+        }
+        checkTeacherConflict(primaryTeacher, session.getSessionDate(), newStartTime, newEndTime, session.getId());
+        checkClassConflict(session.getSchoolClass().getId(), session.getSessionDate(), newStartTime, newEndTime, session.getId());
+
+        session.setStartTime(newStartTime);
+        session.setEndTime(newEndTime);
+        session.setRoom(newRoom);
+        session.setPrimaryTeacher(primaryTeacher);
+        session.setAssistantTeacher(assistantTeacher);
+        session.setCmTeacher(cmTeacher);
+        session.setTeacherType(parseTeacherType(request.teacherType()));
+        session = classSessionRepository.save(session);
+
+        // Phải xoá session_periods_history TRƯỚC (FK NOT NULL không cascade — V14), rồi mới xoá
+        // session_periods, rồi flush() để tránh 2 lỗi: (1) vi phạm FK khi period còn lịch sử trỏ
+        // tới, (2) Hibernate mặc định chạy INSERT trước DELETE trong cùng 1 flush nên periodNumber
+        // mới trùng periodNumber cũ (VD đổi [2,3] -> [3,4]) sẽ vi phạm UNIQUE nếu không flush DELETE
+        // trước khi INSERT. Chấp nhận mất lịch sử cấp-tiết của các tiết bị thay — audit cấp buổi học
+        // vẫn còn nguyên ở class_sessions_history (UPDATED, ghi ngay dưới đây).
+        sessionPeriodHistoryRepository.deleteBySessionPeriodClassSessionId(session.getId());
+        sessionPeriodRepository.deleteByClassSessionId(session.getId());
+        sessionPeriodRepository.flush();
+        generatePeriodsFromTemplate(session, templates, actor);
+
+        writeClassSessionHistory(session, actor, ClassSessionHistory.Action.UPDATED);
+        return toResponse(session);
     }
 
     private void checkRoomConflict(Room room, LocalDate date, LocalTime startTime, LocalTime endTime, Long editingSessionId) {
@@ -521,8 +590,9 @@ public class ClassSessionService {
     /**
      * Chặn trùng giờ Giáo viên (bổ sung ngoài SDD gốc, đã xác nhận với
      * người dùng 2026-07-30) — 1 giáo viên không thể bị xếp 2 buổi chồng
-     * giờ dù khác lớp/phòng. Không có nhánh bỏ qua (khác checkRoomConflict
-     * bỏ qua khi room.isFlexible()) — luôn kiểm tra.
+     * giờ dù khác lớp/phòng. Chỉ áp dụng cho primaryTeacher — assistant/CM
+     * không trực tiếp đứng lớp nên không chặn trùng giờ (bổ sung ngoài SDD
+     * gốc, xác nhận 2026-08-19).
      */
     private void checkTeacherConflict(User teacher, LocalDate date, LocalTime startTime, LocalTime endTime, Long editingSessionId) {
         List<ClassSession> overlapping = classSessionRepository.findOverlappingForTeacher(
@@ -551,7 +621,7 @@ public class ClassSessionService {
     private void requireScheduled(ClassSession session) {
         if (session.getStatus() != ClassSession.Status.SCHEDULED) {
             throw new InvalidClassSessionStatusTransitionException(
-                    "Chỉ có thể hủy/dời lịch buổi học đang ở trạng thái SCHEDULED (hiện tại: " + session.getStatus() + ").");
+                    "Chỉ có thể hủy/dời lịch/sửa buổi học đang ở trạng thái SCHEDULED (hiện tại: " + session.getStatus() + ").");
         }
     }
 
@@ -574,24 +644,27 @@ public class ClassSessionService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + userId));
     }
 
-    private void generateDefaultPeriods(ClassSession session, User actor) {
-        int count = systemSettingRepository.findBySettingKey(DEFAULT_PERIODS_SETTING_KEY)
-                .map(s -> s.getSettingValue().asInt())
-                .orElseThrow(() -> new ResourceNotFoundException("Thiếu cấu hình system_settings: " + DEFAULT_PERIODS_SETTING_KEY));
+    /** Tra site_period_templates theo dayPart + từng periodNumber được chọn, sắp xếp tăng dần, ném lỗi rõ ràng nếu site chưa cấu hình tiết đó. */
+    private List<SitePeriodTemplate> resolvePeriodTemplates(Long siteId, SitePeriodTemplate.DayPart dayPart, List<Integer> periodNumbers) {
+        return periodNumbers.stream()
+                .sorted()
+                .map(periodNumber -> sitePeriodTemplateRepository.findBySiteIdAndDayPartAndPeriodNumberAndDeletedAtIsNull(siteId, dayPart, periodNumber)
+                        .orElseThrow(() -> new ResourceNotFoundException(
+                                "Điểm trường chưa cấu hình Tiết " + periodNumber + " buổi " + dayPart
+                                        + " — vào Cơ sở vật chất & Đối tác > Điểm trường > Tiết học để thêm.")))
+                .toList();
+    }
 
-        long totalMinutes = ChronoUnit.MINUTES.between(session.getStartTime(), session.getEndTime());
-        long minutesPerPeriod = totalMinutes / count;
-        LocalTime cursor = session.getStartTime();
-        for (int i = 1; i <= count; i++) {
-            LocalTime periodEnd = (i == count) ? session.getEndTime() : cursor.plusMinutes(minutesPerPeriod);
+    private void generatePeriodsFromTemplate(ClassSession session, List<SitePeriodTemplate> templates, User actor) {
+        for (SitePeriodTemplate template : templates) {
             SessionPeriod period = new SessionPeriod();
             period.setClassSession(session);
-            period.setPeriodNumber(i);
-            period.setStartTime(cursor);
-            period.setEndTime(periodEnd);
+            period.setDayPart(template.getDayPart());
+            period.setPeriodNumber(template.getPeriodNumber());
+            period.setStartTime(template.getStartTime());
+            period.setEndTime(template.getEndTime());
             period = sessionPeriodRepository.save(period);
             writeSessionPeriodHistory(period, actor, SessionPeriodHistory.Action.CREATED);
-            cursor = periodEnd;
         }
     }
 
@@ -625,20 +698,30 @@ public class ClassSessionService {
     private ClassSessionResponse toResponse(ClassSession s) {
         int sessionNumber = (int) classSessionRepository.countEarlierSessions(
                 s.getSchoolClass().getId(), s.getSessionDate(), s.getId()) + 1;
+        List<SessionPeriod> periods = sessionPeriodRepository.findByClassSessionIdOrderByPeriodNumber(s.getId());
+        List<Integer> periodNumbers = periods.stream()
+                .map(SessionPeriod::getPeriodNumber).sorted(Comparator.naturalOrder()).toList();
+        String dayPart = periods.isEmpty() ? null : periods.get(0).getDayPart().name();
         return new ClassSessionResponse(
                 s.getId(), s.getSchoolClass().getId(), s.getSchoolClass().getName(), s.getSessionDate(), s.getStartTime(), s.getEndTime(),
+                dayPart, periodNumbers,
                 s.getRoom() == null ? null : s.getRoom().getId(), s.getRoom() == null ? null : s.getRoom().getName(),
                 s.getPrimaryTeacher().getId(), s.getPrimaryTeacher().getFullName(),
+                s.getAssistantTeacher() == null ? null : s.getAssistantTeacher().getId(),
+                s.getAssistantTeacher() == null ? null : s.getAssistantTeacher().getFullName(),
+                s.getCmTeacher() == null ? null : s.getCmTeacher().getId(),
+                s.getCmTeacher() == null ? null : s.getCmTeacher().getFullName(),
                 s.getSessionType().name(), s.getStatus().name(),
                 s.getCancellationReason(), s.getRescheduledToSession() == null ? null : s.getRescheduledToSession().getId(),
                 s.getLessonContent(), s.getTeacherType() == null ? null : s.getTeacherType().name(),
                 s.getActualTeacherName(), sessionNumber,
-                s.getMakeupForSession() == null ? null : s.getMakeupForSession().getId());
+                s.getMakeupForSession() == null ? null : s.getMakeupForSession().getId(),
+                s.getSchoolClass().getColor());
     }
 
     private SessionPeriodResponse toResponse(SessionPeriod p) {
         return new SessionPeriodResponse(
-                p.getId(), p.getClassSession().getId(), p.getPeriodNumber(), p.getStartTime(), p.getEndTime(),
+                p.getId(), p.getClassSession().getId(), p.getDayPart().name(), p.getPeriodNumber(), p.getStartTime(), p.getEndTime(),
                 p.getTeacher() == null ? null : p.getTeacher().getId(), p.getSubject() == null ? null : p.getSubject().getId(),
                 p.getContentNote());
     }

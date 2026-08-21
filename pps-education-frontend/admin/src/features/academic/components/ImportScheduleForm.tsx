@@ -40,6 +40,12 @@ export default function ImportScheduleForm({ classId, onDone, onCancel }: Import
     <form onSubmit={handleSubmit} className="bg-emerald-50/40 border border-emerald-200 rounded-xl p-4 space-y-3">
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
+      <p className="text-[10px] text-slate-500 bg-white border border-slate-200 rounded-lg p-2.5">
+        Định dạng cột (dòng 1 = tiêu đề, dữ liệu từ dòng 2): <b>A</b>=Ngày (dd/MM/yyyy), <b>B</b>=Tiết (VD "1-2" hoặc "1,3"),{" "}
+        <b>C</b>=Loại buổi (trống=REGULAR), <b>D</b>=Loại giáo viên (VIETNAMESE/FOREIGN, bắt buộc), <b>E</b>=Username GV chính (bắt buộc),{" "}
+        <b>F</b>=Username GV phụ (tuỳ chọn), <b>G</b>=Username CM (tuỳ chọn), <b>H</b>=Mã phòng (tuỳ chọn).
+      </p>
+
       <label className="border-2 border-dashed border-slate-300 hover:border-emerald-400 bg-white rounded-xl p-5 text-center cursor-pointer block transition-all">
         <input type="file" accept=".xlsx" className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
         <Upload className="w-6 h-6 text-slate-500 mx-auto mb-1.5" />

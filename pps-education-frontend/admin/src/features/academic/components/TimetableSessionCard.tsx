@@ -1,0 +1,86 @@
+import type { CSSProperties, MouseEvent } from "react";
+import { MapPin, Users } from "lucide-react";
+import { cn } from "@/lib/cn";
+import { ClassSessionResponse } from "../api";
+
+const teacherTypeLabels: Record<string, string> = { VIETNAMESE: "GV VN", FOREIGN: "GV NN" };
+
+export type SessionPendingKind = "create" | "update" | "cancel";
+
+interface TimetableSessionCardProps {
+  session: ClassSessionResponse;
+  style: CSSProperties;
+  onClick: () => void;
+  onContextMenu?: (e: MouseEvent) => void;
+  /** Buổi đang nằm trong hàng chờ "chưa lưu" của lưới — viền đứt nét + nhãn riêng (bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-08-21). */
+  pendingKind?: SessionPendingKind;
+}
+
+/** 1 thẻ trên lưới thời khóa biểu — kéo dài đúng số tiết qua `style.gridRow` do TimetablePage tính sẵn. */
+export default function TimetableSessionCard({ session, style, onClick, onContextMenu, pendingKind }: TimetableSessionCardProps) {
+  const cancelled = session.status === "CANCELLED";
+  const rescheduled = session.status === "RESCHEDULED";
+  // Màu theo LỚP (session.classColor, tự chọn ngẫu nhiên lúc tạo lớp, đổi được ở Sửa lớp) thay cho
+  // màu theo loại GV trước đây — bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-08-21. Trạng thái
+  // hủy/dời lịch vẫn ưu tiên màu đỏ/xám cố định (tín hiệu quan trọng hơn màu lớp). color-mix() pha nhạt
+  // ngay trên trình duyệt — không cần tính trước bảng màu sáng/viền cho từng mã màu.
+  const colorStyle =
+    !cancelled && !rescheduled && session.classColor
+      ? {
+          backgroundColor: `color-mix(in srgb, ${session.classColor} 14%, white)`,
+          borderColor: `color-mix(in srgb, ${session.classColor} 50%, white)`
+        }
+      : undefined;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      onContextMenu={onContextMenu}
+      style={{ ...style, ...colorStyle }}
+      className={cn(
+        "text-left rounded-lg border p-2.5 flex flex-col gap-1 overflow-hidden transition-all hover:shadow-md hover:z-10 pointer-events-auto",
+        pendingKind && "border-dashed",
+        cancelled ? "bg-rose-50 border-rose-300" : rescheduled ? "bg-slate-100 border-slate-300 opacity-60" : "hover:brightness-95"
+      )}
+    >
+      {pendingKind && (
+        <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded w-fit bg-purple-100 text-purple-700">
+          {pendingKind === "create" ? "Mới · chưa lưu" : pendingKind === "cancel" ? "Hủy · chưa lưu" : "Sửa · chưa lưu"}
+        </span>
+      )}
+      <p className={cn("text-[12px] font-bold leading-tight break-words", cancelled ? "text-rose-600 line-through" : rescheduled ? "text-slate-500 line-through" : "text-slate-800")}>
+        {session.className}
+      </p>
+      {!cancelled && (
+        <>
+          <p className="text-[10.5px] text-slate-500 truncate">{session.primaryTeacherName}</p>
+          {session.cmTeacherName && (
+            <p className="text-[10.5px] text-slate-400 truncate flex items-center gap-1">
+              <Users className="w-3 h-3 shrink-0" />
+              CM: {session.cmTeacherName}
+            </p>
+          )}
+          {session.roomName && (
+            <p className="text-[10.5px] text-slate-400 truncate flex items-center gap-1">
+              <MapPin className="w-3 h-3 shrink-0" />
+              {session.roomName}
+            </p>
+          )}
+          {session.teacherType && (
+            <span
+              className={cn(
+                "text-[9px] font-bold px-1.5 py-0.5 rounded w-fit",
+                session.teacherType === "FOREIGN" ? "bg-sky-100 text-sky-700" : "bg-orange-100 text-brand-red"
+              )}
+            >
+              {teacherTypeLabels[session.teacherType]}
+            </span>
+          )}
+        </>
+      )}
+      {cancelled && <p className="text-[10.5px] text-rose-500 font-bold">Đã hủy{session.cancellationReason ? `: ${session.cancellationReason}` : ""}</p>}
+      {rescheduled && <p className="text-[10.5px] text-amber-600 font-bold">Đã dời lịch</p>}
+    </button>
+  );
+}

@@ -2,10 +2,12 @@ import React, { useEffect, useState } from "react";
 import { Sparkles } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import Button from "@/components/ui/Button";
-import { RoomResponse, listRoomsBySite } from "@/features/facility/api";
+import { DayPart, RoomResponse, listRoomsBySite } from "@/features/facility/api";
 import { BulkCreateClassSessionRequest, BulkCreateClassSessionResponse, bulkCreateClassSessions } from "../api";
 import DatePicker from "@/components/ui/DatePicker";
 import Select from "@/components/ui/Select";
+import PeriodMultiSelect from "./PeriodMultiSelect";
+import TeacherSearchSelect from "./TeacherSearchSelect";
 
 const inputClass = "w-full bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
@@ -27,17 +29,23 @@ interface BulkGenerateSessionsFormProps {
   onCancel: () => void;
 }
 
-/** UC-56: Sinh lịch học hàng loạt theo mẫu lặp — 1 khung giờ chung áp dụng cho mọi ngày trong tuần đã tick chọn (khớp đúng BulkCreateClassSessionRequest thật, không hỗ trợ giờ riêng theo từng ngày). */
+/** UC-56: Sinh lịch học hàng loạt theo mẫu lặp — chọn tiết + GV chính/phụ/CM chọn tay dùng chung cho cả lô (đảo ngược 2026-08-13, xác nhận lại 2026-08-19). */
 export default function BulkGenerateSessionsForm({ classId, siteId, onDone, onCancel }: BulkGenerateSessionsFormProps) {
   const [rooms, setRooms] = useState<RoomResponse[]>([]);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [selectedDays, setSelectedDays] = useState<Set<string>>(new Set());
-  const [startTime, setStartTime] = useState("18:00");
-  const [endTime, setEndTime] = useState("19:30");
+  const [dayPart, setDayPart] = useState<DayPart>("MORNING");
+  const [selectedPeriods, setSelectedPeriods] = useState<Set<number>>(new Set());
   const [roomId, setRoomId] = useState("");
   const [sessionType, setSessionType] = useState("REGULAR");
   const [teacherType, setTeacherType] = useState("");
+  const [primaryTeacherId, setPrimaryTeacherId] = useState<number | null>(null);
+  const [primaryTeacherName, setPrimaryTeacherName] = useState<string | null>(null);
+  const [assistantTeacherId, setAssistantTeacherId] = useState<number | null>(null);
+  const [assistantTeacherName, setAssistantTeacherName] = useState<string | null>(null);
+  const [cmTeacherId, setCmTeacherId] = useState<number | null>(null);
+  const [cmTeacherName, setCmTeacherName] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<BulkCreateClassSessionResponse | null>(null);
@@ -62,8 +70,16 @@ export default function BulkGenerateSessionsForm({ classId, siteId, onDone, onCa
       setError("Vui lòng chọn khoảng ngày và tối thiểu 1 ngày trong tuần.");
       return;
     }
+    if (selectedPeriods.size === 0) {
+      setError("Vui lòng chọn tối thiểu 1 tiết học.");
+      return;
+    }
     if (!teacherType) {
-      setError("Vui lòng chọn loại giáo viên — hệ thống sẽ tự lấy đúng giáo viên chính của lớp theo loại này.");
+      setError("Vui lòng chọn loại giáo viên.");
+      return;
+    }
+    if (!primaryTeacherId) {
+      setError("Vui lòng chọn giáo viên chính.");
       return;
     }
     setSubmitting(true);
@@ -72,11 +88,14 @@ export default function BulkGenerateSessionsForm({ classId, siteId, onDone, onCa
         startDate,
         endDate,
         daysOfWeek: Array.from(selectedDays),
-        startTime,
-        endTime,
+        dayPart,
+        periodNumbers: Array.from(selectedPeriods),
         roomId: roomId ? Number(roomId) : undefined,
         sessionType,
-        teacherType: teacherType as "VIETNAMESE" | "FOREIGN"
+        teacherType: teacherType as "VIETNAMESE" | "FOREIGN",
+        primaryTeacherId,
+        assistantTeacherId: assistantTeacherId ?? undefined,
+        cmTeacherId: cmTeacherId ?? undefined
       };
       const res = await bulkCreateClassSessions(classId, request);
       setResult(res);
@@ -121,16 +140,14 @@ export default function BulkGenerateSessionsForm({ classId, siteId, onDone, onCa
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className={labelClass}>Giờ bắt đầu *</label>
-          <input required type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className={inputClass} />
-        </div>
-        <div>
-          <label className={labelClass}>Giờ kết thúc *</label>
-          <input required type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} className={inputClass} />
-        </div>
-      </div>
+      <PeriodMultiSelect
+        siteId={siteId}
+        required
+        dayPart={dayPart}
+        onDayPartChange={setDayPart}
+        selected={selectedPeriods}
+        onChange={setSelectedPeriods}
+      />
 
       <div className="grid grid-cols-2 gap-3">
         <div>
@@ -162,12 +179,36 @@ export default function BulkGenerateSessionsForm({ classId, siteId, onDone, onCa
           <option value="VIETNAMESE">GV Việt Nam</option>
           <option value="FOREIGN">GV nước ngoài</option>
         </Select>
-        {/* Bổ sung ngoài SDD gốc, xác nhận 2026-08-13: giáo viên phụ trách KHÔNG còn chọn tay — hệ
-            thống tự động lấy giáo viên chính (PRIMARY) đang phụ trách lớp cùng loại giáo viên đã chọn. */}
-        <p className="text-[10px] text-slate-400 italic mt-1">
-          Giáo viên phụ trách cả lô buổi sẽ tự động lấy theo giáo viên chính của lớp đúng loại giáo viên đã chọn.
-        </p>
       </div>
+
+      <TeacherSearchSelect
+        label="Giáo viên chính (áp dụng chung cho cả lô buổi)"
+        required
+        value={primaryTeacherId}
+        valueName={primaryTeacherName}
+        onChange={(id, name) => {
+          setPrimaryTeacherId(id);
+          setPrimaryTeacherName(name);
+        }}
+      />
+      <TeacherSearchSelect
+        label="Giáo viên phụ (tuỳ chọn)"
+        value={assistantTeacherId}
+        valueName={assistantTeacherName}
+        onChange={(id, name) => {
+          setAssistantTeacherId(id);
+          setAssistantTeacherName(name);
+        }}
+      />
+      <TeacherSearchSelect
+        label="CM (tuỳ chọn)"
+        value={cmTeacherId}
+        valueName={cmTeacherName}
+        onChange={(id, name) => {
+          setCmTeacherId(id);
+          setCmTeacherName(name);
+        }}
+      />
 
       {result && (
         <div className="p-3 bg-white border border-slate-200 rounded-lg text-xs space-y-1.5">

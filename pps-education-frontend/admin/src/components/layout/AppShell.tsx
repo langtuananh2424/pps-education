@@ -2,11 +2,12 @@ import React from "react";
 import { Outlet } from "react-router-dom";
 import { useApp } from "@/context/AppContext";
 import Toast from "@/components/ui/Toast";
+import { cn } from "@/lib/cn";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
 
 export default function AppShell() {
-  const { loginNotice } = useApp();
+  const { loginNotice, sidebarCollapsed } = useApp();
 
   return (
     // Không đặt overflow-x-hidden ở 2 div bao ngoài này — CSS quy đổi overflow-y "visible" thành "auto"
@@ -24,7 +25,12 @@ export default function AppShell() {
           khiến overflow-x-hidden ở <main> không bao giờ thật sự kích hoạt (main giãn theo đúng bề rộng
           nội dung nên "clip" 0px), TableContainer bên trong cũng không cuộn ngang được vì cha nó đã đủ
           rộng để chứa hết bảng rồi. */}
-      <div className="flex-1 min-w-0 flex flex-col lg:pl-[288px] min-h-screen lg:pr-4 lg:py-4">
+      <div
+        className={cn(
+          "flex-1 min-w-0 flex flex-col min-h-screen lg:pr-4 lg:py-4 transition-[padding] duration-300",
+          sidebarCollapsed ? "lg:pl-4" : "lg:pl-[288px]"
+        )}
+      >
         <Header />
 
         <main className="flex-1 min-w-0 bg-white rounded-3xl border border-slate-200/40 shadow-soft p-4 md:p-8 animate-in fade-in duration-300 overflow-x-hidden">

@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.Role;
 import vn.com.pps.education.domain.Room;
 import vn.com.pps.education.domain.Site;
+import vn.com.pps.education.domain.SitePeriodTemplate;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.domain.UserRole;
 import vn.com.pps.education.dto.AssignTeacherRequest;
@@ -24,6 +25,7 @@ import vn.com.pps.education.dto.UpdateCurriculumRequest;
 import vn.com.pps.education.repository.ImportJobRepository;
 import vn.com.pps.education.repository.RoleRepository;
 import vn.com.pps.education.repository.RoomRepository;
+import vn.com.pps.education.repository.SitePeriodTemplateRepository;
 import vn.com.pps.education.repository.SiteRepository;
 import vn.com.pps.education.repository.UserRepository;
 import vn.com.pps.education.repository.UserRoleRepository;
@@ -32,6 +34,7 @@ import vn.com.pps.education.support.AbstractIntegrationTest;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
@@ -40,12 +43,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * UC-57: Nhập lịch học qua Excel — Main Flow (tạo đúng buổi cho dòng hợp
- * lệ, giáo viên phụ trách tự derive từ cột "Loại giáo viên" + giáo viên
- * chính của lớp), A2 (dòng lỗi bị bỏ qua, ghi lỗi, không chặn dòng khác),
- * A3 (file sai định dạng → FAILED ngay). Xem docs/uc/phan-he-06-hoc-thuat.md.
+ * lệ, GV chính/phụ/CM resolve bằng username), A2 (dòng lỗi bị bỏ qua, ghi
+ * lỗi, không chặn dòng khác), A3 (file sai định dạng → FAILED ngay). Xem
+ * docs/uc/phan-he-06-hoc-thuat.md.
  *
- * Cột E đổi ý nghĩa từ "Username GV phụ trách" sang "Loại giáo viên"
- * (VIETNAMESE/FOREIGN) — bổ sung ngoài SDD gốc, xác nhận 2026-08-13.
+ * Định dạng cột ĐỔI LẦN 3 (V129, xác nhận 2026-08-20; đảo ngược quyết định
+ * 2026-08-13, xác nhận lại 2026-08-19) — chọn Buổi+Tiết thay vì giờ tự do,
+ * GV chính/phụ/CM chọn bằng username thay vì tự suy ra từ class_teachers —
+ * xem Javadoc ClassScheduleImportService. Test file này viết lại hoàn toàn
+ * theo định dạng mới (bổ sung ngoài SDD gốc, xác nhận với người dùng
+ * 2026-08-21 — bản cũ vẫn dùng 6 cột giờ tự do đã bị bỏ từ 2026-08-13, chưa
+ * từng chạy qua CI thật để phát hiện lệch).
  */
 @Transactional
 class ClassScheduleImportServiceTest extends AbstractIntegrationTest {
@@ -81,6 +89,9 @@ class ClassScheduleImportServiceTest extends AbstractIntegrationTest {
     private RoomRepository roomRepository;
 
     @Autowired
+    private SitePeriodTemplateRepository sitePeriodTemplateRepository;
+
+    @Autowired
     private ImportJobRepository importJobRepository;
 
     private User headAcademic;
@@ -98,6 +109,10 @@ class ClassScheduleImportServiceTest extends AbstractIntegrationTest {
                 new UpdateCurriculumRequest("Chuẩn", null, null, null, "ACTIVE", false), headAcademic.getId());
 
         Site site = newSite();
+        // Tiết 1 buổi Sáng, 08:00-09:40 — cột "Tiết" của file import tra theo site_period_templates
+        // cùng buổi (xem ClassScheduleImportService#importRow -> ClassSessionService#createSessionForImport
+        // -> generatePeriodsFromTemplate), phải seed trước khi import.
+        seedPeriod(site, 1, LocalTime.of(8, 0), LocalTime.of(9, 40));
         schoolClass = classService.create(
                 new CreateClassRequest(classCode(), "8A2", site.getId(), activeCurriculum.id(), "OPEN", 20, null,
                         LocalDate.now(), null, null), headAcademic.getId());
@@ -106,20 +121,22 @@ class ClassScheduleImportServiceTest extends AbstractIntegrationTest {
         assignRole(teacher, "TEACHER");
         room = newRoom(site);
 
-        // Giáo viên chính (PRIMARY) VIETNAMESE của lớp — điều kiện bắt buộc để resolvePrimaryTeacher suy ra GV khi import (UC-57).
+        // GV chính giờ chọn bằng username tường minh ở cột F, KHÔNG còn tự suy ra từ class_teachers
+        // PRIMARY (đảo ngược 2026-08-13, xác nhận lại 2026-08-19) — gán PRIMARY ở đây chỉ để có 1 GV
+        // hợp lệ dùng chung cho các test, không phải điều kiện resolveTeacherId đòi hỏi.
         classService.assignTeacher(schoolClass.id(),
                 new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now(), "VIETNAMESE"), headAcademic.getId());
     }
 
     @Test
-    void importSchedule_UC57_MainFlow_derivesTeacherFromTeacherTypeColumn() throws IOException {
+    void importSchedule_UC57_MainFlow_resolvesTeachersByUsername() throws IOException {
         LocalDate date1 = LocalDate.now().plusDays(10);
         LocalDate date2 = LocalDate.now().plusDays(11);
         byte[] file = buildWorkbook(
-                new String[]{"Ngay", "Gio bat dau", "Gio ket thuc", "Loai buoi", "Loai giao vien", "Ma phong"},
+                new String[]{"Ngay", "Buoi", "Tiet", "Loai buoi", "Loai giao vien", "GV chinh", "GV phu", "CM", "Ma phong"},
                 new String[][]{
-                        {date1.format(DATE_FORMAT), "08:00", "09:40", "", "VIETNAMESE", room.getCode()},
-                        {date2.format(DATE_FORMAT), "10:00", "11:40", "MAKEUP", "VIETNAMESE", ""},
+                        {date1.format(DATE_FORMAT), "MORNING", "1", "", "VIETNAMESE", teacher.getUsername(), "", "", room.getCode()},
+                        {date2.format(DATE_FORMAT), "MORNING", "1", "MAKEUP", "VIETNAMESE", teacher.getUsername(), "", "", ""},
                 });
 
         ClassScheduleImportResponse result = classScheduleImportService.importSchedule(schoolClass.id(),
@@ -148,10 +165,10 @@ class ClassScheduleImportServiceTest extends AbstractIntegrationTest {
         LocalDate date1 = LocalDate.now().plusDays(15);
         LocalDate date2 = LocalDate.now().plusDays(16);
         byte[] file = buildWorkbook(
-                new String[]{"Ngay", "Gio bat dau", "Gio ket thuc", "Loai buoi", "Loai giao vien", "Ma phong"},
+                new String[]{"Ngay", "Buoi", "Tiet", "Loai buoi", "Loai giao vien", "GV chinh", "GV phu", "CM", "Ma phong"},
                 new String[][]{
-                        {date1.format(DATE_FORMAT), "08:00", "09:40", "", "", ""},
-                        {date2.format(DATE_FORMAT), "08:00", "09:40", "", "VIETNAMESE", ""},
+                        {date1.format(DATE_FORMAT), "MORNING", "1", "", "", teacher.getUsername(), "", "", ""},
+                        {date2.format(DATE_FORMAT), "MORNING", "1", "", "VIETNAMESE", teacher.getUsername(), "", "", ""},
                 });
 
         ClassScheduleImportResponse result = classScheduleImportService.importSchedule(schoolClass.id(),
@@ -172,10 +189,10 @@ class ClassScheduleImportServiceTest extends AbstractIntegrationTest {
         LocalDate date1 = LocalDate.now().plusDays(17);
         LocalDate date2 = LocalDate.now().plusDays(18);
         byte[] file = buildWorkbook(
-                new String[]{"Ngay", "Gio bat dau", "Gio ket thuc", "Loai buoi", "Loai giao vien", "Ma phong"},
+                new String[]{"Ngay", "Buoi", "Tiet", "Loai buoi", "Loai giao vien", "GV chinh", "GV phu", "CM", "Ma phong"},
                 new String[][]{
-                        {date1.format(DATE_FORMAT), "08:00", "09:40", "", "KHONG_HOP_LE", ""},
-                        {date2.format(DATE_FORMAT), "08:00", "09:40", "", "VIETNAMESE", ""},
+                        {date1.format(DATE_FORMAT), "MORNING", "1", "", "KHONG_HOP_LE", teacher.getUsername(), "", "", ""},
+                        {date2.format(DATE_FORMAT), "MORNING", "1", "", "VIETNAMESE", teacher.getUsername(), "", "", ""},
                 });
 
         ClassScheduleImportResponse result = classScheduleImportService.importSchedule(schoolClass.id(),
@@ -187,15 +204,15 @@ class ClassScheduleImportServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void importSchedule_UC57_A2_rowMissingPrimaryTeacherOfTypeDoesNotBlockOthers() throws IOException {
+    void importSchedule_UC57_A2_rowUnknownPrimaryTeacherUsernameDoesNotBlockOthers() throws IOException {
         LocalDate date1 = LocalDate.now().plusDays(19);
         LocalDate date2 = LocalDate.now().plusDays(20);
-        // Lớp chỉ có PRIMARY VIETNAMESE (xem setUp) -- dòng FOREIGN phải lỗi, dòng VIETNAMESE vẫn thành công.
+        // Username GV chính không tồn tại phải lỗi (resolveTeacherId), dòng còn lại vẫn thành công.
         byte[] file = buildWorkbook(
-                new String[]{"Ngay", "Gio bat dau", "Gio ket thuc", "Loai buoi", "Loai giao vien", "Ma phong"},
+                new String[]{"Ngay", "Buoi", "Tiet", "Loai buoi", "Loai giao vien", "GV chinh", "GV phu", "CM", "Ma phong"},
                 new String[][]{
-                        {date1.format(DATE_FORMAT), "08:00", "09:40", "", "FOREIGN", ""},
-                        {date2.format(DATE_FORMAT), "08:00", "09:40", "", "VIETNAMESE", ""},
+                        {date1.format(DATE_FORMAT), "MORNING", "1", "", "VIETNAMESE", "khong.ton.tai", "", "", ""},
+                        {date2.format(DATE_FORMAT), "MORNING", "1", "", "VIETNAMESE", teacher.getUsername(), "", "", ""},
                 });
 
         ClassScheduleImportResponse result = classScheduleImportService.importSchedule(schoolClass.id(),
@@ -223,9 +240,9 @@ class ClassScheduleImportServiceTest extends AbstractIntegrationTest {
     void getJob_UC57_returnsSameResultAsImport() throws IOException {
         LocalDate date1 = LocalDate.now().plusDays(25);
         byte[] file = buildWorkbook(
-                new String[]{"Ngay", "Gio bat dau", "Gio ket thuc", "Loai buoi", "Loai giao vien", "Ma phong"},
+                new String[]{"Ngay", "Buoi", "Tiet", "Loai buoi", "Loai giao vien", "GV chinh", "GV phu", "CM", "Ma phong"},
                 new String[][]{
-                        {date1.format(DATE_FORMAT), "08:00", "09:40", "", "VIETNAMESE", ""},
+                        {date1.format(DATE_FORMAT), "MORNING", "1", "", "VIETNAMESE", teacher.getUsername(), "", "", ""},
                 });
 
         ClassScheduleImportResponse imported = classScheduleImportService.importSchedule(schoolClass.id(),
@@ -279,6 +296,17 @@ class ClassScheduleImportServiceTest extends AbstractIntegrationTest {
         s.setName("Test Site");
         s.setSiteType(Site.SiteType.OWNED);
         return siteRepository.save(s);
+    }
+
+    private void seedPeriod(Site site, int periodNumber, LocalTime start, LocalTime end) {
+        SitePeriodTemplate template = new SitePeriodTemplate();
+        template.setSite(site);
+        template.setPeriodNumber(periodNumber);
+        template.setDayPart(SitePeriodTemplate.DayPart.MORNING);
+        template.setStartTime(start);
+        template.setEndTime(end);
+        template.setCreatedBy(headAcademic);
+        sitePeriodTemplateRepository.save(template);
     }
 
     private Room newRoom(Site site) {
