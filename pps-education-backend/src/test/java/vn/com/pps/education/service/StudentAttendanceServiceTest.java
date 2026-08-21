@@ -634,6 +634,7 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
         SitePeriodTemplate template = new SitePeriodTemplate();
         template.setSite(s);
         template.setPeriodNumber(1);
+        template.setDayPart(SitePeriodTemplate.DayPart.MORNING);
         template.setStartTime(LocalTime.now().minusMinutes(5));
         template.setEndTime(LocalTime.now().plusHours(3));
         template.setCreatedBy(headAcademic);

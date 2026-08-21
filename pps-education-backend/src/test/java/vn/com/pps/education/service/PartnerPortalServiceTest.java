@@ -347,6 +347,7 @@ class PartnerPortalServiceTest extends AbstractIntegrationTest {
         SitePeriodTemplate template = new SitePeriodTemplate();
         template.setSite(site);
         template.setPeriodNumber(periodNumber);
+        template.setDayPart(SitePeriodTemplate.DayPart.MORNING);
         template.setStartTime(start);
         template.setEndTime(end);
         template.setCreatedBy(headAcademic);
