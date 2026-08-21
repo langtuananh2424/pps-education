@@ -338,6 +338,14 @@ export function deleteExam(id: number): Promise<void> {
  */
 export type ExerciseType = "SELF_PRACTICE" | "ASSIGNED";
 
+/**
+ * V136 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-21) — nhóm kỹ năng của Bài, ĐỘC LẬP
+ * với ExerciseType (cơ chế giao bài) và Exam.examType (mục đích sử dụng) — không thay thế field nào.
+ * Cố định từ lúc tạo (không sửa được qua UpdateExerciseRequest). undefined/null = chưa phân loại (dữ
+ * liệu cũ). Dùng để lọc dropdown "chọn đề Reading/Writing" ở Nhận xét học viên (UC-21).
+ */
+export type ExerciseSkillCategory = "READING" | "WRITING" | "VOCAB_GRAMMAR";
+
 export interface CreateExerciseRequest {
   code: string;
   title: string;
@@ -351,6 +359,7 @@ export interface CreateExerciseRequest {
   showCorrectAnswers: boolean;
   /** V89/V100 — không truyền = dùng mặc định hệ thống (70%, exercises.pass_threshold_percent). */
   passThresholdPercent?: number;
+  skillCategory?: ExerciseSkillCategory;
 }
 
 export interface ExerciseResponse {
@@ -367,6 +376,8 @@ export interface ExerciseResponse {
   examTeacherType: ExamTeacherType;
   subjectId: number | null;
   exerciseType: ExerciseType;
+  /** V136 — null = chưa phân loại (dữ liệu cũ). */
+  skillCategory: ExerciseSkillCategory | null;
   totalPoints: number;
   timeLimitMinutes: number | null;
   allowRetake: boolean;

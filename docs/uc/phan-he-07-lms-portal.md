@@ -1693,6 +1693,22 @@ UC-40: Soạn & giao đề kiểm tra
 >    tapescript hay bất kỳ đâu khác trong hệ thống --- ngoài phạm vi bổ
 >    sung V94, cần thiết kế riêng (chọn nhà cung cấp/API) nếu muốn thêm.
 
+> **Bổ sung V136 (2026-08-21, đã xác nhận với người dùng) --- phân loại
+> "Bài" theo nhóm kỹ năng (bước 4 Main Flow, cùng lúc chọn Loại Bài):**
+> thêm cột `exercises.skill_category` (`READING`/`WRITING`/`VOCAB_GRAMMAR`,
+> NULL = chưa phân loại) --- ĐỘC LẬP với `exercise_type` (cơ chế giao bài)
+> và `exams.exam_type` (mục đích sử dụng), không thay thế field nào. Giáo
+> viên chọn tường minh ở màn "Soạn Bài mới" (`CreateAndAssignExerciseModal
+> .tsx`, `ExerciseInfoStep`), cố định từ lúc tạo (không sửa được qua
+> `UpdateExerciseRequest`, mirror `exercise_type`). KHÔNG ràng buộc cứng
+> loại câu hỏi bên trong theo category đã chọn ở giai đoạn này --- chỉ là
+> nhãn phân loại/lọc, tránh phá luồng soạn đề hiện có. Mục đích: cung cấp
+> nền tảng để "Nhận xét học viên" (UC-21) lọc đúng dropdown "chọn đề
+> Reading"/"chọn đề Writing" khi giao BTVN online 2 kỹ năng này (xem bổ
+> sung tương ứng tại `docs/uc/phan-he-06-hoc-thuat.md`) --- trước V136
+> không có cách nào phân biệt 1 Bài là Reading hay Writing hay Từ vựng &
+> Ngữ pháp ở cấp Exercise/Exam.
+
 ---
 
 UC-41: Chấm bài thủ công

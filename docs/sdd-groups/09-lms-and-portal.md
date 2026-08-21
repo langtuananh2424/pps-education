@@ -1123,6 +1123,15 @@ d)  Bảng exercises --- "Bài" trong 1 "Đề" (Kho đề, bổ sung ngoài SDD
                                                                    MOCK_TEST /
                                                                    SKILL_PRACTICE
 
+  skill_category         VARCHAR(20)    NULL                       READING / WRITING
+                                                                   / VOCAB_GRAMMAR
+                                                                   --- V136, ĐỘC LẬP
+                                                                   với exercise_type
+                                                                   và exams.exam_type
+                                                                   (không thay thế),
+                                                                   NULL = chưa phân
+                                                                   loại
+
   total_points           DECIMAL(6,2)   NOT NULL                   
 
   time_limit_minutes     INT            NULL                       NULL = không giới
@@ -1164,6 +1173,20 @@ exercise_assignments/exercise_attempts/student_answers có thể đã tham
 chiếu). `ARCHIVED` tự động chặn học sinh xem/làm tiếp qua
 `requireCanViewExercise` (đã yêu cầu sẵn `status=PUBLISHED`) --- không cần
 sửa gì thêm; `listByExam` (Kho đề GV xem) lọc bỏ Bài `ARCHIVED`.
+
+**Bổ sung V136 (2026-08-21, đã xác nhận với người dùng) --- phân loại
+"Bài" theo nhóm kỹ năng Reading/Writing/Từ vựng & Ngữ pháp:** cột mới
+`skill_category` --- Giáo viên TỰ CHỌN tường minh lúc tạo Bài (không suy
+luận tự động từ loại câu hỏi bên trong), cố định từ lúc tạo (không sửa
+được qua `UpdateExerciseRequest`, giống quy ước `exercise_type`). KHÔNG
+ràng buộc cứng loại câu hỏi theo category ở giai đoạn này (chỉ là nhãn lọc/
+phân loại, GV vẫn gắn được bất kỳ loại câu hỏi nào vào Bài bất kể category
+đã chọn). Pattern "bài đọc" (Reading) vẫn dùng `Question.referencePassage`
++ `Question.groupKey` có sẵn (V78) --- KHÔNG tạo bảng `Passage` riêng.
+Dùng để lọc dropdown "chọn đề Reading/Writing" mới ở "BTVN online" (Nhận
+xét học viên, UC-21) --- xem `docs/uc/phan-he-06-hoc-thuat.md`. Bài cũ
+trước migration V136 có `skill_category=NULL` ("chưa phân loại"), không
+backfill đoán giá trị.
 
 *Ghi chú sửa lỗi (UC-24):* cột `show_correct_answers` đã có sẵn từ đầu
 nhưng trước đây chưa được `ExerciseAttemptService` đọc/áp dụng ở đâu cả

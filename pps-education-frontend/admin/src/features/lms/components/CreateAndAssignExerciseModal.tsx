@@ -8,6 +8,7 @@ import Button from "@/components/ui/Button";
 import {
   ExamTeacherType,
   ExerciseResponse,
+  ExerciseSkillCategory,
   QuestionImportedRow,
   QuestionResponse,
   addExerciseQuestion,
@@ -115,6 +116,8 @@ function ExerciseInfoStep({
   const [code, setCode] = useState("");
   const [title, setTitle] = useState("");
   const [totalPoints, setTotalPoints] = useState("10");
+  /** V136, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-21 — nhóm kỹ năng của Bài (Reading/Writing/Từ vựng&Ngữ pháp), cố định từ lúc tạo. */
+  const [skillCategory, setSkillCategory] = useState<ExerciseSkillCategory | "">("");
   const [allowRetake, setAllowRetake] = useState(false);
   const [maxAttempts, setMaxAttempts] = useState("");
   const [showCorrectAnswers, setShowCorrectAnswers] = useState(true);
@@ -139,7 +142,8 @@ function ExerciseInfoStep({
         allowRetake,
         maxAttempts: allowRetake && maxAttempts ? Number(maxAttempts) : undefined,
         showCorrectAnswers,
-        passThresholdPercent: passThresholdPercent ? Number(passThresholdPercent) : undefined
+        passThresholdPercent: passThresholdPercent ? Number(passThresholdPercent) : undefined,
+        skillCategory: skillCategory || undefined
       });
       onCreated(created);
     } catch (err) {
@@ -163,6 +167,19 @@ function ExerciseInfoStep({
         <div className="col-span-2">
           <label className={labelClass}>{t("assignModal.infoStep.titleLabel")}</label>
           <input value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} />
+        </div>
+        <div className="col-span-2">
+          <label className={labelClass}>{t("assignModal.infoStep.skillCategoryLabel")}</label>
+          <select
+            value={skillCategory}
+            onChange={(e) => setSkillCategory(e.target.value as ExerciseSkillCategory | "")}
+            className={inputClass}
+          >
+            <option value="">{t("assignModal.infoStep.skillCategoryPlaceholder")}</option>
+            <option value="READING">{t("assignModal.infoStep.skillCategoryReading")}</option>
+            <option value="WRITING">{t("assignModal.infoStep.skillCategoryWriting")}</option>
+            <option value="VOCAB_GRAMMAR">{t("assignModal.infoStep.skillCategoryVocabGrammar")}</option>
+          </select>
         </div>
         <div className="col-span-2">
           <label className={labelClass}>{t("assignModal.infoStep.passThresholdLabel")}</label>

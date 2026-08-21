@@ -155,6 +155,9 @@ public class ExerciseService {
             exercise.setSubject(curriculumSubjectOrThrow(request.subjectId()));
         }
         exercise.setExerciseType(Exercise.ExerciseType.valueOf(request.exerciseType()));
+        if (request.skillCategory() != null) {
+            exercise.setSkillCategory(Exercise.SkillCategory.valueOf(request.skillCategory()));
+        }
         exercise.setTotalPoints(request.totalPoints());
         exercise.setTimeLimitMinutes(request.timeLimitMinutes());
         exercise.setAllowRetake(request.allowRetake());
@@ -606,7 +609,8 @@ public class ExerciseService {
                 e.getId(), e.getUuid(), e.getCode(), e.getTitle(),
                 e.getExam().getId(), e.getExam().getCode(), e.getExam().getTitle(), e.getExam().getTeacherType().name(),
                 e.getSubject() == null ? null : e.getSubject().getId(),
-                e.getExerciseType().name(), e.getTotalPoints(), e.getTimeLimitMinutes(), e.isAllowRetake(),
+                e.getExerciseType().name(), e.getSkillCategory() == null ? null : e.getSkillCategory().name(),
+                e.getTotalPoints(), e.getTimeLimitMinutes(), e.isAllowRetake(),
                 e.getMaxAttempts(), e.isShowCorrectAnswers(), e.getPassThresholdPercent(), e.getStatus().name(),
                 e.getCreatedBy().getId(), hasEssayOrSpeaking);
     }
