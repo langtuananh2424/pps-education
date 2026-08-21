@@ -122,7 +122,7 @@ class CurriculumServiceTest extends AbstractIntegrationTest {
                         20, null, LocalDate.now(), null, null),
                 headAcademic.getId());
         classService.update(schoolClass.id(),
-                new UpdateClassRequest("Lớp đang chạy", 20, null, LocalDate.now(), null, null, "IN_PROGRESS"),
+                new UpdateClassRequest("Lớp đang chạy", 20, null, LocalDate.now(), null, null, "IN_PROGRESS", null),
                 headAcademic.getId());
 
         assertThatThrownBy(() -> curriculumService.update(curriculum.id(),

@@ -6,7 +6,7 @@ import { useApp } from "@/context/AppContext";
 import { useDialog } from "@/components/ui/DialogProvider";
 import Button from "@/components/ui/Button";
 import ContextMenu from "@/components/ui/ContextMenu";
-import { assignLanes, MAX_LANES } from "@/lib/timetableLanes";
+import { assignLanes, DEFAULT_LANES, laneCountUsed } from "@/lib/timetableLanes";
 import { toISODate } from "@/lib/calendarDates";
 import {
   DayPart,
@@ -34,6 +34,9 @@ import CreateSessionModal, { CreateSessionModalPrefill, QueuedCreatePayload, wee
 const HEADER_ROW_HEIGHT = 44;
 const SECTION_ROW_HEIGHT = 24;
 const PERIOD_ROW_HEIGHT = 96;
+const PERIOD_LABEL_COLUMN_WIDTH = 80;
+/** Độ rộng 1 lane (1 buổi học) trong cột ngày — cột tự giãn theo bội số này (bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-08-21). */
+const LANE_WIDTH = 170;
 
 interface ClassPeriodGridProps {
   siteId: number;
@@ -47,6 +50,7 @@ interface PendingCreate {
   id: string;
   classId: number;
   className: string;
+  classColor: string;
   request: BulkCreateClassSessionRequest;
   primaryTeacherName: string;
   assistantTeacherName: string | null;
@@ -484,6 +488,7 @@ export default function ClassPeriodGrid({ siteId, dates, classId }: ClassPeriodG
           sessionNumber: 0,
           lessonContent: null,
           makeupForSessionId: null,
+          classColor: pc.classColor,
           pendingKind: "create",
           localCreateId: pc.id
         });
@@ -504,6 +509,39 @@ export default function ClassPeriodGrid({ siteId, dates, classId }: ClassPeriodG
     });
     return map;
   }, [displaySessions, classId]);
+
+  // Xếp lane cho từng ô (ngày + buổi) — KHÔNG giới hạn số buổi trùng tiết (bổ sung ngoài SDD gốc, xác
+  // nhận với người dùng 2026-08-21, bỏ cap 3 lane cũ): tính trước 1 lần ở đây để dùng lại cả lúc suy ra
+  // độ rộng cột (laneCountByDate) lẫn lúc render thẻ, tránh gọi assignLanes 2 lần cho cùng 1 ô.
+  const laneAssignmentsByCell = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof assignLanes>>();
+    dates.forEach((d) => {
+      const dateStr = toISODate(d);
+      sections.forEach((section) => {
+        const daySessions = sessionsByDateAndDayPart.get(`${dateStr}:${section.dayPart}`) ?? [];
+        const laneItems = daySessions
+          .filter((s) => s.periodNumbers.length > 0)
+          .map((s) => ({ id: s.id, startPeriod: Math.min(...s.periodNumbers), endPeriod: Math.max(...s.periodNumbers) }));
+        map.set(`${dateStr}:${section.dayPart}`, assignLanes(laneItems));
+      });
+    });
+    return map;
+  }, [dates, sections, sessionsByDateAndDayPart]);
+
+  /** Độ rộng cột theo NGÀY = số lane nhiều nhất trong bất kỳ buổi nào của ngày đó (tối thiểu DEFAULT_LANES), vì 1 cột ngày dùng chung 1 độ rộng cho mọi buổi Sáng/Chiều/Tối xếp chồng bên trong. */
+  const laneCountByDate = useMemo(
+    () =>
+      dates.map((d) => {
+        const dateStr = toISODate(d);
+        let max = DEFAULT_LANES;
+        sections.forEach((section) => {
+          const assignments = laneAssignmentsByCell.get(`${dateStr}:${section.dayPart}`);
+          if (assignments) max = Math.max(max, laneCountUsed(assignments));
+        });
+        return max;
+      }),
+    [dates, sections, laneAssignmentsByCell]
+  );
 
   if (loading && periods.length === 0) {
     return <p className="text-xs text-slate-500 text-center py-8">Đang tải...</p>;
@@ -561,9 +599,9 @@ export default function ClassPeriodGrid({ siteId, dates, classId }: ClassPeriodG
           xác nhận với người dùng 2026-08-21). */}
       <div className="p-4 pt-0 overflow-auto max-h-[70vh]">
         <div
-          className="grid min-w-[900px]"
+          className="grid"
           style={{
-            gridTemplateColumns: `80px repeat(${dates.length}, 1fr)`,
+            gridTemplateColumns: `${PERIOD_LABEL_COLUMN_WIDTH}px ${laneCountByDate.map((n) => `${n * LANE_WIDTH}px`).join(" ")}`,
             gridTemplateRows: rowHeights.map((h) => `${h}px`).join(" ")
           }}
         >
@@ -574,8 +612,8 @@ export default function ClassPeriodGrid({ siteId, dates, classId }: ClassPeriodG
               className="sticky top-0 z-20 border-b border-slate-200 bg-slate-50 flex flex-col items-center justify-center"
               style={{ gridColumn: i + 2, gridRow: 1 }}
             >
-              <span className="text-[11px] font-bold text-slate-700">{d.toLocaleDateString("vi-VN", { weekday: "short" })}</span>
-              <span className="text-[9px] text-slate-400 font-mono">{d.getDate()}/{d.getMonth() + 1}</span>
+              <span className="text-[13px] font-bold text-slate-700">{d.toLocaleDateString("vi-VN", { weekday: "short" })}</span>
+              <span className="text-[11px] text-slate-900 font-mono">{d.getDate()}/{d.getMonth() + 1}</span>
             </div>
           ))}
 
@@ -585,7 +623,7 @@ export default function ClassPeriodGrid({ siteId, dates, classId }: ClassPeriodG
               className="border-b border-slate-200 bg-brand-red/5 flex items-center px-2"
               style={{ gridColumn: "1 / -1", gridRow: section.headerRow }}
             >
-              <span className="text-[10px] font-bold uppercase text-brand-red">Buổi {dayPartLabels[section.dayPart]}</span>
+              <span className="text-[12px] font-bold uppercase text-brand-red">Buổi {dayPartLabels[section.dayPart]}</span>
             </div>
           ))}
 
@@ -596,8 +634,8 @@ export default function ClassPeriodGrid({ siteId, dates, classId }: ClassPeriodG
                 className="border-b border-r border-slate-200 bg-slate-50 flex flex-col items-center justify-center px-1"
                 style={{ gridColumn: 1, gridRow: section.rowIndex.get(p.periodNumber) }}
               >
-                <span className="text-[10px] font-bold text-slate-700">{p.label ?? `Tiết ${p.periodNumber}`}</span>
-                <span className="text-[8px] text-slate-400 font-mono">
+                <span className="text-[12px] font-bold text-slate-700">{p.label ?? `Tiết ${p.periodNumber}`}</span>
+                <span className="text-[10px] text-slate-900 font-mono">
                   {p.startTime.slice(0, 5)}–{p.endTime.slice(0, 5)}
                 </span>
               </div>
@@ -608,14 +646,8 @@ export default function ClassPeriodGrid({ siteId, dates, classId }: ClassPeriodG
             sections.map((section) => {
               const dateStr = toISODate(d);
               const daySessions = sessionsByDateAndDayPart.get(`${dateStr}:${section.dayPart}`) ?? [];
-              const laneItems = daySessions
-                .filter((s) => s.periodNumbers.length > 0)
-                .map((s) => ({
-                  id: s.id,
-                  startPeriod: Math.min(...s.periodNumbers),
-                  endPeriod: Math.max(...s.periodNumbers)
-                }));
-              const lanes = assignLanes(laneItems);
+              const lanes = laneAssignmentsByCell.get(`${dateStr}:${section.dayPart}`) ?? new Map();
+              const laneCount = laneCountByDate[dayIdx];
 
               return (
                 <div
@@ -649,7 +681,7 @@ export default function ClassPeriodGrid({ siteId, dates, classId }: ClassPeriodG
                   <div
                     className="grid absolute inset-0 gap-0.5 p-0.5 pointer-events-none"
                     style={{
-                      gridTemplateColumns: `repeat(${MAX_LANES}, 1fr)`,
+                      gridTemplateColumns: `repeat(${laneCount}, 1fr)`,
                       gridTemplateRows: `repeat(${section.periods.length}, ${PERIOD_ROW_HEIGHT}px)`
                     }}
                   >

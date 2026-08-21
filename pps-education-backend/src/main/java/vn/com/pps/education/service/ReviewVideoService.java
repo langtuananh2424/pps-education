@@ -1683,7 +1683,7 @@ public class ReviewVideoService {
                 c.getMaxStudents(), c.getMinStudents(), c.getStartDate(), c.getEndDate(),
                 c.getAcademicYear() == null ? null : c.getAcademicYear().getId(),
                 c.getAcademicYear() == null ? null : c.getAcademicYear().getCode(),
-                c.getStatus().name());
+                c.getStatus().name(), c.getColor());
     }
 
     private ReviewVideoResponse toResponse(ReviewVideo v) {

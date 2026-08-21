@@ -715,7 +715,8 @@ public class ClassSessionService {
                 s.getCancellationReason(), s.getRescheduledToSession() == null ? null : s.getRescheduledToSession().getId(),
                 s.getLessonContent(), s.getTeacherType() == null ? null : s.getTeacherType().name(),
                 s.getActualTeacherName(), sessionNumber,
-                s.getMakeupForSession() == null ? null : s.getMakeupForSession().getId());
+                s.getMakeupForSession() == null ? null : s.getMakeupForSession().getId(),
+                s.getSchoolClass().getColor());
     }
 
     private SessionPeriodResponse toResponse(SessionPeriod p) {

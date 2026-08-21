@@ -34,6 +34,7 @@ export interface CreateSessionModalPrefill {
 export interface QueuedCreatePayload {
   classId: number;
   className: string;
+  classColor: string;
   request: BulkCreateClassSessionRequest;
   primaryTeacherName: string;
   assistantTeacherName: string | null;
@@ -136,6 +137,7 @@ export default function CreateSessionModal({ siteId, onClose, onQueued, prefill 
     onQueued({
       classId: Number(classId),
       className: `${selectedClass.classCode} — ${selectedClass.name}`,
+      classColor: selectedClass.color,
       request,
       primaryTeacherName,
       assistantTeacherName,

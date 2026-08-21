@@ -148,6 +148,8 @@ export interface ClassResponse {
   academicYearId: number | null;
   academicYear: string | null;
   status: "PLANNED" | "OPEN_ENROLLMENT" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
+  /** Màu hiển thị trên lịch làm việc dạng lưới — tự chọn ngẫu nhiên khi tạo lớp, đổi được qua UpdateClassRequest (bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-08-21). */
+  color: string;
 }
 
 export interface CreateClassRequest {
@@ -171,6 +173,8 @@ export interface UpdateClassRequest {
   endDate?: string;
   academicYearId?: number;
   status: ClassResponse["status"];
+  /** Bỏ trống thì giữ nguyên màu cũ. */
+  color?: string;
 }
 
 /** UC-18 Main Flow bước 3: dropdown site -> lớp của site đó; lọc thêm theo curriculum/năm học. Giáo viên chỉ thấy lớp thuộc site được gán (site_teachers). */
@@ -711,6 +715,8 @@ export interface ClassSessionResponse {
   lessonContent: string | null;
   /** V61 (bổ sung ngoài SDD gốc, 2026-07-29) — chỉ có ý nghĩa khi sessionType=MAKEUP: id buổi CANCELLED mà buổi này bù cho. */
   makeupForSessionId: number | null;
+  /** Màu của lớp (SchoolClass.color) — tô thẻ buổi học trên lịch làm việc dạng lưới, bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-08-21. */
+  classColor: string | null;
 }
 
 /**

@@ -70,7 +70,8 @@ public class LeaveSubstitutionService {
                 s.getCancellationReason(), s.getRescheduledToSession() == null ? null : s.getRescheduledToSession().getId(),
                 s.getLessonContent(), s.getTeacherType() == null ? null : s.getTeacherType().name(),
                 s.getActualTeacherName(), null,
-                s.getMakeupForSession() == null ? null : s.getMakeupForSession().getId());
+                s.getMakeupForSession() == null ? null : s.getMakeupForSession().getId(),
+                s.getSchoolClass().getColor());
     }
 
     /**

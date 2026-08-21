@@ -37,5 +37,7 @@ public record ClassSessionResponse(
         /** Số thứ tự buổi học trong lớp (1-based, đếm cả CANCELLED) — tính động, không lưu DB. */
         Integer sessionNumber,
         /** Chỉ có ý nghĩa khi sessionType=MAKEUP — id buổi CANCELLED mà buổi này bù cho, null nếu chưa liên kết. */
-        Long makeupForSessionId
+        Long makeupForSessionId,
+        /** Màu của lớp (SchoolClass.color) — tô thẻ buổi học trên lịch làm việc dạng lưới, bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-08-21. */
+        String classColor
 ) {}

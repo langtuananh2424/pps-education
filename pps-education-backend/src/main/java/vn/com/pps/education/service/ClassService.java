@@ -60,6 +60,7 @@ import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Stream;
 
 /**
@@ -80,6 +81,18 @@ import java.util.stream.Stream;
  */
 @Service
 public class ClassService {
+
+    /**
+     * Bảng màu cố định (V134, bổ sung ngoài SDD gốc, xác nhận với người
+     * dùng 2026-08-21) — lớp mới được gán ngẫu nhiên 1 màu từ đây (không
+     * random RGB tự do, tránh màu xấu/khó phân biệt/không đủ tương phản
+     * chữ trắng-đen), dùng để tô thẻ buổi học trên lịch làm việc dạng lưới.
+     * Người dùng đổi lại được qua UpdateClassRequest#color.
+     */
+    private static final String[] CLASS_COLOR_PALETTE = {
+            "#F97316", "#0EA5E9", "#10B981", "#8B5CF6", "#EC4899", "#EAB308",
+            "#14B8A6", "#6366F1", "#F43F5E", "#84CC16", "#06B6D4", "#A855F7"
+    };
 
     private final SchoolClassRepository schoolClassRepository;
     private final AcademicYearRepository academicYearRepository;
@@ -238,6 +251,7 @@ public class ClassService {
         schoolClass.setEndDate(request.endDate());
         schoolClass.setAcademicYear(resolveAcademicYear(request.academicYearId()));
         schoolClass.setCreatedBy(actor);
+        schoolClass.setColor(CLASS_COLOR_PALETTE[ThreadLocalRandom.current().nextInt(CLASS_COLOR_PALETTE.length)]);
         if (request.startDate() != null && !LocalDate.now().isBefore(request.startDate())) {
             schoolClass.setStatus(SchoolClass.Status.IN_PROGRESS);
         }
@@ -261,6 +275,9 @@ public class ClassService {
         schoolClass.setEndDate(request.endDate());
         schoolClass.setAcademicYear(resolveAcademicYear(request.academicYearId()));
         schoolClass.setStatus(SchoolClass.Status.valueOf(request.status()));
+        if (request.color() != null && !request.color().isBlank()) {
+            schoolClass.setColor(request.color());
+        }
         schoolClass = schoolClassRepository.save(schoolClass);
 
         writeClassHistory(schoolClass, actor, ClassHistory.Action.UPDATED);
@@ -666,7 +683,7 @@ public class ClassService {
                 c.getMaxStudents(), c.getMinStudents(), c.getStartDate(), c.getEndDate(),
                 c.getAcademicYear() == null ? null : c.getAcademicYear().getId(),
                 c.getAcademicYear() == null ? null : c.getAcademicYear().getCode(),
-                c.getStatus().name());
+                c.getStatus().name(), c.getColor());
     }
 
     private ClassTeacherResponse toResponse(ClassTeacher t) {

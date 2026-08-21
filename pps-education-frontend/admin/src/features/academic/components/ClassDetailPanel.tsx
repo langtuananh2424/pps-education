@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Calendar, CalendarClock, Download, FileSpreadsheet, FileText, Save, Search, Sparkles, UploadCloud, UserPlus, Users, X } from "lucide-react";
+import { Calendar, CalendarClock, Download, FileSpreadsheet, FileText, Palette, Save, Search, Sparkles, UploadCloud, UserPlus, Users, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
+import { cn } from "@/lib/cn";
 import { buildXlsxTemplateBlob, downloadBlob } from "@/lib/xlsxTemplate";
 import { useApp } from "@/context/AppContext";
 import { UserRole } from "@/types";
@@ -59,6 +60,12 @@ import Select from "@/components/ui/Select";
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-xs p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+
+/** Khớp CLASS_COLOR_PALETTE ở backend (ClassService) — bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-08-21. */
+const CLASS_COLOR_PALETTE = [
+  "#F97316", "#0EA5E9", "#10B981", "#8B5CF6", "#EC4899", "#EAB308",
+  "#14B8A6", "#6366F1", "#F43F5E", "#84CC16", "#06B6D4", "#A855F7"
+];
 
 type Tab = "profile" | "teachers" | "students" | "sessions" | "grades";
 
@@ -198,7 +205,8 @@ function ProfileTab({
         startDate: form.startDate,
         endDate: form.endDate || undefined,
         academicYearId: form.academicYearId ? Number(form.academicYearId) : undefined,
-        status: form.status as ClassResponse["status"]
+        status: form.status as ClassResponse["status"],
+        color: form.color
       });
       onChanged();
       showToast("Đã lưu hồ sơ lớp học thành công!");
@@ -273,6 +281,40 @@ function ProfileTab({
             ))}
           </Select>
         </div>
+        <div className="col-span-2">
+          <label className={labelClass}>Màu hiển thị (lịch làm việc)</label>
+          <div className="flex flex-wrap gap-2">
+            {CLASS_COLOR_PALETTE.map((color) => (
+              <button
+                key={color}
+                type="button"
+                title={color}
+                onClick={() => setForm({ ...form, color })}
+                className={cn(
+                  "w-7 h-7 rounded-full border-2 transition-transform",
+                  form.color === color ? "border-slate-800 scale-110" : "border-transparent hover:scale-110"
+                )}
+                style={{ backgroundColor: color }}
+              />
+            ))}
+            <label
+              title="Chọn màu tuỳ ý"
+              className={cn(
+                "relative w-7 h-7 rounded-full border-2 transition-transform cursor-pointer flex items-center justify-center overflow-hidden",
+                !CLASS_COLOR_PALETTE.includes(form.color) ? "border-slate-800 scale-110" : "border-slate-200 hover:scale-110"
+              )}
+              style={!CLASS_COLOR_PALETTE.includes(form.color) ? { backgroundColor: form.color } : undefined}
+            >
+              {CLASS_COLOR_PALETTE.includes(form.color) && <Palette className="w-3.5 h-3.5 text-slate-400" />}
+              <input
+                type="color"
+                value={form.color}
+                onChange={(e) => setForm({ ...form, color: e.target.value })}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              />
+            </label>
+          </div>
+        </div>
       </fieldset>
       {canManage && (
         <Button type="submit" variant="primary" size="sm" disabled={saving}>
@@ -292,7 +334,8 @@ function toForm(c: ClassResponse) {
     startDate: c.startDate,
     endDate: c.endDate ?? "",
     academicYearId: c.academicYearId != null ? String(c.academicYearId) : "",
-    status: c.status
+    status: c.status,
+    color: c.color
   };
 }
 
