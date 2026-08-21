@@ -100,7 +100,8 @@ public class CurriculumDocumentService {
     @Transactional(readOnly = true)
     public List<CurriculumDocumentResponse> listMyDocuments(Long actorUserId, Long curriculumIdFilter) {
         Student student = studentRepository.findByUserId(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản id=" + actorUserId + " không có hồ sơ học sinh."));
+                .orElseThrow(() -> new ResourceNotFoundException("error.curriculumDocument.actorNotStudent",
+                        new Object[]{actorUserId}, "Tài khoản id=" + actorUserId + " không có hồ sơ học sinh."));
         List<Long> curriculumIds = classEnrollmentRepository.findByStudentId(student.getId()).stream()
                 .filter(e -> e.getStatus() == ClassEnrollment.Status.ACTIVE)
                 .map(e -> e.getSchoolClass().getCurriculum().getId())
@@ -119,17 +120,20 @@ public class CurriculumDocumentService {
 
     private Curriculum curriculumOrThrow(Long id) {
         return curriculumRepository.findByIdAndDeletedAtIsNull(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy khung chương trình id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.curriculumDocument.curriculumNotFound",
+                        new Object[]{id}, "Không tìm thấy khung chương trình id=" + id));
     }
 
     private CurriculumDocument documentOrThrow(Long id) {
         return curriculumDocumentRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài liệu id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.curriculumDocument.documentNotFound",
+                        new Object[]{id}, "Không tìm thấy tài liệu id=" + id));
     }
 
     private User userOrThrow(Long id) {
         return userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.curriculumDocument.accountNotFound",
+                        new Object[]{id}, "Không tìm thấy tài khoản id=" + id));
     }
 
     private CurriculumDocumentResponse toResponse(CurriculumDocument d) {

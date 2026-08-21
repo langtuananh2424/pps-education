@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { ArrowRightLeft, Search } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
@@ -32,6 +33,7 @@ interface ClassPromotionModalProps {
  * lớp mới. Xem ClassService#promoteClass.
  */
 export default function ClassPromotionModal({ classes, onClose, onPromoted }: ClassPromotionModalProps) {
+  const { t } = useTranslation("academic-classes");
   const [sourceQuery, setSourceQuery] = useState("");
   const [sourceClassId, setSourceClassId] = useState<number | null>(null);
   const [curriculums, setCurriculums] = useState<CurriculumResponse[]>([]);
@@ -80,7 +82,7 @@ export default function ClassPromotionModal({ classes, onClose, onPromoted }: Cl
     e.preventDefault();
     setSubmitAttempted(true);
     if (!sourceClassId || !form.classCode.trim() || !form.name.trim() || !form.curriculumId || !form.academicYearId || !form.startDate || !form.maxStudents) {
-      setError("Vui lòng chọn lớp nguồn và điền đủ các trường bắt buộc được đánh dấu đỏ.");
+      setError(t("classPromotion.selectSourceOrFillError"));
       return;
     }
     setSubmitting(true);
@@ -99,7 +101,7 @@ export default function ClassPromotionModal({ classes, onClose, onPromoted }: Cl
       setResult(response);
       onPromoted(response.newClass);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Chuyển lớp hàng loạt thất bại.");
+      setError(err instanceof ApiError ? err.message : t("classPromotion.submitError"));
     } finally {
       setSubmitting(false);
     }
@@ -107,16 +109,21 @@ export default function ClassPromotionModal({ classes, onClose, onPromoted }: Cl
 
   if (result) {
     return (
-      <Modal open onClose={onClose} title="Chuyển lớp hàng loạt — Kết quả" size="lg">
+      <Modal open onClose={onClose} title={t("classPromotion.resultModalTitle")} size="lg">
         <div className="space-y-4">
           <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-3 text-xs text-emerald-700">
-            Đã tạo lớp <span className="font-bold">{result.newClass.classCode}</span> — {result.newClass.name}. Chuyển thành công{" "}
-            <span className="font-bold">{result.movedStudentCount}</span> học sinh.
+            {t("classPromotion.resultSummary", {
+              classCode: result.newClass.classCode,
+              name: result.newClass.name,
+              count: result.movedStudentCount
+            })}
           </div>
 
           {result.skippedStudentCount > 0 && (
             <div>
-              <p className="text-[10px] uppercase font-bold text-slate-500 mb-2">Học sinh bị bỏ lại ({result.skippedStudentCount})</p>
+              <p className="text-[10px] uppercase font-bold text-slate-500 mb-2">
+                {t("classPromotion.skippedTitle", { count: result.skippedStudentCount })}
+              </p>
               <div className="space-y-1.5 max-h-64 overflow-y-auto">
                 {result.skippedStudents.map((s) => (
                   <div key={s.studentId} className="border border-amber-100 bg-amber-50 rounded-lg p-2.5 text-xs">
@@ -132,7 +139,7 @@ export default function ClassPromotionModal({ classes, onClose, onPromoted }: Cl
 
           <div className="flex justify-end pt-2">
             <Button type="button" variant="primary" onClick={onClose}>
-              Đóng
+              {t("common.closeButton")}
             </Button>
           </div>
         </div>
@@ -141,12 +148,12 @@ export default function ClassPromotionModal({ classes, onClose, onPromoted }: Cl
   }
 
   return (
-    <Modal open onClose={onClose} title="Chuyển lớp hàng loạt cuối năm học" size="lg">
+    <Modal open onClose={onClose} title={t("classPromotion.modalTitle")} size="lg">
       <form onSubmit={handleSubmit} className="space-y-5">
         {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
         <div>
-          <label className={labelClass}>Lớp nguồn *</label>
+          <label className={labelClass}>{t("classPromotion.sourceClassLabel")}</label>
           {!sourceClass ? (
             <div className="border border-slate-200 rounded-lg">
               <div className="relative p-2 border-b border-slate-100">
@@ -154,13 +161,13 @@ export default function ClassPromotionModal({ classes, onClose, onPromoted }: Cl
                 <input
                   value={sourceQuery}
                   onChange={(e) => setSourceQuery(e.target.value)}
-                  placeholder="Tìm theo tên / mã lớp..."
+                  placeholder={t("classPromotion.sourceSearchPlaceholder")}
                   className="w-full bg-slate-50 border border-slate-200 text-xs pl-8 pr-3 py-2 rounded-lg focus:outline-none"
                 />
               </div>
               <div className="max-h-40 overflow-y-auto divide-y divide-slate-100">
                 {filteredSourceClasses.length === 0 ? (
-                  <p className="text-xs text-slate-400 p-3 text-center">Không tìm thấy lớp phù hợp.</p>
+                  <p className="text-xs text-slate-400 p-3 text-center">{t("classPromotion.noSourceMatch")}</p>
                 ) : (
                   filteredSourceClasses.map((c) => (
                     <button
@@ -181,11 +188,11 @@ export default function ClassPromotionModal({ classes, onClose, onPromoted }: Cl
               <div>
                 <span className="font-mono font-bold text-brand-red">{sourceClass.classCode}</span> — {sourceClass.name}
                 <div className="text-[10px] text-slate-500 mt-0.5">
-                  {sourceClass.siteName} · {sourceClass.classType === "LINKED" ? "Liên kết" : "Mở tại trung tâm"}
+                  {sourceClass.siteName} · {sourceClass.classType === "LINKED" ? t("enums.classType.LINKED") : t("enums.classType.OPEN")}
                 </div>
               </div>
               <button type="button" onClick={() => setSourceClassId(null)} className="text-brand-red font-bold text-[11px] hover:underline shrink-0">
-                Đổi lớp
+                {t("classPromotion.changeSourceLink")}
               </button>
             </div>
           )}
@@ -194,63 +201,63 @@ export default function ClassPromotionModal({ classes, onClose, onPromoted }: Cl
         <fieldset disabled={!sourceClass} className="space-y-3 disabled:opacity-50">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={labelClass}>Mã lớp mới *</label>
+              <label className={labelClass}>{t("classPromotion.newClassCodeLabel")}</label>
               <input
                 value={form.classCode}
                 onChange={(e) => setForm({ ...form, classCode: e.target.value })}
                 onBlur={() => markTouched("classCode")}
                 className={`${invalid.classCode ? inputErrorClass : inputClass} font-mono`}
               />
-              {invalid.classCode && <p className="text-[10px] text-rose-600 mt-1">Vui lòng nhập Mã lớp mới.</p>}
+              {invalid.classCode && <p className="text-[10px] text-rose-600 mt-1">{t("classPromotion.newClassCodeRequired")}</p>}
             </div>
             <div>
-              <label className={labelClass}>Tên lớp mới *</label>
+              <label className={labelClass}>{t("classPromotion.newNameLabel")}</label>
               <input
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 onBlur={() => markTouched("name")}
                 className={invalid.name ? inputErrorClass : inputClass}
               />
-              {invalid.name && <p className="text-[10px] text-rose-600 mt-1">Vui lòng nhập Tên lớp mới.</p>}
+              {invalid.name && <p className="text-[10px] text-rose-600 mt-1">{t("classPromotion.newNameRequired")}</p>}
             </div>
 
             <div className="col-span-2">
-              <label className={labelClass}>Khung chương trình mới *</label>
+              <label className={labelClass}>{t("classPromotion.newCurriculumLabel")}</label>
               <Select
                 value={form.curriculumId}
                 onChange={(e) => setForm({ ...form, curriculumId: e.target.value })}
                 onBlur={() => markTouched("curriculumId")}
                 className={invalid.curriculumId ? inputErrorClass : inputClass}
               >
-                <option value="">-- Chọn khung chương trình --</option>
+                <option value="">{t("classPromotion.curriculumPlaceholder")}</option>
                 {eligibleCurriculums.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.code} — {c.name}
                   </option>
                 ))}
               </Select>
-              {invalid.curriculumId && <p className="text-[10px] text-rose-600 mt-1">Vui lòng chọn Khung chương trình mới.</p>}
+              {invalid.curriculumId && <p className="text-[10px] text-rose-600 mt-1">{t("classPromotion.newCurriculumRequired")}</p>}
             </div>
 
             <div>
-              <label className={labelClass}>Năm học mới *</label>
+              <label className={labelClass}>{t("classPromotion.newAcademicYearLabel")}</label>
               <Select
                 value={form.academicYearId}
                 onChange={(e) => setForm({ ...form, academicYearId: e.target.value })}
                 onBlur={() => markTouched("academicYearId")}
                 className={invalid.academicYearId ? inputErrorClass : inputClass}
               >
-                <option value="">-- Chọn năm học --</option>
+                <option value="">{t("classPromotion.academicYearPlaceholder")}</option>
                 {academicYears.map((y) => (
                   <option key={y.id} value={y.id}>
                     {y.code} — {y.name}
                   </option>
                 ))}
               </Select>
-              {invalid.academicYearId && <p className="text-[10px] text-rose-600 mt-1">Vui lòng chọn Năm học mới.</p>}
+              {invalid.academicYearId && <p className="text-[10px] text-rose-600 mt-1">{t("classPromotion.newAcademicYearRequired")}</p>}
             </div>
             <div>
-              <label className={labelClass}>Sĩ số tối đa *</label>
+              <label className={labelClass}>{t("classPromotion.newMaxStudentsLabel")}</label>
               <input
                 type="number"
                 min={1}
@@ -259,11 +266,11 @@ export default function ClassPromotionModal({ classes, onClose, onPromoted }: Cl
                 onBlur={() => markTouched("maxStudents")}
                 className={invalid.maxStudents ? inputErrorClass : inputClass}
               />
-              {invalid.maxStudents && <p className="text-[10px] text-rose-600 mt-1">Vui lòng nhập Sĩ số tối đa.</p>}
+              {invalid.maxStudents && <p className="text-[10px] text-rose-600 mt-1">{t("classPromotion.newMaxStudentsRequired")}</p>}
             </div>
 
             <div>
-              <label className={labelClass}>Ngày bắt đầu lớp mới *</label>
+              <label className={labelClass}>{t("classPromotion.newStartDateLabel")}</label>
               <DatePicker
                 value={form.startDate}
                 onChange={(v) => {
@@ -273,32 +280,29 @@ export default function ClassPromotionModal({ classes, onClose, onPromoted }: Cl
                 max={form.endDate || undefined}
                 hasError={invalid.startDate}
               />
-              {invalid.startDate && <p className="text-[10px] text-rose-600 mt-1">Vui lòng chọn Ngày bắt đầu.</p>}
-              <p className="text-[10px] text-slate-400 mt-1">Cũng là ngày hiệu lực chuyển ghi danh học sinh sang lớp mới.</p>
+              {invalid.startDate && <p className="text-[10px] text-rose-600 mt-1">{t("classPromotion.newStartDateRequired")}</p>}
+              <p className="text-[10px] text-slate-400 mt-1">{t("classPromotion.newStartDateHint")}</p>
             </div>
             <div>
-              <label className={labelClass}>Ngày kết thúc (dự kiến)</label>
+              <label className={labelClass}>{t("classPromotion.newEndDateLabel")}</label>
               <DatePicker value={form.endDate} onChange={(v) => setForm({ ...form, endDate: v })} min={form.startDate || undefined} />
             </div>
             <div>
-              <label className={labelClass}>Sĩ số tối thiểu</label>
+              <label className={labelClass}>{t("classPromotion.newMinStudentsLabel")}</label>
               <input type="number" min={0} value={form.minStudents} onChange={(e) => setForm({ ...form, minStudents: e.target.value })} className={inputClass} />
             </div>
           </div>
 
-          <p className="text-[10px] text-slate-400">
-            Lớp mới giữ nguyên Điểm trường và Loại hình lớp của lớp nguồn. Chỉ học sinh đang học (trạng thái ACTIVE) được chuyển sang;
-            học sinh Bảo lưu/Đình chỉ/Đã tốt nghiệp/Thôi học bị bỏ lại. Giáo viên KHÔNG được copy sang — gán lại thủ công sau.
-          </p>
+          <p className="text-[10px] text-slate-400">{t("classPromotion.footNote")}</p>
         </fieldset>
 
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="secondary" onClick={onClose}>
-            Hủy
+            {t("common.cancelButton")}
           </Button>
           <Button type="submit" variant="primary" disabled={submitting || !sourceClass}>
             <ArrowRightLeft className="w-3.5 h-3.5" />
-            {submitting ? "Đang chuyển..." : "Chuyển lớp hàng loạt"}
+            {submitting ? t("classPromotion.submitting") : t("classPromotion.submitButton")}
           </Button>
         </div>
       </form>

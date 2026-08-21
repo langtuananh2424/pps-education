@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { Link2, Send } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import Modal from "@/components/ui/Modal";
 import { ApiError } from "@/lib/apiClient";
+import { formatDateTime } from "@/lib/i18nFormat";
 import {
   addAttachment,
   addComment,
@@ -15,11 +17,9 @@ import {
   TaskResponse,
   updateAssignmentStatus
 } from "../api";
-import { ASSIGNMENT_ACTION_LABEL, ASSIGNMENT_STATUS_META, ASSIGNEE_TRANSITIONS } from "../statusMeta";
+import { assignmentActionLabel, ASSIGNMENT_STATUS_META, assignmentStatusLabel, ASSIGNEE_TRANSITIONS } from "../statusMeta";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
-
-const PRIORITY_LABEL: Record<string, string> = { LOW: "Thấp", NORMAL: "Bình thường", HIGH: "Cao", URGENT: "Khẩn cấp" };
 
 interface AssignmentDetailModalProps {
   assignment: TaskAssignmentResponse;
@@ -29,6 +29,7 @@ interface AssignmentDetailModalProps {
 
 /** UC-07 Main Flow bước 2-4, A2: xem chi tiết + đổi trạng thái (đúng state machine assignee) + bình luận/đính kèm. */
 export default function AssignmentDetailModal({ assignment, onClose, onChanged }: AssignmentDetailModalProps) {
+  const { t, i18n } = useTranslation("task-workflow");
   const [task, setTask] = useState<TaskResponse | null>(null);
   const [comments, setComments] = useState<TaskCommentResponse[]>([]);
   const [attachments, setAttachments] = useState<TaskAttachmentResponse[]>([]);
@@ -52,7 +53,7 @@ export default function AssignmentDetailModal({ assignment, onClose, onChanged }
         setComments(c);
         setAttachments(a);
       })
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được chi tiết công việc."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("assignmentDetail.loadError")))
       .finally(() => setLoading(false));
   }, [assignment.taskId]);
 
@@ -66,9 +67,9 @@ export default function AssignmentDetailModal({ assignment, onClose, onChanged }
       onChanged(updated);
       setDeclineTarget(null);
       setDeclineReason("");
-      showToast(`Đã cập nhật trạng thái "${ASSIGNMENT_ACTION_LABEL[target]}" thành công!`);
+      showToast(t("assignmentDetail.statusChangedToast", { action: assignmentActionLabel(t, target) }));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Đổi trạng thái thất bại.");
+      setError(err instanceof ApiError ? err.message : t("assignmentDetail.statusChangeError"));
     } finally {
       setSubmittingStatus(false);
     }
@@ -76,7 +77,7 @@ export default function AssignmentDetailModal({ assignment, onClose, onChanged }
 
   const handleConfirmDecline = () => {
     if (!declineReason.trim()) {
-      setError("Cần nêu lý do khi từ chối nhận việc.");
+      setError(t("assignmentDetail.declineReasonRequired"));
       return;
     }
     handleChangeStatus("DECLINED", declineReason.trim());
@@ -89,9 +90,9 @@ export default function AssignmentDetailModal({ assignment, onClose, onChanged }
       const created = await addComment(assignment.taskId, { content: newComment.trim() });
       setComments((prev) => [...prev, created]);
       setNewComment("");
-      showToast("Đã gửi bình luận thành công!");
+      showToast(t("assignmentDetail.commentAddedToast"));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Gửi bình luận thất bại.");
+      setError(err instanceof ApiError ? err.message : t("assignmentDetail.commentAddError"));
     }
   };
 
@@ -103,49 +104,59 @@ export default function AssignmentDetailModal({ assignment, onClose, onChanged }
       setAttachments((prev) => [...prev, created]);
       setAttachUrl("");
       setAttachName("");
-      showToast("Đã thêm tệp đính kèm thành công!");
+      showToast(t("assignmentDetail.attachmentAddedToast"));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Thêm đính kèm thất bại.");
+      setError(err instanceof ApiError ? err.message : t("assignmentDetail.attachmentAddError"));
     }
   };
 
   const meta = ASSIGNMENT_STATUS_META[assignment.assignmentStatus];
 
   return (
-    <Modal open onClose={onClose} title={assignment.taskTitle} description={`Mã phân công: #${assignment.id} · Mã việc: ${task?.taskCode ?? "..."}`} size="lg">
+    <Modal
+      open
+      onClose={onClose}
+      title={assignment.taskTitle}
+      description={t("assignmentDetail.assignmentCodePrefix", { id: assignment.id, taskCode: task?.taskCode ?? "..." })}
+      size="lg"
+    >
       {loading ? (
-        <p className="text-xs text-slate-500">Đang tải...</p>
+        <p className="text-xs text-slate-500">{t("assignmentDetail.loading")}</p>
       ) : (
         <div className="space-y-4">
           {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
           <div className="space-y-1">
-            <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block font-display">Mô tả chi tiết</span>
+            <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block font-display">{t("assignmentDetail.descriptionLabel")}</span>
             <p className="text-xs text-slate-700 leading-relaxed bg-slate-50 p-3 rounded-lg border border-slate-100">
-              {task?.description || "Không có mô tả."}
+              {task?.description || t("assignmentDetail.noDescription")}
             </p>
           </div>
 
           <div className="grid grid-cols-3 gap-3 bg-slate-50 p-3.5 rounded-lg border border-slate-100 text-xs">
             <div>
-              <span className="text-[10px] text-slate-400 font-medium block">Trạng thái</span>
-              <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${meta.badge}`}>{meta.label}</span>
+              <span className="text-[10px] text-slate-400 font-medium block">{t("assignmentDetail.statusLabel")}</span>
+              <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${meta.badge}`}>
+                {assignmentStatusLabel(t, assignment.assignmentStatus)}
+              </span>
             </div>
             <div>
-              <span className="text-[10px] text-slate-400 font-medium block">Người giao</span>
+              <span className="text-[10px] text-slate-400 font-medium block">{t("assignmentDetail.assignerLabel")}</span>
               <span className="font-bold text-slate-800 block mt-0.5">{task?.createdByFullName ?? "—"}</span>
             </div>
             <div>
-              <span className="text-[10px] text-slate-400 font-medium block">Hạn hoàn thành</span>
-              <span className="font-bold text-slate-800 block mt-0.5">{task?.dueAt ? new Date(task.dueAt).toLocaleString("vi-VN") : "Không đặt hạn"}</span>
+              <span className="text-[10px] text-slate-400 font-medium block">{t("assignmentDetail.dueLabel")}</span>
+              <span className="font-bold text-slate-800 block mt-0.5">
+                {task?.dueAt ? formatDateTime(task.dueAt, i18n.language) : t("assignmentDetail.noDueDate")}
+              </span>
             </div>
             <div>
-              <span className="text-[10px] text-slate-400 font-medium block">Độ ưu tiên</span>
-              <span className="font-bold text-slate-800 block mt-0.5">{task ? PRIORITY_LABEL[task.priority] ?? task.priority : "—"}</span>
+              <span className="text-[10px] text-slate-400 font-medium block">{t("assignmentDetail.priorityLabel")}</span>
+              <span className="font-bold text-slate-800 block mt-0.5">{task ? t(`priority.${task.priority}`) : "—"}</span>
             </div>
             {assignment.declineReason && (
               <div className="col-span-2">
-                <span className="text-[10px] text-rose-400 font-medium block">Lý do từ chối</span>
+                <span className="text-[10px] text-rose-400 font-medium block">{t("assignmentDetail.declineReasonLabel")}</span>
                 <span className="font-semibold text-rose-600 block mt-0.5">{assignment.declineReason}</span>
               </div>
             )}
@@ -153,13 +164,13 @@ export default function AssignmentDetailModal({ assignment, onClose, onChanged }
 
           {(allowedTargets.length > 0 || declineTarget) && (
             <div className="space-y-2 border border-slate-100 rounded-lg p-3">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block font-display">Cập nhật tiến độ</span>
+              <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block font-display">{t("assignmentDetail.updateProgressLabel")}</span>
               {declineTarget === "DECLINED" ? (
                 <div className="space-y-2">
                   <textarea
                     value={declineReason}
                     onChange={(e) => setDeclineReason(e.target.value)}
-                    placeholder="Nêu lý do từ chối nhận việc (bắt buộc)..."
+                    placeholder={t("assignmentDetail.declineReasonPlaceholder")}
                     rows={2}
                     className="w-full bg-white border border-rose-200 text-xs p-2.5 rounded-lg focus:outline-none"
                   />
@@ -169,7 +180,7 @@ export default function AssignmentDetailModal({ assignment, onClose, onChanged }
                       onClick={() => setDeclineTarget(null)}
                       className="px-3 py-1.5 text-slate-500 hover:bg-slate-100 text-xs font-semibold rounded-lg"
                     >
-                      Hủy
+                      {t("assignmentDetail.cancel")}
                     </button>
                     <button
                       type="button"
@@ -177,7 +188,7 @@ export default function AssignmentDetailModal({ assignment, onClose, onChanged }
                       onClick={handleConfirmDecline}
                       className="bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs px-3.5 py-1.5 rounded-lg"
                     >
-                      Xác nhận từ chối
+                      {t("assignmentDetail.confirmDecline")}
                     </button>
                   </div>
                 </div>
@@ -195,7 +206,7 @@ export default function AssignmentDetailModal({ assignment, onClose, onChanged }
                           : "bg-brand-gradient hover:opacity-95 text-white"
                       }`}
                     >
-                      {ASSIGNMENT_ACTION_LABEL[target]}
+                      {assignmentActionLabel(t, target)}
                     </button>
                   ))}
                 </div>
@@ -204,7 +215,7 @@ export default function AssignmentDetailModal({ assignment, onClose, onChanged }
           )}
 
           <div className="space-y-2">
-            <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block font-display">Tệp đính kèm</span>
+            <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block font-display">{t("assignmentDetail.attachmentsLabel")}</span>
             <div className="space-y-1.5">
               {attachments.map((a) => (
                 <a
@@ -218,46 +229,46 @@ export default function AssignmentDetailModal({ assignment, onClose, onChanged }
                   {a.fileName}
                 </a>
               ))}
-              {attachments.length === 0 && <p className="text-xs text-slate-400 italic">Chưa có tệp đính kèm.</p>}
+              {attachments.length === 0 && <p className="text-xs text-slate-400 italic">{t("assignmentDetail.noAttachments")}</p>}
             </div>
             <form onSubmit={handleAddAttachment} className="flex gap-2">
               <input
                 value={attachName}
                 onChange={(e) => setAttachName(e.target.value)}
-                placeholder="Tên tệp"
+                placeholder={t("assignmentDetail.attachmentNamePlaceholder")}
                 className="flex-1 bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none"
               />
               <input
                 value={attachUrl}
                 onChange={(e) => setAttachUrl(e.target.value)}
-                placeholder="Đường dẫn tệp (URL)"
+                placeholder={t("assignmentDetail.attachmentUrlPlaceholder")}
                 className="flex-1 bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none"
               />
               <button type="submit" className="bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-semibold px-3 py-2 rounded-lg shrink-0">
-                Thêm
+                {t("assignmentDetail.addButton")}
               </button>
             </form>
           </div>
 
           <div className="space-y-3">
-            <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block font-display">Lịch sử trao đổi</span>
+            <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block font-display">{t("assignmentDetail.historyLabel")}</span>
             <div className="space-y-2">
               {comments.map((cmt) => (
                 <div key={cmt.id} className="p-2.5 rounded-lg bg-slate-50 border border-slate-100 text-xs">
                   <div className="flex items-center justify-between font-semibold text-slate-700">
                     <span>{cmt.commenterFullName}</span>
-                    <span className="text-[9px] text-slate-400 font-mono">{new Date(cmt.createdAt).toLocaleString("vi-VN")}</span>
+                    <span className="text-[9px] text-slate-400 font-mono">{formatDateTime(cmt.createdAt, i18n.language)}</span>
                   </div>
                   <p className="text-slate-600 mt-1">{cmt.content}</p>
                 </div>
               ))}
-              {comments.length === 0 && <p className="text-xs text-slate-400 italic">Chưa có bình luận nào.</p>}
+              {comments.length === 0 && <p className="text-xs text-slate-400 italic">{t("assignmentDetail.noComments")}</p>}
             </div>
 
             <form onSubmit={handleAddComment} className="flex gap-2">
               <input
                 type="text"
-                placeholder="Viết phản hồi tiến độ..."
+                placeholder={t("assignmentDetail.commentPlaceholder")}
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
                 className="flex-1 bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none"

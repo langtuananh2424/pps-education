@@ -155,7 +155,7 @@ public class ParentBatchImportService {
     @Transactional
     public ParentBatchImportResponse importParents(MultipartFile file, Long actorUserId) {
         User actor = userRepository.findById(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy user id=" + actorUserId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.parentBatchImport.userNotFoundById", new Object[]{actorUserId}, "Không tìm thấy user id=" + actorUserId));
 
         ImportJob job = new ImportJob();
         job.setImportType(ImportJob.ImportType.PARENTS);
@@ -217,7 +217,7 @@ public class ParentBatchImportService {
     @Transactional(readOnly = true)
     public ParentBatchImportResponse getJob(Long id) {
         ImportJob job = importJobRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy import job id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.parentBatchImport.jobNotFoundById", new Object[]{id}, "Không tìm thấy import job id=" + id));
         return toResponse(job, List.of());
     }
 

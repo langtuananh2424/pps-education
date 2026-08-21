@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { CheckCircle2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
@@ -57,12 +58,13 @@ interface CreateAndAssignExerciseModalProps {
  * còn khái niệm chọn/tạo ngân hàng theo khung chương trình nữa.
  */
 export default function CreateAndAssignExerciseModal({ examId, teacherType, onClose, onDone }: CreateAndAssignExerciseModalProps) {
+  const { t } = useTranslation("lms-question-authoring");
   const [step, setStep] = useState<Step>("info");
   const [exercise, setExercise] = useState<ExerciseResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   return (
-    <Modal open onClose={onClose} title="Soạn Bài mới" size="lg">
+    <Modal open onClose={onClose} title={t("assignModal.modalTitle")} size="lg">
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
 
       {step === "info" && (
@@ -109,6 +111,7 @@ function ExerciseInfoStep({
   onCreated: (exercise: ExerciseResponse) => void;
   onError: (message: string | null) => void;
 }) {
+  const { t } = useTranslation("lms-question-authoring");
   const [code, setCode] = useState("");
   const [title, setTitle] = useState("");
   const [totalPoints, setTotalPoints] = useState("10");
@@ -122,7 +125,7 @@ function ExerciseInfoStep({
     e.preventDefault();
     onError(null);
     if (!code.trim() || !title.trim() || !totalPoints) {
-      onError("Vui lòng điền Mã Bài, Tên Bài và Tổng điểm.");
+      onError(t("assignModal.infoStep.errors.requiredFields"));
       return;
     }
     setSubmitting(true);
@@ -140,7 +143,7 @@ function ExerciseInfoStep({
       });
       onCreated(created);
     } catch (err) {
-      onError(err instanceof ApiError ? err.message : "Tạo Bài thất bại.");
+      onError(err instanceof ApiError ? err.message : t("assignModal.infoStep.errors.createFailed"));
     } finally {
       setSubmitting(false);
     }
@@ -150,24 +153,24 @@ function ExerciseInfoStep({
     <form onSubmit={handleSubmit} className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className={labelClass}>Mã Bài *</label>
+          <label className={labelClass}>{t("assignModal.infoStep.codeLabel")}</label>
           <input value={code} onChange={(e) => setCode(e.target.value)} className={`${inputClass} font-mono`} />
         </div>
         <div>
-          <label className={labelClass}>Tổng điểm *</label>
+          <label className={labelClass}>{t("assignModal.infoStep.totalPointsLabel")}</label>
           <input type="number" min={0} value={totalPoints} onChange={(e) => setTotalPoints(e.target.value)} className={inputClass} />
         </div>
         <div className="col-span-2">
-          <label className={labelClass}>Tên Bài *</label>
+          <label className={labelClass}>{t("assignModal.infoStep.titleLabel")}</label>
           <input value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} />
         </div>
         <div className="col-span-2">
-          <label className={labelClass}>Ngưỡng đạt (%)</label>
+          <label className={labelClass}>{t("assignModal.infoStep.passThresholdLabel")}</label>
           <input
             type="number"
             min={0}
             max={100}
-            placeholder="Mặc định 70"
+            placeholder={t("assignModal.infoStep.passThresholdPlaceholder")}
             value={passThresholdPercent}
             onChange={(e) => setPassThresholdPercent(e.target.value)}
             className={inputClass}
@@ -176,18 +179,18 @@ function ExerciseInfoStep({
         <div>
           <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
             <input type="checkbox" checked={showCorrectAnswers} onChange={(e) => setShowCorrectAnswers(e.target.checked)} />
-            Hiện đáp án đúng sau khi nộp (phần trắc nghiệm)
+            {t("assignModal.infoStep.showCorrectAnswersCheckbox")}
           </label>
         </div>
         <div>
           <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
             <input type="checkbox" checked={allowRetake} onChange={(e) => setAllowRetake(e.target.checked)} />
-            Cho phép làm lại
+            {t("assignModal.infoStep.allowRetakeCheckbox")}
           </label>
         </div>
         {allowRetake && (
           <div className="col-span-2">
-            <label className={labelClass}>Số lần làm tối đa</label>
+            <label className={labelClass}>{t("assignModal.infoStep.maxAttemptsLabel")}</label>
             <input type="number" min={1} value={maxAttempts} onChange={(e) => setMaxAttempts(e.target.value)} className={inputClass} />
           </div>
         )}
@@ -195,7 +198,7 @@ function ExerciseInfoStep({
 
       <div className="flex justify-end gap-2 pt-2">
         <Button type="submit" variant="primary" size="sm" disabled={submitting}>
-          {submitting ? "Đang tạo..." : "Tạo Bài — tiếp tục gắn câu hỏi"}
+          {submitting ? t("common.creating") : t("assignModal.infoStep.submit")}
         </Button>
       </div>
     </form>
@@ -238,6 +241,7 @@ export function ExerciseQuestionsStep({
   onError: (message: string | null) => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation("lms-question-authoring");
   const availableModes: QuestionSourceMode[] = teacherType === "FOREIGN" ? ["compose"] : ["import", "compose"];
   const [mode, setMode] = useState<QuestionSourceMode>(availableModes[0]);
   // V78: VIETNAMESE trong tab "Soạn câu hỏi mới" có thêm lựa chọn "Bài đọc hiểu — Lưới" (composite
@@ -275,7 +279,7 @@ export function ExerciseQuestionsStep({
       setAttached((prev) => [...prev, { exerciseQuestionId: eq.id, content: question.content, points: eq.points }]);
       setComposeFormKey((k) => k + 1); // remount QuestionEditorForm rỗng để soạn tiếp câu khác
     } catch (err) {
-      onError(err instanceof ApiError ? err.message : "Gắn câu hỏi vừa soạn vào đề thất bại.");
+      onError(err instanceof ApiError ? err.message : t("assignModal.questionsStep.errors.attachComposedFailed"));
     }
   };
 
@@ -297,7 +301,7 @@ export function ExerciseQuestionsStep({
       setAttached((prev) => [...prev, ...newlyAttached]);
       setComposeSubMode("single");
     } catch (err) {
-      onError(err instanceof ApiError ? err.message : "Gắn các câu hỏi vừa soạn vào đề thất bại.");
+      onError(err instanceof ApiError ? err.message : t("assignModal.questionsStep.errors.attachCompositeFailed"));
     }
   };
 
@@ -313,7 +317,7 @@ export function ExerciseQuestionsStep({
       }
       setAttached((prev) => [...prev, ...newlyAttached]);
     } catch (err) {
-      onError(err instanceof ApiError ? err.message : "Gắn câu hỏi vừa nhập vào đề thất bại.");
+      onError(err instanceof ApiError ? err.message : t("assignModal.questionsStep.errors.attachImportedFailed"));
     }
   };
 
@@ -334,32 +338,32 @@ export function ExerciseQuestionsStep({
   const handleContinue = () => {
     onError(null);
     if (attached.length === 0 && existingCount === 0) {
-      onError("Cần gắn tối thiểu 1 câu hỏi vào đề.");
+      onError(t("assignModal.questionsStep.errors.attachAtLeastOne"));
       return;
     }
     onDone();
   };
 
   const modeLabels: Record<QuestionSourceMode, string> = {
-    compose: "Soạn câu hỏi mới",
-    import: "Nhập Excel/Word"
+    compose: t("assignModal.questionsStep.modeCompose"),
+    import: t("assignModal.questionsStep.modeImport")
   };
 
   return (
     <div className="space-y-3">
       {exercise.hasEssayOrSpeaking && (
         <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-100 p-2.5 rounded-lg">
-          Đề có câu Tự luận/Nói — sau khi học sinh nộp bài sẽ cần chấm tay ở màn "Hàng chờ chấm bài".
+          {t("assignModal.questionsStep.essayOrSpeakingWarning")}
         </div>
       )}
 
       {teacherType === "FOREIGN" && (
         <p className="text-[11px] text-slate-400 italic">
-          Cần giao Video phản xạ? Vào{" "}
+          {t("assignModal.questionsStep.foreignReflexPart1")}{" "}
           <Link to="/lms/lectures" target="_blank" rel="noreferrer" className="text-brand-red font-bold hover:underline">
-            Kho Video Ôn tập
+            {t("assignModal.questionsStep.foreignReflexLinkLabel")}
           </Link>{" "}
-          — tạo/giao lớp trực tiếp ở đó, giống Video kết nối.
+          {t("assignModal.questionsStep.foreignReflexPart2")}
         </p>
       )}
 
@@ -389,7 +393,7 @@ export function ExerciseQuestionsStep({
                 composeSubMode === m ? "bg-white text-brand-red shadow-xs" : "text-slate-500 hover:text-slate-700"
               }`}
             >
-              {m === "single" ? "Câu hỏi đơn" : "Bài đọc hiểu — Lưới"}
+              {m === "single" ? t("assignModal.questionsStep.subModeSingle") : t("assignModal.questionsStep.subModeGrid")}
             </button>
           ))}
         </div>
@@ -409,7 +413,7 @@ export function ExerciseQuestionsStep({
                 composeSubMode === m ? "bg-white text-brand-red shadow-xs" : "text-slate-500 hover:text-slate-700"
               }`}
             >
-              {m === "single" ? "Câu hỏi đơn" : "Nhiều câu — 1 audio nghe"}
+              {m === "single" ? t("assignModal.questionsStep.subModeSingle") : t("assignModal.questionsStep.subModeListeningGroup")}
             </button>
           ))}
         </div>
@@ -442,7 +446,7 @@ export function ExerciseQuestionsStep({
 
       {attached.length > 0 && (
         <div className="border border-emerald-100 bg-emerald-50/50 rounded-lg divide-y divide-emerald-100 max-h-40 overflow-y-auto">
-          <div className="px-3 py-1.5 text-[10px] font-bold text-emerald-700 uppercase">Đã gắn vào đề (soạn mới/nhập file)</div>
+          <div className="px-3 py-1.5 text-[10px] font-bold text-emerald-700 uppercase">{t("assignModal.questionsStep.attachedSectionTitle")}</div>
           {attached.map((a) => (
             <div key={a.exerciseQuestionId} className="px-3 py-1.5 text-xs flex items-center justify-between gap-2">
               <span className="flex-1 truncate">{a.content}</span>
@@ -456,7 +460,7 @@ export function ExerciseQuestionsStep({
                   const value = Number(e.target.value);
                   if (!Number.isNaN(value) && value !== a.points) handlePointsChange(a.exerciseQuestionId, value);
                 }}
-                title="Điểm câu hỏi này trong Bài"
+                title={t("assignModal.questionsStep.pointsInputTitle")}
                 className="w-16 text-[11px] text-right text-slate-600 border border-slate-200 rounded px-1 py-0.5 shrink-0 focus:outline-none"
               />
             </div>
@@ -465,12 +469,12 @@ export function ExerciseQuestionsStep({
       )}
 
       <div className="flex justify-between items-center pt-2">
-        <span className="text-[11px] text-slate-500">Đã gắn vào Bài: {existingCount + attached.length} câu</span>
+        <span className="text-[11px] text-slate-500">{t("assignModal.questionsStep.attachedCount", { count: existingCount + attached.length })}</span>
         <span className={`text-[11px] font-bold ${overTotalPoints ? "text-red-600" : "text-slate-500"}`}>
-          Tổng điểm: {totalAttachedPoints} / {exercise.totalPoints}
+          {t("assignModal.questionsStep.totalPoints", { total: totalAttachedPoints, max: exercise.totalPoints })}
         </span>
         <Button type="button" variant="primary" size="sm" onClick={handleContinue} disabled={attached.length === 0 && existingCount === 0}>
-          Tiếp tục
+          {t("assignModal.questionsStep.continue")}
         </Button>
       </div>
     </div>
@@ -491,6 +495,7 @@ function ExercisePublishStep({
   onDone: () => void;
   onError: (message: string | null) => void;
 }) {
+  const { t } = useTranslation("lms-question-authoring");
   const [submitting, setSubmitting] = useState(false);
 
   const handlePublish = async () => {
@@ -500,7 +505,7 @@ function ExercisePublishStep({
       await publishExercise(exercise.id);
       onDone();
     } catch (err) {
-      onError(err instanceof ApiError ? err.message : "Publish Bài thất bại.");
+      onError(err instanceof ApiError ? err.message : t("assignModal.publishStep.errors.publishFailed"));
     } finally {
       setSubmitting(false);
     }
@@ -511,21 +516,21 @@ function ExercisePublishStep({
       <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 flex items-start gap-3">
         <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
         <div className="text-xs text-emerald-800">
-          <p className="font-bold">Bài "{exercise.title}" ({exercise.code}) đã soạn xong.</p>
+          <p className="font-bold">{t("assignModal.publishStep.readyBanner", { title: exercise.title, code: exercise.code })}</p>
           <p className="mt-1 text-emerald-700">
-            Publish để đánh dấu Bài này <strong>đủ điều kiện dùng làm nguồn</strong> — sau đó Giáo viên chọn Bài này làm
-            "BTVN buổi sau" ở Nhận xét học viên (UC-21) sẽ tự động giao cho cả lớp, hạn nộp = buổi học kế tiếp.
-            Chưa Publish thì Bài vẫn ở dạng nháp, không chọn được ở Nhận xét.
+            {t("assignModal.publishStep.readyDescriptionPart1")}{" "}
+            <strong>{t("assignModal.publishStep.readyDescriptionStrong")}</strong>{" "}
+            {t("assignModal.publishStep.readyDescriptionPart2")}
           </p>
         </div>
       </div>
 
       <div className="flex justify-end gap-2 pt-2">
         <Button type="button" variant="secondary" size="sm" onClick={onDone} disabled={submitting}>
-          Để nháp, publish sau
+          {t("assignModal.publishStep.draftLater")}
         </Button>
         <Button type="button" variant="primary" size="sm" onClick={handlePublish} disabled={submitting}>
-          {submitting ? "Đang publish..." : "Publish ngay"}
+          {submitting ? t("assignModal.publishStep.publishing") : t("assignModal.publishStep.publishNow")}
         </Button>
       </div>
     </div>

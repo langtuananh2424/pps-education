@@ -1,0 +1,88 @@
+{
+  "settingCategory": {
+    "ATTENDANCE": "Attendance",
+    "SECURITY": "Security",
+    "NOTIFICATION": "Notification",
+    "FEATURE_FLAG": "Feature Flag",
+    "ACADEMIC": "Academic",
+    "FINANCE": "Finance",
+    "TASK": "Task"
+  },
+  "systemSettingsPage": {
+    "title": "System Settings",
+    "description": "Toggle features, adjust runtime thresholds/config — no redeploy needed. Only existing keys can be edited.",
+    "loadError": "Failed to load the settings list.",
+    "emptyTitle": "No settings yet",
+    "emptyDescription": "The system_settings table is currently empty.",
+    "columns": {
+      "key": "Key",
+      "description": "Description",
+      "value": "Value",
+      "lastUpdated": "Last Updated"
+    },
+    "noDescription": "—",
+    "noLastUpdated": "—",
+    "historyButtonTitle": "Change history",
+    "editButton": "Edit",
+    "editModal": {
+      "title": "Edit setting: {{key}}",
+      "currentValueLabel": "Current value",
+      "booleanOn": "On (true)",
+      "booleanOff": "Off (false)",
+      "cancel": "Cancel",
+      "saving": "Saving...",
+      "saveButton": "Save",
+      "invalidNumberError": "Value must be a valid number.",
+      "saveErrorDefault": "Save failed."
+    },
+    "historyModal": {
+      "title": "History: {{key}}",
+      "loading": "Loading...",
+      "empty": "No changes yet."
+    }
+  },
+  "notificationType": {
+    "SYSTEM_ANNOUNCEMENT": "System announcement",
+    "OTHER": "Other",
+    "ATTENDANCE_ABSENT": "Absence (student/staff)",
+    "TASK_ASSIGNED": "New task assigned",
+    "TASK_COMMENT": "Task comment",
+    "INVOICE_DUE": "Invoice due",
+    "GRADE_PUBLISHED": "Grade published",
+    "GRADE_REJECTED": "Grade rejected",
+    "COMMENT_APPROVED": "Comment approved",
+    "COMMENT_PENDING_APPROVAL": "Comment pending approval",
+    "COMMENT_REJECTED": "Comment rejected",
+    "PARTNER_FEEDBACK": "Partner feedback",
+    "LEAVE_REQUEST_STATUS": "Leave request status",
+    "EXAM_INTEGRITY_VIOLATION": "Exam integrity violation",
+    "EXAM_INTEGRITY_VIOLATION_PARENT": "Exam integrity violation (Parent)",
+    "HOMEWORK_DEADLINE_SUMMARY": "Homework deadline summary",
+    "HOMEWORK_MISS_REMINDER": "Missed homework reminder",
+    "HOMEWORK_MISS_WARNING": "Missed homework warning",
+    "HOMEWORK_MISS_PARENT_MEETING_INVITE": "Parent meeting invite (missed homework)",
+    "HOMEWORK_MISS_REMINDER_NON_CONSECUTIVE": "Missed homework reminder (non-consecutive)",
+    "HOMEWORK_DUE_SOON_REMINDER": "Homework due soon reminder"
+  },
+  "sendNotificationPage": {
+    "title": "Send Notification",
+    "description": "Manually send a notification to selected users — use this to test the Push/Email/SMS channels or to send an ad-hoc notification. Each recipient still receives it according to their own channel settings (Personal notification settings).",
+    "recipient": {
+      "label": "Recipients",
+      "searchPlaceholder": "Search by name/username/email to add...",
+      "searching": "Loading...",
+      "noResults": "No matching accounts found.",
+      "alreadySelected": "✓ selected"
+    },
+    "notificationTypeLabel": "Notification type",
+    "titleLabel": "Title",
+    "contentLabel": "Content",
+    "sendErrorDefault": "Send failed.",
+    "result": {
+      "summary": "Sent to {{succeeded}}/{{total}} recipients.",
+      "failureItem": "User #{{userId}}: {{reason}}"
+    },
+    "sending": "Sending...",
+    "sendButton": "Send to {{count}} people"
+  }
+}

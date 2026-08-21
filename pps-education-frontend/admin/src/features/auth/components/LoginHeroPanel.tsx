@@ -1,6 +1,9 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 
 export default function LoginHeroPanel() {
+  const { t } = useTranslation("auth");
+
   return (
     <div className="hidden md:block md:col-span-6 relative overflow-hidden select-none border-l border-slate-100 min-h-[600px]">
       <img
@@ -12,17 +15,17 @@ export default function LoginHeroPanel() {
       <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-slate-950/30 flex flex-col justify-end p-10">
         <div className="flex items-center gap-2 mb-2.5">
           <span className="text-[10px] bg-[#EA580C] text-white px-3 py-1 rounded font-extrabold uppercase tracking-wider">
-            PPS English
+            {t("hero.badge")}
           </span>
           <span className="text-[10px] bg-white/20 text-white backdrop-blur-xs px-2.5 py-1 rounded font-bold uppercase tracking-wider">
-            Cambridge Standard
+            {t("hero.cambridge")}
           </span>
         </div>
         <h3 className="text-white text-base md:text-lg font-extrabold tracking-tight leading-snug max-w-[340px]">
-          Hệ thống Quản lý Đào tạo & Khóa học Tiếng Anh thông minh
+          {t("hero.title")}
         </h3>
         <p className="text-slate-300 text-xs mt-1.5 font-medium max-w-[320px]">
-          Đồng bộ dữ liệu học tập trực tiếp và lộ trình chuẩn hóa quốc tế của PPS Vietnam.
+          {t("hero.subtitle")}
         </p>
       </div>
     </div>

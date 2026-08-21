@@ -1,0 +1,65 @@
+{
+  "dateRangePicker": {
+    "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+    "selectStartDate": "Select start date",
+    "selectEndDate": "Select end date",
+    "prevMonth": "Previous month",
+    "nextMonth": "Next month",
+    "selectDay": "Select day {{day}}/{{month}}",
+    "clearFilter": "Clear filter",
+    "done": "Done",
+    "filterByDateRange": "Filter by date range",
+    "selectDateRangeDialog": "Select a date range",
+    "from": "From",
+    "to": "To"
+  },
+  "filterBar": {
+    "filterByTerm": "Filter by term",
+    "term": "Term",
+    "selectTermDialog": "Select a term"
+  },
+  "teacherType": {
+    "vietnamese": "Vietnamese teacher",
+    "foreign": "Foreign teacher"
+  },
+  "attendanceStatus": {
+    "present": "Present",
+    "late": "Late",
+    "absent": "Absent",
+    "excused": "Excused absence"
+  },
+  "sessionStatus": {
+    "cancelled": "Cancelled",
+    "rescheduled": "Rescheduled",
+    "completed": "Completed",
+    "ongoing": "In progress",
+    "upcoming": "Upcoming"
+  },
+  "loading": "Loading...",
+  "loadError": "Couldn't load the schedule/attendance.",
+  "stats": {
+    "attendanceRate": "Attendance rate",
+    "onTime": "On time",
+    "sessionsCount": "{{count}} sessions",
+    "sessionsCountOfTotal": "{{count}} / {{total}} sessions",
+    "excusedSuffix": "({{count}} excused)"
+  },
+  "scheduleCard": {
+    "title": "Class schedule",
+    "viewAll": "View all",
+    "sessionInfo": "Session {{number}} · {{date}} · {{start}}–{{end}}",
+    "teacherLabel": "Teacher:",
+    "roomLabel": "Room",
+    "cancelReason": "Cancellation reason: {{reason}}",
+    "emptyFiltered": "No sessions in the selected range.",
+    "emptyAll": "No sessions yet."
+  },
+  "attendanceLog": {
+    "title": "Attendance log",
+    "lateBy": "{{minutes}} min late",
+    "unknownSession": "Unknown session",
+    "reasonPrefix": "* Reason: {{reason}}",
+    "emptyFiltered": "No attendance data in the selected range.",
+    "emptyAll": "No attendance data yet."
+  }
+}

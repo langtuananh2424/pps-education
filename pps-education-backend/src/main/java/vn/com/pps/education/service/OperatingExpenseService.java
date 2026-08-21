@@ -63,11 +63,11 @@ public class OperatingExpenseService {
     @Transactional
     public OperatingExpenseResponse create(CreateOperatingExpenseRequest request, Long actorUserId) {
         ExpenseCategory category = expenseCategoryRepository.findByCode(request.expenseCategoryCode())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy loại chi code=" + request.expenseCategoryCode()));
+                .orElseThrow(() -> new ResourceNotFoundException("error.operatingExpense.categoryNotFoundByCode", new Object[]{request.expenseCategoryCode()}, "Không tìm thấy loại chi code=" + request.expenseCategoryCode()));
         Site site = request.siteId() == null ? null : siteRepository.findById(request.siteId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy điểm trường id=" + request.siteId()));
+                .orElseThrow(() -> new ResourceNotFoundException("error.operatingExpense.siteNotFound", new Object[]{request.siteId()}, "Không tìm thấy điểm trường id=" + request.siteId()));
         User actor = userRepository.findById(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy user id=" + actorUserId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.operatingExpense.userNotFound", new Object[]{actorUserId}, "Không tìm thấy user id=" + actorUserId));
 
         OperatingExpense expense = new OperatingExpense();
         expense.setExpenseNumber(generateExpenseNumber());
@@ -92,7 +92,8 @@ public class OperatingExpenseService {
     public OperatingExpenseResponse decide(Long id, DecideOperatingExpenseRequest request, Long actorUserId) {
         OperatingExpense expense = getExpenseOrThrow(id);
         if (expense.getStatus() != OperatingExpense.Status.RECORDED) {
-            throw new OperatingExpenseAlreadyDecidedException(
+            throw new OperatingExpenseAlreadyDecidedException("error.operatingExpenseAlreadyDecided.default",
+                    new Object[]{expense.getStatus()},
                     "Khoản chi này đã được quyết định (" + expense.getStatus() + "), không thể duyệt lại.");
         }
         OperatingExpense.Status decision = OperatingExpense.Status.valueOf(request.decision());
@@ -146,12 +147,12 @@ public class OperatingExpenseService {
 
     private OperatingExpense getExpenseOrThrow(Long id) {
         return operatingExpenseRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy khoản chi vận hành id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.operatingExpense.notFoundById", new Object[]{id}, "Không tìm thấy khoản chi vận hành id=" + id));
     }
 
     private User getUserOrThrow(Long userId) {
         return userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy user id=" + userId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.operatingExpense.userNotFound", new Object[]{userId}, "Không tìm thấy user id=" + userId));
     }
 
     private OperatingExpenseResponse toResponse(OperatingExpense e) {

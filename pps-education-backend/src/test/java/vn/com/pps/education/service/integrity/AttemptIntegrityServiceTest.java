@@ -7,6 +7,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.AttemptIntegrityEvent.AttemptType;
 import vn.com.pps.education.domain.ExerciseAssignment;
+import vn.com.pps.education.domain.ReviewVideoAssignment;
 import vn.com.pps.education.domain.Role;
 import vn.com.pps.education.domain.Site;
 import vn.com.pps.education.domain.Student;
@@ -281,7 +282,7 @@ class AttemptIntegrityServiceTest extends AbstractIntegrationTest {
         reviewVideoService.updateSet(set.id(), new UpdateReviewVideoSetRequest(set.title(), "VIETNAMESE", null, 1, "PUBLISHED"), teacher.getId());
         // V71: deliverToClass dùng PROPAGATION_REQUIRES_NEW — phải commit set vừa tạo trước.
         commitCurrentTransactionAndStartNew();
-        reviewVideoService.deliverToClass(set.id(), schoolClass.id(), null, teacher.getId());
+        ReviewVideoAssignment assignment = reviewVideoService.deliverToClass(set.id(), schoolClass.id(), null, teacher.getId());
         ReviewVideoResponse video = reviewVideoService.addVideo(set.id(),
                 new AddReviewVideoRequest("R2_AUDIO", "Audio", "https://media.pps.edu.vn/lms/review-videos/audio/x.mp3",
                         1_000_000L, 100, 1, null, null),
@@ -289,7 +290,7 @@ class AttemptIntegrityServiceTest extends AbstractIntegrationTest {
         ReviewVideoQuestionResponse question = reviewVideoService.addQuestion(video.id(),
                 new vn.com.pps.education.dto.AddReviewVideoQuestionRequest(53, null, 15, null, null), teacher.getId());
 
-        ReviewVideoSubmissionResponse submission = reviewVideoService.submitQuestionAudio(question.id(),
+        ReviewVideoSubmissionResponse submission = reviewVideoService.submitQuestionAudio(question.id(), assignment.getId(),
                 new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/answer.mp3", oneEvent(10)),
                 studentUser.getId());
 
@@ -319,7 +320,7 @@ class AttemptIntegrityServiceTest extends AbstractIntegrationTest {
         commitCurrentTransactionAndStartNew();
         ExerciseAssignment assignment = exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId());
         exerciseAssignmentRepository.save(assignment);
-        return exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
+        return exerciseAttemptService.startAttempt(exercise.id(), assignment.getId(), studentUser.getId());
     }
 
     private RecordIntegrityEventsRequest oneEvent(int durationSeconds) {

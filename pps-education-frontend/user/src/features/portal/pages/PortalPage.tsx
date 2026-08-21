@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { BarChart3, Calendar, ClipboardList, CreditCard, FolderOpen, Home, LogOut, Award, NotebookPen, School, Users, Menu, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
+import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
 import { ChildResponse, getMyStudentProfile, listClassOptions, listMyChildren, PortalClassOptionResponse } from "../api";
 import HomeTab from "../components/HomeTab";
 import PortalDropdown from "../components/PortalDropdown";
@@ -20,16 +22,18 @@ import ProfileModal from "../components/ProfileModal";
 
 type Tab = "home" | "schedule" | "learning-progress" | "homework" | "documents" | "grades" | "grade-stats" | "billing";
 
-const TABS: { key: Tab; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
-  { key: "home", label: "Trang chủ & Bảng tin", icon: Home },
-  { key: "grades", label: "Khảo thí & Điểm số", icon: Award },
-  { key: "grade-stats", label: "Thống kê điểm", icon: BarChart3 },
-  { key: "schedule", label: "Lịch học & Chuyên cần", icon: Calendar },
-  { key: "learning-progress", label: "Quá trình học tập", icon: NotebookPen },
-  { key: "homework", label: "Bài tập về nhà (BTVN)", icon: ClipboardList },
-  { key: "documents", label: "Kho dữ liệu (Sách, TLTK)", icon: FolderOpen },
-  { key: "billing", label: "Học phí & Dịch vụ", icon: CreditCard }
-];
+const TAB_ICONS: Record<Tab, React.ComponentType<{ size?: number }>> = {
+  home: Home,
+  grades: Award,
+  "grade-stats": BarChart3,
+  schedule: Calendar,
+  "learning-progress": NotebookPen,
+  homework: ClipboardList,
+  documents: FolderOpen,
+  billing: CreditCard
+};
+
+const TAB_KEYS: Tab[] = ["home", "grades", "grade-stats", "schedule", "learning-progress", "homework", "documents", "billing"];
 
 /**
  * UC-42 mở self-access cho học sinh ở /portal/students/{id}/class-options, /auth/me (studentId),
@@ -39,6 +43,7 @@ const TABS: { key: Tab; label: string; icon: React.ComponentType<{ size?: number
  * (InvoiceService) vẫn chỉ chấp nhận Phụ huynh — tab đó vẫn hiện ComingSoon cho Học sinh.
  */
 export default function PortalPage() {
+  const { t } = useTranslation("portal");
   const { currentUser, isParent, isStudent, logout } = useApp();
   const [activeTab, setActiveTab] = useState<Tab>("home");
 
@@ -76,7 +81,7 @@ export default function PortalPage() {
           setChildren(kids);
           if (kids.length > 0) setSelectedChildId(kids[0].studentId);
         })
-        .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách con."))
+        .catch((err) => setError(err instanceof ApiError ? err.message : t("loadErrors.children")))
         .finally(() => setLoading(false));
       return;
     }
@@ -105,7 +110,7 @@ export default function PortalPage() {
         const recommended = options.find((o) => o.recommended) ?? options[0];
         if (recommended) setSelectedClassId(recommended.classId);
       })
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách lớp."));
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("loadErrors.classOptions")));
   }, [selectedChildId]);
 
   /** Bấm 1 thông báo ở NotificationBell — chuyển đúng tab, mở đúng bài (BTVN) hoặc đúng con (Phụ huynh nhiều con). */
@@ -128,12 +133,12 @@ export default function PortalPage() {
     return (
       <div className="min-h-screen flex items-center justify-center p-8 text-center">
         <div className="bg-white border border-line/80 rounded-[24px] p-10 max-w-md space-y-3">
-          <h2 className="text-lg font-extrabold text-ink">Tài khoản chưa hỗ trợ xem Portal</h2>
+          <h2 className="text-lg font-extrabold text-ink">{t("unsupportedAccount.title")}</h2>
           <p className="text-xs text-muted font-bold">
-            Portal hiện chỉ phục vụ tài khoản Phụ huynh và Học sinh.
+            {t("unsupportedAccount.description")}
           </p>
           <button onClick={() => logout()} className="text-xs font-extrabold text-teal hover:underline">
-            Đăng xuất
+            {t("unsupportedAccount.logout")}
           </button>
         </div>
       </div>
@@ -149,7 +154,7 @@ export default function PortalPage() {
               <button
                 onClick={() => setMobileMenuOpen(true)}
                 className="lg:hidden shrink-0 w-9 h-9 rounded-xl bg-white/15 border border-white/20 flex items-center justify-center text-white hover:bg-white/25 transition-colors"
-                aria-label="Mở menu"
+                aria-label={t("openMenu")}
               >
                 <Menu size={18} />
               </button>
@@ -167,7 +172,7 @@ export default function PortalPage() {
               <div className="leading-tight">
                 <div className="font-extrabold text-[15.5px] text-white lg:text-ink">PPS Education</div>
                 <div className="text-[11px] tracking-[0.14em] text-white/80 lg:text-teal-deep font-extrabold">
-                  {isParent ? "PORTAL PHỤ HUYNH" : "PORTAL HỌC SINH"}
+                  {isParent ? t("brandSubtitleParent") : t("brandSubtitleStudent")}
                 </div>
               </div>
             </div>
@@ -184,13 +189,14 @@ export default function PortalPage() {
                   )}
                 </div>
                 <div className="text-left leading-tight min-w-0">
-                  <div className="text-[11px] text-white/75 font-bold">Chào mừng,</div>
-                  <div className="text-sm font-extrabold text-white truncate max-w-[130px]">{viewerName || "Bạn"}</div>
+                  <div className="text-[11px] text-white/75 font-bold">{t("welcome")}</div>
+                  <div className="text-sm font-extrabold text-white truncate max-w-[130px]">{viewerName || t("you")}</div>
                 </div>
               </button>
             )}
           </div>
           <div className="flex items-center gap-4">
+            <LanguageSwitcher />
             {!noViewerData && !loading && <NotificationBell onNavigate={handleNotificationNavigate} />}
             {/* Bản đầy đủ (avatar + nhãn vai trò + tên) chỉ còn ở desktop (nền trắng, giữ nguyên màu
                 gốc) — mobile đã có bản gọn nền teal-deep ở bên trái (lời chào) để không lặp 2 avatar
@@ -209,7 +215,7 @@ export default function PortalPage() {
                 </div>
                 <div className="text-left leading-tight">
                   <div className="text-[9px] text-muted font-extrabold uppercase tracking-wide">
-                    {isParent ? "Học viên" : "Học sinh"}
+                    {isParent ? t("roleLabel.parent") : t("roleLabel.student")}
                   </div>
                   <div className="text-xs font-extrabold text-ink">{viewerName}</div>
                 </div>
@@ -223,7 +229,7 @@ export default function PortalPage() {
                 hasMobileDrawer ? "hidden lg:flex" : "flex"
               }`}
             >
-              <LogOut size={14} /> Thoát
+              <LogOut size={14} /> {t("logout")}
             </button>
           </div>
         </div>
@@ -249,10 +255,10 @@ export default function PortalPage() {
         {error && <div className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-xl mb-4">{error}</div>}
 
         {loading ? (
-          <p className="text-sm text-muted font-bold">Đang tải...</p>
+          <p className="text-sm text-muted font-bold">{t("loading")}</p>
         ) : noViewerData ? (
           <div className="bg-white border border-line/80 rounded-[24px] p-10 text-center text-muted font-bold">
-            {isParent ? "Chưa có học sinh nào được liên kết với tài khoản của bạn." : "Không tìm thấy hồ sơ học sinh gắn với tài khoản này."}
+            {isParent ? t("noViewerData.parent") : t("noViewerData.student")}
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -276,14 +282,14 @@ export default function PortalPage() {
                   <div className="leading-tight">
                     <div className="font-extrabold text-[13px] text-ink">PPS Education</div>
                     <div className="text-[9px] tracking-[0.12em] text-teal-deep font-extrabold">
-                      {isParent ? "PORTAL PHỤ HUYNH" : "PORTAL HỌC SINH"}
+                      {isParent ? t("brandSubtitleParent") : t("brandSubtitleStudent")}
                     </div>
                   </div>
                 </div>
                 <button
                   onClick={() => setMobileMenuOpen(false)}
                   className="w-8 h-8 rounded-full bg-sky-2 border border-line flex items-center justify-center text-ink hover:bg-sky transition-colors shrink-0"
-                  aria-label="Đóng menu"
+                  aria-label={t("closeMenu")}
                 >
                   <X size={16} />
                 </button>
@@ -293,7 +299,7 @@ export default function PortalPage() {
                 {children.length > 1 && (
                   <PortalDropdown
                     icon={Users}
-                    label="Học viên"
+                    label={t("studentDropdownLabel")}
                     value={selectedChildId ?? 0}
                     onChange={(v) => setSelectedChildId(v)}
                     options={children.map((c) => ({ value: c.studentId, label: `${c.studentFullName} (${c.studentCode})` }))}
@@ -303,12 +309,15 @@ export default function PortalPage() {
                 {classOptions.length > 1 && (
                   <PortalDropdown
                     icon={School}
-                    label="Lớp đang học"
+                    label={t("classDropdownLabel")}
                     value={selectedClassId ?? 0}
                     onChange={(v) => setSelectedClassId(v)}
                     // UC-13 (2026-07-29): học sinh/phụ huynh xem được cả lớp cũ (đã chuyển đi) — gắn nhãn
                     // rõ để không nhầm là lớp đang học, dữ liệu hiển thị (điểm/nhận xét/điểm danh/BTVN) vẫn xem đủ.
-                    options={classOptions.map((c) => ({ value: c.classId, label: c.status === "ACTIVE" ? c.className : `${c.className} (Lớp cũ)` }))}
+                    options={classOptions.map((c) => ({
+                      value: c.classId,
+                      label: c.status === "ACTIVE" ? c.className : t("oldClassSuffix", { name: c.className })
+                    }))}
                   />
                 )}
 
@@ -316,7 +325,9 @@ export default function PortalPage() {
                   {/* Học phí & Dịch vụ (invoices/thanh toán) chỉ dành Phụ huynh — Học sinh không cần/không nên xem thông tin tài chính của gia đình.
                       Kho dữ liệu (Sách, TLTK) ngược lại: GET /students/me/documents chỉ tự truy cập được cho chính Học sinh — Phụ huynh
                       gọi sẽ 404 "không có hồ sơ học sinh" (2026-07-30), nên ẩn hẳn tab này với Phụ huynh thay vì hiện rồi báo lỗi. */}
-                  {TABS.filter((tab) => (tab.key !== "billing" || isParent) && (tab.key !== "documents" || isStudent)).map(({ key, label, icon: Icon }) => (
+                  {TAB_KEYS.filter((key) => (key !== "billing" || isParent) && (key !== "documents" || isStudent)).map((key) => {
+                    const Icon = TAB_ICONS[key];
+                    return (
                     <button
                       key={key}
                       onClick={() => {
@@ -329,7 +340,7 @@ export default function PortalPage() {
                           : "bg-slate-50/50 hover:bg-slate-50 text-muted border-line/60"
                       }`}
                     >
-                      <Icon size={18} /> {label}
+                      <Icon size={18} /> {t(`tabs.${key}`)}
                       {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — badge số BTVN
                           "Cần hoàn thành", mirror style badge chưa đọc của NotificationBell. */}
                       {key === "homework" && isStudent && !!pendingHomeworkCount && (
@@ -338,7 +349,8 @@ export default function PortalPage() {
                         </span>
                       )}
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 {/* "Thoát" chuyển vào đây trên mobile (top bar chỉ giữ hamburger để đỡ chật) — desktop
@@ -347,7 +359,7 @@ export default function PortalPage() {
                   onClick={() => logout()}
                   className="lg:hidden w-full flex items-center justify-center gap-1.5 px-4 py-3 bg-white border-2 border-coral text-coral font-bold text-sm rounded-[16px]"
                 >
-                  <LogOut size={16} /> Thoát
+                  <LogOut size={16} /> {t("logout")}
                 </button>
               </div>
             </div>
@@ -355,7 +367,7 @@ export default function PortalPage() {
             <div className="lg:col-span-9">
               {!selectedClassId ? (
                 <div className="bg-white border border-line/80 rounded-[24px] p-10 text-center text-muted font-bold">
-                  Học sinh chưa được xếp vào lớp nào.
+                  {t("noClassAssigned")}
                 </div>
               ) : (
                 <>
@@ -365,7 +377,7 @@ export default function PortalPage() {
                     ) : isStudent ? (
                       <HomeTab studentName={viewerName} classId={selectedClassId} />
                     ) : (
-                      <ComingSoon title="Trang chủ & Bảng tin" description="Không có hồ sơ Học sinh hoặc Phụ huynh liên kết với tài khoản này." />
+                      <ComingSoon title={t("tabs.home")} description={t("comingSoon.notLinkedDescription")} />
                     ))}
                   {activeTab === "schedule" &&
                     (isParent && selectedChild ? (
@@ -373,7 +385,7 @@ export default function PortalPage() {
                     ) : isStudent ? (
                       <StudentScheduleTab classId={selectedClassId} siteId={currentClass?.siteId ?? null} />
                     ) : (
-                      <ComingSoon title="Lịch học & Chuyên cần" description="Không có hồ sơ Học sinh hoặc Phụ huynh liên kết với tài khoản này." />
+                      <ComingSoon title={t("tabs.schedule")} description={t("comingSoon.notLinkedDescription")} />
                     ))}
                   {activeTab === "learning-progress" &&
                     (isParent && selectedChild ? (
@@ -406,7 +418,7 @@ export default function PortalPage() {
                         }}
                       />
                     ) : (
-                      <ComingSoon title="Quá trình học tập" description="Không có hồ sơ Học sinh hoặc Phụ huynh liên kết với tài khoản này." />
+                      <ComingSoon title={t("tabs.learning-progress")} description={t("comingSoon.notLinkedDescription")} />
                     ))}
                   {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-08 — luôn mount AssignmentsTab
                       cho Học sinh (ẩn bằng CSS khi không ở tab "homework") thay vì unmount/mount theo
@@ -438,7 +450,7 @@ export default function PortalPage() {
                         onHighlightHandled={() => setPendingHighlightCommentId(null)}
                       />
                     ) : (
-                      <ComingSoon title="Bài tập về nhà (BTVN)" description="Không có hồ sơ Học sinh hoặc Phụ huynh liên kết với tài khoản này." />
+                      <ComingSoon title={t("tabs.homework")} description={t("comingSoon.notLinkedDescription")} />
                     ))}
                   {activeTab === "documents" && isStudent && <DocumentLibraryTab classId={selectedClassId} />}
                   {activeTab === "grades" &&
@@ -447,7 +459,7 @@ export default function PortalPage() {
                     ) : isStudent ? (
                       <GradesTab classId={selectedClassId} siteId={currentClass?.siteId ?? null} />
                     ) : (
-                      <ComingSoon title="Khảo thí & Điểm số" description="Không có hồ sơ Học sinh hoặc Phụ huynh liên kết với tài khoản này." />
+                      <ComingSoon title={t("tabs.grades")} description={t("comingSoon.notLinkedDescription")} />
                     ))}
                   {activeTab === "grade-stats" &&
                     (isParent && selectedChild ? (
@@ -455,15 +467,15 @@ export default function PortalPage() {
                     ) : isStudent ? (
                       <GradeStatsPage classId={selectedClassId} />
                     ) : (
-                      <ComingSoon title="Thống kê điểm" description="Không có hồ sơ Học sinh hoặc Phụ huynh liên kết với tài khoản này." />
+                      <ComingSoon title={t("tabs.grade-stats")} description={t("comingSoon.notLinkedDescription")} />
                     ))}
                   {activeTab === "billing" &&
                     (isParent ? (
                       <BillingTab />
                     ) : (
                       <ComingSoon
-                        title="Học phí & Dịch vụ"
-                        description="Đang chờ Backend mở API cho Học sinh tự xem học phí của chính mình (hiện chỉ Phụ huynh xem được)."
+                        title={t("tabs.billing")}
+                        description={t("comingSoon.billingDescription")}
                       />
                     ))}
                 </>
@@ -474,7 +486,7 @@ export default function PortalPage() {
       </div>
 
       <footer className="mt-auto py-6 border-t border-line/60 bg-white text-center text-xs text-muted font-semibold">
-        © 2026 PPS Education. All rights reserved.
+        {t("footer")}
       </footer>
     </div>
   );

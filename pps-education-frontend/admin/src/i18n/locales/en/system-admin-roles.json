@@ -1,0 +1,125 @@
+{
+  "rolesPage": {
+    "title": "Role Groups",
+    "subtitle": "Configure the role-based permission matrix and assign/revoke roles for accounts.",
+    "loadError": "Failed to load the role list.",
+    "deleteConfirm": "Are you sure you want to delete the role \"{{name}}\"?",
+    "deleteSuccess": "Role deleted successfully!",
+    "deleteError": "Failed to delete the role.",
+    "emptyTitle": "Please select a role",
+    "emptyDescription": "Select a role from the list on the left, or create a new one to configure its permissions and members.",
+    "createModalTitle": "Create New Custom Role",
+    "createSuccess": "New role created successfully!"
+  },
+  "roleListPanel": {
+    "title": "Role List ({{count}})",
+    "addButtonTitle": "Add a new custom role",
+    "addButton": "Role",
+    "searchPlaceholder": "Search system roles...",
+    "loading": "Loading...",
+    "empty": "No matching roles found",
+    "badgeSystem": "System",
+    "badgeCustom": "Custom"
+  },
+  "roleDetailPanel": {
+    "deleteButtonTitle": "Delete this custom role",
+    "deleteButton": "Delete Role",
+    "tabs": {
+      "permissions": "Assigned Permissions",
+      "members": "Members"
+    }
+  },
+  "roleMembersPanel": {
+    "loadError": "Failed to load the account list.",
+    "removeConfirm": "Are you sure you want to remove \"{{name}}\" from the role \"{{roleName}}\"?",
+    "assignSuccess": "Role assigned successfully!",
+    "assignError": "Failed to assign the role.",
+    "revokeSuccess": "Role removed successfully!",
+    "revokeError": "Failed to remove the role.",
+    "title": "Members Assigned to This Role",
+    "subtitle": "Directly manage the accounts this role configuration applies to.",
+    "assignButton": "Assign Member",
+    "loading": "Loading...",
+    "emptyTitle": "No members assigned to this role yet",
+    "table": {
+      "username": "Username",
+      "fullName": "Full Name",
+      "email": "Account Email",
+      "status": "Status",
+      "actions": "Remove"
+    },
+    "removeButtonTitle": "Remove from this role"
+  },
+  "rolePermissionsEditor": {
+    "loadError": "Failed to load the permission matrix.",
+    "conflictConfirm": "{{message}}\n\nAre you sure you want to continue?",
+    "saveError": "Failed to save permissions.",
+    "saveSuccess": "Permissions saved successfully!",
+    "loadingMatrix": "Loading permission matrix...",
+    "saving": "Saving...",
+    "saveButton": "Save Changes",
+    "activatedSummary": "Activated <b1>{{count}} / {{total}}</b1> granular permissions for the role <b2>{{roleName}}</b2>."
+  },
+  "createRolePanel": {
+    "nameLabel": "Role Name *",
+    "namePlaceholder": "e.g. Marketing Team Lead",
+    "codeHint": "Role code (auto-generated):",
+    "descriptionLabel": "Description",
+    "nameRequiredError": "Please enter a role name (used to auto-generate the role code).",
+    "loadPermissionsError": "Failed to load the permission catalog.",
+    "createError": "Failed to create the role.",
+    "permissionsLabel": "Select initial permissions ({{count}} selected) — you can leave this blank and configure it later",
+    "loadingPermissions": "Loading permission catalog...",
+    "cancelButton": "Cancel",
+    "saving": "Creating...",
+    "saveButton": "Save New Role"
+  },
+  "permissionChecklist": {
+    "searchPlaceholder": "Quick search permissions...",
+    "allModulesOption": "All business modules",
+    "selectedCount": "{{selected}} / {{total}} selected",
+    "groupSelectedCount": "{{selected}}/{{total}}"
+  },
+  "roleAuditTimeline": {
+    "title": "Role Change Log (Audit Log)",
+    "subtitle": "Access and security setting history for the role \"{{roleName}}\".",
+    "empty": "No security activity has been logged for this role yet."
+  },
+  "permissionGroups": {
+    "ACADEMIC": {
+      "attendance": "Attendance",
+      "comment": "Student Comments",
+      "grade": "Gradebook",
+      "gradeSetup": "Gradebook — Setup (class + term + Midterm/Final)",
+      "gradeComponent": "Gradebook — Grade Components",
+      "skill": "Skills"
+    },
+    "STUDENT": {
+      "profile": "Student Profile",
+      "parent": "Parents",
+      "parentLink": "Parents — Link to Student"
+    },
+    "CRM": {
+      "lead": "Leads"
+    },
+    "USER": {
+      "permissionCatalog": "Permission Catalog",
+      "permissionRole": "Custom Roles",
+      "permissionOverride": "Per-Account Permission Overrides",
+      "userRole": "Assign Roles to Accounts"
+    },
+    "HRM": {
+      "department": "Departments",
+      "position": "Positions",
+      "employee": "Employee Records"
+    },
+    "FACILITY": {
+      "partnerContract": "Partner Contracts",
+      "site": "Sites",
+      "siteTeacher": "Assign Teachers to Sites"
+    },
+    "FINANCE": {
+      "expense": "Operating Expenses"
+    }
+  }
+}

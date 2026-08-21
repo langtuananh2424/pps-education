@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { BarChart3, Check, ClipboardList, Layers, Link2, MessageCircle, Music, Pencil, Plus, Users, Video, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { ClassResponse, CurriculumResponse, CurriculumSubjectResponse, ClassEnrollmentResponse, listClassEnrollments, listCurriculums, listCurriculumSubjects } from "@/features/academic/api";
 import { useEligibleClasses } from "@/features/academic/hooks/useEligibleClasses";
@@ -50,19 +51,36 @@ const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
 
 const CONTENT_KINDS = ["VIDEO", "AUDIO"] as const;
 type ContentKind = (typeof CONTENT_KINDS)[number];
-const contentKindLabels: Record<ContentKind, string> = { VIDEO: "Video", AUDIO: "Audio" };
 
-const videoTypeLabels: Record<ReviewVideoType, string> = { CONNECTION: "Video từ kết nối", REFLEX: "Video phản xạ" };
+const VIDEO_TYPES: ReviewVideoType[] = ["CONNECTION", "REFLEX"];
 const videoTypeIcons: Record<ReviewVideoType, React.ReactNode> = {
   CONNECTION: <Link2 className="w-4 h-4" />,
   REFLEX: <MessageCircle className="w-4 h-4" />
 };
 
-const statusLabels: Record<ReviewVideoSetStatus, string> = { DRAFT: "Nháp", PUBLISHED: "Đã công bố", ARCHIVED: "Đã gỡ" };
+const TEACHER_TYPES: ReviewVideoTeacherType[] = ["VIETNAMESE", "FOREIGN"];
+const SET_STATUSES: ReviewVideoSetStatus[] = ["DRAFT", "PUBLISHED", "ARCHIVED"];
 const statusVariants: Record<ReviewVideoSetStatus, BadgeVariant> = { DRAFT: "neutral", PUBLISHED: "success", ARCHIVED: "danger" };
 
+/**
+ * Nhãn dịch qua i18next namespace "lms-review-video" (key `lectures.labels.*`) — dùng các hàm
+ * `xLabel(t, value)` thay vì tra map tĩnh cũ, vì nhãn giờ phải đổi theo ngôn ngữ đang chọn.
+ */
+function contentKindLabel(t: (key: string) => string, kind: ContentKind): string {
+  return t(`lectures.labels.contentKind.${kind}`);
+}
+function videoTypeLabel(t: (key: string) => string, type: ReviewVideoType): string {
+  return t(`lectures.labels.videoType.${type}`);
+}
+function teacherTypeLabel(t: (key: string) => string, type: ReviewVideoTeacherType): string {
+  return t(`lectures.labels.teacherType.${type}`);
+}
+function setStatusLabel(t: (key: string) => string, status: ReviewVideoSetStatus): string {
+  return t(`lectures.labels.status.${status}`);
+}
+
 /** Đọc thời lượng (giây) của file video/audio NGAY TRÊN TRÌNH DUYỆT trước khi upload — API bắt buộc durationSeconds, backend không tự dò. */
-function detectMediaDurationFromFile(file: File, kind: ContentKind): Promise<number> {
+function detectMediaDurationFromFile(file: File, kind: ContentKind, errorMessage: string): Promise<number> {
   return new Promise((resolve, reject) => {
     const el = document.createElement(kind === "VIDEO" ? "video" : "audio");
     el.preload = "metadata";
@@ -73,7 +91,7 @@ function detectMediaDurationFromFile(file: File, kind: ContentKind): Promise<num
     };
     el.onerror = () => {
       URL.revokeObjectURL(objectUrl);
-      reject(new Error("Không đọc được thời lượng file — thử chọn lại file khác."));
+      reject(new Error(errorMessage));
     };
     el.src = objectUrl;
   });
@@ -117,6 +135,7 @@ function extractYouTubeVideoId(url: string): string | null {
 
 /** Dò thời lượng video YouTube bằng 1 player ẩn (không autoplay, không hiển thị) — chỉ dùng onReady lấy getDuration() rồi hủy ngay. */
 function useYouTubeDurationProbe() {
+  const { t } = useTranslation("lms-review-video");
   const containerId = useRef(`yt-duration-probe-${Math.random().toString(36).slice(2)}`).current;
   const playerRef = useRef<any>(null);
   const [detecting, setDetecting] = useState(false);
@@ -139,11 +158,11 @@ function useYouTubeDurationProbe() {
             const duration = Math.round(e.target.getDuration());
             setDetecting(false);
             if (duration > 0) onDetected(duration);
-            else setDetectError("Không đọc được thời lượng — kiểm tra lại link YouTube.");
+            else setDetectError(t("lectures.mediaErrors.youtubeDurationFailed"));
           },
           onError: () => {
             setDetecting(false);
-            setDetectError("Link YouTube không hợp lệ hoặc video bị chặn nhúng.");
+            setDetectError(t("lectures.mediaErrors.youtubeInvalidLink"));
           }
         }
       });
@@ -167,10 +186,11 @@ interface ConnectionThresholdValue {
  * mặc định BE (80%/1 lượt).
  */
 function ConnectionThresholdFields({ value, onChange }: { value: ConnectionThresholdValue; onChange: (v: ConnectionThresholdValue) => void }) {
+  const { t } = useTranslation("lms-review-video");
   return (
     <div className="grid grid-cols-2 gap-3 bg-sky-50/60 border border-sky-100 rounded-lg p-3">
       <div>
-        <label className={labelClass}>Ngưỡng % pass điểm trắc nghiệm (mặc định 80)</label>
+        <label className={labelClass}>{t("lectures.connectionThreshold.passPercentLabel")}</label>
         <input
           type="number"
           min={1}
@@ -182,7 +202,7 @@ function ConnectionThresholdFields({ value, onChange }: { value: ConnectionThres
         />
       </div>
       <div>
-        <label className={labelClass}>Số lượt xem bắt buộc — câu hỏi chia đều qua các lượt (mặc định 1)</label>
+        <label className={labelClass}>{t("lectures.connectionThreshold.requiredViewsLabel")}</label>
         <input
           type="number"
           min={1}
@@ -212,12 +232,13 @@ export const EMPTY_PENDING_QUESTION: PendingReflexQuestion = { timestampSeconds:
  * Export (V77): tái dùng ở CreateAndAssignExerciseModal.tsx cho nhánh "Video phản xạ" (Đề FOREIGN).
  */
 export function ReflexQuestionsBuilder({ value, onChange }: { value: PendingReflexQuestion[]; onChange: (v: PendingReflexQuestion[]) => void }) {
+  const { t } = useTranslation("lms-review-video");
   const [draft, setDraft] = useState<PendingReflexQuestion>(EMPTY_PENDING_QUESTION);
   const [draftError, setDraftError] = useState<string | null>(null);
 
   const handleAddDraft = () => {
     if (!draft.timestampSeconds || !draft.maxRecordingSeconds) {
-      setDraftError("Vui lòng điền mốc thời gian và thời lượng ghi âm tối đa.");
+      setDraftError(t("lectures.common.timestampAndDurationRequired"));
       return;
     }
     setDraftError(null);
@@ -229,15 +250,22 @@ export function ReflexQuestionsBuilder({ value, onChange }: { value: PendingRefl
 
   return (
     <div className="space-y-2 bg-amber-50/40 border border-amber-200 rounded-lg p-3">
-      <label className={labelClass}>Câu hỏi (mốc thời gian) — ít nhất 1 câu *</label>
+      <label className={labelClass}>{t("lectures.reflexBuilder.label")}</label>
 
       {value.length > 0 && (
         <div className="space-y-1.5">
           {value.map((q, i) => (
             <div key={i} className="flex items-center justify-between gap-2 bg-white border border-slate-200 rounded-lg p-2 text-[11px]">
               <span className="text-slate-700">
-                Câu {i + 1} · Mốc {Math.floor(Number(q.timestampSeconds) / 60)}:{String(Number(q.timestampSeconds) % 60).padStart(2, "0")} · Ghi âm tối đa{" "}
-                {q.maxRecordingSeconds}s · {q.maxAttempts ? `Tối đa ${q.maxAttempts} lượt nộp` : "Không giới hạn lượt nộp"}
+                {t("lectures.reflexBuilder.itemSummary", {
+                  index: i + 1,
+                  minutes: Math.floor(Number(q.timestampSeconds) / 60),
+                  seconds: String(Number(q.timestampSeconds) % 60).padStart(2, "0"),
+                  maxRecording: q.maxRecordingSeconds,
+                  attempts: q.maxAttempts
+                    ? t("lectures.reflexBuilder.maxAttemptsLabel", { count: q.maxAttempts })
+                    : t("lectures.reflexBuilder.unlimitedAttempts")
+                })}
                 {q.prompt && <span className="block text-slate-500 mt-0.5">{q.prompt}</span>}
               </span>
               <button type="button" onClick={() => handleRemove(i)} className="text-rose-500 hover:text-rose-700 shrink-0">
@@ -256,7 +284,7 @@ export function ReflexQuestionsBuilder({ value, onChange }: { value: PendingRefl
           min={0}
           value={draft.timestampSeconds}
           onChange={(e) => setDraft({ ...draft, timestampSeconds: e.target.value })}
-          placeholder="Mốc giây *"
+          placeholder={t("lectures.reflexBuilder.timestampPlaceholder")}
           className={inputClass}
         />
         <input
@@ -264,7 +292,7 @@ export function ReflexQuestionsBuilder({ value, onChange }: { value: PendingRefl
           min={1}
           value={draft.maxRecordingSeconds}
           onChange={(e) => setDraft({ ...draft, maxRecordingSeconds: e.target.value })}
-          placeholder="Ghi âm tối đa (s) *"
+          placeholder={t("lectures.reflexBuilder.maxRecordingPlaceholder")}
           className={inputClass}
         />
         <input
@@ -272,7 +300,7 @@ export function ReflexQuestionsBuilder({ value, onChange }: { value: PendingRefl
           min={1}
           value={draft.maxAttempts}
           onChange={(e) => setDraft({ ...draft, maxAttempts: e.target.value })}
-          placeholder="Số lượt nộp lại (bỏ trống = không giới hạn)"
+          placeholder={t("lectures.reflexBuilder.maxAttemptsPlaceholder")}
           className={inputClass}
         />
       </div>
@@ -280,11 +308,11 @@ export function ReflexQuestionsBuilder({ value, onChange }: { value: PendingRefl
         <input
           value={draft.prompt}
           onChange={(e) => setDraft({ ...draft, prompt: e.target.value })}
-          placeholder="Nội dung câu hỏi (tuỳ chọn)"
+          placeholder={t("lectures.reflexBuilder.promptPlaceholder")}
           className={`${inputClass} flex-1`}
         />
         <Button type="button" variant="secondary" size="sm" onClick={handleAddDraft}>
-          <Plus className="w-3.5 h-3.5" /> Thêm câu
+          <Plus className="w-3.5 h-3.5" /> {t("lectures.reflexBuilder.addButton")}
         </Button>
       </div>
     </div>
@@ -313,6 +341,7 @@ const EMPTY_CONNECTION_CHOICES: PendingConnectionChoice[] = [
  * thêm/bớt lựa chọn ĐỘNG (khác QuestionEditorForm cố định 4 lựa chọn).
  */
 function ConnectionQuizBuilder({ value, onChange }: { value: PendingConnectionQuestion[]; onChange: (v: PendingConnectionQuestion[]) => void }) {
+  const { t } = useTranslation("lms-review-video");
   const [prompt, setPrompt] = useState("");
   const [choices, setChoices] = useState<PendingConnectionChoice[]>(EMPTY_CONNECTION_CHOICES);
   const [draftError, setDraftError] = useState<string | null>(null);
@@ -337,11 +366,11 @@ function ConnectionQuizBuilder({ value, onChange }: { value: PendingConnectionQu
 
   const handleAddQuestion = () => {
     if (!prompt.trim()) {
-      setDraftError("Vui lòng nhập nội dung câu hỏi.");
+      setDraftError(t("lectures.connectionBuilder.promptRequired"));
       return;
     }
     if (choices.some((c) => !c.content.trim())) {
-      setDraftError("Vui lòng điền đủ nội dung mọi lựa chọn.");
+      setDraftError(t("lectures.connectionBuilder.choicesRequired"));
       return;
     }
     setDraftError(null);
@@ -354,14 +383,14 @@ function ConnectionQuizBuilder({ value, onChange }: { value: PendingConnectionQu
 
   return (
     <div className="space-y-2 bg-emerald-50/40 border border-emerald-200 rounded-lg p-3">
-      <label className={labelClass}>Câu hỏi trắc nghiệm (2-5 lựa chọn) — ít nhất 1 câu, bắt buộc *</label>
+      <label className={labelClass}>{t("lectures.connectionBuilder.label")}</label>
 
       {value.length > 0 && (
         <div className="space-y-1.5">
           {value.map((q, i) => (
             <div key={i} className="flex items-center justify-between gap-2 bg-white border border-slate-200 rounded-lg p-2 text-[11px]">
               <span className="text-slate-700">
-                Câu {i + 1} · {q.prompt} · {q.choices.length} lựa chọn
+                {t("lectures.connectionBuilder.itemSummary", { index: i + 1, prompt: q.prompt, count: q.choices.length })}
               </span>
               <button type="button" onClick={() => handleRemoveQuestion(i)} className="text-rose-500 hover:text-rose-700 shrink-0">
                 <X className="w-3.5 h-3.5" />
@@ -373,7 +402,7 @@ function ConnectionQuizBuilder({ value, onChange }: { value: PendingConnectionQu
 
       {draftError && <p className="text-[11px] text-rose-600 font-semibold">{draftError}</p>}
 
-      <input value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="Nội dung câu hỏi *" className={inputClass} />
+      <input value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder={t("lectures.common.promptPlaceholder")} className={inputClass} />
 
       <div className="space-y-1.5">
         {choices.map((c, idx) => (
@@ -390,7 +419,7 @@ function ConnectionQuizBuilder({ value, onChange }: { value: PendingConnectionQu
             <input
               value={c.content}
               onChange={(e) => handleChoiceContentChange(idx, e.target.value)}
-              placeholder={`Đáp án ${String.fromCharCode(65 + idx)}...`}
+              placeholder={t("lectures.common.choicePlaceholder", { letter: String.fromCharCode(65 + idx) })}
               className={`flex-1 ${inputClass}`}
             />
             {choices.length > 2 && (
@@ -405,11 +434,11 @@ function ConnectionQuizBuilder({ value, onChange }: { value: PendingConnectionQu
       <div className="flex gap-2">
         {choices.length < 5 && (
           <Button type="button" variant="ghost" size="sm" onClick={handleAddChoice}>
-            <Plus className="w-3.5 h-3.5" /> Thêm lựa chọn
+            <Plus className="w-3.5 h-3.5" /> {t("lectures.common.addChoice")}
           </Button>
         )}
         <Button type="button" variant="secondary" size="sm" onClick={handleAddQuestion}>
-          <Plus className="w-3.5 h-3.5" /> Thêm câu hỏi
+          <Plus className="w-3.5 h-3.5" /> {t("lectures.common.addQuestion")}
         </Button>
       </div>
     </div>
@@ -439,10 +468,13 @@ export interface ContentSourceValue {
  * cho submit (API yêu cầu, BE không tự dò). Export (V77): tái dùng ở CreateAndAssignExerciseModal.tsx.
  */
 export function ContentSourceField({ value, onChange }: { value: ContentSourceValue; onChange: (v: ContentSourceValue) => void }) {
+  const { t } = useTranslation("lms-review-video");
   const contentKind: ContentKind = value.sourceType === "R2_AUDIO" ? "AUDIO" : "VIDEO";
   const videoSourceMode: "upload" | "youtube" = value.sourceType === "YOUTUBE_URL" ? "youtube" : "upload";
   const [youtubeUrlInput, setYoutubeUrlInput] = useState(value.sourceType === "YOUTUBE_URL" ? value.fileUrl : "");
   const { containerId, detect, detecting, detectError } = useYouTubeDurationProbe();
+  /** Preview để GV tự kiểm tra link/file vừa nhập đúng nội dung trước khi lưu (không dùng player ẩn dò thời lượng ở trên). */
+  const previewYoutubeVideoId = videoSourceMode === "youtube" ? extractYouTubeVideoId(youtubeUrlInput.trim()) : null;
 
   /**
    * FileUploadField gọi 3 callback RIÊNG BIỆT cho cùng 1 lần chọn file (onUpload dò duration ->
@@ -479,7 +511,7 @@ export function ContentSourceField({ value, onChange }: { value: ContentSourceVa
     <div className="space-y-2">
       <div id={containerId} style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", left: -9999, top: -9999 }} />
       <div>
-        <label className={labelClass}>Loại nội dung *</label>
+        <label className={labelClass}>{t("lectures.contentSource.kindLabel")}</label>
         <div className="flex gap-1.5">
           {CONTENT_KINDS.map((k) => (
             <button
@@ -490,14 +522,14 @@ export function ContentSourceField({ value, onChange }: { value: ContentSourceVa
                 contentKind === k ? "bg-brand-orange border-brand-orange text-white" : "bg-slate-50 border-slate-200 text-slate-500"
               }`}
             >
-              {contentKindLabels[k]}
+              {contentKindLabel(t, k)}
             </button>
           ))}
         </div>
       </div>
 
       <div>
-        <label className={labelClass}>{contentKind === "VIDEO" ? "Video *" : "Audio *"}</label>
+        <label className={labelClass}>{contentKind === "VIDEO" ? t("lectures.contentSource.videoLabel") : t("lectures.contentSource.audioLabel")}</label>
         {contentKind === "VIDEO" && (
           <div className="flex gap-1.5 mb-1.5">
             <button
@@ -505,14 +537,14 @@ export function ContentSourceField({ value, onChange }: { value: ContentSourceVa
               onClick={() => updateValue({ sourceType: "R2_VIDEO", fileUrl: "", fileSizeBytes: undefined, durationSeconds: null })}
               className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${videoSourceMode === "upload" ? "bg-brand-orange text-white" : "bg-slate-100 text-slate-500"}`}
             >
-              Tải file lên
+              {t("lectures.contentSource.uploadFile")}
             </button>
             <button
               type="button"
               onClick={() => updateValue({ sourceType: "YOUTUBE_URL", fileUrl: "", durationSeconds: null })}
               className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${videoSourceMode === "youtube" ? "bg-brand-orange text-white" : "bg-slate-100 text-slate-500"}`}
             >
-              Dán link YouTube
+              {t("lectures.contentSource.pasteYoutube")}
             </button>
           </div>
         )}
@@ -528,35 +560,54 @@ export function ContentSourceField({ value, onChange }: { value: ContentSourceVa
                 placeholder="https://www.youtube.com/watch?v=..."
               />
               <Button type="button" variant="secondary" size="sm" onClick={handleDetectYouTubeDuration} disabled={detecting || !youtubeUrlInput.trim()}>
-                {detecting ? "Đang dò..." : "Dò thời lượng"}
+                {detecting ? t("lectures.contentSource.detecting") : t("lectures.contentSource.detectDuration")}
               </Button>
             </div>
             {detectError && <p className="text-[10px] text-rose-600 font-semibold">{detectError}</p>}
+            {previewYoutubeVideoId && (
+              <div className="rounded-lg overflow-hidden border border-slate-200 bg-black aspect-video max-w-sm">
+                <iframe
+                  key={previewYoutubeVideoId}
+                  src={`https://www.youtube.com/embed/${previewYoutubeVideoId}`}
+                  title="Xem trước video"
+                  className="w-full h-full"
+                  allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            )}
           </div>
         ) : (
           <FileUploadField
             value={value.fileUrl}
             onChange={(url) => updateValue({ fileUrl: url })}
             onUpload={async (file) => {
-              const durationSeconds = await detectMediaDurationFromFile(file, contentKind);
+              const durationSeconds = await detectMediaDurationFromFile(file, contentKind, t("lectures.mediaErrors.durationDetectFailed"));
               updateValue({ durationSeconds });
               return uploadMedia(file, "REVIEW_VIDEO");
             }}
             onFileSize={(bytes) => updateValue({ fileSizeBytes: bytes })}
             accept={contentKind === "VIDEO" ? "video/*" : "audio/*"}
-            placeholder={contentKind === "VIDEO" ? "Chọn file video..." : "Chọn file audio..."}
+            placeholder={contentKind === "VIDEO" ? t("lectures.contentSource.chooseVideoFile") : t("lectures.contentSource.chooseAudioFile")}
           />
         )}
+        {contentKind === "VIDEO" && videoSourceMode === "upload" && value.fileUrl && (
+          <video src={value.fileUrl} controls className="mt-1.5 w-full max-w-sm max-h-56 rounded-lg border border-slate-200 bg-black" />
+        )}
+        {contentKind === "AUDIO" && value.fileUrl && <audio src={value.fileUrl} controls className="mt-1.5 w-full" />}
       </div>
 
       <p className="text-[10px] text-slate-400">
-        Thời lượng đã dò: <span className="font-bold text-slate-600">{value.durationSeconds ? `${value.durationSeconds} giây (${Math.round(value.durationSeconds / 60)} phút)` : "— chưa có —"}</span>
+        {t("lectures.contentSource.durationDetectedLabel")}{" "}
+        <span className="font-bold text-slate-600">
+          {value.durationSeconds
+            ? t("lectures.contentSource.durationValue", { seconds: value.durationSeconds, minutes: Math.round(value.durationSeconds / 60) })
+            : t("lectures.contentSource.durationNone")}
+        </span>
       </p>
     </div>
   );
 }
-
-const reviewVideoTeacherTypeLabels: Record<ReviewVideoTeacherType, string> = { VIETNAMESE: "Giáo viên Việt Nam", FOREIGN: "Giáo viên nước ngoài" };
 
 /**
  * UC-23/UC-23a: Kho Video Ôn tập — V98 (bổ sung ngoài SDD gốc, đã xác
@@ -574,6 +625,7 @@ const reviewVideoTeacherTypeLabels: Record<ReviewVideoTeacherType, string> = { V
  * (requireAssignedTeacher) + quyền lms.review-video.assign.
  */
 export default function LecturesPage() {
+  const { t } = useTranslation("lms-review-video");
   const [curriculums, setCurriculums] = useState<CurriculumResponse[]>([]);
   const [curriculumFilter, setCurriculumFilter] = useState<number | null>(null);
   const [teacherTypeFilter, setTeacherTypeFilter] = useState<ReviewVideoTeacherType | null>(null);
@@ -596,7 +648,7 @@ export default function LecturesPage() {
         setVideoSets(res);
         if (!res.some((s) => s.id === selectedSetId)) setSelectedSetId(res[0]?.id ?? null);
       })
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách bộ video ôn tập."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("lectures.page.loadSetsFailed")))
       .finally(() => setLoadingSets(false));
   };
 
@@ -614,17 +666,12 @@ export default function LecturesPage() {
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4 flex items-start justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Kho Video Ôn tập</h1>
-          <p className="text-xs text-slate-500 mt-1">
-            2 loại: "Video từ kết nối" (ôn từ vựng buổi học) và "Video phản xạ" (hỏi-đáp luyện nói). Mỗi Bộ gồm nhiều video/audio,
-            gán khung chương trình CHỈ để lọc/tìm kiếm — gán tường minh cho (các) lớp cụ thể mới là điều kiện hiển thị. Công bố chỉ
-            đánh dấu Bộ đủ điều kiện dùng làm nguồn — Giáo viên chọn Bộ đã công bố làm "BTVN buổi sau" ở Nhận xét học viên mới thật
-            sự giao cho lớp xem, hệ thống tự theo dõi % đã xem thật.
-          </p>
+          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("lectures.page.title")}</h1>
+          <p className="text-xs text-slate-500 mt-1">{t("lectures.page.subtitle")}</p>
         </div>
         <Button variant="primary" size="sm" onClick={() => setShowCreateForm(true)}>
           <Plus className="w-3.5 h-3.5" />
-          Tạo Bộ video mới
+          {t("lectures.page.createButton")}
         </Button>
       </div>
 
@@ -638,7 +685,7 @@ export default function LecturesPage() {
               onChange={(e) => setCurriculumFilter(e.target.value ? Number(e.target.value) : null)}
               className={inputClass}
             >
-              <option value="">Tất cả khung chương trình</option>
+              <option value="">{t("lectures.filter.allCurriculums")}</option>
               {curriculums.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.code} — {c.name}
@@ -650,21 +697,21 @@ export default function LecturesPage() {
               onChange={(e) => setTeacherTypeFilter(e.target.value ? (e.target.value as ReviewVideoTeacherType) : null)}
               className={inputClass}
             >
-              <option value="">Tất cả loại giáo viên</option>
-              {(Object.keys(reviewVideoTeacherTypeLabels) as ReviewVideoTeacherType[]).map((t) => (
-                <option key={t} value={t}>
-                  {reviewVideoTeacherTypeLabels[t]}
+              <option value="">{t("lectures.filter.allTeacherTypes")}</option>
+              {TEACHER_TYPES.map((tt) => (
+                <option key={tt} value={tt}>
+                  {teacherTypeLabel(t, tt)}
                 </option>
               ))}
             </Select>
           </div>
 
           {loadingSets ? (
-            <p className="text-xs text-slate-500 p-6 text-center">Đang tải...</p>
+            <p className="text-xs text-slate-500 p-6 text-center">{t("lectures.common.loading")}</p>
           ) : videoSets.length === 0 ? (
             <div className="flex flex-col items-center justify-center p-12 text-center text-slate-400 space-y-3">
               <Layers className="w-12 h-12 text-slate-300" />
-              <p className="text-xs text-slate-400">Chưa có Bộ video nào{curriculumFilter ? " trong khung chương trình này" : ""}.</p>
+              <p className="text-xs text-slate-400">{curriculumFilter ? t("lectures.list.emptyInCurriculum") : t("lectures.list.empty")}</p>
             </div>
           ) : (
             <>
@@ -680,11 +727,11 @@ export default function LecturesPage() {
                         <span className="text-brand-orange">{videoTypeIcons[set.videoType]}</span>
                         {set.title}
                       </p>
-                      <Badge variant={statusVariants[set.status]}>{statusLabels[set.status]}</Badge>
+                      <Badge variant={statusVariants[set.status]}>{setStatusLabel(t, set.status)}</Badge>
                     </div>
                     <p className="text-[10px] text-slate-400 mt-0.5 font-mono">{set.code} · {set.curriculumCode}</p>
                     <p className="text-[10px] text-slate-400 mt-0.5">
-                      {reviewVideoTeacherTypeLabels[set.teacherType]} · {videoTypeLabels[set.videoType]}
+                      {teacherTypeLabel(t, set.teacherType)} · {videoTypeLabel(t, set.videoType)}
                     </p>
                   </button>
                 ))}
@@ -693,7 +740,7 @@ export default function LecturesPage() {
                 page={page}
                 pageSize={pageSize}
                 totalElements={videoSets.length}
-                itemLabel="Bộ video"
+                itemLabel={t("lectures.list.itemLabel")}
                 onPageChange={setPage}
                 onPageSizeChange={(size) => {
                   setPageSize(size);
@@ -708,7 +755,7 @@ export default function LecturesPage() {
           {!selectedSet ? (
             <div className="bg-white rounded-xl border border-slate-200 shadow-soft flex flex-col items-center justify-center p-12 text-center text-slate-400 space-y-3">
               <ClipboardList className="w-12 h-12 text-slate-300" />
-              <p className="text-xs text-slate-400">Chọn 1 Bộ video bên trái để xem chi tiết, hoặc tạo Bộ mới.</p>
+              <p className="text-xs text-slate-400">{t("lectures.detail.selectPrompt")}</p>
             </div>
           ) : (
             <SetDetailPanel
@@ -727,7 +774,7 @@ export default function LecturesPage() {
           onCreated={(set) => {
             loadSets();
             setSelectedSetId(set.id);
-            showToast("Đã tạo Bộ video thành công!");
+            showToast(t("lectures.toast.setCreated"));
           }}
         />
       )}
@@ -746,6 +793,7 @@ function SetDetailPanel({
   showToast: (msg: string) => void;
   onUpdated: (set: ReviewVideoSetResponse) => void;
 }) {
+  const { t } = useTranslation("lms-review-video");
   const [editingSet, setEditingSet] = useState(false);
   const [statsOpen, setStatsOpen] = useState(false);
   const [assignClassOpen, setAssignClassOpen] = useState(false);
@@ -768,7 +816,7 @@ function SetDetailPanel({
             <p className="text-sm font-bold text-slate-800">{set.title}</p>
             <p className="text-[10px] text-slate-400 font-mono mt-0.5">{set.code} · {set.curriculumCode}</p>
           </div>
-          <Badge variant={statusVariants[set.status]}>{statusLabels[set.status]}</Badge>
+          <Badge variant={statusVariants[set.status]}>{setStatusLabel(t, set.status)}</Badge>
         </div>
         <div className="flex items-center justify-between flex-wrap gap-2">
           <button
@@ -776,14 +824,15 @@ function SetDetailPanel({
             className="flex items-center gap-1.5 text-[11px] font-bold text-brand-red hover:underline"
           >
             <Users className="w-3.5 h-3.5" />
-            {assignedClassCount == null ? "Đã gán ... lớp" : `Đã gán ${assignedClassCount} lớp`} — quản lý
+            {assignedClassCount == null ? t("lectures.detail.assignedClassesPending") : t("lectures.detail.assignedClassesCount", { count: assignedClassCount })}
+            {t("lectures.detail.manageSuffix")}
           </button>
           <div className="flex items-center gap-2 flex-wrap">
             <Button size="sm" variant="secondary" onClick={() => setEditingSet(true)}>
-              Sửa
+              {t("lectures.detail.editButton")}
             </Button>
             <Button size="sm" variant="secondary" onClick={() => setStatsOpen(true)}>
-              <BarChart3 className="w-3.5 h-3.5" /> Thống kê
+              <BarChart3 className="w-3.5 h-3.5" /> {t("lectures.detail.statsButton")}
             </Button>
           </div>
         </div>
@@ -800,7 +849,7 @@ function SetDetailPanel({
           onSaved={(updated) => {
             setEditingSet(false);
             onUpdated(updated);
-            showToast("Đã lưu bộ video ôn tập thành công!");
+            showToast(t("lectures.toast.setSaved"));
           }}
         />
       )}
@@ -822,6 +871,7 @@ function SetDetailPanel({
 
 /** "1 Bộ video sẽ gán được cho nhiều lớp" (V98, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06) — mirror AssignClassModal của Kho đề, toggle gán/gỡ tức thì từng lớp. */
 function AssignClassModal({ setId, onClose }: { setId: number; onClose: () => void }) {
+  const { t } = useTranslation("lms-review-video");
   const { classes } = useEligibleClasses();
   const [assignedIds, setAssignedIds] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -831,7 +881,7 @@ function AssignClassModal({ setId, onClose }: { setId: number; onClose: () => vo
   useEffect(() => {
     listReviewVideoSetAssignedClasses(setId)
       .then((cls) => setAssignedIds(new Set(cls.map((c) => c.id))))
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách lớp đã gán."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("lectures.assignClass.loadFailed")))
       .finally(() => setLoading(false));
   }, [setId]);
 
@@ -851,23 +901,20 @@ function AssignClassModal({ setId, onClose }: { setId: number; onClose: () => vo
         setAssignedIds((prev) => new Set(prev).add(classId));
       }
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Cập nhật gán lớp thất bại.");
+      setError(err instanceof ApiError ? err.message : t("lectures.assignClass.updateFailed"));
     } finally {
       setPendingId(null);
     }
   };
 
   return (
-    <Modal open onClose={onClose} title="Gán Bộ video cho lớp" size="md">
-      <p className="text-[11px] text-slate-500 mb-3">
-        Bộ chỉ hiển thị cho học sinh của các lớp đã gán ở đây — vẫn cần Giáo viên chọn bộ này làm "BTVN buổi sau" ở Nhận xét học
-        viên mới thật sự giao cho học sinh xem.
-      </p>
+    <Modal open onClose={onClose} title={t("lectures.assignClass.title")} size="md">
+      <p className="text-[11px] text-slate-500 mb-3">{t("lectures.assignClass.description")}</p>
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
       {loading ? (
-        <p className="text-xs text-slate-500 p-3 text-center">Đang tải...</p>
+        <p className="text-xs text-slate-500 p-3 text-center">{t("lectures.common.loading")}</p>
       ) : classes.length === 0 ? (
-        <p className="text-xs text-slate-400 italic p-3 text-center">Không có lớp nào để gán.</p>
+        <p className="text-xs text-slate-400 italic p-3 text-center">{t("lectures.assignClass.empty")}</p>
       ) : (
         <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 max-h-72 overflow-y-auto">
           {classes.map((c) => (
@@ -879,7 +926,7 @@ function AssignClassModal({ setId, onClose }: { setId: number; onClose: () => vo
                 onChange={() => toggle(c.id)}
               />
               <span className="flex-1">{c.classCode} — {c.name}</span>
-              {pendingId === c.id && <span className="text-[10px] text-slate-400">Đang lưu...</span>}
+              {pendingId === c.id && <span className="text-[10px] text-slate-400">{t("lectures.common.saving")}</span>}
             </label>
           ))}
         </div>
@@ -887,7 +934,7 @@ function AssignClassModal({ setId, onClose }: { setId: number; onClose: () => vo
       <div className="flex justify-end pt-3">
         <Button type="button" variant="secondary" size="sm" onClick={onClose}>
           <X className="w-3.5 h-3.5" />
-          Đóng
+          {t("lectures.common.close")}
         </Button>
       </div>
     </Modal>
@@ -903,6 +950,7 @@ function CreateSetModal({
   onClose: () => void;
   onCreated: (set: ReviewVideoSetResponse) => void;
 }) {
+  const { t } = useTranslation("lms-review-video");
   const [subjects, setSubjects] = useState<CurriculumSubjectResponse[]>([]);
   const [form, setForm] = useState<{
     code: string;
@@ -943,15 +991,15 @@ function CreateSetModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.code.trim() || !form.title.trim() || !form.curriculumId || !form.teacherType || !content.fileUrl.trim() || !content.durationSeconds) {
-      setError("Vui lòng điền mã, tiêu đề, chọn Khung chương trình, Loại giáo viên, video/audio và chờ dò xong thời lượng.");
+      setError(t("lectures.createSet.errors.requiredFields"));
       return;
     }
     if (questionSourceMode === "manual" && form.videoType === "REFLEX" && pendingQuestions.length === 0) {
-      setError("Video phản xạ cần ít nhất 1 câu hỏi — dùng \"Thêm câu\" ở khung câu hỏi bên dưới.");
+      setError(t("lectures.createSet.errors.reflexQuestionRequired"));
       return;
     }
     if (questionSourceMode === "manual" && form.videoType === "CONNECTION" && pendingConnectionQuestions.length === 0) {
-      setError("Video kết nối bắt buộc có ít nhất 1 câu hỏi trắc nghiệm — dùng \"Thêm câu hỏi\" ở khung câu hỏi bên dưới.");
+      setError(t("lectures.createSet.errors.connectionQuestionRequired"));
       return;
     }
     setSubmitting(true);
@@ -1017,12 +1065,12 @@ function CreateSetModal({
     } catch (err) {
       setError(
         createdVideoId
-          ? "Đã tạo bộ và video nhưng gắn câu hỏi thất bại — mở lại bộ này, bấm \"Video\" → \"Quản lý câu hỏi\" để thêm lại."
+          ? t("lectures.createSet.errors.questionsFailedAfterVideo")
           : createdSetId
-            ? "Đã tạo bộ nhưng gắn video/audio thất bại — mở lại bộ này, bấm \"Video\" để thêm lại."
+            ? t("lectures.createSet.errors.videoFailedAfterSet")
             : err instanceof ApiError
               ? err.message
-              : "Tạo bộ video ôn tập thất bại."
+              : t("lectures.createSet.errors.createFailed")
       );
     } finally {
       setSubmitting(false);
@@ -1031,12 +1079,9 @@ function CreateSetModal({
 
   if (stage === "import" && createdSetForImport && createdVideoIdForImport) {
     return (
-      <Modal open onClose={() => onCreated(createdSetForImport)} title="Nhập câu hỏi từ Excel" size="lg">
+      <Modal open onClose={() => onCreated(createdSetForImport)} title={t("lectures.createSet.importStage.title")} size="lg">
         <div className="space-y-4">
-          <p className="text-xs text-slate-500">
-            Đã tạo bộ &amp; video — tải file mẫu, điền câu hỏi rồi nhập lại bên dưới. Bấm "Xong" để đóng khi hoàn tất
-            (có thể mở lại bộ này sau để nhập tiếp nếu cần).
-          </p>
+          <p className="text-xs text-slate-500">{t("lectures.createSet.importStage.description")}</p>
           <ReviewVideoQuestionImportPanel
             videoId={createdVideoIdForImport}
             videoType={form.videoType}
@@ -1044,7 +1089,7 @@ function CreateSetModal({
           />
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="primary" onClick={() => onCreated(createdSetForImport)}>
-              Xong
+              {t("lectures.createSet.importStage.done")}
             </Button>
           </div>
         </div>
@@ -1053,45 +1098,45 @@ function CreateSetModal({
   }
 
   return (
-    <Modal open onClose={onClose} title="Tạo bộ video ôn tập mới" size="lg">
+    <Modal open onClose={onClose} title={t("lectures.createSet.title")} size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className={labelClass}>Mã bộ *</label>
-            <input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="VD: RV-U1-CONN-01" className={inputClass} required />
+            <label className={labelClass}>{t("lectures.createSet.fields.code")}</label>
+            <input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder={t("lectures.createSet.fields.codePlaceholder")} className={inputClass} required />
           </div>
           <div>
-            <label className={labelClass}>Loại video *</label>
+            <label className={labelClass}>{t("lectures.createSet.fields.videoType")}</label>
             <div className="flex gap-1.5">
-              {(Object.keys(videoTypeLabels) as ReviewVideoType[]).map((t) => (
+              {VIDEO_TYPES.map((vt) => (
                 <button
-                  key={t}
+                  key={vt}
                   type="button"
-                  onClick={() => setForm({ ...form, videoType: t })}
+                  onClick={() => setForm({ ...form, videoType: vt })}
                   className={`flex-1 text-xs font-bold py-2.5 rounded-lg border ${
-                    form.videoType === t ? "bg-brand-orange border-brand-orange text-white" : "bg-slate-50 border-slate-200 text-slate-500"
+                    form.videoType === vt ? "bg-brand-orange border-brand-orange text-white" : "bg-slate-50 border-slate-200 text-slate-500"
                   }`}
                 >
-                  {videoTypeLabels[t]}
+                  {videoTypeLabel(t, vt)}
                 </button>
               ))}
             </div>
           </div>
         </div>
         <div>
-          <label className={labelClass}>Tiêu đề *</label>
-          <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="VD: Unit 1: Greetings and Introduction" className={inputClass} required />
+          <label className={labelClass}>{t("lectures.createSet.fields.title")}</label>
+          <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder={t("lectures.createSet.fields.titlePlaceholder")} className={inputClass} required />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className={labelClass}>Khung chương trình * (chỉ dùng lọc/tìm kiếm)</label>
+            <label className={labelClass}>{t("lectures.createSet.fields.curriculum")}</label>
             <Select
               value={form.curriculumId}
               onChange={(e) => setForm({ ...form, curriculumId: e.target.value ? Number(e.target.value) : "" })}
               className={inputClass}
             >
-              <option value="">-- Chọn khung chương trình --</option>
+              <option value="">{t("lectures.createSet.fields.curriculumPlaceholder")}</option>
               {curriculums.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.code} — {c.name}
@@ -1100,12 +1145,12 @@ function CreateSetModal({
             </Select>
           </div>
           <div>
-            <label className={labelClass}>Loại giáo viên * (dùng lọc khi giao bài)</label>
+            <label className={labelClass}>{t("lectures.createSet.fields.teacherType")}</label>
             <Select value={form.teacherType} onChange={(e) => setForm({ ...form, teacherType: e.target.value as ReviewVideoTeacherType | "" })} className={inputClass}>
-              <option value="">-- Chọn loại giáo viên --</option>
-              {(Object.keys(reviewVideoTeacherTypeLabels) as ReviewVideoTeacherType[]).map((t) => (
-                <option key={t} value={t}>
-                  {reviewVideoTeacherTypeLabels[t]}
+              <option value="">{t("lectures.createSet.fields.teacherTypePlaceholder")}</option>
+              {TEACHER_TYPES.map((tt) => (
+                <option key={tt} value={tt}>
+                  {teacherTypeLabel(t, tt)}
                 </option>
               ))}
             </Select>
@@ -1115,7 +1160,7 @@ function CreateSetModal({
         {form.videoType === "CONNECTION" && <ConnectionThresholdFields value={connSettings} onChange={setConnSettings} />}
 
         <div>
-          <label className={labelClass}>Nguồn câu hỏi</label>
+          <label className={labelClass}>{t("lectures.createSet.questionSource.label")}</label>
           <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-lg w-fit">
             {(["manual", "excel"] as const).map((m) => (
               <button
@@ -1126,7 +1171,7 @@ function CreateSetModal({
                   questionSourceMode === m ? "bg-white text-brand-red shadow-xs" : "text-slate-500 hover:text-slate-700"
                 }`}
               >
-                {m === "manual" ? "Nhập tay" : "Nhập Excel"}
+                {m === "manual" ? t("lectures.createSet.questionSource.manual") : t("lectures.createSet.questionSource.excel")}
               </button>
             ))}
           </div>
@@ -1140,14 +1185,14 @@ function CreateSetModal({
         )}
         {questionSourceMode === "excel" && (
           <p className="text-[11px] text-slate-500 bg-slate-50 border border-slate-200 rounded-lg p-2.5">
-            Tạo bộ + video trước — sau khi tạo xong, màn nhập câu hỏi từ Excel sẽ mở ra ngay (dùng videoId thật vừa tạo).
+            {t("lectures.createSet.excelHint")}
           </p>
         )}
         <div className="grid grid-cols-2 gap-3 items-end">
           <div>
-            <label className={labelClass}>Học phần (tùy chọn)</label>
+            <label className={labelClass}>{t("lectures.createSet.fields.subject")}</label>
             <Select value={form.subjectId} onChange={(e) => setForm({ ...form, subjectId: e.target.value })} className={inputClass}>
-              <option value="">-- Không gán --</option>
+              <option value="">{t("lectures.createSet.fields.subjectPlaceholder")}</option>
               {subjects.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}
@@ -1156,16 +1201,16 @@ function CreateSetModal({
             </Select>
           </div>
           <div>
-            <label className={labelClass}>Thứ tự</label>
+            <label className={labelClass}>{t("lectures.createSet.fields.displayOrder")}</label>
             <input type="number" value={form.displayOrder} onChange={(e) => setForm({ ...form, displayOrder: e.target.value })} className={inputClass} />
           </div>
         </div>
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="secondary" onClick={onClose}>
-            Hủy
+            {t("lectures.common.cancel")}
           </Button>
           <Button type="submit" variant="primary" disabled={submitting}>
-            {submitting ? "Đang lưu..." : "Tạo bộ video"}
+            {submitting ? t("lectures.common.saving") : t("lectures.createSet.submit")}
           </Button>
         </div>
       </form>
@@ -1182,6 +1227,7 @@ function EditSetModal({
   onClose: () => void;
   onSaved: (set: ReviewVideoSetResponse) => void;
 }) {
+  const { t } = useTranslation("lms-review-video");
   const [subjects, setSubjects] = useState<CurriculumSubjectResponse[]>([]);
   const [form, setForm] = useState({
     title: set.title,
@@ -1200,7 +1246,7 @@ function EditSetModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.title.trim()) {
-      setError("Vui lòng điền tiêu đề.");
+      setError(t("lectures.editSet.errors.titleRequired"));
       return;
     }
     setSubmitting(true);
@@ -1216,35 +1262,35 @@ function EditSetModal({
       const updated = await updateReviewVideoSet(set.id, request);
       onSaved(updated);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Cập nhật bộ video ôn tập thất bại — có thể bạn không được phân công giảng dạy lớp thuộc khung chương trình này.");
+      setError(err instanceof ApiError ? err.message : t("lectures.editSet.errors.updateFailed"));
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <Modal open onClose={onClose} title={`Sửa bộ video: ${set.code}`} size="lg">
+    <Modal open onClose={onClose} title={t("lectures.editSet.title", { code: set.code })} size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
         <div>
-          <label className={labelClass}>Tiêu đề *</label>
+          <label className={labelClass}>{t("lectures.editSet.fields.title")}</label>
           <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className={inputClass} required />
         </div>
         <div>
-          <label className={labelClass}>Loại giáo viên * (dùng lọc khi giao bài)</label>
+          <label className={labelClass}>{t("lectures.editSet.fields.teacherType")}</label>
           <Select value={form.teacherType} onChange={(e) => setForm({ ...form, teacherType: e.target.value as ReviewVideoTeacherType })} className={inputClass}>
-            {(Object.keys(reviewVideoTeacherTypeLabels) as ReviewVideoTeacherType[]).map((t) => (
-              <option key={t} value={t}>
-                {reviewVideoTeacherTypeLabels[t]}
+            {TEACHER_TYPES.map((tt) => (
+              <option key={tt} value={tt}>
+                {teacherTypeLabel(t, tt)}
               </option>
             ))}
           </Select>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className={labelClass}>Học phần (tùy chọn)</label>
+            <label className={labelClass}>{t("lectures.editSet.fields.subject")}</label>
             <Select value={form.subjectId} onChange={(e) => setForm({ ...form, subjectId: e.target.value })} className={inputClass}>
-              <option value="">-- Không gán --</option>
+              <option value="">{t("lectures.editSet.fields.subjectPlaceholder")}</option>
               {subjects.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}
@@ -1253,32 +1299,29 @@ function EditSetModal({
             </Select>
           </div>
           <div>
-            <label className={labelClass}>Trạng thái</label>
+            <label className={labelClass}>{t("lectures.editSet.fields.status")}</label>
             <Select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as ReviewVideoSetStatus })} className={inputClass}>
-              {Object.entries(statusLabels).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
+              {SET_STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {setStatusLabel(t, s)}
                 </option>
               ))}
             </Select>
           </div>
         </div>
         <div>
-          <label className={labelClass}>Thứ tự</label>
+          <label className={labelClass}>{t("lectures.editSet.fields.displayOrder")}</label>
           <input type="number" value={form.displayOrder} onChange={(e) => setForm({ ...form, displayOrder: e.target.value })} className={inputClass} />
         </div>
         <p className="text-[10px] text-slate-400 italic">
-          Mã Bộ ({set.code}) và Khung chương trình ({set.curriculumCode}) không sửa được sau khi tạo. Chuyển trạng thái sang "Đã
-          công bố" để đủ điều kiện dùng làm nguồn (chỉ set 1 lần thời điểm công bố) — học sinh CHƯA xem được ngay, chỉ xem sau khi
-          Giáo viên chọn bộ này làm "BTVN buổi sau" ở Nhận xét học viên. Chuyển "Đã gỡ" (ARCHIVED) để gỡ khỏi kho — không xoá hẳn
-          bản ghi.
+          {t("lectures.editSet.hint", { code: set.code, curriculumCode: set.curriculumCode })}
         </p>
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="secondary" onClick={onClose}>
-            Hủy
+            {t("lectures.common.cancel")}
           </Button>
           <Button type="submit" variant="primary" disabled={submitting}>
-            {submitting ? "Đang lưu..." : "Lưu thay đổi"}
+            {submitting ? t("lectures.common.saving") : t("lectures.editSet.submit")}
           </Button>
         </div>
       </form>
@@ -1286,8 +1329,38 @@ function EditSetModal({
   );
 }
 
+/** Preview video/audio ĐÃ LƯU trong card — trước đây chỉ hiện link text, GV phải tự copy mở tab khác mới xem lại được. */
+function VideoPreviewCell({ sourceType, fileUrl, title }: { sourceType: ReviewVideoSourceType; fileUrl: string; title: string }) {
+  if (sourceType === "YOUTUBE_URL") {
+    const videoId = extractYouTubeVideoId(fileUrl);
+    if (videoId) {
+      return (
+        <div className="rounded-lg overflow-hidden border border-slate-200 bg-black aspect-video max-w-xs">
+          <iframe
+            src={`https://www.youtube.com/embed/${videoId}`}
+            title={title}
+            className="w-full h-full"
+            allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
+        </div>
+      );
+    }
+    return (
+      <a href={fileUrl} target="_blank" rel="noreferrer" className="text-brand-orange break-all hover:underline block">
+        {fileUrl}
+      </a>
+    );
+  }
+  if (sourceType === "R2_AUDIO") {
+    return <audio src={fileUrl} controls className="w-full" />;
+  }
+  return <video src={fileUrl} controls className="w-full max-w-xs max-h-48 rounded-lg border border-slate-200 bg-black" />;
+}
+
 /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-12 — hiện danh sách video TRỰC TIẾP trong panel chi tiết bộ (trước đây là VideosModal, ẩn sau nút "Video" + modal riêng). */
 function VideoListSection({ set }: { set: ReviewVideoSetResponse }) {
+  const { t } = useTranslation("lms-review-video");
   const [videos, setVideos] = useState<ReviewVideoResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1304,7 +1377,7 @@ function VideoListSection({ set }: { set: ReviewVideoSetResponse }) {
     setError(null);
     listReviewVideos(set.id)
       .then(setVideos)
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách video."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("lectures.videoList.errors.loadFailed")))
       .finally(() => setLoading(false));
   };
 
@@ -1313,7 +1386,7 @@ function VideoListSection({ set }: { set: ReviewVideoSetResponse }) {
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !content.fileUrl.trim() || !content.durationSeconds) {
-      setError("Vui lòng điền tiêu đề, video/audio và chờ dò xong thời lượng.");
+      setError(t("lectures.videoList.errors.requiredFields"));
       return;
     }
     setSubmitting(true);
@@ -1334,9 +1407,9 @@ function VideoListSection({ set }: { set: ReviewVideoSetResponse }) {
       setConnSettings({ completionThresholdPercent: "", requiredViewCount: "" });
       setShowAddForm(false);
       load();
-      showToast("Đã thêm video thành công!");
+      showToast(t("lectures.toast.videoAdded"));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Thêm video thất bại — có thể bạn không được phân công giảng dạy lớp/khung này.");
+      setError(err instanceof ApiError ? err.message : t("lectures.videoList.errors.addFailed"));
     } finally {
       setSubmitting(false);
     }
@@ -1344,14 +1417,14 @@ function VideoListSection({ set }: { set: ReviewVideoSetResponse }) {
 
   return (
     <div className="px-5 py-4 border-b border-slate-100 space-y-4">
-      <p className="text-xs font-bold text-slate-700 uppercase tracking-wide">Video</p>
+      <p className="text-xs font-bold text-slate-700 uppercase tracking-wide">{t("lectures.videoList.heading")}</p>
       <div className="space-y-4">
         {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
         {loading ? (
-          <p className="text-xs text-slate-500">Đang tải...</p>
+          <p className="text-xs text-slate-500">{t("lectures.common.loading")}</p>
         ) : videos.length === 0 ? (
-          <p className="text-xs text-slate-400 italic">Bộ này chưa có video nào.</p>
+          <p className="text-xs text-slate-400 italic">{t("lectures.videoList.empty")}</p>
         ) : (
           <div className="space-y-2">
             {videos.map((v) => (
@@ -1363,10 +1436,12 @@ function VideoListSection({ set }: { set: ReviewVideoSetResponse }) {
                   </span>
                   <Badge variant="info">{v.sourceType}</Badge>
                 </div>
-                <p className="text-slate-400 break-all">{v.fileUrl}</p>
+                <VideoPreviewCell sourceType={v.sourceType} fileUrl={v.fileUrl} title={v.title} />
                 <p className="text-slate-400">
-                  {v.fileSizeBytes ? `${(v.fileSizeBytes / 1024 / 1024).toFixed(1)} MB` : "—"} · {Math.round(v.durationSeconds / 60)} phút
-                  {set.videoType === "CONNECTION" && ` · Ngưỡng pass ${v.completionThresholdPercent}% · Chia đều qua ${v.requiredViewCount} lượt`}
+                  {v.fileSizeBytes ? `${(v.fileSizeBytes / 1024 / 1024).toFixed(1)} MB` : t("lectures.videoList.sizeUnknown")} ·{" "}
+                  {t("lectures.videoList.durationMinutes", { minutes: Math.round(v.durationSeconds / 60) })}
+                  {set.videoType === "CONNECTION" &&
+                    t("lectures.videoList.connectionMeta", { percent: v.completionThresholdPercent, count: v.requiredViewCount })}
                 </p>
                 {(set.videoType === "REFLEX" || set.videoType === "CONNECTION") && (
                   <button
@@ -1374,7 +1449,7 @@ function VideoListSection({ set }: { set: ReviewVideoSetResponse }) {
                     onClick={() => setExpandedVideoId(expandedVideoId === v.id ? null : v.id)}
                     className="text-brand-red font-bold hover:underline"
                   >
-                    {expandedVideoId === v.id ? "Đóng câu hỏi" : "Quản lý câu hỏi"}
+                    {expandedVideoId === v.id ? t("lectures.videoList.closeQuestions") : t("lectures.videoList.manageQuestions")}
                   </button>
                 )}
                 {set.videoType === "REFLEX" && expandedVideoId === v.id && <VideoQuestionsPanel videoId={v.id} />}
@@ -1387,23 +1462,23 @@ function VideoListSection({ set }: { set: ReviewVideoSetResponse }) {
         {showAddForm ? (
           <form onSubmit={handleAdd} className="border-t border-slate-100 pt-4 space-y-3">
             <div>
-              <label className={labelClass}>Tiêu đề *</label>
+              <label className={labelClass}>{t("lectures.videoList.fields.title")}</label>
               <input value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} required />
             </div>
             <ContentSourceField value={content} onChange={setContent} />
             {set.videoType === "CONNECTION" && <ConnectionThresholdFields value={connSettings} onChange={setConnSettings} />}
             <div className="flex justify-end gap-2">
               <Button type="button" variant="secondary" onClick={() => setShowAddForm(false)}>
-                Hủy
+                {t("lectures.common.cancel")}
               </Button>
               <Button type="submit" variant="primary" disabled={submitting}>
-                {submitting ? "Đang lưu..." : "Thêm video"}
+                {submitting ? t("lectures.common.saving") : t("lectures.videoList.addButton")}
               </Button>
             </div>
           </form>
         ) : (
           <Button variant="secondary" onClick={() => setShowAddForm(true)}>
-            <Plus className="w-4 h-4" /> Thêm video
+            <Plus className="w-4 h-4" /> {t("lectures.videoList.addButton")}
           </Button>
         )}
       </div>
@@ -1417,6 +1492,7 @@ type ReflexQuestionFormValue = { timestampSeconds: string; prompt: string; maxRe
 
 /** Dùng chung cho form "Thêm câu hỏi" VÀ form "Sửa câu hỏi" REFLEX — tránh lặp 2 lần y hệt nhau. */
 function ReflexQuestionFields({ value, onChange }: { value: ReflexQuestionFormValue; onChange: (v: ReflexQuestionFormValue) => void }) {
+  const { t } = useTranslation("lms-review-video");
   return (
     <>
       <div className="grid grid-cols-3 gap-2">
@@ -1425,7 +1501,7 @@ function ReflexQuestionFields({ value, onChange }: { value: ReflexQuestionFormVa
           min={0}
           value={value.timestampSeconds}
           onChange={(e) => onChange({ ...value, timestampSeconds: e.target.value })}
-          placeholder="Mốc giây *"
+          placeholder={t("lectures.reflexFields.timestampPlaceholder")}
           className={inputClass}
         />
         <input
@@ -1433,7 +1509,7 @@ function ReflexQuestionFields({ value, onChange }: { value: ReflexQuestionFormVa
           min={1}
           value={value.maxRecordingSeconds}
           onChange={(e) => onChange({ ...value, maxRecordingSeconds: e.target.value })}
-          placeholder="Ghi âm tối đa (s) *"
+          placeholder={t("lectures.reflexFields.maxRecordingPlaceholder")}
           className={inputClass}
         />
         <input
@@ -1441,14 +1517,14 @@ function ReflexQuestionFields({ value, onChange }: { value: ReflexQuestionFormVa
           min={1}
           value={value.maxAttempts}
           onChange={(e) => onChange({ ...value, maxAttempts: e.target.value })}
-          placeholder="Số lượt nộp lại (để trống = không giới hạn)"
+          placeholder={t("lectures.reflexFields.maxAttemptsPlaceholder")}
           className={inputClass}
         />
       </div>
       <textarea
         value={value.prompt}
         onChange={(e) => onChange({ ...value, prompt: e.target.value })}
-        placeholder="Nội dung câu hỏi (tuỳ chọn)"
+        placeholder={t("lectures.reflexFields.promptPlaceholder")}
         rows={2}
         className={inputClass}
       />
@@ -1458,6 +1534,7 @@ function ReflexQuestionFields({ value, onChange }: { value: ReflexQuestionFormVa
 
 /** UC-23b (V57): quản lý câu hỏi gắn mốc thời gian của 1 video REFLEX — mỗi câu tự có thời lượng ghi âm/số lần nộp lại riêng. */
 function VideoQuestionsPanel({ videoId }: { videoId: number }) {
+  const { t } = useTranslation("lms-review-video");
   const [questions, setQuestions] = useState<ReviewVideoQuestionResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1477,7 +1554,7 @@ function VideoQuestionsPanel({ videoId }: { videoId: number }) {
     setError(null);
     listReviewVideoQuestions(videoId)
       .then((qs) => setQuestions(qs.slice().sort((a, b) => a.displayOrder - b.displayOrder)))
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách câu hỏi."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("lectures.common.loadQuestionsFailed")))
       .finally(() => setLoading(false));
   };
 
@@ -1486,7 +1563,7 @@ function VideoQuestionsPanel({ videoId }: { videoId: number }) {
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.timestampSeconds || !form.maxRecordingSeconds) {
-      setError("Vui lòng điền mốc thời gian và thời lượng ghi âm tối đa.");
+      setError(t("lectures.common.timestampAndDurationRequired"));
       return;
     }
     setSubmitting(true);
@@ -1503,7 +1580,7 @@ function VideoQuestionsPanel({ videoId }: { videoId: number }) {
       setShowAddForm(false);
       load();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Thêm câu hỏi thất bại.");
+      setError(err instanceof ApiError ? err.message : t("lectures.common.addQuestionFailed"));
     } finally {
       setSubmitting(false);
     }
@@ -1524,7 +1601,7 @@ function VideoQuestionsPanel({ videoId }: { videoId: number }) {
   const handleUpdate = async (e: React.FormEvent, questionId: number, displayOrder: number) => {
     e.preventDefault();
     if (!editForm.timestampSeconds || !editForm.maxRecordingSeconds) {
-      setEditError("Vui lòng điền mốc thời gian và thời lượng ghi âm tối đa.");
+      setEditError(t("lectures.common.timestampAndDurationRequired"));
       return;
     }
     setEditSubmitting(true);
@@ -1540,7 +1617,7 @@ function VideoQuestionsPanel({ videoId }: { videoId: number }) {
       setEditingQuestionId(null);
       load();
     } catch (err) {
-      setEditError(err instanceof ApiError ? err.message : "Sửa câu hỏi thất bại.");
+      setEditError(err instanceof ApiError ? err.message : t("lectures.common.editQuestionFailed"));
     } finally {
       setEditSubmitting(false);
     }
@@ -1550,9 +1627,9 @@ function VideoQuestionsPanel({ videoId }: { videoId: number }) {
     <div className="border-t border-slate-100 mt-2 pt-2 space-y-2">
       {error && <div className="text-[11px] text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
       {loading ? (
-        <p className="text-slate-400">Đang tải câu hỏi...</p>
+        <p className="text-slate-400">{t("lectures.common.loadingQuestions")}</p>
       ) : questions.length === 0 ? (
-        <p className="text-slate-400 italic">Chưa có câu hỏi nào — học sinh sẽ không nộp được bài cho tới khi có ít nhất 1 câu.</p>
+        <p className="text-slate-400 italic">{t("lectures.reflexQuestions.empty")}</p>
       ) : (
         <div className="space-y-1.5">
           {questions.map((q, i) =>
@@ -1566,10 +1643,10 @@ function VideoQuestionsPanel({ videoId }: { videoId: number }) {
                 <ReflexQuestionFields value={editForm} onChange={setEditForm} />
                 <div className="flex justify-end gap-2">
                   <Button type="button" variant="secondary" size="sm" onClick={() => setEditingQuestionId(null)}>
-                    Hủy
+                    {t("lectures.common.cancel")}
                   </Button>
                   <Button type="submit" variant="primary" size="sm" disabled={editSubmitting}>
-                    {editSubmitting ? "Đang lưu..." : "Lưu câu hỏi"}
+                    {editSubmitting ? t("lectures.common.saving") : t("lectures.common.save")}
                   </Button>
                 </div>
               </form>
@@ -1577,14 +1654,21 @@ function VideoQuestionsPanel({ videoId }: { videoId: number }) {
               <div key={q.id} className="bg-slate-50 border border-slate-200 rounded-lg p-2">
                 <div className="flex items-start justify-between gap-2">
                   <p className="font-bold text-slate-700">
-                    Câu {i + 1} · Mốc {Math.floor(q.timestampSeconds / 60)}:{String(q.timestampSeconds % 60).padStart(2, "0")} · Ghi âm tối đa {q.maxRecordingSeconds}s ·{" "}
-                    {q.maxAttempts != null ? `Tối đa ${q.maxAttempts} lượt nộp` : "Không giới hạn lượt nộp"}
+                    {t("lectures.reflexQuestions.itemSummary", {
+                      index: i + 1,
+                      minutes: Math.floor(q.timestampSeconds / 60),
+                      seconds: String(q.timestampSeconds % 60).padStart(2, "0"),
+                      maxRecording: q.maxRecordingSeconds
+                    })}{" "}
+                    {q.maxAttempts != null
+                      ? t("lectures.reflexQuestions.maxAttemptsLabel", { count: q.maxAttempts })
+                      : t("lectures.reflexQuestions.unlimitedAttempts")}
                   </p>
                   <button
                     type="button"
                     onClick={() => startEdit(q)}
                     className="shrink-0 text-slate-400 hover:text-brand-red transition-colors"
-                    title="Sửa câu hỏi"
+                    title={t("lectures.common.editQuestionTooltip")}
                   >
                     <Pencil className="w-3.5 h-3.5" />
                   </button>
@@ -1601,19 +1685,19 @@ function VideoQuestionsPanel({ videoId }: { videoId: number }) {
           <ReflexQuestionFields value={form} onChange={setForm} />
           <div className="flex justify-end gap-2">
             <Button type="button" variant="secondary" size="sm" onClick={() => setShowAddForm(false)}>
-              Hủy
+              {t("lectures.common.cancel")}
             </Button>
             <Button type="submit" variant="primary" size="sm" disabled={submitting}>
-              {submitting ? "Đang lưu..." : "Thêm câu hỏi"}
+              {submitting ? t("lectures.common.saving") : t("lectures.common.addQuestion")}
             </Button>
           </div>
         </form>
       ) : showImportPanel ? (
         <div className="bg-white border border-slate-200 rounded-lg p-2.5 space-y-2">
           <div className="flex items-center justify-between">
-            <p className="text-[11px] font-bold text-slate-600">Nhập câu hỏi từ Excel</p>
+            <p className="text-[11px] font-bold text-slate-600">{t("lectures.common.importFromExcelTitle")}</p>
             <Button type="button" variant="secondary" size="sm" onClick={() => setShowImportPanel(false)}>
-              Đóng
+              {t("lectures.common.close")}
             </Button>
           </div>
           <ReviewVideoQuestionImportPanel videoId={videoId} videoType="REFLEX" onImported={() => { setShowImportPanel(false); load(); }} />
@@ -1621,10 +1705,10 @@ function VideoQuestionsPanel({ videoId }: { videoId: number }) {
       ) : (
         <div className="flex gap-2">
           <Button type="button" variant="secondary" size="sm" onClick={() => setShowAddForm(true)}>
-            <Plus className="w-3.5 h-3.5" /> Thêm câu hỏi
+            <Plus className="w-3.5 h-3.5" /> {t("lectures.common.addQuestion")}
           </Button>
           <Button type="button" variant="ghost" size="sm" onClick={() => setShowImportPanel(true)}>
-            Nhập Excel
+            {t("lectures.common.importExcel")}
           </Button>
         </div>
       )}
@@ -1645,6 +1729,7 @@ interface EditingConnectionChoice {
  * VideoQuestionsPanel (REFLEX). Bắt buộc ≥ 1 câu trước khi Publish được cả bộ.
  */
 function VideoMcqQuestionsPanel({ videoId }: { videoId: number }) {
+  const { t } = useTranslation("lms-review-video");
   const [questions, setQuestions] = useState<ReviewVideoConnectionQuestionResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1667,7 +1752,7 @@ function VideoMcqQuestionsPanel({ videoId }: { videoId: number }) {
     setError(null);
     listReviewVideoConnectionQuestions(videoId)
       .then((qs) => setQuestions(qs.slice().sort((a, b) => a.displayOrder - b.displayOrder)))
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách câu hỏi."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("lectures.common.loadQuestionsFailed")))
       .finally(() => setLoading(false));
   };
 
@@ -1686,7 +1771,7 @@ function VideoMcqQuestionsPanel({ videoId }: { videoId: number }) {
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!prompt.trim() || choices.some((c) => !c.content.trim())) {
-      setError("Vui lòng điền nội dung câu hỏi và mọi lựa chọn.");
+      setError(t("lectures.connectionQuestions.promptAndChoicesRequired"));
       return;
     }
     setSubmitting(true);
@@ -1702,7 +1787,7 @@ function VideoMcqQuestionsPanel({ videoId }: { videoId: number }) {
       setShowAddForm(false);
       load();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Thêm câu hỏi thất bại.");
+      setError(err instanceof ApiError ? err.message : t("lectures.common.addQuestionFailed"));
     } finally {
       setSubmitting(false);
     }
@@ -1719,7 +1804,7 @@ function VideoMcqQuestionsPanel({ videoId }: { videoId: number }) {
   const handleUpdate = async (e: React.FormEvent, questionId: number, displayOrder: number) => {
     e.preventDefault();
     if (!editPrompt.trim() || editChoices.some((c) => !c.content.trim())) {
-      setEditError("Vui lòng điền nội dung câu hỏi và mọi đáp án.");
+      setEditError(t("lectures.connectionQuestions.promptAndAnswersRequired"));
       return;
     }
     setEditSubmitting(true);
@@ -1734,7 +1819,7 @@ function VideoMcqQuestionsPanel({ videoId }: { videoId: number }) {
       setEditingQuestionId(null);
       load();
     } catch (err) {
-      setEditError(err instanceof ApiError ? err.message : "Sửa câu hỏi thất bại.");
+      setEditError(err instanceof ApiError ? err.message : t("lectures.common.editQuestionFailed"));
     } finally {
       setEditSubmitting(false);
     }
@@ -1744,9 +1829,9 @@ function VideoMcqQuestionsPanel({ videoId }: { videoId: number }) {
     <div className="border-t border-slate-100 mt-2 pt-2 space-y-2">
       {error && <div className="text-[11px] text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
       {loading ? (
-        <p className="text-slate-400">Đang tải câu hỏi...</p>
+        <p className="text-slate-400">{t("lectures.common.loadingQuestions")}</p>
       ) : questions.length === 0 ? (
-        <p className="text-slate-400 italic">Chưa có câu hỏi nào — bộ này KHÔNG Publish được tới khi có ít nhất 1 câu.</p>
+        <p className="text-slate-400 italic">{t("lectures.connectionQuestions.empty")}</p>
       ) : (
         <div className="space-y-1.5">
           {questions.map((q, i) =>
@@ -1757,7 +1842,7 @@ function VideoMcqQuestionsPanel({ videoId }: { videoId: number }) {
                 className="bg-white border border-brand-red/30 rounded-lg p-2.5 space-y-2"
               >
                 {editError && <div className="text-[11px] text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{editError}</div>}
-                <input value={editPrompt} onChange={(e) => setEditPrompt(e.target.value)} placeholder="Nội dung câu hỏi *" className={inputClass} />
+                <input value={editPrompt} onChange={(e) => setEditPrompt(e.target.value)} placeholder={t("lectures.common.promptPlaceholder")} className={inputClass} />
                 <div className="space-y-1.5">
                   {editChoices.map((c, idx) => (
                     <div key={c.choiceId} className="flex items-center gap-2">
@@ -1773,31 +1858,31 @@ function VideoMcqQuestionsPanel({ videoId }: { videoId: number }) {
                       <input
                         value={c.content}
                         onChange={(e) => setEditChoices((prev) => prev.map((x, i) => (i === idx ? { ...x, content: e.target.value } : x)))}
-                        placeholder={`Đáp án ${String.fromCharCode(65 + idx)}...`}
+                        placeholder={t("lectures.common.choicePlaceholder", { letter: String.fromCharCode(65 + idx) })}
                         className={`flex-1 ${inputClass}`}
                       />
                     </div>
                   ))}
                 </div>
-                <p className="text-[10px] text-slate-400 italic">Không đổi được số lượng đáp án khi sửa — tạo câu hỏi mới nếu cần thêm/bớt.</p>
+                <p className="text-[10px] text-slate-400 italic">{t("lectures.connectionQuestions.choiceUnchangeableHint")}</p>
                 <div className="flex justify-end gap-2">
                   <Button type="button" variant="secondary" size="sm" onClick={() => setEditingQuestionId(null)}>
-                    Hủy
+                    {t("lectures.common.cancel")}
                   </Button>
                   <Button type="submit" variant="primary" size="sm" disabled={editSubmitting}>
-                    {editSubmitting ? "Đang lưu..." : "Lưu câu hỏi"}
+                    {editSubmitting ? t("lectures.common.saving") : t("lectures.common.save")}
                   </Button>
                 </div>
               </form>
             ) : (
               <div key={q.id} className="bg-slate-50 border border-slate-200 rounded-lg p-2">
                 <div className="flex items-start justify-between gap-2">
-                  <p className="font-bold text-slate-700">Câu {i + 1} · {q.prompt}</p>
+                  <p className="font-bold text-slate-700">{t("lectures.connectionQuestions.itemSummary", { index: i + 1, prompt: q.prompt })}</p>
                   <button
                     type="button"
                     onClick={() => startEdit(q)}
                     className="shrink-0 text-slate-400 hover:text-brand-red transition-colors"
-                    title="Sửa câu hỏi"
+                    title={t("lectures.common.editQuestionTooltip")}
                   >
                     <Pencil className="w-3.5 h-3.5" />
                   </button>
@@ -1817,7 +1902,7 @@ function VideoMcqQuestionsPanel({ videoId }: { videoId: number }) {
 
       {showAddForm ? (
         <form onSubmit={handleAdd} className="bg-white border border-slate-200 rounded-lg p-2.5 space-y-2">
-          <input value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="Nội dung câu hỏi *" className={inputClass} />
+          <input value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder={t("lectures.common.promptPlaceholder")} className={inputClass} />
           <div className="space-y-1.5">
             {choices.map((c, idx) => (
               <div key={idx} className="flex items-center gap-2">
@@ -1833,7 +1918,7 @@ function VideoMcqQuestionsPanel({ videoId }: { videoId: number }) {
                 <input
                   value={c.content}
                   onChange={(e) => setChoices((prev) => prev.map((x, i) => (i === idx ? { ...x, content: e.target.value } : x)))}
-                  placeholder={`Đáp án ${String.fromCharCode(65 + idx)}...`}
+                  placeholder={t("lectures.common.choicePlaceholder", { letter: String.fromCharCode(65 + idx) })}
                   className={`flex-1 ${inputClass}`}
                 />
                 {choices.length > 2 && (
@@ -1847,15 +1932,15 @@ function VideoMcqQuestionsPanel({ videoId }: { videoId: number }) {
           <div className="flex justify-between items-center gap-2">
             {choices.length < 5 ? (
               <Button type="button" variant="ghost" size="sm" onClick={handleAddChoice}>
-                <Plus className="w-3.5 h-3.5" /> Thêm lựa chọn
+                <Plus className="w-3.5 h-3.5" /> {t("lectures.common.addChoice")}
               </Button>
             ) : <span />}
             <div className="flex gap-2">
               <Button type="button" variant="secondary" size="sm" onClick={() => setShowAddForm(false)}>
-                Hủy
+                {t("lectures.common.cancel")}
               </Button>
               <Button type="submit" variant="primary" size="sm" disabled={submitting}>
-                {submitting ? "Đang lưu..." : "Thêm câu hỏi"}
+                {submitting ? t("lectures.common.saving") : t("lectures.common.addQuestion")}
               </Button>
             </div>
           </div>
@@ -1863,9 +1948,9 @@ function VideoMcqQuestionsPanel({ videoId }: { videoId: number }) {
       ) : showImportPanel ? (
         <div className="bg-white border border-slate-200 rounded-lg p-2.5 space-y-2">
           <div className="flex items-center justify-between">
-            <p className="text-[11px] font-bold text-slate-600">Nhập câu hỏi từ Excel</p>
+            <p className="text-[11px] font-bold text-slate-600">{t("lectures.common.importFromExcelTitle")}</p>
             <Button type="button" variant="secondary" size="sm" onClick={() => setShowImportPanel(false)}>
-              Đóng
+              {t("lectures.common.close")}
             </Button>
           </div>
           <ReviewVideoQuestionImportPanel videoId={videoId} videoType="CONNECTION" onImported={() => { setShowImportPanel(false); load(); }} />
@@ -1873,10 +1958,10 @@ function VideoMcqQuestionsPanel({ videoId }: { videoId: number }) {
       ) : (
         <div className="flex gap-2">
           <Button type="button" variant="secondary" size="sm" onClick={() => setShowAddForm(true)}>
-            <Plus className="w-3.5 h-3.5" /> Thêm câu hỏi
+            <Plus className="w-3.5 h-3.5" /> {t("lectures.common.addQuestion")}
           </Button>
           <Button type="button" variant="ghost" size="sm" onClick={() => setShowImportPanel(true)}>
-            Nhập Excel
+            {t("lectures.common.importExcel")}
           </Button>
         </div>
       )}
@@ -1893,6 +1978,7 @@ function StatsModal({
   set: ReviewVideoSetResponse;
   onClose: () => void;
 }) {
+  const { t } = useTranslation("lms-review-video");
   const [assignedClasses, setAssignedClasses] = useState<ClassResponse[]>([]);
   const [classId, setClassId] = useState<number | null>(null);
   const [stats, setStats] = useState<ReviewVideoSetStatsResponse | null>(null);
@@ -1906,7 +1992,7 @@ function StatsModal({
         setAssignedClasses(cls);
         setClassId(cls[0]?.id ?? null);
       })
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách lớp đã gán."));
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("lectures.stats.loadAssignedFailed")));
   }, [set.id]);
 
   useEffect(() => {
@@ -1918,22 +2004,22 @@ function StatsModal({
         setStats(statsRes);
         setEnrollments(enrollmentRes.filter((e) => e.status === "ACTIVE"));
       })
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được thống kê."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("lectures.stats.loadStatsFailed")))
       .finally(() => setLoading(false));
   }, [set.id, classId]);
 
   return (
-    <Modal open onClose={onClose} title={`Thống kê — ${set.title}`} size="lg">
+    <Modal open onClose={onClose} title={t("lectures.stats.title", { title: set.title })} size="lg">
       <div className="space-y-4">
         {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
         {assignedClasses.length === 0 ? (
-          <p className="text-xs text-slate-400 italic">Bộ này chưa được gán cho lớp nào — dùng "Đã gán ... lớp" ở chi tiết Bộ để gán trước.</p>
+          <p className="text-xs text-slate-400 italic">{t("lectures.stats.notAssigned")}</p>
         ) : (
           <div>
-            <label className={labelClass}>Xem thống kê theo lớp *</label>
+            <label className={labelClass}>{t("lectures.stats.selectClassLabel")}</label>
             <Select value={classId ?? ""} onChange={(e) => setClassId(e.target.value ? Number(e.target.value) : null)} className={`${inputClass} w-64`}>
-              <option value="">-- Chọn lớp --</option>
+              <option value="">{t("lectures.stats.selectClassPlaceholder")}</option>
               {assignedClasses.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.classCode} — {c.name}
@@ -1944,19 +2030,19 @@ function StatsModal({
         )}
 
         {loading ? (
-          <p className="text-xs text-slate-500">Đang tải...</p>
+          <p className="text-xs text-slate-500">{t("lectures.common.loading")}</p>
         ) : !stats || enrollments.length === 0 ? (
-          <p className="text-xs text-slate-400 italic">Chưa có dữ liệu để hiển thị.</p>
+          <p className="text-xs text-slate-400 italic">{t("lectures.stats.empty")}</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-xs border-collapse">
               <thead>
                 <tr className="bg-slate-50">
-                  <th className="text-left p-2 border border-slate-200 sticky left-0 bg-slate-50">Học sinh</th>
+                  <th className="text-left p-2 border border-slate-200 sticky left-0 bg-slate-50">{t("lectures.stats.studentColumn")}</th>
                   {stats.videos.map((v) => (
                     <th key={v.videoId} className="text-center p-2 border border-slate-200 font-semibold whitespace-nowrap">
                       {v.title}
-                      <span className="block text-[10px] font-normal text-slate-400">Cần đạt {v.requiredViewCount} lượt</span>
+                      <span className="block text-[10px] font-normal text-slate-400">{t("lectures.stats.requiredViewsLabel", { count: v.requiredViewCount })}</span>
                     </th>
                   ))}
                 </tr>
@@ -1974,7 +2060,8 @@ function StatsModal({
                       const viewCount = cell?.viewCount ?? 0;
                       return (
                         <td key={v.videoId} className={`text-center p-2 border border-slate-200 ${completed ? "bg-emerald-50 text-emerald-700 font-bold" : "text-slate-500"}`}>
-                          {percent}%<span className="block text-[10px] font-normal">{viewCount}/{v.requiredViewCount} lượt</span>
+                          {percent}%
+                          <span className="block text-[10px] font-normal">{t("lectures.stats.viewsFraction", { viewCount, required: v.requiredViewCount })}</span>
                         </td>
                       );
                     })}

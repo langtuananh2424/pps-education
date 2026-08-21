@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Check, CheckCircle2, Play, ShieldAlert, X } from "lucide-react";
 import { friendlyApiErrorMessage } from "@/lib/apiClient";
 import {
@@ -247,6 +248,12 @@ function useMediaElementWatchProgress(
 
 interface ReviewVideoTaskModalProps {
   video: ReviewVideoResponse;
+  /**
+   * V128/V129 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-19) — lần giao ACTIVE cụ thể
+   * đang mở modal này (BE nay yêu cầu bắt buộc để ghi tiến độ đúng lần giao, không tự đoán). undefined
+   * khi mở từ mục chỉ nằm trong Kho (chưa có bản giao nào) — mirror ReflexVideoTaskPage.
+   */
+  assignmentId: number | undefined;
   onClose: () => void;
 }
 
@@ -258,7 +265,8 @@ interface ReviewVideoTaskModalProps {
  * này nữa (video khóa hoàn toàn + ghi âm tự động theo mốc thời gian không phù hợp dạng popup dễ
  * bấm-ra-ngoài-là-mất bản ghi nháp).
  */
-export default function ReviewVideoTaskModal({ video, onClose }: ReviewVideoTaskModalProps) {
+export default function ReviewVideoTaskModal({ video, assignmentId, onClose }: ReviewVideoTaskModalProps) {
+  const { t } = useTranslation("portal-exercises");
   const isYouTube = video.sourceType === "YOUTUBE_URL";
   const youTubeVideoId = isYouTube ? extractYouTubeVideoId(video.fileUrl) : null;
 
@@ -292,17 +300,18 @@ export default function ReviewVideoTaskModal({ video, onClose }: ReviewVideoTask
     setSelectedAnswers({});
     setQuizResult(null);
     setQuizError(null);
-    startReviewVideoWatchSession(video.id)
+    if (assignmentId == null) return;
+    startReviewVideoWatchSession(video.id, assignmentId)
       .then((r) => setWatchSessionId(r.sessionId))
       .catch(() => undefined);
     // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — đọc lại tiến độ ĐÃ LƯU ngay khi
     // mở modal (trước đây "Tổng số lượt đã đạt" chỉ hiện SAU khi có report sống trong phiên đang mở,
     // nên mở lần đầu luôn thấy trống dù đã có tiến độ từ trước).
-    getReviewVideoProgress(video.id)
+    getReviewVideoProgress(video.id, assignmentId)
       .then((p) => setProgressSummary({ viewCount: p.viewCount, requiredViewCount: p.requiredViewCount, completed: p.completed }))
       .catch(() => undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [video.id]);
+  }, [video.id, assignmentId]);
 
   /**
    * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-12 — chặn màn hình "Bắt đầu xem" (giống
@@ -344,7 +353,7 @@ export default function ReviewVideoTaskModal({ video, onClose }: ReviewVideoTask
     setConnectionQuestionsError(null);
     listReviewVideoConnectionQuestionsForSession(watchSessionId)
       .then((qs) => setConnectionQuestions(qs.slice().sort((a, b) => a.displayOrder - b.displayOrder)))
-      .catch((err) => setConnectionQuestionsError(friendlyApiErrorMessage(err, "Không tải được câu hỏi.")))
+      .catch((err) => setConnectionQuestionsError(friendlyApiErrorMessage(err, t("reviewVideoTask.questionsLoadError"))))
       .finally(() => setLoadingConnectionQuestions(false));
   }, [watchSessionId]);
 
@@ -359,11 +368,12 @@ export default function ReviewVideoTaskModal({ video, onClose }: ReviewVideoTask
    * sinh không cần tự đóng/mở lại trang để sang lượt kế tiếp.
    */
   const startNextSession = () => {
+    if (assignmentId == null) return;
     setQuizPopupOpen(false);
     setSelectedAnswers({});
     setQuizResult(null);
     setQuizError(null);
-    startReviewVideoWatchSession(video.id)
+    startReviewVideoWatchSession(video.id, assignmentId)
       .then((r) => setWatchSessionId(r.sessionId))
       .catch(() => undefined);
   };
@@ -379,7 +389,7 @@ export default function ReviewVideoTaskModal({ video, onClose }: ReviewVideoTask
       handleProgress(result.progress);
       if (!result.progress.completed) startNextSession();
     } catch (err) {
-      setQuizError(friendlyApiErrorMessage(err, "Nộp câu trả lời thất bại — thử lại."));
+      setQuizError(friendlyApiErrorMessage(err, t("reviewVideoTask.submitQuizError")));
     } finally {
       setSubmittingQuiz(false);
     }
@@ -427,17 +437,15 @@ export default function ReviewVideoTaskModal({ video, onClose }: ReviewVideoTask
         <div className="fixed inset-0 bg-ink/70 backdrop-blur-sm z-[120] flex items-center justify-center p-4">
           <div className="bg-white rounded-[20px] max-w-sm w-full shadow-2xl p-5 sm:p-6 space-y-4 text-center">
             <h3 className="text-lg font-extrabold text-ink">{video.title}</h3>
-            <p className="text-xs font-bold text-muted">
-              Video sẽ tự phát toàn màn hình — không tạm dừng/tua lại được. Xem hết video để mở khoá câu hỏi trắc nghiệm của lượt này.
-            </p>
+            <p className="text-xs font-bold text-muted">{t("reviewVideoTask.startScreen.description")}</p>
             <button
               onClick={handleStart}
               className="w-full flex items-center justify-center gap-1.5 px-4 py-3 bg-teal hover:bg-teal-deep text-white rounded-xl text-sm font-extrabold"
             >
-              <Play size={16} /> Bắt đầu xem
+              <Play size={16} /> {t("reviewVideoTask.startScreen.startButton")}
             </button>
             <button onClick={handleExit} className="w-full px-4 py-2 text-xs font-extrabold text-muted hover:text-ink">
-              Thoát
+              {t("reviewVideoTask.startScreen.exitButton")}
             </button>
           </div>
         </div>
@@ -447,14 +455,14 @@ export default function ReviewVideoTaskModal({ video, onClose }: ReviewVideoTask
         <div className="fixed inset-0 bg-ink/60 z-[130] flex items-center justify-center p-4">
           <div className="bg-white rounded-[20px] max-w-sm w-full shadow-2xl p-5 sm:p-6 space-y-4 text-center">
             <ShieldAlert size={36} className="text-amber-600 mx-auto" />
-            <h3 className="text-base font-extrabold text-ink">Thoát khi chưa hoàn thành lượt xem?</h3>
-            <p className="text-xs font-bold text-muted">Bạn chưa trả lời xong câu hỏi của lượt xem này — thoát ra sẽ không tính lượt.</p>
+            <h3 className="text-base font-extrabold text-ink">{t("reviewVideoTask.exitConfirm.title")}</h3>
+            <p className="text-xs font-bold text-muted">{t("reviewVideoTask.exitConfirm.description")}</p>
             <div className="flex flex-col sm:flex-row gap-2">
               <button
                 onClick={() => setShowExitConfirm(false)}
                 className="flex-1 px-4 py-2.5 bg-white hover:bg-slate-100 border border-line rounded-xl text-xs font-extrabold text-ink"
               >
-                Ở lại xem tiếp
+                {t("reviewVideoTask.exitConfirm.stay")}
               </button>
               <button
                 onClick={() => {
@@ -463,7 +471,7 @@ export default function ReviewVideoTaskModal({ video, onClose }: ReviewVideoTask
                 }}
                 className="flex-1 px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-extrabold"
               >
-                Vẫn thoát
+                {t("reviewVideoTask.exitConfirm.stillExit")}
               </button>
             </div>
           </div>
@@ -486,11 +494,11 @@ export default function ReviewVideoTaskModal({ video, onClose }: ReviewVideoTask
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-3">
-              <p className="text-xs font-extrabold text-emerald-700 uppercase tracking-wide pt-1">Trả lời câu hỏi để tính lượt xem này</p>
+              <p className="text-xs font-extrabold text-emerald-700 uppercase tracking-wide pt-1">{t("reviewVideoTask.quizPopup.heading")}</p>
               <button
                 onClick={() => setQuizPopupOpen(false)}
                 className="w-7 h-7 shrink-0 rounded-full bg-sky-2 hover:bg-sky flex items-center justify-center text-ink transition-colors"
-                aria-label="Đóng"
+                aria-label={t("reviewVideoTask.quizPopup.closeAriaLabel")}
               >
                 <X size={14} />
               </button>
@@ -500,17 +508,15 @@ export default function ReviewVideoTaskModal({ video, onClose }: ReviewVideoTask
             )}
             {quizError && <div className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-xl">{quizError}</div>}
             {loadingConnectionQuestions ? (
-              <p className="text-xs text-muted font-bold">Đang tải câu hỏi...</p>
+              <p className="text-xs text-muted font-bold">{t("reviewVideoTask.quizPopup.loadingQuestions")}</p>
             ) : connectionQuestions.length === 0 ? (
-              <p className="text-xs text-muted font-bold italic">Video này chưa có câu hỏi — liên hệ Giáo viên.</p>
+              <p className="text-xs text-muted font-bold italic">{t("reviewVideoTask.quizPopup.noQuestions")}</p>
             ) : (
               <>
                 {/* Popup này chỉ hiện khi CHƯA nộp (quizResult == null — xem điều kiện render ở trên) nên không cần nhánh hiển thị kết quả đúng/sai ở đây. */}
                 {connectionQuestions.map((q, i) => (
                   <div key={q.id} className="space-y-2">
-                    <p className="text-sm sm:text-base font-bold text-ink">
-                      Câu {i + 1}. {q.prompt}
-                    </p>
+                    <p className="text-sm sm:text-base font-bold text-ink">{t("reviewVideoTask.quizPopup.questionLabel", { index: i + 1, prompt: q.prompt })}</p>
                     <div className="space-y-1.5">
                       {q.choices.map((c) => {
                         const picked = selectedAnswers[q.id] === c.id;
@@ -538,7 +544,7 @@ export default function ReviewVideoTaskModal({ video, onClose }: ReviewVideoTask
                   disabled={submittingQuiz || connectionQuestions.some((q) => selectedAnswers[q.id] == null)}
                   className="w-full px-3 py-2.5 sm:py-3 bg-teal hover:bg-teal-deep text-white rounded-xl text-xs sm:text-sm font-extrabold disabled:opacity-50"
                 >
-                  {submittingQuiz ? "Đang nộp..." : "Nộp câu trả lời"}
+                  {submittingQuiz ? t("reviewVideoTask.quizPopup.submitting") : t("reviewVideoTask.quizPopup.submitButton")}
                 </button>
               </>
             )}
@@ -549,7 +555,7 @@ export default function ReviewVideoTaskModal({ video, onClose }: ReviewVideoTask
       <div className="max-w-4xl w-full mx-auto p-4 sm:p-6 space-y-3 sm:space-y-4 flex-1">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <span className="text-[10px] font-extrabold uppercase text-teal-deep tracking-wide">Video từ kết nối</span>
+            <span className="text-[10px] font-extrabold uppercase text-teal-deep tracking-wide">{t("reviewVideoTask.badge")}</span>
             <h3 className="text-lg sm:text-xl lg:text-2xl font-extrabold text-ink truncate">{video.title}</h3>
           </div>
           <button
@@ -558,7 +564,7 @@ export default function ReviewVideoTaskModal({ video, onClose }: ReviewVideoTask
             // sắc với nút Đóng của TakeExerciseModal/ReflexVideoTaskPage.
             className="shrink-0 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 text-xs sm:text-sm font-extrabold transition-colors"
           >
-            Thoát
+            {t("reviewVideoTask.exitButton")}
           </button>
         </div>
 
@@ -596,10 +602,10 @@ export default function ReviewVideoTaskModal({ video, onClose }: ReviewVideoTask
         </div>
 
         <div className="bg-sky-2 border border-teal/20 rounded-[14px] p-4 space-y-3">
-          <p className="text-[10px] font-extrabold text-teal-deep uppercase tracking-wide">Lượt xem hiện tại</p>
+          <p className="text-[10px] font-extrabold text-teal-deep uppercase tracking-wide">{t("reviewVideoTask.progress.heading")}</p>
           <div className="space-y-1">
             <div className="flex items-center justify-between text-[10px] font-extrabold text-teal-deep">
-              <span>Đã xem tối đa</span>
+              <span>{t("reviewVideoTask.progress.watchedMax")}</span>
               <span>{watchedPercent}%</span>
             </div>
             <div className="h-1.5 w-full rounded-full bg-white overflow-hidden">
@@ -609,13 +615,14 @@ export default function ReviewVideoTaskModal({ video, onClose }: ReviewVideoTask
               />
             </div>
             <p className={`text-[10px] font-extrabold ${sessionQualified ? "text-emerald-600" : "text-amber-600"}`}>
-              {sessionQualified ? "✓ Đã xem hết video — làm câu hỏi bên dưới" : "Cần xem HẾT video để làm câu hỏi của lượt này"}
+              {sessionQualified ? t("reviewVideoTask.progress.fullyWatched") : t("reviewVideoTask.progress.notFullyWatched")}
             </p>
           </div>
           <div className="pt-2 border-t border-teal/20 flex items-center justify-between">
-            <span className="text-[10px] font-extrabold text-teal-deep uppercase">Tổng số lượt đã đạt</span>
+            <span className="text-[10px] font-extrabold text-teal-deep uppercase">{t("reviewVideoTask.progress.totalCompleted")}</span>
             <span className={`text-xs font-black ${progressSummary?.completed ? "text-emerald-600" : "text-ink"}`}>
-              {progressSummary ? `${progressSummary.viewCount}/${progressSummary.requiredViewCount}` : `—/${video.requiredViewCount}`} lượt
+              {progressSummary ? `${progressSummary.viewCount}/${progressSummary.requiredViewCount}` : `—/${video.requiredViewCount}`}{" "}
+              {t("reviewVideoTask.progress.countSuffix")}
               {progressSummary?.completed && " ✓"}
             </span>
           </div>
@@ -625,7 +632,10 @@ export default function ReviewVideoTaskModal({ video, onClose }: ReviewVideoTask
         {quizResult && (
           <div className="flex items-center gap-1.5 text-xs font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 p-3 rounded-[14px]">
             <CheckCircle2 size={14} className="shrink-0" />
-            Đã nộp — {quizResult.filter((r) => r.correct).length}/{quizResult.length} câu đúng. Lượt này đã được tính.
+            {t("reviewVideoTask.progress.submittedSummary", {
+              correct: quizResult.filter((r) => r.correct).length,
+              total: quizResult.length
+            })}
           </div>
         )}
 
@@ -636,8 +646,8 @@ export default function ReviewVideoTaskModal({ video, onClose }: ReviewVideoTask
             onClick={() => setQuizPopupOpen(true)}
             className="w-full flex items-center justify-between gap-2 bg-emerald-50 border border-emerald-200 rounded-[14px] p-4 text-left hover:bg-emerald-100 transition-colors"
           >
-            <span className="text-xs font-extrabold text-emerald-700">Cần trả lời câu hỏi để tính lượt xem này</span>
-            <span className="text-xs font-black text-emerald-700 shrink-0">Trả lời ngay →</span>
+            <span className="text-xs font-extrabold text-emerald-700">{t("reviewVideoTask.progress.answerNowBanner")}</span>
+            <span className="text-xs font-black text-emerald-700 shrink-0">{t("reviewVideoTask.progress.answerNowButton")}</span>
           </button>
         )}
       </div>

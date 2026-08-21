@@ -1,0 +1,184 @@
+{
+  "shared": {
+    "back": "Back",
+    "loading": "Loading...",
+    "loadingDetail": "Loading assignment details...",
+    "notFound": "No data found.",
+    "noDataToShow": "No data to display yet.",
+    "close": "Close",
+    "viewDetail": "View details",
+    "passed": "Passed",
+    "notPassed": "Not passed",
+    "assignmentUnit": "assignments",
+    "tabs": {
+      "students": "Student Results",
+      "questions": "Question Analysis"
+    },
+    "table": {
+      "student": "Student"
+    },
+    "studentStatus": {
+      "CHUA_LAM": "Not started",
+      "DANG_LAM": "In progress",
+      "DA_NOP": "Submitted",
+      "TRE_HAN": "Late"
+    },
+    "reviewVideoType": {
+      "REFLEX": "Reflex Video",
+      "CONNECTION": "Connection Video"
+    },
+    "errors": {
+      "loadResultsFailed": "Failed to load assignment results.",
+      "loadQuestionAnalysisFailed": "Failed to load question analysis."
+    },
+    "questionRow": {
+      "questionLabel": "Question {{order}}: {{text}}",
+      "wrongBadge": "Wrong {{wrongCount}}/{{answeredCount}} ({{percent}}%)",
+      "noWrongStudents": "No students answered this question incorrectly."
+    }
+  },
+  "list": {
+    "title": "Homework Stats by Class",
+    "subtitle": "View completion and pass rates for each homework assignment given to the class, individual student results, and analysis of frequently missed questions.",
+    "loadFailed": "Failed to load homework stats.",
+    "noClassSelected": {
+      "title": "No class selected",
+      "description": "Select a class in the top-right corner to view homework stats."
+    },
+    "selectedClassFallback": "Selected class",
+    "exerciseType": {
+      "SELF_PRACTICE": "Self-practice",
+      "ASSIGNED": "Assigned (with due date)",
+      "MOCK_TEST": "Mock test",
+      "SKILL_PRACTICE": "Skill practice"
+    },
+    "teacherType": {
+      "VIETNAMESE": "Vietnamese Teacher",
+      "FOREIGN": "Foreign Teacher",
+      "all": "All teacher types",
+      "allShort": "All",
+      "vnShort": "VN Teacher",
+      "foreignShort": "Foreign Teacher"
+    },
+    "searchPlaceholder": "Search by title / assignment code...",
+    "dateFilterPlaceholder": "Filter by assigned date...",
+    "clearFilters": "Clear filters",
+    "noDueDate": "No due date",
+    "emptyNoRows": {
+      "title": "No homework yet",
+      "description": "This class hasn't been assigned any homework yet."
+    },
+    "emptyNoResults": {
+      "title": "No matching homework found",
+      "description": "Try changing your search term or clearing the date filter."
+    },
+    "table": {
+      "title": "Title",
+      "type": "Type",
+      "assignedDate": "Assigned date",
+      "dueDate": "Due date",
+      "completionPercent": "% Completed",
+      "passPercent": "% Passed",
+      "violationPercent": "% Violations"
+    }
+  },
+  "exerciseDetail": {
+    "exportFailed": "Failed to export the Excel file.",
+    "exporting": "Exporting...",
+    "exportExcel": "Export Excel",
+    "table": {
+      "status": "Status",
+      "score": "Score",
+      "percent": "%",
+      "completed": "Completed",
+      "attemptCount": "Attempts",
+      "violation": "Violation",
+      "viewDetailTitle": "View details"
+    },
+    "violationCount": "{{count}} times",
+    "questionRow": {
+      "hintUsed": "Hint used {{count}} times ({{studentCount}} students)"
+    },
+    "chart": {
+      "title": "Wrong-answer rate by question",
+      "tooltip": "Question {{order}}: {{wrongCount}}/{{answeredCount}} wrong",
+      "questionLabel": "Q{{order}}",
+      "legend": {
+        "hard": "Hard (≥50%)",
+        "medium": "Medium (<50%)",
+        "easy": "Easy (0%)"
+      }
+    },
+    "studentModal": {
+      "title": "Result details - {{studentName}}",
+      "attemptInfo": {
+        "title": "Attempt information",
+        "status": "Status",
+        "score": "Score",
+        "percentage": "Percentage",
+        "attemptNumber": "Attempt",
+        "submittedAt": "Submitted at",
+        "result": "Result"
+      },
+      "history": {
+        "titleSingle": "Attempt history",
+        "titleMultiple": "Multiple attempt history",
+        "columns": {
+          "attempt": "Attempt",
+          "startedAt": "Started",
+          "submittedAt": "Submitted at",
+          "score": "Score",
+          "result": "Result",
+          "note": "Note",
+          "officialScore": "Official score",
+          "viewAnswers": "View answers"
+        },
+        "stoppedByViolation": "Stopped due to monitoring violation",
+        "selected": "Selected",
+        "selecting": "Selecting...",
+        "selectForGrading": "Use for grading",
+        "selectFailed": "Failed to select this attempt.",
+        "loadFailed": "Failed to load the attempt history.",
+        "viewing": "Viewing",
+        "viewAnswersAction": "View answers",
+        "integritySummary": {
+          "text": "Exited {{count}} times, {{seconds}} seconds total.",
+          "notified": "Parent and homeroom teacher notified.",
+          "notNotified": "Below notification threshold.",
+          "loadFailed": "Failed to load the violation summary."
+        }
+      },
+      "answerHistory": {
+        "title": "Question answer history",
+        "attemptSuffix": " — Attempt #{{number}}",
+        "noData": "No data.",
+        "loadFailed": "Failed to load the answer history.",
+        "noAnswer": "No answer",
+        "columns": {
+          "questionNumber": "Q",
+          "question": "Question",
+          "studentAnswer": "Student answer",
+          "correctAnswer": "Correct answer",
+          "result": "Result"
+        }
+      }
+    }
+  },
+  "reviewVideoDetail": {
+    "table": {
+      "viewed": "Viewed",
+      "completed": "Completion",
+      "completedBadge": "Completed",
+      "notCompletedBadge": "Not completed",
+      "quizScore": "Quiz score",
+      "result": "Result",
+      "submittedQuestions": "Questions submitted",
+      "averageScore": "Avg. score",
+      "viewCountSuffix": "{{viewed}}/{{required}} views",
+      "notGraded": "Not graded"
+    },
+    "questionRow": {
+      "titleSuffix": " — {{title}}"
+    }
+  }
+}

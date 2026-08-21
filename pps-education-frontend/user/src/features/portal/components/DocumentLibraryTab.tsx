@@ -1,17 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Download, FileText, FolderOpen, Music, Play, Search, Video, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { CurriculumDocumentResponse, getPortalClass, listMyDocuments } from "../api";
 import { clampLines } from "@/lib/textClamp";
-
-const documentTypeLabels: Record<CurriculumDocumentResponse["documentType"], string> = {
-  VIDEO: "Video",
-  PDF: "PDF",
-  AUDIO: "Audio",
-  SLIDE: "Slide",
-  IMAGE: "Ảnh",
-  OTHER: "Khác"
-};
 
 const documentTypeIcons: Record<CurriculumDocumentResponse["documentType"], React.ReactNode> = {
   VIDEO: <Video size={12} />,
@@ -24,12 +16,13 @@ const documentTypeIcons: Record<CurriculumDocumentResponse["documentType"], Reac
 
 type CategoryFilter = "ALL" | "DOCUMENT" | "MEDIA" | "OTHER";
 
-/** Nhóm theo documentType THẬT (VIDEO/PDF/AUDIO/SLIDE/IMAGE/OTHER) — không bịa thêm phân loại (VD "Flashcards"/"E-Book") ngoài dữ liệu backend đang có. */
-const CATEGORY_FILTERS: { key: CategoryFilter; label: string; types: CurriculumDocumentResponse["documentType"][] }[] = [
-  { key: "ALL", label: "Tất cả tài liệu", types: [] },
-  { key: "DOCUMENT", label: "Sách & Tài liệu", types: ["PDF", "SLIDE"] },
-  { key: "MEDIA", label: "Video & Audio", types: ["VIDEO", "AUDIO"] },
-  { key: "OTHER", label: "Hình ảnh & Khác", types: ["IMAGE", "OTHER"] }
+/** Nhóm theo documentType THẬT (VIDEO/PDF/AUDIO/SLIDE/IMAGE/OTHER) — không bịa thêm phân loại (VD "Flashcards"/"E-Book") ngoài dữ liệu backend đang có.
+ *  Nhãn hiển thị tra qua t("documents.categoryFilters.<key>") — xem locale portal-account.json. */
+const CATEGORY_FILTERS: { key: CategoryFilter; types: CurriculumDocumentResponse["documentType"][] }[] = [
+  { key: "ALL", types: [] },
+  { key: "DOCUMENT", types: ["PDF", "SLIDE"] },
+  { key: "MEDIA", types: ["VIDEO", "AUDIO"] },
+  { key: "OTHER", types: ["IMAGE", "OTHER"] }
 ];
 
 /** Nhận diện link YouTube (watch/youtu.be/shorts/embed) và trả về videoId, null nếu không phải YouTube. */
@@ -64,6 +57,7 @@ interface DocumentLibraryTabProps {
  * listMyDocuments(curriculumId), không phải API/dữ liệu mới.
  */
 export default function DocumentLibraryTab({ classId }: DocumentLibraryTabProps) {
+  const { t } = useTranslation("portal-account");
   const [documents, setDocuments] = useState<CurriculumDocumentResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -76,7 +70,7 @@ export default function DocumentLibraryTab({ classId }: DocumentLibraryTabProps)
     getPortalClass(classId)
       .then((cls) => listMyDocuments(cls.curriculumId))
       .then(setDocuments)
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được kho dữ liệu."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("documents.loadFailed")))
       .finally(() => setLoading(false));
   }, [classId]);
 
@@ -89,7 +83,7 @@ export default function DocumentLibraryTab({ classId }: DocumentLibraryTabProps)
     });
   }, [documents, categoryFilter, searchQuery]);
 
-  if (loading) return <p className="text-sm text-muted font-bold">Đang tải...</p>;
+  if (loading) return <p className="text-sm text-muted font-bold">{t("documents.loading")}</p>;
 
   return (
     <div className="space-y-6">
@@ -101,8 +95,8 @@ export default function DocumentLibraryTab({ classId }: DocumentLibraryTabProps)
             <FolderOpen size={22} />
           </div>
           <div>
-            <h2 className="text-lg md:text-xl font-black text-white">Kho Dữ Liệu &amp; Thư Viện Tài Liệu Tham Khảo</h2>
-            <p className="text-xs text-white/80 font-bold mt-0.5">Tài liệu chung theo khung chương trình để tự học thêm.</p>
+            <h2 className="text-lg md:text-xl font-black text-white">{t("documents.heroTitle")}</h2>
+            <p className="text-xs text-white/80 font-bold mt-0.5">{t("documents.heroSubtitle")}</p>
           </div>
         </div>
 
@@ -111,7 +105,7 @@ export default function DocumentLibraryTab({ classId }: DocumentLibraryTabProps)
           <input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Tìm kiếm tài liệu, sách..."
+            placeholder={t("documents.searchPlaceholder")}
             className="w-full bg-white border-none rounded-xl pl-8 pr-3 py-2.5 text-xs font-bold text-ink focus:outline-none focus:ring-2 focus:ring-white/50 shadow-sm"
           />
         </div>
@@ -133,14 +127,14 @@ export default function DocumentLibraryTab({ classId }: DocumentLibraryTabProps)
                 categoryFilter === c.key ? "bg-teal text-white shadow-sm" : "bg-white border border-line/80 text-muted hover:bg-sky-2"
               }`}
             >
-              {c.label} ({count})
+              {t(`documents.categoryFilters.${c.key}`)} ({count})
             </button>
           );
         })}
       </div>
 
       {filteredDocuments.length === 0 ? (
-        <p className="text-xs text-muted font-bold italic text-center py-10">Không tìm thấy tài liệu nào phù hợp.</p>
+        <p className="text-xs text-muted font-bold italic text-center py-10">{t("documents.noResults")}</p>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredDocuments.map((doc) => {
@@ -152,7 +146,7 @@ export default function DocumentLibraryTab({ classId }: DocumentLibraryTabProps)
                 <div className="relative w-full h-32 bg-teal/10 flex items-center justify-center text-teal overflow-hidden">
                   {thumbnailUrl ? <img src={thumbnailUrl} alt="" className="w-full h-32 object-cover" /> : <FileText size={28} />}
                   <span className="absolute top-2 left-2 flex items-center gap-1 bg-ink/70 text-white text-[10px] font-extrabold uppercase px-2 py-1 rounded-lg">
-                    {documentTypeIcons[doc.documentType]} {documentTypeLabels[doc.documentType]}
+                    {documentTypeIcons[doc.documentType]} {t(`documents.type.${doc.documentType}`)}
                   </span>
                   {youtubeVideoId && (
                     <div className="absolute inset-0 flex items-center justify-center bg-ink/10">
@@ -179,7 +173,7 @@ export default function DocumentLibraryTab({ classId }: DocumentLibraryTabProps)
                       onClick={() => setActiveYouTubeDoc({ title: doc.title, videoId: youtubeVideoId })}
                       className="w-full flex items-center justify-center gap-1.5 bg-slate-50 hover:bg-slate-100 border border-line/80 rounded-xl py-2 text-xs font-extrabold text-ink transition-colors"
                     >
-                      <Play size={13} className="text-teal" /> Xem video
+                      <Play size={13} className="text-teal" /> {t("documents.watchVideo")}
                     </button>
                   ) : (
                     <a
@@ -188,7 +182,7 @@ export default function DocumentLibraryTab({ classId }: DocumentLibraryTabProps)
                       rel="noreferrer"
                       className="w-full flex items-center justify-center gap-1.5 bg-slate-50 hover:bg-slate-100 border border-line/80 rounded-xl py-2 text-xs font-extrabold text-ink transition-colors"
                     >
-                      <Download size={13} className="text-teal" /> Đọc &amp; Tải về {documentTypeLabels[doc.documentType]}
+                      <Download size={13} className="text-teal" /> {t("documents.readAndDownload", { type: t(`documents.type.${doc.documentType}`) })}
                     </a>
                   )}
                 </div>
@@ -206,7 +200,7 @@ export default function DocumentLibraryTab({ classId }: DocumentLibraryTabProps)
               <button
                 onClick={() => setActiveYouTubeDoc(null)}
                 className="w-8 h-8 shrink-0 rounded-full bg-sky-2 hover:bg-sky flex items-center justify-center text-ink transition-colors"
-                aria-label="Đóng"
+                aria-label={t("documents.close")}
               >
                 <X size={16} />
               </button>

@@ -65,7 +65,8 @@ public class RoomService {
     public RoomResponse createRoom(CreateRoomRequest request, Long actorUserId) {
         Site site = getSiteOrThrow(request.siteId());
         if (roomRepository.existsBySiteIdAndCode(request.siteId(), request.code())) {
-            throw new DuplicateRoomCodeException("Mã phòng " + request.code() + " đã tồn tại tại điểm trường này.");
+            throw new DuplicateRoomCodeException("error.duplicateRoomCode.default", new Object[]{request.code()},
+                    "Mã phòng " + request.code() + " đã tồn tại tại điểm trường này.");
         }
         User actor = getUserOrThrow(actorUserId);
 
@@ -110,7 +111,8 @@ public class RoomService {
     @Transactional
     public EquipmentResponse createEquipment(CreateEquipmentRequest request, Long actorUserId) {
         if (equipmentRepository.existsByCode(request.code())) {
-            throw new DuplicateEquipmentCodeException("Mã thiết bị đã tồn tại: " + request.code());
+            throw new DuplicateEquipmentCodeException("error.duplicateEquipmentCode.default", new Object[]{request.code()},
+                    "Mã thiết bị đã tồn tại: " + request.code());
         }
         Room room = request.roomId() == null ? null : getRoomOrThrow(request.roomId());
 
@@ -127,7 +129,7 @@ public class RoomService {
     @Transactional
     public EquipmentResponse updateEquipmentStatus(Long equipmentId, UpdateEquipmentStatusRequest request, Long actorUserId) {
         Equipment equipment = equipmentRepository.findById(equipmentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thiết bị id=" + equipmentId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.room.equipmentNotFound", new Object[]{equipmentId}, "Không tìm thấy thiết bị id=" + equipmentId));
         equipment.setStatus(Equipment.Status.valueOf(request.status()));
         if (request.notes() != null) {
             equipment.setNotes(request.notes());
@@ -162,17 +164,17 @@ public class RoomService {
 
     private Room getRoomOrThrow(Long id) {
         return roomRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phòng học id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.room.notFoundById", new Object[]{id}, "Không tìm thấy phòng học id=" + id));
     }
 
     private Site getSiteOrThrow(Long id) {
         return siteRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy điểm trường id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.room.siteNotFound", new Object[]{id}, "Không tìm thấy điểm trường id=" + id));
     }
 
     private User getUserOrThrow(Long id) {
         return userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.room.accountNotFound", new Object[]{id}, "Không tìm thấy tài khoản id=" + id));
     }
 
     private RoomResponse toResponse(Room r) {

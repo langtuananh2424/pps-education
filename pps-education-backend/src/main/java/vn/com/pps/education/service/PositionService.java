@@ -57,7 +57,7 @@ public class PositionService {
     @Transactional
     public PositionResponse create(CreatePositionRequest request) {
         if (positionRepository.findByCode(request.code()).isPresent()) {
-            throw new DuplicatePositionCodeException("Mã chức vụ đã tồn tại: " + request.code());
+            throw new DuplicatePositionCodeException("error.duplicatePositionCode.default", new Object[]{request.code()}, "Mã chức vụ đã tồn tại: " + request.code());
         }
         Position position = new Position();
         position.setCode(request.code());
@@ -94,6 +94,7 @@ public class PositionService {
         Position position = getPositionOrThrow(id);
         if (employeeRepository.existsByPositionId(id)) {
             throw new PositionNotDeletableException(
+                    "error.positionNotDeletable.default", new Object[]{position.getCode()},
                     "Chức vụ '" + position.getCode() + "' đang được gán cho nhân sự — chuyển nhân sự sang chức vụ khác trước khi xóa.");
         }
         positionDefaultRoleRepository.deleteAll(positionDefaultRoleRepository.findByPositionId(id));
@@ -134,7 +135,7 @@ public class PositionService {
         toAdd.removeAll(currentRoleIds);
         List<PositionDefaultRole> newRows = toAdd.stream().map(roleId -> {
             Role role = roleRepository.findById(roleId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy role id=" + roleId));
+                    .orElseThrow(() -> new ResourceNotFoundException("error.position.roleNotFound", new Object[]{roleId}, "Không tìm thấy role id=" + roleId));
             PositionDefaultRole pdr = new PositionDefaultRole();
             pdr.setPosition(position);
             pdr.setRole(role);
@@ -150,7 +151,7 @@ public class PositionService {
 
     private Position getPositionOrThrow(Long id) {
         return positionRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy chức vụ id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.position.notFoundById", new Object[]{id}, "Không tìm thấy chức vụ id=" + id));
     }
 
     private PositionResponse toResponse(Position position) {

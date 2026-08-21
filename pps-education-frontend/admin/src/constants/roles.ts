@@ -1,19 +1,13 @@
 import { UserRole } from "@/types";
 
-export const roleLabels: Record<UserRole, string> = {
-  [UserRole.SYS_ADMIN]: "Quản trị viên (Admin)",
-  [UserRole.SUPER_ADMIN]: "Siêu quản trị viên",
-  [UserRole.EXECUTIVE]: "Ban Giám Đốc",
-  [UserRole.HEAD_ACADEMIC]: "Trưởng Phòng Đào Tạo",
-  [UserRole.SITE_MANAGER]: "Quản Lý Điểm Trường",
-  [UserRole.TEACHER]: "Giáo Viên Giảng Dạy",
-  [UserRole.HR_MANAGER]: "Quản Lý Nhân Sự (HR)",
-  [UserRole.STAFF]: "Nhân Viên",
-  [UserRole.OPS_MANAGER]: "Quản Lý Vận Hành (Ops)",
-  [UserRole.PARTNER_REP]: "Đại Diện Trường Liên Kết",
-  [UserRole.PARENT]: "Phụ Huynh",
-  [UserRole.STUDENT]: "Học Sinh"
-};
+/**
+ * Nhãn vai trò dịch qua i18next namespace "layout" (key `roles.<UserRole>`) — xem
+ * src/i18n/locales/{vi,en}/layout.json. Dùng `roleLabel(t, role)` thay vì tra map tĩnh cũ, vì nhãn giờ
+ * phải đổi theo ngôn ngữ đang chọn (Phase 0, kế hoạch đồng bộ song ngữ).
+ */
+export function roleLabel(t: (key: string) => string, role: UserRole): string {
+  return t(`roles.${role}`);
+}
 
 /**
  * 8 role thuộc app Admin (`admin/`) theo kiến trúc A1/A2 đã định nghĩa ở
@@ -57,9 +51,9 @@ export const portalOnlyRoles: UserRole[] = [UserRole.STUDENT, UserRole.PARENT, U
  * permission.role.view mà tài khoản vai trò tùy biến thường không có) — cần BE bổ sung tên vai
  * trò vào CurrentUserResponse mới hiện đúng tên tiếng Việt được, đã ghi lại thành yêu cầu BE riêng.
  */
-export function deriveCurrentRoleLabel(roleCodes: string[]): string {
+export function deriveCurrentRoleLabel(roleCodes: string[], t: (key: string) => string): string {
   const matched = rolePriorityOrder.find((role) => roleCodes.includes(role));
-  if (matched) return roleLabels[matched];
+  if (matched) return roleLabel(t, matched);
   return roleCodes[0] ?? "—";
 }
 

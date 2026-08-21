@@ -111,24 +111,30 @@ public class ExerciseAttemptService {
         this.userRepository = userRepository;
     }
 
-    /** Main Flow bước 1, A2 (retake): mở đề, tạo 1 lượt làm bài mới. */
+    /**
+     * Main Flow bước 1, A2 (retake): mở đề, tạo 1 lượt làm bài mới.
+     *
+     * V128 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-19) — nhận thẳng
+     * {@code assignmentId} thay vì tự đoán "bản giao ACTIVE" qua {@code exerciseId} — từ khi 1 Bài có
+     * thể có NHIỀU bản giao ACTIVE song song cho cùng 1 lớp (giao độc lập từ nhiều buổi Nhận xét khác
+     * nhau, xem {@link ExerciseService#deliverToClass}), suy đoán 1 bản duy nhất không còn đáng tin —
+     * FE (mỗi thẻ BTVN) đã biết sẵn đúng assignmentId của thẻ đang bấm.
+     */
     @Transactional
-    public ExerciseAttemptResponse startAttempt(Long exerciseId, Long actorUserId) {
+    public ExerciseAttemptResponse startAttempt(Long exerciseId, Long assignmentId, Long actorUserId) {
         Student student = studentOrThrow(actorUserId);
         Exercise exercise = exerciseOrThrow(exerciseId);
         if (exercise.getStatus() != Exercise.Status.PUBLISHED) {
-            throw new ExerciseNotAvailableException("Đề này chưa được publish.");
+            throw new ExerciseNotAvailableException("error.exerciseNotAvailable.notPublished", new Object[]{}, "Đề này chưa được publish.");
         }
 
         // Kho đề (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30):
         // bỏ nhánh rẽ theo exerciseType — MỌI loại đề (kể cả SELF_PRACTICE/
         // MOCK_TEST/SKILL_PRACTICE) giờ đều cần ExerciseAssignment ACTIVE, không
         // còn "mở tự do sau khi Publish" (mirror ExerciseService#requireCanViewExercise).
-        ExerciseAssignment assignment = findActiveAssignmentForStudent(exercise, student)
-                .orElseThrow(() -> new ExerciseNotAvailableException(
-                        "Đề này chưa được giao cho học sinh."));
+        ExerciseAssignment assignment = resolveActiveAssignmentForStudent(assignmentId, exercise, student);
         if (assignment.getAvailableFrom().isAfter(OffsetDateTime.now())) {
-            throw new ExerciseNotAvailableException("Đề này chưa tới thời gian mở làm bài.");
+            throw new ExerciseNotAvailableException("error.exerciseNotAvailable.notYetOpen", new Object[]{}, "Đề này chưa tới thời gian mở làm bài.");
         }
 
         // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — fix bug thật: đếm lượt đã làm
@@ -140,10 +146,10 @@ public class ExerciseAttemptService {
         int attemptNumber = (int) previousAttempts + 1;
         if (previousAttempts > 0) {
             if (!exercise.isAllowRetake()) {
-                throw new RetakeNotAllowedException("Đề này không cho phép làm lại.");
+                throw new RetakeNotAllowedException("error.retakeNotAllowed.notAllowed", new Object[]{}, "Đề này không cho phép làm lại.");
             }
             if (exercise.getMaxAttempts() != null && attemptNumber > exercise.getMaxAttempts()) {
-                throw new RetakeNotAllowedException("Đề này đã hết lượt làm (tối đa " + exercise.getMaxAttempts() + ").");
+                throw new RetakeNotAllowedException("error.retakeNotAllowed.maxAttemptsReached", new Object[]{exercise.getMaxAttempts()}, "Đề này đã hết lượt làm (tối đa " + exercise.getMaxAttempts() + ").");
             }
         }
 
@@ -163,10 +169,12 @@ public class ExerciseAttemptService {
     public StudentAnswerResponse saveAnswer(Long attemptId, SaveAnswerRequest request, Long actorUserId) {
         ExerciseAttempt attempt = attemptOwnedByActor(attemptId, actorUserId);
         if (attempt.getStatus() != ExerciseAttempt.Status.IN_PROGRESS) {
-            throw new AttemptNotEditableException("Lượt làm bài này không còn ở trạng thái đang làm (IN_PROGRESS).");
+            throw new AttemptNotEditableException("error.attemptNotEditable.default", new Object[]{}, "Lượt làm bài này không còn ở trạng thái đang làm (IN_PROGRESS).");
         }
         if (!exerciseQuestionRepository.existsByExerciseIdAndQuestionId(attempt.getExercise().getId(), request.questionId())) {
-            throw new ResourceNotFoundException("Câu hỏi id=" + request.questionId() + " không thuộc đề id=" + attempt.getExercise().getId());
+            throw new ResourceNotFoundException("error.exerciseAttempt.answerQuestionMismatch",
+                    new Object[]{request.questionId(), attempt.getExercise().getId()},
+                    "Câu hỏi id=" + request.questionId() + " không thuộc đề id=" + attempt.getExercise().getId());
         }
 
         StudentAnswer answer = studentAnswerRepository.findByExerciseAttemptIdAndQuestionId(attemptId, request.questionId())
@@ -176,7 +184,8 @@ public class ExerciseAttemptService {
                 .map(ExerciseQuestion::getQuestion)
                 .filter(q -> q.getId().equals(request.questionId()))
                 .findFirst()
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy câu hỏi id=" + request.questionId()));
+                .orElseThrow(() -> new ResourceNotFoundException("error.exerciseAttempt.questionNotFound",
+                        new Object[]{request.questionId()}, "Không tìm thấy câu hỏi id=" + request.questionId()));
         answer.setQuestion(question);
         answer.setAutoGradable(AUTO_GRADABLE_TYPES.contains(question.getQuestionType()));
         answer.setAnswerText(request.answerText());
@@ -192,14 +201,14 @@ public class ExerciseAttemptService {
     public ExerciseAttemptResponse submitAttempt(Long attemptId, Long actorUserId) {
         ExerciseAttempt attempt = attemptOwnedByActor(attemptId, actorUserId);
         if (attempt.getStatus() != ExerciseAttempt.Status.IN_PROGRESS) {
-            throw new AttemptNotEditableException("Lượt làm bài này không còn ở trạng thái đang làm (IN_PROGRESS).");
+            throw new AttemptNotEditableException("error.attemptNotEditable.default", new Object[]{}, "Lượt làm bài này không còn ở trạng thái đang làm (IN_PROGRESS).");
         }
 
         OffsetDateTime now = OffsetDateTime.now();
         ExerciseAssignment assignment = attempt.getExerciseAssignment();
         if (assignment != null && assignment.getDueAt() != null && now.isAfter(assignment.getDueAt())) {
             if (!assignment.isLateSubmissionAllowed()) {
-                throw new SubmissionPastDeadlineException("Lượt làm bài này đã quá hạn nộp (" + assignment.getDueAt() + ").");
+                throw new SubmissionPastDeadlineException("error.submissionPastDeadline.exerciseAttempt", new Object[]{assignment.getDueAt()}, "Lượt làm bài này đã quá hạn nộp (" + assignment.getDueAt() + ").");
             }
             attempt.setLateSubmission(true);
         }
@@ -222,7 +231,8 @@ public class ExerciseAttemptService {
     @Transactional
     public ExerciseAttempt forceStopByIntegrityViolation(Long attemptId) {
         ExerciseAttempt attempt = exerciseAttemptRepository.findById(attemptId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lượt làm bài id=" + attemptId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.exerciseAttempt.notFoundById",
+                        new Object[]{attemptId}, "Không tìm thấy lượt làm bài id=" + attemptId));
         if (attempt.getStatus() != ExerciseAttempt.Status.IN_PROGRESS) {
             return attempt;
         }
@@ -268,17 +278,24 @@ public class ExerciseAttemptService {
     }
 
     /**
-     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05: BTVN dưới
-     * ngưỡng đạt ({@code exercises.pass_threshold_percent}, mặc định 70% từ V100,
-     * cấu hình theo từng Bài) phải làm lại — áp dụng cho MỌI exerciseType học
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05 (điều
+     * chỉnh lại 2026-08-19): BTVN dưới ngưỡng đạt
+     * ({@code exercises.pass_threshold_percent}, mặc định 70% từ V100, cấu
+     * hình theo từng Bài) phải làm lại — áp dụng cho MỌI exerciseType học
      * sinh làm (không riêng ASSIGNED). Tính % + đánh dấu passed ngay khi lượt
      * làm bài về FULLY_GRADED (đã chấm xong toàn bộ, kể cả phần chấm tay —
-     * gọi lại từ ManualGradingService#recomputeAttemptTotals). Nếu ĐẠT: đóng
-     * bản giao ({@link ExerciseAssignment.Status#COMPLETED}) — học sinh không
-     * cần làm lại nữa; nếu CHƯA ĐẠT: giữ bản giao ACTIVE để học sinh vẫn thấy
-     * "cần làm lại" trong listMyAssignedExercises — chỉ giới hạn bởi
-     * allowRetake/maxAttempts giáo viên đã cấu hình sẵn (không tự nới thêm
-     * lượt để "ép" làm lại bằng mọi giá, xem RetakeNotAllowedException).
+     * gọi lại từ ManualGradingService#recomputeAttemptTotals). Nếu ĐẠT
+     * NHƯNG vẫn còn lượt làm lại (allowRetake=true và chưa hết maxAttempts):
+     * giữ bản giao ACTIVE — học sinh có thể tự nguyện làm lại để thử điểm
+     * cao hơn (KHÔNG bắt buộc, chỉ là còn quyền truy cập). Nếu ĐẠT và đã hết
+     * lượt (allowRetake=false hoặc đã dùng hết maxAttempts): đóng bản giao
+     * ({@link ExerciseAssignment.Status#COMPLETED}). Nếu CHƯA ĐẠT: luôn giữ
+     * bản giao ACTIVE để học sinh vẫn thấy "cần làm lại" trong
+     * listMyAssignedExercises — chỉ giới hạn bởi allowRetake/maxAttempts
+     * giáo viên đã cấu hình sẵn (không tự nới thêm lượt để "ép" làm lại bằng
+     * mọi giá, xem RetakeNotAllowedException).
+     * Trước 2026-08-19, ĐẠT luôn đóng bản giao ngay cả khi còn lượt, khiến
+     * học sinh đạt 80% (trên ngưỡng) không thể tự làm lại để thử đạt 100%.
      */
     ExerciseAttempt applyPassOutcome(ExerciseAttempt attempt) {
         if (attempt.getStatus() != ExerciseAttempt.Status.FULLY_GRADED || attempt.getTotalScore() == null) {
@@ -292,8 +309,12 @@ public class ExerciseAttemptService {
 
         ExerciseAssignment assignment = attempt.getExerciseAssignment();
         if (passed && assignment != null && assignment.getStatus() == ExerciseAssignment.Status.ACTIVE) {
-            assignment.setStatus(ExerciseAssignment.Status.COMPLETED);
-            exerciseAssignmentRepository.save(assignment);
+            boolean hasRetakeLeft = exercise.isAllowRetake()
+                    && (exercise.getMaxAttempts() == null || attempt.getAttemptNumber() < exercise.getMaxAttempts());
+            if (!hasRetakeLeft) {
+                assignment.setStatus(ExerciseAssignment.Status.COMPLETED);
+                exerciseAssignmentRepository.save(assignment);
+            }
         }
         return attempt;
     }
@@ -348,7 +369,8 @@ public class ExerciseAttemptService {
     @Transactional(readOnly = true)
     public List<StudentAnswerResponse> listAnswersForGrading(Long attemptId) {
         if (!exerciseAttemptRepository.existsById(attemptId)) {
-            throw new ResourceNotFoundException("Không tìm thấy lượt làm bài id=" + attemptId);
+            throw new ResourceNotFoundException("error.exerciseAttempt.notFoundById",
+                    new Object[]{attemptId}, "Không tìm thấy lượt làm bài id=" + attemptId);
         }
         return studentAnswerRepository.findByExerciseAttemptId(attemptId).stream().map(this::toResponse).toList();
     }
@@ -365,7 +387,8 @@ public class ExerciseAttemptService {
     @Transactional
     public List<ExerciseAttemptResponse> selectForGrading(Long attemptId, Long actorUserId) {
         ExerciseAttempt attempt = exerciseAttemptRepository.findById(attemptId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lượt làm bài id=" + attemptId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.exerciseAttempt.notFoundById",
+                        new Object[]{attemptId}, "Không tìm thấy lượt làm bài id=" + attemptId));
         List<ExerciseAttempt> siblings = exerciseAttemptRepository.findByExerciseIdAndStudentIdOrderByAttemptNumberDesc(
                 attempt.getExercise().getId(), attempt.getStudent().getId());
         for (ExerciseAttempt sibling : siblings) {
@@ -384,7 +407,7 @@ public class ExerciseAttemptService {
      * hoặc đã TỪNG ghi danh (kể cả lớp cũ sau khi chuyển lớp — bổ sung
      * ngoài SDD gốc, đã xác nhận với người dùng 2026-07-29; CHỈ xem, không
      * mở lại khả năng làm bài mới ở lớp cũ — startAttempt vẫn chặn theo
-     * ACTIVE như cũ, xem findActiveAssignmentForStudent) — trước đây
+     * ACTIVE như cũ, xem resolveActiveAssignmentForStudent) — trước đây
      * không có API nào cho việc này, HS phải biết trước exerciseId mới
      * gọi được startAttempt/getExercise. classIdFilter tùy chọn (ngữ cảnh
      * "lớp đang xem" — UC-42). Dedupe theo classId vì 1 học sinh có thể
@@ -465,41 +488,48 @@ public class ExerciseAttemptService {
         return true;
     }
 
-    private java.util.Optional<ExerciseAssignment> findActiveAssignmentForStudent(Exercise exercise, Student student) {
-        List<ClassEnrollment> activeEnrollments = classEnrollmentRepository.findByStudentId(student.getId()).stream()
-                .filter(e -> e.getStatus() == ClassEnrollment.Status.ACTIVE)
-                .toList();
-        for (ClassEnrollment enrollment : activeEnrollments) {
-            List<ExerciseAssignment> assignments = exerciseAssignmentRepository.findByExerciseIdAndSchoolClassIdAndStatus(
-                    exercise.getId(), enrollment.getSchoolClass().getId(), ExerciseAssignment.Status.ACTIVE);
-            for (ExerciseAssignment assignment : assignments) {
-                if (assignment.getTargetStudentIds() == null || assignment.getTargetStudentIds().contains(student.getId())) {
-                    return java.util.Optional.of(assignment);
-                }
-            }
-        }
-        return java.util.Optional.empty();
+    /**
+     * V128 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-19) — thay
+     * {@code findActiveAssignmentForStudent} (đoán "1 bản giao ACTIVE duy nhất" theo exerciseId, VỠ
+     * ngay khi có ≥2 bản active song song từ 2 buổi Nhận xét khác nhau): tra thẳng theo
+     * {@code assignmentId} FE đã biết sẵn, chỉ còn xác thực đúng đề + còn ACTIVE + học sinh nằm trong
+     * phạm vi được giao (targetStudentIds null = cả lớp) + học sinh còn ghi danh ACTIVE lớp đó.
+     */
+    private ExerciseAssignment resolveActiveAssignmentForStudent(Long assignmentId, Exercise exercise, Student student) {
+        ExerciseAssignment assignment = exerciseAssignmentRepository.findById(assignmentId)
+                .filter(a -> a.getExercise().getId().equals(exercise.getId()))
+                .filter(a -> a.getStatus() == ExerciseAssignment.Status.ACTIVE)
+                .filter(a -> a.getTargetStudentIds() == null || a.getTargetStudentIds().contains(student.getId()))
+                .filter(a -> classEnrollmentRepository
+                        .findBySchoolClassIdAndStudentIdAndStatus(a.getSchoolClass().getId(), student.getId(), ClassEnrollment.Status.ACTIVE)
+                        .isPresent())
+                .orElseThrow(() -> new ExerciseNotAvailableException("error.exerciseNotAvailable.notAssigned", new Object[]{}, "Đề này chưa được giao cho học sinh."));
+        return assignment;
     }
 
     /** Package-private (không private) — tái dùng ở ListeningHintService (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06). */
     ExerciseAttempt attemptOwnedByActor(Long attemptId, Long actorUserId) {
         Student student = studentOrThrow(actorUserId);
         ExerciseAttempt attempt = exerciseAttemptRepository.findById(attemptId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lượt làm bài id=" + attemptId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.exerciseAttempt.notFoundById",
+                        new Object[]{attemptId}, "Không tìm thấy lượt làm bài id=" + attemptId));
         if (!attempt.getStudent().getId().equals(student.getId())) {
-            throw new ResourceNotFoundException("Không tìm thấy lượt làm bài id=" + attemptId);
+            throw new ResourceNotFoundException("error.exerciseAttempt.notFoundById",
+                    new Object[]{attemptId}, "Không tìm thấy lượt làm bài id=" + attemptId);
         }
         return attempt;
     }
 
     private Student studentOrThrow(Long actorUserId) {
         return studentRepository.findByUserId(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản id=" + actorUserId + " không có hồ sơ học sinh."));
+                .orElseThrow(() -> new ResourceNotFoundException("error.exerciseAttempt.studentProfileNotFound",
+                        new Object[]{actorUserId}, "Tài khoản id=" + actorUserId + " không có hồ sơ học sinh."));
     }
 
     private Exercise exerciseOrThrow(Long id) {
         return exerciseRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đề id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.exerciseAttempt.exerciseNotFound",
+                        new Object[]{id}, "Không tìm thấy đề id=" + id));
     }
 
     private void writeHistory(ExerciseAttempt attempt, Long actorUserId, ExerciseAttemptHistory.Action action) {

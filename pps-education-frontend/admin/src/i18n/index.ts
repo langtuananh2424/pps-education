@@ -1,0 +1,170 @@
+import i18n from "i18next";
+import { initReactI18next } from "react-i18next";
+
+import commonEn from "./locales/en/common.json";
+import authEn from "./locales/en/auth.json";
+import dashboardEn from "./locales/en/dashboard.json";
+import layoutEn from "./locales/en/layout.json";
+import academicClassesEn from "./locales/en/academic-classes.json";
+import academicGradesEn from "./locales/en/academic-grades.json";
+import academicCommentsEn from "./locales/en/academic-comments.json";
+import academicCurriculumEn from "./locales/en/academic-curriculum.json";
+import academicHomeworkEn from "./locales/en/academic-homework.json";
+import lmsQuestionAuthoringEn from "./locales/en/lms-question-authoring.json";
+import lmsGradingEn from "./locales/en/lms-grading.json";
+import lmsReviewVideoEn from "./locales/en/lms-review-video.json";
+import lmsDocumentsEn from "./locales/en/lms-documents.json";
+import taskWorkflowEn from "./locales/en/task-workflow.json";
+import facilityEn from "./locales/en/facility.json";
+import studentEn from "./locales/en/student.json";
+import hrmAttendanceEn from "./locales/en/hrm-attendance.json";
+import hrmEmployeesEn from "./locales/en/hrm-employees.json";
+import hrmLeavesEn from "./locales/en/hrm-leaves.json";
+import hrmShiftsEn from "./locales/en/hrm-shifts.json";
+import hrmOrgEn from "./locales/en/hrm-org.json";
+import reportsTemplatesEn from "./locales/en/reports-templates.json";
+import reportsStudentProfileEn from "./locales/en/reports-student-profile.json";
+import reportsProgressEn from "./locales/en/reports-progress.json";
+import reportsOperationsEn from "./locales/en/reports-operations.json";
+import systemAdminRolesEn from "./locales/en/system-admin-roles.json";
+import systemAdminUsersEn from "./locales/en/system-admin-users.json";
+import systemAdminOverridesEn from "./locales/en/system-admin-overrides.json";
+import systemAdminSettingsEn from "./locales/en/system-admin-settings.json";
+import commonVi from "./locales/vi/common.json";
+import authVi from "./locales/vi/auth.json";
+import dashboardVi from "./locales/vi/dashboard.json";
+import layoutVi from "./locales/vi/layout.json";
+import academicClassesVi from "./locales/vi/academic-classes.json";
+import academicGradesVi from "./locales/vi/academic-grades.json";
+import academicCommentsVi from "./locales/vi/academic-comments.json";
+import academicCurriculumVi from "./locales/vi/academic-curriculum.json";
+import academicHomeworkVi from "./locales/vi/academic-homework.json";
+import lmsQuestionAuthoringVi from "./locales/vi/lms-question-authoring.json";
+import lmsGradingVi from "./locales/vi/lms-grading.json";
+import lmsReviewVideoVi from "./locales/vi/lms-review-video.json";
+import lmsDocumentsVi from "./locales/vi/lms-documents.json";
+import taskWorkflowVi from "./locales/vi/task-workflow.json";
+import facilityVi from "./locales/vi/facility.json";
+import studentVi from "./locales/vi/student.json";
+import hrmAttendanceVi from "./locales/vi/hrm-attendance.json";
+import hrmEmployeesVi from "./locales/vi/hrm-employees.json";
+import hrmLeavesVi from "./locales/vi/hrm-leaves.json";
+import hrmShiftsVi from "./locales/vi/hrm-shifts.json";
+import hrmOrgVi from "./locales/vi/hrm-org.json";
+import reportsTemplatesVi from "./locales/vi/reports-templates.json";
+import reportsStudentProfileVi from "./locales/vi/reports-student-profile.json";
+import reportsProgressVi from "./locales/vi/reports-progress.json";
+import reportsOperationsVi from "./locales/vi/reports-operations.json";
+import systemAdminRolesVi from "./locales/vi/system-admin-roles.json";
+import systemAdminUsersVi from "./locales/vi/system-admin-users.json";
+import systemAdminOverridesVi from "./locales/vi/system-admin-overrides.json";
+import systemAdminSettingsVi from "./locales/vi/system-admin-settings.json";
+
+export const LANGUAGE_STORAGE_KEY = "pps_language";
+
+const storedLanguage = typeof window !== "undefined" ? window.localStorage.getItem(LANGUAGE_STORAGE_KEY) : null;
+
+i18n.use(initReactI18next).init({
+  resources: {
+    vi: {
+      common: commonVi,
+      auth: authVi,
+      dashboard: dashboardVi,
+      layout: layoutVi,
+      "academic-classes": academicClassesVi,
+      "academic-grades": academicGradesVi,
+      "academic-comments": academicCommentsVi,
+      "academic-curriculum": academicCurriculumVi,
+      "academic-homework": academicHomeworkVi,
+      "lms-question-authoring": lmsQuestionAuthoringVi,
+      "lms-grading": lmsGradingVi,
+      "lms-review-video": lmsReviewVideoVi,
+      "lms-documents": lmsDocumentsVi,
+      "task-workflow": taskWorkflowVi,
+      facility: facilityVi,
+      student: studentVi,
+      "hrm-attendance": hrmAttendanceVi,
+      "hrm-employees": hrmEmployeesVi,
+      "hrm-leaves": hrmLeavesVi,
+      "hrm-shifts": hrmShiftsVi,
+      "hrm-org": hrmOrgVi,
+      "reports-templates": reportsTemplatesVi,
+      "reports-student-profile": reportsStudentProfileVi,
+      "reports-progress": reportsProgressVi,
+      "reports-operations": reportsOperationsVi,
+      "system-admin-roles": systemAdminRolesVi,
+      "system-admin-users": systemAdminUsersVi,
+      "system-admin-overrides": systemAdminOverridesVi,
+      "system-admin-settings": systemAdminSettingsVi
+    },
+    en: {
+      common: commonEn,
+      auth: authEn,
+      dashboard: dashboardEn,
+      layout: layoutEn,
+      "academic-classes": academicClassesEn,
+      "academic-grades": academicGradesEn,
+      "academic-comments": academicCommentsEn,
+      "academic-curriculum": academicCurriculumEn,
+      "academic-homework": academicHomeworkEn,
+      "lms-question-authoring": lmsQuestionAuthoringEn,
+      "lms-grading": lmsGradingEn,
+      "lms-review-video": lmsReviewVideoEn,
+      "lms-documents": lmsDocumentsEn,
+      "task-workflow": taskWorkflowEn,
+      facility: facilityEn,
+      student: studentEn,
+      "hrm-attendance": hrmAttendanceEn,
+      "hrm-employees": hrmEmployeesEn,
+      "hrm-leaves": hrmLeavesEn,
+      "hrm-shifts": hrmShiftsEn,
+      "hrm-org": hrmOrgEn,
+      "reports-templates": reportsTemplatesEn,
+      "reports-student-profile": reportsStudentProfileEn,
+      "reports-progress": reportsProgressEn,
+      "reports-operations": reportsOperationsEn,
+      "system-admin-roles": systemAdminRolesEn,
+      "system-admin-users": systemAdminUsersEn,
+      "system-admin-overrides": systemAdminOverridesEn,
+      "system-admin-settings": systemAdminSettingsEn
+    }
+  },
+  lng: storedLanguage === "en" ? "en" : "vi",
+  fallbackLng: "vi",
+  defaultNS: "common",
+  ns: [
+    "common",
+    "auth",
+    "dashboard",
+    "layout",
+    "academic-classes",
+    "academic-grades",
+    "academic-comments",
+    "academic-curriculum",
+    "academic-homework",
+    "lms-question-authoring",
+    "lms-grading",
+    "lms-review-video",
+    "lms-documents",
+    "task-workflow",
+    "facility",
+    "student",
+    "hrm-attendance",
+    "hrm-employees",
+    "hrm-leaves",
+    "hrm-shifts",
+    "hrm-org",
+    "reports-templates",
+    "reports-student-profile",
+    "reports-progress",
+    "reports-operations",
+    "system-admin-roles",
+    "system-admin-users",
+    "system-admin-overrides",
+    "system-admin-settings"
+  ],
+  interpolation: { escapeValue: false },
+  returnEmptyString: false
+});
+
+export default i18n;

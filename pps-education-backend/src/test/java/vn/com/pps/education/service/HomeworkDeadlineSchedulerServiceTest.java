@@ -156,7 +156,7 @@ class HomeworkDeadlineSchedulerServiceTest extends AbstractIntegrationTest {
         ExerciseAssignment assignment = exerciseService.deliverToClass(
                 exercise.id(), schoolClass.id(), OffsetDateTime.now().plusHours(1), teacher.getId());
 
-        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), studentDoneUser.getId());
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), assignment.getId(), studentDoneUser.getId());
         answerCorrectly(attempt.id(), mc);
         exerciseAttemptService.submitAttempt(attempt.id(), studentDoneUser.getId());
         // studentNotDoneUser không làm gì -> "Chưa làm bài".
@@ -243,7 +243,7 @@ class HomeworkDeadlineSchedulerServiceTest extends AbstractIntegrationTest {
         ReviewVideoAssignment assignment = reviewVideoService.deliverToClass(
                 set.id(), schoolClass.id(), OffsetDateTime.now().plusHours(1), teacher.getId());
 
-        Long sessionId = reviewVideoService.startWatchSession(video.id(), studentDoneUser.getId()).sessionId();
+        Long sessionId = reviewVideoService.startWatchSession(video.id(), assignment.getId(), studentDoneUser.getId()).sessionId();
         reviewVideoService.reportProgress(video.id(), new ReportVideoProgressRequest(sessionId, 100), studentDoneUser.getId());
         // CONNECTION (V83/V93/V101): xem đạt ngưỡng chỉ làm session "qualified" — phải nộp đủ câu
         // hỏi (rỗng ở đây, video chưa thêm câu hỏi) mới tính "đạt" 1 lượt (xem ghi chú tương tự ở

@@ -1,0 +1,189 @@
+{
+  "nav": {
+    "sections": {
+      "dashboard": "BẢNG ĐIỀU KHIỂN",
+      "system": "QUẢN TRỊ HỆ THỐNG",
+      "hrm": "QUẢN LÝ NHÂN SỰ (HRM)",
+      "crm": "TUYỂN SINH & CRM",
+      "student": "QUẢN LÝ HỌC SINH",
+      "academic": "QUẢN LÝ HỌC THUẬT",
+      "lms": "TÀI LIỆU & KHẢO THÍ LMS",
+      "reports": "BÁO CÁO & THỐNG KÊ",
+      "finance": "QUẢN LÝ TÀI CHÍNH",
+      "facility": "CƠ SỞ VẬT CHẤT & ĐỐI TÁC",
+      "partner": "PORTAL TRƯỜNG LIÊN KẾT"
+    },
+    "items": {
+      "dash-all": "Dashboard Tổng hợp",
+      "sys-users": "Quản lý người dùng",
+      "sys-roles": "Nhóm vai trò",
+      "sys-override": "Tùy chỉnh tài khoản",
+      "sys-audit": "Nhật ký thay đổi",
+      "sys-settings": "Cài đặt hệ thống",
+      "sys-send-notification": "Gửi thông báo",
+      "hrm-profile": "Hồ sơ cán bộ",
+      "hrm-departments-positions": "Phòng ban & Chức vụ",
+      "hrm-attendance": "Dữ liệu chấm công",
+      "hrm-attendance-sites": "Địa điểm chấm công",
+      "hrm-shifts": "Ca làm việc",
+      "hrm-work-calendar": "Lịch làm việc/Nghỉ lễ",
+      "hrm-employee-schedule": "Lịch làm việc",
+      "hrm-leaves": "Xin nghỉ phép",
+      "hrm-payroll": "Tính toán bảng lương",
+      "crm-leads": "Khách hàng tiềm năng",
+      "stu-profile": "Hồ sơ học sinh",
+      "stu-parents": "Quản lý phụ huynh",
+      "acad-my-schedule": "Lịch của tôi",
+      "acad-classes": "Quản lý lớp học",
+      "acad-attendance": "Điểm danh",
+      "acad-syllabus": "Khung chương trình",
+      "acad-grades": "Sổ điểm hệ thống",
+      "acad-comments": "Nhận xét học viên",
+      "acad-homework-stats": "Thống kê BTVN theo lớp",
+      "lms-exercises": "Soạn & giao đề",
+      "lms-lectures": "Kho Video Ôn tập",
+      "lms-documents": "Kho tài liệu tham khảo",
+      "lms-exams": "Hàng chờ chấm bài",
+      "rep-templates": "Mẫu báo cáo tự động",
+      "rep-daily": "Thống kê nhận xét",
+      "rep-grades": "Thống kê điểm",
+      "rep-student": "Hồ sơ học tập",
+      "rep-enrollment-movement": "Biến động học sinh theo kỳ",
+      "fin-billing": "Thu phí & hóa đơn",
+      "fin-expenses": "Chi phí vận hành",
+      "fin-reports": "Báo cáo kế toán",
+      "fac-campuses": "Điểm trường & HĐ",
+      "fac-rooms": "Phòng học & thiết bị",
+      "fac-feedback": "Ý kiến phản hồi",
+      "part-syllabus": "Kế hoạch giảng dạy",
+      "part-portal": "Báo cáo liên kết"
+    }
+  },
+  "roles": {
+    "SYS_ADMIN": "Quản trị viên (Admin)",
+    "SUPER_ADMIN": "Siêu quản trị viên",
+    "EXECUTIVE": "Ban Giám Đốc",
+    "HEAD_ACADEMIC": "Trưởng Phòng Đào Tạo",
+    "SITE_MANAGER": "Quản Lý Điểm Trường",
+    "TEACHER": "Giáo Viên Giảng Dạy",
+    "HR_MANAGER": "Quản Lý Nhân Sự (HR)",
+    "STAFF": "Nhân Viên",
+    "OPS_MANAGER": "Quản Lý Vận Hành (Ops)",
+    "PARTNER_REP": "Đại Diện Trường Liên Kết",
+    "PARENT": "Phụ Huynh",
+    "STUDENT": "Học Sinh"
+  },
+  "sidebar": {
+    "logout": "Đăng xuất hệ thống",
+    "notLoggedIn": "Chưa đăng nhập",
+    "unsavedModal": {
+      "title": "Dữ liệu chưa hoàn tất",
+      "description": "Bạn đang nhập dở dữ liệu ở trang hiện tại. Bạn có muốn lưu tạm trước khi rời đi không?",
+      "stay": "Ở lại trang",
+      "leaveWithoutSaving": "Rời đi, không lưu",
+      "saveAndLeave": "Lưu tạm & rời đi",
+      "saving": "Đang lưu...",
+      "warning": "Nếu không lưu, phần đang gõ dở sẽ mất khi rời khỏi trang này.",
+      "saveFailureFallback": "Không lưu được dữ liệu — vui lòng kiểm tra lại trước khi rời trang."
+    }
+  },
+  "header": {
+    "site": {
+      "label": "Điểm trường:",
+      "allSites": "Tất cả cơ sở & Trường liên kết",
+      "unassignedWarning": "Chưa được gán điểm trường — liên hệ quản trị viên",
+      "placeholder": "-- Chọn điểm trường --"
+    },
+    "class": {
+      "label": "Lớp:",
+      "placeholder": "-- Chọn lớp --"
+    },
+    "attendance": {
+      "checkIn": "Chấm công",
+      "checkedInOut": "Đã chấm công {{checkIn}} – {{checkOut}}",
+      "checkedInOnly": "Đã chấm công vào lúc {{checkIn}}",
+      "modalTitle": "Chấm công của tôi",
+      "modalDescription": "Chọn điểm trường và bấm chấm công vào/ra — hệ thống dùng vị trí GPS hiện tại."
+    },
+    "classCheckIn": {
+      "ariaLabel": "Nhận lớp hôm nay",
+      "pendingCount": "Nhận lớp ({{count}} buổi)",
+      "doneCount": "{{done}}/{{total}} đã nhận lớp",
+      "modalTitle": "Nhận lớp hôm nay",
+      "modalDescription": "Xác nhận có mặt để dạy từng buổi học — hệ thống dùng vị trí GPS hiện tại, chỉ nhận được trong bán kính cho phép của điểm trường."
+    },
+    "notifications": {
+      "title": "Thông báo vận hành",
+      "newCount": "{{count}} Mới",
+      "empty": "Chưa có thông báo nào."
+    },
+    "profileMenu": {
+      "fallbackName": "Cán bộ PPS",
+      "profile": "Hồ sơ cá nhân",
+      "changePassword": "Đổi mật khẩu",
+      "settings": "Cài đặt",
+      "settingsComingSoon": "Tính năng Cài đặt đang được phát triển.",
+      "logout": "Đăng xuất"
+    }
+  },
+  "dialog": {
+    "okLabel": "Đã hiểu",
+    "confirmLabel": "Xác nhận",
+    "cancelLabel": "Hủy",
+    "alertTitle": "Thông báo",
+    "confirmTitle": "Xác nhận",
+    "promptTitle": "Nhập thông tin"
+  },
+  "pagination": {
+    "total": "Tổng {{count}} {{itemLabel}}",
+    "pageSize": "Dòng/trang:",
+    "previous": "Trước",
+    "next": "Sau",
+    "page": "Trang {{current}}/{{total}}"
+  },
+  "datePicker": {
+    "weekdays": ["CN", "T2", "T3", "T4", "T5", "T6", "T7"],
+    "months": [
+      "Tháng 1", "Tháng 2", "Tháng 3", "Tháng 4", "Tháng 5", "Tháng 6",
+      "Tháng 7", "Tháng 8", "Tháng 9", "Tháng 10", "Tháng 11", "Tháng 12"
+    ],
+    "placeholder": "-- Chọn ngày --",
+    "clear": "Xoá",
+    "today": "Hôm nay"
+  },
+  "upload": {
+    "file": {
+      "changeFile": "Đổi file",
+      "uploading": "Đang upload...",
+      "choose": "Chọn file",
+      "failed": "Upload file thất bại."
+    },
+    "avatar": {
+      "changeTitle": "Đổi ảnh đại diện",
+      "failed": "Upload ảnh thất bại."
+    },
+    "excel": {
+      "button": "Import Excel",
+      "modalDescription": "Tải file mẫu, điền dữ liệu rồi tải lên để nhập hàng loạt.",
+      "downloadTemplate": "Tải file mẫu (.xlsx)",
+      "downloading": "Đang tải...",
+      "downloadTemplateFailed": "Tải file mẫu thất bại.",
+      "downloadAccountsFailed": "Tải danh sách tài khoản thất bại.",
+      "uploadLabel": "Tải lên file đã điền",
+      "invalidFileType": "Chỉ chấp nhận file .xlsx (đúng định dạng file mẫu tải về).",
+      "importFailed": "Import thất bại.",
+      "totalRows": "Tổng số dòng",
+      "successRows": "Thành công",
+      "failedRows": "Lỗi",
+      "errorDetailTitle": "Chi tiết lỗi từng dòng",
+      "row": "Dòng {{row}}",
+      "credentialsWarning": "Mật khẩu tạm — chỉ hiển thị 1 lần, lưu lại ngay",
+      "downloadAccounts": "Tải danh sách (.xlsx)",
+      "close": "Đóng",
+      "cancel": "Hủy",
+      "importing": "Đang nhập...",
+      "confirmImport": "Xác nhận nhập",
+      "defaultAccountsFileName": "tai-khoan.xlsx"
+    }
+  }
+}

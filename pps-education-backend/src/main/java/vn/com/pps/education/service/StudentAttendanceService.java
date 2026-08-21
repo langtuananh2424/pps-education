@@ -154,7 +154,7 @@ public class StudentAttendanceService {
     private void upsertMark(AttendanceSession attendanceSession, EnterAttendanceMarkRequest request,
                              List<SessionPeriod> periods, User actor) {
         Student student = studentRepository.findByIdAndDeletedAtIsNull(request.studentId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy học sinh id=" + request.studentId()));
+                .orElseThrow(() -> new ResourceNotFoundException("error.studentAttendance.studentNotFoundById", new Object[]{request.studentId()}, "Không tìm thấy học sinh id=" + request.studentId()));
         AttendanceMark mark = attendanceMarkRepository
                 .findByAttendanceSessionIdAndStudentId(attendanceSession.getId(), request.studentId())
                 .orElse(null);
@@ -204,13 +204,14 @@ public class StudentAttendanceService {
         User actor = getUserOrThrow(actorUserId);
 
         AttendanceSession attendanceSession = attendanceSessionRepository.findByClassSessionId(classSessionId)
-                .orElseThrow(() -> new ResourceNotFoundException("Chưa có bản ghi điểm danh cho buổi id=" + classSessionId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.studentAttendance.sessionNotFound", new Object[]{classSessionId}, "Chưa có bản ghi điểm danh cho buổi id=" + classSessionId));
         AttendanceMark mark = attendanceMarkRepository
                 .findByAttendanceSessionIdAndStudentId(attendanceSession.getId(), studentId)
                 .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.studentAttendance.markNotFoundForStudent", new Object[]{studentId, classSessionId},
                         "Chưa điểm danh nhanh cho học sinh id=" + studentId + " ở buổi id=" + classSessionId));
         SessionPeriod period = sessionPeriodRepository.findById(sessionPeriodId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tiết học id=" + sessionPeriodId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.studentAttendance.periodNotFoundById", new Object[]{sessionPeriodId}, "Không tìm thấy tiết học id=" + sessionPeriodId));
 
         AttendancePeriodMark periodMark = attendancePeriodMarkRepository
                 .findByAttendanceMarkIdAndSessionPeriodId(mark.getId(), sessionPeriodId)
@@ -239,7 +240,7 @@ public class StudentAttendanceService {
         User actor = getUserOrThrow(actorUserId);
 
         AttendanceSession attendanceSession = attendanceSessionRepository.findByClassSessionId(classSessionId)
-                .orElseThrow(() -> new ResourceNotFoundException("Chưa có bản ghi điểm danh cho buổi id=" + classSessionId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.studentAttendance.sessionNotFound", new Object[]{classSessionId}, "Chưa có bản ghi điểm danh cho buổi id=" + classSessionId));
         attendanceSession.setStatus(AttendanceSession.Status.SUBMITTED);
         if (attendanceSession.getSubmittedAt() == null) {
             attendanceSession.setSubmittedAt(OffsetDateTime.now());
@@ -269,7 +270,7 @@ public class StudentAttendanceService {
     public void deleteAttendance(Long classSessionId, Long actorUserId) {
         getClassSessionOrThrow(classSessionId);
         AttendanceSession attendanceSession = attendanceSessionRepository.findByClassSessionId(classSessionId)
-                .orElseThrow(() -> new ResourceNotFoundException("Chưa có bản ghi điểm danh cho buổi id=" + classSessionId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.studentAttendance.sessionNotFound", new Object[]{classSessionId}, "Chưa có bản ghi điểm danh cho buổi id=" + classSessionId));
         Long attendanceSessionId = attendanceSession.getId();
         attendancePeriodMarkRepository.deleteByAttendanceSessionId(attendanceSessionId);
         attendanceMarkHistoryRepository.deleteByAttendanceSessionId(attendanceSessionId);
@@ -307,11 +308,11 @@ public class StudentAttendanceService {
     @Transactional(readOnly = true)
     public AttendanceSessionResponse getAttendanceSession(Long classSessionId, Long actorUserId) {
         AttendanceSession attendanceSession = attendanceSessionRepository.findByClassSessionId(classSessionId)
-                .orElseThrow(() -> new ResourceNotFoundException("Chưa có bản ghi điểm danh cho buổi id=" + classSessionId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.studentAttendance.sessionNotFound", new Object[]{classSessionId}, "Chưa có bản ghi điểm danh cho buổi id=" + classSessionId));
         List<Long> allowedSiteIds = resolveAllowedSiteIds(actorUserId);
         Long siteId = attendanceSession.getClassSession().getSchoolClass().getSite().getId();
         if (allowedSiteIds != null && !allowedSiteIds.contains(siteId)) {
-            throw new ResourceNotFoundException("Chưa có bản ghi điểm danh cho buổi id=" + classSessionId);
+            throw new ResourceNotFoundException("error.studentAttendance.sessionNotFound", new Object[]{classSessionId}, "Chưa có bản ghi điểm danh cho buổi id=" + classSessionId);
         }
         return toResponse(attendanceSession);
     }
@@ -352,7 +353,7 @@ public class StudentAttendanceService {
         if (!siteManagerRepository.existsBySiteIdAndUserIdAndRoleTypeAndAssignedToIsNull(
                 siteId, actorUserId, SiteManager.RoleType.SITE_MANAGER)) {
             throw new NotSiteManagerForSiteException(
-                    "Bạn không được gán phụ trách điểm trường này.");
+                    "error.notSiteManagerForSite.default", new Object[]{}, "Bạn không được gán phụ trách điểm trường này.");
         }
         List<SchoolClass> classes = schoolClassRepository.findBySiteIdAndDeletedAtIsNull(siteId);
         return classes.stream()
@@ -393,9 +394,9 @@ public class StudentAttendanceService {
     @Transactional(readOnly = true)
     public List<AttendanceMarkResponse> listMyAttendance(Long classId, Long actorUserId) {
         Student student = studentRepository.findByUserId(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản id=" + actorUserId + " không có hồ sơ học sinh."));
+                .orElseThrow(() -> new ResourceNotFoundException("error.studentAttendance.userHasNoStudentProfile", new Object[]{actorUserId}, "Tài khoản id=" + actorUserId + " không có hồ sơ học sinh."));
         if (!classEnrollmentRepository.existsByStudentIdAndSchoolClassId(student.getId(), classId)) {
-            throw new ResourceNotFoundException("Không tìm thấy lớp học id=" + classId);
+            throw new ResourceNotFoundException("error.studentAttendance.classNotFoundById", new Object[]{classId}, "Không tìm thấy lớp học id=" + classId);
         }
         return attendanceMarkRepository.findByStudentIdAndClassId(student.getId(), classId).stream()
                 .map(this::toResponse).toList();
@@ -404,7 +405,7 @@ public class StudentAttendanceService {
     private void requireAssignedTeacher(ClassSession classSession, Long actorUserId) {
         if (!classSession.getPrimaryTeacher().getId().equals(actorUserId)) {
             throw new NotAssignedTeacherForSessionException(
-                    "Bạn không được phân công giảng dạy buổi học này.");
+                    "error.notAssignedTeacherForSession.attendance", new Object[]{}, "Bạn không được phân công giảng dạy buổi học này.");
         }
     }
 
@@ -442,6 +443,8 @@ public class StudentAttendanceService {
     private void requireWithinSessionWindow(ClassSession classSession) {
         if (!isWithinSessionWindow(classSession)) {
             throw new AttendanceSessionNotEditableException(
+                    "error.attendanceSessionNotEditable.default",
+                    new Object[]{classSession.getSessionDate(), classSession.getStartTime(), classSession.getEndTime(), LocalDate.now(), LocalTime.now()},
                     "Chỉ điểm danh/sửa được trong khung giờ buổi học (" + classSession.getSessionDate() + " "
                             + classSession.getStartTime() + "-" + classSession.getEndTime()
                             + "); hiện tại là " + LocalDate.now() + " " + LocalTime.now()
@@ -483,12 +486,12 @@ public class StudentAttendanceService {
 
     private ClassSession getClassSessionOrThrow(Long id) {
         return classSessionRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy buổi học id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.studentAttendance.classSessionNotFoundById", new Object[]{id}, "Không tìm thấy buổi học id=" + id));
     }
 
     private User getUserOrThrow(Long id) {
         return userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.studentAttendance.accountNotFoundById", new Object[]{id}, "Không tìm thấy tài khoản id=" + id));
     }
 
     private void writeAttendanceMarkHistory(AttendanceMark mark, User actor, AttendanceMarkHistory.Action action) {

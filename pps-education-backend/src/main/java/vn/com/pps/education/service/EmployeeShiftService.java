@@ -55,14 +55,15 @@ public class EmployeeShiftService {
     @Transactional
     public EmployeeShiftResponse assignShift(AssignEmployeeShiftRequest request) {
         Employee employee = employeeRepository.findById(request.employeeId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy nhân sự id=" + request.employeeId()));
+                .orElseThrow(() -> new ResourceNotFoundException("error.employeeShift.employeeNotFound", new Object[]{request.employeeId()}, "Không tìm thấy nhân sự id=" + request.employeeId()));
         Shift shift = shiftRepository.findById(request.shiftId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy ca làm việc id=" + request.shiftId()));
+                .orElseThrow(() -> new ResourceNotFoundException("error.employeeShift.shiftNotFound", new Object[]{request.shiftId()}, "Không tìm thấy ca làm việc id=" + request.shiftId()));
 
         List<EmployeeShift> activeShifts = employeeShiftRepository.findByEmployeeIdAndEffectiveToIsNull(employee.getId());
         for (EmployeeShift existing : activeShifts) {
             if (overlaps(shift, existing.getShift())) {
-                throw new ShiftAssignmentOverlapException(
+                throw new ShiftAssignmentOverlapException("error.shiftAssignmentOverlap.default",
+                        new Object[]{shift.getId(), existing.getShift().getId(), existing.getId(), employee.getId()},
                         "Ca id=" + shift.getId() + " chồng chéo lịch với ca đang active id=" + existing.getShift().getId()
                                 + " (employee_shift id=" + existing.getId()
                                 + ") của nhân sự id=" + employee.getId()
@@ -83,9 +84,10 @@ public class EmployeeShiftService {
     @Transactional
     public EmployeeShiftResponse endShift(Long id, EndEmployeeShiftRequest request) {
         EmployeeShift assignment = employeeShiftRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bản ghi gán ca id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.employeeShift.assignmentNotFound", new Object[]{id}, "Không tìm thấy bản ghi gán ca id=" + id));
         if (assignment.getEffectiveTo() != null) {
-            throw new EmployeeShiftAlreadyEndedException(
+            throw new EmployeeShiftAlreadyEndedException("error.employeeShiftAlreadyEnded.default",
+                    new Object[]{id, assignment.getEffectiveTo()},
                     "Bản ghi gán ca id=" + id + " đã kết thúc từ " + assignment.getEffectiveTo());
         }
         if (request.effectiveTo().isBefore(assignment.getEffectiveFrom())) {

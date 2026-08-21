@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import AccountSelector, { AccountSelection } from "@/features/system-admin/components/AccountSelector";
 import { createParent, createStudent, CreateStudentRequest, linkParent, listSites, SiteOption } from "../api";
@@ -23,6 +24,7 @@ interface StudentFormModalProps {
 
 /** UC-13 Main Flow bước 1-3: khởi tạo hồ sơ học sinh, kèm tài khoản mới hoặc gán tài khoản có sẵn — có thể liên kết luôn phụ huynh. */
 export default function StudentFormModal({ onClose, onCreated }: StudentFormModalProps) {
+  const { t } = useTranslation("student");
   const [account, setAccount] = useState<AccountSelection>({ newAccount: { username: "", email: "", fullName: "", phone: "", password: "" } });
   const [sites, setSites] = useState<SiteOption[]>([]);
   const [form, setForm] = useState({
@@ -59,15 +61,15 @@ export default function StudentFormModal({ onClose, onCreated }: StudentFormModa
     e.preventDefault();
     setSubmitAttempted(true);
     if (!form.studentCode.trim() || !form.dateOfBirth || !form.enrollmentDate) {
-      setError("Vui lòng điền đủ các trường bắt buộc được đánh dấu đỏ.");
+      setError(t("studentForm.requiredFieldsError"));
       return;
     }
     if (!account.userId && (!account.newAccount?.username || !account.newAccount?.email || !account.newAccount?.fullName)) {
-      setError("Vui lòng chọn tài khoản có sẵn hoặc điền đủ thông tin tài khoản mới cho học sinh.");
+      setError(t("studentForm.studentAccountError"));
       return;
     }
     if (addParent && !parentAccount.userId && (!parentAccount.newAccount?.username || !parentAccount.newAccount?.email || !parentAccount.newAccount?.fullName)) {
-      setError("Vui lòng chọn tài khoản có sẵn hoặc điền đủ thông tin tài khoản mới cho phụ huynh.");
+      setError(t("studentForm.parentAccountError"));
       return;
     }
     setSubmitting(true);
@@ -103,56 +105,56 @@ export default function StudentFormModal({ onClose, onCreated }: StudentFormModa
 
       onCreated(student.id);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Tạo hồ sơ học sinh thất bại.");
+      setError(err instanceof ApiError ? err.message : t("studentForm.createError"));
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <Modal open onClose={onClose} title="Thêm học sinh mới" size="lg">
+    <Modal open onClose={onClose} title={t("studentForm.modalTitle")} size="lg">
       <form onSubmit={handleSubmit} className="space-y-5">
         {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
         <div className="space-y-2 border-t border-slate-100 pt-4">
-          <span className="text-[10px] font-bold uppercase text-slate-500">Ảnh đại diện</span>
+          <span className="text-[10px] font-bold uppercase text-slate-500">{t("studentForm.avatarLabel")}</span>
           <AvatarUploadField
             value={form.portraitUrl}
             onChange={(url) => setForm({ ...form, portraitUrl: url })}
             onUpload={(file) => uploadMedia(file, "STUDENT")}
-            fallbackName={account.newAccount?.fullName || "Học sinh"}
+            fallbackName={account.newAccount?.fullName || t("studentForm.avatarFallback")}
           />
         </div>
 
         <div className="space-y-2">
-          <span className="text-[10px] font-bold uppercase text-slate-500">Tài khoản học sinh</span>
+          <span className="text-[10px] font-bold uppercase text-slate-500">{t("studentForm.accountSectionTitle")}</span>
           <AccountSelector value={account} onChange={setAccount} submitAttempted={submitAttempted} />
         </div>
 
         <div className="space-y-3 border-t border-slate-100 pt-4">
-          <span className="text-[10px] font-bold uppercase text-slate-500">Thông tin học sinh</span>
+          <span className="text-[10px] font-bold uppercase text-slate-500">{t("studentForm.infoSectionTitle")}</span>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={labelClass}>Mã học sinh *</label>
+              <label className={labelClass}>{t("studentForm.codeLabel")}</label>
               <input
                 value={form.studentCode}
                 onChange={(e) => setForm({ ...form, studentCode: e.target.value })}
                 onBlur={() => markTouched("studentCode")}
                 className={`${studentCodeInvalid ? inputErrorClass : inputClass} font-mono`}
               />
-              {studentCodeInvalid && <p className="text-[10px] text-rose-600 mt-1">Vui lòng nhập Mã học sinh.</p>}
+              {studentCodeInvalid && <p className="text-[10px] text-rose-600 mt-1">{t("studentForm.codeRequired")}</p>}
             </div>
             <div>
-              <label className={labelClass}>Giới tính</label>
+              <label className={labelClass}>{t("studentForm.genderLabel")}</label>
               <Select value={form.gender} onChange={(e) => setForm({ ...form, gender: e.target.value })} className={inputClass}>
-                <option value="">-- Chưa rõ --</option>
-                <option value="MALE">Nam</option>
-                <option value="FEMALE">Nữ</option>
-                <option value="OTHER">Khác</option>
+                <option value="">{t("gender.unknown")}</option>
+                <option value="MALE">{t("gender.MALE")}</option>
+                <option value="FEMALE">{t("gender.FEMALE")}</option>
+                <option value="OTHER">{t("gender.OTHER")}</option>
               </Select>
             </div>
             <div>
-              <label className={labelClass}>Ngày sinh *</label>
+              <label className={labelClass}>{t("studentForm.dobLabel")}</label>
               <DatePicker
                 value={form.dateOfBirth}
                 onChange={(v) => {
@@ -162,10 +164,10 @@ export default function StudentFormModal({ onClose, onCreated }: StudentFormModa
                 max={TODAY_ISO}
                 hasError={dateOfBirthInvalid}
               />
-              {dateOfBirthInvalid && <p className="text-[10px] text-rose-600 mt-1">Vui lòng chọn Ngày sinh.</p>}
+              {dateOfBirthInvalid && <p className="text-[10px] text-rose-600 mt-1">{t("studentForm.dobRequired")}</p>}
             </div>
             <div>
-              <label className={labelClass}>Ngày nhập học *</label>
+              <label className={labelClass}>{t("studentForm.enrollmentDateLabel")}</label>
               <DatePicker
                 value={form.enrollmentDate}
                 onChange={(v) => {
@@ -174,12 +176,12 @@ export default function StudentFormModal({ onClose, onCreated }: StudentFormModa
                 }}
                 hasError={enrollmentDateInvalid}
               />
-              {enrollmentDateInvalid && <p className="text-[10px] text-rose-600 mt-1">Vui lòng chọn Ngày nhập học.</p>}
+              {enrollmentDateInvalid && <p className="text-[10px] text-rose-600 mt-1">{t("studentForm.enrollmentDateRequired")}</p>}
             </div>
             <div>
-              <label className={labelClass}>Điểm trường chính</label>
+              <label className={labelClass}>{t("studentForm.primarySiteLabel")}</label>
               <Select value={form.primarySiteId} onChange={(e) => setForm({ ...form, primarySiteId: e.target.value })} className={inputClass}>
-                <option value="">-- Chưa gán --</option>
+                <option value="">{t("studentForm.primarySiteUnassigned")}</option>
                 {sites.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
@@ -188,15 +190,15 @@ export default function StudentFormModal({ onClose, onCreated }: StudentFormModa
               </Select>
             </div>
             <div>
-              <label className={labelClass}>Trường gốc</label>
+              <label className={labelClass}>{t("studentForm.originalSchoolLabel")}</label>
               <input value={form.originalSchool} onChange={(e) => setForm({ ...form, originalSchool: e.target.value })} className={inputClass} />
             </div>
             <div>
-              <label className={labelClass}>Lớp gốc</label>
+              <label className={labelClass}>{t("studentForm.originalClassLabel")}</label>
               <input value={form.originalClass} onChange={(e) => setForm({ ...form, originalClass: e.target.value })} className={inputClass} />
             </div>
             <div>
-              <label className={labelClass}>Ghi chú</label>
+              <label className={labelClass}>{t("studentForm.notesLabel")}</label>
               <input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className={inputClass} />
             </div>
           </div>
@@ -205,28 +207,28 @@ export default function StudentFormModal({ onClose, onCreated }: StudentFormModa
         <div className="border-t border-slate-100 pt-4 space-y-3">
           <label className="flex items-center gap-2 text-xs font-bold text-slate-700 uppercase">
             <input type="checkbox" checked={addParent} onChange={(e) => setAddParent(e.target.checked)} />
-            Liên kết Phụ huynh ngay
+            {t("studentForm.linkParentCheckbox")}
           </label>
           {addParent && (
             <div className="space-y-3 bg-slate-50/60 border border-slate-200 rounded-xl p-3">
               <AccountSelector value={parentAccount} onChange={setParentAccount} submitAttempted={submitAttempted} />
               <div className="grid grid-cols-3 gap-2 items-end">
                 <div>
-                  <label className={labelClass}>Quan hệ</label>
+                  <label className={labelClass}>{t("studentForm.relationshipLabel")}</label>
                   <Select value={parentInfo.relationship} onChange={(e) => setParentInfo({ ...parentInfo, relationship: e.target.value })} className={inputClass}>
-                    <option value="FATHER">Bố</option>
-                    <option value="MOTHER">Mẹ</option>
-                    <option value="GUARDIAN">Người giám hộ</option>
-                    <option value="OTHER">Khác</option>
+                    <option value="FATHER">{t("relationship.FATHER")}</option>
+                    <option value="MOTHER">{t("relationship.MOTHER")}</option>
+                    <option value="GUARDIAN">{t("relationship.GUARDIAN")}</option>
+                    <option value="OTHER">{t("relationship.OTHER")}</option>
                   </Select>
                 </div>
                 <label className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 pb-2.5">
                   <input type="checkbox" checked={parentInfo.isPrimaryContact} onChange={(e) => setParentInfo({ ...parentInfo, isPrimaryContact: e.target.checked })} />
-                  Người liên hệ chính
+                  {t("studentForm.primaryContactCheckbox")}
                 </label>
                 <label className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 pb-2.5">
                   <input type="checkbox" checked={parentInfo.isFinancialResponsible} onChange={(e) => setParentInfo({ ...parentInfo, isFinancialResponsible: e.target.checked })} />
-                  Chịu trách nhiệm tài chính
+                  {t("studentForm.financialResponsibleCheckbox")}
                 </label>
               </div>
             </div>
@@ -235,11 +237,11 @@ export default function StudentFormModal({ onClose, onCreated }: StudentFormModa
 
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="secondary" onClick={onClose}>
-            Hủy
+            {t("studentForm.cancel")}
           </Button>
           <Button type="submit" variant="primary" disabled={submitting}>
             <Plus className="w-3.5 h-3.5" />
-            {submitting ? "Đang tạo..." : "Tạo hồ sơ học sinh"}
+            {submitting ? t("studentForm.creating") : t("studentForm.createButton")}
           </Button>
         </div>
       </form>

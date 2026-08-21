@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { ArrowLeft, Check, FileText } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { UserRole } from "@/types";
 import { mockEmployees, mockLeaveRequests } from "@/data/mockData";
 import DatePicker from "@/components/ui/DatePicker";
@@ -11,6 +12,7 @@ interface PublicLeaveRequestFormProps {
 }
 
 export default function PublicLeaveRequestForm({ onClose }: PublicLeaveRequestFormProps) {
+  const { t } = useTranslation("auth");
   const [empId, setEmpId] = useState(mockEmployees[4]?.id || mockEmployees[0]?.id || "");
   const [leaveType, setLeaveType] = useState<"LEAVE" | "LATE" | "EARLY">("LEAVE");
   const [startDate, setStartDate] = useState("2026-07-15");
@@ -22,7 +24,7 @@ export default function PublicLeaveRequestForm({ onClose }: PublicLeaveRequestFo
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!reason.trim()) {
-      await alertDialog("Vui lòng điền đầy đủ lý do nghỉ phép.");
+      await alertDialog(t("publicLeave.reasonRequired"));
       return;
     }
 
@@ -43,7 +45,7 @@ export default function PublicLeaveRequestForm({ onClose }: PublicLeaveRequestFo
       id: `LEV-PUB-${Date.now().toString().substring(8)}`,
       employeeId: matchedEmp.id,
       employeeName: matchedEmp.fullName,
-      departmentName: matchedEmp.role === UserRole.TEACHER ? "Tổ chuyên môn Sư phạm" : "Phòng Hành chính - Vận hành",
+      departmentName: matchedEmp.role === UserRole.TEACHER ? t("publicLeave.departmentTeaching") : t("publicLeave.departmentAdmin"),
       type: leaveType,
       startDate,
       endDate,
@@ -73,8 +75,8 @@ export default function PublicLeaveRequestForm({ onClose }: PublicLeaveRequestFo
           <ArrowLeft className="w-4 h-4" />
         </button>
         <div>
-          <h3 className="text-sm font-bold text-slate-850 uppercase tracking-wide">Nộp đơn nghỉ phép nhanh</h3>
-          <p className="text-[10px] text-slate-400 font-medium">Bypass đăng nhập • Đồng bộ ERP</p>
+          <h3 className="text-sm font-bold text-slate-850 uppercase tracking-wide">{t("publicLeave.title")}</h3>
+          <p className="text-[10px] text-slate-400 font-medium">{t("publicLeave.subtitle")}</p>
         </div>
       </div>
 
@@ -84,8 +86,8 @@ export default function PublicLeaveRequestForm({ onClose }: PublicLeaveRequestFo
             <Check className="w-5 h-5 stroke-[3]" />
           </div>
           <div className="space-y-1">
-            <h4 className="text-xs font-bold text-slate-900 uppercase">Gửi đơn thành công!</h4>
-            <p className="text-[11px] text-slate-500 leading-relaxed font-medium">Đơn đã được đồng bộ tới quản lý trực tiếp phê duyệt.</p>
+            <h4 className="text-xs font-bold text-slate-900 uppercase">{t("publicLeave.successTitle")}</h4>
+            <p className="text-[11px] text-slate-500 leading-relaxed font-medium">{t("publicLeave.successMessage")}</p>
           </div>
 
           <div className="pt-2 flex flex-col gap-2">
@@ -97,21 +99,21 @@ export default function PublicLeaveRequestForm({ onClose }: PublicLeaveRequestFo
               }}
               className="w-full bg-[#EA580C] hover:bg-[#D94E07] text-white font-bold text-xs py-2.5 rounded-full transition-all cursor-pointer text-center shadow-sm"
             >
-              Nộp thêm đơn khác
+              {t("publicLeave.submitAnother")}
             </button>
             <button
               type="button"
               onClick={onClose}
               className="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs py-2.5 rounded-full transition-all cursor-pointer text-center"
             >
-              Quay lại Trang Đăng nhập
+              {t("publicLeave.backToLogin")}
             </button>
           </div>
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="space-y-1">
-            <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500 block">Chọn Cán bộ / Giảng viên nộp đơn</label>
+            <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500 block">{t("publicLeave.selectEmployee")}</label>
             <Select
               value={empId}
               onChange={(e) => setEmpId(e.target.value)}
@@ -119,42 +121,42 @@ export default function PublicLeaveRequestForm({ onClose }: PublicLeaveRequestFo
             >
               {mockEmployees.map((emp) => (
                 <option key={emp.id} value={emp.id}>
-                  {emp.fullName} ({emp.role === UserRole.TEACHER ? "Giáo viên" : "Hành chính"})
+                  {emp.fullName} ({emp.role === UserRole.TEACHER ? t("publicLeave.roleTeacher") : t("publicLeave.roleAdmin")})
                 </option>
               ))}
             </Select>
           </div>
 
           <div className="space-y-1">
-            <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500 block">Hình thức xin nghỉ</label>
+            <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500 block">{t("publicLeave.leaveTypeLabel")}</label>
             <Select
               value={leaveType}
               onChange={(e) => setLeaveType(e.target.value as "LEAVE" | "LATE" | "EARLY")}
               className="w-full bg-slate-50/50 border border-slate-200 text-xs px-4 py-2.5 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#EA580C]"
             >
-              <option value="LEAVE">Nghỉ phép thường niên (Full-day)</option>
-              <option value="LATE">Đi trễ có lý do (Late morning)</option>
-              <option value="EARLY">Về sớm cá nhân (Early leave)</option>
+              <option value="LEAVE">{t("publicLeave.leaveTypeFull")}</option>
+              <option value="LATE">{t("publicLeave.leaveTypeLate")}</option>
+              <option value="EARLY">{t("publicLeave.leaveTypeEarly")}</option>
             </Select>
           </div>
 
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
-              <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500 block">Từ ngày</label>
+              <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500 block">{t("publicLeave.fromDate")}</label>
               <DatePicker value={startDate} onChange={setStartDate} max={endDate || undefined} />
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500 block">Đến ngày</label>
+              <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500 block">{t("publicLeave.toDate")}</label>
               <DatePicker value={endDate} onChange={setEndDate} min={startDate || undefined} />
             </div>
           </div>
 
           <div className="space-y-1">
-            <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500 block">Lý do xin nghỉ</label>
+            <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500 block">{t("publicLeave.reasonLabel")}</label>
             <textarea
               required
               rows={2}
-              placeholder="Nêu lý do chi tiết..."
+              placeholder={t("publicLeave.reasonPlaceholder")}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               className="w-full bg-slate-50/50 border border-slate-200 text-xs px-4 py-2 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#EA580C] text-slate-850"
@@ -166,7 +168,7 @@ export default function PublicLeaveRequestForm({ onClose }: PublicLeaveRequestFo
             className="w-full bg-[#EA580C] hover:bg-[#D94E07] text-white font-bold text-xs py-3 rounded-full flex items-center justify-center gap-1.5 shadow-md mt-4 transition-all"
           >
             <FileText className="w-4 h-4 text-white" />
-            <span>Gửi đơn nghỉ phép nhanh</span>
+            <span>{t("publicLeave.submit")}</span>
           </button>
         </form>
       )}

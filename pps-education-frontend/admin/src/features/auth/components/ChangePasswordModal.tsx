@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { KeyRound } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { changeOwnPassword } from "../api";
 import Modal from "@/components/ui/Modal";
@@ -17,6 +18,7 @@ interface ChangePasswordModalProps {
 
 /** UC-45: tự đổi mật khẩu tài khoản đang đăng nhập — tách riêng khỏi ProfileModal (Hồ sơ cá nhân) theo yêu cầu người dùng. */
 export default function ChangePasswordModal({ onClose }: ChangePasswordModalProps) {
+  const { t } = useTranslation("auth");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -30,27 +32,27 @@ export default function ChangePasswordModal({ onClose }: ChangePasswordModalProp
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPassword) {
-      setError("Vui lòng nhập mật khẩu mới.");
+      setError(t("changePasswordModal.newPasswordRequired"));
       return;
     }
     if (newPassword.length < 8) {
-      setError("Mật khẩu mới phải từ 8 ký tự trở lên.");
+      setError(t("changePasswordModal.newPasswordTooShort"));
       return;
     }
     if (newPassword !== confirmPassword) {
-      setError("Xác nhận mật khẩu mới không khớp.");
+      setError(t("changePasswordModal.confirmMismatch"));
       return;
     }
     setSubmitting(true);
     setError(null);
     try {
       await changeOwnPassword(currentPassword, newPassword);
-      showToast("Đã đổi mật khẩu thành công.");
+      showToast(t("changePasswordModal.changeSuccess"));
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Đổi mật khẩu thất bại.");
+      setError(err instanceof ApiError ? err.message : t("changePasswordModal.changeFailed"));
     } finally {
       setSubmitting(false);
     }
@@ -58,52 +60,52 @@ export default function ChangePasswordModal({ onClose }: ChangePasswordModalProp
 
   return (
     <>
-      <Modal open onClose={onClose} title="Đổi mật khẩu" size="md">
+      <Modal open onClose={onClose} title={t("changePasswordModal.title")} size="md">
       <form onSubmit={handleSubmit} className="space-y-3">
         <span className="text-[10px] font-bold uppercase text-slate-500 flex items-center gap-1.5">
           <KeyRound className="w-3.5 h-3.5" />
-          Đổi mật khẩu
+          {t("changePasswordModal.sectionTitle")}
         </span>
 
         {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
         <div>
-          <label className={labelClass}>Mật khẩu hiện tại</label>
+          <label className={labelClass}>{t("changePasswordModal.currentPassword")}</label>
           <input
             type="password"
             value={currentPassword}
             onChange={(e) => setCurrentPassword(e.target.value)}
-            placeholder="Để trống nếu tài khoản chỉ đăng nhập bằng Google và chưa từng đặt mật khẩu"
+            placeholder={t("changePasswordModal.currentPasswordPlaceholder")}
             className={inputClass}
           />
         </div>
         <div>
-          <label className={labelClass}>Mật khẩu mới *</label>
+          <label className={labelClass}>{t("changePasswordModal.newPassword")}</label>
           <input
             type="password"
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
             className={newPasswordInvalid ? inputErrorClass : inputClass}
           />
-          {newPasswordInvalid && <p className="text-[10px] text-rose-600 mt-1">Mật khẩu mới phải từ 8 ký tự trở lên.</p>}
+          {newPasswordInvalid && <p className="text-[10px] text-rose-600 mt-1">{t("changePasswordModal.newPasswordTooShort")}</p>}
         </div>
         <div>
-          <label className={labelClass}>Xác nhận mật khẩu mới *</label>
+          <label className={labelClass}>{t("changePasswordModal.confirmPassword")}</label>
           <input
             type="password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             className={confirmMismatch ? inputErrorClass : inputClass}
           />
-          {confirmMismatch && <p className="text-[10px] text-rose-600 mt-1">Xác nhận không khớp với mật khẩu mới.</p>}
+          {confirmMismatch && <p className="text-[10px] text-rose-600 mt-1">{t("changePasswordModal.confirmMismatch")}</p>}
         </div>
 
         <div className="flex justify-end gap-2 pt-1">
           <Button type="button" variant="secondary" onClick={onClose}>
-            Đóng
+            {t("changePasswordModal.close")}
           </Button>
           <Button type="submit" variant="primary" disabled={submitting}>
-            {submitting ? "Đang lưu..." : "Đổi mật khẩu"}
+            {submitting ? t("changePasswordModal.saving") : t("changePasswordModal.submit")}
           </Button>
         </div>
       </form>

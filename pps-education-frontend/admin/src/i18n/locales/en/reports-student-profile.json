@@ -1,0 +1,170 @@
+{
+  "studentStatus": {
+    "ACTIVE": "Active",
+    "SUSPENDED": "Suspended",
+    "EXPELLED": "Expelled",
+    "GRADUATED": "Graduated",
+    "WITHDRAWN": "Withdrawn",
+    "DEFERRAL": "Deferred"
+  },
+  "resultStatus": {
+    "DRAFT": "Draft",
+    "SUBMITTED": "Submitted",
+    "OFFICIAL": "Official",
+    "REJECTED": "Rejected",
+    "PENDING": "Pending review",
+    "APPROVED": "Approved"
+  },
+  "attitude": {
+    "WEAK": "Weak",
+    "AVERAGE": "Average",
+    "FAIR": "Fair",
+    "GOOD": "Good",
+    "EXCELLENT": "Excellent"
+  },
+  "homeworkStatus": {
+    "IN_PROGRESS": "In progress",
+    "SUBMITTED": "Submitted",
+    "AUTO_GRADED": "Auto-graded",
+    "FULLY_GRADED": "Fully graded",
+    "EXPIRED": "Expired"
+  },
+  "attendanceStatus": {
+    "PRESENT": "Present",
+    "LATE": "Late",
+    "EARLY_LEAVE": "Left early",
+    "ABSENT": "Absent",
+    "EXCUSED": "Excused"
+  },
+  "modal": {
+    "title": "Academic Profile",
+    "loading": "Loading academic profile...",
+    "loadError": "Could not load the academic profile.",
+    "tabs": {
+      "overview": "Overview",
+      "grades": "Grades",
+      "comments": "Comments",
+      "attendance": "Attendance",
+      "homework": "Homework"
+    },
+    "overview": {
+      "enrolledClassesLabel": "Classes enrolled",
+      "enrolledClassesUnit": "classes",
+      "avgScoreLabel": "Average score",
+      "avgScoreUnit": "over {{count}} terms",
+      "commentsLabel": "Comments",
+      "commentsUnit": "daily comments",
+      "attendanceLabel": "Attendance",
+      "attendancePresentUnit": "present ({{present}}/{{total}})",
+      "enrollmentHistoryTitle": "Enrollment history",
+      "noEnrollments": "No classes yet",
+      "enrolledOn": "Enrolled: {{date}}",
+      "withdrawnOn": " · Withdrawn: {{date}}",
+      "enrollmentActive": "Active"
+    },
+    "grades": {
+      "filterLabel": "Filter:",
+      "allYears": "All academic years",
+      "allTerms": "All terms",
+      "clearFilter": "Clear filter",
+      "resultsTitle": "Term results",
+      "noGrades": "No grades yet",
+      "noGradesMatchFilter": "No results match the selected filter",
+      "columns": {
+        "academicYear": "Academic year",
+        "term": "Term",
+        "type": "Type",
+        "score": "Score",
+        "level": "Level",
+        "comment": "Comment",
+        "status": "Status"
+      },
+      "evaluationType": {
+        "midTerm": "Mid-term",
+        "endTerm": "End-term"
+      },
+      "skillTrendTitle": "Score trend by skill",
+      "noSkillTrends": "No skill-based scores yet",
+      "noSkillTrendsMatchFilter": "No skill scores match the selected filter",
+      "compareTitle": "Compare scores between 2 terms",
+      "compareAPlaceholder": "-- Select term A --",
+      "compareVs": "vs",
+      "compareBPlaceholder": "-- Select term B --",
+      "compareSelectPrompt": "Select 2 terms to compare skill scores.",
+      "compareNoData": "No skill scores found in either of the 2 selected terms.",
+      "compareColumns": {
+        "skill": "Skill",
+        "delta": "Change"
+      },
+      "overallSkillLabel": "Overall"
+    },
+    "comments": {
+      "filterLabel": "Filter:",
+      "all": "All",
+      "dateFromPlaceholder": "From date",
+      "dateToPlaceholder": "To date",
+      "clearFilter": "Clear filter",
+      "countSuffix": "{{count}} comments",
+      "noComments": "No comments yet",
+      "noCommentsMatchFilter": "No comments match the selected filter",
+      "dailyBadge": "Daily",
+      "sessionLabel": "Session {{number}} — {{date}}",
+      "noContent": "(no content)",
+      "attitudePrefix": "Attitude: ",
+      "notePrefix": "Note: "
+    },
+    "attendance": {
+      "filterLabel": "Filter:",
+      "all": "All",
+      "dateFromPlaceholder": "From date",
+      "dateToPlaceholder": "To date",
+      "clearFilter": "Clear filter",
+      "countSuffix": "{{filtered}}/{{total}} sessions (up to the last 150 sessions)",
+      "presentStat": "Present",
+      "absentStat": "Unexcused absence",
+      "excusedStat": "Excused absence",
+      "noAttendance": "No attendance data yet",
+      "noAttendanceMatchFilter": "No sessions match the selected filter",
+      "sessionNumber": "Session {{number}}",
+      "sessionFallback": "Session #{{id}}"
+    },
+    "homework": {
+      "filterLabel": "Filter:",
+      "allClasses": "All classes",
+      "allResults": "All results",
+      "resultPassed": "Passed",
+      "resultFailed": "Failed",
+      "resultUngraded": "Ungraded",
+      "clearFilter": "Clear filter",
+      "countSuffix": "{{count}} assignments",
+      "noHomework": "No homework assigned yet",
+      "noHomeworkMatchFilter": "No assignments match the selected filter",
+      "attemptNumberSuffix": " · Attempt {{number}}",
+      "submittedAtSuffix": " · Submitted: {{datetime}}",
+      "notSubmittedSuffix": " · Not submitted",
+      "passed": "Passed",
+      "failed": "Failed"
+    }
+  },
+  "skillTrendChart": {
+    "latestLabel": "Latest:",
+    "chartAriaLabel": "Score chart for {{skill}} across terms"
+  },
+  "homeworkAttemptDetail": {
+    "loading": "Loading attempt...",
+    "loadError": "Could not load the attempt details.",
+    "noAnswers": "No answer data yet.",
+    "wrongCountPrefix": "Wrong ",
+    "wrongCountSuffix": "/{{totalCount}} questions",
+    "showWrongOnly": "Show wrong answers only",
+    "showAll": "Show all answers",
+    "noWrongAnswers": "No wrong answers 🎉",
+    "columns": {
+      "question": "Question",
+      "studentAnswer": "Student's answer",
+      "correctAnswer": "Correct answer",
+      "result": "Result"
+    },
+    "noAnswerGiven": "No answer given"
+  }
+}

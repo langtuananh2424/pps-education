@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { KeyRound, Lock, Search, ShieldCheck, Unlock, Users as UsersIcon } from "lucide-react";
 import TableContainer, { Td, Th } from "@/components/ui/TableContainer";
 import Badge, { BadgeVariant } from "@/components/ui/Badge";
@@ -27,11 +28,10 @@ import Select from "@/components/ui/Select";
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 
-const statusLabels: Record<string, string> = {
-  ACTIVE: "Đang hoạt động",
-  INACTIVE: "Ngừng hoạt động",
-  SUSPENDED: "Tạm khóa"
-};
+/** Nhãn trạng thái dịch qua i18next namespace "system-admin-users" — xem src/i18n/locales/{vi,en}/system-admin-users.json. */
+function userStatusLabel(t: (key: string) => string, status: string): string {
+  return t(`userStatus.${status}`);
+}
 
 const statusVariants: Record<string, BadgeVariant> = {
   ACTIVE: "success",
@@ -43,6 +43,7 @@ const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rou
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
 
 export default function UsersPage() {
+  const { t } = useTranslation("system-admin-users");
   const [rows, setRows] = useState<UserListItemResponse[]>([]);
   const [totalPages, setTotalPages] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
@@ -87,7 +88,7 @@ export default function UsersPage() {
           setTotalPages(Math.max(1, Math.ceil(filtered.length / pageSize)));
           setRows(filtered.slice(page * pageSize, (page + 1) * pageSize));
         })
-        .catch((err) => setListError(err instanceof ApiError ? err.message : "Không tải được danh sách tài khoản."))
+        .catch((err) => setListError(err instanceof ApiError ? err.message : t("usersPage.loadError")))
         .finally(() => setLoading(false));
       return;
     }
@@ -98,7 +99,7 @@ export default function UsersPage() {
         setTotalPages(res.totalPages);
         setTotalElements(res.totalElements);
       })
-      .catch((err) => setListError(err instanceof ApiError ? err.message : "Không tải được danh sách tài khoản."))
+      .catch((err) => setListError(err instanceof ApiError ? err.message : t("usersPage.loadError")))
       .finally(() => setLoading(false));
   };
 
@@ -114,11 +115,8 @@ export default function UsersPage() {
     <div className="space-y-4 animate-in fade-in duration-200">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div>
-          <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider block">Quản lý người dùng</h2>
-          <p className="text-[10px] text-slate-400 mt-0.5">
-            Danh sách tài khoản toàn hệ thống — tra cứu, cập nhật hồ sơ, khóa/mở khóa. Tài khoản được khởi tạo từ Quản lý nhân sự /
-            Quản lý học sinh.
-          </p>
+          <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider block">{t("usersPage.title")}</h2>
+          <p className="text-[10px] text-slate-400 mt-0.5">{t("usersPage.description")}</p>
         </div>
       </div>
 
@@ -128,22 +126,22 @@ export default function UsersPage() {
           <input
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
-            placeholder="Tìm theo username / email / họ tên..."
+            placeholder={t("usersPage.search.placeholder")}
             className="w-full bg-slate-50 border border-slate-200 text-xs pl-8 pr-3 py-2.5 rounded-lg focus:outline-none"
           />
         </div>
         <Select value={status} onChange={(e) => setStatus(e.target.value as typeof status)} className="bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none">
-          <option value="">-- Mọi trạng thái --</option>
-          <option value="ACTIVE">Đang hoạt động</option>
-          <option value="INACTIVE">Ngừng hoạt động</option>
-          <option value="SUSPENDED">Tạm khóa</option>
+          <option value="">{t("usersPage.search.allStatuses")}</option>
+          <option value="ACTIVE">{userStatusLabel(t, "ACTIVE")}</option>
+          <option value="INACTIVE">{userStatusLabel(t, "INACTIVE")}</option>
+          <option value="SUSPENDED">{userStatusLabel(t, "SUSPENDED")}</option>
         </Select>
         <Select
           value={departmentId}
           onChange={(e) => setDepartmentId(e.target.value)}
           className="w-48 bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
         >
-          <option value="">-- Mọi phòng ban --</option>
+          <option value="">{t("usersPage.search.allDepartments")}</option>
           {departments.map((d) => (
             <option key={d.id} value={d.id}>
               {d.name}
@@ -155,7 +153,7 @@ export default function UsersPage() {
           onChange={(e) => setRoleCode(e.target.value)}
           className="w-48 bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
         >
-          <option value="">-- Mọi vai trò --</option>
+          <option value="">{t("usersPage.search.allRoles")}</option>
           {roles.map((r) => (
             <option key={r.id} value={r.code}>
               {r.name}
@@ -163,24 +161,24 @@ export default function UsersPage() {
           ))}
         </Select>
         <Button type="submit" variant="dark">
-          Tìm kiếm
+          {t("usersPage.search.submit")}
         </Button>
       </form>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden">
         {listError && <div className="p-4 text-xs text-rose-600 bg-rose-50 border-b border-rose-100">{listError}</div>}
         {!loading && rows.length === 0 && !listError ? (
-          <EmptyState icon={UsersIcon} title="Không tìm thấy tài khoản phù hợp" description="Thử nới lỏng từ khóa hoặc bộ lọc." />
+          <EmptyState icon={UsersIcon} title={t("usersPage.empty.title")} description={t("usersPage.empty.description")} />
         ) : (
           <TableContainer className="rounded-none border-0">
             <thead>
               <tr>
-                <Th>Username</Th>
-                <Th>Họ tên</Th>
-                <Th>Email</Th>
-                <Th>Phòng ban</Th>
-                <Th>Vai trò</Th>
-                <Th>Trạng thái</Th>
+                <Th>{t("usersPage.table.username")}</Th>
+                <Th>{t("usersPage.table.fullName")}</Th>
+                <Th>{t("usersPage.table.email")}</Th>
+                <Th>{t("usersPage.table.department")}</Th>
+                <Th>{t("usersPage.table.role")}</Th>
+                <Th>{t("usersPage.table.status")}</Th>
                 <Th>{" "}</Th>
               </tr>
             </thead>
@@ -194,7 +192,7 @@ export default function UsersPage() {
                   <Td>
                     <div className="flex flex-wrap gap-1">
                       {u.roles.length === 0 ? (
-                        <span className="text-slate-400">Chưa gán</span>
+                        <span className="text-slate-400">{t("usersPage.table.noRoles")}</span>
                       ) : (
                         u.roles.map((r) => (
                           <Badge key={r.id} variant="info">
@@ -205,11 +203,11 @@ export default function UsersPage() {
                     </div>
                   </Td>
                   <Td>
-                    <Badge variant={statusVariants[u.status]}>{statusLabels[u.status]}</Badge>
+                    <Badge variant={statusVariants[u.status]}>{userStatusLabel(t, u.status)}</Badge>
                   </Td>
                   <Td>
                     <Button size="sm" onClick={() => setSelectedUserId(u.id)}>
-                      Xem/Sửa
+                      {t("usersPage.table.viewEdit")}
                     </Button>
                   </Td>
                 </tr>
@@ -221,10 +219,10 @@ export default function UsersPage() {
         {rows.length > 0 && (
           <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-4 py-3 border-t border-slate-100 text-[11px] text-slate-500">
             <div className="flex items-center gap-2">
-              <span>Tổng {totalElements} tài khoản</span>
+              <span>{t("usersPage.pagination.total", { count: totalElements })}</span>
               <span className="text-slate-300">|</span>
               <label className="flex items-center gap-1.5">
-                Dòng/trang:
+                {t("usersPage.pagination.rowsPerPage")}
                 <Select
                   value={pageSize}
                   onChange={(e) => {
@@ -244,13 +242,13 @@ export default function UsersPage() {
             {totalPages > 1 && (
               <div className="flex items-center gap-2">
                 <Button size="sm" variant="secondary" disabled={page <= 0} onClick={() => setPage((p) => p - 1)}>
-                  Trước
+                  {t("usersPage.pagination.prev")}
                 </Button>
                 <span className="font-mono">
-                  Trang {page + 1}/{totalPages}
+                  {t("usersPage.pagination.pageOf", { page: page + 1, total: totalPages })}
                 </span>
                 <Button size="sm" variant="secondary" disabled={page + 1 >= totalPages} onClick={() => setPage((p) => p + 1)}>
-                  Sau
+                  {t("usersPage.pagination.next")}
                 </Button>
               </div>
             )}
@@ -279,6 +277,7 @@ function UserDetailModal({
   onClose: () => void;
   onChanged: () => void;
 }) {
+  const { t } = useTranslation("system-admin-users");
   const [detail, setDetail] = useState<UserDetailResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -301,7 +300,7 @@ function UserDetailModal({
         setProfileForm({ fullName: d.fullName, phone: d.phone ?? "" });
         setNewEmail(d.email);
       })
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được chi tiết tài khoản."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("usersPage.detail.loadError")))
       .finally(() => setLoading(false));
   };
 
@@ -329,9 +328,9 @@ function UserDetailModal({
       });
       loadDetail(detail.id);
       onChanged();
-      showToast("Đã lưu hồ sơ thành công!");
+      showToast(t("usersPage.detail.profile.savedToast"));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Cập nhật hồ sơ thất bại.");
+      setError(err instanceof ApiError ? err.message : t("usersPage.detail.profile.saveError"));
     } finally {
       setSavingProfile(false);
     }
@@ -339,7 +338,13 @@ function UserDetailModal({
 
   const handleToggleStatus = async (newStatus: "ACTIVE" | "INACTIVE" | "SUSPENDED") => {
     if (!detail) return;
-    if (newStatus !== "ACTIVE" && !(await confirmDialog(`Xác nhận chuyển tài khoản "${detail.username}" sang trạng thái ${statusLabels[newStatus]}?`, { danger: true }))) {
+    if (
+      newStatus !== "ACTIVE" &&
+      !(await confirmDialog(
+        t("usersPage.detail.status.confirmMessage", { username: detail.username, statusLabel: userStatusLabel(t, newStatus) }),
+        { danger: true }
+      ))
+    ) {
       return;
     }
     setChangingStatus(true);
@@ -348,9 +353,9 @@ function UserDetailModal({
       await updateUserStatus(detail.id, newStatus);
       loadDetail(detail.id);
       onChanged();
-      showToast(`Đã chuyển tài khoản sang trạng thái "${statusLabels[newStatus]}"!`);
+      showToast(t("usersPage.detail.status.changedToast", { statusLabel: userStatusLabel(t, newStatus) }));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Đổi trạng thái thất bại.");
+      setError(err instanceof ApiError ? err.message : t("usersPage.detail.status.saveError"));
     } finally {
       setChangingStatus(false);
     }
@@ -366,9 +371,9 @@ function UserDetailModal({
       await updateUserEmail(detail.id, { newEmail: newEmail.trim() });
       loadDetail(detail.id);
       onChanged();
-      showToast("Đã cập nhật email thành công!");
+      showToast(t("usersPage.detail.email.savedToast"));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Cập nhật email thất bại.");
+      setError(err instanceof ApiError ? err.message : t("usersPage.detail.email.saveError"));
     } finally {
       setChangingEmail(false);
     }
@@ -377,12 +382,12 @@ function UserDetailModal({
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!detail || newPassword.trim().length < 8) {
-      setError("Mật khẩu mới phải từ 8 ký tự trở lên.");
+      setError(t("usersPage.detail.password.validationError"));
       return;
     }
     if (
       !(await confirmDialog(
-        `Xác nhận đặt mật khẩu mới cho tài khoản "${detail.username}"? Tài khoản này có thể đăng nhập ngay bằng mật khẩu mới, mật khẩu cũ sẽ không còn dùng được.`,
+        t("usersPage.detail.password.confirmMessage", { username: detail.username }),
         { danger: true }
       ))
     ) {
@@ -394,72 +399,71 @@ function UserDetailModal({
       await changeUserPassword(detail.id, newPassword.trim());
       setNewPassword("");
       loadDetail(detail.id);
-      showToast("Đã đặt lại mật khẩu thành công!");
+      showToast(t("usersPage.detail.password.savedToast"));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Đặt lại mật khẩu thất bại.");
+      setError(err instanceof ApiError ? err.message : t("usersPage.detail.password.saveError"));
     } finally {
       setChangingPassword(false);
     }
   };
 
   return (
-    <Modal open={userId != null} onClose={onClose} title={detail ? `Tài khoản: ${detail.username}` : "Chi tiết tài khoản"} size="lg">
-      {loading && <p className="text-xs text-slate-500">Đang tải...</p>}
+    <Modal open={userId != null} onClose={onClose} title={detail ? t("usersPage.detail.titleWithUsername", { username: detail.username }) : t("usersPage.detail.titleFallback")} size="lg">
+      {loading && <p className="text-xs text-slate-500">{t("usersPage.detail.loading")}</p>}
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-4">{error}</div>}
 
       {detail && (
         <div className="space-y-5">
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant={statusVariants[detail.status]}>{statusLabels[detail.status]}</Badge>
+            <Badge variant={statusVariants[detail.status]}>{userStatusLabel(t, detail.status)}</Badge>
             {detail.roles.map((r) => (
               <Badge key={r.id} variant="info">
                 <ShieldCheck className="w-3 h-3" /> {r.code}
               </Badge>
             ))}
-            {detail.googleLinked && <Badge variant="brand">Liên kết Google</Badge>}
+            {detail.googleLinked && <Badge variant="brand">{t("usersPage.detail.googleLinked")}</Badge>}
           </div>
 
           <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-slate-500">
-            <span>Đăng nhập gần nhất: <span className="font-mono text-slate-700">{detail.lastLoginAt ?? "Chưa từng"}</span></span>
-            <span>Số lần đăng nhập sai: <span className="font-mono text-slate-700">{detail.failedLoginCount}</span></span>
-            {detail.lockedUntil && <span>Khóa tạm tới: <span className="font-mono text-slate-700">{detail.lockedUntil}</span></span>}
+            <span>{t("usersPage.detail.lastLogin")} <span className="font-mono text-slate-700">{detail.lastLoginAt ?? t("usersPage.detail.neverLoggedIn")}</span></span>
+            <span>{t("usersPage.detail.failedLoginCount")} <span className="font-mono text-slate-700">{detail.failedLoginCount}</span></span>
+            {detail.lockedUntil && <span>{t("usersPage.detail.lockedUntil")} <span className="font-mono text-slate-700">{detail.lockedUntil}</span></span>}
             <span>
-              Phòng ban: <span className="font-mono text-slate-700">{departments.find((d) => d.id === detail.departmentId)?.name ?? "—"}</span>
+              {t("usersPage.detail.department")} <span className="font-mono text-slate-700">{departments.find((d) => d.id === detail.departmentId)?.name ?? t("usersPage.detail.departmentFallback")}</span>
             </span>
             <span>
-              Miễn trừ chấm công: <span className="font-mono text-slate-700">{detail.isManagement ? "Có" : "Không"}</span>
+              {t("usersPage.detail.attendanceExempt")} <span className="font-mono text-slate-700">{detail.isManagement ? t("usersPage.detail.yes") : t("usersPage.detail.no")}</span>
             </span>
           </div>
           <p className="text-[10px] text-slate-400 italic -mt-3">
-            Phòng ban / miễn trừ chấm công thuộc hồ sơ nhân sự — sửa tại "Quản lý nhân sự", không sửa được ở đây.
+            {t("usersPage.detail.hint")}
           </p>
 
           <form onSubmit={handleSaveProfile} className="space-y-3 border-t border-slate-100 pt-4">
             <div>
-              <span className="text-[10px] font-bold uppercase text-slate-500">Cập nhật hồ sơ</span>
-              <p className="text-[10px] text-slate-400">Chỉ đổi họ tên/số điện thoại hiển thị của tài khoản này.</p>
+              <span className="text-[10px] font-bold uppercase text-slate-500">{t("usersPage.detail.profile.sectionTitle")}</span>
+              <p className="text-[10px] text-slate-400">{t("usersPage.detail.profile.sectionDescription")}</p>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={labelClass}>Họ tên *</label>
+                <label className={labelClass}>{t("usersPage.detail.profile.fullNameLabel")}</label>
                 <input value={profileForm.fullName} onChange={(e) => setProfileForm({ ...profileForm, fullName: e.target.value })} className={inputClass} required />
               </div>
               <div>
-                <label className={labelClass}>Số điện thoại</label>
+                <label className={labelClass}>{t("usersPage.detail.profile.phoneLabel")}</label>
                 <input value={profileForm.phone ?? ""} onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })} className={inputClass} />
               </div>
             </div>
             <Button type="submit" variant="primary" size="sm" disabled={savingProfile}>
-              {savingProfile ? "Đang lưu..." : "Lưu hồ sơ"}
+              {savingProfile ? t("usersPage.detail.profile.saving") : t("usersPage.detail.profile.save")}
             </Button>
           </form>
 
           <form onSubmit={handleChangeEmail} className="space-y-2 border-t border-slate-100 pt-4">
             <div>
-              <span className="text-[10px] font-bold uppercase text-slate-500">Sửa email</span>
+              <span className="text-[10px] font-bold uppercase text-slate-500">{t("usersPage.detail.email.sectionTitle")}</span>
               <p className="text-[10px] text-slate-400">
-                Dùng khi email hiện tại chỉ là placeholder (tài khoản Học sinh/Phụ huynh tạo tự động) — đổi sang
-                email Google thật để đăng nhập Google (UC-01) khớp được.
+                {t("usersPage.detail.email.sectionDescription")}
               </p>
             </div>
             <div className="flex gap-2">
@@ -467,7 +471,7 @@ function UserDetailModal({
                 type="email"
                 value={newEmail}
                 onChange={(e) => setNewEmail(e.target.value)}
-                placeholder="email@example.com"
+                placeholder={t("usersPage.detail.email.placeholder")}
                 className={inputClass}
                 required
               />
@@ -478,7 +482,7 @@ function UserDetailModal({
                 disabled={changingEmail || newEmail.trim() === detail.email}
                 className="whitespace-nowrap"
               >
-                {changingEmail ? "Đang lưu..." : "Lưu email"}
+                {changingEmail ? t("usersPage.detail.email.saving") : t("usersPage.detail.email.save")}
               </Button>
             </div>
           </form>
@@ -486,42 +490,42 @@ function UserDetailModal({
           <form onSubmit={handleChangePassword} className="space-y-2 border-t border-slate-100 pt-4">
             <div>
               <span className="text-[10px] font-bold uppercase text-slate-500 flex items-center gap-1">
-                <KeyRound className="w-3 h-3" /> Đặt lại mật khẩu
+                <KeyRound className="w-3 h-3" /> {t("usersPage.detail.password.sectionTitle")}
               </span>
-              <p className="text-[10px] text-slate-400">Admin đặt thẳng mật khẩu mới cho tài khoản này, có hiệu lực ngay — không cần biết mật khẩu cũ (dùng khi người dùng quên mật khẩu).</p>
+              <p className="text-[10px] text-slate-400">{t("usersPage.detail.password.sectionDescription")}</p>
             </div>
             <div className="flex gap-2">
               <input
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Mật khẩu mới (tối thiểu 8 ký tự)"
+                placeholder={t("usersPage.detail.password.placeholder")}
                 className={inputClass}
               />
               <Button type="submit" variant="secondary" size="sm" disabled={changingPassword} className="whitespace-nowrap">
-                {changingPassword ? "Đang lưu..." : "Đặt lại mật khẩu"}
+                {changingPassword ? t("usersPage.detail.password.saving") : t("usersPage.detail.password.save")}
               </Button>
             </div>
           </form>
 
           <div className="border-t border-slate-100 pt-4 flex flex-wrap gap-2">
             <div className="w-full">
-              <span className="text-[10px] font-bold uppercase text-slate-500">Khóa/Mở khóa</span>
-              <p className="text-[10px] text-slate-400">Đổi trạng thái đăng nhập của tài khoản — ngừng/tạm khóa sẽ chặn đăng nhập ngay.</p>
+              <span className="text-[10px] font-bold uppercase text-slate-500">{t("usersPage.detail.status.sectionTitle")}</span>
+              <p className="text-[10px] text-slate-400">{t("usersPage.detail.status.sectionDescription")}</p>
             </div>
             {detail.status !== "ACTIVE" && (
               <Button size="sm" variant="secondary" disabled={changingStatus} onClick={() => handleToggleStatus("ACTIVE")}>
-                <Unlock className="w-3.5 h-3.5" /> Mở khóa (ACTIVE)
+                <Unlock className="w-3.5 h-3.5" /> {t("usersPage.detail.status.unlock")}
               </Button>
             )}
             {detail.status !== "INACTIVE" && (
               <Button size="sm" variant="danger" disabled={changingStatus} onClick={() => handleToggleStatus("INACTIVE")}>
-                <Lock className="w-3.5 h-3.5" /> Ngừng hoạt động
+                <Lock className="w-3.5 h-3.5" /> {t("usersPage.detail.status.deactivate")}
               </Button>
             )}
             {detail.status !== "SUSPENDED" && (
               <Button size="sm" variant="danger" disabled={changingStatus} onClick={() => handleToggleStatus("SUSPENDED")}>
-                <Lock className="w-3.5 h-3.5" /> Tạm khóa
+                <Lock className="w-3.5 h-3.5" /> {t("usersPage.detail.status.suspend")}
               </Button>
             )}
           </div>

@@ -1,0 +1,80 @@
+{
+  "leaveRequestStatus": {
+    "PENDING": "Chờ duyệt",
+    "APPROVED": "Đã duyệt",
+    "REJECTED": "Từ chối",
+    "CANCELLED": "Đã huỷ"
+  },
+  "substitutionStatus": {
+    "active": "Đang dạy thay",
+    "revoked": "Đã thu hồi"
+  },
+  "leavesPage": {
+    "title": "Xin Nghỉ Phép / Đi Muộn",
+    "subtitle": "Nộp đơn xin nghỉ phép, đi muộn, về sớm và theo dõi quy trình xét duyệt.",
+    "submittedToast": "Đã gửi đơn từ thành công!",
+    "myHistory": {
+      "title": "Lịch sử đơn của tôi",
+      "subtitle": "Các đơn xin nghỉ bạn đã nộp và trạng thái duyệt.",
+      "loading": "Đang tải...",
+      "empty": "Bạn chưa nộp đơn nào.",
+      "dateRange": "{{startDate}} đến {{endDate}} · {{totalDays}} ngày"
+    },
+    "substituteHistory": {
+      "title": "Lịch sử giáo viên dạy thay",
+      "subtitle": "Giáo viên dạy thay được gán theo đơn xin nghỉ của bạn.",
+      "empty": "Chưa có lượt dạy thay nào.",
+      "substituteFor": "dạy thay cho",
+      "sessionDate": "Buổi ngày {{date}}"
+    }
+  },
+  "leaveRequestForm": {
+    "title": "Nộp Đơn Xin Nghỉ",
+    "description": "Gửi yêu cầu nghỉ phép, đi muộn hoặc về sớm. Hệ thống sẽ tự động xác định quy trình duyệt 1-2 bước theo chức vụ của bạn.",
+    "leaveTypeLabel": "Hình thức nộp",
+    "loadingLeaveTypes": "Đang tải...",
+    "startDateLabel": "Từ ngày",
+    "endDateLabel": "Đến ngày",
+    "startTimeLabel": "Giờ bắt đầu",
+    "endTimeLabel": "Giờ kết thúc",
+    "reasonLabel": "Lý do nghỉ",
+    "reasonPlaceholder": "Ví dụ: Đi tái khám răng, bị ốm sốt...",
+    "checkingSchedule": "Đang kiểm tra lịch dạy trong khoảng nghỉ...",
+    "substituteNotice": "Bạn có buổi dạy trong khoảng nghỉ này — hãy chọn 1 lớp và giáo viên dạy thay cho từng buổi. Việc dạy thay có hiệu lực ngay khi nộp đơn (không đợi duyệt).",
+    "selectClassLabel": "Chọn lớp cần dạy thay",
+    "selectClassPlaceholder": "-- Chọn lớp --",
+    "sessionsCount": "{{count}} buổi",
+    "multiClassWarning": "Bạn có buổi dạy ở {{count}} lớp khác nhau — mỗi đơn chỉ xử lý dạy thay cho 1 lớp, hãy nộp thêm đơn riêng cho các lớp còn lại.",
+    "substituteTeacherLabel": "Giáo viên dạy thay từng buổi",
+    "applyToAll": "Áp dụng cho tất cả",
+    "sessionTime": "{{date}} · {{startTime}}-{{endTime}}",
+    "substitutePlaceholder": "Chọn giáo viên dạy thay...",
+    "submitButton": "Gửi đơn chờ duyệt",
+    "submitting": "Đang gửi...",
+    "errors": {
+      "missingSubstitutes": "Bạn có buổi dạy trong khoảng nghỉ này — cần chọn 1 lớp và đủ giáo viên dạy thay cho từng buổi.",
+      "genericSubmitError": "Không nộp được đơn từ, vui lòng thử lại."
+    }
+  },
+  "leaveApprovalQueue": {
+    "title": "Hàng chờ xét duyệt",
+    "subtitle": "Các đơn xin nghỉ chờ xét duyệt thuộc thẩm quyền của bạn.",
+    "loading": "Đang tải...",
+    "emptyTitle": "Không có đơn nào chờ duyệt",
+    "emptyDescription": "Hiện tại không có yêu cầu nghỉ phép nào thuộc thẩm quyền của bạn.",
+    "reasonLabel": "Lý do:",
+    "timeLabel": "Thời gian:",
+    "timeRange": "{{startDate}} đến {{endDate}}",
+    "timeRangeWithHours": " ({{startTime}}-{{endTime}})",
+    "totalDays": " · {{count}} ngày",
+    "opinionLabel": "Ý kiến phản hồi / Lý do từ chối (bắt buộc khi từ chối):",
+    "opinionPlaceholder": "Ví dụ: Đồng ý duyệt / Không duyệt vì không có người dạy thay thế...",
+    "rejectButton": "Từ chối đơn",
+    "approveButton": "Phê duyệt cấp hiện tại",
+    "defaultApproveComment": "Đã rà soát, đồng ý duyệt.",
+    "missingRejectReason": "Bạn phải điền lý do từ chối vào ô ý kiến phản hồi!",
+    "decidedApproved": "Đã duyệt đơn nghỉ phép của {{name}}.",
+    "decidedRejected": "Đã từ chối đơn nghỉ phép của {{name}}.",
+    "decisionError": "Không thực hiện được quyết định, vui lòng thử lại."
+  }
+}

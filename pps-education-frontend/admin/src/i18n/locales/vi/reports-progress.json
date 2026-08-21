@@ -1,0 +1,168 @@
+{
+  "studentProgressPage": {
+    "title": "Hồ sơ học tập",
+    "description": "Xem toàn bộ quá trình học tập của một học sinh cụ thể.",
+    "search": {
+      "placeholder": "Nhập tên hoặc mã học sinh...",
+      "searching": "Đang tìm kiếm...",
+      "noResults": "Không tìm thấy học sinh nào",
+      "emptyPrompt": "Tìm kiếm học sinh để xem hồ sơ học tập"
+    },
+    "studentStatus": {
+      "ACTIVE": "Đang học",
+      "SUSPENDED": "Đình chỉ",
+      "EXPELLED": "Bị đuổi",
+      "GRADUATED": "Tốt nghiệp",
+      "WITHDRAWN": "Rút khỏi",
+      "DEFERRAL": "Tạm hoãn"
+    },
+    "commentGradeStatus": {
+      "DRAFT": "Nháp",
+      "SUBMITTED": "Đã nộp",
+      "OFFICIAL": "Chính thức",
+      "REJECTED": "Từ chối",
+      "PENDING": "Chờ duyệt",
+      "APPROVED": "Đã duyệt"
+    },
+    "tabs": {
+      "overview": "Tổng quan",
+      "grades": "Điểm số",
+      "comments": "Nhận xét",
+      "attendance": "Điểm danh"
+    },
+    "header": {
+      "changeStudentButton": "Đổi học sinh",
+      "exportButton": "Xuất hồ sơ PDF"
+    },
+    "loadingProfile": "Đang tải hồ sơ học tập...",
+    "overview": {
+      "classesLabel": "Lớp đã học",
+      "classesUnit": "lớp",
+      "avgScoreLabel": "Điểm TB",
+      "avgScoreSub": "qua {{count}} kỳ",
+      "commentsLabel": "Nhận xét",
+      "commentsUnit": "nhận xét ngày",
+      "attendanceLabel": "Điểm danh",
+      "attendanceSub": "có mặt ({{present}}/{{total}})",
+      "enrollmentHistoryTitle": "Lịch sử ghi danh",
+      "noEnrollments": "Chưa có lớp nào",
+      "enrolledLabel": "Ghi danh: {{date}}",
+      "withdrawnLabel": " · Rút: {{date}}",
+      "activeStatus": "Đang học"
+    },
+    "grades": {
+      "sectionTitle": "Kết quả học kỳ",
+      "empty": "Chưa có điểm số nào",
+      "columns": {
+        "term": "Kỳ học",
+        "type": "Loại",
+        "score": "Điểm",
+        "rank": "Xếp hạng",
+        "status": "Trạng thái"
+      },
+      "midTerm": "Giữa kỳ",
+      "endTerm": "Cuối kỳ"
+    },
+    "comments": {
+      "empty": "Chưa có nhận xét nào",
+      "typeDaily": "Hàng ngày",
+      "typeMidTerm": "Giữa kỳ",
+      "typeEndTerm": "Cuối kỳ",
+      "noContent": "(không có nội dung)",
+      "attitudeLabel": "Thái độ: {{value}}",
+      "noteLabel": "Ghi chú: {{value}}"
+    },
+    "attendance": {
+      "present": "Có mặt",
+      "absentUnexcused": "Vắng không phép",
+      "excusedAbsent": "Vắng có phép",
+      "recentNote": "Hiển thị từ 150 buổi học gần nhất",
+      "empty": "Chưa có dữ liệu điểm danh",
+      "sessionNumberLabel": "Buổi {{number}}",
+      "sessionIdLabel": "Buổi học #{{id}}",
+      "statusPresent": "Có mặt",
+      "statusLate": "Đi muộn",
+      "statusEarlyLeave": "Về sớm",
+      "statusAbsent": "Vắng",
+      "statusExcused": "Có phép"
+    },
+    "exportModal": {
+      "title": "Xuất hồ sơ học sinh"
+    },
+    "toast": {
+      "noEnrollment": "Học sinh chưa ghi danh lớp nào — không thể xuất Phiếu kết quả lộ trình.",
+      "exportSuccess": "Xuất báo cáo thành công! Đang tải file...",
+      "exportFailed": "Xuất báo cáo thất bại."
+    }
+  },
+  "gradesAnalyticsPage": {
+    "title": "Thống kê điểm số",
+    "description": "Xem phân phối điểm, điểm trung bình và xuất báo cáo theo lớp & kỳ học.",
+    "exportClassButton": "Xuất báo cáo điểm của lớp",
+    "evalType": {
+      "MID_TERM": "Giữa kỳ",
+      "END_TERM": "Cuối kỳ"
+    },
+    "scaleType": {
+      "POINT_10": "Thang 10",
+      "PERCENT": "Phần trăm",
+      "IELTS": "IELTS band"
+    },
+    "resultStatus": {
+      "DRAFT": "Nháp",
+      "SUBMITTED": "Đã nộp",
+      "OFFICIAL": "Chính thức",
+      "REJECTED": "Bị từ chối"
+    },
+    "filter": {
+      "sectionTitle": "Chọn sổ điểm",
+      "selectedClassLabel": "Lớp đang chọn: {{name}} ({{code}})",
+      "setupLabel": "Sổ điểm (kỳ & loại)",
+      "setupPlaceholder": "-- Chọn sổ điểm --",
+      "setupOption": "{{term}} — {{evalType}} ({{scaleType}})",
+      "noClassSelected": "Vui lòng chọn 1 lớp học trên thanh Header (góc trên bên phía bên phải) để xem thống kê điểm số."
+    },
+    "periodCard": {
+      "subtitle": "{{className}} — {{termName}}",
+      "heading": "{{evalType}} · {{scaleType}}",
+      "rosterNote": "Tính theo danh sách tại: {{date}}"
+    },
+    "stats": {
+      "totalStudents": "Tổng học sinh",
+      "avgScore": "Điểm trung bình",
+      "maxScore": "Điểm cao nhất",
+      "minScoreSub": "Thấp nhất: {{min}}",
+      "official": "Đã chính thức"
+    },
+    "distribution": {
+      "title": "Phân phối điểm"
+    },
+    "table": {
+      "title": "Bảng điểm học sinh",
+      "searchPlaceholder": "Tìm theo tên / mã học sinh...",
+      "loading": "Đang tải điểm...",
+      "empty": "Chưa có điểm nào trong sổ điểm này",
+      "columns": {
+        "index": "#",
+        "student": "Học sinh",
+        "score": "Điểm",
+        "rank": "Xếp hạng",
+        "status": "Trạng thái",
+        "export": "Xuất"
+      },
+      "exportRowTitle": "Xuất bảng điểm cá nhân"
+    },
+    "emptyState": "Chọn lớp học và sổ điểm để xem thống kê",
+    "exportModal": {
+      "titleSingle": "Xuất bảng điểm cá nhân",
+      "titleBulk": "Xuất báo cáo điểm của lớp",
+      "descriptionFallback": "Chọn mẫu báo cáo phù hợp để xuất file."
+    },
+    "toast": {
+      "exportClassSuccess": "Xuất báo cáo điểm cả lớp thành công! Đang tải file...",
+      "exportClassFailed": "Xuất báo cáo thất bại",
+      "exportStudentSuccess": "Xuất báo cáo điểm cá nhân thành công! Đang tải file...",
+      "exportStudentFailed": "Xuất thất bại"
+    }
+  }
+}

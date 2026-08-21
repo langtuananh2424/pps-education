@@ -1,4 +1,12 @@
 import { clearTokens, getAccessToken, getRefreshToken, setTokens } from "./tokenStorage";
+import { LANGUAGE_STORAGE_KEY } from "@/i18n";
+
+/** Header Accept-Language theo ngôn ngữ đang chọn ở LanguageSwitcher — backend dùng để trả message lỗi
+ *  song ngữ qua MessageSource (xem GlobalExceptionHandler.error(status, ex) phía backend). */
+function currentLanguageHeader(): Record<string, string> {
+  const lang = typeof window !== "undefined" ? window.localStorage.getItem(LANGUAGE_STORAGE_KEY) : null;
+  return { "Accept-Language": lang === "en" ? "en" : "vi" };
+}
 
 /** Khớp đúng shape lỗi thật của backend — xem GlobalExceptionHandler.java. */
 interface BackendErrorBody {
@@ -82,6 +90,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   // trình duyệt cần tự sinh header với boundary đúng, set thủ công sẽ làm BE không parse được multipart.
   const headers: Record<string, string> = {
     ...(init.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
+    ...currentLanguageHeader(),
     ...(init.headers as Record<string, string> | undefined)
   };
 

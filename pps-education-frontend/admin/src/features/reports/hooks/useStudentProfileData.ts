@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   StudentProfileAttendanceEntry,
   StudentProfileComment,
@@ -62,6 +63,7 @@ const EMPTY: StudentProfileData = {
  * kỹ năng ở đây (BE đã trả đúng thứ tự thời gian sẵn, không cần tự sort lại).
  */
 export function useStudentProfileData(studentId: number | null): StudentProfileData {
+  const { t } = useTranslation("reports-student-profile");
   const [data, setData] = useState<StudentProfileData>(EMPTY);
 
   useEffect(() => {
@@ -105,7 +107,7 @@ export function useStudentProfileData(studentId: number | null): StudentProfileD
       })
       .catch(() => {
         if (!cancelled) {
-          setData({ ...EMPTY, loading: false, error: "Không tải được hồ sơ học tập." });
+          setData({ ...EMPTY, loading: false, error: t("modal.loadError") });
         }
       });
 

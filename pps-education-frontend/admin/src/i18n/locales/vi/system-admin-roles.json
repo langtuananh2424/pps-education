@@ -1,0 +1,125 @@
+{
+  "rolesPage": {
+    "title": "Nhóm vai trò",
+    "subtitle": "Cấu hình ma trận quyền theo vai trò và gán/thu hồi vai trò cho tài khoản.",
+    "loadError": "Không tải được danh sách vai trò.",
+    "deleteConfirm": "Bạn có chắc chắn muốn xóa vai trò \"{{name}}\"?",
+    "deleteSuccess": "Đã xoá vai trò thành công!",
+    "deleteError": "Xóa vai trò thất bại.",
+    "emptyTitle": "Vui lòng chọn một vai trò",
+    "emptyDescription": "Chọn một vai trò từ danh mục bên trái hoặc bấm tạo mới để thiết lập cấu hình phân quyền và thành viên liên quan.",
+    "createModalTitle": "Tạo vai trò tùy chỉnh mới",
+    "createSuccess": "Đã tạo vai trò mới thành công!"
+  },
+  "roleListPanel": {
+    "title": "Danh sách Vai trò ({{count}})",
+    "addButtonTitle": "Thêm vai trò tùy chỉnh mới",
+    "addButton": "Vai trò",
+    "searchPlaceholder": "Tìm kiếm vai trò hệ thống...",
+    "loading": "Đang tải...",
+    "empty": "Không tìm thấy vai trò phù hợp",
+    "badgeSystem": "Hệ thống",
+    "badgeCustom": "Tùy chỉnh"
+  },
+  "roleDetailPanel": {
+    "deleteButtonTitle": "Xóa vai trò tùy chỉnh này",
+    "deleteButton": "Xóa vai trò",
+    "tabs": {
+      "permissions": "Quyền hạn gán",
+      "members": "Thành viên"
+    }
+  },
+  "roleMembersPanel": {
+    "loadError": "Không tải được danh sách tài khoản.",
+    "removeConfirm": "Bạn có chắc muốn gỡ \"{{name}}\" khỏi vai trò \"{{roleName}}\"?",
+    "assignSuccess": "Đã gán vai trò thành công!",
+    "assignError": "Gán vai trò thất bại.",
+    "revokeSuccess": "Đã gỡ vai trò thành công!",
+    "revokeError": "Gỡ vai trò thất bại.",
+    "title": "Thành viên gán vai trò này",
+    "subtitle": "Quản lý trực tiếp các tài khoản được áp dụng cấu hình vai trò này.",
+    "assignButton": "Gán thành viên",
+    "loading": "Đang tải...",
+    "emptyTitle": "Chưa có thành viên nào gán vai trò này",
+    "table": {
+      "username": "Username",
+      "fullName": "Họ và tên",
+      "email": "Email tài khoản",
+      "status": "Trạng thái",
+      "actions": "Gỡ bỏ"
+    },
+    "removeButtonTitle": "Gỡ khỏi vai trò này"
+  },
+  "rolePermissionsEditor": {
+    "loadError": "Không tải được ma trận quyền.",
+    "conflictConfirm": "{{message}}\n\nBạn có chắc chắn muốn tiếp tục?",
+    "saveError": "Lưu quyền hạn thất bại.",
+    "saveSuccess": "Đã lưu quyền hạn thành công!",
+    "loadingMatrix": "Đang tải ma trận quyền...",
+    "saving": "Đang lưu...",
+    "saveButton": "Lưu thay đổi",
+    "activatedSummary": "Đã kích hoạt <b1>{{count}} / {{total}}</b1> quyền hạt nhân cho vai trò <b2>{{roleName}}</b2>."
+  },
+  "createRolePanel": {
+    "nameLabel": "Tên vai trò *",
+    "namePlaceholder": "VD: Trưởng nhóm Marketing",
+    "codeHint": "Mã vai trò (tự sinh):",
+    "descriptionLabel": "Mô tả",
+    "nameRequiredError": "Vui lòng điền tên vai trò (dùng để tự sinh mã vai trò).",
+    "loadPermissionsError": "Không tải được danh mục quyền.",
+    "createError": "Tạo vai trò thất bại.",
+    "permissionsLabel": "Tick chọn quyền ban đầu ({{count}} đã chọn) — có thể để trống, cấu hình sau",
+    "loadingPermissions": "Đang tải danh mục quyền...",
+    "cancelButton": "Hủy",
+    "saving": "Đang tạo...",
+    "saveButton": "Lưu vai trò mới"
+  },
+  "permissionChecklist": {
+    "searchPlaceholder": "Tìm nhanh quyền...",
+    "allModulesOption": "Tất cả phân hệ nghiệp vụ",
+    "selectedCount": "{{selected}} / {{total}} selected",
+    "groupSelectedCount": "{{selected}}/{{total}}"
+  },
+  "roleAuditTimeline": {
+    "title": "Nhật ký thay đổi vai trò (Audit Log)",
+    "subtitle": "Lưu vết truy cập và thiết lập bảo mật riêng cho vai trò \"{{roleName}}\".",
+    "empty": "Chưa có vết hoạt động bảo mật nào được lưu cho vai trò này."
+  },
+  "permissionGroups": {
+    "ACADEMIC": {
+      "attendance": "Điểm danh",
+      "comment": "Nhận xét học viên",
+      "grade": "Sổ điểm",
+      "gradeSetup": "Sổ điểm — Setup (lớp + kỳ học + Giữa/Cuối kỳ)",
+      "gradeComponent": "Sổ điểm — Thành phần điểm",
+      "skill": "Kỹ năng"
+    },
+    "STUDENT": {
+      "profile": "Hồ sơ học sinh",
+      "parent": "Phụ huynh",
+      "parentLink": "Phụ huynh — Liên kết với học sinh"
+    },
+    "CRM": {
+      "lead": "Khách hàng tiềm năng (Lead)"
+    },
+    "USER": {
+      "permissionCatalog": "Danh mục quyền",
+      "permissionRole": "Vai trò tuỳ biến",
+      "permissionOverride": "Tuỳ chỉnh quyền riêng theo tài khoản",
+      "userRole": "Gán vai trò cho tài khoản"
+    },
+    "HRM": {
+      "department": "Phòng ban",
+      "position": "Chức vụ",
+      "employee": "Hồ sơ nhân sự"
+    },
+    "FACILITY": {
+      "partnerContract": "Hợp đồng đối tác",
+      "site": "Điểm trường",
+      "siteTeacher": "Gán giáo viên vào điểm trường"
+    },
+    "FINANCE": {
+      "expense": "Chi vận hành"
+    }
+  }
+}

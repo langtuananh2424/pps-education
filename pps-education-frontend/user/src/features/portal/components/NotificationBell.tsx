@@ -1,7 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Bell, CheckCheck } from "lucide-react";
 import { markNotificationRead, listMyNotifications, NotificationResponse } from "../api";
 import { clampLines } from "@/lib/textClamp";
+import { formatDateTimeHm } from "@/lib/format";
 
 const PAGE_SIZE = 15;
 
@@ -65,6 +67,7 @@ interface NotificationBellProps {
  * API), không tự chế giả — đã báo lại người phụ trách backend.
  */
 export default function NotificationBell({ onNavigate }: NotificationBellProps) {
+  const { t, i18n } = useTranslation("portal-account");
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationResponse[]>([]);
   const [loading, setLoading] = useState(false);
@@ -145,7 +148,7 @@ export default function NotificationBell({ onNavigate }: NotificationBellProps) 
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        aria-label="Thông báo"
+        aria-label={t("notifications.bellLabel")}
         aria-haspopup="dialog"
         aria-expanded={open}
         className="relative w-10 h-10 rounded-xl bg-white/15 hover:bg-white/25 border border-white/20 text-white lg:bg-sky-2 lg:hover:bg-sky lg:border-line lg:text-ink flex items-center justify-center transition-colors"
@@ -161,7 +164,7 @@ export default function NotificationBell({ onNavigate }: NotificationBellProps) 
       {open && (
         <div
           role="dialog"
-          aria-label="Danh sách thông báo"
+          aria-label={t("notifications.listLabel")}
           className="absolute right-0 top-full mt-2 z-50 w-80 max-h-[420px] overflow-y-auto bg-white border-2 border-teal/20 rounded-2xl shadow-[0_20px_50px_-10px_rgba(14,140,134,0.35)]"
         >
           {/* Header sticky BẮT BUỘC nền đặc (không dùng bg-teal/10 kiểu trong suốt) — nền có alpha để lộ
@@ -169,8 +172,12 @@ export default function NotificationBell({ onNavigate }: NotificationBellProps) 
               Thêm z-10 để chắc chắn luôn nổi trên danh sách cuộn bên dưới. */}
           <div className="px-4 py-3 bg-sky-2 border-b-2 border-teal/30 rounded-t-2xl flex items-center justify-between sticky top-0 z-10 gap-2">
             <div className="flex items-center gap-2 min-w-0">
-              <span className="text-xs font-extrabold text-teal-deep shrink-0">Thông báo</span>
-              {unreadCount > 0 && <span className="text-[10px] bg-coral text-white px-2 py-0.5 rounded-full font-bold shrink-0">{unreadCount} chưa đọc</span>}
+              <span className="text-xs font-extrabold text-teal-deep shrink-0">{t("notifications.title")}</span>
+              {unreadCount > 0 && (
+                <span className="text-[10px] bg-coral text-white px-2 py-0.5 rounded-full font-bold shrink-0">
+                  {t("notifications.unreadCount", { count: unreadCount })}
+                </span>
+              )}
             </div>
             {unreadCount > 0 && (
               <button
@@ -179,14 +186,14 @@ export default function NotificationBell({ onNavigate }: NotificationBellProps) 
                 disabled={markingAll}
                 className="shrink-0 flex items-center gap-1 text-[11px] font-bold text-teal-deep hover:underline disabled:opacity-50 disabled:no-underline"
               >
-                <CheckCheck size={13} aria-hidden="true" /> {markingAll ? "Đang xử lý..." : "Đọc tất cả"}
+                <CheckCheck size={13} aria-hidden="true" /> {markingAll ? t("notifications.markingAll") : t("notifications.markAllRead")}
               </button>
             )}
           </div>
           {loading ? (
-            <p className="text-xs text-muted font-bold p-4">Đang tải...</p>
+            <p className="text-xs text-muted font-bold p-4">{t("notifications.loading")}</p>
           ) : notifications.length === 0 ? (
-            <p className="text-xs text-muted font-bold italic p-4">Chưa có thông báo nào.</p>
+            <p className="text-xs text-muted font-bold italic p-4">{t("notifications.empty")}</p>
           ) : (
             <>
               <div className="divide-y-2 divide-slate-200">
@@ -204,7 +211,7 @@ export default function NotificationBell({ onNavigate }: NotificationBellProps) 
                         <p className="text-xs text-muted font-semibold mt-0.5" style={clampLines(2)}>
                           {n.content}
                         </p>
-                        <span className="text-[11px] text-muted/70 font-mono block mt-0.5">{new Date(n.createdAt).toLocaleString("vi-VN")}</span>
+                        <span className="text-[11px] text-muted/70 font-mono block mt-0.5">{formatDateTimeHm(n.createdAt, i18n.language)}</span>
                       </div>
                     </div>
                   </button>
@@ -218,7 +225,7 @@ export default function NotificationBell({ onNavigate }: NotificationBellProps) 
                     disabled={loadingMore}
                     className="w-full text-center text-xs font-bold text-teal-deep hover:underline disabled:opacity-50 disabled:no-underline"
                   >
-                    {loadingMore ? "Đang tải..." : "Xem thông báo cũ hơn"}
+                    {loadingMore ? t("notifications.loading") : t("notifications.loadOlder")}
                   </button>
                 </div>
               )}

@@ -1,6 +1,7 @@
 package vn.com.pps.education.dto;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.Map;
 
@@ -31,6 +32,12 @@ public record StudentCommentResponse(
         // homeworkNext*AssignmentId (V65): id của BẢN GIAO (ExerciseAssignment/
         // ReviewVideoAssignment) tự động tạo cho cả lớp — không phải id của
         // Exercise/ReviewVideoSet nguồn (dùng kèm *Title để hiện tên nguồn đó).
+        // V127 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-19) — homeworkNext*AssignmentId/
+        // Title/homeworkNextDueAt CHỈ có giá trị SAU KHI Gửi nhận xét (bản giao thật đã tạo; với comment
+        // đang REJECTED mà giáo viên chưa sửa lại, vẫn hiện bản giao LẦN GỬI TRƯỚC — giao bài và duyệt
+        // nhận xét tách biệt). Lựa chọn CHƯA giao (còn DRAFT/REJECTED vừa sửa, chưa Gửi lại) nằm ở
+        // pendingHomeworkNextExerciseId/ReviewVideoSetId — 2 field này null sau khi Gửi (đã materialize
+        // sang cặp field FK ở trên, xem StudentCommentService#submitComments).
         String attitude,
         String homeworkPreviousScore,
         String homeworkPreviousSpeakingScore,
@@ -41,6 +48,20 @@ public record StudentCommentResponse(
         String homeworkNextReviewVideoSetTitle,
         /** Hạn nộp BTVN buổi sau (lấy từ dueAt của ExerciseAssignment/ReviewVideoAssignment đã giao) — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05. */
         OffsetDateTime homeworkNextDueAt,
+        /** V127: id/tên Exercise Giáo viên vừa chọn nhưng CHƯA Gửi nhận xét — null nếu chưa chọn gì hoặc đã Gửi (xem ghi chú V127 ở trên). */
+        Long pendingHomeworkNextExerciseId,
+        String pendingHomeworkNextExerciseTitle,
+        /** V127: mirror pendingHomeworkNextExerciseId cho kênh Video Ôn tập. */
+        Long pendingHomeworkNextReviewVideoSetId,
+        String pendingHomeworkNextReviewVideoSetTitle,
+        /**
+         * V127: hạn nộp tự chọn đi kèm lựa chọn CHƯA giao ở trên — giờ tường thuật thô (LocalDateTime,
+         * KHÔNG kèm offset, y hệt kiểu request.homeworkNextDueDate()) — cố tình KHÔNG trả OffsetDateTime
+         * đã resolve (khác homeworkNextDueAt ở trên) để FE khỏi phải tự quy đổi múi giờ khi điền lại vào
+         * ô "Hạn nộp bài — Ngày/Giờ" (đúng bug từng gặp với homeworkNextDueAt — xem
+         * DailyCommentPanel.tsx isoToLocalDateInput/isoToLocalTimeInput). Null nếu chưa chọn gì hoặc đã Gửi.
+         */
+        LocalDateTime pendingHomeworkNextDueDate,
         String grammarPreviousProgress,
         String videoPreviousProgress,
         /**

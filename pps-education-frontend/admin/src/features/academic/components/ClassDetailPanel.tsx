@@ -1,8 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Calendar, CalendarClock, Download, FileSpreadsheet, FileText, Save, Search, Sparkles, UploadCloud, UserPlus, Users, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { buildXlsxTemplateBlob, downloadBlob } from "@/lib/xlsxTemplate";
+import { formatDateTime } from "@/lib/i18nFormat";
 import { useApp } from "@/context/AppContext";
 import { UserRole } from "@/types";
 import { UserListItemResponse } from "@/features/system-admin/api";
@@ -44,7 +46,7 @@ import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import { useDialog } from "@/components/ui/DialogProvider";
-import { classStatusLabels, classStatusVariants } from "./ClassListPanel";
+import { classStatusLabel, classStatusValues, classStatusVariants } from "./ClassListPanel";
 import BulkGenerateSessionsForm from "./BulkGenerateSessionsForm";
 import ImportScheduleForm from "./ImportScheduleForm";
 import ClassGradeSheetPanel from "./ClassGradeSheetPanel";
@@ -66,6 +68,7 @@ interface ClassDetailPanelProps {
 }
 
 export default function ClassDetailPanel({ schoolClass, onChanged }: ClassDetailPanelProps) {
+  const { t } = useTranslation("academic-classes");
   const [tab, setTab] = useState<Tab>("profile");
   const { hasPermission, currentUser } = useApp();
   const canManage = hasPermission("academic.class.manage");
@@ -99,17 +102,17 @@ export default function ClassDetailPanel({ schoolClass, onChanged }: ClassDetail
             <h2 className="text-sm font-bold text-slate-800 mt-1">{schoolClass.name}</h2>
             <p className="text-[10px] text-slate-400 mt-0.5">{schoolClass.siteName} · {schoolClass.curriculumCode}</p>
           </div>
-          <Badge variant={classStatusVariants[schoolClass.status]}>{classStatusLabels[schoolClass.status]}</Badge>
+          <Badge variant={classStatusVariants[schoolClass.status]}>{classStatusLabel(t, schoolClass.status)}</Badge>
         </div>
 
         <div className="flex border-b border-slate-200 pt-1 gap-5 overflow-x-auto">
           {(
             [
-              ["profile", "Hồ sơ", FileText],
-              ["teachers", "Giáo viên", Users],
-              ["students", "Học sinh", Users],
-              ["sessions", "Buổi học & Điểm danh", Calendar],
-              ["grades", "Sổ điểm", FileSpreadsheet]
+              ["profile", t("classDetail.tabs.profile"), FileText],
+              ["teachers", t("classDetail.tabs.teachers"), Users],
+              ["students", t("classDetail.tabs.students"), Users],
+              ["sessions", t("classDetail.tabs.sessions"), Calendar],
+              ["grades", t("classDetail.tabs.grades"), FileSpreadsheet]
             ] as const
           ).map(([key, label, Icon]) => (
             <button
@@ -167,6 +170,7 @@ function ProfileTab({
   canManage: boolean;
   showToast: (msg: string) => void;
 }) {
+  const { t } = useTranslation("academic-classes");
   const [form, setForm] = useState(() => toForm(schoolClass));
   const [academicYears, setAcademicYears] = useState<AcademicYearResponse[]>([]);
   const [saving, setSaving] = useState(false);
@@ -199,9 +203,9 @@ function ProfileTab({
         status: form.status as ClassResponse["status"]
       });
       onChanged();
-      showToast("Đã lưu hồ sơ lớp học thành công!");
+      showToast(t("classDetail.profile.saveSuccess"));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Cập nhật lớp học thất bại.");
+      setError(err instanceof ApiError ? err.message : t("classDetail.profile.saveError"));
     } finally {
       setSaving(false);
     }
@@ -212,32 +216,32 @@ function ProfileTab({
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
       {!canManage && (
         <div className="text-[11px] text-slate-500 bg-slate-50 border border-slate-200 p-2.5 rounded-lg">
-          Tài khoản không có quyền "Xếp lớp & gán khóa học" — chỉ xem, không sửa được hồ sơ lớp.
+          {t("classDetail.profile.readOnlyNotice")}
         </div>
       )}
       <fieldset disabled={!canManage || saving} className="grid grid-cols-2 gap-3">
         <div className="col-span-2">
-          <label className={labelClass}>Tên lớp *</label>
+          <label className={labelClass}>{t("classDetail.profile.nameLabel")}</label>
           <input
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             onBlur={() => setNameTouched(true)}
             className={nameInvalid ? inputErrorClass : inputClass}
           />
-          {nameInvalid && <p className="text-[10px] text-rose-600 mt-1">Vui lòng nhập Tên lớp.</p>}
+          {nameInvalid && <p className="text-[10px] text-rose-600 mt-1">{t("classDetail.profile.nameRequired")}</p>}
         </div>
         <div>
-          <label className={labelClass}>Trạng thái *</label>
+          <label className={labelClass}>{t("classDetail.profile.statusLabel")}</label>
           <Select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as ClassResponse["status"] })} className={inputClass}>
-            {Object.entries(classStatusLabels).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
+            {classStatusValues.map((status) => (
+              <option key={status} value={status}>
+                {classStatusLabel(t, status)}
               </option>
             ))}
           </Select>
         </div>
         <div>
-          <label className={labelClass}>Sĩ số tối đa *</label>
+          <label className={labelClass}>{t("classDetail.profile.maxStudentsLabel")}</label>
           <input
             type="number"
             min={1}
@@ -246,24 +250,24 @@ function ProfileTab({
             onBlur={() => setMaxTouched(true)}
             className={maxInvalid ? inputErrorClass : inputClass}
           />
-          {maxInvalid && <p className="text-[10px] text-rose-600 mt-1">Vui lòng nhập Sĩ số tối đa.</p>}
+          {maxInvalid && <p className="text-[10px] text-rose-600 mt-1">{t("classDetail.profile.maxStudentsRequired")}</p>}
         </div>
         <div>
-          <label className={labelClass}>Sĩ số tối thiểu</label>
+          <label className={labelClass}>{t("classDetail.profile.minStudentsLabel")}</label>
           <input type="number" min={0} value={form.minStudents} onChange={(e) => setForm({ ...form, minStudents: e.target.value })} className={inputClass} />
         </div>
         <div>
-          <label className={labelClass}>Ngày khai giảng *</label>
+          <label className={labelClass}>{t("classDetail.profile.startDateLabel")}</label>
           <DatePicker value={form.startDate} onChange={(v) => setForm({ ...form, startDate: v })} max={form.endDate || undefined} />
         </div>
         <div>
-          <label className={labelClass}>Ngày kết thúc</label>
+          <label className={labelClass}>{t("classDetail.profile.endDateLabel")}</label>
           <DatePicker value={form.endDate} onChange={(v) => setForm({ ...form, endDate: v })} min={form.startDate || undefined} />
         </div>
         <div>
-          <label className={labelClass}>Năm học</label>
+          <label className={labelClass}>{t("classDetail.profile.academicYearLabel")}</label>
           <Select value={form.academicYearId} onChange={(e) => setForm({ ...form, academicYearId: e.target.value })} className={inputClass}>
-            <option value="">-- Chưa xác định --</option>
+            <option value="">{t("classDetail.profile.academicYearPlaceholder")}</option>
             {academicYears.map((y) => (
               <option key={y.id} value={y.id}>
                 {y.code} — {y.name}
@@ -275,7 +279,7 @@ function ProfileTab({
       {canManage && (
         <Button type="submit" variant="primary" size="sm" disabled={saving}>
           <Save className="w-3.5 h-3.5" />
-          {saving ? "Đang lưu..." : "Lưu hồ sơ"}
+          {saving ? t("common.saving") : t("classDetail.profile.saveButton")}
         </Button>
       )}
     </form>
@@ -294,14 +298,25 @@ function toForm(c: ClassResponse) {
   };
 }
 
-const teacherRoleLabels: Record<ClassTeacherResponse["teacherRole"], string> = {
-  PRIMARY: "Chính",
-  ASSISTANT: "Trợ giảng",
-  SUBSTITUTE: "Dạy thay",
-  CM: "Quản lý lớp (CM)"
-};
+/** Nhãn vai trò/loại giáo viên/loại buổi học/trạng thái điểm danh dịch qua i18next namespace
+ * "academic-classes" (`enums.teacherRole.*`, `enums.teacherType.*`, `enums.sessionType.*`,
+ * `enums.attendanceStatus.*`) — dùng các hàm `xLabel(t, value)` thay vì map tĩnh cũ. teacherTypeLabel
+ * export để MyTeachingSchedulePage.tsx dùng chung (đã import sessionStatusVariants từ file này sẵn). */
+function teacherRoleLabel(t: (key: string, options?: Record<string, unknown>) => string, role: ClassTeacherResponse["teacherRole"]): string {
+  return t(`enums.teacherRole.${role}`, { defaultValue: role });
+}
+export function teacherTypeLabel(t: (key: string, options?: Record<string, unknown>) => string, type: string): string {
+  return t(`enums.teacherType.${type}`, { defaultValue: type });
+}
+function sessionTypeLabel(t: (key: string, options?: Record<string, unknown>) => string, type: string): string {
+  return t(`enums.sessionType.${type}`, { defaultValue: type });
+}
+function attendanceStatusLabel(t: (key: string, options?: Record<string, unknown>) => string, status: string): string {
+  return t(`enums.attendanceStatus.${status}`, { defaultValue: status });
+}
 
 function TeachersTab({ classId, canManage, showToast }: { classId: number; canManage: boolean; showToast: (msg: string) => void }) {
+  const { t } = useTranslation("academic-classes");
   const [teachers, setTeachers] = useState<ClassTeacherResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -315,20 +330,20 @@ function TeachersTab({ classId, canManage, showToast }: { classId: number; canMa
     setLoading(true);
     listClassTeachers(classId)
       .then(setTeachers)
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách giáo viên."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("classDetail.teachers.loadError")))
       .finally(() => setLoading(false));
   };
   useEffect(load, [classId]);
 
-  const handleEndAssignment = async (t: ClassTeacherResponse) => {
-    if (!(await confirmDialog(`Kết thúc phụ trách của ${t.teacherFullName} với lớp này?`))) return;
-    setEndingId(t.id);
+  const handleEndAssignment = async (teacher: ClassTeacherResponse) => {
+    if (!(await confirmDialog(t("classDetail.teachers.endConfirm", { name: teacher.teacherFullName })))) return;
+    setEndingId(teacher.id);
     try {
-      await endClassTeacherAssignment(classId, t.id, { assignedTo: new Date().toISOString().slice(0, 10) });
+      await endClassTeacherAssignment(classId, teacher.id, { assignedTo: new Date().toISOString().slice(0, 10) });
       load();
-      showToast("Đã kết thúc phụ trách!");
+      showToast(t("classDetail.teachers.endSuccess"));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Kết thúc phụ trách thất bại.");
+      setError(err instanceof ApiError ? err.message : t("classDetail.teachers.endError"));
     } finally {
       setEndingId(null);
     }
@@ -337,15 +352,15 @@ function TeachersTab({ classId, canManage, showToast }: { classId: number; canMa
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-bold uppercase text-slate-500">Giáo viên phụ trách ({teachers.length})</span>
+        <span className="text-[10px] font-bold uppercase text-slate-500">{t("classDetail.teachers.sectionTitle", { count: teachers.length })}</span>
         <div className="flex items-center gap-2">
           <Button size="sm" variant="secondary" onClick={() => setShowHistory(true)}>
-            Lịch sử thay đổi
+            {t("classDetail.teachers.historyButton")}
           </Button>
           {canManage && !assigning && (
             <Button size="sm" variant="secondary" onClick={() => setAssigning(true)}>
               <UserPlus className="w-3.5 h-3.5" />
-              Gán giáo viên
+              {t("classDetail.teachers.assignButton")}
             </Button>
           )}
         </div>
@@ -354,48 +369,48 @@ function TeachersTab({ classId, canManage, showToast }: { classId: number; canMa
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       {loading ? (
-        <p className="text-xs text-slate-500">Đang tải...</p>
+        <p className="text-xs text-slate-500">{t("common.loading")}</p>
       ) : teachers.length === 0 ? (
-        <p className="text-xs text-slate-400 italic">Chưa gán giáo viên nào.</p>
+        <p className="text-xs text-slate-400 italic">{t("classDetail.teachers.empty")}</p>
       ) : (
         <div className="space-y-2">
-          {teachers.map((t) => (
-            <div key={t.id} className="border border-slate-200 rounded-lg p-3 text-xs">
+          {teachers.map((teacher) => (
+            <div key={teacher.id} className="border border-slate-200 rounded-lg p-3 text-xs">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-bold text-slate-800">{t.teacherFullName}</span>
-                  <Badge variant="info">{teacherRoleLabels[t.teacherRole]}</Badge>
-                  {t.teacherType && <Badge variant="neutral">{teacherTypeLabels[t.teacherType]}</Badge>}
-                  {t.assignedTo && <Badge variant="neutral">Đã kết thúc {t.assignedTo}</Badge>}
+                  <span className="font-bold text-slate-800">{teacher.teacherFullName}</span>
+                  <Badge variant="info">{teacherRoleLabel(t, teacher.teacherRole)}</Badge>
+                  {teacher.teacherType && <Badge variant="neutral">{teacherTypeLabel(t, teacher.teacherType)}</Badge>}
+                  {teacher.assignedTo && <Badge variant="neutral">{t("classDetail.teachers.endedBadge", { date: teacher.assignedTo })}</Badge>}
                 </div>
-                {canManage && !t.assignedTo && (
+                {canManage && !teacher.assignedTo && (
                   <div className="flex items-center gap-3">
-                    {t.teacherRole === "PRIMARY" && (
+                    {teacher.teacherRole === "PRIMARY" && (
                       <button
-                        onClick={() => setChangingId(changingId === t.id ? null : t.id)}
+                        onClick={() => setChangingId(changingId === teacher.id ? null : teacher.id)}
                         className="text-sky-600 hover:text-sky-800 text-[11px] font-semibold"
                       >
-                        Đổi giáo viên
+                        {t("classDetail.teachers.changeTeacherAction")}
                       </button>
                     )}
                     <button
-                      onClick={() => handleEndAssignment(t)}
-                      disabled={endingId === t.id}
+                      onClick={() => handleEndAssignment(teacher)}
+                      disabled={endingId === teacher.id}
                       className="text-rose-500 hover:text-rose-700 text-[11px] font-semibold disabled:opacity-50"
                     >
-                      {endingId === t.id ? "Đang xử lý..." : "Kết thúc phụ trách"}
+                      {endingId === teacher.id ? t("classDetail.teachers.endingInProgress") : t("classDetail.teachers.endAssignmentButton")}
                     </button>
                   </div>
                 )}
               </div>
-              {changingId === t.id && (
+              {changingId === teacher.id && (
                 <ChangeTeacherForm
                   classId={classId}
-                  classTeacherId={t.id}
+                  classTeacherId={teacher.id}
                   onDone={() => {
                     setChangingId(null);
                     load();
-                    showToast("Đã đổi giáo viên chính thành công!");
+                    showToast(t("classDetail.teachers.changeSuccess"));
                   }}
                   onCancel={() => setChangingId(null)}
                 />
@@ -411,13 +426,13 @@ function TeachersTab({ classId, canManage, showToast }: { classId: number; canMa
           onDone={() => {
             setAssigning(false);
             load();
-            showToast("Đã gán giáo viên thành công!");
+            showToast(t("classDetail.teachers.assignSuccess"));
           }}
           onCancel={() => setAssigning(false)}
         />
       )}
 
-      <Modal open={showHistory} onClose={() => setShowHistory(false)} title="Lịch sử thay đổi giáo viên phụ trách" size="lg">
+      <Modal open={showHistory} onClose={() => setShowHistory(false)} title={t("classDetail.teachers.historyModalTitle")} size="lg">
         <TeacherHistoryPanel classId={classId} />
       </Modal>
     </div>
@@ -426,6 +441,7 @@ function TeachersTab({ classId, canManage, showToast }: { classId: number; canMa
 
 /** UC-18 (bổ sung ngoài SDD gốc, xác nhận 2026-08-13): timeline lịch sử thay đổi giáo viên phụ trách của cả lớp. */
 function TeacherHistoryPanel({ classId }: { classId: number }) {
+  const { t, i18n } = useTranslation("academic-classes");
   const [history, setHistory] = useState<ClassTeacherHistoryResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -434,22 +450,22 @@ function TeacherHistoryPanel({ classId }: { classId: number }) {
     setLoading(true);
     listClassTeacherHistory(classId)
       .then(setHistory)
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được lịch sử."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("classDetail.teacherHistory.loadError")))
       .finally(() => setLoading(false));
   }, [classId]);
 
   const describe = (h: ClassTeacherHistoryResponse) => {
     if (h.action === "CREATED") {
-      const role = h.details.teacherRole ? teacherRoleLabels[h.details.teacherRole as ClassTeacherResponse["teacherRole"]] : "?";
-      const type = h.details.teacherType ? ` (${teacherTypeLabels[h.details.teacherType as "VIETNAMESE" | "FOREIGN"]})` : "";
-      return `Gán ${h.teacherFullName} làm ${role}${type}`;
+      const role = h.details.teacherRole ? teacherRoleLabel(t, h.details.teacherRole as ClassTeacherResponse["teacherRole"]) : "?";
+      const type = h.details.teacherType ? ` (${teacherTypeLabel(t, h.details.teacherType as string)})` : "";
+      return t("classDetail.teacherHistory.describeCreated", { name: h.teacherFullName, role, type });
     }
-    return `Kết thúc phụ trách của ${h.teacherFullName} từ ngày ${h.details.assignedTo ?? "?"}`;
+    return t("classDetail.teacherHistory.describeEnded", { name: h.teacherFullName, date: h.details.assignedTo ?? "?" });
   };
 
-  if (loading) return <p className="text-xs text-slate-500">Đang tải...</p>;
+  if (loading) return <p className="text-xs text-slate-500">{t("common.loading")}</p>;
   if (error) return <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>;
-  if (history.length === 0) return <p className="text-xs text-slate-400 italic">Chưa có lịch sử thay đổi giáo viên phụ trách.</p>;
+  if (history.length === 0) return <p className="text-xs text-slate-400 italic">{t("classDetail.teacherHistory.empty")}</p>;
 
   return (
     <div className="space-y-2 max-h-96 overflow-y-auto">
@@ -458,10 +474,12 @@ function TeacherHistoryPanel({ classId }: { classId: number }) {
           <div>
             <p className="text-slate-800">{describe(h)}</p>
             <p className="text-[10px] text-slate-400 mt-0.5">
-              bởi {h.changedByName} · {new Date(h.createdAt).toLocaleString("vi-VN")}
+              {t("classDetail.teacherHistory.byLabel", { name: h.changedByName, date: formatDateTime(h.createdAt, i18n.language) })}
             </p>
           </div>
-          <Badge variant={h.action === "CREATED" ? "success" : "neutral"}>{h.action === "CREATED" ? "Gán mới" : "Kết thúc"}</Badge>
+          <Badge variant={h.action === "CREATED" ? "success" : "neutral"}>
+            {h.action === "CREATED" ? t("classDetail.teacherHistory.createdBadge") : t("classDetail.teacherHistory.endedBadge")}
+          </Badge>
         </div>
       ))}
     </div>
@@ -469,6 +487,7 @@ function TeacherHistoryPanel({ classId }: { classId: number }) {
 }
 
 function AssignTeacherForm({ classId, onDone, onCancel }: { classId: number; onDone: () => void; onCancel: () => void }) {
+  const { t } = useTranslation("academic-classes");
   const [selected, setSelected] = useState<UserListItemResponse | null>(null);
   const [teacherRole, setTeacherRole] = useState<AssignTeacherRequest["teacherRole"]>("PRIMARY");
   const [teacherType, setTeacherType] = useState<"" | "VIETNAMESE" | "FOREIGN">("");
@@ -478,11 +497,11 @@ function AssignTeacherForm({ classId, onDone, onCancel }: { classId: number; onD
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selected) {
-      setError("Vui lòng chọn tài khoản giáo viên.");
+      setError(t("classDetail.assignTeacherForm.selectRequired"));
       return;
     }
     if (teacherRole === "PRIMARY" && !teacherType) {
-      setError("Giáo viên chính bắt buộc chọn loại giáo viên (Việt Nam/nước ngoài).");
+      setError(t("classDetail.assignTeacherForm.primaryTypeRequired"));
       return;
     }
     setSubmitting(true);
@@ -495,7 +514,7 @@ function AssignTeacherForm({ classId, onDone, onCancel }: { classId: number; onD
       });
       onDone();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Gán giáo viên thất bại.");
+      setError(err instanceof ApiError ? err.message : t("classDetail.assignTeacherForm.submitError"));
     } finally {
       setSubmitting(false);
     }
@@ -504,7 +523,12 @@ function AssignTeacherForm({ classId, onDone, onCancel }: { classId: number; onD
   return (
     <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
-      <UserSearchCombobox value={selected} onChange={setSelected} roleFilter="TEACHER" placeholder="Bấm để xem danh sách hoặc gõ để tìm giáo viên..." />
+      <UserSearchCombobox
+        value={selected}
+        onChange={setSelected}
+        roleFilter="TEACHER"
+        placeholder={t("classDetail.assignTeacherForm.comboboxPlaceholder")}
+      />
 
       <div className="grid grid-cols-2 gap-2">
         <Select
@@ -512,31 +536,29 @@ function AssignTeacherForm({ classId, onDone, onCancel }: { classId: number; onD
           onChange={(e) => setTeacherRole(e.target.value as AssignTeacherRequest["teacherRole"])}
           className={inputClass}
         >
-          <option value="PRIMARY">Giáo viên chính</option>
-          <option value="CM">Quản lý lớp (CM)</option>
-          <option value="ASSISTANT">Trợ giảng</option>
-          <option value="SUBSTITUTE">Dạy thay</option>
+          <option value="PRIMARY">{t("classDetail.assignTeacherForm.roleOptionPrimary")}</option>
+          <option value="CM">{teacherRoleLabel(t, "CM")}</option>
+          <option value="ASSISTANT">{teacherRoleLabel(t, "ASSISTANT")}</option>
+          <option value="SUBSTITUTE">{teacherRoleLabel(t, "SUBSTITUTE")}</option>
         </Select>
         {teacherRole === "PRIMARY" && (
           <Select value={teacherType} onChange={(e) => setTeacherType(e.target.value as "" | "VIETNAMESE" | "FOREIGN")} className={inputClass}>
-            <option value="">-- Chọn loại giáo viên --</option>
-            <option value="VIETNAMESE">GV Việt Nam</option>
-            <option value="FOREIGN">GV nước ngoài</option>
+            <option value="">{t("common.teacherTypePlaceholder")}</option>
+            <option value="VIETNAMESE">{teacherTypeLabel(t, "VIETNAMESE")}</option>
+            <option value="FOREIGN">{teacherTypeLabel(t, "FOREIGN")}</option>
           </Select>
         )}
       </div>
       {teacherRole === "PRIMARY" && (
-        <p className="text-[10px] text-slate-400 italic">
-          Lớp có thể có đồng thời 1 giáo viên chính người Việt Nam + 1 giáo viên chính người nước ngoài.
-        </p>
+        <p className="text-[10px] text-slate-400 italic">{t("classDetail.assignTeacherForm.primaryTypeHint")}</p>
       )}
 
       <div className="flex gap-2">
         <Button type="button" variant="secondary" size="sm" onClick={onCancel}>
-          Hủy
+          {t("common.cancelButton")}
         </Button>
         <Button type="submit" variant="primary" size="sm" disabled={submitting}>
-          {submitting ? "Đang lưu..." : "Gán giáo viên"}
+          {submitting ? t("common.saving") : t("classDetail.teachers.assignButton")}
         </Button>
       </div>
     </form>
@@ -555,6 +577,7 @@ function ChangeTeacherForm({
   onDone: () => void;
   onCancel: () => void;
 }) {
+  const { t } = useTranslation("academic-classes");
   const [selected, setSelected] = useState<UserListItemResponse | null>(null);
   const [effectiveDate, setEffectiveDate] = useState(new Date().toISOString().slice(0, 10));
   const [submitting, setSubmitting] = useState(false);
@@ -563,7 +586,7 @@ function ChangeTeacherForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selected || !effectiveDate) {
-      setError("Vui lòng chọn giáo viên mới và ngày hiệu lực.");
+      setError(t("classDetail.changeTeacherForm.validationError"));
       return;
     }
     setSubmitting(true);
@@ -573,7 +596,7 @@ function ChangeTeacherForm({
       await changeClassTeacher(classId, classTeacherId, request);
       onDone();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Đổi giáo viên chính thất bại.");
+      setError(err instanceof ApiError ? err.message : t("classDetail.changeTeacherForm.submitError"));
     } finally {
       setSubmitting(false);
     }
@@ -582,20 +605,23 @@ function ChangeTeacherForm({
   return (
     <form onSubmit={handleSubmit} className="bg-sky-50 border border-sky-200 rounded-lg p-3 mt-2 space-y-2">
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
-      <p className="text-[10px] text-slate-500">
-        Các buổi học SCHEDULED từ ngày hiệu lực trở đi, cùng loại giáo viên, sẽ tự động đổi giáo viên phụ trách (trừ buổi đang có GV dạy thay).
-      </p>
-      <UserSearchCombobox value={selected} onChange={setSelected} roleFilter="TEACHER" placeholder="Bấm để xem danh sách hoặc gõ để tìm giáo viên mới..." />
+      <p className="text-[10px] text-slate-500">{t("classDetail.changeTeacherForm.cascadeHint")}</p>
+      <UserSearchCombobox
+        value={selected}
+        onChange={setSelected}
+        roleFilter="TEACHER"
+        placeholder={t("classDetail.changeTeacherForm.comboboxPlaceholder")}
+      />
       <div>
-        <label className={labelClass}>Ngày hiệu lực</label>
+        <label className={labelClass}>{t("classDetail.changeTeacherForm.effectiveDateLabel")}</label>
         <DatePicker value={effectiveDate} onChange={setEffectiveDate} />
       </div>
       <div className="flex gap-2">
         <Button type="button" variant="secondary" size="sm" onClick={onCancel}>
-          Hủy
+          {t("common.cancelButton")}
         </Button>
         <Button type="submit" variant="primary" size="sm" disabled={submitting}>
-          {submitting ? "Đang lưu..." : "Đổi giáo viên"}
+          {submitting ? t("common.saving") : t("classDetail.teachers.changeTeacherAction")}
         </Button>
       </div>
     </form>
@@ -617,6 +643,7 @@ function StudentsTab({
   canManage: boolean;
   showToast: (msg: string) => void;
 }) {
+  const { t } = useTranslation("academic-classes");
   const [enrollments, setEnrollments] = useState<ClassEnrollmentResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -631,20 +658,20 @@ function StudentsTab({
     setLoading(true);
     listClassEnrollments(classId)
       .then(setEnrollments)
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách học sinh."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("classDetail.students.loadError")))
       .finally(() => setLoading(false));
   };
   useEffect(load, [classId]);
 
   const handleWithdraw = async (enrollmentId: number) => {
-    const reason = (await promptDialog("Lý do rút lớp (không bắt buộc):")) ?? "";
-    if (!(await confirmDialog("Xác nhận rút học sinh khỏi lớp này?"))) return;
+    const reason = (await promptDialog(t("classDetail.students.withdrawReasonPrompt"))) ?? "";
+    if (!(await confirmDialog(t("classDetail.students.withdrawConfirm")))) return;
     try {
       await withdrawEnrollment(classId, enrollmentId, { withdrawnDate: new Date().toISOString().slice(0, 10), reason: reason.trim() || undefined });
       load();
-      showToast("Đã rút học sinh khỏi lớp thành công!");
+      showToast(t("classDetail.students.withdrawSuccess"));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Rút lớp thất bại.");
+      setError(err instanceof ApiError ? err.message : t("classDetail.students.withdrawError"));
     }
   };
 
@@ -654,9 +681,9 @@ function StudentsTab({
     setError(null);
     try {
       const blob = await downloadEnrollmentImportTemplate(classId);
-      downloadBlob(blob, `mau-ghi-danh-lop-${classId}.xlsx`);
+      downloadBlob(blob, `${t("classDetail.students.templateFileName")}-${classId}.xlsx`);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Tải file mẫu thất bại.");
+      setError(err instanceof ApiError ? err.message : t("classDetail.students.downloadTemplateError"));
     } finally {
       setDownloadingTemplate(false);
     }
@@ -664,7 +691,16 @@ function StudentsTab({
 
   /** Xuất danh sách học sinh đang ghi danh (đúng danh sách đang hiển thị bên dưới) ra Excel. */
   const handleExportStudents = () => {
-    const headers = ["STT", "Mã học sinh", "Họ và tên", "Ngày sinh", "Ngày ghi danh", "Ngày rút lớp", "Trạng thái", "Năm học"];
+    const headers = [
+      t("classDetail.students.exportHeaders.index"),
+      t("classDetail.students.exportHeaders.studentCode"),
+      t("classDetail.students.exportHeaders.fullName"),
+      t("classDetail.students.exportHeaders.dateOfBirth"),
+      t("classDetail.students.exportHeaders.enrolledDate"),
+      t("classDetail.students.exportHeaders.withdrawnDate"),
+      t("classDetail.students.exportHeaders.status"),
+      t("classDetail.students.exportHeaders.academicYear")
+    ];
     const rows = enrollments.map((en, idx) => [
       String(idx + 1),
       en.studentCode,
@@ -676,13 +712,13 @@ function StudentsTab({
       en.academicYear ?? ""
     ]);
     const blob = buildXlsxTemplateBlob(headers, rows);
-    downloadBlob(blob, `danh-sach-hoc-sinh-lop-${classId}.xlsx`);
+    downloadBlob(blob, `${t("classDetail.students.exportFileName")}-${classId}.xlsx`);
   };
 
   const handleImportFile = async (file: File | null) => {
     if (!file) return;
     if (!file.name.toLowerCase().endsWith(".xlsx")) {
-      setError("Chỉ hỗ trợ file .xlsx.");
+      setError(t("classDetail.students.invalidFileType"));
       return;
     }
     setImporting(true);
@@ -693,10 +729,10 @@ function StudentsTab({
       setImportResult(res);
       if (res.successRows > 0) {
         load();
-        showToast(`Đã ghi danh ${res.successRows} học sinh từ file Excel!`);
+        showToast(t("classDetail.students.importSuccessToast", { count: res.successRows }));
       }
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Nhập từ Excel thất bại.");
+      setError(err instanceof ApiError ? err.message : t("classDetail.students.importError"));
     } finally {
       setImporting(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -706,23 +742,23 @@ function StudentsTab({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <span className="text-[10px] font-bold uppercase text-slate-500">Học sinh đã ghi danh ({enrollments.length})</span>
+        <span className="text-[10px] font-bold uppercase text-slate-500">{t("classDetail.students.sectionTitle", { count: enrollments.length })}</span>
         <div className="flex items-center gap-2 flex-wrap">
           <button
             type="button"
             onClick={handleExportStudents}
             disabled={enrollments.length === 0}
-            title="Tải danh sách học sinh đang hiển thị ra Excel"
+            title={t("classDetail.students.exportButtonTitle")}
             className="flex items-center gap-1.5 border border-dashed border-slate-300 rounded-lg px-3 py-1.5 text-[11px] font-semibold text-slate-600 hover:bg-white disabled:opacity-50"
           >
             <Download className="w-3.5 h-3.5" />
-            Tải danh sách học sinh
+            {t("classDetail.students.exportButton")}
           </button>
           {canManage && (
             <>
               <Button size="sm" variant="secondary" onClick={() => setEnrolling(true)}>
                 <UserPlus className="w-3.5 h-3.5" />
-                Ghi danh học sinh
+                {t("classDetail.students.enrollButton")}
               </Button>
               <button
                 type="button"
@@ -731,7 +767,7 @@ function StudentsTab({
                 className="flex items-center gap-1.5 border border-dashed border-slate-300 rounded-lg px-3 py-1.5 text-[11px] font-semibold text-slate-600 hover:bg-white disabled:opacity-50"
               >
                 <Download className="w-3.5 h-3.5" />
-                {downloadingTemplate ? "Đang tải..." : "Tải mẫu Excel"}
+                {downloadingTemplate ? t("classDetail.students.downloading") : t("classDetail.students.downloadTemplateButton")}
               </button>
               <button
                 type="button"
@@ -740,7 +776,7 @@ function StudentsTab({
                 className="flex items-center gap-1.5 border-2 border-dashed border-slate-200 rounded-lg px-3 py-1.5 text-[11px] font-semibold text-slate-600 hover:border-brand-orange hover:bg-orange-50/30 disabled:opacity-50"
               >
                 <UploadCloud className="w-3.5 h-3.5 text-brand-orange" />
-                {importing ? "Đang nhập..." : "Ghi danh theo lô (.xlsx)"}
+                {importing ? t("classDetail.students.importing") : t("classDetail.students.importBatchButton")}
               </button>
               <input ref={fileInputRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => handleImportFile(e.target.files?.[0] ?? null)} />
             </>
@@ -751,20 +787,20 @@ function StudentsTab({
       {importResult && (
         <div className="w-full flex flex-wrap items-center gap-2 text-[11px]">
           <span className="bg-slate-100 border border-slate-200 text-slate-700 font-semibold px-2 py-1 rounded-lg">
-            Tổng: {importResult.totalRows ?? "—"}
+            {t("classDetail.students.importResultTotal", { count: importResult.totalRows ?? "—" })}
           </span>
           <span className="bg-emerald-50 border border-emerald-100 text-emerald-600 font-semibold px-2 py-1 rounded-lg">
-            Thành công: {importResult.successRows}
+            {t("classDetail.students.importResultSuccess", { count: importResult.successRows })}
           </span>
           <span className="bg-rose-50 border border-rose-100 text-rose-600 font-semibold px-2 py-1 rounded-lg">
-            Lỗi: {importResult.failedRows}
+            {t("classDetail.students.importResultFailed", { count: importResult.failedRows })}
           </span>
           {importResult.errorSummary.length > 0 && (
             <div className="w-full border border-rose-100 rounded-lg overflow-hidden">
               <div className="max-h-40 overflow-y-auto divide-y divide-slate-100">
                 {importResult.errorSummary.map((e, i) => (
                   <div key={i} className="px-3 py-1.5 flex gap-2 bg-white">
-                    <span className="font-mono font-bold text-slate-400 shrink-0">Dòng {String(e.row)}</span>
+                    <span className="font-mono font-bold text-slate-400 shrink-0">{t("classDetail.students.importErrorRow", { row: String(e.row) })}</span>
                     <span className="text-slate-600">{String(e.reason)}</span>
                   </div>
                 ))}
@@ -777,9 +813,9 @@ function StudentsTab({
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       {loading ? (
-        <p className="text-xs text-slate-500">Đang tải...</p>
+        <p className="text-xs text-slate-500">{t("common.loading")}</p>
       ) : enrollments.length === 0 ? (
-        <p className="text-xs text-slate-400 italic">Chưa ghi danh học sinh nào.</p>
+        <p className="text-xs text-slate-400 italic">{t("classDetail.students.empty")}</p>
       ) : (
         <div className="space-y-2">
           {enrollments.map((en) => (
@@ -803,7 +839,7 @@ function StudentsTab({
         </div>
       )}
 
-      <Modal open={enrolling} onClose={() => setEnrolling(false)} title="Ghi danh học sinh" size="lg">
+      <Modal open={enrolling} onClose={() => setEnrolling(false)} title={t("classDetail.students.enrollModalTitle")} size="lg">
         <EnrollStudentForm
           classId={classId}
           siteId={siteId}
@@ -812,7 +848,7 @@ function StudentsTab({
           onDone={() => {
             setEnrolling(false);
             load();
-            showToast("Đã ghi danh học sinh thành công!");
+            showToast(t("classDetail.students.enrollSuccess"));
           }}
           onCancel={() => setEnrolling(false)}
         />
@@ -838,6 +874,7 @@ function EnrollStudentForm({
   onDone: () => void;
   onCancel: () => void;
 }) {
+  const { t } = useTranslation("academic-classes");
   const [allStudents, setAllStudents] = useState<StudentResponse[]>([]);
   const [loadingStudents, setLoadingStudents] = useState(true);
   const [query, setQuery] = useState("");
@@ -850,8 +887,9 @@ function EnrollStudentForm({
   useEffect(() => {
     listStudents()
       .then(setAllStudents)
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách học sinh."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("classDetail.enrollForm.loadError")))
       .finally(() => setLoadingStudents(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const available = allStudents.filter((s) => !existingStudentIds.has(s.id));
@@ -886,7 +924,7 @@ function EnrollStudentForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedIds.size === 0) {
-      setError("Vui lòng tích chọn ít nhất 1 học sinh.");
+      setError(t("classDetail.enrollForm.selectAtLeastOne"));
       return;
     }
     setSubmitting(true);
@@ -896,7 +934,7 @@ function EnrollStudentForm({
     const failed = results.filter((r) => r.status === "rejected");
     setSubmitting(false);
     if (failed.length > 0) {
-      setError(`Ghi danh thành công ${ids.length - failed.length}/${ids.length} học sinh — ${failed.length} em bị lỗi (kiểm tra lại sĩ số tối đa hoặc trạng thái lớp).`);
+      setError(t("classDetail.enrollForm.partialFailure", { success: ids.length - failed.length, total: ids.length, failed: failed.length }));
     }
     onDone();
   };
@@ -907,25 +945,32 @@ function EnrollStudentForm({
 
       <div className="relative">
         <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-400" />
-        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Lọc theo họ tên / mã học sinh..." className={`${inputClass} pl-8`} />
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={t("classDetail.enrollForm.searchPlaceholder")}
+          className={`${inputClass} pl-8`}
+        />
       </div>
 
       <label className="flex items-center gap-2 text-[11px] text-slate-500">
         <input type="checkbox" checked={showOtherSites} onChange={(e) => setShowOtherSites(e.target.checked)} />
-        Hiện cả học sinh điểm trường khác {siteName ? `(mặc định chỉ hiện học sinh của ${siteName})` : ""}
-        {!showOtherSites && otherSitesCount > 0 && <span className="text-slate-400">— đang ẩn {otherSitesCount} em</span>}
+        {t("classDetail.enrollForm.showOtherSitesLabel")} {siteName ? t("classDetail.enrollForm.showOtherSitesHint", { siteName }) : ""}
+        {!showOtherSites && otherSitesCount > 0 && (
+          <span className="text-slate-400">{t("classDetail.enrollForm.hiddenCount", { count: otherSitesCount })}</span>
+        )}
       </label>
 
       <div className="border border-slate-200 rounded-lg bg-white max-h-64 overflow-y-auto">
         {loadingStudents ? (
-          <p className="text-xs text-slate-500 p-3">Đang tải danh sách học sinh...</p>
+          <p className="text-xs text-slate-500 p-3">{t("classDetail.enrollForm.loadingStudents")}</p>
         ) : filtered.length === 0 ? (
-          <p className="text-xs text-slate-400 italic p-3">Không còn học sinh nào để ghi danh (đã lọc hết hoặc đã ghi danh đủ).</p>
+          <p className="text-xs text-slate-400 italic p-3">{t("classDetail.enrollForm.noneAvailable")}</p>
         ) : (
           <>
             <label className="flex items-center gap-2 px-3 py-2 border-b border-slate-100 bg-slate-50 text-[11px] font-bold text-slate-600 cursor-pointer">
               <input type="checkbox" checked={allFilteredSelected} onChange={toggleAllFiltered} />
-              Chọn tất cả ({filtered.length})
+              {t("classDetail.enrollForm.selectAll", { count: filtered.length })}
             </label>
             <div className="divide-y divide-slate-100">
               {filtered.map((s) => (
@@ -941,18 +986,18 @@ function EnrollStudentForm({
       </div>
 
       <div>
-        <label className={labelClass}>Ngày ghi danh (áp dụng cho tất cả học sinh đã chọn)</label>
+        <label className={labelClass}>{t("classDetail.enrollForm.enrolledDateLabel")}</label>
         <DatePicker value={enrolledDate} onChange={setEnrolledDate} />
       </div>
 
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[11px] text-slate-500">Đã chọn: {selectedIds.size}</span>
+        <span className="text-[11px] text-slate-500">{t("classDetail.enrollForm.selectedCount", { count: selectedIds.size })}</span>
         <div className="flex gap-2">
           <Button type="button" variant="secondary" size="sm" onClick={onCancel}>
-            Hủy
+            {t("common.cancelButton")}
           </Button>
           <Button type="submit" variant="primary" size="sm" disabled={submitting || selectedIds.size === 0}>
-            {submitting ? "Đang ghi danh..." : `Ghi danh ${selectedIds.size || ""} học sinh`}
+            {submitting ? t("classDetail.enrollForm.submitting") : t("classDetail.enrollForm.submitButton", { count: selectedIds.size })}
           </Button>
         </div>
       </div>
@@ -973,13 +1018,10 @@ export const sessionStatusVariants: Record<string, "success" | "warning" | "dang
  * Dùng chung cho MyTeachingSchedulePage (GV tự xem) và EmployeeSchedulePage
  * (roster HR/Quản lý điểm trường).
  */
-export const checkInStatusLabels: Record<string, string> = {
-  NOT_YET_OPEN: "Chưa tới giờ nhận lớp",
-  PENDING: "Chưa nhận lớp",
-  ON_TIME: "Đã nhận lớp — đúng giờ",
-  LATE: "Đã nhận lớp — muộn",
-  ABSENT: "Vắng — không nhận lớp"
-};
+/** `t` dịch qua i18next namespace "common" (key `checkInStatus.*`) — xem src/i18n/locales/{vi,en}/common.json. */
+export function checkInStatusLabel(t: (key: string) => string, status: string): string {
+  return t(`checkInStatus.${status}`);
+}
 export const checkInStatusVariants: Record<string, "success" | "warning" | "danger" | "info" | "neutral" | "brand"> = {
   NOT_YET_OPEN: "neutral",
   PENDING: "warning",
@@ -1024,6 +1066,7 @@ function SessionsTab({
   canCreateSessions: boolean;
   showToast: (msg: string) => void;
 }) {
+  const { t } = useTranslation("academic-classes");
   const navigate = useNavigate();
   const { hasPermission } = useApp();
   const { promptDialog } = useDialog();
@@ -1047,40 +1090,40 @@ function SessionsTab({
         });
         setAttendanceStatusBySession(map);
       })
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách buổi học."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("classDetail.sessions.loadError")))
       .finally(() => setLoading(false));
   };
   useEffect(load, [classId]);
 
   const handleCancel = async (sessionId: number) => {
-    const reason = await promptDialog("Lý do hủy buổi học:", { required: true });
+    const reason = await promptDialog(t("classDetail.sessions.cancelReasonPrompt"), { required: true });
     if (!reason?.trim()) return;
     try {
       await cancelClassSession(classId, sessionId, reason.trim());
       load();
-      showToast("Đã hủy buổi học thành công!");
+      showToast(t("classDetail.sessions.cancelSuccess"));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Hủy buổi học thất bại.");
+      setError(err instanceof ApiError ? err.message : t("classDetail.sessions.cancelError"));
     }
   };
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <span className="text-[10px] font-bold uppercase text-slate-500">Buổi học ({sessions.length})</span>
+        <span className="text-[10px] font-bold uppercase text-slate-500">{t("classDetail.sessions.sectionTitle", { count: sessions.length })}</span>
         {canCreateSessions && (
           <div className="flex items-center gap-1.5">
             <Button size="sm" variant="secondary" onClick={() => setCreating("single")}>
               <UserPlus className="w-3.5 h-3.5" />
-              Xếp buổi học mới
+              {t("classDetail.sessions.createSingleButton")}
             </Button>
             <Button size="sm" variant="secondary" onClick={() => setCreating("bulk")}>
               <Sparkles className="w-3.5 h-3.5" />
-              Sinh lịch hàng loạt
+              {t("classDetail.sessions.createBulkButton")}
             </Button>
             <Button size="sm" variant="secondary" onClick={() => setCreating("excel")}>
               <FileSpreadsheet className="w-3.5 h-3.5" />
-              Nhập lịch từ Excel
+              {t("classDetail.sessions.createExcelButton")}
             </Button>
           </div>
         )}
@@ -1089,64 +1132,72 @@ function SessionsTab({
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       {loading ? (
-        <p className="text-xs text-slate-500">Đang tải...</p>
+        <p className="text-xs text-slate-500">{t("common.loading")}</p>
       ) : sessions.length === 0 ? (
-        <p className="text-xs text-slate-400 italic">Chưa xếp buổi học nào.</p>
+        <p className="text-xs text-slate-400 italic">{t("classDetail.sessions.empty")}</p>
       ) : (
         <div className="space-y-2">
           {sessions.map((s) => (
             <div key={s.id} className="border border-slate-200 rounded-lg p-3 text-xs space-y-1.5">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-slate-400 font-mono">Buổi {s.sessionNumber}</span>
+                  <span className="text-slate-400 font-mono">{t("classDetail.sessions.sessionNumber", { number: s.sessionNumber })}</span>
                   <span className="font-bold text-slate-800">{s.sessionDate}</span>
                   <span className="text-slate-500">{s.startTime}–{s.endTime}</span>
                   <Badge variant={sessionStatusVariants[s.status] ?? "neutral"}>{s.status}</Badge>
                   {attendanceStatusBySession[s.id] ? (
                     <Badge variant={attendanceStatusVariants[attendanceStatusBySession[s.id]] ?? "neutral"}>
-                      {attendanceStatusLabels[attendanceStatusBySession[s.id]] ?? attendanceStatusBySession[s.id]}
+                      {attendanceStatusLabel(t, attendanceStatusBySession[s.id])}
                     </Badge>
                   ) : (
-                    <Badge variant="neutral">Chưa điểm danh</Badge>
+                    <Badge variant="neutral">{t("classDetail.sessions.notAttendanceYet")}</Badge>
                   )}
                 </div>
                 <div className="flex items-center gap-2">
                   {!attendanceStatusBySession[s.id] && !hasSessionStarted(s) ? (
-                    <Button size="sm" variant="secondary" disabled title="Chưa tới giờ học — chỉ điểm danh được trong khung giờ buổi học.">
-                      Chưa tới giờ học
+                    <Button size="sm" variant="secondary" disabled title={t("classDetail.sessions.notYetTimeTitle")}>
+                      {t("classDetail.sessions.notYetTimeButton")}
                     </Button>
                   ) : !attendanceStatusBySession[s.id] && !hasAttendanceOverride && hasSessionEnded(s) ? (
-                    <Button size="sm" variant="secondary" disabled title="Buổi học đã kết thúc — chỉ điểm danh được trong khung giờ buổi học. Cần quyền quản trị điểm danh để bổ sung sau giờ.">
-                      Đã hết giờ điểm danh
+                    <Button size="sm" variant="secondary" disabled title={t("classDetail.sessions.pastDateTitle")}>
+                      {t("classDetail.sessions.pastDateButton")}
                     </Button>
                   ) : (
                     <Button size="sm" variant="secondary" onClick={() => navigate(`/student/attendance?classId=${classId}&sessionId=${s.id}`)}>
-                      {attendanceStatusBySession[s.id] ? "Xem điểm danh" : "Điểm danh"}
+                      {attendanceStatusBySession[s.id] ? t("classDetail.sessions.viewAttendanceButton") : t("classDetail.sessions.takeAttendanceButton")}
                     </Button>
                   )}
                   {canManage && s.status !== "CANCELLED" && (
-                    <button onClick={() => setReschedulingSession(s)} title="Dời lịch" className="text-slate-500 hover:text-slate-800">
+                    <button onClick={() => setReschedulingSession(s)} title={t("classDetail.sessions.rescheduleTitle")} className="text-slate-500 hover:text-slate-800">
                       <CalendarClock className="w-3.5 h-3.5" />
                     </button>
                   )}
                   {canManage && s.status !== "CANCELLED" && (
-                    <button onClick={() => handleCancel(s.id)} title="Hủy buổi" className="text-rose-500 hover:text-rose-700">
+                    <button onClick={() => handleCancel(s.id)} title={t("classDetail.sessions.cancelSessionTitle")} className="text-rose-500 hover:text-rose-700">
                       <X className="w-3.5 h-3.5" />
                     </button>
                   )}
                 </div>
               </div>
               <p className="text-slate-400">
-                GV: {s.primaryTeacherName}
-                {s.teacherType && ` (${teacherTypeLabels[s.teacherType]})`} · Phòng: {s.roomName ?? "Chưa gán"} · {s.sessionType}
+                {t("classDetail.sessions.teacherLine", {
+                  teacher: s.primaryTeacherName,
+                  type: s.teacherType ? ` (${teacherTypeLabel(t, s.teacherType)})` : "",
+                  room: s.roomName ?? t("classDetail.sessions.roomUnassigned"),
+                  sessionType: s.sessionType
+                })}
               </p>
-              {s.status === "CANCELLED" && s.cancellationReason && <p className="text-rose-500">Lý do hủy: {s.cancellationReason}</p>}
+              {s.status === "CANCELLED" && s.cancellationReason && (
+                <p className="text-rose-500">{t("classDetail.sessions.cancellationReason", { reason: s.cancellationReason })}</p>
+              )}
               {s.makeupForSessionId != null &&
                 (() => {
                   const target = sessions.find((x) => x.id === s.makeupForSessionId);
                   return (
                     <p className="text-amber-600">
-                      Bù cho Buổi {target?.sessionNumber ?? "?"}{target ? ` (${target.sessionDate})` : ` (id=${s.makeupForSessionId})`}
+                      {target
+                        ? t("classDetail.sessions.makeupForWithDate", { number: target.sessionNumber ?? "?", date: target.sessionDate })
+                        : t("classDetail.sessions.makeupForWithId", { number: "?", id: s.makeupForSessionId })}
                     </p>
                   );
                 })()}
@@ -1155,42 +1206,42 @@ function SessionsTab({
         </div>
       )}
 
-      <Modal open={creating === "single"} onClose={() => setCreating(null)} title="Xếp buổi học mới" size="lg">
+      <Modal open={creating === "single"} onClose={() => setCreating(null)} title={t("classDetail.sessions.createSessionModalTitle")} size="lg">
         <CreateSessionForm
           classId={classId}
           siteId={siteId}
           onDone={() => {
             setCreating(null);
             load();
-            showToast("Đã xếp buổi học thành công!");
+            showToast(t("classDetail.sessions.createSessionSuccess"));
           }}
           onCancel={() => setCreating(null)}
         />
       </Modal>
-      <Modal open={creating === "bulk"} onClose={() => setCreating(null)} title="Sinh lịch hàng loạt" size="lg">
+      <Modal open={creating === "bulk"} onClose={() => setCreating(null)} title={t("classDetail.sessions.bulkGenerateModalTitle")} size="lg">
         <BulkGenerateSessionsForm
           classId={classId}
           siteId={siteId}
           onDone={() => {
             setCreating(null);
             load();
-            showToast("Đã sinh lịch hàng loạt thành công!");
+            showToast(t("classDetail.sessions.bulkGenerateSuccess"));
           }}
           onCancel={() => setCreating(null)}
         />
       </Modal>
-      <Modal open={creating === "excel"} onClose={() => setCreating(null)} title="Nhập lịch từ Excel">
+      <Modal open={creating === "excel"} onClose={() => setCreating(null)} title={t("classDetail.sessions.importExcelModalTitle")}>
         <ImportScheduleForm
           classId={classId}
           onDone={() => {
             setCreating(null);
             load();
-            showToast("Đã nhập lịch từ Excel thành công!");
+            showToast(t("classDetail.sessions.importExcelSuccess"));
           }}
           onCancel={() => setCreating(null)}
         />
       </Modal>
-      <Modal open={reschedulingSession != null} onClose={() => setReschedulingSession(null)} title="Dời lịch buổi học" size="lg">
+      <Modal open={reschedulingSession != null} onClose={() => setReschedulingSession(null)} title={t("classDetail.sessions.rescheduleModalTitle")} size="lg">
         {reschedulingSession && (
           <RescheduleSessionForm
             classId={classId}
@@ -1199,7 +1250,7 @@ function SessionsTab({
             onDone={() => {
               setReschedulingSession(null);
               load();
-              showToast("Đã dời lịch buổi học thành công!");
+              showToast(t("classDetail.sessions.rescheduleSuccess"));
             }}
             onCancel={() => setReschedulingSession(null)}
           />
@@ -1222,6 +1273,7 @@ function RescheduleSessionForm({
   onDone: () => void;
   onCancel: () => void;
 }) {
+  const { t } = useTranslation("academic-classes");
   const [rooms, setRooms] = useState<RoomResponse[]>([]);
   const [roomId, setRoomId] = useState(session.roomId != null ? String(session.roomId) : "");
   const [form, setForm] = useState({ sessionDate: session.sessionDate, startTime: session.startTime, endTime: session.endTime, reason: "" });
@@ -1235,7 +1287,7 @@ function RescheduleSessionForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.sessionDate || !form.startTime || !form.endTime) {
-      setError("Vui lòng điền đủ ngày/giờ mới.");
+      setError(t("classDetail.rescheduleForm.dateTimeRequired"));
       return;
     }
     setSubmitting(true);
@@ -1251,7 +1303,7 @@ function RescheduleSessionForm({
       await rescheduleClassSession(classId, session.id, request);
       onDone();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Dời lịch buổi học thất bại.");
+      setError(err instanceof ApiError ? err.message : t("classDetail.rescheduleForm.submitError"));
     } finally {
       setSubmitting(false);
     }
@@ -1261,28 +1313,29 @@ function RescheduleSessionForm({
     <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
       <p className="text-[11px] text-slate-500">
-        Buổi {session.sessionNumber} — lịch hiện tại: <span className="font-bold text-slate-700">{session.sessionDate} {session.startTime}–{session.endTime}</span>
+        {t("classDetail.rescheduleForm.currentSchedulePrefix", { number: session.sessionNumber })}{" "}
+        <span className="font-bold text-slate-700">{session.sessionDate} {session.startTime}–{session.endTime}</span>
       </p>
 
       <div className="grid grid-cols-3 gap-2">
         <div>
-          <label className={labelClass}>Ngày học mới</label>
+          <label className={labelClass}>{t("classDetail.rescheduleForm.newDateLabel")}</label>
           <DatePicker value={form.sessionDate} onChange={(v) => setForm({ ...form, sessionDate: v })} />
         </div>
         <div>
-          <label className={labelClass}>Giờ bắt đầu mới</label>
+          <label className={labelClass}>{t("classDetail.rescheduleForm.newStartTimeLabel")}</label>
           <input type="time" value={form.startTime} onChange={(e) => setForm({ ...form, startTime: e.target.value })} className={inputClass} required />
         </div>
         <div>
-          <label className={labelClass}>Giờ kết thúc mới</label>
+          <label className={labelClass}>{t("classDetail.rescheduleForm.newEndTimeLabel")}</label>
           <input type="time" value={form.endTime} onChange={(e) => setForm({ ...form, endTime: e.target.value })} className={inputClass} required />
         </div>
       </div>
 
       <div>
-        <label className={labelClass}>Phòng học mới</label>
+        <label className={labelClass}>{t("classDetail.rescheduleForm.newRoomLabel")}</label>
         <Select value={roomId} onChange={(e) => setRoomId(e.target.value)} className={inputClass}>
-          <option value="">-- Không gán --</option>
+          <option value="">{t("common.noneOption")}</option>
           {rooms.map((r) => (
             <option key={r.id} value={r.id}>
               {r.code} — {r.name}
@@ -1294,21 +1347,28 @@ function RescheduleSessionForm({
           — hệ thống tự động suy ra lại từ giáo viên chính đang phụ trách lớp cùng loại giáo viên
           (VN/nước ngoài) của buổi cũ. */}
       <p className="text-[11px] text-slate-500">
-        Giáo viên phụ trách buổi mới: tự động theo giáo viên chính hiện tại của lớp (hiện tại buổi này: {session.primaryTeacherName}
-        {session.teacherType && ` — ${teacherTypeLabels[session.teacherType]}`}).
+        {t("classDetail.rescheduleForm.teacherAutoHint", {
+          teacher: session.primaryTeacherName,
+          type: session.teacherType ? ` — ${teacherTypeLabel(t, session.teacherType)}` : ""
+        })}
       </p>
 
       <div>
-        <label className={labelClass}>Lý do dời lịch (không bắt buộc)</label>
-        <input value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} className={inputClass} placeholder="VD: Phòng học bị trùng lịch" />
+        <label className={labelClass}>{t("classDetail.rescheduleForm.reasonLabel")}</label>
+        <input
+          value={form.reason}
+          onChange={(e) => setForm({ ...form, reason: e.target.value })}
+          className={inputClass}
+          placeholder={t("classDetail.rescheduleForm.reasonPlaceholder")}
+        />
       </div>
 
       <div className="flex justify-end gap-2 pt-1">
         <Button type="button" variant="secondary" size="sm" onClick={onCancel}>
-          Hủy
+          {t("common.cancelButton")}
         </Button>
         <Button type="submit" size="sm" disabled={submitting}>
-          {submitting ? "Đang lưu..." : "Dời lịch"}
+          {submitting ? t("common.saving") : t("classDetail.rescheduleForm.submitButton")}
         </Button>
       </div>
     </form>
@@ -1316,6 +1376,7 @@ function RescheduleSessionForm({
 }
 
 function CreateSessionForm({ classId, siteId, onDone, onCancel }: { classId: number; siteId: number; onDone: () => void; onCancel: () => void }) {
+  const { t } = useTranslation("academic-classes");
   const [rooms, setRooms] = useState<RoomResponse[]>([]);
   const [roomId, setRoomId] = useState("");
   const [form, setForm] = useState({ sessionDate: "", startTime: "", endTime: "", sessionType: "REGULAR", teacherType: "" });
@@ -1338,21 +1399,22 @@ function CreateSessionForm({ classId, siteId, onDone, onCancel }: { classId: num
     }
     listCancelledSessionsPendingMakeup(classId)
       .then(setCancelledPendingMakeup)
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách buổi đã hủy."));
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("classDetail.sessions.loadError")));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.sessionType, classId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.sessionDate || !form.startTime || !form.endTime) {
-      setError("Vui lòng điền đủ ngày/giờ.");
+      setError(t("classDetail.createSessionForm.dateTimeRequired"));
       return;
     }
     if (!form.teacherType) {
-      setError("Vui lòng chọn loại giáo viên — hệ thống sẽ tự lấy đúng giáo viên chính của lớp theo loại này.");
+      setError(t("classDetail.createSessionForm.teacherTypeRequired"));
       return;
     }
     if (form.sessionType === "MAKEUP" && !makeupForSessionId) {
-      setError("Buổi Học bù bắt buộc chọn buổi đã hủy mà nó bù cho.");
+      setError(t("classDetail.createSessionForm.makeupRequired"));
       return;
     }
     setSubmitting(true);
@@ -1370,7 +1432,7 @@ function CreateSessionForm({ classId, siteId, onDone, onCancel }: { classId: num
       await createClassSession(classId, request);
       onDone();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Xếp buổi học thất bại.");
+      setError(err instanceof ApiError ? err.message : t("classDetail.createSessionForm.submitError"));
     } finally {
       setSubmitting(false);
     }
@@ -1382,41 +1444,41 @@ function CreateSessionForm({ classId, siteId, onDone, onCancel }: { classId: num
 
       <div className="grid grid-cols-3 gap-2">
         <div>
-          <label className={labelClass}>Ngày học</label>
+          <label className={labelClass}>{t("classDetail.createSessionForm.sessionDateLabel")}</label>
           <DatePicker value={form.sessionDate} onChange={(v) => setForm({ ...form, sessionDate: v })} />
         </div>
         <div>
-          <label className={labelClass}>Giờ bắt đầu</label>
+          <label className={labelClass}>{t("classDetail.createSessionForm.startTimeLabel")}</label>
           <input type="time" value={form.startTime} onChange={(e) => setForm({ ...form, startTime: e.target.value })} className={inputClass} required />
         </div>
         <div>
-          <label className={labelClass}>Giờ kết thúc</label>
+          <label className={labelClass}>{t("classDetail.createSessionForm.endTimeLabel")}</label>
           <input type="time" value={form.endTime} onChange={(e) => setForm({ ...form, endTime: e.target.value })} className={inputClass} required />
         </div>
       </div>
 
       <div className="grid grid-cols-3 gap-2">
         <div>
-          <label className={labelClass}>Loại buổi học</label>
+          <label className={labelClass}>{t("classDetail.createSessionForm.sessionTypeLabel")}</label>
           <Select value={form.sessionType} onChange={(e) => setForm({ ...form, sessionType: e.target.value })} className={inputClass}>
-            <option value="REGULAR">Buổi học thường</option>
-            <option value="REVIEW">Ôn tập</option>
-            <option value="EXAM">Kiểm tra</option>
-            <option value="MAKEUP">Học bù</option>
+            <option value="REGULAR">{sessionTypeLabel(t, "REGULAR")}</option>
+            <option value="REVIEW">{sessionTypeLabel(t, "REVIEW")}</option>
+            <option value="EXAM">{sessionTypeLabel(t, "EXAM")}</option>
+            <option value="MAKEUP">{sessionTypeLabel(t, "MAKEUP")}</option>
           </Select>
         </div>
         <div>
-          <label className={labelClass}>Loại giáo viên *</label>
+          <label className={labelClass}>{t("classDetail.createSessionForm.teacherTypeLabel")}</label>
           <Select value={form.teacherType} onChange={(e) => setForm({ ...form, teacherType: e.target.value })} className={inputClass}>
-            <option value="">-- Chọn loại giáo viên --</option>
-            <option value="VIETNAMESE">GV Việt Nam</option>
-            <option value="FOREIGN">GV nước ngoài</option>
+            <option value="">{t("common.teacherTypePlaceholder")}</option>
+            <option value="VIETNAMESE">{teacherTypeLabel(t, "VIETNAMESE")}</option>
+            <option value="FOREIGN">{teacherTypeLabel(t, "FOREIGN")}</option>
           </Select>
         </div>
         <div>
-          <label className={labelClass}>Phòng học</label>
+          <label className={labelClass}>{t("classDetail.createSessionForm.roomLabel")}</label>
           <Select value={roomId} onChange={(e) => setRoomId(e.target.value)} className={inputClass}>
-            <option value="">-- Không gán --</option>
+            <option value="">{t("common.noneOption")}</option>
             {rooms.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.code} — {r.name}
@@ -1428,33 +1490,31 @@ function CreateSessionForm({ classId, siteId, onDone, onCancel }: { classId: num
 
       {form.sessionType === "MAKEUP" && (
         <div>
-          <label className={labelClass}>Bù cho buổi đã hủy nào? *</label>
+          <label className={labelClass}>{t("classDetail.createSessionForm.makeupForLabel")}</label>
           <Select value={makeupForSessionId} onChange={(e) => setMakeupForSessionId(e.target.value)} className={inputClass}>
-            <option value="">-- Chọn buổi đã hủy --</option>
+            <option value="">{t("classDetail.createSessionForm.makeupForPlaceholder")}</option>
             {cancelledPendingMakeup.map((s) => (
               <option key={s.id} value={s.id}>
-                Buổi {s.sessionNumber} — {s.sessionDate} ({s.startTime}–{s.endTime})
+                {t("classDetail.createSessionForm.makeupOption", { number: s.sessionNumber, date: s.sessionDate, start: s.startTime, end: s.endTime })}
               </option>
             ))}
           </Select>
           {cancelledPendingMakeup.length === 0 && (
-            <p className="text-[10px] text-slate-400 italic mt-1">Lớp này chưa có buổi nào bị hủy mà chưa có buổi bù.</p>
+            <p className="text-[10px] text-slate-400 italic mt-1">{t("classDetail.createSessionForm.noCancelledSessions")}</p>
           )}
         </div>
       )}
 
       {/* Bổ sung ngoài SDD gốc, xác nhận 2026-08-13: giáo viên phụ trách KHÔNG còn chọn tay — hệ
           thống tự động lấy giáo viên chính (PRIMARY) đang phụ trách lớp cùng loại giáo viên đã chọn. */}
-      <p className="text-[11px] text-slate-500">
-        Giáo viên phụ trách buổi này sẽ tự động lấy theo giáo viên chính của lớp đúng loại giáo viên đã chọn ở trên.
-      </p>
+      <p className="text-[11px] text-slate-500">{t("classDetail.createSessionForm.teacherAutoHint")}</p>
 
       <div className="flex gap-2">
         <Button type="button" variant="secondary" size="sm" onClick={onCancel}>
-          Hủy
+          {t("common.cancelButton")}
         </Button>
         <Button type="submit" variant="primary" size="sm" disabled={submitting}>
-          {submitting ? "Đang lưu..." : "Xếp buổi học"}
+          {submitting ? t("common.saving") : t("classDetail.createSessionForm.submitButton")}
         </Button>
       </div>
     </form>

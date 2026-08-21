@@ -25,6 +25,7 @@ export interface TeacherClassSummary {
 
 export interface TeacherWeekPoint {
   weekLabel: string;
+  isCurrentWeek: boolean;
   avgCompletionPercent: number;
 }
 
@@ -80,8 +81,10 @@ function buildWeeklyTrend(assignments: TeacherAssignmentRow[]): TeacherWeekPoint
   return sortedKeys.map((key, idx) => {
     const values = buckets.get(key)!;
     const d = new Date(key);
+    const isCurrentWeek = idx === sortedKeys.length - 1;
     return {
-      weekLabel: idx === sortedKeys.length - 1 ? "Tuần này" : `${d.getUTCDate()}/${d.getUTCMonth() + 1}`,
+      weekLabel: isCurrentWeek ? "" : `${d.getUTCDate()}/${d.getUTCMonth() + 1}`,
+      isCurrentWeek,
       avgCompletionPercent: Math.round(values.reduce((s, v) => s + v, 0) / values.length)
     };
   });

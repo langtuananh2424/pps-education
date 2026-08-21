@@ -4,6 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
+import vn.com.pps.education.domain.ExerciseAssignment;
 import vn.com.pps.education.domain.Role;
 import vn.com.pps.education.domain.Site;
 import vn.com.pps.education.domain.Student;
@@ -143,9 +144,9 @@ class ManualGradingServiceTest extends AbstractIntegrationTest {
         // SELF_PRACTICE giờ cũng cần Đề đã gán lớp + ExerciseAssignment ACTIVE (unified gate).
         examService.assignToClass(exam.id(), schoolClass.id(), teacher.getId());
         commitCurrentTransactionAndStartNew();
-        exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId());
+        ExerciseAssignment assignment = exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId());
 
-        attempt = exerciseAttemptService.startAttempt(exercise.id(), studentUser.getId());
+        attempt = exerciseAttemptService.startAttempt(exercise.id(), assignment.getId(), studentUser.getId());
         Long correctChoiceId = mcQuestion.choices().stream().filter(c -> c.isCorrect()).findFirst().orElseThrow().id();
         exerciseAttemptService.saveAnswer(attempt.id(), new SaveAnswerRequest(mcQuestion.id(), null, List.of(correctChoiceId), null, null), studentUser.getId());
         exerciseAttemptService.saveAnswer(attempt.id(), new SaveAnswerRequest(essayQuestion.id(), "Bài làm của em.", null, null, null), studentUser.getId());

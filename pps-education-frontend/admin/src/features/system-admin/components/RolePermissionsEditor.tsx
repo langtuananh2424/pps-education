@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Layers, Save } from "lucide-react";
+import { Trans, useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { getRolePermissionMatrix, PermissionMatrixItem, updateRolePermissions } from "../api";
 import Button from "@/components/ui/Button";
@@ -14,6 +15,7 @@ interface RolePermissionsEditorProps {
 }
 
 export default function RolePermissionsEditor({ roleId, roleName }: RolePermissionsEditorProps) {
+  const { t } = useTranslation("system-admin-roles");
   const [items, setItems] = useState<PermissionMatrixItem[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(false);
@@ -30,7 +32,7 @@ export default function RolePermissionsEditor({ roleId, roleName }: RolePermissi
         setItems(matrix.permissions);
         setSelectedIds(new Set(matrix.permissions.filter((p) => p.granted).map((p) => p.permissionId)));
       })
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được ma trận quyền."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("rolePermissionsEditor.loadError")))
       .finally(() => setLoading(false));
   }, [roleId]);
 
@@ -57,24 +59,24 @@ export default function RolePermissionsEditor({ roleId, roleName }: RolePermissi
     setError(null);
     try {
       await updateRolePermissions(roleId, Array.from(selectedIds), false);
-      showToast("Đã lưu quyền hạn thành công!");
+      showToast(t("rolePermissionsEditor.saveSuccess"));
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
-        const proceed = await confirmDialog(`${err.message}\n\nBạn có chắc chắn muốn tiếp tục?`, { danger: true });
+        const proceed = await confirmDialog(t("rolePermissionsEditor.conflictConfirm", { message: err.message }), { danger: true });
         if (!proceed) {
           setSaving(false);
           return;
         }
         try {
           await updateRolePermissions(roleId, Array.from(selectedIds), true);
-          showToast("Đã lưu quyền hạn thành công!");
+          showToast(t("rolePermissionsEditor.saveSuccess"));
         } catch (err2) {
-          setError(err2 instanceof ApiError ? err2.message : "Lưu quyền hạn thất bại.");
+          setError(err2 instanceof ApiError ? err2.message : t("rolePermissionsEditor.saveError"));
           setSaving(false);
           return;
         }
       } else {
-        setError(err instanceof ApiError ? err.message : "Lưu quyền hạn thất bại.");
+        setError(err instanceof ApiError ? err.message : t("rolePermissionsEditor.saveError"));
         setSaving(false);
         return;
       }
@@ -82,7 +84,7 @@ export default function RolePermissionsEditor({ roleId, roleName }: RolePermissi
     setSaving(false);
   };
 
-  if (loading) return <p className="text-xs text-slate-500">Đang tải ma trận quyền...</p>;
+  if (loading) return <p className="text-xs text-slate-500">{t("rolePermissionsEditor.loadingMatrix")}</p>;
 
   return (
     <div className="space-y-6">
@@ -91,14 +93,19 @@ export default function RolePermissionsEditor({ roleId, roleName }: RolePermissi
       <div className="flex justify-end">
         <Button variant="primary" size="sm" onClick={handleSave} disabled={saving}>
           <Save className="w-3.5 h-3.5" />
-          {saving ? "Đang lưu..." : "Lưu thay đổi"}
+          {saving ? t("rolePermissionsEditor.saving") : t("rolePermissionsEditor.saveButton")}
         </Button>
       </div>
 
       <div className="bg-orange-50/60 border border-orange-100 rounded-xl p-3.5 flex items-center gap-2 text-xs text-slate-800 shadow-sm">
         <Layers className="w-4.5 h-4.5 text-brand-red shrink-0" />
         <span>
-          Đã kích hoạt <strong>{selectedIds.size} / {items.length}</strong> quyền hạt nhân cho vai trò <strong>{roleName}</strong>.
+          <Trans
+            i18nKey="rolePermissionsEditor.activatedSummary"
+            t={t}
+            values={{ count: selectedIds.size, total: items.length, roleName }}
+            components={{ b1: <strong />, b2: <strong /> }}
+          />
         </span>
       </div>
 

@@ -1,4 +1,5 @@
 import { AttendanceRecordResponse } from "./api";
+import { formatTimeHm } from "@/lib/i18nFormat";
 
 export type AttendanceStatus = Exclude<AttendanceRecordResponse["status"], null>;
 
@@ -9,21 +10,15 @@ export const attendanceStatusVariant: Record<AttendanceStatus, "success" | "dang
   MISSING: "danger"
 };
 
-export const attendanceStatusLabels: Record<AttendanceStatus, string> = {
-  NORMAL: "Đúng giờ",
-  LATE: "Đi muộn",
-  EARLY_LEAVE: "Về sớm",
-  MISSING: "Thiếu chấm công"
-};
+/** Nhãn dịch qua i18next namespace "hrm-attendance" — xem src/i18n/locales/{vi,en}/hrm-attendance.json. */
+export function attendanceStatusLabel(t: (key: string) => string, status: AttendanceStatus): string {
+  return t(`attendanceStatus.${status}`);
+}
 
-export const attendanceMethodLabels: Record<string, string> = {
-  GPS: "GPS",
-  FINGERPRINT: "Vân tay",
-  FACE: "Khuôn mặt",
-  MANUAL: "Thủ công"
-};
+export function attendanceMethodLabel(t: (key: string) => string, method: string): string {
+  return t(`attendanceMethod.${method}`);
+}
 
-export function formatAttendanceTime(value: string | null): string {
-  if (!value) return "—";
-  return new Date(value).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+export function formatAttendanceTime(value: string | null, language: string): string {
+  return formatTimeHm(value, language);
 }

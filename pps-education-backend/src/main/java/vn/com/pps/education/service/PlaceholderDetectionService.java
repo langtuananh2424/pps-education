@@ -154,7 +154,8 @@ public class PlaceholderDetectionService {
             }
             builder.build();
         } catch (RuntimeException ex) {
-            throw new InvalidTemplatePlaceholderException(
+            throw new InvalidTemplatePlaceholderException("error.invalidTemplatePlaceholder.syntaxError",
+                    new Object[]{rawPlaceholder, ex.getMessage()},
                     "Biểu thức công thức sai cú pháp: " + rawPlaceholder + " (" + ex.getMessage() + ")");
         }
     }
@@ -184,13 +185,15 @@ public class PlaceholderDetectionService {
                         start = -1;
                     }
                 } else {
-                    throw new InvalidTemplatePlaceholderException(
+                    throw new InvalidTemplatePlaceholderException("error.invalidTemplatePlaceholder.unmatchedClosingBracket",
+                            new Object[]{i},
                             "Dấu ']' thừa không khớp dấu '[' nào ở vị trí " + i + " trong nội dung mẫu.");
                 }
             }
         }
         if (depth != 0) {
-            throw new InvalidTemplatePlaceholderException(
+            throw new InvalidTemplatePlaceholderException("error.invalidTemplatePlaceholder.unmatchedOpenBracket",
+                    new Object[]{depth},
                     "Dấu ngoặc vuông không khớp: thiếu " + depth + " dấu ']' đóng trong nội dung mẫu.");
         }
         return tokens;

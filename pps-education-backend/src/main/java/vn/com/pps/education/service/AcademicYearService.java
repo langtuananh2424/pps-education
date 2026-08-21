@@ -35,13 +35,16 @@ public class AcademicYearService {
     @Transactional
     public AcademicYearResponse create(CreateAcademicYearRequest request, Long actorUserId) {
         if (academicYearRepository.existsByCode(request.code())) {
-            throw new DuplicateAcademicYearCodeException("Mã năm học đã tồn tại: " + request.code());
+            throw new DuplicateAcademicYearCodeException("error.duplicateAcademicYearCode.default",
+                    new Object[]{request.code()}, "Mã năm học đã tồn tại: " + request.code());
         }
         if (request.startDate() != null && request.endDate() != null && request.endDate().isBefore(request.startDate())) {
             throw new IllegalArgumentException("endDate phải sau hoặc bằng startDate.");
         }
         User actor = userRepository.findById(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.academicYear.actorNotFound", new Object[]{actorUserId},
+                        "Không tìm thấy tài khoản id=" + actorUserId));
 
         AcademicYear year = new AcademicYear();
         year.setCode(request.code());
@@ -79,7 +82,9 @@ public class AcademicYearService {
 
     private AcademicYear getOrThrow(Long id) {
         return academicYearRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy năm học id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.academicYear.notFound", new Object[]{id},
+                        "Không tìm thấy năm học id=" + id));
     }
 
     private AcademicYearResponse toResponse(AcademicYear y) {

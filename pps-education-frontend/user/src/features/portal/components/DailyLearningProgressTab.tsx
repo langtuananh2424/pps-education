@@ -18,8 +18,9 @@ import {
   UserCheck,
   Video
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
-import { formatHm } from "@/lib/format";
+import { formatDate, formatDateTimeHm, formatHm, toLocaleTag } from "@/lib/format";
 import {
   AttendanceMarkResponse,
   ClassSessionResponse,
@@ -32,24 +33,7 @@ import {
   listSchedule
 } from "../api";
 
-const WEEKDAY_LABELS = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
 const pad2 = (n: number) => String(n).padStart(2, "0");
-
-const sessionTypeLabels: Record<string, string> = {
-  REGULAR: "Buổi học thường",
-  REVIEW: "Ôn tập",
-  EXAM: "Kiểm tra",
-  MAKEUP: "Học bù"
-};
-
-/** Thang thái độ chốt lại 2026-08-12 (StudentComment.Attitude), thay cho thang 6 mức cũ. */
-const attitudeLabels: Record<NonNullable<StudentCommentResponse["attitude"]>, string> = {
-  WEAK: "Yếu",
-  AVERAGE: "Trung bình",
-  FAIR: "Khá",
-  GOOD: "Tốt",
-  EXCELLENT: "Xuất sắc"
-};
 
 /** % quy đổi cố định theo mức (đã xác nhận với người dùng 2026-08-12) — dùng để tính "Thái độ học
  * tập" trung bình = trung bình cộng % của mọi buổi đã chấm trong khoảng đang xem. */
@@ -73,7 +57,6 @@ function attitudeLevelFromPercent(percent: number): NonNullable<StudentCommentRe
 }
 
 /** "Loại giáo viên" của buổi — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06. */
-const teacherTypeLabels: Record<"VIETNAMESE" | "FOREIGN", string> = { VIETNAMESE: "Việt Nam", FOREIGN: "Nước ngoài" };
 const teacherTypeStyles: Record<"VIETNAMESE" | "FOREIGN", string> = {
   VIETNAMESE: "bg-sky-50 text-sky-800 border-sky-300",
   FOREIGN: "bg-purple-50 text-purple-800 border-purple-300"
@@ -167,6 +150,31 @@ export default function DailyLearningProgressTab({
   onOpenGrammarHomework,
   onOpenVideoHomework
 }: DailyLearningProgressTabProps) {
+  const { t, i18n } = useTranslation("portal-progress");
+
+  const sessionTypeLabels: Record<string, string> = {
+    REGULAR: t("sessionType.regular"),
+    REVIEW: t("sessionType.review"),
+    EXAM: t("sessionType.exam"),
+    MAKEUP: t("sessionType.makeup")
+  };
+
+  /** Thang thái độ chốt lại 2026-08-12 (StudentComment.Attitude), thay cho thang 6 mức cũ. */
+  const attitudeLabels: Record<NonNullable<StudentCommentResponse["attitude"]>, string> = {
+    WEAK: t("attitude.weak"),
+    AVERAGE: t("attitude.average"),
+    FAIR: t("attitude.fair"),
+    GOOD: t("attitude.good"),
+    EXCELLENT: t("attitude.excellent")
+  };
+
+  const teacherTypeLabels: Record<"VIETNAMESE" | "FOREIGN", string> = {
+    VIETNAMESE: t("teacherType.vietnamese"),
+    FOREIGN: t("teacherType.foreign")
+  };
+
+  const weekdayLabels = t("weekdayLabels", { returnObjects: true }) as string[];
+
   const [comments, setComments] = useState<StudentCommentResponse[]>([]);
   const [sessions, setSessions] = useState<ClassSessionResponse[]>([]);
   const [attendance, setAttendance] = useState<AttendanceMarkResponse[]>([]);
@@ -185,7 +193,7 @@ export default function DailyLearningProgressTab({
         setSessions(sessionRes);
         setAttendance(attendanceRes);
       })
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được quá trình học tập."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("loadError")))
       .finally(() => setLoading(false));
   }, [classId, parentStudentId]);
 
@@ -291,10 +299,7 @@ export default function DailyLearningProgressTab({
     });
   };
 
-  const formatDateVN = (dateStr: string) => {
-    const [y, m, d] = dateStr.split("-");
-    return `${d}/${m}/${y}`;
-  };
+  const formatDateVN = (dateStr: string) => formatDate(dateStr, i18n.language);
 
   /** Panel hiện 2 tháng liền kề cạnh nhau (giống RangePicker chuẩn) thay vì 1 tháng chật hẹp — mỗi
    * tháng tự tính lưới ngày riêng theo (year, month) truyền vào, không còn cố định vào rangeViewMonth. */
@@ -386,7 +391,7 @@ export default function DailyLearningProgressTab({
 
   const triggerLabel =
     selectedSessionId === "ALL" || !selectedLog
-      ? `Các buổi (${logs.length})`
+      ? t("sessionsCount", { count: logs.length })
       : `${selectedLog.commentDate}${selectedLog.timeSlot ? ` · ${selectedLog.timeSlot}` : ""}`;
 
   /**
@@ -398,7 +403,8 @@ export default function DailyLearningProgressTab({
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
   const [mobileFilterMode, setMobileFilterMode] = useState<"SESSION" | "RANGE">("SESSION");
   const mobileFilterRef = useRef<HTMLDivElement>(null);
-  const mobileFilterLabel = mobileFilterMode === "SESSION" ? triggerLabel : `${dateFrom ? formatDateVN(dateFrom) : "Từ ngày"} → ${dateTo ? formatDateVN(dateTo) : "Đến ngày"}`;
+  const mobileFilterLabel =
+    mobileFilterMode === "SESSION" ? triggerLabel : `${dateFrom ? formatDateVN(dateFrom) : t("fromDatePlaceholder")} → ${dateTo ? formatDateVN(dateTo) : t("toDatePlaceholder")}`;
 
   useEffect(() => {
     if (!mobileFilterOpen) return;
@@ -444,7 +450,7 @@ export default function DailyLearningProgressTab({
       )
     : null;
 
-  if (loading) return <p className="text-sm text-muted font-bold">Đang tải...</p>;
+  if (loading) return <p className="text-sm text-muted font-bold">{t("loading")}</p>;
 
   /**
    * Bấm tên bài (nếu có id bản giao + có callback tương ứng) nhảy thẳng tới bài làm/kết quả ở tab
@@ -496,23 +502,23 @@ export default function DailyLearningProgressTab({
         className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold border transition-colors ${selectedSessionId === "ALL" ? "bg-teal text-white border-teal" : "bg-slate-50 text-ink border-line/80 hover:bg-sky-2"
           }`}
       >
-        Tất cả các buổi học ({logs.length})
+        {t("allSessions", { count: logs.length })}
       </button>
 
       <div className="flex items-center justify-between">
         <button
           type="button"
           onClick={() => setViewMonth(new Date(year, month - 1, 1))}
-          aria-label="Tháng trước"
+          aria-label={t("prevMonth")}
           className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-sky-2 text-muted"
         >
           <ChevronLeft size={16} aria-hidden="true" />
         </button>
-        <span className="text-xs font-black text-ink capitalize">{viewMonth.toLocaleDateString("vi-VN", { month: "long", year: "numeric" })}</span>
+        <span className="text-xs font-black text-ink capitalize">{viewMonth.toLocaleDateString(toLocaleTag(i18n.language), { month: "long", year: "numeric" })}</span>
         <button
           type="button"
           onClick={() => setViewMonth(new Date(year, month + 1, 1))}
-          aria-label="Tháng sau"
+          aria-label={t("nextMonth")}
           className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-sky-2 text-muted"
         >
           <ChevronRight size={16} aria-hidden="true" />
@@ -520,7 +526,7 @@ export default function DailyLearningProgressTab({
       </div>
 
       <div className="grid grid-cols-7 gap-1 text-center">
-        {WEEKDAY_LABELS.map((w) => (
+        {weekdayLabels.map((w) => (
           <span key={w} className="text-[10px] font-bold text-muted py-1">
             {w}
           </span>
@@ -536,7 +542,7 @@ export default function DailyLearningProgressTab({
               type="button"
               disabled={!hasLogs}
               onClick={() => handleDayClick(day)}
-              aria-label={hasLogs ? `Buổi học ngày ${day}/${month + 1}` : undefined}
+              aria-label={hasLogs ? t("sessionDayAriaLabel", { date: `${day}/${month + 1}` }) : undefined}
               className={`relative w-9 h-9 mx-auto flex items-center justify-center rounded-lg text-xs font-bold transition-colors ${isSelected
                 ? "bg-teal text-white"
                 : hasLogs
@@ -552,7 +558,7 @@ export default function DailyLearningProgressTab({
 
       {multiDayLogs && (
         <div className="border-t border-line/60 pt-2 space-y-1">
-          <p className="text-[10px] font-bold text-muted uppercase">Chọn đúng buổi học trong ngày</p>
+          <p className="text-[10px] font-bold text-muted uppercase">{t("pickExactSession")}</p>
           {multiDayLogs.map((log) => (
             <button
               key={log.id}
@@ -563,7 +569,7 @@ export default function DailyLearningProgressTab({
               }}
               className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-bold bg-slate-50 hover:bg-sky-2 text-ink"
             >
-              {log.timeSlot ?? log.commentDate} — {log.sessionTypeLabel ?? "Buổi học"}
+              {log.timeSlot ?? log.commentDate} — {log.sessionTypeLabel ?? t("sessionFallback")}
             </button>
           ))}
         </div>
@@ -575,7 +581,7 @@ export default function DailyLearningProgressTab({
   const renderRangePickerBody = (onDone: () => void) => (
     <>
       <p className="text-[11px] font-bold text-muted">
-        {!dateFrom ? "Chọn ngày bắt đầu" : !dateTo ? "Chọn ngày kết thúc" : `${formatDateVN(dateFrom)} → ${formatDateVN(dateTo)}`}
+        {!dateFrom ? t("chooseStartDate") : !dateTo ? t("chooseEndDate") : `${formatDateVN(dateFrom)} → ${formatDateVN(dateTo)}`}
       </p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -590,16 +596,16 @@ export default function DailyLearningProgressTab({
                 <button
                   type="button"
                   onClick={() => setRangeViewMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}
-                  aria-label="Tháng trước"
+                  aria-label={t("prevMonth")}
                   className={`w-7 h-7 flex items-center justify-center rounded-lg hover:bg-sky-2 text-muted ${offset === 1 ? "invisible" : ""}`}
                 >
                   <ChevronLeft size={15} aria-hidden="true" />
                 </button>
-                <span className="text-xs font-black text-ink capitalize">{panelDate.toLocaleDateString("vi-VN", { month: "long", year: "numeric" })}</span>
+                <span className="text-xs font-black text-ink capitalize">{panelDate.toLocaleDateString(toLocaleTag(i18n.language), { month: "long", year: "numeric" })}</span>
                 <button
                   type="button"
                   onClick={() => setRangeViewMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}
-                  aria-label="Tháng sau"
+                  aria-label={t("nextMonth")}
                   className={`w-7 h-7 flex items-center justify-center rounded-lg hover:bg-sky-2 text-muted ${offset === 0 ? "invisible" : ""}`}
                 >
                   <ChevronRight size={15} aria-hidden="true" />
@@ -607,7 +613,7 @@ export default function DailyLearningProgressTab({
               </div>
 
               <div className="grid grid-cols-7 gap-1 text-center">
-                {WEEKDAY_LABELS.map((w) => (
+                {weekdayLabels.map((w) => (
                   <span key={w} className="text-[10px] font-bold text-muted py-1">
                     {w}
                   </span>
@@ -621,7 +627,7 @@ export default function DailyLearningProgressTab({
                       key={day}
                       type="button"
                       onClick={() => handleRangeDayClick(dateStr)}
-                      aria-label={`Chọn ngày ${day}/${pMonth + 1}`}
+                      aria-label={t("pickDayAriaLabel", { date: `${day}/${pMonth + 1}` })}
                       className={`relative w-8 h-8 mx-auto flex items-center justify-center text-xs font-bold transition-colors cursor-pointer ${state === "start" || state === "end" || state === "single"
                         ? "bg-teal text-white rounded-full"
                         : state === "in-range"
@@ -648,10 +654,10 @@ export default function DailyLearningProgressTab({
           }}
           className="text-[11px] font-bold text-muted hover:text-ink"
         >
-          Xóa lọc
+          {t("clearFilter")}
         </button>
         <button type="button" onClick={onDone} className="px-3 py-1.5 bg-teal text-white text-[11px] font-bold rounded-lg hover:bg-teal-deep">
-          Xong
+          {t("done")}
         </button>
       </div>
     </>
@@ -667,14 +673,14 @@ export default function DailyLearningProgressTab({
     <div className="space-y-4">
       {filteredLogs.length === 0 ? (
         <p className="text-xs text-muted font-bold italic text-center py-10 border border-line/80 rounded-2xl">
-          Chưa có nhận xét nào được duyệt cho lớp này.
+          {t("noApprovedComments")}
         </p>
       ) : (
         filteredLogs.map((log) => {
           // Đồng bộ đúng cấu trúc BTVN với bảng ở trên (bổ sung ngoài SDD gốc, đã xác nhận với người
           // dùng 2026-08-06) — giữ nhãn chung chung như bảng (không đổi theo teacherType) để nhất quán.
-          const cardGrammarLabel = "Bài ngữ pháp/nghe";
-          const cardVideoLabel = "Video TKN/PX";
+          const cardGrammarLabel = t("table.grammarListening");
+          const cardVideoLabel = t("table.videoTkn");
           const prevGrammarDisplay = log.homeworkPreviousScore || log.grammarPreviousProgress;
           const prevSpeakingDisplay = log.homeworkPreviousSpeakingScore || log.videoPreviousProgress;
           const prevGrammarPercent = parseProgressPercent(prevGrammarDisplay ?? null);
@@ -696,7 +702,7 @@ export default function DailyLearningProgressTab({
                     )}
                   </div>
                   <h3 className="text-base font-black text-ink font-display">
-                    {log.sessionNumber != null ? `Buổi ${log.sessionNumber}` : log.sessionTypeLabel ?? "Buổi học"}
+                    {log.sessionNumber != null ? t("sessionNumber", { number: log.sessionNumber }) : log.sessionTypeLabel ?? t("sessionFallback")}
                     {log.lessonContent && <span className="text-muted font-bold"> — {log.lessonContent}</span>}
                   </h3>
                 </div>
@@ -704,34 +710,34 @@ export default function DailyLearningProgressTab({
                 <div className="flex items-center gap-2 flex-wrap shrink-0">
                   {log.teacherType && (
                     <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${teacherTypeStyles[log.teacherType]}`}>
-                      GV: {teacherTypeLabels[log.teacherType]}
+                      {t("card.teacherLabel", { type: teacherTypeLabels[log.teacherType] })}
                     </span>
                   )}
                   <span
                     className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${log.attitude ? attitudeStyles[log.attitude] : "bg-slate-100 text-slate-700 border-slate-200"
                       }`}
                   >
-                    Thái độ: {log.attitude ? attitudeLabels[log.attitude] : "—"}
+                    {t("card.attitudeLabel", { attitude: log.attitude ? attitudeLabels[log.attitude] : "—" })}
                   </span>
                 </div>
               </div>
 
               <div className="p-3.5 bg-slate-50/80 rounded-xl border-l-4 border-teal text-xs text-ink/90 font-medium leading-relaxed italic">
-                <span className="font-extrabold not-italic text-slate-700 block mb-0.5">💬 Nhận xét của Giáo viên:</span>"{log.content}"
+                <span className="font-extrabold not-italic text-slate-700 block mb-0.5">{t("card.teacherComment")}</span>"{log.content}"
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
                 <div className="p-3.5 bg-slate-50 rounded-xl border border-line/80 space-y-2">
                   <div className="flex items-center justify-between font-black text-slate-800 uppercase tracking-wider text-[11px]">
                     <span className="flex items-center gap-1">
-                      <CheckCircle2 size={13} className="text-emerald-600" aria-hidden="true" /> Kết quả BTVN buổi trước
+                      <CheckCircle2 size={13} className="text-emerald-600" aria-hidden="true" /> {t("card.prevHomeworkResult")}
                     </span>
-                    {prevGrammarPercent != null && <span className="text-emerald-700 font-extrabold">{prevGrammarPercent}% Đạt</span>}
+                    {prevGrammarPercent != null && <span className="text-emerald-700 font-extrabold">{t("card.passedPercent", { percent: prevGrammarPercent })}</span>}
                   </div>
 
                   <div className="space-y-1.5 pt-1">
                     <div className="flex justify-between text-[11px]">
-                      <span className="text-slate-600 font-semibold">Offline:</span>
+                      <span className="text-slate-600 font-semibold">{t("card.offlineLabel")}</span>
                       <span className="font-bold text-slate-900">{log.homeworkPreviousOfflineText || "—"}</span>
                     </div>
                     <div className="flex justify-between text-[11px]">
@@ -753,13 +759,13 @@ export default function DailyLearningProgressTab({
                 <div className="p-3.5 bg-slate-50 rounded-xl border border-line/80 space-y-2">
                   <div className="flex items-center justify-between font-black text-slate-800 uppercase tracking-wider text-[11px]">
                     <span className="flex items-center gap-1">
-                      <BookOpen size={13} className="text-blue-600" aria-hidden="true" /> Bài tập về nhà
+                      <BookOpen size={13} className="text-blue-600" aria-hidden="true" /> {t("card.homework")}
                     </span>
                   </div>
 
                   <div className="space-y-2 pt-1">
                     <div className="flex items-start justify-between gap-2 text-[11px]">
-                      <span className="font-bold text-slate-800 shrink-0">Offline:</span>
+                      <span className="font-bold text-slate-800 shrink-0">{t("card.offlineLabel")}</span>
                       <span className="font-semibold text-slate-700 text-right">{log.homeworkNextOfflineText || "—"}</span>
                     </div>
                     <div className="flex items-start justify-between gap-2 text-[11px]">
@@ -773,9 +779,9 @@ export default function DailyLearningProgressTab({
                       {renderVideoLabel(log, "font-semibold text-right")}
                     </div>
                     <div className="pt-1 border-t border-line/60 flex items-start justify-between gap-2 text-[11px]">
-                      <span className="font-bold text-slate-800 shrink-0">Hạn nộp bài:</span>
+                      <span className="font-bold text-slate-800 shrink-0">{t("card.dueDateLabel")}</span>
                       <span className="font-semibold text-slate-700 text-right">
-                        {log.homeworkNextDueAt ? new Date(log.homeworkNextDueAt).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" }) : "—"}
+                        {log.homeworkNextDueAt ? formatDateTimeHm(log.homeworkNextDueAt, i18n.language) : "—"}
                       </span>
                     </div>
                   </div>
@@ -784,7 +790,7 @@ export default function DailyLearningProgressTab({
 
               {log.note && (
                 <p className="text-[11px] font-bold text-teal bg-teal/10 px-3 py-1.5 rounded-lg border border-teal/20 inline-block">
-                  Ghi chú: {log.note}
+                  {t("card.noteLabel", { note: log.note })}
                 </p>
               )}
             </div>
@@ -800,13 +806,13 @@ export default function DailyLearningProgressTab({
       <div className="bg-slate-50/80 p-4 md:p-5 rounded-2xl border border-line/80 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="md:w-80 md:shrink-0">
           <div className="flex items-center gap-2">
-            <h2 className="text-lg md:text-xl font-black text-ink font-display">Quá trình học tập</h2>
+            <h2 className="text-lg md:text-xl font-black text-ink font-display">{t("title")}</h2>
             {parentStudentId != null ? <span className="px-2.5 py-0.5 rounded-full bg-teal/10 text-teal text-xs font-bold border border-teal/20">
-              Phụ Huynh Theo Dõi
+              {t("parentTrackingBadge")}
             </span> : null}
           </div>
           <p className="text-xs text-muted font-bold mt-1">
-            Theo dõi thái độ, bài tập &amp; nhận xét từng buổi học của{" "}
+            {t("subtitle")}{" "}
             <span className="text-teal font-extrabold">
               {studentName}
             </span>
@@ -818,20 +824,20 @@ export default function DailyLearningProgressTab({
             <button
               type="button"
               onClick={() => setViewMode("TABLE")}
-              aria-label="Xem dạng bảng"
+              aria-label={t("viewTable")}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${viewMode === "TABLE" ? "bg-teal text-white shadow-2xs" : "text-muted hover:text-ink"
                 }`}
             >
-              <TableIcon size={13} aria-hidden="true" /> <span className="hidden md:inline">Bảng</span>
+              <TableIcon size={13} aria-hidden="true" /> <span className="hidden md:inline">{t("tableShort")}</span>
             </button>
             <button
               type="button"
               onClick={() => setViewMode("CARDS")}
-              aria-label="Xem dạng thẻ"
+              aria-label={t("viewCards")}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${viewMode === "CARDS" ? "bg-teal text-white shadow-2xs" : "text-muted hover:text-ink"
                 }`}
             >
-              <LayoutGrid size={13} aria-hidden="true" /> <span className="hidden md:inline">Thẻ</span>
+              <LayoutGrid size={13} aria-hidden="true" /> <span className="hidden md:inline">{t("cardsShort")}</span>
             </button>
           </div>
 
@@ -845,7 +851,7 @@ export default function DailyLearningProgressTab({
             <button
               type="button"
               onClick={() => setMobileFilterOpen((v) => !v)}
-              aria-label="Lọc theo buổi học hoặc khoảng thời gian"
+              aria-label={t("mobileFilterAriaLabel")}
               aria-haspopup="dialog"
               aria-expanded={mobileFilterOpen}
               className="flex items-center gap-1.5 bg-white border border-line rounded-lg px-3 py-2 text-xs font-bold text-ink focus:outline-none focus:ring-2 focus:ring-teal/50 shadow-sm cursor-pointer"
@@ -867,7 +873,7 @@ export default function DailyLearningProgressTab({
             {mobileFilterOpen && (
               <div
                 role="dialog"
-                aria-label="Chọn loại lọc"
+                aria-label={t("filterDialogLabel")}
                 className="absolute right-0 top-full mt-2 z-30 w-[min(280px,calc(100vw-2.5rem))] bg-white border border-line rounded-2xl shadow-lg p-3 space-y-3"
               >
                 <div className="flex items-center p-1 bg-slate-100 rounded-xl">
@@ -877,7 +883,7 @@ export default function DailyLearningProgressTab({
                     className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-bold transition-all ${mobileFilterMode === "SESSION" ? "bg-white text-teal-deep shadow-2xs" : "text-muted"
                       }`}
                   >
-                    <Calendar size={12} aria-hidden="true" /> Các buổi
+                    <Calendar size={12} aria-hidden="true" /> {t("sessionsTab")}
                   </button>
                   <button
                     type="button"
@@ -885,7 +891,7 @@ export default function DailyLearningProgressTab({
                     className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-bold transition-all ${mobileFilterMode === "RANGE" ? "bg-white text-teal-deep shadow-2xs" : "text-muted"
                       }`}
                   >
-                    <Clock size={12} aria-hidden="true" /> Từ - Đến
+                    <Clock size={12} aria-hidden="true" /> {t("rangeTab")}
                   </button>
                 </div>
 
@@ -900,7 +906,7 @@ export default function DailyLearningProgressTab({
             <button
               type="button"
               onClick={toggleCalendar}
-              aria-label="Lọc theo buổi học"
+              aria-label={t("sessionFilterAriaLabel")}
               aria-haspopup="dialog"
               aria-expanded={calendarOpen}
               className="flex items-center gap-2 min-h-[44px] bg-white border border-line rounded-xl pl-3.5 pr-3 py-2.5 text-xs font-bold text-ink focus:outline-none focus:ring-2 focus:ring-teal/50 shadow-sm cursor-pointer"
@@ -913,7 +919,7 @@ export default function DailyLearningProgressTab({
             {calendarOpen && (
               <div
                 role="dialog"
-                aria-label="Chọn buổi học theo ngày"
+                aria-label={t("sessionPickerDialogLabel")}
                 className="absolute right-0 top-full mt-2 z-30 w-[300px] bg-white border border-line rounded-2xl shadow-lg p-3 space-y-3"
               >
                 {renderSessionPickerBody(closeCalendar)}
@@ -925,16 +931,16 @@ export default function DailyLearningProgressTab({
             <button
               type="button"
               onClick={toggleRange}
-              aria-label="Lọc theo khoảng thời gian"
+              aria-label={t("rangeFilterAriaLabel")}
               aria-haspopup="dialog"
               aria-expanded={rangeOpen}
               className="flex items-center gap-2 min-h-[44px] bg-white border border-line rounded-xl pl-3.5 pr-3 py-2.5 text-xs font-bold text-ink focus:outline-none focus:ring-2 focus:ring-teal/50 shadow-sm cursor-pointer"
             >
               <Clock size={14} className="text-teal shrink-0" aria-hidden="true" />
               <span className="whitespace-nowrap">
-                <span className={dateFrom ? "text-ink" : "text-muted"}>{dateFrom ? formatDateVN(dateFrom) : "Từ"}</span>
+                <span className={dateFrom ? "text-ink" : "text-muted"}>{dateFrom ? formatDateVN(dateFrom) : t("from")}</span>
                 <span className="text-muted mx-1">→</span>
-                <span className={dateTo ? "text-ink" : "text-muted"}>{dateTo ? formatDateVN(dateTo) : "Đến"}</span>
+                <span className={dateTo ? "text-ink" : "text-muted"}>{dateTo ? formatDateVN(dateTo) : t("to")}</span>
               </span>
               <ChevronDown size={14} className={`text-muted shrink-0 transition-transform ${rangeOpen ? "rotate-180" : ""}`} aria-hidden="true" />
             </button>
@@ -942,7 +948,7 @@ export default function DailyLearningProgressTab({
             {rangeOpen && (
               <div
                 role="dialog"
-                aria-label="Chọn khoảng thời gian"
+                aria-label={t("rangePickerDialogLabel")}
                 className="absolute right-0 top-full mt-2 z-30 w-[min(92vw,580px)] bg-white border border-line rounded-2xl shadow-lg p-4 space-y-3"
               >
                 {renderRangePickerBody(() => setRangeOpen(false))}
@@ -1023,15 +1029,15 @@ export default function DailyLearningProgressTab({
               <div className="w-7 h-7 rounded-lg bg-teal/10 text-teal flex items-center justify-center shrink-0">
                 <UserCheck size={14} aria-hidden="true" />
               </div>
-              <p className="text-[10px] text-muted font-extrabold uppercase tracking-wider whitespace-nowrap">Chuyên cần</p>
+              <p className="text-[10px] text-muted font-extrabold uppercase tracking-wider whitespace-nowrap">{t("kpi.attendance")}</p>
             </div>
             {attendanceRate != null ? (
               <div>
                 <p className="text-xl font-black text-teal tabular-nums leading-tight">{attendanceRate}%</p>
-                <p className="text-xs text-muted font-bold truncate">{attendanceRate >= 90 ? "Đạt chuẩn" : "Cần cải thiện"}</p>
+                <p className="text-xs text-muted font-bold truncate">{attendanceRate >= 90 ? t("kpi.onTrack") : t("kpi.needsImprovement")}</p>
               </div>
             ) : (
-              <p className="text-xs text-muted font-bold">Chưa có dữ liệu</p>
+              <p className="text-xs text-muted font-bold">{t("kpi.noData")}</p>
             )}
           </div>
           {/* Desktop */}
@@ -1040,9 +1046,9 @@ export default function DailyLearningProgressTab({
               <UserCheck size={20} aria-hidden="true" />
             </div>
             <div>
-              <p className="text-[10px] text-muted font-extrabold uppercase tracking-wider">Chuyên cần</p>
+              <p className="text-[10px] text-muted font-extrabold uppercase tracking-wider">{t("kpi.attendance")}</p>
               <p className="text-sm font-black text-teal tabular-nums">
-                {attendanceRate != null ? `${attendanceRate >= 90 ? "Đạt Chuẩn" : "Cần cải thiện"} (${attendanceRate}%)` : "Chưa có dữ liệu"}
+                {attendanceRate != null ? `${attendanceRate >= 90 ? t("kpi.onTrackCaps") : t("kpi.needsImprovement")} (${attendanceRate}%)` : t("kpi.noData")}
               </p>
             </div>
           </div>
@@ -1055,15 +1061,15 @@ export default function DailyLearningProgressTab({
               <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
                 <ShieldCheck size={14} aria-hidden="true" />
               </div>
-              <p className="text-[11px] text-muted font-extrabold uppercase tracking-wider whitespace-nowrap">Thái độ</p>
+              <p className="text-[11px] text-muted font-extrabold uppercase tracking-wider whitespace-nowrap">{t("kpi.attitudeShort")}</p>
             </div>
             {averageAttitudeLevel && averageAttitudePercent != null ? (
               <div>
                 <p className="text-xl font-black text-ink tabular-nums leading-tight">{averageAttitudePercent}%</p>
-                <p className="text-xs text-muted font-bold truncate">Đạt loại {attitudeLabels[averageAttitudeLevel]}</p>
+                <p className="text-xs text-muted font-bold truncate">{t("kpi.gradeAchieved", { level: attitudeLabels[averageAttitudeLevel] })}</p>
               </div>
             ) : (
-              <p className="text-xs text-muted font-bold">Chưa có dữ liệu</p>
+              <p className="text-xs text-muted font-bold">{t("kpi.noData")}</p>
             )}
           </div>
           {/* Desktop */}
@@ -1072,11 +1078,11 @@ export default function DailyLearningProgressTab({
               <ShieldCheck size={20} aria-hidden="true" />
             </div>
             <div>
-              <p className="text-[11px] text-muted font-extrabold uppercase tracking-wider">Thái độ học tập</p>
+              <p className="text-[11px] text-muted font-extrabold uppercase tracking-wider">{t("kpi.attitudeFull")}</p>
               <p className="text-sm font-black text-ink tabular-nums">
                 {averageAttitudeLevel && averageAttitudePercent != null
-                  ? `Đạt loại ${attitudeLabels[averageAttitudeLevel]} (${averageAttitudePercent}%)`
-                  : "Chưa có dữ liệu"}
+                  ? t("kpi.gradeAchievedWithPercent", { level: attitudeLabels[averageAttitudeLevel], percent: averageAttitudePercent })
+                  : t("kpi.noData")}
               </p>
             </div>
           </div>
@@ -1089,15 +1095,15 @@ export default function DailyLearningProgressTab({
               <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center shrink-0">
                 <Award size={14} aria-hidden="true" />
               </div>
-              <p className="text-[11px] text-muted font-extrabold uppercase tracking-wider whitespace-nowrap">BTVN</p>
+              <p className="text-[11px] text-muted font-extrabold uppercase tracking-wider whitespace-nowrap">{t("kpi.homeworkShort")}</p>
             </div>
             {avgHomeworkCompletion != null ? (
               <div>
                 <p className="text-xl font-black text-amber-800 tabular-nums leading-tight">{avgHomeworkCompletion}%</p>
-                <p className="text-xs text-muted font-bold truncate">Trung bình</p>
+                <p className="text-xs text-muted font-bold truncate">{t("kpi.average")}</p>
               </div>
             ) : (
-              <p className="text-xs text-muted font-bold">Chưa có dữ liệu</p>
+              <p className="text-xs text-muted font-bold">{t("kpi.noData")}</p>
             )}
           </div>
           {/* Desktop */}
@@ -1106,8 +1112,8 @@ export default function DailyLearningProgressTab({
               <Award size={20} aria-hidden="true" />
             </div>
             <div>
-              <p className="text-[11px] text-muted font-extrabold uppercase tracking-wider">BTVN Hoàn thành</p>
-              <p className="text-sm font-black text-amber-800 tabular-nums">{avgHomeworkCompletion != null ? `${avgHomeworkCompletion}%` : "Chưa có dữ liệu"}</p>
+              <p className="text-[11px] text-muted font-extrabold uppercase tracking-wider">{t("kpi.homeworkFull")}</p>
+              <p className="text-sm font-black text-amber-800 tabular-nums">{avgHomeworkCompletion != null ? `${avgHomeworkCompletion}%` : t("kpi.noData")}</p>
             </div>
           </div>
         </div>
@@ -1119,11 +1125,11 @@ export default function DailyLearningProgressTab({
               <div className="w-7 h-7 rounded-lg bg-purple-50 text-purple-700 flex items-center justify-center shrink-0">
                 <Sparkles size={14} aria-hidden="true" />
               </div>
-              <p className="text-[11px] text-muted font-extrabold uppercase tracking-wider whitespace-nowrap">Số buổi</p>
+              <p className="text-[11px] text-muted font-extrabold uppercase tracking-wider whitespace-nowrap">{t("kpi.sessionsShort")}</p>
             </div>
             <div>
               <p className="text-xl font-black text-purple-800 tabular-nums leading-tight">{filteredLogs.length}</p>
-              <p className="text-xs text-muted font-bold truncate">Đã ghi nhận</p>
+              <p className="text-xs text-muted font-bold truncate">{t("kpi.recorded")}</p>
             </div>
           </div>
           {/* Desktop */}
@@ -1132,8 +1138,8 @@ export default function DailyLearningProgressTab({
               <Sparkles size={20} aria-hidden="true" />
             </div>
             <div>
-              <p className="text-[10px] text-muted font-extrabold uppercase tracking-wider">Số buổi đã học</p>
-              <p className="text-sm font-black text-purple-800">{filteredLogs.length} Buổi ghi nhận</p>
+              <p className="text-[10px] text-muted font-extrabold uppercase tracking-wider">{t("kpi.sessionsFull")}</p>
+              <p className="text-sm font-black text-purple-800">{t("kpi.sessionsRecorded", { count: filteredLogs.length })}</p>
             </div>
           </div>
         </div>
@@ -1146,15 +1152,15 @@ export default function DailyLearningProgressTab({
           <div className="p-4 border-b border-line bg-slate-50/80 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <div className="flex items-center gap-2">
               <TableIcon size={16} className="text-teal" aria-hidden="true" />
-              <h3 className="text-sm md:text-xs font-black text-ink uppercase tracking-wider font-display">Bảng Tổng Quan Nhật Ký Học Tập</h3>
+              <h3 className="text-sm md:text-xs font-black text-ink uppercase tracking-wider font-display">{t("table.heading")}</h3>
             </div>
             <span className="text-sm md:text-xs font-bold text-muted">
-              Đang hiển thị <span className="text-teal font-black">{filteredLogs.length}</span> buổi học
+              {t("table.showingPrefix")} <span className="text-teal font-black">{filteredLogs.length}</span> {t("table.showingSuffix")}
             </span>
           </div>
 
           {filteredLogs.length === 0 ? (
-            <p className="text-xs text-muted font-bold italic text-center py-10">Chưa có nhận xét nào được duyệt cho lớp này.</p>
+            <p className="text-xs text-muted font-bold italic text-center py-10">{t("noApprovedComments")}</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse min-w-[1200px]">
@@ -1168,23 +1174,23 @@ export default function DailyLearningProgressTab({
                       bảng ở đây gộp nhiều buổi/nhiều ngày có thể khác Loại giáo viên nhau, 1 tiêu đề cột
                       cố định không phản ánh đúng hết từng dòng. */}
                   <tr className="bg-slate-100 border-b border-slate-300 [&>th]:text-center text-xs md:text-[11px] font-black uppercase text-slate-700 tracking-wider">
-                    <th rowSpan={2} className="p-3 border-r border-slate-300 w-28 whitespace-nowrap">Ngày</th>
-                    <th rowSpan={2} className="p-3 border-r border-slate-300 min-w-[200px]">Bài học hôm nay</th>
-                    <th rowSpan={2} className="p-3 border-r border-slate-300 w-28 whitespace-nowrap text-center">Giáo viên</th>
-                    <th colSpan={3} className="p-3 border-r border-slate-300 text-center">BTVN buổi trước</th>
-                    <th rowSpan={2} className="p-3 border-r border-slate-300 w-32 whitespace-nowrap">BTVN offline</th>
-                    <th colSpan={2} className="p-3 border-r border-slate-300 text-center">BTVN online</th>
-                    <th rowSpan={2} className="p-3 border-r border-slate-300 w-32 whitespace-nowrap">Hạn nộp bài</th>
-                    <th rowSpan={2} className="p-3 border-r border-slate-300 w-28 whitespace-nowrap text-center">Thái độ</th>
-                    <th rowSpan={2} className="p-3 border-r border-slate-300 min-w-[220px]">Nhận xét học sinh</th>
-                    <th rowSpan={2} className="p-3 min-w-[140px]">Ghi chú</th>
+                    <th rowSpan={2} className="p-3 border-r border-slate-300 w-28 whitespace-nowrap">{t("table.date")}</th>
+                    <th rowSpan={2} className="p-3 border-r border-slate-300 min-w-[200px]">{t("table.todayLesson")}</th>
+                    <th rowSpan={2} className="p-3 border-r border-slate-300 w-28 whitespace-nowrap text-center">{t("table.teacher")}</th>
+                    <th colSpan={3} className="p-3 border-r border-slate-300 text-center">{t("table.homeworkPrev")}</th>
+                    <th rowSpan={2} className="p-3 border-r border-slate-300 w-32 whitespace-nowrap">{t("table.homeworkOffline")}</th>
+                    <th colSpan={2} className="p-3 border-r border-slate-300 text-center">{t("table.homeworkOnline")}</th>
+                    <th rowSpan={2} className="p-3 border-r border-slate-300 w-32 whitespace-nowrap">{t("table.dueDate")}</th>
+                    <th rowSpan={2} className="p-3 border-r border-slate-300 w-28 whitespace-nowrap text-center">{t("table.attitude")}</th>
+                    <th rowSpan={2} className="p-3 border-r border-slate-300 min-w-[220px]">{t("table.studentComment")}</th>
+                    <th rowSpan={2} className="p-3 min-w-[140px]">{t("table.note")}</th>
                   </tr>
                   <tr className="bg-slate-100 border-b border-slate-300 [&>th]:text-center text-xs md:text-[11px] font-black uppercase text-slate-700 tracking-wider">
-                    <th className="p-3 border-r border-slate-300 w-28 whitespace-nowrap text-center">Offline</th>
-                    <th className="p-3 border-r border-slate-300 w-32 whitespace-nowrap text-center">Bài ngữ pháp/nghe</th>
-                    <th className="p-3 border-r border-slate-300 w-32 whitespace-nowrap text-center">Video TKN/PX</th>
-                    <th className="p-3 border-r border-slate-300 min-w-[160px] text-center">Bài ngữ pháp/nghe</th>
-                    <th className="p-3 border-r border-slate-300 min-w-[160px] text-center">Video TKN/PX</th>
+                    <th className="p-3 border-r border-slate-300 w-28 whitespace-nowrap text-center">{t("table.offline")}</th>
+                    <th className="p-3 border-r border-slate-300 w-32 whitespace-nowrap text-center">{t("table.grammarListening")}</th>
+                    <th className="p-3 border-r border-slate-300 w-32 whitespace-nowrap text-center">{t("table.videoTkn")}</th>
+                    <th className="p-3 border-r border-slate-300 min-w-[160px] text-center">{t("table.grammarListening")}</th>
+                    <th className="p-3 border-r border-slate-300 min-w-[160px] text-center">{t("table.videoTkn")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-300 text-sm md:text-xs font-medium text-ink">
@@ -1193,7 +1199,7 @@ export default function DailyLearningProgressTab({
                       <td className="p-3 border-r border-slate-300 font-mono font-bold text-slate-700 whitespace-nowrap align-top">{log.commentDate}</td>
                       <td className="p-3 border-r border-slate-300 align-top">
                         <div className="font-bold text-teal-deep">
-                          {log.sessionNumber != null ? `Buổi ${log.sessionNumber}` : log.sessionTypeLabel ?? "Buổi học"}
+                          {log.sessionNumber != null ? t("sessionNumber", { number: log.sessionNumber }) : log.sessionTypeLabel ?? t("sessionFallback")}
                           {log.lessonContent && <span className="font-bold text-teal-deep">: {log.lessonContent}</span>}
                         </div>
                         <div className="text-xs md:text-[10px] text-muted font-mono flex items-center gap-1 mt-1">
@@ -1226,7 +1232,7 @@ export default function DailyLearningProgressTab({
                         {renderVideoLabel(log, "font-semibold")}
                       </td>
                       <td className="p-3 border-r border-slate-300 whitespace-nowrap align-top">
-                        {log.homeworkNextDueAt ? new Date(log.homeworkNextDueAt).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" }) : "—"}
+                        {log.homeworkNextDueAt ? formatDateTimeHm(log.homeworkNextDueAt, i18n.language) : "—"}
                       </td>
                       <td className="p-3 border-r border-slate-300 text-center whitespace-nowrap align-top">
                         <span className={`px-2 py-0.5 rounded text-xs md:text-[10px] border ${log.attitude ? attitudeStyles[log.attitude] : "bg-slate-100 text-slate-700 border-slate-200"}`}>

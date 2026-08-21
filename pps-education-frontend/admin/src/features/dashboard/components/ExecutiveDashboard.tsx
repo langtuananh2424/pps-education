@@ -1,5 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { AlertTriangle, ArrowRight, Calendar } from "lucide-react";
 import { mockLeads } from "@/data/mockData";
 import Card from "@/components/ui/Card";
@@ -25,72 +26,73 @@ const revenueSeries = [
 
 export default function ExecutiveDashboard({ totalPaid, totalExpenses, profit, activeStudentsCount, campusesCount }: ExecutiveDashboardProps) {
   const navigate = useNavigate();
-  const chartData = [...revenueSeries, { month: "Tháng này", in: totalPaid / 1_000_000, out: totalExpenses / 1_000_000 }];
+  const { t } = useTranslation("dashboard");
+  const chartData = [...revenueSeries, { month: t("executive.thisMonth"), in: totalPaid / 1_000_000, out: totalExpenses / 1_000_000 }];
   const maxVal = 260;
 
   const funnel = [
-    { stage: "Leads mới nhận", count: mockLeads.length, percentage: 100, color: "bg-slate-800" },
-    { stage: "Đã liên hệ cuộc gọi", count: mockLeads.filter((l) => l.status !== "NEW").length, percentage: 80, color: "bg-brand-orange" },
-    { stage: "Đủ điều kiện (Qualified)", count: mockLeads.filter((l) => ["QUALIFIED", "WON"].includes(l.status)).length, percentage: 60, color: "bg-brand-yellow" },
-    { stage: "Chuyển khoản thành công (Won)", count: mockLeads.filter((l) => l.status === "WON").length, percentage: 33, color: "bg-brand-red animate-pulse" }
+    { stage: t("executive.funnelNewLeads"), count: mockLeads.length, percentage: 100, color: "bg-slate-800" },
+    { stage: t("executive.funnelContacted"), count: mockLeads.filter((l) => l.status !== "NEW").length, percentage: 80, color: "bg-brand-orange" },
+    { stage: t("executive.funnelQualified"), count: mockLeads.filter((l) => ["QUALIFIED", "WON"].includes(l.status)).length, percentage: 60, color: "bg-brand-yellow" },
+    { stage: t("executive.funnelWon"), count: mockLeads.filter((l) => l.status === "WON").length, percentage: 33, color: "bg-brand-red animate-pulse" }
   ];
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Báo cáo Tổng hợp Vận hành & Doanh nghiệp</h1>
-          <p className="text-xs text-slate-500 mt-1">Phân tích tài chính, nhân sự và hiệu suất tuyển sinh trên toàn chuỗi PPS Education.</p>
+          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("executive.title")}</h1>
+          <p className="text-xs text-slate-500 mt-1">{t("executive.subtitle")}</p>
         </div>
         <div className="flex items-center gap-2 text-xs font-medium text-slate-600 bg-white border border-slate-200 px-3 py-2 rounded-lg">
           <Calendar className="w-4 h-4 text-brand-orange" />
-          <span>Kỳ báo cáo: Tháng 7/2026</span>
+          <span>{t("executive.reportPeriod")}</span>
         </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="relative overflow-hidden">
-          <span className="text-xs text-slate-400 font-bold block uppercase tracking-wider font-display">Doanh thu thực tế</span>
+          <span className="text-xs text-slate-400 font-bold block uppercase tracking-wider font-display">{t("executive.actualRevenue")}</span>
           <div className="flex items-baseline gap-1.5 mt-2">
             <span className="text-2xl font-bold text-slate-900 font-display">{totalPaid.toLocaleString("vi-VN")}</span>
             <span className="text-xs font-semibold text-slate-500">VND</span>
           </div>
           <div className="flex items-center gap-1 mt-2 text-[10px] font-semibold text-emerald-600">
-            <span>+14.2% so với tháng trước</span>
+            <span>{t("executive.vsLastMonth")}</span>
           </div>
         </Card>
 
         <Card className="relative overflow-hidden">
-          <span className="text-xs text-slate-400 font-bold block uppercase tracking-wider font-display">Chi phí vận hành</span>
+          <span className="text-xs text-slate-400 font-bold block uppercase tracking-wider font-display">{t("executive.operatingCost")}</span>
           <div className="flex items-baseline gap-1.5 mt-2">
             <span className="text-2xl font-bold text-slate-900 font-display">{totalExpenses.toLocaleString("vi-VN")}</span>
             <span className="text-xs font-semibold text-slate-500">VND</span>
           </div>
           <div className="flex items-center gap-1 mt-2 text-[10px] font-semibold text-slate-500">
-            <span>Bao gồm lương & hạ tầng CDN</span>
+            <span>{t("executive.operatingCostNote")}</span>
           </div>
         </Card>
 
         <Card className="relative overflow-hidden">
-          <span className="text-xs text-slate-400 font-bold block uppercase tracking-wider font-display">Tỷ suất lợi nhuận</span>
+          <span className="text-xs text-slate-400 font-bold block uppercase tracking-wider font-display">{t("executive.profitMargin")}</span>
           <div className="flex items-baseline gap-1.5 mt-2">
             <span className="text-2xl font-bold text-slate-900 font-display">
-              {profit > 0 ? `+${((profit / totalPaid) * 100).toFixed(1)}%` : "Chờ cập nhật"}
+              {profit > 0 ? `+${((profit / totalPaid) * 100).toFixed(1)}%` : t("executive.pendingUpdate")}
             </span>
           </div>
           <div className="flex items-center gap-1 mt-2 text-[10px] font-semibold text-brand-orange">
-            <span>Đạt chỉ tiêu kế hoạch năm</span>
+            <span>{t("executive.onTargetNote")}</span>
           </div>
         </Card>
 
         <Card className="relative overflow-hidden">
-          <span className="text-xs text-slate-400 font-bold block uppercase tracking-wider font-display">Học viên hoạt động</span>
+          <span className="text-xs text-slate-400 font-bold block uppercase tracking-wider font-display">{t("executive.activeStudents")}</span>
           <div className="flex items-baseline gap-1.5 mt-2">
             <span className="text-2xl font-bold text-slate-900 font-display">{activeStudentsCount}</span>
-            <span className="text-xs font-medium text-slate-500">học viên</span>
+            <span className="text-xs font-medium text-slate-500">{t("executive.studentsUnit")}</span>
           </div>
           <div className="flex items-center gap-1 mt-2 text-[10px] font-semibold text-slate-500">
-            <span>Phân bổ trên {campusesCount} điểm trường</span>
+            <span>{t("executive.distributedAcross", { count: campusesCount })}</span>
           </div>
         </Card>
       </div>
@@ -98,8 +100,8 @@ export default function ExecutiveDashboard({ totalPaid, totalExpenses, profit, a
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2 flex flex-col justify-between">
           <div>
-            <h3 className="text-sm font-bold text-slate-800 font-display">Thống kê Thu Chi Định Kỳ</h3>
-            <p className="text-[11px] text-slate-400 mt-0.5">Biểu đồ so sánh dòng tiền thu học phí và chi phí vận hành hàng tháng</p>
+            <h3 className="text-sm font-bold text-slate-800 font-display">{t("executive.revenueChartTitle")}</h3>
+            <p className="text-[11px] text-slate-400 mt-0.5">{t("executive.revenueChartSubtitle")}</p>
           </div>
 
           <div className="h-60 w-full mt-4 flex items-end justify-between relative px-2 border-b border-slate-100 pb-1 overflow-x-auto">
@@ -135,19 +137,19 @@ export default function ExecutiveDashboard({ totalPaid, totalExpenses, profit, a
           <div className="flex items-center gap-5 mt-4 text-[11px] font-medium justify-center border-t border-slate-100 pt-3">
             <div className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-brand-gradient" />
-              <span className="text-slate-600">Học phí thực thu (M VND)</span>
+              <span className="text-slate-600">{t("executive.legendRevenue")}</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-slate-300" />
-              <span className="text-slate-600">Chi phí vận hành (M VND)</span>
+              <span className="text-slate-600">{t("executive.legendExpense")}</span>
             </div>
           </div>
         </Card>
 
         <Card className="flex flex-col justify-between">
           <div>
-            <h3 className="text-sm font-bold text-slate-800 font-display">Phễu Chuyển Đổi Tuyển Sinh (CRM)</h3>
-            <p className="text-[11px] text-slate-400 mt-0.5">Thống kê lượng lead tư vấn qua các bước trong tuần này</p>
+            <h3 className="text-sm font-bold text-slate-800 font-display">{t("executive.funnelTitle")}</h3>
+            <p className="text-[11px] text-slate-400 mt-0.5">{t("executive.funnelSubtitle")}</p>
           </div>
 
           <div className="space-y-3.5 my-4">
@@ -155,7 +157,7 @@ export default function ExecutiveDashboard({ totalPaid, totalExpenses, profit, a
               <div key={f.stage} className="space-y-1">
                 <div className="flex items-center justify-between text-xs font-semibold">
                   <span className="text-slate-600">{f.stage}</span>
-                  <span className="text-slate-900 font-mono">{f.count} học sinh</span>
+                  <span className="text-slate-900 font-mono">{t("executive.studentsCount", { count: f.count })}</span>
                 </div>
                 <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
                   <div style={{ width: `${f.percentage}%` }} className={`h-full rounded-full ${f.color}`} />
@@ -165,7 +167,7 @@ export default function ExecutiveDashboard({ totalPaid, totalExpenses, profit, a
           </div>
 
           <Button variant="secondary" onClick={() => navigate("/crm/leads")} className="w-full">
-            <span>Xem chi tiết danh sách Leads</span>
+            <span>{t("executive.viewLeadsList")}</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </Button>
         </Card>
@@ -175,15 +177,15 @@ export default function ExecutiveDashboard({ totalPaid, totalExpenses, profit, a
         <div className="flex items-start gap-3">
           <AlertTriangle className="w-5 h-5 text-brand-orange mt-0.5 shrink-0" />
           <div>
-            <h4 className="text-xs font-bold text-slate-800 font-display">Thông báo Gia hạn Hợp tác Trường liên kết</h4>
+            <h4 className="text-xs font-bold text-slate-800 font-display">{t("executive.renewalNoticeTitle")}</h4>
             <p className="text-[11px] text-slate-600 mt-1">
-              Hợp đồng liên kết với <strong>Trường THCS Lê Quý Đôn</strong> sắp đến ngày gia hạn <strong>(31/08/2026)</strong>. Hệ
-              thống tự động khóa xếp lịch nếu quá hạn.
+              {t("executive.renewalNoticePrefix")} <strong>Trường THCS Lê Quý Đôn</strong> {t("executive.renewalNoticeMiddle")}{" "}
+              <strong>(31/08/2026)</strong>. {t("executive.renewalNoticeSuffix")}
             </p>
           </div>
         </div>
         <Button variant="secondary" onClick={() => navigate("/facility/campuses")} className="whitespace-nowrap">
-          Quản lý hợp đồng đối tác
+          {t("executive.manageContracts")}
         </Button>
       </div>
     </div>

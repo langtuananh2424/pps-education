@@ -1,4 +1,5 @@
 import React, { useState, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import Select from "@/components/ui/Select";
@@ -19,6 +20,7 @@ interface Props {
 const ACCEPTED_FORMATS = ".docx,.pdf,.html";
 
 export default function UploadTemplateModal({ onClose, onSuccess }: Props) {
+  const { t } = useTranslation("reports-templates");
   const [name, setName] = useState("");
   const [templateType, setTemplateType] = useState<ReportTemplateType | "">("");
   const [description, setDescription] = useState("");
@@ -44,7 +46,7 @@ export default function UploadTemplateModal({ onClose, onSuccess }: Props) {
 
   const handleSubmit = async () => {
     if (!file || !name.trim() || !templateType) {
-      setError("Vui lòng điền đầy đủ tên, loại báo cáo và chọn file.");
+      setError(t("uploadTemplateModal.validationError"));
       return;
     }
     setLoading(true);
@@ -59,7 +61,7 @@ export default function UploadTemplateModal({ onClose, onSuccess }: Props) {
       await createReportTemplate(req);
       onSuccess();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Tải lên thất bại. Vui lòng thử lại.");
+      setError(err instanceof ApiError ? err.message : t("uploadTemplateModal.uploadError"));
     } finally {
       setLoading(false);
     }
@@ -72,7 +74,7 @@ export default function UploadTemplateModal({ onClose, onSuccess }: Props) {
   };
 
   return (
-    <Modal open={true} size="lg" title="Tải lên mẫu báo cáo mới" description="Hỗ trợ định dạng .docx, .pdf, .html" onClose={onClose}>
+    <Modal open={true} size="lg" title={t("uploadTemplateModal.modalTitle")} description={t("uploadTemplateModal.modalDescription")} onClose={onClose}>
       <div className="space-y-4">
         {error && (
           <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-lg">{error}</div>
@@ -111,8 +113,8 @@ export default function UploadTemplateModal({ onClose, onSuccess }: Props) {
           ) : (
             <div>
               <UploadCloud className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-              <p className="text-sm text-slate-500">Kéo thả hoặc <span className="text-brand-orange font-semibold">nhấp để chọn file</span></p>
-              <p className="text-xs text-slate-400 mt-1">.docx, .pdf, .html — Tối đa 20MB</p>
+              <p className="text-sm text-slate-500">{t("uploadTemplateModal.dropzonePromptPrefix")} <span className="text-brand-orange font-semibold">{t("uploadTemplateModal.dropzonePromptEmphasis")}</span></p>
+              <p className="text-xs text-slate-400 mt-1">{t("uploadTemplateModal.dropzoneHint")}</p>
             </div>
           )}
         </div>
@@ -120,13 +122,13 @@ export default function UploadTemplateModal({ onClose, onSuccess }: Props) {
         {/* Tên mẫu */}
         <div>
           <label className="block text-xs font-semibold text-slate-700 mb-1">
-            Tên mẫu báo cáo <span className="text-rose-500">*</span>
+            {t("uploadTemplateModal.nameLabel")} <span className="text-rose-500">*</span>
           </label>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Ví dụ: Phiếu kết quả học tập IELTS"
+            placeholder={t("uploadTemplateModal.namePlaceholder")}
             className="w-full border border-slate-300 rounded-lg text-sm p-2.5 focus:outline-none focus:ring-2 focus:ring-brand-orange/50 focus:border-brand-orange"
           />
         </div>
@@ -134,30 +136,30 @@ export default function UploadTemplateModal({ onClose, onSuccess }: Props) {
         {/* Loại báo cáo */}
         <div>
           <label className="block text-xs font-semibold text-slate-700 mb-1">
-            Loại báo cáo <span className="text-rose-500">*</span>
+            {t("uploadTemplateModal.typeLabel")} <span className="text-rose-500">*</span>
           </label>
           <Select
             value={templateType}
             onChange={(e) => setTemplateType(e.target.value as ReportTemplateType)}
             className="w-full border border-slate-300 rounded-lg text-sm p-2.5 focus:outline-none focus:ring-2 focus:ring-brand-orange/50 focus:border-brand-orange"
           >
-            <option value="">-- Chọn loại báo cáo --</option>
+            <option value="">{t("uploadTemplateModal.typeSelectPlaceholder")}</option>
             {(Object.entries(REPORT_TEMPLATE_TYPE_LABELS) as [ReportTemplateType, string][]).map(([key, label]) => (
               <option key={key} value={key}>{label}</option>
             ))}
           </Select>
           <p className="text-xs text-slate-400 mt-1">
-            Loại báo cáo giúp hệ thống biết mẫu này dùng cho chức năng nào (xuất báo cáo ngày, hồ sơ học sinh...).
+            {t("uploadTemplateModal.typeHint")}
           </p>
         </div>
 
         {/* Mô tả */}
         <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1">Mô tả (tuỳ chọn)</label>
+          <label className="block text-xs font-semibold text-slate-700 mb-1">{t("uploadTemplateModal.descriptionLabel")}</label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Ghi chú về mẫu báo cáo này..."
+            placeholder={t("uploadTemplateModal.descriptionPlaceholder")}
             rows={2}
             className="w-full border border-slate-300 rounded-lg text-sm p-2.5 focus:outline-none focus:ring-2 focus:ring-brand-orange/50 focus:border-brand-orange resize-none"
           />
@@ -166,16 +168,16 @@ export default function UploadTemplateModal({ onClose, onSuccess }: Props) {
         {/* Thông tin sau upload */}
         {file && templateType && (
           <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-xs text-blue-700 space-y-1">
-            <p className="font-semibold text-blue-800">Sau khi tải lên:</p>
-            <p>• Hệ thống sẽ tự động quét và phát hiện các biến placeholder <code>[TEN_BIEN]</code> trong file.</p>
-            <p>• Bạn sẽ cần vào <strong>Cấu hình Mapping</strong> để ánh xạ từng biến với dữ liệu thực tế.</p>
+            <p className="font-semibold text-blue-800">{t("uploadTemplateModal.afterUploadTitle")}</p>
+            <p>• {t("uploadTemplateModal.afterUploadLine1Prefix")} <code>[TEN_BIEN]</code> {t("uploadTemplateModal.afterUploadLine1Suffix")}</p>
+            <p>• {t("uploadTemplateModal.afterUploadLine2Prefix")} <strong>{t("uploadTemplateModal.afterUploadLine2Bold")}</strong> {t("uploadTemplateModal.afterUploadLine2Suffix")}</p>
           </div>
         )}
 
         <div className="flex justify-end gap-2 pt-2">
-          <Button variant="secondary" onClick={onClose} disabled={loading}>Huỷ</Button>
+          <Button variant="secondary" onClick={onClose} disabled={loading}>{t("uploadTemplateModal.cancel")}</Button>
           <Button onClick={handleSubmit} disabled={loading || !file || !name || !templateType}>
-            {loading ? "Đang tải lên..." : "Tải lên"}
+            {loading ? t("uploadTemplateModal.uploading") : t("uploadTemplateModal.uploadButton")}
           </Button>
         </div>
       </div>

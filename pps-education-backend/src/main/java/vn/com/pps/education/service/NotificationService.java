@@ -107,7 +107,9 @@ public class NotificationService {
                                 Map<String, Object> metadata, String entityType, Long entityId,
                                 Notification.Priority priority, Long triggeredByUserId) {
         User recipient = userRepository.findById(recipientUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + recipientUserId));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.notification.accountNotFound", new Object[]{recipientUserId},
+                        "Không tìm thấy tài khoản id=" + recipientUserId));
         User triggeredBy = triggeredByUserId == null ? null : userRepository.findById(triggeredByUserId).orElse(null);
 
         Notification notification = new Notification();
@@ -199,9 +201,11 @@ public class NotificationService {
     @Transactional
     public NotificationResponse markRead(Long recipientUserId, Long notificationId) {
         Notification notification = notificationRepository.findById(notificationId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thông báo id=" + notificationId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.notification.notFoundById",
+                        new Object[]{notificationId}, "Không tìm thấy thông báo id=" + notificationId));
         if (!notification.getRecipientUser().getId().equals(recipientUserId)) {
-            throw new ResourceNotFoundException("Không tìm thấy thông báo id=" + notificationId);
+            throw new ResourceNotFoundException("error.notification.notFoundById",
+                    new Object[]{notificationId}, "Không tìm thấy thông báo id=" + notificationId);
         }
         if (notification.getReadAt() == null) {
             notification.setReadAt(OffsetDateTime.now());
@@ -222,7 +226,8 @@ public class NotificationService {
     public NotificationPreferenceResponse upsertPreference(Long userId, Notification.NotificationType type,
                                                              NotificationPreferenceRequest request) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + userId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.notification.accountNotFound",
+                        new Object[]{userId}, "Không tìm thấy tài khoản id=" + userId));
         NotificationPreference pref = notificationPreferenceRepository.findByUserIdAndNotificationType(userId, type)
                 .orElseGet(() -> {
                     NotificationPreference created = new NotificationPreference();
@@ -259,7 +264,8 @@ public class NotificationService {
     @Transactional
     public void registerDeviceToken(Long userId, DeviceTokenRequest request) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + userId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.notification.accountNotFound",
+                        new Object[]{userId}, "Không tìm thấy tài khoản id=" + userId));
         DeviceToken deviceToken = deviceTokenRepository.findByToken(request.token())
                 .orElseGet(DeviceToken::new);
         deviceToken.setUser(user);

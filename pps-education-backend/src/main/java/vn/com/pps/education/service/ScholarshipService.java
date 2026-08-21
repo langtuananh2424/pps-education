@@ -40,9 +40,9 @@ public class ScholarshipService {
     @Transactional
     public ScholarshipResponse create(CreateScholarshipRequest request, Long actorUserId) {
         Student student = studentRepository.findByIdAndDeletedAtIsNull(request.studentId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy học sinh id=" + request.studentId()));
+                .orElseThrow(() -> new ResourceNotFoundException("error.scholarship.studentNotFound", new Object[]{request.studentId()}, "Không tìm thấy học sinh id=" + request.studentId()));
         User actor = userRepository.findById(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy user id=" + actorUserId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.scholarship.userNotFound", new Object[]{actorUserId}, "Không tìm thấy user id=" + actorUserId));
 
         Scholarship scholarship = new Scholarship();
         scholarship.setStudent(student);
@@ -65,7 +65,7 @@ public class ScholarshipService {
     @Transactional
     public ScholarshipResponse revoke(Long id) {
         Scholarship scholarship = scholarshipRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy học bổng id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.scholarship.notFoundById", new Object[]{id}, "Không tìm thấy học bổng id=" + id));
         scholarship.setStatus(Scholarship.Status.REVOKED);
         return toResponse(scholarshipRepository.save(scholarship));
     }

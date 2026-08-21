@@ -1,5 +1,6 @@
 import React, { useRef, useState } from "react";
 import { Loader2, Paperclip, RotateCcw } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface FileUploadFieldProps {
   /** URL hiện tại (nếu đã có file/đang sửa) — hiển thị read-only, không cho gõ tay. */
@@ -16,6 +17,7 @@ interface FileUploadFieldProps {
 
 /** Ô "Chọn file" dùng chung cho mọi màn upload tài liệu thật lên R2 (thay ô nhập URL tay cũ). */
 export default function FileUploadField({ value, onChange, onUpload, onFileSize, accept, placeholder, disabled }: FileUploadFieldProps) {
+  const { t } = useTranslation("layout");
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +35,7 @@ export default function FileUploadField({ value, onChange, onUpload, onFileSize,
       onChange(url);
       onFileSize?.(file.size);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Upload file thất bại.");
+      setError(err instanceof Error ? err.message : t("upload.file.failed"));
     } finally {
       setUploading(false);
     }
@@ -55,7 +57,7 @@ export default function FileUploadField({ value, onChange, onUpload, onFileSize,
             className="text-[10px] font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1 shrink-0 disabled:opacity-50"
           >
             {uploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <RotateCcw className="w-3 h-3" />}
-            Đổi file
+            {t("upload.file.changeFile")}
           </button>
         </div>
       ) : (
@@ -66,7 +68,7 @@ export default function FileUploadField({ value, onChange, onUpload, onFileSize,
           className="w-full flex items-center justify-center gap-1.5 border border-dashed border-slate-300 text-slate-500 hover:border-brand-orange hover:text-brand-orange text-xs font-bold py-2.5 rounded-lg disabled:opacity-50"
         >
           {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Paperclip className="w-3.5 h-3.5" />}
-          {uploading ? "Đang upload..." : placeholder ?? "Chọn file"}
+          {uploading ? t("upload.file.uploading") : placeholder ?? t("upload.file.choose")}
         </button>
       )}
       {error && <p className="text-[10px] text-rose-600 font-semibold">{error}</p>}

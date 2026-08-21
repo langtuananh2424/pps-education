@@ -163,13 +163,13 @@ public class AttendanceService {
 
     private AttendanceRecordResponse process(Long actorUserId, AttendanceCheckRequest request, boolean isCheckIn) {
         User actor = userRepository.findById(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.attendance.userNotFound", new Object[]{actorUserId}, "Không tìm thấy tài khoản id=" + actorUserId));
         Employee employee = employeeRepository.findByUserId(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản chưa có hồ sơ nhân sự."));
+                .orElseThrow(() -> new ResourceNotFoundException("error.attendance.employeeProfileMissing", new Object[]{}, "Tài khoản chưa có hồ sơ nhân sự."));
 
         // Main Flow bước 2 -- cấp quản lý miễn trừ hoàn toàn.
         if (employee.isManagement()) {
-            throw new ManagementExemptFromAttendanceException("Cấp quản lý được miễn trừ chấm công.");
+            throw new ManagementExemptFromAttendanceException("error.managementExemptFromAttendance.default", new Object[]{}, "Cấp quản lý được miễn trừ chấm công.");
         }
 
         OffsetDateTime now = OffsetDateTime.now();
@@ -186,7 +186,7 @@ public class AttendanceService {
         // coi là ngày làm việc, nhưng CHỈ khi không có work_calendar override tường minh nào (mọi scope)
         // -- không bao giờ ghi đè quyết định HOLIDAY/OFF đã khai báo (xác nhận với PM, xem UC-09 A2 mới).
         if (!isWorkingDay(workDate, employee.getId(), activeShifts, !todaySessions.isEmpty())) {
-            throw new NotAWorkingDayException("Ngày " + workDate + " không phải ngày làm việc.");
+            throw new NotAWorkingDayException("error.notAWorkingDay.default", new Object[]{workDate}, "Ngày " + workDate + " không phải ngày làm việc.");
         }
 
         // Ca khớp đúng pattern ngày hôm nay trong số các ca active (chống chồng chéo đã được
@@ -201,6 +201,7 @@ public class AttendanceService {
         }
         if (windowMatch == null) {
             throw new OutsideAttendanceWindowException(
+                    "error.outsideAttendanceWindow.default", new Object[]{now},
                     "Thời điểm " + now + " ngoài cửa sổ chấm công cho phép.");
         }
 
@@ -209,9 +210,9 @@ public class AttendanceService {
         AttendanceMethodValidator validator = methodValidators.stream()
                 .filter(v -> v.method() == method)
                 .findFirst()
-                .orElseThrow(() -> new AttendanceMethodNotAvailableException("Phương thức không hỗ trợ: " + request.method()));
+                .orElseThrow(() -> new AttendanceMethodNotAvailableException("error.attendanceMethodNotAvailable.notSupported", new Object[]{request.method()}, "Phương thức không hỗ trợ: " + request.method()));
         if (!validator.isEnabled()) {
-            throw new AttendanceMethodNotAvailableException("Phương thức " + method + " hiện không khả dụng.");
+            throw new AttendanceMethodNotAvailableException("error.attendanceMethodNotAvailable.disabled", new Object[]{method}, "Phương thức " + method + " hiện không khả dụng.");
         }
         // resolvedSiteId: id điểm trường THỰC SỰ áp dụng cho bản ghi -- với GPS có thể khác
         // request.siteId() do validator tự phân giải lại theo vị trí thực tế (xem
@@ -235,10 +236,12 @@ public class AttendanceService {
         // tránh mất giờ chấm công thật + status (LATE/EARLY_LEAVE) tính sai theo lần bấm sau.
         if (isCheckIn && record.getCheckInAt() != null) {
             throw new AlreadyCheckedInException(
+                    "error.alreadyCheckedIn.attendance", new Object[]{record.getCheckInAt()},
                     "Đã chấm công vào lúc " + record.getCheckInAt() + " hôm nay, không thể chấm công vào lại.");
         }
         if (!isCheckIn && record.getCheckOutAt() != null) {
             throw new AlreadyCheckedOutException(
+                    "error.alreadyCheckedOut.default", new Object[]{record.getCheckOutAt()},
                     "Đã chấm công ra lúc " + record.getCheckOutAt() + " hôm nay, không thể chấm công ra lại.");
         }
 
@@ -372,7 +375,7 @@ public class AttendanceService {
         try {
             return AttendanceRecord.CheckMethod.valueOf(raw);
         } catch (IllegalArgumentException ex) {
-            throw new AttendanceMethodNotAvailableException("Phương thức không hợp lệ: " + raw);
+            throw new AttendanceMethodNotAvailableException("error.attendanceMethodNotAvailable.invalid", new Object[]{raw}, "Phương thức không hợp lệ: " + raw);
         }
     }
 

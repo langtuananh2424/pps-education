@@ -64,9 +64,11 @@ public class GradeReportDataResolver implements ReportDataResolver {
             throw new IllegalArgumentException("GRADE_REPORT cần classId.");
         }
         Student student = studentRepository.findById(params.studentId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy học sinh id=" + params.studentId()));
+                .orElseThrow(() -> new ResourceNotFoundException("error.gradeReport.studentNotFound",
+                        new Object[]{params.studentId()}, "Không tìm thấy học sinh id=" + params.studentId()));
         SchoolClass schoolClass = schoolClassRepository.findById(params.classId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp id=" + params.classId()));
+                .orElseThrow(() -> new ResourceNotFoundException("error.gradeReport.classNotFound",
+                        new Object[]{params.classId()}, "Không tìm thấy lớp id=" + params.classId()));
 
         Map<String, Object> context = new HashMap<>();
         context.put("STUDENT_NAME", student.getUser().getFullName());

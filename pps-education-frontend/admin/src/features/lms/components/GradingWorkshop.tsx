@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Award, Mic, Play, Save } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { StudentExamSubmission } from "@/types";
 import { useDialog } from "@/components/ui/DialogProvider";
 
@@ -10,6 +11,7 @@ interface GradingWorkshopProps {
 }
 
 export default function GradingWorkshop({ submission, onClose, onSave }: GradingWorkshopProps) {
+  const { t } = useTranslation("lms-grading");
   const [score, setScore] = useState("8.5");
   const [feedback, setFeedback] = useState("");
   const { alertDialog } = useDialog();
@@ -18,7 +20,7 @@ export default function GradingWorkshop({ submission, onClose, onSave }: Grading
     return (
       <div className="h-64 border border-dashed rounded-xl flex flex-col items-center justify-center text-slate-400 text-xs italic gap-1.5 text-center p-4">
         <Award className="w-6 h-6 text-slate-300 animate-bounce" />
-        <span>Nhấp chọn một học sinh trong hàng chờ bên cạnh để kiểm tra bài ghi âm kỹ năng Nói và chấm điểm thủ công.</span>
+        <span>{t("gradingWorkshop.emptyState")}</span>
       </div>
     );
   }
@@ -33,23 +35,23 @@ export default function GradingWorkshop({ submission, onClose, onSave }: Grading
     <div className="space-y-4">
       <div className="border-b border-slate-100 pb-2.5 flex items-center justify-between">
         <div>
-          <span className="text-[10px] font-mono font-bold text-slate-400">CHẤM BÀI PHÁT ÂM: {submission.id}</span>
+          <span className="text-[10px] font-mono font-bold text-slate-400">{t("gradingWorkshop.header.idLabel", { id: submission.id })}</span>
           <h3 className="text-xs font-bold text-slate-800">{submission.studentName}</h3>
         </div>
         <button onClick={onClose} className="text-xs text-slate-400 hover:text-slate-800">
-          Đóng
+          {t("gradingWorkshop.closeButton")}
         </button>
       </div>
 
       <div className="p-3.5 bg-slate-50 rounded-lg border border-slate-100 space-y-3">
         <span className="text-[10px] uppercase font-bold tracking-wider text-rose-600 font-display flex items-center gap-1">
           <Mic className="w-3.5 h-3.5 animate-pulse" />
-          Bản ghi âm phản xạ phát âm học viên
+          {t("gradingWorkshop.audio.sectionLabel")}
         </span>
 
         <div className="p-2 bg-slate-900 text-white rounded flex items-center justify-between text-xs">
           <span className="font-mono text-[10px]">audiotrack_speech_sample.mp3</span>
-          <button onClick={() => alertDialog("🔈 Đang phát audio ghi âm phản xạ của học sinh...")} className="p-1 rounded bg-brand-gradient hover:opacity-90 font-bold">
+          <button onClick={() => alertDialog(t("gradingWorkshop.audio.playToast"))} className="p-1 rounded bg-brand-gradient hover:opacity-90 font-bold">
             <Play className="w-3 h-3 text-white fill-white" />
           </button>
         </div>
@@ -57,7 +59,7 @@ export default function GradingWorkshop({ submission, onClose, onSave }: Grading
 
       <form onSubmit={handleSubmit} className="space-y-4 pt-1">
         <div className="space-y-1">
-          <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Cho điểm kỹ năng nói (0 - 10)</label>
+          <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">{t("gradingWorkshop.scoreLabel")}</label>
           <input
             type="number"
             required
@@ -71,10 +73,10 @@ export default function GradingWorkshop({ submission, onClose, onSave }: Grading
         </div>
 
         <div className="space-y-1">
-          <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Nhận xét chi tiết phát âm (Teacher Feedback)</label>
+          <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">{t("gradingWorkshop.feedbackLabel")}</label>
           <textarea
             required
-            placeholder="Ghi nhận từ vựng phát âm chuẩn, sửa ngữ điệu luyến âm..."
+            placeholder={t("gradingWorkshop.feedbackPlaceholder")}
             value={feedback}
             onChange={(e) => setFeedback(e.target.value)}
             rows={3}
@@ -84,7 +86,7 @@ export default function GradingWorkshop({ submission, onClose, onSave }: Grading
 
         <button type="submit" className="w-full bg-brand-gradient hover:opacity-95 text-white font-semibold text-xs py-2 rounded-lg flex items-center justify-center gap-1.5">
           <Save className="w-4 h-4 text-white" />
-          Lưu kết quả chấm thi
+          {t("gradingWorkshop.submitButton")}
         </button>
       </form>
     </div>

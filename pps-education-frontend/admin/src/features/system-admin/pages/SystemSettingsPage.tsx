@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { History, Save, Settings2 } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import {
@@ -11,15 +12,10 @@ import {
 import { Button, EmptyState, Modal, TableContainer, Td, Th } from "@/components/ui";
 import Select from "@/components/ui/Select";
 
-const CATEGORY_LABELS: Record<string, string> = {
-  ATTENDANCE: "Chấm công",
-  SECURITY: "Bảo mật",
-  NOTIFICATION: "Thông báo",
-  FEATURE_FLAG: "Cờ tính năng",
-  ACADEMIC: "Học thuật",
-  FINANCE: "Tài chính",
-  TASK: "Công việc"
-};
+/** Nhãn danh mục dịch qua i18next namespace "system-admin-settings" — xem src/i18n/locales/{vi,en}/system-admin-settings.json. */
+function settingCategoryLabel(t: (key: string) => string, category: string): string {
+  return t(`settingCategory.${category}`);
+}
 
 /** Suy ra input phù hợp từ giá trị JSON hiện tại — không có schema per-key nên chỉ dựa vào kiểu JS thực tế. */
 type ValueKind = "boolean" | "number" | "string";
@@ -36,6 +32,7 @@ function kindOf(value: boolean | number | string): ValueKind {
  * key mới vẫn tạo qua migration như trước). Xem SystemSettingController.
  */
 export default function SystemSettingsPage() {
+  const { t } = useTranslation("system-admin-settings");
   const [settings, setSettings] = useState<SystemSettingResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -54,7 +51,7 @@ export default function SystemSettingsPage() {
     setError(null);
     listSystemSettings()
       .then(setSettings)
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách cấu hình."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("systemSettingsPage.loadError")))
       .finally(() => setLoading(false));
   };
 
@@ -90,7 +87,7 @@ export default function SystemSettingsPage() {
     } else if (kind === "number") {
       const n = Number(draftValue);
       if (Number.isNaN(n)) {
-        setSaveError("Giá trị phải là số hợp lệ.");
+        setSaveError(t("systemSettingsPage.editModal.invalidNumberError"));
         return;
       }
       parsedValue = n;
@@ -105,7 +102,7 @@ export default function SystemSettingsPage() {
         setSettings((prev) => prev.map((s) => (s.settingKey === updated.settingKey ? updated : s)));
         closeEdit();
       })
-      .catch((err) => setSaveError(err instanceof ApiError ? err.message : "Lưu thất bại."))
+      .catch((err) => setSaveError(err instanceof ApiError ? err.message : t("systemSettingsPage.editModal.saveErrorDefault")))
       .finally(() => setSaving(false));
   };
 
@@ -121,31 +118,33 @@ export default function SystemSettingsPage() {
   return (
     <div className="space-y-4 animate-in fade-in duration-200">
       <div>
-        <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider block">Cài đặt hệ thống</h2>
-        <p className="text-[10px] text-slate-400 mt-0.5">
-          Bật/tắt tính năng, chỉnh ngưỡng số/cấu hình runtime — không cần deploy lại. Chỉ sửa giá trị key có sẵn.
-        </p>
+        <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider block">{t("systemSettingsPage.title")}</h2>
+        <p className="text-[10px] text-slate-400 mt-0.5">{t("systemSettingsPage.description")}</p>
       </div>
 
       {error && <div className="p-3 text-xs text-rose-600 bg-rose-50 border border-rose-100 rounded-lg">{error}</div>}
 
       {!loading && settings.length === 0 && !error ? (
-        <EmptyState icon={Settings2} title="Chưa có cấu hình nào" description="Bảng system_settings hiện đang trống." />
+        <EmptyState
+          icon={Settings2}
+          title={t("systemSettingsPage.emptyTitle")}
+          description={t("systemSettingsPage.emptyDescription")}
+        />
       ) : (
         grouped.map(([category, items]) => (
           <div key={category} className="bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden">
             <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-100">
               <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
-                {CATEGORY_LABELS[category] ?? category}
+                {settingCategoryLabel(t, category)}
               </h3>
             </div>
             <TableContainer className="rounded-none border-0">
               <thead>
                 <tr>
-                  <Th>Key</Th>
-                  <Th>Mô tả</Th>
-                  <Th>Giá trị</Th>
-                  <Th>Cập nhật lần cuối</Th>
+                  <Th>{t("systemSettingsPage.columns.key")}</Th>
+                  <Th>{t("systemSettingsPage.columns.description")}</Th>
+                  <Th>{t("systemSettingsPage.columns.value")}</Th>
+                  <Th>{t("systemSettingsPage.columns.lastUpdated")}</Th>
                   <Th />
                 </tr>
               </thead>
@@ -153,7 +152,9 @@ export default function SystemSettingsPage() {
                 {items.map((s) => (
                   <tr key={s.settingKey} className="hover:bg-slate-50/50 transition-colors">
                     <Td className="font-mono text-[11px] font-bold text-slate-700">{s.settingKey}</Td>
-                    <Td className="text-[11px] text-slate-500 max-w-md">{s.description ?? "—"}</Td>
+                    <Td className="text-[11px] text-slate-500 max-w-md">
+                      {s.description ?? t("systemSettingsPage.noDescription")}
+                    </Td>
                     <Td className="font-mono font-bold">{String(s.settingValue)}</Td>
                     <Td className="text-[11px] text-slate-400">
                       {s.updatedByName ? (
@@ -163,16 +164,21 @@ export default function SystemSettingsPage() {
                           {s.updatedAt ? new Date(s.updatedAt).toLocaleString("vi-VN") : ""}
                         </>
                       ) : (
-                        "—"
+                        t("systemSettingsPage.noLastUpdated")
                       )}
                     </Td>
                     <Td>
                       <div className="flex items-center gap-1.5 justify-end">
-                        <Button size="sm" variant="ghost" onClick={() => openHistory(s)} title="Lịch sử thay đổi">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => openHistory(s)}
+                          title={t("systemSettingsPage.historyButtonTitle")}
+                        >
                           <History className="w-3.5 h-3.5" />
                         </Button>
                         <Button size="sm" variant="secondary" onClick={() => openEdit(s)}>
-                          Sửa
+                          {t("systemSettingsPage.editButton")}
                         </Button>
                       </div>
                     </Td>
@@ -187,16 +193,16 @@ export default function SystemSettingsPage() {
       <Modal
         open={editing !== null}
         onClose={closeEdit}
-        title={`Sửa cấu hình: ${editing?.settingKey ?? ""}`}
+        title={t("systemSettingsPage.editModal.title", { key: editing?.settingKey ?? "" })}
         description={editing?.description ?? undefined}
         footer={
           <>
             <Button variant="secondary" onClick={closeEdit}>
-              Hủy
+              {t("systemSettingsPage.editModal.cancel")}
             </Button>
             <Button variant="dark" onClick={handleSave} disabled={saving}>
               <Save className="w-3.5 h-3.5" />
-              {saving ? "Đang lưu..." : "Lưu"}
+              {saving ? t("systemSettingsPage.editModal.saving") : t("systemSettingsPage.editModal.saveButton")}
             </Button>
           </>
         }
@@ -205,7 +211,9 @@ export default function SystemSettingsPage() {
           <div className="space-y-3">
             {saveError && <div className="p-2.5 text-xs text-rose-600 bg-rose-50 border border-rose-100 rounded-lg">{saveError}</div>}
             <div>
-              <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Giá trị hiện tại</label>
+              <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1">
+                {t("systemSettingsPage.editModal.currentValueLabel")}
+              </label>
               <p className="text-xs font-mono text-slate-400 mb-2">{String(editing.settingValue)}</p>
 
               {kindOf(editing.settingValue) === "boolean" ? (
@@ -214,8 +222,8 @@ export default function SystemSettingsPage() {
                   onChange={(e) => setDraftValue(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
                 >
-                  <option value="true">Bật (true)</option>
-                  <option value="false">Tắt (false)</option>
+                  <option value="true">{t("systemSettingsPage.editModal.booleanOn")}</option>
+                  <option value="false">{t("systemSettingsPage.editModal.booleanOff")}</option>
                 </Select>
               ) : (
                 <input
@@ -233,13 +241,13 @@ export default function SystemSettingsPage() {
       <Modal
         open={historyFor !== null}
         onClose={() => setHistoryFor(null)}
-        title={`Lịch sử: ${historyFor?.settingKey ?? ""}`}
+        title={t("systemSettingsPage.historyModal.title", { key: historyFor?.settingKey ?? "" })}
         size="lg"
       >
         {historyLoading ? (
-          <p className="text-xs text-slate-400">Đang tải...</p>
+          <p className="text-xs text-slate-400">{t("systemSettingsPage.historyModal.loading")}</p>
         ) : history.length === 0 ? (
-          <p className="text-xs text-slate-400 italic">Chưa có lần thay đổi nào.</p>
+          <p className="text-xs text-slate-400 italic">{t("systemSettingsPage.historyModal.empty")}</p>
         ) : (
           <div className="space-y-2">
             {history.map((h) => (

@@ -83,13 +83,15 @@ public class ExamQuestionService {
     /** V87 (merge từ develop 2026-08-04) — không lộ Đề đã "xóa" (deleted_at), cùng pattern ExamService. */
     private Exam examOrThrow(Long id) {
         return examRepository.findByIdAndDeletedAtIsNull(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Đề id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.examQuestion.examNotFound",
+                        new Object[]{id}, "Không tìm thấy Đề id=" + id));
     }
 
     private Question questionOrThrow(Long examId, Long questionId) {
         Exam exam = examOrThrow(examId);
         return questionRepository.findByIdAndQuestionBankId(questionId, exam.getQuestionBank().getId())
-                .orElseThrow(() -> new ResourceNotFoundException(
+                .orElseThrow(() -> new ResourceNotFoundException("error.examQuestion.questionNotFoundInExam",
+                        new Object[]{questionId, examId},
                         "Không tìm thấy câu hỏi id=" + questionId + " trong Đề id=" + examId));
     }
 }

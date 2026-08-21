@@ -1,0 +1,171 @@
+{
+  "status": {
+    "DRAFT": "Nháp",
+    "PENDING_APPROVAL": "Chờ duyệt",
+    "ACTIVE": "Đang áp dụng",
+    "ARCHIVED": "Lưu trữ"
+  },
+  "list": {
+    "title": "Khung chương trình",
+    "subtitle": "Chuẩn + bản tùy biến theo điểm trường",
+    "addButton": "Thêm khung",
+    "searchPlaceholder": "Tìm theo tên / mã khung...",
+    "loading": "Đang tải...",
+    "emptyTitle": "Không tìm thấy khung chương trình nào",
+    "emptyDescription": "Thử nới lỏng từ khóa, hoặc bấm 'Thêm khung'.",
+    "customBadge": "Tùy biến",
+    "unknownValue": "—"
+  },
+  "detail": {
+    "tabs": {
+      "profile": "Hồ sơ",
+      "subjects": "Học phần"
+    },
+    "profile": {
+      "nameLabel": "Tên khung chương trình *",
+      "levelLabel": "Cấp độ",
+      "totalPeriodsLabel": "Tổng số tiết",
+      "passThresholdLabel": "Ngưỡng điểm đạt",
+      "statusLabel": "Trạng thái",
+      "saveButton": "Lưu",
+      "saving": "Đang lưu...",
+      "nameRequiredError": "Vui lòng nhập tên khung chương trình.",
+      "updateFailedFallback": "Cập nhật thất bại.",
+      "savedToast": "Đã lưu hồ sơ khung chương trình thành công!",
+      "submitForApprovalButton": "Nộp duyệt tùy biến lên Trưởng phòng đào tạo",
+      "submitForApprovalFailedFallback": "Nộp duyệt thất bại.",
+      "submittedToast": "Đã nộp duyệt thành công!",
+      "createCustomButton": "Tạo bản tùy biến cho điểm trường",
+      "createCustomModalTitle": "Tạo bản tùy biến cho điểm trường",
+      "createdCustomToast": "Đã tạo bản tùy biến thành công!"
+    },
+    "customForm": {
+      "codePlaceholder": "Mã bản tùy biến",
+      "sitePlaceholder": "-- Chọn điểm trường liên kết --",
+      "namePlaceholder": "Tên riêng (không bắt buộc, mặc định lấy theo bản gốc)",
+      "cancelButton": "Hủy",
+      "creating": "Đang tạo...",
+      "createButton": "Tạo bản tùy biến",
+      "validationError": "Vui lòng điền mã bản tùy biến và chọn điểm trường liên kết.",
+      "createFailedFallback": "Tạo bản tùy biến thất bại."
+    },
+    "subjects": {
+      "countLabel": "Học phần ({{count}})",
+      "addButton": "Thêm học phần",
+      "loading": "Đang tải...",
+      "empty": "Chưa có học phần nào.",
+      "periodCount": "{{count}} tiết",
+      "loadFailedFallback": "Không tải được danh sách học phần.",
+      "modalTitle": "Thêm học phần",
+      "addedToast": "Đã thêm học phần thành công!"
+    },
+    "addSubjectForm": {
+      "codePlaceholder": "Mã học phần",
+      "namePlaceholder": "Tên học phần",
+      "periodCountPlaceholder": "Số tiết",
+      "cancelButton": "Hủy",
+      "saving": "Đang lưu...",
+      "submitButton": "Thêm học phần",
+      "validationError": "Vui lòng điền mã và tên học phần.",
+      "createFailedFallback": "Thêm học phần thất bại."
+    }
+  },
+  "approval": {
+    "loading": "Đang tải...",
+    "loadFailedFallback": "Không tải được hàng chờ duyệt.",
+    "rejectReasonPrompt": "Lý do từ chối (không bắt buộc):",
+    "decideFailedFallback": "Duyệt thất bại.",
+    "approvedToast": "Đã duyệt tùy biến thành công!",
+    "rejectedToast": "Đã từ chối tùy biến thành công!",
+    "rejectButton": "Từ chối",
+    "approveButton": "Duyệt tùy biến",
+    "empty": "Chưa có bản tùy biến nào chờ duyệt."
+  },
+  "form": {
+    "modalTitle": "Thêm khung chương trình mới",
+    "codeLabel": "Mã khung *",
+    "codeRequiredError": "Vui lòng nhập Mã khung.",
+    "classCategoryLabel": "Nhóm lớp *",
+    "classCategoryOptions": {
+      "MAIN": "Chính khóa",
+      "SUPPLEMENTARY": "Bổ trợ",
+      "EXAM_PREP": "Luyện thi",
+      "OTHER": "Khác"
+    },
+    "nameLabel": "Tên khung chương trình *",
+    "nameRequiredError": "Vui lòng nhập Tên khung chương trình.",
+    "levelLabel": "Cấp độ",
+    "totalPeriodsLabel": "Tổng số tiết",
+    "passThresholdLabel": "Ngưỡng điểm đạt mặc định",
+    "cancelButton": "Hủy",
+    "creating": "Đang tạo...",
+    "createButton": "Tạo khung chương trình",
+    "validationError": "Vui lòng điền đủ mã và tên khung chương trình.",
+    "createFailedFallback": "Tạo khung chương trình thất bại."
+  },
+  "page": {
+    "title": "Khung chương trình",
+    "description": "Quản lý khung chương trình chuẩn, học phần, và bản tùy biến theo điểm trường liên kết.",
+    "loadFailedFallback": "Không tải được danh sách khung chương trình.",
+    "emptyTitle": "Chưa chọn khung chương trình nào",
+    "emptyDescription": "Chọn 1 khung bên trái hoặc thêm mới.",
+    "approvalSectionTitle": "Duyệt tùy biến khung chương trình",
+    "createdToast": "Đã tạo khung chương trình thành công!"
+  },
+  "termManager": {
+    "modalTitle": "Quản lý học kỳ — {{siteName}}",
+    "loadFailedFallback": "Không tải được danh sách kỳ học.",
+    "createdCountLabel": "Các kỳ đã tạo ({{count}})",
+    "addButton": "Thêm kỳ",
+    "loading": "Đang tải...",
+    "empty": "Điểm trường này chưa có kỳ học nào.",
+    "editButton": "Sửa",
+    "form": {
+      "codeLabel": "Mã kỳ *",
+      "codeNotEditable": "(không sửa được)",
+      "codePlaceholder": "VD: GK1-2627",
+      "nameLabel": "Tên kỳ *",
+      "namePlaceholder": "VD: Giữa kỳ 1 (2026-2027)",
+      "startDateLabel": "Ngày bắt đầu *",
+      "endDateLabel": "Ngày kết thúc *",
+      "cancelButton": "Hủy",
+      "saving": "Đang lưu...",
+      "saveChangesButton": "Lưu thay đổi",
+      "createButton": "Tạo kỳ học",
+      "validationError": "Vui lòng điền đủ các trường bắt buộc.",
+      "dateOrderError": "Ngày kết thúc phải sau hoặc bằng ngày bắt đầu.",
+      "saveFailedFallback": "Lưu kỳ học thất bại."
+    }
+  },
+  "yearManager": {
+    "modalTitle": "Quản lý năm học",
+    "status": {
+      "PLANNED": "Dự kiến",
+      "ACTIVE": "Đang dùng",
+      "CLOSED": "Đã đóng"
+    },
+    "loadFailedFallback": "Không tải được danh sách năm học.",
+    "createdCountLabel": "Các năm học đã tạo ({{count}})",
+    "addButton": "Thêm năm học",
+    "loading": "Đang tải...",
+    "empty": "Chưa có năm học nào.",
+    "editButton": "Sửa",
+    "form": {
+      "codeLabel": "Mã năm học *",
+      "codeNotEditable": "(không sửa được)",
+      "codePlaceholder": "VD: 2026-2027",
+      "nameLabel": "Tên năm học *",
+      "namePlaceholder": "VD: Năm học 2026-2027",
+      "startDateLabel": "Ngày bắt đầu",
+      "endDateLabel": "Ngày kết thúc",
+      "statusLabel": "Trạng thái",
+      "cancelButton": "Hủy",
+      "saving": "Đang lưu...",
+      "saveChangesButton": "Lưu thay đổi",
+      "createButton": "Tạo năm học",
+      "validationError": "Vui lòng điền đủ các trường bắt buộc.",
+      "dateOrderError": "Ngày kết thúc phải sau hoặc bằng ngày bắt đầu.",
+      "saveFailedFallback": "Lưu năm học thất bại."
+    }
+  }
+}

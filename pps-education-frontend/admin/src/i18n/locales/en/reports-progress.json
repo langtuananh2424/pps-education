@@ -1,0 +1,168 @@
+{
+  "studentProgressPage": {
+    "title": "Student Learning Profile",
+    "description": "View the full learning history of a specific student.",
+    "search": {
+      "placeholder": "Enter student name or code...",
+      "searching": "Searching...",
+      "noResults": "No students found",
+      "emptyPrompt": "Search for a student to view their learning profile"
+    },
+    "studentStatus": {
+      "ACTIVE": "Active",
+      "SUSPENDED": "Suspended",
+      "EXPELLED": "Expelled",
+      "GRADUATED": "Graduated",
+      "WITHDRAWN": "Withdrawn",
+      "DEFERRAL": "Deferred"
+    },
+    "commentGradeStatus": {
+      "DRAFT": "Draft",
+      "SUBMITTED": "Submitted",
+      "OFFICIAL": "Official",
+      "REJECTED": "Rejected",
+      "PENDING": "Pending approval",
+      "APPROVED": "Approved"
+    },
+    "tabs": {
+      "overview": "Overview",
+      "grades": "Grades",
+      "comments": "Comments",
+      "attendance": "Attendance"
+    },
+    "header": {
+      "changeStudentButton": "Change student",
+      "exportButton": "Export PDF profile"
+    },
+    "loadingProfile": "Loading learning profile...",
+    "overview": {
+      "classesLabel": "Classes taken",
+      "classesUnit": "classes",
+      "avgScoreLabel": "Avg. score",
+      "avgScoreSub": "over {{count}} terms",
+      "commentsLabel": "Comments",
+      "commentsUnit": "daily comments",
+      "attendanceLabel": "Attendance",
+      "attendanceSub": "present ({{present}}/{{total}})",
+      "enrollmentHistoryTitle": "Enrollment history",
+      "noEnrollments": "No classes yet",
+      "enrolledLabel": "Enrolled: {{date}}",
+      "withdrawnLabel": " · Withdrawn: {{date}}",
+      "activeStatus": "Active"
+    },
+    "grades": {
+      "sectionTitle": "Term results",
+      "empty": "No grades yet",
+      "columns": {
+        "term": "Term",
+        "type": "Type",
+        "score": "Score",
+        "rank": "Level",
+        "status": "Status"
+      },
+      "midTerm": "Mid-term",
+      "endTerm": "End-term"
+    },
+    "comments": {
+      "empty": "No comments yet",
+      "typeDaily": "Daily",
+      "typeMidTerm": "Mid-term",
+      "typeEndTerm": "End-term",
+      "noContent": "(no content)",
+      "attitudeLabel": "Attitude: {{value}}",
+      "noteLabel": "Note: {{value}}"
+    },
+    "attendance": {
+      "present": "Present",
+      "absentUnexcused": "Unexcused absence",
+      "excusedAbsent": "Excused absence",
+      "recentNote": "Showing the most recent 150 sessions",
+      "empty": "No attendance data yet",
+      "sessionNumberLabel": "Session {{number}}",
+      "sessionIdLabel": "Session #{{id}}",
+      "statusPresent": "Present",
+      "statusLate": "Late",
+      "statusEarlyLeave": "Left early",
+      "statusAbsent": "Absent",
+      "statusExcused": "Excused"
+    },
+    "exportModal": {
+      "title": "Export student profile"
+    },
+    "toast": {
+      "noEnrollment": "This student is not enrolled in any class — cannot export the Progress Report.",
+      "exportSuccess": "Report exported successfully! Downloading file...",
+      "exportFailed": "Failed to export report."
+    }
+  },
+  "gradesAnalyticsPage": {
+    "title": "Grade Analytics",
+    "description": "View score distributions, averages, and export reports by class & term.",
+    "exportClassButton": "Export class grade report",
+    "evalType": {
+      "MID_TERM": "Mid-term",
+      "END_TERM": "End-term"
+    },
+    "scaleType": {
+      "POINT_10": "10-point scale",
+      "PERCENT": "Percentage",
+      "IELTS": "IELTS band"
+    },
+    "resultStatus": {
+      "DRAFT": "Draft",
+      "SUBMITTED": "Submitted",
+      "OFFICIAL": "Official",
+      "REJECTED": "Rejected"
+    },
+    "filter": {
+      "sectionTitle": "Select gradebook",
+      "selectedClassLabel": "Selected class: {{name}} ({{code}})",
+      "setupLabel": "Gradebook (term & type)",
+      "setupPlaceholder": "-- Select gradebook --",
+      "setupOption": "{{term}} — {{evalType}} ({{scaleType}})",
+      "noClassSelected": "Please select a class in the header (top right) to view grade analytics."
+    },
+    "periodCard": {
+      "subtitle": "{{className}} — {{termName}}",
+      "heading": "{{evalType}} · {{scaleType}}",
+      "rosterNote": "Based on the roster as of: {{date}}"
+    },
+    "stats": {
+      "totalStudents": "Total students",
+      "avgScore": "Average score",
+      "maxScore": "Highest score",
+      "minScoreSub": "Lowest: {{min}}",
+      "official": "Finalized"
+    },
+    "distribution": {
+      "title": "Score distribution"
+    },
+    "table": {
+      "title": "Student grade table",
+      "searchPlaceholder": "Search by name / student code...",
+      "loading": "Loading grades...",
+      "empty": "No grades in this gradebook yet",
+      "columns": {
+        "index": "#",
+        "student": "Student",
+        "score": "Score",
+        "rank": "Level",
+        "status": "Status",
+        "export": "Export"
+      },
+      "exportRowTitle": "Export individual grade report"
+    },
+    "emptyState": "Select a class and gradebook to view analytics",
+    "exportModal": {
+      "titleSingle": "Export individual grade report",
+      "titleBulk": "Export class grade report",
+      "descriptionFallback": "Choose the report template to export."
+    },
+    "toast": {
+      "exportClassSuccess": "Class grade report exported successfully! Downloading file...",
+      "exportClassFailed": "Failed to export report",
+      "exportStudentSuccess": "Individual grade report exported successfully! Downloading file...",
+      "exportStudentFailed": "Export failed"
+    }
+  }
+}

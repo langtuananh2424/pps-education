@@ -1,0 +1,191 @@
+{
+  "employeeStatus": {
+    "ACTIVE": "Active",
+    "ON_LEAVE": "On long-term leave",
+    "TERMINATED": "Terminated"
+  },
+  "employeeType": {
+    "TEACHER": "Teacher",
+    "STAFF": "Staff",
+    "MANAGER": "Manager"
+  },
+  "qualificationType": {
+    "DEGREE": "Degree",
+    "PEDAGOGY_CERT": "Pedagogy certificate",
+    "LANGUAGE_CERT": "Language certificate",
+    "OTHER": "Other"
+  },
+  "commendationType": {
+    "COMMENDATION": "Commendation",
+    "DISCIPLINE": "Discipline"
+  },
+  "contractType": {
+    "PROBATION": "Probation",
+    "FIXED_TERM": "Fixed-term",
+    "INDEFINITE": "Indefinite-term",
+    "SEASONAL": "Seasonal"
+  },
+  "salaryType": {
+    "MONTHLY": "Monthly",
+    "HOURLY": "Hourly"
+  },
+  "profilesPage": {
+    "title": "Employee Records",
+    "description": "Store staff records, qualifications/certificates, employment contracts, and commendations/discipline — set up along with a login account.",
+    "importTitle": "Bulk import employees",
+    "importTemplateFileName": "employee-import-template.xlsx",
+    "importAccountsFileName": "employee-accounts.xlsx",
+    "importHeaders": [
+      "Full name *",
+      "Username *",
+      "Email",
+      "Date of birth (dd/MM/yyyy) *",
+      "Employee code *",
+      "Employee type (Teacher/Staff/Manager) *",
+      "Position code",
+      "Department code",
+      "Exempt from attendance/approvals (Yes/No)",
+      "Hire date (dd/MM/yyyy) *"
+    ],
+    "importSampleRow": ["John Smith", "johnsmith", "j.smith@pps.edu.vn", "01/01/1995", "NV-001", "Staff", "", "", "No", "01/07/2026"],
+    "loadError": "Couldn't load the employee list.",
+    "emptyTitle": "No employee selected",
+    "emptyDescription": "Select an employee on the left, or add a new one to view/edit.",
+    "createdToast": "Employee record created successfully!"
+  },
+  "employeeList": {
+    "title": "Staff Directory",
+    "subtitle": "Click an employee to view details & manage contracts",
+    "addButton": "Add employee",
+    "searchPlaceholder": "Search by name / employee code...",
+    "loading": "Loading...",
+    "emptyTitle": "No employees found",
+    "emptyDescription": "Try loosening your search keywords.",
+    "itemLabel": "employees"
+  },
+  "employeeDetail": {
+    "tabs": {
+      "profile": "Profile",
+      "qualifications": "Qualifications",
+      "commendations": "Commendations/Discipline",
+      "contracts": "Contracts"
+    },
+    "profile": {
+      "dobLabel": "Date of birth *",
+      "dobRequired": "Please select the date of birth.",
+      "employeeTypeLabel": "Employee type *",
+      "idCardNumberLabel": "ID card number",
+      "idCardIssuedDateLabel": "ID card issue date",
+      "idCardIssuedPlaceLabel": "ID card issue place",
+      "permanentAddressLabel": "Permanent address",
+      "currentAddressLabel": "Current address",
+      "bankAccountNumberLabel": "Bank account number",
+      "bankNameLabel": "Bank",
+      "taxCodeLabel": "Tax code",
+      "socialInsuranceNumberLabel": "Social insurance number",
+      "positionLabel": "Position",
+      "positionUnassigned": "-- Unassigned --",
+      "departmentLabel": "Department",
+      "departmentUnassigned": "-- Unassigned --",
+      "statusLabel": "Status *",
+      "terminationDateLabel": "Termination date",
+      "managementExemptCheckbox": "Exempt from attendance tracking",
+      "defaultShiftCheckbox": "Apply default shift",
+      "saving": "Saving...",
+      "saveButton": "Save profile",
+      "savedToast": "Employee profile saved successfully!",
+      "saveError": "Failed to update profile."
+    },
+    "qualifications": {
+      "sectionTitle": "Qualifications/Certificates ({{count}})",
+      "addButton": "Add qualification/certificate",
+      "modalTitle": "Add qualification/certificate",
+      "titlePlaceholder": "Qualification/certificate name *",
+      "issuerPlaceholder": "Issuing organization",
+      "titleRequired": "Please enter the qualification/certificate name.",
+      "saving": "Saving...",
+      "submitButton": "Add qualification/certificate",
+      "addedToast": "Qualification/certificate added successfully!",
+      "addError": "Failed to add.",
+      "loading": "Loading...",
+      "empty": "No qualifications/certificates yet.",
+      "issuedPrefix": "Issued:"
+    },
+    "commendations": {
+      "sectionTitle": "Commendations/Discipline ({{count}})",
+      "addButton": "New record",
+      "modalTitle": "Record commendation/discipline",
+      "amountPlaceholder": "Amount (if any)",
+      "titlePlaceholder": "Decision title *",
+      "requiredError": "Please enter the title and record date.",
+      "saving": "Saving...",
+      "submitButton": "Record",
+      "addedToast": "Commendation/discipline recorded successfully!",
+      "addError": "Failed to add.",
+      "loading": "Loading...",
+      "empty": "No commendation/discipline records yet."
+    },
+    "contracts": {
+      "sectionTitle": "Employment contracts ({{count}})",
+      "addButton": "Add contract",
+      "modalTitle": "Add contract",
+      "numberPlaceholder": "Contract number *",
+      "startDateLabel": "Start date *",
+      "endDateLabel": "End date (leave blank if indefinite)",
+      "baseSalaryPlaceholder": "Base salary *",
+      "requiredError": "Please fill in the contract number, start date, and base salary.",
+      "saving": "Saving...",
+      "submitButton": "Add contract",
+      "addedToast": "Contract added successfully!",
+      "addError": "Failed to add contract.",
+      "loading": "Loading...",
+      "empty": "No contracts yet.",
+      "terminateConfirm": "Terminate contract {{number}}?",
+      "terminateButton": "Terminate",
+      "terminatedToast": "Contract terminated successfully!",
+      "updateError": "Update failed.",
+      "monthUnit": "month",
+      "hourUnit": "hour"
+    }
+  },
+  "employeeForm": {
+    "modalTitle": "Add new employee",
+    "avatarLabel": "Avatar",
+    "avatarFallback": "Employee",
+    "accountSectionTitle": "Account",
+    "infoSectionTitle": "Employee information",
+    "codeLabel": "Employee code *",
+    "codeRequired": "Please enter the employee code.",
+    "employeeTypeLabel": "Employee type *",
+    "dobLabel": "Date of birth *",
+    "dobRequired": "Please select the date of birth.",
+    "hireDateLabel": "Hire date *",
+    "hireDateRequired": "Please select the hire date.",
+    "positionLabel": "Position",
+    "positionUnassigned": "-- Unassigned --",
+    "positionEmptyHint": "No positions yet — create one at \"Departments & Positions\".",
+    "departmentLabel": "Department",
+    "departmentUnassigned": "-- Unassigned --",
+    "idCardNumberLabel": "ID card number",
+    "idCardIssuedDateLabel": "ID card issue date",
+    "idCardIssuedPlaceLabel": "ID card issue place",
+    "permanentAddressLabel": "Permanent address",
+    "currentAddressLabel": "Current address",
+    "bankAccountNumberLabel": "Bank account number",
+    "bankNameLabel": "Bank",
+    "taxCodeLabel": "Tax code",
+    "socialInsuranceNumberLabel": "Social insurance number",
+    "managementExemptCheckbox": "Exempt from attendance tracking (is_management)",
+    "cancel": "Cancel",
+    "creating": "Creating...",
+    "createButton": "Create employee record",
+    "requiredFieldsError": "Please fill in all required fields marked in red.",
+    "accountError": "Please select an existing account, or fill in Username/Email/Full name for a new account.",
+    "createError": "Failed to create employee record."
+  },
+  "substituteCombobox": {
+    "placeholder": "Click to browse or type to search for a teacher...",
+    "loading": "Loading...",
+    "empty": "No teachers found."
+  }
+}

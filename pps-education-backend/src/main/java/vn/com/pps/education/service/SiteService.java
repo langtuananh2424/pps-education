@@ -78,7 +78,8 @@ public class SiteService {
     @Transactional
     public SiteResponse createSite(CreateSiteRequest request, Long actorUserId) {
         if (siteRepository.existsByCode(request.code())) {
-            throw new DuplicateSiteCodeException("Mã điểm trường đã tồn tại: " + request.code());
+            throw new DuplicateSiteCodeException("error.duplicateSiteCode.default", new Object[]{request.code()},
+                    "Mã điểm trường đã tồn tại: " + request.code());
         }
         Site.SiteType siteType = parseSiteType(request.siteType());
         requirePartnerInfoOnlyForPartner(siteType, request.partnerInfo());
@@ -178,7 +179,7 @@ public class SiteService {
         User teacher = getUserOrThrow(request.teacherUserId());
         User actor = getUserOrThrow(actorUserId);
         if (siteTeacherRepository.existsBySiteIdAndTeacherIdAndAssignedToIsNull(site.getId(), teacher.getId())) {
-            throw new SiteTeacherAlreadyAssignedException(
+            throw new SiteTeacherAlreadyAssignedException("error.siteTeacherAlreadyAssigned.default", new Object[]{},
                     "Giáo viên này đã được gán vào điểm trường này rồi.");
         }
 
@@ -201,7 +202,7 @@ public class SiteService {
         Site site = getSiteOrThrow(siteId);
         SiteTeacher assignment = siteTeacherRepository.findById(siteTeacherId)
                 .filter(st -> st.getSite().getId().equals(siteId))
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phân công giáo viên id=" + siteTeacherId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.site.teacherAssignmentNotFound", new Object[]{siteTeacherId}, "Không tìm thấy phân công giáo viên id=" + siteTeacherId));
         User actor = getUserOrThrow(actorUserId);
 
         assignment.setAssignedTo(LocalDate.now());
@@ -312,12 +313,12 @@ public class SiteService {
 
     private Site getSiteOrThrow(Long id) {
         return siteRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy điểm trường id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.site.notFoundById", new Object[]{id}, "Không tìm thấy điểm trường id=" + id));
     }
 
     private User getUserOrThrow(Long id) {
         return userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.site.accountNotFound", new Object[]{id}, "Không tìm thấy tài khoản id=" + id));
     }
 
     private SiteResponse toResponse(Site site) {

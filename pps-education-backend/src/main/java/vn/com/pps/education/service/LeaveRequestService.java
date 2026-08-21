@@ -96,12 +96,12 @@ public class LeaveRequestService {
     public LeaveRequestResponse submit(Long actorUserId, CreateLeaveRequestRequest request) {
         User actor = getUserOrThrow(actorUserId);
         Employee employee = employeeRepository.findByUserId(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản chưa có hồ sơ nhân sự."));
+                .orElseThrow(() -> new ResourceNotFoundException("error.leaveRequest.employeeProfileMissing", new Object[]{}, "Tài khoản chưa có hồ sơ nhân sự."));
         Set<String> roleCodes = roleCodesOf(actorUserId);
 
         // Main Flow bước 1 / A1 -- Ban giám đốc miễn trừ hoàn toàn.
         if (roleCodes.contains("EXECUTIVE")) {
-            throw new ExecutiveExemptFromLeaveRequestException("Ban giám đốc được miễn trừ, không thể nộp đơn từ.");
+            throw new ExecutiveExemptFromLeaveRequestException("error.executiveExemptFromLeaveRequest.default", new Object[]{}, "Ban giám đốc được miễn trừ, không thể nộp đơn từ.");
         }
 
         LeaveRequest.LeaveType leaveType = LeaveRequest.LeaveType.valueOf(request.leaveType());
@@ -293,11 +293,12 @@ public class LeaveRequestService {
         User actor = getUserOrThrow(actorUserId);
         LeaveRequest lr = getLeaveRequestOrThrow(leaveRequestId);
         if (lr.getStatus() != LeaveRequest.Status.PENDING) {
-            throw new LeaveRequestAlreadyFinalizedException("Đơn từ này đã ở trạng thái cuối.");
+            throw new LeaveRequestAlreadyFinalizedException("error.leaveRequestAlreadyFinalized.default", new Object[]{}, "Đơn từ này đã ở trạng thái cuối.");
         }
         LeaveRequestApproval currentApproval = leaveRequestApprovalRepository
                 .findByLeaveRequestIdAndStepOrder(lr.getId(), lr.getCurrentStep())
                 .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.leaveRequest.approvalStepNotFound", new Object[]{leaveRequestId},
                         "Không tìm thấy bước duyệt hiện tại cho đơn id=" + leaveRequestId));
 
         Set<String> roleCodes = roleCodesOf(actorUserId);
@@ -305,7 +306,7 @@ public class LeaveRequestService {
                 ? lr.getCurrentApprover().getId().equals(actorUserId)
                 : approverRoleMatchesRoleCodes(currentApproval.getApproverRole(), roleCodes);
         if (!authorized) {
-            throw new NotCurrentApproverException("Bạn không có thẩm quyền duyệt bước hiện tại của đơn từ này.");
+            throw new NotCurrentApproverException("error.notCurrentApprover.default", new Object[]{}, "Bạn không có thẩm quyền duyệt bước hiện tại của đơn từ này.");
         }
 
         LeaveRequestApproval.Decision decision = LeaveRequestApproval.Decision.valueOf(request.decision());
@@ -421,12 +422,12 @@ public class LeaveRequestService {
 
     private User getUserOrThrow(Long userId) {
         return userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + userId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.leaveRequest.userNotFound", new Object[]{userId}, "Không tìm thấy tài khoản id=" + userId));
     }
 
     private LeaveRequest getLeaveRequestOrThrow(Long id) {
         return leaveRequestRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn từ id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.leaveRequest.notFoundById", new Object[]{id}, "Không tìm thấy đơn từ id=" + id));
     }
 
     private LeaveRequestResponse toResponse(LeaveRequest lr) {

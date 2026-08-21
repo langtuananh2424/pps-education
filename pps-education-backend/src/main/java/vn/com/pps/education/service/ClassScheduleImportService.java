@@ -95,9 +95,13 @@ public class ClassScheduleImportService {
     @Transactional
     public ClassScheduleImportResponse importSchedule(Long classId, MultipartFile file, Long actorUserId) {
         SchoolClass schoolClass = schoolClassRepository.findByIdAndDeletedAtIsNull(classId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học id=" + classId));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.classScheduleImport.classNotFound", new Object[]{classId},
+                        "Không tìm thấy lớp học id=" + classId));
         User actor = userRepository.findById(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.classScheduleImport.actorNotFound", new Object[]{actorUserId},
+                        "Không tìm thấy tài khoản id=" + actorUserId));
         Long siteId = schoolClass.getSite().getId();
 
         ImportJob job = createJob(file, actor);
@@ -142,7 +146,9 @@ public class ClassScheduleImportService {
     @Transactional(readOnly = true)
     public ClassScheduleImportResponse getJob(Long id) {
         ImportJob job = importJobRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy import job id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.classScheduleImport.jobNotFound", new Object[]{id},
+                        "Không tìm thấy import job id=" + id));
         return toResponse(job);
     }
 

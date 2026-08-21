@@ -57,7 +57,8 @@ public class PermissionService {
         }
         // A1 -- kiểm tra trùng code trước khi insert, tránh lộ raw DataIntegrityViolationException
         if (permissionRepository.findByCode(request.code()).isPresent()) {
-            throw new DuplicatePermissionCodeException("Mã quyền đã tồn tại: " + request.code());
+            throw new DuplicatePermissionCodeException("error.duplicatePermissionCode.default",
+                    new Object[]{request.code()}, "Mã quyền đã tồn tại: " + request.code());
         }
 
         Permission permission = new Permission();
@@ -71,7 +72,8 @@ public class PermissionService {
     @Transactional
     public PermissionResponse update(Long id, UpdatePermissionRequest request) {
         Permission permission = permissionRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy quyền id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.permission.notFoundById",
+                        new Object[]{id}, "Không tìm thấy quyền id=" + id));
         // code bất biến khi đã tồn tại -- không nằm trong UpdatePermissionRequest
         permission.setName(request.name());
         permission.setDescription(request.description());
@@ -81,7 +83,8 @@ public class PermissionService {
     @Transactional
     public void delete(Long id) {
         Permission permission = permissionRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy quyền id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.permission.notFoundById",
+                        new Object[]{id}, "Không tìm thấy quyền id=" + id));
 
         // A2 -- không xóa quyền đang được role hoặc tài khoản tham chiếu
         List<RolePermission> referencingRoles = rolePermissionRepository.findByPermissionId(id);
@@ -91,7 +94,8 @@ public class PermissionService {
                     .collect(Collectors.joining(", "));
             String usernames = referencingOverrides.stream().map(o -> o.getUser().getUsername())
                     .collect(Collectors.joining(", "));
-            throw new PermissionInUseException(
+            throw new PermissionInUseException("error.permissionInUse.default",
+                    new Object[]{permission.getCode(), roleCodes, usernames},
                     "Không thể xóa quyền '%s' vì đang được sử dụng. Role: [%s]. Tài khoản: [%s]."
                             .formatted(permission.getCode(), roleCodes, usernames));
         }

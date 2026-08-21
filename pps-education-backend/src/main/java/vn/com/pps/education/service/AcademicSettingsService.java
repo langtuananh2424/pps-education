@@ -92,11 +92,15 @@ public class AcademicSettingsService {
 
     private User getUserOrThrow(Long actorUserId) {
         return userRepository.findById(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.academicSettings.actorNotFound", new Object[]{actorUserId},
+                        "Không tìm thấy tài khoản id=" + actorUserId));
     }
 
     private SystemSetting readSetting(String key) {
         return systemSettingRepository.findBySettingKey(key)
-                .orElseThrow(() -> new ResourceNotFoundException("Thiếu cấu hình system_settings: " + key));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.academicSettings.settingMissing", new Object[]{key},
+                        "Thiếu cấu hình system_settings: " + key));
     }
 }

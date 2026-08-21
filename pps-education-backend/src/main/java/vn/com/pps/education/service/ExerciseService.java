@@ -209,7 +209,8 @@ public class ExerciseService {
     public ExerciseQuestionResponse addQuestion(Long exerciseId, AddExerciseQuestionRequest request, Long actorUserId) {
         Exercise exercise = getExerciseOrThrow(exerciseId);
         Question question = questionRepository.findById(request.questionId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy câu hỏi id=" + request.questionId()));
+                .orElseThrow(() -> new ResourceNotFoundException("error.exercise.questionNotFound",
+                        new Object[]{request.questionId()}, "Không tìm thấy câu hỏi id=" + request.questionId()));
         if (!question.getQuestionBank().getId().equals(exercise.getExam().getQuestionBank().getId())) {
             throw new IllegalArgumentException(
                     "Câu hỏi này không thuộc Đề đang chọn.");
@@ -245,7 +246,8 @@ public class ExerciseService {
         }
         List<ExerciseQuestion> questions = exerciseQuestionRepository.findByExerciseIdOrderByDisplayOrder(exerciseId);
         ExerciseQuestion eq = questions.stream().filter(q -> q.getId().equals(exerciseQuestionId)).findFirst()
-                .orElseThrow(() -> new ResourceNotFoundException(
+                .orElseThrow(() -> new ResourceNotFoundException("error.exercise.questionNotFoundInExercise",
+                        new Object[]{exerciseQuestionId, exerciseId},
                         "Không tìm thấy câu hỏi id=" + exerciseQuestionId + " trong đề id=" + exerciseId));
         requireWithinTotalPoints(exercise, questions, exerciseQuestionId, request.points());
         eq.setPoints(request.points());
@@ -286,9 +288,12 @@ public class ExerciseService {
                     "Đề này đã Publish — không gỡ câu hỏi được nữa, chỉ gỡ được khi còn Nháp (DRAFT).");
         }
         ExerciseQuestion eq = exerciseQuestionRepository.findById(exerciseQuestionId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy câu hỏi id=" + exerciseQuestionId + " trong đề."));
+                .orElseThrow(() -> new ResourceNotFoundException("error.exercise.questionNotFoundSimple",
+                        new Object[]{exerciseQuestionId}, "Không tìm thấy câu hỏi id=" + exerciseQuestionId + " trong đề."));
         if (!eq.getExercise().getId().equals(exerciseId)) {
-            throw new ResourceNotFoundException("Không tìm thấy câu hỏi id=" + exerciseQuestionId + " trong đề id=" + exerciseId);
+            throw new ResourceNotFoundException("error.exercise.questionNotFoundInExercise",
+                    new Object[]{exerciseQuestionId, exerciseId},
+                    "Không tìm thấy câu hỏi id=" + exerciseQuestionId + " trong đề id=" + exerciseId);
         }
         exerciseQuestionRepository.delete(eq);
     }
@@ -423,9 +428,20 @@ public class ExerciseService {
         }
 
         OffsetDateTime finalDueAt = dueAt;
+        Long sourceSessionId = sourceClassSession == null ? null : sourceClassSession.getId();
         List<ExerciseAssignment> activeForExerciseAndClass = exerciseAssignmentRepository
                 .findByExerciseIdAndSchoolClassIdAndStatus(exerciseId, classId, ExerciseAssignment.Status.ACTIVE);
-        var sameSession = activeForExerciseAndClass.stream().filter(a -> sameDueAt(a.getDueAt(), finalDueAt)).findFirst();
+        // V128 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-19) — đảo ngược 1 phần quyết
+        // định 2026-08-06 ngay bên dưới: "giao lại = huỷ bản cũ + giao bản mới" giờ CHỈ áp dụng khi giao
+        // lại từ ĐÚNG CÙNG buổi Nhận xét nguồn (sourceClassSession) — sửa lựa chọn trong lúc còn soạn 1
+        // buổi vẫn hành xử như cũ. Giao CÙNG 1 Bài từ 2 buổi Nhận xét KHÁC NHAU (VD buổi trước + buổi
+        // sau đều chọn lại đúng Bài đó) giờ là 2 bài tập ĐỘC LẬP, chấm điểm riêng — không đụng bản giao
+        // của buổi kia. Lọc về đúng phạm vi buổi nguồn TRƯỚC khi áp toàn bộ logic sameSession/cancel bên
+        // dưới, các bản giao từ buổi khác coi như không tồn tại ở đây.
+        List<ExerciseAssignment> activeFromSameSession = activeForExerciseAndClass.stream()
+                .filter(a -> java.util.Objects.equals(a.getSourceClassSession() == null ? null : a.getSourceClassSession().getId(), sourceSessionId))
+                .toList();
+        var sameSession = activeFromSameSession.stream().filter(a -> sameDueAt(a.getDueAt(), finalDueAt)).findFirst();
         if (sameSession.isPresent()) {
             return sameSession.get();
         }
@@ -434,8 +450,9 @@ public class ExerciseService {
         // cùng (Bài, lớp) — học sinh mở "BTVN" thấy điểm/trạng thái của lượt làm CŨ dán nhầm lên bản
         // giao MỚI (toAssignedResponse lấy "lượt gần nhất" theo exerciseId+studentId, không phân biệt
         // bản giao nào). Mirror ĐÚNG cơ chế đã có sẵn ở ReviewVideoService#deliverToClass (V69): "giao
-        // lại = 1 lượt MỚI" — hủy mọi bản giao ACTIVE cũ trước khi tạo bản giao mới.
-        activeForExerciseAndClass.forEach(this::cancelAssignment);
+        // lại = 1 lượt MỚI" — hủy mọi bản giao ACTIVE cũ CÙNG buổi nguồn trước khi tạo bản giao mới
+        // (V128: chỉ còn "cùng buổi nguồn" — xem ghi chú ở activeFromSameSession).
+        activeFromSameSession.forEach(this::cancelAssignment);
 
         ExerciseAssignment assignment;
         try {
@@ -450,10 +467,13 @@ public class ExerciseService {
             });
         } catch (DataIntegrityViolationException e) {
             // Race condition (V71) — xem Javadoc ReviewVideoService#deliverToClass. Đọc lại bản ghi đã
-            // thắng, KHÔNG tạo mới/không báo lại.
+            // thắng, KHÔNG tạo mới/không báo lại. V128: lọc thêm theo đúng buổi nguồn, tránh vô tình
+            // khớp nhầm bản giao (Bài, lớp, dueAt trùng ngẫu nhiên) của 1 buổi Nhận xét khác.
             return exerciseAssignmentRepository
                     .findByExerciseIdAndSchoolClassIdAndStatus(exerciseId, classId, ExerciseAssignment.Status.ACTIVE)
-                    .stream().filter(a -> sameDueAt(a.getDueAt(), finalDueAt)).findFirst()
+                    .stream()
+                    .filter(a -> java.util.Objects.equals(a.getSourceClassSession() == null ? null : a.getSourceClassSession().getId(), sourceSessionId))
+                    .filter(a -> sameDueAt(a.getDueAt(), finalDueAt)).findFirst()
                     .orElseThrow(() -> e);
         }
 
@@ -506,7 +526,7 @@ public class ExerciseService {
         }
         if (!classTeacherRepository.existsBySchoolClassIdAndTeacherIdAndAssignedToIsNull(classId, actorUserId)) {
             throw new NotAssignedTeacherForClassException(
-                    "Bạn không được phân công giảng dạy lớp này.");
+                    "error.notAssignedTeacherForClass.default", new Object[]{}, "Bạn không được phân công giảng dạy lớp này.");
         }
     }
 
@@ -528,7 +548,8 @@ public class ExerciseService {
             return; // staff/teacher/admin — không hạn chế thêm ở đây
         }
         if (exercise.getStatus() != Exercise.Status.PUBLISHED) {
-            throw new ResourceNotFoundException("Không tìm thấy đề id=" + exercise.getId());
+            throw new ResourceNotFoundException("error.exercise.notFoundById",
+                    new Object[]{exercise.getId()}, "Không tìm thấy đề id=" + exercise.getId());
         }
         // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06: chấp nhận CẢ ACTIVE lẫn
         // COMPLETED (không chỉ ACTIVE) — mirror ExerciseAttemptService#listMyAssignedExercises (V92).
@@ -541,34 +562,40 @@ public class ExerciseService {
                         || !exerciseAssignmentRepository.findByExerciseIdAndSchoolClassIdAndStatus(
                         exercise.getId(), e.getSchoolClass().getId(), ExerciseAssignment.Status.COMPLETED).isEmpty());
         if (!hasVisibleAssignment) {
-            throw new ResourceNotFoundException("Không tìm thấy đề id=" + exercise.getId());
+            throw new ResourceNotFoundException("error.exercise.notFoundById",
+                    new Object[]{exercise.getId()}, "Không tìm thấy đề id=" + exercise.getId());
         }
     }
 
     private User getUserOrThrow(Long id) {
         return userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.exercise.userNotFound",
+                        new Object[]{id}, "Không tìm thấy tài khoản id=" + id));
     }
 
     /** V87 — không lộ Đề đã "xóa" (deleted_at), cùng pattern ExamService#getExamOrThrow. */
     private Exam examOrThrow(Long id) {
         return examRepository.findByIdAndDeletedAtIsNull(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Đề id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.exercise.examNotFound",
+                        new Object[]{id}, "Không tìm thấy Đề id=" + id));
     }
 
     private CurriculumSubject curriculumSubjectOrThrow(Long id) {
         return curriculumSubjectRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy học phần id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.exercise.subjectNotFound",
+                        new Object[]{id}, "Không tìm thấy học phần id=" + id));
     }
 
     private SchoolClass getClassOrThrow(Long id) {
         return schoolClassRepository.findByIdAndDeletedAtIsNull(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.exercise.classNotFound",
+                        new Object[]{id}, "Không tìm thấy lớp học id=" + id));
     }
 
     private Exercise getExerciseOrThrow(Long id) {
         return exerciseRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đề id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.exercise.notFoundById",
+                        new Object[]{id}, "Không tìm thấy đề id=" + id));
     }
 
     private ExerciseResponse toResponse(Exercise e, List<ExerciseQuestion> questions) {

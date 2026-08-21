@@ -1,5 +1,6 @@
 import React, { useRef, useState } from "react";
 import { Camera, Loader2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/cn";
 
 interface AvatarUploadFieldProps {
@@ -18,6 +19,7 @@ const sizeClasses = { md: "w-16 h-16 text-lg", lg: "w-24 h-24 text-2xl" };
 
 /** Ảnh đại diện dạng tròn có thể bấm để đổi ảnh — dùng chung cho hồ sơ Nhân sự/Phụ huynh/Học sinh (V48/UC-63). */
 export default function AvatarUploadField({ value, onChange, onUpload, fallbackName, size = "lg", disabled }: AvatarUploadFieldProps) {
+  const { t } = useTranslation("layout");
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +35,7 @@ export default function AvatarUploadField({ value, onChange, onUpload, fallbackN
       const { url } = await onUpload(file);
       onChange(url);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Upload ảnh thất bại.");
+      setError(err instanceof Error ? err.message : t("upload.avatar.failed"));
     } finally {
       setUploading(false);
     }
@@ -55,7 +57,7 @@ export default function AvatarUploadField({ value, onChange, onUpload, fallbackN
           type="button"
           onClick={() => inputRef.current?.click()}
           disabled={disabled || uploading}
-          title="Đổi ảnh đại diện"
+          title={t("upload.avatar.changeTitle")}
           className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-brand-red hover:opacity-90 text-white flex items-center justify-center shadow-md border-2 border-white disabled:opacity-50"
         >
           {uploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Camera className="w-3 h-3" />}

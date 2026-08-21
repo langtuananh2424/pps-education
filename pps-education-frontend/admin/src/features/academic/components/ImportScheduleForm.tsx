@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { AlertTriangle, Check, FileSpreadsheet, Upload } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import Button from "@/components/ui/Button";
 import { ClassScheduleImportResponse, importClassSchedule } from "../api";
@@ -12,6 +13,7 @@ interface ImportScheduleFormProps {
 
 /** UC-57: Nhập lịch học từ file Excel — upload thật (multipart) tới BE, BE tự đọc/kiểm tra trùng lịch, không giả lập parse ở FE. */
 export default function ImportScheduleForm({ classId, onDone, onCancel }: ImportScheduleFormProps) {
+  const { t } = useTranslation("academic-classes");
   const [file, setFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -21,7 +23,7 @@ export default function ImportScheduleForm({ classId, onDone, onCancel }: Import
     e.preventDefault();
     setError(null);
     if (!file) {
-      setError("Vui lòng chọn 1 tệp Excel (.xlsx).");
+      setError(t("importSchedule.fileRequired"));
       return;
     }
     setSubmitting(true);
@@ -30,7 +32,7 @@ export default function ImportScheduleForm({ classId, onDone, onCancel }: Import
       setResult(res);
       if (res.failedRows === 0) onDone();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Nhập lịch học từ Excel thất bại.");
+      setError(err instanceof ApiError ? err.message : t("importSchedule.submitError"));
     } finally {
       setSubmitting(false);
     }
@@ -46,7 +48,7 @@ export default function ImportScheduleForm({ classId, onDone, onCancel }: Import
         {file ? (
           <p className="text-xs font-bold text-slate-800">{file.name}</p>
         ) : (
-          <p className="text-xs font-bold text-slate-600">Nhấn để chọn tệp Excel (.xlsx)</p>
+          <p className="text-xs font-bold text-slate-600">{t("importSchedule.dropzoneText")}</p>
         )}
       </label>
 
@@ -55,8 +57,10 @@ export default function ImportScheduleForm({ classId, onDone, onCancel }: Import
           <div className="flex items-center gap-1.5 font-bold">
             {result.failedRows === 0 ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />}
             <span>
-              Thành công {result.successRows} / {result.totalRows ?? "?"} dòng
-              {result.failedRows > 0 && <span className="text-rose-600"> — lỗi {result.failedRows} dòng</span>}
+              {t("importSchedule.resultSuccess", { success: result.successRows, total: result.totalRows ?? "?" })}
+              {result.failedRows > 0 && (
+                <span className="text-rose-600">{t("importSchedule.resultFailed", { count: result.failedRows })}</span>
+              )}
             </span>
           </div>
           {result.errorSummary && result.errorSummary.length > 0 && (
@@ -73,11 +77,11 @@ export default function ImportScheduleForm({ classId, onDone, onCancel }: Import
 
       <div className="flex gap-2">
         <Button type="button" variant="secondary" size="sm" onClick={onCancel}>
-          Đóng
+          {t("common.closeButton")}
         </Button>
         <Button type="submit" variant="primary" size="sm" disabled={submitting || !file}>
           <FileSpreadsheet className="w-3.5 h-3.5" />
-          {submitting ? "Đang nhập khẩu..." : "Nhập khẩu Excel"}
+          {submitting ? t("importSchedule.submitting") : t("importSchedule.submitButton")}
         </Button>
       </div>
     </form>

@@ -36,6 +36,6 @@ public class HomeworkAlertSettings {
 
     private SystemSetting readSetting(String key) {
         return systemSettingRepository.findBySettingKey(key)
-                .orElseThrow(() -> new ResourceNotFoundException("Thiếu cấu hình system_settings: " + key));
+                .orElseThrow(() -> new ResourceNotFoundException("error.homeworkAlertSettings.missingSystemSetting", new Object[]{key}, "Thiếu cấu hình system_settings: " + key));
     }
 }

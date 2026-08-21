@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, BookOpen, GraduationCap } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { ClassResponse } from "@/features/academic/api";
 import {
@@ -71,6 +72,7 @@ type ViewMode = "queue" | "legacy";
  * trực tiếp đứng lớp.
  */
 export default function ExamsPage() {
+  const { t } = useTranslation("lms-grading");
   const { message: toastMessage, showToast } = useToast();
   const [mode, setMode] = useState<ViewMode>("queue");
   const [error, setError] = useState<string | null>(null);
@@ -88,7 +90,7 @@ export default function ExamsPage() {
     setError(null);
     listPendingGradingClasses()
       .then(setLandingClasses)
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách lớp cần chấm."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("examsPage.errors.loadLandingFailed")))
       .finally(() => setLoadingLanding(false));
   };
 
@@ -107,7 +109,7 @@ export default function ExamsPage() {
     setQueueSelectedStudentId(null);
     listReviewVideoSubmissionsForClass(queueClass.classId)
       .then(setQueueSubmissions)
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách bài nộp."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("examsPage.errors.loadSubmissionsFailed")))
       .finally(() => setLoadingQueueSubmissions(false));
   }, [queueClass]);
 
@@ -119,7 +121,7 @@ export default function ExamsPage() {
 
   const handleQueueSaved = (updated: ReviewVideoSubmissionResponse) => {
     setQueueSubmissions((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
-    showToast("Đã lưu kết quả chấm!");
+    showToast(t("examsPage.toasts.saved"));
   };
 
   const backToLanding = () => {
@@ -147,7 +149,7 @@ export default function ExamsPage() {
     setLoadingSets(true);
     listReviewVideoSets()
       .then(setSets)
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách Bộ Video phản xạ."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("examsPage.errors.loadSetsFailed")))
       .finally(() => setLoadingSets(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
@@ -163,7 +165,7 @@ export default function ExamsPage() {
         setAssignedClasses(cls);
         setClassId(cls[0]?.id ?? null);
       })
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách lớp đã gán."));
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("examsPage.errors.loadAssignedClassesFailed")));
   }, [setId]);
 
   useEffect(() => {
@@ -191,7 +193,7 @@ export default function ExamsPage() {
         });
         setQuestionInfoById(map);
       })
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách bài nộp."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("examsPage.errors.loadSubmissionsFailed")))
       .finally(() => setLoadingLegacy(false));
   }, [setId, classId]);
 
@@ -207,17 +209,15 @@ export default function ExamsPage() {
 
   const handleLegacySaved = (updated: ReviewVideoSubmissionResponse) => {
     setLegacySubmissions((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
-    showToast("Đã lưu kết quả chấm!");
+    showToast(t("examsPage.toasts.saved"));
   };
 
   return (
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Tài Liệu & Khảo Thí LMS (E-Learning)</h1>
-        <p className="text-xs text-slate-500 mt-1">Chấm bài Video phản xạ (UC-23b) — nghe audio học sinh trả lời, cho điểm và nhận xét.</p>
-        <p className="text-[10px] text-slate-400 mt-1 italic">
-          Chấm câu tự luận/nói của Bài tập (Exercise) do giáo viên Việt Nam giao (UC-24/27) chưa triển khai ở đây — sẽ bổ sung riêng.
-        </p>
+        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("examsPage.title")}</h1>
+        <p className="text-xs text-slate-500 mt-1">{t("examsPage.subtitle")}</p>
+        <p className="text-[10px] text-slate-400 mt-1 italic">{t("examsPage.note")}</p>
 
         <div className="flex items-center gap-1 mt-4">
           <button
@@ -230,7 +230,7 @@ export default function ExamsPage() {
               mode === "queue" ? "bg-brand-orange text-white shadow-soft" : "text-slate-500 hover:bg-slate-100"
             }`}
           >
-            Hàng chờ chấm bài
+            {t("examsPage.tabs.queue")}
           </button>
           <button
             type="button"
@@ -242,7 +242,7 @@ export default function ExamsPage() {
               mode === "legacy" ? "bg-brand-orange text-white shadow-soft" : "text-slate-500 hover:bg-slate-100"
             }`}
           >
-            Xem theo Bộ + Lớp
+            {t("examsPage.tabs.legacy")}
           </button>
         </div>
       </div>
@@ -252,11 +252,11 @@ export default function ExamsPage() {
       {mode === "queue" ? (
         !queueClass ? (
           loadingLanding ? (
-            <p className="text-xs text-slate-500">Đang tải danh sách lớp cần chấm...</p>
+            <p className="text-xs text-slate-500">{t("examsPage.queue.loadingLanding")}</p>
           ) : landingClasses.length === 0 ? (
             <div className="h-40 border border-dashed rounded-xl flex flex-col items-center justify-center text-slate-400 text-xs italic gap-1.5 text-center p-4">
               <GraduationCap className="w-6 h-6 text-slate-300" />
-              <span>Không có lớp nào đang chờ chấm bài Video phản xạ.</span>
+              <span>{t("examsPage.queue.emptyLanding")}</span>
             </div>
           ) : (
             <div className="space-y-2 max-w-xl">
@@ -283,20 +283,20 @@ export default function ExamsPage() {
               onClick={backToLanding}
               className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-slate-800 cursor-pointer"
             >
-              <ArrowLeft className="w-3.5 h-3.5" /> Danh sách lớp
+              <ArrowLeft className="w-3.5 h-3.5" /> {t("examsPage.queue.backToClasses")}
             </button>
             <h2 className="text-sm font-bold text-slate-800">
               {queueClass.classCode} — {queueClass.className}
             </h2>
 
             {loadingQueueSubmissions ? (
-              <p className="text-xs text-slate-500">Đang tải hàng chờ chấm bài...</p>
+              <p className="text-xs text-slate-500">{t("examsPage.shared.loadingQueue")}</p>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                 <div className="space-y-2 max-h-[36rem] overflow-y-auto pr-1">
                   {queueStudentGroups.length === 0 ? (
                     <div className="h-32 border border-dashed rounded-xl flex items-center justify-center text-slate-400 text-xs italic">
-                      <BookOpen className="w-4 h-4 mr-1.5" /> Chưa có bài nộp nào cho lớp này.
+                      <BookOpen className="w-4 h-4 mr-1.5" /> {t("examsPage.shared.emptySubmissions")}
                     </div>
                   ) : (
                     queueStudentGroups.map((g) => {
@@ -318,7 +318,7 @@ export default function ExamsPage() {
                                 allGraded ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"
                               }`}
                             >
-                              {gradedCount}/{g.submissions.length} đã chấm
+                              {t("examsPage.shared.gradedCount", { graded: gradedCount, total: g.submissions.length })}
                             </span>
                           </div>
                         </button>
@@ -331,11 +331,13 @@ export default function ExamsPage() {
                   {!queueSelectedGroup ? (
                     <div className="h-64 border border-dashed rounded-xl flex flex-col items-center justify-center text-slate-400 text-xs italic gap-1.5 text-center p-4">
                       <BookOpen className="w-6 h-6 text-slate-300" />
-                      <span>Chọn 1 học sinh trong danh sách bên cạnh để nghe và chấm từng câu.</span>
+                      <span>{t("examsPage.shared.selectStudentPrompt")}</span>
                     </div>
                   ) : (
                     <>
-                      <h3 className="text-xs font-bold text-slate-800">{queueSelectedGroup.studentFullName} — {queueSelectedGroup.submissions.length} câu đã nộp</h3>
+                      <h3 className="text-xs font-bold text-slate-800">
+                        {t("examsPage.shared.studentSubmittedCount", { name: queueSelectedGroup.studentFullName, count: queueSelectedGroup.submissions.length })}
+                      </h3>
                       {queueSelectedGroup.submissions.map((s) => (
                         <div key={s.id} className="border border-slate-200 rounded-xl p-3.5">
                           <ReviewVideoGradingPanel
@@ -357,14 +359,14 @@ export default function ExamsPage() {
         <div className="space-y-6">
           <div className="flex flex-wrap gap-4">
             <div className="w-72">
-              <label className={labelClass}>Bộ Video phản xạ *</label>
+              <label className={labelClass}>{t("examsPage.legacy.setLabel")}</label>
               <Select
                 value={setId ?? ""}
                 onChange={(e) => setSetId(e.target.value ? Number(e.target.value) : null)}
                 className={inputClass}
                 disabled={loadingSets}
               >
-                <option value="">-- Chọn bộ --</option>
+                <option value="">{t("examsPage.legacy.setPlaceholder")}</option>
                 {reflexSets.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.code} — {s.title}
@@ -375,12 +377,12 @@ export default function ExamsPage() {
 
             {setId && (
               <div className="w-64">
-                <label className={labelClass}>Lớp *</label>
+                <label className={labelClass}>{t("examsPage.legacy.classLabel")}</label>
                 {assignedClasses.length === 0 ? (
-                  <p className="text-xs text-slate-400 italic pt-2">Bộ này chưa được gán cho lớp nào.</p>
+                  <p className="text-xs text-slate-400 italic pt-2">{t("examsPage.legacy.noAssignedClass")}</p>
                 ) : (
                   <Select value={classId ?? ""} onChange={(e) => setClassId(e.target.value ? Number(e.target.value) : null)} className={inputClass}>
-                    <option value="">-- Chọn lớp --</option>
+                    <option value="">{t("examsPage.legacy.classPlaceholder")}</option>
                     {assignedClasses.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.classCode} — {c.name}
@@ -393,15 +395,15 @@ export default function ExamsPage() {
           </div>
 
           {!setId ? (
-            <p className="text-xs text-slate-400 italic">Chọn 1 Bộ Video phản xạ để bắt đầu chấm bài.</p>
+            <p className="text-xs text-slate-400 italic">{t("examsPage.legacy.selectSetPrompt")}</p>
           ) : loadingLegacy ? (
-            <p className="text-xs text-slate-500">Đang tải hàng chờ chấm bài...</p>
+            <p className="text-xs text-slate-500">{t("examsPage.shared.loadingQueue")}</p>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
               <div className="space-y-2 max-h-[36rem] overflow-y-auto pr-1">
                 {legacyStudentGroups.length === 0 ? (
                   <div className="h-32 border border-dashed rounded-xl flex items-center justify-center text-slate-400 text-xs italic">
-                    <BookOpen className="w-4 h-4 mr-1.5" /> Chưa có bài nộp nào cho lớp này.
+                    <BookOpen className="w-4 h-4 mr-1.5" /> {t("examsPage.shared.emptySubmissions")}
                   </div>
                 ) : (
                   legacyStudentGroups.map((g) => {
@@ -423,7 +425,7 @@ export default function ExamsPage() {
                               allGraded ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"
                             }`}
                           >
-                            {gradedCount}/{g.submissions.length} đã chấm
+                            {t("examsPage.shared.gradedCount", { graded: gradedCount, total: g.submissions.length })}
                           </span>
                         </div>
                       </button>
@@ -436,11 +438,13 @@ export default function ExamsPage() {
                 {!legacySelectedGroup ? (
                   <div className="h-64 border border-dashed rounded-xl flex flex-col items-center justify-center text-slate-400 text-xs italic gap-1.5 text-center p-4">
                     <BookOpen className="w-6 h-6 text-slate-300" />
-                    <span>Chọn 1 học sinh trong danh sách bên cạnh để nghe và chấm từng câu.</span>
+                    <span>{t("examsPage.shared.selectStudentPrompt")}</span>
                   </div>
                 ) : (
                   <>
-                    <h3 className="text-xs font-bold text-slate-800">{legacySelectedGroup.studentFullName} — {legacySelectedGroup.submissions.length} câu đã nộp</h3>
+                    <h3 className="text-xs font-bold text-slate-800">
+                      {t("examsPage.shared.studentSubmittedCount", { name: legacySelectedGroup.studentFullName, count: legacySelectedGroup.submissions.length })}
+                    </h3>
                     {legacySelectedGroup.submissions.map((s) => {
                       const info = questionInfoById[s.reviewVideoQuestionId];
                       return (

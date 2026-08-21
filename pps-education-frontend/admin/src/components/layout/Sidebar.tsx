@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { ChevronDown, ChevronRight, LogOut, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useApp } from "@/context/AppContext";
 import { isNavItemAllowed, navSections } from "@/constants/navigation";
 import { usePendingGradingCount } from "@/features/lms/hooks/usePendingGradingCount";
@@ -10,6 +11,7 @@ import Modal from "@/components/ui/Modal";
 import { cn } from "@/lib/cn";
 
 export default function Sidebar() {
+  const { t } = useTranslation("layout");
   const { currentRoleLabel, currentUser, sidebarOpen, setSidebarOpen, hasPermission, logout, hasUnsavedChanges, saveUnsavedChanges } = useApp();
   const navigate = useNavigate();
   // Bổ sung ngoài SDD gốc, xác nhận 2026-08-17 — số lớp đang có bài Video phản xạ chưa chấm, hiện cạnh
@@ -69,7 +71,7 @@ export default function Sidebar() {
         // Bug đã xác nhận 2026-08-17 — trước đây điều hướng đi bất kể kết quả, làm mất âm thầm dữ liệu
         // không lưu được (VD chỉ điền Thái độ/BTVN mà chưa gõ Nhận xét). Giờ GIỮ NGUYÊN popup, hiện lý
         // do ngay trong đó (luôn nổi giữa màn hình, không cần cuộn trang mới thấy như banner tĩnh cũ).
-        setSaveFailureMessage(result.message ?? "Không lưu được dữ liệu — vui lòng kiểm tra lại trước khi rời trang.");
+        setSaveFailureMessage(result.message ?? t("sidebar.unsavedModal.saveFailureFallback"));
       }
     } finally {
       setSavingBeforeLeave(false);
@@ -126,7 +128,7 @@ export default function Sidebar() {
                   onClick={() => toggleGroup(section.id)}
                   className="w-full px-2 py-1.5 flex items-center justify-between text-[11px] font-bold font-display tracking-widest text-slate-400 hover:text-slate-600"
                 >
-                  <span>{section.title}</span>
+                  <span>{t(`nav.sections.${section.id}`, section.title)}</span>
                   {isExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
                 </button>
 
@@ -151,7 +153,7 @@ export default function Sidebar() {
                           {({ isActive }) => (
                             <>
                               <Icon className={cn("w-4 h-4 shrink-0", isActive ? "text-white" : "text-slate-400")} />
-                              <span className="truncate">{item.label}</span>
+                              <span className="truncate">{t(`nav.items.${item.id}`, item.label)}</span>
                               {item.id === "lms-exams" && <CountBadge count={pendingGradingCount} />}
                             </>
                           )}
@@ -170,7 +172,7 @@ export default function Sidebar() {
             <Avatar name={currentUser?.fullName || "U"} />
             <div className="flex-1 min-w-0">
               <span className="text-xs font-bold text-slate-900 block truncate leading-tight">
-                {currentUser?.fullName || "Chưa đăng nhập"}
+                {currentUser?.fullName || t("sidebar.notLoggedIn")}
               </span>
               <span className="text-[10px] text-slate-500 block truncate mt-0.5 font-medium">{currentRoleLabel}</span>
             </div>
@@ -181,7 +183,7 @@ export default function Sidebar() {
             className="w-full bg-white border border-slate-200 hover:bg-slate-50 hover:border-slate-300 text-rose-500 hover:text-rose-600 font-bold text-[11px] py-2 rounded-lg flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs"
           >
             <LogOut className="w-3.5 h-3.5 shrink-0" />
-            <span>Đăng xuất hệ thống</span>
+            <span>{t("sidebar.logout")}</span>
           </button>
         </div>
       </aside>
@@ -189,8 +191,8 @@ export default function Sidebar() {
       <Modal
         open={!!pendingPath}
         onClose={closePendingPathModal}
-        title="Dữ liệu chưa hoàn tất"
-        description="Bạn đang nhập dở dữ liệu ở trang hiện tại. Bạn có muốn lưu tạm trước khi rời đi không?"
+        title={t("sidebar.unsavedModal.title")}
+        description={t("sidebar.unsavedModal.description")}
         size="md"
         footer={
           <>
@@ -199,14 +201,14 @@ export default function Sidebar() {
               onClick={closePendingPathModal}
               className="px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-100 rounded-lg"
             >
-              Ở lại trang
+              {t("sidebar.unsavedModal.stay")}
             </button>
             <button
               type="button"
               onClick={leaveToPendingPath}
               className="px-3 py-2 text-[11px] font-semibold text-rose-600 hover:bg-rose-50 rounded-lg"
             >
-              Rời đi, không lưu
+              {t("sidebar.unsavedModal.leaveWithoutSaving")}
             </button>
             <button
               type="button"
@@ -214,13 +216,13 @@ export default function Sidebar() {
               disabled={savingBeforeLeave}
               className="px-3 py-2 bg-brand-orange hover:bg-brand-orange/90 text-white text-[11px] font-bold rounded-lg disabled:opacity-50"
             >
-              {savingBeforeLeave ? "Đang lưu..." : "Lưu tạm & rời đi"}
+              {savingBeforeLeave ? t("sidebar.unsavedModal.saving") : t("sidebar.unsavedModal.saveAndLeave")}
             </button>
           </>
         }
       >
         <div className="space-y-2.5">
-          <p className="text-[11px] text-slate-500">Nếu không lưu, phần đang gõ dở sẽ mất khi rời khỏi trang này.</p>
+          <p className="text-[11px] text-slate-500">{t("sidebar.unsavedModal.warning")}</p>
           {saveFailureMessage && (
             <div className="text-[11px] font-semibold text-rose-700 bg-rose-50 border border-rose-100 rounded-lg p-2.5">
               {saveFailureMessage}

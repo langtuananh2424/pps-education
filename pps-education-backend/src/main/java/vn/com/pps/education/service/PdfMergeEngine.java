@@ -91,7 +91,8 @@ class PdfMergeEngine {
         }
         Object value = context.get(mapping.getDataPath());
         if (value == null) {
-            throw new MissingReportDataException(
+            throw new MissingReportDataException("error.missingReportData.fieldValueMissing",
+                    new Object[]{mapping.getPlaceholderKey(), mapping.getDataPath()},
                     "Thiếu dữ liệu cho field '" + mapping.getPlaceholderKey()
                             + "' (data_path='" + mapping.getDataPath() + "').");
         }

@@ -115,10 +115,10 @@ public class TaskService {
     public TaskResponse createTask(CreateTaskRequest request, Long actorUserId) {
         User actor = getUserOrThrow(actorUserId);
         Employee actorEmployee = employeeRepository.findByUserId(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản chưa có hồ sơ nhân sự."));
+                .orElseThrow(() -> new ResourceNotFoundException("error.task.employeeProfileMissing", new Object[]{}, "Tài khoản chưa có hồ sơ nhân sự."));
         List<User> assignees = userRepository.findAllById(request.assigneeUserIds());
         if (assignees.size() != request.assigneeUserIds().size()) {
-            throw new ResourceNotFoundException("Có người nhận việc không tồn tại trong danh sách assigneeUserIds.");
+            throw new ResourceNotFoundException("error.task.assigneeNotFound", new Object[]{}, "Có người nhận việc không tồn tại trong danh sách assigneeUserIds.");
         }
         Map<Long, Employee> assigneeEmployeesByUserId = employeeRepository.findByUserIdIn(request.assigneeUserIds()).stream()
                 .collect(Collectors.toMap(e -> e.getUser().getId(), e -> e));
@@ -211,7 +211,7 @@ public class TaskService {
         Set<Long> headedDeptIds = departmentRepository.findByHeadUserId(actorUserId).stream()
                 .map(Department::getId).collect(Collectors.toSet());
         if (headedDeptIds.isEmpty()) {
-            throw new NotAuthorizedForTaskOverviewException(
+            throw new NotAuthorizedForTaskOverviewException("error.notAuthorizedForTaskOverview.default", new Object[]{},
                     "Bạn không có quyền xem tổng quan công việc và không làm trưởng phòng nào.");
         }
         return taskRepository.findByDepartmentIdInOrderByIdDesc(headedDeptIds).stream().map(this::toResponse).toList();
@@ -246,10 +246,10 @@ public class TaskService {
     @Transactional
     public TaskAssignmentResponse updateAssignmentStatus(Long assignmentId, UpdateAssignmentStatusRequest request, Long actorUserId) {
         TaskAssignment assignment = taskAssignmentRepository.findById(assignmentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phân công công việc id=" + assignmentId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.task.assignmentNotFound", new Object[]{assignmentId}, "Không tìm thấy phân công công việc id=" + assignmentId));
         Task task = assignment.getTask();
         if (task.getStatus() == Task.Status.CANCELLED) {
-            throw new InvalidTaskStatusTransitionException(
+            throw new InvalidTaskStatusTransitionException("error.invalidTaskStatusTransition.taskCancelled", new Object[]{},
                     "Công việc này đã bị hủy (CANCELLED) — không thể cập nhật phân công.");
         }
         User actor = getUserOrThrow(actorUserId);
@@ -259,14 +259,15 @@ public class TaskService {
         boolean isAssignee = assignment.getAssignee().getId().equals(actorUserId);
         boolean isAssigner = task.getCreatedBy().getId().equals(actorUserId);
         if (!isAssignee && !isAssigner) {
-            throw new NotTaskParticipantException(
+            throw new NotTaskParticipantException("error.notTaskParticipant.default", new Object[]{},
                     "Bạn không phải người giao hoặc người nhận công việc này.");
         }
         boolean validAsAssignee = isAssignee && ASSIGNEE_TRANSITIONS.getOrDefault(current, Set.of()).contains(target);
         boolean isAssignerReject = current == TaskAssignment.Status.PENDING_REVIEW && target == TaskAssignment.Status.IN_PROGRESS;
         boolean validAsAssigner = isAssigner && ASSIGNER_TRANSITIONS.getOrDefault(current, Set.of()).contains(target);
         if (!validAsAssignee && !validAsAssigner) {
-            throw new InvalidTaskStatusTransitionException(
+            throw new InvalidTaskStatusTransitionException("error.invalidTaskStatusTransition.assignment",
+                    new Object[]{current, target},
                     "Không thể chuyển phân công này từ " + current + " sang " + target + ".");
         }
         boolean commentRequired = target == TaskAssignment.Status.DECLINED || (validAsAssigner && isAssignerReject);
@@ -325,19 +326,21 @@ public class TaskService {
         User actor = getUserOrThrow(actorUserId);
 
         if (task.getStatus() == Task.Status.COMPLETED || task.getStatus() == Task.Status.CANCELLED) {
-            throw new InvalidTaskStatusTransitionException(
+            throw new InvalidTaskStatusTransitionException("error.invalidTaskStatusTransition.reassignBlocked",
+                    new Object[]{task.getStatus()},
                     "Không thể giao lại công việc này đang ở trạng thái " + task.getStatus() + ".");
         }
 
         TaskAssignment declined = taskAssignmentRepository.findById(request.fromAssignmentId())
-                .orElseThrow(() -> new ResourceNotFoundException(
+                .orElseThrow(() -> new ResourceNotFoundException("error.task.assignmentNotFound", new Object[]{request.fromAssignmentId()},
                         "Không tìm thấy phân công công việc id=" + request.fromAssignmentId()));
         if (!declined.getTask().getId().equals(taskId)) {
             throw new IllegalArgumentException(
                     "Phân công bạn chọn không thuộc công việc này.");
         }
         if (declined.getStatus() != TaskAssignment.Status.DECLINED) {
-            throw new InvalidTaskStatusTransitionException(
+            throw new InvalidTaskStatusTransitionException("error.invalidTaskStatusTransition.notDeclined",
+                    new Object[]{request.fromAssignmentId(), declined.getStatus()},
                     "Chỉ giao lại được phân công đã bị từ chối (DECLINED); phân công id="
                             + request.fromAssignmentId() + " hiện là " + declined.getStatus() + ".");
         }
@@ -348,7 +351,7 @@ public class TaskService {
         requireAssignScope(actorUserId, List.of(newAssignee), newAssigneeEmployeeByUserId);
 
         if (taskAssignmentRepository.findByTaskIdAndAssigneeId(taskId, newAssignee.getId()).isPresent()) {
-            throw new TaskAssigneeAlreadyAssignedException(
+            throw new TaskAssigneeAlreadyAssignedException("error.taskAssigneeAlreadyAssigned.default", new Object[]{},
                     "Người nhận mới đã có phân công trong công việc này rồi.");
         }
 
@@ -389,11 +392,12 @@ public class TaskService {
         boolean isCreator = task.getCreatedBy().getId().equals(actorUserId);
         boolean isManager = permissionEvaluationService.hasPermission(actorUserId, "task.manage");
         if (!isCreator && !isManager) {
-            throw new NotTaskCreatorException(
+            throw new NotTaskCreatorException("error.notTaskCreator.noManagePermission", new Object[]{},
                     "Bạn không phải người giao công việc này và không có quyền quản trị công việc.");
         }
         if (task.getStatus() == Task.Status.COMPLETED || task.getStatus() == Task.Status.CANCELLED) {
-            throw new InvalidTaskStatusTransitionException(
+            throw new InvalidTaskStatusTransitionException("error.invalidTaskStatusTransition.cancelBlocked",
+                    new Object[]{task.getStatus()},
                     "Không thể hủy công việc này đang ở trạng thái " + task.getStatus() + ".");
         }
         task.setStatus(Task.Status.CANCELLED);
@@ -478,7 +482,7 @@ public class TaskService {
             Long assigneeDeptId = assigneeEmployee == null || assigneeEmployee.getDepartment() == null
                     ? null : assigneeEmployee.getDepartment().getId();
             if (assigneeDeptId == null || !headedDeptIds.contains(assigneeDeptId)) {
-                throw new AssigneeOutsideDepartmentException(
+                throw new AssigneeOutsideDepartmentException("error.assigneeOutsideDepartment.default", new Object[]{},
                         "Người nhận việc không thuộc phòng ban do bạn làm trưởng phòng.");
             }
         }
@@ -494,7 +498,7 @@ public class TaskService {
         if (task.getCreatedBy().getId().equals(actorUserId)) {
             return;
         }
-        throw new NotTaskCreatorException(
+        throw new NotTaskCreatorException("error.notTaskCreator.default", new Object[]{},
                 "Bạn không phải người giao công việc này.");
     }
 
@@ -505,7 +509,7 @@ public class TaskService {
         if (taskAssignmentRepository.findByTaskIdAndAssigneeId(task.getId(), actorUserId).isPresent()) {
             return;
         }
-        throw new NotTaskParticipantException(
+        throw new NotTaskParticipantException("error.notTaskParticipant.default", new Object[]{},
                 "Bạn không phải người giao hoặc người nhận công việc này.");
     }
 
@@ -573,12 +577,12 @@ public class TaskService {
 
     private User getUserOrThrow(Long id) {
         return userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.task.accountNotFound", new Object[]{id}, "Không tìm thấy tài khoản id=" + id));
     }
 
     private Task getTaskOrThrow(Long id) {
         return taskRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy công việc id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.task.notFoundById", new Object[]{id}, "Không tìm thấy công việc id=" + id));
     }
 
     private void writeTaskHistory(Task task, User actor, TaskHistory.Action action) {

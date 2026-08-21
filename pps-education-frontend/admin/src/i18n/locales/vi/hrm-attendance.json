@@ -1,0 +1,108 @@
+{
+  "attendanceStatus": {
+    "NORMAL": "Đúng giờ",
+    "LATE": "Đi muộn",
+    "EARLY_LEAVE": "Về sớm",
+    "MISSING": "Thiếu chấm công"
+  },
+  "attendanceMethod": {
+    "GPS": "GPS",
+    "FINGERPRINT": "Vân tay",
+    "FACE": "Khuôn mặt",
+    "MANUAL": "Thủ công"
+  },
+  "attendancePage": {
+    "title": "Phân hệ Quản lý Nhân sự & Tiền lương (HRM)",
+    "description": "Dữ liệu chấm công thực tế đa phương thức (vân tay, khuôn mặt, GPS).",
+    "summaryTitle": "Tổng hợp chấm công",
+    "summarySubtitle": "Toàn trung tâm, lọc theo nhân sự/điểm trường/khoảng ngày.",
+    "toLabel": "đến",
+    "allEmployees": "Tất cả nhân sự",
+    "allSites": "Tất cả điểm trường",
+    "loadError": "Không tải được dữ liệu chấm công.",
+    "columns": {
+      "employee": "Nhân sự",
+      "date": "Ngày",
+      "checkIn": "Giờ vào",
+      "checkOut": "Giờ ra",
+      "method": "Phương thức",
+      "site": "Điểm trường",
+      "status": "Trạng thái"
+    },
+    "loading": "Đang tải...",
+    "empty": "Không có bản ghi chấm công trong khoảng đã chọn."
+  },
+  "selfAttendance": {
+    "detectedSitePrefix": "Đã tự nhận diện điểm chấm công: ",
+    "detectedSiteSuffix": ".",
+    "noSites": "Chưa có điểm trường",
+    "processing": "Đang xử lý...",
+    "checkInButton": "Chấm công vào",
+    "checkOutButton": "Chấm công ra",
+    "checkInSuccess": "Chấm công vào thành công lúc {{time}}!",
+    "checkOutSuccess": "Chấm công ra thành công lúc {{time}}!",
+    "checkInFailedUnknown": "Chấm công thất bại — mở Console (F12) để xem chi tiết lỗi.",
+    "checkInTimeLabel": "Giờ vào: ",
+    "checkOutTimeLabel": "Giờ ra: "
+  },
+  "attendanceSitesPage": {
+    "title": "Địa điểm chấm công",
+    "description": "Cấu hình toạ độ GPS cho Trung tâm và các Trường liên kết — dùng để xác thực bán kính khi chấm công GPS (UC-09).",
+    "addButton": "Thêm địa điểm",
+    "loadError": "Không tải được danh sách địa điểm.",
+    "columns": {
+      "code": "Mã",
+      "name": "Tên địa điểm",
+      "type": "Loại hình",
+      "address": "Địa chỉ",
+      "gps": "Toạ độ GPS",
+      "status": "Trạng thái"
+    },
+    "loading": "Đang tải...",
+    "empty": "Chưa có địa điểm nào.",
+    "notConfigured": "Chưa cấu hình",
+    "editButton": "Sửa",
+    "updatedToast": "Đã cập nhật địa điểm thành công!",
+    "createdToast": "Đã tạo địa điểm thành công!",
+    "siteStatus": { "ACTIVE": "Đang hoạt động", "INACTIVE": "Ngừng hoạt động", "PENDING": "Chờ kích hoạt" },
+    "siteType": { "OWNED": "Trung tâm", "PARTNER": "Trường liên kết" }
+  },
+  "attendanceSiteForm": {
+    "editTitle": "Sửa địa điểm chấm công",
+    "createTitle": "Thêm địa điểm chấm công",
+    "codeLabel": "Mã địa điểm *",
+    "typeLabel": "Loại hình *",
+    "typeOwned": "Cơ sở tự vận hành (Trung tâm)",
+    "typePartner": "Trường liên kết",
+    "nameLabel": "Tên địa điểm *",
+    "addressLabel": "Địa chỉ",
+    "districtLabel": "Quận/Huyện",
+    "phoneLabel": "Số điện thoại",
+    "statusLabel": "Trạng thái",
+    "statusActive": "Đang hoạt động",
+    "statusInactive": "Ngừng hoạt động",
+    "statusPending": "Chờ kích hoạt",
+    "gpsUnsupported": "Trình duyệt không hỗ trợ định vị GPS.",
+    "gpsError": "Không lấy được vị trí hiện tại — vui lòng cho phép quyền định vị trên trình duyệt.",
+    "requiredFieldsError": "Vui lòng điền mã và tên địa điểm.",
+    "invalidCoordinates": "Toạ độ GPS không hợp lệ.",
+    "saveError": "Lưu địa điểm thất bại.",
+    "gpsSectionTitle": "Toạ độ GPS (dùng để chấm công GPS)",
+    "locating": "Đang lấy vị trí...",
+    "useCurrentLocation": "Lấy vị trí hiện tại",
+    "latitudeLabel": "Vĩ độ (latitude)",
+    "latitudeExample": "VD: 21.0285",
+    "longitudeLabel": "Kinh độ (longitude)",
+    "longitudeExample": "VD: 105.8542",
+    "gpsHint": "Để trống nếu chưa xác định — nhân sự sẽ không chấm công GPS được tại địa điểm này cho tới khi cấu hình.",
+    "cancel": "Hủy",
+    "saving": "Đang lưu...",
+    "saveChangesButton": "Lưu thay đổi",
+    "createButton": "Tạo địa điểm"
+  },
+  "reminderBanner": {
+    "prefix": "Bạn ",
+    "bold": "chưa chấm công hôm nay",
+    "suffix": " — nhớ chấm công (góc trên bên phải) để hệ thống ghi nhận đã đến dạy."
+  }
+}

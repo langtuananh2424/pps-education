@@ -18,7 +18,8 @@ final class PlaceholderValueResolver {
     static String resolveField(ReportTemplateFieldMapping mapping, Map<String, Object> context) {
         Object value = context.get(mapping.getDataPath());
         if (value == null) {
-            throw new MissingReportDataException(
+            throw new MissingReportDataException("error.missingReportData.fieldValueMissing",
+                    new Object[]{mapping.getPlaceholderKey(), mapping.getDataPath()},
                     "Thiếu dữ liệu cho trường '" + mapping.getPlaceholderKey()
                             + "' (data_path='" + mapping.getDataPath() + "').");
         }
@@ -35,7 +36,8 @@ final class PlaceholderValueResolver {
         for (String variableName : variableNames) {
             Object value = context.get(variableName);
             if (!(value instanceof Number number)) {
-                throw new MissingReportDataException(
+                throw new MissingReportDataException("error.missingReportData.formulaVariableMissing",
+                        new Object[]{variableName, rawPlaceholder},
                         "Thiếu dữ liệu số cho biến '" + variableName + "' trong công thức " + rawPlaceholder + ".");
             }
             expression.setVariable(variableName, number.doubleValue());

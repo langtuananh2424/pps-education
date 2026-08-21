@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { ChevronDown, ChevronUp, Search } from "lucide-react";
-import { permissionGroupsByModule } from "../constants/permissionGroups";
+import { useTranslation } from "react-i18next";
+import { getPermissionGroupsByModule } from "../constants/permissionGroups";
 import Select from "@/components/ui/Select";
 
 export interface ChecklistItem {
@@ -19,11 +20,13 @@ interface PermissionChecklistProps {
 
 /** Danh sách quyền hạt nhân theo module, có tìm kiếm/lọc — dùng chung cho sửa quyền role có sẵn (RolePermissionsEditor) và tạo role mới (CreateRolePanel). */
 export default function PermissionChecklist({ items, selectedIds, onToggle, onToggleModuleAll }: PermissionChecklistProps) {
+  const { t } = useTranslation("system-admin-roles");
   const [searchQuery, setSearchQuery] = useState("");
   const [moduleFilter, setModuleFilter] = useState("ALL");
   const [expandedModules, setExpandedModules] = useState<Record<string, boolean>>({});
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
 
+  const permissionGroupsByModule = useMemo(() => getPermissionGroupsByModule(t), [t]);
   const modules = useMemo(() => Array.from(new Set(items.map((p) => p.module))).sort(), [items]);
   const toggleExpand = (mod: string) => setExpandedModules((prev) => ({ ...prev, [mod]: !prev[mod] }));
   const toggleGroupExpand = (groupKey: string) => setExpandedGroups((prev) => ({ ...prev, [groupKey]: !prev[groupKey] }));
@@ -35,7 +38,7 @@ export default function PermissionChecklist({ items, selectedIds, onToggle, onTo
           <Search className="absolute left-2.5 top-2 w-3.5 h-3.5 text-slate-400" />
           <input
             type="text"
-            placeholder="Tìm nhanh quyền..."
+            placeholder={t("permissionChecklist.searchPlaceholder")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full bg-white border border-slate-200 text-xs pl-8 pr-3 py-1.5 rounded-lg focus:outline-none"
@@ -47,7 +50,7 @@ export default function PermissionChecklist({ items, selectedIds, onToggle, onTo
           onChange={(e) => setModuleFilter(e.target.value)}
           className="bg-white border border-slate-200 text-xs px-2 py-1.5 rounded-lg focus:outline-none text-slate-700 font-semibold w-full sm:w-auto cursor-pointer"
         >
-          <option value="ALL">Tất cả phân hệ nghiệp vụ</option>
+          <option value="ALL">{t("permissionChecklist.allModulesOption")}</option>
           {modules.map((mod) => (
             <option key={mod} value={mod}>
               {mod}
@@ -93,7 +96,7 @@ export default function PermissionChecklist({ items, selectedIds, onToggle, onTo
                 </div>
 
                 <span className="text-[10px] font-mono font-bold bg-white text-slate-600 border px-2.5 py-0.5 rounded-full shadow-inner">
-                  {selectedInModule.length} / {filtered.length} selected
+                  {t("permissionChecklist.selectedCount", { selected: selectedInModule.length, total: filtered.length })}
                 </span>
               </div>
 
@@ -128,7 +131,7 @@ export default function PermissionChecklist({ items, selectedIds, onToggle, onTo
                             <span className="text-[11px] font-bold text-slate-700">{group.label}</span>
                           </div>
                           <span className="text-[9px] font-mono font-bold bg-white text-slate-500 border border-slate-200 px-2 py-0.5 rounded-full">
-                            {selectedInGroup.length}/{groupItems.length}
+                            {t("permissionChecklist.groupSelectedCount", { selected: selectedInGroup.length, total: groupItems.length })}
                           </span>
                         </div>
 

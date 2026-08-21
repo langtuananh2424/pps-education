@@ -1,0 +1,80 @@
+{
+  "leaveRequestStatus": {
+    "PENDING": "Pending",
+    "APPROVED": "Approved",
+    "REJECTED": "Rejected",
+    "CANCELLED": "Cancelled"
+  },
+  "substitutionStatus": {
+    "active": "Currently substituting",
+    "revoked": "Revoked"
+  },
+  "leavesPage": {
+    "title": "Leave / Late / Early Leave Requests",
+    "subtitle": "Submit requests for leave, late arrival, or early departure and track the approval process.",
+    "submittedToast": "Request submitted successfully!",
+    "myHistory": {
+      "title": "My Request History",
+      "subtitle": "Requests you've submitted and their approval status.",
+      "loading": "Loading...",
+      "empty": "You haven't submitted any requests yet.",
+      "dateRange": "{{startDate}} to {{endDate}} · {{totalDays}} day(s)"
+    },
+    "substituteHistory": {
+      "title": "Substitute Teacher History",
+      "subtitle": "Substitute teachers assigned based on your leave requests.",
+      "empty": "No substitution records yet.",
+      "substituteFor": "substituting for",
+      "sessionDate": "Session on {{date}}"
+    }
+  },
+  "leaveRequestForm": {
+    "title": "Submit Leave Request",
+    "description": "Submit a request for leave, late arrival, or early departure. The system will automatically determine the 1-2 step approval process based on your role.",
+    "leaveTypeLabel": "Request Type",
+    "loadingLeaveTypes": "Loading...",
+    "startDateLabel": "From Date",
+    "endDateLabel": "To Date",
+    "startTimeLabel": "Start Time",
+    "endTimeLabel": "End Time",
+    "reasonLabel": "Reason",
+    "reasonPlaceholder": "e.g. Dental checkup, feeling ill...",
+    "checkingSchedule": "Checking teaching schedule during this leave period...",
+    "substituteNotice": "You have teaching sessions during this leave period — please select a class and a substitute teacher for each session. The substitution takes effect immediately upon submission (does not wait for approval).",
+    "selectClassLabel": "Select Class to Substitute",
+    "selectClassPlaceholder": "-- Select a class --",
+    "sessionsCount": "{{count}} session(s)",
+    "multiClassWarning": "You have sessions in {{count}} different classes — each request only handles substitution for 1 class, please submit separate requests for the remaining classes.",
+    "substituteTeacherLabel": "Substitute Teacher per Session",
+    "applyToAll": "Apply to all",
+    "sessionTime": "{{date}} · {{startTime}}-{{endTime}}",
+    "substitutePlaceholder": "Select a substitute teacher...",
+    "submitButton": "Submit for Approval",
+    "submitting": "Submitting...",
+    "errors": {
+      "missingSubstitutes": "You have teaching sessions during this leave period — please select a class and a substitute teacher for each session.",
+      "genericSubmitError": "Could not submit the request, please try again."
+    }
+  },
+  "leaveApprovalQueue": {
+    "title": "Approval Queue",
+    "subtitle": "Leave requests awaiting approval under your authority.",
+    "loading": "Loading...",
+    "emptyTitle": "No requests awaiting approval",
+    "emptyDescription": "There are currently no leave requests under your authority.",
+    "reasonLabel": "Reason:",
+    "timeLabel": "Time:",
+    "timeRange": "{{startDate}} to {{endDate}}",
+    "timeRangeWithHours": " ({{startTime}}-{{endTime}})",
+    "totalDays": " · {{count}} day(s)",
+    "opinionLabel": "Feedback / Rejection reason (required when rejecting):",
+    "opinionPlaceholder": "e.g. Approved / Not approved due to no substitute available...",
+    "rejectButton": "Reject",
+    "approveButton": "Approve at Current Level",
+    "defaultApproveComment": "Reviewed and approved.",
+    "missingRejectReason": "You must enter a rejection reason in the feedback field!",
+    "decidedApproved": "Approved the leave request from {{name}}.",
+    "decidedRejected": "Rejected the leave request from {{name}}.",
+    "decisionError": "Could not process the decision, please try again."
+  }
+}

@@ -1,14 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Award, Camera, GraduationCap, Heart, Loader2, Lock, Phone, Sparkles, User, Users, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { getMyParentProfile, getMyParents, getMyStudentProfile, updateMyParentProfile, updateMyStudentProfile, uploadMedia } from "../api";
-
-const STATUS_LABEL: Record<string, string> = {
-  ACTIVE: "Đang hoạt động",
-  COMPLETED: "Đã hoàn thành",
-  SUSPENDED: "Tạm ngưng",
-  WITHDRAWN: "Đã rút lớp"
-};
 
 interface ProfileModalProps {
   fullName: string;
@@ -54,6 +48,7 @@ export default function ProfileModal({
   onClose,
   onPortraitUpdated
 }: ProfileModalProps) {
+  const { t } = useTranslation("portal-account");
   const [studentPortraitUrl, setStudentPortraitUrl] = useState<string | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
@@ -99,7 +94,7 @@ export default function ProfileModal({
       setStudentPortraitUrl(updated.portraitUrl);
       onPortraitUpdated?.(updated.portraitUrl);
     } catch (err) {
-      setAvatarError(err instanceof ApiError ? err.message : "Đổi ảnh đại diện thất bại.");
+      setAvatarError(err instanceof ApiError ? err.message : t("profile.errors.avatarUpdateFailed"));
     } finally {
       setUploadingAvatar(false);
     }
@@ -114,7 +109,7 @@ export default function ProfileModal({
       const updated = await updateMyParentProfile({ portraitUrl: url });
       setParentPortraitUrl(updated.portraitUrl);
     } catch (err) {
-      setParentError(err instanceof ApiError ? err.message : "Upload ảnh thất bại.");
+      setParentError(err instanceof ApiError ? err.message : t("profile.errors.avatarUploadFailed"));
     } finally {
       setSavingParent(false);
     }
@@ -133,7 +128,7 @@ export default function ProfileModal({
       setParentPortraitUrl(updated.portraitUrl);
       setEditingParent(false);
     } catch (err) {
-      setParentError(err instanceof ApiError ? err.message : "Cập nhật hồ sơ thất bại.");
+      setParentError(err instanceof ApiError ? err.message : t("profile.errors.profileUpdateFailed"));
     } finally {
       setSavingParent(false);
     }
@@ -171,7 +166,7 @@ export default function ProfileModal({
                   type="button"
                   onClick={() => studentFileInputRef.current?.click()}
                   disabled={uploadingAvatar}
-                  title="Đổi ảnh đại diện (UC-63)"
+                  title={t("profile.changeAvatar")}
                   className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-teal hover:bg-teal-deep text-white flex items-center justify-center shadow-md border-2 border-white disabled:opacity-50"
                 >
                   {uploadingAvatar ? <Loader2 size={13} className="animate-spin" /> : <Camera size={13} />}
@@ -183,32 +178,32 @@ export default function ProfileModal({
             <div className="pb-1 flex items-center gap-2 flex-wrap">
               <h3 className="text-xl font-extrabold text-ink">{fullName}</h3>
               <span className="bg-teal/10 text-teal-deep border border-teal/30 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide">
-                Học sinh
+                {t("profile.studentBadge")}
               </span>
             </div>
           </div>
           {avatarError && <p className="text-[10px] text-rose-500 font-bold -mt-4 mb-3">{avatarError}</p>}
           <p className="text-[11px] text-muted font-bold -mt-4 mb-6 flex items-center gap-1.5">
-            <User size={12} /> ID hệ thống: {studentId ?? "—"}
+            <User size={12} /> {t("profile.systemId", { id: studentId ?? "—" })}
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <h4 className="text-xs font-extrabold text-teal-deep uppercase tracking-wide flex items-center gap-1.5 mb-3">
-                <GraduationCap size={14} /> Thông tin học tập
+                <GraduationCap size={14} /> {t("profile.academicInfo")}
               </h4>
               <div className="bg-sky-2/60 border border-line/70 rounded-[16px] p-4 space-y-2.5 text-xs">
                 <div className="flex justify-between border-b border-line/60 pb-2">
-                  <span className="text-muted font-bold">Lớp học:</span>
+                  <span className="text-muted font-bold">{t("profile.classLabel")}</span>
                   <span className="font-extrabold text-ink text-right">
                     {className ?? "—"}
                     {classCode ? ` (${classCode})` : ""}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted font-bold">Trạng thái:</span>
+                  <span className="text-muted font-bold">{t("profile.statusLabel")}</span>
                   <span className="font-extrabold text-teal-deep">
-                    {enrollmentStatus ? STATUS_LABEL[enrollmentStatus] ?? enrollmentStatus : "—"}
+                    {enrollmentStatus ? t(`profile.status.${enrollmentStatus}`, { defaultValue: enrollmentStatus }) : "—"}
                   </span>
                 </div>
               </div>
@@ -216,23 +211,23 @@ export default function ProfileModal({
 
             <div>
               <h4 className="text-xs font-extrabold text-gold uppercase tracking-wide flex items-center gap-1.5 mb-3">
-                <Award size={14} /> Thành tích & điểm thưởng
+                <Award size={14} /> {t("profile.achievements")}
               </h4>
               <div className="space-y-2">
                 <div className="bg-gold/5 border border-dashed border-gold/30 rounded-[16px] p-3 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Lock size={13} className="text-gold/70" />
-                    <span className="text-[11px] font-bold text-muted">Tiến trình học tập</span>
+                    <span className="text-[11px] font-bold text-muted">{t("profile.learningProgressLocked")}</span>
                   </div>
-                  <span className="text-[10px] font-extrabold text-gold uppercase">Sắp có</span>
+                  <span className="text-[10px] font-extrabold text-gold uppercase">{t("profile.comingSoon")}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="bg-gold/5 border border-dashed border-gold/30 rounded-[16px] p-3 text-center">
-                    <p className="text-[10px] font-bold text-muted uppercase mb-1">Ví xu thưởng</p>
+                    <p className="text-[10px] font-bold text-muted uppercase mb-1">{t("profile.rewardWallet")}</p>
                     <p className="text-base font-extrabold text-gold/60">—</p>
                   </div>
                   <div className="bg-gold/5 border border-dashed border-gold/30 rounded-[16px] p-3 text-center">
-                    <p className="text-[10px] font-bold text-muted uppercase mb-1">Chuỗi học tập</p>
+                    <p className="text-[10px] font-bold text-muted uppercase mb-1">{t("profile.learningStreak")}</p>
                     <p className="text-base font-extrabold text-gold/60">—</p>
                   </div>
                 </div>
@@ -243,29 +238,29 @@ export default function ProfileModal({
           <div className="mt-6">
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-xs font-extrabold text-teal-deep uppercase tracking-wide flex items-center gap-1.5">
-                <Users size={14} /> Liên hệ gia đình
+                <Users size={14} /> {t("profile.familyContact")}
               </h4>
               {isParent && !editingParent && (
                 <button onClick={() => setEditingParent(true)} className="text-[10px] font-extrabold text-teal-deep hover:underline">
-                  Sửa hồ sơ của tôi (UC-63)
+                  {t("profile.editMyProfile")}
                 </button>
               )}
             </div>
             <div className="bg-sky-2/60 border border-line/70 rounded-[16px] p-4 space-y-2.5 text-xs">
               <div className="flex justify-between items-center border-b border-line/60 pb-2">
                 <span className="text-muted font-bold flex items-center gap-1.5">
-                  <User size={12} /> Phụ huynh:
+                  <User size={12} /> {t("profile.parentLabel")}
                 </span>
                 <span className={`font-extrabold ${displayParentName ? "text-ink" : "text-muted/70"}`}>{displayParentName ?? "—"}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-muted font-bold flex items-center gap-1.5">
-                  <Phone size={12} /> Số điện thoại:
+                  <Phone size={12} /> {t("profile.phoneLabel")}
                 </span>
                 <span className={`font-extrabold ${displayParentPhone ? "text-ink" : "text-muted/70"}`}>{displayParentPhone ?? "—"}</span>
               </div>
               {isStudent && !displayParentName && (
-                <p className="text-[10px] text-muted font-bold pt-1">Chưa liên kết phụ huynh nào với hồ sơ này.</p>
+                <p className="text-[10px] text-muted font-bold pt-1">{t("profile.noParentLinked")}</p>
               )}
 
               {isParent && editingParent && (
@@ -291,24 +286,24 @@ export default function ProfileModal({
                         {savingParent ? <Loader2 size={10} className="animate-spin" /> : <Camera size={10} />}
                       </span>
                     </label>
-                    <p className="text-[10px] text-muted font-bold flex-1">Bấm vào ảnh để đổi ảnh đại diện của chính bạn.</p>
+                    <p className="text-[10px] text-muted font-bold flex-1">{t("profile.changeMyAvatarHint")}</p>
                   </div>
                   <input
                     value={parentForm.occupation}
                     onChange={(e) => setParentForm({ ...parentForm, occupation: e.target.value })}
-                    placeholder="Nghề nghiệp"
+                    placeholder={t("profile.occupationPlaceholder")}
                     className="w-full bg-white border border-line text-xs px-3 py-2 rounded-[12px] focus:outline-none"
                   />
                   <input
                     value={parentForm.workplace}
                     onChange={(e) => setParentForm({ ...parentForm, workplace: e.target.value })}
-                    placeholder="Nơi làm việc"
+                    placeholder={t("profile.workplacePlaceholder")}
                     className="w-full bg-white border border-line text-xs px-3 py-2 rounded-[12px] focus:outline-none"
                   />
                   <input
                     value={parentForm.address}
                     onChange={(e) => setParentForm({ ...parentForm, address: e.target.value })}
-                    placeholder="Địa chỉ"
+                    placeholder={t("profile.addressPlaceholder")}
                     className="w-full bg-white border border-line text-xs px-3 py-2 rounded-[12px] focus:outline-none"
                   />
                   <div className="flex justify-end gap-2 pt-1">
@@ -317,7 +312,7 @@ export default function ProfileModal({
                       onClick={() => setEditingParent(false)}
                       className="px-3 py-1.5 text-[11px] font-extrabold text-muted hover:text-ink"
                     >
-                      Hủy
+                      {t("profile.cancel")}
                     </button>
                     <button
                       type="button"
@@ -325,7 +320,7 @@ export default function ProfileModal({
                       disabled={savingParent}
                       className="px-3.5 py-1.5 text-[11px] font-extrabold text-white bg-teal hover:bg-teal-deep rounded-[12px] disabled:opacity-50"
                     >
-                      {savingParent ? "Đang lưu..." : "Lưu"}
+                      {savingParent ? t("profile.saving") : t("profile.save")}
                     </button>
                   </div>
                 </div>
@@ -335,12 +330,12 @@ export default function ProfileModal({
 
           <div className="mt-6">
             <h4 className="text-xs font-extrabold text-coral uppercase tracking-wide flex items-center gap-1.5 mb-3">
-              <Heart size={14} /> Chia sẻ & mục tiêu học tập
+              <Heart size={14} /> {t("profile.shareGoals")}
             </h4>
             <div className="bg-gold/5 border border-dashed border-gold/30 rounded-[16px] p-4 flex items-start gap-2.5">
               <Sparkles size={16} className="text-gold shrink-0 mt-0.5" />
               <p className="text-xs text-muted font-bold leading-relaxed">
-                Sắp có - đang phát triển
+                {t("profile.shareGoalsComingSoon")}
               </p>
             </div>
           </div>

@@ -121,6 +121,7 @@ public class ParentPortalService {
                         classId, studentId, academicTermId, GradeComponentSetup.EvaluationType.valueOf(evaluationType))
                 .filter(r -> r.getStatus() == GradeEvaluationResult.Status.OFFICIAL)
                 .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.parentPortal.officialResultNotFound", new Object[]{studentId, academicTermId},
                         "Chưa có điểm tổng kết đã duyệt cho học sinh id=" + studentId + ", kỳ học id=" + academicTermId + "."));
         return toResponse(result);
     }
@@ -180,17 +181,18 @@ public class ParentPortalService {
         boolean everEnrolled = classEnrollmentRepository.findByStudentId(studentId).stream()
                 .anyMatch(e -> e.getSchoolClass().getId().equals(classId));
         if (!everEnrolled) {
-            throw new ResourceNotFoundException("Học sinh id=" + studentId + " chưa từng học lớp id=" + classId + ".");
+            throw new ResourceNotFoundException("error.parentPortal.studentNeverEnrolledInClass", new Object[]{studentId, classId}, "Học sinh id=" + studentId + " chưa từng học lớp id=" + classId + ".");
         }
     }
 
     private void requireLinkedParent(Long studentId, Long actorUserId) {
         if (!studentRepository.existsById(studentId)) {
-            throw new ResourceNotFoundException("Không tìm thấy học sinh id=" + studentId);
+            throw new ResourceNotFoundException("error.parentPortal.studentNotFoundById", new Object[]{studentId}, "Không tìm thấy học sinh id=" + studentId);
         }
         Parent parent = parentRepository.findByUserId(actorUserId).orElse(null);
         if (parent == null || parentStudentRepository.findByParentIdAndStudentId(parent.getId(), studentId).isEmpty()) {
             throw new NotAuthorizedForPortalAccessException(
+                    "error.notAuthorizedForPortalAccess.parentNotLinkedToStudent", new Object[]{},
                     "Tài khoản của bạn không phải phụ huynh liên kết với học sinh này.");
         }
     }
@@ -198,6 +200,7 @@ public class ParentPortalService {
     private Parent parentOrThrow(Long actorUserId) {
         return parentRepository.findByUserId(actorUserId)
                 .orElseThrow(() -> new NotAuthorizedForPortalAccessException(
+                        "error.notAuthorizedForPortalAccess.noParentProfile", new Object[]{},
                         "Tài khoản của bạn không có hồ sơ phụ huynh."));
     }
 
@@ -244,7 +247,12 @@ public class ParentPortalService {
                 c.getAttitude() == null ? null : c.getAttitude().name(), c.getHomeworkPreviousScore(),
                 c.getHomeworkPreviousSpeakingScore(),
                 // Portal Phụ huynh chưa cần hiển thị chi tiết BTVN online (UC-21 mở rộng, V55) — để trống, bổ sung khi có yêu cầu.
-                c.getHomeworkNext(), null, null, null, null, null, null, null, null, c.getNote(),
+                // 13 field null: homeworkNextExerciseAssignmentId/Title, homeworkNextReviewVideoAssignmentId/Title,
+                // homeworkNextDueAt, pendingHomeworkNextExerciseId/Title (V127), pendingHomeworkNextReviewVideoSetId/Title
+                // (V127), pendingHomeworkNextDueDate (V127), grammarPreviousProgress, videoPreviousProgress,
+                // homeworkPreviousOfflineText.
+                c.getHomeworkNext(), null, null, null, null, null, null, null, null, null,
+                null, null, null, null, c.getNote(),
                 c.getClassSession().getLessonContent());
     }
 

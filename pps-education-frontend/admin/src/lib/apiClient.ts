@@ -1,4 +1,12 @@
 import { clearTokens, getAccessToken, getRefreshToken, setTokens } from "./tokenStorage";
+import { LANGUAGE_STORAGE_KEY } from "@/i18n";
+
+/** Header Accept-Language theo ngôn ngữ đang chọn ở LanguageSwitcher — backend dùng để trả message lỗi
+ *  song ngữ qua MessageSource (xem GlobalExceptionHandler.error(status, ex) phía backend). */
+function currentLanguageHeader(): Record<string, string> {
+  const lang = typeof window !== "undefined" ? window.localStorage.getItem(LANGUAGE_STORAGE_KEY) : null;
+  return { "Accept-Language": lang === "en" ? "en" : "vi" };
+}
 
 /** Khớp đúng shape lỗi thật của backend — xem GlobalExceptionHandler.java. */
 interface BackendErrorBody {
@@ -64,6 +72,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   // trình duyệt cần tự sinh header với boundary đúng, set thủ công sẽ làm BE không parse được multipart.
   const headers: Record<string, string> = {
     ...(init.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
+    ...currentLanguageHeader(),
     ...(init.headers as Record<string, string> | undefined)
   };
 
@@ -95,7 +104,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
 /** Như apiRequest nhưng cho endpoint trả file nhị phân (VD tải mẫu Excel) — parse Blob thay vì JSON. */
 export async function apiRequestBlob(path: string, options: RequestOptions = {}): Promise<Blob> {
   const { skipAuth, isRetry, ...init } = options;
-  const headers: Record<string, string> = { ...(init.headers as Record<string, string> | undefined) };
+  const headers: Record<string, string> = { ...currentLanguageHeader(), ...(init.headers as Record<string, string> | undefined) };
 
   if (!skipAuth) {
     const accessToken = getAccessToken();
@@ -127,7 +136,7 @@ export async function apiRequestBlob(path: string, options: RequestOptions = {})
  * Trình duyệt sẽ tự động lưu file với tên gốc từ Content-Disposition.
  */
 export async function downloadReport(reportId: number): Promise<void> {
-  const headers: Record<string, string> = {};
+  const headers: Record<string, string> = { ...currentLanguageHeader() };
   const accessToken = getAccessToken();
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
 

@@ -1,0 +1,95 @@
+{
+  "overridesPage": {
+    "banner": {
+      "badge": "TÙY CHỈNH TÀI KHOẢN",
+      "description": "Cấp thêm hoặc tước bỏ trực tiếp một quyền hạt nhân cho 1 tài khoản cụ thể, có độ ưu tiên cao nhất trong công thức quyền hiệu lực — không cần đổi vai trò vĩnh viễn của họ."
+    },
+    "step1Label": "Bước 1 — Tìm và chọn tài khoản",
+    "searchPlaceholder": "Bấm để xem danh sách hoặc gõ để tìm tài khoản...",
+    "selectedUser": "Đang chọn: {{fullName}} ({{username}})",
+    "loadError": "Không tải được dữ liệu tài khoản.",
+    "loading": "Đang tải...",
+    "emptyTitle": "Chưa chọn tài khoản nào",
+    "emptyDescription": "Tìm và chọn 1 tài khoản ở ô phía trên để xem quyền hiệu lực hiện tại và thiết lập ngoại lệ (cấp thêm/tước bỏ quyền riêng) cho tài khoản đó.",
+    "effectivePermissions": {
+      "title": "Quyền hiệu lực hiện tại ({{count}}) — hợp từ vai trò + ngoại lệ đang áp dụng",
+      "empty": "Chưa có quyền nào."
+    },
+    "upsertToast": "Đã lưu ngoại lệ quyền thành công!",
+    "removeToast": "Đã gỡ ngoại lệ quyền thành công!"
+  },
+  "overridesTable": {
+    "title": "Ngoại lệ đang áp dụng cho tài khoản ({{count}})",
+    "removeError": "Gỡ ngoại lệ thất bại.",
+    "empty": "Tài khoản này chưa có ngoại lệ quyền nào.",
+    "columns": {
+      "permission": "Quyền hạt nhân",
+      "type": "Kiểu điều phối",
+      "reason": "Lý do điều phối",
+      "expiresAt": "Thời gian hết hạn",
+      "remove": "Gỡ bỏ"
+    },
+    "overrideType": {
+      "GRANT": "Cấp thêm",
+      "REVOKE": "Tước bỏ"
+    },
+    "neverExpires": "Vô thời hạn",
+    "removeTitle": "Hủy ngoại lệ này"
+  },
+  "createOverrideForm": {
+    "title": "Bước 2 — Thiết lập ngoại lệ",
+    "validationError": "Vui lòng chọn quyền và nhập lý do.",
+    "submitError": "Lưu ngoại lệ thất bại.",
+    "permissionLabel": "Chọn Mã Quyền hạt nhân",
+    "permissionPlaceholder": "-- Chọn mã quyền --",
+    "typeLabel": "Loại điều chỉnh",
+    "typeGrant": "Cấp thêm quyền",
+    "typeRevoke": "Tước bỏ quyền",
+    "expiresLabel": "Thời hạn áp dụng (tùy chọn)",
+    "reasonLabel": "Mục đích điều chỉnh / Lý do ủy quyền",
+    "reasonPlaceholder": "Lý do chi tiết theo quyết định ban giám đốc...",
+    "submitting": "Đang lưu...",
+    "submitButton": "Áp dụng"
+  },
+  "auditLogPage": {
+    "title": "Nhật ký thay đổi quyền",
+    "description": "Truy vết ai gán/thu hồi vai trò, cấp/tước ngoại lệ quyền, cho ai, khi nào.",
+    "filters": {
+      "actorLabel": "Người thực hiện",
+      "targetLabel": "Đối tượng bị ảnh hưởng",
+      "actionLabel": "Hành động",
+      "actionAll": "-- Tất cả --",
+      "fromDateLabel": "Từ ngày",
+      "toDateLabel": "Đến ngày",
+      "clearButton": "Xóa bộ lọc",
+      "searchButton": "Tìm kiếm",
+      "userPickerPlaceholder": "Tìm username/họ tên..."
+    },
+    "loadError": "Không tải được nhật ký.",
+    "emptyTitle": "Không tìm thấy bản ghi phù hợp",
+    "emptyDescription": "Thử nới lỏng bộ lọc (A1 — UC-05).",
+    "columns": {
+      "createdAt": "Thời gian",
+      "actor": "Người thực hiện",
+      "target": "Đối tượng chịu tác động",
+      "action": "Tác vụ",
+      "details": "Thông tin chi tiết"
+    },
+    "ipLabel": "IP: {{ip}}",
+    "pagination": {
+      "totalRecords": "Tổng {{count}} bản ghi",
+      "pageSizeLabel": "Dòng/trang:",
+      "prev": "Trước",
+      "next": "Sau",
+      "pageIndicator": "Trang {{current}}/{{total}}"
+    },
+    "actionType": {
+      "ROLE_GRANTED": "Cấp vai trò",
+      "ROLE_REVOKED": "Thu hồi vai trò",
+      "PERM_OVERRIDE_ADDED": "Cấp ngoại lệ",
+      "PERM_OVERRIDE_REMOVED": "Hủy ngoại lệ",
+      "PERM_OVERRIDE_ADDED_GRANT": "Cấp thêm quyền",
+      "PERM_OVERRIDE_ADDED_REVOKE": "Tước bỏ quyền"
+    }
+  }
+}

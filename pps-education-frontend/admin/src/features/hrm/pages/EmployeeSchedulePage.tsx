@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { Clock, Search } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { cn } from "@/lib/cn";
 import { getMonthGridDates, getWeekDates, toISODate } from "@/lib/calendarDates";
 import { matchesShiftPattern } from "@/lib/shiftPattern";
+import { toLocaleTag, formatTimeHm } from "@/lib/i18nFormat";
 import { useApp } from "@/context/AppContext";
 import { Badge, Modal, TableContainer, Th, Td } from "@/components/ui";
 import Select from "@/components/ui/Select";
-import { checkInStatusLabels, checkInStatusVariants, sessionStatusVariants } from "@/features/academic/components/ClassDetailPanel";
+import { checkInStatusLabel, checkInStatusVariants, sessionStatusVariants } from "@/features/academic/components/ClassDetailPanel";
 import { listSites, SiteResponse } from "@/features/facility/api";
 import { listClasses, ClassResponse, ClassSessionCheckInStatusResponse, ClassSessionResponse } from "@/features/academic/api";
 import {
@@ -21,12 +23,9 @@ import {
   listDepartments
 } from "../api";
 
-const dayTypeLabels: Record<WorkCalendarResponse["dayType"], string> = {
-  WORKING: "Đi làm",
-  OFF: "Nghỉ",
-  HOLIDAY: "Nghỉ lễ",
-  COMPENSATORY: "Đi bù"
-};
+function dayTypeLabel(t: (key: string) => string, dayType: WorkCalendarResponse["dayType"]): string {
+  return t(`employeeSchedulePage.dayType.${dayType}`);
+}
 
 const dayTypeVariants: Record<WorkCalendarResponse["dayType"], "success" | "warning" | "danger" | "info"> = {
   WORKING: "success",
@@ -35,11 +34,9 @@ const dayTypeVariants: Record<WorkCalendarResponse["dayType"], "success" | "warn
   COMPENSATORY: "info"
 };
 
-const employeeTypeLabels: Record<EmployeeResponse["employeeType"], string> = {
-  TEACHER: "Giáo viên",
-  STAFF: "Nhân viên",
-  MANAGER: "Quản lý"
-};
+function employeeTypeLabel(t: (key: string) => string, employeeType: EmployeeResponse["employeeType"]): string {
+  return t(`employeeSchedulePage.employeeType.${employeeType}`);
+}
 
 /** Quá dài để hiện từng cột ngày (VD chọn "Năm") — chuyển sang bảng tổng hợp số liệu. */
 const MAX_DAILY_COLUMNS = 31;
@@ -115,6 +112,8 @@ interface DailyTimelineProps {
 
 /** Dòng thời gian trực quan (kiểu lịch theo ngày) cho khoảng lọc đúng 1 ngày — thay bảng phẳng để "xem rõ theo từng giờ". */
 function DailyTimeline({ sessions, checkInStatusBySessionId, siteNameByClassId, loading }: DailyTimelineProps) {
+  const { t } = useTranslation("hrm-shifts");
+  const { t: tc } = useTranslation("common");
   const { startMin, endMin } = useMemo(() => {
     if (sessions.length === 0) return { startMin: 7 * 60, endMin: 21 * 60 };
     const starts = sessions.map((s) => timeToMinutes(s.startTime));
@@ -135,10 +134,10 @@ function DailyTimeline({ sessions, checkInStatusBySessionId, siteNameByClassId, 
   const containerHeight = ((endMin - startMin) / 60) * TIMELINE_PIXELS_PER_HOUR;
 
   if (loading) {
-    return <p className="text-xs text-slate-400 text-center py-10">Đang tải...</p>;
+    return <p className="text-xs text-slate-400 text-center py-10">{t("employeeSchedulePage.timeline.loading")}</p>;
   }
   if (sessions.length === 0) {
-    return <p className="text-xs text-slate-400 text-center py-10">Không có buổi dạy nào trong ngày này.</p>;
+    return <p className="text-xs text-slate-400 text-center py-10">{t("employeeSchedulePage.timeline.empty")}</p>;
   }
 
   return (
@@ -174,7 +173,7 @@ function DailyTimeline({ sessions, checkInStatusBySessionId, siteNameByClassId, 
             const statusLabel = isCancelled
               ? s.status
               : checkInStatus
-              ? checkInStatusLabels[checkInStatus.effectiveStatus] ?? checkInStatus.effectiveStatus
+              ? checkInStatusLabel(tc, checkInStatus.effectiveStatus)
               : "—";
             const siteName = siteNameByClassId[s.classId] ?? "";
             return (
@@ -217,6 +216,8 @@ function DailyTimeline({ sessions, checkInStatusBySessionId, siteNameByClassId, 
  * hrm.employee-schedule.view. Xem docs/uc/phan-he-04-nhan-su.md (UC-70).
  */
 export default function EmployeeSchedulePage() {
+  const { t, i18n } = useTranslation("hrm-shifts");
+  const language = i18n.language;
   const { hasPermission } = useApp();
   const canView = hasPermission("hrm.employee-schedule.view");
 
@@ -307,7 +308,7 @@ export default function EmployeeSchedulePage() {
           setOverview(null);
           return;
         }
-        setError(err instanceof ApiError ? err.message : "Không tải được lịch làm việc.");
+        setError(err instanceof ApiError ? err.message : t("employeeSchedulePage.loadError"));
       })
       .finally(() => setLoading(false));
   };
@@ -379,13 +380,13 @@ export default function EmployeeSchedulePage() {
   return (
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Lịch làm việc</h1>
-        <p className="text-xs text-slate-500 mt-1">Ca làm cố định và lịch dạy của toàn bộ nhân viên, lọc theo phòng ban/điểm trường/lớp/nhân viên.</p>
+        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("employeeSchedulePage.title")}</h1>
+        <p className="text-xs text-slate-500 mt-1">{t("employeeSchedulePage.description")}</p>
       </div>
 
       {!canView ? (
         <div className="text-xs text-slate-500 bg-slate-50 border border-slate-200 p-4 rounded-lg">
-          Bạn không có quyền xem trang này.
+          {t("employeeSchedulePage.noPermission")}
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden">
@@ -393,10 +394,10 @@ export default function EmployeeSchedulePage() {
             <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl p-1 mr-2">
               {(
                 [
-                  ["day", "Ngày"],
-                  ["week", "Tuần"],
-                  ["month", "Tháng"],
-                  ["year", "Năm"]
+                  ["day", t("employeeSchedulePage.quickRange.day")],
+                  ["week", t("employeeSchedulePage.quickRange.week")],
+                  ["month", t("employeeSchedulePage.quickRange.month")],
+                  ["year", t("employeeSchedulePage.quickRange.year")]
                 ] as const
               ).map(([key, label]) => (
                 <button
@@ -412,29 +413,29 @@ export default function EmployeeSchedulePage() {
               ))}
             </div>
             <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none" />
-            <span className="text-[10px] text-slate-400">đến</span>
+            <span className="text-[10px] text-slate-400">{t("employeeSchedulePage.rangeSeparator")}</span>
             <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none" />
 
             <Select value={departmentId} onChange={(e) => setDepartmentId(e.target.value === "" ? "" : Number(e.target.value))} className="bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none max-w-[160px]">
-              <option value="">Tất cả phòng ban</option>
+              <option value="">{t("employeeSchedulePage.filters.allDepartments")}</option>
               {departments.map((d) => (
                 <option key={d.id} value={d.id}>{d.name}</option>
               ))}
             </Select>
             <Select value={siteId} onChange={(e) => setSiteId(e.target.value === "" ? "" : Number(e.target.value))} className="bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none max-w-[160px]">
-              <option value="">Tất cả điểm trường</option>
+              <option value="">{t("employeeSchedulePage.filters.allSites")}</option>
               {sites.map((s) => (
                 <option key={s.id} value={s.id}>{s.name}</option>
               ))}
             </Select>
             <Select value={classId} onChange={(e) => setClassId(e.target.value === "" ? "" : Number(e.target.value))} disabled={siteId === ""} className="bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none max-w-[160px] disabled:opacity-50">
-              <option value="">Tất cả lớp</option>
+              <option value="">{t("employeeSchedulePage.filters.allClasses")}</option>
               {classes.map((c) => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </Select>
             <Select value={employeeId} onChange={(e) => setEmployeeId(e.target.value === "" ? "" : Number(e.target.value))} className="bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none max-w-[160px]">
-              <option value="">Tất cả nhân viên</option>
+              <option value="">{t("employeeSchedulePage.filters.allEmployees")}</option>
               {allEmployees.map((e) => (
                 <option key={e.id} value={e.id}>{e.fullName}</option>
               ))}
@@ -454,19 +455,19 @@ export default function EmployeeSchedulePage() {
             <TableContainer className="rounded-none border-0">
               <thead>
                 <tr>
-                  <Th>Nhân viên</Th>
-                  <Th>Loại</Th>
-                  <Th>Số ca làm khớp lịch</Th>
-                  <Th>Số buổi dạy</Th>
-                  <Th>Số buổi đã nhận lớp</Th>
-                  <Th>Số ngày nghỉ lễ/ghi đè</Th>
+                  <Th>{t("employeeSchedulePage.summaryTable.columns.employee")}</Th>
+                  <Th>{t("employeeSchedulePage.summaryTable.columns.type")}</Th>
+                  <Th>{t("employeeSchedulePage.summaryTable.columns.shiftDays")}</Th>
+                  <Th>{t("employeeSchedulePage.summaryTable.columns.sessions")}</Th>
+                  <Th>{t("employeeSchedulePage.summaryTable.columns.checkedIn")}</Th>
+                  <Th>{t("employeeSchedulePage.summaryTable.columns.overrides")}</Th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
-                  <tr><Td colSpan={6} className="text-center text-slate-400">Đang tải...</Td></tr>
+                  <tr><Td colSpan={6} className="text-center text-slate-400">{t("employeeSchedulePage.summaryTable.loading")}</Td></tr>
                 ) : employees.length === 0 ? (
-                  <tr><Td colSpan={6} className="text-center text-slate-400">Không có nhân viên nào khớp bộ lọc.</Td></tr>
+                  <tr><Td colSpan={6} className="text-center text-slate-400">{t("employeeSchedulePage.summaryTable.empty")}</Td></tr>
                 ) : (
                   employees.map((emp) => {
                     const shiftDayCount = dateRange.filter((d) => shiftsForEmployeeOnDate(emp, d).length > 0).length;
@@ -478,7 +479,7 @@ export default function EmployeeSchedulePage() {
                           {emp.fullName}
                           <div className="text-[10px] text-slate-400 font-normal">{emp.employeeCode}</div>
                         </Td>
-                        <Td>{employeeTypeLabels[emp.employeeType]}</Td>
+                        <Td>{employeeTypeLabel(t, emp.employeeType)}</Td>
                         <Td>{shiftDayCount}</Td>
                         <Td>{sessionCount}</Td>
                         <Td>{sessionCount > 0 ? `${checkedInSessionCount(emp)}/${sessionCount}` : "—"}</Td>
@@ -494,10 +495,10 @@ export default function EmployeeSchedulePage() {
               <table className="w-full text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200">
-                    <th className="sticky left-0 bg-slate-50 text-left px-3 py-2 font-bold text-slate-600 z-10 min-w-[180px]">Nhân viên</th>
+                    <th className="sticky left-0 bg-slate-50 text-left px-3 py-2 font-bold text-slate-600 z-10 min-w-[180px]">{t("employeeSchedulePage.gridTable.employeeColumn")}</th>
                     {dateRange.map((d) => (
                       <th key={toISODate(d)} className="px-2 py-2 font-bold text-slate-500 text-center min-w-[84px]">
-                        <div>{d.toLocaleDateString("vi-VN", { weekday: "short" })}</div>
+                        <div>{new Intl.DateTimeFormat(toLocaleTag(language), { weekday: "short" }).format(d)}</div>
                         <div className="font-mono text-[10px]">{d.getDate()}/{d.getMonth() + 1}</div>
                       </th>
                     ))}
@@ -505,13 +506,13 @@ export default function EmployeeSchedulePage() {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {loading ? (
-                    <tr><td colSpan={dateRange.length + 1} className="text-center text-slate-400 py-6">Đang tải...</td></tr>
+                    <tr><td colSpan={dateRange.length + 1} className="text-center text-slate-400 py-6">{t("employeeSchedulePage.gridTable.loading")}</td></tr>
                   ) : employees.length === 0 ? (
                     <tr>
                       <td colSpan={dateRange.length + 1} className="text-center text-slate-400 py-6">
                         <div className="flex flex-col items-center gap-1.5">
                           <Search className="w-5 h-5 text-slate-300" />
-                          Không có nhân viên nào khớp bộ lọc.
+                          {t("employeeSchedulePage.gridTable.empty")}
                         </div>
                       </td>
                     </tr>
@@ -520,7 +521,7 @@ export default function EmployeeSchedulePage() {
                       <tr key={emp.id} className="hover:bg-slate-50/40 transition-colors">
                         <td className="sticky left-0 bg-white text-left px-3 py-2 font-bold text-slate-800 z-10 border-r border-slate-100">
                           {emp.fullName}
-                          <div className="text-[10px] text-slate-400 font-normal">{emp.employeeCode} · {employeeTypeLabels[emp.employeeType]}</div>
+                          <div className="text-[10px] text-slate-400 font-normal">{emp.employeeCode} · {employeeTypeLabel(t, emp.employeeType)}</div>
                         </td>
                         {dateRange.map((d) => {
                           const shifts = shiftsForEmployeeOnDate(emp, d);
@@ -538,7 +539,7 @@ export default function EmployeeSchedulePage() {
                                   hasContent ? "hover:bg-orange-50 cursor-pointer" : "cursor-default"
                                 )}
                               >
-                                {override && <Badge variant={dayTypeVariants[override.dayType]}>{dayTypeLabels[override.dayType]}</Badge>}
+                                {override && <Badge variant={dayTypeVariants[override.dayType]}>{dayTypeLabel(t, override.dayType)}</Badge>}
                                 {shifts.length > 0 && (
                                   <span className="text-[9px] text-slate-500 flex items-center gap-0.5">
                                     <Clock className="w-2.5 h-2.5" /> {shifts.length}
@@ -546,15 +547,18 @@ export default function EmployeeSchedulePage() {
                                 )}
                                 {sessions.length > 0 && (
                                   <span className="text-[9px] bg-brand-red/10 text-brand-red px-1 py-0.5 rounded-md font-bold">
-                                    {sessions.length} buổi dạy
+                                    {t("employeeSchedulePage.gridTable.sessionsCount", { count: sessions.length })}
                                   </span>
                                 )}
                                 {sessions.length > 0 && (
                                   <span className="text-[9px] text-slate-500 font-semibold">
-                                    {sessions.filter((s) => {
-                                      const st = checkInStatusBySessionId.get(s.id)?.effectiveStatus;
-                                      return st === "ON_TIME" || st === "LATE";
-                                    }).length}/{sessions.length} đã nhận lớp
+                                    {t("employeeSchedulePage.gridTable.checkedInCount", {
+                                      checkedIn: sessions.filter((s) => {
+                                        const st = checkInStatusBySessionId.get(s.id)?.effectiveStatus;
+                                        return st === "ON_TIME" || st === "LATE";
+                                      }).length,
+                                      total: sessions.length
+                                    })}
                                   </span>
                                 )}
                               </button>
@@ -574,7 +578,16 @@ export default function EmployeeSchedulePage() {
       <Modal
         open={!!detail}
         onClose={() => setDetail(null)}
-        title={detail ? `${detail.employee.fullName} — ${new Date(`${detail.date}T00:00:00`).toLocaleDateString("vi-VN", { weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" })}` : ""}
+        title={
+          detail
+            ? `${detail.employee.fullName} — ${new Intl.DateTimeFormat(toLocaleTag(language), {
+                weekday: "long",
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric"
+              }).format(new Date(`${detail.date}T00:00:00`))}`
+            : ""
+        }
         size="lg"
       >
         {detail && (
@@ -605,20 +618,25 @@ function ScheduleDayDetail({
   sessions: ClassSessionResponse[];
   checkInStatusBySessionId: Map<number, ClassSessionCheckInStatusResponse>;
 }) {
+  const { t, i18n } = useTranslation("hrm-shifts");
+  const { t: tc } = useTranslation("common");
+  const language = i18n.language;
   return (
     <div className="space-y-3">
       {override && (
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-bold uppercase text-slate-500">Lịch nghỉ lễ/ghi đè:</span>
-          <Badge variant={dayTypeVariants[override.dayType]}>{dayTypeLabels[override.dayType]}</Badge>
+          <span className="text-[10px] font-bold uppercase text-slate-500">{t("employeeSchedulePage.detail.overrideLabel")}</span>
+          <Badge variant={dayTypeVariants[override.dayType]}>{dayTypeLabel(t, override.dayType)}</Badge>
           {override.description && <span className="text-[11px] text-slate-500">{override.description}</span>}
         </div>
       )}
 
       <div>
-        <span className="text-[10px] font-bold uppercase text-slate-500 block mb-1.5">Ca làm cố định ({shifts.length})</span>
+        <span className="text-[10px] font-bold uppercase text-slate-500 block mb-1.5">
+          {t("employeeSchedulePage.detail.fixedShiftsTitle", { count: shifts.length })}
+        </span>
         {shifts.length === 0 ? (
-          <p className="text-xs text-slate-400 italic">Không có ca làm cố định khớp ngày này.</p>
+          <p className="text-xs text-slate-400 italic">{t("employeeSchedulePage.detail.noFixedShifts")}</p>
         ) : (
           <div className="space-y-1.5">
             {shifts.map(({ shift, es }) => (
@@ -633,9 +651,11 @@ function ScheduleDayDetail({
       </div>
 
       <div>
-        <span className="text-[10px] font-bold uppercase text-slate-500 block mb-1.5">Buổi dạy ({sessions.length})</span>
+        <span className="text-[10px] font-bold uppercase text-slate-500 block mb-1.5">
+          {t("employeeSchedulePage.detail.sessionsTitle", { count: sessions.length })}
+        </span>
         {sessions.length === 0 ? (
-          <p className="text-xs text-slate-400 italic">Không có buổi dạy trong ngày này.</p>
+          <p className="text-xs text-slate-400 italic">{t("employeeSchedulePage.detail.noSessions")}</p>
         ) : (
           <div className="space-y-1.5">
             {sessions.map((s) => {
@@ -648,9 +668,8 @@ function ScheduleDayDetail({
                       <Badge variant={sessionStatusVariants[s.status] ?? "neutral"}>{s.status}</Badge>
                       {checkInStatus && s.status !== "CANCELLED" && s.status !== "RESCHEDULED" && (
                         <Badge variant={checkInStatusVariants[checkInStatus.effectiveStatus] ?? "neutral"}>
-                          {checkInStatusLabels[checkInStatus.effectiveStatus] ?? checkInStatus.effectiveStatus}
-                          {checkInStatus.checkInTime &&
-                            ` (${new Date(checkInStatus.checkInTime).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })})`}
+                          {checkInStatusLabel(tc, checkInStatus.effectiveStatus)}
+                          {checkInStatus.checkInTime && ` (${formatTimeHm(checkInStatus.checkInTime, language)})`}
                         </Badge>
                       )}
                     </div>

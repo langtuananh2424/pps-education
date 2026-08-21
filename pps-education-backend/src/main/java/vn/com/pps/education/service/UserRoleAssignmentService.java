@@ -88,7 +88,8 @@ public class UserRoleAssignmentService {
     @Transactional
     public void revokeRole(Long userId, Long roleId, Long actorUserId, HttpServletRequest httpRequest) {
         UserRole userRole = userRoleRepository.findByUserIdAndRoleId(userId, roleId)
-                .orElseThrow(() -> new ResourceNotFoundException(
+                .orElseThrow(() -> new ResourceNotFoundException("error.userRoleAssignment.roleNotAssigned",
+                        new Object[]{userId, roleId},
                         "Tài khoản id=%d chưa được gán role id=%d".formatted(userId, roleId)));
         User actor = getUserOrThrow(actorUserId);
 
@@ -112,19 +113,22 @@ public class UserRoleAssignmentService {
     private User getActiveUserOrThrow(Long userId) {
         User user = getUserOrThrow(userId);
         if (user.getStatus() != User.Status.ACTIVE) {
-            throw new AccountInactiveException("Tài khoản không hoạt động.");
+            throw new AccountInactiveException("error.accountInactive.short", new Object[]{},
+                    "Tài khoản không hoạt động.");
         }
         return user;
     }
 
     private User getUserOrThrow(Long userId) {
         return userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + userId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.userRoleAssignment.accountNotFound",
+                        new Object[]{userId}, "Không tìm thấy tài khoản id=" + userId));
     }
 
     private Role getRoleOrThrow(Long roleId) {
         return roleRepository.findById(roleId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy role id=" + roleId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.userRoleAssignment.roleNotFound",
+                        new Object[]{roleId}, "Không tìm thấy role id=" + roleId));
     }
 
     private RoleResponse toResponse(Role role) {

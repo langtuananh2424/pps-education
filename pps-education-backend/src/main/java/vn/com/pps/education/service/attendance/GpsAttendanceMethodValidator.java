@@ -45,6 +45,7 @@ public class GpsAttendanceMethodValidator implements AttendanceMethodValidator {
         return siteRepository.findNearestWithinRadius(context.latitude(), context.longitude(), settings.gpsRadiusMeters())
                 .map(SiteRepository.NearestSite::getId)
                 .orElseThrow(() -> new OutsideGpsRadiusException(
+                        "error.outsideGpsRadius.attendanceCheck", new Object[]{},
                         "Vị trí GPS hiện tại không nằm trong bán kính chấm công của bất kỳ điểm trường nào."));
     }
 }

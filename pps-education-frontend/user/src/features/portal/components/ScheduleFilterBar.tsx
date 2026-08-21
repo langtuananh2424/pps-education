@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Calendar as CalendarIcon, Check, ChevronDown } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { AcademicTermResponse } from "../api";
 import DateRangePicker from "./DateRangePicker";
 
@@ -38,6 +39,7 @@ export default function ScheduleFilterBar({
   selectedTermId,
   onSelectTerm
 }: ScheduleFilterBarProps) {
+  const { t } = useTranslation("portal-schedule");
   const [termOpen, setTermOpen] = useState(false);
   const termRef = useRef<HTMLDivElement>(null);
   const selectedTerm = terms.find((t) => t.id === selectedTermId) ?? null;
@@ -58,13 +60,13 @@ export default function ScheduleFilterBar({
           <button
             type="button"
             onClick={() => setTermOpen((v) => !v)}
-            aria-label="Lọc theo học kỳ"
+            aria-label={t("filterBar.filterByTerm")}
             aria-haspopup="dialog"
             aria-expanded={termOpen}
             className="flex items-center gap-2 min-h-[44px] bg-white border border-line rounded-xl pl-3.5 pr-3 py-2.5 text-xs font-bold text-ink focus:outline-none focus:ring-2 focus:ring-teal/50 shadow-sm cursor-pointer"
           >
             <CalendarIcon size={14} className="text-teal shrink-0" aria-hidden="true" />
-            <span className={`whitespace-nowrap ${selectedTerm ? "text-ink" : "text-muted"}`}>{selectedTerm ? selectedTerm.name : "Học kỳ"}</span>
+            <span className={`whitespace-nowrap ${selectedTerm ? "text-ink" : "text-muted"}`}>{selectedTerm ? selectedTerm.name : t("filterBar.term")}</span>
             <ChevronDown size={14} className={`text-muted shrink-0 transition-transform ${termOpen ? "rotate-180" : ""}`} aria-hidden="true" />
           </button>
 
@@ -73,7 +75,7 @@ export default function ScheduleFilterBar({
               <div className="fixed inset-0 z-30 bg-ink/30 sm:hidden" aria-hidden="true" onClick={() => setTermOpen(false)} />
               <div
                 role="dialog"
-                aria-label="Chọn học kỳ"
+                aria-label={t("filterBar.selectTermDialog")}
                 className="fixed left-4 right-4 top-1/2 -translate-y-1/2 z-30 max-h-[70vh] overflow-y-auto sm:absolute sm:left-auto sm:right-0 sm:top-full sm:translate-y-0 sm:mt-2 sm:max-h-none sm:overflow-visible sm:w-64 bg-white border border-line rounded-2xl shadow-lg p-1.5 space-y-0.5"
               >
                 {terms.map((t) => (
@@ -100,7 +102,7 @@ export default function ScheduleFilterBar({
         </div>
       )}
 
-      <DateRangePicker fromDate={fromDate} toDate={toDate} onChange={onDateRangeChange} label="Lọc theo khoảng thời gian" />
+      <DateRangePicker fromDate={fromDate} toDate={toDate} onChange={onDateRangeChange} label={t("dateRangePicker.filterByDateRange")} />
     </div>
   );
 }

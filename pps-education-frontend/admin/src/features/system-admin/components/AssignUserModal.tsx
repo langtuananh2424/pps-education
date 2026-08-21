@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Search, UserPlus } from "lucide-react";
 import { UserListItemResponse } from "../api";
 import Modal from "@/components/ui/Modal";
@@ -13,6 +14,7 @@ interface AssignUserModalProps {
 }
 
 export default function AssignUserModal({ open, candidates, busyUserId, onClose, onAssign }: AssignUserModalProps) {
+  const { t } = useTranslation("system-admin-users");
   const [keyword, setKeyword] = useState("");
 
   const filtered = useMemo(() => {
@@ -24,25 +26,25 @@ export default function AssignUserModal({ open, candidates, busyUserId, onClose,
   }, [candidates, keyword]);
 
   return (
-    <Modal open={open} onClose={onClose} title="Gán tài khoản vào vai trò" size="md">
+    <Modal open={open} onClose={onClose} title={t("assignUserModal.title")} size="md">
       <div className="space-y-3">
         <label className="text-[10px] uppercase font-bold text-slate-500 block flex items-center gap-1.5">
           <UserPlus className="w-3.5 h-3.5 text-brand-red" />
-          Tìm tài khoản (username / họ tên / email)
+          {t("assignUserModal.searchLabel")}
         </label>
         <div className="relative">
           <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-slate-400" />
           <input
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
-            placeholder="Nhập để tìm..."
+            placeholder={t("assignUserModal.searchPlaceholder")}
             className="w-full bg-slate-50 border border-slate-200 text-xs pl-8 pr-3 py-2.5 rounded-lg focus:outline-none"
           />
         </div>
 
         <div className="max-h-72 overflow-y-auto divide-y divide-slate-100 border border-slate-200 rounded-lg">
           {filtered.length === 0 ? (
-            <p className="text-xs text-slate-400 text-center py-6">Không tìm thấy tài khoản phù hợp.</p>
+            <p className="text-xs text-slate-400 text-center py-6">{t("assignUserModal.empty")}</p>
           ) : (
             filtered.map((u) => (
               <div key={u.id} className="flex items-center justify-between gap-3 p-2.5 hover:bg-slate-50/60">
@@ -53,7 +55,7 @@ export default function AssignUserModal({ open, candidates, busyUserId, onClose,
                   </p>
                 </div>
                 <Button size="sm" variant="dark" disabled={busyUserId === u.id} onClick={() => onAssign(u.id)}>
-                  {busyUserId === u.id ? "..." : "Gán"}
+                  {busyUserId === u.id ? "..." : t("assignUserModal.assign")}
                 </Button>
               </div>
             ))
@@ -63,7 +65,7 @@ export default function AssignUserModal({ open, candidates, busyUserId, onClose,
 
       <div className="flex justify-end gap-2 pt-4 mt-4 border-t border-slate-100">
         <Button variant="secondary" onClick={onClose}>
-          Đóng
+          {t("assignUserModal.close")}
         </Button>
       </div>
     </Modal>

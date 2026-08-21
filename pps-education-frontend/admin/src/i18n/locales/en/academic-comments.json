@@ -1,0 +1,349 @@
+{
+  "shared": {
+    "commentType": {
+      "DAILY": "Daily"
+    },
+    "attitude": {
+      "WEAK": "Weak",
+      "AVERAGE": "Average",
+      "FAIR": "Fair",
+      "GOOD": "Good",
+      "EXCELLENT": "Excellent"
+    },
+    "attitudeWithPercent": {
+      "WEAK": "Weak (20%)",
+      "AVERAGE": "Average (50%)",
+      "FAIR": "Fair (70%)",
+      "GOOD": "Good (90%)",
+      "EXCELLENT": "Excellent (100%)"
+    },
+    "status": {
+      "DRAFT": "Draft",
+      "PENDING": "Pending review",
+      "APPROVED": "Approved",
+      "REJECTED": "Rejected"
+    },
+    "teacherType": {
+      "VIETNAMESE": "Vietnamese teacher",
+      "FOREIGN": "Foreign teacher"
+    },
+    "grammarChannel": {
+      "VIETNAMESE": "Grammar",
+      "FOREIGN": "Listening"
+    },
+    "videoChannel": {
+      "VIETNAMESE": "Vocabulary (TKN)",
+      "FOREIGN": "Reflex clip"
+    },
+    "grammarChannelFallback": "Assignment",
+    "videoChannelFallback": "Video"
+  },
+  "approvalByClass": {
+    "loading": "Loading...",
+    "empty": "No comments pending review yet.",
+    "classFallback": "Class #{{id}}",
+    "decideAllButton": "Approve all",
+    "decidingAll": "Approving...",
+    "pendingBadge": "{{count}} pending",
+    "sessionLabel": "Session {{date}} ({{weekday}})",
+    "studentCount": "{{count}} students",
+    "lessonContentPrefix": "· Today's lesson: {{content}}",
+    "columns": {
+      "studentCode": "Student ID",
+      "fullName": "Full name",
+      "type": "Type",
+      "dateOfBirth": "Date of birth",
+      "homeworkPrevious": "Previous session's homework",
+      "homeworkOffline": "Offline homework",
+      "homeworkOnline": "Online homework",
+      "dueDate": "Due date",
+      "attitude": "Learning attitude",
+      "studentComment": "Student comment",
+      "note": "Note",
+      "action": "Action",
+      "offline": "Offline"
+    },
+    "cancel": "Cancel",
+    "saveEdit": "Save changes",
+    "savingEdit": "Saving...",
+    "actionEdit": "Edit",
+    "actionReject": "Reject",
+    "actionApprove": "Approve",
+    "deciding": "...",
+    "rejectReasonPrompt": "Reason for rejection (required — the teacher will use this to make corrections):",
+    "decidedApproved": "Approved the comment for student {{name}}.",
+    "decidedRejected": "Rejected the comment for student {{name}}.",
+    "decidedAll": "Approved all {{count}} comments for class {{className}}.",
+    "errors": {
+      "decideFailed": "Failed to review the comment.",
+      "decideAllFailed": "Failed to approve all comments.",
+      "emptyContent": "Comment content cannot be empty.",
+      "saveEditFailed": "Failed to save the edited content."
+    }
+  },
+  "historyList": {
+    "placeholders": {
+      "attitude": "-- Learning attitude --",
+      "homeworkPreviousScore": "Previous grammar homework",
+      "homeworkPreviousSpeakingScore": "Previous listening/speaking homework",
+      "homeworkNextOffline": "E.g. Unit 2, page 10",
+      "chooseExercise": "-- Select a published exercise --",
+      "noVideoAssign": "-- No review video assigned --",
+      "note": "Note"
+    },
+    "grammarModeOfflineButton": "Grammar homework: Offline",
+    "grammarModeOnlineButton": "Online",
+    "severity": {
+      "POSITIVE": "Positive",
+      "NORMAL": "Normal",
+      "CONCERN": "Needs attention",
+      "WARNING": "Warning"
+    },
+    "specialWarningLabel": "Special warning",
+    "cancel": "Cancel",
+    "sendAgain": "Resend",
+    "sending": "Sending...",
+    "empty": "No comments yet.",
+    "readOnlyExtras": {
+      "attitude": "Attitude: {{value}}",
+      "homeworkPreviousScore": "Previous grammar homework: {{value}}",
+      "homeworkPreviousSpeakingScore": "Previous listening/speaking homework: {{value}}",
+      "grammarPreviousProgress": "Grammar % (auto): {{value}}",
+      "videoPreviousProgress": "Video % (auto): {{value}}",
+      "homeworkNextOffline": "Next grammar homework (offline): {{value}}",
+      "homeworkNextOnline": "Next grammar homework (online): {{value}}",
+      "homeworkNextVideo": "Next review video: {{value}}",
+      "note": "Note: {{value}}"
+    },
+    "rejectionReason": "Rejection reason: {{reason}}",
+    "submitDraft": "Submit for review",
+    "submitting": "Submitting...",
+    "editAndResend": "Edit & resend",
+    "versionHistoryTitle": "View version history",
+    "versionHistoryLabel": "History",
+    "columns": {
+      "studentCode": "Student ID",
+      "fullName": "Full name",
+      "dateOfBirth": "Date of birth",
+      "homeworkPrevious": "Previous session's homework",
+      "homeworkOffline": "Offline homework",
+      "homeworkOnline": "Online homework",
+      "dueDate": "Due date",
+      "attitude": "Learning attitude",
+      "studentComment": "Student comment",
+      "note": "Note",
+      "status": "Status",
+      "offline": "Offline"
+    },
+    "errors": {
+      "emptyContent": "Please enter the comment content.",
+      "submitFailed": "Failed to submit the comment.",
+      "resendFailed": "Failed to resend the comment."
+    },
+    "toasts": {
+      "submitted": "Comment submitted for review successfully!",
+      "resent": "Comment resent successfully!"
+    }
+  },
+  "historyPanel": {
+    "loadingClasses": "Loading class list...",
+    "noClasses": "You are not assigned to any class.",
+    "errors": {
+      "loadFailed": "Failed to load comment history."
+    },
+    "allClasses": "All classes",
+    "allStatuses": "All statuses",
+    "fromDateLabel": "From date:",
+    "toDateConnector": "to",
+    "clearFilter": "Clear filters",
+    "countSummary": "{{filtered}}/{{total}} comments",
+    "loading": "Loading...",
+    "emptyNoHistory": "No approved/rejected comments yet.",
+    "emptyNoMatch": "No comments match the current filters.",
+    "classFallback": "Class #{{id}}",
+    "commentCountBadge": "{{count}} comments",
+    "sessionLabel": "Session {{date}} ({{weekday}})",
+    "sessionItemCount": "{{count}} comments",
+    "columns": {
+      "studentCode": "Student ID",
+      "fullName": "Full name",
+      "type": "Type",
+      "dateOfBirth": "Date of birth",
+      "homeworkPrevious": "Previous session's homework",
+      "homeworkOffline": "Offline homework",
+      "homeworkOnline": "Online homework",
+      "dueDate": "Due date",
+      "attitude": "Learning attitude",
+      "comment": "Comment",
+      "note": "Note",
+      "status": "Status",
+      "decidedAt": "Decision date",
+      "rejectionReason": "Rejection reason",
+      "offline": "Offline"
+    }
+  },
+  "dailyCommentPanel": {
+    "title": "Daily comments by session",
+    "versionHistoryButton": "Version history",
+    "noClassSelected": "No class selected — pick one from the top right (Header) to get started.",
+    "sessionSelectPlaceholder": "-- Select a session --",
+    "sessionOptionLabel": "Session {{number}} — {{date}} ({{start}}–{{end}})",
+    "sessionOptionPartialCount": " ({{commented}}/{{total}})",
+    "teacherTypeLockedTitle": "This session already has comments submitted for review — the teacher type can no longer be changed.",
+    "teacherTypeMissingWarning": "⚠️ \"Teacher type\" not selected above — select it first so the next-session homework table shows the right Assignment/Video labels for a Vietnamese or foreign teacher.",
+    "sessionLockedNotice": "🔒 This session already has comments submitted for review. To make changes, ask the Site Manager to \"Reject\" all comments for this session to unlock it.",
+    "lessonContentLabel": "Today's lesson *",
+    "lessonContentPlaceholder": "E.g. Unit 3 - Free time activities",
+    "actualTeacherNameLabel": "Teaching teacher's name",
+    "actualTeacherNamePlaceholder": "E.g. Nguyen Van A (fill in on behalf of a foreign teacher who doesn't use the system directly)",
+    "saveButton": "Save",
+    "savingButton": "Saving...",
+    "lessonContentMissingError": "⚠️ You must fill in and save Today's lesson before sending comments — the student content you've typed is still intact; fill it in and press \"Send comments\" again.",
+    "lessonContentMissingHint": "Today's lesson hasn't been filled in yet — it's required before sending comments (a session left blank will be rejected on submission).",
+    "blockOnlineHomeworkWarning": "⚠️ This is the last scheduled session for this class — since the class has no upcoming session on the schedule, {{grammarLabel}} (Online)/{{videoLabel}} homework for the next session cannot be assigned yet (it needs a due date = next session). Pick a due date manually in the \"Quick-assign to whole class\" panel below to bypass this, or only enter offline homework (free text, no due date needed).",
+    "quickAssign": {
+      "title": "Quick-assign to whole class",
+      "offlineLabel": "Offline homework",
+      "offlinePlaceholder": "E.g. Unit 2, page 10",
+      "onlineGrammarLabel": "Online homework — {{grammarLabel}}",
+      "onlineVideoLabel": "Online homework — {{videoLabel}}",
+      "noAssign": "-- Not assigned --",
+      "dueDateLabel": "Due date — date",
+      "dueTimeLabel": "Due date — time",
+      "applyButton": "Apply to whole class"
+    },
+    "downloadTemplateButton": "Download Excel template",
+    "downloadingTemplate": "Saving & downloading...",
+    "importExcelButton": "Import from Excel",
+    "importing": "Importing...",
+    "savedAt": "Saved at {{time}}",
+    "saveDraftButton": "Save draft",
+    "savingDraft": "Saving...",
+    "importResult": {
+      "total": "Total: {{count}}",
+      "success": "Succeeded: {{count}}",
+      "failed": "Failed: {{count}}",
+      "row": "Row {{row}}"
+    },
+    "columns": {
+      "studentCode": "Student ID",
+      "fullName": "Full name",
+      "dateOfBirth": "Date of birth",
+      "homeworkPrevious": "Previous session's homework",
+      "homeworkOffline": "Offline homework",
+      "homeworkOnline": "Online homework",
+      "dueDate": "Due date",
+      "attitude": "Learning attitude",
+      "studentComment": "Student comment *",
+      "note": "Note",
+      "offline": "Offline"
+    },
+    "emptyNoSession": "Select a session above to load the student list.",
+    "emptyNoClass": "Select a class from the Header (top right).",
+    "loadingRows": "Loading...",
+    "emptyNoStudents": "No students found in this class.",
+    "homeworkPreviousOfflinePlaceholder": "E.g. 80%",
+    "homeworkPreviousSpeakingPlaceholder": "E.g. Completed 85% (Video channel is always online — auto % will appear after sending)",
+    "autoBadge": "Auto",
+    "chooseExercisePlaceholder": "-- Select a published exercise --",
+    "attitudePlaceholder": "-- Not selected --",
+    "contentPlaceholder": "Write a comment for this student...",
+    "ariaChooseTeacherTypeFirst": "Select the teacher type above first.",
+    "ariaNoUpcomingSession": "The class has no upcoming session on the schedule — pick a due date manually to bypass this.",
+    "sendButton": "Send comments",
+    "sending": "Sending...",
+    "sendButtonDoneAll": "All comments for this session have been sent",
+    "historyToggle": "Comment history for this session",
+    "historyToggleCount": "Comment history for this session ({{count}})",
+    "loadingHistory": "Loading...",
+    "notifications": {
+      "todayNotStarted": "📅 Today's session ({{start}}–{{end}}) hasn't started yet — comments can't be entered yet; you can select a different session above.",
+      "noTodaySession": "📅 This class has no session today — please select a session above.",
+      "lessonContentSaved": "✅ Today's lesson has been saved.",
+      "actualTeacherNameSaved": "✅ Teaching teacher's name has been saved.",
+      "draftSavedFailurePart": "⚠️ Saved draft for {{saved}}/{{total}} comments — {{studentName}}{{extra}} failed: {{reason}}",
+      "draftSavedSuccess": "💾 Saved draft for {{count}} comments (not yet submitted for review).",
+      "extraStudents": " (+{{count}} more students)",
+      "sentSuccess": "🔔 Sent comments for {{count}} students to the Site Manager for review.",
+      "sentButSubmitFailed": "⚠️ Saved draft for {{count}} comments but submitting for review failed: {{reason}} — go to \"Comment history\" below and press \"Submit for review\" to try again.",
+      "alreadySent": "⚠️ Student {{name}} already has a comment for this session (status: {{status}}) — view/edit it in \"Comment history\" below."
+    },
+    "errors": {
+      "loadSessionsFailed": "Failed to load the session list.",
+      "lessonContentSaveFailed": "Failed to save Today's lesson.",
+      "actualTeacherNameSaveFailed": "Failed to save the teaching teacher's name.",
+      "teacherTypeSaveFailed": "Failed to save the teacher type.",
+      "loadStudentsFailed": "Failed to load the student list.",
+      "noDataToSave": "There's no data to save yet.",
+      "savingDraftInProgress": "Saving draft, please wait.",
+      "saveDraftFailed": "Failed to save the draft.",
+      "unknownReason": "unknown error",
+      "unknownError": "Unknown error.",
+      "enterAtLeastOneComment": "Please enter a comment for at least 1 student.",
+      "submitFailed": "Failed to submit for review.",
+      "sendFailed": "Failed to send comments.",
+      "downloadTemplateFailed": "Failed to download the template file.",
+      "saveDraftBeforeDownloadFailed": "Couldn't save the draft, so the file wasn't downloaded — {{reason}}",
+      "xlsxOnly": "Only .xlsx files are supported.",
+      "importFailed": "Failed to import from Excel."
+    }
+  },
+  "commentsPage": {
+    "title": "Student comments",
+    "subtitle": "Teachers write daily comments; the Site Manager reviews them before they appear on the Parent Portal.",
+    "tabs": {
+      "pending": "Pending review",
+      "history": "Past comment history"
+    },
+    "errors": {
+      "loadPendingFailed": "Failed to load the comment review queue."
+    }
+  },
+  "commentVersionHistoryModal": {
+    "title": "Version History",
+    "subtitle": "{{name}} — each point in time is one Save draft/Send/Approve/Reject.",
+    "loadError": "Couldn't load the version history.",
+    "loading": "Loading...",
+    "empty": "No history yet.",
+    "latestBadge": "Latest",
+    "actionByLabel": "{{action}} by {{name}}",
+    "action": {
+      "CREATED": "Created",
+      "UPDATED": "Updated"
+    },
+    "noContent": "—",
+    "attitudeLabel": "Attitude: {{value}}",
+    "homeworkPreviousGrammar": "Previous grammar homework: {{value}}",
+    "homeworkPreviousListening": "Previous listening/speaking homework: {{value}}",
+    "homeworkNextGrammarOffline": "Next grammar homework (offline): {{value}}",
+    "homeworkNextGrammarOnline": "Next grammar homework (online): {{value}}",
+    "homeworkNextVideo": "Next review video: {{value}}",
+    "homeworkNextDueSuffix": " (due {{date}})",
+    "pendingChoicesLabel": "Not yet sent selections: {{value}}",
+    "noteLabel": "Note: {{value}}",
+    "rejectionReasonLabel": "Rejection reason: {{value}}"
+  },
+  "sessionVersionHistoryModal": {
+    "title": "Version History — whole session",
+    "subtitle": "Each point in time is one Save draft/Send/Approve/Reject — pick one to view the whole table as it was then.",
+    "loadError": "Couldn't load the version history.",
+    "loading": "Loading...",
+    "empty": "This session has no edit history yet.",
+    "latestBadge": "Latest",
+    "studentsCount": "{{count}} students",
+    "columns": {
+      "studentCode": "Student ID",
+      "fullName": "Full name",
+      "dateOfBirth": "Date of birth",
+      "homeworkPrevious": "Previous homework",
+      "homeworkOffline": "Offline homework",
+      "homeworkOnline": "Online homework",
+      "dueDate": "Due date",
+      "attitude": "Attitude",
+      "studentComment": "Student comment",
+      "note": "Note",
+      "status": "Status",
+      "offline": "Offline"
+    }
+  }
+}

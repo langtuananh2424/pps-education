@@ -1,0 +1,72 @@
+{
+  "page": {
+    "title": "Reference Document Library",
+    "subtitle": "Documents shared per curriculum framework, not tied to any specific lecture — students view them for self-study."
+  },
+  "documentType": {
+    "VIDEO": "Video",
+    "PDF": "PDF",
+    "AUDIO": "Audio",
+    "SLIDE": "Slide",
+    "IMAGE": "Image",
+    "OTHER": "Other"
+  },
+  "status": {
+    "DRAFT": "Draft",
+    "PUBLISHED": "Published",
+    "ARCHIVED": "Removed"
+  },
+  "errors": {
+    "loadFailed": "Couldn't load the document library.",
+    "titleAndFileRequired": "Please fill in the title and file URL.",
+    "titleRequired": "Please fill in the title.",
+    "createFailed": "Failed to add the document.",
+    "updateFailed": "Failed to update the document."
+  },
+  "toast": {
+    "created": "Document added successfully!",
+    "updated": "Document saved successfully!"
+  },
+  "filter": {
+    "curriculumPlaceholder": "-- Select a curriculum framework --",
+    "addButton": "Add document"
+  },
+  "list": {
+    "loading": "Loading...",
+    "selectCurriculumPrompt": "Select a curriculum framework above to view its document library.",
+    "empty": "This curriculum framework has no reference documents yet.",
+    "editButton": "Edit"
+  },
+  "createModal": {
+    "title": "Add reference document",
+    "fields": {
+      "title": "Title *",
+      "documentType": "File type *",
+      "description": "Description",
+      "file": "Document file *",
+      "filePlaceholder": "Choose a PDF/Word/Excel/image/audio/video file...",
+      "coverImage": "Cover image (optional)",
+      "coverImagePlaceholder": "Choose a cover image...",
+      "displayOrder": "Display order"
+    },
+    "draftHint": "Newly created documents start as Draft — go to \"Edit\" to switch to Published once ready for students to view.",
+    "cancel": "Cancel",
+    "submit": "Add document",
+    "submitting": "Saving..."
+  },
+  "editModal": {
+    "title": "Edit document: {{title}}",
+    "fields": {
+      "title": "Title *",
+      "description": "Description",
+      "coverImage": "Cover image (optional)",
+      "coverImagePlaceholder": "Choose a cover image...",
+      "displayOrder": "Display order",
+      "status": "Status"
+    },
+    "immutableHint": "The file type/URL cannot be changed after creation — remove by switching status to \"Removed\" (ARCHIVED), then create a new record if you need to change the file.",
+    "cancel": "Cancel",
+    "submit": "Save changes",
+    "submitting": "Saving..."
+  }
+}

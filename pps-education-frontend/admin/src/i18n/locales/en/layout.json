@@ -1,0 +1,189 @@
+{
+  "nav": {
+    "sections": {
+      "dashboard": "DASHBOARD",
+      "system": "SYSTEM ADMINISTRATION",
+      "hrm": "HUMAN RESOURCES (HRM)",
+      "crm": "ADMISSIONS & CRM",
+      "student": "STUDENT MANAGEMENT",
+      "academic": "ACADEMIC MANAGEMENT",
+      "lms": "LMS MATERIALS & ASSESSMENT",
+      "reports": "REPORTS & ANALYTICS",
+      "finance": "FINANCE MANAGEMENT",
+      "facility": "FACILITIES & PARTNERS",
+      "partner": "PARTNER SCHOOL PORTAL"
+    },
+    "items": {
+      "dash-all": "Overview Dashboard",
+      "sys-users": "User Management",
+      "sys-roles": "Role Groups",
+      "sys-override": "Account Overrides",
+      "sys-audit": "Audit Log",
+      "sys-settings": "System Settings",
+      "sys-send-notification": "Send Notification",
+      "hrm-profile": "Staff Records",
+      "hrm-departments-positions": "Departments & Positions",
+      "hrm-attendance": "Attendance Data",
+      "hrm-attendance-sites": "Attendance Locations",
+      "hrm-shifts": "Work Shifts",
+      "hrm-work-calendar": "Work Calendar / Holidays",
+      "hrm-employee-schedule": "Staff Schedule",
+      "hrm-leaves": "Leave Requests",
+      "hrm-payroll": "Payroll Calculation",
+      "crm-leads": "Leads",
+      "stu-profile": "Student Records",
+      "stu-parents": "Parent Management",
+      "acad-my-schedule": "My Schedule",
+      "acad-classes": "Class Management",
+      "acad-attendance": "Attendance",
+      "acad-syllabus": "Curriculum Framework",
+      "acad-grades": "Gradebook",
+      "acad-comments": "Student Comments",
+      "acad-homework-stats": "Homework Stats by Class",
+      "lms-exercises": "Create & Assign Exercises",
+      "lms-lectures": "Review Video Library",
+      "lms-documents": "Reference Document Library",
+      "lms-exams": "Grading Queue",
+      "rep-templates": "Automated Report Templates",
+      "rep-daily": "Comment Statistics",
+      "rep-grades": "Grade Statistics",
+      "rep-student": "Learning Profile",
+      "rep-enrollment-movement": "Enrollment Movement by Term",
+      "fin-billing": "Billing & Invoices",
+      "fin-expenses": "Operating Expenses",
+      "fin-reports": "Accounting Reports",
+      "fac-campuses": "Campuses & Contracts",
+      "fac-rooms": "Rooms & Equipment",
+      "fac-feedback": "Feedback",
+      "part-syllabus": "Teaching Plan",
+      "part-portal": "Partnership Reports"
+    }
+  },
+  "roles": {
+    "SYS_ADMIN": "System Administrator",
+    "SUPER_ADMIN": "Super Administrator",
+    "EXECUTIVE": "Executive Board",
+    "HEAD_ACADEMIC": "Head of Academic Affairs",
+    "SITE_MANAGER": "Site Manager",
+    "TEACHER": "Teacher",
+    "HR_MANAGER": "HR Manager",
+    "STAFF": "Staff",
+    "OPS_MANAGER": "Operations Manager",
+    "PARTNER_REP": "Partner School Representative",
+    "PARENT": "Parent",
+    "STUDENT": "Student"
+  },
+  "sidebar": {
+    "logout": "Sign Out",
+    "notLoggedIn": "Not signed in",
+    "unsavedModal": {
+      "title": "Unsaved changes",
+      "description": "You have unsaved changes on the current page. Would you like to save a draft before leaving?",
+      "stay": "Stay on page",
+      "leaveWithoutSaving": "Leave without saving",
+      "saveAndLeave": "Save draft & leave",
+      "saving": "Saving...",
+      "warning": "If you don't save, your unfinished changes will be lost when you leave this page.",
+      "saveFailureFallback": "Couldn't save your changes — please check and try again before leaving."
+    }
+  },
+  "header": {
+    "site": {
+      "label": "Site:",
+      "allSites": "All campuses & partner schools",
+      "unassignedWarning": "No site assigned — please contact an administrator",
+      "placeholder": "-- Select a site --"
+    },
+    "class": {
+      "label": "Class:",
+      "placeholder": "-- Select a class --"
+    },
+    "attendance": {
+      "checkIn": "Check in",
+      "checkedInOut": "Checked in {{checkIn}} – {{checkOut}}",
+      "checkedInOnly": "Checked in at {{checkIn}}",
+      "modalTitle": "My attendance",
+      "modalDescription": "Select a site and tap check-in/check-out — the system uses your current GPS location."
+    },
+    "classCheckIn": {
+      "ariaLabel": "Check in to today's classes",
+      "pendingCount": "Check in ({{count}} sessions)",
+      "doneCount": "{{done}}/{{total}} checked in",
+      "modalTitle": "Check in to today's classes",
+      "modalDescription": "Confirm your presence to teach each session — the system uses your current GPS location and only accepts check-in within the site's allowed radius."
+    },
+    "notifications": {
+      "title": "Operational notifications",
+      "newCount": "{{count}} new",
+      "empty": "No notifications yet."
+    },
+    "profileMenu": {
+      "fallbackName": "PPS Staff",
+      "profile": "My profile",
+      "changePassword": "Change password",
+      "settings": "Settings",
+      "settingsComingSoon": "Settings is under development.",
+      "logout": "Sign out"
+    }
+  },
+  "dialog": {
+    "okLabel": "Got it",
+    "confirmLabel": "Confirm",
+    "cancelLabel": "Cancel",
+    "alertTitle": "Notice",
+    "confirmTitle": "Confirm",
+    "promptTitle": "Enter information"
+  },
+  "pagination": {
+    "total": "Total {{count}} {{itemLabel}}",
+    "pageSize": "Rows/page:",
+    "previous": "Previous",
+    "next": "Next",
+    "page": "Page {{current}}/{{total}}"
+  },
+  "datePicker": {
+    "weekdays": ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"],
+    "months": [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December"
+    ],
+    "placeholder": "-- Select a date --",
+    "clear": "Clear",
+    "today": "Today"
+  },
+  "upload": {
+    "file": {
+      "changeFile": "Change file",
+      "uploading": "Uploading...",
+      "choose": "Choose file",
+      "failed": "File upload failed."
+    },
+    "avatar": {
+      "changeTitle": "Change avatar",
+      "failed": "Avatar upload failed."
+    },
+    "excel": {
+      "button": "Import Excel",
+      "modalDescription": "Download the template, fill it in, then upload it to import in bulk.",
+      "downloadTemplate": "Download template (.xlsx)",
+      "downloading": "Downloading...",
+      "downloadTemplateFailed": "Failed to download the template.",
+      "downloadAccountsFailed": "Failed to download the account list.",
+      "uploadLabel": "Upload completed file",
+      "invalidFileType": "Only .xlsx files are accepted (matching the downloaded template).",
+      "importFailed": "Import failed.",
+      "totalRows": "Total rows",
+      "successRows": "Succeeded",
+      "failedRows": "Failed",
+      "errorDetailTitle": "Row-by-row error details",
+      "row": "Row {{row}}",
+      "credentialsWarning": "Temporary passwords — shown only once, save them now",
+      "downloadAccounts": "Download list (.xlsx)",
+      "close": "Close",
+      "cancel": "Cancel",
+      "importing": "Importing...",
+      "confirmImport": "Confirm import",
+      "defaultAccountsFileName": "accounts.xlsx"
+    }
+  }
+}

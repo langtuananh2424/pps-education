@@ -125,7 +125,7 @@ public class InvoiceService {
                 : tuitionPlanAssignmentRepository.findByEffectiveToIsNull();
 
         User actor = actorUserId == null ? null : userRepository.findById(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy user id=" + actorUserId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.invoice.userNotFound", new Object[]{actorUserId}, "Không tìm thấy user id=" + actorUserId));
 
         return assignments.stream()
                 .filter(assignment -> assignment.getSchoolClass().getStatus() != SchoolClass.Status.CANCELLED
@@ -260,7 +260,7 @@ public class InvoiceService {
     public PaymentResponse recordManualPayment(Long invoiceId, RecordManualPaymentRequest request, Long actorUserId) {
         Invoice invoice = invoiceOrThrow(invoiceId);
         User actor = userRepository.findById(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy user id=" + actorUserId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.invoice.userNotFound", new Object[]{actorUserId}, "Không tìm thấy user id=" + actorUserId));
 
         Payment payment = new Payment();
         payment.setPaymentReference(generatePaymentReference());
@@ -287,7 +287,7 @@ public class InvoiceService {
     @Transactional
     public PaymentResponse confirmBankWebhook(BankWebhookPaymentRequest request) {
         Invoice invoice = invoiceRepository.findByInvoiceNumber(request.invoiceNumber())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hóa đơn số=" + request.invoiceNumber()));
+                .orElseThrow(() -> new ResourceNotFoundException("error.invoice.notFoundByNumber", new Object[]{request.invoiceNumber()}, "Không tìm thấy hóa đơn số=" + request.invoiceNumber()));
 
         Payment payment = new Payment();
         payment.setPaymentReference(generatePaymentReference());
@@ -318,12 +318,13 @@ public class InvoiceService {
 
     private Invoice invoiceOrThrow(Long id) {
         return invoiceRepository.findByIdAndDeletedAtIsNull(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hóa đơn id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.invoice.notFoundById", new Object[]{id}, "Không tìm thấy hóa đơn id=" + id));
     }
 
     private Parent parentOrThrow(Long actorUserId) {
         return parentRepository.findByUserId(actorUserId)
                 .orElseThrow(() -> new NotAuthorizedForPortalAccessException(
+                        "error.notAuthorizedForPortalAccess.noParentProfile", new Object[]{},
                         "Tài khoản của bạn không có hồ sơ phụ huynh."));
     }
 
@@ -332,6 +333,7 @@ public class InvoiceService {
         Parent parent = parentOrThrow(actorUserId);
         if (parentStudentRepository.findByParentIdAndStudentId(parent.getId(), studentId).isEmpty()) {
             throw new NotAuthorizedForPortalAccessException(
+                    "error.notAuthorizedForPortalAccess.parentNotLinkedToStudent", new Object[]{},
                     "Tài khoản của bạn không phải phụ huynh liên kết với học sinh này.");
         }
     }

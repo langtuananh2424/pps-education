@@ -1,0 +1,108 @@
+{
+  "attendanceStatus": {
+    "NORMAL": "On time",
+    "LATE": "Late",
+    "EARLY_LEAVE": "Left early",
+    "MISSING": "Missing check-in"
+  },
+  "attendanceMethod": {
+    "GPS": "GPS",
+    "FINGERPRINT": "Fingerprint",
+    "FACE": "Face",
+    "MANUAL": "Manual"
+  },
+  "attendancePage": {
+    "title": "HR & Payroll Management",
+    "description": "Multi-method attendance data (fingerprint, face, GPS).",
+    "summaryTitle": "Attendance summary",
+    "summarySubtitle": "Center-wide, filter by employee/site/date range.",
+    "toLabel": "to",
+    "allEmployees": "All employees",
+    "allSites": "All sites",
+    "loadError": "Couldn't load attendance data.",
+    "columns": {
+      "employee": "Employee",
+      "date": "Date",
+      "checkIn": "Check-in",
+      "checkOut": "Check-out",
+      "method": "Method",
+      "site": "Site",
+      "status": "Status"
+    },
+    "loading": "Loading...",
+    "empty": "No attendance records in the selected range."
+  },
+  "selfAttendance": {
+    "detectedSitePrefix": "Site auto-detected: ",
+    "detectedSiteSuffix": ".",
+    "noSites": "No sites yet",
+    "processing": "Processing...",
+    "checkInButton": "Check in",
+    "checkOutButton": "Check out",
+    "checkInSuccess": "Checked in successfully at {{time}}!",
+    "checkOutSuccess": "Checked out successfully at {{time}}!",
+    "checkInFailedUnknown": "Check-in failed — open Console (F12) to see the error details.",
+    "checkInTimeLabel": "Check-in: ",
+    "checkOutTimeLabel": "Check-out: "
+  },
+  "attendanceSitesPage": {
+    "title": "Attendance Sites",
+    "description": "Configure GPS coordinates for the Center and partner schools — used to validate the radius for GPS check-in (UC-09).",
+    "addButton": "Add site",
+    "loadError": "Couldn't load the site list.",
+    "columns": {
+      "code": "Code",
+      "name": "Site name",
+      "type": "Type",
+      "address": "Address",
+      "gps": "GPS coordinates",
+      "status": "Status"
+    },
+    "loading": "Loading...",
+    "empty": "No sites yet.",
+    "notConfigured": "Not configured",
+    "editButton": "Edit",
+    "updatedToast": "Site updated successfully!",
+    "createdToast": "Site created successfully!",
+    "siteStatus": { "ACTIVE": "Active", "INACTIVE": "Inactive", "PENDING": "Pending activation" },
+    "siteType": { "OWNED": "Center", "PARTNER": "Partner school" }
+  },
+  "attendanceSiteForm": {
+    "editTitle": "Edit attendance site",
+    "createTitle": "Add attendance site",
+    "codeLabel": "Site code *",
+    "typeLabel": "Type *",
+    "typeOwned": "Self-operated site (Center)",
+    "typePartner": "Partner school",
+    "nameLabel": "Site name *",
+    "addressLabel": "Address",
+    "districtLabel": "District",
+    "phoneLabel": "Phone number",
+    "statusLabel": "Status",
+    "statusActive": "Active",
+    "statusInactive": "Inactive",
+    "statusPending": "Pending activation",
+    "gpsUnsupported": "Your browser doesn't support GPS location.",
+    "gpsError": "Couldn't get the current location — please allow location access in your browser.",
+    "requiredFieldsError": "Please fill in the site code and name.",
+    "invalidCoordinates": "Invalid GPS coordinates.",
+    "saveError": "Failed to save the site.",
+    "gpsSectionTitle": "GPS coordinates (used for GPS check-in)",
+    "locating": "Getting location...",
+    "useCurrentLocation": "Use current location",
+    "latitudeLabel": "Latitude",
+    "latitudeExample": "e.g. 21.0285",
+    "longitudeLabel": "Longitude",
+    "longitudeExample": "e.g. 105.8542",
+    "gpsHint": "Leave blank if not yet determined — staff won't be able to GPS check-in at this site until it's configured.",
+    "cancel": "Cancel",
+    "saving": "Saving...",
+    "saveChangesButton": "Save changes",
+    "createButton": "Create site"
+  },
+  "reminderBanner": {
+    "prefix": "You ",
+    "bold": "haven't checked in today",
+    "suffix": " — remember to check in (top-right corner) so the system records your arrival."
+  }
+}

@@ -107,8 +107,8 @@ public class ReviewVideoReportService {
         List<Long> videoIds = videos.stream().map(ReviewVideo::getId).toList();
 
         List<ReviewVideoAssignmentStudentStatsResponse.StudentRow> rows = set.getVideoType() == ReviewVideoSet.VideoType.CONNECTION
-                ? buildConnectionStudentRows(scopedStudentIds, enrollmentByStudentId, videos, videoIds)
-                : buildReflexStudentRows(scopedStudentIds, enrollmentByStudentId, videos, videoIds);
+                ? buildConnectionStudentRows(scopedStudentIds, enrollmentByStudentId, videos, videoIds, assignmentId)
+                : buildReflexStudentRows(scopedStudentIds, enrollmentByStudentId, videos, videoIds, assignmentId);
 
         return new ReviewVideoAssignmentStudentStatsResponse(header, rows);
     }
@@ -154,10 +154,12 @@ public class ReviewVideoReportService {
 
     private List<ReviewVideoAssignmentStudentStatsResponse.StudentRow> buildConnectionStudentRows(
             List<Long> scopedStudentIds, Map<Long, ClassEnrollment> enrollmentByStudentId,
-            List<ReviewVideo> videos, List<Long> videoIds) {
+            List<ReviewVideo> videos, List<Long> videoIds, Long assignmentId) {
+        // V129 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-19) — lọc đúng lần giao đang
+        // xem báo cáo, tránh trộn tiến độ của lần giao KHÁC cùng bộ+lớp vào chung báo cáo này.
         Map<String, ReviewVideoProgress> progressByKey = videoIds.isEmpty()
                 ? Map.of()
-                : reviewVideoProgressRepository.findByReviewVideoIdIn(videoIds).stream()
+                : reviewVideoProgressRepository.findByReviewVideoIdInAndReviewVideoAssignmentId(videoIds, assignmentId).stream()
                     .collect(Collectors.toMap(p -> p.getReviewVideo().getId() + ":" + p.getStudent().getId(), p -> p));
         List<ReviewVideoConnectionQuestion> questions = videoIds.isEmpty()
                 ? List.of() : reviewVideoConnectionQuestionRepository.findByReviewVideoIdIn(videoIds);
@@ -244,10 +246,10 @@ public class ReviewVideoReportService {
 
     private List<ReviewVideoAssignmentStudentStatsResponse.StudentRow> buildReflexStudentRows(
             List<Long> scopedStudentIds, Map<Long, ClassEnrollment> enrollmentByStudentId,
-            List<ReviewVideo> videos, List<Long> videoIds) {
+            List<ReviewVideo> videos, List<Long> videoIds, Long assignmentId) {
         Map<String, ReviewVideoProgress> progressByKey = videoIds.isEmpty()
                 ? Map.of()
-                : reviewVideoProgressRepository.findByReviewVideoIdIn(videoIds).stream()
+                : reviewVideoProgressRepository.findByReviewVideoIdInAndReviewVideoAssignmentId(videoIds, assignmentId).stream()
                     .collect(Collectors.toMap(p -> p.getReviewVideo().getId() + ":" + p.getStudent().getId(), p -> p));
 
         List<ReviewVideoQuestion> questions = videoIds.stream()
@@ -316,7 +318,8 @@ public class ReviewVideoReportService {
 
     private ReviewVideoAssignment getAssignmentOrThrow(Long assignmentId) {
         return reviewVideoAssignmentRepository.findById(assignmentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lần giao BTVN Video Ôn tập id=" + assignmentId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.reviewVideoReport.assignmentNotFound",
+                        new Object[]{assignmentId}, "Không tìm thấy lần giao BTVN Video Ôn tập id=" + assignmentId));
     }
 
     /** Quyền lms.review-video.manage vượt rào — quản trị viên xem báo cáo lớp bất kỳ (mirror ReviewVideoService#requireAssignedTeacher). */
@@ -326,7 +329,7 @@ public class ReviewVideoReportService {
         }
         if (!classTeacherRepository.existsBySchoolClassIdAndTeacherIdAndAssignedToIsNull(classId, actorUserId)) {
             throw new NotAssignedTeacherForClassException(
-                    "Bạn không được phân công giảng dạy lớp này.");
+                    "error.notAssignedTeacherForClass.default", new Object[]{}, "Bạn không được phân công giảng dạy lớp này.");
         }
     }
 }

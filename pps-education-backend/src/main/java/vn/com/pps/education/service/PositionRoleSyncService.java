@@ -94,6 +94,6 @@ public class PositionRoleSyncService {
 
     private User getUserOrThrow(Long userId) {
         return userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + userId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.positionRoleSync.userNotFound", new Object[]{userId}, "Không tìm thấy tài khoản id=" + userId));
     }
 }

@@ -1,7 +1,9 @@
 import React from "react";
 import { Clock } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { TaskAssignmentResponse } from "../api";
-import { ASSIGNMENT_STATUS_META, ASSIGNMENT_STATUS_ORDER } from "../statusMeta";
+import { toLocaleTag } from "@/lib/i18nFormat";
+import { ASSIGNMENT_STATUS_META, ASSIGNMENT_STATUS_ORDER, assignmentStatusLabel } from "../statusMeta";
 
 interface AssignmentKanbanBoardProps {
   assignments: TaskAssignmentResponse[];
@@ -10,6 +12,7 @@ interface AssignmentKanbanBoardProps {
 
 /** UC-07 Main Flow bước 1: Kanban theo ĐÚNG 6 giá trị TaskAssignment.Status (không phải 4 cột tự đặt). */
 export default function AssignmentKanbanBoard({ assignments, onSelect }: AssignmentKanbanBoardProps) {
+  const { t, i18n } = useTranslation("task-workflow");
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 overflow-x-auto pb-4">
       {ASSIGNMENT_STATUS_ORDER.map((status) => {
@@ -20,7 +23,7 @@ export default function AssignmentKanbanBoard({ assignments, onSelect }: Assignm
             <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-200">
               <span className="text-[11px] font-bold text-slate-800 font-display flex items-center gap-1.5">
                 <span className={`w-2 h-2 rounded-full ${meta.dot}`} />
-                {meta.label}
+                {assignmentStatusLabel(t, status)}
               </span>
               <span className="text-[10px] font-mono font-bold bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded-full">{colItems.length}</span>
             </div>
@@ -38,7 +41,7 @@ export default function AssignmentKanbanBoard({ assignments, onSelect }: Assignm
                     {a.startedAt && (
                       <div className="flex items-center gap-1 text-[10px] text-slate-400 font-mono">
                         <Clock className="w-3 h-3 text-slate-300" />
-                        <span>{new Date(a.startedAt).toLocaleDateString("vi-VN")}</span>
+                        <span>{new Date(a.startedAt).toLocaleDateString(toLocaleTag(i18n.language))}</span>
                       </div>
                     )}
                   </div>
@@ -47,7 +50,7 @@ export default function AssignmentKanbanBoard({ assignments, onSelect }: Assignm
 
               {colItems.length === 0 && (
                 <div className="h-24 border-2 border-dashed border-slate-200 rounded-lg flex items-center justify-center text-[10px] text-slate-400 italic">
-                  Trống
+                  {t("kanban.empty")}
                 </div>
               )}
             </div>

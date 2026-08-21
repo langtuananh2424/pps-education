@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import AccountSelector, { AccountSelection } from "@/features/system-admin/components/AccountSelector";
 import { createEmployee, CreateEmployeeRequest, DepartmentResponse, listDepartments, listPositions, PositionResponse } from "../api";
@@ -23,6 +24,7 @@ interface EmployeeFormModalProps {
 
 /** UC-08 Main Flow bước 1-2: khởi tạo hồ sơ nhân sự mới, kèm tài khoản mới hoặc gán tài khoản có sẵn (tìm theo email). */
 export default function EmployeeFormModal({ onClose, onCreated }: EmployeeFormModalProps) {
+  const { t } = useTranslation("hrm-employees");
   const [account, setAccount] = useState<AccountSelection>({ newAccount: { username: "", email: "", fullName: "", phone: "", password: "" } });
   const [form, setForm] = useState({
     employeeCode: "",
@@ -49,7 +51,7 @@ export default function EmployeeFormModal({ onClose, onCreated }: EmployeeFormMo
   const [error, setError] = useState<string | null>(null);
   const [touched, setTouched] = useState({ employeeCode: false, dateOfBirth: false, hireDate: false });
   const [submitAttempted, setSubmitAttempted] = useState(false);
-  const markTouched = (field: keyof typeof touched) => setTouched((t) => ({ ...t, [field]: true }));
+  const markTouched = (field: keyof typeof touched) => setTouched((prev) => ({ ...prev, [field]: true }));
 
   useEffect(() => {
     listPositions().then(setPositions).catch(() => undefined);
@@ -64,11 +66,11 @@ export default function EmployeeFormModal({ onClose, onCreated }: EmployeeFormMo
     e.preventDefault();
     setSubmitAttempted(true);
     if (!form.employeeCode.trim() || !form.dateOfBirth || !form.hireDate) {
-      setError("Vui lòng điền đủ các trường bắt buộc được đánh dấu đỏ.");
+      setError(t("employeeForm.requiredFieldsError"));
       return;
     }
     if (!account.userId && (!account.newAccount?.username || !account.newAccount?.email || !account.newAccount?.fullName)) {
-      setError("Vui lòng chọn tài khoản có sẵn, hoặc điền đủ Username/Email/Họ tên cho tài khoản mới.");
+      setError(t("employeeForm.accountError"));
       return;
     }
     setSubmitting(true);
@@ -98,53 +100,53 @@ export default function EmployeeFormModal({ onClose, onCreated }: EmployeeFormMo
       const employee = await createEmployee(request);
       onCreated(employee.id);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Tạo hồ sơ nhân sự thất bại.");
+      setError(err instanceof ApiError ? err.message : t("employeeForm.createError"));
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <Modal open onClose={onClose} title="Thêm nhân sự mới" size="lg">
+    <Modal open onClose={onClose} title={t("employeeForm.modalTitle")} size="lg">
       <form onSubmit={handleSubmit} className="space-y-5">
         {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
         <div className="space-y-2 border-t border-slate-100 pt-4">
-          <span className="text-[10px] font-bold uppercase text-slate-500">Ảnh đại diện</span>
+          <span className="text-[10px] font-bold uppercase text-slate-500">{t("employeeForm.avatarLabel")}</span>
           <AvatarUploadField
             value={form.portraitUrl}
             onChange={(url) => setForm({ ...form, portraitUrl: url })}
             onUpload={(file) => uploadMedia(file, "EMPLOYEE")}
-            fallbackName={account.newAccount?.fullName || "Nhân sự"}
+            fallbackName={account.newAccount?.fullName || t("employeeForm.avatarFallback")}
           />
         </div>
         <div className="space-y-2">
-          <span className="text-[10px] font-bold uppercase text-slate-500">Tài khoản</span>
+          <span className="text-[10px] font-bold uppercase text-slate-500">{t("employeeForm.accountSectionTitle")}</span>
           <AccountSelector value={account} onChange={setAccount} submitAttempted={submitAttempted} />
         </div>
 
         <div className="space-y-3 border-t border-slate-100 pt-4">
-          <span className="text-[10px] font-bold uppercase text-slate-500">Thông tin nhân sự</span>
+          <span className="text-[10px] font-bold uppercase text-slate-500">{t("employeeForm.infoSectionTitle")}</span>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={labelClass}>Mã nhân sự *</label>
+              <label className={labelClass}>{t("employeeForm.codeLabel")}</label>
               <input
                 value={form.employeeCode}
                 onChange={(e) => setForm({ ...form, employeeCode: e.target.value })}
                 onBlur={() => markTouched("employeeCode")}
                 className={`${employeeCodeInvalid ? inputErrorClass : inputClass} font-mono`}
               />
-              {employeeCodeInvalid && <p className="text-[10px] text-rose-600 mt-1">Vui lòng nhập Mã nhân sự.</p>}
+              {employeeCodeInvalid && <p className="text-[10px] text-rose-600 mt-1">{t("employeeForm.codeRequired")}</p>}
             </div>
             <div>
-              <label className={labelClass}>Loại nhân sự *</label>
+              <label className={labelClass}>{t("employeeForm.employeeTypeLabel")}</label>
               <Select value={form.employeeType} onChange={(e) => setForm({ ...form, employeeType: e.target.value })} className={inputClass}>
-                <option value="TEACHER">Giáo viên</option>
-                <option value="STAFF">Nhân viên</option>
-                <option value="MANAGER">Quản lý</option>
+                <option value="TEACHER">{t("employeeType.TEACHER")}</option>
+                <option value="STAFF">{t("employeeType.STAFF")}</option>
+                <option value="MANAGER">{t("employeeType.MANAGER")}</option>
               </Select>
             </div>
             <div>
-              <label className={labelClass}>Ngày sinh *</label>
+              <label className={labelClass}>{t("employeeForm.dobLabel")}</label>
               <DatePicker
                 value={form.dateOfBirth}
                 onChange={(v) => {
@@ -154,10 +156,10 @@ export default function EmployeeFormModal({ onClose, onCreated }: EmployeeFormMo
                 max={TODAY_ISO}
                 hasError={dateOfBirthInvalid}
               />
-              {dateOfBirthInvalid && <p className="text-[10px] text-rose-600 mt-1">Vui lòng chọn Ngày sinh.</p>}
+              {dateOfBirthInvalid && <p className="text-[10px] text-rose-600 mt-1">{t("employeeForm.dobRequired")}</p>}
             </div>
             <div>
-              <label className={labelClass}>Ngày vào làm *</label>
+              <label className={labelClass}>{t("employeeForm.hireDateLabel")}</label>
               <DatePicker
                 value={form.hireDate}
                 onChange={(v) => {
@@ -166,26 +168,24 @@ export default function EmployeeFormModal({ onClose, onCreated }: EmployeeFormMo
                 }}
                 hasError={hireDateInvalid}
               />
-              {hireDateInvalid && <p className="text-[10px] text-rose-600 mt-1">Vui lòng chọn Ngày vào làm.</p>}
+              {hireDateInvalid && <p className="text-[10px] text-rose-600 mt-1">{t("employeeForm.hireDateRequired")}</p>}
             </div>
             <div>
-              <label className={labelClass}>Chức vụ</label>
+              <label className={labelClass}>{t("employeeForm.positionLabel")}</label>
               <Select value={form.positionId} onChange={(e) => setForm({ ...form, positionId: e.target.value })} className={inputClass}>
-                <option value="">-- Chưa gán --</option>
+                <option value="">{t("employeeForm.positionUnassigned")}</option>
                 {positions.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
                   </option>
                 ))}
               </Select>
-              {positions.length === 0 && (
-                <p className="text-[10px] text-slate-400 mt-1">Chưa có chức vụ nào — tạo tại "Phòng ban & Chức vụ".</p>
-              )}
+              {positions.length === 0 && <p className="text-[10px] text-slate-400 mt-1">{t("employeeForm.positionEmptyHint")}</p>}
             </div>
             <div>
-              <label className={labelClass}>Phòng ban</label>
+              <label className={labelClass}>{t("employeeForm.departmentLabel")}</label>
               <Select value={form.departmentId} onChange={(e) => setForm({ ...form, departmentId: e.target.value })} className={inputClass}>
-                <option value="">-- Chưa gán --</option>
+                <option value="">{t("employeeForm.departmentUnassigned")}</option>
                 {departments.map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.name}
@@ -194,55 +194,55 @@ export default function EmployeeFormModal({ onClose, onCreated }: EmployeeFormMo
               </Select>
             </div>
             <div>
-              <label className={labelClass}>Số CCCD</label>
+              <label className={labelClass}>{t("employeeForm.idCardNumberLabel")}</label>
               <input value={form.idCardNumber} onChange={(e) => setForm({ ...form, idCardNumber: e.target.value })} className={inputClass} />
             </div>
             <div>
-              <label className={labelClass}>Ngày cấp CCCD</label>
+              <label className={labelClass}>{t("employeeForm.idCardIssuedDateLabel")}</label>
               <DatePicker value={form.idCardIssuedDate} onChange={(v) => setForm({ ...form, idCardIssuedDate: v })} max={TODAY_ISO} />
             </div>
             <div className="col-span-2">
-              <label className={labelClass}>Nơi cấp CCCD</label>
+              <label className={labelClass}>{t("employeeForm.idCardIssuedPlaceLabel")}</label>
               <input value={form.idCardIssuedPlace} onChange={(e) => setForm({ ...form, idCardIssuedPlace: e.target.value })} className={inputClass} />
             </div>
             <div>
-              <label className={labelClass}>Địa chỉ thường trú</label>
+              <label className={labelClass}>{t("employeeForm.permanentAddressLabel")}</label>
               <input value={form.permanentAddress} onChange={(e) => setForm({ ...form, permanentAddress: e.target.value })} className={inputClass} />
             </div>
             <div>
-              <label className={labelClass}>Địa chỉ hiện tại</label>
+              <label className={labelClass}>{t("employeeForm.currentAddressLabel")}</label>
               <input value={form.currentAddress} onChange={(e) => setForm({ ...form, currentAddress: e.target.value })} className={inputClass} />
             </div>
             <div>
-              <label className={labelClass}>Số tài khoản ngân hàng</label>
+              <label className={labelClass}>{t("employeeForm.bankAccountNumberLabel")}</label>
               <input value={form.bankAccountNumber} onChange={(e) => setForm({ ...form, bankAccountNumber: e.target.value })} className={inputClass} />
             </div>
             <div>
-              <label className={labelClass}>Ngân hàng</label>
+              <label className={labelClass}>{t("employeeForm.bankNameLabel")}</label>
               <input value={form.bankName} onChange={(e) => setForm({ ...form, bankName: e.target.value })} className={inputClass} />
             </div>
             <div>
-              <label className={labelClass}>Mã số thuế</label>
+              <label className={labelClass}>{t("employeeForm.taxCodeLabel")}</label>
               <input value={form.taxCode} onChange={(e) => setForm({ ...form, taxCode: e.target.value })} className={inputClass} />
             </div>
             <div>
-              <label className={labelClass}>Số BHXH</label>
+              <label className={labelClass}>{t("employeeForm.socialInsuranceNumberLabel")}</label>
               <input value={form.socialInsuranceNumber} onChange={(e) => setForm({ ...form, socialInsuranceNumber: e.target.value })} className={inputClass} />
             </div>
           </div>
           <label className="flex items-center gap-2 text-xs font-semibold text-slate-700">
             <input type="checkbox" checked={form.isManagement} onChange={(e) => setForm({ ...form, isManagement: e.target.checked })} />
-            Miễn trừ chấm công (is_management)
+            {t("employeeForm.managementExemptCheckbox")}
           </label>
         </div>
 
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="secondary" onClick={onClose}>
-            Hủy
+            {t("employeeForm.cancel")}
           </Button>
           <Button type="submit" variant="primary" disabled={submitting}>
             <Plus className="w-3.5 h-3.5" />
-            {submitting ? "Đang tạo..." : "Tạo hồ sơ nhân sự"}
+            {submitting ? t("employeeForm.creating") : t("employeeForm.createButton")}
           </Button>
         </div>
       </form>
