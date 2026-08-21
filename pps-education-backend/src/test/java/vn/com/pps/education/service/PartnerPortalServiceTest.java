@@ -292,7 +292,7 @@ class PartnerPortalServiceTest extends AbstractIntegrationTest {
         // KHÁC session gốc — từ 2026-08-19 writeComment chặn tạo thêm nhận xét thứ 2 cho cùng 1 buổi
         // đã APPROVED (StudentCommentNotEditableException, xem StudentCommentService#writeComment).
         ClassSessionResponse otherSession = classSessionService.createSession(schoolClass.id(),
-                new CreateClassSessionRequest(LocalDate.now(), "MORNING", List.of(2), null, "REGULAR", "VIETNAMESE",
+                new CreateClassSessionRequest(LocalDate.now().plusDays(1), "MORNING", List.of(2), null, "REGULAR", "VIETNAMESE",
                         headAcademic.getId(), null, null, null),
                 headAcademic.getId());
         studentCommentService.writeComment(schoolClass.id(),
