@@ -1,18 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { CheckCircle2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import Modal from "@/components/ui/Modal";
 import { ExerciseQuestionResponse, ExerciseResponse, QuestionResponse, getExamQuestion, listExerciseQuestions } from "../api";
-
-const questionTypeLabels: Record<QuestionResponse["questionType"], string> = {
-  MULTIPLE_CHOICE: "Trắc nghiệm 1 đáp án",
-  MULTIPLE_ANSWER: "Trắc nghiệm nhiều đáp án",
-  TRUE_FALSE: "Đúng — Sai",
-  ESSAY: "Tự luận",
-  SPEAKING: "Nói (ghi âm)",
-  FILL_IN_BLANK: "Điền vào chỗ trống",
-  WORD_BANK: "Điền từ - Hộp từ vựng",
-  SENTENCE_BUILDING: "Sắp xếp câu"
-};
 
 const choiceTypes: QuestionResponse["questionType"][] = ["MULTIPLE_CHOICE", "MULTIPLE_ANSWER", "TRUE_FALSE"];
 
@@ -28,6 +18,7 @@ interface ExercisePreviewModalProps {
  * (xem ghi chú bảo mật ở lms/api.ts#getQuestion).
  */
 export default function ExercisePreviewModal({ exercise, onClose }: ExercisePreviewModalProps) {
+  const { t } = useTranslation("lms-question-authoring");
   const [exerciseQuestions, setExerciseQuestions] = useState<ExerciseQuestionResponse[]>([]);
   const [fullQuestions, setFullQuestions] = useState<Record<number, QuestionResponse>>({});
   const [loading, setLoading] = useState(true);
@@ -52,30 +43,31 @@ export default function ExercisePreviewModal({ exercise, onClose }: ExercisePrev
     <Modal
       open
       onClose={onClose}
-      title={`Xem trước đề — ${exercise.title}`}
-      description="Bố cục như học viên sẽ thấy, có tô sáng đáp án đúng để bạn tự đối chiếu."
+      title={t("exercisePreviewModal.modalTitle", { title: exercise.title })}
+      description={t("exercisePreviewModal.modalDescription")}
       size="lg"
     >
       <div className="space-y-3 text-xs text-slate-600 mb-4 pb-3 border-b border-slate-100">
         <div className="flex gap-4">
           <span>
-            Tổng điểm: <strong>{exercise.totalPoints}</strong>
+            {t("exercisePreviewModal.totalPoints")} <strong>{exercise.totalPoints}</strong>
           </span>
           {exercise.timeLimitMinutes != null && (
             <span>
-              Thời gian: <strong>{exercise.timeLimitMinutes} phút</strong>
+              {t("exercisePreviewModal.timeLimit")} <strong>{t("exercisePreviewModal.timeLimitMinutes", { minutes: exercise.timeLimitMinutes })}</strong>
             </span>
           )}
           <span>
-            Hiện đáp án cho học viên sau nộp: <strong>{exercise.showCorrectAnswers ? "Có" : "Không"}</strong>
+            {t("exercisePreviewModal.showCorrectAnswers")}{" "}
+            <strong>{exercise.showCorrectAnswers ? t("exercisePreviewModal.yes") : t("exercisePreviewModal.no")}</strong>
           </span>
         </div>
       </div>
 
       {loading ? (
-        <p className="text-xs text-slate-500 text-center py-6">Đang tải đề...</p>
+        <p className="text-xs text-slate-500 text-center py-6">{t("exercisePreviewModal.loading")}</p>
       ) : exerciseQuestions.length === 0 ? (
-        <p className="text-xs text-slate-400 italic text-center py-6">Đề này chưa gắn câu hỏi nào.</p>
+        <p className="text-xs text-slate-400 italic text-center py-6">{t("exercisePreviewModal.empty")}</p>
       ) : (
         <div className="space-y-5 max-h-[60vh] overflow-y-auto pr-1">
           {exerciseQuestions.map((eq, index) => {
@@ -84,11 +76,11 @@ export default function ExercisePreviewModal({ exercise, onClose }: ExercisePrev
               <div key={eq.id} className="border border-slate-200 rounded-xl p-4">
                 <div className="flex items-start justify-between gap-3 mb-2">
                   <p className="text-sm font-bold text-slate-800">
-                    Câu {index + 1}. {q?.content ?? eq.questionContent}
+                    {t("exercisePreviewModal.questionNumber", { index: index + 1 })} {q?.content ?? eq.questionContent}
                   </p>
-                  <span className="text-[10px] font-bold uppercase text-slate-400 shrink-0">{eq.points} đ</span>
+                  <span className="text-[10px] font-bold uppercase text-slate-400 shrink-0">{eq.points} {t("common.pointsSuffix")}</span>
                 </div>
-                <p className="text-[10px] text-slate-400 uppercase font-bold mb-2">{questionTypeLabels[eq.questionType]}</p>
+                <p className="text-[10px] text-slate-400 uppercase font-bold mb-2">{t(`exercisePreviewModal.questionTypeLabels.${eq.questionType}`)}</p>
 
                 {q?.imageUrl && <img src={q.imageUrl} alt="" className="max-h-40 rounded-lg mb-2" />}
                 {q?.audioUrl && <audio controls src={q.audioUrl} className="mb-2 w-full" />}
@@ -112,23 +104,25 @@ export default function ExercisePreviewModal({ exercise, onClose }: ExercisePrev
                 )}
 
                 {eq.questionType === "SPEAKING" && (
-                  <p className="text-[11px] text-slate-400 italic">Học viên ghi âm trả lời — chấm tay ở Hàng chờ chấm bài.</p>
+                  <p className="text-[11px] text-slate-400 italic">{t("exercisePreviewModal.speakingHint")}</p>
                 )}
                 {eq.questionType === "ESSAY" && (
-                  <p className="text-[11px] text-slate-400 italic">Học viên trả lời tự luận — chấm tay ở Hàng chờ chấm bài.</p>
+                  <p className="text-[11px] text-slate-400 italic">{t("exercisePreviewModal.essayHint")}</p>
                 )}
                 {eq.questionType === "WORD_BANK" && q?.structuredContent?.blanks && (
                   <p className="text-[11px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 rounded-lg p-2">
-                    Đáp án đúng theo thứ tự chỗ trống: {q.structuredContent.blanks.join(" — ")}
+                    {t("exercisePreviewModal.wordBankAnswerOrder", { answers: q.structuredContent.blanks.join(" — ") })}
                   </p>
                 )}
                 {eq.questionType === "SENTENCE_BUILDING" && q?.structuredContent?.chunks && (
                   <p className="text-[11px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 rounded-lg p-2">
-                    Thứ tự câu đúng: {q.structuredContent.chunks.join(" ")}
+                    {t("exercisePreviewModal.sentenceBuildingOrder", { order: q.structuredContent.chunks.join(" ") })}
                   </p>
                 )}
 
-                {q?.explanation && <p className="text-[11px] text-slate-500 mt-2 italic">Giải thích: {q.explanation}</p>}
+                {q?.explanation && (
+                  <p className="text-[11px] text-slate-500 mt-2 italic">{t("exercisePreviewModal.explanationPrefix", { text: q.explanation })}</p>
+                )}
               </div>
             );
           })}

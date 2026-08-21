@@ -34,11 +34,14 @@ public class ReviewVideoQuestionIntegrityContextResolver implements AttemptInteg
     @Override
     public AttemptContext resolveForOwner(Long attemptId, Long actorUserId) {
         var student = studentRepository.findByUserId(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản id=" + actorUserId + " không có hồ sơ học sinh."));
+                .orElseThrow(() -> new ResourceNotFoundException("error.reviewVideoQuestionIntegrityContext.studentProfileNotFound",
+                        new Object[]{actorUserId}, "Tài khoản id=" + actorUserId + " không có hồ sơ học sinh."));
         ReviewVideoQuestionSubmission submission = reviewVideoQuestionSubmissionRepository.findById(attemptId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bài nộp id=" + attemptId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.reviewVideoQuestionIntegrityContext.submissionNotFound",
+                        new Object[]{attemptId}, "Không tìm thấy bài nộp id=" + attemptId));
         if (!submission.getStudent().getId().equals(student.getId())) {
-            throw new ResourceNotFoundException("Không tìm thấy bài nộp id=" + attemptId);
+            throw new ResourceNotFoundException("error.reviewVideoQuestionIntegrityContext.submissionNotFound",
+                    new Object[]{attemptId}, "Không tìm thấy bài nộp id=" + attemptId);
         }
         return toContext(submission);
     }
@@ -46,7 +49,8 @@ public class ReviewVideoQuestionIntegrityContextResolver implements AttemptInteg
     @Override
     public AttemptContext resolveForReading(Long attemptId) {
         ReviewVideoQuestionSubmission submission = reviewVideoQuestionSubmissionRepository.findById(attemptId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bài nộp id=" + attemptId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.reviewVideoQuestionIntegrityContext.submissionNotFound",
+                        new Object[]{attemptId}, "Không tìm thấy bài nộp id=" + attemptId));
         return toContext(submission);
     }
 

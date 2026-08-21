@@ -1,5 +1,6 @@
 import React from "react";
 import { Shield, Trash2, Users } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { RoleResponse } from "../api";
 import RolePermissionsEditor from "./RolePermissionsEditor";
 import RoleMembersPanel from "./RoleMembersPanel";
@@ -16,6 +17,7 @@ interface RoleDetailPanelProps {
 }
 
 export default function RoleDetailPanel({ role, canAssignMembers, canRevokeMembers, onDelete, rightActiveTab, onTabChange }: RoleDetailPanelProps) {
+  const { t } = useTranslation("system-admin-roles");
   return (
     <div className="flex-1 flex flex-col h-full">
       <div className="p-6 border-b border-slate-200 space-y-4 bg-slate-50/20">
@@ -32,10 +34,10 @@ export default function RoleDetailPanel({ role, canAssignMembers, canRevokeMembe
             <button
               onClick={onDelete}
               className="px-3 py-1.5 rounded-lg border border-rose-200 bg-rose-50/40 hover:bg-rose-50 text-rose-600 text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer shrink-0"
-              title="Xóa vai trò tùy chỉnh này"
+              title={t("roleDetailPanel.deleteButtonTitle")}
             >
               <Trash2 className="w-3.5 h-3.5" />
-              <span>Xóa vai trò</span>
+              <span>{t("roleDetailPanel.deleteButton")}</span>
             </button>
           )}
         </div>
@@ -48,7 +50,7 @@ export default function RoleDetailPanel({ role, canAssignMembers, canRevokeMembe
             }`}
           >
             <Shield className="w-4 h-4" />
-            <span>Quyền hạn gán</span>
+            <span>{t("roleDetailPanel.tabs.permissions")}</span>
           </button>
           <button
             onClick={() => onTabChange("members")}
@@ -57,7 +59,7 @@ export default function RoleDetailPanel({ role, canAssignMembers, canRevokeMembe
             }`}
           >
             <Users className="w-4 h-4" />
-            <span>Thành viên</span>
+            <span>{t("roleDetailPanel.tabs.members")}</span>
           </button>
         </div>
       </div>

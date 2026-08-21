@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Plus, Search, Trash2, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { searchUsers, UserListItemResponse } from "@/features/system-admin/api";
@@ -16,6 +17,7 @@ const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
 
 /** UC-08 bổ sung: danh mục Phòng ban (đổ dropdown "Phòng ban" ở hồ sơ nhân sự) — hiển thị dạng cây theo parentDepartmentId để xem tổng quan bộ máy. */
 export default function DepartmentsTab() {
+  const { t } = useTranslation("hrm-org");
   const [departments, setDepartments] = useState<DepartmentResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -28,20 +30,20 @@ export default function DepartmentsTab() {
     setLoading(true);
     listDepartments()
       .then(setDepartments)
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách phòng ban."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("departmentsTab.loadError")))
       .finally(() => setLoading(false));
   };
   useEffect(load, []);
 
   const handleDelete = async (id: number) => {
-    if (!(await confirmDialog("Xóa phòng ban này? Chỉ xóa được nếu chưa có nhân sự nào gán vào.", { danger: true }))) return;
+    if (!(await confirmDialog(t("departmentsTab.deleteConfirm"), { danger: true }))) return;
     setError(null);
     try {
       await deleteDepartment(id);
       load();
-      showToast("Đã xóa phòng ban thành công!");
+      showToast(t("departmentsTab.deletedToast"));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Xóa phòng ban thất bại.");
+      setError(err instanceof ApiError ? err.message : t("departmentsTab.deleteError"));
     }
   };
 
@@ -58,31 +60,31 @@ export default function DepartmentsTab() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-bold uppercase text-slate-500">Sơ đồ tổ chức — Phòng ban ({departments.length})</span>
+        <span className="text-[10px] font-bold uppercase text-slate-500">{t("departmentsTab.sectionTitle", { count: departments.length })}</span>
         <Button size="sm" variant="secondary" onClick={() => setCreating(true)}>
           <Plus className="w-3.5 h-3.5" />
-          Thêm phòng ban
+          {t("departmentsTab.addButton")}
         </Button>
       </div>
 
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
-      <Modal open={creating} onClose={() => setCreating(false)} title="Thêm phòng ban">
+      <Modal open={creating} onClose={() => setCreating(false)} title={t("departmentsTab.modalTitle")}>
         <DepartmentForm
           departments={departments}
           onDone={() => {
             setCreating(false);
             load();
-            showToast("Đã tạo phòng ban thành công!");
+            showToast(t("departmentsTab.createdToast"));
           }}
           onCancel={() => setCreating(false)}
         />
       </Modal>
 
       {loading ? (
-        <p className="text-xs text-slate-500">Đang tải...</p>
+        <p className="text-xs text-slate-500">{t("departmentsTab.loading")}</p>
       ) : departments.length === 0 ? (
-        <p className="text-xs text-slate-400 italic">Chưa có phòng ban nào.</p>
+        <p className="text-xs text-slate-400 italic">{t("departmentsTab.empty")}</p>
       ) : (
         <DepartmentTreeLevel
           parentId={null}
@@ -94,7 +96,7 @@ export default function DepartmentsTab() {
           onDelete={handleDelete}
           onChanged={() => {
             load();
-            showToast("Đã lưu phòng ban thành công!");
+            showToast(t("departmentsTab.savedToast"));
           }}
         />
       )}
@@ -125,6 +127,7 @@ function DepartmentTreeLevel({
   onChanged: () => void;
   depth?: number;
 }) {
+  const { t } = useTranslation("hrm-org");
   const nodes = childrenOf.get(parentId) ?? [];
   if (nodes.length === 0) return null;
 
@@ -141,11 +144,13 @@ function DepartmentTreeLevel({
                   <span className="font-mono font-bold text-brand-red bg-orange-50 border border-orange-100 px-1.5 py-0.5 rounded text-[10px]">{d.code}</span>
                   <span className="font-bold text-slate-800">{d.name}</span>
                 </div>
-                <p className="text-[10px] text-slate-400 mt-1">{d.headUserFullName ? `Trưởng phòng: ${d.headUserFullName}` : "Chưa có trưởng phòng"}</p>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  {d.headUserFullName ? t("departmentsTab.headLabel", { name: d.headUserFullName }) : t("departmentsTab.noHead")}
+                </p>
               </div>
               <div className="flex items-center gap-2">
                 <button onClick={() => onEdit(d.id)} className="text-slate-500 hover:text-slate-800 text-[11px] font-semibold">
-                  Sửa
+                  {t("departmentsTab.editButton")}
                 </button>
                 <button onClick={() => onDelete(d.id)} className="text-rose-500 hover:text-rose-700">
                   <Trash2 className="w-3.5 h-3.5" />
@@ -181,6 +186,7 @@ function DepartmentForm({
   onDone: () => void;
   onCancel: () => void;
 }) {
+  const { t } = useTranslation("hrm-org");
   const [code, setCode] = useState(initial?.code ?? "");
   const [name, setName] = useState(initial?.name ?? "");
   const [parentDepartmentId, setParentDepartmentId] = useState(initial?.parentDepartmentId ? String(initial.parentDepartmentId) : "");
@@ -204,7 +210,7 @@ function DepartmentForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || (!initial && !code.trim())) {
-      setError("Vui lòng điền đủ mã và tên phòng ban.");
+      setError(t("departmentForm.validationError"));
       return;
     }
     setSubmitting(true);
@@ -226,7 +232,7 @@ function DepartmentForm({
       }
       onDone();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Lưu phòng ban thất bại.");
+      setError(err instanceof ApiError ? err.message : t("departmentForm.saveError"));
     } finally {
       setSubmitting(false);
     }
@@ -237,25 +243,25 @@ function DepartmentForm({
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
       <div className="grid grid-cols-2 gap-2">
         <div>
-          <label className={labelClass}>Mã phòng ban *</label>
+          <label className={labelClass}>{t("departmentForm.codeLabel")}</label>
           <input
             value={code}
             onChange={(e) => setCode(e.target.value)}
             disabled={!!initial}
             className={`${inputClass} font-mono disabled:opacity-50`}
           />
-          {initial && <p className="text-[10px] text-slate-400 mt-1">Không sửa được mã sau khi tạo.</p>}
+          {initial && <p className="text-[10px] text-slate-400 mt-1">{t("departmentForm.codeImmutableHint")}</p>}
         </div>
         <div>
-          <label className={labelClass}>Tên phòng ban *</label>
+          <label className={labelClass}>{t("departmentForm.nameLabel")}</label>
           <input value={name} onChange={(e) => setName(e.target.value)} className={name.trim() ? inputClass : inputErrorClass} />
         </div>
       </div>
 
       <div>
-        <label className={labelClass}>Phòng ban cấp trên</label>
+        <label className={labelClass}>{t("departmentForm.parentLabel")}</label>
         <Select value={parentDepartmentId} onChange={(e) => setParentDepartmentId(e.target.value)} className={inputClass}>
-          <option value="">-- Không có (phòng ban gốc) --</option>
+          <option value="">{t("departmentForm.parentNoneOption")}</option>
           {departments
             .filter((d) => d.id !== initial?.id)
             .map((d) => (
@@ -267,7 +273,7 @@ function DepartmentForm({
       </div>
 
       <div>
-        <label className={labelClass}>Trưởng phòng</label>
+        <label className={labelClass}>{t("departmentForm.headLabel")}</label>
         {selectedHead ? (
           <div className="flex items-center justify-between bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs font-semibold px-3 py-2 rounded-lg">
             <span>{selectedHead.fullName}</span>
@@ -278,7 +284,7 @@ function DepartmentForm({
         ) : (
           <div className="relative">
             <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-400" />
-            <input value={headQuery} onChange={(e) => handleSearchHead(e.target.value)} placeholder="Tìm theo họ tên / email..." className={`${inputClass} pl-8`} />
+            <input value={headQuery} onChange={(e) => handleSearchHead(e.target.value)} placeholder={t("departmentForm.headSearchPlaceholder")} className={`${inputClass} pl-8`} />
             {headResults.length > 0 && (
               <div className="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg divide-y divide-slate-100 max-h-56 overflow-y-auto">
                 {headResults.map((u) => (
@@ -303,10 +309,10 @@ function DepartmentForm({
 
       <div className="flex gap-2">
         <Button type="button" variant="secondary" size="sm" onClick={onCancel}>
-          Hủy
+          {t("departmentForm.cancelButton")}
         </Button>
         <Button type="submit" variant="primary" size="sm" disabled={submitting}>
-          {submitting ? "Đang lưu..." : initial ? "Lưu thay đổi" : "Tạo phòng ban"}
+          {submitting ? t("departmentForm.saving") : initial ? t("departmentForm.saveButton") : t("departmentForm.createButton")}
         </Button>
       </div>
     </form>

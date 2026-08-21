@@ -1,15 +1,17 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import { Badge, TableContainer, Td, Th } from "@/components/ui";
 import Select from "@/components/ui/Select";
 import { listSites, SiteResponse } from "@/features/facility/api";
 import { AttendanceRecordAdminResponse, EmployeeResponse, listAttendanceRecords, listEmployees } from "../api";
-import { attendanceMethodLabels, attendanceStatusLabels, attendanceStatusVariant, formatAttendanceTime } from "../attendanceFormat";
+import { attendanceMethodLabel, attendanceStatusLabel, attendanceStatusVariant, formatAttendanceTime } from "../attendanceFormat";
 import SelfAttendanceCard from "../components/SelfAttendanceCard";
 
 export default function AttendancePage() {
+  const { t } = useTranslation("hrm-attendance");
   const { hasPermission } = useApp();
   const canViewAll = hasPermission("hrm.attendance.view-all");
 
@@ -24,8 +26,8 @@ export default function AttendancePage() {
   return (
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Phân hệ Quản lý Nhân sự & Tiền lương (HRM)</h1>
-        <p className="text-xs text-slate-500 mt-1">Dữ liệu chấm công thực tế đa phương thức (vân tay, khuôn mặt, GPS).</p>
+        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("attendancePage.title")}</h1>
+        <p className="text-xs text-slate-500 mt-1">{t("attendancePage.description")}</p>
       </div>
 
       {/* <div className="bg-white rounded-xl border border-slate-200 shadow-soft p-5">
@@ -38,6 +40,7 @@ export default function AttendancePage() {
 }
 
 function AttendanceAdminSummary({ sites }: { sites: SiteResponse[] }) {
+  const { t, i18n } = useTranslation("hrm-attendance");
   const today = new Date().toISOString().slice(0, 10);
   const weekAgo = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
@@ -72,7 +75,7 @@ function AttendanceAdminSummary({ sites }: { sites: SiteResponse[] }) {
           setRecords([]);
           return;
         }
-        setError(err instanceof ApiError ? err.message : "Không tải được dữ liệu chấm công.");
+        setError(err instanceof ApiError ? err.message : t("attendancePage.loadError"));
       })
       .finally(() => setLoading(false));
   };
@@ -85,19 +88,19 @@ function AttendanceAdminSummary({ sites }: { sites: SiteResponse[] }) {
     <div className="bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden">
       <div className="px-5 py-3 border-b border-slate-100 bg-slate-50 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <span className="text-xs font-bold text-slate-700 font-display block">Tổng hợp chấm công</span>
-          <p className="text-[10px] text-slate-400">Toàn trung tâm, lọc theo nhân sự/điểm trường/khoảng ngày.</p>
+          <span className="text-xs font-bold text-slate-700 font-display block">{t("attendancePage.summaryTitle")}</span>
+          <p className="text-[10px] text-slate-400">{t("attendancePage.summarySubtitle")}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none" />
-          <span className="text-[10px] text-slate-400">đến</span>
+          <span className="text-[10px] text-slate-400">{t("attendancePage.toLabel")}</span>
           <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none" />
           <Select
             value={employeeId}
             onChange={(e) => setEmployeeId(e.target.value === "" ? "" : Number(e.target.value))}
             className="bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none max-w-[160px]"
           >
-            <option value="">Tất cả nhân sự</option>
+            <option value="">{t("attendancePage.allEmployees")}</option>
             {employees.map((e) => (
               <option key={e.id} value={e.id}>
                 {e.fullName}
@@ -109,7 +112,7 @@ function AttendanceAdminSummary({ sites }: { sites: SiteResponse[] }) {
             onChange={(e) => setSiteId(e.target.value === "" ? "" : Number(e.target.value))}
             className="bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none max-w-[160px]"
           >
-            <option value="">Tất cả điểm trường</option>
+            <option value="">{t("attendancePage.allSites")}</option>
             {sites.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}
@@ -124,20 +127,20 @@ function AttendanceAdminSummary({ sites }: { sites: SiteResponse[] }) {
       <TableContainer className="rounded-none border-0">
         <thead>
           <tr>
-            <Th>Nhân sự</Th>
-            <Th>Ngày</Th>
-            <Th>Giờ vào</Th>
-            <Th>Giờ ra</Th>
-            <Th>Phương thức</Th>
-            <Th>Điểm trường</Th>
-            <Th>Trạng thái</Th>
+            <Th>{t("attendancePage.columns.employee")}</Th>
+            <Th>{t("attendancePage.columns.date")}</Th>
+            <Th>{t("attendancePage.columns.checkIn")}</Th>
+            <Th>{t("attendancePage.columns.checkOut")}</Th>
+            <Th>{t("attendancePage.columns.method")}</Th>
+            <Th>{t("attendancePage.columns.site")}</Th>
+            <Th>{t("attendancePage.columns.status")}</Th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
           {loading ? (
             <tr>
               <Td colSpan={7} className="text-center text-slate-400">
-                Đang tải...
+                {t("attendancePage.loading")}
               </Td>
             </tr>
           ) : records.length === 0 ? (
@@ -145,7 +148,7 @@ function AttendanceAdminSummary({ sites }: { sites: SiteResponse[] }) {
               <Td colSpan={7} className="text-center text-slate-400">
                 <div className="flex flex-col items-center gap-1.5 py-4">
                   <Search className="w-5 h-5 text-slate-300" />
-                  Không có bản ghi chấm công trong khoảng đã chọn.
+                  {t("attendancePage.empty")}
                 </div>
               </Td>
             </tr>
@@ -157,12 +160,12 @@ function AttendanceAdminSummary({ sites }: { sites: SiteResponse[] }) {
                   <div className="text-[10px] text-slate-400 font-normal">{r.employeeCode}</div>
                 </Td>
                 <Td>{r.workDate}</Td>
-                <Td>{formatAttendanceTime(r.checkInAt)}</Td>
-                <Td>{formatAttendanceTime(r.checkOutAt)}</Td>
-                <Td>{attendanceMethodLabels[r.checkInMethod ?? ""] ?? "—"}</Td>
+                <Td>{formatAttendanceTime(r.checkInAt, i18n.language)}</Td>
+                <Td>{formatAttendanceTime(r.checkOutAt, i18n.language)}</Td>
+                <Td>{r.checkInMethod ? attendanceMethodLabel(t, r.checkInMethod) : "—"}</Td>
                 <Td>{r.siteName ?? siteLabel.get(r.siteId ?? -1) ?? "—"}</Td>
                 <Td>
-                  <Badge variant={attendanceStatusVariant[r.status]}>{attendanceStatusLabels[r.status]}</Badge>
+                  <Badge variant={attendanceStatusVariant[r.status]}>{attendanceStatusLabel(t, r.status)}</Badge>
                 </Td>
               </tr>
             ))

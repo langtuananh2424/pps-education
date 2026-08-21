@@ -209,7 +209,8 @@ public class ExerciseService {
     public ExerciseQuestionResponse addQuestion(Long exerciseId, AddExerciseQuestionRequest request, Long actorUserId) {
         Exercise exercise = getExerciseOrThrow(exerciseId);
         Question question = questionRepository.findById(request.questionId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy câu hỏi id=" + request.questionId()));
+                .orElseThrow(() -> new ResourceNotFoundException("error.exercise.questionNotFound",
+                        new Object[]{request.questionId()}, "Không tìm thấy câu hỏi id=" + request.questionId()));
         if (!question.getQuestionBank().getId().equals(exercise.getExam().getQuestionBank().getId())) {
             throw new IllegalArgumentException(
                     "Câu hỏi này không thuộc Đề đang chọn.");
@@ -245,7 +246,8 @@ public class ExerciseService {
         }
         List<ExerciseQuestion> questions = exerciseQuestionRepository.findByExerciseIdOrderByDisplayOrder(exerciseId);
         ExerciseQuestion eq = questions.stream().filter(q -> q.getId().equals(exerciseQuestionId)).findFirst()
-                .orElseThrow(() -> new ResourceNotFoundException(
+                .orElseThrow(() -> new ResourceNotFoundException("error.exercise.questionNotFoundInExercise",
+                        new Object[]{exerciseQuestionId, exerciseId},
                         "Không tìm thấy câu hỏi id=" + exerciseQuestionId + " trong đề id=" + exerciseId));
         requireWithinTotalPoints(exercise, questions, exerciseQuestionId, request.points());
         eq.setPoints(request.points());
@@ -286,9 +288,12 @@ public class ExerciseService {
                     "Đề này đã Publish — không gỡ câu hỏi được nữa, chỉ gỡ được khi còn Nháp (DRAFT).");
         }
         ExerciseQuestion eq = exerciseQuestionRepository.findById(exerciseQuestionId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy câu hỏi id=" + exerciseQuestionId + " trong đề."));
+                .orElseThrow(() -> new ResourceNotFoundException("error.exercise.questionNotFoundSimple",
+                        new Object[]{exerciseQuestionId}, "Không tìm thấy câu hỏi id=" + exerciseQuestionId + " trong đề."));
         if (!eq.getExercise().getId().equals(exerciseId)) {
-            throw new ResourceNotFoundException("Không tìm thấy câu hỏi id=" + exerciseQuestionId + " trong đề id=" + exerciseId);
+            throw new ResourceNotFoundException("error.exercise.questionNotFoundInExercise",
+                    new Object[]{exerciseQuestionId, exerciseId},
+                    "Không tìm thấy câu hỏi id=" + exerciseQuestionId + " trong đề id=" + exerciseId);
         }
         exerciseQuestionRepository.delete(eq);
     }
@@ -521,7 +526,7 @@ public class ExerciseService {
         }
         if (!classTeacherRepository.existsBySchoolClassIdAndTeacherIdAndAssignedToIsNull(classId, actorUserId)) {
             throw new NotAssignedTeacherForClassException(
-                    "Bạn không được phân công giảng dạy lớp này.");
+                    "error.notAssignedTeacherForClass.default", new Object[]{}, "Bạn không được phân công giảng dạy lớp này.");
         }
     }
 
@@ -543,7 +548,8 @@ public class ExerciseService {
             return; // staff/teacher/admin — không hạn chế thêm ở đây
         }
         if (exercise.getStatus() != Exercise.Status.PUBLISHED) {
-            throw new ResourceNotFoundException("Không tìm thấy đề id=" + exercise.getId());
+            throw new ResourceNotFoundException("error.exercise.notFoundById",
+                    new Object[]{exercise.getId()}, "Không tìm thấy đề id=" + exercise.getId());
         }
         // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06: chấp nhận CẢ ACTIVE lẫn
         // COMPLETED (không chỉ ACTIVE) — mirror ExerciseAttemptService#listMyAssignedExercises (V92).
@@ -556,34 +562,40 @@ public class ExerciseService {
                         || !exerciseAssignmentRepository.findByExerciseIdAndSchoolClassIdAndStatus(
                         exercise.getId(), e.getSchoolClass().getId(), ExerciseAssignment.Status.COMPLETED).isEmpty());
         if (!hasVisibleAssignment) {
-            throw new ResourceNotFoundException("Không tìm thấy đề id=" + exercise.getId());
+            throw new ResourceNotFoundException("error.exercise.notFoundById",
+                    new Object[]{exercise.getId()}, "Không tìm thấy đề id=" + exercise.getId());
         }
     }
 
     private User getUserOrThrow(Long id) {
         return userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.exercise.userNotFound",
+                        new Object[]{id}, "Không tìm thấy tài khoản id=" + id));
     }
 
     /** V87 — không lộ Đề đã "xóa" (deleted_at), cùng pattern ExamService#getExamOrThrow. */
     private Exam examOrThrow(Long id) {
         return examRepository.findByIdAndDeletedAtIsNull(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Đề id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.exercise.examNotFound",
+                        new Object[]{id}, "Không tìm thấy Đề id=" + id));
     }
 
     private CurriculumSubject curriculumSubjectOrThrow(Long id) {
         return curriculumSubjectRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy học phần id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.exercise.subjectNotFound",
+                        new Object[]{id}, "Không tìm thấy học phần id=" + id));
     }
 
     private SchoolClass getClassOrThrow(Long id) {
         return schoolClassRepository.findByIdAndDeletedAtIsNull(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.exercise.classNotFound",
+                        new Object[]{id}, "Không tìm thấy lớp học id=" + id));
     }
 
     private Exercise getExerciseOrThrow(Long id) {
         return exerciseRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đề id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.exercise.notFoundById",
+                        new Object[]{id}, "Không tìm thấy đề id=" + id));
     }
 
     private ExerciseResponse toResponse(Exercise e, List<ExerciseQuestion> questions) {

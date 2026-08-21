@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { BarChart3, Search, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
+import { formatDateLong } from "@/lib/i18nFormat";
 import { useApp } from "@/context/AppContext";
 import { useEligibleClasses } from "../hooks/useEligibleClasses";
 import { ExerciseAssignmentStatsResponse, listExerciseAssignmentStats } from "../api";
@@ -14,24 +16,8 @@ import EmptyState from "@/components/ui/EmptyState";
 import DatePicker from "@/components/ui/DatePicker";
 import Pagination from "@/components/ui/Pagination";
 
-const exerciseTypeLabels: Record<ExerciseAssignmentStatsResponse["exerciseType"], string> = {
-  SELF_PRACTICE: "Tự luyện",
-  ASSIGNED: "Có hạn nộp",
-  MOCK_TEST: "Thi thử",
-  SKILL_PRACTICE: "Luyện kỹ năng"
-};
-
-const reviewVideoTypeLabels: Record<ReviewVideoType, string> = {
-  REFLEX: "Video phản xạ",
-  CONNECTION: "Video từ kết nối"
-};
-
 /** Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-11) — lọc theo GV Việt Nam/nước ngoài, dùng chung cho cả 2 nguồn (Exercise lấy qua exam.teacherType, review-video lấy trực tiếp từ set.teacherType). */
 type TeacherTypeFilter = "VIETNAMESE" | "FOREIGN";
-const teacherTypeLabels: Record<TeacherTypeFilter, string> = {
-  VIETNAMESE: "Giáo viên Việt Nam",
-  FOREIGN: "Giáo viên nước ngoài"
-};
 
 /**
  * UC-66 bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-11) — gộp BTVN Video Ôn tập
@@ -59,9 +45,9 @@ const studentStatusVariants: Record<string, BadgeVariant> = {
   TRE_HAN: "warning"
 };
 
-function formatDate(value: string | null): string {
-  if (!value) return "Không có hạn";
-  return new Date(value).toLocaleDateString("vi-VN");
+function formatDate(value: string | null, language: string, noDateLabel: string): string {
+  if (!value) return noDateLabel;
+  return formatDateLong(new Date(value), language);
 }
 
 /** "YYYY-MM-DD" theo giờ local — dùng để so khớp với DatePicker (cùng định dạng value của nó). */
@@ -72,6 +58,21 @@ function toLocalIsoDate(value: string): string {
 
 /** UC-66: Thống kê BTVN theo lớp (FR-ACA-07) — Giáo viên/Quản lý điểm trường xem tiến độ BTVN của 1 lớp. */
 export default function HomeworkStatsPage() {
+  const { t, i18n } = useTranslation("academic-homework");
+  const exerciseTypeLabels: Record<ExerciseAssignmentStatsResponse["exerciseType"], string> = {
+    SELF_PRACTICE: t("list.exerciseType.SELF_PRACTICE"),
+    ASSIGNED: t("list.exerciseType.ASSIGNED"),
+    MOCK_TEST: t("list.exerciseType.MOCK_TEST"),
+    SKILL_PRACTICE: t("list.exerciseType.SKILL_PRACTICE")
+  };
+  const reviewVideoTypeLabels: Record<ReviewVideoType, string> = {
+    REFLEX: t("shared.reviewVideoType.REFLEX"),
+    CONNECTION: t("shared.reviewVideoType.CONNECTION")
+  };
+  const teacherTypeLabels: Record<TeacherTypeFilter, string> = {
+    VIETNAMESE: t("list.teacherType.VIETNAMESE"),
+    FOREIGN: t("list.teacherType.FOREIGN")
+  };
   const navigate = useNavigate();
   const { selectedClassId } = useApp();
   const { classes } = useEligibleClasses();
@@ -105,7 +106,7 @@ export default function HomeworkStatsPage() {
         merged.sort((a, b) => new Date(b.data.availableFrom).getTime() - new Date(a.data.availableFrom).getTime());
         setRows(merged);
       })
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được thống kê BTVN."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("list.loadFailed")))
       .finally(() => setLoading(false));
   }, [selectedClassId]);
 
@@ -134,40 +135,38 @@ export default function HomeworkStatsPage() {
   return (
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Thống kê BTVN theo lớp</h1>
-        <p className="text-xs text-slate-500 mt-1">
-          Xem tiến độ hoàn thành và tỷ lệ đạt của từng BTVN đã giao cho lớp, kết quả từng học sinh, và phân tích câu hỏi hay bị sai.
-        </p>
+        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("list.title")}</h1>
+        <p className="text-xs text-slate-500 mt-1">{t("list.subtitle")}</p>
       </div>
 
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       {!selectedClassId ? (
         <Card>
-          <EmptyState icon={BarChart3} title="Chưa chọn lớp" description="Chọn 1 lớp ở góc trên bên phải để xem thống kê BTVN." />
+          <EmptyState icon={BarChart3} title={t("list.noClassSelected.title")} description={t("list.noClassSelected.description")} />
         </Card>
       ) : (
         <Card padded={false} className="overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-100 bg-slate-50 space-y-3">
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <span className="text-xs font-bold text-slate-700 font-display block">
-                {selectedClass ? `${selectedClass.classCode} — ${selectedClass.name}` : "Lớp đang chọn"} (
-                {hasActiveFilters ? `${filteredRows.length}/${rows.length}` : rows.length} BTVN)
+                {selectedClass ? `${selectedClass.classCode} — ${selectedClass.name}` : t("list.selectedClassFallback")} (
+                {hasActiveFilters ? `${filteredRows.length}/${rows.length}` : rows.length} {t("shared.assignmentUnit")})
               </span>
               {rows.length > 0 && (
                 <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 gap-0.5 shrink-0">
                   {(
                     [
-                      { value: null, label: "Tất cả" },
-                      { value: "VIETNAMESE" as TeacherTypeFilter, label: "GVVN" },
-                      { value: "FOREIGN" as TeacherTypeFilter, label: "GVNN" }
+                      { value: null, label: t("list.teacherType.allShort") },
+                      { value: "VIETNAMESE" as TeacherTypeFilter, label: t("list.teacherType.vnShort") },
+                      { value: "FOREIGN" as TeacherTypeFilter, label: t("list.teacherType.foreignShort") }
                     ] satisfies { value: TeacherTypeFilter | null; label: string }[]
                   ).map((opt) => (
                     <button
                       key={opt.label}
                       type="button"
                       onClick={() => setTeacherTypeFilter(opt.value)}
-                      title={opt.value ? teacherTypeLabels[opt.value] : "Tất cả loại giáo viên"}
+                      title={opt.value ? teacherTypeLabels[opt.value] : t("list.teacherType.all")}
                       className={`px-3 py-1.5 rounded-md text-[11px] font-bold transition-colors ${
                         teacherTypeFilter === opt.value ? "bg-brand-gradient text-white" : "text-slate-500 hover:bg-slate-50"
                       }`}
@@ -185,12 +184,12 @@ export default function HomeworkStatsPage() {
                   <input
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Tìm theo tiêu đề / mã BTVN..."
+                    placeholder={t("list.searchPlaceholder")}
                     className="w-full bg-white border border-slate-200 text-xs pl-8 pr-3 py-2 rounded-lg focus:outline-none"
                   />
                 </div>
                 <div className="sm:w-52">
-                  <DatePicker value={dateFilter} onChange={setDateFilter} placeholder="Lọc theo ngày giao..." />
+                  <DatePicker value={dateFilter} onChange={setDateFilter} placeholder={t("list.dateFilterPlaceholder")} />
                 </div>
                 {hasActiveFilters && (
                   <button
@@ -202,30 +201,30 @@ export default function HomeworkStatsPage() {
                     }}
                     className="flex items-center gap-1 text-[11px] font-bold text-slate-500 hover:text-slate-700 shrink-0"
                   >
-                    <X className="w-3.5 h-3.5" /> Xoá lọc
+                    <X className="w-3.5 h-3.5" /> {t("list.clearFilters")}
                   </button>
                 )}
               </div>
             )}
           </div>
           {loading ? (
-            <p className="text-xs text-slate-500 p-5">Đang tải...</p>
+            <p className="text-xs text-slate-500 p-5">{t("shared.loading")}</p>
           ) : rows.length === 0 ? (
-            <EmptyState icon={BarChart3} title="Chưa có BTVN nào" description="Lớp này chưa được giao BTVN nào." />
+            <EmptyState icon={BarChart3} title={t("list.emptyNoRows.title")} description={t("list.emptyNoRows.description")} />
           ) : filteredRows.length === 0 ? (
-            <EmptyState icon={Search} title="Không tìm thấy BTVN phù hợp" description="Thử đổi từ khoá tìm kiếm hoặc bỏ lọc theo ngày giao." />
+            <EmptyState icon={Search} title={t("list.emptyNoResults.title")} description={t("list.emptyNoResults.description")} />
           ) : (
             <>
             <TableContainer className="border-0 rounded-none">
               <thead>
                 <tr>
-                  <Th>Tiêu đề</Th>
-                  <Th>Loại</Th>
-                  <Th>Ngày giao</Th>
-                  <Th>Hạn nộp</Th>
-                  <Th className="text-center">% Làm bài</Th>
-                  <Th className="text-center">% đạt</Th>
-                  <Th className="text-center">%HS vi phạm</Th>
+                  <Th>{t("list.table.title")}</Th>
+                  <Th>{t("list.table.type")}</Th>
+                  <Th>{t("list.table.assignedDate")}</Th>
+                  <Th>{t("list.table.dueDate")}</Th>
+                  <Th className="text-center">{t("list.table.completionPercent")}</Th>
+                  <Th className="text-center">{t("list.table.passPercent")}</Th>
+                  <Th className="text-center">{t("list.table.violationPercent")}</Th>
                   <Th />
                 </tr>
               </thead>
@@ -239,8 +238,8 @@ export default function HomeworkStatsPage() {
                       <Td>
                         <Badge variant="neutral">{exerciseTypeLabels[r.data.exerciseType]}</Badge>
                       </Td>
-                      <Td>{formatDate(r.data.availableFrom)}</Td>
-                      <Td>{formatDate(r.data.dueAt)}</Td>
+                      <Td>{formatDate(r.data.availableFrom, i18n.language, t("list.noDueDate"))}</Td>
+                      <Td>{formatDate(r.data.dueAt, i18n.language, t("list.noDueDate"))}</Td>
                       <Td className="text-center">
                         {r.data.completedCount}/{r.data.totalStudents} ({r.data.completionPercent}%)
                       </Td>
@@ -258,7 +257,7 @@ export default function HomeworkStatsPage() {
                       </Td>
                       <Td className="text-right">
                         <Button size="sm" onClick={() => navigate(`/academic/homework-stats/${r.data.assignmentId}`)}>
-                          Xem chi tiết
+                          {t("shared.viewDetail")}
                         </Button>
                       </Td>
                     </tr>
@@ -270,8 +269,8 @@ export default function HomeworkStatsPage() {
                       <Td>
                         <Badge variant="info">{reviewVideoTypeLabels[r.data.videoType]}</Badge>
                       </Td>
-                      <Td>{formatDate(r.data.availableFrom)}</Td>
-                      <Td>{formatDate(r.data.dueAt)}</Td>
+                      <Td>{formatDate(r.data.availableFrom, i18n.language, t("list.noDueDate"))}</Td>
+                      <Td>{formatDate(r.data.dueAt, i18n.language, t("list.noDueDate"))}</Td>
                       <Td className="text-center">
                         {r.data.completedCount}/{r.data.totalStudents} ({r.data.completionPercent}%)
                       </Td>
@@ -287,7 +286,7 @@ export default function HomeworkStatsPage() {
                       </Td>
                       <Td className="text-right">
                         <Button size="sm" onClick={() => navigate(`/academic/homework-stats/review-video/${r.data.assignmentId}`)}>
-                          Xem chi tiết
+                          {t("shared.viewDetail")}
                         </Button>
                       </Td>
                     </tr>
@@ -299,7 +298,7 @@ export default function HomeworkStatsPage() {
               page={page}
               pageSize={pageSize}
               totalElements={filteredRows.length}
-              itemLabel="BTVN"
+              itemLabel={t("shared.assignmentUnit")}
               onPageChange={setPage}
               onPageSizeChange={(size) => {
                 setPageSize(size);

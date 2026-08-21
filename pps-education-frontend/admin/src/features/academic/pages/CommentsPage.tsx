@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Clock, History } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import { UserRole } from "@/types";
@@ -11,6 +12,7 @@ import CommentHistoryPanel from "../components/CommentHistoryPanel";
 type SiteManagerTab = "pending" | "history";
 
 export default function CommentsPage() {
+  const { t } = useTranslation("academic-comments");
   const [siteManagerTab, setSiteManagerTab] = useState<SiteManagerTab>("pending");
   const { currentUser } = useApp();
   // Hàng chờ duyệt (UC-22) chỉ có ý nghĩa với Quản lý điểm trường — API tự scope theo site được gán.
@@ -25,7 +27,7 @@ export default function CommentsPage() {
     setLoadingPending(true);
     listPendingComments()
       .then(setPending)
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được hàng chờ duyệt nhận xét."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("commentsPage.errors.loadPendingFailed")))
       .finally(() => setLoadingPending(false));
   };
 
@@ -36,8 +38,8 @@ export default function CommentsPage() {
   return (
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Nhận xét học viên</h1>
-        <p className="text-xs text-slate-500 mt-1">Giáo viên viết nhận xét hàng ngày, Quản lý điểm trường duyệt trước khi hiển thị Portal phụ huynh.</p>
+        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("commentsPage.title")}</h1>
+        <p className="text-xs text-slate-500 mt-1">{t("commentsPage.subtitle")}</p>
       </div>
 
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
@@ -47,8 +49,8 @@ export default function CommentsPage() {
           <div className="flex border-b border-slate-200 gap-5">
             {(
               [
-                ["pending", "Chờ duyệt", Clock],
-                ["history", "Lịch sử nhận xét cũ", History]
+                ["pending", t("commentsPage.tabs.pending"), Clock],
+                ["history", t("commentsPage.tabs.history"), History]
               ] as const
             ).map(([key, label, Icon]) => (
               <button

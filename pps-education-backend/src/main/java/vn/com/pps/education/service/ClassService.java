@@ -211,19 +211,25 @@ public class ClassService {
     @Transactional
     public ClassResponse create(CreateClassRequest request, Long actorUserId) {
         if (schoolClassRepository.findByClassCode(request.classCode()).isPresent()) {
-            throw new DuplicateClassCodeException("Mã lớp đã tồn tại: " + request.classCode());
+            throw new DuplicateClassCodeException("error.duplicateClassCode.default", new Object[]{request.classCode()}, "Mã lớp đã tồn tại: " + request.classCode());
         }
         Curriculum curriculum = curriculumRepository.findByIdAndDeletedAtIsNull(request.curriculumId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy khung chương trình id=" + request.curriculumId()));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.class.curriculumNotFound", new Object[]{request.curriculumId()},
+                        "Không tìm thấy khung chương trình id=" + request.curriculumId()));
         if (curriculum.getStatus() != Curriculum.Status.ACTIVE) {
             throw new CurriculumNotActiveException(
+                    "error.curriculumNotActive.default", new Object[]{},
                     "Khung chương trình này chưa ở trạng thái ACTIVE.");
         }
         Site site = siteRepository.findById(request.siteId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy điểm trường id=" + request.siteId()));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.class.siteNotFound", new Object[]{request.siteId()},
+                        "Không tìm thấy điểm trường id=" + request.siteId()));
         // UC-17 Postcondition -- khung tùy biến (site_id NOT NULL) chỉ dùng được cho đúng điểm trường đó.
         if (curriculum.getSite() != null && !curriculum.getSite().getId().equals(site.getId())) {
             throw new CurriculumNotAvailableForSiteException(
+                    "error.curriculumNotAvailableForSite.default", new Object[]{},
                     "Khung chương trình này chỉ áp dụng cho điểm trường đã gán sẵn, không dùng được cho điểm trường bạn vừa chọn.");
         }
         SchoolClass.ClassType classType = SchoolClass.ClassType.valueOf(request.classType());
@@ -231,12 +237,15 @@ public class ClassService {
         // A2 -- Lớp liên kết bắt buộc gán Điểm trường loại Trường liên kết (PARTNER).
         if (classType == SchoolClass.ClassType.LINKED && site.getSiteType() != Site.SiteType.PARTNER) {
             throw new LinkedClassRequiresPartnerSiteException(
+                    "error.linkedClassRequiresPartnerSite.default", new Object[]{site.getSiteType()},
                     "Lớp liên kết (LINKED) bắt buộc gán Điểm trường loại PARTNER — điểm trường bạn chọn hiện là "
                             + site.getSiteType() + ".");
         }
 
         User actor = userRepository.findById(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.class.actorNotFound", new Object[]{actorUserId},
+                        "Không tìm thấy tài khoản id=" + actorUserId));
 
         SchoolClass schoolClass = new SchoolClass();
         schoolClass.setClassCode(request.classCode());
@@ -266,7 +275,9 @@ public class ClassService {
     public ClassResponse update(Long id, UpdateClassRequest request, Long actorUserId) {
         SchoolClass schoolClass = getClassOrThrow(id);
         User actor = userRepository.findById(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.class.actorNotFound", new Object[]{actorUserId},
+                        "Không tìm thấy tài khoản id=" + actorUserId));
 
         schoolClass.setName(request.name());
         schoolClass.setMaxStudents(request.maxStudents());
@@ -289,9 +300,13 @@ public class ClassService {
     public ClassTeacherResponse assignTeacher(Long classId, AssignTeacherRequest request, Long actorUserId) {
         SchoolClass schoolClass = getClassOrThrow(classId);
         User teacher = userRepository.findById(request.teacherUserId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + request.teacherUserId()));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.class.actorNotFound", new Object[]{request.teacherUserId()},
+                        "Không tìm thấy tài khoản id=" + request.teacherUserId()));
         User actor = userRepository.findById(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.class.actorNotFound", new Object[]{actorUserId},
+                        "Không tìm thấy tài khoản id=" + actorUserId));
 
         ClassTeacher.TeacherRole teacherRole = request.teacherRole() == null
                 ? ClassTeacher.TeacherRole.PRIMARY
@@ -321,13 +336,21 @@ public class ClassService {
     public ClassTeacherResponse changeTeacher(Long classId, Long classTeacherId, ChangeTeacherRequest request, Long actorUserId) {
         getClassOrThrow(classId);
         User newTeacher = userRepository.findById(request.newTeacherUserId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + request.newTeacherUserId()));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.class.actorNotFound", new Object[]{request.newTeacherUserId()},
+                        "Không tìm thấy tài khoản id=" + request.newTeacherUserId()));
         User actor = userRepository.findById(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.class.actorNotFound", new Object[]{actorUserId},
+                        "Không tìm thấy tài khoản id=" + actorUserId));
         ClassTeacher oldAssignment = classTeacherRepository.findById(classTeacherId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phân công giáo viên id=" + classTeacherId));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.class.teacherAssignmentNotFound", new Object[]{classTeacherId},
+                        "Không tìm thấy phân công giáo viên id=" + classTeacherId));
         if (!oldAssignment.getSchoolClass().getId().equals(classId)) {
-            throw new ResourceNotFoundException("Không tìm thấy phân công giáo viên id=" + classTeacherId + " trong lớp id=" + classId);
+            throw new ResourceNotFoundException(
+                    "error.class.teacherAssignmentNotFoundInClass", new Object[]{classTeacherId, classId},
+                    "Không tìm thấy phân công giáo viên id=" + classTeacherId + " trong lớp id=" + classId);
         }
         if (oldAssignment.getAssignedTo() != null) {
             throw new IllegalArgumentException("Phân công giáo viên này đã kết thúc từ " + oldAssignment.getAssignedTo());
@@ -456,11 +479,17 @@ public class ClassService {
                                                         EndTeacherAssignmentRequest request, Long actorUserId) {
         getClassOrThrow(classId);
         User actor = userRepository.findById(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.class.actorNotFound", new Object[]{actorUserId},
+                        "Không tìm thấy tài khoản id=" + actorUserId));
         ClassTeacher classTeacher = classTeacherRepository.findById(classTeacherId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phân công giáo viên id=" + classTeacherId));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.class.teacherAssignmentNotFound", new Object[]{classTeacherId},
+                        "Không tìm thấy phân công giáo viên id=" + classTeacherId));
         if (!classTeacher.getSchoolClass().getId().equals(classId)) {
-            throw new ResourceNotFoundException("Không tìm thấy phân công giáo viên id=" + classTeacherId + " trong lớp id=" + classId);
+            throw new ResourceNotFoundException(
+                    "error.class.teacherAssignmentNotFoundInClass", new Object[]{classTeacherId, classId},
+                    "Không tìm thấy phân công giáo viên id=" + classTeacherId + " trong lớp id=" + classId);
         }
         if (classTeacher.getAssignedTo() != null) {
             throw new IllegalArgumentException("Phân công giáo viên này đã kết thúc từ " + classTeacher.getAssignedTo());
@@ -498,15 +527,20 @@ public class ClassService {
                     + schoolClass.getStatus() + " — chỉ cho phép ghi danh khi lớp Đang tuyển sinh hoặc Đang học.");
         }
         Student student = studentRepository.findByIdAndDeletedAtIsNull(request.studentId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy học sinh id=" + request.studentId()));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.class.studentNotFound", new Object[]{request.studentId()},
+                        "Không tìm thấy học sinh id=" + request.studentId()));
         if (classEnrollmentRepository
                 .findBySchoolClassIdAndStudentIdAndStatus(classId, request.studentId(), ClassEnrollment.Status.ACTIVE)
                 .isPresent()) {
             throw new ClassEnrollmentAlreadyActiveException(
+                    "error.classEnrollmentAlreadyActive.default", new Object[]{},
                     "Học sinh này đã ghi danh ACTIVE trong lớp rồi.");
         }
         User actor = userRepository.findById(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.class.actorNotFound", new Object[]{actorUserId},
+                        "Không tìm thấy tài khoản id=" + actorUserId));
 
         ClassEnrollment enrollment = new ClassEnrollment();
         enrollment.setSchoolClass(schoolClass);
@@ -525,9 +559,13 @@ public class ClassService {
     public ClassEnrollmentResponse withdraw(Long classId, Long enrollmentId, WithdrawEnrollmentRequest request, Long actorUserId) {
         ClassEnrollment enrollment = classEnrollmentRepository.findById(enrollmentId)
                 .filter(e -> e.getSchoolClass().getId().equals(classId))
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy ghi danh id=" + enrollmentId));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.class.enrollmentNotFound", new Object[]{enrollmentId},
+                        "Không tìm thấy ghi danh id=" + enrollmentId));
         User actor = userRepository.findById(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.class.actorNotFound", new Object[]{actorUserId},
+                        "Không tìm thấy tài khoản id=" + actorUserId));
 
         enrollment.setStatus(ClassEnrollment.Status.WITHDRAWN);
         enrollment.setWithdrawnDate(request.withdrawnDate());
@@ -559,24 +597,32 @@ public class ClassService {
         SchoolClass oldClass = getClassOrThrow(oldClassId);
 
         if (schoolClassRepository.findByClassCode(request.classCode()).isPresent()) {
-            throw new DuplicateClassCodeException("Mã lớp đã tồn tại: " + request.classCode());
+            throw new DuplicateClassCodeException("error.duplicateClassCode.default", new Object[]{request.classCode()}, "Mã lớp đã tồn tại: " + request.classCode());
         }
         AcademicYear academicYear = academicYearRepository.findById(request.academicYearId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy năm học id=" + request.academicYearId()));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.class.academicYearNotFound", new Object[]{request.academicYearId()},
+                        "Không tìm thấy năm học id=" + request.academicYearId()));
         Curriculum newCurriculum = curriculumRepository.findByIdAndDeletedAtIsNull(request.curriculumId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy khung chương trình id=" + request.curriculumId()));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.class.curriculumNotFound", new Object[]{request.curriculumId()},
+                        "Không tìm thấy khung chương trình id=" + request.curriculumId()));
         if (newCurriculum.getStatus() != Curriculum.Status.ACTIVE) {
             throw new CurriculumNotActiveException(
+                    "error.curriculumNotActive.default", new Object[]{},
                     "Khung chương trình này chưa ở trạng thái ACTIVE.");
         }
         // UC-17 Postcondition -- khung tùy biến (site_id NOT NULL) chỉ dùng được cho đúng điểm trường đó (site giữ nguyên từ lớp cũ).
         if (newCurriculum.getSite() != null && !newCurriculum.getSite().getId().equals(oldClass.getSite().getId())) {
             throw new CurriculumNotAvailableForSiteException(
+                    "error.curriculumNotAvailableForSite.default", new Object[]{},
                     "Khung chương trình này chỉ áp dụng cho điểm trường đã gán sẵn, không dùng được cho điểm trường bạn vừa chọn.");
         }
 
         User actor = userRepository.findById(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.class.actorNotFound", new Object[]{actorUserId},
+                        "Không tìm thấy tài khoản id=" + actorUserId));
 
         SchoolClass newClass = new SchoolClass();
         newClass.setClassCode(request.classCode());
@@ -658,12 +704,16 @@ public class ClassService {
 
     private CurriculumSubject curriculumSubjectOrThrow(Long id) {
         return curriculumSubjectRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy học phần id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.class.subjectNotFound", new Object[]{id},
+                        "Không tìm thấy học phần id=" + id));
     }
 
     private SchoolClass getClassOrThrow(Long id) {
         return schoolClassRepository.findByIdAndDeletedAtIsNull(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.class.notFound", new Object[]{id},
+                        "Không tìm thấy lớp học id=" + id));
     }
 
     /** academicYearId nullable — CreateClassRequest/UpdateClassRequest vẫn để tùy chọn như trước V103. */
@@ -672,7 +722,9 @@ public class ClassService {
             return null;
         }
         return academicYearRepository.findById(academicYearId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy năm học id=" + academicYearId));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.class.academicYearNotFound", new Object[]{academicYearId},
+                        "Không tìm thấy năm học id=" + academicYearId));
     }
 
     private ClassResponse toResponse(SchoolClass c) {

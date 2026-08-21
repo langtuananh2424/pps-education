@@ -216,7 +216,7 @@ public class ReviewVideoService {
     public ReviewVideoSetResponse createSet(CreateReviewVideoSetRequest request, Long actorUserId) {
         User actor = getUserOrThrow(actorUserId);
         Curriculum curriculum = curriculumRepository.findByIdAndDeletedAtIsNull(request.curriculumId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy khung chương trình id=" + request.curriculumId()));
+                .orElseThrow(() -> new ResourceNotFoundException("error.reviewVideo.curriculumNotFound", new Object[]{request.curriculumId()}, "Không tìm thấy khung chương trình id=" + request.curriculumId()));
         requireAssignedTeacherForCurriculum(request.curriculumId(), actorUserId);
 
         ReviewVideoSet set = new ReviewVideoSet();
@@ -332,7 +332,7 @@ public class ReviewVideoService {
         getClassOrThrow(classId);
         if (isStudent(actorUserId)) {
             Student student = studentRepository.findByUserId(actorUserId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học id=" + classId));
+                    .orElseThrow(() -> new ResourceNotFoundException("error.reviewVideo.classNotFound", new Object[]{classId}, "Không tìm thấy lớp học id=" + classId));
             requireStudentEnrolledInClass(classId, actorUserId);
             Set<Long> assignedSetIds = assignedSetIdsForStudentInClasses(List.of(classId), student.getId());
             return reviewVideoSetRepository.findAvailableForClass(classId, ReviewVideoSet.Status.PUBLISHED)
@@ -506,7 +506,7 @@ public class ReviewVideoService {
     @Transactional(readOnly = true)
     public List<MyReviewVideoAssignmentResponse> listMyAssignments(Long actorUserId, Long classIdFilter) {
         Student student = studentRepository.findByUserId(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hồ sơ học sinh cho tài khoản id=" + actorUserId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.reviewVideo.studentProfileNotFoundForAccount", new Object[]{actorUserId}, "Không tìm thấy hồ sơ học sinh cho tài khoản id=" + actorUserId));
         List<ClassEnrollment> enrollments = classEnrollmentRepository
                 .findByStudentIdAndStatus(student.getId(), ClassEnrollment.Status.ACTIVE).stream()
                 .filter(e -> classIdFilter == null || e.getSchoolClass().getId().equals(classIdFilter))
@@ -673,6 +673,8 @@ public class ReviewVideoService {
             int siblingEnd = sibling.getTimestampSeconds() + sibling.getMaxRecordingSeconds();
             if (sibling.getTimestampSeconds() < newEnd && newStart < siblingEnd) {
                 throw new ReviewVideoQuestionOverlapException(
+                        "error.reviewVideoQuestionOverlap.default",
+                        new Object[]{newStart, newEnd, sibling.getTimestampSeconds(), siblingEnd},
                         "Khoảng ghi âm câu hỏi mới (giây " + newStart + "-" + newEnd + ") chồng lấn 1 câu hỏi khác"
                                 + " (giây " + sibling.getTimestampSeconds() + "-" + siblingEnd + ") — video chỉ ghi âm được 1 câu tại 1 thời điểm,"
                                 + " hãy đặt mốc thời gian cách nhau xa hơn hoặc giảm thời lượng ghi âm tối đa.");
@@ -894,11 +896,11 @@ public class ReviewVideoService {
     @Transactional(readOnly = true)
     public List<ReviewVideoConnectionQuestionResponse> listConnectionQuestionsForSession(Long watchSessionId, Long actorUserId) {
         ReviewVideoWatchSession session = reviewVideoWatchSessionRepository.findById(watchSessionId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lượt xem id=" + watchSessionId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.reviewVideo.watchSessionNotFound", new Object[]{watchSessionId}, "Không tìm thấy lượt xem id=" + watchSessionId));
         ReviewVideo video = session.getReviewVideo();
         Student student = requireStudentCanViewSet(video.getReviewVideoSet(), actorUserId);
         if (!session.getStudent().getId().equals(student.getId())) {
-            throw new ResourceNotFoundException("Không tìm thấy lượt xem id=" + watchSessionId);
+            throw new ResourceNotFoundException("error.reviewVideo.watchSessionNotFound", new Object[]{watchSessionId}, "Không tìm thấy lượt xem id=" + watchSessionId);
         }
         if (video.getReviewVideoSet().getVideoType() != ReviewVideoSet.VideoType.CONNECTION) {
             throw new IllegalArgumentException("Video này không phải loại Video kết nối (CONNECTION).");
@@ -939,11 +941,11 @@ public class ReviewVideoService {
         // resolveStudentAccess (tự đoán "1 bản giao ACTIVE", VỠ khi có nhiều bản song song) — lượt xem
         // (session) đã gắn CHÍNH XÁC đúng bản giao từ lúc startWatchSession, dùng thẳng từ đó.
         Student student = studentRepository.findByUserId(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lượt xem id=" + request.watchSessionId()));
+                .orElseThrow(() -> new ResourceNotFoundException("error.reviewVideo.watchSessionNotFound", new Object[]{request.watchSessionId()}, "Không tìm thấy lượt xem id=" + request.watchSessionId()));
         ReviewVideoWatchSession session = reviewVideoWatchSessionRepository.findById(request.watchSessionId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lượt xem id=" + request.watchSessionId()));
+                .orElseThrow(() -> new ResourceNotFoundException("error.reviewVideo.watchSessionNotFound", new Object[]{request.watchSessionId()}, "Không tìm thấy lượt xem id=" + request.watchSessionId()));
         if (!session.getReviewVideo().getId().equals(videoId) || !session.getStudent().getId().equals(student.getId())) {
-            throw new ResourceNotFoundException("Không tìm thấy lượt xem id=" + request.watchSessionId());
+            throw new ResourceNotFoundException("error.reviewVideo.watchSessionNotFound", new Object[]{request.watchSessionId()}, "Không tìm thấy lượt xem id=" + request.watchSessionId());
         }
         ReviewVideoAssignment assignment = session.getReviewVideoAssignment();
         requireNotPastDeadline(assignment);
@@ -978,24 +980,24 @@ public class ReviewVideoService {
     public ReviewVideoConnectionQuizResultResponse submitConnectionAnswers(
             Long watchSessionId, SubmitConnectionAnswersRequest request, Long actorUserId) {
         ReviewVideoWatchSession session = reviewVideoWatchSessionRepository.findById(watchSessionId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lượt xem id=" + watchSessionId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.reviewVideo.watchSessionNotFound", new Object[]{watchSessionId}, "Không tìm thấy lượt xem id=" + watchSessionId));
         ReviewVideo video = session.getReviewVideo();
         // V129 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-19) — mirror reportProgress:
         // dùng thẳng bản giao đã gắn sẵn trên session, không tự đoán lại qua resolveStudentAccess.
         Student student = studentRepository.findByUserId(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lượt xem id=" + watchSessionId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.reviewVideo.watchSessionNotFound", new Object[]{watchSessionId}, "Không tìm thấy lượt xem id=" + watchSessionId));
         if (!session.getStudent().getId().equals(student.getId())) {
-            throw new ResourceNotFoundException("Không tìm thấy lượt xem id=" + watchSessionId);
+            throw new ResourceNotFoundException("error.reviewVideo.watchSessionNotFound", new Object[]{watchSessionId}, "Không tìm thấy lượt xem id=" + watchSessionId);
         }
         ReviewVideoAssignment assignment = session.getReviewVideoAssignment();
         requireNotPastDeadline(assignment);
         if (!session.isQualified()) {
             throw new VideoNotYetQualifiedException(
-                    "Lượt xem này chưa xem đạt ngưỡng — chưa thể làm câu hỏi.");
+                    "error.videoNotYetQualified.default", new Object[]{}, "Lượt xem này chưa xem đạt ngưỡng — chưa thể làm câu hỏi.");
         }
         if (session.getQuizCompletedAt() != null) {
             throw new QuizAlreadyCompletedException(
-                    "Lượt xem này đã nộp đủ câu hỏi rồi, không thể nộp lại.");
+                    "error.quizAlreadyCompleted.default", new Object[]{}, "Lượt xem này đã nộp đủ câu hỏi rồi, không thể nộp lại.");
         }
 
         List<ReviewVideoConnectionQuestion> questions = reviewVideoConnectionQuestionRepository
@@ -1080,6 +1082,7 @@ public class ReviewVideoService {
                 .countByReviewVideoQuestionIdAndStudentIdAndReviewVideoAssignmentId(questionId, student.getId(), access.assignment().getId());
         if (question.getMaxAttempts() != null && previousAttempts >= question.getMaxAttempts()) {
             throw new RetakeNotAllowedException(
+                    "error.retakeNotAllowed.reviewVideoQuestion", new Object[]{question.getMaxAttempts()},
                     "Câu hỏi này đã hết lượt nộp lại (tối đa " + question.getMaxAttempts() + ").");
         }
 
@@ -1376,7 +1379,7 @@ public class ReviewVideoService {
     @Transactional
     public ReviewVideoSubmissionResponse gradeSubmission(Long submissionId, GradeReviewVideoSubmissionRequest request, Long actorUserId) {
         ReviewVideoQuestionSubmission submission = reviewVideoQuestionSubmissionRepository.findById(submissionId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bài nộp id=" + submissionId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.reviewVideo.submissionNotFound", new Object[]{submissionId}, "Không tìm thấy bài nộp id=" + submissionId));
         requireOwnerScope(submission.getReviewVideoQuestion().getReviewVideo().getReviewVideoSet(), actorUserId);
         User actor = getUserOrThrow(actorUserId);
 
@@ -1407,7 +1410,7 @@ public class ReviewVideoService {
         boolean everEnrolled = classEnrollmentRepository.findByStudentId(student.getId()).stream()
                 .anyMatch(e -> e.getSchoolClass().getId().equals(classId));
         if (!everEnrolled) {
-            throw new ResourceNotFoundException("Không tìm thấy lớp học id=" + classId);
+            throw new ResourceNotFoundException("error.reviewVideo.classNotFound", new Object[]{classId}, "Không tìm thấy lớp học id=" + classId);
         }
     }
 
@@ -1429,11 +1432,11 @@ public class ReviewVideoService {
      */
     private StudentAccess resolveStudentAccess(ReviewVideoSet set, Long actorUserId) {
         if (set.getStatus() != ReviewVideoSet.Status.PUBLISHED) {
-            throw new ResourceNotFoundException("Không tìm thấy bộ video id=" + set.getId());
+            throw new ResourceNotFoundException("error.reviewVideo.setNotFound", new Object[]{set.getId()}, "Không tìm thấy bộ video id=" + set.getId());
         }
         var studentOpt = studentRepository.findByUserId(actorUserId);
         if (studentOpt.isEmpty()) {
-            throw new ResourceNotFoundException("Không tìm thấy bộ video id=" + set.getId());
+            throw new ResourceNotFoundException("error.reviewVideo.setNotFound", new Object[]{set.getId()}, "Không tìm thấy bộ video id=" + set.getId());
         }
         Student student = studentOpt.get();
         List<Long> classIds = classEnrollmentRepository.findByStudentIdAndStatus(student.getId(), ClassEnrollment.Status.ACTIVE)
@@ -1444,7 +1447,7 @@ public class ReviewVideoService {
                         .stream())
                 .filter(a -> a.getTargetStudentIds() == null || a.getTargetStudentIds().contains(student.getId()))
                 .findFirst()
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bộ video id=" + set.getId()));
+                .orElseThrow(() -> new ResourceNotFoundException("error.reviewVideo.setNotFound", new Object[]{set.getId()}, "Không tìm thấy bộ video id=" + set.getId()));
         return new StudentAccess(student, matched);
     }
 
@@ -1464,10 +1467,10 @@ public class ReviewVideoService {
      */
     private StudentAccess resolveStudentAccessForAssignment(ReviewVideoSet set, Long assignmentId, Long actorUserId) {
         if (set.getStatus() != ReviewVideoSet.Status.PUBLISHED) {
-            throw new ResourceNotFoundException("Không tìm thấy bộ video id=" + set.getId());
+            throw new ResourceNotFoundException("error.reviewVideo.setNotFound", new Object[]{set.getId()}, "Không tìm thấy bộ video id=" + set.getId());
         }
         Student student = studentRepository.findByUserId(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bộ video id=" + set.getId()));
+                .orElseThrow(() -> new ResourceNotFoundException("error.reviewVideo.setNotFound", new Object[]{set.getId()}, "Không tìm thấy bộ video id=" + set.getId()));
         ReviewVideoAssignment assignment = reviewVideoAssignmentRepository.findById(assignmentId)
                 .filter(a -> a.getReviewVideoSet().getId().equals(set.getId()))
                 .filter(a -> a.getStatus() == ReviewVideoAssignment.Status.ACTIVE)
@@ -1475,7 +1478,7 @@ public class ReviewVideoService {
                 .filter(a -> classEnrollmentRepository
                         .findBySchoolClassIdAndStudentIdAndStatus(a.getSchoolClass().getId(), student.getId(), ClassEnrollment.Status.ACTIVE)
                         .isPresent())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bộ video id=" + set.getId()));
+                .orElseThrow(() -> new ResourceNotFoundException("error.reviewVideo.setNotFound", new Object[]{set.getId()}, "Không tìm thấy bộ video id=" + set.getId()));
         return new StudentAccess(student, assignment);
     }
 
@@ -1498,6 +1501,7 @@ public class ReviewVideoService {
         }
         if (assignment.getDueAt() != null && OffsetDateTime.now().isAfter(assignment.getDueAt())) {
             throw new SubmissionPastDeadlineException(
+                    "error.submissionPastDeadline.reviewVideo", new Object[]{assignment.getDueAt()},
                     "Bản giao Video Ôn tập này đã quá hạn nộp (" + assignment.getDueAt() + ").");
         }
     }
@@ -1531,7 +1535,7 @@ public class ReviewVideoService {
         }
         if (!classTeacherRepository.existsBySchoolClassIdAndTeacherIdAndAssignedToIsNull(classId, actorUserId)) {
             throw new NotAssignedTeacherForClassException(
-                    "Bạn không được phân công giảng dạy lớp này.");
+                    "error.notAssignedTeacherForClass.default", new Object[]{}, "Bạn không được phân công giảng dạy lớp này.");
         }
     }
 
@@ -1542,43 +1546,43 @@ public class ReviewVideoService {
         }
         if (!classTeacherRepository.existsBySchoolClass_CurriculumIdAndTeacherIdAndAssignedToIsNull(curriculumId, actorUserId)) {
             throw new NotAssignedTeacherForClassException(
-                    "Bạn không dạy lớp nào thuộc khung chương trình này.");
+                    "error.notAssignedTeacherForClass.noClassInCurriculum", new Object[]{}, "Bạn không dạy lớp nào thuộc khung chương trình này.");
         }
     }
 
     private User getUserOrThrow(Long id) {
         return userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.reviewVideo.accountNotFound", new Object[]{id}, "Không tìm thấy tài khoản id=" + id));
     }
 
     private SchoolClass getClassOrThrow(Long id) {
         return schoolClassRepository.findByIdAndDeletedAtIsNull(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.reviewVideo.classNotFound", new Object[]{id}, "Không tìm thấy lớp học id=" + id));
     }
 
     private CurriculumSubject curriculumSubjectOrThrow(Long id) {
         return curriculumSubjectRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy học phần id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.reviewVideo.subjectNotFound", new Object[]{id}, "Không tìm thấy học phần id=" + id));
     }
 
     private ReviewVideoSet getSetOrThrow(Long id) {
         return reviewVideoSetRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bộ video id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.reviewVideo.setNotFound", new Object[]{id}, "Không tìm thấy bộ video id=" + id));
     }
 
     private ReviewVideo getVideoOrThrow(Long id) {
         return reviewVideoRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy video id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.reviewVideo.videoNotFound", new Object[]{id}, "Không tìm thấy video id=" + id));
     }
 
     private ReviewVideoQuestion getQuestionOrThrow(Long id) {
         return reviewVideoQuestionRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy câu hỏi id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.reviewVideo.questionNotFound", new Object[]{id}, "Không tìm thấy câu hỏi id=" + id));
     }
 
     private ReviewVideoConnectionQuestion getConnectionQuestionOrThrow(Long id) {
         return reviewVideoConnectionQuestionRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy câu hỏi id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.reviewVideo.questionNotFound", new Object[]{id}, "Không tìm thấy câu hỏi id=" + id));
     }
 
     /** V83: gate bắt buộc khi Publish 1 bộ CONNECTION — mọi video trong bộ phải có ít nhất 1 câu hỏi trắc nghiệm. */

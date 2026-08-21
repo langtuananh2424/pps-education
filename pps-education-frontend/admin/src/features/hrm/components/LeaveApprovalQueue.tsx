@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Check, Clock } from "lucide-react";
 import Badge from "@/components/ui/Badge";
 import { cn } from "@/lib/cn";
@@ -14,15 +15,14 @@ interface LeaveApprovalQueueProps {
   onDecided: () => void;
 }
 
-const statusLabels: Record<LeaveRequestResponse["status"], string> = {
-  PENDING: "Chờ duyệt",
-  APPROVED: "Đã duyệt",
-  REJECTED: "Từ chối",
-  CANCELLED: "Đã huỷ"
-};
+/** Nhãn trạng thái dịch qua i18next namespace "hrm-leaves" — xem src/i18n/locales/{vi,en}/hrm-leaves.json. */
+function leaveRequestStatusLabel(t: (key: string) => string, status: LeaveRequestResponse["status"]): string {
+  return t(`leaveRequestStatus.${status}`);
+}
 
 /** UC-11: Duyệt đơn từ — hàng chờ duyệt thuộc thẩm quyền người gọi (GET /api/leave-requests/pending-for-me). */
 export default function LeaveApprovalQueue({ leaveRequests, loading, onDecided }: LeaveApprovalQueueProps) {
+  const { t } = useTranslation("hrm-leaves");
   const getLeaveTypeLabel = useLeaveTypeLabel();
   const [opinionNotes, setOpinionNotes] = useState<Record<number, string>>({});
   const [decidingId, setDecidingId] = useState<number | null>(null);
@@ -34,13 +34,13 @@ export default function LeaveApprovalQueue({ leaveRequests, loading, onDecided }
     try {
       await decideLeaveRequest(req.id, { decision, comment });
       setDecidedMessage(
-        decision === "APPROVED"
-          ? `Đã duyệt đơn nghỉ phép của ${req.employeeFullName}.`
-          : `Đã từ chối đơn nghỉ phép của ${req.employeeFullName}.`
+        t(decision === "APPROVED" ? "leaveApprovalQueue.decidedApproved" : "leaveApprovalQueue.decidedRejected", {
+          name: req.employeeFullName
+        })
       );
       onDecided();
     } catch (err) {
-      await alertDialog(err instanceof ApiError ? err.message : "Không thực hiện được quyết định, vui lòng thử lại.");
+      await alertDialog(err instanceof ApiError ? err.message : t("leaveApprovalQueue.decisionError"));
     } finally {
       setDecidingId(null);
     }
@@ -55,23 +55,23 @@ export default function LeaveApprovalQueue({ leaveRequests, loading, onDecided }
       )}
       <div className="px-5 py-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between gap-3">
         <div>
-          <span className="text-xs font-bold text-slate-700 font-display block">Hàng chờ xét duyệt</span>
-          <p className="text-[10px] text-slate-400">Các đơn xin nghỉ chờ xét duyệt thuộc thẩm quyền của bạn.</p>
+          <span className="text-xs font-bold text-slate-700 font-display block">{t("leaveApprovalQueue.title")}</span>
+          <p className="text-[10px] text-slate-400">{t("leaveApprovalQueue.subtitle")}</p>
         </div>
         <span className="px-2 py-1 rounded-full text-[10px] font-bold bg-brand-orange text-white shrink-0">{leaveRequests.length}</span>
       </div>
 
       <div className="divide-y divide-slate-100 max-h-[500px] overflow-y-auto">
         {loading ? (
-          <div className="p-8 text-center text-xs text-slate-400">Đang tải...</div>
+          <div className="p-8 text-center text-xs text-slate-400">{t("leaveApprovalQueue.loading")}</div>
         ) : leaveRequests.length === 0 ? (
           <div className="p-12 text-center space-y-3">
             <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mx-auto border border-slate-100 text-slate-400">
               <Clock className="w-6 h-6" />
             </div>
             <div className="space-y-1">
-              <h4 className="text-xs font-bold text-slate-700">Không có đơn nào chờ duyệt</h4>
-              <p className="text-[11px] text-slate-400 max-w-xs mx-auto">Hiện tại không có yêu cầu nghỉ phép nào thuộc thẩm quyền của bạn.</p>
+              <h4 className="text-xs font-bold text-slate-700">{t("leaveApprovalQueue.emptyTitle")}</h4>
+              <p className="text-[11px] text-slate-400 max-w-xs mx-auto">{t("leaveApprovalQueue.emptyDescription")}</p>
             </div>
           </div>
         ) : (
@@ -85,25 +85,27 @@ export default function LeaveApprovalQueue({ leaveRequests, loading, onDecided }
                     {req.departmentName && <span className="text-[10px] text-slate-400">{req.departmentName}</span>}
                   </div>
                   <p className="text-[11px] text-slate-500 mt-1">
-                    Lý do: <span className="italic">"{req.reason}"</span>
+                    {t("leaveApprovalQueue.reasonLabel")} <span className="italic">"{req.reason}"</span>
                   </p>
                   <p className="text-[10px] text-slate-400 mt-0.5">
-                    Thời gian: {req.startDate} đến {req.endDate}
-                    {req.startTime && req.endTime && ` (${req.startTime.slice(0, 5)}-${req.endTime.slice(0, 5)})`} · {req.totalDays} ngày
+                    {t("leaveApprovalQueue.timeLabel")} {t("leaveApprovalQueue.timeRange", { startDate: req.startDate, endDate: req.endDate })}
+                    {req.startTime && req.endTime &&
+                      t("leaveApprovalQueue.timeRangeWithHours", { startTime: req.startTime.slice(0, 5), endTime: req.endTime.slice(0, 5) })}
+                    {t("leaveApprovalQueue.totalDays", { count: req.totalDays })}
                   </p>
                 </div>
 
-                <Badge variant="warning">{statusLabels[req.status]}</Badge>
+                <Badge variant="warning">{leaveRequestStatusLabel(t, req.status)}</Badge>
               </div>
 
               <div className="space-y-2 pt-1 border-t border-slate-100">
                 <div className="space-y-1">
                   <label className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block font-mono">
-                    Ý kiến phản hồi / Lý do từ chối (bắt buộc khi từ chối):
+                    {t("leaveApprovalQueue.opinionLabel")}
                   </label>
                   <input
                     type="text"
-                    placeholder="Ví dụ: Đồng ý duyệt / Không duyệt vì không có người dạy thay thế..."
+                    placeholder={t("leaveApprovalQueue.opinionPlaceholder")}
                     value={opinionNotes[req.id] || ""}
                     onChange={(e) => setOpinionNotes((prev) => ({ ...prev, [req.id]: e.target.value }))}
                     className="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1 text-xs focus:outline-none"
@@ -116,7 +118,7 @@ export default function LeaveApprovalQueue({ leaveRequests, loading, onDecided }
                     onClick={async () => {
                       const notes = opinionNotes[req.id]?.trim();
                       if (!notes) {
-                        await alertDialog("Bạn phải điền lý do từ chối vào ô ý kiến phản hồi!");
+                        await alertDialog(t("leaveApprovalQueue.missingRejectReason"));
                         return;
                       }
                       await decide(req, "REJECTED", notes);
@@ -126,18 +128,18 @@ export default function LeaveApprovalQueue({ leaveRequests, loading, onDecided }
                       decidingId === req.id && "opacity-50"
                     )}
                   >
-                    Từ chối đơn
+                    {t("leaveApprovalQueue.rejectButton")}
                   </button>
                   <button
                     disabled={decidingId === req.id}
-                    onClick={() => decide(req, "APPROVED", opinionNotes[req.id]?.trim() || "Đã rà soát, đồng ý duyệt.")}
+                    onClick={() => decide(req, "APPROVED", opinionNotes[req.id]?.trim() || t("leaveApprovalQueue.defaultApproveComment"))}
                     className={cn(
                       "px-3 py-1 bg-brand-gradient hover:opacity-95 text-white text-[10px] font-bold rounded flex items-center gap-1",
                       decidingId === req.id && "opacity-50"
                     )}
                   >
                     <Check className="w-3.5 h-3.5 text-white" />
-                    Phê duyệt cấp hiện tại
+                    {t("leaveApprovalQueue.approveButton")}
                   </button>
                 </div>
               </div>

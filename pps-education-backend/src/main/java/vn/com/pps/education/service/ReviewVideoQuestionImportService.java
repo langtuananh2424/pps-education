@@ -71,9 +71,11 @@ public class ReviewVideoQuestionImportService {
     @Transactional
     public ReviewVideoQuestionImportResponse importReflexQuestions(Long videoId, MultipartFile file, Long actorUserId) {
         ReviewVideo video = reviewVideoRepository.findById(videoId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy video id=" + videoId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.reviewVideoQuestionImport.videoNotFound",
+                        new Object[]{videoId}, "Không tìm thấy video id=" + videoId));
         User actor = userRepository.findById(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.reviewVideoQuestionImport.userNotFound",
+                        new Object[]{actorUserId}, "Không tìm thấy tài khoản id=" + actorUserId));
         requireXlsx(file);
 
         ImportJob job = createJob(file, actor, ImportJob.ImportType.REVIEW_VIDEO_QUESTIONS);
@@ -105,9 +107,11 @@ public class ReviewVideoQuestionImportService {
     @Transactional
     public ReviewVideoQuestionImportResponse importConnectionQuestions(Long videoId, MultipartFile file, Long actorUserId) {
         ReviewVideo video = reviewVideoRepository.findById(videoId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy video id=" + videoId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.reviewVideoQuestionImport.videoNotFound",
+                        new Object[]{videoId}, "Không tìm thấy video id=" + videoId));
         User actor = userRepository.findById(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.reviewVideoQuestionImport.userNotFound",
+                        new Object[]{actorUserId}, "Không tìm thấy tài khoản id=" + actorUserId));
         requireXlsx(file);
 
         ImportJob job = createJob(file, actor, ImportJob.ImportType.REVIEW_VIDEO_CONNECTION_QUESTIONS);

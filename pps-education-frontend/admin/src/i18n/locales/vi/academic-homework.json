@@ -1,0 +1,184 @@
+{
+  "shared": {
+    "back": "Quay lại",
+    "loading": "Đang tải...",
+    "loadingDetail": "Đang tải chi tiết BTVN...",
+    "notFound": "Không tìm thấy dữ liệu.",
+    "noDataToShow": "Chưa có dữ liệu để hiển thị.",
+    "close": "Đóng",
+    "viewDetail": "Xem chi tiết",
+    "passed": "Đạt",
+    "notPassed": "Chưa đạt",
+    "assignmentUnit": "BTVN",
+    "tabs": {
+      "students": "Kết quả học sinh",
+      "questions": "Phân tích câu hỏi"
+    },
+    "table": {
+      "student": "Học sinh"
+    },
+    "studentStatus": {
+      "CHUA_LAM": "Chưa làm",
+      "DANG_LAM": "Đang làm",
+      "DA_NOP": "Đã nộp",
+      "TRE_HAN": "Trễ hạn"
+    },
+    "reviewVideoType": {
+      "REFLEX": "Video phản xạ",
+      "CONNECTION": "Video từ kết nối"
+    },
+    "errors": {
+      "loadResultsFailed": "Không tải được kết quả BTVN.",
+      "loadQuestionAnalysisFailed": "Không tải được phân tích câu hỏi."
+    },
+    "questionRow": {
+      "questionLabel": "Câu {{order}}: {{text}}",
+      "wrongBadge": "Sai {{wrongCount}}/{{answeredCount}} ({{percent}}%)",
+      "noWrongStudents": "Không có học sinh nào trả lời sai."
+    }
+  },
+  "list": {
+    "title": "Thống kê BTVN theo lớp",
+    "subtitle": "Xem tiến độ hoàn thành và tỷ lệ đạt của từng BTVN đã giao cho lớp, kết quả từng học sinh, và phân tích câu hỏi hay bị sai.",
+    "loadFailed": "Không tải được thống kê BTVN.",
+    "noClassSelected": {
+      "title": "Chưa chọn lớp",
+      "description": "Chọn 1 lớp ở góc trên bên phải để xem thống kê BTVN."
+    },
+    "selectedClassFallback": "Lớp đang chọn",
+    "exerciseType": {
+      "SELF_PRACTICE": "Tự luyện",
+      "ASSIGNED": "Có hạn nộp",
+      "MOCK_TEST": "Thi thử",
+      "SKILL_PRACTICE": "Luyện kỹ năng"
+    },
+    "teacherType": {
+      "VIETNAMESE": "Giáo viên Việt Nam",
+      "FOREIGN": "Giáo viên nước ngoài",
+      "all": "Tất cả loại giáo viên",
+      "allShort": "Tất cả",
+      "vnShort": "GVVN",
+      "foreignShort": "GVNN"
+    },
+    "searchPlaceholder": "Tìm theo tiêu đề / mã BTVN...",
+    "dateFilterPlaceholder": "Lọc theo ngày giao...",
+    "clearFilters": "Xoá lọc",
+    "noDueDate": "Không có hạn",
+    "emptyNoRows": {
+      "title": "Chưa có BTVN nào",
+      "description": "Lớp này chưa được giao BTVN nào."
+    },
+    "emptyNoResults": {
+      "title": "Không tìm thấy BTVN phù hợp",
+      "description": "Thử đổi từ khoá tìm kiếm hoặc bỏ lọc theo ngày giao."
+    },
+    "table": {
+      "title": "Tiêu đề",
+      "type": "Loại",
+      "assignedDate": "Ngày giao",
+      "dueDate": "Hạn nộp",
+      "completionPercent": "% Làm bài",
+      "passPercent": "% đạt",
+      "violationPercent": "%HS vi phạm"
+    }
+  },
+  "exerciseDetail": {
+    "exportFailed": "Không xuất được file Excel.",
+    "exporting": "Đang xuất...",
+    "exportExcel": "Xuất Excel",
+    "table": {
+      "status": "Trạng thái",
+      "score": "Điểm",
+      "percent": "%",
+      "completed": "Đã hoàn thành",
+      "attemptCount": "Số lần làm",
+      "violation": "Vi phạm",
+      "viewDetailTitle": "Xem chi tiết"
+    },
+    "violationCount": "{{count}} lần",
+    "questionRow": {
+      "hintUsed": "Gợi ý {{count}} lượt ({{studentCount}} học sinh)"
+    },
+    "chart": {
+      "title": "Phân tích tỉ lệ sai theo câu hỏi",
+      "tooltip": "Câu {{order}}: {{wrongCount}}/{{answeredCount}} sai",
+      "questionLabel": "Câu {{order}}",
+      "legend": {
+        "hard": "Khó (≥50%)",
+        "medium": "Trung bình (<50%)",
+        "easy": "Dễ (0%)"
+      }
+    },
+    "studentModal": {
+      "title": "Chi tiết kết quả - {{studentName}}",
+      "attemptInfo": {
+        "title": "Thông tin lần làm",
+        "status": "Trạng thái",
+        "score": "Điểm số",
+        "percentage": "Tỉ lệ",
+        "attemptNumber": "Lần làm",
+        "submittedAt": "Nộp lúc",
+        "result": "Kết quả"
+      },
+      "history": {
+        "titleSingle": "Lịch sử làm bài",
+        "titleMultiple": "Lịch sử nhiều lượt làm bài",
+        "columns": {
+          "attempt": "Lượt",
+          "startedAt": "Bắt đầu",
+          "submittedAt": "Nộp lúc",
+          "score": "Điểm",
+          "result": "Kết quả",
+          "note": "Ghi chú",
+          "officialScore": "Điểm chính thức",
+          "viewAnswers": "Xem trả lời"
+        },
+        "stoppedByViolation": "Bị dừng do vi phạm giám sát",
+        "selected": "Đã chọn",
+        "selecting": "Đang chọn...",
+        "selectForGrading": "Chọn làm điểm",
+        "selectFailed": "Không chọn được lượt làm này.",
+        "loadFailed": "Không tải được lịch sử làm bài.",
+        "viewing": "Đang xem",
+        "viewAnswersAction": "Xem trả lời",
+        "integritySummary": {
+          "text": "Thoát ra {{count}} lần, tổng {{seconds}} giây.",
+          "notified": "Đã báo Phụ huynh + Giáo viên phụ trách lớp.",
+          "notNotified": "Chưa vượt ngưỡng báo.",
+          "loadFailed": "Không tải được tổng hợp vi phạm."
+        }
+      },
+      "answerHistory": {
+        "title": "Lịch sử trả lời câu hỏi",
+        "attemptSuffix": " — Lượt #{{number}}",
+        "noData": "Không có dữ liệu.",
+        "loadFailed": "Không tải được lịch sử trả lời.",
+        "noAnswer": "Không trả lời",
+        "columns": {
+          "questionNumber": "Câu",
+          "question": "Câu hỏi",
+          "studentAnswer": "Trả lời của học sinh",
+          "correctAnswer": "Đáp án đúng",
+          "result": "Kết quả"
+        }
+      }
+    }
+  },
+  "reviewVideoDetail": {
+    "table": {
+      "viewed": "Đã xem",
+      "completed": "Hoàn thành",
+      "completedBadge": "Hoàn thành",
+      "notCompletedBadge": "Chưa hoàn thành",
+      "quizScore": "Điểm trắc nghiệm",
+      "result": "Kết quả",
+      "submittedQuestions": "Đã nộp câu hỏi",
+      "averageScore": "Điểm TB",
+      "viewCountSuffix": "{{viewed}}/{{required}} lượt",
+      "notGraded": "Chưa chấm"
+    },
+    "questionRow": {
+      "titleSuffix": " — {{title}}"
+    }
+  }
+}

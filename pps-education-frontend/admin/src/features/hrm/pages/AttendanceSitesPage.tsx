@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { MapPin, Plus } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { listSites, SiteResponse } from "@/features/facility/api";
 import { Badge, Button, TableContainer, Td, Th } from "@/components/ui";
@@ -13,17 +14,6 @@ const statusVariant: Record<SiteResponse["status"], "success" | "neutral" | "war
   PENDING: "warning"
 };
 
-const statusLabels: Record<SiteResponse["status"], string> = {
-  ACTIVE: "Đang hoạt động",
-  INACTIVE: "Ngừng hoạt động",
-  PENDING: "Chờ kích hoạt"
-};
-
-const siteTypeLabels: Record<SiteResponse["siteType"], string> = {
-  OWNED: "Trung tâm",
-  PARTNER: "Trường liên kết"
-};
-
 /**
  * Setup địa điểm chấm công (toạ độ GPS của Site — UC-09 A2) — bổ sung ngoài
  * SDD gốc, xác nhận với người dùng 2026-08-12. Tái dùng Site CRUD (UC-36):
@@ -31,6 +21,7 @@ const siteTypeLabels: Record<SiteResponse["siteType"], string> = {
  * Facility > Điểm trường & HĐ, chỉ khác góc nhìn (tập trung vào GPS).
  */
 export default function AttendanceSitesPage() {
+  const { t } = useTranslation("hrm-attendance");
   const [sites, setSites] = useState<SiteResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +34,7 @@ export default function AttendanceSitesPage() {
     setError(null);
     listSites()
       .then(setSites)
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách địa điểm."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("attendanceSitesPage.loadError")))
       .finally(() => setLoading(false));
   };
 
@@ -53,10 +44,8 @@ export default function AttendanceSitesPage() {
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4 flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Địa điểm chấm công</h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Cấu hình toạ độ GPS cho Trung tâm và các Trường liên kết — dùng để xác thực bán kính khi chấm công GPS (UC-09).
-          </p>
+          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("attendanceSitesPage.title")}</h1>
+          <p className="text-xs text-slate-500 mt-1">{t("attendanceSitesPage.description")}</p>
         </div>
         <Button
           variant="primary"
@@ -66,7 +55,7 @@ export default function AttendanceSitesPage() {
           }}
         >
           <Plus className="w-3.5 h-3.5" />
-          Thêm địa điểm
+          {t("attendanceSitesPage.addButton")}
         </Button>
       </div>
 
@@ -75,12 +64,12 @@ export default function AttendanceSitesPage() {
       <TableContainer>
         <thead>
           <tr>
-            <Th>Mã</Th>
-            <Th>Tên địa điểm</Th>
-            <Th>Loại hình</Th>
-            <Th>Địa chỉ</Th>
-            <Th>Toạ độ GPS</Th>
-            <Th>Trạng thái</Th>
+            <Th>{t("attendanceSitesPage.columns.code")}</Th>
+            <Th>{t("attendanceSitesPage.columns.name")}</Th>
+            <Th>{t("attendanceSitesPage.columns.type")}</Th>
+            <Th>{t("attendanceSitesPage.columns.address")}</Th>
+            <Th>{t("attendanceSitesPage.columns.gps")}</Th>
+            <Th>{t("attendanceSitesPage.columns.status")}</Th>
             <Th />
           </tr>
         </thead>
@@ -88,13 +77,13 @@ export default function AttendanceSitesPage() {
           {loading ? (
             <tr>
               <Td colSpan={7} className="text-center text-slate-400">
-                Đang tải...
+                {t("attendanceSitesPage.loading")}
               </Td>
             </tr>
           ) : sites.length === 0 ? (
             <tr>
               <Td colSpan={7} className="text-center text-slate-400">
-                Chưa có địa điểm nào.
+                {t("attendanceSitesPage.empty")}
               </Td>
             </tr>
           ) : (
@@ -109,7 +98,7 @@ export default function AttendanceSitesPage() {
               >
                 <Td className="font-mono font-bold text-slate-700">{s.code}</Td>
                 <Td className="font-bold text-slate-800">{s.name}</Td>
-                <Td>{siteTypeLabels[s.siteType]}</Td>
+                <Td>{t(`attendanceSitesPage.siteType.${s.siteType}`)}</Td>
                 <Td className="text-slate-500">{s.address ?? "—"}</Td>
                 <Td>
                   {s.latitude != null && s.longitude != null ? (
@@ -118,11 +107,11 @@ export default function AttendanceSitesPage() {
                       {s.latitude.toFixed(5)}, {s.longitude.toFixed(5)}
                     </span>
                   ) : (
-                    <Badge variant="warning">Chưa cấu hình</Badge>
+                    <Badge variant="warning">{t("attendanceSitesPage.notConfigured")}</Badge>
                   )}
                 </Td>
                 <Td>
-                  <Badge variant={statusVariant[s.status]}>{statusLabels[s.status]}</Badge>
+                  <Badge variant={statusVariant[s.status]}>{t(`attendanceSitesPage.siteStatus.${s.status}`)}</Badge>
                 </Td>
                 <Td>
                   <Button
@@ -134,7 +123,7 @@ export default function AttendanceSitesPage() {
                       setFormOpen(true);
                     }}
                   >
-                    Sửa
+                    {t("attendanceSitesPage.editButton")}
                   </Button>
                 </Td>
               </tr>
@@ -150,7 +139,7 @@ export default function AttendanceSitesPage() {
           onSaved={() => {
             setFormOpen(false);
             load();
-            showToast(editingSite ? "Đã cập nhật địa điểm thành công!" : "Đã tạo địa điểm thành công!");
+            showToast(editingSite ? t("attendanceSitesPage.updatedToast") : t("attendanceSitesPage.createdToast"));
           }}
         />
       )}

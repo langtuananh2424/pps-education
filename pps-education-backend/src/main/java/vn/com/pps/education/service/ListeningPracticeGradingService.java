@@ -59,9 +59,10 @@ public class ListeningPracticeGradingService {
     public ListeningPracticeGradingResponse gradeAttempt(Long attemptId, GradeListeningAttemptRequest request, Long actorUserId) {
         User actor = userOrThrow(actorUserId);
         ListeningPracticeAttempt attempt = practiceAttemptRepository.findById(attemptId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lượt luyện id=" + attemptId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.listeningPracticeGrading.attemptNotFound",
+                        new Object[]{attemptId}, "Không tìm thấy lượt luyện id=" + attemptId));
         if (attempt.getPracticeItem().getMode() != ListeningPracticeItem.Mode.SPEAKING) {
-            throw new AnswerNotManuallyGradableException(
+            throw new AnswerNotManuallyGradableException("error.answerNotManuallyGradable.notSpeakingMode", new Object[]{},
                     "Lượt luyện này không thuộc chế độ Nói — không chấm thủ công.");
         }
 
@@ -85,7 +86,8 @@ public class ListeningPracticeGradingService {
 
     private User userOrThrow(Long id) {
         return userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.listeningPracticeGrading.userNotFound",
+                        new Object[]{id}, "Không tìm thấy tài khoản id=" + id));
     }
 
     private PendingListeningGradingResponse toPendingResponse(ListeningPracticeAttempt a) {

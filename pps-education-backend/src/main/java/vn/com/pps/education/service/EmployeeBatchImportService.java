@@ -96,7 +96,7 @@ public class EmployeeBatchImportService {
     @Transactional
     public EmployeeBatchImportResponse importEmployees(MultipartFile file, Long actorUserId) {
         User actor = userRepository.findById(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy user id=" + actorUserId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.employeeBatchImport.userNotFound", new Object[]{actorUserId}, "Không tìm thấy user id=" + actorUserId));
 
         ImportJob job = new ImportJob();
         job.setImportType(ImportJob.ImportType.EMPLOYEES);
@@ -155,7 +155,7 @@ public class EmployeeBatchImportService {
     @Transactional(readOnly = true)
     public EmployeeBatchImportResponse getJob(Long id) {
         ImportJob job = importJobRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy import job id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.employeeBatchImport.jobNotFound", new Object[]{id}, "Không tìm thấy import job id=" + id));
         return toResponse(job, List.of());
     }
 

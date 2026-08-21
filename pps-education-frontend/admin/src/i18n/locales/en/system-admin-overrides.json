@@ -1,0 +1,95 @@
+{
+  "overridesPage": {
+    "banner": {
+      "badge": "ACCOUNT CUSTOMIZATION",
+      "description": "Directly grant or revoke a single core permission for one specific account, taking top priority in the effective-permission formula — no need to permanently change their role."
+    },
+    "step1Label": "Step 1 — Find and select an account",
+    "searchPlaceholder": "Click to browse the list or type to search for an account...",
+    "selectedUser": "Selected: {{fullName}} ({{username}})",
+    "loadError": "Could not load account data.",
+    "loading": "Loading...",
+    "emptyTitle": "No account selected",
+    "emptyDescription": "Find and select an account above to view its current effective permissions and set up overrides (grant/revoke individual permissions) for that account.",
+    "effectivePermissions": {
+      "title": "Current effective permissions ({{count}}) — combined from roles + applied overrides",
+      "empty": "No permissions yet."
+    },
+    "upsertToast": "Permission override saved successfully!",
+    "removeToast": "Permission override removed successfully!"
+  },
+  "overridesTable": {
+    "title": "Overrides applied to this account ({{count}})",
+    "removeError": "Failed to remove override.",
+    "empty": "This account has no permission overrides yet.",
+    "columns": {
+      "permission": "Core permission",
+      "type": "Override type",
+      "reason": "Reason",
+      "expiresAt": "Expires at",
+      "remove": "Remove"
+    },
+    "overrideType": {
+      "GRANT": "Grant",
+      "REVOKE": "Revoke"
+    },
+    "neverExpires": "No expiry",
+    "removeTitle": "Cancel this override"
+  },
+  "createOverrideForm": {
+    "title": "Step 2 — Set up override",
+    "validationError": "Please select a permission and enter a reason.",
+    "submitError": "Failed to save override.",
+    "permissionLabel": "Select core permission code",
+    "permissionPlaceholder": "-- Select a permission code --",
+    "typeLabel": "Adjustment type",
+    "typeGrant": "Grant permission",
+    "typeRevoke": "Revoke permission",
+    "expiresLabel": "Effective period (optional)",
+    "reasonLabel": "Purpose / reason for authorization",
+    "reasonPlaceholder": "Detailed reason per management's decision...",
+    "submitting": "Saving...",
+    "submitButton": "Apply"
+  },
+  "auditLogPage": {
+    "title": "Permission change audit log",
+    "description": "Track who granted/revoked roles or permission overrides, for whom, and when.",
+    "filters": {
+      "actorLabel": "Performed by",
+      "targetLabel": "Affected account",
+      "actionLabel": "Action",
+      "actionAll": "-- All --",
+      "fromDateLabel": "From date",
+      "toDateLabel": "To date",
+      "clearButton": "Clear filters",
+      "searchButton": "Search",
+      "userPickerPlaceholder": "Search username / full name..."
+    },
+    "loadError": "Could not load the audit log.",
+    "emptyTitle": "No matching records found",
+    "emptyDescription": "Try loosening the filters (A1 — UC-05).",
+    "columns": {
+      "createdAt": "Time",
+      "actor": "Performed by",
+      "target": "Affected account",
+      "action": "Action",
+      "details": "Details"
+    },
+    "ipLabel": "IP: {{ip}}",
+    "pagination": {
+      "totalRecords": "{{count}} records total",
+      "pageSizeLabel": "Rows/page:",
+      "prev": "Previous",
+      "next": "Next",
+      "pageIndicator": "Page {{current}}/{{total}}"
+    },
+    "actionType": {
+      "ROLE_GRANTED": "Role granted",
+      "ROLE_REVOKED": "Role revoked",
+      "PERM_OVERRIDE_ADDED": "Override added",
+      "PERM_OVERRIDE_REMOVED": "Override removed",
+      "PERM_OVERRIDE_ADDED_GRANT": "Permission granted",
+      "PERM_OVERRIDE_ADDED_REVOKE": "Permission revoked"
+    }
+  }
+}

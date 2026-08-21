@@ -27,11 +27,14 @@ public class ExerciseAttemptIntegrityContextResolver implements AttemptIntegrity
     @Override
     public AttemptContext resolveForOwner(Long attemptId, Long actorUserId) {
         var student = studentRepository.findByUserId(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản id=" + actorUserId + " không có hồ sơ học sinh."));
+                .orElseThrow(() -> new ResourceNotFoundException("error.exerciseAttemptIntegrityContext.studentProfileNotFound",
+                        new Object[]{actorUserId}, "Tài khoản id=" + actorUserId + " không có hồ sơ học sinh."));
         ExerciseAttempt attempt = exerciseAttemptRepository.findById(attemptId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lượt làm bài id=" + attemptId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.exerciseAttemptIntegrityContext.attemptNotFound",
+                        new Object[]{attemptId}, "Không tìm thấy lượt làm bài id=" + attemptId));
         if (!attempt.getStudent().getId().equals(student.getId())) {
-            throw new ResourceNotFoundException("Không tìm thấy lượt làm bài id=" + attemptId);
+            throw new ResourceNotFoundException("error.exerciseAttemptIntegrityContext.attemptNotFound",
+                    new Object[]{attemptId}, "Không tìm thấy lượt làm bài id=" + attemptId);
         }
         return toContext(attempt);
     }
@@ -39,7 +42,8 @@ public class ExerciseAttemptIntegrityContextResolver implements AttemptIntegrity
     @Override
     public AttemptContext resolveForReading(Long attemptId) {
         ExerciseAttempt attempt = exerciseAttemptRepository.findById(attemptId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lượt làm bài id=" + attemptId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.exerciseAttemptIntegrityContext.attemptNotFound",
+                        new Object[]{attemptId}, "Không tìm thấy lượt làm bài id=" + attemptId));
         return toContext(attempt);
     }
 

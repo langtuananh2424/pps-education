@@ -1,0 +1,222 @@
+{
+  "importPanel": {
+    "reflexHeaders": ["Mốc thời gian (giây)", "Nội dung câu hỏi", "Thời lượng ghi âm tối đa (giây)", "Số lượt nộp tối đa", "Thứ tự hiển thị"],
+    "connectionHeaders": ["Nội dung câu hỏi", "Đáp án A", "Đáp án B", "Đáp án C", "Đáp án D", "Đáp án E", "Đáp án đúng", "Thứ tự hiển thị"],
+    "reflexTemplateFileName": "mau-cau-hoi-video-phan-xa.xlsx",
+    "connectionTemplateFileName": "mau-cau-hoi-video-ket-noi.xlsx",
+    "onlyXlsx": "Chỉ hỗ trợ file .xlsx.",
+    "importFailed": "Import thất bại.",
+    "downloadTemplate": "Tải file mẫu (.xlsx)",
+    "importing": "Đang nhập...",
+    "clickToChoose": "Click để chọn file (.xlsx)",
+    "stats": {
+      "totalRows": "Tổng số dòng",
+      "successRows": "Thành công",
+      "failedRows": "Lỗi"
+    },
+    "errorDetailTitle": "Chi tiết lỗi từng dòng"
+  },
+  "lectures": {
+    "labels": {
+      "contentKind": { "VIDEO": "Video", "AUDIO": "Audio" },
+      "videoType": { "CONNECTION": "Video từ kết nối", "REFLEX": "Video phản xạ" },
+      "teacherType": { "VIETNAMESE": "Giáo viên Việt Nam", "FOREIGN": "Giáo viên nước ngoài" },
+      "status": { "DRAFT": "Nháp", "PUBLISHED": "Đã công bố", "ARCHIVED": "Đã gỡ" }
+    },
+    "common": {
+      "cancel": "Hủy",
+      "close": "Đóng",
+      "saving": "Đang lưu...",
+      "loading": "Đang tải...",
+      "editQuestionTooltip": "Sửa câu hỏi",
+      "save": "Lưu câu hỏi",
+      "addQuestion": "Thêm câu hỏi",
+      "importExcel": "Nhập Excel",
+      "importFromExcelTitle": "Nhập câu hỏi từ Excel",
+      "loadingQuestions": "Đang tải câu hỏi...",
+      "loadQuestionsFailed": "Không tải được danh sách câu hỏi.",
+      "addQuestionFailed": "Thêm câu hỏi thất bại.",
+      "editQuestionFailed": "Sửa câu hỏi thất bại.",
+      "timestampAndDurationRequired": "Vui lòng điền mốc thời gian và thời lượng ghi âm tối đa.",
+      "promptPlaceholder": "Nội dung câu hỏi *",
+      "choicePlaceholder": "Đáp án {{letter}}...",
+      "addChoice": "Thêm lựa chọn"
+    },
+    "mediaErrors": {
+      "durationDetectFailed": "Không đọc được thời lượng file — thử chọn lại file khác.",
+      "youtubeDurationFailed": "Không đọc được thời lượng — kiểm tra lại link YouTube.",
+      "youtubeInvalidLink": "Link YouTube không hợp lệ hoặc video bị chặn nhúng."
+    },
+    "connectionThreshold": {
+      "passPercentLabel": "Ngưỡng % pass điểm trắc nghiệm (mặc định 80)",
+      "requiredViewsLabel": "Số lượt xem bắt buộc — câu hỏi chia đều qua các lượt (mặc định 1)"
+    },
+    "reflexBuilder": {
+      "label": "Câu hỏi (mốc thời gian) — ít nhất 1 câu *",
+      "itemSummary": "Câu {{index}} · Mốc {{minutes}}:{{seconds}} · Ghi âm tối đa {{maxRecording}}s · {{attempts}}",
+      "maxAttemptsLabel": "Tối đa {{count}} lượt nộp",
+      "unlimitedAttempts": "Không giới hạn lượt nộp",
+      "timestampPlaceholder": "Mốc giây *",
+      "maxRecordingPlaceholder": "Ghi âm tối đa (s) *",
+      "maxAttemptsPlaceholder": "Số lượt nộp lại (bỏ trống = không giới hạn)",
+      "promptPlaceholder": "Nội dung câu hỏi (tuỳ chọn)",
+      "addButton": "Thêm câu"
+    },
+    "connectionBuilder": {
+      "promptRequired": "Vui lòng nhập nội dung câu hỏi.",
+      "choicesRequired": "Vui lòng điền đủ nội dung mọi lựa chọn.",
+      "label": "Câu hỏi trắc nghiệm (2-5 lựa chọn) — ít nhất 1 câu, bắt buộc *",
+      "itemSummary": "Câu {{index}} · {{prompt}} · {{count}} lựa chọn"
+    },
+    "contentSource": {
+      "kindLabel": "Loại nội dung *",
+      "videoLabel": "Video *",
+      "audioLabel": "Audio *",
+      "uploadFile": "Tải file lên",
+      "pasteYoutube": "Dán link YouTube",
+      "detecting": "Đang dò...",
+      "detectDuration": "Dò thời lượng",
+      "chooseVideoFile": "Chọn file video...",
+      "chooseAudioFile": "Chọn file audio...",
+      "durationDetectedLabel": "Thời lượng đã dò:",
+      "durationValue": "{{seconds}} giây ({{minutes}} phút)",
+      "durationNone": "— chưa có —"
+    },
+    "page": {
+      "title": "Kho Video Ôn tập",
+      "subtitle": "2 loại: \"Video từ kết nối\" (ôn từ vựng buổi học) và \"Video phản xạ\" (hỏi-đáp luyện nói). Mỗi Bộ gồm nhiều video/audio, gán khung chương trình CHỈ để lọc/tìm kiếm — gán tường minh cho (các) lớp cụ thể mới là điều kiện hiển thị. Công bố chỉ đánh dấu Bộ đủ điều kiện dùng làm nguồn — Giáo viên chọn Bộ đã công bố làm \"BTVN buổi sau\" ở Nhận xét học viên mới thật sự giao cho lớp xem, hệ thống tự theo dõi % đã xem thật.",
+      "createButton": "Tạo Bộ video mới",
+      "loadSetsFailed": "Không tải được danh sách bộ video ôn tập."
+    },
+    "filter": {
+      "allCurriculums": "Tất cả khung chương trình",
+      "allTeacherTypes": "Tất cả loại giáo viên"
+    },
+    "list": {
+      "empty": "Chưa có Bộ video nào.",
+      "emptyInCurriculum": "Chưa có Bộ video nào trong khung chương trình này.",
+      "itemLabel": "Bộ video"
+    },
+    "detail": {
+      "selectPrompt": "Chọn 1 Bộ video bên trái để xem chi tiết, hoặc tạo Bộ mới.",
+      "assignedClassesPending": "Đã gán ... lớp",
+      "assignedClassesCount": "Đã gán {{count}} lớp",
+      "manageSuffix": " — quản lý",
+      "editButton": "Sửa",
+      "statsButton": "Thống kê"
+    },
+    "toast": {
+      "setCreated": "Đã tạo Bộ video thành công!",
+      "setSaved": "Đã lưu bộ video ôn tập thành công!",
+      "videoAdded": "Đã thêm video thành công!"
+    },
+    "assignClass": {
+      "title": "Gán Bộ video cho lớp",
+      "description": "Bộ chỉ hiển thị cho học sinh của các lớp đã gán ở đây — vẫn cần Giáo viên chọn bộ này làm \"BTVN buổi sau\" ở Nhận xét học viên mới thật sự giao cho học sinh xem.",
+      "loadFailed": "Không tải được danh sách lớp đã gán.",
+      "updateFailed": "Cập nhật gán lớp thất bại.",
+      "empty": "Không có lớp nào để gán."
+    },
+    "createSet": {
+      "title": "Tạo bộ video ôn tập mới",
+      "fields": {
+        "code": "Mã bộ *",
+        "codePlaceholder": "VD: RV-U1-CONN-01",
+        "videoType": "Loại video *",
+        "title": "Tiêu đề *",
+        "titlePlaceholder": "VD: Unit 1: Greetings and Introduction",
+        "curriculum": "Khung chương trình * (chỉ dùng lọc/tìm kiếm)",
+        "curriculumPlaceholder": "-- Chọn khung chương trình --",
+        "teacherType": "Loại giáo viên * (dùng lọc khi giao bài)",
+        "teacherTypePlaceholder": "-- Chọn loại giáo viên --",
+        "subject": "Học phần (tùy chọn)",
+        "subjectPlaceholder": "-- Không gán --",
+        "displayOrder": "Thứ tự"
+      },
+      "questionSource": {
+        "label": "Nguồn câu hỏi",
+        "manual": "Nhập tay",
+        "excel": "Nhập Excel"
+      },
+      "excelHint": "Tạo bộ + video trước — sau khi tạo xong, màn nhập câu hỏi từ Excel sẽ mở ra ngay (dùng videoId thật vừa tạo).",
+      "submit": "Tạo bộ video",
+      "errors": {
+        "requiredFields": "Vui lòng điền mã, tiêu đề, chọn Khung chương trình, Loại giáo viên, video/audio và chờ dò xong thời lượng.",
+        "reflexQuestionRequired": "Video phản xạ cần ít nhất 1 câu hỏi — dùng \"Thêm câu\" ở khung câu hỏi bên dưới.",
+        "connectionQuestionRequired": "Video kết nối bắt buộc có ít nhất 1 câu hỏi trắc nghiệm — dùng \"Thêm câu hỏi\" ở khung câu hỏi bên dưới.",
+        "questionsFailedAfterVideo": "Đã tạo bộ và video nhưng gắn câu hỏi thất bại — mở lại bộ này, bấm \"Video\" → \"Quản lý câu hỏi\" để thêm lại.",
+        "videoFailedAfterSet": "Đã tạo bộ nhưng gắn video/audio thất bại — mở lại bộ này, bấm \"Video\" để thêm lại.",
+        "createFailed": "Tạo bộ video ôn tập thất bại."
+      },
+      "importStage": {
+        "title": "Nhập câu hỏi từ Excel",
+        "description": "Đã tạo bộ & video — tải file mẫu, điền câu hỏi rồi nhập lại bên dưới. Bấm \"Xong\" để đóng khi hoàn tất (có thể mở lại bộ này sau để nhập tiếp nếu cần).",
+        "done": "Xong"
+      }
+    },
+    "editSet": {
+      "title": "Sửa bộ video: {{code}}",
+      "fields": {
+        "title": "Tiêu đề *",
+        "teacherType": "Loại giáo viên * (dùng lọc khi giao bài)",
+        "subject": "Học phần (tùy chọn)",
+        "subjectPlaceholder": "-- Không gán --",
+        "status": "Trạng thái",
+        "displayOrder": "Thứ tự"
+      },
+      "hint": "Mã Bộ ({{code}}) và Khung chương trình ({{curriculumCode}}) không sửa được sau khi tạo. Chuyển trạng thái sang \"Đã công bố\" để đủ điều kiện dùng làm nguồn (chỉ set 1 lần thời điểm công bố) — học sinh CHƯA xem được ngay, chỉ xem sau khi Giáo viên chọn bộ này làm \"BTVN buổi sau\" ở Nhận xét học viên. Chuyển \"Đã gỡ\" (ARCHIVED) để gỡ khỏi kho — không xoá hẳn bản ghi.",
+      "errors": {
+        "titleRequired": "Vui lòng điền tiêu đề.",
+        "updateFailed": "Cập nhật bộ video ôn tập thất bại — có thể bạn không được phân công giảng dạy lớp thuộc khung chương trình này."
+      },
+      "submit": "Lưu thay đổi"
+    },
+    "videoList": {
+      "heading": "Video",
+      "empty": "Bộ này chưa có video nào.",
+      "sizeUnknown": "—",
+      "durationMinutes": "{{minutes}} phút",
+      "connectionMeta": " · Ngưỡng pass {{percent}}% · Chia đều qua {{count}} lượt",
+      "closeQuestions": "Đóng câu hỏi",
+      "manageQuestions": "Quản lý câu hỏi",
+      "fields": { "title": "Tiêu đề *" },
+      "addButton": "Thêm video",
+      "errors": {
+        "loadFailed": "Không tải được danh sách video.",
+        "requiredFields": "Vui lòng điền tiêu đề, video/audio và chờ dò xong thời lượng.",
+        "addFailed": "Thêm video thất bại — có thể bạn không được phân công giảng dạy lớp/khung này."
+      }
+    },
+    "reflexFields": {
+      "timestampPlaceholder": "Mốc giây *",
+      "maxRecordingPlaceholder": "Ghi âm tối đa (s) *",
+      "maxAttemptsPlaceholder": "Số lượt nộp lại (để trống = không giới hạn)",
+      "promptPlaceholder": "Nội dung câu hỏi (tuỳ chọn)"
+    },
+    "reflexQuestions": {
+      "empty": "Chưa có câu hỏi nào — học sinh sẽ không nộp được bài cho tới khi có ít nhất 1 câu.",
+      "itemSummary": "Câu {{index}} · Mốc {{minutes}}:{{seconds}} · Ghi âm tối đa {{maxRecording}}s ·",
+      "maxAttemptsLabel": "Tối đa {{count}} lượt nộp",
+      "unlimitedAttempts": "Không giới hạn lượt nộp"
+    },
+    "connectionQuestions": {
+      "empty": "Chưa có câu hỏi nào — bộ này KHÔNG Publish được tới khi có ít nhất 1 câu.",
+      "itemSummary": "Câu {{index}} · {{prompt}}",
+      "choiceUnchangeableHint": "Không đổi được số lượng đáp án khi sửa — tạo câu hỏi mới nếu cần thêm/bớt.",
+      "promptAndChoicesRequired": "Vui lòng điền nội dung câu hỏi và mọi lựa chọn.",
+      "promptAndAnswersRequired": "Vui lòng điền nội dung câu hỏi và mọi đáp án."
+    },
+    "stats": {
+      "title": "Thống kê — {{title}}",
+      "loadAssignedFailed": "Không tải được danh sách lớp đã gán.",
+      "loadStatsFailed": "Không tải được thống kê.",
+      "notAssigned": "Bộ này chưa được gán cho lớp nào — dùng \"Đã gán ... lớp\" ở chi tiết Bộ để gán trước.",
+      "selectClassLabel": "Xem thống kê theo lớp *",
+      "selectClassPlaceholder": "-- Chọn lớp --",
+      "empty": "Chưa có dữ liệu để hiển thị.",
+      "studentColumn": "Học sinh",
+      "requiredViewsLabel": "Cần đạt {{count}} lượt",
+      "viewsFraction": "{{viewCount}}/{{required}} lượt"
+    }
+  }
+}

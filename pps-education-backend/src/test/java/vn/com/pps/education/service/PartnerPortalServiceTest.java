@@ -282,7 +282,7 @@ class PartnerPortalServiceTest extends AbstractIntegrationTest {
         studentAttendanceService.submitAttendance(session.id(), teacher.getId());
         StudentCommentResponse approvedComment = studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), session.id(),
-                        LocalDate.now(), "Chăm chỉ, tiến bộ rõ rệt.", null, "POSITIVE", false, null, null, null, null, null, null, null, null),
+                        LocalDate.now(), "Chăm chỉ, tiến bộ rõ rệt.", null, "POSITIVE", false, null, null, null, null, null, null, null, null, null, null, null, null),
                 teacher.getId());
         studentCommentService.submitComments(schoolClass.id(), new SubmitCommentsRequest(List.of(approvedComment.id())), teacher.getId());
         studentCommentService.decideComments(

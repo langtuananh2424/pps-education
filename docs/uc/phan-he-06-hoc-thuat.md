@@ -1560,6 +1560,33 @@ dùng), `StudentComment.CommentType` nay chỉ còn DAILY.
     nguyên StudentAttendanceService.markAttendance — rào "chỉ trong ngày
     diễn ra buổi học" của UC-15 không đổi, KHÁC hạn X ngày của nhận xét
     bên dưới). Lỗi 1 dòng không chặn dòng khác (đúng pattern UC-35/50/51/53).
+-   **Bổ sung V130 (2026-08-21, đã xác nhận với người dùng) — cột con
+    "Offline" của nhóm "BTVN buổi trước" (chấm điểm) VÀ nhóm "BTVN buổi
+    sau" (giao bài, hợp nhất từ 2 header "BTVN offline"+"BTVN online" cũ
+    thành 1 header "BTVN") tách thêm Reading/Writing — CHỈ áp dụng cho
+    buổi `class_sessions.teacher_type=VIETNAMESE` (dựa theo mẫu Excel PM
+    cung cấp, phân biệt rõ layout GV Việt Nam khác GV nước ngoài):**
+    4 cột DB mới `homework_previous_reading_score`/`homework_previous_
+    writing_score` (VARCHAR(30), điểm % giáo viên tự chấm tay, thay vai
+    trò `homework_previous_score` cho buổi VIETNAMESE) và `homework_next_
+    reading`/`homework_next_writing` (TEXT, mô tả bài+trang giao offline,
+    thay vai trò `homework_next` cho buổi VIETNAMESE) — xem
+    `docs/sdd-groups/06-hoc-thuat.md`. `homework_previous_score`/
+    `homework_next` KHÔNG bị xoá, buổi `teacher_type=FOREIGN` (hoặc chưa
+    xác định) tiếp tục dùng y hệt trước giờ, không đổi hành vi/layout gì.
+    Cột con "Online" của cả 2 nhóm (Ngữ pháp/`ExerciseAssignment` và Từ
+    vựng/`ReviewVideoAssignment`) giữ NGUYÊN field/luồng nghiệp vụ (V55/
+    V65/V127) — CHỈ đổi nhãn hiển thị ngắn gọn "TV+NP"/"TKN" (thay "Ngữ
+    pháp"/"Từ Vựng (TKN)"), riêng cho UI/Excel màn Nhận xét học viên,
+    KHÔNG đụng nhãn kênh dùng chung `shared.grammarChannel`/
+    `shared.videoChannel` ở Soạn & giao đề (UC-40)/Kho Video Ôn tập
+    (UC-23). Excel: layout cột từ vị trí cột H trở đi giờ PHỤ THUỘC
+    `teacher_type` của buổi đang xuất (buổi VIETNAMESE 8 cột nhóm BTVN
+    thay vì 6, dịch các cột Hạn nộp/Thái độ/Nhận xét/Ghi chú theo) — xem
+    `StudentCommentService.HomeworkColumns` (BE),
+    `ExcelExportHelper.buildWorkbook` (hỗ trợ thêm header 3 cấp qua
+    `headerSubGroups`), `DailyCommentPanel.tsx`/`CommentApprovalByClass.tsx`
+    (FE, biến `isVietnamese`).
 -   **Bổ sung 2026-07-29 (đã xác nhận với người dùng) — tự chọn buổi hôm
     nay khi vào tab Nhận xét:** `GET /api/classes/{classId}/sessions/today`
     trả buổi học của lớp có `session_date` = hôm nay (loại

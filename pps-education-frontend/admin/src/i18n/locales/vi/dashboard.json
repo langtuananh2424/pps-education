@@ -1,0 +1,182 @@
+{
+  "executive": {
+    "title": "Báo cáo Tổng hợp Vận hành & Doanh nghiệp",
+    "subtitle": "Phân tích tài chính, nhân sự và hiệu suất tuyển sinh trên toàn chuỗi PPS Education.",
+    "reportPeriod": "Kỳ báo cáo: Tháng 7/2026",
+    "actualRevenue": "Doanh thu thực tế",
+    "vsLastMonth": "+14.2% so với tháng trước",
+    "operatingCost": "Chi phí vận hành",
+    "operatingCostNote": "Bao gồm lương & hạ tầng CDN",
+    "profitMargin": "Tỷ suất lợi nhuận",
+    "pendingUpdate": "Chờ cập nhật",
+    "onTargetNote": "Đạt chỉ tiêu kế hoạch năm",
+    "activeStudents": "Học viên hoạt động",
+    "studentsUnit": "học viên",
+    "distributedAcross": "Phân bổ trên {{count}} điểm trường",
+    "revenueChartTitle": "Thống kê Thu Chi Định Kỳ",
+    "revenueChartSubtitle": "Biểu đồ so sánh dòng tiền thu học phí và chi phí vận hành hàng tháng",
+    "legendRevenue": "Học phí thực thu (M VND)",
+    "legendExpense": "Chi phí vận hành (M VND)",
+    "thisMonth": "Tháng này",
+    "funnelTitle": "Phễu Chuyển Đổi Tuyển Sinh (CRM)",
+    "funnelSubtitle": "Thống kê lượng lead tư vấn qua các bước trong tuần này",
+    "funnelNewLeads": "Leads mới nhận",
+    "funnelContacted": "Đã liên hệ cuộc gọi",
+    "funnelQualified": "Đủ điều kiện (Qualified)",
+    "funnelWon": "Chuyển khoản thành công (Won)",
+    "studentsCount": "{{count}} học sinh",
+    "viewLeadsList": "Xem chi tiết danh sách Leads",
+    "renewalNoticeTitle": "Thông báo Gia hạn Hợp tác Trường liên kết",
+    "renewalNoticePrefix": "Hợp đồng liên kết với",
+    "renewalNoticeMiddle": "sắp đến ngày gia hạn",
+    "renewalNoticeSuffix": "Hệ thống tự động khóa xếp lịch nếu quá hạn.",
+    "manageContracts": "Quản lý hợp đồng đối tác"
+  },
+  "teacher": {
+    "banner": {
+      "badge": "PPS VIETNAM · LMS Giáo viên",
+      "greeting": "Xin chào, {{name}} 👋",
+      "subtitle": "Tổng quan hoạt động giảng dạy, việc cần làm và tiến độ bài tập của học sinh hôm nay.",
+      "viewHomeworkButton": "Xem bài tập",
+      "createHomeworkButton": "Tạo bài tập"
+    },
+    "kpi": {
+      "classes": "Lớp",
+      "classesHint": "Đang phụ trách",
+      "pendingGrading": "Chờ chấm",
+      "pendingGradingHint": "{{writing}} bài + {{speaking}} lượt nói",
+      "overdue": "Quá hạn",
+      "overdueHintSome": "Cần xử lý sớm",
+      "overdueHintNone": "Không có bài quá hạn",
+      "completion": "Hoàn thành",
+      "completionHint": "Trung bình các bài đang mở",
+      "trendVsLastWeek": "{{diff}}% so với tuần trước"
+    },
+    "assignmentStatus": {
+      "overdue": "Quá hạn",
+      "done": "Hoàn thành",
+      "dueSoon": "Sắp hết hạn",
+      "open": "Đang mở"
+    },
+    "classNote": {
+      "good": "Tốt",
+      "fair": "Khá",
+      "needsImprovement": "Cần cải thiện"
+    },
+    "sessionStatus": {
+      "done": "Đã xong",
+      "ongoing": "Đang diễn ra",
+      "upcoming": "Sắp diễn ra"
+    },
+    "todo": {
+      "title": "Việc cần làm",
+      "subtitle": "Ưu tiên xử lý hôm nay",
+      "viewAll": "Xem tất cả →",
+      "pendingGrading": "{{count}} bài chờ chấm tay",
+      "pendingGradingDesc": "Essay/Speaking (BTVN) và Luyện Nói — chưa có trang chấm để mở trực tiếp từ đây.",
+      "classLabel": "Lớp {{className}} · {{count}} HS chưa nộp",
+      "needsFollowUp": "Cần theo dõi",
+      "emptyTitle": "Không có việc cần xử lý",
+      "emptyDescription": "Mọi bài tập đang mở đều đã được nộp đủ."
+    },
+    "todaySchedule": {
+      "title": "Lịch hôm nay",
+      "subtitle": "Tổng hợp buổi dạy hôm nay qua mọi lớp",
+      "viewSchedule": "Xem lịch →",
+      "classLabel": "Lớp {{className}}",
+      "noRoom": "Chưa gán phòng",
+      "studentCountSuffix": " · {{count}} học sinh",
+      "checkInButton": "Điểm danh",
+      "emptyTitle": "Không có buổi dạy hôm nay"
+    },
+    "recentAssignments": {
+      "title": "Bài tập gần đây",
+      "subtitle": "8 bài giao gần nhất, qua mọi lớp đang dạy",
+      "viewAll": "Xem tất cả →",
+      "filterAll": "Tất cả",
+      "filterPending": "Cần xử lý",
+      "filterDone": "Đã hoàn thành",
+      "columns": { "title": "Bài tập", "class": "Lớp", "completed": "Đã làm", "rate": "Tỷ lệ", "status": "Trạng thái" },
+      "emptyNone": "Chưa có bài tập nào được giao",
+      "emptyFiltered": "Không có bài nào khớp bộ lọc"
+    },
+    "myClasses": {
+      "title": "Lớp của tôi",
+      "subtitleSuffix": " lớp đang giảng dạy · bấm vào 1 lớp để xem sâu",
+      "viewAll": "Xem tất cả →",
+      "columns": { "class": "Lớp", "size": "Sĩ số", "completionRate": "Tỷ lệ hoàn thành", "overdueAssignments": "Bài quá hạn", "rating": "Đánh giá" },
+      "studentsUnit": "HS",
+      "emptyTitle": "Chưa được phân công lớp nào"
+    },
+    "trend": {
+      "title": "Tỷ lệ hoàn thành BTVN theo tuần",
+      "subtitleWithData": "{{count}} tuần gần đây · gộp thật từ dữ liệu bài tập",
+      "subtitleEmpty": "Gộp thật từ dữ liệu bài tập — thay cho \"hoạt động học tập\" chung chung",
+      "emptyTitle": "Chưa đủ dữ liệu để vẽ xu hướng",
+      "emptyDescription": "Cần ít nhất 1 bài tập đã giao để tính tỷ lệ hoàn thành theo tuần.",
+      "thisWeek": "Tuần này"
+    }
+  },
+  "campus": {
+    "title": "Quản Lý Vận Hành Cơ Sở & Điểm Trường",
+    "subtitle": "Giám sát phản hồi đối tác trường liên kết, tình hình lớp học và các hàng chờ duyệt tại (các) điểm trường bạn phụ trách.",
+    "kpi": {
+      "newFeedback": "Ý kiến đối tác mới",
+      "newFeedbackHint": "{{count}} phản hồi đang theo dõi",
+      "activeContracts": "Hợp đồng liên kết hoạt động",
+      "activeContractsHint": "{{count}} điểm trường phụ trách",
+      "attitudeWarning": "Cảnh báo ý thức",
+      "attitudeWarningHint": "Nhận xét mức Cảnh báo chờ duyệt",
+      "pendingApproval": "Đơn chờ duyệt",
+      "pendingApprovalHint": "{{grades}} điểm + {{leaves}} nghỉ phép",
+      "tuitionDebt": "Công nợ học phí cơ sở",
+      "tuitionDebtHint": "Chưa có báo cáo theo điểm trường"
+    },
+    "pendingApproval": {
+      "title": "Đơn chờ duyệt",
+      "subtitle": "Nghỉ phép nhân sự + điểm chờ duyệt tại điểm trường",
+      "pendingGrades": "{{count}} bảng điểm chờ duyệt",
+      "pendingGradesDesc": "Giáo viên đã nộp, cần Quản lý điểm trường xét duyệt trước khi công bố.",
+      "leaveDaysLabel": "{{name}} · {{days}} ngày",
+      "emptyTitle": "Không có gì chờ duyệt",
+      "emptyDescription": "Điểm và đơn nghỉ phép đều đã được xử lý."
+    },
+    "expiringContracts": {
+      "title": "Hợp đồng sắp hết hạn",
+      "subtitle": "Hợp đồng liên kết trong 30 ngày tới",
+      "expiresOn": "Hết hạn {{date}}",
+      "emptyTitle": "Không có hợp đồng sắp hết hạn"
+    },
+    "activeClasses": {
+      "title": "Lớp đang hoạt động tại điểm trường",
+      "subtitle": "{{classes}} lớp · {{students}} học sinh · hoàn thành BTVN trung bình {{percent}}%",
+      "viewClasses": "Xem lớp học →",
+      "columns": { "class": "Lớp", "site": "Điểm trường", "size": "Sĩ số", "completion": "Hoàn thành BTVN" },
+      "emptyTitle": "Chưa có lớp đang hoạt động"
+    },
+    "feedbackInbox": {
+      "title": "Hòm thư phản hồi đối tác liên kết mới nhất",
+      "viewAll": "Xem tất cả phản hồi",
+      "emptyTitle": "Chưa có phản hồi nào từ đối tác liên kết"
+    },
+    "feedbackPriority": { "URGENT": "Khẩn cấp", "HIGH": "Cao", "NORMAL": "Trung bình", "LOW": "Thấp" },
+    "feedbackStatus": { "NEW": "Mới tiếp nhận", "IN_PROGRESS": "Đang xử lý", "RESOLVED": "Đã giải quyết", "CLOSED": "Đã đóng" }
+  },
+  "academic": {
+    "title": "Cổng Điều Hành Học Thuật & Đào Tạo",
+    "subtitle": "Theo dõi phân công lớp học, tiến độ chấm thi trực tuyến và phê duyệt nhận xét định kỳ.",
+    "activeCourses": "Khóa học hiện hành",
+    "classesUnit": "{{count}} lớp học",
+    "avgAttendanceRate": "Tỷ lệ chuyên cần trung bình",
+    "pendingComments": "Nhận xét chưa duyệt",
+    "commentsUnit": "{{count}} nhận xét",
+    "scheduleTitle": "Lịch phân công Giảng dạy & Phòng học",
+    "roomLabel": "Phòng: {{room}}",
+    "scheduleLabel": "Lịch: {{schedule}}",
+    "typeAffiliated": "Liên kết trường",
+    "typeCenter": "Tại trung tâm",
+    "gradeChartTitle": "Biểu Đồ Phân Phối Điểm Số",
+    "gradeChartSubtitle": "Tỷ lệ điểm trung bình học phần học kỳ hiện tại",
+    "studentsPercentTooltip": "{{percent}}% học sinh"
+  }
+}

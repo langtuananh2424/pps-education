@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import Button from "@/components/ui/Button";
 import Select from "@/components/ui/Select";
 import { X, Tag } from "lucide-react";
@@ -20,11 +21,10 @@ interface Props {
 
 type FieldType = "FIELD" | "FORMULA" | "TABLE";
 
-const FIELD_TYPE_LABELS: Record<FieldType, string> = {
-  FIELD: "Trường dữ liệu",
-  FORMULA: "Công thức",
-  TABLE: "Bảng động",
-};
+/** Nhãn dịch qua i18next namespace "reports-templates" — xem src/i18n/locales/{vi,en}/reports-templates.json. */
+function fieldTypeLabel(t: (key: string) => string, fieldType: FieldType): string {
+  return t(`fieldType.${fieldType}`);
+}
 
 const FIELD_TYPE_COLORS: Record<FieldType, string> = {
   FIELD: "bg-blue-100 text-blue-700",
@@ -40,88 +40,104 @@ interface MappingRow {
   isNew: boolean;
 }
 
-const FALLBACK_DATA_PATHS: Record<string, { value: string; label: string }[]> = {
+/** Danh sách khoá gợi ý data path theo loại mẫu báo cáo — nhãn hiển thị dịch qua i18next
+ *  namespace "reports-templates" (khoá `dataPathOptions.<templateType>.<key>`), xem hàm
+ *  `fallbackDataPathOptions` bên dưới. */
+const FALLBACK_DATA_PATH_KEYS: Record<string, string[]> = {
   DAILY_REPORT: [
-    { value: "CLASS_NAME", label: "Tên lớp học (CLASS_NAME)" },
-    { value: "CLASS_DATE", label: "Ngày học (CLASS_DATE)" },
-    { value: "TEACHER_NAME", label: "Tên giáo viên (TEACHER_NAME)" },
-    { value: "LESSON_TOPIC", label: "Nội dung bài học (LESSON_TOPIC)" },
-    { value: "TOTAL_STUDENTS", label: "Tổng số học sinh (TOTAL_STUDENTS)" },
-    { value: "ABSENT_COUNT", label: "Số HS vắng mặt (ABSENT_COUNT)" },
-    { value: "GENERATED_DATE", label: "Ngày xuất báo cáo (GENERATED_DATE)" },
-    { value: "[[TABLE:STUDENTS]]", label: "Bảng học sinh ([[TABLE:STUDENTS]])" },
+    "CLASS_NAME",
+    "CLASS_DATE",
+    "TEACHER_NAME",
+    "LESSON_TOPIC",
+    "TOTAL_STUDENTS",
+    "ABSENT_COUNT",
+    "GENERATED_DATE",
+    "[[TABLE:STUDENTS]]",
   ],
   STUDENT_PROFILE: [
-    { value: "STUDENT_NAME", label: "Họ và tên học sinh (STUDENT_NAME)" },
-    { value: "STUDENT_CODE", label: "Mã học sinh (STUDENT_CODE)" },
-    { value: "DATE_OF_BIRTH", label: "Ngày sinh (DATE_OF_BIRTH)" },
-    { value: "GENDER", label: "Giới tính (GENDER)" },
-    { value: "PRIMARY_SITE", label: "Cơ sở / Điểm trường (PRIMARY_SITE)" },
-    { value: "STATUS", label: "Trạng thái học sinh (STATUS)" },
-    { value: "ENROLLMENT_DATE", label: "Ngày nhập học (ENROLLMENT_DATE)" },
-    { value: "PRIMARY_PARENT_NAME", label: "Họ tên phụ huynh chính (PRIMARY_PARENT_NAME)" },
-    { value: "PRIMARY_PARENT_PHONE", label: "SĐT phụ huynh (PRIMARY_PARENT_PHONE)" },
-    { value: "PRIMARY_PARENT_EMAIL", label: "Email phụ huynh (PRIMARY_PARENT_EMAIL)" },
-    { value: "FINANCIAL_GUARDIAN_NAME", label: "Người bảo trợ tài chính (FINANCIAL_GUARDIAN_NAME)" },
-    { value: "GENERATED_DATE", label: "Ngày xuất báo cáo (GENERATED_DATE)" },
+    "STUDENT_NAME",
+    "STUDENT_CODE",
+    "DATE_OF_BIRTH",
+    "GENDER",
+    "PRIMARY_SITE",
+    "STATUS",
+    "ENROLLMENT_DATE",
+    "PRIMARY_PARENT_NAME",
+    "PRIMARY_PARENT_PHONE",
+    "PRIMARY_PARENT_EMAIL",
+    "FINANCIAL_GUARDIAN_NAME",
+    "GENERATED_DATE",
   ],
   STUDENT_COMMENT: [
-    { value: "STUDENT_NAME", label: "Họ và tên học sinh (STUDENT_NAME)" },
-    { value: "STUDENT_CODE", label: "Mã học sinh (STUDENT_CODE)" },
-    { value: "STUDENT_COMMENT", label: "Nội dung nhận xét (STUDENT_COMMENT)" },
-    { value: "GENERATED_DATE", label: "Ngày xuất báo cáo (GENERATED_DATE)" },
+    "STUDENT_NAME",
+    "STUDENT_CODE",
+    "STUDENT_COMMENT",
+    "GENERATED_DATE",
   ],
   TRANSCRIPT: [
-    { value: "STUDENT_NAME", label: "Họ tên học sinh (STUDENT_NAME)" },
-    { value: "STUDENT_CODE", label: "Mã học sinh (STUDENT_CODE)" },
-    { value: "CLASS_NAME", label: "Tên lớp (CLASS_NAME)" },
-    { value: "SCHOOL_NAME", label: "Tên trường / Cơ sở (SCHOOL_NAME)" },
-    { value: "ACADEMIC_YEAR", label: "Năm học (ACADEMIC_YEAR)" },
-    { value: "PRIMARY_TEACHER_NAME", label: "Giáo viên chính (PRIMARY_TEACHER_NAME)" },
-    { value: "GENERATED_DATE", label: "Ngày xuất báo cáo (GENERATED_DATE)" },
-    { value: "LISTENING_MID1", label: "Điểm Nghe - Giữa kỳ 1 (LISTENING_MID1)" },
-    { value: "READING_MID1", label: "Điểm Đọc - Giữa kỳ 1 (READING_MID1)" },
-    { value: "SPEAKING_MID1", label: "Điểm Nói - Giữa kỳ 1 (SPEAKING_MID1)" },
-    { value: "WRITING_MID1", label: "Điểm Viết - Giữa kỳ 1 (WRITING_MID1)" },
-    { value: "GRAMMAR_MID1", label: "Điểm Ngữ pháp - Giữa kỳ 1 (GRAMMAR_MID1)" },
-    { value: "OVERALL_MID1", label: "Điểm Tổng kết - Giữa kỳ 1 (OVERALL_MID1)" },
-    { value: "LEVEL_MID1", label: "Xếp loại - Giữa kỳ 1 (LEVEL_MID1)" },
-    { value: "COMMENT_MID1", label: "Nhận xét - Giữa kỳ 1 (COMMENT_MID1)" },
-
-    { value: "LISTENING_END1", label: "Điểm Nghe - Cuối kỳ 1 (LISTENING_END1)" },
-    { value: "READING_END1", label: "Điểm Đọc - Cuối kỳ 1 (READING_END1)" },
-    { value: "SPEAKING_END1", label: "Điểm Nói - Cuối kỳ 1 (SPEAKING_END1)" },
-    { value: "WRITING_END1", label: "Điểm Viết - Cuối kỳ 1 (WRITING_END1)" },
-    { value: "GRAMMAR_END1", label: "Điểm Ngữ pháp - Cuối kỳ 1 (GRAMMAR_END1)" },
-    { value: "OVERALL_END1", label: "Điểm Tổng kết - Cuối kỳ 1 (OVERALL_END1)" },
-    { value: "LEVEL_END1", label: "Xếp loại - Cuối kỳ 1 (LEVEL_END1)" },
-    { value: "COMMENT_END1", label: "Nhận xét - Cuối kỳ 1 (COMMENT_END1)" },
+    "STUDENT_NAME",
+    "STUDENT_CODE",
+    "CLASS_NAME",
+    "SCHOOL_NAME",
+    "ACADEMIC_YEAR",
+    "PRIMARY_TEACHER_NAME",
+    "GENERATED_DATE",
+    "LISTENING_MID1",
+    "READING_MID1",
+    "SPEAKING_MID1",
+    "WRITING_MID1",
+    "GRAMMAR_MID1",
+    "OVERALL_MID1",
+    "LEVEL_MID1",
+    "COMMENT_MID1",
+    "LISTENING_END1",
+    "READING_END1",
+    "SPEAKING_END1",
+    "WRITING_END1",
+    "GRAMMAR_END1",
+    "OVERALL_END1",
+    "LEVEL_END1",
+    "COMMENT_END1",
   ],
   GRADE_REPORT: [
-    { value: "CLASS_NAME", label: "Tên lớp học (CLASS_NAME)" },
-    { value: "ACADEMIC_YEAR", label: "Năm học (ACADEMIC_YEAR)" },
-    { value: "PRIMARY_TEACHER_NAME", label: "Giáo viên chính (PRIMARY_TEACHER_NAME)" },
-    { value: "GENERATED_DATE", label: "Ngày xuất báo cáo (GENERATED_DATE)" },
-
-    { value: "LISTENING_MID1", label: "Điểm Nghe - Giữa kỳ 1 (LISTENING_MID1)" },
-    { value: "READING_MID1", label: "Điểm Đọc - Giữa kỳ 1 (READING_MID1)" },
-    { value: "SPEAKING_MID1", label: "Điểm Nói - Giữa kỳ 1 (SPEAKING_MID1)" },
-    { value: "WRITING_MID1", label: "Điểm Viết - Giữa kỳ 1 (WRITING_MID1)" },
-    { value: "GRAMMAR_MID1", label: "Điểm Ngữ pháp - Giữa kỳ 1 (GRAMMAR_MID1)" },
-    { value: "OVERALL_MID1", label: "Điểm Tổng kết - Giữa kỳ 1 (OVERALL_MID1)" },
-    { value: "LEVEL_MID1", label: "Xếp loại - Giữa kỳ 1 (LEVEL_MID1)" },
-    { value: "COMMENT_MID1", label: "Nhận xét - Giữa kỳ 1 (COMMENT_MID1)" },
-
-    { value: "LISTENING_END1", label: "Điểm Nghe - Cuối kỳ 1 (LISTENING_END1)" },
-    { value: "READING_END1", label: "Điểm Đọc - Cuối kỳ 1 (READING_END1)" },
-    { value: "SPEAKING_END1", label: "Điểm Nói - Cuối kỳ 1 (SPEAKING_END1)" },
-    { value: "WRITING_END1", label: "Điểm Viết - Cuối kỳ 1 (WRITING_END1)" },
-    { value: "GRAMMAR_END1", label: "Điểm Ngữ pháp - Cuối kỳ 1 (GRAMMAR_END1)" },
-    { value: "OVERALL_END1", label: "Điểm Tổng kết - Cuối kỳ 1 (OVERALL_END1)" },
-    { value: "LEVEL_END1", label: "Xếp loại - Cuối kỳ 1 (LEVEL_END1)" },
-    { value: "COMMENT_END1", label: "Nhận xét - Cuối kỳ 1 (COMMENT_END1)" },
+    "CLASS_NAME",
+    "ACADEMIC_YEAR",
+    "PRIMARY_TEACHER_NAME",
+    "GENERATED_DATE",
+    "LISTENING_MID1",
+    "READING_MID1",
+    "SPEAKING_MID1",
+    "WRITING_MID1",
+    "GRAMMAR_MID1",
+    "OVERALL_MID1",
+    "LEVEL_MID1",
+    "COMMENT_MID1",
+    "LISTENING_END1",
+    "READING_END1",
+    "SPEAKING_END1",
+    "WRITING_END1",
+    "GRAMMAR_END1",
+    "OVERALL_END1",
+    "LEVEL_END1",
+    "COMMENT_END1",
   ],
 };
+
+/** Chuyển 1 giá trị placeholder (VD "[[TABLE:STUDENTS]]") thành khoá i18n hợp lệ (VD "TABLE_STUDENTS"). */
+function dataPathI18nKey(value: string): string {
+  return value.replace(/[^A-Za-z0-9_]/g, "_").replace(/^_+|_+$/g, "");
+}
+
+function fallbackDataPathOptions(
+  t: (key: string) => string,
+  templateType: string
+): { value: string; label: string }[] {
+  const keys = FALLBACK_DATA_PATH_KEYS[templateType] ?? [];
+  return keys.map((value) => ({
+    value,
+    label: `${t(`dataPathOptions.${templateType}.${dataPathI18nKey(value)}`)} (${value})`,
+  }));
+}
 
 const ALIAS_MAP: Record<string, string> = {
   // Nói / Speaking
@@ -177,6 +193,7 @@ const ALIAS_MAP: Record<string, string> = {
 };
 
 export default function FieldMappingsDrawer({ template, onClose, onSuccess }: Props) {
+  const { t } = useTranslation("reports-templates");
   const [rows, setRows] = useState<MappingRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -191,7 +208,7 @@ export default function FieldMappingsDrawer({ template, onClose, onSuccess }: Pr
   const backendFields = apiFieldsMap[template.templateType];
   const suggestedList: { value: string; label: string }[] = backendFields
     ? backendFields.map((f) => ({ value: f.key, label: `${f.label} (${f.key})` }))
-    : FALLBACK_DATA_PATHS[template.templateType] ?? [];
+    : fallbackDataPathOptions(t, template.templateType);
 
   useEffect(() => {
     // Khởi tạo rows từ placeholderKeys + fieldMappings đã có
@@ -251,7 +268,7 @@ export default function FieldMappingsDrawer({ template, onClose, onSuccess }: Pr
       await updateFieldMappings(template.id, { mappings });
       onSuccess();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Lưu cấu hình thất bại.");
+      setError(err instanceof ApiError ? err.message : t("fieldMappingsDrawer.saveError"));
     } finally {
       setLoading(false);
     }
@@ -266,9 +283,9 @@ export default function FieldMappingsDrawer({ template, onClose, onSuccess }: Pr
         {/* Header */}
         <div className="p-6 border-b border-slate-200 flex items-start justify-between gap-3">
           <div>
-            <h2 className="text-lg font-bold text-slate-800">Cấu hình Mapping</h2>
+            <h2 className="text-lg font-bold text-slate-800">{t("fieldMappingsDrawer.title")}</h2>
             <p className="text-sm text-slate-500 mt-0.5">
-              <span className="font-medium text-slate-700">{template.name}</span> — Ánh xạ placeholder → dữ liệu thực tế
+              <span className="font-medium text-slate-700">{template.name}</span> {t("fieldMappingsDrawer.subtitleSuffix")}
             </p>
           </div>
           <button className="text-slate-400 hover:text-slate-600 p-1" onClick={onClose}>
@@ -284,17 +301,17 @@ export default function FieldMappingsDrawer({ template, onClose, onSuccess }: Pr
 
           {/* Hướng dẫn */}
           <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-xs text-blue-700 space-y-1">
-            <p className="font-semibold text-blue-800 mb-1">Hướng dẫn điền Data Path:</p>
-            <p>• Chọn từ <strong>Dropdown danh sách trường hỗ trợ sẵn</strong> bên dưới hoặc tự điền giá trị tùy chỉnh.</p>
-            <p>• <strong>Công thức:</strong> Hệ thống tự tính, không cần điền data path.</p>
-            <p>• <strong>Loại báo cáo:</strong> <span className="font-semibold">{template.templateType}</span></p>
+            <p className="font-semibold text-blue-800 mb-1">{t("fieldMappingsDrawer.guideTitle")}</p>
+            <p>• <strong>{t("fieldMappingsDrawer.guideLine1Bold")}</strong> {t("fieldMappingsDrawer.guideLine1Suffix")}</p>
+            <p>• <strong>{t("fieldMappingsDrawer.guideLine2Bold")}</strong> {t("fieldMappingsDrawer.guideLine2Suffix")}</p>
+            <p>• <strong>{t("fieldMappingsDrawer.guideLine3Bold")}</strong> <span className="font-semibold">{template.templateType}</span></p>
           </div>
 
           {!hasPlaceholders && (
             <div className="text-center py-8 text-slate-400">
               <Tag className="w-8 h-8 mx-auto mb-2 opacity-40" />
-              <p className="text-sm">Không tìm thấy placeholder nào trong file này.</p>
-              <p className="text-xs mt-1">Hãy chắc chắn file dùng cú pháp <code>[TEN_BIEN]</code></p>
+              <p className="text-sm">{t("fieldMappingsDrawer.noPlaceholders.line1")}</p>
+              <p className="text-xs mt-1">{t("fieldMappingsDrawer.noPlaceholders.line2Prefix")} <code>[TEN_BIEN]</code></p>
             </div>
           )}
 
@@ -303,7 +320,7 @@ export default function FieldMappingsDrawer({ template, onClose, onSuccess }: Pr
             const displayOptions = hasExactOption
               ? suggestedList
               : row.dataPath
-              ? [{ value: row.dataPath, label: `${row.dataPath} (Tự động nhận diện)` }, ...suggestedList]
+              ? [{ value: row.dataPath, label: t("fieldMappingsDrawer.customOptionAutoDetected", { value: row.dataPath }) }, ...suggestedList]
               : suggestedList;
 
             return (
@@ -314,7 +331,7 @@ export default function FieldMappingsDrawer({ template, onClose, onSuccess }: Pr
                       {row.placeholderKey}
                     </code>
                     {row.isNew && (
-                      <span className="text-xs text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">Mới</span>
+                      <span className="text-xs text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">{t("fieldMappingsDrawer.newBadge")}</span>
                     )}
                   </div>
                   <Select
@@ -322,20 +339,20 @@ export default function FieldMappingsDrawer({ template, onClose, onSuccess }: Pr
                     onChange={(e) => updateRow(index, "fieldType", e.target.value)}
                     className={`text-xs font-semibold px-2 py-1 rounded border-0 cursor-pointer ${FIELD_TYPE_COLORS[row.fieldType]}`}
                   >
-                    {(Object.entries(FIELD_TYPE_LABELS) as [FieldType, string][]).map(([k, v]) => (
-                      <option key={k} value={k}>{v}</option>
+                    {(["FIELD", "FORMULA", "TABLE"] as FieldType[]).map((k) => (
+                      <option key={k} value={k}>{fieldTypeLabel(t, k)}</option>
                     ))}
                   </Select>
                 </div>
 
                 <div>
-                  <label className="block text-xs text-slate-500 mb-1">Data Path (nguồn dữ liệu)</label>
+                  <label className="block text-xs text-slate-500 mb-1">{t("fieldMappingsDrawer.dataPathLabel")}</label>
                   {row.fieldType === "FORMULA" ? (
                     <input
                       type="text"
                       disabled
                       value=""
-                      placeholder="Công thức tự động — không cần điền"
+                      placeholder={t("fieldMappingsDrawer.formulaPlaceholder")}
                       className="w-full border border-slate-300 rounded-md text-xs p-2 bg-slate-100 text-slate-400"
                     />
                   ) : (
@@ -351,11 +368,11 @@ export default function FieldMappingsDrawer({ template, onClose, onSuccess }: Pr
                         }}
                         className="w-full border border-slate-300 rounded-md text-xs p-2 bg-white focus:outline-none focus:ring-1 focus:ring-brand-orange"
                       >
-                        <option value="">-- Chọn trường dữ liệu --</option>
+                        <option value="">{t("fieldMappingsDrawer.dataPathSelectPlaceholder")}</option>
                         {displayOptions.map((s) => (
                           <option key={s.value} value={s.value}>{s.label}</option>
                         ))}
-                        <option value="CUSTOM">✏️ Tự nhập giá trị tùy chỉnh...</option>
+                        <option value="CUSTOM">{t("fieldMappingsDrawer.customOption")}</option>
                       </Select>
 
                       {(!hasExactOption || row.dataPath === "") && (
@@ -363,7 +380,7 @@ export default function FieldMappingsDrawer({ template, onClose, onSuccess }: Pr
                           type="text"
                           value={row.dataPath}
                           onChange={(e) => updateRow(index, "dataPath", e.target.value)}
-                          placeholder="Ví dụ: CLASS_NAME hoặc READING_MID1"
+                          placeholder={t("fieldMappingsDrawer.customInputPlaceholder")}
                           className="w-full border border-slate-300 rounded-md text-xs p-2 focus:outline-none focus:ring-1 focus:ring-brand-orange bg-white"
                         />
                       )}
@@ -372,12 +389,12 @@ export default function FieldMappingsDrawer({ template, onClose, onSuccess }: Pr
                 </div>
 
                 <div>
-                  <label className="block text-xs text-slate-500 mb-1">Ghi chú (tuỳ chọn)</label>
+                  <label className="block text-xs text-slate-500 mb-1">{t("fieldMappingsDrawer.notesLabel")}</label>
                   <input
                     type="text"
                     value={row.description}
                     onChange={(e) => updateRow(index, "description", e.target.value)}
-                    placeholder="Mô tả ý nghĩa của biến này..."
+                    placeholder={t("fieldMappingsDrawer.notesPlaceholder")}
                     className="w-full border border-slate-300 rounded-md text-xs p-2 focus:outline-none focus:ring-1 focus:ring-brand-orange"
                   />
                 </div>
@@ -389,12 +406,12 @@ export default function FieldMappingsDrawer({ template, onClose, onSuccess }: Pr
         {/* Footer */}
         <div className="p-6 border-t border-slate-200 flex items-center justify-between gap-3">
           <p className="text-xs text-slate-500">
-            {rows.length} placeholder{rows.length !== 1 ? "s" : ""} được phát hiện
+            {t("fieldMappingsDrawer.placeholderCount", { count: rows.length })}
           </p>
           <div className="flex gap-3">
-            <Button variant="secondary" onClick={onClose} disabled={loading}>Huỷ</Button>
+            <Button variant="secondary" onClick={onClose} disabled={loading}>{t("fieldMappingsDrawer.cancel")}</Button>
             <Button onClick={handleSave} disabled={loading || rows.length === 0}>
-              {loading ? "Đang lưu..." : "Lưu cấu hình"}
+              {loading ? t("fieldMappingsDrawer.saving") : t("fieldMappingsDrawer.saveButton")}
             </Button>
           </div>
         </div>

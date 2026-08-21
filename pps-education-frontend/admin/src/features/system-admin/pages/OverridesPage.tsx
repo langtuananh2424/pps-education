@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Info, ShieldQuestion, UserCheck } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import {
@@ -20,6 +21,7 @@ import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 
 export default function OverridesPage() {
+  const { t } = useTranslation("system-admin-overrides");
   const [selectedUser, setSelectedUser] = useState<UserListItemResponse | null>(null);
 
   const [permissions, setPermissions] = useState<PermissionCatalogItem[]>([]);
@@ -42,7 +44,7 @@ export default function OverridesPage() {
         setUserDetail(detail);
         setEffective(eff);
       })
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được dữ liệu tài khoản."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("overridesPage.loadError")))
       .finally(() => setLoading(false));
   };
 
@@ -63,14 +65,14 @@ export default function OverridesPage() {
     if (!selectedUserId) return;
     await upsertUserPermissionOverride(selectedUserId, permissionId, overrideType, reason, expiresAt || undefined);
     loadSelectedUser(selectedUserId);
-    showToast("Đã lưu ngoại lệ quyền thành công!");
+    showToast(t("overridesPage.upsertToast"));
   };
 
   const handleRemove = async (permissionId: number) => {
     if (!selectedUserId) return;
     await removeUserPermissionOverride(selectedUserId, permissionId);
     loadSelectedUser(selectedUserId);
-    showToast("Đã gỡ ngoại lệ quyền thành công!");
+    showToast(t("overridesPage.removeToast"));
   };
 
   return (
@@ -78,38 +80,35 @@ export default function OverridesPage() {
       <div className="bg-gradient-to-r from-orange-50 to-amber-50/50 border border-orange-200/60 p-4 rounded-xl flex items-start gap-3 shadow-sm">
         <Info className="w-5 h-5 text-brand-red shrink-0 mt-0.5" />
         <div className="space-y-1">
-          <span className="text-xs font-bold text-brand-red uppercase tracking-wider block">TÙY CHỈNH TÀI KHOẢN</span>
-          <p className="text-xs text-slate-600 leading-relaxed">
-            Cấp thêm hoặc tước bỏ trực tiếp một quyền hạt nhân cho 1 tài khoản cụ thể, có độ ưu tiên cao nhất trong công thức
-            quyền hiệu lực — không cần đổi vai trò vĩnh viễn của họ.
-          </p>
+          <span className="text-xs font-bold text-brand-red uppercase tracking-wider block">{t("overridesPage.banner.badge")}</span>
+          <p className="text-xs text-slate-600 leading-relaxed">{t("overridesPage.banner.description")}</p>
         </div>
       </div>
 
       <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-3">
-        <label className="text-[10px] uppercase font-bold text-slate-500 block">Bước 1 — Tìm và chọn tài khoản</label>
+        <label className="text-[10px] uppercase font-bold text-slate-500 block">{t("overridesPage.step1Label")}</label>
         <div className="max-w-md">
-          <UserSearchCombobox value={selectedUser} onChange={setSelectedUser} placeholder="Bấm để xem danh sách hoặc gõ để tìm tài khoản..." />
+          <UserSearchCombobox value={selectedUser} onChange={setSelectedUser} placeholder={t("overridesPage.searchPlaceholder")} />
         </div>
 
         {userDetail && (
           <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs font-semibold px-3 py-2 rounded-lg w-fit">
             <UserCheck className="w-4 h-4" />
-            Đang chọn: {userDetail.fullName} ({userDetail.username})
+            {t("overridesPage.selectedUser", { fullName: userDetail.fullName, username: userDetail.username })}
           </div>
         )}
       </div>
 
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
-      {loading && <p className="text-xs text-slate-500">Đang tải...</p>}
+      {loading && <p className="text-xs text-slate-500">{t("overridesPage.loading")}</p>}
 
       {!selectedUserId && !loading && (
         <div className="bg-white border border-slate-200 rounded-xl shadow-soft">
           <EmptyState
             icon={ShieldQuestion}
-            title="Chưa chọn tài khoản nào"
-            description="Tìm và chọn 1 tài khoản ở ô phía trên để xem quyền hiệu lực hiện tại và thiết lập ngoại lệ (cấp thêm/tước bỏ quyền riêng) cho tài khoản đó."
+            title={t("overridesPage.emptyTitle")}
+            description={t("overridesPage.emptyDescription")}
           />
         </div>
       )}
@@ -118,11 +117,11 @@ export default function OverridesPage() {
         <>
           <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-2">
             <span className="text-[10px] uppercase font-bold text-slate-500 block">
-              Quyền hiệu lực hiện tại ({effective.permissions.length}) — hợp từ vai trò + ngoại lệ đang áp dụng
+              {t("overridesPage.effectivePermissions.title", { count: effective.permissions.length })}
             </span>
             <div className="flex flex-wrap gap-1.5">
               {effective.permissions.length === 0 ? (
-                <span className="text-xs text-slate-400 italic">Chưa có quyền nào.</span>
+                <span className="text-xs text-slate-400 italic">{t("overridesPage.effectivePermissions.empty")}</span>
               ) : (
                 effective.permissions.map((code) => (
                   <code key={code} className="text-[10px] font-mono font-bold text-brand-red bg-orange-50/60 border border-orange-100 px-1.5 py-0.5 rounded">

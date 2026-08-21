@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ArrowLeftRight, Download, Filter, LogOut, TrendingDown, TrendingUp, UserPlus, Users } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Select from "@/components/ui/Select";
@@ -58,6 +59,7 @@ const SERIES_COLORS: Record<string, { stroke: string; fill: string; dot: string 
  * màu (không chỉ dựa vào màu để phân biệt).
  */
 function HeadcountTrendChart({ series }: { series: TrendSeries[] }) {
+  const { t } = useTranslation("reports-operations");
   const width = 640;
   const height = 220;
   const padding = { top: 16, right: 16, bottom: 28, left: 36 };
@@ -76,7 +78,7 @@ function HeadcountTrendChart({ series }: { series: TrendSeries[] }) {
   return (
     <div className="bg-white border border-slate-200/60 rounded-xl p-5 shadow-sm">
       <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-        <h3 className="text-sm font-semibold text-slate-700">Xu hướng sĩ số theo tháng</h3>
+        <h3 className="text-sm font-semibold text-slate-700">{t("enrollmentMovementStatsPage.trendChart.title")}</h3>
         {series.length > 1 && (
           <div className="flex items-center gap-4 text-xs text-slate-500">
             {series.map((s) => (
@@ -87,7 +89,7 @@ function HeadcountTrendChart({ series }: { series: TrendSeries[] }) {
           </div>
         )}
       </div>
-      <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-56" role="img" aria-label="Biểu đồ đường xu hướng sĩ số theo tháng">
+      <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-56" role="img" aria-label={t("enrollmentMovementStatsPage.trendChart.ariaLabel")}>
         {/* Gridline ngang + nhãn trục Y */}
         {yTickValues.map((v) => (
           <g key={v}>
@@ -100,7 +102,7 @@ function HeadcountTrendChart({ series }: { series: TrendSeries[] }) {
         {/* Nhãn trục X: Tháng 1..N của kỳ */}
         {Array.from({ length: maxMonth }, (_, i) => i + 1).map((m) => (
           <text key={m} x={x(m)} y={height - 8} textAnchor="middle" className="fill-slate-400" fontSize={10}>
-            T{m}
+            {t("enrollmentMovementStatsPage.trendChart.monthAxis", { month: m })}
           </text>
         ))}
         {series.map((s) => {
@@ -113,7 +115,7 @@ function HeadcountTrendChart({ series }: { series: TrendSeries[] }) {
               <path d={path} fill="none" stroke={c.stroke} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
               {s.points.map((p) => (
                 <circle key={p.monthIndex} cx={x(p.monthIndex)} cy={y(p.headcount)} r={4} fill={c.stroke} stroke="white" strokeWidth={1.5}>
-                  <title>{`${s.label} — Tháng ${p.monthIndex} (${p.periodStart} → ${p.periodEnd}): ${p.headcount} học sinh`}</title>
+                  <title>{t("enrollmentMovementStatsPage.trendChart.tooltip", { label: s.label, month: p.monthIndex, start: p.periodStart, end: p.periodEnd, count: p.headcount })}</title>
                 </circle>
               ))}
             </g>
@@ -150,25 +152,22 @@ interface ResolvedPeriod {
   academicTermId: number | null;
 }
 
-const PERIOD_TYPE_LABELS: Record<EnrollmentMovementPeriodType, string> = {
-  MONTH: "Tháng",
-  TERM: "Học kỳ",
-  YEAR: "Năm"
-};
-
 /**
  * Gộp "Từ tháng"/"đến tháng" (bổ sung ngoài SDD gốc, xác nhận 2026-08-20 — xem biến động NHIỀU
  * tháng liền nhau thay vì chỉ 1 tháng) thành 1 ResolvedPeriod — tự hoán đổi nếu người dùng chọn
  * "đến tháng" sớm hơn "Từ tháng". fromYm === toYm thì nhãn hiện dạng 1 tháng như cũ, khác thì hiện
  * dạng khoảng "Tháng M/YYYY – Tháng M2/YYYY2".
  */
-function resolveMonthRange(fromYm: string, toYm: string): ResolvedPeriod | null {
+function resolveMonthRange(t: (key: string, options?: Record<string, unknown>) => string, fromYm: string, toYm: string): ResolvedPeriod | null {
   if (!fromYm || !toYm) return null;
   const [fy, fm] = fromYm.split("-").map(Number);
   const [ty, tm] = toYm.split("-").map(Number);
   const [startY, startM, endY, endM] = fy * 12 + fm <= ty * 12 + tm ? [fy, fm, ty, tm] : [ty, tm, fy, fm];
   const lastDayOfEnd = new Date(endY, endM, 0).getDate();
-  const label = startY === endY && startM === endM ? `Tháng ${startM}/${startY}` : `Tháng ${startM}/${startY} – Tháng ${endM}/${endY}`;
+  const label =
+    startY === endY && startM === endM
+      ? t("enrollmentMovementStatsPage.monthLabel", { month: startM, year: startY })
+      : t("enrollmentMovementStatsPage.monthRangeLabel", { startMonth: startM, startYear: startY, endMonth: endM, endYear: endY });
   return { fromDate: toISODate(startY, startM, 1), toDate: toISODate(endY, endM, lastDayOfEnd), label, academicTermId: null };
 }
 
@@ -180,6 +179,15 @@ function resolveMonthRange(fromYm: string, toYm: string): ResolvedPeriod | null 
  * (monthIndex) không có ý nghĩa chung giữa các loại khác nhau).
  */
 export default function EnrollmentMovementStatsPage() {
+  const { t } = useTranslation("reports-operations");
+  const periodTypeLabels: Record<EnrollmentMovementPeriodType, string> = useMemo(
+    () => ({
+      MONTH: t("enrollmentMovementStatsPage.periodType.MONTH"),
+      TERM: t("enrollmentMovementStatsPage.periodType.TERM"),
+      YEAR: t("enrollmentMovementStatsPage.periodType.YEAR")
+    }),
+    [t]
+  );
   const { selectedCampusId, selectedClassId, hasPermission } = useApp();
   const canExport = hasPermission("report.enrollment-stats.view");
   const hasSite = selectedCampusId !== "ALL";
@@ -259,11 +267,16 @@ export default function EnrollmentMovementStatsPage() {
       return { fromDate: term.startDate, toDate: term.endDate, label: term.name, academicTermId: term.id };
     }
     if (periodType === "MONTH") {
-      return resolveMonthRange(selectedMonthFrom, selectedMonthTo);
+      return resolveMonthRange(t, selectedMonthFrom, selectedMonthTo);
     }
     if (!selectedYear) return null;
-    return { fromDate: toISODate(selectedYear, 1, 1), toDate: toISODate(selectedYear, 12, 31), label: `Năm ${selectedYear}`, academicTermId: null };
-  }, [periodType, terms, selectedTermId, selectedMonthFrom, selectedMonthTo, selectedYear]);
+    return {
+      fromDate: toISODate(selectedYear, 1, 1),
+      toDate: toISODate(selectedYear, 12, 31),
+      label: t("enrollmentMovementStatsPage.yearLabel", { year: selectedYear }),
+      academicTermId: null
+    };
+  }, [periodType, terms, selectedTermId, selectedMonthFrom, selectedMonthTo, selectedYear, t]);
 
   const comparisonPeriod: ResolvedPeriod | null = useMemo(() => {
     if (periodType === "TERM") {
@@ -272,11 +285,16 @@ export default function EnrollmentMovementStatsPage() {
       return { fromDate: term.startDate, toDate: term.endDate, label: term.name, academicTermId: term.id };
     }
     if (periodType === "MONTH") {
-      return resolveMonthRange(comparisonMonthFrom, comparisonMonthTo);
+      return resolveMonthRange(t, comparisonMonthFrom, comparisonMonthTo);
     }
     if (!comparisonYear) return null;
-    return { fromDate: toISODate(comparisonYear, 1, 1), toDate: toISODate(comparisonYear, 12, 31), label: `Năm ${comparisonYear}`, academicTermId: null };
-  }, [periodType, terms, comparisonTermId, comparisonMonthFrom, comparisonMonthTo, comparisonYear]);
+    return {
+      fromDate: toISODate(comparisonYear, 1, 1),
+      toDate: toISODate(comparisonYear, 12, 31),
+      label: t("enrollmentMovementStatsPage.yearLabel", { year: comparisonYear }),
+      academicTermId: null
+    };
+  }, [periodType, terms, comparisonTermId, comparisonMonthFrom, comparisonMonthTo, comparisonYear, t]);
 
   const fetchStatsFor = (period: ResolvedPeriod): Promise<EnrollmentMovementStatsResponse> =>
     period.academicTermId != null
@@ -311,7 +329,7 @@ export default function EnrollmentMovementStatsPage() {
       .then(setStats)
       .catch((err) => {
         setStats(null);
-        setError(err instanceof ApiError ? err.message : "Không tải được thống kê biến động học sinh.");
+        setError(err instanceof ApiError ? err.message : t("enrollmentMovementStatsPage.loadStatsError"));
       })
       .finally(() => setLoadingStats(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -350,7 +368,7 @@ export default function EnrollmentMovementStatsPage() {
       .then(setGrid)
       .catch((err) => {
         setGrid(null);
-        setError(err instanceof ApiError ? err.message : "Không tải được lưới biến động học sinh.");
+        setError(err instanceof ApiError ? err.message : t("enrollmentMovementStatsPage.gridMode.loadError"));
       })
       .finally(() => setLoadingGrid(false));
   }, [displayMode, siteId, periodType, gridYear, selectedClassId]);
@@ -368,9 +386,9 @@ export default function EnrollmentMovementStatsPage() {
             periodType, periodLabel: currentPeriod.label, classId: selectedClassId ?? undefined
           });
       downloadBlob(blob, `bien-dong-hoc-sinh-${currentPeriod.fromDate}-${currentPeriod.toDate}.xlsx`);
-      showToast("Xuất file Excel thành công!");
+      showToast(t("enrollmentMovementStatsPage.toasts.exportSuccess"));
     } catch (err) {
-      showToast(err instanceof ApiError ? err.message : "Xuất file thất bại.");
+      showToast(err instanceof ApiError ? err.message : t("enrollmentMovementStatsPage.toasts.exportFailed"));
     } finally {
       setExporting(false);
     }
@@ -386,9 +404,9 @@ export default function EnrollmentMovementStatsPage() {
       {/* Header */}
       <div className="border-b border-slate-200 pb-4 flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Thống kê biến động học sinh</h1>
+          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("enrollmentMovementStatsPage.title")}</h1>
           <p className="text-xs text-slate-500 mt-1">
-            Sĩ số đầu kỳ/cuối kỳ và biến động (nhập học mới, nghỉ/rút, chuyển lớp, hoàn thành) của các lớp — xem theo tháng, học kỳ hoặc năm.
+            {t("enrollmentMovementStatsPage.description")}
           </p>
         </div>
         {canExport && displayMode === "detail" && (
@@ -399,7 +417,7 @@ export default function EnrollmentMovementStatsPage() {
             className="flex items-center gap-1.5 shadow-sm"
           >
             <Download className="w-4 h-4" />
-            Xuất Excel
+            {t("enrollmentMovementStatsPage.exportButton")}
           </Button>
         )}
       </div>
@@ -407,7 +425,7 @@ export default function EnrollmentMovementStatsPage() {
       {/* Chọn loại khoảng thời gian + chế độ hiển thị (Chi tiết 1 khoảng / Lưới tổng quan nhiều khoảng) */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl p-1 w-fit">
-          {(Object.keys(PERIOD_TYPE_LABELS) as EnrollmentMovementPeriodType[]).map((pt) => (
+          {(Object.keys(periodTypeLabels) as EnrollmentMovementPeriodType[]).map((pt) => (
             <button
               key={pt}
               onClick={() => setPeriodType(pt)}
@@ -416,7 +434,7 @@ export default function EnrollmentMovementStatsPage() {
                 periodType === pt ? "bg-brand-gradient text-white shadow-xs" : "text-slate-500 hover:text-slate-700"
               )}
             >
-              {PERIOD_TYPE_LABELS[pt]}
+              {periodTypeLabels[pt]}
             </button>
           ))}
         </div>
@@ -428,17 +446,17 @@ export default function EnrollmentMovementStatsPage() {
               displayMode === "detail" ? "bg-brand-gradient text-white shadow-xs" : "text-slate-500 hover:text-slate-700"
             )}
           >
-            Chi tiết
+            {t("enrollmentMovementStatsPage.displayMode.detail")}
           </button>
           <button
             onClick={() => setDisplayMode("grid")}
-            title="Lưới tổng quan — hàng đầu là tháng/kỳ/năm, cột đầu là lớp"
+            title={t("enrollmentMovementStatsPage.displayMode.gridTitle")}
             className={cn(
               "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors",
               displayMode === "grid" ? "bg-brand-gradient text-white shadow-xs" : "text-slate-500 hover:text-slate-700"
             )}
           >
-            Lưới tổng quan
+            {t("enrollmentMovementStatsPage.displayMode.grid")}
           </button>
         </div>
       </div>
@@ -447,16 +465,17 @@ export default function EnrollmentMovementStatsPage() {
       {!hasSite ? (
         <div className="bg-amber-50 border border-amber-200/80 rounded-xl p-4 text-amber-800 text-sm flex items-center gap-3">
           <Filter className="w-5 h-5 text-amber-600 shrink-0" />
-          <span>Vui lòng chọn 1 điểm trường cụ thể trên thanh Header (góc trên bên trái).</span>
+          <span>{t("enrollmentMovementStatsPage.filters.noSiteSelected")}</span>
         </div>
       ) : displayMode === "grid" ? (
         <div className="bg-white rounded-xl border border-slate-200/60 shadow-sm p-4">
           <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 mb-3">
-            <Filter className="w-3.5 h-3.5" /> Lưới tổng quan — hàng đầu là {PERIOD_TYPE_LABELS[periodType].toLowerCase()}, cột đầu là lớp
+            <Filter className="w-3.5 h-3.5" />{" "}
+            {t("enrollmentMovementStatsPage.gridMode.sectionHint", { period: periodTypeLabels[periodType].toLowerCase() })}
           </div>
           {periodType === "MONTH" ? (
             <div className="max-w-[220px]">
-              <label className="block text-xs text-slate-500 mb-1">Năm (hiển thị đủ 12 tháng)</label>
+              <label className="block text-xs text-slate-500 mb-1">{t("enrollmentMovementStatsPage.gridMode.yearLabel")}</label>
               <Select
                 value={gridYear}
                 onChange={(e) => setGridYear(Number(e.target.value))}
@@ -468,47 +487,50 @@ export default function EnrollmentMovementStatsPage() {
               </Select>
             </div>
           ) : periodType === "YEAR" ? (
-            <p className="text-xs text-slate-400">Hiển thị 6 năm gần nhất ({new Date().getFullYear() - 5} — {new Date().getFullYear()}).</p>
+            <p className="text-xs text-slate-400">
+              {t("enrollmentMovementStatsPage.gridMode.yearRangeHint", { start: new Date().getFullYear() - 5, end: new Date().getFullYear() })}
+            </p>
           ) : (
-            <p className="text-xs text-slate-400">Hiển thị toàn bộ kỳ học của điểm trường này, sắp theo thời gian.</p>
+            <p className="text-xs text-slate-400">{t("enrollmentMovementStatsPage.gridMode.allTermsHint")}</p>
           )}
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-slate-200/60 shadow-sm p-4">
           <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 mb-3">
-            <Filter className="w-3.5 h-3.5" /> Chọn {PERIOD_TYPE_LABELS[periodType].toLowerCase()}
+            <Filter className="w-3.5 h-3.5" />{" "}
+            {t("enrollmentMovementStatsPage.filters.selectPeriodTitle", { period: periodTypeLabels[periodType].toLowerCase() })}
           </div>
           <div className="flex flex-wrap gap-3">
             {periodType === "TERM" && (
               <>
                 <div className="flex-1 min-w-[260px]">
-                  <label className="block text-xs text-slate-500 mb-1">Kỳ học</label>
+                  <label className="block text-xs text-slate-500 mb-1">{t("enrollmentMovementStatsPage.filters.termLabel")}</label>
                   <Select
                     value={selectedTermId}
                     onChange={(e) => setSelectedTermId(e.target.value ? Number(e.target.value) : "")}
                     disabled={loadingTerms}
                     className="w-full border border-slate-300 rounded-lg text-sm p-2 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
                   >
-                    <option value="">-- Chọn kỳ học --</option>
-                    {terms.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.name} ({t.startDate} - {t.endDate})
+                    <option value="">{t("enrollmentMovementStatsPage.filters.termPlaceholder")}</option>
+                    {terms.map((term) => (
+                      <option key={term.id} value={term.id}>
+                        {t("enrollmentMovementStatsPage.filters.termOption", { name: term.name, startDate: term.startDate, endDate: term.endDate })}
                       </option>
                     ))}
                   </Select>
                 </div>
                 {selectedTermId && comparableTerms.length > 0 && (
                   <div className="flex-1 min-w-[260px]">
-                    <label className="block text-xs text-slate-500 mb-1">So sánh với kỳ khác (tuỳ chọn)</label>
+                    <label className="block text-xs text-slate-500 mb-1">{t("enrollmentMovementStatsPage.filters.comparisonLabel")}</label>
                     <Select
                       value={comparisonTermId}
                       onChange={(e) => setComparisonTermId(e.target.value ? Number(e.target.value) : "")}
                       className="w-full border border-slate-300 rounded-lg text-sm p-2 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
                     >
-                      <option value="">-- Không so sánh --</option>
-                      {comparableTerms.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.name} ({t.startDate} - {t.endDate})
+                      <option value="">{t("enrollmentMovementStatsPage.filters.comparisonPlaceholder")}</option>
+                      {comparableTerms.map((term) => (
+                        <option key={term.id} value={term.id}>
+                          {t("enrollmentMovementStatsPage.filters.termOption", { name: term.name, startDate: term.startDate, endDate: term.endDate })}
                         </option>
                       ))}
                     </Select>
@@ -521,17 +543,17 @@ export default function EnrollmentMovementStatsPage() {
               <>
                 <div className="flex-1 min-w-[220px] flex gap-2">
                   <div className="flex-1">
-                    <label className="block text-xs text-slate-500 mb-1">Từ tháng</label>
+                    <label className="block text-xs text-slate-500 mb-1">{t("enrollmentMovementStatsPage.filters.monthFromLabel")}</label>
                     <MonthPicker value={selectedMonthFrom} onChange={setSelectedMonthFrom} />
                   </div>
                   <div className="flex-1">
-                    <label className="block text-xs text-slate-500 mb-1">Đến tháng</label>
+                    <label className="block text-xs text-slate-500 mb-1">{t("enrollmentMovementStatsPage.filters.monthToLabel")}</label>
                     <MonthPicker value={selectedMonthTo} onChange={setSelectedMonthTo} />
                   </div>
                 </div>
                 <div className="flex-1 min-w-[220px] flex gap-2">
                   <div className="flex-1">
-                    <label className="block text-xs text-slate-500 mb-1">So sánh — từ tháng (tuỳ chọn)</label>
+                    <label className="block text-xs text-slate-500 mb-1">{t("enrollmentMovementStatsPage.filters.comparisonMonthFromLabel")}</label>
                     <MonthPicker
                       value={comparisonMonthFrom}
                       onChange={(v) => {
@@ -540,15 +562,15 @@ export default function EnrollmentMovementStatsPage() {
                         // tháng, giống hành vi đơn giản trước đây), người dùng vẫn đổi lại được ngay bên cạnh.
                         if (v && !comparisonMonthTo) setComparisonMonthTo(v);
                       }}
-                      placeholder="-- Không so sánh --"
+                      placeholder={t("enrollmentMovementStatsPage.filters.comparisonPlaceholder")}
                     />
                   </div>
                   <div className="flex-1">
-                    <label className="block text-xs text-slate-500 mb-1">đến tháng</label>
+                    <label className="block text-xs text-slate-500 mb-1">{t("enrollmentMovementStatsPage.filters.comparisonMonthToLabel")}</label>
                     <MonthPicker
                       value={comparisonMonthTo}
                       onChange={setComparisonMonthTo}
-                      placeholder="-- Không so sánh --"
+                      placeholder={t("enrollmentMovementStatsPage.filters.comparisonPlaceholder")}
                       disabled={!comparisonMonthFrom}
                     />
                   </div>
@@ -559,7 +581,7 @@ export default function EnrollmentMovementStatsPage() {
             {periodType === "YEAR" && (
               <>
                 <div className="flex-1 min-w-[220px]">
-                  <label className="block text-xs text-slate-500 mb-1">Năm</label>
+                  <label className="block text-xs text-slate-500 mb-1">{t("enrollmentMovementStatsPage.filters.yearLabel")}</label>
                   <Select
                     value={selectedYear}
                     onChange={(e) => setSelectedYear(Number(e.target.value))}
@@ -571,13 +593,13 @@ export default function EnrollmentMovementStatsPage() {
                   </Select>
                 </div>
                 <div className="flex-1 min-w-[220px]">
-                  <label className="block text-xs text-slate-500 mb-1">So sánh với năm khác (tuỳ chọn)</label>
+                  <label className="block text-xs text-slate-500 mb-1">{t("enrollmentMovementStatsPage.filters.comparisonYearLabel")}</label>
                   <Select
                     value={comparisonYear}
                     onChange={(e) => setComparisonYear(e.target.value ? Number(e.target.value) : "")}
                     className="w-full border border-slate-300 rounded-lg text-sm p-2 focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
                   >
-                    <option value="">-- Không so sánh --</option>
+                    <option value="">{t("enrollmentMovementStatsPage.filters.comparisonPlaceholder")}</option>
                     {yearOptions.filter((y) => y !== selectedYear).map((y) => (
                       <option key={y} value={y}>{y}</option>
                     ))}
@@ -587,7 +609,7 @@ export default function EnrollmentMovementStatsPage() {
             )}
           </div>
           {periodType === "TERM" && !loadingTerms && terms.length === 0 && (
-            <p className="text-xs text-slate-400 mt-2">Điểm trường này chưa có kỳ học nào — tạo ở màn "Quản lý Kỳ học".</p>
+            <p className="text-xs text-slate-400 mt-2">{t("enrollmentMovementStatsPage.filters.noTerms")}</p>
           )}
         </div>
       )}
@@ -609,12 +631,12 @@ export default function EnrollmentMovementStatsPage() {
 
           {/* Thống kê tổng quan */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            <StatCard icon={<Users className="w-5 h-5 text-brand-orange" />} label="Đầu kỳ" value={stats.totals.openingHeadcount} />
-            <StatCard icon={<UserPlus className="w-5 h-5 text-emerald-500" />} label="Nhập học mới" value={stats.totals.newEnrollments} color="text-emerald-600" />
-            <StatCard icon={<LogOut className="w-5 h-5 text-rose-500" />} label="Nghỉ/rút" value={stats.totals.withdrawnCount} color="text-rose-600" />
-            <StatCard icon={<ArrowLeftRight className="w-5 h-5 text-amber-500" />} label="Chuyển lớp" value={stats.totals.transferredCount} color="text-amber-600" />
-            <StatCard icon={<TrendingUp className="w-5 h-5 text-blue-500" />} label="Hoàn thành" value={stats.totals.completedCount} color="text-blue-600" />
-            <StatCard icon={<Users className="w-5 h-5 text-brand-orange" />} label="Cuối kỳ" value={stats.totals.closingHeadcount} />
+            <StatCard icon={<Users className="w-5 h-5 text-brand-orange" />} label={t("enrollmentMovementStatsPage.stats.opening")} value={stats.totals.openingHeadcount} />
+            <StatCard icon={<UserPlus className="w-5 h-5 text-emerald-500" />} label={t("enrollmentMovementStatsPage.stats.newEnrollments")} value={stats.totals.newEnrollments} color="text-emerald-600" />
+            <StatCard icon={<LogOut className="w-5 h-5 text-rose-500" />} label={t("enrollmentMovementStatsPage.stats.withdrawn")} value={stats.totals.withdrawnCount} color="text-rose-600" />
+            <StatCard icon={<ArrowLeftRight className="w-5 h-5 text-amber-500" />} label={t("enrollmentMovementStatsPage.stats.transferred")} value={stats.totals.transferredCount} color="text-amber-600" />
+            <StatCard icon={<TrendingUp className="w-5 h-5 text-blue-500" />} label={t("enrollmentMovementStatsPage.stats.completed")} value={stats.totals.completedCount} color="text-blue-600" />
+            <StatCard icon={<Users className="w-5 h-5 text-brand-orange" />} label={t("enrollmentMovementStatsPage.stats.closing")} value={stats.totals.closingHeadcount} />
           </div>
 
           {/* Biểu đồ xu hướng sĩ số theo tháng — so sánh giữa 2 khoảng nếu có chọn */}
@@ -632,26 +654,26 @@ export default function EnrollmentMovementStatsPage() {
           {/* Bảng biến động theo lớp */}
           <div className="bg-white rounded-xl border border-slate-200/60 shadow-sm overflow-hidden">
             <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between gap-3 flex-wrap">
-              <h3 className="text-sm font-semibold text-slate-700">Biến động theo lớp</h3>
-              <span className="text-xs text-slate-400">{stats.classes.length} lớp</span>
+              <h3 className="text-sm font-semibold text-slate-700">{t("enrollmentMovementStatsPage.table.title")}</h3>
+              <span className="text-xs text-slate-400">{t("enrollmentMovementStatsPage.table.classCount", { count: stats.classes.length })}</span>
             </div>
             {stats.classes.length === 0 ? (
               <div className="px-4 py-10 text-center">
                 <Users className="w-10 h-10 mx-auto text-slate-200 mb-2" />
-                <p className="text-sm text-slate-400">Điểm trường này chưa có lớp nào.</p>
+                <p className="text-sm text-slate-400">{t("enrollmentMovementStatsPage.table.empty")}</p>
               </div>
             ) : (
               <table className="w-full text-sm text-left">
                 <thead className="bg-slate-50 border-b border-slate-100 text-xs text-slate-500 font-medium">
                   <tr>
-                    <th className="px-4 py-2.5">Lớp</th>
-                    <th className="px-4 py-2.5 text-right">Đầu kỳ</th>
-                    <th className="px-4 py-2.5 text-right">Nhập mới</th>
-                    <th className="px-4 py-2.5 text-right">Nghỉ/rút</th>
-                    <th className="px-4 py-2.5 text-right">Chuyển lớp</th>
-                    <th className="px-4 py-2.5 text-right">Hoàn thành</th>
-                    <th className="px-4 py-2.5 text-right">Cuối kỳ</th>
-                    <th className="px-4 py-2.5 text-right">Biến động ròng</th>
+                    <th className="px-4 py-2.5">{t("enrollmentMovementStatsPage.table.columns.class")}</th>
+                    <th className="px-4 py-2.5 text-right">{t("enrollmentMovementStatsPage.table.columns.opening")}</th>
+                    <th className="px-4 py-2.5 text-right">{t("enrollmentMovementStatsPage.table.columns.newEnrollments")}</th>
+                    <th className="px-4 py-2.5 text-right">{t("enrollmentMovementStatsPage.table.columns.withdrawn")}</th>
+                    <th className="px-4 py-2.5 text-right">{t("enrollmentMovementStatsPage.table.columns.transferred")}</th>
+                    <th className="px-4 py-2.5 text-right">{t("enrollmentMovementStatsPage.table.columns.completed")}</th>
+                    <th className="px-4 py-2.5 text-right">{t("enrollmentMovementStatsPage.table.columns.closing")}</th>
+                    <th className="px-4 py-2.5 text-right">{t("enrollmentMovementStatsPage.table.columns.netChange")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -681,7 +703,7 @@ export default function EnrollmentMovementStatsPage() {
                 </tbody>
                 <tfoot className="bg-slate-50 border-t-2 border-slate-200 font-bold text-slate-800">
                   <tr>
-                    <td className="px-4 py-3">Tổng cộng</td>
+                    <td className="px-4 py-3">{t("enrollmentMovementStatsPage.table.totalRow")}</td>
                     <td className="px-4 py-3 text-right">{stats.totals.openingHeadcount}</td>
                     <td className="px-4 py-3 text-right text-emerald-700">{stats.totals.newEnrollments}</td>
                     <td className="px-4 py-3 text-right text-rose-700">{stats.totals.withdrawnCount}</td>
@@ -703,14 +725,16 @@ export default function EnrollmentMovementStatsPage() {
       {displayMode === "detail" && loadingStats && (
         <div className="text-center py-16 text-slate-400">
           <ArrowLeftRight className="w-14 h-14 mx-auto text-slate-200 mb-3 animate-pulse" />
-          <p className="text-sm font-medium">Đang tải thống kê...</p>
+          <p className="text-sm font-medium">{t("enrollmentMovementStatsPage.loadingStats")}</p>
         </div>
       )}
 
       {displayMode === "detail" && hasSite && !currentPeriod && !loadingTerms && (
         <div className="text-center py-16 text-slate-400">
           <ArrowLeftRight className="w-14 h-14 mx-auto text-slate-200 mb-3" />
-          <p className="text-sm font-medium">Chọn {PERIOD_TYPE_LABELS[periodType].toLowerCase()} để xem thống kê biến động</p>
+          <p className="text-sm font-medium">
+            {t("enrollmentMovementStatsPage.selectTermPrompt", { period: periodTypeLabels[periodType].toLowerCase() })}
+          </p>
         </div>
       )}
 
@@ -720,7 +744,7 @@ export default function EnrollmentMovementStatsPage() {
       {displayMode === "grid" && loadingGrid && (
         <div className="text-center py-16 text-slate-400">
           <ArrowLeftRight className="w-14 h-14 mx-auto text-slate-200 mb-3 animate-pulse" />
-          <p className="text-sm font-medium">Đang tải lưới thống kê...</p>
+          <p className="text-sm font-medium">{t("enrollmentMovementStatsPage.gridMode.loading")}</p>
         </div>
       )}
 
@@ -732,7 +756,7 @@ export default function EnrollmentMovementStatsPage() {
           {grid.rows.length === 0 ? (
             <div className="px-4 py-10 text-center">
               <Users className="w-10 h-10 mx-auto text-slate-200 mb-2" />
-              <p className="text-sm text-slate-400">Điểm trường này chưa có lớp nào.</p>
+              <p className="text-sm text-slate-400">{t("enrollmentMovementStatsPage.table.empty")}</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -750,7 +774,7 @@ export default function EnrollmentMovementStatsPage() {
                 </colgroup>
                 <thead className="bg-slate-50 border-b border-slate-100 text-xs text-slate-500 font-medium">
                   <tr>
-                    <th className="sticky left-0 bg-slate-50 px-4 py-2.5 z-10">Lớp</th>
+                    <th className="sticky left-0 bg-slate-50 px-4 py-2.5 z-10">{t("enrollmentMovementStatsPage.gridMode.classColumn")}</th>
                     {grid.columns.map((c) => (
                       <th key={c.key} className="px-3 py-2.5 text-right">{c.label}</th>
                     ))}

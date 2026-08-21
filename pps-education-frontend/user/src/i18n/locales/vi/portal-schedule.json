@@ -1,0 +1,65 @@
+{
+  "dateRangePicker": {
+    "weekdays": ["T2", "T3", "T4", "T5", "T6", "T7", "CN"],
+    "selectStartDate": "Chọn ngày bắt đầu",
+    "selectEndDate": "Chọn ngày kết thúc",
+    "prevMonth": "Tháng trước",
+    "nextMonth": "Tháng sau",
+    "selectDay": "Chọn ngày {{day}}/{{month}}",
+    "clearFilter": "Xóa lọc",
+    "done": "Xong",
+    "filterByDateRange": "Lọc theo khoảng thời gian",
+    "selectDateRangeDialog": "Chọn khoảng thời gian",
+    "from": "Từ",
+    "to": "Đến"
+  },
+  "filterBar": {
+    "filterByTerm": "Lọc theo học kỳ",
+    "term": "Học kỳ",
+    "selectTermDialog": "Chọn học kỳ"
+  },
+  "teacherType": {
+    "vietnamese": "GV Việt Nam",
+    "foreign": "GV nước ngoài"
+  },
+  "attendanceStatus": {
+    "present": "Đi học",
+    "late": "Đi muộn",
+    "absent": "Vắng mặt",
+    "excused": "Vắng có phép"
+  },
+  "sessionStatus": {
+    "cancelled": "Đã hủy",
+    "rescheduled": "Đã dời lịch",
+    "completed": "Đã học",
+    "ongoing": "Đang diễn ra",
+    "upcoming": "Sắp diễn ra"
+  },
+  "loading": "Đang tải...",
+  "loadError": "Không tải được lịch học/chuyên cần.",
+  "stats": {
+    "attendanceRate": "Tỷ lệ đi học",
+    "onTime": "Đúng giờ",
+    "sessionsCount": "{{count}} buổi",
+    "sessionsCountOfTotal": "{{count}} / {{total}} buổi",
+    "excusedSuffix": "({{count}} có phép)"
+  },
+  "scheduleCard": {
+    "title": "Lịch buổi học",
+    "viewAll": "Xem tất cả",
+    "sessionInfo": "Buổi {{number}} · {{date}} · {{start}}–{{end}}",
+    "teacherLabel": "Giáo viên:",
+    "roomLabel": "Phòng học",
+    "cancelReason": "Lý do hủy: {{reason}}",
+    "emptyFiltered": "Không có buổi học nào trong khoảng đã lọc.",
+    "emptyAll": "Chưa có buổi học nào."
+  },
+  "attendanceLog": {
+    "title": "Nhật ký chuyên cần",
+    "lateBy": "Muộn {{minutes}} phút",
+    "unknownSession": "Không rõ buổi học",
+    "reasonPrefix": "* Lý do: {{reason}}",
+    "emptyFiltered": "Không có dữ liệu chuyên cần trong khoảng đã lọc.",
+    "emptyAll": "Chưa có dữ liệu chuyên cần."
+  }
+}

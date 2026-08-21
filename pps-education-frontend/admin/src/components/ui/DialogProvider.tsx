@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import Modal from "./Modal";
 import Button from "./Button";
 
@@ -48,6 +49,7 @@ const DialogContext = createContext<DialogContextValue | null>(null);
  * điểm (đúng hành vi window.alert/confirm/prompt vốn cũng chặn tuần tự, không xếp chồng nhiều popup).
  */
 export function DialogProvider({ children }: { children: React.ReactNode }) {
+  const { t } = useTranslation("layout");
   const [request, setRequest] = useState<DialogRequest | null>(null);
   const [inputValue, setInputValue] = useState("");
   // Tránh resolve 2 lần (VD bấm nút rồi Modal onClose bắn thêm 1 lần nữa trong cùng tick).
@@ -86,8 +88,8 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
   const confirmLabel = !request
     ? ""
     : request.kind === "alert"
-      ? request.options?.okLabel ?? "Đã hiểu"
-      : request.options?.confirmLabel ?? "Xác nhận";
+      ? request.options?.okLabel ?? t("dialog.okLabel")
+      : request.options?.confirmLabel ?? t("dialog.confirmLabel");
 
   return (
     <DialogContext.Provider value={{ alertDialog, confirmDialog, promptDialog }}>
@@ -96,7 +98,10 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
         <Modal
           open
           onClose={() => closeWith(request.kind === "alert" ? undefined : request.kind === "confirm" ? false : null)}
-          title={request.options?.title ?? (request.kind === "alert" ? "Thông báo" : request.kind === "confirm" ? "Xác nhận" : "Nhập thông tin")}
+          title={
+            request.options?.title ??
+            (request.kind === "alert" ? t("dialog.alertTitle") : request.kind === "confirm" ? t("dialog.confirmTitle") : t("dialog.promptTitle"))
+          }
           size="md"
         >
           <p className="text-xs text-slate-700 whitespace-pre-wrap leading-relaxed">{request.message}</p>
@@ -129,7 +134,7 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
                 size="sm"
                 onClick={() => closeWith(request.kind === "confirm" ? false : null)}
               >
-                {request.options?.cancelLabel ?? "Hủy"}
+                {request.options?.cancelLabel ?? t("dialog.cancelLabel")}
               </Button>
             )}
             <Button

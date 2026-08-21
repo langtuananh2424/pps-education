@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Save } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import {
@@ -62,6 +63,7 @@ function isWithinAttendanceWindow(s: ClassSessionResponse): boolean {
 }
 
 export default function AttendancePage() {
+  const { t } = useTranslation("student");
   const { hasPermission, selectedClassId: globalClassId } = useApp();
   // Quyền quản trị điểm danh vượt rào "chỉ trong khung giờ buổi học" của Giáo viên thường (xem isWithinAttendanceWindow).
   const hasAttendanceOverride = hasPermission("academic.attendance.create") || hasPermission("academic.attendance.update");
@@ -100,8 +102,8 @@ export default function AttendancePage() {
   const lockedReason = !selectedSession
     ? null
     : new Date() < new Date(`${selectedSession.sessionDate}T${selectedSession.startTime}`)
-      ? `Chưa tới giờ bắt đầu buổi học (${selectedSession.startTime})`
-      : `Buổi học đã kết thúc lúc ${selectedSession.endTime}`;
+      ? t("attendancePage.notYetStarted", { time: selectedSession.startTime })
+      : t("attendancePage.alreadyEnded", { time: selectedSession.endTime });
 
   useEffect(() => {
     if (!selectedClassId) {
@@ -110,7 +112,7 @@ export default function AttendancePage() {
     }
     listClassSessions(selectedClassId)
       .then(setSessions)
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách buổi học."));
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("attendancePage.loadSessionsError")));
   }, [selectedClassId]);
 
   useEffect(() => {
@@ -138,7 +140,7 @@ export default function AttendancePage() {
             );
           });
         }
-        setError(err instanceof ApiError ? err.message : "Không tải được dữ liệu điểm danh.");
+        setError(err instanceof ApiError ? err.message : t("attendancePage.loadDataError"));
       })
       .finally(() => setLoadingRows(false));
   }, [selectedClassId, selectedSessionId]);
@@ -166,28 +168,28 @@ export default function AttendancePage() {
       const absentStudents = rows.filter((r) => r.status === "ABSENT");
       const excusedStudents = rows.filter((r) => r.status === "EXCUSED");
       const lateStudents = rows.filter((r) => r.status === "LATE");
-      let message = "🔔 BÁO CÁO CHUYÊN CẦN:\n- Hệ thống đã lưu điểm danh lớp học.\n";
+      let message = t("attendancePage.reportHeader");
       if (absentStudents.length > 0) {
         // Kênh gửi thật phụ thuộc NotificationPreference của từng phụ huynh (NotificationService) —
         // Zalo mặc định TẮT nên không nêu đích danh kênh cụ thể ở đây kẻo sai với phần lớn trường hợp.
-        message += `- ĐÃ TỰ ĐỘNG GỬI thông báo khẩn tới phụ huynh học sinh vắng mặt (qua các kênh đã bật trong cài đặt thông báo của phụ huynh): ${absentStudents.map((s) => s.studentFullName).join(", ")}.\n`;
+        message += t("attendancePage.absentNotified", { names: absentStudents.map((s) => s.studentFullName).join(", ") });
       }
       if (excusedStudents.length > 0) {
         // Backend chỉ gửi thông báo cho ABSENT/LATE (StudentAttendanceService.notifyParents) — nghỉ có
         // phép không gửi, vì phụ huynh đã chủ động xin nghỉ nên không cần cảnh báo khẩn.
-        message += `- Nghỉ có phép (không gửi thông báo khẩn): ${excusedStudents.map((s) => s.studentFullName).join(", ")}.\n`;
+        message += t("attendancePage.excusedNotNotified", { names: excusedStudents.map((s) => s.studentFullName).join(", ") });
       }
       if (lateStudents.length > 0) {
         // Backend chỉ gửi thông báo cho ABSENT (StudentAttendanceService.submitAttendance) — đi trễ
         // không gửi, đúng nghiệp vụ chốt 2026-08-04 (không còn coi trễ giờ là tình huống khẩn).
-        message += `- Đi trễ (không gửi thông báo khẩn): ${lateStudents.map((s) => s.studentFullName).join(", ")}.\n`;
+        message += t("attendancePage.lateNotNotified", { names: lateStudents.map((s) => s.studentFullName).join(", ") });
       }
       if (absentStudents.length === 0 && excusedStudents.length === 0 && lateStudents.length === 0) {
-        message = "✅ Điểm danh thành công! Toàn bộ học sinh trong lớp đã có mặt đầy đủ.";
+        message = t("attendancePage.allPresentMessage");
       }
       setNotification(message);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Lưu điểm danh thất bại.");
+      setError(err instanceof ApiError ? err.message : t("attendancePage.saveError"));
     } finally {
       setSaving(false);
     }
@@ -196,17 +198,17 @@ export default function AttendancePage() {
   return (
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Điểm Danh Chuyên Cần (SMS)</h1>
-        <p className="text-xs text-slate-500 mt-1">Giảng viên lưu chuyên cần, vắng học tự động cảnh báo phụ huynh.</p>
+        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("attendancePage.title")}</h1>
+        <p className="text-xs text-slate-500 mt-1">{t("attendancePage.description")}</p>
       </div>
 
       {notification && (
-        <Modal open onClose={() => setNotification(null)} title="Báo cáo chuyên cần" size="md">
+        <Modal open onClose={() => setNotification(null)} title={t("attendancePage.notificationModalTitle")} size="md">
           <div className="space-y-4">
             <div className="text-xs text-slate-700 leading-relaxed whitespace-pre-line">{notification}</div>
             <div className="flex justify-end">
               <Button type="button" variant="primary" onClick={() => setNotification(null)}>
-                Đã hiểu
+                {t("attendancePage.understood")}
               </Button>
             </div>
           </div>
@@ -218,9 +220,9 @@ export default function AttendancePage() {
       <div className="bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50">
             <div>
-              <span className="text-xs font-bold text-slate-700 font-display">Điểm danh Chuyên cần đầu giờ</span>
+              <span className="text-xs font-bold text-slate-700 font-display">{t("attendancePage.sectionTitle")}</span>
               <p className="text-[10px] text-slate-400 mt-0.5">
-                {selectedClass ? `${selectedClass.name} (${selectedClass.classCode})` : "Chưa chọn lớp — chọn ở góc trên bên phải (Header) để bắt đầu điểm danh."}
+                {selectedClass ? `${selectedClass.name} (${selectedClass.classCode})` : t("attendancePage.noClassSelected")}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -230,7 +232,7 @@ export default function AttendancePage() {
                   onChange={(e) => pickSession(e.target.value)}
                   className="bg-white border text-[10px] font-bold text-slate-700 px-2 py-1 rounded focus:outline-none"
                 >
-                  <option value="">-- Chọn buổi học --</option>
+                  <option value="">{t("attendancePage.selectSessionPlaceholder")}</option>
                   {sessions.filter((s) => hasAttendanceOverride || (hasSessionStarted(s) && isToday(s))).map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.sessionDate} ({s.startTime}–{s.endTime})
@@ -244,15 +246,20 @@ export default function AttendancePage() {
                 disabled={locked}
                 className="bg-white border text-[10px] font-bold text-slate-700 px-2 py-1 rounded focus:outline-none disabled:opacity-50"
               >
-                <option value="SESSION_LEVEL">Mức cả Buổi (SESSION)</option>
-                <option value="PERIOD_LEVEL">Mức từng Tiết (PERIOD)</option>
+                <option value="SESSION_LEVEL">{t("attendancePage.modeSessionLevel")}</option>
+                <option value="PERIOD_LEVEL">{t("attendancePage.modePeriodLevel")}</option>
               </Select>
             </div>
           </div>
 
           {locked && (
             <div className="px-5 py-2.5 bg-amber-50 border-b border-amber-100 text-amber-700 text-[11px] font-semibold">
-              {lockedReason} — chỉ điểm danh/sửa được trong khung giờ buổi học ({selectedSession?.startTime}–{selectedSession?.endTime}, ngày {selectedSession?.sessionDate}). Cần quyền quản trị điểm danh để thao tác ngoài khung giờ này.
+              {t("attendancePage.lockedNotice", {
+                reason: lockedReason,
+                start: selectedSession?.startTime,
+                end: selectedSession?.endTime,
+                date: selectedSession?.sessionDate
+              })}
             </div>
           )}
 
@@ -261,31 +268,31 @@ export default function AttendancePage() {
           <TableContainer className="rounded-none border-0 max-h-[65vh] overflow-y-auto">
             <thead className="sticky top-0 z-10">
               <tr>
-                <Th className="sticky top-0 z-10">Mã ID</Th>
-                <Th className="sticky top-0 z-10">Họ và tên</Th>
-                <Th className="sticky top-0 z-10 text-center">Có mặt</Th>
-                <Th className="sticky top-0 z-10 text-center">Vắng mặt (ABSENT)</Th>
-                <Th className="sticky top-0 z-10 text-center">Nghỉ có phép (EXCUSED)</Th>
-                <Th className="sticky top-0 z-10 text-center">Đi trễ (LATE)</Th>
+                <Th className="sticky top-0 z-10">{t("attendancePage.columns.id")}</Th>
+                <Th className="sticky top-0 z-10">{t("attendancePage.columns.fullName")}</Th>
+                <Th className="sticky top-0 z-10 text-center">{t("attendancePage.columns.present")}</Th>
+                <Th className="sticky top-0 z-10 text-center">{t("attendancePage.columns.absent")}</Th>
+                <Th className="sticky top-0 z-10 text-center">{t("attendancePage.columns.excused")}</Th>
+                <Th className="sticky top-0 z-10 text-center">{t("attendancePage.columns.late")}</Th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {!selectedSessionId ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-xs text-slate-400 italic">
-                    {selectedClass ? "Chọn buổi học ở trên để tải danh sách học sinh." : "Chọn 1 lớp ở Header (góc trên bên phải)."}
+                    {selectedClass ? t("attendancePage.selectSessionPrompt") : t("attendancePage.selectClassPrompt")}
                   </td>
                 </tr>
               ) : loadingRows ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-xs text-slate-400">
-                    Đang tải...
+                    {t("attendancePage.loading")}
                   </td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-xs text-slate-400 italic">
-                    Không tìm thấy học sinh nào thuộc lớp học này.
+                    {t("attendancePage.noStudents")}
                   </td>
                 </tr>
               ) : (
@@ -329,7 +336,7 @@ export default function AttendancePage() {
               className="bg-brand-orange hover:bg-brand-orange/90 text-white font-semibold text-xs px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-soft transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-brand-orange"
             >
               <Save className="w-4 h-4 text-white" />
-              <span>{saving ? "Đang lưu..." : "Xác nhận & Lưu điểm danh"}</span>
+              <span>{saving ? t("attendancePage.saving") : t("attendancePage.saveButton")}</span>
             </button>
           </div>
       </div>

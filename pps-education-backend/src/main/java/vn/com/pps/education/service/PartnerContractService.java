@@ -84,7 +84,7 @@ public class PartnerContractService {
         User actor = getUserOrThrow(actorUserId);
         PartnerContract parent = request.parentContractId() == null ? null
                 : partnerContractRepository.findByIdAndDeletedAtIsNull(request.parentContractId())
-                        .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hợp đồng gốc id=" + request.parentContractId()));
+                        .orElseThrow(() -> new ResourceNotFoundException("error.partnerContract.parentNotFound", new Object[]{request.parentContractId()}, "Không tìm thấy hợp đồng gốc id=" + request.parentContractId()));
 
         PartnerContract contract = new PartnerContract();
         contract.setSite(site);
@@ -119,8 +119,8 @@ public class PartnerContractService {
             partnerContractRepository.findBySiteIdAndStatusAndDeletedAtIsNull(siteId, PartnerContract.Status.ACTIVE)
                     .filter(existing -> !existing.getId().equals(currentContractId))
                     .ifPresent(existing -> {
-                        throw new ActivePartnerContractAlreadyExistsException(
-                                "Điểm trường này đã có hợp đồng đang hoạt động (ACTIVE) khác rồi.");
+                        throw new ActivePartnerContractAlreadyExistsException("error.activePartnerContractAlreadyExists.default",
+                                new Object[]{}, "Điểm trường này đã có hợp đồng đang hoạt động (ACTIVE) khác rồi.");
                     });
         }
 
@@ -182,7 +182,8 @@ public class PartnerContractService {
     public void deleteContract(Long contractId, Long actorUserId) {
         PartnerContract contract = getContractOrThrow(contractId);
         if (contract.getStatus() != PartnerContract.Status.DRAFT) {
-            throw new PartnerContractNotDeletableException(
+            throw new PartnerContractNotDeletableException("error.partnerContractNotDeletable.default",
+                    new Object[]{contract.getStatus()},
                     "Chỉ xóa được hợp đồng đang ở trạng thái Nháp (DRAFT); hợp đồng này đang " + contract.getStatus()
                             + " — dùng chức năng chấm dứt thay thế.");
         }
@@ -218,7 +219,8 @@ public class PartnerContractService {
         long sequence = partnerContractRepository.countByContractNumberStartingWith(prefix) + 1;
         String candidate = prefix + String.format("%04d", sequence);
         if (partnerContractRepository.existsByContractNumber(candidate)) {
-            throw new DuplicatePartnerContractNumberException("Số hợp đồng đã tồn tại: " + candidate);
+            throw new DuplicatePartnerContractNumberException("error.duplicatePartnerContractNumber.default",
+                    new Object[]{candidate}, "Số hợp đồng đã tồn tại: " + candidate);
         }
         return candidate;
     }
@@ -240,17 +242,17 @@ public class PartnerContractService {
 
     private PartnerContract getContractOrThrow(Long id) {
         return partnerContractRepository.findByIdAndDeletedAtIsNull(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hợp đồng id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.partnerContract.notFoundById", new Object[]{id}, "Không tìm thấy hợp đồng id=" + id));
     }
 
     private Site getSiteOrThrow(Long id) {
         return siteRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy điểm trường id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.partnerContract.siteNotFound", new Object[]{id}, "Không tìm thấy điểm trường id=" + id));
     }
 
     private User getUserOrThrow(Long id) {
         return userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.partnerContract.accountNotFound", new Object[]{id}, "Không tìm thấy tài khoản id=" + id));
     }
 
     private PartnerContractResponse toResponse(PartnerContract c) {

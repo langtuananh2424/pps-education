@@ -54,7 +54,8 @@ public class ShiftService {
     @Transactional
     public ShiftResponse createShift(CreateShiftRequest request, Long actorUserId) {
         if (shiftRepository.existsByCode(request.code())) {
-            throw new DuplicateShiftCodeException("Mã ca làm việc đã tồn tại: " + request.code());
+            throw new DuplicateShiftCodeException("error.duplicateShiftCode.default",
+                    new Object[]{request.code()}, "Mã ca làm việc đã tồn tại: " + request.code());
         }
         String weekdays = validateAndNormalizeWeekdays(request.appliesToWeekdays());
         Shift.WeekParity weekParity = parseWeekParity(request.weekParity());
@@ -169,11 +170,11 @@ public class ShiftService {
 
     private Shift getShiftOrThrow(Long id) {
         return shiftRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy ca làm việc id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.shift.notFoundById", new Object[]{id}, "Không tìm thấy ca làm việc id=" + id));
     }
 
     private User getUserOrThrow(Long userId) {
         return userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + userId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.shift.userNotFound", new Object[]{userId}, "Không tìm thấy tài khoản id=" + userId));
     }
 }

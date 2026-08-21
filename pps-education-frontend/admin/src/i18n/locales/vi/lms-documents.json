@@ -1,0 +1,72 @@
+{
+  "page": {
+    "title": "Kho tài liệu tham khảo",
+    "subtitle": "Tài liệu chia sẻ chung theo khung chương trình, không gắn với 1 bài giảng cụ thể nào — Học sinh xem để tự học thêm."
+  },
+  "documentType": {
+    "VIDEO": "Video",
+    "PDF": "PDF",
+    "AUDIO": "Audio",
+    "SLIDE": "Slide",
+    "IMAGE": "Ảnh",
+    "OTHER": "Khác"
+  },
+  "status": {
+    "DRAFT": "Nháp",
+    "PUBLISHED": "Đã công bố",
+    "ARCHIVED": "Đã gỡ"
+  },
+  "errors": {
+    "loadFailed": "Không tải được kho tài liệu.",
+    "titleAndFileRequired": "Vui lòng điền tiêu đề và URL tệp phân phối.",
+    "titleRequired": "Vui lòng điền tiêu đề.",
+    "createFailed": "Thêm tài liệu thất bại.",
+    "updateFailed": "Cập nhật tài liệu thất bại."
+  },
+  "toast": {
+    "created": "Đã thêm tài liệu thành công!",
+    "updated": "Đã lưu tài liệu thành công!"
+  },
+  "filter": {
+    "curriculumPlaceholder": "-- Chọn khung chương trình --",
+    "addButton": "Thêm tài liệu"
+  },
+  "list": {
+    "loading": "Đang tải...",
+    "selectCurriculumPrompt": "Chọn khung chương trình ở trên để xem kho tài liệu.",
+    "empty": "Khung chương trình này chưa có tài liệu tham khảo nào.",
+    "editButton": "Sửa"
+  },
+  "createModal": {
+    "title": "Thêm tài liệu tham khảo",
+    "fields": {
+      "title": "Tiêu đề *",
+      "documentType": "Loại tệp *",
+      "description": "Mô tả",
+      "file": "Tệp tài liệu *",
+      "filePlaceholder": "Chọn PDF/Word/Excel/ảnh/audio/video...",
+      "coverImage": "Ảnh bìa hiển thị (tùy chọn)",
+      "coverImagePlaceholder": "Chọn ảnh bìa...",
+      "displayOrder": "Thứ tự hiển thị"
+    },
+    "draftHint": "Tài liệu mới tạo ở trạng thái Nháp — vào \"Sửa\" để chuyển sang Đã công bố khi sẵn sàng cho Học sinh xem.",
+    "cancel": "Hủy",
+    "submit": "Thêm tài liệu",
+    "submitting": "Đang lưu..."
+  },
+  "editModal": {
+    "title": "Sửa tài liệu: {{title}}",
+    "fields": {
+      "title": "Tiêu đề *",
+      "description": "Mô tả",
+      "coverImage": "Ảnh bìa hiển thị (tùy chọn)",
+      "coverImagePlaceholder": "Chọn ảnh bìa...",
+      "displayOrder": "Thứ tự hiển thị",
+      "status": "Trạng thái"
+    },
+    "immutableHint": "Loại tệp/URL không sửa được sau khi tạo — xoá bằng cách chuyển trạng thái \"Đã gỡ\" (ARCHIVED), tạo bản ghi mới nếu cần đổi tệp.",
+    "cancel": "Hủy",
+    "submit": "Lưu thay đổi",
+    "submitting": "Đang lưu..."
+  }
+}

@@ -27,7 +27,8 @@ public class FaceAttendanceMethodValidator implements AttendanceMethodValidator 
     @Override
     public Long validate(AttendanceCheckContext context) {
         if (!Boolean.TRUE.equals(context.biometricVerified())) {
-            throw new BiometricVerificationFailedException("Xác thực khuôn mặt thất bại — thử lại.");
+            throw new BiometricVerificationFailedException("error.biometricVerificationFailed.face", new Object[]{},
+                    "Xác thực khuôn mặt thất bại — thử lại.");
         }
         return context.siteId();
     }

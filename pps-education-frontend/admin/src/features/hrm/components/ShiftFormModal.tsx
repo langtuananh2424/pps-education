@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Plus, Save } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { createShift, CreateShiftRequest, ShiftResponse, updateShift, UpdateShiftRequest } from "../api";
 import Modal from "@/components/ui/Modal";
@@ -10,15 +11,7 @@ import Time24Input from "@/components/ui/Time24Input";
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
 
-const WEEKDAY_LABELS: { value: number; label: string }[] = [
-  { value: 1, label: "T2" },
-  { value: 2, label: "T3" },
-  { value: 3, label: "T4" },
-  { value: 4, label: "T5" },
-  { value: 5, label: "T6" },
-  { value: 6, label: "T7" },
-  { value: 7, label: "CN" }
-];
+const WEEKDAY_VALUES = [1, 2, 3, 4, 5, 6, 7];
 
 interface ShiftFormModalProps {
   shift?: ShiftResponse | null;
@@ -36,6 +29,7 @@ function parseWeekdays(csv: string): Set<number> {
  * rồi gán cả 2 cho cùng 1 nhân sự qua màn Gán ca (EmployeeShiftFormModal).
  */
 export default function ShiftFormModal({ shift, onClose, onSaved }: ShiftFormModalProps) {
+  const { t } = useTranslation("hrm-shifts");
   const isEdit = shift != null;
   const [form, setForm] = useState({
     code: shift?.code ?? "",
@@ -66,11 +60,11 @@ export default function ShiftFormModal({ shift, onClose, onSaved }: ShiftFormMod
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.code.trim() || !form.name.trim()) {
-      setError("Vui lòng điền mã và tên ca làm việc.");
+      setError(t("shiftForm.missingFields"));
       return;
     }
     if (weekdays.size === 0) {
-      setError("Vui lòng chọn ít nhất 1 ngày áp dụng.");
+      setError(t("shiftForm.missingWeekdays"));
       return;
     }
     const appliesToWeekdays = Array.from(weekdays).sort((a, b) => a - b).join(",");
@@ -109,20 +103,20 @@ export default function ShiftFormModal({ shift, onClose, onSaved }: ShiftFormMod
         onSaved(created.id);
       }
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Lưu ca làm việc thất bại.");
+      setError(err instanceof ApiError ? err.message : t("shiftForm.saveError"));
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <Modal open onClose={onClose} title={isEdit ? "Sửa ca làm việc" : "Thêm ca làm việc"} size="lg">
+    <Modal open onClose={onClose} title={isEdit ? t("shiftForm.editTitle") : t("shiftForm.createTitle")} size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className={labelClass}>Mã ca *</label>
+            <label className={labelClass}>{t("shiftForm.codeLabel")}</label>
             <input
               value={form.code}
               disabled={isEdit}
@@ -131,24 +125,24 @@ export default function ShiftFormModal({ shift, onClose, onSaved }: ShiftFormMod
             />
           </div>
           <div>
-            <label className={labelClass}>Tên ca *</label>
+            <label className={labelClass}>{t("shiftForm.nameLabel")}</label>
             <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={inputClass} />
           </div>
           <div>
-            <label className={labelClass}>Giờ vào *</label>
+            <label className={labelClass}>{t("shiftForm.checkInTimeLabel")}</label>
             <Time24Input value={form.checkInTime} onChange={(v) => setForm({ ...form, checkInTime: v })} className={inputClass} />
           </div>
           <div>
-            <label className={labelClass}>Giờ ra *</label>
+            <label className={labelClass}>{t("shiftForm.checkOutTimeLabel")}</label>
             <Time24Input value={form.checkOutTime} onChange={(v) => setForm({ ...form, checkOutTime: v })} className={inputClass} />
           </div>
         </div>
 
         <div className="space-y-2 border-t border-slate-100 pt-4">
-          <span className="text-[10px] font-bold uppercase text-slate-500">Cửa sổ chấm công (phút)</span>
+          <span className="text-[10px] font-bold uppercase text-slate-500">{t("shiftForm.windowSectionTitle")}</span>
           <div className="grid grid-cols-4 gap-3">
             <div>
-              <label className={labelClass}>Vào - trước</label>
+              <label className={labelClass}>{t("shiftForm.checkInBefore")}</label>
               <input
                 type="number"
                 min={0}
@@ -158,7 +152,7 @@ export default function ShiftFormModal({ shift, onClose, onSaved }: ShiftFormMod
               />
             </div>
             <div>
-              <label className={labelClass}>Vào - sau</label>
+              <label className={labelClass}>{t("shiftForm.checkInAfter")}</label>
               <input
                 type="number"
                 min={0}
@@ -168,7 +162,7 @@ export default function ShiftFormModal({ shift, onClose, onSaved }: ShiftFormMod
               />
             </div>
             <div>
-              <label className={labelClass}>Ra - trước</label>
+              <label className={labelClass}>{t("shiftForm.checkOutBefore")}</label>
               <input
                 type="number"
                 min={0}
@@ -178,7 +172,7 @@ export default function ShiftFormModal({ shift, onClose, onSaved }: ShiftFormMod
               />
             </div>
             <div>
-              <label className={labelClass}>Ra - sau</label>
+              <label className={labelClass}>{t("shiftForm.checkOutAfter")}</label>
               <input
                 type="number"
                 min={0}
@@ -191,44 +185,44 @@ export default function ShiftFormModal({ shift, onClose, onSaved }: ShiftFormMod
         </div>
 
         <div className="space-y-2 border-t border-slate-100 pt-4">
-          <span className="text-[10px] font-bold uppercase text-slate-500">Ngày áp dụng trong tuần *</span>
+          <span className="text-[10px] font-bold uppercase text-slate-500">{t("shiftForm.weekdaysSectionTitle")}</span>
           <div className="flex flex-wrap gap-2">
-            {WEEKDAY_LABELS.map((wd) => (
+            {WEEKDAY_VALUES.map((value) => (
               <button
-                key={wd.value}
+                key={value}
                 type="button"
-                onClick={() => toggleWeekday(wd.value)}
+                onClick={() => toggleWeekday(value)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${
-                  weekdays.has(wd.value)
+                  weekdays.has(value)
                     ? "bg-brand-orange/10 border-brand-orange text-brand-red"
                     : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
                 }`}
               >
-                {wd.label}
+                {t(`weekday.short.${value}`)}
               </button>
             ))}
           </div>
           <div>
-            <label className={labelClass}>Tuần áp dụng</label>
+            <label className={labelClass}>{t("shiftForm.weekParityLabel")}</label>
             <Select
               value={form.weekParity}
               onChange={(e) => setForm({ ...form, weekParity: e.target.value as "ALL" | "ODD" | "EVEN" })}
               className={`${inputClass} max-w-[200px]`}
             >
-              <option value="ALL">Mọi tuần</option>
-              <option value="ODD">Tuần lẻ</option>
-              <option value="EVEN">Tuần chẵn</option>
+              <option value="ALL">{t("weekParity.ALL")}</option>
+              <option value="ODD">{t("weekParity.ODD")}</option>
+              <option value="EVEN">{t("weekParity.EVEN")}</option>
             </Select>
           </div>
         </div>
 
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="secondary" onClick={onClose}>
-            Hủy
+            {t("shiftForm.cancel")}
           </Button>
           <Button type="submit" variant="primary" disabled={submitting}>
             {isEdit ? <Save className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
-            {submitting ? "Đang lưu..." : isEdit ? "Lưu thay đổi" : "Tạo ca làm việc"}
+            {submitting ? t("shiftForm.saving") : isEdit ? t("shiftForm.saveChanges") : t("shiftForm.create")}
           </Button>
         </div>
       </form>

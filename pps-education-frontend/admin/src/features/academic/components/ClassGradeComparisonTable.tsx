@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Minus, TrendingDown, TrendingUp } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import {
   ClassEnrollmentResponse,
@@ -25,8 +26,11 @@ interface ClassGradeComparisonTableProps {
   includeAllStatuses?: boolean;
 }
 
-function setupLabel(s: GradeComponentSetupResponse): string {
-  return `${s.academicTermName} — ${s.evaluationType === "MID_TERM" ? "GK" : "CK"}`;
+function setupLabel(t: (key: string, options?: Record<string, unknown>) => string, s: GradeComponentSetupResponse): string {
+  return t("comparisonTable.setupLabel", {
+    term: s.academicTermName,
+    abbrev: t(`common.evaluationTypeAbbrev.${s.evaluationType}`)
+  });
 }
 
 /**
@@ -37,6 +41,7 @@ function setupLabel(s: GradeComponentSetupResponse): string {
  * tiến bộ qua các kỳ không. CHỈ XEM — nhập/sửa điểm vẫn làm ở GradeSheetTable (theo từng setup riêng lẻ).
  */
 export default function ClassGradeComparisonTable({ classId, enrollments, includeAllStatuses }: ClassGradeComparisonTableProps) {
+  const { t } = useTranslation("academic-grades");
   const [setups, setSetups] = useState<GradeComponentSetupResponse[]>([]);
   const [componentsBySetup, setComponentsBySetup] = useState<Map<number, GradeEvaluationComponentResponse[]>>(new Map());
   const [entriesByComponent, setEntriesByComponent] = useState<Map<number, GradeEntryResponse[]>>(new Map());
@@ -61,7 +66,7 @@ export default function ClassGradeComparisonTable({ classId, enrollments, includ
         setEntriesByComponent(new Map(entryResults));
         setResultsBySetup(new Map(setupResults));
       })
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được bảng tổng hợp điểm."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("comparisonTable.loadError")))
       .finally(() => setLoading(false));
   }, [classId]);
 
@@ -98,13 +103,13 @@ export default function ClassGradeComparisonTable({ classId, enrollments, includ
 
   const TrendIcon = ({ current, previous }: { current: number | null; previous: number | null }) => {
     if (current == null || previous == null) return null;
-    if (current > previous) return <TrendingUp className="w-3 h-3 text-emerald-600 inline ml-1" aria-label="Tăng so với kỳ trước" />;
-    if (current < previous) return <TrendingDown className="w-3 h-3 text-rose-600 inline ml-1" aria-label="Giảm so với kỳ trước" />;
-    return <Minus className="w-3 h-3 text-slate-400 inline ml-1" aria-label="Không đổi so với kỳ trước" />;
+    if (current > previous) return <TrendingUp className="w-3 h-3 text-emerald-600 inline ml-1" aria-label={t("comparisonTable.trendUp")} />;
+    if (current < previous) return <TrendingDown className="w-3 h-3 text-rose-600 inline ml-1" aria-label={t("comparisonTable.trendDown")} />;
+    return <Minus className="w-3 h-3 text-slate-400 inline ml-1" aria-label={t("comparisonTable.trendFlat")} />;
   };
 
-  if (loading) return <p className="text-xs text-slate-400 italic p-6 text-center">Đang tải bảng tổng hợp điểm...</p>;
-  if (setups.length === 0) return <p className="text-xs text-slate-400 italic p-6 text-center">Lớp này chưa có setup sổ điểm nào.</p>;
+  if (loading) return <p className="text-xs text-slate-400 italic p-6 text-center">{t("comparisonTable.loading")}</p>;
+  if (setups.length === 0) return <p className="text-xs text-slate-400 italic p-6 text-center">{t("comparisonTable.noSetups")}</p>;
 
   return (
     <div>
@@ -114,10 +119,10 @@ export default function ClassGradeComparisonTable({ classId, enrollments, includ
           <thead>
             <tr>
               <Th rowSpan={2} className="align-bottom">
-                Mã HS
+                {t("comparisonTable.studentCode")}
               </Th>
               <Th rowSpan={2} className="align-bottom">
-                Học sinh
+                {t("comparisonTable.studentName")}
               </Th>
               {codeGroups.map((g) => (
                 <Th key={g.code} colSpan={setups.length} className="text-center whitespace-nowrap border-l border-slate-200">
@@ -125,20 +130,20 @@ export default function ClassGradeComparisonTable({ classId, enrollments, includ
                 </Th>
               ))}
               <Th colSpan={setups.length} className="text-center whitespace-nowrap border-l border-slate-200">
-                OVERALL
+                {t("comparisonTable.overall")}
               </Th>
             </tr>
             <tr>
               {codeGroups.map((g) =>
                 setups.map((s, i) => (
                   <Th key={`${g.code}-${s.id}`} className={`text-center text-[10px] font-semibold whitespace-nowrap ${i === 0 ? "border-l border-slate-200" : ""}`}>
-                    {setupLabel(s)}
+                    {setupLabel(t, s)}
                   </Th>
                 ))
               )}
               {setups.map((s, i) => (
                 <Th key={`overall-${s.id}`} className={`text-center text-[10px] font-semibold whitespace-nowrap ${i === 0 ? "border-l border-slate-200" : ""}`}>
-                  {setupLabel(s)}
+                  {setupLabel(t, s)}
                 </Th>
               ))}
             </tr>
@@ -147,7 +152,7 @@ export default function ClassGradeComparisonTable({ classId, enrollments, includ
             {activeStudents.length === 0 ? (
               <tr>
                 <td colSpan={2 + (codeGroups.length + 1) * setups.length} className="px-6 py-12 text-center text-xs text-slate-400 italic">
-                  Lớp chưa có học sinh nào đang ghi danh.
+                  {t("comparisonTable.noEnrollments")}
                 </td>
               </tr>
             ) : (

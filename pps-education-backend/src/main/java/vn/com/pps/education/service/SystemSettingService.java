@@ -59,9 +59,11 @@ public class SystemSettingService {
     @Transactional
     public SystemSettingResponse update(String settingKey, JsonNode newValue, Long actorUserId) {
         SystemSetting setting = systemSettingRepository.findBySettingKey(settingKey)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy cấu hình key=" + settingKey));
+                .orElseThrow(() -> new ResourceNotFoundException("error.systemSetting.notFoundByKey",
+                        new Object[]{settingKey}, "Không tìm thấy cấu hình key=" + settingKey));
         User actor = userRepository.findById(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.systemSetting.accountNotFound",
+                        new Object[]{actorUserId}, "Không tìm thấy tài khoản id=" + actorUserId));
 
         if (setting.getSettingValue().getNodeType() != newValue.getNodeType()) {
             throw new IllegalArgumentException(
@@ -85,7 +87,8 @@ public class SystemSettingService {
     @Transactional(readOnly = true)
     public List<SystemSettingHistoryResponse> getHistory(String settingKey) {
         SystemSetting setting = systemSettingRepository.findBySettingKey(settingKey)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy cấu hình key=" + settingKey));
+                .orElseThrow(() -> new ResourceNotFoundException("error.systemSetting.notFoundByKey",
+                        new Object[]{settingKey}, "Không tìm thấy cấu hình key=" + settingKey));
         return systemSettingHistoryRepository.findBySystemSettingIdOrderByCreatedAtDesc(setting.getId()).stream()
                 .map(h -> new SystemSettingHistoryResponse(
                         h.getId(), h.getOldValue(), h.getNewValue(),

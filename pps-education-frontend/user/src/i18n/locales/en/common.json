@@ -1,0 +1,19 @@
+{
+  "language": {
+    "vi": "Vietnamese",
+    "en": "English",
+    "switchTo": "Switch to {{language}}"
+  },
+  "pagination": {
+    "total": "Total {{count}} {{itemLabel}}",
+    "previous": "Previous page",
+    "next": "Next page"
+  },
+  "installPrompt": {
+    "title": "Install PPS Portal",
+    "iosHint": "Tap the Share button, then choose “Add to Home Screen” to use it like an app.",
+    "androidHint": "Add to your home screen to open it quickly like an app.",
+    "installButton": "Install",
+    "close": "Close"
+  }
+}

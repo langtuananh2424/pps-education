@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { Mail, MapPin, Phone, ShieldCheck, User as UserIcon } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import { EmployeeResponse, getMyEmployeeProfile, updateMyEmployeeProfile } from "@/features/hrm/api";
 import { uploadMedia } from "@/features/lms/api";
-import { roleLabels } from "@/constants/roles";
+import { roleLabel } from "@/constants/roles";
 import { UserRole } from "@/types";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
@@ -25,6 +26,7 @@ interface ProfileModalProps {
 /** Xem hồ sơ cá nhân + UC-63 (tự sửa ảnh đại diện/địa chỉ nếu có hồ sơ Employee) — đổi mật khẩu (UC-45) đã tách sang ChangePasswordModal riêng. */
 export default function ProfileModal({ onClose }: ProfileModalProps) {
   const { currentUser } = useApp();
+  const { t } = useTranslation(["auth", "layout"]);
 
   // UC-63: chỉ Nhân viên (Giáo viên/Nhân viên/Quản lý) mới có hồ sơ Employee — SUPER_ADMIN thuần gọi /employees/me
   // sẽ 404, coi như không có phần này, không báo lỗi cho người dùng (im lặng ẩn khối tự sửa hồ sơ).
@@ -57,7 +59,7 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
       const updated = await updateMyEmployeeProfile({ portraitUrl: url });
       setEmployeeProfile(updated);
     } catch (err) {
-      setProfileError(err instanceof ApiError ? err.message : "Cập nhật ảnh đại diện thất bại.");
+      setProfileError(err instanceof ApiError ? err.message : t("profileModal.updateAvatarFailed"));
     }
   };
 
@@ -72,9 +74,9 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
         currentAddress: employeeForm.currentAddress.trim() || undefined
       });
       setEmployeeProfile(updated);
-      showToast("Đã lưu hồ sơ thành công.");
+      showToast(t("profileModal.saveSuccess"));
     } catch (err) {
-      setProfileError(err instanceof ApiError ? err.message : "Cập nhật hồ sơ thất bại.");
+      setProfileError(err instanceof ApiError ? err.message : t("profileModal.saveFailed"));
     } finally {
       setSavingProfile(false);
     }
@@ -82,7 +84,7 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
 
   return (
     <>
-      <Modal open onClose={onClose} title="Hồ sơ cá nhân" size="md">
+      <Modal open onClose={onClose} title={t("profileModal.title")} size="md">
       <div className="space-y-5">
         <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
           {employeeProfile ? (
@@ -124,7 +126,7 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
             <div className="flex flex-wrap gap-1.5">
               {(currentUser?.roleCodes ?? []).map((code) => (
                 <Badge key={code} variant="brand">
-                  {roleLabels[code as UserRole] ?? code}
+                  {roleLabel(t, code as UserRole) ?? code}
                 </Badge>
               ))}
             </div>
@@ -135,13 +137,13 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
           <form onSubmit={handleSaveProfile} className="space-y-3 border-t border-slate-100 pt-4">
             <span className="text-[10px] font-bold uppercase text-slate-500 flex items-center gap-1.5">
               <MapPin className="w-3.5 h-3.5" />
-              Cập nhật hồ sơ
+              {t("profileModal.updateSectionTitle")}
             </span>
 
             {profileError && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{profileError}</div>}
 
             <div>
-              <label className={labelClass}>Địa chỉ thường trú</label>
+              <label className={labelClass}>{t("profileModal.permanentAddress")}</label>
               <input
                 value={employeeForm.permanentAddress}
                 onChange={(e) => setEmployeeForm({ ...employeeForm, permanentAddress: e.target.value })}
@@ -149,7 +151,7 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
               />
             </div>
             <div>
-              <label className={labelClass}>Địa chỉ hiện tại</label>
+              <label className={labelClass}>{t("profileModal.currentAddress")}</label>
               <input
                 value={employeeForm.currentAddress}
                 onChange={(e) => setEmployeeForm({ ...employeeForm, currentAddress: e.target.value })}
@@ -158,7 +160,7 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
             </div>
             <div className="flex justify-end">
               <Button type="submit" variant="secondary" disabled={savingProfile}>
-                {savingProfile ? "Đang lưu..." : "Lưu hồ sơ"}
+                {savingProfile ? t("profileModal.saving") : t("profileModal.save")}
               </Button>
             </div>
           </form>
@@ -166,7 +168,7 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
 
         <div className="flex justify-end pt-2">
           <Button type="button" variant="secondary" onClick={onClose}>
-            Đóng
+            {t("profileModal.close")}
           </Button>
         </div>
       </div>

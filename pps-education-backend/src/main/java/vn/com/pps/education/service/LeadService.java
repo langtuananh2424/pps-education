@@ -119,13 +119,14 @@ public class LeadService {
     public LeadResponse createLead(CreateLeadRequest request, Long actorUserId) {
         leadRepository.findByPhoneAndDeletedAtIsNull(request.phone()).ifPresent(existing -> {
             throw new DuplicateLeadPhoneException(
+                    "error.duplicateLeadPhone.default", new Object[]{request.phone(), existing.getLeadCode(), existing.getStatus()},
                     "Số điện thoại " + request.phone() + " đã tồn tại ở lead " + existing.getLeadCode()
                             + ", trạng thái " + existing.getStatus()
                             + ". Vui lòng cập nhật lead hiện có thay vì tạo mới.");
         });
 
         LeadSource source = leadSourceRepository.findByCode(request.leadSourceCode())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy nguồn lead code=" + request.leadSourceCode()));
+                .orElseThrow(() -> new ResourceNotFoundException("error.lead.sourceNotFoundByCode", new Object[]{request.leadSourceCode()}, "Không tìm thấy nguồn lead code=" + request.leadSourceCode()));
         User actor = getUserOrThrow(actorUserId);
 
         Lead lead = new Lead();
@@ -181,15 +182,17 @@ public class LeadService {
         Lead lead = getLeadOrThrow(leadId);
         if (isFinalStatus(lead.getStatus())) {
             throw new InvalidLeadStatusTransitionException(
+                    "error.invalidLeadStatusTransition.finalStatus", new Object[]{lead.getStatus()},
                     "Lead này đang ở trạng thái cuối (" + lead.getStatus() + "), không thể cập nhật tiếp.");
         }
         Lead.Status newStatus = Lead.Status.valueOf(request.status());
         if (newStatus == Lead.Status.WON) {
             throw new InvalidLeadStatusTransitionException(
+                    "error.invalidLeadStatusTransition.wonViaApiNotAllowed", new Object[]{},
                     "Không thể chuyển lead sang WON qua API này — dùng convertToStudent (UC-34).");
         }
         if (newStatus == Lead.Status.LOST && request.outcome() == null) {
-            throw new InvalidLeadStatusTransitionException("Chuyển lead sang LOST phải kèm outcome (lý do).");
+            throw new InvalidLeadStatusTransitionException("error.invalidLeadStatusTransition.lostRequiresOutcome", new Object[]{}, "Chuyển lead sang LOST phải kèm outcome (lý do).");
         }
         User actor = getUserOrThrow(actorUserId);
 
@@ -219,14 +222,16 @@ public class LeadService {
         Lead lead = getLeadOrThrow(leadId);
         if (lead.getStatus() != Lead.Status.QUALIFIED) {
             throw new LeadNotQualifiedException(
+                    "error.leadNotQualified.default", new Object[]{lead.getStatus()},
                     "Lead này phải ở trạng thái Đủ điều kiện (QUALIFIED) để chuyển đổi (hiện tại: " + lead.getStatus() + ").");
         }
         if (lead.getStudentName() == null || lead.getStudentName().isBlank() || lead.getStudentDob() == null) {
             throw new IncompleteLeadDataException(
+                    "error.incompleteLeadData.default", new Object[]{},
                     "Lead này thiếu tên hoặc ngày sinh học sinh — cập nhật đầy đủ thông tin học sinh trước khi chuyển đổi.");
         }
         if (studentRepository.findByStudentCode(request.studentCode()).isPresent()) {
-            throw new DuplicateStudentCodeException("Mã học sinh đã tồn tại: " + request.studentCode());
+            throw new DuplicateStudentCodeException("error.duplicateStudentCode.default", new Object[]{request.studentCode()}, "Mã học sinh đã tồn tại: " + request.studentCode());
         }
         User actor = getUserOrThrow(actorUserId);
 
@@ -391,22 +396,22 @@ public class LeadService {
 
     private Lead getLeadOrThrow(Long id) {
         return leadRepository.findByIdAndDeletedAtIsNull(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lead id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.lead.notFoundById", new Object[]{id}, "Không tìm thấy lead id=" + id));
     }
 
     private User getUserOrThrow(Long id) {
         return userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy user id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.lead.userNotFound", new Object[]{id}, "Không tìm thấy user id=" + id));
     }
 
     private Site getSiteOrThrow(Long id) {
         return siteRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy điểm trường id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.lead.siteNotFound", new Object[]{id}, "Không tìm thấy điểm trường id=" + id));
     }
 
     private Curriculum getCurriculumOrThrow(Long id) {
         return curriculumRepository.findByIdAndDeletedAtIsNull(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy khung chương trình id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.lead.curriculumNotFound", new Object[]{id}, "Không tìm thấy khung chương trình id=" + id));
     }
 
     private LeadResponse toResponse(Lead l) {

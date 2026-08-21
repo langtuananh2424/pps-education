@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import {
@@ -18,12 +19,11 @@ import TableContainer, { Td, Th } from "@/components/ui/TableContainer";
 import Badge, { BadgeVariant } from "@/components/ui/Badge";
 import StudentNameLink from "@/features/reports/components/StudentNameLink";
 
-const statusLabels: Record<GradeStatus, string> = {
-  DRAFT: "Nháp",
-  SUBMITTED: "Chờ duyệt",
-  OFFICIAL: "Chính thức",
-  REJECTED: "Bị từ chối"
-};
+type TFunc = (key: string, options?: Record<string, unknown>) => string;
+
+function statusLabel(t: TFunc, status: GradeStatus): string {
+  return t(`sheetTable.status.${status}`);
+}
 const statusVariants: Record<GradeStatus, BadgeVariant> = {
   DRAFT: "neutral",
   SUBMITTED: "warning",
@@ -33,7 +33,9 @@ const statusVariants: Record<GradeStatus, BadgeVariant> = {
 /** Thứ tự "cần chú ý nhất trước" khi 1 dòng có nhiều bản ghi (nhiều đầu điểm + Overall) ở trạng thái khác nhau. */
 const statusPriority: GradeStatus[] = ["DRAFT", "REJECTED", "SUBMITTED", "OFFICIAL"];
 
-const sourceLabels: Record<GradeEvaluationResultResponse["source"], string> = { MANUAL: "NHẬP TAY", EXCEL_IMPORT: "EXCEL" };
+function sourceLabel(t: TFunc, source: GradeEvaluationResultResponse["source"]): string {
+  return t(`sheetTable.source.${source}`);
+}
 
 /** V97: setup đã có 1 thang điểm cố định (POINT_10/PERCENT/IELTS) — bỏ cột "Thang" cho GV chọn tay theo dòng, tự suy ra scaleType lưu vào GradeEvaluationResult theo đúng thang của setup. */
 const resultScaleTypeBySetupScale: Record<"POINT_10" | "PERCENT" | "IELTS", GradeEvaluationResultResponse["scaleType"]> = {
@@ -64,6 +66,7 @@ interface GradeSheetTableProps {
  * cho SUBMITTED/OFFICIAL khi không có quyền override.
  */
 export default function GradeSheetTable({ classId, setupId, scaleType, components, enrollments, onLoaded, readOnly = false }: GradeSheetTableProps) {
+  const { t } = useTranslation("academic-grades");
   const { hasPermission } = useApp();
   const canOverride = hasPermission("academic.grade.edit.override");
   const [entriesByStudent, setEntriesByStudent] = useState<Map<number, Map<number, GradeEntryResponse>>>(new Map());
@@ -101,7 +104,7 @@ export default function GradeSheetTable({ classId, setupId, scaleType, component
         }
         onLoaded?.(flatEntries, results);
       })
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được bảng điểm."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("sheetTable.loadError")))
       .finally(() => setLoading(false));
   };
 
@@ -125,7 +128,7 @@ export default function GradeSheetTable({ classId, setupId, scaleType, component
     const existing = entriesByStudent.get(studentId)?.get(componentId);
     const score = parseFloat(raw);
     if (raw.trim() !== "" && (isNaN(score) || score < 0)) {
-      setError("Điểm không hợp lệ.");
+      setError(t("sheetTable.invalidScore"));
       return;
     }
     setSavingKey(key);
@@ -153,7 +156,7 @@ export default function GradeSheetTable({ classId, setupId, scaleType, component
         return next;
       });
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Lưu điểm thất bại.");
+      setError(err instanceof ApiError ? err.message : t("sheetTable.saveScoreError"));
     } finally {
       setSavingKey(null);
     }
@@ -177,7 +180,7 @@ export default function GradeSheetTable({ classId, setupId, scaleType, component
     const disclaimer = disclaimerInput || existing?.disclaimer || "";
     const overallScore = overallRaw.trim() === "" ? undefined : parseFloat(overallRaw);
     if (overallRaw.trim() !== "" && isNaN(Number(overallScore))) {
-      setError("Overall không hợp lệ.");
+      setError(t("sheetTable.invalidOverall"));
       return;
     }
     setSavingKey(key);
@@ -217,7 +220,7 @@ export default function GradeSheetTable({ classId, setupId, scaleType, component
         return next;
       });
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Lưu Overall/Level/Nhận xét/Lưu ý thất bại.");
+      setError(err instanceof ApiError ? err.message : t("sheetTable.saveResultError"));
     } finally {
       setSavingKey(null);
     }
@@ -250,34 +253,31 @@ export default function GradeSheetTable({ classId, setupId, scaleType, component
         return next;
       });
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Lưu Lưu ý thất bại.");
+      setError(err instanceof ApiError ? err.message : t("sheetTable.saveDisclaimerError"));
     } finally {
       setSavingKey(null);
     }
   };
 
-  if (loading) return <p className="text-xs text-slate-400 italic p-6 text-center">Đang tải bảng điểm...</p>;
+  if (loading) return <p className="text-xs text-slate-400 italic p-6 text-center">{t("sheetTable.loading")}</p>;
 
   return (
     <div>
       {editWindow && (
         <div className="px-5 pt-3 space-y-1">
-          <p className="text-[11px] text-slate-400 italic">
-            Điểm còn Nháp sửa/xoá tự do, không giới hạn thời gian. Khi sẵn sàng, gửi duyệt để Quản lý điểm trường xét duyệt — chỉ khi Duyệt điểm
-            mới hiển thị cho Phụ huynh/Học sinh. Nếu bị Từ chối, sửa lại rồi gửi duyệt lại.
-          </p>
+          <p className="text-[11px] text-slate-400 italic">{t("sheetTable.editWindowHint")}</p>
         </div>
       )}
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 m-3 rounded-lg">{error}</div>}
       {!readOnly && (
         <div className="px-5 py-3 space-y-2 border-b border-slate-200">
-          <label className="block text-xs font-semibold text-slate-700">Lưu ý</label>
+          <label className="block text-xs font-semibold text-slate-700">{t("sheetTable.disclaimerLabel")}</label>
           <textarea
             value={disclaimerInput}
             onChange={(e) => setDisclaimerInput(e.target.value)}
             onBlur={handleBlurDisclaimer}
             disabled={savingKey === "disclaimer:all"}
-            placeholder="Nhập lưu ý cho kỳ đánh giá này (VD: phạm vi đề thi, điều kiện điều chỉnh, ...)"
+            placeholder={t("sheetTable.disclaimerPlaceholder")}
             className="w-full text-xs p-2 border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:opacity-50"
             rows={3}
           />
@@ -287,26 +287,26 @@ export default function GradeSheetTable({ classId, setupId, scaleType, component
         <TableContainer className="rounded-none border-0">
           <thead>
             <tr>
-              <Th>Mã HS</Th>
-              <Th>Học sinh</Th>
+              <Th>{t("sheetTable.columnStudentCode")}</Th>
+              <Th>{t("sheetTable.columnStudentName")}</Th>
               {components.map((c) => (
                 <Th key={c.id} className="text-center whitespace-nowrap">
                   {c.name.toUpperCase()}
                 </Th>
               ))}
-              <Th className="text-center">Overall</Th>
-              <Th className="text-center">Level</Th>
-              <Th className="text-center whitespace-nowrap">Nhận xét</Th>
-              <Th className="text-center whitespace-nowrap">Ghi chú</Th>
-              <Th className="text-center">Nguồn</Th>
-              <Th className="text-center">Trạng thái</Th>
+              <Th className="text-center">{t("sheetTable.columnOverall")}</Th>
+              <Th className="text-center">{t("sheetTable.columnLevel")}</Th>
+              <Th className="text-center whitespace-nowrap">{t("sheetTable.columnComment")}</Th>
+              <Th className="text-center whitespace-nowrap">{t("sheetTable.columnNote")}</Th>
+              <Th className="text-center">{t("sheetTable.columnSource")}</Th>
+              <Th className="text-center">{t("sheetTable.columnStatus")}</Th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {activeStudents.length === 0 ? (
               <tr>
                 <td colSpan={components.length + 7} className="px-6 py-12 text-center text-xs text-slate-400 italic">
-                  Lớp chưa có học sinh nào đang ghi danh.
+                  {t("sheetTable.noEnrollments")}
                 </td>
               </tr>
             ) : (
@@ -328,7 +328,7 @@ export default function GradeSheetTable({ classId, setupId, scaleType, component
                       return (
                         <Td key={c.id} className="text-center">
                           {readOnly || locked ? (
-                            <span className="text-xs font-semibold text-slate-700" title={locked ? "Đang chờ duyệt/đã chính thức — không sửa được nữa." : undefined}>
+                            <span className="text-xs font-semibold text-slate-700" title={locked ? t("sheetTable.lockedTitle") : undefined}>
                               {existing ? existing.score : "—"}
                             </span>
                           ) : (
@@ -340,12 +340,12 @@ export default function GradeSheetTable({ classId, setupId, scaleType, component
                                 onChange={(e) => setScoreInput((prev) => ({ ...prev, [key]: e.target.value }))}
                                 onBlur={() => handleBlurScore(en.studentId, c.id)}
                                 disabled={savingKey === key}
-                                title={rejected ? "Bị từ chối — sửa lại rồi gửi duyệt lại." : undefined}
+                                title={rejected ? t("sheetTable.rejectedTitle") : undefined}
                                 className={`w-16 bg-slate-50 text-center border rounded py-1 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-brand-orange disabled:opacity-50 ${
                                   rejected ? "border-rose-400 ring-1 ring-rose-300" : ""
                                 }`}
                               />
-                              {rejected && <span className="text-[9px] font-bold text-rose-600 uppercase">Bị từ chối</span>}
+                              {rejected && <span className="text-[9px] font-bold text-rose-600 uppercase">{t("sheetTable.rejectedBadge")}</span>}
                             </div>
                           )}
                         </Td>
@@ -353,7 +353,7 @@ export default function GradeSheetTable({ classId, setupId, scaleType, component
                     })}
                     <Td className="text-center">
                       {readOnly || resultLocked ? (
-                        <span className="text-xs font-semibold text-slate-700" title={resultLocked ? "Đang chờ duyệt/đã chính thức — không sửa được nữa." : undefined}>
+                        <span className="text-xs font-semibold text-slate-700" title={resultLocked ? t("sheetTable.lockedTitle") : undefined}>
                           {result?.overallScore ?? "—"}
                         </span>
                       ) : (
@@ -364,12 +364,12 @@ export default function GradeSheetTable({ classId, setupId, scaleType, component
                             value={overallInput[en.studentId] ?? ""}
                             onChange={(e) => setOverallInput((prev) => ({ ...prev, [en.studentId]: e.target.value }))}
                             onBlur={() => handleBlurResult(en.studentId)}
-                            title={result?.status === "REJECTED" ? "Bị từ chối — sửa lại rồi gửi duyệt lại." : undefined}
+                            title={result?.status === "REJECTED" ? t("sheetTable.rejectedTitle") : undefined}
                             className={`w-16 bg-slate-50 text-center border rounded py-1 text-xs font-semibold focus:outline-none ${
                               result?.status === "REJECTED" ? "border-rose-400 ring-1 ring-rose-300" : ""
                             }`}
                           />
-                          {result?.status === "REJECTED" && <span className="text-[9px] font-bold text-rose-600 uppercase">Bị từ chối</span>}
+                          {result?.status === "REJECTED" && <span className="text-[9px] font-bold text-rose-600 uppercase">{t("sheetTable.rejectedBadge")}</span>}
                         </div>
                       )}
                     </Td>
@@ -393,7 +393,7 @@ export default function GradeSheetTable({ classId, setupId, scaleType, component
                       ) : (
                         <input
                           type="text"
-                          placeholder={result?.comment ?? "Nhận xét..."}
+                          placeholder={result?.comment ?? t("sheetTable.commentPlaceholder")}
                           value={commentInput[en.studentId] ?? ""}
                           onChange={(e) => setCommentInput((prev) => ({ ...prev, [en.studentId]: e.target.value }))}
                           onBlur={() => handleBlurResult(en.studentId)}
@@ -407,7 +407,7 @@ export default function GradeSheetTable({ classId, setupId, scaleType, component
                       ) : (
                         <input
                           type="text"
-                          placeholder={result?.note ?? "Ghi chú..."}
+                          placeholder={result?.note ?? t("sheetTable.notePlaceholder")}
                           value={noteInput[en.studentId] ?? ""}
                           onChange={(e) => setNoteInput((prev) => ({ ...prev, [en.studentId]: e.target.value }))}
                           onBlur={() => handleBlurResult(en.studentId)}
@@ -416,13 +416,13 @@ export default function GradeSheetTable({ classId, setupId, scaleType, component
                       )}
                     </Td>
                     <Td className="text-center">
-                      {result ? <Badge variant="info">{sourceLabels[result.source]}</Badge> : <span className="text-[10px] text-slate-300 italic">—</span>}
+                      {result ? <Badge variant="info">{sourceLabel(t, result.source)}</Badge> : <span className="text-[10px] text-slate-300 italic">—</span>}
                     </Td>
                     <Td className="text-center">
                       {status ? (
-                        <Badge variant={statusVariants[status]}>{statusLabels[status]}</Badge>
+                        <Badge variant={statusVariants[status]}>{statusLabel(t, status)}</Badge>
                       ) : (
-                        <span className="text-[10px] text-slate-300 italic">Chưa nhập</span>
+                        <span className="text-[10px] text-slate-300 italic">{t("sheetTable.notEntered")}</span>
                       )}
                     </Td>
                   </tr>

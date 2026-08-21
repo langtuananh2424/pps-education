@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { Award, CheckCircle2, Save } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import Button from "@/components/ui/Button";
+import { formatDateTime } from "@/lib/i18nFormat";
 import { GradeReviewVideoSubmissionRequest, ReviewVideoSubmissionResponse, gradeReviewVideoSubmission } from "../api";
 
 const DEFAULT_MAX_SCORE = 10;
@@ -19,6 +21,7 @@ interface ReviewVideoGradingPanelProps {
  * của Exercise UC-24/27 — khác cấu trúc dữ liệu, để riêng cho rõ ràng thay vì ép dùng chung).
  */
 export default function ReviewVideoGradingPanel({ submission, questionPrompt, videoTitle, onSaved }: ReviewVideoGradingPanelProps) {
+  const { t, i18n } = useTranslation("lms-grading");
   const [score, setScore] = useState("");
   const [maxScore, setMaxScore] = useState(String(DEFAULT_MAX_SCORE));
   const [feedback, setFeedback] = useState("");
@@ -37,7 +40,7 @@ export default function ReviewVideoGradingPanel({ submission, questionPrompt, vi
     return (
       <div className="h-64 border border-dashed rounded-xl flex flex-col items-center justify-center text-slate-400 text-xs italic gap-1.5 text-center p-4">
         <Award className="w-6 h-6 text-slate-300" />
-        <span>Chọn 1 bài trong hàng chờ bên cạnh để nghe và chấm điểm.</span>
+        <span>{t("reviewVideoGradingPanel.emptyState")}</span>
       </div>
     );
   }
@@ -55,7 +58,7 @@ export default function ReviewVideoGradingPanel({ submission, questionPrompt, vi
       const updated = await gradeReviewVideoSubmission(submission.id, request);
       onSaved(updated);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Lưu điểm thất bại — thử lại.");
+      setError(err instanceof ApiError ? err.message : t("reviewVideoGradingPanel.errors.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -65,20 +68,24 @@ export default function ReviewVideoGradingPanel({ submission, questionPrompt, vi
     <div className="space-y-4">
       <div className="border-b border-slate-100 pb-2.5 flex items-center justify-between">
         <div>
-          <span className="text-[10px] font-mono font-bold text-slate-400">CHẤM BÀI VIDEO PHẢN XẠ — LƯỢT {submission.attemptNumber}</span>
+          <span className="text-[10px] font-mono font-bold text-slate-400">
+            {t("reviewVideoGradingPanel.header.attemptLabel", { attemptNumber: submission.attemptNumber })}
+          </span>
           <h3 className="text-xs font-bold text-slate-800">{submission.studentFullName}</h3>
         </div>
         {submission.gradedAt && (
           <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-600">
-            <CheckCircle2 className="w-3.5 h-3.5" /> Đã chấm
+            <CheckCircle2 className="w-3.5 h-3.5" /> {t("reviewVideoGradingPanel.header.gradedBadge")}
           </span>
         )}
       </div>
 
       <div className="p-3.5 bg-slate-50 rounded-lg border border-slate-100 space-y-2">
-        <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500">{videoTitle ?? "Video phản xạ"}</span>
+        <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500">{videoTitle ?? t("reviewVideoGradingPanel.videoFallback")}</span>
         {questionPrompt && <p className="text-xs font-semibold text-slate-800">{questionPrompt}</p>}
-        <p className="text-[10px] text-slate-400">Nộp lúc {new Date(submission.submittedAt).toLocaleString("vi-VN")}</p>
+        <p className="text-[10px] text-slate-400">
+          {t("reviewVideoGradingPanel.submittedAt", { time: formatDateTime(submission.submittedAt, i18n.language) })}
+        </p>
         <audio controls src={submission.audioUrl} className="w-full h-9" />
       </div>
 
@@ -87,7 +94,7 @@ export default function ReviewVideoGradingPanel({ submission, questionPrompt, vi
       <form onSubmit={handleSubmit} className="space-y-4 pt-1">
         <div className="flex gap-3">
           <div className="flex-1 space-y-1">
-            <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Điểm</label>
+            <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">{t("reviewVideoGradingPanel.scoreLabel")}</label>
             <input
               type="number"
               required
@@ -99,7 +106,7 @@ export default function ReviewVideoGradingPanel({ submission, questionPrompt, vi
             />
           </div>
           <div className="flex-1 space-y-1">
-            <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Điểm tối đa</label>
+            <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">{t("reviewVideoGradingPanel.maxScoreLabel")}</label>
             <input
               type="number"
               required
@@ -113,9 +120,9 @@ export default function ReviewVideoGradingPanel({ submission, questionPrompt, vi
         </div>
 
         <div className="space-y-1">
-          <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Nhận xét (tùy chọn)</label>
+          <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">{t("reviewVideoGradingPanel.feedbackLabel")}</label>
           <textarea
-            placeholder="Nhận xét phát âm, ngữ điệu, nội dung câu trả lời..."
+            placeholder={t("reviewVideoGradingPanel.feedbackPlaceholder")}
             value={feedback}
             onChange={(e) => setFeedback(e.target.value)}
             rows={3}
@@ -125,7 +132,7 @@ export default function ReviewVideoGradingPanel({ submission, questionPrompt, vi
 
         <Button type="submit" variant="primary" disabled={saving} className="w-full">
           <Save className="w-4 h-4" />
-          {saving ? "Đang lưu..." : "Lưu kết quả chấm"}
+          {saving ? t("reviewVideoGradingPanel.saving") : t("reviewVideoGradingPanel.saveButton")}
         </Button>
       </form>
     </div>

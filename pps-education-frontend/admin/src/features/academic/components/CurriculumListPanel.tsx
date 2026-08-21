@@ -1,12 +1,21 @@
 import React from "react";
 import { BookOpen, Plus, Search } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import Badge, { BadgeVariant } from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import EmptyState from "@/components/ui/EmptyState";
 import type { CurriculumResponse } from "../api";
 
-export const curriculumStatusLabels: Record<string, string> = { DRAFT: "Nháp", PENDING_APPROVAL: "Chờ duyệt", ACTIVE: "Đang áp dụng", ARCHIVED: "Lưu trữ" };
 export const curriculumStatusVariants: Record<string, BadgeVariant> = { DRAFT: "neutral", PENDING_APPROVAL: "warning", ACTIVE: "success", ARCHIVED: "danger" };
+
+/**
+ * Nhãn trạng thái khung chương trình dịch qua i18next namespace "academic-curriculum" (key
+ * `status.<status>`) — dùng `curriculumStatusLabel(t, status)` thay vì tra map tĩnh cũ, theo đúng
+ * pattern `roleLabel(t, role)` ở src/constants/roles.ts (Phase 2, kế hoạch đồng bộ song ngữ).
+ */
+export function curriculumStatusLabel(t: (key: string, options?: Record<string, unknown>) => string, status: string): string {
+  return t(`status.${status}`, { defaultValue: status });
+}
 
 interface CurriculumListPanelProps {
   curriculums: CurriculumResponse[];
@@ -19,18 +28,19 @@ interface CurriculumListPanelProps {
 }
 
 export default function CurriculumListPanel({ curriculums, loading, selectedId, onSelect, onCreate, query, onQueryChange }: CurriculumListPanelProps) {
+  const { t } = useTranslation("academic-curriculum");
   const filtered = curriculums.filter((c) => !query.trim() || c.name.toLowerCase().includes(query.toLowerCase()) || c.code.toLowerCase().includes(query.toLowerCase()));
 
   return (
     <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden flex flex-col h-full">
       <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3 bg-slate-50 shrink-0">
         <div className="space-y-0.5">
-          <span className="text-xs font-bold text-slate-700 font-display block">Khung chương trình</span>
-          <p className="text-[10px] text-slate-400">Chuẩn + bản tùy biến theo điểm trường</p>
+          <span className="text-xs font-bold text-slate-700 font-display block">{t("list.title")}</span>
+          <p className="text-[10px] text-slate-400">{t("list.subtitle")}</p>
         </div>
         <Button variant="primary" size="sm" onClick={onCreate}>
           <Plus className="w-3.5 h-3.5" />
-          Thêm khung
+          {t("list.addButton")}
         </Button>
       </div>
 
@@ -39,16 +49,16 @@ export default function CurriculumListPanel({ curriculums, loading, selectedId, 
         <input
           value={query}
           onChange={(e) => onQueryChange(e.target.value)}
-          placeholder="Tìm theo tên / mã khung..."
+          placeholder={t("list.searchPlaceholder")}
           className="w-full bg-slate-50 border border-slate-200 text-xs pl-8 pr-3 py-2 rounded-lg focus:outline-none"
         />
       </div>
 
       <div className="divide-y divide-slate-100 overflow-y-auto max-h-[560px] lg:max-h-[620px]">
         {loading ? (
-          <div className="p-8 text-center text-slate-400 text-xs">Đang tải...</div>
+          <div className="p-8 text-center text-slate-400 text-xs">{t("list.loading")}</div>
         ) : filtered.length === 0 ? (
-          <EmptyState icon={BookOpen} title="Không tìm thấy khung chương trình nào" description="Thử nới lỏng từ khóa, hoặc bấm 'Thêm khung'." />
+          <EmptyState icon={BookOpen} title={t("list.emptyTitle")} description={t("list.emptyDescription")} />
         ) : (
           filtered.map((c) => {
             const isSelected = c.id === selectedId;
@@ -63,11 +73,11 @@ export default function CurriculumListPanel({ curriculums, loading, selectedId, 
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-[10px] font-mono font-bold uppercase text-brand-red bg-orange-50 border border-orange-100 px-1.5 py-0.5 rounded">{c.code}</span>
-                    <Badge variant={curriculumStatusVariants[c.status] ?? "neutral"}>{curriculumStatusLabels[c.status] ?? c.status}</Badge>
-                    {c.siteId != null && <Badge variant="info">Tùy biến</Badge>}
+                    <Badge variant={curriculumStatusVariants[c.status] ?? "neutral"}>{curriculumStatusLabel(t, c.status)}</Badge>
+                    {c.siteId != null && <Badge variant="info">{t("list.customBadge")}</Badge>}
                   </div>
                   <h4 className="text-xs font-bold text-slate-900 mt-1.5">{c.name}</h4>
-                  <p className="text-[10px] text-slate-400 mt-1">{c.level ?? "—"} · {c.classCategory ?? "—"}</p>
+                  <p className="text-[10px] text-slate-400 mt-1">{c.level ?? t("list.unknownValue")} · {c.classCategory ?? t("list.unknownValue")}</p>
                 </div>
               </button>
             );

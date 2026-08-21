@@ -1,0 +1,201 @@
+{
+  "weekday": {
+    "short": {
+      "1": "T2",
+      "2": "T3",
+      "3": "T4",
+      "4": "T5",
+      "5": "T6",
+      "6": "T7",
+      "7": "CN"
+    }
+  },
+  "weekParity": {
+    "ALL": "Mọi tuần",
+    "ODD": "Tuần lẻ",
+    "EVEN": "Tuần chẵn"
+  },
+  "shiftsPage": {
+    "title": "Ca làm việc",
+    "description": "Cấu hình ca làm việc chuẩn + gán ca cho nhân sự — đầu vào bắt buộc để xác định \"ngày làm việc\" khi chấm công (UC-09).",
+    "addButton": "Thêm ca làm việc",
+    "loadError": "Không tải được danh sách ca làm việc.",
+    "deactivateSuccess": "Đã vô hiệu hoá ca \"{{name}}\".",
+    "deactivateError": "Vô hiệu hoá thất bại.",
+    "columns": {
+      "code": "Mã",
+      "name": "Tên ca",
+      "time": "Giờ vào/ra",
+      "weekdays": "Ngày áp dụng",
+      "weekParity": "Tuần",
+      "status": "Trạng thái"
+    },
+    "loading": "Đang tải...",
+    "empty": "Chưa có ca làm việc nào.",
+    "statusActive": "Đang dùng",
+    "statusInactive": "Đã vô hiệu hoá",
+    "editButton": "Sửa",
+    "deactivateButton": "Vô hiệu hoá",
+    "updateSuccess": "Đã cập nhật ca làm việc thành công!",
+    "createSuccess": "Đã tạo ca làm việc thành công!",
+    "bulkAssign": {
+      "title": "Gán ca cho nhiều nhân sự",
+      "selectAtLeastOne": "Vui lòng chọn ít nhất 1 nhân sự và 1 ca làm việc.",
+      "allDepartments": "-- Tất cả phòng ban --",
+      "selectShiftPlaceholder": "-- Chọn ca --",
+      "assigning": "Đang gán...",
+      "assignButtonWithCount": "Gán ca cho {{count}} nhân sự",
+      "assignButtonNoCount": "Gán ca cho nhân sự",
+      "selectAllLabel": "Chọn tất cả ({{count}} nhân sự)",
+      "selectAllLabelFiltered": "Chọn tất cả ({{count}} nhân sự trong phòng ban đã lọc)",
+      "noEmployeesMatch": "Không có nhân sự nào khớp bộ lọc.",
+      "resultsTitle": "Kết quả gán ca",
+      "resultSuccess": "Thành công",
+      "resultError": "Gán ca thất bại.",
+      "partialFailure": "{{failed}}/{{total}} nhân sự gán thất bại -- xem chi tiết bên dưới.",
+      "assignedToast": "Đã gán ca cho {{count}} nhân sự thành công!"
+    }
+  },
+  "shiftForm": {
+    "editTitle": "Sửa ca làm việc",
+    "createTitle": "Thêm ca làm việc",
+    "missingFields": "Vui lòng điền mã và tên ca làm việc.",
+    "missingWeekdays": "Vui lòng chọn ít nhất 1 ngày áp dụng.",
+    "saveError": "Lưu ca làm việc thất bại.",
+    "codeLabel": "Mã ca *",
+    "nameLabel": "Tên ca *",
+    "checkInTimeLabel": "Giờ vào *",
+    "checkOutTimeLabel": "Giờ ra *",
+    "windowSectionTitle": "Cửa sổ chấm công (phút)",
+    "checkInBefore": "Vào - trước",
+    "checkInAfter": "Vào - sau",
+    "checkOutBefore": "Ra - trước",
+    "checkOutAfter": "Ra - sau",
+    "weekdaysSectionTitle": "Ngày áp dụng trong tuần *",
+    "weekParityLabel": "Tuần áp dụng",
+    "cancel": "Hủy",
+    "saving": "Đang lưu...",
+    "saveChanges": "Lưu thay đổi",
+    "create": "Tạo ca làm việc"
+  },
+  "workCalendarPage": {
+    "title": "Lịch làm việc / Nghỉ lễ",
+    "description": "Khai báo ngoại lệ so với ca làm việc mặc định (nghỉ lễ, làm bù T7) — dùng khi xác định \"ngày làm việc\" lúc chấm công (UC-09).",
+    "addButton": "Thêm override",
+    "rangeSeparator": "đến",
+    "loadError": "Không tải được lịch làm việc.",
+    "columns": {
+      "date": "Ngày",
+      "type": "Loại",
+      "scope": "Phạm vi",
+      "description": "Mô tả"
+    },
+    "loading": "Đang tải...",
+    "empty": "Không có override nào trong khoảng đã chọn.",
+    "noDescription": "—",
+    "deleteSuccess": "Đã xoá override.",
+    "deleteError": "Xoá thất bại.",
+    "createSuccess": "Đã tạo override lịch làm việc thành công!",
+    "dayType": {
+      "WORKING": "Làm bù",
+      "OFF": "Nghỉ",
+      "HOLIDAY": "Nghỉ lễ",
+      "COMPENSATORY": "Làm bù (lễ)"
+    },
+    "scope": {
+      "ALL": "Toàn trung tâm",
+      "SHIFT": "Theo ca",
+      "EMPLOYEE": "Theo nhân sự"
+    },
+    "form": {
+      "title": "Thêm override lịch làm việc",
+      "selectShiftRequired": "Vui lòng chọn ca làm việc.",
+      "selectEmployeeRequired": "Vui lòng chọn nhân sự.",
+      "createError": "Tạo override thất bại.",
+      "dateLabel": "Ngày *",
+      "typeLabel": "Loại *",
+      "scopeLabel": "Phạm vi áp dụng *",
+      "scopeOptionAll": "Toàn trung tâm",
+      "scopeOptionShift": "Theo ca làm việc",
+      "scopeOptionEmployee": "Theo nhân sự",
+      "shiftLabel": "Ca làm việc *",
+      "selectShiftPlaceholder": "-- Chọn ca --",
+      "employeeLabel": "Nhân sự *",
+      "selectEmployeePlaceholder": "-- Chọn nhân sự --",
+      "descriptionLabel": "Mô tả",
+      "descriptionPlaceholder": "VD: Nghỉ Quốc khánh 2/9",
+      "cancel": "Hủy",
+      "saving": "Đang lưu...",
+      "submit": "Tạo override"
+    }
+  },
+  "employeeSchedulePage": {
+    "dayType": {
+      "WORKING": "Đi làm",
+      "OFF": "Nghỉ",
+      "HOLIDAY": "Nghỉ lễ",
+      "COMPENSATORY": "Đi bù"
+    },
+    "employeeType": {
+      "TEACHER": "Giáo viên",
+      "STAFF": "Nhân viên",
+      "MANAGER": "Quản lý"
+    },
+    "title": "Lịch làm việc",
+    "description": "Ca làm cố định và lịch dạy của toàn bộ nhân viên, lọc theo phòng ban/điểm trường/lớp/nhân viên.",
+    "noPermission": "Bạn không có quyền xem trang này.",
+    "loadError": "Không tải được lịch làm việc.",
+    "quickRange": {
+      "day": "Ngày",
+      "week": "Tuần",
+      "month": "Tháng",
+      "year": "Năm"
+    },
+    "quickRangeDisabledInClassGrid": "Không áp dụng ở chế độ Theo lớp học — lưới quá rộng để đọc",
+    "viewMode": {
+      "employee": "Theo nhân viên",
+      "classGrid": "Theo lớp học"
+    },
+    "classGrid": {
+      "selectSiteHint": "Chọn 1 điểm trường ở dropdown \"Điểm trường\" trên đầu trang để xem theo lớp học.",
+      "rangeTooWideHint": "Chọn \"Ngày\" hoặc \"Tuần\" để xem theo lớp học — khoảng ngày hiện tại quá dài để hiển thị dạng lưới."
+    },
+    "rangeSeparator": "đến",
+    "filters": {
+      "allDepartments": "Tất cả phòng ban",
+      "allSites": "Tất cả điểm trường",
+      "allClasses": "Tất cả lớp",
+      "allEmployees": "Tất cả nhân viên"
+    },
+    "summaryTable": {
+      "columns": {
+        "employee": "Nhân viên",
+        "type": "Loại",
+        "shiftDays": "Số ca làm khớp lịch",
+        "sessions": "Số buổi dạy",
+        "checkedIn": "Số buổi đã nhận lớp",
+        "overrides": "Số ngày nghỉ lễ/ghi đè"
+      },
+      "loading": "Đang tải...",
+      "empty": "Không có nhân viên nào khớp bộ lọc."
+    },
+    "gridTable": {
+      "employeeColumn": "Nhân viên",
+      "loading": "Đang tải...",
+      "empty": "Không có nhân viên nào khớp bộ lọc.",
+      "sessionsCount": "{{count}} buổi dạy",
+      "checkedInCount": "{{checkedIn}}/{{total}} đã nhận lớp"
+    },
+    "timeline": {
+      "loading": "Đang tải...",
+      "empty": "Không có buổi dạy nào trong ngày này."
+    },
+    "detail": {
+      "overrideLabel": "Lịch nghỉ lễ/ghi đè:",
+      "fixedShiftsTitle": "Ca làm cố định ({{count}})",
+      "noFixedShifts": "Không có ca làm cố định khớp ngày này.",
+      "sessionsTitle": "Buổi dạy ({{count}})",
+      "noSessions": "Không có buổi dạy trong ngày này."
+    }
+  }
+}

@@ -147,7 +147,8 @@ class DocxMergeEngine {
 
         Object rowsDataObj = context.get(openMarker);
         if (!(rowsDataObj instanceof List<?> rowsData)) {
-            throw new MissingReportDataException("Thiếu dữ liệu bảng động cho '" + openMarker + "'.");
+            throw new MissingReportDataException("error.missingReportData.dynamicTable", new Object[]{openMarker},
+                    "Thiếu dữ liệu bảng động cho '" + openMarker + "'.");
         }
 
         for (XWPFTable table : document.getTables()) {

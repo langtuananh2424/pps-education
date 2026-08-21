@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Building2, Briefcase } from "lucide-react";
 import DepartmentsTab from "../components/DepartmentsTab";
 import PositionsTab from "../components/PositionsTab";
@@ -7,22 +8,21 @@ type Tab = "departments" | "positions";
 
 /** Màn hình cấu hình riêng (thường ẩn trong Admin) — không phải màn hình tạo nhân viên hàng ngày. */
 export default function DepartmentsPositionsPage() {
+  const { t } = useTranslation("hrm-org");
   const [tab, setTab] = useState<Tab>("departments");
 
   return (
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Phòng ban & Chức vụ</h1>
-        <p className="text-xs text-slate-500 mt-1">
-          Cấu hình danh mục Phòng ban, Chức vụ và role mặc định theo chức vụ — cần cấu hình ở đây trước khi chọn được trong hồ sơ nhân sự.
-        </p>
+        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("departmentsPositionsPage.title")}</h1>
+        <p className="text-xs text-slate-500 mt-1">{t("departmentsPositionsPage.description")}</p>
       </div>
 
       <div className="flex border-b border-slate-200 gap-5">
         {(
           [
-            ["departments", "Phòng ban", Building2],
-            ["positions", "Chức vụ", Briefcase]
+            ["departments", t("departmentsPositionsPage.tabs.departments"), Building2],
+            ["positions", t("departmentsPositionsPage.tabs.positions"), Briefcase]
           ] as const
         ).map(([key, label, Icon]) => (
           <button

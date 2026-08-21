@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { GraduationCap } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import ImportExcelButton from "@/components/ui/ImportExcelButton";
@@ -11,6 +12,7 @@ import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 
 export default function ProfilesPage() {
+  const { t } = useTranslation("student");
   const { selectedCampusId } = useApp();
   const [students, setStudents] = useState<StudentResponse[]>([]);
   const [loading, setLoading] = useState(false);
@@ -28,7 +30,7 @@ export default function ProfilesPage() {
         setStudents(res);
         if (selectedId == null && res.length > 0) setSelectedId(res[0].id);
       })
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách học sinh."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("profilesPage.loadError")))
       .finally(() => setLoading(false));
   };
 
@@ -40,18 +42,16 @@ export default function ProfilesPage() {
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4 flex flex-col sm:flex-row sm:items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Quản lý hồ sơ học sinh</h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Lưu hồ sơ học sinh, liên kết phụ huynh, theo dõi chuyển lớp/điểm trường và trạng thái học tập — khởi tạo kèm tài khoản đăng nhập.
-          </p>
+          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("profilesPage.title")}</h1>
+          <p className="text-xs text-slate-500 mt-1">{t("profilesPage.description")}</p>
         </div>
         <ImportExcelButton
-          title="Nhập học sinh theo lô"
-          templateFileName="mau-import-hoc-sinh.xlsx"
+          title={t("profilesPage.importTitle")}
+          templateFileName={t("profilesPage.importTemplateFileName")}
           fetchTemplate={downloadStudentImportTemplate}
           uploadFn={importStudents}
           exportAccounts={exportStudentAccounts}
-          accountsExportFileName="tai-khoan-hoc-sinh.xlsx"
+          accountsExportFileName={t("profilesPage.importAccountsFileName")}
           onImported={load}
         />
       </div>
@@ -76,8 +76,8 @@ export default function ProfilesPage() {
           <div className="lg:col-span-3 bg-white rounded-xl border border-slate-200 shadow-soft flex flex-col items-center justify-center p-12 text-center text-slate-400 space-y-3">
             <GraduationCap className="w-12 h-12 text-slate-300" />
             <div>
-              <h3 className="text-sm font-bold text-slate-700">Chưa chọn học sinh nào</h3>
-              <p className="text-xs text-slate-400 mt-1">Chọn 1 học sinh bên trái hoặc thêm mới để xem/sửa hồ sơ.</p>
+              <h3 className="text-sm font-bold text-slate-700">{t("profilesPage.emptyTitle")}</h3>
+              <p className="text-xs text-slate-400 mt-1">{t("profilesPage.emptyDescription")}</p>
             </div>
           </div>
         )}
@@ -90,7 +90,7 @@ export default function ProfilesPage() {
             setCreateOpen(false);
             setSelectedId(id);
             load();
-            showToast("Đã tạo hồ sơ học sinh thành công!");
+            showToast(t("profilesPage.createdToast"));
           }}
         />
       )}

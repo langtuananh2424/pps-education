@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { AlertCircle, BookOpen, CheckCircle2, Clock, Video } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { HomeworkProgressResponse, listHomeworkProgress } from "../api";
@@ -11,6 +12,7 @@ import { HomeworkProgressResponse, listHomeworkProgress } from "../api";
  * từng loại BTVN), hiện thành pill nổi bật xanh lá "Đạt" hoặc đỏ "Chưa đạt" kèm %.
  */
 function ProgressBadge({ progress, passed }: { progress: string | null; passed: boolean | null }) {
+  const { t } = useTranslation("portal-exercises");
   if (!progress) return null;
   if (passed == null) {
     const isWaiting = progress === "Đang chờ chấm";
@@ -27,7 +29,7 @@ function ProgressBadge({ progress, passed }: { progress: string | null; passed: 
       }`}
     >
       {passed ? <CheckCircle2 size={13} aria-hidden="true" /> : <AlertCircle size={13} aria-hidden="true" />}
-      {progress} — {passed ? "Đạt" : "Chưa đạt"}
+      {progress} — {passed ? t("parentHomework.passed") : t("parentHomework.notPassed")}
     </span>
   );
 }
@@ -49,6 +51,7 @@ interface ParentHomeworkProgressTabProps {
 
 /** UC-64 (2026-07-29) — Cổng phụ huynh xem tiến độ BTVN đã giao cho con (chỉ xem, không phải giao diện làm bài — con tự làm ở Portal Học sinh). */
 export default function ParentHomeworkProgressTab({ studentId, classId, highlightCommentId, onHighlightHandled }: ParentHomeworkProgressTabProps) {
+  const { t } = useTranslation("portal-exercises");
   const [items, setItems] = useState<HomeworkProgressResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -59,7 +62,7 @@ export default function ParentHomeworkProgressTab({ studentId, classId, highligh
     setError(null);
     listHomeworkProgress(studentId, classId)
       .then(setItems)
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được tiến độ bài tập về nhà."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("parentHomework.loadError")))
       .finally(() => setLoading(false));
   }, [studentId, classId]);
 
@@ -78,19 +81,19 @@ export default function ParentHomeworkProgressTab({ studentId, classId, highligh
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, highlightCommentId, items]);
 
-  if (loading) return <p className="text-sm text-muted font-bold">Đang tải...</p>;
+  if (loading) return <p className="text-sm text-muted font-bold">{t("parentHomework.loading")}</p>;
 
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-lg font-black text-ink font-display">Tiến độ Bài tập về nhà</h2>
-        <p className="text-xs text-muted font-bold mt-0.5">Theo dõi bài tập giáo viên đã giao cho con theo từng buổi học — chỉ xem, không thao tác làm bài ở đây.</p>
+        <h2 className="text-lg font-black text-ink font-display">{t("parentHomework.title")}</h2>
+        <p className="text-xs text-muted font-bold mt-0.5">{t("parentHomework.description")}</p>
       </div>
 
       {error && <div className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-xl">{error}</div>}
 
       {items.length === 0 ? (
-        <p className="text-xs text-muted font-bold italic text-center py-10">Chưa có bài tập nào được giao.</p>
+        <p className="text-xs text-muted font-bold italic text-center py-10">{t("parentHomework.empty")}</p>
       ) : (
         <div className="space-y-3">
           {items.map((item) => (
@@ -109,7 +112,7 @@ export default function ParentHomeworkProgressTab({ studentId, classId, highligh
                 <div className="flex items-start gap-2.5 p-3 bg-sky-2 rounded-xl border border-teal/20">
                   <BookOpen size={16} className="text-teal-deep shrink-0 mt-0.5" aria-hidden="true" />
                   <div className="min-w-0">
-                    <p className="text-[10px] font-extrabold text-teal-deep uppercase">Ngữ pháp</p>
+                    <p className="text-[10px] font-extrabold text-teal-deep uppercase">{t("parentHomework.grammarLabel")}</p>
                     <p className="text-xs font-bold text-ink truncate">{item.grammarTitle ?? item.grammarOfflineText}</p>
                     <ProgressBadge progress={item.grammarProgress} passed={item.grammarPassed} />
                   </div>
@@ -120,7 +123,7 @@ export default function ParentHomeworkProgressTab({ studentId, classId, highligh
                 <div className="flex items-start gap-2.5 p-3 bg-amber-50/60 rounded-xl border border-amber-200">
                   <Video size={16} className="text-amber-700 shrink-0 mt-0.5" aria-hidden="true" />
                   <div className="min-w-0">
-                    <p className="text-[10px] font-extrabold text-amber-800 uppercase">Video ôn tập</p>
+                    <p className="text-[10px] font-extrabold text-amber-800 uppercase">{t("parentHomework.videoLabel")}</p>
                     <p className="text-xs font-bold text-ink truncate">{item.videoTitle}</p>
                     <ProgressBadge progress={item.videoProgress} passed={item.videoPassed} />
                   </div>

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Download, FileSpreadsheet, Upload } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import Modal from "./Modal";
 import Button from "./Button";
 import { ApiError } from "@/lib/apiClient";
@@ -73,6 +74,7 @@ export default function ImportExcelButton({
   accountsExportFileName,
   onImported
 }: ImportExcelButtonProps) {
+  const { t } = useTranslation("layout");
   const [open, setOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -103,7 +105,7 @@ export default function ImportExcelButton({
       const blob = await fetchTemplate();
       downloadBlob(blob, templateFileName);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Tải file mẫu thất bại.");
+      setError(err instanceof ApiError ? err.message : t("upload.excel.downloadTemplateFailed"));
     } finally {
       setDownloadingTemplate(false);
     }
@@ -116,9 +118,9 @@ export default function ImportExcelButton({
       const blob = await exportAccounts(
         result.generatedCredentials.map((c) => ({ username: c.username, temporaryPassword: c.temporaryPassword, fullName: c.fullName }))
       );
-      downloadBlob(blob, accountsExportFileName ?? "tai-khoan.xlsx");
+      downloadBlob(blob, accountsExportFileName ?? t("upload.excel.defaultAccountsFileName"));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Tải danh sách tài khoản thất bại.");
+      setError(err instanceof ApiError ? err.message : t("upload.excel.downloadAccountsFailed"));
     }
   };
 
@@ -127,7 +129,7 @@ export default function ImportExcelButton({
     setError(null);
     setResult(null);
     if (selected && !selected.name.toLowerCase().endsWith(".xlsx")) {
-      setError("Chỉ chấp nhận file .xlsx (đúng định dạng file mẫu tải về).");
+      setError(t("upload.excel.invalidFileType"));
       setFile(null);
       return;
     }
@@ -143,7 +145,7 @@ export default function ImportExcelButton({
       setResult(res);
       if (res.successRows > 0) onImported?.();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Import thất bại.");
+      setError(err instanceof ApiError ? err.message : t("upload.excel.importFailed"));
     } finally {
       setSubmitting(false);
     }
@@ -153,11 +155,11 @@ export default function ImportExcelButton({
     <>
       <Button variant="secondary" size="sm" onClick={() => setOpen(true)} className="whitespace-nowrap shrink-0">
         <FileSpreadsheet className="w-3.5 h-3.5" />
-        Import Excel
+        {t("upload.excel.button")}
       </Button>
 
       {open && (
-        <Modal open onClose={handleClose} title={title} description="Tải file mẫu, điền dữ liệu rồi tải lên để nhập hàng loạt." size="lg">
+        <Modal open onClose={handleClose} title={title} description={t("upload.excel.modalDescription")} size="lg">
           <div className="space-y-4">
             <button
               type="button"
@@ -166,11 +168,11 @@ export default function ImportExcelButton({
               className="w-full flex items-center justify-center gap-2 border border-dashed border-slate-300 rounded-lg py-3 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
             >
               <Download className="w-4 h-4" />
-              {downloadingTemplate ? "Đang tải..." : "Tải file mẫu (.xlsx)"}
+              {downloadingTemplate ? t("upload.excel.downloading") : t("upload.excel.downloadTemplate")}
             </button>
 
             <div>
-              <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500 block mb-1">Tải lên file đã điền</label>
+              <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500 block mb-1">{t("upload.excel.uploadLabel")}</label>
               <input
                 type="file"
                 accept=".xlsx"
@@ -186,25 +188,25 @@ export default function ImportExcelButton({
                 <div className="grid grid-cols-3 gap-2 text-center">
                   <div className="bg-slate-50 border border-slate-100 rounded-lg py-2">
                     <div className="text-sm font-bold text-slate-800">{result.totalRows ?? "—"}</div>
-                    <div className="text-[10px] text-slate-400">Tổng số dòng</div>
+                    <div className="text-[10px] text-slate-400">{t("upload.excel.totalRows")}</div>
                   </div>
                   <div className="bg-emerald-50 border border-emerald-100 rounded-lg py-2">
                     <div className="text-sm font-bold text-emerald-600">{result.successRows}</div>
-                    <div className="text-[10px] text-emerald-500">Thành công</div>
+                    <div className="text-[10px] text-emerald-500">{t("upload.excel.successRows")}</div>
                   </div>
                   <div className="bg-rose-50 border border-rose-100 rounded-lg py-2">
                     <div className="text-sm font-bold text-rose-600">{result.failedRows}</div>
-                    <div className="text-[10px] text-rose-500">Lỗi</div>
+                    <div className="text-[10px] text-rose-500">{t("upload.excel.failedRows")}</div>
                   </div>
                 </div>
 
                 {result.errorSummary.length > 0 && (
                   <div className="border border-rose-100 rounded-lg overflow-hidden">
-                    <div className="bg-rose-50 px-3 py-1.5 text-[10px] font-bold text-rose-600 uppercase">Chi tiết lỗi từng dòng</div>
+                    <div className="bg-rose-50 px-3 py-1.5 text-[10px] font-bold text-rose-600 uppercase">{t("upload.excel.errorDetailTitle")}</div>
                     <div className="max-h-48 overflow-y-auto divide-y divide-slate-100">
                       {result.errorSummary.map((e, i) => (
                         <div key={i} className="px-3 py-1.5 text-xs flex gap-2">
-                          <span className="font-mono font-bold text-slate-400 shrink-0">Dòng {e.row}</span>
+                          <span className="font-mono font-bold text-slate-400 shrink-0">{t("upload.excel.row", { row: e.row })}</span>
                           <span className="text-slate-600">{e.reason}</span>
                         </div>
                       ))}
@@ -215,7 +217,7 @@ export default function ImportExcelButton({
                 {result.generatedCredentials && result.generatedCredentials.length > 0 && (
                   <div className="border border-amber-200 rounded-lg overflow-hidden">
                     <div className="bg-amber-50 px-3 py-1.5 text-[10px] font-bold text-amber-700 uppercase flex items-center justify-between gap-2">
-                      <span>Mật khẩu tạm — chỉ hiển thị 1 lần, lưu lại ngay</span>
+                      <span>{t("upload.excel.credentialsWarning")}</span>
                       {exportAccounts && (
                         <button
                           type="button"
@@ -223,14 +225,14 @@ export default function ImportExcelButton({
                           className="normal-case font-bold text-amber-800 hover:underline flex items-center gap-1 shrink-0"
                         >
                           <Download className="w-3 h-3" />
-                          Tải danh sách (.xlsx)
+                          {t("upload.excel.downloadAccounts")}
                         </button>
                       )}
                     </div>
                     <div className="max-h-48 overflow-y-auto divide-y divide-slate-100">
                       {result.generatedCredentials.map((c, i) => (
                         <div key={i} className="px-3 py-1.5 text-xs flex gap-3 font-mono">
-                          <span className="text-slate-400 shrink-0">Dòng {c.row}</span>
+                          <span className="text-slate-400 shrink-0">{t("upload.excel.row", { row: c.row })}</span>
                           <span className="font-bold text-slate-700">{c.username}</span>
                           <span className="text-amber-700">{c.temporaryPassword}</span>
                         </div>
@@ -243,12 +245,12 @@ export default function ImportExcelButton({
 
             <div className="flex justify-end gap-2 border-t border-slate-100 pt-3">
               <Button type="button" variant="secondary" size="sm" onClick={handleClose}>
-                {result ? "Đóng" : "Hủy"}
+                {result ? t("upload.excel.close") : t("upload.excel.cancel")}
               </Button>
               {!result && (
                 <Button type="button" variant="primary" size="sm" disabled={!file || submitting} onClick={handleSubmit}>
                   <Upload className="w-3.5 h-3.5" />
-                  {submitting ? "Đang nhập..." : "Xác nhận nhập"}
+                  {submitting ? t("upload.excel.importing") : t("upload.excel.confirmImport")}
                 </Button>
               )}
             </div>

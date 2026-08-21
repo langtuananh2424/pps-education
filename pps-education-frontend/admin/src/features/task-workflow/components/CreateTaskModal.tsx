@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import { ApiError } from "@/lib/apiClient";
@@ -10,8 +11,8 @@ import Select from "@/components/ui/Select";
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
 
-const TASK_TYPE_LABEL: Record<TaskType, string> = { GENERAL: "Thông thường", URGENT: "Khẩn cấp", RECURRING: "Lặp lại", PROJECT: "Dự án" };
-const TASK_PRIORITY_LABEL: Record<TaskPriority, string> = { LOW: "Thấp", NORMAL: "Bình thường", HIGH: "Cao", URGENT: "Khẩn cấp" };
+const TASK_TYPES: TaskType[] = ["GENERAL", "URGENT", "RECURRING", "PROJECT"];
+const TASK_PRIORITIES: TaskPriority[] = ["LOW", "NORMAL", "HIGH", "URGENT"];
 
 /**
  * UC-06 Tác nhân nhận việc = "nhân sự" — loại STUDENT/PARENT khỏi kết quả tìm kiếm. Không dùng
@@ -37,6 +38,7 @@ interface CreateTaskModalProps {
  * (AssigneeOutsideDepartmentException), hiện rõ message qua ApiError.
  */
 export default function CreateTaskModal({ onClose, onCreated }: CreateTaskModalProps) {
+  const { t } = useTranslation("task-workflow");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [taskType, setTaskType] = useState<TaskType>("GENERAL");
@@ -75,7 +77,7 @@ export default function CreateTaskModal({ onClose, onCreated }: CreateTaskModalP
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || assignees.length === 0) {
-      setError("Vui lòng nhập tiêu đề và chọn ít nhất 1 người nhận.");
+      setError(t("createTaskModal.validationError"));
       return;
     }
     setSubmitting(true);
@@ -93,29 +95,29 @@ export default function CreateTaskModal({ onClose, onCreated }: CreateTaskModalP
       const created = await createTask(request);
       onCreated(created);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Giao việc thất bại.");
+      setError(err instanceof ApiError ? err.message : t("createTaskModal.createError"));
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <Modal open onClose={onClose} title="Giao việc mới" description="Chỉ giao được cho nhân sự trong phạm vi phòng ban mình phụ trách." size="lg">
+    <Modal open onClose={onClose} title={t("createTaskModal.modalTitle")} description={t("createTaskModal.modalDescription")} size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
         <div>
-          <label className={labelClass}>Tiêu đề *</label>
+          <label className={labelClass}>{t("createTaskModal.titleLabel")}</label>
           <input value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} required />
         </div>
 
         <div>
-          <label className={labelClass}>Mô tả công việc</label>
+          <label className={labelClass}>{t("createTaskModal.descriptionLabel")}</label>
           <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className={inputClass} />
         </div>
 
         <div>
-          <label className={labelClass}>Người nhận việc *</label>
+          <label className={labelClass}>{t("createTaskModal.assigneesLabel")}</label>
           {assignees.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mb-2">
               {assignees.map((a) => (
@@ -132,7 +134,7 @@ export default function CreateTaskModal({ onClose, onCreated }: CreateTaskModalP
             <input
               value={query}
               onChange={(e) => handleSearch(e.target.value)}
-              placeholder="Tìm nhân sự theo username / họ tên..."
+              placeholder={t("createTaskModal.searchPlaceholder")}
               name="task-assignee-lookup"
               autoComplete="off"
               autoCorrect="off"
@@ -140,11 +142,11 @@ export default function CreateTaskModal({ onClose, onCreated }: CreateTaskModalP
               spellCheck={false}
               className={inputClass}
             />
-            {searching && <p className="text-[10px] text-slate-400 mt-1">Đang tìm...</p>}
+            {searching && <p className="text-[10px] text-slate-400 mt-1">{t("createTaskModal.searching")}</p>}
             {query.trim() && !searching && (
               <div className="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg divide-y divide-slate-100 max-h-56 overflow-y-auto">
                 {results.length === 0 ? (
-                  <p className="px-3 py-2 text-xs text-slate-400 italic">Không tìm thấy nhân sự phù hợp.</p>
+                  <p className="px-3 py-2 text-xs text-slate-400 italic">{t("createTaskModal.noResults")}</p>
                 ) : (
                   results.map((u) => (
                     <button key={u.id} type="button" onClick={() => addAssignee(u)} className="w-full text-left px-3 py-2 hover:bg-slate-50 text-xs flex items-center justify-between gap-2">
@@ -152,7 +154,7 @@ export default function CreateTaskModal({ onClose, onCreated }: CreateTaskModalP
                         {u.fullName} <span className="text-slate-400">({u.username})</span>
                       </span>
                       <span className="text-[9px] font-bold text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded-full shrink-0">
-                        {u.roles.map((r) => r.name).join(", ") || "Nhân sự"}
+                        {u.roles.map((r) => r.name).join(", ") || t("createTaskModal.personnelFallback")}
                       </span>
                     </button>
                   ))
@@ -164,21 +166,21 @@ export default function CreateTaskModal({ onClose, onCreated }: CreateTaskModalP
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className={labelClass}>Loại việc</label>
+            <label className={labelClass}>{t("createTaskModal.taskTypeLabel")}</label>
             <Select value={taskType} onChange={(e) => setTaskType(e.target.value as TaskType)} className={inputClass}>
-              {Object.entries(TASK_TYPE_LABEL).map(([value, label]) => (
+              {TASK_TYPES.map((value) => (
                 <option key={value} value={value}>
-                  {label}
+                  {t(`taskType.${value}`)}
                 </option>
               ))}
             </Select>
           </div>
           <div>
-            <label className={labelClass}>Độ ưu tiên</label>
+            <label className={labelClass}>{t("createTaskModal.priorityLabel")}</label>
             <Select value={priority} onChange={(e) => setPriority(e.target.value as TaskPriority)} className={inputClass}>
-              {Object.entries(TASK_PRIORITY_LABEL).map(([value, label]) => (
+              {TASK_PRIORITIES.map((value) => (
                 <option key={value} value={value}>
-                  {label}
+                  {t(`priority.${value}`)}
                 </option>
               ))}
             </Select>
@@ -187,21 +189,21 @@ export default function CreateTaskModal({ onClose, onCreated }: CreateTaskModalP
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className={labelClass}>Hạn hoàn thành</label>
+            <label className={labelClass}>{t("createTaskModal.dueLabel")}</label>
             <input type="datetime-local" value={dueAt} onChange={(e) => setDueAt(e.target.value)} className={inputClass} />
           </div>
           <div>
-            <label className={labelClass}>Tags (phân cách bằng dấu phẩy)</label>
-            <input value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} placeholder="VD: gấp, báo cáo" className={inputClass} />
+            <label className={labelClass}>{t("createTaskModal.tagsLabel")}</label>
+            <input value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} placeholder={t("createTaskModal.tagsPlaceholder")} className={inputClass} />
           </div>
         </div>
 
         <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
           <Button type="button" variant="secondary" onClick={onClose}>
-            Hủy
+            {t("createTaskModal.cancel")}
           </Button>
           <Button type="submit" variant="primary" disabled={submitting}>
-            {submitting ? "Đang giao..." : "Giao việc"}
+            {submitting ? t("createTaskModal.submitting") : t("createTaskModal.submitButton")}
           </Button>
         </div>
       </form>

@@ -1,0 +1,73 @@
+{
+  "departmentsPositionsPage": {
+    "title": "Departments & Positions",
+    "description": "Configure the Department and Position catalog plus default roles per position — this must be set up here before it can be selected in employee profiles.",
+    "tabs": {
+      "departments": "Departments",
+      "positions": "Positions"
+    }
+  },
+  "departmentsTab": {
+    "sectionTitle": "Org chart — Departments ({{count}})",
+    "addButton": "Add department",
+    "loadError": "Failed to load the department list.",
+    "deleteConfirm": "Delete this department? This is only possible if no staff is currently assigned to it.",
+    "deleteError": "Failed to delete the department.",
+    "deletedToast": "Department deleted successfully!",
+    "createdToast": "Department created successfully!",
+    "savedToast": "Department saved successfully!",
+    "modalTitle": "Add department",
+    "loading": "Loading...",
+    "empty": "No departments yet.",
+    "headLabel": "Head: {{name}}",
+    "noHead": "No head assigned",
+    "editButton": "Edit"
+  },
+  "departmentForm": {
+    "codeLabel": "Department code *",
+    "codeImmutableHint": "The code cannot be changed after creation.",
+    "nameLabel": "Department name *",
+    "parentLabel": "Parent department",
+    "parentNoneOption": "-- None (root department) --",
+    "headLabel": "Department head",
+    "headSearchPlaceholder": "Search by name / email...",
+    "cancelButton": "Cancel",
+    "saving": "Saving...",
+    "createButton": "Create department",
+    "saveButton": "Save changes",
+    "validationError": "Please fill in both the code and name of the department.",
+    "saveError": "Failed to save the department."
+  },
+  "positionsTab": {
+    "sectionTitle": "Position catalog ({{count}})",
+    "addButton": "Add position",
+    "loadError": "Failed to load the position list.",
+    "deleteConfirm": "Delete this position? This is only possible if no staff is currently assigned to it.",
+    "deleteError": "Failed to delete the position.",
+    "deletedToast": "Position deleted successfully!",
+    "createdToast": "Position created successfully!",
+    "modalTitle": "Add position",
+    "loading": "Loading...",
+    "empty": "No positions yet.",
+    "selectHint": "Select a position on the left to configure its default roles."
+  },
+  "positionForm": {
+    "codePlaceholder": "Position code",
+    "namePlaceholder": "Position name",
+    "cancelButton": "Cancel",
+    "saving": "Saving...",
+    "createButton": "Create position",
+    "validationError": "Please fill in both the code and name of the position.",
+    "saveError": "Failed to create the position."
+  },
+  "defaultRolesPanel": {
+    "sectionTitle": "Default roles for this position",
+    "hint": "When a staff member is assigned this position (at creation or when changing position), the system automatically grants the roles checked below — no need to assign them manually in \"Role Groups\" anymore.",
+    "loadError": "Failed to load the default roles.",
+    "saveError": "Failed to save the default roles.",
+    "savedSuccess": "Saved.",
+    "loading": "Loading...",
+    "saveButton": "Save default roles",
+    "saving": "Saving..."
+  }
+}

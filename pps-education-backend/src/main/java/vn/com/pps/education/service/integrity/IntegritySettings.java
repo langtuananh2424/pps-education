@@ -50,6 +50,7 @@ public class IntegritySettings {
 
     private SystemSetting readSetting(String key) {
         return systemSettingRepository.findBySettingKey(key)
-                .orElseThrow(() -> new ResourceNotFoundException("Thiếu cấu hình system_settings: " + key));
+                .orElseThrow(() -> new ResourceNotFoundException("error.integrity.settingMissing",
+                        new Object[]{key}, "Thiếu cấu hình system_settings: " + key));
     }
 }

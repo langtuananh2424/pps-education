@@ -43,7 +43,8 @@ public class SkillService {
     public SkillResponse create(CreateSkillRequest request) {
         String code = request.code().trim().toUpperCase();
         if (skillRepository.findByCode(code).isPresent()) {
-            throw new DuplicateSkillCodeException("Mã kỹ năng đã tồn tại: " + code);
+            throw new DuplicateSkillCodeException("error.duplicateSkillCode.default", new Object[]{code},
+                    "Mã kỹ năng đã tồn tại: " + code);
         }
         Skill skill = new Skill();
         skill.setCode(code);
@@ -57,7 +58,7 @@ public class SkillService {
     @Transactional
     public SkillResponse update(Long id, UpdateSkillRequest request) {
         Skill skill = skillRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy kỹ năng id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException("error.skill.notFoundById", new Object[]{id}, "Không tìm thấy kỹ năng id=" + id));
         skill.setName(request.name().trim());
         skill.setDescription(request.description());
         skill.setActive(request.active());

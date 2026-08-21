@@ -1,0 +1,182 @@
+{
+  "executive": {
+    "title": "Business & Operations Summary Report",
+    "subtitle": "Financial, HR, and enrollment performance analysis across the PPS Education network.",
+    "reportPeriod": "Reporting period: July 2026",
+    "actualRevenue": "Actual Revenue",
+    "vsLastMonth": "+14.2% vs. last month",
+    "operatingCost": "Operating Cost",
+    "operatingCostNote": "Includes payroll & CDN infrastructure",
+    "profitMargin": "Profit Margin",
+    "pendingUpdate": "Pending update",
+    "onTargetNote": "On track with annual target",
+    "activeStudents": "Active Students",
+    "studentsUnit": "students",
+    "distributedAcross": "Distributed across {{count}} sites",
+    "revenueChartTitle": "Periodic Revenue & Expense Statistics",
+    "revenueChartSubtitle": "Chart comparing monthly tuition collected against operating expenses",
+    "legendRevenue": "Tuition collected (M VND)",
+    "legendExpense": "Operating cost (M VND)",
+    "thisMonth": "This month",
+    "funnelTitle": "Enrollment Conversion Funnel (CRM)",
+    "funnelNewLeads": "New leads received",
+    "funnelSubtitle": "Consultation lead volume through each stage this week",
+    "funnelContacted": "Contacted by phone",
+    "funnelQualified": "Qualified",
+    "funnelWon": "Won (converted)",
+    "studentsCount": "{{count}} students",
+    "viewLeadsList": "View full leads list",
+    "renewalNoticeTitle": "Partner School Agreement Renewal Notice",
+    "renewalNoticePrefix": "The partnership agreement with",
+    "renewalNoticeMiddle": "is due for renewal on",
+    "renewalNoticeSuffix": "The system automatically locks scheduling if the agreement lapses.",
+    "manageContracts": "Manage partner agreements"
+  },
+  "teacher": {
+    "banner": {
+      "badge": "PPS VIETNAM · Teacher LMS",
+      "greeting": "Hi, {{name}} 👋",
+      "subtitle": "Overview of your teaching activity, to-dos, and today's homework progress.",
+      "viewHomeworkButton": "View homework",
+      "createHomeworkButton": "Create homework"
+    },
+    "kpi": {
+      "classes": "Classes",
+      "classesHint": "Currently teaching",
+      "pendingGrading": "Pending grading",
+      "pendingGradingHint": "{{writing}} submissions + {{speaking}} speaking turns",
+      "overdue": "Overdue",
+      "overdueHintSome": "Needs prompt attention",
+      "overdueHintNone": "No overdue assignments",
+      "completion": "Completion",
+      "completionHint": "Average across open assignments",
+      "trendVsLastWeek": "{{diff}}% vs. last week"
+    },
+    "assignmentStatus": {
+      "overdue": "Overdue",
+      "done": "Completed",
+      "dueSoon": "Due soon",
+      "open": "Open"
+    },
+    "classNote": {
+      "good": "Good",
+      "fair": "Fair",
+      "needsImprovement": "Needs improvement"
+    },
+    "sessionStatus": {
+      "done": "Finished",
+      "ongoing": "In progress",
+      "upcoming": "Upcoming"
+    },
+    "todo": {
+      "title": "To-do",
+      "subtitle": "Priorities for today",
+      "viewAll": "View all →",
+      "pendingGrading": "{{count}} submissions awaiting manual grading",
+      "pendingGradingDesc": "Essay/Speaking homework and Speaking Practice — no direct grading page to open from here yet.",
+      "classLabel": "Class {{className}} · {{count}} students not submitted",
+      "needsFollowUp": "Needs follow-up",
+      "emptyTitle": "Nothing to handle",
+      "emptyDescription": "All open assignments have full submissions."
+    },
+    "todaySchedule": {
+      "title": "Today's schedule",
+      "subtitle": "Today's sessions across all your classes",
+      "viewSchedule": "View schedule →",
+      "classLabel": "Class {{className}}",
+      "noRoom": "No room assigned",
+      "studentCountSuffix": " · {{count}} students",
+      "checkInButton": "Attendance",
+      "emptyTitle": "No classes today"
+    },
+    "recentAssignments": {
+      "title": "Recent assignments",
+      "subtitle": "8 most recent, across all classes you teach",
+      "viewAll": "View all →",
+      "filterAll": "All",
+      "filterPending": "Needs attention",
+      "filterDone": "Completed",
+      "columns": { "title": "Assignment", "class": "Class", "completed": "Submitted", "rate": "Rate", "status": "Status" },
+      "emptyNone": "No assignments given yet",
+      "emptyFiltered": "No assignments match the filter"
+    },
+    "myClasses": {
+      "title": "My classes",
+      "subtitleSuffix": " classes you teach · click a class to see details",
+      "viewAll": "View all →",
+      "columns": { "class": "Class", "size": "Size", "completionRate": "Completion rate", "overdueAssignments": "Overdue", "rating": "Rating" },
+      "studentsUnit": "students",
+      "emptyTitle": "No classes assigned yet"
+    },
+    "trend": {
+      "title": "Weekly homework completion rate",
+      "subtitleWithData": "Last {{count}} weeks · calculated from real assignment data",
+      "subtitleEmpty": "Calculated from real assignment data — rather than a generic \"learning activity\" metric",
+      "emptyTitle": "Not enough data to chart a trend yet",
+      "emptyDescription": "At least 1 assigned homework is needed to compute a weekly completion rate.",
+      "thisWeek": "This week"
+    }
+  },
+  "campus": {
+    "title": "Site & Campus Operations Management",
+    "subtitle": "Monitor partner-school feedback, class status, and approval queues at the site(s) you manage.",
+    "kpi": {
+      "newFeedback": "New partner feedback",
+      "newFeedbackHint": "{{count}} feedback items being tracked",
+      "activeContracts": "Active partner agreements",
+      "activeContractsHint": "{{count}} sites managed",
+      "attitudeWarning": "Attitude warnings",
+      "attitudeWarningHint": "Warning-level comments pending approval",
+      "pendingApproval": "Pending approvals",
+      "pendingApprovalHint": "{{grades}} grades + {{leaves}} leave requests",
+      "tuitionDebt": "Site tuition debt",
+      "tuitionDebtHint": "No per-site report available yet"
+    },
+    "pendingApproval": {
+      "title": "Pending approvals",
+      "subtitle": "Staff leave requests + site grade sheets awaiting approval",
+      "pendingGrades": "{{count}} grade sheets pending approval",
+      "pendingGradesDesc": "Submitted by teachers, needs Site Manager approval before publishing.",
+      "leaveDaysLabel": "{{name}} · {{days}} days",
+      "emptyTitle": "Nothing pending",
+      "emptyDescription": "All grades and leave requests have been processed."
+    },
+    "expiringContracts": {
+      "title": "Expiring agreements",
+      "subtitle": "Partner agreements expiring within 30 days",
+      "expiresOn": "Expires {{date}}",
+      "emptyTitle": "No agreements expiring soon"
+    },
+    "activeClasses": {
+      "title": "Active classes at this site",
+      "subtitle": "{{classes}} classes · {{students}} students · avg. homework completion {{percent}}%",
+      "viewClasses": "View classes →",
+      "columns": { "class": "Class", "site": "Site", "size": "Size", "completion": "Homework completion" },
+      "emptyTitle": "No active classes yet"
+    },
+    "feedbackInbox": {
+      "title": "Latest partner-school feedback",
+      "viewAll": "View all feedback",
+      "emptyTitle": "No feedback from partner schools yet"
+    },
+    "feedbackPriority": { "URGENT": "Urgent", "HIGH": "High", "NORMAL": "Normal", "LOW": "Low" },
+    "feedbackStatus": { "NEW": "New", "IN_PROGRESS": "In progress", "RESOLVED": "Resolved", "CLOSED": "Closed" }
+  },
+  "academic": {
+    "title": "Academic & Training Operations Hub",
+    "subtitle": "Track class assignments, online exam grading progress, and periodic comment approvals.",
+    "activeCourses": "Active courses",
+    "classesUnit": "{{count}} classes",
+    "avgAttendanceRate": "Average attendance rate",
+    "pendingComments": "Comments pending approval",
+    "commentsUnit": "{{count}} comments",
+    "scheduleTitle": "Teaching & Room Assignment Schedule",
+    "roomLabel": "Room: {{room}}",
+    "scheduleLabel": "Schedule: {{schedule}}",
+    "typeAffiliated": "Partner school",
+    "typeCenter": "At the center",
+    "gradeChartTitle": "Grade Distribution Chart",
+    "gradeChartSubtitle": "Average grade share for the current semester's coursework",
+    "studentsPercentTooltip": "{{percent}}% of students"
+  }
+}

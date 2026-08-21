@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { CheckCircle2, LogIn, LogOut, MapPin } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { Badge, Button } from "@/components/ui";
 import Select from "@/components/ui/Select";
@@ -8,7 +9,7 @@ import { useToast } from "@/lib/useToast";
 import { describeGeolocationError, getCurrentPosition } from "@/lib/geolocation";
 import { SiteResponse } from "@/features/facility/api";
 import { AttendanceRecordResponse, checkIn, checkOut, detectAttendanceSite } from "../api";
-import { attendanceStatusLabels, attendanceStatusVariant, formatAttendanceTime } from "../attendanceFormat";
+import { attendanceStatusLabel, attendanceStatusVariant, formatAttendanceTime } from "../attendanceFormat";
 
 interface SelfAttendanceCardProps {
   sites: SiteResponse[];
@@ -19,6 +20,8 @@ interface SelfAttendanceCardProps {
 /** Khối "Chấm công của tôi" tự phục vụ (UC-09) — tách khỏi AttendancePage để dùng lại được cả
  * trong popup chấm công nhanh ở Header, không bắt buộc điều hướng sang trang riêng. */
 export default function SelfAttendanceCard({ sites, onChecked }: SelfAttendanceCardProps) {
+  const { t, i18n } = useTranslation("hrm-attendance");
+  const { t: tc } = useTranslation("common");
   const [selectedSiteId, setSelectedSiteId] = useState<number | "">("");
   const [processing, setProcessing] = useState<"in" | "out" | null>(null);
   const [selfError, setSelfError] = useState<string | null>(null);
@@ -44,7 +47,7 @@ export default function SelfAttendanceCard({ sites, onChecked }: SelfAttendanceC
     setSelfError(null);
     setDetectedSiteName(null);
     try {
-      const position = await getCurrentPosition();
+      const position = await getCurrentPosition(tc);
       // Tự nhận diện điểm chấm công theo GPS trước — nếu không nhận diện được (không có
       // điểm trường nào trong bán kính, hoặc lỗi gọi API) thì fallback dùng điểm đang chọn
       // ở dropdown thủ công (selectedSiteId), không chặn luồng chấm công.
@@ -70,8 +73,8 @@ export default function SelfAttendanceCard({ sites, onChecked }: SelfAttendanceC
       onChecked?.(result);
       showToast(
         kind === "in"
-          ? `Chấm công vào thành công lúc ${formatAttendanceTime(result.checkInAt)}!`
-          : `Chấm công ra thành công lúc ${formatAttendanceTime(result.checkOutAt)}!`
+          ? t("selfAttendance.checkInSuccess", { time: formatAttendanceTime(result.checkInAt, i18n.language) })
+          : t("selfAttendance.checkOutSuccess", { time: formatAttendanceTime(result.checkOutAt, i18n.language) })
       );
     } catch (err) {
       if (err instanceof ApiError) {
@@ -80,11 +83,11 @@ export default function SelfAttendanceCard({ sites, onChecked }: SelfAttendanceC
         const geoErr = err as { code: number; message?: string };
         // eslint-disable-next-line no-console
         console.warn("Chấm công — lỗi định vị GPS:", geoErr.code, geoErr.message);
-        setSelfError(describeGeolocationError(geoErr));
+        setSelfError(describeGeolocationError(geoErr, tc));
       } else {
         // eslint-disable-next-line no-console
         console.error("Chấm công thất bại — lỗi không xác định:", err);
-        setSelfError(err instanceof Error ? err.message : "Chấm công thất bại — mở Console (F12) để xem chi tiết lỗi.");
+        setSelfError(err instanceof Error ? err.message : t("selfAttendance.checkInFailedUnknown"));
       }
     } finally {
       busyRef.current = false;
@@ -97,7 +100,7 @@ export default function SelfAttendanceCard({ sites, onChecked }: SelfAttendanceC
       {selfError && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-lg">{selfError}</div>}
       {detectedSiteName && !selfError && (
         <div className="text-sm text-emerald-600 bg-emerald-50 border border-emerald-100 p-3 rounded-lg">
-          Đã tự nhận diện điểm chấm công: <strong>{detectedSiteName}</strong>.
+          {t("selfAttendance.detectedSitePrefix")}<strong>{detectedSiteName}</strong>{t("selfAttendance.detectedSiteSuffix")}
         </div>
       )}
 
@@ -117,7 +120,7 @@ export default function SelfAttendanceCard({ sites, onChecked }: SelfAttendanceC
               onChange={(e) => setSelectedSiteId(e.target.value === "" ? "" : Number(e.target.value))}
               className="bg-slate-50 border border-slate-200 text-sm p-3 rounded-lg focus:outline-none w-full"
             >
-              {sites.length === 0 && <option value="">Chưa có điểm trường</option>}
+              {sites.length === 0 && <option value="">{t("selfAttendance.noSites")}</option>}
               {sites.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}
@@ -134,7 +137,7 @@ export default function SelfAttendanceCard({ sites, onChecked }: SelfAttendanceC
           className="w-full justify-center text-base py-4 gap-2.5"
         >
           <LogIn className="w-5 h-5 shrink-0" />
-          {processing === "in" ? "Đang xử lý..." : "Chấm công vào"}
+          {processing === "in" ? t("selfAttendance.processing") : t("selfAttendance.checkInButton")}
         </Button>
         <Button
           variant="secondary"
@@ -143,7 +146,7 @@ export default function SelfAttendanceCard({ sites, onChecked }: SelfAttendanceC
           className="w-full justify-center text-base py-4 gap-2.5"
         >
           <LogOut className="w-5 h-5 shrink-0" />
-          {processing === "out" ? "Đang xử lý..." : "Chấm công ra"}
+          {processing === "out" ? t("selfAttendance.processing") : t("selfAttendance.checkOutButton")}
         </Button>
       </div>
 
@@ -151,9 +154,9 @@ export default function SelfAttendanceCard({ sites, onChecked }: SelfAttendanceC
         <div className="flex items-center gap-4 text-sm text-slate-600 bg-slate-50 border border-slate-100 rounded-lg p-3.5">
           <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
           <span>
-            Giờ vào: <strong>{formatAttendanceTime(lastRecord.checkInAt)}</strong> · Giờ ra: <strong>{formatAttendanceTime(lastRecord.checkOutAt)}</strong>
+            {t("selfAttendance.checkInTimeLabel")}<strong>{formatAttendanceTime(lastRecord.checkInAt, i18n.language)}</strong> · {t("selfAttendance.checkOutTimeLabel")}<strong>{formatAttendanceTime(lastRecord.checkOutAt, i18n.language)}</strong>
           </span>
-          {lastRecord.status && <Badge variant={attendanceStatusVariant[lastRecord.status]}>{attendanceStatusLabels[lastRecord.status]}</Badge>}
+          {lastRecord.status && <Badge variant={attendanceStatusVariant[lastRecord.status]}>{attendanceStatusLabel(t, lastRecord.status)}</Badge>}
         </div>
       )}
 

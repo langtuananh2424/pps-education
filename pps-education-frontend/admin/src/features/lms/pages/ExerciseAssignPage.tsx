@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { ChevronDown, ChevronRight, ClipboardList, Layers, Pencil, Plus, Trash2, Users, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import { useEligibleClasses } from "@/features/academic/hooks/useEligibleClasses";
@@ -44,16 +45,11 @@ import { useDialog } from "@/components/ui/DialogProvider";
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
 
-const statusLabels: Record<ExerciseResponse["status"], string> = { DRAFT: "Nháp", PUBLISHED: "Đã publish", ARCHIVED: "Đã gỡ" };
 const statusVariants: Record<ExerciseResponse["status"], "neutral" | "success" | "danger"> = {
   DRAFT: "neutral",
   PUBLISHED: "success",
   ARCHIVED: "danger"
 };
-
-/** V74, đã xác nhận với người dùng 2026-08-04: bắt buộc chọn khi tạo/sửa Đề, dùng để lọc khi giao bài. */
-const teacherTypeLabels: Record<ExamTeacherType, string> = { VIETNAMESE: "Giáo viên Việt Nam", FOREIGN: "Giáo viên nước ngoài" };
-const examTypeLabels: Record<ExamType, string> = { REVIEW: "Ôn tập", HOMEWORK: "Bài tập về nhà" };
 
 /**
  * Kho đề (UC-40, bổ sung ngoài SDD gốc, đã xác nhận với người dùng
@@ -66,6 +62,7 @@ const examTypeLabels: Record<ExamType, string> = { REVIEW: "Ôn tập", HOMEWORK
  * sau" ở Nhận xét học viên (UC-21).
  */
 export default function ExerciseAssignPage() {
+  const { t } = useTranslation("lms-question-authoring");
   const { hasPermission } = useApp();
   const canManage = hasPermission("lms.exam.create");
 
@@ -90,7 +87,7 @@ export default function ExerciseAssignPage() {
         setExams(res);
         if (!res.some((e) => e.id === selectedExamId)) setSelectedExamId(res[0]?.id ?? null);
       })
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách Đề."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("assignPage.loadExamsFailed")))
       .finally(() => setLoadingExams(false));
   };
 
@@ -110,16 +107,13 @@ export default function ExerciseAssignPage() {
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4 flex items-start justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Kho đề</h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Soạn "Đề" (VD IELTS Grade 6) chứa nhiều "Bài" (VD Unit 1), gán Đề cho lớp — Giáo viên chọn Bài đã Publish
-            làm "BTVN buổi sau" ở Nhận xét học viên mới thật sự giao cho lớp.
-          </p>
+          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("assignPage.title")}</h1>
+          <p className="text-xs text-slate-500 mt-1">{t("assignPage.description")}</p>
         </div>
         {canManage && (
           <Button variant="primary" size="sm" onClick={() => setCreateExamOpen(true)}>
             <Plus className="w-3.5 h-3.5" />
-            Tạo Đề mới
+            {t("assignPage.createExam")}
           </Button>
         )}
       </div>
@@ -134,7 +128,7 @@ export default function ExerciseAssignPage() {
               onChange={(e) => setCurriculumFilter(e.target.value ? Number(e.target.value) : null)}
               className={inputClass}
             >
-              <option value="">Tất cả khung chương trình</option>
+              <option value="">{t("assignPage.allCurriculums")}</option>
               {curriculums.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.code} — {c.name}
@@ -146,21 +140,21 @@ export default function ExerciseAssignPage() {
               onChange={(e) => setTeacherTypeFilter(e.target.value ? (e.target.value as ExamTeacherType) : null)}
               className={inputClass}
             >
-              <option value="">Tất cả loại giáo viên</option>
-              {(Object.keys(teacherTypeLabels) as ExamTeacherType[]).map((t) => (
-                <option key={t} value={t}>
-                  {teacherTypeLabels[t]}
+              <option value="">{t("assignPage.allTeacherTypes")}</option>
+              {(["VIETNAMESE", "FOREIGN"] as ExamTeacherType[]).map((tt) => (
+                <option key={tt} value={tt}>
+                  {t(`assignPage.teacherTypeLabels.${tt}`)}
                 </option>
               ))}
             </Select>
           </div>
 
           {loadingExams ? (
-            <p className="text-xs text-slate-500 p-6 text-center">Đang tải...</p>
+            <p className="text-xs text-slate-500 p-6 text-center">{t("common.loading")}</p>
           ) : exams.length === 0 ? (
             <div className="flex flex-col items-center justify-center p-12 text-center text-slate-400 space-y-3">
               <Layers className="w-12 h-12 text-slate-300" />
-              <p className="text-xs text-slate-400">Chưa có Đề nào{curriculumFilter ? " trong khung chương trình này" : ""}.</p>
+              <p className="text-xs text-slate-400">{curriculumFilter ? t("assignPage.noExamsFiltered") : t("assignPage.noExamsAll")}</p>
             </div>
           ) : (
             <>
@@ -174,7 +168,7 @@ export default function ExerciseAssignPage() {
                     <p className="text-xs font-bold text-slate-800">{exam.title}</p>
                     <p className="text-[10px] text-slate-400 mt-0.5 font-mono">{exam.code} · {exam.curriculumCode}</p>
                     <p className="text-[10px] text-slate-400 mt-0.5">
-                      {teacherTypeLabels[exam.teacherType]} · {examTypeLabels[exam.examType]}
+                      {t(`assignPage.teacherTypeLabels.${exam.teacherType}`)} · {t(`assignPage.examTypeLabels.${exam.examType}`)}
                     </p>
                   </button>
                 ))}
@@ -183,7 +177,7 @@ export default function ExerciseAssignPage() {
                 page={page}
                 pageSize={pageSize}
                 totalElements={exams.length}
-                itemLabel="Đề"
+                itemLabel={t("assignPage.title")}
                 onPageChange={setPage}
                 onPageSizeChange={(size) => {
                   setPageSize(size);
@@ -198,7 +192,7 @@ export default function ExerciseAssignPage() {
           {!selectedExam ? (
             <div className="bg-white rounded-xl border border-slate-200 shadow-soft flex flex-col items-center justify-center p-12 text-center text-slate-400 space-y-3">
               <ClipboardList className="w-12 h-12 text-slate-300" />
-              <p className="text-xs text-slate-400">Chọn 1 Đề bên trái để xem chi tiết, hoặc tạo Đề mới.</p>
+              <p className="text-xs text-slate-400">{t("assignPage.selectExamPrompt")}</p>
             </div>
           ) : (
             <ExamDetailPanel
@@ -219,7 +213,7 @@ export default function ExerciseAssignPage() {
           onCreated={(exam) => {
             loadExams();
             setSelectedExamId(exam.id);
-            showToast("Đã tạo Đề thành công!");
+            showToast(t("assignPage.examCreatedToast"));
           }}
         />
       )}
@@ -238,6 +232,7 @@ function CreateExamModal({
   onClose: () => void;
   onCreated: (exam: ExamResponse) => void;
 }) {
+  const { t } = useTranslation("lms-question-authoring");
   const [code, setCode] = useState("");
   const [title, setTitle] = useState("");
   const [curriculumId, setCurriculumId] = useState<number | null>(curriculums[0]?.id ?? null);
@@ -250,7 +245,7 @@ function CreateExamModal({
     e.preventDefault();
     setError(null);
     if (!code.trim() || !title.trim() || !curriculumId || !teacherType || !examType) {
-      setError("Vui lòng điền Mã Đề, Tên Đề, chọn Khung chương trình, Loại giáo viên và Loại đề.");
+      setError(t("assignPage.createExamModal.requiredFields"));
       return;
     }
     setSubmitting(true);
@@ -259,28 +254,28 @@ function CreateExamModal({
       onCreated(created);
       onClose();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Tạo Đề thất bại.");
+      setError(err instanceof ApiError ? err.message : t("assignPage.createExamModal.createFailed"));
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <Modal open onClose={onClose} title="Tạo Đề mới" size="md">
+    <Modal open onClose={onClose} title={t("assignPage.createExamModal.title")} size="md">
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
-          <label className={labelClass}>Mã Đề *</label>
-          <input value={code} onChange={(e) => setCode(e.target.value)} className={`${inputClass} font-mono`} placeholder="VD: IELTS6" />
+          <label className={labelClass}>{t("assignPage.createExamModal.examCodeLabel")}</label>
+          <input value={code} onChange={(e) => setCode(e.target.value)} className={`${inputClass} font-mono`} placeholder={t("assignPage.createExamModal.examCodePlaceholder")} />
         </div>
         <div>
-          <label className={labelClass}>Tên Đề *</label>
-          <input value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} placeholder="VD: IELTS Grade 6" />
+          <label className={labelClass}>{t("assignPage.createExamModal.examTitleLabel")}</label>
+          <input value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} placeholder={t("assignPage.createExamModal.examTitlePlaceholder")} />
         </div>
         <div>
-          <label className={labelClass}>Khung chương trình * (chỉ dùng lọc/tìm kiếm)</label>
+          <label className={labelClass}>{t("assignPage.createExamModal.curriculumLabel")}</label>
           <Select value={curriculumId ?? ""} onChange={(e) => setCurriculumId(e.target.value ? Number(e.target.value) : null)} className={inputClass}>
-            <option value="">-- Chọn khung chương trình --</option>
+            <option value="">{t("assignPage.createExamModal.curriculumPlaceholder")}</option>
             {curriculums.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.code} — {c.name}
@@ -289,30 +284,30 @@ function CreateExamModal({
           </Select>
         </div>
         <div>
-          <label className={labelClass}>Loại giáo viên * (dùng lọc khi giao bài)</label>
+          <label className={labelClass}>{t("assignPage.createExamModal.teacherTypeLabel")}</label>
           <Select value={teacherType} onChange={(e) => setTeacherType(e.target.value as ExamTeacherType | "")} className={inputClass}>
-            <option value="">-- Chọn loại giáo viên --</option>
-            {(Object.keys(teacherTypeLabels) as ExamTeacherType[]).map((t) => (
-              <option key={t} value={t}>
-                {teacherTypeLabels[t]}
+            <option value="">{t("assignPage.createExamModal.teacherTypePlaceholder")}</option>
+            {(["VIETNAMESE", "FOREIGN"] as ExamTeacherType[]).map((tt) => (
+              <option key={tt} value={tt}>
+                {t(`assignPage.teacherTypeLabels.${tt}`)}
               </option>
             ))}
           </Select>
         </div>
         <div>
-          <label className={labelClass}>Loại đề *</label>
+          <label className={labelClass}>{t("assignPage.createExamModal.examTypeLabel")}</label>
           <Select value={examType} onChange={(e) => setExamType(e.target.value as ExamType | "")} className={inputClass}>
-            <option value="">-- Chọn loại đề --</option>
-            {(Object.keys(examTypeLabels) as ExamType[]).map((t) => (
-              <option key={t} value={t}>
-                {examTypeLabels[t]}
+            <option value="">{t("assignPage.createExamModal.examTypePlaceholder")}</option>
+            {(["REVIEW", "HOMEWORK"] as ExamType[]).map((et) => (
+              <option key={et} value={et}>
+                {t(`assignPage.examTypeLabels.${et}`)}
               </option>
             ))}
           </Select>
         </div>
         <div className="flex justify-end gap-2 pt-2">
           <Button type="submit" variant="primary" size="sm" disabled={submitting}>
-            {submitting ? "Đang tạo..." : "Tạo Đề"}
+            {submitting ? t("common.creating") : t("assignPage.createExamModal.submit")}
           </Button>
         </div>
       </form>
@@ -329,6 +324,7 @@ function EditExamModal({
   onClose: () => void;
   onUpdated: (exam: ExamResponse) => void;
 }) {
+  const { t } = useTranslation("lms-question-authoring");
   const [title, setTitle] = useState(exam.title);
   const [teacherType, setTeacherType] = useState<ExamTeacherType>(exam.teacherType);
   const [examType, setExamType] = useState<ExamType>(exam.examType);
@@ -338,7 +334,7 @@ function EditExamModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) {
-      setError("Vui lòng điền Tên Đề.");
+      setError(t("assignPage.editExamModal.titleRequired"));
       return;
     }
     setSubmitting(true);
@@ -348,49 +344,49 @@ function EditExamModal({
       const updated = await updateExam(exam.id, request);
       onUpdated(updated);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Cập nhật Đề thất bại.");
+      setError(err instanceof ApiError ? err.message : t("assignPage.editExamModal.updateFailed"));
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <Modal open onClose={onClose} title={`Sửa Đề — ${exam.code}`} size="md">
+    <Modal open onClose={onClose} title={t("assignPage.editExamModal.modalTitle", { code: exam.code })} size="md">
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
-          <label className={labelClass}>Tên Đề *</label>
-          <input value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} placeholder="VD: IELTS Grade 6" />
+          <label className={labelClass}>{t("assignPage.editExamModal.examTitleLabel")}</label>
+          <input value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} placeholder={t("assignPage.editExamModal.examTitlePlaceholder")} />
         </div>
         <div>
-          <label className={labelClass}>Loại giáo viên * (dùng lọc khi giao bài)</label>
+          <label className={labelClass}>{t("assignPage.editExamModal.teacherTypeLabel")}</label>
           <Select value={teacherType} onChange={(e) => setTeacherType(e.target.value as ExamTeacherType)} className={inputClass}>
-            {(Object.keys(teacherTypeLabels) as ExamTeacherType[]).map((t) => (
-              <option key={t} value={t}>
-                {teacherTypeLabels[t]}
+            {(["VIETNAMESE", "FOREIGN"] as ExamTeacherType[]).map((tt) => (
+              <option key={tt} value={tt}>
+                {t(`assignPage.teacherTypeLabels.${tt}`)}
               </option>
             ))}
           </Select>
         </div>
         <div>
-          <label className={labelClass}>Loại đề *</label>
+          <label className={labelClass}>{t("assignPage.editExamModal.examTypeLabel")}</label>
           <Select value={examType} onChange={(e) => setExamType(e.target.value as ExamType)} className={inputClass}>
-            {(Object.keys(examTypeLabels) as ExamType[]).map((t) => (
-              <option key={t} value={t}>
-                {examTypeLabels[t]}
+            {(["REVIEW", "HOMEWORK"] as ExamType[]).map((et) => (
+              <option key={et} value={et}>
+                {t(`assignPage.examTypeLabels.${et}`)}
               </option>
             ))}
           </Select>
         </div>
         <p className="text-[10px] text-slate-400 italic">
-          Mã Đề ({exam.code}) và Khung chương trình ({exam.curriculumCode}) không sửa được sau khi tạo.
+          {t("assignPage.editExamModal.immutableHint", { code: exam.code, curriculumCode: exam.curriculumCode })}
         </p>
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="secondary" size="sm" onClick={onClose}>
-            Hủy
+            {t("common.cancelShort")}
           </Button>
           <Button type="submit" variant="primary" size="sm" disabled={submitting}>
-            {submitting ? "Đang lưu..." : "Lưu thay đổi"}
+            {submitting ? t("common.saving") : t("questionEditorForm.submitUpdate")}
           </Button>
         </div>
       </form>
@@ -408,6 +404,7 @@ function EditExerciseModal({
   onClose: () => void;
   onUpdated: (exercise: ExerciseResponse) => void;
 }) {
+  const { t } = useTranslation("lms-question-authoring");
   const [title, setTitle] = useState(exercise.title);
   const [totalPoints, setTotalPoints] = useState(String(exercise.totalPoints));
   const [allowRetake, setAllowRetake] = useState(exercise.allowRetake);
@@ -420,7 +417,7 @@ function EditExerciseModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !totalPoints) {
-      setError("Vui lòng điền Tên Bài và Tổng điểm.");
+      setError(t("assignPage.editExerciseModal.requiredFields"));
       return;
     }
     setSubmitting(true);
@@ -438,26 +435,26 @@ function EditExerciseModal({
       const updated = await updateExercise(exercise.id, request);
       onUpdated(updated);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Cập nhật Bài thất bại.");
+      setError(err instanceof ApiError ? err.message : t("assignPage.editExerciseModal.updateFailed"));
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <Modal open onClose={onClose} title={`Sửa Bài — ${exercise.code}`} size="md">
+    <Modal open onClose={onClose} title={t("assignPage.editExerciseModal.modalTitle", { code: exercise.code })} size="md">
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
-          <label className={labelClass}>Tên Bài *</label>
+          <label className={labelClass}>{t("assignPage.editExerciseModal.exerciseTitleLabel")}</label>
           <input value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} />
         </div>
         <div>
-          <label className={labelClass}>Tổng điểm *</label>
+          <label className={labelClass}>{t("assignPage.editExerciseModal.totalPointsLabel")}</label>
           <input type="number" min={0} value={totalPoints} onChange={(e) => setTotalPoints(e.target.value)} className={inputClass} />
         </div>
         <div>
-          <label className={labelClass}>Ngưỡng đạt (%)</label>
+          <label className={labelClass}>{t("assignPage.editExerciseModal.passThresholdLabel")}</label>
           <input
             type="number"
             min={0}
@@ -470,28 +467,28 @@ function EditExerciseModal({
         <div>
           <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
             <input type="checkbox" checked={showCorrectAnswers} onChange={(e) => setShowCorrectAnswers(e.target.checked)} />
-            Hiện đáp án đúng sau khi nộp (phần trắc nghiệm)
+            {t("assignPage.editExerciseModal.showCorrectAnswersCheckbox")}
           </label>
         </div>
         <div>
           <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
             <input type="checkbox" checked={allowRetake} onChange={(e) => setAllowRetake(e.target.checked)} />
-            Cho phép làm lại
+            {t("assignPage.editExerciseModal.allowRetakeCheckbox")}
           </label>
         </div>
         {allowRetake && (
           <div>
-            <label className={labelClass}>Số lần làm tối đa</label>
+            <label className={labelClass}>{t("assignPage.editExerciseModal.maxAttemptsLabel")}</label>
             <input type="number" min={1} value={maxAttempts} onChange={(e) => setMaxAttempts(e.target.value)} className={inputClass} />
           </div>
         )}
-        <p className="text-[10px] text-slate-400 italic">Mã Bài ({exercise.code}) không sửa được sau khi tạo.</p>
+        <p className="text-[10px] text-slate-400 italic">{t("assignPage.editExerciseModal.immutableHint", { code: exercise.code })}</p>
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="secondary" size="sm" onClick={onClose}>
-            Hủy
+            {t("common.cancelShort")}
           </Button>
           <Button type="submit" variant="primary" size="sm" disabled={submitting}>
-            {submitting ? "Đang lưu..." : "Lưu thay đổi"}
+            {submitting ? t("common.saving") : t("questionEditorForm.submitUpdate")}
           </Button>
         </div>
       </form>
@@ -517,10 +514,11 @@ function AddQuestionsModal({
   onClose: () => void;
   onDone: () => void;
 }) {
+  const { t } = useTranslation("lms-question-authoring");
   const [error, setError] = useState<string | null>(null);
 
   return (
-    <Modal open onClose={onClose} title={`Thêm câu hỏi — ${exercise.code}`} size="lg">
+    <Modal open onClose={onClose} title={t("assignPage.addQuestionsModal.modalTitle", { code: exercise.code })} size="lg">
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
       <ExerciseQuestionsStep exercise={exercise} teacherType={teacherType} onDone={onDone} onError={setError} onClose={onClose} />
     </Modal>
@@ -540,6 +538,7 @@ function ExamDetailPanel({
   onUpdated: (exam: ExamResponse) => void;
   onDeleted: () => void;
 }) {
+  const { t } = useTranslation("lms-question-authoring");
   const [exercises, setExercises] = useState<ExerciseResponse[]>([]);
   const [loadingExercises, setLoadingExercises] = useState(false);
   const [createExerciseOpen, setCreateExerciseOpen] = useState(false);
@@ -554,7 +553,7 @@ function ExamDetailPanel({
     setLoadingExercises(true);
     listExercisesByExam(exam.id)
       .then(setExercises)
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách Bài."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("assignPage.examDetail.loadExercisesFailed")))
       .finally(() => setLoadingExercises(false));
   };
 
@@ -570,17 +569,17 @@ function ExamDetailPanel({
 
   /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04 — "Xóa Đề" (soft-delete), backend tự chặn nếu còn Bài chưa lưu trữ. */
   const handleDeleteExam = async () => {
-    if (!(await confirmDialog(`Xóa Đề "${exam.title}" (${exam.code})? Chỉ xóa được khi mọi Bài thuộc Đề đã được lưu trữ.`, { danger: true }))) {
+    if (!(await confirmDialog(t("assignPage.examDetail.deleteExamConfirm", { title: exam.title, code: exam.code }), { danger: true }))) {
       return;
     }
     setDeletingExam(true);
     setError(null);
     try {
       await deleteExam(exam.id);
-      showToast("Đã xóa Đề thành công!");
+      showToast(t("assignPage.examDetail.examDeletedToast"));
       onDeleted();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Xóa Đề thất bại.");
+      setError(err instanceof ApiError ? err.message : t("assignPage.examDetail.deleteExamFailed"));
     } finally {
       setDeletingExam(false);
     }
@@ -596,10 +595,10 @@ function ExamDetailPanel({
           </div>
           {canManage && (
             <div className="flex items-center gap-2 shrink-0">
-              <button onClick={() => setEditExamOpen(true)} title="Sửa tên Đề" className="text-slate-400 hover:text-brand-red">
+              <button onClick={() => setEditExamOpen(true)} title={t("assignPage.examDetail.editExamTooltip")} className="text-slate-400 hover:text-brand-red">
                 <Pencil className="w-3.5 h-3.5" />
               </button>
-              <button onClick={handleDeleteExam} disabled={deletingExam} title="Xóa Đề" className="text-slate-400 hover:text-rose-600 disabled:opacity-50">
+              <button onClick={handleDeleteExam} disabled={deletingExam} title={t("assignPage.examDetail.deleteExamTooltip")} className="text-slate-400 hover:text-rose-600 disabled:opacity-50">
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -611,12 +610,15 @@ function ExamDetailPanel({
             className="flex items-center gap-1.5 text-[11px] font-bold text-brand-red hover:underline"
           >
             <Users className="w-3.5 h-3.5" />
-            {assignedClassCount == null ? "Đã gán ... lớp" : `Đã gán ${assignedClassCount} lớp`} — quản lý
+            {assignedClassCount == null
+              ? t("assignPage.examDetail.assignedClassLoading")
+              : t("assignPage.examDetail.assignedClassCount", { count: assignedClassCount })}{" "}
+            {t("assignPage.examDetail.manageSuffix")}
           </button>
           {canManage && (
             <Button variant="primary" size="sm" onClick={() => setCreateExerciseOpen(true)}>
               <Plus className="w-3.5 h-3.5" />
-              Soạn Bài mới
+              {t("assignPage.examDetail.createExercise")}
             </Button>
           )}
         </div>
@@ -629,7 +631,7 @@ function ExamDetailPanel({
           onUpdated={(updated) => {
             onUpdated(updated);
             setEditExamOpen(false);
-            showToast("Đã cập nhật Đề thành công!");
+            showToast(t("assignPage.examDetail.examUpdatedToast"));
           }}
         />
       )}
@@ -637,9 +639,9 @@ function ExamDetailPanel({
       {error && <p className="px-5 pt-3 text-[11px] text-rose-600">{error}</p>}
 
       {loadingExercises ? (
-        <p className="text-xs text-slate-500 p-6 text-center">Đang tải...</p>
+        <p className="text-xs text-slate-500 p-6 text-center">{t("common.loading")}</p>
       ) : exercises.length === 0 ? (
-        <p className="text-xs text-slate-400 italic p-6 text-center">Đề này chưa có Bài nào.</p>
+        <p className="text-xs text-slate-400 italic p-6 text-center">{t("assignPage.examDetail.noExercises")}</p>
       ) : (
         <div className="divide-y divide-slate-100">
           {exercises.map((exercise) => (
@@ -662,7 +664,7 @@ function ExamDetailPanel({
           onClose={() => setCreateExerciseOpen(false)}
           onDone={() => {
             loadExercises();
-            showToast("Đã lưu Bài thành công!");
+            showToast(t("assignPage.examDetail.exerciseSavedToast"));
           }}
         />
       )}
@@ -694,6 +696,7 @@ function ExerciseRow({
   onChanged: () => void;
   showToast: (msg: string) => void;
 }) {
+  const { t } = useTranslation("lms-question-authoring");
   const [expanded, setExpanded] = useState(false);
   const [questions, setQuestions] = useState<ExerciseQuestionResponse[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -719,7 +722,7 @@ function ExerciseRow({
       const full = await getExamQuestion(exercise.examId, q.questionId);
       setEditingQuestion(full);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Không tải được câu hỏi để sửa.");
+      setError(err instanceof ApiError ? err.message : t("assignPage.exerciseRow.loadQuestionForEditFailed"));
     } finally {
       setLoadingEditQuestionId(null);
     }
@@ -754,15 +757,15 @@ function ExerciseRow({
   };
 
   const handleRemoveQuestion = async (q: ExerciseQuestionResponse) => {
-    if (!(await confirmDialog(`Gỡ câu hỏi "${q.questionContent}" khỏi Bài này?`, { danger: true }))) return;
+    if (!(await confirmDialog(t("assignPage.exerciseRow.removeQuestionConfirm", { content: q.questionContent }), { danger: true }))) return;
     setRemovingId(q.id);
     setError(null);
     try {
       await removeExerciseQuestion(exercise.id, q.id);
       setQuestions((prev) => (prev ? prev.filter((x) => x.id !== q.id) : prev));
-      showToast("Đã gỡ câu hỏi khỏi Bài!");
+      showToast(t("assignPage.exerciseRow.questionRemovedToast"));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Gỡ câu hỏi thất bại.");
+      setError(err instanceof ApiError ? err.message : t("assignPage.exerciseRow.removeQuestionFailed"));
     } finally {
       setRemovingId(null);
     }
@@ -775,9 +778,9 @@ function ExerciseRow({
     try {
       await publishExercise(exercise.id);
       onChanged();
-      showToast("Đã Publish Bài thành công!");
+      showToast(t("assignPage.exerciseRow.publishedToast"));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Publish Bài thất bại.");
+      setError(err instanceof ApiError ? err.message : t("assignPage.exerciseRow.publishFailed"));
     } finally {
       setPublishing(false);
     }
@@ -786,15 +789,15 @@ function ExerciseRow({
   /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04 — "Xóa Bài" (lưu trữ, không xóa cứng — xem Javadoc ExerciseService#deleteExercise). */
   const handleDeleteExercise = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!(await confirmDialog(`Xóa Bài "${exercise.title}" (${exercise.code})?`, { danger: true }))) return;
+    if (!(await confirmDialog(t("assignPage.exerciseRow.deleteExerciseConfirm", { title: exercise.title, code: exercise.code }), { danger: true }))) return;
     setDeletingExercise(true);
     setError(null);
     try {
       await deleteExercise(exercise.id);
       onChanged();
-      showToast("Đã xóa Bài thành công!");
+      showToast(t("assignPage.exerciseRow.exerciseDeletedToast"));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Xóa Bài thất bại.");
+      setError(err instanceof ApiError ? err.message : t("assignPage.exerciseRow.deleteExerciseFailed"));
     } finally {
       setDeletingExercise(false);
     }
@@ -810,11 +813,10 @@ function ExerciseRow({
               {exercise.title} <span className="font-mono text-slate-400 font-normal">({exercise.code})</span>
             </p>
             <p className="text-[10px] text-slate-400 mt-0.5">
-              Tổng điểm: {exercise.totalPoints}
+              {t("assignPage.exerciseRow.totalPoints", { points: exercise.totalPoints })}
               {questions && (
                 <span className={questions.reduce((s, q) => s + q.points, 0) > exercise.totalPoints ? "text-rose-500 font-bold" : undefined}>
-                  {" "}
-                  (đã gắn {questions.reduce((s, q) => s + q.points, 0)})
+                  {t("assignPage.exerciseRow.attachedPoints", { points: questions.reduce((s, q) => s + q.points, 0) })}
                 </span>
               )}
             </p>
@@ -827,14 +829,14 @@ function ExerciseRow({
                 e.stopPropagation();
                 setEditExerciseOpen(true);
               }}
-              title="Sửa Bài"
+              title={t("assignPage.exerciseRow.editExerciseTooltip")}
               className="text-slate-400 hover:text-brand-red shrink-0"
             >
               <Pencil className="w-3.5 h-3.5" />
             </button>
           )}
           {canManage && (
-            <button onClick={handleDeleteExercise} disabled={deletingExercise} title="Xóa Bài" className="text-slate-400 hover:text-rose-600 shrink-0 disabled:opacity-50">
+            <button onClick={handleDeleteExercise} disabled={deletingExercise} title={t("assignPage.exerciseRow.deleteExerciseTooltip")} className="text-slate-400 hover:text-rose-600 shrink-0 disabled:opacity-50">
               <Trash2 className="w-3.5 h-3.5" />
             </button>
           )}
@@ -846,7 +848,7 @@ function ExerciseRow({
               }}
               className="text-[10px] font-bold text-brand-red hover:underline whitespace-nowrap"
             >
-              + Thêm câu hỏi
+              {t("assignPage.exerciseRow.addQuestions")}
             </button>
           )}
           <button
@@ -856,16 +858,16 @@ function ExerciseRow({
             }}
             className="text-[10px] font-bold text-brand-red hover:underline whitespace-nowrap"
           >
-            Xem trước (có đáp án)
+            {t("assignPage.exerciseRow.previewWithAnswers")}
           </button>
-          <Badge variant={statusVariants[exercise.status]}>{statusLabels[exercise.status]}</Badge>
+          <Badge variant={statusVariants[exercise.status]}>{t(`assignPage.statusLabels.${exercise.status}`)}</Badge>
           {canManage && exercise.status === "DRAFT" && (
             <button
               onClick={handlePublish}
               disabled={publishing}
               className="text-[10px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 px-2.5 py-1 rounded-lg disabled:opacity-50 whitespace-nowrap"
             >
-              {publishing ? "Đang publish..." : "Publish"}
+              {publishing ? t("assignPage.exerciseRow.publishing") : t("assignPage.exerciseRow.publish")}
             </button>
           )}
         </div>
@@ -882,7 +884,7 @@ function ExerciseRow({
           onUpdated={() => {
             setEditExerciseOpen(false);
             onChanged();
-            showToast("Đã cập nhật Bài thành công!");
+            showToast(t("assignPage.exerciseRow.exerciseUpdatedToast"));
           }}
         />
       )}
@@ -904,13 +906,13 @@ function ExerciseRow({
               setQuestions(null);
             }
             onChanged();
-            showToast("Đã thêm câu hỏi vào Bài!");
+            showToast(t("assignPage.exerciseRow.questionsAddedToast"));
           }}
         />
       )}
 
       {editingQuestion && (
-        <Modal open onClose={() => setEditingQuestion(null)} title={`Sửa câu hỏi Q-${editingQuestion.id}`} size="lg">
+        <Modal open onClose={() => setEditingQuestion(null)} title={t("assignPage.exerciseRow.editQuestionModalTitle", { id: editingQuestion.id })} size="lg">
           <QuestionEditorForm
             examId={exercise.examId}
             existingQuestion={editingQuestion}
@@ -930,9 +932,9 @@ function ExerciseRow({
       {expanded && (
         <div className="px-5 pb-3.5 pl-11">
           {loading ? (
-            <p className="text-[11px] text-slate-400">Đang tải câu hỏi...</p>
+            <p className="text-[11px] text-slate-400">{t("assignPage.exerciseRow.loadingQuestions")}</p>
           ) : !questions || questions.length === 0 ? (
-            <p className="text-[11px] text-slate-400 italic">Bài này chưa gắn câu hỏi nào.</p>
+            <p className="text-[11px] text-slate-400 italic">{t("assignPage.exerciseRow.noQuestions")}</p>
           ) : (
             <div className="space-y-1.5">
               {questions
@@ -953,19 +955,19 @@ function ExerciseRow({
                           defaultValue={q.points}
                           disabled={savingPointsId === q.id}
                           onBlur={(e) => handlePointsChange(q, Number(e.target.value))}
-                          title="Điểm câu hỏi này trong Bài (chỉ sửa được khi còn Nháp)"
+                          title={t("assignPage.exerciseRow.pointsInputDraftOnlyTitle")}
                           className="w-14 text-[11px] text-right text-slate-500 border border-slate-200 rounded px-1 py-0.5 disabled:opacity-50 focus:outline-none"
                         />
                       ) : (
                         <span className="text-slate-400">{q.points}</span>
                       )}
-                      <span className="text-slate-400">đ</span>
+                      <span className="text-slate-400">{t("common.pointsSuffix")}</span>
                       {canManage && (
                         <button
                           onClick={() => handleEditQuestion(q)}
                           disabled={loadingEditQuestionId === q.id}
                           className="p-0.5 text-slate-300 hover:text-brand-red disabled:opacity-50"
-                          title="Sửa câu hỏi"
+                          title={t("assignPage.exerciseRow.editQuestionTooltip")}
                         >
                           <Pencil className="w-3 h-3" />
                         </button>
@@ -975,7 +977,7 @@ function ExerciseRow({
                           onClick={() => handleRemoveQuestion(q)}
                           disabled={removingId === q.id}
                           className="p-0.5 text-slate-300 hover:text-rose-600 disabled:opacity-50"
-                          title="Gỡ câu hỏi (chỉ khi còn Nháp)"
+                          title={t("assignPage.exerciseRow.removeQuestionTooltip")}
                         >
                           <X className="w-3 h-3" />
                         </button>
@@ -993,6 +995,7 @@ function ExerciseRow({
 
 /** "Một đề sẽ có thể gán được cho nhiều lớp" (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30) — toggle gán/gỡ tức thì từng lớp. */
 function AssignClassModal({ examId, onClose }: { examId: number; onClose: () => void }) {
+  const { t } = useTranslation("lms-question-authoring");
   const { classes } = useEligibleClasses();
   const [assignedIds, setAssignedIds] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -1002,7 +1005,7 @@ function AssignClassModal({ examId, onClose }: { examId: number; onClose: () => 
   useEffect(() => {
     listExamAssignedClasses(examId)
       .then((cls) => setAssignedIds(new Set(cls.map((c) => c.id))))
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách lớp đã gán."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("assignPage.assignClassModal.loadAssignedFailed")))
       .finally(() => setLoading(false));
   }, [examId]);
 
@@ -1022,23 +1025,20 @@ function AssignClassModal({ examId, onClose }: { examId: number; onClose: () => 
         setAssignedIds((prev) => new Set(prev).add(classId));
       }
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Cập nhật gán lớp thất bại.");
+      setError(err instanceof ApiError ? err.message : t("assignPage.assignClassModal.updateAssignmentFailed"));
     } finally {
       setPendingId(null);
     }
   };
 
   return (
-    <Modal open onClose={onClose} title="Gán Đề cho lớp" size="md">
-      <p className="text-[11px] text-slate-500 mb-3">
-        Đề chỉ hiển thị cho học sinh của các lớp đã gán ở đây — Bài trong Đề cần được Giáo viên chọn làm "BTVN buổi sau"
-        ở Nhận xét học viên mới thật sự giao cho học sinh làm.
-      </p>
+    <Modal open onClose={onClose} title={t("assignPage.assignClassModal.title")} size="md">
+      <p className="text-[11px] text-slate-500 mb-3">{t("assignPage.assignClassModal.description")}</p>
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
       {loading ? (
-        <p className="text-xs text-slate-500 p-3 text-center">Đang tải...</p>
+        <p className="text-xs text-slate-500 p-3 text-center">{t("common.loading")}</p>
       ) : classes.length === 0 ? (
-        <p className="text-xs text-slate-400 italic p-3 text-center">Không có lớp nào để gán.</p>
+        <p className="text-xs text-slate-400 italic p-3 text-center">{t("assignPage.assignClassModal.noClasses")}</p>
       ) : (
         <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 max-h-72 overflow-y-auto">
           {classes.map((c) => (
@@ -1050,7 +1050,7 @@ function AssignClassModal({ examId, onClose }: { examId: number; onClose: () => 
                 onChange={() => toggle(c.id)}
               />
               <span className="flex-1">{c.classCode} — {c.name}</span>
-              {pendingId === c.id && <span className="text-[10px] text-slate-400">Đang lưu...</span>}
+              {pendingId === c.id && <span className="text-[10px] text-slate-400">{t("assignPage.assignClassModal.savingLabel")}</span>}
             </label>
           ))}
         </div>
@@ -1058,7 +1058,7 @@ function AssignClassModal({ examId, onClose }: { examId: number; onClose: () => 
       <div className="flex justify-end pt-3">
         <Button type="button" variant="secondary" size="sm" onClick={onClose}>
           <X className="w-3.5 h-3.5" />
-          Đóng
+          {t("common.close")}
         </Button>
       </div>
     </Modal>

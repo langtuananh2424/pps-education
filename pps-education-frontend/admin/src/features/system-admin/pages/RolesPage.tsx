@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Shield } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useApp } from "@/context/AppContext";
 import { ApiError } from "@/lib/apiClient";
 import { deleteRole, listRoles, RoleResponse } from "../api";
@@ -12,6 +13,7 @@ import Modal from "@/components/ui/Modal";
 import { useDialog } from "@/components/ui/DialogProvider";
 
 export default function RolesPage() {
+  const { t } = useTranslation("system-admin-roles");
   const { hasPermission } = useApp();
   // user.role.manage đã bị tách nhỏ thành user.role.assign/revoke/view (hạt nhân hóa) — mã gộp cũ
   // không còn tồn tại trong bảng permissions, gate theo mã đó khiến nút "Gán thành viên"/"Gỡ bỏ"
@@ -41,7 +43,7 @@ export default function RolesPage() {
           setSelectedRoleId(res[0].id);
         }
       })
-      .catch((err) => setListError(err instanceof ApiError ? err.message : "Không tải được danh sách vai trò."))
+      .catch((err) => setListError(err instanceof ApiError ? err.message : t("rolesPage.loadError")))
       .finally(() => setLoading(false));
   };
 
@@ -51,14 +53,14 @@ export default function RolesPage() {
 
   const handleDeleteRole = async () => {
     if (!activeRole) return;
-    if (!(await confirmDialog(`Bạn có chắc chắn muốn xóa vai trò "${activeRole.name}"?`, { danger: true }))) return;
+    if (!(await confirmDialog(t("rolesPage.deleteConfirm", { name: activeRole.name }), { danger: true }))) return;
     try {
       await deleteRole(activeRole.id);
       setSelectedRoleId(null);
       loadRoles();
-      showToast("Đã xoá vai trò thành công!");
+      showToast(t("rolesPage.deleteSuccess"));
     } catch (err) {
-      await alertDialog(err instanceof ApiError ? err.message : "Xóa vai trò thất bại.");
+      await alertDialog(err instanceof ApiError ? err.message : t("rolesPage.deleteError"));
     }
   };
 
@@ -68,9 +70,9 @@ export default function RolesPage() {
         <div>
           <h1 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
             <Shield className="w-6 h-6 text-brand-red" />
-            <span>Nhóm vai trò</span>
+            <span>{t("rolesPage.title")}</span>
           </h1>
-          <p className="text-xs text-slate-500 mt-1">Cấu hình ma trận quyền theo vai trò và gán/thu hồi vai trò cho tài khoản.</p>
+          <p className="text-xs text-slate-500 mt-1">{t("rolesPage.subtitle")}</p>
         </div>
       </div>
 
@@ -105,9 +107,9 @@ export default function RolesPage() {
             <div className="flex-1 flex flex-col items-center justify-center p-12 text-center text-slate-400 bg-slate-50/10 space-y-3">
               <Shield className="w-12 h-12 text-slate-300" />
               <div>
-                <h3 className="text-sm font-bold text-slate-700">Vui lòng chọn một vai trò</h3>
+                <h3 className="text-sm font-bold text-slate-700">{t("rolesPage.emptyTitle")}</h3>
                 <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto leading-relaxed">
-                  Chọn một vai trò từ danh mục bên trái hoặc bấm tạo mới để thiết lập cấu hình phân quyền và thành viên liên quan.
+                  {t("rolesPage.emptyDescription")}
                 </p>
               </div>
             </div>
@@ -115,13 +117,13 @@ export default function RolesPage() {
         </div>
       </div>
 
-      <Modal open={creatingNew} onClose={() => setCreatingNew(false)} title="Tạo vai trò tùy chỉnh mới" size="lg">
+      <Modal open={creatingNew} onClose={() => setCreatingNew(false)} title={t("rolesPage.createModalTitle")} size="lg">
         <CreateRolePanel
           onCancel={() => setCreatingNew(false)}
           onCreated={(id) => {
             setCreatingNew(false);
             loadRoles(id);
-            showToast("Đã tạo vai trò mới thành công!");
+            showToast(t("rolesPage.createSuccess"));
           }}
         />
       </Modal>

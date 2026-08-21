@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Bell, MessageSquareCode, ShieldAlert } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
+import { formatDateTimeHm } from "@/lib/format";
 import { clampLines } from "@/lib/textClamp";
 import { listComments, listMyComments, listMyNotifications, NotificationResponse, StudentCommentResponse } from "../api";
 
@@ -17,6 +19,7 @@ interface HomeTabProps {
 }
 
 export default function HomeTab({ studentName, classId, parentStudentId }: HomeTabProps) {
+  const { t, i18n } = useTranslation("portal-progress");
   const [notifications, setNotifications] = useState<NotificationResponse[]>([]);
   const [comments, setComments] = useState<StudentCommentResponse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,23 +63,23 @@ export default function HomeTab({ studentName, classId, parentStudentId }: HomeT
         setNotifications(notif.content);
         setComments(cmt);
       })
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được bảng tin."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("homeLoadError")))
       .finally(() => setLoading(false));
   }, [classId, parentStudentId]);
 
   const warned = comments.filter((c) => c.isWarning);
   const regular = comments.filter((c) => !c.isWarning);
 
-  if (loading) return <p className="text-sm text-muted font-bold">Đang tải...</p>;
+  if (loading) return <p className="text-sm text-muted font-bold">{t("loading")}</p>;
 
   return (
     <div className="space-y-6">
       <div className="bg-[linear-gradient(to_right,#17a6a0,#0e8c86,#1e2a45)] text-white p-8 rounded-[20px] border border-teal-deep/30 shadow-[0_8px_30px_rgba(23,166,160,0.12)] relative overflow-hidden">
         <div className="absolute right-[-40px] bottom-[-40px] w-48 h-48 bg-white/5 rounded-full pointer-events-none" />
         <div className="relative z-10 space-y-3">
-          <span className="bg-[#ff7a59] text-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">Bảng tin</span>
+          <span className="bg-[#ff7a59] text-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">{t("home.newsBadge")}</span>
           <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight leading-tight">
-            Chào mừng, <span className="text-[#f4b740]">{studentName}</span>!
+            {t("home.welcomeMessage")} <span className="text-[#f4b740]">{studentName}</span>!
           </h1>
         </div>
       </div>
@@ -86,10 +89,10 @@ export default function HomeTab({ studentName, classId, parentStudentId }: HomeT
       <div className={`grid grid-cols-1 gap-6 ${classId != null ? "lg:grid-cols-3" : ""}`}>
         <div className={`${classId != null ? "lg:col-span-2" : ""} bg-white border border-line/80 p-6 rounded-[20px] shadow-[0_8px_30px_rgba(30,42,69,0.03)] space-y-4`}>
           <h2 className="text-xl font-extrabold text-ink flex items-center gap-2">
-            <Bell className="text-teal" /> Thông báo
+            <Bell className="text-teal" /> {t("home.notificationsTitle")}
           </h2>
           {notifications.length === 0 ? (
-            <p className="text-xs text-muted font-bold italic">Chưa có thông báo nào.</p>
+            <p className="text-xs text-muted font-bold italic">{t("home.noNotifications")}</p>
           ) : (
             <>
               {/* Mobile: carousel trượt ngang TỰ ĐỘNG (theo yêu cầu người dùng, 2026-07-31) — dừng lại
@@ -114,7 +117,7 @@ export default function HomeTab({ studentName, classId, parentStudentId }: HomeT
                     >
                       <div className="flex justify-between items-center">
                         <span className="text-[10px] font-bold text-teal uppercase">{n.notificationType}</span>
-                        <span className="text-xs text-muted font-semibold">{new Date(n.createdAt).toLocaleString("vi-VN")}</span>
+                        <span className="text-xs text-muted font-semibold">{formatDateTimeHm(n.createdAt, i18n.language)}</span>
                       </div>
                       <h4 className="font-extrabold text-ink text-sm">{n.title}</h4>
                       <p className="text-xs text-muted font-semibold" style={clampLines(3)}>
@@ -137,7 +140,7 @@ export default function HomeTab({ studentName, classId, parentStudentId }: HomeT
                   <div key={n.id} className="bg-slate-50/50 border border-line/60 p-4 rounded-[16px] space-y-1">
                     <div className="flex justify-between items-center">
                       <span className="text-[10px] font-bold text-teal uppercase">{n.notificationType}</span>
-                      <span className="text-xs text-muted font-semibold">{new Date(n.createdAt).toLocaleString("vi-VN")}</span>
+                      <span className="text-xs text-muted font-semibold">{formatDateTimeHm(n.createdAt, i18n.language)}</span>
                     </div>
                     <h4 className="font-extrabold text-ink text-sm">{n.title}</h4>
                     <p className="text-xs text-muted font-semibold">{n.content}</p>
@@ -153,7 +156,7 @@ export default function HomeTab({ studentName, classId, parentStudentId }: HomeT
           {warned.length > 0 && (
             <div className="bg-[#ff7a59]/5 border border-[#ff7a59]/20 p-5 rounded-[20px] space-y-3">
               <h3 className="text-base font-extrabold text-[#ff7a59] flex items-center gap-2">
-                <ShieldAlert size={20} /> Cảnh báo từ giáo viên
+                <ShieldAlert size={20} /> {t("home.warningsTitle")}
               </h3>
               {warned.map((c) => (
                 <div key={c.id} className="bg-white border border-[#ff7a59]/15 p-4 rounded-xl space-y-1">
@@ -166,7 +169,7 @@ export default function HomeTab({ studentName, classId, parentStudentId }: HomeT
 
           <div className="bg-white border border-line/80 p-6 rounded-[20px] shadow-[0_8px_30px_rgba(30,42,69,0.03)] space-y-4">
             <h3 className="text-lg font-extrabold text-ink flex items-center gap-2">
-              <MessageSquareCode className="text-teal" /> Nhận xét của giáo viên gần đây
+              <MessageSquareCode className="text-teal" /> {t("home.recentCommentsTitle")}
             </h3>
             <div className="space-y-4">
               {/* Chỉ hiện 5 nhận xét gần nhất (theo yêu cầu người dùng, 2026-08-12) — comments đã được
@@ -176,14 +179,14 @@ export default function HomeTab({ studentName, classId, parentStudentId }: HomeT
                 <div key={c.id} className="border-b border-line last:border-0 pb-4 last:pb-0 space-y-1">
                   <div className="flex justify-between items-center">
                     <span className="px-2 py-0.5 bg-teal/10 text-teal-deep text-[10px] font-extrabold rounded-full border border-teal/20">
-                      Hàng ngày
+                      {t("home.dailyBadge")}
                     </span>
                     <span className="text-xs text-muted font-semibold">{c.commentDate}</span>
                   </div>
                   <p className="text-xs text-muted leading-relaxed italic font-semibold">"{c.content}"</p>
                 </div>
               ))}
-              {regular.length === 0 && <p className="text-xs text-muted font-bold italic">Chưa có nhận xét nào.</p>}
+              {regular.length === 0 && <p className="text-xs text-muted font-bold italic">{t("home.noComments")}</p>}
             </div>
           </div>
         </div>

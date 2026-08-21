@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Users } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import ImportExcelButton from "@/components/ui/ImportExcelButton";
 import { EmployeeResponse, exportEmployeeAccounts, importEmployees, listEmployees } from "../api";
@@ -9,21 +10,8 @@ import EmployeeFormModal from "../components/EmployeeFormModal";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 
-const EMPLOYEE_IMPORT_HEADERS = [
-  "Họ và tên *",
-  "Username *",
-  "Email",
-  "Ngày sinh (dd/MM/yyyy) *",
-  "Mã nhân sự *",
-  "Loại nhân sự (Giáo viên/Nhân viên/Quản lý) *",
-  "Mã chức vụ",
-  "Mã phòng ban",
-  "Miễn chấm công/duyệt đơn (Có/Không)",
-  "Ngày vào làm (dd/MM/yyyy) *"
-];
-const EMPLOYEE_IMPORT_SAMPLE = ["Nguyễn Văn A", "nguyenvana", "a@pps.edu.vn", "01/01/1995", "NV-001", "Nhân viên", "", "", "Không", "01/07/2026"];
-
 export default function ProfilesPage() {
+  const { t } = useTranslation("hrm-employees");
   const [employees, setEmployees] = useState<EmployeeResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,7 +28,7 @@ export default function ProfilesPage() {
         setEmployees(res);
         if (selectedId == null && res.length > 0) setSelectedId(res[0].id);
       })
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách nhân sự."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("profilesPage.loadError")))
       .finally(() => setLoading(false));
   };
 
@@ -52,19 +40,17 @@ export default function ProfilesPage() {
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4 flex flex-col sm:flex-row sm:items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Quản lý hồ sơ nhân sự</h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Lưu hồ sơ cán bộ, bằng cấp/chứng chỉ, hợp đồng lao động, khen thưởng/kỷ luật — khởi tạo kèm tài khoản đăng nhập.
-          </p>
+          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("profilesPage.title")}</h1>
+          <p className="text-xs text-slate-500 mt-1">{t("profilesPage.description")}</p>
         </div>
         <ImportExcelButton
-          title="Nhập nhân sự theo lô"
-          templateFileName="mau-import-nhan-su.xlsx"
-          templateHeaders={EMPLOYEE_IMPORT_HEADERS}
-          templateSampleRow={EMPLOYEE_IMPORT_SAMPLE}
+          title={t("profilesPage.importTitle")}
+          templateFileName={t("profilesPage.importTemplateFileName")}
+          templateHeaders={t("profilesPage.importHeaders", { returnObjects: true }) as string[]}
+          templateSampleRow={t("profilesPage.importSampleRow", { returnObjects: true }) as string[]}
           uploadFn={importEmployees}
           exportAccounts={exportEmployeeAccounts}
-          accountsExportFileName="tai-khoan-nhan-su.xlsx"
+          accountsExportFileName={t("profilesPage.importAccountsFileName")}
           onImported={load}
         />
       </div>
@@ -89,8 +75,8 @@ export default function ProfilesPage() {
           <div className="lg:col-span-3 bg-white rounded-xl border border-slate-200 shadow-soft flex flex-col items-center justify-center p-12 text-center text-slate-400 space-y-3">
             <Users className="w-12 h-12 text-slate-300" />
             <div>
-              <h3 className="text-sm font-bold text-slate-700">Chưa chọn nhân sự nào</h3>
-              <p className="text-xs text-slate-400 mt-1">Chọn 1 nhân sự bên trái hoặc thêm mới để xem/sửa hồ sơ.</p>
+              <h3 className="text-sm font-bold text-slate-700">{t("profilesPage.emptyTitle")}</h3>
+              <p className="text-xs text-slate-400 mt-1">{t("profilesPage.emptyDescription")}</p>
             </div>
           </div>
         )}
@@ -103,7 +89,7 @@ export default function ProfilesPage() {
             setCreateOpen(false);
             setSelectedId(id);
             load();
-            showToast("Đã tạo hồ sơ nhân sự thành công!");
+            showToast(t("profilesPage.createdToast"));
           }}
         />
       )}

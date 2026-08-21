@@ -1,0 +1,54 @@
+{
+  "loading": "Đang tải...",
+  "scaleLabels": {
+    "NUMERIC": "Số (0–10)",
+    "PERCENTAGE": "Phần trăm (%)",
+    "BAND": "Thang chữ (Band)"
+  },
+  "statusLabels": {
+    "DRAFT": "Nháp",
+    "SUBMITTED": "Chờ duyệt",
+    "OFFICIAL": "Chính thức",
+    "REJECTED": "Bị từ chối"
+  },
+  "evaluationLabels": {
+    "midTerm": "Giữa kỳ",
+    "finalTerm": "Cuối kỳ"
+  },
+  "setupLabel": "{{term}} — {{evaluation}}",
+  "trend": {
+    "increase": "Tăng so với kỳ trước",
+    "decrease": "Giảm so với kỳ trước"
+  },
+  "summary": {
+    "loadError": "Không tải được điểm số.",
+    "title": "Bảng điểm tổng hợp",
+    "scopeTerm": "Bảng điểm kỳ",
+    "scopeYear": "Bảng điểm năm",
+    "emptyTerm": "Chưa có điểm nào được công bố cho kỳ hiện tại.",
+    "emptyYear": "Chưa có điểm nào được công bố cho lớp này.",
+    "componentHeader": "Đầu điểm",
+    "absentBadge": "Vắng",
+    "notesHeading": "Lưu ý",
+    "teacherCommentsHeading": "Nhận xét của giáo viên",
+    "ungroupedHeading": "Khác (chưa xác định kỳ)",
+    "absentNoScore": "Vắng — không có điểm"
+  },
+  "onlineTest": {
+    "title": "Làm bài kiểm tra trực tuyến",
+    "description": "Đang trong quá trình phát triển"
+  },
+  "stats": {
+    "loadError": "Không tải được dữ liệu thống kê.",
+    "empty": "Chưa có điểm nào để thống kê.",
+    "title": "Thống kê điểm qua từng kỳ",
+    "chartTypeBar": "Biểu đồ cột",
+    "chartTypeLine": "Biểu đồ đoạn",
+    "yAxisLabel": "Điểm Overall (0-100)",
+    "overallSeries": "Overall",
+    "noChartData": "Không có dữ liệu để vẽ biểu đồ.",
+    "detailsHeading": "Chi tiết từng kỳ",
+    "termHeader": "Kỳ học",
+    "termLabel": "HK{{termNumber}} ({{year}}) — {{evaluation}}"
+  }
+}

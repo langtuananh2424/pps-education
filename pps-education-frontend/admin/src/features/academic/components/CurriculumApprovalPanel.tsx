@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Check, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { CurriculumApprovalResponse, decideCurriculumApproval, listPendingCurriculumApprovals } from "../api";
 import { useToast } from "@/lib/useToast";
@@ -8,6 +9,7 @@ import { useDialog } from "@/components/ui/DialogProvider";
 
 /** UC-17: Trưởng phòng đào tạo duyệt/từ chối bản tùy biến khung chương trình. */
 export default function CurriculumApprovalPanel() {
+  const { t } = useTranslation("academic-curriculum");
   const [approvals, setApprovals] = useState<CurriculumApprovalResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -19,7 +21,7 @@ export default function CurriculumApprovalPanel() {
     setLoading(true);
     listPendingCurriculumApprovals()
       .then(setApprovals)
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được hàng chờ duyệt."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("approval.loadFailedFallback")))
       .finally(() => setLoading(false));
   };
   useEffect(load, []);
@@ -27,22 +29,22 @@ export default function CurriculumApprovalPanel() {
   const handleDecide = async (id: number, decision: "APPROVED" | "REJECTED") => {
     let comment: string | undefined;
     if (decision === "REJECTED") {
-      comment = (await promptDialog("Lý do từ chối (không bắt buộc):", { multiline: true })) ?? undefined;
+      comment = (await promptDialog(t("approval.rejectReasonPrompt"), { multiline: true })) ?? undefined;
     }
     setDecidingId(id);
     setError(null);
     try {
       await decideCurriculumApproval(id, decision, comment?.trim() || undefined);
       load();
-      showToast(decision === "APPROVED" ? "Đã duyệt tùy biến thành công!" : "Đã từ chối tùy biến thành công!");
+      showToast(decision === "APPROVED" ? t("approval.approvedToast") : t("approval.rejectedToast"));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Duyệt thất bại.");
+      setError(err instanceof ApiError ? err.message : t("approval.decideFailedFallback"));
     } finally {
       setDecidingId(null);
     }
   };
 
-  if (loading) return <p className="text-xs text-slate-500">Đang tải...</p>;
+  if (loading) return <p className="text-xs text-slate-500">{t("approval.loading")}</p>;
 
   return (
     <div className="space-y-3.5 max-h-[380px] overflow-y-auto">
@@ -60,7 +62,7 @@ export default function CurriculumApprovalPanel() {
               className="px-2 py-1 text-rose-600 hover:bg-rose-50 border border-rose-200 text-[10px] font-bold rounded disabled:opacity-50"
             >
               <X className="w-3 h-3 inline mr-0.5" />
-              Từ chối
+              {t("approval.rejectButton")}
             </button>
             <button
               onClick={() => handleDecide(a.id, "APPROVED")}
@@ -68,13 +70,13 @@ export default function CurriculumApprovalPanel() {
               className="px-2.5 py-1 bg-brand-gradient hover:opacity-95 text-white text-[10px] font-bold rounded flex items-center gap-0.5 disabled:opacity-50"
             >
               <Check className="w-3.5 h-3.5 text-white" />
-              Duyệt tùy biến
+              {t("approval.approveButton")}
             </button>
           </div>
         </div>
       ))}
 
-      {approvals.length === 0 && <p className="text-xs text-slate-400 italic text-center py-6">Chưa có bản tùy biến nào chờ duyệt.</p>}
+      {approvals.length === 0 && <p className="text-xs text-slate-400 italic text-center py-6">{t("approval.empty")}</p>}
 
       <Toast message={toastMessage} />
     </div>

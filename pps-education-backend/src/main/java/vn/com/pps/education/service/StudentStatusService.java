@@ -51,20 +51,22 @@ public class StudentStatusService {
     @Transactional
     public StudentStatusHistoryResponse updateStatus(Long studentId, UpdateStudentStatusRequest request, Long actorUserId) {
         Student student = studentRepository.findByIdAndDeletedAtIsNull(studentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy học sinh id=" + studentId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.studentStatus.notFoundById", new Object[]{studentId}, "Không tìm thấy học sinh id=" + studentId));
         User actor = userRepository.findById(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.studentStatus.accountNotFoundById", new Object[]{actorUserId}, "Không tìm thấy tài khoản id=" + actorUserId));
 
         Student.Status oldStatus = student.getStatus();
         Student.Status newStatus = Student.Status.valueOf(request.newStatus());
 
         if (oldStatus == newStatus) {
             throw new InvalidStudentStatusTransitionException(
+                    "error.invalidStudentStatusTransition.sameStatus", new Object[]{oldStatus},
                     "Trạng thái mới trùng với trạng thái hiện tại (" + oldStatus + ").");
         }
         // A1: chặn GRADUATED->ACTIVE, chưa có cơ chế xác nhận đặc biệt.
         if (oldStatus == Student.Status.GRADUATED && newStatus == Student.Status.ACTIVE) {
             throw new InvalidStudentStatusTransitionException(
+                    "error.invalidStudentStatusTransition.graduatedToActiveBlocked", new Object[]{},
                     "Không thể chuyển thẳng từ GRADUATED về ACTIVE mà không có xác nhận đặc biệt.");
         }
 
@@ -89,7 +91,7 @@ public class StudentStatusService {
     @Transactional(readOnly = true)
     public List<StudentStatusHistoryResponse> listStatusHistory(Long studentId) {
         if (!studentRepository.existsById(studentId)) {
-            throw new ResourceNotFoundException("Không tìm thấy học sinh id=" + studentId);
+            throw new ResourceNotFoundException("error.studentStatus.notFoundById", new Object[]{studentId}, "Không tìm thấy học sinh id=" + studentId);
         }
         return statusHistoryRepository.findByStudentIdOrderByChangedAtDesc(studentId).stream()
                 .map(this::toResponse)

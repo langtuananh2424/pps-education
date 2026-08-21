@@ -1,0 +1,201 @@
+{
+  "weekday": {
+    "short": {
+      "1": "Mon",
+      "2": "Tue",
+      "3": "Wed",
+      "4": "Thu",
+      "5": "Fri",
+      "6": "Sat",
+      "7": "Sun"
+    }
+  },
+  "weekParity": {
+    "ALL": "Every week",
+    "ODD": "Odd weeks",
+    "EVEN": "Even weeks"
+  },
+  "shiftsPage": {
+    "title": "Work Shifts",
+    "description": "Configure standard work shifts and assign shifts to staff — required input for determining the \"working day\" during check-in (UC-09).",
+    "addButton": "Add shift",
+    "loadError": "Failed to load the shift list.",
+    "deactivateSuccess": "Deactivated shift \"{{name}}\".",
+    "deactivateError": "Failed to deactivate.",
+    "columns": {
+      "code": "Code",
+      "name": "Shift name",
+      "time": "Check-in/out time",
+      "weekdays": "Applicable days",
+      "weekParity": "Week",
+      "status": "Status"
+    },
+    "loading": "Loading...",
+    "empty": "No work shifts yet.",
+    "statusActive": "Active",
+    "statusInactive": "Deactivated",
+    "editButton": "Edit",
+    "deactivateButton": "Deactivate",
+    "updateSuccess": "Shift updated successfully!",
+    "createSuccess": "Shift created successfully!",
+    "bulkAssign": {
+      "title": "Assign shift to multiple staff",
+      "selectAtLeastOne": "Please select at least 1 staff member and 1 shift.",
+      "allDepartments": "-- All departments --",
+      "selectShiftPlaceholder": "-- Select shift --",
+      "assigning": "Assigning...",
+      "assignButtonWithCount": "Assign shift to {{count}} staff",
+      "assignButtonNoCount": "Assign shift to staff",
+      "selectAllLabel": "Select all ({{count}} staff)",
+      "selectAllLabelFiltered": "Select all ({{count}} staff in the filtered department)",
+      "noEmployeesMatch": "No staff match the current filter.",
+      "resultsTitle": "Assignment results",
+      "resultSuccess": "Success",
+      "resultError": "Failed to assign shift.",
+      "partialFailure": "{{failed}}/{{total}} staff failed to be assigned -- see details below.",
+      "assignedToast": "Shift assigned to {{count}} staff successfully!"
+    }
+  },
+  "shiftForm": {
+    "editTitle": "Edit work shift",
+    "createTitle": "Add work shift",
+    "missingFields": "Please enter the shift code and name.",
+    "missingWeekdays": "Please select at least 1 applicable day.",
+    "saveError": "Failed to save the work shift.",
+    "codeLabel": "Shift code *",
+    "nameLabel": "Shift name *",
+    "checkInTimeLabel": "Check-in time *",
+    "checkOutTimeLabel": "Check-out time *",
+    "windowSectionTitle": "Check-in/out window (minutes)",
+    "checkInBefore": "Check-in - before",
+    "checkInAfter": "Check-in - after",
+    "checkOutBefore": "Check-out - before",
+    "checkOutAfter": "Check-out - after",
+    "weekdaysSectionTitle": "Applicable days of the week *",
+    "weekParityLabel": "Applicable week",
+    "cancel": "Cancel",
+    "saving": "Saving...",
+    "saveChanges": "Save changes",
+    "create": "Create shift"
+  },
+  "workCalendarPage": {
+    "title": "Work Calendar / Holidays",
+    "description": "Declare exceptions to the default work shift (holidays, Saturday make-up days) — used when determining the \"working day\" at check-in (UC-09).",
+    "addButton": "Add override",
+    "rangeSeparator": "to",
+    "loadError": "Failed to load the work calendar.",
+    "columns": {
+      "date": "Date",
+      "type": "Type",
+      "scope": "Scope",
+      "description": "Description"
+    },
+    "loading": "Loading...",
+    "empty": "No overrides in the selected range.",
+    "noDescription": "—",
+    "deleteSuccess": "Override deleted.",
+    "deleteError": "Failed to delete.",
+    "createSuccess": "Work calendar override created successfully!",
+    "dayType": {
+      "WORKING": "Make-up day",
+      "OFF": "Off",
+      "HOLIDAY": "Holiday",
+      "COMPENSATORY": "Make-up (holiday)"
+    },
+    "scope": {
+      "ALL": "Whole center",
+      "SHIFT": "By shift",
+      "EMPLOYEE": "By staff"
+    },
+    "form": {
+      "title": "Add work calendar override",
+      "selectShiftRequired": "Please select a work shift.",
+      "selectEmployeeRequired": "Please select a staff member.",
+      "createError": "Failed to create the override.",
+      "dateLabel": "Date *",
+      "typeLabel": "Type *",
+      "scopeLabel": "Applicable scope *",
+      "scopeOptionAll": "Whole center",
+      "scopeOptionShift": "By work shift",
+      "scopeOptionEmployee": "By staff",
+      "shiftLabel": "Work shift *",
+      "selectShiftPlaceholder": "-- Select shift --",
+      "employeeLabel": "Staff *",
+      "selectEmployeePlaceholder": "-- Select staff --",
+      "descriptionLabel": "Description",
+      "descriptionPlaceholder": "e.g. National Day off (Sep 2)",
+      "cancel": "Cancel",
+      "saving": "Saving...",
+      "submit": "Create override"
+    }
+  },
+  "employeeSchedulePage": {
+    "dayType": {
+      "WORKING": "Working",
+      "OFF": "Off",
+      "HOLIDAY": "Holiday",
+      "COMPENSATORY": "Make-up day"
+    },
+    "employeeType": {
+      "TEACHER": "Teacher",
+      "STAFF": "Staff",
+      "MANAGER": "Manager"
+    },
+    "title": "Work Schedule",
+    "description": "Fixed work shifts and teaching schedule for all staff, filterable by department/site/class/staff.",
+    "noPermission": "You do not have permission to view this page.",
+    "loadError": "Failed to load the work schedule.",
+    "quickRange": {
+      "day": "Day",
+      "week": "Week",
+      "month": "Month",
+      "year": "Year"
+    },
+    "quickRangeDisabledInClassGrid": "Not available in Class-based view — the grid is too wide to read",
+    "viewMode": {
+      "employee": "By staff",
+      "classGrid": "By class"
+    },
+    "classGrid": {
+      "selectSiteHint": "Select a site from the \"Site\" dropdown at the top of the page to view by class.",
+      "rangeTooWideHint": "Select \"Day\" or \"Week\" to view by class — the current date range is too wide to display as a grid."
+    },
+    "rangeSeparator": "to",
+    "filters": {
+      "allDepartments": "All departments",
+      "allSites": "All sites",
+      "allClasses": "All classes",
+      "allEmployees": "All staff"
+    },
+    "summaryTable": {
+      "columns": {
+        "employee": "Staff",
+        "type": "Type",
+        "shiftDays": "Matching shift days",
+        "sessions": "Teaching sessions",
+        "checkedIn": "Sessions checked in",
+        "overrides": "Holiday/override days"
+      },
+      "loading": "Loading...",
+      "empty": "No staff match the current filter."
+    },
+    "gridTable": {
+      "employeeColumn": "Staff",
+      "loading": "Loading...",
+      "empty": "No staff match the current filter.",
+      "sessionsCount": "{{count}} sessions",
+      "checkedInCount": "{{checkedIn}}/{{total}} checked in"
+    },
+    "timeline": {
+      "loading": "Loading...",
+      "empty": "No teaching sessions on this day."
+    },
+    "detail": {
+      "overrideLabel": "Holiday/override:",
+      "fixedShiftsTitle": "Fixed shifts ({{count}})",
+      "noFixedShifts": "No fixed shifts match this day.",
+      "sessionsTitle": "Teaching sessions ({{count}})",
+      "noSessions": "No teaching sessions on this day."
+    }
+  }
+}

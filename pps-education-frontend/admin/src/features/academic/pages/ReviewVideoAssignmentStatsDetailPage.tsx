@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { ArrowLeft, ChevronDown, ChevronRight } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import {
@@ -14,11 +15,6 @@ import Badge from "@/components/ui/Badge";
 import Tabs from "@/components/ui/Tabs";
 import TableContainer, { Th, Td } from "@/components/ui/TableContainer";
 
-const reviewVideoTypeLabels: Record<string, string> = {
-  REFLEX: "Video phản xạ",
-  CONNECTION: "Video từ kết nối"
-};
-
 /**
  * UC-66 bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-12) — "Xem chi tiết" 1 BTVN Video
  * Ôn tập (REFLEX/CONNECTION), mirror AssignmentStatsDetailPage.tsx (Exercise). REFLEX chỉ có bảng
@@ -26,6 +22,11 @@ const reviewVideoTypeLabels: Record<string, string> = {
  * thêm tab "Phân tích câu hỏi" vì đã có sẵn dữ liệu đúng/sai thật.
  */
 export default function ReviewVideoAssignmentStatsDetailPage() {
+  const { t } = useTranslation("academic-homework");
+  const reviewVideoTypeLabels: Record<string, string> = {
+    REFLEX: t("shared.reviewVideoType.REFLEX"),
+    CONNECTION: t("shared.reviewVideoType.CONNECTION")
+  };
   const { assignmentId } = useParams<{ assignmentId: string }>();
   const navigate = useNavigate();
   const [tab, setTab] = useState<"students" | "questions">("students");
@@ -44,7 +45,7 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
     setError(null);
     getReviewVideoAssignmentStudentStats(numAssignmentId)
       .then(setStudentStats)
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được kết quả BTVN."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("shared.errors.loadResultsFailed")))
       .finally(() => setLoading(false));
   }, [numAssignmentId]);
 
@@ -52,7 +53,7 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
     if (tab !== "questions" || questionStats || !numAssignmentId || !isConnection) return;
     getReviewVideoAssignmentQuestionStats(numAssignmentId)
       .then(setQuestionStats)
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được phân tích câu hỏi."));
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("shared.errors.loadQuestionAnalysisFailed")));
   }, [tab, numAssignmentId, questionStats, isConnection]);
 
   if (!studentStats) {
@@ -60,15 +61,15 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
       <div className="space-y-4">
         <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900 mb-4">
           <ArrowLeft className="w-4 h-4" />
-          Quay lại
+          {t("shared.back")}
         </button>
         <Card>
           {error ? (
             <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-lg">{error}</div>
           ) : loading ? (
-            <p className="text-sm text-slate-500">Đang tải chi tiết BTVN...</p>
+            <p className="text-sm text-slate-500">{t("shared.loadingDetail")}</p>
           ) : (
-            <p className="text-sm text-slate-500">Không tìm thấy dữ liệu.</p>
+            <p className="text-sm text-slate-500">{t("shared.notFound")}</p>
           )}
         </Card>
       </div>
@@ -81,7 +82,7 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
     <div className="space-y-6">
       <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900">
         <ArrowLeft className="w-4 h-4" />
-        Quay lại
+        {t("shared.back")}
       </button>
 
       <div>
@@ -99,8 +100,8 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
           <div className="px-5 py-4 border-b border-slate-100 bg-slate-50">
             <Tabs
               items={[
-                { id: "students", label: "Kết quả học sinh" },
-                { id: "questions", label: "Phân tích câu hỏi" }
+                { id: "students", label: t("shared.tabs.students") },
+                { id: "questions", label: t("shared.tabs.questions") }
               ]}
               activeId={tab}
               onChange={(id) => setTab(id as "students" | "questions")}
@@ -111,25 +112,25 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
         <div className="p-5">
           {tab === "students" &&
             (loading ? (
-              <p className="text-sm text-slate-500">Đang tải...</p>
+              <p className="text-sm text-slate-500">{t("shared.loading")}</p>
             ) : students.length === 0 ? (
-              <p className="text-sm text-slate-400 italic">Chưa có dữ liệu để hiển thị.</p>
+              <p className="text-sm text-slate-400 italic">{t("shared.noDataToShow")}</p>
             ) : (
               <TableContainer className="border-0 rounded-none">
                 <thead>
                   <tr>
-                    <Th>Học sinh</Th>
-                    <Th className="text-center">Đã xem</Th>
-                    <Th className="text-center">Hoàn thành</Th>
+                    <Th>{t("shared.table.student")}</Th>
+                    <Th className="text-center">{t("reviewVideoDetail.table.viewed")}</Th>
+                    <Th className="text-center">{t("reviewVideoDetail.table.completed")}</Th>
                     {isConnection ? (
                       <>
-                        <Th className="text-center">Điểm trắc nghiệm</Th>
-                        <Th className="text-center">Kết quả</Th>
+                        <Th className="text-center">{t("reviewVideoDetail.table.quizScore")}</Th>
+                        <Th className="text-center">{t("reviewVideoDetail.table.result")}</Th>
                       </>
                     ) : (
                       <>
-                        <Th className="text-center">Đã nộp câu hỏi</Th>
-                        <Th className="text-center">Điểm TB</Th>
+                        <Th className="text-center">{t("reviewVideoDetail.table.submittedQuestions")}</Th>
+                        <Th className="text-center">{t("reviewVideoDetail.table.averageScore")}</Th>
                       </>
                     )}
                   </tr>
@@ -141,10 +142,12 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
                         {s.studentFullName} <span className="text-slate-400 font-mono text-[10px]">({s.studentCode})</span>
                       </Td>
                       <Td className="text-center">
-                        {s.viewCount}/{s.requiredViewCount} lượt
+                        {t("reviewVideoDetail.table.viewCountSuffix", { viewed: s.viewCount, required: s.requiredViewCount })}
                       </Td>
                       <Td className="text-center">
-                        <Badge variant={s.completed ? "success" : "neutral"}>{s.completed ? "Hoàn thành" : "Chưa hoàn thành"}</Badge>
+                        <Badge variant={s.completed ? "success" : "neutral"}>
+                          {s.completed ? t("reviewVideoDetail.table.completedBadge") : t("reviewVideoDetail.table.notCompletedBadge")}
+                        </Badge>
                       </Td>
                       {isConnection ? (
                         <>
@@ -155,7 +158,7 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
                             {s.passed == null ? (
                               <span className="text-slate-300">—</span>
                             ) : (
-                              <Badge variant={s.passed ? "success" : "danger"}>{s.passed ? "Đạt" : "Chưa đạt"}</Badge>
+                              <Badge variant={s.passed ? "success" : "danger"}>{s.passed ? t("shared.passed") : t("shared.notPassed")}</Badge>
                             )}
                           </Td>
                         </>
@@ -165,7 +168,9 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
                             {s.answeredQuestionCount ?? 0}/{s.totalReflexQuestions ?? 0}
                           </Td>
                           <Td className="text-center">
-                            {s.averageScore != null && s.averageMaxScore != null ? `${s.averageScore}/${s.averageMaxScore}` : "Chưa chấm"}
+                            {s.averageScore != null && s.averageMaxScore != null
+                              ? `${s.averageScore}/${s.averageMaxScore}`
+                              : t("reviewVideoDetail.table.notGraded")}
                           </Td>
                         </>
                       )}
@@ -177,9 +182,9 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
 
           {tab === "questions" && isConnection && (
             !questionStats ? (
-              <p className="text-sm text-slate-500">Đang tải...</p>
+              <p className="text-sm text-slate-500">{t("shared.loading")}</p>
             ) : questionStats.questions.length === 0 ? (
-              <p className="text-sm text-slate-400 italic">Chưa có dữ liệu để hiển thị.</p>
+              <p className="text-sm text-slate-400 italic">{t("shared.noDataToShow")}</p>
             ) : (
               <div className="space-y-2">
                 {[...questionStats.questions]
@@ -210,27 +215,36 @@ function QuestionRow({
   expanded: boolean;
   onToggle: () => void;
 }) {
+  const { t } = useTranslation("academic-homework");
   return (
     <div className="border border-slate-200 rounded-lg overflow-hidden">
       <button onClick={onToggle} className="w-full flex items-center justify-between gap-3 p-2.5 text-left hover:bg-slate-50">
         <div className="flex items-center gap-2 min-w-0">
           {expanded ? <ChevronDown className="w-3.5 h-3.5 shrink-0 text-slate-400" /> : <ChevronRight className="w-3.5 h-3.5 shrink-0 text-slate-400" />}
           <span className="text-xs text-slate-700 truncate">
-            Câu {question.displayOrder}: {question.prompt}
-            {question.reviewVideoTitle && <span className="text-slate-400"> — {question.reviewVideoTitle}</span>}
+            {t("shared.questionRow.questionLabel", { order: question.displayOrder, text: question.prompt })}
+            {question.reviewVideoTitle && (
+              <span className="text-slate-400">
+                {t("reviewVideoDetail.questionRow.titleSuffix", { title: question.reviewVideoTitle })}
+              </span>
+            )}
           </span>
         </div>
         <Badge
           variant={question.wrongRatePercent >= 50 ? "danger" : question.wrongRatePercent > 0 ? "warning" : "success"}
           className="shrink-0"
         >
-          Sai {question.wrongCount}/{question.answeredCount} ({question.wrongRatePercent}%)
+          {t("shared.questionRow.wrongBadge", {
+            wrongCount: question.wrongCount,
+            answeredCount: question.answeredCount,
+            percent: question.wrongRatePercent
+          })}
         </Badge>
       </button>
       {expanded && (
         <div className="px-4 pb-3 pl-11">
           {question.wrongStudents.length === 0 ? (
-            <p className="text-[11px] text-slate-400 italic">Không có học sinh nào trả lời sai.</p>
+            <p className="text-[11px] text-slate-400 italic">{t("shared.questionRow.noWrongStudents")}</p>
           ) : (
             <ul className="text-[11px] text-slate-600 space-y-1">
               {question.wrongStudents.map((s) => (

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { StudentAnswerRow, getAttemptAnswers } from "@/features/academic/api";
 import { ExerciseQuestionChoiceResponse, ExerciseQuestionResponse, listExerciseQuestions } from "@/features/lms/api";
@@ -20,6 +21,7 @@ function formatChoiceIds(ids: number[] | null | undefined, choices: ExerciseQues
  * tiêu "xem được các câu sai" ở tab Bài tập về nhà), có nút bật xem toàn bộ.
  */
 export default function HomeworkAttemptDetail({ attemptId, exerciseId }: { attemptId: number; exerciseId: number }) {
+  const { t } = useTranslation("reports-student-profile");
   const [answers, setAnswers] = useState<StudentAnswerRow[]>([]);
   const [questionsById, setQuestionsById] = useState<Map<number, ExerciseQuestionResponse>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -37,7 +39,7 @@ export default function HomeworkAttemptDetail({ attemptId, exerciseId }: { attem
         setQuestionsById(new Map(questions.map((q) => [q.questionId, q])));
       })
       .catch((err) => {
-        if (!cancelled) setError(err instanceof ApiError ? err.message : "Không tải được chi tiết bài làm.");
+        if (!cancelled) setError(err instanceof ApiError ? err.message : t("homeworkAttemptDetail.loadError"));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -50,31 +52,33 @@ export default function HomeworkAttemptDetail({ attemptId, exerciseId }: { attem
   const wrongCount = answers.filter((a) => a.isCorrect === false).length;
   const visibleAnswers = showAll ? answers : answers.filter((a) => a.isCorrect === false);
 
-  if (loading) return <div className="text-center py-4 text-xs text-slate-400">Đang tải bài làm...</div>;
+  if (loading) return <div className="text-center py-4 text-xs text-slate-400">{t("homeworkAttemptDetail.loading")}</div>;
   if (error) return <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>;
-  if (answers.length === 0) return <div className="text-center py-4 text-xs text-slate-400">Chưa có dữ liệu câu trả lời.</div>;
+  if (answers.length === 0) return <div className="text-center py-4 text-xs text-slate-400">{t("homeworkAttemptDetail.noAnswers")}</div>;
 
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <span className="text-xs text-slate-500">
-          Sai <span className="font-semibold text-rose-600">{wrongCount}</span>/{answers.length} câu
+          {t("homeworkAttemptDetail.wrongCountPrefix")}
+          <span className="font-semibold text-rose-600">{wrongCount}</span>
+          {t("homeworkAttemptDetail.wrongCountSuffix", { totalCount: answers.length })}
         </span>
         <button type="button" onClick={() => setShowAll((v) => !v)} className="text-xs text-brand-orange font-semibold hover:underline">
-          {showAll ? "Chỉ xem câu sai" : "Xem toàn bộ câu trả lời"}
+          {showAll ? t("homeworkAttemptDetail.showWrongOnly") : t("homeworkAttemptDetail.showAll")}
         </button>
       </div>
       {visibleAnswers.length === 0 ? (
-        <div className="text-center py-4 text-xs text-emerald-600">Không có câu nào làm sai 🎉</div>
+        <div className="text-center py-4 text-xs text-emerald-600">{t("homeworkAttemptDetail.noWrongAnswers")}</div>
       ) : (
         <div className="border border-slate-200 rounded-lg overflow-hidden">
           <table className="w-full text-xs">
             <thead className="bg-slate-50">
               <tr>
-                <th className="text-left p-2 border-b border-slate-200">Câu hỏi</th>
-                <th className="text-left p-2 border-b border-slate-200">Học sinh trả lời</th>
-                <th className="text-left p-2 border-b border-slate-200">Đáp án đúng</th>
-                <th className="text-center p-2 border-b border-slate-200 w-14">Kết quả</th>
+                <th className="text-left p-2 border-b border-slate-200">{t("homeworkAttemptDetail.columns.question")}</th>
+                <th className="text-left p-2 border-b border-slate-200">{t("homeworkAttemptDetail.columns.studentAnswer")}</th>
+                <th className="text-left p-2 border-b border-slate-200">{t("homeworkAttemptDetail.columns.correctAnswer")}</th>
+                <th className="text-center p-2 border-b border-slate-200 w-14">{t("homeworkAttemptDetail.columns.result")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -87,7 +91,7 @@ export default function HomeworkAttemptDetail({ attemptId, exerciseId }: { attem
                   <tr key={answer.id}>
                     <td className="p-2 text-slate-700 break-words max-w-[240px]">{question?.questionContent ?? "—"}</td>
                     <td className="p-2 text-slate-600 break-words max-w-[200px]">
-                      {answer.answerText || selectedLabel || <span className="text-slate-400 italic">Không trả lời</span>}
+                      {answer.answerText || selectedLabel || <span className="text-slate-400 italic">{t("homeworkAttemptDetail.noAnswerGiven")}</span>}
                     </td>
                     <td className="p-2 text-slate-600 break-words max-w-[200px]">
                       {answer.correctAnswerText || correctLabel || <span className="text-slate-400">—</span>}

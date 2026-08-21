@@ -1,0 +1,98 @@
+{
+  "profile": {
+    "status": {
+      "ACTIVE": "Đang hoạt động",
+      "COMPLETED": "Đã hoàn thành",
+      "SUSPENDED": "Tạm ngưng",
+      "WITHDRAWN": "Đã rút lớp"
+    },
+    "changeAvatar": "Đổi ảnh đại diện (UC-63)",
+    "studentBadge": "Học sinh",
+    "systemId": "ID hệ thống: {{id}}",
+    "unknownValue": "—",
+    "academicInfo": "Thông tin học tập",
+    "classLabel": "Lớp học:",
+    "statusLabel": "Trạng thái:",
+    "achievements": "Thành tích & điểm thưởng",
+    "learningProgressLocked": "Tiến trình học tập",
+    "comingSoon": "Sắp có",
+    "rewardWallet": "Ví xu thưởng",
+    "learningStreak": "Chuỗi học tập",
+    "familyContact": "Liên hệ gia đình",
+    "editMyProfile": "Sửa hồ sơ của tôi (UC-63)",
+    "parentLabel": "Phụ huynh:",
+    "phoneLabel": "Số điện thoại:",
+    "noParentLinked": "Chưa liên kết phụ huynh nào với hồ sơ này.",
+    "changeMyAvatarHint": "Bấm vào ảnh để đổi ảnh đại diện của chính bạn.",
+    "occupationPlaceholder": "Nghề nghiệp",
+    "workplacePlaceholder": "Nơi làm việc",
+    "addressPlaceholder": "Địa chỉ",
+    "cancel": "Hủy",
+    "save": "Lưu",
+    "saving": "Đang lưu...",
+    "shareGoals": "Chia sẻ & mục tiêu học tập",
+    "shareGoalsComingSoon": "Sắp có - đang phát triển",
+    "errors": {
+      "avatarUpdateFailed": "Đổi ảnh đại diện thất bại.",
+      "avatarUploadFailed": "Upload ảnh thất bại.",
+      "profileUpdateFailed": "Cập nhật hồ sơ thất bại."
+    }
+  },
+  "notifications": {
+    "bellLabel": "Thông báo",
+    "listLabel": "Danh sách thông báo",
+    "title": "Thông báo",
+    "unreadCount": "{{count}} chưa đọc",
+    "markAllRead": "Đọc tất cả",
+    "markingAll": "Đang xử lý...",
+    "loading": "Đang tải...",
+    "empty": "Chưa có thông báo nào.",
+    "loadOlder": "Xem thông báo cũ hơn"
+  },
+  "billing": {
+    "loading": "Đang tải...",
+    "loadInvoicesFailed": "Không tải được hóa đơn học phí.",
+    "outstandingAmount": "Học phí cần đóng",
+    "completed": "Đã hoàn thành",
+    "invoiceCount": "{{count}} hóa đơn",
+    "unpaidInvoicesTitle": "Hóa đơn cần thanh toán",
+    "noUnpaidInvoices": "Không còn hóa đơn nào cần đóng.",
+    "overdue": "Quá hạn",
+    "unpaid": "Chưa thanh toán",
+    "dueDate": "Hạn thanh toán:",
+    "viewTransfer": "Xem chuyển khoản",
+    "paidHistoryTitle": "Lịch sử đã thanh toán",
+    "due": "Hạn:",
+    "transferContentTitle": "Nội dung chuyển khoản",
+    "amountToTransfer": "Số tiền cần chuyển:",
+    "copied": "Đã sao chép!",
+    "copyContent": "Sao chép nội dung",
+    "transferHint": "Chuyển khoản đúng nội dung trên — hệ thống tự động ghi nhận đã thanh toán khi ngân hàng xác nhận, không cần báo lại.",
+    "selectInvoicePrompt": "Chọn 1 hóa đơn để xem nội dung chuyển khoản"
+  },
+  "documents": {
+    "type": {
+      "VIDEO": "Video",
+      "PDF": "PDF",
+      "AUDIO": "Audio",
+      "SLIDE": "Slide",
+      "IMAGE": "Ảnh",
+      "OTHER": "Khác"
+    },
+    "categoryFilters": {
+      "ALL": "Tất cả tài liệu",
+      "DOCUMENT": "Sách & Tài liệu",
+      "MEDIA": "Video & Audio",
+      "OTHER": "Hình ảnh & Khác"
+    },
+    "loading": "Đang tải...",
+    "loadFailed": "Không tải được kho dữ liệu.",
+    "heroTitle": "Kho Dữ Liệu & Thư Viện Tài Liệu Tham Khảo",
+    "heroSubtitle": "Tài liệu chung theo khung chương trình để tự học thêm.",
+    "searchPlaceholder": "Tìm kiếm tài liệu, sách...",
+    "noResults": "Không tìm thấy tài liệu nào phù hợp.",
+    "watchVideo": "Xem video",
+    "readAndDownload": "Đọc & Tải về {{type}}",
+    "close": "Đóng"
+  }
+}

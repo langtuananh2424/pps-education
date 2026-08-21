@@ -45,9 +45,13 @@ public class AcademicTermService {
             throw new IllegalArgumentException("endDate phải sau hoặc bằng startDate.");
         }
         Site site = siteRepository.findById(request.siteId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy điểm trường id=" + request.siteId()));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.academicTerm.siteNotFound", new Object[]{request.siteId()},
+                        "Không tìm thấy điểm trường id=" + request.siteId()));
         User actor = userRepository.findById(actorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + actorUserId));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.academicTerm.actorNotFound", new Object[]{actorUserId},
+                        "Không tìm thấy tài khoản id=" + actorUserId));
 
         AcademicTerm term = new AcademicTerm();
         term.setSite(site);
@@ -85,7 +89,9 @@ public class AcademicTermService {
 
     private AcademicTerm getOrThrow(Long id) {
         return academicTermRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy kỳ học id=" + id));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.academicTerm.notFound", new Object[]{id},
+                        "Không tìm thấy kỳ học id=" + id));
     }
 
     private AcademicTermResponse toResponse(AcademicTerm t) {

@@ -318,7 +318,8 @@ public class ReviewVideoReportService {
 
     private ReviewVideoAssignment getAssignmentOrThrow(Long assignmentId) {
         return reviewVideoAssignmentRepository.findById(assignmentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lần giao BTVN Video Ôn tập id=" + assignmentId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.reviewVideoReport.assignmentNotFound",
+                        new Object[]{assignmentId}, "Không tìm thấy lần giao BTVN Video Ôn tập id=" + assignmentId));
     }
 
     /** Quyền lms.review-video.manage vượt rào — quản trị viên xem báo cáo lớp bất kỳ (mirror ReviewVideoService#requireAssignedTeacher). */
@@ -328,7 +329,7 @@ public class ReviewVideoReportService {
         }
         if (!classTeacherRepository.existsBySchoolClassIdAndTeacherIdAndAssignedToIsNull(classId, actorUserId)) {
             throw new NotAssignedTeacherForClassException(
-                    "Bạn không được phân công giảng dạy lớp này.");
+                    "error.notAssignedTeacherForClass.default", new Object[]{}, "Bạn không được phân công giảng dạy lớp này.");
         }
     }
 }

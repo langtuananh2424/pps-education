@@ -1,0 +1,238 @@
+{
+  "monitoring": {
+    "violationToast": "Noted: you just left the exercise while it was in progress!",
+    "badgeAriaLabel": "Anti-cheating monitoring status",
+    "tooltip": "We're monitoring this exercise — leaving it ({{exitNote}}) will be recorded.",
+    "tooltipViolationSuffix": " Recorded {{count}} time(s) so far.",
+    "defaultExitNote": "switching tabs/minimizing",
+    "reflexExitNote": "switching tabs/minimizing/exiting fullscreen"
+  },
+  "takeExercise": {
+    "loadError": "Couldn't open this exercise.",
+    "saveAnswerError": "Couldn't save your answer.",
+    "submitAudioError": "Couldn't submit your audio.",
+    "submitError": "Couldn't submit the exercise.",
+    "hintError": "Couldn't load the hint yet.",
+    "closeAriaLabel": "Close",
+    "loadingExam": "Loading exercise...",
+    "noQuestions": "This exercise doesn't have any questions yet.",
+    "attemptNumber": "Attempt #{{number}}",
+    "status": {
+      "inProgress": "In progress",
+      "fullyGraded": "Graded",
+      "submittedPendingGrading": "Submitted — waiting for essay/speaking grading"
+    },
+    "scoreSuffix": " · Score: {{score}}",
+    "stoppedByViolation": {
+      "title": "This attempt was stopped",
+      "description": "You left the exercise more times than allowed. Your results were recorded based on what you answered so far. You can retake it from the assignment list.",
+      "understood": "Got it"
+    },
+    "confirmClose": {
+      "title": "Close this exercise?",
+      "description": "You're still working on this exercise. Your saved answers will stay, and you can continue later — but leaving while monitoring is active may be recorded as leaving the exercise.",
+      "stay": "Keep working",
+      "stillClose": "Close anyway"
+    },
+    "confirmSubmit": {
+      "message": "Submit now? You won't be able to change your answers after submitting.",
+      "cancel": "Cancel",
+      "confirmButton": "Confirm submit"
+    },
+    "submitting": "Submitting...",
+    "submitButton": "Submit",
+    "exitButton": "Exit",
+    "resultPopup": {
+      "retakeNotAllowed": "This exercise can't be retaken — this is the final result.",
+      "retakeAnytime": "You can retake this exercise whenever you're ready.",
+      "retakeRemaining": "You have {{count}} attempt(s) left for this exercise.",
+      "retakeExhausted": "You've used up all your allowed attempts for this exercise.",
+      "submittedTitle": "Submitted \"{{title}}\"!",
+      "submittedDescription": "The multiple-choice part has been auto-graded. This exercise still has essay/speaking questions for your teacher to grade — your final score will be ready soon.",
+      "passedTitle": "Congrats, you've completed \"{{title}}\"!",
+      "passedDescription": "Result: {{percentage}}% — Passed.",
+      "failedTitle": "You've completed \"{{title}}\"",
+      "failedDescription": "Result: {{percentage}}% — Not passed yet{{threshold}}, you'll need to retake this exercise.",
+      "thresholdSuffix": " (need ≥{{percent}}%)",
+      "understood": "Got it"
+    },
+    "question": {
+      "pointsSuffix": "{{points}} pt",
+      "recordAnswerLabel": "Record your answer",
+      "manualGradingNote": "This question will be graded by your teacher after you submit.",
+      "answerPlaceholder": "Type your answer...",
+      "correct": "Correct",
+      "correctAnswerPrefix": "Correct answer: {{answer}}",
+      "explanationPrefix": "Explanation: {{text}}"
+    },
+    "locked": {
+      "remaining": "{{count}} attempt(s) left — finish all your attempts to see the answer.",
+      "lastAttemptOnly": "The answer unlocks on your final attempt.",
+      "viewAnswer": "View answer"
+    },
+    "listening": {
+      "audioLabel": "Listening audio",
+      "hintAriaLabel": "Hint",
+      "loadingHint": "Loading hint...",
+      "locked": "Listened {{playCount}}/{{threshold}} time(s) — {{remaining}} more to unlock the hint",
+      "transcriptLabel": "Transcript: ",
+      "correctAnswerLabel": "Correct answer: ",
+      "explanationLabel": "Explanation: "
+    },
+    "wordBank": {
+      "choosePlaceholder": "— choose —"
+    },
+    "sentenceBuilding": {
+      "instructions": "Tap the chunks below in the right order to build the sentence..."
+    }
+  },
+  "reviewVideoTask": {
+    "questionsLoadError": "Couldn't load the questions.",
+    "submitQuizError": "Couldn't submit your answers — please try again.",
+    "badge": "Connection video",
+    "exitButton": "Exit",
+    "startScreen": {
+      "description": "The video will auto-play in fullscreen — you can't pause or skip. Watch the whole video to unlock this round's questions.",
+      "startButton": "Start watching",
+      "exitButton": "Exit"
+    },
+    "exitConfirm": {
+      "title": "Exit before finishing this round?",
+      "description": "You haven't finished answering this round's questions yet — leaving now won't count this round.",
+      "stay": "Keep watching",
+      "stillExit": "Exit anyway"
+    },
+    "quizPopup": {
+      "heading": "Answer the questions to count this round",
+      "closeAriaLabel": "Close",
+      "loadingQuestions": "Loading questions...",
+      "noQuestions": "This video doesn't have any questions yet — contact your teacher.",
+      "questionLabel": "Question {{index}}. {{prompt}}",
+      "submitting": "Submitting...",
+      "submitButton": "Submit answers"
+    },
+    "progress": {
+      "heading": "Current round",
+      "watchedMax": "Watched so far",
+      "fullyWatched": "✓ You've watched the whole video — answer the questions below",
+      "notFullyWatched": "Watch the ENTIRE video to unlock this round's questions",
+      "totalCompleted": "Total rounds completed",
+      "countSuffix": "rounds",
+      "submittedSummary": "Submitted — {{correct}}/{{total}} correct. This round has been counted.",
+      "answerNowBanner": "Answer the questions to count this round",
+      "answerNowButton": "Answer now →"
+    }
+  },
+  "reflexVideoTask": {
+    "micAccessError": "Couldn't access the microphone — check your browser permissions and try again.",
+    "questionsLoadError": "Couldn't load the question list.",
+    "submitError": "Couldn't submit — please try again.",
+    "notAssignedError": "This video hasn't been assigned to you as homework — you can't submit.",
+    "micPermissionError": "Microphone access is required — please allow microphone access (the lock icon in your address bar) and try again.",
+    "loadingQuestions": "Loading questions...",
+    "noQuestions": "This video doesn't have any questions yet.",
+    "badge": "Reflex video",
+    "exitButton": "Exit",
+    "startScreen": {
+      "description": "The video will auto-play in fullscreen — no pausing or skipping. When it reaches each timestamp, we'll automatically record your answer.",
+      "requestingMic": "Requesting microphone access...",
+      "startButton": "Start exercise",
+      "exitButton": "Exit"
+    },
+    "exitConfirm": {
+      "title": "Exit without submitting?",
+      "description": "You have unsubmitted recordings — leaving now will discard all of them.",
+      "stay": "Keep going",
+      "stillExit": "Exit anyway"
+    },
+    "question": {
+      "label": "Question {{index}}",
+      "attemptsUsed": "{{used}}/{{max}} attempts used",
+      "recording": "Recording ({{elapsed}}s/{{max}}s)",
+      "draftSaved": "✓ Recorded — submit to save it.",
+      "attemptsExhausted": "You've used up all your attempts for this question.",
+      "alreadySubmitted": "✓ Submitted.",
+      "cannotRecordNow": "Can't record right now.",
+      "waitingForTimestamp": "Recording will start automatically when the video reaches this point."
+    },
+    "submittedSuccess": "Submitted successfully!",
+    "retryButton": "Retry",
+    "submitting": "Submitting...",
+    "submitButton": "Submit",
+    "backToList": "Back to homework list"
+  },
+  "assignments": {
+    "itemLabel": "items",
+    "loadError": "Couldn't load the homework list.",
+    "loading": "Loading...",
+    "attemptStatus": {
+      "inProgress": "In progress",
+      "autoGraded": "Submitted — waiting for essay/speaking grading",
+      "fullyGraded": "Graded"
+    },
+    "banner": {
+      "label": "Homework reminder",
+      "titlePrefix": "You have",
+      "titleCount": "{{count}} homework item(s)",
+      "titleSuffix": "still to complete!",
+      "description": "Get them done before the deadline to stay on track with your learning.",
+      "actionButton": "Do it now"
+    },
+    "allDone": "Great job! You've completed all your assigned homework.",
+    "filters": {
+      "all": "All homework ({{count}})",
+      "pending": "To do ({{count}})",
+      "graded": "Submitted & graded ({{count}})",
+      "typeAriaLabel": "Filter by type",
+      "typeDialogAriaLabel": "Choose a type",
+      "typeAll": "All types",
+      "typeExercise": "Grammar exercises ({{count}})",
+      "typeVideo": "Connection/Reflex videos ({{count}})"
+    },
+    "empty": "No homework in this category.",
+    "exercise": {
+      "action": {
+        "retake": "Retake",
+        "start": "Start now",
+        "continue": "Continue",
+        "reviewGraded": "Review your work",
+        "reviewSubmitted": "Review your submission"
+      },
+      "needsRetake": "Not passed {{percent}} — needs retake",
+      "overduePrefix": "Overdue — ",
+      "duePrefix": "Due: ",
+      "noDeadline": "No deadline",
+      "teacherVietnamese": "Vietnamese teacher",
+      "teacherForeign": "Foreign teacher",
+      "assignedInSession": "Assigned in the {{date}} session",
+      "scoreLabel": "Score: ",
+      "passed": "Passed",
+      "notPassed": "Not passed"
+    },
+    "video": {
+      "watchToReview": "Watch to review",
+      "achievedViews": "{{count}}/{{required}} rounds completed",
+      "noQuestions": "No questions yet",
+      "submitted": "Submitted",
+      "answeredCount": "{{answered}}/{{total}} questions answered",
+      "action": {
+        "watch": "Watch video",
+        "answer": "Answer questions",
+        "reviewSubmitted": "Review submission"
+      },
+      "connectionType": "Connection video",
+      "reflexType": "Reflex video"
+    }
+  },
+  "parentHomework": {
+    "loadError": "Couldn't load homework progress.",
+    "loading": "Loading...",
+    "title": "Homework Progress",
+    "description": "Track the homework your child's teachers have assigned by session — view only, this isn't where your child does the homework.",
+    "empty": "No homework has been assigned yet.",
+    "grammarLabel": "Grammar",
+    "videoLabel": "Review video",
+    "passed": "Passed",
+    "notPassed": "Not passed"
+  }
+}

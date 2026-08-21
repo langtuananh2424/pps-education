@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { TaskAssignmentResponse } from "../api";
-import { ASSIGNMENT_STATUS_META, ASSIGNMENT_STATUS_ORDER } from "../statusMeta";
+import { toLocaleTag } from "@/lib/i18nFormat";
+import { ASSIGNMENT_STATUS_META, ASSIGNMENT_STATUS_ORDER, assignmentStatusLabel } from "../statusMeta";
 import Select from "@/components/ui/Select";
 
 interface AssignmentSheetViewProps {
@@ -10,6 +12,7 @@ interface AssignmentSheetViewProps {
 
 /** Yêu cầu bổ sung: quản lý sâu hơn dạng bảng, song song Kanban — cùng nguồn dữ liệu `my-assignments`. */
 export default function AssignmentSheetView({ assignments, onSelect }: AssignmentSheetViewProps) {
+  const { t, i18n } = useTranslation("task-workflow");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [keyword, setKeyword] = useState("");
 
@@ -26,7 +29,7 @@ export default function AssignmentSheetView({ assignments, onSelect }: Assignmen
         <input
           value={keyword}
           onChange={(e) => setKeyword(e.target.value)}
-          placeholder="Tìm theo tiêu đề công việc..."
+          placeholder={t("sheet.searchPlaceholder")}
           className="flex-1 bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none max-w-xs"
         />
         <Select
@@ -34,26 +37,26 @@ export default function AssignmentSheetView({ assignments, onSelect }: Assignmen
           onChange={(e) => setStatusFilter(e.target.value)}
           className="bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
         >
-          <option value="ALL">-- Mọi trạng thái --</option>
+          <option value="ALL">{t("sheet.allStatuses")}</option>
           {ASSIGNMENT_STATUS_ORDER.map((s) => (
             <option key={s} value={s}>
-              {ASSIGNMENT_STATUS_META[s].label}
+              {assignmentStatusLabel(t, s)}
             </option>
           ))}
         </Select>
-        <span className="text-[11px] text-slate-400 ml-auto">Tổng {filtered.length} việc</span>
+        <span className="text-[11px] text-slate-400 ml-auto">{t("sheet.total", { count: filtered.length })}</span>
       </div>
 
       <div className="border border-slate-200 rounded-xl overflow-x-auto">
         <table className="w-full text-xs">
           <thead className="bg-slate-50 text-[10px] uppercase font-bold text-slate-500">
             <tr>
-              <th className="text-left px-3 py-2.5">Mã PC</th>
-              <th className="text-left px-3 py-2.5">Tiêu đề công việc</th>
-              <th className="text-left px-3 py-2.5">Trạng thái</th>
-              <th className="text-left px-3 py-2.5">Tiến độ</th>
-              <th className="text-left px-3 py-2.5">Bắt đầu</th>
-              <th className="text-left px-3 py-2.5">Hoàn thành</th>
+              <th className="text-left px-3 py-2.5">{t("sheet.columns.assignmentCode")}</th>
+              <th className="text-left px-3 py-2.5">{t("sheet.columns.taskTitle")}</th>
+              <th className="text-left px-3 py-2.5">{t("sheet.columns.status")}</th>
+              <th className="text-left px-3 py-2.5">{t("sheet.columns.progress")}</th>
+              <th className="text-left px-3 py-2.5">{t("sheet.columns.startedAt")}</th>
+              <th className="text-left px-3 py-2.5">{t("sheet.columns.completedAt")}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -64,11 +67,11 @@ export default function AssignmentSheetView({ assignments, onSelect }: Assignmen
                   <td className="px-3 py-2.5 font-mono text-slate-400">#{a.id}</td>
                   <td className="px-3 py-2.5 font-semibold text-slate-800">{a.taskTitle}</td>
                   <td className="px-3 py-2.5">
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${meta.badge}`}>{meta.label}</span>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${meta.badge}`}>{assignmentStatusLabel(t, a.assignmentStatus)}</span>
                   </td>
                   <td className="px-3 py-2.5 text-slate-500">{a.progressPercent != null ? `${a.progressPercent}%` : "—"}</td>
-                  <td className="px-3 py-2.5 text-slate-500">{a.startedAt ? new Date(a.startedAt).toLocaleDateString("vi-VN") : "—"}</td>
-                  <td className="px-3 py-2.5 text-slate-500">{a.completedAt ? new Date(a.completedAt).toLocaleDateString("vi-VN") : "—"}</td>
+                  <td className="px-3 py-2.5 text-slate-500">{a.startedAt ? new Date(a.startedAt).toLocaleDateString(toLocaleTag(i18n.language)) : "—"}</td>
+                  <td className="px-3 py-2.5 text-slate-500">{a.completedAt ? new Date(a.completedAt).toLocaleDateString(toLocaleTag(i18n.language)) : "—"}</td>
                 </tr>
               );
             })}
@@ -76,7 +79,7 @@ export default function AssignmentSheetView({ assignments, onSelect }: Assignmen
             {filtered.length === 0 && (
               <tr>
                 <td colSpan={6} className="px-3 py-8 text-center text-slate-400 italic">
-                  Không có công việc nào khớp bộ lọc.
+                  {t("sheet.empty")}
                 </td>
               </tr>
             )}

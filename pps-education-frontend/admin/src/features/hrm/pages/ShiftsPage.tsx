@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Clock3, Plus, Users } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import { Badge, Button, TableContainer, Td, Th } from "@/components/ui";
@@ -18,20 +19,16 @@ import {
 } from "../api";
 import ShiftFormModal from "../components/ShiftFormModal";
 
-const WEEKDAY_SHORT: Record<number, string> = { 1: "T2", 2: "T3", 3: "T4", 4: "T5", 5: "T6", 6: "T7", 7: "CN" };
-
-function formatWeekdays(csv: string): string {
+function formatWeekdays(csv: string, t: (key: string) => string): string {
   return csv
     .split(",")
-    .map((s) => WEEKDAY_SHORT[Number(s.trim())] ?? s)
+    .map((s) => t(`weekday.short.${Number(s.trim())}`))
     .join(", ");
 }
 
-const weekParityLabels: Record<ShiftResponse["weekParity"], string> = {
-  ALL: "Mọi tuần",
-  ODD: "Tuần lẻ",
-  EVEN: "Tuần chẵn"
-};
+function weekParityLabel(t: (key: string) => string, weekParity: ShiftResponse["weekParity"]): string {
+  return t(`weekParity.${weekParity}`);
+}
 
 /**
  * UC-70 (bổ sung ngoài SDD gốc, xác nhận 2026-08-13) — quản lý Ca làm việc
@@ -40,6 +37,7 @@ const weekParityLabels: Record<ShiftResponse["weekParity"], string> = {
  * được gán, mọi lượt chấm công thật đều bị từ chối.
  */
 export default function ShiftsPage() {
+  const { t } = useTranslation("hrm-shifts");
   const { hasPermission } = useApp();
   const canManageShift = hasPermission("hrm.shift.create");
   const canAssign = hasPermission("hrm.employee-shift.assign");
@@ -56,7 +54,7 @@ export default function ShiftsPage() {
     setError(null);
     listShifts()
       .then(setShifts)
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách ca làm việc."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("shiftsPage.loadError")))
       .finally(() => setLoading(false));
   };
 
@@ -65,10 +63,10 @@ export default function ShiftsPage() {
   const handleDeactivate = async (shift: ShiftResponse) => {
     try {
       await deactivateShift(shift.id);
-      showToast(`Đã vô hiệu hoá ca "${shift.name}".`);
+      showToast(t("shiftsPage.deactivateSuccess", { name: shift.name }));
       load();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Vô hiệu hoá thất bại.");
+      setError(err instanceof ApiError ? err.message : t("shiftsPage.deactivateError"));
     }
   };
 
@@ -76,10 +74,8 @@ export default function ShiftsPage() {
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4 flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Ca làm việc</h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Cấu hình ca làm việc chuẩn + gán ca cho nhân sự — đầu vào bắt buộc để xác định "ngày làm việc" khi chấm công (UC-09).
-          </p>
+          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("shiftsPage.title")}</h1>
+          <p className="text-xs text-slate-500 mt-1">{t("shiftsPage.description")}</p>
         </div>
         {canManageShift && (
           <Button
@@ -90,7 +86,7 @@ export default function ShiftsPage() {
             }}
           >
             <Plus className="w-3.5 h-3.5" />
-            Thêm ca làm việc
+            {t("shiftsPage.addButton")}
           </Button>
         )}
       </div>
@@ -100,12 +96,12 @@ export default function ShiftsPage() {
       <TableContainer>
         <thead>
           <tr>
-            <Th>Mã</Th>
-            <Th>Tên ca</Th>
-            <Th>Giờ vào/ra</Th>
-            <Th>Ngày áp dụng</Th>
-            <Th>Tuần</Th>
-            <Th>Trạng thái</Th>
+            <Th>{t("shiftsPage.columns.code")}</Th>
+            <Th>{t("shiftsPage.columns.name")}</Th>
+            <Th>{t("shiftsPage.columns.time")}</Th>
+            <Th>{t("shiftsPage.columns.weekdays")}</Th>
+            <Th>{t("shiftsPage.columns.weekParity")}</Th>
+            <Th>{t("shiftsPage.columns.status")}</Th>
             <Th />
           </tr>
         </thead>
@@ -113,13 +109,13 @@ export default function ShiftsPage() {
           {loading ? (
             <tr>
               <Td colSpan={7} className="text-center text-slate-400">
-                Đang tải...
+                {t("shiftsPage.loading")}
               </Td>
             </tr>
           ) : shifts.length === 0 ? (
             <tr>
               <Td colSpan={7} className="text-center text-slate-400">
-                Chưa có ca làm việc nào.
+                {t("shiftsPage.empty")}
               </Td>
             </tr>
           ) : (
@@ -130,10 +126,12 @@ export default function ShiftsPage() {
                 <Td className="font-mono">
                   {s.checkInTime.slice(0, 5)} - {s.checkOutTime.slice(0, 5)}
                 </Td>
-                <Td className="text-slate-500">{formatWeekdays(s.appliesToWeekdays)}</Td>
-                <Td className="text-slate-500">{weekParityLabels[s.weekParity]}</Td>
+                <Td className="text-slate-500">{formatWeekdays(s.appliesToWeekdays, t)}</Td>
+                <Td className="text-slate-500">{weekParityLabel(t, s.weekParity)}</Td>
                 <Td>
-                  <Badge variant={s.active ? "success" : "neutral"}>{s.active ? "Đang dùng" : "Đã vô hiệu hoá"}</Badge>
+                  <Badge variant={s.active ? "success" : "neutral"}>
+                    {s.active ? t("shiftsPage.statusActive") : t("shiftsPage.statusInactive")}
+                  </Badge>
                 </Td>
                 <Td>
                   {canManageShift && (
@@ -146,11 +144,11 @@ export default function ShiftsPage() {
                           setFormOpen(true);
                         }}
                       >
-                        Sửa
+                        {t("shiftsPage.editButton")}
                       </Button>
                       {s.active && (
                         <Button size="sm" variant="danger" onClick={() => handleDeactivate(s)}>
-                          Vô hiệu hoá
+                          {t("shiftsPage.deactivateButton")}
                         </Button>
                       )}
                     </div>
@@ -165,7 +163,7 @@ export default function ShiftsPage() {
       {canAssign && (
         <BulkAssignShiftPanel
           shifts={shifts.filter((s) => s.active)}
-          onAssigned={(count) => showToast(`Đã gán ca cho ${count} nhân sự thành công!`)}
+          onAssigned={(count) => showToast(t("shiftsPage.bulkAssign.assignedToast", { count }))}
         />
       )}
 
@@ -176,7 +174,7 @@ export default function ShiftsPage() {
           onSaved={() => {
             setFormOpen(false);
             load();
-            showToast(editingShift ? "Đã cập nhật ca làm việc thành công!" : "Đã tạo ca làm việc thành công!");
+            showToast(editingShift ? t("shiftsPage.updateSuccess") : t("shiftsPage.createSuccess"));
           }}
         />
       )}
@@ -201,6 +199,7 @@ interface BulkAssignResult {
  * bên dưới sau khi gán.
  */
 function BulkAssignShiftPanel({ shifts, onAssigned }: { shifts: ShiftResponse[]; onAssigned: (count: number) => void }) {
+  const { t } = useTranslation("hrm-shifts");
   const [employees, setEmployees] = useState<EmployeeResponse[]>([]);
   const [departments, setDepartments] = useState<DepartmentResponse[]>([]);
   const [departmentId, setDepartmentId] = useState<number | "">("");
@@ -256,7 +255,7 @@ function BulkAssignShiftPanel({ shifts, onAssigned }: { shifts: ShiftResponse[];
 
   const handleBulkAssign = async () => {
     if (selectedIds.size === 0 || shiftId === "") {
-      setError("Vui lòng chọn ít nhất 1 nhân sự và 1 ca làm việc.");
+      setError(t("shiftsPage.bulkAssign.selectAtLeastOne"));
       return;
     }
     setSubmitting(true);
@@ -274,7 +273,7 @@ function BulkAssignShiftPanel({ shifts, onAssigned }: { shifts: ShiftResponse[];
             employeeId: emp.id,
             employeeName: emp.fullName,
             ok: false,
-            message: err instanceof ApiError ? err.message : "Gán ca thất bại."
+            message: err instanceof ApiError ? err.message : t("shiftsPage.bulkAssign.resultError")
           };
         }
       })
@@ -287,7 +286,12 @@ function BulkAssignShiftPanel({ shifts, onAssigned }: { shifts: ShiftResponse[];
       onAssigned(successCount);
     }
     if (outcomes.some((r) => !r.ok)) {
-      setError(`${outcomes.filter((r) => !r.ok).length}/${outcomes.length} nhân sự gán thất bại -- xem chi tiết bên dưới.`);
+      setError(
+        t("shiftsPage.bulkAssign.partialFailure", {
+          failed: outcomes.filter((r) => !r.ok).length,
+          total: outcomes.length
+        })
+      );
     }
   };
 
@@ -295,7 +299,7 @@ function BulkAssignShiftPanel({ shifts, onAssigned }: { shifts: ShiftResponse[];
     <div className="bg-white rounded-xl border border-slate-200 shadow-soft p-5 space-y-4">
       <div className="flex items-center gap-2">
         <Users className="w-4 h-4 text-slate-400" />
-        <span className="text-xs font-bold text-slate-700 font-display">Gán ca cho nhiều nhân sự</span>
+        <span className="text-xs font-bold text-slate-700 font-display">{t("shiftsPage.bulkAssign.title")}</span>
       </div>
 
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
@@ -306,7 +310,7 @@ function BulkAssignShiftPanel({ shifts, onAssigned }: { shifts: ShiftResponse[];
           onChange={(e) => setDepartmentId(e.target.value === "" ? "" : Number(e.target.value))}
           className="bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none min-w-[180px]"
         >
-          <option value="">-- Tất cả phòng ban --</option>
+          <option value="">{t("shiftsPage.bulkAssign.allDepartments")}</option>
           {departments.map((d) => (
             <option key={d.id} value={d.id}>
               {d.name}
@@ -318,7 +322,7 @@ function BulkAssignShiftPanel({ shifts, onAssigned }: { shifts: ShiftResponse[];
           onChange={(e) => setShiftId(e.target.value === "" ? "" : Number(e.target.value))}
           className="bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none min-w-[160px]"
         >
-          <option value="">-- Chọn ca --</option>
+          <option value="">{t("shiftsPage.bulkAssign.selectShiftPlaceholder")}</option>
           {shifts.map((s) => (
             <option key={s.id} value={s.id}>
               {s.name}
@@ -333,17 +337,23 @@ function BulkAssignShiftPanel({ shifts, onAssigned }: { shifts: ShiftResponse[];
         />
         <Button variant="primary" disabled={submitting} onClick={handleBulkAssign}>
           <Clock3 className="w-3.5 h-3.5" />
-          {submitting ? "Đang gán..." : `Gán ca cho ${selectedIds.size || ""} nhân sự`.trim()}
+          {submitting
+            ? t("shiftsPage.bulkAssign.assigning")
+            : selectedIds.size > 0
+            ? t("shiftsPage.bulkAssign.assignButtonWithCount", { count: selectedIds.size })
+            : t("shiftsPage.bulkAssign.assignButtonNoCount")}
         </Button>
       </div>
 
       <div className="border border-slate-200 rounded-lg max-h-64 overflow-y-auto">
         <label className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-slate-600 bg-slate-50 border-b border-slate-200 sticky top-0 cursor-pointer">
           <input type="checkbox" checked={allFilteredSelected} onChange={toggleSelectAll} />
-          Chọn tất cả ({filteredEmployees.length} nhân sự{departmentId !== "" ? " trong phòng ban đã lọc" : ""})
+          {departmentId !== ""
+            ? t("shiftsPage.bulkAssign.selectAllLabelFiltered", { count: filteredEmployees.length })
+            : t("shiftsPage.bulkAssign.selectAllLabel", { count: filteredEmployees.length })}
         </label>
         {filteredEmployees.length === 0 ? (
-          <p className="text-xs text-slate-400 italic p-3">Không có nhân sự nào khớp bộ lọc.</p>
+          <p className="text-xs text-slate-400 italic p-3">{t("shiftsPage.bulkAssign.noEmployeesMatch")}</p>
         ) : (
           <div className="divide-y divide-slate-100">
             {filteredEmployees.map((emp) => (
@@ -359,12 +369,16 @@ function BulkAssignShiftPanel({ shifts, onAssigned }: { shifts: ShiftResponse[];
 
       {results.length > 0 && (
         <div className="pt-1">
-          <span className="text-[10px] font-bold uppercase text-slate-500">Kết quả gán ca</span>
+          <span className="text-[10px] font-bold uppercase text-slate-500">{t("shiftsPage.bulkAssign.resultsTitle")}</span>
           <div className="divide-y divide-slate-100 mt-1">
             {results.map((r) => (
               <div key={r.employeeId} className="flex items-center justify-between py-1.5 text-xs">
                 <span className="font-semibold text-slate-700">{r.employeeName}</span>
-                {r.ok ? <Badge variant="success">Thành công</Badge> : <span className="text-rose-600">{r.message}</span>}
+                {r.ok ? (
+                  <Badge variant="success">{t("shiftsPage.bulkAssign.resultSuccess")}</Badge>
+                ) : (
+                  <span className="text-rose-600">{r.message}</span>
+                )}
               </div>
             ))}
           </div>

@@ -38,7 +38,7 @@ public class StudentCommentReportDataResolver implements ReportDataResolver {
 
         if (params.studentId() != null) {
             Student student = studentRepository.findById(params.studentId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy học sinh id=" + params.studentId()));
+                    .orElseThrow(() -> new ResourceNotFoundException("error.studentCommentReportData.studentNotFoundById", new Object[]{params.studentId()}, "Không tìm thấy học sinh id=" + params.studentId()));
             context.put("STUDENT_NAME", student.getUser().getFullName());
             context.put("STUDENT_CODE", student.getStudentCode());
 

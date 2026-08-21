@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Blocks, Check, CheckSquare, FileText, Headphones, ListOrdered, Mic, PenLine, SplitSquareHorizontal, Volume2, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import Button from "@/components/ui/Button";
 import FileUploadField from "@/components/ui/FileUploadField";
@@ -29,20 +30,18 @@ type UiQuestionKind =
   | "LISTENING_AUDIO_SUBMISSION"
   | "LISTENING_FILL_IN_BLANK";
 
-const kindMeta: Record<UiQuestionKind, { label: string; icon: typeof CheckSquare; activeClass: string; iconClass: string }> = {
-  MULTIPLE_CHOICE: { label: "Trắc nghiệm", icon: CheckSquare, activeClass: "bg-emerald-50 border-emerald-400 text-emerald-800 ring-1 ring-emerald-300", iconClass: "text-emerald-600" },
-  VOICE_MULTIPLE_CHOICE: { label: "Trắc nghiệm Voice", icon: Volume2, activeClass: "bg-blue-50 border-blue-400 text-blue-800 ring-1 ring-blue-300", iconClass: "text-blue-600" },
-  INLINE_CHOICE: { label: "Chọn từ trong câu", icon: SplitSquareHorizontal, activeClass: "bg-teal-50 border-teal-400 text-teal-800 ring-1 ring-teal-300", iconClass: "text-teal-600" },
-  FILL_IN_BLANK: { label: "Điền từ", icon: PenLine, activeClass: "bg-amber-50 border-amber-400 text-amber-800 ring-1 ring-amber-300", iconClass: "text-amber-600" },
-  WORD_BANK: { label: "Điền từ - Hộp từ vựng", icon: Blocks, activeClass: "bg-orange-50 border-orange-400 text-orange-800 ring-1 ring-orange-300", iconClass: "text-orange-600" },
-  SENTENCE_BUILDING: { label: "Sắp xếp câu", icon: ListOrdered, activeClass: "bg-cyan-50 border-cyan-400 text-cyan-800 ring-1 ring-cyan-300", iconClass: "text-cyan-600" },
-  ESSAY: { label: "Tự luận file/ảnh", icon: FileText, activeClass: "bg-purple-50 border-purple-400 text-purple-800 ring-1 ring-purple-300", iconClass: "text-purple-600" },
-  SPEAKING: { label: "Speaking oral", icon: Mic, activeClass: "bg-rose-50 border-rose-400 text-rose-800 ring-1 ring-rose-300", iconClass: "text-rose-600" },
-  LISTENING_AUDIO_SUBMISSION: { label: "Nghe & nộp audio", icon: Headphones, activeClass: "bg-sky-50 border-sky-400 text-sky-800 ring-1 ring-sky-300", iconClass: "text-sky-600" },
-  LISTENING_FILL_IN_BLANK: { label: "Nghe điền từ", icon: PenLine, activeClass: "bg-violet-50 border-violet-400 text-violet-800 ring-1 ring-violet-300", iconClass: "text-violet-600" }
+const kindMeta: Record<UiQuestionKind, { icon: typeof CheckSquare; activeClass: string; iconClass: string }> = {
+  MULTIPLE_CHOICE: { icon: CheckSquare, activeClass: "bg-emerald-50 border-emerald-400 text-emerald-800 ring-1 ring-emerald-300", iconClass: "text-emerald-600" },
+  VOICE_MULTIPLE_CHOICE: { icon: Volume2, activeClass: "bg-blue-50 border-blue-400 text-blue-800 ring-1 ring-blue-300", iconClass: "text-blue-600" },
+  INLINE_CHOICE: { icon: SplitSquareHorizontal, activeClass: "bg-teal-50 border-teal-400 text-teal-800 ring-1 ring-teal-300", iconClass: "text-teal-600" },
+  FILL_IN_BLANK: { icon: PenLine, activeClass: "bg-amber-50 border-amber-400 text-amber-800 ring-1 ring-amber-300", iconClass: "text-amber-600" },
+  WORD_BANK: { icon: Blocks, activeClass: "bg-orange-50 border-orange-400 text-orange-800 ring-1 ring-orange-300", iconClass: "text-orange-600" },
+  SENTENCE_BUILDING: { icon: ListOrdered, activeClass: "bg-cyan-50 border-cyan-400 text-cyan-800 ring-1 ring-cyan-300", iconClass: "text-cyan-600" },
+  ESSAY: { icon: FileText, activeClass: "bg-purple-50 border-purple-400 text-purple-800 ring-1 ring-purple-300", iconClass: "text-purple-600" },
+  SPEAKING: { icon: Mic, activeClass: "bg-rose-50 border-rose-400 text-rose-800 ring-1 ring-rose-300", iconClass: "text-rose-600" },
+  LISTENING_AUDIO_SUBMISSION: { icon: Headphones, activeClass: "bg-sky-50 border-sky-400 text-sky-800 ring-1 ring-sky-300", iconClass: "text-sky-600" },
+  LISTENING_FILL_IN_BLANK: { icon: PenLine, activeClass: "bg-violet-50 border-violet-400 text-violet-800 ring-1 ring-violet-300", iconClass: "text-violet-600" }
 };
-
-const difficultyLabels: Record<QuestionDifficulty, string> = { EASY: "Dễ (Easy)", MEDIUM: "Trung bình (Medium)", HARD: "Khó (Hard)" };
 
 function toKind(question?: QuestionResponse): UiQuestionKind {
   if (!question) return "MULTIPLE_CHOICE";
@@ -74,6 +73,7 @@ interface QuestionEditorFormProps {
 
 /** UC-40 Main Flow bước 1: soạn/sửa câu hỏi theo Đề (examId) hoặc generic legacy bank (questionBankId). */
 export default function QuestionEditorForm({ questionBankId, examId, existingQuestion, allowedKinds, onCreated, onCancel }: QuestionEditorFormProps) {
+  const { t } = useTranslation("lms-question-authoring");
   const isEditing = !!existingQuestion;
   const visibleKinds = allowedKinds ?? (Object.keys(kindMeta) as UiQuestionKind[]);
   const [kind, setKind] = useState<UiQuestionKind>(
@@ -151,7 +151,7 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
     setError(null);
 
     if (!content.trim()) {
-      setError("Vui lòng nhập nội dung câu hỏi.");
+      setError(t("questionEditorForm.errors.contentRequired"));
       return;
     }
 
@@ -159,7 +159,7 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
     let choices: QuestionChoiceRequest[] | undefined;
     if (isChoiceKind) {
       if (options.some((o) => !o.trim())) {
-        setError(`Vui lòng điền đủ ${options.length} đáp án.`);
+        setError(t("questionEditorForm.errors.fillAllOptions", { count: options.length }));
         return;
       }
       choices = options.map((content_, i) => ({ choiceLabel: String.fromCharCode(65 + i), content: content_.trim(), isCorrect: i === correctIndex, displayOrder: i + 1 }));
@@ -167,23 +167,23 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
     if (isVoiceOrListeningAudio && !audioUrl.trim()) {
       setError(
         kind === "VOICE_MULTIPLE_CHOICE"
-          ? "Trắc nghiệm Voice cần có URL audio mẫu."
+          ? t("questionEditorForm.errors.audioRequiredVoice")
           : kind === "LISTENING_FILL_IN_BLANK"
-            ? "Nghe điền từ cần có URL audio bài nghe."
-            : "Nghe & nộp audio cần có URL audio bài nghe."
+            ? t("questionEditorForm.errors.audioRequiredListeningFillInBlank")
+            : t("questionEditorForm.errors.audioRequiredListeningSubmission")
       );
       return;
     }
     if ((kind === "FILL_IN_BLANK" || kind === "LISTENING_FILL_IN_BLANK") && !correctAnswerText.trim()) {
-      setError("Điền từ cần có đáp án đúng để hệ thống tự chấm.");
+      setError(t("questionEditorForm.errors.correctAnswerRequired"));
       return;
     }
     if (kind === "WORD_BANK" && wordBankBlanks.some((b) => !b.trim())) {
-      setError("Điền từ - Hộp từ vựng cần điền đủ đáp án đúng cho mọi chỗ trống.");
+      setError(t("questionEditorForm.errors.wordBankBlanksRequired"));
       return;
     }
     if (kind === "SENTENCE_BUILDING" && sentenceChunks.filter((c) => c.trim()).length < 2) {
-      setError("Sắp xếp câu cần ít nhất 2 khối từ/cụm theo đúng thứ tự câu hoàn chỉnh.");
+      setError(t("questionEditorForm.errors.sentenceBuildingMinChunks"));
       return;
     }
 
@@ -239,15 +239,15 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
           const legacyRequest: CreateQuestionRequest = { ...request, questionBankId };
           result = await createQuestion(legacyRequest);
         } else {
-          throw new Error("Thiếu ngữ cảnh Đề/Ngân hàng câu hỏi.");
+          throw new Error(t("common.missingExamOrBankContext"));
         }
       }
       onCreated(result);
     } catch (err) {
       if (err instanceof ApiError && (err.status === 409 || err.status === 400) && isEditing) {
-        setError("Câu hỏi này đã có học viên nộp bài — không sửa được nữa, hãy soạn câu hỏi mới thay thế.");
+        setError(t("questionEditorForm.errors.lockedAfterSubmission"));
       } else {
-        setError(err instanceof ApiError ? err.message : "Lưu câu hỏi thất bại.");
+        setError(err instanceof ApiError ? err.message : t("questionEditorForm.errors.saveFailed"));
       }
     } finally {
       setSubmitting(false);
@@ -259,7 +259,7 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       <div>
-        <label className={labelClass}>Loại câu hỏi tiếng Anh *{isEditing && <span className="text-slate-400 font-normal"> (không sửa được sau khi tạo)</span>}</label>
+        <label className={labelClass}>{t("questionEditorForm.kindLabel")}{isEditing && <span className="text-slate-400 font-normal"> {t("questionEditorForm.kindLockedHint")}</span>}</label>
         {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — số cột co theo số kind hiển
             thị (vd. FOREIGN chỉ 3 kind) để các nút dàn đều hết chiều rộng, thay vì luôn cố định 5 cột
             khiến picker bị hụt về bên trái khi ít lựa chọn. */}
@@ -280,7 +280,7 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
                 }`}
               >
                 <Icon className={`w-4 h-4 ${active ? "" : meta.iconClass}`} />
-                <span>{meta.label}</span>
+                <span>{t(`questionKind.${value}`)}</span>
               </button>
             );
           })}
@@ -289,11 +289,11 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className={labelClass}>Độ khó khảo thí *</label>
+          <label className={labelClass}>{t("questionEditorForm.difficultyLabel")}</label>
           <Select value={difficulty} onChange={(e) => setDifficulty(e.target.value as QuestionDifficulty)} disabled={isEditing} className={`${inputClass} disabled:opacity-60 font-bold`}>
-            {Object.entries(difficultyLabels).map(([value, label]) => (
+            {(["EASY", "MEDIUM", "HARD"] as QuestionDifficulty[]).map((value) => (
               <option key={value} value={value}>
-                {label}
+                {t(`difficulty.${value}`)}
               </option>
             ))}
           </Select>
@@ -301,13 +301,13 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
       </div>
 
       <div>
-        <label className={labelClass}>Nội dung câu hỏi / câu lệnh chỉ dẫn *</label>
+        <label className={labelClass}>{t("questionEditorForm.contentLabel")}</label>
         <textarea
           required
           rows={3}
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          placeholder="Nhập chi tiết đề bài viết luận, câu hỏi điền từ vào chỗ trống, hoặc văn bản đọc..."
+          placeholder={t("questionEditorForm.contentPlaceholder")}
           className={inputClass}
         />
       </div>
@@ -315,15 +315,10 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
       {(kind === "MULTIPLE_CHOICE" || kind === "VOICE_MULTIPLE_CHOICE" || kind === "INLINE_CHOICE") && (
         <div className="space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-200">
           <div className="flex items-center justify-between mb-1">
-            <span className="font-bold text-slate-700 uppercase tracking-wider text-[9px]">Thiết lập {options.length} đáp án & chọn 1 câu trả lời đúng</span>
-            <span className="text-[9px] text-slate-400 font-bold">Hãy nhấp nút check để chọn đáp án đúng</span>
+            <span className="font-bold text-slate-700 uppercase tracking-wider text-[9px]">{t("questionEditorForm.choicesSectionTitle", { count: options.length })}</span>
+            <span className="text-[9px] text-slate-400 font-bold">{t("questionEditorForm.choicesHint")}</span>
           </div>
-          {kind === "INLINE_CHOICE" && (
-            <p className="text-[9px] text-slate-400">
-              Viết câu đầy đủ ở "Nội dung câu hỏi" bên trên, đánh dấu vị trí cần chọn bằng dấu ___ (VD: "We/Us saw ___ yesterday." → viết
-              "___ saw him yesterday."), rồi nhập 2 lựa chọn bên dưới.
-            </p>
-          )}
+          {kind === "INLINE_CHOICE" && <p className="text-[9px] text-slate-400">{t("questionEditorForm.inlineChoiceHint")}</p>}
           <div className="space-y-2">
             {options.map((opt, idx) => (
               <div key={idx} className="flex items-center gap-2">
@@ -340,7 +335,7 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
                   required
                   value={opt}
                   onChange={(e) => setOptions((prev) => prev.map((o, i) => (i === idx ? e.target.value : o)))}
-                  placeholder={`Đáp án ${String.fromCharCode(65 + idx)}...`}
+                  placeholder={t("common.answerOptionPlaceholder", { letter: String.fromCharCode(65 + idx) })}
                   className={`flex-1 ${inputClass}`}
                 />
                 {kind !== "INLINE_CHOICE" && options.length > 2 && (
@@ -353,7 +348,7 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
           </div>
           {kind !== "INLINE_CHOICE" && options.length < MAX_CHOICES && (
             <Button type="button" variant="secondary" size="sm" onClick={handleAddOption}>
-              + Thêm đáp án
+              {t("questionEditorForm.addOption")}
             </Button>
           )}
         </div>
@@ -377,25 +372,22 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
             ) : (
               <Headphones className="w-4 h-4 text-sky-600" />
             )}
-            <span>Cấu hình file âm thanh / Transcript</span>
+            <span>{t("questionEditorForm.audioSectionTitle")}</span>
           </div>
           {kind === "LISTENING_AUDIO_SUBMISSION" && (
-            <p className="text-[9px] text-slate-400">
-              Học sinh sẽ nghe file audio này rồi tự ghi âm nộp lại câu trả lời (chấm tay ở "Hàng chờ chấm bài") — khác Trắc nghiệm Voice
-              (học sinh chỉ chọn đáp án có sẵn).
-            </p>
+            <p className="text-[9px] text-slate-400">{t("questionEditorForm.listeningAudioSubmissionHint")}</p>
           )}
           {kind === "LISTENING_FILL_IN_BLANK" && (
-            <p className="text-[9px] text-slate-400">Học sinh sẽ nghe file audio này rồi gõ đáp án — hệ thống tự chấm theo "Đáp án đúng" bên dưới.</p>
+            <p className="text-[9px] text-slate-400">{t("questionEditorForm.listeningFillInBlankHint")}</p>
           )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label className="block font-bold text-slate-600 mb-1 text-[9px] uppercase">File Audio bài nghe *</label>
-              <FileUploadField value={audioUrl} onChange={setAudioUrl} onUpload={(file) => uploadMedia(file, "LMS_QUESTION")} accept="audio/*" placeholder="Chọn file audio..." />
+              <label className="block font-bold text-slate-600 mb-1 text-[9px] uppercase">{t("common.audioFileLabel")}</label>
+              <FileUploadField value={audioUrl} onChange={setAudioUrl} onUpload={(file) => uploadMedia(file, "LMS_QUESTION")} accept="audio/*" placeholder={t("common.chooseAudioFile")} />
             </div>
             <div>
-              <label className="block font-bold text-slate-600 mb-1 text-[9px] uppercase">Ghi chú phát âm / Transcript</label>
-              <input value={transcript} onChange={(e) => setTranscript(e.target.value)} placeholder="Nội dung đọc trong tệp audio giúp kiểm tra..." className={inputClass} />
+              <label className="block font-bold text-slate-600 mb-1 text-[9px] uppercase">{t("common.transcriptLabel")}</label>
+              <input value={transcript} onChange={(e) => setTranscript(e.target.value)} placeholder={t("common.transcriptPlaceholder")} className={inputClass} />
             </div>
           </div>
         </div>
@@ -405,21 +397,18 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
         <div className="bg-orange-50/40 p-4 rounded-xl border border-orange-200 space-y-3">
           <div className="text-orange-950 font-bold uppercase tracking-wider text-[9px] flex items-center gap-1">
             <Blocks className="w-4 h-4 text-orange-600" />
-            <span>Hộp từ vựng — đáp án đúng theo thứ tự chỗ trống</span>
+            <span>{t("questionEditorForm.wordBankSectionTitle")}</span>
           </div>
-          <p className="text-[9px] text-slate-400">
-            Viết đoạn văn có chỗ trống ở "Nội dung câu hỏi" bên trên, đánh dấu mỗi chỗ trống bằng dấu ___ theo ĐÚNG thứ tự các từ bên dưới —
-            học sinh chọn qua dropdown, mỗi từ chỉ dùng đúng 1 lần.
-          </p>
+          <p className="text-[9px] text-slate-400">{t("questionEditorForm.wordBankHint")}</p>
           <div className="space-y-2">
             {wordBankBlanks.map((b, idx) => (
               <div key={idx} className="flex items-center gap-2">
-                <span className="text-[10px] font-bold text-slate-500 w-20 shrink-0">Chỗ trống {idx + 1}</span>
+                <span className="text-[10px] font-bold text-slate-500 w-20 shrink-0">{t("questionEditorForm.blankLabel", { index: idx + 1 })}</span>
                 <input
                   required
                   value={b}
                   onChange={(e) => setWordBankBlanks((prev) => prev.map((x, i) => (i === idx ? e.target.value : x)))}
-                  placeholder="VD: went"
+                  placeholder={t("questionEditorForm.blankPlaceholder")}
                   className={`flex-1 ${inputClass}`}
                 />
                 {wordBankBlanks.length > 1 && (
@@ -435,7 +424,7 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
             ))}
           </div>
           <Button type="button" variant="secondary" size="sm" onClick={() => setWordBankBlanks((prev) => [...prev, ""])}>
-            + Thêm chỗ trống
+            {t("questionEditorForm.addBlank")}
           </Button>
         </div>
       )}
@@ -444,12 +433,9 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
         <div className="bg-cyan-50/40 p-4 rounded-xl border border-cyan-200 space-y-3">
           <div className="text-cyan-950 font-bold uppercase tracking-wider text-[9px] flex items-center gap-1">
             <ListOrdered className="w-4 h-4 text-cyan-600" />
-            <span>Khối từ/cụm — theo ĐÚNG thứ tự câu hoàn chỉnh</span>
+            <span>{t("questionEditorForm.sentenceBuildingSectionTitle")}</span>
           </div>
-          <p className="text-[9px] text-slate-400">
-            Nhập các khối từ/cụm theo ĐÚNG thứ tự tạo thành câu hoàn chỉnh — học sinh sẽ thấy các khối này bị xáo trộn, chọn lại theo đúng
-            thứ tự để hệ thống tự chấm (so khớp chính xác thứ tự).
-          </p>
+          <p className="text-[9px] text-slate-400">{t("questionEditorForm.sentenceBuildingHint")}</p>
           <div className="space-y-2">
             {sentenceChunks.map((c, idx) => (
               <div key={idx} className="flex items-center gap-2">
@@ -457,7 +443,7 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
                 <input
                   value={c}
                   onChange={(e) => setSentenceChunks((prev) => prev.map((x, i) => (i === idx ? e.target.value : x)))}
-                  placeholder="VD: This is"
+                  placeholder={t("questionEditorForm.chunkPlaceholder")}
                   className={`flex-1 ${inputClass}`}
                 />
                 {sentenceChunks.length > 1 && (
@@ -473,7 +459,7 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
             ))}
           </div>
           <Button type="button" variant="secondary" size="sm" onClick={() => setSentenceChunks((prev) => [...prev, ""])}>
-            + Thêm khối
+            {t("questionEditorForm.addChunk")}
           </Button>
         </div>
       )}
@@ -482,20 +468,18 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
         <div className="bg-amber-50/40 p-4 rounded-xl border border-amber-200 space-y-3">
           <div className="text-amber-950 font-bold uppercase tracking-wider text-[9px] flex items-center gap-1">
             <PenLine className="w-4 h-4 text-amber-600" />
-            <span>Đáp án đúng (hệ thống tự chấm)</span>
+            <span>{t("questionEditorForm.fillInBlankSectionTitle")}</span>
           </div>
           <div>
-            <label className="block font-bold text-slate-600 mb-1 text-[9px] uppercase">Đáp án đúng *</label>
+            <label className="block font-bold text-slate-600 mb-1 text-[9px] uppercase">{t("questionEditorForm.correctAnswerLabel")}</label>
             <input
               required
               value={correctAnswerText}
               onChange={(e) => setCorrectAnswerText(e.target.value)}
-              placeholder="VD: went"
+              placeholder={t("questionEditorForm.correctAnswerPlaceholder")}
               className={inputClass}
             />
-            <p className="text-[9px] text-slate-400 mt-1">
-              So khớp không phân biệt hoa/thường, tự bỏ khoảng trắng thừa đầu-cuối khi chấm — chỉ nhận đúng 1 đáp án.
-            </p>
+            <p className="text-[9px] text-slate-400 mt-1">{t("questionEditorForm.correctAnswerHint")}</p>
           </div>
         </div>
       )}
@@ -504,16 +488,16 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
         <div className="bg-purple-50/40 p-4 rounded-xl border border-purple-200 space-y-3">
           <div className="text-purple-950 font-bold uppercase tracking-wider text-[9px] flex items-center gap-1">
             <FileText className="w-4 h-4 text-purple-600" />
-            <span>Đính kèm hình ảnh / File scan đề bài</span>
+            <span>{t("questionEditorForm.essaySectionTitle")}</span>
           </div>
           <div>
-            <label className="block font-bold text-slate-600 mb-1 text-[9px] uppercase">Hình ảnh/Tài liệu scan mẫu</label>
+            <label className="block font-bold text-slate-600 mb-1 text-[9px] uppercase">{t("questionEditorForm.essayImageLabel")}</label>
             <FileUploadField
               value={imageUrl}
               onChange={setImageUrl}
               onUpload={(file) => uploadMedia(file, "LMS_QUESTION")}
               accept="image/*,.pdf,application/pdf"
-              placeholder="Chọn ảnh hoặc file PDF..."
+              placeholder={t("questionEditorForm.essayImagePlaceholder")}
             />
           </div>
         </div>
@@ -523,15 +507,15 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
         <div className="bg-rose-50/40 p-4 rounded-xl border border-rose-200 space-y-3">
           <div className="text-rose-950 font-bold uppercase tracking-wider text-[9px] flex items-center gap-1">
             <Mic className="w-4 h-4 text-rose-600" />
-            <span>Bộ phân tích phát âm tiếng Anh</span>
+            <span>{t("questionEditorForm.speakingSectionTitle")}</span>
           </div>
           <div>
-            <label className="block font-bold text-slate-600 mb-1 text-[9px] uppercase">Các âm vị / Từ vựng trọng điểm cần học viên phát âm chính xác *</label>
+            <label className="block font-bold text-slate-600 mb-1 text-[9px] uppercase">{t("questionEditorForm.speakingKeywordsLabel")}</label>
             <input
               required
               value={phoneticKeywords}
               onChange={(e) => setPhoneticKeywords(e.target.value)}
-              placeholder="Ví dụ: Target pronunciation sounds: 'enthusiasm', 'literature', 'variety'..."
+              placeholder={t("questionEditorForm.speakingKeywordsPlaceholder")}
               className={inputClass}
             />
           </div>
@@ -539,22 +523,22 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
       )}
 
       <div>
-        <label className={labelClass}>Đáp án giải thích / Tiêu chuẩn thang điểm học thuật (Rubrics)</label>
+        <label className={labelClass}>{t("questionEditorForm.explanationLabel")}</label>
         <textarea
           rows={2}
           value={explanation}
           onChange={(e) => setExplanation(e.target.value)}
-          placeholder="Ghi rõ lời giải chi tiết (cho trắc nghiệm) hoặc thang điểm chấm chi tiết (cho tự luận/speaking)..."
+          placeholder={t("questionEditorForm.explanationPlaceholder")}
           className={inputClass}
         />
       </div>
 
       <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-200">
         <Button type="button" variant="secondary" onClick={onCancel}>
-          Hủy bỏ
+          {t("common.cancel")}
         </Button>
         <Button type="submit" variant="primary" disabled={submitting}>
-          {submitting ? "Đang lưu..." : isEditing ? "Lưu thay đổi" : "Tạo câu hỏi"}
+          {submitting ? t("common.saving") : isEditing ? t("questionEditorForm.submitUpdate") : t("questionEditorForm.submitCreate")}
         </Button>
       </div>
     </form>

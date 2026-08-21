@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { ArrowRightLeft, GraduationCap } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import { UserRole } from "@/types";
@@ -16,6 +17,7 @@ import Toast from "@/components/ui/Toast";
 const CLASS_ADMIN_ROLES: UserRole[] = [UserRole.HEAD_ACADEMIC, UserRole.SYS_ADMIN, UserRole.SITE_MANAGER];
 
 export default function ClassesPage() {
+  const { t } = useTranslation("academic-classes");
   const { selectedCampusId, hasPermission, currentUser, selectedClassId: globalClassId } = useApp();
   const canManage = hasPermission("academic.class.manage");
   // GV thuần (không kiêm vai trò quản trị nào ở trên) không cần màn xếp/tạo lớp — chỉ xem/thao tác
@@ -56,7 +58,7 @@ export default function ClassesPage() {
         setClasses(filtered);
         if (isClassAdmin && selectedId == null && filtered.length > 0) setSelectedId(filtered[0].id);
       })
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách lớp học."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("classesPage.loadError")))
       .finally(() => setLoading(false));
   };
 
@@ -68,16 +70,14 @@ export default function ClassesPage() {
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4 flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Quản lý lớp học</h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Xếp lớp & gán khóa học, điều phối giáo viên, ghi danh học sinh, xếp buổi học và điểm danh. Lọc theo điểm trường ở dropdown trên đầu trang.
-          </p>
+          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("classesPage.title")}</h1>
+          <p className="text-xs text-slate-500 mt-1">{t("classesPage.description")}</p>
         </div>
         {canManage && (
           <div className="flex items-center gap-2 flex-wrap">
             <Button size="sm" variant="secondary" onClick={() => setPromotionOpen(true)}>
               <ArrowRightLeft className="w-3.5 h-3.5" />
-              Chuyển lớp hàng loạt
+              {t("classesPage.promoteButton")}
             </Button>
           </div>
         )}
@@ -107,9 +107,9 @@ export default function ClassesPage() {
           <div className="lg:col-span-3 bg-white rounded-xl border border-slate-200 shadow-soft flex flex-col items-center justify-center p-12 text-center text-slate-400 space-y-3">
             <GraduationCap className="w-12 h-12 text-slate-300" />
             <div>
-              <h3 className="text-sm font-bold text-slate-700">Chưa chọn lớp học nào</h3>
+              <h3 className="text-sm font-bold text-slate-700">{t("classesPage.emptyTitle")}</h3>
               <p className="text-xs text-slate-400 mt-1">
-                {isClassAdmin ? "Chọn 1 lớp bên trái hoặc thêm mới." : "Chọn 1 lớp ở góc trên bên phải (Header) để xem."}
+                {isClassAdmin ? t("classesPage.emptyDescriptionAdmin") : t("classesPage.emptyDescriptionOther")}
               </p>
             </div>
           </div>
@@ -123,7 +123,7 @@ export default function ClassesPage() {
             setCreateOpen(false);
             setSelectedId(created.id);
             load();
-            showToast("Đã tạo lớp học thành công!");
+            showToast(t("classesPage.createSuccess"));
           }}
         />
       )}
@@ -136,7 +136,7 @@ export default function ClassesPage() {
             setPromotionOpen(false);
             setSelectedId(created.id);
             load();
-            showToast("Đã chuyển lớp hàng loạt thành công!");
+            showToast(t("classesPage.promoteSuccess"));
           }}
         />
       )}

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { CalendarClock, CalendarRange, FileText, Plus, Save, Search, ShieldCheck, UserCog, Users, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { searchUsers, UserListItemResponse } from "@/features/system-admin/api";
 import {
@@ -22,7 +23,7 @@ import {
 import Badge, { BadgeVariant } from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
-import { siteStatusLabels, siteStatusVariants, siteTypeLabels } from "./SiteListPanel";
+import { siteStatusLabel, siteStatusVariants, siteTypeLabel } from "./SiteListPanel";
 import SitePeriodTab from "./SitePeriodTab";
 import SiteAcademicPeriodsTab from "./SiteAcademicPeriodsTab";
 import { useToast } from "@/lib/useToast";
@@ -37,8 +38,6 @@ const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
 type Tab = "profile" | "manager" | "teachers" | "contracts" | "periods" | "academic";
 
 const contractStatusVariants: Record<string, BadgeVariant> = { DRAFT: "neutral", ACTIVE: "success", EXPIRED: "warning", TERMINATED: "danger" };
-const contractStatusLabels: Record<string, string> = { DRAFT: "Nháp", ACTIVE: "Đang hiệu lực", EXPIRED: "Đã hết hạn", TERMINATED: "Đã chấm dứt" };
-const contractTypeLabels: Record<string, string> = { INITIAL: "Hợp đồng gốc", RENEWAL: "Gia hạn", AMENDMENT: "Phụ lục/Sửa đổi" };
 
 interface SiteDetailPanelProps {
   site: SiteResponse;
@@ -46,6 +45,7 @@ interface SiteDetailPanelProps {
 }
 
 export default function SiteDetailPanel({ site, onChanged }: SiteDetailPanelProps) {
+  const { t } = useTranslation("facility");
   const [tab, setTab] = useState<Tab>("profile");
   const { message: toastMessage, showToast } = useToast();
 
@@ -59,18 +59,18 @@ export default function SiteDetailPanel({ site, onChanged }: SiteDetailPanelProp
             </span>
             <h2 className="text-sm font-bold text-slate-800 mt-1">{site.name}</h2>
           </div>
-          <Badge variant={siteStatusVariants[site.status]}>{siteStatusLabels[site.status]}</Badge>
+          <Badge variant={siteStatusVariants[site.status]}>{siteStatusLabel(t, site.status)}</Badge>
         </div>
 
         <div className="flex border-b border-slate-200 pt-1 gap-5 overflow-x-auto">
           {(
             [
-              ["profile", "Hồ sơ", FileText],
-              ["manager", "Quản lý điểm trường", UserCog],
-              ["teachers", "Giáo viên phụ trách", Users],
-              ["periods", "Tiết học", CalendarClock],
-              ["academic", "Học kỳ & Năm học", CalendarRange],
-              ...(site.siteType === "PARTNER" ? ([["contracts", "Hợp đồng liên kết", ShieldCheck]] as const) : [])
+              ["profile", t("siteDetail.tabs.profile"), FileText],
+              ["manager", t("siteDetail.tabs.manager"), UserCog],
+              ["teachers", t("siteDetail.tabs.teachers"), Users],
+              ["periods", t("siteDetail.tabs.periods"), CalendarClock],
+              ["academic", t("siteDetail.tabs.academic"), CalendarRange],
+              ...(site.siteType === "PARTNER" ? ([["contracts", t("siteDetail.tabs.contracts"), ShieldCheck]] as const) : [])
             ] as const
           ).map(([key, label, Icon]) => (
             <button
@@ -110,6 +110,7 @@ function ProfileTab({
   onChanged: () => void;
   showToast: (msg: string) => void;
 }) {
+  const { t } = useTranslation("facility");
   const [form, setForm] = useState<UpdateSiteRequest>(() => toForm(site));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -120,16 +121,16 @@ function ProfileTab({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (form.siteType === "OWNED" && site.siteType === "PARTNER") {
-      if (!(await confirmDialog("Đổi sang 'Cơ sở tự vận hành' sẽ XÓA thông tin liên hệ đầu mối trường liên kết hiện có. Tiếp tục?", { danger: true }))) return;
+      if (!(await confirmDialog(t("siteDetail.profile.changeToOwnedConfirm"), { danger: true }))) return;
     }
     setSaving(true);
     setError(null);
     try {
       await updateSite(site.id, form);
       onChanged();
-      showToast("Đã lưu thông tin điểm trường thành công!");
+      showToast(t("siteDetail.profile.savedToast"));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Cập nhật điểm trường thất bại.");
+      setError(err instanceof ApiError ? err.message : t("siteDetail.profile.saveError"));
     } finally {
       setSaving(false);
     }
@@ -140,65 +141,65 @@ function ProfileTab({
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className={labelClass}>Tên điểm trường *</label>
+          <label className={labelClass}>{t("siteDetail.profile.nameLabel")}</label>
           <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={inputClass} required />
         </div>
         <div>
-          <label className={labelClass}>Loại hình *</label>
+          <label className={labelClass}>{t("siteDetail.profile.siteTypeLabel")}</label>
           <Select value={form.siteType} onChange={(e) => setForm({ ...form, siteType: e.target.value as "OWNED" | "PARTNER" })} className={inputClass}>
-            <option value="OWNED">Cơ sở tự vận hành</option>
-            <option value="PARTNER">Trường liên kết</option>
+            <option value="OWNED">{t("siteType.OWNED")}</option>
+            <option value="PARTNER">{t("siteType.PARTNER")}</option>
           </Select>
         </div>
         <div>
-          <label className={labelClass}>Địa chỉ</label>
+          <label className={labelClass}>{t("siteDetail.profile.addressLabel")}</label>
           <input value={form.address ?? ""} onChange={(e) => setForm({ ...form, address: e.target.value })} className={inputClass} />
         </div>
         <div>
-          <label className={labelClass}>Quận/Huyện</label>
+          <label className={labelClass}>{t("siteDetail.profile.districtLabel")}</label>
           <input value={form.district ?? ""} onChange={(e) => setForm({ ...form, district: e.target.value })} className={inputClass} />
         </div>
         <div>
-          <label className={labelClass}>Số điện thoại</label>
+          <label className={labelClass}>{t("siteDetail.profile.phoneLabel")}</label>
           <input value={form.phone ?? ""} onChange={(e) => setForm({ ...form, phone: e.target.value })} className={inputClass} />
         </div>
         <div>
-          <label className={labelClass}>Trạng thái</label>
+          <label className={labelClass}>{t("siteDetail.profile.statusLabel")}</label>
           <Select value={form.status ?? "ACTIVE"} onChange={(e) => setForm({ ...form, status: e.target.value as UpdateSiteRequest["status"] })} className={inputClass}>
-            <option value="ACTIVE">Đang hoạt động</option>
-            <option value="INACTIVE">Ngừng hoạt động</option>
-            <option value="PENDING">Chờ kích hoạt</option>
+            <option value="ACTIVE">{t("siteStatus.ACTIVE")}</option>
+            <option value="INACTIVE">{t("siteStatus.INACTIVE")}</option>
+            <option value="PENDING">{t("siteStatus.PENDING")}</option>
           </Select>
         </div>
       </div>
 
       {form.siteType === "PARTNER" && (
         <div className="space-y-3 border-t border-slate-100 pt-4">
-          <span className="text-[10px] font-bold uppercase text-slate-500">Liên hệ đầu mối trường liên kết</span>
+          <span className="text-[10px] font-bold uppercase text-slate-500">{t("siteDetail.profile.partnerContactTitle")}</span>
           <div className="grid grid-cols-2 gap-3">
             <input
               value={form.partnerInfo?.contactPersonName ?? ""}
               onChange={(e) => setForm({ ...form, partnerInfo: { ...emptyPartnerInfo(form.partnerInfo), contactPersonName: e.target.value } })}
-              placeholder="Tên người liên hệ"
+              placeholder={t("siteDetail.profile.contactNamePlaceholder")}
               className={inputClass}
             />
             <input
               value={form.partnerInfo?.contactPersonTitle ?? ""}
               onChange={(e) => setForm({ ...form, partnerInfo: { ...emptyPartnerInfo(form.partnerInfo), contactPersonTitle: e.target.value } })}
-              placeholder="Chức danh"
+              placeholder={t("siteDetail.profile.contactTitlePlaceholder")}
               className={inputClass}
             />
             <input
               value={form.partnerInfo?.contactPhone ?? ""}
               onChange={(e) => setForm({ ...form, partnerInfo: { ...emptyPartnerInfo(form.partnerInfo), contactPhone: e.target.value } })}
-              placeholder="SĐT liên hệ"
+              placeholder={t("siteDetail.profile.contactPhonePlaceholder")}
               className={inputClass}
             />
             <input
               type="email"
               value={form.partnerInfo?.contactEmail ?? ""}
               onChange={(e) => setForm({ ...form, partnerInfo: { ...emptyPartnerInfo(form.partnerInfo), contactEmail: e.target.value } })}
-              placeholder="Email liên hệ"
+              placeholder={t("siteDetail.profile.contactEmailPlaceholder")}
               className={inputClass}
             />
           </div>
@@ -207,7 +208,7 @@ function ProfileTab({
 
       <Button type="submit" variant="primary" size="sm" disabled={saving}>
         <Save className="w-3.5 h-3.5" />
-        {saving ? "Đang lưu..." : "Lưu thông tin"}
+        {saving ? t("siteDetail.profile.saving") : t("siteDetail.profile.saveButton")}
       </Button>
     </form>
   );
@@ -238,6 +239,7 @@ function ManagerTab({
   onChanged: () => void;
   showToast: (msg: string) => void;
 }) {
+  const { t } = useTranslation("facility");
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<UserListItemResponse[]>([]);
   const [saving, setSaving] = useState(false);
@@ -260,9 +262,9 @@ function ManagerTab({
       setQuery("");
       setResults([]);
       onChanged();
-      showToast("Đã gán quản lý điểm trường thành công!");
+      showToast(t("siteDetail.manager.assignedToast"));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Gán quản lý điểm trường thất bại.");
+      setError(err instanceof ApiError ? err.message : t("siteDetail.manager.assignError"));
     } finally {
       setSaving(false);
     }
@@ -273,22 +275,22 @@ function ManagerTab({
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-1">
-        <span className="text-[10px] uppercase font-bold text-slate-500">Quản lý điểm trường hiện tại</span>
+        <span className="text-[10px] uppercase font-bold text-slate-500">{t("siteDetail.manager.currentManagerTitle")}</span>
         {site.currentManagerFullName ? (
           <p className="text-sm font-bold text-slate-800">{site.currentManagerFullName}</p>
         ) : (
-          <p className="text-xs text-slate-400 italic">Chưa gán quản lý điểm trường.</p>
+          <p className="text-xs text-slate-400 italic">{t("siteDetail.manager.noManager")}</p>
         )}
       </div>
 
       <div className="space-y-2">
-        <span className="text-[10px] uppercase font-bold text-slate-500">Gán/Đổi quản lý điểm trường</span>
+        <span className="text-[10px] uppercase font-bold text-slate-500">{t("siteDetail.manager.assignTitle")}</span>
         <div className="relative max-w-md">
           <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-400" />
           <input
             value={query}
             onChange={(e) => handleSearch(e.target.value)}
-            placeholder="Tìm theo email / username / họ tên..."
+            placeholder={t("siteDetail.manager.searchPlaceholder")}
             className={`${inputClass} pl-8`}
             disabled={saving}
           />
@@ -311,6 +313,7 @@ function ManagerTab({
  * (site_teachers, UC-36 A2) — khác hẳn tab "Quản lý điểm trường" (site_managers, 1 người/site). 1
  * giáo viên gán được nhiều điểm trường cùng lúc. */
 function SiteTeachersTab({ siteId, showToast }: { siteId: number; showToast: (msg: string) => void }) {
+  const { t } = useTranslation("facility");
   const [items, setItems] = useState<SiteTeacherResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -326,7 +329,7 @@ function SiteTeachersTab({ siteId, showToast }: { siteId: number; showToast: (ms
     setLoading(true);
     listSiteTeachers(siteId)
       .then(setItems)
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được danh sách giáo viên phụ trách."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("siteDetail.teachers.loadError")))
       .finally(() => setLoading(false));
   };
   useEffect(load, [siteId]);
@@ -351,41 +354,41 @@ function SiteTeachersTab({ siteId, showToast }: { siteId: number; showToast: (ms
       setNotes("");
       setShowForm(false);
       load();
-      showToast("Đã gán giáo viên vào điểm trường thành công!");
+      showToast(t("siteDetail.teachers.assignedToast"));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Gán giáo viên thất bại.");
+      setError(err instanceof ApiError ? err.message : t("siteDetail.teachers.assignError"));
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleRemove = async (item: SiteTeacherResponse) => {
-    if (!(await confirmDialog(`Gỡ giáo viên ${item.teacherFullName} khỏi điểm trường này?`, { danger: true }))) return;
+    if (!(await confirmDialog(t("siteDetail.teachers.removeConfirm", { name: item.teacherFullName }), { danger: true }))) return;
     try {
       await removeSiteTeacher(siteId, item.id);
       load();
-      showToast("Đã gỡ giáo viên khỏi điểm trường thành công!");
+      showToast(t("siteDetail.teachers.removedToast"));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Gỡ giáo viên thất bại.");
+      setError(err instanceof ApiError ? err.message : t("siteDetail.teachers.removeError"));
     }
   };
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-bold uppercase text-slate-500">Giáo viên phụ trách ({items.length})</span>
+        <span className="text-[10px] font-bold uppercase text-slate-500">{t("siteDetail.teachers.sectionTitle", { count: items.length })}</span>
         <Button size="sm" variant="secondary" onClick={() => setShowForm(true)}>
           <Plus className="w-3.5 h-3.5" />
-          Gán giáo viên
+          {t("siteDetail.teachers.assignButton")}
         </Button>
       </div>
 
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       {loading ? (
-        <p className="text-xs text-slate-500">Đang tải...</p>
+        <p className="text-xs text-slate-500">{t("siteDetail.teachers.loading")}</p>
       ) : items.length === 0 ? (
-        <p className="text-xs text-slate-400 italic">Chưa gán giáo viên nào vào điểm trường này.</p>
+        <p className="text-xs text-slate-400 italic">{t("siteDetail.teachers.empty")}</p>
       ) : (
         <div className="space-y-2">
           {items.map((item) => (
@@ -393,8 +396,8 @@ function SiteTeachersTab({ siteId, showToast }: { siteId: number; showToast: (ms
               <div>
                 <p className="text-xs font-bold text-slate-800">{item.teacherFullName}</p>
                 <p className="text-[10px] text-slate-400 mt-0.5">
-                  Từ {item.assignedFrom}
-                  {item.assignedTo ? ` — đến ${item.assignedTo}` : ""}
+                  {t("siteDetail.teachers.fromLabel", { date: item.assignedFrom })}
+                  {item.assignedTo ? t("siteDetail.teachers.toSuffix", { date: item.assignedTo }) : ""}
                   {item.notes ? ` · ${item.notes}` : ""}
                 </p>
               </div>
@@ -408,16 +411,16 @@ function SiteTeachersTab({ siteId, showToast }: { siteId: number; showToast: (ms
         </div>
       )}
 
-      <Modal open={showForm} onClose={() => setShowForm(false)} title="Gán giáo viên vào điểm trường">
+      <Modal open={showForm} onClose={() => setShowForm(false)} title={t("siteDetail.teachers.modalTitle")}>
         <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
           <div>
-            <label className={labelClass}>Tìm giáo viên *</label>
+            <label className={labelClass}>{t("siteDetail.teachers.searchLabel")}</label>
             <div className="relative">
               <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-400" />
               <input
                 value={query}
                 onChange={(e) => handleSearch(e.target.value)}
-                placeholder="Tìm theo email / username / họ tên..."
+                placeholder={t("siteDetail.teachers.searchPlaceholder")}
                 className={`${inputClass} pl-8`}
                 disabled={submitting}
               />
@@ -433,14 +436,14 @@ function SiteTeachersTab({ siteId, showToast }: { siteId: number; showToast: (ms
             </div>
           </div>
           <div>
-            <label className={labelClass}>Phụ trách từ ngày *</label>
+            <label className={labelClass}>{t("siteDetail.teachers.assignedFromLabel")}</label>
             <DatePicker value={assignedFrom} onChange={setAssignedFrom} />
           </div>
           <div>
-            <label className={labelClass}>Ghi chú</label>
-            <input value={notes} onChange={(e) => setNotes(e.target.value)} className={inputClass} placeholder="VD: Phụ trách môn IELTS" />
+            <label className={labelClass}>{t("siteDetail.teachers.notesLabel")}</label>
+            <input value={notes} onChange={(e) => setNotes(e.target.value)} className={inputClass} placeholder={t("siteDetail.teachers.notesPlaceholder")} />
           </div>
-          <p className="text-[10px] text-slate-400 italic">Bấm chọn 1 giáo viên ở ô tìm kiếm bên trên để gán ngay.</p>
+          <p className="text-[10px] text-slate-400 italic">{t("siteDetail.teachers.hint")}</p>
         </div>
       </Modal>
     </div>
@@ -448,6 +451,7 @@ function SiteTeachersTab({ siteId, showToast }: { siteId: number; showToast: (ms
 }
 
 function ContractsTab({ siteId, showToast }: { siteId: number; showToast: (msg: string) => void }) {
+  const { t } = useTranslation("facility");
   const [items, setItems] = useState<PartnerContractResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -467,7 +471,7 @@ function ContractsTab({ siteId, showToast }: { siteId: number; showToast: (msg: 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.startDate || !form.endDate) {
-      setError("Vui lòng chọn ngày bắt đầu và kết thúc hợp đồng.");
+      setError(t("siteDetail.contracts.dateRangeRequired"));
       return;
     }
     setSubmitting(true);
@@ -484,82 +488,82 @@ function ContractsTab({ siteId, showToast }: { siteId: number; showToast: (msg: 
       setForm({ contractType: "INITIAL", startDate: "", endDate: "", termsSummary: "" });
       setShowForm(false);
       load();
-      showToast("Đã tạo hợp đồng thành công!");
+      showToast(t("siteDetail.contracts.createdToast"));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Tạo hợp đồng thất bại.");
+      setError(err instanceof ApiError ? err.message : t("siteDetail.contracts.createError"));
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleTerminate = async (c: PartnerContractResponse) => {
-    if (!(await confirmDialog(`Chấm dứt hợp đồng ${c.contractNumber}?`, { danger: true }))) return;
+    if (!(await confirmDialog(t("siteDetail.contracts.terminateConfirm", { number: c.contractNumber }), { danger: true }))) return;
     try {
       await terminatePartnerContract(c.id);
       load();
-      showToast("Đã chấm dứt hợp đồng thành công!");
+      showToast(t("siteDetail.contracts.terminatedToast"));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Chấm dứt hợp đồng thất bại.");
+      setError(err instanceof ApiError ? err.message : t("siteDetail.contracts.terminateError"));
     }
   };
 
   const handleDelete = async (c: PartnerContractResponse) => {
-    if (!(await confirmDialog(`Xóa hợp đồng ${c.contractNumber}? Chỉ xóa được khi đang ở trạng thái Nháp.`, { danger: true }))) return;
+    if (!(await confirmDialog(t("siteDetail.contracts.deleteConfirm", { number: c.contractNumber }), { danger: true }))) return;
     try {
       await deletePartnerContract(c.id);
       load();
-      showToast("Đã xóa hợp đồng thành công!");
+      showToast(t("siteDetail.contracts.deletedToast"));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Xóa hợp đồng thất bại.");
+      setError(err instanceof ApiError ? err.message : t("siteDetail.contracts.deleteError"));
     }
   };
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-bold uppercase text-slate-500">Hợp đồng liên kết ({items.length})</span>
+        <span className="text-[10px] font-bold uppercase text-slate-500">{t("siteDetail.contracts.sectionTitle", { count: items.length })}</span>
         <Button size="sm" variant="secondary" onClick={() => setShowForm(true)}>
           <Plus className="w-3.5 h-3.5" />
-          Thêm hợp đồng
+          {t("siteDetail.contracts.addButton")}
         </Button>
       </div>
 
-      <Modal open={showForm} onClose={() => setShowForm(false)} title="Thêm hợp đồng">
+      <Modal open={showForm} onClose={() => setShowForm(false)} title={t("siteDetail.contracts.modalTitle")}>
         <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
           {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
           <div className="grid grid-cols-2 gap-3">
             <Select value={form.contractType} onChange={(e) => setForm({ ...form, contractType: e.target.value })} className={inputClass}>
-              <option value="INITIAL">Hợp đồng gốc</option>
-              <option value="RENEWAL">Gia hạn</option>
-              <option value="AMENDMENT">Phụ lục/Sửa đổi</option>
+              <option value="INITIAL">{t("contractType.INITIAL")}</option>
+              <option value="RENEWAL">{t("contractType.RENEWAL")}</option>
+              <option value="AMENDMENT">{t("contractType.AMENDMENT")}</option>
             </Select>
             <div />
             <div>
-              <label className={labelClass}>Ngày bắt đầu *</label>
+              <label className={labelClass}>{t("siteDetail.contracts.startDateLabel")}</label>
               <DatePicker value={form.startDate} onChange={(v) => setForm({ ...form, startDate: v })} max={form.endDate || undefined} />
             </div>
             <div>
-              <label className={labelClass}>Ngày kết thúc *</label>
+              <label className={labelClass}>{t("siteDetail.contracts.endDateLabel")}</label>
               <DatePicker value={form.endDate} onChange={(v) => setForm({ ...form, endDate: v })} min={form.startDate || undefined} />
             </div>
             <textarea
               value={form.termsSummary}
               onChange={(e) => setForm({ ...form, termsSummary: e.target.value })}
-              placeholder="Tóm tắt điều khoản"
+              placeholder={t("siteDetail.contracts.termsSummaryPlaceholder")}
               rows={2}
               className={`${inputClass} col-span-2`}
             />
           </div>
           <Button type="submit" size="sm" variant="primary" disabled={submitting}>
-            {submitting ? "Đang lưu..." : "Thêm hợp đồng"}
+            {submitting ? t("siteDetail.contracts.saving") : t("siteDetail.contracts.addButton")}
           </Button>
         </form>
       </Modal>
 
       {loading ? (
-        <p className="text-xs text-slate-500">Đang tải...</p>
+        <p className="text-xs text-slate-500">{t("siteDetail.contracts.loading")}</p>
       ) : items.length === 0 ? (
-        <p className="text-xs text-slate-400 italic">Chưa có hợp đồng liên kết nào.</p>
+        <p className="text-xs text-slate-400 italic">{t("siteDetail.contracts.empty")}</p>
       ) : (
         <div className="space-y-2">
           {items.map((c) => (
@@ -567,13 +571,13 @@ function ContractsTab({ siteId, showToast }: { siteId: number; showToast: (msg: 
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-mono font-bold text-slate-800">{c.contractNumber}</span>
-                  <Badge variant="info">{contractTypeLabels[c.contractType]}</Badge>
-                  <Badge variant={contractStatusVariants[c.status]}>{contractStatusLabels[c.status]}</Badge>
+                  <Badge variant="info">{t(`contractType.${c.contractType}`)}</Badge>
+                  <Badge variant={contractStatusVariants[c.status]}>{t(`contractStatus.${c.status}`)}</Badge>
                 </div>
                 <div className="flex gap-2">
                   {c.status === "ACTIVE" && (
                     <button onClick={() => handleTerminate(c)} className="text-rose-500 hover:text-rose-700 text-[11px] font-semibold">
-                      Chấm dứt
+                      {t("siteDetail.contracts.terminateButton")}
                     </button>
                   )}
                   {c.status === "DRAFT" && (
@@ -584,7 +588,7 @@ function ContractsTab({ siteId, showToast }: { siteId: number; showToast: (msg: 
                 </div>
               </div>
               <p className="text-slate-400">
-                {c.startDate} → {c.endDate}
+                {t("siteDetail.contracts.dateRange", { start: c.startDate, end: c.endDate })}
                 {c.termsSummary && <span className="ml-2">— {c.termsSummary}</span>}
               </p>
             </div>

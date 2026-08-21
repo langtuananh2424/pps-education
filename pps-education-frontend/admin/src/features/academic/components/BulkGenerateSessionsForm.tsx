@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Sparkles } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import Button from "@/components/ui/Button";
 import { DayPart, RoomResponse, listRoomsBySite } from "@/features/facility/api";
@@ -12,15 +13,9 @@ import TeacherSearchSelect from "./TeacherSearchSelect";
 const inputClass = "w-full bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
 
-const weekdays: { value: string; label: string }[] = [
-  { value: "MONDAY", label: "Thứ 2" },
-  { value: "TUESDAY", label: "Thứ 3" },
-  { value: "WEDNESDAY", label: "Thứ 4" },
-  { value: "THURSDAY", label: "Thứ 5" },
-  { value: "FRIDAY", label: "Thứ 6" },
-  { value: "SATURDAY", label: "Thứ 7" },
-  { value: "SUNDAY", label: "Chủ nhật" }
-];
+/** Giá trị enum DayOfWeek theo đúng thứ tự hiển thị cũ (Thứ 2 → Chủ nhật) — nhãn dịch qua
+ * `enums.weekday.<value>` (namespace "academic-classes"), dùng chung với enums.weekday ở MyTeachingSchedulePage.tsx. */
+const weekdayValues = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"] as const;
 
 interface BulkGenerateSessionsFormProps {
   classId: number;
@@ -31,6 +26,7 @@ interface BulkGenerateSessionsFormProps {
 
 /** UC-56: Sinh lịch học hàng loạt theo mẫu lặp — chọn tiết + GV chính/phụ/CM chọn tay dùng chung cho cả lô (đảo ngược 2026-08-13, xác nhận lại 2026-08-19). */
 export default function BulkGenerateSessionsForm({ classId, siteId, onDone, onCancel }: BulkGenerateSessionsFormProps) {
+  const { t } = useTranslation("academic-classes");
   const [rooms, setRooms] = useState<RoomResponse[]>([]);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -67,19 +63,19 @@ export default function BulkGenerateSessionsForm({ classId, siteId, onDone, onCa
     e.preventDefault();
     setError(null);
     if (!startDate || !endDate || selectedDays.size === 0) {
-      setError("Vui lòng chọn khoảng ngày và tối thiểu 1 ngày trong tuần.");
+      setError(t("bulkGenerateSessions.dateAndDayRequired"));
       return;
     }
     if (selectedPeriods.size === 0) {
-      setError("Vui lòng chọn tối thiểu 1 tiết học.");
+      setError(t("bulkGenerateSessions.minPeriodRequired"));
       return;
     }
     if (!teacherType) {
-      setError("Vui lòng chọn loại giáo viên.");
+      setError(t("bulkGenerateSessions.teacherTypeRequired"));
       return;
     }
     if (!primaryTeacherId) {
-      setError("Vui lòng chọn giáo viên chính.");
+      setError(t("bulkGenerateSessions.primaryTeacherRequired"));
       return;
     }
     setSubmitting(true);
@@ -101,7 +97,7 @@ export default function BulkGenerateSessionsForm({ classId, siteId, onDone, onCa
       setResult(res);
       if (res.createdCount > 0) onDone();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Sinh lịch hàng loạt thất bại.");
+      setError(err instanceof ApiError ? err.message : t("bulkGenerateSessions.submitError"));
     } finally {
       setSubmitting(false);
     }
@@ -113,28 +109,28 @@ export default function BulkGenerateSessionsForm({ classId, siteId, onDone, onCa
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className={labelClass}>Từ ngày *</label>
+          <label className={labelClass}>{t("bulkGenerateSessions.fromDateLabel")}</label>
           <DatePicker value={startDate} onChange={setStartDate} max={endDate || undefined} />
         </div>
         <div>
-          <label className={labelClass}>Đến ngày *</label>
+          <label className={labelClass}>{t("bulkGenerateSessions.toDateLabel")}</label>
           <DatePicker value={endDate} onChange={setEndDate} min={startDate || undefined} />
         </div>
       </div>
 
       <div>
-        <label className={labelClass}>Các ngày trong tuần áp dụng *</label>
+        <label className={labelClass}>{t("bulkGenerateSessions.weekdaysLabel")}</label>
         <div className="flex flex-wrap gap-1.5">
-          {weekdays.map((d) => (
+          {weekdayValues.map((day) => (
             <button
-              key={d.value}
+              key={day}
               type="button"
-              onClick={() => toggleDay(d.value)}
+              onClick={() => toggleDay(day)}
               className={`text-[11px] font-bold px-2.5 py-1.5 rounded-lg border transition-all ${
-                selectedDays.has(d.value) ? "bg-purple-600 border-purple-600 text-white" : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                selectedDays.has(day) ? "bg-purple-600 border-purple-600 text-white" : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
               }`}
             >
-              {d.label}
+              {t(`enums.weekday.${day}`)}
             </button>
           ))}
         </div>
@@ -151,9 +147,9 @@ export default function BulkGenerateSessionsForm({ classId, siteId, onDone, onCa
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className={labelClass}>Phòng học</label>
+          <label className={labelClass}>{t("bulkGenerateSessions.roomLabel")}</label>
           <Select value={roomId} onChange={(e) => setRoomId(e.target.value)} className={inputClass}>
-            <option value="">-- Không gán --</option>
+            <option value="">{t("common.noneOption")}</option>
             {rooms.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.code} — {r.name}
@@ -162,27 +158,27 @@ export default function BulkGenerateSessionsForm({ classId, siteId, onDone, onCa
           </Select>
         </div>
         <div>
-          <label className={labelClass}>Loại buổi học</label>
+          <label className={labelClass}>{t("bulkGenerateSessions.sessionTypeLabel")}</label>
           <Select value={sessionType} onChange={(e) => setSessionType(e.target.value)} className={inputClass}>
-            <option value="REGULAR">Buổi học thường</option>
-            <option value="REVIEW">Ôn tập</option>
-            <option value="EXAM">Kiểm tra</option>
-            <option value="MAKEUP">Học bù</option>
+            <option value="REGULAR">{t("enums.sessionType.REGULAR")}</option>
+            <option value="REVIEW">{t("enums.sessionType.REVIEW")}</option>
+            <option value="EXAM">{t("enums.sessionType.EXAM")}</option>
+            <option value="MAKEUP">{t("enums.sessionType.MAKEUP")}</option>
           </Select>
         </div>
       </div>
 
       <div>
-        <label className={labelClass}>Loại giáo viên (áp dụng chung cho cả lô buổi) *</label>
+        <label className={labelClass}>{t("bulkGenerateSessions.teacherTypeLabel")}</label>
         <Select value={teacherType} onChange={(e) => setTeacherType(e.target.value)} className={inputClass}>
-          <option value="">-- Chọn loại giáo viên --</option>
-          <option value="VIETNAMESE">GV Việt Nam</option>
-          <option value="FOREIGN">GV nước ngoài</option>
+          <option value="">{t("common.teacherTypePlaceholder")}</option>
+          <option value="VIETNAMESE">{t("enums.teacherType.VIETNAMESE")}</option>
+          <option value="FOREIGN">{t("enums.teacherType.FOREIGN")}</option>
         </Select>
       </div>
 
       <TeacherSearchSelect
-        label="Giáo viên chính (áp dụng chung cho cả lô buổi)"
+        label={t("bulkGenerateSessions.primaryTeacherLabel")}
         required
         value={primaryTeacherId}
         valueName={primaryTeacherName}
@@ -192,7 +188,7 @@ export default function BulkGenerateSessionsForm({ classId, siteId, onDone, onCa
         }}
       />
       <TeacherSearchSelect
-        label="Giáo viên phụ (tuỳ chọn)"
+        label={t("bulkGenerateSessions.assistantTeacherLabel")}
         value={assistantTeacherId}
         valueName={assistantTeacherName}
         onChange={(id, name) => {
@@ -201,7 +197,7 @@ export default function BulkGenerateSessionsForm({ classId, siteId, onDone, onCa
         }}
       />
       <TeacherSearchSelect
-        label="CM (tuỳ chọn)"
+        label={t("bulkGenerateSessions.cmTeacherLabel")}
         value={cmTeacherId}
         valueName={cmTeacherName}
         onChange={(id, name) => {
@@ -213,14 +209,16 @@ export default function BulkGenerateSessionsForm({ classId, siteId, onDone, onCa
       {result && (
         <div className="p-3 bg-white border border-slate-200 rounded-lg text-xs space-y-1.5">
           <p className="font-bold text-slate-700">
-            Đã tạo <span className="text-emerald-600">{result.createdCount}</span> / {result.totalDates} buổi
-            {result.skippedCount > 0 && <span className="text-rose-500"> — bỏ qua {result.skippedCount} buổi trùng lịch</span>}
+            {t("bulkGenerateSessions.resultSummary", { created: result.createdCount, total: result.totalDates })}
+            {result.skippedCount > 0 && (
+              <span className="text-rose-500">{t("bulkGenerateSessions.resultSkipped", { count: result.skippedCount })}</span>
+            )}
           </p>
           {result.skipped.length > 0 && (
             <div className="space-y-0.5 max-h-24 overflow-y-auto">
               {result.skipped.map((s, i) => (
                 <p key={i} className="text-[10px] text-rose-500">
-                  {s.date}: {s.reason}
+                  {t("bulkGenerateSessions.skippedReason", { date: s.date, reason: s.reason })}
                 </p>
               ))}
             </div>
@@ -230,11 +228,11 @@ export default function BulkGenerateSessionsForm({ classId, siteId, onDone, onCa
 
       <div className="flex gap-2 pt-1">
         <Button type="button" variant="secondary" size="sm" onClick={onCancel}>
-          Đóng
+          {t("common.closeButton")}
         </Button>
         <Button type="submit" variant="primary" size="sm" disabled={submitting}>
           <Sparkles className="w-3.5 h-3.5" />
-          {submitting ? "Đang sinh lịch..." : "Kích hoạt sinh chu kỳ"}
+          {submitting ? t("bulkGenerateSessions.submitting") : t("bulkGenerateSessions.submitButton")}
         </Button>
       </div>
     </form>

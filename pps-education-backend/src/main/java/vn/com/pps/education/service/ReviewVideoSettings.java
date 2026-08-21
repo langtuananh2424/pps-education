@@ -24,7 +24,9 @@ public class ReviewVideoSettings {
     /** Ngưỡng % lượt xem đạt/yêu cầu để tính "đạt" BTVN Video Kết nối (CONNECTION). */
     public int completionPassThresholdPercent() {
         return systemSettingRepository.findBySettingKey(COMPLETION_PASS_THRESHOLD_PERCENT)
-                .orElseThrow(() -> new ResourceNotFoundException("Thiếu cấu hình system_settings: " + COMPLETION_PASS_THRESHOLD_PERCENT))
+                .orElseThrow(() -> new ResourceNotFoundException("error.reviewVideo.settingMissing",
+                        new Object[]{COMPLETION_PASS_THRESHOLD_PERCENT},
+                        "Thiếu cấu hình system_settings: " + COMPLETION_PASS_THRESHOLD_PERCENT))
                 .getSettingValue().asInt();
     }
 }

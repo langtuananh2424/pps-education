@@ -108,10 +108,12 @@ public class UserAccountService {
     public User createAccount(CreateUserRequest request) {
         // A1 -- username hoặc email đã tồn tại: từ chối, báo rõ trường bị trùng.
         userRepository.findByUsername(request.username()).ifPresent(existing -> {
-            throw new DuplicateUserAccountException("Username đã tồn tại: " + request.username());
+            throw new DuplicateUserAccountException("error.duplicateUserAccount.username",
+                    new Object[]{request.username()}, "Username đã tồn tại: " + request.username());
         });
         userRepository.findByEmail(request.email()).ifPresent(existing -> {
-            throw new DuplicateUserAccountException("Email đã tồn tại: " + request.email());
+            throw new DuplicateUserAccountException("error.duplicateUserAccount.email",
+                    new Object[]{request.email()}, "Email đã tồn tại: " + request.email());
         });
 
         User user = new User();
@@ -143,7 +145,8 @@ public class UserAccountService {
             // A1 -- mật khẩu hiện tại không đúng.
             if (request.currentPassword() == null
                     || !passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
-                throw new InvalidCredentialsException("Mật khẩu hiện tại không đúng.");
+                throw new InvalidCredentialsException("error.invalidCredentials.currentPassword", new Object[]{},
+                        "Mật khẩu hiện tại không đúng.");
             }
         }
         applyNewPassword(user, request.newPassword());
@@ -279,7 +282,8 @@ public class UserAccountService {
         // A1 -- email đã được dùng bởi tài khoản khác: từ chối, báo rõ trùng email.
         userRepository.findByEmail(request.newEmail()).ifPresent(existing -> {
             if (!existing.getId().equals(userId)) {
-                throw new DuplicateUserAccountException("Email đã tồn tại: " + request.newEmail());
+                throw new DuplicateUserAccountException("error.duplicateUserAccount.email",
+                        new Object[]{request.newEmail()}, "Email đã tồn tại: " + request.newEmail());
             }
         });
 
@@ -300,7 +304,8 @@ public class UserAccountService {
 
         // A2 -- không thể tự khóa tài khoản của chính mình đang đăng nhập.
         if (userId.equals(actorUserId) && newStatus != User.Status.ACTIVE) {
-            throw new SelfAccountLockException("Không thể tự khóa tài khoản của chính mình.");
+            throw new SelfAccountLockException("error.selfAccountLock.default", new Object[]{},
+                    "Không thể tự khóa tài khoản của chính mình.");
         }
 
         User.Status oldStatus = user.getStatus();
@@ -340,7 +345,8 @@ public class UserAccountService {
 
     private User getUserOrThrow(Long userId) {
         return userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + userId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.userAccount.notFoundById",
+                        new Object[]{userId}, "Không tìm thấy tài khoản id=" + userId));
     }
 
     private UserResponse toResponse(User u) {

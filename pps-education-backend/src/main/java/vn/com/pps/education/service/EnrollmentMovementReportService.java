@@ -195,14 +195,16 @@ public class EnrollmentMovementReportService {
 
     private AcademicTerm getTermInScope(Long academicTermId, Long actorUserId) {
         AcademicTerm term = academicTermRepository.findById(academicTermId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy kỳ học id=" + academicTermId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.enrollmentMovementReport.termNotFound",
+                        new Object[]{academicTermId}, "Không tìm thấy kỳ học id=" + academicTermId));
         requireSiteScope(term.getSite().getId(), actorUserId);
         return term;
     }
 
     private Site getSiteInScope(Long siteId, Long actorUserId) {
         Site site = siteRepository.findById(siteId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy điểm trường id=" + siteId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.enrollmentMovementReport.siteNotFound",
+                        new Object[]{siteId}, "Không tìm thấy điểm trường id=" + siteId));
         requireSiteScope(siteId, actorUserId);
         return site;
     }
@@ -210,9 +212,11 @@ public class EnrollmentMovementReportService {
     private List<SchoolClass> resolveClasses(Site site, Long classId) {
         if (classId != null) {
             SchoolClass schoolClass = schoolClassRepository.findByIdAndDeletedAtIsNull(classId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học id=" + classId));
+                    .orElseThrow(() -> new ResourceNotFoundException("error.enrollmentMovementReport.classNotFound",
+                            new Object[]{classId}, "Không tìm thấy lớp học id=" + classId));
             if (!schoolClass.getSite().getId().equals(site.getId())) {
-                throw new ResourceNotFoundException(
+                throw new ResourceNotFoundException("error.enrollmentMovementReport.classNotInSite",
+                        new Object[]{classId, site.getId()},
                         "Lớp id=" + classId + " không thuộc điểm trường id=" + site.getId() + ".");
             }
             return List.of(schoolClass);
@@ -305,7 +309,7 @@ public class EnrollmentMovementReportService {
         boolean managesThisSite = managedSites.stream().anyMatch(sm -> sm.getSite().getId().equals(siteId));
         if (!managesThisSite) {
             throw new NotSiteManagerForSiteException(
-                    "Bạn không phụ trách điểm trường này.");
+                    "error.notSiteManagerForSite.notInCharge", new Object[]{}, "Bạn không phụ trách điểm trường này.");
         }
     }
 }

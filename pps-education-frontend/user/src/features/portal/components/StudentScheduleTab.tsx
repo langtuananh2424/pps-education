@@ -1,19 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { AlertCircle, Calendar, CheckCircle2, FileSpreadsheet, RotateCcw, XCircle } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
-import { formatHm } from "@/lib/format";
+import { formatHm, toLocaleTag } from "@/lib/format";
 import { AttendanceMarkResponse, ClassSessionResponse, listMyAttendance, listMySessions } from "../api";
 import ScheduleFilterBar from "./ScheduleFilterBar";
 import { inDateRange, useScheduleDateFilter } from "../hooks/useScheduleDateFilter";
-
-const teacherTypeLabels: Record<string, string> = { VIETNAMESE: "GV Việt Nam", FOREIGN: "GV nước ngoài" };
-
-const ATTENDANCE_META: Record<string, { label: string; icon: React.ReactNode; bg: string }> = {
-  PRESENT: { label: "Đi học", icon: <CheckCircle2 className="text-teal" size={18} />, bg: "bg-teal/5 border-teal/10" },
-  LATE: { label: "Đi muộn", icon: <AlertCircle className="text-gold" size={18} />, bg: "bg-gold/5 border-gold/10" },
-  ABSENT: { label: "Vắng mặt", icon: <XCircle className="text-coral" size={18} />, bg: "bg-coral/5 border-coral/10" },
-  EXCUSED: { label: "Vắng có phép", icon: <AlertCircle className="text-muted" size={18} />, bg: "bg-slate-100 border-slate-200" }
-};
 
 /**
  * BE chỉ tự set CANCELLED/RESCHEDULED (xem ClassSessionService) — KHÔNG tự chuyển SCHEDULED ->
@@ -21,23 +13,26 @@ const ATTENDANCE_META: Record<string, { label: string; icon: React.ReactNode; bg
  * cách so ngày giờ buổi với thời điểm hiện tại, để phân biệt trực quan buổi đã qua và buổi sắp tới
  * (2026-07-31, theo yêu cầu người dùng — trước đây buổi đã học và sắp học hiện giống hệt nhau).
  */
-function getSessionStatusBadge(s: ClassSessionResponse): { label: string; icon: React.ReactNode; className: string } {
+function getSessionStatusBadge(
+  s: ClassSessionResponse,
+  t: (key: string) => string
+): { label: string; icon: React.ReactNode; className: string } {
   if (s.status === "CANCELLED") {
-    return { label: "Đã hủy", icon: <XCircle size={12} />, className: "bg-coral/10 text-coral border-coral/20" };
+    return { label: t("sessionStatus.cancelled"), icon: <XCircle size={12} />, className: "bg-coral/10 text-coral border-coral/20" };
   }
   if (s.status === "RESCHEDULED") {
-    return { label: "Đã dời lịch", icon: <AlertCircle size={12} />, className: "bg-slate-100 text-muted border-slate-200" };
+    return { label: t("sessionStatus.rescheduled"), icon: <AlertCircle size={12} />, className: "bg-slate-100 text-muted border-slate-200" };
   }
   const now = new Date();
   const start = new Date(`${s.sessionDate}T${s.startTime}`);
   const end = new Date(`${s.sessionDate}T${s.endTime}`);
   if (now > end) {
-    return { label: "Đã học", icon: <CheckCircle2 size={12} />, className: "bg-teal/10 text-teal-deep border-teal/20" };
+    return { label: t("sessionStatus.completed"), icon: <CheckCircle2 size={12} />, className: "bg-teal/10 text-teal-deep border-teal/20" };
   }
   if (now >= start && now <= end) {
-    return { label: "Đang diễn ra", icon: <AlertCircle size={12} />, className: "bg-gold/10 text-gold border-gold/20" };
+    return { label: t("sessionStatus.ongoing"), icon: <AlertCircle size={12} />, className: "bg-gold/10 text-gold border-gold/20" };
   }
-  return { label: "Sắp diễn ra", icon: <Calendar size={12} />, className: "bg-sky text-teal-deep border-teal/20" };
+  return { label: t("sessionStatus.upcoming"), icon: <Calendar size={12} />, className: "bg-sky text-teal-deep border-teal/20" };
 }
 
 /**
@@ -77,6 +72,14 @@ interface StudentScheduleTabProps {
  * hiện lịch của lớp còn lại, ngỡ là lịch của lớp đang chọn) — đã xác nhận sửa với người dùng.
  */
 export default function StudentScheduleTab({ classId, siteId }: StudentScheduleTabProps) {
+  const { t, i18n } = useTranslation("portal-schedule");
+  const teacherTypeLabels: Record<string, string> = { VIETNAMESE: t("teacherType.vietnamese"), FOREIGN: t("teacherType.foreign") };
+  const ATTENDANCE_META: Record<string, { label: string; icon: React.ReactNode; bg: string }> = {
+    PRESENT: { label: t("attendanceStatus.present"), icon: <CheckCircle2 className="text-teal" size={18} />, bg: "bg-teal/5 border-teal/10" },
+    LATE: { label: t("attendanceStatus.late"), icon: <AlertCircle className="text-gold" size={18} />, bg: "bg-gold/5 border-gold/10" },
+    ABSENT: { label: t("attendanceStatus.absent"), icon: <XCircle className="text-coral" size={18} />, bg: "bg-coral/5 border-coral/10" },
+    EXCUSED: { label: t("attendanceStatus.excused"), icon: <AlertCircle className="text-muted" size={18} />, bg: "bg-slate-100 border-slate-200" }
+  };
   const [schedule, setSchedule] = useState<ClassSessionResponse[]>([]);
   const [attendance, setAttendance] = useState<AttendanceMarkResponse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -91,7 +94,7 @@ export default function StudentScheduleTab({ classId, siteId }: StudentScheduleT
         setSchedule(sortSessionsForDisplay(sc));
         setAttendance(at);
       })
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Không tải được lịch học/chuyên cần."))
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("loadError")))
       .finally(() => setLoading(false));
   }, [classId]);
 
@@ -125,7 +128,7 @@ export default function StudentScheduleTab({ classId, siteId }: StudentScheduleT
     return `${sb.sessionDate}T${sb.startTime}`.localeCompare(`${sa.sessionDate}T${sa.startTime}`);
   });
 
-  if (loading) return <p className="text-sm text-muted font-bold">Đang tải...</p>;
+  if (loading) return <p className="text-sm text-muted font-bold">{t("loading")}</p>;
 
   return (
     <div className="space-y-6">
@@ -133,23 +136,31 @@ export default function StudentScheduleTab({ classId, siteId }: StudentScheduleT
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-white border border-line/80 p-5 rounded-[20px] shadow-[0_8px_30px_rgba(30,42,69,0.03)] space-y-2">
-          <span className="text-[10px] font-extrabold text-muted uppercase tracking-wider block">Tỷ lệ đi học</span>
-          <p className="text-2xl font-extrabold text-teal">{rate}% {total > 0 && (<span className="pl-3 text-lg text-muted">{(present + late)} / {total} buổi</span>)}</p>
+          <span className="text-[10px] font-extrabold text-muted uppercase tracking-wider block">{t("stats.attendanceRate")}</span>
+          <p className="text-2xl font-extrabold text-teal">
+            {rate}%{" "}
+            {total > 0 && (
+              <span className="pl-3 text-lg text-muted">{t("stats.sessionsCountOfTotal", { count: present + late, total })}</span>
+            )}
+          </p>
           <div className="w-full bg-sky h-1.5 rounded-full overflow-hidden border border-line/40">
             <div className="bg-teal h-full" style={{ width: `${rate}%` }} />
           </div>
         </div>
         <div className="bg-white border border-line/80 p-5 rounded-[20px] shadow-[0_8px_30px_rgba(30,42,69,0.03)] space-y-1">
-          <span className="text-[10px] font-extrabold text-muted uppercase tracking-wider block">Đúng giờ</span>
-          <p className="text-2xl font-extrabold text-teal-deep">{present} buổi</p>
+          <span className="text-[10px] font-extrabold text-muted uppercase tracking-wider block">{t("stats.onTime")}</span>
+          <p className="text-2xl font-extrabold text-teal-deep">{t("stats.sessionsCount", { count: present })}</p>
         </div>
         <div className="bg-white border border-line/80 p-5 rounded-[20px] shadow-[0_8px_30px_rgba(30,42,69,0.03)] space-y-1">
-          <span className="text-[10px] font-extrabold text-muted uppercase tracking-wider block">Đi muộn</span>
-          <p className="text-2xl font-extrabold text-gold">{late} buổi</p>
+          <span className="text-[10px] font-extrabold text-muted uppercase tracking-wider block">{t("attendanceStatus.late")}</span>
+          <p className="text-2xl font-extrabold text-gold">{t("stats.sessionsCount", { count: late })}</p>
         </div>
         <div className="bg-white border border-line/80 p-5 rounded-[20px] shadow-[0_8px_30px_rgba(30,42,69,0.03)] space-y-1">
-          <span className="text-[10px] font-extrabold text-muted uppercase tracking-wider block">Vắng mặt</span>
-          <p className="text-2xl font-extrabold text-coral">{absent + excusedCount} buổi {excusedCount > 0 && (<span className="text-lg text-muted">({excusedCount} có phép)</span>)}</p>
+          <span className="text-[10px] font-extrabold text-muted uppercase tracking-wider block">{t("attendanceStatus.absent")}</span>
+          <p className="text-2xl font-extrabold text-coral">
+            {t("stats.sessionsCount", { count: absent + excusedCount })}{" "}
+            {excusedCount > 0 && <span className="text-lg text-muted">{t("stats.excusedSuffix", { count: excusedCount })}</span>}
+          </p>
         </div>
       </div>
 
@@ -160,7 +171,7 @@ export default function StudentScheduleTab({ classId, siteId }: StudentScheduleT
               kỳ/Từ→Đến rồi tới Xem tất cả), giờ tách hẳn lên hàng tiêu đề cho gọn. */}
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-xl font-extrabold text-ink flex items-center gap-2">
-              <Calendar className="text-teal" /> Lịch buổi học
+              <Calendar className="text-teal" /> {t("scheduleCard.title")}
             </h2>
             {dateFilter.isActive && (
               <button
@@ -168,7 +179,7 @@ export default function StudentScheduleTab({ classId, siteId }: StudentScheduleT
                 onClick={dateFilter.reset}
                 className="flex items-center gap-1 text-xs font-extrabold text-teal-deep hover:underline shrink-0"
               >
-                <RotateCcw size={13} /> Xem tất cả
+                <RotateCcw size={13} /> {t("scheduleCard.viewAll")}
               </button>
             )}
           </div>
@@ -182,7 +193,7 @@ export default function StudentScheduleTab({ classId, siteId }: StudentScheduleT
           />
           <div className="space-y-4 max-h-[480px] overflow-y-auto pr-1">
             {filteredSchedule.map((s) => {
-              const badge = getSessionStatusBadge(s);
+              const badge = getSessionStatusBadge(s, t);
               return (
               <div
                 key={s.id}
@@ -196,10 +207,15 @@ export default function StudentScheduleTab({ classId, siteId }: StudentScheduleT
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="px-3 py-1 bg-teal border border-teal-deep/30 text-white text-xs font-extrabold rounded-full">
-                      {new Date(s.sessionDate).toLocaleDateString("vi-VN", { weekday: "long" }).replace(/^./, (c) => c.toUpperCase())}
+                      {new Date(s.sessionDate).toLocaleDateString(toLocaleTag(i18n.language), { weekday: "long" }).replace(/^./, (c) => c.toUpperCase())}
                     </span>
                     <span className="text-xs text-muted font-bold">
-                      Buổi {s.sessionNumber} · {s.sessionDate} · {formatHm(s.startTime)}–{formatHm(s.endTime)}
+                      {t("scheduleCard.sessionInfo", {
+                        number: s.sessionNumber,
+                        date: s.sessionDate,
+                        start: formatHm(s.startTime),
+                        end: formatHm(s.endTime)
+                      })}
                     </span>
                     {/* Mobile: neo cố định góc trên-phải của thẻ (theo yêu cầu người dùng, 2026-07-31).
                         Desktop (md+) trả về static, nằm đúng vị trí cũ trong hàng cùng nhãn thứ/ngày giờ. */}
@@ -210,15 +226,15 @@ export default function StudentScheduleTab({ classId, siteId }: StudentScheduleT
                     </span>
                   </div>
                   <p className="text-xs text-muted font-bold">
-                    Giáo viên:
+                    {t("scheduleCard.teacherLabel")}
                     {s.teacherType && <span className="text-[10px] text-teal-deep font-bold"> ({teacherTypeLabels[s.teacherType]})</span>}
                   </p>
                   {s.status === "CANCELLED" && s.cancellationReason && (
-                    <span className="text-[10px] font-extrabold text-coral">Lý do hủy: {s.cancellationReason}</span>
+                    <span className="text-[10px] font-extrabold text-coral">{t("scheduleCard.cancelReason", { reason: s.cancellationReason })}</span>
                   )}
                 </div>
                 <div className="bg-white border border-line/80 px-4 py-2 rounded-xl text-center shadow-sm w-full md:w-auto shrink-0">
-                  <span className="text-[10px] font-extrabold text-muted uppercase block">Phòng học</span>
+                  <span className="text-[10px] font-extrabold text-muted uppercase block">{t("scheduleCard.roomLabel")}</span>
                   <span className="text-sm font-extrabold text-teal-deep">{s.roomName ?? "—"}</span>
                 </div>
               </div>
@@ -226,7 +242,7 @@ export default function StudentScheduleTab({ classId, siteId }: StudentScheduleT
             })}
             {filteredSchedule.length === 0 && (
               <p className="text-xs text-muted font-bold italic">
-                {dateFilter.isActive ? "Không có buổi học nào trong khoảng đã lọc." : "Chưa có buổi học nào."}
+                {dateFilter.isActive ? t("scheduleCard.emptyFiltered") : t("scheduleCard.emptyAll")}
               </p>
             )}
           </div>
@@ -234,7 +250,7 @@ export default function StudentScheduleTab({ classId, siteId }: StudentScheduleT
 
         <div className="lg:col-span-1 bg-white border border-line/80 p-6 rounded-[20px] shadow-[0_8px_30px_rgba(30,42,69,0.03)] max-h-[560px] overflow-y-auto space-y-4">
           <h3 className="text-lg font-extrabold text-ink flex items-center gap-2">
-            <FileSpreadsheet className="text-teal" /> Nhật ký chuyên cần
+            <FileSpreadsheet className="text-teal" /> {t("attendanceLog.title")}
           </h3>
           <div className="space-y-4">
             {sortedAttendance.map((a) => {
@@ -247,18 +263,29 @@ export default function StudentScheduleTab({ classId, siteId }: StudentScheduleT
                       {meta.icon}
                       <span className="text-xs font-extrabold text-ink">{meta.label}</span>
                     </div>
-                    {a.minutesLate ? <span className="text-[10px] text-muted font-bold">Muộn {a.minutesLate} phút</span> : null}
+                    {a.minutesLate ? <span className="text-[10px] text-muted font-bold">{t("attendanceLog.lateBy", { minutes: a.minutesLate })}</span> : null}
                   </div>
                   <p className="text-[11px] text-muted font-bold">
-                    {session ? `Buổi ${session.sessionNumber} · ${session.sessionDate} · ${formatHm(session.startTime)}–${formatHm(session.endTime)}` : "Không rõ buổi học"}
+                    {session
+                      ? t("scheduleCard.sessionInfo", {
+                          number: session.sessionNumber,
+                          date: session.sessionDate,
+                          start: formatHm(session.startTime),
+                          end: formatHm(session.endTime)
+                        })
+                      : t("attendanceLog.unknownSession")}
                   </p>
-                  {a.absenceReason && <p className="text-[11px] italic text-muted font-bold border-t border-line/50 pt-1 mt-1">* Lý do: {a.absenceReason}</p>}
+                  {a.absenceReason && (
+                    <p className="text-[11px] italic text-muted font-bold border-t border-line/50 pt-1 mt-1">
+                      {t("attendanceLog.reasonPrefix", { reason: a.absenceReason })}
+                    </p>
+                  )}
                 </div>
               );
             })}
             {filteredAttendance.length === 0 && (
               <p className="text-xs text-muted font-bold italic">
-                {dateFilter.isActive ? "Không có dữ liệu chuyên cần trong khoảng đã lọc." : "Chưa có dữ liệu chuyên cần."}
+                {dateFilter.isActive ? t("attendanceLog.emptyFiltered") : t("attendanceLog.emptyAll")}
               </p>
             )}
           </div>

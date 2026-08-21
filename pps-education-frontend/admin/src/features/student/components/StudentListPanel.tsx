@@ -1,19 +1,16 @@
 import React, { useEffect, useState } from "react";
 import { Plus, Search, Users } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { StudentResponse } from "../api";
 import Badge, { BadgeVariant } from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import EmptyState from "@/components/ui/EmptyState";
 import Pagination from "@/components/ui/Pagination";
 
-export const studentStatusLabels: Record<string, string> = {
-  ACTIVE: "Đang học",
-  SUSPENDED: "Tạm dừng",
-  EXPELLED: "Buộc thôi học",
-  GRADUATED: "Đã tốt nghiệp",
-  WITHDRAWN: "Đã rút hồ sơ",
-  DEFERRAL: "Bảo lưu"
-};
+/** Nhãn dịch qua i18next namespace "student" — xem src/i18n/locales/{vi,en}/student.json. */
+export function studentStatusLabel(t: (key: string) => string, status: string): string {
+  return t(`studentStatus.${status}`);
+}
 
 export const studentStatusVariants: Record<string, BadgeVariant> = {
   ACTIVE: "success",
@@ -36,6 +33,7 @@ interface StudentListPanelProps {
 }
 
 export default function StudentListPanel({ students, loading, selectedId, onSelect, onCreate, query, onQueryChange, onSearch }: StudentListPanelProps) {
+  const { t } = useTranslation("student");
   // Backend GET /students chưa hỗ trợ phân trang (trả nguyên mảng) — phân trang phía client để danh
   // sách không dài vô hạn khi xem "Tất cả điểm trường". Reset về trang 1 mỗi khi kết quả tải mới
   // (đổi điểm trường/tìm kiếm) để không kẹt ở 1 trang rỗng.
@@ -48,12 +46,12 @@ export default function StudentListPanel({ students, loading, selectedId, onSele
     <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden flex flex-col h-full">
       <div className="px-5 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 shrink-0">
         <div className="space-y-0.5">
-          <span className="text-xs font-bold text-slate-700 font-display block">Danh sách Học sinh</span>
-          <p className="text-[10px] text-slate-400">Nhấp chọn học sinh để xem chi tiết & quản lý phụ huynh</p>
+          <span className="text-xs font-bold text-slate-700 font-display block">{t("studentList.title")}</span>
+          <p className="text-[10px] text-slate-400">{t("studentList.subtitle")}</p>
         </div>
         <Button variant="primary" size="sm" onClick={onCreate} className="whitespace-nowrap shrink-0">
           <Plus className="w-3.5 h-3.5" />
-          Thêm học sinh
+          {t("studentList.addButton")}
         </Button>
       </div>
 
@@ -68,16 +66,16 @@ export default function StudentListPanel({ students, loading, selectedId, onSele
         <input
           value={query}
           onChange={(e) => onQueryChange(e.target.value)}
-          placeholder="Tìm theo họ tên / mã học sinh..."
+          placeholder={t("studentList.searchPlaceholder")}
           className="w-full bg-slate-50 border border-slate-200 text-xs pl-8 pr-3 py-2 rounded-lg focus:outline-none"
         />
       </form>
 
       <div className="divide-y divide-slate-100 overflow-y-auto max-h-[620px] lg:max-h-[680px]">
         {loading ? (
-          <div className="p-8 text-center text-slate-400 text-xs">Đang tải...</div>
+          <div className="p-8 text-center text-slate-400 text-xs">{t("studentList.loading")}</div>
         ) : students.length === 0 ? (
-          <EmptyState icon={Users} title="Không tìm thấy học sinh nào" description="Thử nới lỏng từ khóa tìm kiếm." />
+          <EmptyState icon={Users} title={t("studentList.emptyTitle")} description={t("studentList.emptyDescription")} />
         ) : (
           pageStudents.map((s) => {
             const isSelected = s.id === selectedId;
@@ -96,7 +94,7 @@ export default function StudentListPanel({ students, loading, selectedId, onSele
                   <div>
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <h4 className="text-xs font-bold text-slate-900">{s.fullName}</h4>
-                      <Badge variant={studentStatusVariants[s.status]}>{studentStatusLabels[s.status]}</Badge>
+                      <Badge variant={studentStatusVariants[s.status]}>{studentStatusLabel(t, s.status)}</Badge>
                     </div>
                     <div className="flex items-center gap-1.5 text-[10px] text-slate-400 mt-1">
                       <span className="font-mono">{s.studentCode}</span>
@@ -120,7 +118,7 @@ export default function StudentListPanel({ students, loading, selectedId, onSele
           page={page}
           pageSize={pageSize}
           totalElements={students.length}
-          itemLabel="học sinh"
+          itemLabel={t("studentList.itemLabel")}
           onPageChange={setPage}
           onPageSizeChange={(size) => {
             setPageSize(size);

@@ -55,6 +55,6 @@ public class AttendanceSettings {
 
     private vn.com.pps.education.domain.SystemSetting readSetting(String key) {
         return systemSettingRepository.findBySettingKey(key)
-                .orElseThrow(() -> new ResourceNotFoundException("Thiếu cấu hình system_settings: " + key));
+                .orElseThrow(() -> new ResourceNotFoundException("error.attendanceSettings.missingSystemSetting", new Object[]{key}, "Thiếu cấu hình system_settings: " + key));
     }
 }

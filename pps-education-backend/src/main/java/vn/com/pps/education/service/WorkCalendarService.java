@@ -70,14 +70,14 @@ public class WorkCalendarService {
                     throw new IllegalArgumentException("appliesToScope=SHIFT bắt buộc phải có shiftId.");
                 }
                 shift = shiftRepository.findById(request.shiftId())
-                        .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy ca làm việc id=" + request.shiftId()));
+                        .orElseThrow(() -> new ResourceNotFoundException("error.workCalendar.shiftNotFound", new Object[]{request.shiftId()}, "Không tìm thấy ca làm việc id=" + request.shiftId()));
             }
             case EMPLOYEE -> {
                 if (request.employeeId() == null) {
                     throw new IllegalArgumentException("appliesToScope=EMPLOYEE bắt buộc phải có employeeId.");
                 }
                 employee = employeeRepository.findById(request.employeeId())
-                        .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy nhân sự id=" + request.employeeId()));
+                        .orElseThrow(() -> new ResourceNotFoundException("error.workCalendar.employeeNotFound", new Object[]{request.employeeId()}, "Không tìm thấy nhân sự id=" + request.employeeId()));
             }
             case ALL -> {
                 if (request.shiftId() != null || request.employeeId() != null) {
@@ -98,7 +98,8 @@ public class WorkCalendarService {
         try {
             override = workCalendarRepository.saveAndFlush(override);
         } catch (DataIntegrityViolationException ex) {
-            throw new WorkCalendarOverrideAlreadyExistsException(
+            throw new WorkCalendarOverrideAlreadyExistsException("error.workCalendarOverrideAlreadyExists.default",
+                    new Object[]{request.calendarDate(), scope},
                     "Đã có override lịch làm việc cho ngày " + request.calendarDate() + " (phạm vi " + scope + ").");
         }
         return toResponse(override);
@@ -107,7 +108,7 @@ public class WorkCalendarService {
     @Transactional
     public void deleteOverride(Long id) {
         if (!workCalendarRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Không tìm thấy override lịch làm việc id=" + id);
+            throw new ResourceNotFoundException("error.workCalendar.overrideNotFound", new Object[]{id}, "Không tìm thấy override lịch làm việc id=" + id);
         }
         workCalendarRepository.deleteById(id);
     }
@@ -130,7 +131,7 @@ public class WorkCalendarService {
 
     private User getUserOrThrow(Long userId) {
         return userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản id=" + userId));
+                .orElseThrow(() -> new ResourceNotFoundException("error.workCalendar.userNotFound", new Object[]{userId}, "Không tìm thấy tài khoản id=" + userId));
     }
 
     private WorkCalendarResponse toResponse(WorkCalendar wc) {

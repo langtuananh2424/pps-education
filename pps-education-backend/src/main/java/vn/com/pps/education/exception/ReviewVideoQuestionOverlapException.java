@@ -6,8 +6,30 @@ package vn.com.pps.education.exception;
  * trong CÙNG video. Video phản xạ chỉ ghi âm được 1 câu tại 1 thời điểm (không cho ghi âm song song) nên
  * nếu câu trước còn đang ghi âm khi mốc thời gian câu sau tới, câu sau sẽ bị bỏ lỡ hoàn toàn.
  */
-public class ReviewVideoQuestionOverlapException extends RuntimeException {
+public class ReviewVideoQuestionOverlapException extends RuntimeException implements LocalizedMessage {
+
+    private final String messageKey;
+    private final Object[] messageArgs;
+
     public ReviewVideoQuestionOverlapException(String message) {
         super(message);
+        this.messageKey = null;
+        this.messageArgs = null;
+    }
+
+    public ReviewVideoQuestionOverlapException(String messageKey, Object[] messageArgs, String fallbackVi) {
+        super(fallbackVi);
+        this.messageKey = messageKey;
+        this.messageArgs = messageArgs;
+    }
+
+    @Override
+    public String messageKey() {
+        return messageKey;
+    }
+
+    @Override
+    public Object[] messageArgs() {
+        return messageArgs;
     }
 }

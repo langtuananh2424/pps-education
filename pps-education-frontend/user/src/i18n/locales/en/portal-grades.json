@@ -1,0 +1,54 @@
+{
+  "loading": "Loading...",
+  "scaleLabels": {
+    "NUMERIC": "Numeric (0–10)",
+    "PERCENTAGE": "Percentage (%)",
+    "BAND": "Letter scale (Band)"
+  },
+  "statusLabels": {
+    "DRAFT": "Draft",
+    "SUBMITTED": "Pending approval",
+    "OFFICIAL": "Official",
+    "REJECTED": "Rejected"
+  },
+  "evaluationLabels": {
+    "midTerm": "Mid-term",
+    "finalTerm": "Final term"
+  },
+  "setupLabel": "{{term}} — {{evaluation}}",
+  "trend": {
+    "increase": "Increased compared to the previous term",
+    "decrease": "Decreased compared to the previous term"
+  },
+  "summary": {
+    "loadError": "Couldn't load grades.",
+    "title": "Grade Summary",
+    "scopeTerm": "Term gradebook",
+    "scopeYear": "Full-year gradebook",
+    "emptyTerm": "No grades have been published for the current term yet.",
+    "emptyYear": "No grades have been published for this class yet.",
+    "componentHeader": "Grade component",
+    "absentBadge": "Absent",
+    "notesHeading": "Notes",
+    "teacherCommentsHeading": "Teacher's comments",
+    "ungroupedHeading": "Other (term not identified)",
+    "absentNoScore": "Absent — no score"
+  },
+  "onlineTest": {
+    "title": "Take an online test",
+    "description": "Currently under development"
+  },
+  "stats": {
+    "loadError": "Couldn't load statistics data.",
+    "empty": "No grades available for statistics yet.",
+    "title": "Grade Statistics by Term",
+    "chartTypeBar": "Bar chart",
+    "chartTypeLine": "Line chart",
+    "yAxisLabel": "Overall Score (0-100)",
+    "overallSeries": "Overall",
+    "noChartData": "No data available to plot the chart.",
+    "detailsHeading": "Term Details",
+    "termHeader": "Term",
+    "termLabel": "Term {{termNumber}} ({{year}}) — {{evaluation}}"
+  }
+}
