@@ -138,7 +138,7 @@ public class StudentComment {
     private String homeworkPreviousSpeakingScore;
 
     /**
-     * "BTVN buổi trước — Offline — Reading" (V130, bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+     * "BTVN buổi trước — Offline — Reading" (V135, bổ sung ngoài SDD gốc, đã xác nhận với người dùng
      * 2026-08-21) — điểm % giáo viên tự chấm tay bài Reading giao offline buổi trước. CHỈ áp dụng khi
      * {@code classSession.teacherType=VIETNAMESE}; buổi FOREIGN tiếp tục dùng {@link #homeworkPreviousScore}
      * như trước (cột "Offline" gộp, không tách Reading/Writing) — xem Javadoc StudentCommentService.
@@ -146,7 +146,7 @@ public class StudentComment {
     @Column(name = "homework_previous_reading_score", length = 30)
     private String homeworkPreviousReadingScore;
 
-    /** Mirror {@link #homeworkPreviousReadingScore} cho kỹ năng Writing (V130). */
+    /** Mirror {@link #homeworkPreviousReadingScore} cho kỹ năng Writing (V135). */
     @Column(name = "homework_previous_writing_score", length = 30)
     private String homeworkPreviousWritingScore;
 
@@ -164,7 +164,7 @@ public class StudentComment {
     private String homeworkNext;
 
     /**
-     * "BTVN — Offline — Reading" (V130, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-21) —
+     * "BTVN — Offline — Reading" (V135, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-21) —
      * mô tả (bài + trang) BTVN Reading giao offline cho buổi sau. CHỈ áp dụng khi
      * {@code classSession.teacherType=VIETNAMESE}; buổi FOREIGN tiếp tục dùng {@link #homeworkNext} như
      * trước (cột "Offline" gộp, không tách Reading/Writing).
@@ -172,7 +172,7 @@ public class StudentComment {
     @Column(name = "homework_next_reading", columnDefinition = "TEXT")
     private String homeworkNextReading;
 
-    /** Mirror {@link #homeworkNextReading} cho kỹ năng Writing (V130). */
+    /** Mirror {@link #homeworkNextReading} cho kỹ năng Writing (V135). */
     @Column(name = "homework_next_writing", columnDefinition = "TEXT")
     private String homeworkNextWriting;
 
