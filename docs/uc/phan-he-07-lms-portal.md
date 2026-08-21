@@ -1658,6 +1658,41 @@ UC-40: Soạn & giao đề kiểm tra
 >    thêm câu mới. Chưa có chức năng khôi phục lại qua giao diện (chỉ có
 >    thể sửa tay qua DB nếu cần) — sẽ bổ sung sau nếu phát sinh nhu cầu.
 
+> **Bổ sung V94 (2026-08-06, đã xác nhận với người dùng) --- gợi ý
+> tapescript cho câu hỏi Nghe (`skill=LISTENING`, thường gặp ở Đề
+> `teacherType=FOREIGN` --- "Audio bài nghe", xem bổ sung V84/V86 phía
+> trên --- nhưng KHÔNG hard-code giới hạn theo teacherType, áp dụng cho
+> BẤT KỲ câu hỏi nào có `skill=LISTENING` + `audioUrl`):** trước đây
+> `referencePassage` (transcript) bị trả về KHÔNG điều kiện ngay từ lúc
+> tải đề (`GET /api/exercises/{id}/questions`), lộ đáp án qua DevTools/
+> Network. Từ nay:
+> 1. Học sinh phải **nghe HẾT audio đủ số lần cấu hình** (ngưỡng
+>    `system_settings.lms.listening_hint_unlock_play_count`, mặc định
+>    **3**, sửa được qua Cài đặt hệ thống) mới xem được gợi ý --- đếm
+>    qua sự kiện `ended` của thẻ `<audio>` ở FE
+>    (`TakeExerciseModal.tsx`), gọi `POST /api/attempts/{id}/listening-
+>    plays` mỗi lần nghe hết 1 lượt (`ListeningHintService#recordPlay`,
+>    bảng `listening_play_progress`, migration
+>    `V94__listening_hint_tracking.sql`). **Lưu ý:** điều kiện mở khóa là
+>    SỐ LẦN NGHE HẾT audio, KHÔNG PHẢI số lượt làm sai/nộp bài thất bại.
+> 2. Nhóm "1 audio nhiều câu" (`Question.groupKey`, `ListeningGroup
+>    Builder.tsx`) dùng CHUNG 1 bộ đếm (`listening_key` suy từ `groupKey`
+>    nếu có, không thì theo chính `questionId`) --- nghe 1 lần tính cho
+>    cả nhóm câu cùng audio đó.
+> 3. Khi đã đủ điều kiện, `GET /api/attempts/{id}/listening-hint`
+>    (`ListeningHintService#getHint`) trả `referencePassage` (transcript)
+>    + đáp án đúng + `explanation`. Chỉ gọi được khi lượt làm bài còn
+>    `IN_PROGRESS` (chặn gọi thẳng API sau khi đã nộp bài, kể cả khi
+>    `exercise.showCorrectAnswers=false`).
+> 4. Thống kê: mỗi lần gọi `getHint()` THÀNH CÔNG (đã mở khóa, học sinh
+>    THỰC SỰ mở xem) ghi 1 dòng bất biến vào `listening_hint_events`
+>    (KHÁC lúc chỉ vừa đủ điều kiện nhưng chưa bấm xem) --- tổng hợp qua
+>    `ExerciseReportService` (`hintUsedCount`/`hintUsedStudentCount` theo
+>    từng câu hỏi, trả trong `ExerciseAssignmentQuestionStatsResponse`).
+> 5. **Chưa có**: tính năng tra Từ điển (dictionary lookup) khi xem
+>    tapescript hay bất kỳ đâu khác trong hệ thống --- ngoài phạm vi bổ
+>    sung V94, cần thiết kế riêng (chọn nhà cung cấp/API) nếu muốn thêm.
+
 ---
 
 UC-41: Chấm bài thủ công

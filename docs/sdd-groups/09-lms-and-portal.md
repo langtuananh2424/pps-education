@@ -1374,6 +1374,35 @@ i)  Bảng student_answer_grading --- GV chấm tự luận/nói
 
 Không history, sửa điểm chấm tạo record mới thay vì sửa.
 
+i-bis) Bảng listening_play_progress / listening_hint_events --- Gợi ý
+tapescript câu hỏi Nghe (bổ sung ngoài SDD gốc, V94, 2026-08-06, đã xác
+nhận với người dùng — xem UC-40, mục "Bổ sung V94" trong
+`docs/uc/phan-he-07-lms-portal.md`)
+
+| Cột | Kiểu | Ràng buộc | Ghi chú |
+| --- | --- | --- | --- |
+| **listening_play_progress** | | | Đếm số lần nghe hết audio/attempt |
+| id | BIGSERIAL | PK | |
+| exercise_attempt_id | BIGINT | FK → exercise_attempts(id), NOT NULL | |
+| listening_key | VARCHAR(80) | NOT NULL | groupKey nếu câu hỏi thuộc nhóm "1 audio nhiều câu" (`questions.group_key`), không thì `"Q"+question_id` |
+| play_count | INT | NOT NULL, DEFAULT 0 | Tăng mỗi lần audio phát `ended` ở FE |
+| created_at, updated_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | |
+| | UNIQUE(exercise_attempt_id, listening_key) | | |
+| **listening_hint_events** | | | Log bất biến — 1 dòng/lần học sinh THỰC SỰ mở tapescript ra xem (không phải lúc vừa đủ điều kiện) |
+| id | BIGSERIAL | PK | |
+| exercise_attempt_id | BIGINT | FK → exercise_attempts(id), NOT NULL | |
+| question_id | BIGINT | FK → questions(id), NOT NULL | |
+| student_id | BIGINT | FK → students(id), NOT NULL | |
+| created_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | |
+
+Ngưỡng mở khóa (số lần nghe hết audio tối thiểu, mặc định 3) lưu ở
+`system_settings.lms.listening_hint_unlock_play_count` (không phải cột
+riêng trên 2 bảng trên) — sửa được qua Cài đặt hệ thống, không cần
+migration khi đổi ngưỡng. Điều kiện mở khóa là SỐ LẦN NGHE HẾT audio,
+KHÔNG PHẢI số lượt làm sai/nộp bài thất bại — xem Javadoc
+`ListeningHintService`. Không có Từ điển (dictionary) tích hợp — chưa
+tồn tại ở bất kỳ đâu trong hệ thống tại thời điểm viết tài liệu này.
+
 j)  Bảng exams --- "Đề" (Kho đề, MỚI HOÀN TOÀN, V66, 2026-07-30, bổ
 sung ngoài SDD gốc, đã xác nhận với người dùng — gộp nhiều "Bài"
 (exercises) theo 1 khung chương trình, gán được nhiều lớp)
