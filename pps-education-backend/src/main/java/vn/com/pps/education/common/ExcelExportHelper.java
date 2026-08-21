@@ -84,48 +84,35 @@ public final class ExcelExportHelper {
     public static byte[] buildWorkbook(String sheetName, List<String> headers, List<List<Object>> rows,
                                         List<String> notes, Map<Integer, List<String>> columnDropdowns,
                                         List<HeaderGroup> headerGroups) {
+        return buildWorkbook(sheetName, headers, rows, notes, columnDropdowns, headerGroups, null);
+    }
+
+    /**
+     * Như trên, cộng thêm {@code headerSubGroups} (V130, bổ sung ngoài SDD
+     * gốc, đã xác nhận với người dùng 2026-08-21 — cho Nhận xét học viên
+     * buổi teacherType=VIETNAMESE, nhóm "BTVN buổi trước"/"BTVN" tách thêm
+     * 1 cấp Offline/Online) — khi khác null/rỗng, chèn thêm 1 DÒNG header
+     * gộp CẤP 2 (giữa {@code headerGroups} cấp 1 và dòng tên cột con), tổng
+     * 3 dòng header. Cột thuộc {@code headerGroups} nhưng KHÔNG thuộc
+     * {@code headerSubGroups} nào thì merge dọc 2 dòng dưới (giống hành vi
+     * "cột không nhóm" ở overload 2 cấp). {@code headerSubGroups} khác null
+     * mà {@code headerGroups} rỗng là lỗi dùng sai API (bỏ qua, coi như
+     * không có subgroup).
+     */
+    public static byte[] buildWorkbook(String sheetName, List<String> headers, List<List<Object>> rows,
+                                        List<String> notes, Map<Integer, List<String>> columnDropdowns,
+                                        List<HeaderGroup> headerGroups, List<HeaderGroup> headerSubGroups) {
         try (XSSFWorkbook workbook = new XSSFWorkbook()) {
             boolean grouped = headerGroups != null && !headerGroups.isEmpty();
+            boolean subGrouped = grouped && headerSubGroups != null && !headerSubGroups.isEmpty();
             CellStyle headerStyle = grouped ? styledHeaderStyle(workbook) : boldHeaderStyle(workbook);
 
             XSSFSheet sheet = workbook.createSheet(sheetName);
-            int headerRowIndex = 0;
-            if (grouped) {
-                // Cột KHÔNG thuộc nhóm nào — merge dọc 2 dòng (0:1) để tiêu đề trông liền 1 ô cao,
-                // giống hệt rowSpan=2 ở bảng UI web (thead 2 dòng: dòng nhóm + dòng cột con).
-                Set<Integer> groupedCols = headerGroups.stream()
-                        .flatMap(g -> IntStream.rangeClosed(g.fromCol(), g.toCol()).boxed())
-                        .collect(Collectors.toSet());
-                Row groupRow = sheet.createRow(0);
-                // Đủ cao để chữ wrap 2 dòng không bị cắt (VD "BTVN online" khi 2 cột con hẹp) — POI
-                // không tự tăng chiều cao dòng theo wrapText.
-                groupRow.setHeightInPoints(30f);
-                for (HeaderGroup group : headerGroups) {
-                    Cell cell = groupRow.createCell(group.fromCol());
-                    cell.setCellValue(group.label());
-                    cell.setCellStyle(headerStyle);
-                    if (group.toCol() > group.fromCol()) {
-                        sheet.addMergedRegion(new CellRangeAddress(0, 0, group.fromCol(), group.toCol()));
-                    }
-                }
-                for (int col = 0; col < headers.size(); col++) {
-                    if (groupedCols.contains(col)) {
-                        continue;
-                    }
-                    Cell cell = groupRow.createCell(col);
-                    cell.setCellValue(headers.get(col));
-                    cell.setCellStyle(headerStyle);
-                    sheet.addMergedRegion(new CellRangeAddress(0, 1, col, col));
-                }
-                Row subHeaderRow = sheet.createRow(1);
-                for (int col = 0; col < headers.size(); col++) {
-                    Cell cell = subHeaderRow.createCell(col);
-                    if (groupedCols.contains(col)) {
-                        cell.setCellValue(headers.get(col));
-                    }
-                    cell.setCellStyle(headerStyle);
-                }
-                headerRowIndex = 1;
+            int headerRowIndex;
+            if (subGrouped) {
+                headerRowIndex = buildThreeLevelHeader(sheet, headers, headerGroups, headerSubGroups, headerStyle);
+            } else if (grouped) {
+                headerRowIndex = buildTwoLevelHeader(sheet, headers, headerGroups, headerStyle);
             } else {
                 Row headerRow = sheet.createRow(0);
                 for (int col = 0; col < headers.size(); col++) {
@@ -133,6 +120,7 @@ public final class ExcelExportHelper {
                     cell.setCellValue(headers.get(col));
                     cell.setCellStyle(headerStyle);
                 }
+                headerRowIndex = 0;
             }
             int dataStartRow = headerRowIndex + 1;
             for (int r = 0; r < rows.size(); r++) {
@@ -163,6 +151,16 @@ public final class ExcelExportHelper {
                         sheet.setColumnWidth(group.toCol(), sheet.getColumnWidth(group.toCol()) + (requiredWidth - combinedWidth));
                     }
                 }
+                if (subGrouped) {
+                    for (HeaderGroup sub : headerSubGroups) {
+                        int combinedWidth = IntStream.rangeClosed(sub.fromCol(), sub.toCol())
+                                .map(sheet::getColumnWidth).sum();
+                        int requiredWidth = (sub.label().length() + 4) * 256;
+                        if (combinedWidth < requiredWidth) {
+                            sheet.setColumnWidth(sub.toCol(), sheet.getColumnWidth(sub.toCol()) + (requiredWidth - combinedWidth));
+                        }
+                    }
+                }
             }
 
             if (columnDropdowns != null && !rows.isEmpty()) {
@@ -183,6 +181,98 @@ public final class ExcelExportHelper {
         } catch (IOException ex) {
             throw new UncheckedIOException("Không tạo được file Excel: " + ex.getMessage(), ex);
         }
+    }
+
+    /** Dòng nhóm (0) + dòng cột con (1) — logic cũ trước V130, tách ra nguyên vẹn để dùng chung với nhánh 3 cấp mới ({@link #buildThreeLevelHeader}). Trả về headerRowIndex (=1). */
+    private static int buildTwoLevelHeader(XSSFSheet sheet, List<String> headers, List<HeaderGroup> headerGroups, CellStyle headerStyle) {
+        // Cột KHÔNG thuộc nhóm nào — merge dọc 2 dòng (0:1) để tiêu đề trông liền 1 ô cao,
+        // giống hệt rowSpan=2 ở bảng UI web (thead 2 dòng: dòng nhóm + dòng cột con).
+        Set<Integer> groupedCols = headerGroups.stream()
+                .flatMap(g -> IntStream.rangeClosed(g.fromCol(), g.toCol()).boxed())
+                .collect(Collectors.toSet());
+        Row groupRow = sheet.createRow(0);
+        // Đủ cao để chữ wrap 2 dòng không bị cắt (VD "BTVN online" khi 2 cột con hẹp) — POI
+        // không tự tăng chiều cao dòng theo wrapText.
+        groupRow.setHeightInPoints(30f);
+        for (HeaderGroup group : headerGroups) {
+            Cell cell = groupRow.createCell(group.fromCol());
+            cell.setCellValue(group.label());
+            cell.setCellStyle(headerStyle);
+            if (group.toCol() > group.fromCol()) {
+                sheet.addMergedRegion(new CellRangeAddress(0, 0, group.fromCol(), group.toCol()));
+            }
+        }
+        for (int col = 0; col < headers.size(); col++) {
+            if (groupedCols.contains(col)) {
+                continue;
+            }
+            Cell cell = groupRow.createCell(col);
+            cell.setCellValue(headers.get(col));
+            cell.setCellStyle(headerStyle);
+            sheet.addMergedRegion(new CellRangeAddress(0, 1, col, col));
+        }
+        Row subHeaderRow = sheet.createRow(1);
+        for (int col = 0; col < headers.size(); col++) {
+            Cell cell = subHeaderRow.createCell(col);
+            if (groupedCols.contains(col)) {
+                cell.setCellValue(headers.get(col));
+            }
+            cell.setCellStyle(headerStyle);
+        }
+        return 1;
+    }
+
+    /**
+     * V130 — 3 dòng header: nhóm cấp 1 ({@code headerGroups}, dòng 0), nhóm cấp 2 ({@code headerSubGroups},
+     * dòng 1), tên cột con (dòng 2). Cột thuộc nhóm cấp 1 nhưng KHÔNG thuộc nhóm cấp 2 nào — merge dọc
+     * dòng 1:2, tên cột hiện ở dòng 1 (mirror "cột không nhóm" của {@link #buildTwoLevelHeader}). Cột
+     * hoàn toàn không nhóm — merge dọc cả 3 dòng 0:2. Trả về headerRowIndex (=2).
+     */
+    private static int buildThreeLevelHeader(XSSFSheet sheet, List<String> headers, List<HeaderGroup> headerGroups,
+                                               List<HeaderGroup> headerSubGroups, CellStyle headerStyle) {
+        Set<Integer> topGroupedCols = headerGroups.stream()
+                .flatMap(g -> IntStream.rangeClosed(g.fromCol(), g.toCol()).boxed())
+                .collect(Collectors.toSet());
+        Set<Integer> subGroupedCols = headerSubGroups.stream()
+                .flatMap(g -> IntStream.rangeClosed(g.fromCol(), g.toCol()).boxed())
+                .collect(Collectors.toSet());
+
+        Row row0 = sheet.createRow(0);
+        row0.setHeightInPoints(24f);
+        Row row1 = sheet.createRow(1);
+        row1.setHeightInPoints(24f);
+        Row row2 = sheet.createRow(2);
+
+        for (int col = 0; col < headers.size(); col++) {
+            Cell c0 = row0.createCell(col);
+            Cell c1 = row1.createCell(col);
+            Cell c2 = row2.createCell(col);
+            c0.setCellStyle(headerStyle);
+            c1.setCellStyle(headerStyle);
+            c2.setCellStyle(headerStyle);
+            if (!topGroupedCols.contains(col)) {
+                c0.setCellValue(headers.get(col));
+                sheet.addMergedRegion(new CellRangeAddress(0, 2, col, col));
+            } else if (!subGroupedCols.contains(col)) {
+                c1.setCellValue(headers.get(col));
+                sheet.addMergedRegion(new CellRangeAddress(1, 2, col, col));
+            } else {
+                c2.setCellValue(headers.get(col));
+            }
+        }
+        for (HeaderGroup group : headerGroups) {
+            row0.getCell(group.fromCol()).setCellValue(group.label());
+            if (group.toCol() > group.fromCol()) {
+                sheet.addMergedRegion(new CellRangeAddress(0, 0, group.fromCol(), group.toCol()));
+            }
+        }
+        for (HeaderGroup sub : headerSubGroups) {
+            row1.getCell(sub.fromCol()).setCellValue(sub.label());
+            if (sub.toCol() > sub.fromCol()) {
+                sheet.addMergedRegion(new CellRangeAddress(1, 1, sub.fromCol(), sub.toCol()));
+            }
+        }
+        return 2;
     }
 
     /** Ngưỡng an toàn dưới giới hạn ~255 ký tự tổng của Excel explicit list — vượt ngưỡng chuyển sang named-range (xem namedRangeConstraint). */

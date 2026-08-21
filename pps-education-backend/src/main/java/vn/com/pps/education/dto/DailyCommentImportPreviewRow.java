@@ -12,8 +12,13 @@ public record DailyCommentImportPreviewRow(
         String attitude,
         String homeworkPreviousScore,
         String homeworkPreviousSpeakingScore,
+        /** V130 — chỉ khác null khi buổi teacherType=VIETNAMESE (xem HomeworkColumns trong StudentCommentService). */
+        String homeworkPreviousReadingScore,
+        String homeworkPreviousWritingScore,
         String content,
         String homeworkNext,
+        String homeworkNextReading,
+        String homeworkNextWriting,
         Long homeworkNextExerciseId,
         Long homeworkNextReviewVideoSetId,
         String note

@@ -1046,7 +1046,20 @@ export interface StudentCommentResponse {
   // BTVN Nghe-nói buổi trước (V56, nhập tay, đối xứng với homeworkPreviousScore ở trên) — độc lập với
   // videoPreviousProgress (tự tính) bên dưới.
   homeworkPreviousSpeakingScore: string | null;
+  /**
+   * V130 — "BTVN buổi trước - Offline" tách Reading/Writing, điểm % giáo viên tự chấm tay. CHỈ khác
+   * null khi buổi classSession.teacherType=VIETNAMESE — buổi FOREIGN tiếp tục dùng homeworkPreviousScore
+   * ở trên (không tách).
+   */
+  homeworkPreviousReadingScore: string | null;
+  homeworkPreviousWritingScore: string | null;
   homeworkNext: string | null;
+  /**
+   * V130 — "BTVN - Offline" (giao buổi sau) tách Reading/Writing, mô tả bài + trang giao offline. CHỈ
+   * khác null khi buổi teacherType=VIETNAMESE — buổi FOREIGN tiếp tục dùng homeworkNext ở trên.
+   */
+  homeworkNextReading: string | null;
+  homeworkNextWriting: string | null;
   // BTVN online/offline theo từng học sinh (V55, PR UC-21-giao-btvn-online-offline, 2026-07-28) —
   // kênh ngữ pháp ONLINE (homeworkNextExerciseAssignmentId khác null) hoặc OFFLINE (dùng homeworkNext
   // ở trên); kênh Video Ôn tập luôn ONLINE. grammarPreviousProgress/videoPreviousProgress tự tính từ
@@ -1099,7 +1112,13 @@ export interface CreateStudentCommentRequest {
   attitude?: NonNullable<StudentCommentResponse["attitude"]>;
   homeworkPreviousScore?: string;
   homeworkPreviousSpeakingScore?: string;
+  /** V130 — chỉ gửi khi buổi teacherType=VIETNAMESE, xem Javadoc StudentCommentResponse.homeworkPreviousReadingScore. */
+  homeworkPreviousReadingScore?: string;
+  homeworkPreviousWritingScore?: string;
   homeworkNext?: string;
+  /** V130 — chỉ gửi khi buổi teacherType=VIETNAMESE, xem Javadoc StudentCommentResponse.homeworkNextReading. */
+  homeworkNextReading?: string;
+  homeworkNextWriting?: string;
   /**
    * V65 (2026-07-30, bổ sung ngoài SDD gốc): kênh ngữ pháp ONLINE — id của Exercise NGUỒN (đã
    * Publish), KHÔNG phải id bản giao như trước V65. Chọn khác null tự động giao đề cho CẢ LỚP ACTIVE,
@@ -1129,7 +1148,13 @@ export interface UpdateStudentCommentRequest {
   attitude?: NonNullable<StudentCommentResponse["attitude"]>;
   homeworkPreviousScore?: string;
   homeworkPreviousSpeakingScore?: string;
+  /** V130 — xem Javadoc CreateStudentCommentRequest.homeworkPreviousReadingScore. */
+  homeworkPreviousReadingScore?: string;
+  homeworkPreviousWritingScore?: string;
   homeworkNext?: string;
+  /** V130 — xem Javadoc CreateStudentCommentRequest.homeworkNextReading. */
+  homeworkNextReading?: string;
+  homeworkNextWriting?: string;
   /** V65 — xem Javadoc CreateStudentCommentRequest.homeworkNextExerciseId. */
   homeworkNextExerciseId?: number;
   homeworkNextReviewVideoSetId?: number;
@@ -1173,10 +1198,15 @@ export interface StudentCommentHistoryResponse {
     attitude: StudentCommentResponse["attitude"];
     homeworkPreviousScore: string | null;
     homeworkPreviousSpeakingScore: string | null;
+    /** V130 — chỉ khác null khi buổi teacherType=VIETNAMESE. */
+    homeworkPreviousReadingScore: string | null;
+    homeworkPreviousWritingScore: string | null;
     /** % tự động (kênh Ngữ pháp/Video) của "BTVN buổi trước" TẠI thời điểm lưu — xem PreviousProgressCell ở DailyCommentPanel.tsx cho ý nghĩa 2 field này. */
     grammarPreviousProgress: string | null;
     videoPreviousProgress: string | null;
     homeworkNext: string | null;
+    homeworkNextReading: string | null;
+    homeworkNextWriting: string | null;
     note: string | null;
     rejectionReason: string | null;
     homeworkNextExerciseTitle: string | null;
@@ -1276,8 +1306,13 @@ export interface DailyCommentImportPreviewRow {
   attitude: StudentCommentResponse["attitude"];
   homeworkPreviousScore: string | null;
   homeworkPreviousSpeakingScore: string | null;
+  /** V130 — chỉ khác null khi buổi teacherType=VIETNAMESE. */
+  homeworkPreviousReadingScore: string | null;
+  homeworkPreviousWritingScore: string | null;
   content: string | null;
   homeworkNext: string | null;
+  homeworkNextReading: string | null;
+  homeworkNextWriting: string | null;
   homeworkNextExerciseId: number | null;
   homeworkNextReviewVideoSetId: number | null;
   note: string | null;

@@ -1620,6 +1620,37 @@ a)  Bảng student_comments --- Nhận xét học sinh
                                                                 NULL = không giao video cho
                                                                 học sinh này
 
+  homework_previous_        VARCHAR(30)   NULL                  Chỉ DAILY, chỉ buổi
+  reading_score                                                 class_sessions.teacher_type=
+                                                                 VIETNAMESE (V130, bổ sung ngoài
+                                                                 SDD gốc, đã xác nhận với người
+                                                                 dùng 2026-08-21) — điểm %
+                                                                 giáo viên tự chấm tay BTVN
+                                                                 Reading giao OFFLINE buổi
+                                                                 TRƯỚC, thay thế vai trò
+                                                                 homework_previous_score cho
+                                                                 buổi VIETNAMESE (cột "Offline"
+                                                                 tách Reading/Writing thay vì
+                                                                 gộp 1 cột); buổi FOREIGN tiếp
+                                                                 tục dùng homework_previous_
+                                                                 score như cũ, không đổi
+
+  homework_previous_        VARCHAR(30)   NULL                  Mirror homework_previous_
+  writing_score                                                 reading_score cho kỹ năng
+                                                                 Writing (V130)
+
+  homework_next_reading     TEXT          NULL                  Chỉ DAILY, chỉ buổi
+                                                                 teacher_type=VIETNAMESE (V130)
+                                                                 — mô tả (bài + trang) BTVN
+                                                                 Reading giao OFFLINE cho buổi
+                                                                 SAU, thay thế vai trò
+                                                                 homework_next cho buổi
+                                                                 VIETNAMESE; buổi FOREIGN tiếp
+                                                                 tục dùng homework_next như cũ
+
+  homework_next_writing     TEXT          NULL                  Mirror homework_next_reading
+                                                                 cho kỹ năng Writing (V130)
+
   note                     TEXT          NULL                  Chỉ DAILY (V50) — ghi chú thêm
   -------------------------------------------------------------------------------------------
 
@@ -1640,6 +1671,20 @@ khỏi "BTVN Ngữ pháp buổi trước" (`homework_previous_score`) — đối
 với việc "BTVN buổi sau" đã tách 2 kênh ở V55, nhưng vẫn là text nhập
 tay (không FK, không dropdown), không liên quan tới
 `videoPreviousProgress` tự động tính.
+
+**Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (V130, 2026-08-21):** UI/Excel "Nhận xét học viên"
+đổi cấu trúc cột nhóm "BTVN buổi trước"/"BTVN" (giao buổi sau) CHỈ với buổi `teacher_type=VIETNAMESE` —
+cột con "Offline" của cả 2 nhóm tách thêm 1 cấp header con "Offline"/"Online" rồi tách tiếp
+Reading/Writing (Offline) — dùng 4 cột mới ở trên thay cho `homework_previous_score`/`homework_next`
+(2 cột đó vẫn giữ nguyên, chỉ không còn hiển thị/nhập được ở buổi VIETNAMESE nữa, buổi FOREIGN không đổi
+gì). Cột con "Online" (Ngữ pháp/`homework_previous_score` phía trên và Từ vựng/
+`homework_previous_speaking_score`, cùng 2 FK `homework_next_exercise_assignment_id`/
+`homework_next_review_video_set_id`) giữ NGUYÊN field/chức năng — chỉ đổi nhãn hiển thị ngắn gọn
+"TV+NP"/"TKN" (thay "Ngữ pháp"/"Từ Vựng (TKN)"), riêng cho màn Nhận xét học viên, không đụng nhãn
+`shared.grammarChannel`/`shared.videoChannel` dùng chung ở Soạn & giao đề/Kho Video Ôn tập. Buổi FOREIGN
+chỉ đổi 1 chỗ thuần cosmetic: 2 header cha "BTVN offline"+"BTVN online" cũ (tách rời) gộp thành 1 header
+"BTVN" (vẫn 3 cột lá y hệt, không đổi field/vị trí cột). Xem `StudentCommentService.HomeworkColumns`
+(BE) và `DailyCommentPanel.tsx`/`CommentApprovalByClass.tsx` (FE, biến `isVietnamese`).
 
 Có student_comments_history.
 

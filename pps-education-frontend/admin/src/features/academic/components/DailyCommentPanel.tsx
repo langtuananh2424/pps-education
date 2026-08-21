@@ -78,9 +78,15 @@ interface Row {
   attitude: "" | NonNullable<StudentCommentResponse["attitude"]>;
   homeworkPreviousScore: string;
   homeworkPreviousSpeakingScore: string;
+  /** V130 — chỉ dùng khi buổi teacherType=VIETNAMESE (thay cho homeworkPreviousScore/khoản "Offline" cũ, xem Javadoc StudentCommentResponse). */
+  homeworkPreviousReadingScore: string;
+  homeworkPreviousWritingScore: string;
   content: string;
-  /** Chữ tự do (BTVN offline) — bổ sung ngoài SDD gốc, xác nhận 2026-08-18: giao ĐỒNG THỜI được với homeworkNextExerciseId (không còn loại trừ lẫn nhau). */
+  /** Chữ tự do (BTVN offline) — bổ sung ngoài SDD gốc, xác nhận 2026-08-18: giao ĐỒNG THỜI được với homeworkNextExerciseId (không còn loại trừ lẫn nhau). Buổi FOREIGN dùng field này; buổi VIETNAMESE (V130) dùng homeworkNextReading/homeworkNextWriting bên dưới thay thế. */
   homeworkNext: string;
+  /** V130 — chỉ dùng khi buổi teacherType=VIETNAMESE. */
+  homeworkNextReading: string;
+  homeworkNextWriting: string;
   /** V65: id của Exercise NGUỒN đã Publish (không phải id bản giao như trước V65) — chọn từ grammarOptions đã lọc theo teacherType. */
   homeworkNextExerciseId: number | "";
   /** id của ReviewVideoSet NGUỒN đã Publish — không đổi tên qua V65 (request field vẫn nhận thẳng set id). */
@@ -96,15 +102,21 @@ function rowHasAnyData(r: Row): boolean {
     r.attitude ||
     r.homeworkPreviousScore.trim() ||
     r.homeworkPreviousSpeakingScore.trim() ||
+    r.homeworkPreviousReadingScore.trim() ||
+    r.homeworkPreviousWritingScore.trim() ||
     r.homeworkNext.trim() ||
+    r.homeworkNextReading.trim() ||
+    r.homeworkNextWriting.trim() ||
     r.homeworkNextExerciseId !== "" ||
     r.homeworkNextReviewVideoSetId !== "" ||
     r.note.trim()
   );
 }
 
-const EMPTY_ROW_HOMEWORK: Pick<Row, "homeworkNext" | "homeworkNextExerciseId" | "homeworkNextReviewVideoSetId"> = {
+const EMPTY_ROW_HOMEWORK: Pick<Row, "homeworkNext" | "homeworkNextReading" | "homeworkNextWriting" | "homeworkNextExerciseId" | "homeworkNextReviewVideoSetId"> = {
   homeworkNext: "",
+  homeworkNextReading: "",
+  homeworkNextWriting: "",
   homeworkNextExerciseId: "",
   homeworkNextReviewVideoSetId: ""
 };
@@ -133,7 +145,11 @@ const isRowBlank = (r: Row) =>
   !r.attitude &&
   !r.homeworkPreviousScore.trim() &&
   !r.homeworkPreviousSpeakingScore.trim() &&
+  !r.homeworkPreviousReadingScore.trim() &&
+  !r.homeworkPreviousWritingScore.trim() &&
   !r.homeworkNext.trim() &&
+  !r.homeworkNextReading.trim() &&
+  !r.homeworkNextWriting.trim() &&
   r.homeworkNextExerciseId === "" &&
   r.homeworkNextReviewVideoSetId === "" &&
   !r.note.trim();
@@ -234,6 +250,9 @@ export default function DailyCommentPanel() {
   const [quickOffline, setQuickOffline] = useState("");
   const [quickExerciseId, setQuickExerciseId] = useState<number | "">("");
   const [quickVideoId, setQuickVideoId] = useState<number | "">("");
+  /** V130 — mirror quickOffline, chỉ dùng khi buổi teacherType=VIETNAMESE (thay quickOffline bằng 2 ô Reading/Writing). */
+  const [quickReading, setQuickReading] = useState("");
+  const [quickWriting, setQuickWriting] = useState("");
 
   const selectedClass = classes.find((c) => c.id === selectedClassId) ?? null;
   const selectedSession = sessions.find((s) => s.id === selectedSessionId) ?? null;
@@ -261,6 +280,17 @@ export default function DailyCommentPanel() {
   const filteredVideoOptions = teacherType ? videoOptions.filter((s) => s.teacherType === teacherType) : [];
   const grammarLabel = teacherType ? t(`shared.grammarChannel.${teacherType}`) : t("shared.grammarChannelFallback");
   const videoLabel = teacherType ? t(`shared.videoChannel.${teacherType}`) : t("shared.videoChannelFallback");
+  /**
+   * V130 — nhóm "BTVN buổi trước"/"BTVN" tách thêm Offline{Reading,Writing}/Online{TV+NP,TKN} CHỈ khi
+   * buổi teacherType=VIETNAMESE (đã xác nhận với người dùng 2026-08-21, dựa trên 2 ảnh mẫu Excel GV
+   * Việt Nam/nước ngoài) — buổi FOREIGN (hoặc chưa xác định teacherType) giữ NGUYÊN khuôn 2 dòng header
+   * hiện có (chỉ gộp header "BTVN offline"+"BTVN online" cũ thành 1 header "BTVN", xem thead bên dưới).
+   * Nhãn "TV+NP"/"TKN" CHỈ dùng riêng ở màn này — KHÔNG đổi grammarLabel/videoLabel dùng chung ở trên
+   * (Soạn & giao đề/Kho Video Ôn tập vẫn hiện "Ngữ pháp"/"Từ Vựng (TKN)" như cũ).
+   */
+  const isVietnamese = teacherType === "VIETNAMESE";
+  const onlineGrammarLabel = isVietnamese ? t("dailyCommentPanel.columns.onlineGrammarShort") : grammarLabel;
+  const onlineVideoLabel = isVietnamese ? t("dailyCommentPanel.columns.onlineVideoShort") : videoLabel;
   // Buổi đã có ít nhất 1 nhận xét ĐANG chờ duyệt/ĐÃ duyệt (bổ sung ngoài SDD gốc, đã xác nhận với
   // người dùng 2026-08-06) — khoá 3 thông tin dùng CHUNG cả buổi (Loại giáo viên/Bài học hôm nay/Tên
   // giáo viên giảng dạy) để không đổi ngược sau khi đã gửi, gây lệch với nội dung đã duyệt. Chỉ mở lại
@@ -396,6 +426,8 @@ export default function DailyCommentPanel() {
             attitude: "",
             homeworkPreviousScore: "",
             homeworkPreviousSpeakingScore: "",
+            homeworkPreviousReadingScore: "",
+            homeworkPreviousWritingScore: "",
             content: "",
             ...EMPTY_ROW_HOMEWORK,
             note: ""
@@ -471,8 +503,12 @@ export default function DailyCommentPanel() {
             // nhập (ô readonly bên cạnh đã tự hiện % tự động độc lập, không cần trùng lặp ở đây).
             homeworkPreviousScore: draft.homeworkPreviousScore ?? "",
             homeworkPreviousSpeakingScore: draft.homeworkPreviousSpeakingScore ?? "",
+            homeworkPreviousReadingScore: draft.homeworkPreviousReadingScore ?? "",
+            homeworkPreviousWritingScore: draft.homeworkPreviousWritingScore ?? "",
             content: draft.content ?? "",
             homeworkNext: draft.homeworkNext ?? "",
+            homeworkNextReading: draft.homeworkNextReading ?? "",
+            homeworkNextWriting: draft.homeworkNextWriting ?? "",
             homeworkNextExerciseId: exerciseId,
             homeworkNextReviewVideoSetId: videoSetId,
             note: draft.note ?? ""
@@ -540,7 +576,9 @@ export default function DailyCommentPanel() {
           ? r
           : {
               ...r,
-              homeworkNext: quickOffline,
+              ...(isVietnamese
+                ? { homeworkNextReading: quickReading, homeworkNextWriting: quickWriting }
+                : { homeworkNext: quickOffline }),
               homeworkNextExerciseId: quickExerciseId,
               homeworkNextReviewVideoSetId: quickVideoId
             }
@@ -557,8 +595,14 @@ export default function DailyCommentPanel() {
     attitude: r.attitude || undefined,
     homeworkPreviousScore: r.homeworkPreviousScore.trim() || undefined,
     homeworkPreviousSpeakingScore: r.homeworkPreviousSpeakingScore.trim() || undefined,
+    // V130 — chỉ gửi khi buổi teacherType=VIETNAMESE (thay homeworkPreviousScore/khoản "Offline" cũ).
+    homeworkPreviousReadingScore: r.homeworkPreviousReadingScore.trim() || undefined,
+    homeworkPreviousWritingScore: r.homeworkPreviousWritingScore.trim() || undefined,
     // Bổ sung ngoài SDD gốc, xác nhận 2026-08-18 — offline (chữ tự do) và Exercise online giờ ĐỘC LẬP, gửi cả 2 nếu đã điền.
     homeworkNext: r.homeworkNext.trim() || undefined,
+    // V130 — chỉ gửi khi buổi teacherType=VIETNAMESE (thay homeworkNext cũ).
+    homeworkNextReading: r.homeworkNextReading.trim() || undefined,
+    homeworkNextWriting: r.homeworkNextWriting.trim() || undefined,
     homeworkNextExerciseId: r.homeworkNextExerciseId !== "" ? r.homeworkNextExerciseId : undefined,
     homeworkNextReviewVideoSetId: r.homeworkNextReviewVideoSetId !== "" ? r.homeworkNextReviewVideoSetId : undefined,
     // Hạn nộp buổi sau (ngày + giờ) — 1 giá trị chung cho cả buổi (xem dueDateTime), để trống thì BE tự tính = buổi kế tiếp.
@@ -759,7 +803,7 @@ export default function DailyCommentPanel() {
       setNotification(message);
       setRows((prev) =>
         prev.map((r) =>
-          r.content.trim() ? { ...r, attitude: "", homeworkPreviousScore: "", homeworkPreviousSpeakingScore: "", content: "", ...EMPTY_ROW_HOMEWORK, note: "" } : r
+          r.content.trim() ? { ...r, attitude: "", homeworkPreviousScore: "", homeworkPreviousSpeakingScore: "", homeworkPreviousReadingScore: "", homeworkPreviousWritingScore: "", content: "", ...EMPTY_ROW_HOMEWORK, note: "" } : r
         )
       );
       setDirty(false);
@@ -858,8 +902,12 @@ export default function DailyCommentPanel() {
               attitude: (parsed.attitude ?? "") as Row["attitude"],
               homeworkPreviousScore: parsed.homeworkPreviousScore ?? "",
               homeworkPreviousSpeakingScore: parsed.homeworkPreviousSpeakingScore ?? "",
+              homeworkPreviousReadingScore: parsed.homeworkPreviousReadingScore ?? "",
+              homeworkPreviousWritingScore: parsed.homeworkPreviousWritingScore ?? "",
               content: parsed.content ?? "",
               homeworkNext: parsed.homeworkNext ?? "",
+              homeworkNextReading: parsed.homeworkNextReading ?? "",
+              homeworkNextWriting: parsed.homeworkNextWriting ?? "",
               homeworkNextExerciseId: parsed.homeworkNextExerciseId ?? "",
               homeworkNextReviewVideoSetId: parsed.homeworkNextReviewVideoSetId ?? "",
               note: parsed.note ?? ""
@@ -1034,18 +1082,41 @@ export default function DailyCommentPanel() {
               {t("dailyCommentPanel.quickAssign.title")}
             </span>
             <div className="flex flex-wrap items-end gap-2">
-              <div className="min-w-[160px]">
-                <label className="text-[9px] font-bold uppercase text-slate-400 block mb-0.5">{t("dailyCommentPanel.quickAssign.offlineLabel")}</label>
-                <input
-                  value={quickOffline}
-                  onChange={(e) => setQuickOffline(e.target.value)}
-                  placeholder={t("dailyCommentPanel.quickAssign.offlinePlaceholder")}
-                  className="w-full bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
-                />
-              </div>
+              {isVietnamese ? (
+                <>
+                  <div className="min-w-[140px]">
+                    <label className="text-[9px] font-bold uppercase text-slate-400 block mb-0.5">{t("dailyCommentPanel.quickAssign.readingLabel")}</label>
+                    <input
+                      value={quickReading}
+                      onChange={(e) => setQuickReading(e.target.value)}
+                      placeholder={t("dailyCommentPanel.quickAssign.offlinePlaceholder")}
+                      className="w-full bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
+                    />
+                  </div>
+                  <div className="min-w-[140px]">
+                    <label className="text-[9px] font-bold uppercase text-slate-400 block mb-0.5">{t("dailyCommentPanel.quickAssign.writingLabel")}</label>
+                    <input
+                      value={quickWriting}
+                      onChange={(e) => setQuickWriting(e.target.value)}
+                      placeholder={t("dailyCommentPanel.quickAssign.offlinePlaceholder")}
+                      className="w-full bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
+                    />
+                  </div>
+                </>
+              ) : (
+                <div className="min-w-[160px]">
+                  <label className="text-[9px] font-bold uppercase text-slate-400 block mb-0.5">{t("dailyCommentPanel.quickAssign.offlineLabel")}</label>
+                  <input
+                    value={quickOffline}
+                    onChange={(e) => setQuickOffline(e.target.value)}
+                    placeholder={t("dailyCommentPanel.quickAssign.offlinePlaceholder")}
+                    className="w-full bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
+                  />
+                </div>
+              )}
               <div className="min-w-[200px]">
                 <label className="text-[9px] font-bold uppercase text-slate-400 block mb-0.5">
-                  {t("dailyCommentPanel.quickAssign.onlineGrammarLabel", { grammarLabel })}
+                  {t("dailyCommentPanel.quickAssign.onlineGrammarLabel", { grammarLabel: onlineGrammarLabel })}
                 </label>
                 <Select
                   value={quickExerciseId}
@@ -1063,7 +1134,7 @@ export default function DailyCommentPanel() {
               </div>
               <div className="min-w-[200px]">
                 <label className="text-[9px] font-bold uppercase text-slate-400 block mb-0.5">
-                  {t("dailyCommentPanel.quickAssign.onlineVideoLabel", { videoLabel })}
+                  {t("dailyCommentPanel.quickAssign.onlineVideoLabel", { videoLabel: onlineVideoLabel })}
                 </label>
                 <Select
                   value={quickVideoId}
@@ -1104,7 +1175,11 @@ export default function DailyCommentPanel() {
               <button
                 type="button"
                 onClick={handleApplyQuickAssign}
-                disabled={!quickOffline && quickExerciseId === "" && quickVideoId === ""}
+                disabled={
+                  isVietnamese
+                    ? !quickReading && !quickWriting && quickExerciseId === "" && quickVideoId === ""
+                    : !quickOffline && quickExerciseId === "" && quickVideoId === ""
+                }
                 className="px-3 py-2 bg-brand-orange hover:bg-brand-orange/90 text-white text-[11px] font-bold rounded-lg disabled:opacity-40"
               >
                 {t("dailyCommentPanel.quickAssign.applyButton")}
@@ -1221,25 +1296,55 @@ export default function DailyCommentPanel() {
             {/* Border rõ giữa các cột/dòng header (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
                 2026-08-06) — Th mặc định không có border, bảng nhóm cột (BTVN buổi trước/online) khó
                 phân biệt ranh giới nếu không kẻ thêm. */}
+            {/*
+              V130 (đã xác nhận với người dùng 2026-08-21, dựa trên 2 ảnh mẫu Excel GV Việt Nam/nước
+              ngoài): buổi teacherType=VIETNAMESE dùng header 3 CẤP — "BTVN buổi trước"/"BTVN" (cấp 1) >
+              Offline/Online (cấp 2) > Reading/Writing/TV+NP/TKN (cấp 3, Offline tách 2 field mới
+              thay vì 1 field gộp, Online giữ nguyên field/chức năng chỉ đổi nhãn). Buổi FOREIGN (hoặc
+              chưa xác định teacherType) giữ khuôn 2 CẤP cũ — chỉ gộp header "BTVN offline"+"BTVN online"
+              cũ (2 <Th> tách rời) thành 1 header "BTVN" (colSpan=3, mirror ảnh mẫu Excel GV nước ngoài),
+              không đổi field/vị trí cột nào khác.
+            */}
             <tr className="border-b border-slate-300 [&>th]:text-center">
-              <Th rowSpan={2} style={STICKY_COL_STYLE[0]} className="sticky left-0 z-30 bg-slate-50 border-r border-b border-slate-300">{t("dailyCommentPanel.columns.studentCode")}</Th>
-              <Th rowSpan={2} style={STICKY_COL_STYLE[1]} className="sticky z-30 bg-slate-50 border-r border-b border-slate-300">{t("dailyCommentPanel.columns.fullName")}</Th>
-              <Th rowSpan={2} style={STICKY_COL_STYLE[2]} className="sticky z-30 bg-slate-50 border-r border-b border-slate-300">{t("dailyCommentPanel.columns.dateOfBirth")}</Th>
-              <Th colSpan={3} className="text-center border-r border-b border-slate-300">{t("dailyCommentPanel.columns.homeworkPrevious")}</Th>
-              <Th rowSpan={2} className="border-r border-b border-slate-300">{t("dailyCommentPanel.columns.homeworkOffline")}</Th>
-              <Th colSpan={2} className="text-center border-r border-b border-slate-300">{t("dailyCommentPanel.columns.homeworkOnline")}</Th>
-              <Th rowSpan={2} className="border-r border-b border-slate-300">{t("dailyCommentPanel.columns.dueDate")}</Th>
-              <Th rowSpan={2} className="border-r border-b border-slate-300">{t("dailyCommentPanel.columns.attitude")}</Th>
-              <Th rowSpan={2} className="border-r border-b border-slate-300">{t("dailyCommentPanel.columns.studentComment")}</Th>
-              <Th rowSpan={2} className="border-b border-slate-300">{t("dailyCommentPanel.columns.note")}</Th>
+              <Th rowSpan={isVietnamese ? 3 : 2} style={STICKY_COL_STYLE[0]} className="sticky left-0 z-30 bg-slate-50 border-r border-b border-slate-300">{t("dailyCommentPanel.columns.studentCode")}</Th>
+              <Th rowSpan={isVietnamese ? 3 : 2} style={STICKY_COL_STYLE[1]} className="sticky z-30 bg-slate-50 border-r border-b border-slate-300">{t("dailyCommentPanel.columns.fullName")}</Th>
+              <Th rowSpan={isVietnamese ? 3 : 2} style={STICKY_COL_STYLE[2]} className="sticky z-30 bg-slate-50 border-r border-b border-slate-300">{t("dailyCommentPanel.columns.dateOfBirth")}</Th>
+              <Th colSpan={isVietnamese ? 4 : 3} className="text-center border-r border-b border-slate-300">{t("dailyCommentPanel.columns.homeworkPrevious")}</Th>
+              <Th colSpan={isVietnamese ? 4 : 3} className="text-center border-r border-b border-slate-300">{t("dailyCommentPanel.columns.homeworkNextGroup")}</Th>
+              <Th rowSpan={isVietnamese ? 3 : 2} className="border-r border-b border-slate-300">{t("dailyCommentPanel.columns.dueDate")}</Th>
+              <Th rowSpan={isVietnamese ? 3 : 2} className="border-r border-b border-slate-300">{t("dailyCommentPanel.columns.attitude")}</Th>
+              <Th rowSpan={isVietnamese ? 3 : 2} className="border-r border-b border-slate-300">{t("dailyCommentPanel.columns.studentComment")}</Th>
+              <Th rowSpan={isVietnamese ? 3 : 2} className="border-b border-slate-300">{t("dailyCommentPanel.columns.note")}</Th>
             </tr>
-            <tr className="border-b border-slate-300 [&>th]:text-center">
-              <Th className="border-r border-b border-slate-300 text-center">{t("dailyCommentPanel.columns.offline")}</Th>
-              <Th className="border-r border-b border-slate-300 text-center">{grammarLabel}</Th>
-              <Th className="border-r border-b border-slate-300 text-center">{videoLabel}</Th>
-              <Th className="border-r border-b border-slate-300 text-center">{grammarLabel}</Th>
-              <Th className="border-r border-b border-slate-300 text-center">{videoLabel}</Th>
-            </tr>
+            {isVietnamese ? (
+              <>
+                <tr className="border-b border-slate-300 [&>th]:text-center">
+                  <Th colSpan={2} className="border-r border-b border-slate-300 text-center">{t("dailyCommentPanel.columns.offline")}</Th>
+                  <Th colSpan={2} className="border-r border-b border-slate-300 text-center">{t("dailyCommentPanel.columns.online")}</Th>
+                  <Th colSpan={2} className="border-r border-b border-slate-300 text-center">{t("dailyCommentPanel.columns.offline")}</Th>
+                  <Th colSpan={2} className="border-r border-b border-slate-300 text-center">{t("dailyCommentPanel.columns.online")}</Th>
+                </tr>
+                <tr className="border-b border-slate-300 [&>th]:text-center">
+                  <Th className="border-r border-b border-slate-300 text-center">{t("dailyCommentPanel.columns.reading")}</Th>
+                  <Th className="border-r border-b border-slate-300 text-center">{t("dailyCommentPanel.columns.writing")}</Th>
+                  <Th className="border-r border-b border-slate-300 text-center">{onlineGrammarLabel}</Th>
+                  <Th className="border-r border-b border-slate-300 text-center">{onlineVideoLabel}</Th>
+                  <Th className="border-r border-b border-slate-300 text-center">{t("dailyCommentPanel.columns.reading")}</Th>
+                  <Th className="border-r border-b border-slate-300 text-center">{t("dailyCommentPanel.columns.writing")}</Th>
+                  <Th className="border-r border-b border-slate-300 text-center">{onlineGrammarLabel}</Th>
+                  <Th className="border-r border-b border-slate-300 text-center">{onlineVideoLabel}</Th>
+                </tr>
+              </>
+            ) : (
+              <tr className="border-b border-slate-300 [&>th]:text-center">
+                <Th className="border-r border-b border-slate-300 text-center">{t("dailyCommentPanel.columns.offline")}</Th>
+                <Th className="border-r border-b border-slate-300 text-center">{grammarLabel}</Th>
+                <Th className="border-r border-b border-slate-300 text-center">{videoLabel}</Th>
+                <Th className="border-r border-b border-slate-300 text-center">{t("dailyCommentPanel.columns.offline")}</Th>
+                <Th className="border-r border-b border-slate-300 text-center">{grammarLabel}</Th>
+                <Th className="border-r border-b border-slate-300 text-center">{videoLabel}</Th>
+              </tr>
+            )}
           </thead>
           {/* KHÔNG dùng divide-y (border-top trên <tr>) — bảng dùng border-separate (bắt buộc cho sticky
               ở trên) nên border khai trực tiếp trên <tr> không render được; mọi viền ngang giữa các dòng
@@ -1292,23 +1397,55 @@ export default function DailyCommentPanel() {
                       <StudentNameLink studentId={r.studentId} name={r.studentFullName} />
                     </Td>
                     <Td style={STICKY_COL_STYLE[2]} className={`sticky z-10 ${stickyBg} whitespace-nowrap text-slate-500 border-r border-b border-slate-300`}>{r.studentDateOfBirth ?? "—"}</Td>
-                    <Td className="min-w-[130px] border-r border-b border-slate-300">
-                      {/* BTVN buổi trước — Offline (sửa lại 2026-08-14, đúng luồng đã xác nhận với người dùng): ô để
-                          GIÁO VIÊN NHẬP ĐIỂM % tự chấm tay cho BTVN offline (giao làm trên giấy ở buổi trước — không có
-                          cách nào tính % tự động, BE không track được bài làm trên giấy). Dùng chung field
-                          homeworkPreviousScore với cột "{grammarLabel}" bên phải (backend không phân biệt 2 cột — cùng
-                          là điểm chấm tay cho kênh Ngữ pháp/Bài nghe buổi trước, chỉ khác chỗ hiển thị trên UI). */}
-                      {locked ? (
-                        <div className={readOnlyFieldClass}>{sent!.homeworkPreviousScore || "—"}</div>
-                      ) : (
-                        <input
-                          value={r.homeworkPreviousScore}
-                          onChange={(e) => updateRow({ homeworkPreviousScore: e.target.value })}
-                          placeholder={t("dailyCommentPanel.homeworkPreviousOfflinePlaceholder")}
-                          className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
-                        />
-                      )}
-                    </Td>
+                    {isVietnamese ? (
+                      <>
+                        {/* V130 — "BTVN buổi trước - Offline - Reading/Writing": GV nhập tay điểm % chấm bài giấy,
+                            thay cho ô "Offline" gộp cũ (homeworkPreviousScore) — 2 field độc lập homeworkPreviousReadingScore/
+                            WritingScore, không liên quan tới field homeworkPreviousScore (đã chuyển hẳn sang buổi FOREIGN). */}
+                        <Td className="min-w-[110px] border-r border-b border-slate-300">
+                          {locked ? (
+                            <div className={readOnlyFieldClass}>{sent!.homeworkPreviousReadingScore || "—"}</div>
+                          ) : (
+                            <input
+                              value={r.homeworkPreviousReadingScore}
+                              onChange={(e) => updateRow({ homeworkPreviousReadingScore: e.target.value })}
+                              placeholder={t("dailyCommentPanel.homeworkPreviousOfflinePlaceholder")}
+                              className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
+                            />
+                          )}
+                        </Td>
+                        <Td className="min-w-[110px] border-r border-b border-slate-300">
+                          {locked ? (
+                            <div className={readOnlyFieldClass}>{sent!.homeworkPreviousWritingScore || "—"}</div>
+                          ) : (
+                            <input
+                              value={r.homeworkPreviousWritingScore}
+                              onChange={(e) => updateRow({ homeworkPreviousWritingScore: e.target.value })}
+                              placeholder={t("dailyCommentPanel.homeworkPreviousOfflinePlaceholder")}
+                              className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
+                            />
+                          )}
+                        </Td>
+                      </>
+                    ) : (
+                      <Td className="min-w-[130px] border-r border-b border-slate-300">
+                        {/* BTVN buổi trước — Offline (sửa lại 2026-08-14, đúng luồng đã xác nhận với người dùng): ô để
+                            GIÁO VIÊN NHẬP ĐIỂM % tự chấm tay cho BTVN offline (giao làm trên giấy ở buổi trước — không có
+                            cách nào tính % tự động, BE không track được bài làm trên giấy). Dùng chung field
+                            homeworkPreviousScore với cột "{grammarLabel}" bên phải (backend không phân biệt 2 cột — cùng
+                            là điểm chấm tay cho kênh Ngữ pháp/Bài nghe buổi trước, chỉ khác chỗ hiển thị trên UI). */}
+                        {locked ? (
+                          <div className={readOnlyFieldClass}>{sent!.homeworkPreviousScore || "—"}</div>
+                        ) : (
+                          <input
+                            value={r.homeworkPreviousScore}
+                            onChange={(e) => updateRow({ homeworkPreviousScore: e.target.value })}
+                            placeholder={t("dailyCommentPanel.homeworkPreviousOfflinePlaceholder")}
+                            className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
+                          />
+                        )}
+                      </Td>
+                    )}
                     <Td className="min-w-[150px] border-r border-b border-slate-300">
                       {/* {grammarLabel} buổi trước — CHỈ hiện % TỰ ĐỘNG (buổi trước giao Online, BE tính từ
                           exercise_attempts) — nhập tay đã chuyển hẳn sang cột "Offline" bên trái, không còn fallback
@@ -1327,18 +1464,50 @@ export default function DailyCommentPanel() {
                         />
                       )}
                     </Td>
-                    <Td className="min-w-[160px] border-r border-b border-slate-300">
-                      {locked ? (
-                        <div className={readOnlyFieldClass}>{sent!.homeworkNext || "—"}</div>
-                      ) : (
-                        <input
-                          value={r.homeworkNext}
-                          onChange={(e) => updateRow({ homeworkNext: e.target.value })}
-                          placeholder={t("dailyCommentPanel.quickAssign.offlinePlaceholder")}
-                          className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
-                        />
-                      )}
-                    </Td>
+                    {isVietnamese ? (
+                      <>
+                        {/* V130 — "BTVN - Offline - Reading/Writing" (giao buổi sau): 2 field text tự do độc lập
+                            (bài + trang), thay cho ô "BTVN offline" gộp cũ (homeworkNext) — buổi FOREIGN vẫn dùng
+                            homeworkNext như trước, xem nhánh else bên dưới. */}
+                        <Td className="min-w-[140px] border-r border-b border-slate-300">
+                          {locked ? (
+                            <div className={readOnlyFieldClass}>{sent!.homeworkNextReading || "—"}</div>
+                          ) : (
+                            <input
+                              value={r.homeworkNextReading}
+                              onChange={(e) => updateRow({ homeworkNextReading: e.target.value })}
+                              placeholder={t("dailyCommentPanel.quickAssign.offlinePlaceholder")}
+                              className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
+                            />
+                          )}
+                        </Td>
+                        <Td className="min-w-[140px] border-r border-b border-slate-300">
+                          {locked ? (
+                            <div className={readOnlyFieldClass}>{sent!.homeworkNextWriting || "—"}</div>
+                          ) : (
+                            <input
+                              value={r.homeworkNextWriting}
+                              onChange={(e) => updateRow({ homeworkNextWriting: e.target.value })}
+                              placeholder={t("dailyCommentPanel.quickAssign.offlinePlaceholder")}
+                              className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
+                            />
+                          )}
+                        </Td>
+                      </>
+                    ) : (
+                      <Td className="min-w-[160px] border-r border-b border-slate-300">
+                        {locked ? (
+                          <div className={readOnlyFieldClass}>{sent!.homeworkNext || "—"}</div>
+                        ) : (
+                          <input
+                            value={r.homeworkNext}
+                            onChange={(e) => updateRow({ homeworkNext: e.target.value })}
+                            placeholder={t("dailyCommentPanel.quickAssign.offlinePlaceholder")}
+                            className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
+                          />
+                        )}
+                      </Td>
+                    )}
                     <Td className="min-w-[200px] border-r border-b border-slate-300">
                       {locked ? (
                         <div className={readOnlyFieldClass}>{sent!.homeworkNextExerciseTitle || "—"}</div>
@@ -1497,6 +1666,7 @@ export default function DailyCommentPanel() {
             }))}
             grammarLabel={grammarLabel}
             videoLabel={videoLabel}
+            isVietnamese={isVietnamese}
             onClose={() => setShowSessionHistory(false)}
           />
         )}

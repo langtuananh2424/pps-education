@@ -41,7 +41,13 @@ public record StudentCommentResponse(
         String attitude,
         String homeworkPreviousScore,
         String homeworkPreviousSpeakingScore,
+        /** V130 — điểm % Reading/Writing "BTVN buổi trước - Offline", chỉ buổi teacherType=VIETNAMESE. */
+        String homeworkPreviousReadingScore,
+        String homeworkPreviousWritingScore,
         String homeworkNext,
+        /** V130 — mô tả bài giao Reading/Writing "BTVN - Offline" buổi sau, chỉ buổi teacherType=VIETNAMESE. */
+        String homeworkNextReading,
+        String homeworkNextWriting,
         Long homeworkNextExerciseAssignmentId,
         String homeworkNextExerciseTitle,
         Long homeworkNextReviewVideoAssignmentId,

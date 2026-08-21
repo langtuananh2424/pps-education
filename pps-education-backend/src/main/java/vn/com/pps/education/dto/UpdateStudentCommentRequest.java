@@ -21,7 +21,12 @@ public record UpdateStudentCommentRequest(
         String attitude,
         String homeworkPreviousScore,
         String homeworkPreviousSpeakingScore,
+        // V130 — mirror CreateStudentCommentRequest, chỉ có ý nghĩa khi buổi teacherType=VIETNAMESE.
+        String homeworkPreviousReadingScore,
+        String homeworkPreviousWritingScore,
         String homeworkNext,
+        String homeworkNextReading,
+        String homeworkNextWriting,
         Long homeworkNextExerciseId,
         Long homeworkNextReviewVideoSetId,
         /** Nhận xét học viên (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05) — xem Javadoc CreateStudentCommentRequest. */

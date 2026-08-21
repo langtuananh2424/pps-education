@@ -195,13 +195,18 @@ public class PartnerPortalService {
                 c.getApprovedBy() == null ? null : c.getApprovedBy().getId(), c.getVisibleToParentAt(), c.getRejectionReason(),
                 c.getAttitude() == null ? null : c.getAttitude().name(), c.getHomeworkPreviousScore(),
                 c.getHomeworkPreviousSpeakingScore(),
+                // V130: homeworkPreviousReadingScore/WritingScore — Portal trường liên kết chưa cần hiển thị, để trống.
+                null, null,
                 // Portal trường liên kết chưa cần hiển thị chi tiết BTVN online (UC-21 mở rộng, V55) — để trống, bổ sung khi có yêu cầu.
                 // 13 field null: homeworkNextExerciseAssignmentId/Title, homeworkNextReviewVideoAssignmentId/Title,
                 // homeworkNextDueAt, pendingHomeworkNextExerciseId/Title (V127), pendingHomeworkNextReviewVideoSetId/Title
                 // (V127), pendingHomeworkNextDueDate (V127), grammarPreviousProgress, videoPreviousProgress,
                 // homeworkPreviousOfflineText.
-                c.getHomeworkNext(), null, null, null, null, null, null, null, null, null,
-                null, null, null, null, c.getNote(),
+                c.getHomeworkNext(),
+                // V130: homeworkNextReading/Writing — để trống, mirror ghi chú trên.
+                null, null,
+                null, null, null, null, null, null, null,
+                null, null, null, null, null, null, c.getNote(),
                 c.getClassSession().getLessonContent());
     }
 }
