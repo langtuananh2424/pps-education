@@ -40,6 +40,9 @@ docker-compose.override.yml
 # Project thử nghiệm local, không đẩy lên GitHub
 pps-education-frontend-test/
 
+# Rule cá nhân của user (máy dev quá nhiệt) — không áp dụng cho cả team
+.claude/rules/local-ci-testing.md
+
 # Playwright MCP — công cụ + output phát sinh khi QA test live qua UI thật
 .mcp.json
 .playwright-mcp/

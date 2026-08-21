@@ -13,5 +13,7 @@ public record UpdateClassRequest(
         @NotNull LocalDate startDate,
         LocalDate endDate,
         Long academicYearId,
-        @NotBlank String status
+        @NotBlank String status,
+        /** Đổi màu hiển thị trên lịch làm việc dạng lưới — để trống (null) thì giữ nguyên màu cũ (bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-08-21). */
+        String color
 ) {}

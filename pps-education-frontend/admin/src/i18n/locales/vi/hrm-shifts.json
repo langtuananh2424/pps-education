@@ -151,6 +151,15 @@
       "month": "Tháng",
       "year": "Năm"
     },
+    "quickRangeDisabledInClassGrid": "Không áp dụng ở chế độ Theo lớp học — lưới quá rộng để đọc",
+    "viewMode": {
+      "employee": "Theo nhân viên",
+      "classGrid": "Theo lớp học"
+    },
+    "classGrid": {
+      "selectSiteHint": "Chọn 1 điểm trường ở dropdown \"Điểm trường\" trên đầu trang để xem theo lớp học.",
+      "rangeTooWideHint": "Chọn \"Ngày\" hoặc \"Tuần\" để xem theo lớp học — khoảng ngày hiện tại quá dài để hiển thị dạng lưới."
+    },
     "rangeSeparator": "đến",
     "filters": {
       "allDepartments": "Tất cả phòng ban",

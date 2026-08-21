@@ -151,6 +151,15 @@
       "month": "Month",
       "year": "Year"
     },
+    "quickRangeDisabledInClassGrid": "Not available in Class-based view — the grid is too wide to read",
+    "viewMode": {
+      "employee": "By staff",
+      "classGrid": "By class"
+    },
+    "classGrid": {
+      "selectSiteHint": "Select a site from the \"Site\" dropdown at the top of the page to view by class.",
+      "rangeTooWideHint": "Select \"Day\" or \"Week\" to view by class — the current date range is too wide to display as a grid."
+    },
     "rangeSeparator": "to",
     "filters": {
       "allDepartments": "All departments",

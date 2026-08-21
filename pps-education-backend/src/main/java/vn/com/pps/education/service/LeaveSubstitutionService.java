@@ -59,13 +59,19 @@ public class LeaveSubstitutionService {
     private ClassSessionResponse toSessionResponse(ClassSession s) {
         return new ClassSessionResponse(
                 s.getId(), s.getSchoolClass().getId(), s.getSchoolClass().getName(), s.getSessionDate(), s.getStartTime(), s.getEndTime(),
+                null, null,
                 s.getRoom() == null ? null : s.getRoom().getId(), s.getRoom() == null ? null : s.getRoom().getName(),
                 s.getPrimaryTeacher().getId(), s.getPrimaryTeacher().getFullName(),
+                s.getAssistantTeacher() == null ? null : s.getAssistantTeacher().getId(),
+                s.getAssistantTeacher() == null ? null : s.getAssistantTeacher().getFullName(),
+                s.getCmTeacher() == null ? null : s.getCmTeacher().getId(),
+                s.getCmTeacher() == null ? null : s.getCmTeacher().getFullName(),
                 s.getSessionType().name(), s.getStatus().name(),
                 s.getCancellationReason(), s.getRescheduledToSession() == null ? null : s.getRescheduledToSession().getId(),
                 s.getLessonContent(), s.getTeacherType() == null ? null : s.getTeacherType().name(),
                 s.getActualTeacherName(), null,
-                s.getMakeupForSession() == null ? null : s.getMakeupForSession().getId());
+                s.getMakeupForSession() == null ? null : s.getMakeupForSession().getId(),
+                s.getSchoolClass().getColor());
     }
 
     /**

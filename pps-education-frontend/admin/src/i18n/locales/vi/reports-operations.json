@@ -75,18 +75,46 @@
     "emptyState": "Chọn lớp học và buổi học để xem thống kê nhận xét"
   },
   "enrollmentMovementStatsPage": {
-    "title": "Thống kê biến động học sinh theo kỳ",
-    "description": "Sĩ số đầu kỳ/cuối kỳ và biến động (nhập học mới, nghỉ/rút, chuyển lớp, hoàn thành) của các lớp trong 1 kỳ học.",
+    "title": "Thống kê biến động học sinh",
+    "description": "Sĩ số đầu kỳ/cuối kỳ và biến động (nhập học mới, nghỉ/rút, chuyển lớp, hoàn thành) của các lớp — xem theo tháng, học kỳ hoặc năm.",
     "exportButton": "Xuất Excel",
+    "periodType": {
+      "MONTH": "Tháng",
+      "TERM": "Học kỳ",
+      "YEAR": "Năm"
+    },
+    "displayMode": {
+      "detail": "Chi tiết",
+      "grid": "Lưới tổng quan",
+      "gridTitle": "Lưới tổng quan — hàng đầu là tháng/kỳ/năm, cột đầu là lớp"
+    },
+    "monthLabel": "Tháng {{month}}/{{year}}",
+    "monthRangeLabel": "Tháng {{startMonth}}/{{startYear}} – Tháng {{endMonth}}/{{endYear}}",
+    "yearLabel": "Năm {{year}}",
     "filters": {
-      "noSiteSelected": "Vui lòng chọn 1 điểm trường cụ thể trên thanh Header (góc trên bên trái) — mỗi Kỳ học luôn gắn 1 điểm trường.",
-      "title": "Chọn kỳ học",
+      "noSiteSelected": "Vui lòng chọn 1 điểm trường cụ thể trên thanh Header (góc trên bên trái).",
+      "selectPeriodTitle": "Chọn {{period}}",
       "termLabel": "Kỳ học",
       "termPlaceholder": "-- Chọn kỳ học --",
       "termOption": "{{name}} ({{startDate}} - {{endDate}})",
       "comparisonLabel": "So sánh với kỳ khác (tuỳ chọn)",
       "comparisonPlaceholder": "-- Không so sánh --",
-      "noTerms": "Điểm trường này chưa có kỳ học nào — tạo ở màn \"Quản lý Kỳ học\"."
+      "noTerms": "Điểm trường này chưa có kỳ học nào — tạo ở màn \"Quản lý Kỳ học\".",
+      "monthFromLabel": "Từ tháng",
+      "monthToLabel": "Đến tháng",
+      "comparisonMonthFromLabel": "So sánh — từ tháng (tuỳ chọn)",
+      "comparisonMonthToLabel": "đến tháng",
+      "yearLabel": "Năm",
+      "comparisonYearLabel": "So sánh với năm khác (tuỳ chọn)"
+    },
+    "gridMode": {
+      "sectionHint": "Lưới tổng quan — hàng đầu là {{period}}, cột đầu là lớp",
+      "yearLabel": "Năm (hiển thị đủ 12 tháng)",
+      "yearRangeHint": "Hiển thị 6 năm gần nhất ({{start}} — {{end}}).",
+      "allTermsHint": "Hiển thị toàn bộ kỳ học của điểm trường này, sắp theo thời gian.",
+      "loading": "Đang tải lưới thống kê...",
+      "loadError": "Không tải được lưới biến động học sinh.",
+      "classColumn": "Lớp"
     },
     "loadStatsError": "Không tải được thống kê biến động học sinh.",
     "stats": {
@@ -124,6 +152,6 @@
       "exportFailed": "Xuất file thất bại."
     },
     "loadingStats": "Đang tải thống kê...",
-    "selectTermPrompt": "Chọn 1 kỳ học để xem thống kê biến động"
+    "selectTermPrompt": "Chọn {{period}} để xem thống kê biến động"
   }
 }

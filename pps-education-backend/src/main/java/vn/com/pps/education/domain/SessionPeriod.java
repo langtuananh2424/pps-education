@@ -25,6 +25,11 @@ public class SessionPeriod {
     @JoinColumn(name = "class_session_id", nullable = false)
     private ClassSession classSession;
 
+    /** Buổi trong ngày lúc tạo (copy từ SitePeriodTemplate.dayPart — V129, bổ sung ngoài SDD gốc, xác nhận 2026-08-20). */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "day_part", nullable = false, length = 20)
+    private SitePeriodTemplate.DayPart dayPart;
+
     @Column(name = "period_number", nullable = false)
     private int periodNumber;
 

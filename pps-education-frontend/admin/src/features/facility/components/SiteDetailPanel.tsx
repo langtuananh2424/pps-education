@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { FileText, Plus, Save, Search, ShieldCheck, UserCog, Users, X } from "lucide-react";
+import { CalendarClock, CalendarRange, FileText, Plus, Save, Search, ShieldCheck, UserCog, Users, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { searchUsers, UserListItemResponse } from "@/features/system-admin/api";
@@ -24,6 +24,8 @@ import Badge, { BadgeVariant } from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import { siteStatusLabel, siteStatusVariants, siteTypeLabel } from "./SiteListPanel";
+import SitePeriodTab from "./SitePeriodTab";
+import SiteAcademicPeriodsTab from "./SiteAcademicPeriodsTab";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import { useDialog } from "@/components/ui/DialogProvider";
@@ -33,7 +35,7 @@ import Select from "@/components/ui/Select";
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
 
-type Tab = "profile" | "manager" | "teachers" | "contracts";
+type Tab = "profile" | "manager" | "teachers" | "contracts" | "periods" | "academic";
 
 const contractStatusVariants: Record<string, BadgeVariant> = { DRAFT: "neutral", ACTIVE: "success", EXPIRED: "warning", TERMINATED: "danger" };
 
@@ -66,6 +68,8 @@ export default function SiteDetailPanel({ site, onChanged }: SiteDetailPanelProp
               ["profile", t("siteDetail.tabs.profile"), FileText],
               ["manager", t("siteDetail.tabs.manager"), UserCog],
               ["teachers", t("siteDetail.tabs.teachers"), Users],
+              ["periods", t("siteDetail.tabs.periods"), CalendarClock],
+              ["academic", t("siteDetail.tabs.academic"), CalendarRange],
               ...(site.siteType === "PARTNER" ? ([["contracts", t("siteDetail.tabs.contracts"), ShieldCheck]] as const) : [])
             ] as const
           ).map(([key, label, Icon]) => (
@@ -87,6 +91,8 @@ export default function SiteDetailPanel({ site, onChanged }: SiteDetailPanelProp
         {tab === "profile" && <ProfileTab site={site} onChanged={onChanged} showToast={showToast} />}
         {tab === "manager" && <ManagerTab site={site} onChanged={onChanged} showToast={showToast} />}
         {tab === "teachers" && <SiteTeachersTab siteId={site.id} showToast={showToast} />}
+        {tab === "periods" && <SitePeriodTab siteId={site.id} showToast={showToast} />}
+        {tab === "academic" && <SiteAcademicPeriodsTab siteId={site.id} siteName={site.name} />}
         {tab === "contracts" && site.siteType === "PARTNER" && <ContractsTab siteId={site.id} showToast={showToast} />}
       </div>
 

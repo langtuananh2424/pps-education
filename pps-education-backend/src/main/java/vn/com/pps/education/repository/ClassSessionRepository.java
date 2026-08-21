@@ -236,4 +236,20 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, Long
      */
     List<ClassSession> findBySchoolClassIdAndTeacherTypeAndStatusAndSessionDateGreaterThanEqual(
             Long classId, ClassSession.TeacherType teacherType, ClassSession.Status status, LocalDate fromDate);
+
+    /**
+     * Lưới thời khóa biểu toàn điểm trường theo tuần (bổ sung ngoài SDD
+     * gốc, xác nhận 2026-08-19) — mọi buổi của MỌI lớp thuộc 1 site, lọc
+     * theo khoảng ngày. Đối xứng findBySchoolClassIdInAndDateRange (UC-59)
+     * nhưng lọc theo site thay vì danh sách classId.
+     */
+    @Query("""
+            SELECT cs FROM ClassSession cs
+            WHERE cs.schoolClass.site.id = :siteId
+            AND cs.sessionDate BETWEEN :fromDate AND :toDate
+            ORDER BY cs.sessionDate ASC, cs.startTime ASC
+            """)
+    List<ClassSession> findBySiteIdAndDateRange(@Param("siteId") Long siteId,
+                                                 @Param("fromDate") LocalDate fromDate,
+                                                 @Param("toDate") LocalDate toDate);
 }

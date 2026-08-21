@@ -23,13 +23,19 @@ spring:
       hibernate:
         format_sql: true
         default_schema: public
-        # JVM chạy ở múi giờ +07:00 (Việt Nam) - nếu không cố định UTC ở đây,
-        # driver Postgres có thể throw DateTimeException khi đọc cột TIME gần
-        # nửa đêm (quy đổi qua epoch nội bộ bị âm) - phát hiện qua UC-09
-        # (shifts.check_in_time). Không đổi user.timezone của cả JVM để tránh
-        # ảnh hưởng OffsetDateTime.now() dùng nơi khác trong app.
-        jdbc:
-          time_zone: UTC
+        # ĐÃ BỎ hibernate.jdbc.time_zone=UTC (xác nhận với người dùng
+        # 2026-08-20 — dữ liệu còn ở local/staging, chưa lên production,
+        # chấp nhận migrate 1 lần). Setting cũ ép Hibernate bind LocalTime
+        # qua java.sql.Time kiểu cũ, gây lệch ĐÚNG 8 TIẾNG khi ghi xuống DB
+        # (java.sql.Time.valueOf() dùng offset LỊCH SỬ NĂM 1970 của múi giờ
+        # Asia/Ho_Chi_Minh — khi đó UTC+8, mãi 1975 mới đổi UTC+7) — vi phạm
+        # CHECK chk_session_time với mọi buổi/tiết bắt đầu trước ~08:00
+        # (nghiệp vụ bắt buộc: Tiết 1 = 07:00-07:30 tuỳ trường). Đã chạy
+        # V129 (bake in giá trị đúng đang hiển thị thành giá trị raw mới
+        # cho 5 bảng: class_sessions, session_periods, site_period_templates,
+        # shifts, leave_requests) TRONG CÙNG 1 LẦN DEPLOY với việc bỏ
+        # setting này — bắt buộc đi cùng nhau, không tách rời (Flyway chạy
+        # trước khi Hibernate khởi tạo nên an toàn khi cùng 1 lần khởi động).
 
   flyway:
     enabled: true

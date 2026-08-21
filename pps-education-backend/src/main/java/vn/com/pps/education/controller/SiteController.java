@@ -1,6 +1,7 @@
 package vn.com.pps.education.controller;
 
 import jakarta.validation.Valid;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -10,18 +11,22 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import vn.com.pps.education.dto.AssignSiteManagerRequest;
 import vn.com.pps.education.dto.AssignSiteTeacherRequest;
+import vn.com.pps.education.dto.ClassSessionResponse;
 import vn.com.pps.education.dto.CreateSiteRequest;
 import vn.com.pps.education.dto.PartnerAttendanceSummaryResponse;
 import vn.com.pps.education.dto.SiteResponse;
 import vn.com.pps.education.dto.SiteTeacherResponse;
 import vn.com.pps.education.dto.UpdateSiteRequest;
 import vn.com.pps.education.security.AuthenticatedUser;
+import vn.com.pps.education.service.ClassSessionService;
 import vn.com.pps.education.service.SiteService;
 import vn.com.pps.education.service.StudentAttendanceService;
 
+import java.time.LocalDate;
 import java.util.List;
 
 /** UC-36: Quản lý điểm trường (FR-FAC-01) — xem Javadoc SiteService. */
@@ -30,10 +35,13 @@ public class SiteController {
 
     private final SiteService siteService;
     private final StudentAttendanceService studentAttendanceService;
+    private final ClassSessionService classSessionService;
 
-    public SiteController(SiteService siteService, StudentAttendanceService studentAttendanceService) {
+    public SiteController(SiteService siteService, StudentAttendanceService studentAttendanceService,
+                           ClassSessionService classSessionService) {
         this.siteService = siteService;
         this.studentAttendanceService = studentAttendanceService;
+        this.classSessionService = classSessionService;
     }
 
     @PostMapping("/api/sites")
@@ -95,5 +103,19 @@ public class SiteController {
     public ResponseEntity<List<PartnerAttendanceSummaryResponse>> getAttendanceSummary(
             @PathVariable Long id, @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(studentAttendanceService.getSiteSummary(id, actor.userId()));
+    }
+
+    /**
+     * Lưới thời khóa biểu toàn điểm trường theo tuần (bổ sung ngoài SDD
+     * gốc, xác nhận 2026-08-19) — xem Javadoc
+     * ClassSessionService#listSessionsForSiteTimetable.
+     */
+    @GetMapping("/api/sites/{id}/sessions")
+    public ResponseEntity<List<ClassSessionResponse>> listSessions(
+            @PathVariable Long id,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
+            @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(classSessionService.listSessionsForSiteTimetable(id, fromDate, toDate, actor.userId()));
     }
 }

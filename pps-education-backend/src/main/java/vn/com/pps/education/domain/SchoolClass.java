@@ -73,6 +73,10 @@ public class SchoolClass extends BaseAuditEntity {
     @Column(nullable = false, length = 20)
     private Status status = Status.PLANNED;
 
+    /** Màu hiển thị trên lịch làm việc dạng lưới (VD "#F97316") — tự chọn ngẫu nhiên khi tạo lớp, người dùng đổi lại được (V134, bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-08-21). */
+    @Column(nullable = false, length = 7)
+    private String color;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "created_by", nullable = false)
     private User createdBy;

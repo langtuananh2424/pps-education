@@ -50,10 +50,26 @@ public class ClassSession extends BaseAuditEntity {
     @JoinColumn(name = "room_id")
     private Room room;
 
-    /** Có thể khác GV chính của lớp (VD dạy thay) — SDD. */
+    /**
+     * Chọn tay riêng từng buổi (bổ sung ngoài SDD gốc, xác nhận
+     * 2026-08-19 — ĐẢO NGƯỢC quyết định 2026-08-13/V121: trước đây tự
+     * động suy ra từ class_teachers PRIMARY của lớp, giờ người xếp lịch
+     * chọn trực tiếp bất kỳ tài khoản TEACHER nào, không còn ràng buộc
+     * phải là PRIMARY của lớp).
+     */
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "primary_teacher_id", nullable = false)
     private User primaryTeacher;
+
+    /** Giáo viên phụ của buổi này (tuỳ chọn) — gán riêng theo buổi, khác class_teachers ASSISTANT (cấp lớp). V128, xác nhận 2026-08-19. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "assistant_teacher_id")
+    private User assistantTeacher;
+
+    /** CM (Class Manager) của buổi này (tuỳ chọn) — gán riêng theo buổi, khác class_teachers CM (cấp lớp). V128, xác nhận 2026-08-19. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cm_teacher_id")
+    private User cmTeacher;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "session_type", nullable = false, length = 20)

@@ -176,7 +176,12 @@ export const navSections: NavSection[] = [
     title: "QUẢN LÝ HỌC THUẬT",
     items: [
       // Self-service (UC-58) — không gate quyền, ai đăng nhập cũng vào được, chỉ có dữ liệu thật với Giáo viên.
-      { id: "acad-my-schedule", label: "Lịch của tôi", path: "/schedule/my-timetable", icon: CalendarDays },
+      // Đổi tên "Lịch của tôi" -> "Lịch dạy" (xác nhận với người dùng 2026-08-20) — phân biệt với
+      // "Lịch làm việc" bên QUẢN LÝ NHÂN SỰ (HRM roster) hay bị nhầm là cùng 1 trang. Chức năng giữ nguyên.
+      { id: "acad-my-schedule", label: "Lịch dạy", path: "/schedule/my-timetable", icon: CalendarDays },
+      // "Thời khóa biểu" (route /academic/timetable) đã XOÁ (xác nhận với người dùng 2026-08-20) —
+      // trùng lặp hoàn toàn với chế độ xem "Theo lớp học" của "Lịch làm việc" bên QUẢN LÝ NHÂN SỰ
+      // (EmployeeSchedulePage, cùng dùng chung ClassPeriodGrid) sau khi thử gộp 2 trang lịch.
       // academic.class.manage: TEACHER/HEAD_ACADEMIC đều có sẵn permission này (xem UC-18) — không cần gate thêm role.
       { id: "acad-classes", label: "Quản lý lớp học", path: "/academic/classes", icon: GraduationCap, requiredPermission: "academic.class.manage" },
       // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31 — trước đó chỉ vào được qua nút
@@ -233,7 +238,10 @@ export const navSections: NavSection[] = [
       { id: "rep-daily", label: "Thống kê nhận xét", path: "/reports/daily-comments", icon: PieChart, requiredPermission: "report.daily-comment.view" },
       { id: "rep-grades", label: "Thống kê điểm", path: "/reports/grades", icon: Award, requiredPermission: "report.grade.view" },
       { id: "rep-student", label: "Hồ sơ học tập", path: "/reports/student-progress", icon: BookUser, requiredPermission: "report.student-progress.view" },
-      { id: "rep-enrollment-movement", label: "Biến động học sinh theo kỳ", path: "/reports/enrollment-movement", icon: ArrowLeftRight, requiredPermission: "report.enrollment-stats.view" }
+      { id: "rep-enrollment-movement", label: "Thống kê biến động học sinh", path: "/reports/enrollment-movement", icon: ArrowLeftRight, requiredPermission: "report.enrollment-stats.view" },
+      // Bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-08-20 — số tiết ĐÃ DẠY thực tế theo lớp,
+      // lọc theo tuần/tháng/kỳ/năm (khác "Thống kê điểm"/"Thống kê nhận xét" — không liên quan điểm số).
+      { id: "rep-actual-periods", label: "Số tiết thực tế theo lớp", path: "/reports/actual-periods", icon: BookOpenCheck, requiredPermission: "report.actual-periods.view" }
     ]
   },
   {

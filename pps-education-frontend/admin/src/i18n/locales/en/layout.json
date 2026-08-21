@@ -76,6 +76,8 @@
   "sidebar": {
     "logout": "Sign Out",
     "notLoggedIn": "Not signed in",
+    "collapseButtonTitle": "Collapse navigation",
+    "expandButtonTitle": "Expand navigation",
     "unsavedModal": {
       "title": "Unsaved changes",
       "description": "You have unsaved changes on the current page. Would you like to save a draft before leaving?",

@@ -1,16 +1,13 @@
 import React, { useEffect, useState } from "react";
-import { ArrowRightLeft, CalendarRange, GraduationCap } from "lucide-react";
+import { ArrowRightLeft, GraduationCap } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import { UserRole } from "@/types";
 import { ClassResponse, listClassTeachers, listClasses } from "../api";
-import { SiteResponse, listSites } from "@/features/facility/api";
 import ClassListPanel from "../components/ClassListPanel";
 import ClassDetailPanel from "../components/ClassDetailPanel";
 import ClassFormModal from "../components/ClassFormModal";
-import AcademicTermManagerModal from "../components/AcademicTermManagerModal";
-import AcademicYearManagerModal from "../components/AcademicYearManagerModal";
 import ClassPromotionModal from "../components/ClassPromotionModal";
 import Button from "@/components/ui/Button";
 import { useToast } from "@/lib/useToast";
@@ -33,18 +30,10 @@ export default function ClassesPage() {
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
-  const [termsOpen, setTermsOpen] = useState(false);
-  const [academicYearsOpen, setAcademicYearsOpen] = useState(false);
   const [promotionOpen, setPromotionOpen] = useState(false);
   const [academicYearFilter, setAcademicYearFilter] = useState("");
-  const [sites, setSites] = useState<SiteResponse[]>([]);
   const { message: toastMessage, showToast } = useToast();
   const effectiveSelectedId = isClassAdmin ? selectedId : globalClassId;
-  const selectedSite = selectedCampusId !== "ALL" ? sites.find((s) => s.id === Number(selectedCampusId)) ?? null : null;
-
-  useEffect(() => {
-    listSites().then(setSites).catch(() => undefined);
-  }, []);
 
   /**
    * UC-18 Precondition: GV chỉ xếp/xem lớp mình được phân công dạy (class_teachers),
@@ -86,20 +75,6 @@ export default function ClassesPage() {
         </div>
         {canManage && (
           <div className="flex items-center gap-2 flex-wrap">
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => setTermsOpen(true)}
-              disabled={!selectedSite}
-              title={selectedSite ? undefined : t("classesPage.manageTermsDisabledTitle")}
-            >
-              <CalendarRange className="w-3.5 h-3.5" />
-              {t("classesPage.manageTermsButton")}
-            </Button>
-            <Button size="sm" variant="secondary" onClick={() => setAcademicYearsOpen(true)}>
-              <GraduationCap className="w-3.5 h-3.5" />
-              {t("classesPage.manageAcademicYearsButton")}
-            </Button>
             <Button size="sm" variant="secondary" onClick={() => setPromotionOpen(true)}>
               <ArrowRightLeft className="w-3.5 h-3.5" />
               {t("classesPage.promoteButton")}
@@ -152,10 +127,6 @@ export default function ClassesPage() {
           }}
         />
       )}
-
-      {termsOpen && selectedSite && <AcademicTermManagerModal siteId={selectedSite.id} siteName={selectedSite.name} onClose={() => setTermsOpen(false)} />}
-
-      {academicYearsOpen && <AcademicYearManagerModal onClose={() => setAcademicYearsOpen(false)} />}
 
       {promotionOpen && (
         <ClassPromotionModal
