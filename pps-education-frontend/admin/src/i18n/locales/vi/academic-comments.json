@@ -207,6 +207,8 @@
       "offlinePlaceholder": "VD: Unit 2 trang 10",
       "readingLabel": "BTVN offline — Reading",
       "writingLabel": "BTVN offline — Writing",
+      "onlineReadingLabel": "BTVN online — Reading",
+      "onlineWritingLabel": "BTVN online — Writing",
       "onlineGrammarLabel": "BTVN online — {{grammarLabel}}",
       "onlineVideoLabel": "BTVN online — {{videoLabel}}",
       "noAssign": "-- Không giao --",

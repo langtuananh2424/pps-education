@@ -52,6 +52,11 @@ public record StudentCommentResponse(
         String homeworkNextExerciseTitle,
         Long homeworkNextReviewVideoAssignmentId,
         String homeworkNextReviewVideoSetTitle,
+        /** V137 — "BTVN - Online - Reading/Writing" (mirror homeworkNextExerciseAssignmentId), chỉ buổi teacherType=VIETNAMESE. */
+        Long homeworkNextReadingExerciseAssignmentId,
+        String homeworkNextReadingExerciseTitle,
+        Long homeworkNextWritingExerciseAssignmentId,
+        String homeworkNextWritingExerciseTitle,
         /** Hạn nộp BTVN buổi sau (lấy từ dueAt của ExerciseAssignment/ReviewVideoAssignment đã giao) — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05. */
         OffsetDateTime homeworkNextDueAt,
         /** V127: id/tên Exercise Giáo viên vừa chọn nhưng CHƯA Gửi nhận xét — null nếu chưa chọn gì hoặc đã Gửi (xem ghi chú V127 ở trên). */
@@ -60,6 +65,11 @@ public record StudentCommentResponse(
         /** V127: mirror pendingHomeworkNextExerciseId cho kênh Video Ôn tập. */
         Long pendingHomeworkNextReviewVideoSetId,
         String pendingHomeworkNextReviewVideoSetTitle,
+        /** V137: mirror pendingHomeworkNextExerciseId cho kênh Reading/Writing. */
+        Long pendingHomeworkNextReadingExerciseId,
+        String pendingHomeworkNextReadingExerciseTitle,
+        Long pendingHomeworkNextWritingExerciseId,
+        String pendingHomeworkNextWritingExerciseTitle,
         /**
          * V127: hạn nộp tự chọn đi kèm lựa chọn CHƯA giao ở trên — giờ tường thuật thô (LocalDateTime,
          * KHÔNG kèm offset, y hệt kiểu request.homeworkNextDueDate()) — cố tình KHÔNG trả OffsetDateTime
@@ -70,6 +80,9 @@ public record StudentCommentResponse(
         LocalDateTime pendingHomeworkNextDueDate,
         String grammarPreviousProgress,
         String videoPreviousProgress,
+        /** V137 — % tự động "BTVN buổi trước - Online - Reading/Writing" (mirror grammarPreviousProgress/videoPreviousProgress), tính từ exercise_attempts của homeworkNextReading/WritingExerciseAssignment buổi TRƯỚC. */
+        String readingPreviousProgress,
+        String writingPreviousProgress,
         /**
          * BTVN buổi trước từng giao OFFLINE (chữ tự do) — bổ sung ngoài SDD
          * gốc, đã xác nhận với người dùng 2026-08-06, để phân biệt "BTVN

@@ -215,6 +215,22 @@ public class StudentComment {
     @JoinColumn(name = "homework_next_review_video_assignment_id")
     private ReviewVideoAssignment homeworkNextReviewVideoAssignment;
 
+    /**
+     * "BTVN — Online — Reading" (V137, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-21) —
+     * mirror {@link #homeworkNextExerciseAssignment} (kênh Ngữ pháp/TV+NP) nhưng cho kênh Reading, trỏ
+     * 1 {@link ExerciseAssignment} của Exercise có {@code skillCategory=READING} (xem Exercise.SkillCategory).
+     * CHỈ áp dụng khi {@code classSession.teacherType=VIETNAMESE}. Cùng vòng đời V65/V127 với kênh Ngữ
+     * pháp — chỉ có giá trị SAU submit, lựa chọn CHƯA giao nằm ở {@link #pendingHomeworkNextReadingExerciseId}.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "homework_next_reading_exercise_assignment_id")
+    private ExerciseAssignment homeworkNextReadingExerciseAssignment;
+
+    /** Mirror {@link #homeworkNextReadingExerciseAssignment} cho kỹ năng Writing (V137). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "homework_next_writing_exercise_assignment_id")
+    private ExerciseAssignment homeworkNextWritingExerciseAssignment;
+
     @Column(columnDefinition = "TEXT")
     private String note;
 
@@ -234,6 +250,14 @@ public class StudentComment {
     /** Id ReviewVideoSet (nguồn) Giáo viên vừa chọn nhưng CHƯA Gửi nhận xét — mirror {@link #pendingHomeworkNextExerciseId}. */
     @Column(name = "pending_homework_next_review_video_set_id")
     private Long pendingHomeworkNextReviewVideoSetId;
+
+    /** Id Exercise (nguồn, skillCategory=READING) Giáo viên vừa chọn nhưng CHƯA Gửi nhận xét (V137) — mirror {@link #pendingHomeworkNextExerciseId}. */
+    @Column(name = "pending_homework_next_reading_exercise_id")
+    private Long pendingHomeworkNextReadingExerciseId;
+
+    /** Mirror {@link #pendingHomeworkNextReadingExerciseId} cho kỹ năng Writing, skillCategory=WRITING (V137). */
+    @Column(name = "pending_homework_next_writing_exercise_id")
+    private Long pendingHomeworkNextWritingExerciseId;
 
     /** Hạn nộp tự chọn (giờ tường thuật thô, chưa quy đổi múi giờ) đi kèm lựa chọn CHƯA giao ở trên — quy đổi thật ở resolveDueAt() lúc Gửi. */
     @Column(name = "pending_homework_next_due_date")

@@ -92,6 +92,9 @@ interface Row {
   homeworkNextExerciseId: number | "";
   /** id của ReviewVideoSet NGUỒN đã Publish — không đổi tên qua V65 (request field vẫn nhận thẳng set id). */
   homeworkNextReviewVideoSetId: number | "";
+  /** V137 — kênh "BTVN online" Reading/Writing mới, id Exercise NGUỒN skillCategory=READING/WRITING — chỉ dùng khi buổi teacherType=VIETNAMESE. */
+  homeworkNextReadingExerciseId: number | "";
+  homeworkNextWritingExerciseId: number | "";
   note: string;
 }
 
@@ -110,16 +113,20 @@ function rowHasAnyData(r: Row): boolean {
     r.homeworkNextWriting.trim() ||
     r.homeworkNextExerciseId !== "" ||
     r.homeworkNextReviewVideoSetId !== "" ||
+    r.homeworkNextReadingExerciseId !== "" ||
+    r.homeworkNextWritingExerciseId !== "" ||
     r.note.trim()
   );
 }
 
-const EMPTY_ROW_HOMEWORK: Pick<Row, "homeworkNext" | "homeworkNextReading" | "homeworkNextWriting" | "homeworkNextExerciseId" | "homeworkNextReviewVideoSetId"> = {
+const EMPTY_ROW_HOMEWORK: Pick<Row, "homeworkNext" | "homeworkNextReading" | "homeworkNextWriting" | "homeworkNextExerciseId" | "homeworkNextReviewVideoSetId" | "homeworkNextReadingExerciseId" | "homeworkNextWritingExerciseId"> = {
   homeworkNext: "",
   homeworkNextReading: "",
   homeworkNextWriting: "",
   homeworkNextExerciseId: "",
-  homeworkNextReviewVideoSetId: ""
+  homeworkNextReviewVideoSetId: "",
+  homeworkNextReadingExerciseId: "",
+  homeworkNextWritingExerciseId: ""
 };
 
 /**
@@ -153,6 +160,8 @@ const isRowBlank = (r: Row) =>
   !r.homeworkNextWriting.trim() &&
   r.homeworkNextExerciseId === "" &&
   r.homeworkNextReviewVideoSetId === "" &&
+  r.homeworkNextReadingExerciseId === "" &&
+  r.homeworkNextWritingExerciseId === "" &&
   !r.note.trim();
 
 /**
@@ -206,6 +215,9 @@ export default function DailyCommentPanel() {
   /** V65: nguồn khả dụng cho dropdown "BTVN Ngữ pháp buổi sau" — Exercise đã Publish (không phải bản giao). */
   const [grammarOptions, setGrammarOptions] = useState<ExerciseResponse[]>([]);
   const [videoOptions, setVideoOptions] = useState<ReviewVideoSetResponse[]>([]);
+  /** V137: nguồn khả dụng cho dropdown "BTVN Reading/Writing buổi sau" (kênh online mới) — Exercise đã Publish, lọc theo skillCategory (KHÔNG lọc teacherType, giống BE StudentCommentService#buildTemplate). */
+  const [readingOptions, setReadingOptions] = useState<ExerciseResponse[]>([]);
+  const [writingOptions, setWritingOptions] = useState<ExerciseResponse[]>([]);
   /**
    * V65: bản giao ACTIVE hiện có của lớp — CHỈ dùng để tra ngược "comment đã lưu trước đó chọn đề/
    * video nguồn nào" (response StudentCommentResponse chỉ trả id bản giao, không trả thẳng id nguồn),
@@ -254,6 +266,9 @@ export default function DailyCommentPanel() {
   /** V130 — mirror quickOffline, chỉ dùng khi buổi teacherType=VIETNAMESE (thay quickOffline bằng 2 ô Reading/Writing). */
   const [quickReading, setQuickReading] = useState("");
   const [quickWriting, setQuickWriting] = useState("");
+  /** V137 — mirror quickExerciseId/quickVideoId, kênh "BTVN online" Reading/Writing mới. */
+  const [quickReadingExerciseId, setQuickReadingExerciseId] = useState<number | "">("");
+  const [quickWritingExerciseId, setQuickWritingExerciseId] = useState<number | "">("");
 
   const selectedClass = classes.find((c) => c.id === selectedClassId) ?? null;
   const selectedSession = sessions.find((s) => s.id === selectedSessionId) ?? null;
@@ -348,6 +363,8 @@ export default function DailyCommentPanel() {
     setRows([]);
     setGrammarOptions([]);
     setVideoOptions([]);
+    setReadingOptions([]);
+    setWritingOptions([]);
     setGrammarAssignments([]);
     setVideoAssignments([]);
     setSessionCommentStats({});
@@ -380,6 +397,12 @@ export default function DailyCommentPanel() {
     // KHÔNG phải bản giao sẵn có như trước V65); BTVN Video Ôn tập chọn từ bộ đã CÔNG BỐ (PUBLISHED)
     // — khớp đúng điều kiện buildTemplate ở BE.
     listPublishedExercisesForClass(selectedClassId).then(setGrammarOptions).catch(() => undefined);
+    listPublishedExercisesForClass(selectedClassId)
+      .then((exercises) => {
+        setReadingOptions(exercises.filter((ex) => ex.skillCategory === "READING"));
+        setWritingOptions(exercises.filter((ex) => ex.skillCategory === "WRITING"));
+      })
+      .catch(() => undefined);
     listReviewVideoSetsByClass(selectedClassId)
       .then((sets) => setVideoOptions(sets.filter((s) => s.status === "PUBLISHED")))
       .catch(() => undefined);
@@ -492,6 +515,19 @@ export default function DailyCommentPanel() {
             (draft.homeworkNextReviewVideoAssignmentId != null
               ? videoAssignments.find((a) => a.id === draft.homeworkNextReviewVideoAssignmentId)?.reviewVideoSetId ?? ""
               : "");
+          // V137: cùng nguyên tắc trên — grammarAssignments thực ra là DANH SÁCH CHUNG mọi Exercise
+          // Assignment của lớp (không riêng kênh Ngữ pháp), nên dùng lại được để tra ngược id nguồn
+          // Reading/Writing khi pending đã null (dòng REJECTED chưa sửa gì).
+          const readingExerciseId =
+            draft.pendingHomeworkNextReadingExerciseId ??
+            (draft.homeworkNextReadingExerciseAssignmentId != null
+              ? grammarAssignments.find((a) => a.id === draft.homeworkNextReadingExerciseAssignmentId)?.exerciseId ?? ""
+              : "");
+          const writingExerciseId =
+            draft.pendingHomeworkNextWritingExerciseId ??
+            (draft.homeworkNextWritingExerciseAssignmentId != null
+              ? grammarAssignments.find((a) => a.id === draft.homeworkNextWritingExerciseAssignmentId)?.exerciseId ?? ""
+              : "");
           return {
             ...r,
             attitude: draft.attitude ?? "",
@@ -512,6 +548,8 @@ export default function DailyCommentPanel() {
             homeworkNextWriting: draft.homeworkNextWriting ?? "",
             homeworkNextExerciseId: exerciseId,
             homeworkNextReviewVideoSetId: videoSetId,
+            homeworkNextReadingExerciseId: readingExerciseId,
+            homeworkNextWritingExerciseId: writingExerciseId,
             note: draft.note ?? ""
           };
         })
@@ -578,7 +616,12 @@ export default function DailyCommentPanel() {
           : {
               ...r,
               ...(isVietnamese
-                ? { homeworkNextReading: quickReading, homeworkNextWriting: quickWriting }
+                ? {
+                    homeworkNextReading: quickReading,
+                    homeworkNextWriting: quickWriting,
+                    homeworkNextReadingExerciseId: quickReadingExerciseId,
+                    homeworkNextWritingExerciseId: quickWritingExerciseId
+                  }
                 : { homeworkNext: quickOffline }),
               homeworkNextExerciseId: quickExerciseId,
               homeworkNextReviewVideoSetId: quickVideoId
@@ -606,6 +649,9 @@ export default function DailyCommentPanel() {
     homeworkNextWriting: r.homeworkNextWriting.trim() || undefined,
     homeworkNextExerciseId: r.homeworkNextExerciseId !== "" ? r.homeworkNextExerciseId : undefined,
     homeworkNextReviewVideoSetId: r.homeworkNextReviewVideoSetId !== "" ? r.homeworkNextReviewVideoSetId : undefined,
+    // V137 — kênh "BTVN online" Reading/Writing mới, chỉ gửi khi buổi teacherType=VIETNAMESE.
+    homeworkNextReadingExerciseId: r.homeworkNextReadingExerciseId !== "" ? r.homeworkNextReadingExerciseId : undefined,
+    homeworkNextWritingExerciseId: r.homeworkNextWritingExerciseId !== "" ? r.homeworkNextWritingExerciseId : undefined,
     // Hạn nộp buổi sau (ngày + giờ) — 1 giá trị chung cho cả buổi (xem dueDateTime), để trống thì BE tự tính = buổi kế tiếp.
     homeworkNextDueDate: dueDateTime || undefined,
     note: r.note.trim() || undefined
@@ -911,6 +957,8 @@ export default function DailyCommentPanel() {
               homeworkNextWriting: parsed.homeworkNextWriting ?? "",
               homeworkNextExerciseId: parsed.homeworkNextExerciseId ?? "",
               homeworkNextReviewVideoSetId: parsed.homeworkNextReviewVideoSetId ?? "",
+              homeworkNextReadingExerciseId: parsed.homeworkNextReadingExerciseId ?? "",
+              homeworkNextWritingExerciseId: parsed.homeworkNextWritingExerciseId ?? "",
               note: parsed.note ?? ""
             };
           })
@@ -1103,6 +1151,39 @@ export default function DailyCommentPanel() {
                       className="w-full bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
                     />
                   </div>
+                  {/* V137 — kênh "BTVN online" Reading/Writing mới, mirror ô Ngữ pháp/Video TKN bên dưới. */}
+                  <div className="min-w-[200px]">
+                    <label className="text-[9px] font-bold uppercase text-slate-400 block mb-0.5">{t("dailyCommentPanel.quickAssign.onlineReadingLabel")}</label>
+                    <Select
+                      value={quickReadingExerciseId}
+                      disabled={blockOnlineHomework}
+                      onChange={(e) => setQuickReadingExerciseId(e.target.value ? Number(e.target.value) : "")}
+                      className="w-full bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none disabled:opacity-40"
+                    >
+                      <option value="">{t("dailyCommentPanel.quickAssign.noAssign")}</option>
+                      {readingOptions.map((ex) => (
+                        <option key={ex.id} value={ex.id}>
+                          {ex.examCode} - {ex.title}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                  <div className="min-w-[200px]">
+                    <label className="text-[9px] font-bold uppercase text-slate-400 block mb-0.5">{t("dailyCommentPanel.quickAssign.onlineWritingLabel")}</label>
+                    <Select
+                      value={quickWritingExerciseId}
+                      disabled={blockOnlineHomework}
+                      onChange={(e) => setQuickWritingExerciseId(e.target.value ? Number(e.target.value) : "")}
+                      className="w-full bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none disabled:opacity-40"
+                    >
+                      <option value="">{t("dailyCommentPanel.quickAssign.noAssign")}</option>
+                      {writingOptions.map((ex) => (
+                        <option key={ex.id} value={ex.id}>
+                          {ex.examCode} - {ex.title}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
                 </>
               ) : (
                 <div className="min-w-[160px]">
@@ -1177,7 +1258,12 @@ export default function DailyCommentPanel() {
                 onClick={handleApplyQuickAssign}
                 disabled={
                   isVietnamese
-                    ? !quickReading && !quickWriting && quickExerciseId === "" && quickVideoId === ""
+                    ? !quickReading &&
+                      !quickWriting &&
+                      quickExerciseId === "" &&
+                      quickVideoId === "" &&
+                      quickReadingExerciseId === "" &&
+                      quickWritingExerciseId === ""
                     : !quickOffline && quickExerciseId === "" && quickVideoId === ""
                 }
                 className="px-3 py-2 bg-brand-orange hover:bg-brand-orange/90 text-white text-[11px] font-bold rounded-lg disabled:opacity-40"
@@ -1314,8 +1400,8 @@ export default function DailyCommentPanel() {
               <Th rowSpan={isVietnamese ? 3 : 2} style={STICKY_COL_STYLE[0]} className="sticky left-0 z-30 bg-slate-50 border-r border-b border-slate-300">{t("dailyCommentPanel.columns.studentCode")}</Th>
               <Th rowSpan={isVietnamese ? 3 : 2} style={STICKY_COL_STYLE[1]} className="sticky z-30 bg-slate-50 border-r border-b border-slate-300">{t("dailyCommentPanel.columns.fullName")}</Th>
               <Th rowSpan={isVietnamese ? 3 : 2} style={STICKY_COL_STYLE[2]} className="sticky z-30 bg-slate-50 border-r border-b border-slate-300">{t("dailyCommentPanel.columns.dateOfBirth")}</Th>
-              <Th colSpan={isVietnamese ? 4 : 3} className="text-center border-r border-b border-slate-300">{t("dailyCommentPanel.columns.homeworkPrevious")}</Th>
-              <Th colSpan={isVietnamese ? 4 : 3} className="text-center border-r border-b border-slate-300">{t("dailyCommentPanel.columns.homeworkNextGroup")}</Th>
+              <Th colSpan={isVietnamese ? 6 : 3} className="text-center border-r border-b border-slate-300">{t("dailyCommentPanel.columns.homeworkPrevious")}</Th>
+              <Th colSpan={isVietnamese ? 6 : 3} className="text-center border-r border-b border-slate-300">{t("dailyCommentPanel.columns.homeworkNextGroup")}</Th>
               <Th rowSpan={isVietnamese ? 3 : 2} className="border-r border-b border-slate-300">{t("dailyCommentPanel.columns.dueDate")}</Th>
               <Th rowSpan={isVietnamese ? 3 : 2} className="border-r border-b border-slate-300">{t("dailyCommentPanel.columns.attitude")}</Th>
               <Th rowSpan={isVietnamese ? 3 : 2} className="border-r border-b border-slate-300">{t("dailyCommentPanel.columns.studentComment")}</Th>
@@ -1325,15 +1411,20 @@ export default function DailyCommentPanel() {
               <>
                 <tr className="border-b border-slate-300 [&>th]:text-center">
                   <Th colSpan={2} className="border-r border-b border-slate-300 text-center">{t("dailyCommentPanel.columns.offline")}</Th>
-                  <Th colSpan={2} className="border-r border-b border-slate-300 text-center">{t("dailyCommentPanel.columns.online")}</Th>
+                  <Th colSpan={4} className="border-r border-b border-slate-300 text-center">{t("dailyCommentPanel.columns.online")}</Th>
                   <Th colSpan={2} className="border-r border-b border-slate-300 text-center">{t("dailyCommentPanel.columns.offline")}</Th>
-                  <Th colSpan={2} className="border-r border-b border-slate-300 text-center">{t("dailyCommentPanel.columns.online")}</Th>
+                  <Th colSpan={4} className="border-r border-b border-slate-300 text-center">{t("dailyCommentPanel.columns.online")}</Th>
                 </tr>
                 <tr className="border-b border-slate-300 [&>th]:text-center">
                   <Th className="border-r border-b border-slate-300 text-center">{t("dailyCommentPanel.columns.reading")}</Th>
                   <Th className="border-r border-b border-slate-300 text-center">{t("dailyCommentPanel.columns.writing")}</Th>
+                  {/* V137 — kênh "BTVN online" mới: Reading/Writing (giao Exercise skillCategory=READING/WRITING), thêm 2 cột trước Ngữ pháp/Video TKN cũ. */}
+                  <Th className="border-r border-b border-slate-300 text-center">{t("dailyCommentPanel.columns.reading")}</Th>
+                  <Th className="border-r border-b border-slate-300 text-center">{t("dailyCommentPanel.columns.writing")}</Th>
                   <Th className="border-r border-b border-slate-300 text-center">{onlineGrammarLabel}</Th>
                   <Th className="border-r border-b border-slate-300 text-center">{onlineVideoLabel}</Th>
+                  <Th className="border-r border-b border-slate-300 text-center">{t("dailyCommentPanel.columns.reading")}</Th>
+                  <Th className="border-r border-b border-slate-300 text-center">{t("dailyCommentPanel.columns.writing")}</Th>
                   <Th className="border-r border-b border-slate-300 text-center">{t("dailyCommentPanel.columns.reading")}</Th>
                   <Th className="border-r border-b border-slate-300 text-center">{t("dailyCommentPanel.columns.writing")}</Th>
                   <Th className="border-r border-b border-slate-300 text-center">{onlineGrammarLabel}</Th>
@@ -1431,6 +1522,15 @@ export default function DailyCommentPanel() {
                             />
                           )}
                         </Td>
+                        {/* V137 — "BTVN buổi trước - Online - Reading/Writing": CHỈ hiện % TỰ ĐỘNG (BE tính từ
+                            exercise_attempts lọc skillCategory=READING/WRITING, giống cột {onlineGrammarLabel} bên
+                            phải) — không có nhập tay (giao Online thì luôn tính được tự động). */}
+                        <Td className="min-w-[150px] border-r border-b border-slate-300">
+                          <PreviousProgressCell auto={sent?.readingPreviousProgress ?? null} manual={null} autoLabel={t("dailyCommentPanel.autoBadge")} />
+                        </Td>
+                        <Td className="min-w-[150px] border-r border-b border-slate-300">
+                          <PreviousProgressCell auto={sent?.writingPreviousProgress ?? null} manual={null} autoLabel={t("dailyCommentPanel.autoBadge")} />
+                        </Td>
                       </>
                     ) : (
                       <Td className="min-w-[130px] border-r border-b border-slate-300">
@@ -1496,6 +1596,49 @@ export default function DailyCommentPanel() {
                               placeholder={t("dailyCommentPanel.quickAssign.offlinePlaceholder")}
                               className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
                             />
+                          )}
+                        </Td>
+                        {/* V137 — "BTVN - Online - Reading/Writing" (giao buổi sau): chọn Exercise NGUỒN đã Publish,
+                            lọc theo skillCategory=READING/WRITING (readingOptions/writingOptions — KHÔNG lọc
+                            teacherType, giống BE StudentCommentService#buildTemplate). */}
+                        <Td className="min-w-[200px] border-r border-b border-slate-300">
+                          {locked ? (
+                            <div className={readOnlyFieldClass}>{sent!.homeworkNextReadingExerciseTitle || "—"}</div>
+                          ) : (
+                            <Select
+                              value={r.homeworkNextReadingExerciseId}
+                              disabled={blockOnlineHomework || !teacherType}
+                              onChange={(e) => updateRow({ homeworkNextReadingExerciseId: e.target.value ? Number(e.target.value) : "" })}
+                              aria-label={!teacherType ? t("dailyCommentPanel.ariaChooseTeacherTypeFirst") : blockOnlineHomework ? t("dailyCommentPanel.ariaNoUpcomingSession") : undefined}
+                              className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                              <option value="">{t("dailyCommentPanel.chooseExercisePlaceholder")}</option>
+                              {readingOptions.map((ex) => (
+                                <option key={ex.id} value={ex.id}>
+                                  {ex.examCode} - {ex.title}
+                                </option>
+                              ))}
+                            </Select>
+                          )}
+                        </Td>
+                        <Td className="min-w-[200px] border-r border-b border-slate-300">
+                          {locked ? (
+                            <div className={readOnlyFieldClass}>{sent!.homeworkNextWritingExerciseTitle || "—"}</div>
+                          ) : (
+                            <Select
+                              value={r.homeworkNextWritingExerciseId}
+                              disabled={blockOnlineHomework || !teacherType}
+                              onChange={(e) => updateRow({ homeworkNextWritingExerciseId: e.target.value ? Number(e.target.value) : "" })}
+                              aria-label={!teacherType ? t("dailyCommentPanel.ariaChooseTeacherTypeFirst") : blockOnlineHomework ? t("dailyCommentPanel.ariaNoUpcomingSession") : undefined}
+                              className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                              <option value="">{t("dailyCommentPanel.chooseExercisePlaceholder")}</option>
+                              {writingOptions.map((ex) => (
+                                <option key={ex.id} value={ex.id}>
+                                  {ex.examCode} - {ex.title}
+                                </option>
+                              ))}
+                            </Select>
                           )}
                         </Td>
                       </>
