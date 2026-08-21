@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { Sparkles } from "lucide-react";
-import { ApiError } from "@/lib/apiClient";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Select from "@/components/ui/Select";
 import DatePicker from "@/components/ui/DatePicker";
 import { DayPart, listSites, SiteResponse } from "@/features/facility/api";
-import { BulkCreateClassSessionRequest, BulkCreateClassSessionResponse, bulkCreateClassSessions, ClassResponse, listClasses } from "../api";
+import { BulkCreateClassSessionRequest, ClassResponse, listClasses } from "../api";
 import PeriodMultiSelect from "./PeriodMultiSelect";
 import TeacherSearchSelect from "./TeacherSearchSelect";
 
@@ -23,29 +22,57 @@ const weekdays: { value: string; label: string }[] = [
   { value: "SUNDAY", label: "Chủ nhật" }
 ];
 
+export interface CreateSessionModalPrefill {
+  /** Ngày dạng "YYYY-MM-DD" — suy ra luôn "Từ ngày"/"Đến ngày"/"Chọn thứ". */
+  date: string;
+  dayPart: DayPart;
+  periodNumbers: number[];
+  classId?: number;
+}
+
+export interface QueuedCreatePayload {
+  classId: number;
+  className: string;
+  request: BulkCreateClassSessionRequest;
+  primaryTeacherName: string;
+  assistantTeacherName: string | null;
+  cmTeacherName: string | null;
+}
+
 interface CreateSessionModalProps {
   defaultSiteId: number | null;
   onClose: () => void;
-  onDone: () => void;
+  /** Thêm vào hàng chờ (nháp) trên lưới — CHƯA gọi API, chỉ có hiệu lực khi bấm "Lưu" ở lưới (bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-08-20). */
+  onQueued: (payload: QueuedCreatePayload) => void;
+  /** Bôi đen ô tiết trên lưới rồi chuột phải → "Xếp lịch" (bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-08-20). */
+  prefill?: CreateSessionModalPrefill;
+}
+
+export function weekdayOf(dateIso: string): string {
+  const [y, m, d] = dateIso.split("-").map(Number);
+  const dow = new Date(y, m - 1, d).getDay(); // 0=CN..6=T7
+  return ["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"][dow];
 }
 
 /**
- * Nút "Xếp lịch" ở trang Lịch làm việc (bổ sung ngoài SDD gốc, xác nhận
- * với người dùng 2026-08-19) — Trường → Lớp → chọn thứ → chọn tiết → loại
- * GV → GV chính/phụ/CM → khoảng ngày, gọi bulkCreateClassSessions (UC-56,
- * cũng dùng được cho 1 buổi lẻ nếu từ ngày = đến ngày + 1 thứ).
+ * Nút "Xếp lịch" ở lưới thời khóa biểu (bổ sung ngoài SDD gốc, xác nhận với
+ * người dùng 2026-08-19, đổi sang cơ chế nháp/Lưu 2026-08-21) — Trường →
+ * Lớp → chọn thứ → chọn tiết → loại GV → GV chính/phụ/CM → khoảng ngày.
+ * KHÔNG gọi bulkCreateClassSessions ngay — chỉ thêm 1 mục vào hàng chờ của
+ * lưới (hiện dạng thẻ "chưa lưu"), API chỉ được gọi khi người dùng bấm nút
+ * "Lưu" tổng ở lưới — cho phép Hoàn tác/xem lại trước khi ghi thật.
  */
-export default function CreateSessionModal({ defaultSiteId, onClose, onDone }: CreateSessionModalProps) {
+export default function CreateSessionModal({ defaultSiteId, onClose, onQueued, prefill }: CreateSessionModalProps) {
   const [sites, setSites] = useState<SiteResponse[]>([]);
   const [siteId, setSiteId] = useState<number | "">(defaultSiteId ?? "");
   const [classes, setClasses] = useState<ClassResponse[]>([]);
   const [classId, setClassId] = useState<number | "">("");
 
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [selectedDays, setSelectedDays] = useState<Set<string>>(new Set());
-  const [dayPart, setDayPart] = useState<DayPart>("MORNING");
-  const [selectedPeriods, setSelectedPeriods] = useState<Set<number>>(new Set());
+  const [startDate, setStartDate] = useState(prefill?.date ?? "");
+  const [endDate, setEndDate] = useState(prefill?.date ?? "");
+  const [selectedDays, setSelectedDays] = useState<Set<string>>(() => (prefill ? new Set([weekdayOf(prefill.date)]) : new Set()));
+  const [dayPart, setDayPart] = useState<DayPart>(prefill?.dayPart ?? "MORNING");
+  const [selectedPeriods, setSelectedPeriods] = useState<Set<number>>(() => new Set(prefill?.periodNumbers ?? []));
   const [sessionType, setSessionType] = useState("REGULAR");
   const [teacherType, setTeacherType] = useState("");
   const [primaryTeacherId, setPrimaryTeacherId] = useState<number | null>(null);
@@ -55,9 +82,7 @@ export default function CreateSessionModal({ defaultSiteId, onClose, onDone }: C
   const [cmTeacherId, setCmTeacherId] = useState<number | null>(null);
   const [cmTeacherName, setCmTeacherName] = useState<string | null>(null);
 
-  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<BulkCreateClassSessionResponse | null>(null);
 
   useEffect(() => {
     listSites().then(setSites).catch(() => undefined);
@@ -72,6 +97,11 @@ export default function CreateSessionModal({ defaultSiteId, onClose, onDone }: C
     listClasses({ siteId: Number(siteId) }).then(setClasses).catch(() => undefined);
   }, [siteId]);
 
+  useEffect(() => {
+    if (!prefill?.classId) return;
+    if (classes.some((c) => c.id === prefill.classId)) setClassId(prefill.classId);
+  }, [classes, prefill?.classId]);
+
   const toggleDay = (day: string) => {
     setSelectedDays((prev) => {
       const next = new Set(prev);
@@ -81,10 +111,11 @@ export default function CreateSessionModal({ defaultSiteId, onClose, onDone }: C
     });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!classId || !startDate || !endDate || selectedDays.size === 0) {
+    const selectedClass = classes.find((c) => c.id === classId);
+    if (!classId || !selectedClass || !startDate || !endDate || selectedDays.size === 0) {
       setError("Vui lòng chọn lớp, khoảng ngày và tối thiểu 1 ngày trong tuần.");
       return;
     }
@@ -92,32 +123,30 @@ export default function CreateSessionModal({ defaultSiteId, onClose, onDone }: C
       setError("Vui lòng chọn tối thiểu 1 tiết học.");
       return;
     }
-    if (!teacherType || !primaryTeacherId) {
+    if (!teacherType || !primaryTeacherId || !primaryTeacherName) {
       setError("Vui lòng chọn loại giáo viên và giáo viên chính.");
       return;
     }
-    setSubmitting(true);
-    try {
-      const request: BulkCreateClassSessionRequest = {
-        startDate,
-        endDate,
-        daysOfWeek: Array.from(selectedDays),
-        dayPart,
-        periodNumbers: Array.from(selectedPeriods),
-        sessionType,
-        teacherType: teacherType as "VIETNAMESE" | "FOREIGN",
-        primaryTeacherId,
-        assistantTeacherId: assistantTeacherId ?? undefined,
-        cmTeacherId: cmTeacherId ?? undefined
-      };
-      const res = await bulkCreateClassSessions(Number(classId), request);
-      setResult(res);
-      if (res.createdCount > 0) onDone();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Xếp lịch thất bại.");
-    } finally {
-      setSubmitting(false);
-    }
+    const request: BulkCreateClassSessionRequest = {
+      startDate,
+      endDate,
+      daysOfWeek: Array.from(selectedDays),
+      dayPart,
+      periodNumbers: Array.from(selectedPeriods),
+      sessionType,
+      teacherType: teacherType as "VIETNAMESE" | "FOREIGN",
+      primaryTeacherId,
+      assistantTeacherId: assistantTeacherId ?? undefined,
+      cmTeacherId: cmTeacherId ?? undefined
+    };
+    onQueued({
+      classId: Number(classId),
+      className: `${selectedClass.classCode} — ${selectedClass.name}`,
+      request,
+      primaryTeacherName,
+      assistantTeacherName,
+      cmTeacherName
+    });
   };
 
   return (
@@ -230,31 +259,17 @@ export default function CreateSessionModal({ defaultSiteId, onClose, onDone }: C
           }}
         />
 
-        {result && (
-          <div className="p-3 bg-white border border-slate-200 rounded-lg text-xs space-y-1.5">
-            <p className="font-bold text-slate-700">
-              Đã tạo <span className="text-emerald-600">{result.createdCount}</span> / {result.totalDates} buổi
-              {result.skippedCount > 0 && <span className="text-rose-500"> — bỏ qua {result.skippedCount} buổi trùng lịch</span>}
-            </p>
-            {result.skipped.length > 0 && (
-              <div className="space-y-0.5 max-h-24 overflow-y-auto">
-                {result.skipped.map((s, i) => (
-                  <p key={i} className="text-[10px] text-rose-500">
-                    {s.date}: {s.reason}
-                  </p>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+        <p className="text-[11px] text-slate-400 italic">
+          Buổi vừa thêm sẽ hiện trên lưới ở dạng "chưa lưu" — bấm "Lưu" ở đầu lưới để ghi thật (server sẽ tự bỏ qua ngày bị trùng lịch).
+        </p>
 
         <div className="flex justify-end gap-2 pt-1">
           <Button type="button" variant="secondary" size="sm" onClick={onClose}>
             Đóng
           </Button>
-          <Button type="submit" variant="primary" size="sm" disabled={submitting}>
+          <Button type="submit" variant="primary" size="sm">
             <Sparkles className="w-3.5 h-3.5" />
-            {submitting ? "Đang xếp lịch..." : "Xếp lịch"}
+            Thêm vào lưới
           </Button>
         </div>
       </form>

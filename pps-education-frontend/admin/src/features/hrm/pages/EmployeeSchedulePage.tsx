@@ -1,16 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
-import { CalendarClock, Clock, Plus, Search, Users } from "lucide-react";
+import { CalendarClock, Clock, Search, Users } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { cn } from "@/lib/cn";
 import { getMonthGridDates, getWeekDates, toISODate } from "@/lib/calendarDates";
 import { matchesShiftPattern } from "@/lib/shiftPattern";
 import { useApp } from "@/context/AppContext";
 import { Badge, Modal, TableContainer, Th, Td } from "@/components/ui";
-import Button from "@/components/ui/Button";
 import Select from "@/components/ui/Select";
 import { checkInStatusLabels, checkInStatusVariants, sessionStatusVariants } from "@/features/academic/components/ClassDetailPanel";
 import ClassPeriodGrid from "@/features/academic/components/ClassPeriodGrid";
-import CreateSessionModal from "@/features/academic/components/CreateSessionModal";
 import { listSites, SiteResponse } from "@/features/facility/api";
 import { listClasses, ClassResponse, ClassSessionCheckInStatusResponse, ClassSessionResponse } from "@/features/academic/api";
 import {
@@ -231,8 +229,6 @@ export default function EmployeeSchedulePage() {
   // Mặc định "Theo lớp học" (xác nhận với người dùng 2026-08-20) — đây là nhu cầu dùng thường xuyên hơn (xếp/xem lịch dạy) so với roster nhân viên.
   const [viewMode, setViewMode] = useState<ViewMode>("classGrid");
   const [quickRange, setQuickRange] = useState<QuickRange>("week");
-  const [createOpen, setCreateOpen] = useState(false);
-  const [classGridRefreshKey, setClassGridRefreshKey] = useState(0);
   const [from, setFrom] = useState(() => toISODate(getWeekDates(new Date())[0]));
   const [to, setTo] = useState(() => toISODate(getWeekDates(new Date())[6]));
   const [departmentId, setDepartmentId] = useState<number | "">("");
@@ -401,12 +397,6 @@ export default function EmployeeSchedulePage() {
           <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Lịch làm việc</h1>
           <p className="text-xs text-slate-500 mt-1">Ca làm cố định và lịch dạy của toàn bộ nhân viên, lọc theo phòng ban/điểm trường/lớp/nhân viên.</p>
         </div>
-        {viewMode === "classGrid" && (
-          <Button size="sm" variant="primary" onClick={() => setCreateOpen(true)}>
-            <Plus className="w-3.5 h-3.5" />
-            Xếp lịch
-          </Button>
-        )}
       </div>
 
       {!canView ? (
@@ -524,7 +514,7 @@ export default function EmployeeSchedulePage() {
                 Chọn "Ngày" hoặc "Tuần" để xem theo lớp học — khoảng ngày hiện tại quá dài để hiển thị dạng lưới.
               </p>
             ) : (
-              <ClassPeriodGrid key={classGridRefreshKey} siteId={classGridSiteId} dates={dateRange} classId={classId === "" ? undefined : classId} />
+              <ClassPeriodGrid siteId={classGridSiteId} dates={dateRange} classId={classId === "" ? undefined : classId} />
             )
           ) : showHourlyTable ? (
             <DailyTimeline
@@ -671,17 +661,6 @@ export default function EmployeeSchedulePage() {
           />
         )}
       </Modal>
-
-      {createOpen && (
-        <CreateSessionModal
-          defaultSiteId={classGridSiteId}
-          onClose={() => setCreateOpen(false)}
-          onDone={() => {
-            setCreateOpen(false);
-            setClassGridRefreshKey((k) => k + 1);
-          }}
-        />
-      )}
     </div>
   );
 }

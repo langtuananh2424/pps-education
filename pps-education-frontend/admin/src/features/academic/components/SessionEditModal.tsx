@@ -1,42 +1,48 @@
 import { useState } from "react";
-import { CalendarClock, Save, XCircle } from "lucide-react";
+import { CalendarClock, Save } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { DayPart, RoomResponse } from "@/features/facility/api";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Select from "@/components/ui/Select";
 import DatePicker from "@/components/ui/DatePicker";
-import { useDialog } from "@/components/ui/DialogProvider";
-import {
-  cancelClassSession,
-  ClassSessionResponse,
-  rescheduleClassSession,
-  updateSessionAssignment,
-  UpdateSessionAssignmentRequest
-} from "../api";
+import { ClassSessionResponse, rescheduleClassSession, UpdateSessionAssignmentRequest } from "../api";
 import PeriodMultiSelect from "./PeriodMultiSelect";
 import TeacherSearchSelect from "./TeacherSearchSelect";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
 
+export interface SessionAssignmentPreview {
+  roomName: string | null;
+  teacherType: "VIETNAMESE" | "FOREIGN";
+  primaryTeacherName: string;
+  assistantTeacherName: string | null;
+  cmTeacherName: string | null;
+}
+
 interface SessionEditModalProps {
   session: ClassSessionResponse;
   siteId: number;
   rooms: RoomResponse[];
   onClose: () => void;
-  onChanged: () => void;
+  /** Tab "Sửa thông tin" — CHƯA gọi API, chỉ thêm vào hàng chờ của lưới, có hiệu lực khi bấm "Lưu" (bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-08-21). */
+  onQueueUpdate: (request: UpdateSessionAssignmentRequest, preview: SessionAssignmentPreview) => void;
+  /** Tab "Dời lịch" — vẫn gọi API ngay (đổi ngày thực chất tạo buổi mới + đánh dấu RESCHEDULED buổi cũ, không hợp với mô hình nháp theo field). */
+  onRescheduled: () => void;
+  /** Buổi đang sửa là 1 mục "mới thêm, chưa lưu" trên lưới — chưa có sessionId thật nên ẩn tab "Dời lịch" (không có ý nghĩa trước khi Lưu), bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-08-21. */
+  hideReschedule?: boolean;
 }
 
 /**
  * Sửa nhanh tại chỗ 1 buổi học từ lưới thời khóa biểu (bổ sung ngoài SDD
- * gốc, xác nhận với người dùng 2026-08-19) — gọi PATCH .../assignment
- * (đổi GV/phòng/tiết cùng ngày), hoặc "Dời lịch" (đổi ngày, đi qua
- * reschedule để giữ đúng ngữ nghĩa RESCHEDULED), hoặc "Hủy buổi".
+ * gốc, xác nhận với người dùng 2026-08-19) — "Sửa thông tin" (đổi GV/phòng/
+ * tiết cùng ngày) giờ chỉ ghi vào hàng chờ của lưới (xác nhận 2026-08-21,
+ * xem ClassPeriodGrid), "Dời lịch" (đổi ngày) vẫn lưu ngay để giữ đúng ngữ
+ * nghĩa RESCHEDULED. "Hủy buổi" đã chuyển ra menu chuột phải trên lưới.
  */
-export default function SessionEditModal({ session, siteId, rooms, onClose, onChanged }: SessionEditModalProps) {
+export default function SessionEditModal({ session, siteId, rooms, onClose, onQueueUpdate, onRescheduled, hideReschedule }: SessionEditModalProps) {
   const [mode, setMode] = useState<"edit" | "reschedule">("edit");
-  const { confirmDialog, promptDialog } = useDialog();
 
   const [roomId, setRoomId] = useState(session.roomId != null ? String(session.roomId) : "");
   const [teacherType, setTeacherType] = useState(session.teacherType ?? "");
@@ -59,30 +65,28 @@ export default function SessionEditModal({ session, siteId, rooms, onClose, onCh
 
   const canEdit = session.status === "SCHEDULED";
 
-  const handleSaveAssignment = async () => {
-    if (!teacherType || !primaryTeacherId || selectedPeriods.size === 0) {
+  const handleSaveAssignment = () => {
+    if (!teacherType || !primaryTeacherId || !primaryTeacherName || selectedPeriods.size === 0) {
       setError("Vui lòng chọn đủ loại giáo viên, giáo viên chính, và tối thiểu 1 tiết.");
       return;
     }
-    setSubmitting(true);
     setError(null);
-    try {
-      const request: UpdateSessionAssignmentRequest = {
-        roomId: roomId ? Number(roomId) : undefined,
-        teacherType: teacherType as "VIETNAMESE" | "FOREIGN",
-        primaryTeacherId,
-        assistantTeacherId: assistantTeacherId ?? undefined,
-        cmTeacherId: cmTeacherId ?? undefined,
-        dayPart,
-        periodNumbers: Array.from(selectedPeriods)
-      };
-      await updateSessionAssignment(session.classId, session.id, request);
-      onChanged();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Sửa buổi học thất bại.");
-    } finally {
-      setSubmitting(false);
-    }
+    const request: UpdateSessionAssignmentRequest = {
+      roomId: roomId ? Number(roomId) : undefined,
+      teacherType: teacherType as "VIETNAMESE" | "FOREIGN",
+      primaryTeacherId,
+      assistantTeacherId: assistantTeacherId ?? undefined,
+      cmTeacherId: cmTeacherId ?? undefined,
+      dayPart,
+      periodNumbers: Array.from(selectedPeriods)
+    };
+    onQueueUpdate(request, {
+      roomName: roomId ? rooms.find((r) => r.id === Number(roomId))?.name ?? null : null,
+      teacherType: teacherType as "VIETNAMESE" | "FOREIGN",
+      primaryTeacherName,
+      assistantTeacherName,
+      cmTeacherName
+    });
   };
 
   const handleReschedule = async () => {
@@ -100,24 +104,9 @@ export default function SessionEditModal({ session, siteId, rooms, onClose, onCh
         newRoomId: roomId ? Number(roomId) : undefined,
         reason: rescheduleReason.trim() || undefined
       });
-      onChanged();
+      onRescheduled();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Dời lịch buổi học thất bại.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleCancel = async () => {
-    const reason = await promptDialog("Lý do hủy buổi (không bắt buộc):", { title: "Hủy buổi học" });
-    if (!(await confirmDialog(`Hủy buổi ${session.sessionNumber} (${session.sessionDate})?`, { danger: true }))) return;
-    setSubmitting(true);
-    setError(null);
-    try {
-      await cancelClassSession(session.classId, session.id, reason || undefined);
-      onChanged();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Hủy buổi học thất bại.");
     } finally {
       setSubmitting(false);
     }
@@ -136,25 +125,27 @@ export default function SessionEditModal({ session, siteId, rooms, onClose, onCh
 
         {canEdit && (
           <>
-            <div className="flex border-b border-slate-200 gap-4">
-              <button
-                type="button"
-                onClick={() => setMode("edit")}
-                className={`pb-2 text-xs font-bold border-b-2 ${mode === "edit" ? "border-brand-red text-brand-red" : "border-transparent text-slate-500"}`}
-              >
-                Sửa thông tin
-              </button>
-              <button
-                type="button"
-                onClick={() => setMode("reschedule")}
-                className={`pb-2 text-xs font-bold border-b-2 flex items-center gap-1 ${mode === "reschedule" ? "border-brand-red text-brand-red" : "border-transparent text-slate-500"}`}
-              >
-                <CalendarClock className="w-3.5 h-3.5" />
-                Dời lịch
-              </button>
-            </div>
+            {!hideReschedule && (
+              <div className="flex border-b border-slate-200 gap-4">
+                <button
+                  type="button"
+                  onClick={() => setMode("edit")}
+                  className={`pb-2 text-xs font-bold border-b-2 ${mode === "edit" ? "border-brand-red text-brand-red" : "border-transparent text-slate-500"}`}
+                >
+                  Sửa thông tin
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMode("reschedule")}
+                  className={`pb-2 text-xs font-bold border-b-2 flex items-center gap-1 ${mode === "reschedule" ? "border-brand-red text-brand-red" : "border-transparent text-slate-500"}`}
+                >
+                  <CalendarClock className="w-3.5 h-3.5" />
+                  Dời lịch
+                </button>
+              </div>
+            )}
 
-            {mode === "edit" ? (
+            {mode === "edit" || hideReschedule ? (
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -216,14 +207,12 @@ export default function SessionEditModal({ session, siteId, rooms, onClose, onCh
                   }}
                 />
 
-                <div className="flex justify-between gap-2 pt-2 border-t border-slate-100">
-                  <Button type="button" variant="secondary" size="sm" onClick={handleCancel} disabled={submitting}>
-                    <XCircle className="w-3.5 h-3.5" />
-                    Hủy buổi
-                  </Button>
-                  <Button type="button" variant="primary" size="sm" onClick={handleSaveAssignment} disabled={submitting}>
+                <p className="text-[11px] text-slate-400 italic">Thay đổi chỉ hiện tạm trên lưới — bấm "Lưu" ở đầu lưới để ghi thật.</p>
+
+                <div className="flex justify-end pt-2 border-t border-slate-100">
+                  <Button type="button" variant="primary" size="sm" onClick={handleSaveAssignment}>
                     <Save className="w-3.5 h-3.5" />
-                    {submitting ? "Đang lưu..." : "Lưu thay đổi"}
+                    Ghi vào lưới
                   </Button>
                 </div>
               </div>
@@ -258,6 +247,7 @@ export default function SessionEditModal({ session, siteId, rooms, onClose, onCh
                   <label className={labelClass}>Lý do dời lịch (không bắt buộc)</label>
                   <input value={rescheduleReason} onChange={(e) => setRescheduleReason(e.target.value)} className={inputClass} />
                 </div>
+                <p className="text-[11px] text-amber-600 italic">Dời lịch ghi lại ngay, không qua nút "Lưu" ở lưới.</p>
                 <div className="flex justify-end pt-2 border-t border-slate-100">
                   <Button type="button" variant="primary" size="sm" onClick={handleReschedule} disabled={submitting}>
                     {submitting ? "Đang lưu..." : "Dời lịch"}
