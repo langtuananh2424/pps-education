@@ -758,7 +758,7 @@ public class StudentCommentService {
                 "1. Cột \"Ngày*\" (" + colLetter(COL_DATE) + "): bắt buộc đúng định dạng yyyy-MM-dd (VD: 2026-08-10), đúng bằng ngày của buổi học đang chọn — sai định dạng hoặc khác ngày sẽ bị từ chối cả dòng.",
                 "2. Cột \"Hạn nộp bài\" (" + colLetter(COL_DUE_DATE) + "): nếu có điền, đúng định dạng yyyy-MM-dd HH:mm (VD: 2026-08-10 17:30) — gõ ĐÚNG y hệt, không để Excel tự chuyển sang định dạng ngày giờ theo máy (dd/mm/yyyy, mm/dd/yyyy...) vì có thể đọc sai khi nhập lại. Nếu Excel tự đổi khi gõ, bôi đen cột này rồi Format Cells > Text trước khi nhập. PHẢI GIỐNG NHAU giữa mọi học sinh trong lớp (chỉ 1 hạn nộp chung cho cả buổi) — khác nhau sẽ bị từ chối CẢ FILE.",
                 "3. Cột \"Tên bài học\" (" + colLetter(COL_LESSON_CONTENT) + ") và \"Tên giáo viên giảng dạy\" (" + colLetter(COL_TEACHER_NAME) + "): cũng phải giống nhau giữa mọi học sinh trong lớp (1 giá trị dùng chung cho cả buổi) — khác nhau sẽ bị từ chối CẢ FILE.",
-                "4. Cột \"BTVN offline\" (" + colLetter(COL_HOMEWORK_OFFLINE) + ") và nhóm \"BTVN online\" (" + colLetter(COL_HOMEWORK_GRAMMAR_NEXT) + "-" + colLetter(COL_HOMEWORK_VIDEO_NEXT) + "): loại trừ nhau — chỉ điền 1 trong 2 cho mỗi học sinh, không điền cả offline lẫn online.",
+                "4. Cột \"BTVN offline\" (" + colLetter(COL_HOMEWORK_OFFLINE) + ") và nhóm \"BTVN online\" (" + colLetter(COL_HOMEWORK_GRAMMAR_NEXT) + "-" + colLetter(COL_HOMEWORK_VIDEO_NEXT) + "): có thể điền đồng thời cả BTVN offline (chữ tự do) và online.",
                 "5. 2 cột con của nhóm \"BTVN online\": chọn đúng 1 giá trị trong danh sách dropdown thả xuống, không tự gõ tên khác — có thể dán uuid thay cho chọn dropdown nếu danh sách quá dài (uuid xem trong Kho đề/Kho Video Ôn tập).",
                 "6. Cột \"Họ và tên\" (" + colLetter(COL_FULL_NAME) + "), \"Ngày sinh\" (" + colLetter(COL_DOB) + "), và cột con \"Offline\" trong nhóm \"BTVN buổi trước\": chỉ hiển thị để đối chiếu — sửa các cột này KHÔNG được lưu lại khi nhập lên.",
                 "7. Cột \"Điểm danh*\" (" + colLetter(COL_ATTENDANCE) + ") và \"Thái độ học tập\" (" + colLetter(COL_ATTITUDE) + "): nên chọn đúng trong dropdown cho chắc chắn, dù hệ thống có chấp nhận thêm vài biến thể viết khác."
@@ -806,7 +806,7 @@ public class StudentCommentService {
      * resolvedGrammarPrevious (đúng 1 trong 2 khác null, không cả hai).
      */
     private String resolvedOfflinePrevious(StudentComment previous) {
-        if (previous == null || previous.getHomeworkNextExerciseAssignment() != null) {
+        if (previous == null) {
             return null;
         }
         return previous.getHomeworkNext();
@@ -829,13 +829,11 @@ public class StudentCommentService {
     }
 
     /**
-     * "BTVN offline" (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06, tách khỏi cột gộp
-     * cũ) — chỉ có giá trị khi CHƯA giao/chọn online. V127: xét CẢ lựa chọn online CHƯA Gửi
-     * (effectiveExerciseChoiceId, không chỉ bản giao thật) — nếu không, dòng đang DRAFT vừa chọn 1
-     * Exercise (chưa Gửi) sẽ hiện SAI cả 2 cột offline lẫn online cùng lúc.
+     * "BTVN offline" — lấy giá trị BTVN offline đã nhập (homeworkNext). Bổ sung ngoài SDD gốc 2026-08-18:
+     * giao đồng thời với BTVN online, không còn bị loại trừ hay ẩn đi khi đã chọn BTVN online.
      */
     private String resolvedHomeworkOffline(StudentComment existing) {
-        if (existing == null || effectiveExerciseChoiceId(existing) != null) {
+        if (existing == null) {
             return null;
         }
         return existing.getHomeworkNext();
