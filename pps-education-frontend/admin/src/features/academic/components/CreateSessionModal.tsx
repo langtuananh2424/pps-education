@@ -4,7 +4,7 @@ import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Select from "@/components/ui/Select";
 import DatePicker from "@/components/ui/DatePicker";
-import { DayPart, listSites, SiteResponse } from "@/features/facility/api";
+import { DayPart, listSites } from "@/features/facility/api";
 import { BulkCreateClassSessionRequest, ClassResponse, listClasses } from "../api";
 import PeriodMultiSelect from "./PeriodMultiSelect";
 import TeacherSearchSelect from "./TeacherSearchSelect";
@@ -23,10 +23,11 @@ const weekdays: { value: string; label: string }[] = [
 ];
 
 export interface CreateSessionModalPrefill {
-  /** Ngày dạng "YYYY-MM-DD" — suy ra luôn "Từ ngày"/"Đến ngày"/"Chọn thứ". */
-  date: string;
-  dayPart: DayPart;
-  periodNumbers: number[];
+  /** Ngày dạng "YYYY-MM-DD" — suy ra luôn "Từ ngày"/"Đến ngày"/"Chọn thứ" (bỏ trống nếu mở từ nút "Xếp lịch" tổng, không bôi ô trước). */
+  date?: string;
+  dayPart?: DayPart;
+  periodNumbers?: number[];
+  /** Đã có sẵn từ bộ lọc "Lớp" trên trang (Header/EmployeeSchedulePage) hoặc từ ô đã bôi — khoá field Lớp, không hỏi lại (bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-08-21). */
   classId?: number;
 }
 
@@ -40,7 +41,8 @@ export interface QueuedCreatePayload {
 }
 
 interface CreateSessionModalProps {
-  defaultSiteId: number | null;
+  /** Điểm trường của lưới đang xem — cố định, không cho đổi trong modal này (đã chọn ở Header/bộ lọc trang, bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-08-21). */
+  siteId: number;
   onClose: () => void;
   /** Thêm vào hàng chờ (nháp) trên lưới — CHƯA gọi API, chỉ có hiệu lực khi bấm "Lưu" ở lưới (bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-08-20). */
   onQueued: (payload: QueuedCreatePayload) => void;
@@ -62,15 +64,15 @@ export function weekdayOf(dateIso: string): string {
  * lưới (hiện dạng thẻ "chưa lưu"), API chỉ được gọi khi người dùng bấm nút
  * "Lưu" tổng ở lưới — cho phép Hoàn tác/xem lại trước khi ghi thật.
  */
-export default function CreateSessionModal({ defaultSiteId, onClose, onQueued, prefill }: CreateSessionModalProps) {
-  const [sites, setSites] = useState<SiteResponse[]>([]);
-  const [siteId, setSiteId] = useState<number | "">(defaultSiteId ?? "");
+export default function CreateSessionModal({ siteId, onClose, onQueued, prefill }: CreateSessionModalProps) {
+  const [siteName, setSiteName] = useState<string | null>(null);
   const [classes, setClasses] = useState<ClassResponse[]>([]);
-  const [classId, setClassId] = useState<number | "">("");
+  const [classId, setClassId] = useState<number | "">(prefill?.classId ?? "");
+  const lockedClassId = prefill?.classId != null;
 
   const [startDate, setStartDate] = useState(prefill?.date ?? "");
   const [endDate, setEndDate] = useState(prefill?.date ?? "");
-  const [selectedDays, setSelectedDays] = useState<Set<string>>(() => (prefill ? new Set([weekdayOf(prefill.date)]) : new Set()));
+  const [selectedDays, setSelectedDays] = useState<Set<string>>(() => (prefill?.date ? new Set([weekdayOf(prefill.date)]) : new Set()));
   const [dayPart, setDayPart] = useState<DayPart>(prefill?.dayPart ?? "MORNING");
   const [selectedPeriods, setSelectedPeriods] = useState<Set<number>>(() => new Set(prefill?.periodNumbers ?? []));
   const [sessionType, setSessionType] = useState("REGULAR");
@@ -85,22 +87,14 @@ export default function CreateSessionModal({ defaultSiteId, onClose, onQueued, p
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    listSites().then(setSites).catch(() => undefined);
-  }, []);
-
-  useEffect(() => {
-    setClassId("");
-    if (!siteId) {
-      setClasses([]);
-      return;
-    }
-    listClasses({ siteId: Number(siteId) }).then(setClasses).catch(() => undefined);
+    listSites()
+      .then((sites) => setSiteName(sites.find((s) => s.id === siteId)?.name ?? null))
+      .catch(() => undefined);
   }, [siteId]);
 
   useEffect(() => {
-    if (!prefill?.classId) return;
-    if (classes.some((c) => c.id === prefill.classId)) setClassId(prefill.classId);
-  }, [classes, prefill?.classId]);
+    listClasses({ siteId }).then(setClasses).catch(() => undefined);
+  }, [siteId]);
 
   const toggleDay = (day: string) => {
     setSelectedDays((prev) => {
@@ -156,19 +150,12 @@ export default function CreateSessionModal({ defaultSiteId, onClose, onQueued, p
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className={labelClass}>Trường *</label>
-            <Select value={siteId} onChange={(e) => setSiteId(e.target.value ? Number(e.target.value) : "")} className={inputClass}>
-              <option value="">-- Chọn điểm trường --</option>
-              {sites.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </Select>
+            <label className={labelClass}>Trường</label>
+            <p className="text-xs font-bold text-slate-700 bg-slate-100 border border-slate-200 rounded-lg p-2.5">{siteName ?? "…"}</p>
           </div>
           <div>
             <label className={labelClass}>Lớp *</label>
-            <Select value={classId} onChange={(e) => setClassId(e.target.value ? Number(e.target.value) : "")} className={inputClass} disabled={!siteId}>
+            <Select value={classId} onChange={(e) => setClassId(e.target.value ? Number(e.target.value) : "")} className={inputClass} disabled={lockedClassId}>
               <option value="">-- Chọn lớp --</option>
               {classes.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -176,6 +163,7 @@ export default function CreateSessionModal({ defaultSiteId, onClose, onQueued, p
                 </option>
               ))}
             </Select>
+            {lockedClassId && <p className="text-[10px] text-slate-400 italic mt-1">Đã chọn theo bộ lọc "Lớp" trên trang.</p>}
           </div>
         </div>
 
@@ -208,18 +196,7 @@ export default function CreateSessionModal({ defaultSiteId, onClose, onQueued, p
           </div>
         </div>
 
-        {siteId ? (
-          <PeriodMultiSelect
-            siteId={Number(siteId)}
-            required
-            dayPart={dayPart}
-            onDayPartChange={setDayPart}
-            selected={selectedPeriods}
-            onChange={setSelectedPeriods}
-          />
-        ) : (
-          <p className="text-[11px] text-slate-400 italic">Chọn trường trước để xem danh sách tiết học.</p>
-        )}
+        <PeriodMultiSelect siteId={siteId} required dayPart={dayPart} onDayPartChange={setDayPart} selected={selectedPeriods} onChange={setSelectedPeriods} />
 
         <div>
           <label className={labelClass}>Loại giáo viên *</label>

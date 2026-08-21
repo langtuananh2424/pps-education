@@ -9,8 +9,7 @@ import { Badge, Modal, TableContainer, Th, Td } from "@/components/ui";
 import Select from "@/components/ui/Select";
 import { checkInStatusLabels, checkInStatusVariants, sessionStatusVariants } from "@/features/academic/components/ClassDetailPanel";
 import ClassPeriodGrid from "@/features/academic/components/ClassPeriodGrid";
-import { listSites, SiteResponse } from "@/features/facility/api";
-import { listClasses, ClassResponse, ClassSessionCheckInStatusResponse, ClassSessionResponse } from "@/features/academic/api";
+import { listClasses, ClassSessionCheckInStatusResponse, ClassSessionResponse } from "@/features/academic/api";
 import {
   DepartmentResponse,
   EmployeeResponse,
@@ -222,7 +221,7 @@ function DailyTimeline({ sessions, checkInStatusBySessionId, siteNameByClassId, 
  * hrm.employee-schedule.view. Xem docs/uc/phan-he-04-nhan-su.md (UC-70).
  */
 export default function EmployeeSchedulePage() {
-  const { hasPermission, selectedCampusId } = useApp();
+  const { hasPermission, selectedCampusId, selectedClassId } = useApp();
   const canView = hasPermission("hrm.employee-schedule.view");
 
   const today = toISODate(new Date());
@@ -232,15 +231,11 @@ export default function EmployeeSchedulePage() {
   const [from, setFrom] = useState(() => toISODate(getWeekDates(new Date())[0]));
   const [to, setTo] = useState(() => toISODate(getWeekDates(new Date())[6]));
   const [departmentId, setDepartmentId] = useState<number | "">("");
-  const [siteId, setSiteId] = useState<number | "">("");
-  const [classId, setClassId] = useState<number | "">("");
   const [employeeId, setEmployeeId] = useState<number | "">("");
 
   const [departments, setDepartments] = useState<DepartmentResponse[]>([]);
-  const [sites, setSites] = useState<SiteResponse[]>([]);
-  const [classes, setClasses] = useState<ClassResponse[]>([]);
   const [allEmployees, setAllEmployees] = useState<EmployeeResponse[]>([]);
-  /** UC-71 — map classId -> tên điểm trường, tải KHÔNG lọc theo site (khác `classes` ở trên chỉ phục vụ dropdown lọc). */
+  /** UC-71 — map classId -> tên điểm trường, tải KHÔNG lọc theo site/lớp đang chọn ở Header. */
   const [siteNameByClassId, setSiteNameByClassId] = useState<Record<number, string>>({});
 
   const [overview, setOverview] = useState<EmployeeScheduleOverviewResponse | null>(null);
@@ -250,7 +245,6 @@ export default function EmployeeSchedulePage() {
 
   useEffect(() => {
     listDepartments().then(setDepartments).catch(() => setDepartments([]));
-    listSites().then(setSites).catch(() => setSites([]));
     listClasses()
       .then((allClasses) => {
         const map: Record<number, string> = {};
@@ -263,23 +257,10 @@ export default function EmployeeSchedulePage() {
   }, []);
 
   const dateRange = useMemo(() => datesBetween(from, to), [from, to]);
-  // "Theo lớp học": ưu tiên bộ lọc "Tất cả điểm trường" riêng của trang này, nếu chưa chọn thì
-  // dùng luôn điểm trường đang chọn ở dropdown Header (đỡ phải chọn 2 lần cùng 1 thứ) — bổ sung
-  // ngoài SDD gốc, xác nhận với người dùng 2026-08-20.
-  const classGridSiteId = siteId !== "" ? siteId : selectedCampusId !== "ALL" ? Number(selectedCampusId) : null;
-
-  // classId phụ thuộc site hiệu lực (classGridSiteId — bộ lọc riêng HOẶC điểm trường ở Header) --
-  // reset khi đổi site để tránh giữ lại lớp thuộc site cũ.
-  useEffect(() => {
-    if (classGridSiteId == null) {
-      setClasses([]);
-      setClassId("");
-      return;
-    }
-    listClasses({ siteId: classGridSiteId }).then(setClasses).catch(() => setClasses([]));
-    setClassId("");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [classGridSiteId]);
+  // Bỏ bộ lọc "Trường"/"Lớp" riêng của trang này (xác nhận với người dùng 2026-08-21) — dùng thẳng
+  // điểm trường/lớp đang chọn ở dropdown Header (AppContext.selectedCampusId/selectedClassId), đỡ
+  // phải chọn 2 lần cùng 1 thứ.
+  const classGridSiteId = selectedCampusId !== "ALL" ? Number(selectedCampusId) : null;
 
   const applyQuickRange = (range: QuickRange, refDate = new Date()) => {
     setQuickRange(range);
@@ -308,8 +289,8 @@ export default function EmployeeSchedulePage() {
       from,
       to,
       departmentId: departmentId === "" ? undefined : departmentId,
-      siteId: siteId === "" ? undefined : siteId,
-      classId: classId === "" ? undefined : classId,
+      siteId: classGridSiteId ?? undefined,
+      classId: selectedClassId ?? undefined,
       employeeId: employeeId === "" ? undefined : employeeId
     })
       .then((res) => {
@@ -327,7 +308,7 @@ export default function EmployeeSchedulePage() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(load, [from, to, departmentId, siteId, classId, employeeId, canView]);
+  useEffect(load, [from, to, departmentId, classGridSiteId, selectedClassId, employeeId, canView]);
 
   // Danh sách nhân viên cho dropdown filter -- tải riêng 1 lần, KHÔNG lọc theo site/class
   // (khác overview.employees vốn đã bị thu hẹp theo filter hiện tại) để không tự xóa lựa
@@ -451,18 +432,8 @@ export default function EmployeeSchedulePage() {
                 ))}
               </Select>
             )}
-            <Select value={siteId} onChange={(e) => setSiteId(e.target.value === "" ? "" : Number(e.target.value))} className="bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none max-w-[160px]">
-              <option value="">Tất cả điểm trường</option>
-              {sites.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </Select>
-            <Select value={classId} onChange={(e) => setClassId(e.target.value === "" ? "" : Number(e.target.value))} disabled={classGridSiteId == null} className="bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none max-w-[160px] disabled:opacity-50">
-              <option value="">Tất cả lớp</option>
-              {classes.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </Select>
+            {/* Bỏ bộ lọc "Trường"/"Lớp" riêng ở đây (xác nhận với người dùng 2026-08-21) — dùng thẳng
+                dropdown "Điểm trường"/"Lớp" đã có sẵn ở Header, đỡ chọn trùng 2 chỗ. */}
             {/* Nhân viên không lọc được gì ở "Theo lớp học" (lưới không lọc theo GV) — ẩn thay vì để vô tác dụng. */}
             {viewMode === "employee" && (
               <Select value={employeeId} onChange={(e) => setEmployeeId(e.target.value === "" ? "" : Number(e.target.value))} className="bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none max-w-[160px]">
@@ -506,15 +477,13 @@ export default function EmployeeSchedulePage() {
 
           {viewMode === "classGrid" ? (
             classGridSiteId == null ? (
-              <p className="text-xs text-slate-400 italic text-center py-12">
-                Chọn 1 điểm trường (ở bộ lọc "Tất cả điểm trường" trên, hoặc ở dropdown Điểm trường trên đầu trang) để xem theo lớp học.
-              </p>
+              <p className="text-xs text-slate-400 italic text-center py-12">Chọn 1 điểm trường ở dropdown "Điểm trường" trên đầu trang để xem theo lớp học.</p>
             ) : dateRange.length > MAX_CLASS_GRID_DAYS ? (
               <p className="text-xs text-slate-400 italic text-center py-12">
                 Chọn "Ngày" hoặc "Tuần" để xem theo lớp học — khoảng ngày hiện tại quá dài để hiển thị dạng lưới.
               </p>
             ) : (
-              <ClassPeriodGrid siteId={classGridSiteId} dates={dateRange} classId={classId === "" ? undefined : classId} />
+              <ClassPeriodGrid siteId={classGridSiteId} dates={dateRange} classId={selectedClassId ?? undefined} />
             )
           ) : showHourlyTable ? (
             <DailyTimeline

@@ -541,7 +541,7 @@ export default function ClassPeriodGrid({ siteId, dates, classId }: ClassPeriodG
             variant="secondary"
             size="sm"
             onClick={() => {
-              setCreatePrefill(undefined);
+              setCreatePrefill(classId != null ? { classId } : undefined);
               setCreateOpen(true);
             }}
           >
@@ -757,7 +757,7 @@ export default function ClassPeriodGrid({ siteId, dates, classId }: ClassPeriodG
 
       {createOpen && (
         <CreateSessionModal
-          defaultSiteId={siteId}
+          siteId={siteId}
           prefill={createPrefill}
           onClose={() => {
             setCreateOpen(false);
