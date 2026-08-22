@@ -46,6 +46,10 @@
     "submitting": "Đang nộp...",
     "submitButton": "Nộp bài",
     "exitButton": "Thoát",
+    "gradingOverlay": {
+      "title": "Đang chấm bài...",
+      "description": "Hệ thống đang chấm điểm bài làm của bạn (có thể mất khoảng 10-20 giây với câu tự luận/nói), vui lòng đợi trong giây lát."
+    },
     "resultPopup": {
       "retakeNotAllowed": "Đề này không cho làm lại — đây là kết quả cuối cùng.",
       "retakeAnytime": "Bạn có thể làm lại bài tập này khi sẵn sàng.",
@@ -58,6 +62,7 @@
       "failedTitle": "Bạn đã hoàn thành bài \"{{title}}\"",
       "failedDescription": "Kết quả: {{percentage}}% — Chưa đạt yêu cầu{{threshold}}, cần làm lại bài tập.",
       "thresholdSuffix": " (cần ≥{{percent}}%)",
+      "seeFeedbackHint": "Xem nhận xét chi tiết ở từng câu bên dưới.",
       "understood": "Đã hiểu"
     },
     "question": {
@@ -67,7 +72,11 @@
       "answerPlaceholder": "Nhập câu trả lời...",
       "correct": "Chính xác",
       "correctAnswerPrefix": "Đáp án đúng: {{answer}}",
-      "explanationPrefix": "Giải thích: {{text}}"
+      "explanationPrefix": "Giải thích: {{text}}",
+      "gradingFeedbackTitle": "Nhận xét bài làm",
+      "gradedByAi": "AI chấm",
+      "gradedByTeacher": "Giáo viên chấm",
+      "gradingScoreSuffix": "{{score}}/{{max}} điểm"
     },
     "locked": {
       "remaining": "Còn {{count}} lượt làm — hoàn thành hết lượt để xem đáp án.",

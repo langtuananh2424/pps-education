@@ -874,6 +874,15 @@ export interface StudentAnswerResponse {
   explanation: string | null;
   structuredAnswer: string[] | null;
   correctStructuredContent: { blanks?: string[]; chunks?: string[] } | null;
+  /**
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-22 — điểm/nhận xét câu tự luận/nói
+   * (ESSAY/SPEAKING) đã chấm (tay hoặc AI). NULL khi câu tự chấm được (xem autoScore/isCorrect thay)
+   * HOẶC chưa được chấm (VD đang chờ AI/GV).
+   */
+  gradingScore: number | null;
+  gradingMaxScore: number | null;
+  gradingFeedback: string | null;
+  gradingSource: "HUMAN" | "AI" | null;
 }
 
 /** Main Flow bước 2: trả lời 1 câu — ghi/ghi đè, gọi lại nhiều lần trong lúc attempt còn IN_PROGRESS. */

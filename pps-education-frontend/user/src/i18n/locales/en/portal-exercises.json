@@ -46,6 +46,10 @@
     "submitting": "Submitting...",
     "submitButton": "Submit",
     "exitButton": "Exit",
+    "gradingOverlay": {
+      "title": "Grading your submission...",
+      "description": "We're grading your work now (essay/speaking questions can take about 10-20 seconds) — please wait a moment."
+    },
     "resultPopup": {
       "retakeNotAllowed": "This exercise can't be retaken — this is the final result.",
       "retakeAnytime": "You can retake this exercise whenever you're ready.",
@@ -58,6 +62,7 @@
       "failedTitle": "You've completed \"{{title}}\"",
       "failedDescription": "Result: {{percentage}}% — Not passed yet{{threshold}}, you'll need to retake this exercise.",
       "thresholdSuffix": " (need ≥{{percent}}%)",
+      "seeFeedbackHint": "See the detailed feedback under each question below.",
       "understood": "Got it"
     },
     "question": {
@@ -67,7 +72,11 @@
       "answerPlaceholder": "Type your answer...",
       "correct": "Correct",
       "correctAnswerPrefix": "Correct answer: {{answer}}",
-      "explanationPrefix": "Explanation: {{text}}"
+      "explanationPrefix": "Explanation: {{text}}",
+      "gradingFeedbackTitle": "Feedback",
+      "gradedByAi": "Graded by AI",
+      "gradedByTeacher": "Graded by teacher",
+      "gradingScoreSuffix": "{{score}}/{{max}} points"
     },
     "locked": {
       "remaining": "{{count}} attempt(s) left — finish all your attempts to see the answer.",

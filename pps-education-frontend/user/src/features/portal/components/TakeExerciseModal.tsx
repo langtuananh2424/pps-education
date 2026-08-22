@@ -387,6 +387,22 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
         </div>
       )}
 
+      {/*
+       * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-22 — submitAttempt() có thể gọi AI
+       * chấm bài Writing đồng bộ (Gemini, thực đo ~10-20s) NGAY trong request nộp bài — trước đây chỉ
+       * disable nút "Nộp bài" đổi chữ "Đang nộp...", học sinh không biết có đang chờ AI chấm hay hệ
+       * thống bị treo. Lớp phủ toàn màn hình rõ ràng hơn, đặt tên đúng việc đang chờ.
+       */}
+      {submitting && (
+        <div className="fixed inset-0 bg-white/90 backdrop-blur-sm flex items-center justify-center z-[125]">
+          <div className="flex flex-col items-center gap-3 text-center px-6">
+            <Loader2 size={36} className="text-teal animate-spin" />
+            <p className="text-sm font-extrabold text-ink">{t("takeExercise.gradingOverlay.title")}</p>
+            <p className="text-xs font-bold text-muted max-w-xs">{t("takeExercise.gradingOverlay.description")}</p>
+          </div>
+        </div>
+      )}
+
       {/* Popup kết quả sau khi nộp bài — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06.
           Chỉ hiện đúng 1 lần ngay sau khi bấm "Nộp bài" (justSubmitted), không hiện lại khi mở xem
           lại 1 lượt đã nộp từ trước. */}
@@ -395,6 +411,7 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
           attempt={attempt}
           exerciseTitle={item.title}
           exerciseMeta={exerciseMeta}
+          hasFeedback={[...answersByQuestion.values()].some((a) => !!a.gradingFeedback)}
           onClose={() => {
             setJustSubmitted(false);
             onFinished();
@@ -602,11 +619,14 @@ function SubmitResultPopup({
   attempt,
   exerciseTitle,
   exerciseMeta,
+  hasFeedback,
   onClose
 }: {
   attempt: ExerciseAttemptResponse;
   exerciseTitle: string;
   exerciseMeta: ExerciseMetaResponse | null;
+  /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-22 — có ít nhất 1 câu tự luận/nói đã có nhận xét chấm (tay/AI), gợi ý học sinh cuộn xuống xem chi tiết thay vì chỉ thấy % tổng. */
+  hasFeedback: boolean;
   onClose: () => void;
 }) {
   const { t } = useTranslation("portal-exercises");
@@ -658,6 +678,7 @@ function SubmitResultPopup({
             {remainingText && <p className="text-xs font-bold text-muted leading-relaxed">{remainingText}</p>}
           </>
         )}
+        {hasFeedback && <p className="text-[11px] text-muted font-bold italic">{t("takeExercise.resultPopup.seeFeedbackHint")}</p>}
         <button onClick={onClose} className="text-xs font-extrabold text-white bg-teal px-5 py-2.5 rounded-xl">
           {t("takeExercise.resultPopup.understood")}
         </button>
@@ -855,6 +876,27 @@ function QuestionBlock({
         <p className="text-[11px] text-muted font-bold italic border-t border-line/50 pt-2">
           {t("takeExercise.question.explanationPrefix", { text: answer.explanation })}
         </p>
+      )}
+
+      {/*
+       * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-22 — điểm/nhận xét câu tự luận/nói
+       * (ESSAY/SPEAKING) đã chấm (tay hoặc AI). KHÔNG phụ thuộc showFeedback (đó là cấu hình riêng cho
+       * việc lộ ĐÁP ÁN ĐÚNG) — nhận xét bài của chính học sinh luôn hiện ngay khi có, để trả lời "vì
+       * sao đạt/không đạt" thay vì chỉ thấy % tổng ở popup kết quả.
+       */}
+      {answer?.gradingFeedback && (
+        <div className="text-xs font-bold p-3 rounded-xl border bg-sky-2 border-teal/20 space-y-1.5">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <span className="text-teal-deep uppercase text-[10px] tracking-wide">{t("takeExercise.question.gradingFeedbackTitle")}</span>
+            <span className="text-[10px] text-muted font-black uppercase">
+              {answer.gradingSource === "AI" ? t("takeExercise.question.gradedByAi") : t("takeExercise.question.gradedByTeacher")}
+              {answer.gradingScore != null && answer.gradingMaxScore != null
+                ? ` · ${t("takeExercise.question.gradingScoreSuffix", { score: answer.gradingScore, max: answer.gradingMaxScore })}`
+                : ""}
+            </span>
+          </div>
+          <p className="font-medium text-ink normal-case whitespace-pre-line">{answer.gradingFeedback}</p>
+        </div>
       )}
 
       {answerLockedByRetake && <LockedAnswerBanner attemptsRemainingBeforeAnswer={attemptsRemainingBeforeAnswer} />}

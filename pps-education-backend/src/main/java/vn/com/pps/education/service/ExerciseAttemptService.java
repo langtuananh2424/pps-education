@@ -686,9 +686,27 @@ public class ExerciseAttemptService {
                 explanation = a.getQuestion().getExplanation();
             }
         }
+        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-22 — điểm/nhận xét câu tự luận/nói
+        // đã chấm (tay hoặc AI), hiện cho học sinh ngay khi có (KHÔNG phụ thuộc showCorrectAnswers —
+        // đó là cấu hình riêng cho việc lộ ĐÁP ÁN ĐÚNG, khác với việc học sinh xem lại nhận xét bài
+        // của chính mình). Chỉ tra cứu cho câu KHÔNG tự chấm được, tránh query thừa cho MCQ/FILL_IN_BLANK.
+        BigDecimal gradingScore = null;
+        BigDecimal gradingMaxScore = null;
+        String gradingFeedback = null;
+        String gradingSource = null;
+        if (!a.isAutoGradable() && attempt.getStatus() != ExerciseAttempt.Status.IN_PROGRESS) {
+            StudentAnswerGrading grading = studentAnswerGradingRepository.findByStudentAnswerIdAndLatestIsTrue(a.getId()).orElse(null);
+            if (grading != null) {
+                gradingScore = grading.getScore();
+                gradingMaxScore = grading.getMaxScore();
+                gradingFeedback = grading.getFeedback();
+                gradingSource = grading.getGradingSource().name();
+            }
+        }
         return new StudentAnswerResponse(
                 a.getId(), attempt.getId(), a.getQuestion().getId(), a.getAnswerText(),
                 a.getSelectedChoiceIds(), a.getAudioAnswerUrl(), a.isAutoGradable(), a.getAutoScore(), a.getCorrect(),
-                correctChoiceIds, correctAnswerText, explanation, a.getStructuredAnswer(), correctStructuredContent);
+                correctChoiceIds, correctAnswerText, explanation, a.getStructuredAnswer(), correctStructuredContent,
+                gradingScore, gradingMaxScore, gradingFeedback, gradingSource);
     }
 }
