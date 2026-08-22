@@ -1397,6 +1397,15 @@ i)  Bảng student_answer_grading --- GV chấm tự luận/nói
 
 Không history, sửa điểm chấm tạo record mới thay vì sửa.
 
+**Bổ sung V138 (2026-08-22, đã xác nhận với người dùng):** thêm cột
+`grading_source VARCHAR(10) NOT NULL DEFAULT 'HUMAN'` — phân biệt bản
+ghi do Giáo viên chấm tay (UC-41, `HUMAN` — mặc định, khớp toàn bộ dữ
+liệu trước V138) với bản ghi AI chấm tự động (`AI`, xem
+`WritingAiGradingService` + mục "Bổ sung V138" trong
+`docs/uc/phan-he-07-lms-portal.md`). `grader_user_id` vẫn LUÔN NOT NULL —
+khi `grading_source='AI'` thì lưu `exercises.created_by` (tác giả Bài),
+KHÔNG tạo user hệ thống ảo, cột `grading_source` mới là nơi phân biệt rõ.
+
 i-bis) Bảng listening_play_progress / listening_hint_events --- Gợi ý
 tapescript câu hỏi Nghe (bổ sung ngoài SDD gốc, V94, 2026-08-06, đã xác
 nhận với người dùng — xem UC-40, mục "Bổ sung V94" trong

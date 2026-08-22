@@ -1709,6 +1709,32 @@ UC-40: Soạn & giao đề kiểm tra
 > không có cách nào phân biệt 1 Bài là Reading hay Writing hay Từ vựng &
 > Ngữ pháp ở cấp Exercise/Exam.
 
+> **Bổ sung V138 (2026-08-22, đã xác nhận với người dùng) --- AI chấm tự
+> động câu ESSAY thuộc Bài `skill_category=WRITING` (thay UC-41 bước 2-5
+> CHỈ cho riêng nhóm Bài này):** khi học sinh nộp bài
+> (`ExerciseAttemptService#submitAttempt`), nếu `exercise.skillCategory
+> =WRITING` thì mọi câu trả lời ESSAY được `WritingAiGradingService` chấm
+> NGAY theo rubric (`resources/rubrics/writing-exercise-rubric.md`,
+> hiện là PLACEHOLDER --- người dùng sẽ cung cấp nội dung thật sau khi
+> trao đổi với người chấm), ghi thẳng vào `student_answer_grading` với
+> cột mới `grading_source='AI'` (V138, mirror bản ghi GV chấm tay,
+> `grader_user_id` = `exercises.created_by` --- không tạo user hệ thống
+> ảo). Ngưỡng đạt dùng chung `exercises.pass_threshold_percent` (mặc định
+> 70%, đã có từ V100/V89), KHÔNG giới hạn số lần nộp lại (đề `allowRetake`
+> tự quyết định như bình thường). Câu đã có điểm AI **tự động biến mất**
+> khỏi hàng chờ chấm tay (`findPendingManualGrading` chỉ liệt kê câu CHƯA
+> có bản chấm `latest=true`) --- GV KHÔNG bị chặn chấm tay đè lên sau nếu
+> phát hiện AI chấm sai, gọi lại `ManualGradingService#gradeAnswer` bình
+> thường (tạo bản ghi mới `grading_source='HUMAN'`, `latest=true`, bản AI
+> cũ chuyển `latest=false`) --- "ẩn nhưng vẫn giữ được" luồng chấm tay,
+> không xoá code UC-41 gốc. AI chấm lỗi (thiếu key/API lỗi) trả `null`,
+> câu trả lời rơi lại đúng hàng chờ chấm tay như hành vi mặc định cũ,
+> KHÔNG chặn học sinh nộp bài. 2 nhà cung cấp AI dùng chung config với
+> spike `/dev-tools/speaking-grading-test`
+> (`app.ai-grading.{anthropic,gemini}-api-key`) --- ưu tiên Claude Haiku
+> 4.5 nếu có `ANTHROPIC_API_KEY`, fallback Gemini Flash nếu chỉ có
+> `GEMINI_API_KEY`.
+
 ---
 
 UC-41: Chấm bài thủ công

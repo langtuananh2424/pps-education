@@ -12,6 +12,7 @@ import vn.com.pps.education.domain.Question;
 import vn.com.pps.education.domain.QuestionChoice;
 import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.StudentAnswer;
+import vn.com.pps.education.domain.StudentAnswerGrading;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.dto.AssignedExerciseResponse;
 import vn.com.pps.education.dto.ExerciseAttemptResponse;
@@ -29,6 +30,7 @@ import vn.com.pps.education.repository.ExerciseAttemptRepository;
 import vn.com.pps.education.repository.ExerciseQuestionRepository;
 import vn.com.pps.education.repository.ExerciseRepository;
 import vn.com.pps.education.repository.QuestionChoiceRepository;
+import vn.com.pps.education.repository.StudentAnswerGradingRepository;
 import vn.com.pps.education.repository.StudentAnswerRepository;
 import vn.com.pps.education.repository.StudentRepository;
 import vn.com.pps.education.repository.UserRepository;
@@ -36,6 +38,7 @@ import vn.com.pps.education.repository.UserRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.OffsetDateTime;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -84,6 +87,8 @@ public class ExerciseAttemptService {
     private final ClassEnrollmentRepository classEnrollmentRepository;
     private final StudentRepository studentRepository;
     private final UserRepository userRepository;
+    private final StudentAnswerGradingRepository studentAnswerGradingRepository;
+    private final WritingAiGradingService writingAiGradingService;
 
     private static final Set<Question.QuestionType> AUTO_GRADABLE_TYPES = Set.of(
             Question.QuestionType.MULTIPLE_CHOICE, Question.QuestionType.MULTIPLE_ANSWER, Question.QuestionType.TRUE_FALSE,
@@ -98,7 +103,9 @@ public class ExerciseAttemptService {
                                    QuestionChoiceRepository questionChoiceRepository,
                                    ClassEnrollmentRepository classEnrollmentRepository,
                                    StudentRepository studentRepository,
-                                   UserRepository userRepository) {
+                                   UserRepository userRepository,
+                                   StudentAnswerGradingRepository studentAnswerGradingRepository,
+                                   WritingAiGradingService writingAiGradingService) {
         this.exerciseAttemptRepository = exerciseAttemptRepository;
         this.exerciseAttemptHistoryRepository = exerciseAttemptHistoryRepository;
         this.studentAnswerRepository = studentAnswerRepository;
@@ -109,6 +116,8 @@ public class ExerciseAttemptService {
         this.classEnrollmentRepository = classEnrollmentRepository;
         this.studentRepository = studentRepository;
         this.userRepository = userRepository;
+        this.studentAnswerGradingRepository = studentAnswerGradingRepository;
+        this.writingAiGradingService = writingAiGradingService;
     }
 
     /**
@@ -247,8 +256,6 @@ public class ExerciseAttemptService {
         List<ExerciseQuestion> exerciseQuestions = exerciseQuestionRepository.findByExerciseIdOrderByDisplayOrder(attempt.getExercise().getId());
         Map<Long, BigDecimal> pointsByQuestionId = exerciseQuestions.stream()
                 .collect(Collectors.toMap(eq -> eq.getQuestion().getId(), ExerciseQuestion::getPoints));
-        boolean allAutoGradable = exerciseQuestions.stream()
-                .allMatch(eq -> AUTO_GRADABLE_TYPES.contains(eq.getQuestion().getQuestionType()));
 
         List<StudentAnswer> answers = studentAnswerRepository.findByExerciseAttemptId(attempt.getId());
         BigDecimal autoGradeScore = BigDecimal.ZERO;
@@ -265,16 +272,77 @@ public class ExerciseAttemptService {
             studentAnswerRepository.save(answer);
         }
 
+        // V138 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-22): ESSAY thuộc Bài
+        // Exercise.skillCategory=WRITING được AI chấm NGAY lúc nộp bài (thay UC-41 chờ GV thủ công CHỈ
+        // cho riêng nhóm Bài này) — ghi StudentAnswerGrading trực tiếp tại đây (KHÔNG gọi
+        // ManualGradingService#gradeAnswer để tránh phụ thuộc vòng: ManualGradingService đã phụ thuộc
+        // NGƯỢC lại ExerciseAttemptService qua applyPassOutcome). GV vẫn chấm tay đè lên được sau qua
+        // ManualGradingService#gradeAnswer bình thường nếu thấy AI chấm sai — KHÔNG có rào chặn
+        // re-grade, và câu đã có điểm AI tự động biến mất khỏi "chờ chấm" (listPendingGrading chỉ liệt
+        // kê câu CHƯA có điểm) — đúng tinh thần "ẩn nhưng vẫn giữ được" đã xác nhận với người dùng.
+        BigDecimal aiGradeScore = BigDecimal.ZERO;
+        Set<Long> aiGradedAnswerIds = new HashSet<>();
+        if (attempt.getExercise().getSkillCategory() == Exercise.SkillCategory.WRITING) {
+            for (StudentAnswer answer : answers) {
+                if (answer.isAutoGradable() || answer.getQuestion().getQuestionType() != Question.QuestionType.ESSAY) {
+                    continue;
+                }
+                BigDecimal points = pointsByQuestionId.getOrDefault(answer.getQuestion().getId(), BigDecimal.ZERO);
+                BigDecimal score = gradeEssayWithAi(answer, points, now);
+                if (score != null) {
+                    aiGradeScore = aiGradeScore.add(score);
+                    aiGradedAnswerIds.add(answer.getId());
+                }
+            }
+        }
+
+        boolean allGraded = answers.stream()
+                .allMatch(a -> a.isAutoGradable() || aiGradedAnswerIds.contains(a.getId()));
+
         attempt.setAutoGradeScore(autoGradeScore);
+        attempt.setManualGradeScore(aiGradeScore);
         attempt.setSubmittedAt(now);
-        if (allAutoGradable) {
-            attempt.setTotalScore(autoGradeScore);
+        if (allGraded) {
+            attempt.setTotalScore(autoGradeScore.add(aiGradeScore));
             attempt.setStatus(ExerciseAttempt.Status.FULLY_GRADED);
         } else {
             attempt.setStatus(ExerciseAttempt.Status.AUTO_GRADED);
         }
         attempt = exerciseAttemptRepository.save(attempt);
         return applyPassOutcome(attempt);
+    }
+
+    /**
+     * V138 — chấm 1 câu ESSAY bằng AI (WritingAiGradingService, rubric.md) và ghi StudentAnswerGrading
+     * (gradingSource=AI, grader=exercise.createdBy — KHÔNG thêm user hệ thống ảo, xem Javadoc
+     * StudentAnswerGrading.GradingSource). Trả null nếu AI chưa cấu hình/gọi lỗi — answer giữ nguyên
+     * chưa có điểm, tự rơi vào hàng chờ chấm tay UC-41 như hành vi mặc định cũ.
+     */
+    private BigDecimal gradeEssayWithAi(StudentAnswer answer, BigDecimal maxPoints, OffsetDateTime now) {
+        WritingAiGradingService.GradeResult result = writingAiGradingService.grade(answer.getAnswerText());
+        if (result == null) {
+            return null;
+        }
+        BigDecimal score = maxPoints
+                .multiply(BigDecimal.valueOf(result.scorePercent()))
+                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+
+        studentAnswerGradingRepository.findByStudentAnswerIdAndLatestIsTrue(answer.getId()).ifPresent(previous -> {
+            previous.setLatest(false);
+            studentAnswerGradingRepository.saveAndFlush(previous);
+        });
+
+        StudentAnswerGrading grading = new StudentAnswerGrading();
+        grading.setStudentAnswer(answer);
+        grading.setGrader(answer.getExerciseAttempt().getExercise().getCreatedBy());
+        grading.setGradingSource(StudentAnswerGrading.GradingSource.AI);
+        grading.setScore(score);
+        grading.setMaxScore(maxPoints);
+        grading.setFeedback(result.feedback());
+        grading.setGradedAt(now);
+        grading.setLatest(true);
+        studentAnswerGradingRepository.save(grading);
+        return score;
     }
 
     /**

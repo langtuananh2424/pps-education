@@ -69,13 +69,13 @@ public class SpeakingAiGradingTestService {
     private final ObjectMapper objectMapper;
     private final HttpClient httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(20)).build();
 
-    @Value("${app.ai-grading-test.openai-api-key:}")
+    @Value("${app.ai-grading.openai-api-key:}")
     private String openAiApiKey;
 
-    @Value("${app.ai-grading-test.anthropic-api-key:}")
+    @Value("${app.ai-grading.anthropic-api-key:}")
     private String anthropicApiKey;
 
-    @Value("${app.ai-grading-test.gemini-api-key:}")
+    @Value("${app.ai-grading.gemini-api-key:}")
     private String geminiApiKey;
 
     public SpeakingAiGradingTestService(MediaStorageService mediaStorageService, ObjectMapper objectMapper) {
