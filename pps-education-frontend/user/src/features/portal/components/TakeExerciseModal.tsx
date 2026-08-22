@@ -31,7 +31,6 @@ import { useCountdown, formatRemaining } from "@/components/ui/useCountdown";
 interface TakeExerciseModalProps {
   item: AssignedExerciseResponse;
   onClose: () => void;
-  onFinished: () => void;
 }
 
 const CHOICE_TYPES = new Set(["MULTIPLE_CHOICE", "MULTIPLE_ANSWER", "TRUE_FALSE"]);
@@ -92,7 +91,7 @@ function isAnswerRevealed(answer: StudentAnswerResponse): boolean {
  * chỉ startAttempt khi CHƯA có attempt nào, tránh vô tình tạo thêm lượt làm mới lúc đang
  * còn 1 lượt IN_PROGRESS (backend không tự resume, startAttempt luôn tạo attempt mới).
  */
-export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExerciseModalProps) {
+export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalProps) {
   const { t } = useTranslation("portal-exercises");
   const [attempt, setAttempt] = useState<ExerciseAttemptResponse | null>(null);
   const [questions, setQuestions] = useState<ExerciseQuestionResponse[]>([]);
@@ -215,8 +214,6 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
         .then((res) => {
           if (res.attemptStopped) {
             setStoppedByViolation(true);
-            // Không gọi onFinished() ở đây — cùng lý do đã sửa ở handleSubmit (xem comment ở đó):
-            // dời sang lúc học sinh bấm "Đã hiểu" đóng popup, tránh cha reload giữa chừng giật mất popup.
             getAttempt(attemptId).then((updated) => setAttempt(updated)).catch(() => undefined);
           }
         })
@@ -308,10 +305,6 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
       const updated = await submitAttempt(attempt.id);
       setAttempt(updated);
       loadAnswers(updated.id);
-      // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — KHÔNG gọi onFinished() ngay ở
-      // đây: AssignmentsTab.load() (cha) set loading=true, khiến toàn bộ tab (kể cả modal đang mở)
-      // bị unmount ngay lúc render "Đang tải..." — popup kết quả vừa hiện bị giật mất trước khi học
-      // sinh kịp đọc. Dời sang lúc bấm "Đã hiểu" đóng popup (xem onClose của SubmitResultPopup).
       setJustSubmitted(true);
     } catch (err) {
       setError(friendlyApiErrorMessage(err, t("takeExercise.submitError")));
@@ -412,10 +405,13 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
           exerciseTitle={item.title}
           exerciseMeta={exerciseMeta}
           hasFeedback={[...answersByQuestion.values()].some((a) => !!a.gradingFeedback)}
-          onClose={() => {
-            setJustSubmitted(false);
-            onFinished();
-          }}
+          // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-22 — fix bug thật: gọi onFinished()
+          // ở đây (như trước) đóng LUÔN modal + load() lại danh sách cha, đưa học sinh bay thẳng về màn
+          // danh sách NGAY khi vừa đóng popup — chưa kịp đọc hộp "Nhận xét bài làm" chi tiết vừa thêm
+          // (nằm NGAY BÊN DƯỚI popup này, trong modal đang mở). CHỈ đóng popup, giữ nguyên modal đang mở
+          // để học sinh đọc nhận xét — đóng modal thật sự (kèm load() làm mới danh sách) dời qua nút
+          // X/Thoát như luồng "xem lại 1 lượt đã nộp" bình thường.
+          onClose={() => setJustSubmitted(false)}
         />
       )}
 

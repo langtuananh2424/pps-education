@@ -550,16 +550,10 @@ export default function AssignmentsTab({
         <TakeExerciseModal
           item={takingExercise}
           // Mở đề = BE đã tạo attempt ngay (started_at = NOW), kể cả khi đóng chưa nộp — luôn báo load()
-          // để danh sách bên ngoài cập nhật đúng myLatestAttemptId/Status.
+          // để danh sách bên ngoài cập nhật đúng myLatestAttemptId/Status. Bao gồm cả lúc đóng SAU khi
+          // đã nộp bài (không còn đóng sớm ngay lúc tắt popup kết quả nữa — xem TakeExerciseModal, giữ
+          // modal mở để học sinh đọc hết nhận xét chấm AI/GV chi tiết trước khi tự bấm X/Thoát).
           onClose={() => {
-            setTakingExercise(null);
-            load();
-          }}
-          // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — trước đây chỉ load() lại
-          // danh sách, KHÔNG đóng modal: sau khi bấm "Đã hiểu" ở popup kết quả, modal làm bài (đã
-          // chuyển sang chỉ xem) vẫn còn hiện phía sau, trông như tự mở thêm 1 modal. Đóng luôn về
-          // màn danh sách — học sinh vẫn xem lại được bình thường qua "Xem lại bài đã làm".
-          onFinished={() => {
             setTakingExercise(null);
             load();
           }}
