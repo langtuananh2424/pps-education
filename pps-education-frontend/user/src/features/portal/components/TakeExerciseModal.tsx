@@ -181,8 +181,14 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
         // backend chặn 422 (RetakeNotAllowedException) khiến modal hiện lỗi + không có attempt nào
         // đang IN_PROGRESS nhưng vẫn hiện nhầm nút "Nộp bài", đồng thời học sinh không bao giờ xem lại
         // được lượt cuối cùng (lượt duy nhất đã lộ đáp án theo rào maxAttempts ở BE).
-        const stillHasRetake = meta.maxAttempts == null || latest.attemptNumber < meta.maxAttempts;
-        const needsRetake = latest.status === "FULLY_GRADED" && latest.passed === false && stillHasRetake;
+        const stillHasRetake = meta.allowRetake && (meta.maxAttempts == null || latest.attemptNumber < meta.maxAttempts);
+        const failedNeedsRetake = latest.status === "FULLY_GRADED" && latest.passed === false && stillHasRetake;
+        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-22 — fix bug thật: lượt trước đang
+        // AUTO_GRADED (chờ chấm câu tự luận/nói, VD AI chấm lỗi thoáng qua) cũng cho mở lượt MỚI nếu còn
+        // lượt, thay vì chỉ resume/xem lại lượt cũ đang kẹt chờ chấm — backend startAttempt() vốn không
+        // bắt buộc lượt trước phải FULLY_GRADED, chỉ giới hạn theo allowRetake/maxAttempts.
+        const pendingCanRetry = latest.status === "AUTO_GRADED" && stillHasRetake;
+        const needsRetake = failedNeedsRetake || pendingCanRetry;
         attemptRes = needsRetake ? await startAttempt(item.exerciseId, item.assignmentId) : latest;
       }
 

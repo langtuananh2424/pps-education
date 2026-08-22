@@ -738,6 +738,13 @@ export interface AssignedExerciseResponse {
   teacherType: "VIETNAMESE" | "FOREIGN";
   /** V123 — ngày buổi học GV đã giao BTVN này (chọn ở Nhận xét học viên UC-21) — null với bản giao TRƯỚC V123. */
   sessionDate: string | null;
+  /**
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-22 — true khi bấm làm lại được NGAY
+   * (còn lượt theo allowRetake/maxAttempts, bản giao còn ACTIVE) — KHÔNG đòi hỏi lượt gần nhất phải
+   * FULLY_GRADED trước, khác với suy luận cũ của FE (xem needsRetake/canRetryWhilePending ở
+   * AssignmentsTab.tsx).
+   */
+  canStartNewAttempt: boolean;
 }
 
 export function listMyAssignedExercises(classId?: number): Promise<AssignedExerciseResponse[]> {

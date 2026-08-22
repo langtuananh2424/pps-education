@@ -220,7 +220,8 @@
         "start": "Start now",
         "continue": "Continue",
         "reviewGraded": "Review your work",
-        "reviewSubmitted": "Review your submission"
+        "reviewSubmitted": "Review your submission",
+        "retryWhilePending": "Try another attempt"
       },
       "needsRetake": "Not passed {{percent}} — needs retake",
       "overduePrefix": "Overdue — ",

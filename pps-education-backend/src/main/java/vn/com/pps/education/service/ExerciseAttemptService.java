@@ -636,6 +636,14 @@ public class ExerciseAttemptService {
         ExerciseAttempt latest = myAttempts.isEmpty() ? null : myAttempts.get(0);
         BigDecimal latestPercentage = latest == null || latest.getTotalScore() == null ? null
                 : percentageOf(latest.getTotalScore(), exercise.getTotalPoints());
+        // Xem Javadoc AssignedExerciseResponse#canStartNewAttempt — mirror ĐÚNG điều kiện startAttempt()
+        // kiểm tra (assignment ACTIVE + đã mở + còn lượt theo allowRetake/maxAttempts), KHÔNG đòi hỏi
+        // lượt gần nhất phải FULLY_GRADED.
+        boolean canStartNewAttempt = assignment.getStatus() == ExerciseAssignment.Status.ACTIVE
+                && !assignment.getAvailableFrom().isAfter(OffsetDateTime.now())
+                && (latest == null || latest.getStatus() != ExerciseAttempt.Status.IN_PROGRESS)
+                && (myAttempts.isEmpty() || exercise.isAllowRetake())
+                && (exercise.getMaxAttempts() == null || myAttempts.size() < exercise.getMaxAttempts());
         return new AssignedExerciseResponse(
                 exercise.getId(), exercise.getCode(), exercise.getTitle(), exercise.getExerciseType().name(),
                 assignment.getId(), enrollment.getSchoolClass().getId(), enrollment.getSchoolClass().getName(),
@@ -644,7 +652,8 @@ public class ExerciseAttemptService {
                 latest == null ? null : latest.getTotalScore(), latestPercentage,
                 latest == null ? null : latest.getPassed(),
                 exercise.getExam().getTeacherType().name(),
-                assignment.getSourceClassSession() == null ? null : assignment.getSourceClassSession().getSessionDate());
+                assignment.getSourceClassSession() == null ? null : assignment.getSourceClassSession().getSessionDate(),
+                canStartNewAttempt);
     }
 
     private StudentAnswerResponse toResponse(StudentAnswer a) {
