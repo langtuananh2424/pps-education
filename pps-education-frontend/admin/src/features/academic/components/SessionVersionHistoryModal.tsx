@@ -193,10 +193,10 @@ export default function SessionVersionHistoryModal({ classSessionId, students, g
                     <th rowSpan={isVietnamese ? 3 : 2} style={STICKY_COL_STYLE[2]} className={`${thClass} sticky z-30`}>
                       {t("sessionVersionHistoryModal.columns.dateOfBirth")}
                     </th>
-                    <th colSpan={isVietnamese ? 4 : 3} className={thClass}>
+                    <th colSpan={isVietnamese ? 6 : 3} className={thClass}>
                       {t("sessionVersionHistoryModal.columns.homeworkPrevious")}
                     </th>
-                    <th colSpan={isVietnamese ? 4 : 3} className={thClass}>
+                    <th colSpan={isVietnamese ? 6 : 3} className={thClass}>
                       {t("dailyCommentPanel.columns.homeworkNextGroup")}
                     </th>
                     <th rowSpan={isVietnamese ? 3 : 2} className={`${thClass} min-w-[120px]`}>
@@ -219,15 +219,19 @@ export default function SessionVersionHistoryModal({ classSessionId, students, g
                     <>
                       <tr className="[&>th]:text-center">
                         <th className={thClass} colSpan={2}>{t("sessionVersionHistoryModal.columns.offline")}</th>
-                        <th className={thClass} colSpan={2}>{t("dailyCommentPanel.columns.online")}</th>
+                        <th className={thClass} colSpan={4}>{t("dailyCommentPanel.columns.online")}</th>
                         <th className={thClass} colSpan={2}>{t("sessionVersionHistoryModal.columns.offline")}</th>
-                        <th className={thClass} colSpan={2}>{t("dailyCommentPanel.columns.online")}</th>
+                        <th className={thClass} colSpan={4}>{t("dailyCommentPanel.columns.online")}</th>
                       </tr>
                       <tr className="[&>th]:text-center">
                         <th className={`${thClass} min-w-[90px]`}>{t("dailyCommentPanel.columns.reading")}</th>
                         <th className={`${thClass} min-w-[90px]`}>{t("dailyCommentPanel.columns.writing")}</th>
+                        <th className={`${thClass} min-w-[90px]`}>{t("dailyCommentPanel.columns.reading")}</th>
+                        <th className={`${thClass} min-w-[90px]`}>{t("dailyCommentPanel.columns.writing")}</th>
                         <th className={`${thClass} min-w-[110px]`}>{t("dailyCommentPanel.columns.onlineGrammarShort")}</th>
                         <th className={`${thClass} min-w-[110px]`}>{t("dailyCommentPanel.columns.onlineVideoShort")}</th>
+                        <th className={`${thClass} min-w-[120px]`}>{t("dailyCommentPanel.columns.reading")}</th>
+                        <th className={`${thClass} min-w-[120px]`}>{t("dailyCommentPanel.columns.writing")}</th>
                         <th className={`${thClass} min-w-[120px]`}>{t("dailyCommentPanel.columns.reading")}</th>
                         <th className={`${thClass} min-w-[120px]`}>{t("dailyCommentPanel.columns.writing")}</th>
                         <th className={`${thClass} min-w-[110px]`}>{t("dailyCommentPanel.columns.onlineGrammarShort")}</th>
@@ -269,12 +273,22 @@ export default function SessionVersionHistoryModal({ classSessionId, students, g
                         ) : (
                           <td className={`${tdClass} text-slate-500`}>{d?.homeworkPreviousScore || "—"}</td>
                         )}
+                        {isVietnamese && (
+                          <>
+                            {/* V137 — "BTVN buổi trước - Online - Reading/Writing": chỉ % TỰ ĐỘNG, mirror cột grammarPreviousProgress. */}
+                            <td className={`${tdClass} text-slate-500`}>{d?.readingPreviousProgress || "—"}</td>
+                            <td className={`${tdClass} text-slate-500`}>{d?.writingPreviousProgress || "—"}</td>
+                          </>
+                        )}
                         <td className={`${tdClass} text-slate-500`}>{d?.grammarPreviousProgress || "—"}</td>
                         <td className={`${tdClass} text-slate-500`}>{d?.videoPreviousProgress || d?.homeworkPreviousSpeakingScore || "—"}</td>
                         {isVietnamese ? (
                           <>
                             <td className={`${tdClass} text-slate-500`}>{d?.homeworkNextReading || "—"}</td>
                             <td className={`${tdClass} text-slate-500`}>{d?.homeworkNextWriting || "—"}</td>
+                            {/* V137 — "BTVN - Online - Reading/Writing" (giao buổi sau). */}
+                            <td className={`${tdClass} text-slate-500`}>{d?.homeworkNextReadingExerciseTitle || "—"}</td>
+                            <td className={`${tdClass} text-slate-500`}>{d?.homeworkNextWritingExerciseTitle || "—"}</td>
                           </>
                         ) : (
                           <td className={`${tdClass} text-slate-500`}>{d?.homeworkNext || "—"}</td>

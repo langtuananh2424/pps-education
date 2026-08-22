@@ -27,6 +27,16 @@ public class Exercise extends BaseAuditEntity {
 
     public enum Status { DRAFT, PUBLISHED, ARCHIVED }
 
+    /**
+     * Nhóm kỹ năng của Bài (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-21, V136) —
+     * ĐỘC LẬP với {@link ExerciseType} (cơ chế giao bài) và {@link Exam.ExamType} (mục đích sử dụng,
+     * REVIEW/HOMEWORK) — không thay thế field nào. READING = 1 bài đọc (dùng {@code Question.groupKey}/
+     * {@code referencePassage} có sẵn) kèm nhiều câu MULTIPLE_CHOICE; WRITING = câu hỏi tự luận (chủ
+     * yếu ESSAY); VOCAB_GRAMMAR = trắc nghiệm câu/điền từ/sắp xếp câu. Dùng để lọc dropdown "chọn đề
+     * Reading/Writing" ở Nhận xét học viên (UC-21, "BTVN online" kênh Reading/Writing mới).
+     */
+    public enum SkillCategory { READING, WRITING, VOCAB_GRAMMAR }
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -51,6 +61,11 @@ public class Exercise extends BaseAuditEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "exercise_type", nullable = false, length = 30)
     private ExerciseType exerciseType;
+
+    /** NULL = chưa phân loại (dữ liệu cũ trước V136) — xem Javadoc {@link SkillCategory}. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "skill_category", length = 20)
+    private SkillCategory skillCategory;
 
     @Column(name = "total_points", nullable = false, precision = 6, scale = 2)
     private BigDecimal totalPoints;

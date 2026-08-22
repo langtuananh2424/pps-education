@@ -1274,6 +1274,11 @@ export interface StudentCommentResponse {
   homeworkNextExerciseTitle: string | null;
   homeworkNextReviewVideoAssignmentId: number | null;
   homeworkNextReviewVideoSetTitle: string | null;
+  /** V137 — "BTVN - Online - Reading/Writing" (mirror homeworkNextExerciseAssignmentId/Title), chỉ khác null khi buổi teacherType=VIETNAMESE. Bản giao Exercise skillCategory=READING/WRITING tương ứng. */
+  homeworkNextReadingExerciseAssignmentId: number | null;
+  homeworkNextReadingExerciseTitle: string | null;
+  homeworkNextWritingExerciseAssignmentId: number | null;
+  homeworkNextWritingExerciseTitle: string | null;
   /** Hạn nộp BTVN buổi sau (lấy từ dueAt của bản giao) — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05. */
   homeworkNextDueAt: string | null;
   /** V127: id/tên Exercise NGUỒN Giáo viên vừa chọn nhưng CHƯA Gửi nhận xét — null nếu chưa chọn gì hoặc đã Gửi. */
@@ -1282,6 +1287,11 @@ export interface StudentCommentResponse {
   /** V127: mirror pendingHomeworkNextExerciseId cho kênh Video Ôn tập. */
   pendingHomeworkNextReviewVideoSetId: number | null;
   pendingHomeworkNextReviewVideoSetTitle: string | null;
+  /** V137: mirror pendingHomeworkNextExerciseId cho kênh Reading/Writing. */
+  pendingHomeworkNextReadingExerciseId: number | null;
+  pendingHomeworkNextReadingExerciseTitle: string | null;
+  pendingHomeworkNextWritingExerciseId: number | null;
+  pendingHomeworkNextWritingExerciseTitle: string | null;
   /**
    * V127: hạn nộp tự chọn đi kèm lựa chọn CHƯA giao — chuỗi "yyyy-MM-ddTHH:mm:ss" KHÔNG kèm offset
    * (LocalDateTime thô phía BE, khác homeworkNextDueAt ở trên là OffsetDateTime đã resolve) — cắt
@@ -1291,6 +1301,9 @@ export interface StudentCommentResponse {
   pendingHomeworkNextDueDate: string | null;
   grammarPreviousProgress: string | null;
   videoPreviousProgress: string | null;
+  /** V137 — % tự động "BTVN buổi trước - Online - Reading/Writing" (mirror grammarPreviousProgress/videoPreviousProgress), chỉ khác null khi buổi teacherType=VIETNAMESE. */
+  readingPreviousProgress: string | null;
+  writingPreviousProgress: string | null;
   /** BTVN buổi trước từng giao Offline (chữ tự do) — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06, phân biệt "BTVN buổi trước" có 3 loại (Offline/kênh Bài/kênh Video). Loại trừ với grammarPreviousProgress. */
   homeworkPreviousOfflineText: string | null;
   note: string | null;
@@ -1326,6 +1339,9 @@ export interface CreateStudentCommentRequest {
   homeworkNextExerciseId?: number;
   /** Kênh Video Ôn tập (luôn ONLINE) — id của ReviewVideoSet NGUỒN (đã Publish), tự động giao cả lớp tương tự. Để trống nếu không giao. */
   homeworkNextReviewVideoSetId?: number;
+  /** V137 — kênh Reading/Writing ONLINE (mirror homeworkNextExerciseId) — id của Exercise NGUỒN có skillCategory=READING/WRITING tương ứng. Chỉ gửi khi buổi teacherType=VIETNAMESE. */
+  homeworkNextReadingExerciseId?: number;
+  homeworkNextWritingExerciseId?: number;
   /**
    * Nhận xét học viên (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05, cho phép chọn
    * GIỜ 2026-08-06): hạn nộp BTVN buổi sau (ngày + giờ, format "yyyy-MM-ddTHH:mm" — khớp value của
@@ -1356,6 +1372,9 @@ export interface UpdateStudentCommentRequest {
   /** V65 — xem Javadoc CreateStudentCommentRequest.homeworkNextExerciseId. */
   homeworkNextExerciseId?: number;
   homeworkNextReviewVideoSetId?: number;
+  /** V137 — xem Javadoc CreateStudentCommentRequest.homeworkNextReadingExerciseId. */
+  homeworkNextReadingExerciseId?: number;
+  homeworkNextWritingExerciseId?: number;
   /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05 — xem Javadoc CreateStudentCommentRequest.homeworkNextDueDate. */
   homeworkNextDueDate?: string;
   note?: string;
@@ -1402,6 +1421,9 @@ export interface StudentCommentHistoryResponse {
     /** % tự động (kênh Ngữ pháp/Video) của "BTVN buổi trước" TẠI thời điểm lưu — xem PreviousProgressCell ở DailyCommentPanel.tsx cho ý nghĩa 2 field này. */
     grammarPreviousProgress: string | null;
     videoPreviousProgress: string | null;
+    /** V137 — mirror grammarPreviousProgress/videoPreviousProgress cho kênh Reading/Writing online. */
+    readingPreviousProgress: string | null;
+    writingPreviousProgress: string | null;
     homeworkNext: string | null;
     homeworkNextReading: string | null;
     homeworkNextWriting: string | null;
@@ -1409,9 +1431,15 @@ export interface StudentCommentHistoryResponse {
     rejectionReason: string | null;
     homeworkNextExerciseTitle: string | null;
     homeworkNextReviewVideoSetTitle: string | null;
+    /** V137 — mirror homeworkNextExerciseTitle/homeworkNextReviewVideoSetTitle cho kênh Reading/Writing online. */
+    homeworkNextReadingExerciseTitle: string | null;
+    homeworkNextWritingExerciseTitle: string | null;
     homeworkNextDueAt: string | null;
     pendingHomeworkNextExerciseTitle: string | null;
     pendingHomeworkNextReviewVideoSetTitle: string | null;
+    /** V137 — mirror pendingHomeworkNextExerciseTitle/pendingHomeworkNextReviewVideoSetTitle cho kênh Reading/Writing online. */
+    pendingHomeworkNextReadingExerciseTitle: string | null;
+    pendingHomeworkNextWritingExerciseTitle: string | null;
     pendingHomeworkNextDueDate: string | null;
   };
   createdAt: string;
@@ -1513,6 +1541,9 @@ export interface DailyCommentImportPreviewRow {
   homeworkNextWriting: string | null;
   homeworkNextExerciseId: number | null;
   homeworkNextReviewVideoSetId: number | null;
+  /** V137 — chỉ khác null khi buổi teacherType=VIETNAMESE. */
+  homeworkNextReadingExerciseId: number | null;
+  homeworkNextWritingExerciseId: number | null;
   note: string | null;
 }
 

@@ -21,5 +21,8 @@ public record DailyCommentImportPreviewRow(
         String homeworkNextWriting,
         Long homeworkNextExerciseId,
         Long homeworkNextReviewVideoSetId,
+        /** V137 — chỉ khác null khi buổi teacherType=VIETNAMESE. */
+        Long homeworkNextReadingExerciseId,
+        Long homeworkNextWritingExerciseId,
         String note
 ) {}

@@ -23,12 +23,14 @@ public record CreateExerciseRequest(
         Integer maxAttempts,
         boolean showCorrectAnswers,
         /** V89/V100, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05: NULL = dùng mặc định 70% (Exercise.passThresholdPercent). */
-        BigDecimal passThresholdPercent
+        BigDecimal passThresholdPercent,
+        /** V136, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-21 — "READING"/"WRITING"/"VOCAB_GRAMMAR", NULL = chưa phân loại. Cố định từ lúc tạo (không sửa được qua UpdateExerciseRequest), xem Javadoc Exercise.SkillCategory. */
+        String skillCategory
 ) {
     public CreateExerciseRequest(String code, String title, Long examId, Long subjectId, String exerciseType,
                                   BigDecimal totalPoints, Integer timeLimitMinutes, boolean allowRetake,
                                   Integer maxAttempts, boolean showCorrectAnswers) {
         this(code, title, examId, subjectId, exerciseType, totalPoints, timeLimitMinutes, allowRetake,
-                maxAttempts, showCorrectAnswers, null);
+                maxAttempts, showCorrectAnswers, null, null);
     }
 }

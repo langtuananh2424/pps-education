@@ -232,8 +232,8 @@ export default function CommentApprovalByClass({ items, loading, onDecided }: Co
                         <Th rowSpan={isVietnamese ? 3 : 2} className="border-r border-slate-300">{t("approvalByClass.columns.fullName")}</Th>
                         <Th rowSpan={isVietnamese ? 3 : 2} className="border-r border-slate-300">{t("approvalByClass.columns.type")}</Th>
                         <Th rowSpan={isVietnamese ? 3 : 2} className="border-r border-slate-300">{t("approvalByClass.columns.dateOfBirth")}</Th>
-                        <Th colSpan={isVietnamese ? 4 : 3} className="text-center border-r border-slate-300">{t("approvalByClass.columns.homeworkPrevious")}</Th>
-                        <Th colSpan={isVietnamese ? 4 : 3} className="text-center border-r border-slate-300">{t("dailyCommentPanel.columns.homeworkNextGroup")}</Th>
+                        <Th colSpan={isVietnamese ? 6 : 3} className="text-center border-r border-slate-300">{t("approvalByClass.columns.homeworkPrevious")}</Th>
+                        <Th colSpan={isVietnamese ? 6 : 3} className="text-center border-r border-slate-300">{t("dailyCommentPanel.columns.homeworkNextGroup")}</Th>
                         <Th rowSpan={isVietnamese ? 3 : 2} className="border-r border-slate-300">{t("approvalByClass.columns.dueDate")}</Th>
                         <Th rowSpan={isVietnamese ? 3 : 2} className="border-r border-slate-300">{t("approvalByClass.columns.attitude")}</Th>
                         <Th rowSpan={isVietnamese ? 3 : 2} className="border-r border-slate-300">{t("approvalByClass.columns.studentComment")}</Th>
@@ -244,15 +244,19 @@ export default function CommentApprovalByClass({ items, loading, onDecided }: Co
                         <>
                           <tr className="border-b border-slate-300 [&>th]:text-center">
                             <Th colSpan={2} className="border-r border-slate-300 text-center">{t("approvalByClass.columns.offline")}</Th>
-                            <Th colSpan={2} className="border-r border-slate-300 text-center">{t("dailyCommentPanel.columns.online")}</Th>
+                            <Th colSpan={4} className="border-r border-slate-300 text-center">{t("dailyCommentPanel.columns.online")}</Th>
                             <Th colSpan={2} className="border-r border-slate-300 text-center">{t("approvalByClass.columns.offline")}</Th>
-                            <Th colSpan={2} className="border-r border-slate-300 text-center">{t("dailyCommentPanel.columns.online")}</Th>
+                            <Th colSpan={4} className="border-r border-slate-300 text-center">{t("dailyCommentPanel.columns.online")}</Th>
                           </tr>
                           <tr className="border-b border-slate-300 [&>th]:text-center">
                             <Th className="border-r border-slate-300 text-center">{t("dailyCommentPanel.columns.reading")}</Th>
                             <Th className="border-r border-slate-300 text-center">{t("dailyCommentPanel.columns.writing")}</Th>
+                            <Th className="border-r border-slate-300 text-center">{t("dailyCommentPanel.columns.reading")}</Th>
+                            <Th className="border-r border-slate-300 text-center">{t("dailyCommentPanel.columns.writing")}</Th>
                             <Th className="border-r border-slate-300 text-center">{onlineGrammarLabel}</Th>
                             <Th className="border-r border-slate-300 text-center">{onlineVideoLabel}</Th>
+                            <Th className="border-r border-slate-300 text-center">{t("dailyCommentPanel.columns.reading")}</Th>
+                            <Th className="border-r border-slate-300 text-center">{t("dailyCommentPanel.columns.writing")}</Th>
                             <Th className="border-r border-slate-300 text-center">{t("dailyCommentPanel.columns.reading")}</Th>
                             <Th className="border-r border-slate-300 text-center">{t("dailyCommentPanel.columns.writing")}</Th>
                             <Th className="border-r border-slate-300 text-center">{onlineGrammarLabel}</Th>
@@ -290,12 +294,22 @@ export default function CommentApprovalByClass({ items, loading, onDecided }: Co
                           ) : (
                             <Td className="min-w-[110px] border-r border-slate-300">{cm.homeworkPreviousOfflineText || "—"}</Td>
                           )}
+                          {isVietnamese && (
+                            <>
+                              {/* V137 — "BTVN buổi trước - Online - Reading/Writing": chỉ hiện % TỰ ĐỘNG, mirror cột {onlineGrammarLabel}. */}
+                              <Td className="min-w-[130px] border-r border-slate-300">{cm.readingPreviousProgress || "—"}</Td>
+                              <Td className="min-w-[130px] border-r border-slate-300">{cm.writingPreviousProgress || "—"}</Td>
+                            </>
+                          )}
                           <Td className="min-w-[130px] border-r border-slate-300">{cm.homeworkPreviousScore || "—"}</Td>
                           <Td className="min-w-[130px] border-r border-slate-300">{cm.homeworkPreviousSpeakingScore || "—"}</Td>
                           {isVietnamese ? (
                             <>
                               <Td className="min-w-[140px] border-r border-slate-300">{cm.homeworkNextReading || "—"}</Td>
                               <Td className="min-w-[140px] border-r border-slate-300">{cm.homeworkNextWriting || "—"}</Td>
+                              {/* V137 — "BTVN - Online - Reading/Writing" (giao buổi sau). */}
+                              <Td className="min-w-[180px] border-r border-slate-300">{cm.homeworkNextReadingExerciseTitle || "—"}</Td>
+                              <Td className="min-w-[180px] border-r border-slate-300">{cm.homeworkNextWritingExerciseTitle || "—"}</Td>
                             </>
                           ) : (
                             <Td className="min-w-[160px] border-r border-slate-300">{cm.homeworkNext || "—"}</Td>

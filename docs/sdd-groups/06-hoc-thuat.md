@@ -1651,6 +1651,35 @@ a)  Bảng student_comments --- Nhận xét học sinh
   homework_next_writing     TEXT          NULL                  Mirror homework_next_reading
                                                                  cho kỹ năng Writing (V130)
 
+  homework_next_reading_    BIGINT        FK →                  Chỉ DAILY, chỉ buổi
+  exercise_assignment_id                  exercise_             teacher_type=VIETNAMESE (V137,
+                                           assignments(id),      bổ sung ngoài SDD gốc, đã xác
+                                           NULL                  nhận với người dùng 2026-08-21)
+                                                                  — mirror homework_next_
+                                                                  exercise_assignment_id (kênh
+                                                                  Ngữ pháp) nhưng cho kênh
+                                                                  Reading ONLINE mới (Exercise
+                                                                  skill_category=READING, V136);
+                                                                  NULL = không giao kênh này
+
+  homework_next_writing_    BIGINT        FK →                  Mirror homework_next_reading_
+  exercise_assignment_id                  exercise_             exercise_assignment_id cho kỹ
+                                           assignments(id),      năng Writing (skill_category=
+                                           NULL                  WRITING) (V137)
+
+  pending_homework_next_    BIGINT        NULL                  Chỉ DAILY, chỉ buổi
+  reading_exercise_id                                           teacher_type=VIETNAMESE (V137)
+                                                                  — id Exercise NGUỒN staging cho
+                                                                  kênh Reading khi nhận xét còn
+                                                                  DRAFT (mirror pending_homework_
+                                                                  next_exercise_id kênh Ngữ
+                                                                  pháp), materialize thành FK ở
+                                                                  trên khi Gửi nhận xét
+
+  pending_homework_next_    BIGINT        NULL                  Mirror pending_homework_next_
+  writing_exercise_id                                           reading_exercise_id cho kỹ
+                                                                  năng Writing (V137)
+
   note                     TEXT          NULL                  Chỉ DAILY (V50) — ghi chú thêm
   -------------------------------------------------------------------------------------------
 
@@ -1685,6 +1714,21 @@ gì). Cột con "Online" (Ngữ pháp/`homework_previous_score` phía trên và 
 chỉ đổi 1 chỗ thuần cosmetic: 2 header cha "BTVN offline"+"BTVN online" cũ (tách rời) gộp thành 1 header
 "BTVN" (vẫn 3 cột lá y hệt, không đổi field/vị trí cột). Xem `StudentCommentService.HomeworkColumns`
 (BE) và `DailyCommentPanel.tsx`/`CommentApprovalByClass.tsx` (FE, biến `isVietnamese`).
+
+**Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (V137, 2026-08-21):** cột con "Online" của cả 2 nhóm
+"BTVN buổi trước"/"BTVN" (giao buổi sau, CHỈ buổi `teacher_type=VIETNAMESE`, mirror V130) mở rộng từ 2
+cột lá (TV+NP/Video TKN) thành 4 — thêm Reading/Writing ở đầu, dùng 4 cột mới ở trên
+(`homework_next_reading_exercise_assignment_id`/`_writing_exercise_assignment_id`/
+`pending_homework_next_reading_exercise_id`/`_writing_exercise_id`). Nguồn Exercise cho dropdown lọc
+theo `exercises.skill_category=READING/WRITING` (V136) — KHÔNG lọc `examTeacherType` như kênh Ngữ pháp
+(skillCategory đã đủ đặc trưng). % "BTVN buổi trước - Online - Reading/Writing" tính TỰ ĐỘNG từ
+`exercise_attempts` lọc `skillCategory` (không lưu cột riêng, tính lại mỗi lần hiển thị — cùng cơ chế
+`grammarPreviousProgress`/`videoPreviousProgress` đã có từ V55/V56, KHÔNG liên quan tới 2 cột
+`homework_previous_reading_score`/`_writing_score` của V130 vốn là kênh Offline nhập tay). Excel:
+`HomeworkColumns` mở rộng 19→23 cột cho buổi VIETNAMESE (buổi FOREIGN không đổi, vẫn 17 cột). Xem
+`StudentCommentService.HomeworkColumns`/`resolveReadingExerciseHomework`/
+`resolveWritingExerciseHomework` (BE) và `DailyCommentPanel.tsx`/`CommentApprovalByClass.tsx`/
+`CommentHistoryPanel.tsx`/`SessionVersionHistoryModal.tsx` (FE).
 
 Có student_comments_history.
 

@@ -49,6 +49,10 @@ public record CreateStudentCommentRequest(
         String homeworkNextWriting,
         Long homeworkNextExerciseId,
         Long homeworkNextReviewVideoSetId,
+        // V137 — "BTVN - Online - Reading/Writing" (mirror homeworkNextExerciseId), chỉ có ý nghĩa khi
+        // buổi teacherType=VIETNAMESE. Id của Exercise (skillCategory=READING/WRITING tương ứng).
+        Long homeworkNextReadingExerciseId,
+        Long homeworkNextWritingExerciseId,
         LocalDateTime homeworkNextDueDate,
         String note
 ) {}

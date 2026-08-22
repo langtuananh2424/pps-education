@@ -741,7 +741,7 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         QuestionResponse mc2 = createMcQuestion();
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "BTVN ngưỡng thấp", defaultExam.id(), null, "SELF_PRACTICE",
-                        new BigDecimal("2"), null, true, null, true, new BigDecimal("40")), teacher.getId());
+                        new BigDecimal("2"), null, true, null, true, new BigDecimal("40"), null), teacher.getId());
         assertThat(exercise.passThresholdPercent()).isEqualByComparingTo("40");
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc1.id(), 1, new BigDecimal("1.0")), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc2.id(), 2, new BigDecimal("1.0")), teacher.getId());
