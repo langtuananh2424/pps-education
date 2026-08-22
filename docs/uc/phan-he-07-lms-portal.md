@@ -744,14 +744,32 @@ UC-24: Làm bài kiểm tra trực tuyến
 > khi chấm, quyền `lms.grading.manage`). UC-23b dùng cơ chế khác (đệm
 > rồi gửi kèm lúc nộp) — xem blockquote riêng ở UC-23b.
 >
-> **Cân nhắc nhưng KHÔNG làm trong lần này:** áp dụng `Exercise.
-> timeLimitMinutes` (trường có sẵn từ trước nhưng chưa từng được thực
-> thi ở đâu) để tự nộp bài khi hết giờ — đã xác nhận với người dùng
-> 2026-07-31: chỉ tập trung đúng phạm vi giám sát thoát màn hình, việc
-> này để làm sau, cần chốt lại cách xử lý bài dở khi triển khai. Cũng
-> KHÔNG làm giám sát qua webcam — học sinh là trẻ vị thành niên, rủi ro
-> pháp lý về quyền riêng tư/lưu trữ dữ liệu không tương xứng với nhu cầu
-> (bài tập, không phải thi tốt nghiệp).
+> **Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-22 —
+> triển khai enforcement `Exercise.timeLimitMinutes`** (thay thế đoạn "Cân
+> nhắc nhưng KHÔNG làm trong lần này" ở bản trước): khi hết giờ làm bài
+> tính từ `exercise_attempts.started_at`, hệ thống tự động chốt + chấm bài
+> như nộp bình thường (tái dùng luồng `ExerciseAttemptService#gradeAndFinalize`
+> — cùng công thức tự chấm trắc nghiệm/pass-threshold như A5, KHÔNG dùng
+> trạng thái `EXPIRED` có sẵn trong SDD, giữ `EXPIRED` để dành cho tình
+> huống khác sau này, tránh lẫn với luồng chấm điểm chuẩn). 2 cơ chế:
+>
+> 1. Chặn ngay khi học sinh còn thao tác: `saveAnswer()` kiểm tra nếu
+>    `now > started_at + timeLimitMinutes` thì tự chốt bài trước, từ chối
+>    nhận câu trả lời mới đó (`AttemptNotEditableException`, message rõ đã
+>    hết giờ và hệ thống đã tự nộp).
+> 2. Scheduled job `ExerciseAttemptTimeoutSchedulerService` (cron 5 phút,
+>    mirror `HomeworkDueSoonReminderSchedulerService`) quét các lượt làm
+>    `IN_PROGRESS` bị bỏ dở (học sinh đóng tab, không quay lại) và tự chốt.
+>
+> Học sinh chủ động bấm Nộp (`submitAttempt()`) dù có trễ hơn
+> `timeLimitMinutes` vẫn được chấm bình thường như cũ — đây là hành động
+> chủ động, không phải luồng "tự động nộp". Không thêm cột đánh dấu riêng
+> — có thể suy ra "bị tự động chốt do hết giờ" từ so sánh
+> `submitted_at`/`started_at`/`exercises.time_limit_minutes` khi cần, tại
+> thời điểm hiển thị/báo cáo, không cần lưu thêm trạng thái. Cũng KHÔNG
+> làm giám sát qua webcam — học sinh là trẻ vị thành niên, rủi ro pháp lý
+> về quyền riêng tư/lưu trữ dữ liệu không tương xứng với nhu cầu (bài tập,
+> không phải thi tốt nghiệp).
 
 ---
 

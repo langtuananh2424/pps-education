@@ -85,6 +85,7 @@ public class StudentAttendanceService {
     private final SchoolClassRepository schoolClassRepository;
     private final ClassEnrollmentRepository classEnrollmentRepository;
     private final SiteManagerRepository siteManagerRepository;
+    private final StudentAttendanceSettings studentAttendanceSettings;
 
     public StudentAttendanceService(ClassSessionRepository classSessionRepository,
                                      SessionPeriodRepository sessionPeriodRepository,
@@ -100,7 +101,8 @@ public class StudentAttendanceService {
                                      PermissionEvaluationService permissionEvaluationService,
                                      SchoolClassRepository schoolClassRepository,
                                      ClassEnrollmentRepository classEnrollmentRepository,
-                                     SiteManagerRepository siteManagerRepository) {
+                                     SiteManagerRepository siteManagerRepository,
+                                     StudentAttendanceSettings studentAttendanceSettings) {
         this.classSessionRepository = classSessionRepository;
         this.sessionPeriodRepository = sessionPeriodRepository;
         this.attendanceSessionRepository = attendanceSessionRepository;
@@ -116,6 +118,7 @@ public class StudentAttendanceService {
         this.schoolClassRepository = schoolClassRepository;
         this.classEnrollmentRepository = classEnrollmentRepository;
         this.siteManagerRepository = siteManagerRepository;
+        this.studentAttendanceSettings = studentAttendanceSettings;
     }
 
     /**
@@ -249,9 +252,10 @@ public class StudentAttendanceService {
 
         List<AttendanceMark> marks = attendanceMarkRepository.findByAttendanceSessionId(attendanceSession.getId());
         for (AttendanceMark mark : marks) {
-            // Main Flow bước 5 / A2 -- chỉ ABSENT (vắng không phép) CHƯA gửi mới kích hoạt thông báo.
+            // Main Flow bước 5 (sửa đổi nghiệp vụ 2026-08-22, xem docs/uc/phan-he-05-hoc-sinh.md)
+            // -- MỌI trạng thái điểm danh CHƯA gửi đều kích hoạt thông báo, không còn giới hạn ABSENT.
             // Guard notifiedParentAt: submit lại trong ngày (sau khi sửa) không gửi trùng cho PH.
-            if (mark.getStatus() == AttendanceMark.Status.ABSENT && mark.getNotifiedParentAt() == null) {
+            if (mark.getNotifiedParentAt() == null) {
                 notifyParents(mark, classSession, actor);
             }
         }
@@ -285,23 +289,48 @@ public class StudentAttendanceService {
         if (links.isEmpty()) {
             return;
         }
-        String title = "Học sinh " + mark.getStudent().getUser().getFullName() + " vắng học";
+        String studentName = mark.getStudent().getUser().getFullName();
+        Notification.NotificationType type = attendanceNotificationType(mark.getStatus());
+        Notification.Priority priority = mark.getStatus() == AttendanceMark.Status.ABSENT
+                ? Notification.Priority.HIGH : Notification.Priority.NORMAL;
+        String title = "Học sinh " + studentName + " " + attendanceStatusLabel(mark.getStatus());
         String content = "Buổi học ngày " + classSession.getSessionDate() + " (" + classSession.getStartTime()
-                + " - " + classSession.getEndTime() + "): " + mark.getStudent().getUser().getFullName()
+                + " - " + classSession.getEndTime() + "): " + studentName
                 + " được ghi nhận " + mark.getStatus() + ".";
         Map<String, Object> metadata = new LinkedHashMap<>();
         metadata.put("classSessionId", classSession.getId());
         metadata.put("studentId", mark.getStudent().getId());
         metadata.put("status", mark.getStatus().name());
-        metadata.put("studentName", mark.getStudent().getUser().getFullName());
+        metadata.put("studentName", studentName);
         metadata.put("className", classSession.getSchoolClass().getName());
 
         for (ParentStudent link : links) {
-            notificationService.notify(link.getParent().getUser().getId(), Notification.NotificationType.ATTENDANCE_ABSENT,
-                    title, content, metadata, "ATTENDANCE_MARK", mark.getId(), Notification.Priority.HIGH, actor.getId());
+            notificationService.notify(link.getParent().getUser().getId(), type,
+                    title, content, metadata, "ATTENDANCE_MARK", mark.getId(), priority, actor.getId());
         }
         mark.setNotifiedParentAt(OffsetDateTime.now());
         attendanceMarkRepository.save(mark);
+    }
+
+    /** Sửa đổi nghiệp vụ 2026-08-22: 1 NotificationType riêng cho từng trạng thái điểm danh. */
+    private Notification.NotificationType attendanceNotificationType(AttendanceMark.Status status) {
+        return switch (status) {
+            case ABSENT -> Notification.NotificationType.ATTENDANCE_ABSENT;
+            case LATE -> Notification.NotificationType.ATTENDANCE_LATE;
+            case EXCUSED -> Notification.NotificationType.ATTENDANCE_EXCUSED;
+            case EARLY_LEAVE -> Notification.NotificationType.ATTENDANCE_EARLY_LEAVE;
+            case PRESENT -> Notification.NotificationType.ATTENDANCE_PRESENT;
+        };
+    }
+
+    private String attendanceStatusLabel(AttendanceMark.Status status) {
+        return switch (status) {
+            case ABSENT -> "vắng không phép";
+            case LATE -> "đi học muộn";
+            case EXCUSED -> "vắng có phép";
+            case EARLY_LEAVE -> "về sớm";
+            case PRESENT -> "có mặt đầy đủ";
+        };
     }
 
     /** Giáo viên (không có academic.class.manage) chỉ xem được điểm danh buổi thuộc site được gán — xem ClassService.resolveAllowedSiteIds. */
@@ -436,20 +465,29 @@ public class StudentAttendanceService {
     }
 
     /**
-     * Khung giờ điểm danh của Giáo viên thường = [start_time, end_time] của
-     * đúng ngày diễn ra buổi học (xem requireCanWriteAttendance). Tách riêng
-     * để dùng chung với canWriteAttendance (bản không throw).
+     * Khung giờ điểm danh của Giáo viên thường = [start_time, end_time +
+     * grace_period] của đúng ngày diễn ra buổi học (xem
+     * requireCanWriteAttendance). grace_period cấu hình qua
+     * system_settings.student_attendance.grace_period_minutes (sửa đổi
+     * nghiệp vụ 2026-08-22, xem docs/uc/phan-he-05-hoc-sinh.md) — thay thế
+     * ràng buộc cứng [start_time, end_time] chốt ngày 2026-08-18. Tách
+     * riêng để dùng chung với canWriteAttendance (bản không throw).
      */
     private void requireWithinSessionWindow(ClassSession classSession) {
         if (!isWithinSessionWindow(classSession)) {
+            LocalTime graceEnd = graceEnd(classSession);
             throw new AttendanceSessionNotEditableException(
                     "error.attendanceSessionNotEditable.default",
-                    new Object[]{classSession.getSessionDate(), classSession.getStartTime(), classSession.getEndTime(), LocalDate.now(), LocalTime.now()},
+                    new Object[]{classSession.getSessionDate(), classSession.getStartTime(), graceEnd, LocalDate.now(), LocalTime.now()},
                     "Chỉ điểm danh/sửa được trong khung giờ buổi học (" + classSession.getSessionDate() + " "
-                            + classSession.getStartTime() + "-" + classSession.getEndTime()
+                            + classSession.getStartTime() + "-" + graceEnd
                             + "); hiện tại là " + LocalDate.now() + " " + LocalTime.now()
                             + ". Cần quyền quản trị điểm danh để thao tác ngoài khung giờ này.");
         }
+    }
+
+    private LocalTime graceEnd(ClassSession classSession) {
+        return classSession.getEndTime().plusMinutes(studentAttendanceSettings.gracePeriodMinutes());
     }
 
     private boolean isWithinSessionWindow(ClassSession classSession) {
@@ -457,7 +495,7 @@ public class StudentAttendanceService {
         LocalTime now = LocalTime.now();
         return today.equals(classSession.getSessionDate())
                 && !now.isBefore(classSession.getStartTime())
-                && !now.isAfter(classSession.getEndTime());
+                && !now.isAfter(graceEnd(classSession));
     }
 
     /**

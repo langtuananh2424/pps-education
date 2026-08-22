@@ -1797,13 +1797,10 @@ Các điểm rẽ nhánh chính
   2        Cần sửa chi tiết   Sau khi điểm danh nhanh cả buổi, GV có thể tùy
            theo từng tiết?    chọn vào sửa lại 1 tiết cụ thể cho 1 học sinh
 
-  3        Có học sinh ABSENT Quyết định có kích hoạt luồng gửi thông báo hay
-           hoặc LATE?         không
-
-  4        Gửi thành công?    Riêng cho background job --- có cơ chế retry khi
+  3        Gửi thành công?    Riêng cho background job --- có cơ chế retry khi
                               gửi thất bại
 
-  5        retry_count \<     Vòng lặp retry có giới hạn, tránh gửi vô hạn khi
+  4        retry_count \<     Vòng lặp retry có giới hạn, tránh gửi vô hạn khi
            max?               lỗi kéo dài
   -----------------------------------------------------------------------------
 
@@ -1828,12 +1825,10 @@ flowchart TD
         B5[Tự động tạo<br/>attendance_period_marks<br/>cho từng tiết<br/>- cùng status với cấp buổi]
         B12[Cập nhật attendance_marks<br/>tương ứng]
         B14[attendance_sessions.status<br/>= SUBMITTED]
-        B15{Có học sinh<br/>ABSENT hoặc LATE?}
-        B16[Với mỗi học sinh đó:<br/>lấy toàn bộ Phụ huynh<br/>qua parent_student]
-        B17[Tạo notifications<br/>type = ATTENDANCE_ABSENT<br/>cho từng Phụ huynh]
+        B16[Với mỗi học sinh vừa điểm danh:<br/>lấy toàn bộ Phụ huynh<br/>qua parent_student]
+        B17[Tạo notifications<br/>type tương ứng trạng thái<br/>PRESENT/ABSENT/EXCUSED/<br/>LATE/EARLY_LEAVE<br/>cho từng Phụ huynh]
         B18[Tạo notification_deliveries<br/>theo kênh: IN_APP + EMAIL]
         B19[Cập nhật<br/>notified_parent_at]
-        B20([Kết thúc - Không có<br/>vắng/muộn, không gửi thông báo])
     end
 
     subgraph HeThongGui["Hệ thống gửi (background job)"]
@@ -1853,9 +1848,7 @@ flowchart TD
     B1 --> A4 --> B5 --> A9
     A9 -- Không --> A13
     A9 -- Có --> A10 --> A11 --> B12 --> A13
-    A13 --> B14 --> B15
-    B15 -- Không --> B20
-    B15 -- Có --> B16 --> B17 --> B18
+    A13 --> B14 --> B16 --> B17 --> B18
     B18 --> C1
     B18 --> C2
     C1 --> B19
