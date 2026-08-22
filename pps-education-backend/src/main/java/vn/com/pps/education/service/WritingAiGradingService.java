@@ -65,7 +65,7 @@ public class WritingAiGradingService {
     public record GradeResult(int scorePercent, String feedback) {
     }
 
-    /** Số lần thử tối đa (1 lần đầu + tối đa RETRY lần) khi gặp lỗi tạm thời (503/429/5xx) — xem {@link #isRetryable}. */
+    /** Số lần thử tối đa (1 lần đầu + tối đa RETRY lần) khi gặp lỗi tạm thời (503/5xx, KHÔNG gồm 429) — xem {@link #isRetryable}. */
     private static final int MAX_ATTEMPTS = 3;
     private static final long RETRY_DELAY_MS = 1500;
 
@@ -107,10 +107,17 @@ public class WritingAiGradingService {
         return null;
     }
 
-    /** HTTP 503 (quá tải, "high demand")/429 (rate limit)/5xx — đáng thử lại. Lỗi khác (JSON sai format, network...) không retry, trả null ngay. */
+    /**
+     * CHỈ HTTP 503 (quá tải, "high demand")/5xx — đáng thử lại ngay (vài giây sau thường qua). KHÔNG
+     * retry HTTP 429 — đã gặp thực tế 2026-08-22: 429 của Gemini free tier là RESOURCE_EXHAUSTED theo
+     * quota NGÀY (generate_content_free_tier_requests, limit 20/ngày — xem "retry in Xs" thực tế lên
+     * tới 50+s trong response, không phải rate-limit vài giây), retry ngay càng làm cạn quota nhanh hơn
+     * (3 lần thử = tốn 3 lần quota cho 1 lần nộp bài) mà gần như chắc chắn vẫn thất bại. Lỗi khác (JSON
+     * sai format, network...) cũng không retry, trả null ngay.
+     */
     private boolean isRetryable(Exception e) {
         String msg = e.getMessage();
-        return msg != null && (msg.contains("HTTP 503") || msg.contains("HTTP 429") || msg.contains("HTTP 500") || msg.contains("HTTP 502") || msg.contains("HTTP 504"));
+        return msg != null && (msg.contains("HTTP 503") || msg.contains("HTTP 500") || msg.contains("HTTP 502") || msg.contains("HTTP 504"));
     }
 
     private void sleepQuietly(long millis) {

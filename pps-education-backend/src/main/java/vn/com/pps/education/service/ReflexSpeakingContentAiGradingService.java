@@ -58,7 +58,7 @@ public class ReflexSpeakingContentAiGradingService {
     public record GradeResult(String transcript, int scorePercent, String feedback) {
     }
 
-    /** Số lần thử tối đa (1 lần đầu + tối đa RETRY lần) khi gặp lỗi tạm thời (503/429/5xx) — xem {@link #isRetryable}. */
+    /** Số lần thử tối đa (1 lần đầu + tối đa RETRY lần) khi gặp lỗi tạm thời (503/5xx, KHÔNG gồm 429) — xem {@link #isRetryable}. */
     private static final int MAX_ATTEMPTS = 3;
     private static final long RETRY_DELAY_MS = 1500;
 
@@ -122,9 +122,15 @@ public class ReflexSpeakingContentAiGradingService {
         return parseResult(rawText);
     }
 
+    /**
+     * CHỈ HTTP 503/5xx — đáng thử lại ngay. KHÔNG retry 429 — đã gặp thực tế 2026-08-22: 429 của
+     * Gemini free tier là RESOURCE_EXHAUSTED theo quota NGÀY (limit 20/ngày, "retry in Xs" thực tế lên
+     * tới 50+s), retry ngay càng làm cạn quota nhanh hơn mà gần như chắc chắn vẫn thất bại — xem
+     * {@link WritingAiGradingService#isRetryable}.
+     */
     private boolean isRetryable(Exception e) {
         String msg = e.getMessage();
-        return msg != null && (msg.contains("HTTP 503") || msg.contains("HTTP 429") || msg.contains("HTTP 500") || msg.contains("HTTP 502") || msg.contains("HTTP 504"));
+        return msg != null && (msg.contains("HTTP 503") || msg.contains("HTTP 500") || msg.contains("HTTP 502") || msg.contains("HTTP 504"));
     }
 
     private void sleepQuietly(long millis) {
