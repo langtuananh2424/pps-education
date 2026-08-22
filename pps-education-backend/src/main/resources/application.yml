@@ -167,6 +167,16 @@ app:
       secret-key: ${R2_SECRET_ACCESS_KEY:CHANGE_THIS_IN_ENV}
       bucket: ${R2_BUCKET_NAME:CHANGE_THIS_IN_ENV}
       public-base-url: ${R2_PUBLIC_BASE_URL:https://change-this-in-env.r2.dev}
+  ai-grading-test:
+    # SPIKE/TEST riêng (2026-08-22, đã xác nhận với người dùng) - đánh giá khả thi kỹ thuật/chi phí
+    # hướng "AI chấm Speaking" (Video phản xạ V2, xem SpeakingAiGradingTestService) - KHÔNG phải cấu
+    # hình của 1 UC chính thức. Để trống thì endpoint trả lỗi có kiểm soát khi gọi (không crash lúc
+    # khởi động, giống mẫu MAIL_HOST/FIREBASE_CREDENTIALS_BASE64).
+    openai-api-key: ${OPENAI_API_KEY:}
+    anthropic-api-key: ${ANTHROPIC_API_KEY:}
+    # Bổ sung 2026-08-22 - dùng thay Claude khi chưa cấu hình ANTHROPIC_API_KEY (Anthropic yêu cầu
+    # nạp tiền trước) - Gemini free tier không cần thẻ thanh toán, xem SpeakingAiGradingTestService.
+    gemini-api-key: ${GEMINI_API_KEY:}
 
 springdoc:
   swagger-ui:
