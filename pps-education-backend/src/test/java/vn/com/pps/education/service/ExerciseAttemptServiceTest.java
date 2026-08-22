@@ -101,6 +101,12 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
     @Autowired
     private ExerciseAssignmentRepository exerciseAssignmentRepository;
 
+    @Autowired
+    private vn.com.pps.education.repository.ExerciseAttemptRepository exerciseAttemptRepository;
+
+    @Autowired
+    private ExerciseAttemptTimeoutSchedulerService exerciseAttemptTimeoutSchedulerService;
+
     private User headAcademic;
     private User teacher;
     private CurriculumResponse activeCurriculum;
@@ -768,6 +774,91 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
                         new BigDecimal("1"), null, true, null, true), teacher.getId());
 
         assertThat(exercise.passThresholdPercent()).isEqualByComparingTo("70.00");
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-22 —
+     * enforcement Exercise.timeLimitMinutes: saveAnswer() phát hiện đã hết
+     * giờ (startedAt + timeLimitMinutes < now) thì tự động chốt + chấm
+     * bài (mirror submitAttempt bình thường), từ chối nhận câu trả lời đó.
+     */
+    @Test
+    void saveAnswer_boSung_autoFinalizesAndRejectsWhenTimeLimitExceeded() {
+        QuestionResponse mc = createMcQuestion();
+        ExerciseResponse exercise = exerciseService.createExercise(
+                new CreateExerciseRequest(exerciseCode(), "Kiểm tra có giờ", defaultExam.id(), null, "SELF_PRACTICE",
+                        new BigDecimal("1"), 30, true, null, true), teacher.getId());
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("1.0")), teacher.getId());
+        examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
+        commitCurrentTransactionAndStartNew();
+        ExerciseAssignment assignment = exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId());
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), assignment.getId(), studentUser.getId());
+        backdateStartedAt(attempt.id(), 40); // vượt quá 30 phút giới hạn
+
+        Long correctChoiceId = mc.choices().stream().filter(c -> c.isCorrect()).findFirst().orElseThrow().id();
+        assertThatThrownBy(() -> exerciseAttemptService.saveAnswer(attempt.id(),
+                new SaveAnswerRequest(mc.id(), null, List.of(correctChoiceId), null, null), studentUser.getId()))
+                .isInstanceOf(AttemptNotEditableException.class);
+
+        vn.com.pps.education.domain.ExerciseAttempt finalized = exerciseAttemptRepository.findById(attempt.id()).orElseThrow();
+        assertThat(finalized.getStatus()).isNotEqualTo(vn.com.pps.education.domain.ExerciseAttempt.Status.IN_PROGRESS);
+        assertThat(finalized.getSubmittedAt()).isNotNull();
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-22: học
+     * sinh chủ động bấm Nộp (submitAttempt) dù đã quá timeLimitMinutes vẫn
+     * được chấm bình thường như cũ — đây là hành động chủ động, không
+     * phải luồng "tự động nộp" (chỉ áp dụng cho saveAnswer/scheduled job).
+     */
+    @Test
+    void submitAttempt_boSung_stillGradesNormallyEvenAfterTimeLimitExceeded() {
+        QuestionResponse mc = createMcQuestion();
+        ExerciseResponse exercise = exerciseService.createExercise(
+                new CreateExerciseRequest(exerciseCode(), "Kiểm tra có giờ", defaultExam.id(), null, "SELF_PRACTICE",
+                        new BigDecimal("1"), 30, true, null, true), teacher.getId());
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("1.0")), teacher.getId());
+        examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
+        commitCurrentTransactionAndStartNew();
+        ExerciseAssignment assignment = exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId());
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), assignment.getId(), studentUser.getId());
+        answerCorrectly(attempt.id(), mc); // trả lời TRONG giờ
+        backdateStartedAt(attempt.id(), 40); // sau đó mới hết giờ (mô phỏng học sinh nộp trễ)
+
+        ExerciseAttemptResponse submitted = exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
+
+        assertThat(submitted.percentage()).isEqualByComparingTo("100.00");
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-22:
+     * ExerciseAttemptTimeoutSchedulerService quét + tự chốt các lượt làm
+     * IN_PROGRESS bị bỏ dở (học sinh không quay lại saveAnswer/submitAttempt).
+     */
+    @Test
+    void runTimeoutScan_boSung_finalizesAbandonedInProgressAttempt() {
+        QuestionResponse mc = createMcQuestion();
+        ExerciseResponse exercise = exerciseService.createExercise(
+                new CreateExerciseRequest(exerciseCode(), "Kiểm tra có giờ", defaultExam.id(), null, "SELF_PRACTICE",
+                        new BigDecimal("1"), 30, true, null, true), teacher.getId());
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("1.0")), teacher.getId());
+        examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
+        commitCurrentTransactionAndStartNew();
+        ExerciseAssignment assignment = exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId());
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), assignment.getId(), studentUser.getId());
+        backdateStartedAt(attempt.id(), 40);
+
+        exerciseAttemptTimeoutSchedulerService.runTimeoutScan();
+
+        vn.com.pps.education.domain.ExerciseAttempt finalized = exerciseAttemptRepository.findById(attempt.id()).orElseThrow();
+        assertThat(finalized.getStatus()).isNotEqualTo(vn.com.pps.education.domain.ExerciseAttempt.Status.IN_PROGRESS);
+        assertThat(finalized.getSubmittedAt()).isNotNull();
+    }
+
+    private void backdateStartedAt(Long attemptId, long minutesAgo) {
+        vn.com.pps.education.domain.ExerciseAttempt attempt = exerciseAttemptRepository.findById(attemptId).orElseThrow();
+        attempt.setStartedAt(OffsetDateTime.now().minusMinutes(minutesAgo));
+        exerciseAttemptRepository.save(attempt);
     }
 
     private QuestionResponse createMcQuestion() {

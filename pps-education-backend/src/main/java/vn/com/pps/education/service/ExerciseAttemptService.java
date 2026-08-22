@@ -171,6 +171,11 @@ public class ExerciseAttemptService {
         if (attempt.getStatus() != ExerciseAttempt.Status.IN_PROGRESS) {
             throw new AttemptNotEditableException("error.attemptNotEditable.default", new Object[]{}, "Lượt làm bài này không còn ở trạng thái đang làm (IN_PROGRESS).");
         }
+        if (isTimeLimitExceeded(attempt)) {
+            autoFinalizeExpiredAttempt(attempt);
+            throw new AttemptNotEditableException("error.attemptNotEditable.timeLimitExceeded", new Object[]{attempt.getExercise().getTimeLimitMinutes()},
+                    "Đã hết thời gian làm bài (" + attempt.getExercise().getTimeLimitMinutes() + " phút), hệ thống đã tự động nộp bài.");
+        }
         if (!exerciseQuestionRepository.existsByExerciseIdAndQuestionId(attempt.getExercise().getId(), request.questionId())) {
             throw new ResourceNotFoundException("error.exerciseAttempt.answerQuestionMismatch",
                     new Object[]{request.questionId(), attempt.getExercise().getId()},
@@ -237,6 +242,31 @@ public class ExerciseAttemptService {
             return attempt;
         }
         attempt.setStoppedByIntegrityViolation(true);
+        attempt = gradeAndFinalize(attempt, OffsetDateTime.now());
+        writeHistory(attempt, attempt.getStudent().getUser().getId(), ExerciseAttemptHistory.Action.UPDATED);
+        return attempt;
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-22 —
+     * enforcement Exercise.timeLimitMinutes (trường có sẵn từ trước,
+     * trước đây chưa từng được thực thi ở đâu). NULL = không giới hạn.
+     */
+    private boolean isTimeLimitExceeded(ExerciseAttempt attempt) {
+        Integer timeLimitMinutes = attempt.getExercise().getTimeLimitMinutes();
+        return timeLimitMinutes != null
+                && OffsetDateTime.now().isAfter(attempt.getStartedAt().plusMinutes(timeLimitMinutes));
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-22: tự
+     * động chốt + chấm 1 lượt làm hết giờ như nộp bình thường (tái dùng
+     * {@link #gradeAndFinalize}, KHÔNG dùng trạng thái EXPIRED có sẵn
+     * trong SDD — xem docs/uc/phan-he-07-lms-portal.md). Dùng chung cho
+     * saveAnswer (chặn ngay khi học sinh còn thao tác) và
+     * ExerciseAttemptTimeoutSchedulerService (quét lượt bị bỏ dở).
+     */
+    ExerciseAttempt autoFinalizeExpiredAttempt(ExerciseAttempt attempt) {
         attempt = gradeAndFinalize(attempt, OffsetDateTime.now());
         writeHistory(attempt, attempt.getStudent().getUser().getId(), ExerciseAttemptHistory.Action.UPDATED);
         return attempt;
