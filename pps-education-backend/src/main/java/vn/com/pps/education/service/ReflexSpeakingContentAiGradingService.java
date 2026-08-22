@@ -30,8 +30,10 @@ import java.util.Base64;
  * billing, xem SpeakingAiGradingTestService — Gemini là lựa chọn người dùng đã chốt cho luồng này).
  *
  * Rubric đọc 1 lần lúc khởi động từ {@code resources/rubrics/reflex-speaking-content-rubric.md} —
- * hiện là PLACEHOLDER, người dùng sẽ cung cấp nội dung thật sau (xem
- * .claude/rules/business-fidelity.md). Lỗi gọi API trả về {@code null} — caller tự quyết định.
+ * rubric thật do người dùng cung cấp 2026-08-22 (band 0-9 theo 4 tiêu chí: Fluency & Coherence,
+ * Lexical Resource, Grammatical Range & Accuracy, Pronunciation). {@link #parseResult} quy đổi
+ * overallBand (0-9) sang % (overallBand/9*100, làm tròn) để khớp ngưỡng đạt 70% của
+ * {@link ReflexSequentialGradingService}. Lỗi gọi API trả về {@code null} — caller tự quyết định.
  */
 @Service
 public class ReflexSpeakingContentAiGradingService {
@@ -113,14 +115,26 @@ public class ReflexSpeakingContentAiGradingService {
     }
 
     private String systemPrompt() {
-        return "Bạn là giám khảo chấm Speaking tiếng Anh cho học sinh trung tâm Anh ngữ. Tiêu chí chấm:\n"
+        return "Bạn là giám khảo chấm Speaking tiếng Anh cho học sinh trung tâm Anh ngữ. Trước tiên transcribe chính "
+                + "xác audio thành chữ, sau đó áp dụng ĐÚNG tiêu chí chấm sau đây — chấm lần lượt 4 tiêu chí "
+                + "(Fluency & Coherence, Lexical Resource, Grammatical Range & Accuracy, Pronunciation), mỗi tiêu chí "
+                + "thang band 0-9, rồi tính overallBand = trung bình cộng 4 band đó:\n"
                 + rubric
                 + "\nChỉ trả lời DUY NHẤT 1 JSON hợp lệ, không thêm chữ nào khác, đúng format: "
-                + "{\"transcript\": \"<chữ đã transcribe từ audio>\", \"scorePercent\": <số nguyên 0-100>, "
-                + "\"feedback\": \"<nhận xét ngắn gọn tiếng Việt>\"}";
+                + "{\"transcript\": \"<chữ đã transcribe từ audio>\", \"fluencyCoherence\": <band 0-9>, "
+                + "\"lexicalResource\": <band 0-9>, \"grammar\": <band 0-9>, \"pronunciation\": <band 0-9>, "
+                + "\"overallBand\": <band 0-9, trung bình cộng 4 band trên>, \"feedback\": \"<nhận xét tiếng Việt, "
+                + "theo đúng cấu trúc mục 8 Standard Feedback Format của tiêu chí chấm: điểm từng tiêu chí, "
+                + "strongest area, weakest area, what you did well, what is limiting your score, top 3 priorities, "
+                + "target for next test>\"}";
     }
 
-    /** LLM đôi khi bọc thêm text/markdown quanh JSON dù đã dặn "chỉ trả JSON" — cắt từ '{' đầu tới '}' cuối cho an toàn. */
+    /**
+     * LLM đôi khi bọc thêm text/markdown quanh JSON dù đã dặn "chỉ trả JSON" — cắt từ '{' đầu tới '}'
+     * cuối cho an toàn. Rubric chấm theo band 0-9 (mục 1 "SPEAKING SCORING RUBRIC") — quy đổi
+     * overallBand sang % (overallBand/9*100, làm tròn) để khớp ngưỡng đạt 70% dùng chung cho Video
+     * phản xạ.
+     */
     private GradeResult parseResult(String rawText) throws IOException {
         int start = rawText.indexOf('{');
         int end = rawText.lastIndexOf('}');
@@ -128,6 +142,8 @@ public class ReflexSpeakingContentAiGradingService {
             throw new IOException("Model chấm bài không trả về JSON hợp lệ: " + rawText);
         }
         JsonNode parsed = objectMapper.readTree(rawText.substring(start, end + 1));
-        return new GradeResult(parsed.path("transcript").asText(""), parsed.path("scorePercent").asInt(0), parsed.path("feedback").asText(""));
+        double overallBand = parsed.path("overallBand").asDouble(0);
+        int scorePercent = (int) Math.round(Math.min(9, Math.max(0, overallBand)) / 9.0 * 100);
+        return new GradeResult(parsed.path("transcript").asText(""), scorePercent, parsed.path("feedback").asText(""));
     }
 }

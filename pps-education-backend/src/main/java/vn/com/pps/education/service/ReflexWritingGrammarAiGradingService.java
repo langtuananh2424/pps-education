@@ -25,8 +25,11 @@ import java.time.Duration;
  * {@link WritingAiGradingService} (khác rubric/mục đích — grammar phần viết trước Speaking, không
  * phải chấm cả bài Writing hoàn chỉnh).
  *
- * Rubric đọc 1 lần lúc khởi động từ {@code resources/rubrics/reflex-writing-grammar-rubric.md} — hiện
- * là PLACEHOLDER, người dùng sẽ cung cấp nội dung thật sau (xem .claude/rules/business-fidelity.md).
+ * Rubric đọc 1 lần lúc khởi động từ {@code resources/rubrics/reflex-writing-grammar-rubric.md} — rubric
+ * thật do người dùng cung cấp 2026-08-22 (band 0-9 theo 4 tiêu chí, giống {@link WritingAiGradingService}
+ * nhưng khác nội dung/mục đích — chấm phần viết trước Speaking, không phải bài Writing hoàn chỉnh).
+ * {@link #parseResult} quy đổi overallBand (0-9) sang % (overallBand/9*100, làm tròn) để khớp ngưỡng
+ * đạt 70% của {@link ReflexSequentialGradingService}.
  *
  * Ưu tiên Gemini Flash (GEMINI_API_KEY), fallback Claude (ANTHROPIC_API_KEY) — cùng key dùng chung
  * {@code app.ai-grading.*}. Lỗi gọi API trả về {@code null} — caller tự quyết định (KHÔNG tự cho qua).
@@ -92,10 +95,17 @@ public class ReflexWritingGrammarAiGradingService {
     }
 
     private String systemPrompt() {
-        return "Bạn là giáo viên chấm ngữ pháp tiếng Anh cho học sinh trung tâm Anh ngữ. Tiêu chí chấm:\n"
+        return "Bạn là giám khảo chấm phần viết trả lời (trước khi nói lại) của học sinh trung tâm Anh ngữ. Áp dụng "
+                + "ĐÚNG tiêu chí chấm sau đây — chấm lần lượt 4 tiêu chí (Task Response/Task Achievement, "
+                + "Coherence & Cohesion, Lexical Resource, Grammatical Range & Accuracy), mỗi tiêu chí thang band 0-9, "
+                + "rồi tính overallBand = trung bình cộng 4 band đó:\n"
                 + rubric
                 + "\nChỉ trả lời DUY NHẤT 1 JSON hợp lệ, không thêm chữ nào khác, đúng format: "
-                + "{\"scorePercent\": <số nguyên 0-100>, \"feedback\": \"<nhận xét ngắn gọn tiếng Việt>\"}";
+                + "{\"taskResponse\": <band 0-9>, \"coherenceCohesion\": <band 0-9>, \"lexicalResource\": <band 0-9>, "
+                + "\"grammar\": <band 0-9>, \"overallBand\": <band 0-9, trung bình cộng 4 band trên>, "
+                + "\"feedback\": \"<nhận xét tiếng Việt, theo đúng cấu trúc mục 8 Standard Feedback Format của tiêu chí "
+                + "chấm: điểm từng tiêu chí, strongest area, weakest area, what you did well, what is limiting your "
+                + "score, top 3 priorities, target for next submission>\"}";
     }
 
     private GradeResult callClaude(String answerText) throws IOException, InterruptedException {
@@ -146,7 +156,11 @@ public class ReflexWritingGrammarAiGradingService {
         return parseResult(json.path("candidates").path(0).path("content").path("parts").path(0).path("text").asText(""));
     }
 
-    /** LLM đôi khi bọc thêm text/markdown quanh JSON dù đã dặn "chỉ trả JSON" — cắt từ '{' đầu tới '}' cuối cho an toàn. */
+    /**
+     * LLM đôi khi bọc thêm text/markdown quanh JSON dù đã dặn "chỉ trả JSON" — cắt từ '{' đầu tới '}'
+     * cuối cho an toàn. Rubric chấm theo band 0-9 (mục 3 "WRITING SCORING RUBRIC") — quy đổi overallBand
+     * sang % (overallBand/9*100, làm tròn) để khớp ngưỡng đạt 70% dùng chung cho Video phản xạ.
+     */
     private GradeResult parseResult(String rawText) throws IOException {
         int start = rawText.indexOf('{');
         int end = rawText.lastIndexOf('}');
@@ -154,6 +168,8 @@ public class ReflexWritingGrammarAiGradingService {
             throw new IOException("Model chấm bài không trả về JSON hợp lệ: " + rawText);
         }
         JsonNode parsed = objectMapper.readTree(rawText.substring(start, end + 1));
-        return new GradeResult(parsed.path("scorePercent").asInt(0), parsed.path("feedback").asText(""));
+        double overallBand = parsed.path("overallBand").asDouble(0);
+        int scorePercent = (int) Math.round(Math.min(9, Math.max(0, overallBand)) / 9.0 * 100);
+        return new GradeResult(scorePercent, parsed.path("feedback").asText(""));
     }
 }
