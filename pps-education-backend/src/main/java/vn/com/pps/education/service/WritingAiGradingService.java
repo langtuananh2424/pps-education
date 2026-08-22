@@ -24,15 +24,19 @@ import java.time.Duration;
  * (mặc định cũ, xem Javadoc {@link ExerciseAttemptService}) CHỈ cho riêng nhóm Bài này. Gọi từ
  * {@link ExerciseAttemptService#gradeAndFinalize}.
  *
- * Rubric đọc 1 lần lúc khởi động từ {@code resources/rubrics/writing-exercise-rubric.md} — hiện là
- * PLACEHOLDER, người dùng sẽ cung cấp nội dung thật sau khi trao đổi với người chấm (xem
- * .claude/rules/business-fidelity.md — KHÔNG coi kết quả chấm hiện tại là đáng tin cho quyết định
- * nghiệp vụ thật cho tới khi thay file này).
+ * Rubric đọc 1 lần lúc khởi động từ {@code resources/rubrics/writing-exercise-rubric.md} — rubric
+ * thật do người dùng cung cấp (2026-08-22, "Writing Scoring Standard"): 4 tiêu chí Task Response/
+ * Achievement, Coherence & Cohesion, Lexical Resource, Grammatical Range & Accuracy, mỗi tiêu chí
+ * chấm band 0-9, Overall = trung bình cộng 4 tiêu chí. AI được yêu cầu trả về đủ 4 band + overall +
+ * feedback theo đúng format "Standard Feedback" của rubric — {@link #parseResult} quy đổi
+ * overallBand (0-9) sang % (overallBand/9*100, làm tròn) để khớp {@code exercises.pass_threshold_percent}
+ * (thang % có sẵn, dùng chung cho mọi loại đề).
  *
- * Ưu tiên Claude (ANTHROPIC_API_KEY) nếu đã cấu hình, fallback Gemini Flash (GEMINI_API_KEY) — cùng 2
- * key dùng chung với SpeakingAiGradingTestService (xem {@code app.ai-grading.*}). Lỗi gọi API (thiếu
- * key/timeout/HTTP lỗi) trả về {@code null} — KHÔNG throw, để câu trả lời rơi lại đúng hàng chờ chấm
- * tay UC-41 (ManualGradingService) thay vì làm hỏng cả giao dịch nộp bài của học sinh.
+ * Ưu tiên Gemini Flash (GEMINI_API_KEY, đã xác nhận với người dùng 2026-08-22 — free tier/rẻ hơn),
+ * fallback Claude (ANTHROPIC_API_KEY) nếu chưa cấu hình Gemini — cùng 2 key dùng chung với
+ * SpeakingAiGradingTestService (xem {@code app.ai-grading.*}). Lỗi gọi API (thiếu key/timeout/HTTP
+ * lỗi) trả về {@code null} — KHÔNG throw, để câu trả lời rơi lại đúng hàng chờ chấm tay UC-41
+ * (ManualGradingService) thay vì làm hỏng cả giao dịch nộp bài của học sinh.
  */
 @Service
 public class WritingAiGradingService {
@@ -71,13 +75,13 @@ public class WritingAiGradingService {
             return null;
         }
         try {
-            if (!anthropicApiKey.isBlank()) {
-                return callClaude(essayText);
-            }
             if (!geminiApiKey.isBlank()) {
                 return callGemini(essayText);
             }
-            log.warn("WritingAiGradingService: chưa cấu hình ANTHROPIC_API_KEY hoặc GEMINI_API_KEY — bỏ qua chấm AI, rơi lại hàng chờ chấm tay.");
+            if (!anthropicApiKey.isBlank()) {
+                return callClaude(essayText);
+            }
+            log.warn("WritingAiGradingService: chưa cấu hình GEMINI_API_KEY hoặc ANTHROPIC_API_KEY — bỏ qua chấm AI, rơi lại hàng chờ chấm tay.");
             return null;
         } catch (Exception e) {
             log.warn("WritingAiGradingService: gọi AI chấm bài thất bại, rơi lại hàng chờ chấm tay. {}", e.getMessage());
@@ -99,10 +103,17 @@ public class WritingAiGradingService {
     }
 
     private String systemPrompt() {
-        return "Bạn là giáo viên chấm bài Writing tiếng Anh cho học sinh trung tâm Anh ngữ. Tiêu chí chấm:\n"
+        return "Bạn là giám khảo chấm bài Writing tiếng Anh cho học sinh trung tâm Anh ngữ. Áp dụng ĐÚNG quy trình "
+                + "\"Examiner Procedure\" và \"Scoring Principles\" trong tiêu chí chấm sau đây — chấm lần lượt 4 tiêu chí "
+                + "(Task Response/Achievement, Coherence & Cohesion, Lexical Resource, Grammatical Range & Accuracy), mỗi "
+                + "tiêu chí thang band 0-9, rồi tính overallBand = trung bình cộng 4 band đó:\n"
                 + rubric
                 + "\nChỉ trả lời DUY NHẤT 1 JSON hợp lệ, không thêm chữ nào khác, đúng format: "
-                + "{\"scorePercent\": <số nguyên 0-100>, \"feedback\": \"<nhận xét ngắn gọn tiếng Việt>\"}";
+                + "{\"taskResponse\": <band 0-9>, \"coherenceCohesion\": <band 0-9>, \"lexicalResource\": <band 0-9>, "
+                + "\"grammar\": <band 0-9>, \"overallBand\": <band 0-9, trung bình cộng 4 band trên>, "
+                + "\"feedback\": \"<nhận xét tiếng Việt, theo đúng cấu trúc mục 11 Standard Feedback của tiêu chí chấm: "
+                + "điểm từng tiêu chí, strongest area, main limitation, what you did well, what is limiting your score, "
+                + "top 3 priorities, target for next submission>\"}";
     }
 
     private GradeResult callClaude(String essayText) throws IOException, InterruptedException {
@@ -156,7 +167,11 @@ public class WritingAiGradingService {
         return parseResult(rawText);
     }
 
-    /** LLM đôi khi bọc thêm text/markdown quanh JSON dù đã dặn "chỉ trả JSON" — cắt từ '{' đầu tới '}' cuối cho an toàn. */
+    /**
+     * LLM đôi khi bọc thêm text/markdown quanh JSON dù đã dặn "chỉ trả JSON" — cắt từ '{' đầu tới '}'
+     * cuối cho an toàn. Rubric chấm theo band 0-9 (mục 2 "Cấu trúc chấm điểm") — quy đổi overallBand
+     * sang % (overallBand/9*100, làm tròn) để khớp thang % dùng chung cho pass_threshold_percent.
+     */
     private GradeResult parseResult(String rawText) throws IOException {
         int start = rawText.indexOf('{');
         int end = rawText.lastIndexOf('}');
@@ -164,6 +179,8 @@ public class WritingAiGradingService {
             throw new IOException("Model chấm bài không trả về JSON hợp lệ: " + rawText);
         }
         JsonNode parsed = objectMapper.readTree(rawText.substring(start, end + 1));
-        return new GradeResult(parsed.path("scorePercent").asInt(0), parsed.path("feedback").asText(""));
+        double overallBand = parsed.path("overallBand").asDouble(0);
+        int scorePercent = (int) Math.round(Math.min(9, Math.max(0, overallBand)) / 9.0 * 100);
+        return new GradeResult(scorePercent, parsed.path("feedback").asText(""));
     }
 }
