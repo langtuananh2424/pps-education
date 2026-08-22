@@ -598,6 +598,50 @@ export function getMyLatestReviewVideoSubmission(questionId: number, assignmentI
 }
 
 /**
+ * V139 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-22) — UC-23b V2: tiến trình tuần tự
+ * viết → AI chấm ngữ pháp → đạt → ghi âm → AI chấm nội dung → đạt của 1 câu hỏi Video phản xạ (REFLEX).
+ * Không giới hạn số lần thử lại — nộp lại chỉ sửa đè dòng tiến trình hiện có (không giữ lịch sử như
+ * ReviewVideoSubmissionResponse ở luồng cũ).
+ */
+export interface ReflexQuestionProgressResponse {
+  questionId: number;
+  answerText: string | null;
+  writingScorePercent: number | null;
+  writingFeedback: string | null;
+  writingPassed: boolean;
+  writingAttemptCount: number;
+  audioUrl: string | null;
+  speakingScorePercent: number | null;
+  speakingFeedback: string | null;
+  speakingPassed: boolean;
+  speakingAttemptCount: number;
+  /** true khi CẢ 2 bước đã đạt — câu tiếp theo được mở khoá (BE không tự chặn nộp câu sau, FE tự khoá UI theo cờ này). */
+  questionPassed: boolean;
+  updatedAt: string;
+}
+
+/** Bước 1: nộp câu trả lời viết, AI chấm ngữ pháp ngay (>=70% mới đạt). */
+export function submitReflexWrittenAnswer(questionId: number, assignmentId: number, answerText: string): Promise<ReflexQuestionProgressResponse> {
+  return apiRequest<ReflexQuestionProgressResponse>(`/review-video-questions/${questionId}/reflex-progress/writing?assignmentId=${assignmentId}`, {
+    method: "PUT",
+    body: JSON.stringify({ answerText })
+  });
+}
+
+/** Bước 2 — CHỈ chấp nhận khi bước 1 đã đạt: nộp audio (đã upload sẵn qua uploadMedia), AI transcribe + chấm nội dung ngay. */
+export function submitReflexSpokenAnswer(questionId: number, assignmentId: number, audioUrl: string): Promise<ReflexQuestionProgressResponse> {
+  return apiRequest<ReflexQuestionProgressResponse>(`/review-video-questions/${questionId}/reflex-progress/speaking?assignmentId=${assignmentId}`, {
+    method: "PUT",
+    body: JSON.stringify({ audioUrl })
+  });
+}
+
+/** Tiến trình đã lưu của MỌI câu hỏi thuộc video này trong lần giao đang mở — dùng để dựng lại đúng trạng thái khoá/mở khi vào/tải lại trang. */
+export function listMyReflexProgress(assignmentId: number): Promise<ReflexQuestionProgressResponse[]> {
+  return apiRequest<ReflexQuestionProgressResponse[]>(`/review-video-assignments/${assignmentId}/reflex-progress`);
+}
+
+/**
  * V76 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04) — câu hỏi trắc nghiệm tự chấm
  * của video CONNECTION, hiện SAU KHI xem xong 1 lượt (khác REFLEX gắn mốc thời gian giữa video).
  * isCorrect luôn null ở đây (chưa nộp bài) — chỉ lộ đúng/sai sau khi submitReviewVideoConnectionAnswers.

@@ -130,7 +130,7 @@
   "reflexVideoTask": {
     "micAccessError": "Không truy cập được microphone — kiểm tra quyền trình duyệt rồi thử lại.",
     "questionsLoadError": "Không tải được danh sách câu hỏi.",
-    "submitError": "Nộp bài thất bại — thử lại.",
+    "submitError": "Chấm bài thất bại — thử lại.",
     "notAssignedError": "Video này chưa được giao thành BTVN cho bạn — không thể nộp bài.",
     "micPermissionError": "Cần cấp quyền micro để làm bài — vui lòng cho phép truy cập microphone (biểu tượng khóa trên thanh địa chỉ) rồi bấm lại.",
     "loadingQuestions": "Đang tải câu hỏi...",
@@ -138,31 +138,44 @@
     "badge": "Video phản xạ",
     "exitButton": "Thoát",
     "startScreen": {
-      "description": "Video sẽ tự phát toàn màn hình — không tua/tạm dừng được. Đến đúng mốc thời gian, hệ thống sẽ tự động ghi âm câu trả lời của bạn.",
+      "description": "Video sẽ tự phát và tạm dừng đúng mốc thời gian mỗi câu hỏi — không tua được. Ở mỗi câu: viết câu trả lời trước, AI chấm ngữ pháp đạt mới mở khoá ghi âm nói lại, đạt cả 2 phần thì video mới chạy tiếp.",
       "requestingMic": "Đang xin quyền micro...",
       "startButton": "Bắt đầu làm bài",
       "exitButton": "Thoát"
     },
     "exitConfirm": {
-      "title": "Thoát khi chưa nộp bài?",
-      "description": "Bạn có bản ghi âm chưa nộp — thoát ra sẽ mất toàn bộ bản ghi này.",
+      "title": "Thoát khi chưa hoàn thành?",
+      "description": "Bạn chưa hoàn thành hết các câu hỏi — tiến trình các câu đã đạt vẫn được lưu, chỉ mất nội dung câu đang làm dở nếu thoát ra bây giờ.",
       "stay": "Ở lại làm bài",
       "stillExit": "Vẫn thoát"
     },
     "question": {
       "label": "Câu hỏi {{index}}",
-      "attemptsUsed": "{{used}}/{{max}} lượt nộp",
-      "recording": "Đang ghi âm ({{elapsed}}s/{{max}}s)",
-      "draftSaved": "✓ Đã ghi âm — nộp bài để lưu lại.",
-      "attemptsExhausted": "Đã hết lượt nộp lại cho câu hỏi này.",
-      "alreadySubmitted": "✓ Đã nộp.",
-      "cannotRecordNow": "Không ghi âm được lúc này.",
-      "waitingForTimestamp": "Sẽ tự động ghi âm khi video chạy tới mốc thời gian này."
+      "passed": "Đã đạt",
+      "locked": "Chưa mở"
     },
-    "submittedSuccess": "Đã nộp bài thành công!",
-    "retryButton": "Làm lại",
-    "submitting": "Đang nộp...",
-    "submitButton": "Nộp bài",
+    "writingStage": {
+      "title": "Bước 1 · Viết câu trả lời",
+      "placeholder": "Nhập câu trả lời của bạn...",
+      "submitButton": "Nộp bài viết",
+      "submitting": "Đang chấm...",
+      "passedFeedbackTitle": "Đạt — chuyển sang ghi âm nói lại",
+      "failedFeedbackTitle": "Chưa đạt — sửa lại và nộp lại",
+      "scoreLabel": "điểm ngữ pháp {{score}}%",
+      "attemptCount": "Đã nộp {{count}} lần"
+    },
+    "speakingStage": {
+      "title": "Bước 2 · Ghi âm nói lại",
+      "instructions": "Ghi âm sẽ tự bắt đầu — nói lại đúng nội dung bạn vừa viết.",
+      "recording": "Đang ghi âm ({{elapsed}}s/{{max}}s)",
+      "grading": "Đang chấm bài nói...",
+      "passedFeedbackTitle": "Đạt — mở khoá câu tiếp theo",
+      "failedFeedbackTitle": "Chưa đạt",
+      "scoreLabel": "điểm nội dung {{score}}%",
+      "retryButton": "Ghi âm lại",
+      "attemptCount": "Đã ghi âm {{count}} lần"
+    },
+    "submittedSuccess": "Bạn đã hoàn thành tất cả câu hỏi!",
     "backToList": "Quay lại danh sách bài tập"
   },
   "assignments": {

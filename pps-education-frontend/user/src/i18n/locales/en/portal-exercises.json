@@ -130,7 +130,7 @@
   "reflexVideoTask": {
     "micAccessError": "Couldn't access the microphone — check your browser permissions and try again.",
     "questionsLoadError": "Couldn't load the question list.",
-    "submitError": "Couldn't submit — please try again.",
+    "submitError": "Grading failed — please try again.",
     "notAssignedError": "This video hasn't been assigned to you as homework — you can't submit.",
     "micPermissionError": "Microphone access is required — please allow microphone access (the lock icon in your address bar) and try again.",
     "loadingQuestions": "Loading questions...",
@@ -138,31 +138,44 @@
     "badge": "Reflex video",
     "exitButton": "Exit",
     "startScreen": {
-      "description": "The video will auto-play in fullscreen — no pausing or skipping. When it reaches each timestamp, we'll automatically record your answer.",
+      "description": "The video will auto-play and pause at each question's timestamp — no skipping. For each one: write your answer first, pass the AI grammar check to unlock voice recording, and pass both parts before the video continues.",
       "requestingMic": "Requesting microphone access...",
       "startButton": "Start exercise",
       "exitButton": "Exit"
     },
     "exitConfirm": {
-      "title": "Exit without submitting?",
-      "description": "You have unsubmitted recordings — leaving now will discard all of them.",
+      "title": "Exit before finishing?",
+      "description": "You haven't finished every question yet — questions you've already passed stay saved, you'll only lose the one you're currently on if you exit now.",
       "stay": "Keep going",
       "stillExit": "Exit anyway"
     },
     "question": {
       "label": "Question {{index}}",
-      "attemptsUsed": "{{used}}/{{max}} attempts used",
-      "recording": "Recording ({{elapsed}}s/{{max}}s)",
-      "draftSaved": "✓ Recorded — submit to save it.",
-      "attemptsExhausted": "You've used up all your attempts for this question.",
-      "alreadySubmitted": "✓ Submitted.",
-      "cannotRecordNow": "Can't record right now.",
-      "waitingForTimestamp": "Recording will start automatically when the video reaches this point."
+      "passed": "Passed",
+      "locked": "Locked"
     },
-    "submittedSuccess": "Submitted successfully!",
-    "retryButton": "Retry",
-    "submitting": "Submitting...",
-    "submitButton": "Submit",
+    "writingStage": {
+      "title": "Step 1 · Write your answer",
+      "placeholder": "Type your answer...",
+      "submitButton": "Submit answer",
+      "submitting": "Grading...",
+      "passedFeedbackTitle": "Passed — moving on to voice recording",
+      "failedFeedbackTitle": "Not passed yet — revise and resubmit",
+      "scoreLabel": "grammar score {{score}}%",
+      "attemptCount": "Submitted {{count}} time(s)"
+    },
+    "speakingStage": {
+      "title": "Step 2 · Record your answer",
+      "instructions": "Recording will start automatically — say back what you just wrote.",
+      "recording": "Recording ({{elapsed}}s/{{max}}s)",
+      "grading": "Grading your recording...",
+      "passedFeedbackTitle": "Passed — next question unlocked",
+      "failedFeedbackTitle": "Not passed yet",
+      "scoreLabel": "content score {{score}}%",
+      "retryButton": "Record again",
+      "attemptCount": "Recorded {{count}} time(s)"
+    },
+    "submittedSuccess": "You've completed every question!",
     "backToList": "Back to homework list"
   },
   "assignments": {
