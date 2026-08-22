@@ -58,10 +58,19 @@ public class ReflexSpeakingContentAiGradingService {
     public record GradeResult(String transcript, int scorePercent, String feedback) {
     }
 
+    /** Số lần thử tối đa (1 lần đầu + tối đa RETRY lần) khi gặp lỗi tạm thời (503/429/5xx) — xem {@link #isRetryable}. */
+    private static final int MAX_ATTEMPTS = 3;
+    private static final long RETRY_DELAY_MS = 1500;
+
     /**
      * audioBytes: tải trực tiếp từ audioUrl đã lưu R2 (caller tự tải, xem
      * {@link ReflexSequentialGradingService}) — tránh phụ thuộc MultipartFile ở service này.
-     * Trả null nếu chưa cấu hình GEMINI_API_KEY HOẶC gọi AI thất bại — caller tự quyết định.
+     * Trả null nếu chưa cấu hình GEMINI_API_KEY HOẶC gọi AI thất bại (kể cả sau khi đã thử lại) —
+     * caller tự quyết định.
+     *
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-22 — tự thử lại tối đa
+     * {@link #MAX_ATTEMPTS} lần khi gặp lỗi tạm thời (mirror {@link WritingAiGradingService}) — audio
+     * base64 đã encode 1 lần dùng lại cho mọi lần thử, không encode lại mỗi vòng lặp.
      */
     public GradeResult grade(byte[] audioBytes, String mimeType) {
         if (audioBytes == null || audioBytes.length == 0 || geminiApiKey.isBlank()) {
@@ -70,34 +79,59 @@ public class ReflexSpeakingContentAiGradingService {
             }
             return null;
         }
-        try {
-            ObjectNode payload = objectMapper.createObjectNode();
-            ObjectNode systemInstruction = payload.putObject("system_instruction");
-            systemInstruction.putArray("parts").addObject().put("text", systemPrompt());
-            ArrayNode contents = payload.putArray("contents");
-            ArrayNode parts = contents.addObject().putArray("parts");
-            parts.addObject().put("text", "Đây là audio câu trả lời speaking của học sinh. Hãy transcribe rồi chấm theo tiêu chí đã cho.");
-            ObjectNode inlineData = parts.addObject().putObject("inline_data");
-            inlineData.put("mime_type", mimeType == null ? "audio/webm" : mimeType);
-            inlineData.put("data", Base64.getEncoder().encodeToString(audioBytes));
-
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create("https://generativelanguage.googleapis.com/v1beta/models/" + GEMINI_MODEL + ":generateContent"))
-                    .header("x-goog-api-key", geminiApiKey)
-                    .header("content-type", "application/json")
-                    .timeout(Duration.ofSeconds(60))
-                    .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(payload)))
-                    .build();
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() >= 300) {
-                throw new IOException("Gemini API lỗi (HTTP " + response.statusCode() + "): " + response.body());
+        for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+            try {
+                return callGemini(audioBytes, mimeType);
+            } catch (Exception e) {
+                if (attempt < MAX_ATTEMPTS && isRetryable(e)) {
+                    log.warn("ReflexSpeakingContentAiGradingService: lỗi tạm thời, thử lại lần {}/{}. {}", attempt + 1, MAX_ATTEMPTS, e.getMessage());
+                    sleepQuietly(RETRY_DELAY_MS);
+                    continue;
+                }
+                log.warn("ReflexSpeakingContentAiGradingService: gọi AI chấm thất bại. {}", e.getMessage());
+                return null;
             }
-            JsonNode json = objectMapper.readTree(response.body());
-            String rawText = json.path("candidates").path(0).path("content").path("parts").path(0).path("text").asText("");
-            return parseResult(rawText);
-        } catch (Exception e) {
-            log.warn("ReflexSpeakingContentAiGradingService: gọi AI chấm thất bại. {}", e.getMessage());
-            return null;
+        }
+        return null;
+    }
+
+    private GradeResult callGemini(byte[] audioBytes, String mimeType) throws IOException, InterruptedException {
+        ObjectNode payload = objectMapper.createObjectNode();
+        ObjectNode systemInstruction = payload.putObject("system_instruction");
+        systemInstruction.putArray("parts").addObject().put("text", systemPrompt());
+        ArrayNode contents = payload.putArray("contents");
+        ArrayNode parts = contents.addObject().putArray("parts");
+        parts.addObject().put("text", "Đây là audio câu trả lời speaking của học sinh. Hãy transcribe rồi chấm theo tiêu chí đã cho.");
+        ObjectNode inlineData = parts.addObject().putObject("inline_data");
+        inlineData.put("mime_type", mimeType == null ? "audio/webm" : mimeType);
+        inlineData.put("data", Base64.getEncoder().encodeToString(audioBytes));
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create("https://generativelanguage.googleapis.com/v1beta/models/" + GEMINI_MODEL + ":generateContent"))
+                .header("x-goog-api-key", geminiApiKey)
+                .header("content-type", "application/json")
+                .timeout(Duration.ofSeconds(60))
+                .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(payload)))
+                .build();
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() >= 300) {
+            throw new IOException("Gemini API lỗi (HTTP " + response.statusCode() + "): " + response.body());
+        }
+        JsonNode json = objectMapper.readTree(response.body());
+        String rawText = json.path("candidates").path(0).path("content").path("parts").path(0).path("text").asText("");
+        return parseResult(rawText);
+    }
+
+    private boolean isRetryable(Exception e) {
+        String msg = e.getMessage();
+        return msg != null && (msg.contains("HTTP 503") || msg.contains("HTTP 429") || msg.contains("HTTP 500") || msg.contains("HTTP 502") || msg.contains("HTTP 504"));
+    }
+
+    private void sleepQuietly(long millis) {
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
         }
     }
 

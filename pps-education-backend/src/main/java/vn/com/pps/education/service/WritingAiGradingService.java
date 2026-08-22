@@ -65,27 +65,59 @@ public class WritingAiGradingService {
     public record GradeResult(int scorePercent, String feedback) {
     }
 
+    /** Số lần thử tối đa (1 lần đầu + tối đa RETRY lần) khi gặp lỗi tạm thời (503/429/5xx) — xem {@link #isRetryable}. */
+    private static final int MAX_ATTEMPTS = 3;
+    private static final long RETRY_DELAY_MS = 1500;
+
     /**
-     * Trả null nếu chưa cấu hình key nào HOẶC gọi AI thất bại — caller (ExerciseAttemptService) coi
-     * đây là "chưa chấm được", câu trả lời tự động rơi lại hàng chờ Giáo viên chấm tay (UC-41), KHÔNG
-     * chặn học sinh nộp bài.
+     * Trả null nếu chưa cấu hình key nào HOẶC gọi AI thất bại (kể cả sau khi đã thử lại) — caller
+     * (ExerciseAttemptService) coi đây là "chưa chấm được", câu trả lời tự động rơi lại hàng chờ Giáo
+     * viên chấm tay (UC-41), KHÔNG chặn học sinh nộp bài.
+     *
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-22 — tự thử lại tối đa
+     * {@link #MAX_ATTEMPTS} lần khi Gemini/Claude trả lỗi tạm thời (HTTP 503 "high demand"/429/5xx —
+     * đã gặp thực tế 2 lần trong lúc verify rubric, retry thủ công là qua ngay). CHỈ retry cùng 1
+     * provider đang dùng (không tự đổi sang provider khác giữa các lần thử — xem Javadoc lớp về thứ tự
+     * ưu tiên Gemini/Claude).
      */
     public GradeResult grade(String essayText) {
         if (essayText == null || essayText.isBlank()) {
             return null;
         }
+        for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+            try {
+                if (!geminiApiKey.isBlank()) {
+                    return callGemini(essayText);
+                }
+                if (!anthropicApiKey.isBlank()) {
+                    return callClaude(essayText);
+                }
+                log.warn("WritingAiGradingService: chưa cấu hình GEMINI_API_KEY hoặc ANTHROPIC_API_KEY — bỏ qua chấm AI, rơi lại hàng chờ chấm tay.");
+                return null;
+            } catch (Exception e) {
+                if (attempt < MAX_ATTEMPTS && isRetryable(e)) {
+                    log.warn("WritingAiGradingService: lỗi tạm thời, thử lại lần {}/{}. {}", attempt + 1, MAX_ATTEMPTS, e.getMessage());
+                    sleepQuietly(RETRY_DELAY_MS);
+                    continue;
+                }
+                log.warn("WritingAiGradingService: gọi AI chấm bài thất bại, rơi lại hàng chờ chấm tay. {}", e.getMessage());
+                return null;
+            }
+        }
+        return null;
+    }
+
+    /** HTTP 503 (quá tải, "high demand")/429 (rate limit)/5xx — đáng thử lại. Lỗi khác (JSON sai format, network...) không retry, trả null ngay. */
+    private boolean isRetryable(Exception e) {
+        String msg = e.getMessage();
+        return msg != null && (msg.contains("HTTP 503") || msg.contains("HTTP 429") || msg.contains("HTTP 500") || msg.contains("HTTP 502") || msg.contains("HTTP 504"));
+    }
+
+    private void sleepQuietly(long millis) {
         try {
-            if (!geminiApiKey.isBlank()) {
-                return callGemini(essayText);
-            }
-            if (!anthropicApiKey.isBlank()) {
-                return callClaude(essayText);
-            }
-            log.warn("WritingAiGradingService: chưa cấu hình GEMINI_API_KEY hoặc ANTHROPIC_API_KEY — bỏ qua chấm AI, rơi lại hàng chờ chấm tay.");
-            return null;
-        } catch (Exception e) {
-            log.warn("WritingAiGradingService: gọi AI chấm bài thất bại, rơi lại hàng chờ chấm tay. {}", e.getMessage());
-            return null;
+            Thread.sleep(millis);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
         }
     }
 

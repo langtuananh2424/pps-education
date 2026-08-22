@@ -61,23 +61,52 @@ public class ReflexWritingGrammarAiGradingService {
     public record GradeResult(int scorePercent, String feedback) {
     }
 
-    /** Trả null nếu chưa cấu hình key nào HOẶC gọi AI thất bại — caller tự quyết định (không tự cho qua). */
+    /** Số lần thử tối đa (1 lần đầu + tối đa RETRY lần) khi gặp lỗi tạm thời (503/429/5xx) — xem {@link #isRetryable}. */
+    private static final int MAX_ATTEMPTS = 3;
+    private static final long RETRY_DELAY_MS = 1500;
+
+    /**
+     * Trả null nếu chưa cấu hình key nào HOẶC gọi AI thất bại (kể cả sau khi đã thử lại) — caller tự
+     * quyết định (không tự cho qua). Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-22 — tự
+     * thử lại tối đa {@link #MAX_ATTEMPTS} lần khi gặp lỗi tạm thời (mirror {@link WritingAiGradingService}).
+     */
     public GradeResult grade(String answerText) {
         if (answerText == null || answerText.isBlank()) {
             return null;
         }
+        for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+            try {
+                if (!geminiApiKey.isBlank()) {
+                    return callGemini(answerText);
+                }
+                if (!anthropicApiKey.isBlank()) {
+                    return callClaude(answerText);
+                }
+                log.warn("ReflexWritingGrammarAiGradingService: chưa cấu hình GEMINI_API_KEY hoặc ANTHROPIC_API_KEY.");
+                return null;
+            } catch (Exception e) {
+                if (attempt < MAX_ATTEMPTS && isRetryable(e)) {
+                    log.warn("ReflexWritingGrammarAiGradingService: lỗi tạm thời, thử lại lần {}/{}. {}", attempt + 1, MAX_ATTEMPTS, e.getMessage());
+                    sleepQuietly(RETRY_DELAY_MS);
+                    continue;
+                }
+                log.warn("ReflexWritingGrammarAiGradingService: gọi AI chấm thất bại. {}", e.getMessage());
+                return null;
+            }
+        }
+        return null;
+    }
+
+    private boolean isRetryable(Exception e) {
+        String msg = e.getMessage();
+        return msg != null && (msg.contains("HTTP 503") || msg.contains("HTTP 429") || msg.contains("HTTP 500") || msg.contains("HTTP 502") || msg.contains("HTTP 504"));
+    }
+
+    private void sleepQuietly(long millis) {
         try {
-            if (!geminiApiKey.isBlank()) {
-                return callGemini(answerText);
-            }
-            if (!anthropicApiKey.isBlank()) {
-                return callClaude(answerText);
-            }
-            log.warn("ReflexWritingGrammarAiGradingService: chưa cấu hình GEMINI_API_KEY hoặc ANTHROPIC_API_KEY.");
-            return null;
-        } catch (Exception e) {
-            log.warn("ReflexWritingGrammarAiGradingService: gọi AI chấm thất bại. {}", e.getMessage());
-            return null;
+            Thread.sleep(millis);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
         }
     }
 
