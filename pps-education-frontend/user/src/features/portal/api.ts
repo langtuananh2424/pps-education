@@ -712,6 +712,9 @@ export interface ExerciseMetaResponse {
   allowRetake: boolean;
   maxAttempts: number | null;
   passThresholdPercent: number;
+  /** Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-22) — thời gian làm bài tính từ lúc mở
+   * bài (ExerciseAttempt.startedAt), khác hạn nộp (dueAt). NULL = không giới hạn. */
+  timeLimitMinutes: number | null;
 }
 
 export function getExercise(exerciseId: number): Promise<ExerciseMetaResponse> {

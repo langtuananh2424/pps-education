@@ -23,6 +23,10 @@
       "submittedPendingGrading": "Đã nộp — chờ chấm tự luận/nói"
     },
     "scoreSuffix": " · Điểm: {{score}}",
+    "timeLimit": {
+      "remainingPrefix": "Thời gian làm bài — còn ",
+      "warning": "Sắp hết giờ, hãy hoàn thành bài làm!"
+    },
     "stoppedByViolation": {
       "title": "Bài làm đã bị dừng",
       "description": "Bạn đã thoát ra ngoài quá số lần cho phép khi đang làm bài. Kết quả đã được ghi nhận theo phần đã trả lời. Bạn có thể làm lại từ màn danh sách đề.",
@@ -169,6 +173,13 @@
       "inProgress": "Đang làm dở",
       "autoGraded": "Đã nộp — chờ chấm tự luận/nói",
       "fullyGraded": "Đã có điểm"
+    },
+    "countdown": {
+      "remainingPrefix": "Còn ",
+      "days": "{{d}} ngày {{h}} giờ",
+      "hours": "{{h}} giờ {{m}} phút",
+      "minutes": "{{m}} phút {{s}} giây",
+      "seconds": "{{s}} giây"
     },
     "banner": {
       "label": "Thông Báo BTVN",

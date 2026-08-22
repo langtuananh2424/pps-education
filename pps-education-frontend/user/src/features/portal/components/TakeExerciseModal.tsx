@@ -26,6 +26,7 @@ import {
 } from "../api";
 import { useIntegrityMonitor } from "../hooks/useIntegrityMonitor";
 import MonitoringBadge from "./MonitoringBadge";
+import { useCountdown, formatRemaining } from "@/components/ui/useCountdown";
 
 interface TakeExerciseModalProps {
   item: AssignedExerciseResponse;
@@ -313,6 +314,33 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
     }
   };
 
+  /**
+   * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-22) — thời gian làm bài tính từ lúc mở
+   * bài (attempt.startedAt), KHÁC hạn nộp (dueAt, xem AssignmentsTab.tsx — đã bỏ đếm ngược ở đó theo
+   * yêu cầu người dùng). exerciseMeta.timeLimitMinutes NULL = không giới hạn, giữ nguyên hành vi cũ.
+   * Chỉ tính/đếm khi còn lượt IN_PROGRESS — xem lại 1 lượt đã nộp thì không cần đếm ngược nữa.
+   */
+  const timeLimitDeadlineIso = useMemo(() => {
+    if (!hasActiveAttempt || !attempt || exerciseMeta?.timeLimitMinutes == null) return null;
+    return new Date(new Date(attempt.startedAt).getTime() + exerciseMeta.timeLimitMinutes * 60_000).toISOString();
+  }, [hasActiveAttempt, attempt, exerciseMeta?.timeLimitMinutes]);
+  const { remainingMs: timeLimitRemainingMs } = useCountdown(timeLimitDeadlineIso);
+  const timeLimitTotalMs = exerciseMeta?.timeLimitMinutes != null ? exerciseMeta.timeLimitMinutes * 60_000 : null;
+  // Cảnh báo ở 10% thời gian cuối, tối thiểu 1 phút (đề rất ngắn vẫn có đủ thời gian đọc cảnh báo).
+  const timeLimitWarning =
+    timeLimitRemainingMs != null && timeLimitTotalMs != null && timeLimitRemainingMs <= Math.max(60_000, timeLimitTotalMs * 0.1);
+
+  /** Hết giờ — đã xác nhận với người dùng 2026-08-22: tự động nộp bài (dùng phần đã làm dở). Guard bằng
+   * ref tránh gọi handleSubmit() lặp lại khi remainingMs dao động quanh 0 do tick không chính xác tuyệt đối. */
+  const autoSubmitRef = useRef(false);
+  useEffect(() => {
+    if (hasActiveAttempt && timeLimitRemainingMs != null && timeLimitRemainingMs <= 0 && !autoSubmitRef.current) {
+      autoSubmitRef.current = true;
+      handleSubmit();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasActiveAttempt, timeLimitRemainingMs]);
+
   return (
     // Lớp phủ toàn màn hình (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-12) — thay cho
     // popup căn giữa cũ, mirror đúng pattern ReviewVideoTaskModal (fixed inset-0 bg-white z-[100]) để
@@ -401,6 +429,18 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
           </div>
         </div>
       </div>
+
+      {timeLimitDeadlineIso && timeLimitRemainingMs != null && (
+        <div
+          className={`shrink-0 px-4 sm:px-6 py-2 text-center text-xs font-extrabold tabular-nums ${
+            timeLimitWarning ? "bg-rose-50 text-rose-700 border-b border-rose-100" : "bg-amber-50 text-amber-800 border-b border-amber-100"
+          }`}
+        >
+          {t("takeExercise.timeLimit.remainingPrefix")}
+          {formatRemaining(timeLimitRemainingMs, t)}
+          {timeLimitWarning && ` — ${t("takeExercise.timeLimit.warning")}`}
+        </div>
+      )}
 
       {/* Cảnh báo trước khi đóng (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-12) — chỉ
           hỏi khi đang có lượt IN_PROGRESS (dễ đóng nhầm lúc đang bị giám sát chống gian lận); xem lại

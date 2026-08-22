@@ -175,6 +175,8 @@
       "titleLabel": "Exercise title *",
       "passThresholdLabel": "Pass threshold (%)",
       "passThresholdPlaceholder": "Default 70",
+      "timeLimitLabel": "Time limit (minutes)",
+      "timeLimitPlaceholder": "Leave blank = no limit",
       "showCorrectAnswersCheckbox": "Show correct answers after submission (multiple choice section)",
       "allowRetakeCheckbox": "Allow retakes",
       "maxAttemptsLabel": "Maximum attempts",

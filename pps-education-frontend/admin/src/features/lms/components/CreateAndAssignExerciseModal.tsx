@@ -119,6 +119,11 @@ function ExerciseInfoStep({
   const [maxAttempts, setMaxAttempts] = useState("");
   const [showCorrectAnswers, setShowCorrectAnswers] = useState(true);
   const [passThresholdPercent, setPassThresholdPercent] = useState("");
+  /** Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-22) — thời gian làm bài tính từ lúc học
+   * sinh mở bài (ExerciseAttempt.startedAt), khác hạn nộp (ExerciseAssignment.dueAt). Field
+   * Exercise.timeLimitMinutes đã có sẵn từ trước nhưng chưa từng có ô nhập ở đây — học sinh xem đếm
+   * ngược ở TakeExerciseModal.tsx (Cổng Học viên), tự nộp bài khi hết giờ. */
+  const [timeLimitMinutes, setTimeLimitMinutes] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -139,7 +144,8 @@ function ExerciseInfoStep({
         allowRetake,
         maxAttempts: allowRetake && maxAttempts ? Number(maxAttempts) : undefined,
         showCorrectAnswers,
-        passThresholdPercent: passThresholdPercent ? Number(passThresholdPercent) : undefined
+        passThresholdPercent: passThresholdPercent ? Number(passThresholdPercent) : undefined,
+        timeLimitMinutes: timeLimitMinutes ? Number(timeLimitMinutes) : undefined
       });
       onCreated(created);
     } catch (err) {
@@ -173,6 +179,17 @@ function ExerciseInfoStep({
             placeholder={t("assignModal.infoStep.passThresholdPlaceholder")}
             value={passThresholdPercent}
             onChange={(e) => setPassThresholdPercent(e.target.value)}
+            className={inputClass}
+          />
+        </div>
+        <div className="col-span-2">
+          <label className={labelClass}>{t("assignModal.infoStep.timeLimitLabel")}</label>
+          <input
+            type="number"
+            min={1}
+            placeholder={t("assignModal.infoStep.timeLimitPlaceholder")}
+            value={timeLimitMinutes}
+            onChange={(e) => setTimeLimitMinutes(e.target.value)}
             className={inputClass}
           />
         </div>

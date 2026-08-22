@@ -23,6 +23,10 @@
       "submittedPendingGrading": "Submitted — waiting for essay/speaking grading"
     },
     "scoreSuffix": " · Score: {{score}}",
+    "timeLimit": {
+      "remainingPrefix": "Time limit — ",
+      "warning": "Time is almost up, finish your answers!"
+    },
     "stoppedByViolation": {
       "title": "This attempt was stopped",
       "description": "You left the exercise more times than allowed. Your results were recorded based on what you answered so far. You can retake it from the assignment list.",
@@ -169,6 +173,13 @@
       "inProgress": "In progress",
       "autoGraded": "Submitted — waiting for essay/speaking grading",
       "fullyGraded": "Graded"
+    },
+    "countdown": {
+      "remainingPrefix": "",
+      "days": "{{d}}d {{h}}h left",
+      "hours": "{{h}}h {{m}}m left",
+      "minutes": "{{m}}m {{s}}s left",
+      "seconds": "{{s}}s left"
     },
     "banner": {
       "label": "Homework reminder",

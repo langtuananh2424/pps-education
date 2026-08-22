@@ -175,6 +175,8 @@
       "titleLabel": "Tên Bài *",
       "passThresholdLabel": "Ngưỡng đạt (%)",
       "passThresholdPlaceholder": "Mặc định 70",
+      "timeLimitLabel": "Thời gian làm bài (phút)",
+      "timeLimitPlaceholder": "Để trống = không giới hạn",
       "showCorrectAnswersCheckbox": "Hiện đáp án đúng sau khi nộp (phần trắc nghiệm)",
       "allowRetakeCheckbox": "Cho phép làm lại",
       "maxAttemptsLabel": "Số lần làm tối đa",
