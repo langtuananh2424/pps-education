@@ -40,7 +40,13 @@ public record CreateStudentCommentRequest(
         String attitude,
         String homeworkPreviousScore,
         String homeworkPreviousSpeakingScore,
+        // V135 — chỉ có ý nghĩa khi buổi teacherType=VIETNAMESE (tách "Offline" thành Reading/Writing,
+        // xem Javadoc StudentComment.homeworkPreviousReadingScore/homeworkNextReading).
+        String homeworkPreviousReadingScore,
+        String homeworkPreviousWritingScore,
         String homeworkNext,
+        String homeworkNextReading,
+        String homeworkNextWriting,
         Long homeworkNextExerciseId,
         Long homeworkNextReviewVideoSetId,
         LocalDateTime homeworkNextDueDate,

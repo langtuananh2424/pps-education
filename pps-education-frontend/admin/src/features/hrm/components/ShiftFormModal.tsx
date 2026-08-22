@@ -6,6 +6,7 @@ import { createShift, CreateShiftRequest, ShiftResponse, updateShift, UpdateShif
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import Select from "@/components/ui/Select";
+import Time24Input from "@/components/ui/Time24Input";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
@@ -129,21 +130,11 @@ export default function ShiftFormModal({ shift, onClose, onSaved }: ShiftFormMod
           </div>
           <div>
             <label className={labelClass}>{t("shiftForm.checkInTimeLabel")}</label>
-            <input
-              type="time"
-              value={form.checkInTime}
-              onChange={(e) => setForm({ ...form, checkInTime: e.target.value })}
-              className={inputClass}
-            />
+            <Time24Input value={form.checkInTime} onChange={(v) => setForm({ ...form, checkInTime: v })} className={inputClass} />
           </div>
           <div>
             <label className={labelClass}>{t("shiftForm.checkOutTimeLabel")}</label>
-            <input
-              type="time"
-              value={form.checkOutTime}
-              onChange={(e) => setForm({ ...form, checkOutTime: e.target.value })}
-              className={inputClass}
-            />
+            <Time24Input value={form.checkOutTime} onChange={(v) => setForm({ ...form, checkOutTime: v })} className={inputClass} />
           </div>
         </div>
 

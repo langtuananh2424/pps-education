@@ -76,6 +76,8 @@
   "sidebar": {
     "logout": "Đăng xuất hệ thống",
     "notLoggedIn": "Chưa đăng nhập",
+    "collapseButtonTitle": "Thu gọn thanh điều hướng",
+    "expandButtonTitle": "Mở thanh điều hướng",
     "unsavedModal": {
       "title": "Dữ liệu chưa hoàn tất",
       "description": "Bạn đang nhập dở dữ liệu ở trang hiện tại. Bạn có muốn lưu tạm trước khi rời đi không?",

@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Calendar, CalendarClock, Download, FileSpreadsheet, FileText, Save, Search, Sparkles, UploadCloud, UserPlus, Users, X } from "lucide-react";
+import { Calendar, CalendarClock, Download, FileSpreadsheet, FileText, Palette, Save, Search, Sparkles, UploadCloud, UserPlus, Users, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
+import { cn } from "@/lib/cn";
 import { buildXlsxTemplateBlob, downloadBlob } from "@/lib/xlsxTemplate";
 import { formatDateTime } from "@/lib/i18nFormat";
 import { useApp } from "@/context/AppContext";
@@ -10,7 +11,7 @@ import { UserRole } from "@/types";
 import { UserListItemResponse } from "@/features/system-admin/api";
 import UserSearchCombobox from "@/features/system-admin/components/UserSearchCombobox";
 import { listStudents, StudentResponse } from "@/features/student/api";
-import { RoomResponse, listRoomsBySite } from "@/features/facility/api";
+import { DayPart, RoomResponse, listRoomsBySite } from "@/features/facility/api";
 import {
   AcademicYearResponse,
   AssignTeacherRequest,
@@ -49,6 +50,8 @@ import { useDialog } from "@/components/ui/DialogProvider";
 import { classStatusLabel, classStatusValues, classStatusVariants } from "./ClassListPanel";
 import BulkGenerateSessionsForm from "./BulkGenerateSessionsForm";
 import ImportScheduleForm from "./ImportScheduleForm";
+import PeriodMultiSelect from "./PeriodMultiSelect";
+import TeacherSearchSelect from "./TeacherSearchSelect";
 import ClassGradeSheetPanel from "./ClassGradeSheetPanel";
 import StudentNameLink from "@/features/reports/components/StudentNameLink";
 import { useToast } from "@/lib/useToast";
@@ -59,6 +62,12 @@ import Select from "@/components/ui/Select";
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-xs p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+
+/** Khớp CLASS_COLOR_PALETTE ở backend (ClassService) — bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-08-21. */
+const CLASS_COLOR_PALETTE = [
+  "#F97316", "#0EA5E9", "#10B981", "#8B5CF6", "#EC4899", "#EAB308",
+  "#14B8A6", "#6366F1", "#F43F5E", "#84CC16", "#06B6D4", "#A855F7"
+];
 
 type Tab = "profile" | "teachers" | "students" | "sessions" | "grades";
 
@@ -200,7 +209,8 @@ function ProfileTab({
         startDate: form.startDate,
         endDate: form.endDate || undefined,
         academicYearId: form.academicYearId ? Number(form.academicYearId) : undefined,
-        status: form.status as ClassResponse["status"]
+        status: form.status as ClassResponse["status"],
+        color: form.color
       });
       onChanged();
       showToast(t("classDetail.profile.saveSuccess"));
@@ -275,6 +285,40 @@ function ProfileTab({
             ))}
           </Select>
         </div>
+        <div className="col-span-2">
+          <label className={labelClass}>Màu hiển thị (lịch làm việc)</label>
+          <div className="flex flex-wrap gap-2">
+            {CLASS_COLOR_PALETTE.map((color) => (
+              <button
+                key={color}
+                type="button"
+                title={color}
+                onClick={() => setForm({ ...form, color })}
+                className={cn(
+                  "w-7 h-7 rounded-full border-2 transition-transform",
+                  form.color === color ? "border-slate-800 scale-110" : "border-transparent hover:scale-110"
+                )}
+                style={{ backgroundColor: color }}
+              />
+            ))}
+            <label
+              title="Chọn màu tuỳ ý"
+              className={cn(
+                "relative w-7 h-7 rounded-full border-2 transition-transform cursor-pointer flex items-center justify-center overflow-hidden",
+                !CLASS_COLOR_PALETTE.includes(form.color) ? "border-slate-800 scale-110" : "border-slate-200 hover:scale-110"
+              )}
+              style={!CLASS_COLOR_PALETTE.includes(form.color) ? { backgroundColor: form.color } : undefined}
+            >
+              {CLASS_COLOR_PALETTE.includes(form.color) && <Palette className="w-3.5 h-3.5 text-slate-400" />}
+              <input
+                type="color"
+                value={form.color}
+                onChange={(e) => setForm({ ...form, color: e.target.value })}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              />
+            </label>
+          </div>
+        </div>
       </fieldset>
       {canManage && (
         <Button type="submit" variant="primary" size="sm" disabled={saving}>
@@ -294,7 +338,8 @@ function toForm(c: ClassResponse) {
     startDate: c.startDate,
     endDate: c.endDate ?? "",
     academicYearId: c.academicYearId != null ? String(c.academicYearId) : "",
-    status: c.status
+    status: c.status,
+    color: c.color
   };
 }
 
@@ -1276,7 +1321,10 @@ function RescheduleSessionForm({
   const { t } = useTranslation("academic-classes");
   const [rooms, setRooms] = useState<RoomResponse[]>([]);
   const [roomId, setRoomId] = useState(session.roomId != null ? String(session.roomId) : "");
-  const [form, setForm] = useState({ sessionDate: session.sessionDate, startTime: session.startTime, endTime: session.endTime, reason: "" });
+  const [sessionDate, setSessionDate] = useState(session.sessionDate);
+  const [dayPart, setDayPart] = useState<DayPart>(session.dayPart ?? "MORNING");
+  const [selectedPeriods, setSelectedPeriods] = useState<Set<number>>(new Set(session.periodNumbers));
+  const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -1286,7 +1334,7 @@ function RescheduleSessionForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.sessionDate || !form.startTime || !form.endTime) {
+    if (!sessionDate || selectedPeriods.size === 0) {
       setError(t("classDetail.rescheduleForm.dateTimeRequired"));
       return;
     }
@@ -1294,11 +1342,11 @@ function RescheduleSessionForm({
     setError(null);
     try {
       const request: RescheduleClassSessionRequest = {
-        newSessionDate: form.sessionDate,
-        newStartTime: form.startTime,
-        newEndTime: form.endTime,
+        newSessionDate: sessionDate,
+        newDayPart: dayPart,
+        newPeriodNumbers: Array.from(selectedPeriods),
         newRoomId: roomId ? Number(roomId) : undefined,
-        reason: form.reason.trim() || undefined
+        reason: reason.trim() || undefined
       };
       await rescheduleClassSession(classId, session.id, request);
       onDone();
@@ -1317,20 +1365,20 @@ function RescheduleSessionForm({
         <span className="font-bold text-slate-700">{session.sessionDate} {session.startTime}–{session.endTime}</span>
       </p>
 
-      <div className="grid grid-cols-3 gap-2">
-        <div>
-          <label className={labelClass}>{t("classDetail.rescheduleForm.newDateLabel")}</label>
-          <DatePicker value={form.sessionDate} onChange={(v) => setForm({ ...form, sessionDate: v })} />
-        </div>
-        <div>
-          <label className={labelClass}>{t("classDetail.rescheduleForm.newStartTimeLabel")}</label>
-          <input type="time" value={form.startTime} onChange={(e) => setForm({ ...form, startTime: e.target.value })} className={inputClass} required />
-        </div>
-        <div>
-          <label className={labelClass}>{t("classDetail.rescheduleForm.newEndTimeLabel")}</label>
-          <input type="time" value={form.endTime} onChange={(e) => setForm({ ...form, endTime: e.target.value })} className={inputClass} required />
-        </div>
+      <div>
+        <label className={labelClass}>{t("classDetail.rescheduleForm.newDateLabel")}</label>
+        <DatePicker value={sessionDate} onChange={setSessionDate} />
       </div>
+
+      <PeriodMultiSelect
+        siteId={siteId}
+        label={t("classDetail.rescheduleForm.newPeriodLabel")}
+        required
+        dayPart={dayPart}
+        onDayPartChange={setDayPart}
+        selected={selectedPeriods}
+        onChange={setSelectedPeriods}
+      />
 
       <div>
         <label className={labelClass}>{t("classDetail.rescheduleForm.newRoomLabel")}</label>
@@ -1343,9 +1391,8 @@ function RescheduleSessionForm({
           ))}
         </Select>
       </div>
-      {/* Bổ sung ngoài SDD gốc, xác nhận 2026-08-13: giáo viên phụ trách buổi mới KHÔNG còn chọn tay
-          — hệ thống tự động suy ra lại từ giáo viên chính đang phụ trách lớp cùng loại giáo viên
-          (VN/nước ngoài) của buổi cũ. */}
+      {/* Đảo ngược 2026-08-13 (xác nhận lại 2026-08-19): giáo viên chính/phụ/CM GIỮ NGUYÊN từ buổi
+          cũ khi dời lịch — sửa GV thì dùng nút "Sửa nhanh" (updateSessionAssignment) riêng. */}
       <p className="text-[11px] text-slate-500">
         {t("classDetail.rescheduleForm.teacherAutoHint", {
           teacher: session.primaryTeacherName,
@@ -1356,8 +1403,8 @@ function RescheduleSessionForm({
       <div>
         <label className={labelClass}>{t("classDetail.rescheduleForm.reasonLabel")}</label>
         <input
-          value={form.reason}
-          onChange={(e) => setForm({ ...form, reason: e.target.value })}
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
           className={inputClass}
           placeholder={t("classDetail.rescheduleForm.reasonPlaceholder")}
         />
@@ -1379,7 +1426,15 @@ function CreateSessionForm({ classId, siteId, onDone, onCancel }: { classId: num
   const { t } = useTranslation("academic-classes");
   const [rooms, setRooms] = useState<RoomResponse[]>([]);
   const [roomId, setRoomId] = useState("");
-  const [form, setForm] = useState({ sessionDate: "", startTime: "", endTime: "", sessionType: "REGULAR", teacherType: "" });
+  const [form, setForm] = useState({ sessionDate: "", sessionType: "REGULAR", teacherType: "" });
+  const [dayPart, setDayPart] = useState<DayPart>("MORNING");
+  const [selectedPeriods, setSelectedPeriods] = useState<Set<number>>(new Set());
+  const [primaryTeacherId, setPrimaryTeacherId] = useState<number | null>(null);
+  const [primaryTeacherName, setPrimaryTeacherName] = useState<string | null>(null);
+  const [assistantTeacherId, setAssistantTeacherId] = useState<number | null>(null);
+  const [assistantTeacherName, setAssistantTeacherName] = useState<string | null>(null);
+  const [cmTeacherId, setCmTeacherId] = useState<number | null>(null);
+  const [cmTeacherName, setCmTeacherName] = useState<string | null>(null);
   const [makeupForSessionId, setMakeupForSessionId] = useState("");
   const [cancelledPendingMakeup, setCancelledPendingMakeup] = useState<ClassSessionResponse[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -1405,12 +1460,16 @@ function CreateSessionForm({ classId, siteId, onDone, onCancel }: { classId: num
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.sessionDate || !form.startTime || !form.endTime) {
+    if (!form.sessionDate || selectedPeriods.size === 0) {
       setError(t("classDetail.createSessionForm.dateTimeRequired"));
       return;
     }
     if (!form.teacherType) {
       setError(t("classDetail.createSessionForm.teacherTypeRequired"));
+      return;
+    }
+    if (!primaryTeacherId) {
+      setError(t("classDetail.createSessionForm.primaryTeacherRequired"));
       return;
     }
     if (form.sessionType === "MAKEUP" && !makeupForSessionId) {
@@ -1422,11 +1481,14 @@ function CreateSessionForm({ classId, siteId, onDone, onCancel }: { classId: num
     try {
       const request: CreateClassSessionRequest = {
         sessionDate: form.sessionDate,
-        startTime: form.startTime,
-        endTime: form.endTime,
+        dayPart,
+        periodNumbers: Array.from(selectedPeriods),
         roomId: roomId ? Number(roomId) : undefined,
         sessionType: form.sessionType,
         teacherType: form.teacherType as "VIETNAMESE" | "FOREIGN",
+        primaryTeacherId,
+        assistantTeacherId: assistantTeacherId ?? undefined,
+        cmTeacherId: cmTeacherId ?? undefined,
         makeupForSessionId: form.sessionType === "MAKEUP" ? Number(makeupForSessionId) : undefined
       };
       await createClassSession(classId, request);
@@ -1442,20 +1504,19 @@ function CreateSessionForm({ classId, siteId, onDone, onCancel }: { classId: num
     <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
-      <div className="grid grid-cols-3 gap-2">
-        <div>
-          <label className={labelClass}>{t("classDetail.createSessionForm.sessionDateLabel")}</label>
-          <DatePicker value={form.sessionDate} onChange={(v) => setForm({ ...form, sessionDate: v })} />
-        </div>
-        <div>
-          <label className={labelClass}>{t("classDetail.createSessionForm.startTimeLabel")}</label>
-          <input type="time" value={form.startTime} onChange={(e) => setForm({ ...form, startTime: e.target.value })} className={inputClass} required />
-        </div>
-        <div>
-          <label className={labelClass}>{t("classDetail.createSessionForm.endTimeLabel")}</label>
-          <input type="time" value={form.endTime} onChange={(e) => setForm({ ...form, endTime: e.target.value })} className={inputClass} required />
-        </div>
+      <div>
+        <label className={labelClass}>{t("classDetail.createSessionForm.sessionDateLabel")}</label>
+        <DatePicker value={form.sessionDate} onChange={(v) => setForm({ ...form, sessionDate: v })} />
       </div>
+
+      <PeriodMultiSelect
+        siteId={siteId}
+        required
+        dayPart={dayPart}
+        onDayPartChange={setDayPart}
+        selected={selectedPeriods}
+        onChange={setSelectedPeriods}
+      />
 
       <div className="grid grid-cols-3 gap-2">
         <div>
@@ -1505,9 +1566,34 @@ function CreateSessionForm({ classId, siteId, onDone, onCancel }: { classId: num
         </div>
       )}
 
-      {/* Bổ sung ngoài SDD gốc, xác nhận 2026-08-13: giáo viên phụ trách KHÔNG còn chọn tay — hệ
-          thống tự động lấy giáo viên chính (PRIMARY) đang phụ trách lớp cùng loại giáo viên đã chọn. */}
-      <p className="text-[11px] text-slate-500">{t("classDetail.createSessionForm.teacherAutoHint")}</p>
+      <TeacherSearchSelect
+        label={t("classDetail.createSessionForm.primaryTeacherLabel")}
+        required
+        value={primaryTeacherId}
+        valueName={primaryTeacherName}
+        onChange={(id, name) => {
+          setPrimaryTeacherId(id);
+          setPrimaryTeacherName(name);
+        }}
+      />
+      <TeacherSearchSelect
+        label={t("classDetail.createSessionForm.assistantTeacherLabel")}
+        value={assistantTeacherId}
+        valueName={assistantTeacherName}
+        onChange={(id, name) => {
+          setAssistantTeacherId(id);
+          setAssistantTeacherName(name);
+        }}
+      />
+      <TeacherSearchSelect
+        label={t("classDetail.createSessionForm.cmTeacherLabel")}
+        value={cmTeacherId}
+        valueName={cmTeacherName}
+        onChange={(id, name) => {
+          setCmTeacherId(id);
+          setCmTeacherName(name);
+        }}
+      />
 
       <div className="flex gap-2">
         <Button type="button" variant="secondary" size="sm" onClick={onCancel}>

@@ -322,3 +322,56 @@ export function resolvePartnerFeedback(id: number, resolutionNotes: string): Pro
 export function closePartnerFeedback(id: number): Promise<PartnerFeedbackResponse> {
   return apiRequest<PartnerFeedbackResponse>(`/partner-feedbacks/${id}/close`, { method: "POST" });
 }
+
+// ===================== Tiết học theo điểm trường (bổ sung ngoài SDD gốc, xác nhận 2026-08-19/2026-08-20) =====================
+
+/** Buổi trong ngày — mỗi buổi đánh số tiết riêng (VD Tiết 1 sáng khác Tiết 1 chiều), khớp thời khóa biểu giấy thực tế. */
+export type DayPart = "MORNING" | "AFTERNOON" | "EVENING";
+
+export const dayPartLabels: Record<DayPart, string> = { MORNING: "Sáng", AFTERNOON: "Chiều", EVENING: "Tối" };
+export const dayPartOrder: DayPart[] = ["MORNING", "AFTERNOON", "EVENING"];
+
+export interface SitePeriodTemplateResponse {
+  id: number;
+  siteId: number;
+  dayPart: DayPart;
+  periodNumber: number;
+  label: string | null;
+  startTime: string;
+  endTime: string;
+}
+
+export interface CreateSitePeriodTemplateRequest {
+  dayPart: DayPart;
+  periodNumber: number;
+  label?: string;
+  startTime: string;
+  endTime: string;
+}
+
+export interface UpdateSitePeriodTemplateRequest {
+  label?: string;
+  startTime: string;
+  endTime: string;
+}
+
+/** Danh sách tiết học cố định của 1 điểm trường — dùng làm nguồn "chọn tiết" khi xếp lịch (UC-48/56/57). */
+export function listSitePeriodTemplates(siteId: number): Promise<SitePeriodTemplateResponse[]> {
+  return apiRequest<SitePeriodTemplateResponse[]>(`/sites/${siteId}/period-templates`);
+}
+
+export function createSitePeriodTemplate(siteId: number, request: CreateSitePeriodTemplateRequest): Promise<SitePeriodTemplateResponse> {
+  return apiRequest<SitePeriodTemplateResponse>(`/sites/${siteId}/period-templates`, { method: "POST", body: JSON.stringify(request) });
+}
+
+export function updateSitePeriodTemplate(
+  siteId: number,
+  id: number,
+  request: UpdateSitePeriodTemplateRequest
+): Promise<SitePeriodTemplateResponse> {
+  return apiRequest<SitePeriodTemplateResponse>(`/sites/${siteId}/period-templates/${id}`, { method: "PUT", body: JSON.stringify(request) });
+}
+
+export function deleteSitePeriodTemplate(siteId: number, id: number): Promise<void> {
+  return apiRequest<void>(`/sites/${siteId}/period-templates/${id}`, { method: "DELETE" });
+}

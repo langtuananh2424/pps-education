@@ -1,4 +1,5 @@
 import { apiRequest, apiRequestBlob } from "@/lib/apiClient";
+import { DayPart } from "@/features/facility/api";
 
 // ===================== Khung chương trình (UC-16/17) =====================
 
@@ -147,6 +148,8 @@ export interface ClassResponse {
   academicYearId: number | null;
   academicYear: string | null;
   status: "PLANNED" | "OPEN_ENROLLMENT" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
+  /** Màu hiển thị trên lịch làm việc dạng lưới — tự chọn ngẫu nhiên khi tạo lớp, đổi được qua UpdateClassRequest (bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-08-21). */
+  color: string;
 }
 
 export interface CreateClassRequest {
@@ -170,6 +173,8 @@ export interface UpdateClassRequest {
   endDate?: string;
   academicYearId?: number;
   status: ClassResponse["status"];
+  /** Bỏ trống thì giữ nguyên màu cũ. */
+  color?: string;
 }
 
 /** UC-18 Main Flow bước 3: dropdown site -> lớp của site đó; lọc thêm theo curriculum/năm học. Giáo viên chỉ thấy lớp thuộc site được gán (site_teachers). */
@@ -375,9 +380,13 @@ export interface EnrollmentMovementClassRow {
   closingHeadcount: number;
 }
 
+/** periodType: "TERM" (theo kỳ) | "MONTH" (theo tháng) | "YEAR" (theo năm) — bổ sung ngoài SDD gốc, xác nhận 2026-08-20. */
+export type EnrollmentMovementPeriodType = "TERM" | "MONTH" | "YEAR";
+
 export interface EnrollmentMovementStatsResponse {
-  academicTermId: number;
-  academicTermName: string;
+  periodType: EnrollmentMovementPeriodType;
+  academicTermId: number | null;
+  periodLabel: string;
   startDate: string;
   endDate: string;
   siteId: number;
@@ -396,6 +405,35 @@ export function exportEnrollmentMovementStats(academicTermId: number, classId?: 
   return apiRequestBlob(`/academic-terms/${academicTermId}/enrollment-movement-stats/export${query}`);
 }
 
+/** Bổ sung ngoài SDD gốc, xác nhận 2026-08-20 — chế độ xem "theo tháng"/"theo năm" (khoảng ngày tuỳ ý, không gắn 1 academic_term cụ thể). */
+export interface EnrollmentMovementRangeParams {
+  siteId: number;
+  fromDate: string;
+  toDate: string;
+  periodType: EnrollmentMovementPeriodType;
+  periodLabel: string;
+  classId?: number;
+}
+
+function rangeQuery(p: EnrollmentMovementRangeParams): string {
+  const params = new URLSearchParams({
+    fromDate: p.fromDate,
+    toDate: p.toDate,
+    periodType: p.periodType,
+    periodLabel: p.periodLabel
+  });
+  if (p.classId) params.set("classId", String(p.classId));
+  return params.toString();
+}
+
+export function getEnrollmentMovementStatsForRange(p: EnrollmentMovementRangeParams): Promise<EnrollmentMovementStatsResponse> {
+  return apiRequest<EnrollmentMovementStatsResponse>(`/sites/${p.siteId}/enrollment-movement-stats?${rangeQuery(p)}`);
+}
+
+export function exportEnrollmentMovementStatsForRange(p: EnrollmentMovementRangeParams): Promise<Blob> {
+  return apiRequestBlob(`/sites/${p.siteId}/enrollment-movement-stats/export?${rangeQuery(p)}`);
+}
+
 /** monthIndex = tháng thứ mấy CỦA KỲ (1-based), không phải tháng lịch tuyệt đối -- dùng để so sánh 2 kỳ khác độ dài/thời điểm. */
 export interface EnrollmentMovementTrendPoint {
   monthIndex: number;
@@ -409,8 +447,9 @@ export interface EnrollmentMovementTrendPoint {
 }
 
 export interface EnrollmentMovementTrendResponse {
-  academicTermId: number;
-  academicTermName: string;
+  periodType: EnrollmentMovementPeriodType;
+  academicTermId: number | null;
+  periodLabel: string;
   startDate: string;
   endDate: string;
   siteId: number;
@@ -421,6 +460,123 @@ export interface EnrollmentMovementTrendResponse {
 export function getEnrollmentMovementTrend(academicTermId: number, classId?: number): Promise<EnrollmentMovementTrendResponse> {
   const query = classId ? `?classId=${classId}` : "";
   return apiRequest<EnrollmentMovementTrendResponse>(`/academic-terms/${academicTermId}/enrollment-movement-trend${query}`);
+}
+
+export function getEnrollmentMovementTrendForRange(p: EnrollmentMovementRangeParams): Promise<EnrollmentMovementTrendResponse> {
+  return apiRequest<EnrollmentMovementTrendResponse>(`/sites/${p.siteId}/enrollment-movement-trend?${rangeQuery(p)}`);
+}
+
+/** Lưới tổng quan (bổ sung ngoài SDD gốc, xác nhận 2026-08-20) — hàng đầu là tháng/kỳ/năm, cột đầu là lớp. */
+export interface EnrollmentMovementGridColumn {
+  key: string;
+  label: string;
+  startDate: string;
+  endDate: string;
+}
+
+export interface EnrollmentMovementGridRow {
+  classId: number;
+  classCode: string;
+  className: string;
+  /** Sĩ số cuối đoạn của lớp này, tra theo EnrollmentMovementGridColumn.key. */
+  headcountByColumnKey: Record<string, number>;
+}
+
+export interface EnrollmentMovementGridResponse {
+  periodType: EnrollmentMovementPeriodType;
+  siteId: number;
+  siteName: string;
+  columns: EnrollmentMovementGridColumn[];
+  rows: EnrollmentMovementGridRow[];
+}
+
+export function getEnrollmentMovementGrid(params: {
+  siteId: number;
+  periodType: EnrollmentMovementPeriodType;
+  /** Chỉ dùng khi periodType=MONTH -- năm muốn xem 12 tháng, mặc định năm hiện tại nếu bỏ trống. */
+  year?: number;
+  classId?: number;
+}): Promise<EnrollmentMovementGridResponse> {
+  const query = new URLSearchParams({ periodType: params.periodType });
+  if (params.year) query.set("year", String(params.year));
+  if (params.classId) query.set("classId", String(params.classId));
+  return apiRequest<EnrollmentMovementGridResponse>(`/sites/${params.siteId}/enrollment-movement-grid?${query.toString()}`);
+}
+
+// ===================== Số tiết thực tế theo lớp (V130, bổ sung ngoài SDD gốc, xác nhận 2026-08-20) =====================
+// Số tiết ĐÃ DẠY thực tế (không tính buổi CANCELLED/RESCHEDULED) của từng lớp trong 1 khoảng ngày
+// tuỳ ý (tuần/tháng/kỳ/năm) — thuần đọc/báo cáo, xem Javadoc ActualPeriodsReportService.
+
+export interface ActualPeriodsClassRow {
+  classId: number;
+  classCode: string;
+  className: string;
+  actualPeriods: number;
+}
+
+export interface ActualPeriodsStatsResponse {
+  periodType: EnrollmentMovementPeriodType | "WEEK";
+  periodLabel: string;
+  startDate: string;
+  endDate: string;
+  siteId: number;
+  siteName: string;
+  classes: ActualPeriodsClassRow[];
+  totalActualPeriods: number;
+}
+
+export function getActualPeriodsStats(params: {
+  siteId: number;
+  fromDate: string;
+  toDate: string;
+  periodType: EnrollmentMovementPeriodType | "WEEK";
+  periodLabel: string;
+  classId?: number;
+}): Promise<ActualPeriodsStatsResponse> {
+  const query = new URLSearchParams({
+    fromDate: params.fromDate,
+    toDate: params.toDate,
+    periodType: params.periodType,
+    periodLabel: params.periodLabel
+  });
+  if (params.classId) query.set("classId", String(params.classId));
+  return apiRequest<ActualPeriodsStatsResponse>(`/sites/${params.siteId}/actual-periods-stats?${query.toString()}`);
+}
+
+/** Lưới tổng quan (bổ sung ngoài SDD gốc, xác nhận 2026-08-20) — hàng đầu là tháng/kỳ/năm, cột đầu là lớp. Không áp dụng cho "Tuần" (không có tập cột hợp lý). */
+export interface ActualPeriodsGridColumn {
+  key: string;
+  label: string;
+  startDate: string;
+  endDate: string;
+}
+
+export interface ActualPeriodsGridRow {
+  classId: number;
+  classCode: string;
+  className: string;
+  actualPeriodsByColumnKey: Record<string, number>;
+}
+
+export interface ActualPeriodsGridResponse {
+  periodType: EnrollmentMovementPeriodType;
+  siteId: number;
+  siteName: string;
+  columns: ActualPeriodsGridColumn[];
+  rows: ActualPeriodsGridRow[];
+}
+
+export function getActualPeriodsGrid(params: {
+  siteId: number;
+  periodType: EnrollmentMovementPeriodType;
+  /** Chỉ dùng khi periodType=MONTH -- năm muốn xem 12 tháng, mặc định năm hiện tại nếu bỏ trống. */
+  year?: number;
+  classId?: number;
+}): Promise<ActualPeriodsGridResponse> {
+  const query = new URLSearchParams({ periodType: params.periodType });
+  if (params.year) query.set("year", String(params.year));
+  if (params.classId) query.set("classId", String(params.classId));
+  return apiRequest<ActualPeriodsGridResponse>(`/sites/${params.siteId}/actual-periods-grid?${query.toString()}`);
 }
 
 // ===================== Năm học (V102, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-07) =====================
@@ -531,10 +687,20 @@ export interface ClassSessionResponse {
   sessionDate: string;
   startTime: string;
   endTime: string;
+  /** Buổi Sáng/Chiều/Tối của các tiết bên dưới — bổ sung ngoài SDD gốc, 2026-08-20. */
+  dayPart: DayPart | null;
+  /** periodNumber (theo site_period_templates, trong phạm vi dayPart) buổi này chiếm, tăng dần — bổ sung ngoài SDD gốc, 2026-08-19. */
+  periodNumbers: number[];
   roomId: number | null;
   roomName: string | null;
   primaryTeacherId: number;
   primaryTeacherName: string;
+  /** GV phụ của buổi (tuỳ chọn) — gán riêng theo buổi, bổ sung ngoài SDD gốc, 2026-08-19. */
+  assistantTeacherId: number | null;
+  assistantTeacherName: string | null;
+  /** CM (Class Manager) của buổi (tuỳ chọn) — gán riêng theo buổi, bổ sung ngoài SDD gốc, 2026-08-19. */
+  cmTeacherId: number | null;
+  cmTeacherName: string | null;
   sessionType: string;
   status: string;
   cancellationReason: string | null;
@@ -549,30 +715,60 @@ export interface ClassSessionResponse {
   lessonContent: string | null;
   /** V61 (bổ sung ngoài SDD gốc, 2026-07-29) — chỉ có ý nghĩa khi sessionType=MAKEUP: id buổi CANCELLED mà buổi này bù cho. */
   makeupForSessionId: number | null;
+  /** Màu của lớp (SchoolClass.color) — tô thẻ buổi học trên lịch làm việc dạng lưới, bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-08-21. */
+  classColor: string | null;
 }
 
+/**
+ * ĐẢO NGƯỢC quyết định 2026-08-13 (xác nhận lại 2026-08-19): không còn nhập startTime/endTime tự
+ * do — đổi sang chọn tiết (periodNumbers, theo site_period_templates của điểm trường lớp này).
+ * Giáo viên chính/phụ/CM chọn tay riêng từng buổi, không còn tự động suy ra từ class_teachers.
+ */
 export interface CreateClassSessionRequest {
   sessionDate: string;
-  startTime: string;
-  endTime: string;
+  dayPart: DayPart;
+  periodNumbers: number[];
   roomId?: number;
   sessionType: string;
-  /**
-   * Bắt buộc (bổ sung ngoài SDD gốc, xác nhận 2026-08-13) — giáo viên phụ trách buổi được hệ
-   * thống TỰ ĐỘNG suy ra từ giáo viên chính (PRIMARY) đang active của lớp cùng loại này, không
-   * còn nhập tay.
-   */
   teacherType: "VIETNAMESE" | "FOREIGN";
+  primaryTeacherId: number;
+  assistantTeacherId?: number;
+  cmTeacherId?: number;
   /** Bắt buộc khi sessionType=MAKEUP (buổi này bù cho buổi nào) — phải để trống với loại khác. Chỉ áp dụng tạo 1 buổi lẻ, không áp dụng bulk/Excel. */
   makeupForSessionId?: number;
 }
 
+/** Đảo ngược 2026-08-13 (xác nhận lại 2026-08-19): newStartTime/newEndTime đổi sang newPeriodNumbers; GV chính/phụ/CM giữ nguyên từ buổi cũ (sửa GV dùng updateSessionAssignment riêng). */
 export interface RescheduleClassSessionRequest {
   newSessionDate: string;
-  newStartTime: string;
-  newEndTime: string;
+  newDayPart: DayPart;
+  newPeriodNumbers: number[];
   newRoomId?: number;
   reason?: string;
+}
+
+/** Sửa nhanh tại chỗ 1 buổi SCHEDULED (bổ sung ngoài SDD gốc, xác nhận 2026-08-19) — phục vụ click-thẻ trên lưới thời khóa biểu. */
+export interface UpdateSessionAssignmentRequest {
+  roomId?: number;
+  teacherType: "VIETNAMESE" | "FOREIGN";
+  primaryTeacherId: number;
+  assistantTeacherId?: number;
+  cmTeacherId?: number;
+  dayPart: DayPart;
+  periodNumbers: number[];
+}
+
+export function updateSessionAssignment(
+  classId: number,
+  sessionId: number,
+  request: UpdateSessionAssignmentRequest
+): Promise<ClassSessionResponse> {
+  return apiRequest<ClassSessionResponse>(`/classes/${classId}/sessions/${sessionId}/assignment`, { method: "PATCH", body: JSON.stringify(request) });
+}
+
+/** Lưới thời khóa biểu toàn điểm trường theo tuần (bổ sung ngoài SDD gốc, xác nhận 2026-08-19). */
+export function listSessionsForSiteTimetable(siteId: number, fromDate: string, toDate: string): Promise<ClassSessionResponse[]> {
+  return apiRequest<ClassSessionResponse[]>(`/sites/${siteId}/sessions?fromDate=${fromDate}&toDate=${toDate}`);
 }
 
 export function listClassSessions(classId: number): Promise<ClassSessionResponse[]> {
@@ -603,21 +799,23 @@ export function listCancelledSessionsPendingMakeup(classId: number): Promise<Cla
 
 // ===================== Sinh lịch hàng loạt (UC-56) =====================
 
-/** daysOfWeek dùng đúng tên hằng số java.time.DayOfWeek: MONDAY..SUNDAY. */
+/**
+ * daysOfWeek dùng đúng tên hằng số java.time.DayOfWeek: MONDAY..SUNDAY. Đảo ngược 2026-08-13 (xác
+ * nhận lại 2026-08-19): startTime/endTime đổi sang periodNumbers; GV chính/phụ/CM chọn tay dùng
+ * chung cho cả lô, không còn tự động suy ra.
+ */
 export interface BulkCreateClassSessionRequest {
   startDate: string;
   endDate: string;
   daysOfWeek: string[];
-  startTime: string;
-  endTime: string;
+  dayPart: DayPart;
+  periodNumbers: number[];
   roomId?: number;
   sessionType: string;
-  /**
-   * Bắt buộc (bổ sung ngoài SDD gốc, xác nhận 2026-08-13), dùng chung cho cả lô buổi tạo trong
-   * lời gọi này — muốn khác nhau theo thứ thì gọi bulkCreateClassSessions nhiều lần. Giáo viên
-   * phụ trách được hệ thống tự động suy ra từ giáo viên chính của lớp cùng loại này.
-   */
   teacherType: "VIETNAMESE" | "FOREIGN";
+  primaryTeacherId: number;
+  assistantTeacherId?: number;
+  cmTeacherId?: number;
 }
 
 export interface BulkCreateClassSessionResponse {
@@ -1046,7 +1244,20 @@ export interface StudentCommentResponse {
   // BTVN Nghe-nói buổi trước (V56, nhập tay, đối xứng với homeworkPreviousScore ở trên) — độc lập với
   // videoPreviousProgress (tự tính) bên dưới.
   homeworkPreviousSpeakingScore: string | null;
+  /**
+   * V130 — "BTVN buổi trước - Offline" tách Reading/Writing, điểm % giáo viên tự chấm tay. CHỈ khác
+   * null khi buổi classSession.teacherType=VIETNAMESE — buổi FOREIGN tiếp tục dùng homeworkPreviousScore
+   * ở trên (không tách).
+   */
+  homeworkPreviousReadingScore: string | null;
+  homeworkPreviousWritingScore: string | null;
   homeworkNext: string | null;
+  /**
+   * V130 — "BTVN - Offline" (giao buổi sau) tách Reading/Writing, mô tả bài + trang giao offline. CHỈ
+   * khác null khi buổi teacherType=VIETNAMESE — buổi FOREIGN tiếp tục dùng homeworkNext ở trên.
+   */
+  homeworkNextReading: string | null;
+  homeworkNextWriting: string | null;
   // BTVN online/offline theo từng học sinh (V55, PR UC-21-giao-btvn-online-offline, 2026-07-28) —
   // kênh ngữ pháp ONLINE (homeworkNextExerciseAssignmentId khác null) hoặc OFFLINE (dùng homeworkNext
   // ở trên); kênh Video Ôn tập luôn ONLINE. grammarPreviousProgress/videoPreviousProgress tự tính từ
@@ -1099,7 +1310,13 @@ export interface CreateStudentCommentRequest {
   attitude?: NonNullable<StudentCommentResponse["attitude"]>;
   homeworkPreviousScore?: string;
   homeworkPreviousSpeakingScore?: string;
+  /** V130 — chỉ gửi khi buổi teacherType=VIETNAMESE, xem Javadoc StudentCommentResponse.homeworkPreviousReadingScore. */
+  homeworkPreviousReadingScore?: string;
+  homeworkPreviousWritingScore?: string;
   homeworkNext?: string;
+  /** V130 — chỉ gửi khi buổi teacherType=VIETNAMESE, xem Javadoc StudentCommentResponse.homeworkNextReading. */
+  homeworkNextReading?: string;
+  homeworkNextWriting?: string;
   /**
    * V65 (2026-07-30, bổ sung ngoài SDD gốc): kênh ngữ pháp ONLINE — id của Exercise NGUỒN (đã
    * Publish), KHÔNG phải id bản giao như trước V65. Chọn khác null tự động giao đề cho CẢ LỚP ACTIVE,
@@ -1129,7 +1346,13 @@ export interface UpdateStudentCommentRequest {
   attitude?: NonNullable<StudentCommentResponse["attitude"]>;
   homeworkPreviousScore?: string;
   homeworkPreviousSpeakingScore?: string;
+  /** V130 — xem Javadoc CreateStudentCommentRequest.homeworkPreviousReadingScore. */
+  homeworkPreviousReadingScore?: string;
+  homeworkPreviousWritingScore?: string;
   homeworkNext?: string;
+  /** V130 — xem Javadoc CreateStudentCommentRequest.homeworkNextReading. */
+  homeworkNextReading?: string;
+  homeworkNextWriting?: string;
   /** V65 — xem Javadoc CreateStudentCommentRequest.homeworkNextExerciseId. */
   homeworkNextExerciseId?: number;
   homeworkNextReviewVideoSetId?: number;
@@ -1173,10 +1396,15 @@ export interface StudentCommentHistoryResponse {
     attitude: StudentCommentResponse["attitude"];
     homeworkPreviousScore: string | null;
     homeworkPreviousSpeakingScore: string | null;
+    /** V130 — chỉ khác null khi buổi teacherType=VIETNAMESE. */
+    homeworkPreviousReadingScore: string | null;
+    homeworkPreviousWritingScore: string | null;
     /** % tự động (kênh Ngữ pháp/Video) của "BTVN buổi trước" TẠI thời điểm lưu — xem PreviousProgressCell ở DailyCommentPanel.tsx cho ý nghĩa 2 field này. */
     grammarPreviousProgress: string | null;
     videoPreviousProgress: string | null;
     homeworkNext: string | null;
+    homeworkNextReading: string | null;
+    homeworkNextWriting: string | null;
     note: string | null;
     rejectionReason: string | null;
     homeworkNextExerciseTitle: string | null;
@@ -1276,8 +1504,13 @@ export interface DailyCommentImportPreviewRow {
   attitude: StudentCommentResponse["attitude"];
   homeworkPreviousScore: string | null;
   homeworkPreviousSpeakingScore: string | null;
+  /** V130 — chỉ khác null khi buổi teacherType=VIETNAMESE. */
+  homeworkPreviousReadingScore: string | null;
+  homeworkPreviousWritingScore: string | null;
   content: string | null;
   homeworkNext: string | null;
+  homeworkNextReading: string | null;
+  homeworkNextWriting: string | null;
   homeworkNextExerciseId: number | null;
   homeworkNextReviewVideoSetId: number | null;
   note: string | null;

@@ -87,6 +87,8 @@ interface SessionVersionHistoryModalProps {
   /** Nhãn 2 kênh BTVN theo Loại giáo viên của buổi — ăn theo state đã tính sẵn ở DailyCommentPanel, khớp đúng cột header bảng chính. */
   grammarLabel: string;
   videoLabel: string;
+  /** V130 — buổi teacherType=VIETNAMESE tách "Offline" thành Reading/Writing (mirror DailyCommentPanel.tsx). */
+  isVietnamese?: boolean;
   onClose: () => void;
 }
 
@@ -100,7 +102,7 @@ interface SessionVersionHistoryModalProps {
  * tập/Nhận xét học sinh/Ghi chú) + thêm cột Trạng thái (không có ở bảng chính, nhưng cần thiết ở đây vì
  * đang xem lịch sử NHIỀU trạng thái khác nhau theo thời gian).
  */
-export default function SessionVersionHistoryModal({ classSessionId, students, grammarLabel, videoLabel, onClose }: SessionVersionHistoryModalProps) {
+export default function SessionVersionHistoryModal({ classSessionId, students, grammarLabel, videoLabel, isVietnamese = false, onClose }: SessionVersionHistoryModalProps) {
   const { t, i18n } = useTranslation("academic-comments");
   const [history, setHistory] = useState<StudentCommentHistoryResponse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -182,47 +184,65 @@ export default function SessionVersionHistoryModal({ classSessionId, students, g
               <table className="text-[11px] text-left border-separate border-spacing-0">
                 <thead className="sticky top-0 z-20 bg-white shadow-sm">
                   <tr className="[&>th]:text-center">
-                    <th rowSpan={2} style={STICKY_COL_STYLE[0]} className={`${thClass} sticky left-0 z-30`}>
+                    <th rowSpan={isVietnamese ? 3 : 2} style={STICKY_COL_STYLE[0]} className={`${thClass} sticky left-0 z-30`}>
                       {t("sessionVersionHistoryModal.columns.studentCode")}
                     </th>
-                    <th rowSpan={2} style={STICKY_COL_STYLE[1]} className={`${thClass} sticky z-30`}>
+                    <th rowSpan={isVietnamese ? 3 : 2} style={STICKY_COL_STYLE[1]} className={`${thClass} sticky z-30`}>
                       {t("sessionVersionHistoryModal.columns.fullName")}
                     </th>
-                    <th rowSpan={2} style={STICKY_COL_STYLE[2]} className={`${thClass} sticky z-30`}>
+                    <th rowSpan={isVietnamese ? 3 : 2} style={STICKY_COL_STYLE[2]} className={`${thClass} sticky z-30`}>
                       {t("sessionVersionHistoryModal.columns.dateOfBirth")}
                     </th>
-                    <th colSpan={3} className={thClass}>
+                    <th colSpan={isVietnamese ? 4 : 3} className={thClass}>
                       {t("sessionVersionHistoryModal.columns.homeworkPrevious")}
                     </th>
-                    <th rowSpan={2} className={`${thClass} min-w-[140px]`}>
-                      {t("sessionVersionHistoryModal.columns.homeworkOffline")}
+                    <th colSpan={isVietnamese ? 4 : 3} className={thClass}>
+                      {t("dailyCommentPanel.columns.homeworkNextGroup")}
                     </th>
-                    <th colSpan={2} className={thClass}>
-                      {t("sessionVersionHistoryModal.columns.homeworkOnline")}
-                    </th>
-                    <th rowSpan={2} className={`${thClass} min-w-[120px]`}>
+                    <th rowSpan={isVietnamese ? 3 : 2} className={`${thClass} min-w-[120px]`}>
                       {t("sessionVersionHistoryModal.columns.dueDate")}
                     </th>
-                    <th rowSpan={2} className={`${thClass} min-w-[110px]`}>
+                    <th rowSpan={isVietnamese ? 3 : 2} className={`${thClass} min-w-[110px]`}>
                       {t("sessionVersionHistoryModal.columns.attitude")}
                     </th>
-                    <th rowSpan={2} className={`${thClass} min-w-[260px]`}>
+                    <th rowSpan={isVietnamese ? 3 : 2} className={`${thClass} min-w-[260px]`}>
                       {t("sessionVersionHistoryModal.columns.studentComment")}
                     </th>
-                    <th rowSpan={2} className={`${thClass} min-w-[140px]`}>
+                    <th rowSpan={isVietnamese ? 3 : 2} className={`${thClass} min-w-[140px]`}>
                       {t("sessionVersionHistoryModal.columns.note")}
                     </th>
-                    <th rowSpan={2} className={`${thClass} min-w-[110px] border-r-0`}>
+                    <th rowSpan={isVietnamese ? 3 : 2} className={`${thClass} min-w-[110px] border-r-0`}>
                       {t("sessionVersionHistoryModal.columns.status")}
                     </th>
                   </tr>
-                  <tr className="[&>th]:text-center">
-                    <th className={`${thClass} min-w-[100px]`}>{t("sessionVersionHistoryModal.columns.offline")}</th>
-                    <th className={`${thClass} min-w-[110px]`}>{grammarLabel}</th>
-                    <th className={`${thClass} min-w-[110px]`}>{videoLabel}</th>
-                    <th className={`${thClass} min-w-[160px]`}>{grammarLabel}</th>
-                    <th className={`${thClass} min-w-[160px]`}>{videoLabel}</th>
-                  </tr>
+                  {isVietnamese ? (
+                    <>
+                      <tr className="[&>th]:text-center">
+                        <th className={thClass} colSpan={2}>{t("sessionVersionHistoryModal.columns.offline")}</th>
+                        <th className={thClass} colSpan={2}>{t("dailyCommentPanel.columns.online")}</th>
+                        <th className={thClass} colSpan={2}>{t("sessionVersionHistoryModal.columns.offline")}</th>
+                        <th className={thClass} colSpan={2}>{t("dailyCommentPanel.columns.online")}</th>
+                      </tr>
+                      <tr className="[&>th]:text-center">
+                        <th className={`${thClass} min-w-[90px]`}>{t("dailyCommentPanel.columns.reading")}</th>
+                        <th className={`${thClass} min-w-[90px]`}>{t("dailyCommentPanel.columns.writing")}</th>
+                        <th className={`${thClass} min-w-[110px]`}>{t("dailyCommentPanel.columns.onlineGrammarShort")}</th>
+                        <th className={`${thClass} min-w-[110px]`}>{t("dailyCommentPanel.columns.onlineVideoShort")}</th>
+                        <th className={`${thClass} min-w-[120px]`}>{t("dailyCommentPanel.columns.reading")}</th>
+                        <th className={`${thClass} min-w-[120px]`}>{t("dailyCommentPanel.columns.writing")}</th>
+                        <th className={`${thClass} min-w-[110px]`}>{t("dailyCommentPanel.columns.onlineGrammarShort")}</th>
+                        <th className={`${thClass} min-w-[110px]`}>{t("dailyCommentPanel.columns.onlineVideoShort")}</th>
+                      </tr>
+                    </>
+                  ) : (
+                    <tr className="[&>th]:text-center">
+                      <th className={`${thClass} min-w-[100px]`}>{t("sessionVersionHistoryModal.columns.offline")}</th>
+                      <th className={`${thClass} min-w-[110px]`}>{grammarLabel}</th>
+                      <th className={`${thClass} min-w-[110px]`}>{videoLabel}</th>
+                      <th className={`${thClass} min-w-[160px]`}>{grammarLabel}</th>
+                      <th className={`${thClass} min-w-[160px]`}>{videoLabel}</th>
+                    </tr>
+                  )}
                 </thead>
                 <tbody>
                   {students.map((s) => {
@@ -241,10 +261,24 @@ export default function SessionVersionHistoryModal({ classSessionId, students, g
                           {s.studentFullName}
                         </td>
                         <td style={STICKY_COL_STYLE[2]} className={`${stickyTdClass} whitespace-nowrap text-slate-500`}>{s.studentDateOfBirth ?? "—"}</td>
-                        <td className={`${tdClass} text-slate-500`}>{d?.homeworkPreviousScore || "—"}</td>
+                        {isVietnamese ? (
+                          <>
+                            <td className={`${tdClass} text-slate-500`}>{d?.homeworkPreviousReadingScore || "—"}</td>
+                            <td className={`${tdClass} text-slate-500`}>{d?.homeworkPreviousWritingScore || "—"}</td>
+                          </>
+                        ) : (
+                          <td className={`${tdClass} text-slate-500`}>{d?.homeworkPreviousScore || "—"}</td>
+                        )}
                         <td className={`${tdClass} text-slate-500`}>{d?.grammarPreviousProgress || "—"}</td>
                         <td className={`${tdClass} text-slate-500`}>{d?.videoPreviousProgress || d?.homeworkPreviousSpeakingScore || "—"}</td>
-                        <td className={`${tdClass} text-slate-500`}>{d?.homeworkNext || "—"}</td>
+                        {isVietnamese ? (
+                          <>
+                            <td className={`${tdClass} text-slate-500`}>{d?.homeworkNextReading || "—"}</td>
+                            <td className={`${tdClass} text-slate-500`}>{d?.homeworkNextWriting || "—"}</td>
+                          </>
+                        ) : (
+                          <td className={`${tdClass} text-slate-500`}>{d?.homeworkNext || "—"}</td>
+                        )}
                         <td className={`${tdClass} text-slate-500`}>{d?.homeworkNextExerciseTitle || "—"}</td>
                         <td className={`${tdClass} text-slate-500`}>{d?.homeworkNextReviewVideoSetTitle || "—"}</td>
                         <td className={`${tdClass} whitespace-nowrap text-slate-500`}>

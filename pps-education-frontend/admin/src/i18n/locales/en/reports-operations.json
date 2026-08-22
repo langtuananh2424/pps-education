@@ -75,18 +75,46 @@
     "emptyState": "Select a class and session to view comment analytics"
   },
   "enrollmentMovementStatsPage": {
-    "title": "Enrollment Movement Statistics by Term",
-    "description": "Opening/closing headcount and movement (new enrollments, withdrawals, transfers, completions) of classes within an academic term.",
+    "title": "Enrollment Movement Statistics",
+    "description": "Opening/closing headcount and movement (new enrollments, withdrawals, transfers, completions) of classes — view by month, term, or year.",
     "exportButton": "Export Excel",
+    "periodType": {
+      "MONTH": "Month",
+      "TERM": "Term",
+      "YEAR": "Year"
+    },
+    "displayMode": {
+      "detail": "Detail",
+      "grid": "Overview grid",
+      "gridTitle": "Overview grid — rows are months/terms/years, first column is class"
+    },
+    "monthLabel": "Month {{month}}/{{year}}",
+    "monthRangeLabel": "Month {{startMonth}}/{{startYear}} – Month {{endMonth}}/{{endYear}}",
+    "yearLabel": "Year {{year}}",
     "filters": {
-      "noSiteSelected": "Please select a specific campus from the header (top left) — each academic term is always tied to one campus.",
-      "title": "Select academic term",
+      "noSiteSelected": "Please select a specific campus from the header (top left).",
+      "selectPeriodTitle": "Select {{period}}",
       "termLabel": "Academic term",
       "termPlaceholder": "-- Select an academic term --",
       "termOption": "{{name}} ({{startDate}} - {{endDate}})",
       "comparisonLabel": "Compare with another term (optional)",
       "comparisonPlaceholder": "-- No comparison --",
-      "noTerms": "This campus has no academic terms yet — create one in the \"Academic Term Management\" screen."
+      "noTerms": "This campus has no academic terms yet — create one in the \"Academic Term Management\" screen.",
+      "monthFromLabel": "From month",
+      "monthToLabel": "To month",
+      "comparisonMonthFromLabel": "Compare — from month (optional)",
+      "comparisonMonthToLabel": "to month",
+      "yearLabel": "Year",
+      "comparisonYearLabel": "Compare with another year (optional)"
+    },
+    "gridMode": {
+      "sectionHint": "Overview grid — rows are {{period}}, first column is class",
+      "yearLabel": "Year (shows all 12 months)",
+      "yearRangeHint": "Showing the last 6 years ({{start}} — {{end}}).",
+      "allTermsHint": "Showing all academic terms of this campus, in chronological order.",
+      "loading": "Loading overview grid...",
+      "loadError": "Could not load the enrollment movement grid.",
+      "classColumn": "Class"
     },
     "loadStatsError": "Could not load enrollment movement statistics.",
     "stats": {
@@ -124,6 +152,6 @@
       "exportFailed": "File export failed."
     },
     "loadingStats": "Loading statistics...",
-    "selectTermPrompt": "Select an academic term to view movement statistics"
+    "selectTermPrompt": "Select {{period}} to view movement statistics"
   }
 }

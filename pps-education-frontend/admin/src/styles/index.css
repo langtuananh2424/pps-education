@@ -43,6 +43,17 @@ body {
   background: #94a3b8;
 }
 
+/* Ẩn thanh cuộn nhưng vẫn cuộn được bằng chuột/trackpad — dùng cho khu vực menu Sidebar
+   (bổ sung ngoài SDD gốc, xác nhận 2026-08-20), tránh thanh cuộn chiếm chỗ/gây rối mắt
+   trên 1 cột điều hướng hẹp. */
+.scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
 .bg-brand-gradient {
   background: linear-gradient(135deg, #f68b1f 0%, #ea580c 100%);
 }
