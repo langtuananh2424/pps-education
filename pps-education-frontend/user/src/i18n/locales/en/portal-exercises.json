@@ -137,6 +137,11 @@
     }
   },
   "reflexVideoTask": {
+    "gradingOverlay": {
+      "title": "Grading your answer...",
+      "writingDescription": "AI is grading the grammar of your answer — please wait a moment.",
+      "speakingDescription": "AI is listening to and grading your answer (this can take about 10-20 seconds) — please wait a moment."
+    },
     "micAccessError": "Couldn't access the microphone — check your browser permissions and try again.",
     "questionsLoadError": "Couldn't load the question list.",
     "submitError": "Grading failed — please try again.",

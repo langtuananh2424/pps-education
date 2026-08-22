@@ -137,6 +137,11 @@
     }
   },
   "reflexVideoTask": {
+    "gradingOverlay": {
+      "title": "Đang chấm bài...",
+      "writingDescription": "AI đang chấm ngữ pháp câu trả lời của bạn, vui lòng đợi trong giây lát.",
+      "speakingDescription": "AI đang nghe và chấm câu trả lời của bạn (có thể mất khoảng 10-20 giây), vui lòng đợi trong giây lát."
+    },
     "micAccessError": "Không truy cập được microphone — kiểm tra quyền trình duyệt rồi thử lại.",
     "questionsLoadError": "Không tải được danh sách câu hỏi.",
     "submitError": "Chấm bài thất bại — thử lại.",

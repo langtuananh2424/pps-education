@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { CheckCircle2, Lock, Mic, Play, RotateCcw, ShieldAlert } from "lucide-react";
+import { CheckCircle2, Loader2, Lock, Mic, Play, RotateCcw, ShieldAlert } from "lucide-react";
 import { friendlyApiErrorMessage } from "@/lib/apiClient";
 import {
   ReflexQuestionProgressResponse,
@@ -431,6 +431,24 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
         </div>
       )}
 
+      {/*
+       * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-22 — submitReflexWrittenAnswer/
+       * submitReflexSpokenAnswer gọi Gemini đồng bộ NGAY trong request (thực đo ~10-20s, riêng phần nói
+       * còn phải tải audio lên R2 trước) — trước đây chỉ có dòng chữ nhỏ "Đang chấm..." bên trong khung
+       * câu hỏi, dễ bị hiểu nhầm hệ thống treo. Mirror overlay đã thêm ở TakeExerciseModal.
+       */}
+      {(writingSubmitting || speakingSubmitting) && (
+        <div className="fixed inset-0 bg-white/90 backdrop-blur-sm flex items-center justify-center z-[125]">
+          <div className="flex flex-col items-center gap-3 text-center px-6">
+            <Loader2 size={36} className="text-teal animate-spin" />
+            <p className="text-sm font-extrabold text-ink">{t("reflexVideoTask.gradingOverlay.title")}</p>
+            <p className="text-xs font-bold text-muted max-w-xs">
+              {writingSubmitting ? t("reflexVideoTask.gradingOverlay.writingDescription") : t("reflexVideoTask.gradingOverlay.speakingDescription")}
+            </p>
+          </div>
+        </div>
+      )}
+
       {!started && (
         <div className="fixed inset-0 bg-ink/70 backdrop-blur-sm z-[120] flex items-center justify-center p-4">
           <div className="bg-white rounded-[20px] max-w-sm w-full shadow-2xl p-6 space-y-4 text-center">
@@ -565,7 +583,7 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                       {activeProgress.writingScorePercent != null &&
                         ` — ${t("reflexVideoTask.writingStage.scoreLabel", { score: activeProgress.writingScorePercent })}`}
                     </p>
-                    <p className="font-medium mt-1 normal-case">{activeProgress.writingFeedback}</p>
+                    <p className="font-medium mt-1 normal-case whitespace-pre-line">{activeProgress.writingFeedback}</p>
                   </div>
                 )}
                 {writingError && <p className="text-xs font-bold text-rose-600">{writingError}</p>}
@@ -607,7 +625,7 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                       {activeProgress.speakingScorePercent != null &&
                         ` — ${t("reflexVideoTask.speakingStage.scoreLabel", { score: activeProgress.speakingScorePercent })}`}
                     </p>
-                    <p className="font-medium mt-1 normal-case">{activeProgress.speakingFeedback}</p>
+                    <p className="font-medium mt-1 normal-case whitespace-pre-line">{activeProgress.speakingFeedback}</p>
                     {!activeProgress.speakingPassed && (
                       <button
                         onClick={handleRetrySpeaking}
