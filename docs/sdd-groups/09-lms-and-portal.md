@@ -1435,6 +1435,36 @@ KHÔNG PHẢI số lượt làm sai/nộp bài thất bại — xem Javadoc
 `ListeningHintService`. Không có Từ điển (dictionary) tích hợp — chưa
 tồn tại ở bất kỳ đâu trong hệ thống tại thời điểm viết tài liệu này.
 
+i-ter) Bảng reflex_question_progress --- Video phản xạ V2, luồng tuần tự
+viết → AI chấm ngữ pháp → đạt → ghi âm → AI chấm nội dung → đạt (V139,
+2026-08-22, bổ sung ngoài SDD gốc, đã xác nhận với người dùng --- xem
+mục "Bổ sung V139" trong `docs/uc/phan-he-07-lms-portal.md`)
+
+| Cột | Kiểu | Ràng buộc | Ghi chú |
+| --- | --- | --- | --- |
+| id | BIGSERIAL | PK | |
+| review_video_question_id | BIGINT | FK → review_video_questions(id), NOT NULL | |
+| student_id | BIGINT | FK → students(id), NOT NULL | |
+| review_video_assignment_id | BIGINT | FK → review_video_assignments(id), NOT NULL | |
+| answer_text | TEXT | NULL | Câu trả lời viết trước |
+| writing_score, writing_max_score | DECIMAL(5,2) | NULL | % AI chấm ngữ pháp — NULL = chưa nộp hoặc AI lỗi |
+| writing_feedback | TEXT | NULL | |
+| writing_graded_at | TIMESTAMPTZ | NULL | |
+| writing_attempt_count | INT | NOT NULL, DEFAULT 0 | Chỉ để thống kê, KHÔNG giới hạn số lần thử |
+| audio_url | VARCHAR(1000) | NULL | Audio trả lời — chỉ có sau khi đã đạt phần viết |
+| speaking_score, speaking_max_score | DECIMAL(5,2) | NULL | % AI chấm nội dung (Gemini transcribe + chấm) |
+| speaking_feedback | TEXT | NULL | |
+| speaking_graded_at | TIMESTAMPTZ | NULL | |
+| speaking_attempt_count | INT | NOT NULL, DEFAULT 0 | Chỉ để thống kê, KHÔNG giới hạn số lần thử |
+| created_at, updated_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | |
+| | UNIQUE(review_video_question_id, student_id, review_video_assignment_id) | | 1 dòng/(câu hỏi, học sinh, lần giao) — SỬA ĐÈ tại chỗ mỗi lần thử lại, KHÔNG giữ lịch sử từng lần |
+
+Khác hẳn `review_video_question_submissions` (bảng cũ, `audio_url NOT
+NULL` — không hợp với việc "đã viết nhưng chưa ghi âm", giữ nguyên cho
+luồng cũ/lịch sử, KHÔNG đụng vào). Ngưỡng đạt 70% CỐ ĐỊNH trong code
+(`ReflexSequentialGradingService.PASS_THRESHOLD_PERCENT`) --- chưa có cột
+ngưỡng riêng trên `review_video_sets` như `exercises.pass_threshold_percent`.
+
 j)  Bảng exams --- "Đề" (Kho đề, MỚI HOÀN TOÀN, V66, 2026-07-30, bổ
 sung ngoài SDD gốc, đã xác nhận với người dùng — gộp nhiều "Bài"
 (exercises) theo 1 khung chương trình, gán được nhiều lớp)

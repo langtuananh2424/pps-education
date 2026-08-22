@@ -753,6 +753,31 @@ UC-24: Làm bài kiểm tra trực tuyến
 > pháp lý về quyền riêng tư/lưu trữ dữ liệu không tương xứng với nhu cầu
 > (bài tập, không phải thi tốt nghiệp).
 
+> **Bổ sung V139 (2026-08-22, đã xác nhận với người dùng) — "Video phản
+> xạ" đổi hướng sang luồng tuần tự + AI chấm (Speaking V2), THAY luồng ở
+> trên (xem lại quyết định 2026-07-31 ngay phía trên — nay đã đổi lại vì
+> hướng nghiệp vụ mới):** với mỗi câu hỏi (`ReviewVideoQuestion`), học
+> sinh phải **viết trả lời trước** → AI (`ReflexWritingGrammarAiGrading
+> Service`, rubric `resources/rubrics/reflex-writing-grammar-rubric.md`,
+> hiện là PLACEHOLDER) chấm ngữ pháp NGAY → đạt 70% mới mở khoá ghi âm
+> câu đó → nộp audio → AI (`ReflexSpeakingContentAiGradingService`, chỉ
+> dùng Gemini vì cần nhận audio trực tiếp — transcribe + chấm nội dung
+> trong 1 lệnh gọi, rubric `reflex-speaking-content-rubric.md`, cũng
+> PLACEHOLDER) chấm nội dung NGAY → đạt 70% mới mở khoá câu tiếp theo.
+> KHÔNG giới hạn số lần thử lại — nộp lại chỉ SỬA ĐÈ tiến trình hiện có
+> (bảng mới `reflex_question_progress`, xem `docs/sdd-groups/09-lms-and-
+> portal.md`), không tạo lịch sử từng lần thử. Đây LÀ luồng CHÍNH THỨC
+> mới cho video REFLEX — luồng cũ (1 video liên tục, ghi âm theo mốc thời
+> gian, nộp cả loạt cuối video, GV chấm tay — `ReviewVideoService#submit
+> QuestionAudio`/`ReviewVideoGradingPanel.tsx`) **vẫn giữ nguyên trong
+> code** (không xoá, có thể bật lại) nhưng KHÔNG còn dùng cho video REFLEX
+> theo mặc định. Ngưỡng 70% hiện CỐ ĐỊNH (`ReflexSequentialGradingService
+> .PASS_THRESHOLD_PERCENT`) — `ReviewVideoSet` chưa có cột ngưỡng riêng
+> như `Exercise.pass_threshold_percent`, ngoài phạm vi thay đổi lần này.
+> API mới: `PUT /api/review-video-questions/{id}/reflex-progress/writing`,
+> `PUT .../reflex-progress/speaking`, `GET /api/review-video-assignments/
+> {id}/reflex-progress` (xem `ReflexSequentialGradingController`).
+
 ---
 
 UC-25: Xem Portal Phụ huynh
