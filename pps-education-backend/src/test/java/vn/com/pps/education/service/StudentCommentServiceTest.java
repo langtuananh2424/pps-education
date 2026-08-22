@@ -103,9 +103,11 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
 
     private static final AtomicLong SEQ = new AtomicLong();
 
-    // Khớp đúng COL_* private của StudentCommentService (header 17 cột, bổ sung ngoài SDD gốc, đã
-    // xác nhận với người dùng 2026-08-06) — dùng hằng số thay vì số ma thuật để tránh sai lệch khi
-    // buildCommentWorkbook()/rowForStudent() tham chiếu vị trí cột.
+    // Khớp đúng HomeworkColumns.of(VIETNAMESE) của StudentCommentService (V130, 19 cột — mọi
+    // classSession dựng trong file test này đều teacherType=VIETNAMESE, xem setUp()/nextSession()) —
+    // dùng hằng số thay vì số ma thuật để tránh sai lệch khi buildCommentWorkbook()/rowForStudent()
+    // tham chiếu vị trí cột. Trước V130 (2026-08-21) đây là layout FOREIGN 17 cột (Offline gộp 1
+    // cột/nhóm) — buổi VIETNAMESE giờ tách thêm Reading/Writing riêng ở cả 2 nhóm BTVN.
     private static final int COL_DATE = 0;
     private static final int COL_STUDENT_CODE = 1;
     private static final int COL_FULL_NAME = 2;
@@ -113,16 +115,18 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
     private static final int COL_LESSON_CONTENT = 4;
     private static final int COL_TEACHER_NAME = 5;
     private static final int COL_ATTENDANCE = 6;
-    private static final int COL_HOMEWORK_OFFLINE_PREVIOUS = 7;
-    private static final int COL_HOMEWORK_GRAMMAR_PREVIOUS = 8;
-    private static final int COL_HOMEWORK_SPEAKING_PREVIOUS = 9;
-    private static final int COL_HOMEWORK_OFFLINE = 10;
-    private static final int COL_HOMEWORK_GRAMMAR_NEXT = 11;
-    private static final int COL_HOMEWORK_VIDEO_NEXT = 12;
-    private static final int COL_DUE_DATE = 13;
-    private static final int COL_ATTITUDE = 14;
-    private static final int COL_CONTENT = 15;
-    private static final int COL_NOTE = 16;
+    private static final int COL_HOMEWORK_READING_PREVIOUS = 7;
+    private static final int COL_HOMEWORK_WRITING_PREVIOUS = 8;
+    private static final int COL_HOMEWORK_GRAMMAR_PREVIOUS = 9;
+    private static final int COL_HOMEWORK_SPEAKING_PREVIOUS = 10;
+    private static final int COL_HOMEWORK_READING_NEXT = 11;
+    private static final int COL_HOMEWORK_WRITING_NEXT = 12;
+    private static final int COL_HOMEWORK_GRAMMAR_NEXT = 13;
+    private static final int COL_HOMEWORK_VIDEO_NEXT = 14;
+    private static final int COL_DUE_DATE = 15;
+    private static final int COL_ATTITUDE = 16;
+    private static final int COL_CONTENT = 17;
+    private static final int COL_NOTE = 18;
 
     @Autowired
     private StudentCommentService studentCommentService;
@@ -716,23 +720,26 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
 
         try (var workbook = new XSSFWorkbook(new ByteArrayInputStream(template))) {
             Sheet sheet = workbook.getSheetAt(0);
-            // headerGroups (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06) -- header
-            // 2 dòng: row 0 = nhãn nhóm ("BTVN buổi trước"/"BTVN online", chỉ ở cột đầu nhóm, merge
-            // dọc 2 dòng cho cột không thuộc nhóm nào) + row 1 = nhãn cột con (chỉ có giá trị ở các
-            // cột thuộc nhóm), dữ liệu bắt đầu từ row 2. Không ép về 1 danh sách phẳng vì bản chất là
-            // 2 dòng gộp — chỉ spot-check vài cột tiêu biểu, không phải trọng tâm của test này.
+            // headerGroups + headerSubGroups (V130, 2026-08-21 -- buổi teacherType=VIETNAMESE, mọi
+            // classSession trong file test này) -- header 3 dòng: row 0 = nhãn nhóm cấp 1 ("BTVN buổi
+            // trước"/"BTVN buổi này", chỉ ở cột đầu nhóm) + row 1 = nhãn nhóm cấp 2 (Offline/Online,
+            // chỉ ở cột đầu nhóm con) + row 2 = tên cột con, dữ liệu bắt đầu từ row 3. Cột không thuộc
+            // nhóm nào (VD "Ngày*"/"Điểm danh*") merge dọc cả 3 dòng, giá trị ở row 0. Chỉ spot-check
+            // vài cột tiêu biểu, không phải trọng tâm của test này.
             Row groupHeader = sheet.getRow(0);
-            Row subHeader = sheet.getRow(1);
+            Row subGroupHeader = sheet.getRow(1);
+            Row leafHeader = sheet.getRow(2);
             assertThat(groupHeader.getCell(0).getStringCellValue()).isEqualTo("Ngày*");
             assertThat(groupHeader.getCell(6).getStringCellValue()).isEqualTo("Điểm danh*");
             assertThat(groupHeader.getCell(7).getStringCellValue()).isEqualTo("BTVN buổi trước");
-            assertThat(groupHeader.getCell(11).getStringCellValue()).isEqualTo("BTVN online");
-            assertThat(subHeader.getCell(7).getStringCellValue()).isEqualTo("Offline");
-            // classSession giờ luôn có teacherType=VIETNAMESE (bắt buộc, xác nhận 2026-08-13) -- nhãn kênh
-            // "Ngữ pháp" thay vì fallback "Bài" (chỉ áp dụng buổi cũ chưa xác định teacherType).
-            assertThat(subHeader.getCell(11).getStringCellValue()).isEqualTo("Ngữ pháp");
-            assertThat(sheet.getLastRowNum()).isEqualTo(2);
-            Row row = sheet.getRow(2);
+            assertThat(groupHeader.getCell(11).getStringCellValue()).isEqualTo("BTVN buổi này");
+            assertThat(subGroupHeader.getCell(7).getStringCellValue()).isEqualTo("Offline");
+            assertThat(subGroupHeader.getCell(9).getStringCellValue()).isEqualTo("Online");
+            // classSession giờ luôn có teacherType=VIETNAMESE -- nhãn kênh riêng "Từ vựng + Ngữ pháp"
+            // (VIETNAMESE_ONLINE_GRAMMAR_LABEL, V130) thay vì grammarChannelLabel dùng chung.
+            assertThat(leafHeader.getCell(9).getStringCellValue()).isEqualTo("Từ vựng + Ngữ pháp");
+            assertThat(sheet.getLastRowNum()).isEqualTo(3);
+            Row row = sheet.getRow(3);
             assertThat(row.getCell(1).getStringCellValue()).isEqualTo(student.getStudentCode());
             assertThat(row.getCell(3).getStringCellValue()).isEqualTo(student.getDateOfBirth().toString());
             assertThat(row.getCell(6).getStringCellValue()).isEqualTo("Có mặt");
@@ -745,7 +752,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
                         .containsExactly("Có mặt", "Vắng", "Có phép", "Muộn", "Về sớm");
             });
             assertThat(validations).anySatisfy(v -> {
-                assertThat(v.getRegions().getCellRangeAddress(0).getFirstColumn()).isEqualTo(14);
+                assertThat(v.getRegions().getCellRangeAddress(0).getFirstColumn()).isEqualTo(COL_ATTITUDE);
                 assertThat(v.getValidationConstraint().getExplicitListValues())
                         .containsExactly("Yếu", "Trung bình", "Khá", "Tốt", "Xuất sắc");
             });
@@ -1514,9 +1521,15 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
 
     /**
      * BTVN offline (cột riêng "BTVN offline", tách khỏi cột "BTVN online" — bổ sung ngoài SDD gốc,
-     * đã xác nhận với người dùng 2026-08-06): text tự do, lưu thẳng làm homeworkNext, không qua
-     * resolveByUuidOrLabel nên không cần khớp đề nào trong kho (khác cột online — nay CHẶT, không
-     * khớp thì báo lỗi, xem importComments_V55_A_rejectsUnmatchedVideoSelectionWithRowError).
+     * đã xác nhận với người dùng 2026-08-06): text tự do, không qua resolveByUuidOrLabel nên không
+     * cần khớp đề nào trong kho (khác cột online — nay CHẶT, không khớp thì báo lỗi, xem
+     * importComments_V55_A_rejectsUnmatchedVideoSelectionWithRowError).
+     *
+     * V130 (2026-08-21, xem HomeworkColumns): buổi teacherType=VIETNAMESE (mọi classSession trong
+     * file test này) KHÔNG còn cột "BTVN offline" gộp — tách thành Reading/Writing riêng, đọc vào
+     * {@code homeworkNextReading}/{@code homeworkNextWriting} (không phải {@code homeworkNext} chung
+     * nữa, field đó giờ chỉ populate được qua API JSON hoặc buổi teacherType=FOREIGN). commentRow()
+     * điền cột "Reading" của nhóm BTVN buổi sau, nên assert đúng homeworkNextReading().
      */
     @Test
     void importComments_V55_MainFlow_savesOfflineHomeworkTextWhenOfflineColumnFilled() throws IOException {
@@ -1534,7 +1547,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
 
         assertThat(result.status()).isEqualTo("COMPLETED");
         StudentCommentResponse saved = studentCommentService.listComments(schoolClass.id(), student.getId()).get(0);
-        assertThat(saved.homeworkNext()).isEqualTo("Ôn lại Unit 3 ở nhà");
+        assertThat(saved.homeworkNextReading()).isEqualTo("Ôn lại Unit 3 ở nhà");
         assertThat(saved.homeworkNextExerciseAssignmentId()).isNull();
     }
 
@@ -1542,6 +1555,10 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
      * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-18 — bỏ ràng buộc loại trừ lẫn nhau
      * giữa cột "BTVN offline" và "BTVN online": trước đây import báo lỗi "Chỉ điền 1 trong 2 cột" nếu
      * điền cả hai, nay 1 dòng Excel giao được ĐỒNG THỜI cả 2 cho kênh Ngữ pháp.
+     *
+     * V130: buổi teacherType=VIETNAMESE (mọi classSession trong file test này) đọc cột "Reading" của
+     * nhóm BTVN buổi sau vào {@code homeworkNextReading} (không phải {@code homeworkNext} chung), xem
+     * javadoc importComments_V55_MainFlow_savesOfflineHomeworkTextWhenOfflineColumnFilled ở trên.
      */
     @Test
     void importComments_boSung_MainFlow_allowsBothOfflineAndOnlineGrammarHomeworkTogether() throws IOException {
@@ -1562,7 +1579,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
 
         assertThat(result.status()).isEqualTo("COMPLETED");
         StudentCommentResponse saved = studentCommentService.listComments(schoolClass.id(), student.getId()).get(0);
-        assertThat(saved.homeworkNext()).isEqualTo("Ôn lại Unit 3 ở nhà");
+        assertThat(saved.homeworkNextReading()).isEqualTo("Ôn lại Unit 3 ở nhà");
         assertThat(saved.pendingHomeworkNextExerciseId()).isEqualTo(fixture.exercise().id());
         // V127: giao bài chỉ thật sự xảy ra lúc Gửi.
         StudentCommentResponse submitted = studentCommentService.submitComments(schoolClass.id(),
@@ -1775,25 +1792,28 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
 
     /**
      * Dựng 1 dòng Excel nhập nhận xét theo tham số CÓ TÊN (thay cho mảng vị trí dễ đếm nhầm) --
-     * khớp đúng 17 cột COL_* (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06). Cột
-     * "Họ và tên"/"Ngày sinh" (2,3) chỉ hiển thị đối chiếu, KHÔNG đọc lại khi import (mirror
-     * production) nên không có tham số riêng, luôn để trống.
+     * khớp đúng 19 cột {@code HomeworkColumns.of(VIETNAMESE)} (V130). Cột "Họ và tên"/"Ngày sinh"
+     * (2,3) chỉ hiển thị đối chiếu, KHÔNG đọc lại khi import (mirror production) nên không có tham
+     * số riêng, luôn để trống. {@code offlinePrevious}/{@code homeworkOffline} chỉ điền cột "Reading"
+     * của mỗi nhóm (cột "Writing" luôn để trống) — không test nào trong file này cần phân biệt riêng
+     * Reading/Writing, mirror production {@code hc.previousWriting}/{@code hc.nextWriting} đều đọc
+     * được nhưng chưa có test nào assert giá trị 2 cột đó.
      */
     private String[] commentRow(String date, String studentCode, String lessonContent, String teacherName,
                                  String attendance, String offlinePrevious, String grammarPrevious, String speakingPrevious,
                                  String content, String homeworkOffline, String grammarNext, String videoNext,
                                  String dueDate, String attitude, String note) {
-        String[] row = new String[17];
+        String[] row = new String[19];
         row[COL_DATE] = date;
         row[COL_STUDENT_CODE] = studentCode;
         row[COL_LESSON_CONTENT] = lessonContent;
         row[COL_TEACHER_NAME] = teacherName;
         row[COL_ATTENDANCE] = attendance;
-        row[COL_HOMEWORK_OFFLINE_PREVIOUS] = offlinePrevious;
+        row[COL_HOMEWORK_READING_PREVIOUS] = offlinePrevious;
         row[COL_HOMEWORK_GRAMMAR_PREVIOUS] = grammarPrevious;
         row[COL_HOMEWORK_SPEAKING_PREVIOUS] = speakingPrevious;
         row[COL_CONTENT] = content;
-        row[COL_HOMEWORK_OFFLINE] = homeworkOffline;
+        row[COL_HOMEWORK_READING_NEXT] = homeworkOffline;
         row[COL_HOMEWORK_GRAMMAR_NEXT] = grammarNext;
         row[COL_HOMEWORK_VIDEO_NEXT] = videoNext;
         row[COL_DUE_DATE] = dueDate;
@@ -1808,25 +1828,29 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
     }
 
     /**
-     * importComments() đọc dữ liệu từ dòng index 2 trở đi (khớp buildTemplate() sinh header 2 dòng —
-     * dòng nhóm + dòng cột con, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06) — dựng
-     * đủ 2 dòng header giả (nội dung không quan trọng, import không đọc lại header) để dữ liệu rơi
-     * đúng từ dòng index 2 như production mong đợi.
+     * importComments() đọc dữ liệu từ dòng index 3 trở đi cho buổi teacherType=VIETNAMESE (mọi
+     * classSession dựng trong file test này) — V130 (2026-08-21) thêm 1 DÒNG header cấp 2 (Offline/
+     * Online) giữa dòng nhóm cấp 1 và dòng tên cột con, thành 3 dòng header thay vì 2 (mirror
+     * buildThreeLevelHeader/parseImportWorkbook#dataStartRowIndex). Dựng đủ 3 dòng header giả (nội
+     * dung không quan trọng, import không đọc lại header) để dữ liệu rơi đúng từ dòng index 3.
      */
     private byte[] buildCommentWorkbook(String[][] rows) throws IOException {
         try (XSSFWorkbook workbook = new XSSFWorkbook()) {
             Sheet sheet = workbook.createSheet("NhanXet");
             Row groupHeader = sheet.createRow(0);
-            Row subHeader = sheet.createRow(1);
+            Row subGroupHeader = sheet.createRow(1);
+            Row leafHeader = sheet.createRow(2);
             String[] headers = {"Ngày", "Mã học viên", "Họ và tên", "Ngày sinh", "Tên bài học", "Tên giáo viên giảng dạy",
-                    "Điểm danh", "Offline", "Bài", "Video", "BTVN offline", "Bài", "Video", "Hạn nộp bài",
+                    "Điểm danh", "Reading", "Writing", "Từ vựng + Ngữ pháp", "Video TKN",
+                    "Reading", "Writing", "Từ vựng + Ngữ pháp", "Video TKN", "Hạn nộp bài",
                     "Thái độ học tập", "Nhận xét học sinh", "Ghi chú"};
             for (int i = 0; i < headers.length; i++) {
-                groupHeader.createCell(i).setCellValue(headers[i]);
-                subHeader.createCell(i);
+                groupHeader.createCell(i);
+                subGroupHeader.createCell(i);
+                leafHeader.createCell(i).setCellValue(headers[i]);
             }
             for (int r = 0; r < rows.length; r++) {
-                Row row = sheet.createRow(r + 2);
+                Row row = sheet.createRow(r + 3);
                 for (int c = 0; c < rows[r].length; c++) {
                     row.createCell(c).setCellValue(rows[r][c]);
                 }
