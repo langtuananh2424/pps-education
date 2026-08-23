@@ -451,6 +451,12 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
     // Không cho mở xem lại khi đang ghi âm/đang chờ chấm câu THẬT — tránh học sinh tưởng đã dừng ghi âm.
     if (recorder.recording || writingSubmitting || speakingSubmitting) return;
     setReviewQuestionId(q.id);
+    // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — fix bug thật: bấm xem lại 1 câu
+    // không nhảy video tới đúng mốc câu đó (video đứng yên ở vị trí cũ). CHỈ seek khi đang ở phiên XEM
+    // LẠI THUẦN (reviewOnlyMode) — video lúc đó đã mở khoá, tua tự do không ảnh hưởng gì. TUYỆT ĐỐI
+    // KHÔNG seek khi đang xem lại 1 câu đã đạt GIỮA phiên làm bài thật còn dang dở (video vẫn khoá, đang
+    // đứng chờ đúng vị trí để resumeVideo() cho câu THẬT — seek đi sẽ làm sai vị trí tiếp tục sau này).
+    if (reviewOnlyMode) seekTo(q.timestampSeconds);
   };
   const handleCloseReview = () => setReviewQuestionId(null);
 
