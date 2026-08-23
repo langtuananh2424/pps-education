@@ -5,10 +5,12 @@ import { ApiError } from "@/lib/apiClient";
 import { downloadBlob } from "@/lib/xlsxTemplate";
 import { useApp, UnsavedSaveResult } from "@/context/AppContext";
 import {
+  AutoProgressPreviewResponse,
   ClassEnrollmentResponse,
   ClassSessionResponse,
   StudentCommentResponse,
   downloadDailyCommentTemplate,
+  previewAutoProgress,
   previewImportDailyComments,
   DailyCommentImportPreviewResponse,
   listClassEnrollments,
@@ -193,6 +195,9 @@ export default function DailyCommentPanel() {
   const [loadingRows, setLoadingRows] = useState(false);
   const [history, setHistory] = useState<StudentCommentResponse[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  // V146 — % tự động "BTVN buổi trước" tính sẵn cho cả lớp, dùng khi buổi đang xem CHƯA có
+  // StudentComment nào (sent undefined) để vẫn hiện được % thay vì bỏ trống, xem previewAutoProgress.
+  const [autoProgress, setAutoProgress] = useState<Record<number, AutoProgressPreviewResponse>>({});
   const [sending, setSending] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -429,8 +434,13 @@ export default function DailyCommentPanel() {
     if (!selectedClassId || !selectedSessionId) {
       setRows([]);
       setHistory([]);
+      setAutoProgress({});
       return;
     }
+    setAutoProgress({});
+    previewAutoProgress(selectedSessionId)
+      .then((list) => setAutoProgress(Object.fromEntries(list.map((p) => [p.studentId, p]))))
+      .catch(() => undefined);
     setLoadingRows(true);
     setError(null);
     listClassEnrollments(selectedClassId)
@@ -1479,6 +1489,10 @@ export default function DailyCommentPanel() {
                 // nhận với người dùng 2026-07-29).
                 const sent = history.find((h) => h.studentId === r.studentId);
                 const locked = !!sent && (sent.status === "PENDING" || sent.status === "APPROVED");
+                // V146 — fallback % tự động khi buổi CHƯA có StudentComment nào (sent undefined), xem
+                // previewAutoProgress/AutoProgressPreviewResponse.
+                const auto = autoProgress[r.studentId];
+                const autoVideo = sent?.videoPreviousProgress ?? auto?.videoPreviousProgress ?? null;
                 // Nền đặc cho 3 cột cố định (khác Td mặc định trong suốt) — cuộn ngang thì nội dung cột
                 // sau không được lộ ra qua cột cố định phía trên (bổ sung ngoài SDD gốc, 2026-08-14).
                 const stickyBg = locked ? "bg-emerald-50" : "bg-white";
@@ -1526,10 +1540,10 @@ export default function DailyCommentPanel() {
                             exercise_attempts lọc skillCategory=READING/WRITING, giống cột {onlineGrammarLabel} bên
                             phải) — không có nhập tay (giao Online thì luôn tính được tự động). */}
                         <Td className="min-w-[150px] border-r border-b border-slate-300">
-                          <PreviousProgressCell auto={sent?.readingPreviousProgress ?? null} manual={null} autoLabel={t("dailyCommentPanel.autoBadge")} />
+                          <PreviousProgressCell auto={sent?.readingPreviousProgress ?? auto?.readingPreviousProgress ?? null} manual={null} autoLabel={t("dailyCommentPanel.autoBadge")} />
                         </Td>
                         <Td className="min-w-[150px] border-r border-b border-slate-300">
-                          <PreviousProgressCell auto={sent?.writingPreviousProgress ?? null} manual={null} autoLabel={t("dailyCommentPanel.autoBadge")} />
+                          <PreviousProgressCell auto={sent?.writingPreviousProgress ?? auto?.writingPreviousProgress ?? null} manual={null} autoLabel={t("dailyCommentPanel.autoBadge")} />
                         </Td>
                       </>
                     ) : (
@@ -1555,11 +1569,16 @@ export default function DailyCommentPanel() {
                       {/* {grammarLabel} buổi trước — CHỈ hiện % TỰ ĐỘNG (buổi trước giao Online, BE tính từ
                           exercise_attempts) — nhập tay đã chuyển hẳn sang cột "Offline" bên trái, không còn fallback
                           nhập tay ở đây nữa (tránh 2 cột cùng nhập được 1 giá trị gây nhầm lẫn cho giáo viên). */}
-                      <PreviousProgressCell auto={sent?.grammarPreviousProgress ?? null} manual={null} autoLabel={t("dailyCommentPanel.autoBadge")} />
+                      <PreviousProgressCell auto={sent?.grammarPreviousProgress ?? auto?.grammarPreviousProgress ?? null} manual={null} autoLabel={t("dailyCommentPanel.autoBadge")} />
                     </Td>
                     <Td className="min-w-[150px] border-r border-b border-slate-300">
                       {locked ? (
-                        <PreviousProgressCell auto={sent!.videoPreviousProgress} manual={sent!.homeworkPreviousSpeakingScore} autoLabel={t("dailyCommentPanel.autoBadge")} />
+                        <PreviousProgressCell auto={autoVideo} manual={sent!.homeworkPreviousSpeakingScore} autoLabel={t("dailyCommentPanel.autoBadge")} />
+                      ) : autoVideo ? (
+                        // V146 — buổi CHƯA có bản nháp nhưng đã tính được % tự động (video luôn Online nên
+                        // hầu như luôn có) — ưu tiên hiện luôn, mirror đúng cách PreviousProgressCell xử lý
+                        // khi đã locked, thay vì bắt giáo viên phải Lưu nháp 1 lần mới thấy được số.
+                        <PreviousProgressCell auto={autoVideo} manual={null} autoLabel={t("dailyCommentPanel.autoBadge")} />
                       ) : (
                         <input
                           value={r.homeworkPreviousSpeakingScore}

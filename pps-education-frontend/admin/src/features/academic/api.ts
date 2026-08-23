@@ -1402,6 +1402,25 @@ export function listCommentsForClass(classId: number): Promise<StudentCommentRes
 }
 
 /**
+ * V146 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23) — % TỰ ĐỘNG "BTVN buổi trước"
+ * cho cả lớp, tính ngay cả khi buổi đang xem CHƯA có StudentComment nào (kể cả nháp) — trước đây các %
+ * này chỉ có trong StudentCommentResponse SAU KHI đã Lưu nháp/Gửi ít nhất 1 lần, khiến mở 1 buổi mới
+ * hoàn toàn không thấy % tự động của buổi trước dù backend đã tính đúng. Field null = không tự tính
+ * được (VD buổi trước giao Offline).
+ */
+export interface AutoProgressPreviewResponse {
+  studentId: number;
+  grammarPreviousProgress: string | null;
+  videoPreviousProgress: string | null;
+  readingPreviousProgress: string | null;
+  writingPreviousProgress: string | null;
+}
+
+export function previewAutoProgress(classSessionId: number): Promise<AutoProgressPreviewResponse[]> {
+  return apiRequest<AutoProgressPreviewResponse[]>(`/class-sessions/${classSessionId}/comments/auto-progress-preview`);
+}
+
+/**
  * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-19) — 1 mốc "phiên bản" trong lịch sử
  * chỉnh sửa (Lưu nháp/Gửi/Duyệt/Từ chối) — kiểu version history Google Sheets, xem lại được TOÀN BỘ
  * nội dung tại đúng thời điểm đó (không chỉ biết "đã sửa"). `details` khớp đúng key BE

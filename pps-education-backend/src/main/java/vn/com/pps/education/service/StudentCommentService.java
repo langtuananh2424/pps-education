@@ -24,6 +24,7 @@ import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.StudentComment;
 import vn.com.pps.education.domain.StudentCommentHistory;
 import vn.com.pps.education.domain.User;
+import vn.com.pps.education.dto.AutoProgressPreviewResponse;
 import vn.com.pps.education.dto.ClassSessionLessonContentResponse;
 import vn.com.pps.education.dto.ClassSessionTeacherNameResponse;
 import vn.com.pps.education.dto.ClassSessionTeacherTypeResponse;
@@ -761,6 +762,33 @@ public class StudentCommentService {
      * đã nhập trước đó (nếu có, để sửa lại). Cùng quyền/hạn với ghi nhận
      * xét (xem requireCanWriteDailyComment).
      */
+    /**
+     * V146 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23) — % TỰ ĐỘNG "BTVN buổi
+     * trước" cho TOÀN BỘ học sinh ACTIVE của lớp, tính trực tiếp từ buổi TRƯỚC (không cần buổi hiện
+     * tại đã có StudentComment nào) — dùng để bảng Nhận xét hàng ngày hiện được % tự động ngay cả khi
+     * giáo viên chưa Lưu nháp/Gửi lần nào cho buổi đang xem (xem AutoProgressPreviewResponse). Cùng
+     * quyền với buildTemplate (chỉ GV được phân công lớp hoặc actor có academic.comment.approve).
+     */
+    @Transactional(readOnly = true)
+    public List<AutoProgressPreviewResponse> previewAutoProgress(Long classSessionId, Long actorUserId) {
+        ClassSession classSession = getClassSessionOrThrow(classSessionId);
+        requireCanWriteDailyComment(classSession, actorUserId);
+        Long classId = classSession.getSchoolClass().getId();
+        List<ClassEnrollment> enrollments = classEnrollmentRepository
+                .findBySchoolClassIdAndStatus(classId, ClassEnrollment.Status.ACTIVE);
+        return enrollments.stream()
+                .map(enrollment -> {
+                    Long studentId = enrollment.getStudent().getId();
+                    StudentComment previous = previousComment(classSession, studentId);
+                    return new AutoProgressPreviewResponse(studentId,
+                            grammarPreviousProgressLabel(previous),
+                            videoPreviousProgressLabel(previous),
+                            readingPreviousProgressLabel(previous),
+                            writingPreviousProgressLabel(previous));
+                })
+                .toList();
+    }
+
     @Transactional(readOnly = true)
     public byte[] buildTemplate(Long classSessionId, Long actorUserId) {
         ClassSession classSession = getClassSessionOrThrow(classSessionId);
