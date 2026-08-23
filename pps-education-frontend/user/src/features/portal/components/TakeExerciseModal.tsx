@@ -1352,17 +1352,61 @@ function GridQuestionGroup({
                     readOnly={readOnly || saving}
                   />
                 )}
-                {isChoiceRow && (
-                  <div className="flex gap-1.5 shrink-0">
-                    {q.choices.map((c) => {
+              </div>
+
+              {/*
+               * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — fix bug thật: trước đây
+               * mỗi đáp án chỉ hiện 1 ô vuông nhỏ ghi CHỮ CÁI (A/B/C/D), không hề hiện nội dung — hợp lý
+               * với thiết kế gốc "Đọc hiểu — lưới" (đáp án A/B/C là 3 đoạn văn CỐ ĐỊNH đã hiện sẵn ở
+               * trên), nhưng khối này bị TÁI SỬ DỤNG cho ListeningGroupBuilder (mỗi câu có bộ đáp án
+               * VĂN BẢN RIÊNG, không cố định) — học sinh không thấy nội dung đáp án nào để chọn. Đổi
+               * sang hiện đầy đủ nội dung/ảnh từng đáp án, mirror đúng khối isChoiceQuestion (câu đơn).
+               */}
+              {isChoiceRow && (
+                <div className="space-y-1.5">
+                  {q.choices.some((c) => c.imageUrl) ? (
+                    <div className="grid grid-cols-2 gap-2">
+                      {q.choices.map((c) => {
+                        const isSelected = selected.has(c.id);
+                        const isCorrectChoice = correctIds.has(c.id);
+                        let stateClass = "border-line/70 bg-sky-2 hover:bg-sky";
+                        if (showFeedback) {
+                          if (isCorrectChoice) stateClass = "border-teal bg-teal/10";
+                          else if (isSelected) stateClass = "border-coral bg-coral/10";
+                        } else if (isSelected) {
+                          stateClass = "border-teal bg-teal/10";
+                        }
+                        return (
+                          <button
+                            key={c.id}
+                            type="button"
+                            disabled={readOnly || saving}
+                            onClick={() => onChoiceToggle(q.questionId, [c.id])}
+                            className={`relative text-left rounded-xl border-2 overflow-hidden transition-colors ${stateClass} disabled:cursor-default`}
+                          >
+                            <img src={c.imageUrl ?? undefined} alt={c.content} className="w-full aspect-square object-cover" />
+                            <span className="flex items-center justify-between gap-1 px-2 py-1.5 text-[11px] font-bold">
+                              <span>
+                                <span className="text-muted mr-1">{c.choiceLabel}.</span>
+                                {c.content}
+                              </span>
+                              {showFeedback && isCorrectChoice && <CheckCircle2 size={14} className="text-teal-deep shrink-0" />}
+                              {showFeedback && !isCorrectChoice && isSelected && <XCircle size={14} className="text-coral shrink-0" />}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    q.choices.map((c) => {
                       const isSelected = selected.has(c.id);
                       const isCorrectChoice = correctIds.has(c.id);
-                      let cls = "border-line/70 bg-sky-2";
+                      let stateClass = "border-line/70 bg-sky-2 hover:bg-sky";
                       if (showFeedback) {
-                        if (isCorrectChoice) cls = "border-teal bg-teal/10 text-teal-deep";
-                        else if (isSelected) cls = "border-coral bg-coral/10 text-coral";
+                        if (isCorrectChoice) stateClass = "border-teal bg-teal/10";
+                        else if (isSelected) stateClass = "border-coral bg-coral/10";
                       } else if (isSelected) {
-                        cls = "border-teal bg-teal/10 text-teal-deep";
+                        stateClass = "border-teal bg-teal/10";
                       }
                       return (
                         <button
@@ -1370,15 +1414,20 @@ function GridQuestionGroup({
                           type="button"
                           disabled={readOnly || saving}
                           onClick={() => onChoiceToggle(q.questionId, [c.id])}
-                          className={`w-8 h-8 sm:w-9 sm:h-9 lg:w-10 lg:h-10 rounded-lg border text-[11px] sm:text-xs lg:text-sm font-bold transition-colors disabled:cursor-default ${cls}`}
+                          className={`w-full text-left text-xs sm:text-sm font-bold px-3 py-2 rounded-xl border transition-colors flex items-center justify-between gap-2 ${stateClass} disabled:cursor-default`}
                         >
-                          {c.choiceLabel}
+                          <span>
+                            <span className="text-muted mr-1.5">{c.choiceLabel}.</span>
+                            {c.content}
+                          </span>
+                          {showFeedback && isCorrectChoice && <CheckCircle2 size={14} className="text-teal-deep shrink-0" />}
+                          {showFeedback && !isCorrectChoice && isSelected && <XCircle size={14} className="text-coral shrink-0" />}
                         </button>
                       );
-                    })}
-                  </div>
-                )}
-              </div>
+                    })
+                  )}
+                </div>
+              )}
 
               {isFillInBlankRow && (
                 <div className="space-y-1">
