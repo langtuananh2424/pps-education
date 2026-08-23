@@ -178,6 +178,7 @@
       "skillCategoryReading": "Reading",
       "skillCategoryWriting": "Writing",
       "skillCategoryVocabGrammar": "Vocabulary & Grammar",
+      "skillCategoryListening": "Listening",
       "passThresholdLabel": "Pass threshold (%)",
       "passThresholdPlaceholder": "Default 70",
       "timeLimitLabel": "Time limit (minutes)",

@@ -178,6 +178,7 @@
       "skillCategoryReading": "Reading",
       "skillCategoryWriting": "Writing",
       "skillCategoryVocabGrammar": "Từ vựng & Ngữ pháp",
+      "skillCategoryListening": "Listening",
       "passThresholdLabel": "Ngưỡng đạt (%)",
       "passThresholdPlaceholder": "Mặc định 70",
       "timeLimitLabel": "Thời gian làm bài (phút)",

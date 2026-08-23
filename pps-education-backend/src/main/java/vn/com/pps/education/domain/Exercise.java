@@ -34,8 +34,13 @@ public class Exercise extends BaseAuditEntity {
      * {@code referencePassage} có sẵn) kèm nhiều câu MULTIPLE_CHOICE; WRITING = câu hỏi tự luận (chủ
      * yếu ESSAY); VOCAB_GRAMMAR = trắc nghiệm câu/điền từ/sắp xếp câu. Dùng để lọc dropdown "chọn đề
      * Reading/Writing" ở Nhận xét học viên (UC-21, "BTVN online" kênh Reading/Writing mới).
+     *
+     * LISTENING (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23, V142) — bài nghe: câu hỏi
+     * có {@code audioUrl}, dạng MULTIPLE_CHOICE (kèm ảnh cho đáp án), FILL_IN_BLANK, hoặc WORD_BANK/
+     * SENTENCE_BUILDING (xếp từ trong hộp). KHÔNG lọc vào dropdown Reading/Writing ở UC-21 (chỉ 2 nhóm đó
+     * dùng cho "BTVN online" kênh Reading/Writing).
      */
-    public enum SkillCategory { READING, WRITING, VOCAB_GRAMMAR }
+    public enum SkillCategory { READING, WRITING, VOCAB_GRAMMAR, LISTENING }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

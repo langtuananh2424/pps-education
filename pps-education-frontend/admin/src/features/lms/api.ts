@@ -344,7 +344,7 @@ export type ExerciseType = "SELF_PRACTICE" | "ASSIGNED";
  * Cố định từ lúc tạo (không sửa được qua UpdateExerciseRequest). undefined/null = chưa phân loại (dữ
  * liệu cũ). Dùng để lọc dropdown "chọn đề Reading/Writing" ở Nhận xét học viên (UC-21).
  */
-export type ExerciseSkillCategory = "READING" | "WRITING" | "VOCAB_GRAMMAR";
+export type ExerciseSkillCategory = "READING" | "WRITING" | "VOCAB_GRAMMAR" | "LISTENING";
 
 export interface CreateExerciseRequest {
   code: string;

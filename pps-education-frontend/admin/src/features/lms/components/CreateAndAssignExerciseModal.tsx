@@ -185,6 +185,7 @@ function ExerciseInfoStep({
             <option value="READING">{t("assignModal.infoStep.skillCategoryReading")}</option>
             <option value="WRITING">{t("assignModal.infoStep.skillCategoryWriting")}</option>
             <option value="VOCAB_GRAMMAR">{t("assignModal.infoStep.skillCategoryVocabGrammar")}</option>
+            <option value="LISTENING">{t("assignModal.infoStep.skillCategoryListening")}</option>
           </select>
         </div>
         <div className="col-span-2">
