@@ -7,9 +7,9 @@ import {
   AssignedExerciseResponse,
   MyReviewVideoAssignmentResponse,
   ReviewVideoResponse,
-  getMyLatestReviewVideoSubmission,
   getReviewVideoProgress,
   listMyAssignedExercises,
+  listMyReflexProgress,
   listMyReviewVideoAssignments,
   listReviewVideoQuestions,
   listReviewVideoSetsByClass,
@@ -246,10 +246,19 @@ export default function AssignmentsTab({
             // isReflexAnswerable), mirror đúng hành vi cũ (API vốn đã 404 cho video chưa được giao).
             if (x.assignmentId == null) return { totalQuestions: 0, answeredQuestions: 0 };
             const questions = await listReviewVideoQuestions(x.video.id).catch(() => []);
-            const submissions = await Promise.all(questions.map((q) => getMyLatestReviewVideoSubmission(q.id, x.assignmentId!).catch(() => undefined)));
+            // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — fix bug thật: dòng này vẫn
+            // đọc `getMyLatestReviewVideoSubmission` (API của luồng CŨ "ghi âm theo mốc, nộp cả loạt cuối
+            // video") — luồng REFLEX từ V139 đã chuyển hẳn sang `ReflexSequentialGradingService`/bảng
+            // `reflex_question_progress`, không còn tạo submission kiểu cũ nữa nên API cũ luôn trả về
+            // rỗng, khiến "Đã nộp 0/5 câu" dù học sinh đã làm/đạt hết qua luồng mới. Đổi sang đọc đúng
+            // tiến độ mới qua `listMyReflexProgress` (cùng API ReflexVideoTaskPage đang dùng); "đã nộp"
+            // tính theo số câu ĐÃ ĐẠT (`questionPassed`) — khớp ngưỡng REFLEX_PASS_THRESHOLD_PERCENT bên
+            // dưới (REFLEX không qua khâu GV chấm, đạt ngưỡng % câu ĐÃ ĐẠT là xong, không phải % câu đã
+            // nộp bất kể đúng/sai).
+            const progressList = await listMyReflexProgress(x.assignmentId).catch(() => []);
             return {
               totalQuestions: questions.length,
-              answeredQuestions: submissions.filter((s) => s != null).length
+              answeredQuestions: progressList.filter((p) => p.questionPassed).length
             };
           })
         );
