@@ -148,6 +148,15 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
         setQuestions(sorted);
         const saved = assignmentId == null ? [] : await listMyReflexProgress(assignmentId).catch(() => []);
         setProgress(Object.fromEntries(saved.map((p) => [p.questionId, p])));
+        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — fix bug thật: bấm "Xem bài đã
+        // nộp" trên 1 bài REFLEX đã hoàn thành hết vẫn hiện màn hình "Bắt đầu làm bài" (xin quyền
+        // micro, sẵn sàng giám sát...) y hệt lúc làm bài thật — vô lý cho việc chỉ XEM LẠI kết quả. Nếu
+        // mọi câu đã đạt sẵn ngay từ lúc tải trang, bỏ qua thẳng màn hình bắt đầu (không xin quyền
+        // micro/không bật giám sát — `useIntegrityMonitor` đã tự tắt khi `allQuestionsPassed`), học sinh
+        // vào thẳng được trang để bấm xem lại từng câu (tính năng "Đang chờ bạn"/xem lại đã có sẵn).
+        if (sorted.length > 0 && sorted.every((q) => saved.find((p) => p.questionId === q.id)?.questionPassed)) {
+          setStarted(true);
+        }
       })
       .catch((err) => setQuestionsError(friendlyApiErrorMessage(err, t("reflexVideoTask.questionsLoadError"))))
       .finally(() => setLoadingQuestions(false));
@@ -323,6 +332,10 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
    */
   const playFromResumePoint = () => {
     const idx = firstPendingQuestionIndex();
+    // Đã đạt hết mọi câu (VD đang chỉ XEM LẠI kết quả bài đã hoàn thành, xem `started` tự bật ở effect
+    // tải câu hỏi/tiến độ) — không còn câu nào cần phát/mở, không tự chạy video (tránh phát tiếng ngoài
+    // ý muốn khi học sinh chỉ vào xem lại, không phải làm bài).
+    if (idx === -1) return;
     if (idx > 0) seekTo(questions[idx].timestampSeconds);
     resumeVideo();
     scheduleLastQuestionFallback();
