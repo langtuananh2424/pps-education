@@ -142,6 +142,7 @@
       "needAtLeastOne": "Cần ít nhất 1 câu hỏi.",
       "fillAllContent": "Vui lòng điền đủ nội dung cho mọi câu hỏi.",
       "fillAllOptions": "Vui lòng điền đủ 4 đáp án cho mọi câu hỏi trắc nghiệm.",
+      "fillAllImages": "Vui lòng chọn đủ ảnh cho mọi đáp án của mọi câu hỏi.",
       "fillAllCorrectAnswers": "Vui lòng điền đáp án đúng cho mọi câu hỏi điền từ.",
       "partialFailure": "Đã tạo được {{created}}/{{total}} câu thì lỗi — các câu đã tạo vẫn nằm trong ngân hàng câu hỏi, kiểm tra lại nếu cần.",
       "createFailed": "Tạo nhóm câu hỏi nghe thất bại."

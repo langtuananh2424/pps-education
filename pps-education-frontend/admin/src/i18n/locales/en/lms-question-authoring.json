@@ -142,6 +142,7 @@
       "needAtLeastOne": "At least 1 question is required.",
       "fillAllContent": "Please fill in the content for every question.",
       "fillAllOptions": "Please fill in all 4 answers for every multiple choice question.",
+      "fillAllImages": "Please choose an image for every answer of every question.",
       "fillAllCorrectAnswers": "Please fill in the correct answer for every fill-in-the-blank question.",
       "partialFailure": "Created {{created}}/{{total}} questions before an error occurred — the created questions remain in the question bank; please review if needed.",
       "createFailed": "Failed to create the listening question group."
