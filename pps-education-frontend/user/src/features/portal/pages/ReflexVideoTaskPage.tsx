@@ -582,7 +582,21 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
         </div>
       )}
 
-      {!started && (
+      {/*
+       * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — fix bug thật: trước đây màn "Bắt
+       * đầu làm bài" hiện NGAY khi mount (started mặc định false), rồi effect tải câu hỏi/tiến độ xong
+       * mới kịp tự setStarted(true) cho trường hợp XEM LẠI bài đã hoàn thành — tạo hiệu ứng popup "Bắt
+       * đầu làm bài" chớp nhoáng rồi biến mất, nhìn như bị lỗi/khựng. Trong lúc CÒN đang tải
+       * (loadingQuestions), chưa biết chắc có cần màn bắt đầu hay không — hiện overlay tải trung tính
+       * thay vì màn bắt đầu, tránh chớp nhoáng sai màn hình.
+       */}
+      {!started && loadingQuestions && (
+        <div className="fixed inset-0 bg-ink/70 backdrop-blur-sm z-[120] flex items-center justify-center p-4">
+          <Loader2 size={32} className="text-white animate-spin" />
+        </div>
+      )}
+
+      {!started && !loadingQuestions && (
         <div className="fixed inset-0 bg-ink/70 backdrop-blur-sm z-[120] flex items-center justify-center p-4">
           <div className="bg-white rounded-[20px] max-w-sm w-full shadow-2xl p-6 space-y-4 text-center">
             <h3 className="text-lg font-extrabold text-ink">{video.title}</h3>
@@ -590,7 +604,7 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
             {micError && <div className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-xl text-left">{micError}</div>}
             <button
               onClick={handleStart}
-              disabled={requestingMic || loadingQuestions}
+              disabled={requestingMic}
               className="w-full flex items-center justify-center gap-1.5 px-4 py-3 bg-teal hover:bg-teal-deep text-white rounded-xl text-sm font-extrabold disabled:opacity-50"
             >
               <Play size={16} /> {requestingMic ? t("reflexVideoTask.startScreen.requestingMic") : t("reflexVideoTask.startScreen.startButton")}
