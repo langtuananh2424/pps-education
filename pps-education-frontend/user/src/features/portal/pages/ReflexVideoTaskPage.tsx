@@ -256,28 +256,18 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
 
   /**
    * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — fix bug thật (feedback người dùng
-   * thực tế): trước đây video PHÁT LIÊN TỤC từ đầu, chỉ dừng khi chạm đúng mốc câu hỏi — đoạn giữa 2 mốc
-   * không liên quan tới câu hỏi tạo cảm giác lệch nhịp/không khớp. Nay NHẢY THẲNG (seek) tới đúng mốc của
-   * câu TIẾP THEO CHƯA ĐẠT rồi mở câu hỏi ngay — không phát đoạn giữa. Dùng ở handleStart (câu đầu tiên)
-   * và handleContinueAfterSpeakingPass (câu kế tiếp sau khi 1 câu đã đạt cả 2 bước).
+   * thực tế, đã làm rõ qua nhiều vòng trao đổi): ĐOẠN ĐẦU video (trước mốc câu 1) vẫn PHÁT BÌNH THƯỜNG
+   * liên tục như cũ (học sinh cần nghe/xem phần dẫn đầu) — video tự dừng đúng mốc câu 1 nhờ
+   * `handleTimeUpdate` bên dưới (KHÔNG đổi). Chỉ áp dụng NHẢY THẲNG (seek, không phát đoạn giữa) cho các
+   * lần CHUYỂN CÂU sau đó (1 câu đã đạt cả 2 bước → câu kế tiếp) — xem handleContinueAfterSpeakingPass.
    */
   const jumpToNextPendingQuestion = () => {
     const next = questions.find((q) => stageForProgress(progressRef.current[q.id]) !== "passed");
     if (next) {
       seekTo(next.timestampSeconds);
       activateQuestion(next);
-    } else if (questions.length === 0) {
-      // Video REFLEX chưa có câu hỏi nào (dữ liệu chưa soạn xong) — fallback phát liên tục như cũ.
-      resumeVideo();
     }
   };
-  /**
-   * Cũng đọc `questions` (state) qua closure — dùng ref để nhánh onReady của YouTube player (effect chỉ
-   * chạy 1 lần lúc mount, xem ghi chú `questions` KHÔNG đưa vào deps bên dưới) luôn gọi đúng bản mới nhất
-   * thay vì bản rỗng lúc mount, cùng lý do với `handleTimeUpdateRef` ngay dưới đây.
-   */
-  const jumpToNextPendingQuestionRef = useRef(jumpToNextPendingQuestion);
-  jumpToNextPendingQuestionRef.current = jumpToNextPendingQuestion;
 
   const handleTimeUpdate = (currentSeconds: number) => {
     if (videoEndedRef.current || activeQuestionIdRef.current != null) return;
@@ -333,10 +323,8 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
       const YT = (window as any).YT;
       youTubePlayerRef.current = new YT.Player(iframeId, {
         events: {
-          onReady: () => {
-            // Nếu học sinh đã bấm "Bắt đầu" trước khi player YouTube sẵn sàng (hiếm, do tải chậm) — nhảy
-            // thẳng tới câu đang chờ ngay khi player kịp sẵn sàng, không tự phát liên tục từ đầu.
-            if (startedRef.current) jumpToNextPendingQuestionRef.current();
+          onReady: (e: any) => {
+            if (startedRef.current) e.target.playVideo();
           },
           onStateChange: (e: any) => {
             if (e.data === YT.PlayerState.ENDED) {
@@ -481,7 +469,8 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
     }
     setRequestingMic(false);
     setStarted(true);
-    jumpToNextPendingQuestion();
+    // Đoạn đầu video (trước mốc câu 1) phát bình thường — xem ghi chú ở jumpToNextPendingQuestion.
+    resumeVideo();
   };
 
   const handleExit = () => {
