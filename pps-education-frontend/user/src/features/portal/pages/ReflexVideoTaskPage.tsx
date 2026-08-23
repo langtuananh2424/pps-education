@@ -219,9 +219,29 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
     if (isYouTube) youTubePlayerRef.current?.playVideo?.();
     else mediaRef.current?.play?.().catch(() => undefined);
   };
+  /**
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — fix bug thật phát hiện lúc test luồng
+   * "nhảy thẳng" mới: player YouTube iframe (dùng src tĩnh, không autoplay) KHÔNG tự vẽ khung hình khi chỉ
+   * gọi seekTo() lúc đang ở trạng thái "chưa phát" (unstarted) — màn hình đứng im MÀU ĐEN hoàn toàn, học
+   * sinh tưởng video lỗi. Video HTML5 gốc (R2_VIDEO/R2_AUDIO) thì set currentTime là đủ (trình duyệt tự
+   * vẽ khung hình mới ngay cả khi chưa play()). Fix riêng cho YouTube: tắt tiếng, seek, phát 1 nhịp cực
+   * ngắn RỒI dừng ngay — ép player vẽ đúng khung hình tại mốc mà KHÔNG tạo cảm giác "phát liên tục" (vẫn
+   * đúng tinh thần "nhảy thẳng, không phát đoạn giữa" người dùng đã chọn).
+   */
   const seekTo = (seconds: number) => {
-    if (isYouTube) youTubePlayerRef.current?.seekTo?.(seconds, true);
-    else if (mediaRef.current) mediaRef.current.currentTime = seconds;
+    if (isYouTube) {
+      const player = youTubePlayerRef.current;
+      if (!player) return;
+      player.mute?.();
+      player.seekTo?.(seconds, true);
+      player.playVideo?.();
+      window.setTimeout(() => {
+        player.pauseVideo?.();
+        player.unMute?.();
+      }, 300);
+    } else if (mediaRef.current) {
+      mediaRef.current.currentTime = seconds;
+    }
   };
 
   const activateQuestion = (q: ReviewVideoQuestionResponse) => {
