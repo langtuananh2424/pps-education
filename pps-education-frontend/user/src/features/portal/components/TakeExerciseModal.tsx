@@ -197,30 +197,14 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
       const meta = await getExercise(item.exerciseId);
       setExerciseMeta(meta);
 
-      let attemptRes: ExerciseAttemptResponse;
-      if (item.myLatestAttemptId == null) {
-        attemptRes = await startAttempt(item.exerciseId, item.assignmentId);
-      } else {
-        const latest = await getAttempt(item.myLatestAttemptId);
-        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05 — lượt gần nhất đã chấm xong
-        // (FULLY_GRADED) nhưng dưới ngưỡng đạt (myLatestPassed=false) thì mở LƯỢT MỚI (startAttempt,
-        // attemptNumber+1) thay vì xem lại lượt cũ đã chấm — khác các trạng thái khác (IN_PROGRESS/
-        // AUTO_GRADED/đã đạt) vẫn resume/xem lại lượt hiện có như cũ. SỬA 2026-08-12 (đã xác nhận với
-        // người dùng, fix bug thật): CHỈ mở lượt mới khi CÒN lượt (maxAttempts null hoặc attemptNumber
-        // < maxAttempts) — trước đây bỏ qua điều kiện còn lượt nên hết lượt vẫn cố startAttempt(),
-        // backend chặn 422 (RetakeNotAllowedException) khiến modal hiện lỗi + không có attempt nào
-        // đang IN_PROGRESS nhưng vẫn hiện nhầm nút "Nộp bài", đồng thời học sinh không bao giờ xem lại
-        // được lượt cuối cùng (lượt duy nhất đã lộ đáp án theo rào maxAttempts ở BE).
-        const stillHasRetake = meta.allowRetake && (meta.maxAttempts == null || latest.attemptNumber < meta.maxAttempts);
-        const failedNeedsRetake = latest.status === "FULLY_GRADED" && latest.passed === false && stillHasRetake;
-        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-22 — fix bug thật: lượt trước đang
-        // AUTO_GRADED (chờ chấm câu tự luận/nói, VD AI chấm lỗi thoáng qua) cũng cho mở lượt MỚI nếu còn
-        // lượt, thay vì chỉ resume/xem lại lượt cũ đang kẹt chờ chấm — backend startAttempt() vốn không
-        // bắt buộc lượt trước phải FULLY_GRADED, chỉ giới hạn theo allowRetake/maxAttempts.
-        const pendingCanRetry = latest.status === "AUTO_GRADED" && stillHasRetake;
-        const needsRetake = failedNeedsRetake || pendingCanRetry;
-        attemptRes = needsRetake ? await startAttempt(item.exerciseId, item.assignmentId) : latest;
-      }
+      // V148 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23) — CHỦ Ý bỏ hẳn logic tự
+      // động mở lượt MỚI khi lượt gần nhất chưa đạt/còn chờ chấm (trước đây tự startAttempt() ngay lúc
+      // mở modal, gây 2 vấn đề: (1) học sinh bấm vào thẻ BTVN tưởng "xem lại" nhưng bị âm thầm tạo lượt
+      // mới, (2) nếu đã quá hạn nộp thì bị chặn 422 ngay lúc mở, không xem lại được kết quả cũ). Giờ mở
+      // modal LUÔN chỉ xem/tiếp tục đúng lượt gần nhất (myLatestAttemptId) — muốn làm lượt mới phải bấm
+      // nút "Làm lại" tường minh trong modal (xem handleRetake), chỉ hiện khi item.canStartNewAttempt.
+      const attemptRes: ExerciseAttemptResponse =
+        item.myLatestAttemptId == null ? await startAttempt(item.exerciseId, item.assignmentId) : await getAttempt(item.myLatestAttemptId);
 
       const questionRes = await listExerciseQuestions(item.exerciseId);
       setAttempt(attemptRes);
@@ -341,6 +325,29 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
       setError(friendlyApiErrorMessage(err, t("takeExercise.submitError")));
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  /**
+   * V148 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23) — mở lượt làm MỚI tường minh,
+   * chỉ bấm được khi đang xem 1 lượt cũ (readOnly) và item.canStartNewAttempt còn true (chưa hết lượt,
+   * chưa quá hạn nộp — xem ExerciseAttemptService#toAssignedResponse). Thay hẳn cho logic tự động mở
+   * lượt mới lúc vào modal đã bỏ ở load() — học sinh phải chủ động bấm mới tạo lượt mới.
+   */
+  const handleRetake = async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      const fresh = await startAttempt(item.exerciseId, item.assignmentId);
+      setAttempt(fresh);
+      setAnswersByQuestion(new Map());
+      setTextDraft({});
+      setJustSubmitted(false);
+      loadAnswers(fresh.id);
+    } catch (err) {
+      setError(friendlyApiErrorMessage(err, t("takeExercise.loadError")));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -467,6 +474,17 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
                 banner amber căng hết chiều rộng trước đây, gọn lại thành 1 badge nhỏ ngay cạnh nút Đóng,
                 bấm/hover mới hiện đủ dòng cảnh báo. */}
             {isMonitoringActive && <MonitoringBadge violationCount={violationCount} />}
+            {/* V148 — nút "Làm lại" tường minh, chỉ hiện khi đang xem 1 lượt cũ (readOnly) và còn lượt
+                (item.canStartNewAttempt, đã tính cả điều kiện quá hạn nộp ở BE) — xem handleRetake. */}
+            {readOnly && item.canStartNewAttempt && (
+              <button
+                onClick={handleRetake}
+                disabled={loading}
+                className="shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-teal/10 hover:bg-teal/20 text-teal-deep border border-teal/20 text-xs font-extrabold transition-colors disabled:opacity-60"
+              >
+                <RotateCcw size={14} /> {t("assignments.exercise.action.retake")}
+              </button>
+            )}
             <button
               onClick={() => (hasActiveAttempt ? setConfirmingClose(true) : onClose())}
               aria-label={t("takeExercise.closeAriaLabel")}

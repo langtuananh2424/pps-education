@@ -161,6 +161,20 @@ public class ExerciseAttemptService {
             if (exercise.getMaxAttempts() != null && attemptNumber > exercise.getMaxAttempts()) {
                 throw new RetakeNotAllowedException("error.retakeNotAllowed.maxAttemptsReached", new Object[]{exercise.getMaxAttempts()}, "Đề này đã hết lượt làm (tối đa " + exercise.getMaxAttempts() + ").");
             }
+            // V148 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23) — hết hạn nộp + bản
+            // giao không cho nộp muộn (isLateSubmissionAllowed=false) thì KHÔNG cho mở lượt LÀM LẠI mới
+            // nữa (lượt đầu tiên không bị chặn ở đây — có thể đã mở từ trước hạn). Trước đây chỉ chặn ở
+            // submitAttempt (lúc NỘP), nên học sinh vẫn mở được 1 lượt mới sau hạn rồi bỏ dở mãi mãi
+            // IN_PROGRESS (không có điểm) — làm lượt "mới nhất" của HomeworkProgressService luôn hiện
+            // "Đang chờ chấm" dù trước đó đã có lượt được chấm hợp lệ. Đọc dueAt/isLateSubmissionAllowed
+            // TRỰC TIẾP từ assignment mỗi lần gọi (không cache) — quản trị/giáo viên gia hạn dueAt hoặc
+            // bật lại "Cho phép nộp muộn" thì học sinh mở lại "Làm lại" được ngay, không cần thao tác gì
+            // thêm phía học sinh.
+            if (assignment.getDueAt() != null && OffsetDateTime.now().isAfter(assignment.getDueAt())
+                    && !assignment.isLateSubmissionAllowed()) {
+                throw new RetakeNotAllowedException("error.retakeNotAllowed.pastDeadline", new Object[]{assignment.getDueAt()},
+                        "Đề này đã quá hạn nộp (" + assignment.getDueAt() + "), không thể làm lại.");
+            }
         }
 
         ExerciseAttempt attempt = new ExerciseAttempt();
@@ -639,12 +653,18 @@ public class ExerciseAttemptService {
                 : percentageOf(latest.getTotalScore(), exercise.getTotalPoints());
         // Xem Javadoc AssignedExerciseResponse#canStartNewAttempt — mirror ĐÚNG điều kiện startAttempt()
         // kiểm tra (assignment ACTIVE + đã mở + còn lượt theo allowRetake/maxAttempts), KHÔNG đòi hỏi
-        // lượt gần nhất phải FULLY_GRADED.
+        // lượt gần nhất phải FULLY_GRADED. V148 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+        // 2026-08-23) — thêm điều kiện hết hạn nộp (chỉ áp dụng khi ĐÃ có lượt trước đó, mirror đúng
+        // nhánh previousAttempts>0 ở startAttempt) để nút "Làm lại" ở FE (portal, TakeExerciseModal) ẩn
+        // đúng lúc thay vì hiện ra rồi bấm mới báo lỗi 422.
+        boolean retakeBlockedByDeadline = !myAttempts.isEmpty() && assignment.getDueAt() != null
+                && OffsetDateTime.now().isAfter(assignment.getDueAt()) && !assignment.isLateSubmissionAllowed();
         boolean canStartNewAttempt = assignment.getStatus() == ExerciseAssignment.Status.ACTIVE
                 && !assignment.getAvailableFrom().isAfter(OffsetDateTime.now())
                 && (latest == null || latest.getStatus() != ExerciseAttempt.Status.IN_PROGRESS)
                 && (myAttempts.isEmpty() || exercise.isAllowRetake())
-                && (exercise.getMaxAttempts() == null || myAttempts.size() < exercise.getMaxAttempts());
+                && (exercise.getMaxAttempts() == null || myAttempts.size() < exercise.getMaxAttempts())
+                && !retakeBlockedByDeadline;
         return new AssignedExerciseResponse(
                 exercise.getId(), exercise.getCode(), exercise.getTitle(), exercise.getExerciseType().name(),
                 assignment.getId(), enrollment.getSchoolClass().getId(), enrollment.getSchoolClass().getName(),

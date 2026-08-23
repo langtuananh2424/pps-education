@@ -246,9 +246,7 @@
         "retake": "Retake",
         "start": "Start now",
         "continue": "Continue",
-        "reviewGraded": "Review your work",
-        "reviewSubmitted": "Review your submission",
-        "retryWhilePending": "Try another attempt"
+        "reviewGraded": "Review your work"
       },
       "needsRetake": "Not passed {{percent}} — needs retake",
       "overduePrefix": "Overdue — ",

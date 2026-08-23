@@ -49,7 +49,16 @@ public class HomeworkProgressService {
         this.reflexQuestionProgressRepository = reflexQuestionProgressRepository;
     }
 
-    /** % bài ngữ pháp online đã giao — "Chưa làm bài"/"Đang chờ chấm" nếu chưa có điểm cuối cùng. */
+    /**
+     * % bài ngữ pháp online đã giao — "Chưa làm bài"/"Đang chờ chấm" nếu chưa có điểm cuối cùng.
+     *
+     * V147 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23) — CHỦ Ý dùng lượt làm MỚI
+     * NHẤT theo attemptNumber (không ưu tiên cờ selectedForGrading như ExerciseReportService#
+     * selectedOrLatestAttemptByStudent dùng cho "Thống kê BTVN theo lớp") — cột "BTVN buổi trước" ở
+     * Nhận xét hàng ngày cần phản ánh đúng trạng thái làm bài HIỆN TẠI của học sinh (kể cả đang làm lại
+     * dở dang), khác với trang Thống kê cần hiện đúng điểm CHÍNH THỨC giáo viên đã chốt. Cơ chế chọn
+     * điểm chính thức (selectForGrading) vẫn giữ nguyên, chỉ không áp dụng cho cột này.
+     */
     public String grammarProgressLabel(ExerciseAssignment assignment, Long studentId) {
         if (assignment == null) {
             return null;
@@ -103,7 +112,8 @@ public class HomeworkProgressService {
      * người dùng 2026-08-06, dùng cho HomeworkAlertTrackingService (cảnh
      * báo thiếu bài theo lộ trình). Tái dùng thẳng cờ {@code passed} đã
      * tính sẵn lúc nộp bài ({@link ExerciseAttemptService#applyPassOutcome}),
-     * lượt mới nhất — chưa nộp lượt nào coi là chưa đạt.
+     * lượt mới nhất (V147 — chủ ý KHÔNG ưu tiên selectedForGrading, xem Javadoc grammarProgressLabel)
+     * — chưa nộp lượt nào coi là chưa đạt.
      */
     public boolean grammarPassed(ExerciseAssignment assignment, Long studentId) {
         if (assignment == null) {

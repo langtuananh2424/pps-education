@@ -613,29 +613,24 @@ function ExerciseCard({
   const { t, i18n } = useTranslation("portal-exercises");
   const isOverdue = item.dueAt != null && new Date(item.dueAt) < new Date();
   const retake = needsRetake(item);
-  /**
-   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-22 — fix bug thật: lượt gần nhất đang
-   * AUTO_GRADED (chờ chấm câu tự luận/nói, VD AI chấm lỗi thoáng qua) nhưng còn lượt (canStartNewAttempt)
-   * vẫn cho làm lượt MỚI ngay — trước đây chỉ `retake` (FULLY_GRADED+trượt) mới hiện được nút này, học
-   * sinh bị kẹt không có lối ra nếu chấm tự động thất bại/chưa xong. Badge trạng thái (chờ chấm) vẫn
-   * hiện bình thường (khác `retake` — badge bị ẩn) để học sinh biết lượt cũ vẫn có thể được GV chấm.
-   */
-  const pendingCanRetry = !retake && item.myLatestAttemptStatus === "AUTO_GRADED" && item.canStartNewAttempt;
   const attemptMeta = retake ? null : item.myLatestAttemptStatus ? attemptStatusMeta(t, item.myLatestAttemptStatus) : null;
   const isFullyGraded = item.myLatestAttemptStatus === "FULLY_GRADED";
   const pending = isExercisePending(item);
 
-  const actionLabel = retake
-    ? t("assignments.exercise.action.retake")
-    : pendingCanRetry
-      ? t("assignments.exercise.action.retryWhilePending")
-      : item.myLatestAttemptStatus == null
-        ? t("assignments.exercise.action.start")
-        : item.myLatestAttemptStatus === "IN_PROGRESS"
-          ? t("assignments.exercise.action.continue")
-          : isFullyGraded
-            ? t("assignments.exercise.action.reviewGraded")
-            : t("assignments.exercise.action.reviewSubmitted");
+  /**
+   * V148 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23) — CHỦ Ý chỉ còn 2 nhánh ở màn
+   * danh sách: CHƯA làm bao giờ ("Làm bài ngay") hay ĐÃ làm ("Xem bài đã làm"/"Tiếp tục làm bài" nếu
+   * đang IN_PROGRESS) — bấm vào LUÔN chỉ mở xem/tiếp tục đúng lượt gần nhất, không còn tự động phán
+   * đoán "cần làm lại"/"còn lượt làm thêm" ở đây (dễ nhầm học sinh nghĩ đang xem lại nhưng thực ra vừa
+   * âm thầm tạo lượt mới). Muốn làm lượt MỚI phải mở bài rồi bấm nút "Làm lại" tường minh bên trong
+   * modal (xem TakeExerciseModal#handleRetake), tự ẩn khi hết lượt/quá hạn nộp.
+   */
+  const actionLabel =
+    item.myLatestAttemptStatus == null
+      ? t("assignments.exercise.action.start")
+      : item.myLatestAttemptStatus === "IN_PROGRESS"
+        ? t("assignments.exercise.action.continue")
+        : t("assignments.exercise.action.reviewGraded");
 
   return (
     <div

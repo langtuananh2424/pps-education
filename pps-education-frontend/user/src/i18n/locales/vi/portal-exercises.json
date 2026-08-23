@@ -246,9 +246,7 @@
         "retake": "Làm lại bài",
         "start": "Làm bài ngay",
         "continue": "Tiếp tục làm bài",
-        "reviewGraded": "Xem lại bài đã làm",
-        "reviewSubmitted": "Xem lại bài đã nộp",
-        "retryWhilePending": "Làm thêm lượt mới"
+        "reviewGraded": "Xem lại bài đã làm"
       },
       "needsRetake": "Chưa đạt {{percent}} — cần làm lại",
       "overduePrefix": "Đã quá hạn nộp — ",
