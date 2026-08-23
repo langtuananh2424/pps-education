@@ -21,6 +21,7 @@ import { curriculumStatusLabel, curriculumStatusVariants } from "./CurriculumLis
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import Select from "@/components/ui/Select";
+import { useDialog } from "@/components/ui/DialogProvider";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
@@ -106,6 +107,7 @@ function ProfileTab({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showCustomForm, setShowCustomForm] = useState(false);
+  const { confirmDialog } = useDialog();
 
   useEffect(
     () =>
@@ -121,6 +123,14 @@ function ProfileTab({
     [curriculum]
   );
 
+  /**
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — fix bug thật: UC-16 A1 (khung đang
+   * dùng bởi lớp IN_PROGRESS) đã có sẵn ở backend (CurriculumUpdateConfirmationRequiredException, HTTP
+   * 409) từ trước, nhưng form này chưa từng xử lý — trước đây bấm "Lưu" chỉ hiện banner lỗi đỏ, không
+   * có cách nào bấm tiếp để xác nhận lưu (confirm=true), form kẹt vĩnh viễn không lưu được. Response
+   * lỗi chung không có mã lỗi riêng để phân biệt (chỉ có message) — nhận diện qua chuỗi "IN_PROGRESS"
+   * (tên trạng thái enum, không bị dịch khác nhau giữa VI/EN, xem messages.properties/messages_en.properties).
+   */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name.trim()) {
@@ -138,25 +148,44 @@ function ProfileTab({
           defaultGradePassThreshold: form.defaultGradePassThreshold ? Number(form.defaultGradePassThreshold) : undefined
         });
       } else {
-        await updateCurriculum(curriculum.id, {
-          name: form.name.trim(),
-          level: form.level.trim() || undefined,
-          gradeLevel: form.gradeLevel || undefined,
-          track: form.track || undefined,
-          totalPeriods: form.totalPeriods ? Number(form.totalPeriods) : undefined,
-          defaultGradePassThreshold: form.defaultGradePassThreshold ? Number(form.defaultGradePassThreshold) : undefined,
-          status: form.status,
-          confirm: false
-        });
+        await saveStandardCurriculum(false);
       }
       onChanged();
       showToast(t("detail.profile.savedToast"));
     } catch (err) {
+      if (err instanceof ApiError && err.message.includes("IN_PROGRESS")) {
+        setSaving(false);
+        if (await confirmDialog(err.message)) {
+          setSaving(true);
+          try {
+            await saveStandardCurriculum(true);
+            onChanged();
+            showToast(t("detail.profile.savedToast"));
+          } catch (err2) {
+            setError(err2 instanceof ApiError ? err2.message : t("detail.profile.updateFailedFallback"));
+          } finally {
+            setSaving(false);
+          }
+        }
+        return;
+      }
       setError(err instanceof ApiError ? err.message : t("detail.profile.updateFailedFallback"));
     } finally {
       setSaving(false);
     }
   };
+
+  const saveStandardCurriculum = (confirm: boolean) =>
+    updateCurriculum(curriculum.id, {
+      name: form.name.trim(),
+      level: form.level.trim() || undefined,
+      gradeLevel: form.gradeLevel || undefined,
+      track: form.track || undefined,
+      totalPeriods: form.totalPeriods ? Number(form.totalPeriods) : undefined,
+      defaultGradePassThreshold: form.defaultGradePassThreshold ? Number(form.defaultGradePassThreshold) : undefined,
+      status: form.status,
+      confirm
+    });
 
   const handleSubmitForApproval = async () => {
     setError(null);
