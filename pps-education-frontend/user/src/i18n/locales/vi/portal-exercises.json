@@ -189,7 +189,11 @@
       "failedFeedbackTitle": "Chưa đạt",
       "scoreLabel": "điểm nội dung {{score}}%",
       "retryButton": "Ghi âm lại",
-      "attemptCount": "Đã ghi âm {{count}} lần"
+      "attemptCount": "Đã ghi âm {{count}} lần",
+      "passedPopup": {
+        "heading": "Đạt — mở khoá câu tiếp theo",
+        "continueButton": "Tiếp tục"
+      }
     },
     "submittedSuccess": "Bạn đã hoàn thành tất cả câu hỏi!",
     "backToList": "Quay lại danh sách bài tập"

@@ -190,6 +190,7 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
   const [writingError, setWritingError] = useState<string | null>(null);
   const [speakingSubmitting, setSpeakingSubmitting] = useState(false);
   const [speakingError, setSpeakingError] = useState<string | null>(null);
+  const [speakingPassedPopup, setSpeakingPassedPopup] = useState<{ scorePercent: number | null; feedback: string | null } | null>(null);
   const recorder = useAudioRecorder();
 
   const allQuestionsPassed = questions.length > 0 && questions.every((q) => progress[q.id]?.questionPassed);
@@ -361,15 +362,24 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
       const { url } = await uploadMedia(file, "REVIEW_VIDEO_SUBMISSION");
       const response = await submitReflexSpokenAnswer(activeQuestion.id, assignmentId, url);
       setProgress((prev) => ({ ...prev, [activeQuestion.id]: response }));
+      // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — fix bug thật: trước đây pass thì
+      // đóng câu ngay + video chạy tiếp lập tức, học sinh không kịp thấy điểm/nhận xét bước nói (khác
+      // bước viết vốn hiện nhận xét ngay trong khung). Nay hiện popup "Đạt" kèm điểm + nhận xét, chỉ
+      // đóng câu hỏi/chạy tiếp video khi học sinh bấm "Tiếp tục" (xem handleContinueAfterSpeakingPass).
       if (response.questionPassed) {
-        setActiveQuestionId(null);
-        resumeVideo();
+        setSpeakingPassedPopup({ scorePercent: response.speakingScorePercent, feedback: response.speakingFeedback });
       }
     } catch (err) {
       setSpeakingError(friendlyApiErrorMessage(err, t("reflexVideoTask.submitError")));
     } finally {
       setSpeakingSubmitting(false);
     }
+  };
+
+  const handleContinueAfterSpeakingPass = () => {
+    setSpeakingPassedPopup(null);
+    setActiveQuestionId(null);
+    resumeVideo();
   };
 
   // Ghi âm dừng (hết giờ hoặc học sinh bấm dừng) → tự động nộp ngay, không cần bấm thêm nút "Nộp bài".
@@ -464,6 +474,30 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
             </button>
             <button onClick={handleExit} className="w-full px-4 py-2 text-xs font-extrabold text-muted hover:text-ink">
               {t("reflexVideoTask.startScreen.exitButton")}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {speakingPassedPopup && (
+        <div className="fixed inset-0 bg-ink/60 z-[130] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[20px] max-w-sm w-full shadow-2xl p-6 space-y-4 text-center">
+            <CheckCircle2 size={36} className="text-emerald-600 mx-auto" />
+            <h3 className="text-base font-extrabold text-ink">
+              {t("reflexVideoTask.speakingStage.passedPopup.heading")}
+              {speakingPassedPopup.scorePercent != null &&
+                ` — ${t("reflexVideoTask.speakingStage.scoreLabel", { score: speakingPassedPopup.scorePercent })}`}
+            </h3>
+            {speakingPassedPopup.feedback && (
+              <p className="text-xs font-medium text-muted text-left normal-case whitespace-pre-line max-h-48 overflow-y-auto">
+                {speakingPassedPopup.feedback}
+              </p>
+            )}
+            <button
+              onClick={handleContinueAfterSpeakingPass}
+              className="w-full px-4 py-2.5 bg-teal hover:bg-teal-deep text-white rounded-xl text-xs sm:text-sm font-extrabold"
+            >
+              {t("reflexVideoTask.speakingStage.passedPopup.continueButton")}
             </button>
           </div>
         </div>

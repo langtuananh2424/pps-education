@@ -189,7 +189,11 @@
       "failedFeedbackTitle": "Not passed yet",
       "scoreLabel": "content score {{score}}%",
       "retryButton": "Record again",
-      "attemptCount": "Recorded {{count}} time(s)"
+      "attemptCount": "Recorded {{count}} time(s)",
+      "passedPopup": {
+        "heading": "Passed — next question unlocked",
+        "continueButton": "Continue"
+      }
     },
     "submittedSuccess": "You've completed every question!",
     "backToList": "Back to homework list"
