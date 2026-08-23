@@ -8,20 +8,19 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import vn.com.pps.education.domain.Curriculum;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Base64;
 
 /**
- * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-22 — UC-23b (Video phản xạ) V2, bước 2
- * của mỗi câu hỏi (SAU khi đạt phần viết trước — xem {@link ReflexWritingGrammarAiGradingService}):
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-22/2026-08-23 — UC-23b (Video phản xạ) V2,
+ * bước 2 của mỗi câu hỏi (SAU khi đạt phần viết trước — xem {@link ReflexWritingGrammarAiGradingService}):
  * chuyển giọng nói (audio đã ghi) sang chữ RỒI chấm nội dung theo rubric — đạt ngưỡng mới mở khoá câu
  * tiếp theo (xem {@link ReflexSequentialGradingService}).
  *
@@ -29,30 +28,29 @@ import java.util.Base64;
  * (transcribe + chấm luôn), khác Claude (không nhận input audio) và OpenAI (STT tốt nhưng cần
  * billing, xem SpeakingAiGradingTestService — Gemini là lựa chọn người dùng đã chốt cho luồng này).
  *
- * Rubric đọc 1 lần lúc khởi động từ {@code resources/rubrics/reflex-speaking-content-rubric.md} —
- * rubric thật do người dùng cung cấp 2026-08-22 (band 0-9 theo 4 tiêu chí: Fluency & Coherence,
- * Lexical Resource, Grammatical Range & Accuracy, Pronunciation). {@link #parseResult} quy đổi
- * overallBand (0-9) sang % (overallBand/9*100, làm tròn) để khớp ngưỡng đạt 70% của
- * {@link ReflexSequentialGradingService}. Lỗi gọi API trả về {@code null} — caller tự quyết định.
+ * V140 (2026-08-23) — rubric giờ chọn theo Khối (6/7/8/9) + chương trình (IELTS/CAMBRIDGE) của
+ * Curriculum chứa video (xem {@link RubricByGradeTrackLoader}), KHÔNG còn 1 rubric tĩnh cho mọi học
+ * sinh. AI trả thẳng % theo đúng thang "Mức điểm (%)" của bảng, không còn quy đổi band 0-9 → %.
+ * Lỗi gọi API HOẶC chưa xác định được đúng rubric trả về {@code null} — caller tự quyết định.
  */
 @Service
 public class ReflexSpeakingContentAiGradingService {
 
     private static final Logger log = LoggerFactory.getLogger(ReflexSpeakingContentAiGradingService.class);
 
-    private static final String RUBRIC_CLASSPATH = "rubrics/reflex-speaking-content-rubric.md";
+    private static final String RUBRIC_FILE_PREFIX = "speaking-rubric";
     private static final String GEMINI_MODEL = "gemini-flash-latest";
 
     private final ObjectMapper objectMapper;
+    private final RubricByGradeTrackLoader rubricLoader;
     private final HttpClient httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(20)).build();
-    private final String rubric;
 
     @Value("${app.ai-grading.gemini-api-key:}")
     private String geminiApiKey;
 
-    public ReflexSpeakingContentAiGradingService(ObjectMapper objectMapper) {
+    public ReflexSpeakingContentAiGradingService(ObjectMapper objectMapper, RubricByGradeTrackLoader rubricLoader) {
         this.objectMapper = objectMapper;
-        this.rubric = readRubric();
+        this.rubricLoader = rubricLoader;
     }
 
     public record GradeResult(String transcript, int scorePercent, String feedback) {
@@ -65,23 +63,23 @@ public class ReflexSpeakingContentAiGradingService {
     /**
      * audioBytes: tải trực tiếp từ audioUrl đã lưu R2 (caller tự tải, xem
      * {@link ReflexSequentialGradingService}) — tránh phụ thuộc MultipartFile ở service này.
-     * Trả null nếu chưa cấu hình GEMINI_API_KEY HOẶC gọi AI thất bại (kể cả sau khi đã thử lại) —
-     * caller tự quyết định.
-     *
-     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-22 — tự thử lại tối đa
-     * {@link #MAX_ATTEMPTS} lần khi gặp lỗi tạm thời (mirror {@link WritingAiGradingService}) — audio
-     * base64 đã encode 1 lần dùng lại cho mọi lần thử, không encode lại mỗi vòng lặp.
+     * Trả null nếu chưa xác định được rubric (xem {@link RubricByGradeTrackLoader}), chưa cấu hình
+     * GEMINI_API_KEY, HOẶC gọi AI thất bại (kể cả sau khi đã thử lại) — caller tự quyết định.
      */
-    public GradeResult grade(byte[] audioBytes, String mimeType) {
+    public GradeResult grade(byte[] audioBytes, String mimeType, Curriculum curriculum) {
         if (audioBytes == null || audioBytes.length == 0 || geminiApiKey.isBlank()) {
             if (geminiApiKey.isBlank()) {
                 log.warn("ReflexSpeakingContentAiGradingService: chưa cấu hình GEMINI_API_KEY.");
             }
             return null;
         }
+        String rubric = rubricLoader.load(RUBRIC_FILE_PREFIX, curriculum.getGradeLevel(), curriculum.getTrack());
+        if (rubric == null) {
+            return null;
+        }
         for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
             try {
-                return callGemini(audioBytes, mimeType);
+                return callGemini(audioBytes, mimeType, rubric);
             } catch (Exception e) {
                 if (attempt < MAX_ATTEMPTS && isRetryable(e)) {
                     log.warn("ReflexSpeakingContentAiGradingService: lỗi tạm thời, thử lại lần {}/{}. {}", attempt + 1, MAX_ATTEMPTS, e.getMessage());
@@ -95,10 +93,10 @@ public class ReflexSpeakingContentAiGradingService {
         return null;
     }
 
-    private GradeResult callGemini(byte[] audioBytes, String mimeType) throws IOException, InterruptedException {
+    private GradeResult callGemini(byte[] audioBytes, String mimeType, String rubric) throws IOException, InterruptedException {
         ObjectNode payload = objectMapper.createObjectNode();
         ObjectNode systemInstruction = payload.putObject("system_instruction");
-        systemInstruction.putArray("parts").addObject().put("text", systemPrompt());
+        systemInstruction.putArray("parts").addObject().put("text", systemPrompt(rubric));
         ArrayNode contents = payload.putArray("contents");
         ArrayNode parts = contents.addObject().putArray("parts");
         parts.addObject().put("text", "Đây là audio câu trả lời speaking của học sinh. Hãy transcribe rồi chấm theo tiêu chí đã cho.");
@@ -141,40 +139,20 @@ public class ReflexSpeakingContentAiGradingService {
         }
     }
 
-    private String readRubric() {
-        try (InputStream in = getClass().getClassLoader().getResourceAsStream(RUBRIC_CLASSPATH)) {
-            if (in == null) {
-                log.warn("ReflexSpeakingContentAiGradingService: không tìm thấy {} trên classpath.", RUBRIC_CLASSPATH);
-                return "";
-            }
-            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
-        } catch (IOException e) {
-            log.warn("ReflexSpeakingContentAiGradingService: đọc rubric thất bại. {}", e.getMessage());
-            return "";
-        }
-    }
-
-    private String systemPrompt() {
+    private String systemPrompt(String rubric) {
         return "Bạn là giám khảo chấm Speaking tiếng Anh cho học sinh trung tâm Anh ngữ. Trước tiên transcribe chính "
-                + "xác audio thành chữ, sau đó áp dụng ĐÚNG tiêu chí chấm sau đây — chấm lần lượt 4 tiêu chí "
-                + "(Fluency & Coherence, Lexical Resource, Grammatical Range & Accuracy, Pronunciation), mỗi tiêu chí "
-                + "thang band 0-9, rồi tính overallBand = trung bình cộng 4 band đó:\n"
+                + "xác audio thành chữ. Bảng tiêu chí chấm dưới đây liệt kê các mức điểm % (cột \"Mức điểm (%)\") kèm "
+                + "mô tả (descriptor) của TỪNG tiêu chí ở mức đó — đọc kỹ mô tả ở TẤT CẢ các cột tiêu chí, xác định "
+                + "mức % phù hợp nhất với bài nói dựa trên toàn bộ các tiêu chí (có thể nội suy giữa 2 mức liền kề "
+                + "nếu bài làm nằm giữa):\n"
                 + rubric
                 + "\nChỉ trả lời DUY NHẤT 1 JSON hợp lệ, không thêm chữ nào khác, đúng format: "
-                + "{\"transcript\": \"<chữ đã transcribe từ audio>\", \"fluencyCoherence\": <band 0-9>, "
-                + "\"lexicalResource\": <band 0-9>, \"grammar\": <band 0-9>, \"pronunciation\": <band 0-9>, "
-                + "\"overallBand\": <band 0-9, trung bình cộng 4 band trên>, \"feedback\": \"<nhận xét tiếng Việt, "
-                + "theo đúng cấu trúc mục 8 Standard Feedback Format của tiêu chí chấm: điểm từng tiêu chí, "
-                + "strongest area, weakest area, what you did well, what is limiting your score, top 3 priorities, "
-                + "target for next test>\"}";
+                + "{\"transcript\": \"<chữ đã transcribe từ audio>\", \"scorePercent\": <số nguyên 0-100, theo đúng "
+                + "thang % của bảng trên>, \"feedback\": \"<nhận xét chi tiết tiếng Việt, đánh giá lần lượt theo "
+                + "TỪNG tiêu chí trong bảng, nêu điểm mạnh/điểm yếu cụ thể và gợi ý cải thiện>\"}";
     }
 
-    /**
-     * LLM đôi khi bọc thêm text/markdown quanh JSON dù đã dặn "chỉ trả JSON" — cắt từ '{' đầu tới '}'
-     * cuối cho an toàn. Rubric chấm theo band 0-9 (mục 1 "SPEAKING SCORING RUBRIC") — quy đổi
-     * overallBand sang % (overallBand/9*100, làm tròn) để khớp ngưỡng đạt 70% dùng chung cho Video
-     * phản xạ.
-     */
+    /** LLM đôi khi bọc thêm text/markdown quanh JSON dù đã dặn "chỉ trả JSON" — cắt từ '{' đầu tới '}' cuối cho an toàn. */
     private GradeResult parseResult(String rawText) throws IOException {
         int start = rawText.indexOf('{');
         int end = rawText.lastIndexOf('}');
@@ -182,8 +160,7 @@ public class ReflexSpeakingContentAiGradingService {
             throw new IOException("Model chấm bài không trả về JSON hợp lệ: " + rawText);
         }
         JsonNode parsed = objectMapper.readTree(rawText.substring(start, end + 1));
-        double overallBand = parsed.path("overallBand").asDouble(0);
-        int scorePercent = (int) Math.round(Math.min(9, Math.max(0, overallBand)) / 9.0 * 100);
+        int scorePercent = Math.min(100, Math.max(0, parsed.path("scorePercent").asInt(0)));
         return new GradeResult(parsed.path("transcript").asText(""), scorePercent, parsed.path("feedback").asText(""));
     }
 }

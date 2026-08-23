@@ -97,6 +97,8 @@ function ProfileTab({
   const [form, setForm] = useState({
     name: curriculum.name,
     level: curriculum.level ?? "",
+    gradeLevel: curriculum.gradeLevel ?? "",
+    track: curriculum.track ?? "",
     totalPeriods: curriculum.totalPeriods != null ? String(curriculum.totalPeriods) : "",
     defaultGradePassThreshold: curriculum.defaultGradePassThreshold != null ? String(curriculum.defaultGradePassThreshold) : "",
     status: curriculum.status
@@ -110,6 +112,8 @@ function ProfileTab({
       setForm({
         name: curriculum.name,
         level: curriculum.level ?? "",
+        gradeLevel: curriculum.gradeLevel ?? "",
+        track: curriculum.track ?? "",
         totalPeriods: curriculum.totalPeriods != null ? String(curriculum.totalPeriods) : "",
         defaultGradePassThreshold: curriculum.defaultGradePassThreshold != null ? String(curriculum.defaultGradePassThreshold) : "",
         status: curriculum.status
@@ -137,6 +141,8 @@ function ProfileTab({
         await updateCurriculum(curriculum.id, {
           name: form.name.trim(),
           level: form.level.trim() || undefined,
+          gradeLevel: form.gradeLevel || undefined,
+          track: form.track || undefined,
           totalPeriods: form.totalPeriods ? Number(form.totalPeriods) : undefined,
           defaultGradePassThreshold: form.defaultGradePassThreshold ? Number(form.defaultGradePassThreshold) : undefined,
           status: form.status,
@@ -176,6 +182,28 @@ function ProfileTab({
             <label className={labelClass}>{t("detail.profile.levelLabel")}</label>
             <input value={form.level} onChange={(e) => setForm({ ...form, level: e.target.value })} className={inputClass} />
           </div>
+          {!isCustom && (
+            <>
+              <div>
+                <label className={labelClass}>{t("detail.profile.gradeLevelLabel")}</label>
+                <Select value={form.gradeLevel} onChange={(e) => setForm({ ...form, gradeLevel: e.target.value })} className={inputClass}>
+                  <option value="">{t("detail.profile.gradeLevelPlaceholder")}</option>
+                  <option value="GRADE_6">{t("detail.profile.gradeLevelOptions.GRADE_6")}</option>
+                  <option value="GRADE_7">{t("detail.profile.gradeLevelOptions.GRADE_7")}</option>
+                  <option value="GRADE_8">{t("detail.profile.gradeLevelOptions.GRADE_8")}</option>
+                  <option value="GRADE_9">{t("detail.profile.gradeLevelOptions.GRADE_9")}</option>
+                </Select>
+              </div>
+              <div>
+                <label className={labelClass}>{t("detail.profile.trackLabel")}</label>
+                <Select value={form.track} onChange={(e) => setForm({ ...form, track: e.target.value })} className={inputClass}>
+                  <option value="">{t("detail.profile.trackPlaceholder")}</option>
+                  <option value="IELTS">{t("detail.profile.trackOptions.IELTS")}</option>
+                  <option value="CAMBRIDGE">{t("detail.profile.trackOptions.CAMBRIDGE")}</option>
+                </Select>
+              </div>
+            </>
+          )}
           <div>
             <label className={labelClass}>{t("detail.profile.totalPeriodsLabel")}</label>
             <input type="number" min={0} value={form.totalPeriods} onChange={(e) => setForm({ ...form, totalPeriods: e.target.value })} className={inputClass} />

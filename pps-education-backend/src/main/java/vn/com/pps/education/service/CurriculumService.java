@@ -128,6 +128,8 @@ public class CurriculumService {
         curriculum.setName(request.name());
         curriculum.setClassCategory(Curriculum.ClassCategory.valueOf(request.classCategory()));
         curriculum.setLevel(request.level());
+        curriculum.setGradeLevel(parseGradeLevel(request.gradeLevel()));
+        curriculum.setTrack(parseTrack(request.track()));
         curriculum.setTotalPeriods(request.totalPeriods());
         if (request.defaultGradePassThreshold() != null) {
             curriculum.setDefaultGradePassThreshold(request.defaultGradePassThreshold());
@@ -160,6 +162,8 @@ public class CurriculumService {
 
         curriculum.setName(request.name());
         curriculum.setLevel(request.level());
+        curriculum.setGradeLevel(parseGradeLevel(request.gradeLevel()));
+        curriculum.setTrack(parseTrack(request.track()));
         curriculum.setTotalPeriods(request.totalPeriods());
         if (request.defaultGradePassThreshold() != null) {
             curriculum.setDefaultGradePassThreshold(request.defaultGradePassThreshold());
@@ -251,6 +255,8 @@ public class CurriculumService {
         copy.setParentCurriculum(parent);
         copy.setClassCategory(parent.getClassCategory());
         copy.setLevel(parent.getLevel());
+        copy.setGradeLevel(parent.getGradeLevel());
+        copy.setTrack(parent.getTrack());
         copy.setTotalPeriods(parent.getTotalPeriods());
         copy.setDefaultGradePassThreshold(parent.getDefaultGradePassThreshold());
         copy.setCreatedBy(actor);
@@ -444,9 +450,22 @@ public class CurriculumService {
                 c.getId(), c.getCode(), c.getName(),
                 c.getSite() == null ? null : c.getSite().getId(),
                 c.getParentCurriculum() == null ? null : c.getParentCurriculum().getId(),
-                c.getClassCategory().name(), c.getLevel(), c.getTotalPeriods(),
+                c.getClassCategory().name(), c.getLevel(),
+                c.getGradeLevel() == null ? null : c.getGradeLevel().name(),
+                c.getTrack() == null ? null : c.getTrack().name(),
+                c.getTotalPeriods(),
                 c.getDefaultGradePassThreshold(), c.getStatus().name(),
                 c.getCreatedBy().getId(), c.getApprovedBy() == null ? null : c.getApprovedBy().getId());
+    }
+
+    /** V140 — chuỗi null/rỗng = chưa phân loại (không throw), khớp cách "level" (String tự do) đang xử lý. */
+    private Curriculum.GradeLevel parseGradeLevel(String s) {
+        return s == null || s.isBlank() ? null : Curriculum.GradeLevel.valueOf(s);
+    }
+
+    /** V140 — chuỗi null/rỗng = chưa phân loại. */
+    private Curriculum.Track parseTrack(String s) {
+        return s == null || s.isBlank() ? null : Curriculum.Track.valueOf(s);
     }
 
     private CurriculumSubjectResponse toResponse(CurriculumSubject s) {

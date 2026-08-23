@@ -11,6 +11,9 @@ export interface CurriculumResponse {
   parentCurriculumId: number | null;
   classCategory: "MAIN" | "SUPPLEMENTARY" | "EXAM_PREP" | "OTHER" | null;
   level: string | null;
+  /** V140 — null = chưa phân loại. Dùng để AI chấm Speaking/Writing chọn đúng rubric theo Khối/chương trình. */
+  gradeLevel: "GRADE_6" | "GRADE_7" | "GRADE_8" | "GRADE_9" | null;
+  track: "IELTS" | "CAMBRIDGE" | null;
   totalPeriods: number | null;
   defaultGradePassThreshold: number | null;
   status: string;
@@ -31,6 +34,9 @@ export interface CreateCurriculumRequest {
   name: string;
   classCategory: string;
   level?: string;
+  /** V140 — bỏ trống = chưa phân loại (AI chấm Speaking/Writing sẽ bỏ qua, rơi lại hàng chờ chấm tay). */
+  gradeLevel?: string;
+  track?: string;
   totalPeriods?: number;
   defaultGradePassThreshold?: number;
 }
@@ -43,6 +49,9 @@ export function createCurriculum(request: CreateCurriculumRequest): Promise<Curr
 export interface UpdateCurriculumRequest {
   name: string;
   level?: string;
+  /** V140 — bỏ trống = chưa phân loại (AI chấm Speaking/Writing sẽ bỏ qua, rơi lại hàng chờ chấm tay). */
+  gradeLevel?: string;
+  track?: string;
   totalPeriods?: number;
   defaultGradePassThreshold?: number;
   status: string;

@@ -48,10 +48,10 @@ class ClassControllerTest extends AbstractControllerTest {
     void setUp() {
         var headAcademic = userWithRole("head.academic", "HEAD_ACADEMIC");
         var curriculum = curriculumService.create(
-                new CreateCurriculumRequest("CUR-" + SEQ.incrementAndGet(), "Chuẩn", "MAIN", null, null, null),
+                new CreateCurriculumRequest("CUR-" + SEQ.incrementAndGet(), "Chuẩn", "MAIN", null, null, null, null, null),
                 headAcademic.getId());
         activeCurriculumId = curriculumService.update(curriculum.id(),
-                new UpdateCurriculumRequest("Chuẩn", null, null, null, "ACTIVE", false), headAcademic.getId()).id();
+                new UpdateCurriculumRequest("Chuẩn", null, null, null, null, null, "ACTIVE", false), headAcademic.getId()).id();
 
         Site site = new Site();
         site.setCode("SITE-" + SEQ.incrementAndGet());

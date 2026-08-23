@@ -3,6 +3,7 @@ package vn.com.pps.education.service;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.ClassEnrollment;
+import vn.com.pps.education.domain.Curriculum;
 import vn.com.pps.education.domain.Exercise;
 import vn.com.pps.education.domain.ExerciseAssignment;
 import vn.com.pps.education.domain.ExerciseAttempt;
@@ -288,7 +289,7 @@ public class ExerciseAttemptService {
                     continue;
                 }
                 BigDecimal points = pointsByQuestionId.getOrDefault(answer.getQuestion().getId(), BigDecimal.ZERO);
-                BigDecimal score = gradeEssayWithAi(answer, points, now);
+                BigDecimal score = gradeEssayWithAi(answer, points, now, attempt.getExercise().getExam().getCurriculum());
                 if (score != null) {
                     aiGradeScore = aiGradeScore.add(score);
                     aiGradedAnswerIds.add(answer.getId());
@@ -318,8 +319,8 @@ public class ExerciseAttemptService {
      * StudentAnswerGrading.GradingSource). Trả null nếu AI chưa cấu hình/gọi lỗi — answer giữ nguyên
      * chưa có điểm, tự rơi vào hàng chờ chấm tay UC-41 như hành vi mặc định cũ.
      */
-    private BigDecimal gradeEssayWithAi(StudentAnswer answer, BigDecimal maxPoints, OffsetDateTime now) {
-        WritingAiGradingService.GradeResult result = writingAiGradingService.grade(answer.getAnswerText());
+    private BigDecimal gradeEssayWithAi(StudentAnswer answer, BigDecimal maxPoints, OffsetDateTime now, Curriculum curriculum) {
+        WritingAiGradingService.GradeResult result = writingAiGradingService.grade(answer.getAnswerText(), curriculum);
         if (result == null) {
             return null;
         }

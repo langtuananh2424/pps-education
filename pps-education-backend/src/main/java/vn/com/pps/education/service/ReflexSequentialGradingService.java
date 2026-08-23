@@ -85,7 +85,8 @@ public class ReflexSequentialGradingService {
         progress.setAnswerText(answerText);
         progress.setWritingAttemptCount(progress.getWritingAttemptCount() + 1);
 
-        ReflexWritingGrammarAiGradingService.GradeResult result = writingGradingService.grade(answerText);
+        ReflexWritingGrammarAiGradingService.GradeResult result =
+                writingGradingService.grade(answerText, question.getReviewVideo().getReviewVideoSet().getCurriculum());
         applyWritingResult(progress, result);
         progress = reflexQuestionProgressRepository.save(progress);
         return toResponse(progress);
@@ -113,7 +114,7 @@ public class ReflexSequentialGradingService {
             audioBytes = null;
         }
         ReflexSpeakingContentAiGradingService.GradeResult result =
-                audioBytes == null ? null : speakingGradingService.grade(audioBytes, "audio/webm");
+                audioBytes == null ? null : speakingGradingService.grade(audioBytes, "audio/webm", question.getReviewVideo().getReviewVideoSet().getCurriculum());
         applySpeakingResult(progress, result);
         progress = reflexQuestionProgressRepository.save(progress);
         return toResponse(progress);

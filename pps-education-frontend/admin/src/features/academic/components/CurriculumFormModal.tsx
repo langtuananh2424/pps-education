@@ -19,7 +19,7 @@ interface CurriculumFormModalProps {
 /** UC-16 Main Flow bước 1-3: khởi tạo khung chương trình chuẩn mới. */
 export default function CurriculumFormModal({ onClose, onCreated }: CurriculumFormModalProps) {
   const { t } = useTranslation("academic-curriculum");
-  const [form, setForm] = useState({ code: "", name: "", classCategory: "MAIN", level: "", totalPeriods: "", defaultGradePassThreshold: "" });
+  const [form, setForm] = useState({ code: "", name: "", classCategory: "MAIN", level: "", gradeLevel: "", track: "", totalPeriods: "", defaultGradePassThreshold: "" });
   const [touched, setTouched] = useState({ code: false, name: false });
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -45,6 +45,8 @@ export default function CurriculumFormModal({ onClose, onCreated }: CurriculumFo
         name: form.name.trim(),
         classCategory: form.classCategory,
         level: form.level.trim() || undefined,
+        gradeLevel: form.gradeLevel || undefined,
+        track: form.track || undefined,
         totalPeriods: form.totalPeriods ? Number(form.totalPeriods) : undefined,
         defaultGradePassThreshold: form.defaultGradePassThreshold ? Number(form.defaultGradePassThreshold) : undefined
       };
@@ -95,6 +97,24 @@ export default function CurriculumFormModal({ onClose, onCreated }: CurriculumFo
           <div>
             <label className={labelClass}>{t("form.levelLabel")}</label>
             <input value={form.level} onChange={(e) => setForm({ ...form, level: e.target.value })} className={inputClass} />
+          </div>
+          <div>
+            <label className={labelClass}>{t("form.gradeLevelLabel")}</label>
+            <Select value={form.gradeLevel} onChange={(e) => setForm({ ...form, gradeLevel: e.target.value })} className={inputClass}>
+              <option value="">{t("form.gradeLevelPlaceholder")}</option>
+              <option value="GRADE_6">{t("form.gradeLevelOptions.GRADE_6")}</option>
+              <option value="GRADE_7">{t("form.gradeLevelOptions.GRADE_7")}</option>
+              <option value="GRADE_8">{t("form.gradeLevelOptions.GRADE_8")}</option>
+              <option value="GRADE_9">{t("form.gradeLevelOptions.GRADE_9")}</option>
+            </Select>
+          </div>
+          <div>
+            <label className={labelClass}>{t("form.trackLabel")}</label>
+            <Select value={form.track} onChange={(e) => setForm({ ...form, track: e.target.value })} className={inputClass}>
+              <option value="">{t("form.trackPlaceholder")}</option>
+              <option value="IELTS">{t("form.trackOptions.IELTS")}</option>
+              <option value="CAMBRIDGE">{t("form.trackOptions.CAMBRIDGE")}</option>
+            </Select>
           </div>
           <div>
             <label className={labelClass}>{t("form.totalPeriodsLabel")}</label>

@@ -24,6 +24,20 @@
     "profile": {
       "nameLabel": "Tên khung chương trình *",
       "levelLabel": "Cấp độ",
+      "gradeLevelLabel": "Khối lớp",
+      "gradeLevelPlaceholder": "-- Chưa phân loại --",
+      "gradeLevelOptions": {
+        "GRADE_6": "Khối 6",
+        "GRADE_7": "Khối 7",
+        "GRADE_8": "Khối 8",
+        "GRADE_9": "Khối 9"
+      },
+      "trackLabel": "Chương trình",
+      "trackPlaceholder": "-- Chưa phân loại --",
+      "trackOptions": {
+        "IELTS": "IELTS",
+        "CAMBRIDGE": "CAMBRIDGE"
+      },
       "totalPeriodsLabel": "Tổng số tiết",
       "passThresholdLabel": "Ngưỡng điểm đạt",
       "statusLabel": "Trạng thái",
@@ -95,6 +109,20 @@
     "nameLabel": "Tên khung chương trình *",
     "nameRequiredError": "Vui lòng nhập Tên khung chương trình.",
     "levelLabel": "Cấp độ",
+    "gradeLevelLabel": "Khối lớp",
+    "gradeLevelPlaceholder": "-- Chưa phân loại --",
+    "gradeLevelOptions": {
+      "GRADE_6": "Khối 6",
+      "GRADE_7": "Khối 7",
+      "GRADE_8": "Khối 8",
+      "GRADE_9": "Khối 9"
+    },
+    "trackLabel": "Chương trình",
+    "trackPlaceholder": "-- Chưa phân loại --",
+    "trackOptions": {
+      "IELTS": "IELTS",
+      "CAMBRIDGE": "CAMBRIDGE"
+    },
     "totalPeriodsLabel": "Tổng số tiết",
     "passThresholdLabel": "Ngưỡng điểm đạt mặc định",
     "cancelButton": "Hủy",

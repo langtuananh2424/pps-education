@@ -592,10 +592,10 @@ class StudentServiceTest extends AbstractIntegrationTest {
 
     private CurriculumResponse newActiveCurriculum() {
         CurriculumResponse draft = curriculumService.create(
-                new CreateCurriculumRequest("CUR-" + SEQ.incrementAndGet(), "Chuẩn", "MAIN", null, null, null),
+                new CreateCurriculumRequest("CUR-" + SEQ.incrementAndGet(), "Chuẩn", "MAIN", null, null, null, null, null),
                 staff.getId());
         return curriculumService.update(draft.id(),
-                new UpdateCurriculumRequest("Chuẩn", null, null, null, "ACTIVE", false), staff.getId());
+                new UpdateCurriculumRequest("Chuẩn", null, null, null, null, null, "ACTIVE", false), staff.getId());
     }
 
     private ClassResponse newClass(Site site, CurriculumResponse curriculum, String codePrefix) {

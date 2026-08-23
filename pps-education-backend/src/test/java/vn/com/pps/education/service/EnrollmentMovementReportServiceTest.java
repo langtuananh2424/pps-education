@@ -101,9 +101,9 @@ class EnrollmentMovementReportServiceTest extends AbstractIntegrationTest {
         assignRole(headAcademic, "HEAD_ACADEMIC");
 
         var curriculum = curriculumService.create(
-                new CreateCurriculumRequest(curriculumCode(), "Chuẩn", "MAIN", null, null, null), headAcademic.getId());
+                new CreateCurriculumRequest(curriculumCode(), "Chuẩn", "MAIN", null, null, null, null, null), headAcademic.getId());
         var activeCurriculum = curriculumService.update(curriculum.id(),
-                new UpdateCurriculumRequest("Chuẩn", null, null, null, "ACTIVE", false), headAcademic.getId());
+                new UpdateCurriculumRequest("Chuẩn", null, null, null, null, null, "ACTIVE", false), headAcademic.getId());
 
         site = newSite();
         schoolClass = classService.create(
@@ -178,9 +178,9 @@ class EnrollmentMovementReportServiceTest extends AbstractIntegrationTest {
     void getStats_UC69_A2_rejectsClassOutsideTermSite() {
         Site otherSite = newSite();
         var otherCurriculum = curriculumService.create(
-                new CreateCurriculumRequest(curriculumCode(), "Chuẩn 2", "MAIN", null, null, null), headAcademic.getId());
+                new CreateCurriculumRequest(curriculumCode(), "Chuẩn 2", "MAIN", null, null, null, null, null), headAcademic.getId());
         var activeOtherCurriculum = curriculumService.update(otherCurriculum.id(),
-                new UpdateCurriculumRequest("Chuẩn 2", null, null, null, "ACTIVE", false), headAcademic.getId());
+                new UpdateCurriculumRequest("Chuẩn 2", null, null, null, null, null, "ACTIVE", false), headAcademic.getId());
         ClassResponse otherClass = classService.create(
                 new CreateClassRequest(classCode(), "9A1", otherSite.getId(), activeOtherCurriculum.id(), "OPEN", 20, null,
                         LocalDate.now().minusYears(1), null, null), headAcademic.getId());

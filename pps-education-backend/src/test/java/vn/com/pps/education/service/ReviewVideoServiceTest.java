@@ -130,9 +130,9 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         headAcademic = newUser("head.academic");
         assignRole(headAcademic, "HEAD_ACADEMIC");
         CurriculumResponse curriculum = curriculumService.create(
-                new CreateCurriculumRequest(curriculumCode(), "Chuẩn", "MAIN", null, null, null), headAcademic.getId());
+                new CreateCurriculumRequest(curriculumCode(), "Chuẩn", "MAIN", null, null, null, null, null), headAcademic.getId());
         activeCurriculum = curriculumService.update(curriculum.id(),
-                new UpdateCurriculumRequest("Chuẩn", null, null, null, "ACTIVE", false), headAcademic.getId());
+                new UpdateCurriculumRequest("Chuẩn", null, null, null, null, null, "ACTIVE", false), headAcademic.getId());
 
         Site site = newSite();
         schoolClass = classService.create(
@@ -1309,9 +1309,9 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
 
     private CurriculumResponse createActiveCurriculum() {
         CurriculumResponse raw = curriculumService.create(
-                new CreateCurriculumRequest(curriculumCode(), "Khung khác", "MAIN", null, null, null), headAcademic.getId());
+                new CreateCurriculumRequest(curriculumCode(), "Khung khác", "MAIN", null, null, null, null, null), headAcademic.getId());
         return curriculumService.update(raw.id(),
-                new UpdateCurriculumRequest("Khung khác", null, null, null, "ACTIVE", false), headAcademic.getId());
+                new UpdateCurriculumRequest("Khung khác", null, null, null, null, null, "ACTIVE", false), headAcademic.getId());
     }
 
     /** Tạo 1 lớp mới dưới khung chương trình cho trước + gán `teacher` (fixture) làm GV chủ nhiệm — dùng cho test cần lớp thứ 2. */
