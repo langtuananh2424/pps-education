@@ -8,17 +8,18 @@ import vn.com.pps.education.domain.ReviewVideo;
 import vn.com.pps.education.domain.ReviewVideoAssignment;
 import vn.com.pps.education.domain.ReviewVideoProgress;
 import vn.com.pps.education.domain.ReviewVideoQuestion;
-import vn.com.pps.education.domain.ReviewVideoQuestionSubmission;
 import vn.com.pps.education.domain.ReviewVideoSet;
 import vn.com.pps.education.repository.ExerciseAttemptRepository;
+import vn.com.pps.education.repository.ReflexQuestionProgressRepository;
 import vn.com.pps.education.repository.ReviewVideoProgressRepository;
 import vn.com.pps.education.repository.ReviewVideoQuestionRepository;
-import vn.com.pps.education.repository.ReviewVideoQuestionSubmissionRepository;
 import vn.com.pps.education.repository.ReviewVideoRepository;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Tính % tiến độ hoàn thành BTVN đã giao (Ngữ pháp online / Video Kết nối
@@ -34,18 +35,18 @@ public class HomeworkProgressService {
     private final ReviewVideoRepository reviewVideoRepository;
     private final ReviewVideoProgressRepository reviewVideoProgressRepository;
     private final ReviewVideoQuestionRepository reviewVideoQuestionRepository;
-    private final ReviewVideoQuestionSubmissionRepository reviewVideoQuestionSubmissionRepository;
+    private final ReflexQuestionProgressRepository reflexQuestionProgressRepository;
 
     public HomeworkProgressService(ExerciseAttemptRepository exerciseAttemptRepository,
                                     ReviewVideoRepository reviewVideoRepository,
                                     ReviewVideoProgressRepository reviewVideoProgressRepository,
                                     ReviewVideoQuestionRepository reviewVideoQuestionRepository,
-                                    ReviewVideoQuestionSubmissionRepository reviewVideoQuestionSubmissionRepository) {
+                                    ReflexQuestionProgressRepository reflexQuestionProgressRepository) {
         this.exerciseAttemptRepository = exerciseAttemptRepository;
         this.reviewVideoRepository = reviewVideoRepository;
         this.reviewVideoProgressRepository = reviewVideoProgressRepository;
         this.reviewVideoQuestionRepository = reviewVideoQuestionRepository;
-        this.reviewVideoQuestionSubmissionRepository = reviewVideoQuestionSubmissionRepository;
+        this.reflexQuestionProgressRepository = reflexQuestionProgressRepository;
     }
 
     /** % bài ngữ pháp online đã giao — "Chưa làm bài"/"Đang chờ chấm" nếu chưa có điểm cuối cùng. */
@@ -179,21 +180,25 @@ public class HomeworkProgressService {
      * giao (assignmentId) đang báo cáo — không tính lịch sử của lần giao
      * TRƯỚC (khác lần giao = "làm lại từ đầu", xem Javadoc
      * ReviewVideoService.submitQuestionAudio).
+     *
+     * V145 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23) — fix bug thật: vẫn đọc
+     * ReviewVideoQuestionSubmission (bảng của luồng CŨ "ghi âm theo mốc, nộp cả loạt cuối video, GV
+     * chấm tay") — REFLEX từ V139 đã chuyển hẳn sang ReflexSequentialGradingService/bảng
+     * reflex_question_progress, không còn tạo submission kiểu cũ nữa nên "CLIP PHẢN XẠ" ở bảng Nhận xét
+     * học viên luôn hiện 0%/"−" dù học sinh đã làm/đạt hết qua luồng mới (cùng gốc bug đã sửa ở
+     * AssignmentsTab.tsx/ReviewVideoReportService/ReviewVideoService#toAssignmentStats — xem đó để biết
+     * chi tiết). Đổi sang đọc reflex_question_progress — "đã trả lời" = có dòng progress cho câu đó.
      */
     private int reflexPercent(ReviewVideo v, Long studentId, Long assignmentId) {
         List<ReviewVideoQuestion> questions = reviewVideoQuestionRepository.findByReviewVideoIdOrderByDisplayOrder(v.getId());
         if (questions.isEmpty()) {
             return 0;
         }
-        int answeredCount = 0;
-        for (ReviewVideoQuestion q : questions) {
-            List<ReviewVideoQuestionSubmission> submissions = reviewVideoQuestionSubmissionRepository
-                    .findByReviewVideoQuestionIdAndStudentIdAndReviewVideoAssignmentIdOrderByAttemptNumberDesc(
-                            q.getId(), studentId, assignmentId);
-            if (!submissions.isEmpty()) {
-                answeredCount++;
-            }
-        }
+        Set<Long> answeredQuestionIds = reflexQuestionProgressRepository
+                .findByReviewVideoAssignmentIdAndStudentId(assignmentId, studentId).stream()
+                .map(p -> p.getReviewVideoQuestion().getId())
+                .collect(Collectors.toSet());
+        long answeredCount = questions.stream().filter(q -> answeredQuestionIds.contains(q.getId())).count();
         return Math.round(answeredCount * 100f / questions.size());
     }
 }
