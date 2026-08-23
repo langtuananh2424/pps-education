@@ -232,7 +232,38 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
     else if (mediaRef.current) mediaRef.current.currentTime = seconds;
   };
 
+  /**
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — CÂU CUỐI không có mốc câu kế tiếp để
+   * tự dừng theo (khác các câu giữa, xem handleTimeUpdate) — nếu bắt chờ video phát hết TOÀN BỘ FILE mới
+   * mở bảng thì có thể rất lâu nếu đoạn cuối video còn nội dung dài không liên quan. Theo yêu cầu người
+   * dùng "video với câu voice khớp với nhau, câu voice ghi khi câu hỏi bắt đầu" — dùng CHÍNH
+   * `maxRecordingSeconds` đã có sẵn của câu cuối (GV đã tự cân đối cho vừa độ dài câu hỏi/câu trả lời)
+   * làm giới hạn CHỜ TỐI ĐA sau khi vào câu cuối — video kết thúc tự nhiên SỚM hơn vẫn dùng `ended` bình
+   * thường (huỷ timeout này), trễ hơn thì hết giờ tự mở bảng, không bắt học sinh ngồi chờ hết cả video.
+   */
+  const lastQuestionTimeoutRef = useRef<number | null>(null);
+  const clearLastQuestionTimeout = () => {
+    if (lastQuestionTimeoutRef.current != null) {
+      window.clearTimeout(lastQuestionTimeoutRef.current);
+      lastQuestionTimeoutRef.current = null;
+    }
+  };
+  const scheduleLastQuestionFallback = () => {
+    clearLastQuestionTimeout();
+    const idx = firstPendingQuestionIndex();
+    if (idx === -1 || questions[idx + 1]) return; // không phải câu cuối — không cần fallback
+    const lastQuestion = questions[idx];
+    lastQuestionTimeoutRef.current = window.setTimeout(() => {
+      lastQuestionTimeoutRef.current = null;
+      if (activeQuestionIdRef.current != null) return;
+      activateQuestion(lastQuestion);
+    }, lastQuestion.maxRecordingSeconds * 1000);
+  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => () => clearLastQuestionTimeout(), []);
+
   const activateQuestion = (q: ReviewVideoQuestionResponse) => {
+    clearLastQuestionTimeout();
     setActiveQuestionId(q.id);
     pauseVideo();
     const p = progressRef.current[q.id];
@@ -294,6 +325,7 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
     const idx = firstPendingQuestionIndex();
     if (idx > 0) seekTo(questions[idx].timestampSeconds);
     resumeVideo();
+    scheduleLastQuestionFallback();
   };
   const playFromResumePointRef = useRef(playFromResumePoint);
   playFromResumePointRef.current = playFromResumePoint;
@@ -457,6 +489,7 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
     // Video đã dừng SẴN đúng chỗ (mốc câu vừa đạt) — chỉ cần phát tiếp, không seek. Xem ghi chú ở
     // firstPendingQuestionIndex/handleTimeUpdate về cơ chế "phát tới mốc câu kế tiếp rồi mới dừng".
     resumeVideo();
+    scheduleLastQuestionFallback();
   };
 
   // Ghi âm dừng (hết giờ hoặc học sinh bấm dừng) → tự động nộp ngay, không cần bấm thêm nút "Nộp bài".
