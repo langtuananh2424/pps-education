@@ -783,6 +783,8 @@ export interface ExerciseQuestionChoiceResponse {
   id: number;
   choiceLabel: string;
   content: string;
+  /** V143 — ảnh riêng cho lựa chọn (câu hỏi Listening dạng chọn đáp án bằng hình), NULL = đáp án chữ. */
+  imageUrl: string | null;
   displayOrder: number;
 }
 

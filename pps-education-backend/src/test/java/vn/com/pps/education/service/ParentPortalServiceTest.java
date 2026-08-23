@@ -387,7 +387,7 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
         QuestionResponse question = examQuestionService.createQuestion(exam.id(),
                 new CreateExamQuestionRequest("MULTIPLE_CHOICE", "GRAMMAR", "EASY", "She ___ to school.",
                         null, null, null, null, null, new BigDecimal("1.0"), null,
-                        List.of(new QuestionChoiceRequest("A", "go", false, 1), new QuestionChoiceRequest("B", "goes", true, 2)), null, null),
+                        List.of(new QuestionChoiceRequest("A", "go", null, false, 1), new QuestionChoiceRequest("B", "goes", null, true, 2)), null, null),
                 teacher.getId());
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Bài ngữ pháp homework", exam.id(), null,

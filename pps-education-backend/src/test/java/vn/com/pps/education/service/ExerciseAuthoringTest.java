@@ -694,8 +694,8 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
                 new CreateExamQuestionRequest("MULTIPLE_CHOICE", "GRAMMAR", "EASY",
                         "She ___ to school every day.", null, null, null, null, null, new BigDecimal("1.0"), null,
                         List.of(
-                                new QuestionChoiceRequest("A", "go", false, 1),
-                                new QuestionChoiceRequest("B", "goes", true, 2)), null, null),
+                                new QuestionChoiceRequest("A", "go", null, false, 1),
+                                new QuestionChoiceRequest("B", "goes", null, true, 2)), null, null),
                 teacher.getId());
     }
 
@@ -705,8 +705,8 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
                 new CreateQuestionRequest(bank.id(), "MULTIPLE_CHOICE", "GRAMMAR", "EASY",
                         "She ___ to school every day.", null, null, null, null, null, new BigDecimal("1.0"), null,
                         List.of(
-                                new QuestionChoiceRequest("A", "go", false, 1),
-                                new QuestionChoiceRequest("B", "goes", true, 2)), null, null),
+                                new QuestionChoiceRequest("A", "go", null, false, 1),
+                                new QuestionChoiceRequest("B", "goes", null, true, 2)), null, null),
                 teacher.getId());
     }
 

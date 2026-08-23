@@ -768,7 +768,43 @@ function QuestionBlock({
 
       <ListeningAudioBlock question={question} onEnded={() => onListeningEnded(question)} />
 
-      {isChoiceQuestion ? (
+      {isChoiceQuestion && question.choices.some((c) => c.imageUrl) ? (
+        // V143 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23) — Listening "chọn đáp án
+        // bằng hình": mỗi lựa chọn là 1 ảnh, hiện dạng lưới bấm-chọn thay vì dòng chữ. Logic chọn/lưu
+        // đáp án dùng chung y hệt nhánh chữ bên dưới (toggleChoice/selected/correctIds).
+        <div className="grid grid-cols-2 gap-2 lg:gap-3">
+          {question.choices.map((c) => {
+            const isSelected = selected.has(c.id);
+            const isCorrectChoice = correctIds.has(c.id);
+            let stateClass = "border-line/70 bg-sky-2 hover:bg-sky";
+            if (showFeedback) {
+              if (isCorrectChoice) stateClass = "border-teal bg-teal/10";
+              else if (isSelected) stateClass = "border-coral bg-coral/10";
+            } else if (isSelected) {
+              stateClass = "border-teal bg-teal/10";
+            }
+            return (
+              <button
+                key={c.id}
+                type="button"
+                disabled={readOnly || saving}
+                onClick={() => toggleChoice(c.id)}
+                className={`relative text-left rounded-xl border-2 overflow-hidden transition-colors ${stateClass} disabled:cursor-default`}
+              >
+                <img src={c.imageUrl ?? undefined} alt={c.content} className="w-full aspect-square object-cover" />
+                <span className="flex items-center justify-between gap-1 px-2 py-1.5 text-[11px] sm:text-xs font-bold">
+                  <span>
+                    <span className="text-muted mr-1">{c.choiceLabel}.</span>
+                    {c.content}
+                  </span>
+                  {showFeedback && isCorrectChoice && <CheckCircle2 size={14} className="text-teal-deep shrink-0" />}
+                  {showFeedback && !isCorrectChoice && isSelected && <XCircle size={14} className="text-coral shrink-0" />}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      ) : isChoiceQuestion ? (
         <div className="space-y-2 lg:space-y-2.5">
           {question.choices.map((c) => {
             const isSelected = selected.has(c.id);

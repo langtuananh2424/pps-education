@@ -293,6 +293,7 @@ public class QuestionBankService {
             choice.setQuestion(question);
             choice.setChoiceLabel(c.choiceLabel());
             choice.setContent(c.content());
+            choice.setImageUrl(c.imageUrl());
             choice.setCorrect(c.isCorrect());
             choice.setDisplayOrder(c.displayOrder());
             questionChoiceRepository.save(choice);
@@ -367,6 +368,6 @@ public class QuestionBankService {
     }
 
     private QuestionChoiceResponse toResponse(QuestionChoice c) {
-        return new QuestionChoiceResponse(c.getId(), c.getChoiceLabel(), c.getContent(), c.isCorrect(), c.getDisplayOrder());
+        return new QuestionChoiceResponse(c.getId(), c.getChoiceLabel(), c.getContent(), c.getImageUrl(), c.isCorrect(), c.getDisplayOrder());
     }
 }

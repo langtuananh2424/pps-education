@@ -302,7 +302,7 @@ public class QuestionImportService {
         List<QuestionChoiceRequest> choices = new ArrayList<>();
         for (int i = 0; i < 4; i++) {
             String label = String.valueOf((char) ('A' + i));
-            choices.add(new QuestionChoiceRequest(label, contents.get(i), label.equals(correctLetter), i + 1));
+            choices.add(new QuestionChoiceRequest(label, contents.get(i), null, label.equals(correctLetter), i + 1));
         }
         return choices;
     }

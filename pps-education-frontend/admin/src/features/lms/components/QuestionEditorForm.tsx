@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Blocks, Check, CheckSquare, FileText, Headphones, ListOrdered, Mic, PenLine, SplitSquareHorizontal, Volume2, X } from "lucide-react";
+import { Blocks, Check, CheckSquare, FileText, Headphones, Image as ImageIcon, ListOrdered, Mic, PenLine, SplitSquareHorizontal, Volume2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import Button from "@/components/ui/Button";
@@ -11,16 +11,18 @@ const inputClass = "w-full bg-white border border-slate-200 text-xs px-3.5 py-2 
 const labelClass = "block font-bold text-slate-700 mb-1 uppercase tracking-wider text-[10px]";
 
 /**
- * 9 loại — 5 loại gốc (theo bản thiết kế tham chiếu + Điền từ, bổ sung 2026-07-28 sau khi backend
- * thêm tự chấm FILL_IN_BLANK — V54) + 4 loại mới (V78, bổ sung ngoài SDD gốc, đã xác nhận với người
- * dùng 2026-08-04, dựa trên 1 đề tiếng Anh mẫu người dùng cung cấp — 5 dạng bài GV Việt Nam +
- * "Nghe & nộp audio" GV nước ngoài). "Trắc nghiệm Voice"/"Chọn từ trong câu"/"Nghe & nộp audio"
- * KHÔNG phải giá trị enum riêng ở backend — là MULTIPLE_CHOICE/SPEAKING + skill tương ứng (kind ảo
- * chỉ tồn tại ở FE để hiện UI phù hợp).
+ * 10 loại — 5 loại gốc (theo bản thiết kế tham chiếu + Điền từ, bổ sung 2026-07-28 sau khi backend
+ * thêm tự chấm FILL_IN_BLANK — V54) + 4 loại V78 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+ * 2026-08-04, dựa trên 1 đề tiếng Anh mẫu người dùng cung cấp — 5 dạng bài GV Việt Nam + "Nghe & nộp
+ * audio" GV nước ngoài) + 1 loại V143 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 —
+ * "Bài nghe" chọn đáp án bằng hình). "Trắc nghiệm Voice"/"Chọn từ trong câu"/"Nghe & nộp audio"/
+ * "Nghe chọn hình" KHÔNG phải giá trị enum riêng ở backend — là MULTIPLE_CHOICE/SPEAKING + skill
+ * tương ứng (kind ảo chỉ tồn tại ở FE để hiện UI phù hợp).
  */
 type UiQuestionKind =
   | "MULTIPLE_CHOICE"
   | "VOICE_MULTIPLE_CHOICE"
+  | "VOICE_PICTURE_CHOICE"
   | "INLINE_CHOICE"
   | "FILL_IN_BLANK"
   | "WORD_BANK"
@@ -33,6 +35,7 @@ type UiQuestionKind =
 const kindMeta: Record<UiQuestionKind, { icon: typeof CheckSquare; activeClass: string; iconClass: string }> = {
   MULTIPLE_CHOICE: { icon: CheckSquare, activeClass: "bg-emerald-50 border-emerald-400 text-emerald-800 ring-1 ring-emerald-300", iconClass: "text-emerald-600" },
   VOICE_MULTIPLE_CHOICE: { icon: Volume2, activeClass: "bg-blue-50 border-blue-400 text-blue-800 ring-1 ring-blue-300", iconClass: "text-blue-600" },
+  VOICE_PICTURE_CHOICE: { icon: ImageIcon, activeClass: "bg-indigo-50 border-indigo-400 text-indigo-800 ring-1 ring-indigo-300", iconClass: "text-indigo-600" },
   INLINE_CHOICE: { icon: SplitSquareHorizontal, activeClass: "bg-teal-50 border-teal-400 text-teal-800 ring-1 ring-teal-300", iconClass: "text-teal-600" },
   FILL_IN_BLANK: { icon: PenLine, activeClass: "bg-amber-50 border-amber-400 text-amber-800 ring-1 ring-amber-300", iconClass: "text-amber-600" },
   WORD_BANK: { icon: Blocks, activeClass: "bg-orange-50 border-orange-400 text-orange-800 ring-1 ring-orange-300", iconClass: "text-orange-600" },
@@ -43,6 +46,49 @@ const kindMeta: Record<UiQuestionKind, { icon: typeof CheckSquare; activeClass: 
   LISTENING_FILL_IN_BLANK: { icon: PenLine, activeClass: "bg-violet-50 border-violet-400 text-violet-800 ring-1 ring-violet-300", iconClass: "text-violet-600" }
 };
 
+/** V143 — style riêng cho khối audio theo từng kind cần audio (thay chuỗi ternary lồng nhau trước đây). */
+const AUDIO_SECTION_STYLE: Partial<Record<UiQuestionKind, { box: string; title: string; icon: typeof Volume2; icon2: string }>> = {
+  VOICE_MULTIPLE_CHOICE: { box: "bg-blue-50/40 border-blue-200", title: "text-blue-900", icon: Volume2, icon2: "text-blue-600" },
+  VOICE_PICTURE_CHOICE: { box: "bg-indigo-50/40 border-indigo-200", title: "text-indigo-900", icon: ImageIcon, icon2: "text-indigo-600" },
+  LISTENING_FILL_IN_BLANK: { box: "bg-violet-50/40 border-violet-200", title: "text-violet-900", icon: PenLine, icon2: "text-violet-600" },
+  LISTENING_AUDIO_SUBMISSION: { box: "bg-sky-50/40 border-sky-200", title: "text-sky-900", icon: Headphones, icon2: "text-sky-600" }
+};
+
+/**
+ * V143 — audio TÙY CHỌN cho WORD_BANK/SENTENCE_BUILDING (khác khối audio bắt buộc ở AUDIO_SECTION_STYLE
+ * — không đổi kind/questionType, chỉ đính kèm thêm nếu GV thật sự tải file lên).
+ */
+function OptionalAudioFields({
+  audioUrl,
+  setAudioUrl,
+  transcript,
+  setTranscript,
+  label
+}: {
+  audioUrl: string;
+  setAudioUrl: (v: string) => void;
+  transcript: string;
+  setTranscript: (v: string) => void;
+  label: string;
+}) {
+  const { t } = useTranslation("lms-question-authoring");
+  return (
+    <div className="bg-white/70 p-3 rounded-lg border border-slate-200 space-y-2">
+      <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">{label}</span>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div>
+          <label className="block font-bold text-slate-600 mb-1 text-[9px] uppercase">{t("common.audioFileLabel")}</label>
+          <FileUploadField value={audioUrl} onChange={setAudioUrl} onUpload={(file) => uploadMedia(file, "LMS_QUESTION")} accept="audio/*" placeholder={t("common.chooseAudioFile")} />
+        </div>
+        <div>
+          <label className="block font-bold text-slate-600 mb-1 text-[9px] uppercase">{t("common.transcriptLabel")}</label>
+          <input value={transcript} onChange={(e) => setTranscript(e.target.value)} placeholder={t("common.transcriptPlaceholder")} className={inputClass} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function toKind(question?: QuestionResponse): UiQuestionKind {
   if (!question) return "MULTIPLE_CHOICE";
   if (question.questionType === "ESSAY") return "ESSAY";
@@ -51,6 +97,7 @@ function toKind(question?: QuestionResponse): UiQuestionKind {
   if (question.questionType === "WORD_BANK") return "WORD_BANK";
   if (question.questionType === "SENTENCE_BUILDING") return "SENTENCE_BUILDING";
   if (question.questionType === "MULTIPLE_CHOICE" && question.skill !== "LISTENING" && question.choices?.length === 2) return "INLINE_CHOICE";
+  if (question.questionType === "MULTIPLE_CHOICE" && question.skill === "LISTENING" && question.choices?.some((c) => c.imageUrl)) return "VOICE_PICTURE_CHOICE";
   return question.skill === "LISTENING" ? "VOICE_MULTIPLE_CHOICE" : "MULTIPLE_CHOICE";
 }
 
@@ -89,6 +136,12 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
   );
   const [correctIndex, setCorrectIndex] = useState<number>(existingQuestion?.choices?.findIndex((c) => c.isCorrect) ?? 0);
 
+  // V143: Nghe chọn hình — 1 ảnh riêng cho mỗi lựa chọn (song song với `options`, dùng làm chú thích
+  // tuỳ chọn khi ở kind này). Rỗng/không dùng ở mọi kind khác.
+  const [choiceImageUrls, setChoiceImageUrls] = useState<string[]>(
+    existingQuestion?.choices?.length ? existingQuestion.choices.map((c) => c.imageUrl ?? "") : ["", "", "", ""]
+  );
+
   // Trắc nghiệm Voice / Nghe & nộp audio: file audio + transcript (referencePassage).
   const [audioUrl, setAudioUrl] = useState(existingQuestion?.audioUrl ?? "");
   const [transcript, setTranscript] = useState(existingQuestion?.referencePassage ?? "");
@@ -120,9 +173,11 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
     if (isEditing) return;
     if (value === "INLINE_CHOICE" && options.length !== 2) {
       setOptions(["", ""]);
+      setChoiceImageUrls(["", ""]);
       setCorrectIndex(0);
-    } else if ((value === "MULTIPLE_CHOICE" || value === "VOICE_MULTIPLE_CHOICE") && options.length !== 4) {
+    } else if ((value === "MULTIPLE_CHOICE" || value === "VOICE_MULTIPLE_CHOICE" || value === "VOICE_PICTURE_CHOICE") && options.length !== 4) {
       setOptions(["", "", "", ""]);
+      setChoiceImageUrls(["", "", "", ""]);
       setCorrectIndex(0);
     }
   };
@@ -137,14 +192,22 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
   const handleAddOption = () => {
     if (options.length >= MAX_CHOICES) return;
     setOptions((prev) => [...prev, ""]);
+    setChoiceImageUrls((prev) => [...prev, ""]);
   };
   const handleRemoveOption = (idx: number) => {
     if (options.length <= 2) return;
     setOptions((prev) => prev.filter((_, i) => i !== idx));
+    setChoiceImageUrls((prev) => prev.filter((_, i) => i !== idx));
     setCorrectIndex((prev) => (prev === idx ? 0 : prev > idx ? prev - 1 : prev));
   };
 
-  const isVoiceOrListeningAudio = kind === "VOICE_MULTIPLE_CHOICE" || kind === "LISTENING_AUDIO_SUBMISSION" || kind === "LISTENING_FILL_IN_BLANK";
+  const isVoiceOrListeningAudio = kind === "VOICE_MULTIPLE_CHOICE" || kind === "VOICE_PICTURE_CHOICE" || kind === "LISTENING_AUDIO_SUBMISSION" || kind === "LISTENING_FILL_IN_BLANK";
+  /**
+   * V143 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23) — Điền từ - Hộp từ vựng/Sắp
+   * xếp câu cho phép KÈM audio nghe TÙY CHỌN (khác isVoiceOrListeningAudio ở trên — audio KHÔNG bắt
+   * buộc, không đổi questionType/kind riêng, chỉ set thêm skill=LISTENING lúc lưu nếu có audio).
+   */
+  const supportsOptionalAudio = kind === "WORD_BANK" || kind === "SENTENCE_BUILDING";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -155,22 +218,37 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
       return;
     }
 
-    const isChoiceKind = kind === "MULTIPLE_CHOICE" || kind === "VOICE_MULTIPLE_CHOICE" || kind === "INLINE_CHOICE";
+    const isChoiceKind = kind === "MULTIPLE_CHOICE" || kind === "VOICE_MULTIPLE_CHOICE" || kind === "VOICE_PICTURE_CHOICE" || kind === "INLINE_CHOICE";
     let choices: QuestionChoiceRequest[] | undefined;
     if (isChoiceKind) {
-      if (options.some((o) => !o.trim())) {
+      if (kind === "VOICE_PICTURE_CHOICE") {
+        if (choiceImageUrls.some((u) => !u.trim())) {
+          setError(t("questionEditorForm.errors.choiceImagesRequired", { count: options.length }));
+          return;
+        }
+      } else if (options.some((o) => !o.trim())) {
         setError(t("questionEditorForm.errors.fillAllOptions", { count: options.length }));
         return;
       }
-      choices = options.map((content_, i) => ({ choiceLabel: String.fromCharCode(65 + i), content: content_.trim(), isCorrect: i === correctIndex, displayOrder: i + 1 }));
+      choices = options.map((content_, i) => ({
+        choiceLabel: String.fromCharCode(65 + i),
+        // V143: ở dạng chọn hình, chú thích là TÙY CHỌN (content vẫn @NotBlank ở backend) — mặc định
+        // dùng chính nhãn chữ cái (A/B/C/D) khi GV để trống, chỉ đóng vai trò alt-text.
+        content: kind === "VOICE_PICTURE_CHOICE" ? content_.trim() || String.fromCharCode(65 + i) : content_.trim(),
+        imageUrl: kind === "VOICE_PICTURE_CHOICE" ? choiceImageUrls[i]?.trim() || undefined : undefined,
+        isCorrect: i === correctIndex,
+        displayOrder: i + 1
+      }));
     }
     if (isVoiceOrListeningAudio && !audioUrl.trim()) {
       setError(
         kind === "VOICE_MULTIPLE_CHOICE"
           ? t("questionEditorForm.errors.audioRequiredVoice")
-          : kind === "LISTENING_FILL_IN_BLANK"
-            ? t("questionEditorForm.errors.audioRequiredListeningFillInBlank")
-            : t("questionEditorForm.errors.audioRequiredListeningSubmission")
+          : kind === "VOICE_PICTURE_CHOICE"
+            ? t("questionEditorForm.errors.audioRequiredVoicePicture")
+            : kind === "LISTENING_FILL_IN_BLANK"
+              ? t("questionEditorForm.errors.audioRequiredListeningFillInBlank")
+              : t("questionEditorForm.errors.audioRequiredListeningSubmission")
       );
       return;
     }
@@ -197,12 +275,15 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
     setSubmitting(true);
     try {
       let result: QuestionResponse;
+      // V143: audio ở WORD_BANK/SENTENCE_BUILDING là TÙY CHỌN — chỉ set khi GV thật sự gắn file.
+      const includeAudio = isVoiceOrListeningAudio || (supportsOptionalAudio && !!audioUrl.trim());
+      const resolvedSkill = isVoiceOrListeningAudio || (supportsOptionalAudio && !!audioUrl.trim()) ? "LISTENING" : kind === "SPEAKING" ? "SPEAKING" : undefined;
       if (isEditing && existingQuestion) {
         const updateRequest = {
           content: content.trim(),
-          audioUrl: isVoiceOrListeningAudio ? audioUrl.trim() || undefined : undefined,
+          audioUrl: includeAudio ? audioUrl.trim() || undefined : undefined,
           imageUrl: kind === "ESSAY" ? imageUrl.trim() || undefined : undefined,
-          referencePassage: isVoiceOrListeningAudio ? transcript.trim() || undefined : kind === "SPEAKING" ? phoneticKeywords.trim() || undefined : undefined,
+          referencePassage: includeAudio ? transcript.trim() || undefined : kind === "SPEAKING" ? phoneticKeywords.trim() || undefined : undefined,
           explanation: explanation.trim() || undefined,
           correctAnswerText: kind === "FILL_IN_BLANK" || kind === "LISTENING_FILL_IN_BLANK" ? correctAnswerText.trim() || undefined : undefined,
           structuredContent,
@@ -213,7 +294,7 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
           : await updateQuestion(existingQuestion.id, updateRequest);
       } else {
         const questionType: QuestionType =
-          kind === "VOICE_MULTIPLE_CHOICE" || kind === "INLINE_CHOICE"
+          kind === "VOICE_MULTIPLE_CHOICE" || kind === "VOICE_PICTURE_CHOICE" || kind === "INLINE_CHOICE"
             ? "MULTIPLE_CHOICE"
             : kind === "LISTENING_AUDIO_SUBMISSION"
               ? "SPEAKING"
@@ -222,12 +303,12 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
                 : kind;
         const request: CreateExamQuestionRequest = {
           questionType,
-          skill: isVoiceOrListeningAudio ? "LISTENING" : kind === "SPEAKING" ? "SPEAKING" : undefined,
+          skill: resolvedSkill,
           difficulty,
           content: content.trim(),
-          audioUrl: isVoiceOrListeningAudio ? audioUrl.trim() || undefined : undefined,
+          audioUrl: includeAudio ? audioUrl.trim() || undefined : undefined,
           imageUrl: kind === "ESSAY" ? imageUrl.trim() || undefined : undefined,
-          referencePassage: isVoiceOrListeningAudio ? transcript.trim() || undefined : kind === "SPEAKING" ? phoneticKeywords.trim() || undefined : undefined,
+          referencePassage: includeAudio ? transcript.trim() || undefined : kind === "SPEAKING" ? phoneticKeywords.trim() || undefined : undefined,
           explanation: explanation.trim() || undefined,
           correctAnswerText: kind === "FILL_IN_BLANK" || kind === "LISTENING_FILL_IN_BLANK" ? correctAnswerText.trim() || undefined : undefined,
           structuredContent,
@@ -312,39 +393,74 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
         />
       </div>
 
-      {(kind === "MULTIPLE_CHOICE" || kind === "VOICE_MULTIPLE_CHOICE" || kind === "INLINE_CHOICE") && (
+      {(kind === "MULTIPLE_CHOICE" || kind === "VOICE_MULTIPLE_CHOICE" || kind === "VOICE_PICTURE_CHOICE" || kind === "INLINE_CHOICE") && (
         <div className="space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-200">
           <div className="flex items-center justify-between mb-1">
             <span className="font-bold text-slate-700 uppercase tracking-wider text-[9px]">{t("questionEditorForm.choicesSectionTitle", { count: options.length })}</span>
             <span className="text-[9px] text-slate-400 font-bold">{t("questionEditorForm.choicesHint")}</span>
           </div>
           {kind === "INLINE_CHOICE" && <p className="text-[9px] text-slate-400">{t("questionEditorForm.inlineChoiceHint")}</p>}
+          {kind === "VOICE_PICTURE_CHOICE" && <p className="text-[9px] text-slate-400">{t("questionEditorForm.picChoiceHint")}</p>}
           <div className="space-y-2">
-            {options.map((opt, idx) => (
-              <div key={idx} className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setCorrectIndex(idx)}
-                  className={`w-6 h-6 rounded-full border flex items-center justify-center font-bold shrink-0 text-[10px] transition-all ${
-                    correctIndex === idx ? "bg-emerald-500 border-emerald-500 text-white" : "bg-white border-slate-300 text-slate-400 hover:border-slate-400"
-                  }`}
-                >
-                  {correctIndex === idx ? <Check className="w-3.5 h-3.5 stroke-[3]" /> : String.fromCharCode(65 + idx)}
-                </button>
-                <input
-                  required
-                  value={opt}
-                  onChange={(e) => setOptions((prev) => prev.map((o, i) => (i === idx ? e.target.value : o)))}
-                  placeholder={t("common.answerOptionPlaceholder", { letter: String.fromCharCode(65 + idx) })}
-                  className={`flex-1 ${inputClass}`}
-                />
-                {kind !== "INLINE_CHOICE" && options.length > 2 && (
-                  <button type="button" onClick={() => handleRemoveOption(idx)} className="text-slate-400 hover:text-rose-600 shrink-0">
-                    <X className="w-3.5 h-3.5" />
+            {options.map((opt, idx) =>
+              kind === "VOICE_PICTURE_CHOICE" ? (
+                <div key={idx} className="flex items-start gap-2 bg-white p-2.5 rounded-lg border border-slate-200">
+                  <button
+                    type="button"
+                    onClick={() => setCorrectIndex(idx)}
+                    className={`w-6 h-6 rounded-full border flex items-center justify-center font-bold shrink-0 text-[10px] transition-all mt-1 ${
+                      correctIndex === idx ? "bg-emerald-500 border-emerald-500 text-white" : "bg-white border-slate-300 text-slate-400 hover:border-slate-400"
+                    }`}
+                  >
+                    {correctIndex === idx ? <Check className="w-3.5 h-3.5 stroke-[3]" /> : String.fromCharCode(65 + idx)}
                   </button>
-                )}
-              </div>
-            ))}
+                  <div className="flex-1 space-y-1.5">
+                    <FileUploadField
+                      value={choiceImageUrls[idx] ?? ""}
+                      onChange={(v) => setChoiceImageUrls((prev) => prev.map((u, i) => (i === idx ? v : u)))}
+                      onUpload={(file) => uploadMedia(file, "LMS_QUESTION")}
+                      accept="image/*"
+                      placeholder={t("questionEditorForm.choiceImagePlaceholder", { letter: String.fromCharCode(65 + idx) })}
+                    />
+                    <input
+                      value={opt}
+                      onChange={(e) => setOptions((prev) => prev.map((o, i) => (i === idx ? e.target.value : o)))}
+                      placeholder={t("questionEditorForm.choiceCaptionPlaceholder")}
+                      className={`w-full ${inputClass}`}
+                    />
+                  </div>
+                  {options.length > 2 && (
+                    <button type="button" onClick={() => handleRemoveOption(idx)} className="text-slate-400 hover:text-rose-600 shrink-0 mt-1">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div key={idx} className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCorrectIndex(idx)}
+                    className={`w-6 h-6 rounded-full border flex items-center justify-center font-bold shrink-0 text-[10px] transition-all ${
+                      correctIndex === idx ? "bg-emerald-500 border-emerald-500 text-white" : "bg-white border-slate-300 text-slate-400 hover:border-slate-400"
+                    }`}
+                  >
+                    {correctIndex === idx ? <Check className="w-3.5 h-3.5 stroke-[3]" /> : String.fromCharCode(65 + idx)}
+                  </button>
+                  <input
+                    required
+                    value={opt}
+                    onChange={(e) => setOptions((prev) => prev.map((o, i) => (i === idx ? e.target.value : o)))}
+                    placeholder={t("common.answerOptionPlaceholder", { letter: String.fromCharCode(65 + idx) })}
+                    className={`flex-1 ${inputClass}`}
+                  />
+                  {kind !== "INLINE_CHOICE" && options.length > 2 && (
+                    <button type="button" onClick={() => handleRemoveOption(idx)} className="text-slate-400 hover:text-rose-600 shrink-0">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              )
+            )}
           </div>
           {kind !== "INLINE_CHOICE" && options.length < MAX_CHOICES && (
             <Button type="button" variant="secondary" size="sm" onClick={handleAddOption}>
@@ -355,23 +471,12 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
       )}
 
       {isVoiceOrListeningAudio && (
-        <div
-          className={`p-4 rounded-xl border space-y-3 ${
-            kind === "VOICE_MULTIPLE_CHOICE" ? "bg-blue-50/40 border-blue-200" : kind === "LISTENING_FILL_IN_BLANK" ? "bg-violet-50/40 border-violet-200" : "bg-sky-50/40 border-sky-200"
-          }`}
-        >
-          <div
-            className={`flex items-center gap-1 font-bold uppercase tracking-wider text-[9px] ${
-              kind === "VOICE_MULTIPLE_CHOICE" ? "text-blue-900" : kind === "LISTENING_FILL_IN_BLANK" ? "text-violet-900" : "text-sky-900"
-            }`}
-          >
-            {kind === "VOICE_MULTIPLE_CHOICE" ? (
-              <Volume2 className="w-4 h-4 text-blue-600" />
-            ) : kind === "LISTENING_FILL_IN_BLANK" ? (
-              <PenLine className="w-4 h-4 text-violet-600" />
-            ) : (
-              <Headphones className="w-4 h-4 text-sky-600" />
-            )}
+        <div className={`p-4 rounded-xl border space-y-3 ${AUDIO_SECTION_STYLE[kind]?.box ?? "bg-sky-50/40 border-sky-200"}`}>
+          <div className={`flex items-center gap-1 font-bold uppercase tracking-wider text-[9px] ${AUDIO_SECTION_STYLE[kind]?.title ?? "text-sky-900"}`}>
+            {(() => {
+              const Icon = AUDIO_SECTION_STYLE[kind]?.icon ?? Headphones;
+              return <Icon className={`w-4 h-4 ${AUDIO_SECTION_STYLE[kind]?.icon2 ?? "text-sky-600"}`} />;
+            })()}
             <span>{t("questionEditorForm.audioSectionTitle")}</span>
           </div>
           {kind === "LISTENING_AUDIO_SUBMISSION" && (
@@ -379,6 +484,9 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
           )}
           {kind === "LISTENING_FILL_IN_BLANK" && (
             <p className="text-[9px] text-slate-400">{t("questionEditorForm.listeningFillInBlankHint")}</p>
+          )}
+          {kind === "VOICE_PICTURE_CHOICE" && (
+            <p className="text-[9px] text-slate-400">{t("questionEditorForm.voicePictureChoiceHint")}</p>
           )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
@@ -400,6 +508,13 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
             <span>{t("questionEditorForm.wordBankSectionTitle")}</span>
           </div>
           <p className="text-[9px] text-slate-400">{t("questionEditorForm.wordBankHint")}</p>
+          <OptionalAudioFields
+            audioUrl={audioUrl}
+            setAudioUrl={setAudioUrl}
+            transcript={transcript}
+            setTranscript={setTranscript}
+            label={t("questionEditorForm.optionalAudioLabel")}
+          />
           <div className="space-y-2">
             {wordBankBlanks.map((b, idx) => (
               <div key={idx} className="flex items-center gap-2">
@@ -436,6 +551,13 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
             <span>{t("questionEditorForm.sentenceBuildingSectionTitle")}</span>
           </div>
           <p className="text-[9px] text-slate-400">{t("questionEditorForm.sentenceBuildingHint")}</p>
+          <OptionalAudioFields
+            audioUrl={audioUrl}
+            setAudioUrl={setAudioUrl}
+            transcript={transcript}
+            setTranscript={setTranscript}
+            label={t("questionEditorForm.optionalAudioLabel")}
+          />
           <div className="space-y-2">
             {sentenceChunks.map((c, idx) => (
               <div key={idx} className="flex items-center gap-2">

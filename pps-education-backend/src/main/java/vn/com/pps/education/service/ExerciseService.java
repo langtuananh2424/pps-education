@@ -666,7 +666,7 @@ public class ExerciseService {
 
     /** Map phương án cho HS chọn — KHÔNG lộ is_correct (xem ExerciseQuestionChoiceResponse). */
     private ExerciseQuestionChoiceResponse toChoiceResponse(QuestionChoice c) {
-        return new ExerciseQuestionChoiceResponse(c.getId(), c.getChoiceLabel(), c.getContent(), c.getDisplayOrder());
+        return new ExerciseQuestionChoiceResponse(c.getId(), c.getChoiceLabel(), c.getContent(), c.getImageUrl(), c.getDisplayOrder());
     }
 
     private ExerciseAssignmentResponse toResponse(ExerciseAssignment a) {
