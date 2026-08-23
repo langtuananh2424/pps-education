@@ -35,6 +35,37 @@ interface TakeExerciseModalProps {
 
 const CHOICE_TYPES = new Set(["MULTIPLE_CHOICE", "MULTIPLE_ANSWER", "TRUE_FALSE"]);
 
+const SEEK_TOLERANCE_SECONDS = 1;
+
+/**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — fix bug thật: học sinh kéo thanh tua
+ * (native `<audio controls>`) thẳng tới gần cuối để giả vờ "nghe hết" qua mặt bộ đếm playCount (mở khoá
+ * gợi ý transcript) mà không thực sự nghe. Mirror đúng kỹ thuật chặn tua đã dùng ở ReviewVideoTaskModal
+ * (video kết nối, SEEK_TOLERANCE_SECONDS) — theo dõi mốc xa nhất ĐÃ THỰC SỰ phát qua (không phải mốc đã
+ * tua tới), currentTime nhảy vượt mốc đó (trừ dung sai nhỏ do trình duyệt tự làm tròn) thì kéo lại đúng
+ * mốc. Chỉ chặn tua TỚI — vẫn tua LÙI nghe lại thoải mái (không cản trở nghe lại đoạn đã qua).
+ */
+function useSeekLockedAudio(audioRef: React.RefObject<HTMLAudioElement | null>, resetKey: string | undefined) {
+  const maxPlayedRef = useRef(0);
+  useEffect(() => {
+    maxPlayedRef.current = 0;
+    const media = audioRef.current;
+    if (!media) return;
+    const handleTimeUpdate = () => {
+      const current = media.currentTime;
+      const allowedMax = maxPlayedRef.current + SEEK_TOLERANCE_SECONDS;
+      if (current > allowedMax) {
+        media.currentTime = maxPlayedRef.current;
+        return;
+      }
+      maxPlayedRef.current = Math.max(maxPlayedRef.current, current);
+    };
+    media.addEventListener("timeupdate", handleTimeUpdate);
+    return () => media.removeEventListener("timeupdate", handleTimeUpdate);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resetKey]);
+}
+
 /** Khớp ListeningHintService#listeningKeyOf (BE) — nhóm "1 audio nhiều câu" dùng chung groupKey, câu đơn dùng key riêng theo chính nó. */
 function listeningKeyOf(q: ExerciseQuestionResponse): string {
   return q.groupKey ?? `Q${q.questionId}`;
@@ -962,12 +993,14 @@ function LockedAnswerBanner({ attemptsRemainingBeforeAnswer }: { attemptsRemaini
  */
 function ListeningAudioBlock({ question, onEnded }: { question: ExerciseQuestionResponse; onEnded: () => void }) {
   const { t } = useTranslation("portal-exercises");
+  const audioRef = useRef<HTMLAudioElement>(null);
+  useSeekLockedAudio(audioRef, question.audioUrl ?? undefined);
   if (question.skill !== "LISTENING" || !question.audioUrl) return null;
   return (
     <div className="space-y-1.5">
       <p className="text-[10px] text-muted font-bold uppercase">{t("takeExercise.listening.audioLabel")}</p>
       {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-      <audio controls src={question.audioUrl} className="w-full" onEnded={onEnded} />
+      <audio ref={audioRef} controls src={question.audioUrl} className="w-full" onEnded={onEnded} />
     </div>
   );
 }
@@ -1314,6 +1347,8 @@ function GridQuestionGroup({
   onListeningEnded: (q: ExerciseQuestionResponse) => void;
 }) {
   const { t } = useTranslation("portal-exercises");
+  const audioRef = useRef<HTMLAudioElement>(null);
+  useSeekLockedAudio(audioRef, block.audioUrl ?? undefined);
   // UC-24/A4, UC-27/A2: mọi câu trong 1 nhóm lưới đều thuộc cùng 1 lượt làm — chỉ cần 1 banner khóa chung.
   const anyLockedByRetake = block.questions.some((q) => {
     const a = answersByQuestion.get(q.questionId);
@@ -1327,7 +1362,7 @@ function GridQuestionGroup({
       {block.audioUrl && (
         <div className="flex items-center gap-2">
           {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-          <audio controls src={block.audioUrl} className="w-full flex-1" onEnded={() => onListeningEnded(block.questions[0])} />
+          <audio ref={audioRef} controls src={block.audioUrl} className="w-full flex-1" onEnded={() => onListeningEnded(block.questions[0])} />
           {/*
            * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — fix bug thật: trước đây MỖI
            * câu trong nhóm đều có riêng 1 nút "?" — nhưng cả nhóm dùng CHUNG 1 audio + 1 bộ đếm lượt
