@@ -843,24 +843,35 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
               const isDisplayed = q.id === displayQuestionId;
               // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — câu ĐÃ ĐẠT bấm được để xem
               // lại kết quả (đáp án đã viết + nhận xét viết/nói) — trước đây chỉ hiện dòng tóm tắt tĩnh.
-              const clickable = stage === "passed" && !isDisplayed;
+              //
+              // Bug thật phát hiện qua test (2026-08-23): đang xem lại 1 câu đã đạt (Q3) thì câu THẬT đang
+              // chờ làm (VD Q4, activeQuestionId) vẫn hiện trong danh sách này (vì isDisplayed so với câu
+              // ĐANG XEM, không phải activeQuestionId) — nhưng hiện y hệt 1 câu "Chưa mở" bình thường, học
+              // sinh tưởng bị khoá, bấm không được. Nhận diện riêng case này: hiện nổi bật + bấm được để
+              // đóng xem lại và quay về đúng câu đang chờ.
+              const isRealActiveHiddenByReview = q.id === activeQuestionId && !isDisplayed;
+              const clickable = (stage === "passed" && !isDisplayed) || isRealActiveHiddenByReview;
               return (
                 <div
                   key={q.id}
-                  onClick={clickable ? () => handleReviewQuestion(q) : undefined}
+                  onClick={clickable ? (isRealActiveHiddenByReview ? handleCloseReview : () => handleReviewQuestion(q)) : undefined}
                   className={`flex items-center justify-between gap-2 rounded-xl px-3.5 py-2.5 border text-xs sm:text-sm font-bold transition-opacity ${
                     isDisplayed
                       ? "opacity-0 h-0 p-0 border-0 overflow-hidden"
-                      : stage === "passed"
-                        ? "bg-emerald-50 border-emerald-100 text-emerald-700 cursor-pointer hover:bg-emerald-100"
-                        : "bg-sky-2 border-teal/10 text-muted opacity-60"
+                      : isRealActiveHiddenByReview
+                        ? "bg-teal/10 border-teal/40 text-teal-deep cursor-pointer hover:bg-teal/20"
+                        : stage === "passed"
+                          ? "bg-emerald-50 border-emerald-100 text-emerald-700 cursor-pointer hover:bg-emerald-100"
+                          : "bg-sky-2 border-teal/10 text-muted opacity-60"
                   }`}
                 >
                   <span className="flex items-center gap-1.5">
                     {t("reflexVideoTask.question.label", { index: i + 1 })}
                     <span className="px-1.5 py-0.5 rounded-md bg-white/70 normal-case font-bold">{formatTimestamp(q.timestampSeconds)}</span>
                   </span>
-                  {stage === "passed" ? (
+                  {isRealActiveHiddenByReview ? (
+                    <span>{t("reflexVideoTask.question.waitingForYou")}</span>
+                  ) : stage === "passed" ? (
                     <span className="flex items-center gap-1"><CheckCircle2 size={13} /> {t("reflexVideoTask.question.passed")}</span>
                   ) : (
                     <span>{t("reflexVideoTask.question.locked")}</span>

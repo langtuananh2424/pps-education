@@ -168,7 +168,8 @@
     "question": {
       "label": "Question {{index}}",
       "passed": "Passed",
-      "locked": "Locked"
+      "locked": "Locked",
+      "waitingForYou": "Waiting for you — tap to continue"
     },
     "writingStage": {
       "title": "Step 1 · Write your answer",

@@ -168,7 +168,8 @@
     "question": {
       "label": "Câu hỏi {{index}}",
       "passed": "Đã đạt",
-      "locked": "Chưa mở"
+      "locked": "Chưa mở",
+      "waitingForYou": "Đang chờ bạn — bấm để tiếp tục"
     },
     "writingStage": {
       "title": "Bước 1 · Viết câu trả lời",
