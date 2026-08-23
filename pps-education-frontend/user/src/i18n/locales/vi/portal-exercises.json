@@ -88,9 +88,7 @@
       "hintAriaLabel": "Gợi ý",
       "loadingHint": "Đang tải gợi ý...",
       "locked": "Đã nghe {{playCount}}/{{threshold}} lần — còn {{remaining}} lần nữa để xem gợi ý",
-      "transcriptLabel": "Transcript: ",
-      "correctAnswerLabel": "Đáp án đúng: ",
-      "explanationLabel": "Giải thích: "
+      "transcriptLabel": "Transcript"
     },
     "wordBank": {
       "choosePlaceholder": "— chọn —"

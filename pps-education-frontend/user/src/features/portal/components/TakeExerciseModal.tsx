@@ -757,7 +757,6 @@ function QuestionBlock({
             <ListeningHintButton
               attemptId={attemptId}
               questionId={question.questionId}
-              choices={question.choices}
               progress={listeningProgress.get(listeningKeyOf(question))}
               readOnly={readOnly}
             />
@@ -979,16 +978,23 @@ function ListeningAudioBlock({ question, onEnded }: { question: ExerciseQuestion
  * phải hàng tiêu đề câu hỏi (song song với câu hỏi, không nằm dưới audio nữa), hiện dạng tooltip khi
  * di chuột vào thay vì nút bấm có nhãn chữ.
  */
+/**
+ * V144 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — THAY THẾ thiết kế V79 ban đầu) —
+ * gợi ý CHỈ còn transcript (script hội thoại của audio) — bỏ hẳn phần lộ đáp án đúng/giải thích, người
+ * dùng phản hồi thực tế: lộ đáp án trực tiếp là không ổn, học viên cần tự tư duy chọn đáp án sau khi
+ * đọc lại lời thoại. Đổi tương tác từ HOVER (tooltip thoáng qua) sang BẤM MỞ/ĐÓNG popup thật — mỗi lần
+ * mở gọi lại API (không cache kết quả cũ) để backend ghi đúng 1 "lượt xem" cho thống kê GV mỗi lần đóng
+ * rồi mở lại (xem Javadoc ListeningHintService#getHint). Vẫn giữ nguyên luồng khoá theo playCount (nghe
+ * đủ ngưỡng lần mới mở khoá được popup).
+ */
 function ListeningHintButton({
   attemptId,
   questionId,
-  choices,
   progress,
   readOnly
 }: {
   attemptId: number;
   questionId: number;
-  choices: ExerciseQuestionChoiceResponse[];
   progress: ListeningPlayProgressResponse | undefined;
   readOnly: boolean;
 }) {
@@ -1004,6 +1010,7 @@ function ListeningHintButton({
   // tự lật lên trên khi không đủ chỗ bên dưới viewport.
   const [placement, setPlacement] = useState<{ top?: number; bottom?: number; right: number; flipped: boolean } | null>(null);
   const triggerRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const { t } = useTranslation("portal-exercises");
 
   const threshold = progress?.hintUnlockThreshold ?? 3;
@@ -1020,7 +1027,7 @@ function ListeningHintButton({
     const r = el.getBoundingClientRect();
     // Chỉ ước lượng chiều cao để QUYẾT ĐỊNH có lật hướng hay không — vị trí thật dùng CSS `bottom`
     // khi lật (neo theo mép trên của nút) nên không cần đúng tuyệt đối chiều cao nội dung thật.
-    const estimatedHeight = unlocked ? 240 : 70;
+    const estimatedHeight = unlocked ? 160 : 70;
     const spaceBelow = window.innerHeight - r.bottom;
     const flipped = spaceBelow < estimatedHeight && r.top > spaceBelow;
     const right = Math.max(8, window.innerWidth - r.right);
@@ -1044,8 +1051,21 @@ function ListeningHintButton({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  // Bấm ra ngoài popup (nút "?" HOẶC nội dung popup, cả 2 đều nằm ngoài luồng DOM của nhau vì popup
+  // render qua Portal) thì tự đóng — thay cho onMouseLeave cũ (đã bỏ tương tác hover).
+  useEffect(() => {
+    if (!open) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (triggerRef.current?.contains(target) || panelRef.current?.contains(target)) return;
+      setOpen(false);
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [open]);
+
   const ensureLoaded = async () => {
-    if (!unlocked || hint || loading) return;
+    if (!unlocked || loading) return;
     setLoading(true);
     setError(null);
     try {
@@ -1057,22 +1077,21 @@ function ListeningHintButton({
     }
   };
 
-  const handleOpen = () => {
+  const handleToggle = () => {
     if (readOnly) return;
-    setOpen(true);
-    ensureLoaded();
+    setOpen((prev) => {
+      const next = !prev;
+      if (next) ensureLoaded();
+      return next;
+    });
   };
 
-  const correctChoiceContents = hint?.correctChoiceIds.length
-    ? choices.filter((c) => hint.correctChoiceIds.includes(c.id)).map((c) => `${c.choiceLabel}. ${c.content}`)
-    : [];
-
   return (
-    <div ref={triggerRef} className="relative shrink-0" onMouseEnter={handleOpen} onMouseLeave={() => setOpen(false)}>
+    <div ref={triggerRef} className="relative shrink-0">
       <button
         type="button"
         disabled={readOnly}
-        onClick={handleOpen}
+        onClick={handleToggle}
         aria-label={t("takeExercise.listening.hintAriaLabel")}
         className="w-5 h-5 rounded-full border border-teal/50 bg-teal/10 text-teal-deep flex items-center justify-center disabled:opacity-60"
       >
@@ -1084,7 +1103,7 @@ function ListeningHintButton({
           !unlocked ? (
             // Tooltip dạng bong bóng thoại — mũi nhọn trỏ về phía nút "?" (lên nếu tooltip nằm dưới,
             // xuống nếu bị lật lên trên), màu theo đúng bảng màu hệ thống (teal-deep).
-            <div style={{ position: "fixed", top: placement.top, bottom: placement.bottom, right: placement.right }} className="z-[200]">
+            <div ref={panelRef} style={{ position: "fixed", top: placement.top, bottom: placement.bottom, right: placement.right }} className="z-[200]">
               <div className={`absolute right-3 w-3 h-3 bg-teal-deep rotate-45 ${placement.flipped ? "-bottom-1.5" : "-top-1.5"}`} />
               <div className="relative bg-teal-deep text-white text-[11px] font-bold rounded-lg px-3 py-2 max-w-[220px] shadow-lg">
                 {t("takeExercise.listening.locked", { playCount, threshold, remaining })}
@@ -1092,42 +1111,24 @@ function ListeningHintButton({
             </div>
           ) : (
             <div
+              ref={panelRef}
               style={{ position: "fixed", top: placement.top, bottom: placement.bottom, right: placement.right }}
               className="z-[200] w-72 max-w-[80vw] text-left text-xs bg-white border border-line/60 rounded-xl shadow-lg p-3 space-y-1.5"
             >
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-bold text-[10px] uppercase tracking-wide text-muted">{t("takeExercise.listening.transcriptLabel")}</span>
+                <button type="button" onClick={() => setOpen(false)} aria-label={t("takeExercise.closeAriaLabel")} className="text-muted hover:text-ink shrink-0">
+                  <X size={13} />
+                </button>
+              </div>
               {loading ? (
                 <p className="font-bold text-muted flex items-center gap-1.5">
                   <Loader2 size={12} className="animate-spin" /> {t("takeExercise.listening.loadingHint")}
                 </p>
               ) : error ? (
                 <p className="font-bold text-coral">{error}</p>
-              ) : hint ? (
-                <>
-                  {hint.transcript && (
-                    <p>
-                      <span className="font-bold">{t("takeExercise.listening.transcriptLabel")}</span>
-                      {hint.transcript}
-                    </p>
-                  )}
-                  {hint.correctAnswerText && (
-                    <p>
-                      <span className="font-bold">{t("takeExercise.listening.correctAnswerLabel")}</span>
-                      {hint.correctAnswerText}
-                    </p>
-                  )}
-                  {correctChoiceContents.length > 0 && (
-                    <p>
-                      <span className="font-bold">{t("takeExercise.listening.correctAnswerLabel")}</span>
-                      {correctChoiceContents.join(", ")}
-                    </p>
-                  )}
-                  {hint.explanation && (
-                    <p>
-                      <span className="font-bold">{t("takeExercise.listening.explanationLabel")}</span>
-                      {hint.explanation}
-                    </p>
-                  )}
-                </>
+              ) : hint?.transcript ? (
+                <p className="whitespace-pre-line">{hint.transcript}</p>
               ) : null}
             </div>
           ),
@@ -1347,7 +1348,6 @@ function GridQuestionGroup({
                   <ListeningHintButton
                     attemptId={attemptId}
                     questionId={q.questionId}
-                    choices={q.choices}
                     progress={listeningProgress.get(listeningKeyOf(q))}
                     readOnly={readOnly || saving}
                   />

@@ -949,11 +949,9 @@ export interface ListeningPlayProgressResponse {
   hintUnlocked: boolean;
 }
 
+/** V144 — gợi ý chỉ còn transcript (không còn lộ đáp án đúng/giải thích), xem Javadoc ListeningHintService#getHint. */
 export interface ListeningHintResponse {
   transcript: string | null;
-  correctAnswerText: string | null;
-  correctChoiceIds: number[];
-  explanation: string | null;
 }
 
 /** Gọi mỗi khi audio của 1 câu hỏi Nghe phát tới cuối (sự kiện `ended`) — KHÔNG gọi khi chỉ bấm Play/tạm dừng giữa chừng. */

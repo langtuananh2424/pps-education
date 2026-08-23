@@ -6,7 +6,6 @@ import vn.com.pps.education.domain.ExerciseAttempt;
 import vn.com.pps.education.domain.ListeningHintEvent;
 import vn.com.pps.education.domain.ListeningPlayProgress;
 import vn.com.pps.education.domain.Question;
-import vn.com.pps.education.domain.QuestionChoice;
 import vn.com.pps.education.dto.ListeningHintResponse;
 import vn.com.pps.education.dto.ListeningPlayProgressResponse;
 import vn.com.pps.education.exception.AttemptNotEditableException;
@@ -15,21 +14,27 @@ import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.repository.ExerciseQuestionRepository;
 import vn.com.pps.education.repository.ListeningHintEventRepository;
 import vn.com.pps.education.repository.ListeningPlayProgressRepository;
-import vn.com.pps.education.repository.QuestionChoiceRepository;
 import vn.com.pps.education.repository.QuestionRepository;
 import vn.com.pps.education.repository.SystemSettingRepository;
-
-import java.util.List;
 
 /**
  * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — gợi ý
  * tapescript cho câu hỏi Nghe (skill=LISTENING, GV nước ngoài): học sinh
  * phải nghe HẾT audio đủ số lần cấu hình
  * (system_settings.lms.listening_hint_unlock_play_count, mặc định 3, xem
- * migration V94) mới xem được transcript + đáp án đúng + giải thích —
- * trước đây referencePassage bị lộ không điều kiện qua
- * ExerciseService#toResponse(ExerciseQuestion), giờ chỉ lộ qua
- * {@link #getHint} khi đã mở khóa (xem ExerciseService, đã gate cùng đợt).
+ * migration V94) mới xem được transcript — trước đây referencePassage bị
+ * lộ không điều kiện qua ExerciseService#toResponse(ExerciseQuestion), giờ
+ * chỉ lộ qua {@link #getHint} khi đã mở khóa (xem ExerciseService, đã gate
+ * cùng đợt).
+ *
+ * V144 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 —
+ * THAY THẾ thiết kế V79 ban đầu) — gợi ý trước đây còn kèm đáp án đúng/
+ * giải thích, người dùng phản hồi lộ đáp án trực tiếp là không ổn (học
+ * sinh không còn phải tư duy) — nay {@link #getHint} CHỈ trả transcript,
+ * học sinh tự chọn đáp án sau khi đọc lại lời thoại. Mỗi lần FE mở popup
+ * gợi ý gọi lại {@link #getHint} (không cache phía FE) để mỗi dòng
+ * listening_hint_events phản ánh đúng 1 LƯỢT XEM thật (đóng rồi mở lại
+ * tính thêm 1 lượt) — dùng cho thống kê GV.
  *
  * Nhóm "1 audio nhiều câu" (ListeningGroupBuilder, FE, cùng Question.groupKey)
  * dùng CHUNG 1 bộ đếm — {@link #listeningKeyOf} suy ra key theo groupKey
@@ -48,7 +53,6 @@ public class ListeningHintService {
     private final ListeningHintEventRepository listeningHintEventRepository;
     private final QuestionRepository questionRepository;
     private final ExerciseQuestionRepository exerciseQuestionRepository;
-    private final QuestionChoiceRepository questionChoiceRepository;
     private final SystemSettingRepository systemSettingRepository;
 
     public ListeningHintService(ExerciseAttemptService exerciseAttemptService,
@@ -56,14 +60,12 @@ public class ListeningHintService {
                                  ListeningHintEventRepository listeningHintEventRepository,
                                  QuestionRepository questionRepository,
                                  ExerciseQuestionRepository exerciseQuestionRepository,
-                                 QuestionChoiceRepository questionChoiceRepository,
                                  SystemSettingRepository systemSettingRepository) {
         this.exerciseAttemptService = exerciseAttemptService;
         this.listeningPlayProgressRepository = listeningPlayProgressRepository;
         this.listeningHintEventRepository = listeningHintEventRepository;
         this.questionRepository = questionRepository;
         this.exerciseQuestionRepository = exerciseQuestionRepository;
-        this.questionChoiceRepository = questionChoiceRepository;
         this.systemSettingRepository = systemSettingRepository;
     }
 
@@ -90,7 +92,7 @@ public class ListeningHintService {
         return new ListeningPlayProgressResponse(progress.getPlayCount(), threshold, progress.getPlayCount() >= threshold);
     }
 
-    /** Chỉ trả nội dung gợi ý khi đã nghe hết đủ số lần cấu hình — mỗi lần gọi thành công ghi 1 dòng listening_hint_events (thống kê). */
+    /** Chỉ trả transcript khi đã nghe hết đủ số lần cấu hình — mỗi lần gọi thành công ghi 1 dòng listening_hint_events (1 LƯỢT XEM, thống kê GV). */
     @Transactional
     public ListeningHintResponse getHint(Long attemptId, Long questionId, Long actorUserId) {
         ExerciseAttempt attempt = exerciseAttemptService.attemptOwnedByActor(attemptId, actorUserId);
@@ -109,18 +111,13 @@ public class ListeningHintService {
                     "Cần nghe hết audio đủ " + threshold + " lần để xem gợi ý (đã nghe hết " + playCount + " lần).");
         }
 
-        List<Long> correctChoiceIds = question.getQuestionType() == Question.QuestionType.MULTIPLE_CHOICE
-                ? questionChoiceRepository.findByQuestionIdOrderByDisplayOrder(question.getId()).stream()
-                        .filter(QuestionChoice::isCorrect).map(QuestionChoice::getId).toList()
-                : List.of();
-
         ListeningHintEvent event = new ListeningHintEvent();
         event.setExerciseAttempt(attempt);
         event.setQuestion(question);
         event.setStudent(attempt.getStudent());
         listeningHintEventRepository.save(event);
 
-        return new ListeningHintResponse(question.getReferencePassage(), question.getCorrectAnswerText(), correctChoiceIds, question.getExplanation());
+        return new ListeningHintResponse(question.getReferencePassage());
     }
 
     /** Chặn gọi thẳng API sau khi đã nộp bài — trước đây chỉ FE ẩn nút "?" khi readOnly, gọi thẳng API vẫn mở được gợi ý cho lượt đã nộp (kể cả khi exercise.showCorrectAnswers=false không muốn lộ đáp án sau khi nộp). */

@@ -88,9 +88,7 @@
       "hintAriaLabel": "Hint",
       "loadingHint": "Loading hint...",
       "locked": "Listened {{playCount}}/{{threshold}} time(s) — {{remaining}} more to unlock the hint",
-      "transcriptLabel": "Transcript: ",
-      "correctAnswerLabel": "Correct answer: ",
-      "explanationLabel": "Explanation: "
+      "transcriptLabel": "Transcript"
     },
     "wordBank": {
       "choosePlaceholder": "— choose —"
