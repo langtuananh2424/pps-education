@@ -227,29 +227,9 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
     if (isYouTube) youTubePlayerRef.current?.playVideo?.();
     else mediaRef.current?.play?.().catch(() => undefined);
   };
-  /**
-   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — fix bug thật phát hiện lúc test luồng
-   * "nhảy thẳng" mới: player YouTube iframe (dùng src tĩnh, không autoplay) KHÔNG tự vẽ khung hình khi chỉ
-   * gọi seekTo() lúc đang ở trạng thái "chưa phát" (unstarted) — màn hình đứng im MÀU ĐEN hoàn toàn, học
-   * sinh tưởng video lỗi. Video HTML5 gốc (R2_VIDEO/R2_AUDIO) thì set currentTime là đủ (trình duyệt tự
-   * vẽ khung hình mới ngay cả khi chưa play()). Fix riêng cho YouTube: tắt tiếng, seek, phát 1 nhịp cực
-   * ngắn RỒI dừng ngay — ép player vẽ đúng khung hình tại mốc mà KHÔNG tạo cảm giác "phát liên tục" (vẫn
-   * đúng tinh thần "nhảy thẳng, không phát đoạn giữa" người dùng đã chọn).
-   */
   const seekTo = (seconds: number) => {
-    if (isYouTube) {
-      const player = youTubePlayerRef.current;
-      if (!player) return;
-      player.mute?.();
-      player.seekTo?.(seconds, true);
-      player.playVideo?.();
-      window.setTimeout(() => {
-        player.pauseVideo?.();
-        player.unMute?.();
-      }, 300);
-    } else if (mediaRef.current) {
-      mediaRef.current.currentTime = seconds;
-    }
+    if (isYouTube) youTubePlayerRef.current?.seekTo?.(seconds, true);
+    else if (mediaRef.current) mediaRef.current.currentTime = seconds;
   };
 
   const activateQuestion = (q: ReviewVideoQuestionResponse) => {
@@ -263,29 +243,25 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
   };
 
   /**
-   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — fix bug thật (feedback người dùng
-   * thực tế, đã làm rõ qua nhiều vòng trao đổi): ĐOẠN ĐẦU video (trước mốc câu 1) vẫn PHÁT BÌNH THƯỜNG
-   * liên tục như cũ (học sinh cần nghe/xem phần dẫn đầu) — video tự dừng đúng mốc câu 1 nhờ
-   * `handleTimeUpdate` bên dưới (KHÔNG đổi). Chỉ áp dụng NHẢY THẲNG (seek, không phát đoạn giữa) cho các
-   * lần CHUYỂN CÂU sau đó (1 câu đã đạt cả 2 bước → câu kế tiếp) — xem handleContinueAfterSpeakingPass.
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 (đã mô tả lại chi tiết luồng thực tế) —
+   * nội dung của 1 câu hỏi nằm ở đoạn [mốc câu đó, mốc câu KẾ TIẾP) trong video, KHÔNG PHẢI video dừng
+   * ngay khi chạm mốc câu đó — video PHÁT TIẾP qua mốc câu kế tiếp rồi mới dừng để mở bảng trả lời cho
+   * câu TRƯỚC mốc vừa chạm. VD: mốc câu 1 = 10s, mốc câu 2 = 30s → video phát 10-30s (nội dung câu 1) rồi
+   * dừng ở giây 30 để mở bảng câu 1; đạt xong câu 1 thì phát tiếp NGAY từ giây 30 (không cần seek, video
+   * đã dừng sẵn đúng chỗ — xem handleContinueAfterSpeakingPass) tới mốc câu 3... Câu CUỐI không có mốc kế
+   * tiếp — dùng lúc video kết thúc tự nhiên (`ended`) làm điểm dừng (xem handleVideoNaturallyEnded).
    */
-  const jumpToNextPendingQuestion = () => {
-    const next = questions.find((q) => stageForProgress(progressRef.current[q.id]) !== "passed");
-    if (next) {
-      seekTo(next.timestampSeconds);
-      activateQuestion(next);
-    }
-  };
+  const firstPendingQuestionIndex = () => questions.findIndex((q) => stageForProgress(progressRef.current[q.id]) !== "passed");
 
   const handleTimeUpdate = (currentSeconds: number) => {
     if (videoEndedRef.current || activeQuestionIdRef.current != null) return;
-    for (const q of questions) {
-      if (currentSeconds >= q.timestampSeconds && !triggeredQuestionIdsRef.current.has(q.id)) {
-        triggeredQuestionIdsRef.current.add(q.id);
-        if (stageForProgress(progressRef.current[q.id]) === "passed") continue;
-        activateQuestion(q);
-        break;
-      }
+    const idx = firstPendingQuestionIndex();
+    if (idx === -1) return;
+    const current = questions[idx];
+    const next = questions[idx + 1];
+    if (next && currentSeconds >= next.timestampSeconds && !triggeredQuestionIdsRef.current.has(current.id)) {
+      triggeredQuestionIdsRef.current.add(current.id);
+      activateQuestion(current);
     }
   };
   /**
@@ -296,13 +272,39 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
   const handleTimeUpdateRef = useRef(handleTimeUpdate);
   handleTimeUpdateRef.current = handleTimeUpdate;
 
+  /** Video kết thúc TỰ NHIÊN — chỉ có ý nghĩa khi câu đang dở là câu CUỐI (không có mốc kế tiếp để dừng theo). */
+  const handleVideoNaturallyEnded = () => {
+    setVideoEnded(true);
+    if (activeQuestionIdRef.current != null) return;
+    const idx = firstPendingQuestionIndex();
+    if (idx !== -1 && !questions[idx + 1]) {
+      activateQuestion(questions[idx]);
+    }
+  };
+  const handleVideoNaturallyEndedRef = useRef(handleVideoNaturallyEnded);
+  handleVideoNaturallyEndedRef.current = handleVideoNaturallyEnded;
+
+  /**
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — fix bug thật: học sinh thoát ra giữa
+   * chừng rồi vào lại (đã đạt sẵn 1+ câu từ phiên trước) — bấm "Bắt đầu làm bài" phải NHẢY THẲNG (seek)
+   * tới đúng mốc câu đang làm dở, không phát lại từ đầu qua các câu đã đạt. Câu đang dở là câu ĐẦU TIÊN
+   * (phiên hoàn toàn mới, chưa đạt câu nào) thì KHÔNG seek — phát bình thường từ đầu như luồng gốc.
+   */
+  const playFromResumePoint = () => {
+    const idx = firstPendingQuestionIndex();
+    if (idx > 0) seekTo(questions[idx].timestampSeconds);
+    resumeVideo();
+  };
+  const playFromResumePointRef = useRef(playFromResumePoint);
+  playFromResumePointRef.current = playFromResumePoint;
+
   // ---- Native <video>/<audio> (R2_VIDEO/R2_AUDIO) — khóa control, tự phát, tự bám mốc thời gian. ----
   useEffect(() => {
     if (isYouTube) return;
     const media = mediaRef.current;
     if (!media) return;
     const onTimeUpdate = () => handleTimeUpdateRef.current(media.currentTime);
-    const onEnded = () => setVideoEnded(true);
+    const onEnded = () => handleVideoNaturallyEndedRef.current();
     const onPause = () => {
       // Best-effort chặn tạm dừng ngoài ý muốn (VD phím media cứng trên bàn phím) — CHỈ khi không phải
       // đang tạm dừng có chủ đích để mở khoá 1 câu hỏi (activeQuestionIdRef != null).
@@ -331,12 +333,13 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
       const YT = (window as any).YT;
       youTubePlayerRef.current = new YT.Player(iframeId, {
         events: {
-          onReady: (e: any) => {
-            if (startedRef.current) e.target.playVideo();
+          onReady: () => {
+            // Nếu học sinh đã bấm "Bắt đầu" trước khi player YouTube sẵn sàng (hiếm, do tải chậm).
+            if (startedRef.current) playFromResumePointRef.current();
           },
           onStateChange: (e: any) => {
             if (e.data === YT.PlayerState.ENDED) {
-              setVideoEnded(true);
+              handleVideoNaturallyEndedRef.current();
               if (pollId) window.clearInterval(pollId);
             } else if (e.data === YT.PlayerState.PLAYING) {
               if (pollId) window.clearInterval(pollId);
@@ -451,7 +454,9 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
   const handleContinueAfterSpeakingPass = () => {
     setSpeakingPassedPopup(null);
     setActiveQuestionId(null);
-    jumpToNextPendingQuestion();
+    // Video đã dừng SẴN đúng chỗ (mốc câu vừa đạt) — chỉ cần phát tiếp, không seek. Xem ghi chú ở
+    // firstPendingQuestionIndex/handleTimeUpdate về cơ chế "phát tới mốc câu kế tiếp rồi mới dừng".
+    resumeVideo();
   };
 
   // Ghi âm dừng (hết giờ hoặc học sinh bấm dừng) → tự động nộp ngay, không cần bấm thêm nút "Nộp bài".
@@ -489,8 +494,7 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
     }
     setRequestingMic(false);
     setStarted(true);
-    // Đoạn đầu video (trước mốc câu 1) phát bình thường — xem ghi chú ở jumpToNextPendingQuestion.
-    resumeVideo();
+    playFromResumePoint();
   };
 
   const handleExit = () => {
