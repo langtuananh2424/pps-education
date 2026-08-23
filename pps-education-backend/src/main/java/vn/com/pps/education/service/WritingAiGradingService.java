@@ -42,7 +42,13 @@ public class WritingAiGradingService {
 
     private static final String RUBRIC_FILE_PREFIX = "writing-rubric";
     private static final String CLAUDE_GRADING_MODEL = "claude-haiku-4-5-20251001";
-    private static final String GEMINI_MODEL = "gemini-flash-latest";
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — fix bug thật: "gemini-flash-latest"
+     * là ALIAS, đã âm thầm trỏ sang "gemini-3.7-flash" (bản preview mới, quota free tier chỉ 20
+     * request/NGÀY — phát hiện qua log RESOURCE_EXHAUSTED thực tế lúc test). Đổi sang tên model CỤ THỂ
+     * (không dùng alias "-latest" nữa) để tránh Google tự đổi ngầm sang model mới/quota thấp hơn lần nữa.
+     */
+    private static final String GEMINI_MODEL = "gemini-3.5-flash-lite";
 
     private final ObjectMapper objectMapper;
     private final RubricByGradeTrackLoader rubricLoader;

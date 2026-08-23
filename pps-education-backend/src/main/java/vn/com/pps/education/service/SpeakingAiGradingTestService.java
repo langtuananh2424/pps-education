@@ -63,7 +63,8 @@ public class SpeakingAiGradingTestService {
 
     private static final String OPENAI_TRANSCRIBE_MODEL = "gpt-4o-mini-transcribe";
     private static final String CLAUDE_GRADING_MODEL = "claude-haiku-4-5-20251001";
-    private static final String GEMINI_MODEL = "gemini-flash-latest";
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — đổi từ alias "gemini-flash-latest" (đã âm thầm trỏ sang bản preview quota free tier chỉ 20 request/ngày) sang tên model cụ thể, mirror WritingAiGradingService. */
+    private static final String GEMINI_MODEL = "gemini-3.5-flash-lite";
 
     private final MediaStorageService mediaStorageService;
     private final ObjectMapper objectMapper;
