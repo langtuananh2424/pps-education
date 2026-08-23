@@ -1325,8 +1325,24 @@ function GridQuestionGroup({
         <p className="text-xs sm:text-sm lg:text-base text-ink whitespace-pre-wrap bg-sky-2 rounded-xl p-3 sm:p-4">{block.referencePassage}</p>
       )}
       {block.audioUrl && (
-        // eslint-disable-next-line jsx-a11y/media-has-caption
-        <audio controls src={block.audioUrl} className="w-full" onEnded={() => onListeningEnded(block.questions[0])} />
+        <div className="flex items-center gap-2">
+          {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+          <audio controls src={block.audioUrl} className="w-full flex-1" onEnded={() => onListeningEnded(block.questions[0])} />
+          {/*
+           * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — fix bug thật: trước đây MỖI
+           * câu trong nhóm đều có riêng 1 nút "?" — nhưng cả nhóm dùng CHUNG 1 audio + 1 bộ đếm lượt
+           * nghe (listeningKeyOf theo groupKey) nên bấm câu nào cũng ra ĐÚNG 1 gợi ý y hệt nhau, thừa
+           * và gây rối. Chỉ còn 1 nút "?" duy nhất đặt cạnh audio dùng chung cho cả nhóm.
+           */}
+          {attemptId != null && block.questions[0]?.skill === "LISTENING" && (
+            <ListeningHintButton
+              attemptId={attemptId}
+              questionId={block.questions[0].questionId}
+              progress={listeningProgress.get(listeningKeyOf(block.questions[0]))}
+              readOnly={readOnly}
+            />
+          )}
+        </div>
       )}
       <div className="divide-y divide-line/50">
         {block.questions.map((q) => {
@@ -1344,14 +1360,6 @@ function GridQuestionGroup({
                 <span className="text-xs sm:text-sm lg:text-base font-bold text-ink flex-1 min-w-[160px]">
                   {q.displayOrder}. {q.questionContent}
                 </span>
-                {q.skill === "LISTENING" && attemptId != null && (
-                  <ListeningHintButton
-                    attemptId={attemptId}
-                    questionId={q.questionId}
-                    progress={listeningProgress.get(listeningKeyOf(q))}
-                    readOnly={readOnly || saving}
-                  />
-                )}
               </div>
 
               {/*
