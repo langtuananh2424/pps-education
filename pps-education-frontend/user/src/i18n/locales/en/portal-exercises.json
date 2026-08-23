@@ -178,13 +178,18 @@
       "scoreLabel": "grammar score {{score}}%",
       "attemptCount": "Submitted {{count}} time(s)",
       "suggestionTitle": "Suggested answer (grammar corrected)",
-      "useSuggestionButton": "Fill answer box with this"
+      "useSuggestionButton": "Fill answer box with this",
+      "passedPopup": {
+        "heading": "Passed the writing step",
+        "startRecordingButton": "Start recording"
+      }
     },
     "speakingStage": {
       "title": "Step 2 · Record your answer",
-      "instructions": "Recording will start automatically — say back what you just wrote.",
+      "instructions": "Tap the button below when you're ready — say back what you just wrote.",
       "recording": "Recording ({{elapsed}}s/{{max}}s)",
       "grading": "Grading your recording...",
+      "startRecordingButton": "Start recording",
       "passedFeedbackTitle": "Passed — next question unlocked",
       "failedFeedbackTitle": "Not passed yet",
       "scoreLabel": "content score {{score}}%",

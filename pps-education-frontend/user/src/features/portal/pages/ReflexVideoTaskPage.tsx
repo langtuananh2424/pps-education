@@ -191,6 +191,7 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
   const [speakingSubmitting, setSpeakingSubmitting] = useState(false);
   const [speakingError, setSpeakingError] = useState<string | null>(null);
   const [speakingPassedPopup, setSpeakingPassedPopup] = useState<{ scorePercent: number | null; feedback: string | null } | null>(null);
+  const [writingPassedPopup, setWritingPassedPopup] = useState<{ scorePercent: number | null; feedback: string | null } | null>(null);
   const recorder = useAudioRecorder();
 
   const allQuestionsPassed = questions.length > 0 && questions.every((q) => progress[q.id]?.questionPassed);
@@ -218,6 +219,10 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
     if (isYouTube) youTubePlayerRef.current?.playVideo?.();
     else mediaRef.current?.play?.().catch(() => undefined);
   };
+  const seekTo = (seconds: number) => {
+    if (isYouTube) youTubePlayerRef.current?.seekTo?.(seconds, true);
+    else if (mediaRef.current) mediaRef.current.currentTime = seconds;
+  };
 
   const activateQuestion = (q: ReviewVideoQuestionResponse) => {
     setActiveQuestionId(q.id);
@@ -227,10 +232,32 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
     setWritingError(null);
     setSpeakingError(null);
     recorder.reset();
-    if (stageForProgress(p) === "speaking") {
-      recorder.start(q.maxRecordingSeconds);
+  };
+
+  /**
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — fix bug thật (feedback người dùng
+   * thực tế): trước đây video PHÁT LIÊN TỤC từ đầu, chỉ dừng khi chạm đúng mốc câu hỏi — đoạn giữa 2 mốc
+   * không liên quan tới câu hỏi tạo cảm giác lệch nhịp/không khớp. Nay NHẢY THẲNG (seek) tới đúng mốc của
+   * câu TIẾP THEO CHƯA ĐẠT rồi mở câu hỏi ngay — không phát đoạn giữa. Dùng ở handleStart (câu đầu tiên)
+   * và handleContinueAfterSpeakingPass (câu kế tiếp sau khi 1 câu đã đạt cả 2 bước).
+   */
+  const jumpToNextPendingQuestion = () => {
+    const next = questions.find((q) => stageForProgress(progressRef.current[q.id]) !== "passed");
+    if (next) {
+      seekTo(next.timestampSeconds);
+      activateQuestion(next);
+    } else if (questions.length === 0) {
+      // Video REFLEX chưa có câu hỏi nào (dữ liệu chưa soạn xong) — fallback phát liên tục như cũ.
+      resumeVideo();
     }
   };
+  /**
+   * Cũng đọc `questions` (state) qua closure — dùng ref để nhánh onReady của YouTube player (effect chỉ
+   * chạy 1 lần lúc mount, xem ghi chú `questions` KHÔNG đưa vào deps bên dưới) luôn gọi đúng bản mới nhất
+   * thay vì bản rỗng lúc mount, cùng lý do với `handleTimeUpdateRef` ngay dưới đây.
+   */
+  const jumpToNextPendingQuestionRef = useRef(jumpToNextPendingQuestion);
+  jumpToNextPendingQuestionRef.current = jumpToNextPendingQuestion;
 
   const handleTimeUpdate = (currentSeconds: number) => {
     if (videoEndedRef.current || activeQuestionIdRef.current != null) return;
@@ -286,8 +313,10 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
       const YT = (window as any).YT;
       youTubePlayerRef.current = new YT.Player(iframeId, {
         events: {
-          onReady: (e: any) => {
-            if (startedRef.current) e.target.playVideo();
+          onReady: () => {
+            // Nếu học sinh đã bấm "Bắt đầu" trước khi player YouTube sẵn sàng (hiếm, do tải chậm) — nhảy
+            // thẳng tới câu đang chờ ngay khi player kịp sẵn sàng, không tự phát liên tục từ đầu.
+            if (startedRef.current) jumpToNextPendingQuestionRef.current();
           },
           onStateChange: (e: any) => {
             if (e.data === YT.PlayerState.ENDED) {
@@ -338,15 +367,30 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
     try {
       const response = await submitReflexWrittenAnswer(activeQuestion.id, assignmentId, answerDraft.trim());
       setProgress((prev) => ({ ...prev, [activeQuestion.id]: response }));
+      // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — trước đây đạt bước viết là tự
+      // động bật ghi âm ngay, học sinh không kịp chuẩn bị. Nay hiện popup báo đạt + điểm/nhận xét, học
+      // sinh tự bấm "Bắt đầu ghi âm" khi sẵn sàng (xem handleStartRecordingAfterWritingPass).
       if (stageForProgress(response) === "speaking") {
-        recorder.reset();
-        recorder.start(activeQuestion.maxRecordingSeconds);
+        setWritingPassedPopup({ scorePercent: response.writingScorePercent, feedback: response.writingFeedback });
       }
     } catch (err) {
       setWritingError(friendlyApiErrorMessage(err, t("reflexVideoTask.submitError")));
     } finally {
       setWritingSubmitting(false);
     }
+  };
+
+  const handleStartRecordingAfterWritingPass = () => {
+    if (!activeQuestion) return;
+    setWritingPassedPopup(null);
+    recorder.reset();
+    recorder.start(activeQuestion.maxRecordingSeconds);
+  };
+
+  const handleStartRecording = () => {
+    if (!activeQuestion) return;
+    recorder.reset();
+    recorder.start(activeQuestion.maxRecordingSeconds);
   };
 
   const handleSubmitSpeaking = async (blob: Blob) => {
@@ -379,7 +423,7 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
   const handleContinueAfterSpeakingPass = () => {
     setSpeakingPassedPopup(null);
     setActiveQuestionId(null);
-    resumeVideo();
+    jumpToNextPendingQuestion();
   };
 
   // Ghi âm dừng (hết giờ hoặc học sinh bấm dừng) → tự động nộp ngay, không cần bấm thêm nút "Nộp bài".
@@ -417,7 +461,7 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
     }
     setRequestingMic(false);
     setStarted(true);
-    resumeVideo();
+    jumpToNextPendingQuestion();
   };
 
   const handleExit = () => {
@@ -467,13 +511,37 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
             {micError && <div className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-xl text-left">{micError}</div>}
             <button
               onClick={handleStart}
-              disabled={requestingMic}
+              disabled={requestingMic || loadingQuestions}
               className="w-full flex items-center justify-center gap-1.5 px-4 py-3 bg-teal hover:bg-teal-deep text-white rounded-xl text-sm font-extrabold disabled:opacity-50"
             >
               <Play size={16} /> {requestingMic ? t("reflexVideoTask.startScreen.requestingMic") : t("reflexVideoTask.startScreen.startButton")}
             </button>
             <button onClick={handleExit} className="w-full px-4 py-2 text-xs font-extrabold text-muted hover:text-ink">
               {t("reflexVideoTask.startScreen.exitButton")}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {writingPassedPopup && (
+        <div className="fixed inset-0 bg-ink/60 z-[130] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[20px] max-w-sm w-full shadow-2xl p-6 space-y-4 text-center">
+            <CheckCircle2 size={36} className="text-emerald-600 mx-auto" />
+            <h3 className="text-base font-extrabold text-ink">
+              {t("reflexVideoTask.writingStage.passedPopup.heading")}
+              {writingPassedPopup.scorePercent != null &&
+                ` — ${t("reflexVideoTask.writingStage.scoreLabel", { score: writingPassedPopup.scorePercent })}`}
+            </h3>
+            {writingPassedPopup.feedback && (
+              <p className="text-xs font-medium text-muted text-left normal-case whitespace-pre-line max-h-48 overflow-y-auto">
+                {writingPassedPopup.feedback}
+              </p>
+            )}
+            <button
+              onClick={handleStartRecordingAfterWritingPass}
+              className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 bg-teal hover:bg-teal-deep text-white rounded-xl text-xs sm:text-sm font-extrabold"
+            >
+              <Mic size={14} /> {t("reflexVideoTask.writingStage.passedPopup.startRecordingButton")}
             </button>
           </div>
         </div>
@@ -680,6 +748,16 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                   </div>
                 ) : speakingSubmitting ? (
                   <p className="text-xs font-bold text-teal-deep">{t("reflexVideoTask.speakingStage.grading")}</p>
+                ) : !activeProgress?.speakingFeedback ? (
+                  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — trước đây tự động bật
+                  // ghi âm ngay khi mở bước nói (kể cả khi mở lại câu đã đạt viết từ trước) — nay học sinh
+                  // phải chủ động bấm mới ghi âm (mirror nút trong popup "Đạt bước viết").
+                  <button
+                    onClick={handleStartRecording}
+                    className="flex items-center gap-1.5 px-3.5 py-2 bg-teal hover:bg-teal-deep text-white rounded-xl text-xs font-extrabold w-fit"
+                  >
+                    <Mic size={13} /> {t("reflexVideoTask.speakingStage.startRecordingButton")}
+                  </button>
                 ) : null}
                 {recorder.error && <p className="text-xs font-bold text-rose-600">{recorder.error}</p>}
                 {speakingError && <p className="text-xs font-bold text-rose-600">{speakingError}</p>}

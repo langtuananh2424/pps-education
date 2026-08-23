@@ -178,13 +178,18 @@
       "scoreLabel": "điểm ngữ pháp {{score}}%",
       "attemptCount": "Đã nộp {{count}} lần",
       "suggestionTitle": "Gợi ý câu trả lời (đã sửa lỗi ngữ pháp)",
-      "useSuggestionButton": "Điền gợi ý vào ô trả lời"
+      "useSuggestionButton": "Điền gợi ý vào ô trả lời",
+      "passedPopup": {
+        "heading": "Đạt bước viết",
+        "startRecordingButton": "Bắt đầu ghi âm"
+      }
     },
     "speakingStage": {
       "title": "Bước 2 · Ghi âm nói lại",
-      "instructions": "Ghi âm sẽ tự bắt đầu — nói lại đúng nội dung bạn vừa viết.",
+      "instructions": "Bấm nút bên dưới khi bạn sẵn sàng — nói lại đúng nội dung bạn vừa viết.",
       "recording": "Đang ghi âm ({{elapsed}}s/{{max}}s)",
       "grading": "Đang chấm bài nói...",
+      "startRecordingButton": "Bắt đầu ghi âm",
       "passedFeedbackTitle": "Đạt — mở khoá câu tiếp theo",
       "failedFeedbackTitle": "Chưa đạt",
       "scoreLabel": "điểm nội dung {{score}}%",
