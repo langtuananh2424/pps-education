@@ -151,6 +151,8 @@
     "noQuestions": "Video này chưa có câu hỏi nào.",
     "badge": "Video phản xạ",
     "exitButton": "Thoát",
+    "reviewBadge": "Đang xem lại",
+    "closeReviewButton": "Đóng",
     "startScreen": {
       "description": "Video sẽ tự phát và tạm dừng đúng mốc thời gian mỗi câu hỏi — không tua được. Ở mỗi câu: viết câu trả lời trước, AI chấm ngữ pháp đạt mới mở khoá ghi âm nói lại, đạt cả 2 phần thì video mới chạy tiếp.",
       "requestingMic": "Đang xin quyền micro...",
@@ -175,6 +177,7 @@
       "submitting": "Đang chấm...",
       "passedFeedbackTitle": "Đạt — chuyển sang ghi âm nói lại",
       "failedFeedbackTitle": "Chưa đạt — sửa lại và nộp lại",
+      "yourAnswerLabel": "Câu trả lời của bạn",
       "scoreLabel": "điểm ngữ pháp {{score}}%",
       "attemptCount": "Đã nộp {{count}} lần",
       "suggestionTitle": "Gợi ý câu trả lời (đã sửa lỗi ngữ pháp)",

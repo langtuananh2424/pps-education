@@ -184,6 +184,14 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
     activeQuestionIdRef.current = activeQuestionId;
   }, [activeQuestionId]);
   const triggeredQuestionIdsRef = useRef<Set<number>>(new Set());
+  /**
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — cho phép bấm lại 1 câu ĐÃ ĐẠT trong
+   * danh sách bên dưới để xem lại kết quả (trước đây các câu đã đạt chỉ hiện dòng tóm tắt, không xem lại
+   * được câu trả lời/nhận xét). Tách riêng khỏi `activeQuestionId` (câu THẬT đang mở khoá video chờ làm)
+   * để không phá luồng làm bài thật đang dang dở — panel HIỂN THỊ ưu tiên câu đang xem lại (nếu có), còn
+   * các handler nộp bài (handleSubmitWriting/handleSubmitSpeaking...) vẫn luôn thao tác trên câu THẬT.
+   */
+  const [reviewQuestionId, setReviewQuestionId] = useState<number | null>(null);
 
   const [answerDraft, setAnswerDraft] = useState("");
   const [writingSubmitting, setWritingSubmitting] = useState(false);
@@ -361,8 +369,20 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
   }, [isYouTube, youTubeVideoId]);
 
   const activeQuestion = questions.find((q) => q.id === activeQuestionId) ?? null;
-  const activeProgress = activeQuestionId != null ? progress[activeQuestionId] : undefined;
-  const activeStage = stageForProgress(activeProgress);
+
+  /** Câu đang HIỂN THỊ trong panel — ưu tiên câu đang xem lại (reviewQuestionId), không thì câu thật đang mở khoá. */
+  const displayQuestionId = reviewQuestionId ?? activeQuestionId;
+  const displayQuestion = questions.find((q) => q.id === displayQuestionId) ?? null;
+  const displayProgress = displayQuestionId != null ? progress[displayQuestionId] : undefined;
+  const displayStage = stageForProgress(displayProgress);
+  const isReviewing = reviewQuestionId != null;
+
+  const handleReviewQuestion = (q: ReviewVideoQuestionResponse) => {
+    // Không cho mở xem lại khi đang ghi âm/đang chờ chấm câu THẬT — tránh học sinh tưởng đã dừng ghi âm.
+    if (recorder.recording || writingSubmitting || speakingSubmitting) return;
+    setReviewQuestionId(q.id);
+  };
+  const handleCloseReview = () => setReviewQuestionId(null);
 
   const handleSubmitWriting = async () => {
     if (!activeQuestion || !answerDraft.trim()) return;
@@ -656,39 +676,28 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
 
         {questionsError && <div className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-xl">{questionsError}</div>}
 
-        {activeQuestion && (
-          <div className="bg-white border-2 border-teal rounded-[16px] p-4 sm:p-5 space-y-3 shadow-lg">
+        {displayQuestion && (
+          <div className={`bg-white border-2 rounded-[16px] p-4 sm:p-5 space-y-3 shadow-lg ${isReviewing ? "border-line" : "border-teal"}`}>
             <div className="flex items-center justify-between gap-2 text-[10px] sm:text-[11px] font-extrabold text-teal-deep uppercase tracking-wide">
               <span className="flex items-center gap-1.5">
-                {t("reflexVideoTask.question.label", { index: questions.findIndex((q) => q.id === activeQuestion.id) + 1 })}
-                <span className="px-1.5 py-0.5 rounded-md bg-sky-2 text-teal-deep normal-case font-bold">{formatTimestamp(activeQuestion.timestampSeconds)}</span>
+                {t("reflexVideoTask.question.label", { index: questions.findIndex((q) => q.id === displayQuestion.id) + 1 })}
+                <span className="px-1.5 py-0.5 rounded-md bg-sky-2 text-teal-deep normal-case font-bold">{formatTimestamp(displayQuestion.timestampSeconds)}</span>
               </span>
-              <span className="text-muted normal-case">
-                {activeStage === "writing"
-                  ? t("reflexVideoTask.writingStage.title")
-                  : t("reflexVideoTask.speakingStage.title")}
-              </span>
+              {isReviewing ? (
+                <button onClick={handleCloseReview} className="flex items-center gap-1 text-muted normal-case hover:text-ink">
+                  {t("reflexVideoTask.reviewBadge")} · {t("reflexVideoTask.closeReviewButton")}
+                </button>
+              ) : (
+                <span className="text-muted normal-case">
+                  {displayStage === "writing"
+                    ? t("reflexVideoTask.writingStage.title")
+                    : t("reflexVideoTask.speakingStage.title")}
+                </span>
+              )}
             </div>
-            {activeQuestion.prompt && <p className="text-sm sm:text-base lg:text-lg font-bold text-ink">{activeQuestion.prompt}</p>}
+            {displayQuestion.prompt && <p className="text-sm sm:text-base lg:text-lg font-bold text-ink">{displayQuestion.prompt}</p>}
 
-            {/*
-             * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — fix bug thật: ngay khi bước
-             * viết đạt, activeStage đổi sang "speaking" TRONG CÙNG 1 lần render (activeStage tính lại từ
-             * activeProgress mới) — khối hiện kết quả bước viết (nằm trong nhánh activeStage==="writing"
-             * bên dưới) biến mất ngay lập tức, học sinh không kịp thấy thông báo "Đạt". Hiện riêng 1 dòng
-             * tóm tắt CỐ ĐỊNH ở đây (ngoài 2 nhánh writing/speaking) khi đã đạt bước viết VÀ đang ở bước
-             * nói — bước viết tự nó vẫn hiện đủ chi tiết trong khối bên dưới lúc đang ở đúng bước đó.
-             */}
-            {activeStage === "speaking" && activeProgress?.writingPassed && (
-              <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1.5 w-fit">
-                <CheckCircle2 size={12} />
-                {t("reflexVideoTask.writingStage.passedFeedbackTitle")}
-                {activeProgress.writingScorePercent != null &&
-                  ` — ${t("reflexVideoTask.writingStage.scoreLabel", { score: activeProgress.writingScorePercent })}`}
-              </div>
-            )}
-
-            {activeStage === "writing" ? (
+            {displayStage === "writing" ? (
               <div className="space-y-2">
                 <textarea
                   value={answerDraft}
@@ -698,20 +707,20 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                   placeholder={t("reflexVideoTask.writingStage.placeholder")}
                   className="w-full rounded-xl border border-line p-3 text-sm font-medium text-ink disabled:opacity-60"
                 />
-                {activeProgress?.writingFeedback && (
+                {displayProgress?.writingFeedback && (
                   <div
                     className={`text-xs font-bold p-2.5 rounded-xl border ${
-                      activeProgress.writingPassed ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-amber-50 border-amber-200 text-amber-700"
+                      displayProgress.writingPassed ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-amber-50 border-amber-200 text-amber-700"
                     }`}
                   >
                     <p>
-                      {activeProgress.writingPassed
+                      {displayProgress.writingPassed
                         ? t("reflexVideoTask.writingStage.passedFeedbackTitle")
                         : t("reflexVideoTask.writingStage.failedFeedbackTitle")}
-                      {activeProgress.writingScorePercent != null &&
-                        ` — ${t("reflexVideoTask.writingStage.scoreLabel", { score: activeProgress.writingScorePercent })}`}
+                      {displayProgress.writingScorePercent != null &&
+                        ` — ${t("reflexVideoTask.writingStage.scoreLabel", { score: displayProgress.writingScorePercent })}`}
                     </p>
-                    <p className="font-medium mt-1 normal-case whitespace-pre-line">{activeProgress.writingFeedback}</p>
+                    <p className="font-medium mt-1 normal-case whitespace-pre-line">{displayProgress.writingFeedback}</p>
                   </div>
                 )}
                 {/*
@@ -721,13 +730,13 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                  * ReflexWritingGrammarAiGradingService). Học sinh có thể tự chọn/copy đoạn text, hoặc bấm
                  * nút điền thẳng vào ô trả lời cho tiện.
                  */}
-                {!activeProgress?.writingPassed && (activeProgress?.writingAttemptCount ?? 0) >= 3 && activeProgress?.writingCorrectedAnswer && (
+                {!displayProgress?.writingPassed && (displayProgress?.writingAttemptCount ?? 0) >= 3 && displayProgress?.writingCorrectedAnswer && (
                   <div className="text-xs font-bold p-2.5 rounded-xl border bg-sky-2 border-teal/20 text-teal-deep space-y-1.5">
                     <p className="uppercase text-[10px] tracking-wide">{t("reflexVideoTask.writingStage.suggestionTitle")}</p>
-                    <p className="font-medium normal-case text-ink select-all">{activeProgress.writingCorrectedAnswer}</p>
+                    <p className="font-medium normal-case text-ink select-all">{displayProgress.writingCorrectedAnswer}</p>
                     <button
                       type="button"
-                      onClick={() => setAnswerDraft(activeProgress.writingCorrectedAnswer ?? "")}
+                      onClick={() => setAnswerDraft(displayProgress.writingCorrectedAnswer ?? "")}
                       className="mt-1 px-3 py-1.5 bg-white hover:bg-slate-100 border border-line rounded-lg text-[11px] font-extrabold text-ink"
                     >
                       {t("reflexVideoTask.writingStage.useSuggestionButton")}
@@ -737,7 +746,7 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                 {writingError && <p className="text-xs font-bold text-rose-600">{writingError}</p>}
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[11px] font-bold text-muted">
-                    {t("reflexVideoTask.writingStage.attemptCount", { count: activeProgress?.writingAttemptCount ?? 0 })}
+                    {t("reflexVideoTask.writingStage.attemptCount", { count: displayProgress?.writingAttemptCount ?? 0 })}
                   </span>
                   <button
                     onClick={handleSubmitWriting}
@@ -749,15 +758,30 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                 </div>
               </div>
             ) : (
+              // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — đã qua bước viết (đang ở
+              // bước nói, hoặc đang xem lại câu đã đạt): LUÔN hiện lại câu trả lời viết (đọc-only) để học
+              // sinh dựa vào đó khi nói lại, thay vì mất hẳn khỏi màn hình như trước.
+              <div className="rounded-xl border border-line bg-sky-2/40 p-3 space-y-1">
+                <p className="text-[10px] font-extrabold uppercase text-teal-deep tracking-wide">{t("reflexVideoTask.writingStage.yourAnswerLabel")}</p>
+                <p className="text-sm font-medium text-ink whitespace-pre-line">{displayProgress?.answerText}</p>
+                {displayProgress?.writingScorePercent != null && (
+                  <p className="text-[11px] font-bold text-teal-deep">
+                    {t("reflexVideoTask.writingStage.scoreLabel", { score: displayProgress.writingScorePercent })}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {displayStage !== "writing" && (
               <div className="space-y-2">
-                <p className="text-xs font-bold text-muted">{t("reflexVideoTask.speakingStage.instructions")}</p>
+                {!isReviewing && <p className="text-xs font-bold text-muted">{t("reflexVideoTask.speakingStage.instructions")}</p>}
                 {recorder.recording ? (
                   <div className="flex items-center gap-1.5 px-3.5 py-2 bg-coral text-white rounded-xl text-xs font-extrabold animate-pulse w-fit">
                     <Mic size={13} /> {t("reflexVideoTask.speakingStage.recording", { elapsed: recorder.elapsedSeconds, max: recorder.maxSeconds })}
                   </div>
                 ) : speakingSubmitting ? (
                   <p className="text-xs font-bold text-teal-deep">{t("reflexVideoTask.speakingStage.grading")}</p>
-                ) : !activeProgress?.speakingFeedback ? (
+                ) : !displayProgress?.speakingFeedback ? (
                   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — trước đây tự động bật
                   // ghi âm ngay khi mở bước nói (kể cả khi mở lại câu đã đạt viết từ trước) — nay học sinh
                   // phải chủ động bấm mới ghi âm (mirror nút trong popup "Đạt bước viết").
@@ -770,21 +794,21 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                 ) : null}
                 {recorder.error && <p className="text-xs font-bold text-rose-600">{recorder.error}</p>}
                 {speakingError && <p className="text-xs font-bold text-rose-600">{speakingError}</p>}
-                {activeProgress?.speakingFeedback && !recorder.recording && !speakingSubmitting && (
+                {displayProgress?.speakingFeedback && !recorder.recording && !speakingSubmitting && (
                   <div
                     className={`text-xs font-bold p-2.5 rounded-xl border ${
-                      activeProgress.speakingPassed ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-amber-50 border-amber-200 text-amber-700"
+                      displayProgress.speakingPassed ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-amber-50 border-amber-200 text-amber-700"
                     }`}
                   >
                     <p>
-                      {activeProgress.speakingPassed
+                      {displayProgress.speakingPassed
                         ? t("reflexVideoTask.speakingStage.passedFeedbackTitle")
                         : t("reflexVideoTask.speakingStage.failedFeedbackTitle")}
-                      {activeProgress.speakingScorePercent != null &&
-                        ` — ${t("reflexVideoTask.speakingStage.scoreLabel", { score: activeProgress.speakingScorePercent })}`}
+                      {displayProgress.speakingScorePercent != null &&
+                        ` — ${t("reflexVideoTask.speakingStage.scoreLabel", { score: displayProgress.speakingScorePercent })}`}
                     </p>
-                    <p className="font-medium mt-1 normal-case whitespace-pre-line">{activeProgress.speakingFeedback}</p>
-                    {!activeProgress.speakingPassed && (
+                    <p className="font-medium mt-1 normal-case whitespace-pre-line">{displayProgress.speakingFeedback}</p>
+                    {!displayProgress.speakingPassed && !isReviewing && (
                       <button
                         onClick={handleRetrySpeaking}
                         className="mt-2 flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 border border-line rounded-lg text-[11px] font-extrabold text-ink"
@@ -794,9 +818,11 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                     )}
                   </div>
                 )}
-                <p className="text-[11px] font-bold text-muted">
-                  {t("reflexVideoTask.speakingStage.attemptCount", { count: activeProgress?.speakingAttemptCount ?? 0 })}
-                </p>
+                {!isReviewing && (
+                  <p className="text-[11px] font-bold text-muted">
+                    {t("reflexVideoTask.speakingStage.attemptCount", { count: displayProgress?.speakingAttemptCount ?? 0 })}
+                  </p>
+                )}
               </div>
             )}
           </div>
@@ -810,15 +836,19 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
           <div className="space-y-2">
             {questions.map((q, i) => {
               const stage = stageForProgress(progress[q.id]);
-              const isActive = q.id === activeQuestionId;
+              const isDisplayed = q.id === displayQuestionId;
+              // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — câu ĐÃ ĐẠT bấm được để xem
+              // lại kết quả (đáp án đã viết + nhận xét viết/nói) — trước đây chỉ hiện dòng tóm tắt tĩnh.
+              const clickable = stage === "passed" && !isDisplayed;
               return (
                 <div
                   key={q.id}
+                  onClick={clickable ? () => handleReviewQuestion(q) : undefined}
                   className={`flex items-center justify-between gap-2 rounded-xl px-3.5 py-2.5 border text-xs sm:text-sm font-bold transition-opacity ${
-                    isActive
+                    isDisplayed
                       ? "opacity-0 h-0 p-0 border-0 overflow-hidden"
                       : stage === "passed"
-                        ? "bg-emerald-50 border-emerald-100 text-emerald-700"
+                        ? "bg-emerald-50 border-emerald-100 text-emerald-700 cursor-pointer hover:bg-emerald-100"
                         : "bg-sky-2 border-teal/10 text-muted opacity-60"
                   }`}
                 >

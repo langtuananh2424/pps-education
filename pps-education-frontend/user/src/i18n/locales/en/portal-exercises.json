@@ -151,6 +151,8 @@
     "noQuestions": "This video doesn't have any questions yet.",
     "badge": "Reflex video",
     "exitButton": "Exit",
+    "reviewBadge": "Reviewing",
+    "closeReviewButton": "Close",
     "startScreen": {
       "description": "The video will auto-play and pause at each question's timestamp — no skipping. For each one: write your answer first, pass the AI grammar check to unlock voice recording, and pass both parts before the video continues.",
       "requestingMic": "Requesting microphone access...",
@@ -175,6 +177,7 @@
       "submitting": "Grading...",
       "passedFeedbackTitle": "Passed — moving on to voice recording",
       "failedFeedbackTitle": "Not passed yet — revise and resubmit",
+      "yourAnswerLabel": "Your answer",
       "scoreLabel": "grammar score {{score}}%",
       "attemptCount": "Submitted {{count}} time(s)",
       "suggestionTitle": "Suggested answer (grammar corrected)",
