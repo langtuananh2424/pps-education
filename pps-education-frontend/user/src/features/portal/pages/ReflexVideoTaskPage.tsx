@@ -560,6 +560,23 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
             </div>
             {activeQuestion.prompt && <p className="text-sm sm:text-base lg:text-lg font-bold text-ink">{activeQuestion.prompt}</p>}
 
+            {/*
+             * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — fix bug thật: ngay khi bước
+             * viết đạt, activeStage đổi sang "speaking" TRONG CÙNG 1 lần render (activeStage tính lại từ
+             * activeProgress mới) — khối hiện kết quả bước viết (nằm trong nhánh activeStage==="writing"
+             * bên dưới) biến mất ngay lập tức, học sinh không kịp thấy thông báo "Đạt". Hiện riêng 1 dòng
+             * tóm tắt CỐ ĐỊNH ở đây (ngoài 2 nhánh writing/speaking) khi đã đạt bước viết VÀ đang ở bước
+             * nói — bước viết tự nó vẫn hiện đủ chi tiết trong khối bên dưới lúc đang ở đúng bước đó.
+             */}
+            {activeStage === "speaking" && activeProgress?.writingPassed && (
+              <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1.5 w-fit">
+                <CheckCircle2 size={12} />
+                {t("reflexVideoTask.writingStage.passedFeedbackTitle")}
+                {activeProgress.writingScorePercent != null &&
+                  ` — ${t("reflexVideoTask.writingStage.scoreLabel", { score: activeProgress.writingScorePercent })}`}
+              </div>
+            )}
+
             {activeStage === "writing" ? (
               <div className="space-y-2">
                 <textarea
