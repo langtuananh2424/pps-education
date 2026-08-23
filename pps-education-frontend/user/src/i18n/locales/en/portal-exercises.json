@@ -176,7 +176,9 @@
       "passedFeedbackTitle": "Passed — moving on to voice recording",
       "failedFeedbackTitle": "Not passed yet — revise and resubmit",
       "scoreLabel": "grammar score {{score}}%",
-      "attemptCount": "Submitted {{count}} time(s)"
+      "attemptCount": "Submitted {{count}} time(s)",
+      "suggestionTitle": "Suggested answer (grammar corrected)",
+      "useSuggestionButton": "Fill answer box with this"
     },
     "speakingStage": {
       "title": "Step 2 · Record your answer",

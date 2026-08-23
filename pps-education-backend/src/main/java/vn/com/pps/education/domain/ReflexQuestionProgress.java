@@ -60,6 +60,14 @@ public class ReflexQuestionProgress extends BaseAuditEntity {
     @Column(name = "writing_attempt_count", nullable = false)
     private int writingAttemptCount;
 
+    /**
+     * V141 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23) — gợi ý câu trả lời đã sửa
+     * lỗi ngữ pháp, CHỈ sửa trong chính câu học sinh viết (giữ nguyên cấu trúc/ý), KHÔNG phải câu mẫu
+     * tự bịa — FE chỉ hiện ra khi writingAttemptCount >= 3 VÀ vẫn chưa đạt (xem ReflexVideoTaskPage.tsx).
+     */
+    @Column(name = "writing_corrected_answer", columnDefinition = "TEXT")
+    private String writingCorrectedAnswer;
+
     @Column(name = "audio_url", length = 1000)
     private String audioUrl;
 

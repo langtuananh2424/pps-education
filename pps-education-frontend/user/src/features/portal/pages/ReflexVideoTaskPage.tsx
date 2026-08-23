@@ -603,6 +603,26 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                     <p className="font-medium mt-1 normal-case whitespace-pre-line">{activeProgress.writingFeedback}</p>
                   </div>
                 )}
+                {/*
+                 * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — nộp sai từ lần thứ 3
+                 * trở đi: hiện gợi ý câu trả lời đã sửa lỗi (AI CHỈ sửa lỗi trong câu học sinh viết, giữ
+                 * nguyên cấu trúc/ý gốc — không phải câu mẫu tự bịa, xem systemPrompt ở
+                 * ReflexWritingGrammarAiGradingService). Học sinh có thể tự chọn/copy đoạn text, hoặc bấm
+                 * nút điền thẳng vào ô trả lời cho tiện.
+                 */}
+                {!activeProgress?.writingPassed && (activeProgress?.writingAttemptCount ?? 0) >= 3 && activeProgress?.writingCorrectedAnswer && (
+                  <div className="text-xs font-bold p-2.5 rounded-xl border bg-sky-2 border-teal/20 text-teal-deep space-y-1.5">
+                    <p className="uppercase text-[10px] tracking-wide">{t("reflexVideoTask.writingStage.suggestionTitle")}</p>
+                    <p className="font-medium normal-case text-ink select-all">{activeProgress.writingCorrectedAnswer}</p>
+                    <button
+                      type="button"
+                      onClick={() => setAnswerDraft(activeProgress.writingCorrectedAnswer ?? "")}
+                      className="mt-1 px-3 py-1.5 bg-white hover:bg-slate-100 border border-line rounded-lg text-[11px] font-extrabold text-ink"
+                    >
+                      {t("reflexVideoTask.writingStage.useSuggestionButton")}
+                    </button>
+                  </div>
+                )}
                 {writingError && <p className="text-xs font-bold text-rose-600">{writingError}</p>}
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[11px] font-bold text-muted">

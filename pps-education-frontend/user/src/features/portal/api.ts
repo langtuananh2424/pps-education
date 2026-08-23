@@ -610,6 +610,12 @@ export interface ReflexQuestionProgressResponse {
   writingFeedback: string | null;
   writingPassed: boolean;
   writingAttemptCount: number;
+  /**
+   * V141 — gợi ý câu trả lời đã sửa lỗi ngữ pháp (CHỈ sửa lỗi trong câu học sinh viết, không phải câu
+   * mẫu tự bịa). NULL khi đã đạt hoặc chưa nộp/chưa chấm được — chỉ hiện khi writingAttemptCount >= 3
+   * VÀ vẫn chưa đạt.
+   */
+  writingCorrectedAnswer: string | null;
   audioUrl: string | null;
   speakingScorePercent: number | null;
   speakingFeedback: string | null;

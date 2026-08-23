@@ -176,7 +176,9 @@
       "passedFeedbackTitle": "Đạt — chuyển sang ghi âm nói lại",
       "failedFeedbackTitle": "Chưa đạt — sửa lại và nộp lại",
       "scoreLabel": "điểm ngữ pháp {{score}}%",
-      "attemptCount": "Đã nộp {{count}} lần"
+      "attemptCount": "Đã nộp {{count}} lần",
+      "suggestionTitle": "Gợi ý câu trả lời (đã sửa lỗi ngữ pháp)",
+      "useSuggestionButton": "Điền gợi ý vào ô trả lời"
     },
     "speakingStage": {
       "title": "Bước 2 · Ghi âm nói lại",

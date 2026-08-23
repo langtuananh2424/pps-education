@@ -64,7 +64,13 @@ public class ReflexWritingGrammarAiGradingService {
         this.rubricLoader = rubricLoader;
     }
 
-    public record GradeResult(int scorePercent, String feedback) {
+    /**
+     * V141 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23) — correctedAnswer: câu trả
+     * lời CHỈ sửa lỗi ngữ pháp trong chính bài học sinh viết (giữ nguyên cấu trúc/ý gốc), KHÔNG phải
+     * câu mẫu tự bịa — luôn yêu cầu AI trả về cùng lúc chấm (không gọi thêm lần API riêng), FE tự quyết
+     * định khi nào hiện ra (chỉ hiện từ lần nộp thứ 3 trở đi mà vẫn chưa đạt, xem ReflexVideoTaskPage.tsx).
+     */
+    public record GradeResult(int scorePercent, String feedback, String correctedAnswer) {
     }
 
     /** Số lần thử tối đa (1 lần đầu + tối đa RETRY lần) khi gặp lỗi tạm thời (503/5xx, KHÔNG gồm 429) — xem {@link #isRetryable}. */
@@ -131,10 +137,15 @@ public class ReflexWritingGrammarAiGradingService {
                 + "TỪNG tiêu chí ở mức đó — đọc kỹ mô tả ở TẤT CẢ các cột tiêu chí, xác định mức % phù hợp nhất với "
                 + "bài làm dựa trên toàn bộ các tiêu chí (có thể nội suy giữa 2 mức liền kề nếu bài làm nằm giữa):\n"
                 + rubric
+                + "\nNgoài chấm điểm, hãy sửa lại CHÍNH câu trả lời của học sinh thành bản đúng ngữ pháp (correctedAnswer): "
+                + "CHỈ sửa lỗi ngữ pháp/chính tả/từ vựng dùng sai trong câu học sinh đã viết, GIỮ NGUYÊN cấu trúc câu và "
+                + "ý tưởng gốc của học sinh — TUYỆT ĐỐI KHÔNG tự viết lại thành 1 câu trả lời khác, KHÔNG thêm ý mới học "
+                + "sinh chưa viết, KHÔNG nâng cấp từ vựng lên trình độ cao hơn nếu không phải lỗi sai."
                 + "\nChỉ trả lời DUY NHẤT 1 JSON hợp lệ, không thêm chữ nào khác, đúng format: "
                 + "{\"scorePercent\": <số nguyên 0-100, theo đúng thang % của bảng trên>, "
                 + "\"feedback\": \"<nhận xét chi tiết tiếng Việt, đánh giá lần lượt theo TỪNG tiêu chí trong bảng, "
-                + "nêu điểm mạnh/điểm yếu cụ thể và gợi ý cải thiện>\"}";
+                + "nêu điểm mạnh/điểm yếu cụ thể và gợi ý cải thiện>\", "
+                + "\"correctedAnswer\": \"<câu trả lời của học sinh sau khi CHỈ sửa lỗi, giữ nguyên cấu trúc/ý gốc>\"}";
     }
 
     private GradeResult callClaude(String answerText, String rubric) throws IOException, InterruptedException {
@@ -194,6 +205,6 @@ public class ReflexWritingGrammarAiGradingService {
         }
         JsonNode parsed = objectMapper.readTree(rawText.substring(start, end + 1));
         int scorePercent = Math.min(100, Math.max(0, parsed.path("scorePercent").asInt(0)));
-        return new GradeResult(scorePercent, parsed.path("feedback").asText(""));
+        return new GradeResult(scorePercent, parsed.path("feedback").asText(""), parsed.path("correctedAnswer").asText(""));
     }
 }

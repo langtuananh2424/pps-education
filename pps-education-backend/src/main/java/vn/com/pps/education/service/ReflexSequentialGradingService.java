@@ -139,11 +139,15 @@ public class ReflexSequentialGradingService {
             progress.setWritingMaxScore(HUNDRED);
             progress.setWritingFeedback(result.feedback());
             progress.setWritingGradedAt(OffsetDateTime.now());
+            // V141 — chỉ có ý nghĩa khi CHƯA đạt (đạt rồi thì không cần gợi ý sửa nữa) — không set khi đạt
+            // để tránh FE lỡ hiện gợi ý sửa cho 1 câu đã đúng.
+            progress.setWritingCorrectedAnswer(result.scorePercent() >= PASS_THRESHOLD_PERCENT ? null : result.correctedAnswer());
         } else {
             progress.setWritingScore(null);
             progress.setWritingMaxScore(null);
             progress.setWritingFeedback(AI_GRADING_FAILED_FEEDBACK);
             progress.setWritingGradedAt(null);
+            progress.setWritingCorrectedAnswer(null);
         }
     }
 
@@ -197,6 +201,7 @@ public class ReflexSequentialGradingService {
                 p.getWritingFeedback(),
                 writingPassed,
                 p.getWritingAttemptCount(),
+                p.getWritingCorrectedAnswer(),
                 p.getAudioUrl(),
                 p.getSpeakingScore() == null ? null : p.getSpeakingScore().intValue(),
                 p.getSpeakingFeedback(),

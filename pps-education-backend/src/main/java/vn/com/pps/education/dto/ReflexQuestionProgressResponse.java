@@ -18,6 +18,13 @@ public record ReflexQuestionProgressResponse(
         String writingFeedback,
         boolean writingPassed,
         int writingAttemptCount,
+        /**
+         * V141 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23) — gợi ý câu trả lời đã
+         * sửa lỗi ngữ pháp (CHỈ sửa lỗi trong câu học sinh viết, không phải câu mẫu tự bịa). NULL khi
+         * đã đạt (không cần gợi ý sửa) hoặc chưa nộp/chưa chấm được — FE chỉ hiện ra khi
+         * writingAttemptCount >= 3 VÀ vẫn chưa đạt.
+         */
+        String writingCorrectedAnswer,
         String audioUrl,
         Integer speakingScorePercent,
         String speakingFeedback,
