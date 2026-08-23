@@ -24,8 +24,11 @@ import MonitoringBadge from "../components/MonitoringBadge";
  * riêng `controls=0` thì ổn định. KHÔNG thêm lại 3 tham số này trừ khi tìm ra cách khác đã kiểm chứng —
  * việc "khóa" video không phụ thuộc chúng (xem overlay chặn click + auto-resume-on-pause bên dưới).
  */
-function buildLockedYouTubeEmbedSrc(videoId: string): string {
-  return `https://www.youtube.com/embed/${videoId}?enablejsapi=1&rel=0&disablekb=1&controls=0`;
+function buildLockedYouTubeEmbedSrc(videoId: string, locked: boolean): string {
+  // `locked=false` (phiên XEM LẠI thuần, mọi câu đã đạt) — trả lại controls gốc YouTube (có timestamp/
+  // thanh tua) để học sinh tự do xem lại, KHÔNG cần đủ 3 tham số đã bị chặn network trước đó (xem ghi
+  // chú phía trên) vì chỉ đổi mỗi `controls`, không thêm modestbranding/fs/playsinline.
+  return `https://www.youtube.com/embed/${videoId}?enablejsapi=1&rel=0&disablekb=1&controls=${locked ? 0 : 1}`;
 }
 
 /** Trạng thái của 1 câu hỏi suy ra từ tiến trình đã lưu — quyết định UI nào hiện ở câu đang mở (writing/speaking) hay bỏ qua khi video chạy qua (passed). */
@@ -156,6 +159,7 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
         // vào thẳng được trang để bấm xem lại từng câu (tính năng "Đang chờ bạn"/xem lại đã có sẵn).
         if (sorted.length > 0 && sorted.every((q) => saved.find((p) => p.questionId === q.id)?.questionPassed)) {
           setStarted(true);
+          setReviewOnlyMode(true);
         }
       })
       .catch((err) => setQuestionsError(friendlyApiErrorMessage(err, t("reflexVideoTask.questionsLoadError"))))
@@ -173,6 +177,20 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
    * hình "Bắt đầu làm bài" — bấm nút mới thật sự play()/requestFullscreen() NGAY trong handler click đó.
    */
   const [started, setStarted] = useState(false);
+  /**
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — fix bug thật: đã bật `started=true`
+   * tự động cho phiên XEM LẠI thuần (mọi câu đã đạt), nhưng KHÔNG có bước nào từng gọi seek/play cho
+   * video trong phiên đó (xem playFromResumePoint — không làm gì nếu không còn câu nào đang chờ) — YouTube
+   * iframe đứng nguyên ở trạng thái "chưa từng phát", chỉ hiện card thumbnail/branding mặc định (không
+   * timestamp, không tua được), khóa video (controls=0 + overlay chặn click) vốn dành cho lúc LÀM BÀI
+   * THẬT giờ chỉ khiến video trông như hỏng. Khi xem lại thuần: mở khóa control gốc YouTube/native +
+   * bỏ overlay chặn click — không còn lý do gì phải khóa video khi đã hoàn thành hết.
+   */
+  const [reviewOnlyMode, setReviewOnlyMode] = useState(false);
+  const reviewOnlyModeRef = useRef(false);
+  useEffect(() => {
+    reviewOnlyModeRef.current = reviewOnlyMode;
+  }, [reviewOnlyMode]);
   const [requestingMic, setRequestingMic] = useState(false);
   const [micError, setMicError] = useState<string | null>(null);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
@@ -352,8 +370,11 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
     const onEnded = () => handleVideoNaturallyEndedRef.current();
     const onPause = () => {
       // Best-effort chặn tạm dừng ngoài ý muốn (VD phím media cứng trên bàn phím) — CHỈ khi không phải
-      // đang tạm dừng có chủ đích để mở khoá 1 câu hỏi (activeQuestionIdRef != null).
-      if (started && !media.ended && activeQuestionIdRef.current == null) media.play?.().catch(() => undefined);
+      // đang tạm dừng có chủ đích để mở khoá 1 câu hỏi (activeQuestionIdRef != null), VÀ không phải
+      // đang XEM LẠI thuần (reviewOnlyMode — học sinh được tự do bấm pause, không có gì để "khóa" nữa).
+      if (started && !media.ended && activeQuestionIdRef.current == null && !reviewOnlyModeRef.current) {
+        media.play?.().catch(() => undefined);
+      }
     };
     media.addEventListener("timeupdate", onTimeUpdate);
     media.addEventListener("ended", onEnded);
@@ -393,8 +414,9 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                 if (time != null) handleTimeUpdateRef.current(time);
               }, 250);
             } else if (e.data === YT.PlayerState.PAUSED) {
-              // Best-effort chặn tạm dừng ngoài ý muốn — CHỈ khi không phải đang chủ động dừng để mở khoá câu hỏi.
-              if (startedRef.current && !videoEndedRef.current && activeQuestionIdRef.current == null) {
+              // Best-effort chặn tạm dừng ngoài ý muốn — CHỈ khi không phải đang chủ động dừng để mở khoá
+              // câu hỏi, VÀ không phải đang XEM LẠI thuần (học sinh tự do bấm pause).
+              if (startedRef.current && !videoEndedRef.current && activeQuestionIdRef.current == null && !reviewOnlyModeRef.current) {
                 youTubePlayerRef.current?.playVideo?.();
               }
             }
@@ -714,17 +736,24 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
               <iframe
                 key={video.id}
                 id={iframeId}
-                src={buildLockedYouTubeEmbedSrc(youTubeVideoId)}
+                src={buildLockedYouTubeEmbedSrc(youTubeVideoId, !reviewOnlyMode)}
                 title={video.title}
-                className="w-full h-full pointer-events-none"
+                className={`w-full h-full ${reviewOnlyMode ? "" : "pointer-events-none"}`}
                 allow="autoplay; encrypted-media"
               />
-              <div className="absolute inset-0" />
+              {!reviewOnlyMode && <div className="absolute inset-0" />}
             </>
           ) : video.sourceType === "R2_AUDIO" ? (
             <div className="w-full h-full flex items-center justify-center p-6">
-              <audio key={video.id} ref={mediaRef as React.RefObject<HTMLAudioElement>} src={video.fileUrl} tabIndex={-1} className="w-full pointer-events-none" />
-              <Lock size={28} className="text-white/60 absolute" />
+              <audio
+                key={video.id}
+                ref={mediaRef as React.RefObject<HTMLAudioElement>}
+                src={video.fileUrl}
+                tabIndex={-1}
+                controls={reviewOnlyMode}
+                className={`w-full ${reviewOnlyMode ? "" : "pointer-events-none"}`}
+              />
+              {!reviewOnlyMode && <Lock size={28} className="text-white/60 absolute" />}
             </div>
           ) : (
             <video
@@ -732,7 +761,8 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
               ref={mediaRef as React.RefObject<HTMLVideoElement>}
               src={video.fileUrl}
               tabIndex={-1}
-              className="w-full h-full pointer-events-none"
+              controls={reviewOnlyMode}
+              className={`w-full h-full ${reviewOnlyMode ? "" : "pointer-events-none"}`}
               playsInline
             />
           )}
