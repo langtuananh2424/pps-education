@@ -19,6 +19,15 @@ import java.time.OffsetDateTime;
 @Table(name = "student_answer_grading")
 public class StudentAnswerGrading {
 
+    /**
+     * V138, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-22 — HUMAN (GV chấm tay, UC-41)
+     * hay AI (chấm tự động ESSAY thuộc Bài Exercise.skillCategory=WRITING, xem WritingAiGradingService/
+     * ExerciseAttemptService#gradeAndFinalize). grader vẫn LUÔN là 1 User thật (dùng
+     * exercise.createdBy khi gradingSource=AI, không thêm user hệ thống ảo) — field này chỉ để phân
+     * biệt rõ trong dữ liệu/lịch sử, tránh hiểu nhầm giáo viên đã tự tay chấm.
+     */
+    public enum GradingSource { HUMAN, AI }
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -45,4 +54,8 @@ public class StudentAnswerGrading {
 
     @Column(name = "is_final", nullable = false)
     private boolean latest = true;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "grading_source", nullable = false, length = 10)
+    private GradingSource gradingSource = GradingSource.HUMAN;
 }

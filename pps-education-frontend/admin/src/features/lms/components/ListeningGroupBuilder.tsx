@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Check, Headphones, Plus, Volume2, PenLine, X } from "lucide-react";
+import { Check, Headphones, Image as ImageIcon, Plus, Volume2, PenLine, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import Button from "@/components/ui/Button";
@@ -9,18 +9,22 @@ import { QuestionResponse, QuestionType, createExamQuestion, uploadMedia } from 
 const inputClass = "w-full bg-white border border-slate-200 text-xs px-3.5 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-red";
 const labelClass = "block font-bold text-slate-700 mb-1 uppercase tracking-wider text-[10px]";
 
-type ListeningSubKind = "VOICE_MULTIPLE_CHOICE" | "LISTENING_AUDIO_SUBMISSION" | "LISTENING_FILL_IN_BLANK";
+type ListeningSubKind = "VOICE_MULTIPLE_CHOICE" | "VOICE_PICTURE_CHOICE" | "LISTENING_AUDIO_SUBMISSION" | "LISTENING_FILL_IN_BLANK";
 
 const subKindMeta: Record<ListeningSubKind, { icon: typeof Volume2; activeClass: string; iconClass: string }> = {
   VOICE_MULTIPLE_CHOICE: { icon: Volume2, activeClass: "bg-blue-50 border-blue-400 text-blue-800 ring-1 ring-blue-300", iconClass: "text-blue-600" },
+  VOICE_PICTURE_CHOICE: { icon: ImageIcon, activeClass: "bg-indigo-50 border-indigo-400 text-indigo-800 ring-1 ring-indigo-300", iconClass: "text-indigo-600" },
   LISTENING_AUDIO_SUBMISSION: { icon: Headphones, activeClass: "bg-sky-50 border-sky-400 text-sky-800 ring-1 ring-sky-300", iconClass: "text-sky-600" },
   LISTENING_FILL_IN_BLANK: { icon: PenLine, activeClass: "bg-violet-50 border-violet-400 text-violet-800 ring-1 ring-violet-300", iconClass: "text-violet-600" }
 };
 
 interface QuestionRow {
   content: string;
-  // Chỉ dùng khi subKind=VOICE_MULTIPLE_CHOICE.
+  // Chỉ dùng khi subKind=VOICE_MULTIPLE_CHOICE/VOICE_PICTURE_CHOICE.
   options: string[];
+  // V143 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23) — chỉ dùng khi
+  // subKind=VOICE_PICTURE_CHOICE, song song với `options` (dùng làm chú thích tùy chọn ở kind này).
+  imageUrls: string[];
   correctIndex: number;
   // Chỉ dùng khi subKind=LISTENING_FILL_IN_BLANK.
   correctAnswerText: string;
@@ -30,7 +34,14 @@ interface QuestionRow {
   explanation: string;
 }
 
-const emptyQuestionRow = (): QuestionRow => ({ content: "", options: ["", "", "", ""], correctIndex: 0, correctAnswerText: "", explanation: "" });
+const emptyQuestionRow = (): QuestionRow => ({
+  content: "",
+  options: ["", "", "", ""],
+  imageUrls: ["", "", "", ""],
+  correctIndex: 0,
+  correctAnswerText: "",
+  explanation: ""
+});
 
 /**
  * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — GV nước ngoài cần 1 file audio (1
@@ -71,6 +82,9 @@ export default function ListeningGroupBuilder({
   const updateOption = (idx: number, optIdx: number, value: string) => {
     setQuestions((prev) => prev.map((q, i) => (i === idx ? { ...q, options: q.options.map((o, oi) => (oi === optIdx ? value : o)) } : q)));
   };
+  const updateImageUrl = (idx: number, optIdx: number, value: string) => {
+    setQuestions((prev) => prev.map((q, i) => (i === idx ? { ...q, imageUrls: q.imageUrls.map((u, oi) => (oi === optIdx ? value : u)) } : q)));
+  };
   const updateCorrectIndex = (idx: number, correctIndex: number) => {
     setQuestions((prev) => prev.map((q, i) => (i === idx ? { ...q, correctIndex } : q)));
   };
@@ -101,12 +115,17 @@ export default function ListeningGroupBuilder({
       setError(t("listeningGroupBuilder.errors.fillAllOptions"));
       return;
     }
+    if (subKind === "VOICE_PICTURE_CHOICE" && questions.some((q) => q.imageUrls.some((u) => !u.trim()))) {
+      setError(t("listeningGroupBuilder.errors.fillAllImages"));
+      return;
+    }
     if (subKind === "LISTENING_FILL_IN_BLANK" && questions.some((q) => !q.correctAnswerText.trim())) {
       setError(t("listeningGroupBuilder.errors.fillAllCorrectAnswers"));
       return;
     }
 
-    const questionType: QuestionType = subKind === "VOICE_MULTIPLE_CHOICE" ? "MULTIPLE_CHOICE" : subKind === "LISTENING_AUDIO_SUBMISSION" ? "SPEAKING" : "FILL_IN_BLANK";
+    const questionType: QuestionType =
+      subKind === "VOICE_MULTIPLE_CHOICE" || subKind === "VOICE_PICTURE_CHOICE" ? "MULTIPLE_CHOICE" : subKind === "LISTENING_AUDIO_SUBMISSION" ? "SPEAKING" : "FILL_IN_BLANK";
     const groupKey = `listening-${Date.now()}`;
     const referencePassage = transcript.trim() || undefined;
 
@@ -128,7 +147,15 @@ export default function ListeningGroupBuilder({
           choices:
             subKind === "VOICE_MULTIPLE_CHOICE"
               ? q.options.map((content_, i) => ({ choiceLabel: String.fromCharCode(65 + i), content: content_.trim(), isCorrect: i === q.correctIndex, displayOrder: i + 1 }))
-              : undefined
+              : subKind === "VOICE_PICTURE_CHOICE"
+                ? q.options.map((content_, i) => ({
+                    choiceLabel: String.fromCharCode(65 + i),
+                    content: content_.trim() || String.fromCharCode(65 + i),
+                    imageUrl: q.imageUrls[i]?.trim() || undefined,
+                    isCorrect: i === q.correctIndex,
+                    displayOrder: i + 1
+                  }))
+                : undefined
         });
         created.push(result);
       }
@@ -152,7 +179,7 @@ export default function ListeningGroupBuilder({
 
       <div>
         <label className={labelClass}>{t("listeningGroupBuilder.subKindLabel")}</label>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
           {(Object.entries(subKindMeta) as [ListeningSubKind, (typeof subKindMeta)[ListeningSubKind]][]).map(([value, meta]) => {
             const Icon = meta.icon;
             const active = subKind === value;
@@ -235,6 +262,39 @@ export default function ListeningGroupBuilder({
                         placeholder={t("common.answerOptionPlaceholder", { letter: String.fromCharCode(65 + optIdx) })}
                         className={`flex-1 ${inputClass}`}
                       />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {subKind === "VOICE_PICTURE_CHOICE" && (
+                <div className="pl-8 space-y-1.5">
+                  {q.imageUrls.map((url, optIdx) => (
+                    <div key={optIdx} className="flex items-start gap-2">
+                      <button
+                        type="button"
+                        onClick={() => updateCorrectIndex(idx, optIdx)}
+                        className={`w-5 h-5 rounded-full border flex items-center justify-center font-bold shrink-0 text-[9px] transition-all mt-1 ${
+                          q.correctIndex === optIdx ? "bg-emerald-500 border-emerald-500 text-white" : "bg-white border-slate-300 text-slate-400 hover:border-slate-400"
+                        }`}
+                      >
+                        {q.correctIndex === optIdx ? <Check className="w-3 h-3 stroke-[3]" /> : String.fromCharCode(65 + optIdx)}
+                      </button>
+                      <div className="flex-1 space-y-1">
+                        <FileUploadField
+                          value={url}
+                          onChange={(v) => updateImageUrl(idx, optIdx, v)}
+                          onUpload={(file) => uploadMedia(file, "LMS_QUESTION")}
+                          accept="image/*"
+                          placeholder={t("questionEditorForm.choiceImagePlaceholder", { letter: String.fromCharCode(65 + optIdx) })}
+                        />
+                        <input
+                          value={q.options[optIdx]}
+                          onChange={(e) => updateOption(idx, optIdx, e.target.value)}
+                          placeholder={t("questionEditorForm.choiceCaptionPlaceholder")}
+                          className={`w-full ${inputClass}`}
+                        />
+                      </div>
                     </div>
                   ))}
                 </div>

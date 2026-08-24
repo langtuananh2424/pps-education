@@ -8,6 +8,7 @@ import Button from "@/components/ui/Button";
 import {
   ExamTeacherType,
   ExerciseResponse,
+  ExerciseSkillCategory,
   QuestionImportedRow,
   QuestionResponse,
   addExerciseQuestion,
@@ -115,10 +116,17 @@ function ExerciseInfoStep({
   const [code, setCode] = useState("");
   const [title, setTitle] = useState("");
   const [totalPoints, setTotalPoints] = useState("10");
+  /** V136, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-21 — nhóm kỹ năng của Bài (Reading/Writing/Từ vựng&Ngữ pháp), cố định từ lúc tạo. */
+  const [skillCategory, setSkillCategory] = useState<ExerciseSkillCategory | "">("");
   const [allowRetake, setAllowRetake] = useState(false);
   const [maxAttempts, setMaxAttempts] = useState("");
   const [showCorrectAnswers, setShowCorrectAnswers] = useState(true);
   const [passThresholdPercent, setPassThresholdPercent] = useState("");
+  /** Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-22) — thời gian làm bài tính từ lúc học
+   * sinh mở bài (ExerciseAttempt.startedAt), khác hạn nộp (ExerciseAssignment.dueAt). Field
+   * Exercise.timeLimitMinutes đã có sẵn từ trước nhưng chưa từng có ô nhập ở đây — học sinh xem đếm
+   * ngược ở TakeExerciseModal.tsx (Cổng Học viên), tự nộp bài khi hết giờ. */
+  const [timeLimitMinutes, setTimeLimitMinutes] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -139,7 +147,9 @@ function ExerciseInfoStep({
         allowRetake,
         maxAttempts: allowRetake && maxAttempts ? Number(maxAttempts) : undefined,
         showCorrectAnswers,
-        passThresholdPercent: passThresholdPercent ? Number(passThresholdPercent) : undefined
+        passThresholdPercent: passThresholdPercent ? Number(passThresholdPercent) : undefined,
+        timeLimitMinutes: timeLimitMinutes ? Number(timeLimitMinutes) : undefined,
+        skillCategory: skillCategory || undefined
       });
       onCreated(created);
     } catch (err) {
@@ -165,6 +175,20 @@ function ExerciseInfoStep({
           <input value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} />
         </div>
         <div className="col-span-2">
+          <label className={labelClass}>{t("assignModal.infoStep.skillCategoryLabel")}</label>
+          <select
+            value={skillCategory}
+            onChange={(e) => setSkillCategory(e.target.value as ExerciseSkillCategory | "")}
+            className={inputClass}
+          >
+            <option value="">{t("assignModal.infoStep.skillCategoryPlaceholder")}</option>
+            <option value="READING">{t("assignModal.infoStep.skillCategoryReading")}</option>
+            <option value="WRITING">{t("assignModal.infoStep.skillCategoryWriting")}</option>
+            <option value="VOCAB_GRAMMAR">{t("assignModal.infoStep.skillCategoryVocabGrammar")}</option>
+            <option value="LISTENING">{t("assignModal.infoStep.skillCategoryListening")}</option>
+          </select>
+        </div>
+        <div className="col-span-2">
           <label className={labelClass}>{t("assignModal.infoStep.passThresholdLabel")}</label>
           <input
             type="number"
@@ -173,6 +197,17 @@ function ExerciseInfoStep({
             placeholder={t("assignModal.infoStep.passThresholdPlaceholder")}
             value={passThresholdPercent}
             onChange={(e) => setPassThresholdPercent(e.target.value)}
+            className={inputClass}
+          />
+        </div>
+        <div className="col-span-2">
+          <label className={labelClass}>{t("assignModal.infoStep.timeLimitLabel")}</label>
+          <input
+            type="number"
+            min={1}
+            placeholder={t("assignModal.infoStep.timeLimitPlaceholder")}
+            value={timeLimitMinutes}
+            onChange={(e) => setTimeLimitMinutes(e.target.value)}
             className={inputClass}
           />
         </div>

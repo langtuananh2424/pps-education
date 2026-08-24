@@ -163,9 +163,9 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
         headAcademic = newUser("head.academic");
         assignRole(headAcademic, "HEAD_ACADEMIC");
         CurriculumResponse curriculum = curriculumService.create(
-                new CreateCurriculumRequest(curriculumCode(), "Chuẩn", "MAIN", null, null, null), headAcademic.getId());
+                new CreateCurriculumRequest(curriculumCode(), "Chuẩn", "MAIN", null, null, null, null, null), headAcademic.getId());
         CurriculumResponse activeCurriculum = curriculumService.update(curriculum.id(),
-                new UpdateCurriculumRequest("Chuẩn", null, null, null, "ACTIVE", false), headAcademic.getId());
+                new UpdateCurriculumRequest("Chuẩn", null, null, null, null, null, "ACTIVE", false), headAcademic.getId());
 
         Site site = newSite();
         academicTerm = newAcademicTerm(site);
@@ -293,7 +293,7 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
         // DAILY dùng chung luồng DRAFT->Gửi->PENDING->duyệt với MID_TERM/END_TERM (2026-07-29).
         StudentCommentResponse approved = studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), session.id(),
-                        LocalDate.now(), "Chăm chỉ.", null, null, false, null, null, null, null, null, null, null, null, null, null, null, null), teacher.getId());
+                        LocalDate.now(), "Chăm chỉ.", null, null, false, null, null, null, null, null, null, null, null, null, null, null, null, null, null), teacher.getId());
         studentCommentService.submitComments(schoolClass.id(), new SubmitCommentsRequest(List.of(approved.id())), teacher.getId());
         studentCommentService.decideComments(new DecideCommentsRequest(List.of(approved.id()), "APPROVED", null), siteManagerUser.getId());
 
@@ -306,7 +306,7 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
                 headAcademic.getId());
         studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), otherSession.id(),
-                        LocalDate.now(), "Nội dung chưa duyệt.", null, null, false, null, null, null, null, null, null, null, null, null, null, null, null), teacher.getId());
+                        LocalDate.now(), "Nội dung chưa duyệt.", null, null, false, null, null, null, null, null, null, null, null, null, null, null, null, null, null), teacher.getId());
 
         List<StudentCommentResponse> comments = parentPortalService.listComments(student.getId(), schoolClass.id(), parentUser.getId());
 
@@ -387,7 +387,7 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
         QuestionResponse question = examQuestionService.createQuestion(exam.id(),
                 new CreateExamQuestionRequest("MULTIPLE_CHOICE", "GRAMMAR", "EASY", "She ___ to school.",
                         null, null, null, null, null, new BigDecimal("1.0"), null,
-                        List.of(new QuestionChoiceRequest("A", "go", false, 1), new QuestionChoiceRequest("B", "goes", true, 2)), null, null),
+                        List.of(new QuestionChoiceRequest("A", "go", null, false, 1), new QuestionChoiceRequest("B", "goes", null, true, 2)), null, null),
                 teacher.getId());
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Bài ngữ pháp homework", exam.id(), null,
@@ -444,7 +444,7 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
         StudentCommentResponse comment = studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), session.id(),
                         session.sessionDate(), "Nội dung buổi.", null, null, false, null, null, null, null, null,
-                        homeworkNext, null, null, grammarExerciseId, videoSetId, null, null),
+                        homeworkNext, null, null, grammarExerciseId, videoSetId, null, null, null, null),
                 teacher.getId());
         List<StudentCommentResponse> submitted = studentCommentService.submitComments(
                 schoolClass.id(), new SubmitCommentsRequest(List.of(comment.id())), teacher.getId());
@@ -497,7 +497,7 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
     void listHomeworkProgress_skipsSessionsWithNoHomeworkAssigned() {
         studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), session.id(),
-                        session.sessionDate(), "Nội dung buổi, không giao BTVN.", null, null, false, null, null, null, null, null, null, null, null, null, null, null, null),
+                        session.sessionDate(), "Nội dung buổi, không giao BTVN.", null, null, false, null, null, null, null, null, null, null, null, null, null, null, null, null, null),
                 siteManagerUser.getId());
 
         List<HomeworkProgressResponse> result = parentPortalService.listHomeworkProgress(student.getId(), schoolClass.id(), parentUser.getId());

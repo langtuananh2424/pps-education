@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import vn.com.pps.education.common.ExcelHttpResponses;
+import vn.com.pps.education.dto.AutoProgressPreviewResponse;
 import vn.com.pps.education.dto.ClassSessionLessonContentResponse;
 import vn.com.pps.education.dto.ClassSessionTeacherNameResponse;
 import vn.com.pps.education.dto.ClassSessionTeacherTypeResponse;
@@ -140,6 +141,14 @@ public class StudentCommentController {
                                                                                      @Valid @RequestBody UpdateActualTeacherNameRequest request,
                                                                                      @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(studentCommentService.updateActualTeacherName(classSessionId, request.actualTeacherName(), actor.userId()));
+    }
+
+    /** V146: % TỰ ĐỘNG "BTVN buổi trước" cho cả lớp, tính ngay cả khi buổi đang xem chưa có StudentComment nào. */
+    @PreAuthorize("hasPermission(null, 'academic.comment.write') or hasPermission(null, 'academic.comment.approve')")
+    @GetMapping("/api/class-sessions/{classSessionId}/comments/auto-progress-preview")
+    public ResponseEntity<List<AutoProgressPreviewResponse>> previewAutoProgress(@PathVariable Long classSessionId,
+                                                                                  @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(studentCommentService.previewAutoProgress(classSessionId, actor.userId()));
     }
 
     @PreAuthorize("hasPermission(null, 'academic.comment.write') or hasPermission(null, 'academic.comment.approve')")

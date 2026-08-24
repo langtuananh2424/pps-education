@@ -23,6 +23,10 @@
       "submittedPendingGrading": "Submitted — waiting for essay/speaking grading"
     },
     "scoreSuffix": " · Score: {{score}}",
+    "timeLimit": {
+      "remainingPrefix": "Time limit — ",
+      "warning": "Time is almost up, finish your answers!"
+    },
     "stoppedByViolation": {
       "title": "This attempt was stopped",
       "description": "You left the exercise more times than allowed. Your results were recorded based on what you answered so far. You can retake it from the assignment list.",
@@ -42,6 +46,10 @@
     "submitting": "Submitting...",
     "submitButton": "Submit",
     "exitButton": "Exit",
+    "gradingOverlay": {
+      "title": "Grading your submission...",
+      "description": "We're grading your work now (essay/speaking questions can take about 10-20 seconds) — please wait a moment."
+    },
     "resultPopup": {
       "retakeNotAllowed": "This exercise can't be retaken — this is the final result.",
       "retakeAnytime": "You can retake this exercise whenever you're ready.",
@@ -54,6 +62,7 @@
       "failedTitle": "You've completed \"{{title}}\"",
       "failedDescription": "Result: {{percentage}}% — Not passed yet{{threshold}}, you'll need to retake this exercise.",
       "thresholdSuffix": " (need ≥{{percent}}%)",
+      "seeFeedbackHint": "See the detailed feedback under each question below.",
       "understood": "Got it"
     },
     "question": {
@@ -63,7 +72,11 @@
       "answerPlaceholder": "Type your answer...",
       "correct": "Correct",
       "correctAnswerPrefix": "Correct answer: {{answer}}",
-      "explanationPrefix": "Explanation: {{text}}"
+      "explanationPrefix": "Explanation: {{text}}",
+      "gradingFeedbackTitle": "Feedback",
+      "gradedByAi": "Graded by AI",
+      "gradedByTeacher": "Graded by teacher",
+      "gradingScoreSuffix": "{{score}}/{{max}} points"
     },
     "locked": {
       "remaining": "{{count}} attempt(s) left — finish all your attempts to see the answer.",
@@ -75,9 +88,7 @@
       "hintAriaLabel": "Hint",
       "loadingHint": "Loading hint...",
       "locked": "Listened {{playCount}}/{{threshold}} time(s) — {{remaining}} more to unlock the hint",
-      "transcriptLabel": "Transcript: ",
-      "correctAnswerLabel": "Correct answer: ",
-      "explanationLabel": "Explanation: "
+      "transcriptLabel": "Transcript"
     },
     "wordBank": {
       "choosePlaceholder": "— choose —"
@@ -124,41 +135,74 @@
     }
   },
   "reflexVideoTask": {
+    "gradingOverlay": {
+      "title": "Grading your answer...",
+      "writingDescription": "AI is grading the grammar of your answer — please wait a moment.",
+      "speakingDescription": "AI is listening to and grading your answer (this can take about 10-20 seconds) — please wait a moment."
+    },
     "micAccessError": "Couldn't access the microphone — check your browser permissions and try again.",
     "questionsLoadError": "Couldn't load the question list.",
-    "submitError": "Couldn't submit — please try again.",
+    "submitError": "Grading failed — please try again.",
     "notAssignedError": "This video hasn't been assigned to you as homework — you can't submit.",
     "micPermissionError": "Microphone access is required — please allow microphone access (the lock icon in your address bar) and try again.",
     "loadingQuestions": "Loading questions...",
     "noQuestions": "This video doesn't have any questions yet.",
     "badge": "Reflex video",
     "exitButton": "Exit",
+    "reviewBadge": "Reviewing",
+    "closeReviewButton": "Close",
     "startScreen": {
-      "description": "The video will auto-play in fullscreen — no pausing or skipping. When it reaches each timestamp, we'll automatically record your answer.",
+      "description": "The video will auto-play and pause at each question's timestamp — no skipping. For each one: write your answer first, pass the AI grammar check to unlock voice recording, and pass both parts before the video continues.",
       "requestingMic": "Requesting microphone access...",
       "startButton": "Start exercise",
       "exitButton": "Exit"
     },
     "exitConfirm": {
-      "title": "Exit without submitting?",
-      "description": "You have unsubmitted recordings — leaving now will discard all of them.",
+      "title": "Exit before finishing?",
+      "description": "You haven't finished every question yet — questions you've already passed stay saved, you'll only lose the one you're currently on if you exit now.",
       "stay": "Keep going",
       "stillExit": "Exit anyway"
     },
     "question": {
       "label": "Question {{index}}",
-      "attemptsUsed": "{{used}}/{{max}} attempts used",
-      "recording": "Recording ({{elapsed}}s/{{max}}s)",
-      "draftSaved": "✓ Recorded — submit to save it.",
-      "attemptsExhausted": "You've used up all your attempts for this question.",
-      "alreadySubmitted": "✓ Submitted.",
-      "cannotRecordNow": "Can't record right now.",
-      "waitingForTimestamp": "Recording will start automatically when the video reaches this point."
+      "passed": "Passed",
+      "locked": "Locked",
+      "waitingForYou": "Waiting for you — tap to continue"
     },
-    "submittedSuccess": "Submitted successfully!",
-    "retryButton": "Retry",
-    "submitting": "Submitting...",
-    "submitButton": "Submit",
+    "writingStage": {
+      "title": "Step 1 · Write your answer",
+      "placeholder": "Type your answer...",
+      "submitButton": "Submit answer",
+      "submitting": "Grading...",
+      "passedFeedbackTitle": "Passed — moving on to voice recording",
+      "failedFeedbackTitle": "Not passed yet — revise and resubmit",
+      "yourAnswerLabel": "Your answer",
+      "scoreLabel": "grammar score {{score}}%",
+      "attemptCount": "Submitted {{count}} time(s)",
+      "suggestionTitle": "Suggested answer (grammar corrected)",
+      "useSuggestionButton": "Fill answer box with this",
+      "passedPopup": {
+        "heading": "Passed the writing step",
+        "startRecordingButton": "Start recording"
+      }
+    },
+    "speakingStage": {
+      "title": "Step 2 · Record your answer",
+      "instructions": "Tap the button below when you're ready — say back what you just wrote.",
+      "recording": "Recording ({{elapsed}}s/{{max}}s)",
+      "grading": "Grading your recording...",
+      "startRecordingButton": "Start recording",
+      "passedFeedbackTitle": "Passed — next question unlocked",
+      "failedFeedbackTitle": "Not passed yet",
+      "scoreLabel": "content score {{score}}%",
+      "retryButton": "Record again",
+      "attemptCount": "Recorded {{count}} time(s)",
+      "passedPopup": {
+        "heading": "Passed — next question unlocked",
+        "continueButton": "Continue"
+      }
+    },
+    "submittedSuccess": "You've completed every question!",
     "backToList": "Back to homework list"
   },
   "assignments": {
@@ -169,6 +213,13 @@
       "inProgress": "In progress",
       "autoGraded": "Submitted — waiting for essay/speaking grading",
       "fullyGraded": "Graded"
+    },
+    "countdown": {
+      "remainingPrefix": "",
+      "days": "{{d}}d {{h}}h left",
+      "hours": "{{h}}h {{m}}m left",
+      "minutes": "{{m}}m {{s}}s left",
+      "seconds": "{{s}}s left"
     },
     "banner": {
       "label": "Homework reminder",
@@ -195,8 +246,7 @@
         "retake": "Retake",
         "start": "Start now",
         "continue": "Continue",
-        "reviewGraded": "Review your work",
-        "reviewSubmitted": "Review your submission"
+        "reviewGraded": "Review your work"
       },
       "needsRetake": "Not passed {{percent}} — needs retake",
       "overduePrefix": "Overdue — ",

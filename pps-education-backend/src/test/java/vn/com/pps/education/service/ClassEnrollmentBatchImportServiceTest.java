@@ -78,9 +78,9 @@ class ClassEnrollmentBatchImportServiceTest extends AbstractIntegrationTest {
         assignRole(headAcademic, "HEAD_ACADEMIC");
         Site site = newSite();
         CurriculumResponse curriculum = curriculumService.create(
-                new CreateCurriculumRequest(curriculumCode(), "Chuẩn", "MAIN", null, null, null), headAcademic.getId());
+                new CreateCurriculumRequest(curriculumCode(), "Chuẩn", "MAIN", null, null, null, null, null), headAcademic.getId());
         CurriculumResponse activeCurriculum = curriculumService.update(curriculum.id(),
-                new UpdateCurriculumRequest("Chuẩn", null, null, null, "ACTIVE", false), headAcademic.getId());
+                new UpdateCurriculumRequest("Chuẩn", null, null, null, null, null, "ACTIVE", false), headAcademic.getId());
         schoolClass = classService.create(
                 new CreateClassRequest(classCode(), "Lớp ghi danh lô", site.getId(), activeCurriculum.id(), "OPEN",
                         30, null, LocalDate.now(), null, null),

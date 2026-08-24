@@ -140,9 +140,9 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
         headAcademic = newUser("head.academic");
         assignRole(headAcademic, "HEAD_ACADEMIC");
         CurriculumResponse curriculum = curriculumService.create(
-                new CreateCurriculumRequest(curriculumCode(), "Chuẩn", "MAIN", null, null, null), headAcademic.getId());
+                new CreateCurriculumRequest(curriculumCode(), "Chuẩn", "MAIN", null, null, null, null, null), headAcademic.getId());
         CurriculumResponse activeCurriculum = curriculumService.update(curriculum.id(),
-                new UpdateCurriculumRequest("Chuẩn", null, null, null, "ACTIVE", false), headAcademic.getId());
+                new UpdateCurriculumRequest("Chuẩn", null, null, null, null, null, "ACTIVE", false), headAcademic.getId());
         site = newSite();
         // Tiết 2 cùng khung giờ rộng bao quanh "now" như tiết 1 của newSite() -- phục vụ
         // updatePeriodMark_UC15_MainFlow_overridesSinglePeriod cần buổi có >=2 tiết để override đúng
@@ -523,9 +523,9 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
     void getSiteSummary_UC15b_MainFlow_returnsAttendanceScopedToManagedSite() {
         Site site = newSite();
         CurriculumResponse curriculum = curriculumService.create(
-                new CreateCurriculumRequest(curriculumCode(), "Chuẩn", "MAIN", null, null, null), headAcademic.getId());
+                new CreateCurriculumRequest(curriculumCode(), "Chuẩn", "MAIN", null, null, null, null, null), headAcademic.getId());
         CurriculumResponse activeCurriculum = curriculumService.update(curriculum.id(),
-                new UpdateCurriculumRequest("Chuẩn", null, null, null, "ACTIVE", false), headAcademic.getId());
+                new UpdateCurriculumRequest("Chuẩn", null, null, null, null, null, "ACTIVE", false), headAcademic.getId());
         ClassResponse schoolClass = classService.create(
                 new CreateClassRequest(classCode(), "8A2", site.getId(), activeCurriculum.id(), "OPEN", 20, null,
                         LocalDate.now(), null, null), headAcademic.getId());
@@ -563,9 +563,9 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
     void getSiteSummary_UC15_lateCountsAsFullAttendanceInRate() {
         Site site = newSite();
         CurriculumResponse curriculum = curriculumService.create(
-                new CreateCurriculumRequest(curriculumCode(), "Chuẩn", "MAIN", null, null, null), headAcademic.getId());
+                new CreateCurriculumRequest(curriculumCode(), "Chuẩn", "MAIN", null, null, null, null, null), headAcademic.getId());
         CurriculumResponse activeCurriculum = curriculumService.update(curriculum.id(),
-                new UpdateCurriculumRequest("Chuẩn", null, null, null, "ACTIVE", false), headAcademic.getId());
+                new UpdateCurriculumRequest("Chuẩn", null, null, null, null, null, "ACTIVE", false), headAcademic.getId());
         ClassResponse schoolClass = classService.create(
                 new CreateClassRequest(classCode(), "8A3", site.getId(), activeCurriculum.id(), "OPEN", 20, null,
                         LocalDate.now(), null, null), headAcademic.getId());
@@ -632,9 +632,9 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
                         new EnterAttendanceMarkRequest(student1.getId(), "ABSENT", null, null, "Ốm"))),
                 teacher.getId());
         CurriculumResponse curriculum = curriculumService.create(
-                new CreateCurriculumRequest(curriculumCode(), "Chuẩn", "MAIN", null, null, null), headAcademic.getId());
+                new CreateCurriculumRequest(curriculumCode(), "Chuẩn", "MAIN", null, null, null, null, null), headAcademic.getId());
         CurriculumResponse activeCurriculum = curriculumService.update(curriculum.id(),
-                new UpdateCurriculumRequest("Chuẩn", null, null, null, "ACTIVE", false), headAcademic.getId());
+                new UpdateCurriculumRequest("Chuẩn", null, null, null, null, null, "ACTIVE", false), headAcademic.getId());
         ClassResponse otherClass = classService.create(
                 new CreateClassRequest(classCode(), "8A3", newSite().getId(), activeCurriculum.id(), "OPEN", 20, null,
                         LocalDate.now(), null, null), headAcademic.getId());

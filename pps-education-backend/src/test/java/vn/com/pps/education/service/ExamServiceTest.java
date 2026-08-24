@@ -90,13 +90,13 @@ class ExamServiceTest extends AbstractIntegrationTest {
         assignRole(headAcademic, "HEAD_ACADEMIC");
 
         CurriculumResponse rawA = curriculumService.create(
-                new CreateCurriculumRequest(curriculumCode(), "Chuẩn A", "MAIN", null, null, null), headAcademic.getId());
+                new CreateCurriculumRequest(curriculumCode(), "Chuẩn A", "MAIN", null, null, null, null, null), headAcademic.getId());
         curriculumA = curriculumService.update(rawA.id(),
-                new UpdateCurriculumRequest("Chuẩn A", null, null, null, "ACTIVE", false), headAcademic.getId());
+                new UpdateCurriculumRequest("Chuẩn A", null, null, null, null, null, "ACTIVE", false), headAcademic.getId());
         CurriculumResponse rawB = curriculumService.create(
-                new CreateCurriculumRequest(curriculumCode(), "Chuẩn B", "MAIN", null, null, null), headAcademic.getId());
+                new CreateCurriculumRequest(curriculumCode(), "Chuẩn B", "MAIN", null, null, null, null, null), headAcademic.getId());
         curriculumB = curriculumService.update(rawB.id(),
-                new UpdateCurriculumRequest("Chuẩn B", null, null, null, "ACTIVE", false), headAcademic.getId());
+                new UpdateCurriculumRequest("Chuẩn B", null, null, null, null, null, "ACTIVE", false), headAcademic.getId());
 
         Site site = newSite();
         schoolClass = classService.create(
@@ -274,7 +274,7 @@ class ExamServiceTest extends AbstractIntegrationTest {
         QuestionResponse mc = examQuestionService.createQuestion(exam.id(),
                 new CreateExamQuestionRequest("MULTIPLE_CHOICE", "GRAMMAR", "EASY", "She ___ to school.",
                         null, null, null, null, null, new BigDecimal("1.0"), null,
-                        List.of(new QuestionChoiceRequest("A", "go", false, 1), new QuestionChoiceRequest("B", "goes", true, 2)), null, null),
+                        List.of(new QuestionChoiceRequest("A", "go", null, false, 1), new QuestionChoiceRequest("B", "goes", null, true, 2)), null, null),
                 teacher.getId());
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Unit 1", exam.id(), null, "ASSIGNED",

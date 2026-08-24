@@ -207,6 +207,8 @@
       "offlinePlaceholder": "E.g. Unit 2, page 10",
       "readingLabel": "Offline homework — Reading",
       "writingLabel": "Offline homework — Writing",
+      "onlineReadingLabel": "Online homework — Reading",
+      "onlineWritingLabel": "Online homework — Writing",
       "onlineGrammarLabel": "Online homework — {{grammarLabel}}",
       "onlineVideoLabel": "Online homework — {{videoLabel}}",
       "noAssign": "-- Not assigned --",

@@ -10,6 +10,9 @@ public record CurriculumResponse(
         Long parentCurriculumId,
         String classCategory,
         String level,
+        /** V140 — NULL = chưa phân loại. */
+        String gradeLevel,
+        String track,
         Integer totalPeriods,
         BigDecimal defaultGradePassThreshold,
         String status,

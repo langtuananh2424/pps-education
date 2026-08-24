@@ -13,6 +13,7 @@ import vn.com.pps.education.domain.ClassTeacher;
 import vn.com.pps.education.domain.Curriculum;
 import vn.com.pps.education.domain.CurriculumSubject;
 import vn.com.pps.education.domain.Notification;
+import vn.com.pps.education.domain.ReflexQuestionProgress;
 import vn.com.pps.education.domain.ReviewVideo;
 import vn.com.pps.education.domain.ReviewVideoAssignment;
 import vn.com.pps.education.domain.ReviewVideoConnectionAnswer;
@@ -69,6 +70,7 @@ import vn.com.pps.education.repository.ClassEnrollmentRepository;
 import vn.com.pps.education.repository.ClassTeacherRepository;
 import vn.com.pps.education.repository.CurriculumRepository;
 import vn.com.pps.education.repository.CurriculumSubjectRepository;
+import vn.com.pps.education.repository.ReflexQuestionProgressRepository;
 import vn.com.pps.education.repository.ReviewVideoAssignmentRepository;
 import vn.com.pps.education.repository.ReviewVideoConnectionAnswerRepository;
 import vn.com.pps.education.repository.ReviewVideoConnectionQuestionSlotRepository;
@@ -87,6 +89,7 @@ import vn.com.pps.education.repository.StudentRepository;
 import vn.com.pps.education.repository.UserRepository;
 import vn.com.pps.education.service.integrity.AttemptIntegrityService;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -133,6 +136,7 @@ public class ReviewVideoService {
     private final ReviewVideoSetHistoryRepository reviewVideoSetHistoryRepository;
     private final ReviewVideoProgressRepository reviewVideoProgressRepository;
     private final ReviewVideoQuestionRepository reviewVideoQuestionRepository;
+    private final ReflexQuestionProgressRepository reflexQuestionProgressRepository;
     private final ReviewVideoQuestionSubmissionRepository reviewVideoQuestionSubmissionRepository;
     private final ReviewVideoWatchSessionRepository reviewVideoWatchSessionRepository;
     private final ReviewVideoAssignmentRepository reviewVideoAssignmentRepository;
@@ -158,12 +162,21 @@ public class ReviewVideoService {
 
     private static final String PERM_REVIEW_VIDEO_MANAGE = "lms.review-video.manage";
 
+    /** V145 — phải khớp ReflexSequentialGradingService.PASS_THRESHOLD_PERCENT (private ở đó, không expose được). */
+    private static final int REFLEX_PASS_THRESHOLD_PERCENT = 70;
+
+    private boolean isReflexQuestionPassed(ReflexQuestionProgress p) {
+        return p.getWritingScore() != null && p.getWritingScore().compareTo(BigDecimal.valueOf(REFLEX_PASS_THRESHOLD_PERCENT)) >= 0
+                && p.getSpeakingScore() != null && p.getSpeakingScore().compareTo(BigDecimal.valueOf(REFLEX_PASS_THRESHOLD_PERCENT)) >= 0;
+    }
+
     public ReviewVideoService(ReviewVideoSetRepository reviewVideoSetRepository,
                                ReviewVideoSetClassAssignmentRepository reviewVideoSetClassAssignmentRepository,
                                ReviewVideoRepository reviewVideoRepository,
                                ReviewVideoSetHistoryRepository reviewVideoSetHistoryRepository,
                                ReviewVideoProgressRepository reviewVideoProgressRepository,
                                ReviewVideoQuestionRepository reviewVideoQuestionRepository,
+                               ReflexQuestionProgressRepository reflexQuestionProgressRepository,
                                ReviewVideoQuestionSubmissionRepository reviewVideoQuestionSubmissionRepository,
                                ReviewVideoWatchSessionRepository reviewVideoWatchSessionRepository,
                                ReviewVideoAssignmentRepository reviewVideoAssignmentRepository,
@@ -189,6 +202,7 @@ public class ReviewVideoService {
         this.reviewVideoSetHistoryRepository = reviewVideoSetHistoryRepository;
         this.reviewVideoProgressRepository = reviewVideoProgressRepository;
         this.reviewVideoQuestionRepository = reviewVideoQuestionRepository;
+        this.reflexQuestionProgressRepository = reflexQuestionProgressRepository;
         this.reviewVideoQuestionSubmissionRepository = reviewVideoQuestionSubmissionRepository;
         this.reviewVideoWatchSessionRepository = reviewVideoWatchSessionRepository;
         this.reviewVideoAssignmentRepository = reviewVideoAssignmentRepository;
@@ -1215,15 +1229,41 @@ public class ReviewVideoService {
                 ? targetStudentIds
                 : roster.stream().map(e -> e.getStudent().getId()).toList();
 
-        int completedCount = 0;
-        for (Long studentId : scopedStudentIds) {
-            boolean allCompleted = !videos.isEmpty() && videos.stream().allMatch(v -> {
-                ReviewVideoProgress p = progressByKey.get(v.getId() + ":" + studentId);
-                return p != null && p.isCompleted();
-            });
-            if (allCompleted) {
-                completedCount++;
-            }
+        // V145 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23) — fix bug thật: "hoàn
+        // thành" REFLEX trước đây dùng CHUNG tiêu chí với CONNECTION (ReviewVideoProgress#isCompleted,
+        // % thời lượng đã xem/nghe) — nhưng luồng phát video REFLEX mới (ReflexVideoTaskPage.tsx, "nhảy
+        // thẳng theo mốc câu hỏi") KHÔNG CÒN gọi API cập nhật ReviewVideoProgress nữa, khiến "% LÀM BÀI"
+        // ở "Thống kê BTVN theo lớp" mãi mãi 0% dù học sinh đã làm/đạt hết. Đổi tiêu chí REFLEX sang
+        // đúng UC-23b V2 đang dùng ở FE (allQuestionsPassed) — MỌI câu của MỌI video trong bộ đã đạt cả
+        // 2 bước viết+nói (mirror ReviewVideoReportService#isReflexQuestionPassed — đã sửa cùng đợt).
+        // CONNECTION giữ nguyên logic cũ (chưa đổi luồng phát, ReviewVideoProgress vẫn được cập nhật đều).
+        int completedCount;
+        if (set.getVideoType() == ReviewVideoSet.VideoType.REFLEX) {
+            List<ReviewVideoQuestion> questions = videoIds.stream()
+                    .flatMap(id -> reviewVideoQuestionRepository.findByReviewVideoIdOrderByDisplayOrder(id).stream())
+                    .toList();
+            Map<Long, List<ReviewVideoQuestion>> questionsByVideoId = questions.stream()
+                    .collect(Collectors.groupingBy(q -> q.getReviewVideo().getId()));
+            Map<String, ReflexQuestionProgress> reflexProgressByKey = scopedStudentIds.isEmpty()
+                    ? Map.of()
+                    : reflexQuestionProgressRepository.findByReviewVideoAssignmentIdAndStudentIdIn(assignment.getId(), scopedStudentIds).stream()
+                        .collect(Collectors.toMap(p -> p.getReviewVideoQuestion().getId() + ":" + p.getStudent().getId(), p -> p, (a, b) -> a));
+            completedCount = (int) scopedStudentIds.stream().filter(studentId ->
+                    !videos.isEmpty() && videos.stream().allMatch(v -> {
+                        List<ReviewVideoQuestion> videoQuestions = questionsByVideoId.getOrDefault(v.getId(), List.of());
+                        return !videoQuestions.isEmpty() && videoQuestions.stream().allMatch(q -> {
+                            ReflexQuestionProgress p = reflexProgressByKey.get(q.getId() + ":" + studentId);
+                            return p != null && isReflexQuestionPassed(p);
+                        });
+                    })
+            ).count();
+        } else {
+            completedCount = (int) scopedStudentIds.stream().filter(studentId ->
+                    !videos.isEmpty() && videos.stream().allMatch(v -> {
+                        ReviewVideoProgress p = progressByKey.get(v.getId() + ":" + studentId);
+                        return p != null && p.isCompleted();
+                    })
+            ).count();
         }
         int totalStudents = scopedStudentIds.size();
         int completionPercent = totalStudents == 0 ? 0 : completedCount * 100 / totalStudents;

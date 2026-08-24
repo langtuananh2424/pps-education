@@ -235,6 +235,9 @@ public class ParentPortalService {
     }
 
     private StudentCommentResponse toResponse(StudentComment c) {
+        // Portal Phụ huynh chưa cần hiển thị chi tiết BTVN online/Reading-Writing (UC-21 mở rộng,
+        // V55/V130/V137) — để trống hết, bổ sung khi có yêu cầu. Liệt kê tường minh từng field null (thay
+        // vì gộp nhiều null liền nhau) để tránh đếm nhầm khi StudentCommentResponse đổi field sau này.
         return new StudentCommentResponse(
                 c.getId(), c.getStudent().getId(), c.getStudent().getUser().getFullName(), c.getStudent().getDateOfBirth(),
                 c.getSchoolClass().getId(), c.getTeacher().getId(), c.getCommentType().name(),
@@ -246,18 +249,23 @@ public class ParentPortalService {
                 c.getApprovedBy() == null ? null : c.getApprovedBy().getId(), c.getVisibleToParentAt(), c.getRejectionReason(),
                 c.getAttitude() == null ? null : c.getAttitude().name(), c.getHomeworkPreviousScore(),
                 c.getHomeworkPreviousSpeakingScore(),
-                // V130: homeworkPreviousReadingScore/WritingScore — Portal Phụ huynh chưa cần hiển thị, để trống.
-                null, null,
-                // Portal Phụ huynh chưa cần hiển thị chi tiết BTVN online (UC-21 mở rộng, V55) — để trống, bổ sung khi có yêu cầu.
-                // 13 field null: homeworkNextExerciseAssignmentId/Title, homeworkNextReviewVideoAssignmentId/Title,
-                // homeworkNextDueAt, pendingHomeworkNextExerciseId/Title (V127), pendingHomeworkNextReviewVideoSetId/Title
-                // (V127), pendingHomeworkNextDueDate (V127), grammarPreviousProgress, videoPreviousProgress,
-                // homeworkPreviousOfflineText.
+                null /* homeworkPreviousReadingScore */, null /* homeworkPreviousWritingScore */,
                 c.getHomeworkNext(),
-                // V130: homeworkNextReading/Writing — để trống, mirror ghi chú trên.
-                null, null,
-                null, null, null, null, null, null, null,
-                null, null, null, null, null, null, c.getNote(),
+                null /* homeworkNextReading */, null /* homeworkNextWriting */,
+                null /* homeworkNextExerciseAssignmentId */, null /* homeworkNextExerciseTitle */,
+                null /* homeworkNextReviewVideoAssignmentId */, null /* homeworkNextReviewVideoSetTitle */,
+                null /* homeworkNextReadingExerciseAssignmentId */, null /* homeworkNextReadingExerciseTitle */,
+                null /* homeworkNextWritingExerciseAssignmentId */, null /* homeworkNextWritingExerciseTitle */,
+                null /* homeworkNextDueAt */,
+                null /* pendingHomeworkNextExerciseId */, null /* pendingHomeworkNextExerciseTitle */,
+                null /* pendingHomeworkNextReviewVideoSetId */, null /* pendingHomeworkNextReviewVideoSetTitle */,
+                null /* pendingHomeworkNextReadingExerciseId */, null /* pendingHomeworkNextReadingExerciseTitle */,
+                null /* pendingHomeworkNextWritingExerciseId */, null /* pendingHomeworkNextWritingExerciseTitle */,
+                null /* pendingHomeworkNextDueDate */,
+                null /* grammarPreviousProgress */, null /* videoPreviousProgress */,
+                null /* readingPreviousProgress */, null /* writingPreviousProgress */,
+                null /* homeworkPreviousOfflineText */,
+                c.getNote(),
                 c.getClassSession().getLessonContent());
     }
 

@@ -54,9 +54,9 @@ class QuestionBankControllerTest extends AbstractControllerTest {
     /** Kho đề (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30): examId nay bắt buộc trên CreateExerciseRequest — cần 1 Đề thật, không còn dùng null. */
     private Long createExam(User actor) {
         CurriculumResponse curriculum = curriculumService.create(
-                new CreateCurriculumRequest("CUR-" + SEQ.incrementAndGet(), "Chuẩn", "MAIN", null, null, null), actor.getId());
+                new CreateCurriculumRequest("CUR-" + SEQ.incrementAndGet(), "Chuẩn", "MAIN", null, null, null, null, null), actor.getId());
         CurriculumResponse active = curriculumService.update(curriculum.id(),
-                new UpdateCurriculumRequest("Chuẩn", null, null, null, "ACTIVE", false), actor.getId());
+                new UpdateCurriculumRequest("Chuẩn", null, null, null, null, null, "ACTIVE", false), actor.getId());
         return examService.createExam(
                 new CreateExamRequest("KD-" + SEQ.incrementAndGet(), "Đề test", active.id(), "VIETNAMESE", "HOMEWORK"), actor.getId()).id();
     }

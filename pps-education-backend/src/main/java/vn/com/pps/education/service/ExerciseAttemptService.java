@@ -3,6 +3,7 @@ package vn.com.pps.education.service;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.ClassEnrollment;
+import vn.com.pps.education.domain.Curriculum;
 import vn.com.pps.education.domain.Exercise;
 import vn.com.pps.education.domain.ExerciseAssignment;
 import vn.com.pps.education.domain.ExerciseAttempt;
@@ -12,6 +13,7 @@ import vn.com.pps.education.domain.Question;
 import vn.com.pps.education.domain.QuestionChoice;
 import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.StudentAnswer;
+import vn.com.pps.education.domain.StudentAnswerGrading;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.dto.AssignedExerciseResponse;
 import vn.com.pps.education.dto.ExerciseAttemptResponse;
@@ -29,6 +31,7 @@ import vn.com.pps.education.repository.ExerciseAttemptRepository;
 import vn.com.pps.education.repository.ExerciseQuestionRepository;
 import vn.com.pps.education.repository.ExerciseRepository;
 import vn.com.pps.education.repository.QuestionChoiceRepository;
+import vn.com.pps.education.repository.StudentAnswerGradingRepository;
 import vn.com.pps.education.repository.StudentAnswerRepository;
 import vn.com.pps.education.repository.StudentRepository;
 import vn.com.pps.education.repository.UserRepository;
@@ -36,6 +39,7 @@ import vn.com.pps.education.repository.UserRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.OffsetDateTime;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -84,6 +88,8 @@ public class ExerciseAttemptService {
     private final ClassEnrollmentRepository classEnrollmentRepository;
     private final StudentRepository studentRepository;
     private final UserRepository userRepository;
+    private final StudentAnswerGradingRepository studentAnswerGradingRepository;
+    private final WritingAiGradingService writingAiGradingService;
 
     private static final Set<Question.QuestionType> AUTO_GRADABLE_TYPES = Set.of(
             Question.QuestionType.MULTIPLE_CHOICE, Question.QuestionType.MULTIPLE_ANSWER, Question.QuestionType.TRUE_FALSE,
@@ -98,7 +104,9 @@ public class ExerciseAttemptService {
                                    QuestionChoiceRepository questionChoiceRepository,
                                    ClassEnrollmentRepository classEnrollmentRepository,
                                    StudentRepository studentRepository,
-                                   UserRepository userRepository) {
+                                   UserRepository userRepository,
+                                   StudentAnswerGradingRepository studentAnswerGradingRepository,
+                                   WritingAiGradingService writingAiGradingService) {
         this.exerciseAttemptRepository = exerciseAttemptRepository;
         this.exerciseAttemptHistoryRepository = exerciseAttemptHistoryRepository;
         this.studentAnswerRepository = studentAnswerRepository;
@@ -109,6 +117,8 @@ public class ExerciseAttemptService {
         this.classEnrollmentRepository = classEnrollmentRepository;
         this.studentRepository = studentRepository;
         this.userRepository = userRepository;
+        this.studentAnswerGradingRepository = studentAnswerGradingRepository;
+        this.writingAiGradingService = writingAiGradingService;
     }
 
     /**
@@ -150,6 +160,20 @@ public class ExerciseAttemptService {
             }
             if (exercise.getMaxAttempts() != null && attemptNumber > exercise.getMaxAttempts()) {
                 throw new RetakeNotAllowedException("error.retakeNotAllowed.maxAttemptsReached", new Object[]{exercise.getMaxAttempts()}, "Đề này đã hết lượt làm (tối đa " + exercise.getMaxAttempts() + ").");
+            }
+            // V148 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23) — hết hạn nộp + bản
+            // giao không cho nộp muộn (isLateSubmissionAllowed=false) thì KHÔNG cho mở lượt LÀM LẠI mới
+            // nữa (lượt đầu tiên không bị chặn ở đây — có thể đã mở từ trước hạn). Trước đây chỉ chặn ở
+            // submitAttempt (lúc NỘP), nên học sinh vẫn mở được 1 lượt mới sau hạn rồi bỏ dở mãi mãi
+            // IN_PROGRESS (không có điểm) — làm lượt "mới nhất" của HomeworkProgressService luôn hiện
+            // "Đang chờ chấm" dù trước đó đã có lượt được chấm hợp lệ. Đọc dueAt/isLateSubmissionAllowed
+            // TRỰC TIẾP từ assignment mỗi lần gọi (không cache) — quản trị/giáo viên gia hạn dueAt hoặc
+            // bật lại "Cho phép nộp muộn" thì học sinh mở lại "Làm lại" được ngay, không cần thao tác gì
+            // thêm phía học sinh.
+            if (assignment.getDueAt() != null && OffsetDateTime.now().isAfter(assignment.getDueAt())
+                    && !assignment.isLateSubmissionAllowed()) {
+                throw new RetakeNotAllowedException("error.retakeNotAllowed.pastDeadline", new Object[]{assignment.getDueAt()},
+                        "Đề này đã quá hạn nộp (" + assignment.getDueAt() + "), không thể làm lại.");
             }
         }
 
@@ -277,8 +301,6 @@ public class ExerciseAttemptService {
         List<ExerciseQuestion> exerciseQuestions = exerciseQuestionRepository.findByExerciseIdOrderByDisplayOrder(attempt.getExercise().getId());
         Map<Long, BigDecimal> pointsByQuestionId = exerciseQuestions.stream()
                 .collect(Collectors.toMap(eq -> eq.getQuestion().getId(), ExerciseQuestion::getPoints));
-        boolean allAutoGradable = exerciseQuestions.stream()
-                .allMatch(eq -> AUTO_GRADABLE_TYPES.contains(eq.getQuestion().getQuestionType()));
 
         List<StudentAnswer> answers = studentAnswerRepository.findByExerciseAttemptId(attempt.getId());
         BigDecimal autoGradeScore = BigDecimal.ZERO;
@@ -295,16 +317,77 @@ public class ExerciseAttemptService {
             studentAnswerRepository.save(answer);
         }
 
+        // V138 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-22): ESSAY thuộc Bài
+        // Exercise.skillCategory=WRITING được AI chấm NGAY lúc nộp bài (thay UC-41 chờ GV thủ công CHỈ
+        // cho riêng nhóm Bài này) — ghi StudentAnswerGrading trực tiếp tại đây (KHÔNG gọi
+        // ManualGradingService#gradeAnswer để tránh phụ thuộc vòng: ManualGradingService đã phụ thuộc
+        // NGƯỢC lại ExerciseAttemptService qua applyPassOutcome). GV vẫn chấm tay đè lên được sau qua
+        // ManualGradingService#gradeAnswer bình thường nếu thấy AI chấm sai — KHÔNG có rào chặn
+        // re-grade, và câu đã có điểm AI tự động biến mất khỏi "chờ chấm" (listPendingGrading chỉ liệt
+        // kê câu CHƯA có điểm) — đúng tinh thần "ẩn nhưng vẫn giữ được" đã xác nhận với người dùng.
+        BigDecimal aiGradeScore = BigDecimal.ZERO;
+        Set<Long> aiGradedAnswerIds = new HashSet<>();
+        if (attempt.getExercise().getSkillCategory() == Exercise.SkillCategory.WRITING) {
+            for (StudentAnswer answer : answers) {
+                if (answer.isAutoGradable() || answer.getQuestion().getQuestionType() != Question.QuestionType.ESSAY) {
+                    continue;
+                }
+                BigDecimal points = pointsByQuestionId.getOrDefault(answer.getQuestion().getId(), BigDecimal.ZERO);
+                BigDecimal score = gradeEssayWithAi(answer, points, now, attempt.getExercise().getExam().getCurriculum());
+                if (score != null) {
+                    aiGradeScore = aiGradeScore.add(score);
+                    aiGradedAnswerIds.add(answer.getId());
+                }
+            }
+        }
+
+        boolean allGraded = answers.stream()
+                .allMatch(a -> a.isAutoGradable() || aiGradedAnswerIds.contains(a.getId()));
+
         attempt.setAutoGradeScore(autoGradeScore);
+        attempt.setManualGradeScore(aiGradeScore);
         attempt.setSubmittedAt(now);
-        if (allAutoGradable) {
-            attempt.setTotalScore(autoGradeScore);
+        if (allGraded) {
+            attempt.setTotalScore(autoGradeScore.add(aiGradeScore));
             attempt.setStatus(ExerciseAttempt.Status.FULLY_GRADED);
         } else {
             attempt.setStatus(ExerciseAttempt.Status.AUTO_GRADED);
         }
         attempt = exerciseAttemptRepository.save(attempt);
         return applyPassOutcome(attempt);
+    }
+
+    /**
+     * V138 — chấm 1 câu ESSAY bằng AI (WritingAiGradingService, rubric.md) và ghi StudentAnswerGrading
+     * (gradingSource=AI, grader=exercise.createdBy — KHÔNG thêm user hệ thống ảo, xem Javadoc
+     * StudentAnswerGrading.GradingSource). Trả null nếu AI chưa cấu hình/gọi lỗi — answer giữ nguyên
+     * chưa có điểm, tự rơi vào hàng chờ chấm tay UC-41 như hành vi mặc định cũ.
+     */
+    private BigDecimal gradeEssayWithAi(StudentAnswer answer, BigDecimal maxPoints, OffsetDateTime now, Curriculum curriculum) {
+        WritingAiGradingService.GradeResult result = writingAiGradingService.grade(answer.getAnswerText(), curriculum);
+        if (result == null) {
+            return null;
+        }
+        BigDecimal score = maxPoints
+                .multiply(BigDecimal.valueOf(result.scorePercent()))
+                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+
+        studentAnswerGradingRepository.findByStudentAnswerIdAndLatestIsTrue(answer.getId()).ifPresent(previous -> {
+            previous.setLatest(false);
+            studentAnswerGradingRepository.saveAndFlush(previous);
+        });
+
+        StudentAnswerGrading grading = new StudentAnswerGrading();
+        grading.setStudentAnswer(answer);
+        grading.setGrader(answer.getExerciseAttempt().getExercise().getCreatedBy());
+        grading.setGradingSource(StudentAnswerGrading.GradingSource.AI);
+        grading.setScore(score);
+        grading.setMaxScore(maxPoints);
+        grading.setFeedback(result.feedback());
+        grading.setGradedAt(now);
+        grading.setLatest(true);
+        studentAnswerGradingRepository.save(grading);
+        return score;
     }
 
     /**
@@ -598,6 +681,20 @@ public class ExerciseAttemptService {
         ExerciseAttempt latest = myAttempts.isEmpty() ? null : myAttempts.get(0);
         BigDecimal latestPercentage = latest == null || latest.getTotalScore() == null ? null
                 : percentageOf(latest.getTotalScore(), exercise.getTotalPoints());
+        // Xem Javadoc AssignedExerciseResponse#canStartNewAttempt — mirror ĐÚNG điều kiện startAttempt()
+        // kiểm tra (assignment ACTIVE + đã mở + còn lượt theo allowRetake/maxAttempts), KHÔNG đòi hỏi
+        // lượt gần nhất phải FULLY_GRADED. V148 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+        // 2026-08-23) — thêm điều kiện hết hạn nộp (chỉ áp dụng khi ĐÃ có lượt trước đó, mirror đúng
+        // nhánh previousAttempts>0 ở startAttempt) để nút "Làm lại" ở FE (portal, TakeExerciseModal) ẩn
+        // đúng lúc thay vì hiện ra rồi bấm mới báo lỗi 422.
+        boolean retakeBlockedByDeadline = !myAttempts.isEmpty() && assignment.getDueAt() != null
+                && OffsetDateTime.now().isAfter(assignment.getDueAt()) && !assignment.isLateSubmissionAllowed();
+        boolean canStartNewAttempt = assignment.getStatus() == ExerciseAssignment.Status.ACTIVE
+                && !assignment.getAvailableFrom().isAfter(OffsetDateTime.now())
+                && (latest == null || latest.getStatus() != ExerciseAttempt.Status.IN_PROGRESS)
+                && (myAttempts.isEmpty() || exercise.isAllowRetake())
+                && (exercise.getMaxAttempts() == null || myAttempts.size() < exercise.getMaxAttempts())
+                && !retakeBlockedByDeadline;
         return new AssignedExerciseResponse(
                 exercise.getId(), exercise.getCode(), exercise.getTitle(), exercise.getExerciseType().name(),
                 assignment.getId(), enrollment.getSchoolClass().getId(), enrollment.getSchoolClass().getName(),
@@ -606,7 +703,8 @@ public class ExerciseAttemptService {
                 latest == null ? null : latest.getTotalScore(), latestPercentage,
                 latest == null ? null : latest.getPassed(),
                 exercise.getExam().getTeacherType().name(),
-                assignment.getSourceClassSession() == null ? null : assignment.getSourceClassSession().getSessionDate());
+                assignment.getSourceClassSession() == null ? null : assignment.getSourceClassSession().getSessionDate(),
+                canStartNewAttempt);
     }
 
     private StudentAnswerResponse toResponse(StudentAnswer a) {
@@ -639,9 +737,27 @@ public class ExerciseAttemptService {
                 explanation = a.getQuestion().getExplanation();
             }
         }
+        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-22 — điểm/nhận xét câu tự luận/nói
+        // đã chấm (tay hoặc AI), hiện cho học sinh ngay khi có (KHÔNG phụ thuộc showCorrectAnswers —
+        // đó là cấu hình riêng cho việc lộ ĐÁP ÁN ĐÚNG, khác với việc học sinh xem lại nhận xét bài
+        // của chính mình). Chỉ tra cứu cho câu KHÔNG tự chấm được, tránh query thừa cho MCQ/FILL_IN_BLANK.
+        BigDecimal gradingScore = null;
+        BigDecimal gradingMaxScore = null;
+        String gradingFeedback = null;
+        String gradingSource = null;
+        if (!a.isAutoGradable() && attempt.getStatus() != ExerciseAttempt.Status.IN_PROGRESS) {
+            StudentAnswerGrading grading = studentAnswerGradingRepository.findByStudentAnswerIdAndLatestIsTrue(a.getId()).orElse(null);
+            if (grading != null) {
+                gradingScore = grading.getScore();
+                gradingMaxScore = grading.getMaxScore();
+                gradingFeedback = grading.getFeedback();
+                gradingSource = grading.getGradingSource().name();
+            }
+        }
         return new StudentAnswerResponse(
                 a.getId(), attempt.getId(), a.getQuestion().getId(), a.getAnswerText(),
                 a.getSelectedChoiceIds(), a.getAudioAnswerUrl(), a.isAutoGradable(), a.getAutoScore(), a.getCorrect(),
-                correctChoiceIds, correctAnswerText, explanation, a.getStructuredAnswer(), correctStructuredContent);
+                correctChoiceIds, correctAnswerText, explanation, a.getStructuredAnswer(), correctStructuredContent,
+                gradingScore, gradingMaxScore, gradingFeedback, gradingSource);
     }
 }

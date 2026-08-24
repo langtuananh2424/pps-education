@@ -7,9 +7,9 @@ import {
   AssignedExerciseResponse,
   MyReviewVideoAssignmentResponse,
   ReviewVideoResponse,
-  getMyLatestReviewVideoSubmission,
   getReviewVideoProgress,
   listMyAssignedExercises,
+  listMyReflexProgress,
   listMyReviewVideoAssignments,
   listReviewVideoQuestions,
   listReviewVideoSetsByClass,
@@ -246,10 +246,19 @@ export default function AssignmentsTab({
             // isReflexAnswerable), mirror đúng hành vi cũ (API vốn đã 404 cho video chưa được giao).
             if (x.assignmentId == null) return { totalQuestions: 0, answeredQuestions: 0 };
             const questions = await listReviewVideoQuestions(x.video.id).catch(() => []);
-            const submissions = await Promise.all(questions.map((q) => getMyLatestReviewVideoSubmission(q.id, x.assignmentId!).catch(() => undefined)));
+            // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — fix bug thật: dòng này vẫn
+            // đọc `getMyLatestReviewVideoSubmission` (API của luồng CŨ "ghi âm theo mốc, nộp cả loạt cuối
+            // video") — luồng REFLEX từ V139 đã chuyển hẳn sang `ReflexSequentialGradingService`/bảng
+            // `reflex_question_progress`, không còn tạo submission kiểu cũ nữa nên API cũ luôn trả về
+            // rỗng, khiến "Đã nộp 0/5 câu" dù học sinh đã làm/đạt hết qua luồng mới. Đổi sang đọc đúng
+            // tiến độ mới qua `listMyReflexProgress` (cùng API ReflexVideoTaskPage đang dùng); "đã nộp"
+            // tính theo số câu ĐÃ ĐẠT (`questionPassed`) — khớp ngưỡng REFLEX_PASS_THRESHOLD_PERCENT bên
+            // dưới (REFLEX không qua khâu GV chấm, đạt ngưỡng % câu ĐÃ ĐẠT là xong, không phải % câu đã
+            // nộp bất kể đúng/sai).
+            const progressList = await listMyReflexProgress(x.assignmentId).catch(() => []);
             return {
               totalQuestions: questions.length,
-              answeredQuestions: submissions.filter((s) => s != null).length
+              answeredQuestions: progressList.filter((p) => p.questionPassed).length
             };
           })
         );
@@ -550,16 +559,10 @@ export default function AssignmentsTab({
         <TakeExerciseModal
           item={takingExercise}
           // Mở đề = BE đã tạo attempt ngay (started_at = NOW), kể cả khi đóng chưa nộp — luôn báo load()
-          // để danh sách bên ngoài cập nhật đúng myLatestAttemptId/Status.
+          // để danh sách bên ngoài cập nhật đúng myLatestAttemptId/Status. Bao gồm cả lúc đóng SAU khi
+          // đã nộp bài (không còn đóng sớm ngay lúc tắt popup kết quả nữa — xem TakeExerciseModal, giữ
+          // modal mở để học sinh đọc hết nhận xét chấm AI/GV chi tiết trước khi tự bấm X/Thoát).
           onClose={() => {
-            setTakingExercise(null);
-            load();
-          }}
-          // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — trước đây chỉ load() lại
-          // danh sách, KHÔNG đóng modal: sau khi bấm "Đã hiểu" ở popup kết quả, modal làm bài (đã
-          // chuyển sang chỉ xem) vẫn còn hiện phía sau, trông như tự mở thêm 1 modal. Đóng luôn về
-          // màn danh sách — học sinh vẫn xem lại được bình thường qua "Xem lại bài đã làm".
-          onFinished={() => {
             setTakingExercise(null);
             load();
           }}
@@ -614,15 +617,20 @@ function ExerciseCard({
   const isFullyGraded = item.myLatestAttemptStatus === "FULLY_GRADED";
   const pending = isExercisePending(item);
 
-  const actionLabel = retake
-    ? t("assignments.exercise.action.retake")
-    : item.myLatestAttemptStatus == null
+  /**
+   * V148 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23) — CHỦ Ý chỉ còn 2 nhánh ở màn
+   * danh sách: CHƯA làm bao giờ ("Làm bài ngay") hay ĐÃ làm ("Xem bài đã làm"/"Tiếp tục làm bài" nếu
+   * đang IN_PROGRESS) — bấm vào LUÔN chỉ mở xem/tiếp tục đúng lượt gần nhất, không còn tự động phán
+   * đoán "cần làm lại"/"còn lượt làm thêm" ở đây (dễ nhầm học sinh nghĩ đang xem lại nhưng thực ra vừa
+   * âm thầm tạo lượt mới). Muốn làm lượt MỚI phải mở bài rồi bấm nút "Làm lại" tường minh bên trong
+   * modal (xem TakeExerciseModal#handleRetake), tự ẩn khi hết lượt/quá hạn nộp.
+   */
+  const actionLabel =
+    item.myLatestAttemptStatus == null
       ? t("assignments.exercise.action.start")
       : item.myLatestAttemptStatus === "IN_PROGRESS"
         ? t("assignments.exercise.action.continue")
-        : isFullyGraded
-          ? t("assignments.exercise.action.reviewGraded")
-          : t("assignments.exercise.action.reviewSubmitted");
+        : t("assignments.exercise.action.reviewGraded");
 
   return (
     <div

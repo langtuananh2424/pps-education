@@ -598,6 +598,56 @@ export function getMyLatestReviewVideoSubmission(questionId: number, assignmentI
 }
 
 /**
+ * V139 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-22) — UC-23b V2: tiến trình tuần tự
+ * viết → AI chấm ngữ pháp → đạt → ghi âm → AI chấm nội dung → đạt của 1 câu hỏi Video phản xạ (REFLEX).
+ * Không giới hạn số lần thử lại — nộp lại chỉ sửa đè dòng tiến trình hiện có (không giữ lịch sử như
+ * ReviewVideoSubmissionResponse ở luồng cũ).
+ */
+export interface ReflexQuestionProgressResponse {
+  questionId: number;
+  answerText: string | null;
+  writingScorePercent: number | null;
+  writingFeedback: string | null;
+  writingPassed: boolean;
+  writingAttemptCount: number;
+  /**
+   * V141 — gợi ý câu trả lời đã sửa lỗi ngữ pháp (CHỈ sửa lỗi trong câu học sinh viết, không phải câu
+   * mẫu tự bịa). NULL khi đã đạt hoặc chưa nộp/chưa chấm được — chỉ hiện khi writingAttemptCount >= 3
+   * VÀ vẫn chưa đạt.
+   */
+  writingCorrectedAnswer: string | null;
+  audioUrl: string | null;
+  speakingScorePercent: number | null;
+  speakingFeedback: string | null;
+  speakingPassed: boolean;
+  speakingAttemptCount: number;
+  /** true khi CẢ 2 bước đã đạt — câu tiếp theo được mở khoá (BE không tự chặn nộp câu sau, FE tự khoá UI theo cờ này). */
+  questionPassed: boolean;
+  updatedAt: string;
+}
+
+/** Bước 1: nộp câu trả lời viết, AI chấm ngữ pháp ngay (>=70% mới đạt). */
+export function submitReflexWrittenAnswer(questionId: number, assignmentId: number, answerText: string): Promise<ReflexQuestionProgressResponse> {
+  return apiRequest<ReflexQuestionProgressResponse>(`/review-video-questions/${questionId}/reflex-progress/writing?assignmentId=${assignmentId}`, {
+    method: "PUT",
+    body: JSON.stringify({ answerText })
+  });
+}
+
+/** Bước 2 — CHỈ chấp nhận khi bước 1 đã đạt: nộp audio (đã upload sẵn qua uploadMedia), AI transcribe + chấm nội dung ngay. */
+export function submitReflexSpokenAnswer(questionId: number, assignmentId: number, audioUrl: string): Promise<ReflexQuestionProgressResponse> {
+  return apiRequest<ReflexQuestionProgressResponse>(`/review-video-questions/${questionId}/reflex-progress/speaking?assignmentId=${assignmentId}`, {
+    method: "PUT",
+    body: JSON.stringify({ audioUrl })
+  });
+}
+
+/** Tiến trình đã lưu của MỌI câu hỏi thuộc video này trong lần giao đang mở — dùng để dựng lại đúng trạng thái khoá/mở khi vào/tải lại trang. */
+export function listMyReflexProgress(assignmentId: number): Promise<ReflexQuestionProgressResponse[]> {
+  return apiRequest<ReflexQuestionProgressResponse[]>(`/review-video-assignments/${assignmentId}/reflex-progress`);
+}
+
+/**
  * V76 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04) — câu hỏi trắc nghiệm tự chấm
  * của video CONNECTION, hiện SAU KHI xem xong 1 lượt (khác REFLEX gắn mốc thời gian giữa video).
  * isCorrect luôn null ở đây (chưa nộp bài) — chỉ lộ đúng/sai sau khi submitReviewVideoConnectionAnswers.
@@ -694,6 +744,13 @@ export interface AssignedExerciseResponse {
   teacherType: "VIETNAMESE" | "FOREIGN";
   /** V123 — ngày buổi học GV đã giao BTVN này (chọn ở Nhận xét học viên UC-21) — null với bản giao TRƯỚC V123. */
   sessionDate: string | null;
+  /**
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-22 — true khi bấm làm lại được NGAY
+   * (còn lượt theo allowRetake/maxAttempts, bản giao còn ACTIVE) — KHÔNG đòi hỏi lượt gần nhất phải
+   * FULLY_GRADED trước, khác với suy luận cũ của FE (xem needsRetake/canRetryWhilePending ở
+   * AssignmentsTab.tsx).
+   */
+  canStartNewAttempt: boolean;
 }
 
 export function listMyAssignedExercises(classId?: number): Promise<AssignedExerciseResponse[]> {
@@ -712,6 +769,9 @@ export interface ExerciseMetaResponse {
   allowRetake: boolean;
   maxAttempts: number | null;
   passThresholdPercent: number;
+  /** Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-22) — thời gian làm bài tính từ lúc mở
+   * bài (ExerciseAttempt.startedAt), khác hạn nộp (dueAt). NULL = không giới hạn. */
+  timeLimitMinutes: number | null;
 }
 
 export function getExercise(exerciseId: number): Promise<ExerciseMetaResponse> {
@@ -723,6 +783,8 @@ export interface ExerciseQuestionChoiceResponse {
   id: number;
   choiceLabel: string;
   content: string;
+  /** V143 — ảnh riêng cho lựa chọn (câu hỏi Listening dạng chọn đáp án bằng hình), NULL = đáp án chữ. */
+  imageUrl: string | null;
   displayOrder: number;
 }
 
@@ -820,6 +882,15 @@ export interface StudentAnswerResponse {
   explanation: string | null;
   structuredAnswer: string[] | null;
   correctStructuredContent: { blanks?: string[]; chunks?: string[] } | null;
+  /**
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-22 — điểm/nhận xét câu tự luận/nói
+   * (ESSAY/SPEAKING) đã chấm (tay hoặc AI). NULL khi câu tự chấm được (xem autoScore/isCorrect thay)
+   * HOẶC chưa được chấm (VD đang chờ AI/GV).
+   */
+  gradingScore: number | null;
+  gradingMaxScore: number | null;
+  gradingFeedback: string | null;
+  gradingSource: "HUMAN" | "AI" | null;
 }
 
 /** Main Flow bước 2: trả lời 1 câu — ghi/ghi đè, gọi lại nhiều lần trong lúc attempt còn IN_PROGRESS. */
@@ -878,11 +949,9 @@ export interface ListeningPlayProgressResponse {
   hintUnlocked: boolean;
 }
 
+/** V144 — gợi ý chỉ còn transcript (không còn lộ đáp án đúng/giải thích), xem Javadoc ListeningHintService#getHint. */
 export interface ListeningHintResponse {
   transcript: string | null;
-  correctAnswerText: string | null;
-  correctChoiceIds: number[];
-  explanation: string | null;
 }
 
 /** Gọi mỗi khi audio của 1 câu hỏi Nghe phát tới cuối (sự kiện `ended`) — KHÔNG gọi khi chỉ bấm Play/tạm dừng giữa chừng. */

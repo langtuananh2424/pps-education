@@ -394,9 +394,9 @@ class LeaveRequestServiceTest extends AbstractIntegrationTest {
         User headAcademic = newUser("headacademic");
         assignRole(headAcademic, "HEAD_ACADEMIC");
         CurriculumResponse curriculum = curriculumService.create(
-                new CreateCurriculumRequest(curriculumCode(), "Chuẩn", "MAIN", null, null, null), headAcademic.getId());
+                new CreateCurriculumRequest(curriculumCode(), "Chuẩn", "MAIN", null, null, null, null, null), headAcademic.getId());
         CurriculumResponse activeCurriculum = curriculumService.update(curriculum.id(),
-                new UpdateCurriculumRequest("Chuẩn", null, null, null, "ACTIVE", false), headAcademic.getId());
+                new UpdateCurriculumRequest("Chuẩn", null, null, null, null, null, "ACTIVE", false), headAcademic.getId());
         Site site = newSite();
         ClassResponse schoolClass = classService.create(
                 new CreateClassRequest(classCode(), "Test Class", site.getId(), activeCurriculum.id(), "OPEN", 20, null,

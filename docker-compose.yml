@@ -61,6 +61,11 @@ services:
       # Firebase Admin SDK (kenh PUSH, xem FirebaseConfig.java) - tuy chon, de trong
       # van chay duoc (PushNotificationSender tu bao loi co kiem soat).
       FIREBASE_CREDENTIALS_BASE64: ${FIREBASE_CREDENTIALS_BASE64:-}
+      # SPIKE/TEST rieng "AI cham Speaking" (2026-08-22, xem SpeakingAiGradingTestService) - tuy
+      # chon, de trong van chay duoc (endpoint tra loi 400 co kiem soat khi goi ma chua cau hinh).
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
     ports:
       - "8080:8080"
     depends_on:

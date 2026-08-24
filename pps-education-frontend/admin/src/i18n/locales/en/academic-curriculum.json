@@ -24,6 +24,20 @@
     "profile": {
       "nameLabel": "Curriculum name *",
       "levelLabel": "Level",
+      "gradeLevelLabel": "Grade",
+      "gradeLevelPlaceholder": "-- Not classified --",
+      "gradeLevelOptions": {
+        "GRADE_6": "Grade 6",
+        "GRADE_7": "Grade 7",
+        "GRADE_8": "Grade 8",
+        "GRADE_9": "Grade 9"
+      },
+      "trackLabel": "Track",
+      "trackPlaceholder": "-- Not classified --",
+      "trackOptions": {
+        "IELTS": "IELTS",
+        "CAMBRIDGE": "CAMBRIDGE"
+      },
       "totalPeriodsLabel": "Total periods",
       "passThresholdLabel": "Pass threshold",
       "statusLabel": "Status",
@@ -95,6 +109,20 @@
     "nameLabel": "Curriculum name *",
     "nameRequiredError": "Please enter the curriculum name.",
     "levelLabel": "Level",
+    "gradeLevelLabel": "Grade",
+    "gradeLevelPlaceholder": "-- Not classified --",
+    "gradeLevelOptions": {
+      "GRADE_6": "Grade 6",
+      "GRADE_7": "Grade 7",
+      "GRADE_8": "Grade 8",
+      "GRADE_9": "Grade 9"
+    },
+    "trackLabel": "Track",
+    "trackPlaceholder": "-- Not classified --",
+    "trackOptions": {
+      "IELTS": "IELTS",
+      "CAMBRIDGE": "CAMBRIDGE"
+    },
     "totalPeriodsLabel": "Total periods",
     "passThresholdLabel": "Default pass threshold",
     "cancelButton": "Cancel",

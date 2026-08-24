@@ -54,6 +54,7 @@ import GradesAnalyticsPage from "@/features/reports/pages/GradesAnalyticsPage";
 import StudentProgressPage from "@/features/reports/pages/StudentProgressPage";
 import EnrollmentMovementStatsPage from "@/features/reports/pages/EnrollmentMovementStatsPage";
 import ActualPeriodsStatsPage from "@/features/reports/pages/ActualPeriodsStatsPage";
+import SpeakingGradingTestPage from "@/features/dev-tools/pages/SpeakingGradingTestPage";
 export default function App() {
   return (
     <AppProvider>
@@ -120,6 +121,9 @@ export default function App() {
           <Route path="/reports/student-progress" element={<StudentProgressPage />} />
           <Route path="/reports/enrollment-movement" element={<EnrollmentMovementStatsPage />} />
           <Route path="/reports/actual-periods" element={<ActualPeriodsStatsPage />} />
+
+          {/* SPIKE/TEST riêng (2026-08-22) — không có trong menu điều hướng, chỉ truy cập qua URL trực tiếp. */}
+          <Route path="/dev-tools/speaking-grading-test" element={<SpeakingGradingTestPage />} />
 
           <Route index element={<Navigate to="/dashboard" replace />} />
         </Route>
