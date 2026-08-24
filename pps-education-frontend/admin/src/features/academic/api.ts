@@ -1508,6 +1508,19 @@ export function submitComments(classId: number, commentIds: number[]): Promise<S
   return apiRequest<StudentCommentResponse[]>(`/classes/${classId}/comments/submit`, { method: "POST", body: JSON.stringify({ commentIds }) });
 }
 
+/**
+ * Bổ sung ngoài SDD gốc (2026-08-24, xác nhận với người dùng) — đổi Hạn nộp BTVN buổi sau cho TOÀN
+ * BỘ nhận xét NHÁP/Bị từ chối của 1 buổi trong 1 lần gọi, thay vì N request updateComment() song
+ * song (luôn thất bại khi N nhận xét đang cùng giữ 1 hạn nộp cũ — xem Javadoc BE
+ * StudentCommentService#bulkUpdatePendingDueDate).
+ */
+export function bulkUpdatePendingDueDate(classSessionId: number, dueDate: string): Promise<StudentCommentResponse[]> {
+  return apiRequest<StudentCommentResponse[]>(`/class-sessions/${classSessionId}/comments/due-date`, {
+    method: "PUT",
+    body: JSON.stringify({ dueDate })
+  });
+}
+
 export interface DailyCommentImportResponse {
   id: number;
   sourceFileName: string;

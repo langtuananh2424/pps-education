@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import vn.com.pps.education.common.ExcelHttpResponses;
 import vn.com.pps.education.dto.AutoProgressPreviewResponse;
+import vn.com.pps.education.dto.BulkUpdateHomeworkDueDateRequest;
 import vn.com.pps.education.dto.ClassSessionLessonContentResponse;
 import vn.com.pps.education.dto.ClassSessionTeacherNameResponse;
 import vn.com.pps.education.dto.ClassSessionTeacherTypeResponse;
@@ -89,6 +90,15 @@ public class StudentCommentController {
                                                                          @Valid @RequestBody SubmitCommentsRequest request,
                                                                          @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(studentCommentService.submitComments(classId, request, actor.userId()));
+    }
+
+    /** Bổ sung ngoài SDD gốc (2026-08-24, xác nhận với người dùng) — đổi Hạn nộp BTVN buổi sau cho TOÀN BỘ nhận xét NHÁP/Bị từ chối của 1 buổi trong 1 lần gọi. Xem Javadoc StudentCommentService#bulkUpdatePendingDueDate. */
+    @PreAuthorize("hasPermission(null, 'academic.comment.write') or hasPermission(null, 'academic.comment.approve')")
+    @PutMapping("/api/class-sessions/{sessionId}/comments/due-date")
+    public ResponseEntity<List<StudentCommentResponse>> bulkUpdatePendingDueDate(@PathVariable Long sessionId,
+                                                                                    @Valid @RequestBody BulkUpdateHomeworkDueDateRequest request,
+                                                                                    @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(studentCommentService.bulkUpdatePendingDueDate(sessionId, request.dueDate(), actor.userId()));
     }
 
     // ---- UC-22: Duyệt nhận xét (SITE_MANAGER) ----
