@@ -214,7 +214,8 @@
       "noAssign": "-- Không giao --",
       "dueDateLabel": "Hạn nộp bài — ngày",
       "dueTimeLabel": "Hạn nộp bài — giờ",
-      "applyButton": "Áp dụng cho cả lớp"
+      "applyButton": "Áp dụng cho cả lớp",
+      "applying": "Đang áp dụng..."
     },
     "downloadTemplateButton": "Tải mẫu Excel",
     "downloadingTemplate": "Đang lưu & tải...",
@@ -276,7 +277,8 @@
       "extraStudents": " (+{{count}} học sinh khác)",
       "sentSuccess": "🔔 Đã gửi nhận xét {{count}} học sinh lên Quản lý điểm trường rà soát duyệt.",
       "sentButSubmitFailed": "⚠️ Đã lưu nháp {{count}} nhận xét nhưng gửi duyệt thất bại: {{reason}} — vào \"Lịch sử nhận xét\" bên dưới bấm \"Nộp duyệt\" để thử lại.",
-      "alreadySent": "⚠️ Học sinh {{name}} đã có nhận xét cho buổi này rồi (trạng thái: {{status}}) — xem/sửa ở \"Lịch sử nhận xét\" bên dưới."
+      "alreadySent": "⚠️ Học sinh {{name}} đã có nhận xét cho buổi này rồi (trạng thái: {{status}}) — xem/sửa ở \"Lịch sử nhận xét\" bên dưới.",
+      "dueDateAppliedSuccess": "✅ Đã áp dụng hạn nộp mới cho toàn bộ nhận xét Nháp/Bị từ chối của buổi này."
     },
     "errors": {
       "loadSessionsFailed": "Không tải được danh sách buổi học.",
@@ -295,7 +297,8 @@
       "downloadTemplateFailed": "Tải file mẫu thất bại.",
       "saveDraftBeforeDownloadFailed": "Chưa lưu được nháp nên không tải file — {{reason}}",
       "xlsxOnly": "Chỉ hỗ trợ file .xlsx.",
-      "importFailed": "Nhập từ Excel thất bại."
+      "importFailed": "Nhập từ Excel thất bại.",
+      "applyDueDateFailed": "Áp dụng hạn nộp mới thất bại."
     }
   },
   "commentsPage": {

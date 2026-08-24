@@ -213,9 +213,14 @@ export default function AssignmentsTab({
         });
         // videos của cùng 1 bộ giống hệt nhau dù giao lặp lại nhiều lần — cache theo setId để không gọi
         // lại API listReviewVideos thừa cho mỗi bản giao trùng bộ.
+        // Bổ sung 2026-08-24 (sửa bug thật) — bọc .catch(() => []) giống mọi lệnh gọi khác trong hàm
+        // này: listByClass() vẫn trả về bộ chỉ còn bản giao CANCELLED (chủ ý, để HS thấy lịch sử, xem
+        // Javadoc ReviewVideoService#listByClass), nhưng resolveStudentAccess() chỉ cho xem video khi
+        // có bản giao ACTIVE — không bọc catch khiến 1 bộ đã CANCELLED làm sập TOÀN BỘ tab BTVN (kể cả
+        // Bài ngữ pháp/Reading/Writing đã tải thành công), vì gọi trong Promise.all không bắt lỗi riêng.
         const videosBySetId = new Map<number, Promise<ReviewVideoResponse[]>>();
         const videosOf = (setId: number) => {
-          if (!videosBySetId.has(setId)) videosBySetId.set(setId, listReviewVideos(setId));
+          if (!videosBySetId.has(setId)) videosBySetId.set(setId, listReviewVideos(setId).catch(() => []));
           return videosBySetId.get(setId)!;
         };
         const perGroup = await Promise.all(

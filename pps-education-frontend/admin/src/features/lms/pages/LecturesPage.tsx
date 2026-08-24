@@ -772,6 +772,7 @@ export default function LecturesPage() {
           curriculums={curriculums}
           onClose={() => setShowCreateForm(false)}
           onCreated={(set) => {
+            setShowCreateForm(false);
             loadSets();
             setSelectedSetId(set.id);
             showToast(t("lectures.toast.setCreated"));

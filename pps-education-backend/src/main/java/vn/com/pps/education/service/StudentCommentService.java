@@ -590,6 +590,62 @@ public class StudentCommentService {
         return saved.stream().map(this::toResponse).toList();
     }
 
+    /**
+     * Bổ sung ngoài SDD gốc (2026-08-24, xác nhận với người dùng) — đổi Hạn nộp BTVN buổi sau cho
+     * TOÀN BỘ nhận xét DRAFT/REJECTED của 1 buổi trong 1 transaction.
+     *
+     * <p>Lý do cần API riêng thay vì N request {@code updateComment} song song (cách FE vẫn dùng cho
+     * "Lưu nháp"/"Gửi nhận xét"): {@link #requireNoDueDateConflict} bắt mọi nhận xét cùng buổi phải
+     * chung 1 hạn nộp, so với DB tại thời điểm request chạy. Khi N nhận xét NHÁP đang cùng giữ 1 hạn
+     * nộp cũ (VD mặc định = buổi kế tiếp, do trước đó chưa ai chọn hạn tường minh) và cần đổi sang 1
+     * hạn mới, N request riêng lẻ — dù chạy song song hay tuần tự — LUÔN thất bại: request xử lý
+     * nhận xét nào cũng so với N-1 nhận xét còn lại, mà những nhận xét đó chưa kịp đổi (chưa commit)
+     * tại thời điểm so sánh — không có thứ tự xử lý nào thoát được vòng lặp này (bug thực tế phát
+     * hiện 2026-08-24, khi thao tác 48 học sinh cùng lúc luôn báo "0/48 lưu được").</p>
+     *
+     * <p>Sửa bằng cách gộp đổi CẢ LÔ trong 1 transaction: chỉ đối chiếu xung đột với nhận xét NGOÀI
+     * lô (đã PENDING/APPROVED — có bản giao thật với hạn nộp khác) — không so các dòng NHÁP/REJECTED
+     * đang được đổi cùng nhau trong cùng 1 lần gọi, vì chúng đằng nào cũng sẽ cùng ra 1 giá trị sau
+     * khi lưu.</p>
+     */
+    @Transactional
+    public List<StudentCommentResponse> bulkUpdatePendingDueDate(Long sessionId, LocalDateTime dueDate, Long actorUserId) {
+        ClassSession session = getClassSessionOrThrow(sessionId);
+        User actor = getUserOrThrow(actorUserId);
+        requireCanWriteDailyComment(session, actorUserId);
+
+        List<StudentComment> siblings = studentCommentRepository.findByClassSessionId(sessionId);
+        List<StudentComment> editable = siblings.stream()
+                .filter(c -> c.getStatus() == StudentComment.Status.DRAFT || c.getStatus() == StudentComment.Status.REJECTED)
+                .toList();
+        if (editable.isEmpty()) {
+            throw new ResourceNotFoundException("error.studentComment.noEditableCommentInSession", new Object[]{sessionId},
+                    "Buổi học id=" + sessionId + " chưa có nhận xét NHÁP/Bị từ chối nào để đổi hạn nộp.");
+        }
+
+        OffsetDateTime newDueAt = dueDate.atZone(APP_ZONE).toOffsetDateTime();
+        Set<Long> editableIds = editable.stream().map(StudentComment::getId).collect(java.util.stream.Collectors.toSet());
+        for (StudentComment sibling : siblings) {
+            if (editableIds.contains(sibling.getId())) {
+                continue;
+            }
+            OffsetDateTime siblingDueAt = effectiveDueAt(session, sibling);
+            if (siblingDueAt != null && !siblingDueAt.isEqual(newDueAt)) {
+                throw new HomeworkNextConflictException(
+                        "error.homeworkNextConflict.dueDateLocked",
+                        new Object[]{siblingDueAt, sibling.getStudent().getUser().getFullName(), newDueAt},
+                        "Hạn nộp BTVN buổi này đã khóa theo " + siblingDueAt
+                                + " (đã giao thật cho học sinh " + sibling.getStudent().getUser().getFullName()
+                                + ") — không thể đổi sang " + newDueAt + ".");
+            }
+        }
+
+        editable.forEach(c -> c.setPendingHomeworkNextDueDate(dueDate));
+        List<StudentComment> saved = studentCommentRepository.saveAll(editable);
+        saved.forEach(c -> writeHistory(c, actor, StudentCommentHistory.Action.UPDATED));
+        return saved.stream().map(this::toResponse).toList();
+    }
+
     // ===================== UC-22: Duyệt nhận xét (SITE_MANAGER) =====================
 
     /** Main Flow bước 1: danh sách nhận xét Chờ duyệt của các điểm trường actor phụ trách. */

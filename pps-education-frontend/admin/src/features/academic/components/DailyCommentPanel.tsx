@@ -17,6 +17,7 @@ import {
   listClassSessions,
   listCommentsForClass,
   listTodaySessions,
+  bulkUpdatePendingDueDate,
   submitComments,
   updateComment,
   updateActualTeacherName,
@@ -274,6 +275,7 @@ export default function DailyCommentPanel() {
   /** V137 — mirror quickExerciseId/quickVideoId, kênh "BTVN online" Reading/Writing mới. */
   const [quickReadingExerciseId, setQuickReadingExerciseId] = useState<number | "">("");
   const [quickWritingExerciseId, setQuickWritingExerciseId] = useState<number | "">("");
+  const [applyingDueDate, setApplyingDueDate] = useState(false);
 
   const selectedClass = classes.find((c) => c.id === selectedClassId) ?? null;
   const selectedSession = sessions.find((s) => s.id === selectedSessionId) ?? null;
@@ -616,8 +618,20 @@ export default function DailyCommentPanel() {
     }
   };
 
-  /** "Gán nhanh cho cả lớp" (2026-08-05) — áp panel gán nhanh vào mọi dòng CHƯA khoá, thay vì phải chọn từng dòng. */
-  const handleApplyQuickAssign = () => {
+  /**
+   * "Gán nhanh cho cả lớp" (2026-08-05) — áp panel gán nhanh vào mọi dòng CHƯA khoá, thay vì phải
+   * chọn từng dòng. Chỉ đổi state cục bộ (chưa lưu) cho các lựa chọn Ngữ pháp/Video/Offline —
+   * những dòng CHƯA gõ Nhận xét vẫn cần bấm "Lưu nháp"/"Gửi nhận xét" sau đó mới thực sự ghi DB.
+   *
+   * Bổ sung 2026-08-24 (xác nhận với người dùng) — RIÊNG Hạn nộp thì ghi thẳng xuống DB ngay ở đây
+   * qua bulkUpdatePendingDueDate(), áp dụng cho TOÀN BỘ nhận xét NHÁP/Bị từ chối đã có sẵn của buổi
+   * (kể cả những dòng chưa gõ Nhận xét nên "Lưu nháp" thường không đụng tới) — sửa đúng bug thực tế:
+   * trước đây các dòng NHÁP có sẵn (VD từ 1 lần gán+lưu hàng loạt trước đó, chưa từng chọn hạn nộp
+   * tường minh) âm thầm giữ hạn nộp mặc định cũ (= buổi kế tiếp), khoá cứng hạn nộp chung của buổi
+   * mà không cách nào tự sửa được qua "Lưu nháp"/"Gửi nhận xét" (luôn báo xung đột 0/N — xem Javadoc
+   * BE StudentCommentService#bulkUpdatePendingDueDate).
+   */
+  const handleApplyQuickAssign = async () => {
     const lockedIds = new Set(history.filter((h) => h.status === "PENDING" || h.status === "APPROVED").map((h) => h.studentId));
     setRows((prev) =>
       prev.map((r) =>
@@ -639,6 +653,21 @@ export default function DailyCommentPanel() {
       )
     );
     setDirty(true);
+
+    if (dueDateTime && selectedSessionId && selectedClassId) {
+      setApplyingDueDate(true);
+      setError(null);
+      try {
+        await bulkUpdatePendingDueDate(selectedSessionId, dueDateTime);
+        setNotification(t("dailyCommentPanel.notifications.dueDateAppliedSuccess"));
+        await loadHistory(selectedClassId, selectedSessionId, rows.map((r) => r.studentId));
+        refreshSessionCommentStats(selectedClassId);
+      } catch (err) {
+        setError(err instanceof ApiError ? err.message : t("dailyCommentPanel.errors.applyDueDateFailed"));
+      } finally {
+        setApplyingDueDate(false);
+      }
+    }
   };
 
   /** Payload dùng chung cho "Lưu nháp"/autosave/"Gửi nhận xét" — xem buildPayload+saveFilledRows bên dưới. */
@@ -1267,18 +1296,20 @@ export default function DailyCommentPanel() {
                 type="button"
                 onClick={handleApplyQuickAssign}
                 disabled={
-                  isVietnamese
+                  applyingDueDate ||
+                  (isVietnamese
                     ? !quickReading &&
                       !quickWriting &&
                       quickExerciseId === "" &&
                       quickVideoId === "" &&
                       quickReadingExerciseId === "" &&
-                      quickWritingExerciseId === ""
-                    : !quickOffline && quickExerciseId === "" && quickVideoId === ""
+                      quickWritingExerciseId === "" &&
+                      !dueDateTime
+                    : !quickOffline && quickExerciseId === "" && quickVideoId === "" && !dueDateTime)
                 }
                 className="px-3 py-2 bg-brand-orange hover:bg-brand-orange/90 text-white text-[11px] font-bold rounded-lg disabled:opacity-40"
               >
-                {t("dailyCommentPanel.quickAssign.applyButton")}
+                {applyingDueDate ? t("dailyCommentPanel.quickAssign.applying") : t("dailyCommentPanel.quickAssign.applyButton")}
               </button>
             </div>
           </div>
