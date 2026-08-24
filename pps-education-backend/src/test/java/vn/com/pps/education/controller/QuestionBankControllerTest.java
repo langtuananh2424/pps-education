@@ -58,7 +58,7 @@ class QuestionBankControllerTest extends AbstractControllerTest {
         CurriculumResponse active = curriculumService.update(curriculum.id(),
                 new UpdateCurriculumRequest("Chuẩn", null, null, null, null, null, "ACTIVE", false), actor.getId());
         return examService.createExam(
-                new CreateExamRequest("KD-" + SEQ.incrementAndGet(), "Đề test", active.id(), "VIETNAMESE", "HOMEWORK"), actor.getId()).id();
+                new CreateExamRequest("KD-" + SEQ.incrementAndGet(), "Đề test", active.id(), "VIETNAMESE", "HOMEWORK", "VOCAB_GRAMMAR", null, null, null), actor.getId()).id();
     }
 
     @Test
@@ -104,7 +104,7 @@ class QuestionBankControllerTest extends AbstractControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
                                 new CreateExerciseRequest("EX-" + SEQ.incrementAndGet(), "Đề test", examId, null,
-                                        "SELF_PRACTICE", new BigDecimal("100"), null, false, null, true))))
+                                        "SELF_PRACTICE", new BigDecimal("100"), null, true))))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.message").value("Tài khoản không có quyền thực hiện thao tác này."));
     }
@@ -119,7 +119,7 @@ class QuestionBankControllerTest extends AbstractControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
                                 new CreateExerciseRequest("EX-" + SEQ.incrementAndGet(), "Đề test", examId, null,
-                                        "SELF_PRACTICE", new BigDecimal("100"), null, false, null, true))))
+                                        "SELF_PRACTICE", new BigDecimal("100"), null, true))))
                 .andExpect(status().isOk());
     }
 

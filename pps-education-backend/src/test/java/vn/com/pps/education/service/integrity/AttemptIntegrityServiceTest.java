@@ -186,7 +186,7 @@ class AttemptIntegrityServiceTest extends AbstractIntegrationTest {
         parentUser = userRepository.findById(parent.userId()).orElseThrow();
 
         defaultExam = examService.createExam(
-                new CreateExamRequest(examCode(), "Đề mặc định", activeCurriculum.id(), "VIETNAMESE", "HOMEWORK"), teacher.getId());
+                new CreateExamRequest(examCode(), "Đề mặc định", activeCurriculum.id(), "VIETNAMESE", "HOMEWORK", "VOCAB_GRAMMAR", null, null, null), teacher.getId());
     }
 
     @Test
@@ -312,7 +312,7 @@ class AttemptIntegrityServiceTest extends AbstractIntegrationTest {
                 teacher.getId());
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Kiểm tra", defaultExam.id(), null, "ASSIGNED",
-                        new BigDecimal("1"), null, false, 1, true), teacher.getId());
+                        new BigDecimal("1"), null, true), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("1.0")), teacher.getId());
         examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
         // V71: deliverToClass dùng PROPAGATION_REQUIRES_NEW (connection riêng) — phải commit fixture

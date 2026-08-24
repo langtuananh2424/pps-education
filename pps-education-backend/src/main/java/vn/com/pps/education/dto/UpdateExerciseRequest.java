@@ -10,19 +10,15 @@ import java.math.BigDecimal;
  * thông tin 1 "Bài" đã soạn (trước đây chỉ tạo được, không sửa được).
  * Không sửa được code/examId/exerciseType (cố định từ lúc tạo, giống quy
  * ước UpdateExamRequest).
+ *
+ * V144 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-24) —
+ * allowRetake/maxAttempts/passThresholdPercent đã chuyển lên
+ * {@code UpdateExamRequest} (cấu hình chung cho cả Đề) — không còn ở đây.
  */
 public record UpdateExerciseRequest(
         @NotBlank String title,
         Long subjectId,
         @NotNull BigDecimal totalPoints,
-        boolean allowRetake,
-        Integer maxAttempts,
-        boolean showCorrectAnswers,
-        /** V89, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05: NULL = giữ nguyên ngưỡng đã cấu hình. */
-        BigDecimal passThresholdPercent
+        boolean showCorrectAnswers
 ) {
-    public UpdateExerciseRequest(String title, Long subjectId, BigDecimal totalPoints, boolean allowRetake,
-                                  Integer maxAttempts, boolean showCorrectAnswers) {
-        this(title, subjectId, totalPoints, allowRetake, maxAttempts, showCorrectAnswers, null);
-    }
 }

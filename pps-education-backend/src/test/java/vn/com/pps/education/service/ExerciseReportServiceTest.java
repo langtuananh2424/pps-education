@@ -149,7 +149,7 @@ class ExerciseReportServiceTest extends AbstractIntegrationTest {
         classService.enroll(schoolClass.id(), new EnrollStudentRequest(student.getId(), LocalDate.now()), headAcademic.getId());
 
         defaultExam = examService.createExam(
-                new CreateExamRequest(examCode(), "Đề mặc định", activeCurriculum.id(), "VIETNAMESE", "HOMEWORK"), teacher.getId());
+                new CreateExamRequest(examCode(), "Đề mặc định", activeCurriculum.id(), "VIETNAMESE", "HOMEWORK", "VOCAB_GRAMMAR", null, null, null), teacher.getId());
     }
 
     @Test
@@ -343,7 +343,7 @@ class ExerciseReportServiceTest extends AbstractIntegrationTest {
     private ExerciseAssignment deliverSelfPracticeExerciseWithQuestions(String title, List<QuestionResponse> questions) {
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), title, defaultExam.id(), null, "SELF_PRACTICE",
-                        new BigDecimal(questions.size()), null, true, null, true), teacher.getId());
+                        new BigDecimal(questions.size()), null, true), teacher.getId());
         int order = 1;
         for (QuestionResponse q : questions) {
             exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(q.id(), order++, new BigDecimal("1.0")), teacher.getId());

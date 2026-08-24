@@ -264,18 +264,38 @@ export type ExamTeacherType = "VIETNAMESE" | "FOREIGN";
 /** V74, đã xác nhận với người dùng 2026-08-04: "Loại đề" — độc lập với ExerciseType, không thay thế. */
 export type ExamType = "REVIEW" | "HOMEWORK";
 
+/**
+ * V144 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-24) — chuyển hẳn từ cấp Bài
+ * (Exercise.skillCategory, V136) lên cấp Đề: giao bài giờ giao CẢ Đề (mọi Bài trong Đề cùng lúc), nên
+ * 1 Đề = 1 nhóm kỹ năng thuần. Bắt buộc chọn khi tạo Đề, sửa được cùng title/teacherType/examType. Dùng
+ * để lọc dropdown Kho đề + validate kênh "BTVN online Reading/Writing" ở Nhận xét học viên (UC-21).
+ */
+export type ExamSkillCategory = "READING" | "WRITING" | "VOCAB_GRAMMAR" | "LISTENING";
+
 export interface CreateExamRequest {
   code: string;
   title: string;
   curriculumId: number;
   teacherType: ExamTeacherType;
   examType: ExamType;
+  skillCategory: ExamSkillCategory;
+  /** V144 — không truyền = mặc định true. */
+  allowRetake?: boolean;
+  /** V144 — không truyền = không giới hạn số lần làm lại. */
+  maxAttempts?: number;
+  /** V144 — không truyền = dùng mặc định hệ thống (70%). */
+  passThresholdPercent?: number;
 }
 
 export interface UpdateExamRequest {
   title: string;
   teacherType: ExamTeacherType;
   examType: ExamType;
+  skillCategory: ExamSkillCategory;
+  allowRetake: boolean;
+  maxAttempts?: number;
+  /** V144 — không truyền = giữ nguyên giá trị hiện tại. */
+  passThresholdPercent?: number;
 }
 
 export interface ExamResponse {
@@ -288,6 +308,12 @@ export interface ExamResponse {
   createdBy: number;
   teacherType: ExamTeacherType;
   examType: ExamType;
+  /** V144 — null = chưa phân loại (dữ liệu cũ). */
+  skillCategory: ExamSkillCategory | null;
+  allowRetake: boolean;
+  maxAttempts: number | null;
+  /** V144 — ngưỡng % để tính đạt/chưa đạt, cộng dồn số câu đúng trên TẤT CẢ Bài trong Đề, mặc định 70. */
+  passThresholdPercent: number;
 }
 
 export function createExam(request: CreateExamRequest): Promise<ExamResponse> {
@@ -302,11 +328,12 @@ export function getExam(id: number): Promise<ExamResponse> {
   return apiRequest<ExamResponse>(`/exams/${id}`);
 }
 
-/** Bỏ trống curriculumId/teacherType để không lọc theo tiêu chí đó. */
-export function listExams(curriculumId?: number, teacherType?: ExamTeacherType): Promise<ExamResponse[]> {
+/** Bỏ trống curriculumId/teacherType/skillCategory để không lọc theo tiêu chí đó. */
+export function listExams(curriculumId?: number, teacherType?: ExamTeacherType, skillCategory?: ExamSkillCategory): Promise<ExamResponse[]> {
   const params = new URLSearchParams();
   if (curriculumId) params.set("curriculumId", String(curriculumId));
   if (teacherType) params.set("teacherType", teacherType);
+  if (skillCategory) params.set("skillCategory", skillCategory);
   const query = params.toString() ? `?${params.toString()}` : "";
   return apiRequest<ExamResponse[]>(`/exams${query}`);
 }
@@ -342,14 +369,6 @@ export function deleteExam(id: number): Promise<void> {
  */
 export type ExerciseType = "SELF_PRACTICE" | "ASSIGNED";
 
-/**
- * V136 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-21) — nhóm kỹ năng của Bài, ĐỘC LẬP
- * với ExerciseType (cơ chế giao bài) và Exam.examType (mục đích sử dụng) — không thay thế field nào.
- * Cố định từ lúc tạo (không sửa được qua UpdateExerciseRequest). undefined/null = chưa phân loại (dữ
- * liệu cũ). Dùng để lọc dropdown "chọn đề Reading/Writing" ở Nhận xét học viên (UC-21).
- */
-export type ExerciseSkillCategory = "READING" | "WRITING" | "VOCAB_GRAMMAR" | "LISTENING";
-
 export interface CreateExerciseRequest {
   code: string;
   title: string;
@@ -358,12 +377,7 @@ export interface CreateExerciseRequest {
   exerciseType: ExerciseType;
   totalPoints: number;
   timeLimitMinutes?: number;
-  allowRetake: boolean;
-  maxAttempts?: number;
   showCorrectAnswers: boolean;
-  /** V89/V100 — không truyền = dùng mặc định hệ thống (70%, exercises.pass_threshold_percent). */
-  passThresholdPercent?: number;
-  skillCategory?: ExerciseSkillCategory;
 }
 
 export interface ExerciseResponse {
@@ -378,17 +392,13 @@ export interface ExerciseResponse {
   examTitle: string;
   /** Denormalize từ Exam.teacherType (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05) — dùng để lọc dropdown BTVN buổi sau ở Nhận xét học viên theo loại giáo viên. */
   examTeacherType: ExamTeacherType;
+  /** V144 — denormalize từ Exam.skillCategory (mirror examTeacherType) — dùng để lọc dropdown "BTVN online Reading/Writing buổi sau"; null nếu Đề chưa phân loại (dữ liệu cũ). */
+  examSkillCategory: ExamSkillCategory | null;
   subjectId: number | null;
   exerciseType: ExerciseType;
-  /** V136 — null = chưa phân loại (dữ liệu cũ). */
-  skillCategory: ExerciseSkillCategory | null;
   totalPoints: number;
   timeLimitMinutes: number | null;
-  allowRetake: boolean;
-  maxAttempts: number | null;
   showCorrectAnswers: boolean;
-  /** V89/V100 — ngưỡng % để tính đạt/chưa đạt (exercises.pass_threshold_percent), mặc định 70. */
-  passThresholdPercent: number;
   status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
   createdBy: number;
   /** true nếu đề có ít nhất 1 câu ESSAY/SPEAKING — cần chấm tay ở UC-41 sau khi học sinh nộp. */
@@ -404,11 +414,7 @@ export interface UpdateExerciseRequest {
   title: string;
   subjectId?: number;
   totalPoints: number;
-  allowRetake: boolean;
-  maxAttempts?: number;
   showCorrectAnswers: boolean;
-  /** V89/V100 — không truyền = giữ nguyên giá trị hiện tại (backend chỉ ghi đè khi có giá trị). */
-  passThresholdPercent?: number;
 }
 
 export function updateExercise(id: number, request: UpdateExerciseRequest): Promise<ExerciseResponse> {
@@ -523,6 +529,11 @@ export function listAssignmentsForClass(classId: number): Promise<ExerciseAssign
 /** Kho đề: nguồn cho dropdown "BTVN buổi sau" ở Nhận xét học viên — mọi loại Bài đã Publish, thuộc 1 Đề đã gán cho lớp (không còn theo khung chương trình). */
 export function listPublishedExercisesForClass(classId: number): Promise<ExerciseResponse[]> {
   return apiRequest<ExerciseResponse[]>(`/classes/${classId}/exercises/published`);
+}
+
+/** V144 — nguồn cho dropdown "giao cả Đề" ở Nhận xét học viên: Đề đã gán cho lớp, có ít nhất 1 Bài đã Publish. */
+export function listPublishedExamsForClass(classId: number): Promise<ExamResponse[]> {
+  return apiRequest<ExamResponse[]>(`/classes/${classId}/exams/published`);
 }
 
 // ===================== Kho Video Ôn tập (UC-23/UC-23a) =====================

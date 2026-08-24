@@ -1288,6 +1288,18 @@ export interface StudentCommentResponse {
   homeworkNextReadingExerciseTitle: string | null;
   homeworkNextWritingExerciseAssignmentId: number | null;
   homeworkNextWritingExerciseTitle: string | null;
+  /**
+   * V144 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-24) — "giao cả Đề": id/tên Exam đã
+   * chọn cho kênh Ngữ pháp (giao TẤT CẢ Bài Published trong Đề cùng lúc) — song song với
+   * homeworkNextExerciseAssignmentId (giao lẻ 1 Bài), CHỈ 1 trong 2 khác null tại 1 thời điểm.
+   */
+  homeworkNextExamId: number | null;
+  homeworkNextExamTitle: string | null;
+  /** V144: mirror homeworkNextExamId cho kênh Reading. */
+  homeworkNextReadingExamId: number | null;
+  homeworkNextReadingExamTitle: string | null;
+  homeworkNextWritingExamId: number | null;
+  homeworkNextWritingExamTitle: string | null;
   /** Hạn nộp BTVN buổi sau (lấy từ dueAt của bản giao) — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05. */
   homeworkNextDueAt: string | null;
   /** V127: id/tên Exercise NGUỒN Giáo viên vừa chọn nhưng CHƯA Gửi nhận xét — null nếu chưa chọn gì hoặc đã Gửi. */
@@ -1301,6 +1313,13 @@ export interface StudentCommentResponse {
   pendingHomeworkNextReadingExerciseTitle: string | null;
   pendingHomeworkNextWritingExerciseId: number | null;
   pendingHomeworkNextWritingExerciseTitle: string | null;
+  /** V144: id/tên Exam Giáo viên vừa chọn "giao cả Đề" nhưng CHƯA Gửi nhận xét — mirror pendingHomeworkNextExerciseId. */
+  pendingHomeworkNextExamId: number | null;
+  pendingHomeworkNextExamTitle: string | null;
+  pendingHomeworkNextReadingExamId: number | null;
+  pendingHomeworkNextReadingExamTitle: string | null;
+  pendingHomeworkNextWritingExamId: number | null;
+  pendingHomeworkNextWritingExamTitle: string | null;
   /**
    * V127: hạn nộp tự chọn đi kèm lựa chọn CHƯA giao — chuỗi "yyyy-MM-ddTHH:mm:ss" KHÔNG kèm offset
    * (LocalDateTime thô phía BE, khác homeworkNextDueAt ở trên là OffsetDateTime đã resolve) — cắt
@@ -1352,6 +1371,15 @@ export interface CreateStudentCommentRequest {
   homeworkNextReadingExerciseId?: number;
   homeworkNextWritingExerciseId?: number;
   /**
+   * V144 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-24) — "giao cả Đề": id của Exam
+   * NGUỒN (đã gán lớp), tự động giao TẤT CẢ Bài Published trong Đề cho cả lớp thay vì chọn 1 Exercise
+   * lẻ. Mỗi kênh chỉ được truyền MỘT trong 2 (examId HOẶC exerciseId tương ứng), không truyền cả 2 —
+   * backend từ chối (400) nếu vi phạm.
+   */
+  homeworkNextExamId?: number;
+  homeworkNextReadingExamId?: number;
+  homeworkNextWritingExamId?: number;
+  /**
    * Nhận xét học viên (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05, cho phép chọn
    * GIỜ 2026-08-06): hạn nộp BTVN buổi sau (ngày + giờ, format "yyyy-MM-ddTHH:mm" — khớp value của
    * <input type="datetime-local">/kết hợp DatePicker + input giờ) do Giáo viên tự chọn — để trống thì
@@ -1384,6 +1412,10 @@ export interface UpdateStudentCommentRequest {
   /** V137 — xem Javadoc CreateStudentCommentRequest.homeworkNextReadingExerciseId. */
   homeworkNextReadingExerciseId?: number;
   homeworkNextWritingExerciseId?: number;
+  /** V144 — xem Javadoc CreateStudentCommentRequest.homeworkNextExamId ("giao cả Đề"). */
+  homeworkNextExamId?: number;
+  homeworkNextReadingExamId?: number;
+  homeworkNextWritingExamId?: number;
   /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05 — xem Javadoc CreateStudentCommentRequest.homeworkNextDueDate. */
   homeworkNextDueDate?: string;
   note?: string;

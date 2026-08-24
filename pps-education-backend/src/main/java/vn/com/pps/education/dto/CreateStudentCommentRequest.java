@@ -53,6 +53,13 @@ public record CreateStudentCommentRequest(
         // buổi teacherType=VIETNAMESE. Id của Exercise (skillCategory=READING/WRITING tương ứng).
         Long homeworkNextReadingExerciseId,
         Long homeworkNextWritingExerciseId,
+        // V144 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-24) — "giao cả Đề": id của
+        // Exam, giao TẤT CẢ Bài Published trong Đề thay vì chọn 1 Exercise lẻ. Mỗi kênh chỉ được truyền
+        // MỘT trong 2 (examId HOẶC exerciseId tương ứng), không truyền cả 2 — xem
+        // StudentCommentService#requireExclusiveChannelChoice.
+        Long homeworkNextExamId,
+        Long homeworkNextReadingExamId,
+        Long homeworkNextWritingExamId,
         LocalDateTime homeworkNextDueDate,
         String note
 ) {}

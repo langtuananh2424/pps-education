@@ -256,6 +256,8 @@
     "homeworkPreviousSpeakingPlaceholder": "E.g. Completed 85% (Video channel is always online — auto % will appear after sending)",
     "autoBadge": "Auto",
     "chooseExercisePlaceholder": "-- Select a published exercise --",
+    "examOptionPrefix": "Whole exam",
+    "exerciseOptionPrefix": "Single exercise",
     "attitudePlaceholder": "-- Not selected --",
     "contentPlaceholder": "Write a comment for this student...",
     "ariaChooseTeacherTypeFirst": "Select the teacher type above first.",

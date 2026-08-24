@@ -22,6 +22,15 @@ import java.util.UUID;
  * 2026-08-05): {@code examTeacherType} denormalize từ {@code Exam.teacherType}
  * (VIETNAMESE/FOREIGN) — để FE lọc dropdown "BTVN buổi sau" theo đúng loại
  * giáo viên đang chọn ở màn Nhận xét học viên mà không cần gọi thêm listExams().
+ *
+ * V144 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-24) —
+ * skillCategory/allowRetake/maxAttempts/passThresholdPercent đã bỏ khỏi
+ * đây, chuyển lên {@link ExamResponse} (cấu hình chung cho cả Đề — xem
+ * Javadoc Exam.SkillCategory). {@code examSkillCategory} denormalize từ
+ * {@code Exam.skillCategory} (mirror examTeacherType ở trên) — để FE lọc
+ * dropdown "BTVN online Reading/Writing buổi sau" (Nhận xét học viên) theo
+ * đúng nhóm kỹ năng mà không cần gọi thêm listExams(); null nếu Đề chưa
+ * phân loại (dữ liệu cũ trước V144).
  */
 public record ExerciseResponse(
         Long id,
@@ -32,16 +41,12 @@ public record ExerciseResponse(
         String examCode,
         String examTitle,
         String examTeacherType,
+        String examSkillCategory,
         Long subjectId,
         String exerciseType,
-        /** V136/V142 — "READING"/"WRITING"/"VOCAB_GRAMMAR"/"LISTENING", NULL = chưa phân loại. Xem Javadoc Exercise.SkillCategory. */
-        String skillCategory,
         BigDecimal totalPoints,
         Integer timeLimitMinutes,
-        boolean allowRetake,
-        Integer maxAttempts,
         boolean showCorrectAnswers,
-        BigDecimal passThresholdPercent,
         String status,
         Long createdBy,
         boolean hasEssayOrSpeaking

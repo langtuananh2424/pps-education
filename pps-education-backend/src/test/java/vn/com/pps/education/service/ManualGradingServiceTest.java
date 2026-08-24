@@ -125,7 +125,7 @@ class ManualGradingServiceTest extends AbstractIntegrationTest {
         classService.enroll(schoolClass.id(), new EnrollStudentRequest(student.getId(), LocalDate.now()), headAcademic.getId());
 
         var exam = examService.createExam(
-                new CreateExamRequest(examCode(), "Đề mặc định", activeCurriculum.id(), "VIETNAMESE", "HOMEWORK"), teacher.getId());
+                new CreateExamRequest(examCode(), "Đề mặc định", activeCurriculum.id(), "VIETNAMESE", "HOMEWORK", "VOCAB_GRAMMAR", null, null, null), teacher.getId());
         mcQuestion = examQuestionService.createQuestion(exam.id(),
                 new CreateExamQuestionRequest("MULTIPLE_CHOICE", "GRAMMAR", "EASY", "She ___ to school.",
                         null, null, null, null, null, new BigDecimal("1.0"), null,
@@ -137,7 +137,7 @@ class ManualGradingServiceTest extends AbstractIntegrationTest {
                 teacher.getId());
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Kiểm tra", exam.id(), null, "SELF_PRACTICE",
-                        new BigDecimal("3"), null, false, null, true), teacher.getId());
+                        new BigDecimal("3"), null, true), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mcQuestion.id(), 1, new BigDecimal("1.0")), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(essayQuestion.id(), 2, new BigDecimal("2.0")), teacher.getId());
         // Kho đề (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30):

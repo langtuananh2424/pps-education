@@ -256,6 +256,8 @@
     "homeworkPreviousSpeakingPlaceholder": "VD: Đã thực hiện 85% (kênh Video luôn Online — % tự động sẽ hiện sau khi Gửi)",
     "autoBadge": "Tự động",
     "chooseExercisePlaceholder": "-- Chọn đề đã Publish --",
+    "examOptionPrefix": "Cả đề",
+    "exerciseOptionPrefix": "1 Bài lẻ",
     "attitudePlaceholder": "-- Chưa chọn --",
     "contentPlaceholder": "Viết nhận xét cho học sinh này...",
     "ariaChooseTeacherTypeFirst": "Chọn Loại giáo viên ở trên trước.",

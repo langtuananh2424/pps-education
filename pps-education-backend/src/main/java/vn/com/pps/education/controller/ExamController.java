@@ -42,8 +42,9 @@ public class ExamController {
     @GetMapping("/api/exams")
     public ResponseEntity<List<ExamResponse>> listExams(@RequestParam(required = false) Long curriculumId,
                                                           @RequestParam(required = false) String teacherType,
+                                                          @RequestParam(required = false) String skillCategory,
                                                           @AuthenticationPrincipal AuthenticatedUser actor) {
-        return ResponseEntity.ok(examService.listExams(curriculumId, teacherType, actor.userId()));
+        return ResponseEntity.ok(examService.listExams(curriculumId, teacherType, skillCategory, actor.userId()));
     }
 
     @GetMapping("/api/exams/{id}")
@@ -63,6 +64,13 @@ public class ExamController {
     public ResponseEntity<List<ExerciseResponse>> listExercises(@PathVariable Long id,
                                                                   @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(examService.listExercises(id, actor.userId()));
+    }
+
+    /** V144 — nguồn cho dropdown "giao cả Đề" ở Nhận xét học viên (UC-21, mirror ExerciseController#listPublishedForClass). */
+    @GetMapping("/api/classes/{classId}/exams/published")
+    public ResponseEntity<List<ExamResponse>> listPublishedForClass(@PathVariable Long classId,
+                                                                      @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(examService.listPublishedForClass(classId, actor.userId()));
     }
 
     @PreAuthorize("hasPermission(null, 'lms.exam.assign')")

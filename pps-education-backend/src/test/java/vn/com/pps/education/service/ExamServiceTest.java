@@ -112,7 +112,7 @@ class ExamServiceTest extends AbstractIntegrationTest {
     @Test
     void createExam_UC40_MainFlow_savesWithCurriculumForFiltering() {
         ExamResponse exam = examService.createExam(
-                new CreateExamRequest(examCode(), "IELTS Grade 6", curriculumA.id(), "VIETNAMESE", "HOMEWORK"), teacher.getId());
+                new CreateExamRequest(examCode(), "IELTS Grade 6", curriculumA.id(), "VIETNAMESE", "HOMEWORK", "VOCAB_GRAMMAR", null, null, null), teacher.getId());
 
         assertThat(exam.title()).isEqualTo("IELTS Grade 6");
         assertThat(exam.curriculumId()).isEqualTo(curriculumA.id());
@@ -123,7 +123,7 @@ class ExamServiceTest extends AbstractIntegrationTest {
     @Test
     void createExam_boSung_savesTeacherTypeAndExamType() {
         ExamResponse exam = examService.createExam(
-                new CreateExamRequest(examCode(), "IELTS Grade 6", curriculumA.id(), "FOREIGN", "REVIEW"), teacher.getId());
+                new CreateExamRequest(examCode(), "IELTS Grade 6", curriculumA.id(), "FOREIGN", "REVIEW", "VOCAB_GRAMMAR", null, null, null), teacher.getId());
 
         assertThat(exam.teacherType()).isEqualTo("FOREIGN");
         assertThat(exam.examType()).isEqualTo("REVIEW");
@@ -132,24 +132,82 @@ class ExamServiceTest extends AbstractIntegrationTest {
     @Test
     void createExam_boSung_rejectsInvalidTeacherType() {
         assertThatThrownBy(() -> examService.createExam(
-                new CreateExamRequest(examCode(), "IELTS Grade 6", curriculumA.id(), "KHONG_HOP_LE", "HOMEWORK"), teacher.getId()))
+                new CreateExamRequest(examCode(), "IELTS Grade 6", curriculumA.id(), "KHONG_HOP_LE", "HOMEWORK", "VOCAB_GRAMMAR", null, null, null), teacher.getId()))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     void createExam_boSung_rejectsInvalidExamType() {
         assertThatThrownBy(() -> examService.createExam(
-                new CreateExamRequest(examCode(), "IELTS Grade 6", curriculumA.id(), "VIETNAMESE", "KHONG_HOP_LE"), teacher.getId()))
+                new CreateExamRequest(examCode(), "IELTS Grade 6", curriculumA.id(), "VIETNAMESE", "KHONG_HOP_LE", "VOCAB_GRAMMAR", null, null, null), teacher.getId()))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    /**
+     * V144 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-24) — skillCategory bắt buộc
+     * chọn; allowRetake/maxAttempts/passThresholdPercent chuyển từ Exercise lên Exam, không truyền thì
+     * dùng mặc định (allowRetake=true, maxAttempts=không giới hạn, passThresholdPercent=70%).
+     */
+    @Test
+    void createExam_boSung_defaultsRetakeAndThresholdWhenNotSpecified() {
+        ExamResponse exam = examService.createExam(
+                new CreateExamRequest(examCode(), "IELTS Grade 6", curriculumA.id(), "VIETNAMESE", "HOMEWORK", "READING", null, null, null), teacher.getId());
+
+        assertThat(exam.skillCategory()).isEqualTo("READING");
+        assertThat(exam.allowRetake()).isTrue();
+        assertThat(exam.maxAttempts()).isNull();
+        assertThat(exam.passThresholdPercent()).isEqualByComparingTo("70.00");
+    }
+
+    /** V144: truyền tường minh allowRetake/maxAttempts/passThresholdPercent thì lưu đúng giá trị đó. */
+    @Test
+    void createExam_boSung_savesCustomRetakeAndThresholdWhenSpecified() {
+        ExamResponse exam = examService.createExam(
+                new CreateExamRequest(examCode(), "IELTS Grade 6", curriculumA.id(), "VIETNAMESE", "HOMEWORK",
+                        "WRITING", false, 3, new BigDecimal("60")), teacher.getId());
+
+        assertThat(exam.skillCategory()).isEqualTo("WRITING");
+        assertThat(exam.allowRetake()).isFalse();
+        assertThat(exam.maxAttempts()).isEqualTo(3);
+        assertThat(exam.passThresholdPercent()).isEqualByComparingTo("60");
+    }
+
+    /** V144: sửa lại skillCategory/allowRetake/maxAttempts/passThresholdPercent cùng lúc với title. */
+    @Test
+    void updateExam_boSung_changesSkillCategoryAndRetakeSettings() {
+        ExamResponse exam = examService.createExam(
+                new CreateExamRequest(examCode(), "Tên cũ", curriculumA.id(), "VIETNAMESE", "HOMEWORK",
+                        "VOCAB_GRAMMAR", true, null, null), teacher.getId());
+
+        ExamResponse updated = examService.updateExam(exam.id(),
+                new UpdateExamRequest("Tên mới", "VIETNAMESE", "HOMEWORK", "LISTENING", false, 2, new BigDecimal("50")), teacher.getId());
+
+        assertThat(updated.skillCategory()).isEqualTo("LISTENING");
+        assertThat(updated.allowRetake()).isFalse();
+        assertThat(updated.maxAttempts()).isEqualTo(2);
+        assertThat(updated.passThresholdPercent()).isEqualByComparingTo("50");
+    }
+
+    /** V144: lọc Kho đề theo nhóm kỹ năng. */
+    @Test
+    void listExams_boSung_filtersBySkillCategory() {
+        ExamResponse readingExam = examService.createExam(
+                new CreateExamRequest(examCode(), "Đề Reading", curriculumA.id(), "VIETNAMESE", "HOMEWORK", "READING", null, null, null), teacher.getId());
+        ExamResponse writingExam = examService.createExam(
+                new CreateExamRequest(examCode(), "Đề Writing", curriculumA.id(), "VIETNAMESE", "HOMEWORK", "WRITING", null, null, null), teacher.getId());
+
+        List<ExamResponse> filtered = examService.listExams(null, null, "READING", teacher.getId());
+
+        assertThat(filtered).extracting(ExamResponse::id).contains(readingExam.id()).doesNotContain(writingExam.id());
     }
 
     @Test
     void updateExam_UC40_MainFlow_changesTitleOnly() {
         ExamResponse exam = examService.createExam(
-                new CreateExamRequest(examCode(), "Tên cũ", curriculumA.id(), "VIETNAMESE", "HOMEWORK"), teacher.getId());
+                new CreateExamRequest(examCode(), "Tên cũ", curriculumA.id(), "VIETNAMESE", "HOMEWORK", "VOCAB_GRAMMAR", null, null, null), teacher.getId());
 
         ExamResponse updated = examService.updateExam(exam.id(),
-                new UpdateExamRequest("Tên mới", "VIETNAMESE", "HOMEWORK"), teacher.getId());
+                new UpdateExamRequest("Tên mới", "VIETNAMESE", "HOMEWORK", "VOCAB_GRAMMAR", true, null, null), teacher.getId());
 
         assertThat(updated.title()).isEqualTo("Tên mới");
         assertThat(updated.curriculumId()).isEqualTo(curriculumA.id());
@@ -159,10 +217,10 @@ class ExamServiceTest extends AbstractIntegrationTest {
     @Test
     void updateExam_boSung_changesTeacherTypeAndExamTypeAlongWithTitle() {
         ExamResponse exam = examService.createExam(
-                new CreateExamRequest(examCode(), "Tên cũ", curriculumA.id(), "VIETNAMESE", "HOMEWORK"), teacher.getId());
+                new CreateExamRequest(examCode(), "Tên cũ", curriculumA.id(), "VIETNAMESE", "HOMEWORK", "VOCAB_GRAMMAR", null, null, null), teacher.getId());
 
         ExamResponse updated = examService.updateExam(exam.id(),
-                new UpdateExamRequest("Tên mới", "FOREIGN", "REVIEW"), teacher.getId());
+                new UpdateExamRequest("Tên mới", "FOREIGN", "REVIEW", "VOCAB_GRAMMAR", true, null, null), teacher.getId());
 
         assertThat(updated.teacherType()).isEqualTo("FOREIGN");
         assertThat(updated.examType()).isEqualTo("REVIEW");
@@ -171,11 +229,11 @@ class ExamServiceTest extends AbstractIntegrationTest {
     @Test
     void listExams_UC40_MainFlow_filtersByCurriculum() {
         ExamResponse examA = examService.createExam(
-                new CreateExamRequest(examCode(), "Đề khung A", curriculumA.id(), "VIETNAMESE", "HOMEWORK"), teacher.getId());
+                new CreateExamRequest(examCode(), "Đề khung A", curriculumA.id(), "VIETNAMESE", "HOMEWORK", "VOCAB_GRAMMAR", null, null, null), teacher.getId());
         ExamResponse examB = examService.createExam(
-                new CreateExamRequest(examCode(), "Đề khung B", curriculumB.id(), "VIETNAMESE", "HOMEWORK"), teacher.getId());
+                new CreateExamRequest(examCode(), "Đề khung B", curriculumB.id(), "VIETNAMESE", "HOMEWORK", "VOCAB_GRAMMAR", null, null, null), teacher.getId());
 
-        List<ExamResponse> filtered = examService.listExams(curriculumA.id(), null, teacher.getId());
+        List<ExamResponse> filtered = examService.listExams(curriculumA.id(), null, null, teacher.getId());
 
         assertThat(filtered).extracting(ExamResponse::id).contains(examA.id()).doesNotContain(examB.id());
     }
@@ -183,11 +241,11 @@ class ExamServiceTest extends AbstractIntegrationTest {
     @Test
     void listExams_boSung_returnsAllWhenCurriculumFilterOmitted() {
         ExamResponse examA = examService.createExam(
-                new CreateExamRequest(examCode(), "Đề khung A", curriculumA.id(), "VIETNAMESE", "HOMEWORK"), teacher.getId());
+                new CreateExamRequest(examCode(), "Đề khung A", curriculumA.id(), "VIETNAMESE", "HOMEWORK", "VOCAB_GRAMMAR", null, null, null), teacher.getId());
         ExamResponse examB = examService.createExam(
-                new CreateExamRequest(examCode(), "Đề khung B", curriculumB.id(), "VIETNAMESE", "HOMEWORK"), teacher.getId());
+                new CreateExamRequest(examCode(), "Đề khung B", curriculumB.id(), "VIETNAMESE", "HOMEWORK", "VOCAB_GRAMMAR", null, null, null), teacher.getId());
 
-        List<ExamResponse> all = examService.listExams(null, null, teacher.getId());
+        List<ExamResponse> all = examService.listExams(null, null, null, teacher.getId());
 
         assertThat(all).extracting(ExamResponse::id).contains(examA.id(), examB.id());
     }
@@ -196,11 +254,11 @@ class ExamServiceTest extends AbstractIntegrationTest {
     @Test
     void listExams_boSung_filtersByTeacherType() {
         ExamResponse examVn = examService.createExam(
-                new CreateExamRequest(examCode(), "Đề GV Việt Nam", curriculumA.id(), "VIETNAMESE", "HOMEWORK"), teacher.getId());
+                new CreateExamRequest(examCode(), "Đề GV Việt Nam", curriculumA.id(), "VIETNAMESE", "HOMEWORK", "VOCAB_GRAMMAR", null, null, null), teacher.getId());
         ExamResponse examForeign = examService.createExam(
-                new CreateExamRequest(examCode(), "Đề GV nước ngoài", curriculumA.id(), "FOREIGN", "HOMEWORK"), teacher.getId());
+                new CreateExamRequest(examCode(), "Đề GV nước ngoài", curriculumA.id(), "FOREIGN", "HOMEWORK", "VOCAB_GRAMMAR", null, null, null), teacher.getId());
 
-        List<ExamResponse> filtered = examService.listExams(null, "FOREIGN", teacher.getId());
+        List<ExamResponse> filtered = examService.listExams(null, "FOREIGN", null, teacher.getId());
 
         assertThat(filtered).extracting(ExamResponse::id).contains(examForeign.id()).doesNotContain(examVn.id());
     }
@@ -208,7 +266,7 @@ class ExamServiceTest extends AbstractIntegrationTest {
     @Test
     void assignToClass_UC40_MainFlow_addsClassToExam() {
         ExamResponse exam = examService.createExam(
-                new CreateExamRequest(examCode(), "IELTS Grade 6", curriculumA.id(), "VIETNAMESE", "HOMEWORK"), teacher.getId());
+                new CreateExamRequest(examCode(), "IELTS Grade 6", curriculumA.id(), "VIETNAMESE", "HOMEWORK", "VOCAB_GRAMMAR", null, null, null), teacher.getId());
 
         examService.assignToClass(exam.id(), schoolClass.id(), teacher.getId());
 
@@ -221,7 +279,7 @@ class ExamServiceTest extends AbstractIntegrationTest {
         User outsider = newUser("outsider.teacher");
         assignRole(outsider, "TEACHER");
         ExamResponse exam = examService.createExam(
-                new CreateExamRequest(examCode(), "IELTS Grade 6", curriculumA.id(), "VIETNAMESE", "HOMEWORK"), teacher.getId());
+                new CreateExamRequest(examCode(), "IELTS Grade 6", curriculumA.id(), "VIETNAMESE", "HOMEWORK", "VOCAB_GRAMMAR", null, null, null), teacher.getId());
 
         assertThatThrownBy(() -> examService.assignToClass(exam.id(), schoolClass.id(), outsider.getId()))
                 .isInstanceOf(NotAssignedTeacherForClassException.class);
@@ -233,7 +291,7 @@ class ExamServiceTest extends AbstractIntegrationTest {
         User admin = newUser("exam.admin");
         assignRole(admin, "SYS_ADMIN");
         ExamResponse exam = examService.createExam(
-                new CreateExamRequest(examCode(), "IELTS Grade 6", curriculumA.id(), "VIETNAMESE", "HOMEWORK"), teacher.getId());
+                new CreateExamRequest(examCode(), "IELTS Grade 6", curriculumA.id(), "VIETNAMESE", "HOMEWORK", "VOCAB_GRAMMAR", null, null, null), teacher.getId());
 
         examService.assignToClass(exam.id(), schoolClass.id(), admin.getId());
 
@@ -245,7 +303,7 @@ class ExamServiceTest extends AbstractIntegrationTest {
     @Test
     void assignToClass_boSung_isIdempotentWhenAlreadyAssigned() {
         ExamResponse exam = examService.createExam(
-                new CreateExamRequest(examCode(), "IELTS Grade 6", curriculumA.id(), "VIETNAMESE", "HOMEWORK"), teacher.getId());
+                new CreateExamRequest(examCode(), "IELTS Grade 6", curriculumA.id(), "VIETNAMESE", "HOMEWORK", "VOCAB_GRAMMAR", null, null, null), teacher.getId());
 
         examService.assignToClass(exam.id(), schoolClass.id(), teacher.getId());
         examService.assignToClass(exam.id(), schoolClass.id(), teacher.getId());
@@ -256,7 +314,7 @@ class ExamServiceTest extends AbstractIntegrationTest {
     @Test
     void unassignFromClass_UC40_MainFlow_removesClassFromExam() {
         ExamResponse exam = examService.createExam(
-                new CreateExamRequest(examCode(), "IELTS Grade 6", curriculumA.id(), "VIETNAMESE", "HOMEWORK"), teacher.getId());
+                new CreateExamRequest(examCode(), "IELTS Grade 6", curriculumA.id(), "VIETNAMESE", "HOMEWORK", "VOCAB_GRAMMAR", null, null, null), teacher.getId());
         examService.assignToClass(exam.id(), schoolClass.id(), teacher.getId());
 
         examService.unassignFromClass(exam.id(), schoolClass.id(), teacher.getId());
@@ -267,7 +325,7 @@ class ExamServiceTest extends AbstractIntegrationTest {
     @Test
     void listExercises_UC40_MainFlow_returnsBaiThuocDe() {
         ExamResponse exam = examService.createExam(
-                new CreateExamRequest(examCode(), "IELTS Grade 6", curriculumA.id(), "VIETNAMESE", "HOMEWORK"), teacher.getId());
+                new CreateExamRequest(examCode(), "IELTS Grade 6", curriculumA.id(), "VIETNAMESE", "HOMEWORK", "VOCAB_GRAMMAR", null, null, null), teacher.getId());
         // V75 (Kho đề): mỗi Exam tự sinh 1 QuestionBank nội bộ riêng, không nhận câu hỏi qua
         // QuestionBankService#createQuestion (chỉ dành cho bank "legacy" độc lập) — phải qua
         // ExamQuestionService#createQuestion (tự resolve bank nội bộ theo examId).
@@ -278,7 +336,7 @@ class ExamServiceTest extends AbstractIntegrationTest {
                 teacher.getId());
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Unit 1", exam.id(), null, "ASSIGNED",
-                        new BigDecimal("1"), null, false, 1, true), teacher.getId());
+                        new BigDecimal("1"), null, true), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("1.0")), teacher.getId());
 
         List<ExerciseResponse> exercises = examService.listExercises(exam.id(), teacher.getId());
@@ -291,21 +349,21 @@ class ExamServiceTest extends AbstractIntegrationTest {
     @Test
     void deleteExam_MainFlow_softDeletesAndHidesFromListing() {
         ExamResponse exam = examService.createExam(
-                new CreateExamRequest(examCode(), "IELTS Grade 6", curriculumA.id(), "VIETNAMESE", "HOMEWORK"), teacher.getId());
+                new CreateExamRequest(examCode(), "IELTS Grade 6", curriculumA.id(), "VIETNAMESE", "HOMEWORK", "VOCAB_GRAMMAR", null, null, null), teacher.getId());
 
         examService.deleteExam(exam.id(), teacher.getId());
 
         assertThatThrownBy(() -> examService.getExam(exam.id(), teacher.getId())).isInstanceOf(ResourceNotFoundException.class);
-        assertThat(examService.listExams(null, null, teacher.getId())).extracting(ExamResponse::id).doesNotContain(exam.id());
+        assertThat(examService.listExams(null, null, null, teacher.getId())).extracting(ExamResponse::id).doesNotContain(exam.id());
     }
 
     @Test
     void deleteExam_A_rejectsWhenExamHasActiveExercise() {
         ExamResponse exam = examService.createExam(
-                new CreateExamRequest(examCode(), "IELTS Grade 6", curriculumA.id(), "VIETNAMESE", "HOMEWORK"), teacher.getId());
+                new CreateExamRequest(examCode(), "IELTS Grade 6", curriculumA.id(), "VIETNAMESE", "HOMEWORK", "VOCAB_GRAMMAR", null, null, null), teacher.getId());
         exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Unit 1", exam.id(), null, "ASSIGNED",
-                        new BigDecimal("1"), null, false, null, true), teacher.getId());
+                        new BigDecimal("1"), null, true), teacher.getId());
 
         assertThatThrownBy(() -> examService.deleteExam(exam.id(), teacher.getId())).isInstanceOf(IllegalArgumentException.class);
     }
@@ -313,10 +371,10 @@ class ExamServiceTest extends AbstractIntegrationTest {
     @Test
     void deleteExam_MainFlow_allowsWhenAllExercisesArchived() {
         ExamResponse exam = examService.createExam(
-                new CreateExamRequest(examCode(), "IELTS Grade 6", curriculumA.id(), "VIETNAMESE", "HOMEWORK"), teacher.getId());
+                new CreateExamRequest(examCode(), "IELTS Grade 6", curriculumA.id(), "VIETNAMESE", "HOMEWORK", "VOCAB_GRAMMAR", null, null, null), teacher.getId());
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Unit 1", exam.id(), null, "ASSIGNED",
-                        new BigDecimal("1"), null, false, null, true), teacher.getId());
+                        new BigDecimal("1"), null, true), teacher.getId());
         exerciseService.deleteExercise(exercise.id(), teacher.getId());
 
         examService.deleteExam(exam.id(), teacher.getId());

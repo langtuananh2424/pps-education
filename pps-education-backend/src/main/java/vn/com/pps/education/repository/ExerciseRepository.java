@@ -15,6 +15,9 @@ public interface ExerciseRepository extends JpaRepository<Exercise, Long> {
     /** Kho đề — danh sách Bài thuộc 1 Đề. */
     List<Exercise> findByExamId(Long examId);
 
+    /** V144 — danh sách Bài đã Publish thuộc 1 Đề, dùng khi "giao cả Đề" (ExerciseService#deliverAllToClass). */
+    List<Exercise> findByExamIdAndStatus(Long examId, Exercise.Status status);
+
     /**
      * UC-40 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30):
      * danh sách Bài khả dụng làm nguồn "BTVN buổi sau" ở Nhận xét học viên

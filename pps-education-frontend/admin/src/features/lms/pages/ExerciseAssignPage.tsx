@@ -7,6 +7,7 @@ import { useEligibleClasses } from "@/features/academic/hooks/useEligibleClasses
 import { CurriculumResponse, listCurriculums } from "@/features/academic/api";
 import {
   ExamResponse,
+  ExamSkillCategory,
   ExamTeacherType,
   ExamType,
   ExerciseQuestionResponse,
@@ -69,6 +70,8 @@ export default function ExerciseAssignPage() {
   const [curriculums, setCurriculums] = useState<CurriculumResponse[]>([]);
   const [curriculumFilter, setCurriculumFilter] = useState<number | null>(null);
   const [teacherTypeFilter, setTeacherTypeFilter] = useState<ExamTeacherType | null>(null);
+  /** V144 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-24) — lọc Kho đề theo nhóm kỹ năng. */
+  const [skillCategoryFilter, setSkillCategoryFilter] = useState<ExamSkillCategory | null>(null);
   const [exams, setExams] = useState<ExamResponse[]>([]);
   const [loadingExams, setLoadingExams] = useState(false);
   const [selectedExamId, setSelectedExamId] = useState<number | null>(null);
@@ -82,7 +85,7 @@ export default function ExerciseAssignPage() {
 
   const loadExams = () => {
     setLoadingExams(true);
-    listExams(curriculumFilter ?? undefined, teacherTypeFilter ?? undefined)
+    listExams(curriculumFilter ?? undefined, teacherTypeFilter ?? undefined, skillCategoryFilter ?? undefined)
       .then((res) => {
         setExams(res);
         if (!res.some((e) => e.id === selectedExamId)) setSelectedExamId(res[0]?.id ?? null);
@@ -92,7 +95,7 @@ export default function ExerciseAssignPage() {
   };
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(loadExams, [curriculumFilter, teacherTypeFilter]);
+  useEffect(loadExams, [curriculumFilter, teacherTypeFilter, skillCategoryFilter]);
 
   const selectedExam = exams.find((e) => e.id === selectedExamId) ?? null;
 
@@ -147,6 +150,18 @@ export default function ExerciseAssignPage() {
                 </option>
               ))}
             </Select>
+            <Select
+              value={skillCategoryFilter ?? ""}
+              onChange={(e) => setSkillCategoryFilter(e.target.value ? (e.target.value as ExamSkillCategory) : null)}
+              className={inputClass}
+            >
+              <option value="">{t("assignPage.allSkillCategories")}</option>
+              {(["READING", "WRITING", "VOCAB_GRAMMAR", "LISTENING"] as ExamSkillCategory[]).map((sc) => (
+                <option key={sc} value={sc}>
+                  {t(`assignPage.skillCategoryLabels.${sc}`)}
+                </option>
+              ))}
+            </Select>
           </div>
 
           {loadingExams ? (
@@ -169,6 +184,7 @@ export default function ExerciseAssignPage() {
                     <p className="text-[10px] text-slate-400 mt-0.5 font-mono">{exam.code} · {exam.curriculumCode}</p>
                     <p className="text-[10px] text-slate-400 mt-0.5">
                       {t(`assignPage.teacherTypeLabels.${exam.teacherType}`)} · {t(`assignPage.examTypeLabels.${exam.examType}`)}
+                      {exam.skillCategory && <> · {t(`assignPage.skillCategoryLabels.${exam.skillCategory}`)}</>}
                     </p>
                   </button>
                 ))}
@@ -238,19 +254,34 @@ function CreateExamModal({
   const [curriculumId, setCurriculumId] = useState<number | null>(curriculums[0]?.id ?? null);
   const [teacherType, setTeacherType] = useState<ExamTeacherType | "">("");
   const [examType, setExamType] = useState<ExamType | "">("");
+  /** V144 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-24) — bắt buộc chọn khi tạo Đề, mọi Bài trong Đề cùng nhóm này. */
+  const [skillCategory, setSkillCategory] = useState<ExamSkillCategory | "">("");
+  const [allowRetake, setAllowRetake] = useState(true);
+  const [maxAttempts, setMaxAttempts] = useState("");
+  const [passThresholdPercent, setPassThresholdPercent] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!code.trim() || !title.trim() || !curriculumId || !teacherType || !examType) {
+    if (!code.trim() || !title.trim() || !curriculumId || !teacherType || !examType || !skillCategory) {
       setError(t("assignPage.createExamModal.requiredFields"));
       return;
     }
     setSubmitting(true);
     try {
-      const created = await createExam({ code: code.trim(), title: title.trim(), curriculumId, teacherType, examType });
+      const created = await createExam({
+        code: code.trim(),
+        title: title.trim(),
+        curriculumId,
+        teacherType,
+        examType,
+        skillCategory,
+        allowRetake,
+        maxAttempts: allowRetake && maxAttempts ? Number(maxAttempts) : undefined,
+        passThresholdPercent: passThresholdPercent ? Number(passThresholdPercent) : undefined
+      });
       onCreated(created);
       onClose();
     } catch (err) {
@@ -305,6 +336,41 @@ function CreateExamModal({
             ))}
           </Select>
         </div>
+        <div>
+          <label className={labelClass}>{t("assignPage.createExamModal.skillCategoryLabel")}</label>
+          <Select value={skillCategory} onChange={(e) => setSkillCategory(e.target.value as ExamSkillCategory | "")} className={inputClass}>
+            <option value="">{t("assignPage.createExamModal.skillCategoryPlaceholder")}</option>
+            {(["READING", "WRITING", "VOCAB_GRAMMAR", "LISTENING"] as ExamSkillCategory[]).map((sc) => (
+              <option key={sc} value={sc}>
+                {t(`assignPage.skillCategoryLabels.${sc}`)}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div>
+          <label className={labelClass}>{t("assignPage.createExamModal.passThresholdLabel")}</label>
+          <input
+            type="number"
+            min={0}
+            max={100}
+            placeholder={t("assignPage.createExamModal.passThresholdPlaceholder")}
+            value={passThresholdPercent}
+            onChange={(e) => setPassThresholdPercent(e.target.value)}
+            className={inputClass}
+          />
+        </div>
+        <div>
+          <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
+            <input type="checkbox" checked={allowRetake} onChange={(e) => setAllowRetake(e.target.checked)} />
+            {t("assignPage.createExamModal.allowRetakeCheckbox")}
+          </label>
+        </div>
+        {allowRetake && (
+          <div>
+            <label className={labelClass}>{t("assignPage.createExamModal.maxAttemptsLabel")}</label>
+            <input type="number" min={1} value={maxAttempts} onChange={(e) => setMaxAttempts(e.target.value)} className={inputClass} />
+          </div>
+        )}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="submit" variant="primary" size="sm" disabled={submitting}>
             {submitting ? t("common.creating") : t("assignPage.createExamModal.submit")}
@@ -328,19 +394,31 @@ function EditExamModal({
   const [title, setTitle] = useState(exam.title);
   const [teacherType, setTeacherType] = useState<ExamTeacherType>(exam.teacherType);
   const [examType, setExamType] = useState<ExamType>(exam.examType);
+  const [skillCategory, setSkillCategory] = useState<ExamSkillCategory | "">(exam.skillCategory ?? "");
+  const [allowRetake, setAllowRetake] = useState(exam.allowRetake);
+  const [maxAttempts, setMaxAttempts] = useState(exam.maxAttempts != null ? String(exam.maxAttempts) : "");
+  const [passThresholdPercent, setPassThresholdPercent] = useState(String(exam.passThresholdPercent));
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) {
+    if (!title.trim() || !skillCategory) {
       setError(t("assignPage.editExamModal.titleRequired"));
       return;
     }
     setSubmitting(true);
     setError(null);
     try {
-      const request: UpdateExamRequest = { title: title.trim(), teacherType, examType };
+      const request: UpdateExamRequest = {
+        title: title.trim(),
+        teacherType,
+        examType,
+        skillCategory,
+        allowRetake,
+        maxAttempts: allowRetake && maxAttempts ? Number(maxAttempts) : undefined,
+        passThresholdPercent: passThresholdPercent ? Number(passThresholdPercent) : undefined
+      };
       const updated = await updateExam(exam.id, request);
       onUpdated(updated);
     } catch (err) {
@@ -378,6 +456,40 @@ function EditExamModal({
             ))}
           </Select>
         </div>
+        <div>
+          <label className={labelClass}>{t("assignPage.editExamModal.skillCategoryLabel")}</label>
+          <Select value={skillCategory} onChange={(e) => setSkillCategory(e.target.value as ExamSkillCategory | "")} className={inputClass}>
+            <option value="">{t("assignPage.createExamModal.skillCategoryPlaceholder")}</option>
+            {(["READING", "WRITING", "VOCAB_GRAMMAR", "LISTENING"] as ExamSkillCategory[]).map((sc) => (
+              <option key={sc} value={sc}>
+                {t(`assignPage.skillCategoryLabels.${sc}`)}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div>
+          <label className={labelClass}>{t("assignPage.editExamModal.passThresholdLabel")}</label>
+          <input
+            type="number"
+            min={0}
+            max={100}
+            value={passThresholdPercent}
+            onChange={(e) => setPassThresholdPercent(e.target.value)}
+            className={inputClass}
+          />
+        </div>
+        <div>
+          <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
+            <input type="checkbox" checked={allowRetake} onChange={(e) => setAllowRetake(e.target.checked)} />
+            {t("assignPage.editExamModal.allowRetakeCheckbox")}
+          </label>
+        </div>
+        {allowRetake && (
+          <div>
+            <label className={labelClass}>{t("assignPage.editExamModal.maxAttemptsLabel")}</label>
+            <input type="number" min={1} value={maxAttempts} onChange={(e) => setMaxAttempts(e.target.value)} className={inputClass} />
+          </div>
+        )}
         <p className="text-[10px] text-slate-400 italic">
           {t("assignPage.editExamModal.immutableHint", { code: exam.code, curriculumCode: exam.curriculumCode })}
         </p>
@@ -407,10 +519,7 @@ function EditExerciseModal({
   const { t } = useTranslation("lms-question-authoring");
   const [title, setTitle] = useState(exercise.title);
   const [totalPoints, setTotalPoints] = useState(String(exercise.totalPoints));
-  const [allowRetake, setAllowRetake] = useState(exercise.allowRetake);
-  const [maxAttempts, setMaxAttempts] = useState(exercise.maxAttempts != null ? String(exercise.maxAttempts) : "");
   const [showCorrectAnswers, setShowCorrectAnswers] = useState(exercise.showCorrectAnswers);
-  const [passThresholdPercent, setPassThresholdPercent] = useState(String(exercise.passThresholdPercent));
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -427,10 +536,7 @@ function EditExerciseModal({
         title: title.trim(),
         subjectId: exercise.subjectId ?? undefined,
         totalPoints: Number(totalPoints),
-        allowRetake,
-        maxAttempts: allowRetake && maxAttempts ? Number(maxAttempts) : undefined,
-        showCorrectAnswers,
-        passThresholdPercent: passThresholdPercent ? Number(passThresholdPercent) : undefined
+        showCorrectAnswers
       };
       const updated = await updateExercise(exercise.id, request);
       onUpdated(updated);
@@ -454,34 +560,11 @@ function EditExerciseModal({
           <input type="number" min={0} value={totalPoints} onChange={(e) => setTotalPoints(e.target.value)} className={inputClass} />
         </div>
         <div>
-          <label className={labelClass}>{t("assignPage.editExerciseModal.passThresholdLabel")}</label>
-          <input
-            type="number"
-            min={0}
-            max={100}
-            value={passThresholdPercent}
-            onChange={(e) => setPassThresholdPercent(e.target.value)}
-            className={inputClass}
-          />
-        </div>
-        <div>
           <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
             <input type="checkbox" checked={showCorrectAnswers} onChange={(e) => setShowCorrectAnswers(e.target.checked)} />
             {t("assignPage.editExerciseModal.showCorrectAnswersCheckbox")}
           </label>
         </div>
-        <div>
-          <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
-            <input type="checkbox" checked={allowRetake} onChange={(e) => setAllowRetake(e.target.checked)} />
-            {t("assignPage.editExerciseModal.allowRetakeCheckbox")}
-          </label>
-        </div>
-        {allowRetake && (
-          <div>
-            <label className={labelClass}>{t("assignPage.editExerciseModal.maxAttemptsLabel")}</label>
-            <input type="number" min={1} value={maxAttempts} onChange={(e) => setMaxAttempts(e.target.value)} className={inputClass} />
-          </div>
-        )}
         <p className="text-[10px] text-slate-400 italic">{t("assignPage.editExerciseModal.immutableHint", { code: exercise.code })}</p>
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="secondary" size="sm" onClick={onClose}>

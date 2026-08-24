@@ -16,6 +16,13 @@ import java.util.UUID;
  * việc học sinh có xem/làm được hay không — MỌI loại đều cần Đề của Bài
  * đó đã gán cho lớp (xem {@link ExamClassAssignment}) VÀ được giao qua
  * Nhận xét học viên (UC-21, xem ExerciseService#deliverToClass).
+ *
+ * V144 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-24) —
+ * nhóm kỹ năng ({@code SkillCategory}), ngưỡng đạt (passThresholdPercent),
+ * làm lại (allowRetake/maxAttempts) đã CHUYỂN HẲN lên {@link Exam} — giao
+ * bài giờ giao CẢ Đề (mọi Bài cùng lúc), nên các cấu hình này chỉ còn hợp
+ * lý ở cấp Đề, không còn ở từng Bài riêng lẻ. Xem Exam.SkillCategory/
+ * Exam#passThresholdPercent/Exam#allowRetake/Exam#maxAttempts.
  */
 @Getter
 @Setter
@@ -26,21 +33,6 @@ public class Exercise extends BaseAuditEntity {
     public enum ExerciseType { SELF_PRACTICE, ASSIGNED, MOCK_TEST, SKILL_PRACTICE }
 
     public enum Status { DRAFT, PUBLISHED, ARCHIVED }
-
-    /**
-     * Nhóm kỹ năng của Bài (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-21, V136) —
-     * ĐỘC LẬP với {@link ExerciseType} (cơ chế giao bài) và {@link Exam.ExamType} (mục đích sử dụng,
-     * REVIEW/HOMEWORK) — không thay thế field nào. READING = 1 bài đọc (dùng {@code Question.groupKey}/
-     * {@code referencePassage} có sẵn) kèm nhiều câu MULTIPLE_CHOICE; WRITING = câu hỏi tự luận (chủ
-     * yếu ESSAY); VOCAB_GRAMMAR = trắc nghiệm câu/điền từ/sắp xếp câu. Dùng để lọc dropdown "chọn đề
-     * Reading/Writing" ở Nhận xét học viên (UC-21, "BTVN online" kênh Reading/Writing mới).
-     *
-     * LISTENING (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23, V142) — bài nghe: câu hỏi
-     * có {@code audioUrl}, dạng MULTIPLE_CHOICE (kèm ảnh cho đáp án), FILL_IN_BLANK, hoặc WORD_BANK/
-     * SENTENCE_BUILDING (xếp từ trong hộp). KHÔNG lọc vào dropdown Reading/Writing ở UC-21 (chỉ 2 nhóm đó
-     * dùng cho "BTVN online" kênh Reading/Writing).
-     */
-    public enum SkillCategory { READING, WRITING, VOCAB_GRAMMAR, LISTENING }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -67,11 +59,6 @@ public class Exercise extends BaseAuditEntity {
     @Column(name = "exercise_type", nullable = false, length = 30)
     private ExerciseType exerciseType;
 
-    /** NULL = chưa phân loại (dữ liệu cũ trước V136) — xem Javadoc {@link SkillCategory}. */
-    @Enumerated(EnumType.STRING)
-    @Column(name = "skill_category", length = 20)
-    private SkillCategory skillCategory;
-
     @Column(name = "total_points", nullable = false, precision = 6, scale = 2)
     private BigDecimal totalPoints;
 
@@ -79,18 +66,8 @@ public class Exercise extends BaseAuditEntity {
     @Column(name = "time_limit_minutes")
     private Integer timeLimitMinutes;
 
-    @Column(name = "allow_retake", nullable = false)
-    private boolean allowRetake = true;
-
-    @Column(name = "max_attempts")
-    private Integer maxAttempts;
-
     @Column(name = "show_correct_answers", nullable = false)
     private boolean showCorrectAnswers = true;
-
-    /** V89/V100 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05, giảm mặc định 80%→70% ngày 2026-08-07): BTVN dưới ngưỡng này phải làm lại — xem ExerciseAttemptService#applyPassOutcome. */
-    @Column(name = "pass_threshold_percent", nullable = false, precision = 5, scale = 2)
-    private BigDecimal passThresholdPercent = new BigDecimal("70.00");
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)

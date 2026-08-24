@@ -155,17 +155,9 @@ public class ExerciseService {
             exercise.setSubject(curriculumSubjectOrThrow(request.subjectId()));
         }
         exercise.setExerciseType(Exercise.ExerciseType.valueOf(request.exerciseType()));
-        if (request.skillCategory() != null) {
-            exercise.setSkillCategory(Exercise.SkillCategory.valueOf(request.skillCategory()));
-        }
         exercise.setTotalPoints(request.totalPoints());
         exercise.setTimeLimitMinutes(request.timeLimitMinutes());
-        exercise.setAllowRetake(request.allowRetake());
-        exercise.setMaxAttempts(request.maxAttempts());
         exercise.setShowCorrectAnswers(request.showCorrectAnswers());
-        if (request.passThresholdPercent() != null) {
-            exercise.setPassThresholdPercent(request.passThresholdPercent());
-        }
         exercise.setCreatedBy(actor);
         exercise = exerciseRepository.save(exercise);
         return toResponse(exercise, List.of());
@@ -182,12 +174,7 @@ public class ExerciseService {
         exercise.setTitle(request.title());
         exercise.setSubject(request.subjectId() == null ? null : curriculumSubjectOrThrow(request.subjectId()));
         exercise.setTotalPoints(request.totalPoints());
-        exercise.setAllowRetake(request.allowRetake());
-        exercise.setMaxAttempts(request.allowRetake() ? request.maxAttempts() : null);
         exercise.setShowCorrectAnswers(request.showCorrectAnswers());
-        if (request.passThresholdPercent() != null) {
-            exercise.setPassThresholdPercent(request.passThresholdPercent());
-        }
         exercise = exerciseRepository.save(exercise);
         return toResponse(exercise, exerciseQuestionRepository.findByExerciseIdOrderByDisplayOrder(id));
     }
@@ -507,6 +494,39 @@ public class ExerciseService {
         exerciseAssignmentRepository.save(assignment);
     }
 
+    /**
+     * V144 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-24) — "giao cả Đề": giao TẤT CẢ
+     * Bài đã Publish thuộc 1 Đề cho cùng 1 lớp, cùng 1 hạn nộp, thay vì chọn giao riêng lẻ từng Bài như
+     * trước (vẫn giữ được qua {@link #deliverToClass} nếu Giáo viên muốn giao lẻ 1 Bài — xem
+     * StudentCommentService). Gọi TỪ {@code ExamService#deliverToClass} (ExamService không tự lặp lại
+     * logic map/giao Exercise, xem .claude/rules/solid.md mục D). Tái dùng NGUYÊN VẸN
+     * {@link #deliverToClass} cho từng Bài — mọi rào chống trùng/race condition/thông báo học sinh đã
+     * hardened ở đó (V70/V71/V128) áp dụng luôn cho từng Bài trong Đề, không cần viết lại. Đề không có
+     * Bài Published nào thì trả về danh sách rỗng (không lỗi — Giáo viên có thể đang soạn dở Đề).
+     */
+    @Transactional
+    public List<ExerciseAssignment> deliverAllToClass(Long examId, Long classId, OffsetDateTime dueAt, Long actorUserId,
+                                                        ClassSession sourceClassSession) {
+        List<Exercise> published = exerciseRepository.findByExamIdAndStatus(examId, Exercise.Status.PUBLISHED);
+        List<ExerciseAssignment> assignments = new ArrayList<>();
+        for (Exercise exercise : published) {
+            assignments.add(deliverToClass(exercise.getId(), classId, dueAt, actorUserId, sourceClassSession));
+        }
+        return assignments;
+    }
+
+    /**
+     * V144: hủy TOÀN BỘ bản giao ACTIVE của 1 đợt "giao cả Đề" trước đó (VD Giáo viên đổi từ Đề A sang
+     * Đề B ở dropdown "BTVN buổi sau" khi comment còn DRAFT) — mirror {@link #cancelAssignment} nhưng
+     * cho cả nhóm, xác định nhóm qua {@link ExerciseAssignmentRepository#findDeliveryGroup}.
+     */
+    @Transactional
+    public void cancelDeliveryGroup(Long examId, Long classId, ClassSession sourceClassSession) {
+        Long sessionId = sourceClassSession == null ? null : sourceClassSession.getId();
+        exerciseAssignmentRepository.findDeliveryGroup(examId, classId, sessionId, ExerciseAssignment.Status.ACTIVE)
+                .forEach(this::cancelAssignment);
+    }
+
     // ===================== Helpers =====================
 
     private void notifyAssignedStudents(SchoolClass schoolClass, Exercise exercise, ExerciseAssignment assignment) {
@@ -608,10 +628,10 @@ public class ExerciseService {
         return new ExerciseResponse(
                 e.getId(), e.getUuid(), e.getCode(), e.getTitle(),
                 e.getExam().getId(), e.getExam().getCode(), e.getExam().getTitle(), e.getExam().getTeacherType().name(),
+                e.getExam().getSkillCategory() == null ? null : e.getExam().getSkillCategory().name(),
                 e.getSubject() == null ? null : e.getSubject().getId(),
-                e.getExerciseType().name(), e.getSkillCategory() == null ? null : e.getSkillCategory().name(),
-                e.getTotalPoints(), e.getTimeLimitMinutes(), e.isAllowRetake(),
-                e.getMaxAttempts(), e.isShowCorrectAnswers(), e.getPassThresholdPercent(), e.getStatus().name(),
+                e.getExerciseType().name(),
+                e.getTotalPoints(), e.getTimeLimitMinutes(), e.isShowCorrectAnswers(), e.getStatus().name(),
                 e.getCreatedBy().getId(), hasEssayOrSpeaking);
     }
 

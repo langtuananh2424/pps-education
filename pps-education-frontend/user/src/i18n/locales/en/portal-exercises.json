@@ -183,7 +183,7 @@
       "useSuggestionButton": "Fill answer box with this",
       "passedPopup": {
         "heading": "Passed the writing step",
-        "startRecordingButton": "Start recording"
+        "continueButton": "Continue"
       }
     },
     "speakingStage": {

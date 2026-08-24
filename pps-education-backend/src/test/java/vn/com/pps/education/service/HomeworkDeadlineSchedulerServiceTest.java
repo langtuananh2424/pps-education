@@ -135,7 +135,7 @@ class HomeworkDeadlineSchedulerServiceTest extends AbstractIntegrationTest {
         bank = questionBankService.createBank(
                 new CreateQuestionBankRequest(bankCode(), "Ngân hàng", activeCurriculum.id(), null, "A1"), teacher.getId());
         defaultExam = examService.createExam(
-                new CreateExamRequest(examCode(), "Đề mặc định", activeCurriculum.id(), "VIETNAMESE", "HOMEWORK"), teacher.getId());
+                new CreateExamRequest(examCode(), "Đề mặc định", activeCurriculum.id(), "VIETNAMESE", "HOMEWORK", "VOCAB_GRAMMAR", null, null, null), teacher.getId());
 
         studentDoneUser = enrollNewStudent("student.hw.done");
         studentNotDoneUser = enrollNewStudent("student.hw.notdone");
@@ -146,7 +146,7 @@ class HomeworkDeadlineSchedulerServiceTest extends AbstractIntegrationTest {
         QuestionResponse mc = createMcQuestion();
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Kiểm tra", defaultExam.id(), null, "ASSIGNED",
-                        new BigDecimal("1"), null, false, 1, true), teacher.getId());
+                        new BigDecimal("1"), null, true), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("1.0")), teacher.getId());
         examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
         // Giao với hạn nộp CÒN Ở TƯƠNG LAI để học sinh nộp bài được bình thường (tránh
@@ -184,7 +184,7 @@ class HomeworkDeadlineSchedulerServiceTest extends AbstractIntegrationTest {
         QuestionResponse mc = createMcQuestion();
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Kiểm tra", defaultExam.id(), null, "ASSIGNED",
-                        new BigDecimal("1"), null, false, 1, true), teacher.getId());
+                        new BigDecimal("1"), null, true), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("1.0")), teacher.getId());
         examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
         // V71: deliverToClass dùng PROPAGATION_REQUIRES_NEW — phải commit fixture vừa tạo trước.
@@ -209,7 +209,7 @@ class HomeworkDeadlineSchedulerServiceTest extends AbstractIntegrationTest {
         QuestionResponse mc = createMcQuestion();
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Kiểm tra", defaultExam.id(), null, "ASSIGNED",
-                        new BigDecimal("1"), null, false, 1, true), teacher.getId());
+                        new BigDecimal("1"), null, true), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("1.0")), teacher.getId());
         examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
         // V71: deliverToClass dùng PROPAGATION_REQUIRES_NEW — phải commit fixture vừa tạo trước.

@@ -25,11 +25,13 @@ import {
   writeComment
 } from "../api";
 import {
+  ExamResponse,
   ExerciseAssignmentResponse,
   ExerciseResponse,
   ReviewVideoAssignmentResponse,
   ReviewVideoSetResponse,
   listAssignmentsForClass,
+  listPublishedExamsForClass,
   listPublishedExercisesForClass,
   listReviewVideoAssignmentsForClass,
   listReviewVideoSetsByClass
@@ -97,6 +99,15 @@ interface Row {
   /** V137 — kênh "BTVN online" Reading/Writing mới, id Exercise NGUỒN skillCategory=READING/WRITING — chỉ dùng khi buổi teacherType=VIETNAMESE. */
   homeworkNextReadingExerciseId: number | "";
   homeworkNextWritingExerciseId: number | "";
+  /**
+   * V144 — "giao cả Đề" (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-24): nguồn thay thế
+   * cho homeworkNext{,Reading,Writing}ExerciseId ở CÙNG kênh — id Exam NGUỒN đã Publish (giao TẤT CẢ
+   * Bài trong Đề cùng lúc). Mỗi kênh chỉ 1 trong 2 field (Exam hoặc Exercise) khác "" tại 1 thời điểm —
+   * xem channelSelectValue/parseChannelSelectValue (gộp 2 field thành 1 dropdown, loại trừ lẫn nhau).
+   */
+  homeworkNextExamId: number | "";
+  homeworkNextReadingExamId: number | "";
+  homeworkNextWritingExamId: number | "";
   note: string;
 }
 
@@ -117,19 +128,69 @@ function rowHasAnyData(r: Row): boolean {
     r.homeworkNextReviewVideoSetId !== "" ||
     r.homeworkNextReadingExerciseId !== "" ||
     r.homeworkNextWritingExerciseId !== "" ||
+    r.homeworkNextExamId !== "" ||
+    r.homeworkNextReadingExamId !== "" ||
+    r.homeworkNextWritingExamId !== "" ||
     r.note.trim()
   );
 }
 
-const EMPTY_ROW_HOMEWORK: Pick<Row, "homeworkNext" | "homeworkNextReading" | "homeworkNextWriting" | "homeworkNextExerciseId" | "homeworkNextReviewVideoSetId" | "homeworkNextReadingExerciseId" | "homeworkNextWritingExerciseId"> = {
+const EMPTY_ROW_HOMEWORK: Pick<
+  Row,
+  | "homeworkNext"
+  | "homeworkNextReading"
+  | "homeworkNextWriting"
+  | "homeworkNextExerciseId"
+  | "homeworkNextReviewVideoSetId"
+  | "homeworkNextReadingExerciseId"
+  | "homeworkNextWritingExerciseId"
+  | "homeworkNextExamId"
+  | "homeworkNextReadingExamId"
+  | "homeworkNextWritingExamId"
+> = {
   homeworkNext: "",
   homeworkNextReading: "",
   homeworkNextWriting: "",
   homeworkNextExerciseId: "",
   homeworkNextReviewVideoSetId: "",
   homeworkNextReadingExerciseId: "",
-  homeworkNextWritingExerciseId: ""
+  homeworkNextWritingExerciseId: "",
+  homeworkNextExamId: "",
+  homeworkNextReadingExamId: "",
+  homeworkNextWritingExamId: ""
 };
+
+/**
+ * V144 — gộp 2 nguồn loại trừ lẫn nhau (Exam "giao cả Đề" / Exercise "giao lẻ") của CÙNG 1 kênh thành 1
+ * dropdown duy nhất, tránh phải thêm 3 cột bảng mới (mirror khoá gộp effectiveGrammarChannelKey ở BE —
+ * xem Javadoc StudentCommentService — nhưng dùng riêng cho việc GÕ giá trị <Select>, không phải so khớp).
+ */
+function channelSelectValue(examId: number | "", exerciseId: number | ""): string {
+  if (examId !== "") return `EXAM:${examId}`;
+  if (exerciseId !== "") return `EXERCISE:${exerciseId}`;
+  return "";
+}
+function parseChannelSelectValue(value: string): { examId: number | ""; exerciseId: number | "" } {
+  if (value.startsWith("EXAM:")) return { examId: Number(value.slice(5)), exerciseId: "" };
+  if (value.startsWith("EXERCISE:")) return { examId: "", exerciseId: Number(value.slice(9)) };
+  return { examId: "", exerciseId: "" };
+}
+
+/** Danh sách <option> gộp cho dropdown 1 kênh (Đề trước, Bài lẻ sau) — dùng với channelSelectValue/parseChannelSelectValue. */
+function renderChannelOptions(t: (key: string) => string, exams: ExamResponse[], exercises: ExerciseResponse[]): React.ReactNode[] {
+  return [
+    ...exams.map((ex) => (
+      <option key={`exam-${ex.id}`} value={`EXAM:${ex.id}`}>
+        {t("dailyCommentPanel.examOptionPrefix")}: {ex.code} - {ex.title}
+      </option>
+    )),
+    ...exercises.map((ex) => (
+      <option key={`exercise-${ex.id}`} value={`EXERCISE:${ex.id}`}>
+        {t("dailyCommentPanel.exerciseOptionPrefix")}: {ex.examCode} - {ex.title}
+      </option>
+    ))
+  ];
+}
 
 /**
  * Bổ sung 2026-08-19, sửa bug hiển thị sai giờ hạn nộp — `StudentCommentResponse.homeworkNextDueAt`
@@ -164,6 +225,9 @@ const isRowBlank = (r: Row) =>
   r.homeworkNextReviewVideoSetId === "" &&
   r.homeworkNextReadingExerciseId === "" &&
   r.homeworkNextWritingExerciseId === "" &&
+  r.homeworkNextExamId === "" &&
+  r.homeworkNextReadingExamId === "" &&
+  r.homeworkNextWritingExamId === "" &&
   !r.note.trim();
 
 /**
@@ -223,6 +287,10 @@ export default function DailyCommentPanel() {
   /** V137: nguồn khả dụng cho dropdown "BTVN Reading/Writing buổi sau" (kênh online mới) — Exercise đã Publish, lọc theo skillCategory (KHÔNG lọc teacherType, giống BE StudentCommentService#buildTemplate). */
   const [readingOptions, setReadingOptions] = useState<ExerciseResponse[]>([]);
   const [writingOptions, setWritingOptions] = useState<ExerciseResponse[]>([]);
+  /** V144: mirror grammarOptions/readingOptions/writingOptions cho nguồn "giao cả Đề" — Đề đã Publish (≥1 Bài) gán cho lớp. */
+  const [examOptions, setExamOptions] = useState<ExamResponse[]>([]);
+  const [readingExamOptions, setReadingExamOptions] = useState<ExamResponse[]>([]);
+  const [writingExamOptions, setWritingExamOptions] = useState<ExamResponse[]>([]);
   /**
    * V65: bản giao ACTIVE hiện có của lớp — CHỈ dùng để tra ngược "comment đã lưu trước đó chọn đề/
    * video nguồn nào" (response StudentCommentResponse chỉ trả id bản giao, không trả thẳng id nguồn),
@@ -274,6 +342,10 @@ export default function DailyCommentPanel() {
   /** V137 — mirror quickExerciseId/quickVideoId, kênh "BTVN online" Reading/Writing mới. */
   const [quickReadingExerciseId, setQuickReadingExerciseId] = useState<number | "">("");
   const [quickWritingExerciseId, setQuickWritingExerciseId] = useState<number | "">("");
+  /** V144 — mirror quick*ExerciseId, nguồn "giao cả Đề" — loại trừ lẫn nhau với quick*ExerciseId cùng kênh (xem channelSelectValue). */
+  const [quickExamId, setQuickExamId] = useState<number | "">("");
+  const [quickReadingExamId, setQuickReadingExamId] = useState<number | "">("");
+  const [quickWritingExamId, setQuickWritingExamId] = useState<number | "">("");
 
   const selectedClass = classes.find((c) => c.id === selectedClassId) ?? null;
   const selectedSession = sessions.find((s) => s.id === selectedSessionId) ?? null;
@@ -299,6 +371,8 @@ export default function DailyCommentPanel() {
   const blockOnlineHomework = isLastScheduledSession && !dueDateTime;
   const filteredGrammarOptions = teacherType ? grammarOptions.filter((ex) => ex.examTeacherType === teacherType) : [];
   const filteredVideoOptions = teacherType ? videoOptions.filter((s) => s.teacherType === teacherType) : [];
+  /** V144 — mirror filteredGrammarOptions cho nguồn "giao cả Đề" kênh Ngữ pháp (readingExamOptions/writingExamOptions không lọc teacherType, giống readingOptions/writingOptions). */
+  const filteredExamOptions = teacherType ? examOptions.filter((e) => e.teacherType === teacherType) : [];
   const grammarLabel = teacherType ? t(`shared.grammarChannel.${teacherType}`) : t("shared.grammarChannelFallback");
   const videoLabel = teacherType ? t(`shared.videoChannel.${teacherType}`) : t("shared.videoChannelFallback");
   /**
@@ -370,6 +444,9 @@ export default function DailyCommentPanel() {
     setVideoOptions([]);
     setReadingOptions([]);
     setWritingOptions([]);
+    setExamOptions([]);
+    setReadingExamOptions([]);
+    setWritingExamOptions([]);
     setGrammarAssignments([]);
     setVideoAssignments([]);
     setSessionCommentStats({});
@@ -404,12 +481,20 @@ export default function DailyCommentPanel() {
     listPublishedExercisesForClass(selectedClassId).then(setGrammarOptions).catch(() => undefined);
     listPublishedExercisesForClass(selectedClassId)
       .then((exercises) => {
-        setReadingOptions(exercises.filter((ex) => ex.skillCategory === "READING"));
-        setWritingOptions(exercises.filter((ex) => ex.skillCategory === "WRITING"));
+        setReadingOptions(exercises.filter((ex) => ex.examSkillCategory === "READING"));
+        setWritingOptions(exercises.filter((ex) => ex.examSkillCategory === "WRITING"));
       })
       .catch(() => undefined);
     listReviewVideoSetsByClass(selectedClassId)
       .then((sets) => setVideoOptions(sets.filter((s) => s.status === "PUBLISHED")))
+      .catch(() => undefined);
+    // V144 — nguồn "giao cả Đề": Đề đã gán lớp + ≥1 Bài Publish (mirror listPublishedExercisesForClass ở trên).
+    listPublishedExamsForClass(selectedClassId)
+      .then((exams) => {
+        setExamOptions(exams);
+        setReadingExamOptions(exams.filter((e) => e.skillCategory === "READING"));
+        setWritingExamOptions(exams.filter((e) => e.skillCategory === "WRITING"));
+      })
       .catch(() => undefined);
     // Bản giao ACTIVE hiện có — chỉ để tra ngược lựa chọn đã lưu trước đó ra id nguồn khi prefill (xem loadHistory).
     listAssignmentsForClass(selectedClassId).then(setGrammarAssignments).catch(() => undefined);
@@ -426,6 +511,9 @@ export default function DailyCommentPanel() {
     setQuickOffline("");
     setQuickExerciseId("");
     setQuickVideoId("");
+    setQuickExamId("");
+    setQuickReadingExamId("");
+    setQuickWritingExamId("");
     setDirty(false);
     setLastSavedAt(null);
   }, [selectedSession?.id, selectedSession?.lessonContent, selectedSession?.actualTeacherName, selectedSession?.teacherType]);
@@ -538,6 +626,11 @@ export default function DailyCommentPanel() {
             (draft.homeworkNextWritingExerciseAssignmentId != null
               ? grammarAssignments.find((a) => a.id === draft.homeworkNextWritingExerciseAssignmentId)?.exerciseId ?? ""
               : "");
+          // V144: id Exam "giao cả Đề" đọc thẳng từ response (không cần tra ngược qua assignments — khác
+          // Exercise, Exam được lưu thẳng FK trên StudentComment, xem Javadoc StudentCommentResponse.homeworkNextExamId).
+          const examId = draft.pendingHomeworkNextExamId ?? draft.homeworkNextExamId ?? "";
+          const readingExamId = draft.pendingHomeworkNextReadingExamId ?? draft.homeworkNextReadingExamId ?? "";
+          const writingExamId = draft.pendingHomeworkNextWritingExamId ?? draft.homeworkNextWritingExamId ?? "";
           return {
             ...r,
             attitude: draft.attitude ?? "",
@@ -560,6 +653,9 @@ export default function DailyCommentPanel() {
             homeworkNextReviewVideoSetId: videoSetId,
             homeworkNextReadingExerciseId: readingExerciseId,
             homeworkNextWritingExerciseId: writingExerciseId,
+            homeworkNextExamId: examId,
+            homeworkNextReadingExamId: readingExamId,
+            homeworkNextWritingExamId: writingExamId,
             note: draft.note ?? ""
           };
         })
@@ -630,11 +726,14 @@ export default function DailyCommentPanel() {
                     homeworkNextReading: quickReading,
                     homeworkNextWriting: quickWriting,
                     homeworkNextReadingExerciseId: quickReadingExerciseId,
-                    homeworkNextWritingExerciseId: quickWritingExerciseId
+                    homeworkNextWritingExerciseId: quickWritingExerciseId,
+                    homeworkNextReadingExamId: quickReadingExamId,
+                    homeworkNextWritingExamId: quickWritingExamId
                   }
                 : { homeworkNext: quickOffline }),
               homeworkNextExerciseId: quickExerciseId,
-              homeworkNextReviewVideoSetId: quickVideoId
+              homeworkNextReviewVideoSetId: quickVideoId,
+              homeworkNextExamId: quickExamId
             }
       )
     );
@@ -662,6 +761,10 @@ export default function DailyCommentPanel() {
     // V137 — kênh "BTVN online" Reading/Writing mới, chỉ gửi khi buổi teacherType=VIETNAMESE.
     homeworkNextReadingExerciseId: r.homeworkNextReadingExerciseId !== "" ? r.homeworkNextReadingExerciseId : undefined,
     homeworkNextWritingExerciseId: r.homeworkNextWritingExerciseId !== "" ? r.homeworkNextWritingExerciseId : undefined,
+    // V144 — "giao cả Đề", loại trừ lẫn nhau với *ExerciseId cùng kênh ở trên (xem channelSelectValue).
+    homeworkNextExamId: r.homeworkNextExamId !== "" ? r.homeworkNextExamId : undefined,
+    homeworkNextReadingExamId: r.homeworkNextReadingExamId !== "" ? r.homeworkNextReadingExamId : undefined,
+    homeworkNextWritingExamId: r.homeworkNextWritingExamId !== "" ? r.homeworkNextWritingExamId : undefined,
     // Hạn nộp buổi sau (ngày + giờ) — 1 giá trị chung cho cả buổi (xem dueDateTime), để trống thì BE tự tính = buổi kế tiếp.
     homeworkNextDueDate: dueDateTime || undefined,
     note: r.note.trim() || undefined
@@ -1165,33 +1268,33 @@ export default function DailyCommentPanel() {
                   <div className="min-w-[200px]">
                     <label className="text-[9px] font-bold uppercase text-slate-400 block mb-0.5">{t("dailyCommentPanel.quickAssign.onlineReadingLabel")}</label>
                     <Select
-                      value={quickReadingExerciseId}
+                      value={channelSelectValue(quickReadingExamId, quickReadingExerciseId)}
                       disabled={blockOnlineHomework}
-                      onChange={(e) => setQuickReadingExerciseId(e.target.value ? Number(e.target.value) : "")}
+                      onChange={(e) => {
+                        const parsed = parseChannelSelectValue(e.target.value);
+                        setQuickReadingExamId(parsed.examId);
+                        setQuickReadingExerciseId(parsed.exerciseId);
+                      }}
                       className="w-full bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none disabled:opacity-40"
                     >
                       <option value="">{t("dailyCommentPanel.quickAssign.noAssign")}</option>
-                      {readingOptions.map((ex) => (
-                        <option key={ex.id} value={ex.id}>
-                          {ex.examCode} - {ex.title}
-                        </option>
-                      ))}
+                      {renderChannelOptions(t, readingExamOptions, readingOptions)}
                     </Select>
                   </div>
                   <div className="min-w-[200px]">
                     <label className="text-[9px] font-bold uppercase text-slate-400 block mb-0.5">{t("dailyCommentPanel.quickAssign.onlineWritingLabel")}</label>
                     <Select
-                      value={quickWritingExerciseId}
+                      value={channelSelectValue(quickWritingExamId, quickWritingExerciseId)}
                       disabled={blockOnlineHomework}
-                      onChange={(e) => setQuickWritingExerciseId(e.target.value ? Number(e.target.value) : "")}
+                      onChange={(e) => {
+                        const parsed = parseChannelSelectValue(e.target.value);
+                        setQuickWritingExamId(parsed.examId);
+                        setQuickWritingExerciseId(parsed.exerciseId);
+                      }}
                       className="w-full bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none disabled:opacity-40"
                     >
                       <option value="">{t("dailyCommentPanel.quickAssign.noAssign")}</option>
-                      {writingOptions.map((ex) => (
-                        <option key={ex.id} value={ex.id}>
-                          {ex.examCode} - {ex.title}
-                        </option>
-                      ))}
+                      {renderChannelOptions(t, writingExamOptions, writingOptions)}
                     </Select>
                   </div>
                 </>
@@ -1211,17 +1314,17 @@ export default function DailyCommentPanel() {
                   {t("dailyCommentPanel.quickAssign.onlineGrammarLabel", { grammarLabel: onlineGrammarLabel })}
                 </label>
                 <Select
-                  value={quickExerciseId}
+                  value={channelSelectValue(quickExamId, quickExerciseId)}
                   disabled={blockOnlineHomework}
-                  onChange={(e) => setQuickExerciseId(e.target.value ? Number(e.target.value) : "")}
+                  onChange={(e) => {
+                    const parsed = parseChannelSelectValue(e.target.value);
+                    setQuickExamId(parsed.examId);
+                    setQuickExerciseId(parsed.exerciseId);
+                  }}
                   className="w-full bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none disabled:opacity-40"
                 >
                   <option value="">{t("dailyCommentPanel.quickAssign.noAssign")}</option>
-                  {filteredGrammarOptions.map((ex) => (
-                    <option key={ex.id} value={ex.id}>
-                      {ex.examCode} - {ex.title}
-                    </option>
-                  ))}
+                  {renderChannelOptions(t, filteredExamOptions, filteredGrammarOptions)}
                 </Select>
               </div>
               <div className="min-w-[200px]">
@@ -1273,8 +1376,11 @@ export default function DailyCommentPanel() {
                       quickExerciseId === "" &&
                       quickVideoId === "" &&
                       quickReadingExerciseId === "" &&
-                      quickWritingExerciseId === ""
-                    : !quickOffline && quickExerciseId === "" && quickVideoId === ""
+                      quickWritingExerciseId === "" &&
+                      quickExamId === "" &&
+                      quickReadingExamId === "" &&
+                      quickWritingExamId === ""
+                    : !quickOffline && quickExerciseId === "" && quickVideoId === "" && quickExamId === ""
                 }
                 className="px-3 py-2 bg-brand-orange hover:bg-brand-orange/90 text-white text-[11px] font-bold rounded-lg disabled:opacity-40"
               >
@@ -1622,41 +1728,39 @@ export default function DailyCommentPanel() {
                             teacherType, giống BE StudentCommentService#buildTemplate). */}
                         <Td className="min-w-[200px] border-r border-b border-slate-300">
                           {locked ? (
-                            <div className={readOnlyFieldClass}>{sent!.homeworkNextReadingExerciseTitle || "—"}</div>
+                            <div className={readOnlyFieldClass}>{sent!.homeworkNextReadingExamTitle || sent!.homeworkNextReadingExerciseTitle || "—"}</div>
                           ) : (
                             <Select
-                              value={r.homeworkNextReadingExerciseId}
+                              value={channelSelectValue(r.homeworkNextReadingExamId, r.homeworkNextReadingExerciseId)}
                               disabled={blockOnlineHomework || !teacherType}
-                              onChange={(e) => updateRow({ homeworkNextReadingExerciseId: e.target.value ? Number(e.target.value) : "" })}
+                              onChange={(e) => {
+                                const parsed = parseChannelSelectValue(e.target.value);
+                                updateRow({ homeworkNextReadingExamId: parsed.examId, homeworkNextReadingExerciseId: parsed.exerciseId });
+                              }}
                               aria-label={!teacherType ? t("dailyCommentPanel.ariaChooseTeacherTypeFirst") : blockOnlineHomework ? t("dailyCommentPanel.ariaNoUpcomingSession") : undefined}
                               className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
                             >
                               <option value="">{t("dailyCommentPanel.chooseExercisePlaceholder")}</option>
-                              {readingOptions.map((ex) => (
-                                <option key={ex.id} value={ex.id}>
-                                  {ex.examCode} - {ex.title}
-                                </option>
-                              ))}
+                              {renderChannelOptions(t, readingExamOptions, readingOptions)}
                             </Select>
                           )}
                         </Td>
                         <Td className="min-w-[200px] border-r border-b border-slate-300">
                           {locked ? (
-                            <div className={readOnlyFieldClass}>{sent!.homeworkNextWritingExerciseTitle || "—"}</div>
+                            <div className={readOnlyFieldClass}>{sent!.homeworkNextWritingExamTitle || sent!.homeworkNextWritingExerciseTitle || "—"}</div>
                           ) : (
                             <Select
-                              value={r.homeworkNextWritingExerciseId}
+                              value={channelSelectValue(r.homeworkNextWritingExamId, r.homeworkNextWritingExerciseId)}
                               disabled={blockOnlineHomework || !teacherType}
-                              onChange={(e) => updateRow({ homeworkNextWritingExerciseId: e.target.value ? Number(e.target.value) : "" })}
+                              onChange={(e) => {
+                                const parsed = parseChannelSelectValue(e.target.value);
+                                updateRow({ homeworkNextWritingExamId: parsed.examId, homeworkNextWritingExerciseId: parsed.exerciseId });
+                              }}
                               aria-label={!teacherType ? t("dailyCommentPanel.ariaChooseTeacherTypeFirst") : blockOnlineHomework ? t("dailyCommentPanel.ariaNoUpcomingSession") : undefined}
                               className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
                             >
                               <option value="">{t("dailyCommentPanel.chooseExercisePlaceholder")}</option>
-                              {writingOptions.map((ex) => (
-                                <option key={ex.id} value={ex.id}>
-                                  {ex.examCode} - {ex.title}
-                                </option>
-                              ))}
+                              {renderChannelOptions(t, writingExamOptions, writingOptions)}
                             </Select>
                           )}
                         </Td>
@@ -1677,21 +1781,20 @@ export default function DailyCommentPanel() {
                     )}
                     <Td className="min-w-[200px] border-r border-b border-slate-300">
                       {locked ? (
-                        <div className={readOnlyFieldClass}>{sent!.homeworkNextExerciseTitle || "—"}</div>
+                        <div className={readOnlyFieldClass}>{sent!.homeworkNextExamTitle || sent!.homeworkNextExerciseTitle || "—"}</div>
                       ) : (
                         <Select
-                          value={r.homeworkNextExerciseId}
+                          value={channelSelectValue(r.homeworkNextExamId, r.homeworkNextExerciseId)}
                           disabled={blockOnlineHomework || !teacherType}
-                          onChange={(e) => updateRow({ homeworkNextExerciseId: e.target.value ? Number(e.target.value) : "" })}
+                          onChange={(e) => {
+                            const parsed = parseChannelSelectValue(e.target.value);
+                            updateRow({ homeworkNextExamId: parsed.examId, homeworkNextExerciseId: parsed.exerciseId });
+                          }}
                           aria-label={!teacherType ? t("dailyCommentPanel.ariaChooseTeacherTypeFirst") : blockOnlineHomework ? t("dailyCommentPanel.ariaNoUpcomingSession") : undefined}
                           className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           <option value="">{t("dailyCommentPanel.chooseExercisePlaceholder")}</option>
-                          {filteredGrammarOptions.map((ex) => (
-                            <option key={ex.id} value={ex.id}>
-                              {ex.examCode} - {ex.title}
-                            </option>
-                          ))}
+                          {renderChannelOptions(t, filteredExamOptions, filteredGrammarOptions)}
                         </Select>
                       )}
                     </Td>

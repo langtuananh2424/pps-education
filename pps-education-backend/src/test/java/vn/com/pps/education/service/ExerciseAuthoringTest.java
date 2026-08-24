@@ -143,7 +143,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
                 teacher.getId());
 
         defaultExam = examService.createExam(
-                new CreateExamRequest(examCode(), "Đề mặc định", activeCurriculum.id(), "VIETNAMESE", "HOMEWORK"), teacher.getId());
+                new CreateExamRequest(examCode(), "Đề mặc định", activeCurriculum.id(), "VIETNAMESE", "HOMEWORK", "VOCAB_GRAMMAR", null, null, null), teacher.getId());
     }
 
     @Test
@@ -224,7 +224,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
 
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Đề ôn tập Ngữ pháp 1", defaultExam.id(), null,
-                        "SELF_PRACTICE", new BigDecimal("10"), 30, true, null, true),
+                        "SELF_PRACTICE", new BigDecimal("10"), 30, true),
                 teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("1.0")), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(essay.id(), 2, new BigDecimal("2.0")), teacher.getId());
@@ -239,17 +239,17 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
     void updateExercise_MainFlow_savesNewTitleAndPoints() {
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Đề cũ", defaultExam.id(), null,
-                        "SELF_PRACTICE", new BigDecimal("10"), 30, false, null, true),
+                        "SELF_PRACTICE", new BigDecimal("10"), 30, true),
                 teacher.getId());
 
+        // V144 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-24) — allowRetake/maxAttempts
+        // đã chuyển từ Exercise lên Exam, xem ExamServiceTest#updateExam_boSung_savesSkillCategoryAndRetakeSettings.
         ExerciseResponse updated = exerciseService.updateExercise(exercise.id(),
-                new UpdateExerciseRequest("Đề mới", null, new BigDecimal("20"), true, 3, false),
+                new UpdateExerciseRequest("Đề mới", null, new BigDecimal("20"), false),
                 teacher.getId());
 
         assertThat(updated.title()).isEqualTo("Đề mới");
         assertThat(updated.totalPoints()).isEqualByComparingTo("20");
-        assertThat(updated.allowRetake()).isTrue();
-        assertThat(updated.maxAttempts()).isEqualTo(3);
         assertThat(updated.showCorrectAnswers()).isFalse();
     }
 
@@ -261,7 +261,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
     void deleteExercise_MainFlow_archivesAndHidesFromExamListing() {
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Unit 1", defaultExam.id(), null,
-                        "SELF_PRACTICE", new BigDecimal("10"), null, false, null, true),
+                        "SELF_PRACTICE", new BigDecimal("10"), null, true),
                 teacher.getId());
 
         exerciseService.deleteExercise(exercise.id(), teacher.getId());
@@ -288,7 +288,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
                 teacher.getId());
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Đề Word Bank", defaultExam.id(), null, "SELF_PRACTICE",
-                        new BigDecimal("1"), null, true, null, true),
+                        new BigDecimal("1"), null, true),
                 teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(wordBank.id(), 1, new BigDecimal("1.0")), teacher.getId());
 
@@ -310,7 +310,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
         QuestionResponse mc = createMcQuestion();
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Đề X", defaultExam.id(), null, "SELF_PRACTICE",
-                        new BigDecimal("1"), null, true, null, true),
+                        new BigDecimal("1"), null, true),
                 teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("1.0")), teacher.getId());
 
@@ -329,7 +329,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
         QuestionResponse mc2 = createMcQuestion();
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Đề giới hạn điểm", defaultExam.id(), null, "SELF_PRACTICE",
-                        new BigDecimal("5"), null, true, null, true),
+                        new BigDecimal("5"), null, true),
                 teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc1.id(), 1, new BigDecimal("4")), teacher.getId());
 
@@ -347,7 +347,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
         QuestionResponse mc2 = createMcQuestion();
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Đề vừa khít điểm", defaultExam.id(), null, "SELF_PRACTICE",
-                        new BigDecimal("5"), null, true, null, true),
+                        new BigDecimal("5"), null, true),
                 teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc1.id(), 1, new BigDecimal("3")), teacher.getId());
 
@@ -362,7 +362,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
         QuestionResponse mc = createMcQuestion();
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Đề sửa điểm", defaultExam.id(), null, "SELF_PRACTICE",
-                        new BigDecimal("10"), null, true, null, true),
+                        new BigDecimal("10"), null, true),
                 teacher.getId());
         var eq = exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("5")), teacher.getId());
 
@@ -380,7 +380,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
         QuestionResponse mc2 = createMcQuestion();
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Đề sửa điểm vượt", defaultExam.id(), null, "SELF_PRACTICE",
-                        new BigDecimal("5"), null, true, null, true),
+                        new BigDecimal("5"), null, true),
                 teacher.getId());
         var eq1 = exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc1.id(), 1, new BigDecimal("3")), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc2.id(), 2, new BigDecimal("2")), teacher.getId());
@@ -401,7 +401,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
         QuestionResponse mc = createMcQuestion();
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Kiểm tra", defaultExam.id(), null, "ASSIGNED",
-                        new BigDecimal("10"), 15, false, 1, true),
+                        new BigDecimal("10"), 15, true),
                 teacher.getId());
         var eq = exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("10")), teacher.getId());
         examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
@@ -420,7 +420,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
         QuestionResponse mc2 = createMcQuestion();
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Đề gỡ câu hỏi", defaultExam.id(), null, "SELF_PRACTICE",
-                        new BigDecimal("2"), null, true, null, true),
+                        new BigDecimal("2"), null, true),
                 teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc1.id(), 1, new BigDecimal("1.0")), teacher.getId());
         var eq2 = exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc2.id(), 2, new BigDecimal("1.0")), teacher.getId());
@@ -437,7 +437,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
         QuestionResponse mc = createMcQuestion();
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Kiểm tra", defaultExam.id(), null, "ASSIGNED",
-                        new BigDecimal("10"), 15, false, 1, true),
+                        new BigDecimal("10"), 15, true),
                 teacher.getId());
         var eq = exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("10")), teacher.getId());
         examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
@@ -455,7 +455,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
         QuestionResponse mc = createMcQuestion();
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Kiểm tra 15 phút", defaultExam.id(), null, "ASSIGNED",
-                        new BigDecimal("10"), 15, false, 1, true),
+                        new BigDecimal("10"), 15, true),
                 teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("10")), teacher.getId());
         examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
@@ -487,7 +487,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
         QuestionResponse mc = createMcQuestion();
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Kiểm tra 15 phút", defaultExam.id(), null, "ASSIGNED",
-                        new BigDecimal("10"), 15, false, 1, true),
+                        new BigDecimal("10"), 15, true),
                 teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("10")), teacher.getId());
         examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
@@ -516,7 +516,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
         QuestionResponse mc = createMcQuestion();
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Bài tự luyện", defaultExam.id(), null, "SELF_PRACTICE",
-                        new BigDecimal("10"), null, true, null, true),
+                        new BigDecimal("10"), null, true),
                 teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("10")), teacher.getId());
         // Chưa gọi examService.assignToClass -> Đề chưa được gán cho lớp.
@@ -532,7 +532,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
         QuestionResponse mc = createMcQuestion();
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Kiểm tra", defaultExam.id(), null, "ASSIGNED",
-                        new BigDecimal("10"), null, false, 1, true),
+                        new BigDecimal("10"), null, true),
                 teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("10")), teacher.getId());
 
@@ -545,7 +545,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
         QuestionResponse mc = createMcQuestion();
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Kiểm tra", defaultExam.id(), null, "ASSIGNED",
-                        new BigDecimal("10"), null, false, 1, true), teacher.getId());
+                        new BigDecimal("10"), null, true), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("10")), teacher.getId());
         examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
         commitCurrentTransactionAndStartNew();
@@ -571,7 +571,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
         QuestionResponse mc = createMcQuestion();
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Kiểm tra", defaultExam.id(), null, "ASSIGNED",
-                        new BigDecimal("10"), null, false, 1, true), teacher.getId());
+                        new BigDecimal("10"), null, true), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("10")), teacher.getId());
         // chưa gọi deliverToClass cho lớp của student -> chưa được giao
 
@@ -587,7 +587,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
         QuestionResponse mc = createMcQuestion();
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Kiểm tra", defaultExam.id(), null, "ASSIGNED",
-                        new BigDecimal("10"), null, false, 1, true), teacher.getId());
+                        new BigDecimal("10"), null, true), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("10")), teacher.getId());
         examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
         commitCurrentTransactionAndStartNew();
@@ -612,7 +612,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
         QuestionResponse mc = createMcQuestion();
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Ôn tập tự do", defaultExam.id(), null, "SELF_PRACTICE",
-                        new BigDecimal("1"), null, true, null, true), teacher.getId());
+                        new BigDecimal("1"), null, true), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("1.0")), teacher.getId());
         exerciseService.publishExercise(exercise.id(), teacher.getId());
         // Publish rồi nhưng chưa gán Đề cho lớp + chưa deliverToClass -> vẫn chặn.
@@ -627,7 +627,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
         QuestionResponse mc = createMcQuestion();
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Ôn tập tự do", defaultExam.id(), null, "SELF_PRACTICE",
-                        new BigDecimal("1"), null, true, null, true), teacher.getId());
+                        new BigDecimal("1"), null, true), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("1.0")), teacher.getId());
         examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
         commitCurrentTransactionAndStartNew();
@@ -650,7 +650,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
         QuestionResponse mc = createMcQuestion();
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Ôn tập trắc nghiệm", defaultExam.id(), null,
-                        "SELF_PRACTICE", new BigDecimal("1"), null, true, null, true), teacher.getId());
+                        "SELF_PRACTICE", new BigDecimal("1"), null, true), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("1.0")), teacher.getId());
         examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
         commitCurrentTransactionAndStartNew();
@@ -675,7 +675,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
                         null, null, null, null, null, new BigDecimal("2.0"), null, null, null, null), teacher.getId());
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Đề tự luận", defaultExam.id(), null, "SELF_PRACTICE",
-                        new BigDecimal("2"), null, true, null, true), teacher.getId());
+                        new BigDecimal("2"), null, true), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(essay.id(), 1, new BigDecimal("2.0")), teacher.getId());
         examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
         commitCurrentTransactionAndStartNew();
@@ -715,7 +715,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
         vn.com.pps.education.domain.Exercise exercise = exerciseRepository.findById(
                 exerciseService.createExercise(
                         new CreateExerciseRequest(exerciseCode(), "Đề dùng để test khóa câu hỏi", defaultExam.id(), null,
-                                "SELF_PRACTICE", new BigDecimal("1"), null, true, null, true),
+                                "SELF_PRACTICE", new BigDecimal("1"), null, true),
                         teacher.getId()).id())
                 .orElseThrow();
 

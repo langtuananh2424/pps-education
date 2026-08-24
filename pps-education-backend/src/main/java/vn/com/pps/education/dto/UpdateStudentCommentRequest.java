@@ -32,6 +32,10 @@ public record UpdateStudentCommentRequest(
         /** V137 — mirror CreateStudentCommentRequest. */
         Long homeworkNextReadingExerciseId,
         Long homeworkNextWritingExerciseId,
+        /** V144 — mirror CreateStudentCommentRequest ("giao cả Đề"). */
+        Long homeworkNextExamId,
+        Long homeworkNextReadingExamId,
+        Long homeworkNextWritingExamId,
         /** Nhận xét học viên (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05) — xem Javadoc CreateStudentCommentRequest. */
         LocalDateTime homeworkNextDueDate,
         String note

@@ -57,6 +57,19 @@ public record StudentCommentResponse(
         String homeworkNextReadingExerciseTitle,
         Long homeworkNextWritingExerciseAssignmentId,
         String homeworkNextWritingExerciseTitle,
+        /**
+         * V144 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-24) — "giao cả Đề": id/tên
+         * Exam đã chọn cho kênh Ngữ pháp (giao TẤT CẢ Bài Published trong Đề) — song song với
+         * homeworkNextExerciseAssignmentId (giao lẻ 1 Bài), CHỈ 1 trong 2 khác null tại 1 thời điểm.
+         * Cùng vòng đời V127: chỉ có giá trị SAU submit.
+         */
+        Long homeworkNextExamId,
+        String homeworkNextExamTitle,
+        /** V144: mirror homeworkNextExamId cho kênh Reading. */
+        Long homeworkNextReadingExamId,
+        String homeworkNextReadingExamTitle,
+        Long homeworkNextWritingExamId,
+        String homeworkNextWritingExamTitle,
         /** Hạn nộp BTVN buổi sau (lấy từ dueAt của ExerciseAssignment/ReviewVideoAssignment đã giao) — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05. */
         OffsetDateTime homeworkNextDueAt,
         /** V127: id/tên Exercise Giáo viên vừa chọn nhưng CHƯA Gửi nhận xét — null nếu chưa chọn gì hoặc đã Gửi (xem ghi chú V127 ở trên). */
@@ -70,6 +83,13 @@ public record StudentCommentResponse(
         String pendingHomeworkNextReadingExerciseTitle,
         Long pendingHomeworkNextWritingExerciseId,
         String pendingHomeworkNextWritingExerciseTitle,
+        /** V144: id/tên Exam Giáo viên vừa chọn "giao cả Đề" nhưng CHƯA Gửi nhận xét — mirror pendingHomeworkNextExerciseId. */
+        Long pendingHomeworkNextExamId,
+        String pendingHomeworkNextExamTitle,
+        Long pendingHomeworkNextReadingExamId,
+        String pendingHomeworkNextReadingExamTitle,
+        Long pendingHomeworkNextWritingExamId,
+        String pendingHomeworkNextWritingExamTitle,
         /**
          * V127: hạn nộp tự chọn đi kèm lựa chọn CHƯA giao ở trên — giờ tường thuật thô (LocalDateTime,
          * KHÔNG kèm offset, y hệt kiểu request.homeworkNextDueDate()) — cố tình KHÔNG trả OffsetDateTime

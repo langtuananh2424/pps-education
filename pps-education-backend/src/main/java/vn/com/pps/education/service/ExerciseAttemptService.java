@@ -4,6 +4,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.ClassEnrollment;
 import vn.com.pps.education.domain.Curriculum;
+import vn.com.pps.education.domain.Exam;
 import vn.com.pps.education.domain.Exercise;
 import vn.com.pps.education.domain.ExerciseAssignment;
 import vn.com.pps.education.domain.ExerciseAttempt;
@@ -39,6 +40,7 @@ import vn.com.pps.education.repository.UserRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -154,12 +156,13 @@ public class ExerciseAttemptService {
         // hết lượt (maxAttempts) ở bản giao cũ sẽ bị chặn làm luôn cả bản giao MỚI vừa được giao lại.
         long previousAttempts = exerciseAttemptRepository.countByExerciseAssignmentIdAndStudentId(assignment.getId(), student.getId());
         int attemptNumber = (int) previousAttempts + 1;
+        Exam exam = exercise.getExam();
         if (previousAttempts > 0) {
-            if (!exercise.isAllowRetake()) {
+            if (!exam.isAllowRetake()) {
                 throw new RetakeNotAllowedException("error.retakeNotAllowed.notAllowed", new Object[]{}, "Đề này không cho phép làm lại.");
             }
-            if (exercise.getMaxAttempts() != null && attemptNumber > exercise.getMaxAttempts()) {
-                throw new RetakeNotAllowedException("error.retakeNotAllowed.maxAttemptsReached", new Object[]{exercise.getMaxAttempts()}, "Đề này đã hết lượt làm (tối đa " + exercise.getMaxAttempts() + ").");
+            if (exam.getMaxAttempts() != null && attemptNumber > exam.getMaxAttempts()) {
+                throw new RetakeNotAllowedException("error.retakeNotAllowed.maxAttemptsReached", new Object[]{exam.getMaxAttempts()}, "Đề này đã hết lượt làm (tối đa " + exam.getMaxAttempts() + ").");
             }
             // V148 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23) — hết hạn nộp + bản
             // giao không cho nộp muộn (isLateSubmissionAllowed=false) thì KHÔNG cho mở lượt LÀM LẠI mới
@@ -327,7 +330,7 @@ public class ExerciseAttemptService {
         // kê câu CHƯA có điểm) — đúng tinh thần "ẩn nhưng vẫn giữ được" đã xác nhận với người dùng.
         BigDecimal aiGradeScore = BigDecimal.ZERO;
         Set<Long> aiGradedAnswerIds = new HashSet<>();
-        if (attempt.getExercise().getSkillCategory() == Exercise.SkillCategory.WRITING) {
+        if (attempt.getExercise().getExam().getSkillCategory() == Exam.SkillCategory.WRITING) {
             for (StudentAnswer answer : answers) {
                 if (answer.isAutoGradable() || answer.getQuestion().getQuestionType() != Question.QuestionType.ESSAY) {
                     continue;
@@ -391,45 +394,129 @@ public class ExerciseAttemptService {
     }
 
     /**
-     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05 (điều
-     * chỉnh lại 2026-08-19): BTVN dưới ngưỡng đạt
-     * ({@code exercises.pass_threshold_percent}, mặc định 70% từ V100, cấu
-     * hình theo từng Bài) phải làm lại — áp dụng cho MỌI exerciseType học
-     * sinh làm (không riêng ASSIGNED). Tính % + đánh dấu passed ngay khi lượt
-     * làm bài về FULLY_GRADED (đã chấm xong toàn bộ, kể cả phần chấm tay —
-     * gọi lại từ ManualGradingService#recomputeAttemptTotals). Nếu ĐẠT
-     * NHƯNG vẫn còn lượt làm lại (allowRetake=true và chưa hết maxAttempts):
-     * giữ bản giao ACTIVE — học sinh có thể tự nguyện làm lại để thử điểm
-     * cao hơn (KHÔNG bắt buộc, chỉ là còn quyền truy cập). Nếu ĐẠT và đã hết
-     * lượt (allowRetake=false hoặc đã dùng hết maxAttempts): đóng bản giao
-     * ({@link ExerciseAssignment.Status#COMPLETED}). Nếu CHƯA ĐẠT: luôn giữ
-     * bản giao ACTIVE để học sinh vẫn thấy "cần làm lại" trong
-     * listMyAssignedExercises — chỉ giới hạn bởi allowRetake/maxAttempts
-     * giáo viên đã cấu hình sẵn (không tự nới thêm lượt để "ép" làm lại bằng
-     * mọi giá, xem RetakeNotAllowedException).
-     * Trước 2026-08-19, ĐẠT luôn đóng bản giao ngay cả khi còn lượt, khiến
-     * học sinh đạt 80% (trên ngưỡng) không thể tự làm lại để thử đạt 100%.
+     * V144 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-24) — tính đạt/không đạt CẤP ĐỀ,
+     * thay hẳn cách tính CŨ theo điểm + theo từng Bài riêng lẻ (bổ sung 2026-08-05, điều chỉnh
+     * 2026-08-19, ngưỡng {@code exercises.pass_threshold_percent} nay đã gỡ). Lý do: giao bài giờ giao
+     * CẢ Đề (mọi Bài Published cùng lúc, xem ExerciseService#deliverAllToClass), nên "đạt" phải cộng dồn
+     * TẤT CẢ Bài trong cùng 1 đợt giao — VD Bài 1 (7 câu) + Bài 2 (10 câu) + Bài 3 (8 câu) = 25 câu, làm
+     * đúng 20/25 (80%) ≥ ngưỡng ({@code exams.pass_threshold_percent}, mặc định 70%) mới "đạt".
+     *
+     * Tính theo SỐ CÂU đúng/tổng số câu (không phải điểm — điểm/tổng điểm vẫn hiển thị riêng như cũ qua
+     * {@code totalScore}/{@code exercise.totalPoints}, KHÔNG đổi). Câu tự luận/Nói (ESSAY/SPEAKING, AI
+     * hoặc GV chấm) tính "đúng" nếu % điểm chấm được của CHÍNH câu đó ≥ CÙNG ngưỡng đạt của Đề (không
+     * thêm ngưỡng riêng cho câu tự luận — xem {@link #countQuestions}).
+     *
+     * Nhóm "cùng 1 đợt giao" xác định qua (Đề, lớp, buổi Nhận xét nguồn) — xem
+     * {@link ExerciseAssignmentRepository#findDeliveryGroup}, không cần cột nhóm riêng. CHỈ tính đạt/
+     * không đạt khi TẤT CẢ Bài trong nhóm đã có lượt làm FULLY_GRADED (ưu tiên lượt được GV chọn
+     * {@code selectedForGrading}, không thì lượt gần nhất) — còn Bài nào chưa nộp/chấm xong thì bỏ qua,
+     * học sinh tạm thời chưa thấy kết quả đạt/không đạt cho tới khi xong hết Đề.
+     *
+     * Retake (V144: chuyển allowRetake/maxAttempts từ Exercise lên Exam, đã xác nhận với người dùng —
+     * "1 lượt = 1 vòng làm hết Đề"): ĐẠT nhưng còn lượt làm lại (exam.allowRetake=true, chưa hết
+     * exam.maxAttempts) → giữ TOÀN BỘ bản giao trong nhóm ACTIVE (học sinh có thể làm lại bất kỳ Bài nào
+     * để thử điểm cao hơn). ĐẠT và hết lượt → đóng ĐỒNG THỜI mọi bản giao ACTIVE trong nhóm
+     * (COMPLETED). CHƯA ĐẠT → luôn giữ nhóm ACTIVE để học sinh thấy "cần làm lại" (mirror hành vi cũ,
+     * không tự nới thêm lượt — xem RetakeNotAllowedException).
      */
     ExerciseAttempt applyPassOutcome(ExerciseAttempt attempt) {
         if (attempt.getStatus() != ExerciseAttempt.Status.FULLY_GRADED || attempt.getTotalScore() == null) {
             return attempt;
         }
-        Exercise exercise = attempt.getExercise();
-        BigDecimal percentage = percentageOf(attempt.getTotalScore(), exercise.getTotalPoints());
-        boolean passed = percentage != null && percentage.compareTo(exercise.getPassThresholdPercent()) >= 0;
-        attempt.setPassed(passed);
-        attempt = exerciseAttemptRepository.save(attempt);
-
         ExerciseAssignment assignment = attempt.getExerciseAssignment();
-        if (passed && assignment != null && assignment.getStatus() == ExerciseAssignment.Status.ACTIVE) {
-            boolean hasRetakeLeft = exercise.isAllowRetake()
-                    && (exercise.getMaxAttempts() == null || attempt.getAttemptNumber() < exercise.getMaxAttempts());
+        if (assignment == null) {
+            return attempt;
+        }
+        Exam exam = attempt.getExercise().getExam();
+        Long sessionId = assignment.getSourceClassSession() == null ? null : assignment.getSourceClassSession().getId();
+        List<ExerciseAssignment> group = exerciseAssignmentRepository.findDeliveryGroup(
+                exam.getId(), assignment.getSchoolClass().getId(), sessionId, ExerciseAssignment.Status.ACTIVE);
+        if (group.isEmpty()) {
+            group = List.of(assignment);
+        }
+
+        Long studentId = attempt.getStudent().getId();
+        List<ExerciseAttempt> representatives = new ArrayList<>();
+        int totalQuestions = 0;
+        int correctQuestions = 0;
+        for (ExerciseAssignment sibling : group) {
+            List<ExerciseAttempt> siblingAttempts = exerciseAttemptRepository
+                    .findByExerciseAssignmentIdAndStudentIdOrderByAttemptNumberDesc(sibling.getId(), studentId);
+            ExerciseAttempt representative = siblingAttempts.stream()
+                    .filter(ExerciseAttempt::isSelectedForGrading).findFirst()
+                    .orElse(siblingAttempts.isEmpty() ? null : siblingAttempts.get(0));
+            if (representative == null || representative.getStatus() != ExerciseAttempt.Status.FULLY_GRADED) {
+                return attempt; // còn Bài khác trong Đề chưa nộp/chấm xong — CHƯA tính đạt/không đạt
+            }
+            representatives.add(representative);
+            int[] counted = countQuestions(representative, exam);
+            totalQuestions += counted[0];
+            correctQuestions += counted[1];
+        }
+        if (totalQuestions == 0) {
+            return attempt;
+        }
+
+        BigDecimal percentage = BigDecimal.valueOf(correctQuestions)
+                .divide(BigDecimal.valueOf(totalQuestions), 4, RoundingMode.HALF_UP)
+                .multiply(BigDecimal.valueOf(100)).setScale(2, RoundingMode.HALF_UP);
+        boolean passed = percentage.compareTo(exam.getPassThresholdPercent()) >= 0;
+
+        for (ExerciseAttempt representative : representatives) {
+            representative.setPassed(passed);
+            exerciseAttemptRepository.save(representative);
+        }
+
+        if (passed) {
+            boolean hasRetakeLeft = exam.isAllowRetake()
+                    && (exam.getMaxAttempts() == null || attempt.getAttemptNumber() < exam.getMaxAttempts());
             if (!hasRetakeLeft) {
-                assignment.setStatus(ExerciseAssignment.Status.COMPLETED);
-                exerciseAssignmentRepository.save(assignment);
+                for (ExerciseAssignment sibling : group) {
+                    if (sibling.getStatus() == ExerciseAssignment.Status.ACTIVE) {
+                        sibling.setStatus(ExerciseAssignment.Status.COMPLETED);
+                        exerciseAssignmentRepository.save(sibling);
+                    }
+                }
             }
         }
-        return attempt;
+        return exerciseAttemptRepository.findById(attempt.getId()).orElse(attempt);
+    }
+
+    /**
+     * V144: đếm tổng số câu hỏi + số câu "đúng" của 1 Bài (qua lượt làm đại diện) — xem Javadoc
+     * {@link #applyPassOutcome}. Câu tự chấm được (auto-gradable) dùng cờ {@code StudentAnswer.correct}
+     * có sẵn; câu chấm điểm (ESSAY/SPEAKING) tính "đúng" nếu % điểm chấm ({@code StudentAnswerGrading},
+     * bản mới nhất) ≥ ngưỡng đạt của Đề. Câu chưa có câu trả lời (bỏ trống) tính là sai.
+     */
+    private int[] countQuestions(ExerciseAttempt representative, Exam exam) {
+        List<ExerciseQuestion> questions = exerciseQuestionRepository
+                .findByExerciseIdOrderByDisplayOrder(representative.getExercise().getId());
+        List<StudentAnswer> answers = studentAnswerRepository.findByExerciseAttemptId(representative.getId());
+        Map<Long, StudentAnswer> answerByQuestionId = answers.stream()
+                .collect(Collectors.toMap(a -> a.getQuestion().getId(), a -> a, (a, b) -> a));
+
+        int correct = 0;
+        for (ExerciseQuestion eq : questions) {
+            StudentAnswer answer = answerByQuestionId.get(eq.getQuestion().getId());
+            if (answer == null) {
+                continue;
+            }
+            if (answer.isAutoGradable()) {
+                if (Boolean.TRUE.equals(answer.getCorrect())) {
+                    correct++;
+                }
+            } else {
+                StudentAnswerGrading grading = studentAnswerGradingRepository
+                        .findByStudentAnswerIdAndLatestIsTrue(answer.getId()).orElse(null);
+                if (grading != null && grading.getScore() != null) {
+                    BigDecimal questionPercent = percentageOf(grading.getScore(), grading.getMaxScore());
+                    if (questionPercent != null && questionPercent.compareTo(exam.getPassThresholdPercent()) >= 0) {
+                        correct++;
+                    }
+                }
+            }
+        }
+        return new int[]{questions.size(), correct};
     }
 
     /** package-private static: tái dùng ở ExerciseReportService (FR-ACA-07) để không lệch công thức làm tròn. */
@@ -687,13 +774,14 @@ public class ExerciseAttemptService {
         // 2026-08-23) — thêm điều kiện hết hạn nộp (chỉ áp dụng khi ĐÃ có lượt trước đó, mirror đúng
         // nhánh previousAttempts>0 ở startAttempt) để nút "Làm lại" ở FE (portal, TakeExerciseModal) ẩn
         // đúng lúc thay vì hiện ra rồi bấm mới báo lỗi 422.
+        Exam exam = exercise.getExam();
         boolean retakeBlockedByDeadline = !myAttempts.isEmpty() && assignment.getDueAt() != null
                 && OffsetDateTime.now().isAfter(assignment.getDueAt()) && !assignment.isLateSubmissionAllowed();
         boolean canStartNewAttempt = assignment.getStatus() == ExerciseAssignment.Status.ACTIVE
                 && !assignment.getAvailableFrom().isAfter(OffsetDateTime.now())
                 && (latest == null || latest.getStatus() != ExerciseAttempt.Status.IN_PROGRESS)
-                && (myAttempts.isEmpty() || exercise.isAllowRetake())
-                && (exercise.getMaxAttempts() == null || myAttempts.size() < exercise.getMaxAttempts())
+                && (myAttempts.isEmpty() || exam.isAllowRetake())
+                && (exam.getMaxAttempts() == null || myAttempts.size() < exam.getMaxAttempts())
                 && !retakeBlockedByDeadline;
         return new AssignedExerciseResponse(
                 exercise.getId(), exercise.getCode(), exercise.getTitle(), exercise.getExerciseType().name(),
@@ -718,8 +806,9 @@ public class ExerciseAttemptService {
         // maxAttempts) trở đi — các lượt trước chỉ thấy điểm, không thấy đáp án.
         // Chỉ áp dụng cho câu tự chấm được (a.isAutoGradable()) — câu tự luận/Nói
         // (ESSAY/SPEAKING) tạm thời chưa áp dụng, giữ nguyên hành vi cũ.
-        if (revealAnswer && a.isAutoGradable() && exercise.getMaxAttempts() != null) {
-            revealAnswer = attempt.getAttemptNumber() >= exercise.getMaxAttempts();
+        Integer examMaxAttempts = exercise.getExam().getMaxAttempts();
+        if (revealAnswer && a.isAutoGradable() && examMaxAttempts != null) {
+            revealAnswer = attempt.getAttemptNumber() >= examMaxAttempts;
         }
         List<Long> correctChoiceIds = null;
         String correctAnswerText = null;

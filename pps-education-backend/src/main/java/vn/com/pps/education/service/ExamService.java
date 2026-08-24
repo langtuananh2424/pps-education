@@ -2,9 +2,11 @@ package vn.com.pps.education.service;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.com.pps.education.domain.ClassSession;
 import vn.com.pps.education.domain.Curriculum;
 import vn.com.pps.education.domain.Exam;
 import vn.com.pps.education.domain.ExamClassAssignment;
+import vn.com.pps.education.domain.ExerciseAssignment;
 import vn.com.pps.education.domain.SchoolClass;
 import vn.com.pps.education.domain.QuestionBank;
 import vn.com.pps.education.domain.User;
@@ -88,6 +90,14 @@ public class ExamService {
         exam.setCreatedBy(actor);
         exam.setTeacherType(Exam.TeacherType.valueOf(request.teacherType()));
         exam.setExamType(Exam.ExamType.valueOf(request.examType()));
+        exam.setSkillCategory(Exam.SkillCategory.valueOf(request.skillCategory()));
+        if (request.allowRetake() != null) {
+            exam.setAllowRetake(request.allowRetake());
+        }
+        exam.setMaxAttempts(request.maxAttempts());
+        if (request.passThresholdPercent() != null) {
+            exam.setPassThresholdPercent(request.passThresholdPercent());
+        }
 
         // V75: UUID đã sinh ngay khi new Exam(), nên tạo bank trước để INSERT
         // Exam luôn có FK NOT NULL — lỗi bất kỳ rollback cả bank lẫn Exam.
@@ -113,6 +123,12 @@ public class ExamService {
         exam.setTitle(request.title());
         exam.setTeacherType(Exam.TeacherType.valueOf(request.teacherType()));
         exam.setExamType(Exam.ExamType.valueOf(request.examType()));
+        exam.setSkillCategory(Exam.SkillCategory.valueOf(request.skillCategory()));
+        exam.setAllowRetake(request.allowRetake());
+        exam.setMaxAttempts(request.allowRetake() ? request.maxAttempts() : null);
+        if (request.passThresholdPercent() != null) {
+            exam.setPassThresholdPercent(request.passThresholdPercent());
+        }
         exam = examRepository.save(exam);
         return toResponse(exam);
     }
@@ -122,21 +138,27 @@ public class ExamService {
         return toResponse(getExamOrThrow(id));
     }
 
-    /** teacherType (VIETNAMESE/FOREIGN) tùy chọn — lọc theo GV VN/nước ngoài khi giao bài (V74, đã xác nhận với người dùng 2026-08-04). */
+    /**
+     * teacherType (VIETNAMESE/FOREIGN) tùy chọn — lọc theo GV VN/nước ngoài khi giao bài (V74, đã xác
+     * nhận với người dùng 2026-08-04). skillCategory tùy chọn (V144, bổ sung ngoài SDD gốc, đã xác nhận
+     * với người dùng 2026-08-24) — lọc Kho đề theo nhóm kỹ năng để Giáo viên quản lý.
+     */
     @Transactional(readOnly = true)
-    public List<ExamResponse> listExams(Long curriculumId, String teacherType, Long actorUserId) {
+    public List<ExamResponse> listExams(Long curriculumId, String teacherType, String skillCategory, Long actorUserId) {
         Exam.TeacherType type = teacherType == null ? null : Exam.TeacherType.valueOf(teacherType);
-        List<Exam> exams;
-        if (curriculumId != null && type != null) {
-            exams = examRepository.findByCurriculumIdAndTeacherTypeAndDeletedAtIsNull(curriculumId, type);
-        } else if (curriculumId != null) {
-            exams = examRepository.findByCurriculumIdAndDeletedAtIsNull(curriculumId);
-        } else if (type != null) {
-            exams = examRepository.findByTeacherTypeAndDeletedAtIsNull(type);
-        } else {
-            exams = examRepository.findByDeletedAtIsNull();
-        }
-        return exams.stream().map(this::toResponse).toList();
+        Exam.SkillCategory skill = skillCategory == null ? null : Exam.SkillCategory.valueOf(skillCategory);
+        return examRepository.search(curriculumId, type, skill).stream().map(this::toResponse).toList();
+    }
+
+    /**
+     * V144 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-24) — nguồn cho dropdown "giao cả
+     * Đề" ở Nhận xét học viên (UC-21): Đề đã gán cho lớp, có ít nhất 1 Bài đã Publish (mirror
+     * ExerciseService#listPublishedForClass).
+     */
+    @Transactional(readOnly = true)
+    public List<ExamResponse> listPublishedForClass(Long classId, Long actorUserId) {
+        requireAssignedTeacher(classId, actorUserId);
+        return examRepository.findPublishedForClass(classId).stream().map(this::toResponse).toList();
     }
 
     /** Danh sách "Bài" thuộc 1 Đề — mọi status (kể cả DRAFT), GV tự quản lý. */
@@ -170,6 +192,25 @@ public class ExamService {
         requireAssignedTeacher(classId, actorUserId);
         examClassAssignmentRepository.findByExamIdAndSchoolClassId(examId, classId)
                 .ifPresent(examClassAssignmentRepository::delete);
+    }
+
+    /**
+     * V144 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-24) — "giao cả Đề" (giao TẤT CẢ
+     * Bài Published thuộc Đề, cùng 1 hạn nộp) — ủy quyền cho
+     * {@link ExerciseService#deliverAllToClass}, không lặp lại logic Exercise (xem .claude/rules/solid.md
+     * mục D). Gọi TỪ StudentCommentService khi Giáo viên chọn Đề này làm "BTVN buổi sau" (UC-21).
+     */
+    @Transactional
+    public List<ExerciseAssignment> deliverToClass(Long examId, Long classId, OffsetDateTime dueAt, Long actorUserId,
+                                                     ClassSession sourceClassSession) {
+        getExamOrThrow(examId);
+        return exerciseService.deliverAllToClass(examId, classId, dueAt, actorUserId, sourceClassSession);
+    }
+
+    /** V144: hủy đợt "giao cả Đề" trước đó — ủy quyền cho {@link ExerciseService#cancelDeliveryGroup}. */
+    @Transactional
+    public void cancelDeliveryGroup(Long examId, Long classId, ClassSession sourceClassSession) {
+        exerciseService.cancelDeliveryGroup(examId, classId, sourceClassSession);
     }
 
     @Transactional(readOnly = true)
@@ -242,7 +283,10 @@ public class ExamService {
     private ExamResponse toResponse(Exam exam) {
         return new ExamResponse(exam.getId(), exam.getUuid(), exam.getCode(), exam.getTitle(),
                 exam.getCurriculum().getId(), exam.getCurriculum().getCode(), exam.getCreatedBy().getId(),
-                exam.getTeacherType().name(), exam.getExamType().name(), exam.getQuestionBank().getId());
+                exam.getTeacherType().name(), exam.getExamType().name(),
+                exam.getSkillCategory() == null ? null : exam.getSkillCategory().name(),
+                exam.isAllowRetake(), exam.getMaxAttempts(), exam.getPassThresholdPercent(),
+                exam.getQuestionBank().getId());
     }
 
     private ClassResponse toResponse(SchoolClass c) {

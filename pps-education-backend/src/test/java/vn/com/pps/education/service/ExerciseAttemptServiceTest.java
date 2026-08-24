@@ -144,7 +144,7 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         classService.enroll(schoolClass.id(), new EnrollStudentRequest(student.getId(), LocalDate.now()), headAcademic.getId());
 
         defaultExam = examService.createExam(
-                new CreateExamRequest(examCode(), "Đề mặc định", activeCurriculum.id(), "VIETNAMESE", "HOMEWORK"), teacher.getId());
+                new CreateExamRequest(examCode(), "Đề mặc định", activeCurriculum.id(), "VIETNAMESE", "HOMEWORK", "VOCAB_GRAMMAR", null, null, null), teacher.getId());
     }
 
     /**
@@ -171,7 +171,7 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         QuestionResponse mc = createMcQuestion();
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Ôn tập chưa giao", defaultExam.id(), null, "SELF_PRACTICE",
-                        new BigDecimal("1"), null, true, null, true), teacher.getId());
+                        new BigDecimal("1"), null, true), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("1.0")), teacher.getId());
         // Chưa gọi examService.assignToClass/deliverToClass -> chưa có ExerciseAssignment nào.
 
@@ -186,7 +186,7 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         QuestionResponse mc = createMcQuestion();
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Kiểm tra", defaultExam.id(), null, "ASSIGNED",
-                        new BigDecimal("10"), null, true, null, true), teacher.getId());
+                        new BigDecimal("10"), null, true), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("10")), teacher.getId());
         // chưa gọi deliverToClass -> chưa giao cho lớp nào
 
@@ -280,8 +280,9 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
 
     @Test
     void saveAnswer_rejectsWhenAttemptAlreadySubmitted() {
-        QuestionResponse mc = createMcQuestion();
-        ExerciseResponse exercise = createSelfPracticeExerciseWithOneMcQuestion(true, null, mc);
+        ExerciseWithQuestion ew = createSelfPracticeExerciseWithCustomExam(true, null);
+        ExerciseResponse exercise = ew.exercise();
+        QuestionResponse mc = ew.question();
         ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), activeAssignmentId(exercise.id()), studentUser.getId());
         answerCorrectly(attempt.id(), mc);
         exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
@@ -353,8 +354,9 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
 
     @Test
     void submitAttempt_UC24_A4_hidesCorrectAnswersBeforeLastAllowedAttemptWhenMaxAttemptsConfigured() {
-        QuestionResponse mc = createMcQuestion();
-        ExerciseResponse exercise = createSelfPracticeExerciseWithOneMcQuestion(true, 2, mc);
+        ExerciseWithQuestion ew = createSelfPracticeExerciseWithCustomExam(true, 2);
+        ExerciseResponse exercise = ew.exercise();
+        QuestionResponse mc = ew.question();
 
         ExerciseAttemptResponse firstAttempt = exerciseAttemptService.startAttempt(exercise.id(), activeAssignmentId(exercise.id()), studentUser.getId());
         answerCorrectly(firstAttempt.id(), mc);
@@ -368,8 +370,9 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
 
     @Test
     void submitAttempt_UC24_A4_showsCorrectAnswersOnLastAllowedAttemptWhenMaxAttemptsConfigured() {
-        QuestionResponse mc = createMcQuestion();
-        ExerciseResponse exercise = createSelfPracticeExerciseWithOneMcQuestion(true, 2, mc);
+        ExerciseWithQuestion ew = createSelfPracticeExerciseWithCustomExam(true, 2);
+        ExerciseResponse exercise = ew.exercise();
+        QuestionResponse mc = ew.question();
 
         // Lượt 1 trả lời SAI (V89: bản giao chỉ đóng khi ĐẠT ngưỡng — cần giữ ACTIVE để còn lượt 2).
         ExerciseAttemptResponse firstAttempt = exerciseAttemptService.startAttempt(exercise.id(), activeAssignmentId(exercise.id()), studentUser.getId());
@@ -390,15 +393,19 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
 
     @Test
     void submitAttempt_UC24_A4_essayAnswersIgnoreMaxAttemptsGate() {
-        QuestionResponse essay = examQuestionService.createQuestion(defaultExam.id(),
+        // V144: maxAttempts=2 chuyển từ Exercise lên Exam — Đề riêng (không dùng defaultExam, mặc định
+        // maxAttempts=null). skillCategory=VOCAB_GRAMMAR (không phải WRITING) để KHÔNG kích hoạt AI chấm
+        // tự động (mirror hành vi cũ — Exercise.skillCategory trước đây cũng không được set ở test này).
+        ExamResponse exam = examWithRetakeSettings(true, 2, null);
+        QuestionResponse essay = examQuestionService.createQuestion(exam.id(),
                 new CreateExamQuestionRequest("ESSAY", "WRITING", "MEDIUM", "Viết đoạn văn.", null, null, null,
                         "Chú ý thì hiện tại đơn.", null, new BigDecimal("2.0"), null, null, null, null),
                 teacher.getId());
         ExerciseResponse exercise = exerciseService.createExercise(
-                new CreateExerciseRequest(exerciseCode(), "Ôn tập", defaultExam.id(), null, "SELF_PRACTICE",
-                        new BigDecimal("2"), null, true, 2, true), teacher.getId());
+                new CreateExerciseRequest(exerciseCode(), "Ôn tập", exam.id(), null, "SELF_PRACTICE",
+                        new BigDecimal("2"), null, true), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(essay.id(), 1, new BigDecimal("2.0")), teacher.getId());
-        examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
+        examService.assignToClass(exam.id(), schoolClass.id(), teacher.getId());
         commitCurrentTransactionAndStartNew();
         exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId());
 
@@ -586,7 +593,7 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         QuestionResponse mc = createMcQuestion();
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Kiểm tra lớp khác", defaultExam.id(), null, "ASSIGNED",
-                        new BigDecimal("10"), null, false, 1, true), teacher.getId());
+                        new BigDecimal("10"), null, true), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("10")), teacher.getId());
         Site otherSite = newSite();
         ClassResponse otherClass = classService.create(new CreateClassRequest(classCode(), "9B1", otherSite.getId(),
@@ -659,7 +666,7 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         QuestionResponse mc2 = createMcQuestion();
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "BTVN", defaultExam.id(), null, "SELF_PRACTICE",
-                        new BigDecimal("2"), null, true, null, true), teacher.getId());
+                        new BigDecimal("2"), null, true), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc1.id(), 1, new BigDecimal("1.0")), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc2.id(), 2, new BigDecimal("1.0")), teacher.getId());
         examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
@@ -691,7 +698,7 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         QuestionResponse mc2 = createMcQuestion();
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "BTVN", defaultExam.id(), null, "SELF_PRACTICE",
-                        new BigDecimal("2"), null, true, null, true), teacher.getId());
+                        new BigDecimal("2"), null, true), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc1.id(), 1, new BigDecimal("1.0")), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc2.id(), 2, new BigDecimal("1.0")), teacher.getId());
         examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
@@ -719,14 +726,16 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
      */
     @Test
     void submitAttempt_boSung_atOrAboveThresholdCompletesAssignmentWhenNoAttemptsLeft() {
-        QuestionResponse mc1 = createMcQuestion();
-        QuestionResponse mc2 = createMcQuestion();
+        // V144: maxAttempts=1 chuyển từ Exercise lên Exam — Đề riêng (không dùng defaultExam).
+        ExamResponse exam = examWithRetakeSettings(true, 1, null);
+        QuestionResponse mc1 = createMcQuestion(exam.id());
+        QuestionResponse mc2 = createMcQuestion(exam.id());
         ExerciseResponse exercise = exerciseService.createExercise(
-                new CreateExerciseRequest(exerciseCode(), "BTVN", defaultExam.id(), null, "SELF_PRACTICE",
-                        new BigDecimal("2"), null, true, 1, true), teacher.getId());
+                new CreateExerciseRequest(exerciseCode(), "BTVN", exam.id(), null, "SELF_PRACTICE",
+                        new BigDecimal("2"), null, true), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc1.id(), 1, new BigDecimal("1.0")), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc2.id(), 2, new BigDecimal("1.0")), teacher.getId());
-        examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
+        examService.assignToClass(exam.id(), schoolClass.id(), teacher.getId());
         commitCurrentTransactionAndStartNew();
         ExerciseAssignment assignment = exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId());
 
@@ -740,18 +749,19 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         assertThat(refreshed.getStatus()).isEqualTo(ExerciseAssignment.Status.COMPLETED);
     }
 
-    /** V89: ngưỡng đạt cấu hình được theo từng Bài — không cố định 80% khi Giáo viên chọn khác. */
+    /** V89: ngưỡng đạt cấu hình được theo từng Đề (V144: chuyển từ Bài lên Đề) — không cố định 70% khi Giáo viên chọn khác. */
     @Test
     void submitAttempt_boSung_usesCustomPassThresholdWhenConfigured() {
-        QuestionResponse mc1 = createMcQuestion();
-        QuestionResponse mc2 = createMcQuestion();
+        ExamResponse exam = examWithRetakeSettings(true, null, new BigDecimal("40"));
+        assertThat(exam.passThresholdPercent()).isEqualByComparingTo("40");
+        QuestionResponse mc1 = createMcQuestion(exam.id());
+        QuestionResponse mc2 = createMcQuestion(exam.id());
         ExerciseResponse exercise = exerciseService.createExercise(
-                new CreateExerciseRequest(exerciseCode(), "BTVN ngưỡng thấp", defaultExam.id(), null, "SELF_PRACTICE",
-                        new BigDecimal("2"), null, true, null, true, new BigDecimal("40"), null), teacher.getId());
-        assertThat(exercise.passThresholdPercent()).isEqualByComparingTo("40");
+                new CreateExerciseRequest(exerciseCode(), "BTVN ngưỡng thấp", exam.id(), null, "SELF_PRACTICE",
+                        new BigDecimal("2"), null, true), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc1.id(), 1, new BigDecimal("1.0")), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc2.id(), 2, new BigDecimal("1.0")), teacher.getId());
-        examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
+        examService.assignToClass(exam.id(), schoolClass.id(), teacher.getId());
         commitCurrentTransactionAndStartNew();
         ExerciseAssignment assignment = exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId());
 
@@ -766,14 +776,12 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         assertThat(refreshed.getStatus()).isEqualTo(ExerciseAssignment.Status.ACTIVE);
     }
 
-    /** V89/V100: không truyền passThresholdPercent khi tạo Bài -> mặc định 70%. */
+    /** V89/V100 (V144: chuyển từ Exercise lên Exam): không truyền passThresholdPercent/allowRetake/maxAttempts khi tạo Đề -> mặc định 70%/true/không giới hạn. */
     @Test
-    void createExercise_boSung_defaultsPassThresholdTo70PercentWhenNotSpecified() {
-        ExerciseResponse exercise = exerciseService.createExercise(
-                new CreateExerciseRequest(exerciseCode(), "BTVN", defaultExam.id(), null, "SELF_PRACTICE",
-                        new BigDecimal("1"), null, true, null, true), teacher.getId());
-
-        assertThat(exercise.passThresholdPercent()).isEqualByComparingTo("70.00");
+    void createExam_boSung_defaultsPassThresholdTo70PercentWhenNotSpecified() {
+        assertThat(defaultExam.passThresholdPercent()).isEqualByComparingTo("70.00");
+        assertThat(defaultExam.allowRetake()).isTrue();
+        assertThat(defaultExam.maxAttempts()).isNull();
     }
 
     /**
@@ -787,7 +795,7 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         QuestionResponse mc = createMcQuestion();
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Kiểm tra có giờ", defaultExam.id(), null, "SELF_PRACTICE",
-                        new BigDecimal("1"), 30, true, null, true), teacher.getId());
+                        new BigDecimal("1"), 30, true), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("1.0")), teacher.getId());
         examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
         commitCurrentTransactionAndStartNew();
@@ -816,7 +824,7 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         QuestionResponse mc = createMcQuestion();
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Kiểm tra có giờ", defaultExam.id(), null, "SELF_PRACTICE",
-                        new BigDecimal("1"), 30, true, null, true), teacher.getId());
+                        new BigDecimal("1"), 30, true), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("1.0")), teacher.getId());
         examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
         commitCurrentTransactionAndStartNew();
@@ -840,7 +848,7 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         QuestionResponse mc = createMcQuestion();
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Kiểm tra có giờ", defaultExam.id(), null, "SELF_PRACTICE",
-                        new BigDecimal("1"), 30, true, null, true), teacher.getId());
+                        new BigDecimal("1"), 30, true), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("1.0")), teacher.getId());
         examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
         commitCurrentTransactionAndStartNew();
@@ -862,7 +870,12 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
     }
 
     private QuestionResponse createMcQuestion() {
-        return examQuestionService.createQuestion(defaultExam.id(),
+        return createMcQuestion(defaultExam.id());
+    }
+
+    /** V144: overload nhận examId — dùng khi test cần câu hỏi thuộc 1 Đề RIÊNG (không phải defaultExam). */
+    private QuestionResponse createMcQuestion(Long examId) {
+        return examQuestionService.createQuestion(examId,
                 new CreateExamQuestionRequest("MULTIPLE_CHOICE", "GRAMMAR", "EASY",
                         "She ___ to school.", null, null, null, null, null, new BigDecimal("1.0"), null,
                         List.of(new QuestionChoiceRequest("A", "go", null, false, 1), new QuestionChoiceRequest("B", "goes", null, true, 2)), null, null),
@@ -892,18 +905,36 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
      * mirror hệt assignedExerciseWithQuestions(publish=true) bên dưới.
      */
     private ExerciseResponse createSelfPracticeExerciseWithOneMcQuestion(boolean allowRetake, Integer maxAttempts) {
-        return createSelfPracticeExerciseWithOneMcQuestion(allowRetake, maxAttempts, createMcQuestion());
+        return createSelfPracticeExerciseWithCustomExam(allowRetake, maxAttempts).exercise();
     }
 
-    private ExerciseResponse createSelfPracticeExerciseWithOneMcQuestion(boolean allowRetake, Integer maxAttempts, QuestionResponse mc) {
+    private record ExerciseWithQuestion(ExerciseResponse exercise, QuestionResponse question) {}
+
+    /**
+     * V144 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-24) — allowRetake/maxAttempts đã
+     * chuyển từ Exercise lên Exam (xem Javadoc Exam.SkillCategory) — helper này giờ tạo 1 Đề RIÊNG cho
+     * mỗi test cần cấu hình làm lại tùy chỉnh (không dùng chung defaultExam, giữ mặc định
+     * allowRetake=true/maxAttempts=null). Câu hỏi PHẢI thuộc CHÍNH Đề đó (ngân hàng câu hỏi nội bộ 1-1
+     * theo Đề, xem ExerciseService#addQuestion) nên tạo câu hỏi mới thay vì tái dùng câu của defaultExam.
+     */
+    private ExerciseWithQuestion createSelfPracticeExerciseWithCustomExam(boolean allowRetake, Integer maxAttempts) {
+        ExamResponse exam = examWithRetakeSettings(allowRetake, maxAttempts, null);
+        QuestionResponse mc = createMcQuestion(exam.id());
         ExerciseResponse exercise = exerciseService.createExercise(
-                new CreateExerciseRequest(exerciseCode(), "Ôn tập", defaultExam.id(), null, "SELF_PRACTICE",
-                        new BigDecimal("1"), null, allowRetake, maxAttempts, true), teacher.getId());
+                new CreateExerciseRequest(exerciseCode(), "Ôn tập", exam.id(), null, "SELF_PRACTICE",
+                        new BigDecimal("1"), null, true), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("1.0")), teacher.getId());
-        examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
+        examService.assignToClass(exam.id(), schoolClass.id(), teacher.getId());
         commitCurrentTransactionAndStartNew();
         exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId());
-        return exercise;
+        return new ExerciseWithQuestion(exercise, mc);
+    }
+
+    /** V144: tạo 1 Đề riêng với allowRetake/maxAttempts/passThresholdPercent tùy chỉnh (null = giữ mặc định của Exam). */
+    private ExamResponse examWithRetakeSettings(boolean allowRetake, Integer maxAttempts, BigDecimal passThresholdPercent) {
+        return examService.createExam(
+                new CreateExamRequest(examCode(), "Đề tùy chỉnh", activeCurriculum.id(), "VIETNAMESE", "HOMEWORK",
+                        "VOCAB_GRAMMAR", allowRetake, maxAttempts, passThresholdPercent), teacher.getId());
     }
 
     private ExerciseResponse assignedExerciseWithQuestions(List<QuestionResponse> questions, OffsetDateTime dueAt,
@@ -915,7 +946,7 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
                                                              boolean lateAllowed, boolean publish, boolean showCorrectAnswers) {
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Kiểm tra", defaultExam.id(), null, "ASSIGNED",
-                        new BigDecimal(questions.size()), null, false, 1, showCorrectAnswers), teacher.getId());
+                        new BigDecimal(questions.size()), null, showCorrectAnswers), teacher.getId());
         int order = 1;
         for (QuestionResponse q : questions) {
             exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(q.id(), order++, new BigDecimal("1.0")), teacher.getId());

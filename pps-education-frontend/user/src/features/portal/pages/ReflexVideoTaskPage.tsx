@@ -212,6 +212,15 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
   }, [activeQuestionId]);
   const triggeredQuestionIdsRef = useRef<Set<number>>(new Set());
   /**
+   * V149 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23, mô tả lại lần 2 sau khi làm sai
+   * lần 1 — xem Javadoc firstPendingQuestionIndex) — true trong lúc video đang CHỦ Ý chạy tiếp để học
+   * sinh nghe lại câu hỏi trong khi ghi âm (giữa lúc đạt bước viết và chạm mốc câu KẾ TIẾP) — dùng để
+   * handleTimeUpdate biết cần theo dõi mốc dừng tiếp, và để 2 guard "chặn tạm dừng ngoài ý muốn"
+   * (native onPause/YouTube PAUSED) biết đây vẫn là lúc PHẢI đang chạy (ép chạy lại nếu học sinh cố tình
+   * bấm tạm dừng), phân biệt với lúc video đứng yên có chủ đích ở bước viết.
+   */
+  const awaitingNextMarkRef = useRef(false);
+  /**
    * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — cho phép bấm lại 1 câu ĐÃ ĐẠT trong
    * danh sách bên dưới để xem lại kết quả (trước đây các câu đã đạt chỉ hiện dòng tóm tắt, không xem lại
    * được câu trả lời/nhận xét). Tách riêng khỏi `activeQuestionId` (câu THẬT đang mở khoá video chờ làm)
@@ -260,39 +269,30 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
   };
 
   /**
-   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — CÂU CUỐI không có mốc câu kế tiếp để
-   * tự dừng theo (khác các câu giữa, xem handleTimeUpdate) — nếu bắt chờ video phát hết TOÀN BỘ FILE mới
-   * mở bảng thì có thể rất lâu nếu đoạn cuối video còn nội dung dài không liên quan. Theo yêu cầu người
-   * dùng "video với câu voice khớp với nhau, câu voice ghi khi câu hỏi bắt đầu" — dùng CHÍNH
-   * `maxRecordingSeconds` đã có sẵn của câu cuối (GV đã tự cân đối cho vừa độ dài câu hỏi/câu trả lời)
-   * làm giới hạn CHỜ TỐI ĐA sau khi vào câu cuối — video kết thúc tự nhiên SỚM hơn vẫn dùng `ended` bình
-   * thường (huỷ timeout này), trễ hơn thì hết giờ tự mở bảng, không bắt học sinh ngồi chờ hết cả video.
+   * V149 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23, mô tả lại lần 2 — SỬA lại thiết
+   * kế V145/lần mô tả đầu bị hiểu sai) — mỗi câu hỏi mở bảng NGAY khi video chạm ĐÚNG mốc CỦA CHÍNH NÓ
+   * (không phải mốc câu kế tiếp): bảng VIẾT mở, video đứng yên. Đạt bước viết → học sinh bấm "Tiếp tục"
+   * → video CHẠY TIẾP ngay (để nghe lại câu hỏi trong lúc chuẩn bị nói) — chạy tới GẦN mốc câu KẾ TIẾP
+   * thì tự dừng lại (không liên quan học sinh đã ghi âm/nộp xong hay chưa, xem handleTimeUpdate nhánh
+   * awaitingNextMarkRef). Học sinh bấm ghi âm THẬT (handleStartRecording, tách riêng khỏi việc video có
+   * đang chạy hay không) bất cứ lúc nào trong lúc đó. Đạt bước nói → bấm "Tiếp tục"
+   * (handleContinueAfterSpeakingPass) → video chạy nốt đoạn còn lại tới đúng mốc câu kế tiếp, mở bảng
+   * VIẾT câu đó — lặp lại. Câu CUỐI không có mốc kế tiếp để tự dừng lúc nghe — cứ để video chạy tới hết
+   * tự nhiên (`ended`), không chặn/ảnh hưởng gì việc ghi âm/nộp bài (đã bỏ hẳn cơ chế timeout
+   * maxRecordingSeconds fallback của V145 — không còn cần thiết vì việc MỞ BẢNG giờ không còn phụ thuộc
+   * "mốc kế tiếp"/"video kết thúc" nữa, chỉ còn phụ thuộc đúng mốc của chính câu đó).
    */
-  const lastQuestionTimeoutRef = useRef<number | null>(null);
-  const clearLastQuestionTimeout = () => {
-    if (lastQuestionTimeoutRef.current != null) {
-      window.clearTimeout(lastQuestionTimeoutRef.current);
-      lastQuestionTimeoutRef.current = null;
-    }
-  };
-  const scheduleLastQuestionFallback = () => {
-    clearLastQuestionTimeout();
-    const idx = firstPendingQuestionIndex();
-    if (idx === -1 || questions[idx + 1]) return; // không phải câu cuối — không cần fallback
-    const lastQuestion = questions[idx];
-    lastQuestionTimeoutRef.current = window.setTimeout(() => {
-      lastQuestionTimeoutRef.current = null;
-      if (activeQuestionIdRef.current != null) return;
-      activateQuestion(lastQuestion);
-    }, lastQuestion.maxRecordingSeconds * 1000);
-  };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => () => clearLastQuestionTimeout(), []);
-
   const activateQuestion = (q: ReviewVideoQuestionResponse) => {
-    clearLastQuestionTimeout();
     setActiveQuestionId(q.id);
-    pauseVideo();
+    // Resume vào giữa bước nói (VD thoát ra rồi quay lại lúc đã đạt viết từ phiên trước, không có popup
+    // "Đạt bước viết" nào để bấm "Tiếp tục" nữa) — cho nghe lại câu hỏi luôn, không cần thêm 1 cú bấm.
+    if (stageForProgress(progressRef.current[q.id]) === "speaking") {
+      awaitingNextMarkRef.current = true;
+      resumeVideo();
+    } else {
+      awaitingNextMarkRef.current = false;
+      pauseVideo();
+    }
     const p = progressRef.current[q.id];
     setAnswerDraft(p?.answerText ?? "");
     setWritingError(null);
@@ -300,24 +300,26 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
     recorder.reset();
   };
 
-  /**
-   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 (đã mô tả lại chi tiết luồng thực tế) —
-   * nội dung của 1 câu hỏi nằm ở đoạn [mốc câu đó, mốc câu KẾ TIẾP) trong video, KHÔNG PHẢI video dừng
-   * ngay khi chạm mốc câu đó — video PHÁT TIẾP qua mốc câu kế tiếp rồi mới dừng để mở bảng trả lời cho
-   * câu TRƯỚC mốc vừa chạm. VD: mốc câu 1 = 10s, mốc câu 2 = 30s → video phát 10-30s (nội dung câu 1) rồi
-   * dừng ở giây 30 để mở bảng câu 1; đạt xong câu 1 thì phát tiếp NGAY từ giây 30 (không cần seek, video
-   * đã dừng sẵn đúng chỗ — xem handleContinueAfterSpeakingPass) tới mốc câu 3... Câu CUỐI không có mốc kế
-   * tiếp — dùng lúc video kết thúc tự nhiên (`ended`) làm điểm dừng (xem handleVideoNaturallyEnded).
-   */
   const firstPendingQuestionIndex = () => questions.findIndex((q) => stageForProgress(progressRef.current[q.id]) !== "passed");
 
   const handleTimeUpdate = (currentSeconds: number) => {
-    if (videoEndedRef.current || activeQuestionIdRef.current != null) return;
+    if (videoEndedRef.current) return;
     const idx = firstPendingQuestionIndex();
     if (idx === -1) return;
     const current = questions[idx];
-    const next = questions[idx + 1];
-    if (next && currentSeconds >= next.timestampSeconds && !triggeredQuestionIdsRef.current.has(current.id)) {
+    if (activeQuestionIdRef.current != null) {
+      // Câu THẬT đang mở bảng — chỉ còn việc theo dõi mốc câu KẾ TIẾP để tự dừng lúc đang cho nghe lại
+      // trong lúc chuẩn bị nói (awaitingNextMarkRef=true, xem activateQuestion/handleContinueAfterWritingPass).
+      // Bước viết (awaitingNextMarkRef=false) thì video đứng yên, không cần theo dõi gì thêm.
+      if (!awaitingNextMarkRef.current) return;
+      const next = questions[idx + 1];
+      if (next && currentSeconds >= next.timestampSeconds) {
+        awaitingNextMarkRef.current = false;
+        pauseVideo();
+      }
+      return;
+    }
+    if (currentSeconds >= current.timestampSeconds && !triggeredQuestionIdsRef.current.has(current.id)) {
       triggeredQuestionIdsRef.current.add(current.id);
       activateQuestion(current);
     }
@@ -356,7 +358,6 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
     if (idx === -1) return;
     if (idx > 0) seekTo(questions[idx].timestampSeconds);
     resumeVideo();
-    scheduleLastQuestionFallback();
   };
   const playFromResumePointRef = useRef(playFromResumePoint);
   playFromResumePointRef.current = playFromResumePoint;
@@ -369,10 +370,11 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
     const onTimeUpdate = () => handleTimeUpdateRef.current(media.currentTime);
     const onEnded = () => handleVideoNaturallyEndedRef.current();
     const onPause = () => {
-      // Best-effort chặn tạm dừng ngoài ý muốn (VD phím media cứng trên bàn phím) — CHỈ khi không phải
-      // đang tạm dừng có chủ đích để mở khoá 1 câu hỏi (activeQuestionIdRef != null), VÀ không phải
-      // đang XEM LẠI thuần (reviewOnlyMode — học sinh được tự do bấm pause, không có gì để "khóa" nữa).
-      if (started && !media.ended && activeQuestionIdRef.current == null && !reviewOnlyModeRef.current) {
+      // Best-effort chặn tạm dừng ngoài ý muốn (VD phím media cứng trên bàn phím) — ép chạy lại khi
+      // KHÔNG có câu nào đang mở (activeQuestionIdRef == null, video được chạy tự do), HOẶC đang mở
+      // nhưng ở bước NGHE LẠI câu hỏi (awaitingNextMarkRef=true, video PHẢI đang chạy — xem V149) — chỉ
+      // thật sự cho đứng yên ở bước VIẾT (awaitingNextMarkRef=false) hoặc lúc XEM LẠI thuần.
+      if (started && !media.ended && !reviewOnlyModeRef.current && (activeQuestionIdRef.current == null || awaitingNextMarkRef.current)) {
         media.play?.().catch(() => undefined);
       }
     };
@@ -414,9 +416,14 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                 if (time != null) handleTimeUpdateRef.current(time);
               }, 250);
             } else if (e.data === YT.PlayerState.PAUSED) {
-              // Best-effort chặn tạm dừng ngoài ý muốn — CHỈ khi không phải đang chủ động dừng để mở khoá
-              // câu hỏi, VÀ không phải đang XEM LẠI thuần (học sinh tự do bấm pause).
-              if (startedRef.current && !videoEndedRef.current && activeQuestionIdRef.current == null && !reviewOnlyModeRef.current) {
+              // Best-effort chặn tạm dừng ngoài ý muốn — mirror đúng điều kiện ở nhánh native onPause
+              // phía trên (activeQuestionIdRef==null HOẶC đang ở bước nghe lại awaitingNextMarkRef=true).
+              if (
+                startedRef.current &&
+                !videoEndedRef.current &&
+                !reviewOnlyModeRef.current &&
+                (activeQuestionIdRef.current == null || awaitingNextMarkRef.current)
+              ) {
                 youTubePlayerRef.current?.playVideo?.();
               }
             }
@@ -473,7 +480,8 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
       setProgress((prev) => ({ ...prev, [activeQuestion.id]: response }));
       // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — trước đây đạt bước viết là tự
       // động bật ghi âm ngay, học sinh không kịp chuẩn bị. Nay hiện popup báo đạt + điểm/nhận xét, học
-      // sinh tự bấm "Bắt đầu ghi âm" khi sẵn sàng (xem handleStartRecordingAfterWritingPass).
+      // sinh tự bấm "Tiếp tục" khi sẵn sàng (xem handleContinueAfterWritingPass) — video chạy tiếp cho
+      // nghe lại câu hỏi, còn GHI ÂM THẬT phải bấm riêng nút "Bắt đầu ghi âm" trong panel (handleStartRecording).
       if (stageForProgress(response) === "speaking") {
         setWritingPassedPopup({ scorePercent: response.writingScorePercent, feedback: response.writingFeedback });
       }
@@ -484,11 +492,16 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
     }
   };
 
-  const handleStartRecordingAfterWritingPass = () => {
-    if (!activeQuestion) return;
+  /**
+   * V149 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23) — CHỦ Ý KHÔNG bắt đầu ghi âm
+   * ngay ở đây nữa (khác lần sửa trước) — chỉ đóng popup + cho video chạy tiếp để học sinh NGHE LẠI câu
+   * hỏi trong lúc chuẩn bị. Ghi âm THẬT tách hẳn ra nút riêng trong panel (xem handleStartRecording),
+   * bấm lúc nào cũng được, không phụ thuộc video đang chạy hay đã dừng.
+   */
+  const handleContinueAfterWritingPass = () => {
     setWritingPassedPopup(null);
-    recorder.reset();
-    recorder.start(activeQuestion.maxRecordingSeconds);
+    awaitingNextMarkRef.current = true;
+    resumeVideo();
   };
 
   const handleStartRecording = () => {
@@ -527,10 +540,10 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
   const handleContinueAfterSpeakingPass = () => {
     setSpeakingPassedPopup(null);
     setActiveQuestionId(null);
-    // Video đã dừng SẴN đúng chỗ (mốc câu vừa đạt) — chỉ cần phát tiếp, không seek. Xem ghi chú ở
-    // firstPendingQuestionIndex/handleTimeUpdate về cơ chế "phát tới mốc câu kế tiếp rồi mới dừng".
+    // Video đã dừng SẴN gần đúng mốc câu KẾ TIẾP (awaitingNextMarkRef tự dừng khi chạm, xem
+    // handleTimeUpdate) — chỉ cần phát nốt đoạn còn lại, không seek. activeQuestionId=null nên
+    // handleTimeUpdate sẽ tự mở bảng VIẾT câu kế tiếp ngay khi chạm đúng mốc của nó.
     resumeVideo();
-    scheduleLastQuestionFallback();
   };
 
   // Ghi âm dừng (hết giờ hoặc học sinh bấm dừng) → tự động nộp ngay, không cần bấm thêm nút "Nộp bài".
@@ -659,10 +672,10 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
               </p>
             )}
             <button
-              onClick={handleStartRecordingAfterWritingPass}
+              onClick={handleContinueAfterWritingPass}
               className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 bg-teal hover:bg-teal-deep text-white rounded-xl text-xs sm:text-sm font-extrabold"
             >
-              <Mic size={14} /> {t("reflexVideoTask.writingStage.passedPopup.startRecordingButton")}
+              {t("reflexVideoTask.writingStage.passedPopup.continueButton")}
             </button>
           </div>
         </div>

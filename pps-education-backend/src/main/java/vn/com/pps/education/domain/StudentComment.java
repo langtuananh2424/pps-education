@@ -201,6 +201,18 @@ public class StudentComment {
     private ExerciseAssignment homeworkNextExerciseAssignment;
 
     /**
+     * V144 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-24) — "giao cả Đề" (chọn 1
+     * {@link Exam}, tự động giao TẤT CẢ Bài Published trong Đề, xem {@code ExamService#deliverToClass})
+     * thay cho chọn giao riêng 1 Bài ({@link #homeworkNextExerciseAssignment}, VẪN GIỮ song song cho
+     * đường "giao lẻ" nâng cao khi cần). CHỈ 1 trong 2 field có giá trị tại 1 thời điểm cho kênh Ngữ
+     * pháp — mirror vòng đời V65/V127: chỉ có giá trị SAU submit, lựa chọn CHƯA giao ở
+     * {@link #pendingHomeworkNextExamId}.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "homework_next_exam_id")
+    private Exam homeworkNextExam;
+
+    /**
      * BTVN Video Ôn tập giao cho buổi sau — luôn ONLINE, NULL = không
      * giao video. V65 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
      * 2026-07-30): đổi từ trỏ thẳng {@code ReviewVideoSet} (V55) sang trỏ
@@ -218,7 +230,7 @@ public class StudentComment {
     /**
      * "BTVN — Online — Reading" (V137, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-21) —
      * mirror {@link #homeworkNextExerciseAssignment} (kênh Ngữ pháp/TV+NP) nhưng cho kênh Reading, trỏ
-     * 1 {@link ExerciseAssignment} của Exercise có {@code skillCategory=READING} (xem Exercise.SkillCategory).
+     * 1 {@link ExerciseAssignment} của Exercise thuộc Đề có {@code skillCategory=READING} (xem Exam.SkillCategory).
      * CHỈ áp dụng khi {@code classSession.teacherType=VIETNAMESE}. Cùng vòng đời V65/V127 với kênh Ngữ
      * pháp — chỉ có giá trị SAU submit, lựa chọn CHƯA giao nằm ở {@link #pendingHomeworkNextReadingExerciseId}.
      */
@@ -230,6 +242,16 @@ public class StudentComment {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "homework_next_writing_exercise_assignment_id")
     private ExerciseAssignment homeworkNextWritingExerciseAssignment;
+
+    /** Mirror {@link #homeworkNextExam} cho kỹ năng Reading (V144) — Đề phải có skillCategory=READING. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "homework_next_reading_exam_id")
+    private Exam homeworkNextReadingExam;
+
+    /** Mirror {@link #homeworkNextExam} cho kỹ năng Writing (V144) — Đề phải có skillCategory=WRITING. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "homework_next_writing_exam_id")
+    private Exam homeworkNextWritingExam;
 
     @Column(columnDefinition = "TEXT")
     private String note;
@@ -258,6 +280,18 @@ public class StudentComment {
     /** Mirror {@link #pendingHomeworkNextReadingExerciseId} cho kỹ năng Writing, skillCategory=WRITING (V137). */
     @Column(name = "pending_homework_next_writing_exercise_id")
     private Long pendingHomeworkNextWritingExerciseId;
+
+    /** Id Exam (nguồn, không phải id bản giao) Giáo viên vừa chọn "giao cả Đề" nhưng CHƯA Gửi nhận xét (V144) — mirror {@link #pendingHomeworkNextExerciseId}. */
+    @Column(name = "pending_homework_next_exam_id")
+    private Long pendingHomeworkNextExamId;
+
+    /** Mirror {@link #pendingHomeworkNextExamId} cho kỹ năng Reading (V144). */
+    @Column(name = "pending_homework_next_reading_exam_id")
+    private Long pendingHomeworkNextReadingExamId;
+
+    /** Mirror {@link #pendingHomeworkNextExamId} cho kỹ năng Writing (V144). */
+    @Column(name = "pending_homework_next_writing_exam_id")
+    private Long pendingHomeworkNextWritingExamId;
 
     /** Hạn nộp tự chọn (giờ tường thuật thô, chưa quy đổi múi giờ) đi kèm lựa chọn CHƯA giao ở trên — quy đổi thật ở resolveDueAt() lúc Gửi. */
     @Column(name = "pending_homework_next_due_date")

@@ -183,7 +183,7 @@
       "useSuggestionButton": "Điền gợi ý vào ô trả lời",
       "passedPopup": {
         "heading": "Đạt bước viết",
-        "startRecordingButton": "Bắt đầu ghi âm"
+        "continueButton": "Tiếp tục"
       }
     },
     "speakingStage": {

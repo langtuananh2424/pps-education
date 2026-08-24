@@ -1778,6 +1778,76 @@ UC-40: Soạn & giao đề kiểm tra
 > 4.5 nếu có `ANTHROPIC_API_KEY`, fallback Gemini Flash nếu chỉ có
 > `GEMINI_API_KEY`.
 
+> **Bổ sung V144 (2026-08-24, đã xác nhận với người dùng) --- "giao cả Đề"
+> thay giao từng Bài lẻ + nhóm kỹ năng/ngưỡng đạt/lượt làm lại chuyển từ
+> Bài lên Đề + tính đạt theo SỐ CÂU cộng dồn toàn Đề:** phản hồi thực tế
+> khi test UC-40/UC-21 --- giao BTVN nên là hành động giao CẢ "Đề" (VD
+> IELTS Grade 6, gồm nhiều Bài/Unit) cho lớp cùng lúc, không phải chọn
+> từng Bài lẻ như thiết kế Kho đề gốc (2026-07-30). 4 thay đổi:
+> 1. **Nhóm kỹ năng chuyển từ Bài lên Đề** (`exercises.skill_category` gỡ
+>    hẳn, thêm `exams.skill_category`, migration `V144`) --- 1 Đề = 1 nhóm
+>    kỹ năng thuần (READING/WRITING/VOCAB_GRAMMAR/LISTENING), mọi Bài
+>    trong Đề cùng nhóm. Bắt buộc chọn khi tạo Đề (`CreateExamRequest`),
+>    dùng để lọc Kho đề (`GET /api/exams?skillCategory=...`) và validate
+>    kênh Reading/Writing "BTVN online" ở Nhận xét học viên (UC-21) ---
+>    trước đây validate theo `exercise.skillCategory`, nay theo
+>    `exercise.getExam().getSkillCategory()`.
+> 2. **Ngưỡng đạt + làm lại chuyển từ Bài lên Đề**
+>    (`exercises.pass_threshold_percent/allow_retake/max_attempts` gỡ hẳn,
+>    thêm 3 cột tương ứng trên `exams`, mặc định 70%/true/không giới hạn)
+>    --- áp dụng CHUNG cho mọi Bài trong Đề, "1 lượt làm lại = 1 vòng làm
+>    lại hết Đề" (không làm lại riêng từng Bài).
+> 3. **"Giao cả Đề"** (`ExamService#deliverToClass`, gọi từ
+>    `StudentCommentService` khi Giáo viên chọn 1 Đề ở dropdown "BTVN buổi
+>    sau" thay vì 1 Bài) --- ủy quyền `ExerciseService#deliverAllToClass`,
+>    tự động giao TẤT CẢ Bài đã Publish trong Đề, cùng 1 hạn nộp, tái dùng
+>    nguyên vẹn cơ chế chống trùng/race condition/thông báo học sinh đã có
+>    sẵn cho giao từng Bài (V70/V71/V128). **Vẫn giữ khả năng "giao lẻ" 1
+>    Bài** (dropdown nâng cao) cho trường hợp đặc biệt (VD học sinh yếu cần
+>    làm lại đúng 1 Unit) --- 2 nguồn lựa chọn (Đề/Bài) loại trừ lẫn nhau
+>    trên 1 kênh (`StudentCommentService#requireExclusiveChannelChoice`).
+>    `student_comments` thêm 3 cặp cột `homework_next_exam_id`/
+>    `pending_homework_next_exam_id` (+ Reading/Writing) song song với cột
+>    Bài lẻ cũ, KHÔNG đổi/xóa cột cũ.
+> 4. **Tính đạt/không đạt CẤP ĐỀ theo SỐ CÂU** (thay hẳn theo điểm + theo
+>    từng Bài riêng lẻ, `ExerciseAttemptService#applyPassOutcome`) --- VD
+>    Bài 1 (7 câu) + Bài 2 (10 câu) + Bài 3 (8 câu) = 25 câu, học sinh làm
+>    đúng 20/25 câu (80%) ≥ ngưỡng 70% mới "đạt". Nhóm "cùng 1 đợt giao"
+>    xác định qua (Đề, lớp, buổi Nhận xét nguồn) --- không cần cột nhóm
+>    riêng, tái dùng bộ 3 khóa đã có sẵn ở `exercise_assignments`. CHỈ tính
+>    đạt/không đạt khi TẤT CẢ Bài trong nhóm đã có lượt làm chấm xong
+>    (FULLY_GRADED); còn Bài nào chưa nộp thì tạm chưa hiện kết quả. Câu
+>    tự luận/Nói (ESSAY/SPEAKING, AI hoặc GV chấm) tính "đúng" nếu % điểm
+>    chấm của CHÍNH câu đó ≥ CÙNG ngưỡng đạt của Đề (không thêm ngưỡng
+>    riêng cho câu tự luận). Điểm số hiển thị (`totalScore`/`totalPoints`
+>    theo từng Bài) KHÔNG đổi --- chỉ đổi cách suy ra đạt/không đạt.
+>
+> **Cập nhật 2026-08-24 --- đã triển khai Frontend cho 2/4 màn hình:**
+> Kho đề (`ExerciseAssignPage.tsx`: skillCategory/allowRetake/maxAttempts/
+> passThresholdPercent chuyển hẳn lên form tạo/sửa Đề, thêm filter theo
+> nhóm kỹ năng) và Nhận xét học viên (`DailyCommentPanel.tsx`: 3 kênh
+> Ngữ pháp/Reading/Writing giờ mỗi kênh 1 dropdown GỘP "Cả đề" (Exam, mới)
+> + "1 Bài lẻ" (Exercise, cũ) --- loại trừ lẫn nhau qua giá trị composite
+> `EXAM:<id>`/`EXERCISE:<id>`, xem `channelSelectValue`/
+> `parseChannelSelectValue`/`renderChannelOptions`; nguồn dropdown Exam lấy
+> qua `GET /api/classes/{classId}/exams/published` mới thêm ở
+> `ExamController`/`ExamRepository#findPublishedForClass`). Nhân tiện phát
+> hiện + sửa 1 lỗi phát sinh khi dọn `skillCategory` khỏi `Exercise`: FE
+> lọc "Bài Reading/Writing" theo `ex.skillCategory` (field đã xoá) khiến 2
+> dropdown "giao lẻ" Reading/Writing luôn rỗng --- thêm
+> `ExerciseResponse.examSkillCategory` (denormalize từ `Exam.skillCategory`,
+> mirror `examTeacherType` đã có) để FE lọc đúng lại. Bộ test
+> (`ExerciseAuthoringTest`/`ExerciseAttemptServiceTest`/...) đã cập nhật
+> theo chữ ký `CreateExamRequest` mới, `mvn -B clean package -DskipTests`
+> qua Docker build sạch, app khởi động + Hibernate validate schema
+> (V144/V145) thành công.
+>
+> **GAP còn mở:** Thống kê BTVN (`HomeworkStatsPage.tsx`/
+> `AssignmentStatsDetailPage.tsx`) và Portal học sinh/Phụ huynh chưa rà lại
+> hiển thị theo Đề (cộng dồn) --- chưa xác nhận có cần làm ngay hay để
+> sau. Nhập Excel (`previewImportDailyComments`) CHỦ Ý chưa hỗ trợ "giao
+> cả Đề" (chỉ dán uuid 1 Bài lẻ như cũ, xem `StudentCommentService#importRow`).
+
 ---
 
 UC-41: Chấm bài thủ công
