@@ -212,12 +212,19 @@ export default function DateRangePicker({ fromDate, toDate, onChange, label }: D
           <ChevronDown size={14} className={`text-muted shrink-0 transition-transform ${open ? "rotate-180" : ""}`} aria-hidden="true" />
         </button>
 
-        {/* Desktop: popup nổi neo theo nút như cũ, không đổi. */}
+        {/*
+         * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25 — fix bug thật: nút "Từ → Đến"
+         * ở ScheduleFilterBar KHÔNG nằm sát mép phải card (đứng đầu hàng, cạnh "Học kỳ") — neo
+         * "right-0" (canh mép PHẢI popup theo mép phải nút) kéo popup rộng tới 580px tràn hẳn sang
+         * TRÁI, đè lên sidebar điều hướng. Đổi sang "left-0" (canh mép TRÁI popup theo mép trái nút,
+         * mở rộng dần sang phải) — đúng hướng có chỗ trống thật (card "Lịch buổi học" luôn đủ rộng
+         * hơn 580px ở các nơi đang dùng component này).
+         */}
         {open && (
           <div
             role="dialog"
             aria-label={t("dateRangePicker.selectDateRangeDialog")}
-            className="hidden sm:block absolute right-0 top-full mt-2 z-30 w-[min(92vw,580px)] bg-white border border-line rounded-2xl shadow-lg p-4 space-y-3"
+            className="hidden sm:block absolute left-0 top-full mt-2 z-30 w-[min(92vw,580px)] bg-white border border-line rounded-2xl shadow-lg p-4 space-y-3"
           >
             <RangeCalendarBody fromDate={fromDate} toDate={toDate} onChange={onChange} onDone={() => setOpen(false)} />
           </div>
