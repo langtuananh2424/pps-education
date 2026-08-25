@@ -2,15 +2,18 @@ package vn.com.pps.education.service;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.com.pps.education.domain.ClassEnrollment;
 import vn.com.pps.education.domain.ClassSession;
 import vn.com.pps.education.domain.Exam;
 import vn.com.pps.education.domain.Exercise;
 import vn.com.pps.education.domain.ExerciseAssignment;
 import vn.com.pps.education.domain.HomeworkSkillBatch;
+import vn.com.pps.education.domain.Notification;
 import vn.com.pps.education.domain.SchoolClass;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.dto.HomeworkSkillGroupResponse;
 import vn.com.pps.education.exception.ResourceNotFoundException;
+import vn.com.pps.education.repository.ClassEnrollmentRepository;
 import vn.com.pps.education.repository.ExamRepository;
 import vn.com.pps.education.repository.ExerciseAssignmentRepository;
 import vn.com.pps.education.repository.ExerciseQuestionRepository;
@@ -42,6 +45,8 @@ public class HomeworkSkillBatchService {
     private final ExamRepository examRepository;
     private final SchoolClassRepository schoolClassRepository;
     private final UserRepository userRepository;
+    private final ClassEnrollmentRepository classEnrollmentRepository;
+    private final NotificationService notificationService;
     private final ExerciseService exerciseService;
 
     public HomeworkSkillBatchService(HomeworkSkillBatchRepository homeworkSkillBatchRepository,
@@ -51,6 +56,8 @@ public class HomeworkSkillBatchService {
                                       ExamRepository examRepository,
                                       SchoolClassRepository schoolClassRepository,
                                       UserRepository userRepository,
+                                      ClassEnrollmentRepository classEnrollmentRepository,
+                                      NotificationService notificationService,
                                       ExerciseService exerciseService) {
         this.homeworkSkillBatchRepository = homeworkSkillBatchRepository;
         this.exerciseAssignmentRepository = exerciseAssignmentRepository;
@@ -59,6 +66,8 @@ public class HomeworkSkillBatchService {
         this.examRepository = examRepository;
         this.schoolClassRepository = schoolClassRepository;
         this.userRepository = userRepository;
+        this.classEnrollmentRepository = classEnrollmentRepository;
+        this.notificationService = notificationService;
         this.exerciseService = exerciseService;
     }
 
@@ -67,6 +76,11 @@ public class HomeworkSkillBatchService {
      * khi Giáo viên chọn kênh kỹ năng làm "BTVN buổi sau" ở UC-21. Mirror {@code deliverToClass}: gọi
      * lại chính method đó cho TỪNG Bài (đã tự dedupe/reuse bản giao ACTIVE cùng buổi nguồn) — không lặp
      * logic due-date/conflict, chỉ thêm bước gắn {@code homeworkBatchId} sau khi có assignment.
+     *
+     * V150 sửa lỗi thật (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25, xem ảnh chụp
+     * Portal học sinh) — gọi {@code deliverToClass} với {@code notify=false} cho TỪNG Bài (khác trước:
+     * mỗi Bài tự gửi 1 thông báo, học sinh nhận N thông báo gần như giống hệt nhau cho cùng 1 Lô), rồi
+     * tự gửi đúng 1 thông báo GỘP cho cả Lô sau khi giao xong toàn bộ N Bài.
      */
     @Transactional
     public HomeworkSkillBatch assignBatchToClass(Long examId, Exercise.SkillCategory skillCategory, Long classId,
@@ -90,13 +104,44 @@ public class HomeworkSkillBatchService {
         batch.setSourceClassSession(sourceClassSession);
         batch = homeworkSkillBatchRepository.save(batch);
 
+        ExerciseAssignment representativeAssignment = null;
         for (Exercise source : sources) {
             ExerciseAssignment assignment = exerciseService.deliverToClass(
-                    source.getId(), classId, dueAt, actorUserId, sourceClassSession);
+                    source.getId(), classId, dueAt, actorUserId, sourceClassSession, false);
             assignment.setHomeworkBatch(batch);
             exerciseAssignmentRepository.save(assignment);
+            if (representativeAssignment == null) {
+                representativeAssignment = assignment;
+            }
         }
+        notifyAssignedStudents(schoolClass, exam, skillCategory, sources.size(), representativeAssignment);
         return batch;
+    }
+
+    /** Mirror {@code ExerciseService#notifyAssignedStudents} — 1 thông báo GỘP/Lô thay vì 1 thông báo/Bài (xem Javadoc assignBatchToClass). entityId trỏ về 1 Bài đại diện trong Lô — FE (NotificationBell) đã tự tra ngược đúng thẻ gộp qua homeworkBatchId của Bài đó, xem AssignmentsTab.tsx. */
+    private void notifyAssignedStudents(SchoolClass schoolClass, Exam exam, Exercise.SkillCategory skillCategory,
+                                         int exerciseCount, ExerciseAssignment representativeAssignment) {
+        List<ClassEnrollment> enrollments = classEnrollmentRepository
+                .findBySchoolClassIdAndStatus(schoolClass.getId(), ClassEnrollment.Status.ACTIVE);
+        String title = "Bài kiểm tra mới được giao";
+        String content = "Đề \"" + exam.getTitle() + " – " + skillCategoryLabel(skillCategory) + " (" + exerciseCount + " bài)\""
+                + " đã được giao cho lớp " + schoolClass.getName() + ".";
+        for (ClassEnrollment enrollment : enrollments) {
+            notificationService.notify(enrollment.getStudent().getUser().getId(),
+                    Notification.NotificationType.OTHER, title, content,
+                    null, "EXERCISE_ASSIGNMENT", representativeAssignment.getId(),
+                    Notification.Priority.NORMAL, null);
+        }
+    }
+
+    /** Nhãn tiếng Việt ngắn cho 1 skillCategory — mirror ExerciseReportService/StudentCommentService (đúng tiền lệ mirror-không-generalize của codebase). */
+    private static String skillCategoryLabel(Exercise.SkillCategory skillCategory) {
+        return switch (skillCategory) {
+            case READING -> "Reading";
+            case WRITING -> "Writing";
+            case VOCAB_GRAMMAR -> "Ngữ pháp";
+            case LISTENING -> "Nghe";
+        };
     }
 
     /** Huỷ toàn bộ N bản giao thuộc 1 lô (VD Giáo viên đổi lựa chọn kênh kỹ năng khi comment còn DRAFT) — mirror {@code ExerciseService#cancelAssignment}. */

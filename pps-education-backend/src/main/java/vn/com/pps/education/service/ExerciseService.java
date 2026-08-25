@@ -408,6 +408,20 @@ public class ExerciseService {
      */
     public ExerciseAssignment deliverToClass(Long exerciseId, Long classId, OffsetDateTime dueAt, Long actorUserId,
                                               ClassSession sourceClassSession) {
+        return deliverToClass(exerciseId, classId, dueAt, actorUserId, sourceClassSession, true);
+    }
+
+    /**
+     * V150 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — overload nội bộ (package-
+     * private) cho {@link HomeworkSkillBatchService#assignBatchToClass}: 1 "Lô" gọi lại đây N lần (1
+     * lần/Bài THẬT trong Lô) — {@code notify=false} để tắt thông báo TỪNG Bài ở đây, tránh học sinh
+     * nhận N thông báo gần như giống hệt nhau chỉ khác tên Bài (bug thật đã gặp, xem ảnh chụp Portal
+     * học sinh 2026-08-25) — HomeworkSkillBatchService tự gửi đúng 1 thông báo GỘP cho cả Lô sau khi
+     * giao xong toàn bộ N Bài. Mọi caller khác (giao 1 Bài lẻ, kể cả test) vẫn dùng 2 overload public ở
+     * trên (notify=true, hành vi không đổi).
+     */
+    ExerciseAssignment deliverToClass(Long exerciseId, Long classId, OffsetDateTime dueAt, Long actorUserId,
+                                       ClassSession sourceClassSession, boolean notify) {
         // Cắt về độ chính xác microsecond NGAY từ đầu — cột due_at (TIMESTAMPTZ) của Postgres chỉ lưu
         // tới microsecond, còn OffsetDateTime.now() ở tầng gọi có thể mang độ chính xác nanosecond
         // (phát hiện thực tế 2026-08-06, tái hiện được cả khi chạy 1 mình với DB sạch — KHÔNG phải
@@ -484,7 +498,9 @@ public class ExerciseService {
         exercise.setStatus(Exercise.Status.PUBLISHED);
         exerciseRepository.save(exercise);
 
-        notifyAssignedStudents(schoolClass, exercise, assignment);
+        if (notify) {
+            notifyAssignedStudents(schoolClass, exercise, assignment);
+        }
         return assignment;
     }
 
