@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ChevronDown, ChevronUp, Download, History, Save, Send, UploadCloud } from "lucide-react";
+import { ChevronDown, ChevronUp, Download, History, Save, Send, ShieldAlert, UploadCloud } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { downloadBlob } from "@/lib/xlsxTemplate";
 import { useApp, UnsavedSaveResult } from "@/context/AppContext";
+import Modal from "@/components/ui/Modal";
 import {
   AutoProgressPreviewResponse,
   ClassEnrollmentResponse,
@@ -202,6 +203,14 @@ export default function DailyCommentPanel() {
   // StudentComment nào (sent undefined) để vẫn hiện được % thay vì bỏ trống, xem previewAutoProgress.
   const [autoProgress, setAutoProgress] = useState<Record<number, AutoProgressPreviewResponse>>({});
   const [sending, setSending] = useState(false);
+  /**
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25 — "Gửi nhận xét" gộp cả 2 bước (ghi
+   * DRAFT + gửi duyệt, xem Javadoc handleSend) và tự động khoá read-only mọi dòng vừa gửi ngay khi
+   * xong (không sửa lại được nữa, kể cả điểm/BTVN online đã tạo bản giao thật) — trước đây bấm PHÁT
+   * GỬI LUÔN không có bước xác nhận nào, dễ gửi nhầm hàng loạt (VD chưa kiểm tra kỹ % BTVN online vừa
+   * điền). Hỏi lại 1 lần, nêu rõ số dòng sẽ gửi, trước khi thực sự gọi handleSend.
+   */
+  const [confirmingSend, setConfirmingSend] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [downloadingTemplate, setDownloadingTemplate] = useState(false);
@@ -1777,7 +1786,7 @@ export default function DailyCommentPanel() {
             {/* Không còn dòng nào có nội dung để gửi (VD cả lớp đã Gửi nhận xét xong, mọi dòng đều
                 khoá/rỗng) — tự disable thay vì để bấm được rồi báo lỗi "chưa nhập gì" (2026-07-30). */}
             <button
-              onClick={handleSend}
+              onClick={() => setConfirmingSend(true)}
               disabled={sending || !rows.some((r) => r.content.trim())}
               className="bg-brand-orange hover:bg-brand-orange/90 text-white font-semibold text-xs px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-soft transition-all disabled:opacity-50"
             >
@@ -1792,6 +1801,42 @@ export default function DailyCommentPanel() {
             </button>
           </div>
         )}
+
+        {/* Xác nhận trước khi Gửi nhận xét (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+            2026-08-25) — xem Javadoc confirmingSend ở trên. */}
+        <Modal
+          open={confirmingSend}
+          onClose={() => setConfirmingSend(false)}
+          title={t("dailyCommentPanel.confirmSend.title")}
+          footer={
+            <>
+              <button
+                onClick={() => setConfirmingSend(false)}
+                className="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold text-xs px-4 py-2 rounded-lg transition-all"
+              >
+                {t("dailyCommentPanel.confirmSend.cancel")}
+              </button>
+              <button
+                onClick={() => {
+                  setConfirmingSend(false);
+                  handleSend();
+                }}
+                disabled={sending}
+                className="bg-brand-orange hover:bg-brand-orange/90 text-white font-semibold text-xs px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-soft transition-all disabled:opacity-50"
+              >
+                <Send className="w-3.5 h-3.5 text-white" />
+                {t("dailyCommentPanel.confirmSend.confirmButton")}
+              </button>
+            </>
+          }
+        >
+          <div className="flex items-start gap-3">
+            <ShieldAlert className="w-8 h-8 text-amber-500 shrink-0" />
+            <p className="text-xs text-slate-600 leading-relaxed">
+              {t("dailyCommentPanel.confirmSend.description", { count: rows.filter((r) => r.content.trim()).length })}
+            </p>
+          </div>
+        </Modal>
 
         {/* {selectedClassId && selectedSessionId && (
           <div className="px-6 py-4 border-t border-slate-100 space-y-2">

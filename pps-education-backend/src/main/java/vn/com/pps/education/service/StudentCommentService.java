@@ -2087,9 +2087,22 @@ public class StudentCommentService {
      * V150 — nhãn hiển thị 1 Lô ĐÃ giao (đọc đúng N Bài THẬT đã chốt lúc giao qua
      * {@code exercise_assignments.homework_batch_id}, KHÔNG tính lại theo trạng thái Published hiện tại
      * — 1 Lesson thêm Bài mới sau khi đã giao không được đổi nhãn của lô CŨ này).
+     *
+     * V152 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — fix bug thật: phát hiện qua
+     * dữ liệu thật 1 Lô KHÔNG có Bài nào gắn vào (0 exercise_assignments, dữ liệu hỏng/sót lại từ lúc
+     * code Lô còn đang phát triển dở, hiện tượng đúng ra không thể xảy ra với assignBatchToClass hiện
+     * tại — sources rỗng đã bị chặn TRƯỚC khi tạo Lô) — trước đây vẫn dựng nhãn kiểu "(Kỹ năng, 0 bài, 0
+     * câu)" gây hiểu nhầm là "Lesson chưa có bài" thay vì "dữ liệu Lô này hỏng". Trả về null khi Lô rỗng,
+     * mirror ĐÚNG guard đã có sẵn ở {@link HomeworkProgressService#grammarProgressLabel(List, Long)} —
+     * FE (cả Portal học sinh lẫn Nhận xét học viên bên Admin, cùng đọc field
+     * {@code homeworkNextExerciseTitle}/tương đương) đã tự hiện "—" khi giá trị null, không cần sửa gì
+     * thêm ở FE.
      */
     private String batchLabel(HomeworkSkillBatch batch) {
         List<ExerciseAssignment> assignments = exerciseAssignmentRepository.findByHomeworkBatchId(batch.getId());
+        if (assignments.isEmpty()) {
+            return null;
+        }
         long questionCount = assignments.stream()
                 .mapToLong(a -> exerciseQuestionRepository.countByExerciseId(a.getExercise().getId())).sum();
         return batch.getExam().getCode() + " - " + batch.getExam().getTitle()

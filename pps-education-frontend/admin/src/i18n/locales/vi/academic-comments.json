@@ -263,6 +263,12 @@
     "sendButton": "Gửi nhận xét",
     "sending": "Đang gửi...",
     "sendButtonDoneAll": "Đã gửi hết nhận xét buổi này",
+    "confirmSend": {
+      "title": "Xác nhận gửi nhận xét?",
+      "description": "Bạn sắp gửi nhận xét cho {{count}} học viên. Sau khi gửi, các dòng này sẽ bị khoá (không sửa lại được ở đây nữa) và mọi BTVN online đã chọn sẽ được giao thật ngay cho học sinh — hãy kiểm tra lại thật kỹ trước khi xác nhận.",
+      "cancel": "Kiểm tra lại",
+      "confirmButton": "Gửi nhận xét"
+    },
     "historyToggle": "Lịch sử nhận xét buổi này",
     "historyToggleCount": "Lịch sử nhận xét buổi này ({{count}})",
     "loadingHistory": "Đang tải...",

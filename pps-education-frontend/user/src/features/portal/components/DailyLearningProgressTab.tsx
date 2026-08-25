@@ -98,10 +98,25 @@ interface SessionFeedbackLog {
   homeworkPreviousSpeakingScore: string | null;
   grammarPreviousProgress: string | null;
   videoPreviousProgress: string | null;
+  /**
+   * V152 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — fix bug thật: bảng này CHƯA
+   * BAO GIỜ hiện cột Reading/Writing dù backend đã có sẵn field từ V130/V137 và bên Admin (Nhận xét
+   * học viên) đã hiện đủ từ lâu — chỉ khác null với buổi teacherType=VIETNAMESE (mirror DailyCommentPanel).
+   */
+  homeworkPreviousReadingScore: string | null;
+  homeworkPreviousWritingScore: string | null;
+  readingPreviousProgress: string | null;
+  writingPreviousProgress: string | null;
   content: string;
   homeworkNextOfflineText: string | null;
+  /** V152 — mirror homeworkPreviousReadingScore/WritingScore, "BTVN buổi này - Offline - Reading/Writing". */
+  homeworkNextOfflineReadingText: string | null;
+  homeworkNextOfflineWritingText: string | null;
   homeworkNextGrammarLabel: string | null;
   homeworkNextVideoLabel: string | null;
+  /** V152 — mirror homeworkNextGrammarLabel/VideoLabel, "BTVN buổi này - Online - Reading/Writing". */
+  homeworkNextReadingLabel: string | null;
+  homeworkNextWritingLabel: string | null;
   homeworkNextDueAt: string | null;
   note: string | null;
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — id bản giao đứng sau nhãn (chỉ có
@@ -109,6 +124,9 @@ interface SessionFeedbackLog {
   // (xem onOpenGrammarHomework/onOpenVideoHomework).
   homeworkNextExerciseAssignmentId: number | null;
   homeworkNextReviewVideoAssignmentId: number | null;
+  /** V152 — mirror homeworkNextExerciseAssignmentId, dùng chung onOpenGrammarHomework (callback không phụ thuộc kỹ năng, chỉ cần đúng assignmentId). */
+  homeworkNextReadingExerciseAssignmentId: number | null;
+  homeworkNextWritingExerciseAssignmentId: number | null;
 }
 
 interface DailyLearningProgressTabProps {
@@ -221,14 +239,24 @@ export default function DailyLearningProgressTab({
             homeworkPreviousSpeakingScore: c.homeworkPreviousSpeakingScore,
             grammarPreviousProgress: c.grammarPreviousProgress,
             videoPreviousProgress: c.videoPreviousProgress,
+            homeworkPreviousReadingScore: c.homeworkPreviousReadingScore,
+            homeworkPreviousWritingScore: c.homeworkPreviousWritingScore,
+            readingPreviousProgress: c.readingPreviousProgress,
+            writingPreviousProgress: c.writingPreviousProgress,
             content: c.content,
             homeworkNextOfflineText: c.homeworkNext,
+            homeworkNextOfflineReadingText: c.homeworkNextReading,
+            homeworkNextOfflineWritingText: c.homeworkNextWriting,
             homeworkNextGrammarLabel: c.homeworkNextExerciseTitle,
             homeworkNextVideoLabel: c.homeworkNextReviewVideoSetTitle,
+            homeworkNextReadingLabel: c.homeworkNextReadingExerciseTitle,
+            homeworkNextWritingLabel: c.homeworkNextWritingExerciseTitle,
             homeworkNextDueAt: c.homeworkNextDueAt,
             note: c.note,
             homeworkNextExerciseAssignmentId: c.homeworkNextExerciseAssignmentId,
-            homeworkNextReviewVideoAssignmentId: c.homeworkNextReviewVideoAssignmentId
+            homeworkNextReviewVideoAssignmentId: c.homeworkNextReviewVideoAssignmentId,
+            homeworkNextReadingExerciseAssignmentId: c.homeworkNextReadingExerciseAssignmentId,
+            homeworkNextWritingExerciseAssignmentId: c.homeworkNextWritingExerciseAssignmentId
           };
         }),
     [comments, sessionById]
@@ -489,6 +517,45 @@ export default function DailyLearningProgressTab({
     );
   };
 
+  /**
+   * V152 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — mirror renderGrammarLabel,
+   * kênh "BTVN online - Reading/Writing" (chỉ khác null với buổi teacherType=VIETNAMESE). Dùng chung
+   * onOpenGrammarHomework — callback đó chỉ cần đúng (commentId, exerciseAssignmentId), không phụ
+   * thuộc kỹ năng của Bài, xem PortalPage.tsx.
+   */
+  const renderReadingLabel = (log: SessionFeedbackLog, className: string) => {
+    if (!log.homeworkNextReadingLabel) return <span className={className}>—</span>;
+    if (log.homeworkNextReadingExerciseAssignmentId == null || !onOpenGrammarHomework) {
+      return <span className={className}>{log.homeworkNextReadingLabel}</span>;
+    }
+    return (
+      <button
+        type="button"
+        onClick={() => onOpenGrammarHomework(Number(log.id), log.homeworkNextReadingExerciseAssignmentId!)}
+        className={`${className} text-teal-deep underline decoration-teal/40 hover:decoration-teal underline-offset-2 text-left cursor-pointer`}
+      >
+        {log.homeworkNextReadingLabel}
+      </button>
+    );
+  };
+
+  /** V152 — mirror renderReadingLabel cho kỹ năng Writing. */
+  const renderWritingLabel = (log: SessionFeedbackLog, className: string) => {
+    if (!log.homeworkNextWritingLabel) return <span className={className}>—</span>;
+    if (log.homeworkNextWritingExerciseAssignmentId == null || !onOpenGrammarHomework) {
+      return <span className={className}>{log.homeworkNextWritingLabel}</span>;
+    }
+    return (
+      <button
+        type="button"
+        onClick={() => onOpenGrammarHomework(Number(log.id), log.homeworkNextWritingExerciseAssignmentId!)}
+        className={`${className} text-teal-deep underline decoration-teal/40 hover:decoration-teal underline-offset-2 text-left cursor-pointer`}
+      >
+        {log.homeworkNextWritingLabel}
+      </button>
+    );
+  };
+
   /** Nội dung panel chọn buổi — dùng chung cho nút desktop riêng lẫn dropdown gộp trên mobile. */
   const renderSessionPickerBody = (closeAll: () => void) => (
     <>
@@ -684,6 +751,15 @@ export default function DailyLearningProgressTab({
           const prevGrammarDisplay = log.homeworkPreviousScore || log.grammarPreviousProgress;
           const prevSpeakingDisplay = log.homeworkPreviousSpeakingScore || log.videoPreviousProgress;
           const prevGrammarPercent = parseProgressPercent(prevGrammarDisplay ?? null);
+          /**
+           * V152 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — dạng thẻ CHƯA hiện
+           * Reading/Writing (mirror lỗi tương tự ở dạng bảng) — chỉ hiện khi buổi teacherType=VIETNAMESE
+           * (kênh Reading/Writing chỉ có ý nghĩa ở buổi đó, mirror isVietnamese bên DailyCommentPanel.tsx),
+           * tránh thêm 4 dòng "—" vô ích cho phần lớn thẻ (buổi FOREIGN không có kênh này).
+           */
+          const isVietnameseSession = log.teacherType === "VIETNAMESE";
+          const prevReadingDisplay = log.homeworkPreviousReadingScore || log.readingPreviousProgress;
+          const prevWritingDisplay = log.homeworkPreviousWritingScore || log.writingPreviousProgress;
           return (
             <div key={log.id} className="bg-white border border-line rounded-2xl p-5 shadow-2xs hover:shadow-xs transition-all space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-line/70 pb-3">
@@ -740,6 +816,18 @@ export default function DailyLearningProgressTab({
                       <span className="text-slate-600 font-semibold">{t("card.offlineLabel")}</span>
                       <span className="font-bold text-slate-900">{log.homeworkPreviousOfflineText || "—"}</span>
                     </div>
+                    {isVietnameseSession && (
+                      <>
+                        <div className="flex justify-between text-[11px]">
+                          <span className="text-slate-600 font-semibold">{t("table.reading")}:</span>
+                          <span className="font-bold text-slate-900">{prevReadingDisplay || "—"}</span>
+                        </div>
+                        <div className="flex justify-between text-[11px]">
+                          <span className="text-slate-600 font-semibold">{t("table.writing")}:</span>
+                          <span className="font-bold text-slate-900">{prevWritingDisplay || "—"}</span>
+                        </div>
+                      </>
+                    )}
                     <div className="flex justify-between text-[11px]">
                       <span className="text-slate-600 font-semibold">{cardGrammarLabel}:</span>
                       <span className="font-bold text-slate-900">{prevGrammarDisplay || "—"}</span>
@@ -768,6 +856,18 @@ export default function DailyLearningProgressTab({
                       <span className="font-bold text-slate-800 shrink-0">{t("card.offlineLabel")}</span>
                       <span className="font-semibold text-slate-700 text-right">{log.homeworkNextOfflineText || "—"}</span>
                     </div>
+                    {isVietnameseSession && (
+                      <>
+                        <div className="flex items-start justify-between gap-2 text-[11px]">
+                          <span className="font-bold text-slate-800 shrink-0">{t("table.reading")}:</span>
+                          {renderReadingLabel(log, "font-semibold text-right")}
+                        </div>
+                        <div className="flex items-start justify-between gap-2 text-[11px]">
+                          <span className="font-bold text-slate-800 shrink-0">{t("table.writing")}:</span>
+                          {renderWritingLabel(log, "font-semibold text-right")}
+                        </div>
+                      </>
+                    )}
                     <div className="flex items-start justify-between gap-2 text-[11px]">
                       <span className="font-bold text-slate-800 shrink-0">{cardGrammarLabel}:</span>
                       {renderGrammarLabel(log, "font-semibold text-right")}
@@ -1163,32 +1263,53 @@ export default function DailyLearningProgressTab({
             <p className="text-xs text-muted font-bold italic text-center py-10">{t("noApprovedComments")}</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse min-w-[1200px]">
+              <table className="w-full text-left border-collapse min-w-[1700px]">
                 <thead>
                   {/* Cỡ chữ bảng tăng trên mobile (đọc rõ hơn theo phản hồi người dùng, 2026-07-31) —
                         desktop (md+) giữ nguyên cỡ gốc qua md:text-*. */}
-                  {/* Đồng bộ đúng cấu trúc cột với form Giáo viên/màn Quản lý điểm trường (bổ sung
-                      ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06) — "BTVN buổi trước"/"buổi
-                      sau" đều tách 3 kênh Offline/Bài/Video, thêm cột Hạn nộp bài. Nhãn kênh giữ chung
-                      chung "Bài" (không đổi Ngữ pháp/Bài nghe theo Loại giáo viên như bên Admin) vì 1
-                      bảng ở đây gộp nhiều buổi/nhiều ngày có thể khác Loại giáo viên nhau, 1 tiêu đề cột
-                      cố định không phản ánh đúng hết từng dòng. */}
+                  {/*
+                    V152 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — fix bug thật:
+                    bảng này CHƯA BAO GIỜ hiện cột Reading/Writing dù backend đã trả đủ dữ liệu từ V130/
+                    V137 và bên Admin (Nhận xét học viên) đã hiện đủ từ lâu — 2 nơi "chưa đồng bộ" đúng
+                    như người dùng chỉ ra. Nâng header lên 3 CẤP, mirror ĐÚNG cấu trúc
+                    DailyCommentPanel.tsx (buổi teacherType=VIETNAMESE): "BTVN buổi trước"/"BTVN buổi
+                    này" (cấp 1) > Offline/Online (cấp 2) > các kênh cụ thể (cấp 3). KHÁC Admin ở chỗ
+                    Admin chỉ hiện 1 session/lần (đổi hẳn cấu trúc cột theo teacherType đang chọn) — bảng
+                    này gộp NHIỀU buổi/nhiều ngày có thể khác Loại giáo viên nhau trong CÙNG 1 bảng, nên
+                    giữ ĐỦ mọi cột luôn (cột Offline chung + Ngữ pháp/Nghe + Video TKN/PX vẫn cho buổi
+                    FOREIGN, cột Reading/Writing chỉ có giá trị ở buổi VIETNAMESE) — "—" tự nhiên cho ô
+                    không áp dụng, không cần bảng con đổi cấu trúc theo từng dòng.
+                  */}
                   <tr className="bg-slate-100 border-b border-slate-300 [&>th]:text-center text-xs md:text-[11px] font-black uppercase text-slate-700 tracking-wider">
-                    <th rowSpan={2} className="p-3 border-r border-slate-300 w-28 whitespace-nowrap">{t("table.date")}</th>
-                    <th rowSpan={2} className="p-3 border-r border-slate-300 min-w-[200px]">{t("table.todayLesson")}</th>
-                    <th rowSpan={2} className="p-3 border-r border-slate-300 w-28 whitespace-nowrap text-center">{t("table.teacher")}</th>
-                    <th colSpan={3} className="p-3 border-r border-slate-300 text-center">{t("table.homeworkPrev")}</th>
-                    <th rowSpan={2} className="p-3 border-r border-slate-300 w-32 whitespace-nowrap">{t("table.homeworkOffline")}</th>
-                    <th colSpan={2} className="p-3 border-r border-slate-300 text-center">{t("table.homeworkOnline")}</th>
-                    <th rowSpan={2} className="p-3 border-r border-slate-300 w-32 whitespace-nowrap">{t("table.dueDate")}</th>
-                    <th rowSpan={2} className="p-3 border-r border-slate-300 w-28 whitespace-nowrap text-center">{t("table.attitude")}</th>
-                    <th rowSpan={2} className="p-3 border-r border-slate-300 min-w-[220px]">{t("table.studentComment")}</th>
-                    <th rowSpan={2} className="p-3 min-w-[140px]">{t("table.note")}</th>
+                    <th rowSpan={3} className="p-3 border-r border-slate-300 w-28 whitespace-nowrap">{t("table.date")}</th>
+                    <th rowSpan={3} className="p-3 border-r border-slate-300 min-w-[200px]">{t("table.todayLesson")}</th>
+                    <th rowSpan={3} className="p-3 border-r border-slate-300 w-28 whitespace-nowrap text-center">{t("table.teacher")}</th>
+                    <th colSpan={7} className="p-3 border-r border-slate-300 text-center">{t("table.homeworkPrev")}</th>
+                    <th colSpan={7} className="p-3 border-r border-slate-300 text-center">{t("table.homeworkNextGroup")}</th>
+                    <th rowSpan={3} className="p-3 border-r border-slate-300 w-32 whitespace-nowrap">{t("table.dueDate")}</th>
+                    <th rowSpan={3} className="p-3 border-r border-slate-300 w-28 whitespace-nowrap text-center">{t("table.attitude")}</th>
+                    <th rowSpan={3} className="p-3 border-r border-slate-300 min-w-[220px]">{t("table.studentComment")}</th>
+                    <th rowSpan={3} className="p-3 min-w-[140px]">{t("table.note")}</th>
+                  </tr>
+                  <tr className="bg-slate-100 border-b border-slate-300 [&>th]:text-center text-xs md:text-[11px] font-black uppercase text-slate-700 tracking-wider">
+                    <th colSpan={3} className="p-3 border-r border-slate-300 text-center">{t("table.offline")}</th>
+                    <th colSpan={4} className="p-3 border-r border-slate-300 text-center">{t("table.online")}</th>
+                    <th colSpan={3} className="p-3 border-r border-slate-300 text-center">{t("table.offline")}</th>
+                    <th colSpan={4} className="p-3 border-r border-slate-300 text-center">{t("table.online")}</th>
                   </tr>
                   <tr className="bg-slate-100 border-b border-slate-300 [&>th]:text-center text-xs md:text-[11px] font-black uppercase text-slate-700 tracking-wider">
                     <th className="p-3 border-r border-slate-300 w-28 whitespace-nowrap text-center">{t("table.offline")}</th>
+                    <th className="p-3 border-r border-slate-300 w-24 whitespace-nowrap text-center">{t("table.reading")}</th>
+                    <th className="p-3 border-r border-slate-300 w-24 whitespace-nowrap text-center">{t("table.writing")}</th>
+                    <th className="p-3 border-r border-slate-300 w-24 whitespace-nowrap text-center">{t("table.reading")}</th>
+                    <th className="p-3 border-r border-slate-300 w-24 whitespace-nowrap text-center">{t("table.writing")}</th>
                     <th className="p-3 border-r border-slate-300 w-32 whitespace-nowrap text-center">{t("table.grammarListening")}</th>
                     <th className="p-3 border-r border-slate-300 w-32 whitespace-nowrap text-center">{t("table.videoTkn")}</th>
+                    <th className="p-3 border-r border-slate-300 min-w-[130px] text-center">{t("table.offline")}</th>
+                    <th className="p-3 border-r border-slate-300 min-w-[140px] text-center">{t("table.reading")}</th>
+                    <th className="p-3 border-r border-slate-300 min-w-[140px] text-center">{t("table.writing")}</th>
+                    <th className="p-3 border-r border-slate-300 min-w-[140px] text-center">{t("table.reading")}</th>
+                    <th className="p-3 border-r border-slate-300 min-w-[140px] text-center">{t("table.writing")}</th>
                     <th className="p-3 border-r border-slate-300 min-w-[160px] text-center">{t("table.grammarListening")}</th>
                     <th className="p-3 border-r border-slate-300 min-w-[160px] text-center">{t("table.videoTkn")}</th>
                   </tr>
@@ -1221,10 +1342,26 @@ export default function DailyLearningProgressTab({
                           "—"
                         )}
                       </td>
+                      {/* BTVN buổi trước — Offline: chung/Reading/Writing. */}
                       <td className="p-3 border-r border-slate-300 align-top">{log.homeworkPreviousOfflineText == null ? "—" : log.homeworkPreviousOfflineText + "%"}</td>
+                      <td className="p-3 border-r border-slate-300 align-top">{log.homeworkPreviousReadingScore == null ? "—" : log.homeworkPreviousReadingScore + "%"}</td>
+                      <td className="p-3 border-r border-slate-300 align-top">{log.homeworkPreviousWritingScore == null ? "—" : log.homeworkPreviousWritingScore + "%"}</td>
+                      {/* BTVN buổi trước — Online: Reading/Writing/Ngữ pháp-Nghe/Video. */}
+                      <td className="p-3 border-r border-slate-300 font-bold text-slate-800 align-top">{log.readingPreviousProgress ?? "—"}</td>
+                      <td className="p-3 border-r border-slate-300 font-bold text-slate-800 align-top">{log.writingPreviousProgress ?? "—"}</td>
                       <td className="p-3 border-r border-slate-300 font-bold text-slate-800 align-top">{(log.homeworkPreviousScore || log.grammarPreviousProgress) ?? "—"}</td>
                       <td className="p-3 border-r border-slate-300 font-bold text-purple-900 align-top">{(log.homeworkPreviousSpeakingScore || log.videoPreviousProgress) ?? "—"}</td>
+                      {/* BTVN buổi này — Offline: chung/Reading/Writing. */}
                       <td className="p-3 border-r border-slate-300 align-top">{log.homeworkNextOfflineText == null ? "—" : log.homeworkNextOfflineText + "%"}</td>
+                      <td className="p-3 border-r border-slate-300 align-top">{log.homeworkNextOfflineReadingText || "—"}</td>
+                      <td className="p-3 border-r border-slate-300 align-top">{log.homeworkNextOfflineWritingText || "—"}</td>
+                      {/* BTVN buổi này — Online: Reading/Writing/Ngữ pháp-Nghe/Video. */}
+                      <td className="p-3 border-r border-slate-300 text-slate-800 font-semibold align-top">
+                        {renderReadingLabel(log, "font-semibold")}
+                      </td>
+                      <td className="p-3 border-r border-slate-300 text-slate-800 font-semibold align-top">
+                        {renderWritingLabel(log, "font-semibold")}
+                      </td>
                       <td className="p-3 border-r border-slate-300 text-slate-800 font-semibold align-top">
                         {renderGrammarLabel(log, "font-semibold")}
                       </td>
