@@ -207,9 +207,15 @@ export default function TeacherDashboard() {
     setSelectedClassId(classId);
     navigate("/academic/classes");
   };
-  const goToHomeworkStats = (classId: number) => {
-    setSelectedClassId(classId);
-    navigate("/academic/homework-stats");
+  // Điều hướng thẳng vào đúng Bài/Lô đang xem thay vì màn danh sách chung — khớp route chi tiết đã có
+  // sẵn ở HomeworkStatsPage.tsx (/academic/homework-stats/:assignmentId hoặc /batch/:homeworkBatchId).
+  const goToAssignmentDetail = (a: TeacherAssignmentRow) => {
+    setSelectedClassId(a.classId);
+    navigate(
+      a.homeworkBatchId != null && a.batchMembers != null
+        ? `/academic/homework-stats/batch/${a.homeworkBatchId}`
+        : `/academic/homework-stats/${a.assignmentId}`
+    );
   };
 
   const firstName = currentUser?.fullName?.split(" ").slice(-1)[0] ?? "";
@@ -327,7 +333,7 @@ export default function TeacherDashboard() {
               return (
                 <button
                   key={a.assignmentId}
-                  onClick={() => goToHomeworkStats(a.classId)}
+                  onClick={() => goToAssignmentDetail(a)}
                   className="w-full p-4 flex items-start gap-3 text-left hover:bg-slate-50"
                 >
                   <span className="w-2 h-2 rounded-full bg-amber-500 mt-2 shrink-0" />
@@ -378,7 +384,7 @@ export default function TeacherDashboard() {
                   <button
                     onClick={() => {
                       setSelectedClassId(s.classId);
-                      navigate("/student/attendance");
+                      navigate(`/student/attendance?classId=${s.classId}&sessionId=${s.id}`);
                     }}
                     className="text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg px-3 py-1.5 shrink-0 self-start"
                   >
@@ -437,7 +443,7 @@ export default function TeacherDashboard() {
               {filteredAssignments.map((a) => {
                 const statusKey = assignmentStatusKey(a);
                 return (
-                  <tr key={a.assignmentId} onClick={() => goToHomeworkStats(a.classId)} className="cursor-pointer hover:bg-slate-50">
+                  <tr key={a.assignmentId} onClick={() => goToAssignmentDetail(a)} className="cursor-pointer hover:bg-slate-50">
                     <Td className="font-bold text-xs text-slate-800">{a.exerciseTitle}</Td>
                     <Td>{a.className}</Td>
                     <Td className="font-mono">

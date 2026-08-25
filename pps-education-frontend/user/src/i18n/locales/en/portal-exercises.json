@@ -254,8 +254,9 @@
       "typeAriaLabel": "Filter by type",
       "typeDialogAriaLabel": "Choose a type",
       "typeAll": "All types",
-      "typeExercise": "Grammar exercises ({{count}})",
-      "typeVideo": "Connection/Reflex videos ({{count}})"
+      "typeGroupExercise": "Exercises",
+      "typeGroupVideo": "Review videos",
+      "typeOther": "Other exercises"
     },
     "empty": "No homework in this category.",
     "exercise": {
@@ -272,7 +273,7 @@
       "teacherVietnamese": "Vietnamese teacher",
       "teacherForeign": "Foreign teacher",
       "assignedInSession": "Assigned in the {{date}} session",
-      "scoreLabel": "Score: ",
+      "completedLabel": "Completed: ",
       "passed": "Passed",
       "notPassed": "Not passed"
     },

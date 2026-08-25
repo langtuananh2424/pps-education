@@ -254,8 +254,9 @@
       "typeAriaLabel": "Lọc theo loại bài",
       "typeDialogAriaLabel": "Chọn loại bài",
       "typeAll": "Tất cả loại bài",
-      "typeExercise": "Bài ngữ pháp ({{count}})",
-      "typeVideo": "Video Kết nối - Phản xạ ({{count}})"
+      "typeGroupExercise": "Bài tập",
+      "typeGroupVideo": "Video ôn tập",
+      "typeOther": "Bài khác"
     },
     "empty": "Không có bài tập nào trong mục này.",
     "exercise": {
@@ -272,7 +273,7 @@
       "teacherVietnamese": "Giáo viên Việt Nam phụ trách",
       "teacherForeign": "Giáo viên nước ngoài phụ trách",
       "assignedInSession": "Giao trong buổi {{date}}",
-      "scoreLabel": "Điểm: ",
+      "completedLabel": "Hoàn thành: ",
       "passed": "Đạt",
       "notPassed": "Chưa đạt"
     },

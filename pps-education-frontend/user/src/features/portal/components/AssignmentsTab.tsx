@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { AlertCircle, Bell, BookOpen, CalendarDays, Check, CheckCircle2, ChevronRight, Clock, Filter, GraduationCap, Link2, MessageCircle, Play, Video } from "lucide-react";
+import { AlertCircle, Bell, BookOpen, CalendarDays, Check, CheckCircle2, ChevronRight, Clock, Filter, GraduationCap, Link2, MessageCircle, Play } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { formatDate, formatDateTimeHm } from "@/lib/format";
 import {
@@ -92,6 +92,23 @@ function isBatchOverduePending(items: AssignedExerciseResponse[]): boolean {
 }
 
 /**
+ * V152 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — tách BIỆT HẲN 2 tab "Cần hoàn
+ * thành"/"Bài tập quá hạn" (trước đó chồng nhau — bài quá hạn vẫn tính vào "Cần hoàn thành", gây hiểu
+ * nhầm học sinh tưởng còn làm được). "Cần hoàn thành" giờ CHỈ còn Bài pending mà CHƯA quá hạn (còn
+ * thao tác được thật sự) — Bài pending đã quá hạn chuyển HẲN sang tab "Bài tập quá hạn", không hiện
+ * trùng ở đây nữa. Không đổi `isExercisePending` gốc (vẫn dùng cho style thẻ/badge "Cần làm lại" — thẻ
+ * quá hạn vẫn cần hiện đúng các badge đó, chỉ khác chỗ nó không còn được ĐẾM/LỌC vào tab pending nữa).
+ */
+function isExerciseActionablePending(item: AssignedExerciseResponse): boolean {
+  return isExercisePending(item) && !isExerciseOverduePending(item);
+}
+
+/** V152 — mirror isExerciseActionablePending, áp dụng cho cả nhóm Lô. */
+function isBatchActionablePending(items: AssignedExerciseResponse[]): boolean {
+  return isBatchPending(items) && !isBatchOverduePending(items);
+}
+
+/**
  * V150 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — gom N thẻ BTVN cùng
  * homeworkBatchId thành 1 nhóm hiển thị 1 thẻ duy nhất (xem BatchExerciseCard) — khớp đúng cách
  * backend giao TOÀN BỘ Bài cùng kỹ năng trong 1 Lesson cùng lúc (HomeworkSkillBatchService). Bài lẻ
@@ -151,8 +168,36 @@ function isVideoOverduePending(item: ReviewVideoHomeworkItem): boolean {
   return isReflexAnswerable(item) && !isReflexFullyAnswered(item);
 }
 
+/** V152 — mirror isExerciseActionablePending, áp dụng cho Video ôn tập (tách biệt "Cần hoàn thành"/"Bài tập quá hạn"). */
+function isVideoActionablePending(item: ReviewVideoHomeworkItem): boolean {
+  if (isVideoOverduePending(item)) return false;
+  if (item.videoType === "CONNECTION") return isConnectionAnswerable(item) && !isConnectionCompleted(item);
+  return isReflexAnswerable(item) && !isReflexFullyAnswered(item);
+}
+
 type FilterStatus = "ALL" | "PENDING" | "GRADED" | "OVERDUE";
-type FilterType = "ALL" | "EXERCISE" | "VIDEO";
+/**
+ * V153 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — lọc "loại bài" tách hẳn theo
+ * kỹ năng thật (skillCategory) thay vì gộp chung mọi Bài không-phải-video vào 1 nhãn "Bài ngữ pháp" như
+ * trước (sai khi lớp có cả Bài Nghe — xem AssignedExerciseResponse.skillCategory). OTHER_EXERCISE dành
+ * cho Bài chưa gắn kỹ năng nào (skillCategory null, thường là bài tự luyện cũ trước khi có trường này).
+ */
+type FilterType = "ALL" | "VOCAB_GRAMMAR" | "READING" | "WRITING" | "LISTENING" | "OTHER_EXERCISE" | "CONNECTION" | "REFLEX";
+
+const EXERCISE_SKILL_FILTER_ORDER: FilterType[] = ["VOCAB_GRAMMAR", "LISTENING", "READING", "WRITING", "OTHER_EXERCISE"];
+const VIDEO_TYPE_FILTER_ORDER: FilterType[] = ["CONNECTION", "REFLEX"];
+
+/** Bài khớp filter "loại bài" đang chọn — OTHER_EXERCISE khớp skillCategory null (chưa gắn kỹ năng). */
+function matchesExerciseSkillFilter(skillCategory: AssignedExerciseResponse["skillCategory"], filterType: FilterType): boolean {
+  if (filterType === "ALL") return true;
+  if (!EXERCISE_SKILL_FILTER_ORDER.includes(filterType)) return false;
+  if (filterType === "OTHER_EXERCISE") return skillCategory == null;
+  return skillCategory === filterType;
+}
+
+function skillFilterLabel(t: (key: string) => string, skill: FilterType): string {
+  return skill === "OTHER_EXERCISE" ? t("assignments.filters.typeOther") : t(`assignments.batch.skillLabel.${skill}`);
+}
 
 interface ReviewVideoHomeworkItem {
   video: ReviewVideoResponse;
@@ -423,11 +468,13 @@ export default function AssignmentsTab({
   // ghi chú ở các effect khác trong file này).
   useEffect(() => {
     if (loading) return;
+    // V152 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — mirror đúng pendingCount ở
+    // dưới (đã tách Bài quá hạn ra khỏi "Cần hoàn thành") — badge sidebar không nên cộng luôn cả phần
+    // quá hạn (khoá, không còn thao tác được) vào cùng con số "cần làm" nữa.
     const count =
-      singleExercises.filter(isExercisePending).length +
-      batchGroups.filter(isBatchPending).length +
-      reviewItems.filter((x) => isReflexAnswerable(x) && !isReflexFullyAnswered(x)).length +
-      reviewItems.filter((x) => isConnectionAnswerable(x) && !isConnectionCompleted(x)).length;
+      singleExercises.filter(isExerciseActionablePending).length +
+      batchGroups.filter(isBatchActionablePending).length +
+      reviewItems.filter(isVideoActionablePending).length;
     onPendingCountChange?.(count);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, exercises, reviewItems]);
@@ -436,10 +483,9 @@ export default function AssignmentsTab({
 
   const exerciseCardCount = singleExercises.length + batchGroups.length;
   const pendingCount =
-    singleExercises.filter(isExercisePending).length +
-    batchGroups.filter(isBatchPending).length +
-    reviewItems.filter((x) => isReflexAnswerable(x) && !isReflexFullyAnswered(x)).length +
-    reviewItems.filter((x) => isConnectionAnswerable(x) && !isConnectionCompleted(x)).length;
+    singleExercises.filter(isExerciseActionablePending).length +
+    batchGroups.filter(isBatchActionablePending).length +
+    reviewItems.filter(isVideoActionablePending).length;
   const gradedCount =
     singleExercises.filter((e) => !isExercisePending(e)).length +
     batchGroups.filter((items) => !isBatchPending(items)).length +
@@ -451,32 +497,43 @@ export default function AssignmentsTab({
     batchGroups.filter(isBatchOverduePending).length +
     reviewItems.filter(isVideoOverduePending).length;
 
+  // V153 — số lượng theo TỪNG kỹ năng/loại video, dùng dựng dropdown lọc "loại bài" bên dưới (chỉ hiện
+  // lựa chọn nào thực sự có bài, tránh liệt kê rỗng).
+  const exerciseSkillCounts = new Map<FilterType, number>();
+  const countExerciseSkill = (skillCategory: AssignedExerciseResponse["skillCategory"]) => {
+    const key: FilterType = skillCategory ?? "OTHER_EXERCISE";
+    exerciseSkillCounts.set(key, (exerciseSkillCounts.get(key) ?? 0) + 1);
+  };
+  singleExercises.forEach((e) => countExerciseSkill(e.skillCategory));
+  batchGroups.forEach((items) => countExerciseSkill(items[0].skillCategory));
+  const videoTypeCounts = new Map<FilterType, number>();
+  reviewItems.forEach((x) => videoTypeCounts.set(x.videoType, (videoTypeCounts.get(x.videoType) ?? 0) + 1));
+
   const filteredSingleExercises = singleExercises.filter((e) => {
-    if (filterType === "VIDEO") return false;
-    if (filterStatus === "PENDING") return isExercisePending(e);
+    if (!matchesExerciseSkillFilter(e.skillCategory, filterType)) return false;
+    if (filterStatus === "PENDING") return isExerciseActionablePending(e);
     if (filterStatus === "GRADED") return !isExercisePending(e);
     if (filterStatus === "OVERDUE") return isExerciseOverduePending(e);
     return true;
   });
   const filteredBatchGroups = batchGroups.filter((items) => {
-    if (filterType === "VIDEO") return false;
-    const pending = isBatchPending(items);
-    if (filterStatus === "PENDING") return pending;
-    if (filterStatus === "GRADED") return !pending;
+    if (!matchesExerciseSkillFilter(items[0].skillCategory, filterType)) return false;
+    if (filterStatus === "PENDING") return isBatchActionablePending(items);
+    if (filterStatus === "GRADED") return !isBatchPending(items);
     if (filterStatus === "OVERDUE") return isBatchOverduePending(items);
     return true;
   });
   const filteredReviewItems = reviewItems.filter((x) => {
-    if (filterType === "EXERCISE") return false;
+    if (filterType !== "ALL" && (!VIDEO_TYPE_FILTER_ORDER.includes(filterType) || x.videoType !== filterType)) return false;
     if (filterStatus === "ALL") return true;
     if (filterStatus === "OVERDUE") return isVideoOverduePending(x);
+    if (filterStatus === "PENDING") return isVideoActionablePending(x);
     if (x.videoType === "CONNECTION") {
       if (!isConnectionAnswerable(x)) return false; // API tiến độ lỗi/chưa tải xong — chưa tham gia lọc
-      return filterStatus === "PENDING" ? !isConnectionCompleted(x) : isConnectionCompleted(x);
+      return isConnectionCompleted(x); // còn lại đúng nhánh GRADED
     }
     if (!isReflexAnswerable(x)) return false; // REFLEX chưa có câu hỏi — chưa tham gia lọc
-    if (filterStatus === "PENDING") return !isReflexFullyAnswered(x);
-    return isReflexFullyAnswered(x);
+    return isReflexFullyAnswered(x); // còn lại đúng nhánh GRADED
   });
 
   // Gộp 2 danh sách (Bài ngữ pháp + Video ôn tập) thành 1 để phân trang chung — đúng tinh thần "1
@@ -587,32 +644,75 @@ export default function AssignmentsTab({
               <div
                 role="dialog"
                 aria-label={t("assignments.filters.typeDialogAriaLabel")}
-                className="absolute right-0 top-full mt-2 z-30 w-56 bg-white border border-line rounded-2xl shadow-lg p-1.5 space-y-0.5"
+                className="absolute right-0 top-full mt-2 z-30 w-64 max-h-80 overflow-y-auto bg-white border border-line rounded-2xl shadow-lg p-1.5 space-y-0.5"
               >
-                {(
-                  [
-                    ["ALL", t("assignments.filters.typeAll"), null] as const,
-                    ["EXERCISE", t("assignments.filters.typeExercise", { count: exerciseCardCount }), BookOpen] as const,
-                    ["VIDEO", t("assignments.filters.typeVideo", { count: reviewItems.length }), Video] as const
-                  ]
-                ).map(([value, label, Icon]) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => {
-                      setFilterType(value);
-                      setFilterTypeOpen(false);
-                    }}
-                    className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-xs font-bold text-left transition-colors ${
-                      filterType === value ? "bg-ink/5 text-ink font-black" : "text-muted hover:bg-slate-50"
-                    }`}
-                  >
-                    <span className="flex items-center gap-1.5">
-                      {Icon && <Icon size={13} aria-hidden="true" />} {label}
-                    </span>
-                    {filterType === value && <Check size={14} className="shrink-0" aria-hidden="true" />}
-                  </button>
-                ))}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFilterType("ALL");
+                    setFilterTypeOpen(false);
+                  }}
+                  className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-xs font-bold text-left transition-colors ${
+                    filterType === "ALL" ? "bg-ink/5 text-ink font-black" : "text-muted hover:bg-slate-50"
+                  }`}
+                >
+                  <span>{t("assignments.filters.typeAll")}</span>
+                  {filterType === "ALL" && <Check size={14} className="shrink-0" aria-hidden="true" />}
+                </button>
+
+                {exerciseSkillCounts.size > 0 && (
+                  <>
+                    <p className="px-3 pt-2 pb-1 text-[10px] font-black uppercase tracking-wider text-muted/70">
+                      {t("assignments.filters.typeGroupExercise")}
+                    </p>
+                    {EXERCISE_SKILL_FILTER_ORDER.filter((skill) => exerciseSkillCounts.has(skill)).map((skill) => (
+                      <button
+                        key={skill}
+                        type="button"
+                        onClick={() => {
+                          setFilterType(skill);
+                          setFilterTypeOpen(false);
+                        }}
+                        className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-xs font-bold text-left transition-colors ${
+                          filterType === skill ? "bg-ink/5 text-ink font-black" : "text-muted hover:bg-slate-50"
+                        }`}
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <BookOpen size={13} aria-hidden="true" /> {skillFilterLabel(t, skill)} ({exerciseSkillCounts.get(skill)})
+                        </span>
+                        {filterType === skill && <Check size={14} className="shrink-0" aria-hidden="true" />}
+                      </button>
+                    ))}
+                  </>
+                )}
+
+                {videoTypeCounts.size > 0 && (
+                  <>
+                    <p className="px-3 pt-2 pb-1 text-[10px] font-black uppercase tracking-wider text-muted/70">
+                      {t("assignments.filters.typeGroupVideo")}
+                    </p>
+                    {VIDEO_TYPE_FILTER_ORDER.filter((videoType) => videoTypeCounts.has(videoType)).map((videoType) => (
+                      <button
+                        key={videoType}
+                        type="button"
+                        onClick={() => {
+                          setFilterType(videoType);
+                          setFilterTypeOpen(false);
+                        }}
+                        className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-xs font-bold text-left transition-colors ${
+                          filterType === videoType ? "bg-ink/5 text-ink font-black" : "text-muted hover:bg-slate-50"
+                        }`}
+                      >
+                        <span className="flex items-center gap-1.5">
+                          {videoType === "CONNECTION" ? <Link2 size={13} aria-hidden="true" /> : <MessageCircle size={13} aria-hidden="true" />}{" "}
+                          {videoType === "CONNECTION" ? t("assignments.video.connectionType") : t("assignments.video.reflexType")} (
+                          {videoTypeCounts.get(videoType)})
+                        </span>
+                        {filterType === videoType && <Check size={14} className="shrink-0" aria-hidden="true" />}
+                      </button>
+                    ))}
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -808,10 +908,10 @@ function ExerciseCard({
         <h3 className="text-base font-black text-ink font-display truncate">{item.title}</h3>
 
         {item.myLatestTotalScore != null && (
-          // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — trước đây chỉ hiện "Điểm: X"
-          // chữ nhỏ màu xám, không thấy % lẫn đạt/chưa đạt ở đây (dù data đã có sẵn qua
-          // myLatestPercentage/myLatestPassed) — gộp cả 3 vào 1 pill nổi bật, đổi màu theo kết quả để
-          // học sinh/phụ huynh (đọc qua ParentHomeworkProgressTab) nhận ra ngay không cần đọc kỹ.
+          // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25 — hiện "Hoàn thành: X/Y (Z%)"
+          // (điểm đạt được/tổng điểm tối đa của Bài, mỗi câu tự chấm thường 1 điểm, kèm % để dễ so sánh
+          // nhanh) thay vì "Điểm: X (Y%)" cũ. Đổi màu pill theo đạt/chưa đạt để học sinh/phụ huynh (đọc
+          // qua ParentHomeworkProgressTab) nhận ra ngay không cần đọc kỹ.
           <div
             className={`inline-flex flex-wrap items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold ${
               item.myLatestPassed === true
@@ -822,8 +922,10 @@ function ExerciseCard({
             }`}
           >
             <span>
-              {t("assignments.exercise.scoreLabel")}
-              <span className="font-black">{item.myLatestTotalScore}</span>
+              {t("assignments.exercise.completedLabel")}
+              <span className="font-black">
+                {item.myLatestTotalScore}/{item.exerciseTotalPoints}
+              </span>
             </span>
             {item.myLatestPercentage != null && <span className="font-black">({item.myLatestPercentage}%)</span>}
             {item.myLatestPassed != null && (
@@ -948,8 +1050,10 @@ function BatchExerciseCard({
             }`}
           >
             <span>
-              {t("assignments.exercise.scoreLabel")}
-              <span className="font-black">{totalScore}</span>
+              {t("assignments.exercise.completedLabel")}
+              <span className="font-black">
+                {totalScore}/{totalPoints}
+              </span>
             </span>
             {percentage != null && <span className="font-black">({percentage}%)</span>}
             {passed != null && (
