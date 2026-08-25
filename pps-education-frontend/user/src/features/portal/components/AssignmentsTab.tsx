@@ -16,6 +16,7 @@ import {
   listReviewVideos
 } from "../api";
 import TakeExerciseModal from "./TakeExerciseModal";
+import BatchTakeExerciseModal, { batchGroupTitle } from "./BatchTakeExerciseModal";
 import ReviewVideoTaskModal from "./ReviewVideoTaskModal";
 import ReflexVideoTaskPage from "../pages/ReflexVideoTaskPage";
 import Pagination from "@/components/ui/Pagination";
@@ -69,6 +70,37 @@ function needsRetake(item: AssignedExerciseResponse): boolean {
 
 function isExercisePending(item: AssignedExerciseResponse): boolean {
   return item.myLatestAttemptStatus == null || item.myLatestAttemptStatus === "IN_PROGRESS" || needsRetake(item);
+}
+
+/** V150 — 1 Lô "Cần hoàn thành" khi CÒN ÍT NHẤT 1 Bài trong đó pending (mirror isExercisePending, áp dụng cho cả nhóm thay vì 1 Bài đơn). */
+function isBatchPending(items: AssignedExerciseResponse[]): boolean {
+  return items.some(isExercisePending);
+}
+
+/**
+ * V150 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — gom N thẻ BTVN cùng
+ * homeworkBatchId thành 1 nhóm hiển thị 1 thẻ duy nhất (xem BatchExerciseCard) — khớp đúng cách
+ * backend giao TOÀN BỘ Bài cùng kỹ năng trong 1 Lesson cùng lúc (HomeworkSkillBatchService). Bài lẻ
+ * (homeworkBatchId null) giữ nguyên hiển thị từng thẻ riêng như cũ. Sort ổn định theo exerciseId để
+ * thứ tự Bài trong 1 lần làm liên tục không đổi giữa các lần load().
+ */
+function groupExercisesByBatch(exercises: AssignedExerciseResponse[]): {
+  singles: AssignedExerciseResponse[];
+  batches: AssignedExerciseResponse[][];
+} {
+  const singles: AssignedExerciseResponse[] = [];
+  const byBatchId = new Map<number, AssignedExerciseResponse[]>();
+  for (const item of exercises) {
+    if (item.homeworkBatchId == null) {
+      singles.push(item);
+      continue;
+    }
+    const list = byBatchId.get(item.homeworkBatchId) ?? [];
+    list.push(item);
+    byBatchId.set(item.homeworkBatchId, list);
+  }
+  const batches = [...byBatchId.values()].map((list) => list.slice().sort((a, b) => a.exerciseId - b.exerciseId));
+  return { singles, batches };
 }
 
 /** Video REFLEX chưa có câu hỏi nào (giáo viên chưa soạn xong) — chưa có gì để tính "hoàn thành". */
@@ -147,6 +179,7 @@ export default function AssignmentsTab({
 }: AssignmentsTabProps) {
   const { t } = useTranslation("portal-exercises");
   const [exercises, setExercises] = useState<AssignedExerciseResponse[]>([]);
+  const { singles: singleExercises, batches: batchGroups } = groupExercisesByBatch(exercises);
   const [reviewItems, setReviewItems] = useState<ReviewVideoHomeworkItem[]>([]);
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — giữ lại danh sách bản giao Video Ôn
   // tập thô (có assignmentId + reviewVideoSetId) để auto-mở đúng video theo assignmentId nhảy từ tab
@@ -158,6 +191,8 @@ export default function AssignmentsTab({
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("ALL");
   const [filterType, setFilterType] = useState<FilterType>("ALL");
   const [takingExercise, setTakingExercise] = useState<AssignedExerciseResponse | null>(null);
+  /** V150 — 1 Lô đang được làm liên tục (N thẻ cùng homeworkBatchId, xem groupExercisesByBatch/BatchTakeExerciseModal). */
+  const [takingBatch, setTakingBatch] = useState<AssignedExerciseResponse[] | null>(null);
   const [openReviewItem, setOpenReviewItem] = useState<ReviewVideoHomeworkItem | null>(null);
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — danh sách BTVN có thể dài (nhiều
   // Bài ngữ pháp + Video ôn tập cộng lại), phân trang để tránh cuộn quá nhiều. Về trang 1 mỗi khi đổi
@@ -316,7 +351,9 @@ export default function AssignmentsTab({
     let key: string | null = null;
     if (autoOpenExerciseAssignmentId != null) {
       const match = exercises.find((e) => e.assignmentId === autoOpenExerciseAssignmentId);
-      if (match) key = `ex-${match.assignmentId}`;
+      // V150 — Bài thuộc 1 Lô giờ hiện gộp thành 1 thẻ "exb-<batchId>" (xem groupExercisesByBatch),
+      // không còn thẻ "ex-<assignmentId>" riêng cho từng Bài trong lô.
+      if (match) key = match.homeworkBatchId != null ? `exb-${match.homeworkBatchId}` : `ex-${match.assignmentId}`;
     } else if (autoOpenReviewVideoAssignmentId != null) {
       const assignment = videoAssignments.find((a) => a.assignmentId === autoOpenReviewVideoAssignmentId);
       // 1 bộ có thể gồm nhiều video — chưa có khái niệm "đúng video nào" ứng với 1 lần giao (giao theo
@@ -336,7 +373,11 @@ export default function AssignmentsTab({
   useEffect(() => {
     if (loading || !pendingHighlightKey) return;
     // Tính lại feedItems "ALL/ALL" (khớp đúng bộ lọc vừa reset ở effect trên) để tìm đúng vị trí/trang.
-    const allKeys = [...exercises.map((e) => `ex-${e.assignmentId}`), ...reviewItems.map((x) => `rv-${x.assignmentId ?? "lib"}-${x.video.id}`)];
+    const allKeys = [
+      ...singleExercises.map((e) => `ex-${e.assignmentId}`),
+      ...batchGroups.map((items) => `exb-${items[0].homeworkBatchId}`),
+      ...reviewItems.map((x) => `rv-${x.assignmentId ?? "lib"}-${x.video.id}`)
+    ];
     const idx = allKeys.indexOf(pendingHighlightKey);
     if (idx === -1) {
       setPendingHighlightKey(null);
@@ -362,7 +403,8 @@ export default function AssignmentsTab({
   useEffect(() => {
     if (loading) return;
     const count =
-      exercises.filter(isExercisePending).length +
+      singleExercises.filter(isExercisePending).length +
+      batchGroups.filter(isBatchPending).length +
       reviewItems.filter((x) => isReflexAnswerable(x) && !isReflexFullyAnswered(x)).length +
       reviewItems.filter((x) => isConnectionAnswerable(x) && !isConnectionCompleted(x)).length;
     onPendingCountChange?.(count);
@@ -371,19 +413,29 @@ export default function AssignmentsTab({
 
   if (loading) return <p className="text-sm text-muted font-bold">{t("assignments.loading")}</p>;
 
+  const exerciseCardCount = singleExercises.length + batchGroups.length;
   const pendingCount =
-    exercises.filter(isExercisePending).length +
+    singleExercises.filter(isExercisePending).length +
+    batchGroups.filter(isBatchPending).length +
     reviewItems.filter((x) => isReflexAnswerable(x) && !isReflexFullyAnswered(x)).length +
     reviewItems.filter((x) => isConnectionAnswerable(x) && !isConnectionCompleted(x)).length;
   const gradedCount =
-    exercises.filter((e) => !isExercisePending(e)).length +
+    singleExercises.filter((e) => !isExercisePending(e)).length +
+    batchGroups.filter((items) => !isBatchPending(items)).length +
     reviewItems.filter((x) => isReflexAnswerable(x) && isReflexFullyAnswered(x)).length +
     reviewItems.filter((x) => isConnectionAnswerable(x) && isConnectionCompleted(x)).length;
 
-  const filteredExercises = exercises.filter((e) => {
+  const filteredSingleExercises = singleExercises.filter((e) => {
     if (filterType === "VIDEO") return false;
     if (filterStatus === "PENDING") return isExercisePending(e);
     if (filterStatus === "GRADED") return !isExercisePending(e);
+    return true;
+  });
+  const filteredBatchGroups = batchGroups.filter((items) => {
+    if (filterType === "VIDEO") return false;
+    const pending = isBatchPending(items);
+    if (filterStatus === "PENDING") return pending;
+    if (filterStatus === "GRADED") return !pending;
     return true;
   });
   const filteredReviewItems = reviewItems.filter((x) => {
@@ -401,7 +453,8 @@ export default function AssignmentsTab({
   // Gộp 2 danh sách (Bài ngữ pháp + Video ôn tập) thành 1 để phân trang chung — đúng tinh thần "1
   // danh sách BTVN duy nhất" đã gộp ở tab này (xem Javadoc đầu file), không tách trang riêng từng loại.
   const feedItems = [
-    ...filteredExercises.map((item) => ({ type: "exercise" as const, key: `ex-${item.assignmentId}`, item })),
+    ...filteredSingleExercises.map((item) => ({ type: "exercise" as const, key: `ex-${item.assignmentId}`, item })),
+    ...filteredBatchGroups.map((items) => ({ type: "exerciseBatch" as const, key: `exb-${items[0].homeworkBatchId}`, items })),
     ...filteredReviewItems.map((item) => ({ type: "video" as const, key: `rv-${item.assignmentId ?? "lib"}-${item.video.id}`, item }))
   ];
   const pageItems = feedItems.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
@@ -456,7 +509,7 @@ export default function AssignmentsTab({
                 filterStatus === "ALL" ? "bg-teal text-white shadow-sm" : "bg-slate-100 hover:bg-slate-200 text-muted"
               }`}
             >
-              {t("assignments.filters.all", { count: exercises.length + reviewItems.length })}
+              {t("assignments.filters.all", { count: exerciseCardCount + reviewItems.length })}
             </button>
             <button
               onClick={() => setFilterStatus("PENDING")}
@@ -499,7 +552,7 @@ export default function AssignmentsTab({
                 {(
                   [
                     ["ALL", t("assignments.filters.typeAll"), null] as const,
-                    ["EXERCISE", t("assignments.filters.typeExercise", { count: exercises.length }), BookOpen] as const,
+                    ["EXERCISE", t("assignments.filters.typeExercise", { count: exerciseCardCount }), BookOpen] as const,
                     ["VIDEO", t("assignments.filters.typeVideo", { count: reviewItems.length }), Video] as const
                   ]
                 ).map(([value, label, Icon]) => (
@@ -531,16 +584,30 @@ export default function AssignmentsTab({
       ) : (
         <>
           <div className="space-y-4">
-            {pageItems.map((entry) =>
-              entry.type === "exercise" ? (
-                <ExerciseCard
-                  key={entry.key}
-                  item={entry.item}
-                  onOpen={() => setTakingExercise(entry.item)}
-                  domId={`assignment-card-${entry.key}`}
-                  highlighted={highlightKey === entry.key}
-                />
-              ) : (
+            {pageItems.map((entry) => {
+              if (entry.type === "exercise") {
+                return (
+                  <ExerciseCard
+                    key={entry.key}
+                    item={entry.item}
+                    onOpen={() => setTakingExercise(entry.item)}
+                    domId={`assignment-card-${entry.key}`}
+                    highlighted={highlightKey === entry.key}
+                  />
+                );
+              }
+              if (entry.type === "exerciseBatch") {
+                return (
+                  <BatchExerciseCard
+                    key={entry.key}
+                    items={entry.items}
+                    onOpen={() => setTakingBatch(entry.items)}
+                    domId={`assignment-card-${entry.key}`}
+                    highlighted={highlightKey === entry.key}
+                  />
+                );
+              }
+              return (
                 <ReviewVideoCard
                   key={entry.key}
                   item={entry.item}
@@ -548,8 +615,8 @@ export default function AssignmentsTab({
                   domId={`assignment-card-${entry.key}`}
                   highlighted={highlightKey === entry.key}
                 />
-              )
-            )}
+              );
+            })}
           </div>
           <Pagination page={page} pageSize={PAGE_SIZE} totalElements={feedItems.length} itemLabel={t("assignments.itemLabel")} onPageChange={setPage} />
         </>
@@ -564,6 +631,16 @@ export default function AssignmentsTab({
           // modal mở để học sinh đọc hết nhận xét chấm AI/GV chi tiết trước khi tự bấm X/Thoát).
           onClose={() => {
             setTakingExercise(null);
+            load();
+          }}
+        />
+      )}
+
+      {takingBatch && (
+        <BatchTakeExerciseModal
+          items={takingBatch}
+          onClose={() => {
+            setTakingBatch(null);
             load();
           }}
         />
@@ -718,6 +795,130 @@ function ExerciseCard({
           onClick={onOpen}
           className={`w-full md:w-auto flex items-center justify-center gap-1.5 px-5 py-2.5 font-extrabold text-xs rounded-xl shadow-sm transition-all cursor-pointer ${
             isFullyGraded && !retake ? "bg-slate-100 hover:bg-slate-200 text-ink border border-line" : "bg-teal hover:bg-teal-deep text-white"
+          }`}
+        >
+          {actionLabel} <ChevronRight size={14} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * V150 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — 1 thẻ gộp cho N Bài cùng
+ * homeworkBatchId (thay vì N thẻ ExerciseCard riêng biệt như trước) — bấm 1 lần mở BatchTakeExerciseModal
+ * làm liên tục cả N Bài. Mirror bố cục/màu sắc ExerciseCard, chỉ khác chỗ mọi thông tin (trạng thái/
+ * điểm/hạn nộp) được CỘNG DỒN từ items thay vì đọc thẳng 1 item.
+ */
+function BatchExerciseCard({
+  items,
+  onOpen,
+  domId,
+  highlighted
+}: {
+  items: AssignedExerciseResponse[];
+  onOpen: () => void;
+  domId?: string;
+  highlighted?: boolean;
+}) {
+  const { t, i18n } = useTranslation("portal-exercises");
+  const first = items[0];
+  const groupTitle = batchGroupTitle(t, items);
+  const isOverdue = first.dueAt != null && new Date(first.dueAt) < new Date();
+  const pending = isBatchPending(items);
+  const anyRetake = items.some(needsRetake);
+  const anyInProgress = items.some((it) => it.myLatestAttemptStatus === "IN_PROGRESS");
+  const allFullyGraded = items.every((it) => it.myLatestAttemptStatus === "FULLY_GRADED");
+  const noneStarted = items.every((it) => it.myLatestAttemptStatus == null);
+  const attemptMeta = anyRetake || noneStarted ? null : anyInProgress ? attemptStatusMeta(t, "IN_PROGRESS") : allFullyGraded ? attemptStatusMeta(t, "FULLY_GRADED") : attemptStatusMeta(t, "AUTO_GRADED");
+
+  const totalScore = items.reduce((sum, it) => sum + (it.myLatestTotalScore ?? 0), 0);
+  const totalPoints = items.reduce((sum, it) => sum + (it.exerciseTotalPoints ?? 0), 0);
+  const percentage = totalPoints > 0 ? Math.round((totalScore / totalPoints) * 10000) / 100 : null;
+  const passed = allFullyGraded && percentage != null ? percentage >= 70 : null;
+
+  const actionLabel = noneStarted
+    ? t("assignments.exercise.action.start")
+    : anyInProgress
+      ? t("assignments.exercise.action.continue")
+      : t("assignments.exercise.action.reviewGraded");
+
+  return (
+    <div
+      id={domId}
+      className={`p-5 bg-white border rounded-2xl transition-all shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 ${
+        highlighted ? "border-teal ring-2 ring-teal/40" : pending ? "border-orange-200 bg-orange-50/20" : "border-line/80"
+      }`}
+    >
+      <div className="space-y-2 flex-1 min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="px-2.5 py-0.5 rounded-lg bg-teal/10 text-teal border border-teal/20 text-[11px] font-black">
+            {t("assignments.batch.countSuffix", { count: items.length })}
+          </span>
+          <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-muted text-[11px] font-bold">{first.className}</span>
+          {anyRetake ? (
+            <span className="px-2.5 py-0.5 rounded-lg bg-coral/10 text-coral border border-coral/20 text-[11px] font-black flex items-center gap-1">
+              <Clock size={12} /> {t("assignments.exercise.needsRetake", { percent: percentage != null ? `(${percentage}%)` : "" })}
+            </span>
+          ) : attemptMeta ? (
+            <span className={`px-2.5 py-0.5 rounded-lg text-[11px] font-black flex items-center gap-1 ${attemptMeta.className}`}>
+              <CheckCircle2 size={12} /> {attemptMeta.label}
+            </span>
+          ) : null}
+          {pending && (
+            <span
+              className={`px-2.5 py-0.5 rounded-lg border text-[11px] font-black flex items-center gap-1 ${
+                isOverdue ? "bg-coral/10 text-coral border-coral/20" : "bg-amber-100 text-amber-800 border-amber-300"
+              }`}
+            >
+              <Clock size={12} />
+              {isOverdue ? t("assignments.exercise.overduePrefix") : t("assignments.exercise.duePrefix")}
+              {first.dueAt ? formatDateTimeHm(first.dueAt, i18n.language) : t("assignments.exercise.noDeadline")}
+            </span>
+          )}
+          <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-muted border border-line text-[11px] font-black flex items-center gap-1">
+            <GraduationCap size={12} />{" "}
+            {first.teacherType === "VIETNAMESE" ? t("assignments.exercise.teacherVietnamese") : t("assignments.exercise.teacherForeign")}
+          </span>
+          {first.sessionDate && (
+            <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-muted border border-line text-[11px] font-black flex items-center gap-1">
+              <CalendarDays size={12} /> {t("assignments.exercise.assignedInSession", { date: formatDate(first.sessionDate, i18n.language) })}
+            </span>
+          )}
+        </div>
+
+        <h3 className="text-base font-black text-ink font-display truncate">{groupTitle}</h3>
+
+        {!noneStarted && (
+          <div
+            className={`inline-flex flex-wrap items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold ${
+              passed === true
+                ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                : passed === false
+                  ? "bg-rose-50 border-rose-200 text-rose-800"
+                  : "bg-slate-50 border-slate-200 text-slate-700"
+            }`}
+          >
+            <span>
+              {t("assignments.exercise.scoreLabel")}
+              <span className="font-black">{totalScore}</span>
+            </span>
+            {percentage != null && <span className="font-black">({percentage}%)</span>}
+            {passed != null && (
+              <span className="flex items-center gap-1 font-black">
+                {passed ? <CheckCircle2 size={13} aria-hidden="true" /> : <AlertCircle size={13} aria-hidden="true" />}
+                {passed ? t("assignments.exercise.passed") : t("assignments.exercise.notPassed")}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="shrink-0">
+        <button
+          onClick={onOpen}
+          className={`w-full md:w-auto flex items-center justify-center gap-1.5 px-5 py-2.5 font-extrabold text-xs rounded-xl shadow-sm transition-all cursor-pointer ${
+            allFullyGraded && !anyRetake ? "bg-slate-100 hover:bg-slate-200 text-ink border border-line" : "bg-teal hover:bg-teal-deep text-white"
           }`}
         >
           {actionLabel} <ChevronRight size={14} />

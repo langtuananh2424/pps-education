@@ -155,7 +155,7 @@ public class StudentComment {
      * nộp ngầm hiểu là ngày buổi học kế tiếp (V55).
      *
      * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-18 — GIAO
-     * ĐỒNG THỜI với homeworkNextExerciseAssignment (kênh ONLINE): trước
+     * ĐỒNG THỜI với {@link #homeworkNextGrammarBatch} (kênh ONLINE): trước
      * đây 2 field này loại trừ lẫn nhau (chỉ 1 khác NULL), nay độc lập
      * hoàn toàn — 1 buổi có thể vừa giao BTVN offline (chữ tự do) vừa
      * giao 1 Exercise online cho cùng kênh Ngữ pháp.
@@ -194,11 +194,19 @@ public class StudentComment {
      * — field này KHÔNG còn là điểm phát sinh giao bài: chỉ có giá trị
      * SAU KHI Giáo viên bấm "Gửi nhận xét" (submitComments() thật sự gọi
      * resolveExerciseHomework). Lựa chọn CHƯA giao (còn DRAFT/REJECTED)
-     * nằm ở {@link #pendingHomeworkNextExerciseId} — xem Javadoc field đó.
+     * nằm ở {@link #pendingHomeworkNextGrammarExamId} — xem Javadoc field đó.
+     *
+     * V150 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-24) — trỏ {@link HomeworkSkillBatch}
+     * (Lô giao BTVN theo kỹ năng, gồm N Bài THẬT cùng 1 skillCategory trong 1 Lesson) thay vì
+     * 1 {@code ExerciseAssignment} đơn — thay cho cơ chế gộp câu hỏi cũ (V145, đã bỏ).
+     *
+     * V151 (revert V146, đã xác nhận với người dùng 2026-08-25) — kênh "Ngữ pháp"/"Nghe" dùng CHUNG field
+     * này: skillCategory của Lô là VOCAB_GRAMMAR khi buổi teacherType=VIETNAMESE, LISTENING khi FOREIGN
+     * (xem StudentCommentService#grammarChannelSkillCategory) — không còn field/cột riêng cho Nghe.
      */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "homework_next_exercise_assignment_id")
-    private ExerciseAssignment homeworkNextExerciseAssignment;
+    @JoinColumn(name = "homework_next_grammar_batch_id")
+    private HomeworkSkillBatch homeworkNextGrammarBatch;
 
     /**
      * BTVN Video Ôn tập giao cho buổi sau — luôn ONLINE, NULL = không
@@ -217,19 +225,19 @@ public class StudentComment {
 
     /**
      * "BTVN — Online — Reading" (V137, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-21) —
-     * mirror {@link #homeworkNextExerciseAssignment} (kênh Ngữ pháp/TV+NP) nhưng cho kênh Reading, trỏ
-     * 1 {@link ExerciseAssignment} của Exercise có {@code skillCategory=READING} (xem Exercise.SkillCategory).
-     * CHỈ áp dụng khi {@code classSession.teacherType=VIETNAMESE}. Cùng vòng đời V65/V127 với kênh Ngữ
-     * pháp — chỉ có giá trị SAU submit, lựa chọn CHƯA giao nằm ở {@link #pendingHomeworkNextReadingExerciseId}.
+     * mirror {@link #homeworkNextGrammarBatch} nhưng cho kênh Reading, {@link HomeworkSkillBatch} với
+     * skillCategory=READING. CHỈ áp dụng khi {@code classSession.teacherType=VIETNAMESE}. Cùng vòng đời
+     * V65/V127/V150 với kênh Ngữ pháp — chỉ có giá trị SAU submit, lựa chọn CHƯA giao nằm ở
+     * {@link #pendingHomeworkNextReadingExamId}.
      */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "homework_next_reading_exercise_assignment_id")
-    private ExerciseAssignment homeworkNextReadingExerciseAssignment;
+    @JoinColumn(name = "homework_next_reading_batch_id")
+    private HomeworkSkillBatch homeworkNextReadingBatch;
 
-    /** Mirror {@link #homeworkNextReadingExerciseAssignment} cho kỹ năng Writing (V137). */
+    /** Mirror {@link #homeworkNextReadingBatch} cho kỹ năng Writing (V137). */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "homework_next_writing_exercise_assignment_id")
-    private ExerciseAssignment homeworkNextWritingExerciseAssignment;
+    @JoinColumn(name = "homework_next_writing_batch_id")
+    private HomeworkSkillBatch homeworkNextWritingBatch;
 
     @Column(columnDefinition = "TEXT")
     private String note;
@@ -243,21 +251,24 @@ public class StudentComment {
     // thật sự materialize sang 2 field FK ở trên (gọi lại đúng resolveExerciseHomework/
     // resolveVideoHomework, không đổi logic) — xem Javadoc submitComments.
 
-    /** Id Exercise (nguồn, không phải id bản giao) Giáo viên vừa chọn nhưng CHƯA Gửi nhận xét. */
-    @Column(name = "pending_homework_next_exercise_id")
-    private Long pendingHomeworkNextExerciseId;
+    /**
+     * V150 — Id Exam (Lesson) Giáo viên vừa chọn kênh Ngữ pháp nhưng CHƯA Gửi nhận xét (trước là id 1
+     * Exercise — giờ lựa chọn là cả nhóm kỹ năng của 1 Lesson, xem HomeworkSkillBatchService).
+     */
+    @Column(name = "pending_homework_next_grammar_exam_id")
+    private Long pendingHomeworkNextGrammarExamId;
 
-    /** Id ReviewVideoSet (nguồn) Giáo viên vừa chọn nhưng CHƯA Gửi nhận xét — mirror {@link #pendingHomeworkNextExerciseId}. */
+    /** Id ReviewVideoSet (nguồn) Giáo viên vừa chọn nhưng CHƯA Gửi nhận xét — mirror {@link #pendingHomeworkNextGrammarExamId}. */
     @Column(name = "pending_homework_next_review_video_set_id")
     private Long pendingHomeworkNextReviewVideoSetId;
 
-    /** Id Exercise (nguồn, skillCategory=READING) Giáo viên vừa chọn nhưng CHƯA Gửi nhận xét (V137) — mirror {@link #pendingHomeworkNextExerciseId}. */
-    @Column(name = "pending_homework_next_reading_exercise_id")
-    private Long pendingHomeworkNextReadingExerciseId;
+    /** Mirror {@link #pendingHomeworkNextGrammarExamId} cho kỹ năng Reading, skillCategory=READING (V137/V150). */
+    @Column(name = "pending_homework_next_reading_exam_id")
+    private Long pendingHomeworkNextReadingExamId;
 
-    /** Mirror {@link #pendingHomeworkNextReadingExerciseId} cho kỹ năng Writing, skillCategory=WRITING (V137). */
-    @Column(name = "pending_homework_next_writing_exercise_id")
-    private Long pendingHomeworkNextWritingExerciseId;
+    /** Mirror {@link #pendingHomeworkNextGrammarExamId} cho kỹ năng Writing, skillCategory=WRITING (V137/V150). */
+    @Column(name = "pending_homework_next_writing_exam_id")
+    private Long pendingHomeworkNextWritingExamId;
 
     /** Hạn nộp tự chọn (giờ tường thuật thô, chưa quy đổi múi giờ) đi kèm lựa chọn CHƯA giao ở trên — quy đổi thật ở resolveDueAt() lúc Gửi. */
     @Column(name = "pending_homework_next_due_date")

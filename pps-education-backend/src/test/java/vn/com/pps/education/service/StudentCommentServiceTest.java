@@ -982,7 +982,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
      */
     private GrammarFixture createGrammarOnlineExercise() {
         var exam = examService.createExam(
-                new CreateExamRequest(examCode(), "Đề Ngữ pháp V55", schoolClass.curriculumId(), "VIETNAMESE", "HOMEWORK"), teacher.getId());
+                new CreateExamRequest(examCode(), "Đề Ngữ pháp V55", schoolClass.curriculumId(), "VIETNAMESE", "HOMEWORK", null), teacher.getId());
         examService.assignToClass(exam.id(), schoolClass.id(), teacher.getId());
         // V75 (Kho đề): mỗi Exam tự sinh 1 QuestionBank nội bộ riêng, không nhận câu hỏi qua
         // QuestionBankService#createQuestion (chỉ dành cho bank "legacy" độc lập) — phải qua

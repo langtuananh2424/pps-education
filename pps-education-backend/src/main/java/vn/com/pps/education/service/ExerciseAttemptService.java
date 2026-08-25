@@ -704,7 +704,11 @@ public class ExerciseAttemptService {
                 latest == null ? null : latest.getPassed(),
                 exercise.getExam().getTeacherType().name(),
                 assignment.getSourceClassSession() == null ? null : assignment.getSourceClassSession().getSessionDate(),
-                canStartNewAttempt);
+                canStartNewAttempt,
+                assignment.getHomeworkBatch() == null ? null : assignment.getHomeworkBatch().getId(),
+                exercise.getTotalPoints(),
+                exercise.getExam().getId(), exercise.getExam().getTitle(),
+                exercise.getSkillCategory() == null ? null : exercise.getSkillCategory().name());
     }
 
     private StudentAnswerResponse toResponse(StudentAnswer a) {

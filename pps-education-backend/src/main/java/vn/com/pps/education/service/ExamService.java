@@ -3,6 +3,7 @@ package vn.com.pps.education.service;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.Curriculum;
+import vn.com.pps.education.domain.CurriculumSubTopic;
 import vn.com.pps.education.domain.Exam;
 import vn.com.pps.education.domain.ExamClassAssignment;
 import vn.com.pps.education.domain.SchoolClass;
@@ -17,6 +18,7 @@ import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.repository.ClassTeacherRepository;
 import vn.com.pps.education.repository.CurriculumRepository;
+import vn.com.pps.education.repository.CurriculumSubTopicRepository;
 import vn.com.pps.education.repository.ExamClassAssignmentRepository;
 import vn.com.pps.education.repository.ExamRepository;
 import vn.com.pps.education.repository.QuestionBankRepository;
@@ -49,6 +51,7 @@ public class ExamService {
     private final QuestionBankRepository questionBankRepository;
     private final ExerciseService exerciseService;
     private final CurriculumRepository curriculumRepository;
+    private final CurriculumSubTopicRepository curriculumSubTopicRepository;
     private final SchoolClassRepository schoolClassRepository;
     private final ClassTeacherRepository classTeacherRepository;
     private final UserRepository userRepository;
@@ -61,6 +64,7 @@ public class ExamService {
                         QuestionBankRepository questionBankRepository,
                         ExerciseService exerciseService,
                         CurriculumRepository curriculumRepository,
+                        CurriculumSubTopicRepository curriculumSubTopicRepository,
                         SchoolClassRepository schoolClassRepository,
                         ClassTeacherRepository classTeacherRepository,
                         UserRepository userRepository,
@@ -70,6 +74,7 @@ public class ExamService {
         this.questionBankRepository = questionBankRepository;
         this.exerciseService = exerciseService;
         this.curriculumRepository = curriculumRepository;
+        this.curriculumSubTopicRepository = curriculumSubTopicRepository;
         this.schoolClassRepository = schoolClassRepository;
         this.classTeacherRepository = classTeacherRepository;
         this.userRepository = userRepository;
@@ -88,6 +93,7 @@ public class ExamService {
         exam.setCreatedBy(actor);
         exam.setTeacherType(Exam.TeacherType.valueOf(request.teacherType()));
         exam.setExamType(Exam.ExamType.valueOf(request.examType()));
+        exam.setSubTopic(subTopicOrNull(request.subTopicId()));
 
         // V75: UUID đã sinh ngay khi new Exam(), nên tạo bank trước để INSERT
         // Exam luôn có FK NOT NULL — lỗi bất kỳ rollback cả bank lẫn Exam.
@@ -113,6 +119,7 @@ public class ExamService {
         exam.setTitle(request.title());
         exam.setTeacherType(Exam.TeacherType.valueOf(request.teacherType()));
         exam.setExamType(Exam.ExamType.valueOf(request.examType()));
+        exam.setSubTopic(subTopicOrNull(request.subTopicId()));
         exam = examRepository.save(exam);
         return toResponse(exam);
     }
@@ -239,10 +246,22 @@ public class ExamService {
                         new Object[]{id}, "Không tìm thấy Đề id=" + id));
     }
 
+    /** V144 — subTopicId là optional (NULL = Đề chưa phân loại vào cấu trúc Sách/Unit/SubTopic mới). */
+    private CurriculumSubTopic subTopicOrNull(Long subTopicId) {
+        if (subTopicId == null) {
+            return null;
+        }
+        return curriculumSubTopicRepository.findById(subTopicId)
+                .orElseThrow(() -> new ResourceNotFoundException("error.exam.subTopicNotFound",
+                        new Object[]{subTopicId}, "Không tìm thấy Sub Topic id=" + subTopicId));
+    }
+
     private ExamResponse toResponse(Exam exam) {
         return new ExamResponse(exam.getId(), exam.getUuid(), exam.getCode(), exam.getTitle(),
                 exam.getCurriculum().getId(), exam.getCurriculum().getCode(), exam.getCreatedBy().getId(),
-                exam.getTeacherType().name(), exam.getExamType().name(), exam.getQuestionBank().getId());
+                exam.getTeacherType().name(), exam.getExamType().name(), exam.getQuestionBank().getId(),
+                exam.getSubTopic() == null ? null : exam.getSubTopic().getId(),
+                exam.getSubTopic() == null ? null : exam.getSubTopic().getTitle());
     }
 
     private ClassResponse toResponse(SchoolClass c) {

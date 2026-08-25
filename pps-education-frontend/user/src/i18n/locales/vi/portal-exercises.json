@@ -272,6 +272,22 @@
       },
       "connectionType": "Video từ kết nối",
       "reflexType": "Video phản xạ"
+    },
+    "batch": {
+      "skillLabel": {
+        "VOCAB_GRAMMAR": "Ngữ pháp",
+        "READING": "Reading",
+        "WRITING": "Writing",
+        "LISTENING": "Nghe"
+      },
+      "countSuffix": "({{count}} bài)",
+      "progressLabel": "Bài {{index}}/{{total}} — {{title}}",
+      "summary": {
+        "pendingTitle": "Đã nộp \"{{title}}\"!",
+        "passedTitle": "Chúc mừng bạn đã hoàn thành \"{{title}}\"!",
+        "failedTitle": "Bạn đã hoàn thành \"{{title}}\"",
+        "combinedScoreLabel": "Kết quả gộp: {{score}}/{{total}} điểm ({{percentage}}%)"
+      }
     }
   },
   "parentHomework": {

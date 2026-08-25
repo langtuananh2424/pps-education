@@ -236,6 +236,31 @@
       }
     }
   },
+  "bookCatalogPage": {
+    "title": "Book catalog",
+    "description": "Configure Unit / Sub Topic per the textbook outline first — \"Compose & assign exams\" then just picks from it.",
+    "loadCurriculumsFailed": "Failed to load the curriculum list.",
+    "noCurriculums": "No curricula yet.",
+    "curriculumColumnLabel": "Program + Grade",
+    "selectCurriculumPrompt": "Select a curriculum (program + grade) on the left to view/configure its Books.",
+    "loadBooksFailed": "Failed to load the book list.",
+    "newBookPlaceholder": "New Book title, e.g. Cambridge English for Schools 6",
+    "addBookButton": "Add Book",
+    "createBookFailed": "Failed to create the book.",
+    "bookCreatedToast": "Book added.",
+    "noBooks": "No books yet — add a Book before creating Units.",
+    "loadUnitsFailed": "Failed to load the unit list.",
+    "newUnitPlaceholder": "New Unit title, e.g. Unit 1",
+    "addUnitButton": "Add Unit",
+    "createUnitFailed": "Failed to create the unit.",
+    "unitCreatedToast": "Unit added.",
+    "noUnits": "No units yet.",
+    "newSubTopicPlaceholder": "New Sub Topic title",
+    "addSubTopicButton": "Add",
+    "createSubTopicFailed": "Failed to create the sub topic.",
+    "subTopicCreatedToast": "Sub Topic added.",
+    "noSubTopics": "No sub topics yet."
+  },
   "assignPage": {
     "statusLabels": {
       "DRAFT": "Draft",
@@ -255,9 +280,12 @@
     "createExam": "Create new exam",
     "loadExamsFailed": "Failed to load the exam list.",
     "allCurriculums": "All curricula",
+    "allBooks": "All Books",
+    "allUnits": "All Units",
     "allTeacherTypes": "All teacher types",
     "noExamsAll": "No exams yet.",
     "noExamsFiltered": "No exams yet in this curriculum.",
+    "noExamsInUnit": "No Lessons (exams) yet under this Unit.",
     "selectExamPrompt": "Select an exam on the left to view details, or create a new exam.",
     "examCreatedToast": "Exam created successfully!",
     "createExamModal": {
@@ -275,6 +303,17 @@
       "examTypeLabel": "Exam type *",
       "examTypePlaceholder": "-- Select exam type --",
       "submit": "Create exam"
+    },
+    "unitSubTopicPicker": {
+      "label": "Unit / Sub Topic (textbook outline)",
+      "currentLabel": "Current: {{label}}",
+      "unclassified": "Unclassified",
+      "selectCurriculumFirst": "Select a Curriculum (Grade) first.",
+      "noBooksHint": "This grade has no Books yet — configure them in \"Book catalog\" first.",
+      "bookPlaceholder": "-- Select Book --",
+      "noUnitsHint": "This book has no Units yet — configure them in \"Book catalog\" first.",
+      "unitPlaceholder": "-- Select Unit --",
+      "subTopicPlaceholder": "-- Select Sub Topic --"
     },
     "editExamModal": {
       "titleRequired": "Please fill in the exam title.",

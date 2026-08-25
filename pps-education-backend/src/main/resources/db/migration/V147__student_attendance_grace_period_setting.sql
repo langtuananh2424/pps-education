@@ -1,5 +1,8 @@
 -- =====================================================================
--- V136: Khung giờ ân hạn (grace period) điểm danh học sinh sau end_time
+-- V147 (đổi số từ V136 cũ 2026-08-24, đã xác nhận với người dùng — trùng version với
+-- V136__exercise_skill_category.sql, không sửa nội dung migration khác, chỉ đổi số phiên bản của
+-- chính file này vì chưa từng apply thành công lên môi trường nào do lỗi trùng số chặn khởi động):
+-- Khung giờ ân hạn (grace period) điểm danh học sinh sau end_time
 -- buổi học (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
 -- 2026-08-22 -- thay thế ràng buộc "chỉ trong [start_time, end_time]"
 -- chốt ngày 2026-08-18). Xem docs/uc/phan-he-05-hoc-sinh.md UC-15,

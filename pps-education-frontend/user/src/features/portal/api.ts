@@ -751,6 +751,19 @@ export interface AssignedExerciseResponse {
    * AssignmentsTab.tsx).
    */
   canStartNewAttempt: boolean;
+  /**
+   * V150 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-24) — NULL = bản giao lẻ 1 Bài
+   * (hành vi cũ). Có giá trị = 1 trong N thẻ BTVN cùng thuộc 1 "Lô giao theo kỹ năng" (giáo viên chọn
+   * 1 Lesson ở Nhận xét học viên, hệ thống giao TOÀN BỘ Bài Published cùng kỹ năng trong đó) — FE gom
+   * các thẻ cùng homeworkBatchId thành 1 thẻ/1 màn làm bài liên tục, xem AssignmentsTab.tsx.
+   */
+  homeworkBatchId: number | null;
+  /** V150 — điểm tối đa của Bài, dùng để cộng dồn % gộp trên thẻ/modal 1 Lô (xem BatchTakeExerciseModal). */
+  exerciseTotalPoints: number;
+  /** V150 — id/tên Lesson (Exam) + nhóm kỹ năng chứa Bài này, dùng dựng tiêu đề gộp cho 1 Lô (VD "Ngữ pháp — Lesson 1"). */
+  examId: number;
+  examTitle: string;
+  skillCategory: "READING" | "WRITING" | "VOCAB_GRAMMAR" | "LISTENING" | null;
 }
 
 export function listMyAssignedExercises(classId?: number): Promise<AssignedExerciseResponse[]> {

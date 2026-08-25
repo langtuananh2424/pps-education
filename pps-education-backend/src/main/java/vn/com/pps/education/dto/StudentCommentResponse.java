@@ -48,11 +48,22 @@ public record StudentCommentResponse(
         /** V130 — mô tả bài giao Reading/Writing "BTVN - Offline" buổi sau, chỉ buổi teacherType=VIETNAMESE. */
         String homeworkNextReading,
         String homeworkNextWriting,
+        /**
+         * V150 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-24) — tên field GIỮ NGUYÊN
+         * (không đổi API contract) nhưng Ý NGHĨA đổi: giờ là examId (Lesson) của Lô đang giao (xem
+         * HomeworkSkillBatch), KHÔNG còn là id 1 bản giao (ExerciseAssignment) đơn — FE chỉ dùng làm
+         * khoá tra ngược để tự chọn lại dropdown khi sửa/xem lại comment, không hiển thị trực tiếp.
+         *
+         * V151 (revert V146, đã xác nhận với người dùng 2026-08-25) — kênh "Ngữ pháp"/"Nghe" dùng CHUNG
+         * field này: buổi teacherType=FOREIGN thì Lô này là Bài skillCategory=LISTENING (nhãn "Bài
+         * nghe"), buổi VIETNAMESE là Bài skillCategory=VOCAB_GRAMMAR (nhãn "Ngữ pháp") — không còn field
+         * riêng homeworkNextListeningExerciseAssignmentId.
+         */
         Long homeworkNextExerciseAssignmentId,
         String homeworkNextExerciseTitle,
         Long homeworkNextReviewVideoAssignmentId,
         String homeworkNextReviewVideoSetTitle,
-        /** V137 — "BTVN - Online - Reading/Writing" (mirror homeworkNextExerciseAssignmentId), chỉ buổi teacherType=VIETNAMESE. */
+        /** V137/V150 — "BTVN - Online - Reading/Writing" (mirror homeworkNextExerciseAssignmentId), chỉ buổi teacherType=VIETNAMESE. */
         Long homeworkNextReadingExerciseAssignmentId,
         String homeworkNextReadingExerciseTitle,
         Long homeworkNextWritingExerciseAssignmentId,

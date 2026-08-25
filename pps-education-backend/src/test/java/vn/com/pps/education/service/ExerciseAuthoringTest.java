@@ -143,7 +143,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
                 teacher.getId());
 
         defaultExam = examService.createExam(
-                new CreateExamRequest(examCode(), "Đề mặc định", activeCurriculum.id(), "VIETNAMESE", "HOMEWORK"), teacher.getId());
+                new CreateExamRequest(examCode(), "Đề mặc định", activeCurriculum.id(), "VIETNAMESE", "HOMEWORK", null), teacher.getId());
     }
 
     @Test

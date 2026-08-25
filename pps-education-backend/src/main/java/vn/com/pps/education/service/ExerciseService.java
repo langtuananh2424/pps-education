@@ -331,12 +331,13 @@ public class ExerciseService {
      * 2026-07-30): danh sách Bài đã Publish, thuộc 1 Đề đã gán cho lớp —
      * nguồn cho dropdown "BTVN buổi sau" ở Nhận xét học viên (UC-21). ÁP
      * DỤNG CHO MỌI exerciseType (không riêng ASSIGNED như trước Kho đề).
+     * V150 — không còn nhóm/gộp gì ở đây nữa (xem HomeworkSkillBatchService
+     * cho phần chọn theo nhóm kỹ năng); trả nguyên danh sách Bài Published.
      */
     @Transactional(readOnly = true)
     public List<ExerciseResponse> listPublishedForClass(Long classId, Long actorUserId) {
         requireAssignedTeacher(classId, actorUserId);
-        return exerciseRepository.findAvailableForClass(classId, Exercise.Status.PUBLISHED)
-                .stream()
+        return exerciseRepository.findAvailableForClass(classId, Exercise.Status.PUBLISHED).stream()
                 .map(e -> toResponse(e, exerciseQuestionRepository.findByExerciseIdOrderByDisplayOrder(e.getId())))
                 .toList();
     }

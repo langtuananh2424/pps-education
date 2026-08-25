@@ -76,11 +76,11 @@ function listeningKeyOf(q: ExerciseQuestionResponse): string {
  * câu MULTIPLE_CHOICE liên tiếp cùng groupKey gộp hiển thị chung 1 referencePassage + 1 bảng câu hỏi,
  * thay vì lặp lại đoạn văn ở mỗi câu. Chỉ gộp các câu LIÊN TIẾP nhau (đúng thứ tự displayOrder).
  */
-type RenderBlock =
+export type RenderBlock =
   | { type: "single"; question: ExerciseQuestionResponse }
   | { type: "grid"; groupKey: string; referencePassage: string | null; audioUrl: string | null; questions: ExerciseQuestionResponse[] };
 
-function groupQuestionsByGroupKey(questions: ExerciseQuestionResponse[]): RenderBlock[] {
+export function groupQuestionsByGroupKey(questions: ExerciseQuestionResponse[]): RenderBlock[] {
   const blocks: RenderBlock[] = [];
   for (const q of questions) {
     const last = blocks[blocks.length - 1];
@@ -732,8 +732,9 @@ function SubmitResultPopup({
   );
 }
 
-function QuestionBlock({
+export function QuestionBlock({
   question,
+  displayNumber,
   answer,
   readOnly,
   saving,
@@ -750,6 +751,8 @@ function QuestionBlock({
   onListeningEnded
 }: {
   question: ExerciseQuestionResponse;
+  /** V150 — số thứ tự hiển thị override (dùng khi ghép nhiều Bài vào 1 màn liên tục, xem BatchTakeExerciseModal) — mặc định question.displayOrder như cũ. */
+  displayNumber?: number;
   answer: StudentAnswerResponse | undefined;
   readOnly: boolean;
   saving: boolean;
@@ -799,7 +802,7 @@ function QuestionBlock({
     <div className="border border-line/60 rounded-[16px] p-4 sm:p-5 lg:p-6 space-y-3 lg:space-y-4">
       <div className="flex items-start justify-between gap-3">
         <p className="text-sm sm:text-base lg:text-lg font-bold text-ink">
-          {question.displayOrder}. {question.questionContent}
+          {displayNumber ?? question.displayOrder}. {question.questionContent}
         </p>
         <div className="flex items-center gap-2 shrink-0">
           {question.skill === "LISTENING" && question.audioUrl && attemptId != null && (
@@ -1333,8 +1336,9 @@ function SentenceBuildingBlock({
  * nhánh theo questionType — MULTIPLE_CHOICE giữ nguyên dãy nút chọn đáp án như cũ, FILL_IN_BLANK
  * thêm ô nhập text tự chấm, SPEAKING thêm control nộp audio (chấm tay).
  */
-function GridQuestionGroup({
+export function GridQuestionGroup({
   block,
+  startNumber,
   answersByQuestion,
   readOnly,
   savingQuestionId,
@@ -1350,6 +1354,8 @@ function GridQuestionGroup({
   onListeningEnded
 }: {
   block: Extract<RenderBlock, { type: "grid" }>;
+  /** V150 — số thứ tự câu ĐẦU TIÊN của nhóm (dùng khi ghép nhiều Bài, xem QuestionBlock#displayNumber) — mặc định q.displayOrder như cũ khi không truyền. */
+  startNumber?: number;
   answersByQuestion: Map<number, StudentAnswerResponse>;
   readOnly: boolean;
   savingQuestionId: number | null;
@@ -1398,7 +1404,7 @@ function GridQuestionGroup({
         </div>
       )}
       <div className="divide-y divide-line/50">
-        {block.questions.map((q) => {
+        {block.questions.map((q, qIndex) => {
           const answer = answersByQuestion.get(q.questionId);
           const selected = new Set(answer?.selectedChoiceIds ?? []);
           const correctIds = new Set(answer?.correctChoiceIds ?? []);
@@ -1411,7 +1417,7 @@ function GridQuestionGroup({
             <div key={q.id} className="py-2.5 lg:py-3.5 space-y-2">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xs sm:text-sm lg:text-base font-bold text-ink flex-1 min-w-[160px]">
-                  {q.displayOrder}. {q.questionContent}
+                  {startNumber != null ? startNumber + qIndex : q.displayOrder}. {q.questionContent}
                 </span>
               </div>
 

@@ -236,6 +236,31 @@
       }
     }
   },
+  "bookCatalogPage": {
+    "title": "Danh mục sách",
+    "description": "Cấu hình Unit / Sub Topic theo mục lục sách giáo trình trước — vào \"Soạn & giao đề\" chỉ cần chọn lại.",
+    "loadCurriculumsFailed": "Không tải được danh sách khung chương trình.",
+    "noCurriculums": "Chưa có khung chương trình nào.",
+    "curriculumColumnLabel": "Chương trình + Khối",
+    "selectCurriculumPrompt": "Chọn 1 khung chương trình (chương trình + khối) bên trái để xem/cấu hình Sách.",
+    "loadBooksFailed": "Không tải được danh sách Sách.",
+    "newBookPlaceholder": "Tên Sách mới, VD: Cambridge English for Schools 6",
+    "addBookButton": "Thêm Sách",
+    "createBookFailed": "Tạo Sách thất bại.",
+    "bookCreatedToast": "Đã thêm Sách.",
+    "noBooks": "Chưa có Sách nào — thêm 1 Sách trước khi tạo Unit.",
+    "loadUnitsFailed": "Không tải được danh sách Unit.",
+    "newUnitPlaceholder": "Tên Unit mới, VD: Unit 1",
+    "addUnitButton": "Thêm Unit",
+    "createUnitFailed": "Tạo Unit thất bại.",
+    "unitCreatedToast": "Đã thêm Unit.",
+    "noUnits": "Chưa có Unit nào.",
+    "newSubTopicPlaceholder": "Tên Sub Topic mới",
+    "addSubTopicButton": "Thêm",
+    "createSubTopicFailed": "Tạo Sub Topic thất bại.",
+    "subTopicCreatedToast": "Đã thêm Sub Topic.",
+    "noSubTopics": "Chưa có Sub Topic nào."
+  },
   "assignPage": {
     "statusLabels": {
       "DRAFT": "Nháp",
@@ -255,9 +280,12 @@
     "createExam": "Tạo Đề mới",
     "loadExamsFailed": "Không tải được danh sách Đề.",
     "allCurriculums": "Tất cả khung chương trình",
+    "allBooks": "Tất cả Sách",
+    "allUnits": "Tất cả Unit",
     "allTeacherTypes": "Tất cả loại giáo viên",
     "noExamsAll": "Chưa có Đề nào.",
     "noExamsFiltered": "Chưa có Đề nào trong khung chương trình này.",
+    "noExamsInUnit": "Chưa có Đề (Lesson) nào thuộc Unit này.",
     "selectExamPrompt": "Chọn 1 Đề bên trái để xem chi tiết, hoặc tạo Đề mới.",
     "examCreatedToast": "Đã tạo Đề thành công!",
     "createExamModal": {
@@ -275,6 +303,17 @@
       "examTypeLabel": "Loại đề *",
       "examTypePlaceholder": "-- Chọn loại đề --",
       "submit": "Tạo Đề"
+    },
+    "unitSubTopicPicker": {
+      "label": "Unit / Sub Topic (mục lục sách)",
+      "currentLabel": "Hiện tại: {{label}}",
+      "unclassified": "Chưa phân loại",
+      "selectCurriculumFirst": "Chọn Khung chương trình (Khối) trước.",
+      "noBooksHint": "Khối này chưa có Sách nào — vào \"Danh mục sách\" để cấu hình trước.",
+      "bookPlaceholder": "-- Chọn Sách --",
+      "noUnitsHint": "Sách này chưa có Unit nào — vào \"Danh mục sách\" để cấu hình trước.",
+      "unitPlaceholder": "-- Chọn Unit --",
+      "subTopicPlaceholder": "-- Chọn Sub Topic --"
     },
     "editExamModal": {
       "titleRequired": "Vui lòng điền Tên Đề.",

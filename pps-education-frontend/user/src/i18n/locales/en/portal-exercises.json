@@ -272,6 +272,22 @@
       },
       "connectionType": "Connection video",
       "reflexType": "Reflex video"
+    },
+    "batch": {
+      "skillLabel": {
+        "VOCAB_GRAMMAR": "Grammar",
+        "READING": "Reading",
+        "WRITING": "Writing",
+        "LISTENING": "Listening"
+      },
+      "countSuffix": "({{count}} exercises)",
+      "progressLabel": "Exercise {{index}}/{{total}} — {{title}}",
+      "summary": {
+        "pendingTitle": "\"{{title}}\" submitted!",
+        "passedTitle": "Congratulations — you completed \"{{title}}\"!",
+        "failedTitle": "You completed \"{{title}}\"",
+        "combinedScoreLabel": "Combined result: {{score}}/{{total}} points ({{percentage}}%)"
+      }
     }
   },
   "parentHomework": {

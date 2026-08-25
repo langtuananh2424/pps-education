@@ -38,5 +38,23 @@ public record AssignedExerciseResponse(
          * ẩn/hiện nút "Làm lại" tường minh ở Portal (TakeExerciseModal), KHÔNG còn tự động mở lượt mới
          * lúc vào xem bài như trước.
          */
-        boolean canStartNewAttempt
+        boolean canStartNewAttempt,
+        /**
+         * V150 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-24) — NULL = bản giao lẻ 1
+         * Bài (hành vi cũ). Có giá trị = 1 trong N thẻ BTVN cùng thuộc 1 "Lô giao theo kỹ năng" (xem
+         * HomeworkSkillBatch) — FE gom các thẻ cùng homeworkBatchId thành 1 màn làm bài liên tục/1 nút
+         * Nộp duy nhất, KHÔNG cần API mới: vẫn gọi startAttempt/saveAnswer/submitAttempt nguyên vẹn cho
+         * từng assignmentId, chỉ khác ở chỗ FE lặp N lần thay vì 1 và cộng dồn kết quả để hiển thị.
+         */
+        Long homeworkBatchId,
+        /**
+         * V150 — điểm tối đa của Bài (Exercise.totalPoints), dùng để FE cộng dồn % gộp trên thẻ hiển
+         * thị 1 Lô (tổng myLatestTotalScore / tổng exerciseTotalPoints của N Bài cùng lô) — trước đây
+         * không cần field này vì mỗi thẻ độc lập, FE chỉ hiện đúng myLatestPercentage đã tính sẵn.
+         */
+        BigDecimal exerciseTotalPoints,
+        /** V150 — id/tên Lesson (Exam) + nhóm kỹ năng chứa Bài này, dùng để FE dựng tiêu đề gộp cho 1 thẻ Lô (VD "Ngữ pháp — Lesson 1"). */
+        Long examId,
+        String examTitle,
+        String skillCategory
 ) {}

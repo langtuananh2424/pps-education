@@ -270,12 +270,15 @@ export interface CreateExamRequest {
   curriculumId: number;
   teacherType: ExamTeacherType;
   examType: ExamType;
+  /** V144 — Lesson thuộc Sub Topic nào trong mục lục sách (Sách/Khối -> Unit -> Sub Topic -> Lesson). Bỏ trống = chưa phân loại vào cấu trúc mới. */
+  subTopicId?: number;
 }
 
 export interface UpdateExamRequest {
   title: string;
   teacherType: ExamTeacherType;
   examType: ExamType;
+  subTopicId?: number;
 }
 
 export interface ExamResponse {
@@ -288,6 +291,75 @@ export interface ExamResponse {
   createdBy: number;
   teacherType: ExamTeacherType;
   examType: ExamType;
+  questionBankId: number;
+  subTopicId: number | null;
+  subTopicTitle: string | null;
+}
+
+// ===================== V148: Curriculum (chương trình+khối) -> Sách -> Unit -> Sub Topic -> Lesson -> Bài =====================
+// Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-24 — Curriculum (chương trình+khối, VD
+// "IELTS Grade 6") đã có sẵn (track/gradeLevel); thêm Sách/Unit/SubTopic làm 3 cấp điều hướng mới phía
+// trên Lesson (Exam). V148: Unit trước đó (V144) gắn thẳng Curriculum — đổi sang gắn Sách vì "Khung
+// chương trình" chỉ là khung, không phải nơi tạo Unit trực tiếp (phản hồi người dùng 2026-08-24).
+
+export interface BookResponse {
+  id: number;
+  curriculumId: number;
+  title: string;
+  displayOrder: number;
+}
+
+export interface CreateBookRequest {
+  title: string;
+  displayOrder?: number;
+}
+
+export interface UnitResponse {
+  id: number;
+  bookId: number;
+  title: string;
+  displayOrder: number;
+}
+
+export interface CreateUnitRequest {
+  title: string;
+  displayOrder?: number;
+}
+
+export interface SubTopicResponse {
+  id: number;
+  unitId: number;
+  title: string;
+  displayOrder: number;
+}
+
+export interface CreateSubTopicRequest {
+  title: string;
+  displayOrder?: number;
+}
+
+export function listBooks(curriculumId: number): Promise<BookResponse[]> {
+  return apiRequest<BookResponse[]>(`/curriculums/${curriculumId}/books`);
+}
+
+export function createBook(curriculumId: number, request: CreateBookRequest): Promise<BookResponse> {
+  return apiRequest<BookResponse>(`/curriculums/${curriculumId}/books`, { method: "POST", body: JSON.stringify(request) });
+}
+
+export function listUnits(bookId: number): Promise<UnitResponse[]> {
+  return apiRequest<UnitResponse[]>(`/books/${bookId}/units`);
+}
+
+export function createUnit(bookId: number, request: CreateUnitRequest): Promise<UnitResponse> {
+  return apiRequest<UnitResponse>(`/books/${bookId}/units`, { method: "POST", body: JSON.stringify(request) });
+}
+
+export function listSubTopics(unitId: number): Promise<SubTopicResponse[]> {
+  return apiRequest<SubTopicResponse[]>(`/units/${unitId}/sub-topics`);
+}
+
+export function createSubTopic(unitId: number, request: CreateSubTopicRequest): Promise<SubTopicResponse> {
+  return apiRequest<SubTopicResponse>(`/units/${unitId}/sub-topics`, { method: "POST", body: JSON.stringify(request) });
 }
 
 export function createExam(request: CreateExamRequest): Promise<ExamResponse> {
@@ -523,6 +595,27 @@ export function listAssignmentsForClass(classId: number): Promise<ExerciseAssign
 /** Kho đề: nguồn cho dropdown "BTVN buổi sau" ở Nhận xét học viên — mọi loại Bài đã Publish, thuộc 1 Đề đã gán cho lớp (không còn theo khung chương trình). */
 export function listPublishedExercisesForClass(classId: number): Promise<ExerciseResponse[]> {
   return apiRequest<ExerciseResponse[]>(`/classes/${classId}/exercises/published`);
+}
+
+/**
+ * V150 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-24) — "Lô giao BTVN theo kỹ năng":
+ * 1 entry/Lesson (Đề) có >=1 Bài Published cùng skillCategory, thay cho danh sách Exercise lẻ/bản gộp
+ * cũ ở kênh "BTVN online" của Nhận xét học viên (UC-21). Chọn 1 nhóm = giao TOÀN BỘ exerciseCount Bài
+ * trong đó cùng lúc — value gửi lên (homeworkNext*ExerciseId trong CreateStudentCommentRequest) là
+ * examId của nhóm này, KHÔNG còn là 1 exerciseId đơn.
+ */
+export interface HomeworkSkillGroupResponse {
+  examId: number;
+  examCode: string;
+  examTitle: string;
+  examTeacherType: ExamTeacherType;
+  skillCategory: ExerciseSkillCategory;
+  exerciseCount: number;
+  questionCount: number;
+}
+
+export function listHomeworkSkillGroupsForClass(classId: number, skillCategory: ExerciseSkillCategory): Promise<HomeworkSkillGroupResponse[]> {
+  return apiRequest<HomeworkSkillGroupResponse[]>(`/classes/${classId}/homework-skill-groups?skillCategory=${skillCategory}`);
 }
 
 // ===================== Kho Video Ôn tập (UC-23/UC-23a) =====================

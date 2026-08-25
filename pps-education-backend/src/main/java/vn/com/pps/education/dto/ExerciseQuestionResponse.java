@@ -17,6 +17,12 @@ import java.util.Map;
  * để render Điền từ - Hộp từ vựng/Sắp xếp câu (structuredContent), audio
  * prompt của Nghe (SPEAKING skill=LISTENING), và gộp "Đọc hiểu — lưới"
  * theo groupKey.
+ *
+ * V150 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-24): "Lô giao BTVN theo kỹ năng"
+ * gồm N Bài (Exercise) THẬT độc lập, không còn clone câu hỏi vào 1 Exercise ảo — exerciseId ở đây LUÔN
+ * là Bài thật chứa câu hỏi, kể cả khi FE ghép nhiều Bài của 1 lô lại thành 1 màn làm bài liên tục (mỗi
+ * lần gọi {@code ExerciseService#listQuestions} là 1 Bài, FE tự gộp nhiều lời gọi lại) — không cần field
+ * "nguồn" riêng như bản thiết kế merge cũ (V149, đã bỏ) vì exerciseId đã sẵn là câu trả lời đó.
  */
 public record ExerciseQuestionResponse(
         Long id,

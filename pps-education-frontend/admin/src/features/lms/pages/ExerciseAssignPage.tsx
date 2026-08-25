@@ -6,12 +6,15 @@ import { useApp } from "@/context/AppContext";
 import { useEligibleClasses } from "@/features/academic/hooks/useEligibleClasses";
 import { CurriculumResponse, listCurriculums } from "@/features/academic/api";
 import {
+  BookResponse,
   ExamResponse,
   ExamTeacherType,
   ExamType,
   ExerciseQuestionResponse,
   ExerciseResponse,
   QuestionResponse,
+  SubTopicResponse,
+  UnitResponse,
   UpdateExamRequest,
   UpdateExerciseRequest,
   assignExamToClass,
@@ -19,10 +22,13 @@ import {
   deleteExam,
   deleteExercise,
   getExamQuestion,
+  listBooks,
   listExamAssignedClasses,
   listExercisesByExam,
   listExerciseQuestions,
   listExams,
+  listSubTopics,
+  listUnits,
   publishExercise,
   removeExerciseQuestion,
   unassignExamFromClass,
@@ -69,6 +75,16 @@ export default function ExerciseAssignPage() {
   const [curriculums, setCurriculums] = useState<CurriculumResponse[]>([]);
   const [curriculumFilter, setCurriculumFilter] = useState<number | null>(null);
   const [teacherTypeFilter, setTeacherTypeFilter] = useState<ExamTeacherType | null>(null);
+  // V144/V148 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-24) — lọc thêm theo Sách/Unit
+  // để biết các Lesson nào thuộc Unit nào (BE /exams chưa hỗ trợ lọc theo bookId/unitId/subTopicId —
+  // Exam chỉ lưu thẳng subTopicId, không có unitId/bookId — nên lọc phía FE: tải Sách theo Khối đang
+  // chọn -> chọn 1 Sách thì tải Unit của Sách đó -> chọn 1 Unit thì tải Sub Topic để có tập subTopicId
+  // cần khớp).
+  const [bookFilterOptions, setBookFilterOptions] = useState<BookResponse[]>([]);
+  const [bookFilter, setBookFilter] = useState<number | null>(null);
+  const [unitFilterOptions, setUnitFilterOptions] = useState<UnitResponse[]>([]);
+  const [unitFilter, setUnitFilter] = useState<number | null>(null);
+  const [unitFilterSubTopicIds, setUnitFilterSubTopicIds] = useState<Set<number> | null>(null);
   const [exams, setExams] = useState<ExamResponse[]>([]);
   const [loadingExams, setLoadingExams] = useState(false);
   const [selectedExamId, setSelectedExamId] = useState<number | null>(null);
@@ -79,6 +95,35 @@ export default function ExerciseAssignPage() {
   useEffect(() => {
     listCurriculums().then(setCurriculums).catch(() => undefined);
   }, []);
+
+  useEffect(() => {
+    setBookFilter(null);
+    if (!curriculumFilter) {
+      setBookFilterOptions([]);
+      return;
+    }
+    listBooks(curriculumFilter).then(setBookFilterOptions).catch(() => setBookFilterOptions([]));
+  }, [curriculumFilter]);
+
+  useEffect(() => {
+    setUnitFilter(null);
+    setUnitFilterSubTopicIds(null);
+    if (!bookFilter) {
+      setUnitFilterOptions([]);
+      return;
+    }
+    listUnits(bookFilter).then(setUnitFilterOptions).catch(() => setUnitFilterOptions([]));
+  }, [bookFilter]);
+
+  useEffect(() => {
+    if (!unitFilter) {
+      setUnitFilterSubTopicIds(null);
+      return;
+    }
+    listSubTopics(unitFilter)
+      .then((subTopics) => setUnitFilterSubTopicIds(new Set(subTopics.map((s) => s.id))))
+      .catch(() => setUnitFilterSubTopicIds(new Set()));
+  }, [unitFilter]);
 
   const loadExams = () => {
     setLoadingExams(true);
@@ -96,12 +141,17 @@ export default function ExerciseAssignPage() {
 
   const selectedExam = exams.find((e) => e.id === selectedExamId) ?? null;
 
+  // V144 — lọc thêm theo Unit (phía FE, xem ghi chú unitFilterSubTopicIds ở trên) TRƯỚC khi phân trang.
+  const unitFilteredExams = unitFilterSubTopicIds
+    ? exams.filter((e) => e.subTopicId != null && unitFilterSubTopicIds.has(e.subTopicId))
+    : exams;
+
   // "Kho đề" toàn khung chương trình có thể tăng lên hàng trăm Đề theo thời gian — backend GET
   // /exams chưa hỗ trợ phân trang, phân trang phía client. Reset về trang 1 mỗi khi đổi bộ lọc/tải lại.
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
-  useEffect(() => setPage(0), [exams]);
-  const pageExams = exams.slice(page * pageSize, (page + 1) * pageSize);
+  useEffect(() => setPage(0), [exams, unitFilter]);
+  const pageExams = unitFilteredExams.slice(page * pageSize, (page + 1) * pageSize);
 
   return (
     <div className="space-y-6">
@@ -135,6 +185,28 @@ export default function ExerciseAssignPage() {
                 </option>
               ))}
             </Select>
+            {/* V148 — lọc thêm theo Sách, chỉ hiện khi đã chọn 1 Khối cụ thể (Sách thuộc về 1 khung chương trình). */}
+            {curriculumFilter && (
+              <Select value={bookFilter ?? ""} onChange={(e) => setBookFilter(e.target.value ? Number(e.target.value) : null)} className={inputClass}>
+                <option value="">{t("assignPage.allBooks")}</option>
+                {bookFilterOptions.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.title}
+                  </option>
+                ))}
+              </Select>
+            )}
+            {/* V144 — lọc thêm theo Unit, chỉ hiện khi đã chọn 1 Sách cụ thể. */}
+            {bookFilter && (
+              <Select value={unitFilter ?? ""} onChange={(e) => setUnitFilter(e.target.value ? Number(e.target.value) : null)} className={inputClass}>
+                <option value="">{t("assignPage.allUnits")}</option>
+                {unitFilterOptions.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.title}
+                  </option>
+                ))}
+              </Select>
+            )}
             <Select
               value={teacherTypeFilter ?? ""}
               onChange={(e) => setTeacherTypeFilter(e.target.value ? (e.target.value as ExamTeacherType) : null)}
@@ -151,10 +223,12 @@ export default function ExerciseAssignPage() {
 
           {loadingExams ? (
             <p className="text-xs text-slate-500 p-6 text-center">{t("common.loading")}</p>
-          ) : exams.length === 0 ? (
+          ) : unitFilteredExams.length === 0 ? (
             <div className="flex flex-col items-center justify-center p-12 text-center text-slate-400 space-y-3">
               <Layers className="w-12 h-12 text-slate-300" />
-              <p className="text-xs text-slate-400">{curriculumFilter ? t("assignPage.noExamsFiltered") : t("assignPage.noExamsAll")}</p>
+              <p className="text-xs text-slate-400">
+                {unitFilter ? t("assignPage.noExamsInUnit") : curriculumFilter ? t("assignPage.noExamsFiltered") : t("assignPage.noExamsAll")}
+              </p>
             </div>
           ) : (
             <>
@@ -169,6 +243,7 @@ export default function ExerciseAssignPage() {
                     <p className="text-[10px] text-slate-400 mt-0.5 font-mono">{exam.code} · {exam.curriculumCode}</p>
                     <p className="text-[10px] text-slate-400 mt-0.5">
                       {t(`assignPage.teacherTypeLabels.${exam.teacherType}`)} · {t(`assignPage.examTypeLabels.${exam.examType}`)}
+                      {exam.subTopicTitle && <> · {exam.subTopicTitle}</>}
                     </p>
                   </button>
                 ))}
@@ -176,7 +251,7 @@ export default function ExerciseAssignPage() {
               <Pagination
                 page={page}
                 pageSize={pageSize}
-                totalElements={exams.length}
+                totalElements={unitFilteredExams.length}
                 itemLabel={t("assignPage.title")}
                 onPageChange={setPage}
                 onPageSizeChange={(size) => {
@@ -223,6 +298,155 @@ export default function ExerciseAssignPage() {
   );
 }
 
+/**
+ * V148 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-24) — CHỌN Sách -&gt; Unit -&gt; Sub
+ * Topic theo đúng mục lục sách giáo trình (Curriculum — chương trình+khối — đã có sẵn qua
+ * curriculumId). Thuần chọn từ danh mục đã cấu hình sẵn ở màn "Danh mục sách" (BookCatalogPage.tsx,
+ * route /lms/book-catalog) — KHÔNG tạo mới tại chỗ (đã xác nhận với người dùng: tạo Sách/Unit/SubTopic
+ * ngay trong modal tạo Đề "khó dùng", tách hẳn ra 1 màn cấu hình riêng, ở đây chỉ "vọc" chọn lại).
+ * Cascading 3 cấp, mirror pattern Select đơn giản đã dùng cho curriculum/teacherType trong file này,
+ * không dựng cây/breadcrumb riêng.
+ *
+ * Bổ sung 2026-08-24 (đã xác nhận với người dùng, fix UX thật đã gặp qua test tay) — trước đây edit
+ * mode chỉ hiện gợi ý chữ "Hiện tại: ..." mà KHÔNG tự chọn sẵn Sách/Unit trong 2 Select đầu, khiến ô
+ * đóng luôn hiện placeholder "-- Chọn Sách --" trông như trống dù bấm mở ra vẫn có đúng lựa chọn — dễ
+ * hiểu nhầm là bug/mất dữ liệu. Giờ tự dò ngược 1 lần duy nhất lúc mount (chưa có API tra cứu ngược
+ * true nên dò bằng cách duyệt books -&gt; units -&gt; subTopics tìm đúng subTopic id = value, danh mục
+ * nhỏ nên chấp nhận được — KHÔNG dò lại mỗi lần value đổi do chính người dùng chọn ở đây, chỉ 1 lần cho
+ * giá trị ban đầu truyền vào).
+ */
+function UnitSubTopicPicker({
+  curriculumId,
+  value,
+  currentLabel,
+  onChange
+}: {
+  curriculumId: number | null;
+  value: number | null;
+  currentLabel?: string | null;
+  onChange: (subTopicId: number | null) => void;
+}) {
+  const { t } = useTranslation("lms-question-authoring");
+  const [books, setBooks] = useState<BookResponse[]>([]);
+  const [selectedBookId, setSelectedBookId] = useState<number | null>(null);
+  const [units, setUnits] = useState<UnitResponse[]>([]);
+  const [selectedUnitId, setSelectedUnitId] = useState<number | null>(null);
+  const [subTopics, setSubTopics] = useState<SubTopicResponse[]>([]);
+  const resolvedInitialValue = React.useRef(false);
+
+  useEffect(() => {
+    if (!curriculumId) {
+      setBooks([]);
+      return;
+    }
+    listBooks(curriculumId).then(setBooks).catch(() => setBooks([]));
+  }, [curriculumId]);
+
+  useEffect(() => {
+    if (resolvedInitialValue.current || !value || books.length === 0) return;
+    resolvedInitialValue.current = true;
+    (async () => {
+      for (const book of books) {
+        const bookUnits = await listUnits(book.id).catch(() => [] as UnitResponse[]);
+        for (const unit of bookUnits) {
+          const unitSubTopics = await listSubTopics(unit.id).catch(() => [] as SubTopicResponse[]);
+          if (unitSubTopics.some((s) => s.id === value)) {
+            setSelectedBookId(book.id);
+            setUnits(bookUnits);
+            setSelectedUnitId(unit.id);
+            setSubTopics(unitSubTopics);
+            return;
+          }
+        }
+      }
+    })();
+  }, [books, value]);
+
+  useEffect(() => {
+    if (!selectedBookId) {
+      setUnits([]);
+      return;
+    }
+    listUnits(selectedBookId).then(setUnits).catch(() => setUnits([]));
+  }, [selectedBookId]);
+
+  useEffect(() => {
+    if (!selectedUnitId) {
+      setSubTopics([]);
+      return;
+    }
+    listSubTopics(selectedUnitId).then(setSubTopics).catch(() => setSubTopics([]));
+  }, [selectedUnitId]);
+
+  return (
+    <div className="space-y-2 border border-slate-200 rounded-lg p-2.5 bg-slate-50/50">
+      <p className="text-[10px] uppercase font-bold text-slate-500">{t("assignPage.unitSubTopicPicker.label")}</p>
+      {currentLabel !== undefined && (
+        <p className="text-[10px] text-slate-400">
+          {t("assignPage.unitSubTopicPicker.currentLabel", { label: currentLabel ?? t("assignPage.unitSubTopicPicker.unclassified") })}
+        </p>
+      )}
+      {!curriculumId ? (
+        <p className="text-[10px] text-slate-400 italic">{t("assignPage.unitSubTopicPicker.selectCurriculumFirst")}</p>
+      ) : books.length === 0 ? (
+        <p className="text-[10px] text-slate-400 italic">{t("assignPage.unitSubTopicPicker.noBooksHint")}</p>
+      ) : (
+        <>
+          <Select
+            value={selectedBookId ?? ""}
+            onChange={(e) => {
+              setSelectedBookId(e.target.value ? Number(e.target.value) : null);
+              setSelectedUnitId(null);
+              onChange(null);
+            }}
+            className={inputClass}
+          >
+            <option value="">{t("assignPage.unitSubTopicPicker.bookPlaceholder")}</option>
+            {books.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.title}
+              </option>
+            ))}
+          </Select>
+
+          {selectedBookId && units.length === 0 ? (
+            <p className="text-[10px] text-slate-400 italic">{t("assignPage.unitSubTopicPicker.noUnitsHint")}</p>
+          ) : (
+            selectedBookId && (
+              <Select
+                value={selectedUnitId ?? ""}
+                onChange={(e) => {
+                  setSelectedUnitId(e.target.value ? Number(e.target.value) : null);
+                  onChange(null);
+                }}
+                className={inputClass}
+              >
+                <option value="">{t("assignPage.unitSubTopicPicker.unitPlaceholder")}</option>
+                {units.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.title}
+                  </option>
+                ))}
+              </Select>
+            )
+          )}
+
+          {selectedUnitId && (
+            <Select value={value ?? ""} onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)} className={inputClass}>
+              <option value="">{t("assignPage.unitSubTopicPicker.subTopicPlaceholder")}</option>
+              {subTopics.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.title}
+                </option>
+              ))}
+            </Select>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 function CreateExamModal({
   curriculums,
   onClose,
@@ -238,6 +462,7 @@ function CreateExamModal({
   const [curriculumId, setCurriculumId] = useState<number | null>(curriculums[0]?.id ?? null);
   const [teacherType, setTeacherType] = useState<ExamTeacherType | "">("");
   const [examType, setExamType] = useState<ExamType | "">("");
+  const [subTopicId, setSubTopicId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -250,7 +475,14 @@ function CreateExamModal({
     }
     setSubmitting(true);
     try {
-      const created = await createExam({ code: code.trim(), title: title.trim(), curriculumId, teacherType, examType });
+      const created = await createExam({
+        code: code.trim(),
+        title: title.trim(),
+        curriculumId,
+        teacherType,
+        examType,
+        subTopicId: subTopicId ?? undefined
+      });
       onCreated(created);
       onClose();
     } catch (err) {
@@ -274,7 +506,14 @@ function CreateExamModal({
         </div>
         <div>
           <label className={labelClass}>{t("assignPage.createExamModal.curriculumLabel")}</label>
-          <Select value={curriculumId ?? ""} onChange={(e) => setCurriculumId(e.target.value ? Number(e.target.value) : null)} className={inputClass}>
+          <Select
+            value={curriculumId ?? ""}
+            onChange={(e) => {
+              setCurriculumId(e.target.value ? Number(e.target.value) : null);
+              setSubTopicId(null);
+            }}
+            className={inputClass}
+          >
             <option value="">{t("assignPage.createExamModal.curriculumPlaceholder")}</option>
             {curriculums.map((c) => (
               <option key={c.id} value={c.id}>
@@ -283,6 +522,7 @@ function CreateExamModal({
             ))}
           </Select>
         </div>
+        <UnitSubTopicPicker curriculumId={curriculumId} value={subTopicId} onChange={setSubTopicId} />
         <div>
           <label className={labelClass}>{t("assignPage.createExamModal.teacherTypeLabel")}</label>
           <Select value={teacherType} onChange={(e) => setTeacherType(e.target.value as ExamTeacherType | "")} className={inputClass}>
@@ -328,6 +568,7 @@ function EditExamModal({
   const [title, setTitle] = useState(exam.title);
   const [teacherType, setTeacherType] = useState<ExamTeacherType>(exam.teacherType);
   const [examType, setExamType] = useState<ExamType>(exam.examType);
+  const [subTopicId, setSubTopicId] = useState<number | null>(exam.subTopicId);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -340,7 +581,7 @@ function EditExamModal({
     setSubmitting(true);
     setError(null);
     try {
-      const request: UpdateExamRequest = { title: title.trim(), teacherType, examType };
+      const request: UpdateExamRequest = { title: title.trim(), teacherType, examType, subTopicId: subTopicId ?? undefined };
       const updated = await updateExam(exam.id, request);
       onUpdated(updated);
     } catch (err) {
@@ -378,6 +619,7 @@ function EditExamModal({
             ))}
           </Select>
         </div>
+        <UnitSubTopicPicker curriculumId={exam.curriculumId} value={subTopicId} currentLabel={exam.subTopicTitle} onChange={setSubTopicId} />
         <p className="text-[10px] text-slate-400 italic">
           {t("assignPage.editExamModal.immutableHint", { code: exam.code, curriculumCode: exam.curriculumCode })}
         </p>
@@ -592,6 +834,7 @@ function ExamDetailPanel({
           <div>
             <p className="text-sm font-bold text-slate-800">{exam.title}</p>
             <p className="text-[10px] text-slate-400 font-mono mt-0.5">{exam.code} · {exam.curriculumCode}</p>
+            {exam.subTopicTitle && <p className="text-[10px] text-slate-400 mt-0.5">{exam.subTopicTitle}</p>}
           </div>
           {canManage && (
             <div className="flex items-center gap-2 shrink-0">

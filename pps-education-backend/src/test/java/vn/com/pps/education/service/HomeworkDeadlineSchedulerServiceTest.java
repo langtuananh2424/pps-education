@@ -135,7 +135,7 @@ class HomeworkDeadlineSchedulerServiceTest extends AbstractIntegrationTest {
         bank = questionBankService.createBank(
                 new CreateQuestionBankRequest(bankCode(), "Ngân hàng", activeCurriculum.id(), null, "A1"), teacher.getId());
         defaultExam = examService.createExam(
-                new CreateExamRequest(examCode(), "Đề mặc định", activeCurriculum.id(), "VIETNAMESE", "HOMEWORK"), teacher.getId());
+                new CreateExamRequest(examCode(), "Đề mặc định", activeCurriculum.id(), "VIETNAMESE", "HOMEWORK", null), teacher.getId());
 
         studentDoneUser = enrollNewStudent("student.hw.done");
         studentNotDoneUser = enrollNewStudent("student.hw.notdone");
