@@ -920,6 +920,16 @@ export function submitAttempt(attemptId: number): Promise<ExerciseAttemptRespons
   return apiRequest<ExerciseAttemptResponse>(`/attempts/${attemptId}/submit`, { method: "POST" });
 }
 
+/**
+ * V152 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — UC-24/A4, UC-27/A2: học sinh
+ * ĐÃ ĐẠT nhưng còn lượt làm lại (retake) tự nguyện dừng lại NGAY, đổi lại được xem đáp án đúng của
+ * lượt vừa đạt (bình thường phải làm hết maxAttempts mới xem được). Đóng LUÔN bản giao — không hoàn
+ * tác được, FE phải hỏi xác nhận trước khi gọi (xem TakeExerciseModal/BatchTakeExerciseModal).
+ */
+export function revealAndCloseAttempt(attemptId: number): Promise<ExerciseAttemptResponse> {
+  return apiRequest<ExerciseAttemptResponse>(`/attempts/${attemptId}/reveal-and-close`, { method: "POST" });
+}
+
 // ===================== Giám sát thoát màn hình khi làm bài (bổ sung ngoài SDD gốc, xác nhận 2026-07-31) =====================
 
 /** Khớp AttemptIntegrityEvent.EventType thật ở backend. */

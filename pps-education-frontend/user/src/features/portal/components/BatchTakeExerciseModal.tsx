@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { CheckCircle2, Loader2, PartyPopper, RotateCcw, X } from "lucide-react";
+import { CheckCircle2, KeyRound, Loader2, PartyPopper, RotateCcw, X } from "lucide-react";
 import { friendlyApiErrorMessage } from "@/lib/apiClient";
 import {
   AssignedExerciseResponse,
@@ -14,6 +14,7 @@ import {
   listAnswers,
   listExerciseQuestions,
   recordListeningPlay,
+  revealAndCloseAttempt,
   saveAnswer,
   startAttempt,
   submitAttempt,
@@ -41,6 +42,15 @@ interface SubExercise {
   meta: ExerciseMetaResponse;
   attempt: ExerciseAttemptResponse;
   questions: ExerciseQuestionResponse[];
+}
+
+/**
+ * V152 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — mirror TakeExerciseModal:
+ * lượt làm CÒN IN_PROGRESS (chưa nộp) nhưng đã quá hạn nộp và bản giao không cho nộp muộn — khoá HẲN
+ * thành chỉ xem (BE saveAnswer đã chặn tương ứng, đây là lớp chặn ở FE để không hiện ô nhập được nữa).
+ */
+function isSubOverdueLocked(sub: SubExercise): boolean {
+  return sub.attempt.status === "IN_PROGRESS" && sub.item.dueAt != null && !sub.item.lateSubmissionAllowed && new Date(sub.item.dueAt).getTime() < Date.now();
 }
 
 interface BatchTakeExerciseModalProps {
@@ -76,6 +86,11 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
   const [savingQuestionId, setSavingQuestionId] = useState<number | null>(null);
   const [confirmingSubmit, setConfirmingSubmit] = useState(false);
   const [justSubmitted, setJustSubmitted] = useState(false);
+  // V152 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — mirror TakeExerciseModal,
+  // xem Javadoc canRevealAndClose/handleRevealAndClose bên dưới.
+  const [confirmingRevealClose, setConfirmingRevealClose] = useState(false);
+  const [revealClosing, setRevealClosing] = useState(false);
+  const [justClosedEarly, setJustClosedEarly] = useState(false);
 
   const groupTitle = batchGroupTitle(t, items);
 
@@ -113,7 +128,7 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
 
   const handleChoiceAnswer = async (exerciseId: number, questionId: number, choiceIds: number[]) => {
     const sub = findSub(exerciseId);
-    if (!sub || sub.attempt.status !== "IN_PROGRESS") return;
+    if (!sub || sub.attempt.status !== "IN_PROGRESS" || isSubOverdueLocked(sub)) return;
     setSavingQuestionId(questionId);
     setError(null);
     try {
@@ -128,7 +143,7 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
 
   const handleStructuredAnswer = async (exerciseId: number, questionId: number, values: string[]) => {
     const sub = findSub(exerciseId);
-    if (!sub || sub.attempt.status !== "IN_PROGRESS") return;
+    if (!sub || sub.attempt.status !== "IN_PROGRESS" || isSubOverdueLocked(sub)) return;
     setSavingQuestionId(questionId);
     setError(null);
     try {
@@ -143,7 +158,7 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
 
   const handleAudioAnswer = async (exerciseId: number, questionId: number, file: File) => {
     const sub = findSub(exerciseId);
-    if (!sub || sub.attempt.status !== "IN_PROGRESS") return;
+    if (!sub || sub.attempt.status !== "IN_PROGRESS" || isSubOverdueLocked(sub)) return;
     setSavingQuestionId(questionId);
     setError(null);
     try {
@@ -159,7 +174,7 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
 
   const handleTextBlur = async (exerciseId: number, questionId: number) => {
     const sub = findSub(exerciseId);
-    if (!sub || sub.attempt.status !== "IN_PROGRESS") return;
+    if (!sub || sub.attempt.status !== "IN_PROGRESS" || isSubOverdueLocked(sub)) return;
     const text = textDraft[questionId];
     if (text === undefined) return;
     setSavingQuestionId(questionId);
@@ -176,7 +191,7 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
 
   const handleListeningEnded = async (exerciseId: number, q: ExerciseQuestionResponse) => {
     const sub = findSub(exerciseId);
-    if (!sub || sub.attempt.status !== "IN_PROGRESS") return;
+    if (!sub || sub.attempt.status !== "IN_PROGRESS" || isSubOverdueLocked(sub)) return;
     try {
       const res = await recordListeningPlay(sub.attempt.id, q.questionId);
       setListeningProgress((prev) => new Map(prev).set(q.groupKey ?? `Q${q.questionId}`, res));
@@ -190,7 +205,7 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
     setSubmitting(true);
     setError(null);
     try {
-      const toSubmit = subs.filter((s) => s.attempt.status === "IN_PROGRESS");
+      const toSubmit = subs.filter((s) => s.attempt.status === "IN_PROGRESS" && !isSubOverdueLocked(s));
       const updatedAttempts = await Promise.all(toSubmit.map((s) => submitAttempt(s.attempt.id)));
       setSubs((prev) =>
         prev
@@ -214,6 +229,32 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
     }
   };
 
+  /**
+   * V152 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — mirror TakeExerciseModal:
+   * cả Lô ĐÃ ĐẠT (từng Bài trong Lô đều tự đạt ngưỡng riêng, không chỉ đạt % gộp) nhưng còn lượt làm
+   * lại — học sinh tự nguyện dừng NGAY cả Lô để xem đáp án, đổi lại mất quyền làm lại. Đóng ĐỒNG THỜI
+   * mọi lượt trong Lô (không cho đóng lẻ từng Bài — tránh trạng thái nửa đóng nửa mở khó hiểu).
+   */
+  const handleRevealAndClose = async () => {
+    if (!subs) return;
+    setRevealClosing(true);
+    setError(null);
+    try {
+      await Promise.all(subs.map((s) => revealAndCloseAttempt(s.attempt.id)));
+      setJustClosedEarly(true);
+      const answerLists = await Promise.all(subs.map((s) => listAnswers(s.attempt.id)));
+      setAnswersByQuestion((prev) => {
+        const merged = new Map(prev);
+        answerLists.flat().forEach((a) => merged.set(a.questionId, a));
+        return merged;
+      });
+    } catch (err) {
+      setError(friendlyApiErrorMessage(err, t("takeExercise.loadError")));
+    } finally {
+      setRevealClosing(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="fixed inset-0 bg-white z-[100] flex items-center justify-center">
@@ -233,7 +274,12 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
     );
   }
 
-  const hasActiveAttempt = subs.some((s) => s.attempt.status === "IN_PROGRESS");
+  const hasActiveAttempt = subs.some((s) => s.attempt.status === "IN_PROGRESS" && !isSubOverdueLocked(s));
+  const anyOverdueLocked = subs.some(isSubOverdueLocked);
+  /** V152 — xem Javadoc handleRevealAndClose. */
+  const canRevealAndClose =
+    !justClosedEarly &&
+    subs.every((s) => s.attempt.status === "FULLY_GRADED" && s.attempt.passed === true && s.meta.maxAttempts != null && s.item.canStartNewAttempt);
 
   return (
     <div className="fixed inset-0 bg-white z-[100] flex flex-col">
@@ -249,6 +295,35 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
 
       {justSubmitted && <BatchResultPopup subs={subs} groupTitle={groupTitle} onClose={() => setJustSubmitted(false)} />}
 
+      {/* V152 — xác nhận trước khi TỰ NGUYỆN đóng cả Lô sớm để xem đáp án (không hoàn tác được). */}
+      {confirmingRevealClose && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[120]">
+          <div className="bg-white rounded-[20px] w-full max-w-sm p-6 space-y-4 text-center shadow-xl">
+            <KeyRound size={36} className="text-amber-600 mx-auto" />
+            <h3 className="text-base font-black text-ink">{t("takeExercise.revealAndClose.confirmTitle")}</h3>
+            <p className="text-xs font-bold text-muted leading-relaxed">{t("takeExercise.revealAndClose.confirmDescription")}</p>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <button
+                onClick={() => setConfirmingRevealClose(false)}
+                className="flex-1 px-4 py-2.5 bg-white hover:bg-slate-100 border border-line rounded-xl text-xs font-extrabold text-ink"
+              >
+                {t("takeExercise.revealAndClose.cancel")}
+              </button>
+              <button
+                onClick={() => {
+                  setConfirmingRevealClose(false);
+                  handleRevealAndClose();
+                }}
+                disabled={revealClosing}
+                className="flex-1 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-extrabold disabled:opacity-60"
+              >
+                {revealClosing ? t("takeExercise.revealAndClose.closing") : t("takeExercise.revealAndClose.confirmButton")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="border-b border-line/60 shrink-0">
         <div className="max-w-2xl lg:max-w-3xl w-full mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
           <div className="min-w-0">
@@ -257,15 +332,35 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
             </span>
             <h3 className="text-lg sm:text-xl lg:text-2xl font-extrabold text-ink truncate">{groupTitle}</h3>
           </div>
-          <button
-            onClick={onClose}
-            aria-label={t("takeExercise.closeAriaLabel")}
-            className="shrink-0 flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 transition-colors"
-          >
-            <X size={18} className="sm:w-5 sm:h-5" />
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            {/* V152 — nút "Xem đáp án & đóng lượt" tường minh, chỉ hiện khi CẢ LÔ đã đạt (từng Bài tự
+                đạt ngưỡng riêng) nhưng còn lượt làm lại — xem canRevealAndClose/handleRevealAndClose. */}
+            {canRevealAndClose && (
+              <button
+                onClick={() => setConfirmingRevealClose(true)}
+                disabled={revealClosing}
+                className="shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-xs font-extrabold transition-colors disabled:opacity-60"
+              >
+                <KeyRound size={14} /> {t("takeExercise.revealAndClose.button")}
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              aria-label={t("takeExercise.closeAriaLabel")}
+              className="shrink-0 flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 transition-colors"
+            >
+              <X size={18} className="sm:w-5 sm:h-5" />
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* V152 — giải thích vì sao (các) Bài đang dở trong Lô bỗng thành chỉ-xem — xem isSubOverdueLocked. */}
+      {anyOverdueLocked && (
+        <div className="shrink-0 px-4 sm:px-6 py-2 text-center text-xs font-extrabold bg-coral/10 text-coral border-b border-coral/20">
+          {t("takeExercise.overdueLocked.banner")}
+        </div>
+      )}
 
       {error && (
         <div className="max-w-2xl lg:max-w-3xl w-full mx-auto px-4 sm:px-6 pt-3">
@@ -276,7 +371,7 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-2xl lg:max-w-3xl w-full mx-auto px-4 sm:px-6 py-4 sm:py-6 space-y-6">
           {subs.map((sub) => {
-            const sectionReadOnly = sub.attempt.status !== "IN_PROGRESS";
+            const sectionReadOnly = sub.attempt.status !== "IN_PROGRESS" || isSubOverdueLocked(sub);
             const attemptsRemainingBeforeAnswer =
               sub.meta.maxAttempts != null ? Math.max(0, sub.meta.maxAttempts - sub.attempt.attemptNumber) : null;
             const blocks = groupQuestionsByGroupKey(sub.questions);

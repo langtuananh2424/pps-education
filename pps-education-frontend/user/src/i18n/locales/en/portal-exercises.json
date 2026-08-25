@@ -38,6 +38,17 @@
       "stay": "Keep working",
       "stillClose": "Close anyway"
     },
+    "revealAndClose": {
+      "button": "View answers & close",
+      "confirmTitle": "View the answer key now?",
+      "confirmDescription": "You've passed this exercise and still have retakes left. Viewing the answer key now will close this attempt for good — you will NOT be able to retake it for a higher score anymore.",
+      "cancel": "Not now",
+      "confirmButton": "View answers, close it",
+      "closing": "Working on it..."
+    },
+    "overdueLocked": {
+      "banner": "Past the submission deadline — your unfinished attempt is now locked to view-only; you can no longer continue or submit it."
+    },
     "confirmSubmit": {
       "message": "Submit now? You won't be able to change your answers after submitting.",
       "cancel": "Cancel",
@@ -239,6 +250,7 @@
       "all": "All homework ({{count}})",
       "pending": "To do ({{count}})",
       "graded": "Submitted & graded ({{count}})",
+      "overdue": "Overdue ({{count}})",
       "typeAriaLabel": "Filter by type",
       "typeDialogAriaLabel": "Choose a type",
       "typeAll": "All types",

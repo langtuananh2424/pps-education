@@ -78,6 +78,20 @@ function isBatchPending(items: AssignedExerciseResponse[]): boolean {
 }
 
 /**
+ * V152 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — 1 Bài "quá hạn" khi còn pending
+ * (chưa hoàn thành xong) VÀ đã qua dueAt — dùng cho tab lọc mới "Bài tập quá hạn" (khác badge quá hạn
+ * đã có sẵn trên từng thẻ, cái đó chỉ hiện thị chứ không lọc được thành danh sách riêng).
+ */
+function isExerciseOverduePending(item: AssignedExerciseResponse): boolean {
+  return isExercisePending(item) && item.dueAt != null && new Date(item.dueAt) < new Date();
+}
+
+/** V152 — mirror isExerciseOverduePending, áp dụng cho cả nhóm Lô (dùng chung dueAt của Bài đại diện, mirror BatchExerciseCard). */
+function isBatchOverduePending(items: AssignedExerciseResponse[]): boolean {
+  return isBatchPending(items) && items[0].dueAt != null && new Date(items[0].dueAt) < new Date();
+}
+
+/**
  * V150 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — gom N thẻ BTVN cùng
  * homeworkBatchId thành 1 nhóm hiển thị 1 thẻ duy nhất (xem BatchExerciseCard) — khớp đúng cách
  * backend giao TOÀN BỘ Bài cùng kỹ năng trong 1 Lesson cùng lúc (HomeworkSkillBatchService). Bài lẻ
@@ -130,7 +144,14 @@ function isConnectionCompleted(item: ReviewVideoHomeworkItem): boolean {
   return !!item.connectionStats?.completed;
 }
 
-type FilterStatus = "ALL" | "PENDING" | "GRADED";
+/** V152 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — mirror isExerciseOverduePending, áp dụng cho Video ôn tập (REFLEX/CONNECTION). */
+function isVideoOverduePending(item: ReviewVideoHomeworkItem): boolean {
+  if (item.dueAt == null || new Date(item.dueAt) >= new Date()) return false;
+  if (item.videoType === "CONNECTION") return isConnectionAnswerable(item) && !isConnectionCompleted(item);
+  return isReflexAnswerable(item) && !isReflexFullyAnswered(item);
+}
+
+type FilterStatus = "ALL" | "PENDING" | "GRADED" | "OVERDUE";
 type FilterType = "ALL" | "EXERCISE" | "VIDEO";
 
 interface ReviewVideoHomeworkItem {
@@ -424,11 +445,17 @@ export default function AssignmentsTab({
     batchGroups.filter((items) => !isBatchPending(items)).length +
     reviewItems.filter((x) => isReflexAnswerable(x) && isReflexFullyAnswered(x)).length +
     reviewItems.filter((x) => isConnectionAnswerable(x) && isConnectionCompleted(x)).length;
+  /** V152 — đếm cho tab lọc mới "Bài tập quá hạn" (khác pendingCount: chỉ tính phần ĐÃ qua hạn nộp trong số đang pending). */
+  const overdueCount =
+    singleExercises.filter(isExerciseOverduePending).length +
+    batchGroups.filter(isBatchOverduePending).length +
+    reviewItems.filter(isVideoOverduePending).length;
 
   const filteredSingleExercises = singleExercises.filter((e) => {
     if (filterType === "VIDEO") return false;
     if (filterStatus === "PENDING") return isExercisePending(e);
     if (filterStatus === "GRADED") return !isExercisePending(e);
+    if (filterStatus === "OVERDUE") return isExerciseOverduePending(e);
     return true;
   });
   const filteredBatchGroups = batchGroups.filter((items) => {
@@ -436,11 +463,13 @@ export default function AssignmentsTab({
     const pending = isBatchPending(items);
     if (filterStatus === "PENDING") return pending;
     if (filterStatus === "GRADED") return !pending;
+    if (filterStatus === "OVERDUE") return isBatchOverduePending(items);
     return true;
   });
   const filteredReviewItems = reviewItems.filter((x) => {
     if (filterType === "EXERCISE") return false;
     if (filterStatus === "ALL") return true;
+    if (filterStatus === "OVERDUE") return isVideoOverduePending(x);
     if (x.videoType === "CONNECTION") {
       if (!isConnectionAnswerable(x)) return false; // API tiến độ lỗi/chưa tải xong — chưa tham gia lọc
       return filterStatus === "PENDING" ? !isConnectionCompleted(x) : isConnectionCompleted(x);
@@ -526,6 +555,17 @@ export default function AssignmentsTab({
               }`}
             >
               <CheckCircle2 size={14} /> {t("assignments.filters.graded", { count: gradedCount })}
+            </button>
+            {/* V152 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — tab lọc riêng cho
+                BTVN đã quá hạn nộp (chưa hoàn thành xong), giúp học sinh/phụ huynh tìm nhanh thay vì
+                phải đọc từng badge quá hạn rải rác trong danh sách "Cần hoàn thành". */}
+            <button
+              onClick={() => setFilterStatus("OVERDUE")}
+              className={`shrink-0 snap-start px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+                filterStatus === "OVERDUE" ? "bg-coral text-white shadow-sm" : "bg-slate-100 hover:bg-slate-200 text-muted"
+              }`}
+            >
+              <AlertCircle size={14} /> {t("assignments.filters.overdue", { count: overdueCount })}
             </button>
           </div>
 
@@ -693,6 +733,12 @@ function ExerciseCard({
   const attemptMeta = retake ? null : item.myLatestAttemptStatus ? attemptStatusMeta(t, item.myLatestAttemptStatus) : null;
   const isFullyGraded = item.myLatestAttemptStatus === "FULLY_GRADED";
   const pending = isExercisePending(item);
+  /**
+   * V152 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — lượt CÒN IN_PROGRESS (chưa
+   * nộp) nhưng đã quá hạn nộp và bản giao không cho nộp muộn — TakeExerciseModal sẽ tự khoá thành chỉ
+   * xem (xem overdueLockedInProgress ở đó), nên nhãn nút ở đây phải khớp ("Xem lại" thay vì "Tiếp tục").
+   */
+  const overdueLockedInProgress = isOverdue && !item.lateSubmissionAllowed && item.myLatestAttemptStatus === "IN_PROGRESS";
 
   /**
    * V148 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23) — CHỦ Ý chỉ còn 2 nhánh ở màn
@@ -705,7 +751,7 @@ function ExerciseCard({
   const actionLabel =
     item.myLatestAttemptStatus == null
       ? t("assignments.exercise.action.start")
-      : item.myLatestAttemptStatus === "IN_PROGRESS"
+      : item.myLatestAttemptStatus === "IN_PROGRESS" && !overdueLockedInProgress
         ? t("assignments.exercise.action.continue")
         : t("assignments.exercise.action.reviewGraded");
 
@@ -831,6 +877,8 @@ function BatchExerciseCard({
   const allFullyGraded = items.every((it) => it.myLatestAttemptStatus === "FULLY_GRADED");
   const noneStarted = items.every((it) => it.myLatestAttemptStatus == null);
   const attemptMeta = anyRetake || noneStarted ? null : anyInProgress ? attemptStatusMeta(t, "IN_PROGRESS") : allFullyGraded ? attemptStatusMeta(t, "FULLY_GRADED") : attemptStatusMeta(t, "AUTO_GRADED");
+  /** V152 — mirror ExerciseCard#overdueLockedInProgress, áp dụng cho cả Lô (dùng chung dueAt/lateSubmissionAllowed của Bài đại diện). */
+  const overdueLockedInProgress = isOverdue && !first.lateSubmissionAllowed && anyInProgress;
 
   const totalScore = items.reduce((sum, it) => sum + (it.myLatestTotalScore ?? 0), 0);
   const totalPoints = items.reduce((sum, it) => sum + (it.exerciseTotalPoints ?? 0), 0);
@@ -839,7 +887,7 @@ function BatchExerciseCard({
 
   const actionLabel = noneStarted
     ? t("assignments.exercise.action.start")
-    : anyInProgress
+    : anyInProgress && !overdueLockedInProgress
       ? t("assignments.exercise.action.continue")
       : t("assignments.exercise.action.reviewGraded");
 
