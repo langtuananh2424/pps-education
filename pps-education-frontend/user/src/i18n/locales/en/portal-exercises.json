@@ -149,6 +149,11 @@
     "noQuestions": "This video doesn't have any questions yet.",
     "badge": "Reflex video",
     "exitButton": "Exit",
+    "playButton": "Play video",
+    "pauseButton": "Pause video",
+    "replayButton": "Replay this part",
+    "durationLabel": "Video length: {{duration}}",
+    "timelineLabel": "Question marks",
     "reviewBadge": "Reviewing",
     "closeReviewButton": "Close",
     "startScreen": {
@@ -183,7 +188,7 @@
       "useSuggestionButton": "Fill answer box with this",
       "passedPopup": {
         "heading": "Passed the writing step",
-        "startRecordingButton": "Start recording"
+        "continueButton": "Continue"
       }
     },
     "speakingStage": {

@@ -149,6 +149,11 @@
     "noQuestions": "Video này chưa có câu hỏi nào.",
     "badge": "Video phản xạ",
     "exitButton": "Thoát",
+    "playButton": "Phát video",
+    "pauseButton": "Tạm dừng video",
+    "replayButton": "Nghe lại đoạn này",
+    "durationLabel": "Thời lượng video: {{duration}}",
+    "timelineLabel": "Các mốc câu hỏi",
     "reviewBadge": "Đang xem lại",
     "closeReviewButton": "Đóng",
     "startScreen": {
@@ -183,7 +188,7 @@
       "useSuggestionButton": "Điền gợi ý vào ô trả lời",
       "passedPopup": {
         "heading": "Đạt bước viết",
-        "startRecordingButton": "Bắt đầu ghi âm"
+        "continueButton": "Tiếp tục"
       }
     },
     "speakingStage": {
