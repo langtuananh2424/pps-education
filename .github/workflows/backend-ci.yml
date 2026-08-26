@@ -6,12 +6,12 @@ name: Backend CI
 
 on:
   pull_request:
-    branches: [develop, main]
+    branches: [develop, main, production]
     paths:
       - "pps-education-backend/**"
       - ".github/workflows/backend-ci.yml"
   push:
-    branches: [develop, main]
+    branches: [develop, main, production]
     paths:
       - "pps-education-backend/**"
 

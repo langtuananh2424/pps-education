@@ -1,0 +1,28 @@
+# Template server block cho app admin (pps-education-frontend/admin) —
+# copy thành 2 file thật trên server:
+#   /etc/nginx/sites-available/admin-staging.<DOMAIN>.conf
+#   /etc/nginx/sites-available/admin.<DOMAIN>.conf
+# rồi thay __HOSTNAME__/__ROOT_PATH__/__API_PORT__ theo đúng stack (xem
+# deploy/README.md bảng giá trị). Chỉ listen 80 — TLS do Cloudflare Tunnel
+# lo (xem deploy/README.md mục Cloudflare Tunnel), KHÔNG cần Certbot/443 ở đây.
+
+server {
+    listen 80;
+    server_name __HOSTNAME__;
+
+    root __ROOT_PATH__;
+    index index.html;
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:__API_PORT__/api/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html; # SPA fallback (react-router)
+    }
+}
