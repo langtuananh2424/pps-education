@@ -249,9 +249,19 @@ export function downloadQuestionImportWordTemplate(): Promise<Blob> {
   return apiRequestBlob("/question-imports/template.docx");
 }
 
-/** V75: File mẫu Word cho luồng Giáo viên theo Đề. */
-export function downloadExamQuestionImportWordTemplate(): Promise<Blob> {
-  return apiRequestBlob("/exams/question-imports/template.docx");
+/**
+ * V75: File mẫu Word cho luồng Giáo viên theo Đề.
+ *
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — `skillCategory`/`teacherType` optional,
+ * lọc template chỉ còn block khớp Nhóm kỹ năng của Bài đang soạn (bỏ trống = in đủ tất cả, mirror
+ * hành vi backend QuestionImportService.buildWordTemplate).
+ */
+export function downloadExamQuestionImportWordTemplate(skillCategory?: string, teacherType?: string): Promise<Blob> {
+  const params = new URLSearchParams();
+  if (skillCategory) params.set("skillCategory", skillCategory);
+  if (teacherType) params.set("teacherType", teacherType);
+  const query = params.toString();
+  return apiRequestBlob(`/exams/question-imports/template.docx${query ? `?${query}` : ""}`);
 }
 
 // ===================== Kho đề (Exam) — "Đề" cha, VD: IELTS Grade 6 =====================
@@ -694,7 +704,7 @@ export interface ReviewVideoSetResponse {
   status: ReviewVideoSetStatus;
   publishedAt: string | null;
   createdBy: number;
-  /** V153 — Bộ thuộc Sub Topic nào trong mục lục sách (Sách/Khối -> Unit -> Sub Topic -> Bộ). NULL = chưa phân loại vào cấu trúc mới. */
+  /** V155 — Bộ thuộc Sub Topic nào trong mục lục sách (Sách/Khối -> Unit -> Sub Topic -> Bộ). NULL = chưa phân loại vào cấu trúc mới. */
   subTopicId: number | null;
   subTopicTitle: string | null;
 }
@@ -729,7 +739,7 @@ export function updateReviewVideoSet(id: number, request: UpdateReviewVideoSetRe
   return apiRequest<ReviewVideoSetResponse>(`/review-video-sets/${id}`, { method: "PUT", body: JSON.stringify(request) });
 }
 
-/** V154 — "Xóa Bộ" (soft-delete), chỉ xóa được khi Bộ đã hết Video (BE tự chặn 400 nếu còn). */
+/** V156 — "Xóa Bộ" (soft-delete), chỉ xóa được khi Bộ đã hết Video (BE tự chặn 400 nếu còn). */
 export function deleteReviewVideoSet(id: number): Promise<void> {
   return apiRequest<void>(`/review-video-sets/${id}`, { method: "DELETE" });
 }

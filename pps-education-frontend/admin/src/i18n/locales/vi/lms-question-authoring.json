@@ -119,7 +119,9 @@
       "wordBank": "Mỗi chỗ trống 1 từ, phân tách bằng dấu | theo ĐÚNG thứ tự (cột Đáp án đúng).",
       "wordBankPicture": "Cột Transcript dùng làm hộp từ vựng hiển thị cho học sinh (có thể thêm từ nhiễu), để trống thì hộp từ = chính đáp án đúng.",
       "sentenceBuilding": "Mỗi khối từ/cụm 1 phần tử, phân tách bằng dấu | theo ĐÚNG thứ tự câu hoàn chỉnh.",
-      "letterScramble": "Mỗi chữ cái 1 phần tử, phân tách bằng dấu | theo ĐÚNG thứ tự tạo thành từ đúng."
+      "letterScramble": "Mỗi chữ cái 1 phần tử, phân tách bằng dấu | theo ĐÚNG thứ tự tạo thành từ đúng.",
+      "listeningAudioSubmission": "Học sinh nộp audio, chấm tay ở Hàng chờ chấm bài.",
+      "listeningFillInBlank": "Hệ thống tự chấm theo đáp án đúng."
     },
     "formatExcel": "Excel (.xlsx)",
     "formatWord": "Word (.docx)",
@@ -235,6 +237,7 @@
       "submit": "Tạo Bài — tiếp tục gắn câu hỏi",
       "errors": {
         "requiredFields": "Vui lòng điền Mã Bài, Tên Bài và Tổng điểm.",
+        "skillCategoryRequired": "Vui lòng chọn Nhóm kỹ năng.",
         "createFailed": "Tạo Bài thất bại."
       }
     },

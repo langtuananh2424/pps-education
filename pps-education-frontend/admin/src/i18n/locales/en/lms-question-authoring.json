@@ -119,7 +119,9 @@
       "wordBank": "1 word per blank, separated by | in the EXACT order (Correct answer column).",
       "wordBankPicture": "The Transcript column is used as the word bank shown to students (can add distractor words) — leave empty to use the correct answers as the bank.",
       "sentenceBuilding": "1 word/phrase chunk per element, separated by | in the EXACT order of the complete sentence.",
-      "letterScramble": "1 letter per element, separated by | in the EXACT order that forms the correct word."
+      "letterScramble": "1 letter per element, separated by | in the EXACT order that forms the correct word.",
+      "listeningAudioSubmission": "Student submits audio; graded manually in the Grading queue.",
+      "listeningFillInBlank": "Auto-graded against the correct answer."
     },
     "formatExcel": "Excel (.xlsx)",
     "formatWord": "Word (.docx)",
@@ -235,6 +237,7 @@
       "submit": "Create exercise — continue to attach questions",
       "errors": {
         "requiredFields": "Please fill in the exercise code, title, and total points.",
+        "skillCategoryRequired": "Please select a skill category.",
         "createFailed": "Failed to create the exercise."
       }
     },

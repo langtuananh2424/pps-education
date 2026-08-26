@@ -22,6 +22,14 @@ import QuestionImportPanel from "./QuestionImportPanel";
 import GridQuestionBuilder from "./GridQuestionBuilder";
 import ListeningGroupBuilder from "./ListeningGroupBuilder";
 import ClozeQuestionBuilder from "./ClozeQuestionBuilder";
+import {
+  ComposeSubMode,
+  FOREIGN_LISTENING_KINDS,
+  FOREIGN_LISTENING_MODES,
+  VIETNAMESE_SKILL_KINDS,
+  VIETNAMESE_SKILL_MODES,
+  VietnameseSkillCategory
+} from "../skillCategoryKinds";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
@@ -72,6 +80,7 @@ export default function CreateAndAssignExerciseModal({ examId, teacherType, onCl
       {step === "info" && (
         <ExerciseInfoStep
           examId={examId}
+          teacherType={teacherType}
           onCreated={(created) => {
             setExercise(created);
             setStep("questions");
@@ -106,10 +115,12 @@ export default function CreateAndAssignExerciseModal({ examId, teacherType, onCl
 
 function ExerciseInfoStep({
   examId,
+  teacherType,
   onCreated,
   onError
 }: {
   examId: number;
+  teacherType: ExamTeacherType;
   onCreated: (exercise: ExerciseResponse) => void;
   onError: (message: string | null) => void;
 }) {
@@ -117,8 +128,22 @@ function ExerciseInfoStep({
   const [code, setCode] = useState("");
   const [title, setTitle] = useState("");
   const [totalPoints, setTotalPoints] = useState("10");
-  /** V136, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-21 — nhóm kỹ năng của Bài (Reading/Writing/Từ vựng&Ngữ pháp), cố định từ lúc tạo. */
-  const [skillCategory, setSkillCategory] = useState<ExerciseSkillCategory | "">("");
+  /**
+   * V136, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-21 — nhóm kỹ năng của Bài
+   * (Reading/Writing/Từ vựng&Ngữ pháp), cố định từ lúc tạo.
+   *
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — BẮT BUỘC chọn (bỏ "-- Chưa phân
+   * loại --"), dùng để khóa/rút gọn kind-picker ở ExerciseQuestionsStep (xem skillCategoryKinds.ts).
+   * FOREIGN chỉ có đúng 1 giá trị hợp lệ (LISTENING) nên mặc định chọn sẵn luôn. VIETNAMESE mặc định
+   * chọn sẵn option ĐẦU TIÊN (READING) — bắt buộc khởi tạo state khớp đúng option đầu, KHÔNG để rỗng:
+   * do bỏ hẳn placeholder "", nếu state khởi tạo "" (không khớp option nào) trình duyệt vẫn tự hiện
+   * option đầu tiên trên UI (hành vi mặc định của <select> khi value không khớp) khiến người dùng
+   * tưởng đã chọn Reading trong khi state React thực tế vẫn rỗng — validate submit vẫn báo lỗi dù
+   * dropdown nhìn như đã chọn.
+   */
+  const [skillCategory, setSkillCategory] = useState<ExerciseSkillCategory | "">(
+    teacherType === "FOREIGN" ? "LISTENING" : "READING"
+  );
   const [allowRetake, setAllowRetake] = useState(false);
   const [maxAttempts, setMaxAttempts] = useState("");
   const [showCorrectAnswers, setShowCorrectAnswers] = useState(true);
@@ -135,6 +160,10 @@ function ExerciseInfoStep({
     onError(null);
     if (!code.trim() || !title.trim() || !totalPoints) {
       onError(t("assignModal.infoStep.errors.requiredFields"));
+      return;
+    }
+    if (!skillCategory) {
+      onError(t("assignModal.infoStep.errors.skillCategoryRequired"));
       return;
     }
     setSubmitting(true);
@@ -182,11 +211,15 @@ function ExerciseInfoStep({
             onChange={(e) => setSkillCategory(e.target.value as ExerciseSkillCategory | "")}
             className={inputClass}
           >
-            <option value="">{t("assignModal.infoStep.skillCategoryPlaceholder")}</option>
-            <option value="READING">{t("assignModal.infoStep.skillCategoryReading")}</option>
-            <option value="WRITING">{t("assignModal.infoStep.skillCategoryWriting")}</option>
-            <option value="VOCAB_GRAMMAR">{t("assignModal.infoStep.skillCategoryVocabGrammar")}</option>
-            <option value="LISTENING">{t("assignModal.infoStep.skillCategoryListening")}</option>
+            {teacherType === "FOREIGN" ? (
+              <option value="LISTENING">{t("assignModal.infoStep.skillCategoryListening")}</option>
+            ) : (
+              <>
+                <option value="READING">{t("assignModal.infoStep.skillCategoryReading")}</option>
+                <option value="WRITING">{t("assignModal.infoStep.skillCategoryWriting")}</option>
+                <option value="VOCAB_GRAMMAR">{t("assignModal.infoStep.skillCategoryVocabGrammar")}</option>
+              </>
+            )}
           </select>
         </div>
         <div className="col-span-2">
@@ -278,8 +311,6 @@ export function ExerciseQuestionsStep({
   onClose: () => void;
 }) {
   const { t } = useTranslation("lms-question-authoring");
-  const availableModes: QuestionSourceMode[] = teacherType === "FOREIGN" ? ["compose"] : ["import", "compose"];
-  const [mode, setMode] = useState<QuestionSourceMode>(availableModes[0]);
   // V78: VIETNAMESE trong tab "Soạn câu hỏi mới" có thêm lựa chọn "Bài đọc hiểu — Lưới" (composite
   // nhiều câu hỏi/1 lần, xem GridQuestionBuilder) bên cạnh soạn từng câu đơn (QuestionEditorForm).
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — FOREIGN có thêm "listeningGroup"
@@ -288,7 +319,25 @@ export function ExerciseQuestionsStep({
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — VIETNAMESE có thêm "cloze"
   // (ClozeQuestionBuilder): "Đọc điền từ" — 1 đoạn văn dùng chung + N chỗ trống, MỖI chỗ trống có bộ
   // đáp án riêng (khác "grid" — ở đó mọi câu dùng CHUNG 1 bộ đáp án).
-  const [composeSubMode, setComposeSubMode] = useState<"single" | "grid" | "cloze" | "listeningGroup">("single");
+  //
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — danh sách mode/kind hợp lệ giờ tra
+  // theo (teacherType, exercise.skillCategory) từ skillCategoryKinds.ts thay vì hard-code đủ 3/2 lựa
+  // chọn như trước (VOCAB_GRAMMAR/WRITING chỉ còn "single", READING chỉ còn "cloze"/"grid").
+  const composeModes: ComposeSubMode[] =
+    teacherType === "FOREIGN" ? FOREIGN_LISTENING_MODES : VIETNAMESE_SKILL_MODES[exercise.skillCategory as VietnameseSkillCategory];
+  const allowedKinds =
+    teacherType === "FOREIGN"
+      ? FOREIGN_LISTENING_KINDS
+      : (VIETNAMESE_SKILL_KINDS[exercise.skillCategory as "VOCAB_GRAMMAR" | "WRITING"] ?? []);
+  /**
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — tab "Nhập Excel/Word" giờ bật cho
+   * cả 2 loại GV (trước đây FOREIGN chỉ có "compose"), NHƯNG ẩn hẳn khi Nhóm kỹ năng không có loại
+   * nào import được (READING — Cloze/Grid chỉ là composite, chưa từng import được, xem
+   * QuestionImportService.java) để tránh hiện 1 tab rỗng vô nghĩa.
+   */
+  const availableModes: QuestionSourceMode[] = allowedKinds.length > 0 ? ["import", "compose"] : ["compose"];
+  const [mode, setMode] = useState<QuestionSourceMode>(availableModes[0]);
+  const [composeSubMode, setComposeSubMode] = useState<ComposeSubMode>(composeModes[0]);
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04 — Bài có thể ĐÃ có sẵn câu hỏi (mở
   // lại để thêm tiếp, không chỉ lúc soạn mới) — cần biết số câu đã có để displayOrder câu mới không
   // trùng câu cũ (trước đây luôn giả định Bài trống, bắt đầu từ 1).
@@ -338,7 +387,7 @@ export function ExerciseQuestionsStep({
         newlyAttached.push({ exerciseQuestionId: eq.id, content: q.content, points: eq.points });
       }
       setAttached((prev) => [...prev, ...newlyAttached]);
-      setComposeSubMode("single");
+      setComposeSubMode(composeModes[0]);
     } catch (err) {
       onError(err instanceof ApiError ? err.message : t("assignModal.questionsStep.errors.attachCompositeFailed"));
     }
@@ -421,9 +470,12 @@ export function ExerciseQuestionsStep({
         ))}
       </div>
 
-      {mode === "compose" && teacherType === "VIETNAMESE" && (
+      {/* Toggle chỉ hiện khi Nhóm kỹ năng có >1 mode hợp lệ (VOCAB_GRAMMAR/WRITING chỉ có "single" nên
+          ẩn hẳn toggle; READING chọn giữa Cloze/Grid; FOREIGN/LISTENING chọn giữa 1 câu và 1 audio
+          nhiều câu — y hệt hành vi cũ, chỉ đổi nguồn danh sách sang composeModes). */}
+      {mode === "compose" && composeModes.length > 1 && (
         <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-lg w-fit">
-          {(["single", "grid", "cloze"] as const).map((m) => (
+          {composeModes.map((m) => (
             <button
               key={m}
               type="button"
@@ -436,27 +488,9 @@ export function ExerciseQuestionsStep({
                 ? t("assignModal.questionsStep.subModeSingle")
                 : m === "grid"
                   ? t("assignModal.questionsStep.subModeGrid")
-                  : t("assignModal.questionsStep.subModeCloze")}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — FOREIGN chọn giữa soạn 1
-          câu/1 audio (như cũ) và "nhiều câu/1 audio" (ListeningGroupBuilder), y hệt tinh thần toggle
-          single/grid của VIETNAMESE ở trên. */}
-      {mode === "compose" && teacherType === "FOREIGN" && (
-        <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-lg w-fit">
-          {(["single", "listeningGroup"] as const).map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => setComposeSubMode(m)}
-              className={`text-[11px] font-bold px-3 py-1.5 rounded-md transition-all ${
-                composeSubMode === m ? "bg-white text-brand-red shadow-xs" : "text-slate-500 hover:text-slate-700"
-              }`}
-            >
-              {m === "single" ? t("assignModal.questionsStep.subModeSingle") : t("assignModal.questionsStep.subModeListeningGroup")}
+                  : m === "cloze"
+                    ? t("assignModal.questionsStep.subModeCloze")
+                    : t("assignModal.questionsStep.subModeListeningGroup")}
             </button>
           ))}
         </div>
@@ -464,40 +498,29 @@ export function ExerciseQuestionsStep({
 
       {mode === "compose" &&
         (composeSubMode === "grid" && teacherType === "VIETNAMESE" ? (
-          <GridQuestionBuilder examId={exercise.examId} onCreated={handleCompositeCreated} onCancel={() => setComposeSubMode("single")} />
+          <GridQuestionBuilder examId={exercise.examId} onCreated={handleCompositeCreated} onCancel={() => setComposeSubMode(composeModes[0])} />
         ) : composeSubMode === "cloze" && teacherType === "VIETNAMESE" ? (
-          <ClozeQuestionBuilder examId={exercise.examId} onCreated={handleCompositeCreated} onCancel={() => setComposeSubMode("single")} />
+          <ClozeQuestionBuilder examId={exercise.examId} onCreated={handleCompositeCreated} onCancel={() => setComposeSubMode(composeModes[0])} />
         ) : composeSubMode === "listeningGroup" && teacherType === "FOREIGN" ? (
-          <ListeningGroupBuilder examId={exercise.examId} onCreated={handleCompositeCreated} onCancel={() => setComposeSubMode("single")} />
+          <ListeningGroupBuilder examId={exercise.examId} onCreated={handleCompositeCreated} onCancel={() => setComposeSubMode(composeModes[0])} />
         ) : (
           <QuestionEditorForm
             key={composeFormKey}
             examId={exercise.examId}
-            allowedKinds={
-              // V83 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04): FOREIGN chọn
-              // trực tiếp giữa 2 kind ngay trong kind-picker này — không còn màn chọn riêng trước
-              // đó (V78 GV Việt Nam không soạn Speaking oral/"Nghe & nộp audio", 2 kind này chỉ
-              // dành cho FOREIGN).
-              teacherType === "FOREIGN"
-                ? ["VOICE_MULTIPLE_CHOICE", "LISTENING_AUDIO_SUBMISSION", "LISTENING_FILL_IN_BLANK"]
-                : [
-                    "MULTIPLE_CHOICE",
-                    "VOICE_MULTIPLE_CHOICE",
-                    "INLINE_CHOICE",
-                    "FILL_IN_BLANK",
-                    "WORD_BANK",
-                    "WORD_BANK_PICTURE",
-                    "SENTENCE_BUILDING",
-                    "LETTER_SCRAMBLE",
-                    "ESSAY"
-                  ]
-            }
+            allowedKinds={allowedKinds}
             onCreated={handleComposeCreated}
             onCancel={() => setMode(availableModes[0])}
           />
         ))}
 
-      {mode === "import" && <QuestionImportPanel examId={exercise.examId} onImported={handleImportCompleted} />}
+      {mode === "import" && (
+        <QuestionImportPanel
+          examId={exercise.examId}
+          skillCategory={exercise.skillCategory ?? undefined}
+          teacherType={teacherType}
+          onImported={handleImportCompleted}
+        />
+      )}
 
       {attached.length > 0 && (
         <div className="border border-emerald-100 bg-emerald-50/50 rounded-lg divide-y divide-emerald-100 max-h-40 overflow-y-auto">

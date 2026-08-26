@@ -81,7 +81,7 @@ public class ReviewVideoController {
         return ResponseEntity.ok(reviewVideoService.updateSet(id, request, actor.userId()));
     }
 
-    /** V154 — "Xóa Bộ" (soft-delete), chỉ xóa được khi Bộ đã hết Video — xem Javadoc ReviewVideoService#deleteSet. */
+    /** V156 — "Xóa Bộ" (soft-delete), chỉ xóa được khi Bộ đã hết Video — xem Javadoc ReviewVideoService#deleteSet. */
     @PreAuthorize("hasPermission(null, 'lms.review-video.delete')")
     @DeleteMapping("/api/review-video-sets/{id}")
     public ResponseEntity<Void> deleteSet(@PathVariable Long id, @AuthenticationPrincipal AuthenticatedUser actor) {

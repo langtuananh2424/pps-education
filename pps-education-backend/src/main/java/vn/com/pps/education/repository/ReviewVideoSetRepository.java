@@ -14,10 +14,10 @@ public interface ReviewVideoSetRepository extends JpaRepository<ReviewVideoSet, 
     /** UC-21 mở rộng (BTVN online — dán uuid làm phương án thay dropdown, V55). */
     Optional<ReviewVideoSet> findByUuid(UUID uuid);
 
-    /** V154 — dùng thay findById ở mọi nơi đọc/sửa 1 Bộ, không lộ Bộ đã "xóa" (deleted_at), mirror ExamRepository#findByIdAndDeletedAtIsNull. */
+    /** V156 — dùng thay findById ở mọi nơi đọc/sửa 1 Bộ, không lộ Bộ đã "xóa" (deleted_at), mirror ExamRepository#findByIdAndDeletedAtIsNull. */
     Optional<ReviewVideoSet> findByIdAndDeletedAtIsNull(Long id);
 
-    /** Kho Video — lọc theo khung chương trình/loại giáo viên (V98, mirror ExamRepository). V154: thêm lọc deletedAt IS NULL. */
+    /** Kho Video — lọc theo khung chương trình/loại giáo viên (V98, mirror ExamRepository). V156: thêm lọc deletedAt IS NULL. */
     List<ReviewVideoSet> findByCurriculumIdAndDeletedAtIsNullOrderByDisplayOrder(Long curriculumId);
 
     List<ReviewVideoSet> findByCurriculumIdAndTeacherTypeAndDeletedAtIsNullOrderByDisplayOrder(Long curriculumId, ReviewVideoSet.TeacherType teacherType);

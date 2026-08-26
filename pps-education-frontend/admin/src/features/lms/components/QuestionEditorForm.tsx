@@ -24,7 +24,7 @@ const labelClass = "block font-bold text-slate-700 mb-1 uppercase tracking-wider
  * giá trị enum riêng ở backend — là MULTIPLE_CHOICE/SPEAKING/WORD_BANK/SENTENCE_BUILDING + skill/
  * imageUrl tương ứng (kind ảo chỉ tồn tại ở FE để hiện UI phù hợp, xem toKind()).
  */
-type UiQuestionKind =
+export type UiQuestionKind =
   | "MULTIPLE_CHOICE"
   | "VOICE_MULTIPLE_CHOICE"
   | "VOICE_PICTURE_CHOICE"

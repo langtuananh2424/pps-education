@@ -285,7 +285,7 @@ public class ReviewVideoService {
     }
 
     /**
-     * V154 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26) — "Xóa Bộ": soft-delete qua
+     * V156 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26) — "Xóa Bộ": soft-delete qua
      * deleted_at (không xóa cứng — review_videos/review_video_set_class_assignments/
      * review_video_assignments có thể đã tham chiếu qua Bộ), mirror ExamService#deleteExam. Chỉ xóa
      * được khi Bộ đã hết Video — "Xóa Video" (ReviewVideoService#deleteVideo) tự chặn nếu học sinh đã
@@ -1672,7 +1672,7 @@ public class ReviewVideoService {
                 .orElseThrow(() -> new ResourceNotFoundException("error.reviewVideo.subjectNotFound", new Object[]{id}, "Không tìm thấy học phần id=" + id));
     }
 
-    /** V153 (mirror ExamService#subTopicOrNull) — subTopicId là optional (NULL = Bộ chưa phân loại vào cấu trúc Sách/Unit/SubTopic mới). */
+    /** V155 (mirror ExamService#subTopicOrNull) — subTopicId là optional (NULL = Bộ chưa phân loại vào cấu trúc Sách/Unit/SubTopic mới). */
     private CurriculumSubTopic subTopicOrNull(Long subTopicId) {
         if (subTopicId == null) {
             return null;

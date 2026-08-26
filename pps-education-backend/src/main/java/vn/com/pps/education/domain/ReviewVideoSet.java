@@ -61,7 +61,7 @@ public class ReviewVideoSet extends BaseAuditEntity {
     private CurriculumSubject subject;
 
     /**
-     * V153 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26) — Bộ này thuộc Sub Topic nào
+     * V155 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26) — Bộ này thuộc Sub Topic nào
      * trong mục lục sách (Sách/Khối -&gt; Unit -&gt; Sub Topic -&gt; Bộ, mirror {@link Exam#getSubTopic()}).
      * NULL = Bộ cũ chưa phân loại vào cấu trúc mới, không backfill đoán. KHÔNG thay thế {@code curriculum}
      * — curriculum vẫn là điều kiện lọc/tìm kiếm hiện có (xem Javadoc lớp).
@@ -90,7 +90,7 @@ public class ReviewVideoSet extends BaseAuditEntity {
     private TeacherType teacherType;
 
     /**
-     * V154 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26) — soft-delete "Xóa Bộ", mirror
+     * V156 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26) — soft-delete "Xóa Bộ", mirror
      * {@link Exam#getDeletedAt()} (V87) — không xóa cứng vì review_videos/review_video_set_class_assignments/
      * review_video_assignments có thể đã tham chiếu qua Bộ. Chỉ xóa được khi Bộ đã hết Video (xem
      * ReviewVideoService#deleteSet).
