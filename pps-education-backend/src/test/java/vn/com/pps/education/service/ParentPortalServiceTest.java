@@ -8,6 +8,7 @@ import vn.com.pps.education.domain.AcademicTerm;
 import vn.com.pps.education.domain.Parent;
 import vn.com.pps.education.domain.ParentStudent;
 import vn.com.pps.education.domain.Role;
+import vn.com.pps.education.domain.ExerciseAssignment;
 import vn.com.pps.education.domain.Site;
 import vn.com.pps.education.domain.SitePeriodTemplate;
 import vn.com.pps.education.domain.Student;
@@ -58,6 +59,7 @@ import vn.com.pps.education.dto.UpdateReviewVideoSetRequest;
 import vn.com.pps.education.exception.NotAuthorizedForPortalAccessException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.repository.AcademicTermRepository;
+import vn.com.pps.education.repository.ExerciseAssignmentRepository;
 import vn.com.pps.education.repository.ParentRepository;
 import vn.com.pps.education.repository.ParentStudentRepository;
 import vn.com.pps.education.repository.RoleRepository;
@@ -109,6 +111,9 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
 
     @Autowired
     private ExerciseService exerciseService;
+
+    @Autowired
+    private ExerciseAssignmentRepository exerciseAssignmentRepository;
 
     @Autowired
     private ExamQuestionService examQuestionService;
@@ -391,8 +396,12 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
                 teacher.getId());
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Bài ngữ pháp homework", exam.id(), null,
-                        "ASSIGNED", new BigDecimal("1"), null, false, 1, true), teacher.getId());
+                        "ASSIGNED", new BigDecimal("1"), null, false, 1, true, null, "VOCAB_GRAMMAR"), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(question.id(), 1, new BigDecimal("1.0")), teacher.getId());
+        // V150 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25): assignBatchToClass
+        // (giao BTVN theo "Lô kỹ năng") chỉ nhận Bài đã PUBLISHED cùng skillCategory với kênh buổi
+        // học (session VIETNAMESE -> VOCAB_GRAMMAR, xem StudentCommentService#grammarChannelSkillCategory).
+        exercise = exerciseService.publishExercise(exercise.id(), teacher.getId());
         // V71: writeComment gọi deliverToClass bên trong bằng PROPAGATION_REQUIRES_NEW — phải
         // commit Đề/Bài vừa tạo trước.
         commitCurrentTransactionAndStartNew();
@@ -468,13 +477,18 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
     void listHomeworkProgress_MainFlow_onlineGrammarNotYetAttemptedShowsChuaLamBai() {
         ExerciseResponse exercise = createGrammarOnlineExercise();
         createNextSession();
-        StudentCommentResponse comment = writeDailyComment(exercise.id(), null, null);
+        writeDailyComment(exercise.examId(), null, null);
 
         List<HomeworkProgressResponse> result = parentPortalService.listHomeworkProgress(student.getId(), schoolClass.id(), parentUser.getId());
 
         assertThat(result).hasSize(1);
-        assertThat(comment.homeworkNextExerciseAssignmentId()).isNotNull();
-        assertThat(result.get(0).grammarAssignmentId()).isEqualTo(comment.homeworkNextExerciseAssignmentId());
+        // V150: HomeworkProgressResponse.grammarAssignmentId() giờ thực ra là id của HomeworkSkillBatch
+        // (xem ParentPortalService#toHomeworkProgressResponse), không còn là id của chính
+        // ExerciseAssignment — tra ngược qua exerciseId+classId+status rồi đọc getHomeworkBatch().
+        List<ExerciseAssignment> assignments = exerciseAssignmentRepository.findByExerciseIdAndSchoolClassIdAndStatus(
+                exercise.id(), schoolClass.id(), ExerciseAssignment.Status.ACTIVE);
+        assertThat(assignments).hasSize(1);
+        assertThat(result.get(0).grammarAssignmentId()).isEqualTo(assignments.get(0).getHomeworkBatch().getId());
         assertThat(result.get(0).grammarOfflineText()).isNull();
         assertThat(result.get(0).grammarProgress()).isEqualTo("Chưa làm bài");
     }
