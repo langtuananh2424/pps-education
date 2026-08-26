@@ -45,10 +45,17 @@ import java.util.Set;
  * (điểm ghi DUY NHẤT, dùng chung với form soạn tay — không lặp lại logic
  * tạo Question ở đây, xem .claude/rules/solid.md mục D).
  *
- * Phạm vi loại câu hỏi: CHỈ 5 loại UI mà QuestionEditorForm.tsx (FE) đã hỗ
- * trợ (TRAC_NGHIEM/TRAC_NGHIEM_VOICE/DIEN_TU/TU_LUAN/SPEAKING) — không mở
- * rộng sang TRUE_FALSE/MULTIPLE_ANSWER (dù Question.QuestionType có 6 giá
- * trị) để câu hỏi tạo qua import luôn sửa lại được bằng form tay sẵn có.
+ * Phạm vi loại câu hỏi (bổ sung 2026-08-26, đã xác nhận với người dùng — đồng bộ
+ * đủ 4 loại Điền từ-Hộp từ vựng/Sắp xếp câu, trước đó CHƯA từng hỗ trợ dù
+ * QuestionEditorForm.tsx đã có từ V78): 9 loại UI —
+ * TRAC_NGHIEM/TRAC_NGHIEM_VOICE/DIEN_TU/TU_LUAN/SPEAKING/DIEN_TU_HOP_TU_VUNG/
+ * DIEN_TU_HOP_TU_VUNG_ANH/SAP_XEP_CAU/SAP_XEP_CHU_CAI — không mở rộng sang
+ * TRUE_FALSE/MULTIPLE_ANSWER (dù Question.QuestionType có 6 giá trị) để câu
+ * hỏi tạo qua import luôn sửa lại được bằng form tay sẵn có. CỐ Ý vẫn không
+ * hỗ trợ INLINE_CHOICE/VOICE_PICTURE_CHOICE (kind ảo phụ thuộc số lượng/ảnh
+ * đáp án khó diễn đạt gọn trong 1 dòng bảng tính) và 2 kind Nghe riêng GV
+ * nước ngoài (LISTENING_AUDIO_SUBMISSION/LISTENING_FILL_IN_BLANK, luồng
+ * audio riêng phức tạp hơn) — không thuộc phạm vi đợt đồng bộ này.
  *
  * Kiến trúc parser theo Open/Closed (xem QuestionRowParser) — Spring tự
  * inject mọi bean implement interface này, chọn theo phần mở rộng file.
@@ -57,7 +64,8 @@ import java.util.Set;
 public class QuestionImportService {
 
     private static final Set<String> VALID_KINDS = Set.of(
-            "TRAC_NGHIEM", "TRAC_NGHIEM_VOICE", "DIEN_TU", "TU_LUAN", "SPEAKING");
+            "TRAC_NGHIEM", "TRAC_NGHIEM_VOICE", "DIEN_TU", "TU_LUAN", "SPEAKING",
+            "DIEN_TU_HOP_TU_VUNG", "DIEN_TU_HOP_TU_VUNG_ANH", "SAP_XEP_CAU", "SAP_XEP_CHU_CAI");
     private static final Set<String> VALID_DIFFICULTIES = Set.of("EASY", "MEDIUM", "HARD");
 
     private final ImportJobRepository importJobRepository;
@@ -205,6 +213,33 @@ public class QuestionImportService {
             appendParagraph(document, "Giải thích: Chấm theo thang điểm nội dung/ngữ pháp/từ vựng.");
             appendParagraph(document, "---");
 
+            appendParagraph(document, "[DIEN_TU_HOP_TU_VUNG]");
+            appendParagraph(document, "Nội dung: She ___ to school every day. He ___ football on Sundays.");
+            appendParagraph(document, "Đáp án đúng: goes|plays");
+            appendParagraph(document, "Giải thích: Mỗi chỗ trống 1 từ, phân tách bằng dấu | theo ĐÚNG thứ tự.");
+            appendParagraph(document, "---");
+
+            appendParagraph(document, "[DIEN_TU_HOP_TU_VUNG_ANH]");
+            appendParagraph(document, "Nội dung: 1. The cat is ___ the bed. 2. The ball is ___ the box.");
+            appendParagraph(document, "Đáp án đúng: under|next to");
+            appendParagraph(document, "URL Hình ảnh: https://example-r2.dev/lms/questions/images/mau-phong.png");
+            appendParagraph(document, "Transcript: under, next to, behind, in front of, on");
+            appendParagraph(document, "Giải thích: Cột Transcript dùng làm hộp từ vựng hiển thị cho học sinh (có thể thêm từ nhiễu), để trống thì hộp từ = chính đáp án đúng.");
+            appendParagraph(document, "---");
+
+            appendParagraph(document, "[SAP_XEP_CAU]");
+            appendParagraph(document, "Nội dung: Sắp xếp thành câu hoàn chỉnh.");
+            appendParagraph(document, "Đáp án đúng: This|is|a|pen");
+            appendParagraph(document, "Giải thích: Mỗi khối từ/cụm 1 phần tử, phân tách bằng dấu | theo ĐÚNG thứ tự câu hoàn chỉnh.");
+            appendParagraph(document, "---");
+
+            appendParagraph(document, "[SAP_XEP_CHU_CAI]");
+            appendParagraph(document, "Nội dung: Sắp xếp chữ cái thành từ đúng (nghĩa: nụ cười).");
+            appendParagraph(document, "Đáp án đúng: s|m|i|l|e");
+            appendParagraph(document, "URL Hình ảnh: https://example-r2.dev/lms/questions/images/mau-smile.png");
+            appendParagraph(document, "Giải thích: Mỗi chữ cái 1 phần tử, phân tách bằng dấu | theo ĐÚNG thứ tự tạo thành từ đúng.");
+            appendParagraph(document, "---");
+
             appendParagraph(document, "[SPEAKING]");
             appendParagraph(document, "Nội dung: Read the following sentence aloud.");
             appendParagraph(document, "Từ khóa phát âm: enthusiasm, literature, variety");
@@ -238,7 +273,8 @@ public class QuestionImportService {
         String kind = normalizeToken(row.kind());
         if (!VALID_KINDS.contains(kind)) {
             throw new IllegalArgumentException("Loại câu hỏi không hợp lệ: '" + row.kind()
-                    + "' — chỉ chấp nhận TRAC_NGHIEM/TRAC_NGHIEM_VOICE/DIEN_TU/TU_LUAN/SPEAKING.");
+                    + "' — chỉ chấp nhận TRAC_NGHIEM/TRAC_NGHIEM_VOICE/DIEN_TU/TU_LUAN/SPEAKING/"
+                    + "DIEN_TU_HOP_TU_VUNG/DIEN_TU_HOP_TU_VUNG_ANH/SAP_XEP_CAU/SAP_XEP_CHU_CAI.");
         }
 
         String difficulty = isBlank(row.difficulty()) ? "MEDIUM" : normalizeToken(row.difficulty());
@@ -257,6 +293,7 @@ public class QuestionImportService {
         String audioUrl = null;
         String imageUrl = null;
         String referencePassage = null;
+        Map<String, Object> structuredContent = null;
 
         if (isChoiceBased) {
             choices = buildChoices(row);
@@ -275,6 +312,35 @@ public class QuestionImportService {
             correctAnswerText = row.correctAnswer().trim();
         } else if (kind.equals("TU_LUAN")) {
             imageUrl = blankToNull(row.imageUrl());
+        } else if (kind.equals("DIEN_TU_HOP_TU_VUNG") || kind.equals("DIEN_TU_HOP_TU_VUNG_ANH")) {
+            // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — tái dùng cột "Đáp án đúng"
+            // làm danh sách blanks CÓ THỨ TỰ, phân tách bằng dấu | (không thêm cột mới, mirror cách
+            // "Transcript/Từ khóa phát âm" đã mang nhiều nghĩa tùy loại từ trước).
+            if (isBlank(row.correctAnswer())) {
+                throw new IllegalArgumentException("Điền từ - Hộp từ vựng cần danh sách đáp án đúng theo thứ tự chỗ trống, phân tách bằng dấu | (VD: went|to|school).");
+            }
+            Map<String, Object> sc = new LinkedHashMap<>();
+            sc.put("blanks", splitOrdered(row.correctAnswer()));
+            if (kind.equals("DIEN_TU_HOP_TU_VUNG_ANH")) {
+                imageUrl = blankToNull(row.imageUrl());
+                // Tái dùng cột "Transcript/Từ khóa phát âm" (referencePassage) làm hộp từ vựng — tùy
+                // chọn, để trống thì hộp từ = chính blanks (mirror hành vi mặc định của form tay).
+                List<String> wordBankOptions = parseTags(row.referencePassage());
+                if (wordBankOptions != null) {
+                    sc.put("wordBankOptions", wordBankOptions);
+                }
+            }
+            structuredContent = sc;
+        } else if (kind.equals("SAP_XEP_CAU") || kind.equals("SAP_XEP_CHU_CAI")) {
+            // Cùng cơ chế tái dùng cột "Đáp án đúng" — mỗi khối/chữ cái phân tách bằng dấu |.
+            List<String> chunks = isBlank(row.correctAnswer()) ? List.of() : splitOrdered(row.correctAnswer());
+            if (chunks.size() < 2) {
+                throw new IllegalArgumentException("Sắp xếp câu/chữ cái cần tối thiểu 2 khối theo đúng thứ tự, phân tách bằng dấu | (VD: This is|a|pen).");
+            }
+            structuredContent = Map.of("chunks", chunks);
+            if (kind.equals("SAP_XEP_CHU_CAI")) {
+                imageUrl = blankToNull(row.imageUrl());
+            }
         } else { // SPEAKING
             skill = "SPEAKING";
             if (isBlank(row.referencePassage())) {
@@ -284,10 +350,18 @@ public class QuestionImportService {
         }
 
         String questionType = kind.startsWith("TRAC_NGHIEM") ? "MULTIPLE_CHOICE" : kind.equals("DIEN_TU") ? "FILL_IN_BLANK"
-                : kind.equals("TU_LUAN") ? "ESSAY" : "SPEAKING";
+                : kind.equals("TU_LUAN") ? "ESSAY"
+                : kind.startsWith("DIEN_TU_HOP_TU_VUNG") ? "WORD_BANK"
+                : kind.startsWith("SAP_XEP") ? "SENTENCE_BUILDING"
+                : "SPEAKING";
 
         return new CreateQuestionRequest(bankId, questionType, skill, difficulty, row.content().trim(),
-                audioUrl, imageUrl, referencePassage, explanation, correctAnswerText, defaultPoints, tags, choices, null, null);
+                audioUrl, imageUrl, referencePassage, explanation, correctAnswerText, defaultPoints, tags, choices, structuredContent, null);
+    }
+
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — tách 1 chuỗi thành danh sách CÓ THỨ TỰ theo dấu |, dùng cho blanks/chunks. */
+    private List<String> splitOrdered(String raw) {
+        return Arrays.stream(raw.split("\\|")).map(String::trim).filter(s -> !s.isEmpty()).toList();
     }
 
     private List<QuestionChoiceRequest> buildChoices(QuestionRowParser.ParsedQuestionRow row) {

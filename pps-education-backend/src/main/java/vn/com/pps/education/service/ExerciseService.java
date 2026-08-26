@@ -651,7 +651,7 @@ public class ExerciseService {
                 eq.getDisplayOrder(), eq.getPoints(), choices,
                 question.getSkill() == null ? null : question.getSkill().name(),
                 question.getAudioUrl(), referencePassage,
-                shuffledStructuredContent(question), question.getGroupKey());
+                shuffledStructuredContent(question), question.getGroupKey(), question.getImageUrl());
     }
 
     /**

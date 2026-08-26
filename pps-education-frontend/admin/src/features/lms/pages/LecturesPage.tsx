@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState } from "react";
-import { BarChart3, Check, ClipboardList, Layers, Link2, MessageCircle, Music, Pencil, Plus, Users, Video, X } from "lucide-react";
+import { BarChart3, Check, ClipboardList, Layers, Link2, MessageCircle, Music, Pencil, Plus, Trash2, Users, Video, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { ClassResponse, CurriculumResponse, CurriculumSubjectResponse, ClassEnrollmentResponse, listClassEnrollments, listCurriculums, listCurriculumSubjects } from "@/features/academic/api";
 import { useEligibleClasses } from "@/features/academic/hooks/useEligibleClasses";
 import {
   AddReviewVideoRequest,
+  BookResponse,
   ConnectionChoiceRequest,
   CreateReviewVideoSetRequest,
   ReviewVideoConnectionQuestionResponse,
@@ -17,6 +18,7 @@ import {
   ReviewVideoSourceType,
   ReviewVideoTeacherType,
   ReviewVideoType,
+  UnitResponse,
   UpdateConnectionChoiceRequest,
   UpdateReviewVideoSetRequest,
   addReviewVideo,
@@ -24,12 +26,17 @@ import {
   addReviewVideoQuestion,
   assignReviewVideoSetToClass,
   createReviewVideoSet,
+  deleteReviewVideo,
+  deleteReviewVideoSet,
   getReviewVideoSetStats,
+  listBooks,
   listReviewVideoConnectionQuestions,
   listReviewVideoQuestions,
   listReviewVideoSetAssignedClasses,
   listReviewVideoSets,
   listReviewVideos,
+  listSubTopics,
+  listUnits,
   unassignReviewVideoSetFromClass,
   updateReviewVideoConnectionQuestion,
   updateReviewVideoQuestion,
@@ -45,12 +52,11 @@ import Toast from "@/components/ui/Toast";
 import Select from "@/components/ui/Select";
 import Pagination from "@/components/ui/Pagination";
 import ReviewVideoQuestionImportPanel from "../components/ReviewVideoQuestionImportPanel";
+import UnitSubTopicPicker from "../components/UnitSubTopicPicker";
+import { useDialog } from "@/components/ui/DialogProvider";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
-
-const CONTENT_KINDS = ["VIDEO", "AUDIO"] as const;
-type ContentKind = (typeof CONTENT_KINDS)[number];
 
 const VIDEO_TYPES: ReviewVideoType[] = ["CONNECTION", "REFLEX"];
 const videoTypeIcons: Record<ReviewVideoType, React.ReactNode> = {
@@ -66,9 +72,6 @@ const statusVariants: Record<ReviewVideoSetStatus, BadgeVariant> = { DRAFT: "neu
  * Nhãn dịch qua i18next namespace "lms-review-video" (key `lectures.labels.*`) — dùng các hàm
  * `xLabel(t, value)` thay vì tra map tĩnh cũ, vì nhãn giờ phải đổi theo ngôn ngữ đang chọn.
  */
-function contentKindLabel(t: (key: string) => string, kind: ContentKind): string {
-  return t(`lectures.labels.contentKind.${kind}`);
-}
 function videoTypeLabel(t: (key: string) => string, type: ReviewVideoType): string {
   return t(`lectures.labels.videoType.${type}`);
 }
@@ -79,10 +82,10 @@ function setStatusLabel(t: (key: string) => string, status: ReviewVideoSetStatus
   return t(`lectures.labels.status.${status}`);
 }
 
-/** Đọc thời lượng (giây) của file video/audio NGAY TRÊN TRÌNH DUYỆT trước khi upload — API bắt buộc durationSeconds, backend không tự dò. */
-function detectMediaDurationFromFile(file: File, kind: ContentKind, errorMessage: string): Promise<number> {
+/** Đọc thời lượng (giây) của file video NGAY TRÊN TRÌNH DUYỆT trước khi upload — API bắt buộc durationSeconds, backend không tự dò. */
+function detectMediaDurationFromFile(file: File, errorMessage: string): Promise<number> {
   return new Promise((resolve, reject) => {
-    const el = document.createElement(kind === "VIDEO" ? "video" : "audio");
+    const el = document.createElement("video");
     el.preload = "metadata";
     const objectUrl = URL.createObjectURL(file);
     el.onloadedmetadata = () => {
@@ -463,13 +466,17 @@ export interface ContentSourceValue {
 }
 
 /**
- * Nguồn nội dung dùng chung cho form Tạo bộ mới và modal Video — Video cho chọn Tải file lên hoặc
- * Dán link YouTube, Audio chỉ Tải file lên. Cả 3 nguồn đều bắt buộc tự dò durationSeconds trước khi
- * cho submit (API yêu cầu, BE không tự dò). Export (V77): tái dùng ở CreateAndAssignExerciseModal.tsx.
+ * Nguồn nội dung dùng chung cho form Tạo bộ mới và modal Video — Kho Video Ôn tập chỉ tạo nội dung
+ * dạng video (Tải file lên hoặc Dán link YouTube). Bắt buộc tự dò durationSeconds trước khi cho submit
+ * (API yêu cầu, BE không tự dò).
+ *
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — bỏ hẳn toggle "Loại nội dung" (Video/
+ * Audio): modal tạo đã ghi rõ "Tạo bộ VIDEO ôn tập", không cần hỏi lại loại nội dung, và Kho Video
+ * không còn tạo mới được nội dung dạng audio (dữ liệu audio cũ trước đây — nếu có — vẫn hiện bình
+ * thường qua VideoPreviewCell/VideoListSection, chỉ không tạo mới được nữa).
  */
 export function ContentSourceField({ value, onChange }: { value: ContentSourceValue; onChange: (v: ContentSourceValue) => void }) {
   const { t } = useTranslation("lms-review-video");
-  const contentKind: ContentKind = value.sourceType === "R2_AUDIO" ? "AUDIO" : "VIDEO";
   const videoSourceMode: "upload" | "youtube" = value.sourceType === "YOUTUBE_URL" ? "youtube" : "upload";
   const [youtubeUrlInput, setYoutubeUrlInput] = useState(value.sourceType === "YOUTUBE_URL" ? value.fileUrl : "");
   const { containerId, detect, detecting, detectError } = useYouTubeDurationProbe();
@@ -493,10 +500,6 @@ export function ContentSourceField({ value, onChange }: { value: ContentSourceVa
     onChange(pendingRef.current);
   };
 
-  const handleKindChange = (kind: ContentKind) => {
-    updateValue({ sourceType: kind === "AUDIO" ? "R2_AUDIO" : "R2_VIDEO", fileUrl: "", fileSizeBytes: undefined, durationSeconds: null });
-  };
-
   const handleDetectYouTubeDuration = () => {
     const videoId = extractYouTubeVideoId(youtubeUrlInput.trim());
     if (!videoId) {
@@ -511,45 +514,25 @@ export function ContentSourceField({ value, onChange }: { value: ContentSourceVa
     <div className="space-y-2">
       <div id={containerId} style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", left: -9999, top: -9999 }} />
       <div>
-        <label className={labelClass}>{t("lectures.contentSource.kindLabel")}</label>
-        <div className="flex gap-1.5">
-          {CONTENT_KINDS.map((k) => (
-            <button
-              key={k}
-              type="button"
-              onClick={() => handleKindChange(k)}
-              className={`flex-1 text-xs font-bold py-2.5 rounded-lg border ${
-                contentKind === k ? "bg-brand-orange border-brand-orange text-white" : "bg-slate-50 border-slate-200 text-slate-500"
-              }`}
-            >
-              {contentKindLabel(t, k)}
-            </button>
-          ))}
+        <label className={labelClass}>{t("lectures.contentSource.videoLabel")}</label>
+        <div className="flex gap-1.5 mb-1.5">
+          <button
+            type="button"
+            onClick={() => updateValue({ sourceType: "R2_VIDEO", fileUrl: "", fileSizeBytes: undefined, durationSeconds: null })}
+            className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${videoSourceMode === "upload" ? "bg-brand-orange text-white" : "bg-slate-100 text-slate-500"}`}
+          >
+            {t("lectures.contentSource.uploadFile")}
+          </button>
+          <button
+            type="button"
+            onClick={() => updateValue({ sourceType: "YOUTUBE_URL", fileUrl: "", durationSeconds: null })}
+            className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${videoSourceMode === "youtube" ? "bg-brand-orange text-white" : "bg-slate-100 text-slate-500"}`}
+          >
+            {t("lectures.contentSource.pasteYoutube")}
+          </button>
         </div>
-      </div>
 
-      <div>
-        <label className={labelClass}>{contentKind === "VIDEO" ? t("lectures.contentSource.videoLabel") : t("lectures.contentSource.audioLabel")}</label>
-        {contentKind === "VIDEO" && (
-          <div className="flex gap-1.5 mb-1.5">
-            <button
-              type="button"
-              onClick={() => updateValue({ sourceType: "R2_VIDEO", fileUrl: "", fileSizeBytes: undefined, durationSeconds: null })}
-              className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${videoSourceMode === "upload" ? "bg-brand-orange text-white" : "bg-slate-100 text-slate-500"}`}
-            >
-              {t("lectures.contentSource.uploadFile")}
-            </button>
-            <button
-              type="button"
-              onClick={() => updateValue({ sourceType: "YOUTUBE_URL", fileUrl: "", durationSeconds: null })}
-              className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${videoSourceMode === "youtube" ? "bg-brand-orange text-white" : "bg-slate-100 text-slate-500"}`}
-            >
-              {t("lectures.contentSource.pasteYoutube")}
-            </button>
-          </div>
-        )}
-
-        {contentKind === "VIDEO" && videoSourceMode === "youtube" ? (
+        {videoSourceMode === "youtube" ? (
           <div className="space-y-1.5">
             <div className="flex gap-1.5">
               <input
@@ -582,19 +565,18 @@ export function ContentSourceField({ value, onChange }: { value: ContentSourceVa
             value={value.fileUrl}
             onChange={(url) => updateValue({ fileUrl: url })}
             onUpload={async (file) => {
-              const durationSeconds = await detectMediaDurationFromFile(file, contentKind, t("lectures.mediaErrors.durationDetectFailed"));
+              const durationSeconds = await detectMediaDurationFromFile(file, t("lectures.mediaErrors.durationDetectFailed"));
               updateValue({ durationSeconds });
               return uploadMedia(file, "REVIEW_VIDEO");
             }}
             onFileSize={(bytes) => updateValue({ fileSizeBytes: bytes })}
-            accept={contentKind === "VIDEO" ? "video/*" : "audio/*"}
-            placeholder={contentKind === "VIDEO" ? t("lectures.contentSource.chooseVideoFile") : t("lectures.contentSource.chooseAudioFile")}
+            accept="video/*"
+            placeholder={t("lectures.contentSource.chooseVideoFile")}
           />
         )}
-        {contentKind === "VIDEO" && videoSourceMode === "upload" && value.fileUrl && (
+        {videoSourceMode === "upload" && value.fileUrl && (
           <video src={value.fileUrl} controls className="mt-1.5 w-full max-w-sm max-h-56 rounded-lg border border-slate-200 bg-black" />
         )}
-        {contentKind === "AUDIO" && value.fileUrl && <audio src={value.fileUrl} controls className="mt-1.5 w-full" />}
       </div>
 
       <p className="text-[10px] text-slate-400">
@@ -629,6 +611,16 @@ export default function LecturesPage() {
   const [curriculums, setCurriculums] = useState<CurriculumResponse[]>([]);
   const [curriculumFilter, setCurriculumFilter] = useState<number | null>(null);
   const [teacherTypeFilter, setTeacherTypeFilter] = useState<ReviewVideoTeacherType | null>(null);
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — lọc thêm theo Sách/Unit, mirror đúng
+  // ExerciseAssignPage.tsx (Kho đề): BE /review-video-sets chưa hỗ trợ lọc theo bookId/unitId/subTopicId
+  // (ReviewVideoSet chỉ lưu thẳng subTopicId, không có bookId/unitId) — lọc phía FE: tải Sách theo Khối
+  // đang chọn -> chọn 1 Sách thì tải Unit của Sách đó -> chọn 1 Unit thì tải Sub Topic để có tập
+  // subTopicId cần khớp.
+  const [bookFilterOptions, setBookFilterOptions] = useState<BookResponse[]>([]);
+  const [bookFilter, setBookFilter] = useState<number | null>(null);
+  const [unitFilterOptions, setUnitFilterOptions] = useState<UnitResponse[]>([]);
+  const [unitFilter, setUnitFilter] = useState<number | null>(null);
+  const [unitFilterSubTopicIds, setUnitFilterSubTopicIds] = useState<Set<number> | null>(null);
   const [videoSets, setVideoSets] = useState<ReviewVideoSetResponse[]>([]);
   const [loadingSets, setLoadingSets] = useState(false);
   const [selectedSetId, setSelectedSetId] = useState<number | null>(null);
@@ -639,6 +631,35 @@ export default function LecturesPage() {
   useEffect(() => {
     listCurriculums().then(setCurriculums).catch(() => undefined);
   }, []);
+
+  useEffect(() => {
+    setBookFilter(null);
+    if (!curriculumFilter) {
+      setBookFilterOptions([]);
+      return;
+    }
+    listBooks(curriculumFilter).then(setBookFilterOptions).catch(() => setBookFilterOptions([]));
+  }, [curriculumFilter]);
+
+  useEffect(() => {
+    setUnitFilter(null);
+    setUnitFilterSubTopicIds(null);
+    if (!bookFilter) {
+      setUnitFilterOptions([]);
+      return;
+    }
+    listUnits(bookFilter).then(setUnitFilterOptions).catch(() => setUnitFilterOptions([]));
+  }, [bookFilter]);
+
+  useEffect(() => {
+    if (!unitFilter) {
+      setUnitFilterSubTopicIds(null);
+      return;
+    }
+    listSubTopics(unitFilter)
+      .then((subTopics) => setUnitFilterSubTopicIds(new Set(subTopics.map((s) => s.id))))
+      .catch(() => setUnitFilterSubTopicIds(new Set()));
+  }, [unitFilter]);
 
   const loadSets = () => {
     setLoadingSets(true);
@@ -657,10 +678,16 @@ export default function LecturesPage() {
 
   const selectedSet = videoSets.find((s) => s.id === selectedSetId) ?? null;
 
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — lọc thêm theo Unit (phía FE, xem ghi
+  // chú unitFilterSubTopicIds ở trên) TRƯỚC khi phân trang, mirror unitFilteredExams (ExerciseAssignPage.tsx).
+  const unitFilteredSets = unitFilterSubTopicIds
+    ? videoSets.filter((s) => s.subTopicId != null && unitFilterSubTopicIds.has(s.subTopicId))
+    : videoSets;
+
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
-  useEffect(() => setPage(0), [videoSets]);
-  const pageSets = videoSets.slice(page * pageSize, (page + 1) * pageSize);
+  useEffect(() => setPage(0), [videoSets, unitFilter]);
+  const pageSets = unitFilteredSets.slice(page * pageSize, (page + 1) * pageSize);
 
   return (
     <div className="space-y-6">
@@ -679,7 +706,7 @@ export default function LecturesPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         <div className="lg:col-span-5 bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden flex flex-col">
-          <div className="px-4 py-3 border-b border-slate-100 bg-slate-50 space-y-2">
+          <div className="px-4 py-3 border-b border-slate-100 bg-slate-50 grid grid-cols-2 gap-2">
             <Select
               value={curriculumFilter ?? ""}
               onChange={(e) => setCurriculumFilter(e.target.value ? Number(e.target.value) : null)}
@@ -704,11 +731,41 @@ export default function LecturesPage() {
                 </option>
               ))}
             </Select>
+            {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — lọc thêm theo Sách. Luôn
+                hiển thị (không ẩn/hiện theo điều kiện) — chỉ khóa (disabled) tới khi đã chọn 1 Khung
+                chương trình cụ thể, mirror ExerciseAssignPage.tsx. */}
+            <Select
+              value={bookFilter ?? ""}
+              onChange={(e) => setBookFilter(e.target.value ? Number(e.target.value) : null)}
+              className={inputClass}
+              disabled={!curriculumFilter}
+            >
+              <option value="">{curriculumFilter ? t("lectures.filter.allBooks") : t("lectures.filter.bookFilterLocked")}</option>
+              {bookFilterOptions.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.title}
+                </option>
+              ))}
+            </Select>
+            {/* Lọc thêm theo Unit, cùng nguyên tắc: luôn hiện, chỉ khóa tới khi đã chọn 1 Sách. */}
+            <Select
+              value={unitFilter ?? ""}
+              onChange={(e) => setUnitFilter(e.target.value ? Number(e.target.value) : null)}
+              className={inputClass}
+              disabled={!bookFilter}
+            >
+              <option value="">{bookFilter ? t("lectures.filter.allUnits") : t("lectures.filter.unitFilterLocked")}</option>
+              {unitFilterOptions.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.title}
+                </option>
+              ))}
+            </Select>
           </div>
 
           {loadingSets ? (
             <p className="text-xs text-slate-500 p-6 text-center">{t("lectures.common.loading")}</p>
-          ) : videoSets.length === 0 ? (
+          ) : unitFilteredSets.length === 0 ? (
             <div className="flex flex-col items-center justify-center p-12 text-center text-slate-400 space-y-3">
               <Layers className="w-12 h-12 text-slate-300" />
               <p className="text-xs text-slate-400">{curriculumFilter ? t("lectures.list.emptyInCurriculum") : t("lectures.list.empty")}</p>
@@ -732,6 +789,7 @@ export default function LecturesPage() {
                     <p className="text-[10px] text-slate-400 mt-0.5 font-mono">{set.code} · {set.curriculumCode}</p>
                     <p className="text-[10px] text-slate-400 mt-0.5">
                       {teacherTypeLabel(t, set.teacherType)} · {videoTypeLabel(t, set.videoType)}
+                      {set.subTopicTitle && <> · {set.subTopicTitle}</>}
                     </p>
                   </button>
                 ))}
@@ -739,7 +797,7 @@ export default function LecturesPage() {
               <Pagination
                 page={page}
                 pageSize={pageSize}
-                totalElements={videoSets.length}
+                totalElements={unitFilteredSets.length}
                 itemLabel={t("lectures.list.itemLabel")}
                 onPageChange={setPage}
                 onPageSizeChange={(size) => {
@@ -762,6 +820,7 @@ export default function LecturesPage() {
               set={selectedSet}
               showToast={showToast}
               onUpdated={(updated) => setVideoSets((prev) => prev.map((s) => (s.id === updated.id ? updated : s)))}
+              onDeleted={loadSets}
             />
           )}
         </div>
@@ -787,17 +846,22 @@ export default function LecturesPage() {
 function SetDetailPanel({
   set,
   showToast,
-  onUpdated
+  onUpdated,
+  onDeleted
 }: {
   set: ReviewVideoSetResponse;
   showToast: (msg: string) => void;
   onUpdated: (set: ReviewVideoSetResponse) => void;
+  onDeleted: () => void;
 }) {
   const { t } = useTranslation("lms-review-video");
   const [editingSet, setEditingSet] = useState(false);
   const [statsOpen, setStatsOpen] = useState(false);
   const [assignClassOpen, setAssignClassOpen] = useState(false);
   const [assignedClassCount, setAssignedClassCount] = useState<number | null>(null);
+  const [deletingSet, setDeletingSet] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { confirmDialog } = useDialog();
 
   const loadAssignedClassCount = () => {
     listReviewVideoSetAssignedClasses(set.id).then((cls) => setAssignedClassCount(cls.length)).catch(() => undefined);
@@ -807,6 +871,22 @@ function SetDetailPanel({
     loadAssignedClassCount();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [set.id]);
+
+  /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — soft-delete "Xóa Bộ", BE tự chặn (400) nếu Bộ còn Video (xem ReviewVideoService#deleteSet). */
+  const handleDeleteSet = async () => {
+    if (!(await confirmDialog(t("lectures.detail.deleteConfirm", { title: set.title, code: set.code }), { danger: true }))) return;
+    setDeletingSet(true);
+    setError(null);
+    try {
+      await deleteReviewVideoSet(set.id);
+      showToast(t("lectures.detail.deletedToast"));
+      onDeleted();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t("lectures.detail.deleteFailed"));
+    } finally {
+      setDeletingSet(false);
+    }
+  };
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden">
@@ -818,6 +898,7 @@ function SetDetailPanel({
           </div>
           <Badge variant={statusVariants[set.status]}>{setStatusLabel(t, set.status)}</Badge>
         </div>
+        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
         <div className="flex items-center justify-between flex-wrap gap-2">
           <button
             onClick={() => setAssignClassOpen(true)}
@@ -834,6 +915,14 @@ function SetDetailPanel({
             <Button size="sm" variant="secondary" onClick={() => setStatsOpen(true)}>
               <BarChart3 className="w-3.5 h-3.5" /> {t("lectures.detail.statsButton")}
             </Button>
+            <button
+              onClick={handleDeleteSet}
+              disabled={deletingSet}
+              title={t("lectures.detail.deleteTooltip")}
+              className="text-slate-400 hover:text-rose-600 disabled:opacity-50 p-1.5"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
       </div>
@@ -971,6 +1060,9 @@ function CreateSetModal({
   });
   const [content, setContent] = useState<ContentSourceValue>({ sourceType: "R2_VIDEO", fileUrl: "", durationSeconds: null });
   const [connSettings, setConnSettings] = useState<ConnectionThresholdValue>({ completionThresholdPercent: "", requiredViewCount: "" });
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — Bộ thuộc Sub Topic nào trong mục lục
+  // sách, mirror CreateExamModal (ExerciseAssignPage.tsx).
+  const [subTopicId, setSubTopicId] = useState<number | null>(null);
   const [pendingQuestions, setPendingQuestions] = useState<PendingReflexQuestion[]>([]);
   const [pendingConnectionQuestions, setPendingConnectionQuestions] = useState<PendingConnectionQuestion[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -1014,7 +1106,8 @@ function CreateSetModal({
         curriculumId: Number(form.curriculumId),
         teacherType: form.teacherType,
         subjectId: form.subjectId ? Number(form.subjectId) : undefined,
-        displayOrder: form.displayOrder ? Number(form.displayOrder) : undefined
+        displayOrder: form.displayOrder ? Number(form.displayOrder) : undefined,
+        subTopicId: subTopicId ?? undefined
       };
       const set = await createReviewVideoSet(setRequest);
       createdSetId = set.id;
@@ -1133,7 +1226,10 @@ function CreateSetModal({
             <label className={labelClass}>{t("lectures.createSet.fields.curriculum")}</label>
             <Select
               value={form.curriculumId}
-              onChange={(e) => setForm({ ...form, curriculumId: e.target.value ? Number(e.target.value) : "" })}
+              onChange={(e) => {
+                setForm({ ...form, curriculumId: e.target.value ? Number(e.target.value) : "" });
+                setSubTopicId(null);
+              }}
               className={inputClass}
             >
               <option value="">{t("lectures.createSet.fields.curriculumPlaceholder")}</option>
@@ -1156,6 +1252,7 @@ function CreateSetModal({
             </Select>
           </div>
         </div>
+        <UnitSubTopicPicker curriculumId={form.curriculumId ? Number(form.curriculumId) : null} value={subTopicId} onChange={setSubTopicId} />
         <ContentSourceField value={content} onChange={setContent} />
         {form.videoType === "CONNECTION" && <ConnectionThresholdFields value={connSettings} onChange={setConnSettings} />}
 
@@ -1236,6 +1333,8 @@ function EditSetModal({
     displayOrder: String(set.displayOrder),
     status: set.status
   });
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — mirror EditExamModal.
+  const [subTopicId, setSubTopicId] = useState<number | null>(set.subTopicId);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -1257,7 +1356,8 @@ function EditSetModal({
         teacherType: form.teacherType,
         subjectId: form.subjectId ? Number(form.subjectId) : undefined,
         displayOrder: form.displayOrder ? Number(form.displayOrder) : undefined,
-        status: form.status
+        status: form.status,
+        subTopicId: subTopicId ?? undefined
       };
       const updated = await updateReviewVideoSet(set.id, request);
       onSaved(updated);
@@ -1313,6 +1413,7 @@ function EditSetModal({
           <label className={labelClass}>{t("lectures.editSet.fields.displayOrder")}</label>
           <input type="number" value={form.displayOrder} onChange={(e) => setForm({ ...form, displayOrder: e.target.value })} className={inputClass} />
         </div>
+        <UnitSubTopicPicker curriculumId={set.curriculumId} value={subTopicId} currentLabel={set.subTopicTitle} onChange={setSubTopicId} />
         <p className="text-[10px] text-slate-400 italic">
           {t("lectures.editSet.hint", { code: set.code, curriculumCode: set.curriculumCode })}
         </p>
@@ -1370,7 +1471,9 @@ function VideoListSection({ set }: { set: ReviewVideoSetResponse }) {
   const [connSettings, setConnSettings] = useState<ConnectionThresholdValue>({ completionThresholdPercent: "", requiredViewCount: "" });
   const [submitting, setSubmitting] = useState(false);
   const [expandedVideoId, setExpandedVideoId] = useState<number | null>(null);
+  const [deletingVideoId, setDeletingVideoId] = useState<number | null>(null);
   const { message: toastMessage, showToast } = useToast();
+  const { confirmDialog } = useDialog();
 
   const load = () => {
     setLoading(true);
@@ -1415,6 +1518,22 @@ function VideoListSection({ set }: { set: ReviewVideoSetResponse }) {
     }
   };
 
+  /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — BE tự chặn (400) nếu video đã có học sinh xem/làm bài (xem ReviewVideoService#deleteVideo), lỗi hiện thẳng ra để GV biết vì sao không xóa được. */
+  const handleDelete = async (video: ReviewVideoResponse) => {
+    if (!(await confirmDialog(t("lectures.videoList.deleteConfirm", { title: video.title }), { danger: true }))) return;
+    setDeletingVideoId(video.id);
+    setError(null);
+    try {
+      await deleteReviewVideo(video.id);
+      load();
+      showToast(t("lectures.videoList.deletedToast"));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t("lectures.videoList.errors.deleteFailed"));
+    } finally {
+      setDeletingVideoId(null);
+    }
+  };
+
   return (
     <div className="px-5 py-4 border-b border-slate-100 space-y-4">
       <p className="text-xs font-bold text-slate-700 uppercase tracking-wide">{t("lectures.videoList.heading")}</p>
@@ -1434,7 +1553,18 @@ function VideoListSection({ set }: { set: ReviewVideoSetResponse }) {
                     {v.sourceType === "R2_AUDIO" ? <Music className="w-3.5 h-3.5" /> : <Video className="w-3.5 h-3.5" />}
                     {v.title}
                   </span>
-                  <Badge variant="info">{v.sourceType}</Badge>
+                  <span className="flex items-center gap-2 shrink-0">
+                    <Badge variant="info">{v.sourceType}</Badge>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(v)}
+                      disabled={deletingVideoId === v.id}
+                      title={t("lectures.videoList.deleteTooltip")}
+                      className="text-slate-400 hover:text-rose-600 disabled:opacity-50"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </span>
                 </div>
                 <VideoPreviewCell sourceType={v.sourceType} fileUrl={v.fileUrl} title={v.title} />
                 <p className="text-slate-400">

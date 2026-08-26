@@ -14,4 +14,7 @@ public interface ReflexQuestionProgressRepository extends JpaRepository<ReflexQu
 
     /** V145 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23) — dùng cho báo cáo GV (ReviewVideoReportService), lấy 1 lần cho cả lớp thay vì N truy vấn/học sinh. */
     List<ReflexQuestionProgress> findByReviewVideoAssignmentIdAndStudentIdIn(Long reviewVideoAssignmentId, List<Long> studentIds);
+
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — gate "Xóa video" (xem ReviewVideoService#deleteVideo): câu hỏi REFLEX của video đã có tiến độ làm bài thì không cho xóa. */
+    boolean existsByReviewVideoQuestionIdIn(List<Long> reviewVideoQuestionIds);
 }

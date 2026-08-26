@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { BookOpen, ChevronDown, ChevronRight, Layers, Library, Plus } from "lucide-react";
+import { BookOpen, Check, ChevronDown, ChevronRight, Layers, Library, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { CurriculumResponse, listCurriculums } from "@/features/academic/api";
@@ -13,13 +13,20 @@ import {
   createBook,
   createSubTopic,
   createUnit,
+  deleteBook,
+  deleteSubTopic,
+  deleteUnit,
   listBooks,
   listSubTopics,
-  listUnits
+  listUnits,
+  updateBook,
+  updateSubTopic,
+  updateUnit
 } from "../api";
 import Button from "@/components/ui/Button";
 import Toast from "@/components/ui/Toast";
 import { useToast } from "@/lib/useToast";
+import { useDialog } from "@/components/ui/DialogProvider";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 
@@ -110,12 +117,18 @@ export default function BookCatalogPage() {
 /** V148 — cấp Sách, con của Curriculum. Chọn 1 Sách thì hiện panel Unit/SubTopic của đúng Sách đó bên dưới. */
 function BookListPanel({ curriculum, showToast }: { curriculum: CurriculumResponse; showToast: (msg: string) => void }) {
   const { t } = useTranslation("lms-question-authoring");
+  const { confirmDialog } = useDialog();
   const [books, setBooks] = useState<BookResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedBookId, setSelectedBookId] = useState<number | null>(null);
   const [newBookTitle, setNewBookTitle] = useState("");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — sửa/xóa 1 Sách ngay tại pill (không dùng modal, mirror phong cách "mọi thứ inline" đã có sẵn của trang này).
+  const [editingBookId, setEditingBookId] = useState<number | null>(null);
+  const [editBookTitle, setEditBookTitle] = useState("");
+  const [savingBookId, setSavingBookId] = useState<number | null>(null);
+  const [deletingBookId, setDeletingBookId] = useState<number | null>(null);
 
   const loadBooks = () => {
     setLoading(true);
@@ -145,6 +158,42 @@ function BookListPanel({ curriculum, showToast }: { curriculum: CurriculumRespon
       setError(err instanceof ApiError ? err.message : t("bookCatalogPage.createBookFailed"));
     } finally {
       setCreating(false);
+    }
+  };
+
+  const handleStartEditBook = (book: BookResponse) => {
+    setEditingBookId(book.id);
+    setEditBookTitle(book.title);
+  };
+
+  const handleSaveBook = async (book: BookResponse) => {
+    if (!editBookTitle.trim()) return;
+    setSavingBookId(book.id);
+    setError(null);
+    try {
+      await updateBook(book.id, { title: editBookTitle.trim(), displayOrder: book.displayOrder });
+      setEditingBookId(null);
+      loadBooks();
+      showToast(t("bookCatalogPage.bookUpdatedToast"));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t("bookCatalogPage.updateBookFailed"));
+    } finally {
+      setSavingBookId(null);
+    }
+  };
+
+  const handleDeleteBook = async (book: BookResponse) => {
+    if (!(await confirmDialog(t("bookCatalogPage.deleteBookConfirm", { title: book.title }), { danger: true }))) return;
+    setDeletingBookId(book.id);
+    setError(null);
+    try {
+      await deleteBook(book.id);
+      loadBooks();
+      showToast(t("bookCatalogPage.bookDeletedToast"));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t("bookCatalogPage.deleteBookFailed"));
+    } finally {
+      setDeletingBookId(null);
     }
   };
 
@@ -182,20 +231,55 @@ function BookListPanel({ curriculum, showToast }: { curriculum: CurriculumRespon
             {books
               .slice()
               .sort((a, b) => a.displayOrder - b.displayOrder)
-              .map((book) => (
-                <button
-                  key={book.id}
-                  onClick={() => setSelectedBookId(book.id)}
-                  className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border ${
-                    selectedBookId === book.id
-                      ? "bg-brand-red/10 border-brand-red text-brand-red"
-                      : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
-                  }`}
-                >
-                  <BookOpen className="w-3.5 h-3.5" />
-                  {book.title}
-                </button>
-              ))}
+              .map((book) =>
+                editingBookId === book.id ? (
+                  <div key={book.id} className="flex items-center gap-1 rounded-lg border border-brand-red bg-brand-red/5 px-1.5 py-1">
+                    <input
+                      autoFocus
+                      value={editBookTitle}
+                      onChange={(e) => setEditBookTitle(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && handleSaveBook(book)}
+                      className="text-xs font-bold bg-white border border-slate-200 rounded px-2 py-1 w-40 focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleSaveBook(book)}
+                      disabled={savingBookId === book.id}
+                      className="p-1 text-emerald-600 hover:text-emerald-700 disabled:opacity-50"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                    </button>
+                    <button type="button" onClick={() => setEditingBookId(null)} className="p-1 text-slate-400 hover:text-slate-600">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <div
+                    key={book.id}
+                    className={`flex items-center gap-1 rounded-lg border ${
+                      selectedBookId === book.id
+                        ? "bg-brand-red/10 border-brand-red text-brand-red"
+                        : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                    }`}
+                  >
+                    <button onClick={() => setSelectedBookId(book.id)} className="flex items-center gap-1.5 text-xs font-bold pl-3 pr-1.5 py-1.5">
+                      <BookOpen className="w-3.5 h-3.5" />
+                      {book.title}
+                    </button>
+                    <button type="button" onClick={() => handleStartEditBook(book)} className="p-1 text-current opacity-60 hover:opacity-100">
+                      <Pencil className="w-3 h-3" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteBook(book)}
+                      disabled={deletingBookId === book.id}
+                      className="p-1 mr-1 text-current opacity-60 hover:opacity-100 hover:text-rose-600 disabled:opacity-30"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                )
+              )}
           </div>
         )}
       </div>
@@ -274,7 +358,7 @@ function UnitListPanel({ book, showToast }: { book: BookResponse; showToast: (ms
             .slice()
             .sort((a, b) => a.displayOrder - b.displayOrder)
             .map((unit) => (
-              <UnitRow key={unit.id} unit={unit} showToast={showToast} />
+              <UnitRow key={unit.id} unit={unit} showToast={showToast} onChanged={loadUnits} />
             ))}
         </div>
       )}
@@ -282,14 +366,20 @@ function UnitListPanel({ book, showToast }: { book: BookResponse; showToast: (ms
   );
 }
 
-function UnitRow({ unit, showToast }: { unit: UnitResponse; showToast: (msg: string) => void }) {
+function UnitRow({ unit, showToast, onChanged }: { unit: UnitResponse; showToast: (msg: string) => void; onChanged: () => void }) {
   const { t } = useTranslation("lms-question-authoring");
+  const { confirmDialog } = useDialog();
   const [expanded, setExpanded] = useState(false);
   const [subTopics, setSubTopics] = useState<SubTopicResponse[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [newSubTopicTitle, setNewSubTopicTitle] = useState("");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — sửa/xóa 1 Unit.
+  const [editingUnit, setEditingUnit] = useState(false);
+  const [editUnitTitle, setEditUnitTitle] = useState(unit.title);
+  const [savingUnit, setSavingUnit] = useState(false);
+  const [deletingUnit, setDeletingUnit] = useState(false);
 
   const loadSubTopics = () => {
     setLoading(true);
@@ -321,12 +411,82 @@ function UnitRow({ unit, showToast }: { unit: UnitResponse; showToast: (msg: str
     }
   };
 
+  const handleSaveUnit = async () => {
+    if (!editUnitTitle.trim()) return;
+    setSavingUnit(true);
+    setError(null);
+    try {
+      await updateUnit(unit.id, { title: editUnitTitle.trim(), displayOrder: unit.displayOrder });
+      setEditingUnit(false);
+      onChanged();
+      showToast(t("bookCatalogPage.unitUpdatedToast"));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t("bookCatalogPage.updateUnitFailed"));
+    } finally {
+      setSavingUnit(false);
+    }
+  };
+
+  const handleDeleteUnit = async () => {
+    if (!(await confirmDialog(t("bookCatalogPage.deleteUnitConfirm", { title: unit.title }), { danger: true }))) return;
+    setDeletingUnit(true);
+    setError(null);
+    try {
+      await deleteUnit(unit.id);
+      onChanged();
+      showToast(t("bookCatalogPage.unitDeletedToast"));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t("bookCatalogPage.deleteUnitFailed"));
+    } finally {
+      setDeletingUnit(false);
+    }
+  };
+
   return (
     <div>
-      <button onClick={toggle} className="w-full px-5 py-3 flex items-center gap-2 text-left hover:bg-slate-50/60">
-        {expanded ? <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />}
-        <span className="text-xs font-bold text-slate-800">{unit.title}</span>
-      </button>
+      {editingUnit ? (
+        <div className="px-5 py-2.5 flex items-center gap-1.5">
+          <input
+            autoFocus
+            value={editUnitTitle}
+            onChange={(e) => setEditUnitTitle(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSaveUnit()}
+            className={`${inputClass} flex-1`}
+          />
+          <button type="button" onClick={handleSaveUnit} disabled={savingUnit} className="p-1.5 text-emerald-600 hover:text-emerald-700 disabled:opacity-50">
+            <Check className="w-3.5 h-3.5" />
+          </button>
+          <button type="button" onClick={() => setEditingUnit(false)} className="p-1.5 text-slate-400 hover:text-slate-600">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      ) : (
+        <div className="w-full px-5 py-3 flex items-center gap-2 hover:bg-slate-50/60">
+          <button onClick={toggle} className="flex items-center gap-2 text-left flex-1 min-w-0">
+            {expanded ? <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />}
+            <span className="text-xs font-bold text-slate-800">{unit.title}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setEditUnitTitle(unit.title);
+              setEditingUnit(true);
+            }}
+            className="p-1 text-slate-300 hover:text-brand-red shrink-0"
+          >
+            <Pencil className="w-3.5 h-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={handleDeleteUnit}
+            disabled={deletingUnit}
+            className="p-1 text-slate-300 hover:text-rose-600 disabled:opacity-50 shrink-0"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+      {error && !expanded && <p className="px-5 pb-2 -mt-1 text-[11px] text-rose-600">{error}</p>}
 
       {expanded && (
         <div className="px-5 pb-3.5 pl-11 space-y-2">
@@ -353,14 +513,109 @@ function UnitRow({ unit, showToast }: { unit: UnitResponse; showToast: (msg: str
                 .slice()
                 .sort((a, b) => a.displayOrder - b.displayOrder)
                 .map((s) => (
-                  <div key={s.id} className="text-[11px] text-slate-600 border-b border-slate-50 pb-1">
-                    {s.title}
-                  </div>
+                  <SubTopicRow key={s.id} subTopic={s} showToast={showToast} onChanged={loadSubTopics} />
                 ))}
             </div>
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — sửa/xóa 1 Sub Topic. BE tự chặn (400) xóa nếu đang bị 1 Đề/Bộ video tham chiếu — lỗi hiện thẳng ra. */
+function SubTopicRow({
+  subTopic,
+  showToast,
+  onChanged
+}: {
+  subTopic: SubTopicResponse;
+  showToast: (msg: string) => void;
+  onChanged: () => void;
+}) {
+  const { t } = useTranslation("lms-question-authoring");
+  const { confirmDialog } = useDialog();
+  const [editing, setEditing] = useState(false);
+  const [title, setTitle] = useState(subTopic.title);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSave = async () => {
+    if (!title.trim()) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await updateSubTopic(subTopic.id, { title: title.trim(), displayOrder: subTopic.displayOrder });
+      setEditing(false);
+      onChanged();
+      showToast(t("bookCatalogPage.subTopicUpdatedToast"));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t("bookCatalogPage.updateSubTopicFailed"));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!(await confirmDialog(t("bookCatalogPage.deleteSubTopicConfirm", { title: subTopic.title }), { danger: true }))) return;
+    setDeleting(true);
+    setError(null);
+    try {
+      await deleteSubTopic(subTopic.id);
+      onChanged();
+      showToast(t("bookCatalogPage.subTopicDeletedToast"));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t("bookCatalogPage.deleteSubTopicFailed"));
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  if (editing) {
+    return (
+      <div className="border-b border-slate-50 pb-1 space-y-0.5">
+        <div className="flex items-center gap-1.5">
+          <input
+            autoFocus
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSave()}
+            className={`${inputClass} flex-1`}
+          />
+          <button type="button" onClick={handleSave} disabled={saving} className="p-1 text-emerald-600 hover:text-emerald-700 disabled:opacity-50">
+            <Check className="w-3.5 h-3.5" />
+          </button>
+          <button type="button" onClick={() => setEditing(false)} className="p-1 text-slate-400 hover:text-slate-600">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+        {error && <p className="text-[10px] text-rose-600">{error}</p>}
+      </div>
+    );
+  }
+
+  return (
+    <div className="border-b border-slate-50 pb-1 space-y-0.5">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[11px] text-slate-600 flex-1">{subTopic.title}</span>
+        <span className="flex items-center gap-1 shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              setTitle(subTopic.title);
+              setEditing(true);
+            }}
+            className="p-1 text-slate-300 hover:text-brand-red"
+          >
+            <Pencil className="w-3 h-3" />
+          </button>
+          <button type="button" onClick={handleDelete} disabled={deleting} className="p-1 text-slate-300 hover:text-rose-600 disabled:opacity-50">
+            <Trash2 className="w-3 h-3" />
+          </button>
+        </span>
+      </div>
+      {error && <p className="text-[10px] text-rose-600">{error}</p>}
     </div>
   );
 }

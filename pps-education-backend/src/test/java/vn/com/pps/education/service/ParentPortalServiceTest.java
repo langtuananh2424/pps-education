@@ -416,11 +416,11 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
      */
     private ReviewVideoSetResponse createConnectionVideoAssignedToClass() {
         ReviewVideoSetResponse set = reviewVideoService.createSet(
-                new CreateReviewVideoSetRequest(setCode(), "Video homework", "CONNECTION", schoolClass.curriculumId(), "VIETNAMESE", null, 1),
+                new CreateReviewVideoSetRequest(setCode(), "Video homework", "CONNECTION", schoolClass.curriculumId(), "VIETNAMESE", null, 1, null),
                 teacher.getId());
         reviewVideoService.assignToClass(set.id(), schoolClass.id(), teacher.getId());
         ReviewVideoSetResponse published = reviewVideoService.updateSet(set.id(),
-                new UpdateReviewVideoSetRequest(set.title(), "VIETNAMESE", null, 1, "PUBLISHED"), teacher.getId());
+                new UpdateReviewVideoSetRequest(set.title(), "VIETNAMESE", null, 1, "PUBLISHED", null), teacher.getId());
         reviewVideoService.addVideo(set.id(),
                 new AddReviewVideoRequest("R2_VIDEO", "Video", "https://media.pps.edu.vn/lms/review-videos/video/homework.mp4",
                         1_000_000L, 100, 1, null, null),

@@ -841,8 +841,10 @@ export interface ExerciseQuestionResponse {
   skill: string | null;
   audioUrl: string | null;
   referencePassage: string | null;
-  structuredContent: { blanks?: string[]; chunks?: string[] } | null;
+  structuredContent: { blanks?: string[]; chunks?: string[]; wordBankOptions?: string[] } | null;
   groupKey: string | null;
+  /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — ảnh minh họa dùng cho ESSAY/WORD_BANK/SENTENCE_BUILDING. */
+  imageUrl: string | null;
 }
 
 export function listExerciseQuestions(exerciseId: number): Promise<ExerciseQuestionResponse[]> {

@@ -34,9 +34,11 @@ export default function QuestionImportPanel({ bankId, examId, onImported }: Ques
   const handleDownloadTemplate = async () => {
     setError(null);
     if (format === "xlsx") {
-      // Cột cố định của mẫu Excel — khớp 1:1 vị trí đọc trong ExcelQuestionRowParser.java (A→N),
-      // đọc theo vị trí cột nên đổi ngôn ngữ header không ảnh hưởng backend parse. 5 dòng ví dụ demo
-      // đủ 5 loại UI hỗ trợ, y hệt nội dung buildWordTemplate() bên backend để 2 định dạng nhất quán.
+      // Cột cố định của mẫu Excel — ExcelQuestionRowParser.java đọc theo TÊN header (dòng 1), không
+      // theo vị trí cột, nên thứ tự/ngôn ngữ header đổi được miễn còn khớp alias (xem
+      // QuestionImportFieldAliases.java) — mảng dưới đây chỉ cần khớp ĐÚNG THỨ TỰ với mảng `headers`.
+      // 9 dòng ví dụ demo đủ 9 loại UI hỗ trợ, y hệt nội dung buildWordTemplate() bên backend để 2
+      // định dạng nhất quán.
       const headers = t("questionImportPanel.excelHeaders", { returnObjects: true }) as string[];
       const sampleRows: string[][] = [
         ["TRAC_NGHIEM", "EASY", "What is the capital of France?", "London", "Paris", "Berlin", "Madrid", "B",
@@ -48,7 +50,17 @@ export default function QuestionImportPanel({ bankId, examId, onImported }: Ques
         ["TU_LUAN", "HARD", "Write a 150-word essay about your favorite hobby.", "", "", "", "", "",
           "", "https://example-r2.dev/lms/questions/images/mau.png", "", "2", t("questionImportPanel.excelSampleExplanations.essayRubric"), ""],
         ["SPEAKING", "", "Read the following sentence aloud.", "", "", "", "", "",
-          "", "", "enthusiasm, literature, variety", "1", "", ""]
+          "", "", "enthusiasm, literature, variety", "1", "", ""],
+        ["DIEN_TU_HOP_TU_VUNG", "", "She ___ to school every day. He ___ football on Sundays.", "", "", "", "", "goes|plays",
+          "", "", "", "1", t("questionImportPanel.excelSampleExplanations.wordBank"), ""],
+        ["DIEN_TU_HOP_TU_VUNG_ANH", "", "1. The cat is ___ the bed. 2. The ball is ___ the box.", "", "", "", "", "under|next to",
+          "", "https://example-r2.dev/lms/questions/images/mau-phong.png", "under, next to, behind, in front of, on", "1",
+          t("questionImportPanel.excelSampleExplanations.wordBankPicture"), ""],
+        ["SAP_XEP_CAU", "", "Sắp xếp thành câu hoàn chỉnh.", "", "", "", "", "This|is|a|pen",
+          "", "", "", "1", t("questionImportPanel.excelSampleExplanations.sentenceBuilding"), ""],
+        ["SAP_XEP_CHU_CAI", "", "Sắp xếp chữ cái thành từ đúng (nghĩa: nụ cười).", "", "", "", "", "s|m|i|l|e",
+          "", "https://example-r2.dev/lms/questions/images/mau-smile.png", "", "1",
+          t("questionImportPanel.excelSampleExplanations.letterScramble"), ""]
       ];
       const blob = buildXlsxTemplateBlob(headers, sampleRows);
       downloadBlob(blob, "mau-soan-cau-hoi.xlsx");

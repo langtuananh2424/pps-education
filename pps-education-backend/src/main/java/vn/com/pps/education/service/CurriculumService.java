@@ -27,8 +27,11 @@ import vn.com.pps.education.dto.CurriculumSubjectResponse;
 import vn.com.pps.education.dto.DecideCurriculumApprovalRequest;
 import vn.com.pps.education.dto.SubTopicResponse;
 import vn.com.pps.education.dto.UnitResponse;
+import vn.com.pps.education.dto.UpdateBookRequest;
 import vn.com.pps.education.dto.UpdateCurriculumRequest;
 import vn.com.pps.education.dto.UpdateCustomCurriculumRequest;
+import vn.com.pps.education.dto.UpdateSubTopicRequest;
+import vn.com.pps.education.dto.UpdateUnitRequest;
 import vn.com.pps.education.exception.ApprovalAlreadyDecidedException;
 import vn.com.pps.education.exception.CurriculumNotEditableException;
 import vn.com.pps.education.exception.CurriculumUpdateConfirmationRequiredException;
@@ -43,6 +46,8 @@ import vn.com.pps.education.repository.CurriculumSubTopicRepository;
 import vn.com.pps.education.repository.CurriculumSubjectHistoryRepository;
 import vn.com.pps.education.repository.CurriculumSubjectRepository;
 import vn.com.pps.education.repository.CurriculumUnitRepository;
+import vn.com.pps.education.repository.ExamRepository;
+import vn.com.pps.education.repository.ReviewVideoSetRepository;
 import vn.com.pps.education.repository.SchoolClassRepository;
 import vn.com.pps.education.repository.SiteManagerRepository;
 import vn.com.pps.education.repository.SiteRepository;
@@ -94,6 +99,8 @@ public class CurriculumService {
     private final ApprovalFlowRepository approvalFlowRepository;
     private final SkillRepository skillRepository;
     private final UserRepository userRepository;
+    private final ExamRepository examRepository;
+    private final ReviewVideoSetRepository reviewVideoSetRepository;
 
     public CurriculumService(CurriculumRepository curriculumRepository,
                               CurriculumSubjectRepository curriculumSubjectRepository,
@@ -107,7 +114,9 @@ public class CurriculumService {
                               SiteManagerRepository siteManagerRepository,
                               ApprovalFlowRepository approvalFlowRepository,
                               SkillRepository skillRepository,
-                              UserRepository userRepository) {
+                              UserRepository userRepository,
+                              ExamRepository examRepository,
+                              ReviewVideoSetRepository reviewVideoSetRepository) {
         this.curriculumRepository = curriculumRepository;
         this.curriculumSubjectRepository = curriculumSubjectRepository;
         this.curriculumHistoryRepository = curriculumHistoryRepository;
@@ -121,6 +130,8 @@ public class CurriculumService {
         this.approvalFlowRepository = approvalFlowRepository;
         this.skillRepository = skillRepository;
         this.userRepository = userRepository;
+        this.examRepository = examRepository;
+        this.reviewVideoSetRepository = reviewVideoSetRepository;
     }
 
     @Transactional(readOnly = true)
@@ -270,6 +281,25 @@ public class CurriculumService {
                 .toList();
     }
 
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — sửa tên/thứ tự 1 Sách. */
+    @Transactional
+    public BookResponse updateBook(Long id, UpdateBookRequest request) {
+        Book book = getBookOrThrow(id);
+        book.setTitle(request.title());
+        book.setDisplayOrder(request.displayOrder() == null ? book.getDisplayOrder() : request.displayOrder());
+        return toResponse(bookRepository.save(book));
+    }
+
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — chỉ xóa được khi Sách đã hết Unit. */
+    @Transactional
+    public void deleteBook(Long id) {
+        getBookOrThrow(id);
+        if (curriculumUnitRepository.existsByBookId(id)) {
+            throw new IllegalArgumentException("Sách này còn Unit — xóa hết Unit trước khi xóa Sách.");
+        }
+        bookRepository.deleteById(id);
+    }
+
     /** V144/V148: thêm 1 Unit vào 1 Sách (trước V148 gắn thẳng Curriculum, xem Javadoc CurriculumUnit). */
     @Transactional
     public UnitResponse addUnit(Long bookId, CreateUnitRequest request) {
@@ -287,6 +317,25 @@ public class CurriculumService {
         return curriculumUnitRepository.findByBookIdOrderByDisplayOrder(bookId).stream()
                 .map(this::toResponse)
                 .toList();
+    }
+
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — sửa tên/thứ tự 1 Unit. */
+    @Transactional
+    public UnitResponse updateUnit(Long id, UpdateUnitRequest request) {
+        CurriculumUnit unit = getUnitOrThrow(id);
+        unit.setTitle(request.title());
+        unit.setDisplayOrder(request.displayOrder() == null ? unit.getDisplayOrder() : request.displayOrder());
+        return toResponse(curriculumUnitRepository.save(unit));
+    }
+
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — chỉ xóa được khi Unit đã hết Sub Topic. */
+    @Transactional
+    public void deleteUnit(Long id) {
+        getUnitOrThrow(id);
+        if (curriculumSubTopicRepository.existsByUnitId(id)) {
+            throw new IllegalArgumentException("Unit này còn Sub Topic — xóa hết Sub Topic trước khi xóa Unit.");
+        }
+        curriculumUnitRepository.deleteById(id);
     }
 
     /** V144: thêm 1 Sub Topic vào 1 Unit. */
@@ -308,6 +357,29 @@ public class CurriculumService {
                 .toList();
     }
 
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — sửa tên/thứ tự 1 Sub Topic. */
+    @Transactional
+    public SubTopicResponse updateSubTopic(Long id, UpdateSubTopicRequest request) {
+        CurriculumSubTopic subTopic = getSubTopicOrThrow(id);
+        subTopic.setTitle(request.title());
+        subTopic.setDisplayOrder(request.displayOrder() == null ? subTopic.getDisplayOrder() : request.displayOrder());
+        return toResponse(curriculumSubTopicRepository.save(subTopic));
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — chỉ xóa được khi chưa Lesson (Đề)
+     * hay Bộ video ôn tập nào tham chiếu Sub Topic này qua sub_topic_id (nullable, không cascade —
+     * xem Exam#getSubTopic()/ReviewVideoSet#getSubTopic()).
+     */
+    @Transactional
+    public void deleteSubTopic(Long id) {
+        getSubTopicOrThrow(id);
+        if (examRepository.existsBySubTopicId(id) || reviewVideoSetRepository.existsBySubTopicId(id)) {
+            throw new IllegalArgumentException("Sub Topic này đang được 1 Đề hoặc Bộ video ôn tập sử dụng — không xóa được.");
+        }
+        curriculumSubTopicRepository.deleteById(id);
+    }
+
     private Book getBookOrThrow(Long id) {
         return bookRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -320,6 +392,13 @@ public class CurriculumService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "error.curriculum.unitNotFound", new Object[]{id},
                         "Không tìm thấy Unit id=" + id));
+    }
+
+    private CurriculumSubTopic getSubTopicOrThrow(Long id) {
+        return curriculumSubTopicRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "error.curriculum.subTopicNotFound", new Object[]{id},
+                        "Không tìm thấy Sub Topic id=" + id));
     }
 
     /** UC-16b Main Flow bước 1-2: tạo bản sao tùy biến gắn với 1 điểm trường. */

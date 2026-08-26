@@ -922,6 +922,9 @@ export function QuestionBlock({
 
       <ListeningAudioBlock question={question} onEnded={() => onListeningEnded(question)} />
 
+      {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — ảnh minh họa câu hỏi (ESSAY/WORD_BANK/SENTENCE_BUILDING), trước đây soạn có ảnh nhưng học sinh không thấy vì DTO chưa trả field này. */}
+      {question.imageUrl && <img src={question.imageUrl} alt="" className="w-full max-w-sm rounded-xl border border-line/60" />}
+
       {isChoiceQuestion && question.choices.some((c) => c.imageUrl) ? (
         // V143 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23) — Listening "chọn đáp án
         // bằng hình": mỗi lựa chọn là 1 ảnh, hiện dạng lưới bấm-chọn thay vì dòng chữ. Logic chọn/lưu
@@ -1014,7 +1017,7 @@ export function QuestionBlock({
       ) : question.questionType === "WORD_BANK" && question.structuredContent?.blanks ? (
         <WordBankBlock
           content={question.questionContent}
-          wordPool={question.structuredContent.blanks}
+          wordPool={question.structuredContent.wordBankOptions ?? question.structuredContent.blanks}
           initialAnswer={answer?.structuredAnswer ?? undefined}
           readOnly={readOnly}
           saving={saving}

@@ -25,7 +25,9 @@
     "INLINE_CHOICE": "Choose the word in the sentence",
     "FILL_IN_BLANK": "Fill in the blank",
     "WORD_BANK": "Fill in the blank - Word bank",
+    "WORD_BANK_PICTURE": "Fill in the blank - Word bank (with image)",
     "SENTENCE_BUILDING": "Sentence building",
+    "LETTER_SCRAMBLE": "Unscramble letters",
     "ESSAY": "Essay (file/image)",
     "SPEAKING": "Speaking (oral)",
     "LISTENING_AUDIO_SUBMISSION": "Listen & submit audio",
@@ -63,6 +65,19 @@
     "sentenceBuildingHint": "Enter the word/phrase chunks in the EXACT order that forms the complete sentence — students will see these chunks shuffled and must reorder them for the system to auto-grade (exact order match).",
     "chunkPlaceholder": "e.g. This is",
     "addChunk": "+ Add chunk",
+    "wordBankPictureSectionTitle": "Illustration + Word bank",
+    "wordBankPictureHint": "For the \"Look at the pictures and write the correct words from the box\" format — 1 picture with numbered spots + a shared word bank, each blank picks exactly 1 word from the bank.",
+    "wordBankImageLabel": "Illustration (optional)",
+    "wordBankImagePlaceholder": "Choose an image...",
+    "wordBankOptionsHint": "Word bank shown to students (optional) — leave empty to use the correct answers above as the bank. Fill this in to add distractor words (e.g. a 7-word bank but only 5 blanks used).",
+    "wordBankOptionPlaceholder": "1 word in the bank...",
+    "addWordBankOption": "+ Add word to bank",
+    "letterScrambleSectionTitle": "Unscramble letters into a word",
+    "letterScrambleHint": "For the \"Rearrange the letters to make correct words\" format — each chunk below is a single LETTER (not a word), in the EXACT order that forms the correct word — students will see the letters shuffled and must reorder them.",
+    "letterScrambleImageLabel": "Illustration (optional)",
+    "letterScrambleImagePlaceholder": "Choose an image...",
+    "letterChunkPlaceholder": "1 letter, e.g. m",
+    "addLetterChunk": "+ Add letter",
     "fillInBlankSectionTitle": "Correct answer (auto-graded)",
     "correctAnswerLabel": "Correct answer *",
     "correctAnswerPlaceholder": "e.g. went",
@@ -95,12 +110,16 @@
   "questionImportPanel": {
     "excelHeaders": [
       "Question type", "Difficulty", "Content", "Answer A", "Answer B", "Answer C", "Answer D",
-      "Correct answer", "Audio URL", "Image URL", "Transcript/Pronunciation keywords", "Points", "Explanation", "Tags"
+      "Correct answer", "Audio URL", "Image URL", "Transcript/Pronunciation keywords/Word bank", "Points", "Explanation", "Tags"
     ],
     "excelSampleExplanations": {
       "geo": "Paris is the capital of France.",
       "presentSimple": "Present simple, third person singular.",
-      "essayRubric": "Graded on content/grammar/vocabulary rubric."
+      "essayRubric": "Graded on content/grammar/vocabulary rubric.",
+      "wordBank": "1 word per blank, separated by | in the EXACT order (Correct answer column).",
+      "wordBankPicture": "The Transcript column is used as the word bank shown to students (can add distractor words) — leave empty to use the correct answers as the bank.",
+      "sentenceBuilding": "1 word/phrase chunk per element, separated by | in the EXACT order of the complete sentence.",
+      "letterScramble": "1 letter per element, separated by | in the EXACT order that forms the correct word."
     },
     "formatExcel": "Excel (.xlsx)",
     "formatWord": "Word (.docx)",
@@ -127,6 +146,24 @@
       "needAtLeastOne": "At least 1 question is required.",
       "partialFailure": "Created {{created}}/{{total}} questions before an error occurred — the created questions remain in the question bank; please review if needed.",
       "createFailed": "Failed to create the reading comprehension set."
+    }
+  },
+  "clozeQuestionBuilder": {
+    "passageLabel": "Shared passage",
+    "passageHint": "Number the blanks yourself in the passage (e.g. (1), (2)...) to match the question list below.",
+    "passagePlaceholder": "My uncle lives in a very large (1) ___ in the city...",
+    "blanksSectionTitle": "Blank list — each blank has its own answer choices",
+    "blankContentPlaceholder": "Content for question {{index}} (e.g. (1))",
+    "addOption": "+ Add choice",
+    "addBlankButton": "Add blank",
+    "submitCreate": "Create {{count}} questions",
+    "errors": {
+      "passageRequired": "Please enter the shared passage.",
+      "needAtLeastOne": "At least 1 blank is required.",
+      "fillAllBlanks": "Please fill in the content for every blank.",
+      "fillAllOptions": "Please fill in all choices for every blank.",
+      "partialFailure": "Created {{created}}/{{total}} questions before an error occurred — the created ones are still in the question bank, review if needed.",
+      "createFailed": "Failed to create the reading cloze passage."
     }
   },
   "listeningGroupBuilder": {
@@ -210,6 +247,7 @@
       "modeImport": "Import Excel/Word",
       "subModeSingle": "Single question",
       "subModeGrid": "Reading comprehension — Grid",
+      "subModeCloze": "Reading cloze",
       "subModeListeningGroup": "Multiple questions — 1 listening audio",
       "attachedSectionTitle": "Attached to the exercise (newly composed/imported)",
       "attachedCount": "Attached to exercise: {{count}} questions",
@@ -249,17 +287,32 @@
     "createBookFailed": "Failed to create the book.",
     "bookCreatedToast": "Book added.",
     "noBooks": "No books yet — add a Book before creating Units.",
+    "updateBookFailed": "Failed to update the book.",
+    "bookUpdatedToast": "Book updated.",
+    "deleteBookConfirm": "Delete book \"{{title}}\"? Only possible once the book has no units left.",
+    "bookDeletedToast": "Book deleted.",
+    "deleteBookFailed": "Failed to delete the book.",
     "loadUnitsFailed": "Failed to load the unit list.",
     "newUnitPlaceholder": "New Unit title, e.g. Unit 1",
     "addUnitButton": "Add Unit",
     "createUnitFailed": "Failed to create the unit.",
     "unitCreatedToast": "Unit added.",
     "noUnits": "No units yet.",
+    "updateUnitFailed": "Failed to update the unit.",
+    "unitUpdatedToast": "Unit updated.",
+    "deleteUnitConfirm": "Delete unit \"{{title}}\"? Only possible once the unit has no sub topics left.",
+    "unitDeletedToast": "Unit deleted.",
+    "deleteUnitFailed": "Failed to delete the unit.",
     "newSubTopicPlaceholder": "New Sub Topic title",
     "addSubTopicButton": "Add",
     "createSubTopicFailed": "Failed to create the sub topic.",
     "subTopicCreatedToast": "Sub Topic added.",
-    "noSubTopics": "No sub topics yet."
+    "noSubTopics": "No sub topics yet.",
+    "updateSubTopicFailed": "Failed to update the sub topic.",
+    "subTopicUpdatedToast": "Sub Topic updated.",
+    "deleteSubTopicConfirm": "Delete sub topic \"{{title}}\"? Only possible once no exam/video set uses it.",
+    "subTopicDeletedToast": "Sub Topic deleted.",
+    "deleteSubTopicFailed": "Failed to delete the sub topic."
   },
   "assignPage": {
     "statusLabels": {
@@ -282,6 +335,8 @@
     "allCurriculums": "All curricula",
     "allBooks": "All Books",
     "allUnits": "All Units",
+    "bookFilterLocked": "-- Select a curriculum first --",
+    "unitFilterLocked": "-- Select a book first --",
     "allTeacherTypes": "All teacher types",
     "noExamsAll": "No exams yet.",
     "noExamsFiltered": "No exams yet in this curriculum.",

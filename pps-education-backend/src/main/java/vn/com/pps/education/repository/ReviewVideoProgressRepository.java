@@ -28,4 +28,7 @@ public interface ReviewVideoProgressRepository extends JpaRepository<ReviewVideo
 
     /** Mirror method cũ (chưa lọc assignment) — dùng cho 1-2 màn tổng quan gộp cả bộ chưa tách theo từng lần giao riêng (xem ghi chú tại nơi gọi). */
     List<ReviewVideoProgress> findByReviewVideoIdIn(List<Long> reviewVideoIds);
+
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — gate "Xóa video" (xem ReviewVideoService#deleteVideo): đã có tiến độ xem thì không cho xóa. */
+    boolean existsByReviewVideoId(Long reviewVideoId);
 }

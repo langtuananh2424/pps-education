@@ -81,6 +81,14 @@ public class ReviewVideoController {
         return ResponseEntity.ok(reviewVideoService.updateSet(id, request, actor.userId()));
     }
 
+    /** V154 — "Xóa Bộ" (soft-delete), chỉ xóa được khi Bộ đã hết Video — xem Javadoc ReviewVideoService#deleteSet. */
+    @PreAuthorize("hasPermission(null, 'lms.review-video.delete')")
+    @DeleteMapping("/api/review-video-sets/{id}")
+    public ResponseEntity<Void> deleteSet(@PathVariable Long id, @AuthenticationPrincipal AuthenticatedUser actor) {
+        reviewVideoService.deleteSet(id, actor.userId());
+        return ResponseEntity.ok().build();
+    }
+
     @GetMapping("/api/classes/{classId}/review-video-sets")
     public ResponseEntity<List<ReviewVideoSetResponse>> listByClass(@PathVariable Long classId,
                                                                       @AuthenticationPrincipal AuthenticatedUser actor) {
@@ -137,6 +145,15 @@ public class ReviewVideoController {
     public ResponseEntity<List<ReviewVideoResponse>> listVideos(@PathVariable Long setId,
                                                                   @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(reviewVideoService.listVideos(setId, actor.userId()));
+    }
+
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — xem Javadoc ReviewVideoService#deleteVideo. */
+    @PreAuthorize("hasPermission(null, 'lms.review-video.update')")
+    @DeleteMapping("/api/review-videos/{videoId}")
+    public ResponseEntity<Void> deleteVideo(@PathVariable Long videoId,
+                                             @AuthenticationPrincipal AuthenticatedUser actor) {
+        reviewVideoService.deleteVideo(videoId, actor.userId());
+        return ResponseEntity.ok().build();
     }
 
     @PreAuthorize("hasPermission(null, 'lms.review-video.update')")

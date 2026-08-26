@@ -1022,11 +1022,11 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
      */
     private VideoFixture createConnectionVideoAssignedToClass(int durationSeconds) {
         ReviewVideoSetResponse set = reviewVideoService.createSet(
-                new CreateReviewVideoSetRequest(setCode(), "Video V55", "CONNECTION", schoolClass.curriculumId(), "VIETNAMESE", null, 1),
+                new CreateReviewVideoSetRequest(setCode(), "Video V55", "CONNECTION", schoolClass.curriculumId(), "VIETNAMESE", null, 1, null),
                 teacher.getId());
         reviewVideoService.assignToClass(set.id(), schoolClass.id(), teacher.getId());
         ReviewVideoSetResponse published = reviewVideoService.updateSet(set.id(),
-                new UpdateReviewVideoSetRequest(set.title(), "VIETNAMESE", null, 1, "PUBLISHED"), teacher.getId());
+                new UpdateReviewVideoSetRequest(set.title(), "VIETNAMESE", null, 1, "PUBLISHED", null), teacher.getId());
         ReviewVideoResponse video = reviewVideoService.addVideo(set.id(),
                 new AddReviewVideoRequest("R2_VIDEO", "Video", "https://media.pps.edu.vn/lms/review-videos/video/v55.mp4",
                         1_000_000L, durationSeconds, 1, null, null),

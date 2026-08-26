@@ -37,5 +37,7 @@ public record ExerciseQuestionResponse(
         String audioUrl,
         String referencePassage,
         Map<String, Object> structuredContent,
-        String groupKey
+        String groupKey,
+        /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — trước đây câu hỏi có ảnh (ESSAY, và giờ WORD_BANK/SENTENCE_BUILDING) không hiện được ảnh cho học sinh vì thiếu field này. */
+        String imageUrl
 ) {}

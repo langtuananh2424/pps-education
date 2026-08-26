@@ -14,4 +14,7 @@ public interface ReviewVideoConnectionAnswerRepository extends JpaRepository<Rev
 
     /** Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-12) — toàn bộ câu trả lời (mọi học sinh, mọi lượt) cho 1 nhóm video, dùng cho trang "Xem chi tiết" BTVN CONNECTION (ReviewVideoReportService) — 1 query bulk thay vì lặp theo từng học sinh. */
     List<ReviewVideoConnectionAnswer> findByReviewVideoConnectionQuestion_ReviewVideoIdIn(List<Long> videoIds);
+
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — gate "Xóa video" (xem ReviewVideoService#deleteVideo): câu hỏi CONNECTION của video đã có học sinh trả lời thì không cho xóa. */
+    boolean existsByReviewVideoConnectionQuestion_ReviewVideoId(Long reviewVideoId);
 }

@@ -66,6 +66,8 @@ export type QuestionType = "MULTIPLE_CHOICE" | "MULTIPLE_ANSWER" | "TRUE_FALSE" 
 export interface QuestionStructuredContent {
   blanks?: string[];
   chunks?: string[];
+  /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — hộp từ vựng hiển thị cho học sinh (WORD_BANK), tách khỏi `blanks` (đáp án đúng) để có thể chứa từ nhiễu. Bỏ trống = dùng `blanks` làm hộp từ như hành vi cũ. */
+  wordBankOptions?: string[];
 }
 
 /** Khớp Question.Skill thật (Question.java) — KHÔNG phải free-text, backend chỉ nhận đúng 1 trong 6 giá trị này. */
@@ -362,6 +364,49 @@ export function createSubTopic(unitId: number, request: CreateSubTopicRequest): 
   return apiRequest<SubTopicResponse>(`/units/${unitId}/sub-topics`, { method: "POST", body: JSON.stringify(request) });
 }
 
+// Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — sửa/xóa Sách/Unit/Sub Topic. Xóa BE tự
+// chặn (400) nếu còn cấp con (Sách còn Unit / Unit còn Sub Topic) hoặc Sub Topic đang bị 1 Đề/Bộ video
+// tham chiếu — lỗi hiện thẳng ra (err.message), không tự kiểm tra trước ở FE.
+
+export interface UpdateBookRequest {
+  title: string;
+  displayOrder?: number;
+}
+
+export function updateBook(id: number, request: UpdateBookRequest): Promise<BookResponse> {
+  return apiRequest<BookResponse>(`/books/${id}`, { method: "PUT", body: JSON.stringify(request) });
+}
+
+export function deleteBook(id: number): Promise<void> {
+  return apiRequest<void>(`/books/${id}`, { method: "DELETE" });
+}
+
+export interface UpdateUnitRequest {
+  title: string;
+  displayOrder?: number;
+}
+
+export function updateUnit(id: number, request: UpdateUnitRequest): Promise<UnitResponse> {
+  return apiRequest<UnitResponse>(`/units/${id}`, { method: "PUT", body: JSON.stringify(request) });
+}
+
+export function deleteUnit(id: number): Promise<void> {
+  return apiRequest<void>(`/units/${id}`, { method: "DELETE" });
+}
+
+export interface UpdateSubTopicRequest {
+  title: string;
+  displayOrder?: number;
+}
+
+export function updateSubTopic(id: number, request: UpdateSubTopicRequest): Promise<SubTopicResponse> {
+  return apiRequest<SubTopicResponse>(`/sub-topics/${id}`, { method: "PUT", body: JSON.stringify(request) });
+}
+
+export function deleteSubTopic(id: number): Promise<void> {
+  return apiRequest<void>(`/sub-topics/${id}`, { method: "DELETE" });
+}
+
 export function createExam(request: CreateExamRequest): Promise<ExamResponse> {
   return apiRequest<ExamResponse>("/exams", { method: "POST", body: JSON.stringify(request) });
 }
@@ -649,6 +694,9 @@ export interface ReviewVideoSetResponse {
   status: ReviewVideoSetStatus;
   publishedAt: string | null;
   createdBy: number;
+  /** V153 — Bộ thuộc Sub Topic nào trong mục lục sách (Sách/Khối -> Unit -> Sub Topic -> Bộ). NULL = chưa phân loại vào cấu trúc mới. */
+  subTopicId: number | null;
+  subTopicTitle: string | null;
 }
 
 export interface CreateReviewVideoSetRequest {
@@ -659,6 +707,7 @@ export interface CreateReviewVideoSetRequest {
   teacherType: ReviewVideoTeacherType;
   subjectId?: number;
   displayOrder?: number;
+  subTopicId?: number;
 }
 
 /** Khớp UpdateReviewVideoSetRequest thật — không đổi được code/khung chương trình sau khi tạo, teacherType sửa được cùng title (V98). Đổi status để công bố (PUBLISHED, publishedAt chỉ set 1 lần) hoặc gỡ (ARCHIVED, soft-remove). */
@@ -668,6 +717,7 @@ export interface UpdateReviewVideoSetRequest {
   subjectId?: number;
   displayOrder?: number;
   status: ReviewVideoSetStatus;
+  subTopicId?: number;
 }
 
 /** UC-23 Main Flow bước 1: chỉ Giáo viên được phân công dạy 1 lớp thuộc đúng khung mới tạo được — BE tự chặn theo class_teachers, không phải theo permission. */
@@ -677,6 +727,11 @@ export function createReviewVideoSet(request: CreateReviewVideoSetRequest): Prom
 
 export function updateReviewVideoSet(id: number, request: UpdateReviewVideoSetRequest): Promise<ReviewVideoSetResponse> {
   return apiRequest<ReviewVideoSetResponse>(`/review-video-sets/${id}`, { method: "PUT", body: JSON.stringify(request) });
+}
+
+/** V154 — "Xóa Bộ" (soft-delete), chỉ xóa được khi Bộ đã hết Video (BE tự chặn 400 nếu còn). */
+export function deleteReviewVideoSet(id: number): Promise<void> {
+  return apiRequest<void>(`/review-video-sets/${id}`, { method: "DELETE" });
 }
 
 export function listReviewVideoSetsByClass(classId: number): Promise<ReviewVideoSetResponse[]> {
@@ -852,6 +907,11 @@ export function addReviewVideo(setId: number, request: AddReviewVideoRequest): P
 
 export function listReviewVideos(setId: number): Promise<ReviewVideoResponse[]> {
   return apiRequest<ReviewVideoResponse[]>(`/review-video-sets/${setId}/videos`);
+}
+
+/** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — BE tự chặn (400) nếu video đã có học sinh xem/làm bài. */
+export function deleteReviewVideo(videoId: number): Promise<void> {
+  return apiRequest<void>(`/review-videos/${videoId}`, { method: "DELETE" });
 }
 
 /** Khớp VideoHeader/StatsCell thật — ma trận học sinh × video (roster LEFT JOIN tiến độ, học sinh chưa xem gì vẫn hiện 0%). */

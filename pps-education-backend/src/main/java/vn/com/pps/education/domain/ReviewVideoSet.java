@@ -60,6 +60,16 @@ public class ReviewVideoSet extends BaseAuditEntity {
     @JoinColumn(name = "subject_id")
     private CurriculumSubject subject;
 
+    /**
+     * V153 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26) — Bộ này thuộc Sub Topic nào
+     * trong mục lục sách (Sách/Khối -&gt; Unit -&gt; Sub Topic -&gt; Bộ, mirror {@link Exam#getSubTopic()}).
+     * NULL = Bộ cũ chưa phân loại vào cấu trúc mới, không backfill đoán. KHÔNG thay thế {@code curriculum}
+     * — curriculum vẫn là điều kiện lọc/tìm kiếm hiện có (xem Javadoc lớp).
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "sub_topic_id")
+    private CurriculumSubTopic subTopic;
+
     @Column(name = "display_order")
     private Integer displayOrder;
 
@@ -78,4 +88,13 @@ public class ReviewVideoSet extends BaseAuditEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "teacher_type", nullable = false, length = 20)
     private TeacherType teacherType;
+
+    /**
+     * V154 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26) — soft-delete "Xóa Bộ", mirror
+     * {@link Exam#getDeletedAt()} (V87) — không xóa cứng vì review_videos/review_video_set_class_assignments/
+     * review_video_assignments có thể đã tham chiếu qua Bộ. Chỉ xóa được khi Bộ đã hết Video (xem
+     * ReviewVideoService#deleteSet).
+     */
+    @Column(name = "deleted_at")
+    private OffsetDateTime deletedAt;
 }

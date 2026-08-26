@@ -18,7 +18,6 @@
   },
   "lectures": {
     "labels": {
-      "contentKind": { "VIDEO": "Video", "AUDIO": "Audio" },
       "videoType": { "CONNECTION": "Video từ kết nối", "REFLEX": "Video phản xạ" },
       "teacherType": { "VIETNAMESE": "Giáo viên Việt Nam", "FOREIGN": "Giáo viên nước ngoài" },
       "status": { "DRAFT": "Nháp", "PUBLISHED": "Đã công bố", "ARCHIVED": "Đã gỡ" }
@@ -49,7 +48,7 @@
     },
     "connectionThreshold": {
       "passPercentLabel": "Ngưỡng % pass điểm trắc nghiệm (mặc định 80)",
-      "requiredViewsLabel": "Số lượt xem bắt buộc — câu hỏi chia đều qua các lượt (mặc định 1)"
+      "requiredViewsLabel": "Số lượt xem bắt buộc — (mặc định 1)"
     },
     "reflexBuilder": {
       "label": "Câu hỏi (mốc thời gian) — ít nhất 1 câu *",
@@ -69,15 +68,12 @@
       "itemSummary": "Câu {{index}} · {{prompt}} · {{count}} lựa chọn"
     },
     "contentSource": {
-      "kindLabel": "Loại nội dung *",
       "videoLabel": "Video *",
-      "audioLabel": "Audio *",
       "uploadFile": "Tải file lên",
       "pasteYoutube": "Dán link YouTube",
       "detecting": "Đang dò...",
       "detectDuration": "Dò thời lượng",
       "chooseVideoFile": "Chọn file video...",
-      "chooseAudioFile": "Chọn file audio...",
       "durationDetectedLabel": "Thời lượng đã dò:",
       "durationValue": "{{seconds}} giây ({{minutes}} phút)",
       "durationNone": "— chưa có —"
@@ -90,7 +86,11 @@
     },
     "filter": {
       "allCurriculums": "Tất cả khung chương trình",
-      "allTeacherTypes": "Tất cả loại giáo viên"
+      "allTeacherTypes": "Tất cả loại giáo viên",
+      "allBooks": "Tất cả Sách",
+      "allUnits": "Tất cả Unit",
+      "bookFilterLocked": "-- Chọn Khung chương trình trước --",
+      "unitFilterLocked": "-- Chọn Sách trước --"
     },
     "list": {
       "empty": "Chưa có Bộ video nào.",
@@ -103,7 +103,11 @@
       "assignedClassesCount": "Đã gán {{count}} lớp",
       "manageSuffix": " — quản lý",
       "editButton": "Sửa",
-      "statsButton": "Thống kê"
+      "statsButton": "Thống kê",
+      "deleteTooltip": "Xóa Bộ",
+      "deleteConfirm": "Xóa Bộ \"{{title}}\" ({{code}})? Chỉ xóa được khi Bộ đã hết Video.",
+      "deletedToast": "Đã xóa Bộ video.",
+      "deleteFailed": "Xóa Bộ thất bại."
     },
     "toast": {
       "setCreated": "Đã tạo Bộ video thành công!",
@@ -125,7 +129,7 @@
         "videoType": "Loại video *",
         "title": "Tiêu đề *",
         "titlePlaceholder": "VD: Unit 1: Greetings and Introduction",
-        "curriculum": "Khung chương trình * (chỉ dùng lọc/tìm kiếm)",
+        "curriculum": "Khung chương trình *",
         "curriculumPlaceholder": "-- Chọn khung chương trình --",
         "teacherType": "Loại giáo viên * (dùng lọc khi giao bài)",
         "teacherTypePlaceholder": "-- Chọn loại giáo viên --",
@@ -181,10 +185,14 @@
       "manageQuestions": "Quản lý câu hỏi",
       "fields": { "title": "Tiêu đề *" },
       "addButton": "Thêm video",
+      "deleteTooltip": "Xóa video",
+      "deleteConfirm": "Xóa video \"{{title}}\"? Không thể hoàn tác.",
+      "deletedToast": "Đã xóa video.",
       "errors": {
         "loadFailed": "Không tải được danh sách video.",
         "requiredFields": "Vui lòng điền tiêu đề, video/audio và chờ dò xong thời lượng.",
-        "addFailed": "Thêm video thất bại — có thể bạn không được phân công giảng dạy lớp/khung này."
+        "addFailed": "Thêm video thất bại — có thể bạn không được phân công giảng dạy lớp/khung này.",
+        "deleteFailed": "Xóa video thất bại."
       }
     },
     "reflexFields": {

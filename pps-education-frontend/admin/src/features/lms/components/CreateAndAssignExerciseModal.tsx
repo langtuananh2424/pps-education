@@ -21,6 +21,7 @@ import QuestionEditorForm from "./QuestionEditorForm";
 import QuestionImportPanel from "./QuestionImportPanel";
 import GridQuestionBuilder from "./GridQuestionBuilder";
 import ListeningGroupBuilder from "./ListeningGroupBuilder";
+import ClozeQuestionBuilder from "./ClozeQuestionBuilder";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
@@ -284,7 +285,10 @@ export function ExerciseQuestionsStep({
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — FOREIGN có thêm "listeningGroup"
   // (ListeningGroupBuilder): 1 audio dùng chung cho nhiều câu hỏi (Trắc nghiệm Voice/Nghe & nộp
   // audio/Nghe điền từ), song song với soạn 1 câu/1 audio như cũ.
-  const [composeSubMode, setComposeSubMode] = useState<"single" | "grid" | "listeningGroup">("single");
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — VIETNAMESE có thêm "cloze"
+  // (ClozeQuestionBuilder): "Đọc điền từ" — 1 đoạn văn dùng chung + N chỗ trống, MỖI chỗ trống có bộ
+  // đáp án riêng (khác "grid" — ở đó mọi câu dùng CHUNG 1 bộ đáp án).
+  const [composeSubMode, setComposeSubMode] = useState<"single" | "grid" | "cloze" | "listeningGroup">("single");
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04 — Bài có thể ĐÃ có sẵn câu hỏi (mở
   // lại để thêm tiếp, không chỉ lúc soạn mới) — cần biết số câu đã có để displayOrder câu mới không
   // trùng câu cũ (trước đây luôn giả định Bài trống, bắt đầu từ 1).
@@ -392,7 +396,7 @@ export function ExerciseQuestionsStep({
         </div>
       )}
 
-      {teacherType === "FOREIGN" && (
+      {/* {teacherType === "FOREIGN" && (
         <p className="text-[11px] text-slate-400 italic">
           {t("assignModal.questionsStep.foreignReflexPart1")}{" "}
           <Link to="/lms/lectures" target="_blank" rel="noreferrer" className="text-brand-red font-bold hover:underline">
@@ -400,7 +404,7 @@ export function ExerciseQuestionsStep({
           </Link>{" "}
           {t("assignModal.questionsStep.foreignReflexPart2")}
         </p>
-      )}
+      )} */}
 
       <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-lg w-fit">
         {availableModes.map((m) => (
@@ -419,7 +423,7 @@ export function ExerciseQuestionsStep({
 
       {mode === "compose" && teacherType === "VIETNAMESE" && (
         <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-lg w-fit">
-          {(["single", "grid"] as const).map((m) => (
+          {(["single", "grid", "cloze"] as const).map((m) => (
             <button
               key={m}
               type="button"
@@ -428,7 +432,11 @@ export function ExerciseQuestionsStep({
                 composeSubMode === m ? "bg-white text-brand-red shadow-xs" : "text-slate-500 hover:text-slate-700"
               }`}
             >
-              {m === "single" ? t("assignModal.questionsStep.subModeSingle") : t("assignModal.questionsStep.subModeGrid")}
+              {m === "single"
+                ? t("assignModal.questionsStep.subModeSingle")
+                : m === "grid"
+                  ? t("assignModal.questionsStep.subModeGrid")
+                  : t("assignModal.questionsStep.subModeCloze")}
             </button>
           ))}
         </div>
@@ -457,6 +465,8 @@ export function ExerciseQuestionsStep({
       {mode === "compose" &&
         (composeSubMode === "grid" && teacherType === "VIETNAMESE" ? (
           <GridQuestionBuilder examId={exercise.examId} onCreated={handleCompositeCreated} onCancel={() => setComposeSubMode("single")} />
+        ) : composeSubMode === "cloze" && teacherType === "VIETNAMESE" ? (
+          <ClozeQuestionBuilder examId={exercise.examId} onCreated={handleCompositeCreated} onCancel={() => setComposeSubMode("single")} />
         ) : composeSubMode === "listeningGroup" && teacherType === "FOREIGN" ? (
           <ListeningGroupBuilder examId={exercise.examId} onCreated={handleCompositeCreated} onCancel={() => setComposeSubMode("single")} />
         ) : (
@@ -470,7 +480,17 @@ export function ExerciseQuestionsStep({
               // dành cho FOREIGN).
               teacherType === "FOREIGN"
                 ? ["VOICE_MULTIPLE_CHOICE", "LISTENING_AUDIO_SUBMISSION", "LISTENING_FILL_IN_BLANK"]
-                : ["MULTIPLE_CHOICE", "VOICE_MULTIPLE_CHOICE", "INLINE_CHOICE", "FILL_IN_BLANK", "WORD_BANK", "SENTENCE_BUILDING", "ESSAY"]
+                : [
+                    "MULTIPLE_CHOICE",
+                    "VOICE_MULTIPLE_CHOICE",
+                    "INLINE_CHOICE",
+                    "FILL_IN_BLANK",
+                    "WORD_BANK",
+                    "WORD_BANK_PICTURE",
+                    "SENTENCE_BUILDING",
+                    "LETTER_SCRAMBLE",
+                    "ESSAY"
+                  ]
             }
             onCreated={handleComposeCreated}
             onCancel={() => setMode(availableModes[0])}

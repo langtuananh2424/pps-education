@@ -17,5 +17,7 @@ public record CreateReviewVideoSetRequest(
         @NotNull Long curriculumId,
         @NotBlank String teacherType,
         Long subjectId,
-        Integer displayOrder
+        Integer displayOrder,
+        /** V153 — Bộ thuộc Sub Topic nào trong mục lục sách (Sách/Khối -> Unit -> Sub Topic -> Bộ). Bỏ trống = chưa phân loại vào cấu trúc mới. */
+        Long subTopicId
 ) {}
