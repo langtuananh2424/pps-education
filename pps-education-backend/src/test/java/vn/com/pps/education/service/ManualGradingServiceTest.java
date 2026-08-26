@@ -125,7 +125,7 @@ class ManualGradingServiceTest extends AbstractIntegrationTest {
         classService.enroll(schoolClass.id(), new EnrollStudentRequest(student.getId(), LocalDate.now()), headAcademic.getId());
 
         var exam = examService.createExam(
-                new CreateExamRequest(examCode(), "Đề mặc định", activeCurriculum.id(), "VIETNAMESE", "HOMEWORK"), teacher.getId());
+                new CreateExamRequest(examCode(), "Đề mặc định", activeCurriculum.id(), "VIETNAMESE", "HOMEWORK", null), teacher.getId());
         mcQuestion = examQuestionService.createQuestion(exam.id(),
                 new CreateExamQuestionRequest("MULTIPLE_CHOICE", "GRAMMAR", "EASY", "She ___ to school.",
                         null, null, null, null, null, new BigDecimal("1.0"), null,

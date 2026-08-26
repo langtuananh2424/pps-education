@@ -86,6 +86,13 @@ public class ExerciseReportService {
         this.permissionEvaluationService = permissionEvaluationService;
     }
 
+    /**
+     * V150 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — GV phản ánh xem thống kê
+     * theo TỪNG Bài (trước đây, 1 dòng/1 exercise_assignment) "hơi khó" khi 1 Lesson thường giao NHIỀU
+     * Bài cùng lúc qua 1 Lô (HomeworkSkillBatch, xem HomeworkSkillBatchService) — đổi sang gom các bản
+     * giao CÙNG homework_batch_id thành 1 dòng tổng hợp/Lô (mirror đúng cách UC-21 giao BTVN theo kỹ
+     * năng), giữ nguyên bản giao LẺ (không thuộc Lô nào) hiển thị riêng như cũ.
+     */
     @Transactional(readOnly = true)
     public List<ExerciseAssignmentStatsResponse> listAssignmentStats(Long classId, Long actorUserId) {
         requireReportScope(classId, actorUserId);
@@ -94,9 +101,186 @@ public class ExerciseReportService {
                 exerciseAssignmentRepository.findBySchoolClassIdAndStatusIn(classId, REPORTABLE_ASSIGNMENT_STATUSES);
         List<ClassEnrollment> roster = classEnrollmentRepository.findBySchoolClassIdAndStatus(classId, ClassEnrollment.Status.ACTIVE);
 
-        return assignments.stream()
-                .map(assignment -> toAssignmentStats(assignment, roster))
+        Map<Long, List<ExerciseAssignment>> byBatchId = assignments.stream()
+                .filter(a -> a.getHomeworkBatch() != null)
+                .collect(Collectors.groupingBy(a -> a.getHomeworkBatch().getId()));
+
+        List<ExerciseAssignmentStatsResponse> result = new java.util.ArrayList<>();
+        assignments.stream()
+                .filter(a -> a.getHomeworkBatch() == null)
+                .forEach(a -> result.add(toAssignmentStats(a, roster)));
+        byBatchId.values().forEach(group -> result.add(toBatchGroupStats(group, roster)));
+        result.sort((a, b) -> b.availableFrom().compareTo(a.availableFrom()));
+        return result;
+    }
+
+    /** V150 — dòng tổng hợp 1 Lô: "hoàn thành"/"đạt" tính theo ĐÚNG học sinh có đủ N lượt làm CẢ Lô (mirror công thức đã chốt ở HomeworkProgressService#grammarProgressLabel/grammarPassed(List, Long) — tổng điểm/tổng điểm tối đa, ngưỡng 70%). */
+    private ExerciseAssignmentStatsResponse toBatchGroupStats(List<ExerciseAssignment> group, List<ClassEnrollment> fullRoster) {
+        ExerciseAssignment first = group.get(0);
+        Exercise firstExercise = first.getExercise();
+        List<ClassEnrollment> roster = rosterForAssignment(first);
+        int totalStudents = roster.size();
+
+        List<Map<Long, ExerciseAttempt>> attemptMapsByAssignment = attemptMapsByAssignment(group);
+        BigDecimal totalPointsOfBatch = totalPointsOfBatch(group);
+
+        int completedCount = 0;
+        int passedCount = 0;
+        for (ClassEnrollment enrollment : roster) {
+            Long studentId = enrollment.getStudent().getId();
+            List<ExerciseAttempt> attempts = new java.util.ArrayList<>();
+            boolean anyMissing = false;
+            for (Map<Long, ExerciseAttempt> m : attemptMapsByAssignment) {
+                ExerciseAttempt a = m.get(studentId);
+                if (a == null) {
+                    anyMissing = true;
+                    break;
+                }
+                attempts.add(a);
+            }
+            if (anyMissing) {
+                continue;
+            }
+            if (attempts.stream().allMatch(a -> COMPLETED_ATTEMPT_STATUSES.contains(a.getStatus()))) {
+                completedCount++;
+            }
+            if (attempts.stream().allMatch(a -> a.getStatus() == ExerciseAttempt.Status.FULLY_GRADED)) {
+                BigDecimal totalScore = attempts.stream().map(ExerciseAttempt::getTotalScore)
+                        .filter(java.util.Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
+                BigDecimal percentage = ExerciseAttemptService.percentageOf(totalScore, totalPointsOfBatch);
+                if (percentage != null && percentage.compareTo(new BigDecimal("70.00")) >= 0) {
+                    passedCount++;
+                }
+            }
+        }
+
+        boolean allCompleted = group.stream().allMatch(a -> a.getStatus() == ExerciseAssignment.Status.COMPLETED);
+        List<ExerciseAssignmentStatsResponse> members = group.stream().map(a -> toAssignmentStats(a, fullRoster)).toList();
+
+        return new ExerciseAssignmentStatsResponse(
+                first.getId(), firstExercise.getId(), firstExercise.getCode(),
+                firstExercise.getExam().getTitle() + " – " + skillCategoryLabel(firstExercise.getSkillCategory()) + " (" + group.size() + " bài)",
+                firstExercise.getExerciseType().name(), firstExercise.getExam().getTeacherType().name(),
+                first.getAvailableFrom(), first.getDueAt(), allCompleted ? "COMPLETED" : "ACTIVE",
+                totalStudents, completedCount, percentOf(completedCount, totalStudents),
+                passedCount, percentOf(passedCount, totalStudents),
+                first.getHomeworkBatch().getId(), members);
+    }
+
+    private static String skillCategoryLabel(Exercise.SkillCategory skillCategory) {
+        if (skillCategory == null) {
+            return "?";
+        }
+        return switch (skillCategory) {
+            case READING -> "Reading";
+            case WRITING -> "Writing";
+            case VOCAB_GRAMMAR -> "Ngữ pháp";
+            case LISTENING -> "Nghe";
+        };
+    }
+
+    private List<Map<Long, ExerciseAttempt>> attemptMapsByAssignment(List<ExerciseAssignment> group) {
+        return group.stream().map(a -> selectedOrLatestAttemptByStudent(a.getId())).toList();
+    }
+
+    private BigDecimal totalPointsOfBatch(List<ExerciseAssignment> group) {
+        return group.stream().map(a -> a.getExercise().getTotalPoints()).reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    /**
+     * V150 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — GV bấm "Xem chi tiết" ở
+     * dòng tổng hợp 1 Lô (khác với bấm mở rộng xem từng Bài con) để xem kết quả CỘNG DỒN của cả Lô
+     * theo từng học sinh, giống hệt cách học sinh trải nghiệm ở Portal (1 điểm/1 kết quả Đạt-Không đạt
+     * duy nhất cho cả Lô) — mirror công thức đã chốt ở {@link #toBatchGroupStats}: chỉ tính điểm/Đạt
+     * khi CẢ N Bài trong Lô đã FULLY_GRADED, ngưỡng 70%. Tab "Phân tích câu hỏi" của Lô KHÔNG có
+     * endpoint riêng — FE tự gọi lại {@code getQuestionStats} cho từng Bài con (đã có sẵn) và ghép
+     * theo tiêu đề từng Bài, vì mỗi Bài vẫn là 1 Exercise thật độc lập (không clone câu hỏi).
+     */
+    @Transactional(readOnly = true)
+    public ExerciseAssignmentStudentStatsResponse getBatchStudentStats(Long batchId, Long actorUserId) {
+        List<ExerciseAssignment> group = exerciseAssignmentRepository.findByHomeworkBatchId(batchId);
+        if (group.isEmpty()) {
+            throw new ResourceNotFoundException("error.exerciseReport.batchNotFound",
+                    new Object[]{batchId}, "Không tìm thấy Lô giao BTVN id=" + batchId);
+        }
+        ExerciseAssignment first = group.get(0);
+        requireReportScope(first.getSchoolClass().getId(), actorUserId);
+
+        List<ClassEnrollment> roster = rosterForAssignment(first);
+        ExerciseAssignmentStatsResponse header = toBatchGroupStats(group, roster);
+
+        List<Map<Long, ExerciseAttempt>> attemptMapsByAssignment = attemptMapsByAssignment(group);
+        BigDecimal totalPointsOfBatch = totalPointsOfBatch(group);
+        int memberCount = group.size();
+        List<Map<Long, Integer>> attemptCountMapsByAssignment = group.stream()
+                .map(a -> exerciseAttemptRepository.findByExerciseAssignmentIdOrderByAttemptNumberDesc(a.getId()).stream()
+                        .collect(Collectors.groupingBy(at -> at.getStudent().getId(),
+                                Collectors.collectingAndThen(Collectors.toList(), List::size))))
                 .toList();
+
+        List<ExerciseAssignmentStudentStatsResponse.StudentRow> rows = roster.stream()
+                .map(enrollment -> toBatchStudentRow(enrollment.getStudent(), attemptMapsByAssignment,
+                        attemptCountMapsByAssignment, memberCount, totalPointsOfBatch))
+                .toList();
+
+        return new ExerciseAssignmentStudentStatsResponse(header, rows);
+    }
+
+    private ExerciseAssignmentStudentStatsResponse.StudentRow toBatchStudentRow(
+            Student student,
+            List<Map<Long, ExerciseAttempt>> attemptMapsByAssignment,
+            List<Map<Long, Integer>> attemptCountMapsByAssignment,
+            int memberCount,
+            BigDecimal totalPointsOfBatch) {
+        Long studentId = student.getId();
+        List<ExerciseAttempt> presentAttempts = new java.util.ArrayList<>();
+        for (Map<Long, ExerciseAttempt> m : attemptMapsByAssignment) {
+            ExerciseAttempt a = m.get(studentId);
+            if (a != null) {
+                presentAttempts.add(a);
+            }
+        }
+        int numberOfAttempts = attemptCountMapsByAssignment.stream()
+                .mapToInt(m -> m.getOrDefault(studentId, 0)).sum();
+
+        if (presentAttempts.isEmpty()) {
+            return new ExerciseAssignmentStudentStatsResponse.StudentRow(
+                    studentId, student.getStudentCode(), student.getUser().getFullName(),
+                    "CHUA_LAM", null, null, null, null, null, null, null, 0);
+        }
+
+        boolean allPresent = presentAttempts.size() == memberCount;
+        boolean anyInProgress = presentAttempts.stream().anyMatch(a -> a.getStatus() == ExerciseAttempt.Status.IN_PROGRESS);
+
+        String status;
+        if (!allPresent || anyInProgress) {
+            status = "DANG_LAM";
+        } else if (presentAttempts.stream().anyMatch(ExerciseAttempt::isLateSubmission)) {
+            status = "TRE_HAN";
+        } else {
+            status = "DA_NOP";
+        }
+
+        BigDecimal totalScore = null;
+        BigDecimal percentage = null;
+        Boolean passed = null;
+        java.time.OffsetDateTime submittedAt = null;
+        if (allPresent) {
+            submittedAt = presentAttempts.stream().map(ExerciseAttempt::getSubmittedAt)
+                    .filter(java.util.Objects::nonNull)
+                    .max(java.time.OffsetDateTime::compareTo).orElse(null);
+            boolean allFullyGraded = presentAttempts.stream().allMatch(a -> a.getStatus() == ExerciseAttempt.Status.FULLY_GRADED);
+            if (allFullyGraded) {
+                totalScore = presentAttempts.stream().map(ExerciseAttempt::getTotalScore)
+                        .filter(java.util.Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
+                percentage = ExerciseAttemptService.percentageOf(totalScore, totalPointsOfBatch);
+                passed = percentage != null && percentage.compareTo(new BigDecimal("70.00")) >= 0;
+            }
+        }
+
+        return new ExerciseAssignmentStudentStatsResponse.StudentRow(
+                studentId, student.getStudentCode(), student.getUser().getFullName(),
+                status, totalScore, totalPointsOfBatch, percentage, passed, submittedAt, null, null, numberOfAttempts);
     }
 
     @Transactional(readOnly = true)
@@ -178,6 +362,34 @@ public class ExerciseReportService {
         return ExcelExportHelper.buildWorkbook("Kết quả BTVN", headers, rows, notes);
     }
 
+    /** V150 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — mirror {@link #exportStudentStatsExcel} nhưng cho kết quả CỘNG DỒN cả Lô (xem {@link #getBatchStudentStats}). */
+    @Transactional(readOnly = true)
+    public byte[] exportBatchStudentStatsExcel(Long batchId, Long actorUserId) {
+        ExerciseAssignmentStudentStatsResponse stats = getBatchStudentStats(batchId, actorUserId);
+        ExerciseAssignmentStatsResponse header = stats.assignment();
+
+        List<String> headers = List.of("Mã học sinh", "Họ tên", "Trạng thái", "Điểm", "Tổng điểm", "Phần trăm (%)", "Đạt");
+        List<List<Object>> rows = stats.students().stream()
+                .map(s -> List.<Object>of(
+                        s.studentCode(),
+                        s.studentFullName(),
+                        vietnameseStatus(s.status()),
+                        s.totalScore() != null ? s.totalScore() : "",
+                        s.totalPoints() != null ? s.totalPoints() : "",
+                        s.percentage() != null ? s.percentage() : "",
+                        s.passed() == null ? "" : (s.passed() ? "Đạt" : "Chưa đạt")))
+                .toList();
+
+        List<String> notes = List.of(
+                "Lô: " + header.exerciseTitle(),
+                "Ngày giao: " + header.availableFrom(),
+                "Hạn nộp: " + (header.dueAt() == null ? "Không có hạn" : header.dueAt().toString()),
+                "% hoàn thành: " + header.completionPercent(),
+                "Tỷ lệ đạt: " + header.passRatePercent());
+
+        return ExcelExportHelper.buildWorkbook("Kết quả BTVN (Lô)", headers, rows, notes);
+    }
+
     // ===================== Helpers =====================
 
     private ExerciseAssignmentStatsResponse toAssignmentStats(ExerciseAssignment assignment, List<ClassEnrollment> roster) {
@@ -197,7 +409,8 @@ public class ExerciseReportService {
                 exercise.getExerciseType().name(), exercise.getExam().getTeacherType().name(),
                 assignment.getAvailableFrom(), assignment.getDueAt(),
                 assignment.getStatus().name(), totalStudents, completedCount,
-                percentOf(completedCount, totalStudents), passedCount, percentOf(passedCount, totalStudents));
+                percentOf(completedCount, totalStudents), passedCount, percentOf(passedCount, totalStudents),
+                assignment.getHomeworkBatch() == null ? null : assignment.getHomeworkBatch().getId(), null);
     }
 
     private ExerciseAssignmentStudentStatsResponse.StudentRow toStudentRow(Student student, ExerciseAttempt latest, Exercise exercise, int numberOfAttempts) {

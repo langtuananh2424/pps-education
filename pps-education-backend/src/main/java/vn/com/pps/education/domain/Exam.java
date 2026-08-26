@@ -45,6 +45,16 @@ public class Exam extends BaseAuditEntity {
     private Curriculum curriculum;
 
     /**
+     * V144 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-24) — Lesson này thuộc Sub Topic
+     * nào trong mục lục sách (Sách/Khối -&gt; Unit -&gt; Sub Topic -&gt; Lesson -&gt; Bài). NULL = Đề cũ
+     * chưa phân loại vào cấu trúc mới, không backfill đoán (mirror quy ước {@code skill_category} V136).
+     * KHÔNG thay thế {@code curriculum} — curriculum vẫn là điều kiện lọc/tìm kiếm hiện có.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "sub_topic_id")
+    private CurriculumSubTopic subTopic;
+
+    /**
      * V75: Ngân hàng câu hỏi nội bộ 1-1, tạo tự động cùng Đề. Đây là chi
      * tiết lưu trữ — API Giáo viên chỉ làm việc theo examId.
      */

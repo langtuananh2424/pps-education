@@ -76,8 +76,13 @@ public class ExamQuestionService {
                 exam.getQuestionBank(), file, actorUserId, false);
     }
 
-    public byte[] buildWordTemplate() {
-        return questionImportService.buildWordTemplate();
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — {@code skillCategory}/
+     * {@code teacherType} optional, lọc template chỉ còn block khớp Nhóm kỹ năng đã chọn ở bước 1
+     * "Soạn Bài mới" (null = in đủ tất cả, xem QuestionImportService.buildWordTemplate).
+     */
+    public byte[] buildWordTemplate(String skillCategory, String teacherType) {
+        return questionImportService.buildWordTemplate(skillCategory, teacherType);
     }
 
     /** V87 (merge từ develop 2026-08-04) — không lộ Đề đã "xóa" (deleted_at), cùng pattern ExamService. */

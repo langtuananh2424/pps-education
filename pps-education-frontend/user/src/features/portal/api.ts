@@ -265,19 +265,40 @@ export interface StudentCommentResponse {
   attitude: "WEAK" | "AVERAGE" | "FAIR" | "GOOD" | "EXCELLENT" | null;
   homeworkPreviousScore: string | null;
   homeworkPreviousSpeakingScore: string | null;
+  /**
+   * V152 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — fix bug thật: interface này
+   * (Portal học sinh/phụ huynh) thiếu hẳn 10 field Reading/Writing đã có sẵn ở backend từ V130/V137 và
+   * đã dùng ở admin/src/features/academic/api.ts từ lâu — 2 bản interface trùng lặp bị lệch nhau, phía
+   * Portal chưa bao giờ được cập nhật theo, khiến FE không đọc được dữ liệu Reading/Writing dù backend
+   * đã trả về đầy đủ. V130 — "BTVN buổi trước - Offline" tách Reading/Writing (điểm % GV tự chấm tay),
+   * chỉ khác null với buổi teacherType=VIETNAMESE.
+   */
+  homeworkPreviousReadingScore: string | null;
+  homeworkPreviousWritingScore: string | null;
   homeworkNext: string | null;
+  /** V130 — "BTVN - Offline" (giao buổi sau) tách Reading/Writing, chỉ khác null với buổi teacherType=VIETNAMESE. */
+  homeworkNextReading: string | null;
+  homeworkNextWriting: string | null;
   /** V65 (2026-07-30, bổ sung ngoài SDD gốc): id BẢN GIAO (ExerciseAssignment), không phải id Exercise nguồn. */
   homeworkNextExerciseAssignmentId: number | null;
   homeworkNextExerciseTitle: string | null;
   /** V65: id BẢN GIAO (ReviewVideoAssignment, đổi tên từ homeworkNextReviewVideoSetId — trước V65 trỏ thẳng ReviewVideoSet). */
   homeworkNextReviewVideoAssignmentId: number | null;
   homeworkNextReviewVideoSetTitle: string | null;
+  /** V137/V150 — "BTVN - Online - Reading/Writing" (mirror homeworkNextExerciseAssignmentId/Title), chỉ khác null với buổi teacherType=VIETNAMESE. */
+  homeworkNextReadingExerciseAssignmentId: number | null;
+  homeworkNextReadingExerciseTitle: string | null;
+  homeworkNextWritingExerciseAssignmentId: number | null;
+  homeworkNextWritingExerciseTitle: string | null;
   /** Hạn nộp BTVN buổi sau (lấy từ dueAt của bản giao) — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05. */
   homeworkNextDueAt: string | null;
   /** % tự tính từ exercise_attempts của buổi trước — không nhập tay được. */
   grammarPreviousProgress: string | null;
   /** % tự tính từ review_video_progress/submissions của buổi trước — không nhập tay được. */
   videoPreviousProgress: string | null;
+  /** V137 — % tự động "BTVN buổi trước - Online - Reading/Writing" (mirror grammarPreviousProgress/videoPreviousProgress), chỉ khác null với buổi teacherType=VIETNAMESE. */
+  readingPreviousProgress: string | null;
+  writingPreviousProgress: string | null;
   /** BTVN buổi trước từng giao Offline (chữ tự do) — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06, phân biệt "BTVN buổi trước" có 3 loại (Offline/kênh Bài/kênh Video). Loại trừ với grammarPreviousProgress. */
   homeworkPreviousOfflineText: string | null;
   note: string | null;
@@ -751,6 +772,19 @@ export interface AssignedExerciseResponse {
    * AssignmentsTab.tsx).
    */
   canStartNewAttempt: boolean;
+  /**
+   * V150 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-24) — NULL = bản giao lẻ 1 Bài
+   * (hành vi cũ). Có giá trị = 1 trong N thẻ BTVN cùng thuộc 1 "Lô giao theo kỹ năng" (giáo viên chọn
+   * 1 Lesson ở Nhận xét học viên, hệ thống giao TOÀN BỘ Bài Published cùng kỹ năng trong đó) — FE gom
+   * các thẻ cùng homeworkBatchId thành 1 thẻ/1 màn làm bài liên tục, xem AssignmentsTab.tsx.
+   */
+  homeworkBatchId: number | null;
+  /** V150 — điểm tối đa của Bài, dùng để cộng dồn % gộp trên thẻ/modal 1 Lô (xem BatchTakeExerciseModal). */
+  exerciseTotalPoints: number;
+  /** V150 — id/tên Lesson (Exam) + nhóm kỹ năng chứa Bài này, dùng dựng tiêu đề gộp cho 1 Lô (VD "Ngữ pháp — Lesson 1"). */
+  examId: number;
+  examTitle: string;
+  skillCategory: "READING" | "WRITING" | "VOCAB_GRAMMAR" | "LISTENING" | null;
 }
 
 export function listMyAssignedExercises(classId?: number): Promise<AssignedExerciseResponse[]> {
@@ -807,8 +841,10 @@ export interface ExerciseQuestionResponse {
   skill: string | null;
   audioUrl: string | null;
   referencePassage: string | null;
-  structuredContent: { blanks?: string[]; chunks?: string[] } | null;
+  structuredContent: { blanks?: string[]; chunks?: string[]; wordBankOptions?: string[] } | null;
   groupKey: string | null;
+  /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — ảnh minh họa dùng cho ESSAY/WORD_BANK/SENTENCE_BUILDING. */
+  imageUrl: string | null;
 }
 
 export function listExerciseQuestions(exerciseId: number): Promise<ExerciseQuestionResponse[]> {
@@ -905,6 +941,16 @@ export function listAnswers(attemptId: number): Promise<StudentAnswerResponse[]>
 /** Main Flow bước 3-4: nộp bài — BE tự chấm trắc nghiệm ngay, chuyển AUTO_GRADED (còn câu tự luận/nói chờ chấm) hoặc FULLY_GRADED (toàn trắc nghiệm). */
 export function submitAttempt(attemptId: number): Promise<ExerciseAttemptResponse> {
   return apiRequest<ExerciseAttemptResponse>(`/attempts/${attemptId}/submit`, { method: "POST" });
+}
+
+/**
+ * V152 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — UC-24/A4, UC-27/A2: học sinh
+ * ĐÃ ĐẠT nhưng còn lượt làm lại (retake) tự nguyện dừng lại NGAY, đổi lại được xem đáp án đúng của
+ * lượt vừa đạt (bình thường phải làm hết maxAttempts mới xem được). Đóng LUÔN bản giao — không hoàn
+ * tác được, FE phải hỏi xác nhận trước khi gọi (xem TakeExerciseModal/BatchTakeExerciseModal).
+ */
+export function revealAndCloseAttempt(attemptId: number): Promise<ExerciseAttemptResponse> {
+  return apiRequest<ExerciseAttemptResponse>(`/attempts/${attemptId}/reveal-and-close`, { method: "POST" });
 }
 
 // ===================== Giám sát thoát màn hình khi làm bài (bổ sung ngoài SDD gốc, xác nhận 2026-07-31) =====================

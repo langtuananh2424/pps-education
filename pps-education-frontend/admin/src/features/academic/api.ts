@@ -1343,7 +1343,9 @@ export interface CreateStudentCommentRequest {
    * V65 (2026-07-30, bổ sung ngoài SDD gốc): kênh ngữ pháp ONLINE — id của Exercise NGUỒN (đã
    * Publish), KHÔNG phải id bản giao như trước V65. Chọn khác null tự động giao đề cho CẢ LỚP ACTIVE,
    * hạn nộp = buổi học kế tiếp — để trống nếu dùng homeworkNext (OFFLINE) hoặc không giao gì (hủy bản
-   * giao cũ nếu đang sửa 1 comment DRAFT đã chọn trước đó).
+   * giao cũ nếu đang sửa 1 comment DRAFT đã chọn trước đó). V151 (revert V146, đã xác nhận với người
+   * dùng 2026-08-25) — kênh "Ngữ pháp"/"Nghe" dùng CHUNG field này: buổi teacherType=FOREIGN chọn
+   * Exercise skillCategory=LISTENING, buổi VIETNAMESE chọn skillCategory=VOCAB_GRAMMAR.
    */
   homeworkNextExerciseId?: number;
   /** Kênh Video Ôn tập (luôn ONLINE) — id của ReviewVideoSet NGUỒN (đã Publish), tự động giao cả lớp tương tự. Để trống nếu không giao. */
@@ -1641,6 +1643,15 @@ export interface ExerciseAssignmentStatsResponse {
   passRatePercent: number;
   /** Bổ sung 2026-08-08: số học sinh có lần làm bị dừng do vi phạm giám sát. */
   violatedStudentCount?: number;
+  /**
+   * V150 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — NULL = bản giao lẻ 1 Bài
+   * (hành vi cũ). Có giá trị = dòng này thuộc 1 "Lô giao BTVN theo kỹ năng" — nếu batchMembers khác
+   * null, đây là DÒNG TỔNG HỢP đại diện cả Lô (exerciseTitle là tên Lesson+kỹ năng, số liệu đã cộng dồn
+   * theo đúng học sinh hoàn thành/đạt TẤT CẢ Bài trong Lô); nếu batchMembers null, đây là 1 Bài con
+   * trong Lô đó, số liệu tính riêng cho đúng Bài này.
+   */
+  homeworkBatchId: number | null;
+  batchMembers: ExerciseAssignmentStatsResponse[] | null;
 }
 
 export interface ExerciseAssignmentStudentRow {
@@ -1698,6 +1709,15 @@ export function listExerciseAssignmentStats(classId: number): Promise<ExerciseAs
 
 export function getExerciseAssignmentStudentStats(assignmentId: number): Promise<ExerciseAssignmentStudentStatsResponse> {
   return apiRequest<ExerciseAssignmentStudentStatsResponse>(`/exercise-assignments/${assignmentId}/stats/students`);
+}
+
+/** V150 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — kết quả CỘNG DỒN cả Lô theo từng học sinh (mirror cách học sinh trải nghiệm ở Portal), dùng cho trang chi tiết Lô. */
+export function getHomeworkBatchStudentStats(batchId: number): Promise<ExerciseAssignmentStudentStatsResponse> {
+  return apiRequest<ExerciseAssignmentStudentStatsResponse>(`/homework-skill-batches/${batchId}/stats/students`);
+}
+
+export function exportHomeworkBatchStats(batchId: number): Promise<Blob> {
+  return apiRequestBlob(`/homework-skill-batches/${batchId}/stats/export`);
 }
 
 export function getExerciseAssignmentQuestionStats(assignmentId: number): Promise<ExerciseAssignmentQuestionStatsResponse> {

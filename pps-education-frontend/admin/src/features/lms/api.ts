@@ -66,6 +66,8 @@ export type QuestionType = "MULTIPLE_CHOICE" | "MULTIPLE_ANSWER" | "TRUE_FALSE" 
 export interface QuestionStructuredContent {
   blanks?: string[];
   chunks?: string[];
+  /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — hộp từ vựng hiển thị cho học sinh (WORD_BANK), tách khỏi `blanks` (đáp án đúng) để có thể chứa từ nhiễu. Bỏ trống = dùng `blanks` làm hộp từ như hành vi cũ. */
+  wordBankOptions?: string[];
 }
 
 /** Khớp Question.Skill thật (Question.java) — KHÔNG phải free-text, backend chỉ nhận đúng 1 trong 6 giá trị này. */
@@ -247,9 +249,19 @@ export function downloadQuestionImportWordTemplate(): Promise<Blob> {
   return apiRequestBlob("/question-imports/template.docx");
 }
 
-/** V75: File mẫu Word cho luồng Giáo viên theo Đề. */
-export function downloadExamQuestionImportWordTemplate(): Promise<Blob> {
-  return apiRequestBlob("/exams/question-imports/template.docx");
+/**
+ * V75: File mẫu Word cho luồng Giáo viên theo Đề.
+ *
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — `skillCategory`/`teacherType` optional,
+ * lọc template chỉ còn block khớp Nhóm kỹ năng của Bài đang soạn (bỏ trống = in đủ tất cả, mirror
+ * hành vi backend QuestionImportService.buildWordTemplate).
+ */
+export function downloadExamQuestionImportWordTemplate(skillCategory?: string, teacherType?: string): Promise<Blob> {
+  const params = new URLSearchParams();
+  if (skillCategory) params.set("skillCategory", skillCategory);
+  if (teacherType) params.set("teacherType", teacherType);
+  const query = params.toString();
+  return apiRequestBlob(`/exams/question-imports/template.docx${query ? `?${query}` : ""}`);
 }
 
 // ===================== Kho đề (Exam) — "Đề" cha, VD: IELTS Grade 6 =====================
@@ -270,12 +282,15 @@ export interface CreateExamRequest {
   curriculumId: number;
   teacherType: ExamTeacherType;
   examType: ExamType;
+  /** V144 — Lesson thuộc Sub Topic nào trong mục lục sách (Sách/Khối -> Unit -> Sub Topic -> Lesson). Bỏ trống = chưa phân loại vào cấu trúc mới. */
+  subTopicId?: number;
 }
 
 export interface UpdateExamRequest {
   title: string;
   teacherType: ExamTeacherType;
   examType: ExamType;
+  subTopicId?: number;
 }
 
 export interface ExamResponse {
@@ -288,6 +303,118 @@ export interface ExamResponse {
   createdBy: number;
   teacherType: ExamTeacherType;
   examType: ExamType;
+  questionBankId: number;
+  subTopicId: number | null;
+  subTopicTitle: string | null;
+}
+
+// ===================== V148: Curriculum (chương trình+khối) -> Sách -> Unit -> Sub Topic -> Lesson -> Bài =====================
+// Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-24 — Curriculum (chương trình+khối, VD
+// "IELTS Grade 6") đã có sẵn (track/gradeLevel); thêm Sách/Unit/SubTopic làm 3 cấp điều hướng mới phía
+// trên Lesson (Exam). V148: Unit trước đó (V144) gắn thẳng Curriculum — đổi sang gắn Sách vì "Khung
+// chương trình" chỉ là khung, không phải nơi tạo Unit trực tiếp (phản hồi người dùng 2026-08-24).
+
+export interface BookResponse {
+  id: number;
+  curriculumId: number;
+  title: string;
+  displayOrder: number;
+}
+
+export interface CreateBookRequest {
+  title: string;
+  displayOrder?: number;
+}
+
+export interface UnitResponse {
+  id: number;
+  bookId: number;
+  title: string;
+  displayOrder: number;
+}
+
+export interface CreateUnitRequest {
+  title: string;
+  displayOrder?: number;
+}
+
+export interface SubTopicResponse {
+  id: number;
+  unitId: number;
+  title: string;
+  displayOrder: number;
+}
+
+export interface CreateSubTopicRequest {
+  title: string;
+  displayOrder?: number;
+}
+
+export function listBooks(curriculumId: number): Promise<BookResponse[]> {
+  return apiRequest<BookResponse[]>(`/curriculums/${curriculumId}/books`);
+}
+
+export function createBook(curriculumId: number, request: CreateBookRequest): Promise<BookResponse> {
+  return apiRequest<BookResponse>(`/curriculums/${curriculumId}/books`, { method: "POST", body: JSON.stringify(request) });
+}
+
+export function listUnits(bookId: number): Promise<UnitResponse[]> {
+  return apiRequest<UnitResponse[]>(`/books/${bookId}/units`);
+}
+
+export function createUnit(bookId: number, request: CreateUnitRequest): Promise<UnitResponse> {
+  return apiRequest<UnitResponse>(`/books/${bookId}/units`, { method: "POST", body: JSON.stringify(request) });
+}
+
+export function listSubTopics(unitId: number): Promise<SubTopicResponse[]> {
+  return apiRequest<SubTopicResponse[]>(`/units/${unitId}/sub-topics`);
+}
+
+export function createSubTopic(unitId: number, request: CreateSubTopicRequest): Promise<SubTopicResponse> {
+  return apiRequest<SubTopicResponse>(`/units/${unitId}/sub-topics`, { method: "POST", body: JSON.stringify(request) });
+}
+
+// Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — sửa/xóa Sách/Unit/Sub Topic. Xóa BE tự
+// chặn (400) nếu còn cấp con (Sách còn Unit / Unit còn Sub Topic) hoặc Sub Topic đang bị 1 Đề/Bộ video
+// tham chiếu — lỗi hiện thẳng ra (err.message), không tự kiểm tra trước ở FE.
+
+export interface UpdateBookRequest {
+  title: string;
+  displayOrder?: number;
+}
+
+export function updateBook(id: number, request: UpdateBookRequest): Promise<BookResponse> {
+  return apiRequest<BookResponse>(`/books/${id}`, { method: "PUT", body: JSON.stringify(request) });
+}
+
+export function deleteBook(id: number): Promise<void> {
+  return apiRequest<void>(`/books/${id}`, { method: "DELETE" });
+}
+
+export interface UpdateUnitRequest {
+  title: string;
+  displayOrder?: number;
+}
+
+export function updateUnit(id: number, request: UpdateUnitRequest): Promise<UnitResponse> {
+  return apiRequest<UnitResponse>(`/units/${id}`, { method: "PUT", body: JSON.stringify(request) });
+}
+
+export function deleteUnit(id: number): Promise<void> {
+  return apiRequest<void>(`/units/${id}`, { method: "DELETE" });
+}
+
+export interface UpdateSubTopicRequest {
+  title: string;
+  displayOrder?: number;
+}
+
+export function updateSubTopic(id: number, request: UpdateSubTopicRequest): Promise<SubTopicResponse> {
+  return apiRequest<SubTopicResponse>(`/sub-topics/${id}`, { method: "PUT", body: JSON.stringify(request) });
+}
+
+export function deleteSubTopic(id: number): Promise<void> {
+  return apiRequest<void>(`/sub-topics/${id}`, { method: "DELETE" });
 }
 
 export function createExam(request: CreateExamRequest): Promise<ExamResponse> {
@@ -525,6 +652,27 @@ export function listPublishedExercisesForClass(classId: number): Promise<Exercis
   return apiRequest<ExerciseResponse[]>(`/classes/${classId}/exercises/published`);
 }
 
+/**
+ * V150 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-24) — "Lô giao BTVN theo kỹ năng":
+ * 1 entry/Lesson (Đề) có >=1 Bài Published cùng skillCategory, thay cho danh sách Exercise lẻ/bản gộp
+ * cũ ở kênh "BTVN online" của Nhận xét học viên (UC-21). Chọn 1 nhóm = giao TOÀN BỘ exerciseCount Bài
+ * trong đó cùng lúc — value gửi lên (homeworkNext*ExerciseId trong CreateStudentCommentRequest) là
+ * examId của nhóm này, KHÔNG còn là 1 exerciseId đơn.
+ */
+export interface HomeworkSkillGroupResponse {
+  examId: number;
+  examCode: string;
+  examTitle: string;
+  examTeacherType: ExamTeacherType;
+  skillCategory: ExerciseSkillCategory;
+  exerciseCount: number;
+  questionCount: number;
+}
+
+export function listHomeworkSkillGroupsForClass(classId: number, skillCategory: ExerciseSkillCategory): Promise<HomeworkSkillGroupResponse[]> {
+  return apiRequest<HomeworkSkillGroupResponse[]>(`/classes/${classId}/homework-skill-groups?skillCategory=${skillCategory}`);
+}
+
 // ===================== Kho Video Ôn tập (UC-23/UC-23a) =====================
 
 /** Khớp ReviewVideoSet.VideoType thật — CONNECTION: ôn từ vựng buổi học; REFLEX: hỏi-đáp luyện nói. */
@@ -556,6 +704,9 @@ export interface ReviewVideoSetResponse {
   status: ReviewVideoSetStatus;
   publishedAt: string | null;
   createdBy: number;
+  /** V155 — Bộ thuộc Sub Topic nào trong mục lục sách (Sách/Khối -> Unit -> Sub Topic -> Bộ). NULL = chưa phân loại vào cấu trúc mới. */
+  subTopicId: number | null;
+  subTopicTitle: string | null;
 }
 
 export interface CreateReviewVideoSetRequest {
@@ -566,6 +717,7 @@ export interface CreateReviewVideoSetRequest {
   teacherType: ReviewVideoTeacherType;
   subjectId?: number;
   displayOrder?: number;
+  subTopicId?: number;
 }
 
 /** Khớp UpdateReviewVideoSetRequest thật — không đổi được code/khung chương trình sau khi tạo, teacherType sửa được cùng title (V98). Đổi status để công bố (PUBLISHED, publishedAt chỉ set 1 lần) hoặc gỡ (ARCHIVED, soft-remove). */
@@ -575,6 +727,7 @@ export interface UpdateReviewVideoSetRequest {
   subjectId?: number;
   displayOrder?: number;
   status: ReviewVideoSetStatus;
+  subTopicId?: number;
 }
 
 /** UC-23 Main Flow bước 1: chỉ Giáo viên được phân công dạy 1 lớp thuộc đúng khung mới tạo được — BE tự chặn theo class_teachers, không phải theo permission. */
@@ -584,6 +737,11 @@ export function createReviewVideoSet(request: CreateReviewVideoSetRequest): Prom
 
 export function updateReviewVideoSet(id: number, request: UpdateReviewVideoSetRequest): Promise<ReviewVideoSetResponse> {
   return apiRequest<ReviewVideoSetResponse>(`/review-video-sets/${id}`, { method: "PUT", body: JSON.stringify(request) });
+}
+
+/** V156 — "Xóa Bộ" (soft-delete), chỉ xóa được khi Bộ đã hết Video (BE tự chặn 400 nếu còn). */
+export function deleteReviewVideoSet(id: number): Promise<void> {
+  return apiRequest<void>(`/review-video-sets/${id}`, { method: "DELETE" });
 }
 
 export function listReviewVideoSetsByClass(classId: number): Promise<ReviewVideoSetResponse[]> {
@@ -759,6 +917,11 @@ export function addReviewVideo(setId: number, request: AddReviewVideoRequest): P
 
 export function listReviewVideos(setId: number): Promise<ReviewVideoResponse[]> {
   return apiRequest<ReviewVideoResponse[]>(`/review-video-sets/${setId}/videos`);
+}
+
+/** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — BE tự chặn (400) nếu video đã có học sinh xem/làm bài. */
+export function deleteReviewVideo(videoId: number): Promise<void> {
+  return apiRequest<void>(`/review-videos/${videoId}`, { method: "DELETE" });
 }
 
 /** Khớp VideoHeader/StatsCell thật — ma trận học sinh × video (roster LEFT JOIN tiến độ, học sinh chưa xem gì vẫn hiện 0%). */

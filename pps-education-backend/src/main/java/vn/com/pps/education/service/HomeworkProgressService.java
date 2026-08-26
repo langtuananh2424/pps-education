@@ -82,6 +82,68 @@ public class HomeworkProgressService {
     }
 
     /**
+     * V150 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-24) — mirror
+     * {@link #grammarProgressLabel(ExerciseAssignment, Long)} nhưng cộng dồn NHIỀU bản giao cùng 1 "Lô
+     * giao BTVN theo kỹ năng" (HomeworkSkillBatch, xem StudentCommentService) — % = tổng totalScore / tổng
+     * totalPoints của TẤT CẢ Bài trong lô (đúng công thức đã chốt với người dùng khi thiết kế lô, VD 3
+     * Bài 8 câu/bài, 20/24 câu ≈ 83%). "Chưa làm bài" nếu KHÔNG Bài nào trong lô có lượt làm; "Đang chờ
+     * chấm" nếu có Bài đã làm nhưng còn ít nhất 1 Bài chưa chấm xong.
+     */
+    public String grammarProgressLabel(List<ExerciseAssignment> assignments, Long studentId) {
+        if (assignments == null || assignments.isEmpty()) {
+            return null;
+        }
+        BigDecimal totalScore = BigDecimal.ZERO;
+        BigDecimal totalPoints = BigDecimal.ZERO;
+        boolean anyAttempted = false;
+        for (ExerciseAssignment assignment : assignments) {
+            Exercise exercise = assignment.getExercise();
+            List<ExerciseAttempt> attempts = exerciseAttemptRepository
+                    .findByExerciseIdAndStudentIdOrderByAttemptNumberDesc(exercise.getId(), studentId);
+            if (attempts.isEmpty()) {
+                continue;
+            }
+            anyAttempted = true;
+            ExerciseAttempt latest = attempts.get(0);
+            if (latest.getTotalScore() == null) {
+                return "Đang chờ chấm";
+            }
+            totalScore = totalScore.add(latest.getTotalScore());
+            totalPoints = totalPoints.add(exercise.getTotalPoints() == null ? BigDecimal.ZERO : exercise.getTotalPoints());
+        }
+        if (!anyAttempted) {
+            return "Chưa làm bài";
+        }
+        if (totalPoints.signum() <= 0) {
+            return null;
+        }
+        int percent = totalScore.divide(totalPoints, 4, RoundingMode.HALF_UP)
+                .multiply(BigDecimal.valueOf(100)).setScale(0, RoundingMode.HALF_UP).intValue();
+        return percent + "%";
+    }
+
+    /**
+     * Mirror {@link #grammarPassed(ExerciseAssignment, Long)} cho 1 Lô (V150) — khác nguồn "đạt": bản lẻ
+     * đọc thẳng cờ {@code attempt.passed} (đã tính theo đúng passThresholdPercent CỦA TỪNG Exercise); 1
+     * Lô gồm N Exercise có thể khác ngưỡng nhau nên không có 1 cờ chung để đọc lại — so trực tiếp % tổng
+     * (từ {@link #grammarProgressLabel(List, Long)}) với ngưỡng 70% cố định đã chốt với người dùng khi
+     * thiết kế Lô (VD 3 Bài 8 câu/bài, 20/24 câu ≈ 83% ≥ 70% → Đạt).
+     */
+    private static final BigDecimal BATCH_PASS_THRESHOLD_PERCENT = new BigDecimal("70.00");
+
+    public boolean grammarPassed(List<ExerciseAssignment> assignments, Long studentId) {
+        String label = grammarProgressLabel(assignments, studentId);
+        if (label == null || !label.endsWith("%")) {
+            return false;
+        }
+        try {
+            return new BigDecimal(label.substring(0, label.length() - 1)).compareTo(BATCH_PASS_THRESHOLD_PERCENT) >= 0;
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+
+    /**
      * % video ôn tập đã giao — trung bình % từng video trong bộ (số lượt
      * xem ĐẠT/số lượt yêu cầu cho CONNECTION, số câu ĐÃ TRẢ LỜI/tổng số
      * câu cho REFLEX — xem Javadoc connectionPercent/reflexPercent). V65

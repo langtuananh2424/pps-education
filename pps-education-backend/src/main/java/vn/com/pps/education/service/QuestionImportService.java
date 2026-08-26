@@ -45,10 +45,26 @@ import java.util.Set;
  * (điểm ghi DUY NHẤT, dùng chung với form soạn tay — không lặp lại logic
  * tạo Question ở đây, xem .claude/rules/solid.md mục D).
  *
- * Phạm vi loại câu hỏi: CHỈ 5 loại UI mà QuestionEditorForm.tsx (FE) đã hỗ
- * trợ (TRAC_NGHIEM/TRAC_NGHIEM_VOICE/DIEN_TU/TU_LUAN/SPEAKING) — không mở
- * rộng sang TRUE_FALSE/MULTIPLE_ANSWER (dù Question.QuestionType có 6 giá
- * trị) để câu hỏi tạo qua import luôn sửa lại được bằng form tay sẵn có.
+ * Phạm vi loại câu hỏi (bổ sung 2026-08-26, đã xác nhận với người dùng — đồng bộ
+ * đủ 4 loại Điền từ-Hộp từ vựng/Sắp xếp câu, trước đó CHƯA từng hỗ trợ dù
+ * QuestionEditorForm.tsx đã có từ V78): 9 loại UI —
+ * TRAC_NGHIEM/TRAC_NGHIEM_VOICE/DIEN_TU/TU_LUAN/SPEAKING/DIEN_TU_HOP_TU_VUNG/
+ * DIEN_TU_HOP_TU_VUNG_ANH/SAP_XEP_CAU/SAP_XEP_CHU_CAI — không mở rộng sang
+ * TRUE_FALSE/MULTIPLE_ANSWER (dù Question.QuestionType có 6 giá trị) để câu
+ * hỏi tạo qua import luôn sửa lại được bằng form tay sẵn có. CỐ Ý vẫn không
+ * hỗ trợ INLINE_CHOICE/VOICE_PICTURE_CHOICE (kind ảo phụ thuộc số lượng/ảnh
+ * đáp án khó diễn đạt gọn trong 1 dòng bảng tính) — không thuộc phạm vi.
+ *
+ * Bổ sung 2 loại riêng GV nước ngoài (bổ sung 2026-08-26, đã xác nhận với
+ * người dùng — mở khóa import cho tab "Soạn Bài mới" phía GV nước ngoài,
+ * đi cùng tính năng khóa kind-picker theo Nhóm kỹ năng, xem
+ * skillCategoryKinds.ts phía FE): NGHE_NOP_AUDIO (mirror
+ * LISTENING_AUDIO_SUBMISSION ở form tay) và NGHE_DIEN_TU (mirror
+ * LISTENING_FILL_IN_BLANK). "Trắc nghiệm Voice" (TRAC_NGHIEM_VOICE) đã
+ * hoạt động sẵn từ trước, dùng lại nguyên. "Nghe chọn hình"
+ * (VOICE_PICTURE_CHOICE) vẫn KHÔNG đưa vào import — chỉ tồn tại dạng
+ * composite ListeningGroupBuilder, cấu trúc ảnh-theo-từng-đáp-án không
+ * diễn đạt gọn trong 1 dòng bảng tính.
  *
  * Kiến trúc parser theo Open/Closed (xem QuestionRowParser) — Spring tự
  * inject mọi bean implement interface này, chọn theo phần mở rộng file.
@@ -57,7 +73,9 @@ import java.util.Set;
 public class QuestionImportService {
 
     private static final Set<String> VALID_KINDS = Set.of(
-            "TRAC_NGHIEM", "TRAC_NGHIEM_VOICE", "DIEN_TU", "TU_LUAN", "SPEAKING");
+            "TRAC_NGHIEM", "TRAC_NGHIEM_VOICE", "DIEN_TU", "TU_LUAN", "SPEAKING",
+            "DIEN_TU_HOP_TU_VUNG", "DIEN_TU_HOP_TU_VUNG_ANH", "SAP_XEP_CAU", "SAP_XEP_CHU_CAI",
+            "NGHE_NOP_AUDIO", "NGHE_DIEN_TU");
     private static final Set<String> VALID_DIFFICULTIES = Set.of("EASY", "MEDIUM", "HARD");
 
     private final ImportJobRepository importJobRepository;
@@ -159,58 +177,55 @@ public class QuestionImportService {
         return toResponse(job);
     }
 
+    /** Nguồn chân lý DUY NHẤT nội dung từng block mẫu — dùng chung cho cả template đủ (legacy) lẫn
+     * template lọc theo Nhóm kỹ năng (xem buildWordTemplate(String, String) bên dưới). Giữ nguyên
+     * ĐÚNG THỨ TỰ như trước khi tách (LinkedHashMap) để không đổi hành vi endpoint legacy. */
+    private static final Map<String, List<String>> TEMPLATE_BLOCKS = buildTemplateBlocks();
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — mapping Kind ↔ Nhóm kỹ năng dùng
+     * để lọc template, mirror CHÍNH XÁC bảng VIETNAMESE_SKILL_KINDS/FOREIGN_LISTENING_KINDS ở FE
+     * (skillCategoryKinds.ts). READING không có entry — Cloze/Grid chỉ là composite builder, chưa
+     * từng import được (xem Javadoc lớp) nên không có block nào khớp — hợp lý vì FE cũng ẩn hẳn tab
+     * Excel/Word khi chọn Reading. "SPEAKING" (oral, không phải Nghe) không thuộc Nhóm kỹ năng nào
+     * trong bảng khóa này — mirror việc FE cũng không đưa "SPEAKING" vào allowedKinds cho GV nào cả.
+     */
+    private static final Map<String, Set<String>> SKILL_CATEGORY_KIND_TOKENS = Map.of(
+            "VOCAB_GRAMMAR", Set.of("TRAC_NGHIEM", "TRAC_NGHIEM_VOICE", "DIEN_TU",
+                    "DIEN_TU_HOP_TU_VUNG", "DIEN_TU_HOP_TU_VUNG_ANH", "SAP_XEP_CAU", "SAP_XEP_CHU_CAI"),
+            "WRITING", Set.of("TU_LUAN"),
+            "LISTENING", Set.of("TRAC_NGHIEM_VOICE", "NGHE_NOP_AUDIO", "NGHE_DIEN_TU"));
+
     /**
      * File mẫu Word (.docx) soạn đề nhanh — tĩnh, không cá nhân hoá theo
      * bank/actor (khác GradeImportService.buildTemplate() cần điền sẵn
      * học sinh thật của 1 lớp) nên không cần tham số. 1 block ví dụ / mỗi
-     * loại trong VALID_KINDS.
+     * loại trong VALID_KINDS — endpoint legacy `/api/question-imports/template.docx`,
+     * không có ngữ cảnh Bài/Nhóm kỹ năng nên in ĐỦ TẤT CẢ.
      */
     public byte[] buildWordTemplate() {
+        return buildWordTemplate(null, null);
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — template dùng ở tab "Soạn Bài
+     * mới" (ExamQuestionController), lọc chỉ còn các block khớp Nhóm kỹ năng đã chọn ở bước 1, tránh
+     * giáo viên import nhầm loại không khớp Nhóm kỹ năng của Bài. {@code skillCategory}/
+     * {@code teacherType} = null (hoặc không khớp mapping) → in đủ tất cả (giữ hành vi cũ).
+     */
+    public byte[] buildWordTemplate(String skillCategory, String teacherType) {
+        Set<String> allowedTokens = "FOREIGN".equals(teacherType)
+                ? SKILL_CATEGORY_KIND_TOKENS.get("LISTENING")
+                : SKILL_CATEGORY_KIND_TOKENS.get(skillCategory);
         try (XWPFDocument document = new XWPFDocument(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            // KHÔNG thêm dòng tiêu đề/hướng dẫn trước block đầu tiên — WordQuestionRowParser coi
-            // paragraph không-rỗng đầu tiên (hoặc ngay sau "---") là dòng mở block, dù không đúng
-            // cú pháp "[LOAI]" (để báo lỗi rõ ràng thay vì bỏ qua) — 1 dòng tiêu đề ở đây sẽ tự
-            // biến thành 1 block lỗi "nuốt" luôn nội dung block TRAC_NGHIEM thật ngay sau nó.
-            appendParagraph(document, "[TRAC_NGHIEM]");
-            appendParagraph(document, "Nội dung: What is the capital of France?");
-            appendParagraph(document, "A. London");
-            appendParagraph(document, "B. Paris");
-            appendParagraph(document, "C. Berlin");
-            appendParagraph(document, "D. Madrid");
-            appendParagraph(document, "Đáp án đúng: B");
-            appendParagraph(document, "Độ khó: EASY");
-            appendParagraph(document, "Điểm: 1");
-            appendParagraph(document, "Giải thích: Paris là thủ đô nước Pháp.");
-            appendParagraph(document, "---");
-
-            appendParagraph(document, "[TRAC_NGHIEM_VOICE]");
-            appendParagraph(document, "Nội dung: Listen and choose the word you hear.");
-            appendParagraph(document, "A. ship");
-            appendParagraph(document, "B. sheep");
-            appendParagraph(document, "C. chip");
-            appendParagraph(document, "D. cheap");
-            appendParagraph(document, "Đáp án đúng: B");
-            appendParagraph(document, "URL Audio: https://example-r2.dev/lms/questions/audio/mau.mp3");
-            appendParagraph(document, "Transcript: sheep");
-            appendParagraph(document, "---");
-
-            appendParagraph(document, "[DIEN_TU]");
-            appendParagraph(document, "Nội dung: She ___ (go) to school every day.");
-            appendParagraph(document, "Đáp án đúng: goes");
-            appendParagraph(document, "Giải thích: Hiện tại đơn, ngôi thứ 3 số ít.");
-            appendParagraph(document, "---");
-
-            appendParagraph(document, "[TU_LUAN]");
-            appendParagraph(document, "Nội dung: Write a 150-word essay about your favorite hobby.");
-            appendParagraph(document, "Giải thích: Chấm theo thang điểm nội dung/ngữ pháp/từ vựng.");
-            appendParagraph(document, "---");
-
-            appendParagraph(document, "[SPEAKING]");
-            appendParagraph(document, "Nội dung: Read the following sentence aloud.");
-            appendParagraph(document, "Từ khóa phát âm: enthusiasm, literature, variety");
-            appendParagraph(document, "Giải thích: Chấm theo độ chính xác phát âm các từ trọng điểm.");
-            appendParagraph(document, "---");
-
+            for (Map.Entry<String, List<String>> block : TEMPLATE_BLOCKS.entrySet()) {
+                if (allowedTokens != null && !allowedTokens.contains(block.getKey())) {
+                    continue;
+                }
+                for (String line : block.getValue()) {
+                    appendParagraph(document, line);
+                }
+            }
             document.write(out);
             return out.toByteArray();
         } catch (IOException ex) {
@@ -219,6 +234,89 @@ public class QuestionImportService {
     }
 
     // ===================== Helpers =====================
+
+    private static Map<String, List<String>> buildTemplateBlocks() {
+        Map<String, List<String>> blocks = new LinkedHashMap<>();
+        // KHÔNG thêm dòng tiêu đề/hướng dẫn trước block đầu tiên — WordQuestionRowParser coi
+        // paragraph không-rỗng đầu tiên (hoặc ngay sau "---") là dòng mở block, dù không đúng
+        // cú pháp "[LOAI]" (để báo lỗi rõ ràng thay vì bỏ qua) — 1 dòng tiêu đề ở đây sẽ tự
+        // biến thành 1 block lỗi "nuốt" luôn nội dung block TRAC_NGHIEM thật ngay sau nó.
+        blocks.put("TRAC_NGHIEM", List.of(
+                "[TRAC_NGHIEM]",
+                "Nội dung: What is the capital of France?",
+                "A. London", "B. Paris", "C. Berlin", "D. Madrid",
+                "Đáp án đúng: B",
+                "Độ khó: EASY",
+                "Điểm: 1",
+                "Giải thích: Paris là thủ đô nước Pháp.",
+                "---"));
+        blocks.put("TRAC_NGHIEM_VOICE", List.of(
+                "[TRAC_NGHIEM_VOICE]",
+                "Nội dung: Listen and choose the word you hear.",
+                "A. ship", "B. sheep", "C. chip", "D. cheap",
+                "Đáp án đúng: B",
+                "URL Audio: https://example-r2.dev/lms/questions/audio/mau.mp3",
+                "Transcript: sheep",
+                "---"));
+        blocks.put("DIEN_TU", List.of(
+                "[DIEN_TU]",
+                "Nội dung: She ___ (go) to school every day.",
+                "Đáp án đúng: goes",
+                "Giải thích: Hiện tại đơn, ngôi thứ 3 số ít.",
+                "---"));
+        blocks.put("TU_LUAN", List.of(
+                "[TU_LUAN]",
+                "Nội dung: Write a 150-word essay about your favorite hobby.",
+                "Giải thích: Chấm theo thang điểm nội dung/ngữ pháp/từ vựng.",
+                "---"));
+        blocks.put("DIEN_TU_HOP_TU_VUNG", List.of(
+                "[DIEN_TU_HOP_TU_VUNG]",
+                "Nội dung: She ___ to school every day. He ___ football on Sundays.",
+                "Đáp án đúng: goes|plays",
+                "Giải thích: Mỗi chỗ trống 1 từ, phân tách bằng dấu | theo ĐÚNG thứ tự.",
+                "---"));
+        blocks.put("DIEN_TU_HOP_TU_VUNG_ANH", List.of(
+                "[DIEN_TU_HOP_TU_VUNG_ANH]",
+                "Nội dung: 1. The cat is ___ the bed. 2. The ball is ___ the box.",
+                "Đáp án đúng: under|next to",
+                "URL Hình ảnh: https://example-r2.dev/lms/questions/images/mau-phong.png",
+                "Transcript: under, next to, behind, in front of, on",
+                "Giải thích: Cột Transcript dùng làm hộp từ vựng hiển thị cho học sinh (có thể thêm từ nhiễu), để trống thì hộp từ = chính đáp án đúng.",
+                "---"));
+        blocks.put("SAP_XEP_CAU", List.of(
+                "[SAP_XEP_CAU]",
+                "Nội dung: Sắp xếp thành câu hoàn chỉnh.",
+                "Đáp án đúng: This|is|a|pen",
+                "Giải thích: Mỗi khối từ/cụm 1 phần tử, phân tách bằng dấu | theo ĐÚNG thứ tự câu hoàn chỉnh.",
+                "---"));
+        blocks.put("SAP_XEP_CHU_CAI", List.of(
+                "[SAP_XEP_CHU_CAI]",
+                "Nội dung: Sắp xếp chữ cái thành từ đúng (nghĩa: nụ cười).",
+                "Đáp án đúng: s|m|i|l|e",
+                "URL Hình ảnh: https://example-r2.dev/lms/questions/images/mau-smile.png",
+                "Giải thích: Mỗi chữ cái 1 phần tử, phân tách bằng dấu | theo ĐÚNG thứ tự tạo thành từ đúng.",
+                "---"));
+        blocks.put("SPEAKING", List.of(
+                "[SPEAKING]",
+                "Nội dung: Read the following sentence aloud.",
+                "Từ khóa phát âm: enthusiasm, literature, variety",
+                "Giải thích: Chấm theo độ chính xác phát âm các từ trọng điểm.",
+                "---"));
+        blocks.put("NGHE_NOP_AUDIO", List.of(
+                "[NGHE_NOP_AUDIO]",
+                "Nội dung: Listen to the audio and record your answer.",
+                "URL Audio: https://example-r2.dev/lms/questions/audio/mau-nghe.mp3",
+                "Giải thích: Học sinh nộp audio, chấm tay ở Hàng chờ chấm bài.",
+                "---"));
+        blocks.put("NGHE_DIEN_TU", List.of(
+                "[NGHE_DIEN_TU]",
+                "Nội dung: Listen and fill in the blank: She usually ___ to work.",
+                "URL Audio: https://example-r2.dev/lms/questions/audio/mau-nghe-dien-tu.mp3",
+                "Đáp án đúng: drives",
+                "Giải thích: Hệ thống tự chấm theo đáp án đúng.",
+                "---"));
+        return blocks;
+    }
 
     private void appendParagraph(XWPFDocument document, String text) {
         XWPFParagraph paragraph = document.createParagraph();
@@ -238,7 +336,9 @@ public class QuestionImportService {
         String kind = normalizeToken(row.kind());
         if (!VALID_KINDS.contains(kind)) {
             throw new IllegalArgumentException("Loại câu hỏi không hợp lệ: '" + row.kind()
-                    + "' — chỉ chấp nhận TRAC_NGHIEM/TRAC_NGHIEM_VOICE/DIEN_TU/TU_LUAN/SPEAKING.");
+                    + "' — chỉ chấp nhận TRAC_NGHIEM/TRAC_NGHIEM_VOICE/DIEN_TU/TU_LUAN/SPEAKING/"
+                    + "DIEN_TU_HOP_TU_VUNG/DIEN_TU_HOP_TU_VUNG_ANH/SAP_XEP_CAU/SAP_XEP_CHU_CAI/"
+                    + "NGHE_NOP_AUDIO/NGHE_DIEN_TU.");
         }
 
         String difficulty = isBlank(row.difficulty()) ? "MEDIUM" : normalizeToken(row.difficulty());
@@ -257,6 +357,7 @@ public class QuestionImportService {
         String audioUrl = null;
         String imageUrl = null;
         String referencePassage = null;
+        Map<String, Object> structuredContent = null;
 
         if (isChoiceBased) {
             choices = buildChoices(row);
@@ -275,19 +376,76 @@ public class QuestionImportService {
             correctAnswerText = row.correctAnswer().trim();
         } else if (kind.equals("TU_LUAN")) {
             imageUrl = blankToNull(row.imageUrl());
-        } else { // SPEAKING
+        } else if (kind.equals("DIEN_TU_HOP_TU_VUNG") || kind.equals("DIEN_TU_HOP_TU_VUNG_ANH")) {
+            // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — tái dùng cột "Đáp án đúng"
+            // làm danh sách blanks CÓ THỨ TỰ, phân tách bằng dấu | (không thêm cột mới, mirror cách
+            // "Transcript/Từ khóa phát âm" đã mang nhiều nghĩa tùy loại từ trước).
+            if (isBlank(row.correctAnswer())) {
+                throw new IllegalArgumentException("Điền từ - Hộp từ vựng cần danh sách đáp án đúng theo thứ tự chỗ trống, phân tách bằng dấu | (VD: went|to|school).");
+            }
+            Map<String, Object> sc = new LinkedHashMap<>();
+            sc.put("blanks", splitOrdered(row.correctAnswer()));
+            if (kind.equals("DIEN_TU_HOP_TU_VUNG_ANH")) {
+                imageUrl = blankToNull(row.imageUrl());
+                // Tái dùng cột "Transcript/Từ khóa phát âm" (referencePassage) làm hộp từ vựng — tùy
+                // chọn, để trống thì hộp từ = chính blanks (mirror hành vi mặc định của form tay).
+                List<String> wordBankOptions = parseTags(row.referencePassage());
+                if (wordBankOptions != null) {
+                    sc.put("wordBankOptions", wordBankOptions);
+                }
+            }
+            structuredContent = sc;
+        } else if (kind.equals("SAP_XEP_CAU") || kind.equals("SAP_XEP_CHU_CAI")) {
+            // Cùng cơ chế tái dùng cột "Đáp án đúng" — mỗi khối/chữ cái phân tách bằng dấu |.
+            List<String> chunks = isBlank(row.correctAnswer()) ? List.of() : splitOrdered(row.correctAnswer());
+            if (chunks.size() < 2) {
+                throw new IllegalArgumentException("Sắp xếp câu/chữ cái cần tối thiểu 2 khối theo đúng thứ tự, phân tách bằng dấu | (VD: This is|a|pen).");
+            }
+            structuredContent = Map.of("chunks", chunks);
+            if (kind.equals("SAP_XEP_CHU_CAI")) {
+                imageUrl = blankToNull(row.imageUrl());
+            }
+        } else if (kind.equals("SPEAKING")) {
             skill = "SPEAKING";
             if (isBlank(row.referencePassage())) {
                 throw new IllegalArgumentException("Speaking cần từ khóa/âm vị trọng điểm cần chấm.");
             }
             referencePassage = row.referencePassage().trim();
+        } else if (kind.equals("NGHE_NOP_AUDIO")) {
+            // Mirror LISTENING_AUDIO_SUBMISSION ở form tay (isVoiceOrListeningAudio) — bắt buộc audio,
+            // KHÔNG bắt buộc referencePassage (chấm tay ở "Hàng chờ chấm bài", khác Speaking thường
+            // cần từ khóa phát âm để hỗ trợ tự động chấm).
+            skill = "LISTENING";
+            if (isBlank(row.audioUrl())) {
+                throw new IllegalArgumentException("Nghe & nộp audio cần URL audio mẫu (đã upload sẵn qua Ngân hàng câu hỏi/API media upload).");
+            }
+            audioUrl = row.audioUrl().trim();
+        } else { // NGHE_DIEN_TU — mirror LISTENING_FILL_IN_BLANK ở form tay, bắt buộc cả audio lẫn đáp án.
+            skill = "LISTENING";
+            if (isBlank(row.audioUrl())) {
+                throw new IllegalArgumentException("Nghe điền từ cần URL audio mẫu (đã upload sẵn qua Ngân hàng câu hỏi/API media upload).");
+            }
+            if (isBlank(row.correctAnswer())) {
+                throw new IllegalArgumentException("Nghe điền từ cần đáp án đúng để hệ thống tự chấm.");
+            }
+            audioUrl = row.audioUrl().trim();
+            correctAnswerText = row.correctAnswer().trim();
         }
 
-        String questionType = kind.startsWith("TRAC_NGHIEM") ? "MULTIPLE_CHOICE" : kind.equals("DIEN_TU") ? "FILL_IN_BLANK"
-                : kind.equals("TU_LUAN") ? "ESSAY" : "SPEAKING";
+        String questionType = kind.startsWith("TRAC_NGHIEM") ? "MULTIPLE_CHOICE"
+                : kind.equals("DIEN_TU") || kind.equals("NGHE_DIEN_TU") ? "FILL_IN_BLANK"
+                : kind.equals("TU_LUAN") ? "ESSAY"
+                : kind.startsWith("DIEN_TU_HOP_TU_VUNG") ? "WORD_BANK"
+                : kind.startsWith("SAP_XEP") ? "SENTENCE_BUILDING"
+                : "SPEAKING";
 
         return new CreateQuestionRequest(bankId, questionType, skill, difficulty, row.content().trim(),
-                audioUrl, imageUrl, referencePassage, explanation, correctAnswerText, defaultPoints, tags, choices, null, null);
+                audioUrl, imageUrl, referencePassage, explanation, correctAnswerText, defaultPoints, tags, choices, structuredContent, null);
+    }
+
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — tách 1 chuỗi thành danh sách CÓ THỨ TỰ theo dấu |, dùng cho blanks/chunks. */
+    private List<String> splitOrdered(String raw) {
+        return Arrays.stream(raw.split("\\|")).map(String::trim).filter(s -> !s.isEmpty()).toList();
     }
 
     private List<QuestionChoiceRequest> buildChoices(QuestionRowParser.ParsedQuestionRow row) {

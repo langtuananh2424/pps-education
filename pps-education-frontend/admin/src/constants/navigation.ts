@@ -25,6 +25,7 @@ import {
   History,
   IdCard,
   LayoutDashboard,
+  Library,
   MapPin,
   Megaphone,
   MessageSquare,
@@ -216,6 +217,12 @@ export const navSections: NavSection[] = [
       // hỏi" khỏi sidebar cho MỌI role (kể cả HEAD_ACADEMIC/SYS_ADMIN/SUPER_ADMIN, trước đó vẫn còn
       // thấy) — câu hỏi giờ soạn thẳng theo Đề (examId), trang bank legacy không còn cần thiết. Route
       // /lms/question-banks vẫn còn (chưa xóa hẳn) để không phá link cũ, chỉ không còn hiện ở menu.
+      // V144 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-24) — "Danh mục sách": cấu
+      // hình Unit/Sub Topic theo mục lục sách giáo trình TRƯỚC, tách khỏi màn "Soạn & giao đề" (trước
+      // đây phải tạo Unit/SubTopic ngay trong modal tạo Đề, người dùng phản hồi khó dùng). Cùng quyền
+      // lms.exercise.create — cùng audience với "Soạn & giao đề" (không phải Khung chương trình chính
+      // thức cần academic.curriculum.create, xem "acad-syllabus" ở nhóm Học thuật phía trên).
+      { id: "lms-book-catalog", label: "Danh mục sách", path: "/lms/book-catalog", icon: Library, requiredPermission: "lms.exercise.create" },
       { id: "lms-exercises", label: "Soạn & giao đề", path: "/lms/exercises", icon: FileEdit, requiredPermission: "lms.exercise.create" },
       // ReviewVideoController có permission từ V63 (bổ sung, trước đó không hề gate permission nào —
       // đã fix bug 2026-07-30: cấp "full quyền" cho sysadmin không có tác dụng vì quyền chưa tồn tại

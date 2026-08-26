@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { AlertCircle, Bell, BookOpen, CalendarDays, Check, CheckCircle2, ChevronRight, Clock, Filter, GraduationCap, Link2, MessageCircle, Play, Video } from "lucide-react";
+import { AlertCircle, Bell, BookOpen, CalendarDays, Check, CheckCircle2, ChevronRight, Clock, Filter, GraduationCap, Link2, MessageCircle, Play } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { formatDate, formatDateTimeHm } from "@/lib/format";
 import {
@@ -16,6 +16,7 @@ import {
   listReviewVideos
 } from "../api";
 import TakeExerciseModal from "./TakeExerciseModal";
+import BatchTakeExerciseModal, { batchGroupTitle } from "./BatchTakeExerciseModal";
 import ReviewVideoTaskModal from "./ReviewVideoTaskModal";
 import ReflexVideoTaskPage from "../pages/ReflexVideoTaskPage";
 import Pagination from "@/components/ui/Pagination";
@@ -71,6 +72,68 @@ function isExercisePending(item: AssignedExerciseResponse): boolean {
   return item.myLatestAttemptStatus == null || item.myLatestAttemptStatus === "IN_PROGRESS" || needsRetake(item);
 }
 
+/** V150 — 1 Lô "Cần hoàn thành" khi CÒN ÍT NHẤT 1 Bài trong đó pending (mirror isExercisePending, áp dụng cho cả nhóm thay vì 1 Bài đơn). */
+function isBatchPending(items: AssignedExerciseResponse[]): boolean {
+  return items.some(isExercisePending);
+}
+
+/**
+ * V152 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — 1 Bài "quá hạn" khi còn pending
+ * (chưa hoàn thành xong) VÀ đã qua dueAt — dùng cho tab lọc mới "Bài tập quá hạn" (khác badge quá hạn
+ * đã có sẵn trên từng thẻ, cái đó chỉ hiện thị chứ không lọc được thành danh sách riêng).
+ */
+function isExerciseOverduePending(item: AssignedExerciseResponse): boolean {
+  return isExercisePending(item) && item.dueAt != null && new Date(item.dueAt) < new Date();
+}
+
+/** V152 — mirror isExerciseOverduePending, áp dụng cho cả nhóm Lô (dùng chung dueAt của Bài đại diện, mirror BatchExerciseCard). */
+function isBatchOverduePending(items: AssignedExerciseResponse[]): boolean {
+  return isBatchPending(items) && items[0].dueAt != null && new Date(items[0].dueAt) < new Date();
+}
+
+/**
+ * V152 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — tách BIỆT HẲN 2 tab "Cần hoàn
+ * thành"/"Bài tập quá hạn" (trước đó chồng nhau — bài quá hạn vẫn tính vào "Cần hoàn thành", gây hiểu
+ * nhầm học sinh tưởng còn làm được). "Cần hoàn thành" giờ CHỈ còn Bài pending mà CHƯA quá hạn (còn
+ * thao tác được thật sự) — Bài pending đã quá hạn chuyển HẲN sang tab "Bài tập quá hạn", không hiện
+ * trùng ở đây nữa. Không đổi `isExercisePending` gốc (vẫn dùng cho style thẻ/badge "Cần làm lại" — thẻ
+ * quá hạn vẫn cần hiện đúng các badge đó, chỉ khác chỗ nó không còn được ĐẾM/LỌC vào tab pending nữa).
+ */
+function isExerciseActionablePending(item: AssignedExerciseResponse): boolean {
+  return isExercisePending(item) && !isExerciseOverduePending(item);
+}
+
+/** V152 — mirror isExerciseActionablePending, áp dụng cho cả nhóm Lô. */
+function isBatchActionablePending(items: AssignedExerciseResponse[]): boolean {
+  return isBatchPending(items) && !isBatchOverduePending(items);
+}
+
+/**
+ * V150 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — gom N thẻ BTVN cùng
+ * homeworkBatchId thành 1 nhóm hiển thị 1 thẻ duy nhất (xem BatchExerciseCard) — khớp đúng cách
+ * backend giao TOÀN BỘ Bài cùng kỹ năng trong 1 Lesson cùng lúc (HomeworkSkillBatchService). Bài lẻ
+ * (homeworkBatchId null) giữ nguyên hiển thị từng thẻ riêng như cũ. Sort ổn định theo exerciseId để
+ * thứ tự Bài trong 1 lần làm liên tục không đổi giữa các lần load().
+ */
+function groupExercisesByBatch(exercises: AssignedExerciseResponse[]): {
+  singles: AssignedExerciseResponse[];
+  batches: AssignedExerciseResponse[][];
+} {
+  const singles: AssignedExerciseResponse[] = [];
+  const byBatchId = new Map<number, AssignedExerciseResponse[]>();
+  for (const item of exercises) {
+    if (item.homeworkBatchId == null) {
+      singles.push(item);
+      continue;
+    }
+    const list = byBatchId.get(item.homeworkBatchId) ?? [];
+    list.push(item);
+    byBatchId.set(item.homeworkBatchId, list);
+  }
+  const batches = [...byBatchId.values()].map((list) => list.slice().sort((a, b) => a.exerciseId - b.exerciseId));
+  return { singles, batches };
+}
+
 /** Video REFLEX chưa có câu hỏi nào (giáo viên chưa soạn xong) — chưa có gì để tính "hoàn thành". */
 function isReflexAnswerable(item: ReviewVideoHomeworkItem): boolean {
   return item.videoType === "REFLEX" && !!item.reflexStats && item.reflexStats.totalQuestions > 0;
@@ -98,8 +161,43 @@ function isConnectionCompleted(item: ReviewVideoHomeworkItem): boolean {
   return !!item.connectionStats?.completed;
 }
 
-type FilterStatus = "ALL" | "PENDING" | "GRADED";
-type FilterType = "ALL" | "EXERCISE" | "VIDEO";
+/** V152 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — mirror isExerciseOverduePending, áp dụng cho Video ôn tập (REFLEX/CONNECTION). */
+function isVideoOverduePending(item: ReviewVideoHomeworkItem): boolean {
+  if (item.dueAt == null || new Date(item.dueAt) >= new Date()) return false;
+  if (item.videoType === "CONNECTION") return isConnectionAnswerable(item) && !isConnectionCompleted(item);
+  return isReflexAnswerable(item) && !isReflexFullyAnswered(item);
+}
+
+/** V152 — mirror isExerciseActionablePending, áp dụng cho Video ôn tập (tách biệt "Cần hoàn thành"/"Bài tập quá hạn"). */
+function isVideoActionablePending(item: ReviewVideoHomeworkItem): boolean {
+  if (isVideoOverduePending(item)) return false;
+  if (item.videoType === "CONNECTION") return isConnectionAnswerable(item) && !isConnectionCompleted(item);
+  return isReflexAnswerable(item) && !isReflexFullyAnswered(item);
+}
+
+type FilterStatus = "ALL" | "PENDING" | "GRADED" | "OVERDUE";
+/**
+ * V153 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — lọc "loại bài" tách hẳn theo
+ * kỹ năng thật (skillCategory) thay vì gộp chung mọi Bài không-phải-video vào 1 nhãn "Bài ngữ pháp" như
+ * trước (sai khi lớp có cả Bài Nghe — xem AssignedExerciseResponse.skillCategory). OTHER_EXERCISE dành
+ * cho Bài chưa gắn kỹ năng nào (skillCategory null, thường là bài tự luyện cũ trước khi có trường này).
+ */
+type FilterType = "ALL" | "VOCAB_GRAMMAR" | "READING" | "WRITING" | "LISTENING" | "OTHER_EXERCISE" | "CONNECTION" | "REFLEX";
+
+const EXERCISE_SKILL_FILTER_ORDER: FilterType[] = ["VOCAB_GRAMMAR", "LISTENING", "READING", "WRITING", "OTHER_EXERCISE"];
+const VIDEO_TYPE_FILTER_ORDER: FilterType[] = ["CONNECTION", "REFLEX"];
+
+/** Bài khớp filter "loại bài" đang chọn — OTHER_EXERCISE khớp skillCategory null (chưa gắn kỹ năng). */
+function matchesExerciseSkillFilter(skillCategory: AssignedExerciseResponse["skillCategory"], filterType: FilterType): boolean {
+  if (filterType === "ALL") return true;
+  if (!EXERCISE_SKILL_FILTER_ORDER.includes(filterType)) return false;
+  if (filterType === "OTHER_EXERCISE") return skillCategory == null;
+  return skillCategory === filterType;
+}
+
+function skillFilterLabel(t: (key: string) => string, skill: FilterType): string {
+  return skill === "OTHER_EXERCISE" ? t("assignments.filters.typeOther") : t(`assignments.batch.skillLabel.${skill}`);
+}
 
 interface ReviewVideoHomeworkItem {
   video: ReviewVideoResponse;
@@ -147,6 +245,7 @@ export default function AssignmentsTab({
 }: AssignmentsTabProps) {
   const { t } = useTranslation("portal-exercises");
   const [exercises, setExercises] = useState<AssignedExerciseResponse[]>([]);
+  const { singles: singleExercises, batches: batchGroups } = groupExercisesByBatch(exercises);
   const [reviewItems, setReviewItems] = useState<ReviewVideoHomeworkItem[]>([]);
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — giữ lại danh sách bản giao Video Ôn
   // tập thô (có assignmentId + reviewVideoSetId) để auto-mở đúng video theo assignmentId nhảy từ tab
@@ -158,6 +257,8 @@ export default function AssignmentsTab({
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("ALL");
   const [filterType, setFilterType] = useState<FilterType>("ALL");
   const [takingExercise, setTakingExercise] = useState<AssignedExerciseResponse | null>(null);
+  /** V150 — 1 Lô đang được làm liên tục (N thẻ cùng homeworkBatchId, xem groupExercisesByBatch/BatchTakeExerciseModal). */
+  const [takingBatch, setTakingBatch] = useState<AssignedExerciseResponse[] | null>(null);
   const [openReviewItem, setOpenReviewItem] = useState<ReviewVideoHomeworkItem | null>(null);
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — danh sách BTVN có thể dài (nhiều
   // Bài ngữ pháp + Video ôn tập cộng lại), phân trang để tránh cuộn quá nhiều. Về trang 1 mỗi khi đổi
@@ -321,7 +422,9 @@ export default function AssignmentsTab({
     let key: string | null = null;
     if (autoOpenExerciseAssignmentId != null) {
       const match = exercises.find((e) => e.assignmentId === autoOpenExerciseAssignmentId);
-      if (match) key = `ex-${match.assignmentId}`;
+      // V150 — Bài thuộc 1 Lô giờ hiện gộp thành 1 thẻ "exb-<batchId>" (xem groupExercisesByBatch),
+      // không còn thẻ "ex-<assignmentId>" riêng cho từng Bài trong lô.
+      if (match) key = match.homeworkBatchId != null ? `exb-${match.homeworkBatchId}` : `ex-${match.assignmentId}`;
     } else if (autoOpenReviewVideoAssignmentId != null) {
       const assignment = videoAssignments.find((a) => a.assignmentId === autoOpenReviewVideoAssignmentId);
       // 1 bộ có thể gồm nhiều video — chưa có khái niệm "đúng video nào" ứng với 1 lần giao (giao theo
@@ -341,7 +444,11 @@ export default function AssignmentsTab({
   useEffect(() => {
     if (loading || !pendingHighlightKey) return;
     // Tính lại feedItems "ALL/ALL" (khớp đúng bộ lọc vừa reset ở effect trên) để tìm đúng vị trí/trang.
-    const allKeys = [...exercises.map((e) => `ex-${e.assignmentId}`), ...reviewItems.map((x) => `rv-${x.assignmentId ?? "lib"}-${x.video.id}`)];
+    const allKeys = [
+      ...singleExercises.map((e) => `ex-${e.assignmentId}`),
+      ...batchGroups.map((items) => `exb-${items[0].homeworkBatchId}`),
+      ...reviewItems.map((x) => `rv-${x.assignmentId ?? "lib"}-${x.video.id}`)
+    ];
     const idx = allKeys.indexOf(pendingHighlightKey);
     if (idx === -1) {
       setPendingHighlightKey(null);
@@ -366,47 +473,79 @@ export default function AssignmentsTab({
   // ghi chú ở các effect khác trong file này).
   useEffect(() => {
     if (loading) return;
+    // V152 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — mirror đúng pendingCount ở
+    // dưới (đã tách Bài quá hạn ra khỏi "Cần hoàn thành") — badge sidebar không nên cộng luôn cả phần
+    // quá hạn (khoá, không còn thao tác được) vào cùng con số "cần làm" nữa.
     const count =
-      exercises.filter(isExercisePending).length +
-      reviewItems.filter((x) => isReflexAnswerable(x) && !isReflexFullyAnswered(x)).length +
-      reviewItems.filter((x) => isConnectionAnswerable(x) && !isConnectionCompleted(x)).length;
+      singleExercises.filter(isExerciseActionablePending).length +
+      batchGroups.filter(isBatchActionablePending).length +
+      reviewItems.filter(isVideoActionablePending).length;
     onPendingCountChange?.(count);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, exercises, reviewItems]);
 
   if (loading) return <p className="text-sm text-muted font-bold">{t("assignments.loading")}</p>;
 
+  const exerciseCardCount = singleExercises.length + batchGroups.length;
   const pendingCount =
-    exercises.filter(isExercisePending).length +
-    reviewItems.filter((x) => isReflexAnswerable(x) && !isReflexFullyAnswered(x)).length +
-    reviewItems.filter((x) => isConnectionAnswerable(x) && !isConnectionCompleted(x)).length;
+    singleExercises.filter(isExerciseActionablePending).length +
+    batchGroups.filter(isBatchActionablePending).length +
+    reviewItems.filter(isVideoActionablePending).length;
   const gradedCount =
-    exercises.filter((e) => !isExercisePending(e)).length +
+    singleExercises.filter((e) => !isExercisePending(e)).length +
+    batchGroups.filter((items) => !isBatchPending(items)).length +
     reviewItems.filter((x) => isReflexAnswerable(x) && isReflexFullyAnswered(x)).length +
     reviewItems.filter((x) => isConnectionAnswerable(x) && isConnectionCompleted(x)).length;
+  /** V152 — đếm cho tab lọc mới "Bài tập quá hạn" (khác pendingCount: chỉ tính phần ĐÃ qua hạn nộp trong số đang pending). */
+  const overdueCount =
+    singleExercises.filter(isExerciseOverduePending).length +
+    batchGroups.filter(isBatchOverduePending).length +
+    reviewItems.filter(isVideoOverduePending).length;
 
-  const filteredExercises = exercises.filter((e) => {
-    if (filterType === "VIDEO") return false;
-    if (filterStatus === "PENDING") return isExercisePending(e);
+  // V153 — số lượng theo TỪNG kỹ năng/loại video, dùng dựng dropdown lọc "loại bài" bên dưới (chỉ hiện
+  // lựa chọn nào thực sự có bài, tránh liệt kê rỗng).
+  const exerciseSkillCounts = new Map<FilterType, number>();
+  const countExerciseSkill = (skillCategory: AssignedExerciseResponse["skillCategory"]) => {
+    const key: FilterType = skillCategory ?? "OTHER_EXERCISE";
+    exerciseSkillCounts.set(key, (exerciseSkillCounts.get(key) ?? 0) + 1);
+  };
+  singleExercises.forEach((e) => countExerciseSkill(e.skillCategory));
+  batchGroups.forEach((items) => countExerciseSkill(items[0].skillCategory));
+  const videoTypeCounts = new Map<FilterType, number>();
+  reviewItems.forEach((x) => videoTypeCounts.set(x.videoType, (videoTypeCounts.get(x.videoType) ?? 0) + 1));
+
+  const filteredSingleExercises = singleExercises.filter((e) => {
+    if (!matchesExerciseSkillFilter(e.skillCategory, filterType)) return false;
+    if (filterStatus === "PENDING") return isExerciseActionablePending(e);
     if (filterStatus === "GRADED") return !isExercisePending(e);
+    if (filterStatus === "OVERDUE") return isExerciseOverduePending(e);
+    return true;
+  });
+  const filteredBatchGroups = batchGroups.filter((items) => {
+    if (!matchesExerciseSkillFilter(items[0].skillCategory, filterType)) return false;
+    if (filterStatus === "PENDING") return isBatchActionablePending(items);
+    if (filterStatus === "GRADED") return !isBatchPending(items);
+    if (filterStatus === "OVERDUE") return isBatchOverduePending(items);
     return true;
   });
   const filteredReviewItems = reviewItems.filter((x) => {
-    if (filterType === "EXERCISE") return false;
+    if (filterType !== "ALL" && (!VIDEO_TYPE_FILTER_ORDER.includes(filterType) || x.videoType !== filterType)) return false;
     if (filterStatus === "ALL") return true;
+    if (filterStatus === "OVERDUE") return isVideoOverduePending(x);
+    if (filterStatus === "PENDING") return isVideoActionablePending(x);
     if (x.videoType === "CONNECTION") {
       if (!isConnectionAnswerable(x)) return false; // API tiến độ lỗi/chưa tải xong — chưa tham gia lọc
-      return filterStatus === "PENDING" ? !isConnectionCompleted(x) : isConnectionCompleted(x);
+      return isConnectionCompleted(x); // còn lại đúng nhánh GRADED
     }
     if (!isReflexAnswerable(x)) return false; // REFLEX chưa có câu hỏi — chưa tham gia lọc
-    if (filterStatus === "PENDING") return !isReflexFullyAnswered(x);
-    return isReflexFullyAnswered(x);
+    return isReflexFullyAnswered(x); // còn lại đúng nhánh GRADED
   });
 
   // Gộp 2 danh sách (Bài ngữ pháp + Video ôn tập) thành 1 để phân trang chung — đúng tinh thần "1
   // danh sách BTVN duy nhất" đã gộp ở tab này (xem Javadoc đầu file), không tách trang riêng từng loại.
   const feedItems = [
-    ...filteredExercises.map((item) => ({ type: "exercise" as const, key: `ex-${item.assignmentId}`, item })),
+    ...filteredSingleExercises.map((item) => ({ type: "exercise" as const, key: `ex-${item.assignmentId}`, item })),
+    ...filteredBatchGroups.map((items) => ({ type: "exerciseBatch" as const, key: `exb-${items[0].homeworkBatchId}`, items })),
     ...filteredReviewItems.map((item) => ({ type: "video" as const, key: `rv-${item.assignmentId ?? "lib"}-${item.video.id}`, item }))
   ];
   const pageItems = feedItems.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
@@ -461,7 +600,7 @@ export default function AssignmentsTab({
                 filterStatus === "ALL" ? "bg-teal text-white shadow-sm" : "bg-slate-100 hover:bg-slate-200 text-muted"
               }`}
             >
-              {t("assignments.filters.all", { count: exercises.length + reviewItems.length })}
+              {t("assignments.filters.all", { count: exerciseCardCount + reviewItems.length })}
             </button>
             <button
               onClick={() => setFilterStatus("PENDING")}
@@ -478,6 +617,17 @@ export default function AssignmentsTab({
               }`}
             >
               <CheckCircle2 size={14} /> {t("assignments.filters.graded", { count: gradedCount })}
+            </button>
+            {/* V152 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — tab lọc riêng cho
+                BTVN đã quá hạn nộp (chưa hoàn thành xong), giúp học sinh/phụ huynh tìm nhanh thay vì
+                phải đọc từng badge quá hạn rải rác trong danh sách "Cần hoàn thành". */}
+            <button
+              onClick={() => setFilterStatus("OVERDUE")}
+              className={`shrink-0 snap-start px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+                filterStatus === "OVERDUE" ? "bg-coral text-white shadow-sm" : "bg-slate-100 hover:bg-slate-200 text-muted"
+              }`}
+            >
+              <AlertCircle size={14} /> {t("assignments.filters.overdue", { count: overdueCount })}
             </button>
           </div>
 
@@ -499,32 +649,75 @@ export default function AssignmentsTab({
               <div
                 role="dialog"
                 aria-label={t("assignments.filters.typeDialogAriaLabel")}
-                className="absolute right-0 top-full mt-2 z-30 w-56 bg-white border border-line rounded-2xl shadow-lg p-1.5 space-y-0.5"
+                className="absolute right-0 top-full mt-2 z-30 w-64 max-h-80 overflow-y-auto bg-white border border-line rounded-2xl shadow-lg p-1.5 space-y-0.5"
               >
-                {(
-                  [
-                    ["ALL", t("assignments.filters.typeAll"), null] as const,
-                    ["EXERCISE", t("assignments.filters.typeExercise", { count: exercises.length }), BookOpen] as const,
-                    ["VIDEO", t("assignments.filters.typeVideo", { count: reviewItems.length }), Video] as const
-                  ]
-                ).map(([value, label, Icon]) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => {
-                      setFilterType(value);
-                      setFilterTypeOpen(false);
-                    }}
-                    className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-xs font-bold text-left transition-colors ${
-                      filterType === value ? "bg-ink/5 text-ink font-black" : "text-muted hover:bg-slate-50"
-                    }`}
-                  >
-                    <span className="flex items-center gap-1.5">
-                      {Icon && <Icon size={13} aria-hidden="true" />} {label}
-                    </span>
-                    {filterType === value && <Check size={14} className="shrink-0" aria-hidden="true" />}
-                  </button>
-                ))}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFilterType("ALL");
+                    setFilterTypeOpen(false);
+                  }}
+                  className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-xs font-bold text-left transition-colors ${
+                    filterType === "ALL" ? "bg-ink/5 text-ink font-black" : "text-muted hover:bg-slate-50"
+                  }`}
+                >
+                  <span>{t("assignments.filters.typeAll")}</span>
+                  {filterType === "ALL" && <Check size={14} className="shrink-0" aria-hidden="true" />}
+                </button>
+
+                {exerciseSkillCounts.size > 0 && (
+                  <>
+                    <p className="px-3 pt-2 pb-1 text-[10px] font-black uppercase tracking-wider text-muted/70">
+                      {t("assignments.filters.typeGroupExercise")}
+                    </p>
+                    {EXERCISE_SKILL_FILTER_ORDER.filter((skill) => exerciseSkillCounts.has(skill)).map((skill) => (
+                      <button
+                        key={skill}
+                        type="button"
+                        onClick={() => {
+                          setFilterType(skill);
+                          setFilterTypeOpen(false);
+                        }}
+                        className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-xs font-bold text-left transition-colors ${
+                          filterType === skill ? "bg-ink/5 text-ink font-black" : "text-muted hover:bg-slate-50"
+                        }`}
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <BookOpen size={13} aria-hidden="true" /> {skillFilterLabel(t, skill)} ({exerciseSkillCounts.get(skill)})
+                        </span>
+                        {filterType === skill && <Check size={14} className="shrink-0" aria-hidden="true" />}
+                      </button>
+                    ))}
+                  </>
+                )}
+
+                {videoTypeCounts.size > 0 && (
+                  <>
+                    <p className="px-3 pt-2 pb-1 text-[10px] font-black uppercase tracking-wider text-muted/70">
+                      {t("assignments.filters.typeGroupVideo")}
+                    </p>
+                    {VIDEO_TYPE_FILTER_ORDER.filter((videoType) => videoTypeCounts.has(videoType)).map((videoType) => (
+                      <button
+                        key={videoType}
+                        type="button"
+                        onClick={() => {
+                          setFilterType(videoType);
+                          setFilterTypeOpen(false);
+                        }}
+                        className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-xs font-bold text-left transition-colors ${
+                          filterType === videoType ? "bg-ink/5 text-ink font-black" : "text-muted hover:bg-slate-50"
+                        }`}
+                      >
+                        <span className="flex items-center gap-1.5">
+                          {videoType === "CONNECTION" ? <Link2 size={13} aria-hidden="true" /> : <MessageCircle size={13} aria-hidden="true" />}{" "}
+                          {videoType === "CONNECTION" ? t("assignments.video.connectionType") : t("assignments.video.reflexType")} (
+                          {videoTypeCounts.get(videoType)})
+                        </span>
+                        {filterType === videoType && <Check size={14} className="shrink-0" aria-hidden="true" />}
+                      </button>
+                    ))}
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -536,16 +729,30 @@ export default function AssignmentsTab({
       ) : (
         <>
           <div className="space-y-4">
-            {pageItems.map((entry) =>
-              entry.type === "exercise" ? (
-                <ExerciseCard
-                  key={entry.key}
-                  item={entry.item}
-                  onOpen={() => setTakingExercise(entry.item)}
-                  domId={`assignment-card-${entry.key}`}
-                  highlighted={highlightKey === entry.key}
-                />
-              ) : (
+            {pageItems.map((entry) => {
+              if (entry.type === "exercise") {
+                return (
+                  <ExerciseCard
+                    key={entry.key}
+                    item={entry.item}
+                    onOpen={() => setTakingExercise(entry.item)}
+                    domId={`assignment-card-${entry.key}`}
+                    highlighted={highlightKey === entry.key}
+                  />
+                );
+              }
+              if (entry.type === "exerciseBatch") {
+                return (
+                  <BatchExerciseCard
+                    key={entry.key}
+                    items={entry.items}
+                    onOpen={() => setTakingBatch(entry.items)}
+                    domId={`assignment-card-${entry.key}`}
+                    highlighted={highlightKey === entry.key}
+                  />
+                );
+              }
+              return (
                 <ReviewVideoCard
                   key={entry.key}
                   item={entry.item}
@@ -553,8 +760,8 @@ export default function AssignmentsTab({
                   domId={`assignment-card-${entry.key}`}
                   highlighted={highlightKey === entry.key}
                 />
-              )
-            )}
+              );
+            })}
           </div>
           <Pagination page={page} pageSize={PAGE_SIZE} totalElements={feedItems.length} itemLabel={t("assignments.itemLabel")} onPageChange={setPage} />
         </>
@@ -569,6 +776,16 @@ export default function AssignmentsTab({
           // modal mở để học sinh đọc hết nhận xét chấm AI/GV chi tiết trước khi tự bấm X/Thoát).
           onClose={() => {
             setTakingExercise(null);
+            load();
+          }}
+        />
+      )}
+
+      {takingBatch && (
+        <BatchTakeExerciseModal
+          items={takingBatch}
+          onClose={() => {
+            setTakingBatch(null);
             load();
           }}
         />
@@ -621,6 +838,12 @@ function ExerciseCard({
   const attemptMeta = retake ? null : item.myLatestAttemptStatus ? attemptStatusMeta(t, item.myLatestAttemptStatus) : null;
   const isFullyGraded = item.myLatestAttemptStatus === "FULLY_GRADED";
   const pending = isExercisePending(item);
+  /**
+   * V152 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — lượt CÒN IN_PROGRESS (chưa
+   * nộp) nhưng đã quá hạn nộp và bản giao không cho nộp muộn — TakeExerciseModal sẽ tự khoá thành chỉ
+   * xem (xem overdueLockedInProgress ở đó), nên nhãn nút ở đây phải khớp ("Xem lại" thay vì "Tiếp tục").
+   */
+  const overdueLockedInProgress = isOverdue && !item.lateSubmissionAllowed && item.myLatestAttemptStatus === "IN_PROGRESS";
 
   /**
    * V148 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23) — CHỦ Ý chỉ còn 2 nhánh ở màn
@@ -633,7 +856,7 @@ function ExerciseCard({
   const actionLabel =
     item.myLatestAttemptStatus == null
       ? t("assignments.exercise.action.start")
-      : item.myLatestAttemptStatus === "IN_PROGRESS"
+      : item.myLatestAttemptStatus === "IN_PROGRESS" && !overdueLockedInProgress
         ? t("assignments.exercise.action.continue")
         : t("assignments.exercise.action.reviewGraded");
 
@@ -690,10 +913,10 @@ function ExerciseCard({
         <h3 className="text-base font-black text-ink font-display truncate">{item.title}</h3>
 
         {item.myLatestTotalScore != null && (
-          // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — trước đây chỉ hiện "Điểm: X"
-          // chữ nhỏ màu xám, không thấy % lẫn đạt/chưa đạt ở đây (dù data đã có sẵn qua
-          // myLatestPercentage/myLatestPassed) — gộp cả 3 vào 1 pill nổi bật, đổi màu theo kết quả để
-          // học sinh/phụ huynh (đọc qua ParentHomeworkProgressTab) nhận ra ngay không cần đọc kỹ.
+          // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25 — hiện "Hoàn thành: X/Y (Z%)"
+          // (điểm đạt được/tổng điểm tối đa của Bài, mỗi câu tự chấm thường 1 điểm, kèm % để dễ so sánh
+          // nhanh) thay vì "Điểm: X (Y%)" cũ. Đổi màu pill theo đạt/chưa đạt để học sinh/phụ huynh (đọc
+          // qua ParentHomeworkProgressTab) nhận ra ngay không cần đọc kỹ.
           <div
             className={`inline-flex flex-wrap items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold ${
               item.myLatestPassed === true
@@ -704,8 +927,10 @@ function ExerciseCard({
             }`}
           >
             <span>
-              {t("assignments.exercise.scoreLabel")}
-              <span className="font-black">{item.myLatestTotalScore}</span>
+              {t("assignments.exercise.completedLabel")}
+              <span className="font-black">
+                {item.myLatestTotalScore}/{item.exerciseTotalPoints}
+              </span>
             </span>
             {item.myLatestPercentage != null && <span className="font-black">({item.myLatestPercentage}%)</span>}
             {item.myLatestPassed != null && (
@@ -723,6 +948,134 @@ function ExerciseCard({
           onClick={onOpen}
           className={`w-full md:w-auto flex items-center justify-center gap-1.5 px-5 py-2.5 font-extrabold text-xs rounded-xl shadow-sm transition-all cursor-pointer ${
             isFullyGraded && !retake ? "bg-slate-100 hover:bg-slate-200 text-ink border border-line" : "bg-teal hover:bg-teal-deep text-white"
+          }`}
+        >
+          {actionLabel} <ChevronRight size={14} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * V150 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — 1 thẻ gộp cho N Bài cùng
+ * homeworkBatchId (thay vì N thẻ ExerciseCard riêng biệt như trước) — bấm 1 lần mở BatchTakeExerciseModal
+ * làm liên tục cả N Bài. Mirror bố cục/màu sắc ExerciseCard, chỉ khác chỗ mọi thông tin (trạng thái/
+ * điểm/hạn nộp) được CỘNG DỒN từ items thay vì đọc thẳng 1 item.
+ */
+function BatchExerciseCard({
+  items,
+  onOpen,
+  domId,
+  highlighted
+}: {
+  items: AssignedExerciseResponse[];
+  onOpen: () => void;
+  domId?: string;
+  highlighted?: boolean;
+}) {
+  const { t, i18n } = useTranslation("portal-exercises");
+  const first = items[0];
+  const groupTitle = batchGroupTitle(t, items);
+  const isOverdue = first.dueAt != null && new Date(first.dueAt) < new Date();
+  const pending = isBatchPending(items);
+  const anyRetake = items.some(needsRetake);
+  const anyInProgress = items.some((it) => it.myLatestAttemptStatus === "IN_PROGRESS");
+  const allFullyGraded = items.every((it) => it.myLatestAttemptStatus === "FULLY_GRADED");
+  const noneStarted = items.every((it) => it.myLatestAttemptStatus == null);
+  const attemptMeta = anyRetake || noneStarted ? null : anyInProgress ? attemptStatusMeta(t, "IN_PROGRESS") : allFullyGraded ? attemptStatusMeta(t, "FULLY_GRADED") : attemptStatusMeta(t, "AUTO_GRADED");
+  /** V152 — mirror ExerciseCard#overdueLockedInProgress, áp dụng cho cả Lô (dùng chung dueAt/lateSubmissionAllowed của Bài đại diện). */
+  const overdueLockedInProgress = isOverdue && !first.lateSubmissionAllowed && anyInProgress;
+
+  const totalScore = items.reduce((sum, it) => sum + (it.myLatestTotalScore ?? 0), 0);
+  const totalPoints = items.reduce((sum, it) => sum + (it.exerciseTotalPoints ?? 0), 0);
+  const percentage = totalPoints > 0 ? Math.round((totalScore / totalPoints) * 10000) / 100 : null;
+  const passed = allFullyGraded && percentage != null ? percentage >= 70 : null;
+
+  const actionLabel = noneStarted
+    ? t("assignments.exercise.action.start")
+    : anyInProgress && !overdueLockedInProgress
+      ? t("assignments.exercise.action.continue")
+      : t("assignments.exercise.action.reviewGraded");
+
+  return (
+    <div
+      id={domId}
+      className={`p-5 bg-white border rounded-2xl transition-all shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 ${
+        highlighted ? "border-teal ring-2 ring-teal/40" : pending ? "border-orange-200 bg-orange-50/20" : "border-line/80"
+      }`}
+    >
+      <div className="space-y-2 flex-1 min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="px-2.5 py-0.5 rounded-lg bg-teal/10 text-teal border border-teal/20 text-[11px] font-black">
+            {t("assignments.batch.countSuffix", { count: items.length })}
+          </span>
+          <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-muted text-[11px] font-bold">{first.className}</span>
+          {anyRetake ? (
+            <span className="px-2.5 py-0.5 rounded-lg bg-coral/10 text-coral border border-coral/20 text-[11px] font-black flex items-center gap-1">
+              <Clock size={12} /> {t("assignments.exercise.needsRetake", { percent: percentage != null ? `(${percentage}%)` : "" })}
+            </span>
+          ) : attemptMeta ? (
+            <span className={`px-2.5 py-0.5 rounded-lg text-[11px] font-black flex items-center gap-1 ${attemptMeta.className}`}>
+              <CheckCircle2 size={12} /> {attemptMeta.label}
+            </span>
+          ) : null}
+          {pending && (
+            <span
+              className={`px-2.5 py-0.5 rounded-lg border text-[11px] font-black flex items-center gap-1 ${
+                isOverdue ? "bg-coral/10 text-coral border-coral/20" : "bg-amber-100 text-amber-800 border-amber-300"
+              }`}
+            >
+              <Clock size={12} />
+              {isOverdue ? t("assignments.exercise.overduePrefix") : t("assignments.exercise.duePrefix")}
+              {first.dueAt ? formatDateTimeHm(first.dueAt, i18n.language) : t("assignments.exercise.noDeadline")}
+            </span>
+          )}
+          <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-muted border border-line text-[11px] font-black flex items-center gap-1">
+            <GraduationCap size={12} />{" "}
+            {first.teacherType === "VIETNAMESE" ? t("assignments.exercise.teacherVietnamese") : t("assignments.exercise.teacherForeign")}
+          </span>
+          {first.sessionDate && (
+            <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-muted border border-line text-[11px] font-black flex items-center gap-1">
+              <CalendarDays size={12} /> {t("assignments.exercise.assignedInSession", { date: formatDate(first.sessionDate, i18n.language) })}
+            </span>
+          )}
+        </div>
+
+        <h3 className="text-base font-black text-ink font-display truncate">{groupTitle}</h3>
+
+        {!noneStarted && (
+          <div
+            className={`inline-flex flex-wrap items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold ${
+              passed === true
+                ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                : passed === false
+                  ? "bg-rose-50 border-rose-200 text-rose-800"
+                  : "bg-slate-50 border-slate-200 text-slate-700"
+            }`}
+          >
+            <span>
+              {t("assignments.exercise.completedLabel")}
+              <span className="font-black">
+                {totalScore}/{totalPoints}
+              </span>
+            </span>
+            {percentage != null && <span className="font-black">({percentage}%)</span>}
+            {passed != null && (
+              <span className="flex items-center gap-1 font-black">
+                {passed ? <CheckCircle2 size={13} aria-hidden="true" /> : <AlertCircle size={13} aria-hidden="true" />}
+                {passed ? t("assignments.exercise.passed") : t("assignments.exercise.notPassed")}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="shrink-0">
+        <button
+          onClick={onOpen}
+          className={`w-full md:w-auto flex items-center justify-center gap-1.5 px-5 py-2.5 font-extrabold text-xs rounded-xl shadow-sm transition-all cursor-pointer ${
+            allFullyGraded && !anyRetake ? "bg-slate-100 hover:bg-slate-200 text-ink border border-line" : "bg-teal hover:bg-teal-deep text-white"
           }`}
         >
           {actionLabel} <ChevronRight size={14} />

@@ -200,6 +200,16 @@ public class ExerciseAttemptService {
             throw new AttemptNotEditableException("error.attemptNotEditable.timeLimitExceeded", new Object[]{attempt.getExercise().getTimeLimitMinutes()},
                     "Đã hết thời gian làm bài (" + attempt.getExercise().getTimeLimitMinutes() + " phút), hệ thống đã tự động nộp bài.");
         }
+        // V152 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — UC-24/UC-27 A1: lượt
+        // làm CÒN IN_PROGRESS (chưa nộp) nhưng đã quá hạn nộp và bản giao không cho nộp muộn phải bị
+        // khoá HẲN, không riêng gì submitAttempt (đã chặn từ trước) — trước đây học sinh vẫn ghi/sửa
+        // được câu trả lời sau hạn dù không bao giờ nộp nổi. Mirror ĐÚNG rào đã có ở submitAttempt.
+        ExerciseAssignment assignment = attempt.getExerciseAssignment();
+        if (assignment != null && assignment.getDueAt() != null && OffsetDateTime.now().isAfter(assignment.getDueAt())
+                && !assignment.isLateSubmissionAllowed()) {
+            throw new SubmissionPastDeadlineException("error.submissionPastDeadline.exerciseAttempt", new Object[]{assignment.getDueAt()},
+                    "Lượt làm bài này đã quá hạn nộp (" + assignment.getDueAt() + ").");
+        }
         if (!exerciseQuestionRepository.existsByExerciseIdAndQuestionId(attempt.getExercise().getId(), request.questionId())) {
             throw new ResourceNotFoundException("error.exerciseAttempt.answerQuestionMismatch",
                     new Object[]{request.questionId(), attempt.getExercise().getId()},
@@ -430,6 +440,34 @@ public class ExerciseAttemptService {
             }
         }
         return attempt;
+    }
+
+    /**
+     * V152 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — UC-24/A4, UC-27/A2: học
+     * sinh ĐÃ ĐẠT ngưỡng nhưng vẫn còn lượt làm lại (xem applyPassOutcome — bản giao vẫn ACTIVE để
+     * TỰ NGUYỆN thử lại) có thể chủ động dừng lại NGAY, đổi lại được xem đáp án đúng của lượt vừa đạt
+     * (bình thường phải làm hết maxAttempts mới được xem — xem toResponse(StudentAnswer)). Đóng LUÔN
+     * bản giao (COMPLETED, mirror đúng nhánh "hết lượt" của applyPassOutcome) — không hoàn tác được,
+     * FE phải xác nhận trước khi gọi (xem TakeExerciseModal/BatchTakeExerciseModal).
+     */
+    @Transactional
+    public ExerciseAttemptResponse revealAnswersAndClose(Long attemptId, Long actorUserId) {
+        ExerciseAttempt attempt = attemptOwnedByActor(attemptId, actorUserId);
+        if (attempt.getStatus() != ExerciseAttempt.Status.FULLY_GRADED || !Boolean.TRUE.equals(attempt.getPassed())) {
+            throw new AttemptNotEditableException("error.attemptNotEditable.notPassedYet", new Object[]{},
+                    "Chỉ áp dụng cho lượt làm đã ĐẠT và đã chấm xong toàn bộ.");
+        }
+        ExerciseAssignment assignment = attempt.getExerciseAssignment();
+        if (assignment == null || assignment.getStatus() != ExerciseAssignment.Status.ACTIVE) {
+            throw new AttemptNotEditableException("error.attemptNotEditable.assignmentNotActive", new Object[]{},
+                    "Bản giao này không còn ở trạng thái có thể đóng lượt (đã đóng hoặc huỷ từ trước).");
+        }
+        attempt.setAnswersRevealedEarly(true);
+        attempt = exerciseAttemptRepository.save(attempt);
+        assignment.setStatus(ExerciseAssignment.Status.COMPLETED);
+        exerciseAssignmentRepository.save(assignment);
+        writeHistory(attempt, actorUserId, ExerciseAttemptHistory.Action.UPDATED);
+        return toResponse(attempt);
     }
 
     /** package-private static: tái dùng ở ExerciseReportService (FR-ACA-07) để không lệch công thức làm tròn. */
@@ -704,7 +742,11 @@ public class ExerciseAttemptService {
                 latest == null ? null : latest.getPassed(),
                 exercise.getExam().getTeacherType().name(),
                 assignment.getSourceClassSession() == null ? null : assignment.getSourceClassSession().getSessionDate(),
-                canStartNewAttempt);
+                canStartNewAttempt,
+                assignment.getHomeworkBatch() == null ? null : assignment.getHomeworkBatch().getId(),
+                exercise.getTotalPoints(),
+                exercise.getExam().getId(), exercise.getExam().getTitle(),
+                exercise.getSkillCategory() == null ? null : exercise.getSkillCategory().name());
     }
 
     private StudentAnswerResponse toResponse(StudentAnswer a) {
@@ -718,8 +760,10 @@ public class ExerciseAttemptService {
         // maxAttempts) trở đi — các lượt trước chỉ thấy điểm, không thấy đáp án.
         // Chỉ áp dụng cho câu tự chấm được (a.isAutoGradable()) — câu tự luận/Nói
         // (ESSAY/SPEAKING) tạm thời chưa áp dụng, giữ nguyên hành vi cũ.
+        // V152 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — HOẶC học sinh đã ĐẠT
+        // và tự nguyện đóng lượt sớm (xem revealAnswersAndClose) — không cần đợi tới lượt cuối cùng nữa.
         if (revealAnswer && a.isAutoGradable() && exercise.getMaxAttempts() != null) {
-            revealAnswer = attempt.getAttemptNumber() >= exercise.getMaxAttempts();
+            revealAnswer = attempt.getAttemptNumber() >= exercise.getMaxAttempts() || attempt.isAnswersRevealedEarly();
         }
         List<Long> correctChoiceIds = null;
         String correctAnswerText = null;

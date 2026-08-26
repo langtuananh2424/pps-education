@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Blocks, Check, CheckSquare, FileText, Headphones, Image as ImageIcon, ListOrdered, Mic, PenLine, SplitSquareHorizontal, Volume2, X } from "lucide-react";
+import { Blocks, Check, CheckSquare, FileText, Headphones, Image as ImageIcon, Images, ListOrdered, Mic, PenLine, Shuffle, SplitSquareHorizontal, Volume2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import Button from "@/components/ui/Button";
@@ -11,22 +11,29 @@ const inputClass = "w-full bg-white border border-slate-200 text-xs px-3.5 py-2 
 const labelClass = "block font-bold text-slate-700 mb-1 uppercase tracking-wider text-[10px]";
 
 /**
- * 10 loại — 5 loại gốc (theo bản thiết kế tham chiếu + Điền từ, bổ sung 2026-07-28 sau khi backend
+ * 12 loại — 5 loại gốc (theo bản thiết kế tham chiếu + Điền từ, bổ sung 2026-07-28 sau khi backend
  * thêm tự chấm FILL_IN_BLANK — V54) + 4 loại V78 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
  * 2026-08-04, dựa trên 1 đề tiếng Anh mẫu người dùng cung cấp — 5 dạng bài GV Việt Nam + "Nghe & nộp
  * audio" GV nước ngoài) + 1 loại V143 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 —
- * "Bài nghe" chọn đáp án bằng hình). "Trắc nghiệm Voice"/"Chọn từ trong câu"/"Nghe & nộp audio"/
- * "Nghe chọn hình" KHÔNG phải giá trị enum riêng ở backend — là MULTIPLE_CHOICE/SPEAKING + skill
- * tương ứng (kind ảo chỉ tồn tại ở FE để hiện UI phù hợp).
+ * "Bài nghe" chọn đáp án bằng hình) + 2 loại bổ sung 2026-08-26 (đã xác nhận với người dùng — TÁCH
+ * RIÊNG khỏi WORD_BANK/SENTENCE_BUILDING gốc thay vì thêm field tùy chọn vào chung 1 kind, để 2 kind
+ * cũ giữ nguyên y hệt hành vi trước giờ): "WORD_BANK_PICTURE" (điền từ có ảnh + hộp từ vựng thật, khớp
+ * Ex.3 "Look at the pictures and write the correct words from the box") và "LETTER_SCRAMBLE" (sắp xếp
+ * chữ cái thành từ, có ảnh minh họa, khớp Ex.1 "Rearrange the letters..."). "Trắc nghiệm Voice"/"Chọn
+ * từ trong câu"/"Nghe & nộp audio"/"Nghe chọn hình"/"WORD_BANK_PICTURE"/"LETTER_SCRAMBLE" KHÔNG phải
+ * giá trị enum riêng ở backend — là MULTIPLE_CHOICE/SPEAKING/WORD_BANK/SENTENCE_BUILDING + skill/
+ * imageUrl tương ứng (kind ảo chỉ tồn tại ở FE để hiện UI phù hợp, xem toKind()).
  */
-type UiQuestionKind =
+export type UiQuestionKind =
   | "MULTIPLE_CHOICE"
   | "VOICE_MULTIPLE_CHOICE"
   | "VOICE_PICTURE_CHOICE"
   | "INLINE_CHOICE"
   | "FILL_IN_BLANK"
   | "WORD_BANK"
+  | "WORD_BANK_PICTURE"
   | "SENTENCE_BUILDING"
+  | "LETTER_SCRAMBLE"
   | "ESSAY"
   | "SPEAKING"
   | "LISTENING_AUDIO_SUBMISSION"
@@ -39,7 +46,9 @@ const kindMeta: Record<UiQuestionKind, { icon: typeof CheckSquare; activeClass: 
   INLINE_CHOICE: { icon: SplitSquareHorizontal, activeClass: "bg-teal-50 border-teal-400 text-teal-800 ring-1 ring-teal-300", iconClass: "text-teal-600" },
   FILL_IN_BLANK: { icon: PenLine, activeClass: "bg-amber-50 border-amber-400 text-amber-800 ring-1 ring-amber-300", iconClass: "text-amber-600" },
   WORD_BANK: { icon: Blocks, activeClass: "bg-orange-50 border-orange-400 text-orange-800 ring-1 ring-orange-300", iconClass: "text-orange-600" },
+  WORD_BANK_PICTURE: { icon: Images, activeClass: "bg-orange-50 border-orange-500 text-orange-900 ring-1 ring-orange-400", iconClass: "text-orange-700" },
   SENTENCE_BUILDING: { icon: ListOrdered, activeClass: "bg-cyan-50 border-cyan-400 text-cyan-800 ring-1 ring-cyan-300", iconClass: "text-cyan-600" },
+  LETTER_SCRAMBLE: { icon: Shuffle, activeClass: "bg-cyan-50 border-cyan-500 text-cyan-900 ring-1 ring-cyan-400", iconClass: "text-cyan-700" },
   ESSAY: { icon: FileText, activeClass: "bg-purple-50 border-purple-400 text-purple-800 ring-1 ring-purple-300", iconClass: "text-purple-600" },
   SPEAKING: { icon: Mic, activeClass: "bg-rose-50 border-rose-400 text-rose-800 ring-1 ring-rose-300", iconClass: "text-rose-600" },
   LISTENING_AUDIO_SUBMISSION: { icon: Headphones, activeClass: "bg-sky-50 border-sky-400 text-sky-800 ring-1 ring-sky-300", iconClass: "text-sky-600" },
@@ -94,8 +103,8 @@ function toKind(question?: QuestionResponse): UiQuestionKind {
   if (question.questionType === "ESSAY") return "ESSAY";
   if (question.questionType === "SPEAKING") return question.skill === "LISTENING" ? "LISTENING_AUDIO_SUBMISSION" : "SPEAKING";
   if (question.questionType === "FILL_IN_BLANK") return question.skill === "LISTENING" ? "LISTENING_FILL_IN_BLANK" : "FILL_IN_BLANK";
-  if (question.questionType === "WORD_BANK") return "WORD_BANK";
-  if (question.questionType === "SENTENCE_BUILDING") return "SENTENCE_BUILDING";
+  if (question.questionType === "WORD_BANK") return question.imageUrl ? "WORD_BANK_PICTURE" : "WORD_BANK";
+  if (question.questionType === "SENTENCE_BUILDING") return question.imageUrl ? "LETTER_SCRAMBLE" : "SENTENCE_BUILDING";
   if (question.questionType === "MULTIPLE_CHOICE" && question.skill !== "LISTENING" && question.choices?.length === 2) return "INLINE_CHOICE";
   if (question.questionType === "MULTIPLE_CHOICE" && question.skill === "LISTENING" && question.choices?.some((c) => c.imageUrl)) return "VOICE_PICTURE_CHOICE";
   return question.skill === "LISTENING" ? "VOICE_MULTIPLE_CHOICE" : "MULTIPLE_CHOICE";
@@ -159,6 +168,10 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
   const [wordBankBlanks, setWordBankBlanks] = useState<string[]>(
     existingQuestion?.structuredContent?.blanks?.length ? existingQuestion.structuredContent.blanks : ["", ""]
   );
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — hộp từ vựng TÁCH RIÊNG khỏi
+  // wordBankBlanks (đáp án đúng), cho phép thêm từ nhiễu (VD hộp có 7 từ nhưng chỉ dùng hết 5 chỗ
+  // trống). Để trống = giữ hành vi cũ (hộp từ = chính tập đáp án).
+  const [wordBankOptions, setWordBankOptions] = useState<string[]>(existingQuestion?.structuredContent?.wordBankOptions ?? []);
   // V78: Sắp xếp câu — khối từ/cụm theo ĐÚNG thứ tự câu hoàn chỉnh, FE học sinh sẽ xáo trộn lúc hiển thị.
   const [sentenceChunks, setSentenceChunks] = useState<string[]>(
     existingQuestion?.structuredContent?.chunks?.length ? existingQuestion.structuredContent.chunks : ["", "", ""]
@@ -207,7 +220,12 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
    * xếp câu cho phép KÈM audio nghe TÙY CHỌN (khác isVoiceOrListeningAudio ở trên — audio KHÔNG bắt
    * buộc, không đổi questionType/kind riêng, chỉ set thêm skill=LISTENING lúc lưu nếu có audio).
    */
-  const supportsOptionalAudio = kind === "WORD_BANK" || kind === "SENTENCE_BUILDING";
+  const supportsOptionalAudio = kind === "WORD_BANK" || kind === "WORD_BANK_PICTURE" || kind === "SENTENCE_BUILDING" || kind === "LETTER_SCRAMBLE";
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — ảnh minh họa CHỈ có ở 2 kind riêng
+  // WORD_BANK_PICTURE/LETTER_SCRAMBLE (khớp Ex.3/Ex.1 đề mẫu) — WORD_BANK/SENTENCE_BUILDING gốc GIỮ
+  // NGUYÊN không đổi, không có field này (đã xác nhận với người dùng: tách kind riêng, không gộp thêm
+  // field tùy chọn vào chung 2 kind cũ).
+  const supportsImage = kind === "ESSAY" || kind === "WORD_BANK_PICTURE" || kind === "LETTER_SCRAMBLE";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -256,19 +274,23 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
       setError(t("questionEditorForm.errors.correctAnswerRequired"));
       return;
     }
-    if (kind === "WORD_BANK" && wordBankBlanks.some((b) => !b.trim())) {
+    if ((kind === "WORD_BANK" || kind === "WORD_BANK_PICTURE") && wordBankBlanks.some((b) => !b.trim())) {
       setError(t("questionEditorForm.errors.wordBankBlanksRequired"));
       return;
     }
-    if (kind === "SENTENCE_BUILDING" && sentenceChunks.filter((c) => c.trim()).length < 2) {
+    if ((kind === "SENTENCE_BUILDING" || kind === "LETTER_SCRAMBLE") && sentenceChunks.filter((c) => c.trim()).length < 2) {
       setError(t("questionEditorForm.errors.sentenceBuildingMinChunks"));
       return;
     }
 
+    const trimmedWordBankOptions = wordBankOptions.map((o) => o.trim()).filter(Boolean);
     const structuredContent =
-      kind === "WORD_BANK"
-        ? { blanks: wordBankBlanks.map((b) => b.trim()) }
-        : kind === "SENTENCE_BUILDING"
+      kind === "WORD_BANK" || kind === "WORD_BANK_PICTURE"
+        ? {
+            blanks: wordBankBlanks.map((b) => b.trim()),
+            ...(kind === "WORD_BANK_PICTURE" && trimmedWordBankOptions.length > 0 ? { wordBankOptions: trimmedWordBankOptions } : {})
+          }
+        : kind === "SENTENCE_BUILDING" || kind === "LETTER_SCRAMBLE"
           ? { chunks: sentenceChunks.filter((c) => c.trim()).map((c) => c.trim()) }
           : undefined;
 
@@ -282,7 +304,7 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
         const updateRequest = {
           content: content.trim(),
           audioUrl: includeAudio ? audioUrl.trim() || undefined : undefined,
-          imageUrl: kind === "ESSAY" ? imageUrl.trim() || undefined : undefined,
+          imageUrl: supportsImage ? imageUrl.trim() || undefined : undefined,
           referencePassage: includeAudio ? transcript.trim() || undefined : kind === "SPEAKING" ? phoneticKeywords.trim() || undefined : undefined,
           explanation: explanation.trim() || undefined,
           correctAnswerText: kind === "FILL_IN_BLANK" || kind === "LISTENING_FILL_IN_BLANK" ? correctAnswerText.trim() || undefined : undefined,
@@ -300,14 +322,18 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
               ? "SPEAKING"
               : kind === "LISTENING_FILL_IN_BLANK"
                 ? "FILL_IN_BLANK"
-                : kind;
+                : kind === "WORD_BANK_PICTURE"
+                  ? "WORD_BANK"
+                  : kind === "LETTER_SCRAMBLE"
+                    ? "SENTENCE_BUILDING"
+                    : kind;
         const request: CreateExamQuestionRequest = {
           questionType,
           skill: resolvedSkill,
           difficulty,
           content: content.trim(),
           audioUrl: includeAudio ? audioUrl.trim() || undefined : undefined,
-          imageUrl: kind === "ESSAY" ? imageUrl.trim() || undefined : undefined,
+          imageUrl: supportsImage ? imageUrl.trim() || undefined : undefined,
           referencePassage: includeAudio ? transcript.trim() || undefined : kind === "SPEAKING" ? phoneticKeywords.trim() || undefined : undefined,
           explanation: explanation.trim() || undefined,
           correctAnswerText: kind === "FILL_IN_BLANK" || kind === "LISTENING_FILL_IN_BLANK" ? correctAnswerText.trim() || undefined : undefined,
@@ -368,7 +394,7 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className={labelClass}>{t("questionEditorForm.difficultyLabel")}</label>
           <Select value={difficulty} onChange={(e) => setDifficulty(e.target.value as QuestionDifficulty)} disabled={isEditing} className={`${inputClass} disabled:opacity-60 font-bold`}>
@@ -379,7 +405,7 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
             ))}
           </Select>
         </div>
-      </div>
+      </div> */}
 
       <div>
         <label className={labelClass}>{t("questionEditorForm.contentLabel")}</label>
@@ -392,6 +418,37 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
           className={inputClass}
         />
       </div>
+      
+      {isVoiceOrListeningAudio && (
+        <div className={`p-4 rounded-xl border space-y-3 ${AUDIO_SECTION_STYLE[kind]?.box ?? "bg-sky-50/40 border-sky-200"}`}>
+          <div className={`flex items-center gap-1 font-bold uppercase tracking-wider text-[9px] ${AUDIO_SECTION_STYLE[kind]?.title ?? "text-sky-900"}`}>
+            {(() => {
+              const Icon = AUDIO_SECTION_STYLE[kind]?.icon ?? Headphones;
+              return <Icon className={`w-4 h-4 ${AUDIO_SECTION_STYLE[kind]?.icon2 ?? "text-sky-600"}`} />;
+            })()}
+            <span>{t("questionEditorForm.audioSectionTitle")}</span>
+          </div>
+          {kind === "LISTENING_AUDIO_SUBMISSION" && (
+            <p className="text-[9px] text-slate-400">{t("questionEditorForm.listeningAudioSubmissionHint")}</p>
+          )}
+          {kind === "LISTENING_FILL_IN_BLANK" && (
+            <p className="text-[9px] text-slate-400">{t("questionEditorForm.listeningFillInBlankHint")}</p>
+          )}
+          {kind === "VOICE_PICTURE_CHOICE" && (
+            <p className="text-[9px] text-slate-400">{t("questionEditorForm.voicePictureChoiceHint")}</p>
+          )}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className="block font-bold text-slate-600 mb-1 text-[9px] uppercase">{t("common.audioFileLabel")}</label>
+              <FileUploadField value={audioUrl} onChange={setAudioUrl} onUpload={(file) => uploadMedia(file, "LMS_QUESTION")} accept="audio/*" placeholder={t("common.chooseAudioFile")} />
+            </div>
+            <div>
+              <label className="block font-bold text-slate-600 mb-1 text-[9px] uppercase">{t("common.transcriptLabel")}</label>
+              <input value={transcript} onChange={(e) => setTranscript(e.target.value)} placeholder={t("common.transcriptPlaceholder")} className={inputClass} />
+            </div>
+          </div>
+        </div>
+      )}
 
       {(kind === "MULTIPLE_CHOICE" || kind === "VOICE_MULTIPLE_CHOICE" || kind === "VOICE_PICTURE_CHOICE" || kind === "INLINE_CHOICE") && (
         <div className="space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-200">
@@ -470,37 +527,6 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
         </div>
       )}
 
-      {isVoiceOrListeningAudio && (
-        <div className={`p-4 rounded-xl border space-y-3 ${AUDIO_SECTION_STYLE[kind]?.box ?? "bg-sky-50/40 border-sky-200"}`}>
-          <div className={`flex items-center gap-1 font-bold uppercase tracking-wider text-[9px] ${AUDIO_SECTION_STYLE[kind]?.title ?? "text-sky-900"}`}>
-            {(() => {
-              const Icon = AUDIO_SECTION_STYLE[kind]?.icon ?? Headphones;
-              return <Icon className={`w-4 h-4 ${AUDIO_SECTION_STYLE[kind]?.icon2 ?? "text-sky-600"}`} />;
-            })()}
-            <span>{t("questionEditorForm.audioSectionTitle")}</span>
-          </div>
-          {kind === "LISTENING_AUDIO_SUBMISSION" && (
-            <p className="text-[9px] text-slate-400">{t("questionEditorForm.listeningAudioSubmissionHint")}</p>
-          )}
-          {kind === "LISTENING_FILL_IN_BLANK" && (
-            <p className="text-[9px] text-slate-400">{t("questionEditorForm.listeningFillInBlankHint")}</p>
-          )}
-          {kind === "VOICE_PICTURE_CHOICE" && (
-            <p className="text-[9px] text-slate-400">{t("questionEditorForm.voicePictureChoiceHint")}</p>
-          )}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-              <label className="block font-bold text-slate-600 mb-1 text-[9px] uppercase">{t("common.audioFileLabel")}</label>
-              <FileUploadField value={audioUrl} onChange={setAudioUrl} onUpload={(file) => uploadMedia(file, "LMS_QUESTION")} accept="audio/*" placeholder={t("common.chooseAudioFile")} />
-            </div>
-            <div>
-              <label className="block font-bold text-slate-600 mb-1 text-[9px] uppercase">{t("common.transcriptLabel")}</label>
-              <input value={transcript} onChange={(e) => setTranscript(e.target.value)} placeholder={t("common.transcriptPlaceholder")} className={inputClass} />
-            </div>
-          </div>
-        </div>
-      )}
-
       {kind === "WORD_BANK" && (
         <div className="bg-orange-50/40 p-4 rounded-xl border border-orange-200 space-y-3">
           <div className="text-orange-950 font-bold uppercase tracking-wider text-[9px] flex items-center gap-1">
@@ -508,13 +534,13 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
             <span>{t("questionEditorForm.wordBankSectionTitle")}</span>
           </div>
           <p className="text-[9px] text-slate-400">{t("questionEditorForm.wordBankHint")}</p>
-          <OptionalAudioFields
+          {/* <OptionalAudioFields
             audioUrl={audioUrl}
             setAudioUrl={setAudioUrl}
             transcript={transcript}
             setTranscript={setTranscript}
             label={t("questionEditorForm.optionalAudioLabel")}
-          />
+          /> */}
           <div className="space-y-2">
             {wordBankBlanks.map((b, idx) => (
               <div key={idx} className="flex items-center gap-2">
@@ -544,6 +570,89 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
         </div>
       )}
 
+      {/*
+       * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — kind RIÊNG, TÁCH HẲN khỏi
+       * WORD_BANK ở trên (không gộp field tùy chọn vào chung 1 kind): khớp Ex.3 "Look at the pictures
+       * and write the correct words from the box" — có ảnh minh họa + hộp từ vựng hiển thị cho học
+       * sinh TÁCH RIÊNG khỏi đáp án đúng (cho phép từ nhiễu).
+       */}
+      {kind === "WORD_BANK_PICTURE" && (
+        <div className="bg-orange-50/40 p-4 rounded-xl border border-orange-200 space-y-3">
+          <div className="text-orange-950 font-bold uppercase tracking-wider text-[9px] flex items-center gap-1">
+            <Images className="w-4 h-4 text-orange-700" />
+            <span>{t("questionEditorForm.wordBankPictureSectionTitle")}</span>
+          </div>
+          <p className="text-[9px] text-slate-400">{t("questionEditorForm.wordBankPictureHint")}</p>
+          <div>
+            <label className="block font-bold text-slate-600 mb-1 text-[9px] uppercase">{t("questionEditorForm.wordBankImageLabel")}</label>
+            <FileUploadField
+              value={imageUrl}
+              onChange={setImageUrl}
+              onUpload={(file) => uploadMedia(file, "LMS_QUESTION")}
+              accept="image/*"
+              placeholder={t("questionEditorForm.wordBankImagePlaceholder")}
+            />
+          </div>
+          {/* <OptionalAudioFields
+            audioUrl={audioUrl}
+            setAudioUrl={setAudioUrl}
+            transcript={transcript}
+            setTranscript={setTranscript}
+            label={t("questionEditorForm.optionalAudioLabel")}
+          /> */}
+          <div className="space-y-2">
+            {wordBankBlanks.map((b, idx) => (
+              <div key={idx} className="flex items-center gap-2">
+                <span className="text-[10px] font-bold text-slate-500 w-20 shrink-0">{t("questionEditorForm.blankLabel", { index: idx + 1 })}</span>
+                <input
+                  required
+                  value={b}
+                  onChange={(e) => setWordBankBlanks((prev) => prev.map((x, i) => (i === idx ? e.target.value : x)))}
+                  placeholder={t("questionEditorForm.blankPlaceholder")}
+                  className={`flex-1 ${inputClass}`}
+                />
+                {wordBankBlanks.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => setWordBankBlanks((prev) => prev.filter((_, i) => i !== idx))}
+                    className="text-slate-400 hover:text-rose-600 shrink-0"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+          <Button type="button" variant="secondary" size="sm" onClick={() => setWordBankBlanks((prev) => [...prev, ""])}>
+            {t("questionEditorForm.addBlank")}
+          </Button>
+
+          <div className="pt-2 border-t border-orange-200 space-y-2">
+            <p className="text-[9px] text-slate-400">{t("questionEditorForm.wordBankOptionsHint")}</p>
+            {wordBankOptions.map((o, idx) => (
+              <div key={idx} className="flex items-center gap-2">
+                <input
+                  value={o}
+                  onChange={(e) => setWordBankOptions((prev) => prev.map((x, i) => (i === idx ? e.target.value : x)))}
+                  placeholder={t("questionEditorForm.wordBankOptionPlaceholder")}
+                  className={`flex-1 ${inputClass}`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setWordBankOptions((prev) => prev.filter((_, i) => i !== idx))}
+                  className="text-slate-400 hover:text-rose-600 shrink-0"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
+            <Button type="button" variant="secondary" size="sm" onClick={() => setWordBankOptions((prev) => [...prev, ""])}>
+              {t("questionEditorForm.addWordBankOption")}
+            </Button>
+          </div>
+        </div>
+      )}
+
       {kind === "SENTENCE_BUILDING" && (
         <div className="bg-cyan-50/40 p-4 rounded-xl border border-cyan-200 space-y-3">
           <div className="text-cyan-950 font-bold uppercase tracking-wider text-[9px] flex items-center gap-1">
@@ -551,13 +660,13 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
             <span>{t("questionEditorForm.sentenceBuildingSectionTitle")}</span>
           </div>
           <p className="text-[9px] text-slate-400">{t("questionEditorForm.sentenceBuildingHint")}</p>
-          <OptionalAudioFields
+          {/* <OptionalAudioFields
             audioUrl={audioUrl}
             setAudioUrl={setAudioUrl}
             transcript={transcript}
             setTranscript={setTranscript}
             label={t("questionEditorForm.optionalAudioLabel")}
-          />
+          /> */}
           <div className="space-y-2">
             {sentenceChunks.map((c, idx) => (
               <div key={idx} className="flex items-center gap-2">
@@ -582,6 +691,63 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
           </div>
           <Button type="button" variant="secondary" size="sm" onClick={() => setSentenceChunks((prev) => [...prev, ""])}>
             {t("questionEditorForm.addChunk")}
+          </Button>
+        </div>
+      )}
+
+      {/*
+       * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — kind RIÊNG, TÁCH HẲN khỏi
+       * SENTENCE_BUILDING ở trên: khớp Ex.1 "Rearrange the letters to make correct words under each
+       * picture" — mỗi khối là 1 CHỮ CÁI (thay vì 1 từ/cụm), có ảnh minh họa cho từng mục.
+       */}
+      {kind === "LETTER_SCRAMBLE" && (
+        <div className="bg-cyan-50/40 p-4 rounded-xl border border-cyan-200 space-y-3">
+          <div className="text-cyan-950 font-bold uppercase tracking-wider text-[9px] flex items-center gap-1">
+            <Shuffle className="w-4 h-4 text-cyan-700" />
+            <span>{t("questionEditorForm.letterScrambleSectionTitle")}</span>
+          </div>
+          <p className="text-[9px] text-slate-400">{t("questionEditorForm.letterScrambleHint")}</p>
+          <div>
+            <label className="block font-bold text-slate-600 mb-1 text-[9px] uppercase">{t("questionEditorForm.letterScrambleImageLabel")}</label>
+            <FileUploadField
+              value={imageUrl}
+              onChange={setImageUrl}
+              onUpload={(file) => uploadMedia(file, "LMS_QUESTION")}
+              accept="image/*"
+              placeholder={t("questionEditorForm.letterScrambleImagePlaceholder")}
+            />
+          </div>
+          {/* <OptionalAudioFields
+            audioUrl={audioUrl}
+            setAudioUrl={setAudioUrl}
+            transcript={transcript}
+            setTranscript={setTranscript}
+            label={t("questionEditorForm.optionalAudioLabel")}
+          /> */}
+          <div className="space-y-2">
+            {sentenceChunks.map((c, idx) => (
+              <div key={idx} className="flex items-center gap-2">
+                <span className="text-[10px] font-bold text-slate-500 w-12 shrink-0">#{idx + 1}</span>
+                <input
+                  value={c}
+                  onChange={(e) => setSentenceChunks((prev) => prev.map((x, i) => (i === idx ? e.target.value : x)))}
+                  placeholder={t("questionEditorForm.letterChunkPlaceholder")}
+                  className={`flex-1 ${inputClass}`}
+                />
+                {sentenceChunks.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => setSentenceChunks((prev) => prev.filter((_, i) => i !== idx))}
+                    className="text-slate-400 hover:text-rose-600 shrink-0"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+          <Button type="button" variant="secondary" size="sm" onClick={() => setSentenceChunks((prev) => [...prev, ""])}>
+            {t("questionEditorForm.addLetterChunk")}
           </Button>
         </div>
       )}

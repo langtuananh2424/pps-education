@@ -28,4 +28,7 @@ public interface ExerciseAssignmentRepository extends JpaRepository<ExerciseAssi
     /** V92 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06): quét job nhắc Phụ huynh trước hạn nộp. */
     List<ExerciseAssignment> findByStatusAndDueAtBetweenAndParentReminderSentAtIsNull(
             ExerciseAssignment.Status status, OffsetDateTime from, OffsetDateTime to);
+
+    /** V150: toàn bộ bản giao (1/Bài) thuộc 1 lô BTVN theo kỹ năng — dùng cho startBatchSession/submitBatchSession/cancelBatch. */
+    List<ExerciseAssignment> findByHomeworkBatchId(Long homeworkBatchId);
 }

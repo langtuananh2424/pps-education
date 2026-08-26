@@ -982,7 +982,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
      */
     private GrammarFixture createGrammarOnlineExercise() {
         var exam = examService.createExam(
-                new CreateExamRequest(examCode(), "Đề Ngữ pháp V55", schoolClass.curriculumId(), "VIETNAMESE", "HOMEWORK"), teacher.getId());
+                new CreateExamRequest(examCode(), "Đề Ngữ pháp V55", schoolClass.curriculumId(), "VIETNAMESE", "HOMEWORK", null), teacher.getId());
         examService.assignToClass(exam.id(), schoolClass.id(), teacher.getId());
         // V75 (Kho đề): mỗi Exam tự sinh 1 QuestionBank nội bộ riêng, không nhận câu hỏi qua
         // QuestionBankService#createQuestion (chỉ dành cho bank "legacy" độc lập) — phải qua
@@ -995,7 +995,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
                 teacher.getId());
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Bài ngữ pháp V55", exam.id(), null,
-                        "ASSIGNED", new BigDecimal("1"), null, false, 1, true), teacher.getId());
+                        "ASSIGNED", new BigDecimal("1"), null, false, 1, true, null, "VOCAB_GRAMMAR"), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(question.id(), 1, new BigDecimal("1.0")), teacher.getId());
         ExerciseResponse published = exerciseService.publishExercise(exercise.id(), teacher.getId());
         // V71: writeComment/writeDailyCommentWithHomeworkNext gọi deliverToClass bên trong bằng
@@ -1022,11 +1022,11 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
      */
     private VideoFixture createConnectionVideoAssignedToClass(int durationSeconds) {
         ReviewVideoSetResponse set = reviewVideoService.createSet(
-                new CreateReviewVideoSetRequest(setCode(), "Video V55", "CONNECTION", schoolClass.curriculumId(), "VIETNAMESE", null, 1),
+                new CreateReviewVideoSetRequest(setCode(), "Video V55", "CONNECTION", schoolClass.curriculumId(), "VIETNAMESE", null, 1, null),
                 teacher.getId());
         reviewVideoService.assignToClass(set.id(), schoolClass.id(), teacher.getId());
         ReviewVideoSetResponse published = reviewVideoService.updateSet(set.id(),
-                new UpdateReviewVideoSetRequest(set.title(), "VIETNAMESE", null, 1, "PUBLISHED"), teacher.getId());
+                new UpdateReviewVideoSetRequest(set.title(), "VIETNAMESE", null, 1, "PUBLISHED", null), teacher.getId());
         ReviewVideoResponse video = reviewVideoService.addVideo(set.id(),
                 new AddReviewVideoRequest("R2_VIDEO", "Video", "https://media.pps.edu.vn/lms/review-videos/video/v55.mp4",
                         1_000_000L, durationSeconds, 1, null, null),
@@ -1093,7 +1093,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
     void buildTemplate_V55_MainFlow_showsGrammarOnlinePercentFromPreviousSessionAttempt() throws IOException {
         GrammarFixture fixture = createGrammarOnlineExercise();
         ClassSessionResponse session2 = nextSession();
-        StudentCommentResponse comment = writeDailyCommentWithHomeworkNext(student, classSession, fixture.exercise().id(), null);
+        StudentCommentResponse comment = writeDailyCommentWithHomeworkNext(student, classSession, fixture.exercise().examId(), null);
         // V127: giao bài chỉ thật sự xảy ra lúc Gửi (submitComments), không còn ngay lúc Lưu nháp — cần
         // Gửi trước thì exerciseAttemptService.startAttempt() (bên trong answerGrammarCorrectly) mới
         // thấy bản giao tồn tại.
@@ -1110,7 +1110,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
     void buildTemplate_V55_MainFlow_showsNotYetDoneForAssignedButUnattemptedGrammar() throws IOException {
         GrammarFixture fixture = createGrammarOnlineExercise();
         ClassSessionResponse session2 = nextSession();
-        StudentCommentResponse comment = writeDailyCommentWithHomeworkNext(student, classSession, fixture.exercise().id(), null);
+        StudentCommentResponse comment = writeDailyCommentWithHomeworkNext(student, classSession, fixture.exercise().examId(), null);
         // V127: cần Gửi để bài thật sự "đã giao" — "Chưa làm bài" khác với "chưa giao gì" (buildTemplate
         // trả null nếu chỉ mới Lưu nháp, chưa Gửi — xem resolvedHomeworkOnlineGrammar/effectiveExerciseChoiceId).
         studentCommentService.submitComments(schoolClass.id(), new SubmitCommentsRequest(List.of(comment.id())), teacher.getId());
@@ -1148,7 +1148,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         Student student2 = newStudent();
         classService.enroll(schoolClass.id(), new EnrollStudentRequest(student2.getId(), LocalDate.now()), headAcademic.getId());
         ClassSessionResponse session2 = nextSession();
-        StudentCommentResponse comment = writeDailyCommentWithHomeworkNext(student, classSession, fixture.exercise().id(), null);
+        StudentCommentResponse comment = writeDailyCommentWithHomeworkNext(student, classSession, fixture.exercise().examId(), null);
         writeDailyCommentWithHomeworkNext(student2, classSession, null, null);
         // V127: cần Gửi để bài thật sự "đã giao" — mirror showsNotYetDoneForAssignedButUnattemptedGrammar.
         studentCommentService.submitComments(schoolClass.id(), new SubmitCommentsRequest(List.of(comment.id())), teacher.getId());
@@ -1167,12 +1167,18 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         classService.enroll(schoolClass.id(), new EnrollStudentRequest(student2.getId(), LocalDate.now()), headAcademic.getId());
         nextSession();
 
-        StudentCommentResponse comment = writeDailyCommentWithHomeworkNext(student, classSession, fixture.exercise().id(), null);
+        StudentCommentResponse comment = writeDailyCommentWithHomeworkNext(student, classSession, fixture.exercise().examId(), null);
         // V127: giao bài chỉ thật sự xảy ra lúc Gửi — chưa Gửi thì chưa có ExerciseAssignment nào để tìm.
-        StudentCommentResponse submitted = studentCommentService.submitComments(schoolClass.id(),
-                new SubmitCommentsRequest(List.of(comment.id())), teacher.getId()).get(0);
+        studentCommentService.submitComments(schoolClass.id(),
+                new SubmitCommentsRequest(List.of(comment.id())), teacher.getId());
 
-        ExerciseAssignment assignment = exerciseAssignmentRepository.findById(submitted.homeworkNextExerciseAssignmentId()).orElseThrow();
+        // V150: homeworkNextExerciseAssignmentId giờ trả examId (khoá dropdown), không còn là id của
+        // chính ExerciseAssignment (xem Javadoc StudentCommentService#toResponse) — tra ngược bản giao
+        // thật qua exerciseId+classId+status thay vì đọc thẳng field đó như trước V150.
+        List<ExerciseAssignment> assignments = exerciseAssignmentRepository.findByExerciseIdAndSchoolClassIdAndStatus(
+                fixture.exercise().id(), schoolClass.id(), ExerciseAssignment.Status.ACTIVE);
+        assertThat(assignments).hasSize(1);
+        ExerciseAssignment assignment = assignments.get(0);
         assertThat(assignment.getSchoolClass().getId()).isEqualTo(schoolClass.id());
         assertThat(assignment.getTargetStudentIds()).isNull();
         // targetStudentIds=null (cả lớp) -- student2 (không được nhận xét) vẫn tự làm được bài này.
@@ -1208,9 +1214,9 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         Student student2 = newStudent();
         classService.enroll(schoolClass.id(), new EnrollStudentRequest(student2.getId(), LocalDate.now()), headAcademic.getId());
         nextSession();
-        writeDailyCommentWithHomeworkNext(student, classSession, fixture1.exercise().id(), null);
+        writeDailyCommentWithHomeworkNext(student, classSession, fixture1.exercise().examId(), null);
 
-        assertThatThrownBy(() -> writeDailyCommentWithHomeworkNext(student2, classSession, fixture2.exercise().id(), null))
+        assertThatThrownBy(() -> writeDailyCommentWithHomeworkNext(student2, classSession, fixture2.exercise().examId(), null))
                 .isInstanceOf(HomeworkNextConflictException.class);
     }
 
@@ -1242,10 +1248,10 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         Student student2 = newStudent();
         classService.enroll(schoolClass.id(), new EnrollStudentRequest(student2.getId(), LocalDate.now()), headAcademic.getId());
         nextSession();
-        StudentCommentResponse commentA = writeDailyCommentWithHomeworkNext(student, classSession, fixture1.exercise().id(), null);
+        StudentCommentResponse commentA = writeDailyCommentWithHomeworkNext(student, classSession, fixture1.exercise().examId(), null);
         studentCommentService.submitComments(schoolClass.id(), new SubmitCommentsRequest(List.of(commentA.id())), teacher.getId());
 
-        assertThatThrownBy(() -> writeDailyCommentWithHomeworkNext(student2, classSession, fixture2.exercise().id(), null))
+        assertThatThrownBy(() -> writeDailyCommentWithHomeworkNext(student2, classSession, fixture2.exercise().examId(), null))
                 .isInstanceOf(HomeworkNextConflictException.class);
     }
 
@@ -1270,11 +1276,11 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         Student student2 = newStudent();
         classService.enroll(schoolClass.id(), new EnrollStudentRequest(student2.getId(), LocalDate.now()), headAcademic.getId());
         nextSession();
-        StudentCommentResponse comment1 = writeDailyCommentWithHomeworkNext(student, classSession, fixture.exercise().id(), null);
+        StudentCommentResponse comment1 = writeDailyCommentWithHomeworkNext(student, classSession, fixture.exercise().examId(), null);
         studentCommentService.submitComments(schoolClass.id(), new SubmitCommentsRequest(List.of(comment1.id())), teacher.getId());
         commitCurrentTransactionAndStartNew();
 
-        StudentCommentResponse comment2 = writeDailyCommentWithHomeworkNext(student2, classSession, fixture.exercise().id(), null);
+        StudentCommentResponse comment2 = writeDailyCommentWithHomeworkNext(student2, classSession, fixture.exercise().examId(), null);
         StudentCommentResponse submitted2 = studentCommentService.submitComments(schoolClass.id(),
                 new SubmitCommentsRequest(List.of(comment2.id())), teacher.getId()).get(0);
 
@@ -1287,7 +1293,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         GrammarFixture fixture = createGrammarOnlineExercise();
         // Không tạo buổi kế tiếp -- classSession (từ setUp) là buổi duy nhất/cuối cùng của lớp.
 
-        assertThatThrownBy(() -> writeDailyCommentWithHomeworkNext(student, classSession, fixture.exercise().id(), null))
+        assertThatThrownBy(() -> writeDailyCommentWithHomeworkNext(student, classSession, fixture.exercise().examId(), null))
                 .isInstanceOf(NoUpcomingClassSessionException.class);
     }
 
@@ -1309,7 +1315,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
                 headAcademic.getId());
         // classSession (setUp) = VIETNAMESE; buổi kế tiếp vừa tạo = FOREIGN -- khác loại GV, không tính.
 
-        assertThatThrownBy(() -> writeDailyCommentWithHomeworkNext(student, classSession, fixture.exercise().id(), null))
+        assertThatThrownBy(() -> writeDailyCommentWithHomeworkNext(student, classSession, fixture.exercise().examId(), null))
                 .isInstanceOf(NoUpcomingClassSessionException.class);
     }
 
@@ -1333,7 +1339,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
                         teacher.getId(), null, null, null),
                 headAcademic.getId());
 
-        StudentCommentResponse comment = writeDailyCommentWithHomeworkNext(student, classSession, fixture.exercise().id(), null);
+        StudentCommentResponse comment = writeDailyCommentWithHomeworkNext(student, classSession, fixture.exercise().examId(), null);
         // V127: homeworkNextDueAt chỉ có giá trị SAU KHI Gửi (bản giao thật) — lúc còn DRAFT chỉ có
         // pendingHomeworkNextDueDate (không expose qua response). Việc resolve hạn nộp (bỏ qua buổi khác
         // loại GV) đã chạy VALIDATE ngay ở writeComment (không throw ở đây là bằng chứng đã đúng); Gửi
@@ -1361,16 +1367,16 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         GrammarFixture fixture1 = createGrammarOnlineExercise();
         GrammarFixture fixture2 = createGrammarOnlineExercise();
         nextSession();
-        StudentCommentResponse comment = writeDailyCommentWithHomeworkNext(student, classSession, fixture1.exercise().id(), null);
-        assertThat(comment.pendingHomeworkNextExerciseId()).isEqualTo(fixture1.exercise().id());
+        StudentCommentResponse comment = writeDailyCommentWithHomeworkNext(student, classSession, fixture1.exercise().examId(), null);
+        assertThat(comment.pendingHomeworkNextExerciseId()).isEqualTo(fixture1.exercise().examId());
         assertThat(comment.homeworkNextExerciseAssignmentId()).isNull();
 
         StudentCommentResponse edited = studentCommentService.updateComment(comment.id(),
                 new UpdateStudentCommentRequest("Nội dung buổi.", null, null, false, null, null, null, null, null, null, null, null,
-                        fixture2.exercise().id(), null, null, null, null, null),
+                        fixture2.exercise().examId(), null, null, null, null, null),
                 teacher.getId());
 
-        assertThat(edited.pendingHomeworkNextExerciseId()).isEqualTo(fixture2.exercise().id());
+        assertThat(edited.pendingHomeworkNextExerciseId()).isEqualTo(fixture2.exercise().examId());
         assertThat(edited.homeworkNextExerciseAssignmentId()).isNull();
         assertThat(exerciseAssignmentRepository.count()).isZero();
     }
@@ -1380,8 +1386,8 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
     void updateComment_V127_A_clearingChoiceWhileDraftOnlyClearsPendingChoiceNoAssignmentTouched() {
         GrammarFixture fixture = createGrammarOnlineExercise();
         nextSession();
-        StudentCommentResponse comment = writeDailyCommentWithHomeworkNext(student, classSession, fixture.exercise().id(), null);
-        assertThat(comment.pendingHomeworkNextExerciseId()).isEqualTo(fixture.exercise().id());
+        StudentCommentResponse comment = writeDailyCommentWithHomeworkNext(student, classSession, fixture.exercise().examId(), null);
+        assertThat(comment.pendingHomeworkNextExerciseId()).isEqualTo(fixture.exercise().examId());
 
         StudentCommentResponse edited = studentCommentService.updateComment(comment.id(),
                 new UpdateStudentCommentRequest("Nội dung buổi.", null, null, false, null, null, null, null, null, null, null, null, null, null, null, null, null, null),
@@ -1405,30 +1411,33 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         GrammarFixture fixture1 = createGrammarOnlineExercise();
         GrammarFixture fixture2 = createGrammarOnlineExercise();
         nextSession();
-        StudentCommentResponse comment = writeDailyCommentWithHomeworkNext(student, classSession, fixture1.exercise().id(), null);
-        StudentCommentResponse submitted1 = studentCommentService.submitComments(schoolClass.id(),
-                new SubmitCommentsRequest(List.of(comment.id())), teacher.getId()).get(0);
-        Long firstAssignmentId = submitted1.homeworkNextExerciseAssignmentId();
+        StudentCommentResponse comment = writeDailyCommentWithHomeworkNext(student, classSession, fixture1.exercise().examId(), null);
+        studentCommentService.submitComments(schoolClass.id(),
+                new SubmitCommentsRequest(List.of(comment.id())), teacher.getId());
         studentCommentService.decideComments(
                 new DecideCommentsRequest(List.of(comment.id()), "REJECTED", "Chưa đạt"), siteManagerUser.getId());
 
         StudentCommentResponse edited = studentCommentService.updateComment(comment.id(),
                 new UpdateStudentCommentRequest("Nội dung sửa lại.", null, null, false, null, null, null, null, null, null, null, null,
-                        fixture2.exercise().id(), null, null, null, null, null),
+                        fixture2.exercise().examId(), null, null, null, null, null),
                 teacher.getId());
-        assertThat(edited.pendingHomeworkNextExerciseId()).isEqualTo(fixture2.exercise().id());
-        assertThat(edited.homeworkNextExerciseAssignmentId()).isEqualTo(firstAssignmentId);
-        assertThat(exerciseAssignmentRepository.findById(firstAssignmentId).orElseThrow().getStatus())
-                .isEqualTo(ExerciseAssignment.Status.ACTIVE);
+        // V150: homeworkNextExerciseAssignmentId giờ trả examId (khoá dropdown), không còn là id của
+        // chính ExerciseAssignment (xem Javadoc StudentCommentService#toResponse) — tra ngược bản giao
+        // thật qua exerciseId+classId+status thay vì đọc thẳng field đó như trước V150.
+        assertThat(edited.pendingHomeworkNextExerciseId()).isEqualTo(fixture2.exercise().examId());
+        assertThat(edited.homeworkNextExerciseAssignmentId()).isEqualTo(fixture1.exercise().examId());
+        assertThat(exerciseAssignmentRepository.findByExerciseIdAndSchoolClassIdAndStatus(
+                fixture1.exercise().id(), schoolClass.id(), ExerciseAssignment.Status.ACTIVE)).hasSize(1);
 
-        StudentCommentResponse resubmitted = studentCommentService.submitComments(schoolClass.id(),
-                new SubmitCommentsRequest(List.of(comment.id())), teacher.getId()).get(0);
+        studentCommentService.submitComments(schoolClass.id(),
+                new SubmitCommentsRequest(List.of(comment.id())), teacher.getId());
 
-        assertThat(exerciseAssignmentRepository.findById(firstAssignmentId).orElseThrow().getStatus())
-                .isEqualTo(ExerciseAssignment.Status.CANCELLED);
-        ExerciseAssignment newAssignment = exerciseAssignmentRepository.findById(resubmitted.homeworkNextExerciseAssignmentId()).orElseThrow();
-        assertThat(newAssignment.getExercise().getId()).isEqualTo(fixture2.exercise().id());
-        assertThat(newAssignment.getStatus()).isEqualTo(ExerciseAssignment.Status.ACTIVE);
+        assertThat(exerciseAssignmentRepository.findByExerciseIdAndSchoolClassIdAndStatus(
+                fixture1.exercise().id(), schoolClass.id(), ExerciseAssignment.Status.ACTIVE)).isEmpty();
+        assertThat(exerciseAssignmentRepository.findByExerciseIdAndSchoolClassIdAndStatus(
+                fixture1.exercise().id(), schoolClass.id(), ExerciseAssignment.Status.CANCELLED)).hasSize(1);
+        assertThat(exerciseAssignmentRepository.findByExerciseIdAndSchoolClassIdAndStatus(
+                fixture2.exercise().id(), schoolClass.id(), ExerciseAssignment.Status.ACTIVE)).hasSize(1);
     }
 
     /** Câu hỏi mở #3 (đã chốt 2026-07-30): duyệt/từ chối nhận xét (UC-22) không liên quan tới bài đã giao -- REJECTED vẫn giữ nguyên assignment ACTIVE. */
@@ -1436,17 +1445,21 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
     void decideComments_V65_regression_rejectedDoesNotCancelAlreadyDeliveredAssignment() {
         GrammarFixture fixture = createGrammarOnlineExercise();
         nextSession();
-        StudentCommentResponse comment = writeDailyCommentWithHomeworkNext(student, classSession, fixture.exercise().id(), null);
+        StudentCommentResponse comment = writeDailyCommentWithHomeworkNext(student, classSession, fixture.exercise().examId(), null);
         // V127: homeworkNextExerciseAssignmentId chỉ có giá trị SAU submit — đọc từ response của
         // submitComments (không phải response của writeComment ở trên, giờ luôn null).
-        StudentCommentResponse submitted = studentCommentService.submitComments(schoolClass.id(),
-                new SubmitCommentsRequest(List.of(comment.id())), teacher.getId()).get(0);
+        studentCommentService.submitComments(schoolClass.id(),
+                new SubmitCommentsRequest(List.of(comment.id())), teacher.getId());
 
         studentCommentService.decideComments(
                 new DecideCommentsRequest(List.of(comment.id()), "REJECTED", "Chưa đạt"), siteManagerUser.getId());
 
-        ExerciseAssignment assignment = exerciseAssignmentRepository.findById(submitted.homeworkNextExerciseAssignmentId()).orElseThrow();
-        assertThat(assignment.getStatus()).isEqualTo(ExerciseAssignment.Status.ACTIVE);
+        // V150: homeworkNextExerciseAssignmentId giờ trả examId (khoá dropdown), không còn là id của
+        // chính ExerciseAssignment (xem Javadoc StudentCommentService#toResponse) — tra ngược bản giao
+        // thật qua exerciseId+classId+status thay vì đọc thẳng field đó như trước V150.
+        List<ExerciseAssignment> assignments = exerciseAssignmentRepository.findByExerciseIdAndSchoolClassIdAndStatus(
+                fixture.exercise().id(), schoolClass.id(), ExerciseAssignment.Status.ACTIVE);
+        assertThat(assignments).hasSize(1);
     }
 
     @Test
@@ -1480,7 +1493,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
 
         assertThat(result.status()).isEqualTo("COMPLETED");
         StudentCommentResponse saved = studentCommentService.listComments(schoolClass.id(), student.getId()).get(0);
-        assertThat(saved.pendingHomeworkNextExerciseId()).isEqualTo(fixture.exercise().id());
+        assertThat(saved.pendingHomeworkNextExerciseId()).isEqualTo(fixture.exercise().examId());
         assertThat(saved.homeworkNext()).isNull();
         // V127: giao bài chỉ thật sự xảy ra lúc Gửi — importComments() (như writeComment) giờ chỉ lưu tạm.
         StudentCommentResponse submitted = studentCommentService.submitComments(schoolClass.id(),
@@ -1509,7 +1522,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
 
         assertThat(result.status()).isEqualTo("COMPLETED");
         StudentCommentResponse saved = studentCommentService.listComments(schoolClass.id(), student.getId()).get(0);
-        assertThat(saved.pendingHomeworkNextExerciseId()).isEqualTo(fixture.exercise().id());
+        assertThat(saved.pendingHomeworkNextExerciseId()).isEqualTo(fixture.exercise().examId());
         assertThat(saved.homeworkNext()).isNull();
         // V127: giao bài chỉ thật sự xảy ra lúc Gửi.
         StudentCommentResponse submitted = studentCommentService.submitComments(schoolClass.id(),
@@ -1580,7 +1593,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         assertThat(result.status()).isEqualTo("COMPLETED");
         StudentCommentResponse saved = studentCommentService.listComments(schoolClass.id(), student.getId()).get(0);
         assertThat(saved.homeworkNextReading()).isEqualTo("Ôn lại Unit 3 ở nhà");
-        assertThat(saved.pendingHomeworkNextExerciseId()).isEqualTo(fixture.exercise().id());
+        assertThat(saved.pendingHomeworkNextExerciseId()).isEqualTo(fixture.exercise().examId());
         // V127: giao bài chỉ thật sự xảy ra lúc Gửi.
         StudentCommentResponse submitted = studentCommentService.submitComments(schoolClass.id(),
                 new SubmitCommentsRequest(List.of(saved.id())), teacher.getId()).get(0);
@@ -1598,11 +1611,11 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         StudentCommentResponse saved = studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), classSession.id(), classSession.sessionDate(),
                         "Nội dung.", null, null, false, null, null, null, null, null,
-                        "Ôn lại Unit 3 ở nhà", null, null, fixture.exercise().id(), null, null, null, null, null),
+                        "Ôn lại Unit 3 ở nhà", null, null, fixture.exercise().examId(), null, null, null, null, null),
                 teacher.getId());
 
         assertThat(saved.homeworkNext()).isEqualTo("Ôn lại Unit 3 ở nhà");
-        assertThat(saved.pendingHomeworkNextExerciseId()).isEqualTo(fixture.exercise().id());
+        assertThat(saved.pendingHomeworkNextExerciseId()).isEqualTo(fixture.exercise().examId());
         // V127: giao bài chỉ thật sự xảy ra lúc Gửi.
         StudentCommentResponse submitted = studentCommentService.submitComments(schoolClass.id(),
                 new SubmitCommentsRequest(List.of(saved.id())), teacher.getId()).get(0);
@@ -1669,7 +1682,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
     void buildTemplate_MainFlow_manualOverrideWinsOverAutoGrammarPercent() throws IOException {
         GrammarFixture fixture = createGrammarOnlineExercise();
         ClassSessionResponse session2 = nextSession();
-        StudentCommentResponse comment = writeDailyCommentWithHomeworkNext(student, classSession, fixture.exercise().id(), null);
+        StudentCommentResponse comment = writeDailyCommentWithHomeworkNext(student, classSession, fixture.exercise().examId(), null);
         // V127: giao bài chỉ thật sự xảy ra lúc Gửi — cần Gửi trước thì startAttempt() (trong answerGrammarCorrectly) mới thấy bản giao tồn tại.
         StudentCommentResponse submitted = studentCommentService.submitComments(schoolClass.id(),
                 new SubmitCommentsRequest(List.of(comment.id())), teacher.getId()).get(0);

@@ -2,20 +2,13 @@ package vn.com.pps.education.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import vn.com.pps.education.domain.Curriculum;
 
 import java.io.IOException;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.time.Duration;
+import java.util.Map;
 
 /**
  * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-22/2026-08-23 — UC-23b (Video phản xạ) V2,
@@ -29,10 +22,23 @@ import java.time.Duration;
  * thay — xem RubricByGradeTrackLoader). AI trả thẳng % theo đúng thang "Mức điểm (%)" của bảng, không
  * còn quy đổi band 0-9 → %.
  *
- * Ưu tiên Gemini Flash (GEMINI_API_KEY), fallback Claude (ANTHROPIC_API_KEY) — cùng key dùng chung
- * {@code app.ai-grading.*}. Lỗi gọi API HOẶC chưa xác định được đúng rubric (thiếu gradeLevel/track,
- * hoặc giáo viên chưa cung cấp bảng cho tổ hợp đó) trả về {@code null} — caller tự quyết định (KHÔNG
- * tự cho qua, KHÔNG tự đoán dùng rubric của Khối/track khác).
+ * V145 (2026-08-25, xác nhận với người dùng trên nhánh spike/openrouter-ai-rotation) — gọi AI chấm qua
+ * {@link NineRouterAiClient#chat} (combo cấu hình sẵn trong Dashboard 9Router → Combo & Vision Adapter,
+ * VD "teacher-models") thay vì gọi thẳng Gemini/Claude như trước — đồng bộ với
+ * {@link WritingAiGradingService} và {@link ReflexSpeakingContentAiGradingService}. Bỏ luôn logic tự
+ * chọn Gemini/Claude theo key nào có sẵn, vì combo trong Dashboard 9Router đã tự làm fallback giữa
+ * nhiều provider. LƯU Ý VẬN HÀNH: 9Router hiện CHỈ chạy local trên máy dev — CHƯA có kế hoạch tự host
+ * cho staging/production.
+ *
+ * Lỗi gọi API HOẶC chưa xác định được đúng rubric (thiếu gradeLevel/track, hoặc giáo viên chưa cung cấp
+ * bảng cho tổ hợp đó) trả về {@code null} — caller tự quyết định (KHÔNG tự cho qua, KHÔNG tự đoán dùng
+ * rubric của Khối/track khác).
+ *
+ * V147 (2026-08-25, xác nhận với người dùng, cùng gốc bug với ReflexSpeakingContentAiGradingService) —
+ * TRƯỚC ĐÂY chỉ gửi câu trả lời của học sinh, KHÔNG hề gửi câu hỏi gốc ({@link ReviewVideoQuestion#getPrompt})
+ * — dù rubric Writing có cột CONTENT (kiểm tra liên quan nhiệm vụ) xuyên suốt mọi mức điểm, AI không có
+ * căn cứ nào để biết "nhiệm vụ" là câu hỏi nào mà đối chiếu, nên câu trả lời lạc đề nhưng ngữ pháp đúng
+ * vẫn được chấm cao. Thêm {@code questionPrompt} vào tham số + system prompt để AI đối chiếu đúng.
  */
 @Service
 public class ReflexWritingGrammarAiGradingService {
@@ -40,28 +46,21 @@ public class ReflexWritingGrammarAiGradingService {
     private static final Logger log = LoggerFactory.getLogger(ReflexWritingGrammarAiGradingService.class);
 
     private static final String RUBRIC_FILE_PREFIX = "writing-rubric";
-    private static final String CLAUDE_GRADING_MODEL = "claude-haiku-4-5-20251001";
-    /**
-     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — fix bug thật: "gemini-flash-latest"
-     * là ALIAS, đã âm thầm trỏ sang "gemini-3.7-flash" (bản preview mới, quota free tier chỉ 20
-     * request/NGÀY — phát hiện qua log RESOURCE_EXHAUSTED thực tế lúc test). Đổi sang tên model CỤ THỂ
-     * (không dùng alias "-latest" nữa) để tránh Google tự đổi ngầm sang model mới/quota thấp hơn lần nữa.
-     */
-    private static final String GEMINI_MODEL = "gemini-3.5-flash-lite";
+    private static final String SYSTEM_PROMPT_FILE = "reflex-writing-grammar-grading-system-prompt.txt";
 
     private final ObjectMapper objectMapper;
     private final RubricByGradeTrackLoader rubricLoader;
-    private final HttpClient httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(20)).build();
+    private final NineRouterAiClient nineRouterAiClient;
+    private final PromptTemplateLoader promptTemplateLoader;
 
-    @Value("${app.ai-grading.anthropic-api-key:}")
-    private String anthropicApiKey;
-
-    @Value("${app.ai-grading.gemini-api-key:}")
-    private String geminiApiKey;
-
-    public ReflexWritingGrammarAiGradingService(ObjectMapper objectMapper, RubricByGradeTrackLoader rubricLoader) {
+    public ReflexWritingGrammarAiGradingService(ObjectMapper objectMapper,
+                                                 RubricByGradeTrackLoader rubricLoader,
+                                                 NineRouterAiClient nineRouterAiClient,
+                                                 PromptTemplateLoader promptTemplateLoader) {
         this.objectMapper = objectMapper;
         this.rubricLoader = rubricLoader;
+        this.nineRouterAiClient = nineRouterAiClient;
+        this.promptTemplateLoader = promptTemplateLoader;
     }
 
     /**
@@ -73,15 +72,12 @@ public class ReflexWritingGrammarAiGradingService {
     public record GradeResult(int scorePercent, String feedback, String correctedAnswer) {
     }
 
-    /** Số lần thử tối đa (1 lần đầu + tối đa RETRY lần) khi gặp lỗi tạm thời (503/5xx, KHÔNG gồm 429) — xem {@link #isRetryable}. */
-    private static final int MAX_ATTEMPTS = 3;
-    private static final long RETRY_DELAY_MS = 1500;
-
     /**
-     * Trả null nếu chưa xác định được rubric (xem {@link RubricByGradeTrackLoader}), chưa cấu hình key
-     * nào, HOẶC gọi AI thất bại (kể cả sau khi đã thử lại) — caller tự quyết định (không tự cho qua).
+     * Trả null nếu chưa xác định được rubric (xem {@link RubricByGradeTrackLoader}) HOẶC 9Router chấm
+     * thất bại (kể cả sau khi tự retry/fallback nội bộ giữa các provider trong combo) — caller tự quyết
+     * định (không tự cho qua).
      */
-    public GradeResult grade(String answerText, Curriculum curriculum) {
+    public GradeResult grade(String answerText, String questionPrompt, Curriculum curriculum) {
         if (answerText == null || answerText.isBlank()) {
             return null;
         }
@@ -89,111 +85,26 @@ public class ReflexWritingGrammarAiGradingService {
         if (rubric == null) {
             return null;
         }
-        for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-            try {
-                if (!geminiApiKey.isBlank()) {
-                    return callGemini(answerText, rubric);
-                }
-                if (!anthropicApiKey.isBlank()) {
-                    return callClaude(answerText, rubric);
-                }
-                log.warn("ReflexWritingGrammarAiGradingService: chưa cấu hình GEMINI_API_KEY hoặc ANTHROPIC_API_KEY.");
-                return null;
-            } catch (Exception e) {
-                if (attempt < MAX_ATTEMPTS && isRetryable(e)) {
-                    log.warn("ReflexWritingGrammarAiGradingService: lỗi tạm thời, thử lại lần {}/{}. {}", attempt + 1, MAX_ATTEMPTS, e.getMessage());
-                    sleepQuietly(RETRY_DELAY_MS);
-                    continue;
-                }
-                log.warn("ReflexWritingGrammarAiGradingService: gọi AI chấm thất bại. {}", e.getMessage());
-                return null;
-            }
+        String rawText = nineRouterAiClient.chat(
+                systemPrompt(rubric, questionPrompt),
+                "Câu hỏi: \"" + questionPrompt + "\"\nCâu trả lời của học sinh: \"" + answerText + "\"",
+                null);
+        if (rawText == null) {
+            log.warn("ReflexWritingGrammarAiGradingService: 9Router chấm thất bại.");
+            return null;
         }
-        return null;
-    }
-
-    /**
-     * CHỈ HTTP 503/5xx — đáng thử lại ngay. KHÔNG retry 429 — đã gặp thực tế 2026-08-22: 429 của
-     * Gemini free tier là RESOURCE_EXHAUSTED theo quota NGÀY (limit 20/ngày, "retry in Xs" thực tế lên
-     * tới 50+s), retry ngay càng làm cạn quota nhanh hơn mà gần như chắc chắn vẫn thất bại — xem
-     * {@link WritingAiGradingService#isRetryable}.
-     */
-    private boolean isRetryable(Exception e) {
-        String msg = e.getMessage();
-        return msg != null && (msg.contains("HTTP 503") || msg.contains("HTTP 500") || msg.contains("HTTP 502") || msg.contains("HTTP 504"));
-    }
-
-    private void sleepQuietly(long millis) {
         try {
-            Thread.sleep(millis);
-        } catch (InterruptedException ie) {
-            Thread.currentThread().interrupt();
+            return parseResult(rawText);
+        } catch (IOException e) {
+            log.warn("ReflexWritingGrammarAiGradingService: parse kết quả chấm thất bại. {}", e.getMessage());
+            return null;
         }
     }
 
-    private String systemPrompt(String rubric) {
-        return "Bạn là giám khảo chấm phần viết trả lời (trước khi nói lại) của học sinh trung tâm Anh ngữ. Bảng "
-                + "tiêu chí chấm dưới đây liệt kê các mức điểm % (cột \"Mức điểm (%)\") kèm mô tả (descriptor) của "
-                + "TỪNG tiêu chí ở mức đó — đọc kỹ mô tả ở TẤT CẢ các cột tiêu chí, xác định mức % phù hợp nhất với "
-                + "bài làm dựa trên toàn bộ các tiêu chí (có thể nội suy giữa 2 mức liền kề nếu bài làm nằm giữa):\n"
-                + rubric
-                + "\nNgoài chấm điểm, hãy sửa lại CHÍNH câu trả lời của học sinh thành bản đúng ngữ pháp (correctedAnswer): "
-                + "CHỈ sửa lỗi ngữ pháp/chính tả/từ vựng dùng sai trong câu học sinh đã viết, GIỮ NGUYÊN cấu trúc câu và "
-                + "ý tưởng gốc của học sinh — TUYỆT ĐỐI KHÔNG tự viết lại thành 1 câu trả lời khác, KHÔNG thêm ý mới học "
-                + "sinh chưa viết, KHÔNG nâng cấp từ vựng lên trình độ cao hơn nếu không phải lỗi sai."
-                + "\nChỉ trả lời DUY NHẤT 1 JSON hợp lệ, không thêm chữ nào khác, đúng format: "
-                + "{\"scorePercent\": <số nguyên 0-100, theo đúng thang % của bảng trên>, "
-                + "\"feedback\": \"<nhận xét chi tiết tiếng Việt, đánh giá lần lượt theo TỪNG tiêu chí trong bảng, "
-                + "nêu điểm mạnh/điểm yếu cụ thể và gợi ý cải thiện>\", "
-                + "\"correctedAnswer\": \"<câu trả lời của học sinh sau khi CHỈ sửa lỗi, giữ nguyên cấu trúc/ý gốc>\"}";
-    }
-
-    private GradeResult callClaude(String answerText, String rubric) throws IOException, InterruptedException {
-        ObjectNode payload = objectMapper.createObjectNode();
-        payload.put("model", CLAUDE_GRADING_MODEL);
-        payload.put("max_tokens", 512);
-        payload.put("system", systemPrompt(rubric));
-        ArrayNode messages = payload.putArray("messages");
-        ObjectNode userMsg = messages.addObject();
-        userMsg.put("role", "user");
-        userMsg.put("content", "Câu trả lời của học sinh: \"" + answerText + "\"");
-
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create("https://api.anthropic.com/v1/messages"))
-                .header("x-api-key", anthropicApiKey)
-                .header("anthropic-version", "2023-06-01")
-                .header("content-type", "application/json")
-                .timeout(Duration.ofSeconds(60))
-                .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(payload)))
-                .build();
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-        if (response.statusCode() >= 300) {
-            throw new IOException("Claude API lỗi (HTTP " + response.statusCode() + "): " + response.body());
-        }
-        JsonNode json = objectMapper.readTree(response.body());
-        return parseResult(json.path("content").path(0).path("text").asText(""));
-    }
-
-    private GradeResult callGemini(String answerText, String rubric) throws IOException, InterruptedException {
-        ObjectNode payload = objectMapper.createObjectNode();
-        ObjectNode systemInstruction = payload.putObject("system_instruction");
-        systemInstruction.putArray("parts").addObject().put("text", systemPrompt(rubric));
-        ArrayNode contents = payload.putArray("contents");
-        contents.addObject().putArray("parts").addObject().put("text", "Câu trả lời của học sinh: \"" + answerText + "\"");
-
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create("https://generativelanguage.googleapis.com/v1beta/models/" + GEMINI_MODEL + ":generateContent"))
-                .header("x-goog-api-key", geminiApiKey)
-                .header("content-type", "application/json")
-                .timeout(Duration.ofSeconds(60))
-                .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(payload)))
-                .build();
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-        if (response.statusCode() >= 300) {
-            throw new IOException("Gemini API lỗi (HTTP " + response.statusCode() + "): " + response.body());
-        }
-        JsonNode json = objectMapper.readTree(response.body());
-        return parseResult(json.path("candidates").path(0).path("content").path("parts").path(0).path("text").asText(""));
+    private String systemPrompt(String rubric, String questionPrompt) {
+        return promptTemplateLoader.load(SYSTEM_PROMPT_FILE, Map.of(
+                "QUESTION_PROMPT", questionPrompt,
+                "RUBRIC", rubric));
     }
 
     /** LLM đôi khi bọc thêm text/markdown quanh JSON dù đã dặn "chỉ trả JSON" — cắt từ '{' đầu tới '}' cuối cho an toàn. */

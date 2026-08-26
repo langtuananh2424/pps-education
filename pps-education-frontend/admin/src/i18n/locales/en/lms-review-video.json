@@ -18,7 +18,6 @@
   },
   "lectures": {
     "labels": {
-      "contentKind": { "VIDEO": "Video", "AUDIO": "Audio" },
       "videoType": { "CONNECTION": "Connection video", "REFLEX": "Reflex video" },
       "teacherType": { "VIETNAMESE": "Vietnamese teacher", "FOREIGN": "Foreign teacher" },
       "status": { "DRAFT": "Draft", "PUBLISHED": "Published", "ARCHIVED": "Removed" }
@@ -69,15 +68,12 @@
       "itemSummary": "Question {{index}} · {{prompt}} · {{count}} choices"
     },
     "contentSource": {
-      "kindLabel": "Content type *",
       "videoLabel": "Video *",
-      "audioLabel": "Audio *",
       "uploadFile": "Upload file",
       "pasteYoutube": "Paste YouTube link",
       "detecting": "Detecting...",
       "detectDuration": "Detect duration",
       "chooseVideoFile": "Choose a video file...",
-      "chooseAudioFile": "Choose an audio file...",
       "durationDetectedLabel": "Duration detected:",
       "durationValue": "{{seconds}} seconds ({{minutes}} min)",
       "durationNone": "— not detected yet —"
@@ -90,7 +86,11 @@
     },
     "filter": {
       "allCurriculums": "All curriculum frameworks",
-      "allTeacherTypes": "All teacher types"
+      "allTeacherTypes": "All teacher types",
+      "allBooks": "All Books",
+      "allUnits": "All Units",
+      "bookFilterLocked": "-- Select a curriculum first --",
+      "unitFilterLocked": "-- Select a book first --"
     },
     "list": {
       "empty": "No video sets yet.",
@@ -103,7 +103,11 @@
       "assignedClassesCount": "Assigned to {{count}} classes",
       "manageSuffix": " — manage",
       "editButton": "Edit",
-      "statsButton": "Stats"
+      "statsButton": "Stats",
+      "deleteTooltip": "Delete set",
+      "deleteConfirm": "Delete set \"{{title}}\" ({{code}})? Only possible once the set has no videos left.",
+      "deletedToast": "Video set deleted.",
+      "deleteFailed": "Failed to delete the set."
     },
     "toast": {
       "setCreated": "Video set created successfully!",
@@ -181,10 +185,14 @@
       "manageQuestions": "Manage questions",
       "fields": { "title": "Title *" },
       "addButton": "Add video",
+      "deleteTooltip": "Delete video",
+      "deleteConfirm": "Delete video \"{{title}}\"? This cannot be undone.",
+      "deletedToast": "Video deleted.",
       "errors": {
         "loadFailed": "Couldn't load the video list.",
         "requiredFields": "Please fill in the title, video/audio, and wait for the duration to be detected.",
-        "addFailed": "Failed to add the video — you may not be assigned to teach this class/framework."
+        "addFailed": "Failed to add the video — you may not be assigned to teach this class/framework.",
+        "deleteFailed": "Failed to delete the video."
       }
     },
     "reflexFields": {

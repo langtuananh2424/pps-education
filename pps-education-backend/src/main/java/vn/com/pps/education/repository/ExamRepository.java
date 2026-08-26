@@ -26,4 +26,7 @@ public interface ExamRepository extends JpaRepository<Exam, Long> {
     Optional<Exam> findByQuestionBankId(Long questionBankId);
 
     boolean existsByQuestionBankId(Long questionBankId);
+
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — gate "Xóa Sub Topic" (xem CurriculumService#deleteSubTopic): còn Đề tham chiếu thì không cho xóa. */
+    boolean existsBySubTopicId(Long subTopicId);
 }

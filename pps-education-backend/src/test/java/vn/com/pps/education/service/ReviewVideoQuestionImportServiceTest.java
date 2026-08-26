@@ -271,7 +271,7 @@ class ReviewVideoQuestionImportServiceTest extends AbstractIntegrationTest {
 
     private ReviewVideoResponse createReflexVideo() {
         ReviewVideoSetResponse set = reviewVideoService.createSet(
-                new CreateReviewVideoSetRequest(setCode(), "Bài 1: Video phản xạ", "REFLEX", activeCurriculum.id(), "VIETNAMESE", null, 1),
+                new CreateReviewVideoSetRequest(setCode(), "Bài 1: Video phản xạ", "REFLEX", activeCurriculum.id(), "VIETNAMESE", null, 1, null),
                 teacher.getId());
         return reviewVideoService.addVideo(set.id(),
                 new AddReviewVideoRequest("R2_AUDIO", "Audio", "https://media.pps.edu.vn/lms/review-videos/audio/x.mp3", 1_000_000L, 200, 1, null, null),
@@ -280,7 +280,7 @@ class ReviewVideoQuestionImportServiceTest extends AbstractIntegrationTest {
 
     private ReviewVideoResponse createConnectionVideo() {
         ReviewVideoSetResponse set = reviewVideoService.createSet(
-                new CreateReviewVideoSetRequest(setCode(), "Bài 1: Video TKN", "CONNECTION", activeCurriculum.id(), "VIETNAMESE", null, 1),
+                new CreateReviewVideoSetRequest(setCode(), "Bài 1: Video TKN", "CONNECTION", activeCurriculum.id(), "VIETNAMESE", null, 1, null),
                 teacher.getId());
         return reviewVideoService.addVideo(set.id(),
                 new AddReviewVideoRequest("R2_VIDEO", "Video", "https://media.pps.edu.vn/lms/review-videos/video/x.mp4", 1_000_000L, 200, 1, null, null),

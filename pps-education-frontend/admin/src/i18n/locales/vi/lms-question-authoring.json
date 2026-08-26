@@ -25,7 +25,9 @@
     "INLINE_CHOICE": "Chọn từ trong câu",
     "FILL_IN_BLANK": "Điền từ",
     "WORD_BANK": "Điền từ - Hộp từ vựng",
+    "WORD_BANK_PICTURE": "Điền từ - Hộp từ vựng (có ảnh)",
     "SENTENCE_BUILDING": "Sắp xếp câu",
+    "LETTER_SCRAMBLE": "Sắp xếp chữ cái",
     "ESSAY": "Tự luận file/ảnh",
     "SPEAKING": "Speaking oral",
     "LISTENING_AUDIO_SUBMISSION": "Nghe & nộp audio",
@@ -63,6 +65,19 @@
     "sentenceBuildingHint": "Nhập các khối từ/cụm theo ĐÚNG thứ tự tạo thành câu hoàn chỉnh — học sinh sẽ thấy các khối này bị xáo trộn, chọn lại theo đúng thứ tự để hệ thống tự chấm (so khớp chính xác thứ tự).",
     "chunkPlaceholder": "VD: This is",
     "addChunk": "+ Thêm khối",
+    "wordBankPictureSectionTitle": "Hình minh họa + Hộp từ vựng",
+    "wordBankPictureHint": "Dùng cho dạng \"Look at the pictures and write the correct words from the box\" — 1 tấm hình đánh số vị trí + hộp từ vựng dùng chung, mỗi chỗ trống chọn đúng 1 từ trong hộp.",
+    "wordBankImageLabel": "Hình minh họa (tùy chọn)",
+    "wordBankImagePlaceholder": "Chọn ảnh...",
+    "wordBankOptionsHint": "Hộp từ vựng hiển thị cho học sinh (tùy chọn) — để trống thì hộp từ = chính các đáp án đúng ở trên. Điền vào đây nếu muốn hộp có thêm từ nhiễu (VD hộp 7 từ nhưng chỉ dùng hết 5 chỗ trống).",
+    "wordBankOptionPlaceholder": "1 từ trong hộp từ vựng...",
+    "addWordBankOption": "+ Thêm từ vào hộp",
+    "letterScrambleSectionTitle": "Sắp xếp chữ cái thành từ",
+    "letterScrambleHint": "Dùng cho dạng \"Rearrange the letters to make correct words\" — mỗi khối bên dưới là 1 CHỮ CÁI (thay vì 1 từ), theo ĐÚNG thứ tự tạo thành từ đúng — học sinh sẽ thấy các chữ cái bị xáo trộn, ghép lại theo đúng thứ tự.",
+    "letterScrambleImageLabel": "Hình minh họa (tùy chọn)",
+    "letterScrambleImagePlaceholder": "Chọn ảnh...",
+    "letterChunkPlaceholder": "1 chữ cái, VD: m",
+    "addLetterChunk": "+ Thêm chữ cái",
     "fillInBlankSectionTitle": "Đáp án đúng (hệ thống tự chấm)",
     "correctAnswerLabel": "Đáp án đúng *",
     "correctAnswerPlaceholder": "VD: went",
@@ -95,12 +110,18 @@
   "questionImportPanel": {
     "excelHeaders": [
       "Loại câu hỏi", "Độ khó", "Nội dung", "Đáp án A", "Đáp án B", "Đáp án C", "Đáp án D",
-      "Đáp án đúng", "URL Audio", "URL Hình ảnh", "Transcript/Từ khóa phát âm", "Điểm", "Giải thích", "Tags"
+      "Đáp án đúng", "URL Audio", "URL Hình ảnh", "Transcript/Từ khóa phát âm/Hộp từ vựng", "Điểm", "Giải thích", "Tags"
     ],
     "excelSampleExplanations": {
       "geo": "Paris là thủ đô nước Pháp.",
       "presentSimple": "Hiện tại đơn, ngôi thứ 3 số ít.",
-      "essayRubric": "Chấm theo thang điểm nội dung/ngữ pháp/từ vựng."
+      "essayRubric": "Chấm theo thang điểm nội dung/ngữ pháp/từ vựng.",
+      "wordBank": "Mỗi chỗ trống 1 từ, phân tách bằng dấu | theo ĐÚNG thứ tự (cột Đáp án đúng).",
+      "wordBankPicture": "Cột Transcript dùng làm hộp từ vựng hiển thị cho học sinh (có thể thêm từ nhiễu), để trống thì hộp từ = chính đáp án đúng.",
+      "sentenceBuilding": "Mỗi khối từ/cụm 1 phần tử, phân tách bằng dấu | theo ĐÚNG thứ tự câu hoàn chỉnh.",
+      "letterScramble": "Mỗi chữ cái 1 phần tử, phân tách bằng dấu | theo ĐÚNG thứ tự tạo thành từ đúng.",
+      "listeningAudioSubmission": "Học sinh nộp audio, chấm tay ở Hàng chờ chấm bài.",
+      "listeningFillInBlank": "Hệ thống tự chấm theo đáp án đúng."
     },
     "formatExcel": "Excel (.xlsx)",
     "formatWord": "Word (.docx)",
@@ -127,6 +148,24 @@
       "needAtLeastOne": "Cần ít nhất 1 câu hỏi.",
       "partialFailure": "Đã tạo được {{created}}/{{total}} câu thì lỗi — các câu đã tạo vẫn nằm trong ngân hàng câu hỏi, kiểm tra lại nếu cần.",
       "createFailed": "Tạo bài đọc hiểu thất bại."
+    }
+  },
+  "clozeQuestionBuilder": {
+    "passageLabel": "Đoạn văn dùng chung",
+    "passageHint": "Tự đánh số các chỗ trống trong đoạn văn (VD (1), (2)...) khớp với danh sách câu hỏi bên dưới.",
+    "passagePlaceholder": "My uncle lives in a very large (1) ___ in the city...",
+    "blanksSectionTitle": "Danh sách chỗ trống — mỗi chỗ có bộ đáp án riêng",
+    "blankContentPlaceholder": "Nội dung câu {{index}} (VD: (1))",
+    "addOption": "+ Thêm đáp án",
+    "addBlankButton": "Thêm chỗ trống",
+    "submitCreate": "Tạo {{count}} câu hỏi",
+    "errors": {
+      "passageRequired": "Vui lòng nhập đoạn văn dùng chung.",
+      "needAtLeastOne": "Cần ít nhất 1 chỗ trống.",
+      "fillAllBlanks": "Vui lòng điền nội dung cho mọi chỗ trống.",
+      "fillAllOptions": "Vui lòng điền đủ đáp án cho mọi chỗ trống.",
+      "partialFailure": "Đã tạo được {{created}}/{{total}} câu thì lỗi — các câu đã tạo vẫn nằm trong ngân hàng câu hỏi, kiểm tra lại nếu cần.",
+      "createFailed": "Tạo bài đọc điền từ thất bại."
     }
   },
   "listeningGroupBuilder": {
@@ -198,6 +237,7 @@
       "submit": "Tạo Bài — tiếp tục gắn câu hỏi",
       "errors": {
         "requiredFields": "Vui lòng điền Mã Bài, Tên Bài và Tổng điểm.",
+        "skillCategoryRequired": "Vui lòng chọn Nhóm kỹ năng.",
         "createFailed": "Tạo Bài thất bại."
       }
     },
@@ -210,6 +250,7 @@
       "modeImport": "Nhập Excel/Word",
       "subModeSingle": "Câu hỏi đơn",
       "subModeGrid": "Bài đọc hiểu — Lưới",
+      "subModeCloze": "Đọc điền từ — Cloze",
       "subModeListeningGroup": "Nhiều câu — 1 audio nghe",
       "attachedSectionTitle": "Đã gắn vào đề (soạn mới/nhập file)",
       "attachedCount": "Đã gắn vào Bài: {{count}} câu",
@@ -236,6 +277,46 @@
       }
     }
   },
+  "bookCatalogPage": {
+    "title": "Danh mục sách",
+    "description": "Cấu hình Unit / Sub Topic theo mục lục sách giáo trình trước — vào \"Soạn & giao đề\" chỉ cần chọn lại.",
+    "loadCurriculumsFailed": "Không tải được danh sách khung chương trình.",
+    "noCurriculums": "Chưa có khung chương trình nào.",
+    "curriculumColumnLabel": "Chương trình + Khối",
+    "selectCurriculumPrompt": "Chọn 1 khung chương trình (chương trình + khối) bên trái để xem/cấu hình Sách.",
+    "loadBooksFailed": "Không tải được danh sách Sách.",
+    "newBookPlaceholder": "Tên Sách mới, VD: Cambridge English for Schools 6",
+    "addBookButton": "Thêm Sách",
+    "createBookFailed": "Tạo Sách thất bại.",
+    "bookCreatedToast": "Đã thêm Sách.",
+    "noBooks": "Chưa có Sách nào — thêm 1 Sách trước khi tạo Unit.",
+    "updateBookFailed": "Sửa Sách thất bại.",
+    "bookUpdatedToast": "Đã sửa Sách.",
+    "deleteBookConfirm": "Xóa Sách \"{{title}}\"? Chỉ xóa được khi Sách đã hết Unit.",
+    "bookDeletedToast": "Đã xóa Sách.",
+    "deleteBookFailed": "Xóa Sách thất bại.",
+    "loadUnitsFailed": "Không tải được danh sách Unit.",
+    "newUnitPlaceholder": "Tên Unit mới, VD: Unit 1",
+    "addUnitButton": "Thêm Unit",
+    "createUnitFailed": "Tạo Unit thất bại.",
+    "unitCreatedToast": "Đã thêm Unit.",
+    "noUnits": "Chưa có Unit nào.",
+    "updateUnitFailed": "Sửa Unit thất bại.",
+    "unitUpdatedToast": "Đã sửa Unit.",
+    "deleteUnitConfirm": "Xóa Unit \"{{title}}\"? Chỉ xóa được khi Unit đã hết Sub Topic.",
+    "unitDeletedToast": "Đã xóa Unit.",
+    "deleteUnitFailed": "Xóa Unit thất bại.",
+    "newSubTopicPlaceholder": "Tên Sub Topic mới",
+    "addSubTopicButton": "Thêm",
+    "createSubTopicFailed": "Tạo Sub Topic thất bại.",
+    "subTopicCreatedToast": "Đã thêm Sub Topic.",
+    "noSubTopics": "Chưa có Sub Topic nào.",
+    "updateSubTopicFailed": "Sửa Sub Topic thất bại.",
+    "subTopicUpdatedToast": "Đã sửa Sub Topic.",
+    "deleteSubTopicConfirm": "Xóa Sub Topic \"{{title}}\"? Chỉ xóa được khi chưa có Đề/Bộ video nào dùng.",
+    "subTopicDeletedToast": "Đã xóa Sub Topic.",
+    "deleteSubTopicFailed": "Xóa Sub Topic thất bại."
+  },
   "assignPage": {
     "statusLabels": {
       "DRAFT": "Nháp",
@@ -255,9 +336,14 @@
     "createExam": "Tạo Đề mới",
     "loadExamsFailed": "Không tải được danh sách Đề.",
     "allCurriculums": "Tất cả khung chương trình",
+    "allBooks": "Tất cả Sách",
+    "allUnits": "Tất cả Unit",
+    "bookFilterLocked": "-- Chọn Khung chương trình trước --",
+    "unitFilterLocked": "-- Chọn Sách trước --",
     "allTeacherTypes": "Tất cả loại giáo viên",
     "noExamsAll": "Chưa có Đề nào.",
     "noExamsFiltered": "Chưa có Đề nào trong khung chương trình này.",
+    "noExamsInUnit": "Chưa có Đề (Lesson) nào thuộc Unit này.",
     "selectExamPrompt": "Chọn 1 Đề bên trái để xem chi tiết, hoặc tạo Đề mới.",
     "examCreatedToast": "Đã tạo Đề thành công!",
     "createExamModal": {
@@ -275,6 +361,17 @@
       "examTypeLabel": "Loại đề *",
       "examTypePlaceholder": "-- Chọn loại đề --",
       "submit": "Tạo Đề"
+    },
+    "unitSubTopicPicker": {
+      "label": "Unit / Sub Topic (mục lục sách)",
+      "currentLabel": "Hiện tại: {{label}}",
+      "unclassified": "Chưa phân loại",
+      "selectCurriculumFirst": "Chọn Khung chương trình (Khối) trước.",
+      "noBooksHint": "Khối này chưa có Sách nào — vào \"Danh mục sách\" để cấu hình trước.",
+      "bookPlaceholder": "-- Chọn Sách --",
+      "noUnitsHint": "Sách này chưa có Unit nào — vào \"Danh mục sách\" để cấu hình trước.",
+      "unitPlaceholder": "-- Chọn Unit --",
+      "subTopicPlaceholder": "-- Chọn Sub Topic --"
     },
     "editExamModal": {
       "titleRequired": "Vui lòng điền Tên Đề.",

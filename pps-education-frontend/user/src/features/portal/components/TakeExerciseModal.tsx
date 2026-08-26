@@ -1,7 +1,7 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { CheckCircle2, HelpCircle, Loader2, Lock, PartyPopper, RotateCcw, ShieldAlert, X, XCircle } from "lucide-react";
+import { CheckCircle2, HelpCircle, KeyRound, Loader2, Lock, PartyPopper, RotateCcw, ShieldAlert, X, XCircle } from "lucide-react";
 import { friendlyApiErrorMessage } from "@/lib/apiClient";
 import {
   AssignedExerciseResponse,
@@ -19,6 +19,7 @@ import {
   listAnswers,
   recordIntegrityEvents,
   recordListeningPlay,
+  revealAndCloseAttempt,
   saveAnswer,
   startAttempt,
   submitAttempt,
@@ -76,11 +77,11 @@ function listeningKeyOf(q: ExerciseQuestionResponse): string {
  * câu MULTIPLE_CHOICE liên tiếp cùng groupKey gộp hiển thị chung 1 referencePassage + 1 bảng câu hỏi,
  * thay vì lặp lại đoạn văn ở mỗi câu. Chỉ gộp các câu LIÊN TIẾP nhau (đúng thứ tự displayOrder).
  */
-type RenderBlock =
+export type RenderBlock =
   | { type: "single"; question: ExerciseQuestionResponse }
   | { type: "grid"; groupKey: string; referencePassage: string | null; audioUrl: string | null; questions: ExerciseQuestionResponse[] };
 
-function groupQuestionsByGroupKey(questions: ExerciseQuestionResponse[]): RenderBlock[] {
+export function groupQuestionsByGroupKey(questions: ExerciseQuestionResponse[]): RenderBlock[] {
   const blocks: RenderBlock[] = [];
   for (const q of questions) {
     const last = blocks[blocks.length - 1];
@@ -155,13 +156,34 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
   // IN_PROGRESS phải hỏi lại (dễ đóng nhầm khi đang giám sát chống gian lận) — không hỏi khi chỉ đang
   // xem lại 1 lượt đã chấm (không có gì để "thoát dở dang").
   const [confirmingClose, setConfirmingClose] = useState(false);
+  /**
+   * V152 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — hỏi xác nhận trước khi TỰ
+   * NGUYỆN đóng lượt sớm (không hoàn tác được) — xem handleRevealAndClose.
+   */
+  const [confirmingRevealClose, setConfirmingRevealClose] = useState(false);
+  const [revealClosing, setRevealClosing] = useState(false);
+  /**
+   * V152 — khi bấm "Xem đáp án & đóng lượt" thành công TRONG PHIÊN modal đang mở, `item` (prop truyền
+   * từ danh sách cha) chưa kịp tải lại nên `item.canStartNewAttempt` vẫn còn giá trị CŨ (true) — cờ cục
+   * bộ này ghi đè ngay để ẩn nút "Xem đáp án"/"Làm lại" đúng lúc mà không cần chờ đóng modal rồi mở lại.
+   */
+  const [justClosedEarly, setJustClosedEarly] = useState(false);
 
-  const readOnly = attempt != null && attempt.status !== "IN_PROGRESS";
+  /**
+   * V152 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — UC-24 A1: lượt làm CÒN
+   * IN_PROGRESS (chưa nộp) nhưng đã quá hạn nộp và bản giao không cho nộp muộn — khoá HẲN thành chỉ
+   * xem, không cho gõ tiếp/nộp bài nữa (mirror rào đã thêm ở BE saveAnswer). Trước đây chỉ readOnly khi
+   * attempt đã nộp xong (status khác IN_PROGRESS), lượt dang dở quá hạn vẫn cho sửa vô thời hạn dù
+   * không bao giờ nộp nổi (submitAttempt luôn 422 quá hạn).
+   */
+  const overdueLockedInProgress =
+    attempt?.status === "IN_PROGRESS" && item.dueAt != null && !item.lateSubmissionAllowed && new Date(item.dueAt).getTime() < Date.now();
+  const readOnly = attempt != null && (attempt.status !== "IN_PROGRESS" || overdueLockedInProgress);
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-12 — tách riêng khỏi readOnly (readOnly
   // vẫn false khi attempt == null, vốn đúng cho việc khoá ô nhập vì chưa render câu hỏi nào cả, nhưng
   // KHÔNG được dùng để quyết định hiện nút "Nộp bài": trước đây !readOnly cũng đúng khi attempt == null
   // (VD load lỗi/hết lượt) nên vẫn hiện nhầm nút "Nộp bài" dù chẳng có lượt IN_PROGRESS nào để nộp.
-  const hasActiveAttempt = attempt != null && attempt.status === "IN_PROGRESS";
+  const hasActiveAttempt = attempt != null && attempt.status === "IN_PROGRESS" && !overdueLockedInProgress;
   /**
    * UC-24/A4, UC-27/A2: đề có giới hạn số lần làm lại (exerciseMeta.maxAttempts khác NULL) — số lượt
    * CÒN LẠI trước khi đáp án được mở khóa (mirror công thức BE: revealAnswer khi attemptNumber >=
@@ -170,6 +192,20 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
    */
   const attemptsRemainingBeforeAnswer =
     exerciseMeta?.maxAttempts != null && attempt != null ? Math.max(0, exerciseMeta.maxAttempts - attempt.attemptNumber) : null;
+  /**
+   * V152 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — UC-24/A4, UC-27/A2: lượt làm
+   * gần nhất đã ĐẠT nhưng đáp án vẫn còn bị khoá (còn lượt làm lại, chưa tới lượt cuối) — cho học sinh
+   * tự nguyện dừng lại NGAY để xem đáp án luôn, đổi lại mất quyền làm lại thêm (xem handleRevealAndClose).
+   * Chỉ có ý nghĩa khi maxAttempts hữu hạn (đáp án vốn hiện ngay nếu không giới hạn lượt, không có gì
+   * để "mở sớm") và còn thật sự làm lại được (item.canStartNewAttempt, đã tính cả hạn nộp).
+   */
+  const canRevealAndClose =
+    !justClosedEarly &&
+    attempt != null &&
+    attempt.status === "FULLY_GRADED" &&
+    attempt.passed === true &&
+    exerciseMeta?.maxAttempts != null &&
+    item.canStartNewAttempt;
 
   const loadAnswers = (attemptId: number) => {
     listAnswers(attemptId)
@@ -352,6 +388,26 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
   };
 
   /**
+   * V152 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — xem Javadoc canRevealAndClose
+   * ở trên. Gọi sau khi học sinh đã xác nhận ở popup cảnh báo (không hoàn tác được) — tải lại đáp án
+   * ngay để hiện đầy đủ (BE giờ trả revealAnswer=true cho lượt này), giữ modal đang mở nguyên vị trí.
+   */
+  const handleRevealAndClose = async () => {
+    if (!attempt) return;
+    setRevealClosing(true);
+    setError(null);
+    try {
+      await revealAndCloseAttempt(attempt.id);
+      setJustClosedEarly(true);
+      loadAnswers(attempt.id);
+    } catch (err) {
+      setError(friendlyApiErrorMessage(err, t("takeExercise.loadError")));
+    } finally {
+      setRevealClosing(false);
+    }
+  };
+
+  /**
    * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-22) — thời gian làm bài tính từ lúc mở
    * bài (attempt.startedAt), KHÁC hạn nộp (dueAt, xem AssignmentsTab.tsx — đã bỏ đếm ngược ở đó theo
    * yêu cầu người dùng). exerciseMeta.timeLimitMinutes NULL = không giới hạn, giữ nguyên hành vi cũ.
@@ -474,9 +530,20 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
                 banner amber căng hết chiều rộng trước đây, gọn lại thành 1 badge nhỏ ngay cạnh nút Đóng,
                 bấm/hover mới hiện đủ dòng cảnh báo. */}
             {isMonitoringActive && <MonitoringBadge violationCount={violationCount} />}
+            {/* V152 — nút "Xem đáp án & đóng lượt" tường minh, chỉ hiện khi lượt gần nhất ĐÃ ĐẠT nhưng
+                đáp án còn bị khoá vì còn lượt làm lại — xem canRevealAndClose/handleRevealAndClose. */}
+            {canRevealAndClose && (
+              <button
+                onClick={() => setConfirmingRevealClose(true)}
+                disabled={revealClosing}
+                className="shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-xs font-extrabold transition-colors disabled:opacity-60"
+              >
+                <KeyRound size={14} /> {t("takeExercise.revealAndClose.button")}
+              </button>
+            )}
             {/* V148 — nút "Làm lại" tường minh, chỉ hiện khi đang xem 1 lượt cũ (readOnly) và còn lượt
                 (item.canStartNewAttempt, đã tính cả điều kiện quá hạn nộp ở BE) — xem handleRetake. */}
-            {readOnly && item.canStartNewAttempt && (
+            {readOnly && item.canStartNewAttempt && !justClosedEarly && (
               <button
                 onClick={handleRetake}
                 disabled={loading}
@@ -507,6 +574,42 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
           {t("takeExercise.timeLimit.remainingPrefix")}
           {formatRemaining(timeLimitRemainingMs, t)}
           {timeLimitWarning && ` — ${t("takeExercise.timeLimit.warning")}`}
+        </div>
+      )}
+
+      {/* V152 — giải thích vì sao bài đang dở (IN_PROGRESS) bỗng thành chỉ-xem — xem overdueLockedInProgress. */}
+      {overdueLockedInProgress && (
+        <div className="shrink-0 px-4 sm:px-6 py-2 text-center text-xs font-extrabold bg-coral/10 text-coral border-b border-coral/20">
+          {t("takeExercise.overdueLocked.banner")}
+        </div>
+      )}
+
+      {/* V152 — xác nhận trước khi TỰ NGUYỆN đóng lượt sớm để xem đáp án (không hoàn tác được). */}
+      {confirmingRevealClose && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[120]">
+          <div className="bg-white rounded-[20px] w-full max-w-sm p-6 space-y-4 text-center shadow-xl">
+            <KeyRound size={36} className="text-amber-600 mx-auto" />
+            <h3 className="text-base font-black text-ink">{t("takeExercise.revealAndClose.confirmTitle")}</h3>
+            <p className="text-xs font-bold text-muted leading-relaxed">{t("takeExercise.revealAndClose.confirmDescription")}</p>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <button
+                onClick={() => setConfirmingRevealClose(false)}
+                className="flex-1 px-4 py-2.5 bg-white hover:bg-slate-100 border border-line rounded-xl text-xs font-extrabold text-ink"
+              >
+                {t("takeExercise.revealAndClose.cancel")}
+              </button>
+              <button
+                onClick={() => {
+                  setConfirmingRevealClose(false);
+                  handleRevealAndClose();
+                }}
+                disabled={revealClosing}
+                className="flex-1 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-extrabold disabled:opacity-60"
+              >
+                {revealClosing ? t("takeExercise.revealAndClose.closing") : t("takeExercise.revealAndClose.confirmButton")}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -732,8 +835,9 @@ function SubmitResultPopup({
   );
 }
 
-function QuestionBlock({
+export function QuestionBlock({
   question,
+  displayNumber,
   answer,
   readOnly,
   saving,
@@ -750,6 +854,8 @@ function QuestionBlock({
   onListeningEnded
 }: {
   question: ExerciseQuestionResponse;
+  /** V150 — số thứ tự hiển thị override (dùng khi ghép nhiều Bài vào 1 màn liên tục, xem BatchTakeExerciseModal) — mặc định question.displayOrder như cũ. */
+  displayNumber?: number;
   answer: StudentAnswerResponse | undefined;
   readOnly: boolean;
   saving: boolean;
@@ -799,7 +905,7 @@ function QuestionBlock({
     <div className="border border-line/60 rounded-[16px] p-4 sm:p-5 lg:p-6 space-y-3 lg:space-y-4">
       <div className="flex items-start justify-between gap-3">
         <p className="text-sm sm:text-base lg:text-lg font-bold text-ink">
-          {question.displayOrder}. {question.questionContent}
+          {displayNumber ?? question.displayOrder}. {question.questionContent}
         </p>
         <div className="flex items-center gap-2 shrink-0">
           {question.skill === "LISTENING" && question.audioUrl && attemptId != null && (
@@ -815,6 +921,9 @@ function QuestionBlock({
       </div>
 
       <ListeningAudioBlock question={question} onEnded={() => onListeningEnded(question)} />
+
+      {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — ảnh minh họa câu hỏi (ESSAY/WORD_BANK/SENTENCE_BUILDING), trước đây soạn có ảnh nhưng học sinh không thấy vì DTO chưa trả field này. */}
+      {question.imageUrl && <img src={question.imageUrl} alt="" className="w-full max-w-sm rounded-xl border border-line/60" />}
 
       {isChoiceQuestion && question.choices.some((c) => c.imageUrl) ? (
         // V143 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23) — Listening "chọn đáp án
@@ -908,7 +1017,7 @@ function QuestionBlock({
       ) : question.questionType === "WORD_BANK" && question.structuredContent?.blanks ? (
         <WordBankBlock
           content={question.questionContent}
-          wordPool={question.structuredContent.blanks}
+          wordPool={question.structuredContent.wordBankOptions ?? question.structuredContent.blanks}
           initialAnswer={answer?.structuredAnswer ?? undefined}
           readOnly={readOnly}
           saving={saving}
@@ -1333,8 +1442,9 @@ function SentenceBuildingBlock({
  * nhánh theo questionType — MULTIPLE_CHOICE giữ nguyên dãy nút chọn đáp án như cũ, FILL_IN_BLANK
  * thêm ô nhập text tự chấm, SPEAKING thêm control nộp audio (chấm tay).
  */
-function GridQuestionGroup({
+export function GridQuestionGroup({
   block,
+  startNumber,
   answersByQuestion,
   readOnly,
   savingQuestionId,
@@ -1350,6 +1460,8 @@ function GridQuestionGroup({
   onListeningEnded
 }: {
   block: Extract<RenderBlock, { type: "grid" }>;
+  /** V150 — số thứ tự câu ĐẦU TIÊN của nhóm (dùng khi ghép nhiều Bài, xem QuestionBlock#displayNumber) — mặc định q.displayOrder như cũ khi không truyền. */
+  startNumber?: number;
   answersByQuestion: Map<number, StudentAnswerResponse>;
   readOnly: boolean;
   savingQuestionId: number | null;
@@ -1398,7 +1510,7 @@ function GridQuestionGroup({
         </div>
       )}
       <div className="divide-y divide-line/50">
-        {block.questions.map((q) => {
+        {block.questions.map((q, qIndex) => {
           const answer = answersByQuestion.get(q.questionId);
           const selected = new Set(answer?.selectedChoiceIds ?? []);
           const correctIds = new Set(answer?.correctChoiceIds ?? []);
@@ -1411,7 +1523,7 @@ function GridQuestionGroup({
             <div key={q.id} className="py-2.5 lg:py-3.5 space-y-2">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xs sm:text-sm lg:text-base font-bold text-ink flex-1 min-w-[160px]">
-                  {q.displayOrder}. {q.questionContent}
+                  {startNumber != null ? startNumber + qIndex : q.displayOrder}. {q.questionContent}
                 </span>
               </div>
 

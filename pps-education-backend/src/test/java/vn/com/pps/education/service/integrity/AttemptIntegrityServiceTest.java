@@ -186,7 +186,7 @@ class AttemptIntegrityServiceTest extends AbstractIntegrationTest {
         parentUser = userRepository.findById(parent.userId()).orElseThrow();
 
         defaultExam = examService.createExam(
-                new CreateExamRequest(examCode(), "Đề mặc định", activeCurriculum.id(), "VIETNAMESE", "HOMEWORK"), teacher.getId());
+                new CreateExamRequest(examCode(), "Đề mặc định", activeCurriculum.id(), "VIETNAMESE", "HOMEWORK", null), teacher.getId());
     }
 
     @Test
@@ -274,12 +274,12 @@ class AttemptIntegrityServiceTest extends AbstractIntegrationTest {
     @Test
     void recordEvents_boSung_reviewVideoQuestionEventsPersistOnlyAlongsideSuccessfulSubmission() {
         ReviewVideoSetResponse set = reviewVideoService.createSet(
-                new CreateReviewVideoSetRequest(setCode(), "Video phản xạ", "REFLEX", schoolClass.curriculumId(), "VIETNAMESE", null, 1),
+                new CreateReviewVideoSetRequest(setCode(), "Video phản xạ", "REFLEX", schoolClass.curriculumId(), "VIETNAMESE", null, 1, null),
                 teacher.getId());
         // V98 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06): curriculum trên "bộ" giờ
         // CHỈ dùng lọc/tìm kiếm — phải assignToClass tường minh trước khi deliverToClass mới thành công.
         reviewVideoService.assignToClass(set.id(), schoolClass.id(), teacher.getId());
-        reviewVideoService.updateSet(set.id(), new UpdateReviewVideoSetRequest(set.title(), "VIETNAMESE", null, 1, "PUBLISHED"), teacher.getId());
+        reviewVideoService.updateSet(set.id(), new UpdateReviewVideoSetRequest(set.title(), "VIETNAMESE", null, 1, "PUBLISHED", null), teacher.getId());
         // V71: deliverToClass dùng PROPAGATION_REQUIRES_NEW — phải commit set vừa tạo trước.
         commitCurrentTransactionAndStartNew();
         ReviewVideoAssignment assignment = reviewVideoService.deliverToClass(set.id(), schoolClass.id(), null, teacher.getId());

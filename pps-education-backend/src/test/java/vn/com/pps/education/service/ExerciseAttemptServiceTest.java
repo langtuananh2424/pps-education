@@ -144,7 +144,7 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         classService.enroll(schoolClass.id(), new EnrollStudentRequest(student.getId(), LocalDate.now()), headAcademic.getId());
 
         defaultExam = examService.createExam(
-                new CreateExamRequest(examCode(), "Đề mặc định", activeCurriculum.id(), "VIETNAMESE", "HOMEWORK"), teacher.getId());
+                new CreateExamRequest(examCode(), "Đề mặc định", activeCurriculum.id(), "VIETNAMESE", "HOMEWORK", null), teacher.getId());
     }
 
     /**
@@ -237,9 +237,11 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         QuestionResponse mc = createMcQuestion();
         ExerciseResponse exercise = assignedExerciseWithQuestions(List.of(mc), OffsetDateTime.now().minusDays(1), false, true);
         ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), activeAssignmentId(exercise.id()), studentUser.getId());
-        answerCorrectly(attempt.id(), mc);
 
-        assertThatThrownBy(() -> exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId()))
+        // V152 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25): saveAnswer giờ cũng
+        // chặn quá hạn nộp (không chỉ submitAttempt như trước) — exception nổ ra ngay lúc ghi câu trả
+        // lời, không còn đợi tới lúc Nộp bài mới chặn.
+        assertThatThrownBy(() -> answerCorrectly(attempt.id(), mc))
                 .isInstanceOf(SubmissionPastDeadlineException.class);
     }
 

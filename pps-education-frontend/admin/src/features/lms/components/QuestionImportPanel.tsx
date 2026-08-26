@@ -3,15 +3,40 @@ import { Download, UploadCloud } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { buildXlsxTemplateBlob, downloadBlob } from "@/lib/xlsxTemplate";
-import { QuestionImportResponse, QuestionImportedRow, downloadExamQuestionImportWordTemplate, downloadQuestionImportWordTemplate, importExamQuestions, importQuestions } from "../api";
+import {
+  ExamTeacherType,
+  ExerciseSkillCategory,
+  QuestionImportResponse,
+  QuestionImportedRow,
+  downloadExamQuestionImportWordTemplate,
+  downloadQuestionImportWordTemplate,
+  importExamQuestions,
+  importQuestions
+} from "../api";
 
 type FileFormat = "xlsx" | "docx";
 
 interface QuestionImportPanelProps {
   bankId?: number;
   examId?: number;
+  /**
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — khi truyền kèm (luồng "Soạn Bài
+   * mới" theo Đề), lọc mẫu Excel + tải mẫu Word chỉ còn loại khớp Nhóm kỹ năng đã chọn ở bước 1
+   * (skillCategoryKinds.ts phía FE, SKILL_CATEGORY_KIND_TOKENS phía backend). Bỏ trống (dùng ở trang
+   * Ngân hàng câu hỏi độc lập, không có ngữ cảnh Bài) = hiện đủ tất cả như trước.
+   */
+  skillCategory?: ExerciseSkillCategory;
+  teacherType?: ExamTeacherType;
   onImported: (createdQuestions: QuestionImportedRow[]) => void;
 }
+
+/** Mirror SKILL_CATEGORY_KIND_TOKENS ở QuestionImportService.java (backend) — nguồn chân lý DUY NHẤT
+ * cho lọc file mẫu Excel phía FE, KHÔNG tự thêm/bớt token khác backend. */
+const SKILL_CATEGORY_KIND_TOKENS: Record<string, string[]> = {
+  VOCAB_GRAMMAR: ["TRAC_NGHIEM", "TRAC_NGHIEM_VOICE", "DIEN_TU", "DIEN_TU_HOP_TU_VUNG", "DIEN_TU_HOP_TU_VUNG_ANH", "SAP_XEP_CAU", "SAP_XEP_CHU_CAI"],
+  WRITING: ["TU_LUAN"],
+  LISTENING: ["TRAC_NGHIEM_VOICE", "NGHE_NOP_AUDIO", "NGHE_DIEN_TU"]
+};
 
 /**
  * UC-40 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30):
@@ -22,7 +47,7 @@ interface QuestionImportPanelProps {
  * định dạng .xlsx và đang dùng ở 7 nơi khác — hỗ trợ thêm .docx ở đây sẽ
  * phải sửa hành vi chung không cần thiết cho các nơi kia.
  */
-export default function QuestionImportPanel({ bankId, examId, onImported }: QuestionImportPanelProps) {
+export default function QuestionImportPanel({ bankId, examId, skillCategory, teacherType, onImported }: QuestionImportPanelProps) {
   const { t } = useTranslation("lms-question-authoring");
   const [format, setFormat] = useState<FileFormat>("xlsx");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -34,9 +59,12 @@ export default function QuestionImportPanel({ bankId, examId, onImported }: Ques
   const handleDownloadTemplate = async () => {
     setError(null);
     if (format === "xlsx") {
-      // Cột cố định của mẫu Excel — khớp 1:1 vị trí đọc trong ExcelQuestionRowParser.java (A→N),
-      // đọc theo vị trí cột nên đổi ngôn ngữ header không ảnh hưởng backend parse. 5 dòng ví dụ demo
-      // đủ 5 loại UI hỗ trợ, y hệt nội dung buildWordTemplate() bên backend để 2 định dạng nhất quán.
+      // Cột cố định của mẫu Excel — ExcelQuestionRowParser.java đọc theo TÊN header (dòng 1), không
+      // theo vị trí cột, nên thứ tự/ngôn ngữ header đổi được miễn còn khớp alias (xem
+      // QuestionImportFieldAliases.java) — mảng dưới đây chỉ cần khớp ĐÚNG THỨ TỰ với mảng `headers`.
+      // 11 dòng ví dụ demo đủ 11 loại UI hỗ trợ (bổ sung 2026-08-26: NGHE_NOP_AUDIO/NGHE_DIEN_TU cho
+      // GV nước ngoài), y hệt nội dung buildWordTemplate() bên backend để 2
+      // định dạng nhất quán.
       const headers = t("questionImportPanel.excelHeaders", { returnObjects: true }) as string[];
       const sampleRows: string[][] = [
         ["TRAC_NGHIEM", "EASY", "What is the capital of France?", "London", "Paris", "Berlin", "Madrid", "B",
@@ -48,15 +76,33 @@ export default function QuestionImportPanel({ bankId, examId, onImported }: Ques
         ["TU_LUAN", "HARD", "Write a 150-word essay about your favorite hobby.", "", "", "", "", "",
           "", "https://example-r2.dev/lms/questions/images/mau.png", "", "2", t("questionImportPanel.excelSampleExplanations.essayRubric"), ""],
         ["SPEAKING", "", "Read the following sentence aloud.", "", "", "", "", "",
-          "", "", "enthusiasm, literature, variety", "1", "", ""]
+          "", "", "enthusiasm, literature, variety", "1", "", ""],
+        ["DIEN_TU_HOP_TU_VUNG", "", "She ___ to school every day. He ___ football on Sundays.", "", "", "", "", "goes|plays",
+          "", "", "", "1", t("questionImportPanel.excelSampleExplanations.wordBank"), ""],
+        ["DIEN_TU_HOP_TU_VUNG_ANH", "", "1. The cat is ___ the bed. 2. The ball is ___ the box.", "", "", "", "", "under|next to",
+          "", "https://example-r2.dev/lms/questions/images/mau-phong.png", "under, next to, behind, in front of, on", "1",
+          t("questionImportPanel.excelSampleExplanations.wordBankPicture"), ""],
+        ["SAP_XEP_CAU", "", "Sắp xếp thành câu hoàn chỉnh.", "", "", "", "", "This|is|a|pen",
+          "", "", "", "1", t("questionImportPanel.excelSampleExplanations.sentenceBuilding"), ""],
+        ["SAP_XEP_CHU_CAI", "", "Sắp xếp chữ cái thành từ đúng (nghĩa: nụ cười).", "", "", "", "", "s|m|i|l|e",
+          "", "https://example-r2.dev/lms/questions/images/mau-smile.png", "", "1",
+          t("questionImportPanel.excelSampleExplanations.letterScramble"), ""],
+        ["NGHE_NOP_AUDIO", "", "Listen to the audio and record your answer.", "", "", "", "", "",
+          "https://example-r2.dev/lms/questions/audio/mau-nghe.mp3", "", "", "1",
+          t("questionImportPanel.excelSampleExplanations.listeningAudioSubmission"), ""],
+        ["NGHE_DIEN_TU", "", "Listen and fill in the blank: She usually ___ to work.", "", "", "", "", "drives",
+          "https://example-r2.dev/lms/questions/audio/mau-nghe-dien-tu.mp3", "", "", "1",
+          t("questionImportPanel.excelSampleExplanations.listeningFillInBlank"), ""]
       ];
-      const blob = buildXlsxTemplateBlob(headers, sampleRows);
+      const allowedTokens = teacherType === "FOREIGN" ? SKILL_CATEGORY_KIND_TOKENS.LISTENING : skillCategory ? SKILL_CATEGORY_KIND_TOKENS[skillCategory] : undefined;
+      const filteredRows = allowedTokens ? sampleRows.filter((row) => allowedTokens.includes(row[0])) : sampleRows;
+      const blob = buildXlsxTemplateBlob(headers, filteredRows);
       downloadBlob(blob, "mau-soan-cau-hoi.xlsx");
       return;
     }
     setDownloadingTemplate(true);
     try {
-      const blob = await (examId ? downloadExamQuestionImportWordTemplate() : downloadQuestionImportWordTemplate());
+      const blob = await (examId ? downloadExamQuestionImportWordTemplate(skillCategory, teacherType) : downloadQuestionImportWordTemplate());
       downloadBlob(blob, "mau-soan-cau-hoi.docx");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t("questionImportPanel.downloadTemplateFailed"));

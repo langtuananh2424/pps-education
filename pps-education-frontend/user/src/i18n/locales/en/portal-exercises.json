@@ -38,6 +38,17 @@
       "stay": "Keep working",
       "stillClose": "Close anyway"
     },
+    "revealAndClose": {
+      "button": "View answers & close",
+      "confirmTitle": "View the answer key now?",
+      "confirmDescription": "You've passed this exercise and still have retakes left. Viewing the answer key now will close this attempt for good — you will NOT be able to retake it for a higher score anymore.",
+      "cancel": "Not now",
+      "confirmButton": "View answers, close it",
+      "closing": "Working on it..."
+    },
+    "overdueLocked": {
+      "banner": "Past the submission deadline — your unfinished attempt is now locked to view-only; you can no longer continue or submit it."
+    },
     "confirmSubmit": {
       "message": "Submit now? You won't be able to change your answers after submitting.",
       "cancel": "Cancel",
@@ -149,6 +160,11 @@
     "noQuestions": "This video doesn't have any questions yet.",
     "badge": "Reflex video",
     "exitButton": "Exit",
+    "playButton": "Play video",
+    "pauseButton": "Pause video",
+    "replayButton": "Replay this part",
+    "durationLabel": "Video length: {{duration}}",
+    "timelineLabel": "Question marks",
     "reviewBadge": "Reviewing",
     "closeReviewButton": "Close",
     "startScreen": {
@@ -183,7 +199,7 @@
       "useSuggestionButton": "Fill answer box with this",
       "passedPopup": {
         "heading": "Passed the writing step",
-        "startRecordingButton": "Start recording"
+        "continueButton": "Continue"
       }
     },
     "speakingStage": {
@@ -234,11 +250,13 @@
       "all": "All homework ({{count}})",
       "pending": "To do ({{count}})",
       "graded": "Submitted & graded ({{count}})",
+      "overdue": "Overdue ({{count}})",
       "typeAriaLabel": "Filter by type",
       "typeDialogAriaLabel": "Choose a type",
       "typeAll": "All types",
-      "typeExercise": "Grammar exercises ({{count}})",
-      "typeVideo": "Connection/Reflex videos ({{count}})"
+      "typeGroupExercise": "Exercises",
+      "typeGroupVideo": "Review videos",
+      "typeOther": "Other exercises"
     },
     "empty": "No homework in this category.",
     "exercise": {
@@ -255,7 +273,7 @@
       "teacherVietnamese": "Vietnamese teacher",
       "teacherForeign": "Foreign teacher",
       "assignedInSession": "Assigned in the {{date}} session",
-      "scoreLabel": "Score: ",
+      "completedLabel": "Completed: ",
       "passed": "Passed",
       "notPassed": "Not passed"
     },
@@ -272,6 +290,22 @@
       },
       "connectionType": "Connection video",
       "reflexType": "Reflex video"
+    },
+    "batch": {
+      "skillLabel": {
+        "VOCAB_GRAMMAR": "Grammar",
+        "READING": "Reading",
+        "WRITING": "Writing",
+        "LISTENING": "Listening"
+      },
+      "countSuffix": "({{count}} exercises)",
+      "progressLabel": "Exercise {{index}}/{{total}} — {{title}}",
+      "summary": {
+        "pendingTitle": "\"{{title}}\" submitted!",
+        "passedTitle": "Congratulations — you completed \"{{title}}\"!",
+        "failedTitle": "You completed \"{{title}}\"",
+        "combinedScoreLabel": "Combined result: {{score}}/{{total}} points ({{percentage}}%)"
+      }
     }
   },
   "parentHomework": {

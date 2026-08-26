@@ -135,7 +135,7 @@ class HomeworkDeadlineSchedulerServiceTest extends AbstractIntegrationTest {
         bank = questionBankService.createBank(
                 new CreateQuestionBankRequest(bankCode(), "Ngân hàng", activeCurriculum.id(), null, "A1"), teacher.getId());
         defaultExam = examService.createExam(
-                new CreateExamRequest(examCode(), "Đề mặc định", activeCurriculum.id(), "VIETNAMESE", "HOMEWORK"), teacher.getId());
+                new CreateExamRequest(examCode(), "Đề mặc định", activeCurriculum.id(), "VIETNAMESE", "HOMEWORK", null), teacher.getId());
 
         studentDoneUser = enrollNewStudent("student.hw.done");
         studentNotDoneUser = enrollNewStudent("student.hw.notdone");
@@ -228,12 +228,12 @@ class HomeworkDeadlineSchedulerServiceTest extends AbstractIntegrationTest {
     @Test
     void runDeadlineScan_MainFlow_notifiesTeacherWithClassCompletionRateForReviewVideo() {
         ReviewVideoSetResponse set = reviewVideoService.createSet(
-                new CreateReviewVideoSetRequest(setCode(), "Bài 1: Video TKN", "CONNECTION", schoolClass.curriculumId(), "VIETNAMESE", null, 1),
+                new CreateReviewVideoSetRequest(setCode(), "Bài 1: Video TKN", "CONNECTION", schoolClass.curriculumId(), "VIETNAMESE", null, 1, null),
                 teacher.getId());
         // V98 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06): curriculum trên "bộ" giờ
         // CHỈ dùng lọc/tìm kiếm — phải assignToClass tường minh trước khi deliverToClass mới thành công.
         reviewVideoService.assignToClass(set.id(), schoolClass.id(), teacher.getId());
-        reviewVideoService.updateSet(set.id(), new UpdateReviewVideoSetRequest(set.title(), "VIETNAMESE", null, 1, "PUBLISHED"), teacher.getId());
+        reviewVideoService.updateSet(set.id(), new UpdateReviewVideoSetRequest(set.title(), "VIETNAMESE", null, 1, "PUBLISHED", null), teacher.getId());
         ReviewVideoResponse video = reviewVideoService.addVideo(set.id(),
                 new AddReviewVideoRequest("R2_VIDEO", "Video", "https://media.pps.edu.vn/lms/review-videos/video/x.mp4",
                         1_000_000L, 100, 1, null, null),

@@ -10,5 +10,7 @@ import jakarta.validation.constraints.NotBlank;
 public record UpdateExamRequest(
         @NotBlank String title,
         @NotBlank String teacherType,
-        @NotBlank String examType
+        @NotBlank String examType,
+        /** V144 — sửa được (thuần điều hướng/phân loại, không có workflow duyệt như curriculumId). */
+        Long subTopicId
 ) {}

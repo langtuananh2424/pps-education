@@ -38,6 +38,17 @@
       "stay": "Ở lại làm bài",
       "stillClose": "Vẫn đóng"
     },
+    "revealAndClose": {
+      "button": "Xem đáp án & đóng lượt",
+      "confirmTitle": "Xem đáp án ngay bây giờ?",
+      "confirmDescription": "Bạn đã đạt bài này và vẫn còn lượt làm lại. Nếu xem đáp án ngay, hệ thống sẽ đóng luôn lượt làm — bạn sẽ KHÔNG thể làm lại bài này để thử điểm cao hơn nữa.",
+      "cancel": "Để sau",
+      "confirmButton": "Xem đáp án, đóng lượt",
+      "closing": "Đang xử lý..."
+    },
+    "overdueLocked": {
+      "banner": "Đã quá hạn nộp — bài làm dở của bạn đã bị khoá, chỉ có thể xem lại, không thể tiếp tục làm hoặc nộp bài."
+    },
     "confirmSubmit": {
       "message": "Nộp bài ngay? Sau khi nộp sẽ không sửa được câu trả lời nữa.",
       "cancel": "Hủy",
@@ -149,6 +160,11 @@
     "noQuestions": "Video này chưa có câu hỏi nào.",
     "badge": "Video phản xạ",
     "exitButton": "Thoát",
+    "playButton": "Phát video",
+    "pauseButton": "Tạm dừng video",
+    "replayButton": "Nghe lại đoạn này",
+    "durationLabel": "Thời lượng video: {{duration}}",
+    "timelineLabel": "Các mốc câu hỏi",
     "reviewBadge": "Đang xem lại",
     "closeReviewButton": "Đóng",
     "startScreen": {
@@ -183,7 +199,7 @@
       "useSuggestionButton": "Điền gợi ý vào ô trả lời",
       "passedPopup": {
         "heading": "Đạt bước viết",
-        "startRecordingButton": "Bắt đầu ghi âm"
+        "continueButton": "Tiếp tục"
       }
     },
     "speakingStage": {
@@ -234,11 +250,13 @@
       "all": "Tất cả bài tập ({{count}})",
       "pending": "Cần hoàn thành ({{count}})",
       "graded": "Đã nộp & Đã chấm ({{count}})",
+      "overdue": "Bài tập quá hạn ({{count}})",
       "typeAriaLabel": "Lọc theo loại bài",
       "typeDialogAriaLabel": "Chọn loại bài",
       "typeAll": "Tất cả loại bài",
-      "typeExercise": "Bài ngữ pháp ({{count}})",
-      "typeVideo": "Video Kết nối - Phản xạ ({{count}})"
+      "typeGroupExercise": "Bài tập",
+      "typeGroupVideo": "Video ôn tập",
+      "typeOther": "Bài khác"
     },
     "empty": "Không có bài tập nào trong mục này.",
     "exercise": {
@@ -255,7 +273,7 @@
       "teacherVietnamese": "Giáo viên Việt Nam phụ trách",
       "teacherForeign": "Giáo viên nước ngoài phụ trách",
       "assignedInSession": "Giao trong buổi {{date}}",
-      "scoreLabel": "Điểm: ",
+      "completedLabel": "Hoàn thành: ",
       "passed": "Đạt",
       "notPassed": "Chưa đạt"
     },
@@ -272,6 +290,22 @@
       },
       "connectionType": "Video từ kết nối",
       "reflexType": "Video phản xạ"
+    },
+    "batch": {
+      "skillLabel": {
+        "VOCAB_GRAMMAR": "Ngữ pháp",
+        "READING": "Reading",
+        "WRITING": "Writing",
+        "LISTENING": "Nghe"
+      },
+      "countSuffix": "({{count}} bài)",
+      "progressLabel": "Bài {{index}}/{{total}} — {{title}}",
+      "summary": {
+        "pendingTitle": "Đã nộp \"{{title}}\"!",
+        "passedTitle": "Chúc mừng bạn đã hoàn thành \"{{title}}\"!",
+        "failedTitle": "Bạn đã hoàn thành \"{{title}}\"",
+        "combinedScoreLabel": "Kết quả gộp: {{score}}/{{total}} điểm ({{percentage}}%)"
+      }
     }
   },
   "parentHomework": {
