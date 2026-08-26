@@ -38,6 +38,7 @@ import vn.com.pps.education.dto.DailyCommentImportResponse;
 import vn.com.pps.education.dto.DecideCommentsRequest;
 import vn.com.pps.education.dto.EnrollStudentRequest;
 import vn.com.pps.education.dto.EnterAttendanceMarkRequest;
+import vn.com.pps.education.dto.ExamResponse;
 import vn.com.pps.education.dto.ExerciseResponse;
 import vn.com.pps.education.dto.MarkAttendanceRequest;
 import vn.com.pps.education.dto.QuestionBankResponse;
@@ -83,7 +84,9 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -108,6 +111,10 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
     // dùng hằng số thay vì số ma thuật để tránh sai lệch khi buildCommentWorkbook()/rowForStudent()
     // tham chiếu vị trí cột. Trước V130 (2026-08-21) đây là layout FOREIGN 17 cột (Offline gộp 1
     // cột/nhóm) — buổi VIETNAMESE giờ tách thêm Reading/Writing riêng ở cả 2 nhóm BTVN.
+    // V137 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23): thêm 2 cột "% tự động
+    // Reading/Writing online" mỗi nhóm BTVN (buổi VIETNAMESE) — CHỈ hiển thị ở buildTemplate() (xuất),
+    // KHÔNG đọc lúc importComments() (xem StudentCommentService#parseRow) — đẩy lùi mọi cột phía sau
+    // thêm 2 vị trí so với layout 19 cột cũ (khớp HomeworkColumns trong StudentCommentService).
     private static final int COL_DATE = 0;
     private static final int COL_STUDENT_CODE = 1;
     private static final int COL_FULL_NAME = 2;
@@ -117,16 +124,20 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
     private static final int COL_ATTENDANCE = 6;
     private static final int COL_HOMEWORK_READING_PREVIOUS = 7;
     private static final int COL_HOMEWORK_WRITING_PREVIOUS = 8;
-    private static final int COL_HOMEWORK_GRAMMAR_PREVIOUS = 9;
-    private static final int COL_HOMEWORK_SPEAKING_PREVIOUS = 10;
-    private static final int COL_HOMEWORK_READING_NEXT = 11;
-    private static final int COL_HOMEWORK_WRITING_NEXT = 12;
-    private static final int COL_HOMEWORK_GRAMMAR_NEXT = 13;
-    private static final int COL_HOMEWORK_VIDEO_NEXT = 14;
-    private static final int COL_DUE_DATE = 15;
-    private static final int COL_ATTITUDE = 16;
-    private static final int COL_CONTENT = 17;
-    private static final int COL_NOTE = 18;
+    private static final int COL_HOMEWORK_READING_ONLINE_PREVIOUS = 9;
+    private static final int COL_HOMEWORK_WRITING_ONLINE_PREVIOUS = 10;
+    private static final int COL_HOMEWORK_GRAMMAR_PREVIOUS = 11;
+    private static final int COL_HOMEWORK_SPEAKING_PREVIOUS = 12;
+    private static final int COL_HOMEWORK_READING_NEXT = 13;
+    private static final int COL_HOMEWORK_WRITING_NEXT = 14;
+    private static final int COL_HOMEWORK_READING_ONLINE_NEXT = 15;
+    private static final int COL_HOMEWORK_WRITING_ONLINE_NEXT = 16;
+    private static final int COL_HOMEWORK_GRAMMAR_NEXT = 17;
+    private static final int COL_HOMEWORK_VIDEO_NEXT = 18;
+    private static final int COL_DUE_DATE = 19;
+    private static final int COL_ATTITUDE = 20;
+    private static final int COL_CONTENT = 21;
+    private static final int COL_NOTE = 22;
 
     @Autowired
     private StudentCommentService studentCommentService;
@@ -731,13 +742,13 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
             Row leafHeader = sheet.getRow(2);
             assertThat(groupHeader.getCell(0).getStringCellValue()).isEqualTo("Ngày*");
             assertThat(groupHeader.getCell(6).getStringCellValue()).isEqualTo("Điểm danh*");
-            assertThat(groupHeader.getCell(7).getStringCellValue()).isEqualTo("BTVN buổi trước");
-            assertThat(groupHeader.getCell(11).getStringCellValue()).isEqualTo("BTVN buổi này");
-            assertThat(subGroupHeader.getCell(7).getStringCellValue()).isEqualTo("Offline");
-            assertThat(subGroupHeader.getCell(9).getStringCellValue()).isEqualTo("Online");
+            assertThat(groupHeader.getCell(COL_HOMEWORK_READING_PREVIOUS).getStringCellValue()).isEqualTo("BTVN buổi trước");
+            assertThat(groupHeader.getCell(COL_HOMEWORK_READING_NEXT).getStringCellValue()).isEqualTo("BTVN buổi này");
+            assertThat(subGroupHeader.getCell(COL_HOMEWORK_READING_PREVIOUS).getStringCellValue()).isEqualTo("Offline");
+            assertThat(subGroupHeader.getCell(COL_HOMEWORK_READING_ONLINE_PREVIOUS).getStringCellValue()).isEqualTo("Online");
             // classSession giờ luôn có teacherType=VIETNAMESE -- nhãn kênh riêng "Từ vựng + Ngữ pháp"
             // (VIETNAMESE_ONLINE_GRAMMAR_LABEL, V130) thay vì grammarChannelLabel dùng chung.
-            assertThat(leafHeader.getCell(9).getStringCellValue()).isEqualTo("Từ vựng + Ngữ pháp");
+            assertThat(leafHeader.getCell(COL_HOMEWORK_GRAMMAR_PREVIOUS).getStringCellValue()).isEqualTo("Từ vựng + Ngữ pháp");
             assertThat(sheet.getLastRowNum()).isEqualTo(3);
             Row row = sheet.getRow(3);
             assertThat(row.getCell(1).getStringCellValue()).isEqualTo(student.getStudentCode());
@@ -1005,7 +1016,30 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         return new GrammarFixture(published, question);
     }
 
-    private void answerGrammarCorrectly(GrammarFixture fixture, Long assignmentId) {
+    /**
+     * V150: dropdown/uuid Excel "BTVN Ngữ pháp buổi sau" giờ khớp theo Đề (Exam) — mirror
+     * StudentCommentService#examSkillGroupLabel — KHÔNG còn là uuid/label của chính Exercise nữa (xem
+     * StudentCommentService#parseRow dùng examRepository::findByUuid). Fixture ở đây luôn có đúng 1
+     * Bài PUBLISHED/1 câu hỏi nên tính label trực tiếp mà không cần đọc lại examSkillGroupsByLabel.
+     */
+    private UUID examUuid(GrammarFixture fixture) {
+        return examService.getExam(fixture.exercise().examId(), teacher.getId()).uuid();
+    }
+
+    private String examDropdownLabel(GrammarFixture fixture) {
+        ExamResponse exam = examService.getExam(fixture.exercise().examId(), teacher.getId());
+        return exam.code() + " - " + exam.title() + " (Ngữ pháp, 1 bài, 1 câu)";
+    }
+
+    /**
+     * V150: không còn dùng thẳng homeworkNextExerciseAssignmentId() (giờ là examId, xem Javadoc
+     * StudentCommentService#toResponse) làm assignmentId — tra ngược bản giao ACTIVE thật qua
+     * exerciseId+classId+status.
+     */
+    private void answerGrammarCorrectly(GrammarFixture fixture) {
+        List<ExerciseAssignment> assignments = exerciseAssignmentRepository.findByExerciseIdAndSchoolClassIdAndStatus(
+                fixture.exercise().id(), schoolClass.id(), ExerciseAssignment.Status.ACTIVE);
+        Long assignmentId = assignments.get(0).getId();
         var attempt = exerciseAttemptService.startAttempt(fixture.exercise().id(), assignmentId, student.getUser().getId());
         Long correctChoiceId = fixture.question().choices().stream().filter(c -> c.isCorrect()).findFirst().orElseThrow().id();
         exerciseAttemptService.saveAnswer(attempt.id(),
@@ -1078,11 +1112,28 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         }
     }
 
+    /**
+     * ExcelExportHelper#addColumnDropdowns dùng named-range (sheet ẩn "_dd<col>") thay vì explicit-list
+     * bất cứ khi nào 1 giá trị chứa dấu phẩy (bug thật: Excel explicit-list dùng dấu phẩy phân tách
+     * item, nhãn "examSkillGroupLabel" luôn có dấu phẩy) — đọc cả 2 kiểu constraint cho khớp.
+     */
     private List<String> dropdownValues(byte[] excelBytes, int col) throws IOException {
         try (var workbook = new XSSFWorkbook(new ByteArrayInputStream(excelBytes))) {
             for (var validation : workbook.getSheetAt(0).getDataValidations()) {
                 if (validation.getRegions().getCellRangeAddress(0).getFirstColumn() == col) {
-                    return List.of(validation.getValidationConstraint().getExplicitListValues());
+                    String[] explicit = validation.getValidationConstraint().getExplicitListValues();
+                    if (explicit != null && explicit.length > 0) {
+                        return List.of(explicit);
+                    }
+                    Sheet hidden = workbook.getSheet("_dd" + col);
+                    if (hidden == null) {
+                        return List.of();
+                    }
+                    List<String> values = new ArrayList<>();
+                    for (int r = 0; r <= hidden.getLastRowNum(); r++) {
+                        values.add(hidden.getRow(r).getCell(0).getStringCellValue());
+                    }
+                    return values;
                 }
             }
             return List.of();
@@ -1099,7 +1150,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         // thấy bản giao tồn tại.
         StudentCommentResponse submitted = studentCommentService.submitComments(schoolClass.id(),
                 new SubmitCommentsRequest(List.of(comment.id())), teacher.getId()).get(0);
-        answerGrammarCorrectly(fixture, submitted.homeworkNextExerciseAssignmentId());
+        answerGrammarCorrectly(fixture);
 
         byte[] template = studentCommentService.buildTemplate(session2.id(), teacher.getId());
 
@@ -1470,7 +1521,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         byte[] template = studentCommentService.buildTemplate(classSession.id(), teacher.getId());
 
         assertThat(dropdownValues(template, COL_HOMEWORK_GRAMMAR_NEXT))
-                .containsExactly(fixture.exercise().examCode() + " - " + fixture.exercise().title());
+                .containsExactly(examDropdownLabel(fixture));
         assertThat(dropdownValues(template, COL_HOMEWORK_VIDEO_NEXT))
                 .containsExactly(video.set().title() + " (" + video.set().code() + ")");
     }
@@ -1485,7 +1536,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
                 teacher.getId());
         byte[] file = buildCommentWorkbook(new String[][]{
                 commentRow(classSession.sessionDate().toString(), student.getStudentCode(), "", "",
-                        "Có mặt", "", "", "", "Nội dung.", "", fixture.exercise().uuid().toString(), "", "", "", "")
+                        "Có mặt", "", "", "", "Nội dung.", "", examUuid(fixture).toString(), "", "", "", "")
         });
 
         DailyCommentImportResponse result = studentCommentService.importComments(classSession.id(),
@@ -1499,8 +1550,11 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         StudentCommentResponse submitted = studentCommentService.submitComments(schoolClass.id(),
                 new SubmitCommentsRequest(List.of(saved.id())), teacher.getId()).get(0);
         assertThat(submitted.homeworkNextExerciseAssignmentId()).isNotNull();
-        ExerciseAssignment created = exerciseAssignmentRepository.findById(submitted.homeworkNextExerciseAssignmentId()).orElseThrow();
-        assertThat(created.getExercise().getId()).isEqualTo(fixture.exercise().id());
+        // V150: homeworkNextExerciseAssignmentId giờ trả examId, không còn là id của chính
+        // ExerciseAssignment — tra ngược bản giao thật qua exerciseId+classId+status.
+        List<ExerciseAssignment> created = exerciseAssignmentRepository.findByExerciseIdAndSchoolClassIdAndStatus(
+                fixture.exercise().id(), schoolClass.id(), ExerciseAssignment.Status.ACTIVE);
+        assertThat(created).hasSize(1);
     }
 
     @Test
@@ -1511,7 +1565,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
                 new MarkAttendanceRequest("SESSION_LEVEL", List.of(
                         new EnterAttendanceMarkRequest(student.getId(), "PRESENT", null, null, null))),
                 teacher.getId());
-        String label = fixture.exercise().examCode() + " - " + fixture.exercise().title();
+        String label = examDropdownLabel(fixture);
         byte[] file = buildCommentWorkbook(new String[][]{
                 commentRow(classSession.sessionDate().toString(), student.getStudentCode(), "", "",
                         "Có mặt", "", "", "", "Nội dung.", "", label, "", "", "", "")
@@ -1528,8 +1582,11 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         StudentCommentResponse submitted = studentCommentService.submitComments(schoolClass.id(),
                 new SubmitCommentsRequest(List.of(saved.id())), teacher.getId()).get(0);
         assertThat(submitted.homeworkNextExerciseAssignmentId()).isNotNull();
-        ExerciseAssignment created = exerciseAssignmentRepository.findById(submitted.homeworkNextExerciseAssignmentId()).orElseThrow();
-        assertThat(created.getExercise().getId()).isEqualTo(fixture.exercise().id());
+        // V150: homeworkNextExerciseAssignmentId giờ trả examId, không còn là id của chính
+        // ExerciseAssignment — tra ngược bản giao thật qua exerciseId+classId+status.
+        List<ExerciseAssignment> created = exerciseAssignmentRepository.findByExerciseIdAndSchoolClassIdAndStatus(
+                fixture.exercise().id(), schoolClass.id(), ExerciseAssignment.Status.ACTIVE);
+        assertThat(created).hasSize(1);
     }
 
     /**
@@ -1584,7 +1641,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         byte[] file = buildCommentWorkbook(new String[][]{
                 commentRow(classSession.sessionDate().toString(), student.getStudentCode(), "", "",
                         "Có mặt", "", "", "", "Nội dung.", "Ôn lại Unit 3 ở nhà",
-                        fixture.exercise().uuid().toString(), "", "", "", "")
+                        examUuid(fixture).toString(), "", "", "", "")
         });
 
         DailyCommentImportResponse result = studentCommentService.importComments(classSession.id(),
@@ -1598,8 +1655,11 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         StudentCommentResponse submitted = studentCommentService.submitComments(schoolClass.id(),
                 new SubmitCommentsRequest(List.of(saved.id())), teacher.getId()).get(0);
         assertThat(submitted.homeworkNextExerciseAssignmentId()).isNotNull();
-        ExerciseAssignment created = exerciseAssignmentRepository.findById(submitted.homeworkNextExerciseAssignmentId()).orElseThrow();
-        assertThat(created.getExercise().getId()).isEqualTo(fixture.exercise().id());
+        // V150: homeworkNextExerciseAssignmentId giờ trả examId, không còn là id của chính
+        // ExerciseAssignment — tra ngược bản giao thật qua exerciseId+classId+status.
+        List<ExerciseAssignment> created = exerciseAssignmentRepository.findByExerciseIdAndSchoolClassIdAndStatus(
+                fixture.exercise().id(), schoolClass.id(), ExerciseAssignment.Status.ACTIVE);
+        assertThat(created).hasSize(1);
     }
 
     /** Cùng quy tắc 2026-08-18 ở trên nhưng qua API JSON trực tiếp (writeComment) — luồng chưa từng bị chặn, chốt lại hành vi bằng test riêng. */
@@ -1686,7 +1746,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         // V127: giao bài chỉ thật sự xảy ra lúc Gửi — cần Gửi trước thì startAttempt() (trong answerGrammarCorrectly) mới thấy bản giao tồn tại.
         StudentCommentResponse submitted = studentCommentService.submitComments(schoolClass.id(),
                 new SubmitCommentsRequest(List.of(comment.id())), teacher.getId()).get(0);
-        answerGrammarCorrectly(fixture, submitted.homeworkNextExerciseAssignmentId());
+        answerGrammarCorrectly(fixture);
         writeDailyCommentWithHomeworkPrevious(student, session2, "50% (tay)");
 
         byte[] template = studentCommentService.buildTemplate(session2.id(), teacher.getId());
@@ -1816,7 +1876,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
                                  String attendance, String offlinePrevious, String grammarPrevious, String speakingPrevious,
                                  String content, String homeworkOffline, String grammarNext, String videoNext,
                                  String dueDate, String attitude, String note) {
-        String[] row = new String[19];
+        String[] row = new String[23];
         row[COL_DATE] = date;
         row[COL_STUDENT_CODE] = studentCode;
         row[COL_LESSON_CONTENT] = lessonContent;
@@ -1854,8 +1914,8 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
             Row subGroupHeader = sheet.createRow(1);
             Row leafHeader = sheet.createRow(2);
             String[] headers = {"Ngày", "Mã học viên", "Họ và tên", "Ngày sinh", "Tên bài học", "Tên giáo viên giảng dạy",
-                    "Điểm danh", "Reading", "Writing", "Từ vựng + Ngữ pháp", "Video TKN",
-                    "Reading", "Writing", "Từ vựng + Ngữ pháp", "Video TKN", "Hạn nộp bài",
+                    "Điểm danh", "Reading", "Writing", "Reading", "Writing", "Từ vựng + Ngữ pháp", "Video TKN",
+                    "Reading", "Writing", "Reading", "Writing", "Từ vựng + Ngữ pháp", "Video TKN", "Hạn nộp bài",
                     "Thái độ học tập", "Nhận xét học sinh", "Ghi chú"};
             for (int i = 0; i < headers.length; i++) {
                 groupHeader.createCell(i);
