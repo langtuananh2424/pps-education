@@ -288,7 +288,13 @@ public final class ExcelExportHelper {
                 continue;
             }
             CellRangeAddressList range = new CellRangeAddressList(dataStartRow, dataStartRow + rowCount - 1, col, col);
-            DataValidationConstraint constraint = String.join(",", values).length() > EXPLICIT_LIST_SAFE_LENGTH
+            // Bug thật: Excel explicit-list dùng dấu phẩy làm ký tự phân tách giữa các item — nếu 1 giá
+            // trị TỰ NÓ chứa dấu phẩy (VD nhãn "examSkillGroupLabel" dạng "... (Ngữ pháp, 1 bài, 1 câu)"
+            // ở StudentCommentService), Excel sẽ tách nhầm 1 giá trị thành nhiều mục trong dropdown. Bắt
+            // buộc dùng named-range (formula list, không bị comma-split) bất cứ khi nào có item chứa dấu
+            // phẩy, không chỉ dựa vào tổng độ dài như trước.
+            boolean anyValueContainsComma = values.stream().anyMatch(v -> v.contains(","));
+            DataValidationConstraint constraint = anyValueContainsComma || String.join(",", values).length() > EXPLICIT_LIST_SAFE_LENGTH
                     ? namedRangeConstraint(workbook, dvHelper, col, values)
                     : dvHelper.createExplicitListConstraint(values.toArray(new String[0]));
             DataValidation validation = dvHelper.createValidation(constraint, range);
