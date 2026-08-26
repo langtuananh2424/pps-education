@@ -13,8 +13,11 @@ server.
 
 ## 0. Hệ điều hành
 
-**Ubuntu Server 24.04 LTS** (bản không GUI) — hỗ trợ chính thức tới 2029,
-tương thích tốt Docker Engine/`cloudflared`/Node.js (9Router).
+**Ubuntu Server 26.04 LTS** (bản không GUI) — hỗ trợ chính thức tới ~2031,
+tương thích tốt Docker Engine/`cloudflared`/Node.js (9Router). Vì là LTS còn
+mới, nếu 1 repo apt bên thứ 3 (Docker/Cloudflare/NodeSource) chưa kịp build
+riêng cho codename của 26.04, trỏ tạm repo đó sang codename LTS trước đó
+(24.04 "noble") — không ảnh hưởng gì tới ứng dụng, chỉ là nguồn cài đặt.
 
 ## 1. Cài packages + user + firewall
 
