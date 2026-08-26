@@ -995,7 +995,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
                 teacher.getId());
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Bài ngữ pháp V55", exam.id(), null,
-                        "ASSIGNED", new BigDecimal("1"), null, false, 1, true), teacher.getId());
+                        "ASSIGNED", new BigDecimal("1"), null, false, 1, true, null, "VOCAB_GRAMMAR"), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(question.id(), 1, new BigDecimal("1.0")), teacher.getId());
         ExerciseResponse published = exerciseService.publishExercise(exercise.id(), teacher.getId());
         // V71: writeComment/writeDailyCommentWithHomeworkNext gọi deliverToClass bên trong bằng
@@ -1169,10 +1169,16 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
 
         StudentCommentResponse comment = writeDailyCommentWithHomeworkNext(student, classSession, fixture.exercise().id(), null);
         // V127: giao bài chỉ thật sự xảy ra lúc Gửi — chưa Gửi thì chưa có ExerciseAssignment nào để tìm.
-        StudentCommentResponse submitted = studentCommentService.submitComments(schoolClass.id(),
-                new SubmitCommentsRequest(List.of(comment.id())), teacher.getId()).get(0);
+        studentCommentService.submitComments(schoolClass.id(),
+                new SubmitCommentsRequest(List.of(comment.id())), teacher.getId());
 
-        ExerciseAssignment assignment = exerciseAssignmentRepository.findById(submitted.homeworkNextExerciseAssignmentId()).orElseThrow();
+        // V150: homeworkNextExerciseAssignmentId giờ trả examId (khoá dropdown), không còn là id của
+        // chính ExerciseAssignment (xem Javadoc StudentCommentService#toResponse) — tra ngược bản giao
+        // thật qua exerciseId+classId+status thay vì đọc thẳng field đó như trước V150.
+        List<ExerciseAssignment> assignments = exerciseAssignmentRepository.findByExerciseIdAndSchoolClassIdAndStatus(
+                fixture.exercise().id(), schoolClass.id(), ExerciseAssignment.Status.ACTIVE);
+        assertThat(assignments).hasSize(1);
+        ExerciseAssignment assignment = assignments.get(0);
         assertThat(assignment.getSchoolClass().getId()).isEqualTo(schoolClass.id());
         assertThat(assignment.getTargetStudentIds()).isNull();
         // targetStudentIds=null (cả lớp) -- student2 (không được nhận xét) vẫn tự làm được bài này.
@@ -1406,9 +1412,8 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         GrammarFixture fixture2 = createGrammarOnlineExercise();
         nextSession();
         StudentCommentResponse comment = writeDailyCommentWithHomeworkNext(student, classSession, fixture1.exercise().id(), null);
-        StudentCommentResponse submitted1 = studentCommentService.submitComments(schoolClass.id(),
-                new SubmitCommentsRequest(List.of(comment.id())), teacher.getId()).get(0);
-        Long firstAssignmentId = submitted1.homeworkNextExerciseAssignmentId();
+        studentCommentService.submitComments(schoolClass.id(),
+                new SubmitCommentsRequest(List.of(comment.id())), teacher.getId());
         studentCommentService.decideComments(
                 new DecideCommentsRequest(List.of(comment.id()), "REJECTED", "Chưa đạt"), siteManagerUser.getId());
 
@@ -1416,19 +1421,23 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
                 new UpdateStudentCommentRequest("Nội dung sửa lại.", null, null, false, null, null, null, null, null, null, null, null,
                         fixture2.exercise().id(), null, null, null, null, null),
                 teacher.getId());
+        // V150: homeworkNextExerciseAssignmentId giờ trả examId (khoá dropdown), không còn là id của
+        // chính ExerciseAssignment (xem Javadoc StudentCommentService#toResponse) — tra ngược bản giao
+        // thật qua exerciseId+classId+status thay vì đọc thẳng field đó như trước V150.
         assertThat(edited.pendingHomeworkNextExerciseId()).isEqualTo(fixture2.exercise().id());
-        assertThat(edited.homeworkNextExerciseAssignmentId()).isEqualTo(firstAssignmentId);
-        assertThat(exerciseAssignmentRepository.findById(firstAssignmentId).orElseThrow().getStatus())
-                .isEqualTo(ExerciseAssignment.Status.ACTIVE);
+        assertThat(edited.homeworkNextExerciseAssignmentId()).isEqualTo(fixture1.exercise().examId());
+        assertThat(exerciseAssignmentRepository.findByExerciseIdAndSchoolClassIdAndStatus(
+                fixture1.exercise().id(), schoolClass.id(), ExerciseAssignment.Status.ACTIVE)).hasSize(1);
 
-        StudentCommentResponse resubmitted = studentCommentService.submitComments(schoolClass.id(),
-                new SubmitCommentsRequest(List.of(comment.id())), teacher.getId()).get(0);
+        studentCommentService.submitComments(schoolClass.id(),
+                new SubmitCommentsRequest(List.of(comment.id())), teacher.getId());
 
-        assertThat(exerciseAssignmentRepository.findById(firstAssignmentId).orElseThrow().getStatus())
-                .isEqualTo(ExerciseAssignment.Status.CANCELLED);
-        ExerciseAssignment newAssignment = exerciseAssignmentRepository.findById(resubmitted.homeworkNextExerciseAssignmentId()).orElseThrow();
-        assertThat(newAssignment.getExercise().getId()).isEqualTo(fixture2.exercise().id());
-        assertThat(newAssignment.getStatus()).isEqualTo(ExerciseAssignment.Status.ACTIVE);
+        assertThat(exerciseAssignmentRepository.findByExerciseIdAndSchoolClassIdAndStatus(
+                fixture1.exercise().id(), schoolClass.id(), ExerciseAssignment.Status.ACTIVE)).isEmpty();
+        assertThat(exerciseAssignmentRepository.findByExerciseIdAndSchoolClassIdAndStatus(
+                fixture1.exercise().id(), schoolClass.id(), ExerciseAssignment.Status.CANCELLED)).hasSize(1);
+        assertThat(exerciseAssignmentRepository.findByExerciseIdAndSchoolClassIdAndStatus(
+                fixture2.exercise().id(), schoolClass.id(), ExerciseAssignment.Status.ACTIVE)).hasSize(1);
     }
 
     /** Câu hỏi mở #3 (đã chốt 2026-07-30): duyệt/từ chối nhận xét (UC-22) không liên quan tới bài đã giao -- REJECTED vẫn giữ nguyên assignment ACTIVE. */
@@ -1439,14 +1448,18 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         StudentCommentResponse comment = writeDailyCommentWithHomeworkNext(student, classSession, fixture.exercise().id(), null);
         // V127: homeworkNextExerciseAssignmentId chỉ có giá trị SAU submit — đọc từ response của
         // submitComments (không phải response của writeComment ở trên, giờ luôn null).
-        StudentCommentResponse submitted = studentCommentService.submitComments(schoolClass.id(),
-                new SubmitCommentsRequest(List.of(comment.id())), teacher.getId()).get(0);
+        studentCommentService.submitComments(schoolClass.id(),
+                new SubmitCommentsRequest(List.of(comment.id())), teacher.getId());
 
         studentCommentService.decideComments(
                 new DecideCommentsRequest(List.of(comment.id()), "REJECTED", "Chưa đạt"), siteManagerUser.getId());
 
-        ExerciseAssignment assignment = exerciseAssignmentRepository.findById(submitted.homeworkNextExerciseAssignmentId()).orElseThrow();
-        assertThat(assignment.getStatus()).isEqualTo(ExerciseAssignment.Status.ACTIVE);
+        // V150: homeworkNextExerciseAssignmentId giờ trả examId (khoá dropdown), không còn là id của
+        // chính ExerciseAssignment (xem Javadoc StudentCommentService#toResponse) — tra ngược bản giao
+        // thật qua exerciseId+classId+status thay vì đọc thẳng field đó như trước V150.
+        List<ExerciseAssignment> assignments = exerciseAssignmentRepository.findByExerciseIdAndSchoolClassIdAndStatus(
+                fixture.exercise().id(), schoolClass.id(), ExerciseAssignment.Status.ACTIVE);
+        assertThat(assignments).hasSize(1);
     }
 
     @Test
