@@ -86,7 +86,7 @@ public class ReflexSequentialGradingService {
         progress.setWritingAttemptCount(progress.getWritingAttemptCount() + 1);
 
         ReflexWritingGrammarAiGradingService.GradeResult result =
-                writingGradingService.grade(answerText, question.getReviewVideo().getReviewVideoSet().getCurriculum());
+                writingGradingService.grade(answerText, question.getPrompt(), question.getReviewVideo().getReviewVideoSet().getCurriculum());
         applyWritingResult(progress, result);
         progress = reflexQuestionProgressRepository.save(progress);
         return toResponse(progress);
@@ -107,14 +107,18 @@ public class ReflexSequentialGradingService {
         progress.setAudioUrl(audioUrl);
         progress.setSpeakingAttemptCount(progress.getSpeakingAttemptCount() + 1);
 
-        byte[] audioBytes;
+        // V147 (2026-08-25, xác nhận với người dùng) — fix bug thật: TRƯỚC ĐÂY hardcode "audio/webm" cho
+        // MỌI audio bất kể định dạng thật do trình duyệt ghi ra (Chrome/Android thường "audio/webm",
+        // Safari/iOS thường "audio/mp4") — lấy đúng content-type đã lưu ở R2 lúc upload thay vì đoán
+        // (xem MediaStorageService#downloadWithContentType).
+        MediaStorageService.DownloadedFile audioFile;
         try {
-            audioBytes = mediaStorageService.download(audioUrl);
+            audioFile = mediaStorageService.downloadWithContentType(audioUrl);
         } catch (Exception e) {
-            audioBytes = null;
+            audioFile = null;
         }
         ReflexSpeakingContentAiGradingService.GradeResult result =
-                audioBytes == null ? null : speakingGradingService.grade(audioBytes, "audio/webm", question.getReviewVideo().getReviewVideoSet().getCurriculum());
+                audioFile == null ? null : speakingGradingService.grade(audioFile.bytes(), audioFile.contentType(), question.getPrompt(), question.getReviewVideo().getReviewVideoSet().getCurriculum());
         applySpeakingResult(progress, result);
         progress = reflexQuestionProgressRepository.save(progress);
         return toResponse(progress);

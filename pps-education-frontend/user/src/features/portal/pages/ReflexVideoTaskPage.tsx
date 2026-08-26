@@ -23,12 +23,18 @@ import MonitoringBadge from "../components/MonitoringBadge";
  * khiến request iframe bị trình duyệt hủy giữa chừng (Network tab: status trống, đỏ, 0B), trong khi chỉ
  * riêng `controls=0` thì ổn định. KHÔNG thêm lại 3 tham số này trừ khi tìm ra cách khác đã kiểm chứng —
  * việc "khóa" video không phụ thuộc chúng (xem overlay chặn click + auto-resume-on-pause bên dưới).
+ *
+ * SPIKE (2026-08-25, đang test lại trên iPhone 8 Plus thật, xác nhận với người dùng) — thiếu
+ * `playsinline=1` khiến iOS Safari/WebKit hiện card "Xem trên YouTube" (không phát inline được) thay vì
+ * phát video trong trang. Lần thử trước gộp CẢ 3 tham số cùng lúc nên không rõ tham số nào gây huỷ
+ * request — thử LẠI RIÊNG `playsinline=1` (không kèm modestbranding/fs) để cô lập nguyên nhân. Nếu vẫn
+ * gây huỷ request, quay lại đúng dòng cũ (bỏ `&playsinline=1`).
  */
 function buildLockedYouTubeEmbedSrc(videoId: string, locked: boolean): string {
   // `locked=false` (phiên XEM LẠI thuần, mọi câu đã đạt) — trả lại controls gốc YouTube (có timestamp/
   // thanh tua) để học sinh tự do xem lại, KHÔNG cần đủ 3 tham số đã bị chặn network trước đó (xem ghi
   // chú phía trên) vì chỉ đổi mỗi `controls`, không thêm modestbranding/fs/playsinline.
-  return `https://www.youtube.com/embed/${videoId}?enablejsapi=1&rel=0&disablekb=1&controls=${locked ? 0 : 1}`;
+  return `https://www.youtube.com/embed/${videoId}?enablejsapi=1&rel=0&disablekb=1&controls=${locked ? 0 : 1}&playsinline=1`;
 }
 
 /** Trạng thái của 1 câu hỏi suy ra từ tiến trình đã lưu — quyết định UI nào hiện ở câu đang mở (writing/speaking) hay bỏ qua khi video chạy qua (passed). */
@@ -41,6 +47,13 @@ function stageForProgress(p: ReflexQuestionProgressResponse | undefined): "writi
 /**
  * Ghi âm trực tiếp qua microphone (MediaRecorder API) — 1 instance dùng chung cho cả trang, vì chỉ 1
  * câu được ghi âm tại 1 thời điểm (câu đang mở khoá — video tạm dừng chờ trong lúc ghi/chấm).
+ *
+ * SPIKE (2026-08-25, xác nhận với người dùng, phản hồi thật khi test trên iPhone) — fix bug UX thật:
+ * TRƯỚC ĐÂY mỗi câu hỏi (video 6 câu → 6 lần) gọi `getUserMedia()` MỚI HOÀN TOÀN, và `recorder.onstop`
+ * chủ động dừng hẳn track sau mỗi câu — khiến trình duyệt (đặc biệt WebKit/Edge trên iOS) xin lại quyền
+ * micro liên tục suốt bài, rất khó chịu. SỬA: giữ nguyên 1 `MediaStream` duy nhất cho CẢ PHIÊN làm bài
+ * (`ensureStream` chỉ gọi `getUserMedia()` nếu chưa có stream còn sống), tái dùng cho mọi câu — chỉ dừng
+ * hẳn khi rời trang (cleanup effect khi unmount).
  */
 function useAudioRecorder() {
   const { t } = useTranslation("portal-exercises");
@@ -63,11 +76,21 @@ function useAudioRecorder() {
     }
   };
 
+  /** Trả lại stream micro đang còn sống nếu có, chỉ xin quyền lại khi chưa từng xin hoặc track đã bị dừng. */
+  const ensureStream = async (): Promise<MediaStream> => {
+    const existing = streamRef.current;
+    if (existing && existing.getAudioTracks().some((tr) => tr.readyState === "live")) {
+      return existing;
+    }
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    streamRef.current = stream;
+    return stream;
+  };
+
   const start = async (limitSeconds: number) => {
     setError(null);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream;
+      const stream = await ensureStream();
       chunksRef.current = [];
       const recorder = new MediaRecorder(stream);
       recorder.ondataavailable = (e) => {
@@ -75,8 +98,8 @@ function useAudioRecorder() {
       };
       recorder.onstop = () => {
         setAudioBlob(new Blob(chunksRef.current, { type: recorder.mimeType || "audio/webm" }));
-        streamRef.current?.getTracks().forEach((t) => t.stop());
-        streamRef.current = null;
+        // KHÔNG dừng track ở đây nữa — giữ nguyên stream để tái dùng cho câu tiếp theo (xem ghi chú
+        // trên hàm), tránh xin quyền mic lại liên tục.
       };
       recorder.start();
       recorderRef.current = recorder;
@@ -104,7 +127,7 @@ function useAudioRecorder() {
     []
   );
 
-  return { recording, elapsedSeconds, maxSeconds, audioBlob, error, start, stop, reset };
+  return { recording, elapsedSeconds, maxSeconds, audioBlob, error, start, stop, reset, ensureStream };
 }
 
 /**
@@ -361,8 +384,18 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
    * có chủ đích, chưa qua bước nghe lại) thì bỏ qua — không có gì để play/pause lúc đó.
    */
   const canToggleManualPause = activeQuestionId == null || awaitingNextMark || isReviewingVideo;
+  /**
+   * SPIKE (2026-08-25, xác nhận với người dùng, phát hiện thật khi test) — fix bug thật: đóng popup
+   * "Đạt bước nói" (nút "Tiếp tục", xem handleContinueAfterSpeakingPass) lộ NGAY ManualPauseOverlay ở
+   * đúng vị trí trên video (activeQuestionId=null → canToggleManualPause=true ngay lập tức) — trên mobile
+   * đôi khi 1 cú chạm bị "chạm xuyên" (click-through) sang phần tử vừa lộ ra ngay dưới ngón tay, tự bấm
+   * tạm dừng NGAY sau khi vừa resumeVideo(), làm video đứng im ngay từ đầu đoạn nghe lại chuyển câu mà
+   * học sinh không hề chủ ý bấm gì. Khoá tạm nút play/pause tự dựng trong ít mili-giây ngay sau khi
+   * chuyển câu để tránh nhận nhầm cú chạm đó.
+   */
+  const suppressManualToggleUntilRef = useRef(0);
   const handleToggleManualPause = () => {
-    if (!canToggleManualPause) return;
+    if (!canToggleManualPause || Date.now() < suppressManualToggleUntilRef.current) return;
     if (userPausedRef.current) {
       setUserPaused(false);
       resumeVideo();
@@ -375,29 +408,20 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
   /**
    * V149 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23, mô tả lại lần 2 — SỬA lại thiết
    * kế V145/lần mô tả đầu bị hiểu sai) — mỗi câu hỏi mở bảng NGAY khi video chạm ĐÚNG mốc CỦA CHÍNH NÓ
-   * (không phải mốc câu kế tiếp): bảng VIẾT mở, video đứng yên. Đạt bước viết → học sinh bấm "Tiếp tục"
-   * → video CHẠY TIẾP ngay (để nghe lại câu hỏi trong lúc chuẩn bị nói) — chạy tới GẦN mốc câu KẾ TIẾP
-   * thì tự dừng lại (không liên quan học sinh đã ghi âm/nộp xong hay chưa, xem handleTimeUpdate nhánh
-   * awaitingNextMarkRef). Học sinh bấm ghi âm THẬT (handleStartRecording, tách riêng khỏi việc video có
-   * đang chạy hay không) bất cứ lúc nào trong lúc đó. Đạt bước nói → bấm "Tiếp tục"
-   * (handleContinueAfterSpeakingPass) → video chạy nốt đoạn còn lại tới đúng mốc câu kế tiếp, mở bảng
-   * VIẾT câu đó — lặp lại. Câu CUỐI không có mốc kế tiếp để tự dừng lúc nghe — cứ để video chạy tới hết
-   * tự nhiên (`ended`), không chặn/ảnh hưởng gì việc ghi âm/nộp bài (đã bỏ hẳn cơ chế timeout
-   * maxRecordingSeconds fallback của V145 — không còn cần thiết vì việc MỞ BẢNG giờ không còn phụ thuộc
-   * "mốc kế tiếp"/"video kết thúc" nữa, chỉ còn phụ thuộc đúng mốc của chính câu đó).
+   * (không phải mốc câu kế tiếp): bảng VIẾT mở, video đứng yên.
+   *
+   * SPIKE (2026-08-25, xác nhận với người dùng — ĐẢO NGƯỢC 1 phần quyết định V149) — TRƯỚC ĐÂY đạt bước
+   * viết thì video CHẠY TIẾP để "nghe lại câu hỏi" trong lúc chuẩn bị nói, chỉ đứng yên thật sự ở bước
+   * VIẾT. Người dùng yêu cầu đổi lại: video đứng yên XUYÊN SUỐT cả bước viết LẪN bước nói, CHỈ chạy tiếp
+   * khi đã đạt CẢ 2 bước (xem handleContinueAfterSpeakingPass) — bỏ hẳn cơ chế "nghe lại câu hỏi trong
+   * lúc ghi âm", `awaitingNextMark` không còn bao giờ bật true nữa (giữ lại biến/hạ tầng liên quan cho
+   * các luồng khác — xem lại nếu cần dọn hẳn sau này).
    */
   const activateQuestion = (q: ReviewVideoQuestionResponse) => {
     setActiveQuestionId(q.id);
     setUserPaused(false);
-    // Resume vào giữa bước nói (VD thoát ra rồi quay lại lúc đã đạt viết từ phiên trước, không có popup
-    // "Đạt bước viết" nào để bấm "Tiếp tục" nữa) — cho nghe lại câu hỏi luôn, không cần thêm 1 cú bấm.
-    if (stageForProgress(progressRef.current[q.id]) === "speaking") {
-      setAwaitingNextMark(true);
-      resumeVideo();
-    } else {
-      setAwaitingNextMark(false);
-      pauseVideo();
-    }
+    setAwaitingNextMark(false);
+    pauseVideo();
     const p = progressRef.current[q.id];
     setAnswerDraft(p?.answerText ?? "");
     setWritingError(null);
@@ -437,15 +461,32 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
   const handleTimeUpdateRef = useRef(handleTimeUpdate);
   handleTimeUpdateRef.current = handleTimeUpdate;
 
-  /** Video kết thúc TỰ NHIÊN — chỉ có ý nghĩa khi câu đang dở là câu CUỐI (không có mốc kế tiếp để dừng theo). */
+  /**
+   * Video kết thúc TỰ NHIÊN — chỉ có ý nghĩa khi câu đang dở là câu CUỐI (không có mốc kế tiếp để dừng
+   * theo).
+   *
+   * SPIKE (2026-08-25, xác nhận với người dùng, phát hiện thật khi test) — fix bug thật: TRƯỚC ĐÂY set
+   * `videoEnded=true` VÔ ĐIỀU KIỆN ngay khi nhận sự kiện `ENDED`, kể cả khi câu đang dở KHÔNG phải câu
+   * cuối — YouTube IFrame API đôi khi bắn `ENDED` SỚM ngoài ý muốn (gặp khi video bị seek liên tục, VD
+   * tính năng nghe lại/tua về mốc cũ), dù video CHƯA thật sự phát hết. `videoEnded=true` sai lúc đó làm
+   * hiện nhầm banner "đã hoàn thành tất cả câu hỏi" (điều kiện JSX `videoEnded || allQuestionsPassed`)
+   * dù học sinh còn nhiều câu chưa làm. Sửa: CHỈ tin `ENDED` là thật khi câu đang dở đúng là câu cuối
+   * (hoặc không còn câu nào dở) — nếu không, coi là tín hiệu giả, thử phát lại thay vì đóng băng luôn.
+   */
   const handleVideoNaturallyEnded = () => {
     if (isReviewingVideoRef.current) return; // đang xem lại 1 đoạn cũ, không phải video kết thúc thật.
+    const idx = firstPendingQuestionIndex();
+    const isLastPendingQuestion = idx === -1 || !questions[idx + 1];
+    if (!isLastPendingQuestion) {
+      // ENDED giả — còn câu chưa phải câu cuối, video thật ra chưa hết. Chỉ tự phát lại nếu lúc đó video
+      // ĐANG LẼ RA phải chạy (giữa 2 câu, hoặc đang cho nghe lại) — không đụng vào lúc video đứng yên có
+      // chủ đích ở bước viết.
+      if (activeQuestionIdRef.current == null || awaitingNextMarkRef.current) resumeVideo();
+      return;
+    }
     setVideoEnded(true);
     if (activeQuestionIdRef.current != null) return;
-    const idx = firstPendingQuestionIndex();
-    if (idx !== -1 && !questions[idx + 1]) {
-      activateQuestion(questions[idx]);
-    }
+    if (idx !== -1) activateQuestion(questions[idx]);
   };
   const handleVideoNaturallyEndedRef = useRef(handleVideoNaturallyEnded);
   handleVideoNaturallyEndedRef.current = handleVideoNaturallyEnded;
@@ -640,15 +681,16 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
 
   /**
    * V149 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23) — CHỦ Ý KHÔNG bắt đầu ghi âm
-   * ngay ở đây nữa (khác lần sửa trước) — chỉ đóng popup + cho video chạy tiếp để học sinh NGHE LẠI câu
-   * hỏi trong lúc chuẩn bị. Ghi âm THẬT tách hẳn ra nút riêng trong panel (xem handleStartRecording),
-   * bấm lúc nào cũng được, không phụ thuộc video đang chạy hay đã dừng.
+   * ngay ở đây nữa (khác lần sửa trước) — chỉ đóng popup. Ghi âm THẬT tách hẳn ra nút riêng trong panel
+   * (xem handleStartRecording), bấm lúc nào cũng được.
+   *
+   * SPIKE (2026-08-25, xác nhận với người dùng — đảo ngược 1 phần V149) — TRƯỚC ĐÂY cho video chạy tiếp
+   * ở đây để "nghe lại câu hỏi" trong lúc chuẩn bị nói. Nay video đứng yên xuyên suốt bước nói luôn (xem
+   * activateQuestion) — KHÔNG resume ở đây nữa, chỉ đóng popup, video chỉ chạy tiếp sau khi đạt CẢ bước
+   * nói (xem handleContinueAfterSpeakingPass).
    */
   const handleContinueAfterWritingPass = () => {
     setWritingPassedPopup(null);
-    setUserPaused(false);
-    setAwaitingNextMark(true);
-    resumeVideo();
   };
 
   const handleStartRecording = () => {
@@ -688,9 +730,12 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
     setSpeakingPassedPopup(null);
     setActiveQuestionId(null);
     setUserPaused(false);
-    // Video đã dừng SẴN gần đúng mốc câu KẾ TIẾP (awaitingNextMarkRef tự dừng khi chạm, xem
-    // handleTimeUpdate) — chỉ cần phát nốt đoạn còn lại, không seek. activeQuestionId=null nên
-    // handleTimeUpdate sẽ tự mở bảng VIẾT câu kế tiếp ngay khi chạm đúng mốc của nó.
+    // Khoá tạm nút play/pause tự dựng — xem ghi chú ở suppressManualToggleUntilRef/canToggleManualPause
+    // (tránh cú chạm đóng popup này "chạm xuyên" luôn sang nút vừa lộ ra, tự bấm tạm dừng lại ngay).
+    suppressManualToggleUntilRef.current = Date.now() + 600;
+    // SPIKE (2026-08-25) — video đứng yên xuyên suốt cả bước viết lẫn nói (xem activateQuestion), nên
+    // tới đây video vẫn đang đứng ĐÚNG tại mốc câu vừa đạt xong — chạy tiếp từ đây tới mốc câu KẾ TIẾP.
+    // activeQuestionId=null nên handleTimeUpdate sẽ tự mở bảng VIẾT câu kế tiếp ngay khi chạm đúng mốc.
     resumeVideo();
   };
 
@@ -716,20 +761,39 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
    * trình duyệt tự hỏi quyền SAU khi đã vào fullscreen + đang giám sát, popup xin quyền sẽ làm mất
    * fullscreen/focus và bị hệ thống hiểu nhầm là học sinh "thoát ra ngoài" — ghi nhận vi phạm oan.
    */
+  /**
+   * SPIKE (2026-08-25, xác nhận với người dùng, test thật trên iPhone 8 Plus) — fix bug thật trên iOS
+   * Safari/WebKit: `await getUserMedia()` TRƯỚC lệnh phát video làm mất "user activation" (cử chỉ
+   * người dùng) của cú tap ban đầu ngay khi có 1 `await` xen giữa — nghiêm ngặt hơn hẳn Android/desktop.
+   * `playVideo()` gọi qua postMessage tới iframe YouTube (khác origin) sau khi mất user activation bị
+   * âm thầm bỏ qua — video đứng nguyên ở card "Xem trên YouTube", bấm vào cũng không phản hồi (do
+   * `pointer-events-none` khoá click lên iframe khi đang làm bài thật, xem JSX).
+   *
+   * Sửa: gọi `playFromResumePoint()` NGAY, đồng bộ, TRƯỚC await getUserMedia() — giữ đúng trong cùng
+   * tick với sự kiện click. KHÔNG dời `setStarted(true)` lên trước await (giữ nguyên vị trí SAU khi xin
+   * mic xong như cũ) vì effect ép fullscreen trong useIntegrityMonitor phụ thuộc `started` — đổi thứ tự
+   * đó sẽ tái phát đúng bug đã fix ngày 2026-08-11 (popup xin quyền mic hiện SAU khi đã vào fullscreen
+   * làm trình duyệt tự thoát fullscreen, bị tính nhầm vi phạm) trên Android/desktop.
+   */
   const handleStart = async () => {
     setMicError(null);
+    playFromResumePoint();
     setRequestingMic(true);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach((t) => t.stop());
+      // Dùng CHUNG stream với useAudioRecorder (ensureStream) thay vì tự gọi getUserMedia() + dừng
+      // ngay — xem ghi chú UX ở useAudioRecorder: giữ nguyên đúng 1 stream cho cả phiên, tránh xin
+      // quyền mic thêm 1 lần nữa ở màn hình này rồi lại xin lại cho câu đầu tiên.
+      await recorder.ensureStream();
     } catch {
+      // Mic bị từ chối — rollback: dừng video vừa phát ở trên, không bật `started` (giữ nguyên hành vi
+      // "chưa bắt đầu" như trước khi có patch này).
+      pauseVideo();
       setMicError(t("reflexVideoTask.micPermissionError"));
       setRequestingMic(false);
       return;
     }
     setRequestingMic(false);
     setStarted(true);
-    playFromResumePoint();
   };
 
   const handleExit = () => {

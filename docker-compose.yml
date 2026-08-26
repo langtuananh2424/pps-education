@@ -66,6 +66,16 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      # SPIKE (nhánh spike/openrouter-ai-rotation, 2026-08-25) - 9Router (https://github.com/decolua/
+      # 9router), proxy AI chạy TRÊN MÁY HOST (npm install -g 9router && 9router, ngoài container này) -
+      # dùng host.docker.internal (Docker Desktop tự map sẵn) để container gọi ra được máy host, vì
+      # "localhost" bên TRONG container KHÔNG trỏ tới máy host (khác khi chạy backend qua mvn
+      # spring-boot:run trực tiếp trên host, lúc đó localhost mới đúng là 9Router).
+      NINE_ROUTER_BASE_URL: ${NINE_ROUTER_BASE_URL:-http://host.docker.internal:20128/v1}
+      NINE_ROUTER_API_KEY: ${NINE_ROUTER_API_KEY:-}
+      NINE_ROUTER_MODEL: ${NINE_ROUTER_MODEL:-}
+      NINE_ROUTER_STT_MODEL: ${NINE_ROUTER_STT_MODEL:-groq/whisper-large-v3-turbo}
+      NINE_ROUTER_AUDIO_MODEL: ${NINE_ROUTER_AUDIO_MODEL:-ag/gemini-3.5-flash-low}
     ports:
       - "8080:8080"
     depends_on:

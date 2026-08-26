@@ -126,13 +126,29 @@ public class MediaStorageService {
      * này (suy ngược lại R2 object key từ URL công khai).
      */
     public byte[] download(String publicUrl) {
+        return downloadWithContentType(publicUrl).bytes();
+    }
+
+    /** File tải về kèm content-type THẬT đã lưu lúc upload (khác {@link #download}, chỉ trả bytes). */
+    public record DownloadedFile(byte[] bytes, String contentType) {
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25 — fix bug thật: caller trước đây phải
+     * tự đoán/hardcode content-type (VD ReflexSequentialGradingService hardcode "audio/webm" cho MỌI
+     * audio ghi âm, dù MediaRecorder trên Safari/iOS thực ra ghi ra "audio/mp4") vì {@link #download} chỉ
+     * trả bytes, bỏ mất content-type THẬT đã lưu ở R2 lúc upload (xem {@code file.getContentType()} ở
+     * {@link #store}). Method này đọc lại đúng content-type đó — caller cần biết định dạng thật (VD gửi
+     * cho AI đa phương thức) dùng hàm này thay vì {@link #download}.
+     */
+    public DownloadedFile downloadWithContentType(String publicUrl) {
         if (publicUrl == null || publicUrl.isBlank()) {
             throw new IllegalArgumentException("URL file không hợp lệ.");
         }
         if (publicUrl.startsWith(publicBaseUrl + "/")) {
             String key = publicUrl.substring(publicBaseUrl.length() + 1);
             try (var stream = r2Client.getObject(GetObjectRequest.builder().bucket(bucket).key(key).build())) {
-                return stream.readAllBytes();
+                return new DownloadedFile(stream.readAllBytes(), stream.response().contentType());
             } catch (Exception ex) {
                 log.warn("Không tải được từ R2 storage (key={}): {}, nỗ lực fallback...", key, ex.getMessage());
             }
@@ -140,8 +156,9 @@ public class MediaStorageService {
         // Cho phép tải qua HTTP GET từ bên ngoài hoặc đọc mock fallback cho dữ liệu seed
         try {
             java.net.URL url = new java.net.URI(publicUrl).toURL();
-            try (java.io.InputStream in = url.openStream()) {
-                return in.readAllBytes();
+            java.net.URLConnection connection = url.openConnection();
+            try (java.io.InputStream in = connection.getInputStream()) {
+                return new DownloadedFile(in.readAllBytes(), connection.getContentType());
             }
         } catch (Exception e) {
             // Trường hợp seed mock URL giả lập (storage.pps.edu.vn): trả về mẫu byte HTML/Text đại diện hợp lệ
@@ -160,7 +177,7 @@ public class MediaStorageService {
                     + "</ul>"
                     + "<p><b>Nhận xét:</b> [COMMENT_MID1] [STUDENT_COMMENT]</p>"
                     + "</body></html>";
-            return fallbackContent.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            return new DownloadedFile(fallbackContent.getBytes(java.nio.charset.StandardCharsets.UTF_8), "text/html");
         }
     }
 
