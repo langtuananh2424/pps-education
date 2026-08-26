@@ -391,8 +391,12 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
                 teacher.getId());
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Bài ngữ pháp homework", exam.id(), null,
-                        "ASSIGNED", new BigDecimal("1"), null, false, 1, true), teacher.getId());
+                        "ASSIGNED", new BigDecimal("1"), null, false, 1, true, null, "VOCAB_GRAMMAR"), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(question.id(), 1, new BigDecimal("1.0")), teacher.getId());
+        // V150 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25): assignBatchToClass
+        // (giao BTVN theo "Lô kỹ năng") chỉ nhận Bài đã PUBLISHED cùng skillCategory với kênh buổi
+        // học (session VIETNAMESE -> VOCAB_GRAMMAR, xem StudentCommentService#grammarChannelSkillCategory).
+        exercise = exerciseService.publishExercise(exercise.id(), teacher.getId());
         // V71: writeComment gọi deliverToClass bên trong bằng PROPAGATION_REQUIRES_NEW — phải
         // commit Đề/Bài vừa tạo trước.
         commitCurrentTransactionAndStartNew();
