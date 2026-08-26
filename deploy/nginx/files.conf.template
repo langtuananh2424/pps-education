@@ -1,0 +1,17 @@
+# Template server block phục vụ file public từ MinIO (thay Cloudflare R2) —
+# copy thành 2 file thật trên server:
+#   /etc/nginx/sites-available/files-staging.<DOMAIN>.conf  (__MINIO_PORT__ = 9002)
+#   /etc/nginx/sites-available/files.<DOMAIN>.conf           (__MINIO_PORT__ = 9000)
+# rồi thay __HOSTNAME__/__MINIO_PORT__. Chỉ phục vụ GET công khai (bucket đã
+# bật "anonymous download" — xem deploy/README.md mục MinIO) — PUT/upload
+# thật đi thẳng từ backend → minio qua network Docker nội bộ, không qua Nginx.
+
+server {
+    listen 80;
+    server_name __HOSTNAME__;
+
+    location / {
+        proxy_pass http://127.0.0.1:__MINIO_PORT__;
+        proxy_set_header Host $host;
+    }
+}

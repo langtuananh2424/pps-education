@@ -2,12 +2,17 @@
 
 ## 1. Nhánh
 
+> Cập nhật 2026-08-26: đổi hạ tầng deploy từ Railway sang server vật lý tự
+> host (xem `deploy/README.md`). Đổi vai trò `main`/`develop` so với trước —
+> `develop` giờ CHỈ để phát triển/chạy local, KHÔNG auto-deploy nữa.
+
 | Nhánh | Vai trò |
 |---|---|
-| `main` | Production. Chỉ nhận merge qua PR từ `develop` hoặc `hotfix/*`. |
-| `develop` | Tích hợp, luôn deploy được lên staging. Chỉ nhận merge qua PR từ `feature/*`. |
+| `production` | Production. Auto-deploy lên server thật mỗi khi có push. Chỉ nhận merge qua PR từ `main` hoặc `hotfix/*`. |
+| `main` | Staging. Auto-deploy lên server thật mỗi khi có push. Chỉ nhận merge qua PR từ `develop`. |
+| `develop` | Tích hợp, chỉ chạy local trên máy dev — KHÔNG auto-deploy. Chỉ nhận merge qua PR từ `feature/*`. |
 | `feature/UC-xx-mo-ta` | 1 nhánh cho 1 đầu việc, tách từ `develop`, xóa sau khi merge. |
-| `hotfix/mo-ta` | Sửa khẩn cấp trên production, merge vào cả `main` và `develop`. |
+| `hotfix/mo-ta` | Sửa khẩn cấp trên production, merge vào cả `production` và `main`. |
 | `release/phase-x` | (Tùy chọn) Cắt cuối mỗi Phase A/B/C để test hồi quy trước khi lên `main`. |
 
 Đặt tên nhánh theo mã UC trong tài liệu Đặc tả Use Case / Kế hoạch phân kỳ để
@@ -38,21 +43,33 @@ dễ trace: `feature/UC-15-diem-danh-hoc-sinh`.
    `feat(auth): ...`, `fix(permission): ...`, `test(student): ...`, `chore: ...`.
 9. Push, mở PR vào `develop` (dùng `.github/PULL_REQUEST_TEMPLATE.md`).
 10. CI (`backend-ci.yml`) tự chạy. Đợi review (nếu có) → **squash merge** → xóa nhánh.
-11. CD (`cd-staging.yml`) tự deploy `develop` lên staging. Tự kiểm tra trên
-    staging trước khi đóng task trên bảng Sprint.
+11. Task nằm trên `develop`, CHƯA lên staging (develop không auto-deploy) —
+    xem mục 3 để đưa lên staging thật.
 
-## 3. Release lên production
+## 3. Đưa lên Staging (server thật)
 
-Khi kết thúc 1 Phase (A/B/C) hoặc 1 nhóm tính năng đủ ổn định:
+Khi `develop` đã tích lũy đủ để kiểm tra trên môi trường thật:
 
-1. (Tùy chọn) Cắt `release/phase-x` từ `develop`, test hồi quy, chỉ sửa bug trên
+1. Mở PR `develop` → `main`.
+2. Merge → CI (`backend-ci.yml`) chạy lại → `cd-staging.yml` build image, push
+   GHCR, SSH deploy lên server thật (xem `deploy/README.md`) → `cd-frontend.yml`
+   build 2 SPA, rsync lên đúng thư mục staging trên server.
+3. Kiểm tra trên staging (`https://admin-staging.<DOMAIN>`,
+   `https://app-staging.<DOMAIN>`) trước khi đóng task trên bảng Sprint.
+
+## 4. Release lên Production (server thật)
+
+Khi kết thúc 1 Phase (A/B/C) hoặc 1 nhóm tính năng đủ ổn định trên staging:
+
+1. (Tùy chọn) Cắt `release/phase-x` từ `main`, test hồi quy, chỉ sửa bug trên
    nhánh này (không thêm tính năng mới).
-2. Mở PR `release/phase-x` (hoặc `develop`) → `main`.
-3. Merge → CI chạy lại → `cd-production.yml` build image, gắn tag semver,
-   chờ approval (GitHub Environment `production`) → deploy Railway production.
+2. Mở PR `release/phase-x` (hoặc `main`) → `production`.
+3. Merge → CI chạy lại → `cd-production.yml` build image, gắn tag version,
+   chờ approval (GitHub Environment `production`) → SSH deploy lên server
+   thật → `cd-frontend.yml` build + rsync 2 SPA lên thư mục production.
 4. Tag Git: `git tag vX.Y.Z && git push --tags`.
 
-## 4. Quy ước migration Flyway
+## 5. Quy ước migration Flyway
 
 - File đặt tại `src/main/resources/db/migration/`, đặt tên `V{n}__mo_ta.sql`,
   `n` tăng dần, không trùng, không tái sử dụng số đã dùng.
