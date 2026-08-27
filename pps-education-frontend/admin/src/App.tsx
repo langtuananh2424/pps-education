@@ -35,8 +35,10 @@ import GradesPage from "@/features/academic/pages/GradesPage";
 import CommentsPage from "@/features/academic/pages/CommentsPage";
 import HomeworkStatsPage from "@/features/academic/pages/HomeworkStatsPage";
 import AssignmentStatsDetailPage from "@/features/academic/pages/AssignmentStatsDetailPage";
+import BatchStatsDetailPage from "@/features/academic/pages/BatchStatsDetailPage";
 import ReviewVideoAssignmentStatsDetailPage from "@/features/academic/pages/ReviewVideoAssignmentStatsDetailPage";
 import QuestionBankPage from "@/features/lms/pages/QuestionBankPage";
+import BookCatalogPage from "@/features/lms/pages/BookCatalogPage";
 import ExerciseAssignPage from "@/features/lms/pages/ExerciseAssignPage";
 import LecturesPage from "@/features/lms/pages/LecturesPage";
 import DocumentBankPage from "@/features/lms/pages/DocumentBankPage";
@@ -54,6 +56,7 @@ import GradesAnalyticsPage from "@/features/reports/pages/GradesAnalyticsPage";
 import StudentProgressPage from "@/features/reports/pages/StudentProgressPage";
 import EnrollmentMovementStatsPage from "@/features/reports/pages/EnrollmentMovementStatsPage";
 import ActualPeriodsStatsPage from "@/features/reports/pages/ActualPeriodsStatsPage";
+import SpeakingGradingTestPage from "@/features/dev-tools/pages/SpeakingGradingTestPage";
 export default function App() {
   return (
     <AppProvider>
@@ -99,8 +102,10 @@ export default function App() {
           <Route path="/academic/comments" element={<CommentsPage />} />
           <Route path="/academic/homework-stats" element={<HomeworkStatsPage />} />
           <Route path="/academic/homework-stats/review-video/:assignmentId" element={<ReviewVideoAssignmentStatsDetailPage />} />
+          <Route path="/academic/homework-stats/batch/:batchId" element={<BatchStatsDetailPage />} />
           <Route path="/academic/homework-stats/:assignmentId" element={<AssignmentStatsDetailPage />} />
           <Route path="/lms/question-banks" element={<QuestionBankPage />} />
+          <Route path="/lms/book-catalog" element={<BookCatalogPage />} />
           <Route path="/lms/exercises" element={<ExerciseAssignPage />} />
           <Route path="/lms/lectures" element={<LecturesPage />} />
           <Route path="/lms/documents" element={<DocumentBankPage />} />
@@ -120,6 +125,9 @@ export default function App() {
           <Route path="/reports/student-progress" element={<StudentProgressPage />} />
           <Route path="/reports/enrollment-movement" element={<EnrollmentMovementStatsPage />} />
           <Route path="/reports/actual-periods" element={<ActualPeriodsStatsPage />} />
+
+          {/* SPIKE/TEST riêng (2026-08-22) — không có trong menu điều hướng, chỉ truy cập qua URL trực tiếp. */}
+          <Route path="/dev-tools/speaking-grading-test" element={<SpeakingGradingTestPage />} />
 
           <Route index element={<Navigate to="/dashboard" replace />} />
         </Route>

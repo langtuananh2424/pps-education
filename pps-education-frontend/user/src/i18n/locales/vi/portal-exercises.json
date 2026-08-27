@@ -23,6 +23,10 @@
       "submittedPendingGrading": "Đã nộp — chờ chấm tự luận/nói"
     },
     "scoreSuffix": " · Điểm: {{score}}",
+    "timeLimit": {
+      "remainingPrefix": "Thời gian làm bài — còn ",
+      "warning": "Sắp hết giờ, hãy hoàn thành bài làm!"
+    },
     "stoppedByViolation": {
       "title": "Bài làm đã bị dừng",
       "description": "Bạn đã thoát ra ngoài quá số lần cho phép khi đang làm bài. Kết quả đã được ghi nhận theo phần đã trả lời. Bạn có thể làm lại từ màn danh sách đề.",
@@ -34,6 +38,17 @@
       "stay": "Ở lại làm bài",
       "stillClose": "Vẫn đóng"
     },
+    "revealAndClose": {
+      "button": "Xem đáp án & đóng lượt",
+      "confirmTitle": "Xem đáp án ngay bây giờ?",
+      "confirmDescription": "Bạn đã đạt bài này và vẫn còn lượt làm lại. Nếu xem đáp án ngay, hệ thống sẽ đóng luôn lượt làm — bạn sẽ KHÔNG thể làm lại bài này để thử điểm cao hơn nữa.",
+      "cancel": "Để sau",
+      "confirmButton": "Xem đáp án, đóng lượt",
+      "closing": "Đang xử lý..."
+    },
+    "overdueLocked": {
+      "banner": "Đã quá hạn nộp — bài làm dở của bạn đã bị khoá, chỉ có thể xem lại, không thể tiếp tục làm hoặc nộp bài."
+    },
     "confirmSubmit": {
       "message": "Nộp bài ngay? Sau khi nộp sẽ không sửa được câu trả lời nữa.",
       "cancel": "Hủy",
@@ -42,6 +57,10 @@
     "submitting": "Đang nộp...",
     "submitButton": "Nộp bài",
     "exitButton": "Thoát",
+    "gradingOverlay": {
+      "title": "Đang chấm bài...",
+      "description": "Hệ thống đang chấm điểm bài làm của bạn (có thể mất khoảng 10-20 giây với câu tự luận/nói), vui lòng đợi trong giây lát."
+    },
     "resultPopup": {
       "retakeNotAllowed": "Đề này không cho làm lại — đây là kết quả cuối cùng.",
       "retakeAnytime": "Bạn có thể làm lại bài tập này khi sẵn sàng.",
@@ -54,6 +73,7 @@
       "failedTitle": "Bạn đã hoàn thành bài \"{{title}}\"",
       "failedDescription": "Kết quả: {{percentage}}% — Chưa đạt yêu cầu{{threshold}}, cần làm lại bài tập.",
       "thresholdSuffix": " (cần ≥{{percent}}%)",
+      "seeFeedbackHint": "Xem nhận xét chi tiết ở từng câu bên dưới.",
       "understood": "Đã hiểu"
     },
     "question": {
@@ -63,7 +83,11 @@
       "answerPlaceholder": "Nhập câu trả lời...",
       "correct": "Chính xác",
       "correctAnswerPrefix": "Đáp án đúng: {{answer}}",
-      "explanationPrefix": "Giải thích: {{text}}"
+      "explanationPrefix": "Giải thích: {{text}}",
+      "gradingFeedbackTitle": "Nhận xét bài làm",
+      "gradedByAi": "AI chấm",
+      "gradedByTeacher": "Giáo viên chấm",
+      "gradingScoreSuffix": "{{score}}/{{max}} điểm"
     },
     "locked": {
       "remaining": "Còn {{count}} lượt làm — hoàn thành hết lượt để xem đáp án.",
@@ -75,9 +99,7 @@
       "hintAriaLabel": "Gợi ý",
       "loadingHint": "Đang tải gợi ý...",
       "locked": "Đã nghe {{playCount}}/{{threshold}} lần — còn {{remaining}} lần nữa để xem gợi ý",
-      "transcriptLabel": "Transcript: ",
-      "correctAnswerLabel": "Đáp án đúng: ",
-      "explanationLabel": "Giải thích: "
+      "transcriptLabel": "Transcript"
     },
     "wordBank": {
       "choosePlaceholder": "— chọn —"
@@ -124,41 +146,79 @@
     }
   },
   "reflexVideoTask": {
+    "gradingOverlay": {
+      "title": "Đang chấm bài...",
+      "writingDescription": "AI đang chấm ngữ pháp câu trả lời của bạn, vui lòng đợi trong giây lát.",
+      "speakingDescription": "AI đang nghe và chấm câu trả lời của bạn (có thể mất khoảng 10-20 giây), vui lòng đợi trong giây lát."
+    },
     "micAccessError": "Không truy cập được microphone — kiểm tra quyền trình duyệt rồi thử lại.",
     "questionsLoadError": "Không tải được danh sách câu hỏi.",
-    "submitError": "Nộp bài thất bại — thử lại.",
+    "submitError": "Chấm bài thất bại — thử lại.",
     "notAssignedError": "Video này chưa được giao thành BTVN cho bạn — không thể nộp bài.",
     "micPermissionError": "Cần cấp quyền micro để làm bài — vui lòng cho phép truy cập microphone (biểu tượng khóa trên thanh địa chỉ) rồi bấm lại.",
     "loadingQuestions": "Đang tải câu hỏi...",
     "noQuestions": "Video này chưa có câu hỏi nào.",
     "badge": "Video phản xạ",
     "exitButton": "Thoát",
+    "playButton": "Phát video",
+    "pauseButton": "Tạm dừng video",
+    "replayButton": "Nghe lại đoạn này",
+    "durationLabel": "Thời lượng video: {{duration}}",
+    "timelineLabel": "Các mốc câu hỏi",
+    "reviewBadge": "Đang xem lại",
+    "closeReviewButton": "Đóng",
     "startScreen": {
-      "description": "Video sẽ tự phát toàn màn hình — không tua/tạm dừng được. Đến đúng mốc thời gian, hệ thống sẽ tự động ghi âm câu trả lời của bạn.",
+      "description": "Video sẽ tự phát và tạm dừng đúng mốc thời gian mỗi câu hỏi — không tua được. Ở mỗi câu: viết câu trả lời trước, AI chấm ngữ pháp đạt mới mở khoá ghi âm nói lại, đạt cả 2 phần thì video mới chạy tiếp.",
       "requestingMic": "Đang xin quyền micro...",
       "startButton": "Bắt đầu làm bài",
       "exitButton": "Thoát"
     },
     "exitConfirm": {
-      "title": "Thoát khi chưa nộp bài?",
-      "description": "Bạn có bản ghi âm chưa nộp — thoát ra sẽ mất toàn bộ bản ghi này.",
+      "title": "Thoát khi chưa hoàn thành?",
+      "description": "Bạn chưa hoàn thành hết các câu hỏi — tiến trình các câu đã đạt vẫn được lưu, chỉ mất nội dung câu đang làm dở nếu thoát ra bây giờ.",
       "stay": "Ở lại làm bài",
       "stillExit": "Vẫn thoát"
     },
     "question": {
       "label": "Câu hỏi {{index}}",
-      "attemptsUsed": "{{used}}/{{max}} lượt nộp",
-      "recording": "Đang ghi âm ({{elapsed}}s/{{max}}s)",
-      "draftSaved": "✓ Đã ghi âm — nộp bài để lưu lại.",
-      "attemptsExhausted": "Đã hết lượt nộp lại cho câu hỏi này.",
-      "alreadySubmitted": "✓ Đã nộp.",
-      "cannotRecordNow": "Không ghi âm được lúc này.",
-      "waitingForTimestamp": "Sẽ tự động ghi âm khi video chạy tới mốc thời gian này."
+      "passed": "Đã đạt",
+      "locked": "Chưa mở",
+      "waitingForYou": "Đang chờ bạn — bấm để tiếp tục"
     },
-    "submittedSuccess": "Đã nộp bài thành công!",
-    "retryButton": "Làm lại",
-    "submitting": "Đang nộp...",
-    "submitButton": "Nộp bài",
+    "writingStage": {
+      "title": "Bước 1 · Viết câu trả lời",
+      "placeholder": "Nhập câu trả lời của bạn...",
+      "submitButton": "Nộp bài viết",
+      "submitting": "Đang chấm...",
+      "passedFeedbackTitle": "Đạt — chuyển sang ghi âm nói lại",
+      "failedFeedbackTitle": "Chưa đạt — sửa lại và nộp lại",
+      "yourAnswerLabel": "Câu trả lời của bạn",
+      "scoreLabel": "điểm ngữ pháp {{score}}%",
+      "attemptCount": "Đã nộp {{count}} lần",
+      "suggestionTitle": "Gợi ý câu trả lời (đã sửa lỗi ngữ pháp)",
+      "useSuggestionButton": "Điền gợi ý vào ô trả lời",
+      "passedPopup": {
+        "heading": "Đạt bước viết",
+        "continueButton": "Tiếp tục"
+      }
+    },
+    "speakingStage": {
+      "title": "Bước 2 · Ghi âm nói lại",
+      "instructions": "Bấm nút bên dưới khi bạn sẵn sàng — nói lại đúng nội dung bạn vừa viết.",
+      "recording": "Đang ghi âm ({{elapsed}}s/{{max}}s)",
+      "grading": "Đang chấm bài nói...",
+      "startRecordingButton": "Bắt đầu ghi âm",
+      "passedFeedbackTitle": "Đạt — mở khoá câu tiếp theo",
+      "failedFeedbackTitle": "Chưa đạt",
+      "scoreLabel": "điểm nội dung {{score}}%",
+      "retryButton": "Ghi âm lại",
+      "attemptCount": "Đã ghi âm {{count}} lần",
+      "passedPopup": {
+        "heading": "Đạt — mở khoá câu tiếp theo",
+        "continueButton": "Tiếp tục"
+      }
+    },
+    "submittedSuccess": "Bạn đã hoàn thành tất cả câu hỏi!",
     "backToList": "Quay lại danh sách bài tập"
   },
   "assignments": {
@@ -169,6 +229,13 @@
       "inProgress": "Đang làm dở",
       "autoGraded": "Đã nộp — chờ chấm tự luận/nói",
       "fullyGraded": "Đã có điểm"
+    },
+    "countdown": {
+      "remainingPrefix": "Còn ",
+      "days": "{{d}} ngày {{h}} giờ",
+      "hours": "{{h}} giờ {{m}} phút",
+      "minutes": "{{m}} phút {{s}} giây",
+      "seconds": "{{s}} giây"
     },
     "banner": {
       "label": "Thông Báo BTVN",
@@ -183,11 +250,13 @@
       "all": "Tất cả bài tập ({{count}})",
       "pending": "Cần hoàn thành ({{count}})",
       "graded": "Đã nộp & Đã chấm ({{count}})",
+      "overdue": "Bài tập quá hạn ({{count}})",
       "typeAriaLabel": "Lọc theo loại bài",
       "typeDialogAriaLabel": "Chọn loại bài",
       "typeAll": "Tất cả loại bài",
-      "typeExercise": "Bài ngữ pháp ({{count}})",
-      "typeVideo": "Video Kết nối - Phản xạ ({{count}})"
+      "typeGroupExercise": "Bài tập",
+      "typeGroupVideo": "Video ôn tập",
+      "typeOther": "Bài khác"
     },
     "empty": "Không có bài tập nào trong mục này.",
     "exercise": {
@@ -195,8 +264,7 @@
         "retake": "Làm lại bài",
         "start": "Làm bài ngay",
         "continue": "Tiếp tục làm bài",
-        "reviewGraded": "Xem lại bài đã làm",
-        "reviewSubmitted": "Xem lại bài đã nộp"
+        "reviewGraded": "Xem lại bài đã làm"
       },
       "needsRetake": "Chưa đạt {{percent}} — cần làm lại",
       "overduePrefix": "Đã quá hạn nộp — ",
@@ -205,7 +273,7 @@
       "teacherVietnamese": "Giáo viên Việt Nam phụ trách",
       "teacherForeign": "Giáo viên nước ngoài phụ trách",
       "assignedInSession": "Giao trong buổi {{date}}",
-      "scoreLabel": "Điểm: ",
+      "completedLabel": "Hoàn thành: ",
       "passed": "Đạt",
       "notPassed": "Chưa đạt"
     },
@@ -222,6 +290,22 @@
       },
       "connectionType": "Video từ kết nối",
       "reflexType": "Video phản xạ"
+    },
+    "batch": {
+      "skillLabel": {
+        "VOCAB_GRAMMAR": "Ngữ pháp",
+        "READING": "Reading",
+        "WRITING": "Writing",
+        "LISTENING": "Nghe"
+      },
+      "countSuffix": "({{count}} bài)",
+      "progressLabel": "Bài {{index}}/{{total}} — {{title}}",
+      "summary": {
+        "pendingTitle": "Đã nộp \"{{title}}\"!",
+        "passedTitle": "Chúc mừng bạn đã hoàn thành \"{{title}}\"!",
+        "failedTitle": "Bạn đã hoàn thành \"{{title}}\"",
+        "combinedScoreLabel": "Kết quả gộp: {{score}}/{{total}} điểm ({{percentage}}%)"
+      }
     }
   },
   "parentHomework": {

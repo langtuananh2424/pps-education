@@ -155,6 +155,9 @@ public class ExerciseService {
             exercise.setSubject(curriculumSubjectOrThrow(request.subjectId()));
         }
         exercise.setExerciseType(Exercise.ExerciseType.valueOf(request.exerciseType()));
+        if (request.skillCategory() != null) {
+            exercise.setSkillCategory(Exercise.SkillCategory.valueOf(request.skillCategory()));
+        }
         exercise.setTotalPoints(request.totalPoints());
         exercise.setTimeLimitMinutes(request.timeLimitMinutes());
         exercise.setAllowRetake(request.allowRetake());
@@ -328,12 +331,13 @@ public class ExerciseService {
      * 2026-07-30): danh sách Bài đã Publish, thuộc 1 Đề đã gán cho lớp —
      * nguồn cho dropdown "BTVN buổi sau" ở Nhận xét học viên (UC-21). ÁP
      * DỤNG CHO MỌI exerciseType (không riêng ASSIGNED như trước Kho đề).
+     * V150 — không còn nhóm/gộp gì ở đây nữa (xem HomeworkSkillBatchService
+     * cho phần chọn theo nhóm kỹ năng); trả nguyên danh sách Bài Published.
      */
     @Transactional(readOnly = true)
     public List<ExerciseResponse> listPublishedForClass(Long classId, Long actorUserId) {
         requireAssignedTeacher(classId, actorUserId);
-        return exerciseRepository.findAvailableForClass(classId, Exercise.Status.PUBLISHED)
-                .stream()
+        return exerciseRepository.findAvailableForClass(classId, Exercise.Status.PUBLISHED).stream()
                 .map(e -> toResponse(e, exerciseQuestionRepository.findByExerciseIdOrderByDisplayOrder(e.getId())))
                 .toList();
     }
@@ -404,6 +408,20 @@ public class ExerciseService {
      */
     public ExerciseAssignment deliverToClass(Long exerciseId, Long classId, OffsetDateTime dueAt, Long actorUserId,
                                               ClassSession sourceClassSession) {
+        return deliverToClass(exerciseId, classId, dueAt, actorUserId, sourceClassSession, true);
+    }
+
+    /**
+     * V150 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — overload nội bộ (package-
+     * private) cho {@link HomeworkSkillBatchService#assignBatchToClass}: 1 "Lô" gọi lại đây N lần (1
+     * lần/Bài THẬT trong Lô) — {@code notify=false} để tắt thông báo TỪNG Bài ở đây, tránh học sinh
+     * nhận N thông báo gần như giống hệt nhau chỉ khác tên Bài (bug thật đã gặp, xem ảnh chụp Portal
+     * học sinh 2026-08-25) — HomeworkSkillBatchService tự gửi đúng 1 thông báo GỘP cho cả Lô sau khi
+     * giao xong toàn bộ N Bài. Mọi caller khác (giao 1 Bài lẻ, kể cả test) vẫn dùng 2 overload public ở
+     * trên (notify=true, hành vi không đổi).
+     */
+    ExerciseAssignment deliverToClass(Long exerciseId, Long classId, OffsetDateTime dueAt, Long actorUserId,
+                                       ClassSession sourceClassSession, boolean notify) {
         // Cắt về độ chính xác microsecond NGAY từ đầu — cột due_at (TIMESTAMPTZ) của Postgres chỉ lưu
         // tới microsecond, còn OffsetDateTime.now() ở tầng gọi có thể mang độ chính xác nanosecond
         // (phát hiện thực tế 2026-08-06, tái hiện được cả khi chạy 1 mình với DB sạch — KHÔNG phải
@@ -480,7 +498,9 @@ public class ExerciseService {
         exercise.setStatus(Exercise.Status.PUBLISHED);
         exerciseRepository.save(exercise);
 
-        notifyAssignedStudents(schoolClass, exercise, assignment);
+        if (notify) {
+            notifyAssignedStudents(schoolClass, exercise, assignment);
+        }
         return assignment;
     }
 
@@ -606,7 +626,8 @@ public class ExerciseService {
                 e.getId(), e.getUuid(), e.getCode(), e.getTitle(),
                 e.getExam().getId(), e.getExam().getCode(), e.getExam().getTitle(), e.getExam().getTeacherType().name(),
                 e.getSubject() == null ? null : e.getSubject().getId(),
-                e.getExerciseType().name(), e.getTotalPoints(), e.getTimeLimitMinutes(), e.isAllowRetake(),
+                e.getExerciseType().name(), e.getSkillCategory() == null ? null : e.getSkillCategory().name(),
+                e.getTotalPoints(), e.getTimeLimitMinutes(), e.isAllowRetake(),
                 e.getMaxAttempts(), e.isShowCorrectAnswers(), e.getPassThresholdPercent(), e.getStatus().name(),
                 e.getCreatedBy().getId(), hasEssayOrSpeaking);
     }
@@ -630,7 +651,7 @@ public class ExerciseService {
                 eq.getDisplayOrder(), eq.getPoints(), choices,
                 question.getSkill() == null ? null : question.getSkill().name(),
                 question.getAudioUrl(), referencePassage,
-                shuffledStructuredContent(question), question.getGroupKey());
+                shuffledStructuredContent(question), question.getGroupKey(), question.getImageUrl());
     }
 
     /**
@@ -662,7 +683,7 @@ public class ExerciseService {
 
     /** Map phương án cho HS chọn — KHÔNG lộ is_correct (xem ExerciseQuestionChoiceResponse). */
     private ExerciseQuestionChoiceResponse toChoiceResponse(QuestionChoice c) {
-        return new ExerciseQuestionChoiceResponse(c.getId(), c.getChoiceLabel(), c.getContent(), c.getDisplayOrder());
+        return new ExerciseQuestionChoiceResponse(c.getId(), c.getChoiceLabel(), c.getContent(), c.getImageUrl(), c.getDisplayOrder());
     }
 
     private ExerciseAssignmentResponse toResponse(ExerciseAssignment a) {

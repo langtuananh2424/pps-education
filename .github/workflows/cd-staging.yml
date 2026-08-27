@@ -1,12 +1,15 @@
-# Deploy tự động lên môi trường Staging (Railway) khi merge vào `develop`.
-# Cần thiết lập trước 2 secret trong GitHub repo settings:
-#   RAILWAY_TOKEN       — token của project Railway (staging)
-#   RAILWAY_PROJECT_ID  — id project Railway (staging)
+# Deploy tự động lên môi trường Staging (server vật lý tự host, xem
+# deploy/README.md) khi push vào `main` — `main` là nhánh auto-deploy staging
+# (đổi từ `develop` trước đây, xem CONTRIBUTING.md mục 1 — cập nhật 2026-08-26).
+# Cần thiết lập trước GitHub Environment "staging" với secret:
+#   DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY, DEPLOY_SSH_PORT — thông tin SSH
+#   vào server, KHÔNG phải secret nghiệp vụ (DB/JWT/v.v. nằm trong .env trên
+#   server, xem deploy/README.md).
 name: CD - Staging
 
 on:
   push:
-    branches: [develop]
+    branches: [main]
     paths:
       - "pps-education-backend/**"
 
@@ -41,18 +44,20 @@ jobs:
             ${{ steps.meta.outputs.image }}
             ghcr.io/${{ github.repository }}/backend:staging-latest
 
-  # TODO: mo lai khi da cau hinh xong secret RAILWAY_TOKEN/RAILWAY_PROJECT_ID
-  # trong GitHub Environment "staging" (Settings > Environments > staging) -
-  # tam comment de CD khong fail lien tuc moi lan merge vao develop.
-  # deploy:
-  #   needs: build-and-push
-  #   runs-on: ubuntu-latest
-  #   environment: staging
-  #   steps:
-  #     - name: Deploy to Railway (staging)
-  #       run: |
-  #         npm install -g @railway/cli
-  #         railway up --service backend --environment staging
-  #       env:
-  #         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-  #         RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Deploy backend over SSH (pull staging-latest + restart container)
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_SSH_PORT }}
+          script: |
+            cd /opt/pps-education/staging
+            docker compose pull backend
+            docker compose up -d --no-deps backend
+            docker image prune -f

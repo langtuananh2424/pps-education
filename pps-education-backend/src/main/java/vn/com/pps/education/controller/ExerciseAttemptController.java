@@ -84,6 +84,13 @@ public class ExerciseAttemptController {
         return ResponseEntity.ok(exerciseAttemptService.submitAttempt(id, actor.userId()));
     }
 
+    /** V152 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — xem Javadoc ExerciseAttemptService#revealAnswersAndClose. */
+    @PostMapping("/api/attempts/{id}/reveal-and-close")
+    public ResponseEntity<ExerciseAttemptResponse> revealAnswersAndClose(@PathVariable Long id,
+                                                                            @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(exerciseAttemptService.revealAnswersAndClose(id, actor.userId()));
+    }
+
     /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31 — xem Javadoc AttemptIntegrityService. */
     @PostMapping("/api/attempts/{id}/integrity-events")
     public ResponseEntity<IntegrityEventBatchResponse> recordIntegrityEvents(@PathVariable Long id,

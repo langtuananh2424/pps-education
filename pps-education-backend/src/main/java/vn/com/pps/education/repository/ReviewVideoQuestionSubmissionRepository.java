@@ -22,4 +22,7 @@ public interface ReviewVideoQuestionSubmissionRepository extends JpaRepository<R
     /** UC-23b: Giáo viên xem danh sách bài đã nộp — trả TẤT CẢ attempt (Service tự lọc lấy mới nhất mỗi cặp question+student), không lọc theo lần giao (GV cần thấy cả lịch sử cũ để chấm). */
     List<ReviewVideoQuestionSubmission> findByReviewVideoQuestionIdInAndStudentIdIn(
             List<Long> reviewVideoQuestionIds, List<Long> studentIds);
+
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — gate "Xóa video" (xem ReviewVideoService#deleteVideo): câu hỏi REFLEX của video đã có học sinh nộp bài thì không cho xóa. */
+    boolean existsByReviewVideoQuestionIdIn(List<Long> reviewVideoQuestionIds);
 }

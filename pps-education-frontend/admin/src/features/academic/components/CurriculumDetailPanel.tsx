@@ -21,6 +21,7 @@ import { curriculumStatusLabel, curriculumStatusVariants } from "./CurriculumLis
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import Select from "@/components/ui/Select";
+import { useDialog } from "@/components/ui/DialogProvider";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
@@ -97,6 +98,8 @@ function ProfileTab({
   const [form, setForm] = useState({
     name: curriculum.name,
     level: curriculum.level ?? "",
+    gradeLevel: curriculum.gradeLevel ?? "",
+    track: curriculum.track ?? "",
     totalPeriods: curriculum.totalPeriods != null ? String(curriculum.totalPeriods) : "",
     defaultGradePassThreshold: curriculum.defaultGradePassThreshold != null ? String(curriculum.defaultGradePassThreshold) : "",
     status: curriculum.status
@@ -104,12 +107,15 @@ function ProfileTab({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showCustomForm, setShowCustomForm] = useState(false);
+  const { confirmDialog } = useDialog();
 
   useEffect(
     () =>
       setForm({
         name: curriculum.name,
         level: curriculum.level ?? "",
+        gradeLevel: curriculum.gradeLevel ?? "",
+        track: curriculum.track ?? "",
         totalPeriods: curriculum.totalPeriods != null ? String(curriculum.totalPeriods) : "",
         defaultGradePassThreshold: curriculum.defaultGradePassThreshold != null ? String(curriculum.defaultGradePassThreshold) : "",
         status: curriculum.status
@@ -117,6 +123,14 @@ function ProfileTab({
     [curriculum]
   );
 
+  /**
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — fix bug thật: UC-16 A1 (khung đang
+   * dùng bởi lớp IN_PROGRESS) đã có sẵn ở backend (CurriculumUpdateConfirmationRequiredException, HTTP
+   * 409) từ trước, nhưng form này chưa từng xử lý — trước đây bấm "Lưu" chỉ hiện banner lỗi đỏ, không
+   * có cách nào bấm tiếp để xác nhận lưu (confirm=true), form kẹt vĩnh viễn không lưu được. Response
+   * lỗi chung không có mã lỗi riêng để phân biệt (chỉ có message) — nhận diện qua chuỗi "IN_PROGRESS"
+   * (tên trạng thái enum, không bị dịch khác nhau giữa VI/EN, xem messages.properties/messages_en.properties).
+   */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name.trim()) {
@@ -134,23 +148,44 @@ function ProfileTab({
           defaultGradePassThreshold: form.defaultGradePassThreshold ? Number(form.defaultGradePassThreshold) : undefined
         });
       } else {
-        await updateCurriculum(curriculum.id, {
-          name: form.name.trim(),
-          level: form.level.trim() || undefined,
-          totalPeriods: form.totalPeriods ? Number(form.totalPeriods) : undefined,
-          defaultGradePassThreshold: form.defaultGradePassThreshold ? Number(form.defaultGradePassThreshold) : undefined,
-          status: form.status,
-          confirm: false
-        });
+        await saveStandardCurriculum(false);
       }
       onChanged();
       showToast(t("detail.profile.savedToast"));
     } catch (err) {
+      if (err instanceof ApiError && err.message.includes("IN_PROGRESS")) {
+        setSaving(false);
+        if (await confirmDialog(err.message)) {
+          setSaving(true);
+          try {
+            await saveStandardCurriculum(true);
+            onChanged();
+            showToast(t("detail.profile.savedToast"));
+          } catch (err2) {
+            setError(err2 instanceof ApiError ? err2.message : t("detail.profile.updateFailedFallback"));
+          } finally {
+            setSaving(false);
+          }
+        }
+        return;
+      }
       setError(err instanceof ApiError ? err.message : t("detail.profile.updateFailedFallback"));
     } finally {
       setSaving(false);
     }
   };
+
+  const saveStandardCurriculum = (confirm: boolean) =>
+    updateCurriculum(curriculum.id, {
+      name: form.name.trim(),
+      level: form.level.trim() || undefined,
+      gradeLevel: form.gradeLevel || undefined,
+      track: form.track || undefined,
+      totalPeriods: form.totalPeriods ? Number(form.totalPeriods) : undefined,
+      defaultGradePassThreshold: form.defaultGradePassThreshold ? Number(form.defaultGradePassThreshold) : undefined,
+      status: form.status,
+      confirm
+    });
 
   const handleSubmitForApproval = async () => {
     setError(null);
@@ -176,6 +211,28 @@ function ProfileTab({
             <label className={labelClass}>{t("detail.profile.levelLabel")}</label>
             <input value={form.level} onChange={(e) => setForm({ ...form, level: e.target.value })} className={inputClass} />
           </div>
+          {!isCustom && (
+            <>
+              <div>
+                <label className={labelClass}>{t("detail.profile.gradeLevelLabel")}</label>
+                <Select value={form.gradeLevel} onChange={(e) => setForm({ ...form, gradeLevel: e.target.value })} className={inputClass}>
+                  <option value="">{t("detail.profile.gradeLevelPlaceholder")}</option>
+                  <option value="GRADE_6">{t("detail.profile.gradeLevelOptions.GRADE_6")}</option>
+                  <option value="GRADE_7">{t("detail.profile.gradeLevelOptions.GRADE_7")}</option>
+                  <option value="GRADE_8">{t("detail.profile.gradeLevelOptions.GRADE_8")}</option>
+                  <option value="GRADE_9">{t("detail.profile.gradeLevelOptions.GRADE_9")}</option>
+                </Select>
+              </div>
+              <div>
+                <label className={labelClass}>{t("detail.profile.trackLabel")}</label>
+                <Select value={form.track} onChange={(e) => setForm({ ...form, track: e.target.value })} className={inputClass}>
+                  <option value="">{t("detail.profile.trackPlaceholder")}</option>
+                  <option value="IELTS">{t("detail.profile.trackOptions.IELTS")}</option>
+                  <option value="CAMBRIDGE">{t("detail.profile.trackOptions.CAMBRIDGE")}</option>
+                </Select>
+              </div>
+            </>
+          )}
           <div>
             <label className={labelClass}>{t("detail.profile.totalPeriodsLabel")}</label>
             <input type="number" min={0} value={form.totalPeriods} onChange={(e) => setForm({ ...form, totalPeriods: e.target.value })} className={inputClass} />

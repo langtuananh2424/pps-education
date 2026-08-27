@@ -12,5 +12,7 @@ public record UpdateReviewVideoSetRequest(
         @NotBlank String teacherType,
         Long subjectId,
         Integer displayOrder,
-        @NotBlank String status
+        @NotBlank String status,
+        /** V155 — mirror UpdateExamRequest#subTopicId. */
+        Long subTopicId
 ) {}

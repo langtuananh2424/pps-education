@@ -13,5 +13,8 @@ public record ExamResponse(
         String teacherType,
         String examType,
         /** V75 (Kho đề): Ngân hàng câu hỏi nội bộ tự sinh cùng Đề — thêm câu hỏi qua QuestionBankService#createQuestion(questionBankId, ...). */
-        Long questionBankId
+        Long questionBankId,
+        /** V144 — NULL = chưa phân loại vào cấu trúc Sách/Unit/SubTopic mới. */
+        Long subTopicId,
+        String subTopicTitle
 ) {}

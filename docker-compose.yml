@@ -49,6 +49,9 @@ services:
       R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:?Thiếu R2_SECRET_ACCESS_KEY}
       R2_BUCKET_NAME: ${R2_BUCKET_NAME:?Thiếu R2_BUCKET_NAME}
       R2_PUBLIC_BASE_URL: ${R2_PUBLIC_BASE_URL:?Thiếu R2_PUBLIC_BASE_URL}
+      # Override endpoint đầy đủ khi tự host MinIO thay R2 thật (server production tự host,
+      # xem deploy/README.md) - để trống thì giữ hành vi R2 thật như cũ.
+      R2_ENDPOINT_URL: ${R2_ENDPOINT_URL:-}
       # SMTP (UC-15, cảnh báo thiếu BTVN...) - tùy chọn, để trống vẫn chạy được
       # (application.yml default rỗng, EmailNotificationSender tự chuyển FAILED).
       MAIL_HOST: ${MAIL_HOST:-}
@@ -61,6 +64,21 @@ services:
       # Firebase Admin SDK (kenh PUSH, xem FirebaseConfig.java) - tuy chon, de trong
       # van chay duoc (PushNotificationSender tu bao loi co kiem soat).
       FIREBASE_CREDENTIALS_BASE64: ${FIREBASE_CREDENTIALS_BASE64:-}
+      # SPIKE/TEST rieng "AI cham Speaking" (2026-08-22, xem SpeakingAiGradingTestService) - tuy
+      # chon, de trong van chay duoc (endpoint tra loi 400 co kiem soat khi goi ma chua cau hinh).
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      # SPIKE (nhánh spike/openrouter-ai-rotation, 2026-08-25) - 9Router (https://github.com/decolua/
+      # 9router), proxy AI chạy TRÊN MÁY HOST (npm install -g 9router && 9router, ngoài container này) -
+      # dùng host.docker.internal (Docker Desktop tự map sẵn) để container gọi ra được máy host, vì
+      # "localhost" bên TRONG container KHÔNG trỏ tới máy host (khác khi chạy backend qua mvn
+      # spring-boot:run trực tiếp trên host, lúc đó localhost mới đúng là 9Router).
+      NINE_ROUTER_BASE_URL: ${NINE_ROUTER_BASE_URL:-http://host.docker.internal:20128/v1}
+      NINE_ROUTER_API_KEY: ${NINE_ROUTER_API_KEY:-}
+      NINE_ROUTER_MODEL: ${NINE_ROUTER_MODEL:-}
+      NINE_ROUTER_STT_MODEL: ${NINE_ROUTER_STT_MODEL:-groq/whisper-large-v3-turbo}
+      NINE_ROUTER_AUDIO_MODEL: ${NINE_ROUTER_AUDIO_MODEL:-ag/gemini-3.5-flash-low}
     ports:
       - "8080:8080"
     depends_on:

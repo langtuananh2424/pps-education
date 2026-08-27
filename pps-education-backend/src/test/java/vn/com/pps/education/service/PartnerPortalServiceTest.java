@@ -131,9 +131,9 @@ class PartnerPortalServiceTest extends AbstractIntegrationTest {
         headAcademic = newUser("head.academic");
         assignRole(headAcademic, "HEAD_ACADEMIC");
         CurriculumResponse curriculum = curriculumService.create(
-                new CreateCurriculumRequest(curriculumCode(), "Chuẩn", "MAIN", null, null, null), headAcademic.getId());
+                new CreateCurriculumRequest(curriculumCode(), "Chuẩn", "MAIN", null, null, null, null, null), headAcademic.getId());
         activeCurriculum = curriculumService.update(curriculum.id(),
-                new UpdateCurriculumRequest("Chuẩn", null, null, null, "ACTIVE", false), headAcademic.getId());
+                new UpdateCurriculumRequest("Chuẩn", null, null, null, null, null, "ACTIVE", false), headAcademic.getId());
 
         partnerSite = newSite(Site.SiteType.PARTNER);
         schoolClass = classService.create(
@@ -282,7 +282,7 @@ class PartnerPortalServiceTest extends AbstractIntegrationTest {
         studentAttendanceService.submitAttendance(session.id(), teacher.getId());
         StudentCommentResponse approvedComment = studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), session.id(),
-                        LocalDate.now(), "Chăm chỉ, tiến bộ rõ rệt.", null, "POSITIVE", false, null, null, null, null, null, null, null, null, null, null, null, null),
+                        LocalDate.now(), "Chăm chỉ, tiến bộ rõ rệt.", null, "POSITIVE", false, null, null, null, null, null, null, null, null, null, null, null, null, null, null),
                 teacher.getId());
         studentCommentService.submitComments(schoolClass.id(), new SubmitCommentsRequest(List.of(approvedComment.id())), teacher.getId());
         studentCommentService.decideComments(
@@ -297,7 +297,7 @@ class PartnerPortalServiceTest extends AbstractIntegrationTest {
                 headAcademic.getId());
         studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), otherSession.id(),
-                        LocalDate.now(), "Nhận xét nháp chưa gửi duyệt.", null, "NORMAL", false, null, null, null, null, null, null, null, null, null, null, null, null),
+                        LocalDate.now(), "Nhận xét nháp chưa gửi duyệt.", null, "NORMAL", false, null, null, null, null, null, null, null, null, null, null, null, null, null, null),
                 teacher.getId());
 
         List<StudentCommentResponse> comments = partnerPortalService.getApprovedComments(partnerRepUser.getId());

@@ -16,5 +16,8 @@ public record ReviewVideoSetResponse(
         Integer displayOrder,
         String status,
         OffsetDateTime publishedAt,
-        Long createdBy
+        Long createdBy,
+        /** V155 — NULL = chưa phân loại vào cấu trúc Sách/Unit/SubTopic mới. */
+        Long subTopicId,
+        String subTopicTitle
 ) {}

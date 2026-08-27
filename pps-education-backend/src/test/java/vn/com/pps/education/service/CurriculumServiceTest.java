@@ -66,7 +66,7 @@ class CurriculumServiceTest extends AbstractIntegrationTest {
     @Test
     void create_UC16_MainFlow_createsDraftCurriculumAndWritesHistory() {
         CurriculumResponse response = curriculumService.create(
-                new CreateCurriculumRequest(curriculumCode(), "Tiếng Anh Lớp 8 Chuẩn", "MAIN", "Lớp 8", 90, null),
+                new CreateCurriculumRequest(curriculumCode(), "Tiếng Anh Lớp 8 Chuẩn", "MAIN", "Lớp 8", null, null, 90, null),
                 headAcademic.getId());
 
         assertThat(response.id()).isNotNull();
@@ -77,17 +77,17 @@ class CurriculumServiceTest extends AbstractIntegrationTest {
     @Test
     void create_rejectsDuplicateCode() {
         String code = curriculumCode();
-        curriculumService.create(new CreateCurriculumRequest(code, "A", "MAIN", null, null, null), headAcademic.getId());
+        curriculumService.create(new CreateCurriculumRequest(code, "A", "MAIN", null, null, null, null, null), headAcademic.getId());
 
         assertThatThrownBy(() -> curriculumService.create(
-                new CreateCurriculumRequest(code, "B", "MAIN", null, null, null), headAcademic.getId()))
+                new CreateCurriculumRequest(code, "B", "MAIN", null, null, null, null, null), headAcademic.getId()))
                 .isInstanceOf(DuplicateCurriculumCodeException.class);
     }
 
     @Test
     void addSubject_UC16_MainFlow_persistsSubject() {
         CurriculumResponse curriculum = curriculumService.create(
-                new CreateCurriculumRequest(curriculumCode(), "Có học phần", "MAIN", null, null, null),
+                new CreateCurriculumRequest(curriculumCode(), "Có học phần", "MAIN", null, null, null, null, null),
                 headAcademic.getId());
 
         var subject = curriculumService.addSubject(curriculum.id(),
@@ -99,11 +99,11 @@ class CurriculumServiceTest extends AbstractIntegrationTest {
     @Test
     void update_UC16_MainFlow_activatesCurriculum() {
         CurriculumResponse curriculum = curriculumService.create(
-                new CreateCurriculumRequest(curriculumCode(), "Sắp active", "MAIN", null, null, null),
+                new CreateCurriculumRequest(curriculumCode(), "Sắp active", "MAIN", null, null, null, null, null),
                 headAcademic.getId());
 
         CurriculumResponse activated = curriculumService.update(curriculum.id(),
-                new UpdateCurriculumRequest("Sắp active", null, null, null, "ACTIVE", false),
+                new UpdateCurriculumRequest("Sắp active", null, null, null, null, null, "ACTIVE", false),
                 headAcademic.getId());
 
         assertThat(activated.status()).isEqualTo("ACTIVE");
@@ -112,10 +112,10 @@ class CurriculumServiceTest extends AbstractIntegrationTest {
     @Test
     void update_UC16_A1_requiresConfirmWhenCurriculumUsedByRunningClass() {
         CurriculumResponse curriculum = curriculumService.create(
-                new CreateCurriculumRequest(curriculumCode(), "Đang chạy", "MAIN", null, null, null),
+                new CreateCurriculumRequest(curriculumCode(), "Đang chạy", "MAIN", null, null, null, null, null),
                 headAcademic.getId());
         curriculumService.update(curriculum.id(),
-                new UpdateCurriculumRequest("Đang chạy", null, null, null, "ACTIVE", false), headAcademic.getId());
+                new UpdateCurriculumRequest("Đang chạy", null, null, null, null, null, "ACTIVE", false), headAcademic.getId());
         Site site = newSite();
         var schoolClass = classService.create(
                 new CreateClassRequest(classCode(), "Lớp đang chạy", site.getId(), curriculum.id(), "OPEN",
@@ -126,12 +126,12 @@ class CurriculumServiceTest extends AbstractIntegrationTest {
                 headAcademic.getId());
 
         assertThatThrownBy(() -> curriculumService.update(curriculum.id(),
-                new UpdateCurriculumRequest("Đổi tên", null, null, null, "ACTIVE", false), headAcademic.getId()))
+                new UpdateCurriculumRequest("Đổi tên", null, null, null, null, null, "ACTIVE", false), headAcademic.getId()))
                 .isInstanceOf(CurriculumUpdateConfirmationRequiredException.class);
 
         // confirm=true phải cho phép lưu.
         CurriculumResponse confirmed = curriculumService.update(curriculum.id(),
-                new UpdateCurriculumRequest("Đổi tên", null, null, null, "ACTIVE", true), headAcademic.getId());
+                new UpdateCurriculumRequest("Đổi tên", null, null, null, null, null, "ACTIVE", true), headAcademic.getId());
         assertThat(confirmed.name()).isEqualTo("Đổi tên");
     }
 

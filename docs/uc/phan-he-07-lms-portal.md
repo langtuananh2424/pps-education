@@ -744,14 +744,57 @@ UC-24: Làm bài kiểm tra trực tuyến
 > khi chấm, quyền `lms.grading.manage`). UC-23b dùng cơ chế khác (đệm
 > rồi gửi kèm lúc nộp) — xem blockquote riêng ở UC-23b.
 >
-> **Cân nhắc nhưng KHÔNG làm trong lần này:** áp dụng `Exercise.
-> timeLimitMinutes` (trường có sẵn từ trước nhưng chưa từng được thực
-> thi ở đâu) để tự nộp bài khi hết giờ — đã xác nhận với người dùng
-> 2026-07-31: chỉ tập trung đúng phạm vi giám sát thoát màn hình, việc
-> này để làm sau, cần chốt lại cách xử lý bài dở khi triển khai. Cũng
-> KHÔNG làm giám sát qua webcam — học sinh là trẻ vị thành niên, rủi ro
-> pháp lý về quyền riêng tư/lưu trữ dữ liệu không tương xứng với nhu cầu
-> (bài tập, không phải thi tốt nghiệp).
+> **Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-22 —
+> triển khai enforcement `Exercise.timeLimitMinutes`** (thay thế đoạn "Cân
+> nhắc nhưng KHÔNG làm trong lần này" ở bản trước): khi hết giờ làm bài
+> tính từ `exercise_attempts.started_at`, hệ thống tự động chốt + chấm bài
+> như nộp bình thường (tái dùng luồng `ExerciseAttemptService#gradeAndFinalize`
+> — cùng công thức tự chấm trắc nghiệm/pass-threshold như A5, KHÔNG dùng
+> trạng thái `EXPIRED` có sẵn trong SDD, giữ `EXPIRED` để dành cho tình
+> huống khác sau này, tránh lẫn với luồng chấm điểm chuẩn). 2 cơ chế:
+>
+> 1. Chặn ngay khi học sinh còn thao tác: `saveAnswer()` kiểm tra nếu
+>    `now > started_at + timeLimitMinutes` thì tự chốt bài trước, từ chối
+>    nhận câu trả lời mới đó (`AttemptNotEditableException`, message rõ đã
+>    hết giờ và hệ thống đã tự nộp).
+> 2. Scheduled job `ExerciseAttemptTimeoutSchedulerService` (cron 5 phút,
+>    mirror `HomeworkDueSoonReminderSchedulerService`) quét các lượt làm
+>    `IN_PROGRESS` bị bỏ dở (học sinh đóng tab, không quay lại) và tự chốt.
+>
+> Học sinh chủ động bấm Nộp (`submitAttempt()`) dù có trễ hơn
+> `timeLimitMinutes` vẫn được chấm bình thường như cũ — đây là hành động
+> chủ động, không phải luồng "tự động nộp". Không thêm cột đánh dấu riêng
+> — có thể suy ra "bị tự động chốt do hết giờ" từ so sánh
+> `submitted_at`/`started_at`/`exercises.time_limit_minutes` khi cần, tại
+> thời điểm hiển thị/báo cáo, không cần lưu thêm trạng thái. Cũng KHÔNG
+> làm giám sát qua webcam — học sinh là trẻ vị thành niên, rủi ro pháp lý
+> về quyền riêng tư/lưu trữ dữ liệu không tương xứng với nhu cầu (bài tập,
+> không phải thi tốt nghiệp).
+
+> **Bổ sung V139 (2026-08-22, đã xác nhận với người dùng) — "Video phản
+> xạ" đổi hướng sang luồng tuần tự + AI chấm (Speaking V2), THAY luồng ở
+> trên (xem lại quyết định 2026-07-31 ngay phía trên — nay đã đổi lại vì
+> hướng nghiệp vụ mới):** với mỗi câu hỏi (`ReviewVideoQuestion`), học
+> sinh phải **viết trả lời trước** → AI (`ReflexWritingGrammarAiGrading
+> Service`, rubric `resources/rubrics/reflex-writing-grammar-rubric.md`,
+> hiện là PLACEHOLDER) chấm ngữ pháp NGAY → đạt 70% mới mở khoá ghi âm
+> câu đó → nộp audio → AI (`ReflexSpeakingContentAiGradingService`, chỉ
+> dùng Gemini vì cần nhận audio trực tiếp — transcribe + chấm nội dung
+> trong 1 lệnh gọi, rubric `reflex-speaking-content-rubric.md`, cũng
+> PLACEHOLDER) chấm nội dung NGAY → đạt 70% mới mở khoá câu tiếp theo.
+> KHÔNG giới hạn số lần thử lại — nộp lại chỉ SỬA ĐÈ tiến trình hiện có
+> (bảng mới `reflex_question_progress`, xem `docs/sdd-groups/09-lms-and-
+> portal.md`), không tạo lịch sử từng lần thử. Đây LÀ luồng CHÍNH THỨC
+> mới cho video REFLEX — luồng cũ (1 video liên tục, ghi âm theo mốc thời
+> gian, nộp cả loạt cuối video, GV chấm tay — `ReviewVideoService#submit
+> QuestionAudio`/`ReviewVideoGradingPanel.tsx`) **vẫn giữ nguyên trong
+> code** (không xoá, có thể bật lại) nhưng KHÔNG còn dùng cho video REFLEX
+> theo mặc định. Ngưỡng 70% hiện CỐ ĐỊNH (`ReflexSequentialGradingService
+> .PASS_THRESHOLD_PERCENT`) — `ReviewVideoSet` chưa có cột ngưỡng riêng
+> như `Exercise.pass_threshold_percent`, ngoài phạm vi thay đổi lần này.
+> API mới: `PUT /api/review-video-questions/{id}/reflex-progress/writing`,
+> `PUT .../reflex-progress/speaking`, `GET /api/review-video-assignments/
+> {id}/reflex-progress` (xem `ReflexSequentialGradingController`).
 
 ---
 
@@ -1657,6 +1700,83 @@ UC-40: Soạn & giao đề kiểm tra
 >    (không xóa `exercise_questions` liên quan) — chỉ ẩn khỏi việc chọn
 >    thêm câu mới. Chưa có chức năng khôi phục lại qua giao diện (chỉ có
 >    thể sửa tay qua DB nếu cần) — sẽ bổ sung sau nếu phát sinh nhu cầu.
+
+> **Bổ sung V94 (2026-08-06, đã xác nhận với người dùng) --- gợi ý
+> tapescript cho câu hỏi Nghe (`skill=LISTENING`, thường gặp ở Đề
+> `teacherType=FOREIGN` --- "Audio bài nghe", xem bổ sung V84/V86 phía
+> trên --- nhưng KHÔNG hard-code giới hạn theo teacherType, áp dụng cho
+> BẤT KỲ câu hỏi nào có `skill=LISTENING` + `audioUrl`):** trước đây
+> `referencePassage` (transcript) bị trả về KHÔNG điều kiện ngay từ lúc
+> tải đề (`GET /api/exercises/{id}/questions`), lộ đáp án qua DevTools/
+> Network. Từ nay:
+> 1. Học sinh phải **nghe HẾT audio đủ số lần cấu hình** (ngưỡng
+>    `system_settings.lms.listening_hint_unlock_play_count`, mặc định
+>    **3**, sửa được qua Cài đặt hệ thống) mới xem được gợi ý --- đếm
+>    qua sự kiện `ended` của thẻ `<audio>` ở FE
+>    (`TakeExerciseModal.tsx`), gọi `POST /api/attempts/{id}/listening-
+>    plays` mỗi lần nghe hết 1 lượt (`ListeningHintService#recordPlay`,
+>    bảng `listening_play_progress`, migration
+>    `V94__listening_hint_tracking.sql`). **Lưu ý:** điều kiện mở khóa là
+>    SỐ LẦN NGHE HẾT audio, KHÔNG PHẢI số lượt làm sai/nộp bài thất bại.
+> 2. Nhóm "1 audio nhiều câu" (`Question.groupKey`, `ListeningGroup
+>    Builder.tsx`) dùng CHUNG 1 bộ đếm (`listening_key` suy từ `groupKey`
+>    nếu có, không thì theo chính `questionId`) --- nghe 1 lần tính cho
+>    cả nhóm câu cùng audio đó.
+> 3. Khi đã đủ điều kiện, `GET /api/attempts/{id}/listening-hint`
+>    (`ListeningHintService#getHint`) trả `referencePassage` (transcript)
+>    + đáp án đúng + `explanation`. Chỉ gọi được khi lượt làm bài còn
+>    `IN_PROGRESS` (chặn gọi thẳng API sau khi đã nộp bài, kể cả khi
+>    `exercise.showCorrectAnswers=false`).
+> 4. Thống kê: mỗi lần gọi `getHint()` THÀNH CÔNG (đã mở khóa, học sinh
+>    THỰC SỰ mở xem) ghi 1 dòng bất biến vào `listening_hint_events`
+>    (KHÁC lúc chỉ vừa đủ điều kiện nhưng chưa bấm xem) --- tổng hợp qua
+>    `ExerciseReportService` (`hintUsedCount`/`hintUsedStudentCount` theo
+>    từng câu hỏi, trả trong `ExerciseAssignmentQuestionStatsResponse`).
+> 5. **Chưa có**: tính năng tra Từ điển (dictionary lookup) khi xem
+>    tapescript hay bất kỳ đâu khác trong hệ thống --- ngoài phạm vi bổ
+>    sung V94, cần thiết kế riêng (chọn nhà cung cấp/API) nếu muốn thêm.
+
+> **Bổ sung V136 (2026-08-21, đã xác nhận với người dùng) --- phân loại
+> "Bài" theo nhóm kỹ năng (bước 4 Main Flow, cùng lúc chọn Loại Bài):**
+> thêm cột `exercises.skill_category` (`READING`/`WRITING`/`VOCAB_GRAMMAR`,
+> NULL = chưa phân loại) --- ĐỘC LẬP với `exercise_type` (cơ chế giao bài)
+> và `exams.exam_type` (mục đích sử dụng), không thay thế field nào. Giáo
+> viên chọn tường minh ở màn "Soạn Bài mới" (`CreateAndAssignExerciseModal
+> .tsx`, `ExerciseInfoStep`), cố định từ lúc tạo (không sửa được qua
+> `UpdateExerciseRequest`, mirror `exercise_type`). KHÔNG ràng buộc cứng
+> loại câu hỏi bên trong theo category đã chọn ở giai đoạn này --- chỉ là
+> nhãn phân loại/lọc, tránh phá luồng soạn đề hiện có. Mục đích: cung cấp
+> nền tảng để "Nhận xét học viên" (UC-21) lọc đúng dropdown "chọn đề
+> Reading"/"chọn đề Writing" khi giao BTVN online 2 kỹ năng này (xem bổ
+> sung tương ứng tại `docs/uc/phan-he-06-hoc-thuat.md`) --- trước V136
+> không có cách nào phân biệt 1 Bài là Reading hay Writing hay Từ vựng &
+> Ngữ pháp ở cấp Exercise/Exam.
+
+> **Bổ sung V138 (2026-08-22, đã xác nhận với người dùng) --- AI chấm tự
+> động câu ESSAY thuộc Bài `skill_category=WRITING` (thay UC-41 bước 2-5
+> CHỈ cho riêng nhóm Bài này):** khi học sinh nộp bài
+> (`ExerciseAttemptService#submitAttempt`), nếu `exercise.skillCategory
+> =WRITING` thì mọi câu trả lời ESSAY được `WritingAiGradingService` chấm
+> NGAY theo rubric (`resources/rubrics/writing-exercise-rubric.md`,
+> hiện là PLACEHOLDER --- người dùng sẽ cung cấp nội dung thật sau khi
+> trao đổi với người chấm), ghi thẳng vào `student_answer_grading` với
+> cột mới `grading_source='AI'` (V138, mirror bản ghi GV chấm tay,
+> `grader_user_id` = `exercises.created_by` --- không tạo user hệ thống
+> ảo). Ngưỡng đạt dùng chung `exercises.pass_threshold_percent` (mặc định
+> 70%, đã có từ V100/V89), KHÔNG giới hạn số lần nộp lại (đề `allowRetake`
+> tự quyết định như bình thường). Câu đã có điểm AI **tự động biến mất**
+> khỏi hàng chờ chấm tay (`findPendingManualGrading` chỉ liệt kê câu CHƯA
+> có bản chấm `latest=true`) --- GV KHÔNG bị chặn chấm tay đè lên sau nếu
+> phát hiện AI chấm sai, gọi lại `ManualGradingService#gradeAnswer` bình
+> thường (tạo bản ghi mới `grading_source='HUMAN'`, `latest=true`, bản AI
+> cũ chuyển `latest=false`) --- "ẩn nhưng vẫn giữ được" luồng chấm tay,
+> không xoá code UC-41 gốc. AI chấm lỗi (thiếu key/API lỗi) trả `null`,
+> câu trả lời rơi lại đúng hàng chờ chấm tay như hành vi mặc định cũ,
+> KHÔNG chặn học sinh nộp bài. 2 nhà cung cấp AI dùng chung config với
+> spike `/dev-tools/speaking-grading-test`
+> (`app.ai-grading.{anthropic,gemini}-api-key`) --- ưu tiên Claude Haiku
+> 4.5 nếu có `ANTHROPIC_API_KEY`, fallback Gemini Flash nếu chỉ có
+> `GEMINI_API_KEY`.
 
 ---
 

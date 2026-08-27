@@ -5,12 +5,10 @@ import { ApiError } from "@/lib/apiClient";
 import { StudentCommentResponse, submitComments, updateComment } from "../api";
 import CommentVersionHistoryModal from "./CommentVersionHistoryModal";
 import {
-  ExerciseAssignmentResponse,
-  ExerciseResponse,
+  HomeworkSkillGroupResponse,
   ReviewVideoAssignmentResponse,
   ReviewVideoSetResponse,
-  listAssignmentsForClass,
-  listPublishedExercisesForClass,
+  listHomeworkSkillGroupsForClass,
   listReviewVideoAssignmentsForClass,
   listReviewVideoSetsByClass
 } from "@/features/lms/api";
@@ -78,20 +76,17 @@ export default function CommentHistoryList({
   const [error, setError] = useState<string | null>(null);
   /** Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-19) — version history kiểu Google Sheets. */
   const [historyFor, setHistoryFor] = useState<StudentCommentResponse | null>(null);
-  /** V65: nguồn khả dụng cho dropdown — Exercise đã Publish (không phải bản giao). */
-  const [grammarOptions, setGrammarOptions] = useState<ExerciseResponse[]>([]);
+  /** V150: nguồn khả dụng cho dropdown — nhóm kỹ năng (1 entry/Lesson, xem HomeworkSkillGroupResponse), không còn 1 Exercise/bản giao đơn. */
+  const [grammarOptions, setGrammarOptions] = useState<HomeworkSkillGroupResponse[]>([]);
   const [videoOptions, setVideoOptions] = useState<ReviewVideoSetResponse[]>([]);
-  /** V65: bản giao ACTIVE hiện có của lớp — chỉ dùng để tra ngược "comment đã lưu chọn nguồn nào" khi bắt đầu sửa. */
-  const [grammarAssignments, setGrammarAssignments] = useState<ExerciseAssignmentResponse[]>([]);
   const [videoAssignments, setVideoAssignments] = useState<ReviewVideoAssignmentResponse[]>([]);
   const { message: toastMessage, showToast } = useToast();
 
   useEffect(() => {
-    listPublishedExercisesForClass(classId).then(setGrammarOptions).catch(() => undefined);
+    listHomeworkSkillGroupsForClass(classId, "VOCAB_GRAMMAR").then(setGrammarOptions).catch(() => undefined);
     listReviewVideoSetsByClass(classId)
       .then((sets) => setVideoOptions(sets.filter((s) => s.status === "PUBLISHED")))
       .catch(() => undefined);
-    listAssignmentsForClass(classId).then(setGrammarAssignments).catch(() => undefined);
     listReviewVideoAssignmentsForClass(classId).then(setVideoAssignments).catch(() => undefined);
   }, [classId]);
 
@@ -104,16 +99,12 @@ export default function CommentHistoryList({
     setEditHomeworkPreviousScore(h.homeworkPreviousScore ?? "");
     setEditHomeworkPreviousSpeakingScore(h.homeworkPreviousSpeakingScore ?? "");
     // V127: pendingHomeworkNext* (id NGUỒN, chưa Gửi) ưu tiên trước — chỉ dòng REJECTED chưa sửa gì kể
-    // từ lần Gửi trước mới cần fallback tra ngược qua grammarAssignments/videoAssignments (bản giao lần
-    // đó vẫn còn hiệu lực, xem StudentCommentResponse.homeworkNextExerciseAssignmentId).
+    // từ lần Gửi trước mới cần fallback đọc homeworkNextExerciseAssignmentId. V150 — field này giờ TỰ
+    // NÓ đã là examId (Lesson) của Lô đã giao lần trước, không cần tra ngược qua danh sách bản giao nữa
+    // (xem Javadoc StudentCommentResponse#homeworkNextExerciseAssignmentId).
     setEditGrammarMode(h.pendingHomeworkNextExerciseId != null || h.homeworkNextExerciseAssignmentId != null ? "ONLINE" : "OFFLINE");
     setEditHomeworkNext(h.homeworkNext ?? "");
-    setEditHomeworkNextExerciseId(
-      h.pendingHomeworkNextExerciseId ??
-        (h.homeworkNextExerciseAssignmentId != null
-          ? grammarAssignments.find((a) => a.id === h.homeworkNextExerciseAssignmentId)?.exerciseId ?? ""
-          : "")
-    );
+    setEditHomeworkNextExerciseId(h.pendingHomeworkNextExerciseId ?? h.homeworkNextExerciseAssignmentId ?? "");
     setEditHomeworkNextReviewVideoSetId(
       h.pendingHomeworkNextReviewVideoSetId ??
         (h.homeworkNextReviewVideoAssignmentId != null
@@ -242,8 +233,8 @@ export default function CommentHistoryList({
                       >
                         <option value="">{t("historyList.placeholders.chooseExercise")}</option>
                         {grammarOptions.map((ex) => (
-                          <option key={ex.id} value={ex.id}>
-                            {ex.examCode} - {ex.title}
+                          <option key={ex.examId} value={ex.examId}>
+                            {ex.examCode} - {ex.examTitle} ({ex.exerciseCount} bài, {ex.questionCount} câu)
                           </option>
                         ))}
                       </Select>

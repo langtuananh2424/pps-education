@@ -151,9 +151,9 @@ class AttemptIntegrityServiceTest extends AbstractIntegrationTest {
         headAcademic = newUser("head.academic");
         assignRole(headAcademic, "HEAD_ACADEMIC");
         CurriculumResponse curriculum = curriculumService.create(
-                new CreateCurriculumRequest(curriculumCode(), "Chuẩn", "MAIN", null, null, null), headAcademic.getId());
+                new CreateCurriculumRequest(curriculumCode(), "Chuẩn", "MAIN", null, null, null, null, null), headAcademic.getId());
         activeCurriculum = curriculumService.update(curriculum.id(),
-                new UpdateCurriculumRequest("Chuẩn", null, null, null, "ACTIVE", false), headAcademic.getId());
+                new UpdateCurriculumRequest("Chuẩn", null, null, null, null, null, "ACTIVE", false), headAcademic.getId());
 
         Site site = newSite();
         schoolClass = classService.create(
@@ -186,7 +186,7 @@ class AttemptIntegrityServiceTest extends AbstractIntegrationTest {
         parentUser = userRepository.findById(parent.userId()).orElseThrow();
 
         defaultExam = examService.createExam(
-                new CreateExamRequest(examCode(), "Đề mặc định", activeCurriculum.id(), "VIETNAMESE", "HOMEWORK"), teacher.getId());
+                new CreateExamRequest(examCode(), "Đề mặc định", activeCurriculum.id(), "VIETNAMESE", "HOMEWORK", null), teacher.getId());
     }
 
     @Test
@@ -274,12 +274,12 @@ class AttemptIntegrityServiceTest extends AbstractIntegrationTest {
     @Test
     void recordEvents_boSung_reviewVideoQuestionEventsPersistOnlyAlongsideSuccessfulSubmission() {
         ReviewVideoSetResponse set = reviewVideoService.createSet(
-                new CreateReviewVideoSetRequest(setCode(), "Video phản xạ", "REFLEX", schoolClass.curriculumId(), "VIETNAMESE", null, 1),
+                new CreateReviewVideoSetRequest(setCode(), "Video phản xạ", "REFLEX", schoolClass.curriculumId(), "VIETNAMESE", null, 1, null),
                 teacher.getId());
         // V98 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06): curriculum trên "bộ" giờ
         // CHỈ dùng lọc/tìm kiếm — phải assignToClass tường minh trước khi deliverToClass mới thành công.
         reviewVideoService.assignToClass(set.id(), schoolClass.id(), teacher.getId());
-        reviewVideoService.updateSet(set.id(), new UpdateReviewVideoSetRequest(set.title(), "VIETNAMESE", null, 1, "PUBLISHED"), teacher.getId());
+        reviewVideoService.updateSet(set.id(), new UpdateReviewVideoSetRequest(set.title(), "VIETNAMESE", null, 1, "PUBLISHED", null), teacher.getId());
         // V71: deliverToClass dùng PROPAGATION_REQUIRES_NEW — phải commit set vừa tạo trước.
         commitCurrentTransactionAndStartNew();
         ReviewVideoAssignment assignment = reviewVideoService.deliverToClass(set.id(), schoolClass.id(), null, teacher.getId());
@@ -308,7 +308,7 @@ class AttemptIntegrityServiceTest extends AbstractIntegrationTest {
         QuestionResponse mc = examQuestionService.createQuestion(defaultExam.id(),
                 new CreateExamQuestionRequest("MULTIPLE_CHOICE", "GRAMMAR", "EASY",
                         "She ___ to school.", null, null, null, null, null, new BigDecimal("1.0"), null,
-                        List.of(new QuestionChoiceRequest("A", "go", false, 1), new QuestionChoiceRequest("B", "goes", true, 2)), null, null),
+                        List.of(new QuestionChoiceRequest("A", "go", null, false, 1), new QuestionChoiceRequest("B", "goes", null, true, 2)), null, null),
                 teacher.getId());
         ExerciseResponse exercise = exerciseService.createExercise(
                 new CreateExerciseRequest(exerciseCode(), "Kiểm tra", defaultExam.id(), null, "ASSIGNED",

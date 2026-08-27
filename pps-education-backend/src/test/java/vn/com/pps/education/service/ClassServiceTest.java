@@ -97,9 +97,9 @@ class ClassServiceTest extends AbstractIntegrationTest {
         headAcademic = newUser("head.academic");
         assignRole(headAcademic, "HEAD_ACADEMIC");
         CurriculumResponse curriculum = curriculumService.create(
-                new CreateCurriculumRequest(curriculumCode(), "Chuẩn", "MAIN", null, null, null), headAcademic.getId());
+                new CreateCurriculumRequest(curriculumCode(), "Chuẩn", "MAIN", null, null, null, null, null), headAcademic.getId());
         activeCurriculum = curriculumService.update(curriculum.id(),
-                new UpdateCurriculumRequest("Chuẩn", null, null, null, "ACTIVE", false), headAcademic.getId());
+                new UpdateCurriculumRequest("Chuẩn", null, null, null, null, null, "ACTIVE", false), headAcademic.getId());
     }
 
     @Test
@@ -120,7 +120,7 @@ class ClassServiceTest extends AbstractIntegrationTest {
     @Test
     void create_rejectsWhenCurriculumNotActive() {
         CurriculumResponse draft = curriculumService.create(
-                new CreateCurriculumRequest(curriculumCode(), "Draft", "MAIN", null, null, null), headAcademic.getId());
+                new CreateCurriculumRequest(curriculumCode(), "Draft", "MAIN", null, null, null, null, null), headAcademic.getId());
         Site site = newSite(Site.SiteType.OWNED);
 
         assertThatThrownBy(() -> classService.create(
@@ -645,7 +645,7 @@ class ClassServiceTest extends AbstractIntegrationTest {
                 new CreateClassRequest(classCode(), "6D", site.getId(), activeCurriculum.id(), "OPEN", 20, null,
                         LocalDate.now().minusYears(1), null, null), headAcademic.getId());
         CurriculumResponse draftCurriculum = curriculumService.create(
-                new CreateCurriculumRequest(curriculumCode(), "Chưa duyệt", "MAIN", null, null, null), headAcademic.getId());
+                new CreateCurriculumRequest(curriculumCode(), "Chưa duyệt", "MAIN", null, null, null, null, null), headAcademic.getId());
 
         assertThatThrownBy(() -> classService.promoteClass(oldClass.id(),
                 new PromoteClassRequest(classCode(), "7D", draftCurriculum.id(), newAcademicYear("2026-2027"), LocalDate.now(), null, 20, null),
@@ -655,10 +655,10 @@ class ClassServiceTest extends AbstractIntegrationTest {
 
     private CurriculumResponse activeCurriculumWithCategory(String classCategory) {
         CurriculumResponse curriculum = curriculumService.create(
-                new CreateCurriculumRequest(curriculumCode(), classCategory, classCategory, null, null, null),
+                new CreateCurriculumRequest(curriculumCode(), classCategory, classCategory, null, null, null, null, null),
                 headAcademic.getId());
         return curriculumService.update(curriculum.id(),
-                new UpdateCurriculumRequest(classCategory, null, null, null, "ACTIVE", false), headAcademic.getId());
+                new UpdateCurriculumRequest(classCategory, null, null, null, null, null, "ACTIVE", false), headAcademic.getId());
     }
 
     private Long newAcademicYear(String code) {

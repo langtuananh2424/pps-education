@@ -24,6 +24,16 @@ public class Curriculum extends BaseAuditEntity {
 
     public enum Status { DRAFT, PENDING_APPROVAL, ACTIVE, ARCHIVED }
 
+    /**
+     * V140 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23) — Khối lớp, dùng để AI chấm
+     * Speaking/Writing (Mục 1 Video phản xạ + Mục 2 Bài Writing) chọn đúng bảng rubric theo Khối do
+     * giáo viên cung cấp riêng cho từng Khối — xem RubricByGradeTrackLoader.
+     */
+    public enum GradeLevel { GRADE_6, GRADE_7, GRADE_8, GRADE_9 }
+
+    /** V140 — chương trình học (IELTS/CAMBRIDGE), cùng mục đích với {@link GradeLevel}. Khối 6 dùng chung 1 rubric cho cả 2 track (giáo viên xác nhận), track vẫn có thể để trống với Khối 6. */
+    public enum Track { IELTS, CAMBRIDGE }
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -51,6 +61,16 @@ public class Curriculum extends BaseAuditEntity {
 
     @Column(length = 50)
     private String level;
+
+    /** V140 — NULL = chưa phân loại (dữ liệu cũ trước V140). */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "grade_level", length = 10)
+    private GradeLevel gradeLevel;
+
+    /** V140 — NULL = chưa phân loại; Khối 6 dùng chung rubric nên track có thể để trống. */
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private Track track;
 
     @Column(name = "total_periods")
     private Integer totalPeriods;

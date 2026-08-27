@@ -11,6 +11,9 @@ export interface CurriculumResponse {
   parentCurriculumId: number | null;
   classCategory: "MAIN" | "SUPPLEMENTARY" | "EXAM_PREP" | "OTHER" | null;
   level: string | null;
+  /** V140 — null = chưa phân loại. Dùng để AI chấm Speaking/Writing chọn đúng rubric theo Khối/chương trình. */
+  gradeLevel: "GRADE_6" | "GRADE_7" | "GRADE_8" | "GRADE_9" | null;
+  track: "IELTS" | "CAMBRIDGE" | null;
   totalPeriods: number | null;
   defaultGradePassThreshold: number | null;
   status: string;
@@ -31,6 +34,9 @@ export interface CreateCurriculumRequest {
   name: string;
   classCategory: string;
   level?: string;
+  /** V140 — bỏ trống = chưa phân loại (AI chấm Speaking/Writing sẽ bỏ qua, rơi lại hàng chờ chấm tay). */
+  gradeLevel?: string;
+  track?: string;
   totalPeriods?: number;
   defaultGradePassThreshold?: number;
 }
@@ -43,6 +49,9 @@ export function createCurriculum(request: CreateCurriculumRequest): Promise<Curr
 export interface UpdateCurriculumRequest {
   name: string;
   level?: string;
+  /** V140 — bỏ trống = chưa phân loại (AI chấm Speaking/Writing sẽ bỏ qua, rơi lại hàng chờ chấm tay). */
+  gradeLevel?: string;
+  track?: string;
   totalPeriods?: number;
   defaultGradePassThreshold?: number;
   status: string;
@@ -1274,6 +1283,11 @@ export interface StudentCommentResponse {
   homeworkNextExerciseTitle: string | null;
   homeworkNextReviewVideoAssignmentId: number | null;
   homeworkNextReviewVideoSetTitle: string | null;
+  /** V137 — "BTVN - Online - Reading/Writing" (mirror homeworkNextExerciseAssignmentId/Title), chỉ khác null khi buổi teacherType=VIETNAMESE. Bản giao Exercise skillCategory=READING/WRITING tương ứng. */
+  homeworkNextReadingExerciseAssignmentId: number | null;
+  homeworkNextReadingExerciseTitle: string | null;
+  homeworkNextWritingExerciseAssignmentId: number | null;
+  homeworkNextWritingExerciseTitle: string | null;
   /** Hạn nộp BTVN buổi sau (lấy từ dueAt của bản giao) — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05. */
   homeworkNextDueAt: string | null;
   /** V127: id/tên Exercise NGUỒN Giáo viên vừa chọn nhưng CHƯA Gửi nhận xét — null nếu chưa chọn gì hoặc đã Gửi. */
@@ -1282,6 +1296,11 @@ export interface StudentCommentResponse {
   /** V127: mirror pendingHomeworkNextExerciseId cho kênh Video Ôn tập. */
   pendingHomeworkNextReviewVideoSetId: number | null;
   pendingHomeworkNextReviewVideoSetTitle: string | null;
+  /** V137: mirror pendingHomeworkNextExerciseId cho kênh Reading/Writing. */
+  pendingHomeworkNextReadingExerciseId: number | null;
+  pendingHomeworkNextReadingExerciseTitle: string | null;
+  pendingHomeworkNextWritingExerciseId: number | null;
+  pendingHomeworkNextWritingExerciseTitle: string | null;
   /**
    * V127: hạn nộp tự chọn đi kèm lựa chọn CHƯA giao — chuỗi "yyyy-MM-ddTHH:mm:ss" KHÔNG kèm offset
    * (LocalDateTime thô phía BE, khác homeworkNextDueAt ở trên là OffsetDateTime đã resolve) — cắt
@@ -1291,6 +1310,9 @@ export interface StudentCommentResponse {
   pendingHomeworkNextDueDate: string | null;
   grammarPreviousProgress: string | null;
   videoPreviousProgress: string | null;
+  /** V137 — % tự động "BTVN buổi trước - Online - Reading/Writing" (mirror grammarPreviousProgress/videoPreviousProgress), chỉ khác null khi buổi teacherType=VIETNAMESE. */
+  readingPreviousProgress: string | null;
+  writingPreviousProgress: string | null;
   /** BTVN buổi trước từng giao Offline (chữ tự do) — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06, phân biệt "BTVN buổi trước" có 3 loại (Offline/kênh Bài/kênh Video). Loại trừ với grammarPreviousProgress. */
   homeworkPreviousOfflineText: string | null;
   note: string | null;
@@ -1321,11 +1343,16 @@ export interface CreateStudentCommentRequest {
    * V65 (2026-07-30, bổ sung ngoài SDD gốc): kênh ngữ pháp ONLINE — id của Exercise NGUỒN (đã
    * Publish), KHÔNG phải id bản giao như trước V65. Chọn khác null tự động giao đề cho CẢ LỚP ACTIVE,
    * hạn nộp = buổi học kế tiếp — để trống nếu dùng homeworkNext (OFFLINE) hoặc không giao gì (hủy bản
-   * giao cũ nếu đang sửa 1 comment DRAFT đã chọn trước đó).
+   * giao cũ nếu đang sửa 1 comment DRAFT đã chọn trước đó). V151 (revert V146, đã xác nhận với người
+   * dùng 2026-08-25) — kênh "Ngữ pháp"/"Nghe" dùng CHUNG field này: buổi teacherType=FOREIGN chọn
+   * Exercise skillCategory=LISTENING, buổi VIETNAMESE chọn skillCategory=VOCAB_GRAMMAR.
    */
   homeworkNextExerciseId?: number;
   /** Kênh Video Ôn tập (luôn ONLINE) — id của ReviewVideoSet NGUỒN (đã Publish), tự động giao cả lớp tương tự. Để trống nếu không giao. */
   homeworkNextReviewVideoSetId?: number;
+  /** V137 — kênh Reading/Writing ONLINE (mirror homeworkNextExerciseId) — id của Exercise NGUỒN có skillCategory=READING/WRITING tương ứng. Chỉ gửi khi buổi teacherType=VIETNAMESE. */
+  homeworkNextReadingExerciseId?: number;
+  homeworkNextWritingExerciseId?: number;
   /**
    * Nhận xét học viên (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05, cho phép chọn
    * GIỜ 2026-08-06): hạn nộp BTVN buổi sau (ngày + giờ, format "yyyy-MM-ddTHH:mm" — khớp value của
@@ -1356,6 +1383,9 @@ export interface UpdateStudentCommentRequest {
   /** V65 — xem Javadoc CreateStudentCommentRequest.homeworkNextExerciseId. */
   homeworkNextExerciseId?: number;
   homeworkNextReviewVideoSetId?: number;
+  /** V137 — xem Javadoc CreateStudentCommentRequest.homeworkNextReadingExerciseId. */
+  homeworkNextReadingExerciseId?: number;
+  homeworkNextWritingExerciseId?: number;
   /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05 — xem Javadoc CreateStudentCommentRequest.homeworkNextDueDate. */
   homeworkNextDueDate?: string;
   note?: string;
@@ -1371,6 +1401,25 @@ export function listComments(classId: number, studentId: number): Promise<Studen
  */
 export function listCommentsForClass(classId: number): Promise<StudentCommentResponse[]> {
   return apiRequest<StudentCommentResponse[]>(`/classes/${classId}/comments`);
+}
+
+/**
+ * V146 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23) — % TỰ ĐỘNG "BTVN buổi trước"
+ * cho cả lớp, tính ngay cả khi buổi đang xem CHƯA có StudentComment nào (kể cả nháp) — trước đây các %
+ * này chỉ có trong StudentCommentResponse SAU KHI đã Lưu nháp/Gửi ít nhất 1 lần, khiến mở 1 buổi mới
+ * hoàn toàn không thấy % tự động của buổi trước dù backend đã tính đúng. Field null = không tự tính
+ * được (VD buổi trước giao Offline).
+ */
+export interface AutoProgressPreviewResponse {
+  studentId: number;
+  grammarPreviousProgress: string | null;
+  videoPreviousProgress: string | null;
+  readingPreviousProgress: string | null;
+  writingPreviousProgress: string | null;
+}
+
+export function previewAutoProgress(classSessionId: number): Promise<AutoProgressPreviewResponse[]> {
+  return apiRequest<AutoProgressPreviewResponse[]>(`/class-sessions/${classSessionId}/comments/auto-progress-preview`);
 }
 
 /**
@@ -1402,6 +1451,9 @@ export interface StudentCommentHistoryResponse {
     /** % tự động (kênh Ngữ pháp/Video) của "BTVN buổi trước" TẠI thời điểm lưu — xem PreviousProgressCell ở DailyCommentPanel.tsx cho ý nghĩa 2 field này. */
     grammarPreviousProgress: string | null;
     videoPreviousProgress: string | null;
+    /** V137 — mirror grammarPreviousProgress/videoPreviousProgress cho kênh Reading/Writing online. */
+    readingPreviousProgress: string | null;
+    writingPreviousProgress: string | null;
     homeworkNext: string | null;
     homeworkNextReading: string | null;
     homeworkNextWriting: string | null;
@@ -1409,9 +1461,15 @@ export interface StudentCommentHistoryResponse {
     rejectionReason: string | null;
     homeworkNextExerciseTitle: string | null;
     homeworkNextReviewVideoSetTitle: string | null;
+    /** V137 — mirror homeworkNextExerciseTitle/homeworkNextReviewVideoSetTitle cho kênh Reading/Writing online. */
+    homeworkNextReadingExerciseTitle: string | null;
+    homeworkNextWritingExerciseTitle: string | null;
     homeworkNextDueAt: string | null;
     pendingHomeworkNextExerciseTitle: string | null;
     pendingHomeworkNextReviewVideoSetTitle: string | null;
+    /** V137 — mirror pendingHomeworkNextExerciseTitle/pendingHomeworkNextReviewVideoSetTitle cho kênh Reading/Writing online. */
+    pendingHomeworkNextReadingExerciseTitle: string | null;
+    pendingHomeworkNextWritingExerciseTitle: string | null;
     pendingHomeworkNextDueDate: string | null;
   };
   createdAt: string;
@@ -1450,6 +1508,19 @@ export function updatePendingCommentContent(id: number, request: UpdateStudentCo
 
 export function submitComments(classId: number, commentIds: number[]): Promise<StudentCommentResponse[]> {
   return apiRequest<StudentCommentResponse[]>(`/classes/${classId}/comments/submit`, { method: "POST", body: JSON.stringify({ commentIds }) });
+}
+
+/**
+ * Bổ sung ngoài SDD gốc (2026-08-24, xác nhận với người dùng) — đổi Hạn nộp BTVN buổi sau cho TOÀN
+ * BỘ nhận xét NHÁP/Bị từ chối của 1 buổi trong 1 lần gọi, thay vì N request updateComment() song
+ * song (luôn thất bại khi N nhận xét đang cùng giữ 1 hạn nộp cũ — xem Javadoc BE
+ * StudentCommentService#bulkUpdatePendingDueDate).
+ */
+export function bulkUpdatePendingDueDate(classSessionId: number, dueDate: string): Promise<StudentCommentResponse[]> {
+  return apiRequest<StudentCommentResponse[]>(`/class-sessions/${classSessionId}/comments/due-date`, {
+    method: "PUT",
+    body: JSON.stringify({ dueDate })
+  });
 }
 
 export interface DailyCommentImportResponse {
@@ -1513,6 +1584,9 @@ export interface DailyCommentImportPreviewRow {
   homeworkNextWriting: string | null;
   homeworkNextExerciseId: number | null;
   homeworkNextReviewVideoSetId: number | null;
+  /** V137 — chỉ khác null khi buổi teacherType=VIETNAMESE. */
+  homeworkNextReadingExerciseId: number | null;
+  homeworkNextWritingExerciseId: number | null;
   note: string | null;
 }
 
@@ -1569,6 +1643,15 @@ export interface ExerciseAssignmentStatsResponse {
   passRatePercent: number;
   /** Bổ sung 2026-08-08: số học sinh có lần làm bị dừng do vi phạm giám sát. */
   violatedStudentCount?: number;
+  /**
+   * V150 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — NULL = bản giao lẻ 1 Bài
+   * (hành vi cũ). Có giá trị = dòng này thuộc 1 "Lô giao BTVN theo kỹ năng" — nếu batchMembers khác
+   * null, đây là DÒNG TỔNG HỢP đại diện cả Lô (exerciseTitle là tên Lesson+kỹ năng, số liệu đã cộng dồn
+   * theo đúng học sinh hoàn thành/đạt TẤT CẢ Bài trong Lô); nếu batchMembers null, đây là 1 Bài con
+   * trong Lô đó, số liệu tính riêng cho đúng Bài này.
+   */
+  homeworkBatchId: number | null;
+  batchMembers: ExerciseAssignmentStatsResponse[] | null;
 }
 
 export interface ExerciseAssignmentStudentRow {
@@ -1626,6 +1709,15 @@ export function listExerciseAssignmentStats(classId: number): Promise<ExerciseAs
 
 export function getExerciseAssignmentStudentStats(assignmentId: number): Promise<ExerciseAssignmentStudentStatsResponse> {
   return apiRequest<ExerciseAssignmentStudentStatsResponse>(`/exercise-assignments/${assignmentId}/stats/students`);
+}
+
+/** V150 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — kết quả CỘNG DỒN cả Lô theo từng học sinh (mirror cách học sinh trải nghiệm ở Portal), dùng cho trang chi tiết Lô. */
+export function getHomeworkBatchStudentStats(batchId: number): Promise<ExerciseAssignmentStudentStatsResponse> {
+  return apiRequest<ExerciseAssignmentStudentStatsResponse>(`/homework-skill-batches/${batchId}/stats/students`);
+}
+
+export function exportHomeworkBatchStats(batchId: number): Promise<Blob> {
+  return apiRequestBlob(`/homework-skill-batches/${batchId}/stats/export`);
 }
 
 export function getExerciseAssignmentQuestionStats(assignmentId: number): Promise<ExerciseAssignmentQuestionStatsResponse> {

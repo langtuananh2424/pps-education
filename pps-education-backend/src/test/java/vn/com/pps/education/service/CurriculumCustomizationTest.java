@@ -69,7 +69,7 @@ class CurriculumCustomizationTest extends AbstractIntegrationTest {
         headAcademic = newUser("head.academic");
         assignRole(headAcademic, "HEAD_ACADEMIC");
         standardCurriculum = curriculumService.create(
-                new CreateCurriculumRequest(curriculumCode(), "Chuẩn gốc", "MAIN", "Lớp 8", 90, null), headAcademic.getId());
+                new CreateCurriculumRequest(curriculumCode(), "Chuẩn gốc", "MAIN", "Lớp 8", null, null, 90, null), headAcademic.getId());
 
         site = newSite();
         siteManagerUser = newUser("site.manager");

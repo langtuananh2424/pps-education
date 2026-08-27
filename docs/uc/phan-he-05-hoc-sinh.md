@@ -188,12 +188,15 @@ UC-15: Điểm danh học sinh
 |                 | 4.  Giáo viên xác nhận Lưu điểm danh; hệ thống ghi |
 |                 |     nhận bản ghi điểm danh.                        |
 |                 |                                                    |
-|                 | 5.  Nếu có học sinh ABSENT (vắng không phép), hệ   |
-|                 |     thống kích hoạt background job gửi thông báo   |
-|                 |     (Email/thông báo trong Portal) cho Phụ huynh   |
-|                 |     --- tiến trình này chạy bất đồng bộ, độc lập   |
-|                 |     với thao tác của Giáo viên. LATE (đi muộn)     |
-|                 |     KHÔNG kích hoạt gửi thông báo.                 |
+|                 | 5.  Với MỌI học sinh vừa được điểm danh (bất kể     |
+|                 |     trạng thái PRESENT/ABSENT/EXCUSED/LATE/         |
+|                 |     EARLY_LEAVE), hệ thống kích hoạt background job |
+|                 |     gửi thông báo (Email/thông báo trong Portal)    |
+|                 |     cho Phụ huynh --- tiến trình này chạy bất đồng  |
+|                 |     bộ, độc lập với thao tác của Giáo viên. Nội     |
+|                 |     dung/loại thông báo phân biệt theo từng trạng   |
+|                 |     thái (xem "Sửa đổi nghiệp vụ ngày 2026-08-22"    |
+|                 |     bên dưới).                                      |
 |                 |                                                    |
 |                 | 6.  Background job gửi thông báo; nếu thất bại, tự |
 |                 |     động thử lại (retry) tối đa số lần cấu hình    |
@@ -206,11 +209,13 @@ UC-15: Điểm danh học sinh
 |                 |     thất bại để Quản lý điểm trường có thể xử lý   |
 |                 |     thủ công hoặc tra soát sau.                    |
 |                 |                                                    |
-|                 | ***A2 --- Không có học sinh vắng không phép***     |
+|                 | ***A2 --- Học sinh không có Phụ huynh liên kết***  |
 |                 |                                                    |
-|                 | 1.  Không có học sinh ABSENT nào (kể cả khi có     |
-|                 |     LATE), hệ thống không kích hoạt luồng gửi      |
-|                 |     thông báo, chỉ lưu bản ghi điểm danh.          |
+|                 | 1.  Học sinh chưa có liên kết `parent_student` nào |
+|                 |     (hiếm gặp, thường do nhập liệu thiếu) --- hệ   |
+|                 |     thống bỏ qua êm bước gửi thông báo cho đúng    |
+|                 |     học sinh đó, không báo lỗi, không chặn các học |
+|                 |     sinh khác trong cùng buổi điểm danh.           |
 +-----------------+----------------------------------------------------+
 | **Hậu điều kiện | -   Bản ghi điểm danh của tiết/buổi học được lưu   |
 | (P              |     chính xác.                                     |
@@ -219,8 +224,8 @@ UC-15: Điểm danh học sinh
 |                 |     (LATE tính là đi học đầy đủ, không trừ vào tỷ  |
 |                 |     lệ), dùng cho báo cáo (UC-25, UC-29).          |
 |                 |                                                    |
-|                 | -   Thông báo vắng không phép (nếu có) được gửi    |
-|                 |     hoặc ghi nhận trạng thái gửi.                  |
+|                 | -   Thông báo điểm danh (mọi trạng thái) được gửi  |
+|                 |     hoặc ghi nhận trạng thái gửi cho Phụ huynh.    |
 +-----------------+----------------------------------------------------+
 
 > **Bổ sung ngoài đặc tả gốc — đã xác nhận với người dùng (2026-07-22).**
@@ -248,6 +253,20 @@ UC-15: Điểm danh học sinh
 >   Tài khoản có quyền quản trị điểm danh (`academic.attendance.create/
 >   update`) không bị ảnh hưởng — vẫn thao tác được buổi bất kỳ, giờ bất kỳ.
 >
+> - **Sửa đổi nghiệp vụ ngày 2026-08-22 (đã xác nhận với người dùng) — nới
+>   thêm khung giờ ân hạn (grace period) sau `end_time`:** cửa sổ điểm danh
+>   của Giáo viên (quyền `academic.attendance.mark`) đổi thành
+>   `[start_time, end_time + grace_period]`, với `grace_period` cấu hình
+>   qua `system_settings.student_attendance.grace_period_minutes` (mặc
+>   định 60 phút, migration V136) — không hardcode. Đặt tiền tố
+>   `student_attendance.` (không dùng `attendance.` trần) để không lẫn với
+>   cấu hình chấm công NHÂN VIÊN UC-09 (`attendance.gps_enabled`...). Trước `start_time` hoặc sau
+>   `end_time + grace_period` vẫn bị từ chối như cũ
+>   (`StudentAttendanceService.requireWithinSessionWindow`). Không áp dụng
+>   cho UC-71 "Nhận lớp" (cửa sổ riêng `[start_time-15p, end_time]`, không
+>   đổi). Tài khoản có quyền quản trị điểm danh vẫn không bị ảnh hưởng bởi
+>   khung giờ này.
+>
 > - **Sửa đổi nghiệp vụ ngày 2026-08-04 (đã xác nhận với người dùng):**
 >   1. **LATE (đi muộn) được tính là đi học đầy đủ** trong tỷ lệ chuyên cần
 >      — không trừ điểm/không chỉ tính nửa buổi. Áp dụng cho cả báo cáo
@@ -255,7 +274,19 @@ UC-15: Điểm danh học sinh
 >      sinh tự xem (UC-59/UC-64).
 >   2. **Chỉ ABSENT (vắng không phép) mới kích hoạt gửi thông báo cho Phụ
 >      huynh** — LATE không còn gửi thông báo (khác với bản gốc trước đây
->      gửi cho cả ABSENT và LATE).
+>      gửi cho cả ABSENT và LATE). ~~Đã bị thay thế bởi mục "Sửa đổi nghiệp
+>      vụ ngày 2026-08-22" bên dưới.~~
+>
+> - **Sửa đổi nghiệp vụ ngày 2026-08-22 (đã xác nhận với người dùng) — thay
+>   thế mục 2 ở trên:** gửi thông báo cho Phụ huynh với **MỌI trạng thái
+>   điểm danh** (PRESENT/ABSENT/EXCUSED/LATE/EARLY_LEAVE), không còn giới
+>   hạn chỉ ABSENT. Nội dung + `Notification.NotificationType` phân biệt
+>   theo từng trạng thái (`ATTENDANCE_ABSENT`/`ATTENDANCE_LATE`/
+>   `ATTENDANCE_EXCUSED`/`ATTENDANCE_PRESENT`/`ATTENDANCE_EARLY_LEAVE`);
+>   riêng ABSENT giữ `Priority.HIGH`, các trạng thái còn lại
+>   `Priority.NORMAL`. Vẫn giữ nguyên guard chống gửi trùng
+>   (`notified_parent_at`) khi Giáo viên submit lại cùng buổi. Mục 1 (LATE
+>   tính đủ chuyên cần) ở trên KHÔNG đổi.
 >
 > - **Quyền quản trị (vượt rào Giáo viên):** 3 quyền chi tiết mới cho phép
 >   gán 1 tài khoản thao tác điểm danh **buổi bất kỳ, ngày bất kỳ** (không

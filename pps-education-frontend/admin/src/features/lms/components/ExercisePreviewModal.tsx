@@ -97,6 +97,8 @@ export default function ExercisePreviewModal({ exercise, onClose }: ExercisePrev
                       >
                         {c.isCorrect && <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />}
                         <span className="font-mono text-[10px] shrink-0">{c.choiceLabel}.</span>
+                        {/* V143 — dạng Listening chọn đáp án bằng hình: hiện thumbnail để GV xem đúng những gì học sinh sẽ thấy. */}
+                        {c.imageUrl && <img src={c.imageUrl} alt={c.content} className="w-8 h-8 object-cover rounded shrink-0" />}
                         <span>{c.content}</span>
                       </div>
                     ))}

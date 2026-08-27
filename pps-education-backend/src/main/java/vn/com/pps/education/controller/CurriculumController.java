@@ -11,6 +11,8 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import vn.com.pps.education.dto.BookResponse;
+import vn.com.pps.education.dto.CreateBookRequest;
 import vn.com.pps.education.dto.CreateCurriculumRequest;
 import vn.com.pps.education.dto.CreateCurriculumSubjectRequest;
 import vn.com.pps.education.dto.CreateCustomCurriculumRequest;
@@ -72,6 +74,22 @@ public class CurriculumController {
                                                                     @Valid @RequestBody CreateCurriculumSubjectRequest request,
                                                                     @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(curriculumService.addSubject(id, request, actor.userId()));
+    }
+
+    /** V148 (Kho đề — Curriculum (chương trình+khối) -&gt; Sách -&gt; Unit -&gt; Sub Topic -&gt; Lesson -&gt; Bài). */
+    @GetMapping("/{id}/books")
+    public ResponseEntity<List<BookResponse>> listBooks(@PathVariable Long id) {
+        return ResponseEntity.ok(curriculumService.listBooks(id));
+    }
+
+    // V148 — dùng chung quyền lms.exercise.create (audience Kho đề/"Soạn & giao đề"), KHÔNG dùng
+    // academic.curriculum.update — Sách/Unit/SubTopic chỉ là mục lục sách giáo trình phục vụ Kho đề,
+    // không phải Khung chương trình chính thức (curriculums, cần HEAD_ACADEMIC duyệt qua UC-16).
+    @PreAuthorize("hasPermission(null, 'lms.exercise.create')")
+    @PostMapping("/{id}/books")
+    public ResponseEntity<BookResponse> addBook(@PathVariable Long id,
+                                                    @Valid @RequestBody CreateBookRequest request) {
+        return ResponseEntity.ok(curriculumService.addBook(id, request));
     }
 
     /** UC-16b Main Flow bước 1-2. */

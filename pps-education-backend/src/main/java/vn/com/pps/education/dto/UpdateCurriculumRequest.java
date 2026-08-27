@@ -12,6 +12,10 @@ import java.math.BigDecimal;
 public record UpdateCurriculumRequest(
         @NotBlank String name,
         String level,
+        /** V140 — "GRADE_6".."GRADE_9" hoặc null/rỗng = chưa phân loại. */
+        String gradeLevel,
+        /** V140 — "IELTS"/"CAMBRIDGE" hoặc null/rỗng = chưa phân loại. */
+        String track,
         Integer totalPeriods,
         BigDecimal defaultGradePassThreshold,
         @NotBlank String status,

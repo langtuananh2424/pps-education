@@ -1,7 +1,7 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { CheckCircle2, HelpCircle, Loader2, Lock, PartyPopper, RotateCcw, ShieldAlert, X, XCircle } from "lucide-react";
+import { CheckCircle2, HelpCircle, KeyRound, Loader2, Lock, PartyPopper, RotateCcw, ShieldAlert, X, XCircle } from "lucide-react";
 import { friendlyApiErrorMessage } from "@/lib/apiClient";
 import {
   AssignedExerciseResponse,
@@ -19,6 +19,7 @@ import {
   listAnswers,
   recordIntegrityEvents,
   recordListeningPlay,
+  revealAndCloseAttempt,
   saveAnswer,
   startAttempt,
   submitAttempt,
@@ -26,14 +27,45 @@ import {
 } from "../api";
 import { useIntegrityMonitor } from "../hooks/useIntegrityMonitor";
 import MonitoringBadge from "./MonitoringBadge";
+import { useCountdown, formatRemaining } from "@/components/ui/useCountdown";
 
 interface TakeExerciseModalProps {
   item: AssignedExerciseResponse;
   onClose: () => void;
-  onFinished: () => void;
 }
 
 const CHOICE_TYPES = new Set(["MULTIPLE_CHOICE", "MULTIPLE_ANSWER", "TRUE_FALSE"]);
+
+const SEEK_TOLERANCE_SECONDS = 1;
+
+/**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — fix bug thật: học sinh kéo thanh tua
+ * (native `<audio controls>`) thẳng tới gần cuối để giả vờ "nghe hết" qua mặt bộ đếm playCount (mở khoá
+ * gợi ý transcript) mà không thực sự nghe. Mirror đúng kỹ thuật chặn tua đã dùng ở ReviewVideoTaskModal
+ * (video kết nối, SEEK_TOLERANCE_SECONDS) — theo dõi mốc xa nhất ĐÃ THỰC SỰ phát qua (không phải mốc đã
+ * tua tới), currentTime nhảy vượt mốc đó (trừ dung sai nhỏ do trình duyệt tự làm tròn) thì kéo lại đúng
+ * mốc. Chỉ chặn tua TỚI — vẫn tua LÙI nghe lại thoải mái (không cản trở nghe lại đoạn đã qua).
+ */
+function useSeekLockedAudio(audioRef: React.RefObject<HTMLAudioElement | null>, resetKey: string | undefined) {
+  const maxPlayedRef = useRef(0);
+  useEffect(() => {
+    maxPlayedRef.current = 0;
+    const media = audioRef.current;
+    if (!media) return;
+    const handleTimeUpdate = () => {
+      const current = media.currentTime;
+      const allowedMax = maxPlayedRef.current + SEEK_TOLERANCE_SECONDS;
+      if (current > allowedMax) {
+        media.currentTime = maxPlayedRef.current;
+        return;
+      }
+      maxPlayedRef.current = Math.max(maxPlayedRef.current, current);
+    };
+    media.addEventListener("timeupdate", handleTimeUpdate);
+    return () => media.removeEventListener("timeupdate", handleTimeUpdate);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resetKey]);
+}
 
 /** Khớp ListeningHintService#listeningKeyOf (BE) — nhóm "1 audio nhiều câu" dùng chung groupKey, câu đơn dùng key riêng theo chính nó. */
 function listeningKeyOf(q: ExerciseQuestionResponse): string {
@@ -45,11 +77,11 @@ function listeningKeyOf(q: ExerciseQuestionResponse): string {
  * câu MULTIPLE_CHOICE liên tiếp cùng groupKey gộp hiển thị chung 1 referencePassage + 1 bảng câu hỏi,
  * thay vì lặp lại đoạn văn ở mỗi câu. Chỉ gộp các câu LIÊN TIẾP nhau (đúng thứ tự displayOrder).
  */
-type RenderBlock =
+export type RenderBlock =
   | { type: "single"; question: ExerciseQuestionResponse }
   | { type: "grid"; groupKey: string; referencePassage: string | null; audioUrl: string | null; questions: ExerciseQuestionResponse[] };
 
-function groupQuestionsByGroupKey(questions: ExerciseQuestionResponse[]): RenderBlock[] {
+export function groupQuestionsByGroupKey(questions: ExerciseQuestionResponse[]): RenderBlock[] {
   const blocks: RenderBlock[] = [];
   for (const q of questions) {
     const last = blocks[blocks.length - 1];
@@ -91,7 +123,7 @@ function isAnswerRevealed(answer: StudentAnswerResponse): boolean {
  * chỉ startAttempt khi CHƯA có attempt nào, tránh vô tình tạo thêm lượt làm mới lúc đang
  * còn 1 lượt IN_PROGRESS (backend không tự resume, startAttempt luôn tạo attempt mới).
  */
-export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExerciseModalProps) {
+export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalProps) {
   const { t } = useTranslation("portal-exercises");
   const [attempt, setAttempt] = useState<ExerciseAttemptResponse | null>(null);
   const [questions, setQuestions] = useState<ExerciseQuestionResponse[]>([]);
@@ -124,13 +156,34 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
   // IN_PROGRESS phải hỏi lại (dễ đóng nhầm khi đang giám sát chống gian lận) — không hỏi khi chỉ đang
   // xem lại 1 lượt đã chấm (không có gì để "thoát dở dang").
   const [confirmingClose, setConfirmingClose] = useState(false);
+  /**
+   * V152 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — hỏi xác nhận trước khi TỰ
+   * NGUYỆN đóng lượt sớm (không hoàn tác được) — xem handleRevealAndClose.
+   */
+  const [confirmingRevealClose, setConfirmingRevealClose] = useState(false);
+  const [revealClosing, setRevealClosing] = useState(false);
+  /**
+   * V152 — khi bấm "Xem đáp án & đóng lượt" thành công TRONG PHIÊN modal đang mở, `item` (prop truyền
+   * từ danh sách cha) chưa kịp tải lại nên `item.canStartNewAttempt` vẫn còn giá trị CŨ (true) — cờ cục
+   * bộ này ghi đè ngay để ẩn nút "Xem đáp án"/"Làm lại" đúng lúc mà không cần chờ đóng modal rồi mở lại.
+   */
+  const [justClosedEarly, setJustClosedEarly] = useState(false);
 
-  const readOnly = attempt != null && attempt.status !== "IN_PROGRESS";
+  /**
+   * V152 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — UC-24 A1: lượt làm CÒN
+   * IN_PROGRESS (chưa nộp) nhưng đã quá hạn nộp và bản giao không cho nộp muộn — khoá HẲN thành chỉ
+   * xem, không cho gõ tiếp/nộp bài nữa (mirror rào đã thêm ở BE saveAnswer). Trước đây chỉ readOnly khi
+   * attempt đã nộp xong (status khác IN_PROGRESS), lượt dang dở quá hạn vẫn cho sửa vô thời hạn dù
+   * không bao giờ nộp nổi (submitAttempt luôn 422 quá hạn).
+   */
+  const overdueLockedInProgress =
+    attempt?.status === "IN_PROGRESS" && item.dueAt != null && !item.lateSubmissionAllowed && new Date(item.dueAt).getTime() < Date.now();
+  const readOnly = attempt != null && (attempt.status !== "IN_PROGRESS" || overdueLockedInProgress);
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-12 — tách riêng khỏi readOnly (readOnly
   // vẫn false khi attempt == null, vốn đúng cho việc khoá ô nhập vì chưa render câu hỏi nào cả, nhưng
   // KHÔNG được dùng để quyết định hiện nút "Nộp bài": trước đây !readOnly cũng đúng khi attempt == null
   // (VD load lỗi/hết lượt) nên vẫn hiện nhầm nút "Nộp bài" dù chẳng có lượt IN_PROGRESS nào để nộp.
-  const hasActiveAttempt = attempt != null && attempt.status === "IN_PROGRESS";
+  const hasActiveAttempt = attempt != null && attempt.status === "IN_PROGRESS" && !overdueLockedInProgress;
   /**
    * UC-24/A4, UC-27/A2: đề có giới hạn số lần làm lại (exerciseMeta.maxAttempts khác NULL) — số lượt
    * CÒN LẠI trước khi đáp án được mở khóa (mirror công thức BE: revealAnswer khi attemptNumber >=
@@ -139,6 +192,20 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
    */
   const attemptsRemainingBeforeAnswer =
     exerciseMeta?.maxAttempts != null && attempt != null ? Math.max(0, exerciseMeta.maxAttempts - attempt.attemptNumber) : null;
+  /**
+   * V152 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — UC-24/A4, UC-27/A2: lượt làm
+   * gần nhất đã ĐẠT nhưng đáp án vẫn còn bị khoá (còn lượt làm lại, chưa tới lượt cuối) — cho học sinh
+   * tự nguyện dừng lại NGAY để xem đáp án luôn, đổi lại mất quyền làm lại thêm (xem handleRevealAndClose).
+   * Chỉ có ý nghĩa khi maxAttempts hữu hạn (đáp án vốn hiện ngay nếu không giới hạn lượt, không có gì
+   * để "mở sớm") và còn thật sự làm lại được (item.canStartNewAttempt, đã tính cả hạn nộp).
+   */
+  const canRevealAndClose =
+    !justClosedEarly &&
+    attempt != null &&
+    attempt.status === "FULLY_GRADED" &&
+    attempt.passed === true &&
+    exerciseMeta?.maxAttempts != null &&
+    item.canStartNewAttempt;
 
   const loadAnswers = (attemptId: number) => {
     listAnswers(attemptId)
@@ -166,24 +233,14 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
       const meta = await getExercise(item.exerciseId);
       setExerciseMeta(meta);
 
-      let attemptRes: ExerciseAttemptResponse;
-      if (item.myLatestAttemptId == null) {
-        attemptRes = await startAttempt(item.exerciseId, item.assignmentId);
-      } else {
-        const latest = await getAttempt(item.myLatestAttemptId);
-        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05 — lượt gần nhất đã chấm xong
-        // (FULLY_GRADED) nhưng dưới ngưỡng đạt (myLatestPassed=false) thì mở LƯỢT MỚI (startAttempt,
-        // attemptNumber+1) thay vì xem lại lượt cũ đã chấm — khác các trạng thái khác (IN_PROGRESS/
-        // AUTO_GRADED/đã đạt) vẫn resume/xem lại lượt hiện có như cũ. SỬA 2026-08-12 (đã xác nhận với
-        // người dùng, fix bug thật): CHỈ mở lượt mới khi CÒN lượt (maxAttempts null hoặc attemptNumber
-        // < maxAttempts) — trước đây bỏ qua điều kiện còn lượt nên hết lượt vẫn cố startAttempt(),
-        // backend chặn 422 (RetakeNotAllowedException) khiến modal hiện lỗi + không có attempt nào
-        // đang IN_PROGRESS nhưng vẫn hiện nhầm nút "Nộp bài", đồng thời học sinh không bao giờ xem lại
-        // được lượt cuối cùng (lượt duy nhất đã lộ đáp án theo rào maxAttempts ở BE).
-        const stillHasRetake = meta.maxAttempts == null || latest.attemptNumber < meta.maxAttempts;
-        const needsRetake = latest.status === "FULLY_GRADED" && latest.passed === false && stillHasRetake;
-        attemptRes = needsRetake ? await startAttempt(item.exerciseId, item.assignmentId) : latest;
-      }
+      // V148 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23) — CHỦ Ý bỏ hẳn logic tự
+      // động mở lượt MỚI khi lượt gần nhất chưa đạt/còn chờ chấm (trước đây tự startAttempt() ngay lúc
+      // mở modal, gây 2 vấn đề: (1) học sinh bấm vào thẻ BTVN tưởng "xem lại" nhưng bị âm thầm tạo lượt
+      // mới, (2) nếu đã quá hạn nộp thì bị chặn 422 ngay lúc mở, không xem lại được kết quả cũ). Giờ mở
+      // modal LUÔN chỉ xem/tiếp tục đúng lượt gần nhất (myLatestAttemptId) — muốn làm lượt mới phải bấm
+      // nút "Làm lại" tường minh trong modal (xem handleRetake), chỉ hiện khi item.canStartNewAttempt.
+      const attemptRes: ExerciseAttemptResponse =
+        item.myLatestAttemptId == null ? await startAttempt(item.exerciseId, item.assignmentId) : await getAttempt(item.myLatestAttemptId);
 
       const questionRes = await listExerciseQuestions(item.exerciseId);
       setAttempt(attemptRes);
@@ -208,8 +265,6 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
         .then((res) => {
           if (res.attemptStopped) {
             setStoppedByViolation(true);
-            // Không gọi onFinished() ở đây — cùng lý do đã sửa ở handleSubmit (xem comment ở đó):
-            // dời sang lúc học sinh bấm "Đã hiểu" đóng popup, tránh cha reload giữa chừng giật mất popup.
             getAttempt(attemptId).then((updated) => setAttempt(updated)).catch(() => undefined);
           }
         })
@@ -301,10 +356,6 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
       const updated = await submitAttempt(attempt.id);
       setAttempt(updated);
       loadAnswers(updated.id);
-      // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — KHÔNG gọi onFinished() ngay ở
-      // đây: AssignmentsTab.load() (cha) set loading=true, khiến toàn bộ tab (kể cả modal đang mở)
-      // bị unmount ngay lúc render "Đang tải..." — popup kết quả vừa hiện bị giật mất trước khi học
-      // sinh kịp đọc. Dời sang lúc bấm "Đã hiểu" đóng popup (xem onClose của SubmitResultPopup).
       setJustSubmitted(true);
     } catch (err) {
       setError(friendlyApiErrorMessage(err, t("takeExercise.submitError")));
@@ -312,6 +363,76 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
       setSubmitting(false);
     }
   };
+
+  /**
+   * V148 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23) — mở lượt làm MỚI tường minh,
+   * chỉ bấm được khi đang xem 1 lượt cũ (readOnly) và item.canStartNewAttempt còn true (chưa hết lượt,
+   * chưa quá hạn nộp — xem ExerciseAttemptService#toAssignedResponse). Thay hẳn cho logic tự động mở
+   * lượt mới lúc vào modal đã bỏ ở load() — học sinh phải chủ động bấm mới tạo lượt mới.
+   */
+  const handleRetake = async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      const fresh = await startAttempt(item.exerciseId, item.assignmentId);
+      setAttempt(fresh);
+      setAnswersByQuestion(new Map());
+      setTextDraft({});
+      setJustSubmitted(false);
+      loadAnswers(fresh.id);
+    } catch (err) {
+      setError(friendlyApiErrorMessage(err, t("takeExercise.loadError")));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * V152 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — xem Javadoc canRevealAndClose
+   * ở trên. Gọi sau khi học sinh đã xác nhận ở popup cảnh báo (không hoàn tác được) — tải lại đáp án
+   * ngay để hiện đầy đủ (BE giờ trả revealAnswer=true cho lượt này), giữ modal đang mở nguyên vị trí.
+   */
+  const handleRevealAndClose = async () => {
+    if (!attempt) return;
+    setRevealClosing(true);
+    setError(null);
+    try {
+      await revealAndCloseAttempt(attempt.id);
+      setJustClosedEarly(true);
+      loadAnswers(attempt.id);
+    } catch (err) {
+      setError(friendlyApiErrorMessage(err, t("takeExercise.loadError")));
+    } finally {
+      setRevealClosing(false);
+    }
+  };
+
+  /**
+   * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-22) — thời gian làm bài tính từ lúc mở
+   * bài (attempt.startedAt), KHÁC hạn nộp (dueAt, xem AssignmentsTab.tsx — đã bỏ đếm ngược ở đó theo
+   * yêu cầu người dùng). exerciseMeta.timeLimitMinutes NULL = không giới hạn, giữ nguyên hành vi cũ.
+   * Chỉ tính/đếm khi còn lượt IN_PROGRESS — xem lại 1 lượt đã nộp thì không cần đếm ngược nữa.
+   */
+  const timeLimitDeadlineIso = useMemo(() => {
+    if (!hasActiveAttempt || !attempt || exerciseMeta?.timeLimitMinutes == null) return null;
+    return new Date(new Date(attempt.startedAt).getTime() + exerciseMeta.timeLimitMinutes * 60_000).toISOString();
+  }, [hasActiveAttempt, attempt, exerciseMeta?.timeLimitMinutes]);
+  const { remainingMs: timeLimitRemainingMs } = useCountdown(timeLimitDeadlineIso);
+  const timeLimitTotalMs = exerciseMeta?.timeLimitMinutes != null ? exerciseMeta.timeLimitMinutes * 60_000 : null;
+  // Cảnh báo ở 10% thời gian cuối, tối thiểu 1 phút (đề rất ngắn vẫn có đủ thời gian đọc cảnh báo).
+  const timeLimitWarning =
+    timeLimitRemainingMs != null && timeLimitTotalMs != null && timeLimitRemainingMs <= Math.max(60_000, timeLimitTotalMs * 0.1);
+
+  /** Hết giờ — đã xác nhận với người dùng 2026-08-22: tự động nộp bài (dùng phần đã làm dở). Guard bằng
+   * ref tránh gọi handleSubmit() lặp lại khi remainingMs dao động quanh 0 do tick không chính xác tuyệt đối. */
+  const autoSubmitRef = useRef(false);
+  useEffect(() => {
+    if (hasActiveAttempt && timeLimitRemainingMs != null && timeLimitRemainingMs <= 0 && !autoSubmitRef.current) {
+      autoSubmitRef.current = true;
+      handleSubmit();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasActiveAttempt, timeLimitRemainingMs]);
 
   return (
     // Lớp phủ toàn màn hình (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-12) — thay cho
@@ -353,6 +474,22 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
         </div>
       )}
 
+      {/*
+       * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-22 — submitAttempt() có thể gọi AI
+       * chấm bài Writing đồng bộ (Gemini, thực đo ~10-20s) NGAY trong request nộp bài — trước đây chỉ
+       * disable nút "Nộp bài" đổi chữ "Đang nộp...", học sinh không biết có đang chờ AI chấm hay hệ
+       * thống bị treo. Lớp phủ toàn màn hình rõ ràng hơn, đặt tên đúng việc đang chờ.
+       */}
+      {submitting && (
+        <div className="fixed inset-0 bg-white/90 backdrop-blur-sm flex items-center justify-center z-[125]">
+          <div className="flex flex-col items-center gap-3 text-center px-6">
+            <Loader2 size={36} className="text-teal animate-spin" />
+            <p className="text-sm font-extrabold text-ink">{t("takeExercise.gradingOverlay.title")}</p>
+            <p className="text-xs font-bold text-muted max-w-xs">{t("takeExercise.gradingOverlay.description")}</p>
+          </div>
+        </div>
+      )}
+
       {/* Popup kết quả sau khi nộp bài — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06.
           Chỉ hiện đúng 1 lần ngay sau khi bấm "Nộp bài" (justSubmitted), không hiện lại khi mở xem
           lại 1 lượt đã nộp từ trước. */}
@@ -361,10 +498,14 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
           attempt={attempt}
           exerciseTitle={item.title}
           exerciseMeta={exerciseMeta}
-          onClose={() => {
-            setJustSubmitted(false);
-            onFinished();
-          }}
+          hasFeedback={[...answersByQuestion.values()].some((a) => !!a.gradingFeedback)}
+          // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-22 — fix bug thật: gọi onFinished()
+          // ở đây (như trước) đóng LUÔN modal + load() lại danh sách cha, đưa học sinh bay thẳng về màn
+          // danh sách NGAY khi vừa đóng popup — chưa kịp đọc hộp "Nhận xét bài làm" chi tiết vừa thêm
+          // (nằm NGAY BÊN DƯỚI popup này, trong modal đang mở). CHỈ đóng popup, giữ nguyên modal đang mở
+          // để học sinh đọc nhận xét — đóng modal thật sự (kèm load() làm mới danh sách) dời qua nút
+          // X/Thoát như luồng "xem lại 1 lượt đã nộp" bình thường.
+          onClose={() => setJustSubmitted(false)}
         />
       )}
 
@@ -389,6 +530,28 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
                 banner amber căng hết chiều rộng trước đây, gọn lại thành 1 badge nhỏ ngay cạnh nút Đóng,
                 bấm/hover mới hiện đủ dòng cảnh báo. */}
             {isMonitoringActive && <MonitoringBadge violationCount={violationCount} />}
+            {/* V152 — nút "Xem đáp án & đóng lượt" tường minh, chỉ hiện khi lượt gần nhất ĐÃ ĐẠT nhưng
+                đáp án còn bị khoá vì còn lượt làm lại — xem canRevealAndClose/handleRevealAndClose. */}
+            {canRevealAndClose && (
+              <button
+                onClick={() => setConfirmingRevealClose(true)}
+                disabled={revealClosing}
+                className="shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-xs font-extrabold transition-colors disabled:opacity-60"
+              >
+                <KeyRound size={14} /> {t("takeExercise.revealAndClose.button")}
+              </button>
+            )}
+            {/* V148 — nút "Làm lại" tường minh, chỉ hiện khi đang xem 1 lượt cũ (readOnly) và còn lượt
+                (item.canStartNewAttempt, đã tính cả điều kiện quá hạn nộp ở BE) — xem handleRetake. */}
+            {readOnly && item.canStartNewAttempt && !justClosedEarly && (
+              <button
+                onClick={handleRetake}
+                disabled={loading}
+                className="shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-teal/10 hover:bg-teal/20 text-teal-deep border border-teal/20 text-xs font-extrabold transition-colors disabled:opacity-60"
+              >
+                <RotateCcw size={14} /> {t("assignments.exercise.action.retake")}
+              </button>
+            )}
             <button
               onClick={() => (hasActiveAttempt ? setConfirmingClose(true) : onClose())}
               aria-label={t("takeExercise.closeAriaLabel")}
@@ -401,6 +564,54 @@ export default function TakeExerciseModal({ item, onClose, onFinished }: TakeExe
           </div>
         </div>
       </div>
+
+      {timeLimitDeadlineIso && timeLimitRemainingMs != null && (
+        <div
+          className={`shrink-0 px-4 sm:px-6 py-2 text-center text-xs font-extrabold tabular-nums ${
+            timeLimitWarning ? "bg-rose-50 text-rose-700 border-b border-rose-100" : "bg-amber-50 text-amber-800 border-b border-amber-100"
+          }`}
+        >
+          {t("takeExercise.timeLimit.remainingPrefix")}
+          {formatRemaining(timeLimitRemainingMs, t)}
+          {timeLimitWarning && ` — ${t("takeExercise.timeLimit.warning")}`}
+        </div>
+      )}
+
+      {/* V152 — giải thích vì sao bài đang dở (IN_PROGRESS) bỗng thành chỉ-xem — xem overdueLockedInProgress. */}
+      {overdueLockedInProgress && (
+        <div className="shrink-0 px-4 sm:px-6 py-2 text-center text-xs font-extrabold bg-coral/10 text-coral border-b border-coral/20">
+          {t("takeExercise.overdueLocked.banner")}
+        </div>
+      )}
+
+      {/* V152 — xác nhận trước khi TỰ NGUYỆN đóng lượt sớm để xem đáp án (không hoàn tác được). */}
+      {confirmingRevealClose && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[120]">
+          <div className="bg-white rounded-[20px] w-full max-w-sm p-6 space-y-4 text-center shadow-xl">
+            <KeyRound size={36} className="text-amber-600 mx-auto" />
+            <h3 className="text-base font-black text-ink">{t("takeExercise.revealAndClose.confirmTitle")}</h3>
+            <p className="text-xs font-bold text-muted leading-relaxed">{t("takeExercise.revealAndClose.confirmDescription")}</p>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <button
+                onClick={() => setConfirmingRevealClose(false)}
+                className="flex-1 px-4 py-2.5 bg-white hover:bg-slate-100 border border-line rounded-xl text-xs font-extrabold text-ink"
+              >
+                {t("takeExercise.revealAndClose.cancel")}
+              </button>
+              <button
+                onClick={() => {
+                  setConfirmingRevealClose(false);
+                  handleRevealAndClose();
+                }}
+                disabled={revealClosing}
+                className="flex-1 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-extrabold disabled:opacity-60"
+              >
+                {revealClosing ? t("takeExercise.revealAndClose.closing") : t("takeExercise.revealAndClose.confirmButton")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Cảnh báo trước khi đóng (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-12) — chỉ
           hỏi khi đang có lượt IN_PROGRESS (dễ đóng nhầm lúc đang bị giám sát chống gian lận); xem lại
@@ -556,11 +767,14 @@ function SubmitResultPopup({
   attempt,
   exerciseTitle,
   exerciseMeta,
+  hasFeedback,
   onClose
 }: {
   attempt: ExerciseAttemptResponse;
   exerciseTitle: string;
   exerciseMeta: ExerciseMetaResponse | null;
+  /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-22 — có ít nhất 1 câu tự luận/nói đã có nhận xét chấm (tay/AI), gợi ý học sinh cuộn xuống xem chi tiết thay vì chỉ thấy % tổng. */
+  hasFeedback: boolean;
   onClose: () => void;
 }) {
   const { t } = useTranslation("portal-exercises");
@@ -612,6 +826,7 @@ function SubmitResultPopup({
             {remainingText && <p className="text-xs font-bold text-muted leading-relaxed">{remainingText}</p>}
           </>
         )}
+        {hasFeedback && <p className="text-[11px] text-muted font-bold italic">{t("takeExercise.resultPopup.seeFeedbackHint")}</p>}
         <button onClick={onClose} className="text-xs font-extrabold text-white bg-teal px-5 py-2.5 rounded-xl">
           {t("takeExercise.resultPopup.understood")}
         </button>
@@ -620,8 +835,9 @@ function SubmitResultPopup({
   );
 }
 
-function QuestionBlock({
+export function QuestionBlock({
   question,
+  displayNumber,
   answer,
   readOnly,
   saving,
@@ -638,6 +854,8 @@ function QuestionBlock({
   onListeningEnded
 }: {
   question: ExerciseQuestionResponse;
+  /** V150 — số thứ tự hiển thị override (dùng khi ghép nhiều Bài vào 1 màn liên tục, xem BatchTakeExerciseModal) — mặc định question.displayOrder như cũ. */
+  displayNumber?: number;
   answer: StudentAnswerResponse | undefined;
   readOnly: boolean;
   saving: boolean;
@@ -687,14 +905,13 @@ function QuestionBlock({
     <div className="border border-line/60 rounded-[16px] p-4 sm:p-5 lg:p-6 space-y-3 lg:space-y-4">
       <div className="flex items-start justify-between gap-3">
         <p className="text-sm sm:text-base lg:text-lg font-bold text-ink">
-          {question.displayOrder}. {question.questionContent}
+          {displayNumber ?? question.displayOrder}. {question.questionContent}
         </p>
         <div className="flex items-center gap-2 shrink-0">
           {question.skill === "LISTENING" && question.audioUrl && attemptId != null && (
             <ListeningHintButton
               attemptId={attemptId}
               questionId={question.questionId}
-              choices={question.choices}
               progress={listeningProgress.get(listeningKeyOf(question))}
               readOnly={readOnly}
             />
@@ -705,7 +922,46 @@ function QuestionBlock({
 
       <ListeningAudioBlock question={question} onEnded={() => onListeningEnded(question)} />
 
-      {isChoiceQuestion ? (
+      {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — ảnh minh họa câu hỏi (ESSAY/WORD_BANK/SENTENCE_BUILDING), trước đây soạn có ảnh nhưng học sinh không thấy vì DTO chưa trả field này. */}
+      {question.imageUrl && <img src={question.imageUrl} alt="" className="w-full max-w-sm rounded-xl border border-line/60" />}
+
+      {isChoiceQuestion && question.choices.some((c) => c.imageUrl) ? (
+        // V143 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23) — Listening "chọn đáp án
+        // bằng hình": mỗi lựa chọn là 1 ảnh, hiện dạng lưới bấm-chọn thay vì dòng chữ. Logic chọn/lưu
+        // đáp án dùng chung y hệt nhánh chữ bên dưới (toggleChoice/selected/correctIds).
+        <div className="grid grid-cols-2 gap-2 lg:gap-3">
+          {question.choices.map((c) => {
+            const isSelected = selected.has(c.id);
+            const isCorrectChoice = correctIds.has(c.id);
+            let stateClass = "border-line/70 bg-sky-2 hover:bg-sky";
+            if (showFeedback) {
+              if (isCorrectChoice) stateClass = "border-teal bg-teal/10";
+              else if (isSelected) stateClass = "border-coral bg-coral/10";
+            } else if (isSelected) {
+              stateClass = "border-teal bg-teal/10";
+            }
+            return (
+              <button
+                key={c.id}
+                type="button"
+                disabled={readOnly || saving}
+                onClick={() => toggleChoice(c.id)}
+                className={`relative text-left rounded-xl border-2 overflow-hidden transition-colors ${stateClass} disabled:cursor-default`}
+              >
+                <img src={c.imageUrl ?? undefined} alt={c.content} className="w-full aspect-square object-cover" />
+                <span className="flex items-center justify-between gap-1 px-2 py-1.5 text-[11px] sm:text-xs font-bold">
+                  <span>
+                    <span className="text-muted mr-1">{c.choiceLabel}.</span>
+                    {c.content}
+                  </span>
+                  {showFeedback && isCorrectChoice && <CheckCircle2 size={14} className="text-teal-deep shrink-0" />}
+                  {showFeedback && !isCorrectChoice && isSelected && <XCircle size={14} className="text-coral shrink-0" />}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      ) : isChoiceQuestion ? (
         <div className="space-y-2 lg:space-y-2.5">
           {question.choices.map((c) => {
             const isSelected = selected.has(c.id);
@@ -761,7 +1017,7 @@ function QuestionBlock({
       ) : question.questionType === "WORD_BANK" && question.structuredContent?.blanks ? (
         <WordBankBlock
           content={question.questionContent}
-          wordPool={question.structuredContent.blanks}
+          wordPool={question.structuredContent.wordBankOptions ?? question.structuredContent.blanks}
           initialAnswer={answer?.structuredAnswer ?? undefined}
           readOnly={readOnly}
           saving={saving}
@@ -811,6 +1067,27 @@ function QuestionBlock({
         </p>
       )}
 
+      {/*
+       * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-22 — điểm/nhận xét câu tự luận/nói
+       * (ESSAY/SPEAKING) đã chấm (tay hoặc AI). KHÔNG phụ thuộc showFeedback (đó là cấu hình riêng cho
+       * việc lộ ĐÁP ÁN ĐÚNG) — nhận xét bài của chính học sinh luôn hiện ngay khi có, để trả lời "vì
+       * sao đạt/không đạt" thay vì chỉ thấy % tổng ở popup kết quả.
+       */}
+      {answer?.gradingFeedback && (
+        <div className="text-xs font-bold p-3 rounded-xl border bg-sky-2 border-teal/20 space-y-1.5">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <span className="text-teal-deep uppercase text-[10px] tracking-wide">{t("takeExercise.question.gradingFeedbackTitle")}</span>
+            <span className="text-[10px] text-muted font-black uppercase">
+              {answer.gradingSource === "AI" ? t("takeExercise.question.gradedByAi") : t("takeExercise.question.gradedByTeacher")}
+              {answer.gradingScore != null && answer.gradingMaxScore != null
+                ? ` · ${t("takeExercise.question.gradingScoreSuffix", { score: answer.gradingScore, max: answer.gradingMaxScore })}`
+                : ""}
+            </span>
+          </div>
+          <p className="font-medium text-ink normal-case whitespace-pre-line">{answer.gradingFeedback}</p>
+        </div>
+      )}
+
       {answerLockedByRetake && <LockedAnswerBanner attemptsRemainingBeforeAnswer={attemptsRemainingBeforeAnswer} />}
     </div>
   );
@@ -843,12 +1120,14 @@ function LockedAnswerBanner({ attemptsRemainingBeforeAnswer }: { attemptsRemaini
  */
 function ListeningAudioBlock({ question, onEnded }: { question: ExerciseQuestionResponse; onEnded: () => void }) {
   const { t } = useTranslation("portal-exercises");
+  const audioRef = useRef<HTMLAudioElement>(null);
+  useSeekLockedAudio(audioRef, question.audioUrl ?? undefined);
   if (question.skill !== "LISTENING" || !question.audioUrl) return null;
   return (
     <div className="space-y-1.5">
       <p className="text-[10px] text-muted font-bold uppercase">{t("takeExercise.listening.audioLabel")}</p>
       {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-      <audio controls src={question.audioUrl} className="w-full" onEnded={onEnded} />
+      <audio ref={audioRef} controls src={question.audioUrl} className="w-full" onEnded={onEnded} />
     </div>
   );
 }
@@ -859,16 +1138,23 @@ function ListeningAudioBlock({ question, onEnded }: { question: ExerciseQuestion
  * phải hàng tiêu đề câu hỏi (song song với câu hỏi, không nằm dưới audio nữa), hiện dạng tooltip khi
  * di chuột vào thay vì nút bấm có nhãn chữ.
  */
+/**
+ * V144 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — THAY THẾ thiết kế V79 ban đầu) —
+ * gợi ý CHỈ còn transcript (script hội thoại của audio) — bỏ hẳn phần lộ đáp án đúng/giải thích, người
+ * dùng phản hồi thực tế: lộ đáp án trực tiếp là không ổn, học viên cần tự tư duy chọn đáp án sau khi
+ * đọc lại lời thoại. Đổi tương tác từ HOVER (tooltip thoáng qua) sang BẤM MỞ/ĐÓNG popup thật — mỗi lần
+ * mở gọi lại API (không cache kết quả cũ) để backend ghi đúng 1 "lượt xem" cho thống kê GV mỗi lần đóng
+ * rồi mở lại (xem Javadoc ListeningHintService#getHint). Vẫn giữ nguyên luồng khoá theo playCount (nghe
+ * đủ ngưỡng lần mới mở khoá được popup).
+ */
 function ListeningHintButton({
   attemptId,
   questionId,
-  choices,
   progress,
   readOnly
 }: {
   attemptId: number;
   questionId: number;
-  choices: ExerciseQuestionChoiceResponse[];
   progress: ListeningPlayProgressResponse | undefined;
   readOnly: boolean;
 }) {
@@ -884,6 +1170,7 @@ function ListeningHintButton({
   // tự lật lên trên khi không đủ chỗ bên dưới viewport.
   const [placement, setPlacement] = useState<{ top?: number; bottom?: number; right: number; flipped: boolean } | null>(null);
   const triggerRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const { t } = useTranslation("portal-exercises");
 
   const threshold = progress?.hintUnlockThreshold ?? 3;
@@ -900,7 +1187,7 @@ function ListeningHintButton({
     const r = el.getBoundingClientRect();
     // Chỉ ước lượng chiều cao để QUYẾT ĐỊNH có lật hướng hay không — vị trí thật dùng CSS `bottom`
     // khi lật (neo theo mép trên của nút) nên không cần đúng tuyệt đối chiều cao nội dung thật.
-    const estimatedHeight = unlocked ? 240 : 70;
+    const estimatedHeight = unlocked ? 160 : 70;
     const spaceBelow = window.innerHeight - r.bottom;
     const flipped = spaceBelow < estimatedHeight && r.top > spaceBelow;
     const right = Math.max(8, window.innerWidth - r.right);
@@ -924,8 +1211,21 @@ function ListeningHintButton({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  // Bấm ra ngoài popup (nút "?" HOẶC nội dung popup, cả 2 đều nằm ngoài luồng DOM của nhau vì popup
+  // render qua Portal) thì tự đóng — thay cho onMouseLeave cũ (đã bỏ tương tác hover).
+  useEffect(() => {
+    if (!open) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (triggerRef.current?.contains(target) || panelRef.current?.contains(target)) return;
+      setOpen(false);
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [open]);
+
   const ensureLoaded = async () => {
-    if (!unlocked || hint || loading) return;
+    if (!unlocked || loading) return;
     setLoading(true);
     setError(null);
     try {
@@ -937,22 +1237,21 @@ function ListeningHintButton({
     }
   };
 
-  const handleOpen = () => {
+  const handleToggle = () => {
     if (readOnly) return;
-    setOpen(true);
-    ensureLoaded();
+    setOpen((prev) => {
+      const next = !prev;
+      if (next) ensureLoaded();
+      return next;
+    });
   };
 
-  const correctChoiceContents = hint?.correctChoiceIds.length
-    ? choices.filter((c) => hint.correctChoiceIds.includes(c.id)).map((c) => `${c.choiceLabel}. ${c.content}`)
-    : [];
-
   return (
-    <div ref={triggerRef} className="relative shrink-0" onMouseEnter={handleOpen} onMouseLeave={() => setOpen(false)}>
+    <div ref={triggerRef} className="relative shrink-0">
       <button
         type="button"
         disabled={readOnly}
-        onClick={handleOpen}
+        onClick={handleToggle}
         aria-label={t("takeExercise.listening.hintAriaLabel")}
         className="w-5 h-5 rounded-full border border-teal/50 bg-teal/10 text-teal-deep flex items-center justify-center disabled:opacity-60"
       >
@@ -964,7 +1263,7 @@ function ListeningHintButton({
           !unlocked ? (
             // Tooltip dạng bong bóng thoại — mũi nhọn trỏ về phía nút "?" (lên nếu tooltip nằm dưới,
             // xuống nếu bị lật lên trên), màu theo đúng bảng màu hệ thống (teal-deep).
-            <div style={{ position: "fixed", top: placement.top, bottom: placement.bottom, right: placement.right }} className="z-[200]">
+            <div ref={panelRef} style={{ position: "fixed", top: placement.top, bottom: placement.bottom, right: placement.right }} className="z-[200]">
               <div className={`absolute right-3 w-3 h-3 bg-teal-deep rotate-45 ${placement.flipped ? "-bottom-1.5" : "-top-1.5"}`} />
               <div className="relative bg-teal-deep text-white text-[11px] font-bold rounded-lg px-3 py-2 max-w-[220px] shadow-lg">
                 {t("takeExercise.listening.locked", { playCount, threshold, remaining })}
@@ -972,42 +1271,24 @@ function ListeningHintButton({
             </div>
           ) : (
             <div
+              ref={panelRef}
               style={{ position: "fixed", top: placement.top, bottom: placement.bottom, right: placement.right }}
               className="z-[200] w-72 max-w-[80vw] text-left text-xs bg-white border border-line/60 rounded-xl shadow-lg p-3 space-y-1.5"
             >
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-bold text-[10px] uppercase tracking-wide text-muted">{t("takeExercise.listening.transcriptLabel")}</span>
+                <button type="button" onClick={() => setOpen(false)} aria-label={t("takeExercise.closeAriaLabel")} className="text-muted hover:text-ink shrink-0">
+                  <X size={13} />
+                </button>
+              </div>
               {loading ? (
                 <p className="font-bold text-muted flex items-center gap-1.5">
                   <Loader2 size={12} className="animate-spin" /> {t("takeExercise.listening.loadingHint")}
                 </p>
               ) : error ? (
                 <p className="font-bold text-coral">{error}</p>
-              ) : hint ? (
-                <>
-                  {hint.transcript && (
-                    <p>
-                      <span className="font-bold">{t("takeExercise.listening.transcriptLabel")}</span>
-                      {hint.transcript}
-                    </p>
-                  )}
-                  {hint.correctAnswerText && (
-                    <p>
-                      <span className="font-bold">{t("takeExercise.listening.correctAnswerLabel")}</span>
-                      {hint.correctAnswerText}
-                    </p>
-                  )}
-                  {correctChoiceContents.length > 0 && (
-                    <p>
-                      <span className="font-bold">{t("takeExercise.listening.correctAnswerLabel")}</span>
-                      {correctChoiceContents.join(", ")}
-                    </p>
-                  )}
-                  {hint.explanation && (
-                    <p>
-                      <span className="font-bold">{t("takeExercise.listening.explanationLabel")}</span>
-                      {hint.explanation}
-                    </p>
-                  )}
-                </>
+              ) : hint?.transcript ? (
+                <p className="whitespace-pre-line">{hint.transcript}</p>
               ) : null}
             </div>
           ),
@@ -1161,8 +1442,9 @@ function SentenceBuildingBlock({
  * nhánh theo questionType — MULTIPLE_CHOICE giữ nguyên dãy nút chọn đáp án như cũ, FILL_IN_BLANK
  * thêm ô nhập text tự chấm, SPEAKING thêm control nộp audio (chấm tay).
  */
-function GridQuestionGroup({
+export function GridQuestionGroup({
   block,
+  startNumber,
   answersByQuestion,
   readOnly,
   savingQuestionId,
@@ -1178,6 +1460,8 @@ function GridQuestionGroup({
   onListeningEnded
 }: {
   block: Extract<RenderBlock, { type: "grid" }>;
+  /** V150 — số thứ tự câu ĐẦU TIÊN của nhóm (dùng khi ghép nhiều Bài, xem QuestionBlock#displayNumber) — mặc định q.displayOrder như cũ khi không truyền. */
+  startNumber?: number;
   answersByQuestion: Map<number, StudentAnswerResponse>;
   readOnly: boolean;
   savingQuestionId: number | null;
@@ -1193,6 +1477,8 @@ function GridQuestionGroup({
   onListeningEnded: (q: ExerciseQuestionResponse) => void;
 }) {
   const { t } = useTranslation("portal-exercises");
+  const audioRef = useRef<HTMLAudioElement>(null);
+  useSeekLockedAudio(audioRef, block.audioUrl ?? undefined);
   // UC-24/A4, UC-27/A2: mọi câu trong 1 nhóm lưới đều thuộc cùng 1 lượt làm — chỉ cần 1 banner khóa chung.
   const anyLockedByRetake = block.questions.some((q) => {
     const a = answersByQuestion.get(q.questionId);
@@ -1204,11 +1490,27 @@ function GridQuestionGroup({
         <p className="text-xs sm:text-sm lg:text-base text-ink whitespace-pre-wrap bg-sky-2 rounded-xl p-3 sm:p-4">{block.referencePassage}</p>
       )}
       {block.audioUrl && (
-        // eslint-disable-next-line jsx-a11y/media-has-caption
-        <audio controls src={block.audioUrl} className="w-full" onEnded={() => onListeningEnded(block.questions[0])} />
+        <div className="flex items-center gap-2">
+          {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+          <audio ref={audioRef} controls src={block.audioUrl} className="w-full flex-1" onEnded={() => onListeningEnded(block.questions[0])} />
+          {/*
+           * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — fix bug thật: trước đây MỖI
+           * câu trong nhóm đều có riêng 1 nút "?" — nhưng cả nhóm dùng CHUNG 1 audio + 1 bộ đếm lượt
+           * nghe (listeningKeyOf theo groupKey) nên bấm câu nào cũng ra ĐÚNG 1 gợi ý y hệt nhau, thừa
+           * và gây rối. Chỉ còn 1 nút "?" duy nhất đặt cạnh audio dùng chung cho cả nhóm.
+           */}
+          {attemptId != null && block.questions[0]?.skill === "LISTENING" && (
+            <ListeningHintButton
+              attemptId={attemptId}
+              questionId={block.questions[0].questionId}
+              progress={listeningProgress.get(listeningKeyOf(block.questions[0]))}
+              readOnly={readOnly}
+            />
+          )}
+        </div>
       )}
       <div className="divide-y divide-line/50">
-        {block.questions.map((q) => {
+        {block.questions.map((q, qIndex) => {
           const answer = answersByQuestion.get(q.questionId);
           const selected = new Set(answer?.selectedChoiceIds ?? []);
           const correctIds = new Set(answer?.correctChoiceIds ?? []);
@@ -1221,28 +1523,63 @@ function GridQuestionGroup({
             <div key={q.id} className="py-2.5 lg:py-3.5 space-y-2">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xs sm:text-sm lg:text-base font-bold text-ink flex-1 min-w-[160px]">
-                  {q.displayOrder}. {q.questionContent}
+                  {startNumber != null ? startNumber + qIndex : q.displayOrder}. {q.questionContent}
                 </span>
-                {q.skill === "LISTENING" && attemptId != null && (
-                  <ListeningHintButton
-                    attemptId={attemptId}
-                    questionId={q.questionId}
-                    choices={q.choices}
-                    progress={listeningProgress.get(listeningKeyOf(q))}
-                    readOnly={readOnly || saving}
-                  />
-                )}
-                {isChoiceRow && (
-                  <div className="flex gap-1.5 shrink-0">
-                    {q.choices.map((c) => {
+              </div>
+
+              {/*
+               * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — fix bug thật: trước đây
+               * mỗi đáp án chỉ hiện 1 ô vuông nhỏ ghi CHỮ CÁI (A/B/C/D), không hề hiện nội dung — hợp lý
+               * với thiết kế gốc "Đọc hiểu — lưới" (đáp án A/B/C là 3 đoạn văn CỐ ĐỊNH đã hiện sẵn ở
+               * trên), nhưng khối này bị TÁI SỬ DỤNG cho ListeningGroupBuilder (mỗi câu có bộ đáp án
+               * VĂN BẢN RIÊNG, không cố định) — học sinh không thấy nội dung đáp án nào để chọn. Đổi
+               * sang hiện đầy đủ nội dung/ảnh từng đáp án, mirror đúng khối isChoiceQuestion (câu đơn).
+               */}
+              {isChoiceRow && (
+                <div className="space-y-1.5">
+                  {q.choices.some((c) => c.imageUrl) ? (
+                    <div className="grid grid-cols-2 gap-2">
+                      {q.choices.map((c) => {
+                        const isSelected = selected.has(c.id);
+                        const isCorrectChoice = correctIds.has(c.id);
+                        let stateClass = "border-line/70 bg-sky-2 hover:bg-sky";
+                        if (showFeedback) {
+                          if (isCorrectChoice) stateClass = "border-teal bg-teal/10";
+                          else if (isSelected) stateClass = "border-coral bg-coral/10";
+                        } else if (isSelected) {
+                          stateClass = "border-teal bg-teal/10";
+                        }
+                        return (
+                          <button
+                            key={c.id}
+                            type="button"
+                            disabled={readOnly || saving}
+                            onClick={() => onChoiceToggle(q.questionId, [c.id])}
+                            className={`relative text-left rounded-xl border-2 overflow-hidden transition-colors ${stateClass} disabled:cursor-default`}
+                          >
+                            <img src={c.imageUrl ?? undefined} alt={c.content} className="w-full aspect-square object-cover" />
+                            <span className="flex items-center justify-between gap-1 px-2 py-1.5 text-[11px] font-bold">
+                              <span>
+                                <span className="text-muted mr-1">{c.choiceLabel}.</span>
+                                {c.content}
+                              </span>
+                              {showFeedback && isCorrectChoice && <CheckCircle2 size={14} className="text-teal-deep shrink-0" />}
+                              {showFeedback && !isCorrectChoice && isSelected && <XCircle size={14} className="text-coral shrink-0" />}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    q.choices.map((c) => {
                       const isSelected = selected.has(c.id);
                       const isCorrectChoice = correctIds.has(c.id);
-                      let cls = "border-line/70 bg-sky-2";
+                      let stateClass = "border-line/70 bg-sky-2 hover:bg-sky";
                       if (showFeedback) {
-                        if (isCorrectChoice) cls = "border-teal bg-teal/10 text-teal-deep";
-                        else if (isSelected) cls = "border-coral bg-coral/10 text-coral";
+                        if (isCorrectChoice) stateClass = "border-teal bg-teal/10";
+                        else if (isSelected) stateClass = "border-coral bg-coral/10";
                       } else if (isSelected) {
-                        cls = "border-teal bg-teal/10 text-teal-deep";
+                        stateClass = "border-teal bg-teal/10";
                       }
                       return (
                         <button
@@ -1250,15 +1587,20 @@ function GridQuestionGroup({
                           type="button"
                           disabled={readOnly || saving}
                           onClick={() => onChoiceToggle(q.questionId, [c.id])}
-                          className={`w-8 h-8 sm:w-9 sm:h-9 lg:w-10 lg:h-10 rounded-lg border text-[11px] sm:text-xs lg:text-sm font-bold transition-colors disabled:cursor-default ${cls}`}
+                          className={`w-full text-left text-xs sm:text-sm font-bold px-3 py-2 rounded-xl border transition-colors flex items-center justify-between gap-2 ${stateClass} disabled:cursor-default`}
                         >
-                          {c.choiceLabel}
+                          <span>
+                            <span className="text-muted mr-1.5">{c.choiceLabel}.</span>
+                            {c.content}
+                          </span>
+                          {showFeedback && isCorrectChoice && <CheckCircle2 size={14} className="text-teal-deep shrink-0" />}
+                          {showFeedback && !isCorrectChoice && isSelected && <XCircle size={14} className="text-coral shrink-0" />}
                         </button>
                       );
-                    })}
-                  </div>
-                )}
-              </div>
+                    })
+                  )}
+                </div>
+              )}
 
               {isFillInBlankRow && (
                 <div className="space-y-1">

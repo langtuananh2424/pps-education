@@ -2,6 +2,8 @@ node_modules
 dist
 .env
 .vite/
+.certs/
+public/mkcert-rootCA.pem
 
 
 .claude/skills/

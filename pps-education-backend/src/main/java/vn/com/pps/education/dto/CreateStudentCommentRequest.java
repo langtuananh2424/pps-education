@@ -12,11 +12,23 @@ import java.util.Map;
  * 2026-08-12, đã xác nhận với người dùng, xem Javadoc StudentComment).
  *
  * V65 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30):
- * {@code homeworkNextExerciseId} là id của {@code Exercise} (KHÔNG phải
- * id của 1 bản đã giao sẵn như trước V65) — chọn khác null tự động giao
- * đề cho CẢ LỚP, hạn nộp = buổi kế tiếp. {@code homeworkNextReviewVideoSetId}
+ * {@code homeworkNextExerciseId} — chọn khác null tự động giao đề cho CẢ
+ * LỚP, hạn nộp = buổi kế tiếp. {@code homeworkNextReviewVideoSetId}
  * giữ nguyên ý nghĩa (id của {@code ReviewVideoSet} — chọn nguồn), cũng
  * tự động giao cả lớp tương tự.
+ *
+ * V150 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-24) — tên field
+ * {@code homeworkNextExerciseId}/{@code homeworkNextReadingExerciseId}/
+ * {@code homeworkNextWritingExerciseId} GIỮ NGUYÊN (không đổi API contract) nhưng Ý NGHĨA đổi: giờ là id
+ * của {@code Exam} (Lesson), KHÔNG còn là id của 1 {@code Exercise} đơn — chọn 1 Lesson tức giao TOÀN BỘ
+ * Bài Published cùng skillCategory của kênh đó trong Lesson (xem HomeworkSkillBatchService), thay cho cơ
+ * chế gộp câu hỏi cũ (V145, đã bỏ).
+ *
+ * V151 (revert V146, đã xác nhận với người dùng 2026-08-25) — {@code homeworkNextExerciseId} ("kênh Ngữ
+ * pháp") dùng CHUNG cho cả Bài Nghe: buổi teacherType=FOREIGN chọn Lesson có Bài skillCategory=LISTENING,
+ * buổi VIETNAMESE chọn Lesson có Bài skillCategory=VOCAB_GRAMMAR (xem
+ * StudentCommentService#grammarChannelSkillCategory) — không còn field homeworkNextListeningExerciseId
+ * riêng.
  *
  * Nhận xét học viên (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
  * 2026-08-05, cho phép chọn GIỜ 2026-08-06): {@code homeworkNextDueDate}
@@ -49,6 +61,10 @@ public record CreateStudentCommentRequest(
         String homeworkNextWriting,
         Long homeworkNextExerciseId,
         Long homeworkNextReviewVideoSetId,
+        // V137 — "BTVN - Online - Reading/Writing" (mirror homeworkNextExerciseId), chỉ có ý nghĩa khi
+        // buổi teacherType=VIETNAMESE. Id của Exercise (skillCategory=READING/WRITING tương ứng).
+        Long homeworkNextReadingExerciseId,
+        Long homeworkNextWritingExerciseId,
         LocalDateTime homeworkNextDueDate,
         String note
 ) {}

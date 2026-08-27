@@ -31,4 +31,8 @@ public interface ExerciseRepository extends JpaRepository<Exercise, Long> {
 
     /** V65: dán uuid làm phương án thay dropdown khi nhập Excel — mirror ExerciseAssignmentRepository.findByUuid cũ. */
     Optional<Exercise> findByUuid(UUID uuid);
+
+    /** V150 — thành phần 1 nhóm kỹ năng trong Lesson: mọi Bài PUBLISHED cùng (exam, skillCategory), dùng cho HomeworkSkillBatchService gom vào 1 lô giao. */
+    List<Exercise> findByExamIdAndSkillCategoryAndStatus(
+            Long examId, Exercise.SkillCategory skillCategory, Exercise.Status status);
 }

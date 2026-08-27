@@ -156,6 +156,6 @@ public class ManualGradingService {
     private StudentAnswerGradingResponse toResponse(StudentAnswerGrading g) {
         return new StudentAnswerGradingResponse(
                 g.getId(), g.getStudentAnswer().getId(), g.getGrader().getId(), g.getScore(), g.getMaxScore(),
-                g.getFeedback(), g.getGradedAt());
+                g.getFeedback(), g.getGradedAt(), g.getGradingSource().name());
     }
 }

@@ -81,4 +81,14 @@ public class ExerciseAssignment {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "source_class_session_id")
     private ClassSession sourceClassSession;
+
+    /**
+     * V150 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-24) — NULL = giao lẻ 1 Bài (hành
+     * vi cũ). Có giá trị = bản giao này là 1 trong N Bài cùng skillCategory thuộc 1 lô BTVN theo kỹ năng
+     * (xem {@link HomeworkSkillBatch}) — cùng homeworkBatch nghĩa là cùng 1 lần giao ở UC-21, học sinh
+     * làm gộp 1 lượt/nộp 1 lần qua ExerciseAttemptService#startBatchSession/submitBatchSession.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "homework_batch_id")
+    private HomeworkSkillBatch homeworkBatch;
 }
