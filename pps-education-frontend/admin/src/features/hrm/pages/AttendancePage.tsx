@@ -5,6 +5,7 @@ import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import { Badge, TableContainer, Td, Th } from "@/components/ui";
 import Select from "@/components/ui/Select";
+import DatePicker from "@/components/ui/DatePicker";
 import { listSites, SiteResponse } from "@/features/facility/api";
 import { AttendanceRecordAdminResponse, EmployeeResponse, listAttendanceRecords, listEmployees } from "../api";
 import { attendanceMethodLabel, attendanceStatusLabel, attendanceStatusVariant, formatAttendanceTime } from "../attendanceFormat";
@@ -92,9 +93,13 @@ function AttendanceAdminSummary({ sites }: { sites: SiteResponse[] }) {
           <p className="text-[10px] text-slate-400">{t("attendancePage.summarySubtitle")}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none" />
+          <div className="w-36">
+            <DatePicker value={from} onChange={setFrom} max={to || undefined} />
+          </div>
           <span className="text-[10px] text-slate-400">{t("attendancePage.toLabel")}</span>
-          <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none" />
+          <div className="w-36">
+            <DatePicker value={to} onChange={setTo} min={from || undefined} />
+          </div>
           <Select
             value={employeeId}
             onChange={(e) => setEmployeeId(e.target.value === "" ? "" : Number(e.target.value))}

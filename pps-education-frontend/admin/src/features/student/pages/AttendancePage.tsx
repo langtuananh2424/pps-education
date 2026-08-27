@@ -15,6 +15,7 @@ import {
   submitAttendance
 } from "@/features/academic/api";
 import { useEligibleClasses } from "@/features/academic/hooks/useEligibleClasses";
+import { useAttendanceGracePeriodMinutes } from "@/features/academic/hooks/useAttendanceGracePeriodMinutes";
 import StudentNameLink from "@/features/reports/components/StudentNameLink";
 import TableContainer, { Td, Th } from "@/components/ui/TableContainer";
 import Select from "@/components/ui/Select";
@@ -49,17 +50,30 @@ function isToday(s: ClassSessionResponse): boolean {
 }
 
 /**
- * Sửa đổi nghiệp vụ 2026-08-18 (đã xác nhận với người dùng) — thay thế rule
- * V45 "sửa được tới hết ngày": GV thường chỉ được điểm danh/sửa/submit
- * TRONG ĐÚNG khung giờ buổi học [startTime, endTime], đồng bộ với
- * StudentAttendanceService.isWithinSessionWindow (backend chặn cả API,
- * không chỉ khóa nút ở UI).
+ * Sửa đổi nghiệp vụ 2026-08-18 (đã xác nhận với người dùng), MỞ RỘNG
+ * 2026-08-22 + đồng bộ lại 2026-08-27: GV thường chỉ được điểm danh/sửa/
+ * submit TRONG khung giờ buổi học [startTime, endTime + gracePeriodMinutes]
+ * — đồng bộ với StudentAttendanceService.isWithinSessionWindow (backend
+ * chặn cả API, không chỉ khóa nút ở UI). gracePeriodMinutes đọc từ
+ * system_settings.student_attendance.grace_period_minutes qua
+ * useAttendanceGracePeriodMinutes — trước đây hardcode [startTime, endTime]
+ * không cộng grace, khoá nút sớm hơn backend cho phép.
  */
-function isWithinAttendanceWindow(s: ClassSessionResponse): boolean {
+function isWithinAttendanceWindow(s: ClassSessionResponse, gracePeriodMinutes: number): boolean {
   const now = new Date();
   const start = new Date(`${s.sessionDate}T${s.startTime}`);
-  const end = new Date(`${s.sessionDate}T${s.endTime}`);
+  const end = graceEndDate(s, gracePeriodMinutes);
   return now >= start && now <= end;
+}
+
+function graceEndDate(s: ClassSessionResponse, gracePeriodMinutes: number): Date {
+  const end = new Date(`${s.sessionDate}T${s.endTime}`);
+  return new Date(end.getTime() + gracePeriodMinutes * 60_000);
+}
+
+/** HH:mm:ss local — cùng định dạng với ClassSessionResponse.endTime, để hiển thị khớp thông báo backend (graceEnd). */
+function formatTime(d: Date): string {
+  return d.toTimeString().slice(0, 8);
 }
 
 export default function AttendancePage() {
@@ -95,15 +109,16 @@ export default function AttendancePage() {
     const id = setInterval(() => forceTick((t) => t + 1), 30_000);
     return () => clearInterval(id);
   }, []);
-  // Sửa đổi 2026-08-18: SUBMITTED không tự khoá sửa — GV vẫn sửa được, nhưng CHỈ trong đúng khung
-  // giờ buổi học [startTime, endTime] (không còn "tới hết ngày" như rule V45 cũ). Tài khoản có quyền
-  // quản trị điểm danh vượt rào này.
-  const locked = !hasAttendanceOverride && !!selectedSession && !isWithinAttendanceWindow(selectedSession);
+  // Sửa đổi 2026-08-18: SUBMITTED không tự khoá sửa — GV vẫn sửa được, nhưng CHỈ trong khung giờ
+  // buổi học [startTime, endTime + gracePeriodMinutes] (không còn "tới hết ngày" như rule V45 cũ).
+  // Tài khoản có quyền quản trị điểm danh vượt rào này.
+  const gracePeriodMinutes = useAttendanceGracePeriodMinutes();
+  const locked = !hasAttendanceOverride && !!selectedSession && !isWithinAttendanceWindow(selectedSession, gracePeriodMinutes);
   const lockedReason = !selectedSession
     ? null
     : new Date() < new Date(`${selectedSession.sessionDate}T${selectedSession.startTime}`)
       ? t("attendancePage.notYetStarted", { time: selectedSession.startTime })
-      : t("attendancePage.alreadyEnded", { time: selectedSession.endTime });
+      : t("attendancePage.alreadyEnded", { time: formatTime(graceEndDate(selectedSession, gracePeriodMinutes)) });
 
   useEffect(() => {
     if (!selectedClassId) {
@@ -257,7 +272,7 @@ export default function AttendancePage() {
               {t("attendancePage.lockedNotice", {
                 reason: lockedReason,
                 start: selectedSession?.startTime,
-                end: selectedSession?.endTime,
+                end: selectedSession ? formatTime(graceEndDate(selectedSession, gracePeriodMinutes)) : selectedSession,
                 date: selectedSession?.sessionDate
               })}
             </div>
