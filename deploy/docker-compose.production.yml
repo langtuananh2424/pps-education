@@ -53,6 +53,10 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
       SEED_DEV_USERS: "false"
+      # Bootstrap 1 tài khoản sysadmin lần đầu (KHÁC SEED_DEV_USERS - xem InitialAdminSeeder.java).
+      # Mặc định tắt - chỉ bật 1 lần khi cần tạo sysadmin đầu tiên, rồi tắt lại (đặt false trong .env).
+      SEED_INITIAL_ADMIN: ${SEED_INITIAL_ADMIN:-false}
+      SEED_SYSADMIN_PASSWORD: ${SEED_SYSADMIN_PASSWORD:-}
       GOOGLE_OAUTH_CLIENT_IDS: ${GOOGLE_OAUTH_CLIENT_IDS}
       # MinIO tự host thay Cloudflare R2 thật (xem R2StorageConfig.java) -
       # R2_ENDPOINT_URL trỏ vào service minio trong network nội bộ (KHÔNG
