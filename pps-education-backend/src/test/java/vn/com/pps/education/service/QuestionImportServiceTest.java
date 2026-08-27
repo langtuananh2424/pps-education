@@ -283,11 +283,15 @@ class QuestionImportServiceTest extends AbstractIntegrationTest {
 
     /**
      * Round-trip: file mẫu Word tự sinh (buildWordTemplate) phải tự đọc lại
-     * được đúng cả 5 loại — bảo vệ khỏi mẫu và parser lệch cú pháp nhau
-     * (giống buildTemplate_roundTrip của GradeImportServiceTest cho UC-53).
+     * được đúng cả 11 loại trong VALID_KINDS — bảo vệ khỏi mẫu và parser
+     * lệch cú pháp nhau (giống buildTemplate_roundTrip của
+     * GradeImportServiceTest cho UC-53). Số lượng 11 khớp đúng
+     * VALID_KINDS/TEMPLATE_BLOCKS sau khi bổ sung 6 loại mới ngày 2026-08-26
+     * (xem Javadoc lớp QuestionImportService) — trước đó chỉ có 5 loại, tên
+     * method giữ nguyên hậu tố "boSung" theo đúng đợt bổ sung đó.
      */
     @Test
-    void buildWordTemplate_boSung_roundTripsThroughImportAndCreatesAllFiveKinds() {
+    void buildWordTemplate_boSung_roundTripsThroughImportAndCreatesAllElevenKinds() {
         byte[] template = questionImportService.buildWordTemplate();
 
         QuestionImportResponse result = questionImportService.importQuestions(bank.id(),
@@ -295,9 +299,9 @@ class QuestionImportServiceTest extends AbstractIntegrationTest {
                         "application/vnd.openxmlformats-officedocument.wordprocessingml.document", template), teacher.getId());
 
         assertThat(result.status()).isEqualTo("COMPLETED");
-        assertThat(result.successRows()).isEqualTo(5);
+        assertThat(result.successRows()).isEqualTo(11);
         assertThat(result.failedRows()).isEqualTo(0);
-        assertThat(questionBankService.listQuestions(bank.id())).hasSize(5);
+        assertThat(questionBankService.listQuestions(bank.id())).hasSize(11);
     }
 
     private QuestionResponse findByContentPrefix(List<QuestionResponse> questions, String prefix) {

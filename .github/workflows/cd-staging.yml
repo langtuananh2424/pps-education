@@ -1,12 +1,22 @@
-# Deploy tự động lên môi trường Staging (Railway) khi merge vào `develop`.
-# Cần thiết lập trước 2 secret trong GitHub repo settings:
-#   RAILWAY_TOKEN       — token của project Railway (staging)
-#   RAILWAY_PROJECT_ID  — id project Railway (staging)
+# Deploy tự động lên môi trường Staging (server vật lý tự host, xem
+# deploy/README.md) khi push vào `main` — `main` là nhánh auto-deploy staging
+# (đổi từ `develop` trước đây, xem CONTRIBUTING.md mục 1 — cập nhật 2026-08-26).
+#
+# LƯU Ý (2026-08-27): job `deploy` chạy trên SELF-HOSTED RUNNER cài ngay
+# trên server vật lý (không phải GHCR-hosted `ubuntu-latest`) — server không
+# có static IP public nên GitHub Actions cloud KHÔNG THỂ SSH vào IP LAN
+# (192.168.x.x) được. Runner tự kết nối OUTBOUND ra GitHub (không cần mở
+# port/SSH qua internet), job chạy thẳng trên server nên không cần
+# DEPLOY_HOST/DEPLOY_USER/DEPLOY_SSH_KEY/DEPLOY_SSH_PORT nữa. AN TOÀN với
+# repo public vì job này chỉ trigger qua `push` vào nhánh `main` đã bật
+# branch protection (chỉ chạy sau khi 1 PR được merge bởi người có quyền,
+# KHÔNG BAO GIỜ trigger trực tiếp từ `pull_request` của fork lạ — xem
+# deploy/README.md mục 8 để biết cách cài runner).
 name: CD - Staging
 
 on:
   push:
-    branches: [develop]
+    branches: [main]
     paths:
       - "pps-education-backend/**"
 
@@ -41,18 +51,14 @@ jobs:
             ${{ steps.meta.outputs.image }}
             ghcr.io/${{ github.repository }}/backend:staging-latest
 
-  # TODO: mo lai khi da cau hinh xong secret RAILWAY_TOKEN/RAILWAY_PROJECT_ID
-  # trong GitHub Environment "staging" (Settings > Environments > staging) -
-  # tam comment de CD khong fail lien tuc moi lan merge vao develop.
-  # deploy:
-  #   needs: build-and-push
-  #   runs-on: ubuntu-latest
-  #   environment: staging
-  #   steps:
-  #     - name: Deploy to Railway (staging)
-  #       run: |
-  #         npm install -g @railway/cli
-  #         railway up --service backend --environment staging
-  #       env:
-  #         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-  #         RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+  deploy:
+    needs: build-and-push
+    runs-on: [self-hosted, pps-education]
+    environment: staging
+    steps:
+      - name: Pull staging-latest + restart container (chạy trực tiếp trên server)
+        run: |
+          cd /opt/pps-education/staging
+          docker compose pull backend
+          docker compose up -d --no-deps backend
+          docker image prune -f

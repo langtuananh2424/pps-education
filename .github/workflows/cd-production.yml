@@ -1,13 +1,19 @@
-# Deploy tự động lên Production (Railway) khi merge vào `main`.
+# Deploy tự động lên Production (server vật lý tự host, xem deploy/README.md)
+# khi push vào `production` — `production` là nhánh auto-deploy production
+# (đổi từ `main` trước đây, xem CONTRIBUTING.md mục 1 — cập nhật 2026-08-26).
 # Dùng GitHub Environment "production" với required reviewer để có bước
 # duyệt thủ công trước khi deploy thật (Settings → Environments → production).
-# Cần secret: RAILWAY_TOKEN, RAILWAY_PROJECT_ID (project Railway production —
-# KHÁC với project staging).
+#
+# LƯU Ý (2026-08-27): job `deploy` chạy trên SELF-HOSTED RUNNER cài ngay
+# trên server vật lý (không phải GHCR-hosted `ubuntu-latest`) — xem comment
+# chi tiết ở cd-staging.yml (lý do: server không có static IP public, GitHub
+# Actions cloud không SSH vào IP LAN được). Không cần
+# DEPLOY_HOST/DEPLOY_USER/DEPLOY_SSH_KEY/DEPLOY_SSH_PORT nữa.
 name: CD - Production
 
 on:
   push:
-    branches: [main]
+    branches: [production]
     paths:
       - "pps-education-backend/**"
 
@@ -46,18 +52,14 @@ jobs:
             ${{ steps.meta.outputs.image }}
             ghcr.io/${{ github.repository }}/backend:prod-latest
 
-  # TODO: mo lai khi da cau hinh xong secret RAILWAY_TOKEN/RAILWAY_PROJECT_ID
-  # trong GitHub Environment "production" (Settings > Environments > production,
-  # project Railway KHAC voi staging) - tam comment de CD khong fail lien tuc.
-  # deploy:
-  #   needs: build-and-push
-  #   runs-on: ubuntu-latest
-  #   environment: production # yêu cầu approval thủ công nếu đã cấu hình required reviewer
-  #   steps:
-  #     - name: Deploy to Railway (production)
-  #       run: |
-  #         npm install -g @railway/cli
-  #         railway up --service backend --environment production
-  #       env:
-  #         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-  #         RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+  deploy:
+    needs: build-and-push
+    runs-on: [self-hosted, pps-education]
+    environment: production # yêu cầu approval thủ công nếu đã cấu hình required reviewer
+    steps:
+      - name: Pull prod-latest + restart container (chạy trực tiếp trên server)
+        run: |
+          cd /opt/pps-education/production
+          docker compose pull backend
+          docker compose up -d --no-deps backend
+          docker image prune -f

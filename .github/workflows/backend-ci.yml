@@ -2,16 +2,21 @@
 # Pull Request trước khi merge (xem CONTRIBUTING.md). Workflow này:
 #  1. Kiểm tra không có migration Flyway cũ nào bị sửa nội dung (so với develop)
 #  2. Build + test toàn bộ (Postgres/PostGIS thật, không dùng H2)
+#
+# LƯU Ý (2026-08-27): trigger `pull_request` CỐ Ý KHÔNG lọc `paths` — branch
+# protection (main/develop/production) cần check "build-and-test" luôn có
+# kết quả trên MỌI PR để dùng làm required status check; nếu lọc path, 1 PR
+# chỉ sửa docs/deploy sẽ không bao giờ kích hoạt workflow này -> GitHub kẹt
+# PR ở trạng thái "đang chờ status check" vĩnh viễn, không merge được. Trigger
+# `push` vẫn giữ lọc path vì chỉ dùng để theo dõi sau khi merge, không gate
+# merge nên không bị rủi ro tương tự.
 name: Backend CI
 
 on:
   pull_request:
-    branches: [develop, main]
-    paths:
-      - "pps-education-backend/**"
-      - ".github/workflows/backend-ci.yml"
+    branches: [develop, main, production]
   push:
-    branches: [develop, main]
+    branches: [develop, main, production]
     paths:
       - "pps-education-backend/**"
 
