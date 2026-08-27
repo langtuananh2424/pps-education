@@ -21,6 +21,7 @@ on:
     branches: [main, production]
     paths:
       - "pps-education-frontend/**"
+  workflow_dispatch: {} # cho phép bấm "Run workflow" tay trên GitHub, chọn branch main/production để deploy đúng stack
 
 jobs:
   build-and-deploy:
