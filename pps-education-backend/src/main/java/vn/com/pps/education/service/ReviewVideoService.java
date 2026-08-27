@@ -12,7 +12,9 @@ import vn.com.pps.education.domain.ClassSession;
 import vn.com.pps.education.domain.ClassTeacher;
 import vn.com.pps.education.domain.Curriculum;
 import vn.com.pps.education.domain.CurriculumSubject;
+import vn.com.pps.education.domain.CurriculumSubTopic;
 import vn.com.pps.education.domain.Notification;
+import vn.com.pps.education.domain.ReflexQuestionProgress;
 import vn.com.pps.education.domain.ReviewVideo;
 import vn.com.pps.education.domain.ReviewVideoAssignment;
 import vn.com.pps.education.domain.ReviewVideoConnectionAnswer;
@@ -69,6 +71,8 @@ import vn.com.pps.education.repository.ClassEnrollmentRepository;
 import vn.com.pps.education.repository.ClassTeacherRepository;
 import vn.com.pps.education.repository.CurriculumRepository;
 import vn.com.pps.education.repository.CurriculumSubjectRepository;
+import vn.com.pps.education.repository.CurriculumSubTopicRepository;
+import vn.com.pps.education.repository.ReflexQuestionProgressRepository;
 import vn.com.pps.education.repository.ReviewVideoAssignmentRepository;
 import vn.com.pps.education.repository.ReviewVideoConnectionAnswerRepository;
 import vn.com.pps.education.repository.ReviewVideoConnectionQuestionSlotRepository;
@@ -87,6 +91,7 @@ import vn.com.pps.education.repository.StudentRepository;
 import vn.com.pps.education.repository.UserRepository;
 import vn.com.pps.education.service.integrity.AttemptIntegrityService;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -133,6 +138,7 @@ public class ReviewVideoService {
     private final ReviewVideoSetHistoryRepository reviewVideoSetHistoryRepository;
     private final ReviewVideoProgressRepository reviewVideoProgressRepository;
     private final ReviewVideoQuestionRepository reviewVideoQuestionRepository;
+    private final ReflexQuestionProgressRepository reflexQuestionProgressRepository;
     private final ReviewVideoQuestionSubmissionRepository reviewVideoQuestionSubmissionRepository;
     private final ReviewVideoWatchSessionRepository reviewVideoWatchSessionRepository;
     private final ReviewVideoAssignmentRepository reviewVideoAssignmentRepository;
@@ -143,6 +149,7 @@ public class ReviewVideoService {
     private final CurriculumRepository curriculumRepository;
     private final SchoolClassRepository schoolClassRepository;
     private final CurriculumSubjectRepository curriculumSubjectRepository;
+    private final CurriculumSubTopicRepository curriculumSubTopicRepository;
     private final ClassTeacherRepository classTeacherRepository;
     private final ClassEnrollmentRepository classEnrollmentRepository;
     private final StudentRepository studentRepository;
@@ -158,12 +165,21 @@ public class ReviewVideoService {
 
     private static final String PERM_REVIEW_VIDEO_MANAGE = "lms.review-video.manage";
 
+    /** V145 — phải khớp ReflexSequentialGradingService.PASS_THRESHOLD_PERCENT (private ở đó, không expose được). */
+    private static final int REFLEX_PASS_THRESHOLD_PERCENT = 70;
+
+    private boolean isReflexQuestionPassed(ReflexQuestionProgress p) {
+        return p.getWritingScore() != null && p.getWritingScore().compareTo(BigDecimal.valueOf(REFLEX_PASS_THRESHOLD_PERCENT)) >= 0
+                && p.getSpeakingScore() != null && p.getSpeakingScore().compareTo(BigDecimal.valueOf(REFLEX_PASS_THRESHOLD_PERCENT)) >= 0;
+    }
+
     public ReviewVideoService(ReviewVideoSetRepository reviewVideoSetRepository,
                                ReviewVideoSetClassAssignmentRepository reviewVideoSetClassAssignmentRepository,
                                ReviewVideoRepository reviewVideoRepository,
                                ReviewVideoSetHistoryRepository reviewVideoSetHistoryRepository,
                                ReviewVideoProgressRepository reviewVideoProgressRepository,
                                ReviewVideoQuestionRepository reviewVideoQuestionRepository,
+                               ReflexQuestionProgressRepository reflexQuestionProgressRepository,
                                ReviewVideoQuestionSubmissionRepository reviewVideoQuestionSubmissionRepository,
                                ReviewVideoWatchSessionRepository reviewVideoWatchSessionRepository,
                                ReviewVideoAssignmentRepository reviewVideoAssignmentRepository,
@@ -174,6 +190,7 @@ public class ReviewVideoService {
                                CurriculumRepository curriculumRepository,
                                SchoolClassRepository schoolClassRepository,
                                CurriculumSubjectRepository curriculumSubjectRepository,
+                               CurriculumSubTopicRepository curriculumSubTopicRepository,
                                ClassTeacherRepository classTeacherRepository,
                                ClassEnrollmentRepository classEnrollmentRepository,
                                StudentRepository studentRepository,
@@ -189,6 +206,7 @@ public class ReviewVideoService {
         this.reviewVideoSetHistoryRepository = reviewVideoSetHistoryRepository;
         this.reviewVideoProgressRepository = reviewVideoProgressRepository;
         this.reviewVideoQuestionRepository = reviewVideoQuestionRepository;
+        this.reflexQuestionProgressRepository = reflexQuestionProgressRepository;
         this.reviewVideoQuestionSubmissionRepository = reviewVideoQuestionSubmissionRepository;
         this.reviewVideoWatchSessionRepository = reviewVideoWatchSessionRepository;
         this.reviewVideoAssignmentRepository = reviewVideoAssignmentRepository;
@@ -199,6 +217,7 @@ public class ReviewVideoService {
         this.curriculumRepository = curriculumRepository;
         this.schoolClassRepository = schoolClassRepository;
         this.curriculumSubjectRepository = curriculumSubjectRepository;
+        this.curriculumSubTopicRepository = curriculumSubTopicRepository;
         this.classTeacherRepository = classTeacherRepository;
         this.classEnrollmentRepository = classEnrollmentRepository;
         this.studentRepository = studentRepository;
@@ -228,6 +247,7 @@ public class ReviewVideoService {
         if (request.subjectId() != null) {
             set.setSubject(curriculumSubjectOrThrow(request.subjectId()));
         }
+        set.setSubTopic(subTopicOrNull(request.subTopicId()));
         set.setDisplayOrder(request.displayOrder());
         set.setCreatedBy(actor);
         set = reviewVideoSetRepository.save(set);
@@ -248,6 +268,7 @@ public class ReviewVideoService {
         if (request.subjectId() != null) {
             set.setSubject(curriculumSubjectOrThrow(request.subjectId()));
         }
+        set.setSubTopic(subTopicOrNull(request.subTopicId()));
         set.setDisplayOrder(request.displayOrder());
         ReviewVideoSet.Status newStatus = ReviewVideoSet.Status.valueOf(request.status());
         if (newStatus == ReviewVideoSet.Status.PUBLISHED) {
@@ -263,19 +284,40 @@ public class ReviewVideoService {
         return toResponse(set);
     }
 
+    /**
+     * V156 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26) — "Xóa Bộ": soft-delete qua
+     * deleted_at (không xóa cứng — review_videos/review_video_set_class_assignments/
+     * review_video_assignments có thể đã tham chiếu qua Bộ), mirror ExamService#deleteExam. Chỉ xóa
+     * được khi Bộ đã hết Video — "Xóa Video" (ReviewVideoService#deleteVideo) tự chặn nếu học sinh đã
+     * có dữ liệu, nên rỗng nghĩa là mọi Video từng có đều đã xóa an toàn. Gỡ luôn mọi
+     * review_video_set_class_assignments — Bộ đã xóa không còn hiện ở dropdown "gán lớp".
+     */
+    @Transactional
+    public void deleteSet(Long id, Long actorUserId) {
+        ReviewVideoSet set = getSetOrThrow(id);
+        requireOwnerScope(set, actorUserId);
+        if (!reviewVideoRepository.findByReviewVideoSetIdOrderByDisplayOrder(id).isEmpty()) {
+            throw new IllegalArgumentException(
+                    "Bộ này còn Video — xóa hết Video trước khi xóa Bộ.");
+        }
+        reviewVideoSetClassAssignmentRepository.deleteAll(reviewVideoSetClassAssignmentRepository.findByReviewVideoSetId(id));
+        set.setDeletedAt(OffsetDateTime.now());
+        reviewVideoSetRepository.save(set);
+    }
+
     /** Kho Video — lọc theo khung chương trình/loại giáo viên (V98, mirror ExamService#listExams). */
     @Transactional(readOnly = true)
     public List<ReviewVideoSetResponse> listSets(Long curriculumId, String teacherType, Long actorUserId) {
         ReviewVideoSet.TeacherType type = teacherType == null ? null : ReviewVideoSet.TeacherType.valueOf(teacherType);
         List<ReviewVideoSet> sets;
         if (curriculumId != null && type != null) {
-            sets = reviewVideoSetRepository.findByCurriculumIdAndTeacherTypeOrderByDisplayOrder(curriculumId, type);
+            sets = reviewVideoSetRepository.findByCurriculumIdAndTeacherTypeAndDeletedAtIsNullOrderByDisplayOrder(curriculumId, type);
         } else if (curriculumId != null) {
-            sets = reviewVideoSetRepository.findByCurriculumIdOrderByDisplayOrder(curriculumId);
+            sets = reviewVideoSetRepository.findByCurriculumIdAndDeletedAtIsNullOrderByDisplayOrder(curriculumId);
         } else if (type != null) {
-            sets = reviewVideoSetRepository.findByTeacherTypeOrderByDisplayOrder(type);
+            sets = reviewVideoSetRepository.findByTeacherTypeAndDeletedAtIsNullOrderByDisplayOrder(type);
         } else {
-            sets = reviewVideoSetRepository.findAllByOrderByDisplayOrder();
+            sets = reviewVideoSetRepository.findByDeletedAtIsNullOrderByDisplayOrder();
         }
         return sets.stream().map(this::toResponse).toList();
     }
@@ -598,6 +640,45 @@ public class ReviewVideoService {
             requireStudentCanViewSet(set, actorUserId);
         }
         return reviewVideoRepository.findByReviewVideoSetIdOrderByDisplayOrder(setId).stream().map(this::toResponse).toList();
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — "Xóa video" (gỡ 1 video/audio khỏi
+     * Bộ, mirror rào chặn của ExerciseService#removeQuestion: chỉ gỡ được khi CHƯA có dữ liệu học sinh
+     * thật gắn với video này — lượt xem (watch session/progress), bài nộp REFLEX (submission/reflex
+     * progress), hay câu trả lời CONNECTION — để không bao giờ xóa mất kết quả học sinh đã có. Khi an
+     * toàn để xóa, dọn luôn câu hỏi/đáp án/slot con của video (chưa có dữ liệu học sinh nên chỉ là nội
+     * dung soạn, không phải kết quả thật) trước khi xóa chính video — review_videos không có
+     * ON DELETE CASCADE ở DB (xem V52/V57/V59/V83/V115), phải tự dọn theo đúng thứ tự phụ thuộc.
+     */
+    @Transactional
+    public void deleteVideo(Long videoId, Long actorUserId) {
+        ReviewVideo video = getVideoOrThrow(videoId);
+        requireOwnerScope(video.getReviewVideoSet(), actorUserId);
+
+        List<Long> questionIds = reviewVideoQuestionRepository.findByReviewVideoIdOrderByDisplayOrder(videoId)
+                .stream().map(ReviewVideoQuestion::getId).toList();
+        List<Long> connectionQuestionIds = reviewVideoConnectionQuestionRepository.findByReviewVideoIdOrderByDisplayOrder(videoId)
+                .stream().map(ReviewVideoConnectionQuestion::getId).toList();
+
+        boolean hasStudentData = reviewVideoWatchSessionRepository.existsByReviewVideoId(videoId)
+                || reviewVideoProgressRepository.existsByReviewVideoId(videoId)
+                || (!questionIds.isEmpty() && (reviewVideoQuestionSubmissionRepository.existsByReviewVideoQuestionIdIn(questionIds)
+                        || reflexQuestionProgressRepository.existsByReviewVideoQuestionIdIn(questionIds)))
+                || reviewVideoConnectionAnswerRepository.existsByReviewVideoConnectionQuestion_ReviewVideoId(videoId);
+        if (hasStudentData) {
+            throw new IllegalArgumentException("Video này đã có học sinh xem hoặc làm bài — không xóa được nữa.");
+        }
+
+        if (!connectionQuestionIds.isEmpty()) {
+            reviewVideoConnectionQuestionSlotRepository.deleteByReviewVideoConnectionQuestion_ReviewVideoId(videoId);
+            reviewVideoConnectionChoiceRepository.deleteByReviewVideoConnectionQuestionIdIn(connectionQuestionIds);
+            reviewVideoConnectionQuestionRepository.deleteByReviewVideoId(videoId);
+        }
+        if (!questionIds.isEmpty()) {
+            reviewVideoQuestionRepository.deleteByReviewVideoId(videoId);
+        }
+        reviewVideoRepository.delete(video);
     }
 
     /**
@@ -1215,15 +1296,41 @@ public class ReviewVideoService {
                 ? targetStudentIds
                 : roster.stream().map(e -> e.getStudent().getId()).toList();
 
-        int completedCount = 0;
-        for (Long studentId : scopedStudentIds) {
-            boolean allCompleted = !videos.isEmpty() && videos.stream().allMatch(v -> {
-                ReviewVideoProgress p = progressByKey.get(v.getId() + ":" + studentId);
-                return p != null && p.isCompleted();
-            });
-            if (allCompleted) {
-                completedCount++;
-            }
+        // V145 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23) — fix bug thật: "hoàn
+        // thành" REFLEX trước đây dùng CHUNG tiêu chí với CONNECTION (ReviewVideoProgress#isCompleted,
+        // % thời lượng đã xem/nghe) — nhưng luồng phát video REFLEX mới (ReflexVideoTaskPage.tsx, "nhảy
+        // thẳng theo mốc câu hỏi") KHÔNG CÒN gọi API cập nhật ReviewVideoProgress nữa, khiến "% LÀM BÀI"
+        // ở "Thống kê BTVN theo lớp" mãi mãi 0% dù học sinh đã làm/đạt hết. Đổi tiêu chí REFLEX sang
+        // đúng UC-23b V2 đang dùng ở FE (allQuestionsPassed) — MỌI câu của MỌI video trong bộ đã đạt cả
+        // 2 bước viết+nói (mirror ReviewVideoReportService#isReflexQuestionPassed — đã sửa cùng đợt).
+        // CONNECTION giữ nguyên logic cũ (chưa đổi luồng phát, ReviewVideoProgress vẫn được cập nhật đều).
+        int completedCount;
+        if (set.getVideoType() == ReviewVideoSet.VideoType.REFLEX) {
+            List<ReviewVideoQuestion> questions = videoIds.stream()
+                    .flatMap(id -> reviewVideoQuestionRepository.findByReviewVideoIdOrderByDisplayOrder(id).stream())
+                    .toList();
+            Map<Long, List<ReviewVideoQuestion>> questionsByVideoId = questions.stream()
+                    .collect(Collectors.groupingBy(q -> q.getReviewVideo().getId()));
+            Map<String, ReflexQuestionProgress> reflexProgressByKey = scopedStudentIds.isEmpty()
+                    ? Map.of()
+                    : reflexQuestionProgressRepository.findByReviewVideoAssignmentIdAndStudentIdIn(assignment.getId(), scopedStudentIds).stream()
+                        .collect(Collectors.toMap(p -> p.getReviewVideoQuestion().getId() + ":" + p.getStudent().getId(), p -> p, (a, b) -> a));
+            completedCount = (int) scopedStudentIds.stream().filter(studentId ->
+                    !videos.isEmpty() && videos.stream().allMatch(v -> {
+                        List<ReviewVideoQuestion> videoQuestions = questionsByVideoId.getOrDefault(v.getId(), List.of());
+                        return !videoQuestions.isEmpty() && videoQuestions.stream().allMatch(q -> {
+                            ReflexQuestionProgress p = reflexProgressByKey.get(q.getId() + ":" + studentId);
+                            return p != null && isReflexQuestionPassed(p);
+                        });
+                    })
+            ).count();
+        } else {
+            completedCount = (int) scopedStudentIds.stream().filter(studentId ->
+                    !videos.isEmpty() && videos.stream().allMatch(v -> {
+                        ReviewVideoProgress p = progressByKey.get(v.getId() + ":" + studentId);
+                        return p != null && p.isCompleted();
+                    })
+            ).count();
         }
         int totalStudents = scopedStudentIds.size();
         int completionPercent = totalStudents == 0 ? 0 : completedCount * 100 / totalStudents;
@@ -1565,8 +1672,18 @@ public class ReviewVideoService {
                 .orElseThrow(() -> new ResourceNotFoundException("error.reviewVideo.subjectNotFound", new Object[]{id}, "Không tìm thấy học phần id=" + id));
     }
 
+    /** V155 (mirror ExamService#subTopicOrNull) — subTopicId là optional (NULL = Bộ chưa phân loại vào cấu trúc Sách/Unit/SubTopic mới). */
+    private CurriculumSubTopic subTopicOrNull(Long subTopicId) {
+        if (subTopicId == null) {
+            return null;
+        }
+        return curriculumSubTopicRepository.findById(subTopicId)
+                .orElseThrow(() -> new ResourceNotFoundException("error.reviewVideo.subTopicNotFound",
+                        new Object[]{subTopicId}, "Không tìm thấy Sub Topic id=" + subTopicId));
+    }
+
     private ReviewVideoSet getSetOrThrow(Long id) {
-        return reviewVideoSetRepository.findById(id)
+        return reviewVideoSetRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new ResourceNotFoundException("error.reviewVideo.setNotFound", new Object[]{id}, "Không tìm thấy bộ video id=" + id));
     }
 
@@ -1676,7 +1793,9 @@ public class ReviewVideoService {
                 s.getCurriculum().getId(), s.getCurriculum().getCode(),
                 s.getSubject() == null ? null : s.getSubject().getId(),
                 s.getTeacherType().name(),
-                s.getDisplayOrder(), s.getStatus().name(), s.getPublishedAt(), s.getCreatedBy().getId());
+                s.getDisplayOrder(), s.getStatus().name(), s.getPublishedAt(), s.getCreatedBy().getId(),
+                s.getSubTopic() == null ? null : s.getSubTopic().getId(),
+                s.getSubTopic() == null ? null : s.getSubTopic().getTitle());
     }
 
     private ClassResponse toResponse(SchoolClass c) {

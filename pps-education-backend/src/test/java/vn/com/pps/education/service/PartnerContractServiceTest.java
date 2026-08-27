@@ -183,10 +183,10 @@ class PartnerContractServiceTest extends AbstractIntegrationTest {
 
     private Long createActiveCurriculumId() {
         var curriculum = curriculumService.create(
-                new vn.com.pps.education.dto.CreateCurriculumRequest(curriculumCode(), "Chuẩn", "MAIN", null, null, null),
+                new vn.com.pps.education.dto.CreateCurriculumRequest(curriculumCode(), "Chuẩn", "MAIN", null, null, null, null, null),
                 headAcademic.getId());
         var active = curriculumService.update(curriculum.id(),
-                new vn.com.pps.education.dto.UpdateCurriculumRequest("Chuẩn", null, null, null, "ACTIVE", false),
+                new vn.com.pps.education.dto.UpdateCurriculumRequest("Chuẩn", null, null, null, null, null, "ACTIVE", false),
                 headAcademic.getId());
         return active.id();
     }

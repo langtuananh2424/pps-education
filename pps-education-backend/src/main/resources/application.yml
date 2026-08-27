@@ -148,6 +148,14 @@ app:
     # qua env var SEED_DEV_USERS=true (docker-compose.yml/.env.example local dev
     # đã bật sẵn) để test/CI/staging/production không bao giờ dính.
     dev-users: ${SEED_DEV_USERS:false}
+    # InitialAdminSeeder - bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+    # (2026-08-27) - seed ĐÚNG 1 tài khoản sysadmin để bootstrap staging/
+    # production lần đầu, KHÁC dev-users ở trên (11 tài khoản demo, chỉ an
+    # toàn cho local dev). Mật khẩu BẮT BUỘC lấy từ SEED_SYSADMIN_PASSWORD,
+    # không hardcode - app từ chối khởi động nếu bật initial-admin mà thiếu
+    # mật khẩu (xem InitialAdminSeeder).
+    initial-admin: ${SEED_INITIAL_ADMIN:false}
+    sysadmin-password: ${SEED_SYSADMIN_PASSWORD:}
   media:
     # Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (2026-07-21, cập nhật
     # 2026-07-22): API upload file audio/ảnh cho Question.audioUrl/imageUrl
@@ -167,6 +175,40 @@ app:
       secret-key: ${R2_SECRET_ACCESS_KEY:CHANGE_THIS_IN_ENV}
       bucket: ${R2_BUCKET_NAME:CHANGE_THIS_IN_ENV}
       public-base-url: ${R2_PUBLIC_BASE_URL:https://change-this-in-env.r2.dev}
+      # Override endpoint đầy đủ (VD http://minio:9000 khi tự host MinIO thay
+      # R2 thật trên server production - xem R2StorageConfig). Để trống thì
+      # giữ hành vi cũ (tự dựng URL R2 từ account-id).
+      endpoint-url: ${R2_ENDPOINT_URL:}
+  ai-grading:
+    # Bổ sung ngoài SDD gốc (2026-08-22, đã xác nhận với người dùng) - dùng chung cho SpeakingAiGradingTestService
+    # (spike/test, KHÔNG phải UC chính thức) VÀ WritingAiGradingService (thật, UC-40/UC-41 - chấm AI cho
+    # ESSAY thuộc Bài skill_category=WRITING). Đổi tên từ "ai-grading-test" -> "ai-grading" vì giờ không
+    # còn chỉ dùng cho test nữa. Để trống thì endpoint/luồng liên quan trả lỗi có kiểm soát (không crash
+    # lúc khởi động, giống mẫu MAIL_HOST/FIREBASE_CREDENTIALS_BASE64).
+    openai-api-key: ${OPENAI_API_KEY:}
+    anthropic-api-key: ${ANTHROPIC_API_KEY:}
+    # Bổ sung 2026-08-22 - dùng thay Claude khi chưa cấu hình ANTHROPIC_API_KEY (Anthropic yêu cầu
+    # nạp tiền trước) - Gemini free tier không cần thẻ thanh toán.
+    gemini-api-key: ${GEMINI_API_KEY:}
+    # SPIKE (2026-08-24, nhánh spike/openrouter-ai-rotation) - NineRouterAiClient, kênh điều hướng
+    # request AI qua 9Router (https://github.com/decolua/9router) chạy local, thay các lệnh gọi thẳng
+    # Gemini/Claude/Groq trước đây trong WritingAiGradingService (UC-40/41) và ReflexWritingGrammarAi-
+    # GradingService/ReflexSpeakingContentAiGradingService (UC-23b). nine-router-model là combo đã tạo
+    # trong Dashboard 9Router → Combo & Vision Adapter (VD "teacher-models"), để trống thì
+    # NineRouterAiClient.chat() bắt buộc truyền model qua tham số. LƯU Ý VẬN HÀNH: 9Router hiện CHỈ
+    # chạy local trên máy dev, CHƯA có kế hoạch tự host cho staging/production.
+    nine-router-base-url: ${NINE_ROUTER_BASE_URL:http://localhost:20128/v1}
+    nine-router-api-key: ${NINE_ROUTER_API_KEY:}
+    # Model chấm text (POST /chat/completions) - tên combo đã tạo trong Dashboard 9Router → Combo &
+    # Vision Adapter (VD "teacher-models").
+    nine-router-model: ${NINE_ROUTER_MODEL:}
+    # Model STT (POST /audio/transcriptions) - tên model theo Dashboard 9Router → Media Providers →
+    # Speech To Text (VD "groq/whisper-large-v3-turbo", provider Groq Whisper đã kết nối sẵn).
+    nine-router-stt-model: ${NINE_ROUTER_STT_MODEL:groq/whisper-large-v3-turbo}
+    # Model chấm dựa TRỰC TIẾP trên audio (multimodal, POST /chat/completions với input_audio) - dùng
+    # cho chấm Speaking (cần nghe phát âm/ngữ điệu, transcript chữ không đủ). PHẢI là model đa phương
+    # thức (Gemini/GPT-4o-audio) - KHÔNG dùng combo có Claude (Claude không nhận input audio).
+    nine-router-audio-model: ${NINE_ROUTER_AUDIO_MODEL:ag/gemini-3.5-flash-low}
 
 springdoc:
   swagger-ui:

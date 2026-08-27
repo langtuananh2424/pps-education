@@ -5,6 +5,7 @@ import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.AttendanceMark;
 import vn.com.pps.education.domain.ClassSession;
 import vn.com.pps.education.domain.ExerciseAssignment;
+import vn.com.pps.education.domain.HomeworkSkillBatch;
 import vn.com.pps.education.domain.ReviewVideoAssignment;
 import vn.com.pps.education.domain.GradeComponentSetup;
 import vn.com.pps.education.domain.GradeEntry;
@@ -24,6 +25,7 @@ import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.repository.AttendanceMarkRepository;
 import vn.com.pps.education.repository.ClassEnrollmentRepository;
 import vn.com.pps.education.repository.ClassSessionRepository;
+import vn.com.pps.education.repository.ExerciseAssignmentRepository;
 import vn.com.pps.education.repository.GradeEntryRepository;
 import vn.com.pps.education.repository.GradeEvaluationResultRepository;
 import vn.com.pps.education.repository.ParentRepository;
@@ -61,6 +63,7 @@ public class ParentPortalService {
     private final AttendanceMarkRepository attendanceMarkRepository;
     private final StudentCommentRepository studentCommentRepository;
     private final ClassSessionRepository classSessionRepository;
+    private final ExerciseAssignmentRepository exerciseAssignmentRepository;
     private final HomeworkProgressService homeworkProgressService;
     private final HomeworkAlertSettings homeworkAlertSettings;
 
@@ -73,6 +76,7 @@ public class ParentPortalService {
                                 AttendanceMarkRepository attendanceMarkRepository,
                                 StudentCommentRepository studentCommentRepository,
                                 ClassSessionRepository classSessionRepository,
+                                ExerciseAssignmentRepository exerciseAssignmentRepository,
                                 HomeworkProgressService homeworkProgressService,
                                 HomeworkAlertSettings homeworkAlertSettings) {
         this.parentRepository = parentRepository;
@@ -84,6 +88,7 @@ public class ParentPortalService {
         this.attendanceMarkRepository = attendanceMarkRepository;
         this.studentCommentRepository = studentCommentRepository;
         this.classSessionRepository = classSessionRepository;
+        this.exerciseAssignmentRepository = exerciseAssignmentRepository;
         this.homeworkProgressService = homeworkProgressService;
         this.homeworkAlertSettings = homeworkAlertSettings;
     }
@@ -156,7 +161,7 @@ public class ParentPortalService {
         return studentCommentRepository
                 .findBySchoolClassIdAndStudentIdAndStatusOrderByCommentDateDesc(classId, studentId, StudentComment.Status.APPROVED)
                 .stream()
-                .filter(c -> c.getHomeworkNext() != null || c.getHomeworkNextExerciseAssignment() != null
+                .filter(c -> c.getHomeworkNext() != null || c.getHomeworkNextGrammarBatch() != null
                         || c.getHomeworkNextReviewVideoAssignment() != null)
                 .map(this::toHomeworkProgressResponse)
                 .toList();
@@ -235,6 +240,9 @@ public class ParentPortalService {
     }
 
     private StudentCommentResponse toResponse(StudentComment c) {
+        // Portal Phụ huynh chưa cần hiển thị chi tiết BTVN online/Reading-Writing (UC-21 mở rộng,
+        // V55/V130/V137) — để trống hết, bổ sung khi có yêu cầu. Liệt kê tường minh từng field null (thay
+        // vì gộp nhiều null liền nhau) để tránh đếm nhầm khi StudentCommentResponse đổi field sau này.
         return new StudentCommentResponse(
                 c.getId(), c.getStudent().getId(), c.getStudent().getUser().getFullName(), c.getStudent().getDateOfBirth(),
                 c.getSchoolClass().getId(), c.getTeacher().getId(), c.getCommentType().name(),
@@ -246,35 +254,48 @@ public class ParentPortalService {
                 c.getApprovedBy() == null ? null : c.getApprovedBy().getId(), c.getVisibleToParentAt(), c.getRejectionReason(),
                 c.getAttitude() == null ? null : c.getAttitude().name(), c.getHomeworkPreviousScore(),
                 c.getHomeworkPreviousSpeakingScore(),
-                // V130: homeworkPreviousReadingScore/WritingScore — Portal Phụ huynh chưa cần hiển thị, để trống.
-                null, null,
-                // Portal Phụ huynh chưa cần hiển thị chi tiết BTVN online (UC-21 mở rộng, V55) — để trống, bổ sung khi có yêu cầu.
-                // 13 field null: homeworkNextExerciseAssignmentId/Title, homeworkNextReviewVideoAssignmentId/Title,
-                // homeworkNextDueAt, pendingHomeworkNextExerciseId/Title (V127), pendingHomeworkNextReviewVideoSetId/Title
-                // (V127), pendingHomeworkNextDueDate (V127), grammarPreviousProgress, videoPreviousProgress,
-                // homeworkPreviousOfflineText.
+                null /* homeworkPreviousReadingScore */, null /* homeworkPreviousWritingScore */,
                 c.getHomeworkNext(),
-                // V130: homeworkNextReading/Writing — để trống, mirror ghi chú trên.
-                null, null,
-                null, null, null, null, null, null, null,
-                null, null, null, null, null, null, c.getNote(),
+                null /* homeworkNextReading */, null /* homeworkNextWriting */,
+                null /* homeworkNextExerciseAssignmentId */, null /* homeworkNextExerciseTitle */,
+                null /* homeworkNextReviewVideoAssignmentId */, null /* homeworkNextReviewVideoSetTitle */,
+                null /* homeworkNextReadingExerciseAssignmentId */, null /* homeworkNextReadingExerciseTitle */,
+                null /* homeworkNextWritingExerciseAssignmentId */, null /* homeworkNextWritingExerciseTitle */,
+                null /* homeworkNextDueAt */,
+                null /* pendingHomeworkNextExerciseId */, null /* pendingHomeworkNextExerciseTitle */,
+                null /* pendingHomeworkNextReviewVideoSetId */, null /* pendingHomeworkNextReviewVideoSetTitle */,
+                null /* pendingHomeworkNextReadingExerciseId */, null /* pendingHomeworkNextReadingExerciseTitle */,
+                null /* pendingHomeworkNextWritingExerciseId */, null /* pendingHomeworkNextWritingExerciseTitle */,
+                null /* pendingHomeworkNextDueDate */,
+                null /* grammarPreviousProgress */, null /* videoPreviousProgress */,
+                null /* readingPreviousProgress */, null /* writingPreviousProgress */,
+                null /* homeworkPreviousOfflineText */,
+                c.getNote(),
                 c.getClassSession().getLessonContent());
     }
 
     private HomeworkProgressResponse toHomeworkProgressResponse(StudentComment c) {
-        ExerciseAssignment grammar = c.getHomeworkNextExerciseAssignment();
+        HomeworkSkillBatch grammarBatch = c.getHomeworkNextGrammarBatch();
+        List<ExerciseAssignment> grammarAssignments = grammarBatch == null ? List.of()
+                : exerciseAssignmentRepository.findByHomeworkBatchId(grammarBatch.getId());
         ReviewVideoAssignment video = c.getHomeworkNextReviewVideoAssignment();
         return new HomeworkProgressResponse(
                 c.getId(), c.getClassSession().getId(), c.getCommentDate(),
-                grammar == null ? null : grammar.getId(),
-                grammar == null ? null : grammar.getExercise().getTitle(),
-                grammar == null ? c.getHomeworkNext() : null,
-                homeworkProgressService.grammarProgressLabel(grammar, c.getStudent().getId()),
-                grammar == null ? null : homeworkProgressService.grammarPassed(grammar, c.getStudent().getId()),
+                grammarBatch == null ? null : grammarBatch.getId(),
+                grammarBatch == null ? null : batchTitle(grammarAssignments),
+                grammarBatch == null ? c.getHomeworkNext() : null,
+                homeworkProgressService.grammarProgressLabel(grammarAssignments, c.getStudent().getId()),
+                grammarBatch == null ? null : homeworkProgressService.grammarPassed(grammarAssignments, c.getStudent().getId()),
                 video == null ? null : video.getId(),
                 video == null ? null : video.getReviewVideoSet().getTitle(),
                 homeworkProgressService.videoProgressLabel(video, c.getStudent().getId()),
                 video == null ? null : homeworkProgressService.videoPassed(video, c.getStudent().getId(), homeworkAlertSettings.reflexPassThresholdPercent()));
+    }
+
+    /** V150 — nhãn hiển thị 1 Lô cho Cổng phụ huynh (mirror StudentCommentService#batchLabel, không cần độ chi tiết số câu — chỉ nối tên các Bài). */
+    private String batchTitle(List<ExerciseAssignment> assignments) {
+        return assignments.stream().map(a -> a.getExercise().getTitle())
+                .collect(java.util.stream.Collectors.joining(", "));
     }
 
     private ClassSessionResponse toResponse(ClassSession s) {

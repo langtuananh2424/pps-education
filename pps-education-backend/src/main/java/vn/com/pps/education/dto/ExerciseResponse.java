@@ -34,6 +34,8 @@ public record ExerciseResponse(
         String examTeacherType,
         Long subjectId,
         String exerciseType,
+        /** V136/V142 — "READING"/"WRITING"/"VOCAB_GRAMMAR"/"LISTENING", NULL = chưa phân loại. Xem Javadoc Exercise.SkillCategory. */
+        String skillCategory,
         BigDecimal totalPoints,
         Integer timeLimitMinutes,
         boolean allowRetake,

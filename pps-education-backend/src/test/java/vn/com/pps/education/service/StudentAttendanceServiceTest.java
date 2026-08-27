@@ -140,9 +140,9 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
         headAcademic = newUser("head.academic");
         assignRole(headAcademic, "HEAD_ACADEMIC");
         CurriculumResponse curriculum = curriculumService.create(
-                new CreateCurriculumRequest(curriculumCode(), "Chuẩn", "MAIN", null, null, null), headAcademic.getId());
+                new CreateCurriculumRequest(curriculumCode(), "Chuẩn", "MAIN", null, null, null, null, null), headAcademic.getId());
         CurriculumResponse activeCurriculum = curriculumService.update(curriculum.id(),
-                new UpdateCurriculumRequest("Chuẩn", null, null, null, "ACTIVE", false), headAcademic.getId());
+                new UpdateCurriculumRequest("Chuẩn", null, null, null, null, null, "ACTIVE", false), headAcademic.getId());
         site = newSite();
         // Tiết 2 cùng khung giờ rộng bao quanh "now" như tiết 1 của newSite() -- phục vụ
         // updatePeriodMark_UC15_MainFlow_overridesSinglePeriod cần buổi có >=2 tiết để override đúng
@@ -232,8 +232,14 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
         assertThat(updated.status()).isEqualTo("PRESENT"); // trang thai tong buoi khong doi, chi period thay doi
     }
 
+    /**
+     * Sửa đổi nghiệp vụ 2026-08-22 (đã xác nhận với người dùng, xem UC-15
+     * Main Flow bước 5): trước đây PRESENT không gửi thông báo gì, nay
+     * MỌI trạng thái điểm danh (kể cả PRESENT) đều kích hoạt gửi thông
+     * báo cho Phụ huynh, phân biệt nội dung/loại theo trạng thái.
+     */
     @Test
-    void submitAttendance_UC15_A2_allPresentTriggersNoNotification() {
+    void submitAttendance_UC15_MainFlow_notifiesLinkedParentsWhenPresent() {
         studentAttendanceService.markAttendance(session.id(),
                 new MarkAttendanceRequest("SESSION_LEVEL", List.of(
                         new EnterAttendanceMarkRequest(student1.getId(), "PRESENT", null, null, null),
@@ -245,18 +251,20 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
         AttendanceSessionResponse result = studentAttendanceService.submitAttendance(session.id(), teacher.getId());
 
         assertThat(result.status()).isEqualTo("SUBMITTED");
+        assertThat(result.marks().stream().filter(m -> m.studentId().equals(student1.getId())).findFirst().orElseThrow()
+                .notifiedParentAt()).isNotNull();
         long after = notificationRepository.findByRecipientUserIdOrderByCreatedAtDesc(parentUser.getId(), PageRequest.of(0, 10))
                 .getTotalElements();
-        assertThat(after).isEqualTo(before);
+        assertThat(after).isGreaterThan(before);
     }
 
     /**
-     * Sửa đổi nghiệp vụ 2026-08-04 (đã xác nhận với người dùng, xem UC-15
-     * A2): trước đây LATE cũng kích hoạt thông báo, nay chỉ ABSENT (vắng
-     * không phép) mới gửi.
+     * Sửa đổi nghiệp vụ 2026-08-22 (đã xác nhận với người dùng, thay thế
+     * quyết định 2026-08-04 chỉ gửi ABSENT): LATE giờ cũng kích hoạt gửi
+     * thông báo cho Phụ huynh như mọi trạng thái khác.
      */
     @Test
-    void submitAttendance_UC15_A2_lateDoesNotTriggerNotification() {
+    void submitAttendance_UC15_MainFlow_notifiesLinkedParentsWhenLate() {
         studentAttendanceService.markAttendance(session.id(),
                 new MarkAttendanceRequest("SESSION_LEVEL", List.of(
                         new EnterAttendanceMarkRequest(student1.getId(), "LATE", null, null, null))),
@@ -266,10 +274,44 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
 
         AttendanceSessionResponse result = studentAttendanceService.submitAttendance(session.id(), teacher.getId());
 
-        assertThat(result.marks().get(0).notifiedParentAt()).isNull();
+        assertThat(result.marks().get(0).notifiedParentAt()).isNotNull();
         long after = notificationRepository.findByRecipientUserIdOrderByCreatedAtDesc(parentUser.getId(), PageRequest.of(0, 10))
                 .getTotalElements();
-        assertThat(after).isEqualTo(before);
+        assertThat(after).isGreaterThan(before);
+    }
+
+    @Test
+    void submitAttendance_UC15_MainFlow_notifiesLinkedParentsWhenExcused() {
+        studentAttendanceService.markAttendance(session.id(),
+                new MarkAttendanceRequest("SESSION_LEVEL", List.of(
+                        new EnterAttendanceMarkRequest(student1.getId(), "EXCUSED", null, null, "Xin phép"))),
+                teacher.getId());
+        long before = notificationRepository.findByRecipientUserIdOrderByCreatedAtDesc(parentUser.getId(), PageRequest.of(0, 10))
+                .getTotalElements();
+
+        AttendanceSessionResponse result = studentAttendanceService.submitAttendance(session.id(), teacher.getId());
+
+        assertThat(result.marks().get(0).notifiedParentAt()).isNotNull();
+        long after = notificationRepository.findByRecipientUserIdOrderByCreatedAtDesc(parentUser.getId(), PageRequest.of(0, 10))
+                .getTotalElements();
+        assertThat(after).isGreaterThan(before);
+    }
+
+    @Test
+    void submitAttendance_UC15_MainFlow_notifiesLinkedParentsWhenEarlyLeave() {
+        studentAttendanceService.markAttendance(session.id(),
+                new MarkAttendanceRequest("SESSION_LEVEL", List.of(
+                        new EnterAttendanceMarkRequest(student1.getId(), "EARLY_LEAVE", null, null, null))),
+                teacher.getId());
+        long before = notificationRepository.findByRecipientUserIdOrderByCreatedAtDesc(parentUser.getId(), PageRequest.of(0, 10))
+                .getTotalElements();
+
+        AttendanceSessionResponse result = studentAttendanceService.submitAttendance(session.id(), teacher.getId());
+
+        assertThat(result.marks().get(0).notifiedParentAt()).isNotNull();
+        long after = notificationRepository.findByRecipientUserIdOrderByCreatedAtDesc(parentUser.getId(), PageRequest.of(0, 10))
+                .getTotalElements();
+        assertThat(after).isGreaterThan(before);
     }
 
     @Test
@@ -331,11 +373,30 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
                 .isInstanceOf(AttendanceSessionNotEditableException.class);
     }
 
-    /** Sửa đổi nghiệp vụ 2026-08-18 (đã xác nhận với người dùng, xem UC-15): GV thao tác SAU
-     * end_time của buổi học (dù cùng ngày) bị từ chối -- không còn "sửa được tới hết ngày" như trước. */
+    /**
+     * Sửa đổi nghiệp vụ 2026-08-22 (đã xác nhận với người dùng, xem UC-15,
+     * thay thế ràng buộc cứng [start_time, end_time] chốt 2026-08-18):
+     * khung ân hạn (grace period) mặc định 60 phút
+     * (system_settings.student_attendance.grace_period_minutes, V136) —
+     * GV vẫn điểm danh được TRONG khung ân hạn sau end_time.
+     */
     @Test
-    void markAttendance_UC15_rejectsWhenAfterSessionEndTime() {
+    void markAttendance_UC15_acceptsWithinGracePeriodAfterSessionEndTime() {
         setSessionTimes(session.id(), LocalTime.now().minusHours(2), LocalTime.now().minusMinutes(30));
+
+        AttendanceSessionResponse result = studentAttendanceService.markAttendance(session.id(),
+                new MarkAttendanceRequest("SESSION_LEVEL", List.of(
+                        new EnterAttendanceMarkRequest(student1.getId(), "PRESENT", null, null, null))),
+                teacher.getId());
+
+        assertThat(result.marks()).hasSize(1);
+    }
+
+    /** Sửa đổi nghiệp vụ 2026-08-22 (đã xác nhận với người dùng, xem UC-15): GV thao tác SAU
+     * khung ân hạn (end_time + grace_period, mặc định 60 phút) vẫn bị từ chối -- ân hạn không vô hạn. */
+    @Test
+    void markAttendance_UC15_rejectsWhenAfterGracePeriod() {
+        setSessionTimes(session.id(), LocalTime.now().minusHours(3), LocalTime.now().minusMinutes(90));
 
         assertThatThrownBy(() -> studentAttendanceService.markAttendance(session.id(),
                 new MarkAttendanceRequest("SESSION_LEVEL", List.of(
@@ -462,9 +523,9 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
     void getSiteSummary_UC15b_MainFlow_returnsAttendanceScopedToManagedSite() {
         Site site = newSite();
         CurriculumResponse curriculum = curriculumService.create(
-                new CreateCurriculumRequest(curriculumCode(), "Chuẩn", "MAIN", null, null, null), headAcademic.getId());
+                new CreateCurriculumRequest(curriculumCode(), "Chuẩn", "MAIN", null, null, null, null, null), headAcademic.getId());
         CurriculumResponse activeCurriculum = curriculumService.update(curriculum.id(),
-                new UpdateCurriculumRequest("Chuẩn", null, null, null, "ACTIVE", false), headAcademic.getId());
+                new UpdateCurriculumRequest("Chuẩn", null, null, null, null, null, "ACTIVE", false), headAcademic.getId());
         ClassResponse schoolClass = classService.create(
                 new CreateClassRequest(classCode(), "8A2", site.getId(), activeCurriculum.id(), "OPEN", 20, null,
                         LocalDate.now(), null, null), headAcademic.getId());
@@ -502,9 +563,9 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
     void getSiteSummary_UC15_lateCountsAsFullAttendanceInRate() {
         Site site = newSite();
         CurriculumResponse curriculum = curriculumService.create(
-                new CreateCurriculumRequest(curriculumCode(), "Chuẩn", "MAIN", null, null, null), headAcademic.getId());
+                new CreateCurriculumRequest(curriculumCode(), "Chuẩn", "MAIN", null, null, null, null, null), headAcademic.getId());
         CurriculumResponse activeCurriculum = curriculumService.update(curriculum.id(),
-                new UpdateCurriculumRequest("Chuẩn", null, null, null, "ACTIVE", false), headAcademic.getId());
+                new UpdateCurriculumRequest("Chuẩn", null, null, null, null, null, "ACTIVE", false), headAcademic.getId());
         ClassResponse schoolClass = classService.create(
                 new CreateClassRequest(classCode(), "8A3", site.getId(), activeCurriculum.id(), "OPEN", 20, null,
                         LocalDate.now(), null, null), headAcademic.getId());
@@ -571,9 +632,9 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
                         new EnterAttendanceMarkRequest(student1.getId(), "ABSENT", null, null, "Ốm"))),
                 teacher.getId());
         CurriculumResponse curriculum = curriculumService.create(
-                new CreateCurriculumRequest(curriculumCode(), "Chuẩn", "MAIN", null, null, null), headAcademic.getId());
+                new CreateCurriculumRequest(curriculumCode(), "Chuẩn", "MAIN", null, null, null, null, null), headAcademic.getId());
         CurriculumResponse activeCurriculum = curriculumService.update(curriculum.id(),
-                new UpdateCurriculumRequest("Chuẩn", null, null, null, "ACTIVE", false), headAcademic.getId());
+                new UpdateCurriculumRequest("Chuẩn", null, null, null, null, null, "ACTIVE", false), headAcademic.getId());
         ClassResponse otherClass = classService.create(
                 new CreateClassRequest(classCode(), "8A3", newSite().getId(), activeCurriculum.id(), "OPEN", 20, null,
                         LocalDate.now(), null, null), headAcademic.getId());

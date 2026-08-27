@@ -1,20 +1,24 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ChevronDown, ChevronUp, Download, History, Save, Send, UploadCloud } from "lucide-react";
+import { ChevronDown, ChevronUp, Download, History, Save, Send, ShieldAlert, UploadCloud } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { downloadBlob } from "@/lib/xlsxTemplate";
 import { useApp, UnsavedSaveResult } from "@/context/AppContext";
+import Modal from "@/components/ui/Modal";
 import {
+  AutoProgressPreviewResponse,
   ClassEnrollmentResponse,
   ClassSessionResponse,
   StudentCommentResponse,
   downloadDailyCommentTemplate,
+  previewAutoProgress,
   previewImportDailyComments,
   DailyCommentImportPreviewResponse,
   listClassEnrollments,
   listClassSessions,
   listCommentsForClass,
   listTodaySessions,
+  bulkUpdatePendingDueDate,
   submitComments,
   updateComment,
   updateActualTeacherName,
@@ -23,12 +27,10 @@ import {
   writeComment
 } from "../api";
 import {
-  ExerciseAssignmentResponse,
-  ExerciseResponse,
+  HomeworkSkillGroupResponse,
   ReviewVideoAssignmentResponse,
   ReviewVideoSetResponse,
-  listAssignmentsForClass,
-  listPublishedExercisesForClass,
+  listHomeworkSkillGroupsForClass,
   listReviewVideoAssignmentsForClass,
   listReviewVideoSetsByClass
 } from "@/features/lms/api";
@@ -88,10 +90,18 @@ interface Row {
   /** V130 — chỉ dùng khi buổi teacherType=VIETNAMESE. */
   homeworkNextReading: string;
   homeworkNextWriting: string;
-  /** V65: id của Exercise NGUỒN đã Publish (không phải id bản giao như trước V65) — chọn từ grammarOptions đã lọc theo teacherType. */
+  /**
+   * V65: id của Exercise NGUỒN đã Publish (không phải id bản giao như trước V65) — chọn từ
+   * grammarOptions đã lọc theo teacherType. V151 (revert V146, đã xác nhận với người dùng
+   * 2026-08-25) — kênh "Ngữ pháp"/"Nghe" dùng CHUNG field này: buổi FOREIGN chọn từ listeningOptions
+   * (nhãn đổi thành "Bài nghe"), buổi VIETNAMESE chọn từ grammarOptions — không còn field/cột riêng.
+   */
   homeworkNextExerciseId: number | "";
   /** id của ReviewVideoSet NGUỒN đã Publish — không đổi tên qua V65 (request field vẫn nhận thẳng set id). */
   homeworkNextReviewVideoSetId: number | "";
+  /** V137 — kênh "BTVN online" Reading/Writing mới, id Exercise NGUỒN skillCategory=READING/WRITING — chỉ dùng khi buổi teacherType=VIETNAMESE. */
+  homeworkNextReadingExerciseId: number | "";
+  homeworkNextWritingExerciseId: number | "";
   note: string;
 }
 
@@ -110,16 +120,20 @@ function rowHasAnyData(r: Row): boolean {
     r.homeworkNextWriting.trim() ||
     r.homeworkNextExerciseId !== "" ||
     r.homeworkNextReviewVideoSetId !== "" ||
+    r.homeworkNextReadingExerciseId !== "" ||
+    r.homeworkNextWritingExerciseId !== "" ||
     r.note.trim()
   );
 }
 
-const EMPTY_ROW_HOMEWORK: Pick<Row, "homeworkNext" | "homeworkNextReading" | "homeworkNextWriting" | "homeworkNextExerciseId" | "homeworkNextReviewVideoSetId"> = {
+const EMPTY_ROW_HOMEWORK: Pick<Row, "homeworkNext" | "homeworkNextReading" | "homeworkNextWriting" | "homeworkNextExerciseId" | "homeworkNextReviewVideoSetId" | "homeworkNextReadingExerciseId" | "homeworkNextWritingExerciseId"> = {
   homeworkNext: "",
   homeworkNextReading: "",
   homeworkNextWriting: "",
   homeworkNextExerciseId: "",
-  homeworkNextReviewVideoSetId: ""
+  homeworkNextReviewVideoSetId: "",
+  homeworkNextReadingExerciseId: "",
+  homeworkNextWritingExerciseId: ""
 };
 
 /**
@@ -153,6 +167,8 @@ const isRowBlank = (r: Row) =>
   !r.homeworkNextWriting.trim() &&
   r.homeworkNextExerciseId === "" &&
   r.homeworkNextReviewVideoSetId === "" &&
+  r.homeworkNextReadingExerciseId === "" &&
+  r.homeworkNextWritingExerciseId === "" &&
   !r.note.trim();
 
 /**
@@ -184,7 +200,18 @@ export default function DailyCommentPanel() {
   const [loadingRows, setLoadingRows] = useState(false);
   const [history, setHistory] = useState<StudentCommentResponse[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  // V146 — % tự động "BTVN buổi trước" tính sẵn cho cả lớp, dùng khi buổi đang xem CHƯA có
+  // StudentComment nào (sent undefined) để vẫn hiện được % thay vì bỏ trống, xem previewAutoProgress.
+  const [autoProgress, setAutoProgress] = useState<Record<number, AutoProgressPreviewResponse>>({});
   const [sending, setSending] = useState(false);
+  /**
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25 — "Gửi nhận xét" gộp cả 2 bước (ghi
+   * DRAFT + gửi duyệt, xem Javadoc handleSend) và tự động khoá read-only mọi dòng vừa gửi ngay khi
+   * xong (không sửa lại được nữa, kể cả điểm/BTVN online đã tạo bản giao thật) — trước đây bấm PHÁT
+   * GỬI LUÔN không có bước xác nhận nào, dễ gửi nhầm hàng loạt (VD chưa kiểm tra kỹ % BTVN online vừa
+   * điền). Hỏi lại 1 lần, nêu rõ số dòng sẽ gửi, trước khi thực sự gọi handleSend.
+   */
+  const [confirmingSend, setConfirmingSend] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [downloadingTemplate, setDownloadingTemplate] = useState(false);
@@ -203,15 +230,25 @@ export default function DailyCommentPanel() {
   const [showHistory, setShowHistory] = useState(true);
   /** Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-19) — version history kiểu Google Sheets, xem cả bảng. */
   const [showSessionHistory, setShowSessionHistory] = useState(false);
-  /** V65: nguồn khả dụng cho dropdown "BTVN Ngữ pháp buổi sau" — Exercise đã Publish (không phải bản giao). */
-  const [grammarOptions, setGrammarOptions] = useState<ExerciseResponse[]>([]);
-  const [videoOptions, setVideoOptions] = useState<ReviewVideoSetResponse[]>([]);
   /**
-   * V65: bản giao ACTIVE hiện có của lớp — CHỈ dùng để tra ngược "comment đã lưu trước đó chọn đề/
-   * video nguồn nào" (response StudentCommentResponse chỉ trả id bản giao, không trả thẳng id nguồn),
-   * KHÔNG dùng làm nguồn dropdown (đã đổi sang grammarOptions/videoOptions ở trên).
+   * V150 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-24) — nguồn khả dụng cho dropdown
+   * "BTVN Ngữ pháp buổi sau" đổi từ danh sách Exercise lẻ sang danh sách "nhóm kỹ năng" (1 entry/Lesson,
+   * xem HomeworkSkillGroupResponse) — chọn 1 nhóm giao TOÀN BỘ Bài Published cùng skillCategory trong
+   * Lesson đó (xem HomeworkSkillBatchService), không còn chọn đúng 1 Bài như trước.
    */
-  const [grammarAssignments, setGrammarAssignments] = useState<ExerciseAssignmentResponse[]>([]);
+  const [grammarOptions, setGrammarOptions] = useState<HomeworkSkillGroupResponse[]>([]);
+  const [videoOptions, setVideoOptions] = useState<ReviewVideoSetResponse[]>([]);
+  /** V137/V150: mirror grammarOptions cho kênh Reading/Writing (kênh online mới) — đã lọc sẵn skillCategory ở BE, không lọc teacherType (giống BE StudentCommentService#buildTemplate). */
+  const [readingOptions, setReadingOptions] = useState<HomeworkSkillGroupResponse[]>([]);
+  const [writingOptions, setWritingOptions] = useState<HomeworkSkillGroupResponse[]>([]);
+  /** V150/V151: nguồn cho dropdown "Ngữ pháp"/"Bài nghe" khi buổi teacherType=FOREIGN (skillCategory=LISTENING) — dùng CHUNG 1 dropdown với grammarOptions, xem filteredGrammarOptions. */
+  const [listeningOptions, setListeningOptions] = useState<HomeworkSkillGroupResponse[]>([]);
+  /**
+   * V65: bản giao ACTIVE hiện có của lớp — CHỈ dùng để tra ngược "comment đã lưu trước đó chọn video
+   * nguồn nào" (response StudentCommentResponse chỉ trả id bản giao, không trả thẳng id nguồn), KHÔNG
+   * dùng làm nguồn dropdown (đã đổi sang videoOptions ở trên). V150 — kênh Ngữ pháp/Reading/Writing/
+   * Nghe không còn cần tra ngược kiểu này nữa (homeworkNext*ExerciseAssignmentId giờ tự nó đã là examId).
+   */
   const [videoAssignments, setVideoAssignments] = useState<ReviewVideoAssignmentResponse[]>([]);
   // Trạng thái "đã nhận xét chưa" của TỪNG buổi trong lớp (không riêng buổi đang chọn) — phục vụ đẩy
   // buổi chưa nhận xét lên đầu dropdown + hiện dấu ✓/◐ (2026-07-30). Tính số học sinh ACTIVE đã có ít
@@ -254,6 +291,10 @@ export default function DailyCommentPanel() {
   /** V130 — mirror quickOffline, chỉ dùng khi buổi teacherType=VIETNAMESE (thay quickOffline bằng 2 ô Reading/Writing). */
   const [quickReading, setQuickReading] = useState("");
   const [quickWriting, setQuickWriting] = useState("");
+  /** V137 — mirror quickExerciseId/quickVideoId, kênh "BTVN online" Reading/Writing mới. */
+  const [quickReadingExerciseId, setQuickReadingExerciseId] = useState<number | "">("");
+  const [quickWritingExerciseId, setQuickWritingExerciseId] = useState<number | "">("");
+  const [applyingDueDate, setApplyingDueDate] = useState(false);
 
   const selectedClass = classes.find((c) => c.id === selectedClassId) ?? null;
   const selectedSession = sessions.find((s) => s.id === selectedSessionId) ?? null;
@@ -277,7 +318,13 @@ export default function DailyCommentPanel() {
   // Lớp chưa có buổi kế tiếp CHỈ còn chặn khi chưa tự chọn hạn nộp (dueDate) — có hạn nộp tùy chỉnh thì
   // BE bỏ qua điều kiện "phải có buổi kế tiếp" (2026-08-05, xem StudentCommentService#resolveDueAt).
   const blockOnlineHomework = isLastScheduledSession && !dueDateTime;
-  const filteredGrammarOptions = teacherType ? grammarOptions.filter((ex) => ex.examTeacherType === teacherType) : [];
+  // V150 — BE (listHomeworkSkillGroupsForClass) đã lọc đúng skillCategory sẵn, ở đây chỉ còn lọc theo
+  // teacherType đang chọn. V151 (revert V146, đã xác nhận với người dùng 2026-08-25) — kênh "Ngữ pháp"/
+  // "Nghe" dùng CHUNG 1 dropdown: buổi FOREIGN lấy từ listeningOptions (skillCategory=LISTENING), buổi
+  // VIETNAMESE lấy từ grammarOptions (skillCategory=VOCAB_GRAMMAR) — mirror đúng grammarChannelSkillCategory bên BE.
+  const filteredGrammarOptions = teacherType
+    ? (teacherType === "VIETNAMESE" ? grammarOptions : listeningOptions).filter((g) => g.examTeacherType === teacherType)
+    : [];
   const filteredVideoOptions = teacherType ? videoOptions.filter((s) => s.teacherType === teacherType) : [];
   const grammarLabel = teacherType ? t(`shared.grammarChannel.${teacherType}`) : t("shared.grammarChannelFallback");
   const videoLabel = teacherType ? t(`shared.videoChannel.${teacherType}`) : t("shared.videoChannelFallback");
@@ -348,7 +395,9 @@ export default function DailyCommentPanel() {
     setRows([]);
     setGrammarOptions([]);
     setVideoOptions([]);
-    setGrammarAssignments([]);
+    setReadingOptions([]);
+    setWritingOptions([]);
+    setListeningOptions([]);
     setVideoAssignments([]);
     setSessionCommentStats({});
     if (!selectedClassId) {
@@ -376,15 +425,17 @@ export default function DailyCommentPanel() {
         }
       })
       .catch(() => undefined);
-    // V65: BTVN Ngữ pháp ONLINE chọn từ Exercise đã Publish đúng khung chương trình của lớp (nguồn,
-    // KHÔNG phải bản giao sẵn có như trước V65); BTVN Video Ôn tập chọn từ bộ đã CÔNG BỐ (PUBLISHED)
-    // — khớp đúng điều kiện buildTemplate ở BE.
-    listPublishedExercisesForClass(selectedClassId).then(setGrammarOptions).catch(() => undefined);
+    // V150: BTVN Ngữ pháp/Reading/Writing/Nghe ONLINE giờ chọn theo "nhóm kỹ năng" (1 entry/Lesson, xem
+    // HomeworkSkillGroupResponse) thay vì 1 Exercise đơn — mỗi kênh gọi đúng skillCategory cố định của
+    // nó; BTVN Video Ôn tập giữ nguyên chọn từ bộ đã CÔNG BỐ (PUBLISHED).
+    listHomeworkSkillGroupsForClass(selectedClassId, "VOCAB_GRAMMAR").then(setGrammarOptions).catch(() => undefined);
+    listHomeworkSkillGroupsForClass(selectedClassId, "READING").then(setReadingOptions).catch(() => undefined);
+    listHomeworkSkillGroupsForClass(selectedClassId, "WRITING").then(setWritingOptions).catch(() => undefined);
+    listHomeworkSkillGroupsForClass(selectedClassId, "LISTENING").then(setListeningOptions).catch(() => undefined);
     listReviewVideoSetsByClass(selectedClassId)
       .then((sets) => setVideoOptions(sets.filter((s) => s.status === "PUBLISHED")))
       .catch(() => undefined);
     // Bản giao ACTIVE hiện có — chỉ để tra ngược lựa chọn đã lưu trước đó ra id nguồn khi prefill (xem loadHistory).
-    listAssignmentsForClass(selectedClassId).then(setGrammarAssignments).catch(() => undefined);
     listReviewVideoAssignmentsForClass(selectedClassId).then(setVideoAssignments).catch(() => undefined);
   }, [selectedClassId]);
 
@@ -406,8 +457,13 @@ export default function DailyCommentPanel() {
     if (!selectedClassId || !selectedSessionId) {
       setRows([]);
       setHistory([]);
+      setAutoProgress({});
       return;
     }
+    setAutoProgress({});
+    previewAutoProgress(selectedSessionId)
+      .then((list) => setAutoProgress(Object.fromEntries(list.map((p) => [p.studentId, p]))))
+      .catch(() => undefined);
     setLoadingRows(true);
     setError(null);
     listClassEnrollments(selectedClassId)
@@ -478,20 +534,19 @@ export default function DailyCommentPanel() {
         prev.map((r) => {
           const draft = filtered.find((h) => h.studentId === r.studentId && (h.status === "DRAFT" || h.status === "REJECTED"));
           if (!draft || !isRowBlank(r)) return r;
-          // V127: response giờ trả thẳng id NGUỒN (pendingHomeworkNextExerciseId/ReviewVideoSetId) cho
-          // lựa chọn CHƯA Gửi — đọc trực tiếp, không cần tra ngược nữa. Chỉ còn tra ngược qua
-          // grammarAssignments/videoAssignments (như V65 cũ) làm fallback cho dòng REJECTED CHƯA sửa gì
-          // (2 field pending đã null, id nguồn chỉ còn suy được từ id BẢN GIAO lần Gửi trước).
-          const exerciseId =
-            draft.pendingHomeworkNextExerciseId ??
-            (draft.homeworkNextExerciseAssignmentId != null
-              ? grammarAssignments.find((a) => a.id === draft.homeworkNextExerciseAssignmentId)?.exerciseId ?? ""
-              : "");
+          // V127: response trả thẳng id NGUỒN (pendingHomeworkNextExerciseId/ReviewVideoSetId) cho lựa
+          // chọn CHƯA Gửi — đọc trực tiếp, không cần tra ngược. V150: fallback cho dòng REJECTED CHƯA
+          // sửa gì (2 field pending đã null) cũng đọc trực tiếp — homeworkNext*ExerciseAssignmentId giờ
+          // TỰ nó đã là examId (Lesson) của Lô đã giao lần trước (xem Javadoc StudentCommentResponse),
+          // không còn cần tra ngược qua danh sách bản giao (grammarAssignments) như trước V150.
+          const exerciseId = draft.pendingHomeworkNextExerciseId ?? draft.homeworkNextExerciseAssignmentId ?? "";
           const videoSetId =
             draft.pendingHomeworkNextReviewVideoSetId ??
             (draft.homeworkNextReviewVideoAssignmentId != null
               ? videoAssignments.find((a) => a.id === draft.homeworkNextReviewVideoAssignmentId)?.reviewVideoSetId ?? ""
               : "");
+          const readingExerciseId = draft.pendingHomeworkNextReadingExerciseId ?? draft.homeworkNextReadingExerciseAssignmentId ?? "";
+          const writingExerciseId = draft.pendingHomeworkNextWritingExerciseId ?? draft.homeworkNextWritingExerciseAssignmentId ?? "";
           return {
             ...r,
             attitude: draft.attitude ?? "",
@@ -512,6 +567,8 @@ export default function DailyCommentPanel() {
             homeworkNextWriting: draft.homeworkNextWriting ?? "",
             homeworkNextExerciseId: exerciseId,
             homeworkNextReviewVideoSetId: videoSetId,
+            homeworkNextReadingExerciseId: readingExerciseId,
+            homeworkNextWritingExerciseId: writingExerciseId,
             note: draft.note ?? ""
           };
         })
@@ -568,8 +625,20 @@ export default function DailyCommentPanel() {
     }
   };
 
-  /** "Gán nhanh cho cả lớp" (2026-08-05) — áp panel gán nhanh vào mọi dòng CHƯA khoá, thay vì phải chọn từng dòng. */
-  const handleApplyQuickAssign = () => {
+  /**
+   * "Gán nhanh cho cả lớp" (2026-08-05) — áp panel gán nhanh vào mọi dòng CHƯA khoá, thay vì phải
+   * chọn từng dòng. Chỉ đổi state cục bộ (chưa lưu) cho các lựa chọn Ngữ pháp/Video/Offline —
+   * những dòng CHƯA gõ Nhận xét vẫn cần bấm "Lưu nháp"/"Gửi nhận xét" sau đó mới thực sự ghi DB.
+   *
+   * Bổ sung 2026-08-24 (xác nhận với người dùng) — RIÊNG Hạn nộp thì ghi thẳng xuống DB ngay ở đây
+   * qua bulkUpdatePendingDueDate(), áp dụng cho TOÀN BỘ nhận xét NHÁP/Bị từ chối đã có sẵn của buổi
+   * (kể cả những dòng chưa gõ Nhận xét nên "Lưu nháp" thường không đụng tới) — sửa đúng bug thực tế:
+   * trước đây các dòng NHÁP có sẵn (VD từ 1 lần gán+lưu hàng loạt trước đó, chưa từng chọn hạn nộp
+   * tường minh) âm thầm giữ hạn nộp mặc định cũ (= buổi kế tiếp), khoá cứng hạn nộp chung của buổi
+   * mà không cách nào tự sửa được qua "Lưu nháp"/"Gửi nhận xét" (luôn báo xung đột 0/N — xem Javadoc
+   * BE StudentCommentService#bulkUpdatePendingDueDate).
+   */
+  const handleApplyQuickAssign = async () => {
     const lockedIds = new Set(history.filter((h) => h.status === "PENDING" || h.status === "APPROVED").map((h) => h.studentId));
     setRows((prev) =>
       prev.map((r) =>
@@ -578,7 +647,12 @@ export default function DailyCommentPanel() {
           : {
               ...r,
               ...(isVietnamese
-                ? { homeworkNextReading: quickReading, homeworkNextWriting: quickWriting }
+                ? {
+                    homeworkNextReading: quickReading,
+                    homeworkNextWriting: quickWriting,
+                    homeworkNextReadingExerciseId: quickReadingExerciseId,
+                    homeworkNextWritingExerciseId: quickWritingExerciseId
+                  }
                 : { homeworkNext: quickOffline }),
               homeworkNextExerciseId: quickExerciseId,
               homeworkNextReviewVideoSetId: quickVideoId
@@ -586,6 +660,21 @@ export default function DailyCommentPanel() {
       )
     );
     setDirty(true);
+
+    if (dueDateTime && selectedSessionId && selectedClassId) {
+      setApplyingDueDate(true);
+      setError(null);
+      try {
+        await bulkUpdatePendingDueDate(selectedSessionId, dueDateTime);
+        setNotification(t("dailyCommentPanel.notifications.dueDateAppliedSuccess"));
+        await loadHistory(selectedClassId, selectedSessionId, rows.map((r) => r.studentId));
+        refreshSessionCommentStats(selectedClassId);
+      } catch (err) {
+        setError(err instanceof ApiError ? err.message : t("dailyCommentPanel.errors.applyDueDateFailed"));
+      } finally {
+        setApplyingDueDate(false);
+      }
+    }
   };
 
   /** Payload dùng chung cho "Lưu nháp"/autosave/"Gửi nhận xét" — xem buildPayload+saveFilledRows bên dưới. */
@@ -606,6 +695,9 @@ export default function DailyCommentPanel() {
     homeworkNextWriting: r.homeworkNextWriting.trim() || undefined,
     homeworkNextExerciseId: r.homeworkNextExerciseId !== "" ? r.homeworkNextExerciseId : undefined,
     homeworkNextReviewVideoSetId: r.homeworkNextReviewVideoSetId !== "" ? r.homeworkNextReviewVideoSetId : undefined,
+    // V137 — kênh "BTVN online" Reading/Writing mới, chỉ gửi khi buổi teacherType=VIETNAMESE.
+    homeworkNextReadingExerciseId: r.homeworkNextReadingExerciseId !== "" ? r.homeworkNextReadingExerciseId : undefined,
+    homeworkNextWritingExerciseId: r.homeworkNextWritingExerciseId !== "" ? r.homeworkNextWritingExerciseId : undefined,
     // Hạn nộp buổi sau (ngày + giờ) — 1 giá trị chung cho cả buổi (xem dueDateTime), để trống thì BE tự tính = buổi kế tiếp.
     homeworkNextDueDate: dueDateTime || undefined,
     note: r.note.trim() || undefined
@@ -692,7 +784,6 @@ export default function DailyCommentPanel() {
       );
       await loadHistory(selectedClassId, selectedSession.id, rows.map((r) => r.studentId));
       refreshSessionCommentStats(selectedClassId);
-      listAssignmentsForClass(selectedClassId).then(setGrammarAssignments).catch(() => undefined);
       listReviewVideoAssignmentsForClass(selectedClassId).then(setVideoAssignments).catch(() => undefined);
       return failedCount > 0
         ? {
@@ -812,7 +903,6 @@ export default function DailyCommentPanel() {
       await loadHistory(selectedClassId, selectedSession.id, rows.map((r) => r.studentId));
       refreshSessionCommentStats(selectedClassId);
       // Gửi xong có thể vừa tạo bản giao mới (chọn đề/video Online) — tải lại map tra ngược để lần sửa kế tiếp resolve đúng.
-      listAssignmentsForClass(selectedClassId).then(setGrammarAssignments).catch(() => undefined);
       listReviewVideoAssignmentsForClass(selectedClassId).then(setVideoAssignments).catch(() => undefined);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t("dailyCommentPanel.errors.sendFailed"));
@@ -911,6 +1001,8 @@ export default function DailyCommentPanel() {
               homeworkNextWriting: parsed.homeworkNextWriting ?? "",
               homeworkNextExerciseId: parsed.homeworkNextExerciseId ?? "",
               homeworkNextReviewVideoSetId: parsed.homeworkNextReviewVideoSetId ?? "",
+              homeworkNextReadingExerciseId: parsed.homeworkNextReadingExerciseId ?? "",
+              homeworkNextWritingExerciseId: parsed.homeworkNextWritingExerciseId ?? "",
               note: parsed.note ?? ""
             };
           })
@@ -1103,17 +1195,52 @@ export default function DailyCommentPanel() {
                       className="w-full bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
                     />
                   </div>
+                  {/* V137 — kênh "BTVN online" Reading/Writing mới, mirror ô Ngữ pháp/Video TKN bên dưới. */}
+                  <div className="min-w-[200px]">
+                    <label className="text-[9px] font-bold uppercase text-slate-400 block mb-0.5">{t("dailyCommentPanel.quickAssign.onlineReadingLabel")}</label>
+                    <Select
+                      value={quickReadingExerciseId}
+                      disabled={blockOnlineHomework}
+                      onChange={(e) => setQuickReadingExerciseId(e.target.value ? Number(e.target.value) : "")}
+                      className="w-full bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none disabled:opacity-40"
+                    >
+                      <option value="">{t("dailyCommentPanel.quickAssign.noAssign")}</option>
+                      {readingOptions.map((ex) => (
+                        <option key={ex.examId} value={ex.examId}>
+                          {ex.examCode} - {ex.examTitle} ({ex.exerciseCount} bài, {ex.questionCount} câu)
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                  <div className="min-w-[200px]">
+                    <label className="text-[9px] font-bold uppercase text-slate-400 block mb-0.5">{t("dailyCommentPanel.quickAssign.onlineWritingLabel")}</label>
+                    <Select
+                      value={quickWritingExerciseId}
+                      disabled={blockOnlineHomework}
+                      onChange={(e) => setQuickWritingExerciseId(e.target.value ? Number(e.target.value) : "")}
+                      className="w-full bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none disabled:opacity-40"
+                    >
+                      <option value="">{t("dailyCommentPanel.quickAssign.noAssign")}</option>
+                      {writingOptions.map((ex) => (
+                        <option key={ex.examId} value={ex.examId}>
+                          {ex.examCode} - {ex.examTitle} ({ex.exerciseCount} bài, {ex.questionCount} câu)
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
                 </>
               ) : (
-                <div className="min-w-[160px]">
-                  <label className="text-[9px] font-bold uppercase text-slate-400 block mb-0.5">{t("dailyCommentPanel.quickAssign.offlineLabel")}</label>
-                  <input
-                    value={quickOffline}
-                    onChange={(e) => setQuickOffline(e.target.value)}
-                    placeholder={t("dailyCommentPanel.quickAssign.offlinePlaceholder")}
-                    className="w-full bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
-                  />
-                </div>
+                <>
+                  <div className="min-w-[160px]">
+                    <label className="text-[9px] font-bold uppercase text-slate-400 block mb-0.5">{t("dailyCommentPanel.quickAssign.offlineLabel")}</label>
+                    <input
+                      value={quickOffline}
+                      onChange={(e) => setQuickOffline(e.target.value)}
+                      placeholder={t("dailyCommentPanel.quickAssign.offlinePlaceholder")}
+                      className="w-full bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none"
+                    />
+                  </div>
+                </>
               )}
               <div className="min-w-[200px]">
                 <label className="text-[9px] font-bold uppercase text-slate-400 block mb-0.5">
@@ -1127,8 +1254,8 @@ export default function DailyCommentPanel() {
                 >
                   <option value="">{t("dailyCommentPanel.quickAssign.noAssign")}</option>
                   {filteredGrammarOptions.map((ex) => (
-                    <option key={ex.id} value={ex.id}>
-                      {ex.examCode} - {ex.title}
+                    <option key={ex.examId} value={ex.examId}>
+                      {ex.examCode} - {ex.examTitle} ({ex.exerciseCount} bài, {ex.questionCount} câu)
                     </option>
                   ))}
                 </Select>
@@ -1176,13 +1303,20 @@ export default function DailyCommentPanel() {
                 type="button"
                 onClick={handleApplyQuickAssign}
                 disabled={
-                  isVietnamese
-                    ? !quickReading && !quickWriting && quickExerciseId === "" && quickVideoId === ""
-                    : !quickOffline && quickExerciseId === "" && quickVideoId === ""
+                  applyingDueDate ||
+                  (isVietnamese
+                    ? !quickReading &&
+                      !quickWriting &&
+                      quickExerciseId === "" &&
+                      quickVideoId === "" &&
+                      quickReadingExerciseId === "" &&
+                      quickWritingExerciseId === "" &&
+                      !dueDateTime
+                    : !quickOffline && quickExerciseId === "" && quickVideoId === "" && !dueDateTime)
                 }
                 className="px-3 py-2 bg-brand-orange hover:bg-brand-orange/90 text-white text-[11px] font-bold rounded-lg disabled:opacity-40"
               >
-                {t("dailyCommentPanel.quickAssign.applyButton")}
+                {applyingDueDate ? t("dailyCommentPanel.quickAssign.applying") : t("dailyCommentPanel.quickAssign.applyButton")}
               </button>
             </div>
           </div>
@@ -1314,8 +1448,8 @@ export default function DailyCommentPanel() {
               <Th rowSpan={isVietnamese ? 3 : 2} style={STICKY_COL_STYLE[0]} className="sticky left-0 z-30 bg-slate-50 border-r border-b border-slate-300">{t("dailyCommentPanel.columns.studentCode")}</Th>
               <Th rowSpan={isVietnamese ? 3 : 2} style={STICKY_COL_STYLE[1]} className="sticky z-30 bg-slate-50 border-r border-b border-slate-300">{t("dailyCommentPanel.columns.fullName")}</Th>
               <Th rowSpan={isVietnamese ? 3 : 2} style={STICKY_COL_STYLE[2]} className="sticky z-30 bg-slate-50 border-r border-b border-slate-300">{t("dailyCommentPanel.columns.dateOfBirth")}</Th>
-              <Th colSpan={isVietnamese ? 4 : 3} className="text-center border-r border-b border-slate-300">{t("dailyCommentPanel.columns.homeworkPrevious")}</Th>
-              <Th colSpan={isVietnamese ? 4 : 3} className="text-center border-r border-b border-slate-300">{t("dailyCommentPanel.columns.homeworkNextGroup")}</Th>
+              <Th colSpan={isVietnamese ? 6 : 3} className="text-center border-r border-b border-slate-300">{t("dailyCommentPanel.columns.homeworkPrevious")}</Th>
+              <Th colSpan={isVietnamese ? 6 : 3} className="text-center border-r border-b border-slate-300">{t("dailyCommentPanel.columns.homeworkNextGroup")}</Th>
               <Th rowSpan={isVietnamese ? 3 : 2} className="border-r border-b border-slate-300">{t("dailyCommentPanel.columns.dueDate")}</Th>
               <Th rowSpan={isVietnamese ? 3 : 2} className="border-r border-b border-slate-300">{t("dailyCommentPanel.columns.attitude")}</Th>
               <Th rowSpan={isVietnamese ? 3 : 2} className="border-r border-b border-slate-300">{t("dailyCommentPanel.columns.studentComment")}</Th>
@@ -1325,15 +1459,20 @@ export default function DailyCommentPanel() {
               <>
                 <tr className="border-b border-slate-300 [&>th]:text-center">
                   <Th colSpan={2} className="border-r border-b border-slate-300 text-center">{t("dailyCommentPanel.columns.offline")}</Th>
-                  <Th colSpan={2} className="border-r border-b border-slate-300 text-center">{t("dailyCommentPanel.columns.online")}</Th>
+                  <Th colSpan={4} className="border-r border-b border-slate-300 text-center">{t("dailyCommentPanel.columns.online")}</Th>
                   <Th colSpan={2} className="border-r border-b border-slate-300 text-center">{t("dailyCommentPanel.columns.offline")}</Th>
-                  <Th colSpan={2} className="border-r border-b border-slate-300 text-center">{t("dailyCommentPanel.columns.online")}</Th>
+                  <Th colSpan={4} className="border-r border-b border-slate-300 text-center">{t("dailyCommentPanel.columns.online")}</Th>
                 </tr>
                 <tr className="border-b border-slate-300 [&>th]:text-center">
                   <Th className="border-r border-b border-slate-300 text-center">{t("dailyCommentPanel.columns.reading")}</Th>
                   <Th className="border-r border-b border-slate-300 text-center">{t("dailyCommentPanel.columns.writing")}</Th>
+                  {/* V137 — kênh "BTVN online" mới: Reading/Writing (giao Exercise skillCategory=READING/WRITING), thêm 2 cột trước Ngữ pháp/Video TKN cũ. */}
+                  <Th className="border-r border-b border-slate-300 text-center">{t("dailyCommentPanel.columns.reading")}</Th>
+                  <Th className="border-r border-b border-slate-300 text-center">{t("dailyCommentPanel.columns.writing")}</Th>
                   <Th className="border-r border-b border-slate-300 text-center">{onlineGrammarLabel}</Th>
                   <Th className="border-r border-b border-slate-300 text-center">{onlineVideoLabel}</Th>
+                  <Th className="border-r border-b border-slate-300 text-center">{t("dailyCommentPanel.columns.reading")}</Th>
+                  <Th className="border-r border-b border-slate-300 text-center">{t("dailyCommentPanel.columns.writing")}</Th>
                   <Th className="border-r border-b border-slate-300 text-center">{t("dailyCommentPanel.columns.reading")}</Th>
                   <Th className="border-r border-b border-slate-300 text-center">{t("dailyCommentPanel.columns.writing")}</Th>
                   <Th className="border-r border-b border-slate-300 text-center">{onlineGrammarLabel}</Th>
@@ -1388,6 +1527,10 @@ export default function DailyCommentPanel() {
                 // nhận với người dùng 2026-07-29).
                 const sent = history.find((h) => h.studentId === r.studentId);
                 const locked = !!sent && (sent.status === "PENDING" || sent.status === "APPROVED");
+                // V146 — fallback % tự động khi buổi CHƯA có StudentComment nào (sent undefined), xem
+                // previewAutoProgress/AutoProgressPreviewResponse.
+                const auto = autoProgress[r.studentId];
+                const autoVideo = sent?.videoPreviousProgress ?? auto?.videoPreviousProgress ?? null;
                 // Nền đặc cho 3 cột cố định (khác Td mặc định trong suốt) — cuộn ngang thì nội dung cột
                 // sau không được lộ ra qua cột cố định phía trên (bổ sung ngoài SDD gốc, 2026-08-14).
                 const stickyBg = locked ? "bg-emerald-50" : "bg-white";
@@ -1431,6 +1574,15 @@ export default function DailyCommentPanel() {
                             />
                           )}
                         </Td>
+                        {/* V137 — "BTVN buổi trước - Online - Reading/Writing": CHỈ hiện % TỰ ĐỘNG (BE tính từ
+                            exercise_attempts lọc skillCategory=READING/WRITING, giống cột {onlineGrammarLabel} bên
+                            phải) — không có nhập tay (giao Online thì luôn tính được tự động). */}
+                        <Td className="min-w-[150px] border-r border-b border-slate-300">
+                          <PreviousProgressCell auto={sent?.readingPreviousProgress ?? auto?.readingPreviousProgress ?? null} manual={null} autoLabel={t("dailyCommentPanel.autoBadge")} />
+                        </Td>
+                        <Td className="min-w-[150px] border-r border-b border-slate-300">
+                          <PreviousProgressCell auto={sent?.writingPreviousProgress ?? auto?.writingPreviousProgress ?? null} manual={null} autoLabel={t("dailyCommentPanel.autoBadge")} />
+                        </Td>
                       </>
                     ) : (
                       <Td className="min-w-[130px] border-r border-b border-slate-300">
@@ -1455,11 +1607,16 @@ export default function DailyCommentPanel() {
                       {/* {grammarLabel} buổi trước — CHỈ hiện % TỰ ĐỘNG (buổi trước giao Online, BE tính từ
                           exercise_attempts) — nhập tay đã chuyển hẳn sang cột "Offline" bên trái, không còn fallback
                           nhập tay ở đây nữa (tránh 2 cột cùng nhập được 1 giá trị gây nhầm lẫn cho giáo viên). */}
-                      <PreviousProgressCell auto={sent?.grammarPreviousProgress ?? null} manual={null} autoLabel={t("dailyCommentPanel.autoBadge")} />
+                      <PreviousProgressCell auto={sent?.grammarPreviousProgress ?? auto?.grammarPreviousProgress ?? null} manual={null} autoLabel={t("dailyCommentPanel.autoBadge")} />
                     </Td>
                     <Td className="min-w-[150px] border-r border-b border-slate-300">
                       {locked ? (
-                        <PreviousProgressCell auto={sent!.videoPreviousProgress} manual={sent!.homeworkPreviousSpeakingScore} autoLabel={t("dailyCommentPanel.autoBadge")} />
+                        <PreviousProgressCell auto={autoVideo} manual={sent!.homeworkPreviousSpeakingScore} autoLabel={t("dailyCommentPanel.autoBadge")} />
+                      ) : autoVideo ? (
+                        // V146 — buổi CHƯA có bản nháp nhưng đã tính được % tự động (video luôn Online nên
+                        // hầu như luôn có) — ưu tiên hiện luôn, mirror đúng cách PreviousProgressCell xử lý
+                        // khi đã locked, thay vì bắt giáo viên phải Lưu nháp 1 lần mới thấy được số.
+                        <PreviousProgressCell auto={autoVideo} manual={null} autoLabel={t("dailyCommentPanel.autoBadge")} />
                       ) : (
                         <input
                           value={r.homeworkPreviousSpeakingScore}
@@ -1498,6 +1655,49 @@ export default function DailyCommentPanel() {
                             />
                           )}
                         </Td>
+                        {/* V137 — "BTVN - Online - Reading/Writing" (giao buổi sau): chọn Exercise NGUỒN đã Publish,
+                            lọc theo skillCategory=READING/WRITING (readingOptions/writingOptions — KHÔNG lọc
+                            teacherType, giống BE StudentCommentService#buildTemplate). */}
+                        <Td className="min-w-[200px] border-r border-b border-slate-300">
+                          {locked ? (
+                            <div className={readOnlyFieldClass}>{sent!.homeworkNextReadingExerciseTitle || "—"}</div>
+                          ) : (
+                            <Select
+                              value={r.homeworkNextReadingExerciseId}
+                              disabled={blockOnlineHomework || !teacherType}
+                              onChange={(e) => updateRow({ homeworkNextReadingExerciseId: e.target.value ? Number(e.target.value) : "" })}
+                              aria-label={!teacherType ? t("dailyCommentPanel.ariaChooseTeacherTypeFirst") : blockOnlineHomework ? t("dailyCommentPanel.ariaNoUpcomingSession") : undefined}
+                              className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                              <option value="">{t("dailyCommentPanel.chooseExercisePlaceholder")}</option>
+                              {readingOptions.map((ex) => (
+                                <option key={ex.examId} value={ex.examId}>
+                                  {ex.examCode} - {ex.examTitle} ({ex.exerciseCount} bài, {ex.questionCount} câu)
+                                </option>
+                              ))}
+                            </Select>
+                          )}
+                        </Td>
+                        <Td className="min-w-[200px] border-r border-b border-slate-300">
+                          {locked ? (
+                            <div className={readOnlyFieldClass}>{sent!.homeworkNextWritingExerciseTitle || "—"}</div>
+                          ) : (
+                            <Select
+                              value={r.homeworkNextWritingExerciseId}
+                              disabled={blockOnlineHomework || !teacherType}
+                              onChange={(e) => updateRow({ homeworkNextWritingExerciseId: e.target.value ? Number(e.target.value) : "" })}
+                              aria-label={!teacherType ? t("dailyCommentPanel.ariaChooseTeacherTypeFirst") : blockOnlineHomework ? t("dailyCommentPanel.ariaNoUpcomingSession") : undefined}
+                              className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                              <option value="">{t("dailyCommentPanel.chooseExercisePlaceholder")}</option>
+                              {writingOptions.map((ex) => (
+                                <option key={ex.examId} value={ex.examId}>
+                                  {ex.examCode} - {ex.examTitle} ({ex.exerciseCount} bài, {ex.questionCount} câu)
+                                </option>
+                              ))}
+                            </Select>
+                          )}
+                        </Td>
                       </>
                     ) : (
                       <Td className="min-w-[160px] border-r border-b border-slate-300">
@@ -1526,8 +1726,8 @@ export default function DailyCommentPanel() {
                         >
                           <option value="">{t("dailyCommentPanel.chooseExercisePlaceholder")}</option>
                           {filteredGrammarOptions.map((ex) => (
-                            <option key={ex.id} value={ex.id}>
-                              {ex.examCode} - {ex.title}
+                            <option key={ex.examId} value={ex.examId}>
+                              {ex.examCode} - {ex.examTitle} ({ex.exerciseCount} bài, {ex.questionCount} câu)
                             </option>
                           ))}
                         </Select>
@@ -1617,7 +1817,7 @@ export default function DailyCommentPanel() {
             {/* Không còn dòng nào có nội dung để gửi (VD cả lớp đã Gửi nhận xét xong, mọi dòng đều
                 khoá/rỗng) — tự disable thay vì để bấm được rồi báo lỗi "chưa nhập gì" (2026-07-30). */}
             <button
-              onClick={handleSend}
+              onClick={() => setConfirmingSend(true)}
               disabled={sending || !rows.some((r) => r.content.trim())}
               className="bg-brand-orange hover:bg-brand-orange/90 text-white font-semibold text-xs px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-soft transition-all disabled:opacity-50"
             >
@@ -1632,6 +1832,42 @@ export default function DailyCommentPanel() {
             </button>
           </div>
         )}
+
+        {/* Xác nhận trước khi Gửi nhận xét (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+            2026-08-25) — xem Javadoc confirmingSend ở trên. */}
+        <Modal
+          open={confirmingSend}
+          onClose={() => setConfirmingSend(false)}
+          title={t("dailyCommentPanel.confirmSend.title")}
+          footer={
+            <>
+              <button
+                onClick={() => setConfirmingSend(false)}
+                className="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold text-xs px-4 py-2 rounded-lg transition-all"
+              >
+                {t("dailyCommentPanel.confirmSend.cancel")}
+              </button>
+              <button
+                onClick={() => {
+                  setConfirmingSend(false);
+                  handleSend();
+                }}
+                disabled={sending}
+                className="bg-brand-orange hover:bg-brand-orange/90 text-white font-semibold text-xs px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-soft transition-all disabled:opacity-50"
+              >
+                <Send className="w-3.5 h-3.5 text-white" />
+                {t("dailyCommentPanel.confirmSend.confirmButton")}
+              </button>
+            </>
+          }
+        >
+          <div className="flex items-start gap-3">
+            <ShieldAlert className="w-8 h-8 text-amber-500 shrink-0" />
+            <p className="text-xs text-slate-600 leading-relaxed">
+              {t("dailyCommentPanel.confirmSend.description", { count: rows.filter((r) => r.content.trim()).length })}
+            </p>
+          </div>
+        </Modal>
 
         {/* {selectedClassId && selectedSessionId && (
           <div className="px-6 py-4 border-t border-slate-100 space-y-2">

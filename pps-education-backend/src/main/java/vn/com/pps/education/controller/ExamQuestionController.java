@@ -72,8 +72,9 @@ public class ExamQuestionController {
 
     @PreAuthorize("hasPermission(null, 'lms.exam-question.create')")
     @GetMapping("/api/exams/question-imports/template.docx")
-    public ResponseEntity<byte[]> downloadWordTemplate() {
-        byte[] content = examQuestionService.buildWordTemplate();
+    public ResponseEntity<byte[]> downloadWordTemplate(@RequestParam(required = false) String skillCategory,
+                                                         @RequestParam(required = false) String teacherType) {
+        byte[] content = examQuestionService.buildWordTemplate(skillCategory, teacherType);
         String filename = "mau-soan-cau-hoi.docx";
         String encodedFilename = URLEncoder.encode(filename, StandardCharsets.UTF_8).replace("+", "%20");
         return ResponseEntity.ok()

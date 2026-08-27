@@ -36,4 +36,14 @@ public interface ExerciseAttemptRepository extends JpaRepository<ExerciseAttempt
 
     /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — dùng cho ExerciseReportService#getQuestionStats (phân tích câu hỏi theo LƯỢT ĐẦU TIÊN, không phải lượt mới nhất). */
     List<ExerciseAttempt> findByExerciseAssignmentIdOrderByAttemptNumberAsc(Long exerciseAssignmentId);
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-22 — ứng
+     * viên cho ExerciseAttemptTimeoutSchedulerService (enforcement
+     * Exercise.timeLimitMinutes): mọi lượt đang làm dở của 1 Bài CÓ giới
+     * hạn thời gian. Lọc chính xác "đã quá giờ" thực hiện trong Java
+     * (so startedAt.plusMinutes(timeLimitMinutes) với now) để không phụ
+     * thuộc cú pháp cộng khoảng thời gian riêng của từng DB.
+     */
+    List<ExerciseAttempt> findByStatusAndExercise_TimeLimitMinutesIsNotNull(ExerciseAttempt.Status status);
 }

@@ -29,5 +29,15 @@ public record StudentAnswerResponse(
         String correctAnswerText,
         String explanation,
         List<String> structuredAnswer,
-        Map<String, Object> correctStructuredContent
+        Map<String, Object> correctStructuredContent,
+        /**
+         * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-22 — điểm/nhận xét câu tự luận/nói
+         * (ESSAY/SPEAKING) đã được chấm (tay hoặc AI), lấy từ StudentAnswerGrading mới nhất
+         * (latest=true). NULL khi câu tự chấm được (isAutoGradable=true, xem autoScore/isCorrect) HOẶC
+         * chưa được chấm. Trước đây học sinh nộp bài tự luận xong không hề thấy lý do đạt/không đạt.
+         */
+        BigDecimal gradingScore,
+        BigDecimal gradingMaxScore,
+        String gradingFeedback,
+        String gradingSource
 ) {}

@@ -809,6 +809,15 @@ UC-56: Sinh lịch học hàng loạt theo mẫu lặp
 |                 |     ngày nào.                                      |
 +-----------------+----------------------------------------------------+
 
+> **Chặn ngày vượt quá thời gian lớp học (bổ sung ngoài SDD gốc, xác nhận
+> với người dùng 2026-08-27):** ngày buổi học (UC-48 tạo lẻ, UC-56 sinh
+> hàng loạt, UC-57 Excel, và ngày mới khi dời lịch UC-48/A3) không được
+> sau `classes.end_date` (Ngày kết thúc dự kiến, nullable — không chặn nếu
+> lớp chưa đặt end_date). Vi phạm ném
+> `ClassSessionOutsideClassPeriodException` — ở UC-56 xử lý như 1 lý do bị
+> bỏ qua (giống trùng phòng/GV/lớp), không chặn cả lô. Muốn xếp buổi học
+> sau ngày này phải vào UC-18 cập nhật lại `end_date` của lớp trước.
+
 ---
 
 UC-57: Nhập lịch học qua Excel
@@ -1587,6 +1596,39 @@ dùng), `StudentComment.CommentType` nay chỉ còn DAILY.
     `ExcelExportHelper.buildWorkbook` (hỗ trợ thêm header 3 cấp qua
     `headerSubGroups`), `DailyCommentPanel.tsx`/`CommentApprovalByClass.tsx`
     (FE, biến `isVietnamese`).
+-   **Bổ sung V137 (2026-08-21, đã xác nhận với người dùng) — cột con
+    "Online" của cả nhóm "BTVN buổi trước" (chấm điểm) VÀ nhóm "BTVN buổi
+    sau" (giao bài) mở rộng thêm kênh Reading/Writing riêng, CHỈ áp dụng
+    cho buổi `class_sessions.teacher_type=VIETNAMESE` (mirror y hệt V130,
+    dựa theo mẫu Excel PM cung cấp cho thấy Online giờ có 4 cột con thay
+    vì 2: Reading/Writing/TV+NP/Video TKN):** 4 cột DB mới trên
+    `student_comments` — `homework_next_reading_exercise_assignment_id`/
+    `homework_next_writing_exercise_assignment_id` (FK
+    `exercise_assignments`, bản giao ACTIVE đã materialize, mirror
+    `homework_next_exercise_assignment_id` kênh Ngữ pháp) và
+    `pending_homework_next_reading_exercise_id`/`pending_homework_next_
+    writing_exercise_id` (id Exercise NGUỒN staging khi còn DRAFT, mirror
+    `pending_homework_next_exercise_id`) — xem `docs/sdd-groups/06-hoc-
+    thuat.md`. Nguồn Exercise cho dropdown Reading/Writing lọc theo
+    `exercises.skill_category=READING/WRITING` (V136, xem UC-40 bên dưới)
+    — KHÔNG lọc thêm theo `teacherType` (khác kênh Ngữ pháp/`grammarOptions`
+    vốn lọc theo `examTeacherType`, vì `skillCategory` đã đủ đặc trưng —
+    field này chỉ GV Việt Nam mới soạn). % "BTVN buổi trước - Online -
+    Reading/Writing" CHỈ hiện tự động (BE tính từ `exercise_attempts` lọc
+    `skillCategory`, KHÔNG có nhập tay — mirror cột Ngữ pháp/Video, khác
+    2 cột "Offline - Reading/Writing" của V130 vốn nhập tay). Cả 2 kênh
+    Reading/Writing mới (Offline V130 lẫn Online V137) dùng CHUNG method
+    `resolveReadingExerciseHomework`/`resolveWritingExerciseHomework`,
+    `validateReadingExerciseChoiceAndConflicts`/`validateWritingExercise
+    ChoiceAndConflicts` (mirror y hệt `resolveExerciseHomework`/
+    `validateExerciseChoiceAndConflicts` của kênh Ngữ pháp, thêm bước
+    validate `exercise.skillCategory` đúng kênh qua `requireSkillCategory`)
+    trong `StudentCommentService.java`. Excel: `HomeworkColumns` mở rộng
+    19→23 cột cho buổi VIETNAMESE (buổi FOREIGN không đổi, vẫn 17 cột) —
+    xem `StudentCommentService.HomeworkColumns`/`buildTemplate`/`parseRow`,
+    `DailyCommentPanel.tsx`/`CommentApprovalByClass.tsx`/
+    `CommentHistoryPanel.tsx`/`SessionVersionHistoryModal.tsx` (FE, cột
+    con "Online" đổi `colSpan` 2→4 khi `isVietnamese`).
 -   **Bổ sung 2026-07-29 (đã xác nhận với người dùng) — tự chọn buổi hôm
     nay khi vào tab Nhận xét:** `GET /api/classes/{classId}/sessions/today`
     trả buổi học của lớp có `session_date` = hôm nay (loại

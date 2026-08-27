@@ -12,8 +12,10 @@ import vn.com.pps.education.domain.ApprovalFlow;
 import vn.com.pps.education.domain.AttendanceMark;
 import vn.com.pps.education.domain.ClassEnrollment;
 import vn.com.pps.education.domain.ClassSession;
+import vn.com.pps.education.domain.Exam;
 import vn.com.pps.education.domain.Exercise;
 import vn.com.pps.education.domain.ExerciseAssignment;
+import vn.com.pps.education.domain.HomeworkSkillBatch;
 import vn.com.pps.education.domain.ImportJob;
 import vn.com.pps.education.domain.Notification;
 import vn.com.pps.education.domain.ReviewVideoAssignment;
@@ -24,6 +26,7 @@ import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.StudentComment;
 import vn.com.pps.education.domain.StudentCommentHistory;
 import vn.com.pps.education.domain.User;
+import vn.com.pps.education.dto.AutoProgressPreviewResponse;
 import vn.com.pps.education.dto.ClassSessionLessonContentResponse;
 import vn.com.pps.education.dto.ClassSessionTeacherNameResponse;
 import vn.com.pps.education.dto.ClassSessionTeacherTypeResponse;
@@ -53,6 +56,9 @@ import vn.com.pps.education.repository.AttendanceMarkRepository;
 import vn.com.pps.education.repository.AttendanceSessionRepository;
 import vn.com.pps.education.repository.ClassEnrollmentRepository;
 import vn.com.pps.education.repository.ClassSessionRepository;
+import vn.com.pps.education.repository.ExamRepository;
+import vn.com.pps.education.repository.ExerciseAssignmentRepository;
+import vn.com.pps.education.repository.ExerciseQuestionRepository;
 import vn.com.pps.education.repository.ExerciseRepository;
 import vn.com.pps.education.repository.AcademicTermRepository;
 import vn.com.pps.education.repository.ImportJobRepository;
@@ -168,12 +174,14 @@ public class StudentCommentService {
 
     /**
      * Layout cột "động" từ cột 7 trở đi (2 nhóm BTVN buổi trước/BTVN + Hạn nộp/Thái độ/Nhận xét/Ghi
-     * chú) — phụ thuộc {@code classSession.teacherType} (V130, bổ sung ngoài SDD gốc, đã xác nhận với
-     * người dùng 2026-08-21). Trước V130 đây là các hằng số {@code COL_*} cố định dùng chung mọi buổi;
-     * nay buổi VIETNAMESE tách thêm cột "Offline" thành Reading/Writing ở CẢ 2 nhóm (BTVN buổi trước:
-     * chấm điểm tay; BTVN: mô tả bài giao) — buổi FOREIGN (hoặc teacherType=null) giữ NGUYÊN layout cũ
-     * (Offline 1 cột/nhóm) để không phá vỡ luồng đang chạy ổn định (đối chiếu solid.md — Open/Closed,
-     * thêm biến thể mới không sửa lại biến thể cũ).
+     * chú) — phụ thuộc {@code classSession.teacherType} (V130, mở rộng V137, bổ sung ngoài SDD gốc, đã
+     * xác nhận với người dùng 2026-08-21). Trước V130 đây là các hằng số {@code COL_*} cố định dùng
+     * chung mọi buổi; nay buổi VIETNAMESE tách thêm cột "Offline" thành Reading/Writing ở CẢ 2 nhóm
+     * (BTVN buổi trước: chấm điểm tay; BTVN: mô tả bài giao) VÀ thêm 2 cột "Online" Reading/Writing
+     * (V137, chọn Exercise skillCategory=READING/WRITING, song song cột Online TV+NP/TKN đã có) — buổi
+     * FOREIGN (hoặc teacherType=null) giữ NGUYÊN layout cũ (Offline 1 cột/nhóm, Online chỉ 2 cột) để
+     * không phá vỡ luồng đang chạy ổn định (đối chiếu solid.md — Open/Closed, thêm biến thể mới không
+     * sửa lại biến thể cũ).
      */
     private static final class HomeworkColumns {
         final boolean vietnamese;
@@ -181,12 +189,20 @@ public class StudentCommentService {
         final int previousReadingOrOffline;
         /** VN: điểm Writing buổi trước. FOREIGN: -1 (không có cột này). */
         final int previousWriting;
+        /** V137, VN only: % tự động Reading online buổi trước. FOREIGN: -1. */
+        final int previousOnlineReading;
+        /** V137, VN only: % tự động Writing online buổi trước. FOREIGN: -1. */
+        final int previousOnlineWriting;
         final int previousOnlineGrammar;
         final int previousOnlineVideo;
         /** VN: mô tả bài Reading giao buổi sau. FOREIGN: cột "BTVN offline" gộp (chữ tự do) — mirror COL_HOMEWORK_OFFLINE cũ. */
         final int nextReadingOrOffline;
         /** VN: mô tả bài Writing giao buổi sau. FOREIGN: -1 (không có cột này). */
         final int nextWriting;
+        /** V137, VN only: chọn Exercise Reading giao online buổi sau. FOREIGN: -1. */
+        final int nextOnlineReading;
+        /** V137, VN only: chọn Exercise Writing giao online buổi sau. FOREIGN: -1. */
+        final int nextOnlineWriting;
         final int nextOnlineGrammar;
         final int nextOnlineVideo;
         final int dueDate;
@@ -200,10 +216,14 @@ public class StudentCommentService {
             int c = 7;
             previousReadingOrOffline = c++;
             previousWriting = vietnamese ? c++ : -1;
+            previousOnlineReading = vietnamese ? c++ : -1;
+            previousOnlineWriting = vietnamese ? c++ : -1;
             previousOnlineGrammar = c++;
             previousOnlineVideo = c++;
             nextReadingOrOffline = c++;
             nextWriting = vietnamese ? c++ : -1;
+            nextOnlineReading = vietnamese ? c++ : -1;
+            nextOnlineWriting = vietnamese ? c++ : -1;
             nextOnlineGrammar = c++;
             nextOnlineVideo = c++;
             dueDate = c++;
@@ -248,6 +268,17 @@ public class StudentCommentService {
         return teacherType == null ? "Bài" : GRAMMAR_CHANNEL_LABEL.get(teacherType);
     }
 
+    /**
+     * V151 (revert V146, đã xác nhận với người dùng 2026-08-25) — kênh "Ngữ pháp"/"Nghe" dùng CHUNG 1
+     * field/1 dropdown (mirror hành vi trước V146) nhưng KHÔNG lặp lại lỗi trộn lẫn kỹ năng đã ghi ở
+     * V146 (buổi FOREIGN trước đây không lọc skill_category, Bài VOCAB_GRAMMAR và LISTENING lẫn lộn
+     * chung 1 dropdown) — buổi teacherType=FOREIGN vẫn chỉ lọc đúng Bài skillCategory=LISTENING, buổi
+     * VIETNAMESE (hoặc chưa xác định) lọc VOCAB_GRAMMAR.
+     */
+    private Exercise.SkillCategory grammarChannelSkillCategory(ClassSession.TeacherType teacherType) {
+        return teacherType == ClassSession.TeacherType.FOREIGN ? Exercise.SkillCategory.LISTENING : Exercise.SkillCategory.VOCAB_GRAMMAR;
+    }
+
     private String videoChannelLabel(ClassSession.TeacherType teacherType) {
         return teacherType == null ? "Video" : VIDEO_CHANNEL_LABEL.get(teacherType);
     }
@@ -272,9 +303,13 @@ public class StudentCommentService {
     private final ReviewVideoSetRepository reviewVideoSetRepository;
     private final HomeworkProgressService homeworkProgressService;
     private final ExerciseRepository exerciseRepository;
+    private final ExerciseQuestionRepository exerciseQuestionRepository;
+    private final ExamRepository examRepository;
+    private final ExerciseAssignmentRepository exerciseAssignmentRepository;
     private final ReviewVideoAssignmentRepository reviewVideoAssignmentRepository;
     private final ExerciseService exerciseService;
     private final ReviewVideoService reviewVideoService;
+    private final HomeworkSkillBatchService homeworkSkillBatchService;
 
     public StudentCommentService(StudentCommentRepository studentCommentRepository,
                                   StudentCommentHistoryRepository studentCommentHistoryRepository,
@@ -296,9 +331,13 @@ public class StudentCommentService {
                                   ReviewVideoSetRepository reviewVideoSetRepository,
                                   HomeworkProgressService homeworkProgressService,
                                   ExerciseRepository exerciseRepository,
+                                  ExerciseQuestionRepository exerciseQuestionRepository,
+                                  ExamRepository examRepository,
+                                  ExerciseAssignmentRepository exerciseAssignmentRepository,
                                   ReviewVideoAssignmentRepository reviewVideoAssignmentRepository,
                                   ExerciseService exerciseService,
-                                  ReviewVideoService reviewVideoService) {
+                                  ReviewVideoService reviewVideoService,
+                                  HomeworkSkillBatchService homeworkSkillBatchService) {
         this.studentCommentRepository = studentCommentRepository;
         this.studentCommentHistoryRepository = studentCommentHistoryRepository;
         this.approvalFlowRepository = approvalFlowRepository;
@@ -319,9 +358,13 @@ public class StudentCommentService {
         this.reviewVideoSetRepository = reviewVideoSetRepository;
         this.homeworkProgressService = homeworkProgressService;
         this.exerciseRepository = exerciseRepository;
+        this.exerciseQuestionRepository = exerciseQuestionRepository;
+        this.examRepository = examRepository;
+        this.exerciseAssignmentRepository = exerciseAssignmentRepository;
         this.reviewVideoAssignmentRepository = reviewVideoAssignmentRepository;
         this.exerciseService = exerciseService;
         this.reviewVideoService = reviewVideoService;
+        this.homeworkSkillBatchService = homeworkSkillBatchService;
     }
 
     // ===================== UC-21: Viết nhận xét (TEACHER) =====================
@@ -377,11 +420,14 @@ public class StudentCommentService {
         Long excludeCommentId = existing == null ? null : existing.getId();
         validatePendingExerciseChoice(classSession, excludeCommentId, request.homeworkNextExerciseId(), request.homeworkNextDueDate());
         validatePendingVideoChoice(classSession, excludeCommentId, request.homeworkNextReviewVideoSetId(), request.homeworkNextDueDate());
+        validatePendingReadingExerciseChoice(classSession, excludeCommentId, request.homeworkNextReadingExerciseId(), request.homeworkNextDueDate());
+        validatePendingWritingExerciseChoice(classSession, excludeCommentId, request.homeworkNextWritingExerciseId(), request.homeworkNextDueDate());
         applyContent(comment, request.content(), request.structuredContent(), request.severity(), request.isWarning(),
                 request.attitude(), request.homeworkPreviousScore(), request.homeworkPreviousSpeakingScore(),
                 request.homeworkPreviousReadingScore(), request.homeworkPreviousWritingScore(),
                 request.homeworkNext(), request.homeworkNextReading(), request.homeworkNextWriting(),
                 request.homeworkNextExerciseId(), request.homeworkNextReviewVideoSetId(),
+                request.homeworkNextReadingExerciseId(), request.homeworkNextWritingExerciseId(),
                 request.homeworkNextDueDate(), request.note());
         comment.setStatus(StudentComment.Status.DRAFT);
         comment = studentCommentRepository.save(comment);
@@ -411,12 +457,15 @@ public class StudentCommentService {
         // hồi bài đã giao" — huỷ bản cũ + giao bản mới chỉ xảy ra ở submitComments() lần Gửi lại).
         validatePendingExerciseChoice(comment.getClassSession(), comment.getId(), request.homeworkNextExerciseId(), request.homeworkNextDueDate());
         validatePendingVideoChoice(comment.getClassSession(), comment.getId(), request.homeworkNextReviewVideoSetId(), request.homeworkNextDueDate());
+        validatePendingReadingExerciseChoice(comment.getClassSession(), comment.getId(), request.homeworkNextReadingExerciseId(), request.homeworkNextDueDate());
+        validatePendingWritingExerciseChoice(comment.getClassSession(), comment.getId(), request.homeworkNextWritingExerciseId(), request.homeworkNextDueDate());
         comment.setApprovalFlow(null);
         applyContent(comment, request.content(), request.structuredContent(), request.severity(), request.isWarning(),
                 request.attitude(), request.homeworkPreviousScore(), request.homeworkPreviousSpeakingScore(),
                 request.homeworkPreviousReadingScore(), request.homeworkPreviousWritingScore(),
                 request.homeworkNext(), request.homeworkNextReading(), request.homeworkNextWriting(),
                 request.homeworkNextExerciseId(), request.homeworkNextReviewVideoSetId(),
+                request.homeworkNextReadingExerciseId(), request.homeworkNextWritingExerciseId(),
                 request.homeworkNextDueDate(), request.note());
         comment.setStatus(StudentComment.Status.DRAFT);
         comment = studentCommentRepository.save(comment);
@@ -529,16 +578,27 @@ public class StudentCommentService {
         // Vòng 2: chỉ chạy khi vòng 1 qua hết — giao bài thật (materialize pendingHomeworkNext*) rồi
         // mới chuyển trạng thái.
         for (StudentComment comment : comments) {
-            ExerciseAssignment grammarAssignment = resolveExerciseHomework(comment.getClassSession(), comment.getId(),
-                    comment.getPendingHomeworkNextExerciseId(), comment.getHomeworkNextExerciseAssignment(),
+            HomeworkSkillBatch grammarBatch = resolveGrammarExerciseHomework(comment.getClassSession(), comment.getId(),
+                    comment.getPendingHomeworkNextGrammarExamId(), comment.getHomeworkNextGrammarBatch(),
                     comment.getPendingHomeworkNextDueDate(), actorUserId);
             ReviewVideoAssignment videoAssignment = resolveVideoHomework(comment.getClassSession(), comment.getId(),
                     comment.getPendingHomeworkNextReviewVideoSetId(), comment.getHomeworkNextReviewVideoAssignment(),
                     comment.getPendingHomeworkNextDueDate(), actorUserId);
-            comment.setHomeworkNextExerciseAssignment(grammarAssignment);
+            // V137
+            HomeworkSkillBatch readingBatch = resolveReadingExerciseHomework(comment.getClassSession(), comment.getId(),
+                    comment.getPendingHomeworkNextReadingExamId(), comment.getHomeworkNextReadingBatch(),
+                    comment.getPendingHomeworkNextDueDate(), actorUserId);
+            HomeworkSkillBatch writingBatch = resolveWritingExerciseHomework(comment.getClassSession(), comment.getId(),
+                    comment.getPendingHomeworkNextWritingExamId(), comment.getHomeworkNextWritingBatch(),
+                    comment.getPendingHomeworkNextDueDate(), actorUserId);
+            comment.setHomeworkNextGrammarBatch(grammarBatch);
             comment.setHomeworkNextReviewVideoAssignment(videoAssignment);
-            comment.setPendingHomeworkNextExerciseId(null);
+            comment.setHomeworkNextReadingBatch(readingBatch);
+            comment.setHomeworkNextWritingBatch(writingBatch);
+            comment.setPendingHomeworkNextGrammarExamId(null);
             comment.setPendingHomeworkNextReviewVideoSetId(null);
+            comment.setPendingHomeworkNextReadingExamId(null);
+            comment.setPendingHomeworkNextWritingExamId(null);
             comment.setPendingHomeworkNextDueDate(null);
 
             ApprovalFlow flow = new ApprovalFlow();
@@ -555,6 +615,62 @@ public class StudentCommentService {
         List<StudentComment> saved = studentCommentRepository.saveAll(comments);
         saved.forEach(c -> writeHistory(c, actor, StudentCommentHistory.Action.UPDATED));
         notifySiteManagersPending(saved);
+        return saved.stream().map(this::toResponse).toList();
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc (2026-08-24, xác nhận với người dùng) — đổi Hạn nộp BTVN buổi sau cho
+     * TOÀN BỘ nhận xét DRAFT/REJECTED của 1 buổi trong 1 transaction.
+     *
+     * <p>Lý do cần API riêng thay vì N request {@code updateComment} song song (cách FE vẫn dùng cho
+     * "Lưu nháp"/"Gửi nhận xét"): {@link #requireNoDueDateConflict} bắt mọi nhận xét cùng buổi phải
+     * chung 1 hạn nộp, so với DB tại thời điểm request chạy. Khi N nhận xét NHÁP đang cùng giữ 1 hạn
+     * nộp cũ (VD mặc định = buổi kế tiếp, do trước đó chưa ai chọn hạn tường minh) và cần đổi sang 1
+     * hạn mới, N request riêng lẻ — dù chạy song song hay tuần tự — LUÔN thất bại: request xử lý
+     * nhận xét nào cũng so với N-1 nhận xét còn lại, mà những nhận xét đó chưa kịp đổi (chưa commit)
+     * tại thời điểm so sánh — không có thứ tự xử lý nào thoát được vòng lặp này (bug thực tế phát
+     * hiện 2026-08-24, khi thao tác 48 học sinh cùng lúc luôn báo "0/48 lưu được").</p>
+     *
+     * <p>Sửa bằng cách gộp đổi CẢ LÔ trong 1 transaction: chỉ đối chiếu xung đột với nhận xét NGOÀI
+     * lô (đã PENDING/APPROVED — có bản giao thật với hạn nộp khác) — không so các dòng NHÁP/REJECTED
+     * đang được đổi cùng nhau trong cùng 1 lần gọi, vì chúng đằng nào cũng sẽ cùng ra 1 giá trị sau
+     * khi lưu.</p>
+     */
+    @Transactional
+    public List<StudentCommentResponse> bulkUpdatePendingDueDate(Long sessionId, LocalDateTime dueDate, Long actorUserId) {
+        ClassSession session = getClassSessionOrThrow(sessionId);
+        User actor = getUserOrThrow(actorUserId);
+        requireCanWriteDailyComment(session, actorUserId);
+
+        List<StudentComment> siblings = studentCommentRepository.findByClassSessionId(sessionId);
+        List<StudentComment> editable = siblings.stream()
+                .filter(c -> c.getStatus() == StudentComment.Status.DRAFT || c.getStatus() == StudentComment.Status.REJECTED)
+                .toList();
+        if (editable.isEmpty()) {
+            throw new ResourceNotFoundException("error.studentComment.noEditableCommentInSession", new Object[]{sessionId},
+                    "Buổi học id=" + sessionId + " chưa có nhận xét NHÁP/Bị từ chối nào để đổi hạn nộp.");
+        }
+
+        OffsetDateTime newDueAt = dueDate.atZone(APP_ZONE).toOffsetDateTime();
+        Set<Long> editableIds = editable.stream().map(StudentComment::getId).collect(java.util.stream.Collectors.toSet());
+        for (StudentComment sibling : siblings) {
+            if (editableIds.contains(sibling.getId())) {
+                continue;
+            }
+            OffsetDateTime siblingDueAt = effectiveDueAt(session, sibling);
+            if (siblingDueAt != null && !siblingDueAt.isEqual(newDueAt)) {
+                throw new HomeworkNextConflictException(
+                        "error.homeworkNextConflict.dueDateLocked",
+                        new Object[]{siblingDueAt, sibling.getStudent().getUser().getFullName(), newDueAt},
+                        "Hạn nộp BTVN buổi này đã khóa theo " + siblingDueAt
+                                + " (đã giao thật cho học sinh " + sibling.getStudent().getUser().getFullName()
+                                + ") — không thể đổi sang " + newDueAt + ".");
+            }
+        }
+
+        editable.forEach(c -> c.setPendingHomeworkNextDueDate(dueDate));
+        List<StudentComment> saved = studentCommentRepository.saveAll(editable);
+        saved.forEach(c -> writeHistory(c, actor, StudentCommentHistory.Action.UPDATED));
         return saved.stream().map(this::toResponse).toList();
     }
 
@@ -730,6 +846,33 @@ public class StudentCommentService {
      * đã nhập trước đó (nếu có, để sửa lại). Cùng quyền/hạn với ghi nhận
      * xét (xem requireCanWriteDailyComment).
      */
+    /**
+     * V146 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23) — % TỰ ĐỘNG "BTVN buổi
+     * trước" cho TOÀN BỘ học sinh ACTIVE của lớp, tính trực tiếp từ buổi TRƯỚC (không cần buổi hiện
+     * tại đã có StudentComment nào) — dùng để bảng Nhận xét hàng ngày hiện được % tự động ngay cả khi
+     * giáo viên chưa Lưu nháp/Gửi lần nào cho buổi đang xem (xem AutoProgressPreviewResponse). Cùng
+     * quyền với buildTemplate (chỉ GV được phân công lớp hoặc actor có academic.comment.approve).
+     */
+    @Transactional(readOnly = true)
+    public List<AutoProgressPreviewResponse> previewAutoProgress(Long classSessionId, Long actorUserId) {
+        ClassSession classSession = getClassSessionOrThrow(classSessionId);
+        requireCanWriteDailyComment(classSession, actorUserId);
+        Long classId = classSession.getSchoolClass().getId();
+        List<ClassEnrollment> enrollments = classEnrollmentRepository
+                .findBySchoolClassIdAndStatus(classId, ClassEnrollment.Status.ACTIVE);
+        return enrollments.stream()
+                .map(enrollment -> {
+                    Long studentId = enrollment.getStudent().getId();
+                    StudentComment previous = previousComment(classSession, studentId);
+                    return new AutoProgressPreviewResponse(studentId,
+                            grammarPreviousProgressLabel(previous),
+                            videoPreviousProgressLabel(previous),
+                            readingPreviousProgressLabel(previous),
+                            writingPreviousProgressLabel(previous));
+                })
+                .toList();
+    }
+
     @Transactional(readOnly = true)
     public byte[] buildTemplate(Long classSessionId, Long actorUserId) {
         ClassSession classSession = getClassSessionOrThrow(classSessionId);
@@ -740,10 +883,14 @@ public class StudentCommentService {
         Map<Long, AttendanceMark.Status> attendanceByStudent = currentAttendanceByStudent(classSessionId);
         List<ClassEnrollment> enrollments = classEnrollmentRepository
                 .findBySchoolClassIdAndStatus(classId, ClassEnrollment.Status.ACTIVE);
-        List<Exercise> grammarOptions = exerciseRepository.findAvailableForClass(classId, Exercise.Status.PUBLISHED)
-                .stream().filter(e -> matchesSessionTeacherType(e, sessionTeacherType)).toList();
+        // V150 — 1 entry/Lesson (nhóm kỹ năng), không còn 1 entry/Exercise. V151 — kênh Ngữ pháp/Nghe dùng
+        // CHUNG cột này, skillCategory chọn theo teacherType của buổi (xem grammarChannelSkillCategory).
+        Map<String, Exam> grammarOptions = examSkillGroupsByLabel(classId, grammarChannelSkillCategory(sessionTeacherType), sessionTeacherType);
         List<ReviewVideoSet> videoOptions = reviewVideoSetRepository.findAvailableForClass(classId, ReviewVideoSet.Status.PUBLISHED)
                 .stream().filter(s -> matchesSessionTeacherType(s, sessionTeacherType)).toList();
+        // V137 — chỉ dùng khi buổi VIETNAMESE, lọc thêm theo skillCategory (khác grammarOptions/videoOptions ở trên — KHÔNG lọc teacherType vì skillCategory đã đủ đặc trưng, GV Việt Nam mới có field này).
+        Map<String, Exam> readingOptions = examSkillGroupsByLabel(classId, Exercise.SkillCategory.READING, null);
+        Map<String, Exam> writingOptions = examSkillGroupsByLabel(classId, Exercise.SkillCategory.WRITING, null);
 
         String grammarLabelText = grammarChannelLabel(sessionTeacherType);
         String videoLabelText = videoChannelLabel(sessionTeacherType);
@@ -758,17 +905,17 @@ public class StudentCommentService {
         if (hc.vietnamese) {
             headers = List.of("Ngày*", "Mã học viên*", "Họ và tên", "Ngày sinh", "Tên bài học",
                     "Tên giáo viên giảng dạy", "Điểm danh*",
-                    "Reading", "Writing", VIETNAMESE_ONLINE_GRAMMAR_LABEL, VIETNAMESE_ONLINE_VIDEO_LABEL,
-                    "Reading", "Writing", VIETNAMESE_ONLINE_GRAMMAR_LABEL, VIETNAMESE_ONLINE_VIDEO_LABEL,
+                    "Reading", "Writing", "Reading", "Writing", VIETNAMESE_ONLINE_GRAMMAR_LABEL, VIETNAMESE_ONLINE_VIDEO_LABEL,
+                    "Reading", "Writing", "Reading", "Writing", VIETNAMESE_ONLINE_GRAMMAR_LABEL, VIETNAMESE_ONLINE_VIDEO_LABEL,
                     "Hạn nộp bài", "Thái độ học tập", "Nhận xét học sinh*", "Ghi chú");
             headerGroups = List.of(
                     new ExcelExportHelper.HeaderGroup("BTVN buổi trước", hc.previousReadingOrOffline, hc.previousOnlineVideo),
                     new ExcelExportHelper.HeaderGroup("BTVN buổi này", hc.nextReadingOrOffline, hc.nextOnlineVideo));
             headerSubGroups = List.of(
                     new ExcelExportHelper.HeaderGroup("Offline", hc.previousReadingOrOffline, hc.previousWriting),
-                    new ExcelExportHelper.HeaderGroup("Online", hc.previousOnlineGrammar, hc.previousOnlineVideo),
+                    new ExcelExportHelper.HeaderGroup("Online", hc.previousOnlineReading, hc.previousOnlineVideo),
                     new ExcelExportHelper.HeaderGroup("Offline", hc.nextReadingOrOffline, hc.nextWriting),
-                    new ExcelExportHelper.HeaderGroup("Online", hc.nextOnlineGrammar, hc.nextOnlineVideo));
+                    new ExcelExportHelper.HeaderGroup("Online", hc.nextOnlineReading, hc.nextOnlineVideo));
         } else {
             headers = List.of("Ngày*", "Mã học viên*", "Họ và tên", "Ngày sinh", "Tên bài học",
                     "Tên giáo viên giảng dạy", "Điểm danh*",
@@ -801,10 +948,14 @@ public class StudentCommentService {
             if (hc.vietnamese) {
                 row.add(resolvedReadingPrevious(existing));
                 row.add(resolvedWritingPrevious(existing));
+                row.add(readingPreviousProgressLabel(previous));
+                row.add(writingPreviousProgressLabel(previous));
                 row.add(resolvedGrammarPrevious(existing, previous));
                 row.add(resolvedSpeakingPrevious(existing, previous));
                 row.add(resolvedHomeworkNextReading(existing));
                 row.add(resolvedHomeworkNextWriting(existing));
+                row.add(resolvedHomeworkOnlineReading(existing));
+                row.add(resolvedHomeworkOnlineWriting(existing));
             } else {
                 row.add(resolvedOfflinePrevious(previous));
                 row.add(resolvedGrammarPrevious(existing, previous));
@@ -822,8 +973,12 @@ public class StudentCommentService {
         Map<Integer, List<String>> dropdowns = new LinkedHashMap<>();
         dropdowns.put(COL_ATTENDANCE, Arrays.stream(AttendanceMark.Status.values()).map(this::attendanceLabel).toList());
         dropdowns.put(hc.attitude, Arrays.stream(StudentComment.Attitude.values()).map(this::attitudeLabel).toList());
-        dropdowns.put(hc.nextOnlineGrammar, grammarOptions.stream().map(this::grammarLabel).toList());
+        dropdowns.put(hc.nextOnlineGrammar, new ArrayList<>(grammarOptions.keySet()));
         dropdowns.put(hc.nextOnlineVideo, videoOptions.stream().map(this::videoLabel).toList());
+        if (hc.vietnamese) {
+            dropdowns.put(hc.nextOnlineReading, new ArrayList<>(readingOptions.keySet()));
+            dropdowns.put(hc.nextOnlineWriting, new ArrayList<>(writingOptions.keySet()));
+        }
         // Sheet "Hướng dẫn" (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06) — thống nhất
         // định dạng dữ liệu trước khi nhập lại lên hệ thống, đặc biệt cột Ngày/Hạn nộp bài (dễ bị Excel
         // tự đổi định dạng ngày giờ theo cấu hình máy khi gõ tay).
@@ -834,12 +989,13 @@ public class StudentCommentService {
                 "2. Cột \"Hạn nộp bài\" (" + colLetter(hc.dueDate) + "): nếu có điền, đúng định dạng yyyy-MM-dd HH:mm (VD: 2026-08-10 17:30) — gõ ĐÚNG y hệt, không để Excel tự chuyển sang định dạng ngày giờ theo máy (dd/mm/yyyy, mm/dd/yyyy...) vì có thể đọc sai khi nhập lại. Nếu Excel tự đổi khi gõ, bôi đen cột này rồi Format Cells > Text trước khi nhập. PHẢI GIỐNG NHAU giữa mọi học sinh trong lớp (chỉ 1 hạn nộp chung cho cả buổi) — khác nhau sẽ bị từ chối CẢ FILE.",
                 "3. Cột \"Tên bài học\" (" + colLetter(COL_LESSON_CONTENT) + ") và \"Tên giáo viên giảng dạy\" (" + colLetter(COL_TEACHER_NAME) + "): cũng phải giống nhau giữa mọi học sinh trong lớp (1 giá trị dùng chung cho cả buổi) — khác nhau sẽ bị từ chối CẢ FILE.",
                 "4. Nhóm \"BTVN\" (" + colLetter(hc.nextReadingOrOffline) + "-" + colLetter(hc.nextOnlineVideo) + "): có thể điền đồng thời cả Offline (chữ tự do) và Online.",
-                "5. 2 cột con nhóm \"Online\" của \"BTVN\": chọn đúng 1 giá trị trong danh sách dropdown thả xuống, không tự gõ tên khác — có thể dán uuid thay cho chọn dropdown nếu danh sách quá dài (uuid xem trong Kho đề/Kho Video Ôn tập).",
+                "5. " + (hc.vietnamese ? "4" : "2") + " cột con nhóm \"Online\" của \"BTVN\": chọn đúng 1 giá trị trong danh sách dropdown thả xuống, không tự gõ tên khác — có thể dán uuid thay cho chọn dropdown nếu danh sách quá dài (uuid xem trong Kho đề/Kho Video Ôn tập).",
                 "6. Cột \"Họ và tên\" (" + colLetter(COL_FULL_NAME) + ") và \"Ngày sinh\" (" + colLetter(COL_DOB) + "): chỉ hiển thị để đối chiếu — sửa các cột này KHÔNG được lưu lại khi nhập lên.",
                 "7. Cột \"Điểm danh*\" (" + colLetter(COL_ATTENDANCE) + ") và \"Thái độ học tập\" (" + colLetter(hc.attitude) + "): nên chọn đúng trong dropdown cho chắc chắn, dù hệ thống có chấp nhận thêm vài biến thể viết khác."
         ));
         if (hc.vietnamese) {
             notes.add("8. 2 cột con \"Reading\"/\"Writing\" nhóm \"Offline\" của \"BTVN buổi trước\": điểm % giáo viên tự chấm tay — điền tự do (VD \"80%\"), không có dropdown.");
+            notes.add("9. 2 cột con \"Reading\"/\"Writing\" nhóm \"Online\": dropdown chỉ hiện Bài đã soạn đúng nhóm kỹ năng tương ứng (Reading/Writing, xem \"Nhóm kỹ năng\" lúc soạn Bài ở Soạn & Giao đề) — Bài khác nhóm (VD Từ vựng & Ngữ pháp) sẽ không xuất hiện trong dropdown này.");
         } else {
             notes.add("8. Cột con \"Offline\" trong nhóm \"BTVN buổi trước\": chỉ hiển thị để đối chiếu (BTVN offline buổi trước đã giao) — sửa cột này KHÔNG được lưu lại khi nhập lên.");
         }
@@ -951,11 +1107,12 @@ public class StudentCommentService {
         if (existing == null) {
             return null;
         }
-        if (existing.getHomeworkNextExerciseAssignment() != null) {
-            return grammarLabel(existing.getHomeworkNextExerciseAssignment().getExercise());
+        if (existing.getHomeworkNextGrammarBatch() != null) {
+            return batchLabel(existing.getHomeworkNextGrammarBatch());
         }
-        if (existing.getPendingHomeworkNextExerciseId() != null) {
-            return exerciseRepository.findById(existing.getPendingHomeworkNextExerciseId()).map(this::grammarLabel).orElse(null);
+        if (existing.getPendingHomeworkNextGrammarExamId() != null) {
+            return examRepository.findByIdAndDeletedAtIsNull(existing.getPendingHomeworkNextGrammarExamId())
+                    .map(exam -> examSkillGroupLabel(exam, grammarChannelSkillCategory(existing.getClassSession().getTeacherType()))).orElse(null);
         }
         return null;
     }
@@ -970,6 +1127,36 @@ public class StudentCommentService {
         }
         if (existing.getPendingHomeworkNextReviewVideoSetId() != null) {
             return reviewVideoSetRepository.findById(existing.getPendingHomeworkNextReviewVideoSetId()).map(this::videoLabel).orElse(null);
+        }
+        return null;
+    }
+
+    /** V137: mirror resolvedHomeworkOnlineGrammar cho kênh Reading — chỉ có ý nghĩa khi buổi teacherType=VIETNAMESE. */
+    private String resolvedHomeworkOnlineReading(StudentComment existing) {
+        if (existing == null) {
+            return null;
+        }
+        if (existing.getHomeworkNextReadingBatch() != null) {
+            return batchLabel(existing.getHomeworkNextReadingBatch());
+        }
+        if (existing.getPendingHomeworkNextReadingExamId() != null) {
+            return examRepository.findByIdAndDeletedAtIsNull(existing.getPendingHomeworkNextReadingExamId())
+                    .map(exam -> examSkillGroupLabel(exam, Exercise.SkillCategory.READING)).orElse(null);
+        }
+        return null;
+    }
+
+    /** Mirror {@link #resolvedHomeworkOnlineReading} cho kỹ năng Writing (V137). */
+    private String resolvedHomeworkOnlineWriting(StudentComment existing) {
+        if (existing == null) {
+            return null;
+        }
+        if (existing.getHomeworkNextWritingBatch() != null) {
+            return batchLabel(existing.getHomeworkNextWritingBatch());
+        }
+        if (existing.getPendingHomeworkNextWritingExamId() != null) {
+            return examRepository.findByIdAndDeletedAtIsNull(existing.getPendingHomeworkNextWritingExamId())
+                    .map(exam -> examSkillGroupLabel(exam, Exercise.SkillCategory.WRITING)).orElse(null);
         }
         return null;
     }
@@ -1072,7 +1259,8 @@ public class StudentCommentService {
                             parsed.grammarExercise(), parsed.videoSet(), parsed.note(),
                             parsed.homeworkPreviousSpeaking(), parsed.homeworkPreviousReading(),
                             parsed.homeworkPreviousWriting(), parsed.homeworkNextReading(),
-                            parsed.homeworkNextWriting(), customDueDate, actor);
+                            parsed.homeworkNextWriting(), parsed.readingExercise(), parsed.writingExercise(),
+                            customDueDate, actor);
                     successRows++;
                 } catch (RuntimeException ex) {
                     errors.add(rowError(parsed.rowNumber() + 1, ex.getMessage()));
@@ -1156,7 +1344,8 @@ public class StudentCommentService {
                             && parsed.grammarExercise() == null && parsed.videoSet() == null
                             && parsed.note() == null && parsed.homeworkPreviousSpeaking() == null
                             && parsed.homeworkPreviousReading() == null && parsed.homeworkPreviousWriting() == null
-                            && parsed.homeworkNextReading() == null && parsed.homeworkNextWriting() == null;
+                            && parsed.homeworkNextReading() == null && parsed.homeworkNextWriting() == null
+                            && parsed.readingExercise() == null && parsed.writingExercise() == null;
                     if (!(absent && allBlank)) {
                         if (parsed.content() == null || parsed.content().isBlank()) {
                             throw new IllegalArgumentException(
@@ -1168,7 +1357,10 @@ public class StudentCommentService {
                                 parsed.homeworkPreviousWriting(), parsed.content(), parsed.homeworkNext(),
                                 parsed.homeworkNextReading(), parsed.homeworkNextWriting(),
                                 parsed.grammarExercise() == null ? null : parsed.grammarExercise().getId(),
-                                parsed.videoSet() == null ? null : parsed.videoSet().getId(), parsed.note()));
+                                parsed.videoSet() == null ? null : parsed.videoSet().getId(),
+                                parsed.readingExercise() == null ? null : parsed.readingExercise().getId(),
+                                parsed.writingExercise() == null ? null : parsed.writingExercise().getId(),
+                                parsed.note()));
                     }
                     successRows++;
                 } catch (RuntimeException ex) {
@@ -1205,13 +1397,13 @@ public class StudentCommentService {
     private ParsedImportFile parseImportWorkbook(MultipartFile file, ClassSession classSession) throws IOException {
         Long classId = classSession.getSchoolClass().getId();
         ClassSession.TeacherType sessionTeacherType = classSession.getTeacherType();
-        Map<String, Exercise> grammarByLabel = exerciseRepository
-                .findAvailableForClass(classId, Exercise.Status.PUBLISHED).stream()
-                .filter(e -> matchesSessionTeacherType(e, sessionTeacherType))
-                .collect(java.util.stream.Collectors.toMap(this::grammarLabel, e -> e, (a, b) -> a));
+        Map<String, Exam> grammarByLabel = examSkillGroupsByLabel(classId, grammarChannelSkillCategory(sessionTeacherType), sessionTeacherType);
         Map<String, ReviewVideoSet> videoByLabel = reviewVideoSetRepository.findAvailableForClass(classId, ReviewVideoSet.Status.PUBLISHED).stream()
                 .filter(s -> matchesSessionTeacherType(s, sessionTeacherType))
                 .collect(java.util.stream.Collectors.toMap(this::videoLabel, s -> s, (a, b) -> a));
+        // V137 — chỉ có ý nghĩa khi buổi VIETNAMESE, mirror grammarByLabel nhưng lọc theo skillCategory (không lọc teacherType — mirror hành vi gốc).
+        Map<String, Exam> readingByLabel = examSkillGroupsByLabel(classId, Exercise.SkillCategory.READING, null);
+        Map<String, Exam> writingByLabel = examSkillGroupsByLabel(classId, Exercise.SkillCategory.WRITING, null);
 
         HomeworkColumns hc = HomeworkColumns.of(sessionTeacherType);
         List<Map<String, Object>> errors = new ArrayList<>();
@@ -1238,7 +1430,7 @@ public class StudentCommentService {
                 }
                 totalRows++;
                 try {
-                    parsedRows.add(parseRow(row, formatter, rowIndex, classSession, grammarByLabel, videoByLabel, hc));
+                    parsedRows.add(parseRow(row, formatter, rowIndex, classSession, grammarByLabel, videoByLabel, readingByLabel, writingByLabel, hc));
                 } catch (RuntimeException ex) {
                     errors.add(rowError(rowIndex + 1, ex.getMessage()));
                 }
@@ -1290,11 +1482,14 @@ public class StudentCommentService {
 
     private record ParsedRow(int rowNumber, Student student, AttendanceMark.Status attendance, String attitude,
                               String homeworkPrevious, String content, String homeworkNext,
-                              Exercise grammarExercise, ReviewVideoSet videoSet, String note,
+                              /** V150 — Lesson (Exam) chọn cho kênh Ngữ pháp, KHÔNG còn là 1 Exercise đơn (xem HomeworkSkillBatchService). */
+                              Exam grammarExercise, ReviewVideoSet videoSet, String note,
                               String homeworkPreviousSpeaking,
                               /** V130 — chỉ khác null khi buổi teacherType=VIETNAMESE (xem HomeworkColumns). */
                               String homeworkPreviousReading, String homeworkPreviousWriting,
                               String homeworkNextReading, String homeworkNextWriting,
+                              /** V137/V150 — chỉ khác null khi buổi teacherType=VIETNAMESE. Lesson (Exam), không còn là 1 Exercise đơn. */
+                              Exam readingExercise, Exam writingExercise,
                               String lessonContent,
                               /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06. */
                               String teacherName,
@@ -1302,7 +1497,8 @@ public class StudentCommentService {
                               String dueDateText) {}
 
     private ParsedRow parseRow(Row row, DataFormatter formatter, int rowIndex, ClassSession classSession,
-                                Map<String, Exercise> grammarByLabel, Map<String, ReviewVideoSet> videoByLabel,
+                                Map<String, Exam> grammarByLabel, Map<String, ReviewVideoSet> videoByLabel,
+                                Map<String, Exam> readingByLabel, Map<String, Exam> writingByLabel,
                                 HomeworkColumns hc) {
         String dateText = cell(row, formatter, COL_DATE);
         String studentCode = cell(row, formatter, COL_STUDENT_CODE);
@@ -1325,6 +1521,9 @@ public class StudentCommentService {
         String homeworkNextReading = hc.vietnamese ? cell(row, formatter, hc.nextReadingOrOffline) : null;
         String homeworkNextWriting = hc.vietnamese ? cell(row, formatter, hc.nextWriting) : null;
         String homeworkOfflineText = hc.vietnamese ? null : cell(row, formatter, hc.nextReadingOrOffline);
+        // V137 — chỉ buổi VIETNAMESE có 2 cột "Online" Reading/Writing giao buổi sau.
+        String readingNextText = hc.vietnamese ? cell(row, formatter, hc.nextOnlineReading) : null;
+        String writingNextText = hc.vietnamese ? cell(row, formatter, hc.nextOnlineWriting) : null;
 
         if (dateText == null || dateText.isBlank()) {
             throw new IllegalArgumentException("Thiếu ngày (cột A).");
@@ -1358,15 +1557,20 @@ public class StudentCommentService {
         // kênh Ngữ pháp, khớp hành vi đã có sẵn ở writeComment/updateComment (API JSON chưa từng chặn
         // tổ hợp này — chỉ luồng Excel import còn chặn, nay gỡ bỏ cho nhất quán).
         String homeworkNext = blankToNull(homeworkOfflineText);
-        Exercise grammarExercise = resolveByUuidOrLabel(blankToNull(grammarNextText), grammarByLabel,
-                exerciseRepository::findByUuid, "đề");
+        Exam grammarExercise = resolveByUuidOrLabel(blankToNull(grammarNextText), grammarByLabel,
+                examRepository::findByUuid, "Lesson");
         ReviewVideoSet videoSet = resolveByUuidOrLabel(blankToNull(videoText), videoByLabel,
                 reviewVideoSetRepository::findByUuid, "bộ video");
+        Exam readingExercise = resolveByUuidOrLabel(blankToNull(readingNextText), readingByLabel,
+                examRepository::findByUuid, "Lesson Reading");
+        Exam writingExercise = resolveByUuidOrLabel(blankToNull(writingNextText), writingByLabel,
+                examRepository::findByUuid, "Lesson Writing");
         return new ParsedRow(rowIndex, student, attendance, attitude,
                 blankToNull(homeworkPrevious), blankToNull(content), homeworkNext,
                 grammarExercise, videoSet, blankToNull(note), blankToNull(homeworkPreviousSpeaking),
                 blankToNull(homeworkPreviousReading), blankToNull(homeworkPreviousWriting),
                 blankToNull(homeworkNextReading), blankToNull(homeworkNextWriting),
+                readingExercise, writingExercise,
                 blankToNull(lessonContentText), blankToNull(teacherNameText), blankToNull(dueDateText));
     }
 
@@ -1379,15 +1583,17 @@ public class StudentCommentService {
      */
     private void importRow(ClassSession classSession, Student student, AttendanceMark.Status attendance,
                             String attitude, String homeworkPrevious, String content, String homeworkNext,
-                            Exercise grammarExercise, ReviewVideoSet videoSet, String note,
+                            Exam grammarExercise, ReviewVideoSet videoSet, String note,
                             String homeworkPreviousSpeaking, String homeworkPreviousReading,
                             String homeworkPreviousWriting, String homeworkNextReading, String homeworkNextWriting,
+                            Exam readingExercise, Exam writingExercise,
                             LocalDateTime customDueDate, User actor) {
         boolean absent = attendance == AttendanceMark.Status.ABSENT || attendance == AttendanceMark.Status.EXCUSED;
         boolean allBlank = attitude == null && homeworkPrevious == null && content == null
                 && homeworkNext == null && grammarExercise == null && videoSet == null && note == null
                 && homeworkPreviousSpeaking == null && homeworkPreviousReading == null
-                && homeworkPreviousWriting == null && homeworkNextReading == null && homeworkNextWriting == null;
+                && homeworkPreviousWriting == null && homeworkNextReading == null && homeworkNextWriting == null
+                && readingExercise == null && writingExercise == null;
         if (absent && allBlank) {
             return;
         }
@@ -1416,6 +1622,8 @@ public class StudentCommentService {
         // V127: chỉ validate + lưu tạm lựa chọn, KHÔNG giao ngay — mirror writeComment/updateComment.
         validatePendingExerciseChoice(classSession, comment.getId(), grammarExercise == null ? null : grammarExercise.getId(), customDueDate);
         validatePendingVideoChoice(classSession, comment.getId(), videoSet == null ? null : videoSet.getId(), customDueDate);
+        validatePendingReadingExerciseChoice(classSession, comment.getId(), readingExercise == null ? null : readingExercise.getId(), customDueDate);
+        validatePendingWritingExerciseChoice(classSession, comment.getId(), writingExercise == null ? null : writingExercise.getId(), customDueDate);
         comment.setTeacher(actor);
         comment.setApprovalFlow(null);
         applyContent(comment, content, null, null, false,
@@ -1423,6 +1631,8 @@ public class StudentCommentService {
                 homeworkPreviousWriting, homeworkNext, homeworkNextReading, homeworkNextWriting,
                 grammarExercise == null ? null : grammarExercise.getId(),
                 videoSet == null ? null : videoSet.getId(),
+                readingExercise == null ? null : readingExercise.getId(),
+                writingExercise == null ? null : writingExercise.getId(),
                 customDueDate, note);
         comment.setStatus(StudentComment.Status.DRAFT);
         comment = studentCommentRepository.save(comment);
@@ -1437,6 +1647,7 @@ public class StudentCommentService {
                                String homeworkPreviousWritingScore, String homeworkNext,
                                String homeworkNextReading, String homeworkNextWriting,
                                Long pendingHomeworkNextExerciseId, Long pendingHomeworkNextReviewVideoSetId,
+                               Long pendingHomeworkNextReadingExerciseId, Long pendingHomeworkNextWritingExerciseId,
                                LocalDateTime pendingHomeworkNextDueDate, String note) {
         // Bổ sung ngoài SDD gốc, xác nhận 2026-08-17 — content không còn @NotBlank ở DTO (cho lưu nháp
         // độc lập Thái độ/BTVN/Ghi chú), nhưng cột DB student_comments.content vẫn NOT NULL (V15,
@@ -1460,8 +1671,11 @@ public class StudentCommentService {
         // V127: BTVN buổi sau (Exercise/ReviewVideoSet) không còn giao NGAY ở đây — chỉ lưu tạm lựa
         // chọn (đã validate ở validatePendingExerciseChoice/validatePendingVideoChoice, gọi TRƯỚC
         // applyContent ở cả 3 nơi gọi). Giao bài thật chỉ xảy ra ở submitComments().
-        comment.setPendingHomeworkNextExerciseId(pendingHomeworkNextExerciseId);
+        comment.setPendingHomeworkNextGrammarExamId(pendingHomeworkNextExerciseId);
         comment.setPendingHomeworkNextReviewVideoSetId(pendingHomeworkNextReviewVideoSetId);
+        // V137 — mirror pendingHomeworkNextGrammarExamId, chỉ có ý nghĩa khi buổi teacherType=VIETNAMESE.
+        comment.setPendingHomeworkNextReadingExamId(pendingHomeworkNextReadingExerciseId);
+        comment.setPendingHomeworkNextWritingExamId(pendingHomeworkNextWritingExerciseId);
         comment.setPendingHomeworkNextDueDate(pendingHomeworkNextDueDate);
         comment.setNote(note);
     }
@@ -1495,23 +1709,24 @@ public class StudentCommentService {
      *                         Giáo viên tự chọn; null thì giữ hành vi cũ
      *                         (resolveNextSessionDueAt).
      */
-    private ExerciseAssignment resolveExerciseHomework(ClassSession session, Long excludeCommentId, Long exerciseId,
-                                                        ExerciseAssignment previous, LocalDateTime customDueDate, Long actorUserId) {
-        if (exerciseId == null) {
+    private HomeworkSkillBatch resolveGrammarExerciseHomework(ClassSession session, Long excludeCommentId, Long examId,
+                                                                HomeworkSkillBatch previous, LocalDateTime customDueDate, Long actorUserId) {
+        if (examId == null) {
             if (previous != null) {
-                exerciseService.cancelAssignment(previous);
+                homeworkSkillBatchService.cancelBatch(previous);
             }
             return null;
         }
-        if (previous != null && previous.getExercise().getId().equals(exerciseId)) {
+        if (previous != null && previous.getExam().getId().equals(examId)) {
             return previous;
         }
-        ExerciseChoiceValidation validated = validateExerciseChoiceAndConflicts(session, excludeCommentId, exerciseId, customDueDate);
-        ExerciseAssignment assignment = exerciseService.deliverToClass(exerciseId, session.getSchoolClass().getId(), validated.dueAt(), actorUserId, session);
+        ExamChoiceValidation validated = validateExerciseChoiceAndConflicts(session, excludeCommentId, examId, customDueDate);
+        HomeworkSkillBatch batch = homeworkSkillBatchService.assignBatchToClass(
+                examId, grammarChannelSkillCategory(session.getTeacherType()), session.getSchoolClass().getId(), validated.dueAt(), actorUserId, session);
         if (previous != null) {
-            exerciseService.cancelAssignment(previous);
+            homeworkSkillBatchService.cancelBatch(previous);
         }
-        return assignment;
+        return batch;
     }
 
     /** V65: mirror resolveExerciseHomework cho kênh Video Ôn tập — xem Javadoc đó (kể cả ghi chú V127). */
@@ -1540,16 +1755,17 @@ public class StudentCommentService {
      * bước giao thật lúc Gửi ({@link #resolveExerciseHomework}, tái dùng {@code dueAt} đã resolve ở
      * đây thẳng cho {@code deliverToClass}, không resolve lại lần 2) — tránh lặp logic.
      */
-    private record ExerciseChoiceValidation(Exercise exercise, OffsetDateTime dueAt) {}
+    private record ExamChoiceValidation(Exam exam, OffsetDateTime dueAt) {}
 
-    private ExerciseChoiceValidation validateExerciseChoiceAndConflicts(ClassSession session, Long excludeCommentId, Long exerciseId, LocalDateTime customDueDate) {
-        Exercise exercise = exerciseRepository.findById(exerciseId)
-                .orElseThrow(() -> new ResourceNotFoundException("error.studentComment.exerciseNotFoundById", new Object[]{exerciseId}, "Không tìm thấy đề id=" + exerciseId));
+    /** V150 — examId thay cho exerciseId cũ: xác nhận Lesson tồn tại + có Bài VOCAB_GRAMMAR đã Publish (HomeworkSkillBatchService tự báo lỗi rõ nếu rỗng khi thật sự giao), không còn cần requireGrammarChannelSkillCategory (skillCategory giờ cố định theo kênh, không suy từ 1 Exercise). */
+    private ExamChoiceValidation validateExerciseChoiceAndConflicts(ClassSession session, Long excludeCommentId, Long examId, LocalDateTime customDueDate) {
+        Exam exam = examRepository.findByIdAndDeletedAtIsNull(examId)
+                .orElseThrow(() -> new ResourceNotFoundException("error.studentComment.examNotFoundById", new Object[]{examId}, "Không tìm thấy Đề (Lesson) id=" + examId));
         requireNoHomeworkConflict(session, excludeCommentId, "Ngữ pháp",
-                this::effectiveExerciseChoiceId, this::effectiveExerciseChoiceLabel, exerciseId, exercise.getTitle());
+                this::effectiveExerciseChoiceId, this::effectiveExerciseChoiceLabel, examId, examSkillGroupLabel(exam, grammarChannelSkillCategory(session.getTeacherType())));
         OffsetDateTime dueAt = resolveDueAt(session, customDueDate);
         requireNoDueDateConflict(session, excludeCommentId, dueAt);
-        return new ExerciseChoiceValidation(exercise, dueAt);
+        return new ExamChoiceValidation(exam, dueAt);
     }
 
     /** V127: mirror validateExerciseChoiceAndConflicts cho kênh Video Ôn tập. */
@@ -1596,17 +1812,18 @@ public class StudentCommentService {
      * đột ngay khi có ít nhất 1 học sinh trong buổi đã Gửi trước.
      */
     private Long effectiveExerciseChoiceId(StudentComment c) {
-        if (c.getPendingHomeworkNextExerciseId() != null) {
-            return c.getPendingHomeworkNextExerciseId();
+        if (c.getPendingHomeworkNextGrammarExamId() != null) {
+            return c.getPendingHomeworkNextGrammarExamId();
         }
-        return c.getHomeworkNextExerciseAssignment() == null ? null : c.getHomeworkNextExerciseAssignment().getExercise().getId();
+        return c.getHomeworkNextGrammarBatch() == null ? null : c.getHomeworkNextGrammarBatch().getExam().getId();
     }
 
     private String effectiveExerciseChoiceLabel(StudentComment c) {
-        if (c.getPendingHomeworkNextExerciseId() != null) {
-            return exerciseRepository.findById(c.getPendingHomeworkNextExerciseId()).map(Exercise::getTitle).orElse("?");
+        if (c.getPendingHomeworkNextGrammarExamId() != null) {
+            return examRepository.findByIdAndDeletedAtIsNull(c.getPendingHomeworkNextGrammarExamId())
+                    .map(exam -> examSkillGroupLabel(exam, grammarChannelSkillCategory(c.getClassSession().getTeacherType()))).orElse("?");
         }
-        return c.getHomeworkNextExerciseAssignment() == null ? null : c.getHomeworkNextExerciseAssignment().getExercise().getTitle();
+        return c.getHomeworkNextGrammarBatch() == null ? null : batchLabel(c.getHomeworkNextGrammarBatch());
     }
 
     /** V127: mirror effectiveExerciseChoiceId cho kênh Video Ôn tập. */
@@ -1622,6 +1839,127 @@ public class StudentCommentService {
             return reviewVideoSetRepository.findById(c.getPendingHomeworkNextReviewVideoSetId()).map(ReviewVideoSet::getTitle).orElse("?");
         }
         return c.getHomeworkNextReviewVideoAssignment() == null ? null : c.getHomeworkNextReviewVideoAssignment().getReviewVideoSet().getTitle();
+    }
+
+    // ===================== V137: "BTVN - Online - Reading/Writing" =====================
+    // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-21 — 2 kênh mới song song với kênh
+    // Ngữ pháp/TV+NP ở trên, CHỈ áp dụng cho buổi teacherType=VIETNAMESE. V150: lựa chọn giờ là 1
+    // Lesson (examId), giao TOÀN BỘ Bài Published cùng skillCategory=READING/WRITING tương ứng trong
+    // đó qua HomeworkSkillBatchService (không còn chọn đúng 1 Exercise). Mirror 1-1 toàn bộ cơ chế
+    // kênh Ngữ pháp (resolveGrammarExerciseHomework/validateExerciseChoiceAndConflicts/
+    // validatePendingExerciseChoice/effectiveExerciseChoiceId/Label) — KHÔNG parameterize hoá dùng
+    // chung vì codebase đã có tiền lệ mirror riêng cho kênh Video (không generalize), giữ nhất quán.
+
+    /** Mirror {@link #resolveGrammarExerciseHomework} cho kênh Reading. */
+    private HomeworkSkillBatch resolveReadingExerciseHomework(ClassSession session, Long excludeCommentId, Long examId,
+                                                                HomeworkSkillBatch previous, LocalDateTime customDueDate, Long actorUserId) {
+        if (examId == null) {
+            if (previous != null) {
+                homeworkSkillBatchService.cancelBatch(previous);
+            }
+            return null;
+        }
+        if (previous != null && previous.getExam().getId().equals(examId)) {
+            return previous;
+        }
+        ExamChoiceValidation validated = validateReadingExerciseChoiceAndConflicts(session, excludeCommentId, examId, customDueDate);
+        HomeworkSkillBatch batch = homeworkSkillBatchService.assignBatchToClass(
+                examId, Exercise.SkillCategory.READING, session.getSchoolClass().getId(), validated.dueAt(), actorUserId, session);
+        if (previous != null) {
+            homeworkSkillBatchService.cancelBatch(previous);
+        }
+        return batch;
+    }
+
+    /** Mirror {@link #resolveReadingExerciseHomework} cho kênh Writing. */
+    private HomeworkSkillBatch resolveWritingExerciseHomework(ClassSession session, Long excludeCommentId, Long examId,
+                                                                HomeworkSkillBatch previous, LocalDateTime customDueDate, Long actorUserId) {
+        if (examId == null) {
+            if (previous != null) {
+                homeworkSkillBatchService.cancelBatch(previous);
+            }
+            return null;
+        }
+        if (previous != null && previous.getExam().getId().equals(examId)) {
+            return previous;
+        }
+        ExamChoiceValidation validated = validateWritingExerciseChoiceAndConflicts(session, excludeCommentId, examId, customDueDate);
+        HomeworkSkillBatch batch = homeworkSkillBatchService.assignBatchToClass(
+                examId, Exercise.SkillCategory.WRITING, session.getSchoolClass().getId(), validated.dueAt(), actorUserId, session);
+        if (previous != null) {
+            homeworkSkillBatchService.cancelBatch(previous);
+        }
+        return batch;
+    }
+
+    /** Mirror {@link #validateExerciseChoiceAndConflicts} cho kênh Reading. */
+    private ExamChoiceValidation validateReadingExerciseChoiceAndConflicts(ClassSession session, Long excludeCommentId, Long examId, LocalDateTime customDueDate) {
+        Exam exam = examRepository.findByIdAndDeletedAtIsNull(examId)
+                .orElseThrow(() -> new ResourceNotFoundException("error.studentComment.examNotFoundById", new Object[]{examId}, "Không tìm thấy Đề (Lesson) id=" + examId));
+        requireNoHomeworkConflict(session, excludeCommentId, "Reading",
+                this::effectiveReadingChoiceId, this::effectiveReadingChoiceLabel, examId, examSkillGroupLabel(exam, Exercise.SkillCategory.READING));
+        OffsetDateTime dueAt = resolveDueAt(session, customDueDate);
+        requireNoDueDateConflict(session, excludeCommentId, dueAt);
+        return new ExamChoiceValidation(exam, dueAt);
+    }
+
+    /** Mirror {@link #validateReadingExerciseChoiceAndConflicts} cho kênh Writing. */
+    private ExamChoiceValidation validateWritingExerciseChoiceAndConflicts(ClassSession session, Long excludeCommentId, Long examId, LocalDateTime customDueDate) {
+        Exam exam = examRepository.findByIdAndDeletedAtIsNull(examId)
+                .orElseThrow(() -> new ResourceNotFoundException("error.studentComment.examNotFoundById", new Object[]{examId}, "Không tìm thấy Đề (Lesson) id=" + examId));
+        requireNoHomeworkConflict(session, excludeCommentId, "Writing",
+                this::effectiveWritingChoiceId, this::effectiveWritingChoiceLabel, examId, examSkillGroupLabel(exam, Exercise.SkillCategory.WRITING));
+        OffsetDateTime dueAt = resolveDueAt(session, customDueDate);
+        requireNoDueDateConflict(session, excludeCommentId, dueAt);
+        return new ExamChoiceValidation(exam, dueAt);
+    }
+
+    /** Mirror {@link #validatePendingExerciseChoice} cho kênh Reading. */
+    private void validatePendingReadingExerciseChoice(ClassSession session, Long excludeCommentId, Long examId, LocalDateTime customDueDate) {
+        if (examId == null) {
+            return;
+        }
+        validateReadingExerciseChoiceAndConflicts(session, excludeCommentId, examId, customDueDate);
+    }
+
+    /** Mirror {@link #validatePendingReadingExerciseChoice} cho kênh Writing. */
+    private void validatePendingWritingExerciseChoice(ClassSession session, Long excludeCommentId, Long examId, LocalDateTime customDueDate) {
+        if (examId == null) {
+            return;
+        }
+        validateWritingExerciseChoiceAndConflicts(session, excludeCommentId, examId, customDueDate);
+    }
+
+    /** Mirror {@link #effectiveExerciseChoiceId} cho kênh Reading. */
+    private Long effectiveReadingChoiceId(StudentComment c) {
+        if (c.getPendingHomeworkNextReadingExamId() != null) {
+            return c.getPendingHomeworkNextReadingExamId();
+        }
+        return c.getHomeworkNextReadingBatch() == null ? null : c.getHomeworkNextReadingBatch().getExam().getId();
+    }
+
+    private String effectiveReadingChoiceLabel(StudentComment c) {
+        if (c.getPendingHomeworkNextReadingExamId() != null) {
+            return examRepository.findByIdAndDeletedAtIsNull(c.getPendingHomeworkNextReadingExamId())
+                    .map(exam -> examSkillGroupLabel(exam, Exercise.SkillCategory.READING)).orElse("?");
+        }
+        return c.getHomeworkNextReadingBatch() == null ? null : batchLabel(c.getHomeworkNextReadingBatch());
+    }
+
+    /** Mirror {@link #effectiveReadingChoiceId} cho kênh Writing. */
+    private Long effectiveWritingChoiceId(StudentComment c) {
+        if (c.getPendingHomeworkNextWritingExamId() != null) {
+            return c.getPendingHomeworkNextWritingExamId();
+        }
+        return c.getHomeworkNextWritingBatch() == null ? null : c.getHomeworkNextWritingBatch().getExam().getId();
+    }
+
+    private String effectiveWritingChoiceLabel(StudentComment c) {
+        if (c.getPendingHomeworkNextWritingExamId() != null) {
+            return examRepository.findByIdAndDeletedAtIsNull(c.getPendingHomeworkNextWritingExamId())
+                    .map(exam -> examSkillGroupLabel(exam, Exercise.SkillCategory.WRITING)).orElse("?");
+        }
+        return c.getHomeworkNextWritingBatch() == null ? null : batchLabel(c.getHomeworkNextWritingBatch());
     }
 
     /**
@@ -1741,13 +2079,21 @@ public class StudentCommentService {
      * effectiveVideoChoiceId — cùng lý do "sibling có thể lẫn trạng thái Nháp/Đã gửi".
      */
     private OffsetDateTime effectiveDueAt(ClassSession session, StudentComment c) {
-        if (c.getHomeworkNextExerciseAssignment() != null) {
-            return c.getHomeworkNextExerciseAssignment().getDueAt();
+        if (c.getHomeworkNextGrammarBatch() != null) {
+            return batchDueAt(c.getHomeworkNextGrammarBatch());
         }
         if (c.getHomeworkNextReviewVideoAssignment() != null) {
             return c.getHomeworkNextReviewVideoAssignment().getDueAt();
         }
-        if (c.getPendingHomeworkNextExerciseId() != null || c.getPendingHomeworkNextReviewVideoSetId() != null) {
+        // V137
+        if (c.getHomeworkNextReadingBatch() != null) {
+            return batchDueAt(c.getHomeworkNextReadingBatch());
+        }
+        if (c.getHomeworkNextWritingBatch() != null) {
+            return batchDueAt(c.getHomeworkNextWritingBatch());
+        }
+        if (c.getPendingHomeworkNextGrammarExamId() != null || c.getPendingHomeworkNextReviewVideoSetId() != null
+                || c.getPendingHomeworkNextReadingExamId() != null || c.getPendingHomeworkNextWritingExamId() != null) {
             return resolveDueAt(session, c.getPendingHomeworkNextDueDate());
         }
         return null;
@@ -1779,13 +2125,83 @@ public class StudentCommentService {
         }
     }
 
-    /** Kho đề (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30): "Mã Đề - Tên bài" — phân biệt khi 1 lớp có nhiều Đề. */
-    private String grammarLabel(Exercise e) {
-        return e.getExam().getCode() + " - " + e.getTitle();
-    }
-
     private String videoLabel(ReviewVideoSet s) {
         return s.getTitle() + " (" + s.getCode() + ")";
+    }
+
+    /** V150 — nhãn tiếng Việt ngắn cho 1 skillCategory, dùng dựng nhãn hiển thị nhóm kỹ năng (mirror ExerciseService trước khi bỏ merge). */
+    private static String skillCategoryLabel(Exercise.SkillCategory skillCategory) {
+        return switch (skillCategory) {
+            case READING -> "Reading";
+            case WRITING -> "Writing";
+            case VOCAB_GRAMMAR -> "Ngữ pháp";
+            case LISTENING -> "Nghe";
+        };
+    }
+
+    /**
+     * V150 — nhãn hiển thị 1 Lô ĐÃ giao (đọc đúng N Bài THẬT đã chốt lúc giao qua
+     * {@code exercise_assignments.homework_batch_id}, KHÔNG tính lại theo trạng thái Published hiện tại
+     * — 1 Lesson thêm Bài mới sau khi đã giao không được đổi nhãn của lô CŨ này).
+     *
+     * V152 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — fix bug thật: phát hiện qua
+     * dữ liệu thật 1 Lô KHÔNG có Bài nào gắn vào (0 exercise_assignments, dữ liệu hỏng/sót lại từ lúc
+     * code Lô còn đang phát triển dở, hiện tượng đúng ra không thể xảy ra với assignBatchToClass hiện
+     * tại — sources rỗng đã bị chặn TRƯỚC khi tạo Lô) — trước đây vẫn dựng nhãn kiểu "(Kỹ năng, 0 bài, 0
+     * câu)" gây hiểu nhầm là "Lesson chưa có bài" thay vì "dữ liệu Lô này hỏng". Trả về null khi Lô rỗng,
+     * mirror ĐÚNG guard đã có sẵn ở {@link HomeworkProgressService#grammarProgressLabel(List, Long)} —
+     * FE (cả Portal học sinh lẫn Nhận xét học viên bên Admin, cùng đọc field
+     * {@code homeworkNextExerciseTitle}/tương đương) đã tự hiện "—" khi giá trị null, không cần sửa gì
+     * thêm ở FE.
+     */
+    private String batchLabel(HomeworkSkillBatch batch) {
+        List<ExerciseAssignment> assignments = exerciseAssignmentRepository.findByHomeworkBatchId(batch.getId());
+        if (assignments.isEmpty()) {
+            return null;
+        }
+        long questionCount = assignments.stream()
+                .mapToLong(a -> exerciseQuestionRepository.countByExerciseId(a.getExercise().getId())).sum();
+        return batch.getExam().getCode() + " - " + batch.getExam().getTitle()
+                + " (" + skillCategoryLabel(batch.getSkillCategory()) + ", " + assignments.size() + " bài, " + questionCount + " câu)";
+    }
+
+    /** V150 — hạn nộp chung của 1 Lô (mọi bản giao con trong cùng lô luôn cùng 1 dueAt, xem HomeworkSkillBatchService#assignBatchToClass). */
+    private OffsetDateTime batchDueAt(HomeworkSkillBatch batch) {
+        return exerciseAssignmentRepository.findByHomeworkBatchId(batch.getId()).stream()
+                .map(ExerciseAssignment::getDueAt).filter(java.util.Objects::nonNull).findFirst().orElse(null);
+    }
+
+    /**
+     * V150 — nhãn hiển thị 1 nhóm kỹ năng CHƯA giao (đang chọn/pending, hoặc đang dựng dropdown Excel) —
+     * tính LIVE theo Bài PUBLISHED hiện tại của Lesson (khác {@link #batchLabel}, vì chưa có gì để
+     * "chốt" — số Bài/câu hiển thị luôn khớp thực tế tại thời điểm xem).
+     */
+    private String examSkillGroupLabel(Exam exam, Exercise.SkillCategory skillCategory) {
+        List<Exercise> sources = exerciseRepository.findByExamIdAndSkillCategoryAndStatus(
+                exam.getId(), skillCategory, Exercise.Status.PUBLISHED);
+        long questionCount = sources.stream().mapToLong(e -> exerciseQuestionRepository.countByExerciseId(e.getId())).sum();
+        return exam.getCode() + " - " + exam.getTitle()
+                + " (" + skillCategoryLabel(skillCategory) + ", " + sources.size() + " bài, " + questionCount + " câu)";
+    }
+
+    /**
+     * V150 — dropdown Excel "BTVN online" theo kỹ năng: gom Bài PUBLISHED của 1 lớp theo (Lesson,
+     * skillCategory), 1 entry/Lesson (mirror grammarByLabel/readingByLabel/writingByLabel cũ, trước đây
+     * 1 entry/Exercise). {@code sessionTeacherType} null = không lọc thêm theo loại GV (mirror kênh
+     * Reading/Writing gốc, chỉ dùng buổi VIETNAMESE nên không cần lọc).
+     */
+    private Map<String, Exam> examSkillGroupsByLabel(Long classId, Exercise.SkillCategory skillCategory, ClassSession.TeacherType sessionTeacherType) {
+        List<Exercise> raw = exerciseRepository.findAvailableForClass(classId, Exercise.Status.PUBLISHED).stream()
+                .filter(e -> e.getSkillCategory() == skillCategory)
+                .filter(e -> matchesSessionTeacherType(e, sessionTeacherType))
+                .toList();
+        Map<Long, List<Exercise>> byExam = raw.stream().collect(java.util.stream.Collectors.groupingBy(e -> e.getExam().getId()));
+        Map<String, Exam> result = new LinkedHashMap<>();
+        for (List<Exercise> group : byExam.values()) {
+            Exam exam = group.get(0).getExam();
+            result.put(examSkillGroupLabel(exam, skillCategory), exam);
+        }
+        return result;
     }
 
     /**
@@ -1816,16 +2232,31 @@ public class StudentCommentService {
                 .orElse(null);
     }
 
-    /** % bài ngữ pháp online đã giao ở buổi trước — xem HomeworkProgressService.grammarProgressLabel. */
+    /** % bài ngữ pháp online đã giao ở buổi trước — xem HomeworkProgressService.grammarProgressLabel. V150: cộng dồn cả Lô (N Bài). */
     private String grammarPreviousProgressLabel(StudentComment previous) {
-        return previous == null ? null
-                : homeworkProgressService.grammarProgressLabel(previous.getHomeworkNextExerciseAssignment(), previous.getStudent().getId());
+        return previous == null || previous.getHomeworkNextGrammarBatch() == null ? null
+                : homeworkProgressService.grammarProgressLabel(
+                        exerciseAssignmentRepository.findByHomeworkBatchId(previous.getHomeworkNextGrammarBatch().getId()), previous.getStudent().getId());
     }
 
     /** % video ôn tập đã giao ở buổi trước — xem HomeworkProgressService.videoProgressLabel. */
     private String videoPreviousProgressLabel(StudentComment previous) {
         return previous == null ? null
                 : homeworkProgressService.videoProgressLabel(previous.getHomeworkNextReviewVideoAssignment(), previous.getStudent().getId());
+    }
+
+    /** V137: % bài Reading online đã giao ở buổi trước — mirror grammarPreviousProgressLabel. V150: cộng dồn cả Lô. */
+    private String readingPreviousProgressLabel(StudentComment previous) {
+        return previous == null || previous.getHomeworkNextReadingBatch() == null ? null
+                : homeworkProgressService.grammarProgressLabel(
+                        exerciseAssignmentRepository.findByHomeworkBatchId(previous.getHomeworkNextReadingBatch().getId()), previous.getStudent().getId());
+    }
+
+    /** Mirror {@link #readingPreviousProgressLabel} cho kỹ năng Writing (V137). */
+    private String writingPreviousProgressLabel(StudentComment previous) {
+        return previous == null || previous.getHomeworkNextWritingBatch() == null ? null
+                : homeworkProgressService.grammarProgressLabel(
+                        exerciseAssignmentRepository.findByHomeworkBatchId(previous.getHomeworkNextWritingBatch().getId()), previous.getStudent().getId());
     }
 
     /**
@@ -2026,25 +2457,43 @@ public class StudentCommentService {
         StudentComment previous = previousComment(comment.getClassSession(), comment.getStudent().getId());
         snapshot.put("grammarPreviousProgress", grammarPreviousProgressLabel(previous));
         snapshot.put("videoPreviousProgress", videoPreviousProgressLabel(previous));
+        snapshot.put("readingPreviousProgress", readingPreviousProgressLabel(previous));
+        snapshot.put("writingPreviousProgress", writingPreviousProgressLabel(previous));
         snapshot.put("homeworkNext", comment.getHomeworkNext());
         snapshot.put("homeworkNextReading", comment.getHomeworkNextReading());
         snapshot.put("homeworkNextWriting", comment.getHomeworkNextWriting());
         snapshot.put("note", comment.getNote());
         snapshot.put("rejectionReason", comment.getRejectionReason());
 
-        ExerciseAssignment grammarNext = comment.getHomeworkNextExerciseAssignment();
+        HomeworkSkillBatch grammarNext = comment.getHomeworkNextGrammarBatch();
         ReviewVideoAssignment videoNext = comment.getHomeworkNextReviewVideoAssignment();
-        snapshot.put("homeworkNextExerciseTitle", grammarNext == null ? null : grammarNext.getExercise().getTitle());
+        snapshot.put("homeworkNextExerciseTitle", grammarNext == null ? null : batchLabel(grammarNext));
         snapshot.put("homeworkNextReviewVideoSetTitle", videoNext == null ? null : videoNext.getReviewVideoSet().getTitle());
-        OffsetDateTime dueAt = grammarNext != null ? grammarNext.getDueAt() : videoNext != null ? videoNext.getDueAt() : null;
+        OffsetDateTime dueAt = grammarNext != null ? batchDueAt(grammarNext) : videoNext != null ? videoNext.getDueAt() : null;
         snapshot.put("homeworkNextDueAt", dueAt == null ? null : dueAt.toString());
 
-        Long pendingExerciseId = comment.getPendingHomeworkNextExerciseId();
+        Long pendingExerciseId = comment.getPendingHomeworkNextGrammarExamId();
         snapshot.put("pendingHomeworkNextExerciseTitle", pendingExerciseId == null ? null
-                : exerciseRepository.findById(pendingExerciseId).map(Exercise::getTitle).orElse(null));
+                : examRepository.findByIdAndDeletedAtIsNull(pendingExerciseId)
+                        .map(exam -> examSkillGroupLabel(exam, grammarChannelSkillCategory(comment.getClassSession().getTeacherType()))).orElse(null));
         Long pendingVideoSetId = comment.getPendingHomeworkNextReviewVideoSetId();
         snapshot.put("pendingHomeworkNextReviewVideoSetTitle", pendingVideoSetId == null ? null
                 : reviewVideoSetRepository.findById(pendingVideoSetId).map(ReviewVideoSet::getTitle).orElse(null));
+
+        // V137
+        HomeworkSkillBatch readingNext = comment.getHomeworkNextReadingBatch();
+        HomeworkSkillBatch writingNext = comment.getHomeworkNextWritingBatch();
+        snapshot.put("homeworkNextReadingExerciseTitle", readingNext == null ? null : batchLabel(readingNext));
+        snapshot.put("homeworkNextWritingExerciseTitle", writingNext == null ? null : batchLabel(writingNext));
+        Long pendingReadingId = comment.getPendingHomeworkNextReadingExamId();
+        snapshot.put("pendingHomeworkNextReadingExerciseTitle", pendingReadingId == null ? null
+                : examRepository.findByIdAndDeletedAtIsNull(pendingReadingId)
+                        .map(exam -> examSkillGroupLabel(exam, Exercise.SkillCategory.READING)).orElse(null));
+        Long pendingWritingId = comment.getPendingHomeworkNextWritingExamId();
+        snapshot.put("pendingHomeworkNextWritingExerciseTitle", pendingWritingId == null ? null
+                : examRepository.findByIdAndDeletedAtIsNull(pendingWritingId)
+                        .map(exam -> examSkillGroupLabel(exam, Exercise.SkillCategory.WRITING)).orElse(null));
+
         LocalDateTime pendingDueDate = comment.getPendingHomeworkNextDueDate();
         snapshot.put("pendingHomeworkNextDueDate", pendingDueDate == null ? null : pendingDueDate.toString());
 
@@ -2120,17 +2569,33 @@ public class StudentCommentService {
 
     private StudentCommentResponse toResponse(StudentComment c) {
         StudentComment previous = previousComment(c.getClassSession(), c.getStudent().getId());
-        ExerciseAssignment grammarNext = c.getHomeworkNextExerciseAssignment();
+        HomeworkSkillBatch grammarNext = c.getHomeworkNextGrammarBatch();
         ReviewVideoAssignment videoNext = c.getHomeworkNextReviewVideoAssignment();
-        // V127: lựa chọn CHƯA giao (còn DRAFT/REJECTED, chưa Gửi lại) — chỉ có id nguồn, tự tra tên
-        // hiển thị cho FE (mirror grammarNext.getExercise().getTitle() ở trên, khác chỗ chưa có bản
-        // giao để đọc thẳng title qua đó).
-        Long pendingExerciseId = c.getPendingHomeworkNextExerciseId();
+        // V137
+        HomeworkSkillBatch readingNext = c.getHomeworkNextReadingBatch();
+        HomeworkSkillBatch writingNext = c.getHomeworkNextWritingBatch();
+        // V127: lựa chọn CHƯA giao (còn DRAFT/REJECTED, chưa Gửi lại) — chỉ có id Lesson (Exam), tự tra
+        // nhãn hiển thị cho FE (mirror batchLabel(grammarNext) ở trên, khác chỗ chưa có Lô để đọc thẳng
+        // qua đó — V150: id giờ là examId, không còn là exerciseId).
+        Long pendingExerciseId = c.getPendingHomeworkNextGrammarExamId();
         String pendingExerciseTitle = pendingExerciseId == null ? null
-                : exerciseRepository.findById(pendingExerciseId).map(Exercise::getTitle).orElse(null);
+                : examRepository.findByIdAndDeletedAtIsNull(pendingExerciseId)
+                        .map(exam -> examSkillGroupLabel(exam, grammarChannelSkillCategory(c.getClassSession().getTeacherType()))).orElse(null);
         Long pendingVideoSetId = c.getPendingHomeworkNextReviewVideoSetId();
         String pendingVideoSetTitle = pendingVideoSetId == null ? null
                 : reviewVideoSetRepository.findById(pendingVideoSetId).map(ReviewVideoSet::getTitle).orElse(null);
+        Long pendingReadingId = c.getPendingHomeworkNextReadingExamId();
+        String pendingReadingTitle = pendingReadingId == null ? null
+                : examRepository.findByIdAndDeletedAtIsNull(pendingReadingId)
+                        .map(exam -> examSkillGroupLabel(exam, Exercise.SkillCategory.READING)).orElse(null);
+        Long pendingWritingId = c.getPendingHomeworkNextWritingExamId();
+        String pendingWritingTitle = pendingWritingId == null ? null
+                : examRepository.findByIdAndDeletedAtIsNull(pendingWritingId)
+                        .map(exam -> examSkillGroupLabel(exam, Exercise.SkillCategory.WRITING)).orElse(null);
+        OffsetDateTime homeworkNextDueAt = grammarNext != null ? batchDueAt(grammarNext)
+                : videoNext != null ? videoNext.getDueAt()
+                : readingNext != null ? batchDueAt(readingNext)
+                : writingNext != null ? batchDueAt(writingNext) : null;
         return new StudentCommentResponse(
                 c.getId(), c.getStudent().getId(), c.getStudent().getUser().getFullName(), c.getStudent().getDateOfBirth(),
                 c.getSchoolClass().getId(), c.getTeacher().getId(), c.getCommentType().name(),
@@ -2145,15 +2610,26 @@ public class StudentCommentService {
                 c.getHomeworkPreviousReadingScore(), c.getHomeworkPreviousWritingScore(),
                 c.getHomeworkNext(),
                 c.getHomeworkNextReading(), c.getHomeworkNextWriting(),
-                grammarNext == null ? null : grammarNext.getId(),
-                grammarNext == null ? null : grammarNext.getExercise().getTitle(),
+                // V150 — FE (DailyCommentPanel/CommentHistoryList) chỉ dùng field "AssignmentId" này làm
+                // khoá tra ngược để tự chọn lại đúng dropdown khi sửa/xem lại 1 comment đã Gửi — không
+                // hiển thị trực tiếp cho người dùng. Trả examId (Lesson) thay vì id của chính HomeworkSkillBatch,
+                // vì dropdown mới chọn theo (examId, skillCategory) chứ không còn theo 1 exerciseId/bản giao đơn.
+                grammarNext == null ? null : grammarNext.getExam().getId(),
+                grammarNext == null ? null : batchLabel(grammarNext),
                 videoNext == null ? null : videoNext.getId(),
                 videoNext == null ? null : videoNext.getReviewVideoSet().getTitle(),
-                grammarNext != null ? grammarNext.getDueAt() : videoNext != null ? videoNext.getDueAt() : null,
+                readingNext == null ? null : readingNext.getExam().getId(),
+                readingNext == null ? null : batchLabel(readingNext),
+                writingNext == null ? null : writingNext.getExam().getId(),
+                writingNext == null ? null : batchLabel(writingNext),
+                homeworkNextDueAt,
                 pendingExerciseId, pendingExerciseTitle,
                 pendingVideoSetId, pendingVideoSetTitle,
+                pendingReadingId, pendingReadingTitle,
+                pendingWritingId, pendingWritingTitle,
                 c.getPendingHomeworkNextDueDate(),
                 grammarPreviousProgressLabel(previous), videoPreviousProgressLabel(previous),
+                readingPreviousProgressLabel(previous), writingPreviousProgressLabel(previous),
                 resolvedOfflinePrevious(previous),
                 c.getNote(), c.getClassSession().getLessonContent());
     }

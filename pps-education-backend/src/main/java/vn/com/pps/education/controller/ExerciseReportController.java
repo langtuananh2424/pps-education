@@ -40,6 +40,21 @@ public class ExerciseReportController {
     }
 
     @PreAuthorize("hasPermission(null, 'lms.exercise.report.view')")
+    @GetMapping("/api/homework-skill-batches/{batchId}/stats/students")
+    public ResponseEntity<ExerciseAssignmentStudentStatsResponse> getBatchStudentStats(
+            @PathVariable Long batchId, @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(exerciseReportService.getBatchStudentStats(batchId, actor.userId()));
+    }
+
+    @PreAuthorize("hasPermission(null, 'lms.exercise.report.view')")
+    @GetMapping("/api/homework-skill-batches/{batchId}/stats/export")
+    public ResponseEntity<byte[]> exportBatchStudentStats(
+            @PathVariable Long batchId, @AuthenticationPrincipal AuthenticatedUser actor) {
+        byte[] content = exerciseReportService.exportBatchStudentStatsExcel(batchId, actor.userId());
+        return ExcelHttpResponses.attachment(content, "thong-ke-btvn-lo-" + batchId + ".xlsx");
+    }
+
+    @PreAuthorize("hasPermission(null, 'lms.exercise.report.view')")
     @GetMapping("/api/exercise-assignments/{assignmentId}/stats/questions")
     public ResponseEntity<ExerciseAssignmentQuestionStatsResponse> getQuestionStats(
             @PathVariable Long assignmentId, @AuthenticationPrincipal AuthenticatedUser actor) {

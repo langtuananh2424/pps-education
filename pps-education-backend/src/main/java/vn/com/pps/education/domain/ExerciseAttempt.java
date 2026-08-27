@@ -80,4 +80,8 @@ public class ExerciseAttempt {
     /** V93 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06): Giáo viên đánh dấu lượt này là kết quả CHÍNH THỨC khi học sinh có nhiều lượt làm — xem ExerciseAttemptService#selectForGrading. Tối đa 1 lượt được chọn/(exercise, student). */
     @Column(name = "selected_for_grading", nullable = false)
     private boolean selectedForGrading = false;
+
+    /** V152 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25): học sinh ĐÃ ĐẠT nhưng còn lượt làm lại tự nguyện dừng lại để xem đáp án sớm — xem ExerciseAttemptService#revealAnswersAndClose. */
+    @Column(name = "answers_revealed_early", nullable = false)
+    private boolean answersRevealedEarly = false;
 }

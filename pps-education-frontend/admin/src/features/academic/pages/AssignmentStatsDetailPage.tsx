@@ -275,7 +275,7 @@ export default function AssignmentStatsDetailPage() {
   );
 }
 
-function QuestionRow({
+export function QuestionRow({
   question,
   expanded,
   onToggle
@@ -737,7 +737,7 @@ function AttemptHistoryRow({
 }
 
 /** Biểu đồ phân tích câu hỏi - hiển thị % câu sai của từng câu dưới dạng cột. */
-function QuestionAnalysisChart({ questions }: { questions: ExerciseAssignmentQuestionRow[] }) {
+export function QuestionAnalysisChart({ questions }: { questions: ExerciseAssignmentQuestionRow[] }) {
   const { t } = useTranslation("academic-homework");
   const maxRate = Math.max(...questions.map(q => q.wrongRatePercent), 0) || 100;
 

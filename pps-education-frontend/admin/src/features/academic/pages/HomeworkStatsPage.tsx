@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { BarChart3, Search, X } from "lucide-react";
+import { BarChart3, ChevronDown, ChevronRight, Search, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { formatDateLong } from "@/lib/i18nFormat";
 import { useApp } from "@/context/AppContext";
@@ -56,6 +56,104 @@ function toLocalIsoDate(value: string): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+/**
+ * V150 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — 1 dòng tổng hợp cho 1
+ * "Lô giao BTVN theo kỹ năng" (nhiều Bài cùng Lesson+kỹ năng giao chung 1 lần ở UC-21), có thể mở
+ * rộng ra xem từng Bài con bên dưới. Số liệu dòng tổng hợp đã cộng dồn đúng theo học sinh hoàn
+ * thành/đạt TẤT CẢ Bài trong lô (xem ExerciseReportService#toBatchGroupStats) — không phải tổng
+ * cộng đơn giản của các dòng con. Nút "Xem chi tiết" chỉ có ở từng dòng con (trỏ đúng
+ * assignmentId thật của Bài đó) — dòng tổng hợp dùng để mở/thu gọn, không có trang chi tiết riêng.
+ */
+function BatchGroupRows({
+  data,
+  expanded,
+  onToggle,
+  exerciseTypeLabels,
+  i18n,
+  t,
+  navigate
+}: {
+  data: ExerciseAssignmentStatsResponse;
+  expanded: boolean;
+  onToggle: () => void;
+  exerciseTypeLabels: Record<ExerciseAssignmentStatsResponse["exerciseType"], string>;
+  i18n: { language: string };
+  t: (key: string) => string;
+  navigate: (path: string) => void;
+}) {
+  const members = data.batchMembers ?? [];
+  return (
+    <>
+      <tr className="bg-slate-50/70 cursor-pointer hover:bg-slate-100" onClick={onToggle}>
+        <Td className="font-semibold text-slate-900">
+          <span className="inline-flex items-center gap-1.5">
+            {expanded ? <ChevronDown className="w-3.5 h-3.5 text-slate-400" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-400" />}
+            {data.exerciseTitle}
+          </span>
+        </Td>
+        <Td>
+          <Badge variant="neutral">{exerciseTypeLabels[data.exerciseType]}</Badge>
+        </Td>
+        <Td>{formatDate(data.availableFrom, i18n.language, t("list.noDueDate"))}</Td>
+        <Td>{formatDate(data.dueAt, i18n.language, t("list.noDueDate"))}</Td>
+        <Td className="text-center">
+          {data.completedCount}/{data.totalStudents} ({data.completionPercent}%)
+        </Td>
+        <Td className="text-center">
+          {data.passedCount}/{data.totalStudents} ({data.passRatePercent}%)
+        </Td>
+        <Td className="text-center">
+          <span className="text-slate-300">—</span>
+        </Td>
+        <Td className="text-right">
+          <Button
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/academic/homework-stats/batch/${data.homeworkBatchId}`);
+            }}
+          >
+            {t("shared.viewDetail")}
+          </Button>
+        </Td>
+      </tr>
+      {expanded &&
+        members.map((m) => (
+          <tr key={`exercise-${m.assignmentId}`} className="bg-white">
+            <Td className="pl-8 text-slate-700">
+              {m.exerciseTitle} <span className="text-slate-400 font-mono text-[10px]">({m.exerciseCode})</span>
+            </Td>
+            <Td>
+              <Badge variant="neutral">{exerciseTypeLabels[m.exerciseType]}</Badge>
+            </Td>
+            <Td>{formatDate(m.availableFrom, i18n.language, t("list.noDueDate"))}</Td>
+            <Td>{formatDate(m.dueAt, i18n.language, t("list.noDueDate"))}</Td>
+            <Td className="text-center">
+              {m.completedCount}/{m.totalStudents} ({m.completionPercent}%)
+            </Td>
+            <Td className="text-center">
+              {m.passedCount}/{m.totalStudents} ({m.passRatePercent}%)
+            </Td>
+            <Td className="text-center">
+              {m.violatedStudentCount != null ? (
+                <span className={m.violatedStudentCount > 0 ? "font-bold text-amber-700" : "text-slate-400"}>
+                  {Math.round((m.violatedStudentCount / m.totalStudents) * 100)}%
+                </span>
+              ) : (
+                <span className="text-slate-300">—</span>
+              )}
+            </Td>
+            <Td className="text-right">
+              <Button size="sm" onClick={() => navigate(`/academic/homework-stats/${m.assignmentId}`)}>
+                {t("shared.viewDetail")}
+              </Button>
+            </Td>
+          </tr>
+        ))}
+    </>
+  );
+}
+
 /** UC-66: Thống kê BTVN theo lớp (FR-ACA-07) — Giáo viên/Quản lý điểm trường xem tiến độ BTVN của 1 lớp. */
 export default function HomeworkStatsPage() {
   const { t, i18n } = useTranslation("academic-homework");
@@ -86,6 +184,8 @@ export default function HomeworkStatsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [dateFilter, setDateFilter] = useState("");
   const [teacherTypeFilter, setTeacherTypeFilter] = useState<TeacherTypeFilter | null>(null);
+  /** V150 — dòng tổng hợp 1 Lô (homeworkBatchId khác null) mở rộng xem từng Bài con khi cần, thu gọn mặc định. */
+  const [expandedBatchIds, setExpandedBatchIds] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     if (!selectedClassId) {
@@ -231,6 +331,26 @@ export default function HomeworkStatsPage() {
               <tbody className="divide-y divide-slate-100">
                 {pageRows.map((r) =>
                   r.kind === "exercise" ? (
+                    r.data.batchMembers != null ? (
+                      <BatchGroupRows
+                        key={`batch-${r.data.homeworkBatchId}`}
+                        data={r.data}
+                        expanded={expandedBatchIds.has(r.data.homeworkBatchId as number)}
+                        onToggle={() =>
+                          setExpandedBatchIds((prev) => {
+                            const next = new Set(prev);
+                            const id = r.data.homeworkBatchId as number;
+                            if (next.has(id)) next.delete(id);
+                            else next.add(id);
+                            return next;
+                          })
+                        }
+                        exerciseTypeLabels={exerciseTypeLabels}
+                        i18n={i18n}
+                        t={t}
+                        navigate={navigate}
+                      />
+                    ) : (
                     <tr key={`exercise-${r.data.assignmentId}`}>
                       <Td className="font-semibold text-slate-900">
                         {r.data.exerciseTitle} <span className="text-slate-400 font-mono text-[10px]">({r.data.exerciseCode})</span>
@@ -261,6 +381,7 @@ export default function HomeworkStatsPage() {
                         </Button>
                       </Td>
                     </tr>
+                    )
                   ) : (
                     <tr key={`review-video-${r.data.assignmentId}`}>
                       <Td className="font-semibold text-slate-900">

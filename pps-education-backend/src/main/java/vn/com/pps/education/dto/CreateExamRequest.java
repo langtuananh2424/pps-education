@@ -15,5 +15,7 @@ public record CreateExamRequest(
         @NotBlank String title,
         @NotNull Long curriculumId,
         @NotBlank String teacherType,
-        @NotBlank String examType
+        @NotBlank String examType,
+        /** V144 — Lesson thuộc Sub Topic nào trong mục lục sách. NULL = chưa phân loại vào cấu trúc mới. */
+        Long subTopicId
 ) {}

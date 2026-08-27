@@ -12,6 +12,7 @@ import { UserListItemResponse } from "@/features/system-admin/api";
 import UserSearchCombobox from "@/features/system-admin/components/UserSearchCombobox";
 import { listStudents, StudentResponse } from "@/features/student/api";
 import { DayPart, RoomResponse, listRoomsBySite } from "@/features/facility/api";
+import { useAttendanceGracePeriodMinutes } from "@/features/academic/hooks/useAttendanceGracePeriodMinutes";
 import {
   AcademicYearResponse,
   AssignTeacherRequest,
@@ -1090,12 +1091,17 @@ function hasSessionStarted(s: ClassSessionResponse): boolean {
 }
 
 /**
- * Sửa đổi 2026-08-18 (thay thế rule V45 "đúng ngày"): GV thường chỉ điểm
- * danh/sửa được TRONG khung giờ buổi học [startTime, endTime] — đồng bộ
+ * Sửa đổi 2026-08-18 (thay thế rule V45 "đúng ngày"), đồng bộ lại
+ * 2026-08-27: GV thường chỉ điểm danh/sửa được TRONG khung giờ buổi học
+ * [startTime, endTime + gracePeriodMinutes] — đồng bộ
  * StudentAttendanceService.isWithinSessionWindow / AttendancePage.tsx.
+ * gracePeriodMinutes đọc từ system_settings.student_attendance.grace_
+ * period_minutes qua useAttendanceGracePeriodMinutes (trước đây hardcode
+ * [startTime, endTime] không cộng grace, khoá nút sớm hơn backend cho phép).
  */
-function hasSessionEnded(s: ClassSessionResponse): boolean {
-  return new Date(`${s.sessionDate}T${s.endTime}`) < new Date();
+function hasSessionEnded(s: ClassSessionResponse, gracePeriodMinutes: number): boolean {
+  const end = new Date(`${s.sessionDate}T${s.endTime}`);
+  return new Date(end.getTime() + gracePeriodMinutes * 60_000) < new Date();
 }
 
 function SessionsTab({
@@ -1116,6 +1122,7 @@ function SessionsTab({
   const { hasPermission } = useApp();
   const { promptDialog } = useDialog();
   const hasAttendanceOverride = hasPermission("academic.attendance.create") || hasPermission("academic.attendance.update");
+  const gracePeriodMinutes = useAttendanceGracePeriodMinutes();
   const [sessions, setSessions] = useState<ClassSessionResponse[]>([]);
   const [attendanceStatusBySession, setAttendanceStatusBySession] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(true);
@@ -1203,7 +1210,7 @@ function SessionsTab({
                     <Button size="sm" variant="secondary" disabled title={t("classDetail.sessions.notYetTimeTitle")}>
                       {t("classDetail.sessions.notYetTimeButton")}
                     </Button>
-                  ) : !attendanceStatusBySession[s.id] && !hasAttendanceOverride && hasSessionEnded(s) ? (
+                  ) : !attendanceStatusBySession[s.id] && !hasAttendanceOverride && hasSessionEnded(s, gracePeriodMinutes) ? (
                     <Button size="sm" variant="secondary" disabled title={t("classDetail.sessions.pastDateTitle")}>
                       {t("classDetail.sessions.pastDateButton")}
                     </Button>

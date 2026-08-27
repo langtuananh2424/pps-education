@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import vn.com.pps.education.common.ExcelHttpResponses;
+import vn.com.pps.education.dto.AutoProgressPreviewResponse;
+import vn.com.pps.education.dto.BulkUpdateHomeworkDueDateRequest;
 import vn.com.pps.education.dto.ClassSessionLessonContentResponse;
 import vn.com.pps.education.dto.ClassSessionTeacherNameResponse;
 import vn.com.pps.education.dto.ClassSessionTeacherTypeResponse;
@@ -90,6 +92,15 @@ public class StudentCommentController {
         return ResponseEntity.ok(studentCommentService.submitComments(classId, request, actor.userId()));
     }
 
+    /** Bổ sung ngoài SDD gốc (2026-08-24, xác nhận với người dùng) — đổi Hạn nộp BTVN buổi sau cho TOÀN BỘ nhận xét NHÁP/Bị từ chối của 1 buổi trong 1 lần gọi. Xem Javadoc StudentCommentService#bulkUpdatePendingDueDate. */
+    @PreAuthorize("hasPermission(null, 'academic.comment.write') or hasPermission(null, 'academic.comment.approve')")
+    @PutMapping("/api/class-sessions/{sessionId}/comments/due-date")
+    public ResponseEntity<List<StudentCommentResponse>> bulkUpdatePendingDueDate(@PathVariable Long sessionId,
+                                                                                    @Valid @RequestBody BulkUpdateHomeworkDueDateRequest request,
+                                                                                    @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(studentCommentService.bulkUpdatePendingDueDate(sessionId, request.dueDate(), actor.userId()));
+    }
+
     // ---- UC-22: Duyệt nhận xét (SITE_MANAGER) ----
 
     @GetMapping("/api/comments/pending")
@@ -140,6 +151,14 @@ public class StudentCommentController {
                                                                                      @Valid @RequestBody UpdateActualTeacherNameRequest request,
                                                                                      @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(studentCommentService.updateActualTeacherName(classSessionId, request.actualTeacherName(), actor.userId()));
+    }
+
+    /** V146: % TỰ ĐỘNG "BTVN buổi trước" cho cả lớp, tính ngay cả khi buổi đang xem chưa có StudentComment nào. */
+    @PreAuthorize("hasPermission(null, 'academic.comment.write') or hasPermission(null, 'academic.comment.approve')")
+    @GetMapping("/api/class-sessions/{classSessionId}/comments/auto-progress-preview")
+    public ResponseEntity<List<AutoProgressPreviewResponse>> previewAutoProgress(@PathVariable Long classSessionId,
+                                                                                  @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(studentCommentService.previewAutoProgress(classSessionId, actor.userId()));
     }
 
     @PreAuthorize("hasPermission(null, 'academic.comment.write') or hasPermission(null, 'academic.comment.approve')")

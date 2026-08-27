@@ -1,0 +1,98 @@
+# Stack STAGING trên server vật lý tự host — copy file này thành
+# /opt/pps-education/staging/docker-compose.yml trên server (xem
+# deploy/README.md cho quy trình bootstrap đầy đủ). Secret thật nằm trong
+# /opt/pps-education/staging/.env (KHÔNG commit, KHÔNG đi qua CI) — file này
+# chỉ chứa placeholder tham chiếu.
+#
+# Ghi chú: server chạy Docker Engine trên Linux (không phải Docker Desktop),
+# nên "host.docker.internal" cần khai báo thủ công qua extra_hosts bên dưới
+# để backend gọi được 9Router chạy trên host (xem deploy/README.md mục 9Router).
+
+name: pps-staging
+
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: pps_education
+      POSTGRES_USER: pps_app
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    networks: [internal]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pps_app -d pps_education"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY}
+    volumes:
+      - minio_data:/data
+    ports:
+      - "127.0.0.1:9002:9000" # public GET qua Nginx (files-staging.ppsvietnam.edu.vn) - xem deploy/nginx
+    networks: [internal]
+
+  backend:
+    image: ghcr.io/<owner>/<repo>/backend:staging-latest
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway" # Docker Engine Linux cần khai báo thủ công (khác Docker Desktop)
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+      SPRING_PROFILES_ACTIVE: staging
+      DB_URL: jdbc:postgresql://postgres:5432/pps_education
+      DB_USERNAME: pps_app
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      SEED_DEV_USERS: ${SEED_DEV_USERS:-false}
+      # Bootstrap 1 tài khoản sysadmin lần đầu (KHÁC SEED_DEV_USERS - xem InitialAdminSeeder.java).
+      # Mặc định tắt - chỉ bật 1 lần khi cần tạo sysadmin đầu tiên, rồi tắt lại (đặt false trong .env).
+      SEED_INITIAL_ADMIN: ${SEED_INITIAL_ADMIN:-false}
+      SEED_SYSADMIN_PASSWORD: ${SEED_SYSADMIN_PASSWORD:-}
+      GOOGLE_OAUTH_CLIENT_IDS: ${GOOGLE_OAUTH_CLIENT_IDS}
+      # MinIO tự host thay Cloudflare R2 thật (xem R2StorageConfig.java) -
+      # R2_ENDPOINT_URL trỏ vào service minio trong network nội bộ (KHÔNG
+      # phải 127.0.0.1 - đó là cổng Nginx dùng để proxy GET công khai).
+      R2_ENDPOINT_URL: http://minio:9000
+      R2_ACCESS_KEY_ID: ${S3_ACCESS_KEY}
+      R2_SECRET_ACCESS_KEY: ${S3_SECRET_KEY}
+      R2_BUCKET_NAME: pps-media
+      R2_PUBLIC_BASE_URL: https://files-staging.ppsvietnam.edu.vn
+      MAIL_HOST: ${MAIL_HOST:-}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_CONTACT_HOTLINE: ${MAIL_CONTACT_HOTLINE:-}
+      MAIL_CONTACT_SUPPORT_EMAIL: ${MAIL_CONTACT_SUPPORT_EMAIL:-}
+      MAIL_CONTACT_WEBSITE: ${MAIL_CONTACT_WEBSITE:-}
+      FIREBASE_CREDENTIALS_BASE64: ${FIREBASE_CREDENTIALS_BASE64:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      NINE_ROUTER_BASE_URL: ${NINE_ROUTER_BASE_URL:-http://host.docker.internal:20128/v1}
+      NINE_ROUTER_API_KEY: ${NINE_ROUTER_API_KEY:-}
+      NINE_ROUTER_MODEL: ${NINE_ROUTER_MODEL:-}
+      NINE_ROUTER_STT_MODEL: ${NINE_ROUTER_STT_MODEL:-groq/whisper-large-v3-turbo}
+      NINE_ROUTER_AUDIO_MODEL: ${NINE_ROUTER_AUDIO_MODEL:-ag/gemini-3.5-flash-low}
+    ports:
+      - "127.0.0.1:8081:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [internal]
+
+networks:
+  internal:
+    driver: bridge
+
+volumes:
+  pg_data:
+  minio_data:

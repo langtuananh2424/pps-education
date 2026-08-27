@@ -14,14 +14,20 @@ public interface ReviewVideoSetRepository extends JpaRepository<ReviewVideoSet, 
     /** UC-21 mở rộng (BTVN online — dán uuid làm phương án thay dropdown, V55). */
     Optional<ReviewVideoSet> findByUuid(UUID uuid);
 
-    /** Kho Video — lọc theo khung chương trình/loại giáo viên (V98, mirror ExamRepository). */
-    List<ReviewVideoSet> findByCurriculumIdOrderByDisplayOrder(Long curriculumId);
+    /** V156 — dùng thay findById ở mọi nơi đọc/sửa 1 Bộ, không lộ Bộ đã "xóa" (deleted_at), mirror ExamRepository#findByIdAndDeletedAtIsNull. */
+    Optional<ReviewVideoSet> findByIdAndDeletedAtIsNull(Long id);
 
-    List<ReviewVideoSet> findByCurriculumIdAndTeacherTypeOrderByDisplayOrder(Long curriculumId, ReviewVideoSet.TeacherType teacherType);
+    /** Kho Video — lọc theo khung chương trình/loại giáo viên (V98, mirror ExamRepository). V156: thêm lọc deletedAt IS NULL. */
+    List<ReviewVideoSet> findByCurriculumIdAndDeletedAtIsNullOrderByDisplayOrder(Long curriculumId);
 
-    List<ReviewVideoSet> findByTeacherTypeOrderByDisplayOrder(ReviewVideoSet.TeacherType teacherType);
+    List<ReviewVideoSet> findByCurriculumIdAndTeacherTypeAndDeletedAtIsNullOrderByDisplayOrder(Long curriculumId, ReviewVideoSet.TeacherType teacherType);
 
-    List<ReviewVideoSet> findAllByOrderByDisplayOrder();
+    List<ReviewVideoSet> findByTeacherTypeAndDeletedAtIsNullOrderByDisplayOrder(ReviewVideoSet.TeacherType teacherType);
+
+    List<ReviewVideoSet> findByDeletedAtIsNullOrderByDisplayOrder();
+
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — gate "Xóa Sub Topic" (xem CurriculumService#deleteSubTopic): còn Bộ video tham chiếu thì không cho xóa. */
+    boolean existsBySubTopicId(Long subTopicId);
 
     /**
      * UC-23a: bộ video HS/GV lớp X xem được — đã gán tường minh cho lớp X

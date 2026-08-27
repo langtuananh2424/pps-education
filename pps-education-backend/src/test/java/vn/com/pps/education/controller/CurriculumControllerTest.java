@@ -52,6 +52,6 @@ class CurriculumControllerTest extends AbstractControllerTest {
     }
 
     private CreateCurriculumRequest newCurriculumRequest() {
-        return new CreateCurriculumRequest("CUR-" + SEQ.incrementAndGet(), "Chuẩn", "MAIN", null, null, null);
+        return new CreateCurriculumRequest("CUR-" + SEQ.incrementAndGet(), "Chuẩn", "MAIN", null, null, null, null, null);
     }
 }

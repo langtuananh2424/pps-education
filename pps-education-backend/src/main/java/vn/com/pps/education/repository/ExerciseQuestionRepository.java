@@ -8,4 +8,5 @@ import java.util.List;
 public interface ExerciseQuestionRepository extends JpaRepository<ExerciseQuestion, Long> {
     List<ExerciseQuestion> findByExerciseIdOrderByDisplayOrder(Long exerciseId);
     boolean existsByExerciseIdAndQuestionId(Long exerciseId, Long questionId);
+    long countByExerciseId(Long exerciseId);
 }
