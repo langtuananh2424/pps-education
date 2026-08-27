@@ -147,6 +147,23 @@ class NotificationServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void notify_ATTENDANCE_PRESENT_suppressesEmail_evenWhenPreferenceExplicitlyEnabled() {
+        notificationService.upsertPreference(recipient.getId(), Notification.NotificationType.ATTENDANCE_PRESENT,
+                new NotificationPreferenceRequest(true, true, false, false, false));
+
+        Notification notification = notificationService.notify(recipient.getId(),
+                Notification.NotificationType.ATTENDANCE_PRESENT, "Có mặt đầy đủ", "Con bạn có mặt đầy đủ hôm nay");
+
+        List<NotificationDelivery> deliveries = notificationDeliveryRepository.findAll().stream()
+                .filter(d -> d.getNotification().getId().equals(notification.getId()))
+                .toList();
+
+        assertThat(deliveries).hasSize(1);
+        assertThat(deliveries.get(0).getChannel()).isEqualTo(NotificationDelivery.Channel.IN_APP);
+        assertThat(deliveries.get(0).getDeliveryStatus()).isEqualTo(NotificationDelivery.DeliveryStatus.SENT);
+    }
+
+    @Test
     void listMine_returnsOwnNotificationsOnly() {
         User other = newUser("notif.other");
         notificationService.notify(recipient.getId(), Notification.NotificationType.OTHER, "A", "a");

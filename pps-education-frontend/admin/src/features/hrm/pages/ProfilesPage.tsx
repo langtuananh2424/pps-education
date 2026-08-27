@@ -3,7 +3,7 @@ import { Users } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import ImportExcelButton from "@/components/ui/ImportExcelButton";
-import { EmployeeResponse, exportEmployeeAccounts, importEmployees, listEmployees } from "../api";
+import { downloadEmployeeImportTemplate, EmployeeResponse, exportEmployeeAccounts, importEmployees, listEmployees } from "../api";
 import EmployeeListPanel from "../components/EmployeeListPanel";
 import EmployeeDetailPanel from "../components/EmployeeDetailPanel";
 import EmployeeFormModal from "../components/EmployeeFormModal";
@@ -46,8 +46,7 @@ export default function ProfilesPage() {
         <ImportExcelButton
           title={t("profilesPage.importTitle")}
           templateFileName={t("profilesPage.importTemplateFileName")}
-          templateHeaders={t("profilesPage.importHeaders", { returnObjects: true }) as string[]}
-          templateSampleRow={t("profilesPage.importSampleRow", { returnObjects: true }) as string[]}
+          fetchTemplate={downloadEmployeeImportTemplate}
           uploadFn={importEmployees}
           exportAccounts={exportEmployeeAccounts}
           accountsExportFileName={t("profilesPage.importAccountsFileName")}

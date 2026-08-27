@@ -192,8 +192,60 @@ class EmployeeBatchImportServiceTest extends AbstractIntegrationTest {
             assertThat(headers).containsExactly(
                     "Họ và tên*", "Username*", "Email", "Ngày sinh (dd/MM/yyyy)*", "Mã nhân sự*",
                     "Loại nhân sự (Giáo viên/Nhân viên/Quản lý)*", "Mã chức vụ", "Mã phòng ban",
-                    "Miễn trừ chấm công/duyệt đơn (Có/Không)", "Ngày vào làm (dd/MM/yyyy)*");
+                    "Miễn trừ chấm công/duyệt đơn (Có/Không)", "Ngày vào làm (dd/MM/yyyy)*",
+                    "Số CCCD", "Ngày cấp CCCD (dd/MM/yyyy)", "Nơi cấp CCCD", "Địa chỉ thường trú",
+                    "Địa chỉ hiện tại", "Số tài khoản ngân hàng", "Ngân hàng", "Mã số thuế", "Số BHXH");
         }
+    }
+
+    /** Cột K-S (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-27) -- tùy chọn, để trống vẫn qua được (đã phủ ở các test khác chỉ truyền 10 cột). */
+    @Test
+    void importEmployees_UC51_MainFlow_optionalProfileColumnsPopulateEmployeeFields() throws IOException {
+        String idCard = "079" + SEQ.incrementAndGet();
+        String empUsername = username("hoso");
+        byte[] file = buildWorkbook(new String[][]{
+                {"Đầy Đủ Hồ Sơ", empUsername, "", "01/01/1990", employeeCode(), "Nhân viên", "", "", "", "01/01/2024",
+                        idCard, "05/03/2020", "Cục Cảnh sát QLHC về TTXH", "123 Đường A, Quận 1, TP.HCM",
+                        "456 Đường B, Quận 3, TP.HCM", "0123456789", "Vietcombank", "MST-001", "BHXH-001"},
+        });
+
+        employeeBatchImportService.importEmployees(
+                new MockMultipartFile("file", "nv_hoso.xlsx", "application/vnd.openxmlformats", file), hrManager.getId());
+
+        Employee created = employeeRepository.findByUserId(userRepository.findByUsername(empUsername).orElseThrow().getId()).orElseThrow();
+        assertThat(created.getIdCardNumber()).isEqualTo(idCard);
+        assertThat(created.getIdCardIssuedDate()).isEqualTo(java.time.LocalDate.of(2020, 3, 5));
+        assertThat(created.getIdCardIssuedPlace()).isEqualTo("Cục Cảnh sát QLHC về TTXH");
+        assertThat(created.getPermanentAddress()).isEqualTo("123 Đường A, Quận 1, TP.HCM");
+        assertThat(created.getCurrentAddress()).isEqualTo("456 Đường B, Quận 3, TP.HCM");
+        assertThat(created.getBankAccountNumber()).isEqualTo("0123456789");
+        assertThat(created.getBankName()).isEqualTo("Vietcombank");
+        assertThat(created.getTaxCode()).isEqualTo("MST-001");
+        assertThat(created.getSocialInsuranceNumber()).isEqualTo("BHXH-001");
+    }
+
+    /** Cột K (Số CCCD) trùng với 1 nhân sự đã có -- A2: 1 dòng lỗi không chặn các dòng khác. */
+    @Test
+    void importEmployees_UC51_A2_rejectsDuplicateIdCardNumber() throws IOException {
+        String idCard = "079" + SEQ.incrementAndGet();
+        byte[] first = buildWorkbook(new String[][]{
+                {"Chủ CCCD", username("chucccd"), "", "01/01/1990", employeeCode(), "Nhân viên", "", "", "", "01/01/2024",
+                        idCard, "", "", "", "", "", "", "", ""},
+        });
+        employeeBatchImportService.importEmployees(
+                new MockMultipartFile("file", "lan1.xlsx", "application/vnd.openxmlformats", first), hrManager.getId());
+
+        byte[] second = buildWorkbook(new String[][]{
+                {"Trùng CCCD", username("trungcccd"), "", "01/01/1991", employeeCode(), "Nhân viên", "", "", "", "01/01/2024",
+                        idCard, "", "", "", "", "", "", "", ""},
+        });
+        EmployeeBatchImportResponse result = employeeBatchImportService.importEmployees(
+                new MockMultipartFile("file", "lan2.xlsx", "application/vnd.openxmlformats", second), hrManager.getId());
+
+        assertThat(result.status()).isEqualTo("PARTIAL_SUCCESS");
+        assertThat(result.successRows()).isEqualTo(0);
+        assertThat(result.failedRows()).isEqualTo(1);
+        assertThat(result.errorSummary().get(0)).extractingByKey("reason").asString().contains("CCCD");
     }
 
     private byte[] buildWorkbook(String[][] rows) throws IOException {

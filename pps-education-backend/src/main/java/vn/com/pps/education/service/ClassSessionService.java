@@ -21,6 +21,7 @@ import vn.com.pps.education.dto.RescheduleClassSessionRequest;
 import vn.com.pps.education.dto.SessionPeriodResponse;
 import vn.com.pps.education.dto.UpdateSessionAssignmentRequest;
 import vn.com.pps.education.exception.ClassScheduleConflictException;
+import vn.com.pps.education.exception.ClassSessionOutsideClassPeriodException;
 import vn.com.pps.education.exception.InvalidClassSessionStatusTransitionException;
 import vn.com.pps.education.exception.MakeupSessionAlreadyLinkedException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
@@ -269,8 +270,9 @@ public class ClassSessionService {
      * buổi — tái dùng đúng createSessionEntity (room/teacher/class-conflict-
      * check + sinh session_periods) của createSession/rescheduleSession,
      * không viết lại logic. Ngày nào trùng phòng/trùng giờ GV/trùng giờ
-     * lớp bị bỏ qua (ghi lý do), các ngày khác trong lô vẫn tiếp tục tạo
-     * bình thường.
+     * lớp/vượt quá classes.end_date (checkWithinClassPeriod, bổ sung ngoài
+     * SDD gốc, xác nhận 2026-08-27) bị bỏ qua (ghi lý do), các ngày khác
+     * trong lô vẫn tiếp tục tạo bình thường.
      */
     @Transactional
     public BulkCreateClassSessionResponse bulkCreateSessions(Long classId, BulkCreateClassSessionRequest request, Long actorUserId) {
@@ -301,7 +303,8 @@ public class ClassSessionService {
                 ClassSession session = createSessionEntity(schoolClass, date, dayPart, request.periodNumbers(),
                         room, primaryTeacher, assistantTeacher, cmTeacher, sessionType, actor, teacherType, null);
                 created.add(toResponse(session));
-            } catch (RoomConflictException | TeacherScheduleConflictException | ClassScheduleConflictException ex) {
+            } catch (RoomConflictException | TeacherScheduleConflictException | ClassScheduleConflictException
+                    | ClassSessionOutsideClassPeriodException ex) {
                 Map<String, Object> reason = new LinkedHashMap<>();
                 reason.put("date", date.toString());
                 reason.put("reason", ex.getMessage());
@@ -415,6 +418,7 @@ public class ClassSessionService {
                                               Room room, User primaryTeacher, User assistantTeacher, User cmTeacher,
                                               ClassSession.SessionType sessionType, User actor,
                                               ClassSession.TeacherType teacherType, ClassSession makeupForSession) {
+        checkWithinClassPeriod(schoolClass, sessionDate);
         List<SitePeriodTemplate> templates = resolvePeriodTemplates(schoolClass.getSite().getId(), dayPart, periodNumbers);
         LocalTime startTime = templates.get(0).getStartTime();
         LocalTime endTime = templates.get(templates.size() - 1).getEndTime();
@@ -483,6 +487,7 @@ public class ClassSessionService {
         ClassSession oldSession = getSessionOrThrow(classId, sessionId);
         requireScheduled(oldSession);
         User actor = getUserOrThrow(actorUserId);
+        checkWithinClassPeriod(oldSession.getSchoolClass(), request.newSessionDate());
 
         SitePeriodTemplate.DayPart newDayPart = SitePeriodTemplate.DayPart.valueOf(request.newDayPart());
         List<SitePeriodTemplate> templates = resolvePeriodTemplates(oldSession.getSchoolClass().getSite().getId(), newDayPart, request.newPeriodNumbers());
@@ -584,6 +589,23 @@ public class ClassSessionService {
 
         writeClassSessionHistory(session, actor, ClassSessionHistory.Action.UPDATED);
         return toResponse(session);
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-27) — chặn
+     * xếp/dời buổi học sang ngày sau classes.end_date (Ngày kết thúc dự
+     * kiến). end_date NULL (lớp chưa xác định ngày kết thúc) thì không
+     * chặn. Muốn xếp buổi học sau ngày này phải cập nhật end_date của lớp
+     * trước (UC-18).
+     */
+    private void checkWithinClassPeriod(SchoolClass schoolClass, LocalDate sessionDate) {
+        LocalDate endDate = schoolClass.getEndDate();
+        if (endDate != null && sessionDate.isAfter(endDate)) {
+            throw new ClassSessionOutsideClassPeriodException("error.classSessionOutsideClassPeriod.default",
+                    new Object[]{sessionDate, endDate},
+                    "Ngày " + sessionDate + " vượt quá ngày kết thúc dự kiến (" + endDate + ") của lớp học. "
+                    + "Vui lòng cập nhật ngày kết thúc của lớp trước khi xếp buổi học ở ngày này.");
+        }
     }
 
     private void checkRoomConflict(Room room, LocalDate date, LocalTime startTime, LocalTime endTime, Long editingSessionId) {

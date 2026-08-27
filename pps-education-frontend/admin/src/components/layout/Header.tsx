@@ -222,6 +222,12 @@ export default function Header() {
     !lockToManagedSites && selectedCampusId === "ALL"
       ? t("header.site.allSites")
       : (lockToManagedSites ? managedSites : sites).find((s) => String(s.id) === selectedCampusId)?.name ?? t("header.site.placeholder");
+  // Điểm trường dùng để chấm công (UC-09) -- tái dùng đúng điểm trường đang chọn/khoá ở pill
+  // "Điểm trường" bên trên thay vì để SelfAttendanceCard tự có 1 dropdown chọn riêng thứ 2 (dư
+  // thừa, dễ chọn lệch với điểm trường đang xem dữ liệu) -- xác nhận với người dùng khi review UI
+  // chấm công. undefined khi chọn "Tất cả cơ sở" (selectedCampusId="ALL", chỉ xảy ra với vai trò
+  // không giới hạn site) -- SelfAttendanceCard tự nhận diện lại theo GPS lúc chấm công.
+  const attendanceSite = (lockToManagedSites ? managedSites : sites).find((s) => String(s.id) === selectedCampusId);
 
   // Chỉ hiện "Lớp" cho vai trò thật sự cần lọc theo lớp ở 1 trong các màn: Sổ điểm (UC-19/20,
   // SITE_MANAGER không có permission điểm nhưng vẫn cần lọc lớp để "xem lại sổ điểm"), Điểm danh
@@ -586,7 +592,12 @@ export default function Header() {
           descriptionClassName="text-sm"
           size="lg"
         >
-          <SelfAttendanceCard sites={sites} onChecked={setMyAttendance} />
+          <SelfAttendanceCard
+            site={attendanceSite}
+            todayRecord={myAttendance}
+            onChecked={setMyAttendance}
+            onRequestClose={() => setAttendanceModalOpen(false)}
+          />
         </Modal>
       )}
       {checkInModalOpen && (
