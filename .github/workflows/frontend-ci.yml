@@ -1,0 +1,42 @@
+# Lỗ hổng phát hiện 2026-08-27: trước đây Vercel tự build-check mỗi PR/push
+# (an toàn ngoài ý muốn) — nay đã bỏ Vercel (chuyển frontend sang server vật
+# lý tự host, xem deploy/README.md), nên KHÔNG còn gì bắt lỗi build frontend
+# trước khi merge nữa. Workflow này lấp lại đúng vai trò đó, chạy song song
+# với backend-ci.yml: `tsc --noEmit && vite build` (đúng script "build" của
+# từng app) cho cả 2 app admin/user trên mọi PR/push đụng
+# pps-education-frontend/**.
+name: Frontend CI
+
+on:
+  pull_request:
+    branches: [develop, main, production]
+    paths:
+      - "pps-education-frontend/**"
+      - ".github/workflows/frontend-ci.yml"
+  push:
+    branches: [develop, main, production]
+    paths:
+      - "pps-education-frontend/**"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        app: [admin, user]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: pps-education-frontend/${{ matrix.app }}/package-lock.json
+
+      - name: Install deps
+        working-directory: pps-education-frontend/${{ matrix.app }}
+        run: npm ci
+
+      - name: Type-check + build (tsc --noEmit && vite build)
+        working-directory: pps-education-frontend/${{ matrix.app }}
+        run: npm run build
