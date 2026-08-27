@@ -9,6 +9,7 @@ import { toLocaleTag, formatTimeHm } from "@/lib/i18nFormat";
 import { useApp } from "@/context/AppContext";
 import { Badge, Modal, TableContainer, Th, Td } from "@/components/ui";
 import Select from "@/components/ui/Select";
+import DatePicker from "@/components/ui/DatePicker";
 import { checkInStatusLabel, checkInStatusVariants, sessionStatusVariants } from "@/features/academic/components/ClassDetailPanel";
 import ClassPeriodGrid from "@/features/academic/components/ClassPeriodGrid";
 import { listClasses, ClassSessionCheckInStatusResponse, ClassSessionResponse } from "@/features/academic/api";
@@ -420,9 +421,13 @@ export default function EmployeeSchedulePage() {
                 );
               })}
             </div>
-            <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none" />
+            <div className="w-36">
+              <DatePicker value={from} onChange={setFrom} max={to || undefined} />
+            </div>
             <span className="text-[10px] text-slate-400">{t("employeeSchedulePage.rangeSeparator")}</span>
-            <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none" />
+            <div className="w-36">
+              <DatePicker value={to} onChange={setTo} min={from || undefined} />
+            </div>
 
             {/* Phòng ban không lọc được gì ở "Theo lớp học" (lưới chỉ theo điểm trường/lớp) — ẩn thay vì để vô tác dụng, xác nhận với người dùng 2026-08-20. */}
             {viewMode === "employee" && (

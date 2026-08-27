@@ -105,7 +105,7 @@
       "checkedInOut": "Đã chấm công {{checkIn}} – {{checkOut}}",
       "checkedInOnly": "Đã chấm công vào lúc {{checkIn}}",
       "modalTitle": "Chấm công của tôi",
-      "modalDescription": "Chọn điểm trường và bấm chấm công vào/ra — hệ thống dùng vị trí GPS hiện tại."
+      "modalDescription": "Bấm chấm công vào/ra — hệ thống dùng vị trí GPS hiện tại."
     },
     "classCheckIn": {
       "ariaLabel": "Nhận lớp hôm nay",

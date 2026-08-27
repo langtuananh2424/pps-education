@@ -47,6 +47,14 @@ import java.util.Map;
  * duyệt đơn (Có/Không, tùy chọn), J=Ngày vào làm (dd/MM/yyyy). Dòng 1 =
  * header, dữ liệu từ dòng 2.
  *
+ * Cột K-S (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-27) —
+ * toàn bộ tùy chọn, khớp các trường còn lại của hồ sơ nhân sự
+ * (EmployeeFormModal "Hồ sơ" section) vốn trước đây chỉ nhập tay được, không
+ * có trong import theo lô: K=Số CCCD, L=Ngày cấp CCCD (dd/MM/yyyy), M=Nơi
+ * cấp CCCD, N=Địa chỉ thường trú, O=Địa chỉ hiện tại, P=Số tài khoản ngân
+ * hàng, Q=Ngân hàng, R=Mã số thuế, S=Số BHXH. Để trống thì cột tương ứng
+ * trong employees vẫn NULL (không phải lỗi).
+ *
  * Mật khẩu: KHÔNG đặt trong Excel (rủi ro bảo mật khi file bị chuyển tay/
  * email) — hệ thống tự sinh mật khẩu tạm ngẫu nhiên mỗi dòng, hash lưu
  * password_hash bình thường, CHỈ trả plaintext 1 lần trong response của
@@ -64,7 +72,7 @@ public class EmployeeBatchImportService {
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final int HEADER_ROW_INDEX = 0;
     private static final int FIRST_DATA_ROW_INDEX = 1;
-    private static final int COLUMN_COUNT = 10;
+    private static final int COLUMN_COUNT = 19;
     private static final String TEMP_PASSWORD_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
     private static final SecureRandom RANDOM = new SecureRandom();
 
@@ -161,14 +169,17 @@ public class EmployeeBatchImportService {
 
     /**
      * File mẫu để nhập nhân sự theo lô (bổ sung ngoài SDD gốc, đã xác nhận
-     * với người dùng 2026-07-24) — đúng 10 cột theo thứ tự importRow() đọc
-     * phía trên. Không có cột mật khẩu (hệ thống tự sinh).
+     * với người dùng 2026-07-24; cột K-S bổ sung 2026-08-27) — đúng
+     * {@value #COLUMN_COUNT} cột theo thứ tự importRow() đọc phía trên.
+     * Không có cột mật khẩu (hệ thống tự sinh).
      */
     public byte[] buildTemplate() {
         List<String> headers = List.of(
                 "Họ và tên*", "Username*", "Email", "Ngày sinh (dd/MM/yyyy)*", "Mã nhân sự*",
                 "Loại nhân sự (Giáo viên/Nhân viên/Quản lý)*", "Mã chức vụ", "Mã phòng ban",
-                "Miễn trừ chấm công/duyệt đơn (Có/Không)", "Ngày vào làm (dd/MM/yyyy)*");
+                "Miễn trừ chấm công/duyệt đơn (Có/Không)", "Ngày vào làm (dd/MM/yyyy)*",
+                "Số CCCD", "Ngày cấp CCCD (dd/MM/yyyy)", "Nơi cấp CCCD", "Địa chỉ thường trú",
+                "Địa chỉ hiện tại", "Số tài khoản ngân hàng", "Ngân hàng", "Mã số thuế", "Số BHXH");
         return ExcelExportHelper.buildWorkbook("Nhập nhân sự", headers, List.of());
     }
 
@@ -200,6 +211,15 @@ public class EmployeeBatchImportService {
         String departmentCode = cell(row, formatter, 7);
         String managementText = cell(row, formatter, 8);
         String hireDateText = cell(row, formatter, 9);
+        String idCardNumber = cell(row, formatter, 10);
+        String idCardIssuedDateText = cell(row, formatter, 11);
+        String idCardIssuedPlace = cell(row, formatter, 12);
+        String permanentAddress = cell(row, formatter, 13);
+        String currentAddress = cell(row, formatter, 14);
+        String bankAccountNumber = cell(row, formatter, 15);
+        String bankName = cell(row, formatter, 16);
+        String taxCode = cell(row, formatter, 17);
+        String socialInsuranceNumber = cell(row, formatter, 18);
 
         if (fullName == null || fullName.isBlank()) {
             throw new IllegalArgumentException("Thiếu họ và tên (cột A).");
@@ -222,12 +242,18 @@ public class EmployeeBatchImportService {
         LocalDate dob = parseDate(dobText, "Ngày sinh sai định dạng (cần dd/MM/yyyy): " + dobText);
         LocalDate hireDate = parseDate(hireDateText, "Ngày vào làm sai định dạng (cần dd/MM/yyyy): " + hireDateText);
         Employee.EmployeeType employeeType = parseEmployeeType(employeeTypeText.trim());
+        LocalDate idCardIssuedDate = (idCardIssuedDateText == null || idCardIssuedDateText.isBlank())
+                ? null
+                : parseDate(idCardIssuedDateText, "Ngày cấp CCCD sai định dạng (cần dd/MM/yyyy): " + idCardIssuedDateText);
 
         if (userRepository.findByUsername(username.trim()).isPresent()) {
             throw new IllegalArgumentException("Username đã tồn tại: " + username);
         }
         if (employeeRepository.findByEmployeeCode(employeeCode.trim()).isPresent()) {
             throw new IllegalArgumentException("Mã nhân sự đã tồn tại: " + employeeCode);
+        }
+        if (idCardNumber != null && !idCardNumber.isBlank() && employeeRepository.findByIdCardNumber(idCardNumber.trim()).isPresent()) {
+            throw new IllegalArgumentException("Số CCCD đã tồn tại: " + idCardNumber);
         }
         String resolvedEmail;
         if (email == null || email.isBlank()) {
@@ -268,6 +294,15 @@ public class EmployeeBatchImportService {
         employee.setManagement(parseBoolean(managementText));
         employee.setDefaultShiftRequired(true);
         employee.setHireDate(hireDate);
+        employee.setIdCardNumber(blankToNull(idCardNumber));
+        employee.setIdCardIssuedDate(idCardIssuedDate);
+        employee.setIdCardIssuedPlace(blankToNull(idCardIssuedPlace));
+        employee.setPermanentAddress(blankToNull(permanentAddress));
+        employee.setCurrentAddress(blankToNull(currentAddress));
+        employee.setBankAccountNumber(blankToNull(bankAccountNumber));
+        employee.setBankName(blankToNull(bankName));
+        employee.setTaxCode(blankToNull(taxCode));
+        employee.setSocialInsuranceNumber(blankToNull(socialInsuranceNumber));
         employeeRepository.save(employee);
 
         // UC-08 A5 (FR-HRM-06/UC-52) -- hồ sơ vừa tạo nên chưa từng có chức vụ (oldPositionId = null).
@@ -302,6 +337,10 @@ public class EmployeeBatchImportService {
             case "có", "co", "true", "yes", "x" -> true;
             default -> false;
         };
+    }
+
+    private String blankToNull(String text) {
+        return (text == null || text.isBlank()) ? null : text.trim();
     }
 
     private String cell(Row row, DataFormatter formatter, int index) {

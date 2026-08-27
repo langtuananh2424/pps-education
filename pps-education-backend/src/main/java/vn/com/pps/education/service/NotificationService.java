@@ -139,7 +139,7 @@ public class NotificationService {
         }
 
         for (NotificationChannelSender sender : senders) {
-            if (isChannelEnabled(sender.channel(), pref, recipientUserId)) {
+            if (isChannelEnabled(sender.channel(), pref, recipientUserId, type)) {
                 createPendingDelivery(notification, sender.channel());
             }
         }
@@ -157,9 +157,14 @@ public class NotificationService {
      * upsertPreference() — chỉ ảnh hưởng khi CHƯA có bản ghi.
      */
     private boolean isChannelEnabled(NotificationDelivery.Channel channel, NotificationPreference pref,
-                                      Long recipientUserId) {
+                                      Long recipientUserId, Notification.NotificationType type) {
         return switch (channel) {
-            case EMAIL -> pref != null ? pref.isEmailEnabled() : !isStudent(recipientUserId);
+            // Sửa đổi nghiệp vụ 2026-08-27 (đã xác nhận với người dùng, xem
+            // docs/uc/phan-he-05-hoc-sinh.md): điểm danh PRESENT chỉ gửi
+            // in-app, KHÔNG gửi email — bất kể notification_preferences của
+            // Phụ huynh (quy tắc cứng, không phải preference có thể tự bật lại).
+            case EMAIL -> type != Notification.NotificationType.ATTENDANCE_PRESENT
+                    && (pref != null ? pref.isEmailEnabled() : !isStudent(recipientUserId));
             case PUSH -> pref == null || pref.isPushEnabled();
             case SMS -> pref != null ? pref.isSmsEnabled() : isParentOrStudent(recipientUserId);
             case ZALO -> pref != null && pref.isZaloEnabled();

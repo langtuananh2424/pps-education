@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
+import Select from "@/components/ui/Select";
 import {
   ExamTeacherType,
   ExerciseResponse,
@@ -206,7 +207,7 @@ function ExerciseInfoStep({
         </div>
         <div className="col-span-2">
           <label className={labelClass}>{t("assignModal.infoStep.skillCategoryLabel")}</label>
-          <select
+          <Select
             value={skillCategory}
             onChange={(e) => setSkillCategory(e.target.value as ExerciseSkillCategory | "")}
             className={inputClass}
@@ -220,7 +221,7 @@ function ExerciseInfoStep({
                 <option value="VOCAB_GRAMMAR">{t("assignModal.infoStep.skillCategoryVocabGrammar")}</option>
               </>
             )}
-          </select>
+          </Select>
         </div>
         <div className="col-span-2">
           <label className={labelClass}>{t("assignModal.infoStep.passThresholdLabel")}</label>

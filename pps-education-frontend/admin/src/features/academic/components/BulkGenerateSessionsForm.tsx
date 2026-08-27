@@ -95,7 +95,11 @@ export default function BulkGenerateSessionsForm({ classId, siteId, onDone, onCa
       };
       const res = await bulkCreateClassSessions(classId, request);
       setResult(res);
-      if (res.createdCount > 0) onDone();
+      // Có ngày bị bỏ qua (trùng phòng/GV/lớp, hoặc vượt classes.end_date) — GIỮ modal mở để người
+      // dùng đọc rõ resultSummary/skippedReason trước khi đóng (trước đây tự đóng ngay khi
+      // createdCount > 0, khiến danh sách skipped chưa kịp hiển thị đã biến mất — bổ sung ngoài SDD
+      // gốc, xác nhận với người dùng 2026-08-27). Chỉ tự đóng khi lô chạy sạch hoàn toàn.
+      if (res.createdCount > 0 && res.skippedCount === 0) onDone();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t("bulkGenerateSessions.submitError"));
     } finally {
@@ -227,7 +231,9 @@ export default function BulkGenerateSessionsForm({ classId, siteId, onDone, onCa
       )}
 
       <div className="flex gap-2 pt-1">
-        <Button type="button" variant="secondary" size="sm" onClick={onCancel}>
+        {/* Đã tạo được ít nhất 1 buổi (kể cả khi có ngày bị bỏ qua) — đóng bằng onDone để danh sách
+            buổi học ở lớp refresh đúng, thay vì onCancel (chỉ đóng, không load lại). */}
+        <Button type="button" variant="secondary" size="sm" onClick={result && result.createdCount > 0 ? onDone : onCancel}>
           {t("common.closeButton")}
         </Button>
         <Button type="submit" variant="primary" size="sm" disabled={submitting}>
