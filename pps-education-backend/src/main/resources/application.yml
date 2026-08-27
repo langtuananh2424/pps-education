@@ -148,6 +148,14 @@ app:
     # qua env var SEED_DEV_USERS=true (docker-compose.yml/.env.example local dev
     # đã bật sẵn) để test/CI/staging/production không bao giờ dính.
     dev-users: ${SEED_DEV_USERS:false}
+    # InitialAdminSeeder - bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+    # (2026-08-27) - seed ĐÚNG 1 tài khoản sysadmin để bootstrap staging/
+    # production lần đầu, KHÁC dev-users ở trên (11 tài khoản demo, chỉ an
+    # toàn cho local dev). Mật khẩu BẮT BUỘC lấy từ SEED_SYSADMIN_PASSWORD,
+    # không hardcode - app từ chối khởi động nếu bật initial-admin mà thiếu
+    # mật khẩu (xem InitialAdminSeeder).
+    initial-admin: ${SEED_INITIAL_ADMIN:false}
+    sysadmin-password: ${SEED_SYSADMIN_PASSWORD:}
   media:
     # Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (2026-07-21, cập nhật
     # 2026-07-22): API upload file audio/ảnh cho Question.audioUrl/imageUrl
