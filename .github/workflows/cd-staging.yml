@@ -1,10 +1,17 @@
 # Deploy tự động lên môi trường Staging (server vật lý tự host, xem
 # deploy/README.md) khi push vào `main` — `main` là nhánh auto-deploy staging
 # (đổi từ `develop` trước đây, xem CONTRIBUTING.md mục 1 — cập nhật 2026-08-26).
-# Cần thiết lập trước GitHub Environment "staging" với secret:
-#   DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY, DEPLOY_SSH_PORT — thông tin SSH
-#   vào server, KHÔNG phải secret nghiệp vụ (DB/JWT/v.v. nằm trong .env trên
-#   server, xem deploy/README.md).
+#
+# LƯU Ý (2026-08-27): job `deploy` chạy trên SELF-HOSTED RUNNER cài ngay
+# trên server vật lý (không phải GHCR-hosted `ubuntu-latest`) — server không
+# có static IP public nên GitHub Actions cloud KHÔNG THỂ SSH vào IP LAN
+# (192.168.x.x) được. Runner tự kết nối OUTBOUND ra GitHub (không cần mở
+# port/SSH qua internet), job chạy thẳng trên server nên không cần
+# DEPLOY_HOST/DEPLOY_USER/DEPLOY_SSH_KEY/DEPLOY_SSH_PORT nữa. AN TOÀN với
+# repo public vì job này chỉ trigger qua `push` vào nhánh `main` đã bật
+# branch protection (chỉ chạy sau khi 1 PR được merge bởi người có quyền,
+# KHÔNG BAO GIỜ trigger trực tiếp từ `pull_request` của fork lạ — xem
+# deploy/README.md mục 8 để biết cách cài runner).
 name: CD - Staging
 
 on:
@@ -46,18 +53,12 @@ jobs:
 
   deploy:
     needs: build-and-push
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, pps-education]
     environment: staging
     steps:
-      - name: Deploy backend over SSH (pull staging-latest + restart container)
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          port: ${{ secrets.DEPLOY_SSH_PORT }}
-          script: |
-            cd /opt/pps-education/staging
-            docker compose pull backend
-            docker compose up -d --no-deps backend
-            docker image prune -f
+      - name: Pull staging-latest + restart container (chạy trực tiếp trên server)
+        run: |
+          cd /opt/pps-education/staging
+          docker compose pull backend
+          docker compose up -d --no-deps backend
+          docker image prune -f
