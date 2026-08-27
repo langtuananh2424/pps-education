@@ -1192,6 +1192,15 @@ export function updateGradeEditWindow(days: number): Promise<GradeEditWindowResp
   return apiRequest<GradeEditWindowResponse>("/academic/settings/grade-edit-window-days", { method: "PUT", body: JSON.stringify({ days }) });
 }
 
+export interface StudentAttendanceGracePeriodResponse {
+  gracePeriodMinutes: number;
+}
+
+/** UC-15 (V144): số phút nới thêm sau end_time buổi học để vẫn điểm danh/sửa được — đọc để đồng bộ khoá nút FE với StudentAttendanceService.isWithinSessionWindow. */
+export function getStudentAttendanceGracePeriodMinutes(): Promise<StudentAttendanceGracePeriodResponse> {
+  return apiRequest<StudentAttendanceGracePeriodResponse>("/academic/settings/student-attendance-grace-period-minutes");
+}
+
 /** UC-19 Main Flow bước 4 (V44): Giáo viên gửi duyệt — DRAFT/REJECTED -> SUBMITTED, chờ Quản lý điểm trường duyệt qua UC-20. */
 export function submitGradesForApproval(request: { gradeEntryIds?: number[]; gradeEvaluationResultIds?: number[] }): Promise<GradeEntryResponse[]> {
   return apiRequest<GradeEntryResponse[]>("/grades/submit", { method: "POST", body: JSON.stringify(request) });

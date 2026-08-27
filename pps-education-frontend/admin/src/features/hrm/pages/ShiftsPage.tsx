@@ -5,6 +5,7 @@ import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import { Badge, Button, TableContainer, Td, Th } from "@/components/ui";
 import Select from "@/components/ui/Select";
+import DatePicker from "@/components/ui/DatePicker";
 import Toast from "@/components/ui/Toast";
 import { useToast } from "@/lib/useToast";
 import {
@@ -329,12 +330,9 @@ function BulkAssignShiftPanel({ shifts, onAssigned }: { shifts: ShiftResponse[];
             </option>
           ))}
         </Select>
-        <input
-          type="date"
-          value={effectiveFrom}
-          onChange={(e) => setEffectiveFrom(e.target.value)}
-          className="bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
-        />
+        <div className="w-36">
+          <DatePicker value={effectiveFrom} onChange={setEffectiveFrom} />
+        </div>
         <Button variant="primary" disabled={submitting} onClick={handleBulkAssign}>
           <Clock3 className="w-3.5 h-3.5" />
           {submitting

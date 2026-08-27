@@ -33,17 +33,20 @@
     "empty": "No attendance records in the selected range."
   },
   "selfAttendance": {
-    "detectedSitePrefix": "Site auto-detected: ",
-    "detectedSiteSuffix": ".",
-    "noSites": "No sites yet",
+    "currentTimeLabel": "Attendance time",
+    "noSiteSelected": "No site selected in the Header — the system will auto-detect one by GPS when you check in.",
     "processing": "Processing...",
     "checkInButton": "Check in",
     "checkOutButton": "Check out",
-    "checkInSuccess": "Checked in successfully at {{time}}!",
-    "checkOutSuccess": "Checked out successfully at {{time}}!",
+    "doneToday": "Done for today",
     "checkInFailedUnknown": "Check-in failed — open Console (F12) to see the error details.",
     "checkInTimeLabel": "Check-in: ",
-    "checkOutTimeLabel": "Check-out: "
+    "checkOutTimeLabel": "Check-out: ",
+    "successTitleIn": "Checked in successfully!",
+    "successTitleOut": "Checked out successfully!",
+    "successSubtitle": "You checked in successfully at {{time}}",
+    "backButton": "Back",
+    "viewDetailButton": "View details"
   },
   "attendanceSitesPage": {
     "title": "Attendance Sites",

@@ -809,6 +809,15 @@ UC-56: Sinh lịch học hàng loạt theo mẫu lặp
 |                 |     ngày nào.                                      |
 +-----------------+----------------------------------------------------+
 
+> **Chặn ngày vượt quá thời gian lớp học (bổ sung ngoài SDD gốc, xác nhận
+> với người dùng 2026-08-27):** ngày buổi học (UC-48 tạo lẻ, UC-56 sinh
+> hàng loạt, UC-57 Excel, và ngày mới khi dời lịch UC-48/A3) không được
+> sau `classes.end_date` (Ngày kết thúc dự kiến, nullable — không chặn nếu
+> lớp chưa đặt end_date). Vi phạm ném
+> `ClassSessionOutsideClassPeriodException` — ở UC-56 xử lý như 1 lý do bị
+> bỏ qua (giống trùng phòng/GV/lớp), không chặn cả lô. Muốn xếp buổi học
+> sau ngày này phải vào UC-18 cập nhật lại `end_date` của lớp trước.
+
 ---
 
 UC-57: Nhập lịch học qua Excel

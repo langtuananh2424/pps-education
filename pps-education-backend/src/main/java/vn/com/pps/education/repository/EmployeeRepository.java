@@ -17,6 +17,8 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
 
     Optional<Employee> findByUserId(Long userId);
 
+    Optional<Employee> findByIdCardNumber(String idCardNumber);
+
     List<Employee> findByUserIdIn(Collection<Long> userIds);
 
     /** DepartmentService#delete — có nhân sự trực thuộc (kể cả đã soft-delete, FK vẫn ràng buộc) thì không xóa được phòng ban. */

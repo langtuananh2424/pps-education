@@ -288,6 +288,16 @@ UC-15: Điểm danh học sinh
 >   (`notified_parent_at`) khi Giáo viên submit lại cùng buổi. Mục 1 (LATE
 >   tính đủ chuyên cần) ở trên KHÔNG đổi.
 >
+> - **Sửa đổi nghiệp vụ ngày 2026-08-27 (đã xác nhận với người dùng) — thu
+>   hẹp kênh gửi cho PRESENT:** trạng thái `PRESENT` (có mặt đầy đủ) chỉ
+>   gửi thông báo **in-app (chuông)** cho Phụ huynh, KHÔNG gửi email nữa —
+>   khác với ABSENT/LATE/EXCUSED/EARLY_LEAVE vẫn gửi cả 2 kênh theo
+>   `notification_preferences` như mục "Sửa đổi nghiệp vụ ngày 2026-08-22"
+>   ở trên. Đây là quy tắc cứng theo loại thông báo
+>   (`NotificationService.isChannelEnabled`, chặn kênh EMAIL cho
+>   `ATTENDANCE_PRESENT`), không phải preference Phụ huynh có thể tự bật
+>   lại qua `notification_preferences`.
+>
 > - **Quyền quản trị (vượt rào Giáo viên):** 3 quyền chi tiết mới cho phép
 >   gán 1 tài khoản thao tác điểm danh **buổi bất kỳ, ngày bất kỳ** (không
 >   cần là Giáo viên được phân công) để bổ sung/khắc phục sai sót:

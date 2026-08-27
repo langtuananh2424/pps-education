@@ -359,6 +359,11 @@ export function importEmployees(file: File): Promise<EmployeeBatchImportResponse
   return apiRequest<EmployeeBatchImportResponse>("/employee-imports", { method: "POST", body: formData });
 }
 
+/** Mẫu Excel THẬT từ backend (khớp EmployeeBatchImportService.buildTemplate(), 19 cột A-S) — tránh lệch cột với mẫu tự dựng ở FE, cùng cơ chế Student/Parent. */
+export function downloadEmployeeImportTemplate(): Promise<Blob> {
+  return apiRequestBlob("/employee-imports/template");
+}
+
 /** Xuất Excel danh sách tài khoản nhân sự vừa tạo qua import — khớp AccountExportRequest thật, cùng cơ chế Student/Parent. */
 export function exportEmployeeAccounts(
   accounts: { username: string; temporaryPassword: string; fullName?: string }[]

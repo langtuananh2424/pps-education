@@ -5,6 +5,7 @@ import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import { Badge, Button, Modal, TableContainer, Td, Th } from "@/components/ui";
 import Select from "@/components/ui/Select";
+import DatePicker from "@/components/ui/DatePicker";
 import Toast from "@/components/ui/Toast";
 import { useToast } from "@/lib/useToast";
 import {
@@ -101,9 +102,13 @@ export default function WorkCalendarPage() {
       </div>
 
       <div className="flex items-center gap-2">
-        <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className={`${inputClass} max-w-[160px]`} />
+        <div className="w-36">
+          <DatePicker value={from} onChange={setFrom} max={to || undefined} />
+        </div>
         <span className="text-[10px] text-slate-400">{t("workCalendarPage.rangeSeparator")}</span>
-        <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className={`${inputClass} max-w-[160px]`} />
+        <div className="w-36">
+          <DatePicker value={to} onChange={setTo} min={from || undefined} />
+        </div>
       </div>
 
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
@@ -232,7 +237,7 @@ function WorkCalendarFormModal({ onClose, onSaved }: { onClose: () => void; onSa
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className={labelClass}>{t("workCalendarPage.form.dateLabel")}</label>
-            <input type="date" value={calendarDate} onChange={(e) => setCalendarDate(e.target.value)} className={inputClass} />
+            <DatePicker value={calendarDate} onChange={setCalendarDate} />
           </div>
           <div>
             <label className={labelClass}>{t("workCalendarPage.form.typeLabel")}</label>

@@ -33,17 +33,20 @@
     "empty": "Không có bản ghi chấm công trong khoảng đã chọn."
   },
   "selfAttendance": {
-    "detectedSitePrefix": "Đã tự nhận diện điểm chấm công: ",
-    "detectedSiteSuffix": ".",
-    "noSites": "Chưa có điểm trường",
+    "currentTimeLabel": "Giờ chấm công",
+    "noSiteSelected": "Chưa chọn điểm trường ở Header — hệ thống sẽ tự nhận diện theo GPS khi chấm công.",
     "processing": "Đang xử lý...",
     "checkInButton": "Chấm công vào",
     "checkOutButton": "Chấm công ra",
-    "checkInSuccess": "Chấm công vào thành công lúc {{time}}!",
-    "checkOutSuccess": "Chấm công ra thành công lúc {{time}}!",
+    "doneToday": "Đã hoàn tất hôm nay",
     "checkInFailedUnknown": "Chấm công thất bại — mở Console (F12) để xem chi tiết lỗi.",
     "checkInTimeLabel": "Giờ vào: ",
-    "checkOutTimeLabel": "Giờ ra: "
+    "checkOutTimeLabel": "Giờ ra: ",
+    "successTitleIn": "Chấm công thành công!",
+    "successTitleOut": "Chấm công ra thành công!",
+    "successSubtitle": "Bạn đã chấm công thành công vào {{time}}",
+    "backButton": "Quay lại",
+    "viewDetailButton": "Xem chi tiết"
   },
   "attendanceSitesPage": {
     "title": "Địa điểm chấm công",

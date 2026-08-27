@@ -7,6 +7,8 @@ import { ApiError } from "@/lib/apiClient";
 import { searchUsers, UserListItemResponse } from "@/features/system-admin/api";
 import { CreateTaskRequest, TaskPriority, TaskResponse, TaskType, createTask } from "../api";
 import Select from "@/components/ui/Select";
+import DatePicker from "@/components/ui/DatePicker";
+import Time24Input from "@/components/ui/Time24Input";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
@@ -43,7 +45,8 @@ export default function CreateTaskModal({ onClose, onCreated }: CreateTaskModalP
   const [description, setDescription] = useState("");
   const [taskType, setTaskType] = useState<TaskType>("GENERAL");
   const [priority, setPriority] = useState<TaskPriority>("NORMAL");
-  const [dueAt, setDueAt] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const [dueTime, setDueTime] = useState("");
   const [tagsInput, setTagsInput] = useState("");
 
   const [query, setQuery] = useState("");
@@ -89,7 +92,7 @@ export default function CreateTaskModal({ onClose, onCreated }: CreateTaskModalP
         assigneeUserIds: assignees.map((a) => a.id),
         taskType,
         priority,
-        dueAt: dueAt ? new Date(dueAt).toISOString() : undefined,
+        dueAt: dueDate ? new Date(`${dueDate}T${dueTime || "00:00"}`).toISOString() : undefined,
         tags: tagsInput.trim() ? tagsInput.split(",").map((t) => t.trim()).filter(Boolean) : undefined
       };
       const created = await createTask(request);
@@ -190,7 +193,14 @@ export default function CreateTaskModal({ onClose, onCreated }: CreateTaskModalP
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className={labelClass}>{t("createTaskModal.dueLabel")}</label>
-            <input type="datetime-local" value={dueAt} onChange={(e) => setDueAt(e.target.value)} className={inputClass} />
+            <div className="flex items-center gap-1.5">
+              <div className="flex-1 min-w-0">
+                <DatePicker value={dueDate} onChange={setDueDate} />
+              </div>
+              <div className="w-20 shrink-0">
+                <Time24Input value={dueTime} onChange={setDueTime} className={inputClass} />
+              </div>
+            </div>
           </div>
           <div>
             <label className={labelClass}>{t("createTaskModal.tagsLabel")}</label>
