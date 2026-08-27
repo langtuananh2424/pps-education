@@ -107,18 +107,23 @@ Nếu có dữ liệu cũ thật trên R2 cần giữ lại: dùng `rclone`/`mc 
 
 ## 4. Nginx + Cloudflare Tunnel
 
+Domain thật: **`ppsvietnam.edu.vn`** (đã quản lý trên Cloudflare, DNS Setup:
+Full). ⚠️ Domain gốc `ppsvietnam.edu.vn`/`www.`/`pma.` đang phục vụ 1 site
+khác (IP `103.179.190.129`, Proxied) — KHÔNG được đụng vào các record đó,
+chỉ thao tác trên 6 subdomain dưới đây.
+
 1. Copy `deploy/nginx/admin.conf.template`, `user.conf.template`,
    `files.conf.template` vào `/etc/nginx/sites-available/`, thay placeholder
    theo bảng:
 
    | File | `__HOSTNAME__` | `__ROOT_PATH__` | `__API_PORT__` / `__MINIO_PORT__` |
    |---|---|---|---|
-   | admin-staging | `admin-staging.<DOMAIN>` | `/opt/pps-education/staging/frontend/admin` | 8081 |
-   | admin (prod) | `admin.<DOMAIN>` | `/opt/pps-education/production/frontend/admin` | 8080 |
-   | app-staging | `app-staging.<DOMAIN>` | `/opt/pps-education/staging/frontend/user` | 8081 |
-   | app (prod) | `app.<DOMAIN>` | `/opt/pps-education/production/frontend/user` | 8080 |
-   | files-staging | `files-staging.<DOMAIN>` | — | 9002 |
-   | files (prod) | `files.<DOMAIN>` | — | 9000 |
+   | admin-staging | `admin-staging.ppsvietnam.edu.vn` | `/opt/pps-education/staging/frontend/admin` | 8081 |
+   | admin (prod) | `admin.ppsvietnam.edu.vn` | `/opt/pps-education/production/frontend/admin` | 8080 |
+   | user-staging | `user-staging.ppsvietnam.edu.vn` | `/opt/pps-education/staging/frontend/user` | 8081 |
+   | user (prod) | `user.ppsvietnam.edu.vn` | `/opt/pps-education/production/frontend/user` | 8080 |
+   | files-staging | `files-staging.ppsvietnam.edu.vn` | — | 9002 |
+   | files (prod) | `files.ppsvietnam.edu.vn` | — | 9000 |
 
 2. `ln -s` từng file vào `sites-enabled/`, `nginx -t && systemctl reload nginx`.
 3. Cài `cloudflared` (gói `.deb` chính thức Cloudflare), `cloudflared tunnel login`,
@@ -128,21 +133,24 @@ Nếu có dữ liệu cũ thật trên R2 cần giữ lại: dùng `rclone`/`mc 
    tunnel: pps-education
    credentials-file: /root/.cloudflared/<TUNNEL_ID>.json
    ingress:
-     - hostname: admin.<DOMAIN>
+     - hostname: admin.ppsvietnam.edu.vn
        service: http://localhost:80
-     - hostname: app.<DOMAIN>
+     - hostname: user.ppsvietnam.edu.vn
        service: http://localhost:80
-     - hostname: admin-staging.<DOMAIN>
+     - hostname: admin-staging.ppsvietnam.edu.vn
        service: http://localhost:80
-     - hostname: app-staging.<DOMAIN>
+     - hostname: user-staging.ppsvietnam.edu.vn
        service: http://localhost:80
-     - hostname: files.<DOMAIN>
+     - hostname: files.ppsvietnam.edu.vn
        service: http://localhost:80
-     - hostname: files-staging.<DOMAIN>
+     - hostname: files-staging.ppsvietnam.edu.vn
        service: http://localhost:80
      - service: http_status:404
    ```
-5. `cloudflared tunnel route dns pps-education <hostname>` cho từng hostname ở trên.
+5. `cloudflared tunnel route dns pps-education <hostname>` cho từng hostname ở
+   trên (6 lần) — tự động tạo/GHI ĐÈ record DNS đúng hostname đó thành CNAME
+   trỏ vào tunnel (record `admin`/`user` cũ trỏ IP giả `192.0.2.1` sẽ được
+   thay thế, 4 record còn lại là tạo mới).
 6. `cloudflared service install && systemctl enable --now cloudflared`.
 7. Trên Cloudflare Dashboard: bật "Always Use HTTPS" + SSL/TLS mode "Full".
 
