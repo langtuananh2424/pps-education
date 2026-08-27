@@ -35,13 +35,15 @@ echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.
 apt update
 apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
 
-# User deploy (dùng cho CI SSH) - KHÁC key cá nhân quản trị từ máy nhà
+# User deploy (chạy self-hosted GitHub Actions runner - xem mục 8, KHÔNG còn
+# dùng cho SSH nữa vì GitHub Actions cloud không SSH vào IP LAN được) - KHÁC
+# key cá nhân quản trị từ máy nhà
 adduser --disabled-password --gecos "" deploy
 usermod -aG docker deploy
-mkdir -p /home/deploy/.ssh
-# dán public key CI vào /home/deploy/.ssh/authorized_keys, chmod 600, chown deploy:deploy
 
 # Firewall: KHÔNG mở 80/443 (dùng Cloudflare Tunnel, xem mục 4) — SSH chỉ cho LAN
+# (self-hosted runner ở mục 8 tự kết nối OUTBOUND ra GitHub, không cần mở
+# thêm port nào cho việc đó)
 ufw default deny incoming
 ufw default allow outgoing
 ufw allow from <LAN_SUBNET, VD 192.168.1.0/24> to any port 22 proto tcp
@@ -105,18 +107,23 @@ Nếu có dữ liệu cũ thật trên R2 cần giữ lại: dùng `rclone`/`mc 
 
 ## 4. Nginx + Cloudflare Tunnel
 
+Domain thật: **`ppsvietnam.edu.vn`** (đã quản lý trên Cloudflare, DNS Setup:
+Full). ⚠️ Domain gốc `ppsvietnam.edu.vn`/`www.`/`pma.` đang phục vụ 1 site
+khác (IP `103.179.190.129`, Proxied) — KHÔNG được đụng vào các record đó,
+chỉ thao tác trên 6 subdomain dưới đây.
+
 1. Copy `deploy/nginx/admin.conf.template`, `user.conf.template`,
    `files.conf.template` vào `/etc/nginx/sites-available/`, thay placeholder
    theo bảng:
 
    | File | `__HOSTNAME__` | `__ROOT_PATH__` | `__API_PORT__` / `__MINIO_PORT__` |
    |---|---|---|---|
-   | admin-staging | `admin-staging.<DOMAIN>` | `/opt/pps-education/staging/frontend/admin` | 8081 |
-   | admin (prod) | `admin.<DOMAIN>` | `/opt/pps-education/production/frontend/admin` | 8080 |
-   | app-staging | `app-staging.<DOMAIN>` | `/opt/pps-education/staging/frontend/user` | 8081 |
-   | app (prod) | `app.<DOMAIN>` | `/opt/pps-education/production/frontend/user` | 8080 |
-   | files-staging | `files-staging.<DOMAIN>` | — | 9002 |
-   | files (prod) | `files.<DOMAIN>` | — | 9000 |
+   | admin-staging | `admin-staging.ppsvietnam.edu.vn` | `/opt/pps-education/staging/frontend/admin` | 8081 |
+   | admin (prod) | `admin.ppsvietnam.edu.vn` | `/opt/pps-education/production/frontend/admin` | 8080 |
+   | user-staging | `user-staging.ppsvietnam.edu.vn` | `/opt/pps-education/staging/frontend/user` | 8081 |
+   | user (prod) | `user.ppsvietnam.edu.vn` | `/opt/pps-education/production/frontend/user` | 8080 |
+   | files-staging | `files-staging.ppsvietnam.edu.vn` | — | 9002 |
+   | files (prod) | `files.ppsvietnam.edu.vn` | — | 9000 |
 
 2. `ln -s` từng file vào `sites-enabled/`, `nginx -t && systemctl reload nginx`.
 3. Cài `cloudflared` (gói `.deb` chính thức Cloudflare), `cloudflared tunnel login`,
@@ -126,21 +133,24 @@ Nếu có dữ liệu cũ thật trên R2 cần giữ lại: dùng `rclone`/`mc 
    tunnel: pps-education
    credentials-file: /root/.cloudflared/<TUNNEL_ID>.json
    ingress:
-     - hostname: admin.<DOMAIN>
+     - hostname: admin.ppsvietnam.edu.vn
        service: http://localhost:80
-     - hostname: app.<DOMAIN>
+     - hostname: user.ppsvietnam.edu.vn
        service: http://localhost:80
-     - hostname: admin-staging.<DOMAIN>
+     - hostname: admin-staging.ppsvietnam.edu.vn
        service: http://localhost:80
-     - hostname: app-staging.<DOMAIN>
+     - hostname: user-staging.ppsvietnam.edu.vn
        service: http://localhost:80
-     - hostname: files.<DOMAIN>
+     - hostname: files.ppsvietnam.edu.vn
        service: http://localhost:80
-     - hostname: files-staging.<DOMAIN>
+     - hostname: files-staging.ppsvietnam.edu.vn
        service: http://localhost:80
      - service: http_status:404
    ```
-5. `cloudflared tunnel route dns pps-education <hostname>` cho từng hostname ở trên.
+5. `cloudflared tunnel route dns pps-education <hostname>` cho từng hostname ở
+   trên (6 lần) — tự động tạo/GHI ĐÈ record DNS đúng hostname đó thành CNAME
+   trỏ vào tunnel (record `admin`/`user` cũ trỏ IP giả `192.0.2.1` sẽ được
+   thay thế, 4 record còn lại là tạo mới).
 6. `cloudflared service install && systemctl enable --now cloudflared`.
 7. Trên Cloudflare Dashboard: bật "Always Use HTTPS" + SSL/TLS mode "Full".
 
@@ -222,15 +232,51 @@ máy khác trong LAN: `wakeonlan <MAC_ADDRESS>`.
 Khi có UPS sau này: cài **NUT (Network UPS Tools)** để tự gọi
 `safe-shutdown.sh` khi phát hiện mất điện — script đã sẵn sàng để tái dùng.
 
-## 8. GitHub Secrets/Environments cần tạo
+## 8. Self-hosted GitHub Actions runner (thay SSH deploy)
 
-- Repo-level: `DEPLOY_HOST`, `DEPLOY_USER` (`deploy`), `DEPLOY_SSH_KEY`, `DEPLOY_SSH_PORT`.
+Server không có static IP public → GitHub Actions cloud (`ubuntu-latest`)
+không SSH vào IP LAN được. Giải pháp: cài **self-hosted runner** ngay trên
+server — runner tự kết nối OUTBOUND ra GitHub (không cần mở port/SSH qua
+internet), job deploy chạy TRỰC TIẾP trên server (xem `cd-staging.yml`/
+`cd-production.yml`/`cd-frontend.yml`, đều dùng `runs-on: [self-hosted,
+pps-education]`).
+
+**An toàn với repo public**: chỉ 3 workflow deploy trên (trigger `push` vào
+nhánh đã bật branch protection) dùng self-hosted runner — `backend-ci.yml`/
+`frontend-ci.yml` (trigger `pull_request`, có thể đến từ fork lạ) vẫn chạy
+trên `ubuntu-latest` như cũ, KHÔNG BAO GIỜ đổi sang self-hosted (tránh rủi ro
+code lạ từ PR fork chạy được trên server thật).
+
+1. Vào GitHub repo → Settings → Actions → Runners → **New self-hosted
+   runner** → chọn Linux x64 → copy đúng lệnh `token=...` mà GitHub sinh ra
+   (hết hạn sau ~1h, chỉ dùng 1 lần để đăng ký).
+2. Trên server, chạy dưới user `deploy` (đã tạo ở mục 1):
+   ```bash
+   sudo -u deploy -i
+   mkdir actions-runner && cd actions-runner
+   curl -o actions-runner-linux-x64.tar.gz -L https://github.com/actions/runner/releases/latest/download/actions-runner-linux-x64.tar.gz
+   tar xzf actions-runner-linux-x64.tar.gz
+   ./config.sh --url https://github.com/langtuananh2424/pps-education --token <TOKEN_TU_BUOC_1> --labels pps-education --name pps-education-server
+   ```
+3. Cài làm systemd service để tự chạy nền + tự khởi động lại khi reboot
+   (chạy lại với quyền `sudo`, không phải user `deploy`):
+   ```bash
+   sudo ./svc.sh install deploy
+   sudo ./svc.sh start
+   ```
+4. Kiểm tra: GitHub repo → Settings → Actions → Runners phải thấy
+   `pps-education-server` trạng thái **Idle** (màu xanh).
+
+## 9. GitHub Secrets/Environments cần tạo
+
+- **Không còn cần** `DEPLOY_HOST`/`DEPLOY_USER`/`DEPLOY_SSH_KEY`/`DEPLOY_SSH_PORT`
+  (đã bỏ SSH deploy, xem mục 8).
 - Environment `staging` và `production` (production có required reviewer):
   `VITE_GOOGLE_CLIENT_ID`, `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`,
   `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_MESSAGING_SENDER_ID`,
   `VITE_FIREBASE_APP_ID`, `VITE_FIREBASE_VAPID_KEY` (giá trị đúng stack).
 
-## 9. Rollback
+## 10. Rollback
 
 - Image có cả tag bất biến (`backend:staging-<sha>`/`prod-<sha>`) và tag di
   động (`staging-latest`/`prod-latest`).

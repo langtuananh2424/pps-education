@@ -46,3 +46,11 @@ pps-education-frontend-test/
 # Playwright MCP — công cụ + output phát sinh khi QA test live qua UI thật
 .mcp.json
 .playwright-mcp/
+
+# File thử nghiệm/scratch cục bộ (VD k6 loadtest, sample input/output khi tự tay
+# verify report generation) — phát hiện nằm untracked lâu ngày khi audit trước
+# lúc public repo (2026-08-27), thêm ignore để tránh lỡ tay `git add -A` commit nhầm.
+pps-education-backend/loadtest/
+pps-education-backend/test_sample_*.docx
+pps-education-backend/test_sample_*.html
+pps-education-backend/test_sample_*.pdf
