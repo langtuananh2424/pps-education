@@ -1,15 +1,19 @@
 # Deploy 2 SPA frontend (admin, user) lên server vật lý tự host (xem
 # deploy/README.md) khi push vào `main` (staging) hoặc `production`
-# (production) — build tĩnh (Vite) + rsync dist/ sang đúng thư mục Nginx serve
-# trên server, không cần restart gì (file tĩnh).
+# (production) — build tĩnh (Vite) rồi copy dist/ sang đúng thư mục Nginx
+# serve trên server, không cần restart gì (file tĩnh).
 #
 # apiClient.ts của cả 2 app gọi API qua đường dẫn tương đối "/api" (same-
 # origin) — Nginx trên server proxy /api/ sang backend cùng stack, nên
 # KHÔNG cần cấu hình base URL API riêng ở đây.
 #
-# Cần GitHub Environment "staging"/"production" với secret SSH dùng chung
-# backend (DEPLOY_HOST/DEPLOY_USER/DEPLOY_SSH_KEY/DEPLOY_SSH_PORT) + biến
-# VITE_* riêng theo stack (Google OAuth Client ID, Firebase Web config).
+# LƯU Ý (2026-08-27): job chạy TRỰC TIẾP trên SELF-HOSTED RUNNER cài ngay
+# trên server vật lý (không phải ubuntu-latest) — build + copy dist/ luôn
+# tại chỗ, KHÔNG cần rsync qua SSH nữa (lý do: server không có static IP
+# public, GitHub Actions cloud không SSH/rsync vào IP LAN được — xem comment
+# chi tiết ở cd-staging.yml). Cần GitHub Environment "staging"/"production"
+# với biến VITE_* riêng theo stack (Google OAuth Client ID, Firebase Web
+# config) — không còn cần DEPLOY_HOST/DEPLOY_USER/DEPLOY_SSH_KEY/DEPLOY_SSH_PORT.
 name: CD - Frontend
 
 on:
@@ -20,7 +24,7 @@ on:
 
 jobs:
   build-and-deploy:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, pps-education]
     strategy:
       matrix:
         app: [admin, user]
@@ -50,13 +54,9 @@ jobs:
           VITE_FIREBASE_VAPID_KEY: ${{ secrets.VITE_FIREBASE_VAPID_KEY }}
         run: npm run build
 
-      - name: Deploy dist/ over rsync
-        uses: burnett01/rsync-deployments@7.0.1
-        with:
-          switches: -avz --delete
-          path: pps-education-frontend/${{ matrix.app }}/dist/
-          remote_path: /opt/pps-education/${{ github.ref_name == 'production' && 'production' || 'staging' }}/frontend/${{ matrix.app }}/
-          remote_host: ${{ secrets.DEPLOY_HOST }}
-          remote_port: ${{ secrets.DEPLOY_SSH_PORT }}
-          remote_user: ${{ secrets.DEPLOY_USER }}
-          remote_key: ${{ secrets.DEPLOY_SSH_KEY }}
+      - name: Copy dist/ vào thư mục Nginx serve (xóa bản cũ trước, giữ nguyên hành vi --delete của rsync trước đây)
+        run: |
+          TARGET="/opt/pps-education/${{ github.ref_name == 'production' && 'production' || 'staging' }}/frontend/${{ matrix.app }}"
+          rm -rf "$TARGET"/*
+          mkdir -p "$TARGET"
+          cp -r pps-education-frontend/${{ matrix.app }}/dist/. "$TARGET"/

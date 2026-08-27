@@ -3,9 +3,12 @@
 # (đổi từ `main` trước đây, xem CONTRIBUTING.md mục 1 — cập nhật 2026-08-26).
 # Dùng GitHub Environment "production" với required reviewer để có bước
 # duyệt thủ công trước khi deploy thật (Settings → Environments → production).
-# Cần secret: DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY, DEPLOY_SSH_PORT — thông
-# tin SSH vào server (chung với environment staging hoặc tách riêng tùy nhu
-# cầu — server vật lý là 1 máy duy nhất cho cả 2 stack, xem deploy/README.md).
+#
+# LƯU Ý (2026-08-27): job `deploy` chạy trên SELF-HOSTED RUNNER cài ngay
+# trên server vật lý (không phải GHCR-hosted `ubuntu-latest`) — xem comment
+# chi tiết ở cd-staging.yml (lý do: server không có static IP public, GitHub
+# Actions cloud không SSH vào IP LAN được). Không cần
+# DEPLOY_HOST/DEPLOY_USER/DEPLOY_SSH_KEY/DEPLOY_SSH_PORT nữa.
 name: CD - Production
 
 on:
@@ -51,18 +54,12 @@ jobs:
 
   deploy:
     needs: build-and-push
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, pps-education]
     environment: production # yêu cầu approval thủ công nếu đã cấu hình required reviewer
     steps:
-      - name: Deploy backend over SSH (pull prod-latest + restart container)
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          port: ${{ secrets.DEPLOY_SSH_PORT }}
-          script: |
-            cd /opt/pps-education/production
-            docker compose pull backend
-            docker compose up -d --no-deps backend
-            docker image prune -f
+      - name: Pull prod-latest + restart container (chạy trực tiếp trên server)
+        run: |
+          cd /opt/pps-education/production
+          docker compose pull backend
+          docker compose up -d --no-deps backend
+          docker image prune -f
