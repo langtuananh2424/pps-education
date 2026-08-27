@@ -3,16 +3,19 @@
 # lý tự host, xem deploy/README.md), nên KHÔNG còn gì bắt lỗi build frontend
 # trước khi merge nữa. Workflow này lấp lại đúng vai trò đó, chạy song song
 # với backend-ci.yml: `tsc --noEmit && vite build` (đúng script "build" của
-# từng app) cho cả 2 app admin/user trên mọi PR/push đụng
-# pps-education-frontend/**.
+# từng app) cho cả 2 app admin/user.
+#
+# LƯU Ý (2026-08-27): trigger `pull_request` CỐ Ý KHÔNG lọc `paths` — cùng lý
+# do với backend-ci.yml (xem comment ở đó): branch protection cần check
+# "build (admin)"/"build (user)" luôn có kết quả trên MỌI PR để dùng làm
+# required status check, lọc path sẽ làm PR không đụng frontend bị kẹt vĩnh
+# viễn không merge được. Trigger `push` vẫn giữ lọc path vì chỉ dùng để theo
+# dõi sau khi merge, không gate merge.
 name: Frontend CI
 
 on:
   pull_request:
     branches: [develop, main, production]
-    paths:
-      - "pps-education-frontend/**"
-      - ".github/workflows/frontend-ci.yml"
   push:
     branches: [develop, main, production]
     paths:
