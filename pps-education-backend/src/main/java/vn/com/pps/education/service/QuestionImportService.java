@@ -214,9 +214,13 @@ public class QuestionImportService {
      * {@code teacherType} = null (hoặc không khớp mapping) → in đủ tất cả (giữ hành vi cũ).
      */
     public byte[] buildWordTemplate(String skillCategory, String teacherType) {
+        // SKILL_CATEGORY_KIND_TOKENS là Map.of(...) (immutable) - .get(null) ném NullPointerException
+        // thay vì trả null như HashMap. Guard skillCategory == null trước khi tra map để đúng hành vi
+        // đã ghi ở Javadoc (null -> in đủ tất cả) - bug thật phát hiện qua CI (2026-08-27), không phải
+        // đổi ý định thiết kế.
         Set<String> allowedTokens = "FOREIGN".equals(teacherType)
                 ? SKILL_CATEGORY_KIND_TOKENS.get("LISTENING")
-                : SKILL_CATEGORY_KIND_TOKENS.get(skillCategory);
+                : (skillCategory == null ? null : SKILL_CATEGORY_KIND_TOKENS.get(skillCategory));
         try (XWPFDocument document = new XWPFDocument(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             for (Map.Entry<String, List<String>> block : TEMPLATE_BLOCKS.entrySet()) {
                 if (allowedTokens != null && !allowedTokens.contains(block.getKey())) {
