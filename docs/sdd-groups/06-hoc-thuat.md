@@ -537,6 +537,48 @@ năm học).
 Không có DELETE — đóng năm học dùng `status=CLOSED` qua PUT, không xoá
 cứng.
 
+h-bis)  Đánh giá đầu vào — UC-18c (bổ sung ngoài SDD gốc, đã xác nhận với
+người dùng 2026-08-28, migration V158)
+
+Kỳ thi đầu vào làm cơ sở xếp lớp. Cấu trúc GIỐNG Sổ điểm theo kỳ (tự setup
+kỹ năng + điểm) nhưng **KHÔNG neo vào lớp/kỳ học** vì thí sinh chưa được
+xếp lớp — bộ đề giới hạn theo **điểm trường + năm học**. Đối tượng chấm là
+`leads` HOẶC `students` (đúng 1 trong 2 — CHECK). **Không có quy trình
+duyệt** — nhập trực tiếp, audit qua `entered_by` + timestamps. 4 bảng:
+
+- **`entrance_assessment_setups`** — bộ đề. `id`, `uuid`, `site_id` FK →
+  `sites`, `academic_year_id` FK → `academic_years`, `name`, `scale_type`
+  (`POINT_10`/`PERCENT`/`IELTS` — tái dùng `GradeComponentSetup.ScaleType`),
+  `created_by`, `created_at`/`updated_at`, `deleted_at` (soft delete).
+  `UNIQUE(site_id, academic_year_id, name)`.
+- **`entrance_assessment_components`** — đầu điểm / kỹ năng (mirror
+  `grade_evaluation_components`). `id`, `uuid`, `setup_id` FK, `skill_id`
+  FK → `skills` (NULL), `code`, `name`, `max_score` DECIMAL(5,2),
+  `display_order`. `UNIQUE(setup_id, code)`.
+- **`entrance_assessment_results`** — 1 dòng = 1 thí sinh / 1 bộ đề. `id`,
+  `uuid`, `setup_id` FK, `lead_id` FK → `leads` (NULL), `student_id` FK →
+  `students` (NULL), `candidate_name` (denormalize), `assessed_date`,
+  `overall_score` (NULL — nhập tay, không auto tính), `recommended_level`
+  VARCHAR(100) NULL, `recommended_class_id` FK → `classes` (NULL),
+  `placed_flag` BOOLEAN (đã chuyển sang xếp lớp chưa), `note`,
+  `entered_by` FK → `users`, `created_at`/`updated_at`.
+  `CHECK ((lead_id IS NOT NULL) <> (student_id IS NOT NULL))`; partial
+  `UNIQUE(setup_id, lead_id)` và `UNIQUE(setup_id, student_id)`.
+- **`entrance_assessment_scores`** — điểm từng đầu điểm. `id`, `result_id`
+  FK (ON DELETE CASCADE), `component_id` FK, `score` DECIMAL(5,2) NULL,
+  `absence_flag` BOOLEAN. `UNIQUE(result_id, component_id)`.
+
+*Ràng buộc nghiệp vụ (validate ở Service):* `0 ≤ score ≤ max_score` của đầu
+điểm; không đổi `max_score` khi đã có điểm nhập
+(`EntranceComponentLockedException`, 409); không xoá bộ đề khi đã có kết
+quả / không xoá đầu điểm khi đã có điểm
+(`EntranceAssessmentNotDeletableException`, 422).
+
+*Quyền (V158):* `academic.entrance.setup.create|update|delete` (→
+HEAD_ACADEMIC, SITE_MANAGER); `academic.entrance.score.manage` (→
+HEAD_ACADEMIC, SITE_MANAGER, TEACHER). Xem UC-18c ở
+docs/uc/phan-he-06-hoc-thuat.md.
+
 ### Lịch dạy & Điểm danh
 
 <!-- Nguồn: docs/diagrams/erd/ERD-Nhom5B-LichDayDiemDanh.mmd (chỉnh sửa trực tiếp file này, không sửa trong srs.md/sdd-groups) -->
