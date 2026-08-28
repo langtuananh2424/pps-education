@@ -44,6 +44,14 @@ const emptyQuestionRow = (): QuestionRow => ({
 });
 
 /**
+ * Bổ sung 2026-08-28 (đã xác nhận với người dùng) — cho phép thêm/bớt số đáp án mỗi câu (mặc định 4,
+ * không phải mọi câu đều cần đúng 4 — VD chỉ cần 3), mirror MAX_CHOICES/handleAddOption ở
+ * QuestionEditorForm.tsx. Áp dụng riêng cho từng câu (mỗi câu trong danh sách tự thêm/bớt độc lập).
+ */
+const MIN_OPTIONS = 2;
+const MAX_OPTIONS = 8;
+
+/**
  * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — GV nước ngoài cần 1 file audio (1
  * bài nghe) dùng chung cho NHIỀU câu hỏi, thay vì luôn 1-audio-1-câu như QuestionEditorForm. Về bản
  * chất là N Question cùng skill=LISTENING + cùng audioUrl + cùng groupKey (Portal/Admin gộp hiển thị
@@ -93,6 +101,25 @@ export default function ListeningGroupBuilder({
   };
   const updateExplanation = (idx: number, value: string) => {
     setQuestions((prev) => prev.map((q, i) => (i === idx ? { ...q, explanation: value } : q)));
+  };
+  const addOption = (idx: number) => {
+    setQuestions((prev) =>
+      prev.map((q, i) => (i === idx && q.options.length < MAX_OPTIONS ? { ...q, options: [...q.options, ""], imageUrls: [...q.imageUrls, ""] } : q))
+    );
+  };
+  const removeOption = (idx: number, optIdx: number) => {
+    setQuestions((prev) =>
+      prev.map((q, i) =>
+        i === idx && q.options.length > MIN_OPTIONS
+          ? {
+              ...q,
+              options: q.options.filter((_, oi) => oi !== optIdx),
+              imageUrls: q.imageUrls.filter((_, oi) => oi !== optIdx),
+              correctIndex: q.correctIndex === optIdx ? 0 : q.correctIndex > optIdx ? q.correctIndex - 1 : q.correctIndex
+            }
+          : q
+      )
+    );
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -262,8 +289,18 @@ export default function ListeningGroupBuilder({
                         placeholder={t("common.answerOptionPlaceholder", { letter: String.fromCharCode(65 + optIdx) })}
                         className={`flex-1 ${inputClass}`}
                       />
+                      {q.options.length > MIN_OPTIONS && (
+                        <button type="button" onClick={() => removeOption(idx, optIdx)} className="text-slate-400 hover:text-rose-600 shrink-0">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   ))}
+                  {q.options.length < MAX_OPTIONS && (
+                    <button type="button" onClick={() => addOption(idx)} className="text-[10px] font-bold text-brand-red hover:underline">
+                      {t("questionEditorForm.addOption")}
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -295,8 +332,18 @@ export default function ListeningGroupBuilder({
                           className={`w-full ${inputClass}`}
                         />
                       </div>
+                      {q.imageUrls.length > MIN_OPTIONS && (
+                        <button type="button" onClick={() => removeOption(idx, optIdx)} className="text-slate-400 hover:text-rose-600 shrink-0 mt-1">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   ))}
+                  {q.imageUrls.length < MAX_OPTIONS && (
+                    <button type="button" onClick={() => addOption(idx)} className="text-[10px] font-bold text-brand-red hover:underline">
+                      {t("questionEditorForm.addOption")}
+                    </button>
+                  )}
                 </div>
               )}
 
