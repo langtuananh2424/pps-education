@@ -150,6 +150,11 @@ chỉ thao tác trên 6 subdomain dưới đây.
    | files (prod) | `files.ppsvietnam.edu.vn` | — | 9000 |
 
 2. `ln -s` từng file vào `sites-enabled/`, `nginx -t && systemctl reload nginx`.
+   - `admin*`/`user*` template có `client_max_body_size 210m` trong `location
+     /api/` (upload media tới 200MB). Server đã cài trước bản này phải thêm
+     dòng đó thủ công rồi reload, nếu không upload >1MB bị 413.
+   - `files*` template có `rewrite ^/(.*)$ /pps-media/$1 break;` để chèn tên
+     bucket MinIO vào path (URL public do backend sinh không kèm tên bucket).
 3. Cài `cloudflared` (gói `.deb` chính thức Cloudflare), `cloudflared tunnel login`,
    `cloudflared tunnel create pps-education`.
 4. Tạo `~/.cloudflared/config.yml`:
