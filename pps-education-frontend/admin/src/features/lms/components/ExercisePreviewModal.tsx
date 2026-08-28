@@ -6,6 +6,15 @@ import { ExerciseQuestionResponse, ExerciseResponse, QuestionResponse, getExamQu
 
 const choiceTypes: QuestionResponse["questionType"][] = ["MULTIPLE_CHOICE", "MULTIPLE_ANSWER", "TRUE_FALSE"];
 
+/** Bổ sung 2026-08-28 — chia mảng thành các hàng cố định `size` phần tử, dùng để dựng bảng hộp từ vựng (wordBox). */
+function chunkArray<T>(items: T[], size: number): T[][] {
+  const rows: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    rows.push(items.slice(i, i + size));
+  }
+  return rows;
+}
+
 interface ExercisePreviewModalProps {
   exercise: ExerciseResponse;
   onClose: () => void;
@@ -75,8 +84,17 @@ export default function ExercisePreviewModal({ exercise, onClose }: ExercisePrev
             return (
               <div key={eq.id} className="border border-slate-200 rounded-xl p-4">
                 <div className="flex items-start justify-between gap-3 mb-2">
+                  {/*
+                   * Bổ sung 2026-08-28 (đã xác nhận với người dùng) — tách nhãn "Câu N." ra dòng riêng
+                   * khỏi nội dung: dạng WORD_BANK/FILL_IN_BLANK_PICTURE nhiều câu con thường tự đánh số
+                   * "1. 2. 3..." ngay trong nội dung (khớp đề gốc nhiều câu/1 hộp từ) — để chung 1 dòng
+                   * với "Câu N." gây nhìn nhầm thành 2 số dính nhau ("Câu 1. 1. Tom is...").
+                   */}
                   <p className="text-sm font-bold text-slate-800">
-                    {t("exercisePreviewModal.questionNumber", { index: index + 1 })} {q?.content ?? eq.questionContent}
+                    <span className="block text-slate-500 text-xs uppercase tracking-wider mb-1">
+                      {t("exercisePreviewModal.questionNumber", { index: index + 1 })}
+                    </span>
+                    <span className="whitespace-pre-line">{q?.content ?? eq.questionContent}</span>
                   </p>
                   <span className="text-[10px] font-bold uppercase text-slate-400 shrink-0">{eq.points} {t("common.pointsSuffix")}</span>
                 </div>
@@ -85,6 +103,22 @@ export default function ExercisePreviewModal({ exercise, onClose }: ExercisePrev
                 {q?.imageUrl && <img src={q.imageUrl} alt="" className="max-h-40 rounded-lg mb-2" />}
                 {q?.audioUrl && <audio controls src={q.audioUrl} className="mb-2 w-full" />}
                 {q?.referencePassage && <p className="text-xs text-slate-500 bg-slate-50 p-2 rounded-lg mb-2">{q.referencePassage}</p>}
+                {/* Bổ sung 2026-08-28 (đã xác nhận với người dùng) — hộp từ vựng tham khảo tĩnh (FillInBlankGroupBuilder), xem cùng khái niệm ở TakeExerciseModal.tsx. Dựng bằng <table> để khớp đúng bảng trong đề giấy gốc. */}
+                {q?.structuredContent?.wordBox && q.structuredContent.wordBox.length > 0 && (
+                  <table className="w-full border-collapse text-[11px] mb-2">
+                    <tbody>
+                      {chunkArray(q.structuredContent.wordBox, 4).map((row, ri) => (
+                        <tr key={ri}>
+                          {row.map((w, ci) => (
+                            <td key={ci} className="border border-slate-200 text-center font-bold text-slate-700 px-1.5 py-1.5">
+                              {w}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
 
                 {choiceTypes.includes(eq.questionType) && q && (
                   <div className="space-y-1.5">

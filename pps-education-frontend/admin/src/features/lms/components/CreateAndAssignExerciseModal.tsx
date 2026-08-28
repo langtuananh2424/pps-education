@@ -23,6 +23,7 @@ import QuestionImportPanel from "./QuestionImportPanel";
 import GridQuestionBuilder from "./GridQuestionBuilder";
 import ListeningGroupBuilder from "./ListeningGroupBuilder";
 import ClozeQuestionBuilder from "./ClozeQuestionBuilder";
+import FillInBlankGroupBuilder from "./FillInBlankGroupBuilder";
 import {
   ComposeSubMode,
   FOREIGN_LISTENING_KINDS,
@@ -491,7 +492,9 @@ export function ExerciseQuestionsStep({
                   ? t("assignModal.questionsStep.subModeGrid")
                   : m === "cloze"
                     ? t("assignModal.questionsStep.subModeCloze")
-                    : t("assignModal.questionsStep.subModeListeningGroup")}
+                    : m === "fillInBlankGroup"
+                      ? t("assignModal.questionsStep.subModeFillInBlankGroup")
+                      : t("assignModal.questionsStep.subModeListeningGroup")}
             </button>
           ))}
         </div>
@@ -504,6 +507,8 @@ export function ExerciseQuestionsStep({
           <ClozeQuestionBuilder examId={exercise.examId} onCreated={handleCompositeCreated} onCancel={() => setComposeSubMode(composeModes[0])} />
         ) : composeSubMode === "listeningGroup" && teacherType === "FOREIGN" ? (
           <ListeningGroupBuilder examId={exercise.examId} onCreated={handleCompositeCreated} onCancel={() => setComposeSubMode(composeModes[0])} />
+        ) : composeSubMode === "fillInBlankGroup" && teacherType === "VIETNAMESE" ? (
+          <FillInBlankGroupBuilder examId={exercise.examId} onCreated={handleCompositeCreated} onCancel={() => setComposeSubMode(composeModes[0])} />
         ) : (
           <QuestionEditorForm
             key={composeFormKey}

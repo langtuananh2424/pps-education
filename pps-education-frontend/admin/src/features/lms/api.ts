@@ -68,6 +68,14 @@ export interface QuestionStructuredContent {
   chunks?: string[];
   /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — hộp từ vựng hiển thị cho học sinh (WORD_BANK), tách khỏi `blanks` (đáp án đúng) để có thể chứa từ nhiễu. Bỏ trống = dùng `blanks` làm hộp từ như hành vi cũ. */
   wordBankOptions?: string[];
+  /**
+   * Bổ sung 2026-08-28 (đã xác nhận với người dùng) — hộp từ vựng THAM KHẢO (tĩnh, không phải đáp án
+   * đúng) hiện chung 1 lần phía trên cả nhóm câu FILL_IN_BLANK (FillInBlankGroupBuilder) — khớp hình
+   * thức "khung từ" trong đề giấy gốc (Ex.1) trong khi mỗi câu vẫn tự chấm độc lập theo
+   * correctAnswerText riêng (Cách B). Đặt CÙNG giá trị trên MỌI Question của nhóm (giống cách
+   * referencePassage/audioUrl dùng chung của ListeningGroupBuilder), FE chỉ đọc từ câu đầu nhóm.
+   */
+  wordBox?: string[];
 }
 
 /** Khớp Question.Skill thật (Question.java) — KHÔNG phải free-text, backend chỉ nhận đúng 1 trong 6 giá trị này. */
@@ -232,21 +240,34 @@ export interface QuestionImportResponse {
  * hoặc .docx theo mẫu cứng (xem QuestionImportService — đúng 5 loại UI mà
  * QuestionEditorForm hỗ trợ, KHÔNG dùng AI/OCR nhận diện tự do).
  */
-export function importQuestions(bankId: number, file: File): Promise<QuestionImportResponse> {
+/**
+ * Bổ sung 2026-08-28 (đã xác nhận với người dùng) — {@code defaultKind}: khớp thói quen thật "1 Ex
+ * chỉ 1 loại câu hỏi" nên cả file thường cùng 1 giá trị — GV chọn 1 lần ở panel Import thay vì gõ lại
+ * cột "Loại câu hỏi" ở MỌI dòng. Dòng nào tự ghi giá trị riêng vẫn ưu tiên giá trị đó (xem
+ * QuestionImportService.resolveKind() phía backend).
+ */
+export function importQuestions(bankId: number, file: File, defaultKind?: string): Promise<QuestionImportResponse> {
   const formData = new FormData();
   formData.append("file", file);
+  if (defaultKind) formData.append("defaultKind", defaultKind);
   return apiRequest<QuestionImportResponse>(`/question-banks/${bankId}/questions/import`, { method: "POST", body: formData });
 }
 
-export function importExamQuestions(examId: number, file: File): Promise<QuestionImportResponse> {
+export function importExamQuestions(examId: number, file: File, defaultKind?: string): Promise<QuestionImportResponse> {
   const formData = new FormData();
   formData.append("file", file);
+  if (defaultKind) formData.append("defaultKind", defaultKind);
   return apiRequest<QuestionImportResponse>(`/exams/${examId}/questions/import`, { method: "POST", body: formData });
 }
 
-/** File mẫu Word generic legacy. */
-export function downloadQuestionImportWordTemplate(): Promise<Blob> {
-  return apiRequestBlob("/question-imports/template.docx");
+/**
+ * File mẫu Word generic legacy. `defaultKind` (bổ sung 2026-08-28, đã xác nhận với người dùng) — khi
+ * GV đã chọn "Loại câu hỏi mặc định" ở panel Import, chỉ in đúng 1 ví dụ khớp loại đó thay vì cả bảng
+ * tra cứu 12 loại (khớp thói quen "1 Ex chỉ 1 loại câu hỏi").
+ */
+export function downloadQuestionImportWordTemplate(defaultKind?: string): Promise<Blob> {
+  const query = defaultKind ? `?defaultKind=${encodeURIComponent(defaultKind)}` : "";
+  return apiRequestBlob(`/question-imports/template.docx${query}`);
 }
 
 /**
@@ -254,12 +275,14 @@ export function downloadQuestionImportWordTemplate(): Promise<Blob> {
  *
  * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — `skillCategory`/`teacherType` optional,
  * lọc template chỉ còn block khớp Nhóm kỹ năng của Bài đang soạn (bỏ trống = in đủ tất cả, mirror
- * hành vi backend QuestionImportService.buildWordTemplate).
+ * hành vi backend QuestionImportService.buildWordTemplate). `defaultKind` (bổ sung 2026-08-28) ưu
+ * tiên cao hơn — GV đã chọn 1 loại cụ thể thì chỉ in đúng 1 ví dụ loại đó.
  */
-export function downloadExamQuestionImportWordTemplate(skillCategory?: string, teacherType?: string): Promise<Blob> {
+export function downloadExamQuestionImportWordTemplate(skillCategory?: string, teacherType?: string, defaultKind?: string): Promise<Blob> {
   const params = new URLSearchParams();
   if (skillCategory) params.set("skillCategory", skillCategory);
   if (teacherType) params.set("teacherType", teacherType);
+  if (defaultKind) params.set("defaultKind", defaultKind);
   const query = params.toString();
   return apiRequestBlob(`/exams/question-imports/template.docx${query ? `?${query}` : ""}`);
 }

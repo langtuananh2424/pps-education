@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Blocks, Check, CheckSquare, FileText, Headphones, Image as ImageIcon, Images, ListOrdered, Mic, PenLine, Shuffle, SplitSquareHorizontal, Volume2, X } from "lucide-react";
+import { Blocks, Check, CheckSquare, FileText, Headphones, Image as ImageIcon, ImagePlus, Images, ListOrdered, Mic, PenLine, Shuffle, SplitSquareHorizontal, Volume2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import Button from "@/components/ui/Button";
@@ -19,10 +19,14 @@ const labelClass = "block font-bold text-slate-700 mb-1 uppercase tracking-wider
  * RIÊNG khỏi WORD_BANK/SENTENCE_BUILDING gốc thay vì thêm field tùy chọn vào chung 1 kind, để 2 kind
  * cũ giữ nguyên y hệt hành vi trước giờ): "WORD_BANK_PICTURE" (điền từ có ảnh + hộp từ vựng thật, khớp
  * Ex.3 "Look at the pictures and write the correct words from the box") và "LETTER_SCRAMBLE" (sắp xếp
- * chữ cái thành từ, có ảnh minh họa, khớp Ex.1 "Rearrange the letters..."). "Trắc nghiệm Voice"/"Chọn
- * từ trong câu"/"Nghe & nộp audio"/"Nghe chọn hình"/"WORD_BANK_PICTURE"/"LETTER_SCRAMBLE" KHÔNG phải
- * giá trị enum riêng ở backend — là MULTIPLE_CHOICE/SPEAKING/WORD_BANK/SENTENCE_BUILDING + skill/
- * imageUrl tương ứng (kind ảo chỉ tồn tại ở FE để hiện UI phù hợp, xem toKind()).
+ * chữ cái thành từ, có ảnh minh họa, khớp Ex.1 "Rearrange the letters...") + 1 loại bổ sung 2026-08-28
+ * (đã xác nhận với người dùng): "FILL_IN_BLANK_PICTURE" (điền từ có ảnh minh họa RIÊNG cho mỗi câu —
+ * khớp dạng "Complete each sentence with this/that/these/those" có 1 tấm hình khác nhau cho từng câu,
+ * đáp án tự do không dùng khung từ dùng chung nên KHÔNG map vào WORD_BANK/WORD_BANK_PICTURE). "Trắc
+ * nghiệm Voice"/"Chọn từ trong câu"/"Nghe & nộp audio"/"Nghe chọn hình"/"WORD_BANK_PICTURE"/
+ * "LETTER_SCRAMBLE"/"FILL_IN_BLANK_PICTURE" KHÔNG phải giá trị enum riêng ở backend — là
+ * MULTIPLE_CHOICE/SPEAKING/WORD_BANK/SENTENCE_BUILDING/FILL_IN_BLANK + skill/imageUrl tương ứng (kind
+ * ảo chỉ tồn tại ở FE để hiện UI phù hợp, xem toKind()).
  */
 export type UiQuestionKind =
   | "MULTIPLE_CHOICE"
@@ -30,6 +34,7 @@ export type UiQuestionKind =
   | "VOICE_PICTURE_CHOICE"
   | "INLINE_CHOICE"
   | "FILL_IN_BLANK"
+  | "FILL_IN_BLANK_PICTURE"
   | "WORD_BANK"
   | "WORD_BANK_PICTURE"
   | "SENTENCE_BUILDING"
@@ -45,6 +50,7 @@ const kindMeta: Record<UiQuestionKind, { icon: typeof CheckSquare; activeClass: 
   VOICE_PICTURE_CHOICE: { icon: ImageIcon, activeClass: "bg-indigo-50 border-indigo-400 text-indigo-800 ring-1 ring-indigo-300", iconClass: "text-indigo-600" },
   INLINE_CHOICE: { icon: SplitSquareHorizontal, activeClass: "bg-teal-50 border-teal-400 text-teal-800 ring-1 ring-teal-300", iconClass: "text-teal-600" },
   FILL_IN_BLANK: { icon: PenLine, activeClass: "bg-amber-50 border-amber-400 text-amber-800 ring-1 ring-amber-300", iconClass: "text-amber-600" },
+  FILL_IN_BLANK_PICTURE: { icon: ImagePlus, activeClass: "bg-amber-50 border-amber-500 text-amber-900 ring-1 ring-amber-400", iconClass: "text-amber-700" },
   WORD_BANK: { icon: Blocks, activeClass: "bg-orange-50 border-orange-400 text-orange-800 ring-1 ring-orange-300", iconClass: "text-orange-600" },
   WORD_BANK_PICTURE: { icon: Images, activeClass: "bg-orange-50 border-orange-500 text-orange-900 ring-1 ring-orange-400", iconClass: "text-orange-700" },
   SENTENCE_BUILDING: { icon: ListOrdered, activeClass: "bg-cyan-50 border-cyan-400 text-cyan-800 ring-1 ring-cyan-300", iconClass: "text-cyan-600" },
@@ -102,7 +108,7 @@ function toKind(question?: QuestionResponse): UiQuestionKind {
   if (!question) return "MULTIPLE_CHOICE";
   if (question.questionType === "ESSAY") return "ESSAY";
   if (question.questionType === "SPEAKING") return question.skill === "LISTENING" ? "LISTENING_AUDIO_SUBMISSION" : "SPEAKING";
-  if (question.questionType === "FILL_IN_BLANK") return question.skill === "LISTENING" ? "LISTENING_FILL_IN_BLANK" : "FILL_IN_BLANK";
+  if (question.questionType === "FILL_IN_BLANK") return question.skill === "LISTENING" ? "LISTENING_FILL_IN_BLANK" : question.imageUrl ? "FILL_IN_BLANK_PICTURE" : "FILL_IN_BLANK";
   if (question.questionType === "WORD_BANK") return question.imageUrl ? "WORD_BANK_PICTURE" : "WORD_BANK";
   if (question.questionType === "SENTENCE_BUILDING") return question.imageUrl ? "LETTER_SCRAMBLE" : "SENTENCE_BUILDING";
   if (question.questionType === "MULTIPLE_CHOICE" && question.skill !== "LISTENING" && question.choices?.length === 2) return "INLINE_CHOICE";
@@ -221,11 +227,12 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
    * buộc, không đổi questionType/kind riêng, chỉ set thêm skill=LISTENING lúc lưu nếu có audio).
    */
   const supportsOptionalAudio = kind === "WORD_BANK" || kind === "WORD_BANK_PICTURE" || kind === "SENTENCE_BUILDING" || kind === "LETTER_SCRAMBLE";
-  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — ảnh minh họa CHỈ có ở 2 kind riêng
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — ảnh minh họa CHỈ có ở các kind riêng
   // WORD_BANK_PICTURE/LETTER_SCRAMBLE (khớp Ex.3/Ex.1 đề mẫu) — WORD_BANK/SENTENCE_BUILDING gốc GIỮ
   // NGUYÊN không đổi, không có field này (đã xác nhận với người dùng: tách kind riêng, không gộp thêm
-  // field tùy chọn vào chung 2 kind cũ).
-  const supportsImage = kind === "ESSAY" || kind === "WORD_BANK_PICTURE" || kind === "LETTER_SCRAMBLE";
+  // field tùy chọn vào chung 2 kind cũ). FILL_IN_BLANK_PICTURE bổ sung 2026-08-28 theo đúng pattern này
+  // — mỗi câu FILL_IN_BLANK có ảnh minh họa RIÊNG (khác WORD_BANK_PICTURE dùng 1 ảnh chung đánh số).
+  const supportsImage = kind === "ESSAY" || kind === "WORD_BANK_PICTURE" || kind === "LETTER_SCRAMBLE" || kind === "FILL_IN_BLANK_PICTURE";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -270,7 +277,7 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
       );
       return;
     }
-    if ((kind === "FILL_IN_BLANK" || kind === "LISTENING_FILL_IN_BLANK") && !correctAnswerText.trim()) {
+    if ((kind === "FILL_IN_BLANK" || kind === "LISTENING_FILL_IN_BLANK" || kind === "FILL_IN_BLANK_PICTURE") && !correctAnswerText.trim()) {
       setError(t("questionEditorForm.errors.correctAnswerRequired"));
       return;
     }
@@ -307,7 +314,8 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
           imageUrl: supportsImage ? imageUrl.trim() || undefined : undefined,
           referencePassage: includeAudio ? transcript.trim() || undefined : kind === "SPEAKING" ? phoneticKeywords.trim() || undefined : undefined,
           explanation: explanation.trim() || undefined,
-          correctAnswerText: kind === "FILL_IN_BLANK" || kind === "LISTENING_FILL_IN_BLANK" ? correctAnswerText.trim() || undefined : undefined,
+          correctAnswerText:
+            kind === "FILL_IN_BLANK" || kind === "LISTENING_FILL_IN_BLANK" || kind === "FILL_IN_BLANK_PICTURE" ? correctAnswerText.trim() || undefined : undefined,
           structuredContent,
           choices
         };
@@ -320,7 +328,7 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
             ? "MULTIPLE_CHOICE"
             : kind === "LISTENING_AUDIO_SUBMISSION"
               ? "SPEAKING"
-              : kind === "LISTENING_FILL_IN_BLANK"
+              : kind === "LISTENING_FILL_IN_BLANK" || kind === "FILL_IN_BLANK_PICTURE"
                 ? "FILL_IN_BLANK"
                 : kind === "WORD_BANK_PICTURE"
                   ? "WORD_BANK"
@@ -336,7 +344,8 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
           imageUrl: supportsImage ? imageUrl.trim() || undefined : undefined,
           referencePassage: includeAudio ? transcript.trim() || undefined : kind === "SPEAKING" ? phoneticKeywords.trim() || undefined : undefined,
           explanation: explanation.trim() || undefined,
-          correctAnswerText: kind === "FILL_IN_BLANK" || kind === "LISTENING_FILL_IN_BLANK" ? correctAnswerText.trim() || undefined : undefined,
+          correctAnswerText:
+            kind === "FILL_IN_BLANK" || kind === "LISTENING_FILL_IN_BLANK" || kind === "FILL_IN_BLANK_PICTURE" ? correctAnswerText.trim() || undefined : undefined,
           structuredContent,
           choices
         };
@@ -534,6 +543,14 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
             <span>{t("questionEditorForm.wordBankSectionTitle")}</span>
           </div>
           <p className="text-[9px] text-slate-400">{t("questionEditorForm.wordBankHint")}</p>
+          {/*
+           * Bổ sung 2026-08-28 (đã xác nhận với người dùng) — cảnh báo CHỈ đặt ở WORD_BANK/
+           * WORD_BANK_PICTURE (không đặt ở FILL_IN_BLANK) vì chỉ 2 kind này cho phép nhồi NHIỀU chỗ
+           * trống/câu vào chung 1 Question (structuredContent.blanks) — đúng thứ đã gây lỗi thật (chấm
+           * all-or-nothing + số câu dính nhau) khớp toàn bộ buổi debug trước đó. FILL_IN_BLANK chỉ có
+           * đúng 1 correctAnswerText nên không có nguy cơ này, không cần cảnh báo.
+           */}
+          <p className="text-[9px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2">{t("questionEditorForm.wordBankMultiSentenceWarning")}</p>
           {/* <OptionalAudioFields
             audioUrl={audioUrl}
             setAudioUrl={setAudioUrl}
@@ -583,6 +600,7 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
             <span>{t("questionEditorForm.wordBankPictureSectionTitle")}</span>
           </div>
           <p className="text-[9px] text-slate-400">{t("questionEditorForm.wordBankPictureHint")}</p>
+          <p className="text-[9px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2">{t("questionEditorForm.wordBankMultiSentenceWarning")}</p>
           <div>
             <label className="block font-bold text-slate-600 mb-1 text-[9px] uppercase">{t("questionEditorForm.wordBankImageLabel")}</label>
             <FileUploadField
@@ -752,12 +770,29 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
         </div>
       )}
 
-      {(kind === "FILL_IN_BLANK" || kind === "LISTENING_FILL_IN_BLANK") && (
+      {(kind === "FILL_IN_BLANK" || kind === "LISTENING_FILL_IN_BLANK" || kind === "FILL_IN_BLANK_PICTURE") && (
         <div className="bg-amber-50/40 p-4 rounded-xl border border-amber-200 space-y-3">
           <div className="text-amber-950 font-bold uppercase tracking-wider text-[9px] flex items-center gap-1">
             <PenLine className="w-4 h-4 text-amber-600" />
             <span>{t("questionEditorForm.fillInBlankSectionTitle")}</span>
           </div>
+          {/*
+           * Bổ sung 2026-08-28 (đã xác nhận với người dùng) — khớp dạng "Complete each sentence with
+           * this/that/these/those" (mỗi câu 1 ảnh minh họa RIÊNG, đáp án tự do có thể lặp lại giữa các
+           * câu — khác WORD_BANK_PICTURE dùng 1 ảnh chung + khung từ dùng 1 lần).
+           */}
+          {kind === "FILL_IN_BLANK_PICTURE" && (
+            <div>
+              <label className="block font-bold text-slate-600 mb-1 text-[9px] uppercase">{t("questionEditorForm.fillInBlankImageLabel")}</label>
+              <FileUploadField
+                value={imageUrl}
+                onChange={setImageUrl}
+                onUpload={(file) => uploadMedia(file, "LMS_QUESTION")}
+                accept="image/*"
+                placeholder={t("questionEditorForm.fillInBlankImagePlaceholder")}
+              />
+            </div>
+          )}
           <div>
             <label className="block font-bold text-slate-600 mb-1 text-[9px] uppercase">{t("questionEditorForm.correctAnswerLabel")}</label>
             <input
