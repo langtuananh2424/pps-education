@@ -341,6 +341,19 @@ UC-18: Xếp lớp & gán khóa học
 > niệm kỳ theo site) đã đủ chặt chẽ để phân hệ đó dùng được ngay khi triển
 > khai, không cần retrofit lại schema.
 >
+> **Kỳ học thuộc năm học — FK `academic_terms.academic_year_id` (bổ sung
+> ngoài SDD gốc, đã xác nhận với người dùng 2026-08-28, migration V157):**
+> mỗi kỳ học bắt buộc gắn 1 `academic_years` (danh mục Năm học dùng chung
+> toàn hệ thống, xem V103) — quan hệ 1-N ổn định, khác quan hệ lớp↔kỳ cố
+> tình KHÔNG đặt FK. Cột NULL ở DB (dữ liệu kỳ cũ backfill theo khoảng
+> ngày, không chắc khớp); kỳ tạo mới bắt buộc chọn năm học
+> (`CreateAcademicTermRequest.academicYearId`, `UpdateAcademicTermRequest`
+> cũng cho sửa lại nếu gán nhầm). Khi năm học đã khai báo đủ
+> `startDate`/`endDate`, khoảng thời gian kỳ phải nằm gọn trong năm học
+> (validate mềm ở `AcademicTermService`, ném `IllegalArgumentException`).
+> FE: `<select>` Năm học trong `AcademicTermManagerModal.tsx` (nguồn
+> `GET /api/academic-years`).
+>
 > **Loại giáo viên (VN/nước ngoài) trên `class_teachers`, vai trò CM, đổi
 > giáo viên chính có cascade lịch học (bổ sung ngoài SDD gốc, đã xác nhận
 > với người dùng 2026-08-13):** `class_teachers` có thêm cột `teacher_type`

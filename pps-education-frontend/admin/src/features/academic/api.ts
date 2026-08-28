@@ -342,6 +342,10 @@ export interface AcademicTermResponse {
   id: number;
   siteId: number;
   siteName: string;
+  // V157 (bổ sung ngoài SDD gốc, 2026-08-28): kỳ học thuộc 1 năm học. Nullable cho dữ liệu kỳ cũ.
+  academicYearId: number | null;
+  academicYearCode: string | null;
+  academicYearName: string | null;
   code: string;
   name: string;
   startDate: string;
@@ -350,6 +354,7 @@ export interface AcademicTermResponse {
 
 export interface CreateAcademicTermRequest {
   siteId: number;
+  academicYearId: number;
   code: string;
   name: string;
   startDate: string;
@@ -357,6 +362,7 @@ export interface CreateAcademicTermRequest {
 }
 
 export interface UpdateAcademicTermRequest {
+  academicYearId: number;
   name: string;
   startDate: string;
   endDate: string;

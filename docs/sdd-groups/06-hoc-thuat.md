@@ -35,6 +35,7 @@ erDiagram
 
     academic_years ||--o{ classes : "nam hoc (V102)"
     academic_years ||--o{ class_enrollments : "nam hoc (V102)"
+    academic_years ||--o{ academic_terms : "nam hoc (V157)"
     academic_years }o--o| users : "created_by (nullable, V103)"
 
     academic_years {
@@ -335,6 +336,18 @@ c-bis)  Bảng academic_terms --- Giai đoạn/Học kỳ (bổ sung ngoài SDD 
   site_id          BIGINT            FK → sites(id),    Giới hạn theo điểm
                                       NOT NULL           trường, độc lập lớp
 
+  academic_year_id BIGINT            FK →               V157 (bổ sung ngoài
+                                      academic_years(id), SDD gốc, xác nhận
+                                      NULL               2026-08-28) — kỳ
+                                                          học thuộc năm học
+                                                          nào. NULL ở DB cho
+                                                          dữ liệu kỳ cũ; kỳ
+                                                          tạo mới bắt buộc
+                                                          có (validate ở
+                                                          service/DTO).
+                                                          Index
+                                                          idx_academic_terms_academic_year
+
   code             VARCHAR(50)       NOT NULL           UNIQUE theo
                                                           (site_id, code)
 
@@ -352,7 +365,12 @@ c-bis)  Bảng academic_terms --- Giai đoạn/Học kỳ (bổ sung ngoài SDD 
 
 *Logic nghiệp vụ:* độc lập với `classes` — 1 lớp tồn tại xuyên suốt nhiều
 kỳ (sĩ số/giáo viên có thể đổi giữa các kỳ do sắp xếp lại học sinh theo
-trình độ). "Hồ sơ lớp/học sinh theo kỳ" là dữ liệu TÍNH RA (derived) từ
+trình độ). **V157 (xác nhận với người dùng 2026-08-28):** mỗi kỳ học bắt
+buộc gắn 1 `academic_years` (quan hệ 1-N ổn định — khác quan hệ lớp↔kỳ cố
+tình KHÔNG đặt FK); khi năm học đã khai báo đủ `start_date`/`end_date`,
+khoảng `[start_date, end_date]` của kỳ phải nằm gọn trong năm học (validate
+mềm ở `AcademicTermService`). "Hồ sơ lớp/học sinh theo kỳ" là dữ liệu TÍNH
+RA (derived) từ
 các bảng đã có ngày tháng sẵn (`class_enrollments`,
 `class_teachers.assigned_from/assigned_to`, `class_sessions.session_date`,
 `student_comments.comment_date`...) lọc theo `[start_date, end_date]` của
@@ -484,8 +502,9 @@ h)  Bảng academic_years --- Danh mục Năm học (V103, bổ sung ngoài SDD 
 Danh mục "Năm học" DÙNG CHUNG TOÀN HỆ THỐNG (khác `academic_terms` —
 Kỳ học, giới hạn theo điểm trường). Là nguồn FK cho `academic_year_id`
 trên `classes`, `grade_entries`, `student_comments`, `class_enrollments`
-(V102, thay cho chuỗi tự do trước đây) và `teaching_plans` (V103, thay
-cho chuỗi tự do từ V21).
+(V102, thay cho chuỗi tự do trước đây), `teaching_plans` (V103, thay
+cho chuỗi tự do từ V21) và `academic_terms` (V157 — mỗi kỳ học thuộc 1
+năm học).
 
   -------------------------------------------------------------------------
   **Cột**       **Kiểu**       **Ràng buộc**            **Ghi chú**
