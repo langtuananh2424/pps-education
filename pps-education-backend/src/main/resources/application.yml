@@ -24,23 +24,34 @@ spring:
         format_sql: true
         default_schema: public
         # ĐÃ BỎ hibernate.jdbc.time_zone=UTC (xác nhận với người dùng
-        # 2026-08-20 — dữ liệu còn ở local/staging, chưa lên production,
-        # chấp nhận migrate 1 lần). Setting cũ ép Hibernate bind LocalTime
-        # qua java.sql.Time kiểu cũ, gây lệch ĐÚNG 8 TIẾNG khi ghi xuống DB
+        # 2026-08-20). Setting cũ ép Hibernate bind LocalTime qua
+        # java.sql.Time kiểu cũ, gây lệch ĐÚNG 8 TIẾNG khi ghi xuống DB
         # (java.sql.Time.valueOf() dùng offset LỊCH SỬ NĂM 1970 của múi giờ
         # Asia/Ho_Chi_Minh — khi đó UTC+8, mãi 1975 mới đổi UTC+7) — vi phạm
         # CHECK chk_session_time với mọi buổi/tiết bắt đầu trước ~08:00
-        # (nghiệp vụ bắt buộc: Tiết 1 = 07:00-07:30 tuỳ trường). Đã chạy
-        # V129 (bake in giá trị đúng đang hiển thị thành giá trị raw mới
-        # cho 5 bảng: class_sessions, session_periods, site_period_templates,
-        # shifts, leave_requests) TRONG CÙNG 1 LẦN DEPLOY với việc bỏ
-        # setting này — bắt buộc đi cùng nhau, không tách rời (Flyway chạy
-        # trước khi Hibernate khởi tạo nên an toàn khi cùng 1 lần khởi động).
+        # (nghiệp vụ bắt buộc: Tiết 1 = 07:00-07:30 tuỳ trường).
+        #
+        # CODE FIX (bỏ setting này) đã đủ để GHI MỚI đúng. DỮ LIỆU CŨ ở mỗi
+        # môi trường vẫn lệch -8h cho tới khi chạy data-fix +8h cho 5 bảng
+        # có cột LocalTime (class_sessions, session_periods,
+        # site_period_templates, shifts, leave_requests). Data-fix đó nằm ở
+        # migration V159__fix_localtime_8h_shift.sql, BỌC TRONG GUARD
+        # placeholder spring.flyway.placeholders.applyLocaltime8hShift
+        # (mặc định "false" = KHÔNG dịch, tránh dịch 2 lần trên môi trường
+        # đã fix tay như local). Xem CONTRIBUTING.md mục "Data-fix LocalTime"
+        # khi promote lên môi trường mới.
 
   flyway:
     enabled: true
     locations: classpath:db/migration
     baseline-on-migrate: true
+    placeholders:
+      # V159__fix_localtime_8h_shift.sql chỉ dịch +8h khi giá trị này = "true".
+      # Mặc định "false": local/CI (đã fix tay hoặc container mới không có dữ
+      # liệu) KHÔNG dịch. Khi promote lên môi trường có DỮ LIỆU CŨ CHƯA fix
+      # (-8h), set env/JVM arg spring.flyway.placeholders.applyLocaltime8hShift=true
+      # cho ĐÚNG 1 lần deploy chạy V159, rồi trả lại "false".
+      applyLocaltime8hShift: "${APPLY_LOCALTIME_8H_SHIFT:false}"
 
   # Nâng giới hạn mặc định của Spring Boot (1MB/10MB) để chấp nhận upload
   # audio/video thật (tối đa 200MB cho video CURRICULUM_DOCUMENT/

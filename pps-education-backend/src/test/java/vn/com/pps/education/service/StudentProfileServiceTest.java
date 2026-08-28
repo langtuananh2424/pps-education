@@ -116,8 +116,12 @@ class StudentProfileServiceTest extends AbstractIntegrationTest {
 
         termStart = LocalDate.now().minusMonths(1);
         termEnd = LocalDate.now().plusMonths(3);
+        var academicYear = new vn.com.pps.education.domain.AcademicYear();
+        academicYear.setCode("AY-SPS-" + SEQ.incrementAndGet());
+        academicYear.setName("Năm học test");
+        academicYear = academicYearRepository.save(academicYear);
         var term = academicTermService.create(
-                new CreateAcademicTermRequest(site.getId(), "T-" + SEQ.incrementAndGet(), "Kỳ test", termStart, termEnd),
+                new CreateAcademicTermRequest(site.getId(), academicYear.getId(), "T-" + SEQ.incrementAndGet(), "Kỳ test", termStart, termEnd),
                 headAcademic.getId());
 
         User studentUser = newUser("student.profile");
@@ -239,6 +243,8 @@ class StudentProfileServiceTest extends AbstractIntegrationTest {
 
     // ===================== Helpers =====================
 
+    @Autowired
+    private vn.com.pps.education.repository.AcademicYearRepository academicYearRepository;
     @Autowired
     private vn.com.pps.education.repository.SchoolClassRepository schoolClassRepository;
     @Autowired
