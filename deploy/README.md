@@ -114,17 +114,27 @@ tiếp các tài khoản thật khác qua UI quản lý người dùng của app
 
 ## 3. MinIO (thay Cloudflare R2)
 
-Sau lần `docker compose up -d` đầu, tạo bucket + bật public read (giữ đúng
-hành vi bucket public của R2 hiện tại):
+Bucket `pps-media` + quyền `anonymous download` (giữ đúng hành vi bucket
+public của R2) được **service `minio-init` trong `docker-compose.*.yml` tự
+tạo** mỗi lần `docker compose up -d` — idempotent, và `backend` chờ nó chạy
+xong mới khởi động (`depends_on: service_completed_successfully`). Không cần
+thao tác tay.
+
+Kiểm tra sau khi stack lên:
 
 ```bash
-docker run --rm --network pps-staging_internal minio/mc \
-  alias set s http://minio:9000 <S3_ACCESS_KEY> <S3_SECRET_KEY>
-docker run --rm --network pps-staging_internal minio/mc mb s/pps-media
-docker run --rm --network pps-staging_internal minio/mc anonymous set download s/pps-media
+docker compose -f docker-compose.yml logs minio-init   # thay "up" xanh: "bucket pps-media da san sang"
 ```
 
-(Lặp lại với network `pps-production_internal` cho stack production.)
+Fallback thủ công (chỉ khi cần chạy lại ngoài luồng compose, VD sau khi xoá
+nhầm policy) — thay `pps-staging_internal` bằng `pps-production_internal` cho
+prod:
+
+```bash
+docker run --rm --network pps-staging_internal --entrypoint /bin/sh \
+  -e MC_HOST_s="http://<S3_ACCESS_KEY>:<S3_SECRET_KEY>@minio:9000" minio/mc \
+  -c 'mc mb --ignore-existing s/pps-media && mc anonymous set download s/pps-media'
+```
 
 Nếu có dữ liệu cũ thật trên R2 cần giữ lại: dùng `rclone`/`mc mirror` chuyển
 1 lần trước khi cắt hẳn sang MinIO (không tự động, làm tay khi cần).
