@@ -226,6 +226,17 @@ trong `.env` mỗi stack theo combo đã tạo (xem `.env.example` gốc repo, m
    hạn SSH chỉ nhận từ LAN subnet (mục 1).
 3. (Tùy chọn) `apt install cockpit` — web UI xem CPU/RAM/disk, restart/
    shutdown service, chỉ bind LAN (cổng 9090).
+4. **Kết nối pgAdmin/DBeaver vào Postgres từ máy cá nhân** — Postgres publish
+   `127.0.0.1:5433` (staging) / `127.0.0.1:5432` (production), CHỈ nghe
+   localhost của server (không lộ ra ngoài, giống cách 9Router/backend đã
+   làm). Tạo SSH tunnel từ máy cá nhân:
+   ```bash
+   ssh -L 5433:localhost:5433 -L 5432:localhost:5432 ppsadmin@<LAN_IP>
+   ```
+   Giữ cửa sổ này mở, rồi trong pgAdmin/DBeaver tạo connection mới: Host
+   `localhost`, Port `5433` (staging) hoặc `5432` (production), Database
+   `pps_education`, User `pps_app`, Password = giá trị `DB_PASSWORD` trong
+   `.env` của đúng stack.
 
 ## 7. Tắt server an toàn từ xa (chưa có UPS)
 

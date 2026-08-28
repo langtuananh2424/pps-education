@@ -20,6 +20,8 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
       - pg_data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432" # chỉ localhost - truy cập từ máy cá nhân qua SSH tunnel (xem deploy/README.md)
     networks: [internal]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U pps_app -d pps_education"]
