@@ -31,6 +31,7 @@ import StudentAttendancePage from "@/features/student/pages/AttendancePage";
 import ClassesPage from "@/features/academic/pages/ClassesPage";
 import MyTeachingSchedulePage from "@/features/academic/pages/MyTeachingSchedulePage";
 import SyllabusPage from "@/features/academic/pages/SyllabusPage";
+import EntranceAssessmentPage from "@/features/academic/pages/EntranceAssessmentPage";
 import GradesPage from "@/features/academic/pages/GradesPage";
 import CommentsPage from "@/features/academic/pages/CommentsPage";
 import HomeworkStatsPage from "@/features/academic/pages/HomeworkStatsPage";
@@ -97,6 +98,7 @@ export default function App() {
           <Route path="/academic/classes" element={<ClassesPage />} />
           <Route path="/schedule/my-timetable" element={<MyTeachingSchedulePage />} />
           <Route path="/academic/syllabus" element={<SyllabusPage />} />
+          <Route path="/academic/entrance-assessment" element={<EntranceAssessmentPage />} />
           <Route path="/academic/grades" element={<GradesPage />} />
           <Route path="/academic/comments" element={<CommentsPage />} />
           <Route path="/academic/homework-stats" element={<HomeworkStatsPage />} />

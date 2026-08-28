@@ -5,7 +5,15 @@ import { ApiError } from "@/lib/apiClient";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import DatePicker from "@/components/ui/DatePicker";
-import { AcademicTermResponse, createAcademicTerm, listAcademicTerms, updateAcademicTerm } from "../api";
+import Select from "@/components/ui/Select";
+import {
+  AcademicTermResponse,
+  AcademicYearResponse,
+  createAcademicTerm,
+  listAcademicTerms,
+  listAcademicYears,
+  updateAcademicTerm
+} from "../api";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
@@ -23,10 +31,14 @@ interface AcademicTermManagerModalProps {
  * lớp/học sinh theo từng kỳ (báo cáo & thống kê) là 1 phân hệ riêng sẽ
  * triển khai sau, dùng lại [startDate, endDate] của kỳ để lọc dữ liệu đã
  * có ngày tháng sẵn (ghi danh, phân công giáo viên, điểm danh, nhận xét).
+ *
+ * V157 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-28):
+ * mỗi kỳ học bắt buộc gắn 1 năm học (danh mục dùng chung toàn hệ thống).
  */
 export default function AcademicTermManagerModal({ siteId, siteName, onClose }: AcademicTermManagerModalProps) {
   const { t } = useTranslation("academic-curriculum");
   const [terms, setTerms] = useState<AcademicTermResponse[]>([]);
+  const [years, setYears] = useState<AcademicYearResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
@@ -34,8 +46,11 @@ export default function AcademicTermManagerModal({ siteId, siteName, onClose }: 
 
   const load = () => {
     setLoading(true);
-    listAcademicTerms(siteId)
-      .then(setTerms)
+    Promise.all([listAcademicTerms(siteId), listAcademicYears()])
+      .then(([termList, yearList]) => {
+        setTerms(termList);
+        setYears(yearList);
+      })
       .catch((err) => setError(err instanceof ApiError ? err.message : t("termManager.loadFailedFallback")))
       .finally(() => setLoading(false));
   };
@@ -69,6 +84,7 @@ export default function AcademicTermManagerModal({ siteId, siteName, onClose }: 
               <TermForm
                 key={term.id}
                 initial={term}
+                years={years}
                 onCancel={() => setEditingId(null)}
                 onSubmit={async (values) => {
                   await updateAcademicTerm(term.id, values);
@@ -84,6 +100,7 @@ export default function AcademicTermManagerModal({ siteId, siteName, onClose }: 
                   </div>
                   <div className="text-[10px] text-slate-500 mt-0.5">
                     {term.startDate} → {term.endDate}
+                    {term.academicYearCode ? ` · ${term.academicYearCode}` : ""}
                   </div>
                 </div>
                 <button onClick={() => setEditingId(term.id)} className="text-brand-red font-bold text-[11px] hover:underline shrink-0">
@@ -97,6 +114,7 @@ export default function AcademicTermManagerModal({ siteId, siteName, onClose }: 
 
       {showCreate && (
         <TermForm
+          years={years}
           onCancel={() => setShowCreate(false)}
           onSubmit={async (values) => {
             await createAcademicTerm({ ...values, siteId });
@@ -112,22 +130,26 @@ export default function AcademicTermManagerModal({ siteId, siteName, onClose }: 
 interface TermFormValues {
   code: string;
   name: string;
+  academicYearId: number;
   startDate: string;
   endDate: string;
 }
 
 function TermForm({
   initial,
+  years,
   onCancel,
   onSubmit
 }: {
   initial?: AcademicTermResponse;
+  years: AcademicYearResponse[];
   onCancel: () => void;
   onSubmit: (values: TermFormValues) => Promise<void>;
 }) {
   const { t } = useTranslation("academic-curriculum");
   const [code, setCode] = useState(initial?.code ?? "");
   const [name, setName] = useState(initial?.name ?? "");
+  const [academicYearId, setAcademicYearId] = useState<string>(initial?.academicYearId ? String(initial.academicYearId) : "");
   const [startDate, setStartDate] = useState(initial?.startDate ?? "");
   const [endDate, setEndDate] = useState(initial?.endDate ?? "");
   const [submitting, setSubmitting] = useState(false);
@@ -136,7 +158,7 @@ function TermForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if ((!isEdit && !code.trim()) || !name.trim() || !startDate || !endDate) {
+    if ((!isEdit && !code.trim()) || !name.trim() || !academicYearId || !startDate || !endDate) {
       setError(t("termManager.form.validationError"));
       return;
     }
@@ -147,7 +169,13 @@ function TermForm({
     setSubmitting(true);
     setError(null);
     try {
-      const values: TermFormValues = { code: code.trim(), name: name.trim(), startDate, endDate };
+      const values: TermFormValues = {
+        code: code.trim(),
+        name: name.trim(),
+        academicYearId: Number(academicYearId),
+        startDate,
+        endDate
+      };
       await onSubmit(values);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t("termManager.form.saveFailedFallback"));
@@ -167,6 +195,18 @@ function TermForm({
         <div>
           <label className={labelClass}>{t("termManager.form.nameLabel")}</label>
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("termManager.form.namePlaceholder")} className={inputClass} />
+        </div>
+        <div className="col-span-2">
+          <label className={labelClass}>{t("termManager.form.academicYearLabel")}</label>
+          <Select value={academicYearId} onChange={(e) => setAcademicYearId(e.target.value)} className={inputClass} disabled={years.length === 0}>
+            <option value="">{t("termManager.form.academicYearPlaceholder")}</option>
+            {years.map((y) => (
+              <option key={y.id} value={y.id}>
+                {y.code} — {y.name}
+              </option>
+            ))}
+          </Select>
+          {years.length === 0 && <p className="text-[10px] text-amber-600 mt-1">{t("termManager.form.academicYearEmpty")}</p>}
         </div>
         <div>
           <label className={labelClass}>{t("termManager.form.startDateLabel")}</label>
