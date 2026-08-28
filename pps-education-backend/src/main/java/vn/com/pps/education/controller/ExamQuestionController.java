@@ -66,15 +66,17 @@ public class ExamQuestionController {
     @PostMapping(value = "/api/exams/{examId}/questions/import", consumes = "multipart/form-data")
     public ResponseEntity<QuestionImportResponse> importQuestions(@PathVariable Long examId,
                                                                    @RequestParam("file") MultipartFile file,
+                                                                   @RequestParam(required = false) String defaultKind,
                                                                    @AuthenticationPrincipal AuthenticatedUser actor) {
-        return ResponseEntity.ok(examQuestionService.importQuestions(examId, file, actor.userId()));
+        return ResponseEntity.ok(examQuestionService.importQuestions(examId, file, actor.userId(), defaultKind));
     }
 
     @PreAuthorize("hasPermission(null, 'lms.exam-question.create')")
     @GetMapping("/api/exams/question-imports/template.docx")
     public ResponseEntity<byte[]> downloadWordTemplate(@RequestParam(required = false) String skillCategory,
-                                                         @RequestParam(required = false) String teacherType) {
-        byte[] content = examQuestionService.buildWordTemplate(skillCategory, teacherType);
+                                                         @RequestParam(required = false) String teacherType,
+                                                         @RequestParam(required = false) String defaultKind) {
+        byte[] content = examQuestionService.buildWordTemplate(skillCategory, teacherType, defaultKind);
         String filename = "mau-soan-cau-hoi.docx";
         String encodedFilename = URLEncoder.encode(filename, StandardCharsets.UTF_8).replace("+", "%20");
         return ResponseEntity.ok()

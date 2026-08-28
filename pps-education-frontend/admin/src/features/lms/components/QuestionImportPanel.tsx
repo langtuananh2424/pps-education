@@ -33,10 +33,17 @@ interface QuestionImportPanelProps {
 /** Mirror SKILL_CATEGORY_KIND_TOKENS ở QuestionImportService.java (backend) — nguồn chân lý DUY NHẤT
  * cho lọc file mẫu Excel phía FE, KHÔNG tự thêm/bớt token khác backend. */
 const SKILL_CATEGORY_KIND_TOKENS: Record<string, string[]> = {
-  VOCAB_GRAMMAR: ["TRAC_NGHIEM", "TRAC_NGHIEM_VOICE", "DIEN_TU", "DIEN_TU_HOP_TU_VUNG", "DIEN_TU_HOP_TU_VUNG_ANH", "SAP_XEP_CAU", "SAP_XEP_CHU_CAI"],
+  VOCAB_GRAMMAR: ["TRAC_NGHIEM", "TRAC_NGHIEM_VOICE", "DIEN_TU", "DIEN_TU_NHOM", "DIEN_TU_HOP_TU_VUNG", "DIEN_TU_HOP_TU_VUNG_ANH", "SAP_XEP_CAU", "SAP_XEP_CHU_CAI"],
   WRITING: ["TU_LUAN"],
   LISTENING: ["TRAC_NGHIEM_VOICE", "NGHE_NOP_AUDIO", "NGHE_DIEN_TU"]
 };
+
+/** Mirror VALID_KINDS ở QuestionImportService.java (backend) — nguồn cho dropdown "Loại câu hỏi mặc định". */
+const ALL_KIND_TOKENS = [
+  "TRAC_NGHIEM", "TRAC_NGHIEM_VOICE", "DIEN_TU", "DIEN_TU_NHOM", "TU_LUAN", "SPEAKING",
+  "DIEN_TU_HOP_TU_VUNG", "DIEN_TU_HOP_TU_VUNG_ANH", "SAP_XEP_CAU", "SAP_XEP_CHU_CAI",
+  "NGHE_NOP_AUDIO", "NGHE_DIEN_TU"
+];
 
 /**
  * UC-40 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30):
@@ -55,6 +62,12 @@ export default function QuestionImportPanel({ bankId, examId, skillCategory, tea
   const [downloadingTemplate, setDownloadingTemplate] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<QuestionImportResponse | null>(null);
+  // Bổ sung 2026-08-28 (đã xác nhận với người dùng) — "Loại câu hỏi mặc định": khớp thói quen thật
+  // "1 Ex chỉ 1 loại câu hỏi" nên cả file thường cùng 1 giá trị — chọn 1 lần ở đây thay vì gõ lại cột
+  // "Loại câu hỏi" ở MỌI dòng trong file. Rỗng ("") = giữ hành vi cũ (bắt buộc mỗi dòng tự ghi loại).
+  const [defaultKind, setDefaultKind] = useState("");
+  const allowedKindTokens = teacherType === "FOREIGN" ? SKILL_CATEGORY_KIND_TOKENS.LISTENING : skillCategory ? SKILL_CATEGORY_KIND_TOKENS[skillCategory] : undefined;
+  const defaultKindOptions = allowedKindTokens ?? ALL_KIND_TOKENS;
 
   const handleDownloadTemplate = async () => {
     setError(null);
@@ -62,9 +75,10 @@ export default function QuestionImportPanel({ bankId, examId, skillCategory, tea
       // Cột cố định của mẫu Excel — ExcelQuestionRowParser.java đọc theo TÊN header (dòng 1), không
       // theo vị trí cột, nên thứ tự/ngôn ngữ header đổi được miễn còn khớp alias (xem
       // QuestionImportFieldAliases.java) — mảng dưới đây chỉ cần khớp ĐÚNG THỨ TỰ với mảng `headers`.
-      // 11 dòng ví dụ demo đủ 11 loại UI hỗ trợ (bổ sung 2026-08-26: NGHE_NOP_AUDIO/NGHE_DIEN_TU cho
-      // GV nước ngoài), y hệt nội dung buildWordTemplate() bên backend để 2
-      // định dạng nhất quán.
+      // 12 dòng ví dụ demo đủ 12 loại UI hỗ trợ (bổ sung 2026-08-26: NGHE_NOP_AUDIO/NGHE_DIEN_TU cho
+      // GV nước ngoài; bổ sung 2026-08-28: DIEN_TU_NHOM — "Cách B", 1 dòng tạo N Question riêng cùng
+      // groupKey, mirror FillInBlankGroupBuilder.tsx), y hệt nội dung buildTemplateBlocks() bên backend
+      // (QuestionImportService.java) để 2 định dạng nhất quán.
       const headers = t("questionImportPanel.excelHeaders", { returnObjects: true }) as string[];
       const sampleRows: string[][] = [
         ["TRAC_NGHIEM", "EASY", "What is the capital of France?", "London", "Paris", "Berlin", "Madrid", "B",
@@ -73,6 +87,9 @@ export default function QuestionImportPanel({ bankId, examId, skillCategory, tea
           "https://example-r2.dev/lms/questions/audio/mau.mp3", "", "sheep", "1", "", ""],
         ["DIEN_TU", "", "She ___ (go) to school every day.", "", "", "", "", "goes",
           "", "", "", "1", t("questionImportPanel.excelSampleExplanations.presentSimple"), ""],
+        ["DIEN_TU_NHOM", "", "Tom is very ___.|English is my ___ subject.|Our football ___ helps us win the game.", "", "", "", "", "smart|favourite|coach",
+          "", "", "activity, advanced, beginner, classmate, smart, coach, competition, course, favourite, geography, history, practice", "1",
+          t("questionImportPanel.excelSampleExplanations.fillInBlankGroup"), ""],
         ["TU_LUAN", "HARD", "Write a 150-word essay about your favorite hobby.", "", "", "", "", "",
           "", "https://example-r2.dev/lms/questions/images/mau.png", "", "2", t("questionImportPanel.excelSampleExplanations.essayRubric"), ""],
         ["SPEAKING", "", "Read the following sentence aloud.", "", "", "", "", "",
@@ -94,15 +111,23 @@ export default function QuestionImportPanel({ bankId, examId, skillCategory, tea
           "https://example-r2.dev/lms/questions/audio/mau-nghe-dien-tu.mp3", "", "", "1",
           t("questionImportPanel.excelSampleExplanations.listeningFillInBlank"), ""]
       ];
-      const allowedTokens = teacherType === "FOREIGN" ? SKILL_CATEGORY_KIND_TOKENS.LISTENING : skillCategory ? SKILL_CATEGORY_KIND_TOKENS[skillCategory] : undefined;
-      const filteredRows = allowedTokens ? sampleRows.filter((row) => allowedTokens.includes(row[0])) : sampleRows;
+      // Bổ sung 2026-08-28 (đã xác nhận với người dùng) — defaultKind ưu tiên CAO HƠN lọc theo Nhóm kỹ
+      // năng: GV đã chọn cụ thể 1 loại thì chỉ cần đúng 1 dòng ví dụ loại đó để copy xuống nhiều dòng,
+      // không cần cả bảng tra cứu nhiều loại nữa.
+      const filteredRows = defaultKind
+        ? sampleRows.filter((row) => row[0] === defaultKind)
+        : allowedKindTokens
+          ? sampleRows.filter((row) => allowedKindTokens.includes(row[0]))
+          : sampleRows;
       const blob = buildXlsxTemplateBlob(headers, filteredRows);
       downloadBlob(blob, "mau-soan-cau-hoi.xlsx");
       return;
     }
     setDownloadingTemplate(true);
     try {
-      const blob = await (examId ? downloadExamQuestionImportWordTemplate(skillCategory, teacherType) : downloadQuestionImportWordTemplate());
+      const blob = await (examId
+        ? downloadExamQuestionImportWordTemplate(skillCategory, teacherType, defaultKind || undefined)
+        : downloadQuestionImportWordTemplate(defaultKind || undefined));
       downloadBlob(blob, "mau-soan-cau-hoi.docx");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t("questionImportPanel.downloadTemplateFailed"));
@@ -123,9 +148,9 @@ export default function QuestionImportPanel({ bankId, examId, skillCategory, tea
     setResult(null);
     try {
       const res = examId
-        ? await importExamQuestions(examId, file)
+        ? await importExamQuestions(examId, file, defaultKind || undefined)
         : bankId
-          ? await importQuestions(bankId, file)
+          ? await importQuestions(bankId, file, defaultKind || undefined)
           : (() => { throw new Error(t("common.missingExamOrBankContext")); })();
       setResult(res);
       if (res.successRows > 0) onImported(res.createdQuestions);
@@ -152,6 +177,23 @@ export default function QuestionImportPanel({ bankId, examId, skillCategory, tea
             {f === "xlsx" ? t("questionImportPanel.formatExcel") : t("questionImportPanel.formatWord")}
           </button>
         ))}
+      </div>
+
+      <div>
+        <label className="block font-bold text-slate-600 mb-1 text-[10px] uppercase tracking-wider">{t("questionImportPanel.defaultKindLabel")}</label>
+        <select
+          value={defaultKind}
+          onChange={(e) => setDefaultKind(e.target.value)}
+          className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-red"
+        >
+          <option value="">{t("questionImportPanel.defaultKindNone")}</option>
+          {defaultKindOptions.map((token) => (
+            <option key={token} value={token}>
+              {t(`questionImportPanel.kindLabels.${token}`)}
+            </option>
+          ))}
+        </select>
+        <p className="text-[9px] text-slate-400 mt-1">{t("questionImportPanel.defaultKindHint")}</p>
       </div>
 
       <button

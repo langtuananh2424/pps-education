@@ -11,12 +11,18 @@ import { UiQuestionKind } from "./components/QuestionEditorForm";
  * là composite builder (ClozeQuestionBuilder/GridQuestionBuilder/ListeningGroupBuilder) — không đi qua
  * kind-picker của QuestionEditorForm, chỉ cần biết MODE nào được bật.
  */
-export type ComposeSubMode = "single" | "grid" | "cloze" | "listeningGroup";
+export type ComposeSubMode = "single" | "grid" | "cloze" | "listeningGroup" | "fillInBlankGroup";
 
 export type VietnameseSkillCategory = "VOCAB_GRAMMAR" | "READING" | "WRITING";
 
+/**
+ * Bổ sung 2026-08-28 (đã xác nhận với người dùng — "Cách B") — VOCAB_GRAMMAR có thêm "fillInBlankGroup"
+ * (FillInBlankGroupBuilder): soạn nhiều câu FILL_IN_BLANK cùng lúc, mỗi câu tự có "Câu N."/điểm riêng,
+ * dùng khi 1 Ex. có nhiều câu (VD "Ex.1 Choose the correct word...", "Ex.3 Complete each sentence
+ * with this/that/these/those...") thay vì gộp hết vào 1 Question WORD_BANK nhiều chỗ trống.
+ */
 export const VIETNAMESE_SKILL_MODES: Record<VietnameseSkillCategory, ComposeSubMode[]> = {
-  VOCAB_GRAMMAR: ["single"],
+  VOCAB_GRAMMAR: ["single", "fillInBlankGroup"],
   READING: ["cloze", "grid"],
   WRITING: ["single"]
 };
@@ -28,6 +34,7 @@ export const VIETNAMESE_SKILL_KINDS: Record<"VOCAB_GRAMMAR" | "WRITING", UiQuest
     "VOICE_MULTIPLE_CHOICE",
     "INLINE_CHOICE",
     "FILL_IN_BLANK",
+    "FILL_IN_BLANK_PICTURE",
     "WORD_BANK",
     "WORD_BANK_PICTURE",
     "SENTENCE_BUILDING",

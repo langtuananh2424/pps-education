@@ -79,7 +79,16 @@ function listeningKeyOf(q: ExerciseQuestionResponse): string {
  */
 export type RenderBlock =
   | { type: "single"; question: ExerciseQuestionResponse }
-  | { type: "grid"; groupKey: string; referencePassage: string | null; audioUrl: string | null; questions: ExerciseQuestionResponse[] };
+  | { type: "grid"; groupKey: string; referencePassage: string | null; audioUrl: string | null; wordBox: string[] | null; questions: ExerciseQuestionResponse[] };
+
+/** Bổ sung 2026-08-28 — chia mảng thành các hàng cố định `size` phần tử, dùng để dựng bảng hộp từ vựng (wordBox). */
+function chunkArray<T>(items: T[], size: number): T[][] {
+  const rows: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    rows.push(items.slice(i, i + size));
+  }
+  return rows;
+}
 
 export function groupQuestionsByGroupKey(questions: ExerciseQuestionResponse[]): RenderBlock[] {
   const blocks: RenderBlock[] = [];
@@ -93,7 +102,16 @@ export function groupQuestionsByGroupKey(questions: ExerciseQuestionResponse[]):
       // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — nhóm "1 audio nhiều câu" (GV
       // nước ngoài, xem ListeningGroupBuilder) cùng dùng chung audioUrl như referencePassage: chỉ cần
       // lấy từ câu hỏi đầu tiên của nhóm.
-      blocks.push({ type: "grid", groupKey: q.groupKey, referencePassage: q.referencePassage, audioUrl: q.audioUrl, questions: [q] });
+      // wordBox (bổ sung 2026-08-28, đã xác nhận với người dùng) — hộp từ vựng THAM KHẢO tĩnh dùng
+      // chung cho nhóm FILL_IN_BLANK (FillInBlankGroupBuilder), cùng quy ước lấy từ câu đầu nhóm.
+      blocks.push({
+        type: "grid",
+        groupKey: q.groupKey,
+        referencePassage: q.referencePassage,
+        audioUrl: q.audioUrl,
+        wordBox: q.structuredContent?.wordBox ?? null,
+        questions: [q]
+      });
     } else {
       blocks.push({ type: "single", question: q });
     }
@@ -904,8 +922,16 @@ export function QuestionBlock({
   return (
     <div className="border border-line/60 rounded-[16px] p-4 sm:p-5 lg:p-6 space-y-3 lg:space-y-4">
       <div className="flex items-start justify-between gap-3">
+        {/*
+         * Bổ sung 2026-08-28 (đã xác nhận với người dùng) — tách số thứ tự câu ra dòng riêng khỏi nội
+         * dung: dạng WORD_BANK nhiều câu con thường tự đánh số "1. 2. 3..." ngay trong nội dung, để
+         * chung 1 dòng với số thứ tự câu gây nhìn nhầm thành 2 số dính nhau (VD "1. 1. Tom is...").
+         */}
         <p className="text-sm sm:text-base lg:text-lg font-bold text-ink">
-          {displayNumber ?? question.displayOrder}. {question.questionContent}
+          <span className="block text-muted text-xs sm:text-sm uppercase tracking-wider mb-1">
+            {t("takeExercise.question.numberPrefix", { number: displayNumber ?? question.displayOrder })}
+          </span>
+          <span className="whitespace-pre-line">{question.questionContent}</span>
         </p>
         <div className="flex items-center gap-2 shrink-0">
           {question.skill === "LISTENING" && question.audioUrl && attemptId != null && (
@@ -1489,6 +1515,28 @@ export function GridQuestionGroup({
       {block.referencePassage && (
         <p className="text-xs sm:text-sm lg:text-base text-ink whitespace-pre-wrap bg-sky-2 rounded-xl p-3 sm:p-4">{block.referencePassage}</p>
       )}
+      {/*
+       * Bổ sung 2026-08-28 (đã xác nhận với người dùng) — hộp từ vựng THAM KHẢO tĩnh, khớp hình thức
+       * "khung từ" trong đề giấy gốc (Ex.1 "Choose the correct word from the word box below") — chỉ để
+       * học sinh nhìn tham khảo, KHÔNG bấm chọn được (mỗi câu bên dưới vẫn tự gõ đáp án + tự chấm riêng).
+       * Dựng bằng <table> (viền nối liền giữa các ô) thay vì lưới ô rời để giống ĐÚNG bảng trong đề
+       * giấy gốc, không chỉ là "các thẻ từ" rải rác.
+       */}
+      {block.wordBox && block.wordBox.length > 0 && (
+        <table className="w-full border-collapse text-xs sm:text-sm lg:text-base text-ink">
+          <tbody>
+            {chunkArray(block.wordBox, 4).map((row, ri) => (
+              <tr key={ri}>
+                {row.map((w, ci) => (
+                  <td key={ci} className="border border-line/60 text-center font-bold px-2 py-2 sm:px-3 sm:py-2.5">
+                    {w}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
       {block.audioUrl && (
         <div className="flex items-center gap-2">
           {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
@@ -1526,6 +1574,14 @@ export function GridQuestionGroup({
                   {startNumber != null ? startNumber + qIndex : q.displayOrder}. {q.questionContent}
                 </span>
               </div>
+
+              {/*
+               * Bổ sung 2026-08-28 (đã xác nhận với người dùng) — ảnh minh họa RIÊNG từng câu trong 1
+               * nhóm (VD FillInBlankGroupBuilder cho dạng "Complete each sentence with this/that/these/
+               * those", mỗi câu 1 ảnh khác nhau) — trước đây chỉ câu đơn lẻ (không thuộc nhóm) mới hiện
+               * ảnh, khối "grid" này thiếu hẳn nên ảnh bị lưu nhưng học sinh không thấy.
+               */}
+              {q.imageUrl && <img src={q.imageUrl} alt="" className="w-full max-w-sm rounded-xl border border-line/60" />}
 
               {/*
                * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — fix bug thật: trước đây
