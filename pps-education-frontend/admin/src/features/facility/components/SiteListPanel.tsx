@@ -28,7 +28,7 @@ interface SiteListPanelProps {
 export default function SiteListPanel({ sites, loading, selectedId, onSelect, onCreate }: SiteListPanelProps) {
   const { t } = useTranslation("facility");
   return (
-    <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden flex flex-col h-full">
+    <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden flex flex-col h-full min-h-[600px] lg:min-h-[720px]">
       <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3 bg-slate-50 shrink-0">
         <div className="space-y-0.5">
           <span className="text-xs font-bold text-slate-700 font-display block">{t("siteList.title")}</span>
@@ -40,7 +40,7 @@ export default function SiteListPanel({ sites, loading, selectedId, onSelect, on
         </Button>
       </div>
 
-      <div className="divide-y divide-slate-100 overflow-y-auto max-h-[620px] lg:max-h-[680px]">
+      <div className="divide-y divide-slate-100 overflow-y-auto flex-1 max-h-[620px] lg:max-h-[820px]">
         {loading ? (
           <div className="p-8 text-center text-slate-400 text-xs">{t("siteList.loading")}</div>
         ) : sites.length === 0 ? (

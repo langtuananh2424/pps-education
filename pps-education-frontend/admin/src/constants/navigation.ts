@@ -194,6 +194,10 @@ export const navSections: NavSection[] = [
       // .create (thấp nhất) để vào trang; khối duyệt tùy biến (UC-17) bên trong tự gate riêng
       // theo .approve (xem SyllabusPage.tsx).
       { id: "acad-syllabus", label: "Khung chương trình", path: "/academic/syllabus", icon: BookMarked, requiredPermission: "academic.curriculum.create" },
+      // UC-18c (bổ sung ngoài SDD gốc, 2026-08-28): Đánh giá đầu vào. academic.entrance.score.manage (V158) gán
+      // HEAD_ACADEMIC + SITE_MANAGER + TEACHER — đúng audience, khối cấu hình bộ đề bên trong tự gate theo
+      // academic.entrance.setup.* (EntranceAssessmentPage.tsx).
+      { id: "acad-entrance", label: "Đánh giá đầu vào", path: "/academic/entrance-assessment", icon: ClipboardCheck, requiredPermission: "academic.entrance.score.manage" },
       // GV thuần giờ nhập điểm ngay ở tab "Sổ điểm" trong Quản lý lớp học (UC-18, ClassDetailPanel) nên
       // KHÔNG còn hiện mục này với TEACHER nữa — chỉ gate theo role quản trị (không dùng requiredPermission
       // academic.grade.manage vì TEACHER cũng có permission đó, sẽ lại lọt vào nếu gate theo permission).

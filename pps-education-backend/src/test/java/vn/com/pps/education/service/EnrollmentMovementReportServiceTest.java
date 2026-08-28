@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.AcademicTerm;
+import vn.com.pps.education.domain.AcademicYear;
 import vn.com.pps.education.domain.ClassEnrollment;
 import vn.com.pps.education.domain.Role;
 import vn.com.pps.education.domain.SchoolClass;
@@ -25,6 +26,7 @@ import vn.com.pps.education.dto.UpdateCurriculumRequest;
 import vn.com.pps.education.exception.NotSiteManagerForSiteException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.repository.AcademicTermRepository;
+import vn.com.pps.education.repository.AcademicYearRepository;
 import vn.com.pps.education.repository.ClassEnrollmentRepository;
 import vn.com.pps.education.repository.RoleRepository;
 import vn.com.pps.education.repository.SchoolClassRepository;
@@ -84,6 +86,9 @@ class EnrollmentMovementReportServiceTest extends AbstractIntegrationTest {
     private AcademicTermRepository academicTermRepository;
 
     @Autowired
+    private AcademicYearRepository academicYearRepository;
+
+    @Autowired
     private SchoolClassRepository schoolClassRepository;
 
     private User headAcademic;
@@ -112,8 +117,12 @@ class EnrollmentMovementReportServiceTest extends AbstractIntegrationTest {
 
         termStart = LocalDate.now().minusMonths(2);
         termEnd = LocalDate.now().plusMonths(2);
+        AcademicYear academicYear = new AcademicYear();
+        academicYear.setCode("AY-EMR-" + SEQ.incrementAndGet());
+        academicYear.setName("Năm học test");
+        academicYear = academicYearRepository.save(academicYear);
         AcademicTermResponse termResponse = academicTermService.create(
-                new CreateAcademicTermRequest(site.getId(), "HK-" + SEQ.incrementAndGet(), "Học kỳ test", termStart, termEnd),
+                new CreateAcademicTermRequest(site.getId(), academicYear.getId(), "HK-" + SEQ.incrementAndGet(), "Học kỳ test", termStart, termEnd),
                 headAcademic.getId());
         term = academicTermRepository.findById(termResponse.id()).orElseThrow();
 

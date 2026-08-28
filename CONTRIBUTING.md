@@ -77,3 +77,27 @@ Khi kết thúc 1 Phase (A/B/C) hoặc 1 nhóm tính năng đủ ổn định tr
   nếu cần sửa lỗi, tạo migration mới để "chữa" (ALTER/UPDATE) thay vì sửa file cũ.
 - Migration phải chạy được trên DB rỗng từ đầu (`V1` → `Vn`) lẫn trên DB đã có
   dữ liệu — tránh `DROP TABLE`/`DROP COLUMN` phá dữ liệu nếu không thực sự cần.
+
+## 6. Data-fix LocalTime (V159) — chạy 1 lần cho mỗi môi trường có dữ liệu cũ
+
+`V159__fix_localtime_8h_shift.sql` dịch **+8h** dữ liệu `TIME` cũ (bị lệch −8h
+do bug `hibernate.jdbc.time_zone`, đã bỏ setting này 2026-08-20) cho 5 bảng:
+`class_sessions`, `session_periods`, `site_period_templates`, `shifts`,
+`leave_requests`.
+
+Migration **mặc định KHÔNG dịch** (guard `WHERE lower('${applyLocaltime8hShift}')
+= 'true'`, placeholder mặc định `false` trong `application.yml`) để không dịch
+2 lần trên môi trường đã fix tay (local đã fix 2026-08-20) hay container CI.
+
+**Khi promote lên 1 môi trường CÓ dữ liệu cũ CHƯA fix (staging/production):**
+
+1. Kiểm tra nhanh trước: `SELECT min(start_time), max(start_time) FROM class_sessions;`
+   — nếu tiết sáng (đúng phải ~07:00) đang hiện ~23:00 thì môi trường đó **chưa fix**.
+2. Deploy lần đó set biến môi trường `APPLY_LOCALTIME_8H_SHIFT=true` (hoặc JVM
+   arg `-Dspring.flyway.placeholders.applyLocaltime8hShift=true`) → V159 chạy
+   dịch +8h **đúng 1 lần**.
+3. Deploy xong **trả biến về `false`** (bỏ env). V159 đã nằm trong
+   `flyway_schema_history`, không chạy lại; giữ `false` để lỡ có rebuild cũng
+   không dịch nhầm.
+4. Nếu môi trường đó ĐÃ fix tay từ trước: cứ để `false` — V159 vào history dưới
+   dạng no-op, không cần thao tác gì.
