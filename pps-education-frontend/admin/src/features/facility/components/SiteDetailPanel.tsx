@@ -50,7 +50,7 @@ export default function SiteDetailPanel({ site, onChanged }: SiteDetailPanelProp
   const { message: toastMessage, showToast } = useToast();
 
   return (
-    <div className="lg:col-span-3 bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden flex flex-col">
+    <div className="lg:col-span-3 bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden flex flex-col h-full min-h-[600px] lg:min-h-[720px]">
       <div className="p-5 border-b border-slate-200 space-y-3 bg-slate-50/20">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
@@ -87,7 +87,7 @@ export default function SiteDetailPanel({ site, onChanged }: SiteDetailPanelProp
         </div>
       </div>
 
-      <div className="flex-1 p-5 overflow-y-auto max-h-[620px] lg:max-h-[680px]">
+      <div className="flex-1 p-5 overflow-y-auto max-h-[620px] lg:max-h-[820px]">
         {tab === "profile" && <ProfileTab site={site} onChanged={onChanged} showToast={showToast} />}
         {tab === "manager" && <ManagerTab site={site} onChanged={onChanged} showToast={showToast} />}
         {tab === "teachers" && <SiteTeachersTab siteId={site.id} showToast={showToast} />}
