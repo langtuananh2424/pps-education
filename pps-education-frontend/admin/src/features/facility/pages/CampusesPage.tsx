@@ -51,7 +51,7 @@ export default function CampusesPage() {
         {selectedSite ? (
           <SiteDetailPanel site={selectedSite} onChanged={load} />
         ) : (
-          <div className="lg:col-span-3 bg-white rounded-xl border border-slate-200 shadow-soft flex flex-col items-center justify-center p-12 text-center text-slate-400 space-y-3">
+          <div className="lg:col-span-3 bg-white rounded-xl border border-slate-200 shadow-soft flex flex-col items-center justify-center p-12 text-center text-slate-400 space-y-3 min-h-[600px] lg:min-h-[720px]">
             <Building2 className="w-12 h-12 text-slate-300" />
             <div>
               <h3 className="text-sm font-bold text-slate-700">{t("campusesPage.emptyTitle")}</h3>
