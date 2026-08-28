@@ -66,16 +66,30 @@ import java.util.Set;
  * composite ListeningGroupBuilder, cấu trúc ảnh-theo-từng-đáp-án không
  * diễn đạt gọn trong 1 dòng bảng tính.
  *
+ * DIEN_TU_NHOM (bổ sung 2026-08-28, đã xác nhận với người dùng — "Cách B", mirror
+ * FillInBlankGroupBuilder.tsx phía FE): loại DUY NHẤT mà 1 dòng file tạo ra NHIỀU Question (mỗi câu
+ * trong "Nội dung" phân tách bằng dấu | thành 1 Question FILL_IN_BLANK riêng, cùng groupKey) thay vì
+ * đúng 1 như mọi loại khác — xem mapToGroupRequests(). Thay thế DIEN_TU_HOP_TU_VUNG khi cần mỗi câu
+ * tự có điểm/nhãn riêng thay vì chấm all-or-nothing.
+ *
  * Kiến trúc parser theo Open/Closed (xem QuestionRowParser) — Spring tự
  * inject mọi bean implement interface này, chọn theo phần mở rộng file.
  */
 @Service
 public class QuestionImportService {
 
+    /**
+     * Bổ sung 2026-08-28 (đã xác nhận với người dùng — "Cách B") — "DIEN_TU_NHOM": 1 DÒNG file =
+     * NGUYÊN 1 Ex. nhiều câu FILL_IN_BLANK (mirror FillInBlankGroupBuilder.tsx phía FE), khác hẳn mọi
+     * kind khác ở chỗ 1 dòng tạo ra NHIỀU Question (cùng groupKey) thay vì đúng 1. Xem
+     * mapToGroupRequests().
+     */
+    private static final String KIND_FILL_IN_BLANK_GROUP = "DIEN_TU_NHOM";
+
     private static final Set<String> VALID_KINDS = Set.of(
             "TRAC_NGHIEM", "TRAC_NGHIEM_VOICE", "DIEN_TU", "TU_LUAN", "SPEAKING",
             "DIEN_TU_HOP_TU_VUNG", "DIEN_TU_HOP_TU_VUNG_ANH", "SAP_XEP_CAU", "SAP_XEP_CHU_CAI",
-            "NGHE_NOP_AUDIO", "NGHE_DIEN_TU");
+            "NGHE_NOP_AUDIO", "NGHE_DIEN_TU", KIND_FILL_IN_BLANK_GROUP);
     private static final Set<String> VALID_DIFFICULTIES = Set.of("EASY", "MEDIUM", "HARD");
 
     private final ImportJobRepository importJobRepository;
@@ -106,6 +120,18 @@ public class QuestionImportService {
      */
     @Transactional
     public QuestionImportResponse importQuestions(Long bankId, MultipartFile file, Long actorUserId) {
+        return importQuestions(bankId, file, actorUserId, null);
+    }
+
+    /**
+     * Bổ sung 2026-08-28 (đã xác nhận với người dùng) — {@code defaultKind}: GV chọn 1 lần ở panel
+     * Import (khớp thói quen thật "1 Ex chỉ 1 loại câu hỏi") thay vì phải gõ lại cột "Loại câu hỏi"
+     * ở MỌI dòng trong file — dòng nào cột đó để trống thì dùng defaultKind, dòng nào tự ghi giá trị
+     * riêng thì vẫn ưu tiên giá trị đó (không ép cả file cùng 1 loại). Null/rỗng = giữ hành vi cũ
+     * (bắt buộc mỗi dòng tự ghi loại). Xem resolveKind().
+     */
+    @Transactional
+    public QuestionImportResponse importQuestions(Long bankId, MultipartFile file, Long actorUserId, String defaultKind) {
         QuestionBank bank = questionBankRepository.findById(bankId)
                 .orElseThrow(() -> new ResourceNotFoundException("error.questionImport.bankNotFound",
                         new Object[]{bankId}, "Không tìm thấy ngân hàng câu hỏi id=" + bankId));
@@ -113,13 +139,13 @@ public class QuestionImportService {
             throw new ResourceNotFoundException("error.questionImport.bankNotFound",
                     new Object[]{bankId}, "Không tìm thấy ngân hàng câu hỏi id=" + bankId);
         }
-        return importQuestionsIntoBank(bank, file, actorUserId, true);
+        return importQuestionsIntoBank(bank, file, actorUserId, true, defaultKind);
     }
 
     /** Primitive dùng chung: Exam internal bank cho phép trùng; generic legacy bank chặn trùng. */
     @Transactional
     QuestionImportResponse importQuestionsIntoBank(QuestionBank bank, MultipartFile file,
-                                                   Long actorUserId, boolean rejectActiveDuplicate) {
+                                                   Long actorUserId, boolean rejectActiveDuplicate, String defaultKind) {
         User actor = userRepository.findById(actorUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("error.questionImport.userNotFound",
                         new Object[]{actorUserId}, "Không tìm thấy tài khoản id=" + actorUserId));
@@ -137,23 +163,36 @@ public class QuestionImportService {
 
             List<Map<String, Object>> errors = new ArrayList<>();
             List<Map<String, Object>> createdQuestions = new ArrayList<>();
+            // Bổ sung 2026-08-28 — đếm THEO DÒNG file (khớp totalRows/parsedRows.size()), KHÔNG đếm
+            // theo số Question tạo ra: DIEN_TU_NHOM có thể tạo N Question từ ĐÚNG 1 dòng, nếu đếm theo
+            // createdQuestions.size() thì successRows sẽ vượt quá totalRows (sai số liệu báo cáo).
+            int successRowCount = 0;
             for (QuestionRowParser.ParsedQuestionRow row : parsedRows) {
                 try {
-                    CreateQuestionRequest request = mapToRequest(row, bank.getId());
-                    QuestionResponse created = questionBankService.createQuestionInBank(
-                            bank, request, actorUserId, rejectActiveDuplicate);
-                    Map<String, Object> summary = new LinkedHashMap<>();
-                    summary.put("id", created.id());
-                    summary.put("content", created.content());
-                    summary.put("defaultPoints", created.defaultPoints());
-                    createdQuestions.add(summary);
+                    String kind = resolveKind(row, defaultKind);
+                    // DIEN_TU_NHOM là kind DUY NHẤT mà 1 dòng tạo ra NHIỀU Question (mapToGroupRequests
+                    // tự validate + pre-check trùng TRƯỚC KHI tạo bất kỳ câu nào, xem Javadoc ở đó) —
+                    // mọi kind khác vẫn 1 dòng = 1 Question như cũ.
+                    List<CreateQuestionRequest> requests = KIND_FILL_IN_BLANK_GROUP.equals(kind)
+                            ? mapToGroupRequests(row, bank.getId(), rejectActiveDuplicate)
+                            : List.of(mapToRequest(row, bank.getId(), kind));
+                    for (CreateQuestionRequest request : requests) {
+                        QuestionResponse created = questionBankService.createQuestionInBank(
+                                bank, request, actorUserId, rejectActiveDuplicate);
+                        Map<String, Object> summary = new LinkedHashMap<>();
+                        summary.put("id", created.id());
+                        summary.put("content", created.content());
+                        summary.put("defaultPoints", created.defaultPoints());
+                        createdQuestions.add(summary);
+                    }
+                    successRowCount++;
                 } catch (RuntimeException ex) {
                     errors.add(rowError(row.rowNumber(), ex.getMessage()));
                 }
             }
 
             job.setTotalRows(parsedRows.size());
-            job.setSuccessRows(createdQuestions.size());
+            job.setSuccessRows(successRowCount);
             job.setFailedRows(errors.size());
             job.setErrorSummary(errors);
             Map<String, Object> resultDetails = new LinkedHashMap<>();
@@ -191,7 +230,7 @@ public class QuestionImportService {
      * trong bảng khóa này — mirror việc FE cũng không đưa "SPEAKING" vào allowedKinds cho GV nào cả.
      */
     private static final Map<String, Set<String>> SKILL_CATEGORY_KIND_TOKENS = Map.of(
-            "VOCAB_GRAMMAR", Set.of("TRAC_NGHIEM", "TRAC_NGHIEM_VOICE", "DIEN_TU",
+            "VOCAB_GRAMMAR", Set.of("TRAC_NGHIEM", "TRAC_NGHIEM_VOICE", "DIEN_TU", KIND_FILL_IN_BLANK_GROUP,
                     "DIEN_TU_HOP_TU_VUNG", "DIEN_TU_HOP_TU_VUNG_ANH", "SAP_XEP_CAU", "SAP_XEP_CHU_CAI"),
             "WRITING", Set.of("TU_LUAN"),
             "LISTENING", Set.of("TRAC_NGHIEM_VOICE", "NGHE_NOP_AUDIO", "NGHE_DIEN_TU"));
@@ -204,7 +243,7 @@ public class QuestionImportService {
      * không có ngữ cảnh Bài/Nhóm kỹ năng nên in ĐỦ TẤT CẢ.
      */
     public byte[] buildWordTemplate() {
-        return buildWordTemplate(null, null);
+        return buildWordTemplate(null, null, null);
     }
 
     /**
@@ -214,13 +253,30 @@ public class QuestionImportService {
      * {@code teacherType} = null (hoặc không khớp mapping) → in đủ tất cả (giữ hành vi cũ).
      */
     public byte[] buildWordTemplate(String skillCategory, String teacherType) {
-        // SKILL_CATEGORY_KIND_TOKENS là Map.of(...) (immutable) - .get(null) ném NullPointerException
-        // thay vì trả null như HashMap. Guard skillCategory == null trước khi tra map để đúng hành vi
-        // đã ghi ở Javadoc (null -> in đủ tất cả) - bug thật phát hiện qua CI (2026-08-27), không phải
-        // đổi ý định thiết kế.
-        Set<String> allowedTokens = "FOREIGN".equals(teacherType)
-                ? SKILL_CATEGORY_KIND_TOKENS.get("LISTENING")
-                : (skillCategory == null ? null : SKILL_CATEGORY_KIND_TOKENS.get(skillCategory));
+        return buildWordTemplate(skillCategory, teacherType, null);
+    }
+
+    /**
+     * Bổ sung 2026-08-28 (đã xác nhận với người dùng) — {@code kindFilter}: khi GV đã chọn "Loại câu
+     * hỏi mặc định" ở panel Import (khớp thói quen "1 Ex chỉ 1 loại câu hỏi"), CHỈ in đúng 1 block
+     * khớp loại đó — ưu tiên CAO HƠN skillCategory/teacherType (GV đã chọn cụ thể rồi thì không cần cả
+     * bảng tra cứu nhiều loại nữa, chỉ cần 1 ví dụ đúng loại để copy xuống nhiều dòng). Loại không hợp
+     * lệ (gõ tay URL/token lạ) → coi như không lọc theo kind, KHÔNG throw lỗi (tải file mẫu không nên
+     * hard-fail vì query param sai, chỉ ảnh hưởng UX chứ không phải dữ liệu).
+     */
+    public byte[] buildWordTemplate(String skillCategory, String teacherType, String kindFilter) {
+        Set<String> allowedTokens;
+        if (!isBlank(kindFilter) && VALID_KINDS.contains(normalizeToken(kindFilter))) {
+            allowedTokens = Set.of(normalizeToken(kindFilter));
+        } else {
+            // SKILL_CATEGORY_KIND_TOKENS là Map.of(...) (immutable) - .get(null) ném NullPointerException
+            // thay vì trả null như HashMap. Guard skillCategory == null trước khi tra map để đúng hành vi
+            // đã ghi ở Javadoc (null -> in đủ tất cả) - bug thật phát hiện qua CI (2026-08-27), không phải
+            // đổi ý định thiết kế.
+            allowedTokens = "FOREIGN".equals(teacherType)
+                    ? SKILL_CATEGORY_KIND_TOKENS.get("LISTENING")
+                    : (skillCategory == null ? null : SKILL_CATEGORY_KIND_TOKENS.get(skillCategory));
+        }
         try (XWPFDocument document = new XWPFDocument(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             for (Map.Entry<String, List<String>> block : TEMPLATE_BLOCKS.entrySet()) {
                 if (allowedTokens != null && !allowedTokens.contains(block.getKey())) {
@@ -287,6 +343,13 @@ public class QuestionImportService {
                 "Transcript: under, next to, behind, in front of, on",
                 "Giải thích: Cột Transcript dùng làm hộp từ vựng hiển thị cho học sinh (có thể thêm từ nhiễu), để trống thì hộp từ = chính đáp án đúng.",
                 "---"));
+        blocks.put(KIND_FILL_IN_BLANK_GROUP, List.of(
+                "[DIEN_TU_NHOM]",
+                "Nội dung: Tom is very ___.|English is my ___ subject.|Our football ___ helps us win the game.",
+                "Đáp án đúng: smart|favourite|coach",
+                "Transcript: activity, advanced, beginner, classmate, smart, coach, competition, course, favourite, geography, history, practice",
+                "Giải thích: Mỗi câu phân tách bằng dấu | trong \"Nội dung\", ĐÚNG thứ tự khớp \"Đáp án đúng\" (cũng phân tách bằng dấu |, phải cùng số lượng). Cột Transcript (tùy chọn) = hộp từ vựng THAM KHẢO hiện chung 1 lần, không phải đáp án. URL Hình ảnh (tùy chọn) = ảnh riêng từng câu, phân tách bằng dấu | cùng số lượng với Nội dung (để trống 1 vị trí = câu đó không có ảnh). Mỗi câu tạo thành 1 câu hỏi riêng, tự có điểm/nhãn \"Câu N.\" riêng — không chấm all-or-nothing như Điền từ - Hộp từ vựng.",
+                "---"));
         blocks.put("SAP_XEP_CAU", List.of(
                 "[SAP_XEP_CAU]",
                 "Nội dung: Sắp xếp thành câu hoàn chỉnh.",
@@ -329,20 +392,37 @@ public class QuestionImportService {
     }
 
     /**
-     * Map 1 dòng thô → CreateQuestionRequest, validate theo đúng quy tắc
-     * QuestionEditorForm.tsx (FE) áp dụng cho soạn tay — đảm bảo Excel/Word/
-     * form tay không lệch quy tắc nhau (xem Javadoc lớp).
+     * Bổ sung 2026-08-28 (đã xác nhận với người dùng) — gộp 1 chỗ DUY NHẤT việc chọn kind thật của 1
+     * dòng (tự ghi hay dùng defaultKind) + validate VALID_KINDS, dùng chung cho cả nhánh 1-dòng-1-câu
+     * (mapToRequest) lẫn nhánh DIEN_TU_NHOM (mapToGroupRequests không cần biết kind vì luôn cố định
+     * FILL_IN_BLANK, nhưng vẫn cần hàm này để BIẾT đây có phải DIEN_TU_NHOM hay không trước khi rẽ
+     * nhánh — xem importQuestionsIntoBank).
      */
-    private CreateQuestionRequest mapToRequest(QuestionRowParser.ParsedQuestionRow row, Long bankId) {
-        if (isBlank(row.content())) {
-            throw new IllegalArgumentException("Thiếu nội dung câu hỏi.");
+    private String resolveKind(QuestionRowParser.ParsedQuestionRow row, String defaultKind) {
+        String raw = isBlank(row.kind()) ? defaultKind : row.kind();
+        if (isBlank(raw)) {
+            throw new IllegalArgumentException(
+                    "Thiếu loại câu hỏi — cột \"Loại câu hỏi\" đang trống và chưa chọn loại mặc định ở panel Import.");
         }
-        String kind = normalizeToken(row.kind());
+        String kind = normalizeToken(raw);
         if (!VALID_KINDS.contains(kind)) {
-            throw new IllegalArgumentException("Loại câu hỏi không hợp lệ: '" + row.kind()
-                    + "' — chỉ chấp nhận TRAC_NGHIEM/TRAC_NGHIEM_VOICE/DIEN_TU/TU_LUAN/SPEAKING/"
+            throw new IllegalArgumentException("Loại câu hỏi không hợp lệ: '" + raw
+                    + "' — chỉ chấp nhận TRAC_NGHIEM/TRAC_NGHIEM_VOICE/DIEN_TU/DIEN_TU_NHOM/TU_LUAN/SPEAKING/"
                     + "DIEN_TU_HOP_TU_VUNG/DIEN_TU_HOP_TU_VUNG_ANH/SAP_XEP_CAU/SAP_XEP_CHU_CAI/"
                     + "NGHE_NOP_AUDIO/NGHE_DIEN_TU.");
+        }
+        return kind;
+    }
+
+    /**
+     * Map 1 dòng thô → CreateQuestionRequest, validate theo đúng quy tắc
+     * QuestionEditorForm.tsx (FE) áp dụng cho soạn tay — đảm bảo Excel/Word/
+     * form tay không lệch quy tắc nhau (xem Javadoc lớp). {@code kind} đã được resolveKind() chọn +
+     * validate sẵn (tự ghi hay dùng defaultKind) — hàm này không tự suy ra kind nữa.
+     */
+    private CreateQuestionRequest mapToRequest(QuestionRowParser.ParsedQuestionRow row, Long bankId, String kind) {
+        if (isBlank(row.content())) {
+            throw new IllegalArgumentException("Thiếu nội dung câu hỏi.");
         }
 
         String difficulty = isBlank(row.difficulty()) ? "MEDIUM" : normalizeToken(row.difficulty());
@@ -447,9 +527,97 @@ public class QuestionImportService {
                 audioUrl, imageUrl, referencePassage, explanation, correctAnswerText, defaultPoints, tags, choices, structuredContent, null);
     }
 
+    /**
+     * DIEN_TU_NHOM (bổ sung 2026-08-28, đã xác nhận với người dùng — "Cách B"): 1 dòng file → N
+     * CreateQuestionRequest (1/câu), mirror ĐÚNG FillInBlankGroupBuilder.tsx phía FE — mỗi câu 1
+     * FILL_IN_BLANK riêng, cùng groupKey, cùng "hộp từ vựng" tham khảo (structuredContent.wordBox) nếu
+     * có, KHÔNG chấm all-or-nothing như DIEN_TU_HOP_TU_VUNG (WORD_BANK).
+     *
+     * Validate + pre-check trùng nội dung TOÀN BỘ nhóm TRƯỚC KHI trả về (không tạo Question nào ở đây
+     * cả — việc tạo vẫn ở vòng lặp gọi hàm này, xem importQuestionsIntoBank) để không bao giờ xảy ra
+     * trạng thái tạo dở dang N-1/N câu rồi mới lỗi ở câu cuối (xem Javadoc existsActiveDuplicate ở
+     * QuestionBankService — lý do KHÔNG dùng transaction REQUIRES_NEW để tự rollback theo dòng).
+     */
+    private List<CreateQuestionRequest> mapToGroupRequests(QuestionRowParser.ParsedQuestionRow row, Long bankId, boolean rejectActiveDuplicate) {
+        if (isBlank(row.content())) {
+            throw new IllegalArgumentException("Thiếu nội dung câu hỏi.");
+        }
+        List<String> sentences = splitPipeKeepBlanks(row.content());
+        for (int i = 0; i < sentences.size(); i++) {
+            if (sentences.get(i).isEmpty()) {
+                throw new IllegalArgumentException("Nhiều câu điền từ: câu thứ " + (i + 1) + " (theo dấu |) bị rỗng trong \"Nội dung\".");
+            }
+        }
+        if (isBlank(row.correctAnswer())) {
+            throw new IllegalArgumentException("Nhiều câu điền từ cần \"Đáp án đúng\" cho từng câu, phân tách bằng dấu | theo ĐÚNG thứ tự (VD: smart|favourite|coach).");
+        }
+        List<String> answers = splitPipeKeepBlanks(row.correctAnswer());
+        if (answers.size() != sentences.size()) {
+            throw new IllegalArgumentException("Nhiều câu điền từ: số đáp án (" + answers.size()
+                    + ") không khớp số câu (" + sentences.size() + ") — mỗi câu trong \"Nội dung\" cần đúng 1 đáp án tương ứng trong \"Đáp án đúng\", cùng phân tách bằng dấu |.");
+        }
+        for (int i = 0; i < answers.size(); i++) {
+            if (answers.get(i).isEmpty()) {
+                throw new IllegalArgumentException("Nhiều câu điền từ: câu thứ " + (i + 1) + " thiếu đáp án đúng trong \"Đáp án đúng\".");
+            }
+        }
+        List<String> images = null;
+        if (!isBlank(row.imageUrl())) {
+            images = splitPipeKeepBlanks(row.imageUrl());
+            if (images.size() != sentences.size()) {
+                throw new IllegalArgumentException("Nhiều câu điền từ: số ảnh minh họa (" + images.size()
+                        + ") không khớp số câu (" + sentences.size() + ") trong \"URL Hình ảnh\" — để trống 1 vị trí (VD url1||url3) nếu câu đó không có ảnh, nhưng vẫn phải đủ số lượng dấu |.");
+            }
+        }
+        // Trùng NGAY TRONG cùng 1 nhóm (VD copy nhầm 2 câu giống hệt nhau) — DB pre-check bên dưới
+        // không phát hiện được ca này vì lúc kiểm tra chưa câu nào được tạo cả.
+        if (Set.copyOf(sentences).size() != sentences.size()) {
+            throw new IllegalArgumentException("Nhiều câu điền từ: có 2 câu trùng nội dung trong CÙNG 1 nhóm — mỗi câu phải khác nhau.");
+        }
+        if (rejectActiveDuplicate) {
+            for (String sentence : sentences) {
+                if (questionBankService.existsActiveDuplicate(bankId, sentence)) {
+                    throw new IllegalArgumentException("Nhiều câu điền từ: câu \"" + sentence + "\" đã tồn tại trong ngân hàng câu hỏi (trùng nội dung) — không thể tạo trùng.");
+                }
+            }
+        }
+
+        String difficulty = isBlank(row.difficulty()) ? "MEDIUM" : normalizeToken(row.difficulty());
+        if (!VALID_DIFFICULTIES.contains(difficulty)) {
+            throw new IllegalArgumentException("Độ khó không hợp lệ: '" + row.difficulty() + "' — chỉ chấp nhận EASY/MEDIUM/HARD.");
+        }
+        BigDecimal defaultPoints = parsePoints(row.defaultPoints());
+        List<String> tags = parseTags(row.tags());
+        String explanation = blankToNull(row.explanation());
+        // Transcript/Từ khóa phát âm/Hộp từ vựng (referencePassage) tái dùng làm hộp từ vựng THAM
+        // KHẢO tĩnh (giống DIEN_TU_HOP_TU_VUNG_ANH tái dùng cột này làm wordBankOptions) — dùng CHUNG
+        // giá trị này cho MỌI câu trong nhóm (mirror cách FillInBlankGroupBuilder.tsx đặt cùng
+        // structuredContent.wordBox lên mọi Question tạo ra).
+        List<String> wordBox = parseTags(row.referencePassage());
+        Map<String, Object> structuredContent = wordBox == null ? null : Map.of("wordBox", wordBox);
+        String groupKey = "fillblank-import-" + System.currentTimeMillis() + "-" + row.rowNumber();
+
+        List<CreateQuestionRequest> requests = new ArrayList<>();
+        for (int i = 0; i < sentences.size(); i++) {
+            String imageUrl = images == null || images.get(i).isEmpty() ? null : images.get(i);
+            requests.add(new CreateQuestionRequest(bankId, "FILL_IN_BLANK", null, difficulty, sentences.get(i),
+                    null, imageUrl, null, explanation, answers.get(i), defaultPoints, tags, null, structuredContent, groupKey));
+        }
+        return requests;
+    }
+
     /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — tách 1 chuỗi thành danh sách CÓ THỨ TỰ theo dấu |, dùng cho blanks/chunks. */
     private List<String> splitOrdered(String raw) {
         return Arrays.stream(raw.split("\\|")).map(String::trim).filter(s -> !s.isEmpty()).toList();
+    }
+
+    /**
+     * Bổ sung 2026-08-28 (đã xác nhận với người dùng) — như splitOrdered nhưng GIỮ NGUYÊN vị trí rỗng
+     * (không filter) — cần cho DIEN_TU_NHOM vì "URL Hình ảnh" cho phép 1 vài câu KHÔNG có ảnh (vị trí
+     * rỗng giữa 2 dấu |), lọc bỏ sẽ làm lệch thứ tự so với "Nội dung"/"Đáp án đúng".
+     */
+    private List<String> splitPipeKeepBlanks(String raw) {
+        return Arrays.stream(raw.split("\\|", -1)).map(String::trim).toList();
     }
 
     private List<QuestionChoiceRequest> buildChoices(QuestionRowParser.ParsedQuestionRow row) {

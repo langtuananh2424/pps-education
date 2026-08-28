@@ -139,6 +139,20 @@ public class QuestionBankService {
     }
 
     /**
+     * Bổ sung 2026-08-28 (đã xác nhận với người dùng) — cho QuestionImportService dùng để pre-check
+     * trùng nội dung TRƯỚC KHI tạo bất kỳ câu nào của 1 nhóm "DIEN_TU_NHOM" (nhiều Question/1 dòng
+     * Excel) — tránh tạo dở dang N-1/N câu rồi mới phát hiện câu cuối trùng (không dùng transaction
+     * REQUIRES_NEW để tự rollback theo dòng vì đã thử và bỏ ở ParentBatchImportService: REQUIRES_NEW
+     * suspend transaction ngoài, không thấy được dữ liệu vừa ghi trong cùng transaction/test bọc
+     * @Transactional — validate TRƯỚC khi ghi là cách đúng, xem Javadoc ParentBatchImportService).
+     * Cùng điều kiện với check trong createQuestionInBank ở trên — KHÔNG viết lại logic riêng.
+     */
+    @Transactional(readOnly = true)
+    boolean existsActiveDuplicate(Long bankId, String content) {
+        return questionRepository.existsByQuestionBankIdAndContentAndStatus(bankId, content, Question.Status.ACTIVE);
+    }
+
+    /**
      * Primitive dùng chung cho generic bank và ExamQuestionService. Generic
      * bank chặn duplicate; bank nội bộ của Exam cho phép duplicate theo
      * quyết định 2026-08-04.

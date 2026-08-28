@@ -77,6 +77,7 @@
       "understood": "Đã hiểu"
     },
     "question": {
+      "numberPrefix": "Câu {{number}}.",
       "pointsSuffix": "{{points}} đ",
       "recordAnswerLabel": "Ghi âm câu trả lời của bạn",
       "manualGradingNote": "Câu này sẽ được giáo viên chấm tay sau khi nộp bài.",
