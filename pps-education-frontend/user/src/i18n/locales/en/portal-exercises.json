@@ -77,6 +77,7 @@
       "understood": "Got it"
     },
     "question": {
+      "numberPrefix": "Question {{number}}.",
       "pointsSuffix": "{{points}} pt",
       "recordAnswerLabel": "Record your answer",
       "manualGradingNote": "This question will be graded by your teacher after you submit.",
