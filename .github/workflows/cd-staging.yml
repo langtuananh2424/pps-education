@@ -19,6 +19,7 @@ on:
     branches: [main]
     paths:
       - "pps-education-backend/**"
+  workflow_dispatch: {} # cho phép bấm "Run workflow" tay trên GitHub, không cần commit mới (VD verify runner/redeploy thủ công)
 
 jobs:
   build-and-push:

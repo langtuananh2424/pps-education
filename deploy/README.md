@@ -82,11 +82,35 @@ ANTHROPIC_API_KEY=...
 GEMINI_API_KEY=...
 NINE_ROUTER_API_KEY=...
 NINE_ROUTER_MODEL=...
+NINE_ROUTER_AUDIO_MODEL=...
 ```
 
 ```bash
 docker compose up -d   # chạy ở cả 2 thư mục — Flyway tự chạy migration khi backend khởi động
 ```
+
+### Bootstrap tài khoản sysadmin đầu tiên (1 lần duy nhất/stack)
+
+`SEED_DEV_USERS` (11 tài khoản demo, mật khẩu cứng `Dev@123456`) **KHÔNG**
+dùng cho staging/production — chỉ dành local dev. Để tạo tài khoản quản trị
+đầu tiên trên staging/production, dùng `InitialAdminSeeder` riêng (chỉ tạo
+đúng 1 user `sysadmin`, mật khẩu do bạn tự đặt):
+
+```bash
+# Thêm 2 dòng này vào .env của đúng stack (thay <MAT_KHAU_MANH> bằng mật khẩu thật):
+SEED_INITIAL_ADMIN=true
+SEED_SYSADMIN_PASSWORD=<MAT_KHAU_MANH>
+```
+
+```bash
+docker compose up -d --force-recreate backend   # restart để nạp .env mới, seeder tự chạy 1 lần lúc khởi động
+```
+
+Sau khi thấy log `[InitialAdminSeeder] Đã tạo tài khoản 'sysadmin'` — **tắt
+lại ngay** (đặt `SEED_INITIAL_ADMIN=false` trong `.env`, `docker compose up
+-d --force-recreate backend` lần nữa) để tránh giữ mật khẩu bootstrap nằm
+sẵn trong `.env` lâu dài không cần thiết. Từ tài khoản `sysadmin` này, tạo
+tiếp các tài khoản thật khác qua UI quản lý người dùng của app.
 
 ## 3. MinIO (thay Cloudflare R2)
 
