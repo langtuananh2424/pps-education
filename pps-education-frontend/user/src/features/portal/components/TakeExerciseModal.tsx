@@ -1002,7 +1002,7 @@ export function QuestionBlock({
                 onClick={() => toggleChoice(c.id)}
                 className={`relative text-left rounded-xl border-2 overflow-hidden transition-colors ${stateClass} disabled:cursor-default`}
               >
-                <div className="w-full aspect-[4/5] bg-white flex items-center justify-center overflow-hidden">
+                <div className="w-full aspect-[4/3] bg-white flex items-center justify-center overflow-hidden">
                   <img src={c.imageUrl ?? undefined} alt={c.content} className="max-w-full max-h-full object-contain" />
                 </div>
                 <span className="flex items-center justify-between gap-1 px-2 py-1.5 text-[11px] sm:text-xs font-bold">
@@ -1650,7 +1650,7 @@ export function GridQuestionGroup({
                             onClick={() => onChoiceToggle(q.questionId, [c.id])}
                             className={`relative text-left rounded-xl border-2 overflow-hidden transition-colors ${stateClass} disabled:cursor-default`}
                           >
-                            <div className="w-full aspect-[4/5] bg-white flex items-center justify-center overflow-hidden">
+                            <div className="w-full aspect-[4/3] bg-white flex items-center justify-center overflow-hidden">
                               <img src={c.imageUrl ?? undefined} alt={c.content} className="max-w-full max-h-full object-contain" />
                             </div>
                             <span className="flex items-center justify-between gap-1 px-2 py-1.5 text-[11px] font-bold">
