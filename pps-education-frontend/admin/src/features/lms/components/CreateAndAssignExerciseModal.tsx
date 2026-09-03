@@ -24,7 +24,7 @@ import QuestionImportPanel from "./QuestionImportPanel";
 import GridQuestionBuilder from "./GridQuestionBuilder";
 import ListeningGroupBuilder, { ExistingListeningGroup, ListeningSubKind } from "./ListeningGroupBuilder";
 import ClozeQuestionBuilder from "./ClozeQuestionBuilder";
-import FillInBlankGroupBuilder from "./FillInBlankGroupBuilder";
+import FillInBlankGroupBuilder, { ExistingFillInBlankGroup } from "./FillInBlankGroupBuilder";
 import {
   ComposeSubMode,
   FOREIGN_LISTENING_KINDS,
@@ -80,6 +80,45 @@ function buildListeningGroups(items: ListeningGroupSourceItem[]): ExistingListen
       audioUrl: list[0].audioUrl as string,
       referencePassage: list[0].referencePassage,
       subKind,
+      questionCount: list.length,
+      sampleContent: list[0].content
+    });
+  }
+  return groups;
+}
+
+/**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-03 — cùng gốc bug/cùng cách gom với
+ * ListeningGroupSourceItem/buildListeningGroups ở trên, áp dụng cho nhóm điền từ (FillInBlankGroupBuilder,
+ * "Cách B" — mỗi câu 1 Question FILL_IN_BLANK riêng, cùng groupKey + sharedNote/wordBox dùng chung).
+ * Phân biệt với nhóm "Nghe điền từ" (LISTENING_FILL_IN_BLANK, cũng questionType=FILL_IN_BLANK nhưng do
+ * ListeningGroupBuilder tạo) bằng skill: FillInBlankGroupBuilder KHÔNG gắn skill khi tạo câu (skill=null),
+ * còn ListeningGroupBuilder luôn gắn skill=LISTENING — xem 2 file component tương ứng.
+ */
+interface FillInBlankGroupSourceItem {
+  groupKey: string | null;
+  skill: string | null;
+  questionType: string;
+  referencePassage: string | null;
+  wordBox: string[] | null | undefined;
+  content: string;
+}
+
+/** Gom các câu hỏi Điền từ cùng groupKey thành danh sách nhóm — dùng để GV chọn "thêm câu vào nhóm có sẵn" ở FillInBlankGroupBuilder. */
+function buildFillInBlankGroups(items: FillInBlankGroupSourceItem[]): ExistingFillInBlankGroup[] {
+  const byKey = new Map<string, FillInBlankGroupSourceItem[]>();
+  for (const item of items) {
+    if (!item.groupKey || item.questionType !== "FILL_IN_BLANK" || item.skill === "LISTENING") continue;
+    const list = byKey.get(item.groupKey) ?? [];
+    list.push(item);
+    byKey.set(item.groupKey, list);
+  }
+  const groups: ExistingFillInBlankGroup[] = [];
+  for (const [groupKey, list] of byKey) {
+    groups.push({
+      groupKey,
+      referencePassage: list[0].referencePassage,
+      wordBox: list[0].wordBox ?? [],
       questionCount: list.length,
       sampleContent: list[0].content
     });
@@ -439,6 +478,29 @@ export function ExerciseQuestionsStep({
       ]),
     [existingQuestions, attachedFull]
   );
+
+  const existingFillInBlankGroups = React.useMemo(
+    () =>
+      buildFillInBlankGroups([
+        ...existingQuestions.map((eq) => ({
+          groupKey: eq.groupKey,
+          skill: eq.skill,
+          questionType: eq.questionType,
+          referencePassage: eq.referencePassage,
+          wordBox: eq.structuredContent?.wordBox,
+          content: eq.questionContent
+        })),
+        ...attachedFull.map((q) => ({
+          groupKey: q.groupKey,
+          skill: q.skill,
+          questionType: q.questionType,
+          referencePassage: q.referencePassage,
+          wordBox: q.structuredContent?.wordBox,
+          content: q.content
+        }))
+      ]),
+    [existingQuestions, attachedFull]
+  );
   // Câu hỏi soạn mới/import hàng loạt được gắn vào đề NGAY khi tạo xong (đã ghi thật vào ngân hàng
   // câu hỏi) — không thể "bỏ chọn" được nữa, chỉ có thể gỡ lại ở trang Soạn & giao đề.
   const [attached, setAttached] = useState<AttachedQuestion[]>([]);
@@ -597,7 +659,12 @@ export function ExerciseQuestionsStep({
             onCancel={() => setComposeSubMode(composeModes[0])}
           />
         ) : composeSubMode === "fillInBlankGroup" && teacherType === "VIETNAMESE" ? (
-          <FillInBlankGroupBuilder examId={exercise.examId} onCreated={handleCompositeCreated} onCancel={() => setComposeSubMode(composeModes[0])} />
+          <FillInBlankGroupBuilder
+            examId={exercise.examId}
+            existingGroups={existingFillInBlankGroups}
+            onCreated={handleCompositeCreated}
+            onCancel={() => setComposeSubMode(composeModes[0])}
+          />
         ) : (
           <QuestionEditorForm
             key={composeFormKey}

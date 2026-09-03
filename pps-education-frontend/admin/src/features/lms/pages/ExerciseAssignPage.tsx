@@ -875,8 +875,16 @@ function ExerciseRow({
     }
   };
 
+  /**
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-03 — hỏi xác nhận trước khi Publish
+   * (không hoàn tác được: sau khi Publish, không sửa điểm/gỡ câu hỏi được nữa, cũng không có cơ chế
+   * chuyển ngược về Nháp — xem lịch sử trao đổi, người dùng chủ động chọn "chấp nhận rủi ro nhập
+   * sai" thay vì thêm nút chuyển về Nháp ở BE). Đặt tên riêng `confirmPublish` để không nhầm lẫn với
+   * `confirmDialog` (biến state riêng của "Xóa Bài"/"Gỡ câu hỏi" — không dùng chung 1 modal).
+   */
   const handlePublish = async (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!(await confirmDialog(t("assignPage.exerciseRow.publishConfirm", { title: exercise.title, code: exercise.code }), { danger: true }))) return;
     setPublishing(true);
     setError(null);
     try {
