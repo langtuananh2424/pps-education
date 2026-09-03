@@ -8,6 +8,7 @@ import Button from "@/components/ui/Button";
 import Select from "@/components/ui/Select";
 import {
   ExamTeacherType,
+  ExerciseQuestionResponse,
   ExerciseResponse,
   ExerciseSkillCategory,
   QuestionImportedRow,
@@ -21,7 +22,7 @@ import {
 import QuestionEditorForm from "./QuestionEditorForm";
 import QuestionImportPanel from "./QuestionImportPanel";
 import GridQuestionBuilder from "./GridQuestionBuilder";
-import ListeningGroupBuilder from "./ListeningGroupBuilder";
+import ListeningGroupBuilder, { ExistingListeningGroup, ListeningSubKind } from "./ListeningGroupBuilder";
 import ClozeQuestionBuilder from "./ClozeQuestionBuilder";
 import FillInBlankGroupBuilder from "./FillInBlankGroupBuilder";
 import {
@@ -37,6 +38,54 @@ const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rou
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
 
 type Step = "info" | "questions" | "publish";
+
+/**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-03 — hình dạng tối giản dùng chung để gom
+ * nhóm nghe (groupKey + skill=LISTENING + audioUrl) từ 2 nguồn khác kiểu dữ liệu: ExerciseQuestionResponse
+ * (câu đã gắn sẵn vào Bài trước khi mở modal này) và QuestionResponse (câu vừa soạn xong trong PHIÊN
+ * đang mở, trước khi đóng modal — xem attachedFull ở ExerciseQuestionsStep).
+ */
+interface ListeningGroupSourceItem {
+  groupKey: string | null;
+  skill: string | null;
+  audioUrl: string | null;
+  referencePassage: string | null;
+  questionType: string;
+  content: string;
+  hasImageChoice: boolean;
+}
+
+function deriveListeningSubKind(item: ListeningGroupSourceItem): ListeningSubKind | null {
+  if (item.questionType === "FILL_IN_BLANK") return "LISTENING_FILL_IN_BLANK";
+  if (item.questionType === "SPEAKING") return "LISTENING_AUDIO_SUBMISSION";
+  if (item.questionType === "MULTIPLE_CHOICE") return item.hasImageChoice ? "VOICE_PICTURE_CHOICE" : "VOICE_MULTIPLE_CHOICE";
+  return null;
+}
+
+/** Gom các câu hỏi Nghe cùng groupKey thành danh sách nhóm — dùng để GV chọn "thêm câu vào nhóm có sẵn" ở ListeningGroupBuilder. */
+function buildListeningGroups(items: ListeningGroupSourceItem[]): ExistingListeningGroup[] {
+  const byKey = new Map<string, ListeningGroupSourceItem[]>();
+  for (const item of items) {
+    if (!item.groupKey || item.skill !== "LISTENING" || !item.audioUrl) continue;
+    const list = byKey.get(item.groupKey) ?? [];
+    list.push(item);
+    byKey.set(item.groupKey, list);
+  }
+  const groups: ExistingListeningGroup[] = [];
+  for (const [groupKey, list] of byKey) {
+    const subKind = deriveListeningSubKind(list[0]);
+    if (!subKind) continue;
+    groups.push({
+      groupKey,
+      audioUrl: list[0].audioUrl as string,
+      referencePassage: list[0].referencePassage,
+      subKind,
+      questionCount: list.length,
+      sampleContent: list[0].content
+    });
+  }
+  return groups;
+}
 
 interface CreateAndAssignExerciseModalProps {
   examId: number;
@@ -347,15 +396,49 @@ export function ExerciseQuestionsStep({
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-18 — tổng điểm câu hỏi ĐÃ có sẵn (mở
   // lại Bài để gắn thêm), dùng cùng existingCount để tính tổng điểm hiện tại so với exercise.totalPoints.
   const [existingPoints, setExistingPoints] = useState(0);
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-03 — danh sách đầy đủ câu hỏi ĐÃ có sẵn
+  // (khác existingCount/existingPoints chỉ là số liệu tổng hợp), dùng để gom nhóm nghe cũ cho
+  // ListeningGroupBuilder — xem buildListeningGroups/existingListeningGroups bên dưới.
+  const [existingQuestions, setExistingQuestions] = useState<ExerciseQuestionResponse[]>([]);
+  // Câu hỏi vừa soạn xong TRONG PHIÊN đang mở (trước khi đóng modal) qua các composite builder — cũng
+  // cần gộp vào existingListeningGroups để GV có thể "thêm câu vào nhóm vừa tạo" ngay trong 1 phiên,
+  // không phải đóng modal rồi mở lại mới thấy nhóm.
+  const [attachedFull, setAttachedFull] = useState<QuestionResponse[]>([]);
 
   useEffect(() => {
     listExerciseQuestions(exercise.id)
       .then((res) => {
         setExistingCount(res.length);
         setExistingPoints(res.reduce((sum, q) => sum + q.points, 0));
+        setExistingQuestions(res);
       })
       .catch(() => undefined);
   }, [exercise.id]);
+
+  const existingListeningGroups = React.useMemo(
+    () =>
+      buildListeningGroups([
+        ...existingQuestions.map((eq) => ({
+          groupKey: eq.groupKey,
+          skill: eq.skill,
+          audioUrl: eq.audioUrl,
+          referencePassage: eq.referencePassage,
+          questionType: eq.questionType,
+          content: eq.questionContent,
+          hasImageChoice: eq.choices.some((c) => c.imageUrl != null)
+        })),
+        ...attachedFull.map((q) => ({
+          groupKey: q.groupKey,
+          skill: q.skill,
+          audioUrl: q.audioUrl,
+          referencePassage: q.referencePassage,
+          questionType: q.questionType,
+          content: q.content,
+          hasImageChoice: q.choices.some((c) => c.imageUrl != null)
+        }))
+      ]),
+    [existingQuestions, attachedFull]
+  );
   // Câu hỏi soạn mới/import hàng loạt được gắn vào đề NGAY khi tạo xong (đã ghi thật vào ngân hàng
   // câu hỏi) — không thể "bỏ chọn" được nữa, chỉ có thể gỡ lại ở trang Soạn & giao đề.
   const [attached, setAttached] = useState<AttachedQuestion[]>([]);
@@ -389,6 +472,7 @@ export function ExerciseQuestionsStep({
         newlyAttached.push({ exerciseQuestionId: eq.id, content: q.content, points: eq.points });
       }
       setAttached((prev) => [...prev, ...newlyAttached]);
+      setAttachedFull((prev) => [...prev, ...createdQuestions]);
       setComposeSubMode(composeModes[0]);
     } catch (err) {
       onError(err instanceof ApiError ? err.message : t("assignModal.questionsStep.errors.attachCompositeFailed"));
@@ -506,7 +590,12 @@ export function ExerciseQuestionsStep({
         ) : composeSubMode === "cloze" && teacherType === "VIETNAMESE" ? (
           <ClozeQuestionBuilder examId={exercise.examId} onCreated={handleCompositeCreated} onCancel={() => setComposeSubMode(composeModes[0])} />
         ) : composeSubMode === "listeningGroup" && teacherType === "FOREIGN" ? (
-          <ListeningGroupBuilder examId={exercise.examId} onCreated={handleCompositeCreated} onCancel={() => setComposeSubMode(composeModes[0])} />
+          <ListeningGroupBuilder
+            examId={exercise.examId}
+            existingGroups={existingListeningGroups}
+            onCreated={handleCompositeCreated}
+            onCancel={() => setComposeSubMode(composeModes[0])}
+          />
         ) : composeSubMode === "fillInBlankGroup" && teacherType === "VIETNAMESE" ? (
           <FillInBlankGroupBuilder examId={exercise.examId} onCreated={handleCompositeCreated} onCancel={() => setComposeSubMode(composeModes[0])} />
         ) : (
