@@ -13,6 +13,10 @@ server {
     index index.html;
 
     location /api/ {
+        # Upload media (POST /api/media/upload): video ≤200MB, request ≤205MB
+        # (khớp spring.servlet.multipart.max-request-size). Mặc định nginx là
+        # 1MB -> ảnh/tài liệu >1MB bị chặn bằng 413 trước khi tới backend.
+        client_max_body_size 210m;
         proxy_pass http://127.0.0.1:__API_PORT__/api/;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
