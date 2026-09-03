@@ -220,6 +220,11 @@
     "explanationPlaceholder": "Giải thích (phục vụ gợi ý tapescript sau khi học sinh nghe hết 3 lần)...",
     "audioSubmissionHint": "Nghe & nộp audio không có đáp án mẫu — mỗi câu sẽ chờ giáo viên chấm tay ở \"Hàng chờ chấm bài\".",
     "submitCreate": "Tạo {{count}} câu hỏi",
+    "submitAppend": "Thêm {{count}} câu vào nhóm",
+    "appendTargetLabel": "Thêm vào nhóm nghe",
+    "appendTargetNew": "-- Tạo nhóm nghe mới --",
+    "appendTargetOption": "Nhóm có sẵn ({{count}} câu) — \"{{content}}\"",
+    "appendTargetHint": "Đang thêm câu vào nhóm đã chọn — dùng chung đúng file audio/transcript/loại câu hỏi với các câu đã có trong nhóm, không sửa lại được ở đây.",
     "errors": {
       "audioRequired": "Cần có 1 file audio dùng chung cho cả nhóm câu hỏi.",
       "needAtLeastOne": "Cần ít nhất 1 câu hỏi.",
@@ -258,6 +263,18 @@
     "wordBankAnswerOrder": "Đáp án đúng theo thứ tự chỗ trống: {{answers}}",
     "sentenceBuildingOrder": "Thứ tự câu đúng: {{order}}",
     "explanationPrefix": "Giải thích: {{text}}"
+  },
+  "studentPreviewModal": {
+    "modalTitle": "Xem trước dạng học sinh — {{title}}",
+    "modalDescription": "Mô phỏng đúng giao diện làm bài của học sinh (bấm chọn đáp án, chạm sắp xếp câu, điền hộp từ vựng...) — không hiện đáp án đúng.",
+    "disclaimer": "Đây chỉ là bản xem thử: các lựa chọn bạn bấm ở đây KHÔNG được lưu lại và KHÔNG tính là 1 lượt làm bài của học sinh nào.",
+    "questionNumberPrefix": "Câu {{number}}.",
+    "pointsSuffix": "{{points}} điểm",
+    "answerPlaceholder": "Học sinh gõ câu trả lời...",
+    "recordAnswerLabel": "Ghi âm câu trả lời",
+    "previewInputDisabledNote": "Ở giao diện thật, học sinh chọn file ghi âm tại đây.",
+    "wordBankChoosePlaceholder": "-- Chọn từ --",
+    "sentenceBuildingInstructions": "Bấm các từ/cụm bên dưới theo đúng thứ tự để ghép câu."
   },
   "assignModal": {
     "modalTitle": "Soạn Bài mới",
@@ -476,6 +493,7 @@
       "deleteExerciseTooltip": "Xóa Bài",
       "addQuestions": "+ Thêm câu hỏi",
       "previewWithAnswers": "Xem trước (có đáp án)",
+      "previewAsStudent": "Xem trước (dạng học sinh)",
       "publishing": "Đang publish...",
       "publish": "Publish",
       "editQuestionModalTitle": "Sửa câu hỏi Q-{{id}}",

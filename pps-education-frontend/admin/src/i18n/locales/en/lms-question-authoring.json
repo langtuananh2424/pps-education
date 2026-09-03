@@ -220,6 +220,11 @@
     "explanationPlaceholder": "Explanation (used for the tapescript hint after students finish listening 3 times)...",
     "audioSubmissionHint": "Listen & submit audio has no sample answer — each question waits for the teacher to grade manually in \"Grading Queue\".",
     "submitCreate": "Create {{count}} questions",
+    "submitAppend": "Add {{count}} questions to group",
+    "appendTargetLabel": "Add to listening group",
+    "appendTargetNew": "-- Create a new listening group --",
+    "appendTargetOption": "Existing group ({{count}} questions) — \"{{content}}\"",
+    "appendTargetHint": "Adding questions to the selected group — the audio file/transcript/question type are shared with the existing questions in that group and can't be changed here.",
     "errors": {
       "audioRequired": "An audio file shared by the whole question group is required.",
       "needAtLeastOne": "At least 1 question is required.",
@@ -258,6 +263,18 @@
     "wordBankAnswerOrder": "Correct answers in blank order: {{answers}}",
     "sentenceBuildingOrder": "Correct sentence order: {{order}}",
     "explanationPrefix": "Explanation: {{text}}"
+  },
+  "studentPreviewModal": {
+    "modalTitle": "Student preview — {{title}}",
+    "modalDescription": "Mirrors the real student-taking UI (click to select an answer, tap to arrange sentences, fill in the word bank...) — correct answers are never shown.",
+    "disclaimer": "This is a preview only: selections you make here are NOT saved and do NOT count as a real student attempt.",
+    "questionNumberPrefix": "Question {{number}}.",
+    "pointsSuffix": "{{points}} pts",
+    "answerPlaceholder": "Student types their answer here...",
+    "recordAnswerLabel": "Record answer",
+    "previewInputDisabledNote": "In the real UI, students pick their recording file here.",
+    "wordBankChoosePlaceholder": "-- Choose a word --",
+    "sentenceBuildingInstructions": "Tap the chunks below in order to build the sentence."
   },
   "assignModal": {
     "modalTitle": "Compose new exercise",
@@ -476,6 +493,7 @@
       "deleteExerciseTooltip": "Delete exercise",
       "addQuestions": "+ Add questions",
       "previewWithAnswers": "Preview (with answers)",
+      "previewAsStudent": "Preview (student view)",
       "publishing": "Publishing...",
       "publish": "Publish",
       "editQuestionModalTitle": "Edit question Q-{{id}}",

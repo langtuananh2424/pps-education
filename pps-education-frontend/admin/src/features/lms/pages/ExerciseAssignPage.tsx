@@ -38,6 +38,7 @@ import {
 } from "../api";
 import CreateAndAssignExerciseModal, { ExerciseQuestionsStep } from "../components/CreateAndAssignExerciseModal";
 import ExercisePreviewModal from "../components/ExercisePreviewModal";
+import ExerciseStudentPreviewModal from "../components/ExerciseStudentPreviewModal";
 import QuestionEditorForm from "../components/QuestionEditorForm";
 import UnitSubTopicPicker from "../components/UnitSubTopicPicker";
 import Button from "@/components/ui/Button";
@@ -803,6 +804,7 @@ function ExerciseRow({
   const [questions, setQuestions] = useState<ExerciseQuestionResponse[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [studentPreviewOpen, setStudentPreviewOpen] = useState(false);
   const [editExerciseOpen, setEditExerciseOpen] = useState(false);
   const [addQuestionsOpen, setAddQuestionsOpen] = useState(false);
   const [publishing, setPublishing] = useState(false);
@@ -962,6 +964,15 @@ function ExerciseRow({
           >
             {t("assignPage.exerciseRow.previewWithAnswers")}
           </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setStudentPreviewOpen(true);
+            }}
+            className="text-[10px] font-bold text-brand-red hover:underline whitespace-nowrap"
+          >
+            {t("assignPage.exerciseRow.previewAsStudent")}
+          </button>
           <Badge variant={statusVariants[exercise.status]}>{t(`assignPage.statusLabels.${exercise.status}`)}</Badge>
           {canManage && exercise.status === "DRAFT" && (
             <button
@@ -978,6 +989,8 @@ function ExerciseRow({
       {error && <p className="px-5 pb-2 text-[11px] text-rose-600">{error}</p>}
 
       {previewOpen && <ExercisePreviewModal exercise={exercise} onClose={() => setPreviewOpen(false)} />}
+
+      {studentPreviewOpen && <ExerciseStudentPreviewModal exercise={exercise} onClose={() => setStudentPreviewOpen(false)} />}
 
       {editExerciseOpen && (
         <EditExerciseModal
