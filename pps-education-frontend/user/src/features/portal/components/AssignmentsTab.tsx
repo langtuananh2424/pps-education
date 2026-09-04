@@ -220,6 +220,9 @@ interface ReviewVideoHomeworkItem {
   teacherType: "VIETNAMESE" | "FOREIGN";
   /** V123 — ngày buổi học GV đã giao BTVN này — undefined nếu chỉ nằm trong Kho hoặc bản giao TRƯỚC V123. */
   sessionDate?: string | null;
+  /** Bổ sung 2026-09-04 — Unit/SubTopic chứa Bộ này (ReviewVideoSetResponse.unitTitle/subTopicTitle), xem ghi chú ở đó. */
+  unitTitle?: string | null;
+  subTopicTitle?: string | null;
 }
 
 /**
@@ -336,7 +339,9 @@ export default function AssignmentsTab({
                   dueAt: g.dueAt,
                   assignmentId: g.assignmentId,
                   teacherType: g.set.teacherType,
-                  sessionDate: g.sessionDate
+                  sessionDate: g.sessionDate,
+                  unitTitle: g.set.unitTitle,
+                  subTopicTitle: g.set.subTopicTitle
                 }) as ReviewVideoHomeworkItem
             );
           })
@@ -1190,6 +1195,11 @@ function ReviewVideoCard({
           )}
         </div>
         <h3 className="text-base font-black text-ink font-display truncate">{video.title}</h3>
+        {/* Bổ sung 2026-09-04 (đã xác nhận với người dùng) — mirror ExerciseCard/BatchExerciseCard: hiện
+            Unit/SubTopic để phân biệt Bộ video trùng tên giữa các Unit/SubTopic khác nhau. */}
+        {(item.unitTitle || item.subTopicTitle) && (
+          <p className="text-[11px] font-bold text-muted truncate">{[item.unitTitle, item.subTopicTitle].filter(Boolean).join(" · ")}</p>
+        )}
       </div>
 
       <div className="shrink-0">
