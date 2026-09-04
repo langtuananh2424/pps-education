@@ -38,6 +38,7 @@ import {
 } from "../api";
 import CreateAndAssignExerciseModal, { ExerciseQuestionsStep } from "../components/CreateAndAssignExerciseModal";
 import ExercisePreviewModal from "../components/ExercisePreviewModal";
+import ExerciseStudentPreviewModal from "../components/ExerciseStudentPreviewModal";
 import QuestionEditorForm from "../components/QuestionEditorForm";
 import UnitSubTopicPicker from "../components/UnitSubTopicPicker";
 import Button from "@/components/ui/Button";
@@ -803,6 +804,7 @@ function ExerciseRow({
   const [questions, setQuestions] = useState<ExerciseQuestionResponse[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [studentPreviewOpen, setStudentPreviewOpen] = useState(false);
   const [editExerciseOpen, setEditExerciseOpen] = useState(false);
   const [addQuestionsOpen, setAddQuestionsOpen] = useState(false);
   const [publishing, setPublishing] = useState(false);
@@ -873,8 +875,16 @@ function ExerciseRow({
     }
   };
 
+  /**
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-03 — hỏi xác nhận trước khi Publish
+   * (không hoàn tác được: sau khi Publish, không sửa điểm/gỡ câu hỏi được nữa, cũng không có cơ chế
+   * chuyển ngược về Nháp — xem lịch sử trao đổi, người dùng chủ động chọn "chấp nhận rủi ro nhập
+   * sai" thay vì thêm nút chuyển về Nháp ở BE). Đặt tên riêng `confirmPublish` để không nhầm lẫn với
+   * `confirmDialog` (biến state riêng của "Xóa Bài"/"Gỡ câu hỏi" — không dùng chung 1 modal).
+   */
   const handlePublish = async (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!(await confirmDialog(t("assignPage.exerciseRow.publishConfirm", { title: exercise.title, code: exercise.code }), { danger: true }))) return;
     setPublishing(true);
     setError(null);
     try {
@@ -962,6 +972,15 @@ function ExerciseRow({
           >
             {t("assignPage.exerciseRow.previewWithAnswers")}
           </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setStudentPreviewOpen(true);
+            }}
+            className="text-[10px] font-bold text-brand-red hover:underline whitespace-nowrap"
+          >
+            {t("assignPage.exerciseRow.previewAsStudent")}
+          </button>
           <Badge variant={statusVariants[exercise.status]}>{t(`assignPage.statusLabels.${exercise.status}`)}</Badge>
           {canManage && exercise.status === "DRAFT" && (
             <button
@@ -978,6 +997,8 @@ function ExerciseRow({
       {error && <p className="px-5 pb-2 text-[11px] text-rose-600">{error}</p>}
 
       {previewOpen && <ExercisePreviewModal exercise={exercise} onClose={() => setPreviewOpen(false)} />}
+
+      {studentPreviewOpen && <ExerciseStudentPreviewModal exercise={exercise} onClose={() => setStudentPreviewOpen(false)} />}
 
       {editExerciseOpen && (
         <EditExerciseModal

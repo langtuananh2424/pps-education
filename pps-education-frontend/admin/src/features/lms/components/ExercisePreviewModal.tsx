@@ -6,6 +6,18 @@ import { ExerciseQuestionResponse, ExerciseResponse, QuestionResponse, getExamQu
 
 const choiceTypes: QuestionResponse["questionType"][] = ["MULTIPLE_CHOICE", "MULTIPLE_ANSWER", "TRUE_FALSE"];
 
+/**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-03 — fix bug thật: đáp án ảnh
+ * (VOICE_PICTURE_CHOICE) khi soạn để trống chú thích thì hệ thống tự điền content = đúng chữ cái nhãn
+ * (VD content="A" cho choiceLabel="A", xem ListeningGroupBuilder.tsx/QuestionEditorForm.tsx) — hiện ra
+ * nhìn như lặp "A. A". Ẩn phần content khi nó trùng hệt choiceLabel (không phân biệt hoa/thường, đã
+ * trim) hoặc rỗng, chỉ còn lại chữ cái nhãn — không lặp.
+ */
+function hasMeaningfulCaption(choiceLabel: string, content: string): boolean {
+  const trimmed = content.trim();
+  return trimmed.length > 0 && trimmed.toUpperCase() !== choiceLabel.trim().toUpperCase();
+}
+
 /** Bổ sung 2026-08-28 — chia mảng thành các hàng cố định `size` phần tử, dùng để dựng bảng hộp từ vựng (wordBox). */
 function chunkArray<T>(items: T[], size: number): T[][] {
   const rows: T[][] = [];
@@ -133,7 +145,7 @@ export default function ExercisePreviewModal({ exercise, onClose }: ExercisePrev
                         <span className="font-mono text-[10px] shrink-0">{c.choiceLabel}.</span>
                         {/* V143 — dạng Listening chọn đáp án bằng hình: hiện thumbnail để GV xem đúng những gì học sinh sẽ thấy. */}
                         {c.imageUrl && <img src={c.imageUrl} alt={c.content} className="w-8 h-8 object-cover rounded shrink-0" />}
-                        <span>{c.content}</span>
+                        {hasMeaningfulCaption(c.choiceLabel, c.content) && <span>{c.content}</span>}
                       </div>
                     ))}
                   </div>

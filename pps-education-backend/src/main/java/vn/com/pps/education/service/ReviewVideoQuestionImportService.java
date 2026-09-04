@@ -39,8 +39,7 @@ import java.util.Map;
  * (đã xác nhận với người dùng — không cần .docx) — đọc file trực tiếp bằng
  * Apache POI trong chính Service này.
  *
- * Việc GHI 1 câu hỏi vào DB (validate loại video, chồng lấn khoảng ghi âm,
- * quyền sở hữu bộ video) ủy quyền hoàn toàn cho
+ * Việc GHI 1 câu hỏi vào DB (validate loại video, quyền sở hữu bộ video) ủy quyền hoàn toàn cho
  * {@link ReviewVideoService#addQuestion}/{@link ReviewVideoService#addConnectionQuestion}
  * — điểm ghi DUY NHẤT, dùng chung với form soạn tay ở FE (không lặp lại
  * logic, xem .claude/rules/solid.md mục D).

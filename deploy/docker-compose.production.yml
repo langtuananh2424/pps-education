@@ -42,6 +42,31 @@ services:
       - "127.0.0.1:9000:9000" # public GET qua Nginx (files.ppsvietnam.edu.vn) - xem deploy/nginx
     networks: [internal]
 
+  # Khoi tao MinIO 1 lan: tao bucket + bat quyen doc an danh (anonymous
+  # download) cho URL public {R2_PUBLIC_BASE_URL}/{key}. Truoc day la thao tac
+  # tay trong deploy/README.md -> hay bi quen, gay loi 403 khi serve file
+  # (bucket khong ton tai / thieu policy). Chay lai moi lan `docker compose
+  # up`, idempotent (--ignore-existing + set lai policy). Backend cho service
+  # nay xong moi khoi dong (xem depends_on ben duoi).
+  minio-init:
+    image: minio/mc:latest
+    depends_on: [minio]
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        until mc alias set mio http://minio:9000 "$$S3_ACCESS_KEY" "$$S3_SECRET_KEY" >/dev/null 2>&1; do
+          echo 'minio-init: cho minio san sang...'; sleep 2;
+        done
+        mc mb --ignore-existing mio/pps-media
+        mc anonymous set download mio/pps-media
+        mc anonymous get mio/pps-media
+        echo 'minio-init: bucket pps-media da san sang (anonymous download)'
+    environment:
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+    networks: [internal]
+    restart: "no"
+
   backend:
     image: ghcr.io/<owner>/<repo>/backend:prod-latest
     restart: unless-stopped
@@ -89,6 +114,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
     networks: [internal]
 
 networks:

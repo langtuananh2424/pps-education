@@ -21,6 +21,21 @@ interface QuestionRow {
 const emptyQuestionRow = (): QuestionRow => ({ content: "", correctAnswerText: "", imageUrl: "", explanation: "" });
 
 /**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-03 — 1 nhóm điền từ (referencePassage/
+ * wordBox dùng chung + groupKey) đã có sẵn trong Bài đang soạn, dùng để GV chọn "thêm câu vào nhóm
+ * này" thay vì luôn phải tạo nhóm mới (mirror ExistingListeningGroup ở ListeningGroupBuilder.tsx —
+ * cùng gốc bug: groupKey trước đây chỉ tự sinh bằng Date.now(), không cách nào lấy lại đúng nhóm cũ).
+ */
+export interface ExistingFillInBlankGroup {
+  groupKey: string;
+  referencePassage: string | null;
+  wordBox: string[];
+  questionCount: number;
+  /** Nội dung câu hỏi đầu tiên trong nhóm (rút gọn), giúp GV nhận ra đúng nhóm khi có nhiều nhóm điền từ trong 1 Bài. */
+  sampleContent: string;
+}
+
+/**
  * Bổ sung 2026-08-28 (đã xác nhận với người dùng — "Cách B": mỗi câu trong 1 Ex. là 1 Question
  * FILL_IN_BLANK riêng, tự có "Câu N." + điểm riêng, thay vì gộp hết vào 1 Question nhiều chỗ trống
  * như WORD_BANK trước đó). Về bản chất là N Question FILL_IN_BLANK cùng 1 groupKey (+ referencePassage
@@ -35,14 +50,23 @@ const emptyQuestionRow = (): QuestionRow => ({ content: "", correctAnswerText: "
  */
 export default function FillInBlankGroupBuilder({
   examId,
+  existingGroups,
   onCreated,
   onCancel
 }: {
   examId: number;
+  /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-03 — các nhóm điền từ đã có sẵn trong Bài đang soạn, cho phép chọn "thêm câu vào nhóm này". Rỗng/undefined = Bài chưa có nhóm điền từ nào, chỉ tạo mới được. */
+  existingGroups?: ExistingFillInBlankGroup[];
   onCreated: (questions: QuestionResponse[]) => void;
   onCancel: () => void;
 }) {
   const { t } = useTranslation("lms-question-authoring");
+  /**
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-03 — "new" = tạo nhóm điền từ mới (hành
+   * vi cũ, groupKey tự sinh bằng Date.now() lúc submit); 1 groupKey cụ thể = đang thêm câu vào ĐÚNG
+   * nhóm đó (sharedNote/sharedWordBox khoá theo nhóm đã chọn, không cho sửa lại vì phải khớp câu cũ).
+   */
+  const [appendTarget, setAppendTarget] = useState<string>("new");
   const [sharedNote, setSharedNote] = useState("");
   // Bổ sung 2026-08-28 (đã xác nhận với người dùng) — hộp từ vựng THAM KHẢO (tĩnh, không phải đáp án
   // đúng) hiện dạng lưới ô chữ 1 lần phía trên cả nhóm câu, khớp hình thức "khung từ" đề giấy gốc
@@ -51,6 +75,22 @@ export default function FillInBlankGroupBuilder({
   const [questions, setQuestions] = useState<QuestionRow[]>([emptyQuestionRow(), emptyQuestionRow()]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const isAppending = appendTarget !== "new";
+
+  /** Chọn "thêm vào nhóm có sẵn" — khoá sharedNote/sharedWordBox theo đúng nhóm, chỉ còn soạn thêm câu mới. "new" quay lại tạo nhóm mới, trả các field về rỗng. */
+  const handleSelectAppendTarget = (value: string) => {
+    setAppendTarget(value);
+    const group = existingGroups?.find((g) => g.groupKey === value);
+    if (group) {
+      setSharedNote(group.referencePassage ?? "");
+      setSharedWordBox(group.wordBox);
+    } else {
+      setSharedNote("");
+      setSharedWordBox([]);
+    }
+    setQuestions([emptyQuestionRow(), emptyQuestionRow()]);
+  };
 
   const updateContent = (idx: number, value: string) => {
     setQuestions((prev) => prev.map((q, i) => (i === idx ? { ...q, content: value } : q)));
@@ -82,7 +122,9 @@ export default function FillInBlankGroupBuilder({
       return;
     }
 
-    const groupKey = `fillblank-${Date.now()}`;
+    // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-03 — đang thêm vào nhóm có sẵn thì
+    // dùng ĐÚNG groupKey cũ (câu mới sẽ gộp chung nhóm với các câu đã có) thay vì luôn sinh groupKey mới.
+    const groupKey = isAppending ? appendTarget : `fillblank-${Date.now()}`;
     const referencePassage = sharedNote.trim() || undefined;
     const trimmedWordBox = sharedWordBox.map((w) => w.trim()).filter(Boolean);
     const structuredContent = trimmedWordBox.length > 0 ? { wordBox: trimmedWordBox } : undefined;
@@ -123,6 +165,22 @@ export default function FillInBlankGroupBuilder({
     <form onSubmit={handleSubmit} className="space-y-4 text-xs">
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
+      {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-03 — chỉ hiện khi Bài đang soạn đã có sẵn ≥1 nhóm điền từ (existingGroups), cho GV chọn thêm câu vào nhóm cũ thay vì luôn tạo nhóm mới. */}
+      {existingGroups && existingGroups.length > 0 && (
+        <div>
+          <label className={labelClass}>{t("fillInBlankGroupBuilder.appendTargetLabel")}</label>
+          <select value={appendTarget} onChange={(e) => handleSelectAppendTarget(e.target.value)} className={inputClass}>
+            <option value="new">{t("fillInBlankGroupBuilder.appendTargetNew")}</option>
+            {existingGroups.map((g) => (
+              <option key={g.groupKey} value={g.groupKey}>
+                {t("fillInBlankGroupBuilder.appendTargetOption", { count: g.questionCount, content: g.sampleContent })}
+              </option>
+            ))}
+          </select>
+          {isAppending && <p className="text-[10px] text-slate-400 mt-1">{t("fillInBlankGroupBuilder.appendTargetHint")}</p>}
+        </div>
+      )}
+
       <div>
         <label className={labelClass}>{t("fillInBlankGroupBuilder.sharedNoteLabel")}</label>
         <p className="text-[9px] text-slate-400 mb-1">{t("fillInBlankGroupBuilder.sharedNoteHint")}</p>
@@ -131,7 +189,8 @@ export default function FillInBlankGroupBuilder({
           onChange={(e) => setSharedNote(e.target.value)}
           placeholder={t("fillInBlankGroupBuilder.sharedNotePlaceholder")}
           rows={2}
-          className={inputClass}
+          disabled={isAppending}
+          className={`${inputClass} disabled:opacity-60 disabled:cursor-not-allowed`}
         />
       </div>
 
@@ -145,19 +204,21 @@ export default function FillInBlankGroupBuilder({
                 value={w}
                 onChange={(e) => setSharedWordBox((prev) => prev.map((x, i) => (i === idx ? e.target.value : x)))}
                 placeholder={t("fillInBlankGroupBuilder.wordBoxItemPlaceholder")}
-                className="text-xs w-24 focus:outline-none"
+                disabled={isAppending}
+                className="text-xs w-24 focus:outline-none disabled:opacity-60"
               />
               <button
                 type="button"
+                disabled={isAppending}
                 onClick={() => setSharedWordBox((prev) => prev.filter((_, i) => i !== idx))}
-                className="text-slate-400 hover:text-rose-600 shrink-0"
+                className="text-slate-400 hover:text-rose-600 shrink-0 disabled:opacity-40 disabled:hover:text-slate-400"
               >
                 <X className="w-3 h-3" />
               </button>
             </div>
           ))}
         </div>
-        <Button type="button" variant="secondary" size="sm" onClick={() => setSharedWordBox((prev) => [...prev, ""])}>
+        <Button type="button" variant="secondary" size="sm" disabled={isAppending} onClick={() => setSharedWordBox((prev) => [...prev, ""])}>
           {t("fillInBlankGroupBuilder.addWordBoxItem")}
         </Button>
       </div>
@@ -222,7 +283,11 @@ export default function FillInBlankGroupBuilder({
             {t("common.cancel")}
           </Button>
           <Button type="submit" variant="primary" disabled={submitting}>
-            {submitting ? t("common.creating") : t("fillInBlankGroupBuilder.submitCreate", { count: questions.length })}
+            {submitting
+              ? t("common.creating")
+              : isAppending
+                ? t("fillInBlankGroupBuilder.submitAppend", { count: questions.length })
+                : t("fillInBlankGroupBuilder.submitCreate", { count: questions.length })}
           </Button>
         </div>
       </div>

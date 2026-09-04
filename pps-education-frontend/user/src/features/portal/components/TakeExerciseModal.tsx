@@ -36,6 +36,29 @@ interface TakeExerciseModalProps {
 
 const CHOICE_TYPES = new Set(["MULTIPLE_CHOICE", "MULTIPLE_ANSWER", "TRUE_FALSE"]);
 
+/**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-03 — số cột lưới đáp án dạng ảnh (V143)
+ * khớp đúng số đáp án để luôn nằm gọn 1 hàng (đề giấy gốc không bao giờ quá 4 đáp án/câu), thay vì
+ * grid-cols-2 cố định trước đây làm đề 3 đáp án bị lệch (2 ô hàng 1, 1 ô lẻ hàng 2).
+ */
+function imageChoiceGridColsClass(choiceCount: number): string {
+  if (choiceCount >= 4) return "grid-cols-4";
+  if (choiceCount === 3) return "grid-cols-3";
+  return "grid-cols-2";
+}
+
+/**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-03 — fix bug thật: đáp án ảnh
+ * (VOICE_PICTURE_CHOICE) khi soạn để trống chú thích thì Admin tự điền content = đúng chữ cái nhãn (VD
+ * content="A" cho choiceLabel="A", xem ListeningGroupBuilder.tsx/QuestionEditorForm.tsx bên admin) —
+ * hiện ra nhìn như lặp "A. A". Ẩn phần content khi nó trùng hệt choiceLabel (không phân biệt hoa/
+ * thường, đã trim) hoặc rỗng, chỉ còn lại chữ cái nhãn — không lặp.
+ */
+function hasMeaningfulChoiceCaption(choiceLabel: string, content: string): boolean {
+  const trimmed = content.trim();
+  return trimmed.length > 0 && trimmed.toUpperCase() !== choiceLabel.trim().toUpperCase();
+}
+
 const SEEK_TOLERANCE_SECONDS = 1;
 
 /**
@@ -949,13 +972,18 @@ export function QuestionBlock({
       <ListeningAudioBlock question={question} onEnded={() => onListeningEnded(question)} />
 
       {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — ảnh minh họa câu hỏi (ESSAY/WORD_BANK/SENTENCE_BUILDING), trước đây soạn có ảnh nhưng học sinh không thấy vì DTO chưa trả field này. */}
-      {question.imageUrl && <img src={question.imageUrl} alt="" className="w-full max-w-sm rounded-xl border border-line/60" />}
+      {question.imageUrl && <img src={question.imageUrl} alt="" className="w-full max-w-[240px] rounded-xl border border-line/60" />}
 
       {isChoiceQuestion && question.choices.some((c) => c.imageUrl) ? (
         // V143 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23) — Listening "chọn đáp án
         // bằng hình": mỗi lựa chọn là 1 ảnh, hiện dạng lưới bấm-chọn thay vì dòng chữ. Logic chọn/lưu
         // đáp án dùng chung y hệt nhánh chữ bên dưới (toggleChoice/selected/correctIds).
-        <div className="grid grid-cols-2 gap-2 lg:gap-3">
+        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-03 — fix bug thật: lưới cố định
+        // grid-cols-2 khiến đề 3 đáp án bị lệch hàng (2 ô hàng 1, 1 ô lẻ hàng 2) thay vì 1 hàng như đề
+        // giấy gốc — giờ số cột khớp đúng số đáp án (tối đa 4/hàng). object-cover trước đây phóng to/cắt
+        // ảnh gốc để lấp đầy ô aspect-square rất lớn (khi chỉ 2 cột) gây vỡ hình — đổi sang khung nền
+        // trắng cố định + object-contain để ảnh luôn hiển thị nguyên vẹn, không bị kéo giãn/cắt xén.
+        <div className={`grid gap-2 lg:gap-3 ${imageChoiceGridColsClass(question.choices.length)}`}>
           {question.choices.map((c) => {
             const isSelected = selected.has(c.id);
             const isCorrectChoice = correctIds.has(c.id);
@@ -974,11 +1002,13 @@ export function QuestionBlock({
                 onClick={() => toggleChoice(c.id)}
                 className={`relative text-left rounded-xl border-2 overflow-hidden transition-colors ${stateClass} disabled:cursor-default`}
               >
-                <img src={c.imageUrl ?? undefined} alt={c.content} className="w-full aspect-square object-cover" />
+                <div className="w-full aspect-[4/3] bg-white flex items-center justify-center overflow-hidden">
+                  <img src={c.imageUrl ?? undefined} alt={c.content} className="max-w-full max-h-full object-contain" />
+                </div>
                 <span className="flex items-center justify-between gap-1 px-2 py-1.5 text-[11px] sm:text-xs font-bold">
                   <span>
                     <span className="text-muted mr-1">{c.choiceLabel}.</span>
-                    {c.content}
+                    {hasMeaningfulChoiceCaption(c.choiceLabel, c.content) && c.content}
                   </span>
                   {showFeedback && isCorrectChoice && <CheckCircle2 size={14} className="text-teal-deep shrink-0" />}
                   {showFeedback && !isCorrectChoice && isSelected && <XCircle size={14} className="text-coral shrink-0" />}
@@ -1512,8 +1542,13 @@ export function GridQuestionGroup({
   });
   return (
     <div className="border border-line/60 rounded-[16px] p-4 sm:p-5 lg:p-6 space-y-3 lg:space-y-4">
+      {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-03 — fix bug thật: dữ liệu referencePassage
+          thường có sẵn dấu xuống dòng "cứng" copy từ Word/PDF gốc, whitespace-pre-wrap giữ nguyên các dấu
+          này khiến đoạn văn ngắt dòng sớm theo dữ liệu thay vì trải đều hết chiều rộng khung, nhìn lệch hẳn
+          sang trái (phát hiện qua ExerciseStudentPreviewModal bên admin, mirror đúng bug này). Bỏ
+          whitespace-pre-wrap để trình duyệt tự ngắt dòng theo chiều rộng thật. */}
       {block.referencePassage && (
-        <p className="text-xs sm:text-sm lg:text-base text-ink whitespace-pre-wrap bg-sky-2 rounded-xl p-3 sm:p-4">{block.referencePassage}</p>
+        <p className="text-xs sm:text-sm lg:text-base text-ink bg-sky-2 rounded-xl p-3 sm:p-4">{block.referencePassage}</p>
       )}
       {/*
        * Bổ sung 2026-08-28 (đã xác nhận với người dùng) — hộp từ vựng THAM KHẢO tĩnh, khớp hình thức
@@ -1581,7 +1616,7 @@ export function GridQuestionGroup({
                * those", mỗi câu 1 ảnh khác nhau) — trước đây chỉ câu đơn lẻ (không thuộc nhóm) mới hiện
                * ảnh, khối "grid" này thiếu hẳn nên ảnh bị lưu nhưng học sinh không thấy.
                */}
-              {q.imageUrl && <img src={q.imageUrl} alt="" className="w-full max-w-sm rounded-xl border border-line/60" />}
+              {q.imageUrl && <img src={q.imageUrl} alt="" className="w-full max-w-[240px] rounded-xl border border-line/60" />}
 
               {/*
                * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — fix bug thật: trước đây
@@ -1594,7 +1629,9 @@ export function GridQuestionGroup({
               {isChoiceRow && (
                 <div className="space-y-1.5">
                   {q.choices.some((c) => c.imageUrl) ? (
-                    <div className="grid grid-cols-2 gap-2">
+                    // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-03 — cùng fix bug số cột
+                    // cố định/ảnh vỡ như nhánh isChoiceQuestion (câu đơn) ở QuestionBlock, xem chú thích ở đó.
+                    <div className={`grid gap-2 ${imageChoiceGridColsClass(q.choices.length)}`}>
                       {q.choices.map((c) => {
                         const isSelected = selected.has(c.id);
                         const isCorrectChoice = correctIds.has(c.id);
@@ -1613,11 +1650,13 @@ export function GridQuestionGroup({
                             onClick={() => onChoiceToggle(q.questionId, [c.id])}
                             className={`relative text-left rounded-xl border-2 overflow-hidden transition-colors ${stateClass} disabled:cursor-default`}
                           >
-                            <img src={c.imageUrl ?? undefined} alt={c.content} className="w-full aspect-square object-cover" />
+                            <div className="w-full aspect-[4/3] bg-white flex items-center justify-center overflow-hidden">
+                              <img src={c.imageUrl ?? undefined} alt={c.content} className="max-w-full max-h-full object-contain" />
+                            </div>
                             <span className="flex items-center justify-between gap-1 px-2 py-1.5 text-[11px] font-bold">
                               <span>
                                 <span className="text-muted mr-1">{c.choiceLabel}.</span>
-                                {c.content}
+                                {hasMeaningfulChoiceCaption(c.choiceLabel, c.content) && c.content}
                               </span>
                               {showFeedback && isCorrectChoice && <CheckCircle2 size={14} className="text-teal-deep shrink-0" />}
                               {showFeedback && !isCorrectChoice && isSelected && <XCircle size={14} className="text-coral shrink-0" />}
