@@ -988,6 +988,20 @@ export function recordIntegrityEvents(attemptId: number, request: RecordIntegrit
   });
 }
 
+/**
+ * Bổ sung 2026-09-04 (đã xác nhận với người dùng) — luồng "Lô giao BTVN theo kỹ năng"
+ * (BatchTakeExerciseModal): tự đếm vi phạm CỤC BỘ ở client, đủ ngưỡng thì tự nộp hết mọi Bài đang dở
+ * (submitAttempt bình thường, không có API "nộp cả Lô" riêng) RỒI gọi API này ĐÚNG 1 LẦN để báo Giáo
+ * viên phụ trách lớp — KHÔNG qua cơ chế đếm-ngưỡng real-time của recordIntegrityEvents (Bài lẻ), KHÔNG
+ * báo phụ huynh. `representativeAttemptId` = attempt của Bài đầu tiên trong Lô, chỉ dùng để tra học
+ * sinh/lớp — xem Javadoc AttemptIntegrityService#notifyTeachersForBatchViolation ở BE.
+ */
+export function notifyBatchIntegrityViolation(representativeAttemptId: number, violationCount: number): Promise<void> {
+  return apiRequest<void>(`/attempts/${representativeAttemptId}/batch-integrity-violation-notify?violationCount=${violationCount}`, {
+    method: "POST"
+  });
+}
+
 // ===================== Gợi ý tapescript khi Nghe (bổ sung ngoài SDD gốc, xác nhận 2026-08-06) =====================
 
 export interface ListeningPlayProgressResponse {

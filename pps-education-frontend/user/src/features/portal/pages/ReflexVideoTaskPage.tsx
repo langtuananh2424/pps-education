@@ -810,7 +810,7 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
         <div
           key={violationCount}
           role="alert"
-          className="fixed top-6 left-1/2 -translate-x-1/2 z-[110] flex items-center gap-2 bg-rose-600 text-white pl-3 pr-4 py-2.5 rounded-2xl shadow-xl animate-alert-pop"
+          className="fixed top-16 sm:top-20 left-1/2 -translate-x-1/2 z-[110] flex items-center gap-2 bg-rose-600 text-white pl-3 pr-4 py-2.5 rounded-2xl shadow-xl animate-alert-pop"
         >
           <ShieldAlert size={18} className="shrink-0" />
           <span className="text-xs font-black">{t("monitoring.violationToast")}</span>
