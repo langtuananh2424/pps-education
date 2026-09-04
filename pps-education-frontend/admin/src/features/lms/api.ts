@@ -614,6 +614,8 @@ export interface ExerciseQuestionResponse {
   referencePassage: string | null;
   structuredContent: QuestionStructuredContent | null;
   groupKey: string | null;
+  /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-03 — ảnh minh họa (ESSAY/WORD_BANK/SENTENCE_BUILDING), backend luôn trả kèm nhưng type khai báo trước đây thiếu field này (mirror portal/src/features/portal/api.ts). */
+  imageUrl: string | null;
 }
 
 export function addExerciseQuestion(exerciseId: number, request: AddExerciseQuestionRequest): Promise<ExerciseQuestionResponse> {
