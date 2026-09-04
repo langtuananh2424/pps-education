@@ -64,7 +64,6 @@ import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
 import vn.com.pps.education.exception.QuizAlreadyCompletedException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.exception.RetakeNotAllowedException;
-import vn.com.pps.education.exception.ReviewVideoQuestionOverlapException;
 import vn.com.pps.education.exception.SubmissionPastDeadlineException;
 import vn.com.pps.education.exception.VideoNotYetQualifiedException;
 import vn.com.pps.education.repository.ClassEnrollmentRepository;
@@ -688,10 +687,14 @@ public class ReviewVideoService {
      * giá trị cho cả video). Chỉ áp dụng videoType=REFLEX (cùng rào A1
      * với submitQuestionAudio).
      *
-     * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-11) — chặn tạo câu hỏi có khoảng ghi âm
-     * [timestampSeconds, timestampSeconds + maxRecordingSeconds] CHỒNG LẤN câu hỏi khác trong cùng video:
-     * trình phát chỉ ghi âm được 1 câu tại 1 thời điểm (không cho ghi âm song song, xem ReflexVideoTaskPage
-     * ở FE), nếu 2 câu chồng giờ thì câu tới sau sẽ bị bỏ lỡ hoàn toàn lúc học sinh làm bài.
+     * V150 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-04) — BỎ rào chặn chồng lấn khoảng
+     * ghi âm [timestampSeconds, timestampSeconds + maxRecordingSeconds] từng thêm 2026-08-11: rào đó dựa
+     * trên giả định luồng CŨ "video chạy liên tục, ghi âm tính vào timeline video" — đã bị THAY THẾ hoàn
+     * toàn bởi UC-23b V2 (2026-08-22, xem {@link ReflexSequentialGradingService}): video REFLEX nay DỪNG
+     * HẲN xuyên suốt cả bước viết lẫn bước nói của 1 câu, chỉ chạy tiếp khi đạt CẢ 2 bước — thời gian ghi
+     * âm không còn tiêu tốn timeline video nữa nên 2 mốc gần nhau không còn rủi ro "câu sau bị bỏ lỡ" như
+     * trước. Rào cũ giờ chỉ gây chặn oan câu hỏi hợp lệ (VD nhiều câu writing chêm ngắn giữa các mốc) —
+     * exception {@code ReviewVideoQuestionOverlapException} đã bị xoá hẳn.
      */
     @Transactional
     public ReviewVideoQuestionResponse addQuestion(Long videoId, AddReviewVideoQuestionRequest request, Long actorUserId) {
@@ -700,7 +703,6 @@ public class ReviewVideoService {
         if (video.getReviewVideoSet().getVideoType() != ReviewVideoSet.VideoType.REFLEX) {
             throw new IllegalArgumentException("Video này không phải loại Video phản xạ (REFLEX) — không nhận câu hỏi.");
         }
-        requireNoOverlap(videoId, request.timestampSeconds(), request.maxRecordingSeconds());
 
         ReviewVideoQuestion question = new ReviewVideoQuestion();
         question.setReviewVideo(video);
@@ -715,15 +717,13 @@ public class ReviewVideoService {
 
     /**
      * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-12) — sửa 1 câu hỏi REFLEX đã có (trước
-     * đây chỉ thêm mới được). Mirror addQuestion — vẫn chặn chồng lấn khoảng ghi âm với câu hỏi KHÁC
-     * trong cùng video (loại chính câu đang sửa ra khỏi phép kiểm tra qua excludeQuestionId, nếu không
-     * sẽ luôn tự báo chồng lấn với chính nó).
+     * đây chỉ thêm mới được). Mirror addQuestion — KHÔNG còn chặn chồng lấn khoảng ghi âm (bỏ V150, xem
+     * Javadoc addQuestion).
      */
     @Transactional
     public ReviewVideoQuestionResponse updateQuestion(Long questionId, UpdateReviewVideoQuestionRequest request, Long actorUserId) {
         ReviewVideoQuestion question = getQuestionOrThrow(questionId);
         requireOwnerScope(question.getReviewVideo().getReviewVideoSet(), actorUserId);
-        requireNoOverlap(question.getReviewVideo().getId(), request.timestampSeconds(), request.maxRecordingSeconds(), questionId);
 
         question.setTimestampSeconds(request.timestampSeconds());
         question.setPrompt(request.prompt());
@@ -732,35 +732,6 @@ public class ReviewVideoService {
         question.setDisplayOrder(request.displayOrder() == null ? question.getDisplayOrder() : request.displayOrder());
         question = reviewVideoQuestionRepository.save(question);
         return toResponse(question);
-    }
-
-    /**
-     * Kiểm tra khoảng ghi âm [newStart, newStart + newDurationSeconds) của câu hỏi MỚI có chồng lấn câu
-     * hỏi nào đã có trong cùng video hay không — dùng phép kiểm tra giao nhau nửa-mở kinh điển (tương tự
-     * ClassSessionService#checkClassConflict): 2 khoảng [a1,a2) và [b1,b2) chồng nhau khi a1 < b2 VÀ b1 < a2.
-     */
-    private void requireNoOverlap(Long videoId, int newStart, int newDurationSeconds) {
-        requireNoOverlap(videoId, newStart, newDurationSeconds, null);
-    }
-
-    /** Overload dùng khi SỬA 1 câu hỏi đã có — excludeQuestionId loại chính câu đang sửa khỏi phép kiểm tra chồng lấn. */
-    private void requireNoOverlap(Long videoId, int newStart, int newDurationSeconds, Long excludeQuestionId) {
-        int newEnd = newStart + newDurationSeconds;
-        List<ReviewVideoQuestion> siblings = reviewVideoQuestionRepository.findByReviewVideoIdOrderByDisplayOrder(videoId);
-        for (ReviewVideoQuestion sibling : siblings) {
-            if (excludeQuestionId != null && excludeQuestionId.equals(sibling.getId())) {
-                continue;
-            }
-            int siblingEnd = sibling.getTimestampSeconds() + sibling.getMaxRecordingSeconds();
-            if (sibling.getTimestampSeconds() < newEnd && newStart < siblingEnd) {
-                throw new ReviewVideoQuestionOverlapException(
-                        "error.reviewVideoQuestionOverlap.default",
-                        new Object[]{newStart, newEnd, sibling.getTimestampSeconds(), siblingEnd},
-                        "Khoảng ghi âm câu hỏi mới (giây " + newStart + "-" + newEnd + ") chồng lấn 1 câu hỏi khác"
-                                + " (giây " + sibling.getTimestampSeconds() + "-" + siblingEnd + ") — video chỉ ghi âm được 1 câu tại 1 thời điểm,"
-                                + " hãy đặt mốc thời gian cách nhau xa hơn hoặc giảm thời lượng ghi âm tối đa.");
-            }
-        }
     }
 
     @Transactional(readOnly = true)

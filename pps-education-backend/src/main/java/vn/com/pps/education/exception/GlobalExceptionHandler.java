@@ -80,7 +80,7 @@ public class GlobalExceptionHandler {
             DuplicatePositionCodeException.class, DuplicateSkillCodeException.class,
             TaskAssigneeAlreadyAssignedException.class, MakeupSessionAlreadyLinkedException.class,
             DuplicateQuestionContentException.class, DuplicateAcademicYearCodeException.class,
-            ReviewVideoQuestionOverlapException.class, DuplicateShiftCodeException.class,
+            DuplicateShiftCodeException.class,
             WorkCalendarOverrideAlreadyExistsException.class, ShiftAssignmentOverlapException.class,
             EmployeeShiftAlreadyEndedException.class, DuplicateSitePeriodNumberException.class})
     public ResponseEntity<Object> handleConflict(RuntimeException ex) {
