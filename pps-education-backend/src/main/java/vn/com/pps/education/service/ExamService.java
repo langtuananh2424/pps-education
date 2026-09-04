@@ -261,7 +261,8 @@ public class ExamService {
                 exam.getCurriculum().getId(), exam.getCurriculum().getCode(), exam.getCreatedBy().getId(),
                 exam.getTeacherType().name(), exam.getExamType().name(), exam.getQuestionBank().getId(),
                 exam.getSubTopic() == null ? null : exam.getSubTopic().getId(),
-                exam.getSubTopic() == null ? null : exam.getSubTopic().getTitle());
+                exam.getSubTopic() == null ? null : exam.getSubTopic().getTitle(),
+                exam.getSubTopic() == null ? null : exam.getSubTopic().getUnit().getTitle());
     }
 
     private ClassResponse toResponse(SchoolClass c) {

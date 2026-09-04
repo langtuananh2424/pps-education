@@ -250,9 +250,16 @@ export default function ExerciseAssignPage() {
                   >
                     <p className="text-xs font-bold text-slate-800">{exam.title}</p>
                     <p className="text-[10px] text-slate-400 mt-0.5 font-mono">{exam.code} · {exam.curriculumCode}</p>
+                    {/* Bổ sung 2026-09-04 (đã xác nhận với người dùng) — fix bug thật: Lesson đánh số lặp lại
+                        (Lesson 1, 2, 3...) giữa nhiều Unit/SubTopic khác nhau, trước đây chỉ hiện subTopicTitle
+                        (không hiện unitTitle) nên vẫn dễ nhầm khi 2 Unit khác nhau có SubTopic cùng số/tên. */}
+                    {(exam.unitTitle || exam.subTopicTitle) && (
+                      <p className="text-[10px] text-brand-red font-semibold mt-0.5">
+                        {[exam.unitTitle, exam.subTopicTitle].filter(Boolean).join(" · ")}
+                      </p>
+                    )}
                     <p className="text-[10px] text-slate-400 mt-0.5">
                       {t(`assignPage.teacherTypeLabels.${exam.teacherType}`)} · {t(`assignPage.examTypeLabels.${exam.examType}`)}
-                      {exam.subTopicTitle && <> · {exam.subTopicTitle}</>}
                     </p>
                   </button>
                 ))}
@@ -694,7 +701,10 @@ function ExamDetailPanel({
           <div>
             <p className="text-sm font-bold text-slate-800">{exam.title}</p>
             <p className="text-[10px] text-slate-400 font-mono mt-0.5">{exam.code} · {exam.curriculumCode}</p>
-            {exam.subTopicTitle && <p className="text-[10px] text-slate-400 mt-0.5">{exam.subTopicTitle}</p>}
+            {/* Bổ sung 2026-09-04 — xem ghi chú ở danh sách Lesson bên trái: thêm unitTitle để phân biệt Lesson trùng tên giữa các Unit khác nhau. */}
+            {(exam.unitTitle || exam.subTopicTitle) && (
+              <p className="text-[10px] text-brand-red font-semibold mt-0.5">{[exam.unitTitle, exam.subTopicTitle].filter(Boolean).join(" · ")}</p>
+            )}
           </div>
           {canManage && (
             <div className="flex items-center gap-2 shrink-0">

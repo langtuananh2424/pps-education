@@ -1766,7 +1766,8 @@ public class ReviewVideoService {
                 s.getTeacherType().name(),
                 s.getDisplayOrder(), s.getStatus().name(), s.getPublishedAt(), s.getCreatedBy().getId(),
                 s.getSubTopic() == null ? null : s.getSubTopic().getId(),
-                s.getSubTopic() == null ? null : s.getSubTopic().getTitle());
+                s.getSubTopic() == null ? null : s.getSubTopic().getTitle(),
+                s.getSubTopic() == null ? null : s.getSubTopic().getUnit().getTitle());
     }
 
     private ClassResponse toResponse(SchoolClass c) {

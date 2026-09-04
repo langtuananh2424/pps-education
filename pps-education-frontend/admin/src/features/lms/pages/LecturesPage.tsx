@@ -787,9 +787,15 @@ export default function LecturesPage() {
                       <Badge variant={statusVariants[set.status]}>{setStatusLabel(t, set.status)}</Badge>
                     </div>
                     <p className="text-[10px] text-slate-400 mt-0.5 font-mono">{set.code} · {set.curriculumCode}</p>
+                    {/* Bổ sung 2026-09-04 (đã xác nhận với người dùng) — fix bug thật: mirror ExerciseAssignPage.tsx
+                        (Kho đề) — Bộ đánh tên dễ trùng lặp giữa nhiều Unit/SubTopic, tách riêng dòng nổi bật. */}
+                    {(set.unitTitle || set.subTopicTitle) && (
+                      <p className="text-[10px] text-brand-red font-semibold mt-0.5">
+                        {[set.unitTitle, set.subTopicTitle].filter(Boolean).join(" · ")}
+                      </p>
+                    )}
                     <p className="text-[10px] text-slate-400 mt-0.5">
                       {teacherTypeLabel(t, set.teacherType)} · {videoTypeLabel(t, set.videoType)}
-                      {set.subTopicTitle && <> · {set.subTopicTitle}</>}
                     </p>
                   </button>
                 ))}

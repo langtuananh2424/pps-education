@@ -453,7 +453,19 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
       // Câu THẬT đang mở bảng — chỉ còn việc theo dõi mốc câu KẾ TIẾP để tự dừng lúc đang cho nghe lại
       // trong lúc chuẩn bị nói (awaitingNextMarkRef=true, xem activateQuestion/handleContinueAfterWritingPass).
       // Bước viết (awaitingNextMarkRef=false) thì video đứng yên, không cần theo dõi gì thêm.
-      if (!awaitingNextMarkRef.current) return;
+      //
+      // Bổ sung 2026-09-04 (đã xác nhận với người dùng, báo qua test điện thoại thật — bảng viết mở
+      // đúng nhưng video vẫn tự chạy tiếp) — fix bug thật: lệnh pauseVideo() gọi 1 LẦN DUY NHẤT trong
+      // activateQuestion() có thể bị YouTube IFrame API trên di động BỎ LỠ/xử lý trễ qua postMessage
+      // (không có cách nào chờ xác nhận lệnh đã tới nơi) — video thực tế vẫn chạy dù state app đã đúng
+      // (activeQuestionId đã set, bảng đã mở). Poll đang chạy mỗi 250ms nên GỌI LẠI pauseVideo() ở MỌI
+      // tick trong lúc lẽ ra phải đứng yên (bước viết) — vô hại khi video đã thực sự dừng (gọi lại
+      // pauseVideo() trên video đang pause không có tác dụng phụ), nhưng đảm bảo tối đa ~250ms sau khi
+      // lệnh đầu bị lỡ thì lệnh kế tiếp sẽ bắt lại được, thay vì phó mặc đúng 1 lần duy nhất.
+      if (!awaitingNextMarkRef.current) {
+        pauseVideo();
+        return;
+      }
       const next = questions[idx + 1];
       if (next && currentSeconds >= next.timestampSeconds) {
         setAwaitingNextMark(false);

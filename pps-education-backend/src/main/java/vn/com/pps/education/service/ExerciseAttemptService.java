@@ -761,7 +761,9 @@ public class ExerciseAttemptService {
                 assignment.getHomeworkBatch() == null ? null : assignment.getHomeworkBatch().getId(),
                 exercise.getTotalPoints(),
                 exercise.getExam().getId(), exercise.getExam().getTitle(),
-                exercise.getSkillCategory() == null ? null : exercise.getSkillCategory().name());
+                exercise.getSkillCategory() == null ? null : exercise.getSkillCategory().name(),
+                exercise.getExam().getSubTopic() == null ? null : exercise.getExam().getSubTopic().getUnit().getTitle(),
+                exercise.getExam().getSubTopic() == null ? null : exercise.getExam().getSubTopic().getTitle());
     }
 
     private StudentAnswerResponse toResponse(StudentAnswer a) {
