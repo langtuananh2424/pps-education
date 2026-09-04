@@ -8,7 +8,7 @@
     },
     "changeAvatar": "Change avatar (UC-63)",
     "studentBadge": "Student",
-    "systemId": "System ID: {{id}}",
+    "systemId": "ID: {{code}}",
     "unknownValue": "—",
     "academicInfo": "Academic Info",
     "classLabel": "Class:",
