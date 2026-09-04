@@ -484,6 +484,21 @@ export default function QuestionBankPage() {
   );
 }
 
+/**
+ * Bổ sung 2026-09-04 (đã xác nhận với người dùng, mirror ExercisePreviewModal.tsx/
+ * ExerciseStudentPreviewModal.tsx cùng thư mục lms/components) — chỉ coi dòng trống (2+ \n liên tiếp)
+ * là ranh giới đoạn văn thật (VD 3 đoạn Tom/Max/Anna của "Bài đọc hiểu — Lưới", GridQuestionBuilder nối
+ * bằng "\n\n") — giữ lại làm dòng trống hiển thị; mọi \n đơn lẻ còn lại (rác copy-paste Word/PDF) gộp
+ * thành khoảng trắng.
+ */
+function normalizeReferencePassage(text: string): string {
+  return text
+    .split(/\n\s*\n/)
+    .map((para) => para.replace(/\s*\n\s*/g, " ").trim())
+    .filter(Boolean)
+    .join("\n\n");
+}
+
 function QuestionPreview({ row, onEdit, canManage }: { row: FlatQuestionRow; onEdit: () => void; canManage: boolean }) {
   const { t } = useTranslation("lms-question-authoring");
   const { question } = row;
@@ -512,7 +527,11 @@ function QuestionPreview({ row, onEdit, canManage }: { row: FlatQuestionRow; onE
           <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">{t("bankPage.questionPreview.audioSampleLabel")}</p>
           <div className="p-3 bg-blue-50/50 border border-blue-100 rounded-lg space-y-2">
             <audio controls src={question.audioUrl} className="w-full h-8" />
-            {question.referencePassage && <p className="text-[10px] text-blue-900 font-medium italic leading-relaxed">{question.referencePassage}</p>}
+            {question.referencePassage && (
+              <p className="text-[10px] text-blue-900 font-medium italic leading-relaxed whitespace-pre-line">
+                {normalizeReferencePassage(question.referencePassage)}
+              </p>
+            )}
           </div>
         </div>
       )}
@@ -538,7 +557,9 @@ function QuestionPreview({ row, onEdit, canManage }: { row: FlatQuestionRow; onE
 
       {question.questionType === "ESSAY" && (
         <div className="bg-white p-4 rounded-xl border border-slate-100 space-y-2">
-          {question.referencePassage && <p className="text-[11px] text-slate-600 bg-slate-50 p-2 rounded-lg">{question.referencePassage}</p>}
+          {question.referencePassage && (
+            <p className="text-[11px] text-slate-600 bg-slate-50 p-2 rounded-lg whitespace-pre-line">{normalizeReferencePassage(question.referencePassage)}</p>
+          )}
           <p className="text-[10px] text-slate-500 italic bg-amber-50/50 p-2 border border-amber-100 rounded">
             {t("bankPage.questionPreview.essayHint")}
           </p>
