@@ -477,6 +477,14 @@ export interface ReviewVideoSetResponse {
   createdBy: number;
   /** V98 — GV Việt Nam/nước ngoài phụ trách bộ video này. */
   teacherType: "VIETNAMESE" | "FOREIGN";
+  /**
+   * Bổ sung 2026-09-04 — tên Unit/SubTopic chứa Bộ video này (VD "UNIT 1: MY NEW SCHOOL" / "SUB TOPIC
+   * 1: SCHOOL ACTIVITIES AND SUBJECTS"), mirror ExamResponse#unitTitle/subTopicTitle — Bộ đặt tên dễ
+   * trùng lặp hình thức giữa nhiều Unit/SubTopic khác nhau. NULL khi Bộ chưa phân loại.
+   */
+  subTopicId: number | null;
+  subTopicTitle: string | null;
+  unitTitle: string | null;
 }
 
 export interface ReviewVideoResponse {

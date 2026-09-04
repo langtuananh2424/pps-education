@@ -737,6 +737,8 @@ export interface ReviewVideoSetResponse {
   /** V155 — Bộ thuộc Sub Topic nào trong mục lục sách (Sách/Khối -> Unit -> Sub Topic -> Bộ). NULL = chưa phân loại vào cấu trúc mới. */
   subTopicId: number | null;
   subTopicTitle: string | null;
+  /** Bổ sung 2026-09-04 — tên Unit chứa subTopic này, phân biệt Bộ trùng tên giữa các Unit khác nhau. */
+  unitTitle: string | null;
 }
 
 export interface CreateReviewVideoSetRequest {
