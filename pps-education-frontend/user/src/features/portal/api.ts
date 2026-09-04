@@ -794,6 +794,13 @@ export interface AssignedExerciseResponse {
   examId: number;
   examTitle: string;
   skillCategory: "READING" | "WRITING" | "VOCAB_GRAMMAR" | "LISTENING" | null;
+  /**
+   * Bổ sung 2026-09-04 — tên Unit/SubTopic chứa Lesson (Exam) này (VD "UNIT 1: MY NEW SCHOOL" / "SUB
+   * TOPIC 1: SCHOOL ACTIVITIES AND SUBJECTS") — Lesson đánh số lặp lại (Lesson 1, 2, 3...) giữa các
+   * Unit/SubTopic khác nhau nên chỉ hiện examTitle dễ nhầm lẫn. NULL khi Exam chưa phân loại.
+   */
+  unitTitle: string | null;
+  subTopicTitle: string | null;
 }
 
 export function listMyAssignedExercises(classId?: number): Promise<AssignedExerciseResponse[]> {

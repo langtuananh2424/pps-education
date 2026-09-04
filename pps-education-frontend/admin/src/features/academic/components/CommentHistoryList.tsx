@@ -234,7 +234,11 @@ export default function CommentHistoryList({
                         <option value="">{t("historyList.placeholders.chooseExercise")}</option>
                         {grammarOptions.map((ex) => (
                           <option key={ex.examId} value={ex.examId}>
-                            {ex.examCode} - {ex.examTitle} ({ex.exerciseCount} bài, {ex.questionCount} câu)
+                            {/* Bổ sung 2026-09-04 (đã xác nhận với người dùng) — mirror DailyCommentPanel.tsx: hiện
+                                Unit/SubTopic để phân biệt Lesson trùng tên. */}
+                            {ex.examCode} - {ex.examTitle}
+                            {(ex.unitTitle || ex.subTopicTitle) && ` [${[ex.unitTitle, ex.subTopicTitle].filter(Boolean).join(" · ")}]`} (
+                            {ex.exerciseCount} bài, {ex.questionCount} câu)
                           </option>
                         ))}
                       </Select>
