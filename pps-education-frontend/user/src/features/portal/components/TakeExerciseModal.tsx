@@ -972,7 +972,7 @@ export function QuestionBlock({
       <ListeningAudioBlock question={question} onEnded={() => onListeningEnded(question)} />
 
       {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — ảnh minh họa câu hỏi (ESSAY/WORD_BANK/SENTENCE_BUILDING), trước đây soạn có ảnh nhưng học sinh không thấy vì DTO chưa trả field này. */}
-      {question.imageUrl && <img src={question.imageUrl} alt="" className="w-full max-w-sm rounded-xl border border-line/60" />}
+      {question.imageUrl && <img src={question.imageUrl} alt="" className="w-full max-w-[240px] rounded-xl border border-line/60" />}
 
       {isChoiceQuestion && question.choices.some((c) => c.imageUrl) ? (
         // V143 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23) — Listening "chọn đáp án
@@ -1616,7 +1616,7 @@ export function GridQuestionGroup({
                * those", mỗi câu 1 ảnh khác nhau) — trước đây chỉ câu đơn lẻ (không thuộc nhóm) mới hiện
                * ảnh, khối "grid" này thiếu hẳn nên ảnh bị lưu nhưng học sinh không thấy.
                */}
-              {q.imageUrl && <img src={q.imageUrl} alt="" className="w-full max-w-sm rounded-xl border border-line/60" />}
+              {q.imageUrl && <img src={q.imageUrl} alt="" className="w-full max-w-[240px] rounded-xl border border-line/60" />}
 
               {/*
                * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — fix bug thật: trước đây
