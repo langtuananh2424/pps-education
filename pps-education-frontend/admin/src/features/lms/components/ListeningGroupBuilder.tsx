@@ -9,7 +9,22 @@ import { QuestionResponse, QuestionType, createExamQuestion, uploadMedia } from 
 const inputClass = "w-full bg-white border border-slate-200 text-xs px-3.5 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-red";
 const labelClass = "block font-bold text-slate-700 mb-1 uppercase tracking-wider text-[10px]";
 
-type ListeningSubKind = "VOICE_MULTIPLE_CHOICE" | "VOICE_PICTURE_CHOICE" | "LISTENING_AUDIO_SUBMISSION" | "LISTENING_FILL_IN_BLANK";
+export type ListeningSubKind = "VOICE_MULTIPLE_CHOICE" | "VOICE_PICTURE_CHOICE" | "LISTENING_AUDIO_SUBMISSION" | "LISTENING_FILL_IN_BLANK";
+
+/**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-03 — 1 nhóm nghe (audioUrl + groupKey dùng
+ * chung) đã có sẵn trong Bài đang soạn, dùng để GV chọn "thêm câu vào nhóm này" thay vì luôn phải tạo
+ * nhóm mới (trước đây groupKey chỉ tự sinh 1 lần bằng Date.now(), không cách nào lấy lại đúng nhóm cũ).
+ */
+export interface ExistingListeningGroup {
+  groupKey: string;
+  audioUrl: string;
+  referencePassage: string | null;
+  subKind: ListeningSubKind;
+  questionCount: number;
+  /** Nội dung câu hỏi đầu tiên trong nhóm (rút gọn), giúp GV nhận ra đúng nhóm khi có nhiều nhóm nghe trong 1 Bài. */
+  sampleContent: string;
+}
 
 const subKindMeta: Record<ListeningSubKind, { icon: typeof Volume2; activeClass: string; iconClass: string }> = {
   VOICE_MULTIPLE_CHOICE: { icon: Volume2, activeClass: "bg-blue-50 border-blue-400 text-blue-800 ring-1 ring-blue-300", iconClass: "text-blue-600" },
@@ -63,14 +78,23 @@ const MAX_OPTIONS = 8;
  */
 export default function ListeningGroupBuilder({
   examId,
+  existingGroups,
   onCreated,
   onCancel
 }: {
   examId: number;
+  /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-03 — các nhóm nghe đã có sẵn trong Bài đang soạn, cho phép chọn "thêm câu vào nhóm này". Rỗng/undefined = Bài chưa có nhóm nghe nào, chỉ tạo mới được. */
+  existingGroups?: ExistingListeningGroup[];
   onCreated: (questions: QuestionResponse[]) => void;
   onCancel: () => void;
 }) {
   const { t } = useTranslation("lms-question-authoring");
+  /**
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-03 — "new" = tạo nhóm nghe mới (hành vi
+   * cũ, groupKey tự sinh bằng Date.now() lúc submit); 1 groupKey cụ thể = đang thêm câu vào ĐÚNG nhóm
+   * đó (audioUrl/transcript/subKind khoá theo nhóm đã chọn, không cho sửa lại vì phải khớp các câu cũ).
+   */
+  const [appendTarget, setAppendTarget] = useState<string>("new");
   const [subKind, setSubKind] = useState<ListeningSubKind>("VOICE_MULTIPLE_CHOICE");
   const [audioUrl, setAudioUrl] = useState("");
   const [transcript, setTranscript] = useState("");
@@ -78,9 +102,26 @@ export default function ListeningGroupBuilder({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const isAppending = appendTarget !== "new";
+
   /** Đổi loại câu hỏi con: reset danh sách câu hỏi để không lẫn field của loại cũ (đáp án/option). */
   const handleSelectSubKind = (value: ListeningSubKind) => {
     setSubKind(value);
+    setQuestions([emptyQuestionRow(), emptyQuestionRow()]);
+  };
+
+  /** Chọn "thêm vào nhóm có sẵn" — khoá audioUrl/transcript/subKind theo đúng nhóm, chỉ còn soạn thêm câu mới. "new" quay lại tạo nhóm mới, trả các field về rỗng. */
+  const handleSelectAppendTarget = (value: string) => {
+    setAppendTarget(value);
+    const group = existingGroups?.find((g) => g.groupKey === value);
+    if (group) {
+      setSubKind(group.subKind);
+      setAudioUrl(group.audioUrl);
+      setTranscript(group.referencePassage ?? "");
+    } else {
+      setAudioUrl("");
+      setTranscript("");
+    }
     setQuestions([emptyQuestionRow(), emptyQuestionRow()]);
   };
 
@@ -153,7 +194,9 @@ export default function ListeningGroupBuilder({
 
     const questionType: QuestionType =
       subKind === "VOICE_MULTIPLE_CHOICE" || subKind === "VOICE_PICTURE_CHOICE" ? "MULTIPLE_CHOICE" : subKind === "LISTENING_AUDIO_SUBMISSION" ? "SPEAKING" : "FILL_IN_BLANK";
-    const groupKey = `listening-${Date.now()}`;
+    // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-03 — đang thêm vào nhóm có sẵn thì dùng
+    // ĐÚNG groupKey cũ (câu mới sẽ gộp chung nhóm với các câu đã có) thay vì luôn sinh groupKey mới.
+    const groupKey = isAppending ? appendTarget : `listening-${Date.now()}`;
     const referencePassage = transcript.trim() || undefined;
 
     setSubmitting(true);
@@ -204,6 +247,22 @@ export default function ListeningGroupBuilder({
     <form onSubmit={handleSubmit} className="space-y-4 text-xs">
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
+      {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-03 — chỉ hiện khi Bài đang soạn đã có sẵn ≥1 nhóm nghe (existingGroups), cho GV chọn thêm câu vào nhóm cũ thay vì luôn tạo nhóm mới. */}
+      {existingGroups && existingGroups.length > 0 && (
+        <div>
+          <label className={labelClass}>{t("listeningGroupBuilder.appendTargetLabel")}</label>
+          <select value={appendTarget} onChange={(e) => handleSelectAppendTarget(e.target.value)} className={inputClass}>
+            <option value="new">{t("listeningGroupBuilder.appendTargetNew")}</option>
+            {existingGroups.map((g) => (
+              <option key={g.groupKey} value={g.groupKey}>
+                {t("listeningGroupBuilder.appendTargetOption", { count: g.questionCount, content: g.sampleContent })}
+              </option>
+            ))}
+          </select>
+          {isAppending && <p className="text-[10px] text-slate-400 mt-1">{t("listeningGroupBuilder.appendTargetHint")}</p>}
+        </div>
+      )}
+
       <div>
         <label className={labelClass}>{t("listeningGroupBuilder.subKindLabel")}</label>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
@@ -214,8 +273,9 @@ export default function ListeningGroupBuilder({
               <button
                 key={value}
                 type="button"
+                disabled={isAppending}
                 onClick={() => handleSelectSubKind(value)}
-                className={`p-2.5 rounded-xl border font-bold flex flex-col items-center gap-1 transition-all ${
+                className={`p-2.5 rounded-xl border font-bold flex flex-col items-center gap-1 transition-all disabled:cursor-not-allowed disabled:opacity-60 ${
                   active ? `${meta.activeClass} shadow-xs` : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
                 }`}
               >
@@ -235,11 +295,24 @@ export default function ListeningGroupBuilder({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
             <label className="block font-bold text-slate-600 mb-1 text-[9px] uppercase">{t("common.audioFileLabel")}</label>
-            <FileUploadField value={audioUrl} onChange={setAudioUrl} onUpload={(file) => uploadMedia(file, "LMS_QUESTION")} accept="audio/*" placeholder={t("common.chooseAudioFile")} />
+            <FileUploadField
+              value={audioUrl}
+              onChange={setAudioUrl}
+              onUpload={(file) => uploadMedia(file, "LMS_QUESTION")}
+              accept="audio/*"
+              placeholder={t("common.chooseAudioFile")}
+              disabled={isAppending}
+            />
           </div>
           <div>
             <label className="block font-bold text-slate-600 mb-1 text-[9px] uppercase">{t("common.transcriptLabel")}</label>
-            <input value={transcript} onChange={(e) => setTranscript(e.target.value)} placeholder={t("common.transcriptPlaceholder")} className={inputClass} />
+            <input
+              value={transcript}
+              onChange={(e) => setTranscript(e.target.value)}
+              placeholder={t("common.transcriptPlaceholder")}
+              disabled={isAppending}
+              className={`${inputClass} disabled:opacity-60 disabled:cursor-not-allowed`}
+            />
           </div>
         </div>
       </div>
@@ -386,7 +459,11 @@ export default function ListeningGroupBuilder({
             {t("common.cancel")}
           </Button>
           <Button type="submit" variant="primary" disabled={submitting}>
-            {submitting ? t("common.creating") : t("listeningGroupBuilder.submitCreate", { count: questions.length })}
+            {submitting
+              ? t("common.creating")
+              : isAppending
+                ? t("listeningGroupBuilder.submitAppend", { count: questions.length })
+                : t("listeningGroupBuilder.submitCreate", { count: questions.length })}
           </Button>
         </div>
       </div>
