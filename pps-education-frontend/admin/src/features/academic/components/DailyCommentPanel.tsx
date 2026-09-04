@@ -1207,7 +1207,12 @@ export default function DailyCommentPanel() {
                       <option value="">{t("dailyCommentPanel.quickAssign.noAssign")}</option>
                       {readingOptions.map((ex) => (
                         <option key={ex.examId} value={ex.examId}>
-                          {ex.examCode} - {ex.examTitle} ({ex.exerciseCount} bài, {ex.questionCount} câu)
+                          {/* Bổ sung 2026-09-04 (đã xác nhận với người dùng) — fix bug thật: Lesson đánh số lặp
+                              lại (Lesson 1, 2, 3...) giữa nhiều Unit/SubTopic khác nhau, trước đây dropdown chỉ
+                              hiện examTitle nên giáo viên rất dễ giao NHẦM Lesson. */}
+                          {ex.examCode} - {ex.examTitle}
+                          {(ex.unitTitle || ex.subTopicTitle) && ` [${[ex.unitTitle, ex.subTopicTitle].filter(Boolean).join(" · ")}]`} (
+                          {ex.exerciseCount} bài, {ex.questionCount} câu)
                         </option>
                       ))}
                     </Select>
@@ -1223,7 +1228,12 @@ export default function DailyCommentPanel() {
                       <option value="">{t("dailyCommentPanel.quickAssign.noAssign")}</option>
                       {writingOptions.map((ex) => (
                         <option key={ex.examId} value={ex.examId}>
-                          {ex.examCode} - {ex.examTitle} ({ex.exerciseCount} bài, {ex.questionCount} câu)
+                          {/* Bổ sung 2026-09-04 (đã xác nhận với người dùng) — fix bug thật: Lesson đánh số lặp
+                              lại (Lesson 1, 2, 3...) giữa nhiều Unit/SubTopic khác nhau, trước đây dropdown chỉ
+                              hiện examTitle nên giáo viên rất dễ giao NHẦM Lesson. */}
+                          {ex.examCode} - {ex.examTitle}
+                          {(ex.unitTitle || ex.subTopicTitle) && ` [${[ex.unitTitle, ex.subTopicTitle].filter(Boolean).join(" · ")}]`} (
+                          {ex.exerciseCount} bài, {ex.questionCount} câu)
                         </option>
                       ))}
                     </Select>
@@ -1672,7 +1682,12 @@ export default function DailyCommentPanel() {
                               <option value="">{t("dailyCommentPanel.chooseExercisePlaceholder")}</option>
                               {readingOptions.map((ex) => (
                                 <option key={ex.examId} value={ex.examId}>
-                                  {ex.examCode} - {ex.examTitle} ({ex.exerciseCount} bài, {ex.questionCount} câu)
+                                  {/* Bổ sung 2026-09-04 (đã xác nhận với người dùng) — fix bug thật: Lesson đánh số lặp
+                              lại (Lesson 1, 2, 3...) giữa nhiều Unit/SubTopic khác nhau, trước đây dropdown chỉ
+                              hiện examTitle nên giáo viên rất dễ giao NHẦM Lesson. */}
+                          {ex.examCode} - {ex.examTitle}
+                          {(ex.unitTitle || ex.subTopicTitle) && ` [${[ex.unitTitle, ex.subTopicTitle].filter(Boolean).join(" · ")}]`} (
+                          {ex.exerciseCount} bài, {ex.questionCount} câu)
                                 </option>
                               ))}
                             </Select>
@@ -1692,7 +1707,12 @@ export default function DailyCommentPanel() {
                               <option value="">{t("dailyCommentPanel.chooseExercisePlaceholder")}</option>
                               {writingOptions.map((ex) => (
                                 <option key={ex.examId} value={ex.examId}>
-                                  {ex.examCode} - {ex.examTitle} ({ex.exerciseCount} bài, {ex.questionCount} câu)
+                                  {/* Bổ sung 2026-09-04 (đã xác nhận với người dùng) — fix bug thật: Lesson đánh số lặp
+                              lại (Lesson 1, 2, 3...) giữa nhiều Unit/SubTopic khác nhau, trước đây dropdown chỉ
+                              hiện examTitle nên giáo viên rất dễ giao NHẦM Lesson. */}
+                          {ex.examCode} - {ex.examTitle}
+                          {(ex.unitTitle || ex.subTopicTitle) && ` [${[ex.unitTitle, ex.subTopicTitle].filter(Boolean).join(" · ")}]`} (
+                          {ex.exerciseCount} bài, {ex.questionCount} câu)
                                 </option>
                               ))}
                             </Select>
@@ -1727,7 +1747,12 @@ export default function DailyCommentPanel() {
                           <option value="">{t("dailyCommentPanel.chooseExercisePlaceholder")}</option>
                           {filteredGrammarOptions.map((ex) => (
                             <option key={ex.examId} value={ex.examId}>
-                              {ex.examCode} - {ex.examTitle} ({ex.exerciseCount} bài, {ex.questionCount} câu)
+                              {/* Bổ sung 2026-09-04 (đã xác nhận với người dùng) — fix bug thật: Lesson đánh số lặp
+                              lại (Lesson 1, 2, 3...) giữa nhiều Unit/SubTopic khác nhau, trước đây dropdown chỉ
+                              hiện examTitle nên giáo viên rất dễ giao NHẦM Lesson. */}
+                          {ex.examCode} - {ex.examTitle}
+                          {(ex.unitTitle || ex.subTopicTitle) && ` [${[ex.unitTitle, ex.subTopicTitle].filter(Boolean).join(" · ")}]`} (
+                          {ex.exerciseCount} bài, {ex.questionCount} câu)
                             </option>
                           ))}
                         </Select>

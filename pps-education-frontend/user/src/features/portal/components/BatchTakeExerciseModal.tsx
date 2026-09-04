@@ -377,6 +377,13 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
               {t("assignments.batch.countSuffix", { count: subs.length })}
             </span>
             <h3 className="text-lg sm:text-xl lg:text-2xl font-extrabold text-ink truncate">{groupTitle}</h3>
+            {/* Bổ sung 2026-09-04 (đã xác nhận với người dùng) — mirror AssignmentsTab.tsx: hiện Unit/
+                SubTopic để phân biệt Lesson trùng tên (Lesson 1, 2, 3...) giữa các Unit khác nhau. */}
+            {(subs[0].item.unitTitle || subs[0].item.subTopicTitle) && (
+              <p className="text-xs font-bold text-muted truncate">
+                {[subs[0].item.unitTitle, subs[0].item.subTopicTitle].filter(Boolean).join(" · ")}
+              </p>
+            )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {/* V152 — nút "Xem đáp án & đóng lượt" tường minh, chỉ hiện khi CẢ LÔ đã đạt (từng Bài tự
