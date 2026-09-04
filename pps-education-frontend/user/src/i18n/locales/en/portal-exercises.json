@@ -301,6 +301,10 @@
       },
       "countSuffix": "({{count}} exercises)",
       "progressLabel": "Exercise {{index}}/{{total}} — {{title}}",
+      "action": {
+        "retake": "Retake whole lot"
+      },
+      "retakeSkippedNote": "No retakes left — view only",
       "summary": {
         "pendingTitle": "\"{{title}}\" submitted!",
         "passedTitle": "Congratulations — you completed \"{{title}}\"!",
