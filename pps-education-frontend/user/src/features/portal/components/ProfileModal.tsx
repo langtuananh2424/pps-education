@@ -6,7 +6,7 @@ import { getMyParentProfile, getMyParents, getMyStudentProfile, updateMyParentPr
 
 interface ProfileModalProps {
   fullName: string;
-  studentId: number | null;
+  studentCode: string | null;
   className: string | null;
   classCode: string | null;
   enrollmentStatus: string | null;
@@ -37,7 +37,7 @@ interface ProfileModalProps {
  */
 export default function ProfileModal({
   fullName,
-  studentId,
+  studentCode,
   className,
   classCode,
   enrollmentStatus,
@@ -184,7 +184,7 @@ export default function ProfileModal({
           </div>
           {avatarError && <p className="text-[10px] text-rose-500 font-bold -mt-4 mb-3">{avatarError}</p>}
           <p className="text-[11px] text-muted font-bold -mt-4 mb-6 flex items-center gap-1.5">
-            <User size={12} /> {t("profile.systemId", { id: studentId ?? "—" })}
+            <User size={12} /> {t("profile.systemId", { code: studentCode ?? "—" })}
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
