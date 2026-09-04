@@ -26,6 +26,25 @@ function chunkArray<T>(items: T[], size: number): T[][] {
   return rows;
 }
 
+/**
+ * V3 (bổ sung 2026-09-04, đã xác nhận với người dùng — mirror TakeExerciseModal.tsx bên app user vì
+ * không import chéo được) — chỉ coi dòng trống (2+ \n liên tiếp) là ranh giới đoạn văn thật (VD 3 đoạn
+ * Tom/Max/Anna của "Bài đọc hiểu — Lưới", GridQuestionBuilder nối bằng "\n\n" theo dạng "Tên: nội
+ * dung") — giữ lại làm dòng trống hiển thị, MỌI \n đơn lẻ còn lại (rác copy-paste Word/PDF) gộp thành
+ * khoảng trắng; đồng thời tách riêng tên nhân vật khỏi nội dung để hiện thành dòng tiêu đề in đậm
+ * riêng, khớp đúng hình thức đề giấy gốc — đoạn không khớp mẫu "Tên: nội dung" thì hiện nguyên văn.
+ */
+function parsePassageParagraphs(text: string): { name: string | null; content: string }[] {
+  return text
+    .split(/\n\s*\n/)
+    .map((para) => para.replace(/\s*\n\s*/g, " ").trim())
+    .filter(Boolean)
+    .map((para) => {
+      const match = para.match(/^([^:\n]{1,40}):\s*([\s\S]+)$/);
+      return match ? { name: match[1].trim(), content: match[2].trim() } : { name: null, content: para };
+    });
+}
+
 type RenderBlock =
   | { type: "single"; question: ExerciseQuestionResponse }
   | {
@@ -355,8 +374,18 @@ function SentenceBuildingPreview({ chunkPool }: { chunkPool: string[] }) {
 function GridQuestionGroupPreview({ block, startNumber }: { block: Extract<RenderBlock, { type: "grid" }>; startNumber: number }) {
   return (
     <div className="border border-slate-200 rounded-[16px] p-4 sm:p-5 space-y-3">
-      {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-03 — CHỦ Ý không dùng whitespace-pre-wrap (khác TakeExerciseModal gốc): dữ liệu referencePassage thường có sẵn dấu xuống dòng "cứng" copy từ Word/PDF gốc, giữ nguyên khiến đoạn văn ngắt dòng sớm theo dữ liệu thay vì trải đều hết chiều rộng khung, nhìn lệch hẳn sang trái. Để trình duyệt tự ngắt dòng theo chiều rộng thật (mirror ExercisePreviewModal đã làm đúng cách này). */}
-      {block.referencePassage && <p className="text-xs text-slate-600 bg-slate-50 rounded-xl p-3">{block.referencePassage}</p>}
+      {/* V3 2026-09-04 — xem Javadoc parsePassageParagraphs: mỗi đoạn hiện tên nhân vật thành dòng tiêu
+          đề in đậm riêng (khớp đúng hình thức đề giấy gốc), nội dung đoạn tự ngắt dòng theo khung. */}
+      {block.referencePassage && (
+        <div className="bg-slate-50 rounded-xl p-3 space-y-2">
+          {parsePassageParagraphs(block.referencePassage).map((p, i) => (
+            <div key={i}>
+              {p.name && <p className="text-xs font-black text-slate-800">{p.name}</p>}
+              <p className="text-xs text-slate-600 whitespace-pre-line">{p.content}</p>
+            </div>
+          ))}
+        </div>
+      )}
 
       {block.wordBox && block.wordBox.length > 0 && (
         <table className="w-full border-collapse text-xs text-slate-800">
