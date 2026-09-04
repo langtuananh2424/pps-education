@@ -13,5 +13,12 @@ public record HomeworkSkillGroupResponse(
         String examTeacherType,
         String skillCategory,
         int exerciseCount,
-        long questionCount
+        long questionCount,
+        /**
+         * Bổ sung 2026-09-04 (đã xác nhận với người dùng) — tên Unit/SubTopic chứa Lesson này — Lesson
+         * đánh số lặp lại (Lesson 1, 2, 3...) giữa nhiều Unit/SubTopic khác nhau, dropdown "BTVN buổi
+         * sau" (UC-21) chỉ hiện examTitle rất dễ giao NHẦM Lesson. NULL khi Exam chưa phân loại.
+         */
+        String unitTitle,
+        String subTopicTitle
 ) {}

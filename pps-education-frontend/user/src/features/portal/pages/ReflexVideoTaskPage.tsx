@@ -264,12 +264,25 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
     videoEndedRef.current = videoEnded;
   }, [videoEnded]);
 
-  /** Câu hỏi đang mở khoá gate video (video đang tạm dừng chờ) — null nghĩa là video đang chạy tự do. */
-  const [activeQuestionId, setActiveQuestionId] = useState<number | null>(null);
+  /**
+   * Câu hỏi đang mở khoá gate video (video đang tạm dừng chờ) — null nghĩa là video đang chạy tự do.
+   *
+   * Bổ sung 2026-09-04 (đã xác nhận với người dùng) — fix bug thật (báo qua test trên điện thoại: video
+   * không dừng theo mốc, chạy liền mạch): TRƯỚC ĐÂY đồng bộ ref qua useEffect (chạy SAU khi React commit,
+   * lệch 1 nhịp render) — activateQuestion() gọi setActiveQuestionId(q.id) RỒI pauseVideo() ngay trong
+   * cùng lượt thực thi, nhưng sự kiện "pause"/PAUSED trình duyệt bắn ra đôi khi tới TRƯỚC khi effect kịp
+   * chạy, khiến 2 guard "chặn tạm dừng ngoài ý muốn" (native onPause/YouTube PAUSED bên dưới) đọc phải
+   * activeQuestionIdRef.current còn là giá trị CŨ (null) — hiểu nhầm "video đang chạy tự do bị dừng
+   * ngoài ý muốn" nên tự ép chạy lại NGAY, huỷ luôn pause vừa gọi. Race này thắng/thua tuỳ engine/thiết
+   * bị nên trước đây test không phát hiện ra. Sửa đúng mirror 3 cờ khác trong file này (awaitingNextMark/
+   * userPaused/isReviewingVideo) — gán ref ĐỒNG BỘ NGAY LẬP TỨC qua wrapper, không chờ useEffect.
+   */
+  const [activeQuestionId, setActiveQuestionIdState] = useState<number | null>(null);
   const activeQuestionIdRef = useRef<number | null>(null);
-  useEffect(() => {
-    activeQuestionIdRef.current = activeQuestionId;
-  }, [activeQuestionId]);
+  const setActiveQuestionId = (value: number | null) => {
+    activeQuestionIdRef.current = value;
+    setActiveQuestionIdState(value);
+  };
   const triggeredQuestionIdsRef = useRef<Set<number>>(new Set());
   /**
    * V149 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23, mô tả lại lần 2 sau khi làm sai
@@ -440,7 +453,19 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
       // Câu THẬT đang mở bảng — chỉ còn việc theo dõi mốc câu KẾ TIẾP để tự dừng lúc đang cho nghe lại
       // trong lúc chuẩn bị nói (awaitingNextMarkRef=true, xem activateQuestion/handleContinueAfterWritingPass).
       // Bước viết (awaitingNextMarkRef=false) thì video đứng yên, không cần theo dõi gì thêm.
-      if (!awaitingNextMarkRef.current) return;
+      //
+      // Bổ sung 2026-09-04 (đã xác nhận với người dùng, báo qua test điện thoại thật — bảng viết mở
+      // đúng nhưng video vẫn tự chạy tiếp) — fix bug thật: lệnh pauseVideo() gọi 1 LẦN DUY NHẤT trong
+      // activateQuestion() có thể bị YouTube IFrame API trên di động BỎ LỠ/xử lý trễ qua postMessage
+      // (không có cách nào chờ xác nhận lệnh đã tới nơi) — video thực tế vẫn chạy dù state app đã đúng
+      // (activeQuestionId đã set, bảng đã mở). Poll đang chạy mỗi 250ms nên GỌI LẠI pauseVideo() ở MỌI
+      // tick trong lúc lẽ ra phải đứng yên (bước viết) — vô hại khi video đã thực sự dừng (gọi lại
+      // pauseVideo() trên video đang pause không có tác dụng phụ), nhưng đảm bảo tối đa ~250ms sau khi
+      // lệnh đầu bị lỡ thì lệnh kế tiếp sẽ bắt lại được, thay vì phó mặc đúng 1 lần duy nhất.
+      if (!awaitingNextMarkRef.current) {
+        pauseVideo();
+        return;
+      }
       const next = questions[idx + 1];
       if (next && currentSeconds >= next.timestampSeconds) {
         setAwaitingNextMark(false);

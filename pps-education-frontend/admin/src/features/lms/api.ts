@@ -329,6 +329,8 @@ export interface ExamResponse {
   questionBankId: number;
   subTopicId: number | null;
   subTopicTitle: string | null;
+  /** Bổ sung 2026-09-04 — tên Unit chứa subTopic này (VD "UNIT 1: MY NEW SCHOOL"), phân biệt Lesson trùng tên giữa các Unit/SubTopic khác nhau. */
+  unitTitle: string | null;
 }
 
 // ===================== V148: Curriculum (chương trình+khối) -> Sách -> Unit -> Sub Topic -> Lesson -> Bài =====================
@@ -692,6 +694,9 @@ export interface HomeworkSkillGroupResponse {
   skillCategory: ExerciseSkillCategory;
   exerciseCount: number;
   questionCount: number;
+  /** Bổ sung 2026-09-04 — tên Unit/SubTopic chứa Lesson này, phân biệt Lesson trùng tên giữa các Unit khác nhau. */
+  unitTitle: string | null;
+  subTopicTitle: string | null;
 }
 
 export function listHomeworkSkillGroupsForClass(classId: number, skillCategory: ExerciseSkillCategory): Promise<HomeworkSkillGroupResponse[]> {
@@ -732,6 +737,8 @@ export interface ReviewVideoSetResponse {
   /** V155 — Bộ thuộc Sub Topic nào trong mục lục sách (Sách/Khối -> Unit -> Sub Topic -> Bộ). NULL = chưa phân loại vào cấu trúc mới. */
   subTopicId: number | null;
   subTopicTitle: string | null;
+  /** Bổ sung 2026-09-04 — tên Unit chứa subTopic này, phân biệt Bộ trùng tên giữa các Unit khác nhau. */
+  unitTitle: string | null;
 }
 
 export interface CreateReviewVideoSetRequest {
