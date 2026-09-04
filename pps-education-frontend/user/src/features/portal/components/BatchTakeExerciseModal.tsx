@@ -70,9 +70,14 @@ interface BatchTakeExerciseModalProps {
  * 1 nút "Nộp bài" DUY NHẤT ở cuối trang nộp CẢ N attempt cùng lúc, ra 1 kết quả gộp.
  *
  * ĐƠN GIẢN HOÁ CÓ CHỦ Ý so với TakeExerciseModal (đã xác nhận phù hợp cho BTVN, không phải giờ kiểm
- * tra proctor chặt): KHÔNG có đồng hồ đếm ngược thời gian làm bài / giám sát chống gian lận / nút "Làm
- * lại" ngay trong màn gộp — nếu 1 Bài có timeLimitMinutes, BE vẫn tự chốt khi hết giờ lúc gọi
- * saveAnswer/submitAttempt như bình thường, chỉ là không có UI đếm ngược hiển thị ở đây.
+ * tra proctor chặt): KHÔNG có đồng hồ đếm ngược thời gian làm bài / giám sát chống gian lận — nếu 1 Bài
+ * có timeLimitMinutes, BE vẫn tự chốt khi hết giờ lúc gọi saveAnswer/submitAttempt như bình thường, chỉ
+ * là không có UI đếm ngược hiển thị ở đây.
+ *
+ * Bổ sung 2026-09-04 (đã xác nhận với người dùng) — ĐẢO NGƯỢC 1 phần quyết định trên: nút "Làm lại"
+ * (mô tả ở trên là cố tình bỏ) hoá ra là 1 lỗ hổng thật — {@code BatchExerciseCard} ở AssignmentsTab
+ * vẫn hiện badge "Cần làm lại" cho Lô có Bài trượt nhưng màn này không có cách nào thực hiện, xem
+ * Javadoc handleRetakeBatch.
  */
 export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExerciseModalProps) {
   const { t } = useTranslation("portal-exercises");
@@ -230,6 +235,44 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
   };
 
   /**
+   * Bổ sung 2026-09-04 (đã xác nhận với người dùng) — trước đây màn gộp KHÔNG có cách nào làm lại (xem
+   * Javadoc đầu file, quyết định đơn giản hoá 2026-08-25) — nhưng thẻ ở AssignmentsTab vẫn hiện "Cần làm
+   * lại" cho Lô có Bài trượt (needsRetake/anyRetake), bấm vào lại rơi đúng vào màn này — học sinh thấy rõ
+   * cần làm lại nhưng không có nút nào để làm. Bổ sung "Làm lại cả Lô": bấm 1 lần tạo lượt làm MỚI cho
+   * MỌI Bài trong Lô cùng lúc (giữ đúng tinh thần "làm liên tục cả Lô như 1 trang"), gọi lại startAttempt
+   * cho từng Bài — KHÔNG có khái niệm "lượt làm của cả Lô" ở BE (maxAttempts/attemptNumber vẫn tính
+   * riêng theo TỪNG Exercise, không đổi schema). Người dùng xác nhận hướng vận hành: đặt CÙNG số lượt
+   * làm lại cho mọi Bài trong 1 Lesson để tránh lệch — nhưng vẫn xử lý phòng hờ trường hợp lệch: Bài nào
+   * đã hết lượt riêng (item.canStartNewAttempt=false) thì BỎ QUA, giữ nguyên kết quả cũ chỉ-xem, KHÔNG
+   * chặn các Bài khác trong Lô vẫn còn lượt (xem retakeSkippedNote hiện ngay dưới tiêu đề Bài đó).
+   */
+  const handleRetakeBatch = async () => {
+    if (!subs) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const refreshed = await Promise.all(
+        subs.map(async (s) => (s.item.canStartNewAttempt ? { ...s, attempt: await startAttempt(s.item.exerciseId, s.item.assignmentId) } : s))
+      );
+      setSubs(refreshed);
+      setAnswersByQuestion((prev) => {
+        const next = new Map(prev);
+        refreshed.forEach((s, i) => {
+          if (subs[i].item.canStartNewAttempt) s.questions.forEach((q) => next.delete(q.questionId));
+        });
+        return next;
+      });
+      setTextDraft({});
+      setJustSubmitted(false);
+      setJustClosedEarly(false);
+    } catch (err) {
+      setError(friendlyApiErrorMessage(err, t("takeExercise.loadError")));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
    * V152 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — mirror TakeExerciseModal:
    * cả Lô ĐÃ ĐẠT (từng Bài trong Lô đều tự đạt ngưỡng riêng, không chỉ đạt % gộp) nhưng còn lượt làm
    * lại — học sinh tự nguyện dừng NGAY cả Lô để xem đáp án, đổi lại mất quyền làm lại. Đóng ĐỒNG THỜI
@@ -276,6 +319,9 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
 
   const hasActiveAttempt = subs.some((s) => s.attempt.status === "IN_PROGRESS" && !isSubOverdueLocked(s));
   const anyOverdueLocked = subs.some(isSubOverdueLocked);
+  /** Bổ sung 2026-09-04 — mirror điều kiện nút "Làm lại" của TakeExerciseModal (readOnly && canStartNewAttempt),
+   * áp cho CẢ Lô: chỉ hiện khi không còn Bài nào đang dở (đã nộp/chấm xong hết) và còn ÍT NHẤT 1 Bài còn lượt. */
+  const anyCanRetake = !hasActiveAttempt && !justClosedEarly && subs.some((s) => s.item.canStartNewAttempt);
   /** V152 — xem Javadoc handleRevealAndClose. */
   const canRevealAndClose =
     !justClosedEarly &&
@@ -344,6 +390,16 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
                 <KeyRound size={14} /> {t("takeExercise.revealAndClose.button")}
               </button>
             )}
+            {/* Bổ sung 2026-09-04 — xem Javadoc handleRetakeBatch. */}
+            {anyCanRetake && (
+              <button
+                onClick={handleRetakeBatch}
+                disabled={loading}
+                className="shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-teal/10 hover:bg-teal/20 text-teal-deep border border-teal/20 text-xs font-extrabold transition-colors disabled:opacity-60"
+              >
+                <RotateCcw size={14} /> {t("assignments.batch.action.retake")}
+              </button>
+            )}
             <button
               onClick={onClose}
               aria-label={t("takeExercise.closeAriaLabel")}
@@ -379,10 +435,18 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
             return (
               <div key={sub.item.exerciseId} className="space-y-3 lg:space-y-4">
                 <div className="flex items-center gap-2.5 pt-2 first:pt-0">
-                  <span className="shrink-0 text-[11px] sm:text-xs font-black uppercase tracking-wide text-white bg-coral rounded-full px-3 py-1">
+                  {/* Bổ sung 2026-09-04 (đã xác nhận với người dùng) — fix bug thật: bỏ shrink-0, tiêu đề
+                      Bài dài (GV gõ cả câu hướng dẫn vào ô Tiêu đề) trước đây giữ nguyên 1 dòng, tràn hẳn
+                      ra ngoài khung kéo theo cả trang cuộn ngang — giờ cho phép co lại để tự xuống dòng. */}
+                  <span className="text-[11px] sm:text-xs font-black uppercase tracking-wide text-white bg-coral rounded-full px-3 py-1">
                     {sub.item.title}
                   </span>
                   <span className="h-px flex-1 bg-line" />
+                  {/* Bổ sung 2026-09-04 — báo rõ vì sao Bài này không được làm lại cùng Lô khi bấm "Làm
+                      lại cả Lô" (xem handleRetakeBatch) — chỉ hiện khi Bài đã kết thúc VÀ hết lượt riêng. */}
+                  {sectionReadOnly && !sub.item.canStartNewAttempt && (
+                    <span className="shrink-0 text-[10px] font-bold text-muted italic">{t("assignments.batch.retakeSkippedNote")}</span>
+                  )}
                 </div>
                 {blocks.map((block) => {
                   const startNumber = counter + 1;

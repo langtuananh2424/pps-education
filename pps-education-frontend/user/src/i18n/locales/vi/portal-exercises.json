@@ -301,6 +301,10 @@
       },
       "countSuffix": "({{count}} bài)",
       "progressLabel": "Bài {{index}}/{{total}} — {{title}}",
+      "action": {
+        "retake": "Làm lại"
+      },
+      "retakeSkippedNote": "Đã hết lượt làm lại — chỉ xem lại kết quả",
       "summary": {
         "pendingTitle": "Đã nộp \"{{title}}\"!",
         "passedTitle": "Chúc mừng bạn đã hoàn thành \"{{title}}\"!",
