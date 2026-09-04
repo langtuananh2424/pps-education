@@ -796,6 +796,24 @@ UC-24: Làm bài kiểm tra trực tuyến
 > `PUT .../reflex-progress/speaking`, `GET /api/review-video-assignments/
 > {id}/reflex-progress` (xem `ReflexSequentialGradingController`).
 
+> **Bổ sung V150 (2026-09-04, đã xác nhận với người dùng) — BỎ rào chặn
+> chồng lấn khoảng ghi âm lúc soạn câu hỏi (đảo ngược quyết định
+> 2026-08-11):** trước V139 (luồng cũ, "video chạy liên tục, ghi âm tính
+> vào timeline"), `ReviewVideoService#addQuestion`/`updateQuestion` chặn
+> tạo/sửa 1 câu hỏi REFLEX nếu khoảng `[timestampSeconds, timestampSeconds
+> + maxRecordingSeconds)` chồng lấn câu hỏi khác trong cùng video — lý do
+> "video chỉ ghi âm được 1 câu tại 1 thời điểm, câu chồng giờ sẽ bị bỏ lỡ".
+> Từ V139, video REFLEX **dừng hẳn** xuyên suốt cả bước viết lẫn bước nói
+> của 1 câu (xem `ReflexVideoTaskPage.tsx`), chỉ chạy tiếp khi đạt CẢ 2
+> bước — thời gian ghi âm không còn tiêu tốn timeline video nữa nên rào
+> chặn cũ chỉ còn tác dụng chặn oan các cấu hình mốc hợp lệ (VD nhiều câu
+> writing chêm ngắn giữa các mốc gần nhau). Phát hiện qua bug thật: Giáo
+> viên tạo bộ mới, gắn câu hỏi thất bại ngay sau khi tạo set+video thành
+> công vì bị chặn nhầm. Đã xoá hẳn `ReviewVideoQuestionOverlapException` +
+> `requireNoOverlap` — 2 mốc gần/chồng nhau nay hợp lệ, không còn ràng
+> buộc nào giữa `timestampSeconds` của các câu hỏi khác nhau ngoài thứ tự
+> hiển thị (`displayOrder`, FE tự sắp theo `timestampSeconds` tăng dần).
+
 ---
 
 UC-25: Xem Portal Phụ huynh

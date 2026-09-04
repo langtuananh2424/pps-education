@@ -157,24 +157,31 @@ class ReviewVideoQuestionImportServiceTest extends AbstractIntegrationTest {
         assertThat(reviewVideoService.listQuestions(video.id(), teacher.getId())).isEmpty();
     }
 
+    /**
+     * V150 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-04) — THAY THẾ test cũ
+     * "rejectsOverlappingTimestampAcrossRows": rào chặn chồng lấn khoảng ghi âm đã bị BỎ vì dựa trên giả
+     * định luồng CŨ (video chạy liên tục, ghi âm tính vào timeline) — không còn đúng với UC-23b V2
+     * (2026-08-22, xem Javadoc {@link vn.com.pps.education.service.ReviewVideoService#addQuestion}): video
+     * REFLEX nay dừng hẳn trong lúc học sinh viết/nói, thời gian ghi âm không tiêu tốn timeline nữa. 2 mốc
+     * gần/chồng nhau nay hợp lệ.
+     */
     @Test
-    void importReflexQuestions_boSung_rejectsOverlappingTimestampAcrossRows() throws IOException {
+    void importReflexQuestions_V150_acceptsCloseOrOverlappingTimestampAcrossRows() throws IOException {
         ReviewVideoResponse video = createReflexVideo();
         byte[] file = buildExcel(
                 new String[]{"Mốc thời gian (giây)", "Thời lượng ghi âm tối đa (giây)"},
                 new String[][]{
                         {"10", "30"}, // khoảng [10,40)
-                        {"20", "10"}  // khoảng [20,30) chồng lấn dòng trên
+                        {"20", "10"}  // khoảng [20,30) chồng lấn dòng trên — nay KHÔNG còn bị chặn
                 });
 
         ReviewVideoQuestionImportResponse result = reviewVideoQuestionImportService.importReflexQuestions(
                 video.id(), new MockMultipartFile("file", "cau-hoi.xlsx", "application/vnd.openxmlformats", file), teacher.getId());
 
-        assertThat(result.status()).isEqualTo("PARTIAL_SUCCESS");
-        assertThat(result.successRows()).isEqualTo(1);
-        assertThat(result.failedRows()).isEqualTo(1);
-        assertThat(result.errorSummary().get(0).get("reason").toString()).contains("chồng lấn");
-        assertThat(reviewVideoService.listQuestions(video.id(), teacher.getId())).hasSize(1);
+        assertThat(result.status()).isEqualTo("COMPLETED");
+        assertThat(result.successRows()).isEqualTo(2);
+        assertThat(result.failedRows()).isEqualTo(0);
+        assertThat(reviewVideoService.listQuestions(video.id(), teacher.getId())).hasSize(2);
     }
 
     // ===================== CONNECTION =====================
