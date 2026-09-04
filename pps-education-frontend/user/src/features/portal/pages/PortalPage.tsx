@@ -60,6 +60,10 @@ export default function PortalPage() {
   // báo lỗi 2026-08-03). Chỉ áp dụng khi Học sinh tự xem (isStudent) — Phụ huynh xem con thì
   // ChildResponse chưa có portraitUrl, giữ chữ cái như cũ.
   const [viewerPortraitUrl, setViewerPortraitUrl] = useState<string | null>(null);
+  // ID hệ thống (auto-increment) không có ý nghĩa nghiệp vụ với người dùng — ProfileModal hiển thị
+  // studentCode (mã học sinh) thay vào đó. Học sinh tự xem lấy qua GET /students/me, Phụ huynh xem
+  // con lấy trực tiếp từ ChildResponse.studentCode (đã có sẵn, không cần gọi thêm API).
+  const [viewerStudentCode, setViewerStudentCode] = useState<string | null>(null);
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — bấm link "Bài ngữ pháp/nghe"/"Video
   // TKN/PX" ở tab Quá trình học tập nhảy sang tab BTVN + tự mở đúng bài (học sinh) hoặc cuộn/highlight
   // đúng dòng (phụ huynh). Set ở đây (cha chung của 2 tab) vì 2 tab là 2 component độc lập, không tự
@@ -96,7 +100,10 @@ export default function PortalPage() {
   useEffect(() => {
     if (!isStudent) return;
     getMyStudentProfile()
-      .then((p) => setViewerPortraitUrl(p.portraitUrl))
+      .then((p) => {
+        setViewerPortraitUrl(p.portraitUrl);
+        setViewerStudentCode(p.studentCode);
+      })
       .catch(() => undefined);
   }, [isStudent]);
 
@@ -238,7 +245,7 @@ export default function PortalPage() {
       {profileOpen && (
         <ProfileModal
           fullName={viewerName || "—"}
-          studentId={selectedChildId}
+          studentCode={isParent ? selectedChild?.studentCode ?? null : viewerStudentCode}
           className={currentClass?.className ?? null}
           classCode={currentClass?.classCode ?? null}
           enrollmentStatus={currentClass?.status ?? null}

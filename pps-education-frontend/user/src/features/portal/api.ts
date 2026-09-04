@@ -20,6 +20,7 @@ export function uploadMedia(file: File, module: MediaUploadModule): Promise<{ ur
 export interface MyStudentProfileResponse {
   id: number;
   fullName: string;
+  studentCode: string;
   portraitUrl: string | null;
 }
 
