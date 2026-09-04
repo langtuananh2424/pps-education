@@ -264,12 +264,25 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
     videoEndedRef.current = videoEnded;
   }, [videoEnded]);
 
-  /** Câu hỏi đang mở khoá gate video (video đang tạm dừng chờ) — null nghĩa là video đang chạy tự do. */
-  const [activeQuestionId, setActiveQuestionId] = useState<number | null>(null);
+  /**
+   * Câu hỏi đang mở khoá gate video (video đang tạm dừng chờ) — null nghĩa là video đang chạy tự do.
+   *
+   * Bổ sung 2026-09-04 (đã xác nhận với người dùng) — fix bug thật (báo qua test trên điện thoại: video
+   * không dừng theo mốc, chạy liền mạch): TRƯỚC ĐÂY đồng bộ ref qua useEffect (chạy SAU khi React commit,
+   * lệch 1 nhịp render) — activateQuestion() gọi setActiveQuestionId(q.id) RỒI pauseVideo() ngay trong
+   * cùng lượt thực thi, nhưng sự kiện "pause"/PAUSED trình duyệt bắn ra đôi khi tới TRƯỚC khi effect kịp
+   * chạy, khiến 2 guard "chặn tạm dừng ngoài ý muốn" (native onPause/YouTube PAUSED bên dưới) đọc phải
+   * activeQuestionIdRef.current còn là giá trị CŨ (null) — hiểu nhầm "video đang chạy tự do bị dừng
+   * ngoài ý muốn" nên tự ép chạy lại NGAY, huỷ luôn pause vừa gọi. Race này thắng/thua tuỳ engine/thiết
+   * bị nên trước đây test không phát hiện ra. Sửa đúng mirror 3 cờ khác trong file này (awaitingNextMark/
+   * userPaused/isReviewingVideo) — gán ref ĐỒNG BỘ NGAY LẬP TỨC qua wrapper, không chờ useEffect.
+   */
+  const [activeQuestionId, setActiveQuestionIdState] = useState<number | null>(null);
   const activeQuestionIdRef = useRef<number | null>(null);
-  useEffect(() => {
-    activeQuestionIdRef.current = activeQuestionId;
-  }, [activeQuestionId]);
+  const setActiveQuestionId = (value: number | null) => {
+    activeQuestionIdRef.current = value;
+    setActiveQuestionIdState(value);
+  };
   const triggeredQuestionIdsRef = useRef<Set<number>>(new Set());
   /**
    * V149 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23, mô tả lại lần 2 sau khi làm sai

@@ -445,7 +445,7 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
                   {/* Bổ sung 2026-09-04 (đã xác nhận với người dùng) — fix bug thật: bỏ shrink-0, tiêu đề
                       Bài dài (GV gõ cả câu hướng dẫn vào ô Tiêu đề) trước đây giữ nguyên 1 dòng, tràn hẳn
                       ra ngoài khung kéo theo cả trang cuộn ngang — giờ cho phép co lại để tự xuống dòng. */}
-                  <span className="text-[11px] sm:text-xs font-black uppercase tracking-wide text-white bg-coral rounded-full px-3 py-1">
+                  <span className="text-[11px] sm:text-xs font-black uppercase tracking-wide text-white bg-coral rounded-lg px-3 py-1">
                     {sub.item.title}
                   </span>
                   <span className="h-px flex-1 bg-line" />

@@ -27,6 +27,20 @@ function chunkArray<T>(items: T[], size: number): T[][] {
   return rows;
 }
 
+/**
+ * Bổ sung 2026-09-04 (đã xác nhận với người dùng, mirror ExerciseStudentPreviewModal.tsx cùng thư mục)
+ * — chỉ coi dòng trống (2+ \n liên tiếp) là ranh giới đoạn văn thật (VD 3 đoạn Tom/Max/Anna của "Bài
+ * đọc hiểu — Lưới", GridQuestionBuilder nối bằng "\n\n") — giữ lại làm dòng trống hiển thị; mọi \n đơn
+ * lẻ còn lại (rác copy-paste Word/PDF) gộp thành khoảng trắng.
+ */
+function normalizeReferencePassage(text: string): string {
+  return text
+    .split(/\n\s*\n/)
+    .map((para) => para.replace(/\s*\n\s*/g, " ").trim())
+    .filter(Boolean)
+    .join("\n\n");
+}
+
 interface ExercisePreviewModalProps {
   exercise: ExerciseResponse;
   onClose: () => void;
@@ -114,7 +128,9 @@ export default function ExercisePreviewModal({ exercise, onClose }: ExercisePrev
 
                 {q?.imageUrl && <img src={q.imageUrl} alt="" className="max-h-40 rounded-lg mb-2" />}
                 {q?.audioUrl && <audio controls src={q.audioUrl} className="mb-2 w-full" />}
-                {q?.referencePassage && <p className="text-xs text-slate-500 bg-slate-50 p-2 rounded-lg mb-2">{q.referencePassage}</p>}
+                {q?.referencePassage && (
+                  <p className="text-xs text-slate-500 bg-slate-50 p-2 rounded-lg mb-2 whitespace-pre-line">{normalizeReferencePassage(q.referencePassage)}</p>
+                )}
                 {/* Bổ sung 2026-08-28 (đã xác nhận với người dùng) — hộp từ vựng tham khảo tĩnh (FillInBlankGroupBuilder), xem cùng khái niệm ở TakeExerciseModal.tsx. Dựng bằng <table> để khớp đúng bảng trong đề giấy gốc. */}
                 {q?.structuredContent?.wordBox && q.structuredContent.wordBox.length > 0 && (
                   <table className="w-full border-collapse text-[11px] mb-2">
