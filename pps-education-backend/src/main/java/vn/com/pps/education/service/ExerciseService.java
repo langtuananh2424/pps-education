@@ -629,7 +629,9 @@ public class ExerciseService {
                 e.getExerciseType().name(), e.getSkillCategory() == null ? null : e.getSkillCategory().name(),
                 e.getTotalPoints(), e.getTimeLimitMinutes(), e.isAllowRetake(),
                 e.getMaxAttempts(), e.isShowCorrectAnswers(), e.getPassThresholdPercent(), e.getStatus().name(),
-                e.getCreatedBy().getId(), hasEssayOrSpeaking);
+                e.getCreatedBy().getId(), hasEssayOrSpeaking,
+                e.getExam().getSubTopic() == null ? null : e.getExam().getSubTopic().getUnit().getTitle(),
+                e.getExam().getSubTopic() == null ? null : e.getExam().getSubTopic().getTitle());
     }
 
     private ExerciseQuestionResponse toResponse(ExerciseQuestion eq) {

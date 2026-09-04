@@ -554,6 +554,13 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
         <div className="max-w-2xl lg:max-w-3xl w-full mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
           <div className="min-w-0">
             <h3 className="text-lg sm:text-xl lg:text-2xl font-extrabold text-ink truncate">{item.title}</h3>
+            {/* Bổ sung 2026-09-04 (đã xác nhận với người dùng) — mirror AssignmentsTab.tsx/
+                BatchTakeExerciseModal.tsx: hiện Lesson + Unit/SubTopic để phân biệt Lesson trùng tên. */}
+            {(item.unitTitle || item.subTopicTitle) && (
+              <p className="text-xs font-bold text-muted truncate">
+                {item.examTitle} · {[item.unitTitle, item.subTopicTitle].filter(Boolean).join(" · ")}
+              </p>
+            )}
             {attempt && (
               <p className="text-[10px] sm:text-xs text-muted font-bold mt-0.5">
                 {t("takeExercise.attemptNumber", { number: attempt.attemptNumber })} ·{" "}
