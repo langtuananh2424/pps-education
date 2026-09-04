@@ -88,7 +88,10 @@ export default function ClassesPage() {
       <div className={`grid grid-cols-1 ${isClassAdmin ? "lg:grid-cols-5" : ""} gap-6`}>
         {isClassAdmin && (
           <ClassListPanel
-            classes={classes.filter((c) => !query.trim() || c.name.toLowerCase().includes(query.toLowerCase()) || c.classCode.toLowerCase().includes(query.toLowerCase()))}
+            classes={classes
+              .filter((c) => !query.trim() || c.name.toLowerCase().includes(query.toLowerCase()) || c.classCode.toLowerCase().includes(query.toLowerCase()))
+              // Lớp "Đã hủy" đẩy xuống cuối danh sách, không xen giữa các lớp còn hoạt động.
+              .sort((a, b) => Number(a.status === "CANCELLED") - Number(b.status === "CANCELLED"))}
             loading={loading}
             selectedId={selectedId}
             onSelect={setSelectedId}
