@@ -509,15 +509,18 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
     <div className="fixed inset-0 bg-white z-[100] flex flex-col">
       {/* Popup cảnh báo tức thời — hiện ngay lúc phát hiện vi phạm mới, tự mờ dần sau ~3.5s, khác banner
           tĩnh bên dưới (chỉ đổi số đếm, học sinh dễ không để ý). Neo "fixed" ở gốc màn hình để luôn nổi
-          trên cùng bất kể đang cuộn tới đâu bên trong nội dung đề. */}
+          trên cùng bất kể đang cuộn tới đâu bên trong nội dung đề.
+          Bổ sung 2026-09-04 (fix bug thật, đã xác nhận với người dùng) — canh giữa theo ĐÚNG khung nội dung
+          header (max-w-2xl lg:max-w-3xl mx-auto) thay vì canh giữa theo cả viewport trình duyệt — 2 khung
+          khác chiều rộng nên trước đây nhìn lệch hẳn sang trái so với tiêu đề/badge phía trên. */}
       {justViolated && !stoppedByViolation && (
-        <div
-          key={violationCount}
-          role="alert"
-          className="fixed top-4 sm:top-6 left-1/2 -translate-x-1/2 z-[110] flex items-center gap-2 bg-rose-600 text-white pl-3 pr-4 py-2.5 rounded-2xl shadow-xl animate-alert-pop max-w-[92vw]"
-        >
-          <ShieldAlert size={18} className="shrink-0" />
-          <span className="text-xs font-black">{t("monitoring.violationToast")}</span>
+        <div className="fixed top-16 sm:top-20 inset-x-0 z-[110] px-4 sm:px-6 flex justify-center">
+          <div className="max-w-2xl lg:max-w-3xl w-full flex justify-center">
+            <div key={violationCount} role="alert" className="flex items-center gap-2 bg-rose-600 text-white pl-3 pr-4 py-2.5 rounded-2xl shadow-xl animate-alert-pop-centered max-w-full">
+              <ShieldAlert size={18} className="shrink-0" />
+              <span className="text-xs font-black">{t("monitoring.violationToast")}</span>
+            </div>
+          </div>
         </div>
       )}
 
