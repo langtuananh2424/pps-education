@@ -155,7 +155,6 @@ public class ReviewVideoService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final AttemptIntegrityService attemptIntegrityService;
-    private final ReviewVideoSettings reviewVideoSettings;
     private final PermissionEvaluationService permissionEvaluationService;
     /** V71: chạy riêng 1 giao dịch lồng (PROPAGATION_REQUIRES_NEW) khi thử tạo bản giao — race thua (bắt
      * DataIntegrityViolationException do UNIQUE index) chỉ rollback đúng giao dịch con này, không kéo
@@ -196,7 +195,6 @@ public class ReviewVideoService {
                                UserRepository userRepository,
                                NotificationService notificationService,
                                AttemptIntegrityService attemptIntegrityService,
-                               ReviewVideoSettings reviewVideoSettings,
                                PermissionEvaluationService permissionEvaluationService,
                                PlatformTransactionManager transactionManager) {
         this.reviewVideoSetRepository = reviewVideoSetRepository;
@@ -223,7 +221,6 @@ public class ReviewVideoService {
         this.userRepository = userRepository;
         this.notificationService = notificationService;
         this.attemptIntegrityService = attemptIntegrityService;
-        this.reviewVideoSettings = reviewVideoSettings;
         this.permissionEvaluationService = permissionEvaluationService;
         this.requiresNewTransactionTemplate = new TransactionTemplate(transactionManager);
         this.requiresNewTransactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
@@ -1021,12 +1018,27 @@ public class ReviewVideoService {
     }
 
     /**
+     * V160 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-05) — số lần tối đa học sinh được
+     * nộp CẢ BỘ câu hỏi CONNECTION cho 1 lượt xem trước khi lượt đó bị coi là không đạt.
+     */
+    private static final int MAX_CONNECTION_QUIZ_ATTEMPTS = 2;
+
+    /**
      * V83 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng): học sinh nộp
      * TOÀN BỘ câu trả lời trắc nghiệm cho ĐÚNG 1 lượt xem (watchSessionId) —
      * khớp cặp 1-1 "xem lượt nào, trả lời lượt đó". Chặn nếu lượt CHƯA đạt
      * ngưỡng xem (chưa xem xong thì chưa được làm câu hỏi) hoặc lượt đó ĐÃ
-     * nộp đủ rồi (không cho nộp lại/đổi đáp án). Trả kết quả tự chấm ngay +
+     * kết thúc rồi (không cho nộp lại/đổi đáp án). Trả kết quả tự chấm ngay +
      * tiến độ mới nhất (viewCount có thể vừa tăng thêm 1).
+     *
+     * V160 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-05) — lượt chỉ THẬT SỰ kết thúc
+     * ("finalized") khi đúng 100% CÂU HỎI, HOẶC đã dùng hết {@link #MAX_CONNECTION_QUIZ_ATTEMPTS} lần mà
+     * vẫn sai. Sai nhưng còn lượt thử thì {@code quizCompletedAt} vẫn để NULL — cho phép gọi lại
+     * endpoint này với CÙNG watchSessionId để nộp lại CẢ FORM (không phải riêng câu sai); câu trả lời của
+     * lần nộp trước được CẬP NHẬT TẠI CHỖ (không xoá-rồi-tạo-mới — Hibernate flush INSERT trước DELETE
+     * trong cùng transaction nên xoá-rồi-tạo-mới vi phạm ngay UNIQUE(question, watch_session), đã gặp lỗi
+     * 500 thực tế) — chỉ giữ kết quả lần nộp cuối cùng, không giữ lịch sử lần sai đầu (đã xác nhận với
+     * người dùng).
      */
     @Transactional
     public ReviewVideoConnectionQuizResultResponse submitConnectionAnswers(
@@ -1069,6 +1081,14 @@ public class ReviewVideoService {
                     "Phải trả lời đúng nhóm câu hỏi của lượt xem này — không thiếu, không thừa.");
         }
 
+        // V160 — đây có thể là lần nộp lại (retry cả form): CẬP NHẬT TẠI CHỖ answer cũ của lượt này thay
+        // vì xoá-rồi-tạo-mới — Hibernate flush INSERT trước DELETE trong cùng transaction nên xoá-rồi-tạo
+        // mới vi phạm ngay UNIQUE(question, watch_session) (đã gặp lỗi 500 thực tế). Cập nhật tại chỗ vừa
+        // tránh race đó vừa tự nhiên chỉ giữ kết quả lần nộp cuối cùng (đã xác nhận với người dùng).
+        Map<Long, ReviewVideoConnectionAnswer> existingAnswersByQuestionId = reviewVideoConnectionAnswerRepository
+                .findByWatchSessionId(session.getId()).stream()
+                .collect(Collectors.toMap(a -> a.getReviewVideoConnectionQuestion().getId(), a -> a));
+
         List<ConnectionAnswerResult> results = new ArrayList<>();
         for (var item : request.answers()) {
             ReviewVideoConnectionQuestion question = questions.stream()
@@ -1082,22 +1102,31 @@ public class ReviewVideoService {
             ReviewVideoConnectionChoice correctChoice = choices.stream().filter(ReviewVideoConnectionChoice::isCorrect)
                     .findFirst().orElse(null);
 
-            ReviewVideoConnectionAnswer answer = new ReviewVideoConnectionAnswer();
+            ReviewVideoConnectionAnswer answer = existingAnswersByQuestionId.getOrDefault(
+                    question.getId(), new ReviewVideoConnectionAnswer());
             answer.setReviewVideoConnectionQuestion(question);
             answer.setWatchSession(session);
             answer.setStudent(student);
             answer.setSelectedChoice(selected);
             answer.setCorrect(selected.isCorrect());
+            answer.setAnsweredAt(OffsetDateTime.now());
             reviewVideoConnectionAnswerRepository.save(answer);
 
             results.add(new ConnectionAnswerResult(question.getId(), selected.getId(), selected.isCorrect(),
                     correctChoice == null ? null : correctChoice.getId()));
         }
 
-        session.setQuizCompletedAt(OffsetDateTime.now());
+        session.setQuizAttemptCount(session.getQuizAttemptCount() + 1);
+        boolean allCorrect = results.stream().allMatch(ConnectionAnswerResult::correct);
+        boolean finalized = allCorrect || session.getQuizAttemptCount() >= MAX_CONNECTION_QUIZ_ATTEMPTS;
+        if (finalized) {
+            session.setQuizPassed(allCorrect);
+            session.setQuizCompletedAt(OffsetDateTime.now());
+        }
         reviewVideoWatchSessionRepository.save(session);
         ReviewVideoProgress progress = recomputeProgress(video, student, assignment);
-        return new ReviewVideoConnectionQuizResultResponse(results, toResponse(progress, video));
+        return new ReviewVideoConnectionQuizResultResponse(results, toResponse(progress, video),
+                finalized, allCorrect, session.getQuizAttemptCount(), MAX_CONNECTION_QUIZ_ATTEMPTS);
     }
 
     /**
@@ -1709,31 +1738,35 @@ public class ReviewVideoService {
      * V83 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng): tách từ
      * reportProgress thành helper dùng chung cho CẢ reportProgress LẪN
      * submitConnectionAnswers — video CONNECTION tính viewCount theo lượt
-     * xem VỪA đạt ngưỡng VỪA đã nộp đủ câu hỏi (quizCompletedAt khác NULL);
-     * video khác (REFLEX, nếu có gọi watch-session) giữ nguyên công thức cũ
-     * (chỉ cần qualified) — không đổi hành vi REFLEX.
+     * xem VỪA đạt ngưỡng VỪA đã nộp đủ câu hỏi ĐÚNG (xem V160); video khác
+     * (REFLEX, nếu có gọi watch-session) giữ nguyên công thức cũ (chỉ cần
+     * qualified) — không đổi hành vi REFLEX.
      *
      * V93/V101 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06,
-     * giảm mặc định 80%→70% ngày 2026-08-07):
-     * "đạt" (completed) của CONNECTION đổi từ đủ SỐ LƯỢT tuyệt đối
-     * (viewCount >= requiredViewCount) sang TỶ LỆ %
+     * giảm mặc định 80%→70% ngày 2026-08-07, ĐÃ REVERT ở V160 — xem ghi chú
+     * dưới): từng đổi "đạt" (completed) của CONNECTION từ đủ SỐ LƯỢT tuyệt
+     * đối (viewCount >= requiredViewCount) sang TỶ LỆ %
      * (viewCount/requiredViewCount >= ReviewVideoSettings#completionPassThresholdPercent,
      * mặc định 70%) — VD yêu cầu 4 lượt, xem+nộp đúng 3 lượt = 75%, ĐẠT.
-     * REFLEX giữ nguyên công thức cũ (không đổi hành vi, xem ghi chú V83
-     * phía trên).
+     *
+     * V160 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-05) —
+     * REVERT V93/V101: công thức TỶ LỆ % ở trên khiến hệ thống khoá không
+     * cho xem lượt cuối (VD 3/4 = 75% ≥ 70% đã coi "hoàn thành", chặn lượt
+     * thứ 4) — trái với chính đặc tả V115 (completed = viewCount tuyệt đối,
+     * tách biệt khỏi điểm pass). Quay lại đúng V115: completed = đủ SỐ LƯỢT
+     * tuyệt đối cho CẢ 2 loại video, không dùng completionPassThresholdPercent
+     * nữa cho mục đích này (field này vẫn dùng cho isConnectionVideoPassed).
      */
     private ReviewVideoProgress recomputeProgress(ReviewVideo video, Student student, ReviewVideoAssignment assignment) {
         ReviewVideoProgress progress = getOrCreateProgress(video, student, assignment);
         boolean requiresQuiz = video.getReviewVideoSet().getVideoType() == ReviewVideoSet.VideoType.CONNECTION;
         int viewCount = requiresQuiz
-                ? reviewVideoWatchSessionRepository.countByReviewVideoIdAndStudentIdAndReviewVideoAssignmentIdAndQualifiedTrueAndQuizCompletedAtIsNotNull(
+                ? reviewVideoWatchSessionRepository.countByReviewVideoIdAndStudentIdAndReviewVideoAssignmentIdAndQualifiedTrueAndQuizPassedTrue(
                         video.getId(), student.getId(), assignment.getId())
                 : reviewVideoWatchSessionRepository.countByReviewVideoIdAndStudentIdAndReviewVideoAssignmentIdAndQualifiedTrue(
                         video.getId(), student.getId(), assignment.getId());
         progress.setViewCount(viewCount);
-        boolean completed = requiresQuiz
-                ? viewCount * 100.0 / video.getRequiredViewCount() >= reviewVideoSettings.completionPassThresholdPercent()
-                : viewCount >= video.getRequiredViewCount();
+        boolean completed = viewCount >= video.getRequiredViewCount();
         progress.setCompleted(completed);
         return reviewVideoProgressRepository.save(progress);
     }
