@@ -1417,7 +1417,13 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
     void writeComment_V167_MainFlow_defaultDueDateUsesSameDayLaterSessionOfSameTeacherType() {
         GrammarFixture fixture = createGrammarOnlineExercise();
         Site site = siteOf(schoolClass);
-        seedPeriod(site, 3, classSession.startTime().plusHours(2), classSession.startTime().plusHours(3).plusMinutes(35));
+        // withNano(0): classSession.startTime() gốc từ LocalTime.now() (setUp) mang theo nanosecond thật
+        // của đồng hồ máy chạy test — Postgres timestamptz chỉ lưu tới microsecond, nên nếu giữ nguyên
+        // nanosecond đó, expectedDueAt tính tay dưới đây (chưa qua DB) sẽ lệch 3 chữ số cuối so với
+        // submitted.homeworkNextDueAt() (đã qua DB, bị cắt bớt) — vỡ assertEquals dù logic đúng. Cắt về
+        // giây tròn (mirror seedPeriod(site, 2, LocalTime.of(8, 0), ...) đã dùng hằng số sạch).
+        LocalTime period3Start = classSession.startTime().withNano(0).plusHours(2);
+        seedPeriod(site, 3, period3Start, period3Start.plusHours(1).plusMinutes(35));
         Room room = newRoom(site);
         ClassSessionResponse sameDayLaterSession = classSessionService.createSession(schoolClass.id(),
                 new CreateClassSessionRequest(classSession.sessionDate(), "MORNING", List.of(3), room.getId(), "REGULAR", "VIETNAMESE",
