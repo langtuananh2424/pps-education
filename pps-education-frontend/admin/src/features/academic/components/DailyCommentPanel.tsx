@@ -609,7 +609,16 @@ export default function DailyCommentPanel() {
     }
   };
 
-  /** "Loại giáo viên" (2026-08-05) — lưu ngược vào buổi học, mirror handleSaveLessonContent. */
+  /**
+   * "Loại giáo viên" (2026-08-05) — lưu ngược vào buổi học, mirror handleSaveLessonContent.
+   *
+   * Bổ sung 2026-09-05 (fix bug thật, đã xác nhận với người dùng) — previewAutoProgress (nguồn 4 cột
+   * "BTVN buổi trước" tự động: Ngữ pháp/Video/Reading/Writing) chỉ được gọi 1 lần lúc chọn buổi (xem
+   * effect load rows), tính theo teacher_type CỦA BUỔI tại thời điểm gọi. Đổi teacher_type ở đây
+   * KHÔNG tự refetch lại — số cũ (tính theo loại GV CŨ, VD Video kết nối) bị đông cứng và hiện lại y
+   * hệt dưới nhãn cột MỚI (VD Clip phản xạ) sau khi đổi tab, sai hoàn toàn ý nghĩa cột. Refetch ngay
+   * sau khi đổi loại GV thành công để 4 cột này tính lại đúng theo teacher_type mới.
+   */
   const handleChangeTeacherType = async (type: TeacherType) => {
     if (!selectedSessionId || savingTeacherType || type === teacherType) return;
     setSavingTeacherType(true);
@@ -618,6 +627,9 @@ export default function DailyCommentPanel() {
       await updateSessionTeacherType(selectedSessionId, type);
       setSessions((prev) => prev.map((s) => (s.id === selectedSessionId ? { ...s, teacherType: type } : s)));
       setTeacherType(type);
+      previewAutoProgress(selectedSessionId)
+        .then((list) => setAutoProgress(Object.fromEntries(list.map((p) => [p.studentId, p]))))
+        .catch(() => undefined);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t("dailyCommentPanel.errors.teacherTypeSaveFailed"));
     } finally {

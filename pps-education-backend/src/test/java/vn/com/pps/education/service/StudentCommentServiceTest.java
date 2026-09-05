@@ -1406,6 +1406,40 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
     }
 
     /**
+     * V167 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-05) — fix bug thật: "buổi kế
+     * tiếp" dùng tính hạn nộp mặc định trước đây chỉ so `sessionDate > sessionDate`, KHÔNG phân biệt
+     * được 2 buổi CÙNG NGÀY (VD lớp có buổi sáng + buổi chiều cùng ngày, rất phổ biến khi có cả GV
+     * Việt Nam lẫn GV nước ngoài dạy cùng 1 ngày) — buổi sáng sẽ NHẢY QUA buổi chiều cùng ngày (cùng
+     * loại GV) để tìm sang tận ngày lịch SAU đó, sai hoàn toàn "buổi liền kế tiếp". Test: buổi kế tiếp
+     * CÙNG NGÀY, giờ sau, cùng loại GV, phải được chọn làm hạn nộp mặc định — không nhảy xa hơn.
+     */
+    @Test
+    void writeComment_V167_MainFlow_defaultDueDateUsesSameDayLaterSessionOfSameTeacherType() {
+        GrammarFixture fixture = createGrammarOnlineExercise();
+        Site site = siteOf(schoolClass);
+        // withNano(0): classSession.startTime() gốc từ LocalTime.now() (setUp) mang theo nanosecond thật
+        // của đồng hồ máy chạy test — Postgres timestamptz chỉ lưu tới microsecond, nên nếu giữ nguyên
+        // nanosecond đó, expectedDueAt tính tay dưới đây (chưa qua DB) sẽ lệch 3 chữ số cuối so với
+        // submitted.homeworkNextDueAt() (đã qua DB, bị cắt bớt) — vỡ assertEquals dù logic đúng. Cắt về
+        // giây tròn (mirror seedPeriod(site, 2, LocalTime.of(8, 0), ...) đã dùng hằng số sạch).
+        LocalTime period3Start = classSession.startTime().withNano(0).plusHours(2);
+        seedPeriod(site, 3, period3Start, period3Start.plusHours(1).plusMinutes(35));
+        Room room = newRoom(site);
+        ClassSessionResponse sameDayLaterSession = classSessionService.createSession(schoolClass.id(),
+                new CreateClassSessionRequest(classSession.sessionDate(), "MORNING", List.of(3), room.getId(), "REGULAR", "VIETNAMESE",
+                        teacher.getId(), null, null, null),
+                headAcademic.getId());
+
+        StudentCommentResponse comment = writeDailyCommentWithHomeworkNext(student, classSession, fixture.exercise().examId(), null);
+        StudentCommentResponse submitted = studentCommentService.submitComments(schoolClass.id(),
+                new SubmitCommentsRequest(List.of(comment.id())), teacher.getId()).get(0);
+
+        OffsetDateTime expectedDueAt = sameDayLaterSession.sessionDate().atTime(sameDayLaterSession.startTime())
+                .atZone(ZoneId.of("Asia/Ho_Chi_Minh")).toOffsetDateTime();
+        assertThat(submitted.homeworkNextDueAt()).isEqualTo(expectedDueAt);
+    }
+
+    /**
      * Câu hỏi mở #2 (đã chốt 2026-07-30), SỬA LẠI V127 (bổ sung ngoài SDD gốc, đã xác nhận với người
      * dùng 2026-08-19) — trước V127, đổi lựa chọn khi còn DRAFT huỷ bản giao cũ + tạo bản mới NGAY (vì
      * giao bài xảy ra ngay lúc Lưu nháp). Giờ giao bài chỉ xảy ra lúc Gửi — đổi lựa chọn lúc còn Nháp
