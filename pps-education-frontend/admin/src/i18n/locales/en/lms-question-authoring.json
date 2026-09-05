@@ -265,6 +265,7 @@
     "questionNumber": "Question {{index}}.",
     "speakingHint": "Students record their answer — graded manually in Grading Queue.",
     "essayHint": "Students submit an essay answer — graded manually in Grading Queue.",
+    "fillInBlankAnswer": "Correct answer: {{answer}}",
     "wordBankAnswerOrder": "Correct answers in blank order: {{answers}}",
     "sentenceBuildingOrder": "Correct sentence order: {{order}}",
     "explanationPrefix": "Explanation: {{text}}"

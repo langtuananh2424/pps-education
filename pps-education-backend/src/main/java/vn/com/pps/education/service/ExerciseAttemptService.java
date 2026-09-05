@@ -55,9 +55,10 @@ import java.util.stream.Collectors;
  * .claude/rules/solid.md — không tách khi cùng 1 nghiệp vụ lõi).
  *
  * Auto-gradable = MULTIPLE_CHOICE/MULTIPLE_ANSWER/TRUE_FALSE (so khớp
- * question_choices.is_correct) và FILL_IN_BLANK (so khớp CHÍNH XÁC,
- * case-insensitive + trim, với questions.correct_answer_text — V54, bổ
- * sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-27).
+ * question_choices.is_correct) và FILL_IN_BLANK (so khớp case-insensitive +
+ * trim, với questions.correct_answer_text — V54, bổ sung ngoài SDD gốc, đã
+ * xác nhận với người dùng 2026-07-27; V166 nới lỏng thêm 2026-09-05 — bỏ
+ * dấu câu Ở CUỐI chuỗi trước khi so khớp, xem {@link #stripTrailingPunctuation}).
  * ESSAY/SPEAKING KHÔNG tự chấm được vì SDD không có cột đáp án tham
  * khảo dạng chấm được cho 2 loại này — luôn chờ Giáo viên chấm thủ công
  * (UC-41).
@@ -612,7 +613,8 @@ public class ExerciseAttemptService {
         if (question.getQuestionType() == Question.QuestionType.FILL_IN_BLANK) {
             String correct = question.getCorrectAnswerText();
             String given = answer.getAnswerText();
-            return correct != null && given != null && correct.trim().equalsIgnoreCase(given.trim());
+            return correct != null && given != null
+                    && stripTrailingPunctuation(correct).equalsIgnoreCase(stripTrailingPunctuation(given));
         }
         if (question.getQuestionType() == Question.QuestionType.WORD_BANK) {
             return structuredAnswerMatches(question, "blanks", answer.getStructuredAnswer());
@@ -624,6 +626,17 @@ public class ExerciseAttemptService {
         Set<Long> correctChoiceIds = choices.stream().filter(QuestionChoice::isCorrect).map(QuestionChoice::getId).collect(Collectors.toSet());
         Set<Long> selected = answer.getSelectedChoiceIds() == null ? Set.of() : Set.copyOf(answer.getSelectedChoiceIds());
         return selected.equals(correctChoiceIds);
+    }
+
+    /**
+     * V166 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-05) — bỏ dấu câu Ở CUỐI chuỗi
+     * (sau khi trim khoảng trắng 2 đầu) trước khi so khớp FILL_IN_BLANK, VD đáp án soạn "goes to
+     * school." và học sinh gõ "goes to school" (thiếu dấu chấm cuối câu) vẫn tính ĐÚNG. Dấu câu Ở GIỮA
+     * câu (dấu phẩy liệt kê, nháy đơn trong "don't"...) KHÔNG bị đụng tới — chỉ dấu câu liên tiếp ở
+     * đúng cuối chuỗi mới bị bỏ qua.
+     */
+    private static String stripTrailingPunctuation(String text) {
+        return text.trim().replaceAll("\\p{Punct}+$", "").trim();
     }
 
     /**
