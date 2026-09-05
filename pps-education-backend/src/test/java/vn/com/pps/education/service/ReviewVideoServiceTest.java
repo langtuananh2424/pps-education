@@ -64,6 +64,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
@@ -1238,6 +1239,136 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
                 new SubmitConnectionAnswersRequest(List.of(new ConnectionAnswerItem(question.id(), correctChoiceId))),
                 student.getUser().getId()))
                 .isInstanceOf(QuizAlreadyCompletedException.class);
+    }
+
+    /**
+     * V160 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-05) — sai lần 1 (đúng 100% mới
+     * tính đạt) KHÔNG cộng viewCount, KHÔNG khoá lượt — cho phép nộp lại (retry) cả form CÙNG watchSessionId.
+     */
+    @Test
+    void submitConnectionAnswers_V160_A1_wrongFirstAttemptAllowsRetryWithoutIncrementingViewCount() {
+        ReviewVideoResponse video = createPublishedSetWithVideo(100, 80, 1);
+        ReviewVideoConnectionQuestionResponse question = reviewVideoService.addConnectionQuestion(video.id(),
+                new AddReviewVideoConnectionQuestionRequest("2+2 = ?", 1, List.of(
+                        new ConnectionChoiceRequest("A", "3", false, 1),
+                        new ConnectionChoiceRequest("B", "4", true, 2))),
+                teacher.getId());
+        Long wrongChoiceId = question.choices().stream().filter(c -> Boolean.FALSE.equals(c.isCorrect()))
+                .findFirst().orElseThrow().id();
+        Student student = enrollStudent(schoolClass.id());
+        Long sessionId = startSession(video.id(), video.reviewVideoSetId(), student.getUser().getId());
+        reportProgress(video.id(), sessionId, 100, student.getUser().getId());
+
+        ReviewVideoConnectionQuizResultResponse result = reviewVideoService.submitConnectionAnswers(sessionId,
+                new SubmitConnectionAnswersRequest(List.of(new ConnectionAnswerItem(question.id(), wrongChoiceId))),
+                student.getUser().getId());
+
+        assertThat(result.results().get(0).correct()).isFalse();
+        assertThat(result.finalized()).isFalse();
+        assertThat(result.passed()).isFalse();
+        assertThat(result.attemptsUsed()).isEqualTo(1);
+        assertThat(result.maxAttempts()).isEqualTo(2);
+        assertThat(result.progress().viewCount()).isZero();
+
+        // Nộp lại lần nữa cùng watchSessionId KHÔNG bị chặn (chưa finalized).
+        assertThatCode(() -> reviewVideoService.submitConnectionAnswers(sessionId,
+                new SubmitConnectionAnswersRequest(List.of(new ConnectionAnswerItem(question.id(), wrongChoiceId))),
+                student.getUser().getId()))
+                .doesNotThrowAnyException();
+    }
+
+    /** V160 — sai cả 2 lần: lượt finalized=true nhưng passed=false, KHÔNG cộng viewCount, nộp lần 3 bị chặn. */
+    @Test
+    void submitConnectionAnswers_V160_A2_wrongBothAttemptsFinalizesAsNotPassed() {
+        ReviewVideoResponse video = createPublishedSetWithVideo(100, 80, 1);
+        ReviewVideoConnectionQuestionResponse question = reviewVideoService.addConnectionQuestion(video.id(),
+                new AddReviewVideoConnectionQuestionRequest("2+2 = ?", 1, List.of(
+                        new ConnectionChoiceRequest("A", "3", false, 1),
+                        new ConnectionChoiceRequest("B", "4", true, 2))),
+                teacher.getId());
+        Long wrongChoiceId = question.choices().stream().filter(c -> Boolean.FALSE.equals(c.isCorrect()))
+                .findFirst().orElseThrow().id();
+        Student student = enrollStudent(schoolClass.id());
+        Long sessionId = startSession(video.id(), video.reviewVideoSetId(), student.getUser().getId());
+        reportProgress(video.id(), sessionId, 100, student.getUser().getId());
+
+        reviewVideoService.submitConnectionAnswers(sessionId,
+                new SubmitConnectionAnswersRequest(List.of(new ConnectionAnswerItem(question.id(), wrongChoiceId))),
+                student.getUser().getId());
+        ReviewVideoConnectionQuizResultResponse secondAttempt = reviewVideoService.submitConnectionAnswers(sessionId,
+                new SubmitConnectionAnswersRequest(List.of(new ConnectionAnswerItem(question.id(), wrongChoiceId))),
+                student.getUser().getId());
+
+        assertThat(secondAttempt.finalized()).isTrue();
+        assertThat(secondAttempt.passed()).isFalse();
+        assertThat(secondAttempt.attemptsUsed()).isEqualTo(2);
+        assertThat(secondAttempt.progress().viewCount()).isZero();
+
+        assertThatThrownBy(() -> reviewVideoService.submitConnectionAnswers(sessionId,
+                new SubmitConnectionAnswersRequest(List.of(new ConnectionAnswerItem(question.id(), wrongChoiceId))),
+                student.getUser().getId()))
+                .isInstanceOf(QuizAlreadyCompletedException.class);
+    }
+
+    /** V160 — sai lần 1, đúng lần 2 (làm lại cả form): lượt vẫn "đạt", cộng viewCount. */
+    @Test
+    void submitConnectionAnswers_V160_MainFlow_correctOnRetryStillCountsAsPassed() {
+        ReviewVideoResponse video = createPublishedSetWithVideo(100, 80, 1);
+        ReviewVideoConnectionQuestionResponse question = reviewVideoService.addConnectionQuestion(video.id(),
+                new AddReviewVideoConnectionQuestionRequest("2+2 = ?", 1, List.of(
+                        new ConnectionChoiceRequest("A", "3", false, 1),
+                        new ConnectionChoiceRequest("B", "4", true, 2))),
+                teacher.getId());
+        Long correctChoiceId = question.choices().stream().filter(c -> Boolean.TRUE.equals(c.isCorrect()))
+                .findFirst().orElseThrow().id();
+        Long wrongChoiceId = question.choices().stream().filter(c -> Boolean.FALSE.equals(c.isCorrect()))
+                .findFirst().orElseThrow().id();
+        Student student = enrollStudent(schoolClass.id());
+        Long sessionId = startSession(video.id(), video.reviewVideoSetId(), student.getUser().getId());
+        reportProgress(video.id(), sessionId, 100, student.getUser().getId());
+
+        reviewVideoService.submitConnectionAnswers(sessionId,
+                new SubmitConnectionAnswersRequest(List.of(new ConnectionAnswerItem(question.id(), wrongChoiceId))),
+                student.getUser().getId());
+        ReviewVideoConnectionQuizResultResponse secondAttempt = reviewVideoService.submitConnectionAnswers(sessionId,
+                new SubmitConnectionAnswersRequest(List.of(new ConnectionAnswerItem(question.id(), correctChoiceId))),
+                student.getUser().getId());
+
+        assertThat(secondAttempt.finalized()).isTrue();
+        assertThat(secondAttempt.passed()).isTrue();
+        assertThat(secondAttempt.attemptsUsed()).isEqualTo(2);
+        assertThat(secondAttempt.progress().viewCount()).isEqualTo(1);
+        assertThat(secondAttempt.progress().completed()).isTrue();
+    }
+
+    /**
+     * V160 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-05) — revert V93/V101: "hoàn
+     * thành" (completed) của CONNECTION phải là ĐỦ SỐ LƯỢT TUYỆT ĐỐI (viewCount >= requiredViewCount),
+     * KHÔNG được coi là hoàn thành sớm chỉ vì đạt tỷ lệ % (VD 3/4 lượt = 75%) — bug cũ khoá không cho
+     * xem lượt cuối.
+     */
+    @Test
+    void reportProgress_V160_completedRequiresAllConfiguredViews_notJustPercentThreshold() {
+        ReviewVideoResponse video = createPublishedSetWithVideo(100, 80, 4);
+        Student student = enrollStudent(schoolClass.id());
+
+        for (int i = 0; i < 3; i++) {
+            Long sessionId = startSession(video.id(), video.reviewVideoSetId(), student.getUser().getId());
+            reportProgress(video.id(), sessionId, 100, student.getUser().getId());
+            ReviewVideoConnectionQuizResultResponse result = reviewVideoService.submitConnectionAnswers(
+                    sessionId, new SubmitConnectionAnswersRequest(List.of()), student.getUser().getId());
+            assertThat(result.progress().viewCount()).isEqualTo(i + 1);
+            // 3/4 = 75% >= ngưỡng cũ 70% — bug cũ sẽ báo completed=true ở đây, PHẢI là false.
+            assertThat(result.progress().completed()).isFalse();
+        }
+
+        Long fourthSessionId = startSession(video.id(), video.reviewVideoSetId(), student.getUser().getId());
+        reportProgress(video.id(), fourthSessionId, 100, student.getUser().getId());
+        ReviewVideoConnectionQuizResultResponse fourthResult = reviewVideoService.submitConnectionAnswers(
+                fourthSessionId, new SubmitConnectionAnswersRequest(List.of()), student.getUser().getId());
+
+        assertThat(fourthResult.progress().viewCount()).isEqualTo(4);
+        assertThat(fourthResult.progress().completed()).isTrue();
     }
 
     @Test
