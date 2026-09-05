@@ -13,6 +13,7 @@ import {
   submitReviewVideoConnectionAnswers
 } from "../api";
 import { extractYouTubeVideoId, loadYouTubeIframeApi } from "../lib/youtubePlayer";
+import { useLockBodyScroll } from "@/components/ui/useLockBodyScroll";
 
 const SEEK_TOLERANCE_SECONDS = 2;
 const PROGRESS_REPORT_INTERVAL_SECONDS = 5;
@@ -266,6 +267,7 @@ interface ReviewVideoTaskModalProps {
  * bấm-ra-ngoài-là-mất bản ghi nháp).
  */
 export default function ReviewVideoTaskModal({ video, assignmentId, onClose }: ReviewVideoTaskModalProps) {
+  useLockBodyScroll(true);
   const { t } = useTranslation("portal-exercises");
   const isYouTube = video.sourceType === "YOUTUBE_URL";
   const youTubeVideoId = isYouTube ? extractYouTubeVideoId(video.fileUrl) : null;

@@ -7,6 +7,15 @@
 # Ghi chú: server chạy Docker Engine trên Linux (không phải Docker Desktop),
 # nên "host.docker.internal" cần khai báo thủ công qua extra_hosts bên dưới
 # để backend gọi được 9Router chạy trên host (xem deploy/README.md mục 9Router).
+#
+# QUAN TRỌNG (sự cố 2026-09-04): extra_hosts KHÔNG dùng giá trị đặc biệt
+# "host-gateway" của Docker - giá trị đó resolve ra gateway của bridge MẶC
+# ĐỊNH (docker0, thường 172.17.0.1), không phải gateway của network "internal"
+# tuỳ chỉnh bên dưới mà backend thực sự nằm trong -> container không có route
+# tới đó, request tới 9Router bị treo tới khi timeout. Phải trỏ thẳng vào
+# gateway thật của network "internal", nên subnet network này được ghim cố
+# định (xem networks.internal.ipam bên dưới) để gateway không đổi giữa các
+# lần "docker compose down/up".
 
 name: pps-staging
 
@@ -68,10 +77,13 @@ services:
     restart: "no"
 
   backend:
-    image: ghcr.io/<owner>/<repo>/backend:staging-latest
+    image: ghcr.io/langtuananh2424/pps-education/backend:staging-latest
     restart: unless-stopped
     extra_hosts:
-      - "host.docker.internal:host-gateway" # Docker Engine Linux cần khai báo thủ công (khác Docker Desktop)
+      # Trỏ thẳng vào gateway cố định của network "internal" (172.28.0.0/24,
+      # xem networks.internal.ipam) - KHÔNG dùng "host-gateway" (xem ghi chú
+      # đầu file, sự cố 2026-09-04).
+      - "host.docker.internal:172.28.0.1"
     environment:
       TZ: Asia/Ho_Chi_Minh
       SPRING_PROFILES_ACTIVE: staging
@@ -121,6 +133,14 @@ services:
 networks:
   internal:
     driver: bridge
+    ipam:
+      config:
+        # Ghim cố định (không để Docker tự chọn) - subnet auto-assign có thể
+        # đổi giữa các lần "down/up", làm sai gateway mà extra_hosts.backend
+        # đang trỏ tới thẳng (172.28.0.1). Khác với production
+        # (172.29.0.0/24) dù 2 stack chạy chung 1 server vật lý.
+        - subnet: 172.28.0.0/24
+          gateway: 172.28.0.1
 
 volumes:
   pg_data:
