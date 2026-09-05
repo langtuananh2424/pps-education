@@ -7,6 +7,11 @@
 # Khác biệt so với deploy/docker-compose.staging.yml: name/tag image/port
 # host/domain — tách biệt hoàn toàn network+volume+container với stack staging
 # dù chạy chung 1 server vật lý.
+#
+# QUAN TRỌNG (sự cố 2026-09-04, xem chi tiết ở docker-compose.staging.yml):
+# extra_hosts KHÔNG dùng "host-gateway" - trỏ thẳng gateway cố định của
+# network "internal" (172.29.0.0/24, xem networks.internal.ipam), khác subnet
+# với staging (172.28.0.0/24) để không đụng độ khi chạy chung 1 server.
 
 name: pps-production
 
@@ -68,10 +73,13 @@ services:
     restart: "no"
 
   backend:
-    image: ghcr.io/<owner>/<repo>/backend:prod-latest
+    image: ghcr.io/langtuananh2424/pps-education/backend:prod-latest
     restart: unless-stopped
     extra_hosts:
-      - "host.docker.internal:host-gateway" # Docker Engine Linux cần khai báo thủ công (khác Docker Desktop)
+      # Trỏ thẳng vào gateway cố định của network "internal" (172.29.0.0/24,
+      # xem networks.internal.ipam) - KHÔNG dùng "host-gateway" (xem ghi chú
+      # đầu file, sự cố 2026-09-04).
+      - "host.docker.internal:172.29.0.1"
     environment:
       TZ: Asia/Ho_Chi_Minh
       SPRING_PROFILES_ACTIVE: production
@@ -121,6 +129,14 @@ services:
 networks:
   internal:
     driver: bridge
+    ipam:
+      config:
+        # Ghim cố định (không để Docker tự chọn) - subnet auto-assign có thể
+        # đổi giữa các lần "down/up", làm sai gateway mà extra_hosts.backend
+        # đang trỏ tới thẳng (172.29.0.1). Khác với staging (172.28.0.0/24)
+        # dù 2 stack chạy chung 1 server vật lý.
+        - subnet: 172.29.0.0/24
+          gateway: 172.29.0.1
 
 volumes:
   pg_data:
