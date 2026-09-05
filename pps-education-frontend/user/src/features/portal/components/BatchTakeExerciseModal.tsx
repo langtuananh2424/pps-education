@@ -21,6 +21,7 @@ import {
   uploadMedia
 } from "../api";
 import { GridQuestionGroup, QuestionBlock, groupQuestionsByGroupKey } from "./TakeExerciseModal";
+import { useLockBodyScroll } from "@/components/ui/useLockBodyScroll";
 
 const SKILL_LABEL_KEY: Record<string, string> = {
   VOCAB_GRAMMAR: "assignments.batch.skillLabel.VOCAB_GRAMMAR",
@@ -80,6 +81,7 @@ interface BatchTakeExerciseModalProps {
  * Javadoc handleRetakeBatch.
  */
 export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExerciseModalProps) {
+  useLockBodyScroll(true);
   const { t } = useTranslation("portal-exercises");
   const [subs, setSubs] = useState<SubExercise[] | null>(null);
   const [answersByQuestion, setAnswersByQuestion] = useState<Map<number, StudentAnswerResponse>>(new Map());
