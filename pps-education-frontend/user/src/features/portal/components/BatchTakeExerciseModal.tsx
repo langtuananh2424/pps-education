@@ -570,18 +570,26 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
             let counter = 0;
             return (
               <div key={sub.item.exerciseId} className="space-y-3 lg:space-y-4">
-                <div className="flex items-center gap-2.5 pt-2 first:pt-0">
+                <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 pt-2 first:pt-0">
                   {/* Bổ sung 2026-09-04 (đã xác nhận với người dùng) — fix bug thật: bỏ shrink-0, tiêu đề
                       Bài dài (GV gõ cả câu hướng dẫn vào ô Tiêu đề) trước đây giữ nguyên 1 dòng, tràn hẳn
                       ra ngoài khung kéo theo cả trang cuộn ngang — giờ cho phép co lại để tự xuống dòng. */}
                   <span className="text-[11px] sm:text-xs font-black uppercase tracking-wide text-white bg-coral rounded-lg px-3 py-1">
                     {sub.item.title}
                   </span>
-                  <span className="h-px flex-1 bg-line" />
-                  {/* Bổ sung 2026-09-04 — báo rõ vì sao Bài này không được làm lại cùng Lô khi bấm "Làm
-                      lại cả Lô" (xem handleRetakeBatch) — chỉ hiện khi Bài đã kết thúc VÀ hết lượt riêng. */}
+                  <span className="h-px flex-1 bg-line min-w-[24px]" />
+                  {/*
+                   * Bổ sung 2026-09-04 — báo rõ vì sao Bài này không được làm lại cùng Lô khi bấm "Làm
+                   * lại cả Lô" (xem handleRetakeBatch) — chỉ hiện khi Bài đã kết thúc VÀ hết lượt riêng.
+                   *
+                   * Bổ sung 2026-09-05 (fix bug thật, đã xác nhận với người dùng) — `w-full` buộc span
+                   * này luôn xuống HẲN 1 dòng riêng (item rộng 100% trong flex-wrap luôn tự ngắt dòng
+                   * mới) thay vì chen cùng dòng với badge tiêu đề — trên màn hẹp (mobile) trước đây
+                   * `shrink-0` + không có flex-wrap khiến dòng chữ dài bị đè/vỡ layout lên badge màu cam
+                   * Ex.1 phía dưới.
+                   */}
                   {sectionReadOnly && !sub.item.canStartNewAttempt && (
-                    <span className="shrink-0 text-[10px] font-bold text-muted italic">{t("assignments.batch.retakeSkippedNote")}</span>
+                    <span className="w-full text-[10px] font-bold text-muted italic">{t("assignments.batch.retakeSkippedNote")}</span>
                   )}
                 </div>
                 {blocks.map((block) => {
