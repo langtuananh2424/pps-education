@@ -77,7 +77,7 @@ class AuthServiceGoogleLoginTest extends AbstractIntegrationTest {
         when(googleIdTokenVerifier.verify(anyString()))
                 .thenReturn(new GoogleIdentity("google-subject-1", activeUser.getEmail()));
 
-        LoginResponse response = authService.loginWithGoogle(new GoogleLoginRequest("valid-token"), request());
+        LoginResponse response = authService.loginWithGoogle(new GoogleLoginRequest("valid-token", null, null, null), request());
 
         assertThat(response.accessToken()).isNotBlank();
         assertThat(response.refreshToken()).isNotBlank();
@@ -95,7 +95,7 @@ class AuthServiceGoogleLoginTest extends AbstractIntegrationTest {
         when(googleIdTokenVerifier.verify(anyString()))
                 .thenReturn(new GoogleIdentity("google-subject-existing", "khac-email@pps.edu.vn"));
 
-        LoginResponse response = authService.loginWithGoogle(new GoogleLoginRequest("valid-token"), request());
+        LoginResponse response = authService.loginWithGoogle(new GoogleLoginRequest("valid-token", null, null, null), request());
 
         assertThat(response.accessToken()).isNotBlank();
     }
@@ -105,7 +105,7 @@ class AuthServiceGoogleLoginTest extends AbstractIntegrationTest {
         when(googleIdTokenVerifier.verify(anyString()))
                 .thenReturn(new GoogleIdentity("google-subject-unknown", "chua-cap-phat@pps.edu.vn"));
 
-        assertThatThrownBy(() -> authService.loginWithGoogle(new GoogleLoginRequest("valid-token"), request()))
+        assertThatThrownBy(() -> authService.loginWithGoogle(new GoogleLoginRequest("valid-token", null, null, null), request()))
                 .isInstanceOf(GoogleAccountNotProvisionedException.class);
 
         assertThat(loginAttemptRepository.findAll().stream()
@@ -121,7 +121,7 @@ class AuthServiceGoogleLoginTest extends AbstractIntegrationTest {
         when(googleIdTokenVerifier.verify(anyString()))
                 .thenReturn(new GoogleIdentity("google-subject-1", activeUser.getEmail()));
 
-        assertThatThrownBy(() -> authService.loginWithGoogle(new GoogleLoginRequest("valid-token"), request()))
+        assertThatThrownBy(() -> authService.loginWithGoogle(new GoogleLoginRequest("valid-token", null, null, null), request()))
                 .isInstanceOf(AccountInactiveException.class);
     }
 
@@ -133,7 +133,7 @@ class AuthServiceGoogleLoginTest extends AbstractIntegrationTest {
         when(googleIdTokenVerifier.verify(anyString()))
                 .thenReturn(new GoogleIdentity("google-subject-1", activeUser.getEmail()));
 
-        assertThatThrownBy(() -> authService.loginWithGoogle(new GoogleLoginRequest("valid-token"), request()))
+        assertThatThrownBy(() -> authService.loginWithGoogle(new GoogleLoginRequest("valid-token", null, null, null), request()))
                 .isInstanceOf(AccountLockedException.class);
     }
 }

@@ -4,6 +4,7 @@ import { Bell, CheckCheck } from "lucide-react";
 import { markNotificationRead, listMyNotifications, NotificationResponse } from "../api";
 import { clampLines } from "@/lib/textClamp";
 import { formatDateTimeHm } from "@/lib/format";
+import { PUSH_RECEIVED_EVENT } from "@/lib/pushNotifications";
 
 const PAGE_SIZE = 15;
 
@@ -90,6 +91,12 @@ export default function NotificationBell({ onNavigate }: NotificationBellProps) 
   };
 
   useEffect(load, []);
+
+  /** Push đến khi tab đang mở (foreground, xem pushNotifications.ts) không tự cập nhật state — refresh lại danh sách. */
+  useEffect(() => {
+    window.addEventListener(PUSH_RECEIVED_EVENT, load);
+    return () => window.removeEventListener(PUSH_RECEIVED_EVENT, load);
+  }, []);
 
   useEffect(() => {
     if (!open) return;

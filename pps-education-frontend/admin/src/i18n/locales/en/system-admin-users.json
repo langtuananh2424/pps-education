@@ -91,6 +91,30 @@
         "confirmMessage": "Confirm switching account \"{{username}}\" to status {{statusLabel}}?",
         "changedToast": "Account switched to status \"{{statusLabel}}\"!",
         "saveError": "Failed to change status."
+      },
+      "loginHistory": {
+        "sectionTitle": "Login History",
+        "sectionDescription": "Every login (successful and failed) with device info reported by the browser.",
+        "loading": "Loading...",
+        "empty": "No login recorded yet.",
+        "loadMore": "Load more",
+        "success": "Success",
+        "failure": "Failure",
+        "columns": {
+          "time": "Time",
+          "ip": "IP",
+          "device": "Browser / Device",
+          "screenResolution": "Resolution",
+          "language": "Language",
+          "timezone": "Timezone",
+          "result": "Result"
+        },
+        "failureReason": {
+          "WRONG_PASSWORD": "Wrong password",
+          "USER_NOT_FOUND": "Account not found",
+          "USER_LOCKED": "Account temporarily locked",
+          "USER_INACTIVE": "Account inactive"
+        }
       }
     }
   },

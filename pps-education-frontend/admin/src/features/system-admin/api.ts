@@ -86,6 +86,21 @@ export interface UpdateUserEmailRequest {
   newEmail: string;
 }
 
+/**
+ * Khớp LoginHistoryItemResponse thật (UC-44 bổ sung ngoài SDD gốc, đã xác
+ * nhận với người dùng 2026-09-05) — 1 dòng lịch sử đăng nhập/thiết bị.
+ */
+export interface LoginHistoryItemResponse {
+  createdAt: string;
+  ipAddress: string;
+  userAgent: string | null;
+  screenResolution: string | null;
+  browserLanguage: string | null;
+  timezone: string | null;
+  success: boolean;
+  failureReason: string | null;
+}
+
 /** UC-44 Main Flow bước 1-2: danh sách + tìm kiếm/lọc tài khoản. */
 export function searchUsers(filter: UserSearchFilter, page: number, size: number): Promise<Page<UserListItemResponse>> {
   const params = new URLSearchParams();
@@ -100,6 +115,11 @@ export function searchUsers(filter: UserSearchFilter, page: number, size: number
 /** UC-44 Main Flow bước 3: chi tiết đầy đủ 1 tài khoản. */
 export function getUserDetail(userId: number): Promise<UserDetailResponse> {
   return apiRequest<UserDetailResponse>(`/users/${userId}`);
+}
+
+/** UC-44 bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-09-05): lịch sử đăng nhập/thiết bị. */
+export function getUserLoginHistory(userId: number, page: number, size: number): Promise<Page<LoginHistoryItemResponse>> {
+  return apiRequest<Page<LoginHistoryItemResponse>>(`/users/${userId}/login-history?page=${page}&size=${size}`);
 }
 
 /** UC-43: tạo tài khoản mới. */

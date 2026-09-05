@@ -95,7 +95,7 @@ class AuthServiceTest extends AbstractIntegrationTest {
     @Test
     void login_UC01_MainFlow_returnsTokensOnValidCredentials() {
         LoginResponse response = authService.login(
-                new LoginRequest(activeUser.getUsername(), RAW_PASSWORD), request());
+                new LoginRequest(activeUser.getUsername(), RAW_PASSWORD, null, null, null), request());
 
         assertThat(response.accessToken()).isNotBlank();
         assertThat(response.refreshToken()).isNotBlank();
@@ -115,7 +115,7 @@ class AuthServiceTest extends AbstractIntegrationTest {
     @Test
     void login_UC01_A1_rejectsWrongPassword() {
         assertThatThrownBy(() -> authService.login(
-                new LoginRequest(activeUser.getUsername(), "wrong-password"), request()))
+                new LoginRequest(activeUser.getUsername(), "wrong-password", null, null, null), request()))
                 .isInstanceOf(InvalidCredentialsException.class);
 
         User reloaded = userRepository.findById(activeUser.getId()).orElseThrow();
@@ -131,7 +131,7 @@ class AuthServiceTest extends AbstractIntegrationTest {
     @Test
     void login_UC01_A1_rejectsUnknownUsername() {
         assertThatThrownBy(() -> authService.login(
-                new LoginRequest("khong-ton-tai", RAW_PASSWORD), request()))
+                new LoginRequest("khong-ton-tai", RAW_PASSWORD, null, null, null), request()))
                 .isInstanceOf(InvalidCredentialsException.class);
 
         List<LoginAttempt> attempts = loginAttemptRepository.findAll().stream()
@@ -147,7 +147,7 @@ class AuthServiceTest extends AbstractIntegrationTest {
     void login_UC01_A2_locksAccountAfter5FailedAttempts() {
         for (int i = 0; i < 5; i++) {
             assertThatThrownBy(() -> authService.login(
-                    new LoginRequest(activeUser.getUsername(), "wrong-password"), request()))
+                    new LoginRequest(activeUser.getUsername(), "wrong-password", null, null, null), request()))
                     .isInstanceOf(InvalidCredentialsException.class);
         }
 
@@ -157,7 +157,7 @@ class AuthServiceTest extends AbstractIntegrationTest {
 
         // Đúng mật khẩu nhưng tài khoản đang khóa — vẫn phải từ chối (A2.3)
         assertThatThrownBy(() -> authService.login(
-                new LoginRequest(activeUser.getUsername(), RAW_PASSWORD), request()))
+                new LoginRequest(activeUser.getUsername(), RAW_PASSWORD, null, null, null), request()))
                 .isInstanceOf(AccountLockedException.class);
 
         List<LoginAttempt> attempts = attemptsFor(activeUser);
@@ -171,7 +171,7 @@ class AuthServiceTest extends AbstractIntegrationTest {
         userRepository.save(activeUser);
 
         assertThatThrownBy(() -> authService.login(
-                new LoginRequest(activeUser.getUsername(), RAW_PASSWORD), request()))
+                new LoginRequest(activeUser.getUsername(), RAW_PASSWORD, null, null, null), request()))
                 .isInstanceOf(AccountInactiveException.class);
 
         List<LoginAttempt> attempts = attemptsFor(activeUser);

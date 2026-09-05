@@ -91,6 +91,30 @@
         "confirmMessage": "Xác nhận chuyển tài khoản \"{{username}}\" sang trạng thái {{statusLabel}}?",
         "changedToast": "Đã chuyển tài khoản sang trạng thái \"{{statusLabel}}\"!",
         "saveError": "Đổi trạng thái thất bại."
+      },
+      "loginHistory": {
+        "sectionTitle": "Lịch sử đăng nhập",
+        "sectionDescription": "Ghi nhận mọi lần đăng nhập (thành công và thất bại) kèm thông tin thiết bị do trình duyệt gửi.",
+        "loading": "Đang tải...",
+        "empty": "Chưa có lần đăng nhập nào được ghi nhận.",
+        "loadMore": "Xem thêm",
+        "success": "Thành công",
+        "failure": "Thất bại",
+        "columns": {
+          "time": "Thời gian",
+          "ip": "IP",
+          "device": "Trình duyệt / Thiết bị",
+          "screenResolution": "Độ phân giải",
+          "language": "Ngôn ngữ",
+          "timezone": "Múi giờ",
+          "result": "Kết quả"
+        },
+        "failureReason": {
+          "WRONG_PASSWORD": "Sai mật khẩu",
+          "USER_NOT_FOUND": "Không tìm thấy tài khoản",
+          "USER_LOCKED": "Tài khoản đang tạm khóa",
+          "USER_INACTIVE": "Tài khoản không hoạt động"
+        }
       }
     }
   },
