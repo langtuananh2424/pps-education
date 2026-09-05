@@ -435,6 +435,27 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         assertThat(answer.correctAnswerText()).isEqualTo("Paris");
     }
 
+    /** V166 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-05) — bỏ dấu câu Ở CUỐI chuỗi khi so khớp FILL_IN_BLANK. */
+    @Test
+    void submitAttempt_UC27_A_fillInBlankAutoGradesIgnoringTrailingPunctuation() {
+        QuestionResponse fillIn = examQuestionService.createQuestion(defaultExam.id(),
+                new CreateExamQuestionRequest("FILL_IN_BLANK", "GRAMMAR", "EASY",
+                        "Thủ đô nước Pháp là ___.", null, null, null, null, "Paris.",
+                        new BigDecimal("1.0"), null, null, null, null),
+                teacher.getId());
+        ExerciseResponse exercise = assignedExerciseWithQuestions(List.of(fillIn), null, false, true, true);
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), activeAssignmentId(exercise.id()), studentUser.getId());
+        exerciseAttemptService.saveAnswer(attempt.id(),
+                new SaveAnswerRequest(fillIn.id(), "Paris", null, null, null), studentUser.getId());
+
+        ExerciseAttemptResponse submitted = exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
+
+        assertThat(submitted.status()).isEqualTo("FULLY_GRADED");
+        assertThat(submitted.totalScore()).isEqualByComparingTo("1.0");
+        StudentAnswerResponse answer = exerciseAttemptService.listAnswers(attempt.id(), studentUser.getId()).get(0);
+        assertThat(answer.isCorrect()).isTrue();
+    }
+
     @Test
     void submitAttempt_UC27_A_fillInBlankGradesZeroWhenAnswerDoesNotExactlyMatch() {
         QuestionResponse fillIn = examQuestionService.createQuestion(defaultExam.id(),
