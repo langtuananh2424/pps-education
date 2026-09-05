@@ -220,6 +220,9 @@ interface ReviewVideoHomeworkItem {
   teacherType: "VIETNAMESE" | "FOREIGN";
   /** V123 — ngày buổi học GV đã giao BTVN này — undefined nếu chỉ nằm trong Kho hoặc bản giao TRƯỚC V123. */
   sessionDate?: string | null;
+  /** Bổ sung 2026-09-04 — Unit/SubTopic chứa Bộ này (ReviewVideoSetResponse.unitTitle/subTopicTitle), xem ghi chú ở đó. */
+  unitTitle?: string | null;
+  subTopicTitle?: string | null;
 }
 
 /**
@@ -336,7 +339,9 @@ export default function AssignmentsTab({
                   dueAt: g.dueAt,
                   assignmentId: g.assignmentId,
                   teacherType: g.set.teacherType,
-                  sessionDate: g.sessionDate
+                  sessionDate: g.sessionDate,
+                  unitTitle: g.set.unitTitle,
+                  subTopicTitle: g.set.subTopicTitle
                 }) as ReviewVideoHomeworkItem
             );
           })
@@ -911,6 +916,13 @@ function ExerciseCard({
         </div>
 
         <h3 className="text-base font-black text-ink font-display truncate">{item.title}</h3>
+        {/* Bổ sung 2026-09-04 (đã xác nhận với người dùng) — xem ghi chú ở BatchExerciseCard: hiện Unit/
+            SubTopic chứa Lesson (examTitle) của Bài này để phân biệt các Lesson trùng tên. */}
+        {(item.unitTitle || item.subTopicTitle) && (
+          <p className="text-[11px] font-bold text-muted truncate">
+            {item.examTitle} · {[item.unitTitle, item.subTopicTitle].filter(Boolean).join(" · ")}
+          </p>
+        )}
 
         {item.myLatestTotalScore != null && (
           // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25 — hiện "Hoàn thành: X/Y (Z%)"
@@ -1043,6 +1055,12 @@ function BatchExerciseCard({
         </div>
 
         <h3 className="text-base font-black text-ink font-display truncate">{groupTitle}</h3>
+        {/* Bổ sung 2026-09-04 (đã xác nhận với người dùng) — fix bug thật: Lesson đánh số lặp lại (Lesson
+            1, 2, 3...) giữa các Unit/SubTopic khác nhau, học sinh dễ nhầm lẫn khi chỉ thấy examTitle
+            trên thẻ (mirror ExerciseAssignPage.tsx bên admin). */}
+        {(first.unitTitle || first.subTopicTitle) && (
+          <p className="text-[11px] font-bold text-muted truncate">{[first.unitTitle, first.subTopicTitle].filter(Boolean).join(" · ")}</p>
+        )}
 
         {!noneStarted && (
           <div
@@ -1190,6 +1208,11 @@ function ReviewVideoCard({
           )}
         </div>
         <h3 className="text-base font-black text-ink font-display truncate">{video.title}</h3>
+        {/* Bổ sung 2026-09-04 (đã xác nhận với người dùng) — mirror ExerciseCard/BatchExerciseCard: hiện
+            Unit/SubTopic để phân biệt Bộ video trùng tên giữa các Unit/SubTopic khác nhau. */}
+        {(item.unitTitle || item.subTopicTitle) && (
+          <p className="text-[11px] font-bold text-muted truncate">{[item.unitTitle, item.subTopicTitle].filter(Boolean).join(" · ")}</p>
+        )}
       </div>
 
       <div className="shrink-0">

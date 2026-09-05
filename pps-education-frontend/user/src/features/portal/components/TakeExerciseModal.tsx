@@ -113,6 +113,32 @@ function chunkArray<T>(items: T[], size: number): T[][] {
   return rows;
 }
 
+/**
+ * V2 (bổ sung 2026-09-04, đã xác nhận với người dùng — SỬA LẠI quyết định 2026-09-03) — bản 2026-09-03
+ * bỏ hẳn `whitespace-pre-wrap` để tránh dấu xuống dòng "cứng" rác copy từ Word/PDF (1 dòng đơn lẻ giữa
+ * câu) làm đoạn văn ngắt dòng sớm lệch trái — nhưng làm HỎNG LUÔN ranh giới đoạn văn THẬT của dạng "Bài
+ * đọc hiểu — Lưới" (GridQuestionBuilder nối nhiều đoạn — 1 đoạn/nhân vật, dạng "Tên: nội dung" — bằng
+ * "\n\n", xem GridQuestionBuilder.tsx): mọi \n bị trình duyệt collapse thành khoảng trắng như nhau, 3
+ * đoạn Tom/Max/Anna dính liền thành 1 khối, không còn phân biệt được.
+ *
+ * V3 (bổ sung 2026-09-04, đã xác nhận với người dùng — nâng cấp tiếp V2 cùng ngày) — người dùng muốn
+ * hiển thị ĐÚNG hình thức đề giấy gốc: tên nhân vật là 1 dòng tiêu đề in đậm riêng, KHÔNG dính liền
+ * "Tên: nội dung" trong cùng 1 dòng chữ thường. Parse mỗi đoạn (đã tách ranh giới ở trên) theo đúng mẫu
+ * "Tên: nội dung" mà GridQuestionBuilder tạo ra (chỉ referencePassage của khối GRID mới có dạng này —
+ * hàm này CHỈ dùng trong GridQuestionGroup, không dùng cho referencePassage của câu đơn lẻ/ESSAY/audio
+ * ở QuestionBlock) — đoạn nào không khớp mẫu (dữ liệu cũ/khác) thì hiện nguyên văn, không có tên riêng.
+ */
+function parsePassageParagraphs(text: string): { name: string | null; content: string }[] {
+  return text
+    .split(/\n\s*\n/)
+    .map((para) => para.replace(/\s*\n\s*/g, " ").trim())
+    .filter(Boolean)
+    .map((para) => {
+      const match = para.match(/^([^:\n]{1,40}):\s*([\s\S]+)$/);
+      return match ? { name: match[1].trim(), content: match[2].trim() } : { name: null, content: para };
+    });
+}
+
 export function groupQuestionsByGroupKey(questions: ExerciseQuestionResponse[]): RenderBlock[] {
   const blocks: RenderBlock[] = [];
   for (const q of questions) {
@@ -557,6 +583,13 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
         <div className="max-w-2xl lg:max-w-3xl w-full mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
           <div className="min-w-0">
             <h3 className="text-lg sm:text-xl lg:text-2xl font-extrabold text-ink truncate">{item.title}</h3>
+            {/* Bổ sung 2026-09-04 (đã xác nhận với người dùng) — mirror AssignmentsTab.tsx/
+                BatchTakeExerciseModal.tsx: hiện Lesson + Unit/SubTopic để phân biệt Lesson trùng tên. */}
+            {(item.unitTitle || item.subTopicTitle) && (
+              <p className="text-xs font-bold text-muted truncate">
+                {item.examTitle} · {[item.unitTitle, item.subTopicTitle].filter(Boolean).join(" · ")}
+              </p>
+            )}
             {attempt && (
               <p className="text-[10px] sm:text-xs text-muted font-bold mt-0.5">
                 {t("takeExercise.attemptNumber", { number: attempt.attemptNumber })} ·{" "}
@@ -1545,13 +1578,17 @@ export function GridQuestionGroup({
   });
   return (
     <div className="border border-line/60 rounded-[16px] p-4 sm:p-5 lg:p-6 space-y-3 lg:space-y-4">
-      {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-03 — fix bug thật: dữ liệu referencePassage
-          thường có sẵn dấu xuống dòng "cứng" copy từ Word/PDF gốc, whitespace-pre-wrap giữ nguyên các dấu
-          này khiến đoạn văn ngắt dòng sớm theo dữ liệu thay vì trải đều hết chiều rộng khung, nhìn lệch hẳn
-          sang trái (phát hiện qua ExerciseStudentPreviewModal bên admin, mirror đúng bug này). Bỏ
-          whitespace-pre-wrap để trình duyệt tự ngắt dòng theo chiều rộng thật. */}
+      {/* V3 2026-09-04 — xem Javadoc parsePassageParagraphs: mỗi đoạn hiện tên nhân vật thành dòng tiêu
+          đề in đậm riêng (khớp đúng hình thức đề giấy gốc), nội dung đoạn tự ngắt dòng theo khung. */}
       {block.referencePassage && (
-        <p className="text-xs sm:text-sm lg:text-base text-ink bg-sky-2 rounded-xl p-3 sm:p-4">{block.referencePassage}</p>
+        <div className="bg-sky-2 rounded-xl p-3 sm:p-4 space-y-2.5 sm:space-y-3">
+          {parsePassageParagraphs(block.referencePassage).map((p, i) => (
+            <div key={i}>
+              {p.name && <p className="text-xs sm:text-sm lg:text-base font-black text-ink">{p.name}</p>}
+              <p className="text-xs sm:text-sm lg:text-base text-ink whitespace-pre-line">{p.content}</p>
+            </div>
+          ))}
+        </div>
       )}
       {/*
        * Bổ sung 2026-08-28 (đã xác nhận với người dùng) — hộp từ vựng THAM KHẢO tĩnh, khớp hình thức

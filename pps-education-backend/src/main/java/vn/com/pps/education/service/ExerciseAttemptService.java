@@ -175,6 +175,15 @@ public class ExerciseAttemptService {
                 throw new RetakeNotAllowedException("error.retakeNotAllowed.pastDeadline", new Object[]{assignment.getDueAt()},
                         "Đề này đã quá hạn nộp (" + assignment.getDueAt() + "), không thể làm lại.");
             }
+            // Sửa 2026-09-04 — mirror guard mới ở canStartNewAttempt/revealAnswersAndClose: chặn ở BE
+            // (không chỉ ẩn nút FE) học sinh đã TỰ NGUYỆN đóng sớm lượt gần nhất để xem đáp án.
+            ExerciseAttempt lastAttempt = exerciseAttemptRepository
+                    .findByExerciseAssignmentIdAndStudentIdOrderByAttemptNumberDesc(assignment.getId(), student.getId())
+                    .stream().findFirst().orElse(null);
+            if (lastAttempt != null && lastAttempt.isAnswersRevealedEarly()) {
+                throw new RetakeNotAllowedException("error.retakeNotAllowed.answersRevealedEarly", new Object[]{},
+                        "Đã xem đáp án sớm cho lượt làm trước — không thể làm lại.");
+            }
         }
 
         ExerciseAttempt attempt = new ExerciseAttempt();
@@ -419,6 +428,15 @@ public class ExerciseAttemptService {
      * mọi giá, xem RetakeNotAllowedException).
      * Trước 2026-08-19, ĐẠT luôn đóng bản giao ngay cả khi còn lượt, khiến
      * học sinh đạt 80% (trên ngưỡng) không thể tự làm lại để thử đạt 100%.
+     *
+     * Sửa 2026-09-04 (bug thật, xem báo cáo 422 "Đề này chưa được giao cho học sinh" trên staging) —
+     * BỎ đoạn tự đóng {@code assignment.setStatus(COMPLETED)} khi 1 học sinh đạt + hết lượt: 1
+     * {@code ExerciseAssignment} là bản giao CHUNG CHO CẢ LỚP ({@code targetStudentIds} luôn null,
+     * không có cá nhân hoá thật nào tạo ra nó), nên đóng bản giao ở đây vô tình chặn LUÔN mọi học
+     * sinh khác trong lớp (kể cả chưa từng mở bài) — resolveActiveAssignmentForStudent chỉ chấp
+     * nhận status=ACTIVE. "Học sinh này đã hết lượt làm lại" đã được gate ĐÚNG phạm vi cá nhân ở
+     * startAttempt (đếm attempt theo assignmentId+studentId) và canStartNewAttempt
+     * (toAssignedResponse) rồi — không cần đụng tới assignment dùng chung để chặn thêm.
      */
     ExerciseAttempt applyPassOutcome(ExerciseAttempt attempt) {
         if (attempt.getStatus() != ExerciseAttempt.Status.FULLY_GRADED || attempt.getTotalScore() == null) {
@@ -428,27 +446,22 @@ public class ExerciseAttemptService {
         BigDecimal percentage = percentageOf(attempt.getTotalScore(), exercise.getTotalPoints());
         boolean passed = percentage != null && percentage.compareTo(exercise.getPassThresholdPercent()) >= 0;
         attempt.setPassed(passed);
-        attempt = exerciseAttemptRepository.save(attempt);
-
-        ExerciseAssignment assignment = attempt.getExerciseAssignment();
-        if (passed && assignment != null && assignment.getStatus() == ExerciseAssignment.Status.ACTIVE) {
-            boolean hasRetakeLeft = exercise.isAllowRetake()
-                    && (exercise.getMaxAttempts() == null || attempt.getAttemptNumber() < exercise.getMaxAttempts());
-            if (!hasRetakeLeft) {
-                assignment.setStatus(ExerciseAssignment.Status.COMPLETED);
-                exerciseAssignmentRepository.save(assignment);
-            }
-        }
-        return attempt;
+        return exerciseAttemptRepository.save(attempt);
     }
 
     /**
      * V152 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — UC-24/A4, UC-27/A2: học
      * sinh ĐÃ ĐẠT ngưỡng nhưng vẫn còn lượt làm lại (xem applyPassOutcome — bản giao vẫn ACTIVE để
      * TỰ NGUYỆN thử lại) có thể chủ động dừng lại NGAY, đổi lại được xem đáp án đúng của lượt vừa đạt
-     * (bình thường phải làm hết maxAttempts mới được xem — xem toResponse(StudentAnswer)). Đóng LUÔN
-     * bản giao (COMPLETED, mirror đúng nhánh "hết lượt" của applyPassOutcome) — không hoàn tác được,
-     * FE phải xác nhận trước khi gọi (xem TakeExerciseModal/BatchTakeExerciseModal).
+     * (bình thường phải làm hết maxAttempts mới được xem — xem toResponse(StudentAnswer)). Khoá LUÔN
+     * quyền làm lại của CHÍNH học sinh này (không hoàn tác được) — FE phải xác nhận trước khi gọi
+     * (xem TakeExerciseModal/BatchTakeExerciseModal).
+     *
+     * Sửa 2026-09-04 (bug thật, cùng nguyên nhân với fix ở applyPassOutcome) — trước đây đóng LUÔN
+     * {@code assignment.setStatus(COMPLETED)}, nhưng 1 {@code ExerciseAssignment} là bản giao CHUNG
+     * CHO CẢ LỚP nên vô tình chặn hết mọi học sinh khác. Giờ chỉ đánh dấu {@code answersRevealedEarly}
+     * trên CHÍNH attempt này — canStartNewAttempt (toAssignedResponse) đã đọc đúng cờ này để ẩn nút
+     * "Làm lại" của riêng học sinh đó, không đụng gì tới assignment dùng chung.
      */
     @Transactional
     public ExerciseAttemptResponse revealAnswersAndClose(Long attemptId, Long actorUserId) {
@@ -457,15 +470,12 @@ public class ExerciseAttemptService {
             throw new AttemptNotEditableException("error.attemptNotEditable.notPassedYet", new Object[]{},
                     "Chỉ áp dụng cho lượt làm đã ĐẠT và đã chấm xong toàn bộ.");
         }
-        ExerciseAssignment assignment = attempt.getExerciseAssignment();
-        if (assignment == null || assignment.getStatus() != ExerciseAssignment.Status.ACTIVE) {
-            throw new AttemptNotEditableException("error.attemptNotEditable.assignmentNotActive", new Object[]{},
-                    "Bản giao này không còn ở trạng thái có thể đóng lượt (đã đóng hoặc huỷ từ trước).");
+        if (attempt.isAnswersRevealedEarly()) {
+            throw new AttemptNotEditableException("error.attemptNotEditable.alreadyRevealedEarly", new Object[]{},
+                    "Lượt làm bài này đã được đóng sớm để xem đáp án từ trước.");
         }
         attempt.setAnswersRevealedEarly(true);
         attempt = exerciseAttemptRepository.save(attempt);
-        assignment.setStatus(ExerciseAssignment.Status.COMPLETED);
-        exerciseAssignmentRepository.save(assignment);
         writeHistory(attempt, actorUserId, ExerciseAttemptHistory.Action.UPDATED);
         return toResponse(attempt);
     }
@@ -727,12 +737,17 @@ public class ExerciseAttemptService {
         // đúng lúc thay vì hiện ra rồi bấm mới báo lỗi 422.
         boolean retakeBlockedByDeadline = !myAttempts.isEmpty() && assignment.getDueAt() != null
                 && OffsetDateTime.now().isAfter(assignment.getDueAt()) && !assignment.isLateSubmissionAllowed();
+        // Sửa 2026-09-04 — mirror đúng guard mới ở revealAnswersAndClose: học sinh đã TỰ NGUYỆN đóng
+        // sớm lượt vừa đạt để xem đáp án thì khoá "Làm lại" của RIÊNG học sinh đó (trước đây khoá qua
+        // assignment.setStatus(COMPLETED) dùng chung cả lớp — đã bỏ vì gây bug 422 cho học sinh khác).
+        boolean revealedEarly = latest != null && latest.isAnswersRevealedEarly();
         boolean canStartNewAttempt = assignment.getStatus() == ExerciseAssignment.Status.ACTIVE
                 && !assignment.getAvailableFrom().isAfter(OffsetDateTime.now())
                 && (latest == null || latest.getStatus() != ExerciseAttempt.Status.IN_PROGRESS)
                 && (myAttempts.isEmpty() || exercise.isAllowRetake())
                 && (exercise.getMaxAttempts() == null || myAttempts.size() < exercise.getMaxAttempts())
-                && !retakeBlockedByDeadline;
+                && !retakeBlockedByDeadline
+                && !revealedEarly;
         return new AssignedExerciseResponse(
                 exercise.getId(), exercise.getCode(), exercise.getTitle(), exercise.getExerciseType().name(),
                 assignment.getId(), enrollment.getSchoolClass().getId(), enrollment.getSchoolClass().getName(),
@@ -746,7 +761,9 @@ public class ExerciseAttemptService {
                 assignment.getHomeworkBatch() == null ? null : assignment.getHomeworkBatch().getId(),
                 exercise.getTotalPoints(),
                 exercise.getExam().getId(), exercise.getExam().getTitle(),
-                exercise.getSkillCategory() == null ? null : exercise.getSkillCategory().name());
+                exercise.getSkillCategory() == null ? null : exercise.getSkillCategory().name(),
+                exercise.getExam().getSubTopic() == null ? null : exercise.getExam().getSubTopic().getUnit().getTitle(),
+                exercise.getExam().getSubTopic() == null ? null : exercise.getExam().getSubTopic().getTitle());
     }
 
     private StudentAnswerResponse toResponse(StudentAnswer a) {

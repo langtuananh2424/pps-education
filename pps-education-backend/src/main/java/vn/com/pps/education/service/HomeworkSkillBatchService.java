@@ -166,7 +166,8 @@ public class HomeworkSkillBatchService {
                 .map(list -> new HomeworkSkillGroupResponse(
                         list.get(0).examId(), list.get(0).examCode(), list.get(0).examTitle(), list.get(0).examTeacherType(), skillCategory.name(),
                         list.size(),
-                        list.stream().mapToLong(e -> exerciseQuestionRepository.countByExerciseId(e.id())).sum()))
+                        list.stream().mapToLong(e -> exerciseQuestionRepository.countByExerciseId(e.id())).sum(),
+                        list.get(0).unitTitle(), list.get(0).subTopicTitle()))
                 .toList();
     }
 

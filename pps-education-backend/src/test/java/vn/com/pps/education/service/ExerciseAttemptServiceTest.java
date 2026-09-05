@@ -715,12 +715,16 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
     }
 
     /**
-     * V89 (điều chỉnh 2026-08-19): đạt ngưỡng và ĐÃ HẾT lượt làm lại
-     * (maxAttempts=1) -> đóng bản giao (COMPLETED) như cũ, vì không còn lượt
-     * nào để làm lại nữa (khác trường hợp còn lượt ở test phía trên).
+     * Sửa 2026-09-04 (bug thật, xem báo cáo 422 "Đề này chưa được giao cho học sinh" trên staging) —
+     * trước đây (V89, 2026-08-19) đạt ngưỡng + hết lượt làm lại (maxAttempts=1) đóng LUÔN bản giao
+     * (COMPLETED). Nhưng {@code ExerciseAssignment} là bản giao CHUNG CHO CẢ LỚP
+     * ({@code targetStudentIds} luôn null) — đóng nó vì 1 học sinh vô tình chặn LUÔN mọi học sinh
+     * khác trong lớp start được lượt làm ĐẦU TIÊN của họ (resolveActiveAssignmentForStudent chỉ chấp
+     * nhận status=ACTIVE). Giờ bản giao vẫn giữ ACTIVE; chỉ CHÍNH học sinh đã hết lượt bị chặn làm
+     * lại (RetakeNotAllowedException từ startAttempt, đếm theo assignmentId+studentId).
      */
     @Test
-    void submitAttempt_boSung_atOrAboveThresholdCompletesAssignmentWhenNoAttemptsLeft() {
+    void submitAttempt_boSung_atOrAboveThresholdKeepsAssignmentActiveButBlocksOwnRetakeWhenNoAttemptsLeft() {
         QuestionResponse mc1 = createMcQuestion();
         QuestionResponse mc2 = createMcQuestion();
         ExerciseResponse exercise = exerciseService.createExercise(
@@ -739,7 +743,24 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
 
         assertThat(submitted.passed()).isTrue();
         ExerciseAssignment refreshed = exerciseAssignmentRepository.findById(assignment.getId()).orElseThrow();
-        assertThat(refreshed.getStatus()).isEqualTo(ExerciseAssignment.Status.COMPLETED);
+        assertThat(refreshed.getStatus()).isEqualTo(ExerciseAssignment.Status.ACTIVE);
+        assertThatThrownBy(() -> exerciseAttemptService.startAttempt(exercise.id(), assignment.getId(), studentUser.getId()))
+                .isInstanceOf(RetakeNotAllowedException.class);
+
+        // Học sinh KHÁC trong cùng lớp (chưa từng làm bài này) vẫn phải start được lượt ĐẦU TIÊN bình
+        // thường — đây chính là điều bị bug 422 làm hỏng trước khi sửa.
+        User otherStudentUser = newUser("other-student");
+        Student otherStudent = new Student();
+        otherStudent.setUser(otherStudentUser);
+        otherStudent.setStudentCode("HS-TEST-" + SEQ.incrementAndGet());
+        otherStudent.setDateOfBirth(LocalDate.of(2012, 5, 1));
+        otherStudent.setEnrollmentDate(LocalDate.now());
+        studentRepository.save(otherStudent);
+        classService.enroll(schoolClass.id(), new EnrollStudentRequest(otherStudent.getId(), LocalDate.now()), headAcademic.getId());
+
+        ExerciseAttemptResponse otherStudentAttempt =
+                exerciseAttemptService.startAttempt(exercise.id(), assignment.getId(), otherStudentUser.getId());
+        assertThat(otherStudentAttempt.attemptNumber()).isEqualTo(1);
     }
 
     /** V89: ngưỡng đạt cấu hình được theo từng Bài — không cố định 80% khi Giáo viên chọn khác. */
