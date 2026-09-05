@@ -14,7 +14,7 @@ import org.springframework.context.annotation.Configuration;
 public class ClockConfig {
 
     @Bean
-    public Clock clock() {
-        return Clock.systemDefaultZone();
+    public MutableClock clock() {
+        return new MutableClock(Clock.systemDefaultZone());
     }
 }

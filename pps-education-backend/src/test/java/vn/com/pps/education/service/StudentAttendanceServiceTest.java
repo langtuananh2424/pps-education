@@ -1,12 +1,13 @@
 package vn.com.pps.education.service;
 
 import java.math.BigDecimal;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.transaction.annotation.Transactional;
+import vn.com.pps.education.config.MutableClock;
 import vn.com.pps.education.domain.ClassSession;
 import vn.com.pps.education.domain.Parent;
 import vn.com.pps.education.domain.ParentStudent;
@@ -54,8 +55,6 @@ import vn.com.pps.education.repository.UserRepository;
 import vn.com.pps.education.repository.UserRoleRepository;
 import vn.com.pps.education.support.AbstractIntegrationTest;
 
-import java.time.Clock;
-import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
@@ -64,7 +63,6 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.when;
 
 /**
  * UC-15: Điểm danh học sinh — Main Flow (bước 1-6), A2 (toàn bộ có mặt).
@@ -80,18 +78,21 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
      * toán khung giờ buổi học trong file test này — tránh flaky khi CI chạy
      * gần nửa đêm: LocalTime.now().minusHours(2) lúc 01:00 wrap về 23:00 hôm
      * trước, phá vỡ giả định "khung giờ trong cùng 1 ngày" của
-     * StudentAttendanceService.isWithinSessionWindow. clock (mock) khiến
-     * Service luôn thấy "bây giờ" = FIXED_NOW, bất kể đồng hồ thật đang chạy
-     * lúc nào — ngày (LocalDate) vẫn lấy đúng ngày thật để khớp sessionDate
-     * tạo bằng LocalDate.now() ở nơi khác trong test.
+     * StudentAttendanceService.isWithinSessionWindow. Ghim clock (MutableClock,
+     * bean Clock singleton dùng chung toàn context — KHÔNG dùng @MockBean vì
+     * mock bean buộc Spring tạo thêm 1 ApplicationContext/connection pool
+     * riêng, từng gây lỗi "too many clients already" trên CI) khiến Service
+     * luôn thấy "bây giờ" = FIXED_NOW, bất kể đồng hồ thật đang chạy lúc nào —
+     * ngày (LocalDate) vẫn lấy đúng ngày thật để khớp sessionDate tạo bằng
+     * LocalDate.now() ở nơi khác trong test.
      */
     private static final LocalTime FIXED_NOW = LocalTime.of(10, 0);
 
     @Autowired
     private StudentAttendanceService studentAttendanceService;
 
-    @MockBean
-    private Clock clock;
+    @Autowired
+    private MutableClock clock;
 
     @Autowired
     private ClassSessionService classSessionService;
@@ -158,8 +159,7 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
     @BeforeEach
     void setUp() {
         ZoneId zone = ZoneId.systemDefault();
-        when(clock.instant()).thenReturn(LocalDate.now().atTime(FIXED_NOW).atZone(zone).toInstant());
-        when(clock.getZone()).thenReturn(zone);
+        clock.setFixedInstant(LocalDate.now().atTime(FIXED_NOW).atZone(zone).toInstant(), zone);
 
         headAcademic = newUser("head.academic");
         assignRole(headAcademic, "HEAD_ACADEMIC");
@@ -204,6 +204,14 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
         parent.setUser(parentUser);
         parent = parentRepository.save(parent);
         linkParent(parent, student1);
+    }
+
+    /** clock là bean singleton dùng chung ApplicationContext — trả về đồng hồ
+     * hệ thống thật sau mỗi test, tránh rò rỉ FIXED_NOW sang test class khác
+     * dùng chung context (xem Javadoc FIXED_NOW). */
+    @AfterEach
+    void resetClock() {
+        clock.reset();
     }
 
     private void linkParent(Parent parent, Student student) {
