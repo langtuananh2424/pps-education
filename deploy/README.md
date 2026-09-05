@@ -218,21 +218,59 @@ User=deploy
 WantedBy=multi-user.target
 ```
 
-`systemctl enable --now 9router` — nghe mặc định `127.0.0.1:20128`, backend
-gọi vào qua `host.docker.internal:20128` (đã map `extra_hosts: host-gateway`
-trong docker-compose, xem mục 3).
+`systemctl enable --now 9router` — mặc định 9Router chỉ nghe `127.0.0.1`
+(loopback CỦA HOST), nhưng backend chạy trong container Docker gọi tới qua
+`host.docker.internal`, đi qua interface bridge của Docker chứ KHÔNG qua
+loopback — nên PHẢI đổi 9Router sang nghe `0.0.0.0` thì backend mới kết nối
+được (xem sự cố 2026-09-04: bind `127.0.0.1` làm mọi request từ backend
+timeout dù routing/DNS đã đúng).
 
-Cấu hình Dashboard 9Router (Combo & Vision Adapter, Media Providers → STT)
-qua SSH tunnel từ máy cá nhân, KHÔNG public hostname nào cho việc này:
+Sửa `--host` trong drop-in `/etc/systemd/system/9router.service.d/override.conf`:
+
+```ini
+[Service]
+ExecStart=
+ExecStart=/usr/bin/9router --tray --no-browser --log --host 0.0.0.0
+```
+
+Vì `0.0.0.0` mở ra mọi interface (không còn chỉ loopback), **bắt buộc** chặn
+bằng `ufw` — chỉ cho phép đúng subnet Docker của từng stack gọi vào, KHÔNG
+public port 20128 ra Internet hay LAN:
+
+```bash
+sudo ufw allow from 172.28.0.0/24 to any port 20128   # staging (docker-compose.staging.yml)
+sudo ufw allow from 172.29.0.0/24 to any port 20128   # production (docker-compose.production.yml)
+sudo ufw deny 20128                                    # deny rule PHẢI nằm SAU 2 dòng allow ở trên
+                                                        # (ufw xét rule theo thứ tự, deny đứng trước sẽ
+                                                        # chặn luôn cả traffic từ subnet được allow)
+```
+
+2 subnet trên đã được **ghim cố định** trong `networks.internal.ipam` của
+từng file `docker-compose.*.yml` (không để Docker tự chọn) — vì
+`extra_hosts.backend` trỏ thẳng vào gateway của subnet đó
+(`172.28.0.1`/`172.29.0.1`), subnet đổi là gateway sai theo, request lại
+timeout. **Không dùng giá trị đặc biệt `host-gateway`** của Docker cho
+`extra_hosts` — nó resolve ra gateway của bridge MẶC ĐỊNH (`docker0`,
+thường `172.17.0.1`), không phải gateway của network `internal` tuỳ chỉnh
+mà backend thực sự nằm trong, khiến container không có route tới đó.
+
+Do 9Router giờ nhận kết nối "remote" (không còn từ đúng `127.0.0.1` của
+host), nó **bắt buộc** kèm API key — set `NINE_ROUTER_API_KEY` trong `.env`
+mỗi stack (lấy/tạo key trong Dashboard, xem bên dưới), nếu không backend sẽ
+nhận `401 {"error":"API key required for remote API access"}`.
+
+Cấu hình Dashboard 9Router (Combo & Vision Adapter, Media Providers → STT,
+tạo API key) qua SSH tunnel từ máy cá nhân, KHÔNG public hostname nào cho
+việc này:
 
 ```bash
 ssh -L 20128:localhost:20128 deploy@<LAN_IP>
 # rồi mở http://localhost:20128 trên trình duyệt máy nhà
 ```
 
-Set `NINE_ROUTER_MODEL`/`NINE_ROUTER_STT_MODEL`/`NINE_ROUTER_AUDIO_MODEL`
-trong `.env` mỗi stack theo combo đã tạo (xem `.env.example` gốc repo, mục
-9Router, để biết ý nghĩa từng biến).
+Set `NINE_ROUTER_API_KEY`/`NINE_ROUTER_MODEL`/`NINE_ROUTER_STT_MODEL`/
+`NINE_ROUTER_AUDIO_MODEL` trong `.env` mỗi stack theo combo đã tạo (xem
+`.env.example` gốc repo, mục 9Router, để biết ý nghĩa từng biến).
 
 ## 6. Quản trị từ xa trong LAN
 
