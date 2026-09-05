@@ -810,3 +810,22 @@ h1.headline .accent {
 .animate-alert-pop-centered {
   animation: alert-pop-centered 3.5s ease-in-out forwards;
 }
+
+/*
+ * Bổ sung 2026-09-05 (fix bug thật, đã xác nhận với người dùng) — Safari/Chrome trên iOS tự động zoom
+ * cả trang khi focus vào input/textarea/select có font-size TÍNH TOÁN nhỏ hơn 16px (hành vi cố định
+ * của trình duyệt, không tắt được bằng thuộc tính khác ngoài tăng font-size). Nhiều input trong màn
+ * làm bài (VD ô "Nhập câu trả lời..." điền từ) dùng class Tailwind text-xs/text-sm (12px/14px) ở mốc
+ * mobile — mỗi lần học sinh chạm vào ô nhập là bị zoom, vỡ layout, phải tự zoom tay lại. Ép font-size
+ * 16px cho MỌI input/textarea/select trên màn hẹp (≤639px, dưới breakpoint sm: của Tailwind) — chỉ áp
+ * dụng ở mobile để không đổi cỡ chữ đã đặt riêng cho tablet/desktop (sm:/lg: vốn đã ≥14px/16px sẵn).
+ * Đặt NGOÀI @layer nên có độ ưu tiên cao hơn class utility Tailwind theo cascade layers, không cần
+ * !important.
+ */
+@media (max-width: 639px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
