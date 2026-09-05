@@ -84,6 +84,8 @@
       "answerPlaceholder": "Nhập câu trả lời...",
       "correct": "Chính xác",
       "correctAnswerPrefix": "Đáp án đúng: {{answer}}",
+      "notAnsweredPrefix": "Bạn không trả lời câu này — Đáp án đúng: {{answer}}",
+      "notAnsweredChoice": "Bạn không chọn đáp án nào — đáp án đúng đã được tô sáng.",
       "explanationPrefix": "Giải thích: {{text}}",
       "gradingFeedbackTitle": "Nhận xét bài làm",
       "gradedByAi": "AI chấm",

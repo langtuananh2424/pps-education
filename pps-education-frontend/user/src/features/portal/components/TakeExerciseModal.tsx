@@ -967,6 +967,15 @@ export function QuestionBlock({
   // UC-24/A4, UC-27/A2: câu tự chấm đã có kết quả (isCorrect) nhưng đáp án chưa lộ — do đề còn
   // giới hạn số lần làm lại và đây chưa phải lượt cuối cùng. Không áp dụng cho ESSAY/SPEAKING.
   const answerLockedByRetake = answer != null && answer.isAutoGradable && answer.isCorrect != null && !showFeedback;
+  /**
+   * V169 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-05) — học sinh CHƯA TỪNG động vào
+   * câu này (không chọn/không gõ lần nào, kể cả để trắng) thì BE không có dòng student_answers thật —
+   * listAnswers() giờ bù 1 "câu trả lời rỗng" tạm (KHÔNG lưu DB) để vẫn lộ đáp án đúng khi đủ điều
+   * kiện (xem Javadoc ExerciseAttemptService#listAnswers), nhưng KHÔNG set isCorrect (giữ null, khác
+   * true/false của câu đã tự chấm thật) — dùng đúng tín hiệu này để phân biệt "chưa trả lời" khỏi "trả
+   * lời đúng/sai", tránh tô xanh đáp án đúng trông y hệt "học sinh đã chọn đúng".
+   */
+  const notAnswered = showFeedback && answer!.isAutoGradable && answer!.isCorrect == null;
 
   const toggleChoice = (choiceId: number) => {
     if (readOnly || saving) return;
@@ -1131,27 +1140,42 @@ export function QuestionBlock({
             className="w-full bg-sky-2 border border-line/70 text-xs sm:text-sm lg:text-base p-3 sm:p-4 rounded-xl focus:outline-none disabled:opacity-70"
           />
           {isFillInBlank && showFeedback && (
-            <div className={`flex items-center gap-1.5 text-xs font-bold ${answer?.isCorrect ? "text-teal-deep" : "text-coral"}`}>
-              {answer?.isCorrect ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
-              {answer?.isCorrect
-                ? t("takeExercise.question.correct")
-                : t("takeExercise.question.correctAnswerPrefix", { answer: answer?.correctAnswerText ?? "—" })}
+            <div className={`flex items-center gap-1.5 text-xs font-bold ${notAnswered ? "text-coral" : answer?.isCorrect ? "text-teal-deep" : "text-coral"}`}>
+              {notAnswered ? <HelpCircle size={14} /> : answer?.isCorrect ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
+              {notAnswered
+                ? t("takeExercise.question.notAnsweredPrefix", { answer: answer?.correctAnswerText ?? "—" })
+                : answer?.isCorrect
+                  ? t("takeExercise.question.correct")
+                  : t("takeExercise.question.correctAnswerPrefix", { answer: answer?.correctAnswerText ?? "—" })}
             </div>
           )}
         </div>
       )}
 
+      {isChoiceQuestion && showFeedback && notAnswered && (
+        <p className="text-xs font-bold text-coral flex items-center gap-1.5">
+          <HelpCircle size={14} /> {t("takeExercise.question.notAnsweredChoice")}
+        </p>
+      )}
+
       {(question.questionType === "WORD_BANK" || question.questionType === "SENTENCE_BUILDING") && showFeedback && (
-        <div className={`flex items-center gap-1.5 text-xs font-bold ${answer?.isCorrect ? "text-teal-deep" : "text-coral"}`}>
-          {answer?.isCorrect ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
-          {answer?.isCorrect
-            ? t("takeExercise.question.correct")
-            : t("takeExercise.question.correctAnswerPrefix", {
+        <div className={`flex items-center gap-1.5 text-xs font-bold ${notAnswered ? "text-coral" : answer?.isCorrect ? "text-teal-deep" : "text-coral"}`}>
+          {notAnswered ? <HelpCircle size={14} /> : answer?.isCorrect ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
+          {notAnswered
+            ? t("takeExercise.question.notAnsweredPrefix", {
                 answer:
                   (question.questionType === "WORD_BANK" ? answer?.correctStructuredContent?.blanks : answer?.correctStructuredContent?.chunks)?.join(
                     " — "
                   ) ?? "—"
-              })}
+              })
+            : answer?.isCorrect
+              ? t("takeExercise.question.correct")
+              : t("takeExercise.question.correctAnswerPrefix", {
+                  answer:
+                    (question.questionType === "WORD_BANK" ? answer?.correctStructuredContent?.blanks : answer?.correctStructuredContent?.chunks)?.join(
+                      " — "
+                    ) ?? "—"
+                })}
         </div>
       )}
 
@@ -1640,6 +1664,8 @@ export function GridQuestionGroup({
           const selected = new Set(answer?.selectedChoiceIds ?? []);
           const correctIds = new Set(answer?.correctChoiceIds ?? []);
           const showFeedback = answer != null && isAnswerRevealed(answer);
+          // V169 — mirror QuestionBlock#notAnswered, xem Javadoc ở đó.
+          const notAnswered = showFeedback && answer!.isAutoGradable && answer!.isCorrect == null;
           const saving = savingQuestionId === q.questionId;
           const isChoiceRow = CHOICE_TYPES.has(q.questionType) && q.choices.length > 0;
           const isFillInBlankRow = q.questionType === "FILL_IN_BLANK";
@@ -1739,6 +1765,12 @@ export function GridQuestionGroup({
                 </div>
               )}
 
+              {isChoiceRow && showFeedback && notAnswered && (
+                <p className="text-xs font-bold text-coral flex items-center gap-1.5">
+                  <HelpCircle size={14} /> {t("takeExercise.question.notAnsweredChoice")}
+                </p>
+              )}
+
               {isFillInBlankRow && (
                 <div className="space-y-1">
                   <input
@@ -1750,11 +1782,13 @@ export function GridQuestionGroup({
                     className="w-full bg-sky-2 border border-line/70 text-xs sm:text-sm lg:text-base p-2.5 sm:p-3 rounded-xl focus:outline-none disabled:opacity-70"
                   />
                   {showFeedback && (
-                    <div className={`flex items-center gap-1.5 text-xs font-bold ${answer?.isCorrect ? "text-teal-deep" : "text-coral"}`}>
-                      {answer?.isCorrect ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
-                      {answer?.isCorrect
-                        ? t("takeExercise.question.correct")
-                        : t("takeExercise.question.correctAnswerPrefix", { answer: answer?.correctAnswerText ?? "—" })}
+                    <div className={`flex items-center gap-1.5 text-xs font-bold ${notAnswered ? "text-coral" : answer?.isCorrect ? "text-teal-deep" : "text-coral"}`}>
+                      {notAnswered ? <HelpCircle size={14} /> : answer?.isCorrect ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
+                      {notAnswered
+                        ? t("takeExercise.question.notAnsweredPrefix", { answer: answer?.correctAnswerText ?? "—" })
+                        : answer?.isCorrect
+                          ? t("takeExercise.question.correct")
+                          : t("takeExercise.question.correctAnswerPrefix", { answer: answer?.correctAnswerText ?? "—" })}
                     </div>
                   )}
                 </div>
