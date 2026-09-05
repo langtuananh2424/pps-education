@@ -28,6 +28,7 @@ import {
 import { useIntegrityMonitor } from "../hooks/useIntegrityMonitor";
 import MonitoringBadge from "./MonitoringBadge";
 import { useCountdown, formatRemaining } from "@/components/ui/useCountdown";
+import { useLockBodyScroll } from "@/components/ui/useLockBodyScroll";
 
 interface TakeExerciseModalProps {
   item: AssignedExerciseResponse;
@@ -191,6 +192,7 @@ function isAnswerRevealed(answer: StudentAnswerResponse): boolean {
  * còn 1 lượt IN_PROGRESS (backend không tự resume, startAttempt luôn tạo attempt mới).
  */
 export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalProps) {
+  useLockBodyScroll(true);
   const { t } = useTranslation("portal-exercises");
   const [attempt, setAttempt] = useState<ExerciseAttemptResponse | null>(null);
   const [questions, setQuestions] = useState<ExerciseQuestionResponse[]>([]);

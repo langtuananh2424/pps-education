@@ -22,6 +22,7 @@ import {
   uploadMedia
 } from "../api";
 import { GridQuestionGroup, QuestionBlock, groupQuestionsByGroupKey } from "./TakeExerciseModal";
+import { useLockBodyScroll } from "@/components/ui/useLockBodyScroll";
 import { useIntegrityMonitor } from "../hooks/useIntegrityMonitor";
 import MonitoringBadge from "./MonitoringBadge";
 
@@ -86,6 +87,7 @@ interface BatchTakeExerciseModalProps {
  * Javadoc handleRetakeBatch.
  */
 export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExerciseModalProps) {
+  useLockBodyScroll(true);
   const { t } = useTranslation("portal-exercises");
   const [subs, setSubs] = useState<SubExercise[] | null>(null);
   const [answersByQuestion, setAnswersByQuestion] = useState<Map<number, StudentAnswerResponse>>(new Map());
