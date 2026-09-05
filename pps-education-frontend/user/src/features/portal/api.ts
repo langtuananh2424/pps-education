@@ -722,14 +722,24 @@ export interface ConnectionAnswerResult {
   correctChoiceId: number | null;
 }
 
+/**
+ * finalized=false: sai nhưng còn lượt thử — BE giữ nguyên watchSessionId, cho nộp lại CẢ FORM.
+ * finalized=true: lượt đã kết thúc hẳn — `passed` mới có ý nghĩa (đúng 100% hay đã hết lượt thử mà
+ * vẫn sai). Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-05 (V160).
+ */
 export interface ReviewVideoConnectionQuizResultResponse {
   results: ConnectionAnswerResult[];
   progress: ReviewVideoProgressResponse;
+  finalized: boolean;
+  passed: boolean;
+  attemptsUsed: number;
+  maxAttempts: number;
 }
 
 /**
  * Nộp TOÀN BỘ câu trả lời cho ĐÚNG 1 lượt xem (watchSessionId) — khớp cặp 1-1 "xem lượt nào, trả
- * lời lượt đó". BE chặn (422) nếu lượt chưa đạt ngưỡng xem hoặc lượt đó đã nộp đủ rồi.
+ * lời lượt đó". BE chặn (422) nếu lượt chưa đạt ngưỡng xem hoặc lượt đó đã kết thúc hẳn rồi (xem
+ * `finalized` — sai nhưng còn lượt thử thì KHÔNG bị chặn, có thể gọi lại API này để nộp lại cả form).
  */
 export function submitReviewVideoConnectionAnswers(
   watchSessionId: number,

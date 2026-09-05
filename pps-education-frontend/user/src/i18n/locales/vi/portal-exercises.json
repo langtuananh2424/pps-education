@@ -132,7 +132,12 @@
       "noQuestions": "Video này chưa có câu hỏi — liên hệ Giáo viên.",
       "questionLabel": "Câu {{index}}. {{prompt}}",
       "submitting": "Đang nộp...",
-      "submitButton": "Nộp câu trả lời"
+      "submitButton": "Nộp câu trả lời",
+      "correctFeedback": "Chính xác! Lượt xem này đã được tính.",
+      "wrongRetryFeedback": "Bạn trả lời sai 1 số câu — hãy làm lại cả bài, bạn còn {{attemptsRemaining}} lần thử.",
+      "wrongFinalFeedback": "Bạn đã sai sau {{maxAttempts}} lần làm — lượt xem này không được tính. Hệ thống sẽ mở lượt xem mới.",
+      "retryButton": "Làm lại",
+      "continueButton": "Tiếp tục"
     },
     "progress": {
       "heading": "Lượt xem hiện tại",
