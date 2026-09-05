@@ -265,6 +265,7 @@
     "questionNumber": "Câu {{index}}.",
     "speakingHint": "Học viên ghi âm trả lời — chấm tay ở Hàng chờ chấm bài.",
     "essayHint": "Học viên trả lời tự luận — chấm tay ở Hàng chờ chấm bài.",
+    "fillInBlankAnswer": "Đáp án đúng: {{answer}}",
     "wordBankAnswerOrder": "Đáp án đúng theo thứ tự chỗ trống: {{answers}}",
     "sentenceBuildingOrder": "Thứ tự câu đúng: {{order}}",
     "explanationPrefix": "Giải thích: {{text}}"

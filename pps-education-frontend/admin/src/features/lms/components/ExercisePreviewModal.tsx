@@ -173,6 +173,11 @@ export default function ExercisePreviewModal({ exercise, onClose }: ExercisePrev
                 {eq.questionType === "ESSAY" && (
                   <p className="text-[11px] text-slate-400 italic">{t("exercisePreviewModal.essayHint")}</p>
                 )}
+                {eq.questionType === "FILL_IN_BLANK" && q?.correctAnswerText && (
+                  <p className="text-[11px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 rounded-lg p-2">
+                    {t("exercisePreviewModal.fillInBlankAnswer", { answer: q.correctAnswerText })}
+                  </p>
+                )}
                 {eq.questionType === "WORD_BANK" && q?.structuredContent?.blanks && (
                   <p className="text-[11px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 rounded-lg p-2">
                     {t("exercisePreviewModal.wordBankAnswerOrder", { answers: q.structuredContent.blanks.join(" — ") })}
