@@ -2004,7 +2004,7 @@ public class StudentCommentService {
      */
     private OffsetDateTime resolveNextSessionDueAt(ClassSession session) {
         List<ClassSession> upcoming = classSessionRepository.findUpcomingSessions(
-                session.getSchoolClass().getId(), session.getSessionDate(),
+                session.getSchoolClass().getId(), session.getSessionDate(), session.getId(),
                 List.of(ClassSession.Status.CANCELLED, ClassSession.Status.RESCHEDULED), session.getTeacherType());
         if (upcoming.isEmpty()) {
             throw new NoUpcomingClassSessionException(
@@ -2217,17 +2217,19 @@ public class StudentCommentService {
      * (đã xác nhận với người dùng, fix bug thật phát hiện qua test dữ liệu
      * thật lớp 6G): loại CANCELLED/RESCHEDULED khỏi "buổi liền trước" —
      * trước đây không lọc, chỉ đúng tình cờ nhờ tiebreak idDesc, xem
-     * Javadoc ClassSessionRepository#findFirstBySchoolClassIdAndSessionDateLessThanAndStatusNotInOrderBySessionDateDescIdDesc.
+     * Javadoc ClassSessionRepository#findSessionsBeforeOrderedDesc/findSessionsBeforeWithTeacherTypeOrderedDesc
+     * (V167, 2026-09-05 — 2 method đổi tên + đổi sang @Query để fix bug "2 buổi cùng ngày").
      */
     private StudentComment previousComment(ClassSession classSession, Long studentId) {
         ClassSession.TeacherType teacherType = classSession.getTeacherType();
         List<ClassSession.Status> excludedStatuses = List.of(ClassSession.Status.CANCELLED, ClassSession.Status.RESCHEDULED);
-        Optional<ClassSession> previousSession = teacherType != null
-                ? classSessionRepository.findFirstBySchoolClassIdAndSessionDateLessThanAndTeacherTypeAndStatusNotInOrderBySessionDateDescIdDesc(
-                        classSession.getSchoolClass().getId(), classSession.getSessionDate(), teacherType, excludedStatuses)
-                : classSessionRepository.findFirstBySchoolClassIdAndSessionDateLessThanAndStatusNotInOrderBySessionDateDescIdDesc(
-                        classSession.getSchoolClass().getId(), classSession.getSessionDate(), excludedStatuses);
-        return previousSession
+        List<ClassSession> candidates = teacherType != null
+                ? classSessionRepository.findSessionsBeforeWithTeacherTypeOrderedDesc(
+                        classSession.getSchoolClass().getId(), classSession.getSessionDate(), classSession.getId(), teacherType, excludedStatuses)
+                : classSessionRepository.findSessionsBeforeOrderedDesc(
+                        classSession.getSchoolClass().getId(), classSession.getSessionDate(), classSession.getId(), excludedStatuses);
+        return candidates.stream()
+                .findFirst()
                 .flatMap(prev -> studentCommentRepository.findByClassSessionIdAndStudentId(prev.getId(), studentId))
                 .orElse(null);
     }

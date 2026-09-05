@@ -39,6 +39,7 @@ import vn.com.pps.education.repository.UserRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -495,10 +496,34 @@ public class ExerciseAttemptService {
         return toResponse(attemptOwnedByActor(attemptId, actorUserId));
     }
 
+    /**
+     * V169 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-05) — fix bug thật: học sinh
+     * KHÔNG hề đụng vào 1 câu hỏi (không gõ/không chọn dropdown lần nào, kể cả để trắng) thì
+     * saveAnswer() chưa từng được gọi cho câu đó → KHÔNG có dòng student_answers nào — trước đây hàm
+     * này chỉ trả về đúng những dòng ĐÃ tồn tại, nên câu chưa từng động tới hoàn toàn biến mất khỏi
+     * response, kể cả khi lượt đã hết + đã hiện đáp án (Exercise.showCorrectAnswers=true) — học sinh
+     * hết lượt làm lại vẫn không thấy đáp án đúng cho ĐÚNG những câu đó (trắc nghiệm không dính vì
+     * saveAnswer chạy ngay khi bấm chọn, dù chọn sai). Bù thêm 1 dòng StudentAnswer "rỗng" (KHÔNG lưu
+     * DB — chỉ dựng tạm trong bộ nhớ để đi qua toResponse() lấy đúng đáp án đúng/giải thích nếu đủ điều
+     * kiện lộ) cho mọi câu hỏi của Bài chưa có dòng nào, y hệt học sinh đã "trả lời" rỗng. Cố tình
+     * KHÔNG ghi xuống student_answers thật — tránh đổi ý nghĩa "đã tồn tại dòng" đang được
+     * ExerciseReportService#getQuestionStats dùng để phân biệt "đã thử làm" khỏi "chưa từng động tới".
+     */
     @Transactional(readOnly = true)
     public List<StudentAnswerResponse> listAnswers(Long attemptId, Long actorUserId) {
-        attemptOwnedByActor(attemptId, actorUserId);
-        return studentAnswerRepository.findByExerciseAttemptId(attemptId).stream().map(this::toResponse).toList();
+        ExerciseAttempt attempt = attemptOwnedByActor(attemptId, actorUserId);
+        List<StudentAnswer> answers = new ArrayList<>(studentAnswerRepository.findByExerciseAttemptId(attemptId));
+        Set<Long> answeredQuestionIds = answers.stream().map(a -> a.getQuestion().getId()).collect(Collectors.toSet());
+        for (ExerciseQuestion eq : exerciseQuestionRepository.findByExerciseIdOrderByDisplayOrder(attempt.getExercise().getId())) {
+            if (answeredQuestionIds.add(eq.getQuestion().getId())) {
+                StudentAnswer blank = new StudentAnswer();
+                blank.setExerciseAttempt(attempt);
+                blank.setQuestion(eq.getQuestion());
+                blank.setAutoGradable(AUTO_GRADABLE_TYPES.contains(eq.getQuestion().getQuestionType()));
+                answers.add(blank);
+            }
+        }
+        return answers.stream().map(this::toResponse).toList();
     }
 
     @Transactional(readOnly = true)

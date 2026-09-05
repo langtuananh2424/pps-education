@@ -84,6 +84,8 @@
       "answerPlaceholder": "Type your answer...",
       "correct": "Correct",
       "correctAnswerPrefix": "Correct answer: {{answer}}",
+      "notAnsweredPrefix": "You didn't answer this question — Correct answer: {{answer}}",
+      "notAnsweredChoice": "You didn't select any answer — the correct one is highlighted below.",
       "explanationPrefix": "Explanation: {{text}}",
       "gradingFeedbackTitle": "Feedback",
       "gradedByAi": "Graded by AI",
