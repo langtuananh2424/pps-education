@@ -69,6 +69,12 @@ public class NotificationDispatchService {
                 delivery.setDeliveryStatus(NotificationDelivery.DeliveryStatus.SENT);
                 delivery.setSentAt(OffsetDateTime.now());
             } else {
+                // Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-09-05): trước đây nhánh này
+                // không log gì (chỉ nhánh throw exception ở catch bên dưới mới log) — sender trả về
+                // false (VD PushNotificationSender khi user không có device_tokens active) thất bại
+                // HOÀN TOÀN ÂM THẦM, phải tra thẳng DB mới biết. Log WARN để thấy ngay trong log server.
+                log.warn("Gửi notification_delivery id={} qua kênh {} cho recipient_user_id={} thất bại: sender trả về false",
+                        delivery.getId(), delivery.getChannel(), delivery.getNotification().getRecipientUser().getId());
                 markFailed(delivery, "Gửi thất bại (sender trả về false)");
             }
         } catch (Exception ex) {

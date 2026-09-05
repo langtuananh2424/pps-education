@@ -1,5 +1,6 @@
 package vn.com.pps.education.service.notification;
 
+import com.google.firebase.messaging.AndroidConfig;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.FirebaseMessagingException;
 import com.google.firebase.messaging.Message;
@@ -73,6 +74,11 @@ public class PushNotificationSender implements NotificationChannelSender {
                             .setTitle(notification.getTitle())
                             .setBody(notification.getContent())
                             .build())
+                    // Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-09-05): ép priority HIGH để
+                    // FCM đánh thức thiết bị ngay (kể cả doze mode) thay vì trì hoãn theo lô — KHÔNG tự
+                    // quyết định được việc có hiện popup/heads-up hay không, việc đó do Android
+                    // Notification Channel importance (người dùng tự cấu hình cho website này) quyết định.
+                    .setAndroidConfig(AndroidConfig.builder().setPriority(AndroidConfig.Priority.HIGH).build())
                     .build();
             try {
                 firebaseMessaging.send(message);
