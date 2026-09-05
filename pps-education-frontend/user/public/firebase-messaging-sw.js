@@ -17,37 +17,22 @@ firebase.initializeApp({
 const messaging = firebase.messaging();
 
 /**
- * Cùng 1 logic hiển thị dùng ở cả 2 nơi bên dưới — tag lấy theo fcmMessageId (FCM luôn kèm field
- * này) để 2 lần showNotification() cho CÙNG 1 push (xem ghi chú "push" listener bên dưới) đè lên
- * nhau (Notification API: cùng tag = thay thế, không xếp chồng) thay vì hiện popup nhân đôi.
+ * Chỉ xử lý khi tab đóng/ở nền — tab đang mở dùng onMessage() phía app (xem pushNotifications.ts).
+ * Đã verify runtime thật hoạt động đúng trên CẢ Chrome/Android lẫn Safari/iOS 16 (background +
+ * force-quit, 2026-09-05). Từng nghi ngờ Safari không tương thích format payload của
+ * onBackgroundMessage() và thêm 1 self.addEventListener("push", ...) thủ công chạy song song làm
+ * lưới an toàn — hóa ra SAI: nguyên nhân thật của lần thất bại trước đó chỉ là Service Worker cache
+ * CŨ trên thiết bị test (fix bằng xóa hẳn shortcut + cài lại). Listener thủ công đó chạy song song
+ * với onBackgroundMessage() bên dưới cho CÙNG 1 push → hiện đúp 2 thông báo trên iOS (dedupe bằng
+ * tag=fcmMessageId không ăn vì Safari không có field này trong payload) — đã gỡ, giữ lại đúng 1
+ * đường xử lý (onBackgroundMessage) như code gốc.
  */
-function showFromPayload(payload) {
+messaging.onBackgroundMessage((payload) => {
   const title = payload.notification?.title ?? "PPS Education";
   const body = payload.notification?.body ?? "";
-  const tag = payload.fcmMessageId ?? payload.messageId ?? undefined;
-  return self.registration.showNotification(title, { body, icon: "/icon-192.png", badge: "/icon-192.png", tag });
-}
-
-// Chỉ xử lý khi tab đóng/ở nền — tab đang mở dùng onMessage() phía app (xem pushNotifications.ts).
-// Hoạt động đúng trên Chrome/Android (đã verify runtime thật). KHÔNG đủ cho Safari/iOS.
-messaging.onBackgroundMessage((payload) => showFromPayload(payload));
-
-/**
- * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-09-05): Safari/iOS im lặng hoàn toàn khi
- * app bị thoát hẳn dù backend đã gửi SENT thành công (đã verify qua notification_deliveries trên
- * staging) — nghi vấn firebase-messaging-compat.js tự parse payload "push" event theo đúng format
- * Chrome/FCM, còn Safari nhận qua Web Push chuẩn (relay APNs) có thể lệch format khiến
- * onBackgroundMessage() ở trên không bao giờ được gọi, không lỗi không log. Bắt thẳng "push" event
- * ở tầng thấp nhất (không qua Firebase SDK) làm lưới an toàn cross-browser — chạy song song với
- * onBackgroundMessage() ở trên (cùng tag nên không nhân đôi popup trên Chrome).
- */
-self.addEventListener("push", (event) => {
-  if (!event.data) return;
-  let payload;
-  try {
-    payload = event.data.json();
-  } catch {
-    return;
-  }
-  event.waitUntil(showFromPayload(payload));
+  self.registration.showNotification(title, {
+    body,
+    icon: "/icon-192.png",
+    badge: "/icon-192.png"
+  });
 });
