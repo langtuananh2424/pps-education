@@ -17,6 +17,7 @@ import vn.com.pps.education.domain.UserPermissionOverride;
 import vn.com.pps.education.dto.AdminChangePasswordRequest;
 import vn.com.pps.education.dto.ChangeOwnPasswordRequest;
 import vn.com.pps.education.dto.CreateUserRequest;
+import vn.com.pps.education.dto.LoginHistoryItemResponse;
 import vn.com.pps.education.dto.RoleResponse;
 import vn.com.pps.education.dto.UpdateUserEmailRequest;
 import vn.com.pps.education.dto.UpdateUserRequest;
@@ -31,6 +32,7 @@ import vn.com.pps.education.exception.InvalidCredentialsException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.exception.SelfAccountLockException;
 import vn.com.pps.education.repository.EmployeeRepository;
+import vn.com.pps.education.repository.LoginAttemptRepository;
 import vn.com.pps.education.repository.RefreshTokenRepository;
 import vn.com.pps.education.repository.UserHistoryRepository;
 import vn.com.pps.education.repository.UserPermissionOverrideRepository;
@@ -75,6 +77,7 @@ public class UserAccountService {
     private final UserRoleRepository userRoleRepository;
     private final UserPermissionOverrideRepository userPermissionOverrideRepository;
     private final UserHistoryRepository userHistoryRepository;
+    private final LoginAttemptRepository loginAttemptRepository;
     private final PasswordEncoder passwordEncoder;
 
     public UserAccountService(UserRepository userRepository,
@@ -83,6 +86,7 @@ public class UserAccountService {
                                UserRoleRepository userRoleRepository,
                                UserPermissionOverrideRepository userPermissionOverrideRepository,
                                UserHistoryRepository userHistoryRepository,
+                               LoginAttemptRepository loginAttemptRepository,
                                PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.employeeRepository = employeeRepository;
@@ -90,6 +94,7 @@ public class UserAccountService {
         this.userRoleRepository = userRoleRepository;
         this.userPermissionOverrideRepository = userPermissionOverrideRepository;
         this.userHistoryRepository = userHistoryRepository;
+        this.loginAttemptRepository = loginAttemptRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -248,6 +253,21 @@ public class UserAccountService {
         Employee employee = employeeRepository.findByUserId(userId).orElse(null);
 
         return toDetailResponse(user, roles, overrides, employee);
+    }
+
+    /**
+     * UC-44 bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-09-05):
+     * lịch sử đăng nhập/thiết bị (tái dùng bảng login_attempts, ghi ở mọi
+     * lần đăng nhập thành công lẫn thất bại — xem AuthService.recordAttempt).
+     */
+    @Transactional(readOnly = true)
+    public Page<LoginHistoryItemResponse> getLoginHistory(Long userId, Pageable pageable) {
+        getUserOrThrow(userId);
+        return loginAttemptRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable)
+                .map(a -> new LoginHistoryItemResponse(
+                        a.getCreatedAt(), a.getIpAddress(), a.getUserAgent(),
+                        a.getScreenResolution(), a.getBrowserLanguage(), a.getTimezone(),
+                        a.isSuccess(), a.getFailureReason() == null ? null : a.getFailureReason().name()));
     }
 
     /**
