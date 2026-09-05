@@ -125,6 +125,43 @@ public class AttemptIntegrityService {
         return new IntegrityEventBatchResponse(savedCount, totalCount, totalDurationSeconds, notifyNow, attemptStopped);
     }
 
+    /**
+     * Bổ sung 2026-09-04 (đã xác nhận với người dùng) — UC-27 "Lô giao BTVN theo kỹ năng"
+     * (BatchTakeExerciseModal): N Bài = N attempt độc lập, KHÔNG có 1 attempt đại diện để dùng đúng cơ
+     * chế đếm-ngưỡng-tự-động ở {@link #recordEvents} (mỗi Bài sẽ tự đếm/dừng lệch nhau, không hợp lý
+     * cho 1 phiên làm liên tục cả Lô). Đơn giản hoá CHỦ Ý: học sinh (FE, `useIntegrityMonitor`) tự đếm
+     * số lần thoát ra ngoài CỤC BỘ, đủ 3 lần thì tự nộp hết mọi Bài đang dở (gọi lại nguyên `submitAttempt`
+     * đã có, không có API "nộp cả Lô" riêng) RỒI gọi đúng 1 lần sang đây để báo Giáo viên — KHÔNG qua lại
+     * ngưỡng cấu hình `system_settings.integrity.*` (ngưỡng đó dành cho luồng ghi nhận real-time của Bài
+     * lẻ), KHÔNG báo phụ huynh (đã xác nhận với người dùng — chỉ Giáo viên, khác luồng gốc báo cả 2).
+     * `representativeAttemptId` = attempt của Bài ĐẦU TIÊN trong Lô — chỉ dùng để tra ra đúng học
+     * sinh + lớp qua resolver có sẵn (mirror {@link #recordEvents}), không liên quan tới việc chấm điểm.
+     */
+    @Transactional
+    public void notifyTeachersForBatchViolation(Long representativeAttemptId, int violationCount, Long actorUserId) {
+        if (!integritySettings.isMonitoringEnabled()) {
+            return;
+        }
+        AttemptContext ctx = resolverFor(AttemptType.EXERCISE).resolveForOwner(representativeAttemptId, actorUserId);
+        if (ctx.schoolClass() == null) {
+            return;
+        }
+        String title = "Học sinh thoát ra ngoài khi đang làm BTVN (Lô)";
+        String content = "Học sinh " + ctx.student().getUser().getFullName() + " đã thoát ra ngoài (đổi tab/thu nhỏ/thoát toàn màn hình) "
+                + violationCount + " lần khi đang làm " + ctx.attemptLabel() + " — hệ thống đã tự động nộp bài.";
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("studentId", ctx.student().getId());
+        metadata.put("schoolClassId", ctx.schoolClass().getId());
+        metadata.put("violationCount", violationCount);
+        metadata.put("studentName", ctx.student().getUser().getFullName());
+        metadata.put("className", ctx.schoolClass().getName());
+
+        for (ClassTeacher classTeacher : classTeacherRepository.findBySchoolClassIdAndAssignedToIsNull(ctx.schoolClass().getId())) {
+            notificationService.notify(classTeacher.getTeacher().getId(), Notification.NotificationType.EXAM_INTEGRITY_VIOLATION,
+                    title, content, metadata, "STUDENT", ctx.student().getId(), Notification.Priority.HIGH, actorUserId);
+        }
+    }
+
     @Transactional(readOnly = true)
     public IntegritySummaryResponse getSummary(AttemptType type, Long attemptId) {
         resolverFor(type).resolveForReading(attemptId);

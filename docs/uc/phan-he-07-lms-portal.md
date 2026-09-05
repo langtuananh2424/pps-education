@@ -301,6 +301,44 @@ UC-23a: Xem & Theo dõi Kho Video Ôn tập
 > độc lập với điểm pass mới (2 khái niệm tách biệt: "hoàn thành" = đã xem
 > đủ lượt; "đạt/pass" = điểm trắc nghiệm đủ ngưỡng).
 
+> **Bổ sung V160 (2026-09-05, đã xác nhận với người dùng) — QA phát hiện 3
+> vấn đề khi test tay, đối chiếu code xác nhận là bug/thiếu sót so với
+> đúng ý định của các bổ sung V83/V115 ở trên, sửa gộp 1 đợt:**
+>
+> 1. **[Bug — code không khớp mô tả V115 ở trên]** Bản code trước V160 tính
+>    sai "hoàn thành" theo TỶ LỆ % (`viewCount/requiredViewCount ≥ ngưỡng`,
+>    ngưỡng mặc định 70%) — VD cấu hình 4 lượt, học sinh mới đạt 3/4 (75%)
+>    đã bị hệ thống coi là "hoàn thành", KHÓA không cho xem lượt thứ 4. Đây
+>    là sai lệch so với chính đoạn mô tả V115 ở trên (chưa từng được sửa
+>    tương ứng trong docs — thuần là lệch code/tài liệu). V160 sửa lại
+>    đúng công thức đã mô tả: `completed = viewCount >= requiredViewCount`
+>    (số lượt tuyệt đối), áp dụng cho CẢ CONNECTION lẫn REFLEX.
+> 2. **[Bug — thiếu ở Frontend]** Sau khi nộp trắc nghiệm, học sinh không
+>    thấy phản hồi đúng/sai của từng câu (dữ liệu `correctChoiceId` Backend
+>    đã trả nhưng Frontend chưa dùng để hiển thị) — sửa: popup câu hỏi giữ
+>    nguyên sau khi nộp, tô xanh đáp án đúng/đỏ đáp án chọn sai cho từng
+>    câu, chờ học sinh bấm nút hành động mới chuyển tiếp (không tự động
+>    chuyển lượt ngay trong lúc nộp như trước, tránh việc chuyển lượt xoá
+>    mất kết quả trước khi kịp hiển thị).
+> 3. **[Bổ sung mới]** 1 lượt xem chỉ được tính "lượt hợp lệ" (cộng vào
+>    viewCount) khi học sinh trả lời ĐÚNG 100% câu hỏi của lượt đó (trước
+>    V160, chỉ cần "trả lời hết" — kể cả sai — là đã tính, xem mô tả bước 2
+>    blockquote V83 ở trên, nay ĐỔI Ý NGHĨA). Sai bất kỳ câu nào: hệ thống
+>    cho làm lại **TOÀN BỘ bộ câu hỏi của lượt đó** (không phải riêng câu
+>    sai) thêm đúng 1 lần nữa (tối đa 2 lần nộp/lượt, cùng `watchSessionId`,
+>    KHÔNG cần xem lại video). Sai cả 2 lần → lượt đó KHÔNG tính là hợp lệ,
+>    đóng lượt (`quizCompletedAt` được set, không cho nộp thêm), tự động mở
+>    1 lượt xem MỚI (`startWatchSession` mới, xem lại video từ đầu) — tổng
+>    số lượt YÊU CẦU (`requiredViewCount`) không đổi, lượt fail này không
+>    tính vào đâu cả. Chỉ giữ kết quả LẦN NỘP CUỐI CÙNG trong
+>    `review_video_connection_answers` (không lưu lịch sử lần sai đầu —
+>    đã xác nhận với người dùng, khác hẳn UC-23b vốn giữ lịch sử mọi lần nộp).
+>    Cột mới trên `review_video_watch_sessions`: `quiz_attempt_count` (số
+>    lần đã nộp cả form cho lượt này, tối đa 2), `quiz_passed` (chỉ có ý
+>    nghĩa khi `quiz_completed_at` khác NULL — true = đúng 100%). Công thức
+>    viewCount đổi từ đếm `qualified=true AND quiz_completed_at IS NOT NULL`
+>    (V83) sang đếm `qualified=true AND quiz_passed=true` (V160).
+
 ---
 
 UC-23b: Nộp & Chấm điểm Audio cho Video Phản xạ

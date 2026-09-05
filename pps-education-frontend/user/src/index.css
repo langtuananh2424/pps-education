@@ -781,3 +781,32 @@ h1.headline .accent {
 .animate-alert-pop {
   animation: alert-pop 3.5s ease-in-out forwards;
 }
+
+/* Biến thể cho toast đã được canh giữa bằng flexbox (bọc trong "fixed inset-x-0 flex
+   justify-center") thay vì "left-1/2 -translate-x-1/2" — KHÔNG được có translateX ở đây,
+   nếu không animation sẽ đè lên và tự kéo lệch trái so với layout flexbox đã đúng. */
+@keyframes alert-pop-centered {
+  0% {
+    opacity: 0;
+    transform: translateY(-12px) scale(0.95);
+  }
+
+  8% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  88% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.97);
+  }
+}
+
+.animate-alert-pop-centered {
+  animation: alert-pop-centered 3.5s ease-in-out forwards;
+}

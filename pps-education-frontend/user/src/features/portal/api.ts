@@ -722,14 +722,24 @@ export interface ConnectionAnswerResult {
   correctChoiceId: number | null;
 }
 
+/**
+ * finalized=false: sai nhưng còn lượt thử — BE giữ nguyên watchSessionId, cho nộp lại CẢ FORM.
+ * finalized=true: lượt đã kết thúc hẳn — `passed` mới có ý nghĩa (đúng 100% hay đã hết lượt thử mà
+ * vẫn sai). Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-05 (V160).
+ */
 export interface ReviewVideoConnectionQuizResultResponse {
   results: ConnectionAnswerResult[];
   progress: ReviewVideoProgressResponse;
+  finalized: boolean;
+  passed: boolean;
+  attemptsUsed: number;
+  maxAttempts: number;
 }
 
 /**
  * Nộp TOÀN BỘ câu trả lời cho ĐÚNG 1 lượt xem (watchSessionId) — khớp cặp 1-1 "xem lượt nào, trả
- * lời lượt đó". BE chặn (422) nếu lượt chưa đạt ngưỡng xem hoặc lượt đó đã nộp đủ rồi.
+ * lời lượt đó". BE chặn (422) nếu lượt chưa đạt ngưỡng xem hoặc lượt đó đã kết thúc hẳn rồi (xem
+ * `finalized` — sai nhưng còn lượt thử thì KHÔNG bị chặn, có thể gọi lại API này để nộp lại cả form).
  */
 export function submitReviewVideoConnectionAnswers(
   watchSessionId: number,
@@ -1000,6 +1010,20 @@ export function recordIntegrityEvents(attemptId: number, request: RecordIntegrit
   return apiRequest<IntegrityEventBatchResponse>(`/attempts/${attemptId}/integrity-events`, {
     method: "POST",
     body: JSON.stringify(request)
+  });
+}
+
+/**
+ * Bổ sung 2026-09-04 (đã xác nhận với người dùng) — luồng "Lô giao BTVN theo kỹ năng"
+ * (BatchTakeExerciseModal): tự đếm vi phạm CỤC BỘ ở client, đủ ngưỡng thì tự nộp hết mọi Bài đang dở
+ * (submitAttempt bình thường, không có API "nộp cả Lô" riêng) RỒI gọi API này ĐÚNG 1 LẦN để báo Giáo
+ * viên phụ trách lớp — KHÔNG qua cơ chế đếm-ngưỡng real-time của recordIntegrityEvents (Bài lẻ), KHÔNG
+ * báo phụ huynh. `representativeAttemptId` = attempt của Bài đầu tiên trong Lô, chỉ dùng để tra học
+ * sinh/lớp — xem Javadoc AttemptIntegrityService#notifyTeachersForBatchViolation ở BE.
+ */
+export function notifyBatchIntegrityViolation(representativeAttemptId: number, violationCount: number): Promise<void> {
+  return apiRequest<void>(`/attempts/${representativeAttemptId}/batch-integrity-violation-notify?violationCount=${violationCount}`, {
+    method: "POST"
   });
 }
 

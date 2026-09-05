@@ -283,6 +283,10 @@ export default function ReviewVideoTaskModal({ video, assignmentId, onClose }: R
   const [connectionQuestionsError, setConnectionQuestionsError] = useState<string | null>(null);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number>>({});
   const [quizResult, setQuizResult] = useState<ConnectionAnswerResult[] | null>(null);
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-05 (V160) — kết quả finalized/passed/số
+  // lần đã thử của LẦN NỘP VỪA RỒI, dùng để quyết định hiện nút "Làm lại" (còn lượt thử, cùng
+  // watchSessionId) hay "Tiếp tục" (đã kết thúc lượt, đúng hoặc đã hết lượt thử).
+  const [quizOutcome, setQuizOutcome] = useState<{ finalized: boolean; passed: boolean; attemptsUsed: number; maxAttempts: number } | null>(null);
   const [submittingQuiz, setSubmittingQuiz] = useState(false);
   const [quizError, setQuizError] = useState<string | null>(null);
 
@@ -301,6 +305,7 @@ export default function ReviewVideoTaskModal({ video, assignmentId, onClose }: R
     setProgressSummary(null);
     setSelectedAnswers({});
     setQuizResult(null);
+    setQuizOutcome(null);
     setQuizError(null);
     if (assignmentId == null) return;
     startReviewVideoWatchSession(video.id, assignmentId)
@@ -374,6 +379,7 @@ export default function ReviewVideoTaskModal({ video, assignmentId, onClose }: R
     setQuizPopupOpen(false);
     setSelectedAnswers({});
     setQuizResult(null);
+    setQuizOutcome(null);
     setQuizError(null);
     startReviewVideoWatchSession(video.id, assignmentId)
       .then((r) => setWatchSessionId(r.sessionId))
@@ -387,14 +393,30 @@ export default function ReviewVideoTaskModal({ video, assignmentId, onClose }: R
     try {
       const answers = connectionQuestions.map((q) => ({ questionId: q.id, selectedChoiceId: selectedAnswers[q.id] }));
       const result = await submitReviewVideoConnectionAnswers(watchSessionId, answers);
+      // V160 — luôn hiện kết quả đúng/sai NGAY trong popup (không tự chuyển lượt/đóng popup ở đây nữa),
+      // chờ học sinh bấm "Làm lại" (còn lượt thử) hoặc "Tiếp tục" (đã kết thúc lượt) — xem 2 handler bên dưới.
       setQuizResult(result.results);
+      setQuizOutcome({ finalized: result.finalized, passed: result.passed, attemptsUsed: result.attemptsUsed, maxAttempts: result.maxAttempts });
       handleProgress(result.progress);
-      if (!result.progress.completed) startNextSession();
     } catch (err) {
       setQuizError(friendlyApiErrorMessage(err, t("reviewVideoTask.submitQuizError")));
     } finally {
       setSubmittingQuiz(false);
     }
+  };
+
+  /** V160 — sai nhưng còn lượt thử: giữ nguyên watchSessionId/popup, chỉ reset lựa chọn để làm lại CẢ FORM. */
+  const handleRetryConnectionQuiz = () => {
+    setSelectedAnswers({});
+    setQuizResult(null);
+    setQuizOutcome(null);
+    setQuizError(null);
+  };
+
+  /** V160 — lượt đã kết thúc (đúng 100% hoặc đã hết lượt thử mà vẫn sai): đóng popup, mở lượt mới nếu chưa đủ số lượt yêu cầu. */
+  const handleContinueAfterQuiz = () => {
+    setQuizPopupOpen(false);
+    if (progressSummary && !progressSummary.completed) startNextSession();
   };
 
   const { iframeId, watchedPercent: youTubeWatchedPercent } = useYouTubeWatchProgress(isYouTube ? video : null, watchSessionId, started, handleProgress);
@@ -483,11 +505,13 @@ export default function ReviewVideoTaskModal({ video, assignmentId, onClose }: R
       {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — câu hỏi cuối lượt xem hiện
           dạng popup đè lên video/modal, thay vì nằm cuối luồng phải cuộn mới thấy. Đóng được (không
           mất tiến độ xem) — banner ở luồng chính cho mở lại. */}
-      {quizPopupOpen && !quizResult && (
+      {quizPopupOpen && (
         <div
           className="fixed inset-0 bg-ink/60 z-[105] flex items-center justify-center p-4"
           onClick={(e) => {
             e.stopPropagation();
+            // V160 — sau khi đã nộp, đóng bằng nút X không mất kết quả (chỉ ẩn popup, banner nhắc ở
+            // luồng chính vẫn cho mở lại xem feedback/bấm tiếp tục — mirror hành vi cũ khi chưa nộp).
             setQuizPopupOpen(false);
           }}
         >
@@ -515,39 +539,79 @@ export default function ReviewVideoTaskModal({ video, assignmentId, onClose }: R
               <p className="text-xs text-muted font-bold italic">{t("reviewVideoTask.quizPopup.noQuestions")}</p>
             ) : (
               <>
-                {/* Popup này chỉ hiện khi CHƯA nộp (quizResult == null — xem điều kiện render ở trên) nên không cần nhánh hiển thị kết quả đúng/sai ở đây. */}
-                {connectionQuestions.map((q, i) => (
-                  <div key={q.id} className="space-y-2">
-                    <p className="text-sm sm:text-base font-bold text-ink">{t("reviewVideoTask.quizPopup.questionLabel", { index: i + 1, prompt: q.prompt })}</p>
-                    <div className="space-y-1.5">
-                      {q.choices.map((c) => {
-                        const picked = selectedAnswers[q.id] === c.id;
-                        return (
-                          <button
-                            key={c.id}
-                            type="button"
-                            onClick={() => setSelectedAnswers((prev) => ({ ...prev, [q.id]: c.id }))}
-                            className={`w-full flex items-center gap-2 text-left px-3 py-2 sm:py-2.5 rounded-xl border text-xs sm:text-sm font-bold transition-colors ${
-                              picked ? "bg-teal text-white border-teal" : "bg-white border-line text-ink hover:border-teal/50"
-                            }`}
-                          >
-                            <span className="flex-1">{c.choiceLabel}. {c.content}</span>
-                            {picked && <Check size={14} className="shrink-0" />}
-                          </button>
-                        );
-                      })}
+                {connectionQuestions.map((q, i) => {
+                  // V160 — sau khi nộp (quizResult != null): LUÔN tô đỏ ô học sinh chọn sai (feedback tức
+                  // thì), nhưng CHỈ tô xanh lộ đáp án đúng khi lượt đã THẬT SỰ kết thúc (finalized) — còn
+                  // lượt thử (finalized=false) thì KHÔNG lộ đáp án đúng, bắt buộc học sinh tự làm lại thật
+                  // sự thay vì chỉ cần nhìn màu xanh rồi chọn lại (bug đã bị QA phát hiện 2026-09-05).
+                  const questionResult = quizResult?.find((r) => r.questionId === q.id) ?? null;
+                  return (
+                    <div key={q.id} className="space-y-2">
+                      <p className="text-sm sm:text-base font-bold text-ink">{t("reviewVideoTask.quizPopup.questionLabel", { index: i + 1, prompt: q.prompt })}</p>
+                      <div className="space-y-1.5">
+                        {q.choices.map((c) => {
+                          const picked = selectedAnswers[q.id] === c.id;
+                          const isCorrectChoice = questionResult != null && quizOutcome?.finalized === true && questionResult.correctChoiceId === c.id;
+                          const isWrongPick = questionResult != null && !questionResult.correct && questionResult.selectedChoiceId === c.id;
+                          const colorClass = isCorrectChoice
+                            ? "bg-emerald-50 text-emerald-700 border-emerald-400"
+                            : isWrongPick
+                              ? "bg-rose-50 text-rose-700 border-rose-400"
+                              : picked
+                                ? "bg-teal text-white border-teal"
+                                : "bg-white border-line text-ink hover:border-teal/50";
+                          return (
+                            <button
+                              key={c.id}
+                              type="button"
+                              disabled={questionResult != null}
+                              onClick={() => setSelectedAnswers((prev) => ({ ...prev, [q.id]: c.id }))}
+                              className={`w-full flex items-center gap-2 text-left px-3 py-2 sm:py-2.5 rounded-xl border text-xs sm:text-sm font-bold transition-colors disabled:cursor-default ${colorClass}`}
+                            >
+                              <span className="flex-1">{c.choiceLabel}. {c.content}</span>
+                              {isCorrectChoice && <Check size={14} className="shrink-0" />}
+                              {picked && !questionResult && <Check size={14} className="shrink-0" />}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
 
-                <button
-                  type="button"
-                  onClick={handleSubmitConnectionQuiz}
-                  disabled={submittingQuiz || connectionQuestions.some((q) => selectedAnswers[q.id] == null)}
-                  className="w-full px-3 py-2.5 sm:py-3 bg-teal hover:bg-teal-deep text-white rounded-xl text-xs sm:text-sm font-extrabold disabled:opacity-50"
-                >
-                  {submittingQuiz ? t("reviewVideoTask.quizPopup.submitting") : t("reviewVideoTask.quizPopup.submitButton")}
-                </button>
+                {quizOutcome ? (
+                  <div
+                    className={`space-y-2 p-3 rounded-xl border text-xs font-bold ${
+                      quizOutcome.finalized && quizOutcome.passed
+                        ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                        : "bg-amber-50 border-amber-200 text-amber-700"
+                    }`}
+                  >
+                    <p>
+                      {quizOutcome.finalized && quizOutcome.passed
+                        ? t("reviewVideoTask.quizPopup.correctFeedback")
+                        : quizOutcome.finalized
+                          ? t("reviewVideoTask.quizPopup.wrongFinalFeedback", { maxAttempts: quizOutcome.maxAttempts })
+                          : t("reviewVideoTask.quizPopup.wrongRetryFeedback", { attemptsRemaining: quizOutcome.maxAttempts - quizOutcome.attemptsUsed })}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={quizOutcome.finalized ? handleContinueAfterQuiz : handleRetryConnectionQuiz}
+                      className="w-full px-3 py-2.5 sm:py-3 bg-teal hover:bg-teal-deep text-white rounded-xl text-xs sm:text-sm font-extrabold"
+                    >
+                      {quizOutcome.finalized ? t("reviewVideoTask.quizPopup.continueButton") : t("reviewVideoTask.quizPopup.retryButton")}
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleSubmitConnectionQuiz}
+                    disabled={submittingQuiz || connectionQuestions.some((q) => selectedAnswers[q.id] == null)}
+                    className="w-full px-3 py-2.5 sm:py-3 bg-teal hover:bg-teal-deep text-white rounded-xl text-xs sm:text-sm font-extrabold disabled:opacity-50"
+                  >
+                    {submittingQuiz ? t("reviewVideoTask.quizPopup.submitting") : t("reviewVideoTask.quizPopup.submitButton")}
+                  </button>
+                )}
               </>
             )}
           </div>

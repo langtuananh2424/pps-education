@@ -132,7 +132,12 @@
       "noQuestions": "This video doesn't have any questions yet — contact your teacher.",
       "questionLabel": "Question {{index}}. {{prompt}}",
       "submitting": "Submitting...",
-      "submitButton": "Submit answers"
+      "submitButton": "Submit answers",
+      "correctFeedback": "Correct! This round has been counted.",
+      "wrongRetryFeedback": "Some answers were wrong — redo the whole set, you have {{attemptsRemaining}} attempt(s) left.",
+      "wrongFinalFeedback": "You got it wrong after {{maxAttempts}} attempts — this round won't be counted. A new round will start.",
+      "retryButton": "Try again",
+      "continueButton": "Continue"
     },
     "progress": {
       "heading": "Current round",

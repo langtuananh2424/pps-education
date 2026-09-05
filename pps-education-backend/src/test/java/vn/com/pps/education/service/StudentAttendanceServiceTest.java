@@ -1,11 +1,13 @@
 package vn.com.pps.education.service;
 
 import java.math.BigDecimal;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.transaction.annotation.Transactional;
+import vn.com.pps.education.config.MutableClock;
 import vn.com.pps.education.domain.ClassSession;
 import vn.com.pps.education.domain.Parent;
 import vn.com.pps.education.domain.ParentStudent;
@@ -55,6 +57,7 @@ import vn.com.pps.education.support.AbstractIntegrationTest;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -70,8 +73,26 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
 
     private static final AtomicLong SEQ = new AtomicLong();
 
+    /**
+     * "Giờ hiện tại" cố định (không dùng LocalTime.now() thật) cho mọi tính
+     * toán khung giờ buổi học trong file test này — tránh flaky khi CI chạy
+     * gần nửa đêm: LocalTime.now().minusHours(2) lúc 01:00 wrap về 23:00 hôm
+     * trước, phá vỡ giả định "khung giờ trong cùng 1 ngày" của
+     * StudentAttendanceService.isWithinSessionWindow. Ghim clock (MutableClock,
+     * bean Clock singleton dùng chung toàn context — KHÔNG dùng @MockBean vì
+     * mock bean buộc Spring tạo thêm 1 ApplicationContext/connection pool
+     * riêng, từng gây lỗi "too many clients already" trên CI) khiến Service
+     * luôn thấy "bây giờ" = FIXED_NOW, bất kể đồng hồ thật đang chạy lúc nào —
+     * ngày (LocalDate) vẫn lấy đúng ngày thật để khớp sessionDate tạo bằng
+     * LocalDate.now() ở nơi khác trong test.
+     */
+    private static final LocalTime FIXED_NOW = LocalTime.of(10, 0);
+
     @Autowired
     private StudentAttendanceService studentAttendanceService;
+
+    @Autowired
+    private MutableClock clock;
 
     @Autowired
     private ClassSessionService classSessionService;
@@ -137,6 +158,9 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        ZoneId zone = ZoneId.systemDefault();
+        clock.setFixedInstant(LocalDate.now().atTime(FIXED_NOW).atZone(zone).toInstant(), zone);
+
         headAcademic = newUser("head.academic");
         assignRole(headAcademic, "HEAD_ACADEMIC");
         CurriculumResponse curriculum = curriculumService.create(
@@ -152,8 +176,8 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
         period2.setSite(site);
         period2.setPeriodNumber(2);
         period2.setDayPart(SitePeriodTemplate.DayPart.MORNING);
-        period2.setStartTime(LocalTime.now().minusMinutes(5));
-        period2.setEndTime(LocalTime.now().plusHours(3));
+        period2.setStartTime(FIXED_NOW.minusMinutes(5));
+        period2.setEndTime(FIXED_NOW.plusHours(3));
         period2.setCreatedBy(headAcademic);
         sitePeriodTemplateRepository.save(period2);
         ClassResponse schoolClass = classService.create(
@@ -180,6 +204,14 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
         parent.setUser(parentUser);
         parent = parentRepository.save(parent);
         linkParent(parent, student1);
+    }
+
+    /** clock là bean singleton dùng chung ApplicationContext — trả về đồng hồ
+     * hệ thống thật sau mỗi test, tránh rò rỉ FIXED_NOW sang test class khác
+     * dùng chung context (xem Javadoc FIXED_NOW). */
+    @AfterEach
+    void resetClock() {
+        clock.reset();
     }
 
     private void linkParent(Parent parent, Student student) {
@@ -364,7 +396,7 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
      * start_time của buổi học (dù cùng ngày) bị từ chối -- chỉ điểm danh được trong khung giờ buổi học. */
     @Test
     void markAttendance_UC15_rejectsWhenBeforeSessionStartTime() {
-        setSessionTimes(session.id(), LocalTime.now().plusMinutes(30), LocalTime.now().plusHours(2));
+        setSessionTimes(session.id(), FIXED_NOW.plusMinutes(30), FIXED_NOW.plusHours(2));
 
         assertThatThrownBy(() -> studentAttendanceService.markAttendance(session.id(),
                 new MarkAttendanceRequest("SESSION_LEVEL", List.of(
@@ -382,7 +414,7 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
      */
     @Test
     void markAttendance_UC15_acceptsWithinGracePeriodAfterSessionEndTime() {
-        setSessionTimes(session.id(), LocalTime.now().minusHours(2), LocalTime.now().minusMinutes(30));
+        setSessionTimes(session.id(), FIXED_NOW.minusHours(2), FIXED_NOW.minusMinutes(30));
 
         AttendanceSessionResponse result = studentAttendanceService.markAttendance(session.id(),
                 new MarkAttendanceRequest("SESSION_LEVEL", List.of(
@@ -396,7 +428,7 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
      * khung ân hạn (end_time + grace_period, mặc định 60 phút) vẫn bị từ chối -- ân hạn không vô hạn. */
     @Test
     void markAttendance_UC15_rejectsWhenAfterGracePeriod() {
-        setSessionTimes(session.id(), LocalTime.now().minusHours(3), LocalTime.now().minusMinutes(90));
+        setSessionTimes(session.id(), FIXED_NOW.minusHours(3), FIXED_NOW.minusMinutes(90));
 
         assertThatThrownBy(() -> studentAttendanceService.markAttendance(session.id(),
                 new MarkAttendanceRequest("SESSION_LEVEL", List.of(
@@ -709,8 +741,8 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
         template.setSite(s);
         template.setPeriodNumber(1);
         template.setDayPart(SitePeriodTemplate.DayPart.MORNING);
-        template.setStartTime(LocalTime.now().minusMinutes(5));
-        template.setEndTime(LocalTime.now().plusHours(3));
+        template.setStartTime(FIXED_NOW.minusMinutes(5));
+        template.setEndTime(FIXED_NOW.plusHours(3));
         template.setCreatedBy(headAcademic);
         sitePeriodTemplateRepository.save(template);
         return s;
