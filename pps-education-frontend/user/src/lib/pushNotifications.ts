@@ -1,6 +1,9 @@
 import { initializeApp, type FirebaseApp } from "firebase/app";
-import { deleteToken, getMessaging, getToken, isSupported, type Messaging } from "firebase/messaging";
+import { deleteToken, getMessaging, getToken, isSupported, onMessage, type Messaging } from "firebase/messaging";
 import { apiRequest } from "./apiClient";
+
+/** Tab đang mở (foreground) — bắn ra khi 1 push FCM tới, để NotificationBell tự refresh danh sách. */
+export const PUSH_RECEIVED_EVENT = "pps:push-received";
 
 /**
  * Kênh PUSH (FCM Web) — xem PushNotificationSender.java +
@@ -32,6 +35,8 @@ const PUSH_SW_SCOPE = "/firebase-cloud-messaging-push-scope";
 
 let app: FirebaseApp | null = null;
 let messaging: Messaging | null = null;
+/** Chặn đăng ký onMessage() nhiều lần (setupPushNotifications có thể gọi lại sau mỗi lần login). */
+let foregroundListenerAttached = false;
 
 export type PushSetupResult =
   | { status: "registered" }
@@ -87,6 +92,22 @@ export async function setupPushNotifications(): Promise<PushSetupResult> {
     method: "POST",
     body: JSON.stringify({ token, platform: "WEB" })
   });
+
+  /**
+   * FCM chỉ tự gọi Service Worker (onBackgroundMessage trong firebase-messaging-sw.js) khi tab
+   * KHÔNG ở foreground — lúc app đang mở, Firebase kỳ vọng code chính tự bắt bằng onMessage() rồi tự
+   * hiển thị, nếu không sẽ KHÔNG có popup đẩy dù thông báo vẫn tới được backend/chuông. Dùng lại
+   * registration đã đăng ký ở trên để showNotification() cho đồng nhất icon/badge với luồng nền.
+   */
+  if (!foregroundListenerAttached) {
+    foregroundListenerAttached = true;
+    onMessage(messagingInstance, (payload) => {
+      const title = payload.notification?.title ?? "PPS Education";
+      const body = payload.notification?.body ?? "";
+      void registration.showNotification(title, { body, icon: "/icon-192.png", badge: "/icon-192.png" });
+      window.dispatchEvent(new CustomEvent(PUSH_RECEIVED_EVENT));
+    });
+  }
 
   return { status: "registered" };
 }
