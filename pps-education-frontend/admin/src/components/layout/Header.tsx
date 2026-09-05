@@ -7,6 +7,7 @@ import { cn } from "@/lib/cn";
 import { getMyPartnerSite, listSites, listSiteTeachers, SiteResponse, SiteTeacherResponse } from "@/features/facility/api";
 import { useEligibleClasses } from "@/features/academic/hooks/useEligibleClasses";
 import { listMyNotifications, markNotificationRead, NotificationResponse } from "@/features/notifications/api";
+import { PUSH_RECEIVED_EVENT } from "@/lib/pushNotifications";
 import {
   ClassSessionCheckInStatusResponse,
   ClassSessionResponse,
@@ -126,10 +127,16 @@ export default function Header() {
   // hardcode trước đây, mirror đúng NotificationBell.tsx bên Portal (GET /notifications +
   // POST /notifications/{id}/read, đánh dấu đã đọc khi bấm vào từng mục).
   const [notifications, setNotifications] = useState<NotificationResponse[]>([]);
-  useEffect(() => {
+  const loadNotifications = () => {
     listMyNotifications(0, NOTIFICATION_PAGE_SIZE)
       .then((res) => setNotifications(res.content))
       .catch(() => undefined);
+  };
+  useEffect(loadNotifications, []);
+  // Push đến khi tab đang mở (foreground, xem pushNotifications.ts) không tự cập nhật state — refresh lại danh sách.
+  useEffect(() => {
+    window.addEventListener(PUSH_RECEIVED_EVENT, loadNotifications);
+    return () => window.removeEventListener(PUSH_RECEIVED_EVENT, loadNotifications);
   }, []);
   const unreadNotificationCount = notifications.filter((n) => !n.readAt).length;
   const handleOpenNotification = (n: NotificationResponse) => {
