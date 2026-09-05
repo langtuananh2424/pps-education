@@ -14,7 +14,9 @@ import { DepartmentResponse, listDepartments } from "@/features/hrm/api";
 import {
   changeUserPassword,
   getUserDetail,
+  getUserLoginHistory,
   listRoles,
+  LoginHistoryItemResponse,
   RoleResponse,
   searchUsers,
   updateUser,
@@ -25,6 +27,7 @@ import {
   UserListItemResponse
 } from "../api";
 import Select from "@/components/ui/Select";
+import { formatDateTime } from "@/lib/i18nFormat";
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 
@@ -41,6 +44,7 @@ const statusVariants: Record<string, BadgeVariant> = {
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const LOGIN_HISTORY_PAGE_SIZE = 10;
 
 export default function UsersPage() {
   const { t } = useTranslation("system-admin-users");
@@ -277,10 +281,15 @@ function UserDetailModal({
   onClose: () => void;
   onChanged: () => void;
 }) {
-  const { t } = useTranslation("system-admin-users");
+  const { t, i18n } = useTranslation("system-admin-users");
   const [detail, setDetail] = useState<UserDetailResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loginHistory, setLoginHistory] = useState<LoginHistoryItemResponse[]>([]);
+  const [loginHistoryLoading, setLoginHistoryLoading] = useState(false);
+  const [loginHistoryLoadingMore, setLoginHistoryLoadingMore] = useState(false);
+  const [loginHistoryPage, setLoginHistoryPage] = useState(0);
+  const [loginHistoryTotalPages, setLoginHistoryTotalPages] = useState(0);
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileForm, setProfileForm] = useState<UpdateUserRequest>({ fullName: "", phone: "" });
   const [newPassword, setNewPassword] = useState("");
@@ -304,13 +313,31 @@ function UserDetailModal({
       .finally(() => setLoading(false));
   };
 
+  /** UC-44 bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-09-05): lịch sử đăng nhập/thiết bị. */
+  const loadLoginHistory = (id: number, targetPage: number) => {
+    const setBusy = targetPage === 0 ? setLoginHistoryLoading : setLoginHistoryLoadingMore;
+    setBusy(true);
+    getUserLoginHistory(id, targetPage, LOGIN_HISTORY_PAGE_SIZE)
+      .then((res) => {
+        setLoginHistory((prev) => (targetPage === 0 ? res.content : [...prev, ...res.content]));
+        setLoginHistoryPage(res.number);
+        setLoginHistoryTotalPages(res.totalPages);
+      })
+      .catch(() => undefined)
+      .finally(() => setBusy(false));
+  };
+
   useEffect(() => {
     if (userId != null) {
       loadDetail(userId);
+      loadLoginHistory(userId, 0);
       setNewPassword("");
       setNewEmail("");
     } else {
       setDetail(null);
+      setLoginHistory([]);
+      setLoginHistoryPage(0);
+      setLoginHistoryTotalPages(0);
     }
   }, [userId]);
 
@@ -527,6 +554,65 @@ function UserDetailModal({
               <Button size="sm" variant="danger" disabled={changingStatus} onClick={() => handleToggleStatus("SUSPENDED")}>
                 <Lock className="w-3.5 h-3.5" /> {t("usersPage.detail.status.suspend")}
               </Button>
+            )}
+          </div>
+
+          <div className="border-t border-slate-100 pt-4 space-y-2">
+            <div>
+              <span className="text-[10px] font-bold uppercase text-slate-500">{t("usersPage.detail.loginHistory.sectionTitle")}</span>
+              <p className="text-[10px] text-slate-400">{t("usersPage.detail.loginHistory.sectionDescription")}</p>
+            </div>
+            {loginHistoryLoading ? (
+              <p className="text-xs text-slate-500">{t("usersPage.detail.loginHistory.loading")}</p>
+            ) : loginHistory.length === 0 ? (
+              <p className="text-xs text-slate-400 italic">{t("usersPage.detail.loginHistory.empty")}</p>
+            ) : (
+              <>
+                <TableContainer>
+                  <thead>
+                    <tr>
+                      <Th>{t("usersPage.detail.loginHistory.columns.time")}</Th>
+                      <Th>{t("usersPage.detail.loginHistory.columns.ip")}</Th>
+                      <Th>{t("usersPage.detail.loginHistory.columns.device")}</Th>
+                      <Th>{t("usersPage.detail.loginHistory.columns.screenResolution")}</Th>
+                      <Th>{t("usersPage.detail.loginHistory.columns.language")}</Th>
+                      <Th>{t("usersPage.detail.loginHistory.columns.timezone")}</Th>
+                      <Th>{t("usersPage.detail.loginHistory.columns.result")}</Th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {loginHistory.map((h, idx) => (
+                      <tr key={idx}>
+                        <Td className="font-mono whitespace-nowrap">{formatDateTime(h.createdAt, i18n.language)}</Td>
+                        <Td className="font-mono">{h.ipAddress}</Td>
+                        <Td className="max-w-[160px] truncate" title={h.userAgent ?? undefined}>{h.userAgent ?? "-"}</Td>
+                        <Td>{h.screenResolution ?? "-"}</Td>
+                        <Td>{h.browserLanguage ?? "-"}</Td>
+                        <Td>{h.timezone ?? "-"}</Td>
+                        <Td>
+                          {h.success ? (
+                            <Badge variant="success">{t("usersPage.detail.loginHistory.success")}</Badge>
+                          ) : (
+                            <Badge variant="danger">
+                              {h.failureReason ? t(`usersPage.detail.loginHistory.failureReason.${h.failureReason}`) : t("usersPage.detail.loginHistory.failure")}
+                            </Badge>
+                          )}
+                        </Td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </TableContainer>
+                {loginHistoryPage + 1 < loginHistoryTotalPages && (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={loginHistoryLoadingMore}
+                    onClick={() => loadLoginHistory(detail.id, loginHistoryPage + 1)}
+                  >
+                    {loginHistoryLoadingMore ? t("usersPage.detail.loginHistory.loading") : t("usersPage.detail.loginHistory.loadMore")}
+                  </Button>
+                )}
+              </>
             )}
           </div>
         </div>

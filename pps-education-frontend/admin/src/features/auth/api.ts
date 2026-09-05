@@ -21,11 +21,23 @@ export interface CurrentUserResponse {
   permissions: string[];
 }
 
+/**
+ * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-09-05) — metadata thiết bị gửi kèm mỗi lần
+ * đăng nhập, phục vụ lịch sử đăng nhập ở Quản lý người dùng → Xem/Sửa (LoginAttempt/UC-44).
+ */
+function deviceMetadata() {
+  return {
+    screenResolution: `${window.screen.width}x${window.screen.height}`,
+    browserLanguage: navigator.language,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+  };
+}
+
 export async function login(usernameOrEmail: string, password: string): Promise<void> {
   const response = await apiRequest<LoginResponse>("/auth/login", {
     method: "POST",
     skipAuth: true,
-    body: JSON.stringify({ usernameOrEmail, password })
+    body: JSON.stringify({ usernameOrEmail, password, ...deviceMetadata() })
   });
   setTokens(response.accessToken, response.refreshToken);
 }
@@ -35,7 +47,7 @@ export async function loginWithGoogle(idToken: string): Promise<void> {
   const response = await apiRequest<LoginResponse>("/auth/login/google", {
     method: "POST",
     skipAuth: true,
-    body: JSON.stringify({ idToken })
+    body: JSON.stringify({ idToken, ...deviceMetadata() })
   });
   setTokens(response.accessToken, response.refreshToken);
 }
