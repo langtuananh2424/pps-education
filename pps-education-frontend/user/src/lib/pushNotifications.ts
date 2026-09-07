@@ -22,6 +22,25 @@ const firebaseConfig = {
 
 const vapidKey: string = import.meta.env.VITE_FIREBASE_VAPID_KEY ?? "";
 
+const DEVICE_ID_KEY = "pps_device_id";
+
+/**
+ * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-09-07) — UUID định danh thiết bị vật lý,
+ * sinh 1 lần rồi lưu localStorage (sống qua đóng/mở lại app, xem tokenStorage.ts). Backend dùng để
+ * dedupe device_tokens đúng theo TỪNG THIẾT BỊ (NotificationService.registerDeviceToken) — 2 thiết
+ * bị khác nhau cùng platform (VD 2 điện thoại Android) không giành nhau 1 "suất" push. Lưu ý: xoá
+ * hẳn app/xoá site data sẽ sinh ID mới (không có cách nào định danh thiết bị bền hơn localStorage
+ * từ web) — token cũ khi đó tự dọn qua cơ chế FCM báo UNREGISTERED có sẵn, chỉ trễ hơn dedupe tức thì.
+ */
+function getOrCreateDeviceId(): string {
+  let id = localStorage.getItem(DEVICE_ID_KEY);
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem(DEVICE_ID_KEY, id);
+  }
+  return id;
+}
+
 /**
  * PWA Phase 1 (feat/pwa-phase1-app-like) đã cài vite-plugin-pwa (Workbox) —
  * tự đăng ký 1 service worker (mặc định sw.js) ở scope gốc "/". Nếu
@@ -103,7 +122,7 @@ export async function setupPushNotifications(): Promise<PushSetupResult> {
 
   await apiRequest("/notifications/device-token", {
     method: "POST",
-    body: JSON.stringify({ token, platform: detectPlatform() })
+    body: JSON.stringify({ token, platform: detectPlatform(), deviceId: getOrCreateDeviceId() })
   });
 
   /**

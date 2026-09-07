@@ -22,6 +22,23 @@ const firebaseConfig = {
 
 const vapidKey: string = import.meta.env.VITE_FIREBASE_VAPID_KEY ?? "";
 
+const DEVICE_ID_KEY = "pps_device_id";
+
+/**
+ * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-09-07, xem cùng thay đổi ở app "user") —
+ * UUID định danh thiết bị vật lý, sinh 1 lần rồi lưu localStorage. Backend dùng để dedupe
+ * device_tokens đúng theo TỪNG THIẾT BỊ (NotificationService.registerDeviceToken) — 2 thiết bị khác
+ * nhau cùng platform không giành nhau 1 "suất" push.
+ */
+function getOrCreateDeviceId(): string {
+  let id = localStorage.getItem(DEVICE_ID_KEY);
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem(DEVICE_ID_KEY, id);
+  }
+  return id;
+}
+
 /**
  * Scope riêng cho SW của FCM (không dùng scope gốc "/") — nếu app admin sau
  * này cũng thêm PWA/Workbox (như app user, xem feat/pwa-phase1-app-like),
@@ -101,7 +118,7 @@ export async function setupPushNotifications(): Promise<PushSetupResult> {
 
   await apiRequest("/notifications/device-token", {
     method: "POST",
-    body: JSON.stringify({ token, platform: detectPlatform() })
+    body: JSON.stringify({ token, platform: detectPlatform(), deviceId: getOrCreateDeviceId() })
   });
 
   /**
