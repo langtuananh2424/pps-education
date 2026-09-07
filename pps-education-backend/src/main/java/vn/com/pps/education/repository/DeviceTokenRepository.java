@@ -10,5 +10,8 @@ public interface DeviceTokenRepository extends JpaRepository<DeviceToken, Long> 
 
     List<DeviceToken> findByUserIdAndActiveTrue(Long userId);
 
+    /** Bổ sung ngoài SDD gốc: dedupe token cũ cùng thiết bị khi đăng ký token mới — xem NotificationService.registerDeviceToken. */
+    List<DeviceToken> findByUserIdAndDeviceIdAndActiveTrue(Long userId, String deviceId);
+
     Optional<DeviceToken> findByToken(String token);
 }
