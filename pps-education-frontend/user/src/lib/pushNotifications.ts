@@ -62,7 +62,14 @@ export type PushSetupResult =
   | { status: "unsupported" }
   /** iOS Safari chỉ cho phép Web Push khi đã "Thêm vào Màn hình chính" — xin quyền lúc chưa cài sẽ luôn thất bại. */
   | { status: "needs-ios-shortcut" }
-  | { status: "permission-denied" }
+  /**
+   * detail: bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-09-07) — ghi rõ giá trị
+   * Notification.permission TRƯỚC/SAU khi gọi requestPermission() + có "user activation" hay không.
+   * Cần để phân biệt 2 nguyên nhân hoàn toàn khác nhau mà trước đây bị gộp chung: người dùng THẬT SỰ
+   * bấm từ chối ("denied"), hay iOS từ chối thẳng không thèm hiện dialog vì thiếu user gesture
+   * ("default" — Apple bắt buộc requestPermission() phải gọi trực tiếp trong 1 thao tác chạm).
+   */
+  | { status: "permission-denied"; detail?: string }
   | { status: "not-configured" }
   /** Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-09-07) — permission ĐÃ granted nhưng getToken() vẫn trả về rỗng (không throw) — trước đây gộp chung nhầm vào "permission-denied", gây hiểu sai nguyên nhân khi debug qua log. */
   | { status: "token-unavailable" }
@@ -139,7 +146,8 @@ function serviceWorkerUrl(): string {
  * bao giờ throw ra ngoài — bản thân việc log thất bại không được làm hỏng luồng login chính.
  */
 function logPushSetupResult(result: PushSetupResult): void {
-  const errorMessage = result.status === "error" ? result.message : undefined;
+  const errorMessage =
+    result.status === "error" ? result.message : result.status === "permission-denied" ? result.detail : undefined;
   apiRequest("/notifications/push-setup-log", {
     method: "POST",
     body: JSON.stringify({ status: result.status, errorMessage, platform: detectPlatform() })
@@ -172,16 +180,64 @@ export async function setupPushNotifications(): Promise<PushSetupResult> {
   return result;
 }
 
-async function computeSetupPushNotifications(): Promise<PushSetupResult> {
-  try {
-    if (!isConfigured()) return { status: "not-configured" };
-    if (isIosNonStandalone()) return { status: "needs-ios-shortcut" };
+function permissionDeniedResult(permissionBefore: NotificationPermission, permission: NotificationPermission,
+                                 hadUserActivation: boolean | undefined): PushSetupResult {
+  return {
+    status: "permission-denied",
+    detail: `before=${permissionBefore} after=${permission} userActivation=${hadUserActivation ?? "unknown"}`
+  };
+}
 
+function currentUserActivation(): boolean | undefined {
+  return (navigator as Navigator & { userActivation?: { isActive: boolean } }).userActivation?.isActive;
+}
+
+/**
+ * Xin quyền + đăng ký device token NGAY TRONG 1 THAO TÁC CHẠM THẬT của người dùng (nút bấm) — bổ
+ * sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07.
+ *
+ * Apple BẮT BUỘC Notification.requestPermission() phải được gọi trực tiếp bên trong 1 sự kiện tương
+ * tác của người dùng. Luồng tự động sau khi login (setupPushNotifications) gọi hàm này SAU nhiều
+ * await (loginApi → fetchCurrentUser → ...) nên "user activation" đã hết hiệu lực, iOS từ chối thẳng
+ * KHÔNG hiện dialog và trả về "default" — khớp đúng bằng chứng thực tế trên staging (mọi lần tự động
+ * đều permission-denied). Vì vậy phải có đường xin quyền từ nút bấm như hàm này.
+ *
+ * ⚠️ Notification.requestPermission() PHẢI là lệnh await ĐẦU TIÊN — mọi await chèn trước nó đều làm
+ * mất user activation trên iOS. Các kiểm tra đồng bộ (isConfigured/isIosNonStandalone) thì an toàn.
+ */
+export async function enablePushFromUserGesture(): Promise<PushSetupResult> {
+  if (!isConfigured()) return { status: "not-configured" };
+  if (isIosNonStandalone()) return { status: "needs-ios-shortcut" };
+
+  const permissionBefore = Notification.permission;
+  const hadUserActivation = currentUserActivation();
+  const permission = await Notification.requestPermission();
+
+  const result =
+    permission !== "granted"
+      ? permissionDeniedResult(permissionBefore, permission, hadUserActivation)
+      : await registerAfterPermissionGranted();
+  logPushSetupResult(result);
+  return result;
+}
+
+async function computeSetupPushNotifications(): Promise<PushSetupResult> {
+  if (!isConfigured()) return { status: "not-configured" };
+  if (isIosNonStandalone()) return { status: "needs-ios-shortcut" };
+
+  const permissionBefore = Notification.permission;
+  const hadUserActivation = currentUserActivation();
+  const permission = await Notification.requestPermission();
+  if (permission !== "granted") return permissionDeniedResult(permissionBefore, permission, hadUserActivation);
+
+  return registerAfterPermissionGranted();
+}
+
+/** Phần đăng ký thật sự — chỉ chạy khi permission đã chắc chắn "granted" (dùng chung 2 luồng ở trên). */
+async function registerAfterPermissionGranted(): Promise<PushSetupResult> {
+  try {
     const messagingInstance = await getMessagingInstance();
     if (!messagingInstance) return { status: "unsupported" };
-
-    const permission = await Notification.requestPermission();
-    if (permission !== "granted") return { status: "permission-denied" };
 
     /**
      * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-09-07) — bug WebKit đã biết: nếu context
