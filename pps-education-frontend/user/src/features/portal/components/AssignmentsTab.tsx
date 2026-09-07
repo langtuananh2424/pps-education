@@ -584,6 +584,37 @@ export default function AssignmentsTab({
             {t("assignments.banner.actionButton")}
           </button>
         </div>
+      ) : overdueCount > 0 ? (
+        // V166 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — fix bug thật: Bài quá
+        // hạn (chưa hoàn thành) bị loại khỏi pendingCount từ V152 (tách riêng khỏi "Cần hoàn thành",
+        // xem ghi chú V152 ở trên) khiến banner "Tuyệt vời, hoàn thành hết rồi" (màu xanh) vẫn hiện dù
+        // học sinh còn nguyên N bài quá hạn chưa làm — dễ gây hiểu lầm đã xong hết. Thêm nhánh cảnh báo
+        // đỏ (màu coral, mirror tab lọc "Bài tập quá hạn" cùng màu) khi còn bài quá hạn, chỉ hiện
+        // banner xanh khi THẬT SỰ không còn gì (pendingCount=0 VÀ overdueCount=0).
+        <div className="p-5 bg-coral/10 border border-coral/30 rounded-2xl text-coral flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-coral/20 flex items-center justify-center shrink-0">
+              <AlertCircle size={24} className="text-coral" />
+            </div>
+            <div>
+              <span className="px-2.5 py-0.5 rounded-full bg-coral/20 text-coral text-[10px] font-black uppercase tracking-wider">
+                {t("assignments.overdueBanner.label")}
+              </span>
+              <h3 className="text-base md:text-lg font-black font-display mt-0.5 text-coral">
+                {t("assignments.overdueBanner.titlePrefix")}{" "}
+                <span className="underline decoration-wavy underline-offset-4">{t("assignments.overdueBanner.titleCount", { count: overdueCount })}</span>{" "}
+                {t("assignments.overdueBanner.titleSuffix")}
+              </h3>
+              <p className="text-xs text-coral/80 font-semibold mt-0.5">{t("assignments.overdueBanner.description")}</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setFilterStatus("OVERDUE")}
+            className="px-5 py-2.5 bg-coral hover:opacity-90 text-white font-extrabold text-xs rounded-xl shadow-sm transition-all shrink-0 cursor-pointer"
+          >
+            {t("assignments.overdueBanner.actionButton")}
+          </button>
+        </div>
       ) : (
         <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-800 flex items-center justify-between">
           <div className="flex items-center gap-2">
