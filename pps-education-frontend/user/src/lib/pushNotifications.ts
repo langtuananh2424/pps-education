@@ -64,7 +64,9 @@ export type PushSetupResult =
   | { status: "needs-ios-shortcut" }
   | { status: "permission-denied" }
   | { status: "not-configured" }
-  /** Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-09-07) — exception bất ngờ (VD getToken()/serviceWorker.register() lỗi trên Safari), trước đây bị nuốt hoàn toàn không dấu vết. */
+  /** Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-09-07) — permission ĐÃ granted nhưng getToken() vẫn trả về rỗng (không throw) — trước đây gộp chung nhầm vào "permission-denied", gây hiểu sai nguyên nhân khi debug qua log. */
+  | { status: "token-unavailable" }
+  /** Exception bất ngờ (VD getToken()/serviceWorker.register() lỗi trên Safari), trước đây bị nuốt hoàn toàn không dấu vết. */
   | { status: "error"; message: string };
 
 function isConfigured(): boolean {
@@ -98,6 +100,30 @@ async function getMessagingInstance(): Promise<Messaging | null> {
   app ??= initializeApp(firebaseConfig);
   messaging = getMessaging(app);
   return messaging;
+}
+
+/**
+ * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-09-07) — navigator.serviceWorker.register()
+ * chỉ đảm bảo SW BẮT ĐẦU cài đặt, không đảm bảo đã ở trạng thái "active" ngay lúc đó (lần cài
+ * shortcut mới hoàn toàn phải qua install→activate, dù rất nhanh nhưng có độ trễ). getToken() gọi
+ * pushManager.subscribe() cần SW đã active — nghi vấn Safari khắt khe hơn Chrome ở điểm này, khiến
+ * getToken() lặng lẽ trả về rỗng (không throw) đúng ở lần cài mới (phát hiện qua push_setup_logs:
+ * status "permission-denied" dù user đã Allow — thực ra là getToken() fail, không phải do quyền).
+ */
+function waitForServiceWorkerActive(registration: ServiceWorkerRegistration): Promise<void> {
+  if (registration.active) return Promise.resolve();
+  const worker = registration.installing ?? registration.waiting;
+  if (!worker) return Promise.resolve();
+  return new Promise((resolve) => {
+    // Timeout an toàn (5s) — tránh treo vô hạn nếu vì lý do gì đó "statechange" không bao giờ bắn.
+    const timeoutId = setTimeout(resolve, 5000);
+    worker.addEventListener("statechange", () => {
+      if (worker.state === "activated") {
+        clearTimeout(timeoutId);
+        resolve();
+      }
+    });
+  });
 }
 
 function serviceWorkerUrl(): string {
@@ -139,8 +165,9 @@ async function computeSetupPushNotifications(): Promise<PushSetupResult> {
     if (permission !== "granted") return { status: "permission-denied" };
 
     const registration = await navigator.serviceWorker.register(serviceWorkerUrl(), { scope: PUSH_SW_SCOPE });
+    await waitForServiceWorkerActive(registration);
     const token = await getToken(messagingInstance, { vapidKey, serviceWorkerRegistration: registration });
-    if (!token) return { status: "permission-denied" };
+    if (!token) return { status: "token-unavailable" };
 
     await apiRequest("/notifications/device-token", {
       method: "POST",
