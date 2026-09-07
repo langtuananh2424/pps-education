@@ -831,14 +831,19 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
 
   return (
     <div className="fixed inset-0 bg-white z-[100] flex flex-col overflow-y-auto">
+      {/* Bổ sung 2026-09-04 (fix bug thật, đã xác nhận với người dùng) — canh giữa theo ĐÚNG khung nội
+          dung (max-w-2xl lg:max-w-3xl mx-auto, khớp đúng cột bên dưới) thay vì canh giữa theo cả
+          viewport trình duyệt — 2 khung khác chiều rộng nên trước đây nhìn lệch hẳn sang trái so với
+          tiêu đề/khung video phía trên (mirror đúng pattern đã sửa ở TakeExerciseModal.tsx, bị bỏ sót
+          chưa áp dụng cho màn Video phản xạ này). */}
       {justViolated && (
-        <div
-          key={violationCount}
-          role="alert"
-          className="fixed top-16 sm:top-20 left-1/2 -translate-x-1/2 z-[110] flex items-center gap-2 bg-rose-600 text-white pl-3 pr-4 py-2.5 rounded-2xl shadow-xl animate-alert-pop"
-        >
-          <ShieldAlert size={18} className="shrink-0" />
-          <span className="text-xs font-black">{t("monitoring.violationToast")}</span>
+        <div className="fixed top-16 sm:top-20 inset-x-0 z-[110] px-4 sm:px-6 flex justify-center">
+          <div className="max-w-2xl lg:max-w-3xl w-full flex justify-center">
+            <div key={violationCount} role="alert" className="flex items-center gap-2 bg-rose-600 text-white pl-3 pr-4 py-2.5 rounded-2xl shadow-xl animate-alert-pop-centered max-w-full">
+              <ShieldAlert size={18} className="shrink-0" />
+              <span className="text-xs font-black">{t("monitoring.violationToast")}</span>
+            </div>
+          </div>
         </div>
       )}
 
