@@ -212,7 +212,8 @@ async function computeSetupPushNotifications(): Promise<PushSetupResult> {
       onMessage(messagingInstance, (payload) => {
         const title = payload.notification?.title ?? "PPS Education";
         const body = payload.notification?.body ?? "";
-        void registration.showNotification(title, { body, icon: "/icon-192.png", badge: "/icon-192.png" });
+        // Bỏ icon/badge (sửa 2026-09-07): app admin chưa có file icon-192.png thật — xem firebase-messaging-sw.js.
+        void registration.showNotification(title, { body });
         window.dispatchEvent(new CustomEvent(PUSH_RECEIVED_EVENT));
       });
     }
