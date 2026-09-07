@@ -1121,7 +1121,7 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                 />
                 {displayProgress?.writingFeedback && (
                   <div
-                    className={`text-xs font-bold p-2.5 rounded-xl border ${
+                    className={`text-sm font-bold p-3 rounded-xl border ${
                       displayProgress.writingPassed ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-amber-50 border-amber-200 text-amber-700"
                     }`}
                   >
@@ -1132,7 +1132,7 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                       {displayProgress.writingScorePercent != null &&
                         ` — ${t("reflexVideoTask.writingStage.scoreLabel", { score: displayProgress.writingScorePercent })}`}
                     </p>
-                    <p className="font-medium mt-1 normal-case whitespace-pre-line">{displayProgress.writingFeedback}</p>
+                    <p className="font-medium mt-1.5 normal-case whitespace-pre-line text-base leading-relaxed">{displayProgress.writingFeedback}</p>
                   </div>
                 )}
                 {/*
@@ -1208,7 +1208,7 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                 {speakingError && <p className="text-xs font-bold text-rose-600">{speakingError}</p>}
                 {displayProgress?.speakingFeedback && !recorder.recording && !speakingSubmitting && (
                   <div
-                    className={`text-xs font-bold p-2.5 rounded-xl border ${
+                    className={`text-sm font-bold p-3 rounded-xl border ${
                       displayProgress.speakingPassed ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-amber-50 border-amber-200 text-amber-700"
                     }`}
                   >
@@ -1219,7 +1219,7 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                       {displayProgress.speakingScorePercent != null &&
                         ` — ${t("reflexVideoTask.speakingStage.scoreLabel", { score: displayProgress.speakingScorePercent })}`}
                     </p>
-                    <p className="font-medium mt-1 normal-case whitespace-pre-line">{displayProgress.speakingFeedback}</p>
+                    <p className="font-medium mt-1.5 normal-case whitespace-pre-line text-base leading-relaxed">{displayProgress.speakingFeedback}</p>
                     {!displayProgress.speakingPassed && !isReviewing && (
                       <button
                         onClick={handleRetrySpeaking}

@@ -87,7 +87,7 @@ export default function GradeStatsPage({ studentId, classId }: GradeStatsPagePro
   if (setupResults.length === 0) {
     return (
       <div className="bg-white border border-line/80 p-6 rounded-[20px] shadow-[0_8px_30px_rgba(30,42,69,0.03)]">
-        <p className="text-xs text-muted font-bold italic">{t("stats.empty")}</p>
+        <p className="text-sm text-muted font-bold italic">{t("stats.empty")}</p>
       </div>
     );
   }
@@ -200,7 +200,7 @@ export default function GradeStatsPage({ studentId, classId }: GradeStatsPagePro
             </ResponsiveContainer>
           </div>
         ) : (
-          <p className="text-xs text-muted font-bold italic text-center py-8">
+          <p className="text-sm text-muted font-bold italic text-center py-8">
             {t("stats.noChartData")}
           </p>
         )}

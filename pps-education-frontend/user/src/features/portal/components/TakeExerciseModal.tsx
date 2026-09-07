@@ -598,7 +598,7 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
             {/* Bổ sung 2026-09-04 (đã xác nhận với người dùng) — mirror AssignmentsTab.tsx/
                 BatchTakeExerciseModal.tsx: hiện Lesson + Unit/SubTopic để phân biệt Lesson trùng tên. */}
             {(item.unitTitle || item.subTopicTitle) && (
-              <p className="text-xs font-bold text-muted truncate">
+              <p className="text-sm font-bold text-muted truncate">
                 {item.examTitle} · {[item.unitTitle, item.subTopicTitle].filter(Boolean).join(" · ")}
               </p>
             )}
@@ -1045,11 +1045,17 @@ export function QuestionBlock({
             const isSelected = selected.has(c.id);
             const isCorrectChoice = correctIds.has(c.id);
             let stateClass = "border-line/70 bg-sky-2 hover:bg-sky";
+            let labelClass = "text-muted";
+            // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-08 — trước khi nộp, lựa chọn
+            // ĐANG chọn chỉ có viền/nền teal nhạt (bg-teal/10), quá mờ để nhận ra ngay đã chọn đáp án
+            // nào — mirror đúng màu đậm + icon check đã dùng ở trắc nghiệm Video từ kết nối
+            // (ReviewVideoTaskModal.tsx: "picked ? bg-teal text-white border-teal").
             if (showFeedback) {
               if (isCorrectChoice) stateClass = "border-teal bg-teal/10";
               else if (isSelected) stateClass = "border-coral bg-coral/10";
             } else if (isSelected) {
-              stateClass = "border-teal bg-teal/10";
+              stateClass = "border-teal bg-teal text-white";
+              labelClass = "text-white/80";
             }
             return (
               <button
@@ -1064,11 +1070,12 @@ export function QuestionBlock({
                 </div>
                 <span className="flex items-center justify-between gap-1 px-2 py-1.5 text-[11px] sm:text-xs font-bold">
                   <span>
-                    <span className="text-muted mr-1">{c.choiceLabel}.</span>
+                    <span className={`${labelClass} mr-1`}>{c.choiceLabel}.</span>
                     {hasMeaningfulChoiceCaption(c.choiceLabel, c.content) && c.content}
                   </span>
                   {showFeedback && isCorrectChoice && <CheckCircle2 size={14} className="text-teal-deep shrink-0" />}
                   {showFeedback && !isCorrectChoice && isSelected && <XCircle size={14} className="text-coral shrink-0" />}
+                  {!showFeedback && isSelected && <CheckCircle2 size={14} className="text-white shrink-0" />}
                 </span>
               </button>
             );
@@ -1080,11 +1087,13 @@ export function QuestionBlock({
             const isSelected = selected.has(c.id);
             const isCorrectChoice = correctIds.has(c.id);
             let stateClass = "border-line/70 bg-sky-2 hover:bg-sky";
+            let labelClass = "text-muted";
             if (showFeedback) {
               if (isCorrectChoice) stateClass = "border-teal bg-teal/10";
               else if (isSelected) stateClass = "border-coral bg-coral/10";
             } else if (isSelected) {
-              stateClass = "border-teal bg-teal/10";
+              stateClass = "border-teal bg-teal text-white";
+              labelClass = "text-white/80";
             }
             return (
               <button
@@ -1095,11 +1104,12 @@ export function QuestionBlock({
                 className={`w-full text-left text-xs sm:text-sm lg:text-base font-bold px-3 py-2.5 sm:px-4 sm:py-3 rounded-xl border transition-colors flex items-center justify-between gap-2 ${stateClass} disabled:cursor-default`}
               >
                 <span>
-                  <span className="text-muted mr-1.5">{c.choiceLabel}.</span>
+                  <span className={`${labelClass} mr-1.5`}>{c.choiceLabel}.</span>
                   {c.content}
                 </span>
                 {showFeedback && isCorrectChoice && <CheckCircle2 size={14} className="text-teal-deep shrink-0" />}
                 {showFeedback && !isCorrectChoice && isSelected && <XCircle size={14} className="text-coral shrink-0" />}
+                {!showFeedback && isSelected && <CheckCircle2 size={14} className="text-white shrink-0" />}
               </button>
             );
           })}
@@ -1202,9 +1212,9 @@ export function QuestionBlock({
        * sao đạt/không đạt" thay vì chỉ thấy % tổng ở popup kết quả.
        */}
       {answer?.gradingFeedback && (
-        <div className="text-xs font-bold p-3 rounded-xl border bg-sky-2 border-teal/20 space-y-1.5">
+        <div className="text-sm font-bold p-3 rounded-xl border bg-sky-2 border-teal/20 space-y-1.5">
           <div className="flex items-center justify-between gap-2 flex-wrap">
-            <span className="text-teal-deep uppercase text-[10px] tracking-wide">{t("takeExercise.question.gradingFeedbackTitle")}</span>
+            <span className="text-teal-deep uppercase text-base tracking-wide">{t("takeExercise.question.gradingFeedbackTitle")}</span>
             <span className="text-[10px] text-muted font-black uppercase">
               {answer.gradingSource === "AI" ? t("takeExercise.question.gradedByAi") : t("takeExercise.question.gradedByTeacher")}
               {answer.gradingScore != null && answer.gradingMaxScore != null
@@ -1714,11 +1724,13 @@ export function GridQuestionGroup({
                         const isSelected = selected.has(c.id);
                         const isCorrectChoice = correctIds.has(c.id);
                         let stateClass = "border-line/70 bg-sky-2 hover:bg-sky";
+                        let labelClass = "text-muted";
                         if (showFeedback) {
                           if (isCorrectChoice) stateClass = "border-teal bg-teal/10";
                           else if (isSelected) stateClass = "border-coral bg-coral/10";
                         } else if (isSelected) {
-                          stateClass = "border-teal bg-teal/10";
+                          stateClass = "border-teal bg-teal text-white";
+                          labelClass = "text-white/80";
                         }
                         return (
                           <button
@@ -1733,11 +1745,12 @@ export function GridQuestionGroup({
                             </div>
                             <span className="flex items-center justify-between gap-1 px-2 py-1.5 text-[11px] font-bold">
                               <span>
-                                <span className="text-muted mr-1">{c.choiceLabel}.</span>
+                                <span className={`${labelClass} mr-1`}>{c.choiceLabel}.</span>
                                 {hasMeaningfulChoiceCaption(c.choiceLabel, c.content) && c.content}
                               </span>
                               {showFeedback && isCorrectChoice && <CheckCircle2 size={14} className="text-teal-deep shrink-0" />}
                               {showFeedback && !isCorrectChoice && isSelected && <XCircle size={14} className="text-coral shrink-0" />}
+                              {!showFeedback && isSelected && <CheckCircle2 size={14} className="text-white shrink-0" />}
                             </span>
                           </button>
                         );
@@ -1748,11 +1761,13 @@ export function GridQuestionGroup({
                       const isSelected = selected.has(c.id);
                       const isCorrectChoice = correctIds.has(c.id);
                       let stateClass = "border-line/70 bg-sky-2 hover:bg-sky";
+                      let labelClass = "text-muted";
                       if (showFeedback) {
                         if (isCorrectChoice) stateClass = "border-teal bg-teal/10";
                         else if (isSelected) stateClass = "border-coral bg-coral/10";
                       } else if (isSelected) {
-                        stateClass = "border-teal bg-teal/10";
+                        stateClass = "border-teal bg-teal text-white";
+                        labelClass = "text-white/80";
                       }
                       return (
                         <button
@@ -1763,11 +1778,12 @@ export function GridQuestionGroup({
                           className={`w-full text-left text-xs sm:text-sm font-bold px-3 py-2 rounded-xl border transition-colors flex items-center justify-between gap-2 ${stateClass} disabled:cursor-default`}
                         >
                           <span>
-                            <span className="text-muted mr-1.5">{c.choiceLabel}.</span>
+                            <span className={`${labelClass} mr-1.5`}>{c.choiceLabel}.</span>
                             {c.content}
                           </span>
                           {showFeedback && isCorrectChoice && <CheckCircle2 size={14} className="text-teal-deep shrink-0" />}
                           {showFeedback && !isCorrectChoice && isSelected && <XCircle size={14} className="text-coral shrink-0" />}
+                          {!showFeedback && isSelected && <CheckCircle2 size={14} className="text-white shrink-0" />}
                         </button>
                       );
                     })
