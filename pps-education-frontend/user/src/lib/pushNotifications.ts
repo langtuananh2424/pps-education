@@ -176,6 +176,20 @@ async function computeSetupPushNotifications(): Promise<PushSetupResult> {
     const permission = await Notification.requestPermission();
     if (permission !== "granted") return { status: "permission-denied" };
 
+    /**
+     * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-09-07) — bug WebKit đã biết: nếu context
+     * của Service Worker được tạo ra TRƯỚC KHI permission ở trang chính chuyển thành "granted" (VD
+     * registration cũ còn sót từ lần thử trước, hoặc do 2 việc này chạy gần như đồng thời), giá trị
+     * Notification.permission BÊN TRONG context của SW đó kẹt lại "default" VĨNH VIỄN — không tự cập
+     * nhật dù trang chính đã "granted" — cho tới khi bị kill hẳn (xem push_setup_logs: retry trong
+     * cùng session/mở lại app không kill tiến trình đều fail, chỉ logout+login mới thành công). Chủ
+     * động unregister registration cũ (nếu có) TRƯỚC khi đăng ký lại — đảm bảo context SW luôn được
+     * tạo MỚI, SAU KHI permission đã chắc chắn "granted" (dòng trên), không phụ thuộc còn sót lại từ
+     * lần thử trước hay không.
+     */
+    const existingRegistration = await navigator.serviceWorker.getRegistration(PUSH_SW_SCOPE);
+    if (existingRegistration) await existingRegistration.unregister().catch(() => undefined);
+
     const registration = await navigator.serviceWorker.register(serviceWorkerUrl(), { scope: PUSH_SW_SCOPE });
     await waitForServiceWorkerActive(registration);
     const token = await getToken(messagingInstance, { vapidKey, serviceWorkerRegistration: registration });
