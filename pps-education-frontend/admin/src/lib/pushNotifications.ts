@@ -22,6 +22,23 @@ const firebaseConfig = {
 
 const vapidKey: string = import.meta.env.VITE_FIREBASE_VAPID_KEY ?? "";
 
+const DEVICE_ID_KEY = "pps_device_id";
+
+/**
+ * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-09-07, xem cùng thay đổi ở app "user") —
+ * UUID định danh thiết bị vật lý, sinh 1 lần rồi lưu localStorage. Backend dùng để dedupe
+ * device_tokens đúng theo TỪNG THIẾT BỊ (NotificationService.registerDeviceToken) — 2 thiết bị khác
+ * nhau cùng platform không giành nhau 1 "suất" push.
+ */
+function getOrCreateDeviceId(): string {
+  let id = localStorage.getItem(DEVICE_ID_KEY);
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem(DEVICE_ID_KEY, id);
+  }
+  return id;
+}
+
 /**
  * Scope riêng cho SW của FCM (không dùng scope gốc "/") — nếu app admin sau
  * này cũng thêm PWA/Workbox (như app user, xem feat/pwa-phase1-app-like),
@@ -56,6 +73,19 @@ function isIosNonStandalone(): boolean {
   return isIos && !isStandalone;
 }
 
+/**
+ * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-09-07, xem cùng thay đổi ở app "user"):
+ * trước đây hardcode "WEB" cho mọi trình duyệt — khiến backend không dedupe được token theo đúng
+ * loại thiết bị (NotificationService.registerDeviceToken), phát hiện qua debug push gửi trùng trên
+ * iOS. Khớp đúng 3 giá trị backend chấp nhận (DeviceTokenRequest: ANDROID|IOS|WEB).
+ */
+function detectPlatform(): "ANDROID" | "IOS" | "WEB" {
+  const ua = navigator.userAgent;
+  if (/android/i.test(ua)) return "ANDROID";
+  if (/iphone|ipad|ipod/i.test(ua)) return "IOS";
+  return "WEB";
+}
+
 async function getMessagingInstance(): Promise<Messaging | null> {
   if (messaging) return messaging;
   if (!(await isSupported())) return null;
@@ -88,7 +118,7 @@ export async function setupPushNotifications(): Promise<PushSetupResult> {
 
   await apiRequest("/notifications/device-token", {
     method: "POST",
-    body: JSON.stringify({ token, platform: "WEB" })
+    body: JSON.stringify({ token, platform: detectPlatform(), deviceId: getOrCreateDeviceId() })
   });
 
   /**

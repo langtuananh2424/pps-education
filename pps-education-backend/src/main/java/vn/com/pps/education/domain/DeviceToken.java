@@ -33,6 +33,16 @@ public class DeviceToken extends BaseAuditEntity {
     @Column(nullable = false, length = 20)
     private String platform;
 
+    /**
+     * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-09-07) — UUID sinh + lưu localStorage
+     * phía client, định danh 1 thiết bị vật lý cụ thể (không phải loại hệ điều hành). Dùng để dedupe
+     * token cũ khi đăng ký token mới (NotificationService.registerDeviceToken) — 2 thiết bị khác
+     * nhau cùng platform (VD 2 điện thoại Android) không giành nhau 1 "suất" push. Nullable vì token
+     * đăng ký trước migration này (V163) chưa có giá trị.
+     */
+    @Column(name = "device_id", length = 100)
+    private String deviceId;
+
     @Column(name = "is_active", nullable = false)
     private boolean active = true;
 }

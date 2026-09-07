@@ -265,17 +265,39 @@ public class NotificationService {
      * bổ sung ngoài SDD gốc đã xác nhận 2026-08-08). Token là UNIQUE toàn hệ
      * thống — nếu client đăng nhập bằng tài khoản khác trên cùng thiết bị,
      * token cũ được gán lại sang user mới thay vì tạo bản ghi trùng.
+     *
+     * Vô hiệu hoá mọi token active KHÁC cùng (user, deviceId) — bổ sung ngoài
+     * SDD gốc, đã xác nhận với người dùng 2026-09-07: phát hiện qua debug
+     * thực tế push bị gửi trùng 2 lần trên iOS (xoá app + cài lại tạo token
+     * mới nhưng token cũ không có cách nào tự biết để client gọi huỷ — xem
+     * teardownPushNotifications() phía FE, chỉ huỷ được token đang cache cục
+     * bộ). Dedupe theo deviceId (UUID sinh + lưu localStorage phía client,
+     * KHÔNG phải theo platform) để 2 thiết bị vật lý khác nhau cùng hệ điều
+     * hành (VD 2 điện thoại Android) vẫn nhận push song song, không giành
+     * nhau 1 "suất". Bỏ qua dedupe nếu request không kèm deviceId (client cũ
+     * chưa cập nhật, tương thích ngược) — chỉ upsert token như trước đây.
      */
     @Transactional
     public void registerDeviceToken(Long userId, DeviceTokenRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("error.notification.accountNotFound",
                         new Object[]{userId}, "Không tìm thấy tài khoản id=" + userId));
+
+        if (request.deviceId() != null && !request.deviceId().isBlank()) {
+            List<DeviceToken> staleTokens = deviceTokenRepository
+                    .findByUserIdAndDeviceIdAndActiveTrue(userId, request.deviceId()).stream()
+                    .filter(dt -> !dt.getToken().equals(request.token()))
+                    .toList();
+            staleTokens.forEach(dt -> dt.setActive(false));
+            deviceTokenRepository.saveAll(staleTokens);
+        }
+
         DeviceToken deviceToken = deviceTokenRepository.findByToken(request.token())
                 .orElseGet(DeviceToken::new);
         deviceToken.setUser(user);
         deviceToken.setToken(request.token());
         deviceToken.setPlatform(request.platform());
+        deviceToken.setDeviceId(request.deviceId());
         deviceToken.setActive(true);
         deviceTokenRepository.save(deviceToken);
     }
