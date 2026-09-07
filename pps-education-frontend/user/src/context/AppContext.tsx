@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useMemo, useState } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import {
   CurrentUserResponse,
   fetchCurrentUser,
@@ -41,6 +41,25 @@ function readCachedUser(): CurrentUserResponse | null {
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [isLoggedIn, setIsLoggedIn] = useState(() => !!getAccessToken());
   const [currentUser, setCurrentUser] = useState<CurrentUserResponse | null>(() => readCachedUser());
+
+  /**
+   * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-09-07) — trước đây setupPushNotifications()
+   * CHỈ chạy trong completeLogin() (lúc gọi API đăng nhập). Từ khi có "nhớ đăng nhập" (localStorage,
+   * xem tokenStorage.ts), mở lại shortcut với phiên đã đăng nhập sẵn KHÔNG đi qua completeLogin() nữa
+   * — nếu lần đăng ký push tại thời điểm login đó thất bại (VD timing quirk của WebKit lúc PWA vừa
+   * cài, xem push_setup_logs), người dùng vĩnh viễn không có cơ hội thử lại trừ khi tự đăng xuất/đăng
+   * nhập lại thủ công. Tự thử lại mỗi khi MỞ APP mà đã sẵn đăng nhập — đồng thời đây là 1 lần tải
+   * trang HOÀN TOÀN MỚI (không phải retry trong cùng session như trong pushNotifications.ts), khớp
+   * đúng bằng chứng thực tế: tải lại trang mới luôn thành công hơn retry trong cùng phiên cũ.
+   * Không gọi teardownPushNotifications() trước (khác completeLogin()) vì đây là mở lại app của CÙNG
+   * tài khoản, không phải chuyển tài khoản trên chung thiết bị — không cần huỷ token đang có.
+   */
+  useEffect(() => {
+    if (isLoggedIn) {
+      setupPushNotifications().catch(() => undefined);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const completeLogin = async () => {
     const profile = await fetchCurrentUser();
