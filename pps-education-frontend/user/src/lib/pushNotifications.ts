@@ -64,7 +64,9 @@ export type PushSetupResult =
   | { status: "needs-ios-shortcut" }
   | { status: "permission-denied" }
   | { status: "not-configured" }
-  /** Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-09-07) — exception bất ngờ (VD getToken()/serviceWorker.register() lỗi trên Safari), trước đây bị nuốt hoàn toàn không dấu vết. */
+  /** Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-09-07) — permission ĐÃ granted nhưng getToken() vẫn trả về rỗng (không throw) — trước đây gộp chung nhầm vào "permission-denied", gây hiểu sai nguyên nhân khi debug qua log. */
+  | { status: "token-unavailable" }
+  /** Exception bất ngờ (VD getToken()/serviceWorker.register() lỗi trên Safari), trước đây bị nuốt hoàn toàn không dấu vết. */
   | { status: "error"; message: string };
 
 function isConfigured(): boolean {
@@ -100,6 +102,30 @@ async function getMessagingInstance(): Promise<Messaging | null> {
   return messaging;
 }
 
+/**
+ * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-09-07) — navigator.serviceWorker.register()
+ * chỉ đảm bảo SW BẮT ĐẦU cài đặt, không đảm bảo đã ở trạng thái "active" ngay lúc đó (lần cài
+ * shortcut mới hoàn toàn phải qua install→activate, dù rất nhanh nhưng có độ trễ). getToken() gọi
+ * pushManager.subscribe() cần SW đã active — nghi vấn Safari khắt khe hơn Chrome ở điểm này, khiến
+ * getToken() lặng lẽ trả về rỗng (không throw) đúng ở lần cài mới (phát hiện qua push_setup_logs:
+ * status "permission-denied" dù user đã Allow — thực ra là getToken() fail, không phải do quyền).
+ */
+function waitForServiceWorkerActive(registration: ServiceWorkerRegistration): Promise<void> {
+  if (registration.active) return Promise.resolve();
+  const worker = registration.installing ?? registration.waiting;
+  if (!worker) return Promise.resolve();
+  return new Promise((resolve) => {
+    // Timeout an toàn (5s) — tránh treo vô hạn nếu vì lý do gì đó "statechange" không bao giờ bắn.
+    const timeoutId = setTimeout(resolve, 5000);
+    worker.addEventListener("statechange", () => {
+      if (worker.state === "activated") {
+        clearTimeout(timeoutId);
+        resolve();
+      }
+    });
+  });
+}
+
 function serviceWorkerUrl(): string {
   // Service Worker là file tĩnh (public/), không đọc được import.meta.env — truyền config qua
   // query string, firebase-messaging-sw.js tự parse lại từ self.location.search.
@@ -120,10 +146,22 @@ function logPushSetupResult(result: PushSetupResult): void {
   }).catch(() => undefined);
 }
 
-/** Gọi sau khi login thành công — xin quyền + đăng ký device token cho kênh PUSH. */
+/**
+ * Gọi sau khi login thành công — xin quyền + đăng ký device token cho kênh PUSH.
+ * Tự thử lại 1 lần sau 3s nếu lần đầu thất bại — bổ sung ngoài SDD gốc (đã xác nhận với người dùng
+ * 2026-09-07): xác nhận qua push_setup_logs trên staging, ngay sau khi cài shortcut mới hoàn toàn
+ * (cold start), Notification.requestPermission() trả về "permission-denied" dù OS ĐÃ cấp quyền
+ * thật (WebKit chưa đồng bộ kịp trạng thái quyền lúc PWA vừa cài xong) — đăng nhập lại lần 2 (không
+ * cần bấm Allow lại) luôn thành công ngay. Tự retry để không bắt người dùng phải đăng nhập 2 lần.
+ */
 export async function setupPushNotifications(): Promise<PushSetupResult> {
-  const result = await computeSetupPushNotifications();
+  let result = await computeSetupPushNotifications();
   logPushSetupResult(result);
+  if (result.status !== "registered") {
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    result = await computeSetupPushNotifications();
+    logPushSetupResult(result);
+  }
   return result;
 }
 
@@ -139,8 +177,9 @@ async function computeSetupPushNotifications(): Promise<PushSetupResult> {
     if (permission !== "granted") return { status: "permission-denied" };
 
     const registration = await navigator.serviceWorker.register(serviceWorkerUrl(), { scope: PUSH_SW_SCOPE });
+    await waitForServiceWorkerActive(registration);
     const token = await getToken(messagingInstance, { vapidKey, serviceWorkerRegistration: registration });
-    if (!token) return { status: "permission-denied" };
+    if (!token) return { status: "token-unavailable" };
 
     await apiRequest("/notifications/device-token", {
       method: "POST",
