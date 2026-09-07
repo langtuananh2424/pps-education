@@ -210,10 +210,17 @@ async function computeSetupPushNotifications(): Promise<PushSetupResult> {
     if (!foregroundListenerAttached) {
       foregroundListenerAttached = true;
       onMessage(messagingInstance, (payload) => {
-        const title = payload.notification?.title ?? "PPS Education";
-        const body = payload.notification?.body ?? "";
+        // Payload DATA-ONLY (backend bỏ block "notification" từ 2026-09-07) — đọc từ payload.data.
+        const data = payload.data ?? {};
+        const title = data.title || "PPS Education";
+        const body = data.body || "";
         // Bỏ icon/badge (sửa 2026-09-07): app admin chưa có file icon-192.png thật — xem firebase-messaging-sw.js.
-        void registration.showNotification(title, { body });
+        // tag = notificationId để gộp với popup của onBackgroundMessage() nếu cả 2 cùng bắn 1 push
+        // (cùng tag → thông báo sau thay thế im lặng thông báo trước, không xếp chồng).
+        void registration.showNotification(title, {
+          body,
+          tag: data.notificationId ? `pps-noti-${data.notificationId}` : undefined
+        });
         window.dispatchEvent(new CustomEvent(PUSH_RECEIVED_EVENT));
       });
     }

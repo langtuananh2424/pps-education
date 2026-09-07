@@ -25,14 +25,20 @@ const messaging = firebase.messaging();
  * công đó chạy song song với onBackgroundMessage() bên dưới cho CÙNG 1 push → hiện đúp 2 thông báo
  * trên iOS (dedupe bằng tag=fcmMessageId không ăn vì Safari không có field này trong payload) — đã
  * gỡ, giữ lại đúng 1 đường xử lý (onBackgroundMessage) như code gốc.
+ *
+ * Payload giờ là DATA-ONLY (backend PushNotificationSender bỏ block "notification" từ 2026-09-07) —
+ * đọc title/body/notificationId từ payload.data. `tag` = notificationId để nếu onMessage() phía app
+ * cũng bắn cho cùng push thì trình duyệt GỘP làm 1, không xếp chồng 2 popup.
  */
 messaging.onBackgroundMessage((payload) => {
-  const title = payload.notification?.title ?? "PPS Education";
-  const body = payload.notification?.body ?? "";
+  const data = payload.data || {};
+  const title = data.title || "PPS Education";
+  const body = data.body || "";
   self.registration.showNotification(title, {
     body,
     // Bỏ icon/badge (sửa 2026-09-07): app admin CHƯA có file icon-192.png thật (xem ghi chú ở
     // index.html) — trỏ tới file không tồn tại khiến trình duyệt tải 404 rồi rơi về icon mặc định.
     // Khi nào có asset thiết kế thật thì thêm lại, kèm file vào public/.
+    tag: data.notificationId ? "pps-noti-" + data.notificationId : undefined
   });
 });
