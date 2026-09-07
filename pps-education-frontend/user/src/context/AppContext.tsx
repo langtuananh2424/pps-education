@@ -48,19 +48,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
    * xem tokenStorage.ts), mở lại shortcut với phiên đã đăng nhập sẵn KHÔNG đi qua completeLogin() nữa
    * — nếu lần đăng ký push tại thời điểm login đó thất bại (VD timing quirk của WebKit lúc PWA vừa
    * cài, xem push_setup_logs), người dùng vĩnh viễn không có cơ hội thử lại trừ khi tự đăng xuất/đăng
-   * nhập lại thủ công. Tự thử lại mỗi khi MỞ APP mà đã sẵn đăng nhập — đồng thời đây là 1 lần tải
-   * trang HOÀN TOÀN MỚI (không phải retry trong cùng session như trong pushNotifications.ts), khớp
-   * đúng bằng chứng thực tế: tải lại trang mới luôn thành công hơn retry trong cùng phiên cũ.
-   * Gọi teardownPushNotifications() trước (giống hệt completeLogin()) — bằng chứng từ push_setup_logs
-   * cho thấy đây mới là mấu chốt: chỉ luồng nào chạy deleteToken() (huỷ hẳn PushSubscription cũ)
-   * trước khi setup lại mới thành công, vì lần getToken() hỏng đầu tiên để lại 1 subscription hỏng
-   * mà mọi lần thử sau đều vướng phải (xem ghi chú chi tiết ở setupPushNotifications()).
+   * nhập lại thủ công. Vì vậy thử lại mỗi khi MỞ APP mà đã sẵn đăng nhập.
+   *
+   * KHÔNG gọi teardownPushNotifications() trước (đã thử và gỡ bỏ 2026-09-07): teardown gọi
+   * deleteToken() — từng xoá mất chính subscription vừa đăng ký thành công, và tạo ra khoảng thời
+   * gian thiết bị không có token nào. setupPushNotifications() giờ chỉ đăng ký khi quyền đã "granted"
+   * nên gọi thẳng là đủ và an toàn (xem ghi chú chi tiết ở pushNotifications.ts).
    */
   useEffect(() => {
     if (isLoggedIn) {
-      teardownPushNotifications()
-        .then(() => setupPushNotifications())
-        .catch(() => undefined);
+      setupPushNotifications().catch(() => undefined);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
