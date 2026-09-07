@@ -542,8 +542,15 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
     void reportProgress_UC23a_A3_allowsPastDeadlineWhenLateSubmissionAllowed() {
         ReviewVideoResponse video = createPublishedSetWithVideo(100);
         Student student = enrollStudent(schoolClass.id());
-        Long sessionId = startSession(video.id(), video.reviewVideoSetId(), student.getUser().getId());
+        // V165 (fix CI 2026-09-07) — createPublishedSetWithVideo đã tự deliverToClass(dueAt=null)
+        // trước đó; PHẢI gọi deliverToClass CUỐI CÙNG (đổi dueAt) TRƯỚC startSession, không phải sau —
+        // deliverToClass với dueAt khác sẽ HUỶ bản giao null-due đang có (xem "giao lại = 1 lượt MỚI"
+        // ở Javadoc ReviewVideoService#deliverToClass). Gọi sau startSession sẽ huỷ mất đúng bản giao
+        // mà watch session vừa bind vào, khiến reportProgress luôn văng "đã bị thay thế/huỷ" (đúng bug
+        // đã gặp ở CI — 2 exception khác nhau nhưng CÙNG kiểu SubmissionPastDeadlineException nên dễ
+        // lẫn), bất kể lateSubmissionAllowed trên bản giao MỚI (không được bind) là gì.
         reviewVideoService.deliverToClass(video.reviewVideoSetId(), schoolClass.id(), OffsetDateTime.now().minusDays(1), true, teacher.getId(), null);
+        Long sessionId = startSession(video.id(), video.reviewVideoSetId(), student.getUser().getId());
 
         ReviewVideoProgressResponse progress = reportProgress(video.id(), sessionId, 50, student.getUser().getId());
 
@@ -559,9 +566,14 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
     void updateLateSubmissionAllowed_UC23a_allowsSubmissionAfterTogglingOnPastDeadline() {
         ReviewVideoResponse video = createPublishedSetWithVideo(100);
         Student student = enrollStudent(schoolClass.id());
-        Long sessionId = startSession(video.id(), video.reviewVideoSetId(), student.getUser().getId());
+        // V165 (fix CI 2026-09-07) — mirror ghi chú ở reportProgress_UC23a_A3_
+        // allowsPastDeadlineWhenLateSubmissionAllowed: deliverToClass (đổi dueAt so với bản giao
+        // null-due mặc định của createPublishedSetWithVideo) PHẢI chạy TRƯỚC startSession, để watch
+        // session bind đúng vào bản giao (quá hạn) đang thật sự được test, không phải bản giao cũ vừa
+        // bị huỷ.
         ReviewVideoAssignment assignment = reviewVideoService.deliverToClass(
                 video.reviewVideoSetId(), schoolClass.id(), OffsetDateTime.now().minusDays(1), teacher.getId());
+        Long sessionId = startSession(video.id(), video.reviewVideoSetId(), student.getUser().getId());
         assertThatThrownBy(() -> reportProgress(video.id(), sessionId, 50, student.getUser().getId()))
                 .isInstanceOf(SubmissionPastDeadlineException.class);
 
