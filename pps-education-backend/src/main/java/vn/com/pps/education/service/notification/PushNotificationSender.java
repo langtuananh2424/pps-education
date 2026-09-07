@@ -97,8 +97,25 @@ public class PushNotificationSender implements NotificationChannelSender {
         if (sentTokens.length() == 0) {
             return false;
         }
-        delivery.setRecipientAddress(sentTokens.toString());
+        delivery.setRecipientAddress(truncateToColumnLimit(sentTokens.toString()));
         delivery.setProvider("FCM");
         return true;
+    }
+
+    /**
+     * notification_deliveries.recipient_address là VARCHAR(500) — bổ sung ngoài SDD gốc, đã xác nhận
+     * với người dùng 2026-09-07 sau sự cố THẬT trên staging: 1 user tích luỹ 7 device token, chuỗi
+     * token nối bằng dấu phẩy dài ~1.100 ký tự nên lệnh save ném lỗi "value too long" → CẢ transaction
+     * rollback → delivery vĩnh viễn kẹt ở PENDING → job nền quét lại mỗi phút → GỬI LẠI push mãi mãi
+     * (push đã bay ra FCM rồi thì không rollback được). Cắt bớt tại đây để 1 dòng audit dài bất
+     * thường không bao giờ có thể gây lặp thông báo cho người dùng nữa.
+     */
+    private String truncateToColumnLimit(String value) {
+        final int maxLength = 500;
+        if (value.length() <= maxLength) {
+            return value;
+        }
+        final String suffix = "...(cat bot)";
+        return value.substring(0, maxLength - suffix.length()) + suffix;
     }
 }
