@@ -301,6 +301,16 @@ async function registerAfterPermissionGranted(): Promise<PushSetupResult> {
 /** Gọi lúc logout — hủy token khỏi FCM lẫn backend, best-effort (không chặn logout nếu lỗi). */
 export async function teardownPushNotifications(): Promise<void> {
   try {
+    /**
+     * Chặn sớm khi quyền chưa được cấp — bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+     * 2026-09-07. Firebase getToken() TỰ ĐỘNG gọi Notification.requestPermission() bên trong khi
+     * quyền đang là "default": đó chính là thứ bật hộp thoại xin quyền của iOS ngay sau khi đăng
+     * nhập (completeLogin chạy teardown trước tiên), dù code của mình không hề gọi trực tiếp — đúng
+     * hành vi mà người dùng KHÔNG muốn (chỉ được hiện sau khi bấm nút "Bật thông báo").
+     * Chưa "granted" thì cũng không thể tồn tại token nào để huỷ, nên thoát luôn là đúng nghiệp vụ.
+     */
+    if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+
     const messagingInstance = await getMessagingInstance();
     if (!messagingInstance) return;
     const token = await getToken(messagingInstance, { vapidKey });
