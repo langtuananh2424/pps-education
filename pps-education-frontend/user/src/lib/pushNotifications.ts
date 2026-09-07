@@ -58,6 +58,19 @@ function isIosNonStandalone(): boolean {
   return isIos && !isStandalone;
 }
 
+/**
+ * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-09-07): trước đây hardcode "WEB" cho mọi
+ * trình duyệt — khiến backend không dedupe được token theo đúng loại thiết bị (xem
+ * NotificationService.registerDeviceToken), phát hiện qua debug push bị gửi trùng 2 lần trên iOS.
+ * Khớp đúng 3 giá trị backend chấp nhận (DeviceTokenRequest: ANDROID|IOS|WEB).
+ */
+function detectPlatform(): "ANDROID" | "IOS" | "WEB" {
+  const ua = navigator.userAgent;
+  if (/android/i.test(ua)) return "ANDROID";
+  if (/iphone|ipad|ipod/i.test(ua)) return "IOS";
+  return "WEB";
+}
+
 async function getMessagingInstance(): Promise<Messaging | null> {
   if (messaging) return messaging;
   if (!(await isSupported())) return null;
@@ -90,7 +103,7 @@ export async function setupPushNotifications(): Promise<PushSetupResult> {
 
   await apiRequest("/notifications/device-token", {
     method: "POST",
-    body: JSON.stringify({ token, platform: "WEB" })
+    body: JSON.stringify({ token, platform: detectPlatform() })
   });
 
   /**
