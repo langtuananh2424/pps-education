@@ -31,6 +31,7 @@ import vn.com.pps.education.service.notification.NotificationChannelSender;
 
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
@@ -273,31 +274,34 @@ public class NotificationService {
      * thống — nếu client đăng nhập bằng tài khoản khác trên cùng thiết bị,
      * token cũ được gán lại sang user mới thay vì tạo bản ghi trùng.
      *
-     * Vô hiệu hoá mọi token active KHÁC cùng (user, deviceId) — bổ sung ngoài
-     * SDD gốc, đã xác nhận với người dùng 2026-09-07: phát hiện qua debug
-     * thực tế push bị gửi trùng 2 lần trên iOS (xoá app + cài lại tạo token
-     * mới nhưng token cũ không có cách nào tự biết để client gọi huỷ — xem
-     * teardownPushNotifications() phía FE, chỉ huỷ được token đang cache cục
-     * bộ). Dedupe theo deviceId (UUID sinh + lưu localStorage phía client,
-     * KHÔNG phải theo platform) để 2 thiết bị vật lý khác nhau cùng hệ điều
-     * hành (VD 2 điện thoại Android) vẫn nhận push song song, không giành
-     * nhau 1 "suất". Bỏ qua dedupe nếu request không kèm deviceId (client cũ
-     * chưa cập nhật, tương thích ngược) — chỉ upsert token như trước đây.
+     * Vô hiệu hoá mọi token active KHÁC được coi là CÙNG 1 THIẾT BỊ — bổ sung
+     * ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07. Nhận diện theo 2
+     * dấu hiệu, khớp 1 trong 2 là coi như cùng thiết bị:
+     *
+     * 1. deviceId — UUID sinh + lưu localStorage phía client. Chính xác nhất
+     *    khi còn dữ liệu, nhưng XOÁ APP CÀI LẠI là mất localStorage nên sinh
+     *    deviceId mới hoàn toàn, token cũ của chính điện thoại đó không còn
+     *    cách nào nhận ra.
+     * 2. userAgent — server đọc thẳng từ HTTP header, KHÔNG phụ thuộc
+     *    localStorage nên vẫn nhận ra đúng thiết bị sau khi cài lại app. Đây
+     *    là dấu hiệu bù cho điểm yếu của deviceId (phát hiện qua thực tế:
+     *    người dùng xoá/cài lại shortcut nhiều lần vẫn tích luỹ token, có lúc
+     *    lên tới 7 token active).
+     *
+     * Đánh đổi đã cân nhắc: 2 thiết bị VẬT LÝ KHÁC NHAU nhưng cùng model/OS/
+     * trình duyệt sẽ có userAgent giống hệt nhau nên bị coi là 1 — thiết bị
+     * đăng nhập sau sẽ tắt push của thiết bị trước. Chấp nhận được vì trường
+     * hợp 1 tài khoản dùng 2 máy giống hệt nhau rất hiếm, trong khi tác hại
+     * của việc tích luỹ token (spam thông báo lặp) đã xảy ra thật.
      */
     @Transactional
-    public void registerDeviceToken(Long userId, DeviceTokenRequest request) {
+    public void registerDeviceToken(Long userId, DeviceTokenRequest request, HttpServletRequest httpRequest) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("error.notification.accountNotFound",
                         new Object[]{userId}, "Không tìm thấy tài khoản id=" + userId));
 
-        if (request.deviceId() != null && !request.deviceId().isBlank()) {
-            List<DeviceToken> staleTokens = deviceTokenRepository
-                    .findByUserIdAndDeviceIdAndActiveTrue(userId, request.deviceId()).stream()
-                    .filter(dt -> !dt.getToken().equals(request.token()))
-                    .toList();
-            staleTokens.forEach(dt -> dt.setActive(false));
-            deviceTokenRepository.saveAll(staleTokens);
-        }
+        String userAgent = httpRequest == null ? null : httpRequest.getHeader("User-Agent");
+        deactivateSameDeviceTokens(userId, request, userAgent);
 
         DeviceToken deviceToken = deviceTokenRepository.findByToken(request.token())
                 .orElseGet(DeviceToken::new);
@@ -305,8 +309,56 @@ public class NotificationService {
         deviceToken.setToken(request.token());
         deviceToken.setPlatform(request.platform());
         deviceToken.setDeviceId(request.deviceId());
+        deviceToken.setUserAgent(userAgent);
         deviceToken.setActive(true);
         deviceTokenRepository.save(deviceToken);
+
+        enforceMaxActiveTokens(userId);
+    }
+
+    /** Vô hiệu hoá token active cũ của cùng thiết bị — khớp deviceId HOẶC userAgent (xem Javadoc trên). */
+    private void deactivateSameDeviceTokens(Long userId, DeviceTokenRequest request, String userAgent) {
+        boolean hasDeviceId = request.deviceId() != null && !request.deviceId().isBlank();
+        boolean hasUserAgent = userAgent != null && !userAgent.isBlank();
+        if (!hasDeviceId && !hasUserAgent) {
+            return;
+        }
+
+        List<DeviceToken> sameDevice = deviceTokenRepository.findByUserIdAndActiveTrue(userId).stream()
+                .filter(dt -> !dt.getToken().equals(request.token()))
+                .filter(dt -> (hasDeviceId && request.deviceId().equals(dt.getDeviceId()))
+                        || (hasUserAgent && userAgent.equals(dt.getUserAgent())))
+                .toList();
+        sameDevice.forEach(dt -> dt.setActive(false));
+        deviceTokenRepository.saveAll(sameDevice);
+    }
+
+    /**
+     * Giữ tối đa {@value #MAX_ACTIVE_TOKENS_PER_USER} token active gần nhất mỗi user — bổ sung ngoài
+     * SDD gốc, đã xác nhận với người dùng 2026-09-07 sau sự cố THẬT trên staging: dedupe theo
+     * deviceId không dọn được token cũ khi deviceId đổi (gỡ app cài lại → localStorage mất → sinh
+     * deviceId mới) hay token đăng ký trước migration V163 (deviceId NULL), khiến 1 user tích luỹ 7
+     * token active. Hệ quả dây chuyền: chuỗi token trong notification_deliveries.recipient_address
+     * (VARCHAR(500)) bị tràn → transaction rollback → delivery kẹt PENDING → job nền gửi lại push
+     * mỗi phút, người dùng bị spam thông báo lặp vô hạn.
+     *
+     * Chọn mốc 3: đủ cho người dùng thật (điện thoại + máy tính + 1 thiết bị phụ), và 3 token nối
+     * bằng dấu phẩy (~480 ký tự) vẫn nằm gọn trong giới hạn VARCHAR(500) của recipient_address.
+     */
+    private static final int MAX_ACTIVE_TOKENS_PER_USER = 3;
+
+    private void enforceMaxActiveTokens(Long userId) {
+        List<DeviceToken> active = deviceTokenRepository.findByUserIdAndActiveTrue(userId);
+        if (active.size() <= MAX_ACTIVE_TOKENS_PER_USER) {
+            return;
+        }
+        List<DeviceToken> tooOld = active.stream()
+                .sorted(Comparator.comparing(DeviceToken::getUpdatedAt,
+                        Comparator.nullsFirst(Comparator.naturalOrder())).reversed())
+                .skip(MAX_ACTIVE_TOKENS_PER_USER)
+                .toList();
+        tooOld.forEach(dt -> dt.setActive(false));
+        deviceTokenRepository.saveAll(tooOld);
     }
 
     /**
