@@ -70,6 +70,11 @@ export type PushSetupResult =
    * ("default" — Apple bắt buộc requestPermission() phải gọi trực tiếp trong 1 thao tác chạm).
    */
   | { status: "permission-denied"; detail?: string }
+  /**
+   * Quyền chưa được cấp và luồng hiện tại KHÔNG có user gesture nên không được phép xin quyền — cần
+   * người dùng bấm nút "Bật thông báo" (EnablePushBanner). Bổ sung ngoài SDD gốc 2026-09-07.
+   */
+  | { status: "needs-user-gesture"; detail?: string }
   | { status: "not-configured" }
   /** Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-09-07) — permission ĐÃ granted nhưng getToken() vẫn trả về rỗng (không throw) — trước đây gộp chung nhầm vào "permission-denied", gây hiểu sai nguyên nhân khi debug qua log. */
   | { status: "token-unavailable" }
@@ -147,7 +152,11 @@ function serviceWorkerUrl(): string {
  */
 function logPushSetupResult(result: PushSetupResult): void {
   const errorMessage =
-    result.status === "error" ? result.message : result.status === "permission-denied" ? result.detail : undefined;
+    result.status === "error"
+      ? result.message
+      : result.status === "permission-denied" || result.status === "needs-user-gesture"
+        ? result.detail
+        : undefined;
   apiRequest("/notifications/push-setup-log", {
     method: "POST",
     body: JSON.stringify({ status: result.status, errorMessage, platform: detectPlatform() })
@@ -155,24 +164,30 @@ function logPushSetupResult(result: PushSetupResult): void {
 }
 
 /**
- * Gọi sau khi login thành công — xin quyền + đăng ký device token cho kênh PUSH.
+ * Gọi sau khi login thành công / mở lại app — đăng ký device token cho kênh PUSH nếu quyền ĐÃ được
+ * cấp từ trước. KHÔNG xin quyền ở đây (xem enablePushFromUserGesture cho luồng xin quyền).
  *
- * Tự thử lại (tối đa 3 lần, có teardown xen giữa) — bổ sung ngoài SDD gốc, đã xác nhận với người
- * dùng 2026-09-07. Bằng chứng từ push_setup_logs trên staging (iOS 16.7, ~30 bản ghi thực tế): MỌI
- * lần thử tự động đều "permission-denied", CHỈ có logout→login thủ công mới "registered". Điểm khác
- * biệt duy nhất của luồng logout→login là nó chạy teardownPushNotifications() (gọi deleteToken() —
- * huỷ hẳn PushSubscription) TRƯỚC khi setup lại. Suy ra: lần getToken() thất bại đầu tiên để lại 1
- * PushSubscription hỏng, mọi lần thử sau vướng lại đúng subscription đó nên fail mãi, tới khi
- * deleteToken() dọn sạch. Vì vậy retry PHẢI kèm teardown, không chỉ gọi lại setup như trước.
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07 — bằng chứng quyết định từ
+ * push_setup_logs trên staging (iOS 16.7): dòng `before=granted after=denied userActivation=false`.
+ * Tức là quyền ĐÃ LÀ "granted", nhưng vì gọi requestPermission() KHÔNG có user activation nên iOS
+ * trả về "denied" GIẢ — chính là nguyên nhân gốc của toàn bộ ~40 lần thất bại trước đó (mọi fix
+ * trước nhắm vào Service Worker/getToken đều vô nghĩa vì luồng chưa từng chạy tới đó).
+ *
+ * Vì vậy luồng TỰ ĐỘNG chỉ ĐỌC Notification.permission, tuyệt đối không gọi requestPermission():
+ * - Đã "granted" → đăng ký bình thường.
+ * - Chưa "granted" → dừng, trả "needs-user-gesture" để banner EnablePushBanner xin quyền qua nút bấm.
+ *
+ * Cũng KHÔNG teardown giữa các lần retry nữa: teardown gọi deleteToken(), đã từng xoá mất chính
+ * subscription mà nút bấm vừa tạo thành công (log id 45 "registered" rồi id 46 "error" 3 giây sau).
  */
 export async function setupPushNotifications(): Promise<PushSetupResult> {
   let result = await computeSetupPushNotifications();
   logPushSetupResult(result);
 
-  for (const delayMs of [3000, 8000]) {
-    if (result.status === "registered") break;
-    await new Promise((resolve) => setTimeout(resolve, delayMs));
-    await teardownPushNotifications();
+  // Chỉ retry cho lỗi tạm thời phía đăng ký (getToken/SW), không retry khi thiếu quyền — retry
+  // không có user gesture chỉ tạo thêm "denied" giả, không bao giờ thành công.
+  if (result.status === "token-unavailable" || result.status === "error") {
+    await new Promise((resolve) => setTimeout(resolve, 3000));
     result = await computeSetupPushNotifications();
     logPushSetupResult(result);
   }
@@ -211,7 +226,10 @@ export async function enablePushFromUserGesture(): Promise<PushSetupResult> {
 
   const permissionBefore = Notification.permission;
   const hadUserActivation = currentUserActivation();
-  const permission = await Notification.requestPermission();
+  // Đã "granted" thì KHÔNG gọi lại requestPermission() — trên iOS lệnh này có thể trả về "denied"
+  // giả khi user activation đã hết hiệu lực, làm hỏng trạng thái đang đúng (xem ghi chú ở
+  // setupPushNotifications). Chỉ gọi khi thật sự cần hiện dialog xin quyền lần đầu.
+  const permission = permissionBefore === "granted" ? "granted" : await Notification.requestPermission();
 
   const result =
     permission !== "granted"
@@ -225,10 +243,14 @@ async function computeSetupPushNotifications(): Promise<PushSetupResult> {
   if (!isConfigured()) return { status: "not-configured" };
   if (isIosNonStandalone()) return { status: "needs-ios-shortcut" };
 
-  const permissionBefore = Notification.permission;
-  const hadUserActivation = currentUserActivation();
-  const permission = await Notification.requestPermission();
-  if (permission !== "granted") return permissionDeniedResult(permissionBefore, permission, hadUserActivation);
+  // Luồng tự động: CHỈ đọc trạng thái quyền, không bao giờ gọi requestPermission() (xem ghi chú ở
+  // setupPushNotifications — gọi khi thiếu user gesture sẽ nhận "denied" giả trên iOS).
+  if (Notification.permission !== "granted") {
+    return {
+      status: "needs-user-gesture",
+      detail: `permission=${Notification.permission} userActivation=${currentUserActivation() ?? "unknown"}`
+    };
+  }
 
   return registerAfterPermissionGranted();
 }
@@ -239,20 +261,10 @@ async function registerAfterPermissionGranted(): Promise<PushSetupResult> {
     const messagingInstance = await getMessagingInstance();
     if (!messagingInstance) return { status: "unsupported" };
 
-    /**
-     * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-09-07) — bug WebKit đã biết: nếu context
-     * của Service Worker được tạo ra TRƯỚC KHI permission ở trang chính chuyển thành "granted" (VD
-     * registration cũ còn sót từ lần thử trước, hoặc do 2 việc này chạy gần như đồng thời), giá trị
-     * Notification.permission BÊN TRONG context của SW đó kẹt lại "default" VĨNH VIỄN — không tự cập
-     * nhật dù trang chính đã "granted" — cho tới khi bị kill hẳn (xem push_setup_logs: retry trong
-     * cùng session/mở lại app không kill tiến trình đều fail, chỉ logout+login mới thành công). Chủ
-     * động unregister registration cũ (nếu có) TRƯỚC khi đăng ký lại — đảm bảo context SW luôn được
-     * tạo MỚI, SAU KHI permission đã chắc chắn "granted" (dòng trên), không phụ thuộc còn sót lại từ
-     * lần thử trước hay không.
-     */
-    const existingRegistration = await navigator.serviceWorker.getRegistration(PUSH_SW_SCOPE);
-    if (existingRegistration) await existingRegistration.unregister().catch(() => undefined);
-
+    // Trước đây có bước unregister() registration cũ ở đây (dựa trên giả thuyết SW context giữ
+    // permission cũ) — ĐÃ GỠ 2026-09-07: giả thuyết đó sai (luồng chưa từng chạy tới đây, xem ghi chú
+    // ở setupPushNotifications) và chính nó gây lỗi thật "Getting push subscription requires a
+    // service worker" khi teardown/getToken chạy ngay sau đó mà không còn registration nào.
     const registration = await navigator.serviceWorker.register(serviceWorkerUrl(), { scope: PUSH_SW_SCOPE });
     await waitForServiceWorkerActive(registration);
     const token = await getToken(messagingInstance, { vapidKey, serviceWorkerRegistration: registration });
