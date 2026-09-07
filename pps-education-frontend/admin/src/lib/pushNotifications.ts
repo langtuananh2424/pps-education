@@ -141,20 +141,25 @@ function logPushSetupResult(result: PushSetupResult): void {
 
 /**
  * Gọi sau khi login thành công — xin quyền + đăng ký device token cho kênh PUSH.
- * Tự thử lại 1 lần sau 3s nếu lần đầu thất bại — bổ sung ngoài SDD gốc (đã xác nhận với người dùng
- * 2026-09-07, xem cùng thay đổi ở app "user"): ngay sau khi cài shortcut mới hoàn toàn (cold start),
- * Notification.requestPermission() có thể trả về "permission-denied" dù OS ĐÃ cấp quyền thật —
- * đăng nhập lại lần 2 (không cần bấm Allow lại) luôn thành công ngay. Tự retry để không bắt người
- * dùng phải đăng nhập 2 lần.
+ *
+ * Tự thử lại (tối đa 3 lần, có teardown xen giữa) — bổ sung ngoài SDD gốc, đã xác nhận với người
+ * dùng 2026-09-07 (xem ghi chú đầy đủ ở app "user"). Bằng chứng thực tế trên iOS: mọi lần retry
+ * KHÔNG kèm teardown đều thất bại, chỉ luồng chạy deleteToken() (huỷ hẳn PushSubscription cũ) trước
+ * khi setup lại mới thành công — lần getToken() hỏng đầu tiên để lại 1 subscription hỏng mà mọi lần
+ * thử sau đều vướng phải.
  */
 export async function setupPushNotifications(): Promise<PushSetupResult> {
   let result = await computeSetupPushNotifications();
   logPushSetupResult(result);
-  if (result.status !== "registered") {
-    await new Promise((resolve) => setTimeout(resolve, 3000));
+
+  for (const delayMs of [3000, 8000]) {
+    if (result.status === "registered") break;
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+    await teardownPushNotifications();
     result = await computeSetupPushNotifications();
     logPushSetupResult(result);
   }
+
   return result;
 }
 

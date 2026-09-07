@@ -51,12 +51,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
    * nhập lại thủ công. Tự thử lại mỗi khi MỞ APP mà đã sẵn đăng nhập — đồng thời đây là 1 lần tải
    * trang HOÀN TOÀN MỚI (không phải retry trong cùng session như trong pushNotifications.ts), khớp
    * đúng bằng chứng thực tế: tải lại trang mới luôn thành công hơn retry trong cùng phiên cũ.
-   * Không gọi teardownPushNotifications() trước (khác completeLogin()) vì đây là mở lại app của CÙNG
-   * tài khoản, không phải chuyển tài khoản trên chung thiết bị — không cần huỷ token đang có.
+   * Gọi teardownPushNotifications() trước (giống hệt completeLogin()) — bằng chứng từ push_setup_logs
+   * cho thấy đây mới là mấu chốt: chỉ luồng nào chạy deleteToken() (huỷ hẳn PushSubscription cũ)
+   * trước khi setup lại mới thành công, vì lần getToken() hỏng đầu tiên để lại 1 subscription hỏng
+   * mà mọi lần thử sau đều vướng phải (xem ghi chú chi tiết ở setupPushNotifications()).
    */
   useEffect(() => {
     if (isLoggedIn) {
-      setupPushNotifications().catch(() => undefined);
+      teardownPushNotifications()
+        .then(() => setupPushNotifications())
+        .catch(() => undefined);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
