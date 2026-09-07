@@ -19,6 +19,7 @@ import DailyLearningProgressTab from "../components/DailyLearningProgressTab";
 import DocumentLibraryTab from "../components/DocumentLibraryTab";
 import ComingSoon from "../components/ComingSoon";
 import ProfileModal from "../components/ProfileModal";
+import EnablePushBanner from "../components/EnablePushBanner";
 
 type Tab = "home" | "schedule" | "learning-progress" | "homework" | "documents" | "grades" | "grade-stats" | "billing";
 
@@ -372,6 +373,7 @@ export default function PortalPage() {
             </div>
 
             <div className="lg:col-span-9">
+              <EnablePushBanner />
               {!selectedClassId ? (
                 <div className="bg-white border border-line/80 rounded-[24px] p-10 text-center text-muted font-bold">
                   {t("noClassAssigned")}

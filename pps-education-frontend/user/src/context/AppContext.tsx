@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useContext, useMemo, useState } from "react";
 import {
   CurrentUserResponse,
   fetchCurrentUser,
@@ -43,23 +43,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<CurrentUserResponse | null>(() => readCachedUser());
 
   /**
-   * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-09-07) — trước đây setupPushNotifications()
-   * CHỈ chạy trong completeLogin() (lúc gọi API đăng nhập). Từ khi có "nhớ đăng nhập" (localStorage,
-   * xem tokenStorage.ts), mở lại shortcut với phiên đã đăng nhập sẵn KHÔNG đi qua completeLogin() nữa
-   * — nếu lần đăng ký push tại thời điểm login đó thất bại (VD timing quirk của WebKit lúc PWA vừa
-   * cài, xem push_setup_logs), người dùng vĩnh viễn không có cơ hội thử lại trừ khi tự đăng xuất/đăng
-   * nhập lại thủ công. Tự thử lại mỗi khi MỞ APP mà đã sẵn đăng nhập — đồng thời đây là 1 lần tải
-   * trang HOÀN TOÀN MỚI (không phải retry trong cùng session như trong pushNotifications.ts), khớp
-   * đúng bằng chứng thực tế: tải lại trang mới luôn thành công hơn retry trong cùng phiên cũ.
-   * Không gọi teardownPushNotifications() trước (khác completeLogin()) vì đây là mở lại app của CÙNG
-   * tài khoản, không phải chuyển tài khoản trên chung thiết bị — không cần huỷ token đang có.
+   * ĐÃ GỠ (2026-09-07, đã xác nhận với người dùng) useEffect đăng ký lại push mỗi lần mở app.
+   *
+   * Nó từng cần thiết khi luồng đăng ký còn hay thất bại (WebKit trả "denied" giả — xem
+   * pushNotifications.ts), nhưng sau khi sửa đúng nguyên nhân gốc thì nó chỉ còn gây hại: chạy song
+   * song với completeLogin() nên mỗi lần đăng nhập ghi 2 bản ghi push_setup_logs cách nhau ~1 giây,
+   * làm nặng log và có nguy cơ tạo 2 device token (thông báo lặp). Việc xin quyền giờ do người dùng
+   * chủ động bấm nút ở EnablePushBanner, chỉ cần 1 lần duy nhất.
    */
-  useEffect(() => {
-    if (isLoggedIn) {
-      setupPushNotifications().catch(() => undefined);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const completeLogin = async () => {
     const profile = await fetchCurrentUser();
