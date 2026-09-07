@@ -98,7 +98,7 @@ public class StudentCommentController {
     public ResponseEntity<List<StudentCommentResponse>> bulkUpdatePendingDueDate(@PathVariable Long sessionId,
                                                                                     @Valid @RequestBody BulkUpdateHomeworkDueDateRequest request,
                                                                                     @AuthenticationPrincipal AuthenticatedUser actor) {
-        return ResponseEntity.ok(studentCommentService.bulkUpdatePendingDueDate(sessionId, request.dueDate(), actor.userId()));
+        return ResponseEntity.ok(studentCommentService.bulkUpdatePendingDueDate(sessionId, request.dueDate(), request.lateSubmissionAllowed(), actor.userId()));
     }
 
     // ---- UC-22: Duyệt nhận xét (SITE_MANAGER) ----

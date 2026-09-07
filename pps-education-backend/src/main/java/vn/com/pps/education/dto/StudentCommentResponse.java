@@ -70,6 +70,11 @@ public record StudentCommentResponse(
         String homeworkNextWritingExerciseTitle,
         /** Hạn nộp BTVN buổi sau (lấy từ dueAt của ExerciseAssignment/ReviewVideoAssignment đã giao) — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05. */
         OffsetDateTime homeworkNextDueAt,
+        /**
+         * V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — "Cho phép nộp bài muộn"
+         * HIỆU LỰC của BTVN buổi sau (đã giao thật hoặc còn pending), mirror homeworkNextDueAt.
+         */
+        boolean homeworkNextLateSubmissionAllowed,
         /** V127: id/tên Exercise Giáo viên vừa chọn nhưng CHƯA Gửi nhận xét — null nếu chưa chọn gì hoặc đã Gửi (xem ghi chú V127 ở trên). */
         Long pendingHomeworkNextExerciseId,
         String pendingHomeworkNextExerciseTitle,

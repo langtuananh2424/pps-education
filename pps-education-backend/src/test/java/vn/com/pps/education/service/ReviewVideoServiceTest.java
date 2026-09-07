@@ -532,6 +532,57 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
                 .isInstanceOf(SubmissionPastDeadlineException.class);
     }
 
+    /**
+     * V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — đảo ngược quyết định
+     * 2026-07-30 ("không có cờ kiểu cho nộp trễ như Exercise"): bật lateSubmissionAllowed thì KHÔNG
+     * còn bị chặn sau dueAt nữa, mirror ExerciseAttemptServiceTest#submitAttempt_UC24_A1_
+     * allowsLateSubmissionWhenConfigured.
+     */
+    @Test
+    void reportProgress_UC23a_A3_allowsPastDeadlineWhenLateSubmissionAllowed() {
+        ReviewVideoResponse video = createPublishedSetWithVideo(100);
+        Student student = enrollStudent(schoolClass.id());
+        // V165 (fix CI 2026-09-07) — createPublishedSetWithVideo đã tự deliverToClass(dueAt=null)
+        // trước đó; PHẢI gọi deliverToClass CUỐI CÙNG (đổi dueAt) TRƯỚC startSession, không phải sau —
+        // deliverToClass với dueAt khác sẽ HUỶ bản giao null-due đang có (xem "giao lại = 1 lượt MỚI"
+        // ở Javadoc ReviewVideoService#deliverToClass). Gọi sau startSession sẽ huỷ mất đúng bản giao
+        // mà watch session vừa bind vào, khiến reportProgress luôn văng "đã bị thay thế/huỷ" (đúng bug
+        // đã gặp ở CI — 2 exception khác nhau nhưng CÙNG kiểu SubmissionPastDeadlineException nên dễ
+        // lẫn), bất kể lateSubmissionAllowed trên bản giao MỚI (không được bind) là gì.
+        reviewVideoService.deliverToClass(video.reviewVideoSetId(), schoolClass.id(), OffsetDateTime.now().minusDays(1), true, teacher.getId(), null);
+        Long sessionId = startSession(video.id(), video.reviewVideoSetId(), student.getUser().getId());
+
+        ReviewVideoProgressResponse progress = reportProgress(video.id(), sessionId, 50, student.getUser().getId());
+
+        assertThat(progress.watchedSeconds()).isEqualTo(50);
+    }
+
+    /**
+     * V165 — trả lời câu hỏi "lỡ ban đầu không cho nộp muộn mà học sinh chưa xong thì sao": bật lại cờ
+     * SAU khi bản giao đã quá hạn (qua updateLateSubmissionAllowed, dùng ở PATCH của trang Thống kê
+     * BTVN) thì học sinh ghi nhận tiến độ được ngay, không cần Giáo viên tạo lại bản giao từ đầu.
+     */
+    @Test
+    void updateLateSubmissionAllowed_UC23a_allowsSubmissionAfterTogglingOnPastDeadline() {
+        ReviewVideoResponse video = createPublishedSetWithVideo(100);
+        Student student = enrollStudent(schoolClass.id());
+        // V165 (fix CI 2026-09-07) — mirror ghi chú ở reportProgress_UC23a_A3_
+        // allowsPastDeadlineWhenLateSubmissionAllowed: deliverToClass (đổi dueAt so với bản giao
+        // null-due mặc định của createPublishedSetWithVideo) PHẢI chạy TRƯỚC startSession, để watch
+        // session bind đúng vào bản giao (quá hạn) đang thật sự được test, không phải bản giao cũ vừa
+        // bị huỷ.
+        ReviewVideoAssignment assignment = reviewVideoService.deliverToClass(
+                video.reviewVideoSetId(), schoolClass.id(), OffsetDateTime.now().minusDays(1), teacher.getId());
+        Long sessionId = startSession(video.id(), video.reviewVideoSetId(), student.getUser().getId());
+        assertThatThrownBy(() -> reportProgress(video.id(), sessionId, 50, student.getUser().getId()))
+                .isInstanceOf(SubmissionPastDeadlineException.class);
+
+        reviewVideoService.updateLateSubmissionAllowed(assignment.getId(), true, teacher.getId());
+
+        ReviewVideoProgressResponse progress = reportProgress(video.id(), sessionId, 50, student.getUser().getId());
+        assertThat(progress.watchedSeconds()).isEqualTo(50);
+    }
+
     @Test
     void reportProgress_UC59_MainFlow_requiresConfiguredViewCountBeforeCompleted() {
         ReviewVideoResponse video = createPublishedSetWithVideo(100, 80, 2);
@@ -709,6 +760,20 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         assertThatThrownBy(() -> reviewVideoService.submitQuestionAudio(question.id(), activeAssignmentId(video.reviewVideoSetId()),
                 new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/late.mp3", null), student.getUser().getId()))
                 .isInstanceOf(SubmissionPastDeadlineException.class);
+    }
+
+    /** V165 — mirror reportProgress_UC23a_A3_allowsPastDeadlineWhenLateSubmissionAllowed cho REFLEX. */
+    @Test
+    void submitQuestionAudio_UC23b_A3_allowsPastDeadlineWhenLateSubmissionAllowed() {
+        ReviewVideoResponse video = createPublishedReflexSetWithVideo(100);
+        ReviewVideoQuestionResponse question = addQuestion(video.id(), 53, 15, null);
+        Student student = enrollStudent(schoolClass.id());
+        reviewVideoService.deliverToClass(video.reviewVideoSetId(), schoolClass.id(), OffsetDateTime.now().minusDays(1), true, teacher.getId(), null);
+
+        ReviewVideoSubmissionResponse submission = reviewVideoService.submitQuestionAudio(question.id(), activeAssignmentId(video.reviewVideoSetId()),
+                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/late-allowed.mp3", null), student.getUser().getId());
+
+        assertThat(submission.audioUrl()).isEqualTo("https://media.pps.edu.vn/late-allowed.mp3");
     }
 
     @Test

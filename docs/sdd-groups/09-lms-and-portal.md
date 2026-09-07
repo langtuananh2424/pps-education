@@ -610,8 +610,16 @@ f)  Bảng review_video_assignments --- Giao bộ video cho lớp (MỚI HOÀN
 TOÀN, V65, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30)
 
 Mirror `exercise_assignments` (mục f nhóm Ngân hàng câu hỏi & Bài tập
-dưới) --- KHÔNG có `late_submission_allowed`/`late_penalty_percent` (không
-áp dụng cho video).
+dưới) --- KHÔNG có `late_penalty_percent` (không trừ điểm khi nộp muộn,
+đã xác nhận với người dùng).
+
+**V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) ---
+đảo ngược quyết định 2026-07-30 ở trên:** thêm cột
+`late_submission_allowed` (mirror `exercise_assignments`) --- Giáo viên
+có thể cho phép 1 bản giao Video Ôn tập được nộp sau hạn, học sinh vẫn
+nộp được, hệ thống đánh dấu "nộp muộn"
+(`reflex_question_progress.is_late_submission`) để Giáo viên biết, không
+trừ điểm. Xem `ReviewVideoService`/`ReflexSequentialGradingService`.
 
   ----------------------------------------------------------------------------
   **Cột**                   **Kiểu**          **Ràng buộc**    **Ghi chú**
@@ -640,6 +648,10 @@ dưới) --- KHÔNG có `late_submission_allowed`/`late_penalty_percent` (không
                                                                ở StudentComment
                                                                Service, xem
                                                                UC-21)
+
+  late_submission_allowed   BOOLEAN           NOT NULL,        V165: cho phép
+                                              DEFAULT FALSE    nộp sau due_at,
+                                                               không trừ điểm
 
   target_student_ids        JSONB             NULL             NULL = cả lớp
                                                                (V65: LUÔN

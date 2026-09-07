@@ -28,6 +28,13 @@ public record ReviewVideoAssignmentStudentStatsResponse(
             Integer answeredQuestionCount,
             Integer totalReflexQuestions,
             BigDecimal averageScore,
-            BigDecimal averageMaxScore
+            BigDecimal averageMaxScore,
+            /**
+             * V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — true nếu học sinh
+             * này từng nộp muộn (bất kỳ câu nào) trong bản giao này — mirror badge "Trễ hạn" (TRE_HAN)
+             * bên Exercise. Luôn false cho CONNECTION (chỉ REFLEX có luồng nộp bài viết/nói được đánh
+             * dấu muộn — xem ReflexSequentialGradingService).
+             */
+            boolean lateSubmission
     ) {}
 }

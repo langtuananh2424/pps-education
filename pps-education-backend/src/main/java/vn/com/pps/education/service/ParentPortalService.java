@@ -262,6 +262,7 @@ public class ParentPortalService {
                 null /* homeworkNextReadingExerciseAssignmentId */, null /* homeworkNextReadingExerciseTitle */,
                 null /* homeworkNextWritingExerciseAssignmentId */, null /* homeworkNextWritingExerciseTitle */,
                 null /* homeworkNextDueAt */,
+                false /* homeworkNextLateSubmissionAllowed */,
                 null /* pendingHomeworkNextExerciseId */, null /* pendingHomeworkNextExerciseTitle */,
                 null /* pendingHomeworkNextReviewVideoSetId */, null /* pendingHomeworkNextReviewVideoSetTitle */,
                 null /* pendingHomeworkNextReadingExerciseId */, null /* pendingHomeworkNextReadingExerciseTitle */,

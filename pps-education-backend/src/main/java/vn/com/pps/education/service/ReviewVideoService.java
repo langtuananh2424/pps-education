@@ -424,16 +424,19 @@ public class ReviewVideoService {
      */
     @Transactional
     public ReviewVideoAssignment deliverToClass(Long setId, Long classId, OffsetDateTime dueAt, Long actorUserId) {
-        return deliverToClass(setId, classId, dueAt, actorUserId, null);
+        return deliverToClass(setId, classId, dueAt, false, actorUserId, null);
     }
 
     /**
      * V123 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-14): overload nhận thêm buổi
-     * học nguồn — mirror {@link ExerciseService#deliverToClass(Long, Long, OffsetDateTime, Long, ClassSession)}.
+     * học nguồn — mirror {@link ExerciseService#deliverToClass(Long, Long, OffsetDateTime, boolean, Long, ClassSession)}.
+     *
+     * V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — thêm tham số
+     * {@code lateSubmissionAllowed}, đảo ngược quyết định 2026-07-30 "không áp dụng cho video".
      */
     @Transactional
-    public ReviewVideoAssignment deliverToClass(Long setId, Long classId, OffsetDateTime dueAt, Long actorUserId,
-                                                 ClassSession sourceClassSession) {
+    public ReviewVideoAssignment deliverToClass(Long setId, Long classId, OffsetDateTime dueAt, boolean lateSubmissionAllowed,
+                                                 Long actorUserId, ClassSession sourceClassSession) {
         // Cắt về độ chính xác microsecond + so theo instant thực (không so cả offset) NGAY từ đầu —
         // xem giải thích chi tiết ở ExerciseService#deliverToClass/sameDueAt() (bug thật, tái hiện
         // được cả khi chạy 1 mình với DB sạch, KHÔNG phải lỗi rò rỉ dữ liệu giữa các test).
@@ -474,6 +477,7 @@ public class ReviewVideoService {
                 a.setSchoolClass(schoolClass);
                 a.setAssignedBy(actor);
                 a.setDueAt(finalDueAt);
+                a.setLateSubmissionAllowed(lateSubmissionAllowed);
                 a.setSourceClassSession(sourceClassSession);
                 return reviewVideoAssignmentRepository.saveAndFlush(a);
             });
@@ -514,6 +518,22 @@ public class ReviewVideoService {
     public void cancelAssignment(ReviewVideoAssignment assignment) {
         assignment.setStatus(ReviewVideoAssignment.Status.CANCELLED);
         reviewVideoAssignmentRepository.save(assignment);
+    }
+
+    /**
+     * V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — mirror
+     * {@code ExerciseService#updateLateSubmissionAllowed}: bật/tắt lại "Cho phép nộp bài muộn" cho 1
+     * bản giao Video Ôn tập ĐÃ tạo (kể cả đã quá hạn), gọi từ trang "Xem chi tiết" BTVN Giáo viên đang
+     * xem — không cần tạo lại bản giao từ đầu.
+     */
+    @Transactional
+    public ReviewVideoAssignmentResponse updateLateSubmissionAllowed(Long assignmentId, boolean lateSubmissionAllowed, Long actorUserId) {
+        ReviewVideoAssignment assignment = reviewVideoAssignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("error.reviewVideo.assignmentNotFound", new Object[]{assignmentId}, "Không tìm thấy bản giao id=" + assignmentId));
+        requireOwnerScope(assignment.getReviewVideoSet(), actorUserId);
+        assignment.setLateSubmissionAllowed(lateSubmissionAllowed);
+        assignment = reviewVideoAssignmentRepository.save(assignment);
+        return toAssignmentResponse(assignment);
     }
 
     /**
@@ -573,7 +593,7 @@ public class ReviewVideoService {
         return new ReviewVideoAssignmentResponse(
                 a.getId(), a.getUuid(), a.getReviewVideoSet().getId(), a.getReviewVideoSet().getTitle(),
                 a.getSchoolClass().getId(), a.getAssignedBy().getId(),
-                a.getAvailableFrom(), a.getDueAt(), a.getTargetStudentIds(), a.getStatus().name());
+                a.getAvailableFrom(), a.getDueAt(), a.isLateSubmissionAllowed(), a.getTargetStudentIds(), a.getStatus().name());
     }
 
     private void notifyAssignedStudents(SchoolClass schoolClass, ReviewVideoSet set, ReviewVideoAssignment assignment) {
@@ -1354,7 +1374,7 @@ public class ReviewVideoService {
 
         return new ReviewVideoAssignmentStatsResponse(
                 assignment.getId(), set.getId(), set.getCode(), set.getTitle(), set.getVideoType(), set.getTeacherType(),
-                assignment.getAvailableFrom(), assignment.getDueAt(), assignment.getStatus(),
+                assignment.getAvailableFrom(), assignment.getDueAt(), assignment.isLateSubmissionAllowed(), assignment.getStatus(),
                 totalStudents, completedCount, completionPercent, passedCount, passRatePercent);
     }
 
@@ -1592,8 +1612,14 @@ public class ReviewVideoService {
     /**
      * Chặn ghi nhận kết quả (xem tiến độ/nộp đáp án/nộp audio) sau khi lần giao đã quá hạn nộp — mirror
      * đúng ExerciseAttemptService#submitAttempt (đã xác nhận với người dùng 2026-08-12, sửa lỗ hổng
-     * Video Ôn tập trước đây KHÔNG hề chặn theo dueAt, khác Bài Ngữ pháp). Cố tình KHÔNG có cờ kiểu
-     * lateSubmissionAllowed như Exercise — chặn cứng, chưa cần tùy chọn nộp trễ cho Video.
+     * Video Ôn tập trước đây KHÔNG hề chặn theo dueAt, khác Bài Ngữ pháp).
+     *
+     * V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — đảo ngược quyết định
+     * 2026-07-30 ở trên: giờ CÓ cờ {@link ReviewVideoAssignment#isLateSubmissionAllowed()} mirror
+     * Exercise, chỉ chặn khi cờ này tắt. Không đánh dấu "nộp muộn" ở đây (reportProgress/
+     * submitConnectionAnswers/submitQuestionAudio là xem/quiz/audio-cũ, không phải bài viết chính của
+     * Video phản xạ) — xem {@link ReflexSequentialGradingService#requireNotPastDeadline} cho luồng có
+     * đánh dấu.
      *
      * Từ V128 (dedup theo sourceClassSession): giao lại cùng buổi học sẽ HỦY bản giao ACTIVE cũ (xem
      * {@link #cancelAssignment}) rồi tạo bản giao mới — nhưng phiên xem đã bắt đầu dưới bản giao cũ vẫn
@@ -1606,7 +1632,8 @@ public class ReviewVideoService {
         if (assignment.getStatus() != ReviewVideoAssignment.Status.ACTIVE) {
             throw new SubmissionPastDeadlineException("Bản giao Video Ôn tập này đã bị thay thế hoặc hủy, không thể ghi nhận thêm.");
         }
-        if (assignment.getDueAt() != null && OffsetDateTime.now().isAfter(assignment.getDueAt())) {
+        if (assignment.getDueAt() != null && OffsetDateTime.now().isAfter(assignment.getDueAt())
+                && !assignment.isLateSubmissionAllowed()) {
             throw new SubmissionPastDeadlineException(
                     "error.submissionPastDeadline.reviewVideo", new Object[]{assignment.getDueAt()},
                     "Bản giao Video Ôn tập này đã quá hạn nộp (" + assignment.getDueAt() + ").");

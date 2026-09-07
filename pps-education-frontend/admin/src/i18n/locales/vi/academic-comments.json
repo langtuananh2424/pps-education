@@ -214,6 +214,7 @@
       "noAssign": "-- Không giao --",
       "dueDateLabel": "Hạn nộp bài — ngày",
       "dueTimeLabel": "Hạn nộp bài — giờ",
+      "lateSubmissionAllowedLabel": "Cho phép nộp bài muộn",
       "applyButton": "Áp dụng cho cả lớp",
       "applying": "Đang áp dụng..."
     },
