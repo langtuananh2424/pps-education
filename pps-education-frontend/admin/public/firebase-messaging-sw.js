@@ -31,7 +31,8 @@ messaging.onBackgroundMessage((payload) => {
   const body = payload.notification?.body ?? "";
   self.registration.showNotification(title, {
     body,
-    icon: "/icon-192.png",
-    badge: "/icon-192.png"
+    // Bỏ icon/badge (sửa 2026-09-07): app admin CHƯA có file icon-192.png thật (xem ghi chú ở
+    // index.html) — trỏ tới file không tồn tại khiến trình duyệt tải 404 rồi rơi về icon mặc định.
+    // Khi nào có asset thiết kế thật thì thêm lại, kèm file vào public/.
   });
 });

@@ -31,6 +31,7 @@ import vn.com.pps.education.service.notification.NotificationChannelSender;
 
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
@@ -307,6 +308,36 @@ public class NotificationService {
         deviceToken.setDeviceId(request.deviceId());
         deviceToken.setActive(true);
         deviceTokenRepository.save(deviceToken);
+
+        enforceMaxActiveTokens(userId);
+    }
+
+    /**
+     * Giữ tối đa {@value #MAX_ACTIVE_TOKENS_PER_USER} token active gần nhất mỗi user — bổ sung ngoài
+     * SDD gốc, đã xác nhận với người dùng 2026-09-07 sau sự cố THẬT trên staging: dedupe theo
+     * deviceId không dọn được token cũ khi deviceId đổi (gỡ app cài lại → localStorage mất → sinh
+     * deviceId mới) hay token đăng ký trước migration V163 (deviceId NULL), khiến 1 user tích luỹ 7
+     * token active. Hệ quả dây chuyền: chuỗi token trong notification_deliveries.recipient_address
+     * (VARCHAR(500)) bị tràn → transaction rollback → delivery kẹt PENDING → job nền gửi lại push
+     * mỗi phút, người dùng bị spam thông báo lặp vô hạn.
+     *
+     * Chọn mốc 3: đủ cho người dùng thật (điện thoại + máy tính + 1 thiết bị phụ), và 3 token nối
+     * bằng dấu phẩy (~480 ký tự) vẫn nằm gọn trong giới hạn VARCHAR(500) của recipient_address.
+     */
+    private static final int MAX_ACTIVE_TOKENS_PER_USER = 3;
+
+    private void enforceMaxActiveTokens(Long userId) {
+        List<DeviceToken> active = deviceTokenRepository.findByUserIdAndActiveTrue(userId);
+        if (active.size() <= MAX_ACTIVE_TOKENS_PER_USER) {
+            return;
+        }
+        List<DeviceToken> tooOld = active.stream()
+                .sorted(Comparator.comparing(DeviceToken::getUpdatedAt,
+                        Comparator.nullsFirst(Comparator.naturalOrder())).reversed())
+                .skip(MAX_ACTIVE_TOKENS_PER_USER)
+                .toList();
+        tooOld.forEach(dt -> dt.setActive(false));
+        deviceTokenRepository.saveAll(tooOld);
     }
 
     /**

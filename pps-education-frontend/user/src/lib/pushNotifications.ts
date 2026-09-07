@@ -286,7 +286,8 @@ async function registerAfterPermissionGranted(): Promise<PushSetupResult> {
       onMessage(messagingInstance, (payload) => {
         const title = payload.notification?.title ?? "PPS Education";
         const body = payload.notification?.body ?? "";
-        void registration.showNotification(title, { body, icon: "/icon-192.png", badge: "/icon-192.png" });
+        // /icon-192.png KHÔNG tồn tại (sửa 2026-09-07) — dùng pwa-192.png như firebase-messaging-sw.js.
+        void registration.showNotification(title, { body, icon: "/pwa-192.png", badge: "/pwa-192.png" });
         window.dispatchEvent(new CustomEvent(PUSH_RECEIVED_EVENT));
       });
     }

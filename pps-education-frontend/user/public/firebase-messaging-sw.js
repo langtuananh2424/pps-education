@@ -32,7 +32,9 @@ messaging.onBackgroundMessage((payload) => {
   const body = payload.notification?.body ?? "";
   self.registration.showNotification(title, {
     body,
-    icon: "/icon-192.png",
-    badge: "/icon-192.png"
+    // /icon-192.png KHÔNG tồn tại trong public/ (sửa 2026-09-07) — Android tải icon thất bại nên rơi
+    // về icon chuông mặc định thay vì logo app. File thật là pwa-192.png (khớp manifest ở vite.config.ts).
+    icon: "/pwa-192.png",
+    badge: "/pwa-192.png"
   });
 });
