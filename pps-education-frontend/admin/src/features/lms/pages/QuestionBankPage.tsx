@@ -490,9 +490,14 @@ export default function QuestionBankPage() {
  * là ranh giới đoạn văn thật (VD 3 đoạn Tom/Max/Anna của "Bài đọc hiểu — Lưới", GridQuestionBuilder nối
  * bằng "\n\n") — giữ lại làm dòng trống hiển thị; mọi \n đơn lẻ còn lại (rác copy-paste Word/PDF) gộp
  * thành khoảng trắng.
+ *
+ * Fix bug thật (2026-09-08, đã xác nhận với người dùng qua ảnh chụp, mirror ExercisePreviewModal.tsx)
+ * — transcript bài Nghe dạng hội thoại dán từ trang web/PDF thường CHỈ có 1 \n giữa mỗi lượt nói (không
+ * có dòng trống) — chèn thêm 1 dòng trống ẢO trước mỗi dòng bắt đầu bằng "Tên:"/"N." TRƯỚC khi split.
  */
 function normalizeReferencePassage(text: string): string {
-  return text
+  const withTurnBreaks = text.replace(/\n(?=\s*(?:[^\n:]{1,40}:\s|\d+\.\s))/g, "\n\n");
+  return withTurnBreaks
     .split(/\n\s*\n/)
     .map((para) => para.replace(/\s*\n\s*/g, " ").trim())
     .filter(Boolean)

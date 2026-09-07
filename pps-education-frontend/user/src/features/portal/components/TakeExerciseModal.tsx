@@ -128,9 +128,19 @@ function chunkArray<T>(items: T[], size: number): T[][] {
  * "Tên: nội dung" mà GridQuestionBuilder tạo ra (chỉ referencePassage của khối GRID mới có dạng này —
  * hàm này CHỈ dùng trong GridQuestionGroup, không dùng cho referencePassage của câu đơn lẻ/ESSAY/audio
  * ở QuestionBlock) — đoạn nào không khớp mẫu (dữ liệu cũ/khác) thì hiện nguyên văn, không có tên riêng.
+ *
+ * V4 (fix bug thật 2026-09-08, đã xác nhận với người dùng qua ảnh chụp) — transcript bài Nghe dạng hội
+ * thoại (VD "A: ...\nB: ...", ListeningGroupBuilder) dán từ trang web/PDF thường CHỈ có 1 \n giữa mỗi
+ * lượt nói (không có dòng trống thật — nguồn dựng bằng nhiều <p> riêng, mỗi đoạn chỉ cách nhau 1 \n khi
+ * copy ra text thô), khiến split(/\n\s*\n/) coi cả transcript là 1 đoạn DUY NHẤT rồi gộp hết thành 1
+ * dòng dài — mất hẳn ranh giới lượt hội thoại. Chèn thêm 1 dòng trống ẢO trước mỗi dòng bắt đầu bằng
+ * "Tên:" hoặc "N." (số thứ tự câu hỏi trong transcript) TRƯỚC khi split — nhận diện được ranh giới ngay
+ * cả khi nguồn không có dòng trống thật, không ảnh hưởng trường hợp GridQuestionBuilder cũ (đã có sẵn
+ * "\n\n" thật, chèn thêm không đổi kết quả split).
  */
 function parsePassageParagraphs(text: string): { name: string | null; content: string }[] {
-  return text
+  const withTurnBreaks = text.replace(/\n(?=\s*(?:[^\n:]{1,40}:\s|\d+\.\s))/g, "\n\n");
+  return withTurnBreaks
     .split(/\n\s*\n/)
     .map((para) => para.replace(/\s*\n\s*/g, " ").trim())
     .filter(Boolean)
