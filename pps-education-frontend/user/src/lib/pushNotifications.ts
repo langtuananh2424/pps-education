@@ -284,10 +284,19 @@ async function registerAfterPermissionGranted(): Promise<PushSetupResult> {
     if (!foregroundListenerAttached) {
       foregroundListenerAttached = true;
       onMessage(messagingInstance, (payload) => {
-        const title = payload.notification?.title ?? "PPS Education";
-        const body = payload.notification?.body ?? "";
+        // Payload DATA-ONLY (backend bỏ block "notification" từ 2026-09-07) — đọc từ payload.data.
+        const data = payload.data ?? {};
+        const title = data.title || "PPS Education";
+        const body = data.body || "";
         // /icon-192.png KHÔNG tồn tại (sửa 2026-09-07) — dùng pwa-192.png như firebase-messaging-sw.js.
-        void registration.showNotification(title, { body, icon: "/pwa-192.png", badge: "/pwa-192.png" });
+        // tag = notificationId để gộp với popup của onBackgroundMessage() nếu cả 2 cùng bắn 1 push
+        // (cùng tag → thông báo sau thay thế im lặng thông báo trước, không xếp chồng).
+        void registration.showNotification(title, {
+          body,
+          icon: "/pwa-192.png",
+          badge: "/pwa-192.png",
+          tag: data.notificationId ? `pps-noti-${data.notificationId}` : undefined
+        });
         window.dispatchEvent(new CustomEvent(PUSH_RECEIVED_EVENT));
       });
     }
