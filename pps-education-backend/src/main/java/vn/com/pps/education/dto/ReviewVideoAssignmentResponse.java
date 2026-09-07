@@ -22,6 +22,8 @@ public record ReviewVideoAssignmentResponse(
         Long assignedBy,
         OffsetDateTime availableFrom,
         OffsetDateTime dueAt,
+        /** V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — mirror ExerciseAssignmentResponse.lateSubmissionAllowed. */
+        boolean lateSubmissionAllowed,
         List<Long> targetStudentIds,
         String status
 ) {}

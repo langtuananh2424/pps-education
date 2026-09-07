@@ -14,9 +14,12 @@ import java.util.UUID;
  * Bảng review_video_assignments (V65, bổ sung ngoài SDD gốc, đã xác nhận
  * với người dùng — giao bộ Video Ôn tập cho 1 lớp kèm hạn nộp, phát sinh
  * từ Nhận xét học viên UC-21 khi Giáo viên chọn 1 bộ làm "BTVN buổi sau").
- * Mirror {@link ExerciseAssignment} — không có lateSubmissionAllowed/
- * latePenaltyPercent vì không áp dụng cho video (không "nộp bài" theo
- * nghĩa chấm điểm trễ hạn).
+ * Mirror {@link ExerciseAssignment}.
+ *
+ * V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) —
+ * đảo ngược quyết định 2026-07-30 (V65, "không áp dụng cho video"): thêm
+ * {@code lateSubmissionAllowed}, KHÔNG thêm {@code latePenaltyPercent} vì
+ * không trừ điểm khi nộp muộn (đã xác nhận với người dùng).
  */
 @Getter
 @Setter
@@ -51,6 +54,10 @@ public class ReviewVideoAssignment {
     /** NULL = không hạn nộp. */
     @Column(name = "due_at")
     private OffsetDateTime dueAt;
+
+    /** V165 — mirror {@link ExerciseAssignment#isLateSubmissionAllowed()}: cho phép nộp sau dueAt (không trừ điểm). */
+    @Column(name = "late_submission_allowed", nullable = false)
+    private boolean lateSubmissionAllowed = false;
 
     /** NULL = cả lớp (mặc định sau V65 — luôn giao cả lớp qua Nhận xét). */
     @JdbcTypeCode(SqlTypes.JSON)

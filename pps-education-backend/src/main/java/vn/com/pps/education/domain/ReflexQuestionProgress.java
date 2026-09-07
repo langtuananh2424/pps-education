@@ -85,4 +85,13 @@ public class ReflexQuestionProgress extends BaseAuditEntity {
 
     @Column(name = "speaking_attempt_count", nullable = false)
     private int speakingAttemptCount;
+
+    /**
+     * V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — true nếu bước viết HOẶC
+     * ghi âm của dòng này từng được nộp sau dueAt (chỉ xảy ra khi
+     * {@link ReviewVideoAssignment#isLateSubmissionAllowed()}). Không tự reset lại false — dòng này bị
+     * sửa đè tại chỗ mỗi lần nộp lại (xem Javadoc lớp) nên chỉ cần 1 cờ duy nhất, không phải lịch sử.
+     */
+    @Column(name = "is_late_submission", nullable = false)
+    private boolean lateSubmission = false;
 }

@@ -12,8 +12,10 @@ import vn.com.pps.education.domain.Notification;
 import vn.com.pps.education.domain.SchoolClass;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.dto.HomeworkSkillGroupResponse;
+import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.repository.ClassEnrollmentRepository;
+import vn.com.pps.education.repository.ClassTeacherRepository;
 import vn.com.pps.education.repository.ExamRepository;
 import vn.com.pps.education.repository.ExerciseAssignmentRepository;
 import vn.com.pps.education.repository.ExerciseQuestionRepository;
@@ -48,6 +50,11 @@ public class HomeworkSkillBatchService {
     private final ClassEnrollmentRepository classEnrollmentRepository;
     private final NotificationService notificationService;
     private final ExerciseService exerciseService;
+    private final ClassTeacherRepository classTeacherRepository;
+    private final PermissionEvaluationService permissionEvaluationService;
+
+    /** Mirror ExerciseService#PERM_EXAM_MANAGE — quyền vượt rào "được phân công dạy lớp". */
+    private static final String PERM_EXAM_MANAGE = "lms.exam.manage";
 
     public HomeworkSkillBatchService(HomeworkSkillBatchRepository homeworkSkillBatchRepository,
                                       ExerciseAssignmentRepository exerciseAssignmentRepository,
@@ -58,7 +65,9 @@ public class HomeworkSkillBatchService {
                                       UserRepository userRepository,
                                       ClassEnrollmentRepository classEnrollmentRepository,
                                       NotificationService notificationService,
-                                      ExerciseService exerciseService) {
+                                      ExerciseService exerciseService,
+                                      ClassTeacherRepository classTeacherRepository,
+                                      PermissionEvaluationService permissionEvaluationService) {
         this.homeworkSkillBatchRepository = homeworkSkillBatchRepository;
         this.exerciseAssignmentRepository = exerciseAssignmentRepository;
         this.exerciseRepository = exerciseRepository;
@@ -69,6 +78,8 @@ public class HomeworkSkillBatchService {
         this.classEnrollmentRepository = classEnrollmentRepository;
         this.notificationService = notificationService;
         this.exerciseService = exerciseService;
+        this.classTeacherRepository = classTeacherRepository;
+        this.permissionEvaluationService = permissionEvaluationService;
     }
 
     /**
@@ -84,7 +95,8 @@ public class HomeworkSkillBatchService {
      */
     @Transactional
     public HomeworkSkillBatch assignBatchToClass(Long examId, Exercise.SkillCategory skillCategory, Long classId,
-                                                   OffsetDateTime dueAt, Long actorUserId, ClassSession sourceClassSession) {
+                                                   OffsetDateTime dueAt, boolean lateSubmissionAllowed,
+                                                   Long actorUserId, ClassSession sourceClassSession) {
         List<Exercise> sources = exerciseRepository.findByExamIdAndSkillCategoryAndStatus(
                 examId, skillCategory, Exercise.Status.PUBLISHED);
         if (sources.isEmpty()) {
@@ -107,7 +119,7 @@ public class HomeworkSkillBatchService {
         ExerciseAssignment representativeAssignment = null;
         for (Exercise source : sources) {
             ExerciseAssignment assignment = exerciseService.deliverToClass(
-                    source.getId(), classId, dueAt, actorUserId, sourceClassSession, false);
+                    source.getId(), classId, dueAt, lateSubmissionAllowed, actorUserId, sourceClassSession, false);
             assignment.setHomeworkBatch(batch);
             exerciseAssignmentRepository.save(assignment);
             if (representativeAssignment == null) {
@@ -149,6 +161,35 @@ public class HomeworkSkillBatchService {
     public void cancelBatch(HomeworkSkillBatch batch) {
         exerciseAssignmentRepository.findByHomeworkBatchId(batch.getId())
                 .forEach(exerciseService::cancelAssignment);
+    }
+
+    /**
+     * V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — bật/tắt lại "Cho phép nộp
+     * bài muộn" cho TOÀN BỘ N bản giao (1/Bài THẬT) thuộc 1 Lô cùng lúc, gọi từ trang "Xem chi tiết"
+     * BTVN theo Lô (BatchStatsDetailPage.tsx) — mirror {@code ExerciseService#updateLateSubmissionAllowed}
+     * nhưng áp dụng đồng loạt cho cả Lô thay vì 1 bản giao đơn, vì Giáo viên chỉ nhìn thấy 1 hàng đại
+     * diện cho cả Lô ở trang đó, không tách riêng từng Bài.
+     */
+    @Transactional
+    public void updateLateSubmissionAllowed(Long batchId, boolean lateSubmissionAllowed, Long actorUserId) {
+        HomeworkSkillBatch batch = homeworkSkillBatchRepository.findById(batchId)
+                .orElseThrow(() -> new ResourceNotFoundException("error.homeworkSkillBatch.notFound",
+                        new Object[]{batchId}, "Không tìm thấy Lô id=" + batchId));
+        requireAssignedTeacher(batch.getSchoolClass().getId(), actorUserId);
+        List<ExerciseAssignment> members = exerciseAssignmentRepository.findByHomeworkBatchId(batchId);
+        members.forEach(a -> a.setLateSubmissionAllowed(lateSubmissionAllowed));
+        exerciseAssignmentRepository.saveAll(members);
+    }
+
+    /** Quyền lms.exam.manage vượt rào — mirror ExerciseService#requireAssignedTeacher. */
+    private void requireAssignedTeacher(Long classId, Long actorUserId) {
+        if (permissionEvaluationService.hasPermission(actorUserId, PERM_EXAM_MANAGE)) {
+            return;
+        }
+        if (!classTeacherRepository.existsBySchoolClassIdAndTeacherIdAndAssignedToIsNull(classId, actorUserId)) {
+            throw new NotAssignedTeacherForClassException(
+                    "error.notAssignedTeacherForClass.default", new Object[]{}, "Bạn không được phân công giảng dạy lớp này.");
+        }
     }
 
     /**

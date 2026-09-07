@@ -37,6 +37,12 @@ import java.util.Map;
  * vi cũ (resolveNextSessionDueAt). Chỉ có ý nghĩa khi có chọn
  * homeworkNextExerciseId hoặc homeworkNextReviewVideoSetId; mọi nhận xét
  * DAILY cùng 1 buổi phải khớp cùng 1 hạn nộp (StudentCommentService#requireNoDueDateConflict).
+ *
+ * V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07):
+ * {@code homeworkNextLateSubmissionAllowed} — null/false = giữ hành vi cũ (chặn cứng sau hạn nộp);
+ * true = cho phép học sinh nộp sau hạn (đánh dấu "nộp muộn", không trừ điểm). Dùng chung cho cả kênh
+ * Bài tập (Ngữ pháp/Nghe/Đọc/Viết) lẫn Video Ôn tập, mirror cách homeworkNextDueDate dùng chung 1 hạn
+ * nộp cho mọi kênh trong cùng 1 nhận xét.
  */
 public record CreateStudentCommentRequest(
         @NotNull Long studentId,
@@ -66,5 +72,6 @@ public record CreateStudentCommentRequest(
         Long homeworkNextReadingExerciseId,
         Long homeworkNextWritingExerciseId,
         LocalDateTime homeworkNextDueDate,
+        Boolean homeworkNextLateSubmissionAllowed,
         String note
 ) {}

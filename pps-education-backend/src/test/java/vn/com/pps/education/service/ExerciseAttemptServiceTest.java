@@ -257,6 +257,49 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         assertThat(submitted.isLateSubmission()).isTrue();
     }
 
+    /**
+     * V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — cột lateSubmissionAllowed
+     * đã có từ V18 nhưng chưa từng có nơi nào GHI giá trị (deliverToClass không nhận tham số này) —
+     * test trên (allowsLateSubmissionWhenConfigured) chỉ verify phía ĐỌC bằng cách set thẳng qua
+     * repository. Test này verify deliverToClass giờ THẬT SỰ nối dây và lưu đúng giá trị truyền vào.
+     */
+    @Test
+    void deliverToClass_UC21_MainFlow_persistsLateSubmissionAllowed() {
+        QuestionResponse mc = createMcQuestion();
+        ExerciseResponse exercise = exerciseService.createExercise(
+                new CreateExerciseRequest(exerciseCode(), "Kiểm tra", defaultExam.id(), null, "ASSIGNED",
+                        new BigDecimal("1"), null, false, 1, true), teacher.getId());
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("1.0")), teacher.getId());
+        examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
+        commitCurrentTransactionAndStartNew();
+
+        ExerciseAssignment assignment = exerciseService.deliverToClass(
+                exercise.id(), schoolClass.id(), OffsetDateTime.now().plusDays(1), true, teacher.getId(), null);
+
+        assertThat(assignment.isLateSubmissionAllowed()).isTrue();
+        ExerciseAssignment reloaded = exerciseAssignmentRepository.findById(assignment.getId()).orElseThrow();
+        assertThat(reloaded.isLateSubmissionAllowed()).isTrue();
+    }
+
+    /**
+     * V165 — trả lời câu hỏi "lỡ ban đầu không cho nộp muộn mà học sinh chưa xong thì sao": bật lại cờ
+     * SAU khi bản giao đã quá hạn (qua endpoint PATCH mới) thì học sinh nộp được ngay, không cần Giáo
+     * viên tạo lại bản giao từ đầu.
+     */
+    @Test
+    void updateLateSubmissionAllowed_UC21_allowsSubmissionAfterTogglingOnPastDeadline() {
+        QuestionResponse mc = createMcQuestion();
+        ExerciseResponse exercise = assignedExerciseWithQuestions(List.of(mc), OffsetDateTime.now().minusDays(1), false, true);
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), activeAssignmentId(exercise.id()), studentUser.getId());
+        assertThatThrownBy(() -> answerCorrectly(attempt.id(), mc)).isInstanceOf(SubmissionPastDeadlineException.class);
+
+        exerciseService.updateLateSubmissionAllowed(activeAssignmentId(exercise.id()), true, teacher.getId());
+        answerCorrectly(attempt.id(), mc);
+        ExerciseAttemptResponse submitted = exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
+
+        assertThat(submitted.isLateSubmission()).isTrue();
+    }
+
     @Test
     void startAttempt_UC24_A2_rejectsRetakeWhenNotAllowed() {
         ExerciseResponse exercise = createSelfPracticeExerciseWithOneMcQuestion(false, null);

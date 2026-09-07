@@ -817,6 +817,8 @@ export interface ReviewVideoAssignmentResponse {
   assignedBy: number;
   availableFrom: string;
   dueAt: string | null;
+  /** V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07). */
+  lateSubmissionAllowed: boolean;
   targetStudentIds: number[] | null;
   status: "ACTIVE" | "CANCELLED" | "COMPLETED";
 }
@@ -841,6 +843,8 @@ export interface ReviewVideoAssignmentStatsResponse {
   teacherType: ReviewVideoTeacherType;
   availableFrom: string;
   dueAt: string | null;
+  /** V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — cho bật/tắt lại ở trang "Xem chi tiết". */
+  lateSubmissionAllowed: boolean;
   status: "ACTIVE" | "CANCELLED" | "COMPLETED";
   totalStudents: number;
   completedCount: number;
@@ -875,6 +879,8 @@ export interface ReviewVideoAssignmentStudentRow {
   totalReflexQuestions: number | null;
   averageScore: number | null;
   averageMaxScore: number | null;
+  /** V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — true nếu học sinh từng nộp muộn (mirror status "TRE_HAN" bên Exercise). Luôn false với CONNECTION. */
+  lateSubmission: boolean;
 }
 
 export interface ReviewVideoAssignmentStudentStatsResponse {
@@ -884,6 +890,14 @@ export interface ReviewVideoAssignmentStudentStatsResponse {
 
 export function getReviewVideoAssignmentStudentStats(assignmentId: number): Promise<ReviewVideoAssignmentStudentStatsResponse> {
   return apiRequest<ReviewVideoAssignmentStudentStatsResponse>(`/review-video-assignments/${assignmentId}/stats/students`);
+}
+
+/** V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — bật/tắt lại "Cho phép nộp bài muộn" cho 1 bản giao Video Ôn tập ĐÃ tạo. */
+export function updateReviewVideoAssignmentLateSubmissionAllowed(assignmentId: number, lateSubmissionAllowed: boolean): Promise<ReviewVideoAssignmentResponse> {
+  return apiRequest<ReviewVideoAssignmentResponse>(`/review-video-assignments/${assignmentId}/late-submission-allowed`, {
+    method: "PUT",
+    body: JSON.stringify({ lateSubmissionAllowed })
+  });
 }
 
 /** CONNECTION only — phân tích câu hay bị sai, mirror ExerciseAssignmentQuestionStatsResponse. Rỗng cho assignment REFLEX. */

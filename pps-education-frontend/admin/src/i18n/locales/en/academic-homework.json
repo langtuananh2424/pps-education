@@ -86,6 +86,8 @@
     "exportFailed": "Failed to export the Excel file.",
     "exporting": "Exporting...",
     "exportExcel": "Export Excel",
+    "dueAtLabel": "Due date",
+    "lateSubmissionAllowedLabel": "Allow late submission",
     "table": {
       "status": "Status",
       "score": "Score",
@@ -165,6 +167,8 @@
     }
   },
   "reviewVideoDetail": {
+    "dueAtLabel": "Due date",
+    "lateSubmissionAllowedLabel": "Allow late submission",
     "table": {
       "viewed": "Viewed",
       "completed": "Completion",
@@ -175,7 +179,9 @@
       "submittedQuestions": "Questions submitted",
       "averageScore": "Avg. score",
       "viewCountSuffix": "{{viewed}}/{{required}} views",
-      "notGraded": "Not graded"
+      "notGraded": "Not graded",
+      "lateSubmission": "Late",
+      "lateSubmissionBadge": "Late"
     },
     "questionRow": {
       "titleSuffix": " — {{title}}"

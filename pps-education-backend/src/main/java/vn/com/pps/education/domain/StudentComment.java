@@ -273,4 +273,13 @@ public class StudentComment {
     /** Hạn nộp tự chọn (giờ tường thuật thô, chưa quy đổi múi giờ) đi kèm lựa chọn CHƯA giao ở trên — quy đổi thật ở resolveDueAt() lúc Gửi. */
     @Column(name = "pending_homework_next_due_date")
     private LocalDateTime pendingHomeworkNextDueDate;
+
+    /**
+     * V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — "Cho phép nộp bài muộn"
+     * đi kèm lựa chọn CHƯA giao ở trên, mirror {@link #pendingHomeworkNextDueDate} (NULL = chưa chọn,
+     * coi như false — StudentCommentService#resolveGrammarExerciseHomework/resolveVideoHomework/... sẽ
+     * materialize thật lúc Gửi nhận xét).
+     */
+    @Column(name = "pending_homework_next_late_submission_allowed")
+    private Boolean pendingHomeworkNextLateSubmissionAllowed;
 }
