@@ -1,5 +1,6 @@
 package vn.com.pps.education.controller;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -20,6 +21,7 @@ import vn.com.pps.education.dto.DeviceTokenRequest;
 import vn.com.pps.education.dto.NotificationPreferenceRequest;
 import vn.com.pps.education.dto.NotificationPreferenceResponse;
 import vn.com.pps.education.dto.NotificationResponse;
+import vn.com.pps.education.dto.PushSetupLogRequest;
 import vn.com.pps.education.dto.SendNotificationRequest;
 import vn.com.pps.education.dto.SendNotificationResponse;
 import vn.com.pps.education.security.AuthenticatedUser;
@@ -71,6 +73,20 @@ public class NotificationController {
                                                       @AuthenticationPrincipal AuthenticatedUser actor) {
         notificationService.registerDeviceToken(actor.userId(), request);
         return ResponseEntity.ok().build();
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-09-07): ghi log kết quả 1 lần chạy
+     * setupPushNotifications() phía client (thành công/thất bại + lý do) — luồng đăng ký push hiện
+     * fire-and-forget, nuốt lỗi hoàn toàn phía FE, không có cách nào debug qua SQL nếu không có
+     * Safari Web Inspector. Best-effort — không throw để không ảnh hưởng luồng login chính.
+     */
+    @PostMapping("/push-setup-log")
+    public ResponseEntity<Void> logPushSetup(@Valid @RequestBody PushSetupLogRequest request,
+                                              @AuthenticationPrincipal AuthenticatedUser actor,
+                                              HttpServletRequest httpRequest) {
+        notificationService.logPushSetupResult(actor.userId(), request, httpRequest);
+        return ResponseEntity.noContent().build();
     }
 
     /** Vô hiệu hoá device token (gọi lúc logout). */
