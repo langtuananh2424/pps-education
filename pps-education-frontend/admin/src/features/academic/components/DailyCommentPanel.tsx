@@ -649,29 +649,73 @@ export default function DailyCommentPanel() {
    * tường minh) âm thầm giữ hạn nộp mặc định cũ (= buổi kế tiếp), khoá cứng hạn nộp chung của buổi
    * mà không cách nào tự sửa được qua "Lưu nháp"/"Gửi nhận xét" (luôn báo xung đột 0/N — xem Javadoc
    * BE StudentCommentService#bulkUpdatePendingDueDate).
+   *
+   * Bổ sung 2026-09-07 (fix bug thật, đã xác nhận với người dùng) — TỰ ĐỘNG "Lưu nháp" ngay sau khi
+   * gán, không chờ giáo viên bấm tay: trước đây hàm này chỉ setRows() cục bộ, dữ liệu chỉ tồn tại ở
+   * state FE cho tới khi giáo viên chủ động "Lưu nháp"/"Gửi nhận xét". F5 lại giữa chừng (VD gõ Nhận
+   * xét cho 1 học sinh rồi "Gửi nhận xét" luôn, KHÔNG "Lưu nháp") khiến loadHistory (chỉ điền lại
+   * rows từ StudentComment DRAFT/REJECTED đã có trong DB) không tìm thấy bản ghi nào cho các học sinh
+   * còn lại → cột BTVN của họ về rỗng dù đã "gán cho cả lớp", trong khi BTVN thực đã được đẩy xuống
+   * (theo status của học sinh đã gửi). Gọi thẳng saveFilledRows() với rows vừa tính (không đọc lại
+   * state rows vì setRows là bất đồng bộ) để mọi dòng vừa gán có bản ghi DRAFT ngay, sống sót qua F5.
    */
   const handleApplyQuickAssign = async () => {
+    if (!selectedClassId || !selectedSession || savingDraft) return;
     const lockedIds = new Set(history.filter((h) => h.status === "PENDING" || h.status === "APPROVED").map((h) => h.studentId));
-    setRows((prev) =>
-      prev.map((r) =>
-        lockedIds.has(r.studentId)
-          ? r
-          : {
-              ...r,
-              ...(isVietnamese
-                ? {
-                    homeworkNextReading: quickReading,
-                    homeworkNextWriting: quickWriting,
-                    homeworkNextReadingExerciseId: quickReadingExerciseId,
-                    homeworkNextWritingExerciseId: quickWritingExerciseId
-                  }
-                : { homeworkNext: quickOffline }),
-              homeworkNextExerciseId: quickExerciseId,
-              homeworkNextReviewVideoSetId: quickVideoId
-            }
-      )
+    const updatedRows = rows.map((r) =>
+      lockedIds.has(r.studentId)
+        ? r
+        : {
+            ...r,
+            ...(isVietnamese
+              ? {
+                  homeworkNextReading: quickReading,
+                  homeworkNextWriting: quickWriting,
+                  homeworkNextReadingExerciseId: quickReadingExerciseId,
+                  homeworkNextWritingExerciseId: quickWritingExerciseId
+                }
+              : { homeworkNext: quickOffline }),
+            homeworkNextExerciseId: quickExerciseId,
+            homeworkNextReviewVideoSetId: quickVideoId
+          }
     );
+    setRows(updatedRows);
     setDirty(true);
+
+    const filled = updatedRows.filter(rowHasAnyData);
+    if (filled.length > 0) {
+      setSavingDraft(true);
+      setError(null);
+      try {
+        const results = await saveFilledRows(filled, selectedClassId, selectedSession);
+        const failed = results
+          .map((r, i) => ({ result: r, row: filled[i] }))
+          .filter((x): x is { result: PromiseRejectedResult; row: Row } => x.result.status === "rejected");
+        const failedCount = failed.length;
+        setDirty(failedCount > 0);
+        setLastSavedAt(new Date());
+        if (failedCount > 0) {
+          const firstFailedReason = failed[0].result.reason;
+          const firstFailedMessage = firstFailedReason instanceof ApiError ? firstFailedReason.message : t("dailyCommentPanel.errors.unknownReason");
+          const extraStudents = failedCount > 1 ? t("dailyCommentPanel.notifications.extraStudents", { count: failedCount - 1 }) : "";
+          setNotification(
+            t("dailyCommentPanel.notifications.draftSavedFailurePart", {
+              saved: filled.length - failedCount,
+              total: filled.length,
+              studentName: failed[0].row.studentFullName,
+              extra: extraStudents,
+              reason: firstFailedMessage
+            })
+          );
+        }
+        await loadHistory(selectedClassId, selectedSession.id, updatedRows.map((r) => r.studentId));
+        refreshSessionCommentStats(selectedClassId);
+      } catch (err) {
+        setError(err instanceof ApiError ? err.message : t("dailyCommentPanel.errors.saveDraftFailed"));
+      } finally {
+        setSavingDraft(false);
+      }
+    }
 
     if (dueDateTime && selectedSessionId && selectedClassId) {
       setApplyingDueDate(true);
@@ -1326,6 +1370,7 @@ export default function DailyCommentPanel() {
                 onClick={handleApplyQuickAssign}
                 disabled={
                   applyingDueDate ||
+                  savingDraft ||
                   (isVietnamese
                     ? !quickReading &&
                       !quickWriting &&
@@ -1338,7 +1383,7 @@ export default function DailyCommentPanel() {
                 }
                 className="px-3 py-2 bg-brand-orange hover:bg-brand-orange/90 text-white text-[11px] font-bold rounded-lg disabled:opacity-40"
               >
-                {applyingDueDate ? t("dailyCommentPanel.quickAssign.applying") : t("dailyCommentPanel.quickAssign.applyButton")}
+                {applyingDueDate || savingDraft ? t("dailyCommentPanel.quickAssign.applying") : t("dailyCommentPanel.quickAssign.applyButton")}
               </button>
             </div>
           </div>
