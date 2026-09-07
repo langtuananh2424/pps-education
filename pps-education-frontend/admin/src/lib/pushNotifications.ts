@@ -227,6 +227,14 @@ async function computeSetupPushNotifications(): Promise<PushSetupResult> {
 /** Gọi lúc logout — hủy token khỏi FCM lẫn backend, best-effort (không chặn logout nếu lỗi). */
 export async function teardownPushNotifications(): Promise<void> {
   try {
+    /**
+     * Chặn sớm khi quyền chưa cấp (bổ sung ngoài SDD gốc 2026-09-07, xem ghi chú đầy đủ ở app
+     * "user"): Firebase getToken() tự gọi Notification.requestPermission() bên trong khi quyền đang
+     * là "default" — làm hộp thoại xin quyền bật lên ngay sau khi đăng nhập, ngoài ý muốn. Chưa
+     * "granted" thì cũng không có token nào để huỷ.
+     */
+    if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+
     const messagingInstance = await getMessagingInstance();
     if (!messagingInstance) return;
     const token = await getToken(messagingInstance, { vapidKey });
