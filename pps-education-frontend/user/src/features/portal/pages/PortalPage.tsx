@@ -222,10 +222,10 @@ export default function PortalPage() {
                   )}
                 </div>
                 <div className="text-left leading-tight">
-                  <div className="text-[9px] text-muted font-extrabold uppercase tracking-wide">
+                  <div className="text-[10px] text-muted font-extrabold uppercase tracking-wide">
                     {isParent ? t("roleLabel.parent") : t("roleLabel.student")}
                   </div>
-                  <div className="text-xs font-extrabold text-ink">{viewerName}</div>
+                  <div className="text-sm font-extrabold text-ink">{viewerName}</div>
                 </div>
               </button>
             )}
@@ -259,7 +259,7 @@ export default function PortalPage() {
         />
       )}
 
-      <div className="flex-1 w-full max-w-[1560px] mx-auto px-4 md:px-8 xl:px-12 py-8">
+      <div className="flex-1 w-full max-w-[1560px] mx-auto px-4 md:px-4 xl:px-8 py-8">
         {error && <div className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-xl mb-4">{error}</div>}
 
         {loading ? (
@@ -269,7 +269,7 @@ export default function PortalPage() {
             {isParent ? t("noViewerData.parent") : t("noViewerData.student")}
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
             {mobileMenuOpen && (
               <div
                 className="fixed inset-0 z-[70] bg-ink/40 backdrop-blur-[1px] lg:hidden"
@@ -342,7 +342,7 @@ export default function PortalPage() {
                         setActiveTab(key);
                         setMobileMenuOpen(false);
                       }}
-                      className={`relative w-full flex items-center gap-3 px-4 py-3 rounded-[16px] font-bold text-sm transition-all border ${
+                      className={`relative w-full flex items-center gap-3 px-4 py-3 rounded-[16px] font-bold text-base transition-all border ${
                         activeTab === key
                           ? "bg-teal text-white border-teal-deep shadow-[0_4px_12px_rgba(23,166,160,0.2)]"
                           : "bg-slate-50/50 hover:bg-slate-50 text-muted border-line/60"

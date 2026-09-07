@@ -594,7 +594,7 @@ export default function AssignmentsTab({
         // đỏ (mirror tab lọc "Bài tập quá hạn" cùng màu) khi còn bài quá hạn, chỉ hiện banner xanh khi
         // THẬT SỰ không còn gì (pendingCount=0 VÀ overdueCount=0). Cho đóng lại (nút X) — chỉ ẩn trong
         // phiên xem hiện tại, không lưu lại (mở lại/tải lại trang thì hiện lại nếu vẫn còn quá hạn).
-        <div className="relative p-5 pr-12 bg-gradient-to-r from-rose-50 via-rose-50 to-white border border-rose-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 overflow-hidden">
+        <div className="relative p-5 bg-gradient-to-r from-rose-50 via-rose-50 to-white border border-rose-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 overflow-hidden">
           <button
             onClick={() => setOverdueBannerDismissed(true)}
             aria-label={t("assignments.overdueBanner.dismiss")}
@@ -602,8 +602,8 @@ export default function AssignmentsTab({
           >
             <X size={16} />
           </button>
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-coral flex items-center justify-center shrink-0 shadow-sm">
+          <div className="flex items-center gap-3 pr-8 sm:pr-0">
+            <div className="hidden sm:flex w-12 h-12 rounded-full bg-coral items-center justify-center shrink-0 shadow-sm">
               <AlertCircle size={24} className="text-white" />
             </div>
             <div>
@@ -631,7 +631,7 @@ export default function AssignmentsTab({
 
           <button
             onClick={() => setFilterStatus("OVERDUE")}
-            className="px-5 py-2.5 bg-coral hover:opacity-90 text-white font-extrabold text-xs rounded-xl shadow-sm transition-all shrink-0 cursor-pointer self-start sm:self-center"
+            className="w-full sm:w-auto px-5 py-2.5 bg-coral hover:opacity-90 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-sm transition-all shrink-0 cursor-pointer self-stretch sm:self-center"
           >
             {t("assignments.overdueBanner.actionButton")}
           </button>
@@ -653,7 +653,7 @@ export default function AssignmentsTab({
           <div className="flex-1 min-w-0 flex items-center gap-2 overflow-x-auto scrollbar-hide snap-x snap-proximity">
             <button
               onClick={() => setFilterStatus("ALL")}
-              className={`shrink-0 snap-start px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
+              className={`shrink-0 snap-start px-4 py-2 rounded-xl text-sm font-black transition-all cursor-pointer ${
                 filterStatus === "ALL" ? "bg-teal text-white shadow-sm" : "bg-slate-100 hover:bg-slate-200 text-muted"
               }`}
             >
@@ -661,7 +661,7 @@ export default function AssignmentsTab({
             </button>
             <button
               onClick={() => setFilterStatus("PENDING")}
-              className={`shrink-0 snap-start px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`shrink-0 snap-start px-4 py-2 rounded-xl text-sm font-black transition-all cursor-pointer flex items-center gap-1.5 ${
                 filterStatus === "PENDING" ? "bg-orange-500 text-white shadow-sm" : "bg-slate-100 hover:bg-slate-200 text-muted"
               }`}
             >
@@ -669,7 +669,7 @@ export default function AssignmentsTab({
             </button>
             <button
               onClick={() => setFilterStatus("GRADED")}
-              className={`shrink-0 snap-start px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`shrink-0 snap-start px-4 py-2 rounded-xl text-sm font-black transition-all cursor-pointer flex items-center gap-1.5 ${
                 filterStatus === "GRADED" ? "bg-teal text-white shadow-sm" : "bg-slate-100 hover:bg-slate-200 text-muted"
               }`}
             >
@@ -680,7 +680,7 @@ export default function AssignmentsTab({
                 phải đọc từng badge quá hạn rải rác trong danh sách "Cần hoàn thành". */}
             <button
               onClick={() => setFilterStatus("OVERDUE")}
-              className={`shrink-0 snap-start px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`shrink-0 snap-start px-4 py-2 rounded-xl text-sm font-black transition-all cursor-pointer flex items-center gap-1.5 ${
                 filterStatus === "OVERDUE" ? "bg-coral text-white shadow-sm" : "bg-slate-100 hover:bg-slate-200 text-muted"
               }`}
             >
@@ -714,7 +714,7 @@ export default function AssignmentsTab({
                     setFilterType("ALL");
                     setFilterTypeOpen(false);
                   }}
-                  className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-xs font-bold text-left transition-colors ${
+                  className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-sm font-bold text-left transition-colors ${
                     filterType === "ALL" ? "bg-ink/5 text-ink font-black" : "text-muted hover:bg-slate-50"
                   }`}
                 >
@@ -735,7 +735,7 @@ export default function AssignmentsTab({
                           setFilterType(skill);
                           setFilterTypeOpen(false);
                         }}
-                        className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-xs font-bold text-left transition-colors ${
+                        className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-sm font-bold text-left transition-colors ${
                           filterType === skill ? "bg-ink/5 text-ink font-black" : "text-muted hover:bg-slate-50"
                         }`}
                       >
@@ -761,7 +761,7 @@ export default function AssignmentsTab({
                           setFilterType(videoType);
                           setFilterTypeOpen(false);
                         }}
-                        className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-xs font-bold text-left transition-colors ${
+                        className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-sm font-bold text-left transition-colors ${
                           filterType === videoType ? "bg-ink/5 text-ink font-black" : "text-muted hover:bg-slate-50"
                         }`}
                       >
@@ -782,7 +782,7 @@ export default function AssignmentsTab({
       </div>
 
       {feedItems.length === 0 ? (
-        <p className="text-xs text-muted font-bold italic text-center py-10">{t("assignments.empty")}</p>
+        <p className="text-sm text-muted font-bold italic text-center py-10">{t("assignments.empty")}</p>
       ) : (
         <>
           <div className="space-y-4">
@@ -925,16 +925,16 @@ function ExerciseCard({
       }`}
     >
       <div className="space-y-2 flex-1 min-w-0">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="px-2.5 py-0.5 rounded-lg bg-teal/10 text-teal border border-teal/20 text-[11px] font-black">{item.exerciseCode}</span>
-          <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-muted text-[11px] font-bold">{item.className}</span>
+        <div className="flex flex-nowrap items-center gap-2 overflow-x-auto scrollbar-hide">
+          <span className="px-2.5 py-0.5 rounded-lg bg-teal/10 text-teal border border-teal/20 text-[13px] font-black shrink-0">{item.exerciseCode}</span>
+          <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-muted text-[13px] font-bold shrink-0 whitespace-nowrap">{item.className}</span>
           {retake ? (
-            <span className="px-2.5 py-0.5 rounded-lg bg-coral/10 text-coral border border-coral/20 text-[11px] font-black flex items-center gap-1">
+            <span className="px-2.5 py-0.5 rounded-lg bg-coral/10 text-coral border border-coral/20 text-[11px] font-black flex items-center gap-1 shrink-0 whitespace-nowrap">
               <Clock size={12} />{" "}
               {t("assignments.exercise.needsRetake", { percent: item.myLatestPercentage != null ? `(${item.myLatestPercentage}%)` : "" })}
             </span>
           ) : attemptMeta ? (
-            <span className={`px-2.5 py-0.5 rounded-lg text-[11px] font-black flex items-center gap-1 ${attemptMeta.className}`}>
+            <span className={`px-2.5 py-0.5 rounded-lg text-[13px] font-black flex items-center gap-1 shrink-0 whitespace-nowrap ${attemptMeta.className}`}>
               <CheckCircle2 size={12} /> {attemptMeta.label}
             </span>
           ) : null}
@@ -944,7 +944,7 @@ function ExerciseCard({
               xong hẳn) — bài đã AUTO_GRADED/FULLY_GRADED(đạt) thì hạn nộp không còn ý nghĩa. */}
           {pending && (
             <span
-              className={`px-2.5 py-0.5 rounded-lg border text-[11px] font-black flex items-center gap-1 ${
+              className={`px-2.5 py-0.5 rounded-lg border text-[13px] font-black flex items-center gap-1 shrink-0 whitespace-nowrap ${
                 isOverdue ? "bg-coral/10 text-coral border-coral/20" : "bg-amber-100 text-amber-800 border-amber-300"
               }`}
             >
@@ -956,22 +956,22 @@ function ExerciseCard({
           {/* V123, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-14 — GV Việt Nam/nước
               ngoài phụ trách (đọc thật từ Exam.teacherType) + buổi đã giao BTVN này, hiện cho MỌI
               trạng thái (không chỉ khi còn "pending" như hạn nộp ở trên) theo yêu cầu người dùng. */}
-          <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-muted border border-line text-[11px] font-black flex items-center gap-1">
+          <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-muted border border-line text-[13px] font-black flex items-center gap-1 shrink-0 whitespace-nowrap">
             <GraduationCap size={12} />{" "}
             {item.teacherType === "VIETNAMESE" ? t("assignments.exercise.teacherVietnamese") : t("assignments.exercise.teacherForeign")}
           </span>
           {item.sessionDate && (
-            <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-muted border border-line text-[11px] font-black flex items-center gap-1">
+            <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-muted border border-line text-[13px] font-black flex items-center gap-1 shrink-0 whitespace-nowrap">
               <CalendarDays size={12} /> {t("assignments.exercise.assignedInSession", { date: formatDate(item.sessionDate, i18n.language) })}
             </span>
           )}
         </div>
 
-        <h3 className="text-base font-black text-ink font-display truncate">{item.title}</h3>
+        <h3 className="text-xl font-black text-ink font-display truncate">{item.title}</h3>
         {/* Bổ sung 2026-09-04 (đã xác nhận với người dùng) — xem ghi chú ở BatchExerciseCard: hiện Unit/
             SubTopic chứa Lesson (examTitle) của Bài này để phân biệt các Lesson trùng tên. */}
         {(item.unitTitle || item.subTopicTitle) && (
-          <p className="text-[11px] font-bold text-muted truncate">
+          <p className="text-[13px] font-bold text-muted truncate">
             {item.examTitle} · {[item.unitTitle, item.subTopicTitle].filter(Boolean).join(" · ")}
           </p>
         )}
@@ -982,7 +982,7 @@ function ExerciseCard({
           // nhanh) thay vì "Điểm: X (Y%)" cũ. Đổi màu pill theo đạt/chưa đạt để học sinh/phụ huynh (đọc
           // qua ParentHomeworkProgressTab) nhận ra ngay không cần đọc kỹ.
           <div
-            className={`inline-flex flex-wrap items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold ${
+            className={`inline-flex flex-wrap items-center gap-1.5 px-3 py-1.5 rounded-xl border text-sm font-bold ${
               item.myLatestPassed === true
                 ? "bg-emerald-50 border-emerald-200 text-emerald-800"
                 : item.myLatestPassed === false
@@ -1010,7 +1010,7 @@ function ExerciseCard({
       <div className="shrink-0">
         <button
           onClick={onOpen}
-          className={`w-full md:w-auto flex items-center justify-center gap-1.5 px-5 py-2.5 font-extrabold text-xs rounded-xl shadow-sm transition-all cursor-pointer ${
+          className={`w-full md:w-auto flex items-center justify-center gap-1.5 px-5 py-2.5 font-extrabold text-sm rounded-xl shadow-sm transition-all cursor-pointer ${
             isFullyGraded && !retake ? "bg-slate-100 hover:bg-slate-200 text-ink border border-line" : "bg-teal hover:bg-teal-deep text-white"
           }`}
         >
@@ -1070,23 +1070,23 @@ function BatchExerciseCard({
       }`}
     >
       <div className="space-y-2 flex-1 min-w-0">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="px-2.5 py-0.5 rounded-lg bg-teal/10 text-teal border border-teal/20 text-[11px] font-black">
+        <div className="flex flex-nowrap items-center gap-2 overflow-x-auto scrollbar-hide">
+          <span className="px-2.5 py-0.5 rounded-lg bg-teal/10 text-teal border border-teal/20 text-[13px] font-black shrink-0 whitespace-nowrap">
             {t("assignments.batch.countSuffix", { count: items.length })}
           </span>
-          <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-muted text-[11px] font-bold">{first.className}</span>
+          <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-muted text-[13px] font-bold shrink-0 whitespace-nowrap">{first.className}</span>
           {anyRetake ? (
-            <span className="px-2.5 py-0.5 rounded-lg bg-coral/10 text-coral border border-coral/20 text-[11px] font-black flex items-center gap-1">
+            <span className="px-2.5 py-0.5 rounded-lg bg-coral/10 text-coral border border-coral/20 text-[11px] font-black flex items-center gap-1 shrink-0 whitespace-nowrap">
               <Clock size={12} /> {t("assignments.exercise.needsRetake", { percent: percentage != null ? `(${percentage}%)` : "" })}
             </span>
           ) : attemptMeta ? (
-            <span className={`px-2.5 py-0.5 rounded-lg text-[11px] font-black flex items-center gap-1 ${attemptMeta.className}`}>
+            <span className={`px-2.5 py-0.5 rounded-lg text-[13px] font-black flex items-center gap-1 shrink-0 whitespace-nowrap ${attemptMeta.className}`}>
               <CheckCircle2 size={12} /> {attemptMeta.label}
             </span>
           ) : null}
           {pending && (
             <span
-              className={`px-2.5 py-0.5 rounded-lg border text-[11px] font-black flex items-center gap-1 ${
+              className={`px-2.5 py-0.5 rounded-lg border text-[13px] font-black flex items-center gap-1 shrink-0 whitespace-nowrap ${
                 isOverdue ? "bg-coral/10 text-coral border-coral/20" : "bg-amber-100 text-amber-800 border-amber-300"
               }`}
             >
@@ -1095,28 +1095,28 @@ function BatchExerciseCard({
               {first.dueAt ? formatDateTimeHm(first.dueAt, i18n.language) : t("assignments.exercise.noDeadline")}
             </span>
           )}
-          <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-muted border border-line text-[11px] font-black flex items-center gap-1">
+          <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-muted border border-line text-[13px] font-black flex items-center gap-1 shrink-0 whitespace-nowrap">
             <GraduationCap size={12} />{" "}
             {first.teacherType === "VIETNAMESE" ? t("assignments.exercise.teacherVietnamese") : t("assignments.exercise.teacherForeign")}
           </span>
           {first.sessionDate && (
-            <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-muted border border-line text-[11px] font-black flex items-center gap-1">
+            <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-muted border border-line text-[13px] font-black flex items-center gap-1 shrink-0 whitespace-nowrap">
               <CalendarDays size={12} /> {t("assignments.exercise.assignedInSession", { date: formatDate(first.sessionDate, i18n.language) })}
             </span>
           )}
         </div>
 
-        <h3 className="text-base font-black text-ink font-display truncate">{groupTitle}</h3>
+        <h3 className="text-xl font-black text-ink font-display truncate">{groupTitle}</h3>
         {/* Bổ sung 2026-09-04 (đã xác nhận với người dùng) — fix bug thật: Lesson đánh số lặp lại (Lesson
             1, 2, 3...) giữa các Unit/SubTopic khác nhau, học sinh dễ nhầm lẫn khi chỉ thấy examTitle
             trên thẻ (mirror ExerciseAssignPage.tsx bên admin). */}
         {(first.unitTitle || first.subTopicTitle) && (
-          <p className="text-[11px] font-bold text-muted truncate">{[first.unitTitle, first.subTopicTitle].filter(Boolean).join(" · ")}</p>
+          <p className="text-[13px] font-bold text-muted truncate">{[first.unitTitle, first.subTopicTitle].filter(Boolean).join(" · ")}</p>
         )}
 
         {!noneStarted && (
           <div
-            className={`inline-flex flex-wrap items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold ${
+            className={`inline-flex flex-wrap items-center gap-1.5 px-3 py-1.5 rounded-xl border text-sm font-bold ${
               passed === true
                 ? "bg-emerald-50 border-emerald-200 text-emerald-800"
                 : passed === false
@@ -1144,7 +1144,7 @@ function BatchExerciseCard({
       <div className="shrink-0">
         <button
           onClick={onOpen}
-          className={`w-full md:w-auto flex items-center justify-center gap-1.5 px-5 py-2.5 font-extrabold text-xs rounded-xl shadow-sm transition-all cursor-pointer ${
+          className={`w-full md:w-auto flex items-center justify-center gap-1.5 px-5 py-2.5 font-extrabold text-sm rounded-xl shadow-sm transition-all cursor-pointer ${
             allFullyGraded && !anyRetake ? "bg-slate-100 hover:bg-slate-200 text-ink border border-line" : "bg-teal hover:bg-teal-deep text-white"
           }`}
         >
@@ -1176,35 +1176,35 @@ function ReviewVideoCard({
   let statusBadge: React.ReactNode;
   if (isConnection) {
     statusBadge = !item.connectionStats ? (
-      <span className="px-2.5 py-0.5 rounded-lg bg-sky text-teal-deep text-[11px] font-black flex items-center gap-1">
+      <span className="px-2.5 py-0.5 rounded-lg bg-sky text-teal-deep text-[11px] font-black flex items-center gap-1 shrink-0 whitespace-nowrap">
         <Play size={12} /> {t("assignments.video.watchToReview")}
       </span>
     ) : fullyAnswered ? (
-      <span className="px-2.5 py-0.5 rounded-lg bg-teal/10 text-teal-deep text-[11px] font-black flex items-center gap-1">
+      <span className="px-2.5 py-0.5 rounded-lg bg-teal/10 text-teal-deep text-[11px] font-black flex items-center gap-1 shrink-0 whitespace-nowrap">
         <CheckCircle2 size={12} />{" "}
         {t("assignments.video.achievedViews", { count: item.connectionStats.viewCount, required: item.connectionStats.requiredViewCount })}
       </span>
     ) : (
-      <span className="px-2.5 py-0.5 rounded-lg bg-amber-100 text-amber-800 border border-amber-300 text-[11px] font-black flex items-center gap-1">
+      <span className="px-2.5 py-0.5 rounded-lg bg-amber-100 text-amber-800 border border-amber-300 text-[11px] font-black flex items-center gap-1 shrink-0 whitespace-nowrap">
         <Clock size={12} />{" "}
         {t("assignments.video.achievedViews", { count: item.connectionStats.viewCount, required: item.connectionStats.requiredViewCount })}
       </span>
     );
   } else if (!answerable) {
     statusBadge = (
-      <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-muted text-[11px] font-black flex items-center gap-1">
+      <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-muted text-[11px] font-black flex items-center gap-1 shrink-0 whitespace-nowrap">
         <Clock size={12} /> {t("assignments.video.noQuestions")}
       </span>
     );
   } else if (fullyAnswered) {
     statusBadge = (
-      <span className="px-2.5 py-0.5 rounded-lg bg-teal/10 text-teal-deep text-[11px] font-black flex items-center gap-1">
+      <span className="px-2.5 py-0.5 rounded-lg bg-teal/10 text-teal-deep text-[11px] font-black flex items-center gap-1 shrink-0 whitespace-nowrap">
         <CheckCircle2 size={12} /> {t("assignments.video.submitted")}
       </span>
     );
   } else {
     statusBadge = (
-      <span className="px-2.5 py-0.5 rounded-lg bg-amber-100 text-amber-800 border border-amber-300 text-[11px] font-black flex items-center gap-1">
+      <span className="px-2.5 py-0.5 rounded-lg bg-amber-100 text-amber-800 border border-amber-300 text-[11px] font-black flex items-center gap-1 shrink-0 whitespace-nowrap">
         <Clock size={12} /> {t("assignments.video.answeredCount", { answered: reflexStats!.answeredQuestions, total: reflexStats!.totalQuestions })}
       </span>
     );
@@ -1227,16 +1227,16 @@ function ReviewVideoCard({
       }`}
     >
       <div className="space-y-2 flex-1 min-w-0">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="px-2.5 py-0.5 rounded-lg bg-teal/10 text-teal border border-teal/20 text-[11px] font-black flex items-center gap-1">
+        <div className="flex flex-nowrap items-center gap-2 overflow-x-auto scrollbar-hide">
+          <span className="px-2.5 py-0.5 rounded-lg bg-teal/10 text-teal border border-teal/20 text-[13px] font-black flex items-center gap-1 shrink-0 whitespace-nowrap">
             {isConnection ? <Link2 size={12} /> : <MessageCircle size={12} />}{" "}
             {isConnection ? t("assignments.video.connectionType") : t("assignments.video.reflexType")}
           </span>
-          <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-muted text-[11px] font-bold truncate max-w-[200px]">{setTitle}</span>
+          {/* <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-muted text-[11px] font-bold truncate max-w-[200px] shrink-0">{setTitle}</span> */}
           {statusBadge}
           {dueAt && (
             <span
-              className={`px-2.5 py-0.5 rounded-lg border text-[11px] font-black flex items-center gap-1 ${
+              className={`px-2.5 py-0.5 rounded-lg border text-[13px] font-black flex items-center gap-1 shrink-0 whitespace-nowrap ${
                 isOverdue ? "bg-coral/10 text-coral border-coral/20" : "bg-amber-100 text-amber-800 border-amber-300"
               }`}
             >
@@ -1249,28 +1249,28 @@ function ReviewVideoCard({
               ngoài phụ trách (đọc thật từ ReviewVideoSet.teacherType) + buổi đã giao BTVN này, hiện
               cho MỌI trạng thái theo yêu cầu người dùng. teacherType luôn có (thuộc tính của Bộ, kể
               cả video chỉ nằm trong Kho chưa được giao) — chỉ sessionDate cần bản giao thật. */}
-          <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-muted border border-line text-[11px] font-black flex items-center gap-1">
+          <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-muted border border-line text-[13px] font-black flex items-center gap-1 shrink-0 whitespace-nowrap">
             <GraduationCap size={12} />{" "}
             {item.teacherType === "VIETNAMESE" ? t("assignments.exercise.teacherVietnamese") : t("assignments.exercise.teacherForeign")}
           </span>
           {item.sessionDate && (
-            <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-muted border border-line text-[11px] font-black flex items-center gap-1">
+            <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-muted border border-line text-[13px] font-black flex items-center gap-1 shrink-0 whitespace-nowrap">
               <CalendarDays size={12} /> {t("assignments.exercise.assignedInSession", { date: formatDate(item.sessionDate, i18n.language) })}
             </span>
           )}
         </div>
-        <h3 className="text-base font-black text-ink font-display truncate">{video.title}</h3>
+        <h3 className="text-xl font-black text-ink font-display truncate">{video.title}</h3>
         {/* Bổ sung 2026-09-04 (đã xác nhận với người dùng) — mirror ExerciseCard/BatchExerciseCard: hiện
             Unit/SubTopic để phân biệt Bộ video trùng tên giữa các Unit/SubTopic khác nhau. */}
         {(item.unitTitle || item.subTopicTitle) && (
-          <p className="text-[11px] font-bold text-muted truncate">{[item.unitTitle, item.subTopicTitle].filter(Boolean).join(" · ")}</p>
+          <p className="text-[13px] font-bold text-muted truncate">{[item.unitTitle, item.subTopicTitle].filter(Boolean).join(" · ")}</p>
         )}
       </div>
 
       <div className="shrink-0">
         <button
           onClick={onOpen}
-          className={`w-full md:w-auto flex items-center justify-center gap-1.5 px-5 py-2.5 font-extrabold text-xs rounded-xl shadow-sm transition-all cursor-pointer ${
+          className={`w-full md:w-auto flex items-center justify-center gap-1.5 px-5 py-2.5 font-extrabold text-sm rounded-xl shadow-sm transition-all cursor-pointer ${
             fullyAnswered ? "bg-slate-100 hover:bg-slate-200 text-ink border border-line" : "bg-teal hover:bg-teal-deep text-white"
           }`}
         >

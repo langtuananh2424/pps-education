@@ -216,7 +216,7 @@ export default function GradesTab({ studentId, classId, siteId }: GradesTabProps
             <button
               type="button"
               onClick={() => setScope("TERM")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-colors ${
+              className={`px-3 py-1.5 rounded-lg text-sm font-extrabold transition-colors ${
                 scope === "TERM" ? "bg-white text-teal-deep shadow-sm" : "text-muted hover:text-ink"
               }`}
             >
@@ -225,7 +225,7 @@ export default function GradesTab({ studentId, classId, siteId }: GradesTabProps
             <button
               type="button"
               onClick={() => setScope("YEAR")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-colors ${
+              className={`px-3 py-1.5 rounded-lg text-sm font-extrabold transition-colors ${
                 scope === "YEAR" ? "bg-white text-teal-deep shadow-sm" : "text-muted hover:text-ink"
               }`}
             >
@@ -234,7 +234,7 @@ export default function GradesTab({ studentId, classId, siteId }: GradesTabProps
           </div>
         </div>
         {visibleSetups.length === 0 && visibleSetupResults.length === 0 ? (
-          <p className="text-xs text-muted font-bold italic">
+          <p className="text-sm text-muted font-bold italic">
             {scope === "TERM" ? t("summary.emptyTerm") : t("summary.emptyYear")}
           </p>
         ) : (

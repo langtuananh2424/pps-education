@@ -831,14 +831,19 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
 
   return (
     <div className="fixed inset-0 bg-white z-[100] flex flex-col overflow-y-auto">
+      {/* Bổ sung 2026-09-04 (fix bug thật, đã xác nhận với người dùng) — canh giữa theo ĐÚNG khung nội
+          dung (max-w-2xl lg:max-w-3xl mx-auto, khớp đúng cột bên dưới) thay vì canh giữa theo cả
+          viewport trình duyệt — 2 khung khác chiều rộng nên trước đây nhìn lệch hẳn sang trái so với
+          tiêu đề/khung video phía trên (mirror đúng pattern đã sửa ở TakeExerciseModal.tsx, bị bỏ sót
+          chưa áp dụng cho màn Video phản xạ này). */}
       {justViolated && (
-        <div
-          key={violationCount}
-          role="alert"
-          className="fixed top-16 sm:top-20 left-1/2 -translate-x-1/2 z-[110] flex items-center gap-2 bg-rose-600 text-white pl-3 pr-4 py-2.5 rounded-2xl shadow-xl animate-alert-pop"
-        >
-          <ShieldAlert size={18} className="shrink-0" />
-          <span className="text-xs font-black">{t("monitoring.violationToast")}</span>
+        <div className="fixed top-16 sm:top-20 inset-x-0 z-[110] px-4 sm:px-6 flex justify-center">
+          <div className="max-w-2xl lg:max-w-3xl w-full flex justify-center">
+            <div key={violationCount} role="alert" className="flex items-center gap-2 bg-rose-600 text-white pl-3 pr-4 py-2.5 rounded-2xl shadow-xl animate-alert-pop-centered max-w-full">
+              <ShieldAlert size={18} className="shrink-0" />
+              <span className="text-xs font-black">{t("monitoring.violationToast")}</span>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1116,7 +1121,7 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                 />
                 {displayProgress?.writingFeedback && (
                   <div
-                    className={`text-xs font-bold p-2.5 rounded-xl border ${
+                    className={`text-sm font-bold p-3 rounded-xl border ${
                       displayProgress.writingPassed ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-amber-50 border-amber-200 text-amber-700"
                     }`}
                   >
@@ -1127,7 +1132,7 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                       {displayProgress.writingScorePercent != null &&
                         ` — ${t("reflexVideoTask.writingStage.scoreLabel", { score: displayProgress.writingScorePercent })}`}
                     </p>
-                    <p className="font-medium mt-1 normal-case whitespace-pre-line">{displayProgress.writingFeedback}</p>
+                    <p className="font-medium mt-1.5 normal-case whitespace-pre-line text-base leading-relaxed">{displayProgress.writingFeedback}</p>
                   </div>
                 )}
                 {/*
@@ -1203,7 +1208,7 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                 {speakingError && <p className="text-xs font-bold text-rose-600">{speakingError}</p>}
                 {displayProgress?.speakingFeedback && !recorder.recording && !speakingSubmitting && (
                   <div
-                    className={`text-xs font-bold p-2.5 rounded-xl border ${
+                    className={`text-sm font-bold p-3 rounded-xl border ${
                       displayProgress.speakingPassed ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-amber-50 border-amber-200 text-amber-700"
                     }`}
                   >
@@ -1214,7 +1219,7 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                       {displayProgress.speakingScorePercent != null &&
                         ` — ${t("reflexVideoTask.speakingStage.scoreLabel", { score: displayProgress.speakingScorePercent })}`}
                     </p>
-                    <p className="font-medium mt-1 normal-case whitespace-pre-line">{displayProgress.speakingFeedback}</p>
+                    <p className="font-medium mt-1.5 normal-case whitespace-pre-line text-base leading-relaxed">{displayProgress.speakingFeedback}</p>
                     {!displayProgress.speakingPassed && !isReviewing && (
                       <button
                         onClick={handleRetrySpeaking}

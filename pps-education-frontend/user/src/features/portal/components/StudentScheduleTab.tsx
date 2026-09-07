@@ -209,7 +209,7 @@ export default function StudentScheduleTab({ classId, siteId }: StudentScheduleT
                     <span className="px-3 py-1 bg-teal border border-teal-deep/30 text-white text-xs font-extrabold rounded-full">
                       {new Date(s.sessionDate).toLocaleDateString(toLocaleTag(i18n.language), { weekday: "long" }).replace(/^./, (c) => c.toUpperCase())}
                     </span>
-                    <span className="text-xs text-muted font-bold">
+                    <span className="text-sm text-muted font-bold">
                       {t("scheduleCard.sessionInfo", {
                         number: s.sessionNumber,
                         date: s.sessionDate,
@@ -220,21 +220,21 @@ export default function StudentScheduleTab({ classId, siteId }: StudentScheduleT
                     {/* Mobile: neo cố định góc trên-phải của thẻ (theo yêu cầu người dùng, 2026-07-31).
                         Desktop (md+) trả về static, nằm đúng vị trí cũ trong hàng cùng nhãn thứ/ngày giờ. */}
                     <span
-                      className={`absolute top-3 right-3 md:static md:top-auto md:right-auto inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold border ${badge.className}`}
+                      className={`absolute top-3 right-3 md:static md:top-auto md:right-auto inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[12px] font-extrabold border ${badge.className}`}
                     >
                       {badge.icon} {badge.label}
                     </span>
                   </div>
-                  <p className="text-xs text-muted font-bold">
+                  <p className="mt-2 text-sm text-muted font-bold">
                     {t("scheduleCard.teacherLabel")}
-                    {s.teacherType && <span className="text-[10px] text-teal-deep font-bold"> ({teacherTypeLabels[s.teacherType]})</span>}
+                    {s.teacherType && <span className="text-[12px] text-teal-deep font-bold"> ({teacherTypeLabels[s.teacherType]})</span>}
                   </p>
                   {s.status === "CANCELLED" && s.cancellationReason && (
-                    <span className="text-[10px] font-extrabold text-coral">{t("scheduleCard.cancelReason", { reason: s.cancellationReason })}</span>
+                    <span className="text-[12px] font-extrabold text-coral">{t("scheduleCard.cancelReason", { reason: s.cancellationReason })}</span>
                   )}
                 </div>
                 <div className="bg-white border border-line/80 px-4 py-2 rounded-xl text-center shadow-sm w-full md:w-auto shrink-0">
-                  <span className="text-[10px] font-extrabold text-muted uppercase block">{t("scheduleCard.roomLabel")}</span>
+                  <span className="text-[13px] font-extrabold text-muted uppercase block">{t("scheduleCard.roomLabel")}</span>
                   <span className="text-sm font-extrabold text-teal-deep">{s.roomName ?? "—"}</span>
                 </div>
               </div>
@@ -261,11 +261,11 @@ export default function StudentScheduleTab({ classId, siteId }: StudentScheduleT
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-1">
                       {meta.icon}
-                      <span className="text-xs font-extrabold text-ink">{meta.label}</span>
+                      <span className="text-sm font-extrabold text-ink">{meta.label}</span>
                     </div>
-                    {a.minutesLate ? <span className="text-[10px] text-muted font-bold">{t("attendanceLog.lateBy", { minutes: a.minutesLate })}</span> : null}
+                    {a.minutesLate ? <span className="text-[12px] text-muted font-bold">{t("attendanceLog.lateBy", { minutes: a.minutesLate })}</span> : null}
                   </div>
-                  <p className="text-[11px] text-muted font-bold">
+                  <p className="text-[12px] text-muted font-bold">
                     {session
                       ? t("scheduleCard.sessionInfo", {
                           number: session.sessionNumber,

@@ -32,9 +32,17 @@ function chunkArray<T>(items: T[], size: number): T[][] {
  * — chỉ coi dòng trống (2+ \n liên tiếp) là ranh giới đoạn văn thật (VD 3 đoạn Tom/Max/Anna của "Bài
  * đọc hiểu — Lưới", GridQuestionBuilder nối bằng "\n\n") — giữ lại làm dòng trống hiển thị; mọi \n đơn
  * lẻ còn lại (rác copy-paste Word/PDF) gộp thành khoảng trắng.
+ *
+ * Fix bug thật (2026-09-08, đã xác nhận với người dùng qua ảnh chụp) — transcript bài Nghe dạng hội
+ * thoại (VD "A: ...\nB: ...") dán từ trang web/PDF thường CHỈ có 1 \n giữa mỗi lượt nói (không có dòng
+ * trống) vì nguồn dựng bằng nhiều <p> riêng — coi như "không có ranh giới đoạn nào", gộp NGUYÊN CẢ
+ * TRANSCRIPT thành 1 dòng dài. Chèn thêm 1 dòng trống ẢO trước mỗi dòng bắt đầu bằng "Tên:" (lượt hội
+ * thoại) hoặc "N." (số thứ tự câu hỏi trong transcript) TRƯỚC khi split — nhận diện được ranh giới
+ * ngay cả khi nguồn không có dòng trống thật.
  */
 function normalizeReferencePassage(text: string): string {
-  return text
+  const withTurnBreaks = text.replace(/\n(?=\s*(?:[^\n:]{1,40}:\s|\d+\.\s))/g, "\n\n");
+  return withTurnBreaks
     .split(/\n\s*\n/)
     .map((para) => para.replace(/\s*\n\s*/g, " ").trim())
     .filter(Boolean)
