@@ -260,7 +260,8 @@
       "titleCount": "{{count}} bài tập",
       "titleSuffix": "đã quá hạn nộp!",
       "description": "Các bài này đã hết hạn — liên hệ giáo viên nếu cần được cho nộp muộn.",
-      "actionButton": "Xem ngay"
+      "actionButton": "Xem ngay",
+      "dismiss": "Đóng thông báo"
     },
     "filters": {
       "all": "Tất cả bài tập ({{count}})",

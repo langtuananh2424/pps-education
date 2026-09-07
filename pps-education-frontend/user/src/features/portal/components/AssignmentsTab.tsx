@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { AlertCircle, Bell, BookOpen, CalendarDays, Check, CheckCircle2, ChevronRight, Clock, Filter, GraduationCap, Link2, MessageCircle, Play } from "lucide-react";
+import { AlertCircle, Bell, BookOpen, CalendarDays, Check, CheckCircle2, ChevronRight, ClipboardCheck, Clock, Filter, GraduationCap, Link2, MessageCircle, Play, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { formatDate, formatDateTimeHm } from "@/lib/format";
 import {
@@ -258,6 +258,8 @@ export default function AssignmentsTab({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("ALL");
+  /** V166 — cho đóng banner cảnh báo quá hạn, chỉ trong phiên xem hiện tại (không lưu lại). */
+  const [overdueBannerDismissed, setOverdueBannerDismissed] = useState(false);
   const [filterType, setFilterType] = useState<FilterType>("ALL");
   const [takingExercise, setTakingExercise] = useState<AssignedExerciseResponse | null>(null);
   /** V150 — 1 Lô đang được làm liên tục (N thẻ cùng homeworkBatchId, xem groupExercisesByBatch/BatchTakeExerciseModal). */
@@ -584,33 +586,52 @@ export default function AssignmentsTab({
             {t("assignments.banner.actionButton")}
           </button>
         </div>
-      ) : overdueCount > 0 ? (
+      ) : overdueCount > 0 && !overdueBannerDismissed ? (
         // V166 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — fix bug thật: Bài quá
         // hạn (chưa hoàn thành) bị loại khỏi pendingCount từ V152 (tách riêng khỏi "Cần hoàn thành",
         // xem ghi chú V152 ở trên) khiến banner "Tuyệt vời, hoàn thành hết rồi" (màu xanh) vẫn hiện dù
         // học sinh còn nguyên N bài quá hạn chưa làm — dễ gây hiểu lầm đã xong hết. Thêm nhánh cảnh báo
-        // đỏ (màu coral, mirror tab lọc "Bài tập quá hạn" cùng màu) khi còn bài quá hạn, chỉ hiện
-        // banner xanh khi THẬT SỰ không còn gì (pendingCount=0 VÀ overdueCount=0).
-        <div className="p-5 bg-coral/10 border border-coral/30 rounded-2xl text-coral flex flex-col md:flex-row md:items-center justify-between gap-4">
+        // đỏ (mirror tab lọc "Bài tập quá hạn" cùng màu) khi còn bài quá hạn, chỉ hiện banner xanh khi
+        // THẬT SỰ không còn gì (pendingCount=0 VÀ overdueCount=0). Cho đóng lại (nút X) — chỉ ẩn trong
+        // phiên xem hiện tại, không lưu lại (mở lại/tải lại trang thì hiện lại nếu vẫn còn quá hạn).
+        <div className="relative p-5 pr-12 bg-gradient-to-r from-rose-50 via-rose-50 to-white border border-rose-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 overflow-hidden">
+          <button
+            onClick={() => setOverdueBannerDismissed(true)}
+            aria-label={t("assignments.overdueBanner.dismiss")}
+            className="absolute top-3 right-3 w-7 h-7 rounded-full flex items-center justify-center text-rose-400 hover:text-rose-600 hover:bg-rose-100 transition-colors cursor-pointer"
+          >
+            <X size={16} />
+          </button>
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-coral/20 flex items-center justify-center shrink-0">
-              <AlertCircle size={24} className="text-coral" />
+            <div className="w-12 h-12 rounded-full bg-coral flex items-center justify-center shrink-0 shadow-sm">
+              <AlertCircle size={24} className="text-white" />
             </div>
             <div>
-              <span className="px-2.5 py-0.5 rounded-full bg-coral/20 text-coral text-[10px] font-black uppercase tracking-wider">
+              <span className="px-2.5 py-0.5 rounded-full bg-coral text-white text-[10px] font-black uppercase tracking-wider">
                 {t("assignments.overdueBanner.label")}
               </span>
-              <h3 className="text-base md:text-lg font-black font-display mt-0.5 text-coral">
+              <h3 className="text-base md:text-lg font-black font-display mt-1 text-ink">
                 {t("assignments.overdueBanner.titlePrefix")}{" "}
-                <span className="underline decoration-wavy underline-offset-4">{t("assignments.overdueBanner.titleCount", { count: overdueCount })}</span>{" "}
+                <span className="text-coral">{t("assignments.overdueBanner.titleCount", { count: overdueCount })}</span>{" "}
                 {t("assignments.overdueBanner.titleSuffix")}
               </h3>
-              <p className="text-xs text-coral/80 font-semibold mt-0.5">{t("assignments.overdueBanner.description")}</p>
+              <p className="text-xs text-slate-500 font-semibold mt-0.5">{t("assignments.overdueBanner.description")}</p>
             </div>
           </div>
+
+          {/* Minh hoạ trang trí — ghép từ 2 icon sẵn có (clipboard + đồng hồ), tránh phải thêm ảnh/asset mới. */}
+          <div className="relative hidden sm:flex items-center justify-center w-20 h-16 shrink-0 mx-auto">
+            <div className="absolute w-14 h-14 rounded-2xl bg-white shadow-md -rotate-6 flex items-center justify-center">
+              <ClipboardCheck className="w-7 h-7 text-coral" />
+            </div>
+            <div className="absolute right-0 bottom-0 w-8 h-8 rounded-full bg-coral shadow-md flex items-center justify-center ring-2 ring-white">
+              <Clock className="w-4 h-4 text-white" />
+            </div>
+          </div>
+
           <button
             onClick={() => setFilterStatus("OVERDUE")}
-            className="px-5 py-2.5 bg-coral hover:opacity-90 text-white font-extrabold text-xs rounded-xl shadow-sm transition-all shrink-0 cursor-pointer"
+            className="px-5 py-2.5 bg-coral hover:opacity-90 text-white font-extrabold text-xs rounded-xl shadow-sm transition-all shrink-0 cursor-pointer self-start sm:self-center"
           >
             {t("assignments.overdueBanner.actionButton")}
           </button>
