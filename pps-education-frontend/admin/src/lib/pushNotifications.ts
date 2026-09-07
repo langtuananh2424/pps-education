@@ -139,10 +139,22 @@ function logPushSetupResult(result: PushSetupResult): void {
   }).catch(() => undefined);
 }
 
-/** Gọi sau khi login thành công — xin quyền + đăng ký device token cho kênh PUSH. */
+/**
+ * Gọi sau khi login thành công — xin quyền + đăng ký device token cho kênh PUSH.
+ * Tự thử lại 1 lần sau 3s nếu lần đầu thất bại — bổ sung ngoài SDD gốc (đã xác nhận với người dùng
+ * 2026-09-07, xem cùng thay đổi ở app "user"): ngay sau khi cài shortcut mới hoàn toàn (cold start),
+ * Notification.requestPermission() có thể trả về "permission-denied" dù OS ĐÃ cấp quyền thật —
+ * đăng nhập lại lần 2 (không cần bấm Allow lại) luôn thành công ngay. Tự retry để không bắt người
+ * dùng phải đăng nhập 2 lần.
+ */
 export async function setupPushNotifications(): Promise<PushSetupResult> {
-  const result = await computeSetupPushNotifications();
+  let result = await computeSetupPushNotifications();
   logPushSetupResult(result);
+  if (result.status !== "registered") {
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    result = await computeSetupPushNotifications();
+    logPushSetupResult(result);
+  }
   return result;
 }
 
