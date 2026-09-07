@@ -58,7 +58,8 @@ export type PushSetupResult =
   | { status: "unsupported" }
   /** iOS Safari chỉ cho phép Web Push khi đã "Thêm vào Màn hình chính" — xin quyền lúc chưa cài sẽ luôn thất bại. */
   | { status: "needs-ios-shortcut" }
-  | { status: "permission-denied" }
+  /** detail: giá trị Notification.permission trước/sau + có user activation hay không — xem ghi chú ở app "user". */
+  | { status: "permission-denied"; detail?: string }
   | { status: "not-configured" }
   /** Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-09-07) — permission ĐÃ granted nhưng getToken() vẫn trả về rỗng (không throw) — trước đây gộp chung nhầm vào "permission-denied", gây hiểu sai nguyên nhân khi debug qua log. */
   | { status: "token-unavailable" }
@@ -132,7 +133,8 @@ function serviceWorkerUrl(): string {
  * im lặng. Best-effort, không bao giờ throw ra ngoài.
  */
 function logPushSetupResult(result: PushSetupResult): void {
-  const errorMessage = result.status === "error" ? result.message : undefined;
+  const errorMessage =
+    result.status === "error" ? result.message : result.status === "permission-denied" ? result.detail : undefined;
   apiRequest("/notifications/push-setup-log", {
     method: "POST",
     body: JSON.stringify({ status: result.status, errorMessage, platform: detectPlatform() })
@@ -171,8 +173,16 @@ async function computeSetupPushNotifications(): Promise<PushSetupResult> {
     const messagingInstance = await getMessagingInstance();
     if (!messagingInstance) return { status: "unsupported" };
 
+    const permissionBefore = Notification.permission;
+    const hadUserActivation = (navigator as Navigator & { userActivation?: { isActive: boolean } }).userActivation
+      ?.isActive;
     const permission = await Notification.requestPermission();
-    if (permission !== "granted") return { status: "permission-denied" };
+    if (permission !== "granted") {
+      return {
+        status: "permission-denied",
+        detail: `before=${permissionBefore} after=${permission} userActivation=${hadUserActivation ?? "unknown"}`
+      };
+    }
 
     /**
      * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-09-07, xem cùng thay đổi ở app "user")
