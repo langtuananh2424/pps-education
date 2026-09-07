@@ -63,7 +63,9 @@ export type PushSetupResult =
   /** iOS Safari chỉ cho phép Web Push khi đã "Thêm vào Màn hình chính" — xin quyền lúc chưa cài sẽ luôn thất bại. */
   | { status: "needs-ios-shortcut" }
   | { status: "permission-denied" }
-  | { status: "not-configured" };
+  | { status: "not-configured" }
+  /** Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-09-07) — exception bất ngờ (VD getToken()/serviceWorker.register() lỗi trên Safari), trước đây bị nuốt hoàn toàn không dấu vết. */
+  | { status: "error"; message: string };
 
 function isConfigured(): boolean {
   return Boolean(firebaseConfig.apiKey && firebaseConfig.projectId && vapidKey);
@@ -105,43 +107,66 @@ function serviceWorkerUrl(): string {
   return `/firebase-messaging-sw.js?${params.toString()}`;
 }
 
+/**
+ * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-09-07) — gửi kết quả setup push xuống
+ * backend để tra được qua SQL (push_setup_logs) thay vì chỉ nuốt lỗi im lặng. Best-effort, không
+ * bao giờ throw ra ngoài — bản thân việc log thất bại không được làm hỏng luồng login chính.
+ */
+function logPushSetupResult(result: PushSetupResult): void {
+  const errorMessage = result.status === "error" ? result.message : undefined;
+  apiRequest("/notifications/push-setup-log", {
+    method: "POST",
+    body: JSON.stringify({ status: result.status, errorMessage, platform: detectPlatform() })
+  }).catch(() => undefined);
+}
+
 /** Gọi sau khi login thành công — xin quyền + đăng ký device token cho kênh PUSH. */
 export async function setupPushNotifications(): Promise<PushSetupResult> {
-  if (!isConfigured()) return { status: "not-configured" };
-  if (isIosNonStandalone()) return { status: "needs-ios-shortcut" };
+  const result = await computeSetupPushNotifications();
+  logPushSetupResult(result);
+  return result;
+}
 
-  const messagingInstance = await getMessagingInstance();
-  if (!messagingInstance) return { status: "unsupported" };
+async function computeSetupPushNotifications(): Promise<PushSetupResult> {
+  try {
+    if (!isConfigured()) return { status: "not-configured" };
+    if (isIosNonStandalone()) return { status: "needs-ios-shortcut" };
 
-  const permission = await Notification.requestPermission();
-  if (permission !== "granted") return { status: "permission-denied" };
+    const messagingInstance = await getMessagingInstance();
+    if (!messagingInstance) return { status: "unsupported" };
 
-  const registration = await navigator.serviceWorker.register(serviceWorkerUrl(), { scope: PUSH_SW_SCOPE });
-  const token = await getToken(messagingInstance, { vapidKey, serviceWorkerRegistration: registration });
-  if (!token) return { status: "permission-denied" };
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") return { status: "permission-denied" };
 
-  await apiRequest("/notifications/device-token", {
-    method: "POST",
-    body: JSON.stringify({ token, platform: detectPlatform(), deviceId: getOrCreateDeviceId() })
-  });
+    const registration = await navigator.serviceWorker.register(serviceWorkerUrl(), { scope: PUSH_SW_SCOPE });
+    const token = await getToken(messagingInstance, { vapidKey, serviceWorkerRegistration: registration });
+    if (!token) return { status: "permission-denied" };
 
-  /**
-   * FCM chỉ tự gọi Service Worker (onBackgroundMessage trong firebase-messaging-sw.js) khi tab
-   * KHÔNG ở foreground — lúc app đang mở, Firebase kỳ vọng code chính tự bắt bằng onMessage() rồi tự
-   * hiển thị, nếu không sẽ KHÔNG có popup đẩy dù thông báo vẫn tới được backend/chuông. Dùng lại
-   * registration đã đăng ký ở trên để showNotification() cho đồng nhất icon/badge với luồng nền.
-   */
-  if (!foregroundListenerAttached) {
-    foregroundListenerAttached = true;
-    onMessage(messagingInstance, (payload) => {
-      const title = payload.notification?.title ?? "PPS Education";
-      const body = payload.notification?.body ?? "";
-      void registration.showNotification(title, { body, icon: "/icon-192.png", badge: "/icon-192.png" });
-      window.dispatchEvent(new CustomEvent(PUSH_RECEIVED_EVENT));
+    await apiRequest("/notifications/device-token", {
+      method: "POST",
+      body: JSON.stringify({ token, platform: detectPlatform(), deviceId: getOrCreateDeviceId() })
     });
-  }
 
-  return { status: "registered" };
+    /**
+     * FCM chỉ tự gọi Service Worker (onBackgroundMessage trong firebase-messaging-sw.js) khi tab
+     * KHÔNG ở foreground — lúc app đang mở, Firebase kỳ vọng code chính tự bắt bằng onMessage() rồi tự
+     * hiển thị, nếu không sẽ KHÔNG có popup đẩy dù thông báo vẫn tới được backend/chuông. Dùng lại
+     * registration đã đăng ký ở trên để showNotification() cho đồng nhất icon/badge với luồng nền.
+     */
+    if (!foregroundListenerAttached) {
+      foregroundListenerAttached = true;
+      onMessage(messagingInstance, (payload) => {
+        const title = payload.notification?.title ?? "PPS Education";
+        const body = payload.notification?.body ?? "";
+        void registration.showNotification(title, { body, icon: "/icon-192.png", badge: "/icon-192.png" });
+        window.dispatchEvent(new CustomEvent(PUSH_RECEIVED_EVENT));
+      });
+    }
+
+    return { status: "registered" };
+  } catch (err) {
+    return { status: "error", message: err instanceof Error ? err.message : String(err) };
+  }
 }
 
 /** Gọi lúc logout — hủy token khỏi FCM lẫn backend, best-effort (không chặn logout nếu lỗi). */

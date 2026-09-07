@@ -1,5 +1,6 @@
 package vn.com.pps.education.service;
 
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -8,15 +9,18 @@ import vn.com.pps.education.domain.DeviceToken;
 import vn.com.pps.education.domain.Notification;
 import vn.com.pps.education.domain.NotificationDelivery;
 import vn.com.pps.education.domain.NotificationPreference;
+import vn.com.pps.education.domain.PushSetupLog;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.dto.DeviceTokenRequest;
 import vn.com.pps.education.dto.NotificationPreferenceRequest;
 import vn.com.pps.education.dto.NotificationPreferenceResponse;
 import vn.com.pps.education.dto.NotificationResponse;
+import vn.com.pps.education.dto.PushSetupLogRequest;
 import vn.com.pps.education.dto.SendNotificationRequest;
 import vn.com.pps.education.dto.SendNotificationResponse;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.repository.DeviceTokenRepository;
+import vn.com.pps.education.repository.PushSetupLogRepository;
 import vn.com.pps.education.repository.NotificationDeliveryRepository;
 import vn.com.pps.education.repository.NotificationPreferenceRepository;
 import vn.com.pps.education.repository.NotificationRepository;
@@ -47,6 +51,7 @@ public class NotificationService {
     private final NotificationDeliveryRepository notificationDeliveryRepository;
     private final NotificationPreferenceRepository notificationPreferenceRepository;
     private final DeviceTokenRepository deviceTokenRepository;
+    private final PushSetupLogRepository pushSetupLogRepository;
     private final ParentRepository parentRepository;
     private final StudentRepository studentRepository;
     private final List<NotificationChannelSender> senders;
@@ -56,6 +61,7 @@ public class NotificationService {
                                 NotificationDeliveryRepository notificationDeliveryRepository,
                                 NotificationPreferenceRepository notificationPreferenceRepository,
                                 DeviceTokenRepository deviceTokenRepository,
+                                PushSetupLogRepository pushSetupLogRepository,
                                 ParentRepository parentRepository,
                                 StudentRepository studentRepository,
                                 List<NotificationChannelSender> senders) {
@@ -64,6 +70,7 @@ public class NotificationService {
         this.notificationDeliveryRepository = notificationDeliveryRepository;
         this.notificationPreferenceRepository = notificationPreferenceRepository;
         this.deviceTokenRepository = deviceTokenRepository;
+        this.pushSetupLogRepository = pushSetupLogRepository;
         this.parentRepository = parentRepository;
         this.studentRepository = studentRepository;
         this.senders = senders;
@@ -300,6 +307,24 @@ public class NotificationService {
         deviceToken.setDeviceId(request.deviceId());
         deviceToken.setActive(true);
         deviceTokenRepository.save(deviceToken);
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-09-07): ghi log kết quả 1 lần chạy
+     * setupPushNotifications() phía client. Best-effort — user không tồn tại (không nên xảy ra vì
+     * đã qua xác thực JWT) chỉ bỏ qua, không throw, tránh ảnh hưởng luồng login chính.
+     */
+    @Transactional
+    public void logPushSetupResult(Long userId, PushSetupLogRequest request, HttpServletRequest httpRequest) {
+        userRepository.findById(userId).ifPresent(user -> {
+            PushSetupLog log = new PushSetupLog();
+            log.setUser(user);
+            log.setStatus(request.status());
+            log.setErrorMessage(request.errorMessage());
+            log.setPlatform(request.platform());
+            log.setUserAgent(httpRequest.getHeader("User-Agent"));
+            pushSetupLogRepository.save(log);
+        });
     }
 
     /** Vô hiệu hoá device token (VD lúc logout) — không xoá, giữ lịch sử. */
