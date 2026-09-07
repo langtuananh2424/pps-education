@@ -216,7 +216,7 @@ public class ReviewVideoReportService {
                     studentId, student.getStudentCode(), student.getUser().getFullName(),
                     viewCount, requiredViewCount, allVideosCompleted,
                     correctCount, totalQuestions, allVideosPassed,
-                    null, null, null, null);
+                    null, null, null, null, false);
         }).filter(java.util.Objects::nonNull).toList();
     }
 
@@ -338,12 +338,16 @@ public class ReviewVideoReportService {
             }
             BigDecimal averageScore = gradedCount == 0 ? null : scoreSum.divide(BigDecimal.valueOf(gradedCount), 2, RoundingMode.HALF_UP);
             BigDecimal averageMaxScore = gradedCount == 0 ? null : maxScoreSum.divide(BigDecimal.valueOf(gradedCount), 2, RoundingMode.HALF_UP);
+            boolean lateSubmission = questions.stream().anyMatch(q -> {
+                ReflexQuestionProgress progress = progressByQuestionAndStudent.get(q.getId() + ":" + studentId);
+                return progress != null && progress.isLateSubmission();
+            });
 
             return new ReviewVideoAssignmentStudentStatsResponse.StudentRow(
                     studentId, student.getStudentCode(), student.getUser().getFullName(),
                     viewCount, requiredViewCount, allVideosCompleted,
                     null, null, null,
-                    answered, totalReflexQuestions, averageScore, averageMaxScore);
+                    answered, totalReflexQuestions, averageScore, averageMaxScore, lateSubmission);
         }).filter(java.util.Objects::nonNull).toList();
     }
 

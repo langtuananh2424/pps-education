@@ -34,5 +34,7 @@ public record UpdateStudentCommentRequest(
         Long homeworkNextWritingExerciseId,
         /** Nhận xét học viên (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05) — xem Javadoc CreateStudentCommentRequest. */
         LocalDateTime homeworkNextDueDate,
+        /** V165 — mirror CreateStudentCommentRequest.homeworkNextLateSubmissionAllowed. */
+        Boolean homeworkNextLateSubmissionAllowed,
         String note
 ) {}

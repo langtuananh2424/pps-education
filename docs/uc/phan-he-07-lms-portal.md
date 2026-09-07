@@ -265,11 +265,23 @@ UC-23a: Xem & Theo dõi Kho Video Ôn tập
 > xem/nộp muộn được vô thời hạn, số % có thể đổi tiếp sau khi Giáo viên
 > đã viết/duyệt nhận xét buổi kế tiếp dựa trên số cũ. Đã sửa: mirror đúng
 > `SubmissionPastDeadlineException` của Exercise — quá `dueAt` thì 3 hàm
-> trên từ chối (409), không có cờ kiểu "cho nộp trễ" như Exercise (chặn
-> cứng). `startWatchSession` KHÔNG bị chặn (chỉ chặn bước GHI NHẬN kết
-> quả, giống `startAttempt` bên Exercise vẫn mở được, chỉ `submitAttempt`
-> mới chặn). Không đổi cách tính `reflexPercent`/`connectionPercent` —
-> câu đã nộp trước hạn (kể cả đang "chờ chấm") vẫn tính đủ vào %.
+> trên từ chối (409). `startWatchSession` KHÔNG bị chặn (chỉ chặn bước GHI
+> NHẬN kết quả, giống `startAttempt` bên Exercise vẫn mở được, chỉ
+> `submitAttempt` mới chặn). Không đổi cách tính
+> `reflexPercent`/`connectionPercent` — câu đã nộp trước hạn (kể cả đang
+> "chờ chấm") vẫn tính đủ vào %.
+>
+> **V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) —
+> đảo ngược "không có cờ kiểu cho nộp trễ như Exercise" ở trên:** giờ CÓ
+> `ReviewVideoAssignment.lateSubmissionAllowed` (mirror Exercise) — Giáo
+> viên bật cờ (lúc giao ở Nhận xét học viên, hoặc bật lại sau ở trang
+> Thống kê BTVN) thì 3 hàm trên KHÔNG còn từ chối sau `dueAt` nữa; luồng
+> viết/nói tuần tự chính của Video phản xạ
+> (`ReflexSequentialGradingService.submitWrittenAnswer`/`submitSpokenAnswer`)
+> đánh dấu `reflex_question_progress.is_late_submission=true` khi nộp
+> muộn, không trừ điểm. `reportProgress`/`submitConnectionAnswers`/
+> `submitQuestionAudio` chỉ được "mở" theo cờ, không tự đánh dấu muộn
+> (không phải bài viết chính của Video phản xạ).
 >
 > **Bổ sung V115 (2026-08-11, đã xác nhận với người dùng) — chia câu hỏi
 > trắc nghiệm CONNECTION theo TỪNG lượt xem + điểm pass thay cho ngưỡng %

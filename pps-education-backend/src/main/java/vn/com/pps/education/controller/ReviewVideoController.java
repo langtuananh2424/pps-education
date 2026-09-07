@@ -35,6 +35,7 @@ import vn.com.pps.education.dto.ReviewVideoSubmissionResponse;
 import vn.com.pps.education.dto.StartWatchSessionResponse;
 import vn.com.pps.education.dto.SubmitConnectionAnswersRequest;
 import vn.com.pps.education.dto.SubmitReviewVideoAudioRequest;
+import vn.com.pps.education.dto.UpdateLateSubmissionAllowedRequest;
 import vn.com.pps.education.dto.UpdateReviewVideoConnectionQuestionRequest;
 import vn.com.pps.education.dto.UpdateReviewVideoQuestionRequest;
 import vn.com.pps.education.dto.UpdateReviewVideoSetRequest;
@@ -118,6 +119,18 @@ public class ReviewVideoController {
                                                    @AuthenticationPrincipal AuthenticatedUser actor) {
         reviewVideoService.unassignFromClass(id, classId, actor.userId());
         return ResponseEntity.ok().build();
+    }
+
+    /**
+     * V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — bật/tắt lại "Cho phép nộp
+     * bài muộn" cho 1 bản giao ĐÃ tạo, gọi từ trang "Xem chi tiết" BTVN (Thống kê BTVN).
+     */
+    @PreAuthorize("hasPermission(null, 'lms.review-video.update')")
+    @PutMapping("/api/review-video-assignments/{id}/late-submission-allowed")
+    public ResponseEntity<ReviewVideoAssignmentResponse> updateLateSubmissionAllowed(@PathVariable Long id,
+                                                                                       @Valid @RequestBody UpdateLateSubmissionAllowedRequest request,
+                                                                                       @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(reviewVideoService.updateLateSubmissionAllowed(id, request.lateSubmissionAllowed(), actor.userId()));
     }
 
     @GetMapping("/api/review-video-sets/{id}/classes")

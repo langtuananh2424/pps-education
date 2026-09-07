@@ -78,10 +78,13 @@ public class ReflexSequentialGradingService {
     public ReflexQuestionProgressResponse submitWrittenAnswer(Long questionId, Long assignmentId, String answerText, Long actorUserId) {
         ReviewVideoQuestion question = getQuestionOrThrow(questionId);
         StudentAccess access = resolveStudentAccessForAssignment(question.getReviewVideo().getReviewVideoSet(), assignmentId, actorUserId);
-        requireNotPastDeadline(access.assignment());
+        boolean late = requireNotPastDeadline(access.assignment());
         requireReflexVideo(question);
 
         ReflexQuestionProgress progress = findOrCreate(question, access.student(), access.assignment());
+        if (late) {
+            progress.setLateSubmission(true);
+        }
         progress.setAnswerText(answerText);
         progress.setWritingAttemptCount(progress.getWritingAttemptCount() + 1);
 
@@ -97,12 +100,15 @@ public class ReflexSequentialGradingService {
     public ReflexQuestionProgressResponse submitSpokenAnswer(Long questionId, Long assignmentId, String audioUrl, Long actorUserId) {
         ReviewVideoQuestion question = getQuestionOrThrow(questionId);
         StudentAccess access = resolveStudentAccessForAssignment(question.getReviewVideo().getReviewVideoSet(), assignmentId, actorUserId);
-        requireNotPastDeadline(access.assignment());
+        boolean late = requireNotPastDeadline(access.assignment());
         requireReflexVideo(question);
 
         ReflexQuestionProgress progress = findOrCreate(question, access.student(), access.assignment());
         if (!isWritingPassed(progress)) {
             throw new IllegalArgumentException("Phải đạt phần viết trước khi ghi âm câu hỏi này.");
+        }
+        if (late) {
+            progress.setLateSubmission(true);
         }
         progress.setAudioUrl(audioUrl);
         progress.setSpeakingAttemptCount(progress.getSpeakingAttemptCount() + 1);
@@ -242,14 +248,22 @@ public class ReflexSequentialGradingService {
         return new StudentAccess(student, assignment);
     }
 
-    private void requireNotPastDeadline(ReviewVideoAssignment assignment) {
+    /**
+     * V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — đảo ngược quyết định
+     * 2026-07-30: chỉ chặn cứng khi {@link ReviewVideoAssignment#isLateSubmissionAllowed()} tắt. Trả về
+     * {@code true} nếu đã quá hạn nhưng vẫn được cho qua (nộp muộn) — caller dùng để đánh dấu
+     * {@link ReflexQuestionProgress#setLateSubmission}, mirror {@code ExerciseAttemptService#submitAttempt}.
+     */
+    private boolean requireNotPastDeadline(ReviewVideoAssignment assignment) {
         if (assignment.getStatus() != ReviewVideoAssignment.Status.ACTIVE) {
             throw new SubmissionPastDeadlineException("Bản giao Video Ôn tập này đã bị thay thế hoặc hủy, không thể ghi nhận thêm.");
         }
-        if (assignment.getDueAt() != null && OffsetDateTime.now().isAfter(assignment.getDueAt())) {
+        boolean pastDue = assignment.getDueAt() != null && OffsetDateTime.now().isAfter(assignment.getDueAt());
+        if (pastDue && !assignment.isLateSubmissionAllowed()) {
             throw new SubmissionPastDeadlineException(
                     "error.submissionPastDeadline.reviewVideo", new Object[]{assignment.getDueAt()},
                     "Bản giao Video Ôn tập này đã quá hạn nộp (" + assignment.getDueAt() + ").");
         }
+        return pastDue;
     }
 }

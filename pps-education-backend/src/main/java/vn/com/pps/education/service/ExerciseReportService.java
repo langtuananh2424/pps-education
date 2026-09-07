@@ -161,7 +161,7 @@ public class ExerciseReportService {
                 first.getId(), firstExercise.getId(), firstExercise.getCode(),
                 firstExercise.getExam().getTitle() + " – " + skillCategoryLabel(firstExercise.getSkillCategory()) + " (" + group.size() + " bài)",
                 firstExercise.getExerciseType().name(), firstExercise.getExam().getTeacherType().name(),
-                first.getAvailableFrom(), first.getDueAt(), allCompleted ? "COMPLETED" : "ACTIVE",
+                first.getAvailableFrom(), first.getDueAt(), first.isLateSubmissionAllowed(), allCompleted ? "COMPLETED" : "ACTIVE",
                 totalStudents, completedCount, percentOf(completedCount, totalStudents),
                 passedCount, percentOf(passedCount, totalStudents),
                 first.getHomeworkBatch().getId(), members);
@@ -416,7 +416,7 @@ public class ExerciseReportService {
         return new ExerciseAssignmentStatsResponse(
                 assignment.getId(), exercise.getId(), exercise.getCode(), exercise.getTitle(),
                 exercise.getExerciseType().name(), exercise.getExam().getTeacherType().name(),
-                assignment.getAvailableFrom(), assignment.getDueAt(),
+                assignment.getAvailableFrom(), assignment.getDueAt(), assignment.isLateSubmissionAllowed(),
                 assignment.getStatus().name(), totalStudents, completedCount,
                 percentOf(completedCount, totalStudents), passedCount, percentOf(passedCount, totalStudents),
                 assignment.getHomeworkBatch() == null ? null : assignment.getHomeworkBatch().getId(), null);

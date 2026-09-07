@@ -1,13 +1,18 @@
 package vn.com.pps.education.controller;
 
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import vn.com.pps.education.domain.Exercise;
 import vn.com.pps.education.dto.HomeworkSkillGroupResponse;
+import vn.com.pps.education.dto.UpdateLateSubmissionAllowedRequest;
 import vn.com.pps.education.security.AuthenticatedUser;
 import vn.com.pps.education.service.HomeworkSkillBatchService;
 
@@ -30,5 +35,18 @@ public class HomeworkSkillBatchController {
             @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(homeworkSkillBatchService.listSkillGroupsForClass(
                 classId, Exercise.SkillCategory.valueOf(skillCategory), actor.userId()));
+    }
+
+    /**
+     * V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — bật/tắt lại "Cho phép nộp
+     * bài muộn" cho TOÀN BỘ bản giao thuộc 1 Lô cùng lúc, gọi từ trang "Xem chi tiết" BTVN theo Lô.
+     */
+    @PreAuthorize("hasPermission(null, 'lms.exercise.update')")
+    @PutMapping("/api/homework-skill-batches/{id}/late-submission-allowed")
+    public ResponseEntity<Void> updateLateSubmissionAllowed(@PathVariable Long id,
+                                                             @Valid @RequestBody UpdateLateSubmissionAllowedRequest request,
+                                                             @AuthenticationPrincipal AuthenticatedUser actor) {
+        homeworkSkillBatchService.updateLateSubmissionAllowed(id, request.lateSubmissionAllowed(), actor.userId());
+        return ResponseEntity.ok().build();
     }
 }

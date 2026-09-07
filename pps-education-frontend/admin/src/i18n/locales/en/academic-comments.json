@@ -214,6 +214,7 @@
       "noAssign": "-- Not assigned --",
       "dueDateLabel": "Due date — date",
       "dueTimeLabel": "Due date — time",
+      "lateSubmissionAllowedLabel": "Allow late submission",
       "applyButton": "Apply to whole class"
     },
     "downloadTemplateButton": "Download Excel template",

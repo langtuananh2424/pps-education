@@ -283,6 +283,12 @@ export default function DailyCommentPanel() {
   const [dueTime, setDueTime] = useState("");
   /** yyyy-MM-ddTHH:mm gửi lên BE — chỉ có giá trị khi đã chọn cả ngày lẫn giờ. */
   const dueDateTime = dueDate && dueTime ? `${dueDate}T${dueTime}` : "";
+  /**
+   * V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — "Cho phép nộp bài muộn",
+   * dùng chung cho cả buổi (mirror dueDate/dueTime ở trên): tắt = giữ hành vi chặn cứng cũ, bật = học
+   * sinh vẫn nộp được sau hạn, hệ thống đánh dấu "nộp muộn" để Giáo viên biết, không trừ điểm.
+   */
+  const [lateSubmissionAllowed, setLateSubmissionAllowed] = useState(false);
   // "Gán nhanh cho cả lớp" (2026-08-05) — điền 1 lần, áp dụng cho mọi dòng chưa khoá thay vì phải chọn
   // từng dòng học sinh; offline/exerciseId ĐỘC LẬP (giao đồng thời được cả 2, xem 2026-08-18).
   const [quickOffline, setQuickOffline] = useState("");
@@ -446,6 +452,7 @@ export default function DailyCommentPanel() {
     setTeacherType((selectedSession?.teacherType as TeacherType | null) ?? "");
     setDueDate("");
     setDueTime("");
+    setLateSubmissionAllowed(false);
     setQuickOffline("");
     setQuickExerciseId("");
     setQuickVideoId("");
@@ -526,6 +533,10 @@ export default function DailyCommentPanel() {
       } else if (draftWithDueDate?.homeworkNextDueAt) {
         setDueDate((prev) => prev || isoToLocalDateInput(draftWithDueDate.homeworkNextDueAt!));
         setDueTime((prev) => prev || isoToLocalTimeInput(draftWithDueDate.homeworkNextDueAt!));
+      }
+      // V165 — mirror prefill hạn nộp ở trên cho "Cho phép nộp bài muộn" (BE đã tự resolve pending/đã giao thành 1 cờ duy nhất).
+      if (draftWithDueDate?.homeworkNextLateSubmissionAllowed) {
+        setLateSubmissionAllowed(true);
       }
       // Nhận xét DRAFT/REJECTED (nhập tay chưa gửi hoặc nhập từ Excel) — điền vào ô nhập trên màn hình để
       // giáo viên xem/sửa tiếp trước khi bấm "Gửi nhận xét", KHÔNG khoá read-only như PENDING/APPROVED.
@@ -677,7 +688,7 @@ export default function DailyCommentPanel() {
       setApplyingDueDate(true);
       setError(null);
       try {
-        await bulkUpdatePendingDueDate(selectedSessionId, dueDateTime);
+        await bulkUpdatePendingDueDate(selectedSessionId, dueDateTime, lateSubmissionAllowed);
         setNotification(t("dailyCommentPanel.notifications.dueDateAppliedSuccess"));
         await loadHistory(selectedClassId, selectedSessionId, rows.map((r) => r.studentId));
         refreshSessionCommentStats(selectedClassId);
@@ -712,6 +723,8 @@ export default function DailyCommentPanel() {
     homeworkNextWritingExerciseId: r.homeworkNextWritingExerciseId !== "" ? r.homeworkNextWritingExerciseId : undefined,
     // Hạn nộp buổi sau (ngày + giờ) — 1 giá trị chung cho cả buổi (xem dueDateTime), để trống thì BE tự tính = buổi kế tiếp.
     homeworkNextDueDate: dueDateTime || undefined,
+    // V165 — "Cho phép nộp bài muộn", dùng chung cho cả buổi (mirror homeworkNextDueDate ở trên).
+    homeworkNextLateSubmissionAllowed: lateSubmissionAllowed || undefined,
     note: r.note.trim() || undefined
   });
 
@@ -1321,6 +1334,15 @@ export default function DailyCommentPanel() {
                   className="w-full bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none disabled:opacity-40"
                 />
               </div>
+              <label className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600 self-end pb-2">
+                <input
+                  type="checkbox"
+                  checked={lateSubmissionAllowed}
+                  onChange={(e) => setLateSubmissionAllowed(e.target.checked)}
+                  className="rounded border-slate-300"
+                />
+                {t("dailyCommentPanel.quickAssign.lateSubmissionAllowedLabel")}
+              </label>
               <button
                 type="button"
                 onClick={handleApplyQuickAssign}

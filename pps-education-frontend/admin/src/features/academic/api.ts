@@ -1305,6 +1305,8 @@ export interface StudentCommentResponse {
   homeworkNextWritingExerciseTitle: string | null;
   /** Hạn nộp BTVN buổi sau (lấy từ dueAt của bản giao) — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05. */
   homeworkNextDueAt: string | null;
+  /** V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — "Cho phép nộp bài muộn" HIỆU LỰC (đã giao hoặc còn pending), mirror homeworkNextDueAt. */
+  homeworkNextLateSubmissionAllowed: boolean;
   /** V127: id/tên Exercise NGUỒN Giáo viên vừa chọn nhưng CHƯA Gửi nhận xét — null nếu chưa chọn gì hoặc đã Gửi. */
   pendingHomeworkNextExerciseId: number | null;
   pendingHomeworkNextExerciseTitle: string | null;
@@ -1377,6 +1379,8 @@ export interface CreateStudentCommentRequest {
    * chặn 409 nếu khác).
    */
   homeworkNextDueDate?: string;
+  /** V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — dùng chung cho cả kênh Bài tập lẫn Video, mirror homeworkNextDueDate. Để trống = false (giữ hành vi chặn cứng cũ). */
+  homeworkNextLateSubmissionAllowed?: boolean;
   note?: string;
 }
 
@@ -1403,6 +1407,8 @@ export interface UpdateStudentCommentRequest {
   homeworkNextWritingExerciseId?: number;
   /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05 — xem Javadoc CreateStudentCommentRequest.homeworkNextDueDate. */
   homeworkNextDueDate?: string;
+  /** V165 — xem Javadoc CreateStudentCommentRequest.homeworkNextLateSubmissionAllowed. */
+  homeworkNextLateSubmissionAllowed?: boolean;
   note?: string;
 }
 
@@ -1486,6 +1492,8 @@ export interface StudentCommentHistoryResponse {
     pendingHomeworkNextReadingExerciseTitle: string | null;
     pendingHomeworkNextWritingExerciseTitle: string | null;
     pendingHomeworkNextDueDate: string | null;
+    /** V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07). */
+    pendingHomeworkNextLateSubmissionAllowed?: boolean | null;
   };
   createdAt: string;
 }
@@ -1531,10 +1539,10 @@ export function submitComments(classId: number, commentIds: number[]): Promise<S
  * song (luôn thất bại khi N nhận xét đang cùng giữ 1 hạn nộp cũ — xem Javadoc BE
  * StudentCommentService#bulkUpdatePendingDueDate).
  */
-export function bulkUpdatePendingDueDate(classSessionId: number, dueDate: string): Promise<StudentCommentResponse[]> {
+export function bulkUpdatePendingDueDate(classSessionId: number, dueDate: string, lateSubmissionAllowed?: boolean): Promise<StudentCommentResponse[]> {
   return apiRequest<StudentCommentResponse[]>(`/class-sessions/${classSessionId}/comments/due-date`, {
     method: "PUT",
-    body: JSON.stringify({ dueDate })
+    body: JSON.stringify({ dueDate, lateSubmissionAllowed })
   });
 }
 
@@ -1650,6 +1658,8 @@ export interface ExerciseAssignmentStatsResponse {
   teacherType: "VIETNAMESE" | "FOREIGN";
   availableFrom: string;
   dueAt: string | null;
+  /** V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — cho bật/tắt lại ở trang "Xem chi tiết". */
+  lateSubmissionAllowed: boolean;
   status: "ACTIVE" | "COMPLETED";
   totalStudents: number;
   completedCount: number;
@@ -1726,6 +1736,14 @@ export function getExerciseAssignmentStudentStats(assignmentId: number): Promise
   return apiRequest<ExerciseAssignmentStudentStatsResponse>(`/exercise-assignments/${assignmentId}/stats/students`);
 }
 
+/** V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — bật/tắt lại "Cho phép nộp bài muộn" cho 1 bản giao Bài tập ĐÃ tạo. Không cần kiểu trả về — caller tự cập nhật lạc quan state cục bộ. */
+export function updateExerciseAssignmentLateSubmissionAllowed(assignmentId: number, lateSubmissionAllowed: boolean): Promise<void> {
+  return apiRequest<void>(`/exercise-assignments/${assignmentId}/late-submission-allowed`, {
+    method: "PUT",
+    body: JSON.stringify({ lateSubmissionAllowed })
+  });
+}
+
 /** V150 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — kết quả CỘNG DỒN cả Lô theo từng học sinh (mirror cách học sinh trải nghiệm ở Portal), dùng cho trang chi tiết Lô. */
 export function getHomeworkBatchStudentStats(batchId: number): Promise<ExerciseAssignmentStudentStatsResponse> {
   return apiRequest<ExerciseAssignmentStudentStatsResponse>(`/homework-skill-batches/${batchId}/stats/students`);
@@ -1733,6 +1751,14 @@ export function getHomeworkBatchStudentStats(batchId: number): Promise<ExerciseA
 
 export function exportHomeworkBatchStats(batchId: number): Promise<Blob> {
   return apiRequestBlob(`/homework-skill-batches/${batchId}/stats/export`);
+}
+
+/** V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — bật/tắt lại "Cho phép nộp bài muộn" cho TOÀN BỘ bản giao (N Bài) thuộc 1 Lô cùng lúc. */
+export function updateHomeworkBatchLateSubmissionAllowed(batchId: number, lateSubmissionAllowed: boolean): Promise<void> {
+  return apiRequest<void>(`/homework-skill-batches/${batchId}/late-submission-allowed`, {
+    method: "PUT",
+    body: JSON.stringify({ lateSubmissionAllowed })
+  });
 }
 
 export function getExerciseAssignmentQuestionStats(assignmentId: number): Promise<ExerciseAssignmentQuestionStatsResponse> {

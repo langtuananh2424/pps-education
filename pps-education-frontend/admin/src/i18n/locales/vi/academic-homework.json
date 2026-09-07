@@ -86,6 +86,8 @@
     "exportFailed": "Không xuất được file Excel.",
     "exporting": "Đang xuất...",
     "exportExcel": "Xuất Excel",
+    "dueAtLabel": "Hạn nộp",
+    "lateSubmissionAllowedLabel": "Cho phép nộp muộn",
     "table": {
       "status": "Trạng thái",
       "score": "Điểm",
@@ -165,6 +167,8 @@
     }
   },
   "reviewVideoDetail": {
+    "dueAtLabel": "Hạn nộp",
+    "lateSubmissionAllowedLabel": "Cho phép nộp muộn",
     "table": {
       "viewed": "Đã xem",
       "completed": "Hoàn thành",
@@ -175,7 +179,9 @@
       "submittedQuestions": "Đã nộp câu hỏi",
       "averageScore": "Điểm TB",
       "viewCountSuffix": "{{viewed}}/{{required}} lượt",
-      "notGraded": "Chưa chấm"
+      "notGraded": "Chưa chấm",
+      "lateSubmission": "Nộp muộn",
+      "lateSubmissionBadge": "Trễ hạn"
     },
     "questionRow": {
       "titleSuffix": " — {{title}}"

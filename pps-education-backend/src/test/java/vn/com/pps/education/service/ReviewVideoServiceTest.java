@@ -532,6 +532,45 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
                 .isInstanceOf(SubmissionPastDeadlineException.class);
     }
 
+    /**
+     * V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — đảo ngược quyết định
+     * 2026-07-30 ("không có cờ kiểu cho nộp trễ như Exercise"): bật lateSubmissionAllowed thì KHÔNG
+     * còn bị chặn sau dueAt nữa, mirror ExerciseAttemptServiceTest#submitAttempt_UC24_A1_
+     * allowsLateSubmissionWhenConfigured.
+     */
+    @Test
+    void reportProgress_UC23a_A3_allowsPastDeadlineWhenLateSubmissionAllowed() {
+        ReviewVideoResponse video = createPublishedSetWithVideo(100);
+        Student student = enrollStudent(schoolClass.id());
+        Long sessionId = startSession(video.id(), video.reviewVideoSetId(), student.getUser().getId());
+        reviewVideoService.deliverToClass(video.reviewVideoSetId(), schoolClass.id(), OffsetDateTime.now().minusDays(1), true, teacher.getId(), null);
+
+        ReviewVideoProgressResponse progress = reportProgress(video.id(), sessionId, 50, student.getUser().getId());
+
+        assertThat(progress.watchedSeconds()).isEqualTo(50);
+    }
+
+    /**
+     * V165 — trả lời câu hỏi "lỡ ban đầu không cho nộp muộn mà học sinh chưa xong thì sao": bật lại cờ
+     * SAU khi bản giao đã quá hạn (qua updateLateSubmissionAllowed, dùng ở PATCH của trang Thống kê
+     * BTVN) thì học sinh ghi nhận tiến độ được ngay, không cần Giáo viên tạo lại bản giao từ đầu.
+     */
+    @Test
+    void updateLateSubmissionAllowed_UC23a_allowsSubmissionAfterTogglingOnPastDeadline() {
+        ReviewVideoResponse video = createPublishedSetWithVideo(100);
+        Student student = enrollStudent(schoolClass.id());
+        Long sessionId = startSession(video.id(), video.reviewVideoSetId(), student.getUser().getId());
+        ReviewVideoAssignment assignment = reviewVideoService.deliverToClass(
+                video.reviewVideoSetId(), schoolClass.id(), OffsetDateTime.now().minusDays(1), teacher.getId());
+        assertThatThrownBy(() -> reportProgress(video.id(), sessionId, 50, student.getUser().getId()))
+                .isInstanceOf(SubmissionPastDeadlineException.class);
+
+        reviewVideoService.updateLateSubmissionAllowed(assignment.getId(), true, teacher.getId());
+
+        ReviewVideoProgressResponse progress = reportProgress(video.id(), sessionId, 50, student.getUser().getId());
+        assertThat(progress.watchedSeconds()).isEqualTo(50);
+    }
+
     @Test
     void reportProgress_UC59_MainFlow_requiresConfiguredViewCountBeforeCompleted() {
         ReviewVideoResponse video = createPublishedSetWithVideo(100, 80, 2);
@@ -709,6 +748,20 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         assertThatThrownBy(() -> reviewVideoService.submitQuestionAudio(question.id(), activeAssignmentId(video.reviewVideoSetId()),
                 new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/late.mp3", null), student.getUser().getId()))
                 .isInstanceOf(SubmissionPastDeadlineException.class);
+    }
+
+    /** V165 — mirror reportProgress_UC23a_A3_allowsPastDeadlineWhenLateSubmissionAllowed cho REFLEX. */
+    @Test
+    void submitQuestionAudio_UC23b_A3_allowsPastDeadlineWhenLateSubmissionAllowed() {
+        ReviewVideoResponse video = createPublishedReflexSetWithVideo(100);
+        ReviewVideoQuestionResponse question = addQuestion(video.id(), 53, 15, null);
+        Student student = enrollStudent(schoolClass.id());
+        reviewVideoService.deliverToClass(video.reviewVideoSetId(), schoolClass.id(), OffsetDateTime.now().minusDays(1), true, teacher.getId(), null);
+
+        ReviewVideoSubmissionResponse submission = reviewVideoService.submitQuestionAudio(question.id(), activeAssignmentId(video.reviewVideoSetId()),
+                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/late-allowed.mp3", null), student.getUser().getId());
+
+        assertThat(submission.audioUrl()).isEqualTo("https://media.pps.edu.vn/late-allowed.mp3");
     }
 
     @Test

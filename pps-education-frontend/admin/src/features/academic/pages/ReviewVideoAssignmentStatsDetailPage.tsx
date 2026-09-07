@@ -8,12 +8,14 @@ import {
   ReviewVideoAssignmentQuestionStatsResponse,
   ReviewVideoAssignmentStudentStatsResponse,
   getReviewVideoAssignmentQuestionStats,
-  getReviewVideoAssignmentStudentStats
+  getReviewVideoAssignmentStudentStats,
+  updateReviewVideoAssignmentLateSubmissionAllowed
 } from "@/features/lms/api";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import Tabs from "@/components/ui/Tabs";
 import TableContainer, { Th, Td } from "@/components/ui/TableContainer";
+import { formatDateTime } from "@/lib/i18nFormat";
 
 /**
  * UC-66 bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-12) — "Xem chi tiết" 1 BTVN Video
@@ -22,7 +24,7 @@ import TableContainer, { Th, Td } from "@/components/ui/TableContainer";
  * thêm tab "Phân tích câu hỏi" vì đã có sẵn dữ liệu đúng/sai thật.
  */
 export default function ReviewVideoAssignmentStatsDetailPage() {
-  const { t } = useTranslation("academic-homework");
+  const { t, i18n } = useTranslation("academic-homework");
   const reviewVideoTypeLabels: Record<string, string> = {
     REFLEX: t("shared.reviewVideoType.REFLEX"),
     CONNECTION: t("shared.reviewVideoType.CONNECTION")
@@ -35,9 +37,29 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedQuestionId, setExpandedQuestionId] = useState<number | null>(null);
+  const [togglingLateSubmission, setTogglingLateSubmission] = useState(false);
 
   const numAssignmentId = assignmentId ? parseInt(assignmentId, 10) : null;
   const isConnection = studentStats?.assignment.videoType === "CONNECTION";
+
+  /**
+   * V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — bật/tắt lại "Cho phép nộp
+   * bài muộn" ngay tại đây, mirror AssignmentStatsDetailPage.tsx (Exercise) — trả lời nhu cầu "lỡ ban
+   * đầu không cho nộp muộn mà học sinh chưa xong thì sao".
+   */
+  const handleToggleLateSubmissionAllowed = async (checked: boolean) => {
+    if (!numAssignmentId || !studentStats) return;
+    setTogglingLateSubmission(true);
+    setError(null);
+    try {
+      await updateReviewVideoAssignmentLateSubmissionAllowed(numAssignmentId, checked);
+      setStudentStats({ ...studentStats, assignment: { ...studentStats.assignment, lateSubmissionAllowed: checked } });
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t("shared.errors.loadResultsFailed"));
+    } finally {
+      setTogglingLateSubmission(false);
+    }
+  };
 
   useEffect(() => {
     if (!numAssignmentId) return;
@@ -91,6 +113,23 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
           <Badge variant="info">{reviewVideoTypeLabels[assignment.videoType]}</Badge>
         </div>
         <p className="text-xs text-slate-500 mt-1">{assignment.reviewVideoSetCode}</p>
+        <div className="flex items-center gap-3 mt-2">
+          {assignment.dueAt && (
+            <span className="text-xs text-slate-500">
+              {t("reviewVideoDetail.dueAtLabel")}: {formatDateTime(assignment.dueAt, i18n.language)}
+            </span>
+          )}
+          <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+            <input
+              type="checkbox"
+              checked={assignment.lateSubmissionAllowed}
+              disabled={togglingLateSubmission}
+              onChange={(e) => handleToggleLateSubmissionAllowed(e.target.checked)}
+              className="rounded border-slate-300"
+            />
+            {t("reviewVideoDetail.lateSubmissionAllowedLabel")}
+          </label>
+        </div>
       </div>
 
       {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-lg">{error}</div>}
@@ -131,6 +170,7 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
                       <>
                         <Th className="text-center">{t("reviewVideoDetail.table.submittedQuestions")}</Th>
                         <Th className="text-center">{t("reviewVideoDetail.table.averageScore")}</Th>
+                        <Th className="text-center">{t("reviewVideoDetail.table.lateSubmission")}</Th>
                       </>
                     )}
                   </tr>
@@ -171,6 +211,9 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
                             {s.averageScore != null && s.averageMaxScore != null
                               ? `${s.averageScore}/${s.averageMaxScore}`
                               : t("reviewVideoDetail.table.notGraded")}
+                          </Td>
+                          <Td className="text-center">
+                            {s.lateSubmission && <Badge variant="warning">{t("reviewVideoDetail.table.lateSubmissionBadge")}</Badge>}
                           </Td>
                         </>
                       )}
