@@ -43,6 +43,14 @@ public class DeviceToken extends BaseAuditEntity {
     @Column(name = "device_id", length = 100)
     private String deviceId;
 
+    /**
+     * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-09-07) — User-Agent đọc từ HTTP header
+     * lúc đăng ký. Dùng làm dấu hiệu nhận diện thiết bị BỀN HƠN deviceId: xoá app cài lại làm mất
+     * localStorage nên deviceId đổi mới hoàn toàn, còn User-Agent thì không đổi.
+     */
+    @Column(name = "user_agent", length = 500)
+    private String userAgent;
+
     @Column(name = "is_active", nullable = false)
     private boolean active = true;
 }
