@@ -11,9 +11,18 @@
   },
   "installPrompt": {
     "title": "Install PPS Portal",
-    "iosHint": "Tap the Share button, then choose “Add to Home Screen” to use it like an app.",
+    "iosHint": "Add to your home screen to use it like an app and get notifications.",
     "androidHint": "Add to your home screen to open it quickly like an app.",
     "installButton": "Install",
-    "close": "Close"
+    "showGuide": "How to",
+    "hideGuide": "Collapse",
+    "close": "Close",
+    "iosSteps": {
+      "safariOnly": "⚠️ iOS only allows this from Safari. Please reopen this page in Safari, then follow the steps below.",
+      "step1": "Tap the Share button (square with an up arrow) in Safari's bottom toolbar.",
+      "step2": "Scroll up in the list and choose “Add to Home Screen”.",
+      "step3": "Tap “Add” in the top-right corner, then open the app from the new icon on your home screen.",
+      "whyBother": "This step is required before iOS will allow push notifications — it's Apple's rule, not an app issue."
+    }
   }
 }
