@@ -254,6 +254,15 @@
       "actionButton": "Do it now"
     },
     "allDone": "Great job! You've completed all your assigned homework.",
+    "overdueBanner": {
+      "label": "Overdue warning",
+      "titlePrefix": "You have",
+      "titleCount": "{{count}} assignment(s)",
+      "titleSuffix": "past due!",
+      "description": "These are past their deadline — contact your teacher if you need a late submission allowance.",
+      "actionButton": "View now",
+      "dismiss": "Dismiss notice"
+    },
     "filters": {
       "all": "All homework ({{count}})",
       "pending": "To do ({{count}})",
