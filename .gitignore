@@ -54,3 +54,10 @@ pps-education-backend/loadtest/
 pps-education-backend/test_sample_*.docx
 pps-education-backend/test_sample_*.html
 pps-education-backend/test_sample_*.pdf
+
+# Kết quả chạy k6 (run_loadtest.bat ghi vào đây) + CSV giám sát từ
+# monitor_server.sh. Là số liệu của từng lần chạy, không phải nguồn chân lý —
+# và summary có thể chứa hostname/URL nội bộ, không nên đẩy lên repo public.
+security-lab/results/
+security-lab/*.csv
+
