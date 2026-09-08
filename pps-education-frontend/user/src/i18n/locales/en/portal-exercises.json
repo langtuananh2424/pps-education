@@ -235,6 +235,7 @@
       "passedFeedbackTitle": "Passed — next question unlocked",
       "failedFeedbackTitle": "Not passed yet",
       "scoreLabel": "content score {{score}}%",
+      "listenBackLabel": "Listen to your recording",
       "retryButton": "Record again",
       "attemptCount": "Recorded {{count}} time(s)",
       "passedPopup": {
