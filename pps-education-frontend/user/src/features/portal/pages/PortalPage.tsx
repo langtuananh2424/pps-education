@@ -177,8 +177,8 @@ export default function PortalPage() {
                 <span className="font-display font-extrabold text-white text-xl">P</span>
               </div>
               <div className="leading-tight">
-                <div className="font-extrabold text-[15.5px] text-white lg:text-ink">PPS Education</div>
-                <div className="text-[11px] tracking-[0.14em] text-white/80 lg:text-teal-deep font-extrabold">
+                <div className="font-extrabold text-[18px] text-white lg:text-ink">PPS Education</div>
+                <div className="text-[12px] tracking-[0.14em] text-white/80 lg:text-teal-deep font-extrabold">
                   {isParent ? t("brandSubtitleParent") : t("brandSubtitleStudent")}
                 </div>
               </div>
