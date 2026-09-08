@@ -306,10 +306,15 @@ export default function ListeningGroupBuilder({
           </div>
           <div>
             <label className="block font-bold text-slate-600 mb-1 text-[9px] uppercase">{t("common.transcriptLabel")}</label>
-            <input
+            {/* Fix bug thật (2026-09-08, đã xác nhận với người dùng) — trước đây <input> 1 dòng, dán
+                transcript nhiều lượt hội thoại bị trình duyệt xoá sạch \n trước khi React nhận được
+                giá trị, hiển thị dồn thành 1 đoạn. Đổi sang textarea, mirror ClozeQuestionBuilder/
+                GridQuestionBuilder/FillInBlankGroupBuilder đã dùng đúng cách này từ trước. */}
+            <textarea
               value={transcript}
               onChange={(e) => setTranscript(e.target.value)}
               placeholder={t("common.transcriptPlaceholder")}
+              rows={6}
               disabled={isAppending}
               className={`${inputClass} disabled:opacity-60 disabled:cursor-not-allowed`}
             />

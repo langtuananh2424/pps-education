@@ -151,6 +151,22 @@
       "submittedSummary": "Submitted — {{correct}}/{{total}} correct. This round has been counted.",
       "answerNowBanner": "Answer the questions to count this round",
       "answerNowButton": "Answer now →"
+    },
+    "thresholdPopup": {
+      "heading": "You've reached the completion threshold",
+      "description": "You've completed {{achieved}}/{{required}} rounds (≥{{threshold}}%) — enough to finish this assignment. Stop and see your results, or keep going?",
+      "stopButton": "Stop, see results",
+      "continueButton": "Keep going"
+    },
+    "finalPopup": {
+      "completedTitle": "🎉 Assignment completed",
+      "completedDescription": "You've completed all {{required}}/{{required}} required rounds. Review each question's result below.",
+      "stoppedTitle": "Your results",
+      "stoppedDescription": "You stopped after {{achieved}}/{{required}} rounds. Review each question's result below.",
+      "loading": "Loading results...",
+      "loadError": "Couldn't load results — please try again.",
+      "sessionLabel": "Round {{viewNumber}}",
+      "closeButton": "Close"
     }
   },
   "reflexVideoTask": {

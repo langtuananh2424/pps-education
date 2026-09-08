@@ -236,7 +236,7 @@ class HomeworkDeadlineSchedulerServiceTest extends AbstractIntegrationTest {
         reviewVideoService.updateSet(set.id(), new UpdateReviewVideoSetRequest(set.title(), "VIETNAMESE", null, 1, "PUBLISHED", null), teacher.getId());
         ReviewVideoResponse video = reviewVideoService.addVideo(set.id(),
                 new AddReviewVideoRequest("R2_VIDEO", "Video", "https://media.pps.edu.vn/lms/review-videos/video/x.mp4",
-                        1_000_000L, 100, 1, null, null),
+                        1_000_000L, 100, 1, null, null, null),
                 teacher.getId());
         // V71: deliverToClass dùng PROPAGATION_REQUIRES_NEW — phải commit set/video vừa tạo trước.
         commitCurrentTransactionAndStartNew();

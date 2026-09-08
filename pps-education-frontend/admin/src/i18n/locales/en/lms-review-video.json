@@ -48,7 +48,8 @@
     },
     "connectionThreshold": {
       "passPercentLabel": "Quiz pass threshold % (default 80)",
-      "requiredViewsLabel": "Required view count — questions are split evenly across attempts (default 1)"
+      "requiredViewsLabel": "Required view count — questions are split evenly across attempts (default 1)",
+      "sessionPassRatioLabel": "Mid-way reminder threshold % (passed sessions/required, default 70)"
     },
     "reflexBuilder": {
       "label": "Questions (timestamps) — at least 1 question required *",

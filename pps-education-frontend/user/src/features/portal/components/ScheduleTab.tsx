@@ -184,10 +184,10 @@ export default function ScheduleTab({ studentId, classId, siteId }: ScheduleTabP
                     "Buổi N..." (đã ở dưới, ngoài tầm badge) khiến nó vỡ thêm 1 dòng nữa (bug đã gặp). */}
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="px-3 py-1 bg-teal border border-teal-deep/30 text-white text-xs font-extrabold rounded-full">
+                    <span className="px-3 py-1 bg-teal border border-teal-deep/30 text-white text-sm font-extrabold rounded-full">
                       {new Date(s.sessionDate).toLocaleDateString(toLocaleTag(i18n.language), { weekday: "long" }).replace(/^./, (c) => c.toUpperCase())}
                     </span>
-                    <span className="text-xs text-muted font-bold">
+                    <span className="text-sm text-muted font-bold">
                       {t("scheduleCard.sessionInfo", {
                         number: s.sessionNumber,
                         date: s.sessionDate,
@@ -198,14 +198,14 @@ export default function ScheduleTab({ studentId, classId, siteId }: ScheduleTabP
                     {/* Mobile: neo cố định góc trên-phải của thẻ (theo yêu cầu người dùng, 2026-07-31).
                         Desktop (md+) trả về static, nằm đúng vị trí cũ trong hàng cùng nhãn thứ/ngày giờ. */}
                     <span
-                      className={`absolute top-3 right-3 md:static md:top-auto md:right-auto inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold border ${badge.className}`}
+                      className={`absolute top-3 right-3 md:static md:top-auto md:right-auto inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[12px] font-extrabold border ${badge.className}`}
                     >
                       {badge.icon} {badge.label}
                     </span>
                   </div>
-                  <p className="text-xs text-muted font-bold">
+                  <p className="text-sm text-muted font-bold">
                     {t("scheduleCard.teacherLabel")} <span className="font-extrabold text-ink">{s.primaryTeacherName ?? "—"}</span>
-                    {s.teacherType && <span className="text-[10px] text-teal-deep font-bold"> ({teacherTypeLabels[s.teacherType]})</span>}
+                    {s.teacherType && <span className="text-[12px] text-teal-deep font-bold"> ({teacherTypeLabels[s.teacherType]})</span>}
                   </p>
                   {s.status === "CANCELLED" && s.cancellationReason && (
                     <span className="text-[10px] font-extrabold text-coral">{t("scheduleCard.cancelReason", { reason: s.cancellationReason })}</span>

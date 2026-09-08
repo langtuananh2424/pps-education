@@ -178,6 +178,7 @@ function useYouTubeDurationProbe() {
 interface ConnectionThresholdValue {
   completionThresholdPercent: string;
   requiredViewCount: string;
+  sessionPassRatioThresholdPercent: string;
 }
 
 /**
@@ -186,12 +187,14 @@ interface ConnectionThresholdValue {
  * điểm trắc nghiệm tổng (tổng câu đúng/tổng N câu hỏi, gộp mọi lượt) — xem đủ video luôn bắt buộc
  * 100% (cố định, không còn cấu hình được). N câu hỏi (soạn ở ConnectionQuizBuilder) được chia đều
  * ngẫu nhiên riêng theo từng học sinh qua đúng số "lượt đạt tối thiểu" bên dưới (M). Để trống dùng
- * mặc định BE (80%/1 lượt).
+ * mặc định BE (80%/1 lượt). sessionPassRatioThresholdPercent (V167, bổ sung ngoài SDD gốc, đã xác
+ * nhận với người dùng 2026-09-07) — ngưỡng % (số lượt đạt/M) riêng biệt, để hiện popup nhắc học
+ * sinh giữa chừng "đã đạt tiêu chí, dừng hay làm tiếp" — mặc định 70, KHÔNG liên quan tới 2 field trên.
  */
 function ConnectionThresholdFields({ value, onChange }: { value: ConnectionThresholdValue; onChange: (v: ConnectionThresholdValue) => void }) {
   const { t } = useTranslation("lms-review-video");
   return (
-    <div className="grid grid-cols-2 gap-3 bg-sky-50/60 border border-sky-100 rounded-lg p-3">
+    <div className="grid grid-cols-3 gap-3 bg-sky-50/60 border border-sky-100 rounded-lg p-3">
       <div>
         <label className={labelClass}>{t("lectures.connectionThreshold.passPercentLabel")}</label>
         <input
@@ -212,6 +215,18 @@ function ConnectionThresholdFields({ value, onChange }: { value: ConnectionThres
           value={value.requiredViewCount}
           onChange={(e) => onChange({ ...value, requiredViewCount: e.target.value })}
           placeholder="1"
+          className={inputClass}
+        />
+      </div>
+      <div>
+        <label className={labelClass}>{t("lectures.connectionThreshold.sessionPassRatioLabel")}</label>
+        <input
+          type="number"
+          min={1}
+          max={100}
+          value={value.sessionPassRatioThresholdPercent}
+          onChange={(e) => onChange({ ...value, sessionPassRatioThresholdPercent: e.target.value })}
+          placeholder="70"
           className={inputClass}
         />
       </div>
@@ -1066,7 +1081,7 @@ function CreateSetModal({
     displayOrder: ""
   });
   const [content, setContent] = useState<ContentSourceValue>({ sourceType: "R2_VIDEO", fileUrl: "", durationSeconds: null });
-  const [connSettings, setConnSettings] = useState<ConnectionThresholdValue>({ completionThresholdPercent: "", requiredViewCount: "" });
+  const [connSettings, setConnSettings] = useState<ConnectionThresholdValue>({ completionThresholdPercent: "", requiredViewCount: "", sessionPassRatioThresholdPercent: "" });
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — Bộ thuộc Sub Topic nào trong mục lục
   // sách, mirror CreateExamModal (ExerciseAssignPage.tsx).
   const [subTopicId, setSubTopicId] = useState<number | null>(null);
@@ -1126,7 +1141,8 @@ function CreateSetModal({
         durationSeconds: content.durationSeconds,
         displayOrder: 0,
         completionThresholdPercent: form.videoType === "CONNECTION" && connSettings.completionThresholdPercent ? Number(connSettings.completionThresholdPercent) : undefined,
-        requiredViewCount: form.videoType === "CONNECTION" && connSettings.requiredViewCount ? Number(connSettings.requiredViewCount) : undefined
+        requiredViewCount: form.videoType === "CONNECTION" && connSettings.requiredViewCount ? Number(connSettings.requiredViewCount) : undefined,
+        sessionPassRatioThresholdPercent: form.videoType === "CONNECTION" && connSettings.sessionPassRatioThresholdPercent ? Number(connSettings.sessionPassRatioThresholdPercent) : undefined
       };
       const video = await addReviewVideo(set.id, videoRequest);
       createdVideoId = video.id;
@@ -1475,7 +1491,7 @@ function VideoListSection({ set }: { set: ReviewVideoSetResponse }) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState<ContentSourceValue>({ sourceType: "R2_VIDEO", fileUrl: "", durationSeconds: null });
-  const [connSettings, setConnSettings] = useState<ConnectionThresholdValue>({ completionThresholdPercent: "", requiredViewCount: "" });
+  const [connSettings, setConnSettings] = useState<ConnectionThresholdValue>({ completionThresholdPercent: "", requiredViewCount: "", sessionPassRatioThresholdPercent: "" });
   const [submitting, setSubmitting] = useState(false);
   const [expandedVideoId, setExpandedVideoId] = useState<number | null>(null);
   const [deletingVideoId, setDeletingVideoId] = useState<number | null>(null);
@@ -1510,11 +1526,12 @@ function VideoListSection({ set }: { set: ReviewVideoSetResponse }) {
         durationSeconds: content.durationSeconds,
         displayOrder: videos.length,
         completionThresholdPercent: set.videoType === "CONNECTION" && connSettings.completionThresholdPercent ? Number(connSettings.completionThresholdPercent) : undefined,
-        requiredViewCount: set.videoType === "CONNECTION" && connSettings.requiredViewCount ? Number(connSettings.requiredViewCount) : undefined
+        requiredViewCount: set.videoType === "CONNECTION" && connSettings.requiredViewCount ? Number(connSettings.requiredViewCount) : undefined,
+        sessionPassRatioThresholdPercent: set.videoType === "CONNECTION" && connSettings.sessionPassRatioThresholdPercent ? Number(connSettings.sessionPassRatioThresholdPercent) : undefined
       });
       setTitle("");
       setContent({ sourceType: "R2_VIDEO", fileUrl: "", durationSeconds: null });
-      setConnSettings({ completionThresholdPercent: "", requiredViewCount: "" });
+      setConnSettings({ completionThresholdPercent: "", requiredViewCount: "", sessionPassRatioThresholdPercent: "" });
       setShowAddForm(false);
       load();
       showToast(t("lectures.toast.videoAdded"));

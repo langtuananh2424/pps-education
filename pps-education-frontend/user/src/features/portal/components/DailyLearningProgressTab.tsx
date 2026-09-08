@@ -739,7 +739,7 @@ export default function DailyLearningProgressTab({
   const cardsView = (
     <div className="space-y-4">
       {filteredLogs.length === 0 ? (
-        <p className="text-xs text-muted font-bold italic text-center py-10 border border-line/80 rounded-2xl">
+        <p className="text-sm text-muted font-bold italic text-center py-10 border border-line/80 rounded-2xl">
           {t("noApprovedComments")}
         </p>
       ) : (
@@ -911,7 +911,7 @@ export default function DailyLearningProgressTab({
               {t("parentTrackingBadge")}
             </span> : null}
           </div>
-          <p className="text-xs text-muted font-bold mt-1">
+          <p className="text-sm text-muted font-bold mt-1">
             {t("subtitle")}{" "}
             <span className="text-teal font-extrabold">
               {studentName}
@@ -925,7 +925,7 @@ export default function DailyLearningProgressTab({
               type="button"
               onClick={() => setViewMode("TABLE")}
               aria-label={t("viewTable")}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${viewMode === "TABLE" ? "bg-teal text-white shadow-2xs" : "text-muted hover:text-ink"
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-bold transition-all cursor-pointer ${viewMode === "TABLE" ? "bg-teal text-white shadow-2xs" : "text-muted hover:text-ink"
                 }`}
             >
               <TableIcon size={13} aria-hidden="true" /> <span className="hidden md:inline">{t("tableShort")}</span>
@@ -934,7 +934,7 @@ export default function DailyLearningProgressTab({
               type="button"
               onClick={() => setViewMode("CARDS")}
               aria-label={t("viewCards")}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${viewMode === "CARDS" ? "bg-teal text-white shadow-2xs" : "text-muted hover:text-ink"
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-bold transition-all cursor-pointer ${viewMode === "CARDS" ? "bg-teal text-white shadow-2xs" : "text-muted hover:text-ink"
                 }`}
             >
               <LayoutGrid size={13} aria-hidden="true" /> <span className="hidden md:inline">{t("cardsShort")}</span>
@@ -1009,7 +1009,7 @@ export default function DailyLearningProgressTab({
               aria-label={t("sessionFilterAriaLabel")}
               aria-haspopup="dialog"
               aria-expanded={calendarOpen}
-              className="flex items-center gap-2 min-h-[44px] bg-white border border-line rounded-xl pl-3.5 pr-3 py-2.5 text-xs font-bold text-ink focus:outline-none focus:ring-2 focus:ring-teal/50 shadow-sm cursor-pointer"
+              className="flex items-center gap-2 min-h-[44px] bg-white border border-line rounded-xl pl-3.5 pr-3 py-2.5 text-[13px] font-bold text-ink focus:outline-none focus:ring-2 focus:ring-teal/50 shadow-sm cursor-pointer"
             >
               <Calendar size={14} className="text-teal shrink-0" aria-hidden="true" />
               <span className="max-w-[180px] truncate">{triggerLabel}</span>
@@ -1129,7 +1129,7 @@ export default function DailyLearningProgressTab({
               <div className="w-7 h-7 rounded-lg bg-teal/10 text-teal flex items-center justify-center shrink-0">
                 <UserCheck size={14} aria-hidden="true" />
               </div>
-              <p className="text-[10px] text-muted font-extrabold uppercase tracking-wider whitespace-nowrap">{t("kpi.attendance")}</p>
+              <p className="text-[12px] text-muted font-extrabold uppercase tracking-wider whitespace-nowrap">{t("kpi.attendance")}</p>
             </div>
             {attendanceRate != null ? (
               <div>
@@ -1146,7 +1146,7 @@ export default function DailyLearningProgressTab({
               <UserCheck size={20} aria-hidden="true" />
             </div>
             <div>
-              <p className="text-[10px] text-muted font-extrabold uppercase tracking-wider">{t("kpi.attendance")}</p>
+              <p className="text-[12px] text-muted font-extrabold uppercase tracking-wider">{t("kpi.attendance")}</p>
               <p className="text-sm font-black text-teal tabular-nums">
                 {attendanceRate != null ? `${attendanceRate >= 90 ? t("kpi.onTrackCaps") : t("kpi.needsImprovement")} (${attendanceRate}%)` : t("kpi.noData")}
               </p>
@@ -1161,7 +1161,7 @@ export default function DailyLearningProgressTab({
               <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
                 <ShieldCheck size={14} aria-hidden="true" />
               </div>
-              <p className="text-[11px] text-muted font-extrabold uppercase tracking-wider whitespace-nowrap">{t("kpi.attitudeShort")}</p>
+              <p className="text-[12px] text-muted font-extrabold uppercase tracking-wider whitespace-nowrap">{t("kpi.attitudeShort")}</p>
             </div>
             {averageAttitudeLevel && averageAttitudePercent != null ? (
               <div>
@@ -1178,7 +1178,7 @@ export default function DailyLearningProgressTab({
               <ShieldCheck size={20} aria-hidden="true" />
             </div>
             <div>
-              <p className="text-[11px] text-muted font-extrabold uppercase tracking-wider">{t("kpi.attitudeFull")}</p>
+              <p className="text-[12px] text-muted font-extrabold uppercase tracking-wider">{t("kpi.attitudeFull")}</p>
               <p className="text-sm font-black text-ink tabular-nums">
                 {averageAttitudeLevel && averageAttitudePercent != null
                   ? t("kpi.gradeAchievedWithPercent", { level: attitudeLabels[averageAttitudeLevel], percent: averageAttitudePercent })
@@ -1195,7 +1195,7 @@ export default function DailyLearningProgressTab({
               <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center shrink-0">
                 <Award size={14} aria-hidden="true" />
               </div>
-              <p className="text-[11px] text-muted font-extrabold uppercase tracking-wider whitespace-nowrap">{t("kpi.homeworkShort")}</p>
+              <p className="text-[12px] text-muted font-extrabold uppercase tracking-wider whitespace-nowrap">{t("kpi.homeworkShort")}</p>
             </div>
             {avgHomeworkCompletion != null ? (
               <div>
@@ -1212,7 +1212,7 @@ export default function DailyLearningProgressTab({
               <Award size={20} aria-hidden="true" />
             </div>
             <div>
-              <p className="text-[11px] text-muted font-extrabold uppercase tracking-wider">{t("kpi.homeworkFull")}</p>
+              <p className="text-[12px] text-muted font-extrabold uppercase tracking-wider">{t("kpi.homeworkFull")}</p>
               <p className="text-sm font-black text-amber-800 tabular-nums">{avgHomeworkCompletion != null ? `${avgHomeworkCompletion}%` : t("kpi.noData")}</p>
             </div>
           </div>
@@ -1225,7 +1225,7 @@ export default function DailyLearningProgressTab({
               <div className="w-7 h-7 rounded-lg bg-purple-50 text-purple-700 flex items-center justify-center shrink-0">
                 <Sparkles size={14} aria-hidden="true" />
               </div>
-              <p className="text-[11px] text-muted font-extrabold uppercase tracking-wider whitespace-nowrap">{t("kpi.sessionsShort")}</p>
+              <p className="text-[12px] text-muted font-extrabold uppercase tracking-wider whitespace-nowrap">{t("kpi.sessionsShort")}</p>
             </div>
             <div>
               <p className="text-xl font-black text-purple-800 tabular-nums leading-tight">{filteredLogs.length}</p>
@@ -1238,7 +1238,7 @@ export default function DailyLearningProgressTab({
               <Sparkles size={20} aria-hidden="true" />
             </div>
             <div>
-              <p className="text-[10px] text-muted font-extrabold uppercase tracking-wider">{t("kpi.sessionsFull")}</p>
+              <p className="text-[12px] text-muted font-extrabold uppercase tracking-wider">{t("kpi.sessionsFull")}</p>
               <p className="text-sm font-black text-purple-800">{t("kpi.sessionsRecorded", { count: filteredLogs.length })}</p>
             </div>
           </div>
@@ -1252,15 +1252,15 @@ export default function DailyLearningProgressTab({
           <div className="p-4 border-b border-line bg-slate-50/80 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <div className="flex items-center gap-2">
               <TableIcon size={16} className="text-teal" aria-hidden="true" />
-              <h3 className="text-sm md:text-xs font-black text-ink uppercase tracking-wider font-display">{t("table.heading")}</h3>
+              <h3 className="text-xl md:text-sm font-black text-ink uppercase tracking-wider font-display">{t("table.heading")}</h3>
             </div>
-            <span className="text-sm md:text-xs font-bold text-muted">
+            <span className="text-sm md:text-sm font-bold text-muted">
               {t("table.showingPrefix")} <span className="text-teal font-black">{filteredLogs.length}</span> {t("table.showingSuffix")}
             </span>
           </div>
 
           {filteredLogs.length === 0 ? (
-            <p className="text-xs text-muted font-bold italic text-center py-10">{t("noApprovedComments")}</p>
+            <p className="text-sm text-muted font-bold italic text-center py-10">{t("noApprovedComments")}</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse min-w-[1700px]">
