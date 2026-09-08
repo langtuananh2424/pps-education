@@ -63,7 +63,7 @@ export default function ScheduleFilterBar({
             aria-label={t("filterBar.filterByTerm")}
             aria-haspopup="dialog"
             aria-expanded={termOpen}
-            className="flex items-center gap-2 min-h-[44px] bg-white border border-line rounded-xl pl-3.5 pr-3 py-2.5 text-xs font-bold text-ink focus:outline-none focus:ring-2 focus:ring-teal/50 shadow-sm cursor-pointer"
+            className="flex items-center gap-2 min-h-[44px] bg-white border border-line rounded-xl pl-3.5 pr-3 py-2.5 text-sm font-bold text-ink focus:outline-none focus:ring-2 focus:ring-teal/50 shadow-sm cursor-pointer"
           >
             <CalendarIcon size={14} className="text-teal shrink-0" aria-hidden="true" />
             <span className={`whitespace-nowrap ${selectedTerm ? "text-ink" : "text-muted"}`}>{selectedTerm ? selectedTerm.name : t("filterBar.term")}</span>
