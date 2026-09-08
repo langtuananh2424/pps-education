@@ -1,11 +1,13 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Check, CheckCircle2, Play, ShieldAlert, X } from "lucide-react";
+import { Check, CheckCircle2, Play, ShieldAlert, X, XCircle } from "lucide-react";
 import { friendlyApiErrorMessage } from "@/lib/apiClient";
 import {
   ConnectionAnswerResult,
+  ReviewVideoConnectionAnswerHistoryResponse,
   ReviewVideoConnectionQuestionResponse,
   ReviewVideoResponse,
+  getReviewVideoConnectionAnswerHistory,
   getReviewVideoProgress,
   listReviewVideoConnectionQuestionsForSession,
   reportReviewVideoProgress,
@@ -290,6 +292,18 @@ export default function ReviewVideoTaskModal({ video, assignmentId, onClose }: R
   const [submittingQuiz, setSubmittingQuiz] = useState(false);
   const [quizError, setQuizError] = useState<string | null>(null);
 
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07 — popup nhắc giữa chừng khi tỷ lệ
+  // "số lượt đạt/tổng lượt yêu cầu" đạt ngưỡng video.sessionPassRatioThresholdPercent (mặc định 70%),
+  // CHỈ hiện 1 LẦN trong 1 lần mở modal (thresholdPopupShownRef) — không làm phiền lại ở các lượt sau
+  // nếu học sinh đã chọn "Tiếp tục làm nốt". Popup hoàn thành (finalPopup) hiện khi đủ requiredViewCount
+  // HOẶC khi học sinh chọn dừng sớm ở popup ngưỡng — kèm danh sách câu đã trả lời qua các lượt đã đạt.
+  const [thresholdPopupOpen, setThresholdPopupOpen] = useState(false);
+  const thresholdPopupShownRef = useRef(false);
+  const [finalPopup, setFinalPopup] = useState<{ variant: "completed" | "stoppedEarly" } | null>(null);
+  const [answerHistory, setAnswerHistory] = useState<ReviewVideoConnectionAnswerHistoryResponse | null>(null);
+  const [answerHistoryLoading, setAnswerHistoryLoading] = useState(false);
+  const [answerHistoryError, setAnswerHistoryError] = useState<string | null>(null);
+
   /**
    * Guard bằng ref (không phải chỉ dựa vào dependency array) — startReviewVideoWatchSession là POST tạo
    * bản ghi thật (không idempotent), React 18 StrictMode tự double-invoke useEffect ở môi trường dev sẽ
@@ -413,10 +427,61 @@ export default function ReviewVideoTaskModal({ video, assignmentId, onClose }: R
     setQuizError(null);
   };
 
-  /** V160 — lượt đã kết thúc (đúng 100% hoặc đã hết lượt thử mà vẫn sai): đóng popup, mở lượt mới nếu chưa đủ số lượt yêu cầu. */
+  /**
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07 — tải danh sách câu đã trả lời qua
+   * các lượt ĐÃ ĐẠT (dùng cho popup ngưỡng-dừng-sớm/hoàn thành bên dưới).
+   */
+  const loadAnswerHistory = () => {
+    if (assignmentId == null) return;
+    setAnswerHistoryLoading(true);
+    setAnswerHistoryError(null);
+    getReviewVideoConnectionAnswerHistory(video.id, assignmentId)
+      .then(setAnswerHistory)
+      .catch((err) => setAnswerHistoryError(friendlyApiErrorMessage(err, t("reviewVideoTask.finalPopup.loadError"))))
+      .finally(() => setAnswerHistoryLoading(false));
+  };
+
+  /**
+   * V160 — lượt đã kết thúc (đúng 100% hoặc đã hết lượt thử mà vẫn sai): đóng popup quiz, rồi theo tiến
+   * độ mới nhất: đủ requiredViewCount → mở popup Hoàn thành; đạt ngưỡng sessionPassRatioThresholdPercent
+   * giữa chừng (VÀ chưa từng hiện popup này trong lần mở modal này) → mở popup nhắc dừng/tiếp tục; ngược
+   * lại → tự mở lượt xem mới như cũ (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07).
+   */
   const handleContinueAfterQuiz = () => {
     setQuizPopupOpen(false);
-    if (progressSummary && !progressSummary.completed) startNextSession();
+    if (!progressSummary) return;
+    if (progressSummary.completed) {
+      setFinalPopup({ variant: "completed" });
+      loadAnswerHistory();
+      return;
+    }
+    const ratio = progressSummary.requiredViewCount > 0 ? (progressSummary.viewCount / progressSummary.requiredViewCount) * 100 : 0;
+    const threshold = video.sessionPassRatioThresholdPercent ?? 70;
+    if (ratio >= threshold && !thresholdPopupShownRef.current) {
+      thresholdPopupShownRef.current = true;
+      setThresholdPopupOpen(true);
+      return;
+    }
+    startNextSession();
+  };
+
+  /** Học sinh chọn "Dừng, xem kết quả" ở popup ngưỡng — không tiếp tục làm nốt, xem luôn kết quả các lượt đã đạt. */
+  const handleThresholdStop = () => {
+    setThresholdPopupOpen(false);
+    setFinalPopup({ variant: "stoppedEarly" });
+    loadAnswerHistory();
+  };
+
+  /** Học sinh chọn "Tiếp tục làm nốt" ở popup ngưỡng — hành vi y hệt nhánh mặc định cũ. */
+  const handleThresholdContinue = () => {
+    setThresholdPopupOpen(false);
+    startNextSession();
+  };
+
+  /** Đóng popup Hoàn thành/Kết quả — luôn đóng cả modal (đủ lượt hoặc đã chủ động dừng, không còn việc gì để làm tiếp trong modal này). */
+  const handleCloseFinalPopup = () => {
+    setFinalPopup(null);
+    onClose();
   };
 
   const { iframeId, watchedPercent: youTubeWatchedPercent } = useYouTubeWatchProgress(isYouTube ? video : null, watchSessionId, started, handleProgress);
@@ -618,10 +683,104 @@ export default function ReviewVideoTaskModal({ video, assignmentId, onClose }: R
         </div>
       )}
 
+      {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07 — popup nhắc giữa chừng khi đạt
+          ngưỡng sessionPassRatioThresholdPercent, mở SAU KHI popup quiz đã đóng (không xung đột). */}
+      {thresholdPopupOpen && progressSummary && (
+        <div className="fixed inset-0 bg-ink/60 z-[110] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[20px] max-w-sm w-full shadow-2xl p-5 sm:p-6 space-y-4 text-center">
+            <CheckCircle2 size={36} className="text-emerald-600 mx-auto" />
+            <h3 className="text-base font-extrabold text-ink">{t("reviewVideoTask.thresholdPopup.heading")}</h3>
+            <p className="text-xs font-bold text-muted">
+              {t("reviewVideoTask.thresholdPopup.description", {
+                achieved: progressSummary.viewCount,
+                required: progressSummary.requiredViewCount,
+                threshold: video.sessionPassRatioThresholdPercent ?? 70
+              })}
+            </p>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <button
+                onClick={handleThresholdStop}
+                className="flex-1 px-4 py-2.5 bg-white hover:bg-slate-100 border border-line rounded-xl text-xs font-extrabold text-ink"
+              >
+                {t("reviewVideoTask.thresholdPopup.stopButton")}
+              </button>
+              <button
+                onClick={handleThresholdContinue}
+                className="flex-1 px-4 py-2.5 bg-teal hover:bg-teal-deep text-white rounded-xl text-xs font-extrabold"
+              >
+                {t("reviewVideoTask.thresholdPopup.continueButton")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07 — popup Hoàn thành (đủ
+          requiredViewCount) hoặc Kết quả (dừng sớm ở popup ngưỡng), kèm danh sách câu đã trả lời qua
+          từng lượt đã đạt. Đóng popup này luôn đóng cả modal (xem handleCloseFinalPopup). */}
+      {finalPopup && progressSummary && (
+        <div className="fixed inset-0 bg-ink/60 z-[115] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[20px] max-w-lg w-full max-h-[85vh] overflow-y-auto shadow-2xl p-4 sm:p-6 space-y-3">
+            <div className="text-center space-y-1.5">
+              <h3 className="text-lg font-extrabold text-ink">
+                {finalPopup.variant === "completed" ? t("reviewVideoTask.finalPopup.completedTitle") : t("reviewVideoTask.finalPopup.stoppedTitle")}
+              </h3>
+              <p className="text-xs font-bold text-muted">
+                {finalPopup.variant === "completed"
+                  ? t("reviewVideoTask.finalPopup.completedDescription", { required: progressSummary.requiredViewCount })
+                  : t("reviewVideoTask.finalPopup.stoppedDescription", {
+                      achieved: progressSummary.viewCount,
+                      required: progressSummary.requiredViewCount
+                    })}
+              </p>
+            </div>
+
+            {answerHistoryError && (
+              <div className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-xl">{answerHistoryError}</div>
+            )}
+            {answerHistoryLoading ? (
+              <p className="text-xs text-muted font-bold text-center">{t("reviewVideoTask.finalPopup.loading")}</p>
+            ) : (
+              answerHistory?.sessions.map((session) => (
+                <div key={session.watchSessionId} className="space-y-2">
+                  <p className="text-[13px] font-extrabold text-teal-deep uppercase tracking-wide">
+                    {t("reviewVideoTask.finalPopup.sessionLabel", { viewNumber: session.viewNumber })}
+                  </p>
+                  {session.answers.map((a) => {
+                    const selectedChoice = a.choices.find((c) => c.id === a.selectedChoiceId);
+                    return (
+                      <div
+                        key={a.questionId}
+                        className={`flex items-start gap-2 p-2.5 rounded-xl border text-xs font-bold ${
+                          a.correct ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-rose-50 border-rose-200 text-rose-700"
+                        }`}
+                      >
+                        {a.correct ? <CheckCircle2 size={14} className="shrink-0 mt-0.5" /> : <XCircle size={14} className="shrink-0 mt-0.5" />}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-ink">{a.prompt}</p>
+                          <p>{selectedChoice ? `${selectedChoice.choiceLabel}. ${selectedChoice.content}` : ""}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ))
+            )}
+
+            <button
+              onClick={handleCloseFinalPopup}
+              className="w-full px-3 py-2.5 sm:py-3 bg-teal hover:bg-teal-deep text-white rounded-xl text-xs sm:text-sm font-extrabold"
+            >
+              {t("reviewVideoTask.finalPopup.closeButton")}
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-4xl w-full mx-auto p-4 sm:p-6 space-y-3 sm:space-y-4 flex-1">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <span className="text-[10px] font-extrabold uppercase text-teal-deep tracking-wide">{t("reviewVideoTask.badge")}</span>
+            <span className="text-[13px] font-extrabold uppercase text-teal-deep tracking-wide">{t("reviewVideoTask.badge")}</span>
             <h3 className="text-lg sm:text-xl lg:text-2xl font-extrabold text-ink truncate">{video.title}</h3>
           </div>
           <button
@@ -668,9 +827,9 @@ export default function ReviewVideoTaskModal({ video, assignmentId, onClose }: R
         </div>
 
         <div className="bg-sky-2 border border-teal/20 rounded-[14px] p-4 space-y-3">
-          <p className="text-[10px] font-extrabold text-teal-deep uppercase tracking-wide">{t("reviewVideoTask.progress.heading")}</p>
+          <p className="text-[13px] font-extrabold text-teal-deep uppercase tracking-wide">{t("reviewVideoTask.progress.heading")}</p>
           <div className="space-y-1">
-            <div className="flex items-center justify-between text-[10px] font-extrabold text-teal-deep">
+            <div className="mb-2 flex items-center justify-between text-[12px] font-extrabold text-teal-deep">
               <span>{t("reviewVideoTask.progress.watchedMax")}</span>
               <span>{watchedPercent}%</span>
             </div>
@@ -680,12 +839,12 @@ export default function ReviewVideoTaskModal({ video, assignmentId, onClose }: R
                 style={{ width: `${watchedPercent}%` }}
               />
             </div>
-            <p className={`text-[10px] font-extrabold ${sessionQualified ? "text-emerald-600" : "text-amber-600"}`}>
+            <p className={`mt-3 text-[13px] font-extrabold ${sessionQualified ? "text-emerald-600" : "text-amber-600"}`}>
               {sessionQualified ? t("reviewVideoTask.progress.fullyWatched") : t("reviewVideoTask.progress.notFullyWatched")}
             </p>
           </div>
           <div className="pt-2 border-t border-teal/20 flex items-center justify-between">
-            <span className="text-[10px] font-extrabold text-teal-deep uppercase">{t("reviewVideoTask.progress.totalCompleted")}</span>
+            <span className="text-[12px] font-extrabold text-teal-deep uppercase">{t("reviewVideoTask.progress.totalCompleted")}</span>
             <span className={`text-xs font-black ${progressSummary?.completed ? "text-emerald-600" : "text-ink"}`}>
               {progressSummary ? `${progressSummary.viewCount}/${progressSummary.requiredViewCount}` : `—/${video.requiredViewCount}`}{" "}
               {t("reviewVideoTask.progress.countSuffix")}

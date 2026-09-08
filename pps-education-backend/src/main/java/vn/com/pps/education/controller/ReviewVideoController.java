@@ -23,6 +23,7 @@ import vn.com.pps.education.dto.PendingGradingClassSummaryResponse;
 import vn.com.pps.education.dto.ReportVideoProgressRequest;
 import vn.com.pps.education.dto.ReviewVideoAssignmentResponse;
 import vn.com.pps.education.dto.ReviewVideoAssignmentStatsResponse;
+import vn.com.pps.education.dto.ReviewVideoConnectionAnswerHistoryResponse;
 import vn.com.pps.education.dto.ReviewVideoConnectionQuestionResponse;
 import vn.com.pps.education.dto.ReviewVideoConnectionQuizResultResponse;
 import vn.com.pps.education.dto.ReviewVideoProgressResponse;
@@ -241,6 +242,14 @@ public class ReviewVideoController {
                                                                       @RequestParam Long assignmentId,
                                                                       @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(reviewVideoService.getProgress(videoId, assignmentId, actor.userId()));
+    }
+
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07 — xem Javadoc ReviewVideoService#getConnectionAnswerHistory. */
+    @GetMapping("/api/review-videos/{videoId}/connection-answer-history")
+    public ResponseEntity<ReviewVideoConnectionAnswerHistoryResponse> getConnectionAnswerHistory(
+            @PathVariable Long videoId, @RequestParam Long assignmentId,
+            @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(reviewVideoService.getConnectionAnswerHistory(videoId, assignmentId, actor.userId()));
     }
 
     @PostMapping("/api/review-videos/{videoId}/watch-sessions")

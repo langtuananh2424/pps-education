@@ -9,6 +9,9 @@ public interface ReviewVideoConnectionAnswerRepository extends JpaRepository<Rev
 
     List<ReviewVideoConnectionAnswer> findByWatchSessionId(Long watchSessionId);
 
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07 — batch nhiều watchSessionId cùng lúc (tránh N+1), dùng dựng popup "Hoàn thành"/"Kết quả" (xem ReviewVideoService#getConnectionAnswerHistory). */
+    List<ReviewVideoConnectionAnswer> findByWatchSession_IdIn(List<Long> watchSessionIds);
+
     /** Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-11) — toàn bộ câu trả lời của 1 học sinh cho 1 video, MỌI lượt/chu kỳ (dùng tính điểm pass tổng, lấy bản mới nhất mỗi câu hỏi ở tầng Service). */
     List<ReviewVideoConnectionAnswer> findByReviewVideoConnectionQuestion_ReviewVideoIdAndStudentId(Long videoId, Long studentId);
 

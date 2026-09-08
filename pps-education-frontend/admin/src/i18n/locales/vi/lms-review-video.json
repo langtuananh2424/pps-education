@@ -48,7 +48,8 @@
     },
     "connectionThreshold": {
       "passPercentLabel": "Ngưỡng % pass điểm trắc nghiệm (mặc định 80)",
-      "requiredViewsLabel": "Số lượt xem bắt buộc — (mặc định 1)"
+      "requiredViewsLabel": "Số lượt xem bắt buộc — (mặc định 1)",
+      "sessionPassRatioLabel": "Ngưỡng % nhắc giữa chừng (số lượt đạt/tổng lượt, mặc định 70)"
     },
     "reflexBuilder": {
       "label": "Câu hỏi (mốc thời gian) — ít nhất 1 câu *",
