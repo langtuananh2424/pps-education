@@ -113,7 +113,7 @@ export default function BillingTab() {
                 {paid.map((inv) => (
                   <div key={inv.id} className="border border-line/60 p-4 rounded-[20px] flex justify-between items-center bg-sky-2">
                     <div className="space-y-1">
-                      <h4 className="font-extrabold text-ink text-sm">{inv.invoiceNumber}</h4>
+                      <h4 className="font-extrabold text-ink text-lg">{inv.invoiceNumber}</h4>
                       <p className="text-xs text-muted font-bold">{t("billing.due")} {inv.dueDate}</p>
                     </div>
                     <span className="text-sm font-extrabold text-teal-deep">{formatPrice(inv.totalAmount)}</span>
