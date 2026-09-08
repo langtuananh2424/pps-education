@@ -40,6 +40,7 @@ import vn.com.pps.education.dto.UpdateLateSubmissionAllowedRequest;
 import vn.com.pps.education.dto.UpdateReviewVideoConnectionQuestionRequest;
 import vn.com.pps.education.dto.UpdateReviewVideoQuestionRequest;
 import vn.com.pps.education.dto.UpdateReviewVideoSetRequest;
+import vn.com.pps.education.dto.UpdateReviewVideoThresholdsRequest;
 import vn.com.pps.education.security.AuthenticatedUser;
 import vn.com.pps.education.service.ReviewVideoQuestionImportService;
 import vn.com.pps.education.service.ReviewVideoService;
@@ -159,6 +160,15 @@ public class ReviewVideoController {
     public ResponseEntity<List<ReviewVideoResponse>> listVideos(@PathVariable Long setId,
                                                                   @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(reviewVideoService.listVideos(setId, actor.userId()));
+    }
+
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-08 — xem Javadoc ReviewVideoService#updateThresholds. */
+    @PreAuthorize("hasPermission(null, 'lms.review-video.update')")
+    @PutMapping("/api/review-videos/{videoId}/thresholds")
+    public ResponseEntity<ReviewVideoResponse> updateThresholds(@PathVariable Long videoId,
+                                                                  @Valid @RequestBody UpdateReviewVideoThresholdsRequest request,
+                                                                  @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(reviewVideoService.updateThresholds(videoId, request, actor.userId()));
     }
 
     /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — xem Javadoc ReviewVideoService#deleteVideo. */
