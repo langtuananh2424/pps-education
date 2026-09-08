@@ -187,7 +187,7 @@ interface ConnectionThresholdValue {
  * điểm trắc nghiệm tổng (tổng câu đúng/tổng N câu hỏi, gộp mọi lượt) — xem đủ video luôn bắt buộc
  * 100% (cố định, không còn cấu hình được). N câu hỏi (soạn ở ConnectionQuizBuilder) được chia đều
  * ngẫu nhiên riêng theo từng học sinh qua đúng số "lượt đạt tối thiểu" bên dưới (M). Để trống dùng
- * mặc định BE (80%/1 lượt). sessionPassRatioThresholdPercent (V166, bổ sung ngoài SDD gốc, đã xác
+ * mặc định BE (80%/1 lượt). sessionPassRatioThresholdPercent (V167, bổ sung ngoài SDD gốc, đã xác
  * nhận với người dùng 2026-09-07) — ngưỡng % (số lượt đạt/M) riêng biệt, để hiện popup nhắc học
  * sinh giữa chừng "đã đạt tiêu chí, dừng hay làm tiếp" — mặc định 70, KHÔNG liên quan tới 2 field trên.
  */

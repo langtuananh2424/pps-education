@@ -21,6 +21,6 @@ public record AddReviewVideoRequest(
         Integer completionThresholdPercent,
         /** Chỉ có ý nghĩa với videoType=CONNECTION — để trống dùng mặc định 1 (V59). */
         Integer requiredViewCount,
-        /** Chỉ có ý nghĩa với videoType=CONNECTION — để trống dùng mặc định 70 (V166). */
+        /** Chỉ có ý nghĩa với videoType=CONNECTION — để trống dùng mặc định 70 (V167). */
         Integer sessionPassRatioThresholdPercent
 ) {}

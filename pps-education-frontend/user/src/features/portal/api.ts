@@ -500,7 +500,7 @@ export interface ReviewVideoResponse {
   completionThresholdPercent: number;
   /** V59 — chỉ có ý nghĩa với videoType=CONNECTION, mặc định 1. */
   requiredViewCount: number;
-  /** V166 — chỉ có ý nghĩa với videoType=CONNECTION, mặc định 70 — ngưỡng % (số lượt đạt/tổng lượt yêu cầu) để hiện popup nhắc giữa chừng. */
+  /** V167 — chỉ có ý nghĩa với videoType=CONNECTION, mặc định 70 — ngưỡng % (số lượt đạt/tổng lượt yêu cầu) để hiện popup nhắc giữa chừng. */
   sessionPassRatioThresholdPercent: number;
 }
 
