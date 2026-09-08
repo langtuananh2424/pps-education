@@ -500,6 +500,8 @@ export interface ReviewVideoResponse {
   completionThresholdPercent: number;
   /** V59 — chỉ có ý nghĩa với videoType=CONNECTION, mặc định 1. */
   requiredViewCount: number;
+  /** V167 — chỉ có ý nghĩa với videoType=CONNECTION, mặc định 70 — ngưỡng % (số lượt đạt/tổng lượt yêu cầu) để hiện popup nhắc giữa chừng. */
+  sessionPassRatioThresholdPercent: number;
 }
 
 export interface ReviewVideoProgressResponse {
@@ -749,6 +751,32 @@ export function submitReviewVideoConnectionAnswers(
     method: "PUT",
     body: JSON.stringify({ answers })
   });
+}
+
+/**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07 — toàn bộ câu trả lời của học sinh
+ * qua các lượt xem ĐÃ ĐẠT (qualified + quizPassed) của video CONNECTION/1 bản giao, dùng cho popup
+ * "Hoàn thành"/"Kết quả" (xem ReviewVideoTaskModal) khi đạt ngưỡng sessionPassRatioThresholdPercent
+ * giữa chừng hoặc hoàn thành đủ requiredViewCount. Khác ConnectionAnswerResult (chỉ id, vì popup
+ * mỗi-lượt tự map với bộ câu hỏi đang fetch) — ở đây lượt cũ đã đóng nên trả kèm nội dung câu hỏi/lựa chọn.
+ */
+export interface ReviewVideoConnectionAnswerHistoryResponse {
+  sessions: {
+    watchSessionId: number;
+    viewNumber: number;
+    answers: {
+      questionId: number;
+      prompt: string;
+      choices: { id: number; choiceLabel: string; content: string }[];
+      selectedChoiceId: number;
+      correctChoiceId: number | null;
+      correct: boolean;
+    }[];
+  }[];
+}
+
+export function getReviewVideoConnectionAnswerHistory(videoId: number, assignmentId: number): Promise<ReviewVideoConnectionAnswerHistoryResponse> {
+  return apiRequest<ReviewVideoConnectionAnswerHistoryResponse>(`/review-videos/${videoId}/connection-answer-history?assignmentId=${assignmentId}`);
 }
 
 /** Toàn bộ lịch sử các lần đã nộp cho 1 câu hỏi (mới nhất trước). */

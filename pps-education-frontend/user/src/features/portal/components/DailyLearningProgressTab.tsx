@@ -739,7 +739,7 @@ export default function DailyLearningProgressTab({
   const cardsView = (
     <div className="space-y-4">
       {filteredLogs.length === 0 ? (
-        <p className="text-xs text-muted font-bold italic text-center py-10 border border-line/80 rounded-2xl">
+        <p className="text-sm text-muted font-bold italic text-center py-10 border border-line/80 rounded-2xl">
           {t("noApprovedComments")}
         </p>
       ) : (

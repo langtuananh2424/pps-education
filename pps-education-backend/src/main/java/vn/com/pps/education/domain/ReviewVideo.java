@@ -55,4 +55,13 @@ public class ReviewVideo extends BaseAuditEntity {
     /** Chỉ có ý nghĩa với videoType=CONNECTION — số lượt xem đạt ngưỡng % tối thiểu để video được tính "đạt" (V59, mặc định 1). */
     @Column(name = "required_view_count", nullable = false)
     private int requiredViewCount = 1;
+
+    /**
+     * Chỉ có ý nghĩa với videoType=CONNECTION — % (số lượt đạt / tổng lượt yêu
+     * cầu) để phía học viên hiện popup nhắc "đã đạt tiêu chí, muốn dừng hay làm
+     * tiếp" (V167, mặc định 70). Độc lập với completionThresholdPercent (ngưỡng
+     * % pass điểm trắc nghiệm) và requiredViewCount (số lượt tối thiểu hoàn thành).
+     */
+    @Column(name = "session_pass_ratio_threshold_percent", nullable = false)
+    private int sessionPassRatioThresholdPercent = 70;
 }

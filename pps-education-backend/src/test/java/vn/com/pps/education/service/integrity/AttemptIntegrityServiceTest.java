@@ -285,7 +285,7 @@ class AttemptIntegrityServiceTest extends AbstractIntegrationTest {
         ReviewVideoAssignment assignment = reviewVideoService.deliverToClass(set.id(), schoolClass.id(), null, teacher.getId());
         ReviewVideoResponse video = reviewVideoService.addVideo(set.id(),
                 new AddReviewVideoRequest("R2_AUDIO", "Audio", "https://media.pps.edu.vn/lms/review-videos/audio/x.mp3",
-                        1_000_000L, 100, 1, null, null),
+                        1_000_000L, 100, 1, null, null, null),
                 teacher.getId());
         ReviewVideoQuestionResponse question = reviewVideoService.addQuestion(video.id(),
                 new vn.com.pps.education.dto.AddReviewVideoQuestionRequest(53, null, 15, null, null), teacher.getId());
