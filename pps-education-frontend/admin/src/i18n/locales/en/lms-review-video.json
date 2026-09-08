@@ -49,7 +49,8 @@
     "connectionThreshold": {
       "passPercentLabel": "Quiz pass threshold % (default 80)",
       "requiredViewsLabel": "Required view count — questions are split evenly across attempts (default 1)",
-      "sessionPassRatioLabel": "Mid-way reminder threshold % (passed sessions/required, default 70)"
+      "sessionPassRatioLabel": "Mid-way reminder threshold % (passed sessions/required, default 70)",
+      "reflexPassPercentLabel": "Pass threshold % per question (writing & speaking, default 70)"
     },
     "reflexBuilder": {
       "label": "Questions (timestamps) — at least 1 question required *",
@@ -113,7 +114,8 @@
     "toast": {
       "setCreated": "Video set created successfully!",
       "setSaved": "Review video set saved successfully!",
-      "videoAdded": "Video added successfully!"
+      "videoAdded": "Video added successfully!",
+      "thresholdsUpdated": "Video thresholds updated."
     },
     "assignClass": {
       "title": "Assign video set to classes",
@@ -182,10 +184,14 @@
       "sizeUnknown": "—",
       "durationMinutes": "{{minutes}} min",
       "connectionMeta": " · Pass threshold {{percent}}% · Split evenly across {{count}} attempts",
+      "reflexMeta": " · Writing/speaking pass threshold {{percent}}%/question",
       "closeQuestions": "Close questions",
       "manageQuestions": "Manage questions",
       "fields": { "title": "Title *" },
       "addButton": "Add video",
+      "editThresholdsTooltip": "Edit thresholds",
+      "editThresholdsTitle": "Edit thresholds: {{title}}",
+      "saveThresholdsButton": "Save thresholds",
       "deleteTooltip": "Delete video",
       "deleteConfirm": "Delete video \"{{title}}\"? This cannot be undone.",
       "deletedToast": "Video deleted.",
@@ -193,7 +199,8 @@
         "loadFailed": "Couldn't load the video list.",
         "requiredFields": "Please fill in the title, video/audio, and wait for the duration to be detected.",
         "addFailed": "Failed to add the video — you may not be assigned to teach this class/framework.",
-        "deleteFailed": "Failed to delete the video."
+        "deleteFailed": "Failed to delete the video.",
+        "updateThresholdsFailed": "Failed to update the thresholds."
       }
     },
     "reflexFields": {

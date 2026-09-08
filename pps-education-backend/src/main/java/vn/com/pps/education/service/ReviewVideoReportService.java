@@ -70,12 +70,15 @@ public class ReviewVideoReportService {
 
     private static final String PERM_REVIEW_VIDEO_MANAGE = "lms.review-video.manage";
 
-    /** V145 — phải khớp ReflexSequentialGradingService.PASS_THRESHOLD_PERCENT (private ở đó, không expose được). */
-    private static final int REFLEX_PASS_THRESHOLD_PERCENT = 70;
-
+    /**
+     * V168 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-08) — ngưỡng % đạt (viết VÀ
+     * nói) đọc từ cấu hình của chính video (trước đây hardcode 70 cố định, lặp lại ở 3 nơi — mirror
+     * ReflexSequentialGradingService#passThresholdPercent/ReviewVideoService#isReflexQuestionPassed).
+     */
     private boolean isReflexQuestionPassed(ReflexQuestionProgress p) {
-        return p.getWritingScore() != null && p.getWritingScore().compareTo(BigDecimal.valueOf(REFLEX_PASS_THRESHOLD_PERCENT)) >= 0
-                && p.getSpeakingScore() != null && p.getSpeakingScore().compareTo(BigDecimal.valueOf(REFLEX_PASS_THRESHOLD_PERCENT)) >= 0;
+        int threshold = p.getReviewVideoQuestion().getReviewVideo().getCompletionThresholdPercent();
+        return p.getWritingScore() != null && p.getWritingScore().compareTo(BigDecimal.valueOf(threshold)) >= 0
+                && p.getSpeakingScore() != null && p.getSpeakingScore().compareTo(BigDecimal.valueOf(threshold)) >= 0;
     }
 
     public ReviewVideoReportService(ReviewVideoAssignmentRepository reviewVideoAssignmentRepository,

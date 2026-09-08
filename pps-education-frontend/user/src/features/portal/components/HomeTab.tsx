@@ -116,10 +116,10 @@ export default function HomeTab({ studentName, classId, parentStudentId }: HomeT
                       className="shrink-0 w-[85%] snap-start bg-slate-50/50 border border-line/60 p-4 rounded-[16px] space-y-1"
                     >
                       <div className="flex justify-between items-center">
-                        <span className="text-[12px] font-bold text-teal uppercase">{n.notificationType}</span>
+                        <span className="text-[13px] font-bold text-teal uppercase">{n.notificationType}</span>
                         <span className="text-sm text-muted font-semibold">{formatDateTimeHm(n.createdAt, i18n.language)}</span>
                       </div>
-                      <h4 className="font-extrabold text-ink text-sm">{n.title}</h4>
+                      <h4 className="font-extrabold text-ink text-[16px]">{n.title}</h4>
                       <p className="text-xs text-muted font-semibold" style={clampLines(3)}>
                         {n.content}
                       </p>

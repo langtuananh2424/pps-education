@@ -48,7 +48,13 @@ public class ReviewVideo extends BaseAuditEntity {
     @Column(name = "display_order", nullable = false)
     private int displayOrder = 0;
 
-    /** Chỉ có ý nghĩa với videoType=CONNECTION — % ngưỡng để 1 lượt xem được tính "đạt" (V59, mặc định 80). */
+    /**
+     * Ý nghĩa khác nhau theo videoType (V59, mặc định 80 — V168 đổi mặc định REFLEX thành 70 lúc tạo
+     * mới, xem ReviewVideoService#addVideo): với CONNECTION là % pass điểm trắc nghiệm gộp mọi lượt
+     * (dùng cho báo cáo giáo viên UC-66, xem ReviewVideoReportService); với REFLEX là ngưỡng % đạt
+     * (viết VÀ nói) mỗi câu hỏi (V168, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-08 —
+     * trước đó hardcode 70 cố định ở ReflexSequentialGradingService, xem migration V168).
+     */
     @Column(name = "completion_threshold_percent", nullable = false)
     private int completionThresholdPercent = 80;
 

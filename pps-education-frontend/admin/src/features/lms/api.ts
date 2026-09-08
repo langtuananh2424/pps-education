@@ -973,6 +973,17 @@ export function deleteReviewVideo(videoId: number): Promise<void> {
   return apiRequest<void>(`/review-videos/${videoId}`, { method: "DELETE" });
 }
 
+/** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-08 — sửa lại 3 ngưỡng cấu hình của 1 video đã tạo (không sửa title/fileUrl/sourceType). Áp dụng từ thời điểm sửa trở đi, không backfill tiến độ đã tính trước đó. */
+export interface UpdateReviewVideoThresholdsRequest {
+  completionThresholdPercent: number;
+  requiredViewCount: number;
+  sessionPassRatioThresholdPercent: number;
+}
+
+export function updateReviewVideoThresholds(videoId: number, request: UpdateReviewVideoThresholdsRequest): Promise<ReviewVideoResponse> {
+  return apiRequest<ReviewVideoResponse>(`/review-videos/${videoId}/thresholds`, { method: "PUT", body: JSON.stringify(request) });
+}
+
 /** Khớp VideoHeader/StatsCell thật — ma trận học sinh × video (roster LEFT JOIN tiến độ, học sinh chưa xem gì vẫn hiện 0%). */
 export interface ReviewVideoStatsHeader {
   videoId: number;

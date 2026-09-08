@@ -61,6 +61,7 @@ import vn.com.pps.education.dto.UpdateConnectionChoiceRequest;
 import vn.com.pps.education.dto.UpdateReviewVideoConnectionQuestionRequest;
 import vn.com.pps.education.dto.UpdateReviewVideoQuestionRequest;
 import vn.com.pps.education.dto.UpdateReviewVideoSetRequest;
+import vn.com.pps.education.dto.UpdateReviewVideoThresholdsRequest;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
 import vn.com.pps.education.exception.QuizAlreadyCompletedException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
@@ -164,12 +165,15 @@ public class ReviewVideoService {
 
     private static final String PERM_REVIEW_VIDEO_MANAGE = "lms.review-video.manage";
 
-    /** V145 — phải khớp ReflexSequentialGradingService.PASS_THRESHOLD_PERCENT (private ở đó, không expose được). */
-    private static final int REFLEX_PASS_THRESHOLD_PERCENT = 70;
-
+    /**
+     * V168 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-08) — ngưỡng % đạt (viết VÀ
+     * nói) đọc từ cấu hình của chính video (trước đây hardcode 70 cố định, lặp lại ở 3 nơi — mirror
+     * ReflexSequentialGradingService#passThresholdPercent/ReviewVideoReportService#isReflexQuestionPassed).
+     */
     private boolean isReflexQuestionPassed(ReflexQuestionProgress p) {
-        return p.getWritingScore() != null && p.getWritingScore().compareTo(BigDecimal.valueOf(REFLEX_PASS_THRESHOLD_PERCENT)) >= 0
-                && p.getSpeakingScore() != null && p.getSpeakingScore().compareTo(BigDecimal.valueOf(REFLEX_PASS_THRESHOLD_PERCENT)) >= 0;
+        int threshold = p.getReviewVideoQuestion().getReviewVideo().getCompletionThresholdPercent();
+        return p.getWritingScore() != null && p.getWritingScore().compareTo(BigDecimal.valueOf(threshold)) >= 0
+                && p.getSpeakingScore() != null && p.getSpeakingScore().compareTo(BigDecimal.valueOf(threshold)) >= 0;
     }
 
     public ReviewVideoService(ReviewVideoSetRepository reviewVideoSetRepository,
@@ -644,10 +648,34 @@ public class ReviewVideoService {
         video.setFileSizeBytes(request.fileSizeBytes());
         video.setDurationSeconds(request.durationSeconds());
         video.setDisplayOrder(request.displayOrder() == null ? 0 : request.displayOrder());
-        video.setCompletionThresholdPercent(request.completionThresholdPercent() == null ? 80 : request.completionThresholdPercent());
+        // V168 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-08) — mặc định khác nhau
+        // theo loại video: CONNECTION 80 (ngưỡng % pass điểm trắc nghiệm), REFLEX 70 (ngưỡng % đạt
+        // viết/nói mỗi câu, mirror giá trị hardcode cũ trước khi cấu hình được).
+        int defaultCompletionThreshold = set.getVideoType() == ReviewVideoSet.VideoType.REFLEX ? 70 : 80;
+        video.setCompletionThresholdPercent(
+                request.completionThresholdPercent() == null ? defaultCompletionThreshold : request.completionThresholdPercent());
         video.setRequiredViewCount(request.requiredViewCount() == null ? 1 : request.requiredViewCount());
         video.setSessionPassRatioThresholdPercent(
                 request.sessionPassRatioThresholdPercent() == null ? 70 : request.sessionPassRatioThresholdPercent());
+        video = reviewVideoRepository.save(video);
+        return toResponse(video);
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-08 — sửa lại 3 ngưỡng cấu hình của 1
+     * video đã tạo (không sửa title/fileUrl/sourceType — giữ nguyên "video đã tạo không sửa nội dung
+     * gốc"). Áp dụng cho các lượt xem/báo cáo TỪ THỜI ĐIỂM sửa trở đi, không backfill lại tiến độ đã
+     * tính trước đó (VD progress.completed của học sinh đang xem dở chỉ được tính lại ở lần
+     * report/submit tiếp theo của họ, xem {@link #recomputeProgress}).
+     */
+    @Transactional
+    public ReviewVideoResponse updateThresholds(Long videoId, UpdateReviewVideoThresholdsRequest request, Long actorUserId) {
+        ReviewVideo video = getVideoOrThrow(videoId);
+        requireOwnerScope(video.getReviewVideoSet(), actorUserId);
+
+        video.setCompletionThresholdPercent(request.completionThresholdPercent());
+        video.setRequiredViewCount(request.requiredViewCount());
+        video.setSessionPassRatioThresholdPercent(request.sessionPassRatioThresholdPercent());
         video = reviewVideoRepository.save(video);
         return toResponse(video);
     }
