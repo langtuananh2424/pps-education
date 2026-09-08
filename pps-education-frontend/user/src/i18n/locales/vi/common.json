@@ -11,9 +11,18 @@
   },
   "installPrompt": {
     "title": "Cài đặt PPS Portal",
-    "iosHint": "Nhấn nút Chia sẻ rồi chọn “Thêm vào MH chính” để dùng như app.",
+    "iosHint": "Thêm vào màn hình chính để dùng như app và nhận thông báo.",
     "androidHint": "Thêm vào màn hình chính để mở nhanh như một ứng dụng.",
     "installButton": "Cài đặt",
-    "close": "Đóng"
+    "showGuide": "Xem cách",
+    "hideGuide": "Thu gọn",
+    "close": "Đóng",
+    "iosSteps": {
+      "safariOnly": "⚠️ iOS chỉ cho phép thêm từ trình duyệt Safari. Hãy mở lại trang này bằng Safari rồi làm theo các bước dưới.",
+      "step1": "Bấm nút Chia sẻ (hình ô vuông có mũi tên hướng lên) ở thanh công cụ dưới cùng của Safari.",
+      "step2": "Vuốt lên trong danh sách, chọn “Thêm vào MH chính” (Add to Home Screen).",
+      "step3": "Bấm “Thêm” ở góc trên bên phải, rồi mở app từ icon vừa xuất hiện trên màn hình chính.",
+      "whyBother": "Bắt buộc làm bước này thì iOS mới cho phép nhận thông báo đẩy — đây là quy định của Apple, không phải lỗi ứng dụng."
+    }
   }
 }

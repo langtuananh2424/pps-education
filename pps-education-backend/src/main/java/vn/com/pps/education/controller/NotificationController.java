@@ -70,8 +70,9 @@ public class NotificationController {
     /** Đăng ký/refresh device token cho kênh PUSH (gọi lúc app mở/login). */
     @PostMapping("/device-token")
     public ResponseEntity<Void> registerDeviceToken(@Valid @RequestBody DeviceTokenRequest request,
-                                                      @AuthenticationPrincipal AuthenticatedUser actor) {
-        notificationService.registerDeviceToken(actor.userId(), request);
+                                                      @AuthenticationPrincipal AuthenticatedUser actor,
+                                                      HttpServletRequest httpRequest) {
+        notificationService.registerDeviceToken(actor.userId(), request, httpRequest);
         return ResponseEntity.ok().build();
     }
 
