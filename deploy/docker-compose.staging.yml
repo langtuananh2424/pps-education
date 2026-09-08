@@ -23,6 +23,38 @@ services:
   postgres:
     image: postgis/postgis:16-3.4
     restart: unless-stopped
+    # Image postgis chạy bằng postgres.conf mặc định: shared_buffers 128MB,
+    # max_connections 100 - tính cho máy nhỏ, không hợp với server 40 core/30GB.
+    # Các giá trị dưới đây theo hướng dẫn tuning chuẩn của PostgreSQL:
+    #   shared_buffers        ~25% RAM, nhưng CHỐT 4GB thay vì 7.5GB vì máy còn
+    #                         chạy JVM + MinIO + 9Router trên cùng 30GB.
+    #   effective_cache_size  ước lượng RAM mà OS còn dùng để cache -> chỉ là
+    #                         gợi ý cho planner, không cấp phát thật.
+    #   max_connections 200   phải LỚN HƠN tổng DB_POOL_SIZE của mọi instance
+    #                         (staging đang set 50), chừa chỗ cho psql/pgAdmin.
+    command:
+      - postgres
+      - -c
+      - max_connections=200
+      - -c
+      - shared_buffers=4GB
+      - -c
+      - effective_cache_size=12GB
+      - -c
+      - work_mem=16MB
+      - -c
+      - maintenance_work_mem=512MB
+      - -c
+      - random_page_cost=1.1          # SSD, không phải đĩa quay
+      - -c
+      - max_worker_processes=16
+      - -c
+      - max_parallel_workers=16
+      - -c
+      - max_parallel_workers_per_gather=4
+    # Parallel worker của Postgres dùng /dev/shm; mặc định Docker chỉ cấp 64MB
+    # -> query song song sẽ lỗi "could not resize shared memory segment".
+    shm_size: 1gb
     environment:
       POSTGRES_DB: pps_education
       POSTGRES_USER: pps_app
@@ -90,6 +122,14 @@ services:
       DB_URL: jdbc:postgresql://postgres:5432/pps_education
       DB_USERNAME: pps_app
       DB_PASSWORD: ${DB_PASSWORD}
+      # Pool mặc định của Spring Boot là 10 - quá thấp cho server 40 core.
+      # Tổng pool mọi instance phải < postgres max_connections (đang là 200).
+      DB_POOL_SIZE: ${DB_POOL_SIZE:-50}
+      DB_POOL_MIN_IDLE: ${DB_POOL_MIN_IDLE:-10}
+      # Heap: JVM mặc định lấy 25% RAM container. Container KHÔNG giới hạn RAM
+      # nên JVM thấy cả 30GB -> heap ~7.5GB. Ghim tường minh để biết chắc đang
+      # test với bao nhiêu, và chừa RAM cho Postgres shared_buffers (4GB).
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--Xms2g -Xmx6g -XX:+UseG1GC -XX:MaxGCPauseMillis=200}
       JWT_SECRET: ${JWT_SECRET}
       SEED_DEV_USERS: ${SEED_DEV_USERS:-false}
       # Bootstrap 1 tài khoản sysadmin lần đầu (KHÁC SEED_DEV_USERS - xem InitialAdminSeeder.java).

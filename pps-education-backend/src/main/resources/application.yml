@@ -13,6 +13,22 @@ spring:
     username: ${DB_USERNAME:pps_app}
     password: ${DB_PASSWORD:dev_only_not_a_real_secret}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      # Trước đây KHÔNG khai báo hikari -> chạy bằng default 10 của Spring Boot.
+      # Trên server staging (40 core / 30GB) con số đó là trần cứng: mọi request
+      # chạm DB đều xếp hàng qua 10 connection, CPU gần như không được dùng tới.
+      # Giữ default 10 cho máy dev (Docker Desktop cục bộ yếu hơn nhiều), môi
+      # trường thật nâng lên qua DB_POOL_SIZE trong .env.
+      #
+      # Ràng buộc: tổng pool của MỌI instance phải < postgres max_connections
+      # (mặc định 100, staging đã nâng lên 200 - xem deploy/docker-compose.staging.yml).
+      maximum-pool-size: ${DB_POOL_SIZE:10}
+      minimum-idle: ${DB_POOL_MIN_IDLE:5}
+      # Chờ tối đa 10s để lấy connection rồi fail nhanh, thay vì để request
+      # treo vô hạn khi pool cạn -> lúc load test sẽ thấy lỗi rõ ràng đúng thời
+      # điểm chạm trần, thay vì latency tăng âm thầm không biết vì sao.
+      connection-timeout: ${DB_POOL_TIMEOUT_MS:10000}
+      leak-detection-threshold: 60000
 
   jpa:
     hibernate:
