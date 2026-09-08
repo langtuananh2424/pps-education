@@ -151,6 +151,22 @@
       "submittedSummary": "Đã nộp — {{correct}}/{{total}} câu đúng. Lượt này đã được tính.",
       "answerNowBanner": "Cần trả lời câu hỏi để tính lượt xem này",
       "answerNowButton": "Trả lời ngay →"
+    },
+    "thresholdPopup": {
+      "heading": "Bạn đã đạt tiêu chí hoàn thành bài",
+      "description": "Bạn đã đạt {{achieved}}/{{required}} lượt (≥{{threshold}}%) — đủ điều kiện hoàn thành bài. Bạn muốn dừng lại xem kết quả hay tiếp tục làm nốt?",
+      "stopButton": "Dừng, xem kết quả",
+      "continueButton": "Tiếp tục làm nốt"
+    },
+    "finalPopup": {
+      "completedTitle": "🎉 Hoàn thành bài tập",
+      "completedDescription": "Bạn đã hoàn thành đủ {{required}}/{{required}} lượt yêu cầu. Xem lại kết quả từng câu bên dưới.",
+      "stoppedTitle": "Kết quả của bạn",
+      "stoppedDescription": "Bạn đã dừng lại sau {{achieved}}/{{required}} lượt. Xem lại kết quả từng câu bên dưới.",
+      "loading": "Đang tải kết quả...",
+      "loadError": "Không tải được kết quả — thử lại.",
+      "sessionLabel": "Lượt {{viewNumber}}",
+      "closeButton": "Đóng"
     }
   },
   "reflexVideoTask": {
@@ -219,6 +235,7 @@
       "passedFeedbackTitle": "Đạt — mở khoá câu tiếp theo",
       "failedFeedbackTitle": "Chưa đạt",
       "scoreLabel": "điểm nội dung {{score}}%",
+      "listenBackLabel": "Nghe lại bài ghi âm của bạn",
       "retryButton": "Ghi âm lại",
       "attemptCount": "Đã ghi âm {{count}} lần",
       "passedPopup": {

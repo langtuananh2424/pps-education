@@ -96,7 +96,7 @@ export default function DocumentLibraryTab({ classId }: DocumentLibraryTabProps)
           </div>
           <div>
             <h2 className="text-lg md:text-xl font-black text-white">{t("documents.heroTitle")}</h2>
-            <p className="text-xs text-white/80 font-bold mt-0.5">{t("documents.heroSubtitle")}</p>
+            <p className="text-sm text-white/80 font-bold mt-0.5">{t("documents.heroSubtitle")}</p>
           </div>
         </div>
 
@@ -106,7 +106,7 @@ export default function DocumentLibraryTab({ classId }: DocumentLibraryTabProps)
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={t("documents.searchPlaceholder")}
-            className="w-full bg-white border-none rounded-xl pl-8 pr-3 py-2.5 text-xs font-bold text-ink focus:outline-none focus:ring-2 focus:ring-white/50 shadow-sm"
+            className="w-full bg-white border-none rounded-xl pl-8 pr-3 py-2.5 text-sm font-bold text-ink focus:outline-none focus:ring-2 focus:ring-white/50 shadow-sm"
           />
         </div>
       </div>
@@ -123,7 +123,7 @@ export default function DocumentLibraryTab({ classId }: DocumentLibraryTabProps)
             <button
               key={c.key}
               onClick={() => setCategoryFilter(c.key)}
-              className={`shrink-0 snap-start px-3.5 py-2 rounded-xl text-xs font-bold transition-colors ${
+              className={`shrink-0 snap-start px-3.5 py-2 rounded-xl text-sm font-bold transition-colors ${
                 categoryFilter === c.key ? "bg-teal text-white shadow-sm" : "bg-white border border-line/80 text-muted hover:bg-sky-2"
               }`}
             >
@@ -134,7 +134,7 @@ export default function DocumentLibraryTab({ classId }: DocumentLibraryTabProps)
       </div>
 
       {filteredDocuments.length === 0 ? (
-        <p className="text-xs text-muted font-bold italic text-center py-10">{t("documents.noResults")}</p>
+        <p className="text-sm text-muted font-bold italic text-center py-10">{t("documents.noResults")}</p>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredDocuments.map((doc) => {

@@ -97,7 +97,9 @@ function OptionalAudioFields({
         </div>
         <div>
           <label className="block font-bold text-slate-600 mb-1 text-[9px] uppercase">{t("common.transcriptLabel")}</label>
-          <input value={transcript} onChange={(e) => setTranscript(e.target.value)} placeholder={t("common.transcriptPlaceholder")} className={inputClass} />
+          {/* Fix bug thật (2026-09-08, đã xác nhận với người dùng) — <input> 1 dòng xoá sạch \n khi dán
+              transcript nhiều dòng, mirror ListeningGroupBuilder.tsx đã sửa cùng đợt. */}
+          <textarea value={transcript} onChange={(e) => setTranscript(e.target.value)} placeholder={t("common.transcriptPlaceholder")} rows={3} className={inputClass} />
         </div>
       </div>
     </div>
@@ -453,7 +455,9 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
             </div>
             <div>
               <label className="block font-bold text-slate-600 mb-1 text-[9px] uppercase">{t("common.transcriptLabel")}</label>
-              <input value={transcript} onChange={(e) => setTranscript(e.target.value)} placeholder={t("common.transcriptPlaceholder")} className={inputClass} />
+              {/* Fix bug thật (2026-09-08, đã xác nhận với người dùng) — <input> 1 dòng xoá sạch \n khi
+                  dán transcript nhiều dòng, mirror ListeningGroupBuilder.tsx đã sửa cùng đợt. */}
+              <textarea value={transcript} onChange={(e) => setTranscript(e.target.value)} placeholder={t("common.transcriptPlaceholder")} rows={3} className={inputClass} />
             </div>
           </div>
         </div>

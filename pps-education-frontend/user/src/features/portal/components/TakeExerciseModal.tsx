@@ -128,9 +128,19 @@ function chunkArray<T>(items: T[], size: number): T[][] {
  * "Tên: nội dung" mà GridQuestionBuilder tạo ra (chỉ referencePassage của khối GRID mới có dạng này —
  * hàm này CHỈ dùng trong GridQuestionGroup, không dùng cho referencePassage của câu đơn lẻ/ESSAY/audio
  * ở QuestionBlock) — đoạn nào không khớp mẫu (dữ liệu cũ/khác) thì hiện nguyên văn, không có tên riêng.
+ *
+ * V4 (fix bug thật 2026-09-08, đã xác nhận với người dùng qua ảnh chụp) — transcript bài Nghe dạng hội
+ * thoại (VD "A: ...\nB: ...", ListeningGroupBuilder) dán từ trang web/PDF thường CHỈ có 1 \n giữa mỗi
+ * lượt nói (không có dòng trống thật — nguồn dựng bằng nhiều <p> riêng, mỗi đoạn chỉ cách nhau 1 \n khi
+ * copy ra text thô), khiến split(/\n\s*\n/) coi cả transcript là 1 đoạn DUY NHẤT rồi gộp hết thành 1
+ * dòng dài — mất hẳn ranh giới lượt hội thoại. Chèn thêm 1 dòng trống ẢO trước mỗi dòng bắt đầu bằng
+ * "Tên:" hoặc "N." (số thứ tự câu hỏi trong transcript) TRƯỚC khi split — nhận diện được ranh giới ngay
+ * cả khi nguồn không có dòng trống thật, không ảnh hưởng trường hợp GridQuestionBuilder cũ (đã có sẵn
+ * "\n\n" thật, chèn thêm không đổi kết quả split).
  */
 function parsePassageParagraphs(text: string): { name: string | null; content: string }[] {
-  return text
+  const withTurnBreaks = text.replace(/\n(?=\s*(?:[^\n:]{1,40}:\s|\d+\.\s))/g, "\n\n");
+  return withTurnBreaks
     .split(/\n\s*\n/)
     .map((para) => para.replace(/\s*\n\s*/g, " ").trim())
     .filter(Boolean)
@@ -588,7 +598,7 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
             {/* Bổ sung 2026-09-04 (đã xác nhận với người dùng) — mirror AssignmentsTab.tsx/
                 BatchTakeExerciseModal.tsx: hiện Lesson + Unit/SubTopic để phân biệt Lesson trùng tên. */}
             {(item.unitTitle || item.subTopicTitle) && (
-              <p className="text-xs font-bold text-muted truncate">
+              <p className="text-sm font-bold text-muted truncate">
                 {item.examTitle} · {[item.unitTitle, item.subTopicTitle].filter(Boolean).join(" · ")}
               </p>
             )}
@@ -1001,7 +1011,7 @@ export function QuestionBlock({
           <span className="block text-muted text-xs sm:text-sm uppercase tracking-wider mb-1">
             {t("takeExercise.question.numberPrefix", { number: displayNumber ?? question.displayOrder })}
           </span>
-          <span className="whitespace-pre-line">{question.questionContent}</span>
+          <span className="text-sm sm:text-sm lg:text-base whitespace-pre-line">{question.questionContent}</span>
         </p>
         <div className="flex items-center gap-2 shrink-0">
           {question.skill === "LISTENING" && question.audioUrl && attemptId != null && (
@@ -1035,11 +1045,17 @@ export function QuestionBlock({
             const isSelected = selected.has(c.id);
             const isCorrectChoice = correctIds.has(c.id);
             let stateClass = "border-line/70 bg-sky-2 hover:bg-sky";
+            let labelClass = "text-muted";
+            // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-08 — trước khi nộp, lựa chọn
+            // ĐANG chọn chỉ có viền/nền teal nhạt (bg-teal/10), quá mờ để nhận ra ngay đã chọn đáp án
+            // nào — mirror đúng màu đậm + icon check đã dùng ở trắc nghiệm Video từ kết nối
+            // (ReviewVideoTaskModal.tsx: "picked ? bg-teal text-white border-teal").
             if (showFeedback) {
               if (isCorrectChoice) stateClass = "border-teal bg-teal/10";
               else if (isSelected) stateClass = "border-coral bg-coral/10";
             } else if (isSelected) {
-              stateClass = "border-teal bg-teal/10";
+              stateClass = "border-teal bg-teal text-white";
+              labelClass = "text-white/80";
             }
             return (
               <button
@@ -1054,11 +1070,12 @@ export function QuestionBlock({
                 </div>
                 <span className="flex items-center justify-between gap-1 px-2 py-1.5 text-[11px] sm:text-xs font-bold">
                   <span>
-                    <span className="text-muted mr-1">{c.choiceLabel}.</span>
+                    <span className={`${labelClass} mr-1`}>{c.choiceLabel}.</span>
                     {hasMeaningfulChoiceCaption(c.choiceLabel, c.content) && c.content}
                   </span>
                   {showFeedback && isCorrectChoice && <CheckCircle2 size={14} className="text-teal-deep shrink-0" />}
                   {showFeedback && !isCorrectChoice && isSelected && <XCircle size={14} className="text-coral shrink-0" />}
+                  {!showFeedback && isSelected && <CheckCircle2 size={14} className="text-white shrink-0" />}
                 </span>
               </button>
             );
@@ -1070,11 +1087,13 @@ export function QuestionBlock({
             const isSelected = selected.has(c.id);
             const isCorrectChoice = correctIds.has(c.id);
             let stateClass = "border-line/70 bg-sky-2 hover:bg-sky";
+            let labelClass = "text-muted";
             if (showFeedback) {
               if (isCorrectChoice) stateClass = "border-teal bg-teal/10";
               else if (isSelected) stateClass = "border-coral bg-coral/10";
             } else if (isSelected) {
-              stateClass = "border-teal bg-teal/10";
+              stateClass = "border-teal bg-teal text-white";
+              labelClass = "text-white/80";
             }
             return (
               <button
@@ -1085,11 +1104,12 @@ export function QuestionBlock({
                 className={`w-full text-left text-xs sm:text-sm lg:text-base font-bold px-3 py-2.5 sm:px-4 sm:py-3 rounded-xl border transition-colors flex items-center justify-between gap-2 ${stateClass} disabled:cursor-default`}
               >
                 <span>
-                  <span className="text-muted mr-1.5">{c.choiceLabel}.</span>
+                  <span className={`${labelClass} mr-1.5`}>{c.choiceLabel}.</span>
                   {c.content}
                 </span>
                 {showFeedback && isCorrectChoice && <CheckCircle2 size={14} className="text-teal-deep shrink-0" />}
                 {showFeedback && !isCorrectChoice && isSelected && <XCircle size={14} className="text-coral shrink-0" />}
+                {!showFeedback && isSelected && <CheckCircle2 size={14} className="text-white shrink-0" />}
               </button>
             );
           })}
@@ -1192,9 +1212,9 @@ export function QuestionBlock({
        * sao đạt/không đạt" thay vì chỉ thấy % tổng ở popup kết quả.
        */}
       {answer?.gradingFeedback && (
-        <div className="text-xs font-bold p-3 rounded-xl border bg-sky-2 border-teal/20 space-y-1.5">
+        <div className="text-sm font-bold p-3 rounded-xl border bg-sky-2 border-teal/20 space-y-1.5">
           <div className="flex items-center justify-between gap-2 flex-wrap">
-            <span className="text-teal-deep uppercase text-[10px] tracking-wide">{t("takeExercise.question.gradingFeedbackTitle")}</span>
+            <span className="text-teal-deep uppercase text-base tracking-wide">{t("takeExercise.question.gradingFeedbackTitle")}</span>
             <span className="text-[10px] text-muted font-black uppercase">
               {answer.gradingSource === "AI" ? t("takeExercise.question.gradedByAi") : t("takeExercise.question.gradedByTeacher")}
               {answer.gradingScore != null && answer.gradingMaxScore != null
@@ -1264,6 +1284,10 @@ function ListeningAudioBlock({ question, onEnded }: { question: ExerciseQuestion
  * mở gọi lại API (không cache kết quả cũ) để backend ghi đúng 1 "lượt xem" cho thống kê GV mỗi lần đóng
  * rồi mở lại (xem Javadoc ListeningHintService#getHint). Vẫn giữ nguyên luồng khoá theo playCount (nghe
  * đủ ngưỡng lần mới mở khoá được popup).
+ *
+ * V172 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-08) — thử đổi sang sidebar trượt từ
+ * phải nhưng người dùng thấy không ổn, ĐÃ REVERT lại đúng popup này (chỉ giữ lại 2 tinh chỉnh trước đó:
+ * rộng hơn `w-[28rem]` và chữ transcript in đậm).
  */
 function ListeningHintButton({
   attemptId,
@@ -1355,13 +1379,20 @@ function ListeningHintButton({
     }
   };
 
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-08 — fix bug thật: trước đây CHỈ gọi
+  // API lúc BẤM mở (handleToggle). Nếu học sinh mở popup dạng "chưa đủ lượt" rồi nghe xong đủ ngưỡng
+  // NGAY TRONG LÚC popup còn đang mở (không đóng/mở lại) — progress.hintUnlocked lật true nhưng
+  // transcript không tự tải, phải đóng ra bấm "?" lại mới thấy. Effect này theo dõi cả `open` lẫn
+  // `unlocked`, tự gọi lại API ngay khi 1 trong 2 chuyển true trong lúc cái còn lại đã true sẵn —
+  // thay hẳn cho lệnh gọi trong handleToggle (tránh gọi trùng 2 lần cho cùng 1 lần mở).
+  useEffect(() => {
+    if (open && unlocked) ensureLoaded();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, unlocked]);
+
   const handleToggle = () => {
     if (readOnly) return;
-    setOpen((prev) => {
-      const next = !prev;
-      if (next) ensureLoaded();
-      return next;
-    });
+    setOpen((prev) => !prev);
   };
 
   return (
@@ -1388,26 +1419,33 @@ function ListeningHintButton({
               </div>
             </div>
           ) : (
+            // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-08 — transcript dài (nhiều đoạn
+            // hội thoại) trên điện thoại tràn quá chiều cao màn hình, không vuốt/cuộn được (panel trước
+            // đây cao theo đúng nội dung, không giới hạn). Giới hạn chiều cao (~nửa màn hình trên mobile,
+            // rộng hơn trên desktop) + tách riêng phần tiêu đề CỐ ĐỊNH (nút đóng luôn bấm được) khỏi phần
+            // nội dung CUỘN ĐƯỢC RIÊNG bên trong.
             <div
               ref={panelRef}
               style={{ position: "fixed", top: placement.top, bottom: placement.bottom, right: placement.right }}
-              className="z-[200] w-72 max-w-[80vw] text-left text-xs bg-white border border-line/60 rounded-xl shadow-lg p-3 space-y-1.5"
+              className="z-[200] w-[28rem] max-w-[90vw] max-h-[50vh] sm:max-h-[70vh] flex flex-col text-left text-xs bg-white border border-line/60 rounded-xl shadow-lg overflow-hidden"
             >
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center justify-between gap-2 p-3 border-b border-line/40 shrink-0">
                 <span className="font-bold text-[10px] uppercase tracking-wide text-muted">{t("takeExercise.listening.transcriptLabel")}</span>
                 <button type="button" onClick={() => setOpen(false)} aria-label={t("takeExercise.closeAriaLabel")} className="text-muted hover:text-ink shrink-0">
                   <X size={13} />
                 </button>
               </div>
-              {loading ? (
-                <p className="font-bold text-muted flex items-center gap-1.5">
-                  <Loader2 size={12} className="animate-spin" /> {t("takeExercise.listening.loadingHint")}
-                </p>
-              ) : error ? (
-                <p className="font-bold text-coral">{error}</p>
-              ) : hint?.transcript ? (
-                <p className="whitespace-pre-line">{hint.transcript}</p>
-              ) : null}
+              <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
+                {loading ? (
+                  <p className="font-bold text-muted flex items-center gap-1.5">
+                    <Loader2 size={12} className="animate-spin" /> {t("takeExercise.listening.loadingHint")}
+                  </p>
+                ) : error ? (
+                  <p className="font-bold text-coral">{error}</p>
+                ) : hint?.transcript ? (
+                  <p className="text-sm font-bold text-ink whitespace-pre-line">{hint.transcript}</p>
+                ) : null}
+              </div>
             </div>
           ),
           document.body
@@ -1455,7 +1493,7 @@ function WordBankBlock({
               value={selections[idx]}
               disabled={readOnly || saving}
               onChange={(e) => handleSelect(idx, e.target.value)}
-              className="bg-sky-2 border border-line/70 text-xs sm:text-sm lg:text-base font-bold px-2 py-1.5 sm:px-3 sm:py-2 rounded-lg focus:outline-none disabled:opacity-70"
+              className="bg-sky-2 border border-line/70 text-sm sm:text-sm lg:text-base font-bold px-2 py-1.5 sm:px-3 sm:py-2 rounded-lg focus:outline-none disabled:opacity-70"
             >
               <option value="">{t("takeExercise.wordBank.choosePlaceholder")}</option>
               {wordPool
@@ -1673,7 +1711,7 @@ export function GridQuestionGroup({
           return (
             <div key={q.id} className="py-2.5 lg:py-3.5 space-y-2">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs sm:text-sm lg:text-base font-bold text-ink flex-1 min-w-[160px]">
+                <span className="text-sm sm:text-sm lg:text-base font-bold text-ink flex-1 min-w-[160px]">
                   {startNumber != null ? startNumber + qIndex : q.displayOrder}. {q.questionContent}
                 </span>
               </div>
@@ -1704,11 +1742,13 @@ export function GridQuestionGroup({
                         const isSelected = selected.has(c.id);
                         const isCorrectChoice = correctIds.has(c.id);
                         let stateClass = "border-line/70 bg-sky-2 hover:bg-sky";
+                        let labelClass = "text-muted";
                         if (showFeedback) {
                           if (isCorrectChoice) stateClass = "border-teal bg-teal/10";
                           else if (isSelected) stateClass = "border-coral bg-coral/10";
                         } else if (isSelected) {
-                          stateClass = "border-teal bg-teal/10";
+                          stateClass = "border-teal bg-teal text-white";
+                          labelClass = "text-white/80";
                         }
                         return (
                           <button
@@ -1723,11 +1763,12 @@ export function GridQuestionGroup({
                             </div>
                             <span className="flex items-center justify-between gap-1 px-2 py-1.5 text-[11px] font-bold">
                               <span>
-                                <span className="text-muted mr-1">{c.choiceLabel}.</span>
+                                <span className={`${labelClass} mr-1`}>{c.choiceLabel}.</span>
                                 {hasMeaningfulChoiceCaption(c.choiceLabel, c.content) && c.content}
                               </span>
                               {showFeedback && isCorrectChoice && <CheckCircle2 size={14} className="text-teal-deep shrink-0" />}
                               {showFeedback && !isCorrectChoice && isSelected && <XCircle size={14} className="text-coral shrink-0" />}
+                              {!showFeedback && isSelected && <CheckCircle2 size={14} className="text-white shrink-0" />}
                             </span>
                           </button>
                         );
@@ -1738,11 +1779,13 @@ export function GridQuestionGroup({
                       const isSelected = selected.has(c.id);
                       const isCorrectChoice = correctIds.has(c.id);
                       let stateClass = "border-line/70 bg-sky-2 hover:bg-sky";
+                      let labelClass = "text-muted";
                       if (showFeedback) {
                         if (isCorrectChoice) stateClass = "border-teal bg-teal/10";
                         else if (isSelected) stateClass = "border-coral bg-coral/10";
                       } else if (isSelected) {
-                        stateClass = "border-teal bg-teal/10";
+                        stateClass = "border-teal bg-teal text-white";
+                        labelClass = "text-white/80";
                       }
                       return (
                         <button
@@ -1753,11 +1796,12 @@ export function GridQuestionGroup({
                           className={`w-full text-left text-xs sm:text-sm font-bold px-3 py-2 rounded-xl border transition-colors flex items-center justify-between gap-2 ${stateClass} disabled:cursor-default`}
                         >
                           <span>
-                            <span className="text-muted mr-1.5">{c.choiceLabel}.</span>
+                            <span className={`${labelClass} mr-1.5`}>{c.choiceLabel}.</span>
                             {c.content}
                           </span>
                           {showFeedback && isCorrectChoice && <CheckCircle2 size={14} className="text-teal-deep shrink-0" />}
                           {showFeedback && !isCorrectChoice && isSelected && <XCircle size={14} className="text-coral shrink-0" />}
+                          {!showFeedback && isSelected && <CheckCircle2 size={14} className="text-white shrink-0" />}
                         </button>
                       );
                     })

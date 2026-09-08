@@ -3,7 +3,19 @@ package vn.com.pps.education.repository;
 import org.springframework.data.jpa.repository.JpaRepository;
 import vn.com.pps.education.domain.ReviewVideoWatchSession;
 
+import java.util.List;
+
 public interface ReviewVideoWatchSessionRepository extends JpaRepository<ReviewVideoWatchSession, Long> {
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07 — toàn bộ các lượt xem ĐÃ ĐẠT
+     * (qualified=true, quizPassed=true — đúng điều kiện đang được tính vào viewCount, xem
+     * {@link #countByReviewVideoIdAndStudentIdAndReviewVideoAssignmentIdAndQualifiedTrueAndQuizPassedTrue}),
+     * sắp theo thời điểm nộp quiz tăng dần — dùng dựng popup "Hoàn thành"/"Kết quả" liệt kê câu đã
+     * trả lời qua từng lượt (xem ReviewVideoService#getConnectionAnswerHistory).
+     */
+    List<ReviewVideoWatchSession> findByReviewVideoIdAndStudentIdAndReviewVideoAssignmentIdAndQualifiedTrueAndQuizPassedTrueOrderByQuizCompletedAtAsc(
+            Long reviewVideoId, Long studentId, Long reviewVideoAssignmentId);
 
     /** V129 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-19) — thêm lọc theo lần giao, mirror ghi chú ReviewVideoProgressRepository. */
     int countByReviewVideoIdAndStudentIdAndReviewVideoAssignmentIdAndQualifiedTrue(Long reviewVideoId, Long studentId, Long reviewVideoAssignmentId);

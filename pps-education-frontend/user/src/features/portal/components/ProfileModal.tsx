@@ -176,7 +176,7 @@ export default function ProfileModal({
               )}
             </div>
             <div className="pb-1 flex items-center gap-2 flex-wrap">
-              <h3 className="text-xl font-extrabold text-ink">{fullName}</h3>
+              <h3 className="text-2xl font-extrabold text-ink">{fullName}</h3>
               <span className="bg-teal/10 text-teal-deep border border-teal/30 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide">
                 {t("profile.studentBadge")}
               </span>
@@ -189,19 +189,19 @@ export default function ProfileModal({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <h4 className="text-xs font-extrabold text-teal-deep uppercase tracking-wide flex items-center gap-1.5 mb-3">
+              <h4 className="text-sm font-extrabold text-teal-deep uppercase tracking-wide flex items-center gap-1.5 mb-3">
                 <GraduationCap size={14} /> {t("profile.academicInfo")}
               </h4>
               <div className="bg-sky-2/60 border border-line/70 rounded-[16px] p-4 space-y-2.5 text-xs">
                 <div className="flex justify-between border-b border-line/60 pb-2">
-                  <span className="text-muted font-bold">{t("profile.classLabel")}</span>
+                  <span className="text-sm text-muted font-bold">{t("profile.classLabel")}</span>
                   <span className="font-extrabold text-ink text-right">
                     {className ?? "—"}
                     {classCode ? ` (${classCode})` : ""}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted font-bold">{t("profile.statusLabel")}</span>
+                  <span className="text-sm text-muted font-bold">{t("profile.statusLabel")}</span>
                   <span className="font-extrabold text-teal-deep">
                     {enrollmentStatus ? t(`profile.status.${enrollmentStatus}`, { defaultValue: enrollmentStatus }) : "—"}
                   </span>
@@ -210,24 +210,24 @@ export default function ProfileModal({
             </div>
 
             <div>
-              <h4 className="text-xs font-extrabold text-gold uppercase tracking-wide flex items-center gap-1.5 mb-3">
+              <h4 className="text-sm font-extrabold text-gold uppercase tracking-wide flex items-center gap-1.5 mb-3">
                 <Award size={14} /> {t("profile.achievements")}
               </h4>
               <div className="space-y-2">
                 <div className="bg-gold/5 border border-dashed border-gold/30 rounded-[16px] p-3 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Lock size={13} className="text-gold/70" />
-                    <span className="text-[11px] font-bold text-muted">{t("profile.learningProgressLocked")}</span>
+                    <span className="text-[12px] font-bold text-muted">{t("profile.learningProgressLocked")}</span>
                   </div>
-                  <span className="text-[10px] font-extrabold text-gold uppercase">{t("profile.comingSoon")}</span>
+                  <span className="text-[11px] font-extrabold text-gold uppercase">{t("profile.comingSoon")}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="bg-gold/5 border border-dashed border-gold/30 rounded-[16px] p-3 text-center">
-                    <p className="text-[10px] font-bold text-muted uppercase mb-1">{t("profile.rewardWallet")}</p>
+                    <p className="text-[11px] font-bold text-muted uppercase mb-1">{t("profile.rewardWallet")}</p>
                     <p className="text-base font-extrabold text-gold/60">—</p>
                   </div>
                   <div className="bg-gold/5 border border-dashed border-gold/30 rounded-[16px] p-3 text-center">
-                    <p className="text-[10px] font-bold text-muted uppercase mb-1">{t("profile.learningStreak")}</p>
+                    <p className="text-[11px] font-bold text-muted uppercase mb-1">{t("profile.learningStreak")}</p>
                     <p className="text-base font-extrabold text-gold/60">—</p>
                   </div>
                 </div>
@@ -237,7 +237,7 @@ export default function ProfileModal({
 
           <div className="mt-6">
             <div className="flex items-center justify-between mb-3">
-              <h4 className="text-xs font-extrabold text-teal-deep uppercase tracking-wide flex items-center gap-1.5">
+              <h4 className="text-sm font-extrabold text-teal-deep uppercase tracking-wide flex items-center gap-1.5">
                 <Users size={14} /> {t("profile.familyContact")}
               </h4>
               {isParent && !editingParent && (
@@ -248,16 +248,16 @@ export default function ProfileModal({
             </div>
             <div className="bg-sky-2/60 border border-line/70 rounded-[16px] p-4 space-y-2.5 text-xs">
               <div className="flex justify-between items-center border-b border-line/60 pb-2">
-                <span className="text-muted font-bold flex items-center gap-1.5">
+                <span className="text-sm text-muted font-bold flex items-center gap-1.5">
                   <User size={12} /> {t("profile.parentLabel")}
                 </span>
-                <span className={`font-extrabold ${displayParentName ? "text-ink" : "text-muted/70"}`}>{displayParentName ?? "—"}</span>
+                <span className={`text-sm font-extrabold ${displayParentName ? "text-ink" : "text-muted/70"}`}>{displayParentName ?? "—"}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-muted font-bold flex items-center gap-1.5">
+                <span className="text-sm text-muted font-bold flex items-center gap-1.5">
                   <Phone size={12} /> {t("profile.phoneLabel")}
                 </span>
-                <span className={`font-extrabold ${displayParentPhone ? "text-ink" : "text-muted/70"}`}>{displayParentPhone ?? "—"}</span>
+                <span className={`text-sm font-extrabold ${displayParentPhone ? "text-ink" : "text-muted/70"}`}>{displayParentPhone ?? "—"}</span>
               </div>
               {isStudent && !displayParentName && (
                 <p className="text-[10px] text-muted font-bold pt-1">{t("profile.noParentLinked")}</p>
@@ -329,12 +329,12 @@ export default function ProfileModal({
           </div>
 
           <div className="mt-6">
-            <h4 className="text-xs font-extrabold text-coral uppercase tracking-wide flex items-center gap-1.5 mb-3">
+            <h4 className="text-sm font-extrabold text-coral uppercase tracking-wide flex items-center gap-1.5 mb-3">
               <Heart size={14} /> {t("profile.shareGoals")}
             </h4>
             <div className="bg-gold/5 border border-dashed border-gold/30 rounded-[16px] p-4 flex items-start gap-2.5">
               <Sparkles size={16} className="text-gold shrink-0 mt-0.5" />
-              <p className="text-xs text-muted font-bold leading-relaxed">
+              <p className="text-sm text-muted font-bold leading-relaxed">
                 {t("profile.shareGoalsComingSoon")}
               </p>
             </div>

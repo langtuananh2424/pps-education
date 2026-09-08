@@ -44,6 +44,7 @@ import vn.com.pps.education.dto.PendingGradingClassSummaryResponse;
 import vn.com.pps.education.dto.ReportVideoProgressRequest;
 import vn.com.pps.education.dto.ReviewVideoAssignmentResponse;
 import vn.com.pps.education.dto.ReviewVideoAssignmentStatsResponse;
+import vn.com.pps.education.dto.ReviewVideoConnectionAnswerHistoryResponse;
 import vn.com.pps.education.dto.ReviewVideoConnectionChoiceResponse;
 import vn.com.pps.education.dto.ReviewVideoConnectionQuestionResponse;
 import vn.com.pps.education.dto.ReviewVideoConnectionQuizResultResponse;
@@ -60,6 +61,7 @@ import vn.com.pps.education.dto.UpdateConnectionChoiceRequest;
 import vn.com.pps.education.dto.UpdateReviewVideoConnectionQuestionRequest;
 import vn.com.pps.education.dto.UpdateReviewVideoQuestionRequest;
 import vn.com.pps.education.dto.UpdateReviewVideoSetRequest;
+import vn.com.pps.education.dto.UpdateReviewVideoThresholdsRequest;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
 import vn.com.pps.education.exception.QuizAlreadyCompletedException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
@@ -163,12 +165,15 @@ public class ReviewVideoService {
 
     private static final String PERM_REVIEW_VIDEO_MANAGE = "lms.review-video.manage";
 
-    /** V145 — phải khớp ReflexSequentialGradingService.PASS_THRESHOLD_PERCENT (private ở đó, không expose được). */
-    private static final int REFLEX_PASS_THRESHOLD_PERCENT = 70;
-
+    /**
+     * V168 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-08) — ngưỡng % đạt (viết VÀ
+     * nói) đọc từ cấu hình của chính video (trước đây hardcode 70 cố định, lặp lại ở 3 nơi — mirror
+     * ReflexSequentialGradingService#passThresholdPercent/ReviewVideoReportService#isReflexQuestionPassed).
+     */
     private boolean isReflexQuestionPassed(ReflexQuestionProgress p) {
-        return p.getWritingScore() != null && p.getWritingScore().compareTo(BigDecimal.valueOf(REFLEX_PASS_THRESHOLD_PERCENT)) >= 0
-                && p.getSpeakingScore() != null && p.getSpeakingScore().compareTo(BigDecimal.valueOf(REFLEX_PASS_THRESHOLD_PERCENT)) >= 0;
+        int threshold = p.getReviewVideoQuestion().getReviewVideo().getCompletionThresholdPercent();
+        return p.getWritingScore() != null && p.getWritingScore().compareTo(BigDecimal.valueOf(threshold)) >= 0
+                && p.getSpeakingScore() != null && p.getSpeakingScore().compareTo(BigDecimal.valueOf(threshold)) >= 0;
     }
 
     public ReviewVideoService(ReviewVideoSetRepository reviewVideoSetRepository,
@@ -643,8 +648,34 @@ public class ReviewVideoService {
         video.setFileSizeBytes(request.fileSizeBytes());
         video.setDurationSeconds(request.durationSeconds());
         video.setDisplayOrder(request.displayOrder() == null ? 0 : request.displayOrder());
-        video.setCompletionThresholdPercent(request.completionThresholdPercent() == null ? 80 : request.completionThresholdPercent());
+        // V168 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-08) — mặc định khác nhau
+        // theo loại video: CONNECTION 80 (ngưỡng % pass điểm trắc nghiệm), REFLEX 70 (ngưỡng % đạt
+        // viết/nói mỗi câu, mirror giá trị hardcode cũ trước khi cấu hình được).
+        int defaultCompletionThreshold = set.getVideoType() == ReviewVideoSet.VideoType.REFLEX ? 70 : 80;
+        video.setCompletionThresholdPercent(
+                request.completionThresholdPercent() == null ? defaultCompletionThreshold : request.completionThresholdPercent());
         video.setRequiredViewCount(request.requiredViewCount() == null ? 1 : request.requiredViewCount());
+        video.setSessionPassRatioThresholdPercent(
+                request.sessionPassRatioThresholdPercent() == null ? 70 : request.sessionPassRatioThresholdPercent());
+        video = reviewVideoRepository.save(video);
+        return toResponse(video);
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-08 — sửa lại 3 ngưỡng cấu hình của 1
+     * video đã tạo (không sửa title/fileUrl/sourceType — giữ nguyên "video đã tạo không sửa nội dung
+     * gốc"). Áp dụng cho các lượt xem/báo cáo TỪ THỜI ĐIỂM sửa trở đi, không backfill lại tiến độ đã
+     * tính trước đó (VD progress.completed của học sinh đang xem dở chỉ được tính lại ở lần
+     * report/submit tiếp theo của họ, xem {@link #recomputeProgress}).
+     */
+    @Transactional
+    public ReviewVideoResponse updateThresholds(Long videoId, UpdateReviewVideoThresholdsRequest request, Long actorUserId) {
+        ReviewVideo video = getVideoOrThrow(videoId);
+        requireOwnerScope(video.getReviewVideoSet(), actorUserId);
+
+        video.setCompletionThresholdPercent(request.completionThresholdPercent());
+        video.setRequiredViewCount(request.requiredViewCount());
+        video.setSessionPassRatioThresholdPercent(request.sessionPassRatioThresholdPercent());
         video = reviewVideoRepository.save(video);
         return toResponse(video);
     }
@@ -886,6 +917,60 @@ public class ReviewVideoService {
         ReviewVideo video = getVideoOrThrow(videoId);
         StudentAccess access = resolveStudentAccessForAssignment(video.getReviewVideoSet(), assignmentId, actorUserId);
         return toResponse(getOrCreateProgress(video, access.student(), access.assignment()), video);
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07 — toàn bộ câu trả lời của học
+     * sinh qua các lượt xem ĐÃ ĐẠT (qualified + quizPassed — đúng điều kiện đang tính vào viewCount,
+     * xem {@link #recomputeProgress}) của 1 video CONNECTION/1 bản giao, sắp theo thứ tự lượt xem
+     * (viewNumber 1..N). Dùng cho popup "Hoàn thành"/"Kết quả" phía học viên (FE) khi đạt ngưỡng
+     * sessionPassRatioThresholdPercent giữa chừng hoặc hoàn thành đủ requiredViewCount — các lượt cũ
+     * đã đóng nên trả kèm luôn nội dung câu hỏi/lựa chọn (khác {@link ConnectionAnswerResult}, chỉ
+     * có id, vì popup mỗi-lượt tự map với bộ câu hỏi đang fetch của đúng lượt đang mở).
+     */
+    @Transactional(readOnly = true)
+    public ReviewVideoConnectionAnswerHistoryResponse getConnectionAnswerHistory(Long videoId, Long assignmentId, Long actorUserId) {
+        ReviewVideo video = getVideoOrThrow(videoId);
+        StudentAccess access = resolveStudentAccessForAssignment(video.getReviewVideoSet(), assignmentId, actorUserId);
+        List<ReviewVideoWatchSession> sessions = reviewVideoWatchSessionRepository
+                .findByReviewVideoIdAndStudentIdAndReviewVideoAssignmentIdAndQualifiedTrueAndQuizPassedTrueOrderByQuizCompletedAtAsc(
+                        videoId, access.student().getId(), access.assignment().getId());
+        if (sessions.isEmpty()) {
+            return new ReviewVideoConnectionAnswerHistoryResponse(List.of());
+        }
+
+        List<Long> sessionIds = sessions.stream().map(ReviewVideoWatchSession::getId).toList();
+        Map<Long, List<ReviewVideoConnectionAnswer>> answersBySessionId = reviewVideoConnectionAnswerRepository
+                .findByWatchSession_IdIn(sessionIds).stream()
+                .collect(Collectors.groupingBy(a -> a.getWatchSession().getId()));
+
+        List<ReviewVideoConnectionAnswerHistoryResponse.SessionAnswers> sessionAnswers = new ArrayList<>();
+        int viewNumber = 0;
+        for (ReviewVideoWatchSession session : sessions) {
+            viewNumber++;
+            List<ReviewVideoConnectionAnswerHistoryResponse.AnsweredQuestion> answeredQuestions = answersBySessionId
+                    .getOrDefault(session.getId(), List.of()).stream()
+                    .sorted(Comparator.comparing(a -> a.getReviewVideoConnectionQuestion().getDisplayOrder()))
+                    .map(this::toAnsweredQuestion)
+                    .toList();
+            sessionAnswers.add(new ReviewVideoConnectionAnswerHistoryResponse.SessionAnswers(
+                    session.getId(), viewNumber, answeredQuestions));
+        }
+        return new ReviewVideoConnectionAnswerHistoryResponse(sessionAnswers);
+    }
+
+    private ReviewVideoConnectionAnswerHistoryResponse.AnsweredQuestion toAnsweredQuestion(ReviewVideoConnectionAnswer answer) {
+        ReviewVideoConnectionQuestion question = answer.getReviewVideoConnectionQuestion();
+        List<ReviewVideoConnectionChoice> choices = reviewVideoConnectionChoiceRepository
+                .findByReviewVideoConnectionQuestionIdOrderByDisplayOrder(question.getId());
+        ReviewVideoConnectionChoice correctChoice = choices.stream()
+                .filter(ReviewVideoConnectionChoice::isCorrect).findFirst().orElse(null);
+        List<ReviewVideoConnectionAnswerHistoryResponse.ChoiceOption> choiceOptions = choices.stream()
+                .map(c -> new ReviewVideoConnectionAnswerHistoryResponse.ChoiceOption(c.getId(), c.getChoiceLabel(), c.getContent()))
+                .toList();
+        return new ReviewVideoConnectionAnswerHistoryResponse.AnsweredQuestion(
+                question.getId(), question.getPrompt(), choiceOptions,
+                answer.getSelectedChoice().getId(), correctChoice == null ? null : correctChoice.getId(), answer.isCorrect());
     }
 
     /**
@@ -1845,7 +1930,7 @@ public class ReviewVideoService {
         return new ReviewVideoResponse(
                 v.getId(), v.getReviewVideoSet().getId(), v.getSourceType().name(), v.getTitle(), v.getFileUrl(),
                 v.getFileSizeBytes(), v.getDurationSeconds(), v.getDisplayOrder(),
-                v.getCompletionThresholdPercent(), v.getRequiredViewCount());
+                v.getCompletionThresholdPercent(), v.getRequiredViewCount(), v.getSessionPassRatioThresholdPercent());
     }
 
     private ReviewVideoProgressResponse toResponse(ReviewVideoProgress p, ReviewVideo video) {

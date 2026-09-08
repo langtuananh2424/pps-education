@@ -33,9 +33,15 @@ function chunkArray<T>(items: T[], size: number): T[][] {
  * dung") — giữ lại làm dòng trống hiển thị, MỌI \n đơn lẻ còn lại (rác copy-paste Word/PDF) gộp thành
  * khoảng trắng; đồng thời tách riêng tên nhân vật khỏi nội dung để hiện thành dòng tiêu đề in đậm
  * riêng, khớp đúng hình thức đề giấy gốc — đoạn không khớp mẫu "Tên: nội dung" thì hiện nguyên văn.
+ *
+ * V4 (fix bug thật 2026-09-08, đã xác nhận với người dùng qua ảnh chụp, mirror TakeExerciseModal.tsx
+ * bên app user) — transcript bài Nghe dạng hội thoại dán từ trang web/PDF thường CHỈ có 1 \n giữa mỗi
+ * lượt nói (không có dòng trống thật) — chèn thêm 1 dòng trống ẢO trước mỗi dòng bắt đầu bằng
+ * "Tên:"/"N." TRƯỚC khi split.
  */
 function parsePassageParagraphs(text: string): { name: string | null; content: string }[] {
-  return text
+  const withTurnBreaks = text.replace(/\n(?=\s*(?:[^\n:]{1,40}:\s|\d+\.\s))/g, "\n\n");
+  return withTurnBreaks
     .split(/\n\s*\n/)
     .map((para) => para.replace(/\s*\n\s*/g, " ").trim())
     .filter(Boolean)

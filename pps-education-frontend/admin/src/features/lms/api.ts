@@ -942,6 +942,8 @@ export interface AddReviewVideoRequest {
   completionThresholdPercent?: number;
   /** V59 — chỉ có ý nghĩa với videoType=CONNECTION, để trống dùng mặc định 1. */
   requiredViewCount?: number;
+  /** V167 — chỉ có ý nghĩa với videoType=CONNECTION, để trống dùng mặc định 70 — ngưỡng % (số lượt đạt/tổng lượt yêu cầu) để phía học viên hiện popup nhắc giữa chừng. */
+  sessionPassRatioThresholdPercent?: number;
 }
 
 export interface ReviewVideoResponse {
@@ -955,6 +957,7 @@ export interface ReviewVideoResponse {
   displayOrder: number;
   completionThresholdPercent: number;
   requiredViewCount: number;
+  sessionPassRatioThresholdPercent: number;
 }
 
 export function addReviewVideo(setId: number, request: AddReviewVideoRequest): Promise<ReviewVideoResponse> {
@@ -968,6 +971,17 @@ export function listReviewVideos(setId: number): Promise<ReviewVideoResponse[]> 
 /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — BE tự chặn (400) nếu video đã có học sinh xem/làm bài. */
 export function deleteReviewVideo(videoId: number): Promise<void> {
   return apiRequest<void>(`/review-videos/${videoId}`, { method: "DELETE" });
+}
+
+/** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-08 — sửa lại 3 ngưỡng cấu hình của 1 video đã tạo (không sửa title/fileUrl/sourceType). Áp dụng từ thời điểm sửa trở đi, không backfill tiến độ đã tính trước đó. */
+export interface UpdateReviewVideoThresholdsRequest {
+  completionThresholdPercent: number;
+  requiredViewCount: number;
+  sessionPassRatioThresholdPercent: number;
+}
+
+export function updateReviewVideoThresholds(videoId: number, request: UpdateReviewVideoThresholdsRequest): Promise<ReviewVideoResponse> {
+  return apiRequest<ReviewVideoResponse>(`/review-videos/${videoId}/thresholds`, { method: "PUT", body: JSON.stringify(request) });
 }
 
 /** Khớp VideoHeader/StatsCell thật — ma trận học sinh × video (roster LEFT JOIN tiến độ, học sinh chưa xem gì vẫn hiện 0%). */

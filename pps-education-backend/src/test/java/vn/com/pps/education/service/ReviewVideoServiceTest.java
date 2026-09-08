@@ -249,13 +249,13 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         ReviewVideoSetResponse set = createSet();
 
         ReviewVideoResponse youtube = reviewVideoService.addVideo(set.id(),
-                new AddReviewVideoRequest("YOUTUBE_URL", "Video TKN 1", "https://youtube.com/watch?v=abc123", null, 180, 1, null, null),
+                new AddReviewVideoRequest("YOUTUBE_URL", "Video TKN 1", "https://youtube.com/watch?v=abc123", null, 180, 1, null, null, null),
                 teacher.getId());
         ReviewVideoResponse r2Video = reviewVideoService.addVideo(set.id(),
-                new AddReviewVideoRequest("R2_VIDEO", "Video TKN 2", "https://media.pps.edu.vn/lms/review-videos/video/x.mp4", 5_000_000L, 200, 2, null, null),
+                new AddReviewVideoRequest("R2_VIDEO", "Video TKN 2", "https://media.pps.edu.vn/lms/review-videos/video/x.mp4", 5_000_000L, 200, 2, null, null, null),
                 teacher.getId());
         ReviewVideoResponse r2Audio = reviewVideoService.addVideo(set.id(),
-                new AddReviewVideoRequest("R2_AUDIO", "Video phản xạ audio", "https://media.pps.edu.vn/lms/review-videos/audio/y.mp3", 1_000_000L, 90, 3, null, null),
+                new AddReviewVideoRequest("R2_AUDIO", "Video phản xạ audio", "https://media.pps.edu.vn/lms/review-videos/audio/y.mp3", 1_000_000L, 90, 3, null, null, null),
                 teacher.getId());
 
         assertThat(youtube.sourceType()).isEqualTo("YOUTUBE_URL");
@@ -630,7 +630,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         commitCurrentTransactionAndStartNew();
         reviewVideoService.deliverToClass(setB.id(), schoolClass.id(), null, teacher.getId());
         ReviewVideoResponse videoB = reviewVideoService.addVideo(setB.id(),
-                new AddReviewVideoRequest("R2_VIDEO", "Video B", "https://media.pps.edu.vn/lms/review-videos/video/b.mp4", 1_000_000L, 100, 1, null, null),
+                new AddReviewVideoRequest("R2_VIDEO", "Video B", "https://media.pps.edu.vn/lms/review-videos/video/b.mp4", 1_000_000L, 100, 1, null, null, null),
                 teacher.getId());
         Student student = enrollStudent(schoolClass.id());
 
@@ -1185,7 +1185,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         ReviewVideoSetResponse set = createSet();
         ReviewVideoResponse video = reviewVideoService.addVideo(set.id(),
                 new AddReviewVideoRequest("R2_VIDEO", "Video", "https://media.pps.edu.vn/lms/review-videos/video/x.mp4",
-                        1_000_000L, 100, 1, null, null),
+                        1_000_000L, 100, 1, null, null, null),
                 teacher.getId());
 
         ReviewVideoConnectionQuestionResponse question = reviewVideoService.addConnectionQuestion(video.id(),
@@ -1441,7 +1441,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         ReviewVideoSetResponse set = createSet();
         reviewVideoService.addVideo(set.id(),
                 new AddReviewVideoRequest("R2_VIDEO", "Video", "https://media.pps.edu.vn/lms/review-videos/video/x.mp4",
-                        1_000_000L, 100, 1, null, null),
+                        1_000_000L, 100, 1, null, null, null),
                 teacher.getId());
 
         assertThatThrownBy(() -> reviewVideoService.updateSet(set.id(),
@@ -1474,7 +1474,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         commitCurrentTransactionAndStartNew();
         reviewVideoService.deliverToClass(set.id(), schoolClass.id(), null, teacher.getId());
         return reviewVideoService.addVideo(set.id(),
-                new AddReviewVideoRequest("R2_AUDIO", "Audio", "https://media.pps.edu.vn/lms/review-videos/audio/x.mp3", 1_000_000L, durationSeconds, 1, null, null),
+                new AddReviewVideoRequest("R2_AUDIO", "Audio", "https://media.pps.edu.vn/lms/review-videos/audio/x.mp3", 1_000_000L, durationSeconds, 1, null, null, null),
                 teacher.getId());
     }
 
@@ -1492,7 +1492,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         reviewVideoService.deliverToClass(set.id(), schoolClass.id(), null, teacher.getId());
         return reviewVideoService.addVideo(set.id(),
                 new AddReviewVideoRequest("R2_VIDEO", "Video", "https://media.pps.edu.vn/lms/review-videos/video/x.mp4", 1_000_000L,
-                        durationSeconds, 1, completionThresholdPercent, requiredViewCount),
+                        durationSeconds, 1, completionThresholdPercent, requiredViewCount, null),
                 teacher.getId());
     }
 

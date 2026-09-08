@@ -23,6 +23,7 @@ import vn.com.pps.education.dto.PendingGradingClassSummaryResponse;
 import vn.com.pps.education.dto.ReportVideoProgressRequest;
 import vn.com.pps.education.dto.ReviewVideoAssignmentResponse;
 import vn.com.pps.education.dto.ReviewVideoAssignmentStatsResponse;
+import vn.com.pps.education.dto.ReviewVideoConnectionAnswerHistoryResponse;
 import vn.com.pps.education.dto.ReviewVideoConnectionQuestionResponse;
 import vn.com.pps.education.dto.ReviewVideoConnectionQuizResultResponse;
 import vn.com.pps.education.dto.ReviewVideoProgressResponse;
@@ -39,6 +40,7 @@ import vn.com.pps.education.dto.UpdateLateSubmissionAllowedRequest;
 import vn.com.pps.education.dto.UpdateReviewVideoConnectionQuestionRequest;
 import vn.com.pps.education.dto.UpdateReviewVideoQuestionRequest;
 import vn.com.pps.education.dto.UpdateReviewVideoSetRequest;
+import vn.com.pps.education.dto.UpdateReviewVideoThresholdsRequest;
 import vn.com.pps.education.security.AuthenticatedUser;
 import vn.com.pps.education.service.ReviewVideoQuestionImportService;
 import vn.com.pps.education.service.ReviewVideoService;
@@ -160,6 +162,15 @@ public class ReviewVideoController {
         return ResponseEntity.ok(reviewVideoService.listVideos(setId, actor.userId()));
     }
 
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-08 — xem Javadoc ReviewVideoService#updateThresholds. */
+    @PreAuthorize("hasPermission(null, 'lms.review-video.update')")
+    @PutMapping("/api/review-videos/{videoId}/thresholds")
+    public ResponseEntity<ReviewVideoResponse> updateThresholds(@PathVariable Long videoId,
+                                                                  @Valid @RequestBody UpdateReviewVideoThresholdsRequest request,
+                                                                  @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(reviewVideoService.updateThresholds(videoId, request, actor.userId()));
+    }
+
     /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — xem Javadoc ReviewVideoService#deleteVideo. */
     @PreAuthorize("hasPermission(null, 'lms.review-video.update')")
     @DeleteMapping("/api/review-videos/{videoId}")
@@ -241,6 +252,14 @@ public class ReviewVideoController {
                                                                       @RequestParam Long assignmentId,
                                                                       @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(reviewVideoService.getProgress(videoId, assignmentId, actor.userId()));
+    }
+
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07 — xem Javadoc ReviewVideoService#getConnectionAnswerHistory. */
+    @GetMapping("/api/review-videos/{videoId}/connection-answer-history")
+    public ResponseEntity<ReviewVideoConnectionAnswerHistoryResponse> getConnectionAnswerHistory(
+            @PathVariable Long videoId, @RequestParam Long assignmentId,
+            @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(reviewVideoService.getConnectionAnswerHistory(videoId, assignmentId, actor.userId()));
     }
 
     @PostMapping("/api/review-videos/{videoId}/watch-sessions")

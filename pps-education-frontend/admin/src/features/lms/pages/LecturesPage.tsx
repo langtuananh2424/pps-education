@@ -41,6 +41,7 @@ import {
   updateReviewVideoConnectionQuestion,
   updateReviewVideoQuestion,
   updateReviewVideoSet,
+  updateReviewVideoThresholds,
   uploadMedia
 } from "../api";
 import Button from "@/components/ui/Button";
@@ -178,43 +179,76 @@ function useYouTubeDurationProbe() {
 interface ConnectionThresholdValue {
   completionThresholdPercent: string;
   requiredViewCount: string;
+  sessionPassRatioThresholdPercent: string;
 }
 
 /**
- * UC-23a — chỉ có ý nghĩa với video CONNECTION. Bổ sung ngoài SDD gốc, đã xác nhận với người dùng
- * 2026-08-11 — completionThresholdPercent đổi ý nghĩa từ "ngưỡng % xem/lượt" sang "ngưỡng % pass"
- * điểm trắc nghiệm tổng (tổng câu đúng/tổng N câu hỏi, gộp mọi lượt) — xem đủ video luôn bắt buộc
- * 100% (cố định, không còn cấu hình được). N câu hỏi (soạn ở ConnectionQuizBuilder) được chia đều
- * ngẫu nhiên riêng theo từng học sinh qua đúng số "lượt đạt tối thiểu" bên dưới (M). Để trống dùng
- * mặc định BE (80%/1 lượt).
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-11 — completionThresholdPercent đổi ý
+ * nghĩa từ "ngưỡng % xem/lượt" sang "ngưỡng % pass" điểm trắc nghiệm tổng (tổng câu đúng/tổng N câu
+ * hỏi, gộp mọi lượt, CHỈ CONNECTION) — xem đủ video luôn bắt buộc 100% (cố định, không còn cấu hình
+ * được). N câu hỏi (soạn ở ConnectionQuizBuilder) được chia đều ngẫu nhiên riêng theo từng học sinh
+ * qua đúng số "lượt đạt tối thiểu" bên dưới (M). requiredViewCount/sessionPassRatioThresholdPercent
+ * (V167) CHỈ áp dụng CONNECTION. Để trống dùng mặc định BE (80%/1 lượt/70%).
+ *
+ * V168 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-08) — với video REFLEX,
+ * completionThresholdPercent mang Ý NGHĨA KHÁC HẲN: ngưỡng % đạt (viết VÀ nói) mỗi câu hỏi (trước đó
+ * hardcode 70 cố định ở ReflexSequentialGradingService, nay cấu hình được theo từng video) — chỉ
+ * hiện field này cho REFLEX, ẩn 2 field còn lại (không áp dụng). Mặc định BE cho REFLEX là 70 (khác
+ * CONNECTION mặc định 80 — xem ReviewVideoService#addVideo).
  */
-function ConnectionThresholdFields({ value, onChange }: { value: ConnectionThresholdValue; onChange: (v: ConnectionThresholdValue) => void }) {
+function ConnectionThresholdFields({
+  value,
+  onChange,
+  videoType
+}: {
+  value: ConnectionThresholdValue;
+  onChange: (v: ConnectionThresholdValue) => void;
+  videoType: ReviewVideoType;
+}) {
   const { t } = useTranslation("lms-review-video");
   return (
-    <div className="grid grid-cols-2 gap-3 bg-sky-50/60 border border-sky-100 rounded-lg p-3">
+    <div className={`grid gap-3 bg-sky-50/60 border border-sky-100 rounded-lg p-3 ${videoType === "CONNECTION" ? "grid-cols-3" : "grid-cols-1"}`}>
       <div>
-        <label className={labelClass}>{t("lectures.connectionThreshold.passPercentLabel")}</label>
+        <label className={labelClass}>
+          {videoType === "CONNECTION" ? t("lectures.connectionThreshold.passPercentLabel") : t("lectures.connectionThreshold.reflexPassPercentLabel")}
+        </label>
         <input
           type="number"
           min={1}
           max={100}
           value={value.completionThresholdPercent}
           onChange={(e) => onChange({ ...value, completionThresholdPercent: e.target.value })}
-          placeholder="80"
+          placeholder={videoType === "CONNECTION" ? "80" : "70"}
           className={inputClass}
         />
       </div>
-      <div>
-        <label className={labelClass}>{t("lectures.connectionThreshold.requiredViewsLabel")}</label>
-        <input
-          type="number"
-          min={1}
-          value={value.requiredViewCount}
-          onChange={(e) => onChange({ ...value, requiredViewCount: e.target.value })}
-          placeholder="1"
-          className={inputClass}
-        />
-      </div>
+      {videoType === "CONNECTION" && (
+        <>
+          <div>
+            <label className={labelClass}>{t("lectures.connectionThreshold.requiredViewsLabel")}</label>
+            <input
+              type="number"
+              min={1}
+              value={value.requiredViewCount}
+              onChange={(e) => onChange({ ...value, requiredViewCount: e.target.value })}
+              placeholder="1"
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label className={labelClass}>{t("lectures.connectionThreshold.sessionPassRatioLabel")}</label>
+            <input
+              type="number"
+              min={1}
+              max={100}
+              value={value.sessionPassRatioThresholdPercent}
+              onChange={(e) => onChange({ ...value, sessionPassRatioThresholdPercent: e.target.value })}
+              placeholder="70"
+              className={inputClass}
+            />
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -1066,7 +1100,7 @@ function CreateSetModal({
     displayOrder: ""
   });
   const [content, setContent] = useState<ContentSourceValue>({ sourceType: "R2_VIDEO", fileUrl: "", durationSeconds: null });
-  const [connSettings, setConnSettings] = useState<ConnectionThresholdValue>({ completionThresholdPercent: "", requiredViewCount: "" });
+  const [connSettings, setConnSettings] = useState<ConnectionThresholdValue>({ completionThresholdPercent: "", requiredViewCount: "", sessionPassRatioThresholdPercent: "" });
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — Bộ thuộc Sub Topic nào trong mục lục
   // sách, mirror CreateExamModal (ExerciseAssignPage.tsx).
   const [subTopicId, setSubTopicId] = useState<number | null>(null);
@@ -1125,8 +1159,9 @@ function CreateSetModal({
         fileSizeBytes: content.fileSizeBytes,
         durationSeconds: content.durationSeconds,
         displayOrder: 0,
-        completionThresholdPercent: form.videoType === "CONNECTION" && connSettings.completionThresholdPercent ? Number(connSettings.completionThresholdPercent) : undefined,
-        requiredViewCount: form.videoType === "CONNECTION" && connSettings.requiredViewCount ? Number(connSettings.requiredViewCount) : undefined
+        completionThresholdPercent: connSettings.completionThresholdPercent ? Number(connSettings.completionThresholdPercent) : undefined,
+        requiredViewCount: form.videoType === "CONNECTION" && connSettings.requiredViewCount ? Number(connSettings.requiredViewCount) : undefined,
+        sessionPassRatioThresholdPercent: form.videoType === "CONNECTION" && connSettings.sessionPassRatioThresholdPercent ? Number(connSettings.sessionPassRatioThresholdPercent) : undefined
       };
       const video = await addReviewVideo(set.id, videoRequest);
       createdVideoId = video.id;
@@ -1261,7 +1296,7 @@ function CreateSetModal({
         </div>
         <UnitSubTopicPicker curriculumId={form.curriculumId ? Number(form.curriculumId) : null} value={subTopicId} onChange={setSubTopicId} />
         <ContentSourceField value={content} onChange={setContent} />
-        {form.videoType === "CONNECTION" && <ConnectionThresholdFields value={connSettings} onChange={setConnSettings} />}
+        <ConnectionThresholdFields value={connSettings} onChange={setConnSettings} videoType={form.videoType} />
 
         <div>
           <label className={labelClass}>{t("lectures.createSet.questionSource.label")}</label>
@@ -1475,10 +1510,15 @@ function VideoListSection({ set }: { set: ReviewVideoSetResponse }) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState<ContentSourceValue>({ sourceType: "R2_VIDEO", fileUrl: "", durationSeconds: null });
-  const [connSettings, setConnSettings] = useState<ConnectionThresholdValue>({ completionThresholdPercent: "", requiredViewCount: "" });
+  const [connSettings, setConnSettings] = useState<ConnectionThresholdValue>({ completionThresholdPercent: "", requiredViewCount: "", sessionPassRatioThresholdPercent: "" });
   const [submitting, setSubmitting] = useState(false);
   const [expandedVideoId, setExpandedVideoId] = useState<number | null>(null);
   const [deletingVideoId, setDeletingVideoId] = useState<number | null>(null);
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-08 — sửa lại ngưỡng của 1 video CONNECTION
+  // đã tạo (trước đây chỉ set được lúc tạo mới, không sửa lại được).
+  const [editingVideo, setEditingVideo] = useState<ReviewVideoResponse | null>(null);
+  const [editThresholds, setEditThresholds] = useState<ConnectionThresholdValue>({ completionThresholdPercent: "", requiredViewCount: "", sessionPassRatioThresholdPercent: "" });
+  const [savingThresholds, setSavingThresholds] = useState(false);
   const { message: toastMessage, showToast } = useToast();
   const { confirmDialog } = useDialog();
 
@@ -1509,12 +1549,13 @@ function VideoListSection({ set }: { set: ReviewVideoSetResponse }) {
         fileSizeBytes: content.fileSizeBytes,
         durationSeconds: content.durationSeconds,
         displayOrder: videos.length,
-        completionThresholdPercent: set.videoType === "CONNECTION" && connSettings.completionThresholdPercent ? Number(connSettings.completionThresholdPercent) : undefined,
-        requiredViewCount: set.videoType === "CONNECTION" && connSettings.requiredViewCount ? Number(connSettings.requiredViewCount) : undefined
+        completionThresholdPercent: connSettings.completionThresholdPercent ? Number(connSettings.completionThresholdPercent) : undefined,
+        requiredViewCount: set.videoType === "CONNECTION" && connSettings.requiredViewCount ? Number(connSettings.requiredViewCount) : undefined,
+        sessionPassRatioThresholdPercent: set.videoType === "CONNECTION" && connSettings.sessionPassRatioThresholdPercent ? Number(connSettings.sessionPassRatioThresholdPercent) : undefined
       });
       setTitle("");
       setContent({ sourceType: "R2_VIDEO", fileUrl: "", durationSeconds: null });
-      setConnSettings({ completionThresholdPercent: "", requiredViewCount: "" });
+      setConnSettings({ completionThresholdPercent: "", requiredViewCount: "", sessionPassRatioThresholdPercent: "" });
       setShowAddForm(false);
       load();
       showToast(t("lectures.toast.videoAdded"));
@@ -1541,6 +1582,35 @@ function VideoListSection({ set }: { set: ReviewVideoSetResponse }) {
     }
   };
 
+  const openEditThresholds = (video: ReviewVideoResponse) => {
+    setEditingVideo(video);
+    setEditThresholds({
+      completionThresholdPercent: String(video.completionThresholdPercent),
+      requiredViewCount: String(video.requiredViewCount),
+      sessionPassRatioThresholdPercent: String(video.sessionPassRatioThresholdPercent)
+    });
+  };
+
+  const handleSaveThresholds = async () => {
+    if (!editingVideo) return;
+    setSavingThresholds(true);
+    setError(null);
+    try {
+      await updateReviewVideoThresholds(editingVideo.id, {
+        completionThresholdPercent: Number(editThresholds.completionThresholdPercent),
+        requiredViewCount: Number(editThresholds.requiredViewCount),
+        sessionPassRatioThresholdPercent: Number(editThresholds.sessionPassRatioThresholdPercent)
+      });
+      setEditingVideo(null);
+      load();
+      showToast(t("lectures.toast.thresholdsUpdated"));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t("lectures.videoList.errors.updateThresholdsFailed"));
+    } finally {
+      setSavingThresholds(false);
+    }
+  };
+
   return (
     <div className="px-5 py-4 border-b border-slate-100 space-y-4">
       <p className="text-xs font-bold text-slate-700 uppercase tracking-wide">{t("lectures.videoList.heading")}</p>
@@ -1564,6 +1634,14 @@ function VideoListSection({ set }: { set: ReviewVideoSetResponse }) {
                     <Badge variant="info">{v.sourceType}</Badge>
                     <button
                       type="button"
+                      onClick={() => openEditThresholds(v)}
+                      title={t("lectures.videoList.editThresholdsTooltip")}
+                      className="text-slate-400 hover:text-brand-red"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => handleDelete(v)}
                       disabled={deletingVideoId === v.id}
                       title={t("lectures.videoList.deleteTooltip")}
@@ -1579,6 +1657,7 @@ function VideoListSection({ set }: { set: ReviewVideoSetResponse }) {
                   {t("lectures.videoList.durationMinutes", { minutes: Math.round(v.durationSeconds / 60) })}
                   {set.videoType === "CONNECTION" &&
                     t("lectures.videoList.connectionMeta", { percent: v.completionThresholdPercent, count: v.requiredViewCount })}
+                  {set.videoType === "REFLEX" && t("lectures.videoList.reflexMeta", { percent: v.completionThresholdPercent })}
                 </p>
                 {(set.videoType === "REFLEX" || set.videoType === "CONNECTION") && (
                   <button
@@ -1603,7 +1682,7 @@ function VideoListSection({ set }: { set: ReviewVideoSetResponse }) {
               <input value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} required />
             </div>
             <ContentSourceField value={content} onChange={setContent} />
-            {set.videoType === "CONNECTION" && <ConnectionThresholdFields value={connSettings} onChange={setConnSettings} />}
+            <ConnectionThresholdFields value={connSettings} onChange={setConnSettings} videoType={set.videoType} />
             <div className="flex justify-end gap-2">
               <Button type="button" variant="secondary" onClick={() => setShowAddForm(false)}>
                 {t("lectures.common.cancel")}
@@ -1619,6 +1698,27 @@ function VideoListSection({ set }: { set: ReviewVideoSetResponse }) {
           </Button>
         )}
       </div>
+
+      <Modal
+        open={editingVideo != null}
+        onClose={() => setEditingVideo(null)}
+        title={t("lectures.videoList.editThresholdsTitle", { title: editingVideo?.title ?? "" })}
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="secondary" onClick={() => setEditingVideo(null)}>
+              {t("lectures.common.cancel")}
+            </Button>
+            <Button type="button" variant="primary" onClick={handleSaveThresholds} disabled={savingThresholds}>
+              {savingThresholds ? t("lectures.common.saving") : t("lectures.videoList.saveThresholdsButton")}
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-3">
+          {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+          <ConnectionThresholdFields value={editThresholds} onChange={setEditThresholds} videoType={set.videoType} />
+        </div>
+      </Modal>
 
       <Toast message={toastMessage} />
     </div>
