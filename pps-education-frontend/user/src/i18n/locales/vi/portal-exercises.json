@@ -235,6 +235,7 @@
       "passedFeedbackTitle": "Đạt — mở khoá câu tiếp theo",
       "failedFeedbackTitle": "Chưa đạt",
       "scoreLabel": "điểm nội dung {{score}}%",
+      "listenBackLabel": "Nghe lại bài ghi âm của bạn",
       "retryButton": "Ghi âm lại",
       "attemptCount": "Đã ghi âm {{count}} lần",
       "passedPopup": {
