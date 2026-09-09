@@ -404,7 +404,15 @@ public class QuestionImportService {
                 "---"));
         blocks.put(KIND_GRID_GROUP, List.of(
                 "[DOC_HIEU_LUOI]",
-                "Đoạn văn tham chiếu: Tom: I go to a big school in London...\n\nMax: I live in New York...\n\nAnna: I am a new student in Paris...",
+                // 3 dòng riêng (KHÔNG gộp "\n" vào 1 chuỗi) — WordQuestionRowParser.LABEL_PATTERN dùng
+                // "." không có DOTALL nên KHÔNG match được label chứa newline trong CÙNG 1 paragraph;
+                // để mỗi lượt thoại 1 paragraph riêng, dựa vào cơ chế nối tiếp field gần nhất (dòng
+                // không khớp nhãn/đáp án nào) đã có sẵn để tự nối lại thành 1 referencePassage nhiều
+                // dòng — bug thật phát hiện qua CI (2026-09-09): thiếu tách dòng làm referencePassage
+                // bị đọc null, cả block lỗi "Thiếu đoạn văn tham chiếu".
+                "Đoạn văn tham chiếu: Tom: I go to a big school in London...",
+                "Max: I live in New York...",
+                "Anna: I am a new student in Paris...",
                 "Nội dung: Who loves a subject because of visiting museums?|Who says friends think their hobby is strange?|Who talks about both a school subject and a sport?",
                 "A. Tom", "B. Max", "C. Anna",
                 "Đáp án đúng: B|A|C",
