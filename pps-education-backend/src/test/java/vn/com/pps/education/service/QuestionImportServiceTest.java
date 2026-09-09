@@ -92,7 +92,7 @@ class QuestionImportServiceTest extends AbstractIntegrationTest {
     void importQuestions_UC40_MainFlow_createsAllFiveKindsFromExcel() throws IOException {
         byte[] file = buildExcel(new String[][]{
                 {"TRAC_NGHIEM", "EASY", "What is the capital of France?", "London", "Paris", "Berlin", "Madrid", "B",
-                        null, null, null, "1", "Paris la thu do nuoc Phap.", "geo,easy"},
+                        null, "https://example.com/mc-stem.png", null, "1", "Paris la thu do nuoc Phap.", "geo,easy"},
                 {"TRAC_NGHIEM_VOICE", "MEDIUM", "Listen and choose the word you hear.", "ship", "sheep", "chip", "cheap", "B",
                         "https://example.com/a.mp3", null, "sheep", "1", null, null},
                 {"DIEN_TU", null, "She ___ (go) to school every day.", null, null, null, null, "goes",
@@ -120,6 +120,10 @@ class QuestionImportServiceTest extends AbstractIntegrationTest {
         assertThat(mc.skill()).isNull();
         assertThat(mc.choices()).hasSize(4);
         assertThat(mc.choices()).filteredOn(c -> c.content().equals("Paris")).extracting(c -> c.isCorrect()).containsExactly(true);
+        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-09 — fix bug thật: ảnh đề bài
+        // (question-level) bị bỏ sót cho TRAC_NGHIEM dù cột "URL Hình ảnh" đã tồn tại chung cho mọi
+        // loại câu hỏi và màn xem trước học sinh đã render question.imageUrl không phân biệt questionType.
+        assertThat(mc.imageUrl()).isEqualTo("https://example.com/mc-stem.png");
 
         QuestionResponse voice = findByContentPrefix(saved, "Listen and choose");
         assertThat(voice.skill()).isEqualTo("LISTENING");
@@ -176,6 +180,50 @@ class QuestionImportServiceTest extends AbstractIntegrationTest {
 
         assertThat(result.status()).isEqualTo("COMPLETED");
         assertThat(result.successRows()).isEqualTo(1);
+    }
+
+    /**
+     * Bổ sung 2026-09-09 (đã xác nhận với người dùng) — hồi quy cho 1 bug thật: trước đây
+     * {@code buildChoices} bắt buộc đủ 4 đáp án A/B/C/D, LỆCH với form soạn tay (2 đáp án được), và
+     * khi sửa lần đầu vô tình dùng {@code List.of(...)} với phần tử null (Đáp án C/D để trống) —
+     * List.of ném NullPointerException KHÔNG message, khiến cả 15 dòng import lỗi mà cột "reason"
+     * rỗng trên UI (không rõ lỗi gì). Test đảm bảo câu trắc nghiệm CHỈ 2 đáp án (C/D để trống) import
+     * thành công, không ném NPE.
+     */
+    @Test
+    void importQuestions_boSung_multipleChoiceWithOnlyTwoAnswersImportsSuccessfully() throws IOException {
+        byte[] file = buildExcel(new String[][]{
+                {"TRAC_NGHIEM", null, "Peter and I are classmates. ___ often do homework together.", "We", "Us", null, null, "A",
+                        null, null, null, "1", null, null}
+        });
+
+        QuestionImportResponse result = questionImportService.importQuestions(bank.id(),
+                new MockMultipartFile("file", "trac-nghiem-2-dap-an.xlsx", "application/vnd.openxmlformats", file), teacher.getId());
+
+        assertThat(result.status()).isEqualTo("COMPLETED");
+        assertThat(result.successRows()).isEqualTo(1);
+        QuestionResponse saved = questionBankService.listQuestions(bank.id()).get(0);
+        assertThat(saved.choices()).hasSize(2);
+        assertThat(saved.choices()).filteredOn(c -> c.content().equals("We")).extracting(c -> c.isCorrect()).containsExactly(true);
+        assertThat(saved.choices()).filteredOn(c -> c.content().equals("Us")).extracting(c -> c.isCorrect()).containsExactly(false);
+    }
+
+    /** Điền "nhảy cóc" (có Đáp án C nhưng Đáp án B để trống) phải báo lỗi rõ ràng, không cho tạo câu hỏi có lỗ hổng vị trí. */
+    @Test
+    void importQuestions_boSung_multipleChoiceRejectsGapBetweenAnswers() throws IOException {
+        byte[] file = buildExcel(new String[][]{
+                {"TRAC_NGHIEM", null, "What is the capital of France?", "London", null, "Paris", null, "C",
+                        null, null, null, "1", null, null}
+        });
+
+        QuestionImportResponse result = questionImportService.importQuestions(bank.id(),
+                new MockMultipartFile("file", "trac-nghiem-nhay-coc.xlsx", "application/vnd.openxmlformats", file), teacher.getId());
+
+        assertThat(result.status()).isEqualTo("PARTIAL_SUCCESS");
+        assertThat(result.successRows()).isEqualTo(0);
+        assertThat(result.failedRows()).isEqualTo(1);
+        assertThat(result.errorSummary().get(0).get("reason").toString()).contains("không được bỏ trống xen giữa");
+        assertThat(questionBankService.listQuestions(bank.id())).isEmpty();
     }
 
     /** Thiếu cột bắt buộc (Nội dung/Content) trong header → không đọc được dòng nào, báo lỗi rõ ngay từ đầu file. */
@@ -626,6 +674,39 @@ class QuestionImportServiceTest extends AbstractIntegrationTest {
         assertThat(result.successRows()).isEqualTo(14);
         assertThat(result.failedRows()).isEqualTo(0);
         assertThat(questionBankService.listQuestions(bank.id())).hasSize(20);
+    }
+
+    /**
+     * Bổ sung 2026-09-09 (đã xác nhận với người dùng) — hồi quy cho 1 bug thật phát hiện qua file Excel
+     * người dùng thực tế tải về: {@code excelHeaders} phía FE (lms-question-authoring.json) từng ghép
+     * NHIỀU cụm vào 1 header duy nhất (VD "Đoạn văn tham chiếu/Transcript/Từ khóa phát âm/Hộp từ vựng")
+     * để hiển thị gợi ý cho GV — nhưng {@code QuestionImportFieldAliases#resolveField} so khớp CHÍNH
+     * XÁC TOÀN BỘ chuỗi header đã chuẩn hoá, không phải theo từng cụm/substring, nên header ghép dài
+     * KHÔNG khớp bất kỳ alias nào — referencePassage luôn null, âm thầm mất dữ liệu (không lỗi rõ ràng
+     * với TRAC_NGHIEM_VOICE vì trường này optional, nhưng DOC_HIEU_LUOI/DOC_DIEN_TU bắt buộc nên sẽ báo
+     * lỗi "cần Đoạn văn tham chiếu"). Các test DOC_HIEU_LUOI/DOC_DIEN_TU khác trong file này dùng
+     * {@code buildExcel()} với header cố định "Transcript/Từ khóa" (khớp alias) nên KHÔNG bắt được bug
+     * này — test này dùng ĐÚNG header thật đang hiển thị cho giáo viên (khớp lms-question-authoring.json
+     * sau khi sửa) để đảm bảo không tái diễn.
+     */
+    @Test
+    void importQuestions_boSung_realExcelTemplateHeaderResolvesReferencePassageColumn() throws IOException {
+        byte[] file = buildExcelWithHeaders(
+                new String[]{"Loại câu hỏi", "Độ khó", "Nội dung", "Đáp án A", "Đáp án B", "Đáp án C", "Đáp án D",
+                        "Đáp án đúng", "URL Audio", "URL Hình ảnh", "Đoạn văn tham chiếu", "Điểm", "Giải thích", "Tags"},
+                new String[][]{
+                        {"DOC_HIEU_LUOI", null, "Who loves museums?|Who plays football?", "Tom", "Max", null, null,
+                                "A|B", null, null, "Tom: loves museums.\n\nMax: plays football.", "1", null, null}
+                });
+
+        QuestionImportResponse result = questionImportService.importQuestions(bank.id(),
+                new MockMultipartFile("file", "mau-that.xlsx", "application/vnd.openxmlformats", file), teacher.getId());
+
+        assertThat(result.status()).isEqualTo("COMPLETED");
+        assertThat(result.successRows()).isEqualTo(1);
+        List<QuestionResponse> saved = questionBankService.listQuestions(bank.id());
+        assertThat(saved).hasSize(2);
+        assertThat(saved).allMatch(q -> q.referencePassage().equals("Tom: loves museums.\n\nMax: plays football."));
     }
 
     private QuestionResponse findByContentPrefix(List<QuestionResponse> questions, String prefix) {
