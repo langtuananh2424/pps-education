@@ -92,7 +92,7 @@ class QuestionImportServiceTest extends AbstractIntegrationTest {
     void importQuestions_UC40_MainFlow_createsAllFiveKindsFromExcel() throws IOException {
         byte[] file = buildExcel(new String[][]{
                 {"TRAC_NGHIEM", "EASY", "What is the capital of France?", "London", "Paris", "Berlin", "Madrid", "B",
-                        null, null, null, "1", "Paris la thu do nuoc Phap.", "geo,easy"},
+                        null, "https://example.com/mc-stem.png", null, "1", "Paris la thu do nuoc Phap.", "geo,easy"},
                 {"TRAC_NGHIEM_VOICE", "MEDIUM", "Listen and choose the word you hear.", "ship", "sheep", "chip", "cheap", "B",
                         "https://example.com/a.mp3", null, "sheep", "1", null, null},
                 {"DIEN_TU", null, "She ___ (go) to school every day.", null, null, null, null, "goes",
@@ -120,6 +120,10 @@ class QuestionImportServiceTest extends AbstractIntegrationTest {
         assertThat(mc.skill()).isNull();
         assertThat(mc.choices()).hasSize(4);
         assertThat(mc.choices()).filteredOn(c -> c.content().equals("Paris")).extracting(c -> c.isCorrect()).containsExactly(true);
+        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-09 — fix bug thật: ảnh đề bài
+        // (question-level) bị bỏ sót cho TRAC_NGHIEM dù cột "URL Hình ảnh" đã tồn tại chung cho mọi
+        // loại câu hỏi và màn xem trước học sinh đã render question.imageUrl không phân biệt questionType.
+        assertThat(mc.imageUrl()).isEqualTo("https://example.com/mc-stem.png");
 
         QuestionResponse voice = findByContentPrefix(saved, "Listen and choose");
         assertThat(voice.skill()).isEqualTo("LISTENING");
@@ -215,8 +219,11 @@ class QuestionImportServiceTest extends AbstractIntegrationTest {
         QuestionImportResponse result = questionImportService.importQuestions(bank.id(),
                 new MockMultipartFile("file", "trac-nghiem-nhay-coc.xlsx", "application/vnd.openxmlformats", file), teacher.getId());
 
-        assertThat(result.status()).isEqualTo("FAILED");
+        assertThat(result.status()).isEqualTo("PARTIAL_SUCCESS");
+        assertThat(result.successRows()).isEqualTo(0);
+        assertThat(result.failedRows()).isEqualTo(1);
         assertThat(result.errorSummary().get(0).get("reason").toString()).contains("không được bỏ trống xen giữa");
+        assertThat(questionBankService.listQuestions(bank.id())).isEmpty();
     }
 
     /** Thiếu cột bắt buộc (Nội dung/Content) trong header → không đọc được dòng nào, báo lỗi rõ ngay từ đầu file. */

@@ -490,6 +490,13 @@ public class QuestionImportService {
 
         if (isChoiceBased) {
             choices = buildChoices(row);
+            // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-09 — fix bug thật: ảnh đề bài
+            // (question-level, khác ảnh riêng từng đáp án ở buildChoices/VOICE_PICTURE_CHOICE) bị bỏ sót
+            // cho TRAC_NGHIEM/TRAC_NGHIEM_VOICE dù cột "URL Hình ảnh" đã tồn tại chung cho mọi loại câu
+            // hỏi (xem SDD group 09, questions.image_url) và màn xem trước học sinh
+            // (ExerciseStudentPreviewModal#QuestionPreview) đã render question.imageUrl không phân biệt
+            // questionType từ trước.
+            imageUrl = blankToNull(row.imageUrl());
             if (kind.equals("TRAC_NGHIEM_VOICE")) {
                 skill = "LISTENING";
                 if (isBlank(row.audioUrl())) {
