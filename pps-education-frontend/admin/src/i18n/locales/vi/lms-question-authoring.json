@@ -114,7 +114,7 @@
   "questionImportPanel": {
     "excelHeaders": [
       "Loại câu hỏi", "Độ khó", "Nội dung", "Đáp án A", "Đáp án B", "Đáp án C", "Đáp án D",
-      "Đáp án đúng", "URL Audio", "URL Hình ảnh", "Transcript/Từ khóa phát âm/Hộp từ vựng", "Điểm", "Giải thích", "Tags"
+      "Đáp án đúng", "URL Audio", "URL Hình ảnh", "Đoạn văn tham chiếu/Transcript/Từ khóa phát âm/Hộp từ vựng", "Điểm", "Giải thích", "Tags"
     ],
     "excelSampleExplanations": {
       "geo": "Paris là thủ đô nước Pháp.",
@@ -126,7 +126,9 @@
       "sentenceBuilding": "Mỗi khối từ/cụm 1 phần tử, phân tách bằng dấu | theo ĐÚNG thứ tự câu hoàn chỉnh.",
       "letterScramble": "Mỗi chữ cái 1 phần tử, phân tách bằng dấu | theo ĐÚNG thứ tự tạo thành từ đúng.",
       "listeningAudioSubmission": "Học sinh nộp audio, chấm tay ở Hàng chờ chấm bài.",
-      "listeningFillInBlank": "Hệ thống tự chấm theo đáp án đúng."
+      "listeningFillInBlank": "Hệ thống tự chấm theo đáp án đúng.",
+      "gridReading": "Mỗi câu trong Nội dung phân tách bằng |, dùng CHUNG 1 đoạn văn tham chiếu + CHUNG 1 bộ đáp án A-D (áp dụng cho MỌI câu). Đáp án đúng là chữ cái A/B/C/D theo ĐÚNG thứ tự khớp Nội dung.",
+      "clozeReading": "Số chỗ trống suy ra từ số phần tử | ở Đáp án A (bắt buộc) — Đáp án B/C/D (nếu có) phải cùng số lượng, MỖI chỗ trống 1 phương án riêng. Nội dung (tùy chọn) đặt nhãn riêng từng chỗ trống, để trống thì tự đánh số."
     },
     "formatExcel": "Excel (.xlsx)",
     "formatWord": "Word (.docx)",
@@ -145,7 +147,9 @@
       "SAP_XEP_CAU": "Sắp xếp câu",
       "SAP_XEP_CHU_CAI": "Sắp xếp chữ cái",
       "NGHE_NOP_AUDIO": "Nghe & nộp audio",
-      "NGHE_DIEN_TU": "Nghe điền từ"
+      "NGHE_DIEN_TU": "Nghe điền từ",
+      "DOC_HIEU_LUOI": "Đọc hiểu - Lưới",
+      "DOC_DIEN_TU": "Đọc điền từ - Cloze"
     },
     "downloadTemplate": "Tải file mẫu (.{{format}})",
     "downloadTemplateFailed": "Tải file mẫu thất bại.",
