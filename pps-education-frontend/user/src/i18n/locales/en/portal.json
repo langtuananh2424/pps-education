@@ -6,6 +6,14 @@
   "welcome": "Welcome,",
   "you": "You",
   "logout": "Log out",
+  "enablePush": {
+    "title": "Enable push notifications",
+    "description": "Get homework, grade and schedule alerts right on your phone.",
+    "failedHint": "Couldn't enable it — please check notification permission in your device Settings and try again.",
+    "enable": "Enable",
+    "enabling": "Enabling...",
+    "dismiss": "Hide this banner"
+  },
   "unsupportedAccount": {
     "title": "This account doesn't support the Portal",
     "description": "The Portal currently only serves Parent and Student accounts.",

@@ -77,12 +77,15 @@
       "understood": "Đã hiểu"
     },
     "question": {
+      "numberPrefix": "Câu {{number}}.",
       "pointsSuffix": "{{points}} đ",
       "recordAnswerLabel": "Ghi âm câu trả lời của bạn",
       "manualGradingNote": "Câu này sẽ được giáo viên chấm tay sau khi nộp bài.",
       "answerPlaceholder": "Nhập câu trả lời...",
       "correct": "Chính xác",
       "correctAnswerPrefix": "Đáp án đúng: {{answer}}",
+      "notAnsweredPrefix": "Bạn không trả lời câu này — Đáp án đúng: {{answer}}",
+      "notAnsweredChoice": "Bạn không chọn đáp án nào — đáp án đúng đã được tô sáng.",
       "explanationPrefix": "Giải thích: {{text}}",
       "gradingFeedbackTitle": "Nhận xét bài làm",
       "gradedByAi": "AI chấm",
@@ -131,7 +134,12 @@
       "noQuestions": "Video này chưa có câu hỏi — liên hệ Giáo viên.",
       "questionLabel": "Câu {{index}}. {{prompt}}",
       "submitting": "Đang nộp...",
-      "submitButton": "Nộp câu trả lời"
+      "submitButton": "Nộp câu trả lời",
+      "correctFeedback": "Chính xác! Lượt xem này đã được tính.",
+      "wrongRetryFeedback": "Bạn trả lời sai 1 số câu — hãy làm lại cả bài, bạn còn {{attemptsRemaining}} lần thử.",
+      "wrongFinalFeedback": "Bạn đã sai sau {{maxAttempts}} lần làm — lượt xem này không được tính. Hệ thống sẽ mở lượt xem mới.",
+      "retryButton": "Làm lại",
+      "continueButton": "Tiếp tục"
     },
     "progress": {
       "heading": "Lượt xem hiện tại",
@@ -143,6 +151,22 @@
       "submittedSummary": "Đã nộp — {{correct}}/{{total}} câu đúng. Lượt này đã được tính.",
       "answerNowBanner": "Cần trả lời câu hỏi để tính lượt xem này",
       "answerNowButton": "Trả lời ngay →"
+    },
+    "thresholdPopup": {
+      "heading": "Bạn đã đạt tiêu chí hoàn thành bài",
+      "description": "Bạn đã đạt {{achieved}}/{{required}} lượt (≥{{threshold}}%) — đủ điều kiện hoàn thành bài. Bạn muốn dừng lại xem kết quả hay tiếp tục làm nốt?",
+      "stopButton": "Dừng, xem kết quả",
+      "continueButton": "Tiếp tục làm nốt"
+    },
+    "finalPopup": {
+      "completedTitle": "🎉 Hoàn thành bài tập",
+      "completedDescription": "Bạn đã hoàn thành đủ {{required}}/{{required}} lượt yêu cầu. Xem lại kết quả từng câu bên dưới.",
+      "stoppedTitle": "Kết quả của bạn",
+      "stoppedDescription": "Bạn đã dừng lại sau {{achieved}}/{{required}} lượt. Xem lại kết quả từng câu bên dưới.",
+      "loading": "Đang tải kết quả...",
+      "loadError": "Không tải được kết quả — thử lại.",
+      "sessionLabel": "Lượt {{viewNumber}}",
+      "closeButton": "Đóng"
     }
   },
   "reflexVideoTask": {
@@ -211,6 +235,7 @@
       "passedFeedbackTitle": "Đạt — mở khoá câu tiếp theo",
       "failedFeedbackTitle": "Chưa đạt",
       "scoreLabel": "điểm nội dung {{score}}%",
+      "listenBackLabel": "Nghe lại bài ghi âm của bạn",
       "retryButton": "Ghi âm lại",
       "attemptCount": "Đã ghi âm {{count}} lần",
       "passedPopup": {
@@ -246,6 +271,15 @@
       "actionButton": "Làm bài ngay"
     },
     "allDone": "Tuyệt vời! Bạn đã hoàn thành tất cả bài tập về nhà được giao.",
+    "overdueBanner": {
+      "label": "Cảnh báo quá hạn",
+      "titlePrefix": "Bạn có",
+      "titleCount": "{{count}} bài tập",
+      "titleSuffix": "đã quá hạn nộp!",
+      "description": "Các bài này đã hết hạn — liên hệ giáo viên nếu cần được cho nộp muộn.",
+      "actionButton": "Xem ngay",
+      "dismiss": "Đóng thông báo"
+    },
     "filters": {
       "all": "Tất cả bài tập ({{count}})",
       "pending": "Cần hoàn thành ({{count}})",
@@ -300,6 +334,10 @@
       },
       "countSuffix": "({{count}} bài)",
       "progressLabel": "Bài {{index}}/{{total}} — {{title}}",
+      "action": {
+        "retake": "Làm lại"
+      },
+      "retakeSkippedNote": "Đã hết lượt làm lại — chỉ xem lại kết quả",
       "summary": {
         "pendingTitle": "Đã nộp \"{{title}}\"!",
         "passedTitle": "Chúc mừng bạn đã hoàn thành \"{{title}}\"!",

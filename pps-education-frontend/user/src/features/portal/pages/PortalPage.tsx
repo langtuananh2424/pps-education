@@ -19,6 +19,7 @@ import DailyLearningProgressTab from "../components/DailyLearningProgressTab";
 import DocumentLibraryTab from "../components/DocumentLibraryTab";
 import ComingSoon from "../components/ComingSoon";
 import ProfileModal from "../components/ProfileModal";
+import EnablePushBanner from "../components/EnablePushBanner";
 
 type Tab = "home" | "schedule" | "learning-progress" | "homework" | "documents" | "grades" | "grade-stats" | "billing";
 
@@ -60,6 +61,10 @@ export default function PortalPage() {
   // báo lỗi 2026-08-03). Chỉ áp dụng khi Học sinh tự xem (isStudent) — Phụ huynh xem con thì
   // ChildResponse chưa có portraitUrl, giữ chữ cái như cũ.
   const [viewerPortraitUrl, setViewerPortraitUrl] = useState<string | null>(null);
+  // ID hệ thống (auto-increment) không có ý nghĩa nghiệp vụ với người dùng — ProfileModal hiển thị
+  // studentCode (mã học sinh) thay vào đó. Học sinh tự xem lấy qua GET /students/me, Phụ huynh xem
+  // con lấy trực tiếp từ ChildResponse.studentCode (đã có sẵn, không cần gọi thêm API).
+  const [viewerStudentCode, setViewerStudentCode] = useState<string | null>(null);
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — bấm link "Bài ngữ pháp/nghe"/"Video
   // TKN/PX" ở tab Quá trình học tập nhảy sang tab BTVN + tự mở đúng bài (học sinh) hoặc cuộn/highlight
   // đúng dòng (phụ huynh). Set ở đây (cha chung của 2 tab) vì 2 tab là 2 component độc lập, không tự
@@ -96,7 +101,10 @@ export default function PortalPage() {
   useEffect(() => {
     if (!isStudent) return;
     getMyStudentProfile()
-      .then((p) => setViewerPortraitUrl(p.portraitUrl))
+      .then((p) => {
+        setViewerPortraitUrl(p.portraitUrl);
+        setViewerStudentCode(p.studentCode);
+      })
       .catch(() => undefined);
   }, [isStudent]);
 
@@ -170,8 +178,8 @@ export default function PortalPage() {
                 <span className="font-display font-extrabold text-white text-xl">P</span>
               </div>
               <div className="leading-tight">
-                <div className="font-extrabold text-[15.5px] text-white lg:text-ink">PPS Education</div>
-                <div className="text-[11px] tracking-[0.14em] text-white/80 lg:text-teal-deep font-extrabold">
+                <div className="font-extrabold text-[18px] text-white lg:text-ink">PPS Education</div>
+                <div className="text-[12px] tracking-[0.14em] text-white/80 lg:text-teal-deep font-extrabold">
                   {isParent ? t("brandSubtitleParent") : t("brandSubtitleStudent")}
                 </div>
               </div>
@@ -214,10 +222,10 @@ export default function PortalPage() {
                   )}
                 </div>
                 <div className="text-left leading-tight">
-                  <div className="text-[9px] text-muted font-extrabold uppercase tracking-wide">
+                  <div className="text-[10px] text-muted font-extrabold uppercase tracking-wide">
                     {isParent ? t("roleLabel.parent") : t("roleLabel.student")}
                   </div>
-                  <div className="text-xs font-extrabold text-ink">{viewerName}</div>
+                  <div className="text-sm font-extrabold text-ink">{viewerName}</div>
                 </div>
               </button>
             )}
@@ -238,7 +246,7 @@ export default function PortalPage() {
       {profileOpen && (
         <ProfileModal
           fullName={viewerName || "—"}
-          studentId={selectedChildId}
+          studentCode={isParent ? selectedChild?.studentCode ?? null : viewerStudentCode}
           className={currentClass?.className ?? null}
           classCode={currentClass?.classCode ?? null}
           enrollmentStatus={currentClass?.status ?? null}
@@ -251,7 +259,7 @@ export default function PortalPage() {
         />
       )}
 
-      <div className="flex-1 w-full max-w-[1560px] mx-auto px-4 md:px-8 xl:px-12 py-8">
+      <div className="flex-1 w-full max-w-[1560px] mx-auto px-4 md:px-4 xl:px-8 py-8">
         {error && <div className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-xl mb-4">{error}</div>}
 
         {loading ? (
@@ -261,7 +269,7 @@ export default function PortalPage() {
             {isParent ? t("noViewerData.parent") : t("noViewerData.student")}
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
             {mobileMenuOpen && (
               <div
                 className="fixed inset-0 z-[70] bg-ink/40 backdrop-blur-[1px] lg:hidden"
@@ -334,7 +342,7 @@ export default function PortalPage() {
                         setActiveTab(key);
                         setMobileMenuOpen(false);
                       }}
-                      className={`relative w-full flex items-center gap-3 px-4 py-3 rounded-[16px] font-bold text-sm transition-all border ${
+                      className={`relative w-full flex items-center gap-3 px-4 py-3 rounded-[16px] font-bold text-base transition-all border ${
                         activeTab === key
                           ? "bg-teal text-white border-teal-deep shadow-[0_4px_12px_rgba(23,166,160,0.2)]"
                           : "bg-slate-50/50 hover:bg-slate-50 text-muted border-line/60"
@@ -365,6 +373,7 @@ export default function PortalPage() {
             </div>
 
             <div className="lg:col-span-9">
+              <EnablePushBanner />
               {!selectedClassId ? (
                 <div className="bg-white border border-line/80 rounded-[24px] p-10 text-center text-muted font-bold">
                   {t("noClassAssigned")}

@@ -11,6 +11,11 @@ server {
     server_name __HOSTNAME__;
 
     location / {
+        # Backend sinh URL public dạng {publicBaseUrl}/{key} KHÔNG kèm tên
+        # bucket (xem MediaStorageService.store). MinIO path-style hiểu segment
+        # đầu là bucket -> phải chèn "pps-media" vào path, nếu không MinIO trả
+        # 403 AccessDenied (bucket "profiles"/"lms"... không tồn tại).
+        rewrite ^/(.*)$ /pps-media/$1 break;
         proxy_pass http://127.0.0.1:__MINIO_PORT__;
         proxy_set_header Host $host;
     }

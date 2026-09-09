@@ -56,5 +56,13 @@ public record AssignedExerciseResponse(
         /** V150 — id/tên Lesson (Exam) + nhóm kỹ năng chứa Bài này, dùng để FE dựng tiêu đề gộp cho 1 thẻ Lô (VD "Ngữ pháp — Lesson 1"). */
         Long examId,
         String examTitle,
-        String skillCategory
+        String skillCategory,
+        /**
+         * Bổ sung 2026-09-04 (đã xác nhận với người dùng) — tên Unit/SubTopic chứa Lesson (Exam) này (VD
+         * "UNIT 1: MY NEW SCHOOL" / "SUB TOPIC 1: SCHOOL ACTIVITIES AND SUBJECTS") — Lesson đánh số lặp
+         * lại (Lesson 1, 2, 3...) giữa các Unit/SubTopic khác nhau nên chỉ hiện examTitle dễ nhầm lẫn.
+         * NULL khi Exam chưa phân loại vào cấu trúc Sách/Unit/SubTopic (mirror ExamResponse#subTopicId).
+         */
+        String unitTitle,
+        String subTopicTitle
 ) {}

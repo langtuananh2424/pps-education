@@ -114,17 +114,27 @@ tiếp các tài khoản thật khác qua UI quản lý người dùng của app
 
 ## 3. MinIO (thay Cloudflare R2)
 
-Sau lần `docker compose up -d` đầu, tạo bucket + bật public read (giữ đúng
-hành vi bucket public của R2 hiện tại):
+Bucket `pps-media` + quyền `anonymous download` (giữ đúng hành vi bucket
+public của R2) được **service `minio-init` trong `docker-compose.*.yml` tự
+tạo** mỗi lần `docker compose up -d` — idempotent, và `backend` chờ nó chạy
+xong mới khởi động (`depends_on: service_completed_successfully`). Không cần
+thao tác tay.
+
+Kiểm tra sau khi stack lên:
 
 ```bash
-docker run --rm --network pps-staging_internal minio/mc \
-  alias set s http://minio:9000 <S3_ACCESS_KEY> <S3_SECRET_KEY>
-docker run --rm --network pps-staging_internal minio/mc mb s/pps-media
-docker run --rm --network pps-staging_internal minio/mc anonymous set download s/pps-media
+docker compose -f docker-compose.yml logs minio-init   # thay "up" xanh: "bucket pps-media da san sang"
 ```
 
-(Lặp lại với network `pps-production_internal` cho stack production.)
+Fallback thủ công (chỉ khi cần chạy lại ngoài luồng compose, VD sau khi xoá
+nhầm policy) — thay `pps-staging_internal` bằng `pps-production_internal` cho
+prod:
+
+```bash
+docker run --rm --network pps-staging_internal --entrypoint /bin/sh \
+  -e MC_HOST_s="http://<S3_ACCESS_KEY>:<S3_SECRET_KEY>@minio:9000" minio/mc \
+  -c 'mc mb --ignore-existing s/pps-media && mc anonymous set download s/pps-media'
+```
 
 Nếu có dữ liệu cũ thật trên R2 cần giữ lại: dùng `rclone`/`mc mirror` chuyển
 1 lần trước khi cắt hẳn sang MinIO (không tự động, làm tay khi cần).
@@ -150,6 +160,11 @@ chỉ thao tác trên 6 subdomain dưới đây.
    | files (prod) | `files.ppsvietnam.edu.vn` | — | 9000 |
 
 2. `ln -s` từng file vào `sites-enabled/`, `nginx -t && systemctl reload nginx`.
+   - `admin*`/`user*` template có `client_max_body_size 210m` trong `location
+     /api/` (upload media tới 200MB). Server đã cài trước bản này phải thêm
+     dòng đó thủ công rồi reload, nếu không upload >1MB bị 413.
+   - `files*` template có `rewrite ^/(.*)$ /pps-media/$1 break;` để chèn tên
+     bucket MinIO vào path (URL public do backend sinh không kèm tên bucket).
 3. Cài `cloudflared` (gói `.deb` chính thức Cloudflare), `cloudflared tunnel login`,
    `cloudflared tunnel create pps-education`.
 4. Tạo `~/.cloudflared/config.yml`:
@@ -203,21 +218,59 @@ User=deploy
 WantedBy=multi-user.target
 ```
 
-`systemctl enable --now 9router` — nghe mặc định `127.0.0.1:20128`, backend
-gọi vào qua `host.docker.internal:20128` (đã map `extra_hosts: host-gateway`
-trong docker-compose, xem mục 3).
+`systemctl enable --now 9router` — mặc định 9Router chỉ nghe `127.0.0.1`
+(loopback CỦA HOST), nhưng backend chạy trong container Docker gọi tới qua
+`host.docker.internal`, đi qua interface bridge của Docker chứ KHÔNG qua
+loopback — nên PHẢI đổi 9Router sang nghe `0.0.0.0` thì backend mới kết nối
+được (xem sự cố 2026-09-04: bind `127.0.0.1` làm mọi request từ backend
+timeout dù routing/DNS đã đúng).
 
-Cấu hình Dashboard 9Router (Combo & Vision Adapter, Media Providers → STT)
-qua SSH tunnel từ máy cá nhân, KHÔNG public hostname nào cho việc này:
+Sửa `--host` trong drop-in `/etc/systemd/system/9router.service.d/override.conf`:
+
+```ini
+[Service]
+ExecStart=
+ExecStart=/usr/bin/9router --tray --no-browser --log --host 0.0.0.0
+```
+
+Vì `0.0.0.0` mở ra mọi interface (không còn chỉ loopback), **bắt buộc** chặn
+bằng `ufw` — chỉ cho phép đúng subnet Docker của từng stack gọi vào, KHÔNG
+public port 20128 ra Internet hay LAN:
+
+```bash
+sudo ufw allow from 172.28.0.0/24 to any port 20128   # staging (docker-compose.staging.yml)
+sudo ufw allow from 172.29.0.0/24 to any port 20128   # production (docker-compose.production.yml)
+sudo ufw deny 20128                                    # deny rule PHẢI nằm SAU 2 dòng allow ở trên
+                                                        # (ufw xét rule theo thứ tự, deny đứng trước sẽ
+                                                        # chặn luôn cả traffic từ subnet được allow)
+```
+
+2 subnet trên đã được **ghim cố định** trong `networks.internal.ipam` của
+từng file `docker-compose.*.yml` (không để Docker tự chọn) — vì
+`extra_hosts.backend` trỏ thẳng vào gateway của subnet đó
+(`172.28.0.1`/`172.29.0.1`), subnet đổi là gateway sai theo, request lại
+timeout. **Không dùng giá trị đặc biệt `host-gateway`** của Docker cho
+`extra_hosts` — nó resolve ra gateway của bridge MẶC ĐỊNH (`docker0`,
+thường `172.17.0.1`), không phải gateway của network `internal` tuỳ chỉnh
+mà backend thực sự nằm trong, khiến container không có route tới đó.
+
+Do 9Router giờ nhận kết nối "remote" (không còn từ đúng `127.0.0.1` của
+host), nó **bắt buộc** kèm API key — set `NINE_ROUTER_API_KEY` trong `.env`
+mỗi stack (lấy/tạo key trong Dashboard, xem bên dưới), nếu không backend sẽ
+nhận `401 {"error":"API key required for remote API access"}`.
+
+Cấu hình Dashboard 9Router (Combo & Vision Adapter, Media Providers → STT,
+tạo API key) qua SSH tunnel từ máy cá nhân, KHÔNG public hostname nào cho
+việc này:
 
 ```bash
 ssh -L 20128:localhost:20128 deploy@<LAN_IP>
 # rồi mở http://localhost:20128 trên trình duyệt máy nhà
 ```
 
-Set `NINE_ROUTER_MODEL`/`NINE_ROUTER_STT_MODEL`/`NINE_ROUTER_AUDIO_MODEL`
-trong `.env` mỗi stack theo combo đã tạo (xem `.env.example` gốc repo, mục
-9Router, để biết ý nghĩa từng biến).
+Set `NINE_ROUTER_API_KEY`/`NINE_ROUTER_MODEL`/`NINE_ROUTER_STT_MODEL`/
+`NINE_ROUTER_AUDIO_MODEL` trong `.env` mỗi stack theo combo đã tạo (xem
+`.env.example` gốc repo, mục 9Router, để biết ý nghĩa từng biến).
 
 ## 6. Quản trị từ xa trong LAN
 
@@ -226,6 +279,17 @@ trong `.env` mỗi stack theo combo đã tạo (xem `.env.example` gốc repo, m
    hạn SSH chỉ nhận từ LAN subnet (mục 1).
 3. (Tùy chọn) `apt install cockpit` — web UI xem CPU/RAM/disk, restart/
    shutdown service, chỉ bind LAN (cổng 9090).
+4. **Kết nối pgAdmin/DBeaver vào Postgres từ máy cá nhân** — Postgres publish
+   `127.0.0.1:5433` (staging) / `127.0.0.1:5432` (production), CHỈ nghe
+   localhost của server (không lộ ra ngoài, giống cách 9Router/backend đã
+   làm). Tạo SSH tunnel từ máy cá nhân:
+   ```bash
+   ssh -L 5433:localhost:5433 -L 5432:localhost:5432 ppsadmin@<LAN_IP>
+   ```
+   Giữ cửa sổ này mở, rồi trong pgAdmin/DBeaver tạo connection mới: Host
+   `localhost`, Port `5433` (staging) hoặc `5432` (production), Database
+   `pps_education`, User `pps_app`, Password = giá trị `DB_PASSWORD` trong
+   `.env` của đúng stack.
 
 ## 7. Tắt server an toàn từ xa (chưa có UPS)
 

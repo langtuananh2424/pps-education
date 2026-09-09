@@ -16,5 +16,12 @@ public record ExamResponse(
         Long questionBankId,
         /** V144 — NULL = chưa phân loại vào cấu trúc Sách/Unit/SubTopic mới. */
         Long subTopicId,
-        String subTopicTitle
+        String subTopicTitle,
+        /**
+         * Bổ sung 2026-09-04 (đã xác nhận với người dùng) — tên Unit chứa subTopic này (VD "UNIT 1: MY
+         * NEW SCHOOL"), suy ra qua subTopic.unit — trước đây FE chỉ thấy subTopicTitle, không phân biệt
+         * được các Lesson trùng tên (VD "Lesson 1") thuộc Unit/SubTopic khác nhau. NULL cùng điều kiện
+         * với subTopicId (Đề chưa phân loại).
+         */
+        String unitTitle
 ) {}

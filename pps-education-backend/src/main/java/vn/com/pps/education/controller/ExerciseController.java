@@ -18,6 +18,7 @@ import vn.com.pps.education.dto.ExerciseQuestionResponse;
 import vn.com.pps.education.dto.ExerciseResponse;
 import vn.com.pps.education.dto.UpdateExerciseQuestionPointsRequest;
 import vn.com.pps.education.dto.UpdateExerciseRequest;
+import vn.com.pps.education.dto.UpdateLateSubmissionAllowedRequest;
 import vn.com.pps.education.security.AuthenticatedUser;
 import vn.com.pps.education.service.ExerciseService;
 
@@ -99,6 +100,18 @@ public class ExerciseController {
     public ResponseEntity<List<ExerciseAssignmentResponse>> listAssignmentsForClass(@PathVariable Long classId,
                                                                                       @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(exerciseService.listAssignmentsForClass(classId, actor.userId()));
+    }
+
+    /**
+     * V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — bật/tắt lại "Cho phép nộp
+     * bài muộn" cho 1 bản giao ĐÃ tạo, gọi từ trang "Xem chi tiết" BTVN (Thống kê BTVN).
+     */
+    @PreAuthorize("hasPermission(null, 'lms.exercise.update')")
+    @PutMapping("/api/exercise-assignments/{id}/late-submission-allowed")
+    public ResponseEntity<ExerciseAssignmentResponse> updateLateSubmissionAllowed(@PathVariable Long id,
+                                                                                    @Valid @RequestBody UpdateLateSubmissionAllowedRequest request,
+                                                                                    @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(exerciseService.updateLateSubmissionAllowed(id, request.lateSubmissionAllowed(), actor.userId()));
     }
 
     /** Kho đề — nguồn cho dropdown "BTVN buổi sau" ở Nhận xét học viên: Bài đã Publish, thuộc 1 Đề đã gán cho lớp. */

@@ -264,12 +264,25 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
     videoEndedRef.current = videoEnded;
   }, [videoEnded]);
 
-  /** Câu hỏi đang mở khoá gate video (video đang tạm dừng chờ) — null nghĩa là video đang chạy tự do. */
-  const [activeQuestionId, setActiveQuestionId] = useState<number | null>(null);
+  /**
+   * Câu hỏi đang mở khoá gate video (video đang tạm dừng chờ) — null nghĩa là video đang chạy tự do.
+   *
+   * Bổ sung 2026-09-04 (đã xác nhận với người dùng) — fix bug thật (báo qua test trên điện thoại: video
+   * không dừng theo mốc, chạy liền mạch): TRƯỚC ĐÂY đồng bộ ref qua useEffect (chạy SAU khi React commit,
+   * lệch 1 nhịp render) — activateQuestion() gọi setActiveQuestionId(q.id) RỒI pauseVideo() ngay trong
+   * cùng lượt thực thi, nhưng sự kiện "pause"/PAUSED trình duyệt bắn ra đôi khi tới TRƯỚC khi effect kịp
+   * chạy, khiến 2 guard "chặn tạm dừng ngoài ý muốn" (native onPause/YouTube PAUSED bên dưới) đọc phải
+   * activeQuestionIdRef.current còn là giá trị CŨ (null) — hiểu nhầm "video đang chạy tự do bị dừng
+   * ngoài ý muốn" nên tự ép chạy lại NGAY, huỷ luôn pause vừa gọi. Race này thắng/thua tuỳ engine/thiết
+   * bị nên trước đây test không phát hiện ra. Sửa đúng mirror 3 cờ khác trong file này (awaitingNextMark/
+   * userPaused/isReviewingVideo) — gán ref ĐỒNG BỘ NGAY LẬP TỨC qua wrapper, không chờ useEffect.
+   */
+  const [activeQuestionId, setActiveQuestionIdState] = useState<number | null>(null);
   const activeQuestionIdRef = useRef<number | null>(null);
-  useEffect(() => {
-    activeQuestionIdRef.current = activeQuestionId;
-  }, [activeQuestionId]);
+  const setActiveQuestionId = (value: number | null) => {
+    activeQuestionIdRef.current = value;
+    setActiveQuestionIdState(value);
+  };
   const triggeredQuestionIdsRef = useRef<Set<number>>(new Set());
   /**
    * V149 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23, mô tả lại lần 2 sau khi làm sai
@@ -440,7 +453,19 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
       // Câu THẬT đang mở bảng — chỉ còn việc theo dõi mốc câu KẾ TIẾP để tự dừng lúc đang cho nghe lại
       // trong lúc chuẩn bị nói (awaitingNextMarkRef=true, xem activateQuestion/handleContinueAfterWritingPass).
       // Bước viết (awaitingNextMarkRef=false) thì video đứng yên, không cần theo dõi gì thêm.
-      if (!awaitingNextMarkRef.current) return;
+      //
+      // Bổ sung 2026-09-04 (đã xác nhận với người dùng, báo qua test điện thoại thật — bảng viết mở
+      // đúng nhưng video vẫn tự chạy tiếp) — fix bug thật: lệnh pauseVideo() gọi 1 LẦN DUY NHẤT trong
+      // activateQuestion() có thể bị YouTube IFrame API trên di động BỎ LỠ/xử lý trễ qua postMessage
+      // (không có cách nào chờ xác nhận lệnh đã tới nơi) — video thực tế vẫn chạy dù state app đã đúng
+      // (activeQuestionId đã set, bảng đã mở). Poll đang chạy mỗi 250ms nên GỌI LẠI pauseVideo() ở MỌI
+      // tick trong lúc lẽ ra phải đứng yên (bước viết) — vô hại khi video đã thực sự dừng (gọi lại
+      // pauseVideo() trên video đang pause không có tác dụng phụ), nhưng đảm bảo tối đa ~250ms sau khi
+      // lệnh đầu bị lỡ thì lệnh kế tiếp sẽ bắt lại được, thay vì phó mặc đúng 1 lần duy nhất.
+      if (!awaitingNextMarkRef.current) {
+        pauseVideo();
+        return;
+      }
       const next = questions[idx + 1];
       if (next && currentSeconds >= next.timestampSeconds) {
         setAwaitingNextMark(false);
@@ -806,14 +831,19 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
 
   return (
     <div className="fixed inset-0 bg-white z-[100] flex flex-col overflow-y-auto">
+      {/* Bổ sung 2026-09-04 (fix bug thật, đã xác nhận với người dùng) — canh giữa theo ĐÚNG khung nội
+          dung (max-w-2xl lg:max-w-3xl mx-auto, khớp đúng cột bên dưới) thay vì canh giữa theo cả
+          viewport trình duyệt — 2 khung khác chiều rộng nên trước đây nhìn lệch hẳn sang trái so với
+          tiêu đề/khung video phía trên (mirror đúng pattern đã sửa ở TakeExerciseModal.tsx, bị bỏ sót
+          chưa áp dụng cho màn Video phản xạ này). */}
       {justViolated && (
-        <div
-          key={violationCount}
-          role="alert"
-          className="fixed top-6 left-1/2 -translate-x-1/2 z-[110] flex items-center gap-2 bg-rose-600 text-white pl-3 pr-4 py-2.5 rounded-2xl shadow-xl animate-alert-pop"
-        >
-          <ShieldAlert size={18} className="shrink-0" />
-          <span className="text-xs font-black">{t("monitoring.violationToast")}</span>
+        <div className="fixed top-16 sm:top-20 inset-x-0 z-[110] px-4 sm:px-6 flex justify-center">
+          <div className="max-w-2xl lg:max-w-3xl w-full flex justify-center">
+            <div key={violationCount} role="alert" className="flex items-center gap-2 bg-rose-600 text-white pl-3 pr-4 py-2.5 rounded-2xl shadow-xl animate-alert-pop-centered max-w-full">
+              <ShieldAlert size={18} className="shrink-0" />
+              <span className="text-xs font-black">{t("monitoring.violationToast")}</span>
+            </div>
+          </div>
         </div>
       )}
 
@@ -947,7 +977,7 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
       <div className="max-w-2xl lg:max-w-3xl w-full mx-auto p-4 sm:p-6 space-y-4 flex-1">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <span className="text-[10px] font-extrabold uppercase text-teal-deep tracking-wide">{t("reflexVideoTask.badge")}</span>
+            <span className="text-[13px] font-extrabold uppercase text-teal-deep tracking-wide">{t("reflexVideoTask.badge")}</span>
             <h3 className="text-lg sm:text-xl lg:text-2xl font-extrabold text-ink truncate">{video.title}</h3>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -1017,7 +1047,7 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
          */}
         {video.durationSeconds > 0 && (
           <div className="space-y-1.5">
-            <div className="flex items-center justify-between text-[11px] font-bold text-muted">
+            <div className="flex items-center justify-between text-[13px] font-bold text-muted">
               <span>{t("reflexVideoTask.durationLabel", { duration: formatTimestamp(video.durationSeconds) })}</span>
               {questions.length > 0 && <span>{t("reflexVideoTask.timelineLabel")}</span>}
             </div>
@@ -1051,7 +1081,7 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
         {displayQuestion && (
           <div className={`bg-white border-2 rounded-[16px] p-4 sm:p-5 space-y-3 shadow-lg ${isReviewing ? "border-line" : "border-teal"}`}>
             <div className="flex items-center justify-between gap-2 text-[10px] sm:text-[11px] font-extrabold text-teal-deep uppercase tracking-wide">
-              <span className="flex items-center gap-1.5">
+              <span className="text-sm flex items-center gap-1.5">
                 {t("reflexVideoTask.question.label", { index: questions.findIndex((q) => q.id === displayQuestion.id) + 1 })}
                 <span className="px-1.5 py-0.5 rounded-md bg-sky-2 text-teal-deep normal-case font-bold">{formatTimestamp(displayQuestion.timestampSeconds)}</span>
                 {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25 — tua video lùi về đúng mốc câu ĐANG HIỂN THỊ (dù là câu THẬT đang làm dở hay câu đang xem lại) để nghe/xem lại, xem handleReviewQuestion. */}
@@ -1070,7 +1100,7 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                   {t("reflexVideoTask.reviewBadge")} · {t("reflexVideoTask.closeReviewButton")}
                 </button>
               ) : (
-                <span className="text-muted normal-case">
+                <span className="text-sm text-muted normal-case">
                   {displayStage === "writing"
                     ? t("reflexVideoTask.writingStage.title")
                     : t("reflexVideoTask.speakingStage.title")}
@@ -1091,7 +1121,7 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                 />
                 {displayProgress?.writingFeedback && (
                   <div
-                    className={`text-xs font-bold p-2.5 rounded-xl border ${
+                    className={`text-sm font-bold p-3 rounded-xl border ${
                       displayProgress.writingPassed ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-amber-50 border-amber-200 text-amber-700"
                     }`}
                   >
@@ -1102,7 +1132,7 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                       {displayProgress.writingScorePercent != null &&
                         ` — ${t("reflexVideoTask.writingStage.scoreLabel", { score: displayProgress.writingScorePercent })}`}
                     </p>
-                    <p className="font-medium mt-1 normal-case whitespace-pre-line">{displayProgress.writingFeedback}</p>
+                    <p className="font-medium mt-1.5 normal-case whitespace-pre-line text-base leading-relaxed">{displayProgress.writingFeedback}</p>
                   </div>
                 )}
                 {/*
@@ -1127,7 +1157,7 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                 )}
                 {writingError && <p className="text-xs font-bold text-rose-600">{writingError}</p>}
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[11px] font-bold text-muted">
+                  <span className="text-[13px] font-bold text-muted">
                     {t("reflexVideoTask.writingStage.attemptCount", { count: displayProgress?.writingAttemptCount ?? 0 })}
                   </span>
                   <button
@@ -1144,10 +1174,10 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
               // bước nói, hoặc đang xem lại câu đã đạt): LUÔN hiện lại câu trả lời viết (đọc-only) để học
               // sinh dựa vào đó khi nói lại, thay vì mất hẳn khỏi màn hình như trước.
               <div className="rounded-xl border border-line bg-sky-2/40 p-3 space-y-1">
-                <p className="text-[10px] font-extrabold uppercase text-teal-deep tracking-wide">{t("reflexVideoTask.writingStage.yourAnswerLabel")}</p>
-                <p className="text-sm font-medium text-ink whitespace-pre-line">{displayProgress?.answerText}</p>
+                <p className="text-[13px] font-extrabold uppercase text-teal-deep tracking-wide">{t("reflexVideoTask.writingStage.yourAnswerLabel")}</p>
+                <p className="text-lg font-medium text-ink whitespace-pre-line">{displayProgress?.answerText}</p>
                 {displayProgress?.writingScorePercent != null && (
-                  <p className="text-[11px] font-bold text-teal-deep">
+                  <p className="text-[13px] font-bold text-teal-deep">
                     {t("reflexVideoTask.writingStage.scoreLabel", { score: displayProgress.writingScorePercent })}
                   </p>
                 )}
@@ -1178,7 +1208,7 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                 {speakingError && <p className="text-xs font-bold text-rose-600">{speakingError}</p>}
                 {displayProgress?.speakingFeedback && !recorder.recording && !speakingSubmitting && (
                   <div
-                    className={`text-xs font-bold p-2.5 rounded-xl border ${
+                    className={`text-sm font-bold p-3 rounded-xl border ${
                       displayProgress.speakingPassed ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-amber-50 border-amber-200 text-amber-700"
                     }`}
                   >
@@ -1189,11 +1219,23 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                       {displayProgress.speakingScorePercent != null &&
                         ` — ${t("reflexVideoTask.speakingStage.scoreLabel", { score: displayProgress.speakingScorePercent })}`}
                     </p>
-                    <p className="font-medium mt-1 normal-case whitespace-pre-line">{displayProgress.speakingFeedback}</p>
+                    {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-08 — cho nghe lại chính
+                        audio đã ghi âm kèm đọc nhận xét AI, dữ liệu audioUrl đã có sẵn từ trước nhưng
+                        chưa được hiện ra (mirror pattern TakeExerciseModal.tsx cho câu SPEAKING). */}
+                    {displayProgress.audioUrl && (
+                      <div className="mt-1.5 space-y-1">
+                        <p className="text-[11px] font-extrabold uppercase tracking-wide normal-case">
+                          {t("reflexVideoTask.speakingStage.listenBackLabel")}
+                        </p>
+                        {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                        <audio controls src={displayProgress.audioUrl} className="w-full" />
+                      </div>
+                    )}
+                    <p className="font-medium mt-1.5 normal-case whitespace-pre-line text-base leading-relaxed">{displayProgress.speakingFeedback}</p>
                     {!displayProgress.speakingPassed && !isReviewing && (
                       <button
                         onClick={handleRetrySpeaking}
-                        className="mt-2 flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 border border-line rounded-lg text-[11px] font-extrabold text-ink"
+                        className="mt-2 flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 border border-line rounded-lg text-[13px] font-extrabold text-ink"
                       >
                         <RotateCcw size={12} /> {t("reflexVideoTask.speakingStage.retryButton")}
                       </button>
@@ -1201,7 +1243,7 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                   </div>
                 )}
                 {!isReviewing && (
-                  <p className="text-[11px] font-bold text-muted">
+                  <p className="text-[13px] font-bold text-muted">
                     {t("reflexVideoTask.speakingStage.attemptCount", { count: displayProgress?.speakingAttemptCount ?? 0 })}
                   </p>
                 )}

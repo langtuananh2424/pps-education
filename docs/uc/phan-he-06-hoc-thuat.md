@@ -341,6 +341,19 @@ UC-18: Xếp lớp & gán khóa học
 > niệm kỳ theo site) đã đủ chặt chẽ để phân hệ đó dùng được ngay khi triển
 > khai, không cần retrofit lại schema.
 >
+> **Kỳ học thuộc năm học — FK `academic_terms.academic_year_id` (bổ sung
+> ngoài SDD gốc, đã xác nhận với người dùng 2026-08-28, migration V157):**
+> mỗi kỳ học bắt buộc gắn 1 `academic_years` (danh mục Năm học dùng chung
+> toàn hệ thống, xem V103) — quan hệ 1-N ổn định, khác quan hệ lớp↔kỳ cố
+> tình KHÔNG đặt FK. Cột NULL ở DB (dữ liệu kỳ cũ backfill theo khoảng
+> ngày, không chắc khớp); kỳ tạo mới bắt buộc chọn năm học
+> (`CreateAcademicTermRequest.academicYearId`, `UpdateAcademicTermRequest`
+> cũng cho sửa lại nếu gán nhầm). Khi năm học đã khai báo đủ
+> `startDate`/`endDate`, khoảng thời gian kỳ phải nằm gọn trong năm học
+> (validate mềm ở `AcademicTermService`, ném `IllegalArgumentException`).
+> FE: `<select>` Năm học trong `AcademicTermManagerModal.tsx` (nguồn
+> `GET /api/academic-years`).
+>
 > **Loại giáo viên (VN/nước ngoài) trên `class_teachers`, vai trò CM, đổi
 > giáo viên chính có cascade lịch học (bổ sung ngoài SDD gốc, đã xác nhận
 > với người dùng 2026-08-13):** `class_teachers` có thêm cột `teacher_type`
@@ -1011,6 +1024,126 @@ UC-59: Xem lịch học của tôi (Học sinh)
 |                 |     /classes/{id}/sessions và Portal Phụ huynh —   |
 |                 |     vốn không dùng được cho actor Học sinh).       |
 +-----------------+----------------------------------------------------+
+
+---
+
+UC-18c: Đánh giá đầu vào & đề xuất xếp lớp
+
+> **Bổ sung ngoài SDD gốc — đã xác nhận với người dùng 2026-08-28.** Trung
+> tâm có kỳ thi đầu vào làm cơ sở xếp lớp. "Điểm đầu vào" có cấu trúc
+> GIỐNG Sổ điểm theo kỳ (tự setup kỹ năng + điểm) nhưng KHÔNG neo vào
+> lớp/kỳ học vì thí sinh chưa được xếp lớp — bộ đề giới hạn theo điểm
+> trường + năm học. Migration V158.
+
++-----------------+----------------------------------------------------+
+| **Mã Use Case** | UC-18c                                             |
++-----------------+----------------------------------------------------+
+| **Tên Use       | Đánh giá đầu vào & đề xuất xếp lớp                  |
+| Case**          |                                                    |
++-----------------+----------------------------------------------------+
+| **Phân hệ**     | Phân hệ 6                                          |
++-----------------+----------------------------------------------------+
+| **Tác nhân**    | Trưởng phòng đào tạo / Quản lý điểm trường (cấu    |
+|                 | hình bộ đề); Giáo viên / Quản lý điểm trường       |
+|                 | (nhập điểm)                                        |
++-----------------+----------------------------------------------------+
+| **Mô tả tóm     | Cấu hình bộ đề đánh giá đầu vào (các đầu điểm /    |
+| tắt**           | kỹ năng, thang điểm) theo điểm trường + năm học;   |
+|                 | nhập điểm từng thí sinh (là 1 khách hàng tiềm      |
+|                 | năng - lead HOẶC 1 học sinh đã có hồ sơ - đúng 1   |
+|                 | trong 2); lưu điểm tổng (nhập tay), trình độ đề    |
+|                 | xuất và lớp đề xuất; đánh dấu đã chuyển thí sinh   |
+|                 | sang luồng xếp lớp (UC-18). KHÔNG có quy trình     |
+|                 | duyệt - nhập trực tiếp, audit qua người nhập +     |
+|                 | thời điểm.                                         |
++-----------------+----------------------------------------------------+
+| **Điều kiện     | -   Cấu hình bộ đề: actor có quyền                 |
+| tiên quyết      |     `academic.entrance.setup.create` (tạo) /       |
+| (               |     `.update` (sửa, thêm/sửa đầu điểm) / `.delete` |
+| Precondition)** |     (xoá) - mặc định gán HEAD_ACADEMIC,            |
+|                 |     SITE_MANAGER (V158).                           |
+|                 |                                                    |
+|                 | -   Nhập điểm: actor có quyền                      |
+|                 |     `academic.entrance.score.manage` - mặc định    |
+|                 |     gán HEAD_ACADEMIC, SITE_MANAGER, TEACHER       |
+|                 |     (V158).                                        |
+|                 |                                                    |
+|                 | -   Năm học đích đã tồn tại (V103); điểm trường    |
+|                 |     đã chọn cụ thể (không phải "Tất cả điểm        |
+|                 |     trường").                                      |
++-----------------+----------------------------------------------------+
+| **Luồng sự kiện | 1.  Actor tạo bộ đề cho (điểm trường, năm học):    |
+| chính (Main     |     đặt tên + chọn thang điểm (POINT_10 / PERCENT  |
+| Flow)**         |     / IELTS - tái dùng `GradeComponentSetup.       |
+|                 |     ScaleType`).                                   |
+|                 |                                                    |
+|                 | 2.  Actor thêm các đầu điểm / kỹ năng (mã, tên,    |
+|                 |     điểm tối đa, kỹ năng tuỳ chọn, thứ tự hiển     |
+|                 |     thị).                                          |
+|                 |                                                    |
+|                 | 3.  Với từng thí sinh: chọn đúng 1 trong lead /    |
+|                 |     học sinh, nhập tên thí sinh (lưu denormalize), |
+|                 |     ngày đánh giá, điểm từng đầu điểm (hoặc đánh   |
+|                 |     dấu vắng), điểm tổng (nhập tay - hệ thống      |
+|                 |     KHÔNG tự tính), trình độ đề xuất, lớp đề       |
+|                 |     xuất, ghi chú. Hệ thống kiểm 0 ≤ score ≤       |
+|                 |     max_score của đầu điểm.                        |
+|                 |                                                    |
+|                 | 4.  Nhập/sửa lại nhiều lần không giới hạn (upsert  |
+|                 |     theo (bộ đề, thí sinh) - mỗi thí sinh 1 kết    |
+|                 |     quả / bộ đề).                                  |
+|                 |                                                    |
+|                 | 5.  Khi quyết định xếp lớp, actor bấm "Chuyển sang |
+|                 |     xếp lớp": hệ thống đặt `placed_flag = true` và |
+|                 |     điều hướng sang màn Quản lý lớp học (UC-18) -  |
+|                 |     KHÔNG tự động ghi danh (giáo vụ tự ghi danh    |
+|                 |     theo UC-18).                                   |
++-----------------+----------------------------------------------------+
+| **Luồng thay    | ***A1 --- Đối tượng chấm không hợp lệ***           |
+| thế / ngoại lệ  |                                                    |
+| (Alternate      | 1.  Nếu truyền cả lead_id lẫn student_id, hoặc     |
+| Flow)**         |     không truyền cái nào, hệ thống chặn lưu        |
+|                 |     (`IllegalArgumentException`; CHECK ở DB).      |
+|                 |                                                    |
+|                 | ***A2 --- Điểm ngoài khoảng***                     |
+|                 |                                                    |
+|                 | 1.  Nếu score < 0 hoặc > max_score của đầu điểm    |
+|                 |     (và không đánh dấu vắng), hệ thống chặn lưu.   |
+|                 |                                                    |
+|                 | ***A3 --- Sửa điểm tối đa khi đã có điểm nhập***   |
+|                 |                                                    |
+|                 | 1.  Không đổi được `max_score` của đầu điểm khi đã |
+|                 |     có ≥ 1 điểm nhập cho đầu điểm đó               |
+|                 |     (`EntranceComponentLockedException`, HTTP      |
+|                 |     409).                                          |
+|                 |                                                    |
+|                 | ***A4 --- Xoá khi không rỗng***                    |
+|                 |                                                    |
+|                 | 1.  Không xoá được bộ đề khi đã có kết quả thí     |
+|                 |     sinh; không xoá được đầu điểm khi đã có điểm   |
+|                 |     nhập (`EntranceAssessmentNotDeletableException`|
+|                 |     , HTTP 422).                                   |
++-----------------+----------------------------------------------------+
+| **Hậu điều kiện | -   Bộ đề + đầu điểm được lưu, dùng lại cho mọi    |
+| (P              |     thí sinh trong (điểm trường, năm học).         |
+| ostcondition)** |                                                    |
+|                 | -   Mỗi thí sinh có tối đa 1 kết quả / bộ đề, gồm  |
+|                 |     điểm từng đầu điểm + điểm tổng + trình độ/lớp  |
+|                 |     đề xuất.                                       |
+|                 |                                                    |
+|                 | -   Sau "Chuyển sang xếp lớp": `placed_flag =      |
+|                 |     true`; actor tiếp tục xếp lớp thủ công ở       |
+|                 |     UC-18 (không auto-enroll).                     |
++-----------------+----------------------------------------------------+
+
+**Cài đặt:** `EntranceAssessmentSetupService` (cấu hình bộ đề + đầu điểm) /
+`EntranceAssessmentResultService` (nhập điểm + `markPlaced`) /
+`EntranceAssessmentController` (`/api/entrance-assessment-setups/**`,
+`/api/entrance-assessment-components/**`,
+`/api/entrance-assessment-results/**`). FE: trang
+`EntranceAssessmentPage.tsx` (route `/academic/entrance-assessment`, nav
+"Đánh giá đầu vào"). Bảng: xem docs/sdd-groups/06-hoc-thuat.md mục
+"Đánh giá đầu vào".
 
 ---
 

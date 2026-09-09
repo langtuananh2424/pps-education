@@ -8,7 +8,6 @@ import vn.com.pps.education.domain.ClassSession;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
-import java.util.Optional;
 
 public interface ClassSessionRepository extends JpaRepository<ClassSession, Long> {
 
@@ -25,9 +24,27 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, Long
      * buổi đó chưa từng dạy nên chưa từng có student_comments, dẫn tới bỏ
      * sót buổi THẬT SỰ dạy gần nhất trước đó). Mirror
      * findUpcomingSessions (dùng cùng excludedStatuses ở call site).
+     *
+     * V167 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-05) — fix bug thật: derived
+     * query cũ (`SessionDateLessThan`) chỉ so `session_date`, KHÔNG phân biệt được 2 buổi CÙNG NGÀY
+     * (VD lớp có buổi sáng + buổi chiều cùng 1 ngày, rất phổ biến khi có cả GV Việt Nam lẫn GV nước
+     * ngoài). Buổi chiều tra "buổi trước" sẽ NHẢY QUA buổi sáng cùng ngày (vì session_date bằng nhau,
+     * không "<") thẳng tới tận NGÀY LỊCH trước đó — sai hoàn toàn "buổi liền trước". Đổi sang @Query so
+     * theo cặp (session_date, id) — cùng ngày thì so id, mirror đúng cách countEarlierSessions đã dùng
+     * để đánh số "Buổi N" (buổi sinh trước có id nhỏ hơn, đúng thứ tự sinh lịch hàng loạt). Đổi từ
+     * `findFirst...Optional` sang trả `List` (giữ ORDER BY, Service tự lấy phần tử đầu) vì derived-name
+     * `findFirst` không áp dụng được với @Query có điều kiện OR phức tạp.
      */
-    Optional<ClassSession> findFirstBySchoolClassIdAndSessionDateLessThanAndStatusNotInOrderBySessionDateDescIdDesc(
-            Long classId, LocalDate sessionDate, List<ClassSession.Status> excludedStatuses);
+    @Query("""
+            SELECT cs FROM ClassSession cs
+            WHERE cs.schoolClass.id = :classId
+            AND (cs.sessionDate < :sessionDate OR (cs.sessionDate = :sessionDate AND cs.id < :sessionId))
+            AND cs.status NOT IN (:excludedStatuses)
+            ORDER BY cs.sessionDate DESC, cs.id DESC
+            """)
+    List<ClassSession> findSessionsBeforeOrderedDesc(@Param("classId") Long classId, @Param("sessionDate") LocalDate sessionDate,
+                                                      @Param("sessionId") Long sessionId,
+                                                      @Param("excludedStatuses") List<ClassSession.Status> excludedStatuses);
 
     /**
      * UC-21 mở rộng (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
@@ -37,9 +54,22 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, Long
      * của cùng loại GV (VD GVNN buổi 6 đối chiếu GVNN buổi 3, bỏ qua buổi
      * GVVN xen giữa) thay vì buổi liền kề tuyệt đối bất kể ai dạy. Loại
      * CANCELLED/RESCHEDULED — cùng lý do đã ghi ở method phía trên.
+     *
+     * V167 (2026-09-05) — cùng fix bug "cùng ngày" đã ghi ở
+     * {@link #findSessionsBeforeOrderedDesc}, cộng thêm lọc teacherType.
      */
-    Optional<ClassSession> findFirstBySchoolClassIdAndSessionDateLessThanAndTeacherTypeAndStatusNotInOrderBySessionDateDescIdDesc(
-            Long classId, LocalDate sessionDate, ClassSession.TeacherType teacherType, List<ClassSession.Status> excludedStatuses);
+    @Query("""
+            SELECT cs FROM ClassSession cs
+            WHERE cs.schoolClass.id = :classId
+            AND (cs.sessionDate < :sessionDate OR (cs.sessionDate = :sessionDate AND cs.id < :sessionId))
+            AND cs.teacherType = :teacherType
+            AND cs.status NOT IN (:excludedStatuses)
+            ORDER BY cs.sessionDate DESC, cs.id DESC
+            """)
+    List<ClassSession> findSessionsBeforeWithTeacherTypeOrderedDesc(@Param("classId") Long classId, @Param("sessionDate") LocalDate sessionDate,
+                                                                     @Param("sessionId") Long sessionId,
+                                                                     @Param("teacherType") ClassSession.TeacherType teacherType,
+                                                                     @Param("excludedStatuses") List<ClassSession.Status> excludedStatuses);
 
     /**
      * V65 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng): buổi học
@@ -63,16 +93,25 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, Long
      * (VN) — học sinh phải nộp trước Buổi 2 dù giáo viên VN không thấy
      * điểm cho tới tận Buổi 3. teacherType=null giữ nguyên hành vi cũ
      * (buổi kế tiếp tuyệt đối, không lọc).
+     *
+     * V167 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-05) — fix bug thật, cùng gốc với
+     * findSessionsBeforeOrderedDesc: `cs.sessionDate > :sessionDate` KHÔNG phân biệt được 2 buổi CÙNG
+     * NGÀY — buổi sáng tra "buổi kế tiếp" sẽ NHẢY QUA buổi chiều cùng ngày (session_date bằng nhau,
+     * không ">") thẳng tới tận ngày lịch SAU đó, khiến hạn nộp mặc định lệch xa hơn nhiều so với thực
+     * tế (VD lớp có buổi sáng+chiều cùng ngày, "buổi kế tiếp" của buổi sáng phải là buổi chiều CÙNG
+     * NGÀY, không phải buổi của ngày lịch kế tiếp). Thêm điều kiện cùng ngày thì so id (mirror
+     * findSessionsBeforeOrderedDesc) — cần thêm tham số sessionId để loại trừ/so sánh đúng chính nó.
      */
     @Query("""
             SELECT cs FROM ClassSession cs
             WHERE cs.schoolClass.id = :classId
-            AND cs.sessionDate > :sessionDate
+            AND (cs.sessionDate > :sessionDate OR (cs.sessionDate = :sessionDate AND cs.id > :sessionId))
             AND cs.status NOT IN (:excludedStatuses)
             AND (:teacherType IS NULL OR cs.teacherType = :teacherType)
             ORDER BY cs.sessionDate ASC, cs.startTime ASC
             """)
     List<ClassSession> findUpcomingSessions(@Param("classId") Long classId, @Param("sessionDate") LocalDate sessionDate,
+                                             @Param("sessionId") Long sessionId,
                                              @Param("excludedStatuses") List<ClassSession.Status> excludedStatuses,
                                              @Param("teacherType") ClassSession.TeacherType teacherType);
 

@@ -11,5 +11,7 @@ import java.time.LocalDateTime;
  * updateComment() song song.
  */
 public record BulkUpdateHomeworkDueDateRequest(
-        @NotNull LocalDateTime dueDate
+        @NotNull LocalDateTime dueDate,
+        /** V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — mirror dueDate: null = false. */
+        Boolean lateSubmissionAllowed
 ) {}

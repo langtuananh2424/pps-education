@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { CheckCircle2, KeyRound, Loader2, PartyPopper, RotateCcw, X } from "lucide-react";
+import { CheckCircle2, KeyRound, Loader2, PartyPopper, RotateCcw, ShieldAlert, X } from "lucide-react";
 import { friendlyApiErrorMessage } from "@/lib/apiClient";
 import {
   AssignedExerciseResponse,
@@ -13,6 +13,7 @@ import {
   getExercise,
   listAnswers,
   listExerciseQuestions,
+  notifyBatchIntegrityViolation,
   recordListeningPlay,
   revealAndCloseAttempt,
   saveAnswer,
@@ -21,6 +22,12 @@ import {
   uploadMedia
 } from "../api";
 import { GridQuestionGroup, QuestionBlock, groupQuestionsByGroupKey } from "./TakeExerciseModal";
+import { useLockBodyScroll } from "@/components/ui/useLockBodyScroll";
+import { useIntegrityMonitor } from "../hooks/useIntegrityMonitor";
+import MonitoringBadge from "./MonitoringBadge";
+
+/** Bổ sung 2026-09-04 (đã xác nhận với người dùng) — xem Javadoc effect tự nộp khi vượt ngưỡng vi phạm ở dưới. */
+const BATCH_VIOLATION_AUTO_SUBMIT_THRESHOLD = 3;
 
 const SKILL_LABEL_KEY: Record<string, string> = {
   VOCAB_GRAMMAR: "assignments.batch.skillLabel.VOCAB_GRAMMAR",
@@ -70,11 +77,17 @@ interface BatchTakeExerciseModalProps {
  * 1 nút "Nộp bài" DUY NHẤT ở cuối trang nộp CẢ N attempt cùng lúc, ra 1 kết quả gộp.
  *
  * ĐƠN GIẢN HOÁ CÓ CHỦ Ý so với TakeExerciseModal (đã xác nhận phù hợp cho BTVN, không phải giờ kiểm
- * tra proctor chặt): KHÔNG có đồng hồ đếm ngược thời gian làm bài / giám sát chống gian lận / nút "Làm
- * lại" ngay trong màn gộp — nếu 1 Bài có timeLimitMinutes, BE vẫn tự chốt khi hết giờ lúc gọi
- * saveAnswer/submitAttempt như bình thường, chỉ là không có UI đếm ngược hiển thị ở đây.
+ * tra proctor chặt): KHÔNG có đồng hồ đếm ngược thời gian làm bài / giám sát chống gian lận — nếu 1 Bài
+ * có timeLimitMinutes, BE vẫn tự chốt khi hết giờ lúc gọi saveAnswer/submitAttempt như bình thường, chỉ
+ * là không có UI đếm ngược hiển thị ở đây.
+ *
+ * Bổ sung 2026-09-04 (đã xác nhận với người dùng) — ĐẢO NGƯỢC 1 phần quyết định trên: nút "Làm lại"
+ * (mô tả ở trên là cố tình bỏ) hoá ra là 1 lỗ hổng thật — {@code BatchExerciseCard} ở AssignmentsTab
+ * vẫn hiện badge "Cần làm lại" cho Lô có Bài trượt nhưng màn này không có cách nào thực hiện, xem
+ * Javadoc handleRetakeBatch.
  */
 export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExerciseModalProps) {
+  useLockBodyScroll(true);
   const { t } = useTranslation("portal-exercises");
   const [subs, setSubs] = useState<SubExercise[] | null>(null);
   const [answersByQuestion, setAnswersByQuestion] = useState<Map<number, StudentAnswerResponse>>(new Map());
@@ -86,11 +99,42 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
   const [savingQuestionId, setSavingQuestionId] = useState<number | null>(null);
   const [confirmingSubmit, setConfirmingSubmit] = useState(false);
   const [justSubmitted, setJustSubmitted] = useState(false);
+  /**
+   * Bổ sung 2026-09-04 (đã xác nhận với người dùng) — fix bug thật: mirror TakeExerciseModal, sót lại từ
+   * lúc tách file (V150) — nút X đóng ở đây trước đây đóng thẳng luôn, không hỏi lại dù đang có Bài
+   * IN_PROGRESS (dễ đóng nhầm khi đang giám sát chống gian lận — mirror lý do gốc ở TakeExerciseModal).
+   * Xem lại 1 Lô đã chấm hết (không còn Bài IN_PROGRESS) thì đóng thẳng, không cần hỏi.
+   */
+  const [confirmingClose, setConfirmingClose] = useState(false);
   // V152 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — mirror TakeExerciseModal,
   // xem Javadoc canRevealAndClose/handleRevealAndClose bên dưới.
   const [confirmingRevealClose, setConfirmingRevealClose] = useState(false);
   const [revealClosing, setRevealClosing] = useState(false);
   const [justClosedEarly, setJustClosedEarly] = useState(false);
+  /**
+   * Bổ sung 2026-09-04 (đã xác nhận với người dùng) — true đúng 1 lần khi vừa TỰ ĐỘNG nộp hết cả Lô do
+   * vượt ngưỡng vi phạm (xem effect ngay dưới handleSubmit) — chặn không cho useIntegrityMonitor tiếp
+   * tục đếm/toast thêm sau khi đã xử lý, và chặn KHÔNG cho BatchResultPopup thường hiện chồng lên popup
+   * "đã bị dừng" (mirror TakeExerciseModal#stoppedByViolation).
+   */
+  const [stoppedByViolation, setStoppedByViolation] = useState(false);
+
+  /**
+   * Bổ sung 2026-09-04 (đã xác nhận với người dùng — giờ giao chủ yếu theo Lô, cần cảnh báo giống hệt
+   * màn 1 Bài lẻ) — mirror ReflexVideoTaskPage (KHÔNG phải TakeExerciseModal đầy đủ): luồng Lô nộp
+   * saveAnswer/submitAttempt riêng từng Bài, không có 1 attemptId duy nhất để gửi sự kiện giám sát
+   * real-time lên BE theo đúng cơ chế recordIntegrityEvents (Bài lẻ). Hook này CHỈ dùng để đếm/cảnh báo
+   * SỐNG cho học sinh (toast + badge). Việc TỰ NỘP + báo Giáo viên khi đủ ngưỡng làm RIÊNG ở effect ngay
+   * dưới handleSubmit (đếm violationCount cục bộ, không qua ngưỡng system_settings.integrity.* của BE).
+   * `enabled` gọi TRƯỚC early-return (if loading/if !subs) bên dưới vì Rules of Hooks — phải tính an
+   * toàn khi subs còn null (`subs ?? []`).
+   */
+  const { violationCount, isMonitoringActive, justViolated } = useIntegrityMonitor({
+    enabled: !stoppedByViolation && (subs ?? []).some((s) => s.attempt.status === "IN_PROGRESS" && !isSubOverdueLocked(s)),
+    onFullscreenExit: () => {
+      if (document.fullscreenEnabled) document.documentElement.requestFullscreen().catch(() => undefined);
+    }
+  });
 
   const groupTitle = batchGroupTitle(t, items);
 
@@ -230,6 +274,64 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
   };
 
   /**
+   * Bổ sung 2026-09-04 (đã xác nhận với người dùng — ngưỡng 3 lần, chỉ báo Giáo viên không báo phụ
+   * huynh) — đủ 3 lần thoát ra ngoài (violationCount đếm cục bộ ở client, xem useIntegrityMonitor phía
+   * trên) trong lúc còn Bài đang dở thì TỰ ĐỘNG nộp hết cả Lô (gọi lại handleSubmit() y hệt bấm nút
+   * "Nộp bài" thường — KHÔNG có API "nộp cả Lô" riêng) rồi báo 1 lần cho Giáo viên phụ trách lớp qua
+   * notifyBatchIntegrityViolation (attempt của Bài đầu tiên chỉ để BE tra ra đúng học sinh/lớp — xem
+   * Javadoc AttemptIntegrityService#notifyTeachersForBatchViolation). Cố tình KHÔNG qua ngưỡng cấu hình
+   * system_settings.integrity.* của BE (dùng cho luồng real-time của Bài lẻ) — luồng Lô không có 1
+   * attemptId duy nhất để dùng đúng cơ chế đó (N Bài sẽ tự đếm/dừng lệch nhau, không hợp lý cho 1 phiên
+   * làm liên tục cả Lô, xem trao đổi đã thống nhất). `stoppedByViolation` chặn effect này chạy lặp lại.
+   */
+  useEffect(() => {
+    if (stoppedByViolation || violationCount < BATCH_VIOLATION_AUTO_SUBMIT_THRESHOLD) return;
+    if (!subs || !subs.some((s) => s.attempt.status === "IN_PROGRESS" && !isSubOverdueLocked(s))) return;
+    setStoppedByViolation(true);
+    handleSubmit();
+    notifyBatchIntegrityViolation(subs[0].attempt.id, violationCount).catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [violationCount]);
+
+  /**
+   * Bổ sung 2026-09-04 (đã xác nhận với người dùng) — trước đây màn gộp KHÔNG có cách nào làm lại (xem
+   * Javadoc đầu file, quyết định đơn giản hoá 2026-08-25) — nhưng thẻ ở AssignmentsTab vẫn hiện "Cần làm
+   * lại" cho Lô có Bài trượt (needsRetake/anyRetake), bấm vào lại rơi đúng vào màn này — học sinh thấy rõ
+   * cần làm lại nhưng không có nút nào để làm. Bổ sung "Làm lại cả Lô": bấm 1 lần tạo lượt làm MỚI cho
+   * MỌI Bài trong Lô cùng lúc (giữ đúng tinh thần "làm liên tục cả Lô như 1 trang"), gọi lại startAttempt
+   * cho từng Bài — KHÔNG có khái niệm "lượt làm của cả Lô" ở BE (maxAttempts/attemptNumber vẫn tính
+   * riêng theo TỪNG Exercise, không đổi schema). Người dùng xác nhận hướng vận hành: đặt CÙNG số lượt
+   * làm lại cho mọi Bài trong 1 Lesson để tránh lệch — nhưng vẫn xử lý phòng hờ trường hợp lệch: Bài nào
+   * đã hết lượt riêng (item.canStartNewAttempt=false) thì BỎ QUA, giữ nguyên kết quả cũ chỉ-xem, KHÔNG
+   * chặn các Bài khác trong Lô vẫn còn lượt (xem retakeSkippedNote hiện ngay dưới tiêu đề Bài đó).
+   */
+  const handleRetakeBatch = async () => {
+    if (!subs) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const refreshed = await Promise.all(
+        subs.map(async (s) => (s.item.canStartNewAttempt ? { ...s, attempt: await startAttempt(s.item.exerciseId, s.item.assignmentId) } : s))
+      );
+      setSubs(refreshed);
+      setAnswersByQuestion((prev) => {
+        const next = new Map(prev);
+        refreshed.forEach((s, i) => {
+          if (subs[i].item.canStartNewAttempt) s.questions.forEach((q) => next.delete(q.questionId));
+        });
+        return next;
+      });
+      setTextDraft({});
+      setJustSubmitted(false);
+      setJustClosedEarly(false);
+    } catch (err) {
+      setError(friendlyApiErrorMessage(err, t("takeExercise.loadError")));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
    * V152 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — mirror TakeExerciseModal:
    * cả Lô ĐÃ ĐẠT (từng Bài trong Lô đều tự đạt ngưỡng riêng, không chỉ đạt % gộp) nhưng còn lượt làm
    * lại — học sinh tự nguyện dừng NGAY cả Lô để xem đáp án, đổi lại mất quyền làm lại. Đóng ĐỒNG THỜI
@@ -276,6 +378,9 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
 
   const hasActiveAttempt = subs.some((s) => s.attempt.status === "IN_PROGRESS" && !isSubOverdueLocked(s));
   const anyOverdueLocked = subs.some(isSubOverdueLocked);
+  /** Bổ sung 2026-09-04 — mirror điều kiện nút "Làm lại" của TakeExerciseModal (readOnly && canStartNewAttempt),
+   * áp cho CẢ Lô: chỉ hiện khi không còn Bài nào đang dở (đã nộp/chấm xong hết) và còn ÍT NHẤT 1 Bài còn lượt. */
+  const anyCanRetake = !hasActiveAttempt && !justClosedEarly && subs.some((s) => s.item.canStartNewAttempt);
   /** V152 — xem Javadoc handleRevealAndClose. */
   const canRevealAndClose =
     !justClosedEarly &&
@@ -283,6 +388,44 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
 
   return (
     <div className="fixed inset-0 bg-white z-[100] flex flex-col">
+      {/* Popup cảnh báo tức thời — hiện ngay lúc phát hiện đổi tab/thoát fullscreen, tự mờ dần sau ~3.5s
+          (mirror TakeExerciseModal/ReflexVideoTaskPage) — ẩn khi đã bị dừng ép (khỏi hiện đè lên popup mạnh bên dưới).
+          Bổ sung 2026-09-04 (fix bug thật, đã xác nhận với người dùng) — canh giữa theo ĐÚNG khung nội dung
+          header (max-w-2xl lg:max-w-3xl mx-auto) thay vì canh giữa theo cả viewport trình duyệt — 2 khung
+          khác chiều rộng nên trước đây nhìn lệch hẳn sang trái so với tiêu đề/badge phía trên. */}
+      {justViolated && !stoppedByViolation && (
+        <div className="fixed top-16 sm:top-20 inset-x-0 z-[110] px-4 sm:px-6 flex justify-center">
+          <div className="max-w-2xl lg:max-w-3xl w-full flex justify-center">
+            <div key={violationCount} role="alert" className="flex items-center gap-2 bg-rose-600 text-white pl-3 pr-4 py-2.5 rounded-2xl shadow-xl animate-alert-pop-centered max-w-full">
+              <ShieldAlert size={18} className="shrink-0" />
+              <span className="text-xs font-black">{t("monitoring.violationToast")}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cảnh báo mạnh — chặn tương tác, khác hẳn toast nhỏ ở trên — hiện đúng 1 lần khi vừa bị TỰ ĐỘNG
+          nộp hết cả Lô do vượt ngưỡng vi phạm (mirror TakeExerciseModal#stoppedByViolation, tái dùng
+          đúng key i18n). Đóng lại là đóng LUÔN modal — không cần xem lại BatchResultPopup thường nữa. */}
+      {stoppedByViolation && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[120]">
+          <div className="bg-white rounded-[20px] w-full max-w-md p-6 space-y-4 text-center shadow-xl">
+            <ShieldAlert size={40} className="text-rose-600 mx-auto" />
+            <h3 className="text-base font-black text-ink">{t("takeExercise.stoppedByViolation.title")}</h3>
+            <p className="text-xs font-bold text-muted leading-relaxed">{t("takeExercise.stoppedByViolation.description")}</p>
+            <button
+              onClick={() => {
+                setStoppedByViolation(false);
+                onClose();
+              }}
+              className="text-xs font-extrabold text-white bg-teal px-5 py-2.5 rounded-xl"
+            >
+              {t("takeExercise.stoppedByViolation.understood")}
+            </button>
+          </div>
+        </div>
+      )}
+
       {submitting && (
         <div className="fixed inset-0 bg-white/90 backdrop-blur-sm flex items-center justify-center z-[125]">
           <div className="flex flex-col items-center gap-3 text-center px-6">
@@ -293,7 +436,7 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
         </div>
       )}
 
-      {justSubmitted && <BatchResultPopup subs={subs} groupTitle={groupTitle} onClose={() => setJustSubmitted(false)} />}
+      {justSubmitted && !stoppedByViolation && <BatchResultPopup subs={subs} groupTitle={groupTitle} onClose={() => setJustSubmitted(false)} />}
 
       {/* V152 — xác nhận trước khi TỰ NGUYỆN đóng cả Lô sớm để xem đáp án (không hoàn tác được). */}
       {confirmingRevealClose && (
@@ -324,6 +467,35 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
         </div>
       )}
 
+      {/* Cảnh báo trước khi đóng (mirror TakeExerciseModal) — chỉ hỏi khi đang có Bài IN_PROGRESS (dễ
+          đóng nhầm lúc đang bị giám sát chống gian lận); xem lại 1 Lô đã chấm hết thì đóng thẳng. */}
+      {confirmingClose && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[120]">
+          <div className="bg-white rounded-[20px] w-full max-w-sm p-6 space-y-4 text-center shadow-xl">
+            <ShieldAlert size={36} className="text-amber-600 mx-auto" />
+            <h3 className="text-base font-black text-ink">{t("takeExercise.confirmClose.title")}</h3>
+            <p className="text-xs font-bold text-muted leading-relaxed">{t("takeExercise.confirmClose.description")}</p>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <button
+                onClick={() => setConfirmingClose(false)}
+                className="flex-1 px-4 py-2.5 bg-white hover:bg-slate-100 border border-line rounded-xl text-xs font-extrabold text-ink"
+              >
+                {t("takeExercise.confirmClose.stay")}
+              </button>
+              <button
+                onClick={() => {
+                  setConfirmingClose(false);
+                  onClose();
+                }}
+                className="flex-1 px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-extrabold"
+              >
+                {t("takeExercise.confirmClose.stillClose")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="border-b border-line/60 shrink-0">
         <div className="max-w-2xl lg:max-w-3xl w-full mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
           <div className="min-w-0">
@@ -331,8 +503,18 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
               {t("assignments.batch.countSuffix", { count: subs.length })}
             </span>
             <h3 className="text-lg sm:text-xl lg:text-2xl font-extrabold text-ink truncate">{groupTitle}</h3>
+            {/* Bổ sung 2026-09-04 (đã xác nhận với người dùng) — mirror AssignmentsTab.tsx: hiện Unit/
+                SubTopic để phân biệt Lesson trùng tên (Lesson 1, 2, 3...) giữa các Unit khác nhau. */}
+            {(subs[0].item.unitTitle || subs[0].item.subTopicTitle) && (
+              <p className="text-xs font-bold text-muted truncate">
+                {[subs[0].item.unitTitle, subs[0].item.subTopicTitle].filter(Boolean).join(" · ")}
+              </p>
+            )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            {/* Bổ sung 2026-09-04 — chip nhỏ báo đang giám sát chống gian lận + số lần vi phạm, mirror
+                TakeExerciseModal/ReflexVideoTaskPage (MonitoringBadge). */}
+            {isMonitoringActive && <MonitoringBadge violationCount={violationCount} />}
             {/* V152 — nút "Xem đáp án & đóng lượt" tường minh, chỉ hiện khi CẢ LÔ đã đạt (từng Bài tự
                 đạt ngưỡng riêng) nhưng còn lượt làm lại — xem canRevealAndClose/handleRevealAndClose. */}
             {canRevealAndClose && (
@@ -344,8 +526,18 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
                 <KeyRound size={14} /> {t("takeExercise.revealAndClose.button")}
               </button>
             )}
+            {/* Bổ sung 2026-09-04 — xem Javadoc handleRetakeBatch. */}
+            {anyCanRetake && (
+              <button
+                onClick={handleRetakeBatch}
+                disabled={loading}
+                className="shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-teal/10 hover:bg-teal/20 text-teal-deep border border-teal/20 text-xs font-extrabold transition-colors disabled:opacity-60"
+              >
+                <RotateCcw size={14} /> {t("assignments.batch.action.retake")}
+              </button>
+            )}
             <button
-              onClick={onClose}
+              onClick={() => (hasActiveAttempt ? setConfirmingClose(true) : onClose())}
               aria-label={t("takeExercise.closeAriaLabel")}
               className="shrink-0 flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 transition-colors"
             >
@@ -378,11 +570,27 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
             let counter = 0;
             return (
               <div key={sub.item.exerciseId} className="space-y-3 lg:space-y-4">
-                <div className="flex items-center gap-2.5 pt-2 first:pt-0">
-                  <span className="shrink-0 text-[11px] sm:text-xs font-black uppercase tracking-wide text-white bg-coral rounded-full px-3 py-1">
+                <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 pt-2 first:pt-0">
+                  {/* Bổ sung 2026-09-04 (đã xác nhận với người dùng) — fix bug thật: bỏ shrink-0, tiêu đề
+                      Bài dài (GV gõ cả câu hướng dẫn vào ô Tiêu đề) trước đây giữ nguyên 1 dòng, tràn hẳn
+                      ra ngoài khung kéo theo cả trang cuộn ngang — giờ cho phép co lại để tự xuống dòng. */}
+                  <span className="text-[11px] sm:text-xs font-black uppercase tracking-wide text-white bg-coral rounded-lg px-3 py-1">
                     {sub.item.title}
                   </span>
-                  <span className="h-px flex-1 bg-line" />
+                  <span className="h-px flex-1 bg-line min-w-[24px]" />
+                  {/*
+                   * Bổ sung 2026-09-04 — báo rõ vì sao Bài này không được làm lại cùng Lô khi bấm "Làm
+                   * lại cả Lô" (xem handleRetakeBatch) — chỉ hiện khi Bài đã kết thúc VÀ hết lượt riêng.
+                   *
+                   * Bổ sung 2026-09-05 (fix bug thật, đã xác nhận với người dùng) — `w-full` buộc span
+                   * này luôn xuống HẲN 1 dòng riêng (item rộng 100% trong flex-wrap luôn tự ngắt dòng
+                   * mới) thay vì chen cùng dòng với badge tiêu đề — trên màn hẹp (mobile) trước đây
+                   * `shrink-0` + không có flex-wrap khiến dòng chữ dài bị đè/vỡ layout lên badge màu cam
+                   * Ex.1 phía dưới.
+                   */}
+                  {sectionReadOnly && !sub.item.canStartNewAttempt && (
+                    <span className="w-full text-[10px] font-bold text-muted italic">{t("assignments.batch.retakeSkippedNote")}</span>
+                  )}
                 </div>
                 {blocks.map((block) => {
                   const startNumber = counter + 1;

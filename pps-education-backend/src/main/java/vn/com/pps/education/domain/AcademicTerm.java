@@ -33,6 +33,15 @@ public class AcademicTerm extends BaseAuditEntity {
     @JoinColumn(name = "site_id", nullable = false)
     private Site site;
 
+    /**
+     * Năm học chứa kỳ học này (V157, bổ sung ngoài SDD gốc, đã xác nhận
+     * với người dùng 2026-08-28). Nullable ở DB cho dữ liệu kỳ cũ; kỳ tạo
+     * mới bắt buộc có (validate ở {@link vn.com.pps.education.dto.CreateAcademicTermRequest}).
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "academic_year_id")
+    private AcademicYear academicYear;
+
     @Column(nullable = false, length = 50)
     private String code;
 

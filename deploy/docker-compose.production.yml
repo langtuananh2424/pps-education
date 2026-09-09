@@ -7,6 +7,11 @@
 # Khác biệt so với deploy/docker-compose.staging.yml: name/tag image/port
 # host/domain — tách biệt hoàn toàn network+volume+container với stack staging
 # dù chạy chung 1 server vật lý.
+#
+# QUAN TRỌNG (sự cố 2026-09-04, xem chi tiết ở docker-compose.staging.yml):
+# extra_hosts KHÔNG dùng "host-gateway" - trỏ thẳng gateway cố định của
+# network "internal" (172.29.0.0/24, xem networks.internal.ipam), khác subnet
+# với staging (172.28.0.0/24) để không đụng độ khi chạy chung 1 server.
 
 name: pps-production
 
@@ -20,6 +25,8 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
       - pg_data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432" # chỉ localhost - truy cập từ máy cá nhân qua SSH tunnel (xem deploy/README.md)
     networks: [internal]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U pps_app -d pps_education"]
@@ -40,11 +47,39 @@ services:
       - "127.0.0.1:9000:9000" # public GET qua Nginx (files.ppsvietnam.edu.vn) - xem deploy/nginx
     networks: [internal]
 
+  # Khoi tao MinIO 1 lan: tao bucket + bat quyen doc an danh (anonymous
+  # download) cho URL public {R2_PUBLIC_BASE_URL}/{key}. Truoc day la thao tac
+  # tay trong deploy/README.md -> hay bi quen, gay loi 403 khi serve file
+  # (bucket khong ton tai / thieu policy). Chay lai moi lan `docker compose
+  # up`, idempotent (--ignore-existing + set lai policy). Backend cho service
+  # nay xong moi khoi dong (xem depends_on ben duoi).
+  minio-init:
+    image: minio/mc:latest
+    depends_on: [minio]
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        until mc alias set mio http://minio:9000 "$$S3_ACCESS_KEY" "$$S3_SECRET_KEY" >/dev/null 2>&1; do
+          echo 'minio-init: cho minio san sang...'; sleep 2;
+        done
+        mc mb --ignore-existing mio/pps-media
+        mc anonymous set download mio/pps-media
+        mc anonymous get mio/pps-media
+        echo 'minio-init: bucket pps-media da san sang (anonymous download)'
+    environment:
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+    networks: [internal]
+    restart: "no"
+
   backend:
-    image: ghcr.io/<owner>/<repo>/backend:prod-latest
+    image: ghcr.io/langtuananh2424/pps-education/backend:prod-latest
     restart: unless-stopped
     extra_hosts:
-      - "host.docker.internal:host-gateway" # Docker Engine Linux cần khai báo thủ công (khác Docker Desktop)
+      # Trỏ thẳng vào gateway cố định của network "internal" (172.29.0.0/24,
+      # xem networks.internal.ipam) - KHÔNG dùng "host-gateway" (xem ghi chú
+      # đầu file, sự cố 2026-09-04).
+      - "host.docker.internal:172.29.0.1"
     environment:
       TZ: Asia/Ho_Chi_Minh
       SPRING_PROFILES_ACTIVE: production
@@ -87,11 +122,21 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
     networks: [internal]
 
 networks:
   internal:
     driver: bridge
+    ipam:
+      config:
+        # Ghim cố định (không để Docker tự chọn) - subnet auto-assign có thể
+        # đổi giữa các lần "down/up", làm sai gateway mà extra_hosts.backend
+        # đang trỏ tới thẳng (172.29.0.1). Khác với staging (172.28.0.0/24)
+        # dù 2 stack chạy chung 1 server vật lý.
+        - subnet: 172.29.0.0/24
+          gateway: 172.29.0.1
 
 volumes:
   pg_data:

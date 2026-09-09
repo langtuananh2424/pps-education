@@ -23,8 +23,14 @@ interface AppContextValue {
 
 const AppContext = createContext<AppContextValue | null>(null);
 
+/**
+ * localStorage (đổi từ sessionStorage cùng lúc với tokenStorage.ts — xem ghi chú ở đó) — nếu chỉ
+ * đổi token mà bỏ quên cache này, mở lại shortcut sẽ còn đăng nhập (isLoggedIn=true nhờ token) nhưng
+ * currentUser=null cho tới khi có API call nào đó vô tình trigger refetch, khiến PortalPage hiển thị
+ * sai vai trò/tên trong lúc chờ (isParent/isStudent suy ra từ currentUser?.roleCodes).
+ */
 function readCachedUser(): CurrentUserResponse | null {
-  const saved = sessionStorage.getItem(CURRENT_USER_CACHE_KEY);
+  const saved = localStorage.getItem(CURRENT_USER_CACHE_KEY);
   try {
     return saved ? (JSON.parse(saved) as CurrentUserResponse) : null;
   } catch {
@@ -36,9 +42,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [isLoggedIn, setIsLoggedIn] = useState(() => !!getAccessToken());
   const [currentUser, setCurrentUser] = useState<CurrentUserResponse | null>(() => readCachedUser());
 
+  /**
+   * ĐÃ GỠ (2026-09-07, đã xác nhận với người dùng) useEffect đăng ký lại push mỗi lần mở app.
+   *
+   * Nó từng cần thiết khi luồng đăng ký còn hay thất bại (WebKit trả "denied" giả — xem
+   * pushNotifications.ts), nhưng sau khi sửa đúng nguyên nhân gốc thì nó chỉ còn gây hại: chạy song
+   * song với completeLogin() nên mỗi lần đăng nhập ghi 2 bản ghi push_setup_logs cách nhau ~1 giây,
+   * làm nặng log và có nguy cơ tạo 2 device token (thông báo lặp). Việc xin quyền giờ do người dùng
+   * chủ động bấm nút ở EnablePushBanner, chỉ cần 1 lần duy nhất.
+   */
+
   const completeLogin = async () => {
     const profile = await fetchCurrentUser();
-    sessionStorage.setItem(CURRENT_USER_CACHE_KEY, JSON.stringify(profile));
+    localStorage.setItem(CURRENT_USER_CACHE_KEY, JSON.stringify(profile));
     setCurrentUser(profile);
     setIsLoggedIn(true);
     // Huỷ token FCM cũ (nếu thiết bị này vừa đăng nhập tài khoản khác mà chưa
@@ -66,7 +82,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     await teardownPushNotifications();
     await logoutApi();
-    sessionStorage.removeItem(CURRENT_USER_CACHE_KEY);
+    localStorage.removeItem(CURRENT_USER_CACHE_KEY);
     setIsLoggedIn(false);
     setCurrentUser(null);
   };

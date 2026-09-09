@@ -64,6 +64,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
@@ -248,13 +249,13 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         ReviewVideoSetResponse set = createSet();
 
         ReviewVideoResponse youtube = reviewVideoService.addVideo(set.id(),
-                new AddReviewVideoRequest("YOUTUBE_URL", "Video TKN 1", "https://youtube.com/watch?v=abc123", null, 180, 1, null, null),
+                new AddReviewVideoRequest("YOUTUBE_URL", "Video TKN 1", "https://youtube.com/watch?v=abc123", null, 180, 1, null, null, null),
                 teacher.getId());
         ReviewVideoResponse r2Video = reviewVideoService.addVideo(set.id(),
-                new AddReviewVideoRequest("R2_VIDEO", "Video TKN 2", "https://media.pps.edu.vn/lms/review-videos/video/x.mp4", 5_000_000L, 200, 2, null, null),
+                new AddReviewVideoRequest("R2_VIDEO", "Video TKN 2", "https://media.pps.edu.vn/lms/review-videos/video/x.mp4", 5_000_000L, 200, 2, null, null, null),
                 teacher.getId());
         ReviewVideoResponse r2Audio = reviewVideoService.addVideo(set.id(),
-                new AddReviewVideoRequest("R2_AUDIO", "Video phản xạ audio", "https://media.pps.edu.vn/lms/review-videos/audio/y.mp3", 1_000_000L, 90, 3, null, null),
+                new AddReviewVideoRequest("R2_AUDIO", "Video phản xạ audio", "https://media.pps.edu.vn/lms/review-videos/audio/y.mp3", 1_000_000L, 90, 3, null, null, null),
                 teacher.getId());
 
         assertThat(youtube.sourceType()).isEqualTo("YOUTUBE_URL");
@@ -531,6 +532,57 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
                 .isInstanceOf(SubmissionPastDeadlineException.class);
     }
 
+    /**
+     * V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — đảo ngược quyết định
+     * 2026-07-30 ("không có cờ kiểu cho nộp trễ như Exercise"): bật lateSubmissionAllowed thì KHÔNG
+     * còn bị chặn sau dueAt nữa, mirror ExerciseAttemptServiceTest#submitAttempt_UC24_A1_
+     * allowsLateSubmissionWhenConfigured.
+     */
+    @Test
+    void reportProgress_UC23a_A3_allowsPastDeadlineWhenLateSubmissionAllowed() {
+        ReviewVideoResponse video = createPublishedSetWithVideo(100);
+        Student student = enrollStudent(schoolClass.id());
+        // V165 (fix CI 2026-09-07) — createPublishedSetWithVideo đã tự deliverToClass(dueAt=null)
+        // trước đó; PHẢI gọi deliverToClass CUỐI CÙNG (đổi dueAt) TRƯỚC startSession, không phải sau —
+        // deliverToClass với dueAt khác sẽ HUỶ bản giao null-due đang có (xem "giao lại = 1 lượt MỚI"
+        // ở Javadoc ReviewVideoService#deliverToClass). Gọi sau startSession sẽ huỷ mất đúng bản giao
+        // mà watch session vừa bind vào, khiến reportProgress luôn văng "đã bị thay thế/huỷ" (đúng bug
+        // đã gặp ở CI — 2 exception khác nhau nhưng CÙNG kiểu SubmissionPastDeadlineException nên dễ
+        // lẫn), bất kể lateSubmissionAllowed trên bản giao MỚI (không được bind) là gì.
+        reviewVideoService.deliverToClass(video.reviewVideoSetId(), schoolClass.id(), OffsetDateTime.now().minusDays(1), true, teacher.getId(), null);
+        Long sessionId = startSession(video.id(), video.reviewVideoSetId(), student.getUser().getId());
+
+        ReviewVideoProgressResponse progress = reportProgress(video.id(), sessionId, 50, student.getUser().getId());
+
+        assertThat(progress.watchedSeconds()).isEqualTo(50);
+    }
+
+    /**
+     * V165 — trả lời câu hỏi "lỡ ban đầu không cho nộp muộn mà học sinh chưa xong thì sao": bật lại cờ
+     * SAU khi bản giao đã quá hạn (qua updateLateSubmissionAllowed, dùng ở PATCH của trang Thống kê
+     * BTVN) thì học sinh ghi nhận tiến độ được ngay, không cần Giáo viên tạo lại bản giao từ đầu.
+     */
+    @Test
+    void updateLateSubmissionAllowed_UC23a_allowsSubmissionAfterTogglingOnPastDeadline() {
+        ReviewVideoResponse video = createPublishedSetWithVideo(100);
+        Student student = enrollStudent(schoolClass.id());
+        // V165 (fix CI 2026-09-07) — mirror ghi chú ở reportProgress_UC23a_A3_
+        // allowsPastDeadlineWhenLateSubmissionAllowed: deliverToClass (đổi dueAt so với bản giao
+        // null-due mặc định của createPublishedSetWithVideo) PHẢI chạy TRƯỚC startSession, để watch
+        // session bind đúng vào bản giao (quá hạn) đang thật sự được test, không phải bản giao cũ vừa
+        // bị huỷ.
+        ReviewVideoAssignment assignment = reviewVideoService.deliverToClass(
+                video.reviewVideoSetId(), schoolClass.id(), OffsetDateTime.now().minusDays(1), teacher.getId());
+        Long sessionId = startSession(video.id(), video.reviewVideoSetId(), student.getUser().getId());
+        assertThatThrownBy(() -> reportProgress(video.id(), sessionId, 50, student.getUser().getId()))
+                .isInstanceOf(SubmissionPastDeadlineException.class);
+
+        reviewVideoService.updateLateSubmissionAllowed(assignment.getId(), true, teacher.getId());
+
+        ReviewVideoProgressResponse progress = reportProgress(video.id(), sessionId, 50, student.getUser().getId());
+        assertThat(progress.watchedSeconds()).isEqualTo(50);
+    }
+
     @Test
     void reportProgress_UC59_MainFlow_requiresConfiguredViewCountBeforeCompleted() {
         ReviewVideoResponse video = createPublishedSetWithVideo(100, 80, 2);
@@ -578,7 +630,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         commitCurrentTransactionAndStartNew();
         reviewVideoService.deliverToClass(setB.id(), schoolClass.id(), null, teacher.getId());
         ReviewVideoResponse videoB = reviewVideoService.addVideo(setB.id(),
-                new AddReviewVideoRequest("R2_VIDEO", "Video B", "https://media.pps.edu.vn/lms/review-videos/video/b.mp4", 1_000_000L, 100, 1, null, null),
+                new AddReviewVideoRequest("R2_VIDEO", "Video B", "https://media.pps.edu.vn/lms/review-videos/video/b.mp4", 1_000_000L, 100, 1, null, null, null),
                 teacher.getId());
         Student student = enrollStudent(schoolClass.id());
 
@@ -708,6 +760,20 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         assertThatThrownBy(() -> reviewVideoService.submitQuestionAudio(question.id(), activeAssignmentId(video.reviewVideoSetId()),
                 new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/late.mp3", null), student.getUser().getId()))
                 .isInstanceOf(SubmissionPastDeadlineException.class);
+    }
+
+    /** V165 — mirror reportProgress_UC23a_A3_allowsPastDeadlineWhenLateSubmissionAllowed cho REFLEX. */
+    @Test
+    void submitQuestionAudio_UC23b_A3_allowsPastDeadlineWhenLateSubmissionAllowed() {
+        ReviewVideoResponse video = createPublishedReflexSetWithVideo(100);
+        ReviewVideoQuestionResponse question = addQuestion(video.id(), 53, 15, null);
+        Student student = enrollStudent(schoolClass.id());
+        reviewVideoService.deliverToClass(video.reviewVideoSetId(), schoolClass.id(), OffsetDateTime.now().minusDays(1), true, teacher.getId(), null);
+
+        ReviewVideoSubmissionResponse submission = reviewVideoService.submitQuestionAudio(question.id(), activeAssignmentId(video.reviewVideoSetId()),
+                new SubmitReviewVideoAudioRequest("https://media.pps.edu.vn/late-allowed.mp3", null), student.getUser().getId());
+
+        assertThat(submission.audioUrl()).isEqualTo("https://media.pps.edu.vn/late-allowed.mp3");
     }
 
     @Test
@@ -1119,7 +1185,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         ReviewVideoSetResponse set = createSet();
         ReviewVideoResponse video = reviewVideoService.addVideo(set.id(),
                 new AddReviewVideoRequest("R2_VIDEO", "Video", "https://media.pps.edu.vn/lms/review-videos/video/x.mp4",
-                        1_000_000L, 100, 1, null, null),
+                        1_000_000L, 100, 1, null, null, null),
                 teacher.getId());
 
         ReviewVideoConnectionQuestionResponse question = reviewVideoService.addConnectionQuestion(video.id(),
@@ -1240,12 +1306,142 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
                 .isInstanceOf(QuizAlreadyCompletedException.class);
     }
 
+    /**
+     * V160 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-05) — sai lần 1 (đúng 100% mới
+     * tính đạt) KHÔNG cộng viewCount, KHÔNG khoá lượt — cho phép nộp lại (retry) cả form CÙNG watchSessionId.
+     */
+    @Test
+    void submitConnectionAnswers_V160_A1_wrongFirstAttemptAllowsRetryWithoutIncrementingViewCount() {
+        ReviewVideoResponse video = createPublishedSetWithVideo(100, 80, 1);
+        ReviewVideoConnectionQuestionResponse question = reviewVideoService.addConnectionQuestion(video.id(),
+                new AddReviewVideoConnectionQuestionRequest("2+2 = ?", 1, List.of(
+                        new ConnectionChoiceRequest("A", "3", false, 1),
+                        new ConnectionChoiceRequest("B", "4", true, 2))),
+                teacher.getId());
+        Long wrongChoiceId = question.choices().stream().filter(c -> Boolean.FALSE.equals(c.isCorrect()))
+                .findFirst().orElseThrow().id();
+        Student student = enrollStudent(schoolClass.id());
+        Long sessionId = startSession(video.id(), video.reviewVideoSetId(), student.getUser().getId());
+        reportProgress(video.id(), sessionId, 100, student.getUser().getId());
+
+        ReviewVideoConnectionQuizResultResponse result = reviewVideoService.submitConnectionAnswers(sessionId,
+                new SubmitConnectionAnswersRequest(List.of(new ConnectionAnswerItem(question.id(), wrongChoiceId))),
+                student.getUser().getId());
+
+        assertThat(result.results().get(0).correct()).isFalse();
+        assertThat(result.finalized()).isFalse();
+        assertThat(result.passed()).isFalse();
+        assertThat(result.attemptsUsed()).isEqualTo(1);
+        assertThat(result.maxAttempts()).isEqualTo(2);
+        assertThat(result.progress().viewCount()).isZero();
+
+        // Nộp lại lần nữa cùng watchSessionId KHÔNG bị chặn (chưa finalized).
+        assertThatCode(() -> reviewVideoService.submitConnectionAnswers(sessionId,
+                new SubmitConnectionAnswersRequest(List.of(new ConnectionAnswerItem(question.id(), wrongChoiceId))),
+                student.getUser().getId()))
+                .doesNotThrowAnyException();
+    }
+
+    /** V160 — sai cả 2 lần: lượt finalized=true nhưng passed=false, KHÔNG cộng viewCount, nộp lần 3 bị chặn. */
+    @Test
+    void submitConnectionAnswers_V160_A2_wrongBothAttemptsFinalizesAsNotPassed() {
+        ReviewVideoResponse video = createPublishedSetWithVideo(100, 80, 1);
+        ReviewVideoConnectionQuestionResponse question = reviewVideoService.addConnectionQuestion(video.id(),
+                new AddReviewVideoConnectionQuestionRequest("2+2 = ?", 1, List.of(
+                        new ConnectionChoiceRequest("A", "3", false, 1),
+                        new ConnectionChoiceRequest("B", "4", true, 2))),
+                teacher.getId());
+        Long wrongChoiceId = question.choices().stream().filter(c -> Boolean.FALSE.equals(c.isCorrect()))
+                .findFirst().orElseThrow().id();
+        Student student = enrollStudent(schoolClass.id());
+        Long sessionId = startSession(video.id(), video.reviewVideoSetId(), student.getUser().getId());
+        reportProgress(video.id(), sessionId, 100, student.getUser().getId());
+
+        reviewVideoService.submitConnectionAnswers(sessionId,
+                new SubmitConnectionAnswersRequest(List.of(new ConnectionAnswerItem(question.id(), wrongChoiceId))),
+                student.getUser().getId());
+        ReviewVideoConnectionQuizResultResponse secondAttempt = reviewVideoService.submitConnectionAnswers(sessionId,
+                new SubmitConnectionAnswersRequest(List.of(new ConnectionAnswerItem(question.id(), wrongChoiceId))),
+                student.getUser().getId());
+
+        assertThat(secondAttempt.finalized()).isTrue();
+        assertThat(secondAttempt.passed()).isFalse();
+        assertThat(secondAttempt.attemptsUsed()).isEqualTo(2);
+        assertThat(secondAttempt.progress().viewCount()).isZero();
+
+        assertThatThrownBy(() -> reviewVideoService.submitConnectionAnswers(sessionId,
+                new SubmitConnectionAnswersRequest(List.of(new ConnectionAnswerItem(question.id(), wrongChoiceId))),
+                student.getUser().getId()))
+                .isInstanceOf(QuizAlreadyCompletedException.class);
+    }
+
+    /** V160 — sai lần 1, đúng lần 2 (làm lại cả form): lượt vẫn "đạt", cộng viewCount. */
+    @Test
+    void submitConnectionAnswers_V160_MainFlow_correctOnRetryStillCountsAsPassed() {
+        ReviewVideoResponse video = createPublishedSetWithVideo(100, 80, 1);
+        ReviewVideoConnectionQuestionResponse question = reviewVideoService.addConnectionQuestion(video.id(),
+                new AddReviewVideoConnectionQuestionRequest("2+2 = ?", 1, List.of(
+                        new ConnectionChoiceRequest("A", "3", false, 1),
+                        new ConnectionChoiceRequest("B", "4", true, 2))),
+                teacher.getId());
+        Long correctChoiceId = question.choices().stream().filter(c -> Boolean.TRUE.equals(c.isCorrect()))
+                .findFirst().orElseThrow().id();
+        Long wrongChoiceId = question.choices().stream().filter(c -> Boolean.FALSE.equals(c.isCorrect()))
+                .findFirst().orElseThrow().id();
+        Student student = enrollStudent(schoolClass.id());
+        Long sessionId = startSession(video.id(), video.reviewVideoSetId(), student.getUser().getId());
+        reportProgress(video.id(), sessionId, 100, student.getUser().getId());
+
+        reviewVideoService.submitConnectionAnswers(sessionId,
+                new SubmitConnectionAnswersRequest(List.of(new ConnectionAnswerItem(question.id(), wrongChoiceId))),
+                student.getUser().getId());
+        ReviewVideoConnectionQuizResultResponse secondAttempt = reviewVideoService.submitConnectionAnswers(sessionId,
+                new SubmitConnectionAnswersRequest(List.of(new ConnectionAnswerItem(question.id(), correctChoiceId))),
+                student.getUser().getId());
+
+        assertThat(secondAttempt.finalized()).isTrue();
+        assertThat(secondAttempt.passed()).isTrue();
+        assertThat(secondAttempt.attemptsUsed()).isEqualTo(2);
+        assertThat(secondAttempt.progress().viewCount()).isEqualTo(1);
+        assertThat(secondAttempt.progress().completed()).isTrue();
+    }
+
+    /**
+     * V160 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-05) — revert V93/V101: "hoàn
+     * thành" (completed) của CONNECTION phải là ĐỦ SỐ LƯỢT TUYỆT ĐỐI (viewCount >= requiredViewCount),
+     * KHÔNG được coi là hoàn thành sớm chỉ vì đạt tỷ lệ % (VD 3/4 lượt = 75%) — bug cũ khoá không cho
+     * xem lượt cuối.
+     */
+    @Test
+    void reportProgress_V160_completedRequiresAllConfiguredViews_notJustPercentThreshold() {
+        ReviewVideoResponse video = createPublishedSetWithVideo(100, 80, 4);
+        Student student = enrollStudent(schoolClass.id());
+
+        for (int i = 0; i < 3; i++) {
+            Long sessionId = startSession(video.id(), video.reviewVideoSetId(), student.getUser().getId());
+            reportProgress(video.id(), sessionId, 100, student.getUser().getId());
+            ReviewVideoConnectionQuizResultResponse result = reviewVideoService.submitConnectionAnswers(
+                    sessionId, new SubmitConnectionAnswersRequest(List.of()), student.getUser().getId());
+            assertThat(result.progress().viewCount()).isEqualTo(i + 1);
+            // 3/4 = 75% >= ngưỡng cũ 70% — bug cũ sẽ báo completed=true ở đây, PHẢI là false.
+            assertThat(result.progress().completed()).isFalse();
+        }
+
+        Long fourthSessionId = startSession(video.id(), video.reviewVideoSetId(), student.getUser().getId());
+        reportProgress(video.id(), fourthSessionId, 100, student.getUser().getId());
+        ReviewVideoConnectionQuizResultResponse fourthResult = reviewVideoService.submitConnectionAnswers(
+                fourthSessionId, new SubmitConnectionAnswersRequest(List.of()), student.getUser().getId());
+
+        assertThat(fourthResult.progress().viewCount()).isEqualTo(4);
+        assertThat(fourthResult.progress().completed()).isTrue();
+    }
+
     @Test
     void updateSet_A_rejectsPublishWhenConnectionVideoMissingQuestions() {
         ReviewVideoSetResponse set = createSet();
         reviewVideoService.addVideo(set.id(),
                 new AddReviewVideoRequest("R2_VIDEO", "Video", "https://media.pps.edu.vn/lms/review-videos/video/x.mp4",
-                        1_000_000L, 100, 1, null, null),
+                        1_000_000L, 100, 1, null, null, null),
                 teacher.getId());
 
         assertThatThrownBy(() -> reviewVideoService.updateSet(set.id(),
@@ -1278,7 +1474,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         commitCurrentTransactionAndStartNew();
         reviewVideoService.deliverToClass(set.id(), schoolClass.id(), null, teacher.getId());
         return reviewVideoService.addVideo(set.id(),
-                new AddReviewVideoRequest("R2_AUDIO", "Audio", "https://media.pps.edu.vn/lms/review-videos/audio/x.mp3", 1_000_000L, durationSeconds, 1, null, null),
+                new AddReviewVideoRequest("R2_AUDIO", "Audio", "https://media.pps.edu.vn/lms/review-videos/audio/x.mp3", 1_000_000L, durationSeconds, 1, null, null, null),
                 teacher.getId());
     }
 
@@ -1296,7 +1492,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         reviewVideoService.deliverToClass(set.id(), schoolClass.id(), null, teacher.getId());
         return reviewVideoService.addVideo(set.id(),
                 new AddReviewVideoRequest("R2_VIDEO", "Video", "https://media.pps.edu.vn/lms/review-videos/video/x.mp4", 1_000_000L,
-                        durationSeconds, 1, completionThresholdPercent, requiredViewCount),
+                        durationSeconds, 1, completionThresholdPercent, requiredViewCount, null),
                 teacher.getId());
     }
 

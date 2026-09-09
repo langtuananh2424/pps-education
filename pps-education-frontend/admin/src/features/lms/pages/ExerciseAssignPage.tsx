@@ -38,6 +38,7 @@ import {
 } from "../api";
 import CreateAndAssignExerciseModal, { ExerciseQuestionsStep } from "../components/CreateAndAssignExerciseModal";
 import ExercisePreviewModal from "../components/ExercisePreviewModal";
+import ExerciseStudentPreviewModal from "../components/ExerciseStudentPreviewModal";
 import QuestionEditorForm from "../components/QuestionEditorForm";
 import UnitSubTopicPicker from "../components/UnitSubTopicPicker";
 import Button from "@/components/ui/Button";
@@ -249,9 +250,16 @@ export default function ExerciseAssignPage() {
                   >
                     <p className="text-xs font-bold text-slate-800">{exam.title}</p>
                     <p className="text-[10px] text-slate-400 mt-0.5 font-mono">{exam.code} · {exam.curriculumCode}</p>
+                    {/* Bổ sung 2026-09-04 (đã xác nhận với người dùng) — fix bug thật: Lesson đánh số lặp lại
+                        (Lesson 1, 2, 3...) giữa nhiều Unit/SubTopic khác nhau, trước đây chỉ hiện subTopicTitle
+                        (không hiện unitTitle) nên vẫn dễ nhầm khi 2 Unit khác nhau có SubTopic cùng số/tên. */}
+                    {(exam.unitTitle || exam.subTopicTitle) && (
+                      <p className="text-[10px] text-brand-red font-semibold mt-0.5">
+                        {[exam.unitTitle, exam.subTopicTitle].filter(Boolean).join(" · ")}
+                      </p>
+                    )}
                     <p className="text-[10px] text-slate-400 mt-0.5">
                       {t(`assignPage.teacherTypeLabels.${exam.teacherType}`)} · {t(`assignPage.examTypeLabels.${exam.examType}`)}
-                      {exam.subTopicTitle && <> · {exam.subTopicTitle}</>}
                     </p>
                   </button>
                 ))}
@@ -693,7 +701,10 @@ function ExamDetailPanel({
           <div>
             <p className="text-sm font-bold text-slate-800">{exam.title}</p>
             <p className="text-[10px] text-slate-400 font-mono mt-0.5">{exam.code} · {exam.curriculumCode}</p>
-            {exam.subTopicTitle && <p className="text-[10px] text-slate-400 mt-0.5">{exam.subTopicTitle}</p>}
+            {/* Bổ sung 2026-09-04 — xem ghi chú ở danh sách Lesson bên trái: thêm unitTitle để phân biệt Lesson trùng tên giữa các Unit khác nhau. */}
+            {(exam.unitTitle || exam.subTopicTitle) && (
+              <p className="text-[10px] text-brand-red font-semibold mt-0.5">{[exam.unitTitle, exam.subTopicTitle].filter(Boolean).join(" · ")}</p>
+            )}
           </div>
           {canManage && (
             <div className="flex items-center gap-2 shrink-0">
@@ -803,6 +814,7 @@ function ExerciseRow({
   const [questions, setQuestions] = useState<ExerciseQuestionResponse[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [studentPreviewOpen, setStudentPreviewOpen] = useState(false);
   const [editExerciseOpen, setEditExerciseOpen] = useState(false);
   const [addQuestionsOpen, setAddQuestionsOpen] = useState(false);
   const [publishing, setPublishing] = useState(false);
@@ -873,8 +885,16 @@ function ExerciseRow({
     }
   };
 
+  /**
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-03 — hỏi xác nhận trước khi Publish
+   * (không hoàn tác được: sau khi Publish, không sửa điểm/gỡ câu hỏi được nữa, cũng không có cơ chế
+   * chuyển ngược về Nháp — xem lịch sử trao đổi, người dùng chủ động chọn "chấp nhận rủi ro nhập
+   * sai" thay vì thêm nút chuyển về Nháp ở BE). Đặt tên riêng `confirmPublish` để không nhầm lẫn với
+   * `confirmDialog` (biến state riêng của "Xóa Bài"/"Gỡ câu hỏi" — không dùng chung 1 modal).
+   */
   const handlePublish = async (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!(await confirmDialog(t("assignPage.exerciseRow.publishConfirm", { title: exercise.title, code: exercise.code }), { danger: true }))) return;
     setPublishing(true);
     setError(null);
     try {
@@ -962,6 +982,15 @@ function ExerciseRow({
           >
             {t("assignPage.exerciseRow.previewWithAnswers")}
           </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setStudentPreviewOpen(true);
+            }}
+            className="text-[10px] font-bold text-brand-red hover:underline whitespace-nowrap"
+          >
+            {t("assignPage.exerciseRow.previewAsStudent")}
+          </button>
           <Badge variant={statusVariants[exercise.status]}>{t(`assignPage.statusLabels.${exercise.status}`)}</Badge>
           {canManage && exercise.status === "DRAFT" && (
             <button
@@ -978,6 +1007,8 @@ function ExerciseRow({
       {error && <p className="px-5 pb-2 text-[11px] text-rose-600">{error}</p>}
 
       {previewOpen && <ExercisePreviewModal exercise={exercise} onClose={() => setPreviewOpen(false)} />}
+
+      {studentPreviewOpen && <ExerciseStudentPreviewModal exercise={exercise} onClose={() => setStudentPreviewOpen(false)} />}
 
       {editExerciseOpen && (
         <EditExerciseModal

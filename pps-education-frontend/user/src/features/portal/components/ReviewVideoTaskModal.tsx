@@ -1,11 +1,13 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Check, CheckCircle2, Play, ShieldAlert, X } from "lucide-react";
+import { Check, CheckCircle2, Play, ShieldAlert, X, XCircle } from "lucide-react";
 import { friendlyApiErrorMessage } from "@/lib/apiClient";
 import {
   ConnectionAnswerResult,
+  ReviewVideoConnectionAnswerHistoryResponse,
   ReviewVideoConnectionQuestionResponse,
   ReviewVideoResponse,
+  getReviewVideoConnectionAnswerHistory,
   getReviewVideoProgress,
   listReviewVideoConnectionQuestionsForSession,
   reportReviewVideoProgress,
@@ -13,6 +15,7 @@ import {
   submitReviewVideoConnectionAnswers
 } from "../api";
 import { extractYouTubeVideoId, loadYouTubeIframeApi } from "../lib/youtubePlayer";
+import { useLockBodyScroll } from "@/components/ui/useLockBodyScroll";
 
 const SEEK_TOLERANCE_SECONDS = 2;
 const PROGRESS_REPORT_INTERVAL_SECONDS = 5;
@@ -266,6 +269,7 @@ interface ReviewVideoTaskModalProps {
  * bấm-ra-ngoài-là-mất bản ghi nháp).
  */
 export default function ReviewVideoTaskModal({ video, assignmentId, onClose }: ReviewVideoTaskModalProps) {
+  useLockBodyScroll(true);
   const { t } = useTranslation("portal-exercises");
   const isYouTube = video.sourceType === "YOUTUBE_URL";
   const youTubeVideoId = isYouTube ? extractYouTubeVideoId(video.fileUrl) : null;
@@ -281,8 +285,24 @@ export default function ReviewVideoTaskModal({ video, assignmentId, onClose }: R
   const [connectionQuestionsError, setConnectionQuestionsError] = useState<string | null>(null);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number>>({});
   const [quizResult, setQuizResult] = useState<ConnectionAnswerResult[] | null>(null);
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-05 (V160) — kết quả finalized/passed/số
+  // lần đã thử của LẦN NỘP VỪA RỒI, dùng để quyết định hiện nút "Làm lại" (còn lượt thử, cùng
+  // watchSessionId) hay "Tiếp tục" (đã kết thúc lượt, đúng hoặc đã hết lượt thử).
+  const [quizOutcome, setQuizOutcome] = useState<{ finalized: boolean; passed: boolean; attemptsUsed: number; maxAttempts: number } | null>(null);
   const [submittingQuiz, setSubmittingQuiz] = useState(false);
   const [quizError, setQuizError] = useState<string | null>(null);
+
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07 — popup nhắc giữa chừng khi tỷ lệ
+  // "số lượt đạt/tổng lượt yêu cầu" đạt ngưỡng video.sessionPassRatioThresholdPercent (mặc định 70%),
+  // CHỈ hiện 1 LẦN trong 1 lần mở modal (thresholdPopupShownRef) — không làm phiền lại ở các lượt sau
+  // nếu học sinh đã chọn "Tiếp tục làm nốt". Popup hoàn thành (finalPopup) hiện khi đủ requiredViewCount
+  // HOẶC khi học sinh chọn dừng sớm ở popup ngưỡng — kèm danh sách câu đã trả lời qua các lượt đã đạt.
+  const [thresholdPopupOpen, setThresholdPopupOpen] = useState(false);
+  const thresholdPopupShownRef = useRef(false);
+  const [finalPopup, setFinalPopup] = useState<{ variant: "completed" | "stoppedEarly" } | null>(null);
+  const [answerHistory, setAnswerHistory] = useState<ReviewVideoConnectionAnswerHistoryResponse | null>(null);
+  const [answerHistoryLoading, setAnswerHistoryLoading] = useState(false);
+  const [answerHistoryError, setAnswerHistoryError] = useState<string | null>(null);
 
   /**
    * Guard bằng ref (không phải chỉ dựa vào dependency array) — startReviewVideoWatchSession là POST tạo
@@ -299,6 +319,7 @@ export default function ReviewVideoTaskModal({ video, assignmentId, onClose }: R
     setProgressSummary(null);
     setSelectedAnswers({});
     setQuizResult(null);
+    setQuizOutcome(null);
     setQuizError(null);
     if (assignmentId == null) return;
     startReviewVideoWatchSession(video.id, assignmentId)
@@ -372,6 +393,7 @@ export default function ReviewVideoTaskModal({ video, assignmentId, onClose }: R
     setQuizPopupOpen(false);
     setSelectedAnswers({});
     setQuizResult(null);
+    setQuizOutcome(null);
     setQuizError(null);
     startReviewVideoWatchSession(video.id, assignmentId)
       .then((r) => setWatchSessionId(r.sessionId))
@@ -385,14 +407,81 @@ export default function ReviewVideoTaskModal({ video, assignmentId, onClose }: R
     try {
       const answers = connectionQuestions.map((q) => ({ questionId: q.id, selectedChoiceId: selectedAnswers[q.id] }));
       const result = await submitReviewVideoConnectionAnswers(watchSessionId, answers);
+      // V160 — luôn hiện kết quả đúng/sai NGAY trong popup (không tự chuyển lượt/đóng popup ở đây nữa),
+      // chờ học sinh bấm "Làm lại" (còn lượt thử) hoặc "Tiếp tục" (đã kết thúc lượt) — xem 2 handler bên dưới.
       setQuizResult(result.results);
+      setQuizOutcome({ finalized: result.finalized, passed: result.passed, attemptsUsed: result.attemptsUsed, maxAttempts: result.maxAttempts });
       handleProgress(result.progress);
-      if (!result.progress.completed) startNextSession();
     } catch (err) {
       setQuizError(friendlyApiErrorMessage(err, t("reviewVideoTask.submitQuizError")));
     } finally {
       setSubmittingQuiz(false);
     }
+  };
+
+  /** V160 — sai nhưng còn lượt thử: giữ nguyên watchSessionId/popup, chỉ reset lựa chọn để làm lại CẢ FORM. */
+  const handleRetryConnectionQuiz = () => {
+    setSelectedAnswers({});
+    setQuizResult(null);
+    setQuizOutcome(null);
+    setQuizError(null);
+  };
+
+  /**
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07 — tải danh sách câu đã trả lời qua
+   * các lượt ĐÃ ĐẠT (dùng cho popup ngưỡng-dừng-sớm/hoàn thành bên dưới).
+   */
+  const loadAnswerHistory = () => {
+    if (assignmentId == null) return;
+    setAnswerHistoryLoading(true);
+    setAnswerHistoryError(null);
+    getReviewVideoConnectionAnswerHistory(video.id, assignmentId)
+      .then(setAnswerHistory)
+      .catch((err) => setAnswerHistoryError(friendlyApiErrorMessage(err, t("reviewVideoTask.finalPopup.loadError"))))
+      .finally(() => setAnswerHistoryLoading(false));
+  };
+
+  /**
+   * V160 — lượt đã kết thúc (đúng 100% hoặc đã hết lượt thử mà vẫn sai): đóng popup quiz, rồi theo tiến
+   * độ mới nhất: đủ requiredViewCount → mở popup Hoàn thành; đạt ngưỡng sessionPassRatioThresholdPercent
+   * giữa chừng (VÀ chưa từng hiện popup này trong lần mở modal này) → mở popup nhắc dừng/tiếp tục; ngược
+   * lại → tự mở lượt xem mới như cũ (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07).
+   */
+  const handleContinueAfterQuiz = () => {
+    setQuizPopupOpen(false);
+    if (!progressSummary) return;
+    if (progressSummary.completed) {
+      setFinalPopup({ variant: "completed" });
+      loadAnswerHistory();
+      return;
+    }
+    const ratio = progressSummary.requiredViewCount > 0 ? (progressSummary.viewCount / progressSummary.requiredViewCount) * 100 : 0;
+    const threshold = video.sessionPassRatioThresholdPercent ?? 70;
+    if (ratio >= threshold && !thresholdPopupShownRef.current) {
+      thresholdPopupShownRef.current = true;
+      setThresholdPopupOpen(true);
+      return;
+    }
+    startNextSession();
+  };
+
+  /** Học sinh chọn "Dừng, xem kết quả" ở popup ngưỡng — không tiếp tục làm nốt, xem luôn kết quả các lượt đã đạt. */
+  const handleThresholdStop = () => {
+    setThresholdPopupOpen(false);
+    setFinalPopup({ variant: "stoppedEarly" });
+    loadAnswerHistory();
+  };
+
+  /** Học sinh chọn "Tiếp tục làm nốt" ở popup ngưỡng — hành vi y hệt nhánh mặc định cũ. */
+  const handleThresholdContinue = () => {
+    setThresholdPopupOpen(false);
+    startNextSession();
+  };
+
+  /** Đóng popup Hoàn thành/Kết quả — luôn đóng cả modal (đủ lượt hoặc đã chủ động dừng, không còn việc gì để làm tiếp trong modal này). */
+  const handleCloseFinalPopup = () => {
+    setFinalPopup(null);
+    onClose();
   };
 
   const { iframeId, watchedPercent: youTubeWatchedPercent } = useYouTubeWatchProgress(isYouTube ? video : null, watchSessionId, started, handleProgress);
@@ -481,11 +570,13 @@ export default function ReviewVideoTaskModal({ video, assignmentId, onClose }: R
       {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — câu hỏi cuối lượt xem hiện
           dạng popup đè lên video/modal, thay vì nằm cuối luồng phải cuộn mới thấy. Đóng được (không
           mất tiến độ xem) — banner ở luồng chính cho mở lại. */}
-      {quizPopupOpen && !quizResult && (
+      {quizPopupOpen && (
         <div
           className="fixed inset-0 bg-ink/60 z-[105] flex items-center justify-center p-4"
           onClick={(e) => {
             e.stopPropagation();
+            // V160 — sau khi đã nộp, đóng bằng nút X không mất kết quả (chỉ ẩn popup, banner nhắc ở
+            // luồng chính vẫn cho mở lại xem feedback/bấm tiếp tục — mirror hành vi cũ khi chưa nộp).
             setQuizPopupOpen(false);
           }}
         >
@@ -513,41 +604,175 @@ export default function ReviewVideoTaskModal({ video, assignmentId, onClose }: R
               <p className="text-xs text-muted font-bold italic">{t("reviewVideoTask.quizPopup.noQuestions")}</p>
             ) : (
               <>
-                {/* Popup này chỉ hiện khi CHƯA nộp (quizResult == null — xem điều kiện render ở trên) nên không cần nhánh hiển thị kết quả đúng/sai ở đây. */}
-                {connectionQuestions.map((q, i) => (
-                  <div key={q.id} className="space-y-2">
-                    <p className="text-sm sm:text-base font-bold text-ink">{t("reviewVideoTask.quizPopup.questionLabel", { index: i + 1, prompt: q.prompt })}</p>
-                    <div className="space-y-1.5">
-                      {q.choices.map((c) => {
-                        const picked = selectedAnswers[q.id] === c.id;
-                        return (
-                          <button
-                            key={c.id}
-                            type="button"
-                            onClick={() => setSelectedAnswers((prev) => ({ ...prev, [q.id]: c.id }))}
-                            className={`w-full flex items-center gap-2 text-left px-3 py-2 sm:py-2.5 rounded-xl border text-xs sm:text-sm font-bold transition-colors ${
-                              picked ? "bg-teal text-white border-teal" : "bg-white border-line text-ink hover:border-teal/50"
-                            }`}
-                          >
-                            <span className="flex-1">{c.choiceLabel}. {c.content}</span>
-                            {picked && <Check size={14} className="shrink-0" />}
-                          </button>
-                        );
-                      })}
+                {connectionQuestions.map((q, i) => {
+                  // V160 — sau khi nộp (quizResult != null): LUÔN tô đỏ ô học sinh chọn sai (feedback tức
+                  // thì), nhưng CHỈ tô xanh lộ đáp án đúng khi lượt đã THẬT SỰ kết thúc (finalized) — còn
+                  // lượt thử (finalized=false) thì KHÔNG lộ đáp án đúng, bắt buộc học sinh tự làm lại thật
+                  // sự thay vì chỉ cần nhìn màu xanh rồi chọn lại (bug đã bị QA phát hiện 2026-09-05).
+                  const questionResult = quizResult?.find((r) => r.questionId === q.id) ?? null;
+                  return (
+                    <div key={q.id} className="space-y-2">
+                      <p className="text-sm sm:text-base font-bold text-ink">{t("reviewVideoTask.quizPopup.questionLabel", { index: i + 1, prompt: q.prompt })}</p>
+                      <div className="space-y-1.5">
+                        {q.choices.map((c) => {
+                          const picked = selectedAnswers[q.id] === c.id;
+                          const isCorrectChoice = questionResult != null && quizOutcome?.finalized === true && questionResult.correctChoiceId === c.id;
+                          const isWrongPick = questionResult != null && !questionResult.correct && questionResult.selectedChoiceId === c.id;
+                          const colorClass = isCorrectChoice
+                            ? "bg-emerald-50 text-emerald-700 border-emerald-400"
+                            : isWrongPick
+                              ? "bg-rose-50 text-rose-700 border-rose-400"
+                              : picked
+                                ? "bg-teal text-white border-teal"
+                                : "bg-white border-line text-ink hover:border-teal/50";
+                          return (
+                            <button
+                              key={c.id}
+                              type="button"
+                              disabled={questionResult != null}
+                              onClick={() => setSelectedAnswers((prev) => ({ ...prev, [q.id]: c.id }))}
+                              className={`w-full flex items-center gap-2 text-left px-3 py-2 sm:py-2.5 rounded-xl border text-xs sm:text-sm font-bold transition-colors disabled:cursor-default ${colorClass}`}
+                            >
+                              <span className="flex-1">{c.choiceLabel}. {c.content}</span>
+                              {isCorrectChoice && <Check size={14} className="shrink-0" />}
+                              {picked && !questionResult && <Check size={14} className="shrink-0" />}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
 
-                <button
-                  type="button"
-                  onClick={handleSubmitConnectionQuiz}
-                  disabled={submittingQuiz || connectionQuestions.some((q) => selectedAnswers[q.id] == null)}
-                  className="w-full px-3 py-2.5 sm:py-3 bg-teal hover:bg-teal-deep text-white rounded-xl text-xs sm:text-sm font-extrabold disabled:opacity-50"
-                >
-                  {submittingQuiz ? t("reviewVideoTask.quizPopup.submitting") : t("reviewVideoTask.quizPopup.submitButton")}
-                </button>
+                {quizOutcome ? (
+                  <div
+                    className={`space-y-2 p-3 rounded-xl border text-xs font-bold ${
+                      quizOutcome.finalized && quizOutcome.passed
+                        ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                        : "bg-amber-50 border-amber-200 text-amber-700"
+                    }`}
+                  >
+                    <p>
+                      {quizOutcome.finalized && quizOutcome.passed
+                        ? t("reviewVideoTask.quizPopup.correctFeedback")
+                        : quizOutcome.finalized
+                          ? t("reviewVideoTask.quizPopup.wrongFinalFeedback", { maxAttempts: quizOutcome.maxAttempts })
+                          : t("reviewVideoTask.quizPopup.wrongRetryFeedback", { attemptsRemaining: quizOutcome.maxAttempts - quizOutcome.attemptsUsed })}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={quizOutcome.finalized ? handleContinueAfterQuiz : handleRetryConnectionQuiz}
+                      className="w-full px-3 py-2.5 sm:py-3 bg-teal hover:bg-teal-deep text-white rounded-xl text-xs sm:text-sm font-extrabold"
+                    >
+                      {quizOutcome.finalized ? t("reviewVideoTask.quizPopup.continueButton") : t("reviewVideoTask.quizPopup.retryButton")}
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleSubmitConnectionQuiz}
+                    disabled={submittingQuiz || connectionQuestions.some((q) => selectedAnswers[q.id] == null)}
+                    className="w-full px-3 py-2.5 sm:py-3 bg-teal hover:bg-teal-deep text-white rounded-xl text-xs sm:text-sm font-extrabold disabled:opacity-50"
+                  >
+                    {submittingQuiz ? t("reviewVideoTask.quizPopup.submitting") : t("reviewVideoTask.quizPopup.submitButton")}
+                  </button>
+                )}
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07 — popup nhắc giữa chừng khi đạt
+          ngưỡng sessionPassRatioThresholdPercent, mở SAU KHI popup quiz đã đóng (không xung đột). */}
+      {thresholdPopupOpen && progressSummary && (
+        <div className="fixed inset-0 bg-ink/60 z-[110] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[20px] max-w-sm w-full shadow-2xl p-5 sm:p-6 space-y-4 text-center">
+            <CheckCircle2 size={36} className="text-emerald-600 mx-auto" />
+            <h3 className="text-base font-extrabold text-ink">{t("reviewVideoTask.thresholdPopup.heading")}</h3>
+            <p className="text-xs font-bold text-muted">
+              {t("reviewVideoTask.thresholdPopup.description", {
+                achieved: progressSummary.viewCount,
+                required: progressSummary.requiredViewCount,
+                threshold: video.sessionPassRatioThresholdPercent ?? 70
+              })}
+            </p>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <button
+                onClick={handleThresholdStop}
+                className="flex-1 px-4 py-2.5 bg-white hover:bg-slate-100 border border-line rounded-xl text-xs font-extrabold text-ink"
+              >
+                {t("reviewVideoTask.thresholdPopup.stopButton")}
+              </button>
+              <button
+                onClick={handleThresholdContinue}
+                className="flex-1 px-4 py-2.5 bg-teal hover:bg-teal-deep text-white rounded-xl text-xs font-extrabold"
+              >
+                {t("reviewVideoTask.thresholdPopup.continueButton")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07 — popup Hoàn thành (đủ
+          requiredViewCount) hoặc Kết quả (dừng sớm ở popup ngưỡng), kèm danh sách câu đã trả lời qua
+          từng lượt đã đạt. Đóng popup này luôn đóng cả modal (xem handleCloseFinalPopup). */}
+      {finalPopup && progressSummary && (
+        <div className="fixed inset-0 bg-ink/60 z-[115] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[20px] max-w-lg w-full max-h-[85vh] overflow-y-auto shadow-2xl p-4 sm:p-6 space-y-3">
+            <div className="text-center space-y-1.5">
+              <h3 className="text-lg font-extrabold text-ink">
+                {finalPopup.variant === "completed" ? t("reviewVideoTask.finalPopup.completedTitle") : t("reviewVideoTask.finalPopup.stoppedTitle")}
+              </h3>
+              <p className="text-xs font-bold text-muted">
+                {finalPopup.variant === "completed"
+                  ? t("reviewVideoTask.finalPopup.completedDescription", { required: progressSummary.requiredViewCount })
+                  : t("reviewVideoTask.finalPopup.stoppedDescription", {
+                      achieved: progressSummary.viewCount,
+                      required: progressSummary.requiredViewCount
+                    })}
+              </p>
+            </div>
+
+            {answerHistoryError && (
+              <div className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-xl">{answerHistoryError}</div>
+            )}
+            {answerHistoryLoading ? (
+              <p className="text-xs text-muted font-bold text-center">{t("reviewVideoTask.finalPopup.loading")}</p>
+            ) : (
+              answerHistory?.sessions.map((session) => (
+                <div key={session.watchSessionId} className="space-y-2">
+                  <p className="text-[13px] font-extrabold text-teal-deep uppercase tracking-wide">
+                    {t("reviewVideoTask.finalPopup.sessionLabel", { viewNumber: session.viewNumber })}
+                  </p>
+                  {session.answers.map((a) => {
+                    const selectedChoice = a.choices.find((c) => c.id === a.selectedChoiceId);
+                    return (
+                      <div
+                        key={a.questionId}
+                        className={`flex items-start gap-2 p-2.5 rounded-xl border text-xs font-bold ${
+                          a.correct ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-rose-50 border-rose-200 text-rose-700"
+                        }`}
+                      >
+                        {a.correct ? <CheckCircle2 size={14} className="shrink-0 mt-0.5" /> : <XCircle size={14} className="shrink-0 mt-0.5" />}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-ink">{a.prompt}</p>
+                          <p>{selectedChoice ? `${selectedChoice.choiceLabel}. ${selectedChoice.content}` : ""}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ))
+            )}
+
+            <button
+              onClick={handleCloseFinalPopup}
+              className="w-full px-3 py-2.5 sm:py-3 bg-teal hover:bg-teal-deep text-white rounded-xl text-xs sm:text-sm font-extrabold"
+            >
+              {t("reviewVideoTask.finalPopup.closeButton")}
+            </button>
           </div>
         </div>
       )}
@@ -555,7 +780,7 @@ export default function ReviewVideoTaskModal({ video, assignmentId, onClose }: R
       <div className="max-w-4xl w-full mx-auto p-4 sm:p-6 space-y-3 sm:space-y-4 flex-1">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <span className="text-[10px] font-extrabold uppercase text-teal-deep tracking-wide">{t("reviewVideoTask.badge")}</span>
+            <span className="text-[13px] font-extrabold uppercase text-teal-deep tracking-wide">{t("reviewVideoTask.badge")}</span>
             <h3 className="text-lg sm:text-xl lg:text-2xl font-extrabold text-ink truncate">{video.title}</h3>
           </div>
           <button
@@ -602,9 +827,9 @@ export default function ReviewVideoTaskModal({ video, assignmentId, onClose }: R
         </div>
 
         <div className="bg-sky-2 border border-teal/20 rounded-[14px] p-4 space-y-3">
-          <p className="text-[10px] font-extrabold text-teal-deep uppercase tracking-wide">{t("reviewVideoTask.progress.heading")}</p>
+          <p className="text-[13px] font-extrabold text-teal-deep uppercase tracking-wide">{t("reviewVideoTask.progress.heading")}</p>
           <div className="space-y-1">
-            <div className="flex items-center justify-between text-[10px] font-extrabold text-teal-deep">
+            <div className="mb-2 flex items-center justify-between text-[12px] font-extrabold text-teal-deep">
               <span>{t("reviewVideoTask.progress.watchedMax")}</span>
               <span>{watchedPercent}%</span>
             </div>
@@ -614,12 +839,12 @@ export default function ReviewVideoTaskModal({ video, assignmentId, onClose }: R
                 style={{ width: `${watchedPercent}%` }}
               />
             </div>
-            <p className={`text-[10px] font-extrabold ${sessionQualified ? "text-emerald-600" : "text-amber-600"}`}>
+            <p className={`mt-3 text-[13px] font-extrabold ${sessionQualified ? "text-emerald-600" : "text-amber-600"}`}>
               {sessionQualified ? t("reviewVideoTask.progress.fullyWatched") : t("reviewVideoTask.progress.notFullyWatched")}
             </p>
           </div>
           <div className="pt-2 border-t border-teal/20 flex items-center justify-between">
-            <span className="text-[10px] font-extrabold text-teal-deep uppercase">{t("reviewVideoTask.progress.totalCompleted")}</span>
+            <span className="text-[12px] font-extrabold text-teal-deep uppercase">{t("reviewVideoTask.progress.totalCompleted")}</span>
             <span className={`text-xs font-black ${progressSummary?.completed ? "text-emerald-600" : "text-ink"}`}>
               {progressSummary ? `${progressSummary.viewCount}/${progressSummary.requiredViewCount}` : `—/${video.requiredViewCount}`}{" "}
               {t("reviewVideoTask.progress.countSuffix")}

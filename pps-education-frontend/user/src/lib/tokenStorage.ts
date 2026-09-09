@@ -2,24 +2,27 @@ const ACCESS_TOKEN_KEY = "pps_access_token";
 const REFRESH_TOKEN_KEY = "pps_refresh_token";
 
 /**
- * sessionStorage (không phải localStorage) — cố ý: đóng hẳn trình duyệt/tab phải buộc đăng
- * nhập lại. Trong lúc tab còn mở (refresh trang, điều hướng SPA) vẫn giữ đăng nhập bình
- * thường vì sessionStorage sống hết vòng đời tab, chỉ mất khi tab/trình duyệt đóng.
+ * localStorage (đổi từ sessionStorage — bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+ * 2026-09-05): Portal chủ yếu được cài qua shortcut (Add to Home Screen) trên điện thoại
+ * Phụ huynh/Học sinh — thoát hẳn app (không chỉ đóng tab) trước đây luôn xoá sessionStorage,
+ * buộc đăng nhập lại mỗi lần mở shortcut. localStorage sống qua việc thoát/mở lại app, tự
+ * "nhớ đăng nhập" tới hết hạn refresh token (14 ngày, tự gia hạn mỗi lần dùng — xem
+ * AuthService.issueRefreshToken/application.yml app.jwt.refresh-token-ttl-days).
  */
 export function getAccessToken(): string | null {
-  return sessionStorage.getItem(ACCESS_TOKEN_KEY);
+  return localStorage.getItem(ACCESS_TOKEN_KEY);
 }
 
 export function getRefreshToken(): string | null {
-  return sessionStorage.getItem(REFRESH_TOKEN_KEY);
+  return localStorage.getItem(REFRESH_TOKEN_KEY);
 }
 
 export function setTokens(accessToken: string, refreshToken: string): void {
-  sessionStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
-  sessionStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+  localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
+  localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
 }
 
 export function clearTokens(): void {
-  sessionStorage.removeItem(ACCESS_TOKEN_KEY);
-  sessionStorage.removeItem(REFRESH_TOKEN_KEY);
+  localStorage.removeItem(ACCESS_TOKEN_KEY);
+  localStorage.removeItem(REFRESH_TOKEN_KEY);
 }

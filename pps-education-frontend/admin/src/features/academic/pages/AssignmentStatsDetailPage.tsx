@@ -19,7 +19,8 @@ import {
   getExerciseAssignmentQuestionStats,
   getExerciseAssignmentStudentStats,
   listStudentExerciseAttempts,
-  selectAttemptForGrading
+  selectAttemptForGrading,
+  updateExerciseAssignmentLateSubmissionAllowed
 } from "../api";
 import { ExerciseQuestionChoiceResponse, ExerciseQuestionResponse, listExerciseQuestions } from "@/features/lms/api";
 import Card from "@/components/ui/Card";
@@ -46,7 +47,7 @@ function formatChoiceIds(ids: number[] | null | undefined, choices: ExerciseQues
 }
 
 export default function AssignmentStatsDetailPage() {
-  const { t } = useTranslation("academic-homework");
+  const { t, i18n } = useTranslation("academic-homework");
   const studentStatusLabels: Record<string, string> = {
     CHUA_LAM: t("shared.studentStatus.CHUA_LAM"),
     DANG_LAM: t("shared.studentStatus.DANG_LAM"),
@@ -63,6 +64,7 @@ export default function AssignmentStatsDetailPage() {
   const [exporting, setExporting] = useState(false);
   const [expandedQuestionId, setExpandedQuestionId] = useState<number | null>(null);
   const [detailStudentId, setDetailStudentId] = useState<number | null>(null);
+  const [togglingLateSubmission, setTogglingLateSubmission] = useState(false);
 
   const numAssignmentId = assignmentId ? parseInt(assignmentId, 10) : null;
 
@@ -93,6 +95,25 @@ export default function AssignmentStatsDetailPage() {
       setError(err instanceof ApiError ? err.message : t("exerciseDetail.exportFailed"));
     } finally {
       setExporting(false);
+    }
+  };
+
+  /**
+   * V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — bật/tắt lại "Cho phép nộp
+   * bài muộn" ngay tại đây (không cần nút Lưu riêng, mirror UX tick/bỏ tick lớp ở AssignClassModal) —
+   * trả lời nhu cầu "lỡ ban đầu không cho nộp muộn mà học sinh chưa xong thì sao".
+   */
+  const handleToggleLateSubmissionAllowed = async (checked: boolean) => {
+    if (!numAssignmentId || !studentStats) return;
+    setTogglingLateSubmission(true);
+    setError(null);
+    try {
+      await updateExerciseAssignmentLateSubmissionAllowed(numAssignmentId, checked);
+      setStudentStats({ ...studentStats, assignment: { ...studentStats.assignment, lateSubmissionAllowed: checked } });
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t("shared.errors.loadResultsFailed"));
+    } finally {
+      setTogglingLateSubmission(false);
     }
   };
 
@@ -134,6 +155,23 @@ export default function AssignmentStatsDetailPage() {
       <div>
         <h1 className="text-2xl font-bold font-display text-slate-900">{studentStats.assignment.exerciseTitle}</h1>
         <p className="text-xs text-slate-500 mt-1">{studentStats.assignment.exerciseCode}</p>
+        <div className="flex items-center gap-3 mt-2">
+          {studentStats.assignment.dueAt && (
+            <span className="text-xs text-slate-500">
+              {t("exerciseDetail.dueAtLabel")}: {formatDateTime(studentStats.assignment.dueAt, i18n.language)}
+            </span>
+          )}
+          <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+            <input
+              type="checkbox"
+              checked={studentStats.assignment.lateSubmissionAllowed}
+              disabled={togglingLateSubmission}
+              onChange={(e) => handleToggleLateSubmissionAllowed(e.target.checked)}
+              className="rounded border-slate-300"
+            />
+            {t("exerciseDetail.lateSubmissionAllowedLabel")}
+          </label>
+        </div>
       </div>
 
       {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-lg">{error}</div>}
@@ -258,11 +296,12 @@ export default function AssignmentStatsDetailPage() {
         </div>
       )}
 
-      {detailStudent && (
+      {detailStudent && numAssignmentId && (
         <StudentDetailModal
-          student={detailStudent}
-          exerciseId={studentStats.assignment.exerciseId}
-          assignmentId={numAssignmentId}
+          studentId={detailStudent.studentId}
+          studentFullName={detailStudent.studentFullName}
+          members={[{ assignmentId: numAssignmentId, exerciseId: studentStats.assignment.exerciseId, exerciseTitle: studentStats.assignment.exerciseTitle }]}
+          initialStudent={detailStudent}
           onClose={() => setDetailStudentId(null)}
           onRefreshStats={() => {
             if (numAssignmentId) {
@@ -335,16 +374,34 @@ export function QuestionRow({
   );
 }
 
-function StudentDetailModal({
-  student,
-  exerciseId,
-  assignmentId,
+/**
+ * V163 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — 1 Bài trong danh sách
+ * `members` truyền vào StudentDetailModal. Với bản giao lẻ (AssignmentStatsDetailPage): luôn đúng 1
+ * phần tử. Với 1 Lô (BatchStatsDetailPage): N phần tử (1/Bài THẬT trong Lô) — modal thêm tab để Giáo
+ * viên chọn xem đúng Bài nào (mirror cách BatchStatsDetailPage đã ghép "Phân tích câu hỏi" theo từng
+ * Bài con, xem QuestionAnalysisChart/QuestionRow bên dưới) — trước đây trang Lô KHÔNG có tính năng
+ * xem chi tiết từng học sinh (1 học sinh có N lượt làm, không phải 1 lượt duy nhất như bản giao lẻ),
+ * nay hỗ trợ bằng cách xem TỪNG Bài riêng biệt qua tab.
+ */
+export interface StudentDetailModalMember {
+  assignmentId: number;
+  exerciseId: number;
+  exerciseTitle: string;
+}
+
+export function StudentDetailModal({
+  studentId,
+  studentFullName,
+  members,
+  initialStudent,
   onClose,
   onRefreshStats
 }: {
-  student: ExerciseAssignmentStudentRow;
-  exerciseId: number;
-  assignmentId: number | null;
+  studentId: number;
+  studentFullName: string;
+  members: StudentDetailModalMember[];
+  /** Dữ liệu học sinh đã có sẵn cho `members[0]` (tránh gọi lại API — chỉ có ý nghĩa với bản giao lẻ, luôn đúng 1 member). */
+  initialStudent?: ExerciseAssignmentStudentRow;
   onClose: () => void;
   onRefreshStats?: () => void;
 }) {
@@ -355,17 +412,49 @@ function StudentDetailModal({
     DA_NOP: t("shared.studentStatus.DA_NOP"),
     TRE_HAN: t("shared.studentStatus.TRE_HAN")
   };
+  const [activeMemberIndex, setActiveMemberIndex] = React.useState(0);
+  const activeMember = members[activeMemberIndex];
+  const exerciseId = activeMember.exerciseId;
+
+  // V163 — dữ liệu (điểm/trạng thái/lượt) HIỆU LỰC theo ĐÚNG Bài đang xem (activeMember), không phải
+  // dòng tổng hợp cả Lô — với bản giao lẻ (members.length===1) dùng thẳng initialStudent (đã có sẵn từ
+  // bảng ngoài, không cần gọi lại API); với Lô, mỗi lần đổi tab gọi lại đúng API bản giao lẻ của Bài đó.
+  const [student, setStudent] = React.useState<ExerciseAssignmentStudentRow | null>(
+    activeMemberIndex === 0 ? (initialStudent ?? null) : null
+  );
+  const [loadingStudent, setLoadingStudent] = React.useState(false);
+  const [studentError, setStudentError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (activeMemberIndex === 0 && initialStudent) {
+      setStudent(initialStudent);
+      return;
+    }
+    setLoadingStudent(true);
+    setStudentError(null);
+    getExerciseAssignmentStudentStats(activeMember.assignmentId)
+      .then((res) => setStudent(res.students.find((s) => s.studentId === studentId) ?? null))
+      .catch((err) => setStudentError(err instanceof ApiError ? err.message : t("shared.errors.loadResultsFailed")))
+      .finally(() => setLoadingStudent(false));
+  }, [activeMemberIndex, activeMember.assignmentId, studentId, initialStudent]);
+
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — trước đây LUÔN tải câu trả lời
   // của lượt MỚI NHẤT (student.attemptId), dù học sinh có nhiều lượt làm — GV không xem lại được câu
   // trả lời của các lượt CŨ (dữ liệu vẫn còn trong DB, chỉ là FE chưa cho chọn). Giờ mặc định vẫn hiện
   // lượt mới nhất, nhưng GV bấm "Xem trả lời" ở bảng "Lịch sử nhiều lượt làm bài" bên dưới để đổi.
-  const [viewingAttemptId, setViewingAttemptId] = React.useState<number | null>(student.attemptId);
+  const [viewingAttemptId, setViewingAttemptId] = React.useState<number | null>(student?.attemptId ?? null);
+  React.useEffect(() => {
+    setViewingAttemptId(student?.attemptId ?? null);
+  }, [student]);
   const [answers, setAnswers] = React.useState<StudentAnswerRow[]>([]);
   const [loadingAnswers, setLoadingAnswers] = React.useState(false);
   const [answerError, setAnswerError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    if (!viewingAttemptId) return;
+    if (!viewingAttemptId) {
+      setAnswers([]);
+      return;
+    }
     setLoadingAnswers(true);
     setAnswerError(null);
     getAttemptAnswers(viewingAttemptId)
@@ -382,6 +471,7 @@ function StudentDetailModal({
   const [questionsById, setQuestionsById] = React.useState<Map<number, ExerciseQuestionResponse>>(new Map());
 
   React.useEffect(() => {
+    setQuestionsById(new Map());
     listExerciseQuestions(exerciseId)
       .then((qs) => setQuestionsById(new Map(qs.map((q) => [q.questionId, q]))))
       .catch(() => undefined);
@@ -396,17 +486,17 @@ function StudentDetailModal({
   React.useEffect(() => {
     setLoadingAttempts(true);
     setAttemptsError(null);
-    listStudentExerciseAttempts(exerciseId, student.studentId)
+    listStudentExerciseAttempts(exerciseId, studentId)
       .then(setAttempts)
       .catch((err) => setAttemptsError(err instanceof ApiError ? err.message : t("exerciseDetail.studentModal.history.loadFailed")))
       .finally(() => setLoadingAttempts(false));
-  }, [exerciseId, student.studentId]);
+  }, [exerciseId, studentId]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className="bg-white rounded-lg shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto mx-4">
         <div className="sticky top-0 bg-white border-b border-slate-200 p-4 flex items-center justify-between">
-          <h2 className="font-semibold text-slate-900">{t("exerciseDetail.studentModal.title", { studentName: student.studentFullName })}</h2>
+          <h2 className="font-semibold text-slate-900">{t("exerciseDetail.studentModal.title", { studentName: studentFullName })}</h2>
           <button
             onClick={onClose}
             className="text-slate-500 hover:text-slate-700"
@@ -415,7 +505,24 @@ function StudentDetailModal({
           </button>
         </div>
 
+        {members.length > 1 && (
+          <div className="px-4 pt-3 border-b border-slate-200">
+            <Tabs
+              items={members.map((m, i) => ({ id: String(i), label: m.exerciseTitle }))}
+              activeId={String(activeMemberIndex)}
+              onChange={(id) => setActiveMemberIndex(Number(id))}
+            />
+          </div>
+        )}
+
         <div className="p-6 space-y-6">
+          {studentError && (
+            <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{studentError}</div>
+          )}
+          {loadingStudent || !student ? (
+            <p className="text-sm text-slate-500">{t("shared.loading")}</p>
+          ) : (
+          <>
           {/* Thông tin attempt */}
           <div>
             <h3 className="font-semibold text-sm mb-3 text-slate-900">{t("exerciseDetail.studentModal.attemptInfo.title")}</h3>
@@ -579,6 +686,8 @@ function StudentDetailModal({
               )}
             </div>
           </div>
+          </>
+          )}
         </div>
 
         <div className="border-t border-slate-200 bg-slate-50 p-4 flex justify-end gap-2">

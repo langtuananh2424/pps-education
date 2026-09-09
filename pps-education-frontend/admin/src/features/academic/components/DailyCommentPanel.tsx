@@ -283,6 +283,12 @@ export default function DailyCommentPanel() {
   const [dueTime, setDueTime] = useState("");
   /** yyyy-MM-ddTHH:mm gửi lên BE — chỉ có giá trị khi đã chọn cả ngày lẫn giờ. */
   const dueDateTime = dueDate && dueTime ? `${dueDate}T${dueTime}` : "";
+  /**
+   * V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — "Cho phép nộp bài muộn",
+   * dùng chung cho cả buổi (mirror dueDate/dueTime ở trên): tắt = giữ hành vi chặn cứng cũ, bật = học
+   * sinh vẫn nộp được sau hạn, hệ thống đánh dấu "nộp muộn" để Giáo viên biết, không trừ điểm.
+   */
+  const [lateSubmissionAllowed, setLateSubmissionAllowed] = useState(false);
   // "Gán nhanh cho cả lớp" (2026-08-05) — điền 1 lần, áp dụng cho mọi dòng chưa khoá thay vì phải chọn
   // từng dòng học sinh; offline/exerciseId ĐỘC LẬP (giao đồng thời được cả 2, xem 2026-08-18).
   const [quickOffline, setQuickOffline] = useState("");
@@ -446,6 +452,7 @@ export default function DailyCommentPanel() {
     setTeacherType((selectedSession?.teacherType as TeacherType | null) ?? "");
     setDueDate("");
     setDueTime("");
+    setLateSubmissionAllowed(false);
     setQuickOffline("");
     setQuickExerciseId("");
     setQuickVideoId("");
@@ -526,6 +533,10 @@ export default function DailyCommentPanel() {
       } else if (draftWithDueDate?.homeworkNextDueAt) {
         setDueDate((prev) => prev || isoToLocalDateInput(draftWithDueDate.homeworkNextDueAt!));
         setDueTime((prev) => prev || isoToLocalTimeInput(draftWithDueDate.homeworkNextDueAt!));
+      }
+      // V165 — mirror prefill hạn nộp ở trên cho "Cho phép nộp bài muộn" (BE đã tự resolve pending/đã giao thành 1 cờ duy nhất).
+      if (draftWithDueDate?.homeworkNextLateSubmissionAllowed) {
+        setLateSubmissionAllowed(true);
       }
       // Nhận xét DRAFT/REJECTED (nhập tay chưa gửi hoặc nhập từ Excel) — điền vào ô nhập trên màn hình để
       // giáo viên xem/sửa tiếp trước khi bấm "Gửi nhận xét", KHÔNG khoá read-only như PENDING/APPROVED.
@@ -609,7 +620,16 @@ export default function DailyCommentPanel() {
     }
   };
 
-  /** "Loại giáo viên" (2026-08-05) — lưu ngược vào buổi học, mirror handleSaveLessonContent. */
+  /**
+   * "Loại giáo viên" (2026-08-05) — lưu ngược vào buổi học, mirror handleSaveLessonContent.
+   *
+   * Bổ sung 2026-09-05 (fix bug thật, đã xác nhận với người dùng) — previewAutoProgress (nguồn 4 cột
+   * "BTVN buổi trước" tự động: Ngữ pháp/Video/Reading/Writing) chỉ được gọi 1 lần lúc chọn buổi (xem
+   * effect load rows), tính theo teacher_type CỦA BUỔI tại thời điểm gọi. Đổi teacher_type ở đây
+   * KHÔNG tự refetch lại — số cũ (tính theo loại GV CŨ, VD Video kết nối) bị đông cứng và hiện lại y
+   * hệt dưới nhãn cột MỚI (VD Clip phản xạ) sau khi đổi tab, sai hoàn toàn ý nghĩa cột. Refetch ngay
+   * sau khi đổi loại GV thành công để 4 cột này tính lại đúng theo teacher_type mới.
+   */
   const handleChangeTeacherType = async (type: TeacherType) => {
     if (!selectedSessionId || savingTeacherType || type === teacherType) return;
     setSavingTeacherType(true);
@@ -618,6 +638,9 @@ export default function DailyCommentPanel() {
       await updateSessionTeacherType(selectedSessionId, type);
       setSessions((prev) => prev.map((s) => (s.id === selectedSessionId ? { ...s, teacherType: type } : s)));
       setTeacherType(type);
+      previewAutoProgress(selectedSessionId)
+        .then((list) => setAutoProgress(Object.fromEntries(list.map((p) => [p.studentId, p]))))
+        .catch(() => undefined);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t("dailyCommentPanel.errors.teacherTypeSaveFailed"));
     } finally {
@@ -637,35 +660,79 @@ export default function DailyCommentPanel() {
    * tường minh) âm thầm giữ hạn nộp mặc định cũ (= buổi kế tiếp), khoá cứng hạn nộp chung của buổi
    * mà không cách nào tự sửa được qua "Lưu nháp"/"Gửi nhận xét" (luôn báo xung đột 0/N — xem Javadoc
    * BE StudentCommentService#bulkUpdatePendingDueDate).
+   *
+   * Bổ sung 2026-09-07 (fix bug thật, đã xác nhận với người dùng) — TỰ ĐỘNG "Lưu nháp" ngay sau khi
+   * gán, không chờ giáo viên bấm tay: trước đây hàm này chỉ setRows() cục bộ, dữ liệu chỉ tồn tại ở
+   * state FE cho tới khi giáo viên chủ động "Lưu nháp"/"Gửi nhận xét". F5 lại giữa chừng (VD gõ Nhận
+   * xét cho 1 học sinh rồi "Gửi nhận xét" luôn, KHÔNG "Lưu nháp") khiến loadHistory (chỉ điền lại
+   * rows từ StudentComment DRAFT/REJECTED đã có trong DB) không tìm thấy bản ghi nào cho các học sinh
+   * còn lại → cột BTVN của họ về rỗng dù đã "gán cho cả lớp", trong khi BTVN thực đã được đẩy xuống
+   * (theo status của học sinh đã gửi). Gọi thẳng saveFilledRows() với rows vừa tính (không đọc lại
+   * state rows vì setRows là bất đồng bộ) để mọi dòng vừa gán có bản ghi DRAFT ngay, sống sót qua F5.
    */
   const handleApplyQuickAssign = async () => {
+    if (!selectedClassId || !selectedSession || savingDraft) return;
     const lockedIds = new Set(history.filter((h) => h.status === "PENDING" || h.status === "APPROVED").map((h) => h.studentId));
-    setRows((prev) =>
-      prev.map((r) =>
-        lockedIds.has(r.studentId)
-          ? r
-          : {
-              ...r,
-              ...(isVietnamese
-                ? {
-                    homeworkNextReading: quickReading,
-                    homeworkNextWriting: quickWriting,
-                    homeworkNextReadingExerciseId: quickReadingExerciseId,
-                    homeworkNextWritingExerciseId: quickWritingExerciseId
-                  }
-                : { homeworkNext: quickOffline }),
-              homeworkNextExerciseId: quickExerciseId,
-              homeworkNextReviewVideoSetId: quickVideoId
-            }
-      )
+    const updatedRows = rows.map((r) =>
+      lockedIds.has(r.studentId)
+        ? r
+        : {
+            ...r,
+            ...(isVietnamese
+              ? {
+                  homeworkNextReading: quickReading,
+                  homeworkNextWriting: quickWriting,
+                  homeworkNextReadingExerciseId: quickReadingExerciseId,
+                  homeworkNextWritingExerciseId: quickWritingExerciseId
+                }
+              : { homeworkNext: quickOffline }),
+            homeworkNextExerciseId: quickExerciseId,
+            homeworkNextReviewVideoSetId: quickVideoId
+          }
     );
+    setRows(updatedRows);
     setDirty(true);
+
+    const filled = updatedRows.filter(rowHasAnyData);
+    if (filled.length > 0) {
+      setSavingDraft(true);
+      setError(null);
+      try {
+        const results = await saveFilledRows(filled, selectedClassId, selectedSession);
+        const failed = results
+          .map((r, i) => ({ result: r, row: filled[i] }))
+          .filter((x): x is { result: PromiseRejectedResult; row: Row } => x.result.status === "rejected");
+        const failedCount = failed.length;
+        setDirty(failedCount > 0);
+        setLastSavedAt(new Date());
+        if (failedCount > 0) {
+          const firstFailedReason = failed[0].result.reason;
+          const firstFailedMessage = firstFailedReason instanceof ApiError ? firstFailedReason.message : t("dailyCommentPanel.errors.unknownReason");
+          const extraStudents = failedCount > 1 ? t("dailyCommentPanel.notifications.extraStudents", { count: failedCount - 1 }) : "";
+          setNotification(
+            t("dailyCommentPanel.notifications.draftSavedFailurePart", {
+              saved: filled.length - failedCount,
+              total: filled.length,
+              studentName: failed[0].row.studentFullName,
+              extra: extraStudents,
+              reason: firstFailedMessage
+            })
+          );
+        }
+        await loadHistory(selectedClassId, selectedSession.id, updatedRows.map((r) => r.studentId));
+        refreshSessionCommentStats(selectedClassId);
+      } catch (err) {
+        setError(err instanceof ApiError ? err.message : t("dailyCommentPanel.errors.saveDraftFailed"));
+      } finally {
+        setSavingDraft(false);
+      }
+    }
 
     if (dueDateTime && selectedSessionId && selectedClassId) {
       setApplyingDueDate(true);
       setError(null);
       try {
-        await bulkUpdatePendingDueDate(selectedSessionId, dueDateTime);
+        await bulkUpdatePendingDueDate(selectedSessionId, dueDateTime, lateSubmissionAllowed);
         setNotification(t("dailyCommentPanel.notifications.dueDateAppliedSuccess"));
         await loadHistory(selectedClassId, selectedSessionId, rows.map((r) => r.studentId));
         refreshSessionCommentStats(selectedClassId);
@@ -700,6 +767,8 @@ export default function DailyCommentPanel() {
     homeworkNextWritingExerciseId: r.homeworkNextWritingExerciseId !== "" ? r.homeworkNextWritingExerciseId : undefined,
     // Hạn nộp buổi sau (ngày + giờ) — 1 giá trị chung cho cả buổi (xem dueDateTime), để trống thì BE tự tính = buổi kế tiếp.
     homeworkNextDueDate: dueDateTime || undefined,
+    // V165 — "Cho phép nộp bài muộn", dùng chung cho cả buổi (mirror homeworkNextDueDate ở trên).
+    homeworkNextLateSubmissionAllowed: lateSubmissionAllowed || undefined,
     note: r.note.trim() || undefined
   });
 
@@ -1207,7 +1276,12 @@ export default function DailyCommentPanel() {
                       <option value="">{t("dailyCommentPanel.quickAssign.noAssign")}</option>
                       {readingOptions.map((ex) => (
                         <option key={ex.examId} value={ex.examId}>
-                          {ex.examCode} - {ex.examTitle} ({ex.exerciseCount} bài, {ex.questionCount} câu)
+                          {/* Bổ sung 2026-09-04 (đã xác nhận với người dùng) — fix bug thật: Lesson đánh số lặp
+                              lại (Lesson 1, 2, 3...) giữa nhiều Unit/SubTopic khác nhau, trước đây dropdown chỉ
+                              hiện examTitle nên giáo viên rất dễ giao NHẦM Lesson. */}
+                          {ex.examCode} - {ex.examTitle}
+                          {(ex.unitTitle || ex.subTopicTitle) && ` [${[ex.unitTitle, ex.subTopicTitle].filter(Boolean).join(" · ")}]`} (
+                          {ex.exerciseCount} bài, {ex.questionCount} câu)
                         </option>
                       ))}
                     </Select>
@@ -1223,7 +1297,12 @@ export default function DailyCommentPanel() {
                       <option value="">{t("dailyCommentPanel.quickAssign.noAssign")}</option>
                       {writingOptions.map((ex) => (
                         <option key={ex.examId} value={ex.examId}>
-                          {ex.examCode} - {ex.examTitle} ({ex.exerciseCount} bài, {ex.questionCount} câu)
+                          {/* Bổ sung 2026-09-04 (đã xác nhận với người dùng) — fix bug thật: Lesson đánh số lặp
+                              lại (Lesson 1, 2, 3...) giữa nhiều Unit/SubTopic khác nhau, trước đây dropdown chỉ
+                              hiện examTitle nên giáo viên rất dễ giao NHẦM Lesson. */}
+                          {ex.examCode} - {ex.examTitle}
+                          {(ex.unitTitle || ex.subTopicTitle) && ` [${[ex.unitTitle, ex.subTopicTitle].filter(Boolean).join(" · ")}]`} (
+                          {ex.exerciseCount} bài, {ex.questionCount} câu)
                         </option>
                       ))}
                     </Select>
@@ -1299,11 +1378,21 @@ export default function DailyCommentPanel() {
                   className="w-full bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none disabled:opacity-40"
                 />
               </div>
+              <label className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600 self-end pb-2">
+                <input
+                  type="checkbox"
+                  checked={lateSubmissionAllowed}
+                  onChange={(e) => setLateSubmissionAllowed(e.target.checked)}
+                  className="rounded border-slate-300"
+                />
+                {t("dailyCommentPanel.quickAssign.lateSubmissionAllowedLabel")}
+              </label>
               <button
                 type="button"
                 onClick={handleApplyQuickAssign}
                 disabled={
                   applyingDueDate ||
+                  savingDraft ||
                   (isVietnamese
                     ? !quickReading &&
                       !quickWriting &&
@@ -1316,7 +1405,7 @@ export default function DailyCommentPanel() {
                 }
                 className="px-3 py-2 bg-brand-orange hover:bg-brand-orange/90 text-white text-[11px] font-bold rounded-lg disabled:opacity-40"
               >
-                {applyingDueDate ? t("dailyCommentPanel.quickAssign.applying") : t("dailyCommentPanel.quickAssign.applyButton")}
+                {applyingDueDate || savingDraft ? t("dailyCommentPanel.quickAssign.applying") : t("dailyCommentPanel.quickAssign.applyButton")}
               </button>
             </div>
           </div>
@@ -1672,7 +1761,12 @@ export default function DailyCommentPanel() {
                               <option value="">{t("dailyCommentPanel.chooseExercisePlaceholder")}</option>
                               {readingOptions.map((ex) => (
                                 <option key={ex.examId} value={ex.examId}>
-                                  {ex.examCode} - {ex.examTitle} ({ex.exerciseCount} bài, {ex.questionCount} câu)
+                                  {/* Bổ sung 2026-09-04 (đã xác nhận với người dùng) — fix bug thật: Lesson đánh số lặp
+                              lại (Lesson 1, 2, 3...) giữa nhiều Unit/SubTopic khác nhau, trước đây dropdown chỉ
+                              hiện examTitle nên giáo viên rất dễ giao NHẦM Lesson. */}
+                          {ex.examCode} - {ex.examTitle}
+                          {(ex.unitTitle || ex.subTopicTitle) && ` [${[ex.unitTitle, ex.subTopicTitle].filter(Boolean).join(" · ")}]`} (
+                          {ex.exerciseCount} bài, {ex.questionCount} câu)
                                 </option>
                               ))}
                             </Select>
@@ -1692,7 +1786,12 @@ export default function DailyCommentPanel() {
                               <option value="">{t("dailyCommentPanel.chooseExercisePlaceholder")}</option>
                               {writingOptions.map((ex) => (
                                 <option key={ex.examId} value={ex.examId}>
-                                  {ex.examCode} - {ex.examTitle} ({ex.exerciseCount} bài, {ex.questionCount} câu)
+                                  {/* Bổ sung 2026-09-04 (đã xác nhận với người dùng) — fix bug thật: Lesson đánh số lặp
+                              lại (Lesson 1, 2, 3...) giữa nhiều Unit/SubTopic khác nhau, trước đây dropdown chỉ
+                              hiện examTitle nên giáo viên rất dễ giao NHẦM Lesson. */}
+                          {ex.examCode} - {ex.examTitle}
+                          {(ex.unitTitle || ex.subTopicTitle) && ` [${[ex.unitTitle, ex.subTopicTitle].filter(Boolean).join(" · ")}]`} (
+                          {ex.exerciseCount} bài, {ex.questionCount} câu)
                                 </option>
                               ))}
                             </Select>
@@ -1727,7 +1826,12 @@ export default function DailyCommentPanel() {
                           <option value="">{t("dailyCommentPanel.chooseExercisePlaceholder")}</option>
                           {filteredGrammarOptions.map((ex) => (
                             <option key={ex.examId} value={ex.examId}>
-                              {ex.examCode} - {ex.examTitle} ({ex.exerciseCount} bài, {ex.questionCount} câu)
+                              {/* Bổ sung 2026-09-04 (đã xác nhận với người dùng) — fix bug thật: Lesson đánh số lặp
+                              lại (Lesson 1, 2, 3...) giữa nhiều Unit/SubTopic khác nhau, trước đây dropdown chỉ
+                              hiện examTitle nên giáo viên rất dễ giao NHẦM Lesson. */}
+                          {ex.examCode} - {ex.examTitle}
+                          {(ex.unitTitle || ex.subTopicTitle) && ` [${[ex.unitTitle, ex.subTopicTitle].filter(Boolean).join(" · ")}]`} (
+                          {ex.exerciseCount} bài, {ex.questionCount} câu)
                             </option>
                           ))}
                         </Select>

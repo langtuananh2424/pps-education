@@ -20,6 +20,7 @@ export function uploadMedia(file: File, module: MediaUploadModule): Promise<{ ur
 export interface MyStudentProfileResponse {
   id: number;
   fullName: string;
+  studentCode: string;
   portraitUrl: string | null;
 }
 
@@ -476,6 +477,14 @@ export interface ReviewVideoSetResponse {
   createdBy: number;
   /** V98 — GV Việt Nam/nước ngoài phụ trách bộ video này. */
   teacherType: "VIETNAMESE" | "FOREIGN";
+  /**
+   * Bổ sung 2026-09-04 — tên Unit/SubTopic chứa Bộ video này (VD "UNIT 1: MY NEW SCHOOL" / "SUB TOPIC
+   * 1: SCHOOL ACTIVITIES AND SUBJECTS"), mirror ExamResponse#unitTitle/subTopicTitle — Bộ đặt tên dễ
+   * trùng lặp hình thức giữa nhiều Unit/SubTopic khác nhau. NULL khi Bộ chưa phân loại.
+   */
+  subTopicId: number | null;
+  subTopicTitle: string | null;
+  unitTitle: string | null;
 }
 
 export interface ReviewVideoResponse {
@@ -491,6 +500,8 @@ export interface ReviewVideoResponse {
   completionThresholdPercent: number;
   /** V59 — chỉ có ý nghĩa với videoType=CONNECTION, mặc định 1. */
   requiredViewCount: number;
+  /** V167 — chỉ có ý nghĩa với videoType=CONNECTION, mặc định 70 — ngưỡng % (số lượt đạt/tổng lượt yêu cầu) để hiện popup nhắc giữa chừng. */
+  sessionPassRatioThresholdPercent: number;
 }
 
 export interface ReviewVideoProgressResponse {
@@ -713,14 +724,24 @@ export interface ConnectionAnswerResult {
   correctChoiceId: number | null;
 }
 
+/**
+ * finalized=false: sai nhưng còn lượt thử — BE giữ nguyên watchSessionId, cho nộp lại CẢ FORM.
+ * finalized=true: lượt đã kết thúc hẳn — `passed` mới có ý nghĩa (đúng 100% hay đã hết lượt thử mà
+ * vẫn sai). Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-05 (V160).
+ */
 export interface ReviewVideoConnectionQuizResultResponse {
   results: ConnectionAnswerResult[];
   progress: ReviewVideoProgressResponse;
+  finalized: boolean;
+  passed: boolean;
+  attemptsUsed: number;
+  maxAttempts: number;
 }
 
 /**
  * Nộp TOÀN BỘ câu trả lời cho ĐÚNG 1 lượt xem (watchSessionId) — khớp cặp 1-1 "xem lượt nào, trả
- * lời lượt đó". BE chặn (422) nếu lượt chưa đạt ngưỡng xem hoặc lượt đó đã nộp đủ rồi.
+ * lời lượt đó". BE chặn (422) nếu lượt chưa đạt ngưỡng xem hoặc lượt đó đã kết thúc hẳn rồi (xem
+ * `finalized` — sai nhưng còn lượt thử thì KHÔNG bị chặn, có thể gọi lại API này để nộp lại cả form).
  */
 export function submitReviewVideoConnectionAnswers(
   watchSessionId: number,
@@ -730,6 +751,32 @@ export function submitReviewVideoConnectionAnswers(
     method: "PUT",
     body: JSON.stringify({ answers })
   });
+}
+
+/**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07 — toàn bộ câu trả lời của học sinh
+ * qua các lượt xem ĐÃ ĐẠT (qualified + quizPassed) của video CONNECTION/1 bản giao, dùng cho popup
+ * "Hoàn thành"/"Kết quả" (xem ReviewVideoTaskModal) khi đạt ngưỡng sessionPassRatioThresholdPercent
+ * giữa chừng hoặc hoàn thành đủ requiredViewCount. Khác ConnectionAnswerResult (chỉ id, vì popup
+ * mỗi-lượt tự map với bộ câu hỏi đang fetch) — ở đây lượt cũ đã đóng nên trả kèm nội dung câu hỏi/lựa chọn.
+ */
+export interface ReviewVideoConnectionAnswerHistoryResponse {
+  sessions: {
+    watchSessionId: number;
+    viewNumber: number;
+    answers: {
+      questionId: number;
+      prompt: string;
+      choices: { id: number; choiceLabel: string; content: string }[];
+      selectedChoiceId: number;
+      correctChoiceId: number | null;
+      correct: boolean;
+    }[];
+  }[];
+}
+
+export function getReviewVideoConnectionAnswerHistory(videoId: number, assignmentId: number): Promise<ReviewVideoConnectionAnswerHistoryResponse> {
+  return apiRequest<ReviewVideoConnectionAnswerHistoryResponse>(`/review-videos/${videoId}/connection-answer-history?assignmentId=${assignmentId}`);
 }
 
 /** Toàn bộ lịch sử các lần đã nộp cho 1 câu hỏi (mới nhất trước). */
@@ -785,6 +832,13 @@ export interface AssignedExerciseResponse {
   examId: number;
   examTitle: string;
   skillCategory: "READING" | "WRITING" | "VOCAB_GRAMMAR" | "LISTENING" | null;
+  /**
+   * Bổ sung 2026-09-04 — tên Unit/SubTopic chứa Lesson (Exam) này (VD "UNIT 1: MY NEW SCHOOL" / "SUB
+   * TOPIC 1: SCHOOL ACTIVITIES AND SUBJECTS") — Lesson đánh số lặp lại (Lesson 1, 2, 3...) giữa các
+   * Unit/SubTopic khác nhau nên chỉ hiện examTitle dễ nhầm lẫn. NULL khi Exam chưa phân loại.
+   */
+  unitTitle: string | null;
+  subTopicTitle: string | null;
 }
 
 export function listMyAssignedExercises(classId?: number): Promise<AssignedExerciseResponse[]> {
@@ -841,7 +895,7 @@ export interface ExerciseQuestionResponse {
   skill: string | null;
   audioUrl: string | null;
   referencePassage: string | null;
-  structuredContent: { blanks?: string[]; chunks?: string[]; wordBankOptions?: string[] } | null;
+  structuredContent: { blanks?: string[]; chunks?: string[]; wordBankOptions?: string[]; wordBox?: string[] } | null;
   groupKey: string | null;
   /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — ảnh minh họa dùng cho ESSAY/WORD_BANK/SENTENCE_BUILDING. */
   imageUrl: string | null;
@@ -984,6 +1038,20 @@ export function recordIntegrityEvents(attemptId: number, request: RecordIntegrit
   return apiRequest<IntegrityEventBatchResponse>(`/attempts/${attemptId}/integrity-events`, {
     method: "POST",
     body: JSON.stringify(request)
+  });
+}
+
+/**
+ * Bổ sung 2026-09-04 (đã xác nhận với người dùng) — luồng "Lô giao BTVN theo kỹ năng"
+ * (BatchTakeExerciseModal): tự đếm vi phạm CỤC BỘ ở client, đủ ngưỡng thì tự nộp hết mọi Bài đang dở
+ * (submitAttempt bình thường, không có API "nộp cả Lô" riêng) RỒI gọi API này ĐÚNG 1 LẦN để báo Giáo
+ * viên phụ trách lớp — KHÔNG qua cơ chế đếm-ngưỡng real-time của recordIntegrityEvents (Bài lẻ), KHÔNG
+ * báo phụ huynh. `representativeAttemptId` = attempt của Bài đầu tiên trong Lô, chỉ dùng để tra học
+ * sinh/lớp — xem Javadoc AttemptIntegrityService#notifyTeachersForBatchViolation ở BE.
+ */
+export function notifyBatchIntegrityViolation(representativeAttemptId: number, violationCount: number): Promise<void> {
+  return apiRequest<void>(`/attempts/${representativeAttemptId}/batch-integrity-violation-notify?violationCount=${violationCount}`, {
+    method: "POST"
   });
 }
 

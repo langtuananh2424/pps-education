@@ -298,7 +298,7 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
         // DAILY dùng chung luồng DRAFT->Gửi->PENDING->duyệt với MID_TERM/END_TERM (2026-07-29).
         StudentCommentResponse approved = studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), session.id(),
-                        LocalDate.now(), "Chăm chỉ.", null, null, false, null, null, null, null, null, null, null, null, null, null, null, null, null, null), teacher.getId());
+                        LocalDate.now(), "Chăm chỉ.", null, null, false, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null), teacher.getId());
         studentCommentService.submitComments(schoolClass.id(), new SubmitCommentsRequest(List.of(approved.id())), teacher.getId());
         studentCommentService.decideComments(new DecideCommentsRequest(List.of(approved.id()), "APPROVED", null), siteManagerUser.getId());
 
@@ -311,7 +311,7 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
                 headAcademic.getId());
         studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), otherSession.id(),
-                        LocalDate.now(), "Nội dung chưa duyệt.", null, null, false, null, null, null, null, null, null, null, null, null, null, null, null, null, null), teacher.getId());
+                        LocalDate.now(), "Nội dung chưa duyệt.", null, null, false, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null), teacher.getId());
 
         List<StudentCommentResponse> comments = parentPortalService.listComments(student.getId(), schoolClass.id(), parentUser.getId());
 
@@ -432,7 +432,7 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
                 new UpdateReviewVideoSetRequest(set.title(), "VIETNAMESE", null, 1, "PUBLISHED", null), teacher.getId());
         reviewVideoService.addVideo(set.id(),
                 new AddReviewVideoRequest("R2_VIDEO", "Video", "https://media.pps.edu.vn/lms/review-videos/video/homework.mp4",
-                        1_000_000L, 100, 1, null, null),
+                        1_000_000L, 100, 1, null, null, null),
                 teacher.getId());
         // V71: writeComment gọi deliverToClass bên trong bằng PROPAGATION_REQUIRES_NEW — phải
         // commit Bộ video vừa tạo trước.
@@ -453,7 +453,7 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
         StudentCommentResponse comment = studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), session.id(),
                         session.sessionDate(), "Nội dung buổi.", null, null, false, null, null, null, null, null,
-                        homeworkNext, null, null, grammarExerciseId, videoSetId, null, null, null, null),
+                        homeworkNext, null, null, grammarExerciseId, videoSetId, null, null, null, null, null),
                 teacher.getId());
         List<StudentCommentResponse> submitted = studentCommentService.submitComments(
                 schoolClass.id(), new SubmitCommentsRequest(List.of(comment.id())), teacher.getId());
@@ -511,7 +511,7 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
     void listHomeworkProgress_skipsSessionsWithNoHomeworkAssigned() {
         studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), session.id(),
-                        session.sessionDate(), "Nội dung buổi, không giao BTVN.", null, null, false, null, null, null, null, null, null, null, null, null, null, null, null, null, null),
+                        session.sessionDate(), "Nội dung buổi, không giao BTVN.", null, null, false, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null),
                 siteManagerUser.getId());
 
         List<HomeworkProgressResponse> result = parentPortalService.listHomeworkProgress(student.getId(), schoolClass.id(), parentUser.getId());

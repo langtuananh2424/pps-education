@@ -6,6 +6,49 @@ import { ExerciseQuestionResponse, ExerciseResponse, QuestionResponse, getExamQu
 
 const choiceTypes: QuestionResponse["questionType"][] = ["MULTIPLE_CHOICE", "MULTIPLE_ANSWER", "TRUE_FALSE"];
 
+/**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-03 — fix bug thật: đáp án ảnh
+ * (VOICE_PICTURE_CHOICE) khi soạn để trống chú thích thì hệ thống tự điền content = đúng chữ cái nhãn
+ * (VD content="A" cho choiceLabel="A", xem ListeningGroupBuilder.tsx/QuestionEditorForm.tsx) — hiện ra
+ * nhìn như lặp "A. A". Ẩn phần content khi nó trùng hệt choiceLabel (không phân biệt hoa/thường, đã
+ * trim) hoặc rỗng, chỉ còn lại chữ cái nhãn — không lặp.
+ */
+function hasMeaningfulCaption(choiceLabel: string, content: string): boolean {
+  const trimmed = content.trim();
+  return trimmed.length > 0 && trimmed.toUpperCase() !== choiceLabel.trim().toUpperCase();
+}
+
+/** Bổ sung 2026-08-28 — chia mảng thành các hàng cố định `size` phần tử, dùng để dựng bảng hộp từ vựng (wordBox). */
+function chunkArray<T>(items: T[], size: number): T[][] {
+  const rows: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    rows.push(items.slice(i, i + size));
+  }
+  return rows;
+}
+
+/**
+ * Bổ sung 2026-09-04 (đã xác nhận với người dùng, mirror ExerciseStudentPreviewModal.tsx cùng thư mục)
+ * — chỉ coi dòng trống (2+ \n liên tiếp) là ranh giới đoạn văn thật (VD 3 đoạn Tom/Max/Anna của "Bài
+ * đọc hiểu — Lưới", GridQuestionBuilder nối bằng "\n\n") — giữ lại làm dòng trống hiển thị; mọi \n đơn
+ * lẻ còn lại (rác copy-paste Word/PDF) gộp thành khoảng trắng.
+ *
+ * Fix bug thật (2026-09-08, đã xác nhận với người dùng qua ảnh chụp) — transcript bài Nghe dạng hội
+ * thoại (VD "A: ...\nB: ...") dán từ trang web/PDF thường CHỈ có 1 \n giữa mỗi lượt nói (không có dòng
+ * trống) vì nguồn dựng bằng nhiều <p> riêng — coi như "không có ranh giới đoạn nào", gộp NGUYÊN CẢ
+ * TRANSCRIPT thành 1 dòng dài. Chèn thêm 1 dòng trống ẢO trước mỗi dòng bắt đầu bằng "Tên:" (lượt hội
+ * thoại) hoặc "N." (số thứ tự câu hỏi trong transcript) TRƯỚC khi split — nhận diện được ranh giới
+ * ngay cả khi nguồn không có dòng trống thật.
+ */
+function normalizeReferencePassage(text: string): string {
+  const withTurnBreaks = text.replace(/\n(?=\s*(?:[^\n:]{1,40}:\s|\d+\.\s))/g, "\n\n");
+  return withTurnBreaks
+    .split(/\n\s*\n/)
+    .map((para) => para.replace(/\s*\n\s*/g, " ").trim())
+    .filter(Boolean)
+    .join("\n\n");
+}
+
 interface ExercisePreviewModalProps {
   exercise: ExerciseResponse;
   onClose: () => void;
@@ -75,8 +118,17 @@ export default function ExercisePreviewModal({ exercise, onClose }: ExercisePrev
             return (
               <div key={eq.id} className="border border-slate-200 rounded-xl p-4">
                 <div className="flex items-start justify-between gap-3 mb-2">
+                  {/*
+                   * Bổ sung 2026-08-28 (đã xác nhận với người dùng) — tách nhãn "Câu N." ra dòng riêng
+                   * khỏi nội dung: dạng WORD_BANK/FILL_IN_BLANK_PICTURE nhiều câu con thường tự đánh số
+                   * "1. 2. 3..." ngay trong nội dung (khớp đề gốc nhiều câu/1 hộp từ) — để chung 1 dòng
+                   * với "Câu N." gây nhìn nhầm thành 2 số dính nhau ("Câu 1. 1. Tom is...").
+                   */}
                   <p className="text-sm font-bold text-slate-800">
-                    {t("exercisePreviewModal.questionNumber", { index: index + 1 })} {q?.content ?? eq.questionContent}
+                    <span className="block text-slate-500 text-xs uppercase tracking-wider mb-1">
+                      {t("exercisePreviewModal.questionNumber", { index: index + 1 })}
+                    </span>
+                    <span className="whitespace-pre-line">{q?.content ?? eq.questionContent}</span>
                   </p>
                   <span className="text-[10px] font-bold uppercase text-slate-400 shrink-0">{eq.points} {t("common.pointsSuffix")}</span>
                 </div>
@@ -84,7 +136,25 @@ export default function ExercisePreviewModal({ exercise, onClose }: ExercisePrev
 
                 {q?.imageUrl && <img src={q.imageUrl} alt="" className="max-h-40 rounded-lg mb-2" />}
                 {q?.audioUrl && <audio controls src={q.audioUrl} className="mb-2 w-full" />}
-                {q?.referencePassage && <p className="text-xs text-slate-500 bg-slate-50 p-2 rounded-lg mb-2">{q.referencePassage}</p>}
+                {q?.referencePassage && (
+                  <p className="text-xs text-slate-500 bg-slate-50 p-2 rounded-lg mb-2 whitespace-pre-line">{normalizeReferencePassage(q.referencePassage)}</p>
+                )}
+                {/* Bổ sung 2026-08-28 (đã xác nhận với người dùng) — hộp từ vựng tham khảo tĩnh (FillInBlankGroupBuilder), xem cùng khái niệm ở TakeExerciseModal.tsx. Dựng bằng <table> để khớp đúng bảng trong đề giấy gốc. */}
+                {q?.structuredContent?.wordBox && q.structuredContent.wordBox.length > 0 && (
+                  <table className="w-full border-collapse text-[11px] mb-2">
+                    <tbody>
+                      {chunkArray(q.structuredContent.wordBox, 4).map((row, ri) => (
+                        <tr key={ri}>
+                          {row.map((w, ci) => (
+                            <td key={ci} className="border border-slate-200 text-center font-bold text-slate-700 px-1.5 py-1.5">
+                              {w}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
 
                 {choiceTypes.includes(eq.questionType) && q && (
                   <div className="space-y-1.5">
@@ -99,7 +169,7 @@ export default function ExercisePreviewModal({ exercise, onClose }: ExercisePrev
                         <span className="font-mono text-[10px] shrink-0">{c.choiceLabel}.</span>
                         {/* V143 — dạng Listening chọn đáp án bằng hình: hiện thumbnail để GV xem đúng những gì học sinh sẽ thấy. */}
                         {c.imageUrl && <img src={c.imageUrl} alt={c.content} className="w-8 h-8 object-cover rounded shrink-0" />}
-                        <span>{c.content}</span>
+                        {hasMeaningfulCaption(c.choiceLabel, c.content) && <span>{c.content}</span>}
                       </div>
                     ))}
                   </div>
@@ -110,6 +180,11 @@ export default function ExercisePreviewModal({ exercise, onClose }: ExercisePrev
                 )}
                 {eq.questionType === "ESSAY" && (
                   <p className="text-[11px] text-slate-400 italic">{t("exercisePreviewModal.essayHint")}</p>
+                )}
+                {eq.questionType === "FILL_IN_BLANK" && q?.correctAnswerText && (
+                  <p className="text-[11px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 rounded-lg p-2">
+                    {t("exercisePreviewModal.fillInBlankAnswer", { answer: q.correctAnswerText })}
+                  </p>
                 )}
                 {eq.questionType === "WORD_BANK" && q?.structuredContent?.blanks && (
                   <p className="text-[11px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 rounded-lg p-2">

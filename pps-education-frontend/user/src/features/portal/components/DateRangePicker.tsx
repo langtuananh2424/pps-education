@@ -201,7 +201,7 @@ export default function DateRangePicker({ fromDate, toDate, onChange, label }: D
           aria-label={resolvedLabel}
           aria-haspopup="dialog"
           aria-expanded={open}
-          className="flex items-center gap-2 min-h-[44px] bg-white border border-line rounded-xl pl-3.5 pr-3 py-2.5 text-xs font-bold text-ink focus:outline-none focus:ring-2 focus:ring-teal/50 shadow-sm cursor-pointer"
+          className="flex items-center gap-2 min-h-[44px] bg-white border border-line rounded-xl pl-3.5 pr-3 py-2.5 text-sm font-bold text-ink focus:outline-none focus:ring-2 focus:ring-teal/50 shadow-sm cursor-pointer"
         >
           <Clock size={14} className="text-teal shrink-0" aria-hidden="true" />
           <span className="max-w-[110px] min-w-0 truncate sm:max-w-none sm:whitespace-nowrap">

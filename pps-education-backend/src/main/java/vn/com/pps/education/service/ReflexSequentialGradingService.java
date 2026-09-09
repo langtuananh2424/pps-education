@@ -26,10 +26,13 @@ import java.util.List;
  * hướng: thay luồng cũ "xem 1 video liên tục, ghi âm mỗi câu theo mốc thời gian, nộp cả loạt cuối
  * video, GV chấm tay" (vẫn còn nguyên trong {@link ReviewVideoService}/{@link ReviewVideoGradingPanel}
  * — KHÔNG xoá, chỉ không còn dùng cho video REFLEX theo luồng mới) bằng luồng TUẦN TỰ theo từng câu
- * hỏi: viết trước → {@link ReflexWritingGrammarAiGradingService} chấm ngữ pháp → đạt 70% mới mở khoá
- * ghi âm → {@link ReflexSpeakingContentAiGradingService} chấm nội dung (transcribe + chấm, Gemini) →
- * đạt 70% mới mở khoá câu tiếp theo. KHÔNG giới hạn số lần thử lại (đã xác nhận với người dùng) — nộp
- * lại chỉ SỬA ĐÈ dòng {@link ReflexQuestionProgress} hiện có, không tạo bản ghi lịch sử mới.
+ * hỏi: viết trước → {@link ReflexWritingGrammarAiGradingService} chấm ngữ pháp → đạt ngưỡng % mới mở
+ * khoá ghi âm → {@link ReflexSpeakingContentAiGradingService} chấm nội dung (transcribe + chấm,
+ * Gemini) → đạt ngưỡng % mới mở khoá câu tiếp theo. Ngưỡng % (mặc định 70, đã xác nhận với người dùng
+ * 2026-08-22) cấu hình được theo từng video từ V168 (đã xác nhận với người dùng 2026-09-08, trước đó
+ * hardcode cố định — xem {@link #passThresholdPercent}). KHÔNG giới hạn số lần thử lại (đã xác nhận
+ * với người dùng) — nộp lại chỉ SỬA ĐÈ dòng {@link ReflexQuestionProgress} hiện có, không tạo bản ghi
+ * lịch sử mới.
  *
  * Tách THÀNH SERVICE RIÊNG (không thêm vào {@link ReviewVideoService}, dù cùng UC-23b) vì
  * {@link ReviewVideoService} đã rất lớn (nhiều nhóm nghiệp vụ: CONNECTION/REFLEX cũ/thống kê/lịch sử)
@@ -40,9 +43,6 @@ import java.util.List;
 @Service
 public class ReflexSequentialGradingService {
 
-    /** Ngưỡng đạt 70% (đã xác nhận với người dùng 2026-08-22) — CỐ ĐỊNH, ReviewVideoSet chưa có field
-     * pass_threshold_percent riêng như Exercise (ngoài phạm vi thay đổi lần này). */
-    private static final int PASS_THRESHOLD_PERCENT = 70;
     private static final BigDecimal HUNDRED = BigDecimal.valueOf(100);
     private static final String AI_GRADING_FAILED_FEEDBACK = "Không chấm được tự động — vui lòng thử nộp lại.";
 
@@ -78,10 +78,13 @@ public class ReflexSequentialGradingService {
     public ReflexQuestionProgressResponse submitWrittenAnswer(Long questionId, Long assignmentId, String answerText, Long actorUserId) {
         ReviewVideoQuestion question = getQuestionOrThrow(questionId);
         StudentAccess access = resolveStudentAccessForAssignment(question.getReviewVideo().getReviewVideoSet(), assignmentId, actorUserId);
-        requireNotPastDeadline(access.assignment());
+        boolean late = requireNotPastDeadline(access.assignment());
         requireReflexVideo(question);
 
         ReflexQuestionProgress progress = findOrCreate(question, access.student(), access.assignment());
+        if (late) {
+            progress.setLateSubmission(true);
+        }
         progress.setAnswerText(answerText);
         progress.setWritingAttemptCount(progress.getWritingAttemptCount() + 1);
 
@@ -97,12 +100,15 @@ public class ReflexSequentialGradingService {
     public ReflexQuestionProgressResponse submitSpokenAnswer(Long questionId, Long assignmentId, String audioUrl, Long actorUserId) {
         ReviewVideoQuestion question = getQuestionOrThrow(questionId);
         StudentAccess access = resolveStudentAccessForAssignment(question.getReviewVideo().getReviewVideoSet(), assignmentId, actorUserId);
-        requireNotPastDeadline(access.assignment());
+        boolean late = requireNotPastDeadline(access.assignment());
         requireReflexVideo(question);
 
         ReflexQuestionProgress progress = findOrCreate(question, access.student(), access.assignment());
         if (!isWritingPassed(progress)) {
             throw new IllegalArgumentException("Phải đạt phần viết trước khi ghi âm câu hỏi này.");
+        }
+        if (late) {
+            progress.setLateSubmission(true);
         }
         progress.setAudioUrl(audioUrl);
         progress.setSpeakingAttemptCount(progress.getSpeakingAttemptCount() + 1);
@@ -145,7 +151,7 @@ public class ReflexSequentialGradingService {
             progress.setWritingGradedAt(OffsetDateTime.now());
             // V141 — chỉ có ý nghĩa khi CHƯA đạt (đạt rồi thì không cần gợi ý sửa nữa) — không set khi đạt
             // để tránh FE lỡ hiện gợi ý sửa cho 1 câu đã đúng.
-            progress.setWritingCorrectedAnswer(result.scorePercent() >= PASS_THRESHOLD_PERCENT ? null : result.correctedAnswer());
+            progress.setWritingCorrectedAnswer(result.scorePercent() >= passThresholdPercent(progress) ? null : result.correctedAnswer());
         } else {
             progress.setWritingScore(null);
             progress.setWritingMaxScore(null);
@@ -170,11 +176,21 @@ public class ReflexSequentialGradingService {
     }
 
     private boolean isWritingPassed(ReflexQuestionProgress progress) {
-        return progress.getWritingScore() != null && progress.getWritingScore().compareTo(BigDecimal.valueOf(PASS_THRESHOLD_PERCENT)) >= 0;
+        return progress.getWritingScore() != null && progress.getWritingScore().compareTo(BigDecimal.valueOf(passThresholdPercent(progress))) >= 0;
     }
 
     private boolean isSpeakingPassed(ReflexQuestionProgress progress) {
-        return progress.getSpeakingScore() != null && progress.getSpeakingScore().compareTo(BigDecimal.valueOf(PASS_THRESHOLD_PERCENT)) >= 0;
+        return progress.getSpeakingScore() != null && progress.getSpeakingScore().compareTo(BigDecimal.valueOf(passThresholdPercent(progress))) >= 0;
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-08 — ngưỡng % đạt (viết VÀ nói) mỗi
+     * câu, đọc từ cấu hình của chính video (trước đây hardcode 70 cố định, xem V168). Cấu hình được
+     * theo từng video REFLEX qua {@link vn.com.pps.education.domain.ReviewVideo#getCompletionThresholdPercent()}
+     * (field này với CONNECTION lại mang nghĩa khác — % pass điểm trắc nghiệm, xem ReviewVideoService).
+     */
+    private int passThresholdPercent(ReflexQuestionProgress progress) {
+        return progress.getReviewVideoQuestion().getReviewVideo().getCompletionThresholdPercent();
     }
 
     private ReflexQuestionProgress findOrCreate(ReviewVideoQuestion question, Student student, ReviewVideoAssignment assignment) {
@@ -242,14 +258,22 @@ public class ReflexSequentialGradingService {
         return new StudentAccess(student, assignment);
     }
 
-    private void requireNotPastDeadline(ReviewVideoAssignment assignment) {
+    /**
+     * V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — đảo ngược quyết định
+     * 2026-07-30: chỉ chặn cứng khi {@link ReviewVideoAssignment#isLateSubmissionAllowed()} tắt. Trả về
+     * {@code true} nếu đã quá hạn nhưng vẫn được cho qua (nộp muộn) — caller dùng để đánh dấu
+     * {@link ReflexQuestionProgress#setLateSubmission}, mirror {@code ExerciseAttemptService#submitAttempt}.
+     */
+    private boolean requireNotPastDeadline(ReviewVideoAssignment assignment) {
         if (assignment.getStatus() != ReviewVideoAssignment.Status.ACTIVE) {
             throw new SubmissionPastDeadlineException("Bản giao Video Ôn tập này đã bị thay thế hoặc hủy, không thể ghi nhận thêm.");
         }
-        if (assignment.getDueAt() != null && OffsetDateTime.now().isAfter(assignment.getDueAt())) {
+        boolean pastDue = assignment.getDueAt() != null && OffsetDateTime.now().isAfter(assignment.getDueAt());
+        if (pastDue && !assignment.isLateSubmissionAllowed()) {
             throw new SubmissionPastDeadlineException(
                     "error.submissionPastDeadline.reviewVideo", new Object[]{assignment.getDueAt()},
                     "Bản giao Video Ôn tập này đã quá hạn nộp (" + assignment.getDueAt() + ").");
         }
+        return pastDue;
     }
 }

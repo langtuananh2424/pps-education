@@ -15,8 +15,8 @@ export default function ComingSoon({ title, description }: ComingSoonProps) {
       <span className="inline-flex items-center gap-1.5 bg-gold/10 text-gold border border-gold/30 px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider">
         <Sparkles size={12} /> {t("comingSoon.badge")}
       </span>
-      <h3 className="text-base font-extrabold text-ink">{title}</h3>
-      <p className="text-xs text-muted font-bold leading-relaxed">{description}</p>
+      <h3 className="text-xl font-extrabold text-ink">{title}</h3>
+      <p className="text-sm text-muted font-bold leading-relaxed">{description}</p>
     </div>
   );
 }

@@ -23,6 +23,7 @@ erDiagram
 
     academic_years ||--o{ classes : "nam hoc (V102)"
     academic_years ||--o{ class_enrollments : "nam hoc (V102)"
+    academic_years ||--o{ academic_terms : "nam hoc (V157)"
     academic_years }o--o| users : "created_by (nullable, V103)"
 
     academic_years {

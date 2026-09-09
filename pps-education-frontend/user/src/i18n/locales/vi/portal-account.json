@@ -8,7 +8,7 @@
     },
     "changeAvatar": "Đổi ảnh đại diện (UC-63)",
     "studentBadge": "Học sinh",
-    "systemId": "ID hệ thống: {{id}}",
+    "systemId": "ID: {{code}}",
     "unknownValue": "—",
     "academicInfo": "Thông tin học tập",
     "classLabel": "Lớp học:",

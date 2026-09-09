@@ -4,37 +4,21 @@ import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import vn.com.pps.education.common.ExcelExportHelper;
-import vn.com.pps.education.domain.ClassEnrollment;
 import vn.com.pps.education.domain.ImportJob;
-import vn.com.pps.education.domain.Role;
-import vn.com.pps.education.domain.SchoolClass;
-import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.User;
-import vn.com.pps.education.domain.UserRole;
 import vn.com.pps.education.dto.AccountExportRequest;
-import vn.com.pps.education.dto.EnrollStudentRequest;
 import vn.com.pps.education.dto.StudentBatchImportResponse;
 import vn.com.pps.education.exception.ResourceNotFoundException;
-import vn.com.pps.education.repository.ClassEnrollmentRepository;
 import vn.com.pps.education.repository.ImportJobRepository;
-import vn.com.pps.education.repository.RoleRepository;
-import vn.com.pps.education.repository.SchoolClassRepository;
-import vn.com.pps.education.repository.StudentRepository;
 import vn.com.pps.education.repository.UserRepository;
-import vn.com.pps.education.repository.UserRoleRepository;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.security.SecureRandom;
-import java.time.LocalDate;
 import java.time.OffsetDateTime;
-import java.time.Year;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -75,49 +59,49 @@ import java.util.Map;
  * 1 lần trong response của chính lần gọi importStudents() (KHÔNG lưu vào
  * import_jobs). Nếu cần đăng nhập Google về sau, Quản trị viên có thể sửa
  * lại email placeholder sang email Google thật qua UC-55.
+ *
+ * Xử lý từng dòng (importRow) được tách sang StudentBatchImportRowService,
+ * chạy transaction REQUIRES_NEW riêng — xem Javadoc class đó để biết lý do
+ * (sự cố 500 UnexpectedRollbackException ngày 2026-09-03 khi tất cả các
+ * dòng chạy chung 1 transaction với method này).
  */
 @Service
 public class StudentBatchImportService {
 
-    private static final DateTimeFormatter DOB_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final int HEADER_ROW_INDEX = 0;
     private static final int FIRST_DATA_ROW_INDEX = 1;
     private static final int COLUMN_COUNT = 8;
-    private static final String TEMP_PASSWORD_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
-    private static final SecureRandom RANDOM = new SecureRandom();
 
     private final ImportJobRepository importJobRepository;
-    private final StudentRepository studentRepository;
-    private final SchoolClassRepository schoolClassRepository;
-    private final ClassEnrollmentRepository classEnrollmentRepository;
+    private final ImportJobCommitService importJobCommitService;
     private final UserRepository userRepository;
-    private final RoleRepository roleRepository;
-    private final UserRoleRepository userRoleRepository;
-    private final ClassService classService;
-    private final PasswordEncoder passwordEncoder;
+    private final StudentBatchImportRowService rowService;
 
     public StudentBatchImportService(ImportJobRepository importJobRepository,
-                                      StudentRepository studentRepository,
-                                      SchoolClassRepository schoolClassRepository,
-                                      ClassEnrollmentRepository classEnrollmentRepository,
+                                      ImportJobCommitService importJobCommitService,
                                       UserRepository userRepository,
-                                      RoleRepository roleRepository,
-                                      UserRoleRepository userRoleRepository,
-                                      ClassService classService,
-                                      PasswordEncoder passwordEncoder) {
+                                      StudentBatchImportRowService rowService) {
         this.importJobRepository = importJobRepository;
-        this.studentRepository = studentRepository;
-        this.schoolClassRepository = schoolClassRepository;
-        this.classEnrollmentRepository = classEnrollmentRepository;
+        this.importJobCommitService = importJobCommitService;
         this.userRepository = userRepository;
-        this.roleRepository = roleRepository;
-        this.userRoleRepository = userRoleRepository;
-        this.classService = classService;
-        this.passwordEncoder = passwordEncoder;
+        this.rowService = rowService;
     }
 
-    /** Main Flow bước 1-6. A1: file sai định dạng hoàn toàn → status=FAILED ngay, không xử lý dòng nào. */
-    @Transactional
+    /**
+     * Main Flow bước 1-6. A1: file sai định dạng hoàn toàn → status=FAILED
+     * ngay, không xử lý dòng nào.
+     *
+     * KHÔNG đặt @Transactional ở method này (khác quy ước thường dùng "1 UC
+     * = 1 transaction boundary" ở architecture.md) — cố tình, vì UC-35 A2
+     * yêu cầu mỗi dòng là 1 đơn vị commit độc lập (rowService.importRow()
+     * chạy REQUIRES_NEW). Bản ghi import_jobs được tạo bằng
+     * importJobCommitService.save() (cũng REQUIRES_NEW) để đảm bảo COMMIT
+     * NGAY trước khi vào vòng lặp — nếu không, transaction REQUIRES_NEW của
+     * từng dòng (ghi class_enrollments.import_job_id, FK tới import_jobs.id)
+     * sẽ không thấy được row job vừa tạo, dù method này có tự mở
+     * @Transactional hay không (ambient transaction từ caller, VD test
+     * @Transactional, vẫn có thể che khuất commit).
+     */
     public StudentBatchImportResponse importStudents(MultipartFile file, Long actorUserId) {
         User actor = userRepository.findById(actorUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("error.studentBatchImport.userNotFoundById", new Object[]{actorUserId}, "Không tìm thấy user id=" + actorUserId));
@@ -129,7 +113,10 @@ public class StudentBatchImportService {
         job.setUploadedBy(actor);
         job.setStatus(ImportJob.Status.PROCESSING);
         job.setStartedAt(OffsetDateTime.now());
-        job = importJobRepository.save(job);
+        // REQUIRES_NEW (không phải importJobRepository.save() thường) — phải COMMIT NGAY để các
+        // transaction REQUIRES_NEW của từng dòng bên dưới thấy được row này (FK import_job_id),
+        // bất kể method này đang chạy trong ambient transaction nào của caller hay không.
+        job = importJobCommitService.save(job);
 
         List<Map<String, Object>> errors = new ArrayList<>();
         List<Map<String, Object>> credentials = new ArrayList<>();
@@ -150,7 +137,7 @@ public class StudentBatchImportService {
                 }
                 totalRows++;
                 try {
-                    RowCredential credential = importRow(row, formatter, job, actor);
+                    StudentBatchImportRowService.RowCredential credential = rowService.importRow(row, formatter, job, actor);
                     successRows++;
                     Map<String, Object> entry = new HashMap<>();
                     entry.put("row", rowIndex + 1);
@@ -185,9 +172,10 @@ public class StudentBatchImportService {
 
     /**
      * File mẫu để nhập học theo lô (bổ sung ngoài SDD gốc, đã xác nhận với
-     * người dùng 2026-07-24) — đúng 8 cột theo thứ tự importRow() đọc phía
-     * trên, trường bắt buộc đánh dấu {@code *} cuối tên cột. Không có mật
-     * khẩu (hệ thống tự sinh, xem importRow()). Chỉ header, không data mẫu.
+     * người dùng 2026-07-24) — đúng 8 cột theo thứ tự
+     * StudentBatchImportRowService.importRow() đọc, trường bắt buộc đánh
+     * dấu {@code *} cuối tên cột. Không có mật khẩu (hệ thống tự sinh). Chỉ
+     * header, không data mẫu.
      */
     public byte[] buildTemplate() {
         List<String> headers = List.of(
@@ -212,115 +200,7 @@ public class StudentBatchImportService {
         return ExcelExportHelper.buildWorkbook("Tài khoản học sinh", headers, rows);
     }
 
-    /** Mật khẩu tạm (plaintext, 1 lần) sinh ra khi tạo tài khoản học sinh cho 1 dòng hợp lệ. */
-    private record RowCredential(String username, String temporaryPassword, String fullName) {}
-
     // ===================== Helpers =====================
-
-    /**
-     * A2: 1 dòng lỗi/trùng lặp không chặn các dòng khác — ném exception để
-     * caller bắt và ghi vào error_summary. Mọi validate/dedup throw đều nằm
-     * TRƯỚC khi tạo bản ghi (user/student/enrollment) trong method này, nên
-     * dòng lỗi không để lại dữ liệu mồ côi — trừ 1 trường hợp hẹp:
-     * classService.enroll() ở cuối vẫn có thể throw sau khi user+student đã
-     * lưu; toàn bộ job dùng chung 1 transaction (không tách REQUIRES_NEW
-     * theo dòng) nên trường hợp đó sẽ để lại user/student không có
-     * enrollment. Chấp nhận rủi ro hẹp này (lớp đã tồn tại + dedup đã qua
-     * nên enroll hiếm khi fail) thay vì thêm phức tạp tách bean riêng cho
-     * REQUIRES_NEW.
-     */
-    private RowCredential importRow(Row row, DataFormatter formatter, ImportJob job, User actor) {
-        String fullName = cell(row, formatter, 0);
-        String username = cell(row, formatter, 1);
-        String dobText = cell(row, formatter, 2);
-        String genderText = cell(row, formatter, 3);
-        String originalSchool = cell(row, formatter, 4);
-        String originalClass = cell(row, formatter, 5);
-        String classCode = cell(row, formatter, 6);
-        String studentCode = cell(row, formatter, 7);
-
-        if (fullName == null || fullName.isBlank()) {
-            throw new IllegalArgumentException("Thiếu họ và tên (cột A).");
-        }
-        if (username == null || username.isBlank()) {
-            throw new IllegalArgumentException("Thiếu username (cột B).");
-        }
-        if (dobText == null || dobText.isBlank()) {
-            throw new IllegalArgumentException("Thiếu ngày sinh (cột C).");
-        }
-        if (classCode == null || classCode.isBlank()) {
-            throw new IllegalArgumentException("Thiếu mã lớp (cột G).");
-        }
-        if (studentCode == null || studentCode.isBlank()) {
-            throw new IllegalArgumentException("Thiếu mã học sinh (cột H).");
-        }
-        LocalDate dob;
-        try {
-            dob = LocalDate.parse(dobText.trim(), DOB_FORMAT);
-        } catch (RuntimeException ex) {
-            throw new IllegalArgumentException("Ngày sinh sai định dạng (cần dd/MM/yyyy): " + dobText);
-        }
-        SchoolClass schoolClass = schoolClassRepository.findByClassCode(classCode.trim())
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy lớp mã=" + classCode));
-
-        if (userRepository.findByUsername(username.trim()).isPresent()) {
-            throw new IllegalArgumentException("Username đã tồn tại: " + username);
-        }
-        if (studentRepository.findByStudentCode(studentCode.trim()).isPresent()) {
-            throw new IllegalArgumentException("Mã học sinh đã tồn tại: " + studentCode);
-        }
-        if (!studentRepository.findByFullNameAndDateOfBirth(fullName.trim(), dob).isEmpty()) {
-            throw new IllegalArgumentException("Trùng lặp: đã có học sinh " + fullName + " sinh " + dobText + ".");
-        }
-
-        String tempPassword = generateTempPassword();
-        User studentUser = new User();
-        studentUser.setUsername(username.trim());
-        studentUser.setEmail("import" + job.getId() + "-r" + row.getRowNum() + "@placeholder.pps.edu.vn");
-        studentUser.setFullName(fullName.trim());
-        studentUser.setPasswordHash(passwordEncoder.encode(tempPassword));
-        studentUser.setStatus(User.Status.ACTIVE);
-        studentUser = userRepository.save(studentUser);
-        assignRole(studentUser, "STUDENT", actor);
-
-        Student student = new Student();
-        student.setUser(studentUser);
-        // student.setStudentCode(generateStudentCode()); // cũ: hệ thống tự sinh mã học sinh
-        student.setStudentCode(studentCode.trim());
-        student.setDateOfBirth(dob);
-        if (genderText != null && !genderText.isBlank()) {
-            student.setGender(parseGender(genderText.trim()));
-        }
-        student.setPrimarySite(schoolClass.getSite());
-        student.setOriginalSchool(originalSchool);
-        student.setOriginalClass(originalClass);
-        student.setEnrollmentDate(LocalDate.now());
-        student = studentRepository.save(student);
-
-        var enrollment = classService.enroll(schoolClass.getId(),
-                new EnrollStudentRequest(student.getId(), LocalDate.now()), actor.getId());
-        ClassEnrollment enrollmentEntity = classEnrollmentRepository.findById(enrollment.id()).orElseThrow();
-        enrollmentEntity.setImportJobId(job.getId());
-        classEnrollmentRepository.save(enrollmentEntity);
-
-        return new RowCredential(studentUser.getUsername(), tempPassword, studentUser.getFullName());
-    }
-
-    private String generateTempPassword() {
-        StringBuilder sb = new StringBuilder(10);
-        for (int i = 0; i < 10; i++) {
-            sb.append(TEMP_PASSWORD_CHARS.charAt(RANDOM.nextInt(TEMP_PASSWORD_CHARS.length())));
-        }
-        return sb.toString();
-    }
-
-    private Student.Gender parseGender(String text) {
-        return switch (text.toLowerCase()) {
-            case "nam", "male", "m" -> Student.Gender.MALE;
-            case "nữ", "nu", "female", "f" -> Student.Gender.FEMALE;
-            default -> Student.Gender.OTHER;
-        };
-    }
 
     private String cell(Row row, DataFormatter formatter, int index) {
         var cell = row.getCell(index);
@@ -336,23 +216,6 @@ public class StudentBatchImportService {
         }
         return true;
     }
-
-    private void assignRole(User user, String roleCode, User actor) {
-        Role role = roleRepository.findByCode(roleCode).orElseThrow();
-        UserRole userRole = new UserRole();
-        userRole.setUser(user);
-        userRole.setRole(role);
-        userRole.setAssignedBy(actor);
-        userRoleRepository.save(userRole);
-    }
-
-    // Cũ: hệ thống tự sinh mã học sinh — đã đổi sang nhập tay qua cột G
-    // (đồng bộ UC-13/UC-34), giữ lại đây để tham chiếu nếu cần khôi phục.
-    // private String generateStudentCode() {
-    //     String prefix = "HS" + Year.now().getValue() + "-";
-    //     long sequence = studentRepository.countByStudentCodeStartingWith(prefix) + 1;
-    //     return prefix + String.format("%04d", sequence);
-    // }
 
     private Map<String, Object> rowError(int rowNumber, String reason) {
         Map<String, Object> error = new HashMap<>();

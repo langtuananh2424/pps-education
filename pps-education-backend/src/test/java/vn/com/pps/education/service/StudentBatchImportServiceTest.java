@@ -85,6 +85,11 @@ class StudentBatchImportServiceTest extends AbstractIntegrationTest {
         schoolClass = classService.create(
                 new CreateClassRequest(classCode(), "8A2", site.getId(), activeCurriculum.id(), "LINKED", 40, null,
                         LocalDate.now(), null, null), headAcademic.getId());
+
+        // StudentBatchImportRowService.importRow() chạy REQUIRES_NEW (transaction/connection
+        // riêng) — cần commit fixture ở trên trước, nếu không transaction đó không thấy được
+        // schoolClass/staff (vẫn đang dở dang trong transaction test bao ngoài).
+        commitCurrentTransactionAndStartNew();
     }
 
     @Test
@@ -179,6 +184,7 @@ class StudentBatchImportServiceTest extends AbstractIntegrationTest {
     @Test
     void importStudents_UC35_A2_rejectsDuplicateUsername() throws IOException {
         User existing = newUser("student.dup.username");
+        commitCurrentTransactionAndStartNew();
         byte[] file = buildWorkbook(new String[][]{
                 {"Trùng Username", existing.getUsername(), "10/09/2015", "Nam", "TH ABC", "Lớp 3B", schoolClass.classCode(), studentCode()},
         });

@@ -4,6 +4,7 @@ import org.springframework.stereotype.Service;
 import vn.com.pps.education.domain.Exercise;
 import vn.com.pps.education.domain.ExerciseAssignment;
 import vn.com.pps.education.domain.ExerciseAttempt;
+import vn.com.pps.education.domain.ReflexQuestionProgress;
 import vn.com.pps.education.domain.ReviewVideo;
 import vn.com.pps.education.domain.ReviewVideoAssignment;
 import vn.com.pps.education.domain.ReviewVideoProgress;
@@ -18,7 +19,7 @@ import vn.com.pps.education.repository.ReviewVideoRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -193,7 +194,8 @@ public class HomeworkProgressService {
      * (= viewCount đã đạt requiredViewCount của TỪNG video, đã tính sẵn ở
      * {@code ReviewVideoService#recomputeProgress}) — đạt buổi khi TẤT CẢ
      * video trong bộ đều completed. REFLEX: chưa có cờ "đạt" tương đương
-     * có sẵn — tạm so % số câu đã trả lời với ngưỡng cấu hình
+     * có sẵn — tạm so % số câu ĐÃ ĐẠT (V173: cả Viết lẫn Nói, xem
+     * {@link #reflexPercent}) với ngưỡng cấu hình
      * (`homework_alert.reflex_pass_threshold_percent`).
      */
     public boolean videoPassed(ReviewVideoAssignment assignment, Long studentId, int reflexPassThresholdPercent) {
@@ -259,18 +261,31 @@ public class HomeworkProgressService {
      * reflex_question_progress, không còn tạo submission kiểu cũ nữa nên "CLIP PHẢN XẠ" ở bảng Nhận xét
      * học viên luôn hiện 0%/"−" dù học sinh đã làm/đạt hết qua luồng mới (cùng gốc bug đã sửa ở
      * AssignmentsTab.tsx/ReviewVideoReportService/ReviewVideoService#toAssignmentStats — xem đó để biết
-     * chi tiết). Đổi sang đọc reflex_question_progress — "đã trả lời" = có dòng progress cho câu đó.
+     * chi tiết). Đổi sang đọc reflex_question_progress.
+     *
+     * V173 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-08) — fix bug thật KHÁC: "đã trả
+     * lời" trước đây chỉ cần CÓ dòng progress (có thể mới nộp Viết, CHƯA làm Nói, CHƯA đạt) — khiến % ở
+     * đây KHÔNG khớp với "kết quả làm bài" thật của học sinh hiển thị ở Portal (AssignmentsTab.tsx,
+     * yêu cầu ĐẠT cả Viết lẫn Nói mới tính). Đổi sang đếm đúng số câu ĐÃ ĐẠT (writingScore VÀ
+     * speakingScore đều >= ngưỡng của video — mirror ReviewVideoService#isReflexQuestionPassed/
+     * ReviewVideoReportService#isReflexQuestionPassed/ReflexSequentialGradingService#passThresholdPercent,
+     * đều private ở nơi đó nên phải lặp lại logic ở đây) để đồng nhất với kết quả thật học sinh đã làm.
      */
     private int reflexPercent(ReviewVideo v, Long studentId, Long assignmentId) {
         List<ReviewVideoQuestion> questions = reviewVideoQuestionRepository.findByReviewVideoIdOrderByDisplayOrder(v.getId());
         if (questions.isEmpty()) {
             return 0;
         }
-        Set<Long> answeredQuestionIds = reflexQuestionProgressRepository
+        int threshold = v.getCompletionThresholdPercent();
+        Map<Long, ReflexQuestionProgress> progressByQuestionId = reflexQuestionProgressRepository
                 .findByReviewVideoAssignmentIdAndStudentId(assignmentId, studentId).stream()
-                .map(p -> p.getReviewVideoQuestion().getId())
-                .collect(Collectors.toSet());
-        long answeredCount = questions.stream().filter(q -> answeredQuestionIds.contains(q.getId())).count();
-        return Math.round(answeredCount * 100f / questions.size());
+                .collect(Collectors.toMap(p -> p.getReviewVideoQuestion().getId(), p -> p));
+        long passedCount = questions.stream().filter(q -> {
+            ReflexQuestionProgress p = progressByQuestionId.get(q.getId());
+            return p != null
+                    && p.getWritingScore() != null && p.getWritingScore().compareTo(BigDecimal.valueOf(threshold)) >= 0
+                    && p.getSpeakingScore() != null && p.getSpeakingScore().compareTo(BigDecimal.valueOf(threshold)) >= 0;
+        }).count();
+        return Math.round(passedCount * 100f / questions.size());
     }
 }

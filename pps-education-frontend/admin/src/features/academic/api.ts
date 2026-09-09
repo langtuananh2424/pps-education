@@ -342,6 +342,10 @@ export interface AcademicTermResponse {
   id: number;
   siteId: number;
   siteName: string;
+  // V157 (bổ sung ngoài SDD gốc, 2026-08-28): kỳ học thuộc 1 năm học. Nullable cho dữ liệu kỳ cũ.
+  academicYearId: number | null;
+  academicYearCode: string | null;
+  academicYearName: string | null;
   code: string;
   name: string;
   startDate: string;
@@ -350,6 +354,7 @@ export interface AcademicTermResponse {
 
 export interface CreateAcademicTermRequest {
   siteId: number;
+  academicYearId: number;
   code: string;
   name: string;
   startDate: string;
@@ -357,6 +362,7 @@ export interface CreateAcademicTermRequest {
 }
 
 export interface UpdateAcademicTermRequest {
+  academicYearId: number;
   name: string;
   startDate: string;
   endDate: string;
@@ -1299,6 +1305,8 @@ export interface StudentCommentResponse {
   homeworkNextWritingExerciseTitle: string | null;
   /** Hạn nộp BTVN buổi sau (lấy từ dueAt của bản giao) — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05. */
   homeworkNextDueAt: string | null;
+  /** V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — "Cho phép nộp bài muộn" HIỆU LỰC (đã giao hoặc còn pending), mirror homeworkNextDueAt. */
+  homeworkNextLateSubmissionAllowed: boolean;
   /** V127: id/tên Exercise NGUỒN Giáo viên vừa chọn nhưng CHƯA Gửi nhận xét — null nếu chưa chọn gì hoặc đã Gửi. */
   pendingHomeworkNextExerciseId: number | null;
   pendingHomeworkNextExerciseTitle: string | null;
@@ -1371,6 +1379,8 @@ export interface CreateStudentCommentRequest {
    * chặn 409 nếu khác).
    */
   homeworkNextDueDate?: string;
+  /** V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — dùng chung cho cả kênh Bài tập lẫn Video, mirror homeworkNextDueDate. Để trống = false (giữ hành vi chặn cứng cũ). */
+  homeworkNextLateSubmissionAllowed?: boolean;
   note?: string;
 }
 
@@ -1397,6 +1407,8 @@ export interface UpdateStudentCommentRequest {
   homeworkNextWritingExerciseId?: number;
   /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05 — xem Javadoc CreateStudentCommentRequest.homeworkNextDueDate. */
   homeworkNextDueDate?: string;
+  /** V165 — xem Javadoc CreateStudentCommentRequest.homeworkNextLateSubmissionAllowed. */
+  homeworkNextLateSubmissionAllowed?: boolean;
   note?: string;
 }
 
@@ -1480,6 +1492,8 @@ export interface StudentCommentHistoryResponse {
     pendingHomeworkNextReadingExerciseTitle: string | null;
     pendingHomeworkNextWritingExerciseTitle: string | null;
     pendingHomeworkNextDueDate: string | null;
+    /** V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07). */
+    pendingHomeworkNextLateSubmissionAllowed?: boolean | null;
   };
   createdAt: string;
 }
@@ -1525,10 +1539,10 @@ export function submitComments(classId: number, commentIds: number[]): Promise<S
  * song (luôn thất bại khi N nhận xét đang cùng giữ 1 hạn nộp cũ — xem Javadoc BE
  * StudentCommentService#bulkUpdatePendingDueDate).
  */
-export function bulkUpdatePendingDueDate(classSessionId: number, dueDate: string): Promise<StudentCommentResponse[]> {
+export function bulkUpdatePendingDueDate(classSessionId: number, dueDate: string, lateSubmissionAllowed?: boolean): Promise<StudentCommentResponse[]> {
   return apiRequest<StudentCommentResponse[]>(`/class-sessions/${classSessionId}/comments/due-date`, {
     method: "PUT",
-    body: JSON.stringify({ dueDate })
+    body: JSON.stringify({ dueDate, lateSubmissionAllowed })
   });
 }
 
@@ -1644,6 +1658,8 @@ export interface ExerciseAssignmentStatsResponse {
   teacherType: "VIETNAMESE" | "FOREIGN";
   availableFrom: string;
   dueAt: string | null;
+  /** V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — cho bật/tắt lại ở trang "Xem chi tiết". */
+  lateSubmissionAllowed: boolean;
   status: "ACTIVE" | "COMPLETED";
   totalStudents: number;
   completedCount: number;
@@ -1720,6 +1736,14 @@ export function getExerciseAssignmentStudentStats(assignmentId: number): Promise
   return apiRequest<ExerciseAssignmentStudentStatsResponse>(`/exercise-assignments/${assignmentId}/stats/students`);
 }
 
+/** V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — bật/tắt lại "Cho phép nộp bài muộn" cho 1 bản giao Bài tập ĐÃ tạo. Không cần kiểu trả về — caller tự cập nhật lạc quan state cục bộ. */
+export function updateExerciseAssignmentLateSubmissionAllowed(assignmentId: number, lateSubmissionAllowed: boolean): Promise<void> {
+  return apiRequest<void>(`/exercise-assignments/${assignmentId}/late-submission-allowed`, {
+    method: "PUT",
+    body: JSON.stringify({ lateSubmissionAllowed })
+  });
+}
+
 /** V150 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — kết quả CỘNG DỒN cả Lô theo từng học sinh (mirror cách học sinh trải nghiệm ở Portal), dùng cho trang chi tiết Lô. */
 export function getHomeworkBatchStudentStats(batchId: number): Promise<ExerciseAssignmentStudentStatsResponse> {
   return apiRequest<ExerciseAssignmentStudentStatsResponse>(`/homework-skill-batches/${batchId}/stats/students`);
@@ -1727,6 +1751,14 @@ export function getHomeworkBatchStudentStats(batchId: number): Promise<ExerciseA
 
 export function exportHomeworkBatchStats(batchId: number): Promise<Blob> {
   return apiRequestBlob(`/homework-skill-batches/${batchId}/stats/export`);
+}
+
+/** V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — bật/tắt lại "Cho phép nộp bài muộn" cho TOÀN BỘ bản giao (N Bài) thuộc 1 Lô cùng lúc. */
+export function updateHomeworkBatchLateSubmissionAllowed(batchId: number, lateSubmissionAllowed: boolean): Promise<void> {
+  return apiRequest<void>(`/homework-skill-batches/${batchId}/late-submission-allowed`, {
+    method: "PUT",
+    body: JSON.stringify({ lateSubmissionAllowed })
+  });
 }
 
 export function getExerciseAssignmentQuestionStats(assignmentId: number): Promise<ExerciseAssignmentQuestionStatsResponse> {
@@ -1950,4 +1982,149 @@ export function generateReport(data: GenerateReportRequest): Promise<GeneratedRe
     body: JSON.stringify(data),
     headers: { "Content-Type": "application/json" }
   });
+}
+
+// ===================== Đánh giá đầu vào (UC-18c, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-28) =====================
+// Kỳ thi đầu vào làm cơ sở xếp lớp — cấu trúc giống Sổ điểm (tự setup kỹ năng + điểm) nhưng KHÔNG neo
+// vào lớp/kỳ học (thí sinh chưa xếp lớp). Bộ đề theo điểm trường + năm học. Đối tượng chấm: lead HOẶC
+// học sinh. Không có quy trình duyệt. Kết quả lưu thêm trình độ/lớp đề xuất + cờ đã chuyển xếp lớp.
+
+export type EntranceScaleType = "POINT_10" | "PERCENT" | "IELTS";
+
+export interface EntranceAssessmentComponentResponse {
+  id: number;
+  setupId: number;
+  code: string;
+  name: string;
+  maxScore: number;
+  skillId: number | null;
+  skillName: string | null;
+  displayOrder: number;
+}
+
+export interface EntranceAssessmentSetupResponse {
+  id: number;
+  siteId: number;
+  siteName: string;
+  academicYearId: number;
+  academicYearCode: string;
+  academicYearName: string;
+  name: string;
+  scaleType: EntranceScaleType;
+  components: EntranceAssessmentComponentResponse[];
+}
+
+export interface EntranceAssessmentScoreResponse {
+  componentId: number;
+  componentCode: string;
+  componentName: string;
+  maxScore: number;
+  score: number | null;
+  absenceFlag: boolean;
+}
+
+export interface EntranceAssessmentResultResponse {
+  id: number;
+  setupId: number;
+  leadId: number | null;
+  studentId: number | null;
+  candidateName: string;
+  assessedDate: string;
+  overallScore: number | null;
+  recommendedLevel: string | null;
+  recommendedClassId: number | null;
+  recommendedClassName: string | null;
+  placedFlag: boolean;
+  note: string | null;
+  enteredByName: string | null;
+  scores: EntranceAssessmentScoreResponse[];
+}
+
+export interface CreateEntranceAssessmentSetupRequest {
+  siteId: number;
+  academicYearId: number;
+  name: string;
+  scaleType: EntranceScaleType;
+}
+
+export interface UpdateEntranceAssessmentSetupRequest {
+  name: string;
+  scaleType: EntranceScaleType;
+}
+
+export interface CreateEntranceAssessmentComponentRequest {
+  code: string;
+  name: string;
+  maxScore: number;
+  skillId?: number | null;
+  displayOrder?: number;
+}
+
+export interface UpdateEntranceAssessmentComponentRequest {
+  name: string;
+  maxScore: number;
+  skillId?: number | null;
+  displayOrder?: number;
+}
+
+export interface UpsertEntranceAssessmentResultRequest {
+  leadId?: number | null;
+  studentId?: number | null;
+  candidateName: string;
+  assessedDate: string;
+  overallScore?: number | null;
+  recommendedLevel?: string | null;
+  recommendedClassId?: number | null;
+  note?: string | null;
+  scores: { componentId: number; score: number | null; absenceFlag: boolean }[];
+}
+
+export function listEntranceAssessmentSetups(siteId: number, academicYearId?: number): Promise<EntranceAssessmentSetupResponse[]> {
+  const qs = new URLSearchParams({ siteId: String(siteId) });
+  if (academicYearId) qs.set("academicYearId", String(academicYearId));
+  return apiRequest<EntranceAssessmentSetupResponse[]>(`/entrance-assessment-setups?${qs.toString()}`);
+}
+
+export function getEntranceAssessmentSetup(id: number): Promise<EntranceAssessmentSetupResponse> {
+  return apiRequest<EntranceAssessmentSetupResponse>(`/entrance-assessment-setups/${id}`);
+}
+
+export function createEntranceAssessmentSetup(request: CreateEntranceAssessmentSetupRequest): Promise<EntranceAssessmentSetupResponse> {
+  return apiRequest<EntranceAssessmentSetupResponse>("/entrance-assessment-setups", { method: "POST", body: JSON.stringify(request) });
+}
+
+export function updateEntranceAssessmentSetup(id: number, request: UpdateEntranceAssessmentSetupRequest): Promise<EntranceAssessmentSetupResponse> {
+  return apiRequest<EntranceAssessmentSetupResponse>(`/entrance-assessment-setups/${id}`, { method: "PUT", body: JSON.stringify(request) });
+}
+
+export function deleteEntranceAssessmentSetup(id: number): Promise<void> {
+  return apiRequest<void>(`/entrance-assessment-setups/${id}`, { method: "DELETE" });
+}
+
+export function addEntranceAssessmentComponent(setupId: number, request: CreateEntranceAssessmentComponentRequest): Promise<EntranceAssessmentComponentResponse> {
+  return apiRequest<EntranceAssessmentComponentResponse>(`/entrance-assessment-setups/${setupId}/components`, { method: "POST", body: JSON.stringify(request) });
+}
+
+export function updateEntranceAssessmentComponent(id: number, request: UpdateEntranceAssessmentComponentRequest): Promise<EntranceAssessmentComponentResponse> {
+  return apiRequest<EntranceAssessmentComponentResponse>(`/entrance-assessment-components/${id}`, { method: "PUT", body: JSON.stringify(request) });
+}
+
+export function deleteEntranceAssessmentComponent(id: number): Promise<void> {
+  return apiRequest<void>(`/entrance-assessment-components/${id}`, { method: "DELETE" });
+}
+
+export function listEntranceAssessmentResults(setupId: number): Promise<EntranceAssessmentResultResponse[]> {
+  return apiRequest<EntranceAssessmentResultResponse[]>(`/entrance-assessment-setups/${setupId}/results`);
+}
+
+export function upsertEntranceAssessmentResult(setupId: number, request: UpsertEntranceAssessmentResultRequest): Promise<EntranceAssessmentResultResponse> {
+  return apiRequest<EntranceAssessmentResultResponse>(`/entrance-assessment-setups/${setupId}/results`, { method: "POST", body: JSON.stringify(request) });
+}
+
+export function deleteEntranceAssessmentResult(id: number): Promise<void> {
+  return apiRequest<void>(`/entrance-assessment-results/${id}`, { method: "DELETE" });
+}
+
+export function markEntranceAssessmentResultPlaced(id: number): Promise<EntranceAssessmentResultResponse> {
+  return apiRequest<EntranceAssessmentResultResponse>(`/entrance-assessment-results/${id}/mark-placed`, { method: "POST" });
 }

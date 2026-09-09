@@ -257,6 +257,49 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         assertThat(submitted.isLateSubmission()).isTrue();
     }
 
+    /**
+     * V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — cột lateSubmissionAllowed
+     * đã có từ V18 nhưng chưa từng có nơi nào GHI giá trị (deliverToClass không nhận tham số này) —
+     * test trên (allowsLateSubmissionWhenConfigured) chỉ verify phía ĐỌC bằng cách set thẳng qua
+     * repository. Test này verify deliverToClass giờ THẬT SỰ nối dây và lưu đúng giá trị truyền vào.
+     */
+    @Test
+    void deliverToClass_UC21_MainFlow_persistsLateSubmissionAllowed() {
+        QuestionResponse mc = createMcQuestion();
+        ExerciseResponse exercise = exerciseService.createExercise(
+                new CreateExerciseRequest(exerciseCode(), "Kiểm tra", defaultExam.id(), null, "ASSIGNED",
+                        new BigDecimal("1"), null, false, 1, true), teacher.getId());
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("1.0")), teacher.getId());
+        examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
+        commitCurrentTransactionAndStartNew();
+
+        ExerciseAssignment assignment = exerciseService.deliverToClass(
+                exercise.id(), schoolClass.id(), OffsetDateTime.now().plusDays(1), true, teacher.getId(), null);
+
+        assertThat(assignment.isLateSubmissionAllowed()).isTrue();
+        ExerciseAssignment reloaded = exerciseAssignmentRepository.findById(assignment.getId()).orElseThrow();
+        assertThat(reloaded.isLateSubmissionAllowed()).isTrue();
+    }
+
+    /**
+     * V165 — trả lời câu hỏi "lỡ ban đầu không cho nộp muộn mà học sinh chưa xong thì sao": bật lại cờ
+     * SAU khi bản giao đã quá hạn (qua endpoint PATCH mới) thì học sinh nộp được ngay, không cần Giáo
+     * viên tạo lại bản giao từ đầu.
+     */
+    @Test
+    void updateLateSubmissionAllowed_UC21_allowsSubmissionAfterTogglingOnPastDeadline() {
+        QuestionResponse mc = createMcQuestion();
+        ExerciseResponse exercise = assignedExerciseWithQuestions(List.of(mc), OffsetDateTime.now().minusDays(1), false, true);
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), activeAssignmentId(exercise.id()), studentUser.getId());
+        assertThatThrownBy(() -> answerCorrectly(attempt.id(), mc)).isInstanceOf(SubmissionPastDeadlineException.class);
+
+        exerciseService.updateLateSubmissionAllowed(activeAssignmentId(exercise.id()), true, teacher.getId());
+        answerCorrectly(attempt.id(), mc);
+        ExerciseAttemptResponse submitted = exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
+
+        assertThat(submitted.isLateSubmission()).isTrue();
+    }
+
     @Test
     void startAttempt_UC24_A2_rejectsRetakeWhenNotAllowed() {
         ExerciseResponse exercise = createSelfPracticeExerciseWithOneMcQuestion(false, null);
@@ -433,6 +476,27 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         StudentAnswerResponse answer = exerciseAttemptService.listAnswers(attempt.id(), studentUser.getId()).get(0);
         assertThat(answer.isCorrect()).isTrue();
         assertThat(answer.correctAnswerText()).isEqualTo("Paris");
+    }
+
+    /** V166 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-05) — bỏ dấu câu Ở CUỐI chuỗi khi so khớp FILL_IN_BLANK. */
+    @Test
+    void submitAttempt_UC27_A_fillInBlankAutoGradesIgnoringTrailingPunctuation() {
+        QuestionResponse fillIn = examQuestionService.createQuestion(defaultExam.id(),
+                new CreateExamQuestionRequest("FILL_IN_BLANK", "GRAMMAR", "EASY",
+                        "Thủ đô nước Pháp là ___.", null, null, null, null, "Paris.",
+                        new BigDecimal("1.0"), null, null, null, null),
+                teacher.getId());
+        ExerciseResponse exercise = assignedExerciseWithQuestions(List.of(fillIn), null, false, true, true);
+        ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), activeAssignmentId(exercise.id()), studentUser.getId());
+        exerciseAttemptService.saveAnswer(attempt.id(),
+                new SaveAnswerRequest(fillIn.id(), "Paris", null, null, null), studentUser.getId());
+
+        ExerciseAttemptResponse submitted = exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
+
+        assertThat(submitted.status()).isEqualTo("FULLY_GRADED");
+        assertThat(submitted.totalScore()).isEqualByComparingTo("1.0");
+        StudentAnswerResponse answer = exerciseAttemptService.listAnswers(attempt.id(), studentUser.getId()).get(0);
+        assertThat(answer.isCorrect()).isTrue();
     }
 
     @Test
@@ -715,12 +779,16 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
     }
 
     /**
-     * V89 (điều chỉnh 2026-08-19): đạt ngưỡng và ĐÃ HẾT lượt làm lại
-     * (maxAttempts=1) -> đóng bản giao (COMPLETED) như cũ, vì không còn lượt
-     * nào để làm lại nữa (khác trường hợp còn lượt ở test phía trên).
+     * Sửa 2026-09-04 (bug thật, xem báo cáo 422 "Đề này chưa được giao cho học sinh" trên staging) —
+     * trước đây (V89, 2026-08-19) đạt ngưỡng + hết lượt làm lại (maxAttempts=1) đóng LUÔN bản giao
+     * (COMPLETED). Nhưng {@code ExerciseAssignment} là bản giao CHUNG CHO CẢ LỚP
+     * ({@code targetStudentIds} luôn null) — đóng nó vì 1 học sinh vô tình chặn LUÔN mọi học sinh
+     * khác trong lớp start được lượt làm ĐẦU TIÊN của họ (resolveActiveAssignmentForStudent chỉ chấp
+     * nhận status=ACTIVE). Giờ bản giao vẫn giữ ACTIVE; chỉ CHÍNH học sinh đã hết lượt bị chặn làm
+     * lại (RetakeNotAllowedException từ startAttempt, đếm theo assignmentId+studentId).
      */
     @Test
-    void submitAttempt_boSung_atOrAboveThresholdCompletesAssignmentWhenNoAttemptsLeft() {
+    void submitAttempt_boSung_atOrAboveThresholdKeepsAssignmentActiveButBlocksOwnRetakeWhenNoAttemptsLeft() {
         QuestionResponse mc1 = createMcQuestion();
         QuestionResponse mc2 = createMcQuestion();
         ExerciseResponse exercise = exerciseService.createExercise(
@@ -739,7 +807,24 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
 
         assertThat(submitted.passed()).isTrue();
         ExerciseAssignment refreshed = exerciseAssignmentRepository.findById(assignment.getId()).orElseThrow();
-        assertThat(refreshed.getStatus()).isEqualTo(ExerciseAssignment.Status.COMPLETED);
+        assertThat(refreshed.getStatus()).isEqualTo(ExerciseAssignment.Status.ACTIVE);
+        assertThatThrownBy(() -> exerciseAttemptService.startAttempt(exercise.id(), assignment.getId(), studentUser.getId()))
+                .isInstanceOf(RetakeNotAllowedException.class);
+
+        // Học sinh KHÁC trong cùng lớp (chưa từng làm bài này) vẫn phải start được lượt ĐẦU TIÊN bình
+        // thường — đây chính là điều bị bug 422 làm hỏng trước khi sửa.
+        User otherStudentUser = newUser("other-student");
+        Student otherStudent = new Student();
+        otherStudent.setUser(otherStudentUser);
+        otherStudent.setStudentCode("HS-TEST-" + SEQ.incrementAndGet());
+        otherStudent.setDateOfBirth(LocalDate.of(2012, 5, 1));
+        otherStudent.setEnrollmentDate(LocalDate.now());
+        studentRepository.save(otherStudent);
+        classService.enroll(schoolClass.id(), new EnrollStudentRequest(otherStudent.getId(), LocalDate.now()), headAcademic.getId());
+
+        ExerciseAttemptResponse otherStudentAttempt =
+                exerciseAttemptService.startAttempt(exercise.id(), assignment.getId(), otherStudentUser.getId());
+        assertThat(otherStudentAttempt.attemptNumber()).isEqualTo(1);
     }
 
     /** V89: ngưỡng đạt cấu hình được theo từng Bài — không cố định 80% khi Giáo viên chọn khác. */

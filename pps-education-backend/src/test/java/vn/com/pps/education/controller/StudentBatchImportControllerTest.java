@@ -43,6 +43,11 @@ class StudentBatchImportControllerTest extends AbstractControllerTest {
     @Test
     void importStudents_allowedForStaff_returns200() throws Exception {
         var staff = userWithRole("staff.import.access", "STAFF");
+        // StudentBatchImportService tạo import_jobs qua ImportJobCommitService (REQUIRES_NEW,
+        // transaction/connection riêng) — cần commit "staff" ở trên trước, nếu không transaction
+        // đó không thấy được row user (vẫn đang dở dang trong transaction test bao ngoài) → vi
+        // phạm FK import_jobs_uploaded_by_fkey.
+        commitCurrentTransactionAndStartNew();
         MockMultipartFile file = new MockMultipartFile("file", "import.xlsx",
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headerOnlyWorkbook());
 

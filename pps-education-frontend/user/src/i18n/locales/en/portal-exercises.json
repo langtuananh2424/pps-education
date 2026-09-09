@@ -77,12 +77,15 @@
       "understood": "Got it"
     },
     "question": {
+      "numberPrefix": "Question {{number}}.",
       "pointsSuffix": "{{points}} pt",
       "recordAnswerLabel": "Record your answer",
       "manualGradingNote": "This question will be graded by your teacher after you submit.",
       "answerPlaceholder": "Type your answer...",
       "correct": "Correct",
       "correctAnswerPrefix": "Correct answer: {{answer}}",
+      "notAnsweredPrefix": "You didn't answer this question — Correct answer: {{answer}}",
+      "notAnsweredChoice": "You didn't select any answer — the correct one is highlighted below.",
       "explanationPrefix": "Explanation: {{text}}",
       "gradingFeedbackTitle": "Feedback",
       "gradedByAi": "Graded by AI",
@@ -131,7 +134,12 @@
       "noQuestions": "This video doesn't have any questions yet — contact your teacher.",
       "questionLabel": "Question {{index}}. {{prompt}}",
       "submitting": "Submitting...",
-      "submitButton": "Submit answers"
+      "submitButton": "Submit answers",
+      "correctFeedback": "Correct! This round has been counted.",
+      "wrongRetryFeedback": "Some answers were wrong — redo the whole set, you have {{attemptsRemaining}} attempt(s) left.",
+      "wrongFinalFeedback": "You got it wrong after {{maxAttempts}} attempts — this round won't be counted. A new round will start.",
+      "retryButton": "Try again",
+      "continueButton": "Continue"
     },
     "progress": {
       "heading": "Current round",
@@ -143,6 +151,22 @@
       "submittedSummary": "Submitted — {{correct}}/{{total}} correct. This round has been counted.",
       "answerNowBanner": "Answer the questions to count this round",
       "answerNowButton": "Answer now →"
+    },
+    "thresholdPopup": {
+      "heading": "You've reached the completion threshold",
+      "description": "You've completed {{achieved}}/{{required}} rounds (≥{{threshold}}%) — enough to finish this assignment. Stop and see your results, or keep going?",
+      "stopButton": "Stop, see results",
+      "continueButton": "Keep going"
+    },
+    "finalPopup": {
+      "completedTitle": "🎉 Assignment completed",
+      "completedDescription": "You've completed all {{required}}/{{required}} required rounds. Review each question's result below.",
+      "stoppedTitle": "Your results",
+      "stoppedDescription": "You stopped after {{achieved}}/{{required}} rounds. Review each question's result below.",
+      "loading": "Loading results...",
+      "loadError": "Couldn't load results — please try again.",
+      "sessionLabel": "Round {{viewNumber}}",
+      "closeButton": "Close"
     }
   },
   "reflexVideoTask": {
@@ -211,6 +235,7 @@
       "passedFeedbackTitle": "Passed — next question unlocked",
       "failedFeedbackTitle": "Not passed yet",
       "scoreLabel": "content score {{score}}%",
+      "listenBackLabel": "Listen to your recording",
       "retryButton": "Record again",
       "attemptCount": "Recorded {{count}} time(s)",
       "passedPopup": {
@@ -246,6 +271,15 @@
       "actionButton": "Do it now"
     },
     "allDone": "Great job! You've completed all your assigned homework.",
+    "overdueBanner": {
+      "label": "Overdue warning",
+      "titlePrefix": "You have",
+      "titleCount": "{{count}} assignment(s)",
+      "titleSuffix": "past due!",
+      "description": "These are past their deadline — contact your teacher if you need a late submission allowance.",
+      "actionButton": "View now",
+      "dismiss": "Dismiss notice"
+    },
     "filters": {
       "all": "All homework ({{count}})",
       "pending": "To do ({{count}})",
@@ -300,6 +334,10 @@
       },
       "countSuffix": "({{count}} exercises)",
       "progressLabel": "Exercise {{index}}/{{total}} — {{title}}",
+      "action": {
+        "retake": "Retake whole lot"
+      },
+      "retakeSkippedNote": "No retakes left — view only",
       "summary": {
         "pendingTitle": "\"{{title}}\" submitted!",
         "passedTitle": "Congratulations — you completed \"{{title}}\"!",

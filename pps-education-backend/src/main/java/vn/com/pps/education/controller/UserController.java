@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import vn.com.pps.education.dto.AdminChangePasswordRequest;
 import vn.com.pps.education.dto.CreateUserRequest;
+import vn.com.pps.education.dto.LoginHistoryItemResponse;
 import vn.com.pps.education.dto.UpdateUserEmailRequest;
 import vn.com.pps.education.dto.UpdateUserRequest;
 import vn.com.pps.education.dto.UpdateUserStatusRequest;
@@ -71,6 +72,14 @@ public class UserController {
     @GetMapping("/{userId}")
     public ResponseEntity<UserDetailResponse> getDetail(@PathVariable Long userId) {
         return ResponseEntity.ok(userAccountService.getDetail(userId));
+    }
+
+    /** UC-44 bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-09-05): lịch sử đăng nhập/thiết bị. */
+    @PreAuthorize("hasPermission(null, 'user.view')")
+    @GetMapping("/{userId}/login-history")
+    public ResponseEntity<Page<LoginHistoryItemResponse>> getLoginHistory(
+            @PathVariable Long userId, @PageableDefault(size = 10) Pageable pageable) {
+        return ResponseEntity.ok(userAccountService.getLoginHistory(userId, pageable));
     }
 
     /** UC-49: cập nhật hồ sơ tài khoản (họ tên/SĐT/phòng ban/is_management). */

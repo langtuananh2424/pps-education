@@ -99,6 +99,20 @@ public class ExerciseAttemptController {
         return ResponseEntity.ok(attemptIntegrityService.recordEvents(AttemptType.EXERCISE, id, request, actor.userId()));
     }
 
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-04 — xem Javadoc
+     * AttemptIntegrityService#notifyTeachersForBatchViolation. {@code id} = attempt của Bài ĐẦU TIÊN
+     * trong Lô (chỉ để tra học sinh/lớp), KHÔNG phải attempt bị dừng — luồng Lô tự nộp hết mọi Bài đang
+     * dở ở FE qua submitAttempt bình thường, endpoint này CHỈ để báo Giáo viên.
+     */
+    @PostMapping("/api/attempts/{id}/batch-integrity-violation-notify")
+    public ResponseEntity<Void> notifyBatchIntegrityViolation(@PathVariable Long id,
+                                                                @RequestParam int violationCount,
+                                                                @AuthenticationPrincipal AuthenticatedUser actor) {
+        attemptIntegrityService.notifyTeachersForBatchViolation(id, violationCount, actor.userId());
+        return ResponseEntity.noContent().build();
+    }
+
     /** Giáo viên xem tổng hợp vi phạm của 1 lượt làm bài khi chấm. */
     @PreAuthorize("hasPermission(null, 'lms.grading.manage')")
     @GetMapping("/api/attempts/{id}/integrity-summary")

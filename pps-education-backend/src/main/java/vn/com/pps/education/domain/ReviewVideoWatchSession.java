@@ -68,4 +68,22 @@ public class ReviewVideoWatchSession extends BaseAuditEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "review_video_assignment_id")
     private ReviewVideoAssignment reviewVideoAssignment;
+
+    /**
+     * V160 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-05) — số lần học sinh đã nộp CẢ
+     * BỘ câu hỏi CONNECTION cho lượt này (tối đa 2, xem ReviewVideoService#submitConnectionAnswers).
+     * Sai lần 1 (attemptCount=1, chưa đạt) được nộp lại lần 2 cho CÙNG lượt này; sai cả 2 lần thì lượt
+     * coi là không đạt (xem {@link #quizPassed}).
+     */
+    @Column(name = "quiz_attempt_count", nullable = false)
+    private int quizAttemptCount = 0;
+
+    /**
+     * V160 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-05) — chỉ có ý nghĩa khi
+     * {@link #quizCompletedAt} khác NULL: true = học sinh trả lời ĐÚNG 100% câu hỏi của lượt này
+     * (trong tối đa {@code quizAttemptCount} lần thử) — chỉ lượt {@code quizPassed=true} mới tính vào
+     * viewCount của {@link ReviewVideoProgress} (khác trước đây, chỉ cần nộp đủ là tính).
+     */
+    @Column(name = "quiz_passed", nullable = false)
+    private boolean quizPassed = false;
 }

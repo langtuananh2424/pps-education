@@ -44,5 +44,12 @@ public record ExerciseResponse(
         BigDecimal passThresholdPercent,
         String status,
         Long createdBy,
-        boolean hasEssayOrSpeaking
+        boolean hasEssayOrSpeaking,
+        /**
+         * Bổ sung 2026-09-04 (đã xác nhận với người dùng) — tên Unit/SubTopic chứa Đề (Exam) này, mirror
+         * ExamResponse#unitTitle/subTopicTitle — Lesson đánh số lặp lại (Lesson 1, 2, 3...) giữa nhiều
+         * Unit/SubTopic khác nhau nên chỉ hiện examTitle dễ nhầm lẫn. NULL khi Exam chưa phân loại.
+         */
+        String unitTitle,
+        String subTopicTitle
 ) {}

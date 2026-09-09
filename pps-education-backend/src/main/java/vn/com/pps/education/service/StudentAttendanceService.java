@@ -41,6 +41,7 @@ import vn.com.pps.education.repository.UserRepository;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
@@ -86,6 +87,7 @@ public class StudentAttendanceService {
     private final ClassEnrollmentRepository classEnrollmentRepository;
     private final SiteManagerRepository siteManagerRepository;
     private final StudentAttendanceSettings studentAttendanceSettings;
+    private final Clock clock;
 
     public StudentAttendanceService(ClassSessionRepository classSessionRepository,
                                      SessionPeriodRepository sessionPeriodRepository,
@@ -102,7 +104,8 @@ public class StudentAttendanceService {
                                      SchoolClassRepository schoolClassRepository,
                                      ClassEnrollmentRepository classEnrollmentRepository,
                                      SiteManagerRepository siteManagerRepository,
-                                     StudentAttendanceSettings studentAttendanceSettings) {
+                                     StudentAttendanceSettings studentAttendanceSettings,
+                                     Clock clock) {
         this.classSessionRepository = classSessionRepository;
         this.sessionPeriodRepository = sessionPeriodRepository;
         this.attendanceSessionRepository = attendanceSessionRepository;
@@ -119,6 +122,7 @@ public class StudentAttendanceService {
         this.classEnrollmentRepository = classEnrollmentRepository;
         this.siteManagerRepository = siteManagerRepository;
         this.studentAttendanceSettings = studentAttendanceSettings;
+        this.clock = clock;
     }
 
     /**
@@ -478,10 +482,10 @@ public class StudentAttendanceService {
             LocalTime graceEnd = graceEnd(classSession);
             throw new AttendanceSessionNotEditableException(
                     "error.attendanceSessionNotEditable.default",
-                    new Object[]{classSession.getSessionDate(), classSession.getStartTime(), graceEnd, LocalDate.now(), LocalTime.now()},
+                    new Object[]{classSession.getSessionDate(), classSession.getStartTime(), graceEnd, LocalDate.now(clock), LocalTime.now(clock)},
                     "Chỉ điểm danh/sửa được trong khung giờ buổi học (" + classSession.getSessionDate() + " "
                             + classSession.getStartTime() + "-" + graceEnd
-                            + "); hiện tại là " + LocalDate.now() + " " + LocalTime.now()
+                            + "); hiện tại là " + LocalDate.now(clock) + " " + LocalTime.now(clock)
                             + ". Cần quyền quản trị điểm danh để thao tác ngoài khung giờ này.");
         }
     }
@@ -491,8 +495,8 @@ public class StudentAttendanceService {
     }
 
     private boolean isWithinSessionWindow(ClassSession classSession) {
-        LocalDate today = LocalDate.now();
-        LocalTime now = LocalTime.now();
+        LocalDate today = LocalDate.now(clock);
+        LocalTime now = LocalTime.now(clock);
         return today.equals(classSession.getSessionDate())
                 && !now.isBefore(classSession.getStartTime())
                 && !now.isAfter(graceEnd(classSession));

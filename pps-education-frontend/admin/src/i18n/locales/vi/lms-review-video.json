@@ -47,8 +47,10 @@
       "youtubeInvalidLink": "Link YouTube không hợp lệ hoặc video bị chặn nhúng."
     },
     "connectionThreshold": {
-      "passPercentLabel": "Ngưỡng % pass điểm trắc nghiệm (mặc định 80)",
-      "requiredViewsLabel": "Số lượt xem bắt buộc — (mặc định 1)"
+      "passPercentLabel": "Ngưỡng % pass điểm trắc nghiệm",
+      "requiredViewsLabel": "Số lượt xem bắt buộc hoàn thành",
+      "sessionPassRatioLabel": "Ngưỡng % nhắc giữa chừng",
+      "reflexPassPercentLabel": "Ngưỡng % đạt viết/nói mỗi câu"
     },
     "reflexBuilder": {
       "label": "Câu hỏi (mốc thời gian) — ít nhất 1 câu *",
@@ -112,7 +114,8 @@
     "toast": {
       "setCreated": "Đã tạo Bộ video thành công!",
       "setSaved": "Đã lưu bộ video ôn tập thành công!",
-      "videoAdded": "Đã thêm video thành công!"
+      "videoAdded": "Đã thêm video thành công!",
+      "thresholdsUpdated": "Đã cập nhật ngưỡng của video."
     },
     "assignClass": {
       "title": "Gán Bộ video cho lớp",
@@ -181,10 +184,14 @@
       "sizeUnknown": "—",
       "durationMinutes": "{{minutes}} phút",
       "connectionMeta": " · Ngưỡng pass {{percent}}% · Chia đều qua {{count}} lượt",
+      "reflexMeta": " · Ngưỡng đạt viết/nói {{percent}}%/câu",
       "closeQuestions": "Đóng câu hỏi",
       "manageQuestions": "Quản lý câu hỏi",
       "fields": { "title": "Tiêu đề *" },
       "addButton": "Thêm video",
+      "editThresholdsTooltip": "Sửa ngưỡng",
+      "editThresholdsTitle": "Sửa ngưỡng: {{title}}",
+      "saveThresholdsButton": "Lưu ngưỡng",
       "deleteTooltip": "Xóa video",
       "deleteConfirm": "Xóa video \"{{title}}\"? Không thể hoàn tác.",
       "deletedToast": "Đã xóa video.",
@@ -192,7 +199,8 @@
         "loadFailed": "Không tải được danh sách video.",
         "requiredFields": "Vui lòng điền tiêu đề, video/audio và chờ dò xong thời lượng.",
         "addFailed": "Thêm video thất bại — có thể bạn không được phân công giảng dạy lớp/khung này.",
-        "deleteFailed": "Xóa video thất bại."
+        "deleteFailed": "Xóa video thất bại.",
+        "updateThresholdsFailed": "Cập nhật ngưỡng thất bại."
       }
     },
     "reflexFields": {

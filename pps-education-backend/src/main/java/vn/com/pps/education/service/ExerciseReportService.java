@@ -161,7 +161,7 @@ public class ExerciseReportService {
                 first.getId(), firstExercise.getId(), firstExercise.getCode(),
                 firstExercise.getExam().getTitle() + " – " + skillCategoryLabel(firstExercise.getSkillCategory()) + " (" + group.size() + " bài)",
                 firstExercise.getExerciseType().name(), firstExercise.getExam().getTeacherType().name(),
-                first.getAvailableFrom(), first.getDueAt(), allCompleted ? "COMPLETED" : "ACTIVE",
+                first.getAvailableFrom(), first.getDueAt(), first.isLateSubmissionAllowed(), allCompleted ? "COMPLETED" : "ACTIVE",
                 totalStudents, completedCount, percentOf(completedCount, totalStudents),
                 passedCount, percentOf(passedCount, totalStudents),
                 first.getHomeworkBatch().getId(), members);
@@ -240,8 +240,17 @@ public class ExerciseReportService {
                 presentAttempts.add(a);
             }
         }
+        // V151 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-04) — fix bug thật: trước đây
+        // CỘNG DỒN (.sum()) số lượt làm của từng Bài con trong Lô — 1 Lesson có N Bài, học sinh làm mỗi
+        // Bài đúng 1 lần (bình thường) vẫn hiện sai thành "N lần làm" (VD Lesson 4 Bài → hiện 4, dù học
+        // sinh chỉ làm 1 lượt cả Lesson). "Số lần làm" phải là số lượt học sinh đã làm CẢ LESSON (đơn vị
+        // đang thao tác qua "Làm lại cả Lô" ở FE), không phải tổng số Bài×lượt — lấy MAX thay vì SUM:
+        // attemptNumber đánh số tuần tự 1..N không có khoảng trống (xem ExerciseAttemptService#attemptNumber)
+        // nên count = attemptNumber cao nhất của assignment đó; MAX giữa các Bài phản ánh đúng "lượt Lesson
+        // cao nhất học sinh đã chạm tới" — kể cả khi lệch lượt giữa các Bài (1 Bài hết lượt riêng sớm hơn,
+        // xem handleRetakeBatch ở FE) vẫn ra số hợp lý hơn hẳn cộng dồn.
         int numberOfAttempts = attemptCountMapsByAssignment.stream()
-                .mapToInt(m -> m.getOrDefault(studentId, 0)).sum();
+                .mapToInt(m -> m.getOrDefault(studentId, 0)).max().orElse(0);
 
         if (presentAttempts.isEmpty()) {
             return new ExerciseAssignmentStudentStatsResponse.StudentRow(
@@ -407,7 +416,7 @@ public class ExerciseReportService {
         return new ExerciseAssignmentStatsResponse(
                 assignment.getId(), exercise.getId(), exercise.getCode(), exercise.getTitle(),
                 exercise.getExerciseType().name(), exercise.getExam().getTeacherType().name(),
-                assignment.getAvailableFrom(), assignment.getDueAt(),
+                assignment.getAvailableFrom(), assignment.getDueAt(), assignment.isLateSubmissionAllowed(),
                 assignment.getStatus().name(), totalStudents, completedCount,
                 percentOf(completedCount, totalStudents), passedCount, percentOf(passedCount, totalStudents),
                 assignment.getHomeworkBatch() == null ? null : assignment.getHomeworkBatch().getId(), null);

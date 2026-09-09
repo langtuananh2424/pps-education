@@ -28,6 +28,7 @@ import {
 import { useIntegrityMonitor } from "../hooks/useIntegrityMonitor";
 import MonitoringBadge from "./MonitoringBadge";
 import { useCountdown, formatRemaining } from "@/components/ui/useCountdown";
+import { useLockBodyScroll } from "@/components/ui/useLockBodyScroll";
 
 interface TakeExerciseModalProps {
   item: AssignedExerciseResponse;
@@ -35,6 +36,29 @@ interface TakeExerciseModalProps {
 }
 
 const CHOICE_TYPES = new Set(["MULTIPLE_CHOICE", "MULTIPLE_ANSWER", "TRUE_FALSE"]);
+
+/**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-03 — số cột lưới đáp án dạng ảnh (V143)
+ * khớp đúng số đáp án để luôn nằm gọn 1 hàng (đề giấy gốc không bao giờ quá 4 đáp án/câu), thay vì
+ * grid-cols-2 cố định trước đây làm đề 3 đáp án bị lệch (2 ô hàng 1, 1 ô lẻ hàng 2).
+ */
+function imageChoiceGridColsClass(choiceCount: number): string {
+  if (choiceCount >= 4) return "grid-cols-4";
+  if (choiceCount === 3) return "grid-cols-3";
+  return "grid-cols-2";
+}
+
+/**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-03 — fix bug thật: đáp án ảnh
+ * (VOICE_PICTURE_CHOICE) khi soạn để trống chú thích thì Admin tự điền content = đúng chữ cái nhãn (VD
+ * content="A" cho choiceLabel="A", xem ListeningGroupBuilder.tsx/QuestionEditorForm.tsx bên admin) —
+ * hiện ra nhìn như lặp "A. A". Ẩn phần content khi nó trùng hệt choiceLabel (không phân biệt hoa/
+ * thường, đã trim) hoặc rỗng, chỉ còn lại chữ cái nhãn — không lặp.
+ */
+function hasMeaningfulChoiceCaption(choiceLabel: string, content: string): boolean {
+  const trimmed = content.trim();
+  return trimmed.length > 0 && trimmed.toUpperCase() !== choiceLabel.trim().toUpperCase();
+}
 
 const SEEK_TOLERANCE_SECONDS = 1;
 
@@ -79,7 +103,52 @@ function listeningKeyOf(q: ExerciseQuestionResponse): string {
  */
 export type RenderBlock =
   | { type: "single"; question: ExerciseQuestionResponse }
-  | { type: "grid"; groupKey: string; referencePassage: string | null; audioUrl: string | null; questions: ExerciseQuestionResponse[] };
+  | { type: "grid"; groupKey: string; referencePassage: string | null; audioUrl: string | null; wordBox: string[] | null; questions: ExerciseQuestionResponse[] };
+
+/** Bổ sung 2026-08-28 — chia mảng thành các hàng cố định `size` phần tử, dùng để dựng bảng hộp từ vựng (wordBox). */
+function chunkArray<T>(items: T[], size: number): T[][] {
+  const rows: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    rows.push(items.slice(i, i + size));
+  }
+  return rows;
+}
+
+/**
+ * V2 (bổ sung 2026-09-04, đã xác nhận với người dùng — SỬA LẠI quyết định 2026-09-03) — bản 2026-09-03
+ * bỏ hẳn `whitespace-pre-wrap` để tránh dấu xuống dòng "cứng" rác copy từ Word/PDF (1 dòng đơn lẻ giữa
+ * câu) làm đoạn văn ngắt dòng sớm lệch trái — nhưng làm HỎNG LUÔN ranh giới đoạn văn THẬT của dạng "Bài
+ * đọc hiểu — Lưới" (GridQuestionBuilder nối nhiều đoạn — 1 đoạn/nhân vật, dạng "Tên: nội dung" — bằng
+ * "\n\n", xem GridQuestionBuilder.tsx): mọi \n bị trình duyệt collapse thành khoảng trắng như nhau, 3
+ * đoạn Tom/Max/Anna dính liền thành 1 khối, không còn phân biệt được.
+ *
+ * V3 (bổ sung 2026-09-04, đã xác nhận với người dùng — nâng cấp tiếp V2 cùng ngày) — người dùng muốn
+ * hiển thị ĐÚNG hình thức đề giấy gốc: tên nhân vật là 1 dòng tiêu đề in đậm riêng, KHÔNG dính liền
+ * "Tên: nội dung" trong cùng 1 dòng chữ thường. Parse mỗi đoạn (đã tách ranh giới ở trên) theo đúng mẫu
+ * "Tên: nội dung" mà GridQuestionBuilder tạo ra (chỉ referencePassage của khối GRID mới có dạng này —
+ * hàm này CHỈ dùng trong GridQuestionGroup, không dùng cho referencePassage của câu đơn lẻ/ESSAY/audio
+ * ở QuestionBlock) — đoạn nào không khớp mẫu (dữ liệu cũ/khác) thì hiện nguyên văn, không có tên riêng.
+ *
+ * V4 (fix bug thật 2026-09-08, đã xác nhận với người dùng qua ảnh chụp) — transcript bài Nghe dạng hội
+ * thoại (VD "A: ...\nB: ...", ListeningGroupBuilder) dán từ trang web/PDF thường CHỈ có 1 \n giữa mỗi
+ * lượt nói (không có dòng trống thật — nguồn dựng bằng nhiều <p> riêng, mỗi đoạn chỉ cách nhau 1 \n khi
+ * copy ra text thô), khiến split(/\n\s*\n/) coi cả transcript là 1 đoạn DUY NHẤT rồi gộp hết thành 1
+ * dòng dài — mất hẳn ranh giới lượt hội thoại. Chèn thêm 1 dòng trống ẢO trước mỗi dòng bắt đầu bằng
+ * "Tên:" hoặc "N." (số thứ tự câu hỏi trong transcript) TRƯỚC khi split — nhận diện được ranh giới ngay
+ * cả khi nguồn không có dòng trống thật, không ảnh hưởng trường hợp GridQuestionBuilder cũ (đã có sẵn
+ * "\n\n" thật, chèn thêm không đổi kết quả split).
+ */
+function parsePassageParagraphs(text: string): { name: string | null; content: string }[] {
+  const withTurnBreaks = text.replace(/\n(?=\s*(?:[^\n:]{1,40}:\s|\d+\.\s))/g, "\n\n");
+  return withTurnBreaks
+    .split(/\n\s*\n/)
+    .map((para) => para.replace(/\s*\n\s*/g, " ").trim())
+    .filter(Boolean)
+    .map((para) => {
+      const match = para.match(/^([^:\n]{1,40}):\s*([\s\S]+)$/);
+      return match ? { name: match[1].trim(), content: match[2].trim() } : { name: null, content: para };
+    });
+}
 
 export function groupQuestionsByGroupKey(questions: ExerciseQuestionResponse[]): RenderBlock[] {
   const blocks: RenderBlock[] = [];
@@ -93,7 +162,16 @@ export function groupQuestionsByGroupKey(questions: ExerciseQuestionResponse[]):
       // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — nhóm "1 audio nhiều câu" (GV
       // nước ngoài, xem ListeningGroupBuilder) cùng dùng chung audioUrl như referencePassage: chỉ cần
       // lấy từ câu hỏi đầu tiên của nhóm.
-      blocks.push({ type: "grid", groupKey: q.groupKey, referencePassage: q.referencePassage, audioUrl: q.audioUrl, questions: [q] });
+      // wordBox (bổ sung 2026-08-28, đã xác nhận với người dùng) — hộp từ vựng THAM KHẢO tĩnh dùng
+      // chung cho nhóm FILL_IN_BLANK (FillInBlankGroupBuilder), cùng quy ước lấy từ câu đầu nhóm.
+      blocks.push({
+        type: "grid",
+        groupKey: q.groupKey,
+        referencePassage: q.referencePassage,
+        audioUrl: q.audioUrl,
+        wordBox: q.structuredContent?.wordBox ?? null,
+        questions: [q]
+      });
     } else {
       blocks.push({ type: "single", question: q });
     }
@@ -124,6 +202,7 @@ function isAnswerRevealed(answer: StudentAnswerResponse): boolean {
  * còn 1 lượt IN_PROGRESS (backend không tự resume, startAttempt luôn tạo attempt mới).
  */
 export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalProps) {
+  useLockBodyScroll(true);
   const { t } = useTranslation("portal-exercises");
   const [attempt, setAttempt] = useState<ExerciseAttemptResponse | null>(null);
   const [questions, setQuestions] = useState<ExerciseQuestionResponse[]>([]);
@@ -442,15 +521,18 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
     <div className="fixed inset-0 bg-white z-[100] flex flex-col">
       {/* Popup cảnh báo tức thời — hiện ngay lúc phát hiện vi phạm mới, tự mờ dần sau ~3.5s, khác banner
           tĩnh bên dưới (chỉ đổi số đếm, học sinh dễ không để ý). Neo "fixed" ở gốc màn hình để luôn nổi
-          trên cùng bất kể đang cuộn tới đâu bên trong nội dung đề. */}
+          trên cùng bất kể đang cuộn tới đâu bên trong nội dung đề.
+          Bổ sung 2026-09-04 (fix bug thật, đã xác nhận với người dùng) — canh giữa theo ĐÚNG khung nội dung
+          header (max-w-2xl lg:max-w-3xl mx-auto) thay vì canh giữa theo cả viewport trình duyệt — 2 khung
+          khác chiều rộng nên trước đây nhìn lệch hẳn sang trái so với tiêu đề/badge phía trên. */}
       {justViolated && !stoppedByViolation && (
-        <div
-          key={violationCount}
-          role="alert"
-          className="fixed top-4 sm:top-6 left-1/2 -translate-x-1/2 z-[110] flex items-center gap-2 bg-rose-600 text-white pl-3 pr-4 py-2.5 rounded-2xl shadow-xl animate-alert-pop max-w-[92vw]"
-        >
-          <ShieldAlert size={18} className="shrink-0" />
-          <span className="text-xs font-black">{t("monitoring.violationToast")}</span>
+        <div className="fixed top-16 sm:top-20 inset-x-0 z-[110] px-4 sm:px-6 flex justify-center">
+          <div className="max-w-2xl lg:max-w-3xl w-full flex justify-center">
+            <div key={violationCount} role="alert" className="flex items-center gap-2 bg-rose-600 text-white pl-3 pr-4 py-2.5 rounded-2xl shadow-xl animate-alert-pop-centered max-w-full">
+              <ShieldAlert size={18} className="shrink-0" />
+              <span className="text-xs font-black">{t("monitoring.violationToast")}</span>
+            </div>
+          </div>
         </div>
       )}
 
@@ -513,6 +595,13 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
         <div className="max-w-2xl lg:max-w-3xl w-full mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
           <div className="min-w-0">
             <h3 className="text-lg sm:text-xl lg:text-2xl font-extrabold text-ink truncate">{item.title}</h3>
+            {/* Bổ sung 2026-09-04 (đã xác nhận với người dùng) — mirror AssignmentsTab.tsx/
+                BatchTakeExerciseModal.tsx: hiện Lesson + Unit/SubTopic để phân biệt Lesson trùng tên. */}
+            {(item.unitTitle || item.subTopicTitle) && (
+              <p className="text-sm font-bold text-muted truncate">
+                {item.examTitle} · {[item.unitTitle, item.subTopicTitle].filter(Boolean).join(" · ")}
+              </p>
+            )}
             {attempt && (
               <p className="text-[10px] sm:text-xs text-muted font-bold mt-0.5">
                 {t("takeExercise.attemptNumber", { number: attempt.attemptNumber })} ·{" "}
@@ -888,6 +977,15 @@ export function QuestionBlock({
   // UC-24/A4, UC-27/A2: câu tự chấm đã có kết quả (isCorrect) nhưng đáp án chưa lộ — do đề còn
   // giới hạn số lần làm lại và đây chưa phải lượt cuối cùng. Không áp dụng cho ESSAY/SPEAKING.
   const answerLockedByRetake = answer != null && answer.isAutoGradable && answer.isCorrect != null && !showFeedback;
+  /**
+   * V169 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-05) — học sinh CHƯA TỪNG động vào
+   * câu này (không chọn/không gõ lần nào, kể cả để trắng) thì BE không có dòng student_answers thật —
+   * listAnswers() giờ bù 1 "câu trả lời rỗng" tạm (KHÔNG lưu DB) để vẫn lộ đáp án đúng khi đủ điều
+   * kiện (xem Javadoc ExerciseAttemptService#listAnswers), nhưng KHÔNG set isCorrect (giữ null, khác
+   * true/false của câu đã tự chấm thật) — dùng đúng tín hiệu này để phân biệt "chưa trả lời" khỏi "trả
+   * lời đúng/sai", tránh tô xanh đáp án đúng trông y hệt "học sinh đã chọn đúng".
+   */
+  const notAnswered = showFeedback && answer!.isAutoGradable && answer!.isCorrect == null;
 
   const toggleChoice = (choiceId: number) => {
     if (readOnly || saving) return;
@@ -904,8 +1002,16 @@ export function QuestionBlock({
   return (
     <div className="border border-line/60 rounded-[16px] p-4 sm:p-5 lg:p-6 space-y-3 lg:space-y-4">
       <div className="flex items-start justify-between gap-3">
+        {/*
+         * Bổ sung 2026-08-28 (đã xác nhận với người dùng) — tách số thứ tự câu ra dòng riêng khỏi nội
+         * dung: dạng WORD_BANK nhiều câu con thường tự đánh số "1. 2. 3..." ngay trong nội dung, để
+         * chung 1 dòng với số thứ tự câu gây nhìn nhầm thành 2 số dính nhau (VD "1. 1. Tom is...").
+         */}
         <p className="text-sm sm:text-base lg:text-lg font-bold text-ink">
-          {displayNumber ?? question.displayOrder}. {question.questionContent}
+          <span className="block text-muted text-xs sm:text-sm uppercase tracking-wider mb-1">
+            {t("takeExercise.question.numberPrefix", { number: displayNumber ?? question.displayOrder })}
+          </span>
+          <span className="text-sm sm:text-sm lg:text-base whitespace-pre-line">{question.questionContent}</span>
         </p>
         <div className="flex items-center gap-2 shrink-0">
           {question.skill === "LISTENING" && question.audioUrl && attemptId != null && (
@@ -923,22 +1029,33 @@ export function QuestionBlock({
       <ListeningAudioBlock question={question} onEnded={() => onListeningEnded(question)} />
 
       {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — ảnh minh họa câu hỏi (ESSAY/WORD_BANK/SENTENCE_BUILDING), trước đây soạn có ảnh nhưng học sinh không thấy vì DTO chưa trả field này. */}
-      {question.imageUrl && <img src={question.imageUrl} alt="" className="w-full max-w-sm rounded-xl border border-line/60" />}
+      {question.imageUrl && <img src={question.imageUrl} alt="" className="w-full max-w-[240px] rounded-xl border border-line/60" />}
 
       {isChoiceQuestion && question.choices.some((c) => c.imageUrl) ? (
         // V143 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23) — Listening "chọn đáp án
         // bằng hình": mỗi lựa chọn là 1 ảnh, hiện dạng lưới bấm-chọn thay vì dòng chữ. Logic chọn/lưu
         // đáp án dùng chung y hệt nhánh chữ bên dưới (toggleChoice/selected/correctIds).
-        <div className="grid grid-cols-2 gap-2 lg:gap-3">
+        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-03 — fix bug thật: lưới cố định
+        // grid-cols-2 khiến đề 3 đáp án bị lệch hàng (2 ô hàng 1, 1 ô lẻ hàng 2) thay vì 1 hàng như đề
+        // giấy gốc — giờ số cột khớp đúng số đáp án (tối đa 4/hàng). object-cover trước đây phóng to/cắt
+        // ảnh gốc để lấp đầy ô aspect-square rất lớn (khi chỉ 2 cột) gây vỡ hình — đổi sang khung nền
+        // trắng cố định + object-contain để ảnh luôn hiển thị nguyên vẹn, không bị kéo giãn/cắt xén.
+        <div className={`grid gap-2 lg:gap-3 ${imageChoiceGridColsClass(question.choices.length)}`}>
           {question.choices.map((c) => {
             const isSelected = selected.has(c.id);
             const isCorrectChoice = correctIds.has(c.id);
             let stateClass = "border-line/70 bg-sky-2 hover:bg-sky";
+            let labelClass = "text-muted";
+            // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-08 — trước khi nộp, lựa chọn
+            // ĐANG chọn chỉ có viền/nền teal nhạt (bg-teal/10), quá mờ để nhận ra ngay đã chọn đáp án
+            // nào — mirror đúng màu đậm + icon check đã dùng ở trắc nghiệm Video từ kết nối
+            // (ReviewVideoTaskModal.tsx: "picked ? bg-teal text-white border-teal").
             if (showFeedback) {
               if (isCorrectChoice) stateClass = "border-teal bg-teal/10";
               else if (isSelected) stateClass = "border-coral bg-coral/10";
             } else if (isSelected) {
-              stateClass = "border-teal bg-teal/10";
+              stateClass = "border-teal bg-teal text-white";
+              labelClass = "text-white/80";
             }
             return (
               <button
@@ -948,14 +1065,17 @@ export function QuestionBlock({
                 onClick={() => toggleChoice(c.id)}
                 className={`relative text-left rounded-xl border-2 overflow-hidden transition-colors ${stateClass} disabled:cursor-default`}
               >
-                <img src={c.imageUrl ?? undefined} alt={c.content} className="w-full aspect-square object-cover" />
+                <div className="w-full aspect-[4/3] bg-white flex items-center justify-center overflow-hidden">
+                  <img src={c.imageUrl ?? undefined} alt={c.content} className="max-w-full max-h-full object-contain" />
+                </div>
                 <span className="flex items-center justify-between gap-1 px-2 py-1.5 text-[11px] sm:text-xs font-bold">
                   <span>
-                    <span className="text-muted mr-1">{c.choiceLabel}.</span>
-                    {c.content}
+                    <span className={`${labelClass} mr-1`}>{c.choiceLabel}.</span>
+                    {hasMeaningfulChoiceCaption(c.choiceLabel, c.content) && c.content}
                   </span>
                   {showFeedback && isCorrectChoice && <CheckCircle2 size={14} className="text-teal-deep shrink-0" />}
                   {showFeedback && !isCorrectChoice && isSelected && <XCircle size={14} className="text-coral shrink-0" />}
+                  {!showFeedback && isSelected && <CheckCircle2 size={14} className="text-white shrink-0" />}
                 </span>
               </button>
             );
@@ -967,11 +1087,13 @@ export function QuestionBlock({
             const isSelected = selected.has(c.id);
             const isCorrectChoice = correctIds.has(c.id);
             let stateClass = "border-line/70 bg-sky-2 hover:bg-sky";
+            let labelClass = "text-muted";
             if (showFeedback) {
               if (isCorrectChoice) stateClass = "border-teal bg-teal/10";
               else if (isSelected) stateClass = "border-coral bg-coral/10";
             } else if (isSelected) {
-              stateClass = "border-teal bg-teal/10";
+              stateClass = "border-teal bg-teal text-white";
+              labelClass = "text-white/80";
             }
             return (
               <button
@@ -982,11 +1104,12 @@ export function QuestionBlock({
                 className={`w-full text-left text-xs sm:text-sm lg:text-base font-bold px-3 py-2.5 sm:px-4 sm:py-3 rounded-xl border transition-colors flex items-center justify-between gap-2 ${stateClass} disabled:cursor-default`}
               >
                 <span>
-                  <span className="text-muted mr-1.5">{c.choiceLabel}.</span>
+                  <span className={`${labelClass} mr-1.5`}>{c.choiceLabel}.</span>
                   {c.content}
                 </span>
                 {showFeedback && isCorrectChoice && <CheckCircle2 size={14} className="text-teal-deep shrink-0" />}
                 {showFeedback && !isCorrectChoice && isSelected && <XCircle size={14} className="text-coral shrink-0" />}
+                {!showFeedback && isSelected && <CheckCircle2 size={14} className="text-white shrink-0" />}
               </button>
             );
           })}
@@ -1037,27 +1160,42 @@ export function QuestionBlock({
             className="w-full bg-sky-2 border border-line/70 text-xs sm:text-sm lg:text-base p-3 sm:p-4 rounded-xl focus:outline-none disabled:opacity-70"
           />
           {isFillInBlank && showFeedback && (
-            <div className={`flex items-center gap-1.5 text-xs font-bold ${answer?.isCorrect ? "text-teal-deep" : "text-coral"}`}>
-              {answer?.isCorrect ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
-              {answer?.isCorrect
-                ? t("takeExercise.question.correct")
-                : t("takeExercise.question.correctAnswerPrefix", { answer: answer?.correctAnswerText ?? "—" })}
+            <div className={`flex items-center gap-1.5 text-xs font-bold ${notAnswered ? "text-coral" : answer?.isCorrect ? "text-teal-deep" : "text-coral"}`}>
+              {notAnswered ? <HelpCircle size={14} /> : answer?.isCorrect ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
+              {notAnswered
+                ? t("takeExercise.question.notAnsweredPrefix", { answer: answer?.correctAnswerText ?? "—" })
+                : answer?.isCorrect
+                  ? t("takeExercise.question.correct")
+                  : t("takeExercise.question.correctAnswerPrefix", { answer: answer?.correctAnswerText ?? "—" })}
             </div>
           )}
         </div>
       )}
 
+      {isChoiceQuestion && showFeedback && notAnswered && (
+        <p className="text-xs font-bold text-coral flex items-center gap-1.5">
+          <HelpCircle size={14} /> {t("takeExercise.question.notAnsweredChoice")}
+        </p>
+      )}
+
       {(question.questionType === "WORD_BANK" || question.questionType === "SENTENCE_BUILDING") && showFeedback && (
-        <div className={`flex items-center gap-1.5 text-xs font-bold ${answer?.isCorrect ? "text-teal-deep" : "text-coral"}`}>
-          {answer?.isCorrect ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
-          {answer?.isCorrect
-            ? t("takeExercise.question.correct")
-            : t("takeExercise.question.correctAnswerPrefix", {
+        <div className={`flex items-center gap-1.5 text-xs font-bold ${notAnswered ? "text-coral" : answer?.isCorrect ? "text-teal-deep" : "text-coral"}`}>
+          {notAnswered ? <HelpCircle size={14} /> : answer?.isCorrect ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
+          {notAnswered
+            ? t("takeExercise.question.notAnsweredPrefix", {
                 answer:
                   (question.questionType === "WORD_BANK" ? answer?.correctStructuredContent?.blanks : answer?.correctStructuredContent?.chunks)?.join(
                     " — "
                   ) ?? "—"
-              })}
+              })
+            : answer?.isCorrect
+              ? t("takeExercise.question.correct")
+              : t("takeExercise.question.correctAnswerPrefix", {
+                  answer:
+                    (question.questionType === "WORD_BANK" ? answer?.correctStructuredContent?.blanks : answer?.correctStructuredContent?.chunks)?.join(
+                      " — "
+                    ) ?? "—"
+                })}
         </div>
       )}
 
@@ -1074,9 +1212,9 @@ export function QuestionBlock({
        * sao đạt/không đạt" thay vì chỉ thấy % tổng ở popup kết quả.
        */}
       {answer?.gradingFeedback && (
-        <div className="text-xs font-bold p-3 rounded-xl border bg-sky-2 border-teal/20 space-y-1.5">
+        <div className="text-sm font-bold p-3 rounded-xl border bg-sky-2 border-teal/20 space-y-1.5">
           <div className="flex items-center justify-between gap-2 flex-wrap">
-            <span className="text-teal-deep uppercase text-[10px] tracking-wide">{t("takeExercise.question.gradingFeedbackTitle")}</span>
+            <span className="text-teal-deep uppercase text-base tracking-wide">{t("takeExercise.question.gradingFeedbackTitle")}</span>
             <span className="text-[10px] text-muted font-black uppercase">
               {answer.gradingSource === "AI" ? t("takeExercise.question.gradedByAi") : t("takeExercise.question.gradedByTeacher")}
               {answer.gradingScore != null && answer.gradingMaxScore != null
@@ -1146,6 +1284,10 @@ function ListeningAudioBlock({ question, onEnded }: { question: ExerciseQuestion
  * mở gọi lại API (không cache kết quả cũ) để backend ghi đúng 1 "lượt xem" cho thống kê GV mỗi lần đóng
  * rồi mở lại (xem Javadoc ListeningHintService#getHint). Vẫn giữ nguyên luồng khoá theo playCount (nghe
  * đủ ngưỡng lần mới mở khoá được popup).
+ *
+ * V172 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-08) — thử đổi sang sidebar trượt từ
+ * phải nhưng người dùng thấy không ổn, ĐÃ REVERT lại đúng popup này (chỉ giữ lại 2 tinh chỉnh trước đó:
+ * rộng hơn `w-[28rem]` và chữ transcript in đậm).
  */
 function ListeningHintButton({
   attemptId,
@@ -1237,13 +1379,20 @@ function ListeningHintButton({
     }
   };
 
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-08 — fix bug thật: trước đây CHỈ gọi
+  // API lúc BẤM mở (handleToggle). Nếu học sinh mở popup dạng "chưa đủ lượt" rồi nghe xong đủ ngưỡng
+  // NGAY TRONG LÚC popup còn đang mở (không đóng/mở lại) — progress.hintUnlocked lật true nhưng
+  // transcript không tự tải, phải đóng ra bấm "?" lại mới thấy. Effect này theo dõi cả `open` lẫn
+  // `unlocked`, tự gọi lại API ngay khi 1 trong 2 chuyển true trong lúc cái còn lại đã true sẵn —
+  // thay hẳn cho lệnh gọi trong handleToggle (tránh gọi trùng 2 lần cho cùng 1 lần mở).
+  useEffect(() => {
+    if (open && unlocked) ensureLoaded();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, unlocked]);
+
   const handleToggle = () => {
     if (readOnly) return;
-    setOpen((prev) => {
-      const next = !prev;
-      if (next) ensureLoaded();
-      return next;
-    });
+    setOpen((prev) => !prev);
   };
 
   return (
@@ -1270,26 +1419,33 @@ function ListeningHintButton({
               </div>
             </div>
           ) : (
+            // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-08 — transcript dài (nhiều đoạn
+            // hội thoại) trên điện thoại tràn quá chiều cao màn hình, không vuốt/cuộn được (panel trước
+            // đây cao theo đúng nội dung, không giới hạn). Giới hạn chiều cao (~nửa màn hình trên mobile,
+            // rộng hơn trên desktop) + tách riêng phần tiêu đề CỐ ĐỊNH (nút đóng luôn bấm được) khỏi phần
+            // nội dung CUỘN ĐƯỢC RIÊNG bên trong.
             <div
               ref={panelRef}
               style={{ position: "fixed", top: placement.top, bottom: placement.bottom, right: placement.right }}
-              className="z-[200] w-72 max-w-[80vw] text-left text-xs bg-white border border-line/60 rounded-xl shadow-lg p-3 space-y-1.5"
+              className="z-[200] w-[28rem] max-w-[90vw] max-h-[50vh] sm:max-h-[70vh] flex flex-col text-left text-xs bg-white border border-line/60 rounded-xl shadow-lg overflow-hidden"
             >
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center justify-between gap-2 p-3 border-b border-line/40 shrink-0">
                 <span className="font-bold text-[10px] uppercase tracking-wide text-muted">{t("takeExercise.listening.transcriptLabel")}</span>
                 <button type="button" onClick={() => setOpen(false)} aria-label={t("takeExercise.closeAriaLabel")} className="text-muted hover:text-ink shrink-0">
                   <X size={13} />
                 </button>
               </div>
-              {loading ? (
-                <p className="font-bold text-muted flex items-center gap-1.5">
-                  <Loader2 size={12} className="animate-spin" /> {t("takeExercise.listening.loadingHint")}
-                </p>
-              ) : error ? (
-                <p className="font-bold text-coral">{error}</p>
-              ) : hint?.transcript ? (
-                <p className="whitespace-pre-line">{hint.transcript}</p>
-              ) : null}
+              <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
+                {loading ? (
+                  <p className="font-bold text-muted flex items-center gap-1.5">
+                    <Loader2 size={12} className="animate-spin" /> {t("takeExercise.listening.loadingHint")}
+                  </p>
+                ) : error ? (
+                  <p className="font-bold text-coral">{error}</p>
+                ) : hint?.transcript ? (
+                  <p className="text-sm font-bold text-ink whitespace-pre-line">{hint.transcript}</p>
+                ) : null}
+              </div>
             </div>
           ),
           document.body
@@ -1337,7 +1493,7 @@ function WordBankBlock({
               value={selections[idx]}
               disabled={readOnly || saving}
               onChange={(e) => handleSelect(idx, e.target.value)}
-              className="bg-sky-2 border border-line/70 text-xs sm:text-sm lg:text-base font-bold px-2 py-1.5 sm:px-3 sm:py-2 rounded-lg focus:outline-none disabled:opacity-70"
+              className="bg-sky-2 border border-line/70 text-sm sm:text-sm lg:text-base font-bold px-2 py-1.5 sm:px-3 sm:py-2 rounded-lg focus:outline-none disabled:opacity-70"
             >
               <option value="">{t("takeExercise.wordBank.choosePlaceholder")}</option>
               {wordPool
@@ -1486,8 +1642,39 @@ export function GridQuestionGroup({
   });
   return (
     <div className="border border-line/60 rounded-[16px] p-4 sm:p-5 lg:p-6 space-y-3 lg:space-y-4">
+      {/* V3 2026-09-04 — xem Javadoc parsePassageParagraphs: mỗi đoạn hiện tên nhân vật thành dòng tiêu
+          đề in đậm riêng (khớp đúng hình thức đề giấy gốc), nội dung đoạn tự ngắt dòng theo khung. */}
       {block.referencePassage && (
-        <p className="text-xs sm:text-sm lg:text-base text-ink whitespace-pre-wrap bg-sky-2 rounded-xl p-3 sm:p-4">{block.referencePassage}</p>
+        <div className="bg-sky-2 rounded-xl p-3 sm:p-4 space-y-2.5 sm:space-y-3">
+          {parsePassageParagraphs(block.referencePassage).map((p, i) => (
+            <div key={i}>
+              {p.name && <p className="text-xs sm:text-sm lg:text-base font-black text-ink">{p.name}</p>}
+              <p className="text-xs sm:text-sm lg:text-base text-ink whitespace-pre-line">{p.content}</p>
+            </div>
+          ))}
+        </div>
+      )}
+      {/*
+       * Bổ sung 2026-08-28 (đã xác nhận với người dùng) — hộp từ vựng THAM KHẢO tĩnh, khớp hình thức
+       * "khung từ" trong đề giấy gốc (Ex.1 "Choose the correct word from the word box below") — chỉ để
+       * học sinh nhìn tham khảo, KHÔNG bấm chọn được (mỗi câu bên dưới vẫn tự gõ đáp án + tự chấm riêng).
+       * Dựng bằng <table> (viền nối liền giữa các ô) thay vì lưới ô rời để giống ĐÚNG bảng trong đề
+       * giấy gốc, không chỉ là "các thẻ từ" rải rác.
+       */}
+      {block.wordBox && block.wordBox.length > 0 && (
+        <table className="w-full border-collapse text-xs sm:text-sm lg:text-base text-ink">
+          <tbody>
+            {chunkArray(block.wordBox, 4).map((row, ri) => (
+              <tr key={ri}>
+                {row.map((w, ci) => (
+                  <td key={ci} className="border border-line/60 text-center font-bold px-2 py-2 sm:px-3 sm:py-2.5">
+                    {w}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       )}
       {block.audioUrl && (
         <div className="flex items-center gap-2">
@@ -1515,6 +1702,8 @@ export function GridQuestionGroup({
           const selected = new Set(answer?.selectedChoiceIds ?? []);
           const correctIds = new Set(answer?.correctChoiceIds ?? []);
           const showFeedback = answer != null && isAnswerRevealed(answer);
+          // V169 — mirror QuestionBlock#notAnswered, xem Javadoc ở đó.
+          const notAnswered = showFeedback && answer!.isAutoGradable && answer!.isCorrect == null;
           const saving = savingQuestionId === q.questionId;
           const isChoiceRow = CHOICE_TYPES.has(q.questionType) && q.choices.length > 0;
           const isFillInBlankRow = q.questionType === "FILL_IN_BLANK";
@@ -1522,10 +1711,18 @@ export function GridQuestionGroup({
           return (
             <div key={q.id} className="py-2.5 lg:py-3.5 space-y-2">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs sm:text-sm lg:text-base font-bold text-ink flex-1 min-w-[160px]">
+                <span className="text-sm sm:text-sm lg:text-base font-bold text-ink flex-1 min-w-[160px]">
                   {startNumber != null ? startNumber + qIndex : q.displayOrder}. {q.questionContent}
                 </span>
               </div>
+
+              {/*
+               * Bổ sung 2026-08-28 (đã xác nhận với người dùng) — ảnh minh họa RIÊNG từng câu trong 1
+               * nhóm (VD FillInBlankGroupBuilder cho dạng "Complete each sentence with this/that/these/
+               * those", mỗi câu 1 ảnh khác nhau) — trước đây chỉ câu đơn lẻ (không thuộc nhóm) mới hiện
+               * ảnh, khối "grid" này thiếu hẳn nên ảnh bị lưu nhưng học sinh không thấy.
+               */}
+              {q.imageUrl && <img src={q.imageUrl} alt="" className="w-full max-w-[240px] rounded-xl border border-line/60" />}
 
               {/*
                * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — fix bug thật: trước đây
@@ -1538,16 +1735,20 @@ export function GridQuestionGroup({
               {isChoiceRow && (
                 <div className="space-y-1.5">
                   {q.choices.some((c) => c.imageUrl) ? (
-                    <div className="grid grid-cols-2 gap-2">
+                    // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-03 — cùng fix bug số cột
+                    // cố định/ảnh vỡ như nhánh isChoiceQuestion (câu đơn) ở QuestionBlock, xem chú thích ở đó.
+                    <div className={`grid gap-2 ${imageChoiceGridColsClass(q.choices.length)}`}>
                       {q.choices.map((c) => {
                         const isSelected = selected.has(c.id);
                         const isCorrectChoice = correctIds.has(c.id);
                         let stateClass = "border-line/70 bg-sky-2 hover:bg-sky";
+                        let labelClass = "text-muted";
                         if (showFeedback) {
                           if (isCorrectChoice) stateClass = "border-teal bg-teal/10";
                           else if (isSelected) stateClass = "border-coral bg-coral/10";
                         } else if (isSelected) {
-                          stateClass = "border-teal bg-teal/10";
+                          stateClass = "border-teal bg-teal text-white";
+                          labelClass = "text-white/80";
                         }
                         return (
                           <button
@@ -1557,14 +1758,17 @@ export function GridQuestionGroup({
                             onClick={() => onChoiceToggle(q.questionId, [c.id])}
                             className={`relative text-left rounded-xl border-2 overflow-hidden transition-colors ${stateClass} disabled:cursor-default`}
                           >
-                            <img src={c.imageUrl ?? undefined} alt={c.content} className="w-full aspect-square object-cover" />
+                            <div className="w-full aspect-[4/3] bg-white flex items-center justify-center overflow-hidden">
+                              <img src={c.imageUrl ?? undefined} alt={c.content} className="max-w-full max-h-full object-contain" />
+                            </div>
                             <span className="flex items-center justify-between gap-1 px-2 py-1.5 text-[11px] font-bold">
                               <span>
-                                <span className="text-muted mr-1">{c.choiceLabel}.</span>
-                                {c.content}
+                                <span className={`${labelClass} mr-1`}>{c.choiceLabel}.</span>
+                                {hasMeaningfulChoiceCaption(c.choiceLabel, c.content) && c.content}
                               </span>
                               {showFeedback && isCorrectChoice && <CheckCircle2 size={14} className="text-teal-deep shrink-0" />}
                               {showFeedback && !isCorrectChoice && isSelected && <XCircle size={14} className="text-coral shrink-0" />}
+                              {!showFeedback && isSelected && <CheckCircle2 size={14} className="text-white shrink-0" />}
                             </span>
                           </button>
                         );
@@ -1575,11 +1779,13 @@ export function GridQuestionGroup({
                       const isSelected = selected.has(c.id);
                       const isCorrectChoice = correctIds.has(c.id);
                       let stateClass = "border-line/70 bg-sky-2 hover:bg-sky";
+                      let labelClass = "text-muted";
                       if (showFeedback) {
                         if (isCorrectChoice) stateClass = "border-teal bg-teal/10";
                         else if (isSelected) stateClass = "border-coral bg-coral/10";
                       } else if (isSelected) {
-                        stateClass = "border-teal bg-teal/10";
+                        stateClass = "border-teal bg-teal text-white";
+                        labelClass = "text-white/80";
                       }
                       return (
                         <button
@@ -1590,16 +1796,23 @@ export function GridQuestionGroup({
                           className={`w-full text-left text-xs sm:text-sm font-bold px-3 py-2 rounded-xl border transition-colors flex items-center justify-between gap-2 ${stateClass} disabled:cursor-default`}
                         >
                           <span>
-                            <span className="text-muted mr-1.5">{c.choiceLabel}.</span>
+                            <span className={`${labelClass} mr-1.5`}>{c.choiceLabel}.</span>
                             {c.content}
                           </span>
                           {showFeedback && isCorrectChoice && <CheckCircle2 size={14} className="text-teal-deep shrink-0" />}
                           {showFeedback && !isCorrectChoice && isSelected && <XCircle size={14} className="text-coral shrink-0" />}
+                          {!showFeedback && isSelected && <CheckCircle2 size={14} className="text-white shrink-0" />}
                         </button>
                       );
                     })
                   )}
                 </div>
+              )}
+
+              {isChoiceRow && showFeedback && notAnswered && (
+                <p className="text-xs font-bold text-coral flex items-center gap-1.5">
+                  <HelpCircle size={14} /> {t("takeExercise.question.notAnsweredChoice")}
+                </p>
               )}
 
               {isFillInBlankRow && (
@@ -1613,11 +1826,13 @@ export function GridQuestionGroup({
                     className="w-full bg-sky-2 border border-line/70 text-xs sm:text-sm lg:text-base p-2.5 sm:p-3 rounded-xl focus:outline-none disabled:opacity-70"
                   />
                   {showFeedback && (
-                    <div className={`flex items-center gap-1.5 text-xs font-bold ${answer?.isCorrect ? "text-teal-deep" : "text-coral"}`}>
-                      {answer?.isCorrect ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
-                      {answer?.isCorrect
-                        ? t("takeExercise.question.correct")
-                        : t("takeExercise.question.correctAnswerPrefix", { answer: answer?.correctAnswerText ?? "—" })}
+                    <div className={`flex items-center gap-1.5 text-xs font-bold ${notAnswered ? "text-coral" : answer?.isCorrect ? "text-teal-deep" : "text-coral"}`}>
+                      {notAnswered ? <HelpCircle size={14} /> : answer?.isCorrect ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
+                      {notAnswered
+                        ? t("takeExercise.question.notAnsweredPrefix", { answer: answer?.correctAnswerText ?? "—" })
+                        : answer?.isCorrect
+                          ? t("takeExercise.question.correct")
+                          : t("takeExercise.question.correctAnswerPrefix", { answer: answer?.correctAnswerText ?? "—" })}
                     </div>
                   )}
                 </div>

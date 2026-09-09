@@ -69,20 +69,26 @@ public class ExamQuestionService {
                 questionOrThrow(examId, questionId), request, actorUserId);
     }
 
+    /**
+     * Bổ sung 2026-08-28 (đã xác nhận với người dùng) — {@code defaultKind}: xem Javadoc
+     * QuestionImportService#importQuestions(Long, MultipartFile, Long, String).
+     */
     @Transactional
-    public QuestionImportResponse importQuestions(Long examId, MultipartFile file, Long actorUserId) {
+    public QuestionImportResponse importQuestions(Long examId, MultipartFile file, Long actorUserId, String defaultKind) {
         Exam exam = examOrThrow(examId);
         return questionImportService.importQuestionsIntoBank(
-                exam.getQuestionBank(), file, actorUserId, false);
+                exam.getQuestionBank(), file, actorUserId, false, defaultKind);
     }
 
     /**
      * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — {@code skillCategory}/
      * {@code teacherType} optional, lọc template chỉ còn block khớp Nhóm kỹ năng đã chọn ở bước 1
-     * "Soạn Bài mới" (null = in đủ tất cả, xem QuestionImportService.buildWordTemplate).
+     * "Soạn Bài mới" (null = in đủ tất cả, xem QuestionImportService.buildWordTemplate). {@code
+     * defaultKind} (bổ sung 2026-08-28) ưu tiên cao hơn — GV đã chọn 1 loại cụ thể ở panel Import thì
+     * chỉ in đúng 1 ví dụ loại đó.
      */
-    public byte[] buildWordTemplate(String skillCategory, String teacherType) {
-        return questionImportService.buildWordTemplate(skillCategory, teacherType);
+    public byte[] buildWordTemplate(String skillCategory, String teacherType, String defaultKind) {
+        return questionImportService.buildWordTemplate(skillCategory, teacherType, defaultKind);
     }
 
     /** V87 (merge từ develop 2026-08-04) — không lộ Đề đã "xóa" (deleted_at), cùng pattern ExamService. */

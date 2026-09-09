@@ -35,8 +35,9 @@ public class QuestionImportController {
     @PostMapping(value = "/api/question-banks/{bankId}/questions/import", consumes = "multipart/form-data")
     public ResponseEntity<QuestionImportResponse> importQuestions(@PathVariable Long bankId,
                                                                     @RequestParam("file") MultipartFile file,
+                                                                    @RequestParam(required = false) String defaultKind,
                                                                     @AuthenticationPrincipal AuthenticatedUser actor) {
-        return ResponseEntity.ok(questionImportService.importQuestions(bankId, file, actor.userId()));
+        return ResponseEntity.ok(questionImportService.importQuestions(bankId, file, actor.userId(), defaultKind));
     }
 
     @PreAuthorize("hasAnyRole('HEAD_ACADEMIC','SYS_ADMIN','SUPER_ADMIN') and hasPermission(null, 'lms.question-bank.create')")
@@ -48,8 +49,8 @@ public class QuestionImportController {
     /** File mẫu Word (.docx) tĩnh — không cá nhân hoá theo bank, xem Javadoc buildWordTemplate(). */
     @PreAuthorize("hasAnyRole('HEAD_ACADEMIC','SYS_ADMIN','SUPER_ADMIN') and hasPermission(null, 'lms.question-bank.create')")
     @GetMapping("/api/question-imports/template.docx")
-    public ResponseEntity<byte[]> downloadWordTemplate() {
-        byte[] content = questionImportService.buildWordTemplate();
+    public ResponseEntity<byte[]> downloadWordTemplate(@RequestParam(required = false) String defaultKind) {
+        byte[] content = questionImportService.buildWordTemplate(null, null, defaultKind);
         String filename = "mau-soan-cau-hoi.docx";
         String encodedFilename = URLEncoder.encode(filename, StandardCharsets.UTF_8).replace("+", "%20");
         return ResponseEntity.ok()

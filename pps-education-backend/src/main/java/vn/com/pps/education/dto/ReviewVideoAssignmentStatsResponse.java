@@ -21,6 +21,8 @@ public record ReviewVideoAssignmentStatsResponse(
         ReviewVideoSet.TeacherType teacherType,
         OffsetDateTime availableFrom,
         OffsetDateTime dueAt,
+        /** V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — hiện + cho bật/tắt lại ở trang "Xem chi tiết". */
+        boolean lateSubmissionAllowed,
         ReviewVideoAssignment.Status status,
         int totalStudents,
         int completedCount,

@@ -117,22 +117,26 @@ public class AuthService {
 
         // A1 — không tiết lộ tài khoản có tồn tại hay không
         if (maybeUser.isEmpty()) {
-            recordAttempt(input, null, httpRequest, false, LoginAttempt.FailureReason.USER_NOT_FOUND);
+            recordAttempt(input, null, httpRequest, false, LoginAttempt.FailureReason.USER_NOT_FOUND,
+                    request.screenResolution(), request.browserLanguage(), request.timezone());
             throw new InvalidCredentialsException("error.invalidCredentials.default", new Object[]{},
                     "Sai tài khoản hoặc mật khẩu.");
         }
         User user = maybeUser.get();
 
-        ensureAccountUsable(user, input, httpRequest);
+        ensureAccountUsable(user, input, httpRequest,
+                request.screenResolution(), request.browserLanguage(), request.timezone());
 
         if (user.getPasswordHash() == null || !passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             registerFailedAttempt(user, httpRequest);
-            recordAttempt(input, user, httpRequest, false, LoginAttempt.FailureReason.WRONG_PASSWORD);
+            recordAttempt(input, user, httpRequest, false, LoginAttempt.FailureReason.WRONG_PASSWORD,
+                    request.screenResolution(), request.browserLanguage(), request.timezone());
             throw new InvalidCredentialsException("error.invalidCredentials.default", new Object[]{},
                     "Sai tài khoản hoặc mật khẩu.");
         }
 
-        recordAttempt(input, user, httpRequest, true, null);
+        recordAttempt(input, user, httpRequest, true, null,
+                request.screenResolution(), request.browserLanguage(), request.timezone());
         return issueSuccessfulLogin(user, httpRequest);
     }
 
@@ -152,19 +156,22 @@ public class AuthService {
 
         // A4 — tài khoản chưa được cấp phát, không có đăng ký tự phục vụ qua Google
         if (maybeUser.isEmpty()) {
-            recordAttempt(identity.email(), null, httpRequest, false, LoginAttempt.FailureReason.USER_NOT_FOUND);
+            recordAttempt(identity.email(), null, httpRequest, false, LoginAttempt.FailureReason.USER_NOT_FOUND,
+                    request.screenResolution(), request.browserLanguage(), request.timezone());
             throw new GoogleAccountNotProvisionedException("error.googleAccountNotProvisioned.default", new Object[]{},
                     "Tài khoản chưa được cấp phát trong hệ thống. Vui lòng liên hệ Quản trị viên.");
         }
         User user = maybeUser.get();
 
-        ensureAccountUsable(user, identity.email(), httpRequest);
+        ensureAccountUsable(user, identity.email(), httpRequest,
+                request.screenResolution(), request.browserLanguage(), request.timezone());
 
         if (user.getGoogleId() == null) {
             user.setGoogleId(identity.subject());
         }
 
-        recordAttempt(identity.email(), user, httpRequest, true, null);
+        recordAttempt(identity.email(), user, httpRequest, true, null,
+                request.screenResolution(), request.browserLanguage(), request.timezone());
         return issueSuccessfulLogin(user, httpRequest);
     }
 
@@ -248,14 +255,17 @@ public class AuthService {
     }
 
     /** A2 (khóa 5 lần sai) + A3 (INACTIVE/SUSPENDED) — áp dụng cho cả luồng mật khẩu và Google. */
-    private void ensureAccountUsable(User user, String identityInput, HttpServletRequest httpRequest) {
+    private void ensureAccountUsable(User user, String identityInput, HttpServletRequest httpRequest,
+                                      String screenResolution, String browserLanguage, String timezone) {
         if (user.getLockedUntil() != null && user.getLockedUntil().isAfter(OffsetDateTime.now())) {
-            recordAttempt(identityInput, user, httpRequest, false, LoginAttempt.FailureReason.USER_LOCKED);
+            recordAttempt(identityInput, user, httpRequest, false, LoginAttempt.FailureReason.USER_LOCKED,
+                    screenResolution, browserLanguage, timezone);
             throw new AccountLockedException("error.accountLocked.default", new Object[]{user.getLockedUntil()},
                     "Tài khoản đang tạm khóa do đăng nhập sai quá nhiều lần. Thử lại sau: " + user.getLockedUntil());
         }
         if (user.getStatus() != User.Status.ACTIVE) {
-            recordAttempt(identityInput, user, httpRequest, false, LoginAttempt.FailureReason.USER_INACTIVE);
+            recordAttempt(identityInput, user, httpRequest, false, LoginAttempt.FailureReason.USER_INACTIVE,
+                    screenResolution, browserLanguage, timezone);
             throw new AccountInactiveException("error.accountInactive.default", new Object[]{},
                     "Tài khoản không hoạt động. Vui lòng liên hệ Quản trị viên.");
         }
@@ -301,7 +311,8 @@ public class AuthService {
     }
 
     private void recordAttempt(String usernameOrEmail, User user, HttpServletRequest httpRequest,
-                                boolean success, LoginAttempt.FailureReason failureReason) {
+                                boolean success, LoginAttempt.FailureReason failureReason,
+                                String screenResolution, String browserLanguage, String timezone) {
         LoginAttempt attempt = new LoginAttempt();
         attempt.setUsernameOrEmail(usernameOrEmail);
         attempt.setUser(user);
@@ -309,6 +320,9 @@ public class AuthService {
         attempt.setUserAgent(httpRequest.getHeader("User-Agent"));
         attempt.setSuccess(success);
         attempt.setFailureReason(failureReason);
+        attempt.setScreenResolution(screenResolution);
+        attempt.setBrowserLanguage(browserLanguage);
+        attempt.setTimezone(timezone);
         loginAttemptRepository.save(attempt);
     }
 

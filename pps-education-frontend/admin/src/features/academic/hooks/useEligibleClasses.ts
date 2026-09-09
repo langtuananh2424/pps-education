@@ -38,18 +38,22 @@ export function useEligibleClasses() {
     listClasses({ siteId: selectedCampusId !== "ALL" ? Number(selectedCampusId) : undefined })
       .then(async (allClasses) => {
         if (cancelled || !currentUser) {
-          if (!cancelled) setClasses(canSeeAllClasses ? allClasses : []);
+          if (!cancelled) setClasses(canSeeAllClasses ? allClasses.filter((c) => c.status === "IN_PROGRESS") : []);
           return;
         }
         const teacherLists = await Promise.all(allClasses.map((c) => listClassTeachers(c.id).catch(() => [])));
         if (cancelled) return;
-        const assignedClasses = allClasses.filter(
-          (c, i) => teacherLists[i].some((t) => t.teacherUserId === currentUser.id && !t.assignedTo) && c.status !== "COMPLETED" && c.status !== "CANCELLED"
+        // Dropdown "Lớp" cạnh "Điểm trường" chỉ để chọn lớp đang thao tác hàng ngày (sổ điểm, điểm
+        // danh, giao đề...) nên chỉ hiện lớp đang học (IN_PROGRESS) — lớp chưa khai giảng/đã kết
+        // thúc/đã hủy không có tác vụ nào để chọn ở đây.
+        const inProgressClasses = allClasses.filter((c) => c.status === "IN_PROGRESS");
+        const assignedClasses = inProgressClasses.filter((c) =>
+          teacherLists[allClasses.indexOf(c)].some((t) => t.teacherUserId === currentUser.id && !t.assignedTo)
         );
         setMyAssignedClassCount(assignedClasses.length);
         // Có phân công thật thì LUÔN dùng đúng phạm vi đó, dù canSeeAllClasses cũng đúng — quyền
         // quản trị chỉ mở rộng phạm vi cho tài khoản KHÔNG đứng lớp nào thật (admin/site manager thuần).
-        setClasses(assignedClasses.length > 0 ? assignedClasses : canSeeAllClasses ? allClasses : []);
+        setClasses(assignedClasses.length > 0 ? assignedClasses : canSeeAllClasses ? inProgressClasses : []);
       })
       .catch(() => {
         if (!cancelled) {

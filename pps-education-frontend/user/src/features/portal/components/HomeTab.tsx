@@ -116,10 +116,10 @@ export default function HomeTab({ studentName, classId, parentStudentId }: HomeT
                       className="shrink-0 w-[85%] snap-start bg-slate-50/50 border border-line/60 p-4 rounded-[16px] space-y-1"
                     >
                       <div className="flex justify-between items-center">
-                        <span className="text-[10px] font-bold text-teal uppercase">{n.notificationType}</span>
-                        <span className="text-xs text-muted font-semibold">{formatDateTimeHm(n.createdAt, i18n.language)}</span>
+                        <span className="text-[13px] font-bold text-teal uppercase">{n.notificationType}</span>
+                        <span className="text-sm text-muted font-semibold">{formatDateTimeHm(n.createdAt, i18n.language)}</span>
                       </div>
-                      <h4 className="font-extrabold text-ink text-sm">{n.title}</h4>
+                      <h4 className="font-extrabold text-ink text-[16px]">{n.title}</h4>
                       <p className="text-xs text-muted font-semibold" style={clampLines(3)}>
                         {n.content}
                       </p>
@@ -139,11 +139,11 @@ export default function HomeTab({ studentName, classId, parentStudentId }: HomeT
                 {notifications.map((n) => (
                   <div key={n.id} className="bg-slate-50/50 border border-line/60 p-4 rounded-[16px] space-y-1">
                     <div className="flex justify-between items-center">
-                      <span className="text-[10px] font-bold text-teal uppercase">{n.notificationType}</span>
-                      <span className="text-xs text-muted font-semibold">{formatDateTimeHm(n.createdAt, i18n.language)}</span>
+                      <span className="text-[11px] font-bold text-teal uppercase">{n.notificationType}</span>
+                      <span className="text-sm text-muted font-semibold">{formatDateTimeHm(n.createdAt, i18n.language)}</span>
                     </div>
-                    <h4 className="font-extrabold text-ink text-sm">{n.title}</h4>
-                    <p className="text-xs text-muted font-semibold">{n.content}</p>
+                    <h4 className="font-extrabold text-ink text-lg">{n.title}</h4>
+                    <p className="text-sm text-muted font-semibold">{n.content}</p>
                   </div>
                 ))}
               </div>
@@ -186,7 +186,7 @@ export default function HomeTab({ studentName, classId, parentStudentId }: HomeT
                   <p className="text-xs text-muted leading-relaxed italic font-semibold">"{c.content}"</p>
                 </div>
               ))}
-              {regular.length === 0 && <p className="text-xs text-muted font-bold italic">{t("home.noComments")}</p>}
+              {regular.length === 0 && <p className="text-sm text-muted font-bold italic">{t("home.noComments")}</p>}
             </div>
           </div>
         </div>

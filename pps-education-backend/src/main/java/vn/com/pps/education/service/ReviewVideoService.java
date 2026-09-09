@@ -44,6 +44,7 @@ import vn.com.pps.education.dto.PendingGradingClassSummaryResponse;
 import vn.com.pps.education.dto.ReportVideoProgressRequest;
 import vn.com.pps.education.dto.ReviewVideoAssignmentResponse;
 import vn.com.pps.education.dto.ReviewVideoAssignmentStatsResponse;
+import vn.com.pps.education.dto.ReviewVideoConnectionAnswerHistoryResponse;
 import vn.com.pps.education.dto.ReviewVideoConnectionChoiceResponse;
 import vn.com.pps.education.dto.ReviewVideoConnectionQuestionResponse;
 import vn.com.pps.education.dto.ReviewVideoConnectionQuizResultResponse;
@@ -60,11 +61,11 @@ import vn.com.pps.education.dto.UpdateConnectionChoiceRequest;
 import vn.com.pps.education.dto.UpdateReviewVideoConnectionQuestionRequest;
 import vn.com.pps.education.dto.UpdateReviewVideoQuestionRequest;
 import vn.com.pps.education.dto.UpdateReviewVideoSetRequest;
+import vn.com.pps.education.dto.UpdateReviewVideoThresholdsRequest;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
 import vn.com.pps.education.exception.QuizAlreadyCompletedException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.exception.RetakeNotAllowedException;
-import vn.com.pps.education.exception.ReviewVideoQuestionOverlapException;
 import vn.com.pps.education.exception.SubmissionPastDeadlineException;
 import vn.com.pps.education.exception.VideoNotYetQualifiedException;
 import vn.com.pps.education.repository.ClassEnrollmentRepository;
@@ -156,7 +157,6 @@ public class ReviewVideoService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final AttemptIntegrityService attemptIntegrityService;
-    private final ReviewVideoSettings reviewVideoSettings;
     private final PermissionEvaluationService permissionEvaluationService;
     /** V71: chạy riêng 1 giao dịch lồng (PROPAGATION_REQUIRES_NEW) khi thử tạo bản giao — race thua (bắt
      * DataIntegrityViolationException do UNIQUE index) chỉ rollback đúng giao dịch con này, không kéo
@@ -165,12 +165,15 @@ public class ReviewVideoService {
 
     private static final String PERM_REVIEW_VIDEO_MANAGE = "lms.review-video.manage";
 
-    /** V145 — phải khớp ReflexSequentialGradingService.PASS_THRESHOLD_PERCENT (private ở đó, không expose được). */
-    private static final int REFLEX_PASS_THRESHOLD_PERCENT = 70;
-
+    /**
+     * V168 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-08) — ngưỡng % đạt (viết VÀ
+     * nói) đọc từ cấu hình của chính video (trước đây hardcode 70 cố định, lặp lại ở 3 nơi — mirror
+     * ReflexSequentialGradingService#passThresholdPercent/ReviewVideoReportService#isReflexQuestionPassed).
+     */
     private boolean isReflexQuestionPassed(ReflexQuestionProgress p) {
-        return p.getWritingScore() != null && p.getWritingScore().compareTo(BigDecimal.valueOf(REFLEX_PASS_THRESHOLD_PERCENT)) >= 0
-                && p.getSpeakingScore() != null && p.getSpeakingScore().compareTo(BigDecimal.valueOf(REFLEX_PASS_THRESHOLD_PERCENT)) >= 0;
+        int threshold = p.getReviewVideoQuestion().getReviewVideo().getCompletionThresholdPercent();
+        return p.getWritingScore() != null && p.getWritingScore().compareTo(BigDecimal.valueOf(threshold)) >= 0
+                && p.getSpeakingScore() != null && p.getSpeakingScore().compareTo(BigDecimal.valueOf(threshold)) >= 0;
     }
 
     public ReviewVideoService(ReviewVideoSetRepository reviewVideoSetRepository,
@@ -197,7 +200,6 @@ public class ReviewVideoService {
                                UserRepository userRepository,
                                NotificationService notificationService,
                                AttemptIntegrityService attemptIntegrityService,
-                               ReviewVideoSettings reviewVideoSettings,
                                PermissionEvaluationService permissionEvaluationService,
                                PlatformTransactionManager transactionManager) {
         this.reviewVideoSetRepository = reviewVideoSetRepository;
@@ -224,7 +226,6 @@ public class ReviewVideoService {
         this.userRepository = userRepository;
         this.notificationService = notificationService;
         this.attemptIntegrityService = attemptIntegrityService;
-        this.reviewVideoSettings = reviewVideoSettings;
         this.permissionEvaluationService = permissionEvaluationService;
         this.requiresNewTransactionTemplate = new TransactionTemplate(transactionManager);
         this.requiresNewTransactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
@@ -428,16 +429,19 @@ public class ReviewVideoService {
      */
     @Transactional
     public ReviewVideoAssignment deliverToClass(Long setId, Long classId, OffsetDateTime dueAt, Long actorUserId) {
-        return deliverToClass(setId, classId, dueAt, actorUserId, null);
+        return deliverToClass(setId, classId, dueAt, false, actorUserId, null);
     }
 
     /**
      * V123 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-14): overload nhận thêm buổi
-     * học nguồn — mirror {@link ExerciseService#deliverToClass(Long, Long, OffsetDateTime, Long, ClassSession)}.
+     * học nguồn — mirror {@link ExerciseService#deliverToClass(Long, Long, OffsetDateTime, boolean, Long, ClassSession)}.
+     *
+     * V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — thêm tham số
+     * {@code lateSubmissionAllowed}, đảo ngược quyết định 2026-07-30 "không áp dụng cho video".
      */
     @Transactional
-    public ReviewVideoAssignment deliverToClass(Long setId, Long classId, OffsetDateTime dueAt, Long actorUserId,
-                                                 ClassSession sourceClassSession) {
+    public ReviewVideoAssignment deliverToClass(Long setId, Long classId, OffsetDateTime dueAt, boolean lateSubmissionAllowed,
+                                                 Long actorUserId, ClassSession sourceClassSession) {
         // Cắt về độ chính xác microsecond + so theo instant thực (không so cả offset) NGAY từ đầu —
         // xem giải thích chi tiết ở ExerciseService#deliverToClass/sameDueAt() (bug thật, tái hiện
         // được cả khi chạy 1 mình với DB sạch, KHÔNG phải lỗi rò rỉ dữ liệu giữa các test).
@@ -478,6 +482,7 @@ public class ReviewVideoService {
                 a.setSchoolClass(schoolClass);
                 a.setAssignedBy(actor);
                 a.setDueAt(finalDueAt);
+                a.setLateSubmissionAllowed(lateSubmissionAllowed);
                 a.setSourceClassSession(sourceClassSession);
                 return reviewVideoAssignmentRepository.saveAndFlush(a);
             });
@@ -518,6 +523,22 @@ public class ReviewVideoService {
     public void cancelAssignment(ReviewVideoAssignment assignment) {
         assignment.setStatus(ReviewVideoAssignment.Status.CANCELLED);
         reviewVideoAssignmentRepository.save(assignment);
+    }
+
+    /**
+     * V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — mirror
+     * {@code ExerciseService#updateLateSubmissionAllowed}: bật/tắt lại "Cho phép nộp bài muộn" cho 1
+     * bản giao Video Ôn tập ĐÃ tạo (kể cả đã quá hạn), gọi từ trang "Xem chi tiết" BTVN Giáo viên đang
+     * xem — không cần tạo lại bản giao từ đầu.
+     */
+    @Transactional
+    public ReviewVideoAssignmentResponse updateLateSubmissionAllowed(Long assignmentId, boolean lateSubmissionAllowed, Long actorUserId) {
+        ReviewVideoAssignment assignment = reviewVideoAssignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("error.reviewVideo.assignmentNotFound", new Object[]{assignmentId}, "Không tìm thấy bản giao id=" + assignmentId));
+        requireOwnerScope(assignment.getReviewVideoSet(), actorUserId);
+        assignment.setLateSubmissionAllowed(lateSubmissionAllowed);
+        assignment = reviewVideoAssignmentRepository.save(assignment);
+        return toAssignmentResponse(assignment);
     }
 
     /**
@@ -577,7 +598,7 @@ public class ReviewVideoService {
         return new ReviewVideoAssignmentResponse(
                 a.getId(), a.getUuid(), a.getReviewVideoSet().getId(), a.getReviewVideoSet().getTitle(),
                 a.getSchoolClass().getId(), a.getAssignedBy().getId(),
-                a.getAvailableFrom(), a.getDueAt(), a.getTargetStudentIds(), a.getStatus().name());
+                a.getAvailableFrom(), a.getDueAt(), a.isLateSubmissionAllowed(), a.getTargetStudentIds(), a.getStatus().name());
     }
 
     private void notifyAssignedStudents(SchoolClass schoolClass, ReviewVideoSet set, ReviewVideoAssignment assignment) {
@@ -627,8 +648,34 @@ public class ReviewVideoService {
         video.setFileSizeBytes(request.fileSizeBytes());
         video.setDurationSeconds(request.durationSeconds());
         video.setDisplayOrder(request.displayOrder() == null ? 0 : request.displayOrder());
-        video.setCompletionThresholdPercent(request.completionThresholdPercent() == null ? 80 : request.completionThresholdPercent());
+        // V168 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-08) — mặc định khác nhau
+        // theo loại video: CONNECTION 80 (ngưỡng % pass điểm trắc nghiệm), REFLEX 70 (ngưỡng % đạt
+        // viết/nói mỗi câu, mirror giá trị hardcode cũ trước khi cấu hình được).
+        int defaultCompletionThreshold = set.getVideoType() == ReviewVideoSet.VideoType.REFLEX ? 70 : 80;
+        video.setCompletionThresholdPercent(
+                request.completionThresholdPercent() == null ? defaultCompletionThreshold : request.completionThresholdPercent());
         video.setRequiredViewCount(request.requiredViewCount() == null ? 1 : request.requiredViewCount());
+        video.setSessionPassRatioThresholdPercent(
+                request.sessionPassRatioThresholdPercent() == null ? 70 : request.sessionPassRatioThresholdPercent());
+        video = reviewVideoRepository.save(video);
+        return toResponse(video);
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-08 — sửa lại 3 ngưỡng cấu hình của 1
+     * video đã tạo (không sửa title/fileUrl/sourceType — giữ nguyên "video đã tạo không sửa nội dung
+     * gốc"). Áp dụng cho các lượt xem/báo cáo TỪ THỜI ĐIỂM sửa trở đi, không backfill lại tiến độ đã
+     * tính trước đó (VD progress.completed của học sinh đang xem dở chỉ được tính lại ở lần
+     * report/submit tiếp theo của họ, xem {@link #recomputeProgress}).
+     */
+    @Transactional
+    public ReviewVideoResponse updateThresholds(Long videoId, UpdateReviewVideoThresholdsRequest request, Long actorUserId) {
+        ReviewVideo video = getVideoOrThrow(videoId);
+        requireOwnerScope(video.getReviewVideoSet(), actorUserId);
+
+        video.setCompletionThresholdPercent(request.completionThresholdPercent());
+        video.setRequiredViewCount(request.requiredViewCount());
+        video.setSessionPassRatioThresholdPercent(request.sessionPassRatioThresholdPercent());
         video = reviewVideoRepository.save(video);
         return toResponse(video);
     }
@@ -688,10 +735,14 @@ public class ReviewVideoService {
      * giá trị cho cả video). Chỉ áp dụng videoType=REFLEX (cùng rào A1
      * với submitQuestionAudio).
      *
-     * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-11) — chặn tạo câu hỏi có khoảng ghi âm
-     * [timestampSeconds, timestampSeconds + maxRecordingSeconds] CHỒNG LẤN câu hỏi khác trong cùng video:
-     * trình phát chỉ ghi âm được 1 câu tại 1 thời điểm (không cho ghi âm song song, xem ReflexVideoTaskPage
-     * ở FE), nếu 2 câu chồng giờ thì câu tới sau sẽ bị bỏ lỡ hoàn toàn lúc học sinh làm bài.
+     * V150 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-04) — BỎ rào chặn chồng lấn khoảng
+     * ghi âm [timestampSeconds, timestampSeconds + maxRecordingSeconds] từng thêm 2026-08-11: rào đó dựa
+     * trên giả định luồng CŨ "video chạy liên tục, ghi âm tính vào timeline video" — đã bị THAY THẾ hoàn
+     * toàn bởi UC-23b V2 (2026-08-22, xem {@link ReflexSequentialGradingService}): video REFLEX nay DỪNG
+     * HẲN xuyên suốt cả bước viết lẫn bước nói của 1 câu, chỉ chạy tiếp khi đạt CẢ 2 bước — thời gian ghi
+     * âm không còn tiêu tốn timeline video nữa nên 2 mốc gần nhau không còn rủi ro "câu sau bị bỏ lỡ" như
+     * trước. Rào cũ giờ chỉ gây chặn oan câu hỏi hợp lệ (VD nhiều câu writing chêm ngắn giữa các mốc) —
+     * exception {@code ReviewVideoQuestionOverlapException} đã bị xoá hẳn.
      */
     @Transactional
     public ReviewVideoQuestionResponse addQuestion(Long videoId, AddReviewVideoQuestionRequest request, Long actorUserId) {
@@ -700,7 +751,6 @@ public class ReviewVideoService {
         if (video.getReviewVideoSet().getVideoType() != ReviewVideoSet.VideoType.REFLEX) {
             throw new IllegalArgumentException("Video này không phải loại Video phản xạ (REFLEX) — không nhận câu hỏi.");
         }
-        requireNoOverlap(videoId, request.timestampSeconds(), request.maxRecordingSeconds());
 
         ReviewVideoQuestion question = new ReviewVideoQuestion();
         question.setReviewVideo(video);
@@ -715,15 +765,13 @@ public class ReviewVideoService {
 
     /**
      * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-12) — sửa 1 câu hỏi REFLEX đã có (trước
-     * đây chỉ thêm mới được). Mirror addQuestion — vẫn chặn chồng lấn khoảng ghi âm với câu hỏi KHÁC
-     * trong cùng video (loại chính câu đang sửa ra khỏi phép kiểm tra qua excludeQuestionId, nếu không
-     * sẽ luôn tự báo chồng lấn với chính nó).
+     * đây chỉ thêm mới được). Mirror addQuestion — KHÔNG còn chặn chồng lấn khoảng ghi âm (bỏ V150, xem
+     * Javadoc addQuestion).
      */
     @Transactional
     public ReviewVideoQuestionResponse updateQuestion(Long questionId, UpdateReviewVideoQuestionRequest request, Long actorUserId) {
         ReviewVideoQuestion question = getQuestionOrThrow(questionId);
         requireOwnerScope(question.getReviewVideo().getReviewVideoSet(), actorUserId);
-        requireNoOverlap(question.getReviewVideo().getId(), request.timestampSeconds(), request.maxRecordingSeconds(), questionId);
 
         question.setTimestampSeconds(request.timestampSeconds());
         question.setPrompt(request.prompt());
@@ -732,35 +780,6 @@ public class ReviewVideoService {
         question.setDisplayOrder(request.displayOrder() == null ? question.getDisplayOrder() : request.displayOrder());
         question = reviewVideoQuestionRepository.save(question);
         return toResponse(question);
-    }
-
-    /**
-     * Kiểm tra khoảng ghi âm [newStart, newStart + newDurationSeconds) của câu hỏi MỚI có chồng lấn câu
-     * hỏi nào đã có trong cùng video hay không — dùng phép kiểm tra giao nhau nửa-mở kinh điển (tương tự
-     * ClassSessionService#checkClassConflict): 2 khoảng [a1,a2) và [b1,b2) chồng nhau khi a1 < b2 VÀ b1 < a2.
-     */
-    private void requireNoOverlap(Long videoId, int newStart, int newDurationSeconds) {
-        requireNoOverlap(videoId, newStart, newDurationSeconds, null);
-    }
-
-    /** Overload dùng khi SỬA 1 câu hỏi đã có — excludeQuestionId loại chính câu đang sửa khỏi phép kiểm tra chồng lấn. */
-    private void requireNoOverlap(Long videoId, int newStart, int newDurationSeconds, Long excludeQuestionId) {
-        int newEnd = newStart + newDurationSeconds;
-        List<ReviewVideoQuestion> siblings = reviewVideoQuestionRepository.findByReviewVideoIdOrderByDisplayOrder(videoId);
-        for (ReviewVideoQuestion sibling : siblings) {
-            if (excludeQuestionId != null && excludeQuestionId.equals(sibling.getId())) {
-                continue;
-            }
-            int siblingEnd = sibling.getTimestampSeconds() + sibling.getMaxRecordingSeconds();
-            if (sibling.getTimestampSeconds() < newEnd && newStart < siblingEnd) {
-                throw new ReviewVideoQuestionOverlapException(
-                        "error.reviewVideoQuestionOverlap.default",
-                        new Object[]{newStart, newEnd, sibling.getTimestampSeconds(), siblingEnd},
-                        "Khoảng ghi âm câu hỏi mới (giây " + newStart + "-" + newEnd + ") chồng lấn 1 câu hỏi khác"
-                                + " (giây " + sibling.getTimestampSeconds() + "-" + siblingEnd + ") — video chỉ ghi âm được 1 câu tại 1 thời điểm,"
-                                + " hãy đặt mốc thời gian cách nhau xa hơn hoặc giảm thời lượng ghi âm tối đa.");
-            }
-        }
     }
 
     @Transactional(readOnly = true)
@@ -898,6 +917,60 @@ public class ReviewVideoService {
         ReviewVideo video = getVideoOrThrow(videoId);
         StudentAccess access = resolveStudentAccessForAssignment(video.getReviewVideoSet(), assignmentId, actorUserId);
         return toResponse(getOrCreateProgress(video, access.student(), access.assignment()), video);
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07 — toàn bộ câu trả lời của học
+     * sinh qua các lượt xem ĐÃ ĐẠT (qualified + quizPassed — đúng điều kiện đang tính vào viewCount,
+     * xem {@link #recomputeProgress}) của 1 video CONNECTION/1 bản giao, sắp theo thứ tự lượt xem
+     * (viewNumber 1..N). Dùng cho popup "Hoàn thành"/"Kết quả" phía học viên (FE) khi đạt ngưỡng
+     * sessionPassRatioThresholdPercent giữa chừng hoặc hoàn thành đủ requiredViewCount — các lượt cũ
+     * đã đóng nên trả kèm luôn nội dung câu hỏi/lựa chọn (khác {@link ConnectionAnswerResult}, chỉ
+     * có id, vì popup mỗi-lượt tự map với bộ câu hỏi đang fetch của đúng lượt đang mở).
+     */
+    @Transactional(readOnly = true)
+    public ReviewVideoConnectionAnswerHistoryResponse getConnectionAnswerHistory(Long videoId, Long assignmentId, Long actorUserId) {
+        ReviewVideo video = getVideoOrThrow(videoId);
+        StudentAccess access = resolveStudentAccessForAssignment(video.getReviewVideoSet(), assignmentId, actorUserId);
+        List<ReviewVideoWatchSession> sessions = reviewVideoWatchSessionRepository
+                .findByReviewVideoIdAndStudentIdAndReviewVideoAssignmentIdAndQualifiedTrueAndQuizPassedTrueOrderByQuizCompletedAtAsc(
+                        videoId, access.student().getId(), access.assignment().getId());
+        if (sessions.isEmpty()) {
+            return new ReviewVideoConnectionAnswerHistoryResponse(List.of());
+        }
+
+        List<Long> sessionIds = sessions.stream().map(ReviewVideoWatchSession::getId).toList();
+        Map<Long, List<ReviewVideoConnectionAnswer>> answersBySessionId = reviewVideoConnectionAnswerRepository
+                .findByWatchSession_IdIn(sessionIds).stream()
+                .collect(Collectors.groupingBy(a -> a.getWatchSession().getId()));
+
+        List<ReviewVideoConnectionAnswerHistoryResponse.SessionAnswers> sessionAnswers = new ArrayList<>();
+        int viewNumber = 0;
+        for (ReviewVideoWatchSession session : sessions) {
+            viewNumber++;
+            List<ReviewVideoConnectionAnswerHistoryResponse.AnsweredQuestion> answeredQuestions = answersBySessionId
+                    .getOrDefault(session.getId(), List.of()).stream()
+                    .sorted(Comparator.comparing(a -> a.getReviewVideoConnectionQuestion().getDisplayOrder()))
+                    .map(this::toAnsweredQuestion)
+                    .toList();
+            sessionAnswers.add(new ReviewVideoConnectionAnswerHistoryResponse.SessionAnswers(
+                    session.getId(), viewNumber, answeredQuestions));
+        }
+        return new ReviewVideoConnectionAnswerHistoryResponse(sessionAnswers);
+    }
+
+    private ReviewVideoConnectionAnswerHistoryResponse.AnsweredQuestion toAnsweredQuestion(ReviewVideoConnectionAnswer answer) {
+        ReviewVideoConnectionQuestion question = answer.getReviewVideoConnectionQuestion();
+        List<ReviewVideoConnectionChoice> choices = reviewVideoConnectionChoiceRepository
+                .findByReviewVideoConnectionQuestionIdOrderByDisplayOrder(question.getId());
+        ReviewVideoConnectionChoice correctChoice = choices.stream()
+                .filter(ReviewVideoConnectionChoice::isCorrect).findFirst().orElse(null);
+        List<ReviewVideoConnectionAnswerHistoryResponse.ChoiceOption> choiceOptions = choices.stream()
+                .map(c -> new ReviewVideoConnectionAnswerHistoryResponse.ChoiceOption(c.getId(), c.getChoiceLabel(), c.getContent()))
+                .toList();
+        return new ReviewVideoConnectionAnswerHistoryResponse.AnsweredQuestion(
+                question.getId(), question.getPrompt(), choiceOptions,
+                answer.getSelectedChoice().getId(), correctChoice == null ? null : correctChoice.getId(), answer.isCorrect());
     }
 
     /**
@@ -1050,12 +1123,27 @@ public class ReviewVideoService {
     }
 
     /**
+     * V160 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-05) — số lần tối đa học sinh được
+     * nộp CẢ BỘ câu hỏi CONNECTION cho 1 lượt xem trước khi lượt đó bị coi là không đạt.
+     */
+    private static final int MAX_CONNECTION_QUIZ_ATTEMPTS = 2;
+
+    /**
      * V83 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng): học sinh nộp
      * TOÀN BỘ câu trả lời trắc nghiệm cho ĐÚNG 1 lượt xem (watchSessionId) —
      * khớp cặp 1-1 "xem lượt nào, trả lời lượt đó". Chặn nếu lượt CHƯA đạt
      * ngưỡng xem (chưa xem xong thì chưa được làm câu hỏi) hoặc lượt đó ĐÃ
-     * nộp đủ rồi (không cho nộp lại/đổi đáp án). Trả kết quả tự chấm ngay +
+     * kết thúc rồi (không cho nộp lại/đổi đáp án). Trả kết quả tự chấm ngay +
      * tiến độ mới nhất (viewCount có thể vừa tăng thêm 1).
+     *
+     * V160 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-05) — lượt chỉ THẬT SỰ kết thúc
+     * ("finalized") khi đúng 100% CÂU HỎI, HOẶC đã dùng hết {@link #MAX_CONNECTION_QUIZ_ATTEMPTS} lần mà
+     * vẫn sai. Sai nhưng còn lượt thử thì {@code quizCompletedAt} vẫn để NULL — cho phép gọi lại
+     * endpoint này với CÙNG watchSessionId để nộp lại CẢ FORM (không phải riêng câu sai); câu trả lời của
+     * lần nộp trước được CẬP NHẬT TẠI CHỖ (không xoá-rồi-tạo-mới — Hibernate flush INSERT trước DELETE
+     * trong cùng transaction nên xoá-rồi-tạo-mới vi phạm ngay UNIQUE(question, watch_session), đã gặp lỗi
+     * 500 thực tế) — chỉ giữ kết quả lần nộp cuối cùng, không giữ lịch sử lần sai đầu (đã xác nhận với
+     * người dùng).
      */
     @Transactional
     public ReviewVideoConnectionQuizResultResponse submitConnectionAnswers(
@@ -1098,6 +1186,14 @@ public class ReviewVideoService {
                     "Phải trả lời đúng nhóm câu hỏi của lượt xem này — không thiếu, không thừa.");
         }
 
+        // V160 — đây có thể là lần nộp lại (retry cả form): CẬP NHẬT TẠI CHỖ answer cũ của lượt này thay
+        // vì xoá-rồi-tạo-mới — Hibernate flush INSERT trước DELETE trong cùng transaction nên xoá-rồi-tạo
+        // mới vi phạm ngay UNIQUE(question, watch_session) (đã gặp lỗi 500 thực tế). Cập nhật tại chỗ vừa
+        // tránh race đó vừa tự nhiên chỉ giữ kết quả lần nộp cuối cùng (đã xác nhận với người dùng).
+        Map<Long, ReviewVideoConnectionAnswer> existingAnswersByQuestionId = reviewVideoConnectionAnswerRepository
+                .findByWatchSessionId(session.getId()).stream()
+                .collect(Collectors.toMap(a -> a.getReviewVideoConnectionQuestion().getId(), a -> a));
+
         List<ConnectionAnswerResult> results = new ArrayList<>();
         for (var item : request.answers()) {
             ReviewVideoConnectionQuestion question = questions.stream()
@@ -1111,22 +1207,31 @@ public class ReviewVideoService {
             ReviewVideoConnectionChoice correctChoice = choices.stream().filter(ReviewVideoConnectionChoice::isCorrect)
                     .findFirst().orElse(null);
 
-            ReviewVideoConnectionAnswer answer = new ReviewVideoConnectionAnswer();
+            ReviewVideoConnectionAnswer answer = existingAnswersByQuestionId.getOrDefault(
+                    question.getId(), new ReviewVideoConnectionAnswer());
             answer.setReviewVideoConnectionQuestion(question);
             answer.setWatchSession(session);
             answer.setStudent(student);
             answer.setSelectedChoice(selected);
             answer.setCorrect(selected.isCorrect());
+            answer.setAnsweredAt(OffsetDateTime.now());
             reviewVideoConnectionAnswerRepository.save(answer);
 
             results.add(new ConnectionAnswerResult(question.getId(), selected.getId(), selected.isCorrect(),
                     correctChoice == null ? null : correctChoice.getId()));
         }
 
-        session.setQuizCompletedAt(OffsetDateTime.now());
+        session.setQuizAttemptCount(session.getQuizAttemptCount() + 1);
+        boolean allCorrect = results.stream().allMatch(ConnectionAnswerResult::correct);
+        boolean finalized = allCorrect || session.getQuizAttemptCount() >= MAX_CONNECTION_QUIZ_ATTEMPTS;
+        if (finalized) {
+            session.setQuizPassed(allCorrect);
+            session.setQuizCompletedAt(OffsetDateTime.now());
+        }
         reviewVideoWatchSessionRepository.save(session);
         ReviewVideoProgress progress = recomputeProgress(video, student, assignment);
-        return new ReviewVideoConnectionQuizResultResponse(results, toResponse(progress, video));
+        return new ReviewVideoConnectionQuizResultResponse(results, toResponse(progress, video),
+                finalized, allCorrect, session.getQuizAttemptCount(), MAX_CONNECTION_QUIZ_ATTEMPTS);
     }
 
     /**
@@ -1354,7 +1459,7 @@ public class ReviewVideoService {
 
         return new ReviewVideoAssignmentStatsResponse(
                 assignment.getId(), set.getId(), set.getCode(), set.getTitle(), set.getVideoType(), set.getTeacherType(),
-                assignment.getAvailableFrom(), assignment.getDueAt(), assignment.getStatus(),
+                assignment.getAvailableFrom(), assignment.getDueAt(), assignment.isLateSubmissionAllowed(), assignment.getStatus(),
                 totalStudents, completedCount, completionPercent, passedCount, passRatePercent);
     }
 
@@ -1592,8 +1697,14 @@ public class ReviewVideoService {
     /**
      * Chặn ghi nhận kết quả (xem tiến độ/nộp đáp án/nộp audio) sau khi lần giao đã quá hạn nộp — mirror
      * đúng ExerciseAttemptService#submitAttempt (đã xác nhận với người dùng 2026-08-12, sửa lỗ hổng
-     * Video Ôn tập trước đây KHÔNG hề chặn theo dueAt, khác Bài Ngữ pháp). Cố tình KHÔNG có cờ kiểu
-     * lateSubmissionAllowed như Exercise — chặn cứng, chưa cần tùy chọn nộp trễ cho Video.
+     * Video Ôn tập trước đây KHÔNG hề chặn theo dueAt, khác Bài Ngữ pháp).
+     *
+     * V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — đảo ngược quyết định
+     * 2026-07-30 ở trên: giờ CÓ cờ {@link ReviewVideoAssignment#isLateSubmissionAllowed()} mirror
+     * Exercise, chỉ chặn khi cờ này tắt. Không đánh dấu "nộp muộn" ở đây (reportProgress/
+     * submitConnectionAnswers/submitQuestionAudio là xem/quiz/audio-cũ, không phải bài viết chính của
+     * Video phản xạ) — xem {@link ReflexSequentialGradingService#requireNotPastDeadline} cho luồng có
+     * đánh dấu.
      *
      * Từ V128 (dedup theo sourceClassSession): giao lại cùng buổi học sẽ HỦY bản giao ACTIVE cũ (xem
      * {@link #cancelAssignment}) rồi tạo bản giao mới — nhưng phiên xem đã bắt đầu dưới bản giao cũ vẫn
@@ -1606,7 +1717,8 @@ public class ReviewVideoService {
         if (assignment.getStatus() != ReviewVideoAssignment.Status.ACTIVE) {
             throw new SubmissionPastDeadlineException("Bản giao Video Ôn tập này đã bị thay thế hoặc hủy, không thể ghi nhận thêm.");
         }
-        if (assignment.getDueAt() != null && OffsetDateTime.now().isAfter(assignment.getDueAt())) {
+        if (assignment.getDueAt() != null && OffsetDateTime.now().isAfter(assignment.getDueAt())
+                && !assignment.isLateSubmissionAllowed()) {
             throw new SubmissionPastDeadlineException(
                     "error.submissionPastDeadline.reviewVideo", new Object[]{assignment.getDueAt()},
                     "Bản giao Video Ôn tập này đã quá hạn nộp (" + assignment.getDueAt() + ").");
@@ -1738,31 +1850,35 @@ public class ReviewVideoService {
      * V83 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng): tách từ
      * reportProgress thành helper dùng chung cho CẢ reportProgress LẪN
      * submitConnectionAnswers — video CONNECTION tính viewCount theo lượt
-     * xem VỪA đạt ngưỡng VỪA đã nộp đủ câu hỏi (quizCompletedAt khác NULL);
-     * video khác (REFLEX, nếu có gọi watch-session) giữ nguyên công thức cũ
-     * (chỉ cần qualified) — không đổi hành vi REFLEX.
+     * xem VỪA đạt ngưỡng VỪA đã nộp đủ câu hỏi ĐÚNG (xem V160); video khác
+     * (REFLEX, nếu có gọi watch-session) giữ nguyên công thức cũ (chỉ cần
+     * qualified) — không đổi hành vi REFLEX.
      *
      * V93/V101 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06,
-     * giảm mặc định 80%→70% ngày 2026-08-07):
-     * "đạt" (completed) của CONNECTION đổi từ đủ SỐ LƯỢT tuyệt đối
-     * (viewCount >= requiredViewCount) sang TỶ LỆ %
+     * giảm mặc định 80%→70% ngày 2026-08-07, ĐÃ REVERT ở V160 — xem ghi chú
+     * dưới): từng đổi "đạt" (completed) của CONNECTION từ đủ SỐ LƯỢT tuyệt
+     * đối (viewCount >= requiredViewCount) sang TỶ LỆ %
      * (viewCount/requiredViewCount >= ReviewVideoSettings#completionPassThresholdPercent,
      * mặc định 70%) — VD yêu cầu 4 lượt, xem+nộp đúng 3 lượt = 75%, ĐẠT.
-     * REFLEX giữ nguyên công thức cũ (không đổi hành vi, xem ghi chú V83
-     * phía trên).
+     *
+     * V160 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-05) —
+     * REVERT V93/V101: công thức TỶ LỆ % ở trên khiến hệ thống khoá không
+     * cho xem lượt cuối (VD 3/4 = 75% ≥ 70% đã coi "hoàn thành", chặn lượt
+     * thứ 4) — trái với chính đặc tả V115 (completed = viewCount tuyệt đối,
+     * tách biệt khỏi điểm pass). Quay lại đúng V115: completed = đủ SỐ LƯỢT
+     * tuyệt đối cho CẢ 2 loại video, không dùng completionPassThresholdPercent
+     * nữa cho mục đích này (field này vẫn dùng cho isConnectionVideoPassed).
      */
     private ReviewVideoProgress recomputeProgress(ReviewVideo video, Student student, ReviewVideoAssignment assignment) {
         ReviewVideoProgress progress = getOrCreateProgress(video, student, assignment);
         boolean requiresQuiz = video.getReviewVideoSet().getVideoType() == ReviewVideoSet.VideoType.CONNECTION;
         int viewCount = requiresQuiz
-                ? reviewVideoWatchSessionRepository.countByReviewVideoIdAndStudentIdAndReviewVideoAssignmentIdAndQualifiedTrueAndQuizCompletedAtIsNotNull(
+                ? reviewVideoWatchSessionRepository.countByReviewVideoIdAndStudentIdAndReviewVideoAssignmentIdAndQualifiedTrueAndQuizPassedTrue(
                         video.getId(), student.getId(), assignment.getId())
                 : reviewVideoWatchSessionRepository.countByReviewVideoIdAndStudentIdAndReviewVideoAssignmentIdAndQualifiedTrue(
                         video.getId(), student.getId(), assignment.getId());
         progress.setViewCount(viewCount);
-        boolean completed = requiresQuiz
-                ? viewCount * 100.0 / video.getRequiredViewCount() >= reviewVideoSettings.completionPassThresholdPercent()
-                : viewCount >= video.getRequiredViewCount();
+        boolean completed = viewCount >= video.getRequiredViewCount();
         progress.setCompleted(completed);
         return reviewVideoProgressRepository.save(progress);
     }
@@ -1795,7 +1911,8 @@ public class ReviewVideoService {
                 s.getTeacherType().name(),
                 s.getDisplayOrder(), s.getStatus().name(), s.getPublishedAt(), s.getCreatedBy().getId(),
                 s.getSubTopic() == null ? null : s.getSubTopic().getId(),
-                s.getSubTopic() == null ? null : s.getSubTopic().getTitle());
+                s.getSubTopic() == null ? null : s.getSubTopic().getTitle(),
+                s.getSubTopic() == null ? null : s.getSubTopic().getUnit().getTitle());
     }
 
     private ClassResponse toResponse(SchoolClass c) {
@@ -1813,7 +1930,7 @@ public class ReviewVideoService {
         return new ReviewVideoResponse(
                 v.getId(), v.getReviewVideoSet().getId(), v.getSourceType().name(), v.getTitle(), v.getFileUrl(),
                 v.getFileSizeBytes(), v.getDurationSeconds(), v.getDisplayOrder(),
-                v.getCompletionThresholdPercent(), v.getRequiredViewCount());
+                v.getCompletionThresholdPercent(), v.getRequiredViewCount(), v.getSessionPassRatioThresholdPercent());
     }
 
     private ReviewVideoProgressResponse toResponse(ReviewVideoProgress p, ReviewVideo video) {

@@ -68,6 +68,14 @@ export interface QuestionStructuredContent {
   chunks?: string[];
   /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — hộp từ vựng hiển thị cho học sinh (WORD_BANK), tách khỏi `blanks` (đáp án đúng) để có thể chứa từ nhiễu. Bỏ trống = dùng `blanks` làm hộp từ như hành vi cũ. */
   wordBankOptions?: string[];
+  /**
+   * Bổ sung 2026-08-28 (đã xác nhận với người dùng) — hộp từ vựng THAM KHẢO (tĩnh, không phải đáp án
+   * đúng) hiện chung 1 lần phía trên cả nhóm câu FILL_IN_BLANK (FillInBlankGroupBuilder) — khớp hình
+   * thức "khung từ" trong đề giấy gốc (Ex.1) trong khi mỗi câu vẫn tự chấm độc lập theo
+   * correctAnswerText riêng (Cách B). Đặt CÙNG giá trị trên MỌI Question của nhóm (giống cách
+   * referencePassage/audioUrl dùng chung của ListeningGroupBuilder), FE chỉ đọc từ câu đầu nhóm.
+   */
+  wordBox?: string[];
 }
 
 /** Khớp Question.Skill thật (Question.java) — KHÔNG phải free-text, backend chỉ nhận đúng 1 trong 6 giá trị này. */
@@ -232,21 +240,34 @@ export interface QuestionImportResponse {
  * hoặc .docx theo mẫu cứng (xem QuestionImportService — đúng 5 loại UI mà
  * QuestionEditorForm hỗ trợ, KHÔNG dùng AI/OCR nhận diện tự do).
  */
-export function importQuestions(bankId: number, file: File): Promise<QuestionImportResponse> {
+/**
+ * Bổ sung 2026-08-28 (đã xác nhận với người dùng) — {@code defaultKind}: khớp thói quen thật "1 Ex
+ * chỉ 1 loại câu hỏi" nên cả file thường cùng 1 giá trị — GV chọn 1 lần ở panel Import thay vì gõ lại
+ * cột "Loại câu hỏi" ở MỌI dòng. Dòng nào tự ghi giá trị riêng vẫn ưu tiên giá trị đó (xem
+ * QuestionImportService.resolveKind() phía backend).
+ */
+export function importQuestions(bankId: number, file: File, defaultKind?: string): Promise<QuestionImportResponse> {
   const formData = new FormData();
   formData.append("file", file);
+  if (defaultKind) formData.append("defaultKind", defaultKind);
   return apiRequest<QuestionImportResponse>(`/question-banks/${bankId}/questions/import`, { method: "POST", body: formData });
 }
 
-export function importExamQuestions(examId: number, file: File): Promise<QuestionImportResponse> {
+export function importExamQuestions(examId: number, file: File, defaultKind?: string): Promise<QuestionImportResponse> {
   const formData = new FormData();
   formData.append("file", file);
+  if (defaultKind) formData.append("defaultKind", defaultKind);
   return apiRequest<QuestionImportResponse>(`/exams/${examId}/questions/import`, { method: "POST", body: formData });
 }
 
-/** File mẫu Word generic legacy. */
-export function downloadQuestionImportWordTemplate(): Promise<Blob> {
-  return apiRequestBlob("/question-imports/template.docx");
+/**
+ * File mẫu Word generic legacy. `defaultKind` (bổ sung 2026-08-28, đã xác nhận với người dùng) — khi
+ * GV đã chọn "Loại câu hỏi mặc định" ở panel Import, chỉ in đúng 1 ví dụ khớp loại đó thay vì cả bảng
+ * tra cứu 12 loại (khớp thói quen "1 Ex chỉ 1 loại câu hỏi").
+ */
+export function downloadQuestionImportWordTemplate(defaultKind?: string): Promise<Blob> {
+  const query = defaultKind ? `?defaultKind=${encodeURIComponent(defaultKind)}` : "";
+  return apiRequestBlob(`/question-imports/template.docx${query}`);
 }
 
 /**
@@ -254,12 +275,14 @@ export function downloadQuestionImportWordTemplate(): Promise<Blob> {
  *
  * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — `skillCategory`/`teacherType` optional,
  * lọc template chỉ còn block khớp Nhóm kỹ năng của Bài đang soạn (bỏ trống = in đủ tất cả, mirror
- * hành vi backend QuestionImportService.buildWordTemplate).
+ * hành vi backend QuestionImportService.buildWordTemplate). `defaultKind` (bổ sung 2026-08-28) ưu
+ * tiên cao hơn — GV đã chọn 1 loại cụ thể thì chỉ in đúng 1 ví dụ loại đó.
  */
-export function downloadExamQuestionImportWordTemplate(skillCategory?: string, teacherType?: string): Promise<Blob> {
+export function downloadExamQuestionImportWordTemplate(skillCategory?: string, teacherType?: string, defaultKind?: string): Promise<Blob> {
   const params = new URLSearchParams();
   if (skillCategory) params.set("skillCategory", skillCategory);
   if (teacherType) params.set("teacherType", teacherType);
+  if (defaultKind) params.set("defaultKind", defaultKind);
   const query = params.toString();
   return apiRequestBlob(`/exams/question-imports/template.docx${query ? `?${query}` : ""}`);
 }
@@ -306,6 +329,8 @@ export interface ExamResponse {
   questionBankId: number;
   subTopicId: number | null;
   subTopicTitle: string | null;
+  /** Bổ sung 2026-09-04 — tên Unit chứa subTopic này (VD "UNIT 1: MY NEW SCHOOL"), phân biệt Lesson trùng tên giữa các Unit/SubTopic khác nhau. */
+  unitTitle: string | null;
 }
 
 // ===================== V148: Curriculum (chương trình+khối) -> Sách -> Unit -> Sub Topic -> Lesson -> Bài =====================
@@ -591,6 +616,8 @@ export interface ExerciseQuestionResponse {
   referencePassage: string | null;
   structuredContent: QuestionStructuredContent | null;
   groupKey: string | null;
+  /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-03 — ảnh minh họa (ESSAY/WORD_BANK/SENTENCE_BUILDING), backend luôn trả kèm nhưng type khai báo trước đây thiếu field này (mirror portal/src/features/portal/api.ts). */
+  imageUrl: string | null;
 }
 
 export function addExerciseQuestion(exerciseId: number, request: AddExerciseQuestionRequest): Promise<ExerciseQuestionResponse> {
@@ -667,6 +694,9 @@ export interface HomeworkSkillGroupResponse {
   skillCategory: ExerciseSkillCategory;
   exerciseCount: number;
   questionCount: number;
+  /** Bổ sung 2026-09-04 — tên Unit/SubTopic chứa Lesson này, phân biệt Lesson trùng tên giữa các Unit khác nhau. */
+  unitTitle: string | null;
+  subTopicTitle: string | null;
 }
 
 export function listHomeworkSkillGroupsForClass(classId: number, skillCategory: ExerciseSkillCategory): Promise<HomeworkSkillGroupResponse[]> {
@@ -707,6 +737,8 @@ export interface ReviewVideoSetResponse {
   /** V155 — Bộ thuộc Sub Topic nào trong mục lục sách (Sách/Khối -> Unit -> Sub Topic -> Bộ). NULL = chưa phân loại vào cấu trúc mới. */
   subTopicId: number | null;
   subTopicTitle: string | null;
+  /** Bổ sung 2026-09-04 — tên Unit chứa subTopic này, phân biệt Bộ trùng tên giữa các Unit khác nhau. */
+  unitTitle: string | null;
 }
 
 export interface CreateReviewVideoSetRequest {
@@ -785,6 +817,8 @@ export interface ReviewVideoAssignmentResponse {
   assignedBy: number;
   availableFrom: string;
   dueAt: string | null;
+  /** V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07). */
+  lateSubmissionAllowed: boolean;
   targetStudentIds: number[] | null;
   status: "ACTIVE" | "CANCELLED" | "COMPLETED";
 }
@@ -809,6 +843,8 @@ export interface ReviewVideoAssignmentStatsResponse {
   teacherType: ReviewVideoTeacherType;
   availableFrom: string;
   dueAt: string | null;
+  /** V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — cho bật/tắt lại ở trang "Xem chi tiết". */
+  lateSubmissionAllowed: boolean;
   status: "ACTIVE" | "CANCELLED" | "COMPLETED";
   totalStudents: number;
   completedCount: number;
@@ -843,6 +879,8 @@ export interface ReviewVideoAssignmentStudentRow {
   totalReflexQuestions: number | null;
   averageScore: number | null;
   averageMaxScore: number | null;
+  /** V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — true nếu học sinh từng nộp muộn (mirror status "TRE_HAN" bên Exercise). Luôn false với CONNECTION. */
+  lateSubmission: boolean;
 }
 
 export interface ReviewVideoAssignmentStudentStatsResponse {
@@ -852,6 +890,14 @@ export interface ReviewVideoAssignmentStudentStatsResponse {
 
 export function getReviewVideoAssignmentStudentStats(assignmentId: number): Promise<ReviewVideoAssignmentStudentStatsResponse> {
   return apiRequest<ReviewVideoAssignmentStudentStatsResponse>(`/review-video-assignments/${assignmentId}/stats/students`);
+}
+
+/** V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — bật/tắt lại "Cho phép nộp bài muộn" cho 1 bản giao Video Ôn tập ĐÃ tạo. */
+export function updateReviewVideoAssignmentLateSubmissionAllowed(assignmentId: number, lateSubmissionAllowed: boolean): Promise<ReviewVideoAssignmentResponse> {
+  return apiRequest<ReviewVideoAssignmentResponse>(`/review-video-assignments/${assignmentId}/late-submission-allowed`, {
+    method: "PUT",
+    body: JSON.stringify({ lateSubmissionAllowed })
+  });
 }
 
 /** CONNECTION only — phân tích câu hay bị sai, mirror ExerciseAssignmentQuestionStatsResponse. Rỗng cho assignment REFLEX. */
@@ -896,6 +942,8 @@ export interface AddReviewVideoRequest {
   completionThresholdPercent?: number;
   /** V59 — chỉ có ý nghĩa với videoType=CONNECTION, để trống dùng mặc định 1. */
   requiredViewCount?: number;
+  /** V167 — chỉ có ý nghĩa với videoType=CONNECTION, để trống dùng mặc định 70 — ngưỡng % (số lượt đạt/tổng lượt yêu cầu) để phía học viên hiện popup nhắc giữa chừng. */
+  sessionPassRatioThresholdPercent?: number;
 }
 
 export interface ReviewVideoResponse {
@@ -909,6 +957,7 @@ export interface ReviewVideoResponse {
   displayOrder: number;
   completionThresholdPercent: number;
   requiredViewCount: number;
+  sessionPassRatioThresholdPercent: number;
 }
 
 export function addReviewVideo(setId: number, request: AddReviewVideoRequest): Promise<ReviewVideoResponse> {
@@ -922,6 +971,17 @@ export function listReviewVideos(setId: number): Promise<ReviewVideoResponse[]> 
 /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — BE tự chặn (400) nếu video đã có học sinh xem/làm bài. */
 export function deleteReviewVideo(videoId: number): Promise<void> {
   return apiRequest<void>(`/review-videos/${videoId}`, { method: "DELETE" });
+}
+
+/** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-08 — sửa lại 3 ngưỡng cấu hình của 1 video đã tạo (không sửa title/fileUrl/sourceType). Áp dụng từ thời điểm sửa trở đi, không backfill tiến độ đã tính trước đó. */
+export interface UpdateReviewVideoThresholdsRequest {
+  completionThresholdPercent: number;
+  requiredViewCount: number;
+  sessionPassRatioThresholdPercent: number;
+}
+
+export function updateReviewVideoThresholds(videoId: number, request: UpdateReviewVideoThresholdsRequest): Promise<ReviewVideoResponse> {
+  return apiRequest<ReviewVideoResponse>(`/review-videos/${videoId}/thresholds`, { method: "PUT", body: JSON.stringify(request) });
 }
 
 /** Khớp VideoHeader/StatsCell thật — ma trận học sinh × video (roster LEFT JOIN tiến độ, học sinh chưa xem gì vẫn hiện 0%). */

@@ -16,15 +16,31 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
-// Chỉ xử lý khi tab đóng/ở nền — tab đang mở dùng onMessage() phía app (chưa
-// cần vì Portal chưa có toast in-app cho push, chỉ mới có NotificationBell
-// đọc qua REST GET /notifications).
+/**
+ * Chỉ xử lý khi tab đóng/ở nền — tab đang mở dùng onMessage() phía app (xem pushNotifications.ts).
+ * Đã verify runtime thật hoạt động đúng trên CẢ Chrome/Android lẫn Safari/iOS 16 (background +
+ * force-quit, 2026-09-05). Từng nghi ngờ Safari không tương thích format payload của
+ * onBackgroundMessage() và thêm 1 self.addEventListener("push", ...) thủ công chạy song song làm
+ * lưới an toàn — hóa ra SAI: nguyên nhân thật của lần thất bại trước đó chỉ là Service Worker cache
+ * CŨ trên thiết bị test (fix bằng xóa hẳn shortcut + cài lại). Listener thủ công đó chạy song song
+ * với onBackgroundMessage() bên dưới cho CÙNG 1 push → hiện đúp 2 thông báo trên iOS (dedupe bằng
+ * tag=fcmMessageId không ăn vì Safari không có field này trong payload) — đã gỡ, giữ lại đúng 1
+ * đường xử lý (onBackgroundMessage) như code gốc.
+ *
+ * Payload giờ là DATA-ONLY (backend PushNotificationSender bỏ block "notification" từ 2026-09-07) —
+ * đọc title/body/notificationId từ payload.data. `tag` = notificationId để nếu onMessage() phía app
+ * (pushNotifications.ts) cũng bắn cho cùng push thì trình duyệt GỘP làm 1, không xếp chồng 2 popup.
+ */
 messaging.onBackgroundMessage((payload) => {
-  const title = payload.notification?.title ?? "PPS Education";
-  const body = payload.notification?.body ?? "";
+  const data = payload.data || {};
+  const title = data.title || "PPS Education";
+  const body = data.body || "";
   self.registration.showNotification(title, {
     body,
-    icon: "/icon-192.png",
-    badge: "/icon-192.png"
+    // /icon-192.png KHÔNG tồn tại trong public/ (sửa 2026-09-07) — Android tải icon thất bại nên rơi
+    // về icon chuông mặc định thay vì logo app. File thật là pwa-192.png (khớp manifest ở vite.config.ts).
+    icon: "/pwa-192.png",
+    badge: "/pwa-192.png",
+    tag: data.notificationId ? "pps-noti-" + data.notificationId : undefined
   });
 });

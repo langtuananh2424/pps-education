@@ -27,6 +27,15 @@ function extractOptions(children: React.ReactNode): SelectOptionData[] {
   const options: SelectOptionData[] = [];
   React.Children.forEach(children, (child) => {
     if (!isValidElement(child)) return;
+    // React.Children.forEach không tự flatten Fragment (<>...</>) — 1 nhánh JSX kiểu
+    // {cond ? <opt/> : <><opt/><opt/></>} (VD skillCategory ở CreateAndAssignExerciseModal)
+    // bị đếm là 1 "option" duy nhất có value="" thay vì đọc tiếp các <option> bên trong,
+    // khiến các thẻ <option> lọt ra ngoài <select> gốc và trình duyệt tự render mỗi option
+    // thành 1 khối riêng. Đệ quy vào bên trong Fragment để lấy đúng danh sách option thật.
+    if (child.type === React.Fragment) {
+      options.push(...extractOptions((child.props as { children?: React.ReactNode }).children));
+      return;
+    }
     const props = child.props as { value?: string | number; children?: React.ReactNode; disabled?: boolean };
     options.push({ value: props.value == null ? "" : String(props.value), label: props.children, disabled: props.disabled });
   });

@@ -396,7 +396,7 @@ public class ExerciseService {
      */
     @Transactional
     public ExerciseAssignment deliverToClass(Long exerciseId, Long classId, OffsetDateTime dueAt, Long actorUserId) {
-        return deliverToClass(exerciseId, classId, dueAt, actorUserId, null);
+        return deliverToClass(exerciseId, classId, dueAt, false, actorUserId, null);
     }
 
     /**
@@ -405,10 +405,14 @@ public class ExerciseService {
      * StudentCommentService (đường "BTVN buổi sau", có sẵn ClassSession trong scope) truyền vào;
      * mọi caller khác (test, tương lai nếu có endpoint giao thủ công lại) dùng overload 4 tham số ở
      * trên, sourceClassSession để NULL.
+     *
+     * V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — thêm tham số
+     * {@code lateSubmissionAllowed} (nối dây cột {@link ExerciseAssignment#isLateSubmissionAllowed()}
+     * đã có sẵn từ V18 nhưng chưa từng được set).
      */
-    public ExerciseAssignment deliverToClass(Long exerciseId, Long classId, OffsetDateTime dueAt, Long actorUserId,
-                                              ClassSession sourceClassSession) {
-        return deliverToClass(exerciseId, classId, dueAt, actorUserId, sourceClassSession, true);
+    public ExerciseAssignment deliverToClass(Long exerciseId, Long classId, OffsetDateTime dueAt, boolean lateSubmissionAllowed,
+                                              Long actorUserId, ClassSession sourceClassSession) {
+        return deliverToClass(exerciseId, classId, dueAt, lateSubmissionAllowed, actorUserId, sourceClassSession, true);
     }
 
     /**
@@ -420,8 +424,8 @@ public class ExerciseService {
      * giao xong toàn bộ N Bài. Mọi caller khác (giao 1 Bài lẻ, kể cả test) vẫn dùng 2 overload public ở
      * trên (notify=true, hành vi không đổi).
      */
-    ExerciseAssignment deliverToClass(Long exerciseId, Long classId, OffsetDateTime dueAt, Long actorUserId,
-                                       ClassSession sourceClassSession, boolean notify) {
+    ExerciseAssignment deliverToClass(Long exerciseId, Long classId, OffsetDateTime dueAt, boolean lateSubmissionAllowed,
+                                       Long actorUserId, ClassSession sourceClassSession, boolean notify) {
         // Cắt về độ chính xác microsecond NGAY từ đầu — cột due_at (TIMESTAMPTZ) của Postgres chỉ lưu
         // tới microsecond, còn OffsetDateTime.now() ở tầng gọi có thể mang độ chính xác nanosecond
         // (phát hiện thực tế 2026-08-06, tái hiện được cả khi chạy 1 mình với DB sạch — KHÔNG phải
@@ -480,6 +484,7 @@ public class ExerciseService {
                 a.setSchoolClass(schoolClass);
                 a.setAssignedBy(actor);
                 a.setDueAt(finalDueAt);
+                a.setLateSubmissionAllowed(lateSubmissionAllowed);
                 a.setSourceClassSession(sourceClassSession);
                 return exerciseAssignmentRepository.saveAndFlush(a);
             });
@@ -522,6 +527,21 @@ public class ExerciseService {
     public void cancelAssignment(ExerciseAssignment assignment) {
         assignment.setStatus(ExerciseAssignment.Status.CANCELLED);
         exerciseAssignmentRepository.save(assignment);
+    }
+
+    /**
+     * V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — bật/tắt lại "Cho phép nộp
+     * bài muộn" cho 1 bản giao ĐÃ tạo (kể cả đã quá hạn) — trả lời nhu cầu "lỡ ban đầu không cho nộp
+     * muộn mà học sinh chưa xong thì sao", gọi từ trang "Xem chi tiết" BTVN (Thống kê BTVN) Giáo viên
+     * đang xem, không cần tạo lại bản giao từ đầu.
+     */
+    @Transactional
+    public ExerciseAssignmentResponse updateLateSubmissionAllowed(Long assignmentId, boolean lateSubmissionAllowed, Long actorUserId) {
+        ExerciseAssignment assignment = exerciseAssignmentOrThrow(assignmentId);
+        requireAssignedTeacher(assignment.getSchoolClass().getId(), actorUserId);
+        assignment.setLateSubmissionAllowed(lateSubmissionAllowed);
+        assignment = exerciseAssignmentRepository.save(assignment);
+        return toResponse(assignment);
     }
 
     // ===================== Helpers =====================
@@ -618,6 +638,12 @@ public class ExerciseService {
                         new Object[]{id}, "Không tìm thấy đề id=" + id));
     }
 
+    private ExerciseAssignment exerciseAssignmentOrThrow(Long id) {
+        return exerciseAssignmentRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("error.exercise.assignmentNotFound",
+                        new Object[]{id}, "Không tìm thấy bản giao id=" + id));
+    }
+
     private ExerciseResponse toResponse(Exercise e, List<ExerciseQuestion> questions) {
         boolean hasEssayOrSpeaking = questions.stream().anyMatch(eq ->
                 eq.getQuestion().getQuestionType() == Question.QuestionType.ESSAY
@@ -629,7 +655,9 @@ public class ExerciseService {
                 e.getExerciseType().name(), e.getSkillCategory() == null ? null : e.getSkillCategory().name(),
                 e.getTotalPoints(), e.getTimeLimitMinutes(), e.isAllowRetake(),
                 e.getMaxAttempts(), e.isShowCorrectAnswers(), e.getPassThresholdPercent(), e.getStatus().name(),
-                e.getCreatedBy().getId(), hasEssayOrSpeaking);
+                e.getCreatedBy().getId(), hasEssayOrSpeaking,
+                e.getExam().getSubTopic() == null ? null : e.getExam().getSubTopic().getUnit().getTitle(),
+                e.getExam().getSubTopic() == null ? null : e.getExam().getSubTopic().getTitle());
     }
 
     private ExerciseQuestionResponse toResponse(ExerciseQuestion eq) {

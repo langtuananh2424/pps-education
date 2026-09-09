@@ -47,4 +47,14 @@ public class LoginAttempt {
 
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();
+
+    /** Bo sung ngoai SDD goc (da xac nhan voi nguoi dung 2026-09-05) - metadata thiet bi client tu gui. */
+    @Column(name = "screen_resolution", length = 20)
+    private String screenResolution;
+
+    @Column(name = "browser_language", length = 20)
+    private String browserLanguage;
+
+    @Column(name = "timezone", length = 100)
+    private String timezone;
 }

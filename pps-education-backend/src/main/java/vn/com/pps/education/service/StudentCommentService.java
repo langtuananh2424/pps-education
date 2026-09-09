@@ -418,17 +418,17 @@ public class StudentCommentService {
         comment.setCommentDate(request.commentDate());
 
         Long excludeCommentId = existing == null ? null : existing.getId();
-        validatePendingExerciseChoice(classSession, excludeCommentId, request.homeworkNextExerciseId(), request.homeworkNextDueDate());
-        validatePendingVideoChoice(classSession, excludeCommentId, request.homeworkNextReviewVideoSetId(), request.homeworkNextDueDate());
-        validatePendingReadingExerciseChoice(classSession, excludeCommentId, request.homeworkNextReadingExerciseId(), request.homeworkNextDueDate());
-        validatePendingWritingExerciseChoice(classSession, excludeCommentId, request.homeworkNextWritingExerciseId(), request.homeworkNextDueDate());
+        validatePendingExerciseChoice(classSession, excludeCommentId, request.homeworkNextExerciseId(), request.homeworkNextDueDate(), request.homeworkNextLateSubmissionAllowed());
+        validatePendingVideoChoice(classSession, excludeCommentId, request.homeworkNextReviewVideoSetId(), request.homeworkNextDueDate(), request.homeworkNextLateSubmissionAllowed());
+        validatePendingReadingExerciseChoice(classSession, excludeCommentId, request.homeworkNextReadingExerciseId(), request.homeworkNextDueDate(), request.homeworkNextLateSubmissionAllowed());
+        validatePendingWritingExerciseChoice(classSession, excludeCommentId, request.homeworkNextWritingExerciseId(), request.homeworkNextDueDate(), request.homeworkNextLateSubmissionAllowed());
         applyContent(comment, request.content(), request.structuredContent(), request.severity(), request.isWarning(),
                 request.attitude(), request.homeworkPreviousScore(), request.homeworkPreviousSpeakingScore(),
                 request.homeworkPreviousReadingScore(), request.homeworkPreviousWritingScore(),
                 request.homeworkNext(), request.homeworkNextReading(), request.homeworkNextWriting(),
                 request.homeworkNextExerciseId(), request.homeworkNextReviewVideoSetId(),
                 request.homeworkNextReadingExerciseId(), request.homeworkNextWritingExerciseId(),
-                request.homeworkNextDueDate(), request.note());
+                request.homeworkNextDueDate(), request.homeworkNextLateSubmissionAllowed(), request.note());
         comment.setStatus(StudentComment.Status.DRAFT);
         comment = studentCommentRepository.save(comment);
         writeHistory(comment, actor, existing != null ? StudentCommentHistory.Action.UPDATED : StudentCommentHistory.Action.CREATED);
@@ -455,10 +455,10 @@ public class StudentCommentService {
         // homeworkNextExerciseAssignment/homeworkNextReviewVideoAssignment ở đây, kể cả khi comment này
         // đang REJECTED và đã từng có bản giao thật từ lần Gửi trước (đúng quy tắc "REJECTED không thu
         // hồi bài đã giao" — huỷ bản cũ + giao bản mới chỉ xảy ra ở submitComments() lần Gửi lại).
-        validatePendingExerciseChoice(comment.getClassSession(), comment.getId(), request.homeworkNextExerciseId(), request.homeworkNextDueDate());
-        validatePendingVideoChoice(comment.getClassSession(), comment.getId(), request.homeworkNextReviewVideoSetId(), request.homeworkNextDueDate());
-        validatePendingReadingExerciseChoice(comment.getClassSession(), comment.getId(), request.homeworkNextReadingExerciseId(), request.homeworkNextDueDate());
-        validatePendingWritingExerciseChoice(comment.getClassSession(), comment.getId(), request.homeworkNextWritingExerciseId(), request.homeworkNextDueDate());
+        validatePendingExerciseChoice(comment.getClassSession(), comment.getId(), request.homeworkNextExerciseId(), request.homeworkNextDueDate(), request.homeworkNextLateSubmissionAllowed());
+        validatePendingVideoChoice(comment.getClassSession(), comment.getId(), request.homeworkNextReviewVideoSetId(), request.homeworkNextDueDate(), request.homeworkNextLateSubmissionAllowed());
+        validatePendingReadingExerciseChoice(comment.getClassSession(), comment.getId(), request.homeworkNextReadingExerciseId(), request.homeworkNextDueDate(), request.homeworkNextLateSubmissionAllowed());
+        validatePendingWritingExerciseChoice(comment.getClassSession(), comment.getId(), request.homeworkNextWritingExerciseId(), request.homeworkNextDueDate(), request.homeworkNextLateSubmissionAllowed());
         comment.setApprovalFlow(null);
         applyContent(comment, request.content(), request.structuredContent(), request.severity(), request.isWarning(),
                 request.attitude(), request.homeworkPreviousScore(), request.homeworkPreviousSpeakingScore(),
@@ -466,7 +466,7 @@ public class StudentCommentService {
                 request.homeworkNext(), request.homeworkNextReading(), request.homeworkNextWriting(),
                 request.homeworkNextExerciseId(), request.homeworkNextReviewVideoSetId(),
                 request.homeworkNextReadingExerciseId(), request.homeworkNextWritingExerciseId(),
-                request.homeworkNextDueDate(), request.note());
+                request.homeworkNextDueDate(), request.homeworkNextLateSubmissionAllowed(), request.note());
         comment.setStatus(StudentComment.Status.DRAFT);
         comment = studentCommentRepository.save(comment);
         writeHistory(comment, actor, StudentCommentHistory.Action.UPDATED);
@@ -580,17 +580,17 @@ public class StudentCommentService {
         for (StudentComment comment : comments) {
             HomeworkSkillBatch grammarBatch = resolveGrammarExerciseHomework(comment.getClassSession(), comment.getId(),
                     comment.getPendingHomeworkNextGrammarExamId(), comment.getHomeworkNextGrammarBatch(),
-                    comment.getPendingHomeworkNextDueDate(), actorUserId);
+                    comment.getPendingHomeworkNextDueDate(), comment.getPendingHomeworkNextLateSubmissionAllowed(), actorUserId);
             ReviewVideoAssignment videoAssignment = resolveVideoHomework(comment.getClassSession(), comment.getId(),
                     comment.getPendingHomeworkNextReviewVideoSetId(), comment.getHomeworkNextReviewVideoAssignment(),
-                    comment.getPendingHomeworkNextDueDate(), actorUserId);
+                    comment.getPendingHomeworkNextDueDate(), comment.getPendingHomeworkNextLateSubmissionAllowed(), actorUserId);
             // V137
             HomeworkSkillBatch readingBatch = resolveReadingExerciseHomework(comment.getClassSession(), comment.getId(),
                     comment.getPendingHomeworkNextReadingExamId(), comment.getHomeworkNextReadingBatch(),
-                    comment.getPendingHomeworkNextDueDate(), actorUserId);
+                    comment.getPendingHomeworkNextDueDate(), comment.getPendingHomeworkNextLateSubmissionAllowed(), actorUserId);
             HomeworkSkillBatch writingBatch = resolveWritingExerciseHomework(comment.getClassSession(), comment.getId(),
                     comment.getPendingHomeworkNextWritingExamId(), comment.getHomeworkNextWritingBatch(),
-                    comment.getPendingHomeworkNextDueDate(), actorUserId);
+                    comment.getPendingHomeworkNextDueDate(), comment.getPendingHomeworkNextLateSubmissionAllowed(), actorUserId);
             comment.setHomeworkNextGrammarBatch(grammarBatch);
             comment.setHomeworkNextReviewVideoAssignment(videoAssignment);
             comment.setHomeworkNextReadingBatch(readingBatch);
@@ -600,6 +600,7 @@ public class StudentCommentService {
             comment.setPendingHomeworkNextReadingExamId(null);
             comment.setPendingHomeworkNextWritingExamId(null);
             comment.setPendingHomeworkNextDueDate(null);
+            comment.setPendingHomeworkNextLateSubmissionAllowed(null);
 
             ApprovalFlow flow = new ApprovalFlow();
             flow.setEntityType(ApprovalFlow.EntityType.STUDENT_COMMENT);
@@ -637,7 +638,7 @@ public class StudentCommentService {
      * khi lưu.</p>
      */
     @Transactional
-    public List<StudentCommentResponse> bulkUpdatePendingDueDate(Long sessionId, LocalDateTime dueDate, Long actorUserId) {
+    public List<StudentCommentResponse> bulkUpdatePendingDueDate(Long sessionId, LocalDateTime dueDate, Boolean lateSubmissionAllowed, Long actorUserId) {
         ClassSession session = getClassSessionOrThrow(sessionId);
         User actor = getUserOrThrow(actorUserId);
         requireCanWriteDailyComment(session, actorUserId);
@@ -652,6 +653,7 @@ public class StudentCommentService {
         }
 
         OffsetDateTime newDueAt = dueDate.atZone(APP_ZONE).toOffsetDateTime();
+        boolean newLateSubmissionAllowed = Boolean.TRUE.equals(lateSubmissionAllowed);
         Set<Long> editableIds = editable.stream().map(StudentComment::getId).collect(java.util.stream.Collectors.toSet());
         for (StudentComment sibling : siblings) {
             if (editableIds.contains(sibling.getId())) {
@@ -666,9 +668,21 @@ public class StudentCommentService {
                                 + " (đã giao thật cho học sinh " + sibling.getStudent().getUser().getFullName()
                                 + ") — không thể đổi sang " + newDueAt + ".");
             }
+            // V165 — mirror rào hạn nộp ở trên cho "Cho phép nộp muộn", chỉ so với sibling đã có lựa chọn BTVN.
+            if (hasAnyHomeworkChoice(sibling) && effectiveLateSubmissionAllowed(sibling) != newLateSubmissionAllowed) {
+                throw new HomeworkNextConflictException(
+                        "error.homeworkNextConflict.lateSubmissionAllowedLocked",
+                        new Object[]{effectiveLateSubmissionAllowed(sibling), sibling.getStudent().getUser().getFullName(), newLateSubmissionAllowed},
+                        "Cho phép nộp muộn của BTVN buổi này đã khóa theo " + effectiveLateSubmissionAllowed(sibling)
+                                + " (đã giao thật cho học sinh " + sibling.getStudent().getUser().getFullName()
+                                + ") — không thể đổi sang " + newLateSubmissionAllowed + ".");
+            }
         }
 
-        editable.forEach(c -> c.setPendingHomeworkNextDueDate(dueDate));
+        editable.forEach(c -> {
+            c.setPendingHomeworkNextDueDate(dueDate);
+            c.setPendingHomeworkNextLateSubmissionAllowed(lateSubmissionAllowed);
+        });
         List<StudentComment> saved = studentCommentRepository.saveAll(editable);
         saved.forEach(c -> writeHistory(c, actor, StudentCommentHistory.Action.UPDATED));
         return saved.stream().map(this::toResponse).toList();
@@ -1620,10 +1634,11 @@ public class StudentCommentService {
         }
         // "Hạn nộp bài" — 1 giá trị chung cả buổi, đã validate/parse ở importComments (customDueDate=null thì BE tự tính = buổi kế tiếp).
         // V127: chỉ validate + lưu tạm lựa chọn, KHÔNG giao ngay — mirror writeComment/updateComment.
-        validatePendingExerciseChoice(classSession, comment.getId(), grammarExercise == null ? null : grammarExercise.getId(), customDueDate);
-        validatePendingVideoChoice(classSession, comment.getId(), videoSet == null ? null : videoSet.getId(), customDueDate);
-        validatePendingReadingExerciseChoice(classSession, comment.getId(), readingExercise == null ? null : readingExercise.getId(), customDueDate);
-        validatePendingWritingExerciseChoice(classSession, comment.getId(), writingExercise == null ? null : writingExercise.getId(), customDueDate);
+        // Excel import chưa hỗ trợ cột "Cho phép nộp muộn" — luôn null (= false, giữ hành vi chặn cứng cũ).
+        validatePendingExerciseChoice(classSession, comment.getId(), grammarExercise == null ? null : grammarExercise.getId(), customDueDate, null);
+        validatePendingVideoChoice(classSession, comment.getId(), videoSet == null ? null : videoSet.getId(), customDueDate, null);
+        validatePendingReadingExerciseChoice(classSession, comment.getId(), readingExercise == null ? null : readingExercise.getId(), customDueDate, null);
+        validatePendingWritingExerciseChoice(classSession, comment.getId(), writingExercise == null ? null : writingExercise.getId(), customDueDate, null);
         comment.setTeacher(actor);
         comment.setApprovalFlow(null);
         applyContent(comment, content, null, null, false,
@@ -1633,7 +1648,7 @@ public class StudentCommentService {
                 videoSet == null ? null : videoSet.getId(),
                 readingExercise == null ? null : readingExercise.getId(),
                 writingExercise == null ? null : writingExercise.getId(),
-                customDueDate, note);
+                customDueDate, null, note);
         comment.setStatus(StudentComment.Status.DRAFT);
         comment = studentCommentRepository.save(comment);
         writeHistory(comment, actor, StudentCommentHistory.Action.UPDATED);
@@ -1648,7 +1663,8 @@ public class StudentCommentService {
                                String homeworkNextReading, String homeworkNextWriting,
                                Long pendingHomeworkNextExerciseId, Long pendingHomeworkNextReviewVideoSetId,
                                Long pendingHomeworkNextReadingExerciseId, Long pendingHomeworkNextWritingExerciseId,
-                               LocalDateTime pendingHomeworkNextDueDate, String note) {
+                               LocalDateTime pendingHomeworkNextDueDate,
+                               Boolean pendingHomeworkNextLateSubmissionAllowed, String note) {
         // Bổ sung ngoài SDD gốc, xác nhận 2026-08-17 — content không còn @NotBlank ở DTO (cho lưu nháp
         // độc lập Thái độ/BTVN/Ghi chú), nhưng cột DB student_comments.content vẫn NOT NULL (V15,
         // không ALTER) — ghi "" thay vì null khi FE gửi thiếu, tránh vi phạm ràng buộc DB.
@@ -1677,6 +1693,7 @@ public class StudentCommentService {
         comment.setPendingHomeworkNextReadingExamId(pendingHomeworkNextReadingExerciseId);
         comment.setPendingHomeworkNextWritingExamId(pendingHomeworkNextWritingExerciseId);
         comment.setPendingHomeworkNextDueDate(pendingHomeworkNextDueDate);
+        comment.setPendingHomeworkNextLateSubmissionAllowed(pendingHomeworkNextLateSubmissionAllowed);
         comment.setNote(note);
     }
 
@@ -1710,7 +1727,8 @@ public class StudentCommentService {
      *                         (resolveNextSessionDueAt).
      */
     private HomeworkSkillBatch resolveGrammarExerciseHomework(ClassSession session, Long excludeCommentId, Long examId,
-                                                                HomeworkSkillBatch previous, LocalDateTime customDueDate, Long actorUserId) {
+                                                                HomeworkSkillBatch previous, LocalDateTime customDueDate,
+                                                                Boolean customLateSubmissionAllowed, Long actorUserId) {
         if (examId == null) {
             if (previous != null) {
                 homeworkSkillBatchService.cancelBatch(previous);
@@ -1720,9 +1738,9 @@ public class StudentCommentService {
         if (previous != null && previous.getExam().getId().equals(examId)) {
             return previous;
         }
-        ExamChoiceValidation validated = validateExerciseChoiceAndConflicts(session, excludeCommentId, examId, customDueDate);
+        ExamChoiceValidation validated = validateExerciseChoiceAndConflicts(session, excludeCommentId, examId, customDueDate, customLateSubmissionAllowed);
         HomeworkSkillBatch batch = homeworkSkillBatchService.assignBatchToClass(
-                examId, grammarChannelSkillCategory(session.getTeacherType()), session.getSchoolClass().getId(), validated.dueAt(), actorUserId, session);
+                examId, grammarChannelSkillCategory(session.getTeacherType()), session.getSchoolClass().getId(), validated.dueAt(), validated.lateSubmissionAllowed(), actorUserId, session);
         if (previous != null) {
             homeworkSkillBatchService.cancelBatch(previous);
         }
@@ -1731,7 +1749,8 @@ public class StudentCommentService {
 
     /** V65: mirror resolveExerciseHomework cho kênh Video Ôn tập — xem Javadoc đó (kể cả ghi chú V127). */
     private ReviewVideoAssignment resolveVideoHomework(ClassSession session, Long excludeCommentId, Long videoSetId,
-                                                        ReviewVideoAssignment previous, LocalDateTime customDueDate, Long actorUserId) {
+                                                        ReviewVideoAssignment previous, LocalDateTime customDueDate,
+                                                        Boolean customLateSubmissionAllowed, Long actorUserId) {
         if (videoSetId == null) {
             if (previous != null) {
                 reviewVideoService.cancelAssignment(previous);
@@ -1741,8 +1760,8 @@ public class StudentCommentService {
         if (previous != null && previous.getReviewVideoSet().getId().equals(videoSetId)) {
             return previous;
         }
-        VideoChoiceValidation validated = validateVideoChoiceAndConflicts(session, excludeCommentId, videoSetId, customDueDate);
-        ReviewVideoAssignment assignment = reviewVideoService.deliverToClass(videoSetId, session.getSchoolClass().getId(), validated.dueAt(), actorUserId, session);
+        VideoChoiceValidation validated = validateVideoChoiceAndConflicts(session, excludeCommentId, videoSetId, customDueDate, customLateSubmissionAllowed);
+        ReviewVideoAssignment assignment = reviewVideoService.deliverToClass(videoSetId, session.getSchoolClass().getId(), validated.dueAt(), validated.lateSubmissionAllowed(), actorUserId, session);
         if (previous != null) {
             reviewVideoService.cancelAssignment(previous);
         }
@@ -1755,30 +1774,34 @@ public class StudentCommentService {
      * bước giao thật lúc Gửi ({@link #resolveExerciseHomework}, tái dùng {@code dueAt} đã resolve ở
      * đây thẳng cho {@code deliverToClass}, không resolve lại lần 2) — tránh lặp logic.
      */
-    private record ExamChoiceValidation(Exam exam, OffsetDateTime dueAt) {}
+    private record ExamChoiceValidation(Exam exam, OffsetDateTime dueAt, boolean lateSubmissionAllowed) {}
 
     /** V150 — examId thay cho exerciseId cũ: xác nhận Lesson tồn tại + có Bài VOCAB_GRAMMAR đã Publish (HomeworkSkillBatchService tự báo lỗi rõ nếu rỗng khi thật sự giao), không còn cần requireGrammarChannelSkillCategory (skillCategory giờ cố định theo kênh, không suy từ 1 Exercise). */
-    private ExamChoiceValidation validateExerciseChoiceAndConflicts(ClassSession session, Long excludeCommentId, Long examId, LocalDateTime customDueDate) {
+    private ExamChoiceValidation validateExerciseChoiceAndConflicts(ClassSession session, Long excludeCommentId, Long examId, LocalDateTime customDueDate, Boolean customLateSubmissionAllowed) {
         Exam exam = examRepository.findByIdAndDeletedAtIsNull(examId)
                 .orElseThrow(() -> new ResourceNotFoundException("error.studentComment.examNotFoundById", new Object[]{examId}, "Không tìm thấy Đề (Lesson) id=" + examId));
         requireNoHomeworkConflict(session, excludeCommentId, "Ngữ pháp",
                 this::effectiveExerciseChoiceId, this::effectiveExerciseChoiceLabel, examId, examSkillGroupLabel(exam, grammarChannelSkillCategory(session.getTeacherType())));
         OffsetDateTime dueAt = resolveDueAt(session, customDueDate);
         requireNoDueDateConflict(session, excludeCommentId, dueAt);
-        return new ExamChoiceValidation(exam, dueAt);
+        boolean lateSubmissionAllowed = Boolean.TRUE.equals(customLateSubmissionAllowed);
+        requireNoLateSubmissionConflict(session, excludeCommentId, lateSubmissionAllowed);
+        return new ExamChoiceValidation(exam, dueAt, lateSubmissionAllowed);
     }
 
     /** V127: mirror validateExerciseChoiceAndConflicts cho kênh Video Ôn tập. */
-    private record VideoChoiceValidation(ReviewVideoSet set, OffsetDateTime dueAt) {}
+    private record VideoChoiceValidation(ReviewVideoSet set, OffsetDateTime dueAt, boolean lateSubmissionAllowed) {}
 
-    private VideoChoiceValidation validateVideoChoiceAndConflicts(ClassSession session, Long excludeCommentId, Long videoSetId, LocalDateTime customDueDate) {
+    private VideoChoiceValidation validateVideoChoiceAndConflicts(ClassSession session, Long excludeCommentId, Long videoSetId, LocalDateTime customDueDate, Boolean customLateSubmissionAllowed) {
         ReviewVideoSet set = reviewVideoSetRepository.findById(videoSetId)
                 .orElseThrow(() -> new ResourceNotFoundException("error.studentComment.videoSetNotFoundById", new Object[]{videoSetId}, "Không tìm thấy bộ video id=" + videoSetId));
         requireNoHomeworkConflict(session, excludeCommentId, "Video Ôn tập",
                 this::effectiveVideoChoiceId, this::effectiveVideoChoiceLabel, videoSetId, set.getTitle());
         OffsetDateTime dueAt = resolveDueAt(session, customDueDate);
         requireNoDueDateConflict(session, excludeCommentId, dueAt);
-        return new VideoChoiceValidation(set, dueAt);
+        boolean lateSubmissionAllowed = Boolean.TRUE.equals(customLateSubmissionAllowed);
+        requireNoLateSubmissionConflict(session, excludeCommentId, lateSubmissionAllowed);
+        return new VideoChoiceValidation(set, dueAt, lateSubmissionAllowed);
     }
 
     /**
@@ -1788,19 +1811,19 @@ public class StudentCommentService {
      * thật (deliverToClass) chỉ xảy ra ở submitComments() qua resolveExerciseHomework — xem Javadoc đó
      * để hiểu vì sao đổi thời điểm này (trước đây giao ngay lúc Lưu nháp).
      */
-    private void validatePendingExerciseChoice(ClassSession session, Long excludeCommentId, Long exerciseId, LocalDateTime customDueDate) {
+    private void validatePendingExerciseChoice(ClassSession session, Long excludeCommentId, Long exerciseId, LocalDateTime customDueDate, Boolean customLateSubmissionAllowed) {
         if (exerciseId == null) {
             return;
         }
-        validateExerciseChoiceAndConflicts(session, excludeCommentId, exerciseId, customDueDate);
+        validateExerciseChoiceAndConflicts(session, excludeCommentId, exerciseId, customDueDate, customLateSubmissionAllowed);
     }
 
     /** V127: mirror validatePendingExerciseChoice cho kênh Video Ôn tập. */
-    private void validatePendingVideoChoice(ClassSession session, Long excludeCommentId, Long videoSetId, LocalDateTime customDueDate) {
+    private void validatePendingVideoChoice(ClassSession session, Long excludeCommentId, Long videoSetId, LocalDateTime customDueDate, Boolean customLateSubmissionAllowed) {
         if (videoSetId == null) {
             return;
         }
-        validateVideoChoiceAndConflicts(session, excludeCommentId, videoSetId, customDueDate);
+        validateVideoChoiceAndConflicts(session, excludeCommentId, videoSetId, customDueDate, customLateSubmissionAllowed);
     }
 
     /**
@@ -1852,7 +1875,8 @@ public class StudentCommentService {
 
     /** Mirror {@link #resolveGrammarExerciseHomework} cho kênh Reading. */
     private HomeworkSkillBatch resolveReadingExerciseHomework(ClassSession session, Long excludeCommentId, Long examId,
-                                                                HomeworkSkillBatch previous, LocalDateTime customDueDate, Long actorUserId) {
+                                                                HomeworkSkillBatch previous, LocalDateTime customDueDate,
+                                                                Boolean customLateSubmissionAllowed, Long actorUserId) {
         if (examId == null) {
             if (previous != null) {
                 homeworkSkillBatchService.cancelBatch(previous);
@@ -1862,9 +1886,9 @@ public class StudentCommentService {
         if (previous != null && previous.getExam().getId().equals(examId)) {
             return previous;
         }
-        ExamChoiceValidation validated = validateReadingExerciseChoiceAndConflicts(session, excludeCommentId, examId, customDueDate);
+        ExamChoiceValidation validated = validateReadingExerciseChoiceAndConflicts(session, excludeCommentId, examId, customDueDate, customLateSubmissionAllowed);
         HomeworkSkillBatch batch = homeworkSkillBatchService.assignBatchToClass(
-                examId, Exercise.SkillCategory.READING, session.getSchoolClass().getId(), validated.dueAt(), actorUserId, session);
+                examId, Exercise.SkillCategory.READING, session.getSchoolClass().getId(), validated.dueAt(), validated.lateSubmissionAllowed(), actorUserId, session);
         if (previous != null) {
             homeworkSkillBatchService.cancelBatch(previous);
         }
@@ -1873,7 +1897,8 @@ public class StudentCommentService {
 
     /** Mirror {@link #resolveReadingExerciseHomework} cho kênh Writing. */
     private HomeworkSkillBatch resolveWritingExerciseHomework(ClassSession session, Long excludeCommentId, Long examId,
-                                                                HomeworkSkillBatch previous, LocalDateTime customDueDate, Long actorUserId) {
+                                                                HomeworkSkillBatch previous, LocalDateTime customDueDate,
+                                                                Boolean customLateSubmissionAllowed, Long actorUserId) {
         if (examId == null) {
             if (previous != null) {
                 homeworkSkillBatchService.cancelBatch(previous);
@@ -1883,9 +1908,9 @@ public class StudentCommentService {
         if (previous != null && previous.getExam().getId().equals(examId)) {
             return previous;
         }
-        ExamChoiceValidation validated = validateWritingExerciseChoiceAndConflicts(session, excludeCommentId, examId, customDueDate);
+        ExamChoiceValidation validated = validateWritingExerciseChoiceAndConflicts(session, excludeCommentId, examId, customDueDate, customLateSubmissionAllowed);
         HomeworkSkillBatch batch = homeworkSkillBatchService.assignBatchToClass(
-                examId, Exercise.SkillCategory.WRITING, session.getSchoolClass().getId(), validated.dueAt(), actorUserId, session);
+                examId, Exercise.SkillCategory.WRITING, session.getSchoolClass().getId(), validated.dueAt(), validated.lateSubmissionAllowed(), actorUserId, session);
         if (previous != null) {
             homeworkSkillBatchService.cancelBatch(previous);
         }
@@ -1893,41 +1918,45 @@ public class StudentCommentService {
     }
 
     /** Mirror {@link #validateExerciseChoiceAndConflicts} cho kênh Reading. */
-    private ExamChoiceValidation validateReadingExerciseChoiceAndConflicts(ClassSession session, Long excludeCommentId, Long examId, LocalDateTime customDueDate) {
+    private ExamChoiceValidation validateReadingExerciseChoiceAndConflicts(ClassSession session, Long excludeCommentId, Long examId, LocalDateTime customDueDate, Boolean customLateSubmissionAllowed) {
         Exam exam = examRepository.findByIdAndDeletedAtIsNull(examId)
                 .orElseThrow(() -> new ResourceNotFoundException("error.studentComment.examNotFoundById", new Object[]{examId}, "Không tìm thấy Đề (Lesson) id=" + examId));
         requireNoHomeworkConflict(session, excludeCommentId, "Reading",
                 this::effectiveReadingChoiceId, this::effectiveReadingChoiceLabel, examId, examSkillGroupLabel(exam, Exercise.SkillCategory.READING));
         OffsetDateTime dueAt = resolveDueAt(session, customDueDate);
         requireNoDueDateConflict(session, excludeCommentId, dueAt);
-        return new ExamChoiceValidation(exam, dueAt);
+        boolean lateSubmissionAllowed = Boolean.TRUE.equals(customLateSubmissionAllowed);
+        requireNoLateSubmissionConflict(session, excludeCommentId, lateSubmissionAllowed);
+        return new ExamChoiceValidation(exam, dueAt, lateSubmissionAllowed);
     }
 
     /** Mirror {@link #validateReadingExerciseChoiceAndConflicts} cho kênh Writing. */
-    private ExamChoiceValidation validateWritingExerciseChoiceAndConflicts(ClassSession session, Long excludeCommentId, Long examId, LocalDateTime customDueDate) {
+    private ExamChoiceValidation validateWritingExerciseChoiceAndConflicts(ClassSession session, Long excludeCommentId, Long examId, LocalDateTime customDueDate, Boolean customLateSubmissionAllowed) {
         Exam exam = examRepository.findByIdAndDeletedAtIsNull(examId)
                 .orElseThrow(() -> new ResourceNotFoundException("error.studentComment.examNotFoundById", new Object[]{examId}, "Không tìm thấy Đề (Lesson) id=" + examId));
         requireNoHomeworkConflict(session, excludeCommentId, "Writing",
                 this::effectiveWritingChoiceId, this::effectiveWritingChoiceLabel, examId, examSkillGroupLabel(exam, Exercise.SkillCategory.WRITING));
         OffsetDateTime dueAt = resolveDueAt(session, customDueDate);
         requireNoDueDateConflict(session, excludeCommentId, dueAt);
-        return new ExamChoiceValidation(exam, dueAt);
+        boolean lateSubmissionAllowed = Boolean.TRUE.equals(customLateSubmissionAllowed);
+        requireNoLateSubmissionConflict(session, excludeCommentId, lateSubmissionAllowed);
+        return new ExamChoiceValidation(exam, dueAt, lateSubmissionAllowed);
     }
 
     /** Mirror {@link #validatePendingExerciseChoice} cho kênh Reading. */
-    private void validatePendingReadingExerciseChoice(ClassSession session, Long excludeCommentId, Long examId, LocalDateTime customDueDate) {
+    private void validatePendingReadingExerciseChoice(ClassSession session, Long excludeCommentId, Long examId, LocalDateTime customDueDate, Boolean customLateSubmissionAllowed) {
         if (examId == null) {
             return;
         }
-        validateReadingExerciseChoiceAndConflicts(session, excludeCommentId, examId, customDueDate);
+        validateReadingExerciseChoiceAndConflicts(session, excludeCommentId, examId, customDueDate, customLateSubmissionAllowed);
     }
 
     /** Mirror {@link #validatePendingReadingExerciseChoice} cho kênh Writing. */
-    private void validatePendingWritingExerciseChoice(ClassSession session, Long excludeCommentId, Long examId, LocalDateTime customDueDate) {
+    private void validatePendingWritingExerciseChoice(ClassSession session, Long excludeCommentId, Long examId, LocalDateTime customDueDate, Boolean customLateSubmissionAllowed) {
         if (examId == null) {
             return;
         }
-        validateWritingExerciseChoiceAndConflicts(session, excludeCommentId, examId, customDueDate);
+        validateWritingExerciseChoiceAndConflicts(session, excludeCommentId, examId, customDueDate, customLateSubmissionAllowed);
     }
 
     /** Mirror {@link #effectiveExerciseChoiceId} cho kênh Reading. */
@@ -2004,7 +2033,7 @@ public class StudentCommentService {
      */
     private OffsetDateTime resolveNextSessionDueAt(ClassSession session) {
         List<ClassSession> upcoming = classSessionRepository.findUpcomingSessions(
-                session.getSchoolClass().getId(), session.getSessionDate(),
+                session.getSchoolClass().getId(), session.getSessionDate(), session.getId(),
                 List.of(ClassSession.Status.CANCELLED, ClassSession.Status.RESCHEDULED), session.getTeacherType());
         if (upcoming.isEmpty()) {
             throw new NoUpcomingClassSessionException(
@@ -2099,6 +2128,55 @@ public class StudentCommentService {
         return null;
     }
 
+    /**
+     * V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — mirror {@link #effectiveDueAt}
+     * cho "Cho phép nộp muộn": chưa chọn kênh nào thì coi như false (không có gì để xung đột).
+     */
+    private boolean effectiveLateSubmissionAllowed(StudentComment c) {
+        if (c.getHomeworkNextGrammarBatch() != null) {
+            return batchLateSubmissionAllowed(c.getHomeworkNextGrammarBatch());
+        }
+        if (c.getHomeworkNextReviewVideoAssignment() != null) {
+            return c.getHomeworkNextReviewVideoAssignment().isLateSubmissionAllowed();
+        }
+        if (c.getHomeworkNextReadingBatch() != null) {
+            return batchLateSubmissionAllowed(c.getHomeworkNextReadingBatch());
+        }
+        if (c.getHomeworkNextWritingBatch() != null) {
+            return batchLateSubmissionAllowed(c.getHomeworkNextWritingBatch());
+        }
+        return Boolean.TRUE.equals(c.getPendingHomeworkNextLateSubmissionAllowed());
+    }
+
+    /** V165 — mirror {@link #requireNoDueDateConflict} cho "Cho phép nộp muộn" (cùng lý do: dedupe theo (nguồn, lớp, dueAt) ở deliverToClass KHÔNG cập nhật lại cờ này khi tái sử dụng bản giao — phải chặn lệch giá trị giữa các học sinh cùng buổi TỪ ĐẦU). */
+    private void requireNoLateSubmissionConflict(ClassSession session, Long excludeCommentId, boolean newLateSubmissionAllowed) {
+        for (StudentComment sibling : studentCommentRepository.findByClassSessionId(session.getId())) {
+            if (excludeCommentId != null && sibling.getId().equals(excludeCommentId)) {
+                continue;
+            }
+            if (!hasAnyHomeworkChoice(sibling)) {
+                continue;
+            }
+            boolean siblingLateSubmissionAllowed = effectiveLateSubmissionAllowed(sibling);
+            if (siblingLateSubmissionAllowed != newLateSubmissionAllowed) {
+                throw new HomeworkNextConflictException(
+                        "error.homeworkNextConflict.lateSubmissionAllowedLocked",
+                        new Object[]{siblingLateSubmissionAllowed, sibling.getStudent().getUser().getFullName(), newLateSubmissionAllowed},
+                        "Cho phép nộp muộn của BTVN buổi này đã khóa theo " + siblingLateSubmissionAllowed
+                                + " (chọn cho học sinh " + sibling.getStudent().getUser().getFullName()
+                                + ") — không thể đổi sang " + newLateSubmissionAllowed + " cho học sinh khác trong cùng buổi.");
+            }
+        }
+    }
+
+    /** V165 — true nếu comment đã có/đang chọn BẤT KỲ kênh BTVN nào (dùng để bỏ qua sibling "trắng", mirror điều kiện effectiveDueAt != null nhưng không cần resolve hạn nộp mặc định). */
+    private boolean hasAnyHomeworkChoice(StudentComment c) {
+        return c.getHomeworkNextGrammarBatch() != null || c.getHomeworkNextReviewVideoAssignment() != null
+                || c.getHomeworkNextReadingBatch() != null || c.getHomeworkNextWritingBatch() != null
+                || c.getPendingHomeworkNextGrammarExamId() != null || c.getPendingHomeworkNextReviewVideoSetId() != null
+                || c.getPendingHomeworkNextReadingExamId() != null || c.getPendingHomeworkNextWritingExamId() != null;
+    }
+
     /** Chấp nhận dán uuid (không giới hạn theo lớp) HOẶC chọn đúng nhãn dropdown (giới hạn theo bài đã gán cho lớp). */
     private <T> T resolveByUuidOrLabel(String text, Map<String, T> byLabel, Function<UUID, Optional<T>> byUuid, String kindLabel) {
         if (text == null) {
@@ -2171,6 +2249,12 @@ public class StudentCommentService {
                 .map(ExerciseAssignment::getDueAt).filter(java.util.Objects::nonNull).findFirst().orElse(null);
     }
 
+    /** V165 — mirror {@link #batchDueAt}: mọi ExerciseAssignment trong 1 Lô đều cùng 1 lateSubmissionAllowed. */
+    private boolean batchLateSubmissionAllowed(HomeworkSkillBatch batch) {
+        return exerciseAssignmentRepository.findByHomeworkBatchId(batch.getId()).stream()
+                .findFirst().map(ExerciseAssignment::isLateSubmissionAllowed).orElse(false);
+    }
+
     /**
      * V150 — nhãn hiển thị 1 nhóm kỹ năng CHƯA giao (đang chọn/pending, hoặc đang dựng dropdown Excel) —
      * tính LIVE theo Bài PUBLISHED hiện tại của Lesson (khác {@link #batchLabel}, vì chưa có gì để
@@ -2217,17 +2301,19 @@ public class StudentCommentService {
      * (đã xác nhận với người dùng, fix bug thật phát hiện qua test dữ liệu
      * thật lớp 6G): loại CANCELLED/RESCHEDULED khỏi "buổi liền trước" —
      * trước đây không lọc, chỉ đúng tình cờ nhờ tiebreak idDesc, xem
-     * Javadoc ClassSessionRepository#findFirstBySchoolClassIdAndSessionDateLessThanAndStatusNotInOrderBySessionDateDescIdDesc.
+     * Javadoc ClassSessionRepository#findSessionsBeforeOrderedDesc/findSessionsBeforeWithTeacherTypeOrderedDesc
+     * (V167, 2026-09-05 — 2 method đổi tên + đổi sang @Query để fix bug "2 buổi cùng ngày").
      */
     private StudentComment previousComment(ClassSession classSession, Long studentId) {
         ClassSession.TeacherType teacherType = classSession.getTeacherType();
         List<ClassSession.Status> excludedStatuses = List.of(ClassSession.Status.CANCELLED, ClassSession.Status.RESCHEDULED);
-        Optional<ClassSession> previousSession = teacherType != null
-                ? classSessionRepository.findFirstBySchoolClassIdAndSessionDateLessThanAndTeacherTypeAndStatusNotInOrderBySessionDateDescIdDesc(
-                        classSession.getSchoolClass().getId(), classSession.getSessionDate(), teacherType, excludedStatuses)
-                : classSessionRepository.findFirstBySchoolClassIdAndSessionDateLessThanAndStatusNotInOrderBySessionDateDescIdDesc(
-                        classSession.getSchoolClass().getId(), classSession.getSessionDate(), excludedStatuses);
-        return previousSession
+        List<ClassSession> candidates = teacherType != null
+                ? classSessionRepository.findSessionsBeforeWithTeacherTypeOrderedDesc(
+                        classSession.getSchoolClass().getId(), classSession.getSessionDate(), classSession.getId(), teacherType, excludedStatuses)
+                : classSessionRepository.findSessionsBeforeOrderedDesc(
+                        classSession.getSchoolClass().getId(), classSession.getSessionDate(), classSession.getId(), excludedStatuses);
+        return candidates.stream()
+                .findFirst()
                 .flatMap(prev -> studentCommentRepository.findByClassSessionIdAndStudentId(prev.getId(), studentId))
                 .orElse(null);
     }
@@ -2496,6 +2582,7 @@ public class StudentCommentService {
 
         LocalDateTime pendingDueDate = comment.getPendingHomeworkNextDueDate();
         snapshot.put("pendingHomeworkNextDueDate", pendingDueDate == null ? null : pendingDueDate.toString());
+        snapshot.put("pendingHomeworkNextLateSubmissionAllowed", comment.getPendingHomeworkNextLateSubmissionAllowed());
 
         return snapshot;
     }
@@ -2622,7 +2709,7 @@ public class StudentCommentService {
                 readingNext == null ? null : batchLabel(readingNext),
                 writingNext == null ? null : writingNext.getExam().getId(),
                 writingNext == null ? null : batchLabel(writingNext),
-                homeworkNextDueAt,
+                homeworkNextDueAt, effectiveLateSubmissionAllowed(c),
                 pendingExerciseId, pendingExerciseTitle,
                 pendingVideoSetId, pendingVideoSetTitle,
                 pendingReadingId, pendingReadingTitle,

@@ -6,6 +6,14 @@
   "welcome": "Chào mừng,",
   "you": "Bạn",
   "logout": "Thoát",
+  "enablePush": {
+    "title": "Bật thông báo đẩy",
+    "description": "Nhận thông báo bài tập, điểm số, lịch học ngay trên điện thoại.",
+    "failedHint": "Chưa bật được — vui lòng kiểm tra quyền thông báo trong Cài đặt của thiết bị rồi thử lại.",
+    "enable": "Bật",
+    "enabling": "Đang bật...",
+    "dismiss": "Ẩn thông báo này"
+  },
   "unsupportedAccount": {
     "title": "Tài khoản chưa hỗ trợ xem Portal",
     "description": "Portal hiện chỉ phục vụ tài khoản Phụ huynh và Học sinh.",
