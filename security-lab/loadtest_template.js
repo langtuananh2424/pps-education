@@ -4,9 +4,11 @@
 // GIOI HAN ro rang -- khong nham gay qua tai/sap he thong (khong phai DoS).
 //
 // Cach dung:
-//   1. Doi TARGET_URL thanh staging cua ban (chi chay khi ban CO QUYEN
-//      chinh thuc va da bao truoc cho team/nguoi lien quan).
-//   2. Chay tu may/mang do BAN kiem soat: k6 run loadtest_template.js
+//   1. Chi chay khi ban CO QUYEN chinh thuc va da bao truoc cho
+//      team/nguoi lien quan.
+//   2. Chay tu may/mang do BAN kiem soat, truyen host qua bien moi truong
+//      (khong sua thang vao file de tranh commit nham hostname noi bo):
+//        TARGET_URL=https://admin-staging.example.com k6 run loadtest_template.js
 //   3. Chon khung gio it anh huong nguoi dung that (vd ngoai gio lam viec).
 //
 // An toan / gioi han:
@@ -20,7 +22,13 @@
 import http from "k6/http";
 import { check, sleep } from "k6";
 
-const TARGET_URL = "https://REPLACE-WITH-YOUR-STAGING-URL/api/health"; // doi truoc khi chay
+// LUU Y: application.yml that chi expose "health" qua actuator, tuc path
+// la /actuator/health (KHONG phai /api/health -- neu dung /api/health se
+// luon nhan 404, lam sai lech ket qua "100% request that bai" nhung thuc
+// ra la sai duong dan, khong phai do qua tai).
+const TARGET_URL = __ENV.TARGET_URL
+  ? `${__ENV.TARGET_URL}/actuator/health`
+  : "https://REPLACE-WITH-YOUR-STAGING-URL/actuator/health"; // doi truoc khi chay, hoac truyen qua bien moi truong TARGET_URL
 
 export const options = {
   scenarios: {

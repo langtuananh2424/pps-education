@@ -10,6 +10,12 @@
 //     override trong application.yml). Neu VUs dong thoi > ~10 va moi
 //     request deu cham DB, request se XEP HANG cho connection chu khong
 //     phai do thieu CPU -- dung nham lan 2 nguyen nhan nay khi doc ket qua.
+//   - LUU Y: 100 VU KHONG co nghia 100 request dong thoi cham DB -- vi
+//     script co sleep() giua cac buoc, so request dang xu ly thuc te tai
+//     1 thoi diem (Little's Law: L = throughput x avg_duration) o lan
+//     test 100 VU tren staging thuc te chi ~6 (46.9 req/s x 0.13s) --
+//     con xa tran 10 connection. Muon that su cham tran, can VU cao hon
+//     nhieu (nac 200 duoi day) hoac giam sleep() de tang mat do request.
 //   - max-failed-attempts=5 (app.security.brute-force): PHAI dung dung
 //     TEST_PASSWORD, sai qua 5 lan se tu khoa tai khoan test 15 phut va
 //     lam sai lech ket qua (tat ca request sau do tra ve 423, khong con
@@ -39,10 +45,11 @@ export const options = {
       executor: "ramping-vus",
       startVUs: 0,
       stages: [
-        { duration: "30s", target: 5 },   // warm-up
-        { duration: "1m", target: 10 },   // xap xi tran HikariCP mac dinh -- diem dang chu y
-        { duration: "1m", target: 20 },   // vuot tran pool co tinh -- ky vong latency tang, khong phai loi
-        { duration: "30s", target: 0 },   // ramp-down
+        { duration: "30s", target: 5 },    // warm-up
+        { duration: "1m", target: 10 },    // xap xi tran HikariCP mac dinh -- diem dang chu y
+        { duration: "1m", target: 100 },   // da test thuc te tren staging: 0% loi, p(95)=230ms -- chua cham tran
+        { duration: "1m", target: 200 },   // nac moi -- tang dan de tim diem bat dau suy giam thuc su
+        { duration: "30s", target: 0 },    // ramp-down
       ],
     },
   },
