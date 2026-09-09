@@ -176,6 +176,11 @@ public class QuestionImportService {
 
             List<Map<String, Object>> errors = new ArrayList<>();
             List<Map<String, Object>> createdQuestions = new ArrayList<>();
+            // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-09 — xem Javadoc
+            // computeAutoPassageGroupKeys(): tự gộp các dòng TRAC_NGHIEM/TRAC_NGHIEM_VOICE liên tiếp
+            // cùng chung 1 "Đoạn văn tham chiếu" thành 1 nhóm groupKey, để đoạn văn hiện DÙNG CHUNG 1
+            // LẦN ở màn xem trước/làm bài thay vì lặp lại trước mỗi câu.
+            Map<Integer, String> autoPassageGroupKeys = computeAutoPassageGroupKeys(parsedRows, defaultKind);
             // Bổ sung 2026-08-28 — đếm THEO DÒNG file (khớp totalRows/parsedRows.size()), KHÔNG đếm
             // theo số Question tạo ra: DIEN_TU_NHOM có thể tạo N Question từ ĐÚNG 1 dòng, nếu đếm theo
             // createdQuestions.size() thì successRows sẽ vượt quá totalRows (sai số liệu báo cáo).
@@ -192,7 +197,7 @@ public class QuestionImportService {
                             ? mapToGridGroupRequests(row, bank.getId(), rejectActiveDuplicate)
                             : KIND_CLOZE_GROUP.equals(kind)
                             ? mapToClozeGroupRequests(row, bank.getId(), rejectActiveDuplicate)
-                            : List.of(mapToRequest(row, bank.getId(), kind));
+                            : List.of(mapToRequest(row, bank.getId(), kind, autoPassageGroupKeys.get(row.rowNumber())));
                     for (CreateQuestionRequest request : requests) {
                         QuestionResponse created = questionBankService.createQuestionInBank(
                                 bank, request, actorUserId, rejectActiveDuplicate);
@@ -460,12 +465,71 @@ public class QuestionImportService {
     }
 
     /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-09 — 1 số bài đọc hiểu có NHIỀU câu
+     * TRAC_NGHIEM ĐỘC LẬP (mỗi câu 4 đáp án riêng) nhưng cùng tham chiếu 1 đoạn văn dài; kind
+     * DOC_HIEU_LUOI có sẵn không dùng được vì nó bắt buộc CHUNG 1 bộ đáp án cho cả nhóm. Thay vì thêm
+     * cột/kind mới, tự suy luận nhóm theo dòng: các dòng TRAC_NGHIEM/TRAC_NGHIEM_VOICE LIÊN TIẾP có
+     * cùng giá trị "Đoạn văn tham chiếu" (không rỗng, so khớp NGUYÊN VĂN) được gán chung 1 groupKey để
+     * FE (ExerciseStudentPreviewModal/TakeExerciseModal#groupQuestionsByGroupKey) hiện đoạn văn DÙNG
+     * CHUNG 1 LẦN thay vì lặp lại trước mỗi câu. Dòng lỗi kind/không có đoạn văn thì cắt chuỗi liên tiếp
+     * (không gộp nhầm 2 nhóm khác nhau ở 2 đoạn văn khác nhau qua 1 dòng lỗi ở giữa). CHỈ gán groupKey
+     * cho chuỗi TỪ 2 DÒNG trở lên — 1 dòng đơn lẻ có đoạn văn (VD 1 câu TRAC_NGHIEM_VOICE có transcript
+     * riêng, không câu nào khác dùng chung) KHÔNG phải "nhóm dùng chung", giữ groupKey=null như hành vi
+     * cũ (bug thật phát hiện khi review trước khi commit 2026-09-09: bản đầu gán groupKey ngay cho
+     * dòng đầu tiên của mỗi đoạn văn mới, khiến MỌI câu Voice có transcript tự nhiên có 1 groupKey
+     * "nhóm 1 người" dù không có ý định gộp).
+     */
+    private Map<Integer, String> computeAutoPassageGroupKeys(List<QuestionRowParser.ParsedQuestionRow> rows, String defaultKind) {
+        Map<Integer, String> result = new LinkedHashMap<>();
+        String previousPassage = null;
+        List<Integer> currentRun = new ArrayList<>();
+        for (QuestionRowParser.ParsedQuestionRow row : rows) {
+            String kind;
+            try {
+                kind = resolveKind(row, defaultKind);
+            } catch (RuntimeException ex) {
+                flushPassageRun(result, currentRun);
+                currentRun = new ArrayList<>();
+                previousPassage = null;
+                continue;
+            }
+            boolean isChoiceBased = kind.equals("TRAC_NGHIEM") || kind.equals("TRAC_NGHIEM_VOICE");
+            String passage = isChoiceBased ? blankToNull(row.referencePassage()) : null;
+            if (passage != null && passage.equals(previousPassage)) {
+                currentRun.add(row.rowNumber());
+            } else {
+                flushPassageRun(result, currentRun);
+                currentRun = new ArrayList<>();
+                if (passage != null) {
+                    currentRun.add(row.rowNumber());
+                }
+            }
+            previousPassage = passage;
+        }
+        flushPassageRun(result, currentRun);
+        return result;
+    }
+
+    /** Chỉ ghi groupKey nếu chuỗi liên tiếp có TỪ 2 DÒNG trở lên — xem Javadoc computeAutoPassageGroupKeys. */
+    private void flushPassageRun(Map<Integer, String> result, List<Integer> runRowNumbers) {
+        if (runRowNumbers.size() < 2) {
+            return;
+        }
+        String groupKey = "trac-nghiem-passage-import-" + System.currentTimeMillis() + "-" + runRowNumbers.get(0);
+        for (Integer rowNumber : runRowNumbers) {
+            result.put(rowNumber, groupKey);
+        }
+    }
+
+    /**
      * Map 1 dòng thô → CreateQuestionRequest, validate theo đúng quy tắc
      * QuestionEditorForm.tsx (FE) áp dụng cho soạn tay — đảm bảo Excel/Word/
      * form tay không lệch quy tắc nhau (xem Javadoc lớp). {@code kind} đã được resolveKind() chọn +
-     * validate sẵn (tự ghi hay dùng defaultKind) — hàm này không tự suy ra kind nữa.
+     * validate sẵn (tự ghi hay dùng defaultKind) — hàm này không tự suy ra kind nữa. {@code autoGroupKey}
+     * đã được computeAutoPassageGroupKeys() gán sẵn (null nếu dòng này không thuộc nhóm đoạn văn dùng
+     * chung nào) — xem Javadoc hàm đó.
      */
-    private CreateQuestionRequest mapToRequest(QuestionRowParser.ParsedQuestionRow row, Long bankId, String kind) {
+    private CreateQuestionRequest mapToRequest(QuestionRowParser.ParsedQuestionRow row, Long bankId, String kind, String autoGroupKey) {
         if (isBlank(row.content())) {
             throw new IllegalArgumentException("Thiếu nội dung câu hỏi.");
         }
@@ -497,13 +561,21 @@ public class QuestionImportService {
             // (ExerciseStudentPreviewModal#QuestionPreview) đã render question.imageUrl không phân biệt
             // questionType từ trước.
             imageUrl = blankToNull(row.imageUrl());
+            // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-09 — fix khoảng trống thật:
+            // TRAC_NGHIEM (thường, khác TRAC_NGHIEM_VOICE) trước đây KHÔNG đọc cột "Đoạn văn tham chiếu"
+            // dù cột này đã tồn tại chung cho mọi loại câu hỏi — nên các bài đọc hiểu có NHIỀU câu trắc
+            // nghiệm ĐỘC LẬP (mỗi câu 4 đáp án riêng, khác DOC_HIEU_LUOI dùng chung 1 bộ đáp án) nhưng
+            // cùng tham chiếu 1 đoạn văn dài buộc phải dán lặp lại nguyên đoạn văn vào "Nội dung" của
+            // từng dòng — khiến màn xem trước hiển thị đoạn văn lặp lại trước mỗi câu. Đọc referencePassage
+            // cho cả TRAC_NGHIEM thường (mirror TRAC_NGHIEM_VOICE/SPEAKING đã có sẵn), để trống thì vẫn
+            // null như hành vi cũ — không ảnh hưởng các bài TRAC_NGHIEM hiện tại không dùng cột này.
+            referencePassage = blankToNull(row.referencePassage());
             if (kind.equals("TRAC_NGHIEM_VOICE")) {
                 skill = "LISTENING";
                 if (isBlank(row.audioUrl())) {
                     throw new IllegalArgumentException("Trắc nghiệm Voice cần URL audio mẫu (đã upload sẵn qua Ngân hàng câu hỏi/API media upload).");
                 }
                 audioUrl = row.audioUrl().trim();
-                referencePassage = blankToNull(row.referencePassage());
             }
         } else if (kind.equals("DIEN_TU")) {
             if (isBlank(row.correctAnswer())) {
@@ -576,7 +648,7 @@ public class QuestionImportService {
                 : "SPEAKING";
 
         return new CreateQuestionRequest(bankId, questionType, skill, difficulty, row.content().trim(),
-                audioUrl, imageUrl, referencePassage, explanation, correctAnswerText, defaultPoints, tags, choices, structuredContent, null);
+                audioUrl, imageUrl, referencePassage, explanation, correctAnswerText, defaultPoints, tags, choices, structuredContent, autoGroupKey);
     }
 
     /**
@@ -645,15 +717,29 @@ public class QuestionImportService {
         // KHẢO tĩnh (giống DIEN_TU_HOP_TU_VUNG_ANH tái dùng cột này làm wordBankOptions) — dùng CHUNG
         // giá trị này cho MỌI câu trong nhóm (mirror cách FillInBlankGroupBuilder.tsx đặt cùng
         // structuredContent.wordBox lên mọi Question tạo ra).
-        List<String> wordBox = parseTags(row.referencePassage());
+        //
+        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-09 — fix khoảng trống thật: một số
+        // bài DIEN_TU_NHOM (VD "tìm và sửa 10 lỗi ngữ pháp trong đoạn văn", mỗi câu 1 dòng trong nhóm)
+        // cần hiện ĐÚNG đoạn văn gốc làm ngữ cảnh cho học sinh, không phải hộp từ vựng — nhưng cột
+        // "Đoạn văn tham chiếu" trước đây LUÔN bị hiểu là hộp từ (tách theo dấu phẩy), nên referencePassage
+        // thật sự của câu hỏi luôn bị bỏ trống (null) dù người soạn đề điền gì vào cột này. Phân biệt 2
+        // trường hợp bằng cấu trúc nội dung (không cần thêm cột mới, không đổi hành vi của các bài hộp-từ
+        // hiện có): nếu giá trị trông như 1 đoạn văn tự nhiên (có dấu kết câu ./!/? hoặc khá dài) thì coi
+        // là đoạn văn tham chiếu THẬT, hiện nguyên văn cho học sinh và KHÔNG dựng hộp từ; ngược lại (danh
+        // sách từ/cụm ngắn, không dấu kết câu) vẫn giữ nguyên hành vi hộp từ vựng như trước.
+        String referencePassageRaw = blankToNull(row.referencePassage());
+        boolean looksLikeFreeTextPassage = referencePassageRaw != null
+                && (referencePassageRaw.length() > 200 || referencePassageRaw.matches("(?s).*[.!?](\\s|$).*"));
+        List<String> wordBox = looksLikeFreeTextPassage ? null : parseTags(row.referencePassage());
         Map<String, Object> structuredContent = wordBox == null ? null : Map.of("wordBox", wordBox);
+        String groupReferencePassage = looksLikeFreeTextPassage ? referencePassageRaw : null;
         String groupKey = "fillblank-import-" + System.currentTimeMillis() + "-" + row.rowNumber();
 
         List<CreateQuestionRequest> requests = new ArrayList<>();
         for (int i = 0; i < sentences.size(); i++) {
             String imageUrl = images == null || images.get(i).isEmpty() ? null : images.get(i);
             requests.add(new CreateQuestionRequest(bankId, "FILL_IN_BLANK", null, difficulty, sentences.get(i),
-                    null, imageUrl, null, explanation, answers.get(i), defaultPoints, tags, null, structuredContent, groupKey));
+                    null, imageUrl, groupReferencePassage, explanation, answers.get(i), defaultPoints, tags, null, structuredContent, groupKey));
         }
         return requests;
     }

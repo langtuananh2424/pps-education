@@ -301,16 +301,22 @@ function WordBankPreview({ content, wordPool }: { content: string; wordPool: str
     setSelections((prev) => prev.map((s, i) => (i === idx ? value : s)));
   };
 
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-09 — fix bug hiển thị thật: container
+  // "flex flex-wrap" trước đây coi mỗi đoạn văn bản (<span>) là 1 flex item RIÊNG, khiến trình duyệt
+  // xuống dòng theo TỪNG item thay vì cho chữ chảy liên tục như 1 đoạn văn bình thường (đoạn dài bị đẩy
+  // xuống dòng riêng, dropdown lại đứng tách biệt dòng kế tiếp — không giống đề gốc). Đổi sang flow chữ
+  // tự nhiên: <p> khối văn bản bình thường, <select> là inline-block xen giữa chữ, để trình duyệt tự
+  // ngắt dòng theo TỪNG TỪ như văn bản thật.
   return (
-    <div className="flex flex-wrap items-center gap-x-1.5 gap-y-2 text-sm font-bold text-slate-800 leading-8">
+    <p className="text-sm font-bold text-slate-800 leading-8">
       {parts.map((part, idx) => (
         <React.Fragment key={idx}>
-          {part && <span>{part}</span>}
+          {part}
           {idx < blankCount && (
             <select
               value={selections[idx]}
               onChange={(e) => handleSelect(idx, e.target.value)}
-              className="bg-slate-50 border border-slate-200 text-xs font-bold px-2 py-1.5 rounded-lg focus:outline-none"
+              className="bg-slate-50 border border-slate-200 text-xs font-bold px-2 py-1 mx-1 rounded-lg align-middle focus:outline-none"
             >
               <option value="">{t("studentPreviewModal.wordBankChoosePlaceholder")}</option>
               {wordPool
@@ -324,7 +330,7 @@ function WordBankPreview({ content, wordPool }: { content: string; wordPool: str
           )}
         </React.Fragment>
       ))}
-    </div>
+    </p>
   );
 }
 

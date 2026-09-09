@@ -1483,17 +1483,23 @@ function WordBankBlock({
     if (next.every((s) => s)) onChange(next);
   };
 
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-09 — fix bug hiển thị thật: container
+  // "flex flex-wrap" trước đây coi mỗi đoạn văn bản (<span>) là 1 flex item RIÊNG, khiến trình duyệt
+  // xuống dòng theo TỪNG item thay vì cho chữ chảy liên tục như 1 đoạn văn bình thường (đoạn dài bị đẩy
+  // xuống dòng riêng, dropdown lại đứng tách biệt dòng kế tiếp — không giống đề gốc). Đổi sang flow chữ
+  // tự nhiên: <p> khối văn bản bình thường, <select> là inline-block xen giữa chữ, để trình duyệt tự
+  // ngắt dòng theo TỪNG TỪ như văn bản thật (mirror ExerciseStudentPreviewModal#WordBankPreview).
   return (
-    <div className="flex flex-wrap items-center gap-x-1.5 gap-y-2 text-sm sm:text-base lg:text-lg font-bold text-ink leading-8 lg:leading-10">
+    <p className="text-sm sm:text-base lg:text-lg font-bold text-ink leading-8 lg:leading-10">
       {parts.map((part, idx) => (
         <React.Fragment key={idx}>
-          {part && <span>{part}</span>}
+          {part}
           {idx < blankCount && (
             <select
               value={selections[idx]}
               disabled={readOnly || saving}
               onChange={(e) => handleSelect(idx, e.target.value)}
-              className="bg-sky-2 border border-line/70 text-sm sm:text-sm lg:text-base font-bold px-2 py-1.5 sm:px-3 sm:py-2 rounded-lg focus:outline-none disabled:opacity-70"
+              className="bg-sky-2 border border-line/70 text-sm sm:text-sm lg:text-base font-bold px-2 py-1 mx-1 sm:px-3 sm:py-2 rounded-lg align-middle focus:outline-none disabled:opacity-70"
             >
               <option value="">{t("takeExercise.wordBank.choosePlaceholder")}</option>
               {wordPool
@@ -1507,7 +1513,7 @@ function WordBankBlock({
           )}
         </React.Fragment>
       ))}
-    </div>
+    </p>
   );
 }
 

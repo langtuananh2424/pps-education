@@ -226,6 +226,58 @@ class QuestionImportServiceTest extends AbstractIntegrationTest {
         assertThat(questionBankService.listQuestions(bank.id())).isEmpty();
     }
 
+    /**
+     * Bổ sung 2026-09-09 (đã xác nhận với người dùng) — nhiều câu TRAC_NGHIEM ĐỘC LẬP (đáp án riêng
+     * từng câu, khác DOC_HIEU_LUOI dùng chung 1 bộ đáp án) nhưng cùng tham chiếu 1 đoạn văn dài — các
+     * dòng LIÊN TIẾP cùng "Đoạn văn tham chiếu" (khớp nguyên văn) tự động gộp chung 1 groupKey để FE
+     * hiện đoạn văn 1 lần duy nhất, xem computeAutoPassageGroupKeys().
+     */
+    @Test
+    void importQuestions_boSung_autoGroupsConsecutiveTracNghiemSharingReferencePassage() throws IOException {
+        String passage = "Tom lives in a small town. He goes to school every day by bike.";
+        byte[] file = buildExcel(new String[][]{
+                {"TRAC_NGHIEM", null, "Where does Tom live?", "A big city", "A small town", "A farm", "An island", "B",
+                        null, null, passage, "1", null, null},
+                {"TRAC_NGHIEM", null, "How does Tom go to school?", "By bus", "By car", "By bike", "On foot", "C",
+                        null, null, passage, "1", null, null},
+                {"TRAC_NGHIEM", null, "What is the capital of France?", "London", "Paris", "Berlin", "Madrid", "B",
+                        null, null, null, "1", null, null}
+        });
+
+        QuestionImportResponse result = questionImportService.importQuestions(bank.id(),
+                new MockMultipartFile("file", "doc-hieu-doc-lap.xlsx", "application/vnd.openxmlformats", file), teacher.getId());
+
+        assertThat(result.status()).isEqualTo("COMPLETED");
+        assertThat(result.successRows()).isEqualTo(3);
+
+        List<QuestionResponse> saved = questionBankService.listQuestions(bank.id());
+        QuestionResponse q1 = findByContentPrefix(saved, "Where does Tom live");
+        QuestionResponse q2 = findByContentPrefix(saved, "How does Tom go to school");
+        QuestionResponse q3 = findByContentPrefix(saved, "What is the capital of France");
+
+        assertThat(q1.groupKey()).isNotNull();
+        assertThat(q1.groupKey()).isEqualTo(q2.groupKey());
+        assertThat(q1.referencePassage()).isEqualTo(passage);
+        assertThat(q2.referencePassage()).isEqualTo(passage);
+        assertThat(q3.groupKey()).isNull();
+    }
+
+    /** 1 dòng đơn lẻ có "Đoạn văn tham chiếu" (không dòng nào khác dùng chung) — KHÔNG tự tạo groupKey "nhóm 1 người". */
+    @Test
+    void importQuestions_boSung_doesNotAutoGroupIsolatedTracNghiemWithReferencePassage() throws IOException {
+        byte[] file = buildExcel(new String[][]{
+                {"TRAC_NGHIEM_VOICE", null, "Listen and choose the word you hear.", "ship", "sheep", "chip", "cheap", "B",
+                        "https://example.com/a.mp3", null, "sheep", "1", null, null}
+        });
+
+        QuestionImportResponse result = questionImportService.importQuestions(bank.id(),
+                new MockMultipartFile("file", "voice-doc-lap.xlsx", "application/vnd.openxmlformats", file), teacher.getId());
+
+        assertThat(result.status()).isEqualTo("COMPLETED");
+        QuestionResponse saved = questionBankService.listQuestions(bank.id()).get(0);
+        assertThat(saved.groupKey()).isNull();
+    }
+
     /** Thiếu cột bắt buộc (Nội dung/Content) trong header → không đọc được dòng nào, báo lỗi rõ ngay từ đầu file. */
     @Test
     void importQuestions_boSung_rejectsFileMissingRequiredContentHeader() throws IOException {
@@ -374,6 +426,33 @@ class QuestionImportServiceTest extends AbstractIntegrationTest {
         QuestionResponse q3 = findByContentPrefix(saved, "Our football");
         assertThat(q3.correctAnswerText()).isEqualTo("coach");
         assertThat(q3.imageUrl()).isEqualTo("https://example.com/3.png");
+    }
+
+    /**
+     * Bổ sung 2026-09-09 (đã xác nhận với người dùng) — 1 số bài DIEN_TU_NHOM (VD "tìm và sửa lỗi
+     * trong đoạn văn") cần hiện ĐÚNG đoạn văn gốc làm ngữ cảnh, không phải hộp từ vựng tham khảo — cột
+     * "Đoạn văn tham chiếu" trông như 1 đoạn văn tự nhiên (dài hoặc có dấu kết câu ./!/?) thì dùng làm
+     * referencePassage thật cho MỌI câu trong nhóm, KHÔNG dựng wordBox (khác test phía trên dùng danh
+     * sách từ ngắn, không dấu kết câu, vẫn giữ hành vi hộp từ như cũ).
+     */
+    @Test
+    void importQuestions_boSung_fillInBlankGroupUsesRealPassageWhenReferenceLooksLikeNaturalText() throws IOException {
+        String passage = "Peter goes to school every day. He like his teacher very much and enjoy the class.";
+        byte[] file = buildExcel(new String[][]{
+                {"DIEN_TU_NHOM", null,
+                        "Peter ___ to school every day.|He ___ his teacher very much.|He ___ the class.",
+                        null, null, null, null, "goes|likes|enjoys",
+                        null, null, passage, "1", null, null}
+        });
+
+        QuestionImportResponse result = questionImportService.importQuestions(bank.id(),
+                new MockMultipartFile("file", "sua-loi-doan-van.xlsx", "application/vnd.openxmlformats", file), teacher.getId());
+
+        assertThat(result.status()).isEqualTo("COMPLETED");
+        List<QuestionResponse> saved = questionBankService.listQuestions(bank.id());
+        assertThat(saved).hasSize(3);
+        assertThat(saved).allMatch(q -> passage.equals(q.referencePassage()));
+        assertThat(saved).allMatch(q -> q.structuredContent() == null);
     }
 
     /** A1: số đáp án không khớp số câu — lỗi rõ ràng, KHÔNG tạo câu nào của nhóm (không dở dang). */
