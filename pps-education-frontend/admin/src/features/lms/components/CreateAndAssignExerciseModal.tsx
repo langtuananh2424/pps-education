@@ -422,10 +422,16 @@ export function ExerciseQuestionsStep({
   /**
    * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — tab "Nhập Excel/Word" giờ bật cho
    * cả 2 loại GV (trước đây FOREIGN chỉ có "compose"), NHƯNG ẩn hẳn khi Nhóm kỹ năng không có loại
-   * nào import được (READING — Cloze/Grid chỉ là composite, chưa từng import được, xem
-   * QuestionImportService.java) để tránh hiện 1 tab rỗng vô nghĩa.
+   * nào import được để tránh hiện 1 tab rỗng vô nghĩa.
+   *
+   * Sửa lại 2026-09-08 (đã xác nhận với người dùng) — READING (Cloze/Grid) giờ CŨNG import được
+   * (DOC_HIEU_LUOI/DOC_DIEN_TU, xem QuestionImportService.java) dù `allowedKinds` (danh sách kind cho
+   * kind-picker "single") vẫn rỗng cho READING — Cloze/Grid vẫn CHỈ soạn tay qua composite builder ở
+   * mode "compose" như trước, KHÔNG có kind-picker "single" riêng. `allowedKinds.length > 0` không còn
+   * là điều kiện đúng cho "có import được không" — tách riêng READING làm trường hợp thứ 2.
    */
-  const availableModes: QuestionSourceMode[] = allowedKinds.length > 0 ? ["import", "compose"] : ["compose"];
+  const canImport = allowedKinds.length > 0 || exercise.skillCategory === "READING";
+  const availableModes: QuestionSourceMode[] = canImport ? ["import", "compose"] : ["compose"];
   const [mode, setMode] = useState<QuestionSourceMode>(availableModes[0]);
   const [composeSubMode, setComposeSubMode] = useState<ComposeSubMode>(composeModes[0]);
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04 — Bài có thể ĐÃ có sẵn câu hỏi (mở

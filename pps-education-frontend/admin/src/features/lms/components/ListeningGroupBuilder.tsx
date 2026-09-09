@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import Button from "@/components/ui/Button";
 import FileUploadField from "@/components/ui/FileUploadField";
+import Select from "@/components/ui/Select";
 import { QuestionResponse, QuestionType, createExamQuestion, uploadMedia } from "../api";
 
 const inputClass = "w-full bg-white border border-slate-200 text-xs px-3.5 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-red";
@@ -251,14 +252,14 @@ export default function ListeningGroupBuilder({
       {existingGroups && existingGroups.length > 0 && (
         <div>
           <label className={labelClass}>{t("listeningGroupBuilder.appendTargetLabel")}</label>
-          <select value={appendTarget} onChange={(e) => handleSelectAppendTarget(e.target.value)} className={inputClass}>
+          <Select value={appendTarget} onChange={(e) => handleSelectAppendTarget(e.target.value)} className={inputClass}>
             <option value="new">{t("listeningGroupBuilder.appendTargetNew")}</option>
             {existingGroups.map((g) => (
               <option key={g.groupKey} value={g.groupKey}>
                 {t("listeningGroupBuilder.appendTargetOption", { count: g.questionCount, content: g.sampleContent })}
               </option>
             ))}
-          </select>
+          </Select>
           {isAppending && <p className="text-[10px] text-slate-400 mt-1">{t("listeningGroupBuilder.appendTargetHint")}</p>}
         </div>
       )}

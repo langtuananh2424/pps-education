@@ -86,10 +86,23 @@ public class QuestionImportService {
      */
     private static final String KIND_FILL_IN_BLANK_GROUP = "DIEN_TU_NHOM";
 
+    /**
+     * Bổ sung 2026-09-08 (đã xác nhận với người dùng — mở khóa import cho Reading, trước đó CỐ Ý loại
+     * trừ vì Cloze/Grid là composite builder — xem Javadoc lớp cũ): "DOC_HIEU_LUOI" (mirror
+     * GridQuestionBuilder.tsx) — N câu MULTIPLE_CHOICE dùng CHUNG 1 referencePassage + CHUNG 1 bộ đáp
+     * án (Đáp án A-D không phân tách "|", áp dụng cho MỌI câu trong nhóm); "DOC_DIEN_TU" (mirror
+     * ClozeQuestionBuilder.tsx) — 1 referencePassage + N chỗ trống, MỖI chỗ trống bộ đáp án RIÊNG (Đáp
+     * án A-D MỖI cột phân tách "|", 1 phần tử/chỗ trống). Cả 2 tái dùng NGUYÊN cột có sẵn (không thêm
+     * cột mới) theo đúng tiền lệ DIEN_TU_HOP_TU_VUNG/SAP_XEP_CAU/DIEN_TU_NHOM — xem
+     * mapToGridGroupRequests()/mapToClozeGroupRequests().
+     */
+    private static final String KIND_GRID_GROUP = "DOC_HIEU_LUOI";
+    private static final String KIND_CLOZE_GROUP = "DOC_DIEN_TU";
+
     private static final Set<String> VALID_KINDS = Set.of(
             "TRAC_NGHIEM", "TRAC_NGHIEM_VOICE", "DIEN_TU", "TU_LUAN", "SPEAKING",
             "DIEN_TU_HOP_TU_VUNG", "DIEN_TU_HOP_TU_VUNG_ANH", "SAP_XEP_CAU", "SAP_XEP_CHU_CAI",
-            "NGHE_NOP_AUDIO", "NGHE_DIEN_TU", KIND_FILL_IN_BLANK_GROUP);
+            "NGHE_NOP_AUDIO", "NGHE_DIEN_TU", KIND_FILL_IN_BLANK_GROUP, KIND_GRID_GROUP, KIND_CLOZE_GROUP);
     private static final Set<String> VALID_DIFFICULTIES = Set.of("EASY", "MEDIUM", "HARD");
 
     private final ImportJobRepository importJobRepository;
@@ -170,11 +183,15 @@ public class QuestionImportService {
             for (QuestionRowParser.ParsedQuestionRow row : parsedRows) {
                 try {
                     String kind = resolveKind(row, defaultKind);
-                    // DIEN_TU_NHOM là kind DUY NHẤT mà 1 dòng tạo ra NHIỀU Question (mapToGroupRequests
-                    // tự validate + pre-check trùng TRƯỚC KHI tạo bất kỳ câu nào, xem Javadoc ở đó) —
-                    // mọi kind khác vẫn 1 dòng = 1 Question như cũ.
+                    // DIEN_TU_NHOM/DOC_HIEU_LUOI/DOC_DIEN_TU là 3 kind mà 1 dòng tạo ra NHIỀU Question
+                    // (mỗi hàm tự validate + pre-check trùng TRƯỚC KHI tạo bất kỳ câu nào, xem Javadoc
+                    // từng hàm) — mọi kind khác vẫn 1 dòng = 1 Question như cũ.
                     List<CreateQuestionRequest> requests = KIND_FILL_IN_BLANK_GROUP.equals(kind)
                             ? mapToGroupRequests(row, bank.getId(), rejectActiveDuplicate)
+                            : KIND_GRID_GROUP.equals(kind)
+                            ? mapToGridGroupRequests(row, bank.getId(), rejectActiveDuplicate)
+                            : KIND_CLOZE_GROUP.equals(kind)
+                            ? mapToClozeGroupRequests(row, bank.getId(), rejectActiveDuplicate)
                             : List.of(mapToRequest(row, bank.getId(), kind));
                     for (CreateQuestionRequest request : requests) {
                         QuestionResponse created = questionBankService.createQuestionInBank(
@@ -233,7 +250,10 @@ public class QuestionImportService {
             "VOCAB_GRAMMAR", Set.of("TRAC_NGHIEM", "TRAC_NGHIEM_VOICE", "DIEN_TU", KIND_FILL_IN_BLANK_GROUP,
                     "DIEN_TU_HOP_TU_VUNG", "DIEN_TU_HOP_TU_VUNG_ANH", "SAP_XEP_CAU", "SAP_XEP_CHU_CAI"),
             "WRITING", Set.of("TU_LUAN"),
-            "LISTENING", Set.of("TRAC_NGHIEM_VOICE", "NGHE_NOP_AUDIO", "NGHE_DIEN_TU"));
+            "LISTENING", Set.of("TRAC_NGHIEM_VOICE", "NGHE_NOP_AUDIO", "NGHE_DIEN_TU"),
+            // Bổ sung 2026-09-08 — trước đây READING không có entry (Cloze/Grid chưa import được), giờ
+            // mở khóa cả 2 group kind mới.
+            "READING", Set.of(KIND_GRID_GROUP, KIND_CLOZE_GROUP));
 
     /**
      * File mẫu Word (.docx) soạn đề nhanh — tĩnh, không cá nhân hoá theo
@@ -382,6 +402,31 @@ public class QuestionImportService {
                 "Đáp án đúng: drives",
                 "Giải thích: Hệ thống tự chấm theo đáp án đúng.",
                 "---"));
+        blocks.put(KIND_GRID_GROUP, List.of(
+                "[DOC_HIEU_LUOI]",
+                // 3 dòng riêng (KHÔNG gộp "\n" vào 1 chuỗi) — WordQuestionRowParser.LABEL_PATTERN dùng
+                // "." không có DOTALL nên KHÔNG match được label chứa newline trong CÙNG 1 paragraph;
+                // để mỗi lượt thoại 1 paragraph riêng, dựa vào cơ chế nối tiếp field gần nhất (dòng
+                // không khớp nhãn/đáp án nào) đã có sẵn để tự nối lại thành 1 referencePassage nhiều
+                // dòng — bug thật phát hiện qua CI (2026-09-09): thiếu tách dòng làm referencePassage
+                // bị đọc null, cả block lỗi "Thiếu đoạn văn tham chiếu".
+                "Đoạn văn tham chiếu: Tom: I go to a big school in London...",
+                "Max: I live in New York...",
+                "Anna: I am a new student in Paris...",
+                "Nội dung: Who loves a subject because of visiting museums?|Who says friends think their hobby is strange?|Who talks about both a school subject and a sport?",
+                "A. Tom", "B. Max", "C. Anna",
+                "Đáp án đúng: B|A|C",
+                "Giải thích: Mỗi câu trong \"Nội dung\" phân tách bằng dấu |, dùng CHUNG 1 đoạn văn + CHUNG 1 bộ đáp án A-D (mỗi đáp án 1 dòng \"A. ...\"/\"B. ...\", KHÔNG phân tách |, áp dụng cho MỌI câu). \"Đáp án đúng\" là chữ cái A/B/C/D theo ĐÚNG thứ tự khớp \"Nội dung\".",
+                "---"));
+        blocks.put(KIND_CLOZE_GROUP, List.of(
+                "[DOC_DIEN_TU]",
+                "Đoạn văn tham chiếu: The school has an excellent (1)___ with many computers. Every Monday, students check their new (2)___. Most students prefer creative (3)___ like art and music.",
+                "A. environment|timetable|hours",
+                "B. equipment|subject|lessons",
+                "C. job|homework|subjects",
+                "Đáp án đúng: B|A|C",
+                "Giải thích: Số chỗ trống suy ra từ số phần tử \"|\" ở dòng \"A. ...\" (bắt buộc) — dòng \"B./C./D.\" (nếu có) phải cùng số lượng, MỖI chỗ trống 1 phương án riêng (khác DOC_HIEU_LUOI dùng chung đáp án cho mọi câu). \"Nội dung\" (tùy chọn) đặt nhãn riêng từng chỗ trống phân tách |, để trống thì tự đánh số \"Chỗ trống 1/2/3\".",
+                "---"));
         return blocks;
     }
 
@@ -409,7 +454,7 @@ public class QuestionImportService {
             throw new IllegalArgumentException("Loại câu hỏi không hợp lệ: '" + raw
                     + "' — chỉ chấp nhận TRAC_NGHIEM/TRAC_NGHIEM_VOICE/DIEN_TU/DIEN_TU_NHOM/TU_LUAN/SPEAKING/"
                     + "DIEN_TU_HOP_TU_VUNG/DIEN_TU_HOP_TU_VUNG_ANH/SAP_XEP_CAU/SAP_XEP_CHU_CAI/"
-                    + "NGHE_NOP_AUDIO/NGHE_DIEN_TU.");
+                    + "NGHE_NOP_AUDIO/NGHE_DIEN_TU/DOC_HIEU_LUOI/DOC_DIEN_TU.");
         }
         return kind;
     }
@@ -604,6 +649,219 @@ public class QuestionImportService {
                     null, imageUrl, null, explanation, answers.get(i), defaultPoints, tags, null, structuredContent, groupKey));
         }
         return requests;
+    }
+
+    /**
+     * DOC_HIEU_LUOI (bổ sung 2026-09-08, đã xác nhận với người dùng — mirror GridQuestionBuilder.tsx):
+     * 1 dòng file → N CreateQuestionRequest (1/câu), TẤT CẢ dùng CHUNG referencePassage + CHUNG 1 bộ
+     * đáp án (Đáp án A-D KHÔNG phân tách "|" — áp dụng y hệt cho mọi câu, khác DOC_DIEN_TU ở dưới nơi
+     * mỗi chỗ trống có bộ đáp án riêng). "Nội dung" phân tách "|" thành N câu hỏi, "Đáp án đúng" phân
+     * tách "|" thành N chữ cái (A/B/C/D) theo ĐÚNG thứ tự khớp "Nội dung".
+     */
+    private List<CreateQuestionRequest> mapToGridGroupRequests(QuestionRowParser.ParsedQuestionRow row, Long bankId, boolean rejectActiveDuplicate) {
+        if (isBlank(row.content())) {
+            throw new IllegalArgumentException("Thiếu nội dung câu hỏi.");
+        }
+        if (isBlank(row.referencePassage())) {
+            throw new IllegalArgumentException("Đọc hiểu — lưới cần \"Đoạn văn tham chiếu\" dùng chung cho cả nhóm câu hỏi.");
+        }
+        // splitPipeKeepBlanks (KHÔNG phải splitOrdered) — GIỮ NGUYÊN vị trí rỗng, bắt buộc vì "Nội
+        // dung"/"Đáp án đúng" khớp nhau THEO VỊ TRÍ; splitOrdered lọc bỏ phần tử rỗng sẽ làm lệch vị trí
+        // ÂM THẦM (VD lỡ để trống 1 câu giữa chừng sẽ làm câu sau bị gán nhầm đáp án của câu trước).
+        List<String> questions = splitPipeKeepBlanks(row.content());
+        for (int i = 0; i < questions.size(); i++) {
+            if (questions.get(i).isEmpty()) {
+                throw new IllegalArgumentException("Đọc hiểu — lưới: câu hỏi thứ " + (i + 1) + " (theo dấu |) bị rỗng trong \"Nội dung\".");
+            }
+        }
+        if (questions.size() < 2) {
+            throw new IllegalArgumentException("Đọc hiểu — lưới cần tối thiểu 2 câu hỏi trong \"Nội dung\", phân tách bằng dấu |.");
+        }
+        List<QuestionChoiceRequest> sharedChoices = buildSharedGroupChoices(row);
+        if (isBlank(row.correctAnswer())) {
+            throw new IllegalArgumentException("Đọc hiểu — lưới cần \"Đáp án đúng\" cho từng câu (chữ cái A/B/C/D), phân tách bằng dấu |.");
+        }
+        List<String> answerLetters = splitPipeKeepBlanks(row.correctAnswer());
+        if (answerLetters.size() != questions.size()) {
+            throw new IllegalArgumentException("Đọc hiểu — lưới: số đáp án (" + answerLetters.size()
+                    + ") không khớp số câu hỏi (" + questions.size() + ") trong \"Nội dung\".");
+        }
+        if (Set.copyOf(questions).size() != questions.size()) {
+            throw new IllegalArgumentException("Đọc hiểu — lưới: có 2 câu hỏi trùng nội dung trong CÙNG 1 nhóm — mỗi câu phải khác nhau.");
+        }
+        if (rejectActiveDuplicate) {
+            for (String q : questions) {
+                if (questionBankService.existsActiveDuplicate(bankId, q)) {
+                    throw new IllegalArgumentException("Đọc hiểu — lưới: câu \"" + q + "\" đã tồn tại trong ngân hàng câu hỏi (trùng nội dung) — không thể tạo trùng.");
+                }
+            }
+        }
+
+        String difficulty = isBlank(row.difficulty()) ? "MEDIUM" : normalizeToken(row.difficulty());
+        if (!VALID_DIFFICULTIES.contains(difficulty)) {
+            throw new IllegalArgumentException("Độ khó không hợp lệ: '" + row.difficulty() + "' — chỉ chấp nhận EASY/MEDIUM/HARD.");
+        }
+        BigDecimal defaultPoints = parsePoints(row.defaultPoints());
+        List<String> tags = parseTags(row.tags());
+        String explanation = blankToNull(row.explanation());
+        String referencePassage = row.referencePassage().trim();
+        String groupKey = "grid-import-" + System.currentTimeMillis() + "-" + row.rowNumber();
+
+        List<CreateQuestionRequest> requests = new ArrayList<>();
+        for (int i = 0; i < questions.size(); i++) {
+            String correctLetter = answerLetterAt(answerLetters, i, sharedChoices.size());
+            List<QuestionChoiceRequest> choicesForQuestion = applyCorrectLetter(sharedChoices, correctLetter);
+            requests.add(new CreateQuestionRequest(bankId, "MULTIPLE_CHOICE", "READING", difficulty, questions.get(i),
+                    null, null, referencePassage, explanation, null, defaultPoints, tags, choicesForQuestion, null, groupKey));
+        }
+        return requests;
+    }
+
+    /**
+     * DOC_DIEN_TU (bổ sung 2026-09-08, đã xác nhận với người dùng — mirror ClozeQuestionBuilder.tsx):
+     * 1 dòng file → N CreateQuestionRequest (1/chỗ trống), dùng CHUNG referencePassage nhưng MỖI chỗ
+     * trống có bộ đáp án RIÊNG — số lượng chỗ trống suy ra từ số phần tử "|" trong cột Đáp án A (cột
+     * bắt buộc), các cột Đáp án B/C/D (nếu có) phải cùng số lượng. "Nội dung" (tùy chọn) đặt nhãn riêng
+     * từng chỗ trống, phân tách "|", để trống thì tự đánh số "Chỗ trống 1", "Chỗ trống 2"...
+     */
+    private List<CreateQuestionRequest> mapToClozeGroupRequests(QuestionRowParser.ParsedQuestionRow row, Long bankId, boolean rejectActiveDuplicate) {
+        if (isBlank(row.referencePassage())) {
+            throw new IllegalArgumentException("Đọc điền từ — Cloze cần \"Đoạn văn tham chiếu\" (đoạn văn có đánh số chỗ trống).");
+        }
+        if (isBlank(row.choiceA())) {
+            throw new IllegalArgumentException("Đọc điền từ — Cloze cần cột \"Đáp án A\" — mỗi chỗ trống 1 phương án A, phân tách bằng dấu | theo thứ tự.");
+        }
+        // splitPipeKeepBlanks (KHÔNG phải splitOrdered) — xem giải thích ở mapToGridGroupRequests, ở đây
+        // CÀNG quan trọng hơn vì blankCount suy ra TRỰC TIẾP từ độ dài optionsA.
+        List<String> optionsA = splitPipeKeepBlanks(row.choiceA());
+        int blankCount = optionsA.size();
+        if (blankCount < 2) {
+            throw new IllegalArgumentException("Đọc điền từ — Cloze cần tối thiểu 2 chỗ trống (2 phần tử phân tách bằng dấu | ở cột \"Đáp án A\").");
+        }
+        List<List<String>> optionColumns = new ArrayList<>();
+        optionColumns.add(optionsA);
+        addOptionColumnIfPresent(optionColumns, row.choiceB(), "B", blankCount);
+        addOptionColumnIfPresent(optionColumns, row.choiceC(), "C", blankCount);
+        addOptionColumnIfPresent(optionColumns, row.choiceD(), "D", blankCount);
+        if (optionColumns.size() < 2) {
+            throw new IllegalArgumentException("Đọc điền từ — Cloze cần tối thiểu 2 đáp án/chỗ trống (điền thêm \"Đáp án B\").");
+        }
+
+        if (isBlank(row.correctAnswer())) {
+            throw new IllegalArgumentException("Đọc điền từ — Cloze cần \"Đáp án đúng\" cho từng chỗ trống (chữ cái A/B/C/D), phân tách bằng dấu |.");
+        }
+        List<String> answerLetters = splitPipeKeepBlanks(row.correctAnswer());
+        if (answerLetters.size() != blankCount) {
+            throw new IllegalArgumentException("Đọc điền từ — Cloze: số đáp án (" + answerLetters.size()
+                    + ") không khớp số chỗ trống (" + blankCount + ") suy ra từ \"Đáp án A\".");
+        }
+
+        List<String> labels;
+        if (isBlank(row.content())) {
+            labels = new ArrayList<>();
+            for (int i = 1; i <= blankCount; i++) {
+                labels.add("Chỗ trống " + i);
+            }
+        } else {
+            labels = splitPipeKeepBlanks(row.content());
+            for (int i = 0; i < labels.size(); i++) {
+                if (labels.get(i).isEmpty()) {
+                    throw new IllegalArgumentException("Đọc điền từ — Cloze: nhãn chỗ trống thứ " + (i + 1) + " (theo dấu |) bị rỗng trong \"Nội dung\".");
+                }
+            }
+            if (labels.size() != blankCount) {
+                throw new IllegalArgumentException("Đọc điền từ — Cloze: số nhãn chỗ trống trong \"Nội dung\" (" + labels.size()
+                        + ") không khớp số chỗ trống (" + blankCount + ") suy ra từ \"Đáp án A\" — để trống cả cột \"Nội dung\" nếu muốn tự đánh số.");
+            }
+        }
+        if (Set.copyOf(labels).size() != labels.size()) {
+            throw new IllegalArgumentException("Đọc điền từ — Cloze: có 2 chỗ trống trùng nhãn trong \"Nội dung\" — mỗi nhãn phải khác nhau.");
+        }
+        if (rejectActiveDuplicate) {
+            for (String label : labels) {
+                if (questionBankService.existsActiveDuplicate(bankId, label)) {
+                    throw new IllegalArgumentException("Đọc điền từ — Cloze: nhãn \"" + label + "\" đã tồn tại trong ngân hàng câu hỏi (trùng nội dung) — không thể tạo trùng.");
+                }
+            }
+        }
+
+        String difficulty = isBlank(row.difficulty()) ? "MEDIUM" : normalizeToken(row.difficulty());
+        if (!VALID_DIFFICULTIES.contains(difficulty)) {
+            throw new IllegalArgumentException("Độ khó không hợp lệ: '" + row.difficulty() + "' — chỉ chấp nhận EASY/MEDIUM/HARD.");
+        }
+        BigDecimal defaultPoints = parsePoints(row.defaultPoints());
+        List<String> tags = parseTags(row.tags());
+        String explanation = blankToNull(row.explanation());
+        String referencePassage = row.referencePassage().trim();
+        String groupKey = "cloze-import-" + System.currentTimeMillis() + "-" + row.rowNumber();
+
+        List<CreateQuestionRequest> requests = new ArrayList<>();
+        for (int i = 0; i < blankCount; i++) {
+            String correctLetter = answerLetterAt(answerLetters, i, optionColumns.size());
+            List<QuestionChoiceRequest> choicesForBlank = new ArrayList<>();
+            for (int col = 0; col < optionColumns.size(); col++) {
+                String label = String.valueOf((char) ('A' + col));
+                String content = optionColumns.get(col).get(i);
+                if (isBlank(content)) {
+                    throw new IllegalArgumentException("Đọc điền từ — Cloze: chỗ trống thứ " + (i + 1) + " thiếu phương án " + label + ".");
+                }
+                choicesForBlank.add(new QuestionChoiceRequest(label, content.trim(), null, label.equals(correctLetter), col + 1));
+            }
+            requests.add(new CreateQuestionRequest(bankId, "MULTIPLE_CHOICE", "READING", difficulty, labels.get(i),
+                    null, null, referencePassage, explanation, null, defaultPoints, tags, choicesForBlank, null, groupKey));
+        }
+        return requests;
+    }
+
+    /** Đáp án A-D dùng CHUNG cho mọi câu trong nhóm DOC_HIEU_LUOI (khác DOC_DIEN_TU — mỗi chỗ trống riêng). */
+    private List<QuestionChoiceRequest> buildSharedGroupChoices(QuestionRowParser.ParsedQuestionRow row) {
+        List<String> raw = new ArrayList<>();
+        for (String c : new String[]{row.choiceA(), row.choiceB(), row.choiceC(), row.choiceD()}) {
+            if (!isBlank(c)) {
+                raw.add(c.trim());
+            }
+        }
+        if (raw.size() < 2) {
+            throw new IllegalArgumentException("Đọc hiểu — lưới cần tối thiểu 2 đáp án dùng chung (Đáp án A/B), tối đa 4 (A-D).");
+        }
+        List<QuestionChoiceRequest> choices = new ArrayList<>();
+        for (int i = 0; i < raw.size(); i++) {
+            String label = String.valueOf((char) ('A' + i));
+            choices.add(new QuestionChoiceRequest(label, raw.get(i), null, false, i + 1));
+        }
+        return choices;
+    }
+
+    /** Trả về bản sao {@code shared} với đúng 1 lựa chọn được đánh dấu isCorrect (giữ nguyên isCorrect=false ở base). */
+    private List<QuestionChoiceRequest> applyCorrectLetter(List<QuestionChoiceRequest> shared, String correctLetter) {
+        List<QuestionChoiceRequest> copy = new ArrayList<>();
+        for (QuestionChoiceRequest c : shared) {
+            copy.add(new QuestionChoiceRequest(c.choiceLabel(), c.content(), c.imageUrl(), c.choiceLabel().equals(correctLetter), c.displayOrder()));
+        }
+        return copy;
+    }
+
+    private void addOptionColumnIfPresent(List<List<String>> optionColumns, String rawColumn, String label, int expectedCount) {
+        if (isBlank(rawColumn)) {
+            return;
+        }
+        // splitPipeKeepBlanks (KHÔNG phải splitOrdered) — giữ đúng vị trí, khớp Javadoc mapToClozeGroupRequests.
+        List<String> parsed = splitPipeKeepBlanks(rawColumn);
+        if (parsed.size() != expectedCount) {
+            throw new IllegalArgumentException("Đọc điền từ — Cloze: số phương án " + label + " (" + parsed.size()
+                    + ") không khớp số chỗ trống (" + expectedCount + ") suy ra từ \"Đáp án A\".");
+        }
+        optionColumns.add(parsed);
+    }
+
+    private String answerLetterAt(List<String> answerLetters, int index, int optionCount) {
+        String letter = answerLetters.get(index).trim().toUpperCase(Locale.ROOT);
+        String allowedLetters = "ABCD".substring(0, optionCount);
+        if (letter.length() != 1 || allowedLetters.indexOf(letter.charAt(0)) < 0) {
+            throw new IllegalArgumentException("Đáp án đúng ở vị trí thứ " + (index + 1) + " phải là 1 chữ cái trong "
+                    + String.join("/", allowedLetters.split("")) + " (đang có: '" + answerLetters.get(index) + "').");
+        }
+        return letter;
     }
 
     /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — tách 1 chuỗi thành danh sách CÓ THỨ TỰ theo dấu |, dùng cho blanks/chunks. */
