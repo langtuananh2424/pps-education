@@ -43,6 +43,11 @@ final class QuestionImportFieldAliases {
             Map.entry("transcript tu khoa", "referencePassage"),
             Map.entry("transcript", "referencePassage"), Map.entry("tu khoa phat am", "referencePassage"),
             Map.entry("pronunciation keywords", "referencePassage"), Map.entry("keywords", "referencePassage"),
+            // Bổ sung 2026-09-08 (đã xác nhận với người dùng — mở khóa import DOC_HIEU_LUOI/DOC_DIEN_TU,
+            // xem QuestionImportService) — cùng field referencePassage nhưng đặt tên rõ nghĩa hơn cho
+            // ngữ cảnh Reading (khác ngữ cảnh Speaking/WordBank vốn dùng nhãn "Transcript").
+            Map.entry("doan van tham chieu", "referencePassage"), Map.entry("reference passage", "referencePassage"),
+            Map.entry("doan van", "referencePassage"), Map.entry("passage", "referencePassage"),
 
             Map.entry("diem", "defaultPoints"), Map.entry("diem mac dinh", "defaultPoints"),
             Map.entry("points", "defaultPoints"), Map.entry("score", "defaultPoints"),

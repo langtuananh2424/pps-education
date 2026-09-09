@@ -3,6 +3,7 @@ import { Download, UploadCloud } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { buildXlsxTemplateBlob, downloadBlob } from "@/lib/xlsxTemplate";
+import Select from "@/components/ui/Select";
 import {
   ExamTeacherType,
   ExerciseSkillCategory,
@@ -31,18 +32,22 @@ interface QuestionImportPanelProps {
 }
 
 /** Mirror SKILL_CATEGORY_KIND_TOKENS ở QuestionImportService.java (backend) — nguồn chân lý DUY NHẤT
- * cho lọc file mẫu Excel phía FE, KHÔNG tự thêm/bớt token khác backend. */
+ * cho lọc file mẫu Excel phía FE, KHÔNG tự thêm/bớt token khác backend.
+ * Bổ sung 2026-09-08 (đã xác nhận với người dùng) — READING mở khóa import (DOC_HIEU_LUOI/DOC_DIEN_TU,
+ * mirror GridQuestionBuilder.tsx/ClozeQuestionBuilder.tsx), trước đó không có entry vì Cloze/Grid từng
+ * chỉ là composite builder chưa import được. */
 const SKILL_CATEGORY_KIND_TOKENS: Record<string, string[]> = {
   VOCAB_GRAMMAR: ["TRAC_NGHIEM", "TRAC_NGHIEM_VOICE", "DIEN_TU", "DIEN_TU_NHOM", "DIEN_TU_HOP_TU_VUNG", "DIEN_TU_HOP_TU_VUNG_ANH", "SAP_XEP_CAU", "SAP_XEP_CHU_CAI"],
   WRITING: ["TU_LUAN"],
-  LISTENING: ["TRAC_NGHIEM_VOICE", "NGHE_NOP_AUDIO", "NGHE_DIEN_TU"]
+  LISTENING: ["TRAC_NGHIEM_VOICE", "NGHE_NOP_AUDIO", "NGHE_DIEN_TU"],
+  READING: ["DOC_HIEU_LUOI", "DOC_DIEN_TU"]
 };
 
 /** Mirror VALID_KINDS ở QuestionImportService.java (backend) — nguồn cho dropdown "Loại câu hỏi mặc định". */
 const ALL_KIND_TOKENS = [
   "TRAC_NGHIEM", "TRAC_NGHIEM_VOICE", "DIEN_TU", "DIEN_TU_NHOM", "TU_LUAN", "SPEAKING",
   "DIEN_TU_HOP_TU_VUNG", "DIEN_TU_HOP_TU_VUNG_ANH", "SAP_XEP_CAU", "SAP_XEP_CHU_CAI",
-  "NGHE_NOP_AUDIO", "NGHE_DIEN_TU"
+  "NGHE_NOP_AUDIO", "NGHE_DIEN_TU", "DOC_HIEU_LUOI", "DOC_DIEN_TU"
 ];
 
 /**
@@ -109,7 +114,15 @@ export default function QuestionImportPanel({ bankId, examId, skillCategory, tea
           t("questionImportPanel.excelSampleExplanations.listeningAudioSubmission"), ""],
         ["NGHE_DIEN_TU", "", "Listen and fill in the blank: She usually ___ to work.", "", "", "", "", "drives",
           "https://example-r2.dev/lms/questions/audio/mau-nghe-dien-tu.mp3", "", "", "1",
-          t("questionImportPanel.excelSampleExplanations.listeningFillInBlank"), ""]
+          t("questionImportPanel.excelSampleExplanations.listeningFillInBlank"), ""],
+        ["DOC_HIEU_LUOI", "", "Who loves a subject because of visiting museums?|Who says friends think their hobby is strange?|Who talks about both a school subject and a sport?",
+          "Tom", "Max", "Anna", "", "B|A|C",
+          "", "", "Tom: I go to a big school in London...\n\nMax: I live in New York...\n\nAnna: I am a new student in Paris...", "1",
+          t("questionImportPanel.excelSampleExplanations.gridReading"), ""],
+        ["DOC_DIEN_TU", "", "",
+          "environment|timetable|hours", "equipment|subject|lessons", "job|homework|subjects", "", "B|A|C",
+          "", "", "The school has an excellent (1)___ with many computers. Every Monday, students check their new (2)___. Most students prefer creative (3)___ like art and music.", "1",
+          t("questionImportPanel.excelSampleExplanations.clozeReading"), ""]
       ];
       // Bổ sung 2026-08-28 (đã xác nhận với người dùng) — defaultKind ưu tiên CAO HƠN lọc theo Nhóm kỹ
       // năng: GV đã chọn cụ thể 1 loại thì chỉ cần đúng 1 dòng ví dụ loại đó để copy xuống nhiều dòng,
@@ -181,7 +194,7 @@ export default function QuestionImportPanel({ bankId, examId, skillCategory, tea
 
       <div>
         <label className="block font-bold text-slate-600 mb-1 text-[10px] uppercase tracking-wider">{t("questionImportPanel.defaultKindLabel")}</label>
-        <select
+        <Select
           value={defaultKind}
           onChange={(e) => setDefaultKind(e.target.value)}
           className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-red"
@@ -192,7 +205,7 @@ export default function QuestionImportPanel({ bankId, examId, skillCategory, tea
               {t(`questionImportPanel.kindLabels.${token}`)}
             </option>
           ))}
-        </select>
+        </Select>
         <p className="text-[9px] text-slate-400 mt-1">{t("questionImportPanel.defaultKindHint")}</p>
       </div>
 

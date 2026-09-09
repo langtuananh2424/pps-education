@@ -413,6 +413,137 @@ class QuestionImportServiceTest extends AbstractIntegrationTest {
     }
 
     /**
+     * DOC_HIEU_LUOI (bổ sung 2026-09-08, đã xác nhận với người dùng — mirror GridQuestionBuilder.tsx)
+     * Main Flow: 1 dòng Excel → N Question MULTIPLE_CHOICE riêng, dùng CHUNG referencePassage + CHUNG 1
+     * bộ đáp án A-D, mỗi câu chỉ khác nhau ở isCorrect của bộ đáp án đó theo đúng "Đáp án đúng".
+     */
+    @Test
+    void importQuestions_boSung_gridGroupCreatesSeparateQuestionsSharingPassageAndChoices() throws IOException {
+        byte[] file = buildExcel(new String[][]{
+                {"DOC_HIEU_LUOI", null,
+                        "Who loves museums?|Who thinks their hobby is strange?|Who talks about a sport?",
+                        "Tom", "Max", "Anna", null, "B|A|C",
+                        null, null, "Tom: ...\n\nMax: ...\n\nAnna: ...", "1", "Doc hieu Unit 1", null}
+        });
+
+        QuestionImportResponse result = questionImportService.importQuestions(bank.id(),
+                new MockMultipartFile("file", "luoi.xlsx", "application/vnd.openxmlformats", file), teacher.getId());
+
+        assertThat(result.status()).isEqualTo("COMPLETED");
+        assertThat(result.totalRows()).isEqualTo(1);
+        assertThat(result.successRows()).isEqualTo(1);
+        assertThat(result.createdQuestions()).hasSize(3);
+
+        List<QuestionResponse> saved = questionBankService.listQuestions(bank.id());
+        assertThat(saved).hasSize(3);
+        assertThat(saved).allMatch(q -> q.questionType().equals("MULTIPLE_CHOICE"));
+        assertThat(saved).allMatch(q -> q.skill().equals("READING"));
+        assertThat(saved).allMatch(q -> q.referencePassage().equals("Tom: ...\n\nMax: ...\n\nAnna: ..."));
+        assertThat(saved).extracting(QuestionResponse::groupKey).doesNotContainNull().containsOnly(saved.get(0).groupKey());
+        assertThat(saved).allMatch(q -> q.explanation().equals("Doc hieu Unit 1"));
+        assertThat(saved).allSatisfy(q -> assertThat(q.choices()).extracting("content").containsExactly("Tom", "Max", "Anna"));
+
+        QuestionResponse q1 = findByContentPrefix(saved, "Who loves museums");
+        assertThat(q1.choices()).filteredOn(c -> c.isCorrect()).extracting("content").containsExactly("Max");
+
+        QuestionResponse q2 = findByContentPrefix(saved, "Who thinks their hobby");
+        assertThat(q2.choices()).filteredOn(c -> c.isCorrect()).extracting("content").containsExactly("Tom");
+
+        QuestionResponse q3 = findByContentPrefix(saved, "Who talks about a sport");
+        assertThat(q3.choices()).filteredOn(c -> c.isCorrect()).extracting("content").containsExactly("Anna");
+    }
+
+    /** A1: thiếu "Đoạn văn tham chiếu" — Đọc hiểu lưới bắt buộc phải có đoạn văn dùng chung. */
+    @Test
+    void importQuestions_boSung_gridGroupRejectsMissingReferencePassage() throws IOException {
+        byte[] file = buildExcel(new String[][]{
+                {"DOC_HIEU_LUOI", null, "Who loves museums?|Who thinks their hobby is strange?",
+                        "Tom", "Max", "Anna", null, "B|A",
+                        null, null, null, "1", null, null}
+        });
+
+        QuestionImportResponse result = questionImportService.importQuestions(bank.id(),
+                new MockMultipartFile("file", "luoi.xlsx", "application/vnd.openxmlformats", file), teacher.getId());
+
+        assertThat(result.status()).isEqualTo("PARTIAL_SUCCESS");
+        assertThat(result.errorSummary().get(0).get("reason").toString()).contains("Đoạn văn tham chiếu");
+        assertThat(questionBankService.listQuestions(bank.id())).isEmpty();
+    }
+
+    /** A2: số đáp án đúng không khớp số câu hỏi. */
+    @Test
+    void importQuestions_boSung_gridGroupRejectsAnswerCountMismatch() throws IOException {
+        byte[] file = buildExcel(new String[][]{
+                {"DOC_HIEU_LUOI", null, "Who loves museums?|Who thinks their hobby is strange?",
+                        "Tom", "Max", "Anna", null, "B",
+                        null, null, "Doan van", "1", null, null}
+        });
+
+        QuestionImportResponse result = questionImportService.importQuestions(bank.id(),
+                new MockMultipartFile("file", "luoi.xlsx", "application/vnd.openxmlformats", file), teacher.getId());
+
+        assertThat(result.status()).isEqualTo("PARTIAL_SUCCESS");
+        assertThat(result.errorSummary().get(0).get("reason").toString()).contains("không khớp số câu hỏi");
+        assertThat(questionBankService.listQuestions(bank.id())).isEmpty();
+    }
+
+    /**
+     * DOC_DIEN_TU (bổ sung 2026-09-08, đã xác nhận với người dùng — mirror ClozeQuestionBuilder.tsx)
+     * Main Flow: 1 dòng Excel → N Question MULTIPLE_CHOICE riêng, dùng CHUNG referencePassage nhưng MỖI
+     * câu có bộ đáp án RIÊNG lấy theo vị trí tương ứng ở mỗi cột Đáp án A/B/C — khác Grid ở trên.
+     */
+    @Test
+    void importQuestions_boSung_clozeGroupCreatesSeparateQuestionsWithPerBlankChoices() throws IOException {
+        byte[] file = buildExcel(new String[][]{
+                {"DOC_DIEN_TU", null, null,
+                        "environment|timetable|hours", "equipment|subject|lessons", "job|homework|subjects", null,
+                        "B|A|C", null, null, "The school has an excellent (1)___...", "1", null, null}
+        });
+
+        QuestionImportResponse result = questionImportService.importQuestions(bank.id(),
+                new MockMultipartFile("file", "cloze.xlsx", "application/vnd.openxmlformats", file), teacher.getId());
+
+        assertThat(result.status()).isEqualTo("COMPLETED");
+        assertThat(result.createdQuestions()).hasSize(3);
+
+        List<QuestionResponse> saved = questionBankService.listQuestions(bank.id());
+        assertThat(saved).hasSize(3);
+        assertThat(saved).allMatch(q -> q.questionType().equals("MULTIPLE_CHOICE"));
+        assertThat(saved).allMatch(q -> q.skill().equals("READING"));
+        assertThat(saved).allMatch(q -> q.referencePassage().equals("The school has an excellent (1)___..."));
+        assertThat(saved).extracting(QuestionResponse::groupKey).doesNotContainNull().containsOnly(saved.get(0).groupKey());
+        // "Nội dung" để trống -> tự đánh số nhãn từng chỗ trống.
+        assertThat(saved).extracting(QuestionResponse::content).containsExactlyInAnyOrder("Chỗ trống 1", "Chỗ trống 2", "Chỗ trống 3");
+
+        QuestionResponse blank1 = findByContentPrefix(saved, "Chỗ trống 1");
+        assertThat(blank1.choices()).extracting("content").containsExactly("environment", "equipment", "job");
+        assertThat(blank1.choices()).filteredOn(c -> c.isCorrect()).extracting("content").containsExactly("equipment");
+
+        QuestionResponse blank2 = findByContentPrefix(saved, "Chỗ trống 2");
+        assertThat(blank2.choices()).filteredOn(c -> c.isCorrect()).extracting("content").containsExactly("timetable");
+
+        QuestionResponse blank3 = findByContentPrefix(saved, "Chỗ trống 3");
+        assertThat(blank3.choices()).filteredOn(c -> c.isCorrect()).extracting("content").containsExactly("subjects");
+    }
+
+    /** A1: số phương án B không khớp số chỗ trống suy ra từ cột A — lỗi rõ ràng. */
+    @Test
+    void importQuestions_boSung_clozeGroupRejectsOptionColumnCountMismatch() throws IOException {
+        byte[] file = buildExcel(new String[][]{
+                {"DOC_DIEN_TU", null, null,
+                        "environment|timetable|hours", "equipment|subject", null, null,
+                        "B|A|C", null, null, "Doan van co danh so", "1", null, null}
+        });
+
+        QuestionImportResponse result = questionImportService.importQuestions(bank.id(),
+                new MockMultipartFile("file", "cloze.xlsx", "application/vnd.openxmlformats", file), teacher.getId());
+
+        assertThat(result.status()).isEqualTo("PARTIAL_SUCCESS");
+        assertThat(result.errorSummary().get(0).get("reason").toString()).contains("không khớp số chỗ trống");
+        assertThat(questionBankService.listQuestions(bank.id())).isEmpty();
+    }
+
+    /**
      * "Loại câu hỏi mặc định" (bổ sung 2026-08-28, đã xác nhận với người dùng — khớp thói quen "1 Ex
      * chỉ 1 loại câu hỏi" nên cả file thường cùng 1 giá trị, không muốn gõ lại mỗi dòng) Main Flow:
      * cột "Loại câu hỏi" để TRỐNG ở mọi dòng, dùng defaultKind cho toàn bộ.
@@ -472,18 +603,18 @@ class QuestionImportServiceTest extends AbstractIntegrationTest {
 
     /**
      * Round-trip: file mẫu Word tự sinh (buildWordTemplate) phải tự đọc lại
-     * được đúng cả 12 loại trong VALID_KINDS — bảo vệ khỏi mẫu và parser
+     * được đúng cả 14 loại trong VALID_KINDS — bảo vệ khỏi mẫu và parser
      * lệch cú pháp nhau (giống buildTemplate_roundTrip của
-     * GradeImportServiceTest cho UC-53). Số lượng 12 khớp đúng
-     * VALID_KINDS/TEMPLATE_BLOCKS sau khi bổ sung DIEN_TU_NHOM ngày
-     * 2026-08-28 (trước đó 11 loại kể từ đợt bổ sung 2026-08-26, xem Javadoc
-     * lớp QuestionImportService) — successRows đếm THEO DÒNG (12) nhưng
-     * DIEN_TU_NHOM tạo ra 3 Question/1 dòng nên tổng câu hỏi thật sự tạo ra
-     * là 11 + 3 = 14, tên method giữ nguyên hậu tố "boSung" theo đúng đợt
-     * bổ sung đó.
+     * GradeImportServiceTest cho UC-53). Số lượng 14 khớp đúng
+     * VALID_KINDS/TEMPLATE_BLOCKS sau khi bổ sung DOC_HIEU_LUOI/DOC_DIEN_TU
+     * ngày 2026-09-08 (trước đó 12 loại kể từ đợt bổ sung DIEN_TU_NHOM
+     * 2026-08-28, xem Javadoc lớp QuestionImportService) — successRows đếm
+     * THEO DÒNG (14) nhưng DIEN_TU_NHOM/DOC_HIEU_LUOI/DOC_DIEN_TU mỗi loại
+     * tạo ra 3 Question/1 dòng nên tổng câu hỏi thật sự tạo ra là 11 + 3 + 3
+     * + 3 = 20, tên method giữ nguyên hậu tố "boSung" theo đúng đợt bổ sung.
      */
     @Test
-    void buildWordTemplate_boSung_roundTripsThroughImportAndCreatesAllTwelveKinds() {
+    void buildWordTemplate_boSung_roundTripsThroughImportAndCreatesAllFourteenKinds() {
         byte[] template = questionImportService.buildWordTemplate();
 
         QuestionImportResponse result = questionImportService.importQuestions(bank.id(),
@@ -491,10 +622,10 @@ class QuestionImportServiceTest extends AbstractIntegrationTest {
                         "application/vnd.openxmlformats-officedocument.wordprocessingml.document", template), teacher.getId());
 
         assertThat(result.status()).isEqualTo("COMPLETED");
-        assertThat(result.totalRows()).isEqualTo(12);
-        assertThat(result.successRows()).isEqualTo(12);
+        assertThat(result.totalRows()).isEqualTo(14);
+        assertThat(result.successRows()).isEqualTo(14);
         assertThat(result.failedRows()).isEqualTo(0);
-        assertThat(questionBankService.listQuestions(bank.id())).hasSize(14);
+        assertThat(questionBankService.listQuestions(bank.id())).hasSize(20);
     }
 
     private QuestionResponse findByContentPrefix(List<QuestionResponse> questions, String prefix) {

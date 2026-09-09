@@ -929,7 +929,7 @@ function ExerciseCard({
           <span className="px-2.5 py-0.5 rounded-lg bg-teal/10 text-teal border border-teal/20 text-[13px] font-black shrink-0">{item.exerciseCode}</span>
           <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-muted text-[13px] font-bold shrink-0 whitespace-nowrap">{item.className}</span>
           {retake ? (
-            <span className="px-2.5 py-0.5 rounded-lg bg-coral/10 text-coral border border-coral/20 text-[11px] font-black flex items-center gap-1 shrink-0 whitespace-nowrap">
+            <span className="px-2.5 py-0.5 rounded-lg bg-coral/10 text-coral border border-coral/20 text-[13px] font-black flex items-center gap-1 shrink-0 whitespace-nowrap">
               <Clock size={12} />{" "}
               {t("assignments.exercise.needsRetake", { percent: item.myLatestPercentage != null ? `(${item.myLatestPercentage}%)` : "" })}
             </span>
@@ -1076,7 +1076,7 @@ function BatchExerciseCard({
           </span>
           <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-muted text-[13px] font-bold shrink-0 whitespace-nowrap">{first.className}</span>
           {anyRetake ? (
-            <span className="px-2.5 py-0.5 rounded-lg bg-coral/10 text-coral border border-coral/20 text-[11px] font-black flex items-center gap-1 shrink-0 whitespace-nowrap">
+            <span className="px-2.5 py-0.5 rounded-lg bg-coral/10 text-coral border border-coral/20 text-[13px] font-black flex items-center gap-1 shrink-0 whitespace-nowrap">
               <Clock size={12} /> {t("assignments.exercise.needsRetake", { percent: percentage != null ? `(${percentage}%)` : "" })}
             </span>
           ) : attemptMeta ? (
