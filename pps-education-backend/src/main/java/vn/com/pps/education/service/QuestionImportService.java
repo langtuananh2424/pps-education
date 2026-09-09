@@ -490,6 +490,13 @@ public class QuestionImportService {
 
         if (isChoiceBased) {
             choices = buildChoices(row);
+            // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-09 — fix bug thật: ảnh đề bài
+            // (question-level, khác ảnh riêng từng đáp án ở buildChoices/VOICE_PICTURE_CHOICE) bị bỏ sót
+            // cho TRAC_NGHIEM/TRAC_NGHIEM_VOICE dù cột "URL Hình ảnh" đã tồn tại chung cho mọi loại câu
+            // hỏi (xem SDD group 09, questions.image_url) và màn xem trước học sinh
+            // (ExerciseStudentPreviewModal#QuestionPreview) đã render question.imageUrl không phân biệt
+            // questionType từ trước.
+            imageUrl = blankToNull(row.imageUrl());
             if (kind.equals("TRAC_NGHIEM_VOICE")) {
                 skill = "LISTENING";
                 if (isBlank(row.audioUrl())) {
@@ -878,19 +885,43 @@ public class QuestionImportService {
         return Arrays.stream(raw.split("\\|", -1)).map(String::trim).toList();
     }
 
+    /**
+     * Bổ sung 2026-09-09 (đã xác nhận với người dùng) — trước đây bắt buộc đủ 4 đáp án A/B/C/D, LỆCH
+     * với form soạn tay (QuestionEditorForm.tsx): MULTIPLE_CHOICE ở đó cho 2-8 đáp án (mặc định 4,
+     * bớt được tới tối thiểu 2 — xem comment "đã xác nhận với người dùng 2026-08-12" ở đó, và
+     * "Backend đã nhận số lượng choices tuỳ ý từ trước, không có ràng buộc @Size"). Excel/Word import
+     * phải khớp đúng quy tắc soạn tay (xem Javadoc mapToRequest) nên ở đây chỉ bắt buộc Đáp án A/B,
+     * C/D là TÙY CHỌN — nhưng không cho để trống xen giữa (VD có C thì B không được trống) vì FE lưu
+     * choices dạng mảng liên tục theo vị trí, không hỗ trợ "lỗ hổng" giữa các lựa chọn.
+     */
     private List<QuestionChoiceRequest> buildChoices(QuestionRowParser.ParsedQuestionRow row) {
-        if (isBlank(row.choiceA()) || isBlank(row.choiceB()) || isBlank(row.choiceC()) || isBlank(row.choiceD())) {
-            throw new IllegalArgumentException("Câu trắc nghiệm cần đủ 4 đáp án A/B/C/D.");
+        // Arrays.asList (KHÔNG dùng List.of) vì choiceC/D có thể null khi câu chỉ có 2 đáp án —
+        // List.of ném NullPointerException (không message) ngay khi gặp phần tử null.
+        List<String> raw = Arrays.asList(blankToNull(row.choiceA()), blankToNull(row.choiceB()),
+                blankToNull(row.choiceC()), blankToNull(row.choiceD()));
+        int count = 0;
+        while (count < raw.size() && raw.get(count) != null) {
+            count++;
         }
+        for (int i = count; i < raw.size(); i++) {
+            if (raw.get(i) != null) {
+                throw new IllegalArgumentException("Đáp án " + (char) ('A' + count)
+                        + " đang để trống nhưng Đáp án " + (char) ('A' + i) + " lại có nội dung — các đáp án phải điền liên tục từ A, không được bỏ trống xen giữa.");
+            }
+        }
+        if (count < 2) {
+            throw new IllegalArgumentException("Câu trắc nghiệm cần ít nhất 2 đáp án (Đáp án A và B) — Đáp án C/D là tùy chọn, thêm nếu câu có nhiều hơn 2 lựa chọn.");
+        }
+        String allowedLetters = "ABCD".substring(0, count);
         String correctLetter = isBlank(row.correctAnswer()) ? "" : row.correctAnswer().trim().toUpperCase(Locale.ROOT);
-        if (!Set.of("A", "B", "C", "D").contains(correctLetter)) {
-            throw new IllegalArgumentException("Đáp án đúng phải là 1 trong A/B/C/D (đang có: '" + row.correctAnswer() + "').");
+        if (correctLetter.length() != 1 || allowedLetters.indexOf(correctLetter.charAt(0)) < 0) {
+            throw new IllegalArgumentException("Đáp án đúng phải là 1 trong " + String.join("/", allowedLetters.split(""))
+                    + " (đang có: '" + row.correctAnswer() + "').");
         }
-        List<String> contents = List.of(row.choiceA().trim(), row.choiceB().trim(), row.choiceC().trim(), row.choiceD().trim());
         List<QuestionChoiceRequest> choices = new ArrayList<>();
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < count; i++) {
             String label = String.valueOf((char) ('A' + i));
-            choices.add(new QuestionChoiceRequest(label, contents.get(i), null, label.equals(correctLetter), i + 1));
+            choices.add(new QuestionChoiceRequest(label, raw.get(i), null, label.equals(correctLetter), i + 1));
         }
         return choices;
     }

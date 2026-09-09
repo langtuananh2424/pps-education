@@ -114,7 +114,7 @@
   "questionImportPanel": {
     "excelHeaders": [
       "Loại câu hỏi", "Độ khó", "Nội dung", "Đáp án A", "Đáp án B", "Đáp án C", "Đáp án D",
-      "Đáp án đúng", "URL Audio", "URL Hình ảnh", "Đoạn văn tham chiếu/Transcript/Từ khóa phát âm/Hộp từ vựng", "Điểm", "Giải thích", "Tags"
+      "Đáp án đúng", "URL Audio", "URL Hình ảnh", "Đoạn văn tham chiếu", "Điểm", "Giải thích", "Tags"
     ],
     "excelSampleExplanations": {
       "geo": "Paris là thủ đô nước Pháp.",
