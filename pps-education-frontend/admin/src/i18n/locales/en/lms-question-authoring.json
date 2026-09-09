@@ -114,7 +114,7 @@
   "questionImportPanel": {
     "excelHeaders": [
       "Question type", "Difficulty", "Content", "Answer A", "Answer B", "Answer C", "Answer D",
-      "Correct answer", "Audio URL", "Image URL", "Reference passage/Transcript/Pronunciation keywords/Word bank", "Points", "Explanation", "Tags"
+      "Correct answer", "Audio URL", "Image URL", "Reference passage", "Points", "Explanation", "Tags"
     ],
     "excelSampleExplanations": {
       "geo": "Paris is the capital of France.",
