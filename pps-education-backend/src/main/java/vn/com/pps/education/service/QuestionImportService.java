@@ -779,12 +779,21 @@ public class QuestionImportService {
         Map<String, Object> structuredContent = wordBox == null ? null : Map.of("wordBox", wordBox);
         String groupReferencePassage = looksLikeFreeTextPassage ? referencePassageRaw : null;
         String groupKey = "fillblank-import-" + System.currentTimeMillis() + "-" + row.rowNumber();
+        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-10 — fix khoảng trống thật: DIEN_TU_NHOM
+        // trước đây KHÔNG đọc "URL Audio" (hardcode null cho mọi câu tạo ra), dù đây là kind DUY NHẤT
+        // dùng được cho bài "Nghe điền từ nhiều mục" (VD form đặt phòng khách sạn 10 chỗ trống) — GV
+        // trước đây buộc phải nhét cả 10 mục vào 1 câu NGHE_DIEN_TU duy nhất (không tách được từng câu)
+        // để còn audio, khiến "Nội dung" hiện dấu "|" trần trụi ra màn hình học sinh. Đọc "URL Audio"
+        // dùng CHUNG cho mọi câu trong nhóm (mirror cách referencePassage/wordBox đã dùng chung), gắn
+        // skill=LISTENING khi có audio — để trống thì vẫn giữ hành vi cũ (đọc hiểu không audio).
+        String groupAudioUrl = blankToNull(row.audioUrl());
+        String groupSkill = groupAudioUrl != null ? "LISTENING" : null;
 
         List<CreateQuestionRequest> requests = new ArrayList<>();
         for (int i = 0; i < sentences.size(); i++) {
             String imageUrl = images == null || images.get(i).isEmpty() ? null : images.get(i);
-            requests.add(new CreateQuestionRequest(bankId, "FILL_IN_BLANK", null, difficulty, sentences.get(i),
-                    null, imageUrl, groupReferencePassage, explanation, answers.get(i), defaultPoints, tags, null, structuredContent, groupKey));
+            requests.add(new CreateQuestionRequest(bankId, "FILL_IN_BLANK", groupSkill, difficulty, sentences.get(i),
+                    groupAudioUrl, imageUrl, groupReferencePassage, explanation, answers.get(i), defaultPoints, tags, null, structuredContent, groupKey));
         }
         return requests;
     }

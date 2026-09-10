@@ -561,6 +561,12 @@ export interface UpdateExerciseRequest {
   showCorrectAnswers: boolean;
   /** V89/V100 — không truyền = giữ nguyên giá trị hiện tại (backend chỉ ghi đè khi có giá trị). */
   passThresholdPercent?: number;
+  /**
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-10 — cho sửa Nhóm kỹ năng SAU khi tạo,
+   * nhưng backend CHỈ chấp nhận khi Bài chưa có câu hỏi nào (báo lỗi 400 nếu đã có câu hỏi mà đổi giá
+   * trị khác hiện tại). Không truyền = giữ nguyên.
+   */
+  skillCategory?: ExerciseSkillCategory;
 }
 
 export function updateExercise(id: number, request: UpdateExerciseRequest): Promise<ExerciseResponse> {

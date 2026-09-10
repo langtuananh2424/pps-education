@@ -522,6 +522,32 @@ class QuestionImportServiceTest extends AbstractIntegrationTest {
         assertThat(saved).allMatch(q -> q.structuredContent() == null);
     }
 
+    /**
+     * Bổ sung 2026-09-10 (đã xác nhận với người dùng) — DIEN_TU_NHOM trước đây KHÔNG đọc "URL Audio",
+     * khiến bài "Nghe điền từ nhiều mục" (VD form đặt phòng 3 chỗ trống) buộc phải nhét cả vào 1 câu
+     * NGHE_DIEN_TU duy nhất (không tách được từng câu) để còn giữ audio. Nay DIEN_TU_NHOM đọc "URL
+     * Audio" dùng CHUNG cho mọi câu trong nhóm, tự gắn skill=LISTENING.
+     */
+    @Test
+    void importQuestions_boSung_fillInBlankGroupSharesAudioUrlAndListeningSkillAcrossGroup() throws IOException {
+        byte[] file = buildExcel(new String[][]{
+                {"DIEN_TU_NHOM", null,
+                        "Name: ___|Telephone: ___|Number of nights: ___",
+                        null, null, null, null, "Ben Carter|0721 445 902|3",
+                        "https://example.com/hotel-call.mp3", null, null, "1", null, null}
+        });
+
+        QuestionImportResponse result = questionImportService.importQuestions(bank.id(),
+                new MockMultipartFile("file", "nghe-dien-tu-nhieu-muc.xlsx", "application/vnd.openxmlformats", file), teacher.getId());
+
+        assertThat(result.status()).isEqualTo("COMPLETED");
+        List<QuestionResponse> saved = questionBankService.listQuestions(bank.id());
+        assertThat(saved).hasSize(3);
+        assertThat(saved).allMatch(q -> "https://example.com/hotel-call.mp3".equals(q.audioUrl()));
+        assertThat(saved).allMatch(q -> "LISTENING".equals(q.skill()));
+        assertThat(saved).extracting(QuestionResponse::groupKey).doesNotContainNull().containsOnly(saved.get(0).groupKey());
+    }
+
     /** A1: số đáp án không khớp số câu — lỗi rõ ràng, KHÔNG tạo câu nào của nhóm (không dở dang). */
     @Test
     void importQuestions_boSung_fillInBlankGroupRejectsAnswerCountMismatch() throws IOException {

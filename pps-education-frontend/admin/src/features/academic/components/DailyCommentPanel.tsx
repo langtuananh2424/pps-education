@@ -65,6 +65,38 @@ const STICKY_COL_STYLE: React.CSSProperties[] = STICKY_COL_WIDTHS.map((w, i) => 
 }));
 
 /**
+ * Render nhãn 1 lựa chọn bài tập trong dropdown "Gán nhanh"/"BTVN buổi sau" — tách hẳn 2 dòng thay vì
+ * nhồi chung 1 dòng chữ mảnh (trước đây còn bị trình duyệt tự xuống dòng giữa chừng vì panel option của
+ * Select.tsx không có nowrap, nhìn rối — xem ảnh người dùng gửi 2026-09-10): dòng trên là tên bài, in
+ * đậm (font-extrabold) + đen rõ (text-slate-900) + cỡ chữ lớn hơn hẳn khối còn lại; dòng dưới là
+ * Unit/SubTopic + số bài/câu, chữ thường, nhỏ, màu nhạt — bold thật sự nổi bật thay vì chỉ chênh 1px
+ * cỡ chữ như bản trước (người dùng phản hồi "chỉ tăng cỡ chữ thôi à" vì bản inline 1 dòng trước đó khó
+ * phân biệt độ đậm).
+ */
+function renderExerciseOptionLabel(ex: HomeworkSkillGroupResponse) {
+  const detail = [ex.unitTitle, ex.subTopicTitle].filter(Boolean).join(" · ");
+  return (
+    <span className="block py-0.5">
+      <span className="block font-extrabold text-slate-900 text-[13px] leading-snug">{ex.examTitle}</span>
+      <span className="block font-normal text-slate-400 text-[12px] leading-snug mt-0.5">
+        {detail && `${detail} · `}
+        {ex.exerciseCount} bài, {ex.questionCount} câu
+      </span>
+    </span>
+  );
+}
+
+/** Cùng kiểu 2 dòng bold-title/muted-code như renderExerciseOptionLabel, áp dụng cho dropdown "BTVN online — Video TKN". */
+function renderVideoOptionLabel(s: { title: string; code: string }) {
+  return (
+    <span className="block py-0.5">
+      <span className="block font-extrabold text-slate-900 text-[13px] leading-snug">{s.title}</span>
+      <span className="block font-normal text-slate-400 text-[12px] leading-snug mt-0.5">{s.code}</span>
+    </span>
+  );
+}
+
+/**
  * "Loại giáo viên" của buổi học (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05) — ăn
  * theo để lọc + đổi nhãn 2 kênh BTVN buổi sau (Ngữ pháp/Bài nghe ở Soạn & giao đề, Video ở Kho Video
  * Ôn tập). Mirror ClassSession.TeacherType/Exam.TeacherType/ReviewVideoSet.VideoType (BE). Nhãn hiển
@@ -1276,12 +1308,7 @@ export default function DailyCommentPanel() {
                       <option value="">{t("dailyCommentPanel.quickAssign.noAssign")}</option>
                       {readingOptions.map((ex) => (
                         <option key={ex.examId} value={ex.examId}>
-                          {/* Bổ sung 2026-09-04 (đã xác nhận với người dùng) — fix bug thật: Lesson đánh số lặp
-                              lại (Lesson 1, 2, 3...) giữa nhiều Unit/SubTopic khác nhau, trước đây dropdown chỉ
-                              hiện examTitle nên giáo viên rất dễ giao NHẦM Lesson. */}
-                          {ex.examCode} - {ex.examTitle}
-                          {(ex.unitTitle || ex.subTopicTitle) && ` [${[ex.unitTitle, ex.subTopicTitle].filter(Boolean).join(" · ")}]`} (
-                          {ex.exerciseCount} bài, {ex.questionCount} câu)
+                          {renderExerciseOptionLabel(ex)}
                         </option>
                       ))}
                     </Select>
@@ -1297,12 +1324,7 @@ export default function DailyCommentPanel() {
                       <option value="">{t("dailyCommentPanel.quickAssign.noAssign")}</option>
                       {writingOptions.map((ex) => (
                         <option key={ex.examId} value={ex.examId}>
-                          {/* Bổ sung 2026-09-04 (đã xác nhận với người dùng) — fix bug thật: Lesson đánh số lặp
-                              lại (Lesson 1, 2, 3...) giữa nhiều Unit/SubTopic khác nhau, trước đây dropdown chỉ
-                              hiện examTitle nên giáo viên rất dễ giao NHẦM Lesson. */}
-                          {ex.examCode} - {ex.examTitle}
-                          {(ex.unitTitle || ex.subTopicTitle) && ` [${[ex.unitTitle, ex.subTopicTitle].filter(Boolean).join(" · ")}]`} (
-                          {ex.exerciseCount} bài, {ex.questionCount} câu)
+                          {renderExerciseOptionLabel(ex)}
                         </option>
                       ))}
                     </Select>
@@ -1334,7 +1356,7 @@ export default function DailyCommentPanel() {
                   <option value="">{t("dailyCommentPanel.quickAssign.noAssign")}</option>
                   {filteredGrammarOptions.map((ex) => (
                     <option key={ex.examId} value={ex.examId}>
-                      {ex.examCode} - {ex.examTitle} ({ex.exerciseCount} bài, {ex.questionCount} câu)
+                      {renderExerciseOptionLabel(ex)}
                     </option>
                   ))}
                 </Select>
@@ -1352,7 +1374,7 @@ export default function DailyCommentPanel() {
                   <option value="">{t("dailyCommentPanel.quickAssign.noAssign")}</option>
                   {filteredVideoOptions.map((s) => (
                     <option key={s.id} value={s.id}>
-                      {s.title} ({s.code})
+                      {renderVideoOptionLabel(s)}
                     </option>
                   ))}
                 </Select>
@@ -1761,12 +1783,7 @@ export default function DailyCommentPanel() {
                               <option value="">{t("dailyCommentPanel.chooseExercisePlaceholder")}</option>
                               {readingOptions.map((ex) => (
                                 <option key={ex.examId} value={ex.examId}>
-                                  {/* Bổ sung 2026-09-04 (đã xác nhận với người dùng) — fix bug thật: Lesson đánh số lặp
-                              lại (Lesson 1, 2, 3...) giữa nhiều Unit/SubTopic khác nhau, trước đây dropdown chỉ
-                              hiện examTitle nên giáo viên rất dễ giao NHẦM Lesson. */}
-                          {ex.examCode} - {ex.examTitle}
-                          {(ex.unitTitle || ex.subTopicTitle) && ` [${[ex.unitTitle, ex.subTopicTitle].filter(Boolean).join(" · ")}]`} (
-                          {ex.exerciseCount} bài, {ex.questionCount} câu)
+                                  {renderExerciseOptionLabel(ex)}
                                 </option>
                               ))}
                             </Select>
@@ -1786,12 +1803,7 @@ export default function DailyCommentPanel() {
                               <option value="">{t("dailyCommentPanel.chooseExercisePlaceholder")}</option>
                               {writingOptions.map((ex) => (
                                 <option key={ex.examId} value={ex.examId}>
-                                  {/* Bổ sung 2026-09-04 (đã xác nhận với người dùng) — fix bug thật: Lesson đánh số lặp
-                              lại (Lesson 1, 2, 3...) giữa nhiều Unit/SubTopic khác nhau, trước đây dropdown chỉ
-                              hiện examTitle nên giáo viên rất dễ giao NHẦM Lesson. */}
-                          {ex.examCode} - {ex.examTitle}
-                          {(ex.unitTitle || ex.subTopicTitle) && ` [${[ex.unitTitle, ex.subTopicTitle].filter(Boolean).join(" · ")}]`} (
-                          {ex.exerciseCount} bài, {ex.questionCount} câu)
+                                  {renderExerciseOptionLabel(ex)}
                                 </option>
                               ))}
                             </Select>
@@ -1826,12 +1838,7 @@ export default function DailyCommentPanel() {
                           <option value="">{t("dailyCommentPanel.chooseExercisePlaceholder")}</option>
                           {filteredGrammarOptions.map((ex) => (
                             <option key={ex.examId} value={ex.examId}>
-                              {/* Bổ sung 2026-09-04 (đã xác nhận với người dùng) — fix bug thật: Lesson đánh số lặp
-                              lại (Lesson 1, 2, 3...) giữa nhiều Unit/SubTopic khác nhau, trước đây dropdown chỉ
-                              hiện examTitle nên giáo viên rất dễ giao NHẦM Lesson. */}
-                          {ex.examCode} - {ex.examTitle}
-                          {(ex.unitTitle || ex.subTopicTitle) && ` [${[ex.unitTitle, ex.subTopicTitle].filter(Boolean).join(" · ")}]`} (
-                          {ex.exerciseCount} bài, {ex.questionCount} câu)
+                              {renderExerciseOptionLabel(ex)}
                             </option>
                           ))}
                         </Select>
@@ -1851,7 +1858,7 @@ export default function DailyCommentPanel() {
                           <option value="">{t("dailyCommentPanel.quickAssign.noAssign")}</option>
                           {filteredVideoOptions.map((s) => (
                             <option key={s.id} value={s.id}>
-                              {s.title} ({s.code})
+                              {renderVideoOptionLabel(s)}
                             </option>
                           ))}
                         </Select>
