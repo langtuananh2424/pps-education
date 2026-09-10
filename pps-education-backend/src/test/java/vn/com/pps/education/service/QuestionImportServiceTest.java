@@ -226,6 +226,125 @@ class QuestionImportServiceTest extends AbstractIntegrationTest {
         assertThat(questionBankService.listQuestions(bank.id())).isEmpty();
     }
 
+    /**
+     * Bổ sung 2026-09-09 (đã xác nhận với người dùng) — nhiều câu TRAC_NGHIEM ĐỘC LẬP (đáp án riêng
+     * từng câu, khác DOC_HIEU_LUOI dùng chung 1 bộ đáp án) nhưng cùng tham chiếu 1 đoạn văn dài — các
+     * dòng LIÊN TIẾP cùng "Đoạn văn tham chiếu" (khớp nguyên văn) tự động gộp chung 1 groupKey để FE
+     * hiện đoạn văn 1 lần duy nhất, xem computeAutoGroupKeys().
+     */
+    @Test
+    void importQuestions_boSung_autoGroupsConsecutiveTracNghiemSharingReferencePassage() throws IOException {
+        String passage = "Tom lives in a small town. He goes to school every day by bike.";
+        byte[] file = buildExcel(new String[][]{
+                {"TRAC_NGHIEM", null, "Where does Tom live?", "A big city", "A small town", "A farm", "An island", "B",
+                        null, null, passage, "1", null, null},
+                {"TRAC_NGHIEM", null, "How does Tom go to school?", "By bus", "By car", "By bike", "On foot", "C",
+                        null, null, passage, "1", null, null},
+                {"TRAC_NGHIEM", null, "What is the capital of France?", "London", "Paris", "Berlin", "Madrid", "B",
+                        null, null, null, "1", null, null}
+        });
+
+        QuestionImportResponse result = questionImportService.importQuestions(bank.id(),
+                new MockMultipartFile("file", "doc-hieu-doc-lap.xlsx", "application/vnd.openxmlformats", file), teacher.getId());
+
+        assertThat(result.status()).isEqualTo("COMPLETED");
+        assertThat(result.successRows()).isEqualTo(3);
+
+        List<QuestionResponse> saved = questionBankService.listQuestions(bank.id());
+        QuestionResponse q1 = findByContentPrefix(saved, "Where does Tom live");
+        QuestionResponse q2 = findByContentPrefix(saved, "How does Tom go to school");
+        QuestionResponse q3 = findByContentPrefix(saved, "What is the capital of France");
+
+        assertThat(q1.groupKey()).isNotNull();
+        assertThat(q1.groupKey()).isEqualTo(q2.groupKey());
+        assertThat(q1.referencePassage()).isEqualTo(passage);
+        assertThat(q2.referencePassage()).isEqualTo(passage);
+        assertThat(q3.groupKey()).isNull();
+    }
+
+    /** 1 dòng đơn lẻ có "Đoạn văn tham chiếu" (không dòng nào khác dùng chung) — KHÔNG tự tạo groupKey "nhóm 1 người". */
+    @Test
+    void importQuestions_boSung_doesNotAutoGroupIsolatedTracNghiemWithReferencePassage() throws IOException {
+        byte[] file = buildExcel(new String[][]{
+                {"TRAC_NGHIEM_VOICE", null, "Listen and choose the word you hear.", "ship", "sheep", "chip", "cheap", "B",
+                        "https://example.com/a.mp3", null, "sheep", "1", null, null}
+        });
+
+        QuestionImportResponse result = questionImportService.importQuestions(bank.id(),
+                new MockMultipartFile("file", "voice-doc-lap.xlsx", "application/vnd.openxmlformats", file), teacher.getId());
+
+        assertThat(result.status()).isEqualTo("COMPLETED");
+        QuestionResponse saved = questionBankService.listQuestions(bank.id()).get(0);
+        assertThat(saved.groupKey()).isNull();
+    }
+
+    /**
+     * Bổ sung 2026-09-09 (đã xác nhận với người dùng) — nhiều câu Nghe ĐỘC LẬP (mỗi câu tự đáp
+     * án/kiểu câu hỏi riêng — TRAC_NGHIEM_VOICE trắc nghiệm + NGHE_DIEN_TU điền từ) nhưng cùng dùng 1
+     * file audio — các dòng LIÊN TIẾP cùng "URL Audio" (khớp nguyên văn) tự động gộp chung 1 groupKey
+     * để FE phát audio DÙNG CHUNG 1 LẦN thay vì lặp lại cho từng câu, xem computeAutoGroupKeys().
+     */
+    @Test
+    void importQuestions_boSung_autoGroupsConsecutiveListeningQuestionsSharingAudioUrl() throws IOException {
+        String audioUrl = "https://example.com/listening/unit1-conversation.mp3";
+        byte[] file = buildExcel(new String[][]{
+                {"TRAC_NGHIEM_VOICE", null, "What is the woman's job?", "Doctor", "Teacher", "Engineer", "Nurse", "B",
+                        audioUrl, null, null, "1", null, null},
+                {"NGHE_DIEN_TU", null, "She usually ___ to work by bus.", null, null, null, null, "goes",
+                        audioUrl, null, null, "1", null, null},
+                {"TRAC_NGHIEM_VOICE", null, "Listen and choose the word you hear.", "ship", "sheep", "chip", "cheap", "B",
+                        "https://example.com/other-clip.mp3", null, null, "1", null, null}
+        });
+
+        QuestionImportResponse result = questionImportService.importQuestions(bank.id(),
+                new MockMultipartFile("file", "nghe-doc-lap.xlsx", "application/vnd.openxmlformats", file), teacher.getId());
+
+        assertThat(result.status()).isEqualTo("COMPLETED");
+        assertThat(result.successRows()).isEqualTo(3);
+
+        List<QuestionResponse> saved = questionBankService.listQuestions(bank.id());
+        QuestionResponse q1 = findByContentPrefix(saved, "What is the woman's job");
+        QuestionResponse q2 = findByContentPrefix(saved, "She usually");
+        QuestionResponse q3 = findByContentPrefix(saved, "Listen and choose the word you hear");
+
+        assertThat(q1.groupKey()).isNotNull();
+        assertThat(q1.groupKey()).isEqualTo(q2.groupKey());
+        assertThat(q1.audioUrl()).isEqualTo(audioUrl);
+        assertThat(q2.audioUrl()).isEqualTo(audioUrl);
+        assertThat(q2.questionType()).isEqualTo("FILL_IN_BLANK");
+        assertThat(q3.groupKey()).isNull();
+    }
+
+    /**
+     * Bổ sung 2026-09-09 (đã xác nhận với người dùng) — "Nghe chọn hình" (VOICE_PICTURE_CHOICE) mở khóa
+     * import Excel qua kind NGHE_CHON_HINH: mỗi đáp án 1 ảnh lấy từ "URL Hình ảnh" phân tách "|", "Đáp
+     * án A/B/C" (không điền) tự dùng chữ cái làm nhãn mặc định.
+     */
+    @Test
+    void importQuestions_boSung_createsPictureChoiceQuestionFromPipeSeparatedImages() throws IOException {
+        byte[] file = buildExcel(new String[][]{
+                {"NGHE_CHON_HINH", null, "What time is it?", null, null, null, null, "B",
+                        "https://example.com/listen.mp3",
+                        "https://example.com/clock-a.png|https://example.com/clock-b.png|https://example.com/clock-c.png",
+                        null, "1", null, null}
+        });
+
+        QuestionImportResponse result = questionImportService.importQuestions(bank.id(),
+                new MockMultipartFile("file", "nghe-chon-hinh.xlsx", "application/vnd.openxmlformats", file), teacher.getId());
+
+        assertThat(result.status()).isEqualTo("COMPLETED");
+        QuestionResponse saved = questionBankService.listQuestions(bank.id()).get(0);
+        assertThat(saved.questionType()).isEqualTo("MULTIPLE_CHOICE");
+        assertThat(saved.skill()).isEqualTo("LISTENING");
+        assertThat(saved.audioUrl()).isEqualTo("https://example.com/listen.mp3");
+        assertThat(saved.choices()).hasSize(3);
+        assertThat(saved.choices()).extracting("imageUrl").containsExactly(
+                "https://example.com/clock-a.png", "https://example.com/clock-b.png", "https://example.com/clock-c.png");
+        // Không điền "Đáp án A/B/C" -> tự dùng chữ cái làm nhãn mặc định (mirror ListeningGroupBuilder.tsx).
+        assertThat(saved.choices()).extracting("content").containsExactly("A", "B", "C");
+        assertThat(saved.choices()).filteredOn("isCorrect", true).extracting("choiceLabel").containsExactly("B");
+    }
+
     /** Thiếu cột bắt buộc (Nội dung/Content) trong header → không đọc được dòng nào, báo lỗi rõ ngay từ đầu file. */
     @Test
     void importQuestions_boSung_rejectsFileMissingRequiredContentHeader() throws IOException {
@@ -374,6 +493,33 @@ class QuestionImportServiceTest extends AbstractIntegrationTest {
         QuestionResponse q3 = findByContentPrefix(saved, "Our football");
         assertThat(q3.correctAnswerText()).isEqualTo("coach");
         assertThat(q3.imageUrl()).isEqualTo("https://example.com/3.png");
+    }
+
+    /**
+     * Bổ sung 2026-09-09 (đã xác nhận với người dùng) — 1 số bài DIEN_TU_NHOM (VD "tìm và sửa lỗi
+     * trong đoạn văn") cần hiện ĐÚNG đoạn văn gốc làm ngữ cảnh, không phải hộp từ vựng tham khảo — cột
+     * "Đoạn văn tham chiếu" trông như 1 đoạn văn tự nhiên (dài hoặc có dấu kết câu ./!/?) thì dùng làm
+     * referencePassage thật cho MỌI câu trong nhóm, KHÔNG dựng wordBox (khác test phía trên dùng danh
+     * sách từ ngắn, không dấu kết câu, vẫn giữ hành vi hộp từ như cũ).
+     */
+    @Test
+    void importQuestions_boSung_fillInBlankGroupUsesRealPassageWhenReferenceLooksLikeNaturalText() throws IOException {
+        String passage = "Peter goes to school every day. He like his teacher very much and enjoy the class.";
+        byte[] file = buildExcel(new String[][]{
+                {"DIEN_TU_NHOM", null,
+                        "Peter ___ to school every day.|He ___ his teacher very much.|He ___ the class.",
+                        null, null, null, null, "goes|likes|enjoys",
+                        null, null, passage, "1", null, null}
+        });
+
+        QuestionImportResponse result = questionImportService.importQuestions(bank.id(),
+                new MockMultipartFile("file", "sua-loi-doan-van.xlsx", "application/vnd.openxmlformats", file), teacher.getId());
+
+        assertThat(result.status()).isEqualTo("COMPLETED");
+        List<QuestionResponse> saved = questionBankService.listQuestions(bank.id());
+        assertThat(saved).hasSize(3);
+        assertThat(saved).allMatch(q -> passage.equals(q.referencePassage()));
+        assertThat(saved).allMatch(q -> q.structuredContent() == null);
     }
 
     /** A1: số đáp án không khớp số câu — lỗi rõ ràng, KHÔNG tạo câu nào của nhóm (không dở dang). */
@@ -651,18 +797,18 @@ class QuestionImportServiceTest extends AbstractIntegrationTest {
 
     /**
      * Round-trip: file mẫu Word tự sinh (buildWordTemplate) phải tự đọc lại
-     * được đúng cả 14 loại trong VALID_KINDS — bảo vệ khỏi mẫu và parser
+     * được đúng cả 15 loại trong VALID_KINDS — bảo vệ khỏi mẫu và parser
      * lệch cú pháp nhau (giống buildTemplate_roundTrip của
-     * GradeImportServiceTest cho UC-53). Số lượng 14 khớp đúng
-     * VALID_KINDS/TEMPLATE_BLOCKS sau khi bổ sung DOC_HIEU_LUOI/DOC_DIEN_TU
-     * ngày 2026-09-08 (trước đó 12 loại kể từ đợt bổ sung DIEN_TU_NHOM
-     * 2026-08-28, xem Javadoc lớp QuestionImportService) — successRows đếm
-     * THEO DÒNG (14) nhưng DIEN_TU_NHOM/DOC_HIEU_LUOI/DOC_DIEN_TU mỗi loại
-     * tạo ra 3 Question/1 dòng nên tổng câu hỏi thật sự tạo ra là 11 + 3 + 3
-     * + 3 = 20, tên method giữ nguyên hậu tố "boSung" theo đúng đợt bổ sung.
+     * GradeImportServiceTest cho UC-53). Số lượng 15 khớp đúng
+     * VALID_KINDS/TEMPLATE_BLOCKS sau khi bổ sung NGHE_CHON_HINH ngày
+     * 2026-09-09 (trước đó 14 loại kể từ đợt bổ sung DOC_HIEU_LUOI/DOC_DIEN_TU
+     * 2026-09-08, xem Javadoc lớp QuestionImportService) — successRows đếm
+     * THEO DÒNG (15) nhưng DIEN_TU_NHOM/DOC_HIEU_LUOI/DOC_DIEN_TU mỗi loại
+     * tạo ra 3 Question/1 dòng nên tổng câu hỏi thật sự tạo ra là 12 + 3 + 3
+     * + 3 = 21, tên method giữ nguyên hậu tố "boSung" theo đúng đợt bổ sung.
      */
     @Test
-    void buildWordTemplate_boSung_roundTripsThroughImportAndCreatesAllFourteenKinds() {
+    void buildWordTemplate_boSung_roundTripsThroughImportAndCreatesAllFifteenKinds() {
         byte[] template = questionImportService.buildWordTemplate();
 
         QuestionImportResponse result = questionImportService.importQuestions(bank.id(),
@@ -670,10 +816,10 @@ class QuestionImportServiceTest extends AbstractIntegrationTest {
                         "application/vnd.openxmlformats-officedocument.wordprocessingml.document", template), teacher.getId());
 
         assertThat(result.status()).isEqualTo("COMPLETED");
-        assertThat(result.totalRows()).isEqualTo(14);
-        assertThat(result.successRows()).isEqualTo(14);
+        assertThat(result.totalRows()).isEqualTo(15);
+        assertThat(result.successRows()).isEqualTo(15);
         assertThat(result.failedRows()).isEqualTo(0);
-        assertThat(questionBankService.listQuestions(bank.id())).hasSize(20);
+        assertThat(questionBankService.listQuestions(bank.id())).hasSize(21);
     }
 
     /**
