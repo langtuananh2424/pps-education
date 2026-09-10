@@ -228,7 +228,13 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
    * xếp câu cho phép KÈM audio nghe TÙY CHỌN (khác isVoiceOrListeningAudio ở trên — audio KHÔNG bắt
    * buộc, không đổi questionType/kind riêng, chỉ set thêm skill=LISTENING lúc lưu nếu có audio).
    */
-  const supportsOptionalAudio = kind === "WORD_BANK" || kind === "WORD_BANK_PICTURE" || kind === "SENTENCE_BUILDING" || kind === "LETTER_SCRAMBLE";
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-10 — fix khoảng trống thật: câu FILL_IN_BLANK
+  // thường (VD tạo ra từ nhóm DIEN_TU_NHOM import Excel không điền "URL Audio") không có CÁCH NÀO gắn
+  // audio/transcript sau khi tạo — form sửa chỉ hiện khối audio bắt buộc (isVoiceOrListeningAudio) cho
+  // kind "Nghe điền từ" (LISTENING_FILL_IN_BLANK), còn "Điền từ" thường thì không có field nào cả. Thêm
+  // FILL_IN_BLANK vào supportsOptionalAudio (mirror WORD_BANK) — audio TÙY CHỌN, có thì tự gắn
+  // skill=LISTENING lúc lưu (giống các kind khác), không đổi questionType/kind hiển thị lúc đang sửa.
+  const supportsOptionalAudio = kind === "WORD_BANK" || kind === "WORD_BANK_PICTURE" || kind === "SENTENCE_BUILDING" || kind === "LETTER_SCRAMBLE" || kind === "FILL_IN_BLANK";
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — ảnh minh họa CHỈ có ở các kind riêng
   // WORD_BANK_PICTURE/LETTER_SCRAMBLE (khớp Ex.3/Ex.1 đề mẫu) — WORD_BANK/SENTENCE_BUILDING gốc GIỮ
   // NGUYÊN không đổi, không có field này (đã xác nhận với người dùng: tách kind riêng, không gộp thêm
@@ -796,6 +802,15 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
                 placeholder={t("questionEditorForm.fillInBlankImagePlaceholder")}
               />
             </div>
+          )}
+          {kind === "FILL_IN_BLANK" && (
+            <OptionalAudioFields
+              audioUrl={audioUrl}
+              setAudioUrl={setAudioUrl}
+              transcript={transcript}
+              setTranscript={setTranscript}
+              label={t("questionEditorForm.optionalAudioLabel")}
+            />
           )}
           <div>
             <label className="block font-bold text-slate-600 mb-1 text-[9px] uppercase">{t("questionEditorForm.correctAnswerLabel")}</label>
