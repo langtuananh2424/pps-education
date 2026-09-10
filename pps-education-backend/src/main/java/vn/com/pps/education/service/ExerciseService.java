@@ -175,6 +175,11 @@ public class ExerciseService {
      * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04 — sửa lại thông tin 1 Bài đã soạn
      * (trước đây chỉ tạo được, không sửa được nữa). Không sửa code/examId/exerciseType (cố định từ
      * lúc tạo, giống quy ước ExamService#updateExam) — không giới hạn theo status, mirror updateExam.
+     *
+     * skillCategory (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-10): CHO sửa lại nhưng
+     * CHỈ khi Bài chưa có câu hỏi nào — skillCategory dùng để khóa loại câu hỏi (kind) được phép soạn
+     * (xem CreateAndAssignExerciseModal.tsx phía FE), đổi khi đã có câu hỏi sẽ làm câu hỏi cũ sai loại
+     * so với skillCategory mới.
      */
     @Transactional
     public ExerciseResponse updateExercise(Long id, UpdateExerciseRequest request, Long actorUserId) {
@@ -187,6 +192,16 @@ public class ExerciseService {
         exercise.setShowCorrectAnswers(request.showCorrectAnswers());
         if (request.passThresholdPercent() != null) {
             exercise.setPassThresholdPercent(request.passThresholdPercent());
+        }
+        if (request.skillCategory() != null) {
+            Exercise.SkillCategory newSkillCategory = Exercise.SkillCategory.valueOf(request.skillCategory());
+            if (newSkillCategory != exercise.getSkillCategory()) {
+                if (exerciseQuestionRepository.countByExerciseId(id) > 0) {
+                    throw new IllegalArgumentException(
+                            "Không thể đổi Nhóm kỹ năng vì Bài này đã có câu hỏi. Gỡ hết câu hỏi trước khi đổi.");
+                }
+                exercise.setSkillCategory(newSkillCategory);
+            }
         }
         exercise = exerciseRepository.save(exercise);
         return toResponse(exercise, exerciseQuestionRepository.findByExerciseIdOrderByDisplayOrder(id));

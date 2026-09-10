@@ -466,7 +466,9 @@
       "showCorrectAnswersCheckbox": "Show correct answers after submission (multiple choice section)",
       "allowRetakeCheckbox": "Allow retakes",
       "maxAttemptsLabel": "Maximum attempts",
-      "immutableHint": "The exercise code ({{code}}) cannot be changed after creation."
+      "immutableHint": "The exercise code ({{code}}) cannot be changed after creation.",
+      "skillCategoryLockedHint": "This exercise already has questions, so the skill category can't be changed — remove all questions first if you need to change it.",
+      "skillCategoryEditableHint": "This exercise has no questions yet, so the skill category can still be changed."
     },
     "addQuestionsModal": {
       "modalTitle": "Add questions — {{code}}"

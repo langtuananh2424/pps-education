@@ -466,7 +466,9 @@
       "showCorrectAnswersCheckbox": "Hiện đáp án đúng sau khi nộp (phần trắc nghiệm)",
       "allowRetakeCheckbox": "Cho phép làm lại",
       "maxAttemptsLabel": "Số lần làm tối đa",
-      "immutableHint": "Mã Bài ({{code}}) không sửa được sau khi tạo."
+      "immutableHint": "Mã Bài ({{code}}) không sửa được sau khi tạo.",
+      "skillCategoryLockedHint": "Bài đã có câu hỏi nên không đổi Nhóm kỹ năng được — gỡ hết câu hỏi trước nếu muốn đổi.",
+      "skillCategoryEditableHint": "Bài chưa có câu hỏi nên vẫn đổi được Nhóm kỹ năng."
     },
     "addQuestionsModal": {
       "modalTitle": "Thêm câu hỏi — {{code}}"

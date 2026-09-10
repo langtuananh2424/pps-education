@@ -24,7 +24,12 @@ public record CreateExerciseRequest(
         boolean showCorrectAnswers,
         /** V89/V100, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05: NULL = dùng mặc định 70% (Exercise.passThresholdPercent). */
         BigDecimal passThresholdPercent,
-        /** V136/V142, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-21/2026-08-23 — "READING"/"WRITING"/"VOCAB_GRAMMAR"/"LISTENING", NULL = chưa phân loại. Cố định từ lúc tạo (không sửa được qua UpdateExerciseRequest), xem Javadoc Exercise.SkillCategory. */
+        /**
+         * V136/V142, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-21/2026-08-23 —
+         * "READING"/"WRITING"/"VOCAB_GRAMMAR"/"LISTENING", NULL = chưa phân loại. Từ 2026-09-10 CHO
+         * sửa lại qua UpdateExerciseRequest nhưng CHỈ khi Bài chưa có câu hỏi (xem
+         * ExerciseService#updateExercise) — xem Javadoc Exercise.SkillCategory.
+         */
         String skillCategory
 ) {
     public CreateExerciseRequest(String code, String title, Long examId, Long subjectId, String exerciseType,

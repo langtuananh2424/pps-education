@@ -253,6 +253,41 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
         assertThat(updated.showCorrectAnswers()).isFalse();
     }
 
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-10 — cho sửa Nhóm kỹ năng khi Bài chưa có câu hỏi. */
+    @Test
+    void updateExercise_boSung_allowsSkillCategoryChangeWhenNoQuestions() {
+        ExerciseResponse exercise = exerciseService.createExercise(
+                new CreateExerciseRequest(exerciseCode(), "Bai on tap", defaultExam.id(), null,
+                        "SELF_PRACTICE", new BigDecimal("10"), null, false, null, true, null, "READING"),
+                teacher.getId());
+
+        ExerciseResponse updated = exerciseService.updateExercise(exercise.id(),
+                new UpdateExerciseRequest("Bai on tap", null, new BigDecimal("10"), false, null, true, null, "WRITING"),
+                teacher.getId());
+
+        assertThat(updated.skillCategory()).isEqualTo("WRITING");
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-10 — chặn đổi Nhóm kỹ năng khi Bài đã
+     * có câu hỏi (skillCategory dùng để khóa loại câu hỏi được soạn, đổi sau khi đã có câu hỏi sẽ làm
+     * câu hỏi cũ sai loại so với skillCategory mới).
+     */
+    @Test
+    void updateExercise_boSung_rejectsSkillCategoryChangeWhenHasQuestions() {
+        QuestionResponse mc = createMcQuestion();
+        ExerciseResponse exercise = exerciseService.createExercise(
+                new CreateExerciseRequest(exerciseCode(), "Bai on tap", defaultExam.id(), null,
+                        "SELF_PRACTICE", new BigDecimal("10"), null, false, null, true, null, "VOCAB_GRAMMAR"),
+                teacher.getId());
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("1.0")), teacher.getId());
+
+        assertThatThrownBy(() -> exerciseService.updateExercise(exercise.id(),
+                new UpdateExerciseRequest("Bai on tap", null, new BigDecimal("10"), false, null, true, null, "READING"),
+                teacher.getId()))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
     /**
      * V80 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04) — "Xóa Bài" = lưu trữ
      * (status=ARCHIVED), ẩn khỏi listByExam (Kho đề) nhưng vẫn xem được qua getExercise (không xóa cứng).

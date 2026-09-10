@@ -542,8 +542,27 @@ function EditExerciseModal({
   const [maxAttempts, setMaxAttempts] = useState(exercise.maxAttempts != null ? String(exercise.maxAttempts) : "");
   const [showCorrectAnswers, setShowCorrectAnswers] = useState(exercise.showCorrectAnswers);
   const [passThresholdPercent, setPassThresholdPercent] = useState(String(exercise.passThresholdPercent));
+  /**
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-10 — cho sửa Nhóm kỹ năng nhưng CHỈ khi
+   * Bài chưa có câu hỏi (skillCategory khóa loại câu hỏi được soạn — xem
+   * CreateAndAssignExerciseModal.tsx). Tự tải danh sách câu hỏi khi mở modal (không phụ thuộc state
+   * `questions` của ExerciseRow cha, có thể đang null nếu GV chưa mở rộng dòng) để biết khóa Select hay
+   * không — hasQuestions=null nghĩa là đang tải, coi như khóa cho tới khi biết chắc.
+   */
+  const [skillCategory, setSkillCategory] = useState<ExerciseSkillCategory>(
+    exercise.skillCategory ?? (exercise.examTeacherType === "FOREIGN" ? "LISTENING" : "READING")
+  );
+  const [hasQuestions, setHasQuestions] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    listExerciseQuestions(exercise.id)
+      .then((qs) => setHasQuestions(qs.length > 0))
+      .catch(() => setHasQuestions(true));
+  }, [exercise.id]);
+
+  const skillCategoryLocked = hasQuestions !== false;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -561,7 +580,8 @@ function EditExerciseModal({
         allowRetake,
         maxAttempts: allowRetake && maxAttempts ? Number(maxAttempts) : undefined,
         showCorrectAnswers,
-        passThresholdPercent: passThresholdPercent ? Number(passThresholdPercent) : undefined
+        passThresholdPercent: passThresholdPercent ? Number(passThresholdPercent) : undefined,
+        skillCategory: skillCategoryLocked ? undefined : skillCategory
       };
       const updated = await updateExercise(exercise.id, request);
       onUpdated(updated);
@@ -579,6 +599,35 @@ function EditExerciseModal({
         <div>
           <label className={labelClass}>{t("assignPage.editExerciseModal.exerciseTitleLabel")}</label>
           <input value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} />
+        </div>
+        <div>
+          <label className={labelClass}>{t("assignModal.infoStep.skillCategoryLabel")}</label>
+          {skillCategoryLocked ? (
+            <div className={`${inputClass} bg-slate-100 text-slate-500`}>
+              {exercise.skillCategory
+                ? t(`assignModal.infoStep.skillCategory${skillCategoryLabelSuffix[exercise.skillCategory]}`)
+                : t("assignPage.examDetail.noSkillCategory")}
+            </div>
+          ) : (
+            <Select value={skillCategory} onChange={(e) => setSkillCategory(e.target.value as ExerciseSkillCategory)} className={inputClass}>
+              {exercise.examTeacherType === "FOREIGN" ? (
+                <option value="LISTENING">{t("assignModal.infoStep.skillCategoryListening")}</option>
+              ) : (
+                <>
+                  <option value="READING">{t("assignModal.infoStep.skillCategoryReading")}</option>
+                  <option value="WRITING">{t("assignModal.infoStep.skillCategoryWriting")}</option>
+                  <option value="VOCAB_GRAMMAR">{t("assignModal.infoStep.skillCategoryVocabGrammar")}</option>
+                </>
+              )}
+            </Select>
+          )}
+          <p className="text-[10px] text-slate-400 italic mt-1">
+            {hasQuestions === null
+              ? t("common.loading")
+              : skillCategoryLocked
+                ? t("assignPage.editExerciseModal.skillCategoryLockedHint")
+                : t("assignPage.editExerciseModal.skillCategoryEditableHint")}
+          </p>
         </div>
         <div>
           <label className={labelClass}>{t("assignPage.editExerciseModal.totalPointsLabel")}</label>
@@ -969,7 +1018,7 @@ function ExerciseRow({
 
   return (
     <div>
-      <div className="w-full px-5 py-3.5 flex items-center justify-between gap-3 flex-wrap hover:bg-slate-50/60">
+      <div className="w-full px-5 py-3.5 items-center justify-between gap-3 flex-wrap hover:bg-slate-50/60">
         <button onClick={toggle} className="flex items-center gap-2 text-left flex-1 min-w-0">
           {expanded ? <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />}
           <div className="min-w-0">
