@@ -62,9 +62,13 @@ import java.util.Set;
  * LISTENING_AUDIO_SUBMISSION ở form tay) và NGHE_DIEN_TU (mirror
  * LISTENING_FILL_IN_BLANK). "Trắc nghiệm Voice" (TRAC_NGHIEM_VOICE) đã
  * hoạt động sẵn từ trước, dùng lại nguyên. "Nghe chọn hình"
- * (VOICE_PICTURE_CHOICE) vẫn KHÔNG đưa vào import — chỉ tồn tại dạng
- * composite ListeningGroupBuilder, cấu trúc ảnh-theo-từng-đáp-án không
- * diễn đạt gọn trong 1 dòng bảng tính.
+ * (VOICE_PICTURE_CHOICE, mở khóa 2026-09-09, đã xác nhận với người dùng) — kind
+ * NGHE_CHON_HINH, ảnh-theo-từng-đáp-án tái dùng cột "URL Hình ảnh" phân tách "|" (mirror cách
+ * DIEN_TU_NHOM dùng ảnh theo từng câu, xem buildPictureChoices()), không cần thêm cột mới.
+ *
+ * Nhiều câu ĐỘC LẬP (mỗi câu tự đáp án riêng) cùng dùng chung 1 "Đoạn văn tham chiếu" (đọc hiểu) hoặc
+ * cùng chung 1 "URL Audio" (nghe) không cần kind riêng — các dòng LIÊN TIẾP trùng giá trị cột đó tự
+ * động gộp chung 1 groupKey, xem computeAutoGroupKeys().
  *
  * DIEN_TU_NHOM (bổ sung 2026-08-28, đã xác nhận với người dùng — "Cách B", mirror
  * FillInBlankGroupBuilder.tsx phía FE): loại DUY NHẤT mà 1 dòng file tạo ra NHIỀU Question (mỗi câu
@@ -102,7 +106,7 @@ public class QuestionImportService {
     private static final Set<String> VALID_KINDS = Set.of(
             "TRAC_NGHIEM", "TRAC_NGHIEM_VOICE", "DIEN_TU", "TU_LUAN", "SPEAKING",
             "DIEN_TU_HOP_TU_VUNG", "DIEN_TU_HOP_TU_VUNG_ANH", "SAP_XEP_CAU", "SAP_XEP_CHU_CAI",
-            "NGHE_NOP_AUDIO", "NGHE_DIEN_TU", KIND_FILL_IN_BLANK_GROUP, KIND_GRID_GROUP, KIND_CLOZE_GROUP);
+            "NGHE_NOP_AUDIO", "NGHE_DIEN_TU", "NGHE_CHON_HINH", KIND_FILL_IN_BLANK_GROUP, KIND_GRID_GROUP, KIND_CLOZE_GROUP);
     private static final Set<String> VALID_DIFFICULTIES = Set.of("EASY", "MEDIUM", "HARD");
 
     private final ImportJobRepository importJobRepository;
@@ -177,10 +181,13 @@ public class QuestionImportService {
             List<Map<String, Object>> errors = new ArrayList<>();
             List<Map<String, Object>> createdQuestions = new ArrayList<>();
             // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-09 — xem Javadoc
-            // computeAutoPassageGroupKeys(): tự gộp các dòng TRAC_NGHIEM/TRAC_NGHIEM_VOICE liên tiếp
-            // cùng chung 1 "Đoạn văn tham chiếu" thành 1 nhóm groupKey, để đoạn văn hiện DÙNG CHUNG 1
-            // LẦN ở màn xem trước/làm bài thay vì lặp lại trước mỗi câu.
-            Map<Integer, String> autoPassageGroupKeys = computeAutoPassageGroupKeys(parsedRows, defaultKind);
+            // computeAutoGroupKeys(): tự gộp các dòng TRAC_NGHIEM/TRAC_NGHIEM_VOICE liên tiếp cùng chung
+            // 1 "Đoạn văn tham chiếu" (đọc hiểu — nhiều câu độc lập cùng 1 đoạn văn), HOẶC các dòng
+            // TRAC_NGHIEM_VOICE/NGHE_DIEN_TU/NGHE_NOP_AUDIO liên tiếp cùng chung 1 "URL Audio" (nghe —
+            // nhiều câu độc lập cùng 1 file audio, mirror ListeningGroupBuilder.tsx phía form soạn tay)
+            // thành 1 nhóm groupKey, để đoạn văn/audio hiện DÙNG CHUNG 1 LẦN ở màn xem trước/làm bài thay
+            // vì lặp lại trước mỗi câu.
+            Map<Integer, String> autoGroupKeys = computeAutoGroupKeys(parsedRows, defaultKind);
             // Bổ sung 2026-08-28 — đếm THEO DÒNG file (khớp totalRows/parsedRows.size()), KHÔNG đếm
             // theo số Question tạo ra: DIEN_TU_NHOM có thể tạo N Question từ ĐÚNG 1 dòng, nếu đếm theo
             // createdQuestions.size() thì successRows sẽ vượt quá totalRows (sai số liệu báo cáo).
@@ -197,7 +204,7 @@ public class QuestionImportService {
                             ? mapToGridGroupRequests(row, bank.getId(), rejectActiveDuplicate)
                             : KIND_CLOZE_GROUP.equals(kind)
                             ? mapToClozeGroupRequests(row, bank.getId(), rejectActiveDuplicate)
-                            : List.of(mapToRequest(row, bank.getId(), kind, autoPassageGroupKeys.get(row.rowNumber())));
+                            : List.of(mapToRequest(row, bank.getId(), kind, autoGroupKeys.get(row.rowNumber())));
                     for (CreateQuestionRequest request : requests) {
                         QuestionResponse created = questionBankService.createQuestionInBank(
                                 bank, request, actorUserId, rejectActiveDuplicate);
@@ -255,7 +262,7 @@ public class QuestionImportService {
             "VOCAB_GRAMMAR", Set.of("TRAC_NGHIEM", "TRAC_NGHIEM_VOICE", "DIEN_TU", KIND_FILL_IN_BLANK_GROUP,
                     "DIEN_TU_HOP_TU_VUNG", "DIEN_TU_HOP_TU_VUNG_ANH", "SAP_XEP_CAU", "SAP_XEP_CHU_CAI"),
             "WRITING", Set.of("TU_LUAN"),
-            "LISTENING", Set.of("TRAC_NGHIEM_VOICE", "NGHE_NOP_AUDIO", "NGHE_DIEN_TU"),
+            "LISTENING", Set.of("TRAC_NGHIEM_VOICE", "NGHE_NOP_AUDIO", "NGHE_DIEN_TU", "NGHE_CHON_HINH"),
             // Bổ sung 2026-09-08 — trước đây READING không có entry (Cloze/Grid chưa import được), giờ
             // mở khóa cả 2 group kind mới.
             "READING", Set.of(KIND_GRID_GROUP, KIND_CLOZE_GROUP));
@@ -407,6 +414,14 @@ public class QuestionImportService {
                 "Đáp án đúng: drives",
                 "Giải thích: Hệ thống tự chấm theo đáp án đúng.",
                 "---"));
+        blocks.put("NGHE_CHON_HINH", List.of(
+                "[NGHE_CHON_HINH]",
+                "Nội dung: What time is it?",
+                "URL Audio: https://example-r2.dev/lms/questions/audio/mau-nghe-chon-hinh.mp3",
+                "URL Hình ảnh: https://example-r2.dev/lms/questions/images/dong-ho-a.png|https://example-r2.dev/lms/questions/images/dong-ho-b.png|https://example-r2.dev/lms/questions/images/dong-ho-c.png",
+                "Đáp án đúng: B",
+                "Giải thích: Mỗi ảnh 1 đáp án theo thứ tự A/B/C(/D), phân tách bằng dấu | trong \"URL Hình ảnh\" — \"Đáp án A/B/C/D\" tùy chọn để thêm chú thích chữ dưới ảnh, để trống thì tự dùng chữ cái làm nhãn.",
+                "---"));
         blocks.put(KIND_GRID_GROUP, List.of(
                 "[DOC_HIEU_LUOI]",
                 // 3 dòng riêng (KHÔNG gộp "\n" vào 1 chuỗi) — WordQuestionRowParser.LABEL_PATTERN dùng
@@ -459,63 +474,77 @@ public class QuestionImportService {
             throw new IllegalArgumentException("Loại câu hỏi không hợp lệ: '" + raw
                     + "' — chỉ chấp nhận TRAC_NGHIEM/TRAC_NGHIEM_VOICE/DIEN_TU/DIEN_TU_NHOM/TU_LUAN/SPEAKING/"
                     + "DIEN_TU_HOP_TU_VUNG/DIEN_TU_HOP_TU_VUNG_ANH/SAP_XEP_CAU/SAP_XEP_CHU_CAI/"
-                    + "NGHE_NOP_AUDIO/NGHE_DIEN_TU/DOC_HIEU_LUOI/DOC_DIEN_TU.");
+                    + "NGHE_NOP_AUDIO/NGHE_DIEN_TU/NGHE_CHON_HINH/DOC_HIEU_LUOI/DOC_DIEN_TU.");
         }
         return kind;
     }
 
+    private static final Set<String> AUDIO_GROUPABLE_KINDS = Set.of("TRAC_NGHIEM_VOICE", "NGHE_DIEN_TU", "NGHE_NOP_AUDIO", "NGHE_CHON_HINH");
+
     /**
-     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-09 — 1 số bài đọc hiểu có NHIỀU câu
-     * TRAC_NGHIEM ĐỘC LẬP (mỗi câu 4 đáp án riêng) nhưng cùng tham chiếu 1 đoạn văn dài; kind
-     * DOC_HIEU_LUOI có sẵn không dùng được vì nó bắt buộc CHUNG 1 bộ đáp án cho cả nhóm. Thay vì thêm
-     * cột/kind mới, tự suy luận nhóm theo dòng: các dòng TRAC_NGHIEM/TRAC_NGHIEM_VOICE LIÊN TIẾP có
-     * cùng giá trị "Đoạn văn tham chiếu" (không rỗng, so khớp NGUYÊN VĂN) được gán chung 1 groupKey để
-     * FE (ExerciseStudentPreviewModal/TakeExerciseModal#groupQuestionsByGroupKey) hiện đoạn văn DÙNG
-     * CHUNG 1 LẦN thay vì lặp lại trước mỗi câu. Dòng lỗi kind/không có đoạn văn thì cắt chuỗi liên tiếp
-     * (không gộp nhầm 2 nhóm khác nhau ở 2 đoạn văn khác nhau qua 1 dòng lỗi ở giữa). CHỈ gán groupKey
-     * cho chuỗi TỪ 2 DÒNG trở lên — 1 dòng đơn lẻ có đoạn văn (VD 1 câu TRAC_NGHIEM_VOICE có transcript
-     * riêng, không câu nào khác dùng chung) KHÔNG phải "nhóm dùng chung", giữ groupKey=null như hành vi
-     * cũ (bug thật phát hiện khi review trước khi commit 2026-09-09: bản đầu gán groupKey ngay cho
-     * dòng đầu tiên của mỗi đoạn văn mới, khiến MỌI câu Voice có transcript tự nhiên có 1 groupKey
-     * "nhóm 1 người" dù không có ý định gộp).
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-09 — 2 tình huống cùng 1 bản chất
+     * ("nhiều câu ĐỘC LẬP — mỗi câu tự đáp án/tự chấm riêng — cùng dùng chung 1 tài nguyên hiển thị"):
+     * (1) đọc hiểu có NHIỀU câu TRAC_NGHIEM độc lập nhưng cùng tham chiếu 1 đoạn văn dài (kind
+     * DOC_HIEU_LUOI có sẵn không dùng được vì nó bắt buộc CHUNG 1 bộ đáp án cho cả nhóm); (2) nghe có
+     * NHIỀU câu TRAC_NGHIEM_VOICE/NGHE_DIEN_TU/NGHE_NOP_AUDIO độc lập nhưng cùng dùng 1 file audio
+     * (mirror ListeningGroupBuilder.tsx phía form soạn tay — GridQuestionRowPreview đã tự rẽ nhánh hiển
+     * thị theo questionType MULTIPLE_CHOICE/FILL_IN_BLANK/SPEAKING trong 1 khối nhóm, không cần sửa FE).
+     * Thay vì thêm cột/kind mới, tự suy luận nhóm theo dòng: dòng LIÊN TIẾP có cùng giá trị "Đoạn văn
+     * tham chiếu" (kind TRAC_NGHIEM/TRAC_NGHIEM_VOICE) HOẶC cùng giá trị "URL Audio" (kind thuộc
+     * AUDIO_GROUPABLE_KINDS) — so khớp NGUYÊN VĂN, không rỗng — được gán chung 1 groupKey để FE
+     * (ExerciseStudentPreviewModal/TakeExerciseModal#groupQuestionsByGroupKey) hiện đoạn văn/audio DÙNG
+     * CHUNG 1 LẦN thay vì lặp lại trước mỗi câu. 1 dòng vẫn có thể nối tiếp chuỗi qua kênh KHÁC kênh vừa
+     * nối trước đó (VD dòng NGHE_DIEN_TU nối theo audio dù dòng trước nối theo audio, không theo đoạn
+     * văn) — 2 kênh xét ĐỘC LẬP bằng OR, không bắt buộc cùng lúc khớp cả 2. Dòng lỗi kind thì cắt chuỗi
+     * liên tiếp (không gộp nhầm 2 nhóm khác nhau qua 1 dòng lỗi ở giữa). CHỈ gán groupKey cho chuỗi TỪ 2
+     * DÒNG trở lên — 1 dòng đơn lẻ có đoạn văn/audio riêng (không câu nào khác dùng chung) KHÔNG phải
+     * "nhóm dùng chung", giữ groupKey=null như hành vi cũ (bug thật phát hiện khi review trước khi commit
+     * 2026-09-09: bản đầu gán groupKey ngay cho dòng đầu tiên của mỗi đoạn văn mới, khiến MỌI câu Voice
+     * có transcript tự nhiên có 1 groupKey "nhóm 1 người" dù không có ý định gộp).
      */
-    private Map<Integer, String> computeAutoPassageGroupKeys(List<QuestionRowParser.ParsedQuestionRow> rows, String defaultKind) {
+    private Map<Integer, String> computeAutoGroupKeys(List<QuestionRowParser.ParsedQuestionRow> rows, String defaultKind) {
         Map<Integer, String> result = new LinkedHashMap<>();
         String previousPassage = null;
+        String previousAudio = null;
         List<Integer> currentRun = new ArrayList<>();
         for (QuestionRowParser.ParsedQuestionRow row : rows) {
             String kind;
             try {
                 kind = resolveKind(row, defaultKind);
             } catch (RuntimeException ex) {
-                flushPassageRun(result, currentRun);
+                flushGroupRun(result, currentRun);
                 currentRun = new ArrayList<>();
                 previousPassage = null;
+                previousAudio = null;
                 continue;
             }
             boolean isChoiceBased = kind.equals("TRAC_NGHIEM") || kind.equals("TRAC_NGHIEM_VOICE");
             String passage = isChoiceBased ? blankToNull(row.referencePassage()) : null;
-            if (passage != null && passage.equals(previousPassage)) {
+            String audio = AUDIO_GROUPABLE_KINDS.contains(kind) ? blankToNull(row.audioUrl()) : null;
+            boolean continuesRun = (passage != null && passage.equals(previousPassage))
+                    || (audio != null && audio.equals(previousAudio));
+            if (continuesRun) {
                 currentRun.add(row.rowNumber());
             } else {
-                flushPassageRun(result, currentRun);
+                flushGroupRun(result, currentRun);
                 currentRun = new ArrayList<>();
-                if (passage != null) {
+                if (passage != null || audio != null) {
                     currentRun.add(row.rowNumber());
                 }
             }
             previousPassage = passage;
+            previousAudio = audio;
         }
-        flushPassageRun(result, currentRun);
+        flushGroupRun(result, currentRun);
         return result;
     }
 
-    /** Chỉ ghi groupKey nếu chuỗi liên tiếp có TỪ 2 DÒNG trở lên — xem Javadoc computeAutoPassageGroupKeys. */
-    private void flushPassageRun(Map<Integer, String> result, List<Integer> runRowNumbers) {
+    /** Chỉ ghi groupKey nếu chuỗi liên tiếp có TỪ 2 DÒNG trở lên — xem Javadoc computeAutoGroupKeys. */
+    private void flushGroupRun(Map<Integer, String> result, List<Integer> runRowNumbers) {
         if (runRowNumbers.size() < 2) {
             return;
         }
-        String groupKey = "trac-nghiem-passage-import-" + System.currentTimeMillis() + "-" + runRowNumbers.get(0);
+        String groupKey = "auto-import-group-" + System.currentTimeMillis() + "-" + runRowNumbers.get(0);
         for (Integer rowNumber : runRowNumbers) {
             result.put(rowNumber, groupKey);
         }
@@ -526,7 +555,7 @@ public class QuestionImportService {
      * QuestionEditorForm.tsx (FE) áp dụng cho soạn tay — đảm bảo Excel/Word/
      * form tay không lệch quy tắc nhau (xem Javadoc lớp). {@code kind} đã được resolveKind() chọn +
      * validate sẵn (tự ghi hay dùng defaultKind) — hàm này không tự suy ra kind nữa. {@code autoGroupKey}
-     * đã được computeAutoPassageGroupKeys() gán sẵn (null nếu dòng này không thuộc nhóm đoạn văn dùng
+     * đã được computeAutoGroupKeys() gán sẵn (null nếu dòng này không thuộc nhóm đoạn văn/audio dùng
      * chung nào) — xem Javadoc hàm đó.
      */
     private CreateQuestionRequest mapToRequest(QuestionRowParser.ParsedQuestionRow row, Long bankId, String kind, String autoGroupKey) {
@@ -628,6 +657,22 @@ public class QuestionImportService {
                 throw new IllegalArgumentException("Nghe & nộp audio cần URL audio mẫu (đã upload sẵn qua Ngân hàng câu hỏi/API media upload).");
             }
             audioUrl = row.audioUrl().trim();
+        } else if (kind.equals("NGHE_CHON_HINH")) {
+            // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-09 — mở khóa import Excel cho
+            // "Nghe chọn hình" (VOICE_PICTURE_CHOICE): trước đây Javadoc lớp này ghi rõ kind này KHÔNG
+            // đưa vào import vì "cấu trúc ảnh-theo-từng-đáp-án không diễn đạt gọn trong 1 dòng bảng
+            // tính" — nay tái dùng đúng cơ chế pipe-separated đã dùng cho DIEN_TU_NHOM (ảnh theo từng
+            // câu): cột "URL Hình ảnh" là danh sách ảnh phân tách "|", MỖI ảnh 1 đáp án theo thứ tự
+            // A/B/C/D — không cần thêm cột mới. "Đáp án A-D" (nếu điền) làm chú thích chữ dưới ảnh, để
+            // trống thì tự dùng chữ cái A/B/C/D làm nhãn mặc định — mirror ĐÚNG hành vi form tay
+            // (ListeningGroupBuilder.tsx: "content_.trim() || String.fromCharCode(65+i)").
+            skill = "LISTENING";
+            if (isBlank(row.audioUrl())) {
+                throw new IllegalArgumentException("Nghe chọn hình cần URL audio mẫu (đã upload sẵn qua Ngân hàng câu hỏi/API media upload).");
+            }
+            audioUrl = row.audioUrl().trim();
+            choices = buildPictureChoices(row);
+            referencePassage = blankToNull(row.referencePassage());
         } else { // NGHE_DIEN_TU — mirror LISTENING_FILL_IN_BLANK ở form tay, bắt buộc cả audio lẫn đáp án.
             skill = "LISTENING";
             if (isBlank(row.audioUrl())) {
@@ -640,7 +685,7 @@ public class QuestionImportService {
             correctAnswerText = row.correctAnswer().trim();
         }
 
-        String questionType = kind.startsWith("TRAC_NGHIEM") ? "MULTIPLE_CHOICE"
+        String questionType = kind.startsWith("TRAC_NGHIEM") || kind.equals("NGHE_CHON_HINH") ? "MULTIPLE_CHOICE"
                 : kind.equals("DIEN_TU") || kind.equals("NGHE_DIEN_TU") ? "FILL_IN_BLANK"
                 : kind.equals("TU_LUAN") ? "ESSAY"
                 : kind.startsWith("DIEN_TU_HOP_TU_VUNG") ? "WORD_BANK"
@@ -1008,6 +1053,46 @@ public class QuestionImportService {
         for (int i = 0; i < count; i++) {
             String label = String.valueOf((char) ('A' + i));
             choices.add(new QuestionChoiceRequest(label, raw.get(i), null, label.equals(correctLetter), i + 1));
+        }
+        return choices;
+    }
+
+    /**
+     * "Nghe chọn hình" (VOICE_PICTURE_CHOICE, bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+     * 2026-09-09) — mirror ListeningGroupBuilder.tsx: mỗi đáp án là 1 ẢNH (không phải chữ), số lượng
+     * đáp án suy ra từ số ảnh trong "URL Hình ảnh" (phân tách "|", 2-4 ảnh). "Đáp án A-D" TÙY CHỌN làm
+     * chú thích chữ dưới ảnh — bỏ trống thì tự dùng chữ cái A/B/C/D làm nhãn mặc định.
+     */
+    private List<QuestionChoiceRequest> buildPictureChoices(QuestionRowParser.ParsedQuestionRow row) {
+        if (isBlank(row.imageUrl())) {
+            throw new IllegalArgumentException("Nghe chọn hình cần cột \"URL Hình ảnh\" — mỗi đáp án 1 ảnh, phân tách bằng dấu | (VD: url-a.png|url-b.png|url-c.png).");
+        }
+        List<String> images = splitPipeKeepBlanks(row.imageUrl());
+        int count = images.size();
+        if (count < 2) {
+            throw new IllegalArgumentException("Nghe chọn hình cần tối thiểu 2 ảnh đáp án, phân tách bằng dấu | trong \"URL Hình ảnh\".");
+        }
+        if (count > 4) {
+            throw new IllegalArgumentException("Nghe chọn hình chỉ hỗ trợ tối đa 4 ảnh đáp án (A-D) — đang có " + count + " ảnh.");
+        }
+        for (int i = 0; i < count; i++) {
+            if (images.get(i).isEmpty()) {
+                throw new IllegalArgumentException("Nghe chọn hình: đáp án thứ " + (i + 1) + " (theo dấu |) thiếu URL ảnh trong \"URL Hình ảnh\".");
+            }
+        }
+        List<String> captions = Arrays.asList(blankToNull(row.choiceA()), blankToNull(row.choiceB()),
+                blankToNull(row.choiceC()), blankToNull(row.choiceD()));
+        String allowedLetters = "ABCD".substring(0, count);
+        String correctLetter = isBlank(row.correctAnswer()) ? "" : row.correctAnswer().trim().toUpperCase(Locale.ROOT);
+        if (correctLetter.length() != 1 || allowedLetters.indexOf(correctLetter.charAt(0)) < 0) {
+            throw new IllegalArgumentException("Đáp án đúng phải là 1 trong " + String.join("/", allowedLetters.split(""))
+                    + " (đang có: '" + row.correctAnswer() + "').");
+        }
+        List<QuestionChoiceRequest> choices = new ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            String label = String.valueOf((char) ('A' + i));
+            String content = captions.get(i) != null ? captions.get(i) : label;
+            choices.add(new QuestionChoiceRequest(label, content, images.get(i), label.equals(correctLetter), i + 1));
         }
         return choices;
     }
