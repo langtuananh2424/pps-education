@@ -484,6 +484,9 @@
       "examUpdatedToast": "Exam updated successfully!",
       "createExercise": "Compose new exercise",
       "noExercises": "This exam has no exercises yet.",
+      "noExercisesForSkill": "No exercises in this exam match the selected skill category.",
+      "allSkillCategories": "All skill categories",
+      "noSkillCategory": "No skill category",
       "exerciseSavedToast": "Exercise saved successfully!"
     },
     "exerciseRow": {

@@ -12,6 +12,7 @@ import {
   ExamType,
   ExerciseQuestionResponse,
   ExerciseResponse,
+  ExerciseSkillCategory,
   QuestionResponse,
   SubTopicResponse,
   UnitResponse,
@@ -57,6 +58,27 @@ const statusVariants: Record<ExerciseResponse["status"], "neutral" | "success" |
   DRAFT: "neutral",
   PUBLISHED: "success",
   ARCHIVED: "danger"
+};
+
+/**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-10 — GV muốn xem/lọc nhanh xem các Bài
+ * trong 1 Đề (Lesson) đã được gán đúng Nhóm kỹ năng chưa (VD 1 bài Nghe bị gán nhầm Từ vựng & Ngữ
+ * pháp). Dùng lại ĐÚNG 4 giá trị ExerciseSkillCategory + label sẵn có ở assignModal.infoStep (không
+ * tạo label mới trùng nghĩa).
+ */
+const skillCategoryBadgeVariants: Record<ExerciseSkillCategory, "info" | "success" | "warning" | "brand"> = {
+  LISTENING: "info",
+  READING: "success",
+  WRITING: "warning",
+  VOCAB_GRAMMAR: "brand"
+};
+
+/** Hậu tố khớp key i18n "assignModal.infoStep.skillCategory<Suffix>" đã có sẵn. */
+const skillCategoryLabelSuffix: Record<ExerciseSkillCategory, string> = {
+  LISTENING: "Listening",
+  READING: "Reading",
+  WRITING: "Writing",
+  VOCAB_GRAMMAR: "VocabGrammar"
 };
 
 /**
@@ -650,6 +672,11 @@ function ExamDetailPanel({
   const { t } = useTranslation("lms-question-authoring");
   const [exercises, setExercises] = useState<ExerciseResponse[]>([]);
   const [loadingExercises, setLoadingExercises] = useState(false);
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-10 — lọc phía FE (Bài đã tải đủ cho 1
+  // Đề, không cần gọi lại API) theo Nhóm kỹ năng, để GV rà soát nhanh Bài nào trong Đề đang bị gán
+  // sai/thiếu kỹ năng.
+  const [skillFilter, setSkillFilter] = useState<ExerciseSkillCategory | "">("");
+  const filteredExercises = skillFilter ? exercises.filter((e) => e.skillCategory === skillFilter) : exercises;
   const [createExerciseOpen, setCreateExerciseOpen] = useState(false);
   const [assignClassOpen, setAssignClassOpen] = useState(false);
   const [editExamOpen, setEditExamOpen] = useState(false);
@@ -728,12 +755,25 @@ function ExamDetailPanel({
               : t("assignPage.examDetail.assignedClassCount", { count: assignedClassCount })}{" "}
             {t("assignPage.examDetail.manageSuffix")}
           </button>
-          {canManage && (
-            <Button variant="primary" size="sm" onClick={() => setCreateExerciseOpen(true)}>
-              <Plus className="w-3.5 h-3.5" />
-              {t("assignPage.examDetail.createExercise")}
-            </Button>
-          )}
+          <div className="flex items-center gap-2 ml-auto">
+            <Select
+              value={skillFilter}
+              onChange={(e) => setSkillFilter(e.target.value as ExerciseSkillCategory | "")}
+              className="bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
+            >
+              <option value="">{t("assignPage.examDetail.allSkillCategories")}</option>
+              <option value="LISTENING">{t("assignModal.infoStep.skillCategoryListening")}</option>
+              <option value="READING">{t("assignModal.infoStep.skillCategoryReading")}</option>
+              <option value="WRITING">{t("assignModal.infoStep.skillCategoryWriting")}</option>
+              <option value="VOCAB_GRAMMAR">{t("assignModal.infoStep.skillCategoryVocabGrammar")}</option>
+            </Select>
+            {canManage && (
+              <Button variant="primary" size="sm" onClick={() => setCreateExerciseOpen(true)}>
+                <Plus className="w-3.5 h-3.5" />
+                {t("assignPage.examDetail.createExercise")}
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -755,9 +795,11 @@ function ExamDetailPanel({
         <p className="text-xs text-slate-500 p-6 text-center">{t("common.loading")}</p>
       ) : exercises.length === 0 ? (
         <p className="text-xs text-slate-400 italic p-6 text-center">{t("assignPage.examDetail.noExercises")}</p>
+      ) : filteredExercises.length === 0 ? (
+        <p className="text-xs text-slate-400 italic p-6 text-center">{t("assignPage.examDetail.noExercisesForSkill")}</p>
       ) : (
         <div className="divide-y divide-slate-100">
-          {exercises.map((exercise) => (
+          {filteredExercises.map((exercise) => (
             <ExerciseRow
               key={exercise.id}
               exercise={exercise}
@@ -991,6 +1033,12 @@ function ExerciseRow({
           >
             {t("assignPage.exerciseRow.previewAsStudent")}
           </button>
+          {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-10 — hiện sẵn Nhóm kỹ năng của
+              Bài (không cần mở form sửa mới biết) để GV rà soát nhanh Bài nào bị gán sai/thiếu kỹ năng
+              trong cùng 1 Đề — đi cùng bộ lọc ở ExamDetailPanel. */}
+          <Badge variant={exercise.skillCategory ? skillCategoryBadgeVariants[exercise.skillCategory] : "neutral"}>
+            {exercise.skillCategory ? t(`assignModal.infoStep.skillCategory${skillCategoryLabelSuffix[exercise.skillCategory]}`) : t("assignPage.examDetail.noSkillCategory")}
+          </Badge>
           <Badge variant={statusVariants[exercise.status]}>{t(`assignPage.statusLabels.${exercise.status}`)}</Badge>
           {canManage && exercise.status === "DRAFT" && (
             <button
