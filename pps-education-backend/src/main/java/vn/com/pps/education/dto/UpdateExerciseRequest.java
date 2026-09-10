@@ -19,10 +19,17 @@ public record UpdateExerciseRequest(
         Integer maxAttempts,
         boolean showCorrectAnswers,
         /** V89, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05: NULL = giữ nguyên ngưỡng đã cấu hình. */
-        BigDecimal passThresholdPercent
+        BigDecimal passThresholdPercent,
+        /**
+         * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-10 — cho sửa lại Nhóm kỹ năng SAU
+         * khi tạo, nhưng CHỈ khi Bài chưa có câu hỏi nào (xem ExerciseService#updateExercise) vì
+         * skillCategory dùng để khóa loại câu hỏi (kind) được soạn — đổi khi đã có câu hỏi sẽ làm câu
+         * hỏi cũ sai loại so với skillCategory mới. NULL = giữ nguyên giá trị hiện tại.
+         */
+        String skillCategory
 ) {
     public UpdateExerciseRequest(String title, Long subjectId, BigDecimal totalPoints, boolean allowRetake,
                                   Integer maxAttempts, boolean showCorrectAnswers) {
-        this(title, subjectId, totalPoints, allowRetake, maxAttempts, showCorrectAnswers, null);
+        this(title, subjectId, totalPoints, allowRetake, maxAttempts, showCorrectAnswers, null, null);
     }
 }
