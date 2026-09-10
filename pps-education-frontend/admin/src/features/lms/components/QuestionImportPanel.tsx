@@ -39,7 +39,7 @@ interface QuestionImportPanelProps {
 const SKILL_CATEGORY_KIND_TOKENS: Record<string, string[]> = {
   VOCAB_GRAMMAR: ["TRAC_NGHIEM", "TRAC_NGHIEM_VOICE", "DIEN_TU", "DIEN_TU_NHOM", "DIEN_TU_HOP_TU_VUNG", "DIEN_TU_HOP_TU_VUNG_ANH", "SAP_XEP_CAU", "SAP_XEP_CHU_CAI"],
   WRITING: ["TU_LUAN"],
-  LISTENING: ["TRAC_NGHIEM_VOICE", "NGHE_NOP_AUDIO", "NGHE_DIEN_TU"],
+  LISTENING: ["TRAC_NGHIEM_VOICE", "NGHE_NOP_AUDIO", "NGHE_DIEN_TU", "NGHE_CHON_HINH"],
   READING: ["DOC_HIEU_LUOI", "DOC_DIEN_TU"]
 };
 
@@ -47,7 +47,7 @@ const SKILL_CATEGORY_KIND_TOKENS: Record<string, string[]> = {
 const ALL_KIND_TOKENS = [
   "TRAC_NGHIEM", "TRAC_NGHIEM_VOICE", "DIEN_TU", "DIEN_TU_NHOM", "TU_LUAN", "SPEAKING",
   "DIEN_TU_HOP_TU_VUNG", "DIEN_TU_HOP_TU_VUNG_ANH", "SAP_XEP_CAU", "SAP_XEP_CHU_CAI",
-  "NGHE_NOP_AUDIO", "NGHE_DIEN_TU", "DOC_HIEU_LUOI", "DOC_DIEN_TU"
+  "NGHE_NOP_AUDIO", "NGHE_DIEN_TU", "NGHE_CHON_HINH", "DOC_HIEU_LUOI", "DOC_DIEN_TU"
 ];
 
 /**
@@ -80,10 +80,13 @@ export default function QuestionImportPanel({ bankId, examId, skillCategory, tea
       // Cột cố định của mẫu Excel — ExcelQuestionRowParser.java đọc theo TÊN header (dòng 1), không
       // theo vị trí cột, nên thứ tự/ngôn ngữ header đổi được miễn còn khớp alias (xem
       // QuestionImportFieldAliases.java) — mảng dưới đây chỉ cần khớp ĐÚNG THỨ TỰ với mảng `headers`.
-      // 12 dòng ví dụ demo đủ 12 loại UI hỗ trợ (bổ sung 2026-08-26: NGHE_NOP_AUDIO/NGHE_DIEN_TU cho
+      // 15 dòng ví dụ demo đủ 15 loại UI hỗ trợ (bổ sung 2026-08-26: NGHE_NOP_AUDIO/NGHE_DIEN_TU cho
       // GV nước ngoài; bổ sung 2026-08-28: DIEN_TU_NHOM — "Cách B", 1 dòng tạo N Question riêng cùng
-      // groupKey, mirror FillInBlankGroupBuilder.tsx), y hệt nội dung buildTemplateBlocks() bên backend
-      // (QuestionImportService.java) để 2 định dạng nhất quán.
+      // groupKey, mirror FillInBlankGroupBuilder.tsx; bổ sung 2026-09-08: DOC_HIEU_LUOI/DOC_DIEN_TU
+      // cho READING; bổ sung 2026-09-09: NGHE_CHON_HINH — mirror VOICE_PICTURE_CHOICE ở
+      // ListeningGroupBuilder.tsx, ảnh theo từng đáp án qua "URL Hình ảnh" phân tách "|"), y hệt nội
+      // dung buildTemplateBlocks() bên backend (QuestionImportService.java) để 2
+      // định dạng nhất quán.
       const headers = t("questionImportPanel.excelHeaders", { returnObjects: true }) as string[];
       const sampleRows: string[][] = [
         ["TRAC_NGHIEM", "EASY", "What is the capital of France?", "London", "Paris", "Berlin", "Madrid", "B",
@@ -115,6 +118,10 @@ export default function QuestionImportPanel({ bankId, examId, skillCategory, tea
         ["NGHE_DIEN_TU", "", "Listen and fill in the blank: She usually ___ to work.", "", "", "", "", "drives",
           "https://example-r2.dev/lms/questions/audio/mau-nghe-dien-tu.mp3", "", "", "1",
           t("questionImportPanel.excelSampleExplanations.listeningFillInBlank"), ""],
+        ["NGHE_CHON_HINH", "", "What time is it?", "", "", "", "", "B",
+          "https://example-r2.dev/lms/questions/audio/mau-nghe-chon-hinh.mp3",
+          "https://example-r2.dev/lms/questions/images/dong-ho-a.png|https://example-r2.dev/lms/questions/images/dong-ho-b.png|https://example-r2.dev/lms/questions/images/dong-ho-c.png",
+          "", "1", t("questionImportPanel.excelSampleExplanations.listeningPictureChoice"), ""],
         ["DOC_HIEU_LUOI", "", "Who loves a subject because of visiting museums?|Who says friends think their hobby is strange?|Who talks about both a school subject and a sport?",
           "Tom", "Max", "Anna", "", "B|A|C",
           "", "", "Tom: I go to a big school in London...\n\nMax: I live in New York...\n\nAnna: I am a new student in Paris...", "1",

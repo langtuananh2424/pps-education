@@ -127,6 +127,7 @@
       "letterScramble": "1 letter per element, separated by | in the EXACT order that forms the correct word.",
       "listeningAudioSubmission": "Student submits audio; graded manually in the Grading queue.",
       "listeningFillInBlank": "Auto-graded against the correct answer.",
+      "listeningPictureChoice": "Each image is 1 option in order A/B/C(/D), separated by | in Image URL — Option A/B/C/D are optional captions under each image, leave blank to default to the letter label.",
       "gridReading": "Each question in Content is separated by | and shares ONE reference passage + ONE shared A-D answer set (applies to EVERY question). Correct answer is the letter A/B/C/D in the EXACT order matching Content.",
       "clozeReading": "The number of blanks is inferred from the | count in Answer A (required) — Answer B/C/D (if present) must match that count, EACH blank has its own options. Content (optional) labels each blank; leave blank to auto-number them."
     },
