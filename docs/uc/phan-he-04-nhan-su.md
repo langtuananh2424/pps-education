@@ -199,6 +199,35 @@ UC-09: Chấm công
 > ngày/nhân sự/điểm trường — không thay đổi Main Flow/Alternate Flow tự
 > phục vụ ở trên.
 
+> **Bổ sung 2026-09-11 (ngoài Main Flow gốc, đã xác nhận với người dùng) —
+> đánh dấu MISSING khi quên chấm công:** Postcondition gốc ở trên ("Trường
+> hợp bị từ chối: không có bản ghi chấm công nào được tạo") khiến nhân sự
+> QUÊN HẲN không bấm chấm công (không bị từ chối, không gì cả) biến mất
+> hoàn toàn khỏi log — HR không có cách nào biết ai quên. `AttendanceMissingSchedulerService`
+> quét định kỳ mỗi 5 phút: với nhân sự đã qua cửa sổ chấm công VÀO hôm nay
+> (xem `AttendanceWindowResolver`) mà vẫn chưa có `attendance_records` nào,
+> tạo 1 bản ghi `status=MISSING` (giá trị enum đã có sẵn từ trước, trước đây
+> chưa từng được set). Loại trừ nhân sự đang nghỉ phép ĐÃ DUYỆT nguyên ngày
+> (ANNUAL/SICK/UNPAID/PERSONAL — không loại trừ LATE/EARLY_LEAVE vì đó là
+> nghỉ 1 phần buổi, vẫn phải chấm công phần còn lại) — vì `AttendanceService`
+> hiện không liên kết với `leave_requests`. KHÔNG gửi thông báo, KHÔNG
+> backfill ngày quá khứ trước khi scheduler này lên — chỉ ghi nhận để hiển
+> thị trên bảng tổng hợp `hrm.attendance.view-all`.
+
+> **Bổ sung 2026-09-11 (ngoài Main Flow gốc, đã xác nhận với người dùng) —
+> GV part-time miễn trừ hoàn toàn khỏi UC-09:** trước đây Main Flow bước 3-4
+> (A12/A13) coi MỌI GV có tiết dạy hôm nay đều có cửa sổ chấm công UC-09
+> (kể cả GV không hề được gán Ca làm việc) — không phân biệt GV làm việc
+> toàn thời gian (nhân sự công ty, vẫn chấm công + nhận lớp như cũ) hay bán
+> thời gian (trả lương theo giờ dạy, không liên quan gì tới UC-09). Nay bổ
+> sung: GV có hợp đồng `employment_contracts` đang `ACTIVE` với
+> `salary_type = HOURLY` bị miễn trừ HOÀN TOÀN khỏi UC-09 (cả chấm công
+> thật lẫn quét MISSING) — mirror `is_management`, ném
+> `PartTimeTeacherExemptFromAttendanceException` nếu cố chấm công. Chỉ dùng
+> UC-71 Nhận lớp để ghi nhận có mặt + tính lương theo giờ dạy thực tế (đúng
+> Postcondition UC-71 đã có sẵn). GV chưa có hợp đồng `ACTIVE` nào (dữ liệu
+> cũ/chưa kịp tạo) mặc định coi là full-time, KHÔNG bị loại trừ.
+
 ---
 
 UC-70: Quản lý Ca làm việc & Lịch làm việc/nghỉ lễ (bổ sung HOÀN TOÀN

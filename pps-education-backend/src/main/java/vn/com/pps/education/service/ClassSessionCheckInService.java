@@ -4,7 +4,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.ClassSession;
 import vn.com.pps.education.domain.ClassSessionCheckIn;
+import vn.com.pps.education.domain.Employee;
 import vn.com.pps.education.domain.Site;
+import vn.com.pps.education.dto.ClassSessionCheckInAdminResponse;
 import vn.com.pps.education.dto.ClassSessionCheckInRequest;
 import vn.com.pps.education.dto.ClassSessionCheckInResponse;
 import vn.com.pps.education.dto.ClassSessionCheckInStatusResponse;
@@ -17,9 +19,12 @@ import vn.com.pps.education.exception.OutsideGpsRadiusException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.repository.ClassSessionCheckInRepository;
 import vn.com.pps.education.repository.ClassSessionRepository;
+import vn.com.pps.education.repository.EmployeeRepository;
 import vn.com.pps.education.repository.SiteRepository;
 import vn.com.pps.education.service.attendance.AttendanceSettings;
 
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.List;
@@ -41,15 +46,18 @@ public class ClassSessionCheckInService {
     private final ClassSessionRepository classSessionRepository;
     private final ClassSessionCheckInRepository classSessionCheckInRepository;
     private final SiteRepository siteRepository;
+    private final EmployeeRepository employeeRepository;
     private final AttendanceSettings attendanceSettings;
 
     public ClassSessionCheckInService(ClassSessionRepository classSessionRepository,
                                        ClassSessionCheckInRepository classSessionCheckInRepository,
                                        SiteRepository siteRepository,
+                                       EmployeeRepository employeeRepository,
                                        AttendanceSettings attendanceSettings) {
         this.classSessionRepository = classSessionRepository;
         this.classSessionCheckInRepository = classSessionCheckInRepository;
         this.siteRepository = siteRepository;
+        this.employeeRepository = employeeRepository;
         this.attendanceSettings = attendanceSettings;
     }
 
@@ -133,15 +141,70 @@ public class ClassSessionCheckInService {
         Map<Long, ClassSessionCheckIn> checkInsBySessionId = classSessionCheckInRepository.findByClassSessionIdIn(sessionIds).stream()
                 .collect(Collectors.toMap(c -> c.getClassSession().getId(), c -> c));
         OffsetDateTime now = OffsetDateTime.now();
-        return checkableSessions.stream().map(s -> toStatusResponse(s, checkInsBySessionId.get(s.id()), now)).toList();
+        return checkableSessions.stream()
+                .map(s -> toStatusResponse(s.id(), s.sessionDate(), s.startTime(), s.endTime(), checkInsBySessionId.get(s.id()), now))
+                .toList();
     }
 
-    private ClassSessionCheckInStatusResponse toStatusResponse(ClassSessionResponse session, ClassSessionCheckIn checkIn, OffsetDateTime now) {
-        if (checkIn != null) {
-            return new ClassSessionCheckInStatusResponse(session.id(), checkIn.getStatus().name(), checkIn.getCheckInTime());
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-11 — bảng
+     * admin "Dữ liệu chấm công nhận lớp" (tab riêng, tách khỏi "Dữ liệu
+     * chấm công ca làm việc" UC-09). Tái dùng NGUYÊN VẸN toStatusResponse
+     * (không viết lại quy tắc NOT_YET_OPEN/PENDING/ON_TIME/LATE/ABSENT) —
+     * chỉ khác nguồn dữ liệu đầu vào (ClassSession entity thay vì
+     * ClassSessionResponse của 1 GV tự xem) và có thêm thông tin lớp/điểm
+     * trường để hiển thị bảng tổng hợp toàn trung tâm.
+     */
+    @Transactional(readOnly = true)
+    public List<ClassSessionCheckInAdminResponse> listAdminEffectiveStatus(Long employeeId, Long siteId, LocalDate from, LocalDate to) {
+        List<Employee> teachers = employeeId != null
+                ? List.of(employeeRepository.findByIdAndDeletedAtIsNull(employeeId)
+                        .filter(e -> e.getEmployeeType() == Employee.EmployeeType.TEACHER)
+                        .orElseThrow(() -> new ResourceNotFoundException(
+                                "error.classSessionCheckIn.teacherNotFound", new Object[]{employeeId},
+                                "Không tìm thấy Giáo viên id=" + employeeId)))
+                : employeeRepository.findAllActive(null).stream()
+                        .filter(e -> e.getEmployeeType() == Employee.EmployeeType.TEACHER)
+                        .toList();
+        if (teachers.isEmpty()) {
+            return List.of();
         }
-        OffsetDateTime sessionStart = session.sessionDate().atTime(session.startTime()).atZone(ZoneId.systemDefault()).toOffsetDateTime();
-        OffsetDateTime sessionEnd = session.sessionDate().atTime(session.endTime()).atZone(ZoneId.systemDefault()).toOffsetDateTime();
+        Map<Long, Employee> employeeByUserId = teachers.stream()
+                .collect(Collectors.toMap(e -> e.getUser().getId(), e -> e));
+        List<Long> siteIds = siteId == null ? null : List.of(siteId);
+
+        List<ClassSession> sessions = classSessionRepository
+                .findByPrimaryTeacherIdInAndFiltersAndDateRange(List.copyOf(employeeByUserId.keySet()), siteIds, null, from, to).stream()
+                .filter(cs -> cs.getStatus() != ClassSession.Status.CANCELLED && cs.getStatus() != ClassSession.Status.RESCHEDULED)
+                .toList();
+        if (sessions.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> sessionIds = sessions.stream().map(ClassSession::getId).toList();
+        Map<Long, ClassSessionCheckIn> checkInsBySessionId = classSessionCheckInRepository.findByClassSessionIdIn(sessionIds).stream()
+                .collect(Collectors.toMap(c -> c.getClassSession().getId(), c -> c));
+        OffsetDateTime now = OffsetDateTime.now();
+
+        return sessions.stream().map(cs -> {
+            ClassSessionCheckInStatusResponse status = toStatusResponse(
+                    cs.getId(), cs.getSessionDate(), cs.getStartTime(), cs.getEndTime(), checkInsBySessionId.get(cs.getId()), now);
+            Employee teacher = employeeByUserId.get(cs.getPrimaryTeacher().getId());
+            Site site = cs.getSchoolClass().getSite();
+            return new ClassSessionCheckInAdminResponse(
+                    cs.getId(), teacher.getId(), cs.getPrimaryTeacher().getFullName(), teacher.getEmployeeCode(),
+                    cs.getSchoolClass().getId(), cs.getSchoolClass().getName(), cs.getSessionDate(), cs.getStartTime(), cs.getEndTime(),
+                    site.getId(), site.getName(), status.checkInTime(), status.effectiveStatus());
+        }).toList();
+    }
+
+    private ClassSessionCheckInStatusResponse toStatusResponse(Long sessionId, LocalDate sessionDate, LocalTime startTime,
+                                                                 LocalTime endTime, ClassSessionCheckIn checkIn, OffsetDateTime now) {
+        if (checkIn != null) {
+            return new ClassSessionCheckInStatusResponse(sessionId, checkIn.getStatus().name(), checkIn.getCheckInTime());
+        }
+        OffsetDateTime sessionStart = sessionDate.atTime(startTime).atZone(ZoneId.systemDefault()).toOffsetDateTime();
+        OffsetDateTime sessionEnd = sessionDate.atTime(endTime).atZone(ZoneId.systemDefault()).toOffsetDateTime();
         OffsetDateTime windowOpensAt = sessionStart.minusMinutes(OPEN_BEFORE_MINUTES);
 
         String effectiveStatus;
@@ -152,7 +215,7 @@ public class ClassSessionCheckInService {
         } else {
             effectiveStatus = "PENDING";
         }
-        return new ClassSessionCheckInStatusResponse(session.id(), effectiveStatus, null);
+        return new ClassSessionCheckInStatusResponse(sessionId, effectiveStatus, null);
     }
 
     private OffsetDateTime toOffsetDateTime(ClassSession session, java.time.LocalTime time) {

@@ -120,6 +120,16 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, Long
             Long primaryTeacherId, LocalDate sessionDate, List<ClassSession.Status> excludedStatuses);
 
     /**
+     * Bổ sung ngoài SDD gốc, xác nhận 2026-09-11 — bản batch của
+     * findByPrimaryTeacherIdAndSessionDateAndStatusNotIn, dùng ở
+     * AttendanceMissingSchedulerService để lấy 1 lần tiết dạy hôm nay của
+     * nhiều GV thay vì gọi lặp N lần (primaryTeacherIds là User.id, không
+     * phải employee.id, giống hệt tham số actorUserId ở AttendanceService).
+     */
+    List<ClassSession> findByPrimaryTeacherIdInAndSessionDateAndStatusNotIn(
+            List<Long> primaryTeacherIds, LocalDate sessionDate, List<ClassSession.Status> excludedStatuses);
+
+    /**
      * UC-10 bước 3 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
      * 2026-08-05): buổi dạy của 1 Giáo viên trong khoảng nghỉ đã chọn, để
      * hiển thị cho GV chọn giáo viên dạy thay.

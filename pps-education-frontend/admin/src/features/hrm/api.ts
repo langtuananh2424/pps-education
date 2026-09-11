@@ -608,6 +608,45 @@ export function listAttendanceRecords(params: ListAttendanceRecordsParams): Prom
   return apiRequest<AttendanceRecordAdminResponse[]>(`/attendance/records?${query.toString()}`);
 }
 
+/**
+ * UC-71: Nhận lớp — bổ sung ngoài SDD/SRS gốc, đã xác nhận với người dùng
+ * 2026-09-11. Khớp ClassSessionCheckInAdminResponse thật, xem GET
+ * /api/class-sessions/check-ins (ClassSessionCheckInController.java), gate
+ * chung quyền hrm.attendance.view-all với "Dữ liệu chấm công ca làm việc".
+ */
+export interface ClassSessionCheckInAdminResponse {
+  classSessionId: number;
+  teacherId: number;
+  teacherFullName: string;
+  teacherCode: string;
+  classId: number;
+  className: string;
+  sessionDate: string;
+  startTime: string;
+  endTime: string;
+  siteId: number;
+  siteName: string;
+  checkInTime: string | null;
+  /** NOT_YET_OPEN | PENDING | ON_TIME | LATE | ABSENT */
+  effectiveStatus: string;
+}
+
+export interface ListClassSessionCheckInsParams {
+  employeeId?: number;
+  siteId?: number;
+  from: string;
+  to: string;
+}
+
+export function listClassSessionCheckIns(params: ListClassSessionCheckInsParams): Promise<ClassSessionCheckInAdminResponse[]> {
+  const query = new URLSearchParams();
+  query.set("from", params.from);
+  query.set("to", params.to);
+  if (params.employeeId != null) query.set("employeeId", String(params.employeeId));
+  if (params.siteId != null) query.set("siteId", String(params.siteId));
+  return apiRequest<ClassSessionCheckInAdminResponse[]>(`/class-sessions/check-ins?${query.toString()}`);
+}
+
 // ===================== UC-70: Ca làm việc + Lịch làm việc/nghỉ lễ =====================
 // Bổ sung HOÀN TOÀN ngoài SDD/SRS gốc, đã xác nhận với người dùng 2026-08-13 — xem
 // ShiftController/WorkCalendarController.java và docs/uc/phan-he-04-nhan-su.md (ghi chú UC-70).

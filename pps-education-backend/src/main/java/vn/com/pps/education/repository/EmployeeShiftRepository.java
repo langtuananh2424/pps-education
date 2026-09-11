@@ -15,6 +15,14 @@ public interface EmployeeShiftRepository extends JpaRepository<EmployeeShift, Lo
      */
     List<EmployeeShift> findByEmployeeIdAndEffectiveToIsNull(Long employeeId);
 
+    /**
+     * Bổ sung ngoài SDD gốc, xác nhận 2026-09-11: bản batch của
+     * findByEmployeeIdAndEffectiveToIsNull, dùng ở
+     * AttendanceMissingSchedulerService để lấy 1 lần ca active của nhiều
+     * nhân sự thay vì gọi lặp N lần.
+     */
+    List<EmployeeShift> findByEmployeeIdInAndEffectiveToIsNull(List<Long> employeeIds);
+
     List<EmployeeShift> findByEmployeeIdOrderByEffectiveFromDesc(Long employeeId);
 
     /**
