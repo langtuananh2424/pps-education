@@ -45,6 +45,10 @@
     "SYSTEM_ANNOUNCEMENT": "Thông báo hệ thống",
     "OTHER": "Khác",
     "ATTENDANCE_ABSENT": "Vắng học/vắng làm",
+    "ATTENDANCE_PRESENT": "Có mặt đầy đủ",
+    "ATTENDANCE_LATE": "Đi học muộn",
+    "ATTENDANCE_EXCUSED": "Nghỉ có phép",
+    "ATTENDANCE_EARLY_LEAVE": "Về sớm",
     "TASK_ASSIGNED": "Giao việc mới",
     "TASK_COMMENT": "Bình luận công việc",
     "INVOICE_DUE": "Hóa đơn đến hạn",
@@ -62,7 +66,8 @@
     "HOMEWORK_MISS_WARNING": "Cảnh báo thiếu BTVN",
     "HOMEWORK_MISS_PARENT_MEETING_INVITE": "Mời họp phụ huynh (thiếu BTVN)",
     "HOMEWORK_MISS_REMINDER_NON_CONSECUTIVE": "Nhắc thiếu BTVN (không liên tiếp)",
-    "HOMEWORK_DUE_SOON_REMINDER": "Sắp tới hạn BTVN"
+    "HOMEWORK_DUE_SOON_REMINDER": "Sắp tới hạn BTVN",
+    "HOMEWORK_MEETING_INVITE_PENDING_APPROVAL": "Thư mời phụ huynh chờ duyệt (báo Quản lý điểm trường)"
   },
   "sendNotificationPage": {
     "title": "Gửi thông báo",
@@ -78,9 +83,24 @@
     "titleLabel": "Tiêu đề",
     "contentLabel": "Nội dung",
     "sendErrorDefault": "Gửi thất bại.",
+    "channels": {
+      "label": "Ép kênh gửi (tùy chọn — để test)",
+      "hint": "Để trống = gửi theo cấu hình thông báo thật của từng người nhận (mặc định). Chọn 1+ kênh để ÉP gửi đúng các kênh đó, bỏ qua cấu hình cá nhân — dùng để cô lập test 1 kênh, VD chỉ Push.",
+      "EMAIL": "Email",
+      "PUSH": "Push",
+      "SMS": "SMS",
+      "ZALO": "Zalo"
+    },
+    "deviceTokens": {
+      "loading": "Đang kiểm tra device token...",
+      "countLabel": "{{count}} thiết bị đang bật Push",
+      "zeroWarning": "⚠ Không có device token active — chọn kênh Push sẽ không gửi được cho người này."
+    },
     "result": {
       "summary": "Đã gửi {{succeeded}}/{{total}} người nhận.",
-      "failureItem": "User #{{userId}}: {{reason}}"
+      "failureItem": "User #{{userId}}: {{reason}}",
+      "channelResultsTitle": "Kết quả theo kênh (dispatch ngay, không cần đợi job quét):",
+      "channelResultItem": "User #{{userId}} · {{channel}}: {{status}}{{error}}"
     },
     "sending": "Đang gửi...",
     "sendButton": "Gửi tới {{count}} người"

@@ -80,10 +80,15 @@ public class PartnerFeedbackService {
 
         writeHistory(feedback, actor, PartnerFeedbackHistory.Action.CREATED, Map.of("status", "NEW"));
         if (currentManager != null) {
+            Map<String, Object> metadata = new HashMap<>();
+            metadata.put("siteName", site.getName());
+            metadata.put("feedbackType", feedback.getFeedbackType());
+            metadata.put("priority", feedback.getPriority());
             notificationService.notify(currentManager.getUser().getId(), Notification.NotificationType.PARTNER_FEEDBACK,
                     "Phản hồi mới từ trường liên kết",
                     "Điểm trường " + site.getName() + " vừa gửi 1 phản hồi (" + feedback.getFeedbackType() + ", ưu tiên "
-                            + feedback.getPriority() + ").");
+                            + feedback.getPriority() + ").",
+                    metadata, "PARTNER_FEEDBACK", feedback.getId(), Notification.Priority.NORMAL, actorUserId);
         }
         return toResponse(feedback);
     }
@@ -157,9 +162,13 @@ public class PartnerFeedbackService {
         feedback = partnerFeedbackRepository.save(feedback);
         writeHistory(feedback, getUserOrThrow(actorUserId), PartnerFeedbackHistory.Action.UPDATED, Map.of("status", "RESOLVED"));
 
+        Map<String, Object> resolvedMetadata = new HashMap<>();
+        resolvedMetadata.put("createdDate", feedback.getCreatedAt().toLocalDate());
+        resolvedMetadata.put("resolutionNotes", request.resolutionNotes());
         notificationService.notify(feedback.getSubmittedBy().getId(), Notification.NotificationType.PARTNER_FEEDBACK,
                 "Phản hồi của bạn đã được giải quyết",
-                "Phản hồi gửi ngày " + feedback.getCreatedAt().toLocalDate() + " đã được xử lý: " + request.resolutionNotes());
+                "Phản hồi gửi ngày " + feedback.getCreatedAt().toLocalDate() + " đã được xử lý: " + request.resolutionNotes(),
+                resolvedMetadata, "PARTNER_FEEDBACK", feedback.getId(), Notification.Priority.NORMAL, actorUserId);
         return toResponse(feedback);
     }
 

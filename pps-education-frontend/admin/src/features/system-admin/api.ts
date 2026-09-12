@@ -341,6 +341,10 @@ export const NOTIFICATION_TYPES = [
   "SYSTEM_ANNOUNCEMENT",
   "OTHER",
   "ATTENDANCE_ABSENT",
+  "ATTENDANCE_PRESENT",
+  "ATTENDANCE_LATE",
+  "ATTENDANCE_EXCUSED",
+  "ATTENDANCE_EARLY_LEAVE",
   "TASK_ASSIGNED",
   "TASK_COMMENT",
   "INVOICE_DUE",
@@ -358,15 +362,22 @@ export const NOTIFICATION_TYPES = [
   "HOMEWORK_MISS_WARNING",
   "HOMEWORK_MISS_PARENT_MEETING_INVITE",
   "HOMEWORK_MISS_REMINDER_NON_CONSECUTIVE",
-  "HOMEWORK_DUE_SOON_REMINDER"
+  "HOMEWORK_DUE_SOON_REMINDER",
+  "HOMEWORK_MEETING_INVITE_PENDING_APPROVAL"
 ] as const;
 export type NotificationTypeValue = (typeof NOTIFICATION_TYPES)[number];
+
+/** Khớp đúng NotificationDelivery.Channel thật của backend (IN_APP không cho ép qua tool này — luôn tự tạo, không qua sender). */
+export const NOTIFICATION_CHANNELS = ["EMAIL", "PUSH", "SMS", "ZALO"] as const;
+export type NotificationChannelValue = (typeof NOTIFICATION_CHANNELS)[number];
 
 export interface SendNotificationRequest {
   recipientUserIds: number[];
   notificationType: NotificationTypeValue;
   title: string;
   content: string;
+  /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-12 — không truyền/rỗng = gửi theo notification_preferences thật của từng user (hành vi cũ); truyền = ÉP đúng các kênh này, bỏ qua preference, để cô lập test 1 kênh. */
+  channels?: NotificationChannelValue[];
 }
 
 export interface SendNotificationFailure {
@@ -374,10 +385,19 @@ export interface SendNotificationFailure {
   reason: string;
 }
 
+/** Kết quả gửi theo từng kênh của từng user — dispatch đồng bộ ngay lúc gọi API, không phải chờ job quét mỗi phút. */
+export interface SendNotificationChannelResult {
+  recipientUserId: number;
+  channel: string;
+  status: "PENDING" | "QUEUED" | "SENT" | "DELIVERED" | "FAILED" | "BOUNCED";
+  errorMessage: string | null;
+}
+
 export interface SendNotificationResponse {
   totalRecipients: number;
   succeeded: number;
   failures: SendNotificationFailure[];
+  channelResults: SendNotificationChannelResult[];
 }
 
 /** Gửi thông báo thủ công tới danh sách user được chọn — công cụ test/gửi tay của Quản trị viên. */
@@ -386,4 +406,15 @@ export function sendManualNotification(request: SendNotificationRequest): Promis
     method: "POST",
     body: JSON.stringify(request)
   });
+}
+
+export interface DeviceTokenCountResponse {
+  userId: number;
+  activeTokenCount: number;
+}
+
+/** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-12 — biết trước ai test PUSH được. */
+export function getActiveDeviceTokenCounts(userIds: number[]): Promise<DeviceTokenCountResponse[]> {
+  const query = userIds.map((id) => `userIds=${id}`).join("&");
+  return apiRequest<DeviceTokenCountResponse[]>(`/notifications/device-token-counts?${query}`);
 }

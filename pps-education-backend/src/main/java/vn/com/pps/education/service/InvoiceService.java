@@ -343,10 +343,15 @@ public class InvoiceService {
         if (payer == null) {
             return;
         }
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("invoiceNumber", invoice.getInvoiceNumber());
+        metadata.put("amount", invoice.getTotalAmount());
+        metadata.put("dueDate", invoice.getDueDate());
         notificationService.notify(payer.getUser().getId(), Notification.NotificationType.INVOICE_DUE,
                 "Hóa đơn học phí mới",
                 "Hóa đơn %s, số tiền %s, hạn thanh toán %s.".formatted(
-                        invoice.getInvoiceNumber(), invoice.getTotalAmount(), invoice.getDueDate()));
+                        invoice.getInvoiceNumber(), invoice.getTotalAmount(), invoice.getDueDate()),
+                metadata, "INVOICE", invoice.getId(), Notification.Priority.NORMAL, null);
     }
 
     private void writeInvoiceHistory(Invoice invoice, User actor, InvoiceHistory.Action action) {

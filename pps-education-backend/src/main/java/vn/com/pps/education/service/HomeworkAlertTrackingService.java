@@ -38,21 +38,25 @@ public class HomeworkAlertTrackingService {
 
     public record ChannelMissResult(StudentHomeworkAlertState.Channel channel, boolean passed) {}
 
-    private record TriggeredAlert(String line, int rank, Notification.NotificationType type, Notification.Priority priority) {}
+    private record TriggeredAlert(String line, int rank, Notification.NotificationType type, Notification.Priority priority,
+                                   String channelLabel, int count) {}
 
     private final StudentHomeworkAlertStateRepository stateRepository;
     private final AcademicTermRepository academicTermRepository;
     private final NotificationService notificationService;
     private final ParentStudentRepository parentStudentRepository;
+    private final HomeworkParentMeetingInviteService meetingInviteService;
 
     public HomeworkAlertTrackingService(StudentHomeworkAlertStateRepository stateRepository,
                                          AcademicTermRepository academicTermRepository,
                                          NotificationService notificationService,
-                                         ParentStudentRepository parentStudentRepository) {
+                                         ParentStudentRepository parentStudentRepository,
+                                         HomeworkParentMeetingInviteService meetingInviteService) {
         this.stateRepository = stateRepository;
         this.academicTermRepository = academicTermRepository;
         this.notificationService = notificationService;
         this.parentStudentRepository = parentStudentRepository;
+        this.meetingInviteService = meetingInviteService;
     }
 
     @Transactional
@@ -91,13 +95,16 @@ public class HomeworkAlertTrackingService {
 
         TriggeredAlert type1 = switch (streak) {
             case 2 -> new TriggeredAlert(channelLabel + ": thiếu liên tục 2 buổi (Nhắc nhở).",
-                    0, Notification.NotificationType.HOMEWORK_MISS_REMINDER, Notification.Priority.NORMAL);
+                    0, Notification.NotificationType.HOMEWORK_MISS_REMINDER, Notification.Priority.NORMAL,
+                    channelLabel, streak);
             case 3 -> new TriggeredAlert(channelLabel + ": thiếu liên tục 3 buổi (Cảnh báo học tập).",
-                    1, Notification.NotificationType.HOMEWORK_MISS_WARNING, Notification.Priority.HIGH);
+                    1, Notification.NotificationType.HOMEWORK_MISS_WARNING, Notification.Priority.HIGH,
+                    channelLabel, streak);
             case 4 -> {
                 state.setConsecutiveMissCount(0); // reset ngay sau khi chạm mốc mời làm việc (đã xác nhận với người dùng)
                 yield new TriggeredAlert(channelLabel + ": thiếu liên tục 4 buổi (Thư mời phụ huynh tới làm việc).",
-                        2, Notification.NotificationType.HOMEWORK_MISS_PARENT_MEETING_INVITE, Notification.Priority.URGENT);
+                        2, Notification.NotificationType.HOMEWORK_MISS_PARENT_MEETING_INVITE, Notification.Priority.URGENT,
+                        channelLabel, streak);
             }
             default -> null;
         };
@@ -108,18 +115,30 @@ public class HomeworkAlertTrackingService {
         if (!state.isType2AlertSent() && total >= 3) {
             state.setType2AlertSent(true);
             return List.of(new TriggeredAlert(channelLabel + ": thiếu " + total + " buổi không liên tục trong kỳ (Nhắc nhở).",
-                    0, Notification.NotificationType.HOMEWORK_MISS_REMINDER_NON_CONSECUTIVE, Notification.Priority.NORMAL));
+                    0, Notification.NotificationType.HOMEWORK_MISS_REMINDER_NON_CONSECUTIVE, Notification.Priority.NORMAL,
+                    channelLabel, total));
         }
         return List.of();
     }
 
     private void sendCombinedNotification(Student student, SchoolClass schoolClass, List<TriggeredAlert> triggered) {
         TriggeredAlert heaviest = triggered.stream().max(java.util.Comparator.comparingInt(TriggeredAlert::rank)).orElseThrow();
+
+        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-12: "Thư mời phụ huynh tới
+        // làm việc" phải qua Quản lý điểm trường duyệt trước khi gửi xuống Phụ huynh — KHÔNG gửi
+        // thẳng như 3 loại cảnh báo còn lại. Xem HomeworkParentMeetingInviteService.
+        if (heaviest.type() == Notification.NotificationType.HOMEWORK_MISS_PARENT_MEETING_INVITE) {
+            meetingInviteService.submitForApproval(student, schoolClass, heaviest.channelLabel(), heaviest.count());
+            return;
+        }
+
         String title = "Cảnh báo BTVN — học sinh " + student.getUser().getFullName();
         String content = triggered.stream().map(TriggeredAlert::line).reduce((a, b) -> a + "\n" + b).orElse("");
         Map<String, Object> metadata = new LinkedHashMap<>();
         metadata.put("studentName", student.getUser().getFullName());
         metadata.put("className", schoolClass.getName());
+        metadata.put("channelLabel", heaviest.channelLabel());
+        metadata.put("count", heaviest.count());
 
         for (ParentStudent link : parentStudentRepository.findByStudentId(student.getId())) {
             notificationService.notify(link.getParent().getUser().getId(), heaviest.type(), title, content,

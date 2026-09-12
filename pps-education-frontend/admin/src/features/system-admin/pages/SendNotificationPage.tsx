@@ -3,7 +3,11 @@ import { useTranslation } from "react-i18next";
 import { Search, Send, UserCheck, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import {
+  DeviceTokenCountResponse,
+  getActiveDeviceTokenCounts,
+  NOTIFICATION_CHANNELS,
   NOTIFICATION_TYPES,
+  NotificationChannelValue,
   NotificationTypeValue,
   searchUsers,
   sendManualNotification,
@@ -41,10 +45,31 @@ export default function SendNotificationPage() {
   const [notificationType, setNotificationType] = useState<NotificationTypeValue>("SYSTEM_ANNOUNCEMENT");
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [forcedChannels, setForcedChannels] = useState<NotificationChannelValue[]>([]);
+  const [deviceTokenCounts, setDeviceTokenCounts] = useState<DeviceTokenCountResponse[]>([]);
+  const [loadingDeviceTokens, setLoadingDeviceTokens] = useState(false);
 
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [result, setResult] = useState<SendNotificationResponse | null>(null);
+
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-12 — cho biết ngay trên form ai
+  // đang có device token active, tránh chọn nhầm người test Push mà không nhận được gì.
+  useEffect(() => {
+    if (selectedUsers.length === 0) {
+      setDeviceTokenCounts([]);
+      return;
+    }
+    setLoadingDeviceTokens(true);
+    getActiveDeviceTokenCounts(selectedUsers.map((u) => u.id))
+      .then(setDeviceTokenCounts)
+      .catch(() => setDeviceTokenCounts([]))
+      .finally(() => setLoadingDeviceTokens(false));
+  }, [selectedUsers]);
+
+  const toggleChannel = (channel: NotificationChannelValue) => {
+    setForcedChannels((prev) => (prev.includes(channel) ? prev.filter((c) => c !== channel) : [...prev, channel]));
+  };
 
   useEffect(() => {
     if (!searchOpen) return;
@@ -87,7 +112,8 @@ export default function SendNotificationPage() {
       recipientUserIds: selectedUsers.map((u) => u.id),
       notificationType,
       title: title.trim(),
-      content: content.trim()
+      content: content.trim(),
+      channels: forcedChannels.length > 0 ? forcedChannels : undefined
     })
       .then((res) => {
         setResult(res);
@@ -116,19 +142,37 @@ export default function SendNotificationPage() {
 
           {selectedUsers.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mb-2">
-              {selectedUsers.map((u) => (
-                <span
-                  key={u.id}
-                  className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-100 text-emerald-700 text-[11px] font-semibold pl-2.5 pr-1.5 py-1 rounded-full"
-                >
-                  <UserCheck className="w-3 h-3" />
-                  {u.fullName}
-                  <button type="button" onClick={() => removeUser(u.id)} className="text-emerald-600 hover:text-rose-600">
-                    <X className="w-3 h-3" />
-                  </button>
-                </span>
-              ))}
+              {selectedUsers.map((u) => {
+                const tokenCount = deviceTokenCounts.find((d) => d.userId === u.id)?.activeTokenCount;
+                return (
+                  <span
+                    key={u.id}
+                    className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-100 text-emerald-700 text-[11px] font-semibold pl-2.5 pr-1.5 py-1 rounded-full"
+                  >
+                    <UserCheck className="w-3 h-3" />
+                    {u.fullName}
+                    {!loadingDeviceTokens && tokenCount !== undefined && (
+                      <span
+                        className={tokenCount > 0 ? "text-emerald-600 font-normal" : "text-rose-500 font-normal"}
+                        title={
+                          tokenCount > 0
+                            ? t("sendNotificationPage.deviceTokens.countLabel", { count: tokenCount })
+                            : t("sendNotificationPage.deviceTokens.zeroWarning")
+                        }
+                      >
+                        · {t("sendNotificationPage.deviceTokens.countLabel", { count: tokenCount })}
+                      </span>
+                    )}
+                    <button type="button" onClick={() => removeUser(u.id)} className="text-emerald-600 hover:text-rose-600">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                );
+              })}
             </div>
+          )}
+          {loadingDeviceTokens && (
+            <p className="text-[10px] text-slate-400 mb-2">{t("sendNotificationPage.deviceTokens.loading")}</p>
           )}
 
           <div className="relative">
@@ -195,6 +239,24 @@ export default function SendNotificationPage() {
         </div>
 
         <div>
+          <label className={labelClass}>{t("sendNotificationPage.channels.label")}</label>
+          <p className="text-[10px] text-slate-400 mb-1.5">{t("sendNotificationPage.channels.hint")}</p>
+          <div className="flex flex-wrap gap-3">
+            {NOTIFICATION_CHANNELS.map((channel) => (
+              <label key={channel} className="flex items-center gap-1.5 text-xs font-medium text-slate-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={forcedChannels.includes(channel)}
+                  onChange={() => toggleChannel(channel)}
+                  className="rounded border-slate-300"
+                />
+                {t(`sendNotificationPage.channels.${channel}`)}
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div>
           <label className={labelClass}>{t("sendNotificationPage.titleLabel")}</label>
           <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={500} className={inputClass} />
         </div>
@@ -234,6 +296,26 @@ export default function SendNotificationPage() {
                   </li>
                 ))}
               </ul>
+            )}
+            {result.channelResults.length > 0 && (
+              <div className="mt-2 pt-2 border-t border-current/10">
+                <p className="font-bold mb-1">{t("sendNotificationPage.result.channelResultsTitle")}</p>
+                <ul className="space-y-0.5">
+                  {result.channelResults.map((cr, idx) => (
+                    <li
+                      key={`${cr.recipientUserId}-${cr.channel}-${idx}`}
+                      className={`text-[11px] ${cr.status === "SENT" ? "text-emerald-700" : cr.status === "FAILED" ? "text-rose-600" : ""}`}
+                    >
+                      {t("sendNotificationPage.result.channelResultItem", {
+                        userId: cr.recipientUserId,
+                        channel: cr.channel,
+                        status: cr.status,
+                        error: cr.errorMessage ? ` — ${cr.errorMessage}` : ""
+                      })}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
           </div>
         )}

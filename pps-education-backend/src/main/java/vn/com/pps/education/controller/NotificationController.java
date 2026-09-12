@@ -15,8 +15,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import vn.com.pps.education.domain.Notification;
+import vn.com.pps.education.dto.DeviceTokenCountResponse;
 import vn.com.pps.education.dto.DeviceTokenRequest;
 import vn.com.pps.education.dto.NotificationPreferenceRequest;
 import vn.com.pps.education.dto.NotificationPreferenceResponse;
@@ -25,7 +27,10 @@ import vn.com.pps.education.dto.PushSetupLogRequest;
 import vn.com.pps.education.dto.SendNotificationRequest;
 import vn.com.pps.education.dto.SendNotificationResponse;
 import vn.com.pps.education.security.AuthenticatedUser;
+import vn.com.pps.education.service.ManualNotificationSendService;
 import vn.com.pps.education.service.NotificationService;
+
+import java.util.List;
 
 /** Module Notification — tự phục vụ, mỗi user chỉ thấy/thao tác thông báo của chính mình. */
 @RestController
@@ -33,9 +38,12 @@ import vn.com.pps.education.service.NotificationService;
 public class NotificationController {
 
     private final NotificationService notificationService;
+    private final ManualNotificationSendService manualNotificationSendService;
 
-    public NotificationController(NotificationService notificationService) {
+    public NotificationController(NotificationService notificationService,
+                                   ManualNotificationSendService manualNotificationSendService) {
         this.notificationService = notificationService;
+        this.manualNotificationSendService = manualNotificationSendService;
     }
 
     @GetMapping
@@ -108,6 +116,17 @@ public class NotificationController {
     @PostMapping("/send-manual")
     public ResponseEntity<SendNotificationResponse> sendManual(@Valid @RequestBody SendNotificationRequest request,
                                                                   @AuthenticationPrincipal AuthenticatedUser actor) {
-        return ResponseEntity.ok(notificationService.sendManual(request, actor.userId()));
+        return ResponseEntity.ok(manualNotificationSendService.sendManual(request, actor.userId()));
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-12 — biết trước
+     * user nào đang có device token PUSH active, dùng ở trang "Gửi thông báo"
+     * để chọn đúng người test kênh Push thay vì tự tra DB.
+     */
+    @PreAuthorize("hasPermission(null, 'notification.send.manual')")
+    @GetMapping("/device-token-counts")
+    public ResponseEntity<List<DeviceTokenCountResponse>> getActiveDeviceTokenCounts(@RequestParam List<Long> userIds) {
+        return ResponseEntity.ok(notificationService.getActiveDeviceTokenCounts(userIds));
     }
 }

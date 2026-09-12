@@ -353,25 +353,38 @@ public class LeaveRequestService {
         String title = "Có đơn từ chờ duyệt";
         String content = "Đơn từ #%d (%s) của %s đang chờ bạn duyệt."
                 .formatted(lr.getId(), lr.getLeaveType(), lr.getEmployee().getUser().getFullName());
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("leaveId", lr.getId());
+        metadata.put("leaveType", lr.getLeaveType());
+        metadata.put("employeeName", lr.getEmployee().getUser().getFullName());
         if (specificApprover != null) {
-            notificationService.notify(specificApprover.getId(), Notification.NotificationType.LEAVE_REQUEST_STATUS, title, content);
+            notificationService.notify(specificApprover.getId(), Notification.NotificationType.LEAVE_REQUEST_STATUS, title, content,
+                    metadata, "LEAVE_REQUEST", lr.getId(), Notification.Priority.NORMAL, null);
             return;
         }
         String roleCode = role == LeaveRequestApproval.ApproverRole.EXECUTIVE ? "EXECUTIVE" : "OPS_MANAGER";
         roleRepository.findByCode(roleCode).ifPresent(r ->
                 userRoleRepository.findByRoleId(r.getId()).forEach(ur ->
                         notificationService.notify(ur.getUser().getId(),
-                                Notification.NotificationType.LEAVE_REQUEST_STATUS, title, content)));
+                                Notification.NotificationType.LEAVE_REQUEST_STATUS, title, content,
+                                metadata, "LEAVE_REQUEST", lr.getId(), Notification.Priority.NORMAL, null)));
     }
 
     private void notifySubmitterFinalized(LeaveRequest lr) {
         boolean approved = lr.getStatus() == LeaveRequest.Status.APPROVED;
         String title = approved ? "Đơn từ đã được duyệt" : "Đơn từ bị từ chối";
+        String resultLabel = approved ? "được duyệt" : "bị từ chối";
         String content = "Đơn từ #%d (%s, %s → %s) đã %s.".formatted(
-                lr.getId(), lr.getLeaveType(), lr.getStartDate(), lr.getEndDate(),
-                approved ? "được duyệt" : "bị từ chối");
+                lr.getId(), lr.getLeaveType(), lr.getStartDate(), lr.getEndDate(), resultLabel);
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("leaveId", lr.getId());
+        metadata.put("leaveType", lr.getLeaveType());
+        metadata.put("startDate", lr.getStartDate());
+        metadata.put("endDate", lr.getEndDate());
+        metadata.put("resultLabel", resultLabel);
         notificationService.notify(lr.getEmployee().getUser().getId(),
-                Notification.NotificationType.LEAVE_REQUEST_STATUS, title, content);
+                Notification.NotificationType.LEAVE_REQUEST_STATUS, title, content,
+                metadata, "LEAVE_REQUEST", lr.getId(), Notification.Priority.NORMAL, null);
     }
 
     private boolean currentApproverRoleMatches(LeaveRequest lr, Set<String> roleCodes) {

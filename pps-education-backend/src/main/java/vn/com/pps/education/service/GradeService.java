@@ -790,6 +790,11 @@ public class GradeService {
         metadata.put("classId", entry.getSchoolClass().getId());
         metadata.put("studentId", entry.getStudent().getId());
         metadata.put("gradeEvaluationComponentId", entry.getGradeComponent().getId());
+        metadata.put("componentName", entry.getGradeComponent().getName());
+        metadata.put("className", entry.getSchoolClass().getName());
+        metadata.put("studentName", entry.getStudent().getUser().getFullName());
+        metadata.put("score", entry.getScore());
+        metadata.put("maxScore", entry.getGradeComponent().getMaxScore());
         for (ParentStudent link : links) {
             notificationService.notify(link.getParent().getUser().getId(), Notification.NotificationType.GRADE_PUBLISHED,
                     title, content, metadata, "GRADE_ENTRY", entry.getId(), Notification.Priority.NORMAL, triggeredByUserId);
@@ -811,6 +816,12 @@ public class GradeService {
         metadata.put("studentId", result.getStudent().getId());
         metadata.put("academicTermId", result.getAcademicTerm().getId());
         metadata.put("evaluationType", result.getEvaluationType().name());
+        metadata.put("termName", result.getAcademicTerm().getName());
+        metadata.put("className", result.getSchoolClass().getName());
+        metadata.put("studentName", result.getStudent().getUser().getFullName());
+        if (result.getLevel() != null) {
+            metadata.put("level", result.getLevel());
+        }
         for (ParentStudent link : links) {
             notificationService.notify(link.getParent().getUser().getId(), Notification.NotificationType.GRADE_PUBLISHED,
                     title, content, metadata, "GRADE_PERIOD_RESULT", result.getId(), Notification.Priority.NORMAL, triggeredByUserId);
@@ -827,6 +838,12 @@ public class GradeService {
         metadata.put("classId", entry.getSchoolClass().getId());
         metadata.put("studentId", entry.getStudent().getId());
         metadata.put("gradeEvaluationComponentId", entry.getGradeComponent().getId());
+        metadata.put("componentName", entry.getGradeComponent().getName());
+        metadata.put("className", entry.getSchoolClass().getName());
+        metadata.put("studentName", entry.getStudent().getUser().getFullName());
+        if (rejectReason != null && !rejectReason.isBlank()) {
+            metadata.put("reason", rejectReason);
+        }
         notificationService.notify(entry.getEnteredBy().getId(), Notification.NotificationType.GRADE_REJECTED,
                 title, content, metadata, "GRADE_ENTRY", entry.getId(), Notification.Priority.HIGH, triggeredByUserId);
     }
@@ -842,6 +859,12 @@ public class GradeService {
         metadata.put("studentId", result.getStudent().getId());
         metadata.put("academicTermId", result.getAcademicTerm().getId());
         metadata.put("evaluationType", result.getEvaluationType().name());
+        metadata.put("termName", result.getAcademicTerm().getName());
+        metadata.put("className", result.getSchoolClass().getName());
+        metadata.put("studentName", result.getStudent().getUser().getFullName());
+        if (rejectReason != null && !rejectReason.isBlank()) {
+            metadata.put("reason", rejectReason);
+        }
         notificationService.notify(result.getEnteredBy().getId(), Notification.NotificationType.GRADE_REJECTED,
                 title, content, metadata, "GRADE_PERIOD_RESULT", result.getId(), Notification.Priority.HIGH, triggeredByUserId);
     }

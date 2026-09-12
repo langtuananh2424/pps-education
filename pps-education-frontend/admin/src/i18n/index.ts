@@ -30,6 +30,7 @@ import systemAdminRolesEn from "./locales/en/system-admin-roles.json";
 import systemAdminUsersEn from "./locales/en/system-admin-users.json";
 import systemAdminOverridesEn from "./locales/en/system-admin-overrides.json";
 import systemAdminSettingsEn from "./locales/en/system-admin-settings.json";
+import notificationsEn from "./locales/en/notifications.json";
 import commonVi from "./locales/vi/common.json";
 import authVi from "./locales/vi/auth.json";
 import dashboardVi from "./locales/vi/dashboard.json";
@@ -59,6 +60,7 @@ import systemAdminRolesVi from "./locales/vi/system-admin-roles.json";
 import systemAdminUsersVi from "./locales/vi/system-admin-users.json";
 import systemAdminOverridesVi from "./locales/vi/system-admin-overrides.json";
 import systemAdminSettingsVi from "./locales/vi/system-admin-settings.json";
+import notificationsVi from "./locales/vi/notifications.json";
 
 export const LANGUAGE_STORAGE_KEY = "pps_language";
 
@@ -95,7 +97,8 @@ i18n.use(initReactI18next).init({
       "system-admin-roles": systemAdminRolesVi,
       "system-admin-users": systemAdminUsersVi,
       "system-admin-overrides": systemAdminOverridesVi,
-      "system-admin-settings": systemAdminSettingsVi
+      "system-admin-settings": systemAdminSettingsVi,
+      notifications: notificationsVi
     },
     en: {
       common: commonEn,
@@ -126,7 +129,8 @@ i18n.use(initReactI18next).init({
       "system-admin-roles": systemAdminRolesEn,
       "system-admin-users": systemAdminUsersEn,
       "system-admin-overrides": systemAdminOverridesEn,
-      "system-admin-settings": systemAdminSettingsEn
+      "system-admin-settings": systemAdminSettingsEn,
+      notifications: notificationsEn
     }
   },
   lng: storedLanguage === "en" ? "en" : "vi",
@@ -161,7 +165,8 @@ i18n.use(initReactI18next).init({
     "system-admin-roles",
     "system-admin-users",
     "system-admin-overrides",
-    "system-admin-settings"
+    "system-admin-settings",
+    "notifications"
   ],
   interpolation: { escapeValue: false },
   returnEmptyString: false
