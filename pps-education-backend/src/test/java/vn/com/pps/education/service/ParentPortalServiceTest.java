@@ -216,7 +216,7 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
         seedPeriod(site, 2, LocalTime.of(8, 0), LocalTime.of(9, 40), headAcademic);
         session = classSessionService.createSession(schoolClass.id(),
                 new CreateClassSessionRequest(LocalDate.now(), "MORNING", List.of(1), null, "REGULAR", "VIETNAMESE",
-                        teacher.getId(), null, null, null),
+                        teacher.getId(), null, null, null, null),
                 headAcademic.getId());
         // Bắt buộc để submitComments() cho DAILY không bị chặn bởi MissingLessonContentException
         // (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-29).
@@ -307,7 +307,7 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
         // (StudentCommentNotEditableException, xem StudentCommentService#writeComment).
         ClassSessionResponse otherSession = classSessionService.createSession(schoolClass.id(),
                 new CreateClassSessionRequest(LocalDate.now().plusDays(1), "MORNING", List.of(2), null, "REGULAR", "VIETNAMESE",
-                        headAcademic.getId(), null, null, null),
+                        headAcademic.getId(), null, null, null, null),
                 headAcademic.getId());
         studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), otherSession.id(),
@@ -348,7 +348,7 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
                 new AssignTeacherRequest(foreignTeacher.getId(), "PRIMARY", null, LocalDate.now(), "FOREIGN"), headAcademic.getId());
         ClassSessionResponse foreignSession = classSessionService.createSession(schoolClass.id(),
                 new CreateClassSessionRequest(LocalDate.now().plusDays(1), "MORNING", List.of(2), null, "REGULAR", "FOREIGN",
-                        foreignTeacher.getId(), null, null, null),
+                        foreignTeacher.getId(), null, null, null, null),
                 headAcademic.getId());
 
         List<ClassSessionResponse> schedule = parentPortalService.listSchedule(student.getId(), schoolClass.id(), parentUser.getId());
@@ -362,7 +362,7 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
     void listSchedule_boSung_includesSessionNumber() {
         ClassSessionResponse secondSession = classSessionService.createSession(schoolClass.id(),
                 new CreateClassSessionRequest(session.sessionDate().plusDays(2), "MORNING", List.of(2), null, "REGULAR", "VIETNAMESE",
-                        teacher.getId(), null, null, null),
+                        teacher.getId(), null, null, null, null),
                 headAcademic.getId());
 
         List<ClassSessionResponse> schedule = parentPortalService.listSchedule(student.getId(), schoolClass.id(), parentUser.getId());
@@ -412,7 +412,7 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
     private void createNextSession() {
         classSessionService.createSession(schoolClass.id(),
                 new CreateClassSessionRequest(session.sessionDate().plusDays(2), "MORNING", List.of(2), null, "REGULAR", "VIETNAMESE",
-                        teacher.getId(), null, null, null),
+                        teacher.getId(), null, null, null, null),
                 headAcademic.getId());
     }
 

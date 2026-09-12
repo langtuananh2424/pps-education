@@ -28,5 +28,12 @@ public record BulkCreateClassSessionRequest(
         @NotBlank String teacherType,
         @NotNull Long primaryTeacherId,
         Long assistantTeacherId,
-        Long cmTeacherId
+        Long cmTeacherId,
+        /**
+         * "Tên giáo viên giảng dạy" nhập tay (bổ sung ngoài SDD gốc, xác
+         * nhận 2026-09-12) — chỉ có ý nghĩa khi teacherType=FOREIGN (GVNN
+         * không có tài khoản hệ thống); đồng bộ với field cùng tên ở Nhận
+         * xét học viên (class_sessions.actual_teacher_name).
+         */
+        String actualTeacherName
 ) {}

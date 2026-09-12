@@ -189,11 +189,14 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, Long
      * UC-58: "Lịch của tôi" — mọi buổi học của 1 Giáo viên qua MỌI lớp,
      * lọc theo khoảng ngày tùy chọn (null = không giới hạn). Tận dụng
      * index có sẵn idx_class_sessions_teacher_date (primary_teacher_id,
-     * session_date DESC).
+     * session_date DESC). Gộp thêm buổi mà actor đứng "CM" (cmTeacher) —
+     * GVNN không có tài khoản hệ thống, CM chính là người thực tế vận
+     * hành/điểm danh hộ nên cũng cần thấy buổi đó trong lịch của mình (bổ
+     * sung ngoài SDD gốc, xác nhận với người dùng 2026-09-12).
      */
     @Query("""
             SELECT cs FROM ClassSession cs
-            WHERE cs.primaryTeacher.id = :teacherId
+            WHERE (cs.primaryTeacher.id = :teacherId OR cs.cmTeacher.id = :teacherId)
             AND (cast(:fromDate as date) IS NULL OR cs.sessionDate >= :fromDate)
             AND (cast(:toDate as date) IS NULL OR cs.sessionDate <= :toDate)
             ORDER BY cs.sessionDate ASC, cs.startTime ASC

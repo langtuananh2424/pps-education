@@ -106,6 +106,21 @@ public class NotificationPushTemplateService {
                     "Lớp %s vừa được giao %s.%s".formatted(str(m, "className"), str(m, "assignmentLabel"), dueSuffix));
         });
 
+        renderers.put(Notification.NotificationType.STUDENT_ATTITUDE_ALERT, m -> new PushTemplate(
+                str(m, "studentName") + ": thái độ học tập cần lưu ý",
+                "Buổi %s, lớp %s: %s có thái độ học tập %s.".formatted(
+                        fmtDate(m, "commentDate"), str(m, "className"), str(m, "studentName"), str(m, "attitudeLabel"))));
+
+        renderers.put(Notification.NotificationType.STUDENT_ATTITUDE_ESCALATION_PENDING_APPROVAL, m -> new PushTemplate(
+                "Cảnh báo thái độ chờ duyệt",
+                "Học sinh %s (lớp %s) có thái độ học tập yếu/trung bình liên tục %s buổi — cần bạn duyệt trước khi gửi phụ huynh.".formatted(
+                        str(m, "studentName"), str(m, "className"), str(m, "streakCount"))));
+
+        renderers.put(Notification.NotificationType.STUDENT_ATTITUDE_ESCALATION, m -> new PushTemplate(
+                "Cảnh báo thái độ học tập liên tục",
+                "%s (lớp %s) có thái độ học tập yếu/trung bình liên tục %s buổi. Kính mong Quý Phụ huynh quan tâm, đồng hành cùng con.".formatted(
+                        str(m, "studentName"), str(m, "className"), str(m, "streakCount"))));
+
         renderers.put(Notification.NotificationType.HOMEWORK_MISS_REMINDER, m -> new PushTemplate(
                 "Nhắc bài tập: " + str(m, "studentName"),
                 "%s (lớp %s) đã thiếu %s liên tục %s buổi — nhắc con hoàn thành nhé!".formatted(

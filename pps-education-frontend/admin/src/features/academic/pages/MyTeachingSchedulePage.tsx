@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Building2, CalendarDays, CalendarRange, ChevronLeft, ChevronRight, MapPin } from "lucide-react";
+import { Building2, CalendarDays, CalendarRange, ChevronLeft, ChevronRight, MapPin, User } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { cn } from "@/lib/cn";
@@ -11,6 +11,7 @@ import Modal from "@/components/ui/Modal";
 import SessionCard from "../components/SessionCard";
 import { checkInStatusLabel, checkInStatusVariants } from "../components/ClassDetailPanel";
 import { ClassSessionCheckInStatusResponse, ClassSessionResponse, getMyClassSessionCheckInStatus, getMyTeachingSchedule, listClasses } from "../api";
+import { getCmDisplayName, getDisplayTeacherName } from "../teacherDisplay";
 
 /** Thứ tự enum DayOfWeek dùng để tra nhãn qua `enums.weekday.<value>` / `enums.weekdayShort.<value>`
  * (namespace "academic-classes") — weekdayOrderSunFirst khớp Date.getDay() (0=CN), weekdayOrderMonFirst
@@ -157,7 +158,7 @@ export default function MyTeachingSchedulePage() {
         {loading ? (
           <p className="text-xs text-slate-500 text-center py-8">{t("common.loading")}</p>
         ) : viewMode === "week" ? (
-          <div className="grid grid-cols-1 md:grid-cols-7 gap-3">
+          <div className="flex gap-3 overflow-x-auto pb-1">
             {weekDates.map((dateObj, idx) => {
               const dateStr = toISODate(dateObj);
               const daySessions = sessionsByDate.get(dateStr) ?? [];
@@ -166,7 +167,7 @@ export default function MyTeachingSchedulePage() {
               return (
                 <div
                   key={idx}
-                  className={`border rounded-xl p-3 space-y-2 min-h-[180px] flex flex-col justify-between ${
+                  className={`border rounded-xl p-3 space-y-2 min-h-[180px] w-[168px] shrink-0 flex flex-col justify-between ${
                     isToday ? "bg-orange-50/40 border-brand-red/40" : "bg-slate-50/50 border-slate-200/80"
                   }`}
                 >
@@ -183,6 +184,8 @@ export default function MyTeachingSchedulePage() {
                       ) : (
                         daySessions.map((s) => {
                           const checkInStatus = checkInStatusBySessionId[s.id];
+                          const displayTeacherName = getDisplayTeacherName(s);
+                          const cmDisplayName = getCmDisplayName(s);
                           return (
                             <button
                               type="button"
@@ -193,23 +196,36 @@ export default function MyTeachingSchedulePage() {
                                 setHoverInfo({ session: s, top: rect.bottom + 6, left: rect.left });
                               }}
                               onMouseLeave={() => setHoverInfo(null)}
-                              className="w-full text-left bg-white border border-slate-150 rounded-lg p-2 space-y-1 hover:border-brand-red/50 hover:bg-orange-50/40 transition-colors"
+                              className="w-full text-left bg-white border border-slate-150 rounded-lg p-2 space-y-1.5 hover:border-brand-red/50 hover:bg-orange-50/40 transition-colors"
                             >
                               <div className="flex items-center justify-between">
-                                <span className="text-[9px] text-slate-400 font-mono">{s.startTime}–{s.endTime}</span>
+                                <span className="text-[10px] font-bold font-mono text-slate-600">{s.startTime.slice(0, 5)}–{s.endTime.slice(0, 5)}</span>
                               </div>
-                              <p className="text-[10px] font-bold text-slate-800 flex items-center gap-0.5">
+                              <p className="text-[11px] font-bold text-slate-800 flex items-center gap-1">
                                 <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
                                 <span className="truncate">{s.className ?? t("myTeachingSchedule.unassignedClass")}</span>
                               </p>
-                              <p className="text-[9px] text-slate-400 flex items-center gap-0.5">
+                              <p className="text-[10px] text-slate-400 flex items-center gap-1">
                                 <Building2 className="w-3 h-3 text-slate-400 shrink-0" />
                                 <span className="truncate">{siteNameByClassId[s.classId] ?? t("myTeachingSchedule.loadingSite")}</span>
                               </p>
-                              <div className="flex items-center justify-between gap-1 flex-wrap">
-                                {s.status !== "SCHEDULED" && <span className="text-[9px] text-rose-500 font-bold">{s.status}</span>}
+                              {(displayTeacherName || cmDisplayName) && (
+                                <div className="bg-emerald-50 border border-emerald-100 rounded-md px-1.5 py-1 space-y-0.5">
+                                  {displayTeacherName && (
+                                    <p className="text-[11px] font-bold text-green-700 flex items-start gap-1">
+                                      <User className="w-3 h-3 text-green-600 shrink-0 mt-0.5" />
+                                      <span className="break-words">{displayTeacherName}</span>
+                                    </p>
+                                  )}
+                                  {cmDisplayName && (
+                                    <p className="text-[10px] text-emerald-700/80 break-words">CM: {cmDisplayName}</p>
+                                  )}
+                                </div>
+                              )}
+                              <div className="flex items-center justify-between gap-1 flex-wrap pt-0.5">
+                                {s.status !== "SCHEDULED" && <span className="text-[10px] text-rose-500 font-bold">{s.status}</span>}
                                 {checkInStatus && s.status !== "CANCELLED" && s.status !== "RESCHEDULED" && (
-                                  <Badge variant={checkInStatusVariants[checkInStatus.effectiveStatus] ?? "neutral"} className="text-[8px]">
+                                  <Badge variant={checkInStatusVariants[checkInStatus.effectiveStatus] ?? "neutral"} className="text-[9px]">
                                     {checkInStatusLabel(tc, checkInStatus.effectiveStatus)}
                                   </Badge>
                                 )}
@@ -293,7 +309,7 @@ export default function MyTeachingSchedulePage() {
                               onMouseLeave={() => setHoverInfo(null)}
                               className="text-[9px] font-mono font-bold text-brand-red bg-white border border-brand-red/25 rounded-md px-1 py-0.5 truncate hover:bg-brand-red/10 hover:border-brand-red/50"
                             >
-                              {s.startTime}–{s.endTime}
+                              {s.startTime.slice(0, 5)}–{s.endTime.slice(0, 5)}
                             </span>
                           ))}
                           {daySessions.length > visibleSessions.length && (
