@@ -749,7 +749,7 @@ UC-48: Xếp lịch buổi học
 > xét học viên), để 2 màn hình "Lịch làm việc" và "Nhận xét học viên"
 > dùng chung đúng 1 nguồn tên GV thật. Mỗi lần tạo buổi hoặc gọi
 > `updateAssignment`, hệ thống đồng thời chụp giá trị này vào
-> `original_teacher_name` (V170) làm mốc kế hoạch chính thức. Khi CM sửa
+> `original_teacher_name` (V171) làm mốc kế hoạch chính thức. Khi CM sửa
 > lại `actual_teacher_name` qua Nhận xét học viên (UC-21,
 > `StudentCommentService#updateActualTeacherName` — VD GVNN nghỉ dạy đột
 > xuất, đổi sang GV khác) mà khác `original_teacher_name`, lưới "Lịch làm

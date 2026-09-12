@@ -864,7 +864,7 @@ a)  Bảng class_sessions --- Buổi học
                                                                      gốc, xác
                                                                      nhận
                                                                      2026-09-12
-                                                                     (V170).
+                                                                     (V171).
 
   created_at, updated_at      TIMESTAMPTZ
   --------------------------------------------------------------------------------
