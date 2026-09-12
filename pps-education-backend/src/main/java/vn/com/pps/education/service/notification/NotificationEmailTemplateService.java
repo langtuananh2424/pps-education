@@ -138,6 +138,12 @@ public class NotificationEmailTemplateService {
                 "Để đảm bảo việc theo dõi tiến độ học tập của học viên được kịp thời, kính mời Quý Thầy/Cô đăng nhập vào hệ thống để xem chi tiết kết quả của từng học viên và thực hiện các nhận xét cần thiết.",
                 "Nếu cần hỗ trợ, vui lòng liên hệ Hotline: " + hotline + "."));
 
+        templates.put(Notification.NotificationType.HOMEWORK_MEETING_INVITE_PENDING_APPROVAL, spec(
+                GREETING_SITE_MANAGER, AUDIENCE_SITE_MANAGER, "Thông báo có thư mời phụ huynh cần phê duyệt",
+                "Hệ thống ghi nhận có 1 \"Thư mời phụ huynh tới làm việc\" đang chờ Quý Anh/Chị phê duyệt (học viên thiếu bài liên tục 4 buổi).",
+                "Thư mời chỉ được gửi xuống Phụ huynh sau khi Quý Anh/Chị duyệt — kính đề nghị Quý Anh/Chị đăng nhập vào hệ thống để xem xét và phê duyệt.",
+                "Nếu cần hỗ trợ, vui lòng liên hệ Hotline: " + hotline + "."));
+
         templates.put(Notification.NotificationType.COMMENT_PENDING_APPROVAL, spec(
                 GREETING_SITE_MANAGER, AUDIENCE_SITE_MANAGER, "Thông báo có nhận xét của giáo viên cần phê duyệt",
                 "Hệ thống ghi nhận có nhận xét của giáo viên đang chờ Quý Anh/Chị phê duyệt.",

@@ -185,6 +185,10 @@ public class HomeworkDeadlineSchedulerService {
                 .formatted(completedCount, total, ratePercent, detail);
         Map<String, Object> metadata = new LinkedHashMap<>();
         metadata.put("className", schoolClass.getName());
+        metadata.put("assignmentLabel", assignmentLabel);
+        metadata.put("completedCount", completedCount);
+        metadata.put("total", total);
+        metadata.put("ratePercent", ratePercent);
 
         notificationService.notify(teacherUserId, Notification.NotificationType.HOMEWORK_DEADLINE_SUMMARY,
                 title, content, metadata, entityType, entityId, Notification.Priority.NORMAL, null);

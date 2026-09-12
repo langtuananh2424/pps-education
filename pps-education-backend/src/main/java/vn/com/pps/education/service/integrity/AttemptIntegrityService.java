@@ -155,6 +155,7 @@ public class AttemptIntegrityService {
         metadata.put("violationCount", violationCount);
         metadata.put("studentName", ctx.student().getUser().getFullName());
         metadata.put("className", ctx.schoolClass().getName());
+        metadata.put("attemptLabel", ctx.attemptLabel());
 
         for (ClassTeacher classTeacher : classTeacherRepository.findBySchoolClassIdAndAssignedToIsNull(ctx.schoolClass().getId())) {
             notificationService.notify(classTeacher.getTeacher().getId(), Notification.NotificationType.EXAM_INTEGRITY_VIOLATION,
@@ -183,6 +184,7 @@ public class AttemptIntegrityService {
         metadata.put("violationCount", violationCount);
         metadata.put("violationTotalSeconds", violationTotalSeconds);
         metadata.put("studentName", ctx.student().getUser().getFullName());
+        metadata.put("attemptLabel", ctx.attemptLabel());
         if (ctx.schoolClass() != null) {
             metadata.put("className", ctx.schoolClass().getName());
         }

@@ -307,6 +307,9 @@ public class StudentAttendanceService {
         metadata.put("status", mark.getStatus().name());
         metadata.put("studentName", studentName);
         metadata.put("className", classSession.getSchoolClass().getName());
+        metadata.put("sessionDate", classSession.getSessionDate());
+        metadata.put("startTime", classSession.getStartTime());
+        metadata.put("endTime", classSession.getEndTime());
 
         for (ParentStudent link : links) {
             notificationService.notify(link.getParent().getUser().getId(), type,

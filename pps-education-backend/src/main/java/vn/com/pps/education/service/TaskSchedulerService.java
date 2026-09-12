@@ -17,7 +17,9 @@ import vn.com.pps.education.repository.TaskHistoryRepository;
 import vn.com.pps.education.repository.TaskRepository;
 
 import java.time.OffsetDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * UC-07 A1 (nhắc nhở sắp trễ hạn) + SDD "Cron job nightly set OVERDUE khi
@@ -124,9 +126,14 @@ public class TaskSchedulerService {
                         || assignment.getStatus() == TaskAssignment.Status.DECLINED) {
                     continue;
                 }
+                Map<String, Object> metadata = new LinkedHashMap<>();
+                metadata.put("action", "DUE_SOON");
+                metadata.put("taskTitle", task.getTitle());
+                metadata.put("dueAt", task.getDueAt());
                 notificationService.notify(assignment.getAssignee().getId(), Notification.NotificationType.TASK_ASSIGNED,
                         "Công việc sắp đến hạn",
-                        "\"%s\" sẽ đến hạn lúc %s, hãy hoàn thành sớm.".formatted(task.getTitle(), task.getDueAt()));
+                        "\"%s\" sẽ đến hạn lúc %s, hãy hoàn thành sớm.".formatted(task.getTitle(), task.getDueAt()),
+                        metadata, "TASK", task.getId(), Notification.Priority.NORMAL, null);
             }
         }
     }

@@ -38,7 +38,9 @@ import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.OffsetDateTime;
 import java.util.Base64;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -300,6 +302,11 @@ public class AuthService {
 
     /** UC-01 A2 bước 1: ghi nhận IP + gửi cảnh báo cho Quản trị viên (FR-AUT-02). */
     private void notifyAdminsAccountLocked(User user, String ipAddress) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("username", user.getUsername());
+        metadata.put("lockDurationMinutes", lockDurationMinutes);
+        metadata.put("maxFailedAttempts", maxFailedAttempts);
+        metadata.put("ipAddress", ipAddress);
         roleRepository.findByCode("SYS_ADMIN").ifPresent(sysAdminRole ->
                 userRoleRepository.findByRoleId(sysAdminRole.getId()).forEach(adminUserRole ->
                         notificationService.notify(
@@ -307,7 +314,8 @@ public class AuthService {
                                 Notification.NotificationType.OTHER,
                                 "Tài khoản bị khóa do đăng nhập sai nhiều lần",
                                 "Tài khoản '%s' đã bị khóa tạm thời %d phút sau %d lần đăng nhập sai liên tiếp từ IP %s."
-                                        .formatted(user.getUsername(), lockDurationMinutes, maxFailedAttempts, ipAddress))));
+                                        .formatted(user.getUsername(), lockDurationMinutes, maxFailedAttempts, ipAddress),
+                                metadata, "USER", user.getId(), Notification.Priority.HIGH, null)));
     }
 
     private void recordAttempt(String usernameOrEmail, User user, HttpServletRequest httpRequest,

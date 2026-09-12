@@ -45,6 +45,10 @@
     "SYSTEM_ANNOUNCEMENT": "System announcement",
     "OTHER": "Other",
     "ATTENDANCE_ABSENT": "Absence (student/staff)",
+    "ATTENDANCE_PRESENT": "Present",
+    "ATTENDANCE_LATE": "Late arrival",
+    "ATTENDANCE_EXCUSED": "Excused absence",
+    "ATTENDANCE_EARLY_LEAVE": "Early leave",
     "TASK_ASSIGNED": "New task assigned",
     "TASK_COMMENT": "Task comment",
     "INVOICE_DUE": "Invoice due",
@@ -62,7 +66,8 @@
     "HOMEWORK_MISS_WARNING": "Missed homework warning",
     "HOMEWORK_MISS_PARENT_MEETING_INVITE": "Parent meeting invite (missed homework)",
     "HOMEWORK_MISS_REMINDER_NON_CONSECUTIVE": "Missed homework reminder (non-consecutive)",
-    "HOMEWORK_DUE_SOON_REMINDER": "Homework due soon reminder"
+    "HOMEWORK_DUE_SOON_REMINDER": "Homework due soon reminder",
+    "HOMEWORK_MEETING_INVITE_PENDING_APPROVAL": "Parent meeting invite pending approval (Site Manager)"
   },
   "sendNotificationPage": {
     "title": "Send Notification",
@@ -78,9 +83,24 @@
     "titleLabel": "Title",
     "contentLabel": "Content",
     "sendErrorDefault": "Send failed.",
+    "channels": {
+      "label": "Force channels (optional — for testing)",
+      "hint": "Leave empty to send according to each recipient's real notification settings (default). Select 1+ channels to FORCE sending through exactly those channels, bypassing personal settings — useful to isolate-test one channel, e.g. Push only.",
+      "EMAIL": "Email",
+      "PUSH": "Push",
+      "SMS": "SMS",
+      "ZALO": "Zalo"
+    },
+    "deviceTokens": {
+      "loading": "Checking device tokens...",
+      "countLabel": "{{count}} device(s) with Push enabled",
+      "zeroWarning": "⚠ No active device token — selecting Push won't deliver anything to this person."
+    },
     "result": {
       "summary": "Sent to {{succeeded}}/{{total}} recipients.",
-      "failureItem": "User #{{userId}}: {{reason}}"
+      "failureItem": "User #{{userId}}: {{reason}}",
+      "channelResultsTitle": "Per-channel result (dispatched immediately, no need to wait for the scan job):",
+      "channelResultItem": "User #{{userId}} · {{channel}}: {{status}}{{error}}"
     },
     "sending": "Sending...",
     "sendButton": "Send to {{count}} people"

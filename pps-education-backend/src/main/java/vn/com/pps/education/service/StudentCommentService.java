@@ -2487,6 +2487,7 @@ public class StudentCommentService {
                             .formatted(comments.size(), schoolClass.getName());
                     Map<String, Object> metadata = new LinkedHashMap<>();
                     metadata.put("className", schoolClass.getName());
+                    metadata.put("commentCount", comments.size());
                     siteManagerRepository.findBySiteIdAndRoleTypeAndAssignedToIsNull(schoolClass.getSite().getId(), SiteManager.RoleType.SITE_MANAGER).forEach(sm ->
                             notificationService.notify(sm.getUser().getId(), Notification.NotificationType.COMMENT_PENDING_APPROVAL, title, content,
                                     metadata, "SCHOOL_CLASS", schoolClassId, Notification.Priority.NORMAL, null));
@@ -2502,6 +2503,10 @@ public class StudentCommentService {
         Map<String, Object> metadata = new LinkedHashMap<>();
         metadata.put("studentName", comment.getStudent().getUser().getFullName());
         metadata.put("className", comment.getSchoolClass().getName());
+        metadata.put("commentDate", comment.getCommentDate());
+        if (comment.getRejectionReason() != null && !comment.getRejectionReason().isBlank()) {
+            metadata.put("reason", comment.getRejectionReason());
+        }
         notificationService.notify(comment.getTeacher().getId(), Notification.NotificationType.COMMENT_REJECTED, title, content,
                 metadata, "STUDENT_COMMENT", comment.getId(), Notification.Priority.NORMAL, null);
     }
