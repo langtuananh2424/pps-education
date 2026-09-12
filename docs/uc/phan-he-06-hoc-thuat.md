@@ -736,6 +736,25 @@ UC-48: Xếp lịch buổi học
 > `class_teachers` ASSISTANT/CM (cấp lớp, xem UC-18). `checkTeacherConflict`
 > (trùng giờ) chỉ áp dụng `primaryTeacher` — GV phụ/CM không trực tiếp
 > đứng lớp nên không chặn trùng giờ.
+>
+> **GVNN không tài khoản hệ thống — tên GV nhập tay + gạch tên khi đổi GV
+> đột xuất (bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-09-12):**
+> GV nước ngoài (GVNN) không có tài khoản hệ thống, nên `primaryTeacherId`
+> của buổi GVNN vẫn phải chọn 1 tài khoản thật (thực tế là tài khoản CM,
+> đứng thay để vận hành điểm danh/check-in — KHÔNG đổi ràng buộc này).
+> Riêng khi Loại giáo viên = FOREIGN, `CreateClassSessionRequest`/
+> `BulkCreateClassSessionRequest`/`UpdateSessionAssignmentRequest` có thêm
+> field tuỳ chọn `actualTeacherName` (text nhập tay) — set thẳng vào
+> `class_sessions.actual_teacher_name` (V91, cột đã có sẵn từ UC-21 Nhận
+> xét học viên), để 2 màn hình "Lịch làm việc" và "Nhận xét học viên"
+> dùng chung đúng 1 nguồn tên GV thật. Mỗi lần tạo buổi hoặc gọi
+> `updateAssignment`, hệ thống đồng thời chụp giá trị này vào
+> `original_teacher_name` (V170) làm mốc kế hoạch chính thức. Khi CM sửa
+> lại `actual_teacher_name` qua Nhận xét học viên (UC-21,
+> `StudentCommentService#updateActualTeacherName` — VD GVNN nghỉ dạy đột
+> xuất, đổi sang GV khác) mà khác `original_teacher_name`, lưới "Lịch làm
+> việc" (`TimetableSessionCard`) hiển thị tên mới + tên gốc dạng gạch
+> ngang, tô đậm/nổi màu, để nhận biết đã phát sinh thay GV ngoài kế hoạch.
 
 ---
 

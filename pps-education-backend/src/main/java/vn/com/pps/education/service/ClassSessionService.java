@@ -217,7 +217,8 @@ public class ClassSessionService {
         ClassSession makeupForSession = resolveMakeupForSession(sessionType, request.makeupForSessionId(), classId);
 
         ClassSession session = createSessionEntity(schoolClass, request.sessionDate(), dayPart, request.periodNumbers(),
-                room, primaryTeacher, assistantTeacher, cmTeacher, sessionType, actor, teacherType, makeupForSession);
+                room, primaryTeacher, assistantTeacher, cmTeacher, sessionType, actor, teacherType, makeupForSession,
+                request.actualTeacherName());
 
         return toResponse(session);
     }
@@ -301,7 +302,8 @@ public class ClassSessionService {
             try {
                 // makeupForSessionId không áp dụng cho sinh lịch hàng loạt — chỉ có nghĩa cho 1 buổi tạo lẻ (UC-48), ngoài phạm vi UC-56.
                 ClassSession session = createSessionEntity(schoolClass, date, dayPart, request.periodNumbers(),
-                        room, primaryTeacher, assistantTeacher, cmTeacher, sessionType, actor, teacherType, null);
+                        room, primaryTeacher, assistantTeacher, cmTeacher, sessionType, actor, teacherType, null,
+                        request.actualTeacherName());
                 created.add(toResponse(session));
             } catch (RoomConflictException | TeacherScheduleConflictException | ClassScheduleConflictException
                     | ClassSessionOutsideClassPeriodException ex) {
@@ -340,8 +342,10 @@ public class ClassSessionService {
         Room room = roomId == null ? null : getRoomOrThrow(roomId);
 
         // makeupForSessionId chưa có trong luồng Excel import (UC-57) — ngoài phạm vi yêu cầu bổ sung này.
+        // "Tên giáo viên giảng dạy" (actualTeacherName, bổ sung 2026-09-12) cũng chưa có cột riêng ở
+        // Excel UC-57 — để trống, GV/CM tự nhập bổ sung sau qua Lịch làm việc/Nhận xét học viên.
         ClassSession session = createSessionEntity(schoolClass, sessionDate, parsedDayPart, periodNumbers, room, primaryTeacher, assistantTeacher, cmTeacher,
-                ClassSession.SessionType.valueOf(sessionType), actor, parsedTeacherType, null);
+                ClassSession.SessionType.valueOf(sessionType), actor, parsedTeacherType, null, null);
         return toResponse(session);
     }
 
@@ -417,7 +421,8 @@ public class ClassSessionService {
     private ClassSession createSessionEntity(SchoolClass schoolClass, LocalDate sessionDate, SitePeriodTemplate.DayPart dayPart, List<Integer> periodNumbers,
                                               Room room, User primaryTeacher, User assistantTeacher, User cmTeacher,
                                               ClassSession.SessionType sessionType, User actor,
-                                              ClassSession.TeacherType teacherType, ClassSession makeupForSession) {
+                                              ClassSession.TeacherType teacherType, ClassSession makeupForSession,
+                                              String actualTeacherName) {
         checkWithinClassPeriod(schoolClass, sessionDate);
         List<SitePeriodTemplate> templates = resolvePeriodTemplates(schoolClass.getSite().getId(), dayPart, periodNumbers);
         LocalTime startTime = templates.get(0).getStartTime();
@@ -442,6 +447,8 @@ public class ClassSessionService {
         session.setTeacherType(teacherType);
         session.setMakeupForSession(makeupForSession);
         session.setCreatedBy(actor);
+        session.setActualTeacherName(actualTeacherName);
+        session.setOriginalTeacherName(actualTeacherName);
         session = classSessionRepository.save(session);
 
         writeClassSessionHistory(session, actor, ClassSessionHistory.Action.CREATED);
@@ -525,6 +532,8 @@ public class ClassSessionService {
         newSession.setTeacherType(oldSession.getTeacherType());
         newSession.setMakeupForSession(makeupForSession);
         newSession.setCreatedBy(actor);
+        newSession.setActualTeacherName(oldSession.getActualTeacherName());
+        newSession.setOriginalTeacherName(oldSession.getOriginalTeacherName());
         newSession = classSessionRepository.save(newSession);
         writeClassSessionHistory(newSession, actor, ClassSessionHistory.Action.CREATED);
         generatePeriodsFromTemplate(newSession, templates, actor);
@@ -574,6 +583,12 @@ public class ClassSessionService {
         session.setAssistantTeacher(assistantTeacher);
         session.setCmTeacher(cmTeacher);
         session.setTeacherType(parseTeacherType(request.teacherType()));
+        // Sửa qua Lịch làm việc = kênh xếp lịch CHÍNH THỨC — coi actualTeacherName vừa nhập là
+        // baseline mới, reset originalTeacherName theo (khác đường updateActualTeacherName ở Nhận
+        // xét học viên, CHỈ set actualTeacherName, không đụng originalTeacherName — tạo độ lệch để
+        // Lịch làm việc phát hiện có thay giáo viên ngoài kế hoạch, xác nhận 2026-09-12).
+        session.setActualTeacherName(request.actualTeacherName());
+        session.setOriginalTeacherName(request.actualTeacherName());
         session = classSessionRepository.save(session);
 
         // Phải xoá session_periods_history TRƯỚC (FK NOT NULL không cascade — V14), rồi mới xoá
@@ -760,7 +775,7 @@ public class ClassSessionService {
                 s.getSessionType().name(), s.getStatus().name(),
                 s.getCancellationReason(), s.getRescheduledToSession() == null ? null : s.getRescheduledToSession().getId(),
                 s.getLessonContent(), s.getTeacherType() == null ? null : s.getTeacherType().name(),
-                s.getActualTeacherName(), sessionNumber,
+                s.getActualTeacherName(), s.getOriginalTeacherName(), sessionNumber,
                 s.getMakeupForSession() == null ? null : s.getMakeupForSession().getId(),
                 s.getSchoolClass().getColor());
     }

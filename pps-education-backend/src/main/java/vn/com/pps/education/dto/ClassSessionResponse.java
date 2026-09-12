@@ -34,6 +34,8 @@ public record ClassSessionResponse(
         String teacherType,
         /** Tên GV thực tế dạy buổi (nhập tay, khác primaryTeacherName là FK hệ thống) — bổ sung ngoài SDD gốc, 2026-08-06. */
         String actualTeacherName,
+        /** Tên GV tại thời điểm xếp/sửa lịch qua Lịch làm việc (mốc so sánh với actualTeacherName) — bổ sung ngoài SDD gốc, 2026-09-12. */
+        String originalTeacherName,
         /** Số thứ tự buổi học trong lớp (1-based, đếm cả CANCELLED) — tính động, không lưu DB. */
         Integer sessionNumber,
         /** Chỉ có ý nghĩa khi sessionType=MAKEUP — id buổi CANCELLED mà buổi này bù cho, null nếu chưa liên kết. */

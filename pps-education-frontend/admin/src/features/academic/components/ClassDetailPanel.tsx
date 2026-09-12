@@ -44,6 +44,7 @@ import {
   updateClass,
   withdrawEnrollment
 } from "../api";
+import { getCmDisplayName, getDisplayTeacherName } from "../teacherDisplay";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
@@ -1233,12 +1234,13 @@ function SessionsTab({
               </div>
               <p className="text-slate-400">
                 {t("classDetail.sessions.teacherLine", {
-                  teacher: s.primaryTeacherName,
+                  teacher: getDisplayTeacherName(s),
                   type: s.teacherType ? ` (${teacherTypeLabel(t, s.teacherType)})` : "",
                   room: s.roomName ?? t("classDetail.sessions.roomUnassigned"),
                   sessionType: s.sessionType
                 })}
               </p>
+              {getCmDisplayName(s) && <p className="text-slate-400">CM: {getCmDisplayName(s)}</p>}
               {s.status === "CANCELLED" && s.cancellationReason && (
                 <p className="text-rose-500">{t("classDetail.sessions.cancellationReason", { reason: s.cancellationReason })}</p>
               )}
@@ -1402,7 +1404,7 @@ function RescheduleSessionForm({
           cũ khi dời lịch — sửa GV thì dùng nút "Sửa nhanh" (updateSessionAssignment) riêng. */}
       <p className="text-[11px] text-slate-500">
         {t("classDetail.rescheduleForm.teacherAutoHint", {
-          teacher: session.primaryTeacherName,
+          teacher: getDisplayTeacherName(session),
           type: session.teacherType ? ` — ${teacherTypeLabel(t, session.teacherType)}` : ""
         })}
       </p>

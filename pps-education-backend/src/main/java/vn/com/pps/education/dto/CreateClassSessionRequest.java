@@ -30,5 +30,12 @@ public record CreateClassSessionRequest(
         Long assistantTeacherId,
         Long cmTeacherId,
         /** Bắt buộc khi sessionType=MAKEUP (buổi này bù cho buổi nào); phải để trống với loại khác. */
-        Long makeupForSessionId
+        Long makeupForSessionId,
+        /**
+         * "Tên giáo viên giảng dạy" nhập tay (bổ sung ngoài SDD gốc, xác
+         * nhận 2026-09-12) — chỉ có ý nghĩa khi teacherType=FOREIGN (GVNN
+         * không có tài khoản hệ thống); đồng bộ với field cùng tên ở Nhận
+         * xét học viên (class_sessions.actual_teacher_name).
+         */
+        String actualTeacherName
 ) {}

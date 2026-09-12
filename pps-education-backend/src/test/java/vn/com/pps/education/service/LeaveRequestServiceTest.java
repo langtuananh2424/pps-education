@@ -408,7 +408,7 @@ class LeaveRequestServiceTest extends AbstractIntegrationTest {
 
         return classSessionService.createSession(schoolClass.id(),
                 new CreateClassSessionRequest(sessionDate, "MORNING", List.of(1), room.getId(), "REGULAR", "VIETNAMESE",
-                        teacherUser.getId(), null, null, null), headAcademic.getId());
+                        teacherUser.getId(), null, null, null, null), headAcademic.getId());
     }
 
     /** Bổ sung ngoài SDD gốc, xác nhận 2026-08-19 — session_periods giờ sinh từ site_period_templates thay vì chia đều theo phút. */

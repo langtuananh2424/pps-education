@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { CalendarClock, Clock, Search, Users } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Building2, CalendarClock, Clock, Search, Sparkles, Users } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { cn } from "@/lib/cn";
@@ -7,11 +7,13 @@ import { getMonthGridDates, getWeekDates, toISODate } from "@/lib/calendarDates"
 import { matchesShiftPattern } from "@/lib/shiftPattern";
 import { toLocaleTag, formatTimeHm } from "@/lib/i18nFormat";
 import { useApp } from "@/context/AppContext";
-import { Badge, Modal, TableContainer, Th, Td } from "@/components/ui";
+import { Badge, Button, Modal, TableContainer, Th, Td } from "@/components/ui";
 import Select from "@/components/ui/Select";
 import DatePicker from "@/components/ui/DatePicker";
+import { listSites, SiteResponse } from "@/features/facility/api";
 import { checkInStatusLabel, checkInStatusVariants, sessionStatusVariants } from "@/features/academic/components/ClassDetailPanel";
 import ClassPeriodGrid from "@/features/academic/components/ClassPeriodGrid";
+import CreateSessionModal from "@/features/academic/components/CreateSessionModal";
 import { listClasses, ClassSessionCheckInStatusResponse, ClassSessionResponse } from "@/features/academic/api";
 import {
   DepartmentResponse,
@@ -245,6 +247,33 @@ export default function EmployeeSchedulePage() {
   const [error, setError] = useState<string | null>(null);
   const [detail, setDetail] = useState<{ employee: EmployeeResponse; date: string } | null>(null);
 
+  /**
+   * "Theo lớp học" xem XUYÊN điểm trường (bổ sung ngoài SDD gốc, xác nhận với
+   * người dùng 2026-09-12) — KHÔNG dùng dropdown "Điểm trường" ở Header nữa
+   * (khác quyết định 2026-08-21 ở trên, chỉ áp dụng cho "Theo nhân viên"),
+   * đổi sang bộ lọc đa chọn riêng của trang này để xem lịch nhiều điểm
+   * trường cùng lúc (tránh trùng lịch GV khi phân công), do thực tế vận hành
+   * hơn 5 điểm trường — không mặc định hiện hết tránh tải nặng.
+   */
+  const [sites, setSites] = useState<SiteResponse[]>([]);
+  const [selectedGridSiteIds, setSelectedGridSiteIds] = useState<number[]>([]);
+  const [siteFilterOpen, setSiteFilterOpen] = useState(false);
+  const siteFilterRef = useRef<HTMLDivElement>(null);
+  /** Buộc 1 khối ClassPeriodGrid tải lại sau khi tạo buổi qua nút "+ Xếp lịch" chung (mode="immediate", không có lưới cụ thể nào tự refetch). */
+  const [gridRefreshNonce, setGridRefreshNonce] = useState<Record<number, number>>({});
+  const [globalCreateOpen, setGlobalCreateOpen] = useState(false);
+
+  useEffect(() => {
+    if (!siteFilterOpen) return;
+    function onDocMouseDown(e: MouseEvent) {
+      if (siteFilterRef.current && !siteFilterRef.current.contains(e.target as Node)) {
+        setSiteFilterOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onDocMouseDown);
+    return () => document.removeEventListener("mousedown", onDocMouseDown);
+  }, [siteFilterOpen]);
+
   useEffect(() => {
     listDepartments().then(setDepartments).catch(() => setDepartments([]));
     listClasses()
@@ -256,12 +285,12 @@ export default function EmployeeSchedulePage() {
         setSiteNameByClassId(map);
       })
       .catch(() => undefined);
+    listSites().then(setSites).catch(() => undefined);
   }, []);
 
   const dateRange = useMemo(() => datesBetween(from, to), [from, to]);
-  // Bỏ bộ lọc "Trường"/"Lớp" riêng của trang này (xác nhận với người dùng 2026-08-21) — dùng thẳng
-  // điểm trường/lớp đang chọn ở dropdown Header (AppContext.selectedCampusId/selectedClassId), đỡ
-  // phải chọn 2 lần cùng 1 thứ.
+  // "Theo nhân viên" giữ nguyên hành vi cũ (xác nhận 2026-08-21) — vẫn dùng thẳng điểm
+  // trường/lớp đang chọn ở dropdown Header cho overview roster.
   const classGridSiteId = selectedCampusId !== "ALL" ? Number(selectedCampusId) : null;
 
   const applyQuickRange = (range: QuickRange, refDate = new Date()) => {
@@ -450,6 +479,56 @@ export default function EmployeeSchedulePage() {
               </Select>
             )}
 
+            {/* "Theo lớp học" xem xuyên điểm trường — bộ lọc đa chọn riêng của trang, KHÔNG dùng Header
+                (bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-09-12; thực tế vận hành hơn 5 điểm
+                trường nên không mặc định hiện hết). */}
+            {viewMode === "classGrid" && (
+              <div className="relative" ref={siteFilterRef}>
+                <button
+                  type="button"
+                  onClick={() => setSiteFilterOpen((v) => !v)}
+                  className="flex items-center gap-1.5 bg-white border border-slate-200 text-xs px-3 py-2 rounded-lg hover:bg-slate-50"
+                >
+                  <Building2 className="w-3.5 h-3.5 text-slate-400" />
+                  {selectedGridSiteIds.length === 0
+                    ? t("employeeSchedulePage.classGrid.siteFilter.placeholder")
+                    : t("employeeSchedulePage.classGrid.siteFilter.selectedCount", { count: selectedGridSiteIds.length })}
+                </button>
+                {siteFilterOpen && (
+                  <div className="absolute z-20 mt-1 w-64 bg-white border border-slate-200 rounded-lg shadow-lg p-2">
+                    <div className="flex justify-between items-center px-1 pb-1.5 mb-1.5 border-b border-slate-100">
+                      <button type="button" className="text-[10px] font-bold text-brand-red" onClick={() => setSelectedGridSiteIds(sites.map((s) => s.id))}>
+                        {t("employeeSchedulePage.classGrid.siteFilter.selectAll")}
+                      </button>
+                      <button type="button" className="text-[10px] font-bold text-slate-400" onClick={() => setSelectedGridSiteIds([])}>
+                        {t("employeeSchedulePage.classGrid.siteFilter.clearAll")}
+                      </button>
+                    </div>
+                    <div className="max-h-56 overflow-y-auto space-y-0.5">
+                      {sites.map((s) => (
+                        <label key={s.id} className="flex items-center gap-2 text-xs px-1.5 py-1 rounded hover:bg-slate-50 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={selectedGridSiteIds.includes(s.id)}
+                            onChange={(e) =>
+                              setSelectedGridSiteIds((prev) => (e.target.checked ? [...prev, s.id] : prev.filter((id) => id !== s.id)))
+                            }
+                          />
+                          {s.name}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            {viewMode === "classGrid" && (
+              <Button size="sm" variant="primary" onClick={() => setGlobalCreateOpen(true)}>
+                <Sparkles className="w-3.5 h-3.5" />
+                {t("employeeSchedulePage.classGrid.createButton")}
+              </Button>
+            )}
+
             {/* Chế độ xem — chuyển xuống cùng hàng bộ lọc, ngoài cùng bên phải (xác nhận với người dùng 2026-08-20). */}
             <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl p-1 ml-auto">
               <button
@@ -482,14 +561,40 @@ export default function EmployeeSchedulePage() {
           {error && <div className="m-4 text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
           {viewMode === "classGrid" ? (
-            classGridSiteId == null ? (
-              <p className="text-xs text-slate-400 italic text-center py-12">{t("employeeSchedulePage.classGrid.selectSiteHint")}</p>
-            ) : dateRange.length > MAX_CLASS_GRID_DAYS ? (
+            dateRange.length > MAX_CLASS_GRID_DAYS ? (
               <p className="text-xs text-slate-400 italic text-center py-12">
                 {t("employeeSchedulePage.classGrid.rangeTooWideHint")}
               </p>
+            ) : selectedGridSiteIds.length === 0 ? (
+              <p className="text-xs text-slate-400 italic text-center py-12">{t("employeeSchedulePage.classGrid.selectSiteHint")}</p>
             ) : (
-              <ClassPeriodGrid siteId={classGridSiteId} dates={dateRange} classId={selectedClassId ?? undefined} />
+              <div className="divide-y divide-slate-200">
+                {/* Nhãn điểm trường dạng cột dọc bên trái, xoay chữ — giống bố cục file Excel quản lý thủ công hiện tại (bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-09-12). */}
+                {selectedGridSiteIds.map((siteId) => {
+                  const site = sites.find((s) => s.id === siteId);
+                  return (
+                    <div key={siteId} className="flex items-stretch">
+                      <div className="w-9 shrink-0 bg-brand-gradient flex items-center justify-center py-3">
+                        <span
+                          className="text-[11px] font-bold uppercase tracking-wide text-white whitespace-nowrap"
+                          style={{ writingMode: "vertical-rl" }}
+                        >
+                          {site?.name ?? `Điểm trường #${siteId}`}
+                        </span>
+                      </div>
+                      <div className="flex-1 min-w-0 py-3">
+                        <ClassPeriodGrid
+                          key={`${siteId}-${gridRefreshNonce[siteId] ?? 0}`}
+                          siteId={siteId}
+                          dates={dateRange}
+                          classId={selectedClassId ?? undefined}
+                          minLanes={1}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             )
           ) : showHourlyTable ? (
             <DailyTimeline
@@ -648,6 +753,18 @@ export default function EmployeeSchedulePage() {
           />
         )}
       </Modal>
+
+      {globalCreateOpen && (
+        <CreateSessionModal
+          mode="immediate"
+          onClose={() => setGlobalCreateOpen(false)}
+          onCreated={(createdSiteId) => {
+            setGridRefreshNonce((prev) => ({ ...prev, [createdSiteId]: (prev[createdSiteId] ?? 0) + 1 }));
+            // Đảm bảo khối điểm trường vừa tạo đang hiện, để thấy ngay kết quả (bổ sung ngoài SDD gốc, xác nhận 2026-09-12).
+            setSelectedGridSiteIds((prev) => (prev.includes(createdSiteId) ? prev : [...prev, createdSiteId]));
+          }}
+        />
+      )}
     </div>
   );
 }
