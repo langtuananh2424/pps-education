@@ -477,11 +477,17 @@ export default function DailyCommentPanel() {
     listReviewVideoAssignmentsForClass(selectedClassId).then(setVideoAssignments).catch(() => undefined);
   }, [selectedClassId]);
 
+  /**
+   * Sửa 2026-09-11 (fix bug thật, đã xác nhận với người dùng) — trước đây gộp CHUNG 1 effect, phụ
+   * thuộc cả `selectedSession?.lessonContent`/`actualTeacherName` lẫn `id`: bấm "Lưu" ở ô "Bài học
+   * hôm nay"/"Tên giáo viên giảng dạy" (handleSaveLessonContent/handleSaveActualTeacherName) cập nhật
+   * lại `sessions` → giá trị lessonContent/actualTeacherName của selectedSession đổi → effect chạy lại
+   * dù VẪN Ở CÙNG 1 buổi, xóa sạch dueDate/dueTime/lateSubmissionAllowed/quickOffline/quickExerciseId/
+   * quickVideoId (giáo viên vừa chọn) → cột "Hạn nộp bài" trên bảng đổ về "—" (đọc dueDateTime, xem
+   * ~dòng 1872). Tách riêng: effect dưới đây CHỈ reset toàn bộ panel "Gán nhanh"/Hạn nộp khi thật sự
+   * ĐỔI BUỔI (selectedSession?.id đổi) — save 2 ô lessonContent/actualTeacherName không còn đụng tới.
+   */
   useEffect(() => {
-    setLessonContentInput(selectedSession?.lessonContent ?? "");
-    setLessonContentMissingError(false);
-    setActualTeacherNameInput(selectedSession?.actualTeacherName ?? "");
-    setTeacherType((selectedSession?.teacherType as TeacherType | null) ?? "");
     setDueDate("");
     setDueTime("");
     setLateSubmissionAllowed(false);
@@ -490,7 +496,20 @@ export default function DailyCommentPanel() {
     setQuickVideoId("");
     setDirty(false);
     setLastSavedAt(null);
-  }, [selectedSession?.id, selectedSession?.lessonContent, selectedSession?.actualTeacherName, selectedSession?.teacherType]);
+  }, [selectedSession?.id]);
+
+  useEffect(() => {
+    setLessonContentInput(selectedSession?.lessonContent ?? "");
+    setLessonContentMissingError(false);
+  }, [selectedSession?.id, selectedSession?.lessonContent]);
+
+  useEffect(() => {
+    setActualTeacherNameInput(selectedSession?.actualTeacherName ?? "");
+  }, [selectedSession?.id, selectedSession?.actualTeacherName]);
+
+  useEffect(() => {
+    setTeacherType((selectedSession?.teacherType as TeacherType | null) ?? "");
+  }, [selectedSession?.id, selectedSession?.teacherType]);
 
   useEffect(() => {
     if (!selectedClassId || !selectedSessionId) {
@@ -1084,27 +1103,33 @@ export default function DailyCommentPanel() {
 
       if (res.rows.length > 0) {
         const parsedByStudent = new Map(res.rows.map((row) => [row.studentId, row]));
+        // Sửa 2026-09-12 (fix bug thật, đã xác nhận với người dùng) — trước đây chặn CẢ DÒNG
+        // (isRowBlank) nếu bất kỳ field nào đã có giá trị, VD giáo viên mới chỉ chọn "Bài" (BTVN)
+        // qua "Gán nhanh cho cả lớp" trước khi tải mẫu Excel: Thái độ/Nhận xét vẫn trống nhưng
+        // homeworkNextExerciseId/ReviewVideoSetId đã khác "" khiến isRowBlank(r)=false, cả dòng đó
+        // bị BỎ QUA hoàn toàn khi nhập lại Excel dù BE đã trả đúng dữ liệu (không có lỗi/cảnh báo nào
+        // hiện ra). Giờ merge theo TỪNG FIELD — field nào ĐANG TRỐNG mới nhận giá trị từ Excel, field
+        // đã có giá trị (đang gõ dở hoặc đã gán trước) vẫn được giữ nguyên như ý định gốc.
         setRows((prev) =>
           prev.map((r) => {
             const parsed = parsedByStudent.get(r.studentId);
-            // Chỉ fill dòng còn trống — không đè lên nội dung giáo viên đang gõ dở (mirror loadHistory).
-            if (!parsed || !isRowBlank(r)) return r;
+            if (!parsed) return r;
             return {
               ...r,
-              attitude: (parsed.attitude ?? "") as Row["attitude"],
-              homeworkPreviousScore: parsed.homeworkPreviousScore ?? "",
-              homeworkPreviousSpeakingScore: parsed.homeworkPreviousSpeakingScore ?? "",
-              homeworkPreviousReadingScore: parsed.homeworkPreviousReadingScore ?? "",
-              homeworkPreviousWritingScore: parsed.homeworkPreviousWritingScore ?? "",
-              content: parsed.content ?? "",
-              homeworkNext: parsed.homeworkNext ?? "",
-              homeworkNextReading: parsed.homeworkNextReading ?? "",
-              homeworkNextWriting: parsed.homeworkNextWriting ?? "",
-              homeworkNextExerciseId: parsed.homeworkNextExerciseId ?? "",
-              homeworkNextReviewVideoSetId: parsed.homeworkNextReviewVideoSetId ?? "",
-              homeworkNextReadingExerciseId: parsed.homeworkNextReadingExerciseId ?? "",
-              homeworkNextWritingExerciseId: parsed.homeworkNextWritingExerciseId ?? "",
-              note: parsed.note ?? ""
+              attitude: r.attitude ? r.attitude : ((parsed.attitude ?? "") as Row["attitude"]),
+              homeworkPreviousScore: r.homeworkPreviousScore.trim() ? r.homeworkPreviousScore : (parsed.homeworkPreviousScore ?? ""),
+              homeworkPreviousSpeakingScore: r.homeworkPreviousSpeakingScore.trim() ? r.homeworkPreviousSpeakingScore : (parsed.homeworkPreviousSpeakingScore ?? ""),
+              homeworkPreviousReadingScore: r.homeworkPreviousReadingScore.trim() ? r.homeworkPreviousReadingScore : (parsed.homeworkPreviousReadingScore ?? ""),
+              homeworkPreviousWritingScore: r.homeworkPreviousWritingScore.trim() ? r.homeworkPreviousWritingScore : (parsed.homeworkPreviousWritingScore ?? ""),
+              content: r.content.trim() ? r.content : (parsed.content ?? ""),
+              homeworkNext: r.homeworkNext.trim() ? r.homeworkNext : (parsed.homeworkNext ?? ""),
+              homeworkNextReading: r.homeworkNextReading.trim() ? r.homeworkNextReading : (parsed.homeworkNextReading ?? ""),
+              homeworkNextWriting: r.homeworkNextWriting.trim() ? r.homeworkNextWriting : (parsed.homeworkNextWriting ?? ""),
+              homeworkNextExerciseId: r.homeworkNextExerciseId !== "" ? r.homeworkNextExerciseId : (parsed.homeworkNextExerciseId ?? ""),
+              homeworkNextReviewVideoSetId: r.homeworkNextReviewVideoSetId !== "" ? r.homeworkNextReviewVideoSetId : (parsed.homeworkNextReviewVideoSetId ?? ""),
+              homeworkNextReadingExerciseId: r.homeworkNextReadingExerciseId !== "" ? r.homeworkNextReadingExerciseId : (parsed.homeworkNextReadingExerciseId ?? ""),
+              homeworkNextWritingExerciseId: r.homeworkNextWritingExerciseId !== "" ? r.homeworkNextWritingExerciseId : (parsed.homeworkNextWritingExerciseId ?? ""),
+              note: r.note.trim() ? r.note : (parsed.note ?? "")
             };
           })
         );
