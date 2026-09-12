@@ -44,6 +44,9 @@ public class NotificationPushTemplateService {
     }
 
     public Optional<PushTemplate> renderFor(Notification.NotificationType type, Map<String, Object> metadata) {
+        if (type == null) {
+            return Optional.empty();
+        }
         Function<Map<String, Object>, PushTemplate> renderer = renderers.get(type);
         if (renderer == null) {
             return Optional.empty();

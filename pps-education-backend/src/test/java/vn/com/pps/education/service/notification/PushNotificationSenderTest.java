@@ -50,7 +50,7 @@ class PushNotificationSenderTest {
     void setUp() {
         firebaseMessaging = mock(FirebaseMessaging.class);
         deviceTokenRepository = mock(DeviceTokenRepository.class);
-        sender = new PushNotificationSender(Optional.of(firebaseMessaging), deviceTokenRepository);
+        sender = new PushNotificationSender(Optional.of(firebaseMessaging), deviceTokenRepository, new NotificationPushTemplateService());
         delivery = new NotificationDelivery();
     }
 
@@ -120,7 +120,7 @@ class PushNotificationSenderTest {
     @Test
     void send_throws_whenFirebaseNotConfigured() {
         PushNotificationSender noFirebase =
-                new PushNotificationSender(Optional.empty(), deviceTokenRepository);
+                new PushNotificationSender(Optional.empty(), deviceTokenRepository, new NotificationPushTemplateService());
 
         assertThatThrownBy(() -> noFirebase.send(delivery, notification, recipient))
                 .isInstanceOf(IllegalStateException.class);
