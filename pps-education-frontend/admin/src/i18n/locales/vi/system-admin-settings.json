@@ -67,7 +67,10 @@
     "HOMEWORK_MISS_PARENT_MEETING_INVITE": "Mời họp phụ huynh (thiếu BTVN)",
     "HOMEWORK_MISS_REMINDER_NON_CONSECUTIVE": "Nhắc thiếu BTVN (không liên tiếp)",
     "HOMEWORK_DUE_SOON_REMINDER": "Sắp tới hạn BTVN",
-    "HOMEWORK_MEETING_INVITE_PENDING_APPROVAL": "Thư mời phụ huynh chờ duyệt (báo Quản lý điểm trường)"
+    "HOMEWORK_MEETING_INVITE_PENDING_APPROVAL": "Thư mời phụ huynh chờ duyệt (báo Quản lý điểm trường)",
+    "STUDENT_ATTITUDE_ALERT": "Cảnh báo thái độ học tập (1 buổi)",
+    "STUDENT_ATTITUDE_ESCALATION_PENDING_APPROVAL": "Cảnh báo thái độ liên tục chờ duyệt (báo Quản lý điểm trường)",
+    "STUDENT_ATTITUDE_ESCALATION": "Cảnh báo thái độ học tập liên tục 3 buổi"
   },
   "sendNotificationPage": {
     "title": "Gửi thông báo",

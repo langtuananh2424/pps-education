@@ -59,3 +59,40 @@ export function decideMeetingInvites(
     body: JSON.stringify({ inviteIds, decision, comment })
   });
 }
+
+// ===================== Duyệt cảnh báo thái độ học tập liên tục 3 buổi =====================
+// Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-12 — xem
+// StudentAttitudeEscalationService (backend).
+
+export type StudentAttitudeEscalationStatus = "PENDING" | "APPROVED" | "REJECTED";
+
+/** Khớp StudentAttitudeEscalationResponse thật của backend. */
+export interface StudentAttitudeEscalationResponse {
+  id: number;
+  studentId: number;
+  studentName: string;
+  schoolClassId: number;
+  className: string;
+  streakCount: number;
+  status: StudentAttitudeEscalationStatus;
+  createdAt: string;
+  decidedAt: string | null;
+  rejectionReason: string | null;
+}
+
+/** Hàng chờ duyệt của (các) điểm trường mình phụ trách — BE tự chặn theo site_managers. */
+export function listPendingAttitudeEscalations(): Promise<StudentAttitudeEscalationResponse[]> {
+  return apiRequest<StudentAttitudeEscalationResponse[]>("/student-attitude-escalations/pending");
+}
+
+/** Duyệt/Từ chối theo lô — cùng 1 decision cho toàn bộ escalationIds truyền vào. */
+export function decideAttitudeEscalations(
+  escalationIds: number[],
+  decision: "APPROVED" | "REJECTED",
+  comment?: string
+): Promise<StudentAttitudeEscalationResponse[]> {
+  return apiRequest<StudentAttitudeEscalationResponse[]>("/student-attitude-escalations/decision", {
+    method: "POST",
+    body: JSON.stringify({ escalationIds, decision, comment })
+  });
+}

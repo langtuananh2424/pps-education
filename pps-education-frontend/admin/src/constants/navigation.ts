@@ -1,4 +1,5 @@
 import {
+  AlertTriangle,
   ArrowLeftRight,
   Award,
   BarChart3,
@@ -218,7 +219,8 @@ export const navSections: NavSection[] = [
       // (học sinh thiếu bài liên tục 4 buổi) phải qua Quản lý điểm trường duyệt trước khi gửi xuống Phụ
       // huynh. Không có permission riêng — quyền xem/xử lý được backend tính qua bảng site_managers,
       // giống mục "Ý kiến phản hồi" (fac-feedback).
-      { id: "noti-meeting-invites", label: "Duyệt thư mời phụ huynh", path: "/notifications/meeting-invites", icon: Mail, requiredRoleAny: [UserRole.SITE_MANAGER] }
+      { id: "noti-meeting-invites", label: "Duyệt thư mời phụ huynh", path: "/notifications/meeting-invites", icon: Mail, requiredRoleAny: [UserRole.SITE_MANAGER] },
+      { id: "noti-attitude-escalations", label: "Duyệt cảnh báo thái độ học tập", path: "/notifications/attitude-escalations", icon: AlertTriangle, requiredRoleAny: [UserRole.SITE_MANAGER] }
     ]
   },
   {

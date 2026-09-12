@@ -81,6 +81,26 @@ public class NotificationEmailTemplateService {
     }
 
     private void registerTemplates() {
+        templates.put(Notification.NotificationType.STUDENT_ATTITUDE_ALERT, spec(
+                GREETING_PARENT, AUDIENCE_PARENT, "Thông báo về thái độ học tập của học viên",
+                "Hệ thống ghi nhận học viên có thái độ học tập Yếu/Trung bình trong buổi học gần nhất.",
+                "Thái độ học tập ảnh hưởng trực tiếp tới khả năng tiếp thu kiến thức và kết quả học tập của học viên.",
+                "Kính mong Quý Phụ huynh dành thời gian trò chuyện, động viên và nhắc nhở học viên tập trung hơn trong các buổi học tiếp theo.",
+                "Nếu cần trao đổi thêm, vui lòng liên hệ Hotline: " + hotline + "."));
+
+        templates.put(Notification.NotificationType.STUDENT_ATTITUDE_ESCALATION_PENDING_APPROVAL, spec(
+                GREETING_SITE_MANAGER, AUDIENCE_SITE_MANAGER, "Thông báo có cảnh báo thái độ học tập cần phê duyệt",
+                "Hệ thống ghi nhận có 1 học viên có thái độ học tập Yếu/Trung bình liên tục 3 buổi, đang chờ Quý Anh/Chị phê duyệt.",
+                "Cảnh báo chỉ được gửi xuống Phụ huynh sau khi Quý Anh/Chị duyệt — kính đề nghị Quý Anh/Chị đăng nhập vào hệ thống để xem xét và phê duyệt.",
+                "Nếu cần hỗ trợ, vui lòng liên hệ Hotline: " + hotline + "."));
+
+        templates.put(Notification.NotificationType.STUDENT_ATTITUDE_ESCALATION, spec(
+                GREETING_PARENT, AUDIENCE_PARENT, "Thông báo về thái độ học tập liên tục của học viên",
+                "Hệ thống ghi nhận học viên có thái độ học tập Yếu/Trung bình liên tục trong 03 buổi học gần nhất.",
+                "Việc duy trì thái độ học tập chưa tốt trong thời gian dài có thể ảnh hưởng nghiêm trọng tới kết quả học tập của học viên.",
+                "Kính mong Quý Phụ huynh quan tâm sát sao, trao đổi cùng giáo viên phụ trách hoặc Quản lý điểm trường để có phương án hỗ trợ kịp thời.",
+                "Mọi thông tin vui lòng liên hệ Hotline: " + hotline + "."));
+
         templates.put(Notification.NotificationType.HOMEWORK_MISS_REMINDER, spec(
                 GREETING_PARENT, AUDIENCE_PARENT, "Nhắc nhở về việc hoàn thành bài tập của học viên",
                 "Hệ thống ghi nhận học viên chưa hoàn thành đầy đủ bài tập được giao trong 02 lần liên tiếp.",
