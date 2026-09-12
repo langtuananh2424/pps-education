@@ -725,6 +725,8 @@ export interface ClassSessionResponse {
   teacherType: "VIETNAMESE" | "FOREIGN" | null;
   /** Tên GV thực tế dạy buổi (nhập tay, khác primaryTeacherName là FK hệ thống — dùng khi GV nước ngoài không tự thao tác hệ thống) — bổ sung ngoài SDD gốc, 2026-08-06. */
   actualTeacherName: string | null;
+  /** Tên GV tại thời điểm xếp/sửa lịch qua Lịch làm việc (mốc so sánh với actualTeacherName — khác nhau ⇒ đã đổi GV ngoài kế hoạch) — bổ sung ngoài SDD gốc, 2026-09-12. */
+  originalTeacherName: string | null;
   sessionNumber: number;
   /** "Bài học hôm nay" (đã có từ V50, chưa từng lộ ra FE) — nhập ở tab Nhận xét học viên (UC-21), không phải Điểm danh. */
   lessonContent: string | null;
@@ -751,6 +753,8 @@ export interface CreateClassSessionRequest {
   cmTeacherId?: number;
   /** Bắt buộc khi sessionType=MAKEUP (buổi này bù cho buổi nào) — phải để trống với loại khác. Chỉ áp dụng tạo 1 buổi lẻ, không áp dụng bulk/Excel. */
   makeupForSessionId?: number;
+  /** "Tên giáo viên giảng dạy" nhập tay — chỉ có ý nghĩa khi teacherType=FOREIGN (GVNN không có tài khoản), đồng bộ với field cùng tên ở Nhận xét học viên — bổ sung ngoài SDD gốc, 2026-09-12. */
+  actualTeacherName?: string;
 }
 
 /** Đảo ngược 2026-08-13 (xác nhận lại 2026-08-19): newStartTime/newEndTime đổi sang newPeriodNumbers; GV chính/phụ/CM giữ nguyên từ buổi cũ (sửa GV dùng updateSessionAssignment riêng). */
@@ -771,6 +775,8 @@ export interface UpdateSessionAssignmentRequest {
   cmTeacherId?: number;
   dayPart: DayPart;
   periodNumbers: number[];
+  /** "Tên giáo viên giảng dạy" nhập tay — chỉ có ý nghĩa khi teacherType=FOREIGN (GVNN không có tài khoản), đồng bộ với field cùng tên ở Nhận xét học viên — bổ sung ngoài SDD gốc, 2026-09-12. */
+  actualTeacherName?: string;
 }
 
 export function updateSessionAssignment(
@@ -831,6 +837,8 @@ export interface BulkCreateClassSessionRequest {
   primaryTeacherId: number;
   assistantTeacherId?: number;
   cmTeacherId?: number;
+  /** "Tên giáo viên giảng dạy" nhập tay — chỉ có ý nghĩa khi teacherType=FOREIGN (GVNN không có tài khoản), đồng bộ với field cùng tên ở Nhận xét học viên — bổ sung ngoài SDD gốc, 2026-09-12. */
+  actualTeacherName?: string;
 }
 
 export interface BulkCreateClassSessionResponse {

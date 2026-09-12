@@ -157,8 +157,15 @@
       "classGrid": "By class"
     },
     "classGrid": {
-      "selectSiteHint": "Select a site from the \"Site\" dropdown at the top of the page to view by class.",
-      "rangeTooWideHint": "Select \"Day\" or \"Week\" to view by class — the current date range is too wide to display as a grid."
+      "selectSiteHint": "Select at least 1 site in the filter above to view the schedule.",
+      "rangeTooWideHint": "Select \"Day\" or \"Week\" to view by class — the current date range is too wide to display as a grid.",
+      "siteFilter": {
+        "placeholder": "Select sites",
+        "selectedCount": "{{count}} sites",
+        "selectAll": "Select all",
+        "clearAll": "Clear all"
+      },
+      "createButton": "Schedule"
     },
     "rangeSeparator": "to",
     "filters": {

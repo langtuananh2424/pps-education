@@ -2,6 +2,7 @@ import type { CSSProperties, MouseEvent } from "react";
 import { MapPin, Users } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { ClassSessionResponse } from "../api";
+import { getCmDisplayName, getDisplayTeacherName, hasTeacherSubstitution } from "../teacherDisplay";
 
 const teacherTypeLabels: Record<string, string> = { VIETNAMESE: "GV VN", FOREIGN: "GV NN" };
 
@@ -20,6 +21,9 @@ interface TimetableSessionCardProps {
 export default function TimetableSessionCard({ session, style, onClick, onContextMenu, pendingKind }: TimetableSessionCardProps) {
   const cancelled = session.status === "CANCELLED";
   const rescheduled = session.status === "RESCHEDULED";
+  const displayTeacherName = getDisplayTeacherName(session);
+  const cmDisplayName = getCmDisplayName(session);
+  const hasSubstitution = hasTeacherSubstitution(session);
   // Màu theo LỚP (session.classColor, tự chọn ngẫu nhiên lúc tạo lớp, đổi được ở Sửa lớp) thay cho
   // màu theo loại GV trước đây — bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-08-21. Trạng thái
   // hủy/dời lịch vẫn ưu tiên màu đỏ/xám cố định (tín hiệu quan trọng hơn màu lớp). color-mix() pha nhạt
@@ -54,11 +58,16 @@ export default function TimetableSessionCard({ session, style, onClick, onContex
       </p>
       {!cancelled && (
         <>
-          <p className="text-[10.5px] text-slate-500 truncate">{session.primaryTeacherName}</p>
-          {session.cmTeacherName && (
+          {hasSubstitution && (
+            <p className="text-[10.5px] font-bold line-through bg-amber-100 text-amber-700 px-1 rounded w-fit truncate">
+              {session.originalTeacherName}
+            </p>
+          )}
+          <p className="text-[12px] font-bold text-green-600 truncate">{displayTeacherName}</p>
+          {cmDisplayName && (
             <p className="text-[10.5px] text-slate-400 truncate flex items-center gap-1">
               <Users className="w-3 h-3 shrink-0" />
-              CM: {session.cmTeacherName}
+              CM: {cmDisplayName}
             </p>
           )}
           {session.roomName && (
@@ -70,7 +79,7 @@ export default function TimetableSessionCard({ session, style, onClick, onContex
           {session.teacherType && (
             <span
               className={cn(
-                "text-[9px] font-bold px-1.5 py-0.5 rounded w-fit",
+                "text-[10px] font-bold px-1.5 py-0.5 rounded w-fit",
                 session.teacherType === "FOREIGN" ? "bg-sky-100 text-sky-700" : "bg-orange-100 text-brand-red"
               )}
             >

@@ -438,8 +438,21 @@ public class StudentAttendanceService {
                 .map(this::toResponse).toList();
     }
 
+    /**
+     * GVNN không có tài khoản hệ thống — tài khoản đứng "CM" của buổi (nếu
+     * có) cũng được coi là được phân công, vì CM chính là người thực tế vận
+     * hành/điểm danh hộ GVNN (bổ sung ngoài SDD gốc, xác nhận với người
+     * dùng 2026-09-12).
+     */
+    private boolean isAssignedTeacherOrCm(ClassSession classSession, Long actorUserId) {
+        if (classSession.getPrimaryTeacher().getId().equals(actorUserId)) {
+            return true;
+        }
+        return classSession.getCmTeacher() != null && classSession.getCmTeacher().getId().equals(actorUserId);
+    }
+
     private void requireAssignedTeacher(ClassSession classSession, Long actorUserId) {
-        if (!classSession.getPrimaryTeacher().getId().equals(actorUserId)) {
+        if (!isAssignedTeacherOrCm(classSession, actorUserId)) {
             throw new NotAssignedTeacherForSessionException(
                     "error.notAssignedTeacherForSession.attendance", new Object[]{}, "Bạn không được phân công giảng dạy buổi học này.");
         }
@@ -523,7 +536,7 @@ public class StudentAttendanceService {
         if (permissionEvaluationService.hasPermission(actorUserId, PERM_ATTENDANCE_CREATE)) {
             return true;
         }
-        if (!classSession.getPrimaryTeacher().getId().equals(actorUserId)) {
+        if (!isAssignedTeacherOrCm(classSession, actorUserId)) {
             return false;
         }
         return isWithinSessionWindow(classSession);

@@ -257,7 +257,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         seedPeriod(site, 2, LocalTime.of(8, 0), LocalTime.of(9, 40));
         classSession = classSessionService.createSession(schoolClass.id(),
                 new CreateClassSessionRequest(LocalDate.now(), "MORNING", List.of(1), room.getId(), "REGULAR", "VIETNAMESE",
-                        teacher.getId(), null, null, null),
+                        teacher.getId(), null, null, null, null),
                 headAcademic.getId());
         // Bài học hôm nay mặc định đã điền — bắt buộc để submitComments() cho DAILY không bị
         // chặn bởi MissingLessonContentException (bổ sung ngoài SDD gốc, đã xác nhận với người
@@ -319,7 +319,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         Room room = newRoom(siteOf(schoolClass));
         ClassSessionResponse oldSession = classSessionService.createSession(schoolClass.id(),
                 new CreateClassSessionRequest(LocalDate.now().minusDays(8), "MORNING", List.of(2), room.getId(), "REGULAR", "VIETNAMESE",
-                        teacher.getId(), null, null, null),
+                        teacher.getId(), null, null, null, null),
                 headAcademic.getId());
 
         assertThatThrownBy(() -> studentCommentService.writeComment(schoolClass.id(),
@@ -334,7 +334,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         Room room = newRoom(siteOf(schoolClass));
         ClassSessionResponse oldSession = classSessionService.createSession(schoolClass.id(),
                 new CreateClassSessionRequest(LocalDate.now().minusDays(8), "MORNING", List.of(2), room.getId(), "REGULAR", "VIETNAMESE",
-                        teacher.getId(), null, null, null),
+                        teacher.getId(), null, null, null, null),
                 headAcademic.getId());
 
         StudentCommentResponse comment = studentCommentService.writeComment(schoolClass.id(),
@@ -702,7 +702,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         Room room = newRoom(siteOf(schoolClass));
         ClassSessionResponse sessionWithoutLesson = classSessionService.createSession(schoolClass.id(),
                 new CreateClassSessionRequest(LocalDate.now().plusDays(1), "MORNING", List.of(2), room.getId(), "REGULAR", "VIETNAMESE",
-                        teacher.getId(), null, null, null),
+                        teacher.getId(), null, null, null, null),
                 headAcademic.getId());
         // siteManagerUser (có academic.comment.approve) thay vì teacher -- bổ sung 2026-08-14, sửa CI
         // fail: sessionWithoutLesson cố tình ở TƯƠNG LAI (plusDays(1), chưa "kết thúc") để tách biệt với
@@ -1093,7 +1093,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         Room room2 = newRoom(siteOf(schoolClass));
         return classSessionService.createSession(schoolClass.id(),
                 new CreateClassSessionRequest(classSession.sessionDate().plusDays(1), "MORNING", List.of(2), room2.getId(), "REGULAR", "VIETNAMESE",
-                        teacher.getId(), null, null, null),
+                        teacher.getId(), null, null, null, null),
                 headAcademic.getId());
     }
 
@@ -1362,7 +1362,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         Room room = newRoom(siteOf(schoolClass));
         classSessionService.createSession(schoolClass.id(),
                 new CreateClassSessionRequest(classSession.sessionDate().plusDays(1), "MORNING", List.of(2), room.getId(), "REGULAR", "FOREIGN",
-                        foreignTeacher.getId(), null, null, null),
+                        foreignTeacher.getId(), null, null, null, null),
                 headAcademic.getId());
         // classSession (setUp) = VIETNAMESE; buổi kế tiếp vừa tạo = FOREIGN -- khác loại GV, không tính.
 
@@ -1382,12 +1382,12 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         Room foreignRoom = newRoom(siteOf(schoolClass));
         classSessionService.createSession(schoolClass.id(),
                 new CreateClassSessionRequest(classSession.sessionDate().plusDays(1), "MORNING", List.of(2), foreignRoom.getId(), "REGULAR", "FOREIGN",
-                        foreignTeacher.getId(), null, null, null),
+                        foreignTeacher.getId(), null, null, null, null),
                 headAcademic.getId());
         Room vietnameseRoom = newRoom(siteOf(schoolClass));
         ClassSessionResponse nextVietnameseSession = classSessionService.createSession(schoolClass.id(),
                 new CreateClassSessionRequest(classSession.sessionDate().plusDays(2), "MORNING", List.of(2), vietnameseRoom.getId(), "REGULAR", "VIETNAMESE",
-                        teacher.getId(), null, null, null),
+                        teacher.getId(), null, null, null, null),
                 headAcademic.getId());
 
         StudentCommentResponse comment = writeDailyCommentWithHomeworkNext(student, classSession, fixture.exercise().examId(), null);
@@ -1427,7 +1427,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         Room room = newRoom(site);
         ClassSessionResponse sameDayLaterSession = classSessionService.createSession(schoolClass.id(),
                 new CreateClassSessionRequest(classSession.sessionDate(), "MORNING", List.of(3), room.getId(), "REGULAR", "VIETNAMESE",
-                        teacher.getId(), null, null, null),
+                        teacher.getId(), null, null, null, null),
                 headAcademic.getId());
 
         StudentCommentResponse comment = writeDailyCommentWithHomeworkNext(student, classSession, fixture.exercise().examId(), null);

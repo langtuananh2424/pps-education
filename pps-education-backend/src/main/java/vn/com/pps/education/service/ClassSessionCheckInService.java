@@ -5,6 +5,7 @@ import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.ClassSession;
 import vn.com.pps.education.domain.ClassSessionCheckIn;
 import vn.com.pps.education.domain.Site;
+import vn.com.pps.education.domain.User;
 import vn.com.pps.education.dto.ClassSessionCheckInRequest;
 import vn.com.pps.education.dto.ClassSessionCheckInResponse;
 import vn.com.pps.education.dto.ClassSessionCheckInStatusResponse;
@@ -18,6 +19,7 @@ import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.repository.ClassSessionCheckInRepository;
 import vn.com.pps.education.repository.ClassSessionRepository;
 import vn.com.pps.education.repository.SiteRepository;
+import vn.com.pps.education.repository.UserRepository;
 import vn.com.pps.education.service.attendance.AttendanceSettings;
 
 import java.time.OffsetDateTime;
@@ -41,15 +43,18 @@ public class ClassSessionCheckInService {
     private final ClassSessionRepository classSessionRepository;
     private final ClassSessionCheckInRepository classSessionCheckInRepository;
     private final SiteRepository siteRepository;
+    private final UserRepository userRepository;
     private final AttendanceSettings attendanceSettings;
 
     public ClassSessionCheckInService(ClassSessionRepository classSessionRepository,
                                        ClassSessionCheckInRepository classSessionCheckInRepository,
                                        SiteRepository siteRepository,
+                                       UserRepository userRepository,
                                        AttendanceSettings attendanceSettings) {
         this.classSessionRepository = classSessionRepository;
         this.classSessionCheckInRepository = classSessionCheckInRepository;
         this.siteRepository = siteRepository;
+        this.userRepository = userRepository;
         this.attendanceSettings = attendanceSettings;
     }
 
@@ -67,7 +72,12 @@ public class ClassSessionCheckInService {
         if (session.getStatus() == ClassSession.Status.CANCELLED || session.getStatus() == ClassSession.Status.RESCHEDULED) {
             throw new ClassSessionNotCheckableException("error.classSessionNotCheckable.default", new Object[]{}, "Buổi học đã bị hủy/dời lịch, không thể nhận lớp.");
         }
-        if (!session.getPrimaryTeacher().getId().equals(actorUserId)) {
+        // GVNN không có tài khoản hệ thống — tài khoản đứng "CM" của buổi (nếu có) cũng nhận lớp được,
+        // vì CM chính là người thực tế vận hành/điểm danh hộ GVNN (bổ sung ngoài SDD gốc, xác nhận với
+        // người dùng 2026-09-12).
+        boolean isPrimaryTeacher = session.getPrimaryTeacher().getId().equals(actorUserId);
+        boolean isCmTeacher = session.getCmTeacher() != null && session.getCmTeacher().getId().equals(actorUserId);
+        if (!isPrimaryTeacher && !isCmTeacher) {
             throw new NotAssignedTeacherForSessionException("error.notAssignedTeacherForSession.default", new Object[]{}, "Bạn không được phân công dạy buổi học này.");
         }
         if (classSessionCheckInRepository.existsByClassSessionId(classSessionId)) {
@@ -102,9 +112,14 @@ public class ClassSessionCheckInService {
         ClassSessionCheckIn.Status status = now.isBefore(sessionStart)
                 ? ClassSessionCheckIn.Status.ON_TIME : ClassSessionCheckIn.Status.LATE;
 
+        User actor = userRepository.findById(actorUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("error.classSessionCheckIn.actorNotFound", new Object[]{actorUserId}, "Không tìm thấy tài khoản id=" + actorUserId));
+
         ClassSessionCheckIn checkIn = new ClassSessionCheckIn();
         checkIn.setClassSession(session);
-        checkIn.setTeacher(session.getPrimaryTeacher());
+        // Ghi đúng người THẬT SỰ nhận lớp (có thể là CM đứng thay GVNN, khác primaryTeacher) — trước
+        // đây luôn ghi primaryTeacher vì đó là điều kiện DUY NHẤT được phép nhận lớp.
+        checkIn.setTeacher(actor);
         checkIn.setCheckInTime(now);
         checkIn.setStatus(status);
         checkIn.setLatitude(request.latitude());

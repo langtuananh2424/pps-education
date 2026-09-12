@@ -52,6 +52,7 @@ export default function SessionEditModal({ session, siteId, rooms, onClose, onQu
   const [assistantTeacherName, setAssistantTeacherName] = useState<string | null>(session.assistantTeacherName);
   const [cmTeacherId, setCmTeacherId] = useState<number | null>(session.cmTeacherId);
   const [cmTeacherName, setCmTeacherName] = useState<string | null>(session.cmTeacherName);
+  const [actualTeacherName, setActualTeacherName] = useState(session.actualTeacherName ?? "");
   const [dayPart, setDayPart] = useState<DayPart>(session.dayPart ?? "MORNING");
   const [selectedPeriods, setSelectedPeriods] = useState<Set<number>>(new Set(session.periodNumbers));
 
@@ -78,7 +79,8 @@ export default function SessionEditModal({ session, siteId, rooms, onClose, onQu
       assistantTeacherId: assistantTeacherId ?? undefined,
       cmTeacherId: cmTeacherId ?? undefined,
       dayPart,
-      periodNumbers: Array.from(selectedPeriods)
+      periodNumbers: Array.from(selectedPeriods),
+      actualTeacherName: teacherType === "FOREIGN" && actualTeacherName.trim() ? actualTeacherName.trim() : undefined
     };
     onQueueUpdate(request, {
       roomName: roomId ? rooms.find((r) => r.id === Number(roomId))?.name ?? null : null,
@@ -206,6 +208,22 @@ export default function SessionEditModal({ session, siteId, rooms, onClose, onQu
                     setCmTeacherName(name);
                   }}
                 />
+
+                {teacherType === "FOREIGN" && (
+                  <div>
+                    <label className={labelClass}>Tên giáo viên giảng dạy</label>
+                    <input
+                      value={actualTeacherName}
+                      onChange={(e) => setActualTeacherName(e.target.value)}
+                      placeholder="VD: Alex"
+                      className={inputClass}
+                    />
+                    <p className="text-[10px] text-slate-400 italic mt-1">
+                      GVNN không có tài khoản hệ thống — nhập tên thật để hiển thị trên lưới, khớp với "Tên giáo viên
+                      giảng dạy" ở Nhận xét học viên.
+                    </p>
+                  </div>
+                )}
 
                 <p className="text-[11px] text-slate-400 italic">Thay đổi chỉ hiện tạm trên lưới — bấm "Lưu" ở đầu lưới để ghi thật.</p>
 

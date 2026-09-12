@@ -124,8 +124,24 @@ public class ClassSession extends BaseAuditEntity {
      * người dùng 2026-08-06) — KHÁC {@link #primaryTeacher} (FK tài khoản
      * hệ thống): text nhập tay, dùng khi GV nước ngoài không tự thao tác
      * hệ thống, nhân sự chăm sóc lớp nhập hộ qua Excel/UI để quản lý theo
-     * dõi buổi đó thực tế ai dạy.
+     * dõi buổi đó thực tế ai dạy. Đồng bộ 2 chiều với "Tên giáo viên giảng
+     * dạy" ở Nhận xét học viên (StudentCommentService#updateActualTeacherName)
+     * và ô nhập tay cùng tên ở Lịch làm việc khi Loại giáo viên = GVNN
+     * (ClassSessionService — bổ sung 2026-09-12).
      */
     @Column(name = "actual_teacher_name")
     private String actualTeacherName;
+
+    /**
+     * Tên GV tại thời điểm xếp/sửa lịch qua Lịch làm việc (bổ sung ngoài
+     * SDD gốc, đã xác nhận với người dùng 2026-09-12) — chụp lại
+     * {@link #actualTeacherName} mỗi lần tạo buổi hoặc sửa qua
+     * ClassSessionService#updateAssignment (coi là "kế hoạch chính thức").
+     * KHÔNG bị đụng khi CM sửa lại actualTeacherName qua Nhận xét học viên
+     * (VD GVNN nghỉ đột xuất, đổi người dạy) — nên 2 giá trị lệch nhau là
+     * tín hiệu "có phát sinh thay giáo viên ngoài kế hoạch", dùng để Lịch
+     * làm việc hiển thị gạch tên gốc + tên mới.
+     */
+    @Column(name = "original_teacher_name")
+    private String originalTeacherName;
 }

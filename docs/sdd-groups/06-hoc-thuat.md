@@ -755,6 +755,117 @@ a)  Bảng class_sessions --- Buổi học
                                                                      đây là giá
                                                                      trị per-buổi.
 
+  assistant_teacher_id        BIGINT           FK → users(id), NULL  GV phụ của
+                                                                     buổi này
+                                                                     (tuỳ chọn),
+                                                                     gán riêng
+                                                                     theo buổi —
+                                                                     KHÁC
+                                                                     class_teachers
+                                                                     ASSISTANT
+                                                                     (cấp lớp).
+                                                                     Bổ sung
+                                                                     ngoài SDD
+                                                                     gốc, xác
+                                                                     nhận
+                                                                     2026-08-19
+                                                                     (V128) —
+                                                                     đang thiếu
+                                                                     trong docs,
+                                                                     bổ sung lại
+                                                                     2026-09-12.
+
+  cm_teacher_id                BIGINT           FK → users(id), NULL  CM (Class
+                                                                     Manager) của
+                                                                     buổi này
+                                                                     (tuỳ chọn),
+                                                                     gán riêng
+                                                                     theo buổi —
+                                                                     KHÁC
+                                                                     class_teachers
+                                                                     CM (cấp
+                                                                     lớp). Bổ
+                                                                     sung ngoài
+                                                                     SDD gốc, xác
+                                                                     nhận
+                                                                     2026-08-19
+                                                                     (V128) —
+                                                                     đang thiếu
+                                                                     trong docs,
+                                                                     bổ sung lại
+                                                                     2026-09-12.
+
+  actual_teacher_name          VARCHAR(255)     NULL                  Tên GV thực
+                                                                     tế dạy buổi
+                                                                     này — nhập
+                                                                     tay, KHÁC
+                                                                     primary_teacher_id
+                                                                     (FK tài
+                                                                     khoản hệ
+                                                                     thống). Dùng
+                                                                     khi GV nước
+                                                                     ngoài
+                                                                     (GVNN)
+                                                                     không có
+                                                                     tài khoản hệ
+                                                                     thống — CM
+                                                                     đứng tên
+                                                                     primary_teacher_id
+                                                                     để vận hành
+                                                                     (điểm
+                                                                     danh/check-in),
+                                                                     còn cột này
+                                                                     mới là tên
+                                                                     GV thật,
+                                                                     hiển thị ở
+                                                                     Lịch làm
+                                                                     việc + Nhận
+                                                                     xét học viên
+                                                                     (UC-21). Bổ
+                                                                     sung ngoài
+                                                                     SDD gốc, xác
+                                                                     nhận
+                                                                     2026-08-06
+                                                                     (V91) — đang
+                                                                     thiếu trong
+                                                                     docs, bổ
+                                                                     sung lại
+                                                                     2026-09-12.
+
+  original_teacher_name        VARCHAR(255)     NULL                  Tên GV tại
+                                                                     thời điểm
+                                                                     xếp/sửa lịch
+                                                                     qua Lịch làm
+                                                                     việc — chụp
+                                                                     lại
+                                                                     actual_teacher_name
+                                                                     mỗi lần tạo
+                                                                     buổi hoặc
+                                                                     sửa qua
+                                                                     ClassSessionService
+                                                                     #updateAssignment.
+                                                                     Khác
+                                                                     actual_teacher_name
+                                                                     ⇒ CM đã sửa
+                                                                     lại tên GV
+                                                                     qua Nhận xét
+                                                                     học viên
+                                                                     (VD GVNN
+                                                                     nghỉ đột
+                                                                     xuất, đổi
+                                                                     người dạy) —
+                                                                     Lịch làm
+                                                                     việc dùng để
+                                                                     hiển thị
+                                                                     gạch tên gốc
+                                                                     + tên mới.
+                                                                     Bổ sung
+                                                                     ngoài SDD
+                                                                     gốc, xác
+                                                                     nhận
+                                                                     2026-09-12
+                                                                     (V172).
+
   created_at, updated_at      TIMESTAMPTZ
   --------------------------------------------------------------------------------
 

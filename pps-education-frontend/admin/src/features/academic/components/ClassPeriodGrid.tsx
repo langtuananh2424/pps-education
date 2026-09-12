@@ -44,6 +44,14 @@ interface ClassPeriodGridProps {
   dates: Date[];
   /** Tùy chọn — chỉ hiển thị buổi của 1 lớp cụ thể (khớp filter "Lớp" ở trang Lịch làm việc). Không truyền = hiện mọi lớp của site. */
   classId?: number;
+  /**
+   * Số lane tối thiểu cho mỗi cột ngày (mặc định DEFAULT_LANES=3, xác nhận
+   * với người dùng 2026-08-21 cho trang "Thời khóa biểu"/1-site). Trang
+   * "Lịch làm việc" xem nhiều điểm trường xếp chồng (2026-09-12) truyền 1 —
+   * mỗi site thường ít lớp trùng tiết hơn, cột co theo đúng nội dung thay vì
+   * luôn rộng tối thiểu 3 lane gây trống nhiều.
+   */
+  minLanes?: number;
 }
 
 interface PendingCreate {
@@ -93,7 +101,7 @@ type DisplaySession = ClassSessionResponse & { pendingKind?: SessionPendingKind;
  * AppContext.setUnsavedChanges — cùng cơ chế Sidebar chặn điều hướng đã có
  * cho DailyCommentPanel).
  */
-export default function ClassPeriodGrid({ siteId, dates, classId }: ClassPeriodGridProps) {
+export default function ClassPeriodGrid({ siteId, dates, classId, minLanes = DEFAULT_LANES }: ClassPeriodGridProps) {
   const { setUnsavedChanges } = useApp();
   const { promptDialog } = useDialog();
 
@@ -449,6 +457,10 @@ export default function ClassPeriodGrid({ siteId, dates, classId }: ClassPeriodG
           assistantTeacherName: upd.preview.assistantTeacherName,
           cmTeacherId: upd.request.cmTeacherId ?? null,
           cmTeacherName: upd.preview.cmTeacherName,
+          actualTeacherName: upd.request.actualTeacherName ?? null,
+          // Sửa qua Lịch làm việc reset originalTeacherName = actualTeacherName khi lưu thật (xem
+          // ClassSessionService#updateAssignment) — preview theo trước, chưa có độ lệch để gạch tên.
+          originalTeacherName: upd.request.actualTeacherName ?? null,
           pendingKind: "update"
         };
       }
@@ -484,7 +496,8 @@ export default function ClassPeriodGrid({ siteId, dates, classId }: ClassPeriodG
           cancellationReason: null,
           rescheduledToSessionId: null,
           teacherType: pc.request.teacherType,
-          actualTeacherName: null,
+          actualTeacherName: pc.request.actualTeacherName ?? null,
+          originalTeacherName: pc.request.actualTeacherName ?? null,
           sessionNumber: 0,
           lessonContent: null,
           makeupForSessionId: null,
@@ -528,19 +541,19 @@ export default function ClassPeriodGrid({ siteId, dates, classId }: ClassPeriodG
     return map;
   }, [dates, sections, sessionsByDateAndDayPart]);
 
-  /** Độ rộng cột theo NGÀY = số lane nhiều nhất trong bất kỳ buổi nào của ngày đó (tối thiểu DEFAULT_LANES), vì 1 cột ngày dùng chung 1 độ rộng cho mọi buổi Sáng/Chiều/Tối xếp chồng bên trong. */
+  /** Độ rộng cột theo NGÀY = số lane nhiều nhất trong bất kỳ buổi nào của ngày đó (tối thiểu minLanes), vì 1 cột ngày dùng chung 1 độ rộng cho mọi buổi Sáng/Chiều/Tối xếp chồng bên trong. */
   const laneCountByDate = useMemo(
     () =>
       dates.map((d) => {
         const dateStr = toISODate(d);
-        let max = DEFAULT_LANES;
+        let max = minLanes;
         sections.forEach((section) => {
           const assignments = laneAssignmentsByCell.get(`${dateStr}:${section.dayPart}`);
           if (assignments) max = Math.max(max, laneCountUsed(assignments));
         });
         return max;
       }),
-    [dates, sections, laneAssignmentsByCell]
+    [dates, sections, laneAssignmentsByCell, minLanes]
   );
 
   if (loading && periods.length === 0) {
