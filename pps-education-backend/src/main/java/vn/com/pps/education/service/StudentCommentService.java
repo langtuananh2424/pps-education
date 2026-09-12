@@ -310,6 +310,7 @@ public class StudentCommentService {
     private final ExerciseService exerciseService;
     private final ReviewVideoService reviewVideoService;
     private final HomeworkSkillBatchService homeworkSkillBatchService;
+    private final StudentAttitudeAlertTrackingService attitudeAlertTrackingService;
 
     public StudentCommentService(StudentCommentRepository studentCommentRepository,
                                   StudentCommentHistoryRepository studentCommentHistoryRepository,
@@ -337,7 +338,8 @@ public class StudentCommentService {
                                   ReviewVideoAssignmentRepository reviewVideoAssignmentRepository,
                                   ExerciseService exerciseService,
                                   ReviewVideoService reviewVideoService,
-                                  HomeworkSkillBatchService homeworkSkillBatchService) {
+                                  HomeworkSkillBatchService homeworkSkillBatchService,
+                                  StudentAttitudeAlertTrackingService attitudeAlertTrackingService) {
         this.studentCommentRepository = studentCommentRepository;
         this.studentCommentHistoryRepository = studentCommentHistoryRepository;
         this.approvalFlowRepository = approvalFlowRepository;
@@ -365,6 +367,7 @@ public class StudentCommentService {
         this.exerciseService = exerciseService;
         this.reviewVideoService = reviewVideoService;
         this.homeworkSkillBatchService = homeworkSkillBatchService;
+        this.attitudeAlertTrackingService = attitudeAlertTrackingService;
     }
 
     // ===================== UC-21: Viết nhận xét (TEACHER) =====================
@@ -746,6 +749,10 @@ public class StudentCommentService {
         saved.forEach(c -> writeHistory(c, actor, StudentCommentHistory.Action.UPDATED));
         if (decision == ApprovalFlow.Decision.REJECTED) {
             saved.forEach(this::notifyTeacherRejected);
+        } else {
+            // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-12: cảnh báo thái độ học
+            // tập chỉ tính trên nhận xét ĐÃ DUYỆT — xem StudentAttitudeAlertTrackingService.
+            saved.forEach(attitudeAlertTrackingService::evaluateAndNotify);
         }
         return saved.stream().map(this::toResponse).toList();
     }

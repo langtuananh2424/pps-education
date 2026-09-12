@@ -22,5 +22,28 @@
     "actionReject": "Reject",
     "actionApprove": "Approve",
     "deciding": "Processing..."
+  },
+  "attitudeEscalations": {
+    "title": "Approve attitude escalations",
+    "description": "Approve \"Weak/Average learning attitude for 3 consecutive sessions\" alerts before they are sent to parents.",
+    "sectionTitle": "Pending escalations",
+    "loading": "Loading...",
+    "empty": "No pending attitude escalations.",
+    "loadError": "Could not load the pending escalations list.",
+    "decideError": "Failed to process the escalation.",
+    "rejectReasonPrompt": "Enter the reason for rejecting this escalation",
+    "approvedToast": "Approved — the escalation has been sent to the parent.",
+    "rejectedToast": "Rejected — the escalation will not be sent.",
+    "columns": {
+      "student": "Student",
+      "class": "Class",
+      "streakCount": "Consecutive sessions",
+      "createdAt": "Created at",
+      "action": "Action"
+    },
+    "streakCountValue": "{{count}} sessions",
+    "actionReject": "Reject",
+    "actionApprove": "Approve",
+    "deciding": "Processing..."
   }
 }

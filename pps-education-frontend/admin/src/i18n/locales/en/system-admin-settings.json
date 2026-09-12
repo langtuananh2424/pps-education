@@ -67,7 +67,10 @@
     "HOMEWORK_MISS_PARENT_MEETING_INVITE": "Parent meeting invite (missed homework)",
     "HOMEWORK_MISS_REMINDER_NON_CONSECUTIVE": "Missed homework reminder (non-consecutive)",
     "HOMEWORK_DUE_SOON_REMINDER": "Homework due soon reminder",
-    "HOMEWORK_MEETING_INVITE_PENDING_APPROVAL": "Parent meeting invite pending approval (Site Manager)"
+    "HOMEWORK_MEETING_INVITE_PENDING_APPROVAL": "Parent meeting invite pending approval (Site Manager)",
+    "STUDENT_ATTITUDE_ALERT": "Learning attitude alert (single session)",
+    "STUDENT_ATTITUDE_ESCALATION_PENDING_APPROVAL": "Attitude escalation pending approval (Site Manager)",
+    "STUDENT_ATTITUDE_ESCALATION": "Learning attitude escalation (3 consecutive sessions)"
   },
   "sendNotificationPage": {
     "title": "Send Notification",

@@ -32,7 +32,11 @@ public class Notification {
         // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-12: báo Quản lý điểm trường
         // có "Thư mời phụ huynh tới làm việc" (HOMEWORK_MISS_PARENT_MEETING_INVITE) đang chờ
         // duyệt trước khi gửi xuống Phụ huynh — xem HomeworkParentMeetingInviteService.
-        HOMEWORK_MEETING_INVITE_PENDING_APPROVAL
+        HOMEWORK_MEETING_INVITE_PENDING_APPROVAL,
+        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-12: cảnh báo thái độ học
+        // tập (StudentComment.attitude = WEAK/AVERAGE) — xem StudentAttitudeAlertTrackingService/
+        // StudentAttitudeEscalationService.
+        STUDENT_ATTITUDE_ALERT, STUDENT_ATTITUDE_ESCALATION_PENDING_APPROVAL, STUDENT_ATTITUDE_ESCALATION
     }
 
     public enum Priority { LOW, NORMAL, HIGH, URGENT }
