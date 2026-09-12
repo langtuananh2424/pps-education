@@ -159,11 +159,16 @@ public class PartnerContractService {
         if (activeClassCount > 0) {
             List<SiteManager> managers = siteManagerRepository.findBySiteIdAndRoleTypeAndAssignedToIsNull(
                     contract.getSite().getId(), SiteManager.RoleType.SITE_MANAGER);
+            Map<String, Object> metadata = new HashMap<>();
+            metadata.put("contractNumber", contract.getContractNumber());
+            metadata.put("siteName", contract.getSite().getName());
+            metadata.put("activeClassCount", activeClassCount);
             for (SiteManager manager : managers) {
                 notificationService.notify(manager.getUser().getId(), Notification.NotificationType.SYSTEM_ANNOUNCEMENT,
                         "Hợp đồng liên kết trường đã chấm dứt",
                         "Hợp đồng " + contract.getContractNumber() + " của điểm trường " + contract.getSite().getName()
-                                + " đã chấm dứt — còn " + activeClassCount + " lớp đang hoạt động cần xử lý chuyển tiếp.");
+                                + " đã chấm dứt — còn " + activeClassCount + " lớp đang hoạt động cần xử lý chuyển tiếp.",
+                        metadata, "PARTNER_CONTRACT", contract.getId(), Notification.Priority.NORMAL, actorUserId);
             }
         }
         return toResponse(contract);

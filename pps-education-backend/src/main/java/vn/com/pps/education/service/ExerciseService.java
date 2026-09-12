@@ -566,10 +566,14 @@ public class ExerciseService {
                 .findBySchoolClassIdAndStatus(schoolClass.getId(), ClassEnrollment.Status.ACTIVE);
         String title = "Bài kiểm tra mới được giao";
         String content = "Đề \"" + exercise.getTitle() + "\" đã được giao cho lớp " + schoolClass.getName() + ".";
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("assignmentLabel", "Đề \"" + exercise.getTitle() + "\"");
+        metadata.put("className", schoolClass.getName());
+        metadata.put("dueAt", assignment.getDueAt());
         for (ClassEnrollment enrollment : enrollments) {
             notificationService.notify(enrollment.getStudent().getUser().getId(),
                     Notification.NotificationType.OTHER, title, content,
-                    null, "EXERCISE_ASSIGNMENT", assignment.getId(),
+                    metadata, "EXERCISE_ASSIGNMENT", assignment.getId(),
                     Notification.Priority.NORMAL, null);
         }
     }

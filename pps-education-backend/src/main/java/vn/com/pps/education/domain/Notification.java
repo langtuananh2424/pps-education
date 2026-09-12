@@ -28,7 +28,11 @@ public class Notification {
         GRADE_REJECTED, EXAM_INTEGRITY_VIOLATION, EXAM_INTEGRITY_VIOLATION_PARENT, HOMEWORK_DEADLINE_SUMMARY,
         HOMEWORK_MISS_REMINDER, HOMEWORK_MISS_WARNING, HOMEWORK_MISS_PARENT_MEETING_INVITE,
         HOMEWORK_MISS_REMINDER_NON_CONSECUTIVE, HOMEWORK_DUE_SOON_REMINDER,
-        COMMENT_PENDING_APPROVAL, COMMENT_REJECTED, OTHER
+        COMMENT_PENDING_APPROVAL, COMMENT_REJECTED, OTHER,
+        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-12: báo Quản lý điểm trường
+        // có "Thư mời phụ huynh tới làm việc" (HOMEWORK_MISS_PARENT_MEETING_INVITE) đang chờ
+        // duyệt trước khi gửi xuống Phụ huynh — xem HomeworkParentMeetingInviteService.
+        HOMEWORK_MEETING_INVITE_PENDING_APPROVAL
     }
 
     public enum Priority { LOW, NORMAL, HIGH, URGENT }

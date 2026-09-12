@@ -43,6 +43,7 @@ public class PushNotificationSender implements NotificationChannelSender {
 
     private final FirebaseMessaging firebaseMessaging;
     private final DeviceTokenRepository deviceTokenRepository;
+    private final NotificationPushTemplateService templateService;
 
     /**
      * FirebaseMessaging bọc trong Optional vì FirebaseConfig#firebaseMessaging
@@ -52,9 +53,11 @@ public class PushNotificationSender implements NotificationChannelSender {
      * UnsatisfiedDependencyException lúc khởi động dù bean method có tồn tại.
      */
     public PushNotificationSender(Optional<FirebaseMessaging> firebaseMessaging,
-                                   DeviceTokenRepository deviceTokenRepository) {
+                                   DeviceTokenRepository deviceTokenRepository,
+                                   NotificationPushTemplateService templateService) {
         this.firebaseMessaging = firebaseMessaging.orElse(null);
         this.deviceTokenRepository = deviceTokenRepository;
+        this.templateService = templateService;
     }
 
     @Override
@@ -74,6 +77,16 @@ public class PushNotificationSender implements NotificationChannelSender {
             return false;
         }
 
+        // Mẫu push riêng theo NotificationType (xem NotificationPushTemplateService) — bổ sung
+        // ngoài SDD gốc, đã xác nhận với người dùng 2026-09-12: nội dung notifications.content
+        // dùng chung cho in-app khá kỹ thuật khi đọc trên điện thoại. Type chưa có mẫu -> fallback
+        // dùng title/content thô (hành vi cũ).
+        var pushTemplate = templateService.renderFor(notification.getNotificationType(), notification.getMetadata());
+        String pushTitle = pushTemplate.map(NotificationPushTemplateService.PushTemplate::title)
+                .orElseGet(notification::getTitle);
+        String pushBody = pushTemplate.map(NotificationPushTemplateService.PushTemplate::body)
+                .orElseGet(notification::getContent);
+
         StringBuilder sentTokens = new StringBuilder();
         for (DeviceToken deviceToken : tokens) {
             Message message = Message.builder()
@@ -85,8 +98,8 @@ public class PushNotificationSender implements NotificationChannelSender {
                     // nhận 2 thông báo (đã xảy ra thật với tài khoản phangiabao04). Data-only để chỉ
                     // còn đúng 1 đường hiển thị do FE kiểm soát (SW + onMessage). Kèm notificationId
                     // để FE đặt làm `tag` — nếu cả 2 handler cùng chạy thì trình duyệt gộp theo tag.
-                    .putData("title", nullToEmpty(notification.getTitle()))
-                    .putData("body", nullToEmpty(notification.getContent()))
+                    .putData("title", nullToEmpty(pushTitle))
+                    .putData("body", nullToEmpty(pushBody))
                     .putData("notificationId", String.valueOf(notification.getId()))
                     // Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-09-05): ép priority HIGH để
                     // FCM đánh thức thiết bị ngay (kể cả doze mode) thay vì trì hoãn theo lô — KHÔNG tự

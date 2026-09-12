@@ -605,11 +605,16 @@ public class ReviewVideoService {
         List<ClassEnrollment> enrollments = classEnrollmentRepository
                 .findBySchoolClassIdAndStatus(schoolClass.getId(), ClassEnrollment.Status.ACTIVE);
         String title = "Video ôn tập mới được giao";
-        String content = "Bộ video \"" + set.getTitle() + "\" đã được giao cho lớp " + schoolClass.getName() + ".";
+        String assignmentLabel = "Bộ video \"" + set.getTitle() + "\"";
+        String content = assignmentLabel + " đã được giao cho lớp " + schoolClass.getName() + ".";
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("assignmentLabel", assignmentLabel);
+        metadata.put("className", schoolClass.getName());
+        metadata.put("dueAt", assignment.getDueAt());
         for (ClassEnrollment enrollment : enrollments) {
             notificationService.notify(enrollment.getStudent().getUser().getId(),
                     Notification.NotificationType.OTHER, title, content,
-                    null, "REVIEW_VIDEO_ASSIGNMENT", assignment.getId(),
+                    metadata, "REVIEW_VIDEO_ASSIGNMENT", assignment.getId(),
                     Notification.Priority.NORMAL, null);
         }
     }

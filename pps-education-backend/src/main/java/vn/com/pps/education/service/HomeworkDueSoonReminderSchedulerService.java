@@ -119,6 +119,8 @@ public class HomeworkDueSoonReminderSchedulerService {
         Map<String, Object> metadata = new LinkedHashMap<>();
         metadata.put("studentName", student.getUser().getFullName());
         metadata.put("className", schoolClass.getName());
+        metadata.put("assignmentLabel", assignmentLabel);
+        metadata.put("dueAt", dueAt);
         for (ParentStudent link : parentStudentRepository.findByStudentId(student.getId())) {
             notificationService.notify(link.getParent().getUser().getId(), Notification.NotificationType.HOMEWORK_DUE_SOON_REMINDER,
                     title, content, metadata, "STUDENT", student.getId(), Notification.Priority.NORMAL, null);

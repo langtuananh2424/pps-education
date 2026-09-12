@@ -1,0 +1,26 @@
+{
+  "meetingInvites": {
+    "title": "Approve parent meeting invites",
+    "description": "Approve \"Parent meeting invite\" alerts before they are sent to parents — only applies when a student has missed homework for 4 consecutive sessions.",
+    "sectionTitle": "Pending meeting invites",
+    "loading": "Loading...",
+    "empty": "No pending parent meeting invites.",
+    "loadError": "Could not load the pending invites list.",
+    "decideError": "Failed to process the invite.",
+    "rejectReasonPrompt": "Enter the reason for rejecting this invite",
+    "approvedToast": "Approved — the invite has been sent to the parent.",
+    "rejectedToast": "Rejected — the invite will not be sent.",
+    "columns": {
+      "student": "Student",
+      "class": "Class",
+      "channel": "Homework channel",
+      "missCount": "Missed sessions",
+      "createdAt": "Created at",
+      "action": "Action"
+    },
+    "missCountValue": "{{count}} sessions",
+    "actionReject": "Reject",
+    "actionApprove": "Approve",
+    "deciding": "Processing..."
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "meetingInvites": {
+    "title": "Duyệt thư mời phụ huynh",
+    "description": "Duyệt \"Thư mời phụ huynh tới làm việc\" trước khi gửi xuống Phụ huynh — chỉ áp dụng khi học sinh thiếu bài liên tục 4 buổi.",
+    "sectionTitle": "Thư mời đang chờ duyệt",
+    "loading": "Đang tải...",
+    "empty": "Không có thư mời phụ huynh nào đang chờ duyệt.",
+    "loadError": "Không tải được danh sách thư mời chờ duyệt.",
+    "decideError": "Xử lý thư mời thất bại.",
+    "rejectReasonPrompt": "Nhập lý do từ chối gửi thư mời này",
+    "approvedToast": "Đã duyệt — thư mời đã được gửi xuống Phụ huynh.",
+    "rejectedToast": "Đã từ chối — thư mời sẽ không được gửi.",
+    "columns": {
+      "student": "Học sinh",
+      "class": "Lớp",
+      "channel": "Kênh BTVN",
+      "missCount": "Số buổi thiếu",
+      "createdAt": "Ngày phát sinh",
+      "action": "Hành động"
+    },
+    "missCountValue": "{{count}} buổi",
+    "actionReject": "Từ chối",
+    "actionApprove": "Duyệt",
+    "deciding": "Đang xử lý..."
+  }
+}

@@ -25,6 +25,7 @@ import vn.com.pps.education.repository.SchoolClassRepository;
 import vn.com.pps.education.repository.UserRepository;
 
 import java.time.OffsetDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -136,12 +137,16 @@ public class HomeworkSkillBatchService {
         List<ClassEnrollment> enrollments = classEnrollmentRepository
                 .findBySchoolClassIdAndStatus(schoolClass.getId(), ClassEnrollment.Status.ACTIVE);
         String title = "Bài kiểm tra mới được giao";
-        String content = "Đề \"" + exam.getTitle() + " – " + skillCategoryLabel(skillCategory) + " (" + exerciseCount + " bài)\""
-                + " đã được giao cho lớp " + schoolClass.getName() + ".";
+        String assignmentLabel = "Đề \"" + exam.getTitle() + " – " + skillCategoryLabel(skillCategory) + " (" + exerciseCount + " bài)\"";
+        String content = assignmentLabel + " đã được giao cho lớp " + schoolClass.getName() + ".";
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("assignmentLabel", assignmentLabel);
+        metadata.put("className", schoolClass.getName());
+        metadata.put("dueAt", representativeAssignment.getDueAt());
         for (ClassEnrollment enrollment : enrollments) {
             notificationService.notify(enrollment.getStudent().getUser().getId(),
                     Notification.NotificationType.OTHER, title, content,
-                    null, "EXERCISE_ASSIGNMENT", representativeAssignment.getId(),
+                    metadata, "EXERCISE_ASSIGNMENT", representativeAssignment.getId(),
                     Notification.Priority.NORMAL, null);
         }
     }
