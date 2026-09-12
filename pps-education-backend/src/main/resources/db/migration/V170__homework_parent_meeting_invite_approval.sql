@@ -16,7 +16,7 @@
 CREATE TABLE homework_parent_meeting_invites (
     id                BIGSERIAL PRIMARY KEY,
     student_id        BIGINT NOT NULL REFERENCES students(id),
-    school_class_id   BIGINT NOT NULL REFERENCES school_classes(id),
+    school_class_id   BIGINT NOT NULL REFERENCES classes(id),
     channel_label     VARCHAR(50) NOT NULL,
     miss_count        INT NOT NULL,
     status            VARCHAR(20) NOT NULL DEFAULT 'PENDING',
