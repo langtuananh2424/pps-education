@@ -51,6 +51,7 @@ import CampusesPage from "@/features/facility/pages/CampusesPage";
 import RoomsPage from "@/features/facility/pages/RoomsPage";
 import FeedbackPage from "@/features/facility/pages/FeedbackPage";
 import MeetingInviteApprovalPage from "@/features/notifications/pages/MeetingInviteApprovalPage";
+import StudentAttitudeEscalationApprovalPage from "@/features/notifications/pages/StudentAttitudeEscalationApprovalPage";
 import PartnerPortalPage from "@/features/partner-portal/pages/PartnerPortalPage";
 import ReportTemplatesPage from "@/features/reports/pages/ReportTemplatesPage";
 import DailyCommentsAnalyticsPage from "@/features/reports/pages/DailyCommentsAnalyticsPage";
@@ -119,6 +120,7 @@ export default function App() {
           <Route path="/facility/rooms" element={<RoomsPage />} />
           <Route path="/facility/feedback" element={<FeedbackPage />} />
           <Route path="/notifications/meeting-invites" element={<MeetingInviteApprovalPage />} />
+          <Route path="/notifications/attitude-escalations" element={<StudentAttitudeEscalationApprovalPage />} />
           <Route path="/partner/syllabus" element={<PartnerPortalPage />} />
           <Route path="/partner/portal" element={<PartnerPortalPage />} />
 

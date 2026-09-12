@@ -22,5 +22,28 @@
     "actionReject": "Từ chối",
     "actionApprove": "Duyệt",
     "deciding": "Đang xử lý..."
+  },
+  "attitudeEscalations": {
+    "title": "Duyệt cảnh báo thái độ học tập",
+    "description": "Duyệt cảnh báo thái độ học tập Yếu/Trung bình liên tục 3 buổi trước khi gửi xuống Phụ huynh.",
+    "sectionTitle": "Cảnh báo đang chờ duyệt",
+    "loading": "Đang tải...",
+    "empty": "Không có cảnh báo thái độ học tập nào đang chờ duyệt.",
+    "loadError": "Không tải được danh sách cảnh báo chờ duyệt.",
+    "decideError": "Xử lý cảnh báo thất bại.",
+    "rejectReasonPrompt": "Nhập lý do từ chối gửi cảnh báo này",
+    "approvedToast": "Đã duyệt — cảnh báo đã được gửi xuống Phụ huynh.",
+    "rejectedToast": "Đã từ chối — cảnh báo sẽ không được gửi.",
+    "columns": {
+      "student": "Học sinh",
+      "class": "Lớp",
+      "streakCount": "Số buổi liên tục",
+      "createdAt": "Ngày phát sinh",
+      "action": "Hành động"
+    },
+    "streakCountValue": "{{count}} buổi",
+    "actionReject": "Từ chối",
+    "actionApprove": "Duyệt",
+    "deciding": "Đang xử lý..."
   }
 }
