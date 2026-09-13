@@ -12,7 +12,11 @@ import vn.com.pps.education.domain.NotificationDelivery;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.repository.DeviceTokenRepository;
 
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -28,7 +32,9 @@ import java.util.Optional;
  * không chỉ rõ nguồn token hiện tại). 1 user có thể có nhiều thiết bị —
  * gửi tới tất cả token active, coi là thành công nếu >= 1 token nhận được;
  * token báo lỗi UNREGISTERED (app đã gỡ/token hết hạn) tự động bị vô hiệu
- * hoá để lần gửi sau không thử lại vô ích.
+ * hoá để lần gửi sau không thử lại vô ích. Trước khi gửi còn tự dedupe
+ * theo user_agent để không gửi đúp trên cùng 1 máy vật lý — xem
+ * {@link #deduplicateSameDevice}.
  *
  * Payload là DATA-ONLY (không có block "notification") — bổ sung ngoài SDD
  * gốc, đã xác nhận với người dùng 2026-09-07: có block "notification" khiến
@@ -72,7 +78,7 @@ public class PushNotificationSender implements NotificationChannelSender {
                     "Firebase chưa cấu hình (FIREBASE_CREDENTIALS_BASE64 rỗng)");
         }
 
-        List<DeviceToken> tokens = deviceTokenRepository.findByUserIdAndActiveTrue(recipient.getId());
+        List<DeviceToken> tokens = deduplicateSameDevice(deviceTokenRepository.findByUserIdAndActiveTrue(recipient.getId()));
         if (tokens.isEmpty()) {
             return false;
         }
@@ -149,5 +155,53 @@ public class PushNotificationSender implements NotificationChannelSender {
     /** FCM Message.putData() ném NPE nếu value null — title/content vốn NOT NULL nhưng vẫn phòng thủ. */
     private String nullToEmpty(String value) {
         return value == null ? "" : value;
+    }
+
+    /**
+     * Safety net chống gửi ĐÚP trên CÙNG 1 MÁY — bổ sung ngoài SDD gốc, đã xác nhận với người
+     * dùng 2026-09-13 (sự cố THẬT: user xoá rồi tạo lại shortcut trên iOS → deviceId đổi mới,
+     * dedupe ở {@code NotificationService#deactivateSameDeviceTokens} chỉ chạy LÚC ĐĂNG KÝ và so
+     * {@code user_agent} TUYỆT ĐỐI nên có thể trượt → 2 token cùng "active" cho cùng 1 máy vật lý
+     * mãi mãi, mỗi lần gửi thông báo bắn đúp).
+     *
+     * Ở đây chạy lại đúng tín hiệu {@code user_agent} nhưng NGAY LÚC GỬI (bắt được cả token đã
+     * kẹt từ trước, không cần đợi user đăng ký token mới) — nhóm token active theo user_agent
+     * (bỏ qua nhóm nếu user_agent null/rỗng, không có tín hiệu để gộp), mỗi nhóm chỉ giữ lại token
+     * {@code updated_at} MỚI NHẤT, các token còn lại trong nhóm bị vô hiệu hoá NGAY (tự sửa dữ
+     * liệu cũ, không cần migration/script riêng).
+     *
+     * Đánh đổi đã chấp nhận (giống hệt logic dedupe lúc đăng ký): 2 máy THẬT KHÁC NHAU nhưng
+     * trùng model/OS/trình duyệt y hệt (user_agent giống hệt nhau) sẽ bị coi là 1 máy — hiếm gặp,
+     * chấp nhận được so với việc gửi đúp thông báo cho người dùng.
+     */
+    private List<DeviceToken> deduplicateSameDevice(List<DeviceToken> tokens) {
+        Map<String, List<DeviceToken>> byUserAgent = new LinkedHashMap<>();
+        List<DeviceToken> result = new ArrayList<>();
+        for (DeviceToken token : tokens) {
+            String userAgent = token.getUserAgent();
+            if (userAgent == null || userAgent.isBlank()) {
+                result.add(token);
+                continue;
+            }
+            byUserAgent.computeIfAbsent(userAgent, k -> new ArrayList<>()).add(token);
+        }
+
+        List<DeviceToken> stale = new ArrayList<>();
+        for (List<DeviceToken> group : byUserAgent.values()) {
+            if (group.size() == 1) {
+                result.add(group.get(0));
+                continue;
+            }
+            group.sort(Comparator.comparing(DeviceToken::getUpdatedAt,
+                    Comparator.nullsFirst(Comparator.naturalOrder())).reversed());
+            result.add(group.get(0));
+            stale.addAll(group.subList(1, group.size()));
+        }
+
+        if (!stale.isEmpty()) {
+            stale.forEach(dt -> dt.setActive(false));
+            deviceTokenRepository.saveAll(stale);
+        }
+        return result;
     }
 }
