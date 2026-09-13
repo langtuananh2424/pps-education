@@ -1499,6 +1499,37 @@ export function updateComment(id: number, request: UpdateStudentCommentRequest):
   return apiRequest<StudentCommentResponse>(`/comments/${id}`, { method: "PUT", body: JSON.stringify(request) });
 }
 
+/**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — "Lưu nháp" CẢ LỚP trong 1 request
+ * DUY NHẤT, thay cho việc gọi lặp lại writeComment/updateComment cho TỪNG học sinh (N request HTTP
+ * song song — chậm rõ rệt trên môi trường deploy có độ trễ mạng, phản hồi thực tế từ test trên deploy).
+ * Xem Javadoc BE StudentCommentService#saveDraftBatch.
+ */
+export interface SaveDraftRowRequest extends UpdateStudentCommentRequest {
+  studentId: number;
+}
+
+export interface SaveDraftCommentsRequest {
+  commentDate: string;
+  rows: SaveDraftRowRequest[];
+}
+
+/**
+ * `skipped` — CÁC dòng không lưu được (VD học sinh đó vừa bị Quản lý điểm trường duyệt/từ chối giữa
+ * chừng) — KHÔNG chặn các dòng khác lưu thành công, mirror đúng tinh thần Promise.allSettled cũ ở FE.
+ */
+export interface SaveDraftCommentsResponse {
+  saved: StudentCommentResponse[];
+  skipped: { studentId: number; reason: string }[];
+}
+
+export function saveDraftBatch(classId: number, classSessionId: number, request: SaveDraftCommentsRequest): Promise<SaveDraftCommentsResponse> {
+  return apiRequest<SaveDraftCommentsResponse>(`/classes/${classId}/class-sessions/${classSessionId}/comments/draft-batch`, {
+    method: "POST",
+    body: JSON.stringify(request)
+  });
+}
+
 export interface UpdateStudentCommentContentRequest {
   content: string;
   structuredContent?: Record<string, unknown>;

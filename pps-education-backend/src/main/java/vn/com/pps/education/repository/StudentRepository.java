@@ -12,6 +12,9 @@ public interface StudentRepository extends JpaRepository<Student, Long> {
 
     Optional<Student> findByIdAndDeletedAtIsNull(Long id);
 
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — bulk mirror findByIdAndDeletedAtIsNull, dùng cho StudentCommentService#saveDraftBatch. */
+    List<Student> findByIdInAndDeletedAtIsNull(List<Long> ids);
+
     Optional<Student> findByUserId(Long userId);
 
     Optional<Student> findByStudentCode(String studentCode);
