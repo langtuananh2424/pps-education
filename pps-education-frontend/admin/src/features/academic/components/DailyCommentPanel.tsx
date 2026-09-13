@@ -19,12 +19,11 @@ import {
   listCommentsForClass,
   listTodaySessions,
   applyClassHomework,
+  saveDraftBatch,
   submitComments,
-  updateComment,
   updateActualTeacherName,
   updateLessonContent,
-  updateSessionTeacherType,
-  writeComment
+  updateSessionTeacherType
 } from "../api";
 import {
   HomeworkSkillGroupResponse,
@@ -829,26 +828,38 @@ export default function DailyCommentPanel() {
   });
 
   /**
-   * Ghi DRAFT cho các dòng đã có nội dung — dùng chung cho "Lưu nháp"/autosave/"Gửi nhận xét" (bổ sung
-   * ngoài SDD gốc, 2026-08-14). Dòng đã có nhận xét DRAFT/REJECTED (gõ tay lưu dở hoặc nhập Excel) —
-   * SỬA bản ghi đã có qua updateComment(), không tạo mới qua writeComment() (tránh sinh 2 bản ghi trùng
-   * cùng 1 buổi+học sinh — đúng bug 500 đã gặp trước đây, backend hiện chưa tự chặn trùng ở writeComment()).
+   * Ghi DRAFT cho các dòng đã có nội dung — dùng chung cho "Lưu nháp"/"Gửi nhận xét" (bổ sung ngoài
+   * SDD gốc, 2026-08-14).
+   *
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — TRƯỚC ĐÂY gọi N request HTTP song
+   * song (1/học sinh, qua writeComment()/updateComment()) — chậm rõ rệt trên môi trường deploy có độ
+   * trễ mạng (N round-trip thật + mỗi request tự chạy lại rào riêng), phản hồi thực tế từ test trên
+   * deploy. Giờ gộp CẢ LỚP vào 1 request DUY NHẤT (saveDraftBatch, backend tự find-or-create + validate
+   * 1 lần cho cả lô). Vẫn TRẢ VỀ ĐÚNG kiểu `PromiseSettledResult<StudentCommentResponse>[]` khớp thứ
+   * tự `filled` như cũ (dựng lại từ saved/skipped) — KHÔNG cần sửa bất kỳ chỗ nào đang gọi hàm này
+   * (handleSaveDraft/handleSend/performApplyQuickAssign), giữ nguyên hành vi "1 dòng lỗi không chặn
+   * các dòng khác" (mirror đúng Promise.allSettled cũ, xem Javadoc BE saveDraftBatch).
    */
-  const saveFilledRows = (filled: Row[], classId: number, session: ClassSessionResponse) =>
-    Promise.allSettled(
-      filled.map((r) => {
-        const payload = buildCommentPayload(r);
-        const existing = history.find((h) => h.studentId === r.studentId && (h.status === "DRAFT" || h.status === "REJECTED"));
-        return existing
-          ? updateComment(existing.id, payload)
-          : writeComment(classId, {
-              studentId: r.studentId,
-              classSessionId: session.id,
-              commentDate: session.sessionDate,
-              ...payload
-            });
-      })
-    );
+  const saveFilledRows = async (
+    filled: Row[],
+    classId: number,
+    session: ClassSessionResponse
+  ): Promise<PromiseSettledResult<StudentCommentResponse>[]> => {
+    const rows = filled.map((r) => ({ studentId: r.studentId, ...buildCommentPayload(r) }));
+    try {
+      const response = await saveDraftBatch(classId, session.id, { commentDate: session.sessionDate, rows });
+      const savedByStudentId = new Map(response.saved.map((s) => [s.studentId, s]));
+      const skipReasonByStudentId = new Map(response.skipped.map((s) => [s.studentId, s.reason]));
+      return filled.map((r): PromiseSettledResult<StudentCommentResponse> => {
+        const saved = savedByStudentId.get(r.studentId);
+        if (saved) return { status: "fulfilled", value: saved };
+        return { status: "rejected", reason: new ApiError(409, skipReasonByStudentId.get(r.studentId) ?? t("dailyCommentPanel.errors.unknownReason")) };
+      });
+    } catch (err) {
+      // Lỗi rào CHUNG cho cả buổi (lớp bị hủy, hết hạn sửa, không đúng quyền...) — mọi dòng đều "rejected" cùng lý do.
+      return filled.map(() => ({ status: "rejected", reason: err }));
+    }
+  };
 
   /**
    * "Lưu nháp" (2026-08-14, bổ sung ngoài SDD gốc, đã xác nhận với người dùng) — phòng giáo viên vô
@@ -981,7 +992,7 @@ export default function DailyCommentPanel() {
     setError(null);
     try {
       const created = await saveFilledRows(filled, selectedClassId, selectedSession);
-      const succeededIds = created.filter((r): r is PromiseFulfilledResult<Awaited<ReturnType<typeof writeComment>>> => r.status === "fulfilled").map((r) => r.value.id);
+      const succeededIds = created.filter((r): r is PromiseFulfilledResult<StudentCommentResponse> => r.status === "fulfilled").map((r) => r.value.id);
       // Gom lý do lỗi thật từ từng promise bị reject (VD 422 "Lớp id=X chưa có buổi học kế tiếp...")
       // theo đúng học sinh — trước đây chỉ đếm failedCount, không hiện rõ NGUYÊN NHÂN khiến Giáo viên
       // không biết sửa gì để thử lại (2026-07-31). Gộp theo message giống nhau (thường cùng 1 lý do,

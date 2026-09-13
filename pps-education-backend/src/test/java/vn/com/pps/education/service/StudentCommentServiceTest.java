@@ -34,6 +34,8 @@ import vn.com.pps.education.dto.CreateQuestionBankRequest;
 import vn.com.pps.education.dto.CreateQuestionRequest;
 import vn.com.pps.education.dto.CreateReviewVideoSetRequest;
 import vn.com.pps.education.dto.CreateStudentCommentRequest;
+import vn.com.pps.education.dto.SaveDraftCommentsRequest;
+import vn.com.pps.education.dto.SaveDraftCommentsResponse;
 import vn.com.pps.education.dto.CurriculumResponse;
 import vn.com.pps.education.dto.DailyCommentImportResponse;
 import vn.com.pps.education.dto.DecideCommentsRequest;
@@ -382,6 +384,52 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
                 new CreateStudentCommentRequest(student.getId(), classSession.id(), classSession.sessionDate(), "Nội dung khác.", null, null, false, null, null, null, null, null, null, null, null, null),
                 teacher.getId()))
                 .isInstanceOf(StudentCommentNotEditableException.class);
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — "Lưu nháp" cả lớp trong 1
+     * request duy nhất (saveDraftBatch), thay N request writeComment/updateComment riêng lẻ.
+     */
+    @Test
+    void saveDraftBatch_MainFlow_savesMultipleStudentsInOneCall() {
+        Student student2 = newStudent();
+        classService.enroll(schoolClass.id(), new EnrollStudentRequest(student2.getId(), LocalDate.now()), headAcademic.getId());
+
+        SaveDraftCommentsResponse response = studentCommentService.saveDraftBatch(schoolClass.id(), classSession.id(),
+                new SaveDraftCommentsRequest(classSession.sessionDate(), List.of(
+                        new SaveDraftCommentsRequest.Row(student.getId(), "Nội dung HS1.", null, null, false, null, null, null, null, null, null, null, null, null),
+                        new SaveDraftCommentsRequest.Row(student2.getId(), "Nội dung HS2.", null, null, false, null, null, null, null, null, null, null, null, null)
+                )),
+                teacher.getId());
+
+        assertThat(response.skipped()).isEmpty();
+        assertThat(response.saved()).hasSize(2);
+        assertThat(response.saved()).extracting(StudentCommentResponse::content).containsExactlyInAnyOrder("Nội dung HS1.", "Nội dung HS2.");
+        assertThat(studentCommentService.listComments(schoolClass.id(), student.getId())).hasSize(1);
+        assertThat(studentCommentService.listComments(schoolClass.id(), student2.getId())).hasSize(1);
+    }
+
+    /** Mirror writeComment_boSung_rejectsWhenSessionAlreadyHasPendingComment — nhưng ở đây học sinh khác trong CÙNG lô vẫn phải lưu được, không bị chặn theo. */
+    @Test
+    void saveDraftBatch_A1_skipsStudentAlreadyPendingButStillSavesOthers() {
+        Student student2 = newStudent();
+        classService.enroll(schoolClass.id(), new EnrollStudentRequest(student2.getId(), LocalDate.now()), headAcademic.getId());
+        StudentCommentResponse pending = writeDailyComment(teacher, "Đã gửi trước đó.");
+        studentCommentService.submitComments(schoolClass.id(), new SubmitCommentsRequest(List.of(pending.id())), teacher.getId());
+
+        SaveDraftCommentsResponse response = studentCommentService.saveDraftBatch(schoolClass.id(), classSession.id(),
+                new SaveDraftCommentsRequest(classSession.sessionDate(), List.of(
+                        new SaveDraftCommentsRequest.Row(student.getId(), "Sửa nội dung khác.", null, null, false, null, null, null, null, null, null, null, null, null),
+                        new SaveDraftCommentsRequest.Row(student2.getId(), "Nội dung HS2.", null, null, false, null, null, null, null, null, null, null, null, null)
+                )),
+                teacher.getId());
+
+        assertThat(response.saved()).hasSize(1);
+        assertThat(response.saved().get(0).studentId()).isEqualTo(student2.getId());
+        assertThat(response.skipped()).hasSize(1);
+        assertThat(response.skipped().get(0).studentId()).isEqualTo(student.getId());
+        // Bản PENDING của student vẫn giữ nguyên nội dung cũ — KHÔNG bị dòng lỗi làm hỏng.
+        assertThat(studentCommentService.listComments(schoolClass.id(), student.getId()).get(0).content()).isEqualTo("Đã gửi trước đó.");
     }
 
     @Test
