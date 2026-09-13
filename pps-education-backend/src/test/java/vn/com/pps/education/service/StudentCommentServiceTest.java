@@ -252,8 +252,19 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         // (now-1min..now+1h), vì markAttendance() ở dưới giờ đòi buổi đang TRONG khung giờ diễn ra
         // (UC-15, sửa đổi nghiệp vụ 2026-08-18) — buổi đã kết thúc sẽ bị StudentAttendanceService
         // từ chối ngay tại đây.
-        seedPeriod(site, 1, LocalTime.now().minusMinutes(1), LocalTime.now().plusHours(1));
-        seedPeriod(site, 2, LocalTime.of(8, 0), LocalTime.of(9, 40));
+        LocalTime period1Start = LocalTime.now().minusMinutes(1);
+        LocalTime period1End = LocalTime.now().plusHours(1);
+        seedPeriod(site, 1, period1Start, period1End);
+        // SỬA LẠI 2026-09-13 (sự cố THẬT trên CI): tiết 2 TỪNG là hằng số tuyệt đối 08:00-09:40 từ
+        // hồi tiết 1 còn cố định cùng khung giờ đó — sau khi tiết 1 đổi sang trôi nổi theo now
+        // (2026-08-14, xem comment phía trên) không ai cập nhật lại tiết 2, nên bất cứ khi nào CI
+        // chạy vào khoảng ~07:00-09:40 (giờ JVM/UTC trên GitHub Actions), cửa sổ trôi nổi của tiết 1
+        // chồng lấn cứng vào khung cố định của tiết 2 -> TeacherScheduleConflictException giả ở
+        // applyHomeworkToClass_A2_rejectsWhenNoActiveEnrollments (2 tiết cùng giáo viên, cùng ngày).
+        // Cho tiết 2 trôi theo CHÍNH mốc tiết 1 (mirror cách tiết 3 đã làm ở period3Start bên dưới,
+        // +2h kể từ khi tiết 1 KẾT THÚC) để không bao giờ chồng lấn bất kể CI chạy giờ nào.
+        LocalTime period2Start = period1End.withNano(0).plusHours(1);
+        seedPeriod(site, 2, period2Start, period2Start.plusHours(1).plusMinutes(40));
         classSession = classSessionService.createSession(schoolClass.id(),
                 new CreateClassSessionRequest(LocalDate.now(), "MORNING", List.of(1), room.getId(), "REGULAR", "VIETNAMESE",
                         teacher.getId(), null, null, null, null),
@@ -1221,8 +1232,11 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         Room room = newRoom(siteOf(schoolClass));
         // Bổ sung ngoài SDD gốc — period 2 (không phải 1) để tránh trùng khung giờ với `classSession`
         // chính (setUp(), cùng teacher, cùng LocalDate.now(), period 1) — 2 buổi CÙNG giáo viên CÙNG
-        // ngày CÙNG tiết học là xung đột lịch dạy thật (TeacherScheduleConflict), không phải bug ngẫu
-        // nhiên theo ngày chạy CI.
+        // ngày CÙNG tiết học là xung đột lịch dạy thật (TeacherScheduleConflict). SỬA 2026-09-13: chỉ
+        // đúng nếu period 2 KHÔNG chồng lấn cửa sổ trôi nổi của period 1 — trước đây period 2 là hằng
+        // số tuyệt đối 08:00-09:40 nên vẫn có thể trùng nếu CI chạy đúng khung giờ đó (sự cố THẬT); nay
+        // setUp() đã cho period 2 trôi theo period 1 (+1h sau khi period 1 kết thúc) nên đảm bảo không
+        // bao giờ chồng lấn bất kể CI chạy giờ nào — xem comment ở setUp().
         ClassSessionResponse emptySession = classSessionService.createSession(emptyClass.id(),
                 new CreateClassSessionRequest(LocalDate.now(), "MORNING", List.of(2), room.getId(), "REGULAR", "VIETNAMESE",
                         teacher.getId(), null, null, null, null),
@@ -1381,8 +1395,8 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         // withNano(0): classSession.startTime() gốc từ LocalTime.now() (setUp) mang theo nanosecond thật
         // của đồng hồ máy chạy test — Postgres timestamptz chỉ lưu tới microsecond, nên nếu giữ nguyên
         // nanosecond đó, expectedDueAt tính tay dưới đây (chưa qua DB) sẽ lệch 3 chữ số cuối so với
-        // giá trị đã qua DB — vỡ assertEquals dù logic đúng. Cắt về giây tròn (mirror seedPeriod(site,
-        // 2, LocalTime.of(8, 0), ...) đã dùng hằng số sạch).
+        // giá trị đã qua DB — vỡ assertEquals dù logic đúng. Cắt về giây tròn (mirror cách seedPeriod
+        // tiết 2 trong setUp() cũng withNano(0) khi trôi theo tiết 1, xem comment ở đó).
         LocalTime period3Start = classSession.startTime().withNano(0).plusHours(2);
         seedPeriod(site, 3, period3Start, period3Start.plusHours(1).plusMinutes(35));
         Room room = newRoom(site);
