@@ -442,6 +442,44 @@ export function deleteSubTopic(id: number): Promise<void> {
   return apiRequest<void>(`/sub-topics/${id}`, { method: "DELETE" });
 }
 
+/**
+ * UC-72 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13) —
+ * import Excel nhanh mục lục Sách/Unit/Sub Topic/Lesson (Đề)/Bài vào 1
+ * khung chương trình, thay vì tạo tay từng cấp. teacherType/examType áp
+ * dụng cho mọi Đề MỚI tạo trong file; exerciseType/totalPoints áp dụng
+ * cho mọi Bài MỚI tạo — Đề/Bài đã có sẵn đúng mã giữ nguyên giá trị cũ.
+ */
+export interface BookCatalogImportResponse {
+  id: number;
+  sourceFileName: string;
+  totalRows: number | null;
+  successRows: number;
+  failedRows: number;
+  status: string;
+  errorSummary: { row: number; reason: string }[];
+}
+
+export function importBookCatalog(
+  curriculumId: number,
+  file: File,
+  teacherType: ExamTeacherType,
+  examType: ExamType,
+  totalPoints: number
+): Promise<BookCatalogImportResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("teacherType", teacherType);
+  formData.append("examType", examType);
+  // Mirror CreateAndAssignExerciseModal — FE luôn tạo Bài kiểu ASSIGNED (SELF_PRACTICE không còn được
+  // chọn thủ công ở bất kỳ màn nào khác từ V66, xem Javadoc CreateExerciseRequest).
+  formData.append("exerciseType", "ASSIGNED");
+  formData.append("totalPoints", String(totalPoints));
+  return apiRequest<BookCatalogImportResponse>(`/curriculums/${curriculumId}/book-catalog-imports`, {
+    method: "POST",
+    body: formData
+  });
+}
+
 export function createExam(request: CreateExamRequest): Promise<ExamResponse> {
   return apiRequest<ExamResponse>("/exams", { method: "POST", body: JSON.stringify(request) });
 }

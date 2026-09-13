@@ -388,7 +388,31 @@
     "subTopicUpdatedToast": "Sub Topic updated.",
     "deleteSubTopicConfirm": "Delete sub topic \"{{title}}\"? Only possible once no exam/video set uses it.",
     "subTopicDeletedToast": "Sub Topic deleted.",
-    "deleteSubTopicFailed": "Failed to delete the sub topic."
+    "deleteSubTopicFailed": "Failed to delete the sub topic.",
+    "importButton": "Import Excel",
+    "importModal": {
+      "title": "Import Excel — Book/Unit/Lesson catalog",
+      "description": "Each row = 1 exercise. Leave Book/Unit/Sub Topic/Lesson code blank to repeat the value from the row above (merged-cell style when exported from Excel).",
+      "downloadTemplate": "Download template (.xlsx)",
+      "teacherTypeLabel": "Default teacher type (used when the \"Teacher type\" column is left blank)",
+      "teacherTypePlaceholder": "Choose default teacher type",
+      "examTypeLabel": "Exam type for new exams",
+      "examTypePlaceholder": "Choose exam type",
+      "totalPointsLabel": "Default total points for new exercises",
+      "hintDefaults": "Only applied to newly created exams/exercises — existing ones (same code) keep their current values. In the file, the \"Teacher type\" column lets you set VIETNAMESE/FOREIGN per lesson (e.g. odd lessons = Vietnamese teacher, even lessons = foreign teacher) — leave it blank to use the default above.",
+      "chooseFile": "Choose Excel file (.xlsx)",
+      "onlyXlsx": "Only .xlsx files are accepted.",
+      "requiredFields": "Choose teacher type, exam type and default total points before selecting a file.",
+      "importing": "Importing...",
+      "importFailed": "Import failed.",
+      "stats": {
+        "totalRows": "Total rows",
+        "successRows": "Success",
+        "failedRows": "Failed"
+      },
+      "errorDetailTitle": "Row error details",
+      "closeButton": "Close"
+    }
   },
   "assignPage": {
     "statusLabels": {

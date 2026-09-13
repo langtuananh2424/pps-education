@@ -1865,6 +1865,182 @@ UC-40: Soạn & giao đề kiểm tra
 > 4.5 nếu có `ANTHROPIC_API_KEY`, fallback Gemini Flash nếu chỉ có
 > `GEMINI_API_KEY`.
 
+> **Bổ sung V144/V148 (2026-08-24, đã xác nhận với người dùng) --- mục lục
+> Sách giáo trình cho Kho đề (đang thiếu ở tài liệu này, bổ sung lại
+> 2026-09-13 khi làm UC-72 dưới đây):** 1 "Đề" (`Exam`) không chỉ gắn 1
+> khung chương trình (`curriculum`) để lọc/tìm kiếm --- còn tùy chọn gắn 1
+> **Sub Topic** trong mục lục sách giáo trình của khung đó, qua
+> `exams.sub_topic_id` (nullable --- Đề cũ chưa phân loại giữ NULL, không
+> backfill đoán). Cấu trúc mục lục 3 cấp, TÁCH RỜI khỏi
+> `curriculum_subjects` (môn học SPEAKING/LISTENING/...): Curriculum -->
+> **Sách** (`books`, V148, VD "Cambridge English for Schools 6") -->
+> **Unit** (`units`, V144, VD "UNIT 1: MY NEW SCHOOL") --> **Sub Topic**
+> (`sub_topics`, V144, VD "SUB TOPIC 1: SCHOOL ACTIVITIES AND SUBJECTS").
+> "Lesson" trong tên gọi nghiệp vụ (VD tên cột file Excel giáo viên hay
+> dùng) chính là **Đề** (`Exam`) khi Đề đó đã gắn `sub_topic_id`; "Bài"
+> (`Exercise`) bên dưới Đề đó vẫn giữ nguyên ý nghĩa cũ. CRUD 3 cấp Sách/
+> Unit/Sub Topic thuần điều hướng/phân loại (không workflow duyệt, không
+> uuid/code riêng — chỉ `title`/`display_order`), cùng quyền
+> `lms.exercise.create` (Kho đề) với việc soạn Đề/Bài --- KHÔNG dùng
+> `academic.curriculum.update` vì đây không phải Khung chương trình chính
+> thức (`curriculums`, cần HEAD_ACADEMIC duyệt qua UC-16):
+> `POST /api/curriculums/{id}/books`, `POST /api/books/{bookId}/units`,
+> `POST /api/units/{unitId}/sub-topics` (`CurriculumService#addBook/
+> addUnit/addSubTopic`). Xóa 1 cấp chỉ được khi cấp con đã hết (Sách hết
+> Unit, Unit hết Sub Topic); xóa Sub Topic chặn nếu còn Đề hoặc Bộ video
+> ôn tập nào tham chiếu qua `sub_topic_id`.
+
+---
+
+UC-72: Import Excel nhanh mục lục Sách/Unit/Sub Topic/Lesson/Bài (Kho đề)
+
++-----------------+----------------------------------------------------+
+| **Mã Use Case** | UC-72                                              |
++-----------------+----------------------------------------------------+
+| **Tên Use       | Import Excel nhanh mục lục Sách/Unit/Sub Topic/     |
+| Case**          | Lesson/Bài (Kho đề)                                |
++-----------------+----------------------------------------------------+
+| **Phân hệ**     | Phân hệ 7                                          |
++-----------------+----------------------------------------------------+
+| **Yêu cầu chức  | FR-LMS-10                                          |
+| năng gốc**      |                                                    |
++-----------------+----------------------------------------------------+
+| **Tác nhân**    | Giáo viên                                          |
++-----------------+----------------------------------------------------+
+| **Mô tả tóm     | Bổ sung ngoài SDD gốc, đã xác nhận với người dùng  |
+| tắt**           | 2026-09-13 --- thay vì tạo tay từng cấp Sách/Unit/  |
+|                 | Sub Topic (UC-40, bổ sung V144/V148 ở trên) rồi     |
+|                 | từng Đề ("Lesson")/Bài trong màn Kho đề, Giáo viên  |
+|                 | tải lên 1 file Excel liệt kê sẵn toàn bộ mục lục ---|
+|                 | hệ thống tạo/cập nhật thẳng vào ĐÚNG các bảng        |
+|                 | `books`/`units`/`sub_topics`/`exams`/`exercises`    |
+|                 | hiện có (KHÔNG tạo bảng danh mục song song nào      |
+|                 | khác --- tái dùng nguyên cơ chế Kho đề của UC-40).  |
++-----------------+----------------------------------------------------+
+| **Sự kiện kích  | Giáo viên có sẵn 1 file Excel liệt kê Sách/Unit/    |
+| hoạt**          | Sub Topic/Lesson/Bài (VD xuất từ giáo trình gốc),   |
+|                 | muốn nạp nhanh vào 1 khung chương trình cụ thể thay |
+|                 | vì tạo tay từng cấp qua UI Kho đề.                  |
++-----------------+----------------------------------------------------+
+| **Điều kiện     | -   Actor có đủ quyền `lms.exercise.create` (Sách/  |
+| tiên quyết      |     Unit/Sub Topic/Bài) VÀ `lms.exam.create` (Đề)   |
+| (               |     --- mirror đúng quyền của từng bước tương ứng   |
+| Precondition)** |     khi thao tác tay qua UC-40.                    |
+|                 |                                                    |
+|                 | -   Đã chọn sẵn 1 khung chương trình (`curriculum`) |
+|                 |     làm đích import --- Sách luôn thuộc 1           |
+|                 |     `curriculum`, không suy ra được từ nội dung     |
+|                 |     file (file không có cột khung chương trình).    |
+|                 |                                                    |
+|                 | -   Đã chọn sẵn `examType` (bắt buộc của mọi        |
+|                 |     `Exam`) và `exerciseType`/`totalPoints` mặc     |
+|                 |     định (bắt buộc của mọi `Exercise`) áp dụng CHUNG|
+|                 |     cho toàn bộ file --- các trường này không có    |
+|                 |     trong file nguồn, mirror đúng cơ chế            |
+|                 |     `defaultKind` đã có ở `QuestionImportService`   |
+|                 |     (UC-40 Main Flow bước 3) --- chọn 1 lần ở panel |
+|                 |     Import, sửa lại từng Đề/Bài sau qua             |
+|                 |     `UpdateExamRequest`/`UpdateExerciseRequest` như |
+|                 |     bình thường nếu cần khác nhau.                  |
+|                 |                                                    |
+|                 | -   Đã chọn sẵn `teacherType` MẶC ĐỊNH --- chỉ dùng |
+|                 |     khi cột "Loại giáo viên" trong file để trống    |
+|                 |     HOÀN TOÀN cho 1 Lesson (bổ sung 2026-09-13, đã  |
+|                 |     xác nhận với người dùng --- thực tế 1 Sách       |
+|                 |     THƯỜNG xen kẽ Lesson lẻ do GVVN dạy/Lesson chẵn  |
+|                 |     do GVNN dạy NGAY TRONG CÙNG 1 file, không thể   |
+|                 |     áp 1 giá trị chung cho cả file). Nguồn chính là  |
+|                 |     cột E trong file --- xem bước 1-2.              |
++-----------------+----------------------------------------------------+
+| **Luồng sự kiện | 1.  Giáo viên chọn 1 khung chương trình +           |
+| chính (Main     |     examType/exerciseType/totalPoints mặc định +   |
+| Flow)**         |     teacherType MẶC ĐỊNH (dùng khi cột E để trống), |
+|                 |     tải lên file Excel (.xlsx) đúng 7 cột theo thứ  |
+|                 |     tự: Tên sách, Tên Unit, Tên Sub Topic, Mã       |
+|                 |     Lesson, Loại giáo viên (VIETNAMESE/FOREIGN, TÙY |
+|                 |     CHỌN), Mã exercise, Tên exercise. Dòng 1 = tiêu |
+|                 |     đề, dữ liệu từ dòng 2, mỗi dòng = 1 Bài. 4 cột  |
+|                 |     đầu để trống nghĩa là LẶP LẠI giá trị của dòng  |
+|                 |     liền trước (kiểu merged cell khi xuất từ Excel).|
+|                 |                                                    |
+|                 | 2.  Hệ thống forward-fill 4 cột phân cấp theo dòng  |
+|                 |     liền trước, rồi upsert theo khóa tự nhiên từng  |
+|                 |     cấp trong PHẠM VI khung chương trình đã chọn:   |
+|                 |     Sách theo (`curriculum`, Tên sách); Unit theo   |
+|                 |     (Sách, Tên Unit); Sub Topic theo (Unit, Tên Sub |
+|                 |     Topic); Đề ("Lesson") theo `exams.code` = Mã    |
+|                 |     Lesson NGUYÊN VĂN; Bài theo `exercises.code` =  |
+|                 |     Mã exercise NGUYÊN VĂN. Cột "Loại giáo viên"    |
+|                 |     forward-fill RIÊNG trong phạm vi 1 Lesson (reset|
+|                 |     về giá trị MẶC ĐỊNH mỗi khi sang Mã Lesson mới,  |
+|                 |     rồi áp giá trị của chính dòng đầu Lesson đó nếu  |
+|                 |     có khai) --- cho phép Lesson 1/3 = VIETNAMESE,   |
+|                 |     Lesson 2/4 = FOREIGN xen kẽ NGAY TRONG CÙNG 1   |
+|                 |     file, khác hẳn 4 cột phân cấp kia (kế thừa       |
+|                 |     xuyên suốt tới khi có giá trị mới, không reset   |
+|                 |     theo Lesson). Sách/Unit/Sub Topic đã tồn tại     |
+|                 |     (trùng tên trong đúng phạm vi cấp cha) được TÁI  |
+|                 |     SỬ DỤNG, không tạo trùng; Đề/Bài đã có đúng mã   |
+|                 |     (`code`) được TÁI SỬ DỤNG NGUYÊN VẸN (không sửa  |
+|                 |     lại teacherType/examType/exerciseType/          |
+|                 |     totalPoints của Đề/Bài đã tồn tại --- chỉ áp     |
+|                 |     dụng giá trị mặc định bước 1 cho Đề/Bài MỚI      |
+|                 |     tạo), tránh phá dữ liệu/câu hỏi đã soạn từ trước |
+|                 |     nếu import lại cùng file.                        |
+|                 |                                                    |
+|                 | 3.  Đề mới tạo được cấp tự động 1 Ngân hàng câu hỏi |
+|                 |     ngầm y hệt tạo tay (UC-40 Main Flow bước 3) ---  |
+|                 |     KHÔNG tạo câu hỏi nào, Giáo viên soạn câu hỏi   |
+|                 |     sau đó bằng màn Kho đề bình thường.             |
+|                 |                                                    |
+|                 | 4.  Hệ thống trả về tổng số dòng, số dòng thành     |
+|                 |     công, số dòng lỗi kèm lý do từng dòng (ghi vào  |
+|                 |     `import_jobs`, `import_type=CURRICULUM_CATALOG` |
+|                 |     --- tái dùng hạ tầng import Excel chung, không  |
+|                 |     tạo bảng riêng).                                |
++-----------------+----------------------------------------------------+
+| **Luồng thay    | ***A1 --- Thiếu Mã exercise/Tên exercise ở 1        |
+| thế / ngoại lệ  | dòng*** (2 cột này luôn bắt buộc, không forward-    |
+| (Alternate      | fill)                                              |
+| Flow)**         |                                                    |
+|                 | 1.  Ghi lỗi cho ĐÚNG dòng đó vào `error_summary`,   |
+|                 |     KHÔNG chặn các dòng khác.                       |
+|                 |                                                    |
+|                 | ***A2 --- Dòng chưa có gì để forward-fill*** (thiếu |
+|                 | Tên sách/Tên Unit/Tên Sub Topic/Mã Lesson mà chưa   |
+|                 | dòng nào trước đó cung cấp giá trị)                |
+|                 |                                                    |
+|                 | 1.  Ghi lỗi cho dòng đó, không tạo bản ghi nào ở    |
+|                 |     cấp còn thiếu.                                  |
+|                 |                                                    |
+|                 | ***A3 --- File sai định dạng/đọc hỏng hoàn toàn***  |
+|                 |                                                    |
+|                 | 1.  `import_job` chuyển `FAILED` ngay, không tạo    |
+|                 |     bản ghi Sách/Unit/Sub Topic/Đề/Bài nào.          |
+|                 |                                                    |
+|                 | ***A4 --- Cột "Loại giáo viên" ghi token không hợp |
+|                 | lệ*** (khác VIETNAMESE/FOREIGN và khác rỗng, bổ     |
+|                 | sung 2026-09-13)                                    |
+|                 |                                                    |
+|                 | 1.  Ghi lỗi cho ĐÚNG dòng đó, KHÔNG cập nhật giá trị|
+|                 |     kế thừa cho các dòng Bài tiếp theo cùng Lesson  |
+|                 |     (giữ nguyên giá trị hợp lệ gần nhất/mặc định).  |
++-----------------+----------------------------------------------------+
+| **Hậu điều kiện | -   Toàn bộ dòng hợp lệ phản ánh đúng vào cây Sách/ |
+| (P              |     Unit/Sub Topic/Đề/Bài trong khung chương trình  |
+| ostcondition)** |     đã chọn --- dòng lỗi không tạo bản ghi dở dang   |
+|                 |     ở cấp nào.                                       |
+|                 |                                                    |
+|                 | -   Bài mới tạo ở trạng thái DRAFT, CHƯA có câu hỏi |
+|                 |     nào --- giống hệt trạng thái ngay sau khi tạo   |
+|                 |     tay ở UC-40 bước 2, cần soạn câu hỏi + Publish +|
+|                 |     gán lớp + giao qua UC-21 riêng mới học sinh làm |
+|                 |     được (không đổi Postcondition UC-40 gốc).       |
+|                 |                                                    |
+|                 | -   `import_jobs` ghi lại tổng số dòng/thành công/  |
+|                 |     lỗi kèm lý do để tra cứu lại (mirror UC-35).    |
++-----------------+----------------------------------------------------+
+
 ---
 
 UC-41: Chấm bài thủ công
