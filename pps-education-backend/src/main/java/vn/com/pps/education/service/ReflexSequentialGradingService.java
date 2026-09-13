@@ -268,8 +268,11 @@ public class ReflexSequentialGradingService {
         if (assignment.getStatus() != ReviewVideoAssignment.Status.ACTIVE) {
             throw new SubmissionPastDeadlineException("Bản giao Video Ôn tập này đã bị thay thế hoặc hủy, không thể ghi nhận thêm.");
         }
+        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — "trễ hạn" (đánh dấu
+        // lateSubmission, trả về true) vẫn tính từ dueAt GỐC; CHỈ điều kiện CHẶN HẲN mới xét thêm
+        // lateSubmissionDeadline (isPastEffectiveDeadline), mirror ExerciseAttemptService#submitAttempt.
         boolean pastDue = assignment.getDueAt() != null && OffsetDateTime.now().isAfter(assignment.getDueAt());
-        if (pastDue && !assignment.isLateSubmissionAllowed()) {
+        if (assignment.isPastEffectiveDeadline()) {
             throw new SubmissionPastDeadlineException(
                     "error.submissionPastDeadline.reviewVideo", new Object[]{assignment.getDueAt()},
                     "Bản giao Video Ôn tập này đã quá hạn nộp (" + assignment.getDueAt() + ").");

@@ -59,6 +59,10 @@ public class ReviewVideoAssignment {
     @Column(name = "late_submission_allowed", nullable = false)
     private boolean lateSubmissionAllowed = false;
 
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — mirror {@link ExerciseAssignment#getLateSubmissionDeadline()}: NULL = nộp muộn không giới hạn. */
+    @Column(name = "late_submission_deadline")
+    private OffsetDateTime lateSubmissionDeadline;
+
     /** NULL = cả lớp (mặc định sau V65 — luôn giao cả lớp qua Nhận xét). */
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "target_student_ids", columnDefinition = "jsonb")
@@ -84,4 +88,15 @@ public class ReviewVideoAssignment {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "source_class_session_id")
     private ClassSession sourceClassSession;
+
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — mirror {@link ExerciseAssignment#isPastEffectiveDeadline()}. */
+    public boolean isPastEffectiveDeadline() {
+        if (dueAt == null || !OffsetDateTime.now().isAfter(dueAt)) {
+            return false;
+        }
+        if (!lateSubmissionAllowed) {
+            return true;
+        }
+        return lateSubmissionDeadline != null && OffsetDateTime.now().isAfter(lateSubmissionDeadline);
+    }
 }

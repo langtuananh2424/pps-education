@@ -111,7 +111,7 @@ public class ExerciseController {
     public ResponseEntity<ExerciseAssignmentResponse> updateLateSubmissionAllowed(@PathVariable Long id,
                                                                                     @Valid @RequestBody UpdateLateSubmissionAllowedRequest request,
                                                                                     @AuthenticationPrincipal AuthenticatedUser actor) {
-        return ResponseEntity.ok(exerciseService.updateLateSubmissionAllowed(id, request.lateSubmissionAllowed(), actor.userId()));
+        return ResponseEntity.ok(exerciseService.updateLateSubmissionAllowed(id, request.lateSubmissionAllowed(), request.lateSubmissionDeadline(), actor.userId()));
     }
 
     /** Kho đề — nguồn cho dropdown "BTVN buổi sau" ở Nhận xét học viên: Bài đã Publish, thuộc 1 Đề đã gán cho lớp. */

@@ -23,6 +23,8 @@ public record ReviewVideoAssignmentStatsResponse(
         OffsetDateTime dueAt,
         /** V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — hiện + cho bật/tắt lại ở trang "Xem chi tiết". */
         boolean lateSubmissionAllowed,
+        /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — mirror ExerciseAssignmentStatsResponse.lateSubmissionDeadline. */
+        OffsetDateTime lateSubmissionDeadline,
         ReviewVideoAssignment.Status status,
         int totalStudents,
         int completedCount,

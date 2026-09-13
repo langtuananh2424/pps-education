@@ -46,7 +46,7 @@ public class HomeworkSkillBatchController {
     public ResponseEntity<Void> updateLateSubmissionAllowed(@PathVariable Long id,
                                                              @Valid @RequestBody UpdateLateSubmissionAllowedRequest request,
                                                              @AuthenticationPrincipal AuthenticatedUser actor) {
-        homeworkSkillBatchService.updateLateSubmissionAllowed(id, request.lateSubmissionAllowed(), actor.userId());
+        homeworkSkillBatchService.updateLateSubmissionAllowed(id, request.lateSubmissionAllowed(), request.lateSubmissionDeadline(), actor.userId());
         return ResponseEntity.ok().build();
     }
 }

@@ -1,6 +1,6 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { CheckCircle2, Loader2, Lock, Mic, Pause, Play, RotateCcw, ShieldAlert } from "lucide-react";
+import { CheckCircle2, Loader2, Lock, Mic, Pause, Play, RotateCcw, ShieldAlert, Square } from "lucide-react";
 import { friendlyApiErrorMessage } from "@/lib/apiClient";
 import {
   ReflexQuestionProgressResponse,
@@ -764,14 +764,23 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
     resumeVideo();
   };
 
-  // Ghi âm dừng (hết giờ hoặc học sinh bấm dừng) → tự động nộp ngay, không cần bấm thêm nút "Nộp bài".
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — TRƯỚC ĐÂY ghi âm dừng (hết giờ hoặc
+  // học sinh bấm dừng) là tự động nộp NGAY, không có bước xem lại/xác nhận. Nay chỉ dừng ghi âm rồi hiện
+  // lại bản ghi (nghe thử) + nút "Nộp bài" riêng — học sinh chủ động bấm mới thật sự gửi đi chấm (mirror
+  // đúng luồng review-trước-khi-nộp của TakeExerciseModal cho câu SPEAKING dạng upload file).
+  const audioPreviewUrl = useMemo(() => (recorder.audioBlob ? URL.createObjectURL(recorder.audioBlob) : null), [recorder.audioBlob]);
   useEffect(() => {
+    return () => {
+      if (audioPreviewUrl) URL.revokeObjectURL(audioPreviewUrl);
+    };
+  }, [audioPreviewUrl]);
+
+  const handleConfirmSubmitSpeaking = () => {
     if (!recorder.audioBlob) return;
     const blob = recorder.audioBlob;
     recorder.reset();
     handleSubmitSpeaking(blob);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recorder.audioBlob]);
+  };
 
   const handleRetrySpeaking = () => {
     if (!activeQuestion) return;
@@ -1188,11 +1197,48 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
               <div className="space-y-2">
                 {!isReviewing && <p className="text-xs font-bold text-muted">{t("reflexVideoTask.speakingStage.instructions")}</p>}
                 {recorder.recording ? (
-                  <div className="flex items-center gap-1.5 px-3.5 py-2 bg-coral text-white rounded-xl text-xs font-extrabold animate-pulse w-fit">
-                    <Mic size={13} /> {t("reflexVideoTask.speakingStage.recording", { elapsed: recorder.elapsedSeconds, max: recorder.maxSeconds })}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-1.5 px-3.5 py-2 bg-coral text-white rounded-xl text-xs font-extrabold animate-pulse w-fit">
+                      <Mic size={13} /> {t("reflexVideoTask.speakingStage.recording", { elapsed: recorder.elapsedSeconds, max: recorder.maxSeconds })}
+                    </div>
+                    {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — trước đây phải chờ
+                        chạy hết đủ maxRecordingSeconds mới tự dừng; giờ học sinh ghi xong sớm có thể chủ
+                        động dừng ngay. Nút này CHỈ dừng ghi âm — KHÔNG tự nộp (xem khối preview bên dưới,
+                        nút "Nộp bài" riêng mới thật sự gửi đi chấm). */}
+                    <button
+                      onClick={recorder.stop}
+                      className="flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-100 border border-line rounded-xl text-xs font-extrabold text-ink w-fit"
+                    >
+                      <Square size={13} /> {t("reflexVideoTask.speakingStage.stopRecordingButton")}
+                    </button>
                   </div>
                 ) : speakingSubmitting ? (
                   <p className="text-xs font-bold text-teal-deep">{t("reflexVideoTask.speakingStage.grading")}</p>
+                ) : recorder.audioBlob ? (
+                  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — ghi âm đã dừng (tự hết
+                  // giờ hoặc bấm dừng tay) nhưng CHƯA gửi chấm: cho nghe lại + chủ động bấm "Nộp bài" mới
+                  // thật sự gửi, hoặc "Ghi âm lại" nếu chưa ưng ý (tái dùng handleRetrySpeaking — reset +
+                  // start lại, cùng hành vi với nút "Ghi âm lại" sau khi chấm rớt).
+                  <div className="space-y-2">
+                    {audioPreviewUrl && (
+                      /* eslint-disable-next-line jsx-a11y/media-has-caption */
+                      <audio controls src={audioPreviewUrl} className="w-full" />
+                    )}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        onClick={handleRetrySpeaking}
+                        className="flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-100 border border-line rounded-xl text-xs font-extrabold text-ink w-fit"
+                      >
+                        <RotateCcw size={13} /> {t("reflexVideoTask.speakingStage.retryButton")}
+                      </button>
+                      <button
+                        onClick={handleConfirmSubmitSpeaking}
+                        className="flex items-center gap-1.5 px-3.5 py-2 bg-teal hover:bg-teal-deep text-white rounded-xl text-xs font-extrabold w-fit"
+                      >
+                        <CheckCircle2 size={13} /> {t("reflexVideoTask.speakingStage.submitButton")}
+                      </button>
+                    </div>
+                  </div>
                 ) : !displayProgress?.speakingFeedback ? (
                   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — trước đây tự động bật
                   // ghi âm ngay khi mở bước nói (kể cả khi mở lại câu đã đạt viết từ trước) — nay học sinh

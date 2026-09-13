@@ -266,7 +266,7 @@
     "sendButtonDoneAll": "All comments for this session have been sent",
     "confirmSend": {
       "title": "Confirm sending comments?",
-      "description": "You're about to send comments for {{count}} students. Once sent, these rows will be locked (no longer editable here) and any online homework you selected will be assigned to students immediately — please double-check everything before confirming.",
+      "description": "You're about to send comments for {{count}} students. Once sent, these rows will be locked (no longer editable here) and moved to Pending approval — please double-check everything before confirming.",
       "cancel": "Let me check again",
       "confirmButton": "Send comments"
     },

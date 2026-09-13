@@ -166,6 +166,7 @@
       "loading": "Loading results...",
       "loadError": "Couldn't load results — please try again.",
       "sessionLabel": "Round {{viewNumber}}",
+      "correctAnswerLabel": "Correct answer:",
       "closeButton": "Close"
     }
   },
@@ -232,6 +233,8 @@
       "recording": "Recording ({{elapsed}}s/{{max}}s)",
       "grading": "Grading your recording...",
       "startRecordingButton": "Start recording",
+      "stopRecordingButton": "Stop recording",
+      "submitButton": "Submit",
       "passedFeedbackTitle": "Passed — next question unlocked",
       "failedFeedbackTitle": "Not passed yet",
       "scoreLabel": "content score {{score}}%",
@@ -293,6 +296,7 @@
       "typeOther": "Other exercises"
     },
     "empty": "No homework in this category.",
+    "lockedAction": "Locked",
     "exercise": {
       "action": {
         "retake": "Retake",
@@ -301,6 +305,7 @@
         "reviewGraded": "Review your work"
       },
       "needsRetake": "Not passed {{percent}} — needs retake",
+      "failedNoMoreRetakes": "Not passed {{percent}} — no retakes left",
       "overduePrefix": "Overdue — ",
       "duePrefix": "Due: ",
       "noDeadline": "No deadline",
@@ -338,6 +343,7 @@
         "retake": "Retake whole lot"
       },
       "retakeSkippedNote": "No retakes left — view only",
+      "retakePartialFailure": "Couldn't retake: {{titles}} (no retakes left or retakes not allowed) — the other exercises in this lesson have new attempts ready, you can keep going.",
       "summary": {
         "pendingTitle": "\"{{title}}\" submitted!",
         "passedTitle": "Congratulations — you completed \"{{title}}\"!",

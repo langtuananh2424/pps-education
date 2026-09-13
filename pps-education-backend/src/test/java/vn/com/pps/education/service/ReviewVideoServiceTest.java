@@ -577,7 +577,7 @@ class ReviewVideoServiceTest extends AbstractIntegrationTest {
         assertThatThrownBy(() -> reportProgress(video.id(), sessionId, 50, student.getUser().getId()))
                 .isInstanceOf(SubmissionPastDeadlineException.class);
 
-        reviewVideoService.updateLateSubmissionAllowed(assignment.getId(), true, teacher.getId());
+        reviewVideoService.updateLateSubmissionAllowed(assignment.getId(), true, null, teacher.getId());
 
         ReviewVideoProgressResponse progress = reportProgress(video.id(), sessionId, 50, student.getUser().getId());
         assertThat(progress.watchedSeconds()).isEqualTo(50);
