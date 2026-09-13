@@ -530,7 +530,10 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
       )}
 
       <div className="border-b border-line/60 shrink-0">
-        <div className="max-w-2xl lg:max-w-3xl w-full mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
+        {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 (fix bug thật) — mirror
+            TakeExerciseModal: xuống dòng (flex-col) dưới breakpoint sm để hàng nút hành động ("Xem đáp
+            án & đóng lượt"/"Làm lại"/Đóng) không bóp/đè lên khối tiêu đề+badge số bài khi màn hình hẹp. */}
+        <div className="max-w-2xl lg:max-w-3xl w-full mx-auto px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="min-w-0">
             <span className="inline-block mb-1 px-2 py-0.5 rounded-full bg-teal/10 text-teal-deep text-[10px] sm:text-[11px] font-black uppercase tracking-wide">
               {t("assignments.batch.countSuffix", { count: subs.length })}
@@ -544,7 +547,7 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
               </p>
             )}
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 flex-wrap justify-end shrink-0">
             {/* Bổ sung 2026-09-04 — chip nhỏ báo đang giám sát chống gian lận + số lần vi phạm, mirror
                 TakeExerciseModal/ReflexVideoTaskPage (MonitoringBadge). */}
             {isMonitoringActive && <MonitoringBadge violationCount={violationCount} />}
