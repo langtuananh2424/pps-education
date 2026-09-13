@@ -1219,8 +1219,12 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         classService.assignTeacher(emptyClass.id(),
                 new AssignTeacherRequest(teacher.getId(), "PRIMARY", null, LocalDate.now(), "VIETNAMESE"), headAcademic.getId());
         Room room = newRoom(siteOf(schoolClass));
+        // Bổ sung ngoài SDD gốc — period 2 (không phải 1) để tránh trùng khung giờ với `classSession`
+        // chính (setUp(), cùng teacher, cùng LocalDate.now(), period 1) — 2 buổi CÙNG giáo viên CÙNG
+        // ngày CÙNG tiết học là xung đột lịch dạy thật (TeacherScheduleConflict), không phải bug ngẫu
+        // nhiên theo ngày chạy CI.
         ClassSessionResponse emptySession = classSessionService.createSession(emptyClass.id(),
-                new CreateClassSessionRequest(LocalDate.now(), "MORNING", List.of(1), room.getId(), "REGULAR", "VIETNAMESE",
+                new CreateClassSessionRequest(LocalDate.now(), "MORNING", List.of(2), room.getId(), "REGULAR", "VIETNAMESE",
                         teacher.getId(), null, null, null, null),
                 headAcademic.getId());
 
