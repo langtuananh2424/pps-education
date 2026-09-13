@@ -12,6 +12,7 @@ import {
   listReviewVideoConnectionQuestionsForSession,
   reportReviewVideoProgress,
   startReviewVideoWatchSession,
+  stopReviewVideoEarly,
   submitReviewVideoConnectionAnswers
 } from "../api";
 import { extractYouTubeVideoId, loadYouTubeIframeApi } from "../lib/youtubePlayer";
@@ -465,11 +466,20 @@ export default function ReviewVideoTaskModal({ video, assignmentId, onClose }: R
     startNextSession();
   };
 
-  /** Học sinh chọn "Dừng, xem kết quả" ở popup ngưỡng — không tiếp tục làm nốt, xem luôn kết quả các lượt đã đạt. */
+  /**
+   * Học sinh chọn "Dừng, xem kết quả" ở popup ngưỡng — không tiếp tục làm nốt, xem luôn kết quả các
+   * lượt đã đạt. V173 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13) — gọi BE đánh dấu
+   * completed=true NGAY lúc này (không chỉ hiện popup phía FE) để thẻ BTVN bên ngoài đổi thành "Đã hoàn
+   * thành" thay vì còn kẹt "Đã nộp X/Y" sau khi đóng modal.
+   */
   const handleThresholdStop = () => {
     setThresholdPopupOpen(false);
     setFinalPopup({ variant: "stoppedEarly" });
     loadAnswerHistory();
+    if (assignmentId == null) return;
+    stopReviewVideoEarly(video.id, assignmentId)
+      .then((p) => setProgressSummary({ viewCount: p.viewCount, requiredViewCount: p.requiredViewCount, completed: p.completed }))
+      .catch(() => undefined);
   };
 
   /** Học sinh chọn "Tiếp tục làm nốt" ở popup ngưỡng — hành vi y hệt nhánh mặc định cũ. */
@@ -748,6 +758,10 @@ export default function ReviewVideoTaskModal({ video, assignmentId, onClose }: R
                   </p>
                   {session.answers.map((a) => {
                     const selectedChoice = a.choices.find((c) => c.id === a.selectedChoiceId);
+                    // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — trả lời sai thì hiện
+                    // luôn đáp án đúng ngay dưới đáp án đã chọn (trước đây chỉ tô đỏ/icon X, không nói rõ
+                    // đáp án đúng là gì), giúp học sinh học được ngay từ câu sai thay vì phải đoán lại.
+                    const correctChoice = a.correct ? null : a.choices.find((c) => c.id === a.correctChoiceId);
                     return (
                       <div
                         key={a.questionId}
@@ -759,6 +773,11 @@ export default function ReviewVideoTaskModal({ video, assignmentId, onClose }: R
                         <div className="flex-1 min-w-0">
                           <p className="text-ink">{a.prompt}</p>
                           <p>{selectedChoice ? `${selectedChoice.choiceLabel}. ${selectedChoice.content}` : ""}</p>
+                          {correctChoice && (
+                            <p className="text-emerald-700">
+                              {t("reviewVideoTask.finalPopup.correctAnswerLabel")} {correctChoice.choiceLabel}. {correctChoice.content}
+                            </p>
+                          )}
                         </div>
                       </div>
                     );

@@ -293,7 +293,7 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         ExerciseAttemptResponse attempt = exerciseAttemptService.startAttempt(exercise.id(), activeAssignmentId(exercise.id()), studentUser.getId());
         assertThatThrownBy(() -> answerCorrectly(attempt.id(), mc)).isInstanceOf(SubmissionPastDeadlineException.class);
 
-        exerciseService.updateLateSubmissionAllowed(activeAssignmentId(exercise.id()), true, teacher.getId());
+        exerciseService.updateLateSubmissionAllowed(activeAssignmentId(exercise.id()), true, null, teacher.getId());
         answerCorrectly(attempt.id(), mc);
         ExerciseAttemptResponse submitted = exerciseAttemptService.submitAttempt(attempt.id(), studentUser.getId());
 

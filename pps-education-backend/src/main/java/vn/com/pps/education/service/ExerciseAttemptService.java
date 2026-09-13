@@ -168,12 +168,12 @@ public class ExerciseAttemptService {
             // nữa (lượt đầu tiên không bị chặn ở đây — có thể đã mở từ trước hạn). Trước đây chỉ chặn ở
             // submitAttempt (lúc NỘP), nên học sinh vẫn mở được 1 lượt mới sau hạn rồi bỏ dở mãi mãi
             // IN_PROGRESS (không có điểm) — làm lượt "mới nhất" của HomeworkProgressService luôn hiện
-            // "Đang chờ chấm" dù trước đó đã có lượt được chấm hợp lệ. Đọc dueAt/isLateSubmissionAllowed
-            // TRỰC TIẾP từ assignment mỗi lần gọi (không cache) — quản trị/giáo viên gia hạn dueAt hoặc
-            // bật lại "Cho phép nộp muộn" thì học sinh mở lại "Làm lại" được ngay, không cần thao tác gì
-            // thêm phía học sinh.
-            if (assignment.getDueAt() != null && OffsetDateTime.now().isAfter(assignment.getDueAt())
-                    && !assignment.isLateSubmissionAllowed()) {
+            // "Đang chờ chấm" dù trước đó đã có lượt được chấm hợp lệ. Đọc trực tiếp từ assignment mỗi
+            // lần gọi (không cache) — quản trị/giáo viên gia hạn dueAt hoặc bật lại "Cho phép nộp muộn"
+            // thì học sinh mở lại "Làm lại" được ngay, không cần thao tác gì thêm phía học sinh.
+            // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — isPastEffectiveDeadline()
+            // giờ còn tính thêm lateSubmissionDeadline (hạn chót nộp muộn cụ thể, nếu có set).
+            if (assignment.isPastEffectiveDeadline()) {
                 throw new RetakeNotAllowedException("error.retakeNotAllowed.pastDeadline", new Object[]{assignment.getDueAt()},
                         "Đề này đã quá hạn nộp (" + assignment.getDueAt() + "), không thể làm lại.");
             }
@@ -216,8 +216,7 @@ public class ExerciseAttemptService {
         // khoá HẲN, không riêng gì submitAttempt (đã chặn từ trước) — trước đây học sinh vẫn ghi/sửa
         // được câu trả lời sau hạn dù không bao giờ nộp nổi. Mirror ĐÚNG rào đã có ở submitAttempt.
         ExerciseAssignment assignment = attempt.getExerciseAssignment();
-        if (assignment != null && assignment.getDueAt() != null && OffsetDateTime.now().isAfter(assignment.getDueAt())
-                && !assignment.isLateSubmissionAllowed()) {
+        if (assignment != null && assignment.isPastEffectiveDeadline()) {
             throw new SubmissionPastDeadlineException("error.submissionPastDeadline.exerciseAttempt", new Object[]{assignment.getDueAt()},
                     "Lượt làm bài này đã quá hạn nộp (" + assignment.getDueAt() + ").");
         }
@@ -256,8 +255,12 @@ public class ExerciseAttemptService {
 
         OffsetDateTime now = OffsetDateTime.now();
         ExerciseAssignment assignment = attempt.getExerciseAssignment();
+        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — "trễ hạn" (đánh dấu
+        // lateSubmission=true, không trừ điểm) vẫn tính từ dueAt GỐC như cũ; CHỈ điều kiện CHẶN HẲN mới
+        // xét thêm lateSubmissionDeadline (isPastEffectiveDeadline) — nộp trong khoảng (dueAt,
+        // lateSubmissionDeadline] vẫn là "nộp muộn nhưng còn nộp được", không phải trong hạn gốc.
         if (assignment != null && assignment.getDueAt() != null && now.isAfter(assignment.getDueAt())) {
-            if (!assignment.isLateSubmissionAllowed()) {
+            if (assignment.isPastEffectiveDeadline()) {
                 throw new SubmissionPastDeadlineException("error.submissionPastDeadline.exerciseAttempt", new Object[]{assignment.getDueAt()}, "Lượt làm bài này đã quá hạn nộp (" + assignment.getDueAt() + ").");
             }
             attempt.setLateSubmission(true);
@@ -773,8 +776,7 @@ public class ExerciseAttemptService {
         // 2026-08-23) — thêm điều kiện hết hạn nộp (chỉ áp dụng khi ĐÃ có lượt trước đó, mirror đúng
         // nhánh previousAttempts>0 ở startAttempt) để nút "Làm lại" ở FE (portal, TakeExerciseModal) ẩn
         // đúng lúc thay vì hiện ra rồi bấm mới báo lỗi 422.
-        boolean retakeBlockedByDeadline = !myAttempts.isEmpty() && assignment.getDueAt() != null
-                && OffsetDateTime.now().isAfter(assignment.getDueAt()) && !assignment.isLateSubmissionAllowed();
+        boolean retakeBlockedByDeadline = !myAttempts.isEmpty() && assignment.isPastEffectiveDeadline();
         // Sửa 2026-09-04 — mirror đúng guard mới ở revealAnswersAndClose: học sinh đã TỰ NGUYỆN đóng
         // sớm lượt vừa đạt để xem đáp án thì khoá "Làm lại" của RIÊNG học sinh đó (trước đây khoá qua
         // assignment.setStatus(COMPLETED) dùng chung cả lớp — đã bỏ vì gây bug 422 cho học sinh khác).
@@ -789,7 +791,7 @@ public class ExerciseAttemptService {
         return new AssignedExerciseResponse(
                 exercise.getId(), exercise.getCode(), exercise.getTitle(), exercise.getExerciseType().name(),
                 assignment.getId(), enrollment.getSchoolClass().getId(), enrollment.getSchoolClass().getName(),
-                assignment.getAvailableFrom(), assignment.getDueAt(), assignment.isLateSubmissionAllowed(),
+                assignment.getAvailableFrom(), assignment.getDueAt(), assignment.isLateSubmissionAllowed(), assignment.getLateSubmissionDeadline(),
                 latest == null ? null : latest.getId(), latest == null ? null : latest.getStatus().name(),
                 latest == null ? null : latest.getTotalScore(), latestPercentage,
                 latest == null ? null : latest.getPassed(),

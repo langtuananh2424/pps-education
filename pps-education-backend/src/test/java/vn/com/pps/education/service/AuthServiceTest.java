@@ -17,7 +17,9 @@ import vn.com.pps.education.dto.LoginRequest;
 import vn.com.pps.education.dto.LoginResponse;
 import vn.com.pps.education.exception.AccountInactiveException;
 import vn.com.pps.education.exception.AccountLockedException;
+import vn.com.pps.education.exception.ActiveSessionExistsException;
 import vn.com.pps.education.exception.InvalidCredentialsException;
+import vn.com.pps.education.dto.LogoutRequest;
 import vn.com.pps.education.repository.LoginAttemptRepository;
 import vn.com.pps.education.repository.RoleRepository;
 import vn.com.pps.education.repository.StudentRepository;
@@ -177,6 +179,67 @@ class AuthServiceTest extends AbstractIntegrationTest {
         List<LoginAttempt> attempts = attemptsFor(activeUser);
         assertThat(attempts).hasSize(1);
         assertThat(attempts.get(0).getFailureReason()).isEqualTo(LoginAttempt.FailureReason.USER_INACTIVE);
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — học sinh đăng nhập thiết bị 1
+     * (refresh token còn ACTIVE), rồi thử đăng nhập tiếp thiết bị 2 mà KHÔNG đăng xuất thiết bị 1
+     * trước — phải bị chặn (khác giáo viên/nhân viên, xem test allowsMultipleDevicesForNonStudentRoles).
+     */
+    @Test
+    void login_boSung_rejectsSecondDeviceWhileStudentSessionActive() {
+        makeStudent(activeUser);
+        authService.login(new LoginRequest(activeUser.getUsername(), RAW_PASSWORD, null, null, null), request());
+
+        assertThatThrownBy(() -> authService.login(
+                new LoginRequest(activeUser.getUsername(), RAW_PASSWORD, null, null, null), request()))
+                .isInstanceOf(ActiveSessionExistsException.class);
+
+        // Vẫn phải ghi login_attempts=success (mật khẩu đúng, chỉ bị chặn bởi policy 1-thiết-bị — xem
+        // Javadoc noRollbackFor ở AuthService#login) — không được để mất bản ghi audit.
+        List<LoginAttempt> attempts = attemptsFor(activeUser);
+        assertThat(attempts).hasSize(2);
+        assertThat(attempts.get(1).isSuccess()).isTrue();
+    }
+
+    /** Đăng xuất thiết bị 1 (thu hồi refresh token) xong thì đăng nhập thiết bị 2 phải được cho phép lại bình thường. */
+    @Test
+    void login_boSung_allowsSecondDeviceAfterLogoutFromFirstDevice() {
+        makeStudent(activeUser);
+        LoginResponse firstDevice = authService.login(
+                new LoginRequest(activeUser.getUsername(), RAW_PASSWORD, null, null, null), request());
+
+        authService.logout(new LogoutRequest(firstDevice.refreshToken()));
+
+        LoginResponse secondDevice = authService.login(
+                new LoginRequest(activeUser.getUsername(), RAW_PASSWORD, null, null, null), request());
+        assertThat(secondDevice.accessToken()).isNotBlank();
+    }
+
+    /** Rào 1-thiết-bị CHỈ áp dụng cho tài khoản Học sinh — giáo viên/nhân viên vẫn đăng nhập nhiều thiết bị cùng lúc bình thường. */
+    @Test
+    void login_boSung_allowsMultipleDevicesForNonStudentRoles() {
+        authService.login(new LoginRequest(activeUser.getUsername(), RAW_PASSWORD, null, null, null), request());
+
+        LoginResponse secondDevice = authService.login(
+                new LoginRequest(activeUser.getUsername(), RAW_PASSWORD, null, null, null), request());
+        assertThat(secondDevice.accessToken()).isNotBlank();
+    }
+
+    private void makeStudent(User user) {
+        Role studentRole = roleRepository.findByCode("STUDENT").orElseThrow();
+        UserRole userRole = new UserRole();
+        userRole.setUser(user);
+        userRole.setRole(studentRole);
+        userRole.setAssignedBy(user);
+        userRoleRepository.save(userRole);
+
+        Student student = new Student();
+        student.setUser(user);
+        student.setStudentCode("HS-AUTH-SESSION-" + user.getId());
+        student.setDateOfBirth(LocalDate.of(2012, 5, 1));
+        student.setEnrollmentDate(LocalDate.now());
+        studentRepository.save(student);
     }
 
     @Test

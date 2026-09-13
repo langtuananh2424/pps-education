@@ -132,7 +132,7 @@ public class ReviewVideoController {
     public ResponseEntity<ReviewVideoAssignmentResponse> updateLateSubmissionAllowed(@PathVariable Long id,
                                                                                        @Valid @RequestBody UpdateLateSubmissionAllowedRequest request,
                                                                                        @AuthenticationPrincipal AuthenticatedUser actor) {
-        return ResponseEntity.ok(reviewVideoService.updateLateSubmissionAllowed(id, request.lateSubmissionAllowed(), actor.userId()));
+        return ResponseEntity.ok(reviewVideoService.updateLateSubmissionAllowed(id, request.lateSubmissionAllowed(), request.lateSubmissionDeadline(), actor.userId()));
     }
 
     @GetMapping("/api/review-video-sets/{id}/classes")
@@ -274,6 +274,14 @@ public class ReviewVideoController {
                                                                         @Valid @RequestBody ReportVideoProgressRequest request,
                                                                         @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(reviewVideoService.reportProgress(videoId, request, actor.userId()));
+    }
+
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — xem Javadoc ReviewVideoService#stopEarly. */
+    @PostMapping("/api/review-videos/{videoId}/stop-early")
+    public ResponseEntity<ReviewVideoProgressResponse> stopEarly(@PathVariable Long videoId,
+                                                                    @RequestParam Long assignmentId,
+                                                                    @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(reviewVideoService.stopEarly(videoId, assignmentId, actor.userId()));
     }
 
     /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-11 — chỉ trả về NHÓM câu hỏi của đúng lượt xem này (khác endpoint listConnectionQuestions trả toàn bộ ngân hàng, dùng cho giáo viên soạn). */

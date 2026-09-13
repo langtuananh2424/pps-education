@@ -3,9 +3,14 @@ package vn.com.pps.education.dto;
 /**
  * 1 dòng đã parse từ file Excel BTVN — dùng cho preview (chưa ghi DB), xem
  * Javadoc {@code StudentCommentService#previewImportComments} (bổ sung
- * ngoài SDD gốc, đã xác nhận với người dùng 2026-08-14). Trả thẳng id
- * NGUỒN (Exercise/ReviewVideoSet) — khác {@link StudentCommentResponse}
- * (trả id BẢN GIAO) vì chưa có bản giao nào được tạo ở bước preview này.
+ * ngoài SDD gốc, đã xác nhận với người dùng 2026-08-14).
+ *
+ * Bổ sung 2026-09-12 (đã xác nhận với người dùng) — bỏ hẳn 4 field BTVN
+ * online (homeworkNextExerciseId/homeworkNextReviewVideoSetId/
+ * homeworkNextReadingExerciseId/homeworkNextWritingExerciseId): Excel từ
+ * nay CHỈ phục vụ Nhận xét (content/thái độ/BTVN offline) — giao BTVN
+ * online chỉ còn làm được qua "Áp dụng cho cả lớp" trên web, xem Javadoc
+ * {@code StudentCommentService#applyHomeworkToClass}.
  */
 public record DailyCommentImportPreviewRow(
         Long studentId,
@@ -19,10 +24,5 @@ public record DailyCommentImportPreviewRow(
         String homeworkNext,
         String homeworkNextReading,
         String homeworkNextWriting,
-        Long homeworkNextExerciseId,
-        Long homeworkNextReviewVideoSetId,
-        /** V137 — chỉ khác null khi buổi teacherType=VIETNAMESE. */
-        Long homeworkNextReadingExerciseId,
-        Long homeworkNextWritingExerciseId,
         String note
 ) {}

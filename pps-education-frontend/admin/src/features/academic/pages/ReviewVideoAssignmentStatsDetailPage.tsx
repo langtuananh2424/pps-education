@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, ChevronDown, ChevronRight } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronRight, ShieldAlert, XCircle } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import {
   ReviewVideoAssignmentQuestionRow,
@@ -12,10 +12,14 @@ import {
   updateReviewVideoAssignmentLateSubmissionAllowed
 } from "@/features/lms/api";
 import Card from "@/components/ui/Card";
+import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import Tabs from "@/components/ui/Tabs";
 import TableContainer, { Th, Td } from "@/components/ui/TableContainer";
 import { formatDateTime } from "@/lib/i18nFormat";
+import DatePicker from "@/components/ui/DatePicker";
+import Time24Input from "@/components/ui/Time24Input";
+import Modal from "@/components/ui/Modal";
 
 /**
  * UC-66 bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-12) — "Xem chi tiết" 1 BTVN Video
@@ -38,6 +42,10 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [expandedQuestionId, setExpandedQuestionId] = useState<number | null>(null);
   const [togglingLateSubmission, setTogglingLateSubmission] = useState(false);
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — mirror AssignmentStatsDetailPage.tsx.
+  const [deadlineDate, setDeadlineDate] = useState("");
+  const [deadlineTime, setDeadlineTime] = useState("");
+  const [confirmDeadlineOpen, setConfirmDeadlineOpen] = useState(false);
 
   const numAssignmentId = assignmentId ? parseInt(assignmentId, 10) : null;
   const isConnection = studentStats?.assignment.videoType === "CONNECTION";
@@ -52,8 +60,13 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
     setTogglingLateSubmission(true);
     setError(null);
     try {
-      await updateReviewVideoAssignmentLateSubmissionAllowed(numAssignmentId, checked);
-      setStudentStats({ ...studentStats, assignment: { ...studentStats.assignment, lateSubmissionAllowed: checked } });
+      const deadline = checked && deadlineDate && deadlineTime ? `${deadlineDate}T${deadlineTime}` : null;
+      await updateReviewVideoAssignmentLateSubmissionAllowed(numAssignmentId, checked, deadline);
+      setStudentStats({ ...studentStats, assignment: { ...studentStats.assignment, lateSubmissionAllowed: checked, lateSubmissionDeadline: deadline } });
+      if (!checked) {
+        setDeadlineDate("");
+        setDeadlineTime("");
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t("shared.errors.loadResultsFailed"));
     } finally {
@@ -61,12 +74,52 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
     }
   };
 
+  /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — mirror AssignmentStatsDetailPage.tsx. */
+  const saveLateSubmissionDeadline = async (date: string, time: string) => {
+    if (!numAssignmentId || !studentStats) return;
+    const deadline = date && time ? `${date}T${time}` : null;
+    setTogglingLateSubmission(true);
+    setError(null);
+    try {
+      await updateReviewVideoAssignmentLateSubmissionAllowed(numAssignmentId, true, deadline);
+      setStudentStats({ ...studentStats, assignment: { ...studentStats.assignment, lateSubmissionDeadline: deadline } });
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t("shared.errors.loadResultsFailed"));
+    } finally {
+      setTogglingLateSubmission(false);
+    }
+  };
+
+  const handleClearLateSubmissionDeadline = () => {
+    setDeadlineDate("");
+    setDeadlineTime("");
+    saveLateSubmissionDeadline("", "");
+  };
+
+  /**
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — mirror AssignmentStatsDetailPage.tsx:
+   * xác nhận qua popup TRƯỚC KHI lưu, chỉ mở khi Giáo viên chủ động bấm nút "Xác nhận hạn chót".
+   */
+  const handleConfirmDeadlineChange = () => {
+    saveLateSubmissionDeadline(deadlineDate, deadlineTime);
+    setConfirmDeadlineOpen(false);
+  };
+
+  const handleCancelDeadlineChange = () => {
+    setConfirmDeadlineOpen(false);
+  };
+
   useEffect(() => {
     if (!numAssignmentId) return;
     setLoading(true);
     setError(null);
     getReviewVideoAssignmentStudentStats(numAssignmentId)
-      .then(setStudentStats)
+      .then((res) => {
+        setStudentStats(res);
+        const d = res.assignment.lateSubmissionDeadline;
+        setDeadlineDate(d ? d.slice(0, 10) : "");
+        setDeadlineTime(d ? d.slice(11, 16) : "");
+      })
       .catch((err) => setError(err instanceof ApiError ? err.message : t("shared.errors.loadResultsFailed")))
       .finally(() => setLoading(false));
   }, [numAssignmentId]);
@@ -99,6 +152,9 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
   }
 
   const { assignment, students } = studentStats;
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — mirror AssignmentStatsDetailPage.tsx.
+  const pendingDeadlineIso = deadlineDate && deadlineTime.length === 5 ? `${deadlineDate}T${deadlineTime}` : null;
+  const hasPendingDeadlineChange = pendingDeadlineIso != null && pendingDeadlineIso !== assignment.lateSubmissionDeadline?.slice(0, 16);
 
   return (
     <div className="space-y-6">
@@ -130,6 +186,46 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
             {t("reviewVideoDetail.lateSubmissionAllowedLabel")}
           </label>
         </div>
+        {assignment.lateSubmissionAllowed && (
+          <div className="flex items-center gap-2 mt-2">
+            <span className="text-xs font-semibold text-slate-500">{t("reviewVideoDetail.lateSubmissionDeadlineLabel")}</span>
+            <DatePicker
+              value={deadlineDate}
+              min={assignment.dueAt ? assignment.dueAt.slice(0, 10) : undefined}
+              onChange={(value) => {
+                setDeadlineDate(value);
+                if (!value) {
+                  setDeadlineTime("");
+                  saveLateSubmissionDeadline("", "");
+                  return;
+                }
+                if (!deadlineTime) setDeadlineTime("23:59");
+              }}
+            />
+            <Time24Input
+              value={deadlineTime}
+              disabled={!deadlineDate || togglingLateSubmission}
+              onChange={setDeadlineTime}
+              className="bg-white border border-slate-200 text-xs px-2 py-1.5 rounded-lg focus:outline-none disabled:opacity-40"
+            />
+            {hasPendingDeadlineChange && (
+              <Button variant="primary" size="sm" onClick={() => setConfirmDeadlineOpen(true)} disabled={togglingLateSubmission}>
+                {t("reviewVideoDetail.confirmDeadline.reviewButton")}
+              </Button>
+            )}
+            {(deadlineDate || deadlineTime) && (
+              <button
+                type="button"
+                onClick={handleClearLateSubmissionDeadline}
+                disabled={togglingLateSubmission}
+                title={t("reviewVideoDetail.lateSubmissionDeadlineClear")}
+                className="text-slate-400 hover:text-rose-600 disabled:opacity-40"
+              >
+                <XCircle className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-lg">{error}</div>}
@@ -245,6 +341,38 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
           )}
         </div>
       </Card>
+
+      {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — mirror AssignmentStatsDetailPage.tsx. */}
+      <Modal
+        open={confirmDeadlineOpen}
+        onClose={handleCancelDeadlineChange}
+        title={t("reviewVideoDetail.confirmDeadline.title")}
+        footer={
+          <>
+            <button
+              onClick={handleCancelDeadlineChange}
+              className="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold text-xs px-4 py-2 rounded-lg transition-all"
+            >
+              {t("reviewVideoDetail.confirmDeadline.cancel")}
+            </button>
+            <button
+              onClick={handleConfirmDeadlineChange}
+              disabled={togglingLateSubmission}
+              className="bg-brand-orange hover:bg-brand-orange/90 text-white font-semibold text-xs px-4 py-2 rounded-lg transition-all disabled:opacity-50"
+            >
+              {t("reviewVideoDetail.confirmDeadline.confirmButton")}
+            </button>
+          </>
+        }
+      >
+        <div className="flex items-start gap-3">
+          <ShieldAlert className="w-8 h-8 text-amber-500 shrink-0" />
+          <div className="text-xs text-slate-600 leading-relaxed">
+            {pendingDeadlineIso &&
+              t("reviewVideoDetail.confirmDeadline.description", { deadline: formatDateTime(pendingDeadlineIso, i18n.language) })}
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

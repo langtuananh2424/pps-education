@@ -88,6 +88,15 @@
     "exportExcel": "Xuất Excel",
     "dueAtLabel": "Hạn nộp",
     "lateSubmissionAllowedLabel": "Cho phép nộp muộn",
+    "lateSubmissionDeadlineLabel": "Hạn chót nộp muộn:",
+    "lateSubmissionDeadlineClear": "Xóa hạn chót (nộp muộn không giới hạn thời gian)",
+    "confirmDeadline": {
+      "reviewButton": "Xác nhận hạn chót",
+      "title": "Xác nhận hạn chót nộp muộn",
+      "description": "Sau {{deadline}}, học sinh chưa nộp sẽ bị khóa hẳn — không thể nộp bài nữa dù đang bật \"Cho phép nộp muộn\". Xác nhận đặt hạn chót này?",
+      "cancel": "Hủy",
+      "confirmButton": "Xác nhận"
+    },
     "table": {
       "status": "Trạng thái",
       "score": "Điểm",
@@ -169,6 +178,15 @@
   "reviewVideoDetail": {
     "dueAtLabel": "Hạn nộp",
     "lateSubmissionAllowedLabel": "Cho phép nộp muộn",
+    "lateSubmissionDeadlineLabel": "Hạn chót nộp muộn:",
+    "lateSubmissionDeadlineClear": "Xóa hạn chót (nộp muộn không giới hạn thời gian)",
+    "confirmDeadline": {
+      "reviewButton": "Xác nhận hạn chót",
+      "title": "Xác nhận hạn chót nộp muộn",
+      "description": "Sau {{deadline}}, học sinh chưa nộp sẽ bị khóa hẳn — không thể nộp bài nữa dù đang bật \"Cho phép nộp muộn\". Xác nhận đặt hạn chót này?",
+      "cancel": "Hủy",
+      "confirmButton": "Xác nhận"
+    },
     "table": {
       "viewed": "Đã xem",
       "completed": "Hoàn thành",

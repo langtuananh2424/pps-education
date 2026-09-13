@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, Download, Eye } from "lucide-react";
+import { ArrowLeft, Download, Eye, ShieldAlert, XCircle } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { downloadBlob } from "@/lib/xlsxTemplate";
 import {
@@ -19,6 +19,9 @@ import Badge, { BadgeVariant } from "@/components/ui/Badge";
 import Tabs from "@/components/ui/Tabs";
 import TableContainer, { Th, Td } from "@/components/ui/TableContainer";
 import { formatDateTime } from "@/lib/i18nFormat";
+import DatePicker from "@/components/ui/DatePicker";
+import Time24Input from "@/components/ui/Time24Input";
+import Modal from "@/components/ui/Modal";
 
 const studentStatusVariants: Record<string, BadgeVariant> = {
   CHUA_LAM: "neutral",
@@ -68,6 +71,10 @@ export default function BatchStatsDetailPage() {
   const [exporting, setExporting] = useState(false);
   const [togglingLateSubmission, setTogglingLateSubmission] = useState(false);
   const [detailStudentId, setDetailStudentId] = useState<number | null>(null);
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — mirror AssignmentStatsDetailPage.tsx.
+  const [deadlineDate, setDeadlineDate] = useState("");
+  const [deadlineTime, setDeadlineTime] = useState("");
+  const [confirmDeadlineOpen, setConfirmDeadlineOpen] = useState(false);
 
   const numBatchId = batchId ? parseInt(batchId, 10) : null;
 
@@ -82,13 +89,52 @@ export default function BatchStatsDetailPage() {
     setTogglingLateSubmission(true);
     setError(null);
     try {
-      await updateHomeworkBatchLateSubmissionAllowed(numBatchId, checked);
-      setStudentStats({ ...studentStats, assignment: { ...studentStats.assignment, lateSubmissionAllowed: checked } });
+      const deadline = checked && deadlineDate && deadlineTime ? `${deadlineDate}T${deadlineTime}` : null;
+      await updateHomeworkBatchLateSubmissionAllowed(numBatchId, checked, deadline);
+      setStudentStats({ ...studentStats, assignment: { ...studentStats.assignment, lateSubmissionAllowed: checked, lateSubmissionDeadline: deadline } });
+      if (!checked) {
+        setDeadlineDate("");
+        setDeadlineTime("");
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t("shared.errors.loadResultsFailed"));
     } finally {
       setTogglingLateSubmission(false);
     }
+  };
+
+  /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — mirror AssignmentStatsDetailPage.tsx. */
+  const saveLateSubmissionDeadline = async (date: string, time: string) => {
+    if (!numBatchId || !studentStats) return;
+    const deadline = date && time ? `${date}T${time}` : null;
+    setTogglingLateSubmission(true);
+    setError(null);
+    try {
+      await updateHomeworkBatchLateSubmissionAllowed(numBatchId, true, deadline);
+      setStudentStats({ ...studentStats, assignment: { ...studentStats.assignment, lateSubmissionDeadline: deadline } });
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t("shared.errors.loadResultsFailed"));
+    } finally {
+      setTogglingLateSubmission(false);
+    }
+  };
+
+  /**
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — mirror AssignmentStatsDetailPage.tsx:
+   * xác nhận qua popup TRƯỚC KHI lưu (ảnh hưởng CẢ LÔ — N học sinh cùng lúc), chỉ mở khi Giáo viên chủ
+   * động bấm nút "Xác nhận hạn chót" (xem hasPendingDeadlineChange), không tự mở theo từng ký tự gõ.
+   */
+  const handleConfirmDeadlineChange = () => {
+    saveLateSubmissionDeadline(deadlineDate, deadlineTime);
+    setConfirmDeadlineOpen(false);
+  };
+
+  const handleCancelDeadlineChange = () => setConfirmDeadlineOpen(false);
+
+  const handleClearLateSubmissionDeadline = () => {
+    setDeadlineDate("");
+    setDeadlineTime("");
+    saveLateSubmissionDeadline("", "");
   };
 
   const handleExport = async () => {
@@ -109,7 +155,12 @@ export default function BatchStatsDetailPage() {
     setLoading(true);
     setError(null);
     getHomeworkBatchStudentStats(numBatchId)
-      .then(setStudentStats)
+      .then((res) => {
+        setStudentStats(res);
+        const d = res.assignment.lateSubmissionDeadline;
+        setDeadlineDate(d ? d.slice(0, 10) : "");
+        setDeadlineTime(d ? d.slice(11, 16) : "");
+      })
       .catch((err) => setError(err instanceof ApiError ? err.message : t("shared.errors.loadResultsFailed")))
       .finally(() => setLoading(false));
   }, [numBatchId]);
@@ -145,6 +196,11 @@ export default function BatchStatsDetailPage() {
     );
   }
 
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — mirror AssignmentStatsDetailPage.tsx.
+  const pendingDeadlineIso = deadlineDate && deadlineTime.length === 5 ? `${deadlineDate}T${deadlineTime}` : null;
+  const savedDeadlineIso = studentStats.assignment.lateSubmissionDeadline;
+  const hasPendingDeadlineChange = pendingDeadlineIso != null && pendingDeadlineIso !== savedDeadlineIso?.slice(0, 16);
+
   return (
     <div className="space-y-6">
       <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900">
@@ -172,6 +228,46 @@ export default function BatchStatsDetailPage() {
             {t("exerciseDetail.lateSubmissionAllowedLabel")}
           </label>
         </div>
+        {studentStats.assignment.lateSubmissionAllowed && (
+          <div className="flex items-center gap-2 mt-2">
+            <span className="text-xs font-semibold text-slate-500">{t("exerciseDetail.lateSubmissionDeadlineLabel")}</span>
+            <DatePicker
+              value={deadlineDate}
+              min={studentStats.assignment.dueAt ? studentStats.assignment.dueAt.slice(0, 10) : undefined}
+              onChange={(value) => {
+                setDeadlineDate(value);
+                if (!value) {
+                  setDeadlineTime("");
+                  saveLateSubmissionDeadline("", "");
+                  return;
+                }
+                if (!deadlineTime) setDeadlineTime("23:59");
+              }}
+            />
+            <Time24Input
+              value={deadlineTime}
+              disabled={!deadlineDate || togglingLateSubmission}
+              onChange={setDeadlineTime}
+              className="bg-white border border-slate-200 text-xs px-2 py-1.5 rounded-lg focus:outline-none disabled:opacity-40"
+            />
+            {hasPendingDeadlineChange && (
+              <Button variant="primary" size="sm" onClick={() => setConfirmDeadlineOpen(true)} disabled={togglingLateSubmission}>
+                {t("exerciseDetail.confirmDeadline.reviewButton")}
+              </Button>
+            )}
+            {(deadlineDate || deadlineTime) && (
+              <button
+                type="button"
+                onClick={handleClearLateSubmissionDeadline}
+                disabled={togglingLateSubmission}
+                title={t("exerciseDetail.lateSubmissionDeadlineClear")}
+                className="text-slate-400 hover:text-rose-600 disabled:opacity-40"
+              >
+                <XCircle className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-lg">{error}</div>}
@@ -305,6 +401,38 @@ export default function BatchStatsDetailPage() {
           }}
         />
       )}
+
+      {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — mirror AssignmentStatsDetailPage.tsx. */}
+      <Modal
+        open={confirmDeadlineOpen}
+        onClose={handleCancelDeadlineChange}
+        title={t("exerciseDetail.confirmDeadline.title")}
+        footer={
+          <>
+            <button
+              onClick={handleCancelDeadlineChange}
+              className="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold text-xs px-4 py-2 rounded-lg transition-all"
+            >
+              {t("exerciseDetail.confirmDeadline.cancel")}
+            </button>
+            <button
+              onClick={handleConfirmDeadlineChange}
+              disabled={togglingLateSubmission}
+              className="bg-brand-orange hover:bg-brand-orange/90 text-white font-semibold text-xs px-4 py-2 rounded-lg transition-all disabled:opacity-50"
+            >
+              {t("exerciseDetail.confirmDeadline.confirmButton")}
+            </button>
+          </>
+        }
+      >
+        <div className="flex items-start gap-3">
+          <ShieldAlert className="w-8 h-8 text-amber-500 shrink-0" />
+          <div className="text-xs text-slate-600 leading-relaxed">
+            {pendingDeadlineIso &&
+              t("exerciseDetail.confirmDeadline.description", { deadline: formatDateTime(pendingDeadlineIso, i18n.language) })}
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

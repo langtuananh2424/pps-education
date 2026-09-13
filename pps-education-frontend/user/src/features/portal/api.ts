@@ -536,6 +536,10 @@ export interface MyReviewVideoAssignmentResponse {
   dueAt: string;
   /** V123 — ngày buổi học GV đã giao BTVN này — null với bản giao TRƯỚC V123. */
   sessionDate: string | null;
+  /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — phân biệt "quá hạn nhưng còn cho nộp muộn" (còn thao tác được) với "quá hạn và đã khóa hẳn" (mirror AssignedExerciseResponse.lateSubmissionAllowed). */
+  lateSubmissionAllowed: boolean;
+  /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — hạn chót nộp muộn cụ thể (null = không giới hạn), mirror AssignedExerciseResponse.lateSubmissionDeadline. */
+  lateSubmissionDeadline: string | null;
 }
 
 export function listMyReviewVideoAssignments(classId?: number): Promise<MyReviewVideoAssignmentResponse[]> {
@@ -570,6 +574,16 @@ export function reportReviewVideoProgress(videoId: number, watchSessionId: numbe
     method: "PUT",
     body: JSON.stringify({ watchSessionId, watchedSeconds })
   });
+}
+
+/**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — học sinh chủ động chọn "Dừng, xem
+ * kết quả" ở popup ngưỡng (đã đạt sessionPassRatioThresholdPercent số lượt yêu cầu): tính hẳn là ĐÃ
+ * HOÀN THÀNH (completed=true) dù chưa đủ 100% requiredViewCount, để thẻ BTVN bên ngoài + đếm "Cần
+ * hoàn thành" phản ánh đúng ngay (BE validate lại tỷ lệ đã đạt ngưỡng, không tin thẳng client).
+ */
+export function stopReviewVideoEarly(videoId: number, assignmentId: number): Promise<ReviewVideoProgressResponse> {
+  return apiRequest<ReviewVideoProgressResponse>(`/review-videos/${videoId}/stop-early?assignmentId=${assignmentId}`, { method: "POST" });
 }
 
 /** UC-23b (V57) — câu hỏi gắn 1 mốc thời gian trong video REFLEX, mỗi câu tự có thời lượng ghi âm/số lần nộp lại riêng. */
@@ -802,6 +816,8 @@ export interface AssignedExerciseResponse {
   availableFrom: string;
   dueAt: string | null;
   lateSubmissionAllowed: boolean;
+  /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — hạn chót nộp muộn cụ thể (null = không giới hạn). */
+  lateSubmissionDeadline: string | null;
   myLatestAttemptId: number | null;
   myLatestAttemptStatus: "IN_PROGRESS" | "AUTO_GRADED" | "FULLY_GRADED" | null;
   myLatestTotalScore: number | null;

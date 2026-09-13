@@ -18,6 +18,7 @@ import vn.com.pps.education.dto.RefreshTokenRequest;
 import vn.com.pps.education.dto.RefreshTokenResponse;
 import vn.com.pps.education.exception.AccountInactiveException;
 import vn.com.pps.education.exception.AccountLockedException;
+import vn.com.pps.education.exception.ActiveSessionExistsException;
 import vn.com.pps.education.exception.GoogleAccountNotProvisionedException;
 import vn.com.pps.education.exception.InvalidCredentialsException;
 import vn.com.pps.education.exception.InvalidRefreshTokenException;
@@ -109,9 +110,14 @@ public class AuthService {
      * exception sẽ xóa luôn các ghi nhận audit/khóa tài khoản này (phát
      * hiện qua verify runtime thật, không lộ ra khi test vì test dùng
      * chung 1 transaction bao ngoài che mất rollback thật).
+     *
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 —
+     * ActiveSessionExistsException (xem requireNoActiveSessionForStudent)
+     * ném RA SAU khi đã ghi login_attempts (success=true, mật khẩu đúng) —
+     * cùng lý do noRollbackFor như trên, không được để mất bản ghi audit.
      */
     @Transactional(noRollbackFor = {InvalidCredentialsException.class, AccountLockedException.class,
-            AccountInactiveException.class})
+            AccountInactiveException.class, ActiveSessionExistsException.class})
     public LoginResponse login(LoginRequest request, HttpServletRequest httpRequest) {
         String input = request.usernameOrEmail();
         Optional<User> maybeUser = userRepository.findByUsername(input)
@@ -139,6 +145,7 @@ public class AuthService {
 
         recordAttempt(input, user, httpRequest, true, null,
                 request.screenResolution(), request.browserLanguage(), request.timezone());
+        requireNoActiveSessionForStudent(user);
         return issueSuccessfulLogin(user, httpRequest);
     }
 
@@ -149,7 +156,7 @@ public class AuthService {
      * noRollbackFor: xem ghi chú ở login(...) — cùng lý do.
      */
     @Transactional(noRollbackFor = {GoogleAccountNotProvisionedException.class, AccountLockedException.class,
-            AccountInactiveException.class})
+            AccountInactiveException.class, ActiveSessionExistsException.class})
     public LoginResponse loginWithGoogle(GoogleLoginRequest request, HttpServletRequest httpRequest) {
         GoogleIdentity identity = googleIdTokenVerifier.verify(request.idToken());
 
@@ -174,6 +181,7 @@ public class AuthService {
 
         recordAttempt(identity.email(), user, httpRequest, true, null,
                 request.screenResolution(), request.browserLanguage(), request.timezone());
+        requireNoActiveSessionForStudent(user);
         return issueSuccessfulLogin(user, httpRequest);
     }
 
@@ -270,6 +278,29 @@ public class AuthService {
                     screenResolution, browserLanguage, timezone);
             throw new AccountInactiveException("error.accountInactive.default", new Object[]{},
                     "Tài khoản không hoạt động. Vui lòng liên hệ Quản trị viên.");
+        }
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — chỉ áp dụng cho tài khoản HỌC SINH
+     * (có hồ sơ Student liên kết): chặn đăng nhập thiết bị thứ 2 khi thiết bị 1 vẫn còn phiên ACTIVE
+     * (refresh token chưa revoke, chưa hết hạn) — tránh học sinh dùng song song 2 thiết bị để "lách
+     * luật" khi làm bài (VD 1 máy mở đề tra cứu, máy kia thao tác nộp bài). KHÔNG áp dụng cho giáo
+     * viên/nhân viên/phụ huynh — các vai trò này vẫn cần đăng nhập nhiều thiết bị cùng lúc bình thường
+     * (điện thoại + máy tính). Học sinh muốn đổi thiết bị phải chủ động "Đăng xuất" ở thiết bị cũ trước
+     * (thu hồi refresh token qua {@link #logout}) — hoặc chờ refresh token tự hết hạn
+     * ({@code refreshTokenTtlDays}).
+     */
+    private void requireNoActiveSessionForStudent(User user) {
+        if (studentRepository.findByUserId(user.getId()).isEmpty()) {
+            return;
+        }
+        OffsetDateTime now = OffsetDateTime.now();
+        boolean hasActiveSession = refreshTokenRepository.findByUserIdAndRevokedAtIsNull(user.getId()).stream()
+                .anyMatch(token -> token.getExpiresAt().isAfter(now));
+        if (hasActiveSession) {
+            throw new ActiveSessionExistsException("error.activeSessionExists.default", new Object[]{},
+                    "Tài khoản này đang được đăng nhập trên thiết bị khác. Vui lòng đăng xuất ở thiết bị đó trước khi đăng nhập tiếp.");
         }
     }
 
