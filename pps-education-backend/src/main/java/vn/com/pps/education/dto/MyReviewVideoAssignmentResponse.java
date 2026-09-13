@@ -22,5 +22,9 @@ public record MyReviewVideoAssignmentResponse(
         OffsetDateTime availableFrom,
         OffsetDateTime dueAt,
         /** V123, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-14: ngày buổi học mà Giáo viên đã giao BTVN này (xem ReviewVideoAssignment#getSourceClassSession()) — NULL với bản giao tạo TRƯỚC V123. */
-        LocalDate sessionDate
+        LocalDate sessionDate,
+        /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — FE cần biết để phân biệt "quá hạn nhưng vẫn cho nộp muộn" (còn thao tác được) với "quá hạn và đã khóa hẳn" (mirror AssignedExerciseResponse#lateSubmissionAllowed). */
+        boolean lateSubmissionAllowed,
+        /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — hạn chót nộp muộn cụ thể (NULL = không giới hạn), mirror AssignedExerciseResponse#lateSubmissionDeadline. */
+        OffsetDateTime lateSubmissionDeadline
 ) {}

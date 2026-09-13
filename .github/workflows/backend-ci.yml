@@ -80,3 +80,30 @@ jobs:
           DB_PASSWORD: changeme
           JWT_SECRET: ci_test_secret_min_256_bits_xxxxxxxxxxxxxxxxxxxxxxxxx
         run: mvn -B clean verify
+
+      # Chẩn đoán khi test fail (bổ sung 2026-09-12, xác nhận với người dùng) — test dùng
+      # Testcontainers tự quản lý container Postgres riêng (AbstractIntegrationTest,
+      # @ServiceConnection), KHÔNG phải service "postgres" ở trên (chỉ Spring context mới cần
+      # xem stacktrace thật thay vì generic "ApplicationContext failure threshold exceeded").
+      - name: In surefire reports khi build/test lỗi
+        if: failure()
+        working-directory: ./pps-education-backend
+        run: |
+          echo "---- Danh sách file report ----"
+          ls -la target/surefire-reports || true
+          echo ""
+          echo "---- Nội dung từng file .txt (rút gọn 200 dòng đầu) ----"
+          for f in target/surefire-reports/*.txt; do
+            [ -f "$f" ] || continue
+            echo "== $f =="
+            sed -n '1,200p' "$f"
+            echo ""
+          done
+
+      - name: Upload surefire reports khi build/test lỗi
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: pps-education-backend/target/surefire-reports
+          if-no-files-found: ignore

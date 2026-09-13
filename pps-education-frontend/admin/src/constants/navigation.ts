@@ -1,4 +1,5 @@
 import {
+  AlertTriangle,
   ArrowLeftRight,
   Award,
   BarChart3,
@@ -26,6 +27,7 @@ import {
   IdCard,
   LayoutDashboard,
   Library,
+  Mail,
   MapPin,
   Megaphone,
   MessageSquare,
@@ -207,6 +209,18 @@ export const navSections: NavSection[] = [
       { id: "acad-comments", label: "Nhận xét học viên", path: "/academic/comments", icon: MessageSquare, requiredPermission: "academic.comment.write", requiredRoleAny: [UserRole.SITE_MANAGER] },
       // UC-66/FR-ACA-07: lms.exercise.report.view (V90) chỉ gán TEACHER + SITE_MANAGER — tự gate đúng audience, không cần requiredRoleAny.
       { id: "acad-homework-stats", label: "Thống kê BTVN theo lớp", path: "/academic/homework-stats", icon: BarChart3, requiredPermission: "lms.exercise.report.view" }
+    ]
+  },
+  {
+    id: "notifications",
+    title: "THÔNG BÁO",
+    items: [
+      // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-12 — "Thư mời phụ huynh tới làm việc"
+      // (học sinh thiếu bài liên tục 4 buổi) phải qua Quản lý điểm trường duyệt trước khi gửi xuống Phụ
+      // huynh. Không có permission riêng — quyền xem/xử lý được backend tính qua bảng site_managers,
+      // giống mục "Ý kiến phản hồi" (fac-feedback).
+      { id: "noti-meeting-invites", label: "Duyệt thư mời phụ huynh", path: "/notifications/meeting-invites", icon: Mail, requiredRoleAny: [UserRole.SITE_MANAGER] },
+      { id: "noti-attitude-escalations", label: "Duyệt cảnh báo thái độ học tập", path: "/notifications/attitude-escalations", icon: AlertTriangle, requiredRoleAny: [UserRole.SITE_MANAGER] }
     ]
   },
   {

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { BookOpen, Check, ChevronDown, ChevronRight, Layers, Library, Pencil, Plus, Trash2, X } from "lucide-react";
+import { BookOpen, Check, ChevronDown, ChevronRight, Layers, Library, Pencil, Plus, Trash2, UploadCloud, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { CurriculumResponse, listCurriculums } from "@/features/academic/api";
@@ -27,6 +27,7 @@ import Button from "@/components/ui/Button";
 import Toast from "@/components/ui/Toast";
 import { useToast } from "@/lib/useToast";
 import { useDialog } from "@/components/ui/DialogProvider";
+import BookCatalogImportModal from "../components/BookCatalogImportModal";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 
@@ -45,6 +46,8 @@ export default function BookCatalogPage() {
   const [curriculums, setCurriculums] = useState<CurriculumResponse[]>([]);
   const [selectedCurriculumId, setSelectedCurriculumId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     listCurriculums()
@@ -59,10 +62,30 @@ export default function BookCatalogPage() {
 
   return (
     <div className="space-y-6">
-      <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("bookCatalogPage.title")}</h1>
-        <p className="text-xs text-slate-500 mt-1">{t("bookCatalogPage.description")}</p>
+      <div className="border-b border-slate-200 pb-4 flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("bookCatalogPage.title")}</h1>
+          <p className="text-xs text-slate-500 mt-1">{t("bookCatalogPage.description")}</p>
+        </div>
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={!selectedCurriculumId}
+          onClick={() => setImportModalOpen(true)}
+        >
+          <UploadCloud className="w-3.5 h-3.5" />
+          {t("bookCatalogPage.importButton")}
+        </Button>
       </div>
+
+      {selectedCurriculumId && (
+        <BookCatalogImportModal
+          open={importModalOpen}
+          onClose={() => setImportModalOpen(false)}
+          curriculumId={selectedCurriculumId}
+          onImported={() => setReloadToken((v) => v + 1)}
+        />
+      )}
 
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
@@ -104,7 +127,7 @@ export default function BookCatalogPage() {
               <p className="text-xs text-slate-400">{t("bookCatalogPage.selectCurriculumPrompt")}</p>
             </div>
           ) : (
-            <BookListPanel curriculum={selectedCurriculum} showToast={showToast} />
+            <BookListPanel curriculum={selectedCurriculum} showToast={showToast} reloadToken={reloadToken} />
           )}
         </div>
       </div>
@@ -115,7 +138,16 @@ export default function BookCatalogPage() {
 }
 
 /** V148 — cấp Sách, con của Curriculum. Chọn 1 Sách thì hiện panel Unit/SubTopic của đúng Sách đó bên dưới. */
-function BookListPanel({ curriculum, showToast }: { curriculum: CurriculumResponse; showToast: (msg: string) => void }) {
+function BookListPanel({
+  curriculum,
+  showToast,
+  reloadToken
+}: {
+  curriculum: CurriculumResponse;
+  showToast: (msg: string) => void;
+  /** UC-72 — tăng lên sau mỗi lần import Excel thành công để buộc tải lại cây Sách/Unit/Sub Topic. */
+  reloadToken: number;
+}) {
   const { t } = useTranslation("lms-question-authoring");
   const { confirmDialog } = useDialog();
   const [books, setBooks] = useState<BookResponse[]>([]);
@@ -141,7 +173,7 @@ function BookListPanel({ curriculum, showToast }: { curriculum: CurriculumRespon
       .finally(() => setLoading(false));
   };
 
-  useEffect(loadBooks, [curriculum.id]);
+  useEffect(loadBooks, [curriculum.id, reloadToken]);
 
   const handleCreateBook = async () => {
     if (!newBookTitle.trim()) return;
@@ -284,12 +316,21 @@ function BookListPanel({ curriculum, showToast }: { curriculum: CurriculumRespon
         )}
       </div>
 
-      {selectedBook && <UnitListPanel book={selectedBook} showToast={showToast} />}
+      {selectedBook && <UnitListPanel book={selectedBook} showToast={showToast} reloadToken={reloadToken} />}
     </div>
   );
 }
 
-function UnitListPanel({ book, showToast }: { book: BookResponse; showToast: (msg: string) => void }) {
+function UnitListPanel({
+  book,
+  showToast,
+  reloadToken
+}: {
+  book: BookResponse;
+  showToast: (msg: string) => void;
+  /** UC-72 — tăng lên sau mỗi lần import Excel thành công để buộc tải lại danh sách Unit (và Sub Topic đang mở). */
+  reloadToken: number;
+}) {
   const { t } = useTranslation("lms-question-authoring");
   const [units, setUnits] = useState<UnitResponse[]>([]);
   const [loading, setLoading] = useState(false);
@@ -305,7 +346,7 @@ function UnitListPanel({ book, showToast }: { book: BookResponse; showToast: (ms
       .finally(() => setLoading(false));
   };
 
-  useEffect(loadUnits, [book.id]);
+  useEffect(loadUnits, [book.id, reloadToken]);
 
   const handleCreateUnit = async () => {
     if (!newUnitTitle.trim()) return;

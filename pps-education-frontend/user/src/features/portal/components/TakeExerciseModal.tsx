@@ -38,6 +38,28 @@ interface TakeExerciseModalProps {
 const CHOICE_TYPES = new Set(["MULTIPLE_CHOICE", "MULTIPLE_ANSWER", "TRUE_FALSE"]);
 
 /**
+ * Bổ sung 2026-09-13 (fix bug thật, đã xác nhận với người dùng) — điều kiện "còn làm lại được" ĐÚNG
+ * NGAY TRONG PHIÊN đang mở, không chỉ dựa vào {@code item.canStartNewAttempt} (cờ BE tính SẴN lúc tải
+ * danh sách BTVN, đứng yên suốt phiên modal đang mở). 2 field tĩnh của {@code meta}
+ * (allowRetake/maxAttempts, không đổi trong phiên) + {@code attempt.attemptNumber} (SỐNG, cập nhật
+ * đúng sau mỗi lần bấm "Làm lại" trong cùng phiên) mirror lại ĐÚNG rào phía BE
+ * (ExerciseAttemptService#startAttempt kiểm tra allowRetake + attemptNumber vs maxAttempts) — bù đúng
+ * phần {@code item.canStartNewAttempt} bị "đứng hình" không theo kịp khi bấm "Làm lại" nhiều lần liên
+ * tiếp trong 1 Lô (BatchTakeExerciseModal) mà
+ * không đóng modal ra vào lại: trước đây 1 Bài trong Lô không cho làm lại (allowRetake=false) hoặc đã
+ * hết lượt (maxAttempts) vẫn bị coi "còn làm lại được" ở lần bấm ĐẦU (vì lúc mở Lô, myAttempts rỗng nên
+ * canStartNewAttempt luôn true bất kể allowRetake) — bấm "Làm lại cả Lô" gọi startAttempt() cho CẢ Lô
+ * cùng lúc, Bài đó bị BE từ chối (RetakeNotAllowedException) giữa chừng.
+ *
+ * {@code item.canStartNewAttempt} vẫn giữ vai trò chặn các điều kiện KHÔNG đổi trong phiên (assignment
+ * còn ACTIVE, đã tới availableFrom, hạn nộp/cho phép nộp muộn, đã "Xem đáp án & đóng lượt" từ phiên
+ * TRƯỚC) — chỉ bổ sung thêm 2 điều kiện allowRetake/maxAttempts tính lại tươi mỗi lần gọi.
+ */
+export function canRetakeExercise(item: AssignedExerciseResponse, meta: ExerciseMetaResponse, attempt: ExerciseAttemptResponse): boolean {
+  return item.canStartNewAttempt && meta.allowRetake && (meta.maxAttempts == null || attempt.attemptNumber < meta.maxAttempts);
+}
+
+/**
  * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-03 — số cột lưới đáp án dạng ảnh (V143)
  * khớp đúng số đáp án để luôn nằm gọn 1 hàng (đề giấy gốc không bao giờ quá 4 đáp án/câu), thay vì
  * grid-cols-2 cố định trước đây làm đề 3 đáp án bị lệch (2 ô hàng 1, 1 ô lẻ hàng 2).
@@ -276,15 +298,18 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
    * gần nhất đã ĐẠT nhưng đáp án vẫn còn bị khoá (còn lượt làm lại, chưa tới lượt cuối) — cho học sinh
    * tự nguyện dừng lại NGAY để xem đáp án luôn, đổi lại mất quyền làm lại thêm (xem handleRevealAndClose).
    * Chỉ có ý nghĩa khi maxAttempts hữu hạn (đáp án vốn hiện ngay nếu không giới hạn lượt, không có gì
-   * để "mở sớm") và còn thật sự làm lại được (item.canStartNewAttempt, đã tính cả hạn nộp).
+   * để "mở sớm") và còn thật sự làm lại được. Bổ sung 2026-09-13 (fix bug thật) — dùng canRetakeExercise
+   * thay vì chỉ item.canStartNewAttempt (xem Javadoc hàm đó): không có ý nghĩa "từ bỏ lượt làm lại để
+   * xem đáp án sớm" nếu thật ra đã hết lượt/không cho làm lại rồi.
    */
   const canRevealAndClose =
     !justClosedEarly &&
     attempt != null &&
     attempt.status === "FULLY_GRADED" &&
     attempt.passed === true &&
-    exerciseMeta?.maxAttempts != null &&
-    item.canStartNewAttempt;
+    exerciseMeta != null &&
+    exerciseMeta.maxAttempts != null &&
+    canRetakeExercise(item, exerciseMeta, attempt);
 
   const loadAnswers = (attemptId: number) => {
     listAnswers(attemptId)
@@ -445,7 +470,7 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
 
   /**
    * V148 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23) — mở lượt làm MỚI tường minh,
-   * chỉ bấm được khi đang xem 1 lượt cũ (readOnly) và item.canStartNewAttempt còn true (chưa hết lượt,
+   * chỉ bấm được khi đang xem 1 lượt cũ (readOnly) và canRetakeExercise() còn true (chưa hết lượt,
    * chưa quá hạn nộp — xem ExerciseAttemptService#toAssignedResponse). Thay hẳn cho logic tự động mở
    * lượt mới lúc vào modal đã bỏ ở load() — học sinh phải chủ động bấm mới tạo lượt mới.
    */
@@ -630,9 +655,12 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
                 <KeyRound size={14} /> {t("takeExercise.revealAndClose.button")}
               </button>
             )}
-            {/* V148 — nút "Làm lại" tường minh, chỉ hiện khi đang xem 1 lượt cũ (readOnly) và còn lượt
-                (item.canStartNewAttempt, đã tính cả điều kiện quá hạn nộp ở BE) — xem handleRetake. */}
-            {readOnly && item.canStartNewAttempt && !justClosedEarly && (
+            {/* V148 — nút "Làm lại" tường minh, chỉ hiện khi đang xem 1 lượt cũ (readOnly) và còn lượt.
+                Bổ sung 2026-09-13 (fix bug thật) — dùng canRetakeExercise (item.canStartNewAttempt +
+                allowRetake/maxAttempts tính TƯƠI, xem Javadoc hàm đó) thay vì chỉ item.canStartNewAttempt
+                (cờ đứng yên từ lúc tải danh sách, không theo kịp khi vừa làm lại nhiều lần liên tiếp
+                trong cùng phiên) — xem handleRetake. */}
+            {readOnly && attempt && exerciseMeta && canRetakeExercise(item, exerciseMeta, attempt) && !justClosedEarly && (
               <button
                 onClick={handleRetake}
                 disabled={loading}
@@ -1483,17 +1511,23 @@ function WordBankBlock({
     if (next.every((s) => s)) onChange(next);
   };
 
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-09 — fix bug hiển thị thật: container
+  // "flex flex-wrap" trước đây coi mỗi đoạn văn bản (<span>) là 1 flex item RIÊNG, khiến trình duyệt
+  // xuống dòng theo TỪNG item thay vì cho chữ chảy liên tục như 1 đoạn văn bình thường (đoạn dài bị đẩy
+  // xuống dòng riêng, dropdown lại đứng tách biệt dòng kế tiếp — không giống đề gốc). Đổi sang flow chữ
+  // tự nhiên: <p> khối văn bản bình thường, <select> là inline-block xen giữa chữ, để trình duyệt tự
+  // ngắt dòng theo TỪNG TỪ như văn bản thật (mirror ExerciseStudentPreviewModal#WordBankPreview).
   return (
-    <div className="flex flex-wrap items-center gap-x-1.5 gap-y-2 text-sm sm:text-base lg:text-lg font-bold text-ink leading-8 lg:leading-10">
+    <p className="text-sm sm:text-base lg:text-lg font-bold text-ink leading-8 lg:leading-10">
       {parts.map((part, idx) => (
         <React.Fragment key={idx}>
-          {part && <span>{part}</span>}
+          {part}
           {idx < blankCount && (
             <select
               value={selections[idx]}
               disabled={readOnly || saving}
               onChange={(e) => handleSelect(idx, e.target.value)}
-              className="bg-sky-2 border border-line/70 text-sm sm:text-sm lg:text-base font-bold px-2 py-1.5 sm:px-3 sm:py-2 rounded-lg focus:outline-none disabled:opacity-70"
+              className="bg-sky-2 border border-line/70 text-sm sm:text-sm lg:text-base font-bold px-2 py-1 mx-1 sm:px-3 sm:py-2 rounded-lg align-middle focus:outline-none disabled:opacity-70"
             >
               <option value="">{t("takeExercise.wordBank.choosePlaceholder")}</option>
               {wordPool
@@ -1507,7 +1541,7 @@ function WordBankBlock({
           )}
         </React.Fragment>
       ))}
-    </div>
+    </p>
   );
 }
 

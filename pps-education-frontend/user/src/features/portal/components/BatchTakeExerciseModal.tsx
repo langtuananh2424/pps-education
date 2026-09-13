@@ -21,7 +21,7 @@ import {
   submitAttempt,
   uploadMedia
 } from "../api";
-import { GridQuestionGroup, QuestionBlock, groupQuestionsByGroupKey } from "./TakeExerciseModal";
+import { GridQuestionGroup, QuestionBlock, canRetakeExercise, groupQuestionsByGroupKey } from "./TakeExerciseModal";
 import { useLockBodyScroll } from "@/components/ui/useLockBodyScroll";
 import { useIntegrityMonitor } from "../hooks/useIntegrityMonitor";
 import MonitoringBadge from "./MonitoringBadge";
@@ -302,28 +302,57 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
    * cho từng Bài — KHÔNG có khái niệm "lượt làm của cả Lô" ở BE (maxAttempts/attemptNumber vẫn tính
    * riêng theo TỪNG Exercise, không đổi schema). Người dùng xác nhận hướng vận hành: đặt CÙNG số lượt
    * làm lại cho mọi Bài trong 1 Lesson để tránh lệch — nhưng vẫn xử lý phòng hờ trường hợp lệch: Bài nào
-   * đã hết lượt riêng (item.canStartNewAttempt=false) thì BỎ QUA, giữ nguyên kết quả cũ chỉ-xem, KHÔNG
-   * chặn các Bài khác trong Lô vẫn còn lượt (xem retakeSkippedNote hiện ngay dưới tiêu đề Bài đó).
+   * đã hết lượt riêng thì BỎ QUA, giữ nguyên kết quả cũ chỉ-xem, KHÔNG chặn các Bài khác trong Lô vẫn
+   * còn lượt (xem retakeSkippedNote hiện ngay dưới tiêu đề Bài đó).
+   *
+   * Bổ sung 2026-09-13 (fix bug thật, đã xác nhận với người dùng) — 2 lỗi cùng lúc khi các Bài trong 1
+   * Lô KHÔNG đồng nhất allowRetake/maxAttempts (VD 1 Lesson gồm Bài cho làm lại + Bài không cho làm
+   * lại): (1) lọc theo item.canStartNewAttempt — cờ BE tính SẴN lúc tải danh sách, LUÔN true cho mọi
+   * Bài ở lần "Làm lại" ĐẦU TIÊN (myAttempts rỗng lúc đó nên bỏ qua hẳn allowRetake) — bấm 1 lần vẫn
+   * gọi startAttempt() cho Bài KHÔNG được phép làm lại, bị BE từ chối (RetakeNotAllowedException);
+   * (2) dùng Promise.all — 1 Bài bị BE từ chối làm CẢ khối .then bị bỏ qua (nhảy thẳng xuống catch),
+   * trong khi (các) Bài KHÁC đã gọi startAttempt() THÀNH CÔNG thật sự dưới server (tạo lượt IN_PROGRESS
+   * mới) — chỉ là setSubs không bao giờ chạy nên màn hình không biết, học sinh tưởng "Làm lại" thất bại
+   * hoàn toàn trong khi 1 lượt mồ côi đã treo IN_PROGRESS, không thao tác tiếp được cho tới khi đóng mở
+   * lại toàn bộ Lô (item.myLatestAttemptId lúc đó mới trỏ đúng lượt mồ côi này).
+   *
+   * Sửa: (1) lọc bằng canRetakeExercise (allowRetake/maxAttempts tính TƯƠI, không chỉ dựa cờ cũ) để
+   * loại đúng Bài không cho làm lại NGAY TỪ ĐẦU, không gọi startAttempt() cho Bài đó nữa; (2) đổi sang
+   * Promise.allSettled — dù có Bài nào đó vẫn bị từ chối (race hiếm, VD vừa hết hạn nộp đúng lúc bấm),
+   * các Bài THÀNH CÔNG khác vẫn được áp dụng vào state ngay, không còn lượt mồ côi.
    */
   const handleRetakeBatch = async () => {
     if (!subs) return;
     setLoading(true);
     setError(null);
     try {
-      const refreshed = await Promise.all(
-        subs.map(async (s) => (s.item.canStartNewAttempt ? { ...s, attempt: await startAttempt(s.item.exerciseId, s.item.assignmentId) } : s))
+      const results = await Promise.allSettled(
+        subs.map((s) => (canRetakeExercise(s.item, s.meta, s.attempt) ? startAttempt(s.item.exerciseId, s.item.assignmentId) : Promise.resolve(null)))
       );
+      const failedTitles: string[] = [];
+      const refreshed = subs.map((s, i) => {
+        const result = results[i];
+        if (result.status === "fulfilled" && result.value) {
+          return { ...s, attempt: result.value };
+        }
+        if (result.status === "rejected") {
+          failedTitles.push(s.item.title);
+        }
+        return s;
+      });
       setSubs(refreshed);
       setAnswersByQuestion((prev) => {
         const next = new Map(prev);
         refreshed.forEach((s, i) => {
-          if (subs[i].item.canStartNewAttempt) s.questions.forEach((q) => next.delete(q.questionId));
+          const result = results[i];
+          if (result.status === "fulfilled" && result.value) s.questions.forEach((q) => next.delete(q.questionId));
         });
         return next;
       });
       setTextDraft({});
       setJustSubmitted(false);
       setJustClosedEarly(false);
+      setError(failedTitles.length > 0 ? t("assignments.batch.retakePartialFailure", { titles: failedTitles.join(", ") }) : null);
     } catch (err) {
       setError(friendlyApiErrorMessage(err, t("takeExercise.loadError")));
     } finally {
@@ -379,12 +408,16 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
   const hasActiveAttempt = subs.some((s) => s.attempt.status === "IN_PROGRESS" && !isSubOverdueLocked(s));
   const anyOverdueLocked = subs.some(isSubOverdueLocked);
   /** Bổ sung 2026-09-04 — mirror điều kiện nút "Làm lại" của TakeExerciseModal (readOnly && canStartNewAttempt),
-   * áp cho CẢ Lô: chỉ hiện khi không còn Bài nào đang dở (đã nộp/chấm xong hết) và còn ÍT NHẤT 1 Bài còn lượt. */
-  const anyCanRetake = !hasActiveAttempt && !justClosedEarly && subs.some((s) => s.item.canStartNewAttempt);
-  /** V152 — xem Javadoc handleRevealAndClose. */
+   * áp cho CẢ Lô: chỉ hiện khi không còn Bài nào đang dở (đã nộp/chấm xong hết) và còn ÍT NHẤT 1 Bài còn lượt.
+   * Bổ sung 2026-09-13 (fix bug thật) — dùng canRetakeExercise thay vì chỉ item.canStartNewAttempt, xem
+   * Javadoc handleRetakeBatch. */
+  const anyCanRetake = !hasActiveAttempt && !justClosedEarly && subs.some((s) => canRetakeExercise(s.item, s.meta, s.attempt));
+  /** V152 — xem Javadoc handleRevealAndClose. Bổ sung 2026-09-13 (fix bug thật) — dùng canRetakeExercise
+   * thay vì chỉ item.canStartNewAttempt (mirror anyCanRetake/handleRetakeBatch): không có ý nghĩa "từ
+   * bỏ lượt làm lại để xem đáp án sớm" nếu Bài đã thật sự hết lượt/không cho làm lại rồi. */
   const canRevealAndClose =
     !justClosedEarly &&
-    subs.every((s) => s.attempt.status === "FULLY_GRADED" && s.attempt.passed === true && s.meta.maxAttempts != null && s.item.canStartNewAttempt);
+    subs.every((s) => s.attempt.status === "FULLY_GRADED" && s.attempt.passed === true && s.meta.maxAttempts != null && canRetakeExercise(s.item, s.meta, s.attempt));
 
   return (
     <div className="fixed inset-0 bg-white z-[100] flex flex-col">
@@ -588,7 +621,7 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
                    * `shrink-0` + không có flex-wrap khiến dòng chữ dài bị đè/vỡ layout lên badge màu cam
                    * Ex.1 phía dưới.
                    */}
-                  {sectionReadOnly && !sub.item.canStartNewAttempt && (
+                  {sectionReadOnly && !canRetakeExercise(sub.item, sub.meta, sub.attempt) && (
                     <span className="w-full text-[10px] font-bold text-muted italic">{t("assignments.batch.retakeSkippedNote")}</span>
                   )}
                 </div>

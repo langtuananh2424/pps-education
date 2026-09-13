@@ -3,6 +3,7 @@ import Modal from "@/components/ui/Modal";
 import Badge from "@/components/ui/Badge";
 import { dayPartLabels } from "@/features/facility/api";
 import { ClassSessionResponse } from "../api";
+import { getCmDisplayName, getDisplayTeacherName, hasTeacherSubstitution } from "../teacherDisplay";
 
 const statusLabels: Record<string, string> = {
   SCHEDULED: "Đã xếp lịch",
@@ -30,6 +31,9 @@ interface SessionInfoModalProps {
 
 /** Xem nhanh thông tin 1 buổi học từ lưới thời khóa biểu (click chuột trái) — chỉ đọc, không sửa. */
 export default function SessionInfoModal({ session, isPendingCreate, onClose }: SessionInfoModalProps) {
+  const displayTeacherName = getDisplayTeacherName(session);
+  const cmDisplayName = getCmDisplayName(session);
+  const hasSubstitution = hasTeacherSubstitution(session);
   return (
     <Modal
       open
@@ -60,9 +64,14 @@ export default function SessionInfoModal({ session, isPendingCreate, onClose }: 
         <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-0">
           {row(
             "GV chính",
-            <span className="flex items-center gap-1 justify-end">
-              <User className="w-3 h-3 text-slate-400" />
-              {session.primaryTeacherName}
+            <span className="flex flex-col items-end gap-0.5">
+              {hasSubstitution && (
+                <span className="text-[10px] font-bold line-through bg-amber-100 text-amber-700 px-1 rounded">{session.originalTeacherName}</span>
+              )}
+              <span className="flex items-center gap-1 justify-end font-bold text-green-600">
+                <User className="w-3 h-3 text-green-500" />
+                {displayTeacherName}
+              </span>
             </span>
           )}
           {session.assistantTeacherName &&
@@ -73,12 +82,12 @@ export default function SessionInfoModal({ session, isPendingCreate, onClose }: 
                 {session.assistantTeacherName}
               </span>
             )}
-          {session.cmTeacherName &&
+          {cmDisplayName &&
             row(
               "CM",
               <span className="flex items-center gap-1 justify-end">
                 <Users className="w-3 h-3 text-slate-400" />
-                {session.cmTeacherName}
+                {cmDisplayName}
               </span>
             )}
           {session.roomName &&

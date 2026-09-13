@@ -736,6 +736,25 @@ UC-48: Xếp lịch buổi học
 > `class_teachers` ASSISTANT/CM (cấp lớp, xem UC-18). `checkTeacherConflict`
 > (trùng giờ) chỉ áp dụng `primaryTeacher` — GV phụ/CM không trực tiếp
 > đứng lớp nên không chặn trùng giờ.
+>
+> **GVNN không tài khoản hệ thống — tên GV nhập tay + gạch tên khi đổi GV
+> đột xuất (bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-09-12):**
+> GV nước ngoài (GVNN) không có tài khoản hệ thống, nên `primaryTeacherId`
+> của buổi GVNN vẫn phải chọn 1 tài khoản thật (thực tế là tài khoản CM,
+> đứng thay để vận hành điểm danh/check-in — KHÔNG đổi ràng buộc này).
+> Riêng khi Loại giáo viên = FOREIGN, `CreateClassSessionRequest`/
+> `BulkCreateClassSessionRequest`/`UpdateSessionAssignmentRequest` có thêm
+> field tuỳ chọn `actualTeacherName` (text nhập tay) — set thẳng vào
+> `class_sessions.actual_teacher_name` (V91, cột đã có sẵn từ UC-21 Nhận
+> xét học viên), để 2 màn hình "Lịch làm việc" và "Nhận xét học viên"
+> dùng chung đúng 1 nguồn tên GV thật. Mỗi lần tạo buổi hoặc gọi
+> `updateAssignment`, hệ thống đồng thời chụp giá trị này vào
+> `original_teacher_name` (V172) làm mốc kế hoạch chính thức. Khi CM sửa
+> lại `actual_teacher_name` qua Nhận xét học viên (UC-21,
+> `StudentCommentService#updateActualTeacherName` — VD GVNN nghỉ dạy đột
+> xuất, đổi sang GV khác) mà khác `original_teacher_name`, lưới "Lịch làm
+> việc" (`TimetableSessionCard`) hiển thị tên mới + tên gốc dạng gạch
+> ngang, tô đậm/nổi màu, để nhận biết đã phát sinh thay GV ngoài kế hoạch.
 
 ---
 
@@ -1762,6 +1781,67 @@ dùng), `StudentComment.CommentType` nay chỉ còn DAILY.
     `DailyCommentPanel.tsx`/`CommentApprovalByClass.tsx`/
     `CommentHistoryPanel.tsx`/`SessionVersionHistoryModal.tsx` (FE, cột
     con "Online" đổi `colSpan` 2→4 khi `isVietnamese`).
+-   **Bổ sung 2026-09-12 (đã xác nhận với người dùng) — tách hẳn "Giao BTVN
+    buổi sau" khỏi Viết/Gửi nhận xét, có popup xác nhận:** phát hiện qua
+    phản hồi người dùng — luồng V127 (giao bài lúc `submitComments()`) có
+    lỗ hổng: `resolve*Homework` giao **CẢ LỚP** (`target_student_ids=NULL`,
+    không đổi từ V65) ngay khi có 1 học sinh BẤT KỲ được Gửi, nhưng FE chỉ
+    gửi các dòng CÓ Nhận xét (`content` khác rỗng) — học sinh KHÔNG viết
+    Nhận xét buổi đó vẫn nhận bài thật (vì giao cả lớp) nhưng dòng
+    `student_comments` của chính học sinh đó không bao giờ được gán FK
+    BTVN (không có `submitComments()` nào chạy cho dòng của họ) → xem lại
+    lịch sử nhận xét của học sinh này thì "mất" thông tin BTVN dù đã nhận
+    bài. Ngoài ra việc giao bài trước đây không có bước xác nhận riêng,
+    dễ giao nhầm cả lớp khi bấm "Gửi nhận xét".
+
+    Thiết kế mới:
+    1.  **Endpoint riêng** `POST /api/class-sessions/{id}/comments/apply-homework`
+        (`StudentCommentService#applyHomeworkToClass`) là điểm giao BTVN
+        online (Ngữ pháp/Bài nghe, Video TKN/Clip phản xạ, Reading,
+        Writing) DUY NHẤT — gọi từ nút "Áp dụng cho cả lớp" ở
+        `DailyCommentPanel.tsx`, **bắt buộc qua popup xác nhận ở FE**
+        trước khi gọi (tránh giao nhầm). `submitComments()` (Gửi nhận
+        xét) từ nay **không đụng gì tới BTVN nữa** — chỉ còn thuần tuý
+        chuyển DRAFT→PENDING (tạo `ApprovalFlow`).
+    2.  **Đảm bảo link BTVN↔nhận xét luôn còn**, kể cả học sinh không viết
+        Nhận xét: `applyHomeworkToClass` tự tạo (nếu chưa có) 1
+        `StudentComment` DRAFT rỗng nội dung (`content=""`, hợp lệ từ
+        2026-08-17) cho **MỌI học sinh ACTIVE** của lớp, rồi gán thẳng FK
+        bài vừa giao (`homeworkNextGrammarBatch`/
+        `homeworkNextReviewVideoAssignment`/`homeworkNextReadingBatch`/
+        `homeworkNextWritingBatch`) vào TẤT CẢ các dòng đó — không còn
+        phụ thuộc học sinh có Nhận xét hay không, không còn khái niệm
+        "pending" (cột `pending_homework_next_*` giữ nguyên trong schema
+        nhưng từ nay không còn ai ghi vào). Bỏ qua (không đụng) học sinh
+        đã PENDING/APPROVED cho buổi này — nhận xét đã gửi/duyệt không
+        sửa lại BTVN nữa.
+    3.  **6 field BTVN online bỏ hẳn khỏi
+        `CreateStudentCommentRequest`/`UpdateStudentCommentRequest`**
+        (`homeworkNextExerciseId`/`homeworkNextReviewVideoSetId`/
+        `homeworkNextReadingExerciseId`/`homeworkNextWritingExerciseId`/
+        `homeworkNextDueDate`/`homeworkNextLateSubmissionAllowed`) —
+        `writeComment`/`updateComment`/Excel import không còn nhận/ghi
+        các field này; BTVN **offline** (chữ tự do —
+        `homeworkNext`/`homeworkNextReading`/`homeworkNextWriting`)
+        KHÔNG thuộc phạm vi này, vẫn sửa được như cũ ở mọi luồng (từng
+        dòng/Excel/Lưu nháp/Gửi nhận xét).
+    4.  **Excel không còn giao được BTVN online nữa** (đã xác nhận với
+        người dùng — GV có thể Áp dụng cho cả lớp trước rồi mới tải Excel
+        về gõ Nhận xét, import lại không được phép giao lại bài) — 4 cột
+        Online trong `buildTemplate` chỉ còn HIỂN THỊ tham khảo (bỏ
+        dropdown, `parseRow`/`importRow` không còn đọc/ghi 4 cột này).
+    5.  Bỏ luôn cơ chế "xung đột lựa chọn giữa các dòng cùng buổi"
+        (`requireNoHomeworkConflict`/`requireNoDueDateConflict`/
+        `requireNoLateSubmissionConflict` và các hàm
+        `effective*ChoiceId/Label` liên quan, cùng endpoint
+        `bulkUpdatePendingDueDate` cũ) — không chỉ thừa mà còn SAI với
+        model mới: `applyHomeworkToClass` áp dụng cho MỌI dòng cùng lúc
+        (không có khái niệm "dòng đang sửa" để loại trừ), nên giữ rào này
+        sẽ khoá cứng mãi mãi mỗi khi đã có học sinh Gửi trước đó.
+    6.  Đoạn V65/V127 mô tả "viết/sửa comment DAILY kích hoạt giao bài" ở
+        trên **ĐÃ THAY THẾ** bởi mục này — xem Javadoc
+        `StudentCommentService#applyHomeworkToClass` để biết chi tiết kỹ
+        thuật đầy đủ.
 -   **Bổ sung 2026-07-29 (đã xác nhận với người dùng) — tự chọn buổi hôm
     nay khi vào tab Nhận xét:** `GET /api/classes/{classId}/sessions/today`
     trả buổi học của lớp có `session_date` = hôm nay (loại

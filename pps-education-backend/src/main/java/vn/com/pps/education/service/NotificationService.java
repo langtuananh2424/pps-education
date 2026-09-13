@@ -11,13 +11,12 @@ import vn.com.pps.education.domain.NotificationDelivery;
 import vn.com.pps.education.domain.NotificationPreference;
 import vn.com.pps.education.domain.PushSetupLog;
 import vn.com.pps.education.domain.User;
+import vn.com.pps.education.dto.DeviceTokenCountResponse;
 import vn.com.pps.education.dto.DeviceTokenRequest;
 import vn.com.pps.education.dto.NotificationPreferenceRequest;
 import vn.com.pps.education.dto.NotificationPreferenceResponse;
 import vn.com.pps.education.dto.NotificationResponse;
 import vn.com.pps.education.dto.PushSetupLogRequest;
-import vn.com.pps.education.dto.SendNotificationRequest;
-import vn.com.pps.education.dto.SendNotificationResponse;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.repository.DeviceTokenRepository;
 import vn.com.pps.education.repository.PushSetupLogRepository;
@@ -30,10 +29,10 @@ import vn.com.pps.education.repository.UserRepository;
 import vn.com.pps.education.service.notification.NotificationChannelSender;
 
 import java.time.OffsetDateTime;
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Module Notification (SDD > Task Management & Thông báo > Notifications).
@@ -84,36 +83,33 @@ public class NotificationService {
                 Notification.Priority.NORMAL, null);
     }
 
-    /**
-     * Gửi thông báo thủ công tới danh sách user được chọn — công cụ test/gửi
-     * tay của Quản trị viên (bổ sung ngoài SDD gốc, đã xác nhận với người
-     * dùng 2026-08-08). Tái sử dụng đúng notify() + dispatchByPreference()
-     * hiện có (mỗi recipient vẫn tôn trọng notification_preferences của
-     * chính họ) — không tạo luồng gửi riêng. Lỗi ở 1 recipient (VD user id
-     * không tồn tại) không chặn các recipient còn lại — gom vào failures.
-     */
-    @Transactional
-    public SendNotificationResponse sendManual(SendNotificationRequest request, Long triggeredByUserId) {
-        int succeeded = 0;
-        List<SendNotificationResponse.SendNotificationFailure> failures = new ArrayList<>();
-
-        for (Long recipientUserId : request.recipientUserIds()) {
-            try {
-                notify(recipientUserId, request.notificationType(), request.title(), request.content(),
-                        null, null, null, Notification.Priority.NORMAL, triggeredByUserId);
-                succeeded++;
-            } catch (Exception ex) {
-                failures.add(new SendNotificationResponse.SendNotificationFailure(recipientUserId, ex.getMessage()));
-            }
-        }
-
-        return new SendNotificationResponse(request.recipientUserIds().size(), succeeded, failures);
-    }
-
     @Transactional
     public Notification notify(Long recipientUserId, Notification.NotificationType type, String title, String content,
                                 Map<String, Object> metadata, String entityType, Long entityId,
                                 Notification.Priority priority, Long triggeredByUserId) {
+        return notifyInternal(recipientUserId, type, title, content, metadata, entityType, entityId,
+                priority, triggeredByUserId, null);
+    }
+
+    /**
+     * Dùng cho công cụ "Gửi thông báo thủ công" (bổ sung ngoài SDD gốc, đã
+     * xác nhận với người dùng 2026-09-12) — {@code forceChannels} khi không
+     * rỗng ÉP gửi đúng các kênh đó, bỏ qua notification_preferences của
+     * người nhận, để cô lập test 1 kênh cụ thể (VD chỉ PUSH). Xem
+     * {@link vn.com.pps.education.service.ManualNotificationSendService}.
+     */
+    @Transactional
+    public Notification notifyWithForcedChannels(Long recipientUserId, Notification.NotificationType type, String title, String content,
+                                                  Notification.Priority priority, Long triggeredByUserId,
+                                                  Set<NotificationDelivery.Channel> forceChannels) {
+        return notifyInternal(recipientUserId, type, title, content, null, null, null,
+                priority, triggeredByUserId, forceChannels);
+    }
+
+    private Notification notifyInternal(Long recipientUserId, Notification.NotificationType type, String title, String content,
+                                         Map<String, Object> metadata, String entityType, Long entityId,
+                                         Notification.Priority priority, Long triggeredByUserId,
+                                         Set<NotificationDelivery.Channel> forceChannels) {
         User recipient = userRepository.findById(recipientUserId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "error.notification.accountNotFound", new Object[]{recipientUserId},
@@ -132,11 +128,23 @@ public class NotificationService {
         notification.setTriggeredBy(triggeredBy);
         notification = notificationRepository.save(notification);
 
-        dispatchByPreference(notification, recipientUserId, type);
+        dispatchByPreference(notification, recipientUserId, type, forceChannels);
         return notification;
     }
 
-    private void dispatchByPreference(Notification notification, Long recipientUserId, Notification.NotificationType type) {
+    private void dispatchByPreference(Notification notification, Long recipientUserId, Notification.NotificationType type,
+                                       Set<NotificationDelivery.Channel> forceChannels) {
+        if (forceChannels != null && !forceChannels.isEmpty()) {
+            for (NotificationDelivery.Channel channel : forceChannels) {
+                if (channel == NotificationDelivery.Channel.IN_APP) {
+                    createInAppDelivery(notification);
+                } else {
+                    createPendingDelivery(notification, channel);
+                }
+            }
+            return;
+        }
+
         NotificationPreference pref = notificationPreferenceRepository
                 .findByUserIdAndNotificationType(recipientUserId, type).orElse(null);
 
@@ -203,6 +211,14 @@ public class NotificationService {
         delivery.setChannel(channel);
         delivery.setDeliveryStatus(NotificationDelivery.DeliveryStatus.PENDING);
         notificationDeliveryRepository.save(delivery);
+    }
+
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-12 — xem DeviceTokenCountResponse. */
+    @Transactional(readOnly = true)
+    public List<DeviceTokenCountResponse> getActiveDeviceTokenCounts(List<Long> userIds) {
+        return userIds.stream()
+                .map(id -> new DeviceTokenCountResponse(id, deviceTokenRepository.findByUserIdAndActiveTrue(id).size()))
+                .toList();
     }
 
     @Transactional(readOnly = true)

@@ -88,6 +88,15 @@
     "exportExcel": "Export Excel",
     "dueAtLabel": "Due date",
     "lateSubmissionAllowedLabel": "Allow late submission",
+    "lateSubmissionDeadlineLabel": "Late submission deadline:",
+    "lateSubmissionDeadlineClear": "Clear deadline (unlimited late submission)",
+    "confirmDeadline": {
+      "reviewButton": "Confirm deadline",
+      "title": "Confirm late submission deadline",
+      "description": "After {{deadline}}, students who haven't submitted will be locked out completely — unable to submit even with \"Allow late submission\" on. Confirm this deadline?",
+      "cancel": "Cancel",
+      "confirmButton": "Confirm"
+    },
     "table": {
       "status": "Status",
       "score": "Score",
@@ -169,6 +178,15 @@
   "reviewVideoDetail": {
     "dueAtLabel": "Due date",
     "lateSubmissionAllowedLabel": "Allow late submission",
+    "lateSubmissionDeadlineLabel": "Late submission deadline:",
+    "lateSubmissionDeadlineClear": "Clear deadline (unlimited late submission)",
+    "confirmDeadline": {
+      "reviewButton": "Confirm deadline",
+      "title": "Confirm late submission deadline",
+      "description": "After {{deadline}}, students who haven't submitted will be locked out completely — unable to submit even with \"Allow late submission\" on. Confirm this deadline?",
+      "cancel": "Cancel",
+      "confirmButton": "Confirm"
+    },
     "table": {
       "viewed": "Viewed",
       "completed": "Completion",

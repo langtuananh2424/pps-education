@@ -267,9 +267,15 @@
     "sendButtonDoneAll": "Đã gửi hết nhận xét buổi này",
     "confirmSend": {
       "title": "Xác nhận gửi nhận xét?",
-      "description": "Bạn sắp gửi nhận xét cho {{count}} học viên. Sau khi gửi, các dòng này sẽ bị khoá (không sửa lại được ở đây nữa) và mọi BTVN online đã chọn sẽ được giao thật ngay cho học sinh — hãy kiểm tra lại thật kỹ trước khi xác nhận.",
+      "description": "Bạn sắp gửi nhận xét cho {{count}} học viên. Sau khi gửi, các dòng này sẽ bị khoá (không sửa lại được ở đây nữa) và chuyển sang Chờ duyệt — hãy kiểm tra lại thật kỹ trước khi xác nhận.",
       "cancel": "Kiểm tra lại",
       "confirmButton": "Gửi nhận xét"
+    },
+    "confirmApplyHomework": {
+      "title": "Xác nhận giao BTVN cho cả lớp?",
+      "description": "Bạn sắp giao BTVN dưới đây cho TOÀN BỘ {{count}} học viên đang hoạt động của lớp — giao thật ngay lập tức, không chờ Gửi nhận xét. Hãy kiểm tra lại thật kỹ trước khi xác nhận.",
+      "cancel": "Kiểm tra lại",
+      "confirmButton": "Xác nhận giao BTVN"
     },
     "historyToggle": "Lịch sử nhận xét buổi này",
     "historyToggleCount": "Lịch sử nhận xét buổi này ({{count}})",
@@ -285,7 +291,7 @@
       "sentSuccess": "🔔 Đã gửi nhận xét {{count}} học sinh lên Quản lý điểm trường rà soát duyệt.",
       "sentButSubmitFailed": "⚠️ Đã lưu nháp {{count}} nhận xét nhưng gửi duyệt thất bại: {{reason}} — vào \"Lịch sử nhận xét\" bên dưới bấm \"Nộp duyệt\" để thử lại.",
       "alreadySent": "⚠️ Học sinh {{name}} đã có nhận xét cho buổi này rồi (trạng thái: {{status}}) — xem/sửa ở \"Lịch sử nhận xét\" bên dưới.",
-      "dueDateAppliedSuccess": "✅ Đã áp dụng hạn nộp mới cho toàn bộ nhận xét Nháp/Bị từ chối của buổi này."
+      "homeworkAppliedSuccess": "✅ Đã giao BTVN cho toàn bộ học viên đang hoạt động của lớp."
     },
     "errors": {
       "loadSessionsFailed": "Không tải được danh sách buổi học.",
@@ -305,7 +311,7 @@
       "saveDraftBeforeDownloadFailed": "Chưa lưu được nháp nên không tải file — {{reason}}",
       "xlsxOnly": "Chỉ hỗ trợ file .xlsx.",
       "importFailed": "Nhập từ Excel thất bại.",
-      "applyDueDateFailed": "Áp dụng hạn nộp mới thất bại."
+      "applyHomeworkFailed": "Giao BTVN cho cả lớp thất bại."
     }
   },
   "commentsPage": {

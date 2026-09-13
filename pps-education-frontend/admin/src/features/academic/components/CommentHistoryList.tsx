@@ -1,17 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { Flag, History, Save, Send } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { StudentCommentResponse, submitComments, updateComment } from "../api";
 import CommentVersionHistoryModal from "./CommentVersionHistoryModal";
-import {
-  HomeworkSkillGroupResponse,
-  ReviewVideoAssignmentResponse,
-  ReviewVideoSetResponse,
-  listHomeworkSkillGroupsForClass,
-  listReviewVideoAssignmentsForClass,
-  listReviewVideoSetsByClass
-} from "@/features/lms/api";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import { useToast } from "@/lib/useToast";
@@ -19,8 +11,6 @@ import Toast from "@/components/ui/Toast";
 import Select from "@/components/ui/Select";
 import TableContainer, { Td, Th } from "@/components/ui/TableContainer";
 import { toLocaleTag } from "@/lib/i18nFormat";
-
-type GrammarMode = "OFFLINE" | "ONLINE";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none";
 const statusVariants: Record<StudentCommentResponse["status"], "success" | "warning" | "danger" | "neutral"> = {
@@ -65,30 +55,14 @@ export default function CommentHistoryList({
   const [editAttitude, setEditAttitude] = useState<"" | NonNullable<StudentCommentResponse["attitude"]>>("");
   const [editHomeworkPreviousScore, setEditHomeworkPreviousScore] = useState("");
   const [editHomeworkPreviousSpeakingScore, setEditHomeworkPreviousSpeakingScore] = useState("");
-  const [editGrammarMode, setEditGrammarMode] = useState<GrammarMode>("OFFLINE");
   const [editHomeworkNext, setEditHomeworkNext] = useState("");
-  /** V65: id của Exercise NGUỒN đã Publish (không phải id bản giao) — chọn từ grammarOptions. */
-  const [editHomeworkNextExerciseId, setEditHomeworkNextExerciseId] = useState<number | "">("");
-  const [editHomeworkNextReviewVideoSetId, setEditHomeworkNextReviewVideoSetId] = useState<number | "">("");
   const [editNote, setEditNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [submittingId, setSubmittingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   /** Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-19) — version history kiểu Google Sheets. */
   const [historyFor, setHistoryFor] = useState<StudentCommentResponse | null>(null);
-  /** V150: nguồn khả dụng cho dropdown — nhóm kỹ năng (1 entry/Lesson, xem HomeworkSkillGroupResponse), không còn 1 Exercise/bản giao đơn. */
-  const [grammarOptions, setGrammarOptions] = useState<HomeworkSkillGroupResponse[]>([]);
-  const [videoOptions, setVideoOptions] = useState<ReviewVideoSetResponse[]>([]);
-  const [videoAssignments, setVideoAssignments] = useState<ReviewVideoAssignmentResponse[]>([]);
   const { message: toastMessage, showToast } = useToast();
-
-  useEffect(() => {
-    listHomeworkSkillGroupsForClass(classId, "VOCAB_GRAMMAR").then(setGrammarOptions).catch(() => undefined);
-    listReviewVideoSetsByClass(classId)
-      .then((sets) => setVideoOptions(sets.filter((s) => s.status === "PUBLISHED")))
-      .catch(() => undefined);
-    listReviewVideoAssignmentsForClass(classId).then(setVideoAssignments).catch(() => undefined);
-  }, [classId]);
 
   const startEdit = (h: StudentCommentResponse) => {
     setEditingId(h.id);
@@ -98,19 +72,10 @@ export default function CommentHistoryList({
     setEditAttitude(h.attitude ?? "");
     setEditHomeworkPreviousScore(h.homeworkPreviousScore ?? "");
     setEditHomeworkPreviousSpeakingScore(h.homeworkPreviousSpeakingScore ?? "");
-    // V127: pendingHomeworkNext* (id NGUỒN, chưa Gửi) ưu tiên trước — chỉ dòng REJECTED chưa sửa gì kể
-    // từ lần Gửi trước mới cần fallback đọc homeworkNextExerciseAssignmentId. V150 — field này giờ TỰ
-    // NÓ đã là examId (Lesson) của Lô đã giao lần trước, không cần tra ngược qua danh sách bản giao nữa
-    // (xem Javadoc StudentCommentResponse#homeworkNextExerciseAssignmentId).
-    setEditGrammarMode(h.pendingHomeworkNextExerciseId != null || h.homeworkNextExerciseAssignmentId != null ? "ONLINE" : "OFFLINE");
+    // 2026-09-12: BTVN online (Ngữ pháp/Video) không còn sửa được ở đây nữa — chỉ còn BTVN offline
+    // (chữ tự do). Giao BTVN online chỉ còn qua "Áp dụng cho cả lớp" (DailyCommentPanel), xem Javadoc
+    // BE StudentCommentService#applyHomeworkToClass.
     setEditHomeworkNext(h.homeworkNext ?? "");
-    setEditHomeworkNextExerciseId(h.pendingHomeworkNextExerciseId ?? h.homeworkNextExerciseAssignmentId ?? "");
-    setEditHomeworkNextReviewVideoSetId(
-      h.pendingHomeworkNextReviewVideoSetId ??
-        (h.homeworkNextReviewVideoAssignmentId != null
-          ? videoAssignments.find((a) => a.id === h.homeworkNextReviewVideoAssignmentId)?.reviewVideoSetId ?? ""
-          : "")
-    );
     setEditNote(h.note ?? "");
     setError(null);
   };
@@ -144,9 +109,7 @@ export default function CommentHistoryList({
         attitude: editAttitude || undefined,
         homeworkPreviousScore: editHomeworkPreviousScore.trim() || undefined,
         homeworkPreviousSpeakingScore: editHomeworkPreviousSpeakingScore.trim() || undefined,
-        homeworkNext: editGrammarMode === "OFFLINE" ? editHomeworkNext.trim() || undefined : undefined,
-        homeworkNextExerciseId: editGrammarMode === "ONLINE" && editHomeworkNextExerciseId !== "" ? editHomeworkNextExerciseId : undefined,
-        homeworkNextReviewVideoSetId: editHomeworkNextReviewVideoSetId !== "" ? editHomeworkNextReviewVideoSetId : undefined,
+        homeworkNext: editHomeworkNext.trim() || undefined,
         note: editNote.trim() || undefined
       });
       // UC-21 (2026-07-29, BE PR #113 khôi phục DRAFT cho DAILY): updateComment() giờ luôn giữ ở DRAFT,
@@ -196,69 +159,16 @@ export default function CommentHistoryList({
               <textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} rows={3} className={inputClass} />
               {h.commentType === "DAILY" && (
                 <>
-                  <div className="space-y-1">
-                    <div className="flex gap-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditGrammarMode("OFFLINE");
-                          setEditHomeworkNextExerciseId("");
-                        }}
-                        className={`flex-1 text-[10px] font-bold py-1.5 rounded-lg border ${
-                          editGrammarMode === "OFFLINE" ? "bg-brand-orange border-brand-orange text-white" : "bg-slate-50 border-slate-200 text-slate-500"
-                        }`}
-                      >
-                        {t("historyList.grammarModeOfflineButton")}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditGrammarMode("ONLINE");
-                          setEditHomeworkNext("");
-                        }}
-                        className={`flex-1 text-[10px] font-bold py-1.5 rounded-lg border ${
-                          editGrammarMode === "ONLINE" ? "bg-brand-orange border-brand-orange text-white" : "bg-slate-50 border-slate-200 text-slate-500"
-                        }`}
-                      >
-                        {t("historyList.grammarModeOnlineButton")}
-                      </button>
-                    </div>
-                    {editGrammarMode === "OFFLINE" ? (
-                      <input value={editHomeworkNext} onChange={(e) => setEditHomeworkNext(e.target.value)} placeholder={t("historyList.placeholders.homeworkNextOffline")} className={inputClass} />
-                    ) : (
-                      <Select
-                        value={editHomeworkNextExerciseId}
-                        onChange={(e) => setEditHomeworkNextExerciseId(e.target.value ? Number(e.target.value) : "")}
-                        className={inputClass}
-                      >
-                        <option value="">{t("historyList.placeholders.chooseExercise")}</option>
-                        {grammarOptions.map((ex) => (
-                          <option key={ex.examId} value={ex.examId}>
-                            {/* Bổ sung 2026-09-04 (đã xác nhận với người dùng) — mirror DailyCommentPanel.tsx: hiện
-                                Unit/SubTopic để phân biệt Lesson trùng tên. */}
-                            {ex.examCode} - {ex.examTitle}
-                            {(ex.unitTitle || ex.subTopicTitle) && ` [${[ex.unitTitle, ex.subTopicTitle].filter(Boolean).join(" · ")}]`} (
-                            {ex.exerciseCount} bài, {ex.questionCount} câu)
-                          </option>
-                        ))}
-                      </Select>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Select
-                      value={editHomeworkNextReviewVideoSetId}
-                      onChange={(e) => setEditHomeworkNextReviewVideoSetId(e.target.value ? Number(e.target.value) : "")}
-                      className={inputClass}
-                    >
-                      <option value="">{t("historyList.placeholders.noVideoAssign")}</option>
-                      {videoOptions.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.title} ({s.code})
-                        </option>
-                      ))}
-                    </Select>
-                    <input value={editNote} onChange={(e) => setEditNote(e.target.value)} placeholder={t("historyList.placeholders.note")} className={inputClass} />
-                  </div>
+                  {/* 2026-09-12: BTVN online (Ngữ pháp/Video) không còn sửa được ở đây — chỉ còn giao
+                      qua "Áp dụng cho cả lớp" (đã giao thì hiển thị read-only ở renderReadOnlyExtras).
+                      Ô này chỉ còn sửa BTVN offline (chữ tự do). */}
+                  <input
+                    value={editHomeworkNext}
+                    onChange={(e) => setEditHomeworkNext(e.target.value)}
+                    placeholder={t("historyList.placeholders.homeworkNextOffline")}
+                    className={inputClass}
+                  />
+                  <input value={editNote} onChange={(e) => setEditNote(e.target.value)} placeholder={t("historyList.placeholders.note")} className={inputClass} />
                 </>
               )}
               <div className="grid grid-cols-2 gap-2">

@@ -157,8 +157,15 @@
       "classGrid": "Theo lớp học"
     },
     "classGrid": {
-      "selectSiteHint": "Chọn 1 điểm trường ở dropdown \"Điểm trường\" trên đầu trang để xem theo lớp học.",
-      "rangeTooWideHint": "Chọn \"Ngày\" hoặc \"Tuần\" để xem theo lớp học — khoảng ngày hiện tại quá dài để hiển thị dạng lưới."
+      "selectSiteHint": "Chọn ít nhất 1 điểm trường ở bộ lọc phía trên để xem lịch.",
+      "rangeTooWideHint": "Chọn \"Ngày\" hoặc \"Tuần\" để xem theo lớp học — khoảng ngày hiện tại quá dài để hiển thị dạng lưới.",
+      "siteFilter": {
+        "placeholder": "Chọn điểm trường",
+        "selectedCount": "{{count}} điểm trường",
+        "selectAll": "Chọn tất cả",
+        "clearAll": "Bỏ chọn tất cả"
+      },
+      "createButton": "Xếp lịch"
     },
     "rangeSeparator": "đến",
     "filters": {

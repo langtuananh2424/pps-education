@@ -8,6 +8,7 @@ import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import { checkInStatusLabel, checkInStatusVariants, sessionStatusVariants, teacherTypeLabel } from "./ClassDetailPanel";
 import { checkInClassSession, ClassSessionCheckInStatusResponse, ClassSessionResponse } from "../api";
+import { getCmDisplayName, getDisplayTeacherName, hasTeacherSubstitution } from "../teacherDisplay";
 
 interface SessionCardProps {
   session: ClassSessionResponse;
@@ -53,11 +54,14 @@ export default function SessionCard({ session, siteName, checkInStatus, onChecke
   };
 
   const canCheckIn = checkInStatus?.effectiveStatus === "PENDING";
+  const displayTeacherName = getDisplayTeacherName(session);
+  const cmDisplayName = getCmDisplayName(session);
+  const hasSubstitution = hasTeacherSubstitution(session);
 
   return (
     <div className="border border-slate-150 rounded-lg p-2.5 space-y-1 text-xs">
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <span className="font-mono text-[10px] text-slate-500">{session.startTime}–{session.endTime}</span>
+        <span className="font-mono text-[10px] font-bold text-slate-600">{session.startTime.slice(0, 5)}–{session.endTime.slice(0, 5)}</span>
         <div className="flex items-center gap-1.5 flex-wrap justify-end">
           <Badge variant={sessionStatusVariants[session.status] ?? "neutral"}>{session.status}</Badge>
           {checkInStatus && session.status !== "CANCELLED" && session.status !== "RESCHEDULED" && (
@@ -77,18 +81,21 @@ export default function SessionCard({ session, siteName, checkInStatus, onChecke
         <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
         {session.roomName ?? t("myTeachingSchedule.unassignedRoom")}
       </p>
-      <p className="text-[11px] text-slate-400">
+      {hasSubstitution && (
+        <p className="text-[10px] font-bold line-through bg-amber-100 text-amber-700 px-1 rounded w-fit">{session.originalTeacherName}</p>
+      )}
+      <p className="text-[11px] font-bold text-green-600">
         {t("myTeachingSchedule.teacherLine", {
-          teacher: session.primaryTeacherName,
+          teacher: displayTeacherName,
           type: session.teacherType ? ` (${teacherTypeLabel(t, session.teacherType)})` : "",
           sessionType: t(`enums.sessionType.${session.sessionType}`, session.sessionType)
         })}
       </p>
-      {(session.assistantTeacherName || session.cmTeacherName) && (
+      {(session.assistantTeacherName || cmDisplayName) && (
         <p className="text-[11px] text-slate-400">
           {session.assistantTeacherName && <>GV phụ: {session.assistantTeacherName}</>}
-          {session.assistantTeacherName && session.cmTeacherName && " · "}
-          {session.cmTeacherName && <>CM: {session.cmTeacherName}</>}
+          {session.assistantTeacherName && cmDisplayName && " · "}
+          {cmDisplayName && <>CM: {cmDisplayName}</>}
         </p>
       )}
       {session.status === "CANCELLED" && session.cancellationReason && (

@@ -81,6 +81,26 @@ public class NotificationEmailTemplateService {
     }
 
     private void registerTemplates() {
+        templates.put(Notification.NotificationType.STUDENT_ATTITUDE_ALERT, spec(
+                GREETING_PARENT, AUDIENCE_PARENT, "Thông báo về thái độ học tập của học viên",
+                "Hệ thống ghi nhận học viên có thái độ học tập Yếu/Trung bình trong buổi học gần nhất.",
+                "Thái độ học tập ảnh hưởng trực tiếp tới khả năng tiếp thu kiến thức và kết quả học tập của học viên.",
+                "Kính mong Quý Phụ huynh dành thời gian trò chuyện, động viên và nhắc nhở học viên tập trung hơn trong các buổi học tiếp theo.",
+                "Nếu cần trao đổi thêm, vui lòng liên hệ Hotline: " + hotline + "."));
+
+        templates.put(Notification.NotificationType.STUDENT_ATTITUDE_ESCALATION_PENDING_APPROVAL, spec(
+                GREETING_SITE_MANAGER, AUDIENCE_SITE_MANAGER, "Thông báo có cảnh báo thái độ học tập cần phê duyệt",
+                "Hệ thống ghi nhận có 1 học viên có thái độ học tập Yếu/Trung bình liên tục 3 buổi, đang chờ Quý Anh/Chị phê duyệt.",
+                "Cảnh báo chỉ được gửi xuống Phụ huynh sau khi Quý Anh/Chị duyệt — kính đề nghị Quý Anh/Chị đăng nhập vào hệ thống để xem xét và phê duyệt.",
+                "Nếu cần hỗ trợ, vui lòng liên hệ Hotline: " + hotline + "."));
+
+        templates.put(Notification.NotificationType.STUDENT_ATTITUDE_ESCALATION, spec(
+                GREETING_PARENT, AUDIENCE_PARENT, "Thông báo về thái độ học tập liên tục của học viên",
+                "Hệ thống ghi nhận học viên có thái độ học tập Yếu/Trung bình liên tục trong 03 buổi học gần nhất.",
+                "Việc duy trì thái độ học tập chưa tốt trong thời gian dài có thể ảnh hưởng nghiêm trọng tới kết quả học tập của học viên.",
+                "Kính mong Quý Phụ huynh quan tâm sát sao, trao đổi cùng giáo viên phụ trách hoặc Quản lý điểm trường để có phương án hỗ trợ kịp thời.",
+                "Mọi thông tin vui lòng liên hệ Hotline: " + hotline + "."));
+
         templates.put(Notification.NotificationType.HOMEWORK_MISS_REMINDER, spec(
                 GREETING_PARENT, AUDIENCE_PARENT, "Nhắc nhở về việc hoàn thành bài tập của học viên",
                 "Hệ thống ghi nhận học viên chưa hoàn thành đầy đủ bài tập được giao trong 02 lần liên tiếp.",
@@ -136,6 +156,12 @@ public class NotificationEmailTemplateService {
                 "Hệ thống xin thông báo bài tập Quý Thầy/Cô đã giao cho học viên đã hết thời hạn nộp bài.",
                 "Kết quả thực hiện của học viên đã được hệ thống tổng hợp và sẵn sàng để Quý Thầy/Cô theo dõi, đánh giá và đưa ra nhận xét.",
                 "Để đảm bảo việc theo dõi tiến độ học tập của học viên được kịp thời, kính mời Quý Thầy/Cô đăng nhập vào hệ thống để xem chi tiết kết quả của từng học viên và thực hiện các nhận xét cần thiết.",
+                "Nếu cần hỗ trợ, vui lòng liên hệ Hotline: " + hotline + "."));
+
+        templates.put(Notification.NotificationType.HOMEWORK_MEETING_INVITE_PENDING_APPROVAL, spec(
+                GREETING_SITE_MANAGER, AUDIENCE_SITE_MANAGER, "Thông báo có thư mời phụ huynh cần phê duyệt",
+                "Hệ thống ghi nhận có 1 \"Thư mời phụ huynh tới làm việc\" đang chờ Quý Anh/Chị phê duyệt (học viên thiếu bài liên tục 4 buổi).",
+                "Thư mời chỉ được gửi xuống Phụ huynh sau khi Quý Anh/Chị duyệt — kính đề nghị Quý Anh/Chị đăng nhập vào hệ thống để xem xét và phê duyệt.",
                 "Nếu cần hỗ trợ, vui lòng liên hệ Hotline: " + hotline + "."));
 
         templates.put(Notification.NotificationType.COMMENT_PENDING_APPROVAL, spec(

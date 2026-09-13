@@ -13,8 +13,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import vn.com.pps.education.common.ExcelHttpResponses;
+import vn.com.pps.education.dto.ApplyClassHomeworkRequest;
 import vn.com.pps.education.dto.AutoProgressPreviewResponse;
-import vn.com.pps.education.dto.BulkUpdateHomeworkDueDateRequest;
 import vn.com.pps.education.dto.ClassSessionLessonContentResponse;
 import vn.com.pps.education.dto.ClassSessionTeacherNameResponse;
 import vn.com.pps.education.dto.ClassSessionTeacherTypeResponse;
@@ -23,6 +23,8 @@ import vn.com.pps.education.dto.DailyCommentImportPreviewResponse;
 import vn.com.pps.education.dto.DailyCommentImportResponse;
 import vn.com.pps.education.dto.DecideCommentsRequest;
 import vn.com.pps.education.dto.StudentCommentHistoryResponse;
+import vn.com.pps.education.dto.SaveDraftCommentsRequest;
+import vn.com.pps.education.dto.SaveDraftCommentsResponse;
 import vn.com.pps.education.dto.StudentCommentResponse;
 import vn.com.pps.education.dto.SubmitCommentsRequest;
 import vn.com.pps.education.dto.UpdateActualTeacherNameRequest;
@@ -84,6 +86,20 @@ public class StudentCommentController {
         return ResponseEntity.ok(studentCommentService.updateComment(id, request, actor.userId()));
     }
 
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — "Lưu nháp" CẢ LỚP trong 1
+     * request, thay cho việc FE gọi lặp lại writeComment/updateComment cho từng học sinh (N request
+     * HTTP thật gây chậm trên môi trường deploy, xem Javadoc StudentCommentService#saveDraftBatch).
+     */
+    @PreAuthorize("hasPermission(null, 'academic.comment.write')")
+    @PostMapping("/api/classes/{classId}/class-sessions/{classSessionId}/comments/draft-batch")
+    public ResponseEntity<SaveDraftCommentsResponse> saveDraftBatch(@PathVariable Long classId,
+                                                                       @PathVariable Long classSessionId,
+                                                                       @Valid @RequestBody SaveDraftCommentsRequest request,
+                                                                       @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(studentCommentService.saveDraftBatch(classId, classSessionId, request, actor.userId()));
+    }
+
     @PreAuthorize("hasPermission(null, 'academic.comment.write')")
     @PostMapping("/api/classes/{classId}/comments/submit")
     public ResponseEntity<List<StudentCommentResponse>> submitComments(@PathVariable Long classId,
@@ -92,13 +108,18 @@ public class StudentCommentController {
         return ResponseEntity.ok(studentCommentService.submitComments(classId, request, actor.userId()));
     }
 
-    /** Bổ sung ngoài SDD gốc (2026-08-24, xác nhận với người dùng) — đổi Hạn nộp BTVN buổi sau cho TOÀN BỘ nhận xét NHÁP/Bị từ chối của 1 buổi trong 1 lần gọi. Xem Javadoc StudentCommentService#bulkUpdatePendingDueDate. */
+    /**
+     * Bổ sung 2026-09-12 (đã xác nhận với người dùng) — "Áp dụng cho cả lớp": điểm giao BTVN buổi sau
+     * DUY NHẤT, FE hiện popup xác nhận trước khi gọi. Xem Javadoc StudentCommentService#applyHomeworkToClass.
+     * Thay thế hẳn endpoint {@code PUT .../comments/due-date} (bulkUpdatePendingDueDate) cũ — hạn nộp/
+     * cho phép nộp muộn giờ gộp luôn vào request này.
+     */
     @PreAuthorize("hasPermission(null, 'academic.comment.write') or hasPermission(null, 'academic.comment.approve')")
-    @PutMapping("/api/class-sessions/{sessionId}/comments/due-date")
-    public ResponseEntity<List<StudentCommentResponse>> bulkUpdatePendingDueDate(@PathVariable Long sessionId,
-                                                                                    @Valid @RequestBody BulkUpdateHomeworkDueDateRequest request,
-                                                                                    @AuthenticationPrincipal AuthenticatedUser actor) {
-        return ResponseEntity.ok(studentCommentService.bulkUpdatePendingDueDate(sessionId, request.dueDate(), request.lateSubmissionAllowed(), actor.userId()));
+    @PostMapping("/api/class-sessions/{classSessionId}/comments/apply-homework")
+    public ResponseEntity<List<StudentCommentResponse>> applyHomeworkToClass(@PathVariable Long classSessionId,
+                                                                                @Valid @RequestBody ApplyClassHomeworkRequest request,
+                                                                                @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(studentCommentService.applyHomeworkToClass(classSessionId, request, actor.userId()));
     }
 
     // ---- UC-22: Duyệt nhận xét (SITE_MANAGER) ----

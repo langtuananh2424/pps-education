@@ -12,4 +12,6 @@ public interface NotificationDeliveryRepository extends JpaRepository<Notificati
 
     List<NotificationDelivery> findByDeliveryStatusAndNextRetryAtLessThanEqual(
             NotificationDelivery.DeliveryStatus status, OffsetDateTime asOf);
+
+    List<NotificationDelivery> findByNotificationId(Long notificationId);
 }

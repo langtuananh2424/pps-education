@@ -114,7 +114,7 @@
   "questionImportPanel": {
     "excelHeaders": [
       "Loại câu hỏi", "Độ khó", "Nội dung", "Đáp án A", "Đáp án B", "Đáp án C", "Đáp án D",
-      "Đáp án đúng", "URL Audio", "URL Hình ảnh", "Đoạn văn tham chiếu/Transcript/Từ khóa phát âm/Hộp từ vựng", "Điểm", "Giải thích", "Tags"
+      "Đáp án đúng", "URL Audio", "URL Hình ảnh", "Đoạn văn tham chiếu", "Điểm", "Giải thích", "Tags"
     ],
     "excelSampleExplanations": {
       "geo": "Paris là thủ đô nước Pháp.",
@@ -127,6 +127,7 @@
       "letterScramble": "Mỗi chữ cái 1 phần tử, phân tách bằng dấu | theo ĐÚNG thứ tự tạo thành từ đúng.",
       "listeningAudioSubmission": "Học sinh nộp audio, chấm tay ở Hàng chờ chấm bài.",
       "listeningFillInBlank": "Hệ thống tự chấm theo đáp án đúng.",
+      "listeningPictureChoice": "Mỗi ảnh 1 đáp án theo thứ tự A/B/C(/D), phân tách bằng dấu | trong URL Hình ảnh — Đáp án A/B/C/D tùy chọn để thêm chú thích chữ dưới ảnh, để trống thì tự dùng chữ cái làm nhãn.",
       "gridReading": "Mỗi câu trong Nội dung phân tách bằng |, dùng CHUNG 1 đoạn văn tham chiếu + CHUNG 1 bộ đáp án A-D (áp dụng cho MỌI câu). Đáp án đúng là chữ cái A/B/C/D theo ĐÚNG thứ tự khớp Nội dung.",
       "clozeReading": "Số chỗ trống suy ra từ số phần tử | ở Đáp án A (bắt buộc) — Đáp án B/C/D (nếu có) phải cùng số lượng, MỖI chỗ trống 1 phương án riêng. Nội dung (tùy chọn) đặt nhãn riêng từng chỗ trống, để trống thì tự đánh số."
     },
@@ -387,7 +388,31 @@
     "subTopicUpdatedToast": "Đã sửa Sub Topic.",
     "deleteSubTopicConfirm": "Xóa Sub Topic \"{{title}}\"? Chỉ xóa được khi chưa có Đề/Bộ video nào dùng.",
     "subTopicDeletedToast": "Đã xóa Sub Topic.",
-    "deleteSubTopicFailed": "Xóa Sub Topic thất bại."
+    "deleteSubTopicFailed": "Xóa Sub Topic thất bại.",
+    "importButton": "Nhập Excel",
+    "importModal": {
+      "title": "Nhập Excel danh mục Sách/Unit/Lesson",
+      "description": "Mỗi dòng = 1 Bài. Cột Tên sách/Tên Unit/Tên Sub Topic/Mã Lesson để trống nghĩa là lặp lại giá trị dòng liền trước (kiểu merged cell khi xuất từ Excel).",
+      "downloadTemplate": "Tải file mẫu (.xlsx)",
+      "teacherTypeLabel": "Loại giáo viên MẶC ĐỊNH (dùng khi cột \"Loại giáo viên\" trong file để trống)",
+      "teacherTypePlaceholder": "Chọn loại giáo viên mặc định",
+      "examTypeLabel": "Loại đề áp dụng cho Đề mới",
+      "examTypePlaceholder": "Chọn loại đề",
+      "totalPointsLabel": "Tổng điểm mặc định cho Bài mới",
+      "hintDefaults": "Chỉ áp dụng cho Đề/Bài MỚI tạo — Đề/Bài đã có sẵn đúng mã giữ nguyên giá trị cũ. Trong file, cột \"Loại giáo viên\" cho phép khai riêng VIETNAMESE/FOREIGN cho từng Lesson (VD Lesson lẻ = GVVN, Lesson chẵn = GVNN) — để trống thì dùng giá trị mặc định ở trên.",
+      "chooseFile": "Chọn file Excel (.xlsx)",
+      "onlyXlsx": "Chỉ chấp nhận file .xlsx.",
+      "requiredFields": "Chọn đủ Loại giáo viên, Loại đề và Tổng điểm mặc định trước khi chọn file.",
+      "importing": "Đang nhập...",
+      "importFailed": "Nhập Excel thất bại.",
+      "stats": {
+        "totalRows": "Tổng số dòng",
+        "successRows": "Thành công",
+        "failedRows": "Lỗi"
+      },
+      "errorDetailTitle": "Chi tiết lỗi từng dòng",
+      "closeButton": "Đóng"
+    }
   },
   "assignPage": {
     "statusLabels": {
@@ -465,7 +490,9 @@
       "showCorrectAnswersCheckbox": "Hiện đáp án đúng sau khi nộp (phần trắc nghiệm)",
       "allowRetakeCheckbox": "Cho phép làm lại",
       "maxAttemptsLabel": "Số lần làm tối đa",
-      "immutableHint": "Mã Bài ({{code}}) không sửa được sau khi tạo."
+      "immutableHint": "Mã Bài ({{code}}) không sửa được sau khi tạo.",
+      "skillCategoryLockedHint": "Bài đã có câu hỏi nên không đổi Nhóm kỹ năng được — gỡ hết câu hỏi trước nếu muốn đổi.",
+      "skillCategoryEditableHint": "Bài chưa có câu hỏi nên vẫn đổi được Nhóm kỹ năng."
     },
     "addQuestionsModal": {
       "modalTitle": "Thêm câu hỏi — {{code}}"
@@ -483,6 +510,9 @@
       "examUpdatedToast": "Đã cập nhật Đề thành công!",
       "createExercise": "Soạn Bài mới",
       "noExercises": "Đề này chưa có Bài nào.",
+      "noExercisesForSkill": "Không có Bài nào thuộc Nhóm kỹ năng đã chọn trong Đề này.",
+      "allSkillCategories": "Tất cả kỹ năng",
+      "noSkillCategory": "Chưa gán kỹ năng",
       "exerciseSavedToast": "Đã lưu Bài thành công!"
     },
     "exerciseRow": {

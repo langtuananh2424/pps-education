@@ -193,7 +193,7 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
         // requireWithinSessionWindow), giờ cố định làm phần lớn test ở file này flaky theo giờ chạy CI.
         session = classSessionService.createSession(schoolClass.id(),
                 new CreateClassSessionRequest(LocalDate.now(), "MORNING", List.of(1, 2), null, "REGULAR", "VIETNAMESE",
-                        teacher.getId(), null, null, null),
+                        teacher.getId(), null, null, null, null),
                 headAcademic.getId());
 
         student1 = newStudent();
@@ -571,7 +571,7 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
                 new AssignTeacherRequest(siteTeacher.getId(), "PRIMARY", null, LocalDate.now(), "VIETNAMESE"), headAcademic.getId());
         ClassSessionResponse newSession = classSessionService.createSession(schoolClass.id(),
                 new CreateClassSessionRequest(LocalDate.now(), "MORNING", List.of(1), null, "REGULAR", "VIETNAMESE",
-                        siteTeacher.getId(), null, null, null),
+                        siteTeacher.getId(), null, null, null, null),
                 headAcademic.getId());
         studentAttendanceService.markAttendance(newSession.id(),
                 new MarkAttendanceRequest("SESSION_LEVEL", List.of(
@@ -608,7 +608,7 @@ class StudentAttendanceServiceTest extends AbstractIntegrationTest {
                 new AssignTeacherRequest(siteTeacher.getId(), "PRIMARY", null, LocalDate.now(), "VIETNAMESE"), headAcademic.getId());
         ClassSessionResponse newSession = classSessionService.createSession(schoolClass.id(),
                 new CreateClassSessionRequest(LocalDate.now(), "MORNING", List.of(1), null, "REGULAR", "VIETNAMESE",
-                        siteTeacher.getId(), null, null, null),
+                        siteTeacher.getId(), null, null, null, null),
                 headAcademic.getId());
         studentAttendanceService.markAttendance(newSession.id(),
                 new MarkAttendanceRequest("SESSION_LEVEL", List.of(

@@ -43,7 +43,9 @@ import vn.com.pps.education.repository.StudentRepository;
 import vn.com.pps.education.repository.UserRepository;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -106,6 +108,8 @@ public class ExerciseService {
     private final TransactionTemplate requiresNewTransactionTemplate;
 
     private static final String PERM_EXAM_MANAGE = "lms.exam.manage";
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — mirror StudentCommentService#APP_ZONE. */
+    private static final ZoneId APP_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
 
     public ExerciseService(ExerciseRepository exerciseRepository,
                             ExerciseQuestionRepository exerciseQuestionRepository,
@@ -175,6 +179,11 @@ public class ExerciseService {
      * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04 — sửa lại thông tin 1 Bài đã soạn
      * (trước đây chỉ tạo được, không sửa được nữa). Không sửa code/examId/exerciseType (cố định từ
      * lúc tạo, giống quy ước ExamService#updateExam) — không giới hạn theo status, mirror updateExam.
+     *
+     * skillCategory (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-10): CHO sửa lại nhưng
+     * CHỈ khi Bài chưa có câu hỏi nào — skillCategory dùng để khóa loại câu hỏi (kind) được phép soạn
+     * (xem CreateAndAssignExerciseModal.tsx phía FE), đổi khi đã có câu hỏi sẽ làm câu hỏi cũ sai loại
+     * so với skillCategory mới.
      */
     @Transactional
     public ExerciseResponse updateExercise(Long id, UpdateExerciseRequest request, Long actorUserId) {
@@ -187,6 +196,16 @@ public class ExerciseService {
         exercise.setShowCorrectAnswers(request.showCorrectAnswers());
         if (request.passThresholdPercent() != null) {
             exercise.setPassThresholdPercent(request.passThresholdPercent());
+        }
+        if (request.skillCategory() != null) {
+            Exercise.SkillCategory newSkillCategory = Exercise.SkillCategory.valueOf(request.skillCategory());
+            if (newSkillCategory != exercise.getSkillCategory()) {
+                if (exerciseQuestionRepository.countByExerciseId(id) > 0) {
+                    throw new IllegalArgumentException(
+                            "Không thể đổi Nhóm kỹ năng vì Bài này đã có câu hỏi. Gỡ hết câu hỏi trước khi đổi.");
+                }
+                exercise.setSkillCategory(newSkillCategory);
+            }
         }
         exercise = exerciseRepository.save(exercise);
         return toResponse(exercise, exerciseQuestionRepository.findByExerciseIdOrderByDisplayOrder(id));
@@ -534,12 +553,26 @@ public class ExerciseService {
      * bài muộn" cho 1 bản giao ĐÃ tạo (kể cả đã quá hạn) — trả lời nhu cầu "lỡ ban đầu không cho nộp
      * muộn mà học sinh chưa xong thì sao", gọi từ trang "Xem chi tiết" BTVN (Thống kê BTVN) Giáo viên
      * đang xem, không cần tạo lại bản giao từ đầu.
+     *
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — thêm tham số
+     * {@code lateSubmissionDeadline} (hạn chót nộp muộn cụ thể, NULL = không giới hạn) — chỉ áp dụng
+     * khi lateSubmissionAllowed=true, ép NULL nếu không (tránh lưu 1 hạn "mồ côi" không còn ý nghĩa gì
+     * khi đã tắt cho nộp muộn). Phải sau dueAt nếu dueAt có giá trị — hạn nộp muộn đứng TRƯỚC hạn gốc
+     * không có ý nghĩa gì. Kiểu {@link LocalDateTime} (không offset, mirror
+     * {@code StudentCommentService#resolveDueAt}) — tự quy đổi theo múi giờ ứng dụng.
      */
     @Transactional
-    public ExerciseAssignmentResponse updateLateSubmissionAllowed(Long assignmentId, boolean lateSubmissionAllowed, Long actorUserId) {
+    public ExerciseAssignmentResponse updateLateSubmissionAllowed(Long assignmentId, boolean lateSubmissionAllowed,
+                                                                     LocalDateTime lateSubmissionDeadline, Long actorUserId) {
         ExerciseAssignment assignment = exerciseAssignmentOrThrow(assignmentId);
         requireAssignedTeacher(assignment.getSchoolClass().getId(), actorUserId);
+        OffsetDateTime effectiveDeadline = lateSubmissionAllowed && lateSubmissionDeadline != null
+                ? lateSubmissionDeadline.atZone(APP_ZONE).toOffsetDateTime() : null;
+        if (effectiveDeadline != null && assignment.getDueAt() != null && !effectiveDeadline.isAfter(assignment.getDueAt())) {
+            throw new IllegalArgumentException("Hạn nộp muộn phải sau hạn nộp gốc (" + assignment.getDueAt() + ").");
+        }
         assignment.setLateSubmissionAllowed(lateSubmissionAllowed);
+        assignment.setLateSubmissionDeadline(effectiveDeadline);
         assignment = exerciseAssignmentRepository.save(assignment);
         return toResponse(assignment);
     }
@@ -551,10 +584,14 @@ public class ExerciseService {
                 .findBySchoolClassIdAndStatus(schoolClass.getId(), ClassEnrollment.Status.ACTIVE);
         String title = "Bài kiểm tra mới được giao";
         String content = "Đề \"" + exercise.getTitle() + "\" đã được giao cho lớp " + schoolClass.getName() + ".";
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("assignmentLabel", "Đề \"" + exercise.getTitle() + "\"");
+        metadata.put("className", schoolClass.getName());
+        metadata.put("dueAt", assignment.getDueAt());
         for (ClassEnrollment enrollment : enrollments) {
             notificationService.notify(enrollment.getStudent().getUser().getId(),
                     Notification.NotificationType.OTHER, title, content,
-                    null, "EXERCISE_ASSIGNMENT", assignment.getId(),
+                    metadata, "EXERCISE_ASSIGNMENT", assignment.getId(),
                     Notification.Priority.NORMAL, null);
         }
     }
@@ -718,7 +755,7 @@ public class ExerciseService {
         return new ExerciseAssignmentResponse(
                 a.getId(), a.getUuid(), a.getExercise().getId(), a.getExercise().getTitle(), a.getExercise().getCode(),
                 a.getSchoolClass().getId(), a.getAssignedBy().getId(),
-                a.getAvailableFrom(), a.getDueAt(), a.isLateSubmissionAllowed(), a.getLatePenaltyPercent(),
+                a.getAvailableFrom(), a.getDueAt(), a.isLateSubmissionAllowed(), a.getLateSubmissionDeadline(), a.getLatePenaltyPercent(),
                 a.getTargetStudentIds(), a.getStatus().name());
     }
 }

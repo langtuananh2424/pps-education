@@ -93,7 +93,9 @@ import vn.com.pps.education.repository.UserRepository;
 import vn.com.pps.education.service.integrity.AttemptIntegrityService;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -164,6 +166,8 @@ public class ReviewVideoService {
     private final TransactionTemplate requiresNewTransactionTemplate;
 
     private static final String PERM_REVIEW_VIDEO_MANAGE = "lms.review-video.manage";
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — mirror StudentCommentService#APP_ZONE. */
+    private static final ZoneId APP_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
 
     /**
      * V168 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-08) — ngưỡng % đạt (viết VÀ
@@ -532,11 +536,19 @@ public class ReviewVideoService {
      * xem — không cần tạo lại bản giao từ đầu.
      */
     @Transactional
-    public ReviewVideoAssignmentResponse updateLateSubmissionAllowed(Long assignmentId, boolean lateSubmissionAllowed, Long actorUserId) {
+    public ReviewVideoAssignmentResponse updateLateSubmissionAllowed(Long assignmentId, boolean lateSubmissionAllowed,
+                                                                       LocalDateTime lateSubmissionDeadline, Long actorUserId) {
         ReviewVideoAssignment assignment = reviewVideoAssignmentRepository.findById(assignmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("error.reviewVideo.assignmentNotFound", new Object[]{assignmentId}, "Không tìm thấy bản giao id=" + assignmentId));
         requireOwnerScope(assignment.getReviewVideoSet(), actorUserId);
+        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — mirror ExerciseService#updateLateSubmissionAllowed.
+        OffsetDateTime effectiveDeadline = lateSubmissionAllowed && lateSubmissionDeadline != null
+                ? lateSubmissionDeadline.atZone(APP_ZONE).toOffsetDateTime() : null;
+        if (effectiveDeadline != null && assignment.getDueAt() != null && !effectiveDeadline.isAfter(assignment.getDueAt())) {
+            throw new IllegalArgumentException("Hạn nộp muộn phải sau hạn nộp gốc (" + assignment.getDueAt() + ").");
+        }
         assignment.setLateSubmissionAllowed(lateSubmissionAllowed);
+        assignment.setLateSubmissionDeadline(effectiveDeadline);
         assignment = reviewVideoAssignmentRepository.save(assignment);
         return toAssignmentResponse(assignment);
     }
@@ -588,7 +600,8 @@ public class ReviewVideoService {
                         assignment.getId(), set.getId(), set.getTitle(), set.getVideoType().name(),
                         schoolClass.getId(), schoolClass.getName(),
                         assignment.getAvailableFrom(), assignment.getDueAt(),
-                        assignment.getSourceClassSession() == null ? null : assignment.getSourceClassSession().getSessionDate()));
+                        assignment.getSourceClassSession() == null ? null : assignment.getSourceClassSession().getSessionDate(),
+                        assignment.isLateSubmissionAllowed(), assignment.getLateSubmissionDeadline()));
             }
         }
         return result;
@@ -598,18 +611,23 @@ public class ReviewVideoService {
         return new ReviewVideoAssignmentResponse(
                 a.getId(), a.getUuid(), a.getReviewVideoSet().getId(), a.getReviewVideoSet().getTitle(),
                 a.getSchoolClass().getId(), a.getAssignedBy().getId(),
-                a.getAvailableFrom(), a.getDueAt(), a.isLateSubmissionAllowed(), a.getTargetStudentIds(), a.getStatus().name());
+                a.getAvailableFrom(), a.getDueAt(), a.isLateSubmissionAllowed(), a.getLateSubmissionDeadline(), a.getTargetStudentIds(), a.getStatus().name());
     }
 
     private void notifyAssignedStudents(SchoolClass schoolClass, ReviewVideoSet set, ReviewVideoAssignment assignment) {
         List<ClassEnrollment> enrollments = classEnrollmentRepository
                 .findBySchoolClassIdAndStatus(schoolClass.getId(), ClassEnrollment.Status.ACTIVE);
         String title = "Video ôn tập mới được giao";
-        String content = "Bộ video \"" + set.getTitle() + "\" đã được giao cho lớp " + schoolClass.getName() + ".";
+        String assignmentLabel = "Bộ video \"" + set.getTitle() + "\"";
+        String content = assignmentLabel + " đã được giao cho lớp " + schoolClass.getName() + ".";
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("assignmentLabel", assignmentLabel);
+        metadata.put("className", schoolClass.getName());
+        metadata.put("dueAt", assignment.getDueAt());
         for (ClassEnrollment enrollment : enrollments) {
             notificationService.notify(enrollment.getStudent().getUser().getId(),
                     Notification.NotificationType.OTHER, title, content,
-                    null, "REVIEW_VIDEO_ASSIGNMENT", assignment.getId(),
+                    metadata, "REVIEW_VIDEO_ASSIGNMENT", assignment.getId(),
                     Notification.Priority.NORMAL, null);
         }
     }
@@ -1459,8 +1477,8 @@ public class ReviewVideoService {
 
         return new ReviewVideoAssignmentStatsResponse(
                 assignment.getId(), set.getId(), set.getCode(), set.getTitle(), set.getVideoType(), set.getTeacherType(),
-                assignment.getAvailableFrom(), assignment.getDueAt(), assignment.isLateSubmissionAllowed(), assignment.getStatus(),
-                totalStudents, completedCount, completionPercent, passedCount, passRatePercent);
+                assignment.getAvailableFrom(), assignment.getDueAt(), assignment.isLateSubmissionAllowed(), assignment.getLateSubmissionDeadline(),
+                assignment.getStatus(), totalStudents, completedCount, completionPercent, passedCount, passRatePercent);
     }
 
     /**
@@ -1717,8 +1735,9 @@ public class ReviewVideoService {
         if (assignment.getStatus() != ReviewVideoAssignment.Status.ACTIVE) {
             throw new SubmissionPastDeadlineException("Bản giao Video Ôn tập này đã bị thay thế hoặc hủy, không thể ghi nhận thêm.");
         }
-        if (assignment.getDueAt() != null && OffsetDateTime.now().isAfter(assignment.getDueAt())
-                && !assignment.isLateSubmissionAllowed()) {
+        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — isPastEffectiveDeadline() giờ
+        // còn tính thêm lateSubmissionDeadline (hạn chót nộp muộn cụ thể, nếu Giáo viên có set).
+        if (assignment.isPastEffectiveDeadline()) {
             throw new SubmissionPastDeadlineException(
                     "error.submissionPastDeadline.reviewVideo", new Object[]{assignment.getDueAt()},
                     "Bản giao Video Ôn tập này đã quá hạn nộp (" + assignment.getDueAt() + ").");
@@ -1868,6 +1887,14 @@ public class ReviewVideoService {
      * tách biệt khỏi điểm pass). Quay lại đúng V115: completed = đủ SỐ LƯỢT
      * tuyệt đối cho CẢ 2 loại video, không dùng completionPassThresholdPercent
      * nữa cho mục đích này (field này vẫn dùng cho isConnectionVideoPassed).
+     *
+     * V173 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13) —
+     * học sinh chủ động "Dừng, xem kết quả" ở popup ngưỡng (xem
+     * {@link #stopEarly}) đã set {@code stoppedEarly=true}/{@code completed=true}
+     * ngay lúc đó; công thức tuyệt đối ở đây OR thêm cờ này để lần
+     * reportProgress/submitConnectionAnswers KẾ TIẾP (nếu học sinh mở lại
+     * video sau khi đã dừng sớm) không tự tính lại completed=false chỉ vì
+     * viewCount vẫn còn dưới requiredViewCount.
      */
     private ReviewVideoProgress recomputeProgress(ReviewVideo video, Student student, ReviewVideoAssignment assignment) {
         ReviewVideoProgress progress = getOrCreateProgress(video, student, assignment);
@@ -1878,9 +1905,38 @@ public class ReviewVideoService {
                 : reviewVideoWatchSessionRepository.countByReviewVideoIdAndStudentIdAndReviewVideoAssignmentIdAndQualifiedTrue(
                         video.getId(), student.getId(), assignment.getId());
         progress.setViewCount(viewCount);
-        boolean completed = viewCount >= video.getRequiredViewCount();
+        boolean completed = viewCount >= video.getRequiredViewCount() || progress.isStoppedEarly();
         progress.setCompleted(completed);
         return reviewVideoProgressRepository.save(progress);
+    }
+
+    /**
+     * V173 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13) — học sinh chủ động chọn
+     * "Dừng, xem kết quả" ở popup ngưỡng (FE: {@code handleThresholdStop}, chỉ hiện khi tỷ lệ số lượt
+     * đã đạt/tổng lượt yêu cầu ≥ {@code sessionPassRatioThresholdPercent}) — tính hẳn là ĐÃ HOÀN THÀNH,
+     * không cần xem đủ 100% {@code requiredViewCount} nữa (khác {@link #recomputeProgress}, vốn tự động
+     * yêu cầu đủ số lượt tuyệt đối). Validate lại NGAY tại server (không tin client) rằng tỷ lệ đã thật
+     * sự đạt ngưỡng tại thời điểm gọi — tránh học sinh tự gọi thẳng API bỏ qua điều kiện.
+     */
+    @Transactional
+    public ReviewVideoProgressResponse stopEarly(Long videoId, Long assignmentId, Long actorUserId) {
+        ReviewVideo video = getVideoOrThrow(videoId);
+        if (video.getReviewVideoSet().getVideoType() != ReviewVideoSet.VideoType.CONNECTION) {
+            throw new IllegalStateException("Chỉ áp dụng cho video Kết nối (CONNECTION).");
+        }
+        StudentAccess access = resolveStudentAccessForAssignment(video.getReviewVideoSet(), assignmentId, actorUserId);
+        ReviewVideoProgress progress = getOrCreateProgress(video, access.student(), access.assignment());
+        int required = video.getRequiredViewCount();
+        double ratio = required > 0 ? progress.getViewCount() * 100.0 / required : 0;
+        int threshold = video.getSessionPassRatioThresholdPercent();
+        if (ratio < threshold) {
+            throw new IllegalStateException(
+                    "Chưa đạt ngưỡng " + threshold + "% số lượt yêu cầu (hiện tại " + progress.getViewCount() + "/" + required + ") — không thể dừng sớm.");
+        }
+        progress.setStoppedEarly(true);
+        progress.setCompleted(true);
+        reviewVideoProgressRepository.save(progress);
+        return toResponse(progress, video);
     }
 
     private void writeHistory(ReviewVideoSet set, User actor, ReviewVideoSetHistory.Action action) {

@@ -82,7 +82,8 @@ public class GlobalExceptionHandler {
             DuplicateQuestionContentException.class, DuplicateAcademicYearCodeException.class,
             DuplicateShiftCodeException.class,
             WorkCalendarOverrideAlreadyExistsException.class, ShiftAssignmentOverlapException.class,
-            EmployeeShiftAlreadyEndedException.class, DuplicateSitePeriodNumberException.class})
+            EmployeeShiftAlreadyEndedException.class, DuplicateSitePeriodNumberException.class,
+            ActiveSessionExistsException.class})
     public ResponseEntity<Object> handleConflict(RuntimeException ex) {
         return error(HttpStatus.CONFLICT, ex);
     }

@@ -16,6 +16,7 @@ import vn.com.pps.education.domain.User;
 import vn.com.pps.education.domain.UserRole;
 import vn.com.pps.education.dto.AddExerciseQuestionRequest;
 import vn.com.pps.education.dto.AddReviewVideoRequest;
+import vn.com.pps.education.dto.ApplyClassHomeworkRequest;
 import vn.com.pps.education.dto.AssignTeacherRequest;
 import vn.com.pps.education.dto.AttendanceMarkResponse;
 import vn.com.pps.education.dto.ClassResponse;
@@ -216,7 +217,7 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
         seedPeriod(site, 2, LocalTime.of(8, 0), LocalTime.of(9, 40), headAcademic);
         session = classSessionService.createSession(schoolClass.id(),
                 new CreateClassSessionRequest(LocalDate.now(), "MORNING", List.of(1), null, "REGULAR", "VIETNAMESE",
-                        teacher.getId(), null, null, null),
+                        teacher.getId(), null, null, null, null),
                 headAcademic.getId());
         // Bắt buộc để submitComments() cho DAILY không bị chặn bởi MissingLessonContentException
         // (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-29).
@@ -297,8 +298,7 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
     void listComments_UC25_A1_onlyApprovedCommentsVisible() {
         // DAILY dùng chung luồng DRAFT->Gửi->PENDING->duyệt với MID_TERM/END_TERM (2026-07-29).
         StudentCommentResponse approved = studentCommentService.writeComment(schoolClass.id(),
-                new CreateStudentCommentRequest(student.getId(), session.id(),
-                        LocalDate.now(), "Chăm chỉ.", null, null, false, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null), teacher.getId());
+                new CreateStudentCommentRequest(student.getId(), session.id(), LocalDate.now(), "Chăm chỉ.", null, null, false, null, null, null, null, null, null, null, null, null), teacher.getId());
         studentCommentService.submitComments(schoolClass.id(), new SubmitCommentsRequest(List.of(approved.id())), teacher.getId());
         studentCommentService.decideComments(new DecideCommentsRequest(List.of(approved.id()), "APPROVED", null), siteManagerUser.getId());
 
@@ -307,11 +307,10 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
         // (StudentCommentNotEditableException, xem StudentCommentService#writeComment).
         ClassSessionResponse otherSession = classSessionService.createSession(schoolClass.id(),
                 new CreateClassSessionRequest(LocalDate.now().plusDays(1), "MORNING", List.of(2), null, "REGULAR", "VIETNAMESE",
-                        headAcademic.getId(), null, null, null),
+                        headAcademic.getId(), null, null, null, null),
                 headAcademic.getId());
         studentCommentService.writeComment(schoolClass.id(),
-                new CreateStudentCommentRequest(student.getId(), otherSession.id(),
-                        LocalDate.now(), "Nội dung chưa duyệt.", null, null, false, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null), teacher.getId());
+                new CreateStudentCommentRequest(student.getId(), otherSession.id(), LocalDate.now(), "Nội dung chưa duyệt.", null, null, false, null, null, null, null, null, null, null, null, null), teacher.getId());
 
         List<StudentCommentResponse> comments = parentPortalService.listComments(student.getId(), schoolClass.id(), parentUser.getId());
 
@@ -348,7 +347,7 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
                 new AssignTeacherRequest(foreignTeacher.getId(), "PRIMARY", null, LocalDate.now(), "FOREIGN"), headAcademic.getId());
         ClassSessionResponse foreignSession = classSessionService.createSession(schoolClass.id(),
                 new CreateClassSessionRequest(LocalDate.now().plusDays(1), "MORNING", List.of(2), null, "REGULAR", "FOREIGN",
-                        foreignTeacher.getId(), null, null, null),
+                        foreignTeacher.getId(), null, null, null, null),
                 headAcademic.getId());
 
         List<ClassSessionResponse> schedule = parentPortalService.listSchedule(student.getId(), schoolClass.id(), parentUser.getId());
@@ -362,7 +361,7 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
     void listSchedule_boSung_includesSessionNumber() {
         ClassSessionResponse secondSession = classSessionService.createSession(schoolClass.id(),
                 new CreateClassSessionRequest(session.sessionDate().plusDays(2), "MORNING", List.of(2), null, "REGULAR", "VIETNAMESE",
-                        teacher.getId(), null, null, null),
+                        teacher.getId(), null, null, null, null),
                 headAcademic.getId());
 
         List<ClassSessionResponse> schedule = parentPortalService.listSchedule(student.getId(), schoolClass.id(), parentUser.getId());
@@ -412,7 +411,7 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
     private void createNextSession() {
         classSessionService.createSession(schoolClass.id(),
                 new CreateClassSessionRequest(session.sessionDate().plusDays(2), "MORNING", List.of(2), null, "REGULAR", "VIETNAMESE",
-                        teacher.getId(), null, null, null),
+                        teacher.getId(), null, null, null, null),
                 headAcademic.getId());
     }
 
@@ -442,18 +441,24 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
 
     /**
      * DAILY nay dùng chung luồng DRAFT->Gửi->PENDING->duyệt (2026-07-29) -- ghi rồi phải Gửi+duyệt mới APPROVED để lộ ra Cổng phụ huynh.
-     * V127 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-19): giao bài thật
-     * (materialize ExerciseAssignment/ReviewVideoAssignment) chỉ xảy ra ở submitComments(), KHÔNG
-     * còn ở writeComment() nữa (writeComment chỉ lưu tạm lựa chọn vào pendingHomeworkNext*) — xem
-     * Javadoc StudentCommentService#submitComments. Vì vậy phải trả về response SAU submitComments
-     * (giữ nguyên qua decideComments, không cascade đổi lại) mới có homeworkNext*AssignmentId, khác
-     * comment lúc tạo (DRAFT) như trước V127.
+     *
+     * Bổ sung 2026-09-12 (đã xác nhận với người dùng) — giao BTVN online (Ngữ pháp/Video) đã tách hẳn
+     * khỏi Viết/Gửi nhận xét, chỉ còn qua {@code StudentCommentService#applyHomeworkToClass} ("Áp dụng
+     * cho cả lớp"). writeComment()/submitComments() KHÔNG còn nhận/materialize BTVN online nữa — gọi
+     * applyHomeworkToClass TRƯỚC khi viết nhận xét (tạo sẵn dòng StudentComment DRAFT + gán FK cho
+     * student), rồi writeComment() chỉ ghi đè content/status của ĐÚNG dòng đó (không đụng
+     * homeworkNextGrammarBatch/homeworkNextReviewVideoAssignment đã gán) — xem Javadoc
+     * StudentCommentService#writeComment (không setter field BTVN online).
      */
     private StudentCommentResponse writeDailyComment(Long grammarExerciseId, Long videoSetId, String homeworkNext) {
+        if (grammarExerciseId != null || videoSetId != null) {
+            studentCommentService.applyHomeworkToClass(session.id(),
+                    new ApplyClassHomeworkRequest(grammarExerciseId, videoSetId, null, null, null, null), teacher.getId());
+        }
         StudentCommentResponse comment = studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), session.id(),
                         session.sessionDate(), "Nội dung buổi.", null, null, false, null, null, null, null, null,
-                        homeworkNext, null, null, grammarExerciseId, videoSetId, null, null, null, null, null),
+                        homeworkNext, null, null, null),
                 teacher.getId());
         List<StudentCommentResponse> submitted = studentCommentService.submitComments(
                 schoolClass.id(), new SubmitCommentsRequest(List.of(comment.id())), teacher.getId());
@@ -510,8 +515,7 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
     @Test
     void listHomeworkProgress_skipsSessionsWithNoHomeworkAssigned() {
         studentCommentService.writeComment(schoolClass.id(),
-                new CreateStudentCommentRequest(student.getId(), session.id(),
-                        session.sessionDate(), "Nội dung buổi, không giao BTVN.", null, null, false, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null),
+                new CreateStudentCommentRequest(student.getId(), session.id(), session.sessionDate(), "Nội dung buổi, không giao BTVN.", null, null, false, null, null, null, null, null, null, null, null, null),
                 siteManagerUser.getId());
 
         List<HomeworkProgressResponse> result = parentPortalService.listHomeworkProgress(student.getId(), schoolClass.id(), parentUser.getId());

@@ -1518,6 +1518,20 @@ sung ngoài SDD gốc, đã xác nhận với người dùng — gộp nhiều "
 
   created_by             BIGINT         FK → users(id), NOT NULL   Giáo viên tạo Đề 
 
+  sub_topic_id           BIGINT         FK → sub_topics(id), NULL  V144 --- "Lesson"
+                                                                   này thuộc Sub
+                                                                   Topic nào trong
+                                                                   mục lục sách
+                                                                   (xem mục k-bis).
+                                                                   NULL = Đề cũ
+                                                                   chưa phân loại,
+                                                                   KHÔNG backfill
+                                                                   đoán. KHÔNG thay
+                                                                   thế curriculum_id
+                                                                   (vẫn là điều
+                                                                   kiện lọc/tìm
+                                                                   kiếm riêng)
+
   deleted_at             TIMESTAMPTZ    NULL                       V87 --- soft-
                                                                    delete "Xóa Đề",
                                                                    mirror
@@ -1590,6 +1604,92 @@ trước (xem UC-27 Precondition cập nhật tại
 `docs/uc/phan-he-07-lms-portal.md`). Giáo viên vẫn giao "Bài" cụ thể
 cho lớp qua Nhận xét học viên (UC-21) như cũ — gán Đề cho lớp ở đây
 chỉ mở ĐIỀU KIỆN, không tự động giao bất kỳ "Bài" nào.
+
+k-bis)  Bảng books/units/sub_topics --- Mục lục sách giáo trình cho Kho đề
+(V144/V148, 2026-08-24, bổ sung ngoài SDD gốc, đã xác nhận với người
+dùng — **thiếu tài liệu từ lúc code, bổ sung lại 2026-09-13 khi làm
+UC-72 import Excel**)
+
+Cấu trúc 3 cấp bên dưới 1 `curriculum` (khung chương trình+khối), TÁCH
+RỜI khỏi `curriculum_subjects` (môn học SPEAKING/LISTENING/...):
+`curriculums` → **`books`** (Sách, V148) → **`units`** (Unit, V144, entity
+Java `CurriculumUnit`) → **`sub_topics`** (Sub Topic, V144, entity Java
+`CurriculumSubTopic`). "Lesson" trong tên gọi nghiệp vụ chính là `exams`
+(mục j) khi đã gắn `sub_topic_id`; "Bài" bên dưới vẫn là `exercises` (mục
+d) như cũ — 2 bảng mới `books`/`units`/`sub_topics` KHÔNG thay thế/trùng
+với `exams`/`exercises` đã có.
+
+  ------------------------------------------------------------------------
+  **Bảng**      **Cột**          **Kiểu**       **Ràng buộc**
+  ------------- ---------------- -------------- --------------------------
+  books         id               BIGSERIAL      PK
+
+                curriculum_id    BIGINT         FK → curriculums(id), NOT
+                                                 NULL
+
+                title            VARCHAR(300)   NOT NULL
+
+                display_order    INT            NOT NULL, DEFAULT 0
+
+  units         id               BIGSERIAL      PK
+
+                book_id          BIGINT         FK → books(id), NOT NULL
+
+                title            VARCHAR(300)   NOT NULL
+
+                display_order    INT            NOT NULL, DEFAULT 0
+
+  sub_topics    id               BIGSERIAL      PK
+
+                unit_id          BIGINT         FK → units(id), NOT NULL
+
+                title            VARCHAR(300)   NOT NULL
+
+                display_order    INT            NOT NULL, DEFAULT 0
+  ------------------------------------------------------------------------
+
+Thuần điều hướng/phân loại — KHÔNG có `uuid`/`code`/`created_at`/
+`updated_at`/workflow duyệt/history nào (mirror `curriculum_subjects`
+nhưng đơn giản hơn). Không có `UNIQUE(cha, title)` ở tầng DB (trùng tên
+trong cùng 1 cấp cha vẫn tạo được record mới qua API tạo tay UC-40) —
+UC-72 (import Excel) tự chịu trách nhiệm tra cứu lại theo (cha, title)
+trước khi tạo để idempotent, không dựa vào constraint DB.
+
+CRUD qua `CurriculumService#addBook/addUnit/addSubTopic` +
+`updateBook/updateUnit/updateSubTopic` (đổi `title`/`display_order`) +
+`deleteBook/deleteUnit/deleteSubTopic` (chỉ xóa được khi cấp con đã hết;
+xóa Sub Topic chặn thêm nếu còn `exams`/`review_video_sets` nào tham
+chiếu qua `sub_topic_id`) — cùng quyền `lms.exercise.create`/
+`lms.exercise.update` (Kho đề), KHÔNG dùng `academic.curriculum.update`
+vì đây không phải Khung chương trình chính thức cần HEAD_ACADEMIC duyệt
+(UC-16). Endpoint: `POST/PUT/DELETE /api/curriculums/{id}/books`,
+`/api/books/{bookId}/units`, `/api/units/{unitId}/sub-topics`.
+
+*Import Excel nhanh (UC-72, bổ sung ngoài SDD gốc, đã xác nhận với người
+dùng 2026-09-13):* thay vì tạo tay từng cấp rồi từng Đề/Bài, dùng lại hạ
+tầng `import_jobs` chung (SDD > Nền tảng > l), thêm giá trị
+`import_type = CURRICULUM_CATALOG` (cột đang là VARCHAR tự do, không cần
+đổi CHECK/enum DB). File nguồn 7 cột theo thứ tự Tên sách/Tên Unit/Tên Sub
+Topic/Mã Lesson/**Loại giáo viên (TÙY CHỌN)**/Mã exercise/Tên exercise —
+1 dòng = 1 Bài; 4 cột đầu để trống nghĩa là lặp lại giá trị dòng liền
+trước (merged cell khi xuất từ Excel) — parser forward-fill theo dòng
+trước khi upsert. Cột "Loại giáo viên" forward-fill RIÊNG trong phạm vi 1
+Lesson (reset về `teacher_type` mặc định mỗi khi sang Mã Lesson mới, rồi
+áp giá trị của chính dòng đầu Lesson đó nếu có khai) — bổ sung ngày
+2026-09-13, đã xác nhận với người dùng: thực tế 1 Sách THƯỜNG xen kẽ
+Lesson lẻ do Giáo viên Việt Nam dạy/Lesson chẵn do Giáo viên nước ngoài
+dạy NGAY TRONG CÙNG 1 file, không thể áp 1 `teacher_type` chung cho cả
+file như thiết kế ban đầu (2026-09-13, buổi sáng). `curriculum` đích +
+`exam_type` (Đề) + `exercise_type`/`total_points` mặc định (Bài) +
+`teacher_type` MẶC ĐỊNH (chỉ dùng khi cột "Loại giáo viên" để trống hoàn
+toàn cho 1 Lesson) chọn 1 lần cho cả file (mirror `defaultKind` của
+`QuestionImportService`). Idempotent: Sách/Unit/Sub Topic tra theo (cha,
+title đúng phạm vi); Đề theo `exams.code` = Mã Lesson nguyên văn; Bài
+theo `exercises.code` = Mã exercise nguyên văn — Đề/Bài đã tồn tại được
+TÁI SỬ DỤNG nguyên vẹn (không ghi đè
+teacherType/examType/exerciseType/totalPoints đã có), tránh phá câu hỏi/
+dữ liệu đã soạn nếu import lại cùng file. Xem
+docs/uc/phan-he-07-lms-portal.md (UC-72).
 
 l)  Bảng attempt_integrity_events --- Giám sát thoát màn hình khi làm
 bài (MỚI HOÀN TOÀN, V70, 2026-07-31, bổ sung ngoài SDD gốc, đã xác

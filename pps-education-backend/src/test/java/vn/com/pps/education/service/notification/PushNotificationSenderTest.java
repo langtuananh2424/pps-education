@@ -14,6 +14,7 @@ import vn.com.pps.education.domain.User;
 import vn.com.pps.education.repository.DeviceTokenRepository;
 
 import java.lang.reflect.Field;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -50,7 +51,7 @@ class PushNotificationSenderTest {
     void setUp() {
         firebaseMessaging = mock(FirebaseMessaging.class);
         deviceTokenRepository = mock(DeviceTokenRepository.class);
-        sender = new PushNotificationSender(Optional.of(firebaseMessaging), deviceTokenRepository);
+        sender = new PushNotificationSender(Optional.of(firebaseMessaging), deviceTokenRepository, new NotificationPushTemplateService());
         delivery = new NotificationDelivery();
     }
 
@@ -110,6 +111,29 @@ class PushNotificationSenderTest {
     }
 
     @Test
+    void send_dedupesSameDeviceByUserAgent_keepsNewestAndDeactivatesOlder() throws Exception {
+        // Sự cố THẬT (2026-09-13): user xoá rồi tạo lại shortcut trên iOS -> deviceId đổi mới,
+        // dedupe lúc ĐĂNG KÝ (NotificationService) trượt -> 2 token cùng active cho CÙNG 1 máy
+        // vật lý (nhận diện qua user_agent giống hệt nhau) -> mỗi lần gửi bắn đúp. Chỉ giữ token
+        // updated_at MỚI NHẤT trong nhóm cùng user_agent, các token cũ hơn tự bị vô hiệu hoá NGAY.
+        String sameDeviceUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X)";
+        DeviceToken older = tokenWithUserAgent("tok-old", sameDeviceUserAgent, OffsetDateTime.parse("2026-09-12T07:52:11Z"));
+        DeviceToken newer = tokenWithUserAgent("tok-new", sameDeviceUserAgent, OffsetDateTime.parse("2026-09-12T08:16:06Z"));
+        DeviceToken otherDevice = tokenWithUserAgent("tok-other", "Mozilla/5.0 (Linux; Android 14)", OffsetDateTime.parse("2026-09-12T08:00:00Z"));
+        when(deviceTokenRepository.findByUserIdAndActiveTrue(7L)).thenReturn(List.of(older, newer, otherDevice));
+
+        boolean sent = sender.send(delivery, notification, recipient);
+
+        assertThat(sent).isTrue();
+        verify(firebaseMessaging, times(2)).send(any(Message.class));
+        assertThat(delivery.getRecipientAddress()).isEqualTo("tok-new,tok-other");
+        assertThat(older.isActive()).as("token cũ hơn cùng máy phải tự bị vô hiệu hoá").isFalse();
+        assertThat(newer.isActive()).isTrue();
+        assertThat(otherDevice.isActive()).as("máy khác (user_agent khác) không bị đụng tới").isTrue();
+        verify(deviceTokenRepository).saveAll(List.of(older));
+    }
+
+    @Test
     void send_returnsFalse_whenUserHasNoActiveTokens() throws Exception {
         when(deviceTokenRepository.findByUserIdAndActiveTrue(7L)).thenReturn(List.of());
 
@@ -120,7 +144,7 @@ class PushNotificationSenderTest {
     @Test
     void send_throws_whenFirebaseNotConfigured() {
         PushNotificationSender noFirebase =
-                new PushNotificationSender(Optional.empty(), deviceTokenRepository);
+                new PushNotificationSender(Optional.empty(), deviceTokenRepository, new NotificationPushTemplateService());
 
         assertThatThrownBy(() -> noFirebase.send(delivery, notification, recipient))
                 .isInstanceOf(IllegalStateException.class);
@@ -164,6 +188,13 @@ class PushNotificationSenderTest {
         DeviceToken t = new DeviceToken();
         t.setToken(value);
         t.setActive(true);
+        return t;
+    }
+
+    private static DeviceToken tokenWithUserAgent(String value, String userAgent, OffsetDateTime updatedAt) {
+        DeviceToken t = token(value);
+        t.setUserAgent(userAgent);
+        t.setUpdatedAt(updatedAt);
         return t;
     }
 

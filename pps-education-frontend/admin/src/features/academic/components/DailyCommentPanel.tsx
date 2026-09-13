@@ -18,13 +18,12 @@ import {
   listClassSessions,
   listCommentsForClass,
   listTodaySessions,
-  bulkUpdatePendingDueDate,
+  applyClassHomework,
+  saveDraftBatch,
   submitComments,
-  updateComment,
   updateActualTeacherName,
   updateLessonContent,
-  updateSessionTeacherType,
-  writeComment
+  updateSessionTeacherType
 } from "../api";
 import {
   HomeworkSkillGroupResponse,
@@ -63,6 +62,38 @@ const STICKY_COL_STYLE: React.CSSProperties[] = STICKY_COL_WIDTHS.map((w, i) => 
   maxWidth: w,
   left: STICKY_COL_LEFT[i]
 }));
+
+/**
+ * Render nhãn 1 lựa chọn bài tập trong dropdown "Gán nhanh"/"BTVN buổi sau" — tách hẳn 2 dòng thay vì
+ * nhồi chung 1 dòng chữ mảnh (trước đây còn bị trình duyệt tự xuống dòng giữa chừng vì panel option của
+ * Select.tsx không có nowrap, nhìn rối — xem ảnh người dùng gửi 2026-09-10): dòng trên là tên bài, in
+ * đậm (font-extrabold) + đen rõ (text-slate-900) + cỡ chữ lớn hơn hẳn khối còn lại; dòng dưới là
+ * Unit/SubTopic + số bài/câu, chữ thường, nhỏ, màu nhạt — bold thật sự nổi bật thay vì chỉ chênh 1px
+ * cỡ chữ như bản trước (người dùng phản hồi "chỉ tăng cỡ chữ thôi à" vì bản inline 1 dòng trước đó khó
+ * phân biệt độ đậm).
+ */
+function renderExerciseOptionLabel(ex: HomeworkSkillGroupResponse) {
+  const detail = [ex.unitTitle, ex.subTopicTitle].filter(Boolean).join(" · ");
+  return (
+    <span className="block py-0.5">
+      <span className="block font-extrabold text-slate-900 text-[13px] leading-snug">{ex.examTitle}</span>
+      <span className="block font-normal text-slate-400 text-[12px] leading-snug mt-0.5">
+        {detail && `${detail} · `}
+        {ex.exerciseCount} bài, {ex.questionCount} câu
+      </span>
+    </span>
+  );
+}
+
+/** Cùng kiểu 2 dòng bold-title/muted-code như renderExerciseOptionLabel, áp dụng cho dropdown "BTVN online — Video TKN". */
+function renderVideoOptionLabel(s: { title: string; code: string }) {
+  return (
+    <span className="block py-0.5">
+      <span className="block font-extrabold text-slate-900 text-[13px] leading-snug">{s.title}</span>
+      <span className="block font-normal text-slate-400 text-[12px] leading-snug mt-0.5">{s.code}</span>
+    </span>
+  );
+}
 
 /**
  * "Loại giáo viên" của buổi học (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05) — ăn
@@ -212,6 +243,13 @@ export default function DailyCommentPanel() {
    * điền). Hỏi lại 1 lần, nêu rõ số dòng sẽ gửi, trước khi thực sự gọi handleSend.
    */
   const [confirmingSend, setConfirmingSend] = useState(false);
+  /**
+   * Bổ sung 2026-09-12 (đã xác nhận với người dùng) — "Áp dụng cho cả lớp" giờ giao BTVN online THẬT
+   * NGAY (không qua bước "pending" nữa, xem Javadoc BE StudentCommentService#applyHomeworkToClass) —
+   * cần popup xác nhận riêng (mirror confirmingSend) trước khi giao cho CẢ LỚP, tránh bấm nhầm.
+   */
+  const [confirmingApplyHomework, setConfirmingApplyHomework] = useState(false);
+  const [applyingHomework, setApplyingHomework] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [downloadingTemplate, setDownloadingTemplate] = useState(false);
@@ -300,7 +338,6 @@ export default function DailyCommentPanel() {
   /** V137 — mirror quickExerciseId/quickVideoId, kênh "BTVN online" Reading/Writing mới. */
   const [quickReadingExerciseId, setQuickReadingExerciseId] = useState<number | "">("");
   const [quickWritingExerciseId, setQuickWritingExerciseId] = useState<number | "">("");
-  const [applyingDueDate, setApplyingDueDate] = useState(false);
 
   const selectedClass = classes.find((c) => c.id === selectedClassId) ?? null;
   const selectedSession = sessions.find((s) => s.id === selectedSessionId) ?? null;
@@ -445,11 +482,17 @@ export default function DailyCommentPanel() {
     listReviewVideoAssignmentsForClass(selectedClassId).then(setVideoAssignments).catch(() => undefined);
   }, [selectedClassId]);
 
+  /**
+   * Sửa 2026-09-11 (fix bug thật, đã xác nhận với người dùng) — trước đây gộp CHUNG 1 effect, phụ
+   * thuộc cả `selectedSession?.lessonContent`/`actualTeacherName` lẫn `id`: bấm "Lưu" ở ô "Bài học
+   * hôm nay"/"Tên giáo viên giảng dạy" (handleSaveLessonContent/handleSaveActualTeacherName) cập nhật
+   * lại `sessions` → giá trị lessonContent/actualTeacherName của selectedSession đổi → effect chạy lại
+   * dù VẪN Ở CÙNG 1 buổi, xóa sạch dueDate/dueTime/lateSubmissionAllowed/quickOffline/quickExerciseId/
+   * quickVideoId (giáo viên vừa chọn) → cột "Hạn nộp bài" trên bảng đổ về "—" (đọc dueDateTime, xem
+   * ~dòng 1872). Tách riêng: effect dưới đây CHỈ reset toàn bộ panel "Gán nhanh"/Hạn nộp khi thật sự
+   * ĐỔI BUỔI (selectedSession?.id đổi) — save 2 ô lessonContent/actualTeacherName không còn đụng tới.
+   */
   useEffect(() => {
-    setLessonContentInput(selectedSession?.lessonContent ?? "");
-    setLessonContentMissingError(false);
-    setActualTeacherNameInput(selectedSession?.actualTeacherName ?? "");
-    setTeacherType((selectedSession?.teacherType as TeacherType | null) ?? "");
     setDueDate("");
     setDueTime("");
     setLateSubmissionAllowed(false);
@@ -458,7 +501,20 @@ export default function DailyCommentPanel() {
     setQuickVideoId("");
     setDirty(false);
     setLastSavedAt(null);
-  }, [selectedSession?.id, selectedSession?.lessonContent, selectedSession?.actualTeacherName, selectedSession?.teacherType]);
+  }, [selectedSession?.id]);
+
+  useEffect(() => {
+    setLessonContentInput(selectedSession?.lessonContent ?? "");
+    setLessonContentMissingError(false);
+  }, [selectedSession?.id, selectedSession?.lessonContent]);
+
+  useEffect(() => {
+    setActualTeacherNameInput(selectedSession?.actualTeacherName ?? "");
+  }, [selectedSession?.id, selectedSession?.actualTeacherName]);
+
+  useEffect(() => {
+    setTeacherType((selectedSession?.teacherType as TeacherType | null) ?? "");
+  }, [selectedSession?.id, selectedSession?.teacherType]);
 
   useEffect(() => {
     if (!selectedClassId || !selectedSessionId) {
@@ -648,46 +704,46 @@ export default function DailyCommentPanel() {
     }
   };
 
+  /** Có ít nhất 1 trong 4 kênh BTVN ONLINE đang được chọn ở panel "Gán nhanh" (Reading/Writing chỉ có ý nghĩa khi buổi teacherType=VIETNAMESE). */
+  const hasQuickOnlineChoice =
+    quickExerciseId !== "" || quickVideoId !== "" || (isVietnamese && (quickReadingExerciseId !== "" || quickWritingExerciseId !== ""));
+
   /**
-   * "Gán nhanh cho cả lớp" (2026-08-05) — áp panel gán nhanh vào mọi dòng CHƯA khoá, thay vì phải
-   * chọn từng dòng. Chỉ đổi state cục bộ (chưa lưu) cho các lựa chọn Ngữ pháp/Video/Offline —
-   * những dòng CHƯA gõ Nhận xét vẫn cần bấm "Lưu nháp"/"Gửi nhận xét" sau đó mới thực sự ghi DB.
-   *
-   * Bổ sung 2026-08-24 (xác nhận với người dùng) — RIÊNG Hạn nộp thì ghi thẳng xuống DB ngay ở đây
-   * qua bulkUpdatePendingDueDate(), áp dụng cho TOÀN BỘ nhận xét NHÁP/Bị từ chối đã có sẵn của buổi
-   * (kể cả những dòng chưa gõ Nhận xét nên "Lưu nháp" thường không đụng tới) — sửa đúng bug thực tế:
-   * trước đây các dòng NHÁP có sẵn (VD từ 1 lần gán+lưu hàng loạt trước đó, chưa từng chọn hạn nộp
-   * tường minh) âm thầm giữ hạn nộp mặc định cũ (= buổi kế tiếp), khoá cứng hạn nộp chung của buổi
-   * mà không cách nào tự sửa được qua "Lưu nháp"/"Gửi nhận xét" (luôn báo xung đột 0/N — xem Javadoc
-   * BE StudentCommentService#bulkUpdatePendingDueDate).
-   *
-   * Bổ sung 2026-09-07 (fix bug thật, đã xác nhận với người dùng) — TỰ ĐỘNG "Lưu nháp" ngay sau khi
-   * gán, không chờ giáo viên bấm tay: trước đây hàm này chỉ setRows() cục bộ, dữ liệu chỉ tồn tại ở
-   * state FE cho tới khi giáo viên chủ động "Lưu nháp"/"Gửi nhận xét". F5 lại giữa chừng (VD gõ Nhận
-   * xét cho 1 học sinh rồi "Gửi nhận xét" luôn, KHÔNG "Lưu nháp") khiến loadHistory (chỉ điền lại
-   * rows từ StudentComment DRAFT/REJECTED đã có trong DB) không tìm thấy bản ghi nào cho các học sinh
-   * còn lại → cột BTVN của họ về rỗng dù đã "gán cho cả lớp", trong khi BTVN thực đã được đẩy xuống
-   * (theo status của học sinh đã gửi). Gọi thẳng saveFilledRows() với rows vừa tính (không đọc lại
-   * state rows vì setRows là bất đồng bộ) để mọi dòng vừa gán có bản ghi DRAFT ngay, sống sót qua F5.
+   * "Gán nhanh cho cả lớp" (2026-08-05). Bổ sung 2026-09-12 (đã xác nhận với người dùng) — TÁCH HẲN
+   * 2 việc trước đây gộp chung trong 1 hàm: BTVN OFFLINE (chữ tự do) vẫn chỉ setRows() cục bộ rồi tự
+   * động "Lưu nháp" ngay (giữ nguyên hành vi/lý do đã có — xem performApplyQuickAssign), còn BTVN
+   * ONLINE (Ngữ pháp/Bài nghe, Video, Reading, Writing) giờ GIAO THẬT NGAY LẬP TỨC cho CẢ LỚP qua
+   * applyClassHomework() — không còn qua bước "pending" chờ Gửi nhận xét nữa (xem Javadoc BE
+   * StudentCommentService#applyHomeworkToClass). Vì giao thật ngay, bắt buộc phải hỏi xác nhận
+   * trước (tránh bấm nhầm giao nhầm cho cả lớp) — chỉ hiện popup khi có ít nhất 1 kênh online được
+   * chọn; không chọn kênh online nào thì làm luôn như cũ (chỉ là lưu nháp BTVN offline).
    */
-  const handleApplyQuickAssign = async () => {
+  const handleApplyQuickAssign = () => {
     if (!selectedClassId || !selectedSession || savingDraft) return;
+    if (hasQuickOnlineChoice) {
+      setConfirmingApplyHomework(true);
+      return;
+    }
+    void performApplyQuickAssign();
+  };
+
+  /**
+   * Bổ sung 2026-09-07 (fix bug thật, đã xác nhận với người dùng) — TỰ ĐỘNG "Lưu nháp" ngay sau khi
+   * gán BTVN offline, không chờ giáo viên bấm tay: trước đây hàm này chỉ setRows() cục bộ, dữ liệu
+   * chỉ tồn tại ở state FE cho tới khi giáo viên chủ động "Lưu nháp"/"Gửi nhận xét". Gọi thẳng
+   * saveFilledRows() với rows vừa tính (không đọc lại state rows vì setRows là bất đồng bộ) để mọi
+   * dòng vừa gán có bản ghi DRAFT ngay, sống sót qua F5.
+   */
+  const performApplyQuickAssign = async () => {
+    setConfirmingApplyHomework(false);
+    if (!selectedClassId || !selectedSession) return;
     const lockedIds = new Set(history.filter((h) => h.status === "PENDING" || h.status === "APPROVED").map((h) => h.studentId));
     const updatedRows = rows.map((r) =>
       lockedIds.has(r.studentId)
         ? r
         : {
             ...r,
-            ...(isVietnamese
-              ? {
-                  homeworkNextReading: quickReading,
-                  homeworkNextWriting: quickWriting,
-                  homeworkNextReadingExerciseId: quickReadingExerciseId,
-                  homeworkNextWritingExerciseId: quickWritingExerciseId
-                }
-              : { homeworkNext: quickOffline }),
-            homeworkNextExerciseId: quickExerciseId,
-            homeworkNextReviewVideoSetId: quickVideoId
+            ...(isVietnamese ? { homeworkNextReading: quickReading, homeworkNextWriting: quickWriting } : { homeworkNext: quickOffline })
           }
     );
     setRows(updatedRows);
@@ -728,18 +784,25 @@ export default function DailyCommentPanel() {
       }
     }
 
-    if (dueDateTime && selectedSessionId && selectedClassId) {
-      setApplyingDueDate(true);
+    if (hasQuickOnlineChoice && selectedSessionId) {
+      setApplyingHomework(true);
       setError(null);
       try {
-        await bulkUpdatePendingDueDate(selectedSessionId, dueDateTime, lateSubmissionAllowed);
-        setNotification(t("dailyCommentPanel.notifications.dueDateAppliedSuccess"));
-        await loadHistory(selectedClassId, selectedSessionId, rows.map((r) => r.studentId));
+        await applyClassHomework(selectedSessionId, {
+          grammarExamId: quickExerciseId !== "" ? quickExerciseId : undefined,
+          videoSetId: quickVideoId !== "" ? quickVideoId : undefined,
+          readingExamId: isVietnamese && quickReadingExerciseId !== "" ? quickReadingExerciseId : undefined,
+          writingExamId: isVietnamese && quickWritingExerciseId !== "" ? quickWritingExerciseId : undefined,
+          dueDate: dueDateTime || undefined,
+          lateSubmissionAllowed
+        });
+        setNotification(t("dailyCommentPanel.notifications.homeworkAppliedSuccess"));
+        await loadHistory(selectedClassId, selectedSessionId, updatedRows.map((r) => r.studentId));
         refreshSessionCommentStats(selectedClassId);
       } catch (err) {
-        setError(err instanceof ApiError ? err.message : t("dailyCommentPanel.errors.applyDueDateFailed"));
+        setError(err instanceof ApiError ? err.message : t("dailyCommentPanel.errors.applyHomeworkFailed"));
       } finally {
-        setApplyingDueDate(false);
+        setApplyingHomework(false);
       }
     }
   };
@@ -755,44 +818,48 @@ export default function DailyCommentPanel() {
     // V130 — chỉ gửi khi buổi teacherType=VIETNAMESE (thay homeworkPreviousScore/khoản "Offline" cũ).
     homeworkPreviousReadingScore: r.homeworkPreviousReadingScore.trim() || undefined,
     homeworkPreviousWritingScore: r.homeworkPreviousWritingScore.trim() || undefined,
-    // Bổ sung ngoài SDD gốc, xác nhận 2026-08-18 — offline (chữ tự do) và Exercise online giờ ĐỘC LẬP, gửi cả 2 nếu đã điền.
+    // 2026-09-12: BTVN online (Exercise/ReviewVideoSet) không còn gửi qua đây nữa — chỉ còn BTVN
+    // offline (chữ tự do), giao BTVN online tách hẳn sang applyClassHomework() ("Áp dụng cho cả lớp").
     homeworkNext: r.homeworkNext.trim() || undefined,
     // V130 — chỉ gửi khi buổi teacherType=VIETNAMESE (thay homeworkNext cũ).
     homeworkNextReading: r.homeworkNextReading.trim() || undefined,
     homeworkNextWriting: r.homeworkNextWriting.trim() || undefined,
-    homeworkNextExerciseId: r.homeworkNextExerciseId !== "" ? r.homeworkNextExerciseId : undefined,
-    homeworkNextReviewVideoSetId: r.homeworkNextReviewVideoSetId !== "" ? r.homeworkNextReviewVideoSetId : undefined,
-    // V137 — kênh "BTVN online" Reading/Writing mới, chỉ gửi khi buổi teacherType=VIETNAMESE.
-    homeworkNextReadingExerciseId: r.homeworkNextReadingExerciseId !== "" ? r.homeworkNextReadingExerciseId : undefined,
-    homeworkNextWritingExerciseId: r.homeworkNextWritingExerciseId !== "" ? r.homeworkNextWritingExerciseId : undefined,
-    // Hạn nộp buổi sau (ngày + giờ) — 1 giá trị chung cho cả buổi (xem dueDateTime), để trống thì BE tự tính = buổi kế tiếp.
-    homeworkNextDueDate: dueDateTime || undefined,
-    // V165 — "Cho phép nộp bài muộn", dùng chung cho cả buổi (mirror homeworkNextDueDate ở trên).
-    homeworkNextLateSubmissionAllowed: lateSubmissionAllowed || undefined,
     note: r.note.trim() || undefined
   });
 
   /**
-   * Ghi DRAFT cho các dòng đã có nội dung — dùng chung cho "Lưu nháp"/autosave/"Gửi nhận xét" (bổ sung
-   * ngoài SDD gốc, 2026-08-14). Dòng đã có nhận xét DRAFT/REJECTED (gõ tay lưu dở hoặc nhập Excel) —
-   * SỬA bản ghi đã có qua updateComment(), không tạo mới qua writeComment() (tránh sinh 2 bản ghi trùng
-   * cùng 1 buổi+học sinh — đúng bug 500 đã gặp trước đây, backend hiện chưa tự chặn trùng ở writeComment()).
+   * Ghi DRAFT cho các dòng đã có nội dung — dùng chung cho "Lưu nháp"/"Gửi nhận xét" (bổ sung ngoài
+   * SDD gốc, 2026-08-14).
+   *
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — TRƯỚC ĐÂY gọi N request HTTP song
+   * song (1/học sinh, qua writeComment()/updateComment()) — chậm rõ rệt trên môi trường deploy có độ
+   * trễ mạng (N round-trip thật + mỗi request tự chạy lại rào riêng), phản hồi thực tế từ test trên
+   * deploy. Giờ gộp CẢ LỚP vào 1 request DUY NHẤT (saveDraftBatch, backend tự find-or-create + validate
+   * 1 lần cho cả lô). Vẫn TRẢ VỀ ĐÚNG kiểu `PromiseSettledResult<StudentCommentResponse>[]` khớp thứ
+   * tự `filled` như cũ (dựng lại từ saved/skipped) — KHÔNG cần sửa bất kỳ chỗ nào đang gọi hàm này
+   * (handleSaveDraft/handleSend/performApplyQuickAssign), giữ nguyên hành vi "1 dòng lỗi không chặn
+   * các dòng khác" (mirror đúng Promise.allSettled cũ, xem Javadoc BE saveDraftBatch).
    */
-  const saveFilledRows = (filled: Row[], classId: number, session: ClassSessionResponse) =>
-    Promise.allSettled(
-      filled.map((r) => {
-        const payload = buildCommentPayload(r);
-        const existing = history.find((h) => h.studentId === r.studentId && (h.status === "DRAFT" || h.status === "REJECTED"));
-        return existing
-          ? updateComment(existing.id, payload)
-          : writeComment(classId, {
-              studentId: r.studentId,
-              classSessionId: session.id,
-              commentDate: session.sessionDate,
-              ...payload
-            });
-      })
-    );
+  const saveFilledRows = async (
+    filled: Row[],
+    classId: number,
+    session: ClassSessionResponse
+  ): Promise<PromiseSettledResult<StudentCommentResponse>[]> => {
+    const rows = filled.map((r) => ({ studentId: r.studentId, ...buildCommentPayload(r) }));
+    try {
+      const response = await saveDraftBatch(classId, session.id, { commentDate: session.sessionDate, rows });
+      const savedByStudentId = new Map(response.saved.map((s) => [s.studentId, s]));
+      const skipReasonByStudentId = new Map(response.skipped.map((s) => [s.studentId, s.reason]));
+      return filled.map((r): PromiseSettledResult<StudentCommentResponse> => {
+        const saved = savedByStudentId.get(r.studentId);
+        if (saved) return { status: "fulfilled", value: saved };
+        return { status: "rejected", reason: new ApiError(409, skipReasonByStudentId.get(r.studentId) ?? t("dailyCommentPanel.errors.unknownReason")) };
+      });
+    } catch (err) {
+      // Lỗi rào CHUNG cho cả buổi (lớp bị hủy, hết hạn sửa, không đúng quyền...) — mọi dòng đều "rejected" cùng lý do.
+      return filled.map(() => ({ status: "rejected", reason: err }));
+    }
+  };
 
   /**
    * "Lưu nháp" (2026-08-14, bổ sung ngoài SDD gốc, đã xác nhận với người dùng) — phòng giáo viên vô
@@ -925,7 +992,7 @@ export default function DailyCommentPanel() {
     setError(null);
     try {
       const created = await saveFilledRows(filled, selectedClassId, selectedSession);
-      const succeededIds = created.filter((r): r is PromiseFulfilledResult<Awaited<ReturnType<typeof writeComment>>> => r.status === "fulfilled").map((r) => r.value.id);
+      const succeededIds = created.filter((r): r is PromiseFulfilledResult<StudentCommentResponse> => r.status === "fulfilled").map((r) => r.value.id);
       // Gom lý do lỗi thật từ từng promise bị reject (VD 422 "Lớp id=X chưa có buổi học kế tiếp...")
       // theo đúng học sinh — trước đây chỉ đếm failedCount, không hiện rõ NGUYÊN NHÂN khiến Giáo viên
       // không biết sửa gì để thử lại (2026-07-31). Gộp theo message giống nhau (thường cùng 1 lý do,
@@ -1052,27 +1119,32 @@ export default function DailyCommentPanel() {
 
       if (res.rows.length > 0) {
         const parsedByStudent = new Map(res.rows.map((row) => [row.studentId, row]));
+        // Sửa 2026-09-12 (fix bug thật, đã xác nhận với người dùng) — trước đây chặn CẢ DÒNG
+        // (isRowBlank) nếu bất kỳ field nào đã có giá trị, VD giáo viên mới chỉ chọn "Bài" (BTVN)
+        // qua "Gán nhanh cho cả lớp" trước khi tải mẫu Excel: Thái độ/Nhận xét vẫn trống nhưng
+        // homeworkNextExerciseId/ReviewVideoSetId đã khác "" khiến isRowBlank(r)=false, cả dòng đó
+        // bị BỎ QUA hoàn toàn khi nhập lại Excel dù BE đã trả đúng dữ liệu (không có lỗi/cảnh báo nào
+        // hiện ra). Giờ merge theo TỪNG FIELD — field nào ĐANG TRỐNG mới nhận giá trị từ Excel, field
+        // đã có giá trị (đang gõ dở hoặc đã gán trước) vẫn được giữ nguyên như ý định gốc.
         setRows((prev) =>
           prev.map((r) => {
             const parsed = parsedByStudent.get(r.studentId);
-            // Chỉ fill dòng còn trống — không đè lên nội dung giáo viên đang gõ dở (mirror loadHistory).
-            if (!parsed || !isRowBlank(r)) return r;
+            if (!parsed) return r;
             return {
               ...r,
-              attitude: (parsed.attitude ?? "") as Row["attitude"],
-              homeworkPreviousScore: parsed.homeworkPreviousScore ?? "",
-              homeworkPreviousSpeakingScore: parsed.homeworkPreviousSpeakingScore ?? "",
-              homeworkPreviousReadingScore: parsed.homeworkPreviousReadingScore ?? "",
-              homeworkPreviousWritingScore: parsed.homeworkPreviousWritingScore ?? "",
-              content: parsed.content ?? "",
-              homeworkNext: parsed.homeworkNext ?? "",
-              homeworkNextReading: parsed.homeworkNextReading ?? "",
-              homeworkNextWriting: parsed.homeworkNextWriting ?? "",
-              homeworkNextExerciseId: parsed.homeworkNextExerciseId ?? "",
-              homeworkNextReviewVideoSetId: parsed.homeworkNextReviewVideoSetId ?? "",
-              homeworkNextReadingExerciseId: parsed.homeworkNextReadingExerciseId ?? "",
-              homeworkNextWritingExerciseId: parsed.homeworkNextWritingExerciseId ?? "",
-              note: parsed.note ?? ""
+              attitude: r.attitude ? r.attitude : ((parsed.attitude ?? "") as Row["attitude"]),
+              homeworkPreviousScore: r.homeworkPreviousScore.trim() ? r.homeworkPreviousScore : (parsed.homeworkPreviousScore ?? ""),
+              homeworkPreviousSpeakingScore: r.homeworkPreviousSpeakingScore.trim() ? r.homeworkPreviousSpeakingScore : (parsed.homeworkPreviousSpeakingScore ?? ""),
+              homeworkPreviousReadingScore: r.homeworkPreviousReadingScore.trim() ? r.homeworkPreviousReadingScore : (parsed.homeworkPreviousReadingScore ?? ""),
+              homeworkPreviousWritingScore: r.homeworkPreviousWritingScore.trim() ? r.homeworkPreviousWritingScore : (parsed.homeworkPreviousWritingScore ?? ""),
+              content: r.content.trim() ? r.content : (parsed.content ?? ""),
+              homeworkNext: r.homeworkNext.trim() ? r.homeworkNext : (parsed.homeworkNext ?? ""),
+              homeworkNextReading: r.homeworkNextReading.trim() ? r.homeworkNextReading : (parsed.homeworkNextReading ?? ""),
+              homeworkNextWriting: r.homeworkNextWriting.trim() ? r.homeworkNextWriting : (parsed.homeworkNextWriting ?? ""),
+              // 2026-09-12: Excel không còn phục vụ BTVN online — 4 field homeworkNextExerciseId/
+              // homeworkNextReviewVideoSetId/homeworkNextReadingExerciseId/homeworkNextWritingExerciseId
+              // bị bỏ khỏi DailyCommentImportPreviewRow, không còn gì để merge ở đây nữa.
+              note: r.note.trim() ? r.note : (parsed.note ?? "")
             };
           })
         );
@@ -1276,12 +1348,7 @@ export default function DailyCommentPanel() {
                       <option value="">{t("dailyCommentPanel.quickAssign.noAssign")}</option>
                       {readingOptions.map((ex) => (
                         <option key={ex.examId} value={ex.examId}>
-                          {/* Bổ sung 2026-09-04 (đã xác nhận với người dùng) — fix bug thật: Lesson đánh số lặp
-                              lại (Lesson 1, 2, 3...) giữa nhiều Unit/SubTopic khác nhau, trước đây dropdown chỉ
-                              hiện examTitle nên giáo viên rất dễ giao NHẦM Lesson. */}
-                          {ex.examCode} - {ex.examTitle}
-                          {(ex.unitTitle || ex.subTopicTitle) && ` [${[ex.unitTitle, ex.subTopicTitle].filter(Boolean).join(" · ")}]`} (
-                          {ex.exerciseCount} bài, {ex.questionCount} câu)
+                          {renderExerciseOptionLabel(ex)}
                         </option>
                       ))}
                     </Select>
@@ -1297,12 +1364,7 @@ export default function DailyCommentPanel() {
                       <option value="">{t("dailyCommentPanel.quickAssign.noAssign")}</option>
                       {writingOptions.map((ex) => (
                         <option key={ex.examId} value={ex.examId}>
-                          {/* Bổ sung 2026-09-04 (đã xác nhận với người dùng) — fix bug thật: Lesson đánh số lặp
-                              lại (Lesson 1, 2, 3...) giữa nhiều Unit/SubTopic khác nhau, trước đây dropdown chỉ
-                              hiện examTitle nên giáo viên rất dễ giao NHẦM Lesson. */}
-                          {ex.examCode} - {ex.examTitle}
-                          {(ex.unitTitle || ex.subTopicTitle) && ` [${[ex.unitTitle, ex.subTopicTitle].filter(Boolean).join(" · ")}]`} (
-                          {ex.exerciseCount} bài, {ex.questionCount} câu)
+                          {renderExerciseOptionLabel(ex)}
                         </option>
                       ))}
                     </Select>
@@ -1334,7 +1396,7 @@ export default function DailyCommentPanel() {
                   <option value="">{t("dailyCommentPanel.quickAssign.noAssign")}</option>
                   {filteredGrammarOptions.map((ex) => (
                     <option key={ex.examId} value={ex.examId}>
-                      {ex.examCode} - {ex.examTitle} ({ex.exerciseCount} bài, {ex.questionCount} câu)
+                      {renderExerciseOptionLabel(ex)}
                     </option>
                   ))}
                 </Select>
@@ -1352,7 +1414,7 @@ export default function DailyCommentPanel() {
                   <option value="">{t("dailyCommentPanel.quickAssign.noAssign")}</option>
                   {filteredVideoOptions.map((s) => (
                     <option key={s.id} value={s.id}>
-                      {s.title} ({s.code})
+                      {renderVideoOptionLabel(s)}
                     </option>
                   ))}
                 </Select>
@@ -1391,21 +1453,15 @@ export default function DailyCommentPanel() {
                 type="button"
                 onClick={handleApplyQuickAssign}
                 disabled={
-                  applyingDueDate ||
+                  applyingHomework ||
                   savingDraft ||
                   (isVietnamese
-                    ? !quickReading &&
-                      !quickWriting &&
-                      quickExerciseId === "" &&
-                      quickVideoId === "" &&
-                      quickReadingExerciseId === "" &&
-                      quickWritingExerciseId === "" &&
-                      !dueDateTime
-                    : !quickOffline && quickExerciseId === "" && quickVideoId === "" && !dueDateTime)
+                    ? !quickReading && !quickWriting && quickExerciseId === "" && quickVideoId === "" && quickReadingExerciseId === "" && quickWritingExerciseId === ""
+                    : !quickOffline && quickExerciseId === "" && quickVideoId === "")
                 }
                 className="px-3 py-2 bg-brand-orange hover:bg-brand-orange/90 text-white text-[11px] font-bold rounded-lg disabled:opacity-40"
               >
-                {applyingDueDate || savingDraft ? t("dailyCommentPanel.quickAssign.applying") : t("dailyCommentPanel.quickAssign.applyButton")}
+                {applyingHomework || savingDraft ? t("dailyCommentPanel.quickAssign.applying") : t("dailyCommentPanel.quickAssign.applyButton")}
               </button>
             </div>
           </div>
@@ -1744,58 +1800,13 @@ export default function DailyCommentPanel() {
                             />
                           )}
                         </Td>
-                        {/* V137 — "BTVN - Online - Reading/Writing" (giao buổi sau): chọn Exercise NGUỒN đã Publish,
-                            lọc theo skillCategory=READING/WRITING (readingOptions/writingOptions — KHÔNG lọc
-                            teacherType, giống BE StudentCommentService#buildTemplate). */}
+                        {/* 2026-09-12: BTVN online (kể cả Reading/Writing) không còn sửa được theo từng dòng học
+                            sinh — chỉ hiển thị tham khảo BTVN đã giao qua "Áp dụng cho cả lớp" ở trên. */}
                         <Td className="min-w-[200px] border-r border-b border-slate-300">
-                          {locked ? (
-                            <div className={readOnlyFieldClass}>{sent!.homeworkNextReadingExerciseTitle || "—"}</div>
-                          ) : (
-                            <Select
-                              value={r.homeworkNextReadingExerciseId}
-                              disabled={blockOnlineHomework || !teacherType}
-                              onChange={(e) => updateRow({ homeworkNextReadingExerciseId: e.target.value ? Number(e.target.value) : "" })}
-                              aria-label={!teacherType ? t("dailyCommentPanel.ariaChooseTeacherTypeFirst") : blockOnlineHomework ? t("dailyCommentPanel.ariaNoUpcomingSession") : undefined}
-                              className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
-                            >
-                              <option value="">{t("dailyCommentPanel.chooseExercisePlaceholder")}</option>
-                              {readingOptions.map((ex) => (
-                                <option key={ex.examId} value={ex.examId}>
-                                  {/* Bổ sung 2026-09-04 (đã xác nhận với người dùng) — fix bug thật: Lesson đánh số lặp
-                              lại (Lesson 1, 2, 3...) giữa nhiều Unit/SubTopic khác nhau, trước đây dropdown chỉ
-                              hiện examTitle nên giáo viên rất dễ giao NHẦM Lesson. */}
-                          {ex.examCode} - {ex.examTitle}
-                          {(ex.unitTitle || ex.subTopicTitle) && ` [${[ex.unitTitle, ex.subTopicTitle].filter(Boolean).join(" · ")}]`} (
-                          {ex.exerciseCount} bài, {ex.questionCount} câu)
-                                </option>
-                              ))}
-                            </Select>
-                          )}
+                          <div className={readOnlyFieldClass}>{sent?.homeworkNextReadingExerciseTitle || "—"}</div>
                         </Td>
                         <Td className="min-w-[200px] border-r border-b border-slate-300">
-                          {locked ? (
-                            <div className={readOnlyFieldClass}>{sent!.homeworkNextWritingExerciseTitle || "—"}</div>
-                          ) : (
-                            <Select
-                              value={r.homeworkNextWritingExerciseId}
-                              disabled={blockOnlineHomework || !teacherType}
-                              onChange={(e) => updateRow({ homeworkNextWritingExerciseId: e.target.value ? Number(e.target.value) : "" })}
-                              aria-label={!teacherType ? t("dailyCommentPanel.ariaChooseTeacherTypeFirst") : blockOnlineHomework ? t("dailyCommentPanel.ariaNoUpcomingSession") : undefined}
-                              className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
-                            >
-                              <option value="">{t("dailyCommentPanel.chooseExercisePlaceholder")}</option>
-                              {writingOptions.map((ex) => (
-                                <option key={ex.examId} value={ex.examId}>
-                                  {/* Bổ sung 2026-09-04 (đã xác nhận với người dùng) — fix bug thật: Lesson đánh số lặp
-                              lại (Lesson 1, 2, 3...) giữa nhiều Unit/SubTopic khác nhau, trước đây dropdown chỉ
-                              hiện examTitle nên giáo viên rất dễ giao NHẦM Lesson. */}
-                          {ex.examCode} - {ex.examTitle}
-                          {(ex.unitTitle || ex.subTopicTitle) && ` [${[ex.unitTitle, ex.subTopicTitle].filter(Boolean).join(" · ")}]`} (
-                          {ex.exerciseCount} bài, {ex.questionCount} câu)
-                                </option>
-                              ))}
-                            </Select>
-                          )}
+                          <div className={readOnlyFieldClass}>{sent?.homeworkNextWritingExerciseTitle || "—"}</div>
                         </Td>
                       </>
                     ) : (
@@ -1812,50 +1823,13 @@ export default function DailyCommentPanel() {
                         )}
                       </Td>
                     )}
+                    {/* 2026-09-12: BTVN online (Ngữ pháp/Bài nghe, Video) không còn sửa được theo từng dòng
+                        học sinh — chỉ hiển thị tham khảo BTVN đã giao qua "Áp dụng cho cả lớp" ở trên. */}
                     <Td className="min-w-[200px] border-r border-b border-slate-300">
-                      {locked ? (
-                        <div className={readOnlyFieldClass}>{sent!.homeworkNextExerciseTitle || "—"}</div>
-                      ) : (
-                        <Select
-                          value={r.homeworkNextExerciseId}
-                          disabled={blockOnlineHomework || !teacherType}
-                          onChange={(e) => updateRow({ homeworkNextExerciseId: e.target.value ? Number(e.target.value) : "" })}
-                          aria-label={!teacherType ? t("dailyCommentPanel.ariaChooseTeacherTypeFirst") : blockOnlineHomework ? t("dailyCommentPanel.ariaNoUpcomingSession") : undefined}
-                          className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
-                        >
-                          <option value="">{t("dailyCommentPanel.chooseExercisePlaceholder")}</option>
-                          {filteredGrammarOptions.map((ex) => (
-                            <option key={ex.examId} value={ex.examId}>
-                              {/* Bổ sung 2026-09-04 (đã xác nhận với người dùng) — fix bug thật: Lesson đánh số lặp
-                              lại (Lesson 1, 2, 3...) giữa nhiều Unit/SubTopic khác nhau, trước đây dropdown chỉ
-                              hiện examTitle nên giáo viên rất dễ giao NHẦM Lesson. */}
-                          {ex.examCode} - {ex.examTitle}
-                          {(ex.unitTitle || ex.subTopicTitle) && ` [${[ex.unitTitle, ex.subTopicTitle].filter(Boolean).join(" · ")}]`} (
-                          {ex.exerciseCount} bài, {ex.questionCount} câu)
-                            </option>
-                          ))}
-                        </Select>
-                      )}
+                      <div className={readOnlyFieldClass}>{sent?.homeworkNextExerciseTitle || "—"}</div>
                     </Td>
                     <Td className="min-w-[200px] border-r border-b border-slate-300">
-                      {locked ? (
-                        <div className={readOnlyFieldClass}>{sent!.homeworkNextReviewVideoSetTitle || "—"}</div>
-                      ) : (
-                        <Select
-                          value={r.homeworkNextReviewVideoSetId}
-                          onChange={(e) => updateRow({ homeworkNextReviewVideoSetId: e.target.value ? Number(e.target.value) : "" })}
-                          disabled={blockOnlineHomework || !teacherType}
-                          aria-label={!teacherType ? t("dailyCommentPanel.ariaChooseTeacherTypeFirst") : blockOnlineHomework ? t("dailyCommentPanel.ariaNoUpcomingSession") : undefined}
-                          className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
-                        >
-                          <option value="">{t("dailyCommentPanel.quickAssign.noAssign")}</option>
-                          {filteredVideoOptions.map((s) => (
-                            <option key={s.id} value={s.id}>
-                              {s.title} ({s.code})
-                            </option>
-                          ))}
-                        </Select>
-                      )}
+                      <div className={readOnlyFieldClass}>{sent?.homeworkNextReviewVideoSetTitle || "—"}</div>
                     </Td>
                     <Td className="min-w-[120px] whitespace-nowrap border-r border-b border-slate-300">
                       {locked
@@ -1970,6 +1944,75 @@ export default function DailyCommentPanel() {
             <p className="text-xs text-slate-600 leading-relaxed">
               {t("dailyCommentPanel.confirmSend.description", { count: rows.filter((r) => r.content.trim()).length })}
             </p>
+          </div>
+        </Modal>
+
+        {/*
+          Bổ sung 2026-09-12 (đã xác nhận với người dùng) — xác nhận trước khi "Áp dụng cho cả lớp"
+          giao BTVN online THẬT NGAY cho toàn bộ học sinh ACTIVE của buổi (xem Javadoc BE
+          StudentCommentService#applyHomeworkToClass) — chỉ mở khi có ít nhất 1 kênh online được chọn
+          (xem handleApplyQuickAssign/hasQuickOnlineChoice).
+        */}
+        <Modal
+          open={confirmingApplyHomework}
+          onClose={() => setConfirmingApplyHomework(false)}
+          title={t("dailyCommentPanel.confirmApplyHomework.title")}
+          footer={
+            <>
+              <button
+                onClick={() => setConfirmingApplyHomework(false)}
+                className="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold text-xs px-4 py-2 rounded-lg transition-all"
+              >
+                {t("dailyCommentPanel.confirmApplyHomework.cancel")}
+              </button>
+              <button
+                onClick={() => void performApplyQuickAssign()}
+                disabled={applyingHomework || savingDraft}
+                className="bg-brand-orange hover:bg-brand-orange/90 text-white font-semibold text-xs px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-soft transition-all disabled:opacity-50"
+              >
+                <Send className="w-3.5 h-3.5 text-white" />
+                {t("dailyCommentPanel.confirmApplyHomework.confirmButton")}
+              </button>
+            </>
+          }
+        >
+          <div className="flex items-start gap-3">
+            <ShieldAlert className="w-8 h-8 text-amber-500 shrink-0" />
+            <div className="text-xs text-slate-600 leading-relaxed space-y-2 w-full">
+              <p>{t("dailyCommentPanel.confirmApplyHomework.description", { count: rows.length })}</p>
+              <ul className="space-y-1.5">
+                {quickExerciseId !== "" && (
+                  <li>
+                    <span className="font-semibold text-slate-700">{grammarLabel}: </span>
+                    {renderExerciseOptionLabel(filteredGrammarOptions.find((ex) => ex.examId === quickExerciseId)!)}
+                  </li>
+                )}
+                {quickVideoId !== "" && (
+                  <li>
+                    <span className="font-semibold text-slate-700">{videoLabel}: </span>
+                    {renderVideoOptionLabel(filteredVideoOptions.find((s) => s.id === quickVideoId)!)}
+                  </li>
+                )}
+                {isVietnamese && quickReadingExerciseId !== "" && (
+                  <li>
+                    <span className="font-semibold text-slate-700">Reading: </span>
+                    {renderExerciseOptionLabel(readingOptions.find((ex) => ex.examId === quickReadingExerciseId)!)}
+                  </li>
+                )}
+                {isVietnamese && quickWritingExerciseId !== "" && (
+                  <li>
+                    <span className="font-semibold text-slate-700">Writing: </span>
+                    {renderExerciseOptionLabel(writingOptions.find((ex) => ex.examId === quickWritingExerciseId)!)}
+                  </li>
+                )}
+              </ul>
+              {dueDateTime && (
+                <p>
+                  {t("dailyCommentPanel.columns.dueDate")}: {new Date(dueDateTime).toLocaleString(toLocaleTag(i18n.language), { dateStyle: "short", timeStyle: "short" })}
+                  {lateSubmissionAllowed && ` · ${t("dailyCommentPanel.quickAssign.lateSubmissionAllowedLabel")}`}
+                </p>
+              )}
+            </div>
           </div>
         </Modal>
 

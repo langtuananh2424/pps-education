@@ -150,8 +150,13 @@ public class TaskService {
 
             String content = "Công việc \"%s\" đã được giao cho bạn%s.".formatted(task.getTitle(),
                     task.getDueAt() == null ? "" : ", hạn: " + task.getDueAt());
+            Map<String, Object> metadata = new LinkedHashMap<>();
+            metadata.put("action", "ASSIGNED");
+            metadata.put("taskTitle", task.getTitle());
+            metadata.put("dueAt", task.getDueAt());
             notificationService.notify(assignee.getId(), Notification.NotificationType.TASK_ASSIGNED,
-                    "Bạn được giao việc mới", content);
+                    "Bạn được giao việc mới", content,
+                    metadata, "TASK", task.getId(), Notification.Priority.NORMAL, actor.getId());
         }
 
         return toResponse(task);
@@ -371,8 +376,12 @@ public class TaskService {
 
         String content = "Công việc \"%s\" đã được giao lại cho bạn%s.".formatted(task.getTitle(),
                 task.getDueAt() == null ? "" : ", hạn: " + task.getDueAt());
+        Map<String, Object> reassignMetadata = new LinkedHashMap<>();
+        reassignMetadata.put("action", "REASSIGNED");
+        reassignMetadata.put("taskTitle", task.getTitle());
         notificationService.notify(newAssignee.getId(), Notification.NotificationType.TASK_ASSIGNED,
-                "Bạn được giao lại việc", content);
+                "Bạn được giao lại việc", content,
+                reassignMetadata, "TASK", task.getId(), Notification.Priority.NORMAL, actor.getId());
 
         return toResponse(fresh);
     }
@@ -417,12 +426,19 @@ public class TaskService {
         // Thông báo cho các người nhận đang mở (chưa COMPLETED/DECLINED) rằng việc đã bị hủy.
         String notifyContent = "\"%s\" đã bị hủy%s.".formatted(task.getTitle(),
                 reason != null && !reason.isBlank() ? ": " + reason : "");
+        Map<String, Object> cancelMetadata = new LinkedHashMap<>();
+        cancelMetadata.put("action", "CANCELLED");
+        cancelMetadata.put("taskTitle", task.getTitle());
+        if (reason != null && !reason.isBlank()) {
+            cancelMetadata.put("reason", reason);
+        }
         taskAssignmentRepository.findByTaskId(taskId).stream()
                 .filter(a -> a.getStatus() != TaskAssignment.Status.COMPLETED
                         && a.getStatus() != TaskAssignment.Status.DECLINED)
                 .filter(a -> !a.getAssignee().getId().equals(actorUserId))
                 .forEach(a -> notificationService.notify(a.getAssignee().getId(),
-                        Notification.NotificationType.TASK_ASSIGNED, "Công việc đã bị hủy", notifyContent));
+                        Notification.NotificationType.TASK_ASSIGNED, "Công việc đã bị hủy", notifyContent,
+                        cancelMetadata, "TASK", taskId, Notification.Priority.NORMAL, actorUserId));
         return toResponse(task);
     }
 
@@ -441,13 +457,21 @@ public class TaskService {
         comment = taskCommentRepository.save(comment);
 
         if (task.getCreatedBy().getId().equals(actorUserId)) {
+            Map<String, Object> assignerCommentedMetadata = new LinkedHashMap<>();
+            assignerCommentedMetadata.put("action", "ASSIGNER_COMMENTED");
+            assignerCommentedMetadata.put("taskTitle", task.getTitle());
             taskAssignmentRepository.findByTaskId(taskId).stream()
                     .filter(a -> !a.getAssignee().getId().equals(actorUserId))
                     .forEach(a -> notificationService.notify(a.getAssignee().getId(), Notification.NotificationType.TASK_COMMENT,
-                            "Có phản hồi mới", "\"%s\" có phản hồi mới từ người giao việc.".formatted(task.getTitle())));
+                            "Có phản hồi mới", "\"%s\" có phản hồi mới từ người giao việc.".formatted(task.getTitle()),
+                            assignerCommentedMetadata, "TASK", task.getId(), Notification.Priority.NORMAL, actorUserId));
         } else {
+            Map<String, Object> commentedMetadata = new LinkedHashMap<>();
+            commentedMetadata.put("taskTitle", task.getTitle());
+            commentedMetadata.put("actorName", actor.getFullName());
             notificationService.notify(task.getCreatedBy().getId(), Notification.NotificationType.TASK_COMMENT,
-                    "Có phản hồi mới", "\"%s\" có phản hồi mới từ %s.".formatted(task.getTitle(), actor.getFullName()));
+                    "Có phản hồi mới", "\"%s\" có phản hồi mới từ %s.".formatted(task.getTitle(), actor.getFullName()),
+                    commentedMetadata, "TASK", task.getId(), Notification.Priority.NORMAL, actorUserId);
         }
         return toResponse(comment);
     }
@@ -526,7 +550,13 @@ public class TaskService {
         String title = statusNotable ? "Công việc cần bạn xem xét" : "Có phản hồi mới trong công việc";
         String content = "\"%s\" (người thực hiện: %s) — trạng thái hiện tại: %s."
                 .formatted(task.getTitle(), assignment.getAssignee().getFullName(), target);
-        notificationService.notify(assignerId, Notification.NotificationType.TASK_COMMENT, title, content);
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("action", statusNotable ? "REVIEW_NEEDED" : "PROGRESS_UPDATE");
+        metadata.put("taskTitle", task.getTitle());
+        metadata.put("assigneeName", assignment.getAssignee().getFullName());
+        metadata.put("status", target.name());
+        notificationService.notify(assignerId, Notification.NotificationType.TASK_COMMENT, title, content,
+                metadata, "TASK", task.getId(), Notification.Priority.NORMAL, actor.getId());
     }
 
     /** A2: người giao việc từ chối kết quả — người nhận việc nhận thông báo. */
@@ -535,9 +565,13 @@ public class TaskService {
         if (assigneeId.equals(actor.getId())) {
             return;
         }
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("action", "REJECTED");
+        metadata.put("taskTitle", task.getTitle());
         notificationService.notify(assigneeId, Notification.NotificationType.TASK_ASSIGNED,
                 "Công việc bị trả lại để chỉnh sửa",
-                "\"%s\" đã bị người giao việc từ chối, cần tiếp tục xử lý.".formatted(task.getTitle()));
+                "\"%s\" đã bị người giao việc từ chối, cần tiếp tục xử lý.".formatted(task.getTitle()),
+                metadata, "TASK", task.getId(), Notification.Priority.NORMAL, actor.getId());
     }
 
     /**

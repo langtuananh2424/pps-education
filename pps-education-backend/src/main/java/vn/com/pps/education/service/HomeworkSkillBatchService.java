@@ -24,7 +24,10 @@ import vn.com.pps.education.repository.HomeworkSkillBatchRepository;
 import vn.com.pps.education.repository.SchoolClassRepository;
 import vn.com.pps.education.repository.UserRepository;
 
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -55,6 +58,8 @@ public class HomeworkSkillBatchService {
 
     /** Mirror ExerciseService#PERM_EXAM_MANAGE — quyền vượt rào "được phân công dạy lớp". */
     private static final String PERM_EXAM_MANAGE = "lms.exam.manage";
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — mirror StudentCommentService#APP_ZONE. */
+    private static final ZoneId APP_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
 
     public HomeworkSkillBatchService(HomeworkSkillBatchRepository homeworkSkillBatchRepository,
                                       ExerciseAssignmentRepository exerciseAssignmentRepository,
@@ -136,12 +141,16 @@ public class HomeworkSkillBatchService {
         List<ClassEnrollment> enrollments = classEnrollmentRepository
                 .findBySchoolClassIdAndStatus(schoolClass.getId(), ClassEnrollment.Status.ACTIVE);
         String title = "Bài kiểm tra mới được giao";
-        String content = "Đề \"" + exam.getTitle() + " – " + skillCategoryLabel(skillCategory) + " (" + exerciseCount + " bài)\""
-                + " đã được giao cho lớp " + schoolClass.getName() + ".";
+        String assignmentLabel = "Đề \"" + exam.getTitle() + " – " + skillCategoryLabel(skillCategory) + " (" + exerciseCount + " bài)\"";
+        String content = assignmentLabel + " đã được giao cho lớp " + schoolClass.getName() + ".";
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("assignmentLabel", assignmentLabel);
+        metadata.put("className", schoolClass.getName());
+        metadata.put("dueAt", representativeAssignment.getDueAt());
         for (ClassEnrollment enrollment : enrollments) {
             notificationService.notify(enrollment.getStudent().getUser().getId(),
                     Notification.NotificationType.OTHER, title, content,
-                    null, "EXERCISE_ASSIGNMENT", representativeAssignment.getId(),
+                    metadata, "EXERCISE_ASSIGNMENT", representativeAssignment.getId(),
                     Notification.Priority.NORMAL, null);
         }
     }
@@ -171,13 +180,22 @@ public class HomeworkSkillBatchService {
      * diện cho cả Lô ở trang đó, không tách riêng từng Bài.
      */
     @Transactional
-    public void updateLateSubmissionAllowed(Long batchId, boolean lateSubmissionAllowed, Long actorUserId) {
+    public void updateLateSubmissionAllowed(Long batchId, boolean lateSubmissionAllowed, LocalDateTime lateSubmissionDeadline, Long actorUserId) {
         HomeworkSkillBatch batch = homeworkSkillBatchRepository.findById(batchId)
                 .orElseThrow(() -> new ResourceNotFoundException("error.homeworkSkillBatch.notFound",
                         new Object[]{batchId}, "Không tìm thấy Lô id=" + batchId));
         requireAssignedTeacher(batch.getSchoolClass().getId(), actorUserId);
         List<ExerciseAssignment> members = exerciseAssignmentRepository.findByHomeworkBatchId(batchId);
-        members.forEach(a -> a.setLateSubmissionAllowed(lateSubmissionAllowed));
+        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — mirror ExerciseService#updateLateSubmissionAllowed.
+        OffsetDateTime effectiveDeadline = lateSubmissionAllowed && lateSubmissionDeadline != null
+                ? lateSubmissionDeadline.atZone(APP_ZONE).toOffsetDateTime() : null;
+        members.forEach(a -> {
+            if (effectiveDeadline != null && a.getDueAt() != null && !effectiveDeadline.isAfter(a.getDueAt())) {
+                throw new IllegalArgumentException("Hạn nộp muộn phải sau hạn nộp gốc (" + a.getDueAt() + ").");
+            }
+            a.setLateSubmissionAllowed(lateSubmissionAllowed);
+            a.setLateSubmissionDeadline(effectiveDeadline);
+        });
         exerciseAssignmentRepository.saveAll(members);
     }
 

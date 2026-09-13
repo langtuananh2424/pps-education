@@ -978,6 +978,12 @@ CDN)**
                     Portal trường                       
                     liên kết                            
 
+  UC-72             Import Excel      FR-LMS-10         7
+                    nhanh mục lục                        
+                    Sách/Unit/Sub                        
+                    Topic/Lesson/Bài                     
+                    (Kho đề)                             
+
   UC-30             Xem hóa đơn &     FR-FIN-01,        8
                     thanh toán học    FR-FIN-02         
                     phí                                 

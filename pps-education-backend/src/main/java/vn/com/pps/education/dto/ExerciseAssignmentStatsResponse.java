@@ -16,6 +16,8 @@ public record ExerciseAssignmentStatsResponse(
         OffsetDateTime dueAt,
         /** V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — hiện + cho bật/tắt lại ở trang "Xem chi tiết". Với dòng TỔNG HỢP của 1 Lô: lấy từ bản giao đại diện đầu tiên (mọi Bài trong Lô luôn cùng giá trị, xem StudentCommentService#batchLateSubmissionAllowed). */
         boolean lateSubmissionAllowed,
+        /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — mirror lateSubmissionAllowed: NULL = không giới hạn, dòng tổng hợp Lô lấy từ bản giao đại diện đầu tiên. */
+        OffsetDateTime lateSubmissionDeadline,
         String status,
         int totalStudents,
         int completedCount,

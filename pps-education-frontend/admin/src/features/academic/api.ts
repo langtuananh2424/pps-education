@@ -725,6 +725,8 @@ export interface ClassSessionResponse {
   teacherType: "VIETNAMESE" | "FOREIGN" | null;
   /** Tên GV thực tế dạy buổi (nhập tay, khác primaryTeacherName là FK hệ thống — dùng khi GV nước ngoài không tự thao tác hệ thống) — bổ sung ngoài SDD gốc, 2026-08-06. */
   actualTeacherName: string | null;
+  /** Tên GV tại thời điểm xếp/sửa lịch qua Lịch làm việc (mốc so sánh với actualTeacherName — khác nhau ⇒ đã đổi GV ngoài kế hoạch) — bổ sung ngoài SDD gốc, 2026-09-12. */
+  originalTeacherName: string | null;
   sessionNumber: number;
   /** "Bài học hôm nay" (đã có từ V50, chưa từng lộ ra FE) — nhập ở tab Nhận xét học viên (UC-21), không phải Điểm danh. */
   lessonContent: string | null;
@@ -751,6 +753,8 @@ export interface CreateClassSessionRequest {
   cmTeacherId?: number;
   /** Bắt buộc khi sessionType=MAKEUP (buổi này bù cho buổi nào) — phải để trống với loại khác. Chỉ áp dụng tạo 1 buổi lẻ, không áp dụng bulk/Excel. */
   makeupForSessionId?: number;
+  /** "Tên giáo viên giảng dạy" nhập tay — chỉ có ý nghĩa khi teacherType=FOREIGN (GVNN không có tài khoản), đồng bộ với field cùng tên ở Nhận xét học viên — bổ sung ngoài SDD gốc, 2026-09-12. */
+  actualTeacherName?: string;
 }
 
 /** Đảo ngược 2026-08-13 (xác nhận lại 2026-08-19): newStartTime/newEndTime đổi sang newPeriodNumbers; GV chính/phụ/CM giữ nguyên từ buổi cũ (sửa GV dùng updateSessionAssignment riêng). */
@@ -771,6 +775,8 @@ export interface UpdateSessionAssignmentRequest {
   cmTeacherId?: number;
   dayPart: DayPart;
   periodNumbers: number[];
+  /** "Tên giáo viên giảng dạy" nhập tay — chỉ có ý nghĩa khi teacherType=FOREIGN (GVNN không có tài khoản), đồng bộ với field cùng tên ở Nhận xét học viên — bổ sung ngoài SDD gốc, 2026-09-12. */
+  actualTeacherName?: string;
 }
 
 export function updateSessionAssignment(
@@ -831,6 +837,8 @@ export interface BulkCreateClassSessionRequest {
   primaryTeacherId: number;
   assistantTeacherId?: number;
   cmTeacherId?: number;
+  /** "Tên giáo viên giảng dạy" nhập tay — chỉ có ý nghĩa khi teacherType=FOREIGN (GVNN không có tài khoản), đồng bộ với field cùng tên ở Nhận xét học viên — bổ sung ngoài SDD gốc, 2026-09-12. */
+  actualTeacherName?: string;
 }
 
 export interface BulkCreateClassSessionResponse {
@@ -1356,34 +1364,16 @@ export interface CreateStudentCommentRequest {
   /** V130 — chỉ gửi khi buổi teacherType=VIETNAMESE, xem Javadoc StudentCommentResponse.homeworkNextReading. */
   homeworkNextReading?: string;
   homeworkNextWriting?: string;
-  /**
-   * V65 (2026-07-30, bổ sung ngoài SDD gốc): kênh ngữ pháp ONLINE — id của Exercise NGUỒN (đã
-   * Publish), KHÔNG phải id bản giao như trước V65. Chọn khác null tự động giao đề cho CẢ LỚP ACTIVE,
-   * hạn nộp = buổi học kế tiếp — để trống nếu dùng homeworkNext (OFFLINE) hoặc không giao gì (hủy bản
-   * giao cũ nếu đang sửa 1 comment DRAFT đã chọn trước đó). V151 (revert V146, đã xác nhận với người
-   * dùng 2026-08-25) — kênh "Ngữ pháp"/"Nghe" dùng CHUNG field này: buổi teacherType=FOREIGN chọn
-   * Exercise skillCategory=LISTENING, buổi VIETNAMESE chọn skillCategory=VOCAB_GRAMMAR.
-   */
-  homeworkNextExerciseId?: number;
-  /** Kênh Video Ôn tập (luôn ONLINE) — id của ReviewVideoSet NGUỒN (đã Publish), tự động giao cả lớp tương tự. Để trống nếu không giao. */
-  homeworkNextReviewVideoSetId?: number;
-  /** V137 — kênh Reading/Writing ONLINE (mirror homeworkNextExerciseId) — id của Exercise NGUỒN có skillCategory=READING/WRITING tương ứng. Chỉ gửi khi buổi teacherType=VIETNAMESE. */
-  homeworkNextReadingExerciseId?: number;
-  homeworkNextWritingExerciseId?: number;
-  /**
-   * Nhận xét học viên (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05, cho phép chọn
-   * GIỜ 2026-08-06): hạn nộp BTVN buổi sau (ngày + giờ, format "yyyy-MM-ddTHH:mm" — khớp value của
-   * <input type="datetime-local">/kết hợp DatePicker + input giờ) do Giáo viên tự chọn — để trống thì
-   * BE giữ hành vi cũ (khoá cứng = ngày buổi kế tiếp). Chỉ có ý nghĩa khi có homeworkNextExerciseId
-   * hoặc homeworkNextReviewVideoSetId. Mọi nhận xét DAILY cùng 1 buổi phải khớp cùng 1 hạn nộp (BE
-   * chặn 409 nếu khác).
-   */
-  homeworkNextDueDate?: string;
-  /** V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — dùng chung cho cả kênh Bài tập lẫn Video, mirror homeworkNextDueDate. Để trống = false (giữ hành vi chặn cứng cũ). */
-  homeworkNextLateSubmissionAllowed?: boolean;
   note?: string;
 }
 
+/**
+ * Bổ sung 2026-09-12 (đã xác nhận với người dùng) — BTVN online (homeworkNextExerciseId/
+ * homeworkNextReviewVideoSetId/homeworkNextReadingExerciseId/homeworkNextWritingExerciseId/
+ * homeworkNextDueDate/homeworkNextLateSubmissionAllowed, từng ở đây) đã bỏ hẳn khỏi
+ * CreateStudentCommentRequest — giao BTVN online tách hẳn khỏi Viết/Sửa nhận xét, chỉ còn qua
+ * applyClassHomework() (nút "Áp dụng cho cả lớp"). Xem ApplyClassHomeworkRequest.
+ */
 export interface UpdateStudentCommentRequest {
   content: string;
   structuredContent?: Record<string, unknown>;
@@ -1399,16 +1389,6 @@ export interface UpdateStudentCommentRequest {
   /** V130 — xem Javadoc CreateStudentCommentRequest.homeworkNextReading. */
   homeworkNextReading?: string;
   homeworkNextWriting?: string;
-  /** V65 — xem Javadoc CreateStudentCommentRequest.homeworkNextExerciseId. */
-  homeworkNextExerciseId?: number;
-  homeworkNextReviewVideoSetId?: number;
-  /** V137 — xem Javadoc CreateStudentCommentRequest.homeworkNextReadingExerciseId. */
-  homeworkNextReadingExerciseId?: number;
-  homeworkNextWritingExerciseId?: number;
-  /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05 — xem Javadoc CreateStudentCommentRequest.homeworkNextDueDate. */
-  homeworkNextDueDate?: string;
-  /** V165 — xem Javadoc CreateStudentCommentRequest.homeworkNextLateSubmissionAllowed. */
-  homeworkNextLateSubmissionAllowed?: boolean;
   note?: string;
 }
 
@@ -1519,6 +1499,37 @@ export function updateComment(id: number, request: UpdateStudentCommentRequest):
   return apiRequest<StudentCommentResponse>(`/comments/${id}`, { method: "PUT", body: JSON.stringify(request) });
 }
 
+/**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — "Lưu nháp" CẢ LỚP trong 1 request
+ * DUY NHẤT, thay cho việc gọi lặp lại writeComment/updateComment cho TỪNG học sinh (N request HTTP
+ * song song — chậm rõ rệt trên môi trường deploy có độ trễ mạng, phản hồi thực tế từ test trên deploy).
+ * Xem Javadoc BE StudentCommentService#saveDraftBatch.
+ */
+export interface SaveDraftRowRequest extends UpdateStudentCommentRequest {
+  studentId: number;
+}
+
+export interface SaveDraftCommentsRequest {
+  commentDate: string;
+  rows: SaveDraftRowRequest[];
+}
+
+/**
+ * `skipped` — CÁC dòng không lưu được (VD học sinh đó vừa bị Quản lý điểm trường duyệt/từ chối giữa
+ * chừng) — KHÔNG chặn các dòng khác lưu thành công, mirror đúng tinh thần Promise.allSettled cũ ở FE.
+ */
+export interface SaveDraftCommentsResponse {
+  saved: StudentCommentResponse[];
+  skipped: { studentId: number; reason: string }[];
+}
+
+export function saveDraftBatch(classId: number, classSessionId: number, request: SaveDraftCommentsRequest): Promise<SaveDraftCommentsResponse> {
+  return apiRequest<SaveDraftCommentsResponse>(`/classes/${classId}/class-sessions/${classSessionId}/comments/draft-batch`, {
+    method: "POST",
+    body: JSON.stringify(request)
+  });
+}
+
 export interface UpdateStudentCommentContentRequest {
   content: string;
   structuredContent?: Record<string, unknown>;
@@ -1534,15 +1545,25 @@ export function submitComments(classId: number, commentIds: number[]): Promise<S
 }
 
 /**
- * Bổ sung ngoài SDD gốc (2026-08-24, xác nhận với người dùng) — đổi Hạn nộp BTVN buổi sau cho TOÀN
- * BỘ nhận xét NHÁP/Bị từ chối của 1 buổi trong 1 lần gọi, thay vì N request updateComment() song
- * song (luôn thất bại khi N nhận xét đang cùng giữ 1 hạn nộp cũ — xem Javadoc BE
- * StudentCommentService#bulkUpdatePendingDueDate).
+ * Bổ sung 2026-09-12 (đã xác nhận với người dùng) — "Áp dụng cho cả lớp": điểm giao BTVN buổi sau
+ * DUY NHẤT (Ngữ pháp/Bài nghe, Video TKN/Clip phản xạ, Reading, Writing — 2 field cuối chỉ có ý
+ * nghĩa khi buổi teacherType=VIETNAMESE), tách hẳn khỏi Viết/Gửi nhận xét. FE PHẢI hiện popup xác
+ * nhận trước khi gọi — giao thật ngay cho TOÀN BỘ học sinh ACTIVE của lớp, không có bước xác nhận
+ * nào khác ở BE. Xem Javadoc BE StudentCommentService#applyHomeworkToClass.
  */
-export function bulkUpdatePendingDueDate(classSessionId: number, dueDate: string, lateSubmissionAllowed?: boolean): Promise<StudentCommentResponse[]> {
-  return apiRequest<StudentCommentResponse[]>(`/class-sessions/${classSessionId}/comments/due-date`, {
-    method: "PUT",
-    body: JSON.stringify({ dueDate, lateSubmissionAllowed })
+export interface ApplyClassHomeworkRequest {
+  grammarExamId?: number;
+  videoSetId?: number;
+  readingExamId?: number;
+  writingExamId?: number;
+  dueDate?: string;
+  lateSubmissionAllowed?: boolean;
+}
+
+export function applyClassHomework(classSessionId: number, request: ApplyClassHomeworkRequest): Promise<StudentCommentResponse[]> {
+  return apiRequest<StudentCommentResponse[]>(`/class-sessions/${classSessionId}/comments/apply-homework`, {
+    method: "POST",
+    body: JSON.stringify(request)
   });
 }
 
@@ -1593,6 +1614,11 @@ export function importDailyComments(classSessionId: number, file: File): Promise
   return apiRequest<DailyCommentImportResponse>(`/class-sessions/${classSessionId}/comments/import`, { method: "POST", body: formData });
 }
 
+/**
+ * Bổ sung 2026-09-12 (đã xác nhận với người dùng) — bỏ hẳn 4 field BTVN online (homeworkNextExerciseId/
+ * homeworkNextReviewVideoSetId/homeworkNextReadingExerciseId/homeworkNextWritingExerciseId): Excel chỉ
+ * còn phục vụ Nhận xét/BTVN offline, xem Javadoc BE StudentCommentService#applyHomeworkToClass.
+ */
 export interface DailyCommentImportPreviewRow {
   studentId: number;
   attitude: StudentCommentResponse["attitude"];
@@ -1605,11 +1631,6 @@ export interface DailyCommentImportPreviewRow {
   homeworkNext: string | null;
   homeworkNextReading: string | null;
   homeworkNextWriting: string | null;
-  homeworkNextExerciseId: number | null;
-  homeworkNextReviewVideoSetId: number | null;
-  /** V137 — chỉ khác null khi buổi teacherType=VIETNAMESE. */
-  homeworkNextReadingExerciseId: number | null;
-  homeworkNextWritingExerciseId: number | null;
   note: string | null;
 }
 
@@ -1660,6 +1681,8 @@ export interface ExerciseAssignmentStatsResponse {
   dueAt: string | null;
   /** V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — cho bật/tắt lại ở trang "Xem chi tiết". */
   lateSubmissionAllowed: boolean;
+  /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — hạn chót nộp muộn cụ thể (null = không giới hạn). */
+  lateSubmissionDeadline: string | null;
   status: "ACTIVE" | "COMPLETED";
   totalStudents: number;
   completedCount: number;
@@ -1736,11 +1759,20 @@ export function getExerciseAssignmentStudentStats(assignmentId: number): Promise
   return apiRequest<ExerciseAssignmentStudentStatsResponse>(`/exercise-assignments/${assignmentId}/stats/students`);
 }
 
-/** V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — bật/tắt lại "Cho phép nộp bài muộn" cho 1 bản giao Bài tập ĐÃ tạo. Không cần kiểu trả về — caller tự cập nhật lạc quan state cục bộ. */
-export function updateExerciseAssignmentLateSubmissionAllowed(assignmentId: number, lateSubmissionAllowed: boolean): Promise<void> {
+/**
+ * V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — bật/tắt lại "Cho phép nộp bài
+ * muộn" cho 1 bản giao Bài tập ĐÃ tạo. Không cần kiểu trả về — caller tự cập nhật lạc quan state cục bộ.
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — thêm `lateSubmissionDeadline` (optional,
+ * bỏ qua/null = nộp muộn không giới hạn thời gian).
+ */
+export function updateExerciseAssignmentLateSubmissionAllowed(
+  assignmentId: number,
+  lateSubmissionAllowed: boolean,
+  lateSubmissionDeadline?: string | null
+): Promise<void> {
   return apiRequest<void>(`/exercise-assignments/${assignmentId}/late-submission-allowed`, {
     method: "PUT",
-    body: JSON.stringify({ lateSubmissionAllowed })
+    body: JSON.stringify({ lateSubmissionAllowed, lateSubmissionDeadline: lateSubmissionDeadline ?? null })
   });
 }
 
@@ -1753,11 +1785,19 @@ export function exportHomeworkBatchStats(batchId: number): Promise<Blob> {
   return apiRequestBlob(`/homework-skill-batches/${batchId}/stats/export`);
 }
 
-/** V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — bật/tắt lại "Cho phép nộp bài muộn" cho TOÀN BỘ bản giao (N Bài) thuộc 1 Lô cùng lúc. */
-export function updateHomeworkBatchLateSubmissionAllowed(batchId: number, lateSubmissionAllowed: boolean): Promise<void> {
+/**
+ * V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — bật/tắt lại "Cho phép nộp bài
+ * muộn" cho TOÀN BỘ bản giao (N Bài) thuộc 1 Lô cùng lúc.
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — mirror updateExerciseAssignmentLateSubmissionAllowed.
+ */
+export function updateHomeworkBatchLateSubmissionAllowed(
+  batchId: number,
+  lateSubmissionAllowed: boolean,
+  lateSubmissionDeadline?: string | null
+): Promise<void> {
   return apiRequest<void>(`/homework-skill-batches/${batchId}/late-submission-allowed`, {
     method: "PUT",
-    body: JSON.stringify({ lateSubmissionAllowed })
+    body: JSON.stringify({ lateSubmissionAllowed, lateSubmissionDeadline: lateSubmissionDeadline ?? null })
   });
 }
 

@@ -193,7 +193,7 @@ class PartnerPortalServiceTest extends AbstractIntegrationTest {
         seedPeriod(partnerSite, 1, LocalTime.now().minusMinutes(1), LocalTime.now().plusHours(1));
         ClassSessionResponse session = classSessionService.createSession(schoolClass.id(),
                 new CreateClassSessionRequest(LocalDate.now(), "MORNING", List.of(1), null, "REGULAR", "VIETNAMESE",
-                        teacher.getId(), null, null, null),
+                        teacher.getId(), null, null, null, null),
                 headAcademic.getId());
         studentAttendanceService.markAttendance(session.id(),
                 new MarkAttendanceRequest("SESSION_LEVEL", List.of(
@@ -273,7 +273,7 @@ class PartnerPortalServiceTest extends AbstractIntegrationTest {
         seedPeriod(partnerSite, 2, LocalTime.of(8, 0), LocalTime.of(9, 40));
         ClassSessionResponse session = classSessionService.createSession(schoolClass.id(),
                 new CreateClassSessionRequest(LocalDate.now(), "MORNING", List.of(1), null, "REGULAR", "VIETNAMESE",
-                        teacher.getId(), null, null, null),
+                        teacher.getId(), null, null, null, null),
                 headAcademic.getId());
         studentCommentService.updateLessonContent(session.id(), "Unit 1: Present simple tense.", teacher.getId());
         studentAttendanceService.markAttendance(session.id(),
@@ -281,8 +281,7 @@ class PartnerPortalServiceTest extends AbstractIntegrationTest {
                 teacher.getId());
         studentAttendanceService.submitAttendance(session.id(), teacher.getId());
         StudentCommentResponse approvedComment = studentCommentService.writeComment(schoolClass.id(),
-                new CreateStudentCommentRequest(student.getId(), session.id(),
-                        LocalDate.now(), "Chăm chỉ, tiến bộ rõ rệt.", null, "POSITIVE", false, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null),
+                new CreateStudentCommentRequest(student.getId(), session.id(), LocalDate.now(), "Chăm chỉ, tiến bộ rõ rệt.", null, "POSITIVE", false, null, null, null, null, null, null, null, null, null),
                 teacher.getId());
         studentCommentService.submitComments(schoolClass.id(), new SubmitCommentsRequest(List.of(approvedComment.id())), teacher.getId());
         studentCommentService.decideComments(
@@ -293,11 +292,10 @@ class PartnerPortalServiceTest extends AbstractIntegrationTest {
         // đã APPROVED (StudentCommentNotEditableException, xem StudentCommentService#writeComment).
         ClassSessionResponse otherSession = classSessionService.createSession(schoolClass.id(),
                 new CreateClassSessionRequest(LocalDate.now().plusDays(1), "MORNING", List.of(2), null, "REGULAR", "VIETNAMESE",
-                        headAcademic.getId(), null, null, null),
+                        headAcademic.getId(), null, null, null, null),
                 headAcademic.getId());
         studentCommentService.writeComment(schoolClass.id(),
-                new CreateStudentCommentRequest(student.getId(), otherSession.id(),
-                        LocalDate.now(), "Nhận xét nháp chưa gửi duyệt.", null, "NORMAL", false, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null),
+                new CreateStudentCommentRequest(student.getId(), otherSession.id(), LocalDate.now(), "Nhận xét nháp chưa gửi duyệt.", null, "NORMAL", false, null, null, null, null, null, null, null, null, null),
                 teacher.getId());
 
         List<StudentCommentResponse> comments = partnerPortalService.getApprovedComments(partnerRepUser.getId());

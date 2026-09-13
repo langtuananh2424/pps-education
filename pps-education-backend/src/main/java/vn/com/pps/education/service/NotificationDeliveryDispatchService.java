@@ -88,13 +88,22 @@ public class NotificationDeliveryDispatchService {
                 // Sender trả về false (VD PushNotificationSender khi user không có device_tokens
                 // active) thất bại HOÀN TOÀN ÂM THẦM — log WARN để thấy ngay trong log server thay
                 // vì phải tra thẳng DB (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-05).
-                log.warn("Gửi notification_delivery id={} qua kênh {} cho recipient_user_id={} thất bại: sender trả về false",
-                        delivery.getId(), delivery.getChannel(), delivery.getNotification().getRecipientUser().getId());
+                // TẠM THỜI tắt log cho kênh SMS (đã xác nhận với người dùng 2026-09-12): Twilio
+                // chưa cấu hình ở staging, retry mỗi vài phút cho MỌI Phụ huynh/Học sinh (SMS mặc
+                // định bật cho 2 nhóm này) làm rác log server — vẫn FAILED + lên lịch retry bình
+                // thường, chỉ không in log. Xoá điều kiện `!= SMS` này sau khi Twilio được cấu hình.
+                if (delivery.getChannel() != NotificationDelivery.Channel.SMS) {
+                    log.warn("Gửi notification_delivery id={} qua kênh {} cho recipient_user_id={} thất bại: sender trả về false",
+                            delivery.getId(), delivery.getChannel(), delivery.getNotification().getRecipientUser().getId());
+                }
                 markFailed(delivery, "Gửi thất bại (sender trả về false)");
             }
         } catch (Exception ex) {
-            log.warn("Gửi notification_delivery id={} qua kênh {} thất bại: {}",
-                    delivery.getId(), delivery.getChannel(), ex.getMessage());
+            // Xem ghi chú TẠM THỜI ở nhánh else phía trên — cùng lý do tắt log cho kênh SMS.
+            if (delivery.getChannel() != NotificationDelivery.Channel.SMS) {
+                log.warn("Gửi notification_delivery id={} qua kênh {} thất bại: {}",
+                        delivery.getId(), delivery.getChannel(), ex.getMessage());
+            }
             markFailed(delivery, ex.getMessage());
         }
         notificationDeliveryRepository.save(delivery);

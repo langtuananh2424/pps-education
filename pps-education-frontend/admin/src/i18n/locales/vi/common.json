@@ -17,7 +17,7 @@
     "PENDING": "Chưa nhận lớp",
     "ON_TIME": "Đã nhận lớp — đúng giờ",
     "LATE": "Đã nhận lớp — muộn",
-    "ABSENT": "Vắng — không nhận lớp"
+    "ABSENT": "Không nhận lớp"
   },
   "geolocation": {
     "unsupported": "Trình duyệt không hỗ trợ định vị GPS.",
