@@ -388,7 +388,31 @@
     "subTopicUpdatedToast": "Đã sửa Sub Topic.",
     "deleteSubTopicConfirm": "Xóa Sub Topic \"{{title}}\"? Chỉ xóa được khi chưa có Đề/Bộ video nào dùng.",
     "subTopicDeletedToast": "Đã xóa Sub Topic.",
-    "deleteSubTopicFailed": "Xóa Sub Topic thất bại."
+    "deleteSubTopicFailed": "Xóa Sub Topic thất bại.",
+    "importButton": "Nhập Excel",
+    "importModal": {
+      "title": "Nhập Excel danh mục Sách/Unit/Lesson",
+      "description": "Mỗi dòng = 1 Bài. Cột Tên sách/Tên Unit/Tên Sub Topic/Mã Lesson để trống nghĩa là lặp lại giá trị dòng liền trước (kiểu merged cell khi xuất từ Excel).",
+      "downloadTemplate": "Tải file mẫu (.xlsx)",
+      "teacherTypeLabel": "Loại giáo viên MẶC ĐỊNH (dùng khi cột \"Loại giáo viên\" trong file để trống)",
+      "teacherTypePlaceholder": "Chọn loại giáo viên mặc định",
+      "examTypeLabel": "Loại đề áp dụng cho Đề mới",
+      "examTypePlaceholder": "Chọn loại đề",
+      "totalPointsLabel": "Tổng điểm mặc định cho Bài mới",
+      "hintDefaults": "Chỉ áp dụng cho Đề/Bài MỚI tạo — Đề/Bài đã có sẵn đúng mã giữ nguyên giá trị cũ. Trong file, cột \"Loại giáo viên\" cho phép khai riêng VIETNAMESE/FOREIGN cho từng Lesson (VD Lesson lẻ = GVVN, Lesson chẵn = GVNN) — để trống thì dùng giá trị mặc định ở trên.",
+      "chooseFile": "Chọn file Excel (.xlsx)",
+      "onlyXlsx": "Chỉ chấp nhận file .xlsx.",
+      "requiredFields": "Chọn đủ Loại giáo viên, Loại đề và Tổng điểm mặc định trước khi chọn file.",
+      "importing": "Đang nhập...",
+      "importFailed": "Nhập Excel thất bại.",
+      "stats": {
+        "totalRows": "Tổng số dòng",
+        "successRows": "Thành công",
+        "failedRows": "Lỗi"
+      },
+      "errorDetailTitle": "Chi tiết lỗi từng dòng",
+      "closeButton": "Đóng"
+    }
   },
   "assignPage": {
     "statusLabels": {
