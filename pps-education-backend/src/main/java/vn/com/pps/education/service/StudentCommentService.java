@@ -583,7 +583,11 @@ public class StudentCommentService {
             comment.setSubmittedAt(now);
         }
         List<StudentComment> saved = studentCommentRepository.saveAll(comments);
-        saved.forEach(c -> writeHistory(c, actor, StudentCommentHistory.Action.UPDATED));
+        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — fix N+1 thật (phản hồi thực tế
+        // test trên deploy: Gửi nhận xét cả lớp bị chậm) — truy vấn "nhận xét buổi trước" 1 LẦN cho cả
+        // lô thay vì để writeHistory tự truy vấn lại cho TỪNG dòng, xem Javadoc previousCommentsByClassSessionAndStudent.
+        Map<Long, Map<Long, StudentComment>> previousCache = previousCommentsByClassSessionAndStudent(saved);
+        saved.forEach(c -> writeHistory(c, actor, StudentCommentHistory.Action.UPDATED, previousCache));
         notifySiteManagersPending(saved);
         return saved.stream().map(this::toResponse).toList();
     }
@@ -643,7 +647,10 @@ public class StudentCommentService {
             }
         }
         List<StudentComment> saved = studentCommentRepository.saveAll(comments);
-        saved.forEach(c -> writeHistory(c, actor, StudentCommentHistory.Action.UPDATED));
+        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — mirror fix N+1 ở submitComments,
+        // áp dụng cho "duyệt theo lô" (site manager có thể duyệt gộp nhiều buổi/lớp cùng lúc từ hàng chờ).
+        Map<Long, Map<Long, StudentComment>> previousCache = previousCommentsByClassSessionAndStudent(saved);
+        saved.forEach(c -> writeHistory(c, actor, StudentCommentHistory.Action.UPDATED, previousCache));
         if (decision == ApprovalFlow.Decision.REJECTED) {
             saved.forEach(this::notifyTeacherRejected);
         } else {
@@ -1828,6 +1835,12 @@ public class StudentCommentService {
      * (V167, 2026-09-05 — 2 method đổi tên + đổi sang @Query để fix bug "2 buổi cùng ngày").
      */
     private StudentComment previousComment(ClassSession classSession, Long studentId) {
+        return previousSession(classSession)
+                .flatMap(prev -> studentCommentRepository.findByClassSessionIdAndStudentId(prev.getId(), studentId))
+                .orElse(null);
+    }
+
+    private Optional<ClassSession> previousSession(ClassSession classSession) {
         ClassSession.TeacherType teacherType = classSession.getTeacherType();
         List<ClassSession.Status> excludedStatuses = List.of(ClassSession.Status.CANCELLED, ClassSession.Status.RESCHEDULED);
         List<ClassSession> candidates = teacherType != null
@@ -1835,10 +1848,41 @@ public class StudentCommentService {
                         classSession.getSchoolClass().getId(), classSession.getSessionDate(), classSession.getId(), teacherType, excludedStatuses)
                 : classSessionRepository.findSessionsBeforeOrderedDesc(
                         classSession.getSchoolClass().getId(), classSession.getSessionDate(), classSession.getId(), excludedStatuses);
-        return candidates.stream()
-                .findFirst()
-                .flatMap(prev -> studentCommentRepository.findByClassSessionIdAndStudentId(prev.getId(), studentId))
-                .orElse(null);
+        return candidates.stream().findFirst();
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — fix N+1 THẬT gây chậm khi Gửi/
+     * Duyệt nhận xét cho CẢ LỚP cùng lúc (phản hồi thực tế test trên môi trường deploy): trước đây
+     * mỗi dòng {@link StudentComment} trong 1 lô gọi RIÊNG {@link #previousComment} — với lớp N học
+     * sinh, tốn tới 2N truy vấn SELECT (N lần tìm lại "buổi trước" — dù CÙNG 1 classSession nên kết
+     * quả giống hệt nhau mọi lần, cộng N lần tìm "nhận xét buổi trước của từng học sinh"). Hàm này
+     * truy vấn "buổi trước" đúng 1 LẦN cho classSession, rồi 1 truy vấn BULK duy nhất
+     * ({@link StudentCommentRepository#findByClassSessionIdAndStudentIdIn}) lấy nhận xét buổi trước
+     * của TOÀN BỘ học sinh trong lô — dùng cho {@link #writeHistory(StudentComment, User,
+     * StudentCommentHistory.Action, Map)} qua submitComments/decideComments.
+     */
+    private Map<Long, StudentComment> previousCommentsByStudentIdForSession(ClassSession classSession, List<Long> studentIds) {
+        return previousSession(classSession)
+                .map(prev -> studentCommentRepository.findByClassSessionIdAndStudentIdIn(prev.getId(), studentIds).stream()
+                        .collect(java.util.stream.Collectors.toMap(c -> c.getStudent().getId(), c -> c, (a, b) -> a)))
+                .orElse(Map.of());
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — mirror
+     * {@link #previousCommentsByStudentIdForSession} nhưng cho lô CÓ THỂ gồm NHIỀU classSession khác
+     * nhau (VD UC-22 "duyệt theo lô" của Quản lý điểm trường, gộp nhận xét từ nhiều lớp/buổi khác nhau
+     * trong hàng chờ) — nhóm theo classSessionId trước, mỗi nhóm chỉ truy vấn 1 lần thay vì N lần theo
+     * từng dòng, giữ đúng ngữ nghĩa cũ (khoá ngoài classSessionId+studentId, không gộp nhầm giữa các
+     * buổi khác nhau nếu 1 học sinh xuất hiện ở nhiều buổi trong cùng 1 lô duyệt).
+     */
+    private Map<Long, Map<Long, StudentComment>> previousCommentsByClassSessionAndStudent(List<StudentComment> comments) {
+        return comments.stream()
+                .collect(java.util.stream.Collectors.groupingBy(c -> c.getClassSession().getId()))
+                .entrySet().stream()
+                .collect(java.util.stream.Collectors.toMap(Map.Entry::getKey, e -> previousCommentsByStudentIdForSession(
+                        e.getValue().get(0).getClassSession(), e.getValue().stream().map(c -> c.getStudent().getId()).toList())));
     }
 
     /** % bài ngữ pháp online đã giao ở buổi trước — xem HomeworkProgressService.grammarProgressLabel. V150: cộng dồn cả Lô (N Bài). */
@@ -2035,11 +2079,23 @@ public class StudentCommentService {
     }
 
     private void writeHistory(StudentComment comment, User actor, StudentCommentHistory.Action action) {
+        writeHistory(comment, actor, action, null);
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — overload nhận thêm
+     * {@code previousCache} (xem {@link #previousCommentsByClassSessionAndStudent}) để
+     * submitComments/decideComments (ghi lịch sử CẢ LÔ N dòng cùng lúc) không phải tự truy vấn lại
+     * "nhận xét buổi trước" cho từng dòng — truyền {@code null} thì giữ nguyên hành vi cũ (tự truy vấn
+     * riêng), dùng cho mọi chỗ khác chỉ ghi lịch sử 1 dòng đơn lẻ (Lưu nháp, sửa PENDING...).
+     */
+    private void writeHistory(StudentComment comment, User actor, StudentCommentHistory.Action action,
+                               Map<Long, Map<Long, StudentComment>> previousCache) {
         StudentCommentHistory history = new StudentCommentHistory();
         history.setStudentComment(comment);
         history.setChangedBy(actor);
         history.setAction(action);
-        history.setDetails(buildHistorySnapshot(comment));
+        history.setDetails(buildHistorySnapshot(comment, previousCache));
         studentCommentHistoryRepository.save(history);
     }
 
@@ -2053,6 +2109,10 @@ public class StudentCommentService {
      * đổi tên hoặc xoá.
      */
     private Map<String, Object> buildHistorySnapshot(StudentComment comment) {
+        return buildHistorySnapshot(comment, null);
+    }
+
+    private Map<String, Object> buildHistorySnapshot(StudentComment comment, Map<Long, Map<Long, StudentComment>> previousCache) {
         Map<String, Object> snapshot = new LinkedHashMap<>();
         snapshot.put("status", comment.getStatus().name());
         snapshot.put("content", comment.getContent());
@@ -2068,7 +2128,9 @@ public class StudentCommentService {
         // (Nhận xét học viên có 2 cột "BTVN buổi trước" TỰ ĐỘNG, xem PreviousProgressCell FE) — tính
         // NGAY tại thời điểm lưu (không chờ đọc lại), đúng tinh thần "snapshot đúng lúc đó", dù giá trị
         // có thể trùng ở nhiều phiên bản liên tiếp nếu buổi trước không có gì thay đổi thêm.
-        StudentComment previous = previousComment(comment.getClassSession(), comment.getStudent().getId());
+        StudentComment previous = previousCache != null
+                ? previousCache.getOrDefault(comment.getClassSession().getId(), Map.of()).get(comment.getStudent().getId())
+                : previousComment(comment.getClassSession(), comment.getStudent().getId());
         snapshot.put("grammarPreviousProgress", grammarPreviousProgressLabel(previous));
         snapshot.put("videoPreviousProgress", videoPreviousProgressLabel(previous));
         snapshot.put("readingPreviousProgress", readingPreviousProgressLabel(previous));

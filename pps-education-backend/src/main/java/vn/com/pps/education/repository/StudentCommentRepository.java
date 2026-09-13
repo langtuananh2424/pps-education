@@ -18,6 +18,14 @@ public interface StudentCommentRepository extends JpaRepository<StudentComment, 
     /** UC-21 (bổ sung — nhận xét Hàng ngày kiểu mới): 1 học sinh chỉ có tối đa 1 nhận xét DAILY / buổi học. */
     Optional<StudentComment> findByClassSessionIdAndStudentId(Long classSessionId, Long studentId);
 
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — bulk mirror
+     * {@link #findByClassSessionIdAndStudentId} cho N học sinh cùng lúc, dùng để fix N+1 thật ở
+     * {@code StudentCommentService#previousCommentsByStudentIdForSession} (gửi/duyệt nhận xét theo lô
+     * trước đây tự lặp lại đúng query đơn lẻ này cho TỪNG học sinh).
+     */
+    List<StudentComment> findByClassSessionIdAndStudentIdIn(Long classSessionId, List<Long> studentIds);
+
     /** V65: toàn bộ nhận xét DAILY của 1 buổi học (mọi học sinh) — dùng kiểm tra xung đột lựa chọn BTVN buổi sau cùng buổi. */
     List<StudentComment> findByClassSessionId(Long classSessionId);
 
