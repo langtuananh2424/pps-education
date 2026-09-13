@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { AlertCircle, Bell, BookOpen, CalendarDays, Check, CheckCircle2, ChevronRight, ClipboardCheck, Clock, Filter, GraduationCap, Link2, MessageCircle, Play, X } from "lucide-react";
+import { AlertCircle, Bell, BookOpen, CalendarDays, Check, CheckCircle2, ChevronRight, ClipboardCheck, Clock, Filter, GraduationCap, Link2, Lock, MessageCircle, Play, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { formatDate, formatDateTimeHm } from "@/lib/format";
 import {
@@ -57,15 +57,31 @@ function attemptStatusMeta(t: (key: string) => string, status: string): { label:
   }
 }
 
+/** FULLY_GRADED nhưng dưới ngưỡng đạt — "trượt" nói chung, chưa phân biệt còn làm lại được hay không (xem needsRetake/failedNoMoreRetakes bên dưới). */
+function failedGraded(item: AssignedExerciseResponse): boolean {
+  return item.myLatestAttemptStatus === "FULLY_GRADED" && item.myLatestPassed === false;
+}
+
 /**
  * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-05 (backend V89
  * `ExerciseAttemptService#applyPassOutcome`) — BTVN đã chấm xong (FULLY_GRADED)
  * nhưng dưới ngưỡng đạt (`myLatestPassed === false`) vẫn tính là "cần hoàn
  * thành" (chưa xong thật sự), không phải "đã nộp & đã chấm" — bản giao vẫn
  * ACTIVE ở backend đúng tinh thần này, FE trước đây chưa đồng bộ theo.
+ *
+ * Bổ sung 2026-09-13 (fix bug thật, đã xác nhận với người dùng) — CHỈ còn đúng khi thật sự CÒN làm lại
+ * được (`item.canStartNewAttempt` — BE đã tính đủ allowRetake/maxAttempts/hạn nộp). Trước đây bất kỳ
+ * bài "chưa đạt" nào cũng bị coi "cần làm lại" dù đã hết lượt hoặc đề không cho làm lại — hiện nhầm
+ * badge "cần làm lại" (không còn gì để làm) và tính nhầm vào đếm/tab "Cần hoàn thành" + banner nhắc nhở
+ * ở trang chủ. Trường hợp trượt hẳn không còn lượt → xem failedNoMoreRetakes bên dưới, coi như ĐÃ XONG.
  */
 function needsRetake(item: AssignedExerciseResponse): boolean {
-  return item.myLatestAttemptStatus === "FULLY_GRADED" && item.myLatestPassed === false;
+  return failedGraded(item) && item.canStartNewAttempt;
+}
+
+/** Mirror needsRetake — trượt nhưng KHÔNG còn làm lại được nữa (hết lượt/đề không cho làm lại) — coi như đã xong, chỉ còn xem lại. */
+function failedNoMoreRetakes(item: AssignedExerciseResponse): boolean {
+  return failedGraded(item) && !item.canStartNewAttempt;
 }
 
 function isExercisePending(item: AssignedExerciseResponse): boolean {
@@ -89,6 +105,29 @@ function isExerciseOverduePending(item: AssignedExerciseResponse): boolean {
 /** V152 — mirror isExerciseOverduePending, áp dụng cho cả nhóm Lô (dùng chung dueAt của Bài đại diện, mirror BatchExerciseCard). */
 function isBatchOverduePending(items: AssignedExerciseResponse[]): boolean {
   return isBatchPending(items) && items[0].dueAt != null && new Date(items[0].dueAt) < new Date();
+}
+
+/**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — "quá hạn" (isExerciseOverduePending)
+ * chỉ có nghĩa THẬT SỰ hết cửa thao tác khi bản giao KHÔNG cho nộp muộn (lateSubmissionAllowed=false),
+ * HOẶC có cho nộp muộn nhưng đã set 1 hạn chót cụ thể (lateSubmissionDeadline) và hạn đó cũng đã qua.
+ * Quá hạn nhưng vẫn cho nộp muộn KHÔNG GIỚI HẠN (lateSubmissionAllowed=true, lateSubmissionDeadline=
+ * null) thì học sinh còn làm được bình thường — không được coi là khóa. Dùng để đổi nút hành động
+ * ("Làm bài ngay"/"Tiếp tục làm bài"/"Xem lại bài đã làm") thành "Đã khóa" (không bấm được nữa) thay
+ * vì mời bấm vào rồi mới báo lỗi hết hạn bên trong modal. Mirror ExerciseAssignment#isPastEffectiveDeadline (backend).
+ */
+function isExerciseLocked(item: AssignedExerciseResponse): boolean {
+  if (!isExerciseOverduePending(item)) return false;
+  if (!item.lateSubmissionAllowed) return true;
+  return item.lateSubmissionDeadline != null && new Date(item.lateSubmissionDeadline) < new Date();
+}
+
+/** Mirror isExerciseLocked, áp dụng cho cả nhóm Lô (dùng chung dueAt/lateSubmissionAllowed/lateSubmissionDeadline của Bài đại diện, nhưng "pending" tính theo CẢ LÔ — mirror isBatchOverduePending). */
+function isBatchLocked(items: AssignedExerciseResponse[]): boolean {
+  if (!isBatchOverduePending(items)) return false;
+  const first = items[0];
+  if (!first.lateSubmissionAllowed) return true;
+  return first.lateSubmissionDeadline != null && new Date(first.lateSubmissionDeadline) < new Date();
 }
 
 /**
@@ -175,6 +214,13 @@ function isVideoActionablePending(item: ReviewVideoHomeworkItem): boolean {
   return isReflexAnswerable(item) && !isReflexFullyAnswered(item);
 }
 
+/** Mirror isExerciseLocked, áp dụng cho Video ôn tập — xem Javadoc isExerciseLocked. */
+function isVideoLocked(item: ReviewVideoHomeworkItem): boolean {
+  if (!isVideoOverduePending(item)) return false;
+  if (item.lateSubmissionAllowed !== true) return true;
+  return item.lateSubmissionDeadline != null && new Date(item.lateSubmissionDeadline) < new Date();
+}
+
 type FilterStatus = "ALL" | "PENDING" | "GRADED" | "OVERDUE";
 /**
  * V153 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — lọc "loại bài" tách hẳn theo
@@ -216,6 +262,10 @@ interface ReviewVideoHomeworkItem {
    * NHIỀU card thay vì gộp mất chỉ còn 1 hạn nộp (xem load() bên dưới).
    */
   assignmentId?: number;
+  /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — mirror dueAt/assignmentId ở trên: undefined nếu chỉ nằm trong Kho (không phải BTVN đang giao). Xem isVideoLocked. */
+  lateSubmissionAllowed?: boolean;
+  /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — hạn chót nộp muộn cụ thể (null/undefined = không giới hạn). Xem isVideoLocked. */
+  lateSubmissionDeadline?: string | null;
   /** V123 — GV Việt Nam/nước ngoài phụ trách bộ này (ReviewVideoSetResponse.teacherType, luôn có). */
   teacherType: "VIETNAMESE" | "FOREIGN";
   /** V123 — ngày buổi học GV đã giao BTVN này — undefined nếu chỉ nằm trong Kho hoặc bản giao TRƯỚC V123. */
@@ -313,9 +363,20 @@ export default function AssignmentsTab({
                 set,
                 dueAt: a.dueAt as string | undefined,
                 assignmentId: a.assignmentId as number | undefined,
-                sessionDate: a.sessionDate
+                sessionDate: a.sessionDate,
+                lateSubmissionAllowed: a.lateSubmissionAllowed as boolean | undefined,
+                lateSubmissionDeadline: a.lateSubmissionDeadline as string | null | undefined
               }))
-            : [{ set, dueAt: undefined as string | undefined, assignmentId: undefined as number | undefined, sessionDate: undefined as string | null | undefined }];
+            : [
+                {
+                  set,
+                  dueAt: undefined as string | undefined,
+                  assignmentId: undefined as number | undefined,
+                  sessionDate: undefined as string | null | undefined,
+                  lateSubmissionAllowed: undefined as boolean | undefined,
+                  lateSubmissionDeadline: undefined as string | null | undefined
+                }
+              ];
         });
         // videos của cùng 1 bộ giống hệt nhau dù giao lặp lại nhiều lần — cache theo setId để không gọi
         // lại API listReviewVideos thừa cho mỗi bản giao trùng bộ.
@@ -340,6 +401,8 @@ export default function AssignmentsTab({
                   setTitle: g.set.title,
                   dueAt: g.dueAt,
                   assignmentId: g.assignmentId,
+                  lateSubmissionAllowed: g.lateSubmissionAllowed,
+                  lateSubmissionDeadline: g.lateSubmissionDeadline,
                   teacherType: g.set.teacherType,
                   sessionDate: g.sessionDate,
                   unitTitle: g.set.unitTitle,
@@ -555,6 +618,15 @@ export default function AssignmentsTab({
     ...filteredBatchGroups.map((items) => ({ type: "exerciseBatch" as const, key: `exb-${items[0].homeworkBatchId}`, items })),
     ...filteredReviewItems.map((item) => ({ type: "video" as const, key: `rv-${item.assignmentId ?? "lib"}-${item.video.id}`, item }))
   ];
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — sắp xếp hạn nộp sớm nhất lên đầu
+  // (bài quá hạn có hạn ở quá khứ nên tự nhiên nổi lên trên cùng), giúp học sinh biết bài nào cần ưu
+  // tiên làm trước thay vì thứ tự cố định "Bài ngữ pháp trước, Video sau" như cũ. Bài không có hạn nộp
+  // (dueAt null — chỉ nằm trong Kho, không phải BTVN đang giao) xếp CUỐI vì không có gì để ưu tiên.
+  const dueAtMillisOf = (row: (typeof feedItems)[number]): number => {
+    const dueAt = row.type === "exercise" ? row.item.dueAt : row.type === "exerciseBatch" ? row.items[0].dueAt : row.item.dueAt;
+    return dueAt == null ? Number.POSITIVE_INFINITY : new Date(dueAt).getTime();
+  };
+  feedItems.sort((a, b) => dueAtMillisOf(a) - dueAtMillisOf(b));
   const pageItems = feedItems.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   return (
@@ -892,7 +964,8 @@ function ExerciseCard({
   const { t, i18n } = useTranslation("portal-exercises");
   const isOverdue = item.dueAt != null && new Date(item.dueAt) < new Date();
   const retake = needsRetake(item);
-  const attemptMeta = retake ? null : item.myLatestAttemptStatus ? attemptStatusMeta(t, item.myLatestAttemptStatus) : null;
+  const noMoreRetakes = failedNoMoreRetakes(item);
+  const attemptMeta = retake || noMoreRetakes ? null : item.myLatestAttemptStatus ? attemptStatusMeta(t, item.myLatestAttemptStatus) : null;
   const isFullyGraded = item.myLatestAttemptStatus === "FULLY_GRADED";
   const pending = isExercisePending(item);
   /**
@@ -901,6 +974,13 @@ function ExerciseCard({
    * xem (xem overdueLockedInProgress ở đó), nên nhãn nút ở đây phải khớp ("Xem lại" thay vì "Tiếp tục").
    */
   const overdueLockedInProgress = isOverdue && !item.lateSubmissionAllowed && item.myLatestAttemptStatus === "IN_PROGRESS";
+  /**
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — quá hạn + không cho nộp muộn +
+   * CHƯA hoàn thành xong (isExerciseLocked) thì hiện hẳn "Đã khóa" ngay ngoài danh sách, không còn mời
+   * bấm "Làm bài ngay"/"Tiếp tục làm bài"/"Xem lại bài đã làm" nữa (trước đây bấm vào vẫn mở modal ở
+   * chế độ chỉ-xem hoặc báo lỗi hết hạn bên trong — gây hiểu lầm còn thao tác được).
+   */
+  const locked = isExerciseLocked(item);
 
   /**
    * V148 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23) — CHỦ Ý chỉ còn 2 nhánh ở màn
@@ -932,6 +1012,11 @@ function ExerciseCard({
             <span className="px-2.5 py-0.5 rounded-lg bg-coral/10 text-coral border border-coral/20 text-[13px] font-black flex items-center gap-1 shrink-0 whitespace-nowrap">
               <Clock size={12} />{" "}
               {t("assignments.exercise.needsRetake", { percent: item.myLatestPercentage != null ? `(${item.myLatestPercentage}%)` : "" })}
+            </span>
+          ) : noMoreRetakes ? (
+            <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-muted border border-line text-[13px] font-black flex items-center gap-1 shrink-0 whitespace-nowrap">
+              <AlertCircle size={12} />{" "}
+              {t("assignments.exercise.failedNoMoreRetakes", { percent: item.myLatestPercentage != null ? `(${item.myLatestPercentage}%)` : "" })}
             </span>
           ) : attemptMeta ? (
             <span className={`px-2.5 py-0.5 rounded-lg text-[13px] font-black flex items-center gap-1 shrink-0 whitespace-nowrap ${attemptMeta.className}`}>
@@ -1008,14 +1093,20 @@ function ExerciseCard({
       </div>
 
       <div className="shrink-0">
-        <button
-          onClick={onOpen}
-          className={`w-full md:w-auto flex items-center justify-center gap-1.5 px-5 py-2.5 font-extrabold text-sm rounded-xl shadow-sm transition-all cursor-pointer ${
-            isFullyGraded && !retake ? "bg-slate-100 hover:bg-slate-200 text-ink border border-line" : "bg-teal hover:bg-teal-deep text-white"
-          }`}
-        >
-          {actionLabel} <ChevronRight size={14} />
-        </button>
+        {locked ? (
+          <span className="w-full md:w-auto flex items-center justify-center gap-1.5 px-5 py-2.5 font-extrabold text-sm rounded-xl bg-slate-100 text-muted border border-line cursor-not-allowed">
+            <Lock size={14} /> {t("assignments.lockedAction")}
+          </span>
+        ) : (
+          <button
+            onClick={onOpen}
+            className={`w-full md:w-auto flex items-center justify-center gap-1.5 px-5 py-2.5 font-extrabold text-sm rounded-xl shadow-sm transition-all cursor-pointer ${
+              isFullyGraded && !retake ? "bg-slate-100 hover:bg-slate-200 text-ink border border-line" : "bg-teal hover:bg-teal-deep text-white"
+            }`}
+          >
+            {actionLabel} <ChevronRight size={14} />
+          </button>
+        )}
       </div>
     </div>
   );
@@ -1044,12 +1135,25 @@ function BatchExerciseCard({
   const isOverdue = first.dueAt != null && new Date(first.dueAt) < new Date();
   const pending = isBatchPending(items);
   const anyRetake = items.some(needsRetake);
+  /** Bổ sung 2026-09-13 (fix bug thật) — mirror ExerciseCard#noMoreRetakes cho cả Lô: còn ít nhất 1 Bài
+   * trượt hẳn (hết lượt/không cho làm lại) NHƯNG không còn Bài nào khác trong Lô còn làm lại được nữa
+   * (anyRetake=false) — hiện badge "đã hết lượt" thay vì im lặng rơi vào attemptMeta chung chung. */
+  const anyFailedNoMoreRetakes = !anyRetake && items.some(failedNoMoreRetakes);
   const anyInProgress = items.some((it) => it.myLatestAttemptStatus === "IN_PROGRESS");
   const allFullyGraded = items.every((it) => it.myLatestAttemptStatus === "FULLY_GRADED");
   const noneStarted = items.every((it) => it.myLatestAttemptStatus == null);
-  const attemptMeta = anyRetake || noneStarted ? null : anyInProgress ? attemptStatusMeta(t, "IN_PROGRESS") : allFullyGraded ? attemptStatusMeta(t, "FULLY_GRADED") : attemptStatusMeta(t, "AUTO_GRADED");
+  const attemptMeta =
+    anyRetake || anyFailedNoMoreRetakes || noneStarted
+      ? null
+      : anyInProgress
+        ? attemptStatusMeta(t, "IN_PROGRESS")
+        : allFullyGraded
+          ? attemptStatusMeta(t, "FULLY_GRADED")
+          : attemptStatusMeta(t, "AUTO_GRADED");
   /** V152 — mirror ExerciseCard#overdueLockedInProgress, áp dụng cho cả Lô (dùng chung dueAt/lateSubmissionAllowed của Bài đại diện). */
   const overdueLockedInProgress = isOverdue && !first.lateSubmissionAllowed && anyInProgress;
+  /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — mirror ExerciseCard#locked. */
+  const locked = isBatchLocked(items);
 
   const totalScore = items.reduce((sum, it) => sum + (it.myLatestTotalScore ?? 0), 0);
   const totalPoints = items.reduce((sum, it) => sum + (it.exerciseTotalPoints ?? 0), 0);
@@ -1078,6 +1182,10 @@ function BatchExerciseCard({
           {anyRetake ? (
             <span className="px-2.5 py-0.5 rounded-lg bg-coral/10 text-coral border border-coral/20 text-[13px] font-black flex items-center gap-1 shrink-0 whitespace-nowrap">
               <Clock size={12} /> {t("assignments.exercise.needsRetake", { percent: percentage != null ? `(${percentage}%)` : "" })}
+            </span>
+          ) : anyFailedNoMoreRetakes ? (
+            <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-muted border border-line text-[13px] font-black flex items-center gap-1 shrink-0 whitespace-nowrap">
+              <AlertCircle size={12} /> {t("assignments.exercise.failedNoMoreRetakes", { percent: percentage != null ? `(${percentage}%)` : "" })}
             </span>
           ) : attemptMeta ? (
             <span className={`px-2.5 py-0.5 rounded-lg text-[13px] font-black flex items-center gap-1 shrink-0 whitespace-nowrap ${attemptMeta.className}`}>
@@ -1142,14 +1250,20 @@ function BatchExerciseCard({
       </div>
 
       <div className="shrink-0">
-        <button
-          onClick={onOpen}
-          className={`w-full md:w-auto flex items-center justify-center gap-1.5 px-5 py-2.5 font-extrabold text-sm rounded-xl shadow-sm transition-all cursor-pointer ${
-            allFullyGraded && !anyRetake ? "bg-slate-100 hover:bg-slate-200 text-ink border border-line" : "bg-teal hover:bg-teal-deep text-white"
-          }`}
-        >
-          {actionLabel} <ChevronRight size={14} />
-        </button>
+        {locked ? (
+          <span className="w-full md:w-auto flex items-center justify-center gap-1.5 px-5 py-2.5 font-extrabold text-sm rounded-xl bg-slate-100 text-muted border border-line cursor-not-allowed">
+            <Lock size={14} /> {t("assignments.lockedAction")}
+          </span>
+        ) : (
+          <button
+            onClick={onOpen}
+            className={`w-full md:w-auto flex items-center justify-center gap-1.5 px-5 py-2.5 font-extrabold text-sm rounded-xl shadow-sm transition-all cursor-pointer ${
+              allFullyGraded && !anyRetake ? "bg-slate-100 hover:bg-slate-200 text-ink border border-line" : "bg-teal hover:bg-teal-deep text-white"
+            }`}
+          >
+            {actionLabel} <ChevronRight size={14} />
+          </button>
+        )}
       </div>
     </div>
   );
@@ -1211,6 +1325,8 @@ function ReviewVideoCard({
   }
 
   const pending = answerable && !fullyAnswered;
+  /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — mirror ExerciseCard#locked. */
+  const locked = isVideoLocked(item);
   const actionLabel = isConnection
     ? t("assignments.video.action.watch")
     : !answerable
@@ -1268,14 +1384,20 @@ function ReviewVideoCard({
       </div>
 
       <div className="shrink-0">
-        <button
-          onClick={onOpen}
-          className={`w-full md:w-auto flex items-center justify-center gap-1.5 px-5 py-2.5 font-extrabold text-sm rounded-xl shadow-sm transition-all cursor-pointer ${
-            fullyAnswered ? "bg-slate-100 hover:bg-slate-200 text-ink border border-line" : "bg-teal hover:bg-teal-deep text-white"
-          }`}
-        >
-          {actionLabel} <ChevronRight size={14} />
-        </button>
+        {locked ? (
+          <span className="w-full md:w-auto flex items-center justify-center gap-1.5 px-5 py-2.5 font-extrabold text-sm rounded-xl bg-slate-100 text-muted border border-line cursor-not-allowed">
+            <Lock size={14} /> {t("assignments.lockedAction")}
+          </span>
+        ) : (
+          <button
+            onClick={onOpen}
+            className={`w-full md:w-auto flex items-center justify-center gap-1.5 px-5 py-2.5 font-extrabold text-sm rounded-xl shadow-sm transition-all cursor-pointer ${
+              fullyAnswered ? "bg-slate-100 hover:bg-slate-200 text-ink border border-line" : "bg-teal hover:bg-teal-deep text-white"
+            }`}
+          >
+            {actionLabel} <ChevronRight size={14} />
+          </button>
+        )}
       </div>
     </div>
   );

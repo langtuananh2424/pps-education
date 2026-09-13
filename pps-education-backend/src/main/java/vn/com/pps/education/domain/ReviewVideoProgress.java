@@ -51,4 +51,15 @@ public class ReviewVideoProgress extends BaseAuditEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "review_video_assignment_id")
     private ReviewVideoAssignment reviewVideoAssignment;
+
+    /**
+     * V173 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13) — học sinh chủ động chọn
+     * "Dừng, xem kết quả" ở popup ngưỡng (đã đạt {@code sessionPassRatioThresholdPercent} số lượt yêu
+     * cầu) — tính là ĐÃ HOÀN THÀNH dù chưa đủ {@code requiredViewCount} tuyệt đối. Cờ riêng để
+     * {@link vn.com.pps.education.service.ReviewVideoService#recomputeProgress} (V160, công thức
+     * viewCount >= requiredViewCount) không tự ghi đè lại false khi có báo tiến độ mới ở lượt xem SAU
+     * lúc đã dừng sớm.
+     */
+    @Column(name = "stopped_early", nullable = false)
+    private boolean stoppedEarly = false;
 }

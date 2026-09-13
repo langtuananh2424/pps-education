@@ -3,7 +3,6 @@ package vn.com.pps.education.dto;
 import jakarta.validation.constraints.NotNull;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.Map;
 
 /**
@@ -11,38 +10,19 @@ import java.util.Map;
  * classSessionId — bỏ hẳn MID_TERM/END_TERM/academicTermId ngày
  * 2026-08-12, đã xác nhận với người dùng, xem Javadoc StudentComment).
  *
- * V65 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30):
- * {@code homeworkNextExerciseId} — chọn khác null tự động giao đề cho CẢ
- * LỚP, hạn nộp = buổi kế tiếp. {@code homeworkNextReviewVideoSetId}
- * giữ nguyên ý nghĩa (id của {@code ReviewVideoSet} — chọn nguồn), cũng
- * tự động giao cả lớp tương tự.
- *
- * V150 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-24) — tên field
- * {@code homeworkNextExerciseId}/{@code homeworkNextReadingExerciseId}/
- * {@code homeworkNextWritingExerciseId} GIỮ NGUYÊN (không đổi API contract) nhưng Ý NGHĨA đổi: giờ là id
- * của {@code Exam} (Lesson), KHÔNG còn là id của 1 {@code Exercise} đơn — chọn 1 Lesson tức giao TOÀN BỘ
- * Bài Published cùng skillCategory của kênh đó trong Lesson (xem HomeworkSkillBatchService), thay cho cơ
- * chế gộp câu hỏi cũ (V145, đã bỏ).
- *
- * V151 (revert V146, đã xác nhận với người dùng 2026-08-25) — {@code homeworkNextExerciseId} ("kênh Ngữ
- * pháp") dùng CHUNG cho cả Bài Nghe: buổi teacherType=FOREIGN chọn Lesson có Bài skillCategory=LISTENING,
- * buổi VIETNAMESE chọn Lesson có Bài skillCategory=VOCAB_GRAMMAR (xem
- * StudentCommentService#grammarChannelSkillCategory) — không còn field homeworkNextListeningExerciseId
- * riêng.
- *
- * Nhận xét học viên (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
- * 2026-08-05, cho phép chọn GIỜ 2026-08-06): {@code homeworkNextDueDate}
- * (ngày + giờ, VD "2026-08-10T17:00") cho phép Giáo viên tự chọn hạn nộp
- * thay vì luôn khoá cứng = ngày buổi kế tiếp — để trống thì giữ nguyên hành
- * vi cũ (resolveNextSessionDueAt). Chỉ có ý nghĩa khi có chọn
- * homeworkNextExerciseId hoặc homeworkNextReviewVideoSetId; mọi nhận xét
- * DAILY cùng 1 buổi phải khớp cùng 1 hạn nộp (StudentCommentService#requireNoDueDateConflict).
- *
- * V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07):
- * {@code homeworkNextLateSubmissionAllowed} — null/false = giữ hành vi cũ (chặn cứng sau hạn nộp);
- * true = cho phép học sinh nộp sau hạn (đánh dấu "nộp muộn", không trừ điểm). Dùng chung cho cả kênh
- * Bài tập (Ngữ pháp/Nghe/Đọc/Viết) lẫn Video Ôn tập, mirror cách homeworkNextDueDate dùng chung 1 hạn
- * nộp cho mọi kênh trong cùng 1 nhận xét.
+ * Bổ sung 2026-09-12 (đã xác nhận với người dùng) — bỏ hẳn 6 field BTVN
+ * online (homeworkNextExerciseId/homeworkNextReviewVideoSetId/
+ * homeworkNextReadingExerciseId/homeworkNextWritingExerciseId/
+ * homeworkNextDueDate/homeworkNextLateSubmissionAllowed, từng có ở đây từ
+ * V65/V150/V151/V165) — giao BTVN online tách hẳn khỏi Viết/Sửa nhận xét,
+ * chỉ còn thực hiện qua endpoint riêng
+ * {@code POST /api/class-sessions/{id}/comments/apply-homework}
+ * ({@code StudentCommentService#applyHomeworkToClass}), có popup xác nhận
+ * ở FE trước khi giao thật cho cả lớp. Xem Javadoc
+ * {@code StudentCommentService} (đầu class) để biết lý do tách (link
+ * BTVN↔nhận xét bị mất với học sinh không có Nhận xét khi còn gộp chung).
+ * BTVN OFFLINE (chữ tự do — homeworkNext/homeworkNextReading/
+ * homeworkNextWriting) không thuộc phạm vi tách này, vẫn ở đây như cũ.
  */
 public record CreateStudentCommentRequest(
         @NotNull Long studentId,
@@ -65,13 +45,5 @@ public record CreateStudentCommentRequest(
         String homeworkNext,
         String homeworkNextReading,
         String homeworkNextWriting,
-        Long homeworkNextExerciseId,
-        Long homeworkNextReviewVideoSetId,
-        // V137 — "BTVN - Online - Reading/Writing" (mirror homeworkNextExerciseId), chỉ có ý nghĩa khi
-        // buổi teacherType=VIETNAMESE. Id của Exercise (skillCategory=READING/WRITING tương ứng).
-        Long homeworkNextReadingExerciseId,
-        Long homeworkNextWritingExerciseId,
-        LocalDateTime homeworkNextDueDate,
-        Boolean homeworkNextLateSubmissionAllowed,
         String note
 ) {}

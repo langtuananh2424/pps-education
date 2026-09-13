@@ -281,8 +281,7 @@ class PartnerPortalServiceTest extends AbstractIntegrationTest {
                 teacher.getId());
         studentAttendanceService.submitAttendance(session.id(), teacher.getId());
         StudentCommentResponse approvedComment = studentCommentService.writeComment(schoolClass.id(),
-                new CreateStudentCommentRequest(student.getId(), session.id(),
-                        LocalDate.now(), "Chăm chỉ, tiến bộ rõ rệt.", null, "POSITIVE", false, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null),
+                new CreateStudentCommentRequest(student.getId(), session.id(), LocalDate.now(), "Chăm chỉ, tiến bộ rõ rệt.", null, "POSITIVE", false, null, null, null, null, null, null, null, null, null),
                 teacher.getId());
         studentCommentService.submitComments(schoolClass.id(), new SubmitCommentsRequest(List.of(approvedComment.id())), teacher.getId());
         studentCommentService.decideComments(
@@ -296,8 +295,7 @@ class PartnerPortalServiceTest extends AbstractIntegrationTest {
                         headAcademic.getId(), null, null, null, null),
                 headAcademic.getId());
         studentCommentService.writeComment(schoolClass.id(),
-                new CreateStudentCommentRequest(student.getId(), otherSession.id(),
-                        LocalDate.now(), "Nhận xét nháp chưa gửi duyệt.", null, "NORMAL", false, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null),
+                new CreateStudentCommentRequest(student.getId(), otherSession.id(), LocalDate.now(), "Nhận xét nháp chưa gửi duyệt.", null, "NORMAL", false, null, null, null, null, null, null, null, null, null),
                 teacher.getId());
 
         List<StudentCommentResponse> comments = partnerPortalService.getApprovedComments(partnerRepUser.getId());

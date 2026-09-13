@@ -652,12 +652,13 @@ export function updateExerciseQuestionPoints(exerciseId: number, exerciseQuestio
 
 /**
  * V65 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30): giao đề không còn thao tác
- * riêng ở "Soạn & Giao đề" nữa — id (bản giao) giờ tự động phát sinh khi Giáo viên chọn 1 Exercise
- * làm "BTVN Ngữ pháp buổi sau" ở Nhận xét học viên (xem academic/api.ts CreateStudentCommentRequest.
- * homeworkNextExerciseId). Interface/hàm dưới đây CHỈ còn dùng để GV xem lại bản giao đã phát sinh
- * (lịch sử) hoặc để DailyCommentPanel tra ngược "bản giao này ứng với Exercise nào" khi tải lại 1
- * comment đã chọn sẵn — không còn cách nào tạo bản giao thủ công từ FE nữa (endpoint POST .../assign
- * đã bị xóa bên BE).
+ * riêng ở "Soạn & Giao đề" nữa — id (bản giao) tự động phát sinh khi Giáo viên chọn 1 Exercise làm
+ * "BTVN Ngữ pháp buổi sau" ở Nhận xét học viên. Bổ sung 2026-09-12 (đã xác nhận với người dùng) —
+ * lựa chọn này chuyển sang academic/api.ts ApplyClassHomeworkRequest.grammarExamId (nút "Áp dụng cho
+ * cả lớp", tách khỏi CreateStudentCommentRequest). Interface/hàm dưới đây CHỈ còn dùng để GV xem lại
+ * bản giao đã phát sinh (lịch sử) hoặc để DailyCommentPanel tra ngược "bản giao này ứng với Exercise
+ * nào" khi tải lại 1 comment đã chọn sẵn — không còn cách nào tạo bản giao thủ công từ FE nữa
+ * (endpoint POST .../assign đã bị xóa bên BE).
  */
 export interface ExerciseAssignmentResponse {
   id: number;
@@ -670,6 +671,8 @@ export interface ExerciseAssignmentResponse {
   availableFrom: string;
   dueAt: string | null;
   lateSubmissionAllowed: boolean;
+  /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — hạn chót nộp muộn cụ thể (null = không giới hạn). */
+  lateSubmissionDeadline: string | null;
   latePenaltyPercent: number | null;
   targetStudentIds: number[] | null;
   status: "ACTIVE" | "CANCELLED" | "COMPLETED";
@@ -825,6 +828,8 @@ export interface ReviewVideoAssignmentResponse {
   dueAt: string | null;
   /** V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07). */
   lateSubmissionAllowed: boolean;
+  /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — hạn chót nộp muộn cụ thể (null = không giới hạn). */
+  lateSubmissionDeadline: string | null;
   targetStudentIds: number[] | null;
   status: "ACTIVE" | "CANCELLED" | "COMPLETED";
 }
@@ -851,6 +856,8 @@ export interface ReviewVideoAssignmentStatsResponse {
   dueAt: string | null;
   /** V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — cho bật/tắt lại ở trang "Xem chi tiết". */
   lateSubmissionAllowed: boolean;
+  /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — hạn chót nộp muộn cụ thể (null = không giới hạn). */
+  lateSubmissionDeadline: string | null;
   status: "ACTIVE" | "CANCELLED" | "COMPLETED";
   totalStudents: number;
   completedCount: number;
@@ -898,11 +905,19 @@ export function getReviewVideoAssignmentStudentStats(assignmentId: number): Prom
   return apiRequest<ReviewVideoAssignmentStudentStatsResponse>(`/review-video-assignments/${assignmentId}/stats/students`);
 }
 
-/** V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — bật/tắt lại "Cho phép nộp bài muộn" cho 1 bản giao Video Ôn tập ĐÃ tạo. */
-export function updateReviewVideoAssignmentLateSubmissionAllowed(assignmentId: number, lateSubmissionAllowed: boolean): Promise<ReviewVideoAssignmentResponse> {
+/**
+ * V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — bật/tắt lại "Cho phép nộp bài
+ * muộn" cho 1 bản giao Video Ôn tập ĐÃ tạo.
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — mirror updateExerciseAssignmentLateSubmissionAllowed.
+ */
+export function updateReviewVideoAssignmentLateSubmissionAllowed(
+  assignmentId: number,
+  lateSubmissionAllowed: boolean,
+  lateSubmissionDeadline?: string | null
+): Promise<ReviewVideoAssignmentResponse> {
   return apiRequest<ReviewVideoAssignmentResponse>(`/review-video-assignments/${assignmentId}/late-submission-allowed`, {
     method: "PUT",
-    body: JSON.stringify({ lateSubmissionAllowed })
+    body: JSON.stringify({ lateSubmissionAllowed, lateSubmissionDeadline: lateSubmissionDeadline ?? null })
   });
 }
 

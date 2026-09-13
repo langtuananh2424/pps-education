@@ -110,4 +110,40 @@ UC-01: Đăng nhập hệ thống
 |                 |     phục vụ tra soát và cơ chế khóa tài khoản.     |
 +-----------------+----------------------------------------------------+
 
+**Bổ sung 2026-09-13 (đã xác nhận với người dùng) — chặn đăng nhập 2
+thiết bị cùng lúc cho tài khoản Học sinh**
+
+Phát hiện qua báo cáo thực tế: tài khoản Học sinh đăng nhập ở thiết bị 1
+(VD đang làm bài), sau đó đăng nhập tiếp ở thiết bị 2 bằng cùng tài khoản
+— hệ thống KHÔNG chặn, cả 2 thiết bị đều thao tác được cùng lúc trên cùng
+1 đề (rủi ro "lách luật": 1 máy mở sẵn đề để tra cứu, máy còn lại làm
+bài/nộp). Nguyên nhân: thiết kế `refresh_tokens` cho phép nhiều token
+ACTIVE song song cho 1 user (chủ ý — để nhân viên/giáo viên dùng đồng thời
+điện thoại + máy tính), không có rào theo vai trò.
+
+Quy tắc mới, CHỈ áp dụng cho tài khoản có hồ sơ Student liên kết (không
+đổi hành vi cho giáo viên/nhân viên/phụ huynh — các vai trò này vẫn đăng
+nhập nhiều thiết bị bình thường):
+
+-   Tại bước 5 (Main Flow) — trước khi cấp Access/Refresh Token mới, hệ
+    thống kiểm tra: tài khoản Học sinh này còn refresh token nào ACTIVE
+    (`revoked_at IS NULL` và `expires_at > now()`) không.
+-   Nếu CÓ → từ chối đăng nhập (dù mật khẩu đúng), thông báo "Tài khoản
+    này đang được đăng nhập trên thiết bị khác. Vui lòng đăng xuất ở
+    thiết bị đó trước khi đăng nhập tiếp." Bản ghi `login_attempts` vẫn
+    ghi `success = TRUE` (mật khẩu đúng, chỉ bị chặn bởi policy này —
+    không phải lỗi xác thực A1/A2/A3 nào ở trên).
+-   Nếu KHÔNG có (đã đăng xuất thiết bị 1, hoặc refresh token thiết bị 1
+    đã tự hết hạn theo `refreshTokenTtlDays`) → cho đăng nhập bình
+    thường, cấp token mới như Main Flow.
+-   Học sinh chủ động đổi thiết bị: phải bấm "Đăng xuất" ở thiết bị cũ
+    trước (thu hồi refresh token qua `POST /api/auth/logout`) rồi mới
+    đăng nhập được ở thiết bị mới.
+
+Implementation: `AuthService#requireNoActiveSessionForStudent`, exception
+`ActiveSessionExistsException` (HTTP 409). Xem
+`AuthServiceTest#login_boSung_rejectsSecondDeviceWhileStudentSessionActive`
+/ `..._allowsSecondDeviceAfterLogoutFromFirstDevice` /
+`..._allowsMultipleDevicesForNonStudentRoles`.
+
 Phân hệ 2 --- Quản trị người dùng & Phân quyền

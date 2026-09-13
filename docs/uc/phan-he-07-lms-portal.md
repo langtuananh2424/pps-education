@@ -283,6 +283,25 @@ UC-23a: Xem & Theo dõi Kho Video Ôn tập
 > `submitQuestionAudio` chỉ được "mở" theo cờ, không tự đánh dấu muộn
 > (không phải bài viết chính của Video phản xạ).
 >
+> **Bổ sung 2026-09-13 (đã xác nhận với người dùng) — hạn chót CỤ THỂ cho
+> việc nộp muộn (mirror `ExerciseAssignment`, xem `.claude`/ghi chú
+> Service):** V165 ở trên chỉ có 2 lựa chọn — tắt hẳn hoặc cho nộp muộn
+> KHÔNG GIỚI HẠN thời gian. Nay thêm cột
+> `ReviewVideoAssignment.lateSubmissionDeadline`/
+> `ExerciseAssignment.lateSubmissionDeadline` (V174, nullable, mirror
+> nhau) — Giáo viên có thể set thêm 1 mốc ngày giờ cụ thể làm hạn chót
+> nộp muộn (chỉ set được ở trang "Xem chi tiết"/Thống kê BTVN, KHÔNG có ở
+> bước giao ban đầu tại Nhận xét học viên). NULL (mặc định) = giữ nguyên
+> hành vi V165 (không giới hạn). `isPastEffectiveDeadline()` (entity, cả
+> 2 bảng) là nguồn chân lý DUY NHẤT cho "đã hết cửa nộp bài chưa": quá
+> `dueAt` + không cho nộp muộn → khóa ngay; quá `dueAt` + cho nộp muộn
+> nhưng cũng đã qua luôn `lateSubmissionDeadline` (nếu có set) → khóa;
+> còn lại → chưa khóa. "Trễ hạn" (đánh dấu `lateSubmission=true`, không
+> trừ điểm) vẫn tính từ `dueAt` GỐC như V165 — chỉ điều kiện CHẶN HẲN mới
+> xét thêm `lateSubmissionDeadline`. Portal (FE) đổi nút hành động thành
+> "Đã khóa" (không bấm được) khi `isExerciseLocked`/`isBatchLocked`/
+> `isVideoLocked` (mirror logic trên ở client) trả về true.
+>
 > **Bổ sung V115 (2026-08-11, đã xác nhận với người dùng) — chia câu hỏi
 > trắc nghiệm CONNECTION theo TỪNG lượt xem + điểm pass thay cho ngưỡng %
 > xem:** thay đổi 2 phần của V83 ở trên:

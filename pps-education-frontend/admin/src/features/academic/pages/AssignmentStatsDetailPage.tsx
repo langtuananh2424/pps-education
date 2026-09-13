@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, CheckCircle2, ChevronDown, ChevronRight, Download, Eye, HelpCircle, ShieldAlert, X } from "lucide-react";
+import { ArrowLeft, CheckCircle2, ChevronDown, ChevronRight, Download, Eye, HelpCircle, ShieldAlert, X, XCircle } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { downloadBlob } from "@/lib/xlsxTemplate";
 import { formatDateTime } from "@/lib/i18nFormat";
@@ -29,6 +29,9 @@ import Badge from "@/components/ui/Badge";
 import Tabs from "@/components/ui/Tabs";
 import TableContainer, { Th, Td } from "@/components/ui/TableContainer";
 import EmptyState from "@/components/ui/EmptyState";
+import DatePicker from "@/components/ui/DatePicker";
+import Time24Input from "@/components/ui/Time24Input";
+import Modal from "@/components/ui/Modal";
 
 const studentStatusVariants: Record<string, any> = {
   CHUA_LAM: "neutral",
@@ -65,6 +68,12 @@ export default function AssignmentStatsDetailPage() {
   const [expandedQuestionId, setExpandedQuestionId] = useState<number | null>(null);
   const [detailStudentId, setDetailStudentId] = useState<number | null>(null);
   const [togglingLateSubmission, setTogglingLateSubmission] = useState(false);
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — hạn chót nộp muộn cụ thể (khác dueAt
+  // gốc), chỉ set được ở đây (trang Thống kê BTVN), mirror pattern dueDate/dueTime ở DailyCommentPanel.
+  const [deadlineDate, setDeadlineDate] = useState("");
+  const [deadlineTime, setDeadlineTime] = useState("");
+  /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — popup xác nhận chỉ mở khi Giáo viên chủ động bấm nút "Xác nhận hạn chót" (không tự mở theo từng lần gõ), xem hasPendingDeadlineChange. */
+  const [confirmDeadlineOpen, setConfirmDeadlineOpen] = useState(false);
 
   const numAssignmentId = assignmentId ? parseInt(assignmentId, 10) : null;
 
@@ -73,7 +82,12 @@ export default function AssignmentStatsDetailPage() {
     setLoading(true);
     setError(null);
     getExerciseAssignmentStudentStats(numAssignmentId)
-      .then(setStudentStats)
+      .then((res) => {
+        setStudentStats(res);
+        const d = res.assignment.lateSubmissionDeadline;
+        setDeadlineDate(d ? d.slice(0, 10) : "");
+        setDeadlineTime(d ? d.slice(11, 16) : "");
+      })
       .catch((err) => setError(err instanceof ApiError ? err.message : t("shared.errors.loadResultsFailed")))
       .finally(() => setLoading(false));
   }, [numAssignmentId]);
@@ -108,13 +122,59 @@ export default function AssignmentStatsDetailPage() {
     setTogglingLateSubmission(true);
     setError(null);
     try {
-      await updateExerciseAssignmentLateSubmissionAllowed(numAssignmentId, checked);
-      setStudentStats({ ...studentStats, assignment: { ...studentStats.assignment, lateSubmissionAllowed: checked } });
+      // Tắt "Cho phép nộp muộn" thì xóa luôn hạn chót đã set (không còn ý nghĩa gì khi đã tắt hẳn).
+      const deadline = checked && deadlineDate && deadlineTime ? `${deadlineDate}T${deadlineTime}` : null;
+      await updateExerciseAssignmentLateSubmissionAllowed(numAssignmentId, checked, deadline);
+      setStudentStats({ ...studentStats, assignment: { ...studentStats.assignment, lateSubmissionAllowed: checked, lateSubmissionDeadline: deadline } });
+      if (!checked) {
+        setDeadlineDate("");
+        setDeadlineTime("");
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t("shared.errors.loadResultsFailed"));
     } finally {
       setTogglingLateSubmission(false);
     }
+  };
+
+  /**
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — set/sửa hạn chót nộp muộn cụ thể.
+   * Chỉ gọi khi lateSubmissionAllowed đang bật (input này bị disable/ẩn khi tắt — xem JSX bên dưới).
+   */
+  const saveLateSubmissionDeadline = async (date: string, time: string) => {
+    if (!numAssignmentId || !studentStats) return;
+    const deadline = date && time ? `${date}T${time}` : null;
+    setTogglingLateSubmission(true);
+    setError(null);
+    try {
+      await updateExerciseAssignmentLateSubmissionAllowed(numAssignmentId, true, deadline);
+      setStudentStats({ ...studentStats, assignment: { ...studentStats.assignment, lateSubmissionDeadline: deadline } });
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t("shared.errors.loadResultsFailed"));
+    } finally {
+      setTogglingLateSubmission(false);
+    }
+  };
+
+  /**
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — set/sửa hạn chót nộp muộn ẢNH
+   * HƯỞNG NGAY tới khả năng nộp bài của học sinh, nên phải qua popup xác nhận riêng (khác checkbox
+   * bật/tắt ở trên, vẫn lưu ngay như cũ) — tránh chọn nhầm ngày/giờ. Giáo viên chỉnh Ngày/Giờ thoải
+   * mái (không lưu ngay, không tự bật popup theo từng ký tự gõ), chỉ khi đã đủ CẢ 2 và khác hạn đã
+   * lưu mới hiện nút "Xác nhận hạn chót" — bấm nút đó mới mở popup xác nhận thật sự lưu.
+   */
+  const handleConfirmDeadlineChange = () => {
+    saveLateSubmissionDeadline(deadlineDate, deadlineTime);
+    setConfirmDeadlineOpen(false);
+  };
+
+  /** Đóng popup nhưng GIỮ NGUYÊN lựa chọn ngày/giờ đang gõ dở (không revert) — Giáo viên có thể chỉnh lại rồi bấm "Xác nhận hạn chót" lại. Muốn bỏ hẳn thì bấm nút xóa (X) riêng. */
+  const handleCancelDeadlineChange = () => setConfirmDeadlineOpen(false);
+
+  const handleClearLateSubmissionDeadline = () => {
+    setDeadlineDate("");
+    setDeadlineTime("");
+    saveLateSubmissionDeadline("", "");
   };
 
   const detailStudent = detailStudentId && studentStats ? studentStats.students.find(s => s.studentId === detailStudentId) : null;
@@ -141,6 +201,13 @@ export default function AssignmentStatsDetailPage() {
       </div>
     );
   }
+
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — CÒN gì đó chưa lưu (đã đủ Ngày+Giờ,
+  // khác hạn đã lưu) thì mới hiện nút "Xác nhận hạn chót" — so khớp 16 ký tự đầu ("YYYY-MM-DDTHH:mm")
+  // vì backend trả về ISO đầy đủ có thể kèm giây/offset (VD "...T23:59:00+07:00").
+  const pendingDeadlineIso = deadlineDate && deadlineTime.length === 5 ? `${deadlineDate}T${deadlineTime}` : null;
+  const savedDeadlineIso = studentStats.assignment.lateSubmissionDeadline;
+  const hasPendingDeadlineChange = pendingDeadlineIso != null && pendingDeadlineIso !== savedDeadlineIso?.slice(0, 16);
 
   return (
     <div className="space-y-6">
@@ -172,6 +239,49 @@ export default function AssignmentStatsDetailPage() {
             {t("exerciseDetail.lateSubmissionAllowedLabel")}
           </label>
         </div>
+        {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — hạn chót nộp muộn cụ thể,
+            chỉ hiện khi đang bật "Cho phép nộp muộn". Trống = nộp muộn không giới hạn thời gian. */}
+        {studentStats.assignment.lateSubmissionAllowed && (
+          <div className="flex items-center gap-2 mt-2">
+            <span className="text-xs font-semibold text-slate-500">{t("exerciseDetail.lateSubmissionDeadlineLabel")}</span>
+            <DatePicker
+              value={deadlineDate}
+              min={studentStats.assignment.dueAt ? studentStats.assignment.dueAt.slice(0, 10) : undefined}
+              onChange={(value) => {
+                setDeadlineDate(value);
+                if (!value) {
+                  // Xóa qua DatePicker (hiếm) — coi như thao tác xóa, không cần xác nhận.
+                  setDeadlineTime("");
+                  saveLateSubmissionDeadline("", "");
+                  return;
+                }
+                if (!deadlineTime) setDeadlineTime("23:59");
+              }}
+            />
+            <Time24Input
+              value={deadlineTime}
+              disabled={!deadlineDate || togglingLateSubmission}
+              onChange={setDeadlineTime}
+              className="bg-white border border-slate-200 text-xs px-2 py-1.5 rounded-lg focus:outline-none disabled:opacity-40"
+            />
+            {hasPendingDeadlineChange && (
+              <Button variant="primary" size="sm" onClick={() => setConfirmDeadlineOpen(true)} disabled={togglingLateSubmission}>
+                {t("exerciseDetail.confirmDeadline.reviewButton")}
+              </Button>
+            )}
+            {(deadlineDate || deadlineTime) && (
+              <button
+                type="button"
+                onClick={handleClearLateSubmissionDeadline}
+                disabled={togglingLateSubmission}
+                title={t("exerciseDetail.lateSubmissionDeadlineClear")}
+                className="text-slate-400 hover:text-rose-600 disabled:opacity-40"
+              >
+                <XCircle className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-lg">{error}</div>}
@@ -310,6 +420,38 @@ export default function AssignmentStatsDetailPage() {
           }}
         />
       )}
+
+      {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — xác nhận trước khi lưu hạn chót nộp muộn (ảnh hưởng ngay tới khả năng nộp bài của học sinh). */}
+      <Modal
+        open={confirmDeadlineOpen}
+        onClose={handleCancelDeadlineChange}
+        title={t("exerciseDetail.confirmDeadline.title")}
+        footer={
+          <>
+            <button
+              onClick={handleCancelDeadlineChange}
+              className="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold text-xs px-4 py-2 rounded-lg transition-all"
+            >
+              {t("exerciseDetail.confirmDeadline.cancel")}
+            </button>
+            <button
+              onClick={handleConfirmDeadlineChange}
+              disabled={togglingLateSubmission}
+              className="bg-brand-orange hover:bg-brand-orange/90 text-white font-semibold text-xs px-4 py-2 rounded-lg transition-all disabled:opacity-50"
+            >
+              {t("exerciseDetail.confirmDeadline.confirmButton")}
+            </button>
+          </>
+        }
+      >
+        <div className="flex items-start gap-3">
+          <ShieldAlert className="w-8 h-8 text-amber-500 shrink-0" />
+          <div className="text-xs text-slate-600 leading-relaxed">
+            {pendingDeadlineIso &&
+              t("exerciseDetail.confirmDeadline.description", { deadline: formatDateTime(pendingDeadlineIso, i18n.language) })}
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

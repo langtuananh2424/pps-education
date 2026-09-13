@@ -43,7 +43,9 @@ import vn.com.pps.education.repository.StudentRepository;
 import vn.com.pps.education.repository.UserRepository;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -106,6 +108,8 @@ public class ExerciseService {
     private final TransactionTemplate requiresNewTransactionTemplate;
 
     private static final String PERM_EXAM_MANAGE = "lms.exam.manage";
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — mirror StudentCommentService#APP_ZONE. */
+    private static final ZoneId APP_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
 
     public ExerciseService(ExerciseRepository exerciseRepository,
                             ExerciseQuestionRepository exerciseQuestionRepository,
@@ -549,12 +553,26 @@ public class ExerciseService {
      * bài muộn" cho 1 bản giao ĐÃ tạo (kể cả đã quá hạn) — trả lời nhu cầu "lỡ ban đầu không cho nộp
      * muộn mà học sinh chưa xong thì sao", gọi từ trang "Xem chi tiết" BTVN (Thống kê BTVN) Giáo viên
      * đang xem, không cần tạo lại bản giao từ đầu.
+     *
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — thêm tham số
+     * {@code lateSubmissionDeadline} (hạn chót nộp muộn cụ thể, NULL = không giới hạn) — chỉ áp dụng
+     * khi lateSubmissionAllowed=true, ép NULL nếu không (tránh lưu 1 hạn "mồ côi" không còn ý nghĩa gì
+     * khi đã tắt cho nộp muộn). Phải sau dueAt nếu dueAt có giá trị — hạn nộp muộn đứng TRƯỚC hạn gốc
+     * không có ý nghĩa gì. Kiểu {@link LocalDateTime} (không offset, mirror
+     * {@code StudentCommentService#resolveDueAt}) — tự quy đổi theo múi giờ ứng dụng.
      */
     @Transactional
-    public ExerciseAssignmentResponse updateLateSubmissionAllowed(Long assignmentId, boolean lateSubmissionAllowed, Long actorUserId) {
+    public ExerciseAssignmentResponse updateLateSubmissionAllowed(Long assignmentId, boolean lateSubmissionAllowed,
+                                                                     LocalDateTime lateSubmissionDeadline, Long actorUserId) {
         ExerciseAssignment assignment = exerciseAssignmentOrThrow(assignmentId);
         requireAssignedTeacher(assignment.getSchoolClass().getId(), actorUserId);
+        OffsetDateTime effectiveDeadline = lateSubmissionAllowed && lateSubmissionDeadline != null
+                ? lateSubmissionDeadline.atZone(APP_ZONE).toOffsetDateTime() : null;
+        if (effectiveDeadline != null && assignment.getDueAt() != null && !effectiveDeadline.isAfter(assignment.getDueAt())) {
+            throw new IllegalArgumentException("Hạn nộp muộn phải sau hạn nộp gốc (" + assignment.getDueAt() + ").");
+        }
         assignment.setLateSubmissionAllowed(lateSubmissionAllowed);
+        assignment.setLateSubmissionDeadline(effectiveDeadline);
         assignment = exerciseAssignmentRepository.save(assignment);
         return toResponse(assignment);
     }
@@ -737,7 +755,7 @@ public class ExerciseService {
         return new ExerciseAssignmentResponse(
                 a.getId(), a.getUuid(), a.getExercise().getId(), a.getExercise().getTitle(), a.getExercise().getCode(),
                 a.getSchoolClass().getId(), a.getAssignedBy().getId(),
-                a.getAvailableFrom(), a.getDueAt(), a.isLateSubmissionAllowed(), a.getLatePenaltyPercent(),
+                a.getAvailableFrom(), a.getDueAt(), a.isLateSubmissionAllowed(), a.getLateSubmissionDeadline(), a.getLatePenaltyPercent(),
                 a.getTargetStudentIds(), a.getStatus().name());
     }
 }

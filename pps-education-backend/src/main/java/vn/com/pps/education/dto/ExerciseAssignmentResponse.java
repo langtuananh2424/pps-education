@@ -16,6 +16,8 @@ public record ExerciseAssignmentResponse(
         OffsetDateTime availableFrom,
         OffsetDateTime dueAt,
         boolean lateSubmissionAllowed,
+        /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — NULL = nộp muộn không giới hạn. */
+        OffsetDateTime lateSubmissionDeadline,
         BigDecimal latePenaltyPercent,
         List<Long> targetStudentIds,
         String status

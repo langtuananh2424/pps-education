@@ -53,6 +53,15 @@ public class ExerciseAssignment {
     @Column(name = "late_submission_allowed", nullable = false)
     private boolean lateSubmissionAllowed = false;
 
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — hạn chót CỤ THỂ cho việc nộp
+     * muộn (khác {@link #dueAt} gốc), chỉ có ý nghĩa khi {@code lateSubmissionAllowed=true}. NULL =
+     * nộp muộn KHÔNG GIỚI HẠN thời gian (hành vi V165 gốc, giữ nguyên tương thích ngược). Xem
+     * {@link #isPastEffectiveDeadline()}.
+     */
+    @Column(name = "late_submission_deadline")
+    private OffsetDateTime lateSubmissionDeadline;
+
     @Column(name = "late_penalty_percent", precision = 5, scale = 2)
     private BigDecimal latePenaltyPercent;
 
@@ -91,4 +100,22 @@ public class ExerciseAssignment {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "homework_batch_id")
     private HomeworkSkillBatch homeworkBatch;
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — nguồn chân lý DUY NHẤT cho "bản
+     * giao này đã thật sự hết cửa nộp bài chưa", thay cho việc lặp lại {@code dueAt != null && now >
+     * dueAt && !lateSubmissionAllowed} rải rác ở nhiều Service (ExerciseAttemptService). Quá {@code
+     * dueAt} + không cho nộp muộn → khóa ngay; quá {@code dueAt} + có cho nộp muộn nhưng đã qua luôn
+     * {@code lateSubmissionDeadline} (nếu có set) → khóa; còn lại (chưa qua dueAt, hoặc cho nộp muộn
+     * không giới hạn, hoặc còn trong hạn nộp muộn) → chưa khóa.
+     */
+    public boolean isPastEffectiveDeadline() {
+        if (dueAt == null || !OffsetDateTime.now().isAfter(dueAt)) {
+            return false;
+        }
+        if (!lateSubmissionAllowed) {
+            return true;
+        }
+        return lateSubmissionDeadline != null && OffsetDateTime.now().isAfter(lateSubmissionDeadline);
+    }
 }

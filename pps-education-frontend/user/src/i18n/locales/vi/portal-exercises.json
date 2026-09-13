@@ -166,6 +166,7 @@
       "loading": "Đang tải kết quả...",
       "loadError": "Không tải được kết quả — thử lại.",
       "sessionLabel": "Lượt {{viewNumber}}",
+      "correctAnswerLabel": "Đáp án đúng:",
       "closeButton": "Đóng"
     }
   },
@@ -232,6 +233,8 @@
       "recording": "Đang ghi âm ({{elapsed}}s/{{max}}s)",
       "grading": "Đang chấm bài nói...",
       "startRecordingButton": "Bắt đầu ghi âm",
+      "stopRecordingButton": "Dừng ghi âm",
+      "submitButton": "Nộp bài",
       "passedFeedbackTitle": "Đạt — mở khoá câu tiếp theo",
       "failedFeedbackTitle": "Chưa đạt",
       "scoreLabel": "điểm nội dung {{score}}%",
@@ -293,6 +296,7 @@
       "typeOther": "Bài khác"
     },
     "empty": "Không có bài tập nào trong mục này.",
+    "lockedAction": "Đã khóa",
     "exercise": {
       "action": {
         "retake": "Làm lại bài",
@@ -301,6 +305,7 @@
         "reviewGraded": "Xem lại bài đã làm"
       },
       "needsRetake": "Chưa đạt {{percent}} — cần làm lại",
+      "failedNoMoreRetakes": "Chưa đạt {{percent}} — đã hết lượt làm lại",
       "overduePrefix": "Đã quá hạn nộp — ",
       "duePrefix": "Hạn nộp: ",
       "noDeadline": "Không giới hạn",
@@ -338,6 +343,7 @@
         "retake": "Làm lại"
       },
       "retakeSkippedNote": "Đã hết lượt làm lại — chỉ xem lại kết quả",
+      "retakePartialFailure": "Không làm lại được: {{titles}} (đã hết lượt hoặc không cho phép làm lại) — các bài khác trong Lô đã có lượt làm mới, bạn làm tiếp bình thường.",
       "summary": {
         "pendingTitle": "Đã nộp \"{{title}}\"!",
         "passedTitle": "Chúc mừng bạn đã hoàn thành \"{{title}}\"!",
