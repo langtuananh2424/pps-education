@@ -309,6 +309,8 @@
       "overduePrefix": "Overdue — ",
       "duePrefix": "Due: ",
       "noDeadline": "No deadline",
+      "lateSubmissionUntil": "Late submission allowed until {{date}}",
+      "lateSubmissionUnlimited": "Late submission allowed, no deadline",
       "teacherVietnamese": "Vietnamese teacher",
       "teacherForeign": "Foreign teacher",
       "assignedInSession": "Assigned in the {{date}} session",

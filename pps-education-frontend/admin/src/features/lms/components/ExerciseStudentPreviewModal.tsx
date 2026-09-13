@@ -39,16 +39,26 @@ function chunkArray<T>(items: T[], size: number): T[][] {
  * lượt nói (không có dòng trống thật) — chèn thêm 1 dòng trống ẢO trước mỗi dòng bắt đầu bằng
  * "Tên:"/"N." TRƯỚC khi split.
  */
-function parsePassageParagraphs(text: string): { name: string | null; content: string }[] {
+/**
+ * V4 2026-09-13 (đã xác nhận với người dùng) — đoạn ĐẦU TIÊN đứng riêng (tách bởi dòng trống), không
+ * khớp dạng "Nhãn: nội dung", và đủ ngắn/không có dấu chấm câu giữa đoạn (không phải câu văn thường) thì
+ * coi là TIÊU ĐỀ bài đọc (VD "THE BENEFITS OF GARDENING") -- in đậm giống hệt "Nhãn:" thay vì hiện như
+ * một đoạn văn thường.
+ */
+function parsePassageParagraphs(text: string): { name: string | null; content: string; isTitle: boolean }[] {
   const withTurnBreaks = text.replace(/\n(?=\s*(?:[^\n:]{1,40}:\s|\d+\.\s))/g, "\n\n");
-  return withTurnBreaks
+  const rawParagraphs = withTurnBreaks
     .split(/\n\s*\n/)
     .map((para) => para.replace(/\s*\n\s*/g, " ").trim())
-    .filter(Boolean)
-    .map((para) => {
-      const match = para.match(/^([^:\n]{1,40}):\s*([\s\S]+)$/);
-      return match ? { name: match[1].trim(), content: match[2].trim() } : { name: null, content: para };
-    });
+    .filter(Boolean);
+  // Xet TIEU DE truoc khi thu tach "Ten: noi dung" -- tieu de tu than co the chua dau ":" (VD
+  // "COLLECTING: A VALUABLE ACTIVITY OR JUST A HOBBY?"), tach theo ":" truoc se lam mat 1 nua tieu de.
+  return rawParagraphs.map((para, i) => {
+    const isTitle = i === 0 && rawParagraphs.length > 1 && para.length <= 100 && !/[.!?]\s+[A-Z]/.test(para);
+    if (isTitle) return { name: null, content: para, isTitle: true };
+    const match = para.match(/^([^:\n]{1,40}):\s*([\s\S]+)$/);
+    return match ? { name: match[1].trim(), content: match[2].trim(), isTitle: false } : { name: null, content: para, isTitle: false };
+  });
 }
 
 type RenderBlock =
@@ -393,7 +403,11 @@ function GridQuestionGroupPreview({ block, startNumber }: { block: Extract<Rende
           {parsePassageParagraphs(block.referencePassage).map((p, i) => (
             <div key={i}>
               {p.name && <p className="text-xs font-black text-slate-800">{p.name}</p>}
-              <p className="text-xs text-slate-600 whitespace-pre-line">{p.content}</p>
+              {p.isTitle ? (
+                <p className="text-xs font-black text-slate-800 text-center">{p.content}</p>
+              ) : (
+                <p className="text-xs text-slate-600 whitespace-pre-line">{p.content}</p>
+              )}
             </div>
           ))}
         </div>
