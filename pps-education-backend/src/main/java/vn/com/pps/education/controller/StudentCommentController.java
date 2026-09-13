@@ -23,6 +23,8 @@ import vn.com.pps.education.dto.DailyCommentImportPreviewResponse;
 import vn.com.pps.education.dto.DailyCommentImportResponse;
 import vn.com.pps.education.dto.DecideCommentsRequest;
 import vn.com.pps.education.dto.StudentCommentHistoryResponse;
+import vn.com.pps.education.dto.SaveDraftCommentsRequest;
+import vn.com.pps.education.dto.SaveDraftCommentsResponse;
 import vn.com.pps.education.dto.StudentCommentResponse;
 import vn.com.pps.education.dto.SubmitCommentsRequest;
 import vn.com.pps.education.dto.UpdateActualTeacherNameRequest;
@@ -82,6 +84,20 @@ public class StudentCommentController {
                                                                    @Valid @RequestBody UpdateStudentCommentRequest request,
                                                                    @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(studentCommentService.updateComment(id, request, actor.userId()));
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — "Lưu nháp" CẢ LỚP trong 1
+     * request, thay cho việc FE gọi lặp lại writeComment/updateComment cho từng học sinh (N request
+     * HTTP thật gây chậm trên môi trường deploy, xem Javadoc StudentCommentService#saveDraftBatch).
+     */
+    @PreAuthorize("hasPermission(null, 'academic.comment.write')")
+    @PostMapping("/api/classes/{classId}/class-sessions/{classSessionId}/comments/draft-batch")
+    public ResponseEntity<SaveDraftCommentsResponse> saveDraftBatch(@PathVariable Long classId,
+                                                                       @PathVariable Long classSessionId,
+                                                                       @Valid @RequestBody SaveDraftCommentsRequest request,
+                                                                       @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(studentCommentService.saveDraftBatch(classId, classSessionId, request, actor.userId()));
     }
 
     @PreAuthorize("hasPermission(null, 'academic.comment.write')")

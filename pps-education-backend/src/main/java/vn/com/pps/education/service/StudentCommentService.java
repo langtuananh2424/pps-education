@@ -27,6 +27,8 @@ import vn.com.pps.education.domain.StudentComment;
 import vn.com.pps.education.domain.StudentCommentHistory;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.dto.ApplyClassHomeworkRequest;
+import vn.com.pps.education.dto.SaveDraftCommentsRequest;
+import vn.com.pps.education.dto.SaveDraftCommentsResponse;
 import vn.com.pps.education.dto.AutoProgressPreviewResponse;
 import vn.com.pps.education.dto.ClassSessionLessonContentResponse;
 import vn.com.pps.education.dto.ClassSessionTeacherNameResponse;
@@ -431,6 +433,87 @@ public class StudentCommentService {
         comment = studentCommentRepository.save(comment);
         writeHistory(comment, actor, existing != null ? StudentCommentHistory.Action.UPDATED : StudentCommentHistory.Action.CREATED);
         return toResponse(comment);
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — "Lưu nháp" CẢ LỚP trong 1
+     * request/1 transaction DUY NHẤT, thay vì FE gọi lặp lại {@link #writeComment}/{@link
+     * #updateComment} cho TỪNG học sinh (N request HTTP thật, mỗi request tự chạy lại
+     * requireCanWriteDailyComment + tự truy vấn "buổi trước" riêng — chậm rõ rệt trên môi trường
+     * deploy có độ trễ mạng, xem Javadoc {@link SaveDraftCommentsRequest}). Mirror ĐÚNG logic
+     * find-or-create + rào chặn trùng của writeComment (không tạo 2 bản ghi DAILY trùng
+     * classSession+student, PENDING/APPROVED có sẵn thì báo lỗi rõ ràng) — chỉ khác là mọi bước dùng
+     * chung 1 lần tra cứu rào/actor/schoolClass/classSession, và tra "học sinh"/"bản ghi đã có" bằng
+     * 1 truy vấn BULK cho cả lô thay vì lặp lại theo từng dòng.
+     *
+     * QUAN TRỌNG — KHÔNG all-or-nothing: mỗi dòng trước đây là 1 request {@code Promise.allSettled}
+     * ĐỘC LẬP ở FE — 1 học sinh bị khoá giữa chừng (VD Quản lý điểm trường vừa duyệt/từ chối đúng lúc
+     * giáo viên đang gõ) không được chặn các dòng KHÁC lưu thành công. Gộp thành 1 transaction vẫn
+     * phải giữ đúng tinh thần đó: lỗi ở 1 dòng chỉ đưa dòng đó vào {@code skipped}, KHÔNG ném exception
+     * làm rollback cả batch — chỉ tiền kiểm tra dùng chung ở đầu hàm (lớp bị hủy, hết hạn sửa, không
+     * đúng quyền...) mới chặn toàn bộ, vì đó là điều kiện chung cho CẢ buổi học, không phải riêng 1
+     * học sinh nào.
+     */
+    @Transactional
+    public SaveDraftCommentsResponse saveDraftBatch(Long classId, Long classSessionId, SaveDraftCommentsRequest request, Long actorUserId) {
+        SchoolClass schoolClass = getClassOrThrow(classId);
+        if (schoolClass.getStatus() == SchoolClass.Status.CANCELLED) {
+            throw new IllegalStateException("Lớp học \"" + schoolClass.getName() + "\" đã bị HỦY — không thể viết nhận xét.");
+        }
+        User actor = getUserOrThrow(actorUserId);
+        ClassSession classSession = getClassSessionOrThrow(classSessionId);
+        requireCanWriteDailyComment(classSession, actorUserId);
+
+        List<Long> studentIds = request.rows().stream().map(SaveDraftCommentsRequest.Row::studentId).toList();
+        Map<Long, Student> studentsById = studentRepository.findByIdInAndDeletedAtIsNull(studentIds).stream()
+                .collect(java.util.stream.Collectors.toMap(Student::getId, s -> s));
+        Map<Long, StudentComment> existingByStudentId = studentCommentRepository.findByClassSessionId(classSession.getId()).stream()
+                .collect(java.util.stream.Collectors.toMap(c -> c.getStudent().getId(), c -> c, (a, b) -> a));
+
+        List<StudentComment> toSave = new ArrayList<>();
+        Map<Long, StudentCommentHistory.Action> actionByStudentId = new HashMap<>();
+        List<SaveDraftCommentsResponse.SkippedRow> skipped = new ArrayList<>();
+        for (SaveDraftCommentsRequest.Row row : request.rows()) {
+            try {
+                Student student = studentsById.get(row.studentId());
+                if (student == null) {
+                    throw new ResourceNotFoundException("error.studentComment.studentNotFoundById", new Object[]{row.studentId()}, "Không tìm thấy học sinh id=" + row.studentId());
+                }
+                StudentComment existing = existingByStudentId.get(student.getId());
+                if (existing != null && existing.getStatus() != StudentComment.Status.DRAFT
+                        && existing.getStatus() != StudentComment.Status.REJECTED) {
+                    throw new StudentCommentNotEditableException(
+                            "error.studentCommentNotEditable.alreadyExists", new Object[]{student.getUser().getFullName(), existing.getStatus()},
+                            "Học sinh " + student.getUser().getFullName() + " đã có nhận xét cho buổi học này (trạng thái: "
+                                    + existing.getStatus() + ") — không thể tạo thêm.");
+                }
+                StudentComment comment = existing != null ? existing : new StudentComment();
+                if (existing != null) {
+                    comment.setApprovalFlow(null);
+                }
+                comment.setStudent(student);
+                comment.setSchoolClass(schoolClass);
+                comment.setTeacher(actor);
+                comment.setCommentType(StudentComment.CommentType.DAILY);
+                comment.setClassSession(classSession);
+                comment.setAcademicYear(schoolClass.getAcademicYear());
+                comment.setCommentDate(request.commentDate());
+                applyContent(comment, row.content(), row.structuredContent(), row.severity(), row.isWarning(),
+                        row.attitude(), row.homeworkPreviousScore(), row.homeworkPreviousSpeakingScore(),
+                        row.homeworkPreviousReadingScore(), row.homeworkPreviousWritingScore(),
+                        row.homeworkNext(), row.homeworkNextReading(), row.homeworkNextWriting(), row.note());
+                comment.setStatus(StudentComment.Status.DRAFT);
+                actionByStudentId.put(student.getId(), existing != null ? StudentCommentHistory.Action.UPDATED : StudentCommentHistory.Action.CREATED);
+                toSave.add(comment);
+            } catch (RuntimeException ex) {
+                skipped.add(new SaveDraftCommentsResponse.SkippedRow(row.studentId(), ex.getMessage()));
+            }
+        }
+
+        List<StudentComment> saved = studentCommentRepository.saveAll(toSave);
+        Map<Long, Map<Long, StudentComment>> previousCache = previousCommentsByClassSessionAndStudent(saved);
+        saved.forEach(c -> writeHistory(c, actor, actionByStudentId.get(c.getStudent().getId()), previousCache));
+        return new SaveDraftCommentsResponse(saved.stream().map(this::toResponse).toList(), skipped);
     }
 
     /**
