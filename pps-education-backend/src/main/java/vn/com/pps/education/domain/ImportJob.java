@@ -19,7 +19,10 @@ import java.util.UUID;
  * sinh có sẵn theo lô, bổ sung ngoài SDD gốc, đã xác nhận với người dùng
  * 2026-07-31), UC-23 (REVIEW_VIDEO_QUESTIONS/REVIEW_VIDEO_CONNECTION_QUESTIONS
  * — import Excel câu hỏi Kho Video Ôn tập, bổ sung ngoài SDD gốc, đã xác
- * nhận với người dùng) dùng chung bảng này —
+ * nhận với người dùng), UC-72 (CURRICULUM_CATALOG — import Excel nhanh
+ * mục lục Sách/Unit/Sub Topic/Lesson (exams)/Bài (exercises) của Kho đề,
+ * bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13) dùng
+ * chung bảng này —
  * SHIFTS/EMPLOYEE_SHIFTS/WORK_CALENDAR/ATTENDANCE/TEACHING_SCHEDULE vẫn
  * chỉ là placeholder enum, chưa có code nào dùng. Cột import_type là
  * VARCHAR(50) tự do (không CHECK constraint DB), nên thêm giá trị enum mới
@@ -31,7 +34,7 @@ import java.util.UUID;
 @Table(name = "import_jobs")
 public class ImportJob {
 
-    public enum ImportType { SHIFTS, EMPLOYEE_SHIFTS, WORK_CALENDAR, STUDENTS, ATTENDANCE, TEACHING_SCHEDULE, PARENTS, EMPLOYEES, GRADES, DAILY_COMMENTS, QUESTIONS, CLASS_ENROLLMENTS, REVIEW_VIDEO_QUESTIONS, REVIEW_VIDEO_CONNECTION_QUESTIONS }
+    public enum ImportType { SHIFTS, EMPLOYEE_SHIFTS, WORK_CALENDAR, STUDENTS, ATTENDANCE, TEACHING_SCHEDULE, PARENTS, EMPLOYEES, GRADES, DAILY_COMMENTS, QUESTIONS, CLASS_ENROLLMENTS, REVIEW_VIDEO_QUESTIONS, REVIEW_VIDEO_CONNECTION_QUESTIONS, CURRICULUM_CATALOG }
 
     public enum Status { PENDING, PROCESSING, COMPLETED, FAILED, PARTIAL_SUCCESS }
 
