@@ -54,22 +54,29 @@ import java.util.Map;
  * Service này CHỈ lo cơ chế import (đọc file, forward-fill, tra cứu
  * idempotent theo khóa tự nhiên, gộp lỗi từng dòng).
  *
- * Định dạng file (7 cột theo thứ tự, dòng 1 = tiêu đề, dữ liệu từ dòng 2):
- * A=Tên sách, B=Tên Unit, C=Tên Sub Topic, D=Mã Lesson, E=Loại giáo viên
- * (VIETNAMESE/FOREIGN, TÙY CHỌN), F=Mã exercise, G=Tên exercise. Mỗi dòng
- * = 1 Bài; 4 cột A-D để trống nghĩa là LẶP LẠI giá trị dòng liền trước
- * (merged cell khi xuất từ Excel) — xem forward-fill trong
- * importCatalog(). F, G luôn bắt buộc mỗi dòng.
+ * Định dạng file (8 cột theo thứ tự, dòng 1 = tiêu đề, dữ liệu từ dòng 2):
+ * A=Tên sách, B=Tên Unit, C=Tên Sub Topic, D=Mã Lesson, E=Tên Lesson (TÙY
+ * CHỌN), F=Loại giáo viên (VIETNAMESE/FOREIGN, TÙY CHỌN), G=Mã exercise,
+ * H=Tên exercise. Mỗi dòng = 1 Bài; 4 cột A-D để trống nghĩa là LẶP LẠI
+ * giá trị dòng liền trước (merged cell khi xuất từ Excel) — xem
+ * forward-fill trong importCatalog(). G, H luôn bắt buộc mỗi dòng.
  *
- * Cột E (bổ sung 2026-09-13, đã xác nhận với người dùng — thực tế 1 sách
+ * Cột E (bổ sung 2026-09-13, đã xác nhận với người dùng — trước đó Đề
+ * (Exam) tạo mới luôn lấy title = trùng code, VD "G7-ADV-C1-U1-SUB1-L1",
+ * không thân thiện với giáo viên khi xem trong màn Kho đề; cần tên như
+ * "Lesson 1"): forward-fill THEO LESSON giống cột F — để trống ở các dòng
+ * Bài tiếp theo trong CÙNG 1 Lesson nghĩa là dùng lại giá trị đã khai ở
+ * dòng đầu Lesson đó. Để trống HOÀN TOÀN cho 1 Lesson (không khai ở dòng
+ * đầu) thì title = chính Mã Lesson (giữ hành vi cũ, không bắt buộc).
+ *
+ * Cột F (bổ sung 2026-09-13, đã xác nhận với người dùng — thực tế 1 sách
  * thường xen kẽ Lesson lẻ do Giáo viên Việt Nam dạy/Lesson chẵn do Giáo
  * viên nước ngoài dạy, KHÁC hẳn nhau trong CÙNG 1 file, không thể áp 1
  * giá trị chung cho cả file như thiết kế ban đầu): forward-fill THEO
- * LESSON giống cột D — để trống ở các dòng Bài tiếp theo trong CÙNG 1
- * Lesson nghĩa là dùng lại giá trị đã khai ở dòng đầu Lesson đó. Để trống
- * HOÀN TOÀN cả cột (mọi dòng) thì dùng {@code teacherType} (tham số mặc
- * định của cả lần import, xem importCatalog()) cho MỌI Lesson — giữ
- * tương thích ngược với file chỉ có 6 cột cũ.
+ * LESSON giống cột D/E. Để trống HOÀN TOÀN cả cột (mọi dòng) thì dùng
+ * {@code teacherType} (tham số mặc định của cả lần import, xem
+ * importCatalog()) cho MỌI Lesson — giữ tương thích ngược với file chỉ
+ * có 6-7 cột cũ.
  *
  * Idempotent: Sách/Unit/Sub Topic tra theo (cha, title) trong phạm vi
  * curriculum đã chọn; Đề theo exams.code = Mã Lesson nguyên văn; Bài theo
@@ -83,7 +90,7 @@ public class BookCatalogImportService {
 
     private static final int HEADER_ROW_INDEX = 0;
     private static final int FIRST_DATA_ROW_INDEX = 1;
-    private static final int COLUMN_COUNT = 7;
+    private static final int COLUMN_COUNT = 8;
 
     private final ImportJobRepository importJobRepository;
     private final UserRepository userRepository;
@@ -175,6 +182,11 @@ public class BookCatalogImportService {
             String lastUnitName = null;
             String lastSubTopicName = null;
             String lastLessonCode = null;
+            // Tên Lesson — TÙY CHỌN, mặc định null (chưa reset lần đầu); reset về null mỗi khi sang
+            // Lesson mới, fallback về chính Mã Lesson lúc tạo Exam nếu vẫn null khi cần dùng tới (xem
+            // resolveExam) — KHÁC lastTeacherType (fallback là 1 tham số cả lần import, ở đây fallback
+            // là chính lastLessonCode nên xử lý riêng tại điểm dùng, không gán sẵn ở đây).
+            String lastLessonTitle = null;
             // Khác 4 cột trên (bắt buộc, không có gì để "mặc định") — cột Loại giáo viên là TÙY CHỌN,
             // khởi tạo sẵn = teacherType (tham số mặc định cả lần import) nên file không có cột này
             // (hoặc để trống mọi dòng) vẫn chạy đúng như thiết kế cũ (tương thích ngược).
@@ -195,9 +207,10 @@ public class BookCatalogImportService {
                 String rawUnitName = cell(row, formatter, 1);
                 String rawSubTopicName = cell(row, formatter, 2);
                 String rawLessonCode = cell(row, formatter, 3);
-                String rawTeacherType = cell(row, formatter, 4);
-                String exerciseCode = cell(row, formatter, 5);
-                String exerciseName = cell(row, formatter, 6);
+                String rawLessonTitle = cell(row, formatter, 4);
+                String rawTeacherType = cell(row, formatter, 5);
+                String exerciseCode = cell(row, formatter, 6);
+                String exerciseName = cell(row, formatter, 7);
 
                 // Forward-fill cập nhật NGAY khi dòng có giá trị mới, bất kể dòng này có lỗi ở cột khác
                 // hay không — merged cell là sự thật vật lý của file nguồn, không phụ thuộc dòng có
@@ -218,8 +231,14 @@ public class BookCatalogImportService {
                     // nếu không reset, 1 Lesson để trống hoàn toàn cột E sẽ bị "dính" nhầm teacherType
                     // của Lesson liền trước đó (VD L2=FOREIGN rồi L3 để trống phải là mặc định
                     // VIETNAMESE, không phải kế thừa FOREIGN của L2) — bug thật phát hiện khi viết test
-                    // importCatalog_boSung_appliesDifferentTeacherTypePerLessonFromColumnE.
+                    // importCatalog_boSung_appliesDifferentTeacherTypePerLessonFromColumnE. Cùng lý do,
+                    // reset luôn Tên Lesson (cột E) — không cho Lesson mới "dính" nhầm tên của Lesson
+                    // liền trước; fallback (= chính Mã Lesson) xử lý ở resolveExam nếu vẫn null.
                     lastTeacherType = teacherType;
+                    lastLessonTitle = null;
+                }
+                if (!isBlank(rawLessonTitle)) {
+                    lastLessonTitle = rawLessonTitle.trim();
                 }
                 // Chỉ forward-fill khi giá trị HỢP LỆ — token sai (VD gõ nhầm "VN") bị bắt lỗi riêng
                 // cho ĐÚNG dòng đó bên dưới (trong try), không được phép "làm hỏng" giá trị kế thừa
@@ -257,7 +276,7 @@ public class BookCatalogImportService {
                     Book book = resolveBook(bookCache, curriculum, lastBookName);
                     CurriculumUnit unit = resolveUnit(unitCache, book, lastUnitName);
                     CurriculumSubTopic subTopic = resolveSubTopic(subTopicCache, unit, lastSubTopicName);
-                    Exam exam = resolveExam(examCache, curriculum, subTopic, lastLessonCode, lastTeacherType, examType, actorUserId);
+                    Exam exam = resolveExam(examCache, curriculum, subTopic, lastLessonCode, lastLessonTitle, lastTeacherType, examType, actorUserId);
                     resolveExercise(exam, exerciseCode.trim(), exerciseName.trim(), exerciseType, totalPoints, actorUserId);
 
                     successRows++;
@@ -316,13 +335,16 @@ public class BookCatalogImportService {
                 }));
     }
 
-    /** Đề (Lesson) đã tồn tại đúng code -> TÁI SỬ DỤNG nguyên vẹn, không ghi đè teacherType/examType/subTopic. */
+    /** Đề (Lesson) đã tồn tại đúng code -> TÁI SỬ DỤNG nguyên vẹn, không ghi đè title/teacherType/examType/subTopic. */
     private Exam resolveExam(Map<String, Exam> cache, Curriculum curriculum, CurriculumSubTopic subTopic,
-                              String code, String teacherType, String examType, Long actorUserId) {
+                              String code, String title, String teacherType, String examType, Long actorUserId) {
         return cache.computeIfAbsent(code, c -> examRepository.findByCode(c)
                 .orElseGet(() -> {
+                    // Cột E (Tên Lesson) để trống hoàn toàn cho Lesson này -> title = chính Mã Lesson
+                    // (hành vi cũ trước khi có cột E, giữ tương thích ngược).
+                    String resolvedTitle = isBlank(title) ? c : title;
                     CreateExamRequest request = new CreateExamRequest(
-                            c, c, curriculum.getId(), teacherType, examType, subTopic.getId());
+                            c, resolvedTitle, curriculum.getId(), teacherType, examType, subTopic.getId());
                     Long examId = examService.createExam(request, actorUserId).id();
                     return examRepository.findByIdAndDeletedAtIsNull(examId).orElseThrow();
                 }));

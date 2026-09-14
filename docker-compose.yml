@@ -79,6 +79,10 @@ services:
       NINE_ROUTER_MODEL: ${NINE_ROUTER_MODEL:-}
       NINE_ROUTER_STT_MODEL: ${NINE_ROUTER_STT_MODEL:-groq/whisper-large-v3-turbo}
       NINE_ROUTER_AUDIO_MODEL: ${NINE_ROUTER_AUDIO_MODEL:-ag/gemini-3.5-flash-low}
+      # UC-73 (Import Excel hàng loạt "bộ" video ôn tập) - YouTube Data API v3, dò durationSeconds tự
+      # động cho link YouTube lúc import - tùy chọn, để trống thì mọi dòng link YouTube báo lỗi có
+      # kiểm soát (xem YouTubeDurationService, .env.example).
+      YOUTUBE_API_KEY: ${YOUTUBE_API_KEY:-}
     ports:
       - "8080:8080"
     depends_on:

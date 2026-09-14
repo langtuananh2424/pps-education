@@ -84,7 +84,23 @@
       "title": "Review Video Library",
       "subtitle": "2 types: \"Connection video\" (reviewing in-class vocabulary) and \"Reflex video\" (Q&A speaking practice). Each set contains multiple videos/audio clips, and the curriculum framework assignment is ONLY for filtering/search — explicitly assigning to specific class(es) is what controls visibility. Publishing only marks a set as eligible to be used as a source — a teacher must pick a published set as \"next session's homework\" in Student Comments before it's actually assigned to a class; the system then tracks the actual watch percentage.",
       "createButton": "Create new video set",
+      "importButton": "Import Excel",
       "loadSetsFailed": "Couldn't load the review video set list."
+    },
+    "importModal": {
+      "title": "Bulk import video sets from Excel",
+      "description": "Each row = 1 video. The first 7 columns (Set code/Video type/Curriculum code/Teacher type/Book title/Unit code/Sub topic code) left blank repeat the previous row — Title/Video link are always required on every row. The Book/Unit/Sub Topic must already exist in the book catalog (not auto-created). Video type: TKN=Connection video, PXA=Reflex video. Teacher type: GVVN=Vietnamese teacher, GVNN=Foreign teacher. Video duration is auto-detected from YouTube.",
+      "downloadTemplate": "Download template",
+      "chooseFile": "Choose Excel file (.xlsx)",
+      "importing": "Importing...",
+      "onlyXlsx": "Only .xlsx files are accepted.",
+      "importFailed": "Import failed.",
+      "errorDetailTitle": "Row error details",
+      "stats": {
+        "totalRows": "Total rows",
+        "successRows": "Succeeded",
+        "failedRows": "Failed"
+      }
     },
     "filter": {
       "allCurriculums": "All curriculum frameworks",

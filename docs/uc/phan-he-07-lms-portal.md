@@ -1955,13 +1955,14 @@ UC-72: Import Excel nhanh mục lục Sách/Unit/Sub Topic/Lesson/Bài (Kho đ�
 | **Luồng sự kiện | 1.  Giáo viên chọn 1 khung chương trình +           |
 | chính (Main     |     examType/exerciseType/totalPoints mặc định +   |
 | Flow)**         |     teacherType MẶC ĐỊNH (dùng khi cột E để trống), |
-|                 |     tải lên file Excel (.xlsx) đúng 7 cột theo thứ  |
+|                 |     tải lên file Excel (.xlsx) đúng 8 cột theo thứ  |
 |                 |     tự: Tên sách, Tên Unit, Tên Sub Topic, Mã       |
-|                 |     Lesson, Loại giáo viên (VIETNAMESE/FOREIGN, TÙY |
-|                 |     CHỌN), Mã exercise, Tên exercise. Dòng 1 = tiêu |
-|                 |     đề, dữ liệu từ dòng 2, mỗi dòng = 1 Bài. 4 cột  |
-|                 |     đầu để trống nghĩa là LẶP LẠI giá trị của dòng  |
-|                 |     liền trước (kiểu merged cell khi xuất từ Excel).|
+|                 |     Lesson, Tên Lesson (TÙY CHỌN), Loại giáo viên   |
+|                 |     (VIETNAMESE/FOREIGN, TÙY CHỌN), Mã exercise, Tên|
+|                 |     exercise. Dòng 1 = tiêu đề, dữ liệu từ dòng 2,  |
+|                 |     mỗi dòng = 1 Bài. 4 cột đầu để trống nghĩa là   |
+|                 |     LẶP LẠI giá trị của dòng liền trước (kiểu merged|
+|                 |     cell khi xuất từ Excel).                        |
 |                 |                                                    |
 |                 | 2.  Hệ thống forward-fill 4 cột phân cấp theo dòng  |
 |                 |     liền trước, rồi upsert theo khóa tự nhiên từng  |
@@ -1970,15 +1971,19 @@ UC-72: Import Excel nhanh mục lục Sách/Unit/Sub Topic/Lesson/Bài (Kho đ�
 |                 |     (Sách, Tên Unit); Sub Topic theo (Unit, Tên Sub |
 |                 |     Topic); Đề ("Lesson") theo `exams.code` = Mã    |
 |                 |     Lesson NGUYÊN VĂN; Bài theo `exercises.code` =  |
-|                 |     Mã exercise NGUYÊN VĂN. Cột "Loại giáo viên"    |
-|                 |     forward-fill RIÊNG trong phạm vi 1 Lesson (reset|
-|                 |     về giá trị MẶC ĐỊNH mỗi khi sang Mã Lesson mới,  |
-|                 |     rồi áp giá trị của chính dòng đầu Lesson đó nếu  |
-|                 |     có khai) --- cho phép Lesson 1/3 = VIETNAMESE,   |
-|                 |     Lesson 2/4 = FOREIGN xen kẽ NGAY TRONG CÙNG 1   |
-|                 |     file, khác hẳn 4 cột phân cấp kia (kế thừa       |
-|                 |     xuyên suốt tới khi có giá trị mới, không reset   |
-|                 |     theo Lesson). Sách/Unit/Sub Topic đã tồn tại     |
+|                 |     Mã exercise NGUYÊN VĂN. Cột "Tên Lesson"/"Loại  |
+|                 |     giáo viên" forward-fill RIÊNG trong phạm vi 1   |
+|                 |     Lesson (reset về rỗng/giá trị MẶC ĐỊNH mỗi khi   |
+|                 |     sang Mã Lesson mới, rồi áp giá trị của chính    |
+|                 |     dòng đầu Lesson đó nếu có khai) --- "Tên Lesson" |
+|                 |     để trống cho 1 Lesson thì `exams.title` = chính  |
+|                 |     Mã Lesson (fallback, giữ tương thích ngược);    |
+|                 |     "Loại giáo viên" cho phép Lesson 1/3 =           |
+|                 |     VIETNAMESE, Lesson 2/4 = FOREIGN xen kẽ NGAY     |
+|                 |     TRONG CÙNG 1 file, khác hẳn 4 cột phân cấp kia   |
+|                 |     (kế thừa xuyên suốt tới khi có giá trị mới,      |
+|                 |     không reset theo Lesson). Sách/Unit/Sub Topic đã |
+|                 |     tồn tại                                          |
 |                 |     (trùng tên trong đúng phạm vi cấp cha) được TÁI  |
 |                 |     SỬ DỤNG, không tạo trùng; Đề/Bài đã có đúng mã   |
 |                 |     (`code`) được TÁI SỬ DỤNG NGUYÊN VẸN (không sửa  |
@@ -2039,6 +2044,162 @@ UC-72: Import Excel nhanh mục lục Sách/Unit/Sub Topic/Lesson/Bài (Kho đ�
 |                 |                                                    |
 |                 | -   `import_jobs` ghi lại tổng số dòng/thành công/  |
 |                 |     lỗi kèm lý do để tra cứu lại (mirror UC-35).    |
++-----------------+----------------------------------------------------+
+
+---
+
+UC-73: Import Excel hàng loạt "bộ" video ôn tập (Kho Video Ôn tập)
+
++-----------------+----------------------------------------------------+
+| **Mã Use Case** | UC-73                                              |
++-----------------+----------------------------------------------------+
+| **Tên Use       | Import Excel hàng loạt "bộ" video ôn tập (Kho Video |
+| Case**          | Ôn tập)                                            |
++-----------------+----------------------------------------------------+
+| **Phân hệ**     | Phân hệ 7                                          |
++-----------------+----------------------------------------------------+
+| **Yêu cầu chức  | FR-LMS-01                                          |
+| năng gốc**      |                                                    |
++-----------------+----------------------------------------------------+
+| **Tác nhân**    | Giáo viên                                          |
++-----------------+----------------------------------------------------+
+| **Mô tả tóm     | Bổ sung ngoài SDD gốc, đã xác nhận với người dùng  |
+| tắt**           | 2026-09-14 --- mirror UC-72 (Kho đề) nhưng cho Kho  |
+|                 | Video Ôn tập (UC-23): thay vì tạo tay từng "bộ"     |
+|                 | (`review_video_sets`) rồi từng video                |
+|                 | (`review_videos`, link YouTube) qua UI, Giáo viên   |
+|                 | tải lên 1 file Excel liệt kê sẵn nhiều bộ/video ---  |
+|                 | hệ thống tạo/cập nhật thẳng vào ĐÚNG 2 bảng này      |
+|                 | (KHÔNG tạo bảng danh mục song song nào khác, tái     |
+|                 | dùng nguyên `ReviewVideoService#createSet`/          |
+|                 | `addVideo` của UC-23).                              |
++-----------------+----------------------------------------------------+
+| **Sự kiện kích  | Giáo viên có sẵn 1 file Excel liệt kê nhiều bộ/video|
+| hoạt**          | (VD xuất từ kế hoạch sản xuất nội dung), muốn nạp   |
+|                 | nhanh vào Kho Video Ôn tập thay vì tạo tay từng bộ  |
+|                 | qua UI.                                            |
++-----------------+----------------------------------------------------+
+| **Điều kiện     | -   Actor có đủ quyền `lms.review-video.create`     |
+| tiên quyết      |     (tạo Bộ) VÀ `lms.review-video.update` (thêm     |
+| (               |     Video vào Bộ) --- mirror đúng quyền của từng    |
+| Precondition)** |     bước tương ứng khi thao tác tay qua UC-23, VÀ   |
+|                 |     phải là giáo viên đang dạy ≥ 1 lớp thuộc khung  |
+|                 |     chương trình của Bộ đó (hoặc có quyền           |
+|                 |     `lms.review-video.manage`) --- mirror            |
+|                 |     `requireAssignedTeacherForCurriculum` đang chặn |
+|                 |     `createSet`/`addVideo` tạo tay.                 |
+|                 |                                                    |
+|                 | -   Sách/Unit/Sub Topic nêu trong file PHẢI đã tồn  |
+|                 |     tại sẵn trong mục lục sách (tạo tay hoặc qua    |
+|                 |     UC-72) --- KHÁC UC-72, import này KHÔNG tự tạo  |
+|                 |     mới Sách/Unit/Sub Topic nếu chưa có (đây là dữ  |
+|                 |     liệu THAM CHIẾU tới cấu trúc đã có sẵn, không    |
+|                 |     phải dựng mới cấu trúc).                        |
+|                 |                                                    |
+|                 | -   Đã cấu hình `YOUTUBE_API_KEY` (YouTube Data API |
+|                 |     v3) --- bắt buộc để backend tự dò               |
+|                 |     `durationSeconds` cho MỌI link YouTube trong    |
+|                 |     file (khác hẳn cơ chế dò thời lượng lúc tạo tay |
+|                 |     1 video, chạy hoàn toàn phía trình duyệt qua    |
+|                 |     YouTube IFrame Player API --- backend xử lý file|
+|                 |     Excel upload không có trình duyệt để chạy JS).  |
++-----------------+----------------------------------------------------+
+| **Luồng sự kiện | 1.  Giáo viên tải lên file Excel (.xlsx) đúng 9 cột |
+| chính (Main     |     theo thứ tự: Mã bộ, Loại video (TKN=Video từ    |
+| Flow)**         |     kết nối/PXA=Video phản xạ), Mã khung chương     |
+|                 |     trình, Loại giáo viên (GVVN/GVNN), Tên sách, Mã |
+|                 |     Unit, Mã subtopic, Tiêu đề (video), Link video  |
+|                 |     (YouTube). Dòng 1 = tiêu đề, dữ liệu từ dòng 2, |
+|                 |     mỗi dòng = 1 Video. 7 cột đầu để trống nghĩa là |
+|                 |     LẶP LẠI giá trị của dòng liền trước (kiểu merged|
+|                 |     cell khi xuất từ Excel) --- Tiêu đề/Link video   |
+|                 |     luôn bắt buộc mỗi dòng, không forward-fill.     |
+|                 |                                                    |
+|                 | 2.  Hệ thống forward-fill 7 cột đầu theo dòng liền  |
+|                 |     trước; sang 1 Mã bộ MỚI thì reset hết 6 cột     |
+|                 |     Loại video/Mã khung/Loại giáo viên/Tên sách/Mã  |
+|                 |     Unit/Mã subtopic --- bắt buộc khai lại đủ ở dòng|
+|                 |     ĐẦU của Bộ mới, không kế thừa nhầm từ Bộ liền   |
+|                 |     trước.                                          |
+|                 |                                                    |
+|                 | 3.  Tra Sách theo (khung chương trình, Tên sách),   |
+|                 |     Unit theo (Sách, Mã Unit = title), Sub Topic    |
+|                 |     theo (Unit, Mã subtopic = title) --- không thấy |
+|                 |     thì báo lỗi NGAY cho dòng đó (xem A1), KHÔNG tự |
+|                 |     tạo mới (khác UC-72).                           |
+|                 |                                                    |
+|                 | 4.  Tra Bộ theo `review_video_sets.code` = Mã bộ    |
+|                 |     NGUYÊN VĂN (V175, `code` nay UNIQUE) --- chưa   |
+|                 |     có thì tạo mới qua `createSet` (title = chính   |
+|                 |     Mã bộ, mirror fallback title=code của UC-72),   |
+|                 |     đã có thì TÁI SỬ DỤNG NGUYÊN VẸN (không ghi đè  |
+|                 |     videoType/teacherType/khung chương trình/Sub    |
+|                 |     Topic đã có).                                   |
+|                 |                                                    |
+|                 | 5.  Với mỗi dòng, hệ thống trích id video từ Link   |
+|                 |     YouTube rồi gọi YouTube Data API v3 dò          |
+|                 |     `durationSeconds` (xem Precondition); nếu link  |
+|                 |     đã tồn tại (trùng `fileUrl`) trong CHÍNH Bộ đó  |
+|                 |     rồi (VD import lại cùng file) thì BỎ QUA dòng đó|
+|                 |     (không gọi lại YouTube API, không tạo trùng     |
+|                 |     video, vẫn tính là dòng thành công); ngược lại  |
+|                 |     gọi `addVideo` (nguồn `YOUTUBE_URL`, ngưỡng     |
+|                 |     %/số lượt xem dùng mặc định theo `videoType`    |
+|                 |     của Bộ, mirror V168).                           |
+|                 |                                                    |
+|                 | 6.  Hệ thống trả về tổng số dòng, số dòng thành     |
+|                 |     công, số dòng lỗi kèm lý do từng dòng (ghi vào  |
+|                 |     `import_jobs`, `import_type=REVIEW_VIDEO_CATALOG`|
+|                 |     --- tái dùng hạ tầng import Excel chung, mirror |
+|                 |     UC-72).                                         |
++-----------------+----------------------------------------------------+
+| **Luồng thay    | ***A1 --- Sách/Unit/Sub Topic nêu trong file không  |
+| thế / ngoại lệ  | tồn tại trong mục lục sách***                       |
+| (Alternate      |                                                    |
+| Flow)**         | 1.  Ghi lỗi cho ĐÚNG dòng đó vào `error_summary`,   |
+|                 |     KHÔNG tự tạo mới, KHÔNG chặn các dòng khác.     |
+|                 |                                                    |
+|                 | ***A2 --- Dòng chưa có gì để forward-fill*** (thiếu |
+|                 | Mã bộ/Loại video/Mã khung/Loại giáo viên/Tên sách/  |
+|                 | Mã Unit/Mã subtopic mà chưa dòng nào trước đó (hoặc |
+|                 | Bộ hiện tại) cung cấp giá trị)                      |
+|                 |                                                    |
+|                 | 1.  Ghi lỗi cho dòng đó, không tạo bản ghi nào.     |
+|                 |                                                    |
+|                 | ***A3 --- File sai định dạng/đọc hỏng hoàn toàn***  |
+|                 |                                                    |
+|                 | 1.  `import_job` chuyển `FAILED` ngay, không tạo    |
+|                 |     Bộ/Video nào.                                   |
+|                 |                                                    |
+|                 | ***A4 --- Link YouTube không hợp lệ/không dò được   |
+|                 | thời lượng*** (sai định dạng link, video đã xóa/    |
+|                 | riêng tư, `YOUTUBE_API_KEY` chưa cấu hình, hoặc     |
+|                 | YouTube Data API lỗi/hết quota)                     |
+|                 |                                                    |
+|                 | 1.  Ghi lỗi cho ĐÚNG dòng đó, KHÔNG tạo Video nào   |
+|                 |     cho dòng này, KHÔNG chặn các dòng khác (kể cả   |
+|                 |     dòng khác CÙNG Bộ).                             |
+|                 |                                                    |
+|                 | ***A5 --- Loại video/Loại giáo viên ghi token không |
+|                 | hợp lệ*** (khác TKN/PXA hoặc khác GVVN/GVNN và khác |
+|                 | rỗng)                                               |
+|                 |                                                    |
+|                 | 1.  Ghi lỗi cho ĐÚNG dòng đó, KHÔNG cập nhật giá trị|
+|                 |     kế thừa cho các dòng tiếp theo cùng Bộ (giữ     |
+|                 |     nguyên giá trị hợp lệ gần nhất).                |
++-----------------+----------------------------------------------------+
+| **Hậu điều kiện | -   Toàn bộ dòng hợp lệ phản ánh đúng vào Bộ/Video  |
+| (P              |     trong Kho Video Ôn tập --- dòng lỗi không tạo   |
+| ostcondition)** |     bản ghi dở dang.                                |
+|                 |                                                    |
+|                 | -   Bộ mới tạo ở trạng thái DRAFT --- giống hệt     |
+|                 |     trạng thái ngay sau khi tạo tay ở UC-23 bước 1, |
+|                 |     cần Publish + gán lớp + giao qua UC-21 riêng    |
+|                 |     mới học sinh xem được (không đổi Postcondition  |
+|                 |     UC-23 gốc).                                     |
+|                 |                                                    |
+|                 | -   `import_jobs` ghi lại tổng số dòng/thành công/  |
+|                 |     lỗi kèm lý do để tra cứu lại (mirror UC-72).    |
 +-----------------+----------------------------------------------------+
 
 ---
