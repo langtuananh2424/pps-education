@@ -76,7 +76,17 @@ mirror `exam_class_assignments`). `class_id` bị xóa khỏi bảng.
 
   uuid               UUID            UNIQUE, NOT NULL
 
-  code               VARCHAR(50)     NOT NULL
+  code               VARCHAR(50)     NOT NULL, UNIQUE          V175 (2026-09-14,
+                                     (V175)                     bổ sung ngoài SDD
+                                                                 gốc, đã xác nhận
+                                                                 với người dùng)
+                                                                 — thêm UNIQUE để
+                                                                 UC-73 (import
+                                                                 Excel hàng loạt)
+                                                                 tra idempotent
+                                                                 theo code, mirror
+                                                                 exams.code/
+                                                                 exercises.code
 
   title              VARCHAR(500)    NOT NULL
 
@@ -1699,6 +1709,28 @@ Lesson nguyên văn; Bài theo `exercises.code` = Mã exercise nguyên văn —
 title/teacherType/examType/exerciseType/totalPoints đã có), tránh phá
 câu hỏi/dữ liệu đã soạn nếu import lại cùng file. Xem
 docs/uc/phan-he-07-lms-portal.md (UC-72).
+
+*Import Excel hàng loạt "bộ" video ôn tập (UC-73, bổ sung ngoài SDD gốc,
+đã xác nhận với người dùng 2026-09-14):* mirror UC-72 nhưng cho Kho Video
+Ôn tập (mục a/b ở trên), thêm giá trị `import_type = REVIEW_VIDEO_CATALOG`
+trong `import_jobs`. File nguồn 9 cột theo thứ tự Mã bộ/Loại video
+(TKN=CONNECTION, PXA=REFLEX)/Mã khung chương trình/Loại giáo viên
+(GVVN=VIETNAMESE, GVNN=FOREIGN)/Tên sách/Mã Unit/Mã subtopic/Tiêu đề
+(video)/Link video (YouTube) — 1 dòng = 1 Video; 7 cột đầu để trống nghĩa
+là lặp lại giá trị dòng liền trước, sang 1 Mã bộ MỚI thì reset hết 6 cột
+Loại video/Mã khung/Loại giáo viên/Tên sách/Mã Unit/Mã subtopic (mirror
+reset teacherType/title mỗi Lesson mới ở UC-72). KHÁC UC-72: Sách/Unit/Sub
+Topic tra theo ĐÚNG title đã tạo sẵn (KHÔNG tự tạo mới nếu chưa có, báo
+lỗi ngay — đây là dữ liệu tham chiếu, không phải dựng cấu trúc mới).
+Idempotent: Bộ tra theo `review_video_sets.code` = Mã bộ nguyên văn (cần
+UNIQUE, xem migration V175 ở mục a); Video tra theo (setId, fileUrl) —
+KHÁC Đề/Bài (không có cột code riêng để tra). `durationSeconds` (bắt buộc
+NOT NULL trên `review_videos`, xem mục b) tự dò qua YouTube Data API v3
+(`videos.list?part=contentDetails`, cấu hình `YOUTUBE_API_KEY`) —
+`YouTubeDurationService`, HOÀN TOÀN KHÁC cơ chế dò thời lượng lúc tạo tay
+1 video ở LecturesPage.tsx (chạy phía trình duyệt qua YouTube IFrame
+Player API, backend không tái hiện được khi xử lý file Excel upload). Xem
+docs/uc/phan-he-07-lms-portal.md (UC-73).
 
 l)  Bảng attempt_integrity_events --- Giám sát thoát màn hình khi làm
 bài (MỚI HOÀN TOÀN, V70, 2026-07-31, bổ sung ngoài SDD gốc, đã xác

@@ -14,6 +14,9 @@ public interface ReviewVideoSetRepository extends JpaRepository<ReviewVideoSet, 
     /** UC-21 mở rộng (BTVN online — dán uuid làm phương án thay dropdown, V55). */
     Optional<ReviewVideoSet> findByUuid(UUID uuid);
 
+    /** UC-73 (V175, code nay UNIQUE) — tra idempotent cho import Excel hàng loạt, mirror ExamRepository#findByCode. */
+    Optional<ReviewVideoSet> findByCode(String code);
+
     /** V156 — dùng thay findById ở mọi nơi đọc/sửa 1 Bộ, không lộ Bộ đã "xóa" (deleted_at), mirror ExamRepository#findByIdAndDeletedAtIsNull. */
     Optional<ReviewVideoSet> findByIdAndDeletedAtIsNull(Long id);
 

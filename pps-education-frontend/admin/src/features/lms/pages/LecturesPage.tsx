@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { BarChart3, Check, ClipboardList, Layers, Link2, MessageCircle, Music, Pencil, Plus, Trash2, Users, Video, X } from "lucide-react";
+import { BarChart3, Check, ClipboardList, Layers, Link2, MessageCircle, Music, Pencil, Plus, Trash2, UploadCloud, Users, Video, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { ClassResponse, CurriculumResponse, CurriculumSubjectResponse, ClassEnrollmentResponse, listClassEnrollments, listCurriculums, listCurriculumSubjects } from "@/features/academic/api";
@@ -53,6 +53,7 @@ import Toast from "@/components/ui/Toast";
 import Select from "@/components/ui/Select";
 import Pagination from "@/components/ui/Pagination";
 import ReviewVideoQuestionImportPanel from "../components/ReviewVideoQuestionImportPanel";
+import ReviewVideoCatalogImportModal from "../components/ReviewVideoCatalogImportModal";
 import UnitSubTopicPicker from "../components/UnitSubTopicPicker";
 import { useDialog } from "@/components/ui/DialogProvider";
 
@@ -659,6 +660,7 @@ export default function LecturesPage() {
   const [loadingSets, setLoadingSets] = useState(false);
   const [selectedSetId, setSelectedSetId] = useState<number | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { message: toastMessage, showToast } = useToast();
 
@@ -730,10 +732,16 @@ export default function LecturesPage() {
           <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("lectures.page.title")}</h1>
           <p className="text-xs text-slate-500 mt-1">{t("lectures.page.subtitle")}</p>
         </div>
-        <Button variant="primary" size="sm" onClick={() => setShowCreateForm(true)}>
-          <Plus className="w-3.5 h-3.5" />
-          {t("lectures.page.createButton")}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" size="sm" onClick={() => setShowImportModal(true)}>
+            <UploadCloud className="w-3.5 h-3.5" />
+            {t("lectures.page.importButton")}
+          </Button>
+          <Button variant="primary" size="sm" onClick={() => setShowCreateForm(true)}>
+            <Plus className="w-3.5 h-3.5" />
+            {t("lectures.page.createButton")}
+          </Button>
+        </div>
       </div>
 
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
@@ -865,6 +873,14 @@ export default function LecturesPage() {
           )}
         </div>
       </div>
+
+      {showImportModal && (
+        <ReviewVideoCatalogImportModal
+          open={showImportModal}
+          onClose={() => setShowImportModal(false)}
+          onImported={loadSets}
+        />
+      )}
 
       {showCreateForm && (
         <CreateSetModal

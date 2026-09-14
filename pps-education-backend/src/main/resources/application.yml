@@ -206,6 +206,14 @@ app:
       # R2 thật trên server production - xem R2StorageConfig). Để trống thì
       # giữ hành vi cũ (tự dựng URL R2 từ account-id).
       endpoint-url: ${R2_ENDPOINT_URL:}
+  youtube:
+    # UC-73 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-14) - dùng YouTube Data API v3
+    # (videos.list?part=contentDetails) để tự động dò durationSeconds cho video import hàng loạt qua
+    # Excel (Kho Video Ôn tập) - khác hẳn cơ chế dò thời lượng của màn tạo tay (LecturesPage.tsx), chạy
+    # HOÀN TOÀN phía trình duyệt qua YouTube IFrame Player API, backend không tái hiện được vì không có
+    # trình duyệt để chạy JS lúc xử lý file Excel upload. Để trống thì import báo lỗi rõ ràng cho MỌI
+    # dòng link YouTube (không crash lúc khởi động, giống mẫu OPENAI_API_KEY/ANTHROPIC_API_KEY).
+    api-key: ${YOUTUBE_API_KEY:}
   ai-grading:
     # Bổ sung ngoài SDD gốc (2026-08-22, đã xác nhận với người dùng) - dùng chung cho SpeakingAiGradingTestService
     # (spike/test, KHÔNG phải UC chính thức) VÀ WritingAiGradingService (thật, UC-40/UC-41 - chấm AI cho
