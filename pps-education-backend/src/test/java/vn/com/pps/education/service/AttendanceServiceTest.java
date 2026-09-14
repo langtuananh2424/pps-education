@@ -464,6 +464,29 @@ class AttendanceServiceTest extends AbstractIntegrationTest {
         assertThat(attendanceService.detectSite(SITE_LAT, SITE_LNG)).isNull();
     }
 
+    /**
+     * V176 (bổ sung ngoài SDD gốc, xác nhận 2026-09-14) — site đánh dấu
+     * used_for_classes=true nhưng used_for_attendance=false (VD điểm trường
+     * không dùng làm nơi chấm công) không còn được tính vào bán kính chấm
+     * công GPS, tách khỏi việc site đó vẫn dùng bình thường cho xếp lớp.
+     */
+    @Test
+    void detectSite_UC09_Extension_ignoresSiteNotUsedForAttendance() {
+        jdbcTemplate.update("UPDATE sites SET used_for_attendance = FALSE WHERE id = ?", site.getId());
+
+        assertThat(attendanceService.detectSite(SITE_LAT, SITE_LNG)).isNull();
+    }
+
+    @Test
+    void checkIn_UC09_Extension_rejectsGpsWhenSiteNotUsedForAttendance() {
+        assignWideOpenShift();
+        jdbcTemplate.update("UPDATE sites SET used_for_attendance = FALSE WHERE id = ?", site.getId());
+
+        assertThatThrownBy(() -> attendanceService.checkIn(user.getId(),
+                new AttendanceCheckRequest("GPS", site.getId(), SITE_LAT, SITE_LNG, null)))
+                .isInstanceOf(OutsideGpsRadiusException.class);
+    }
+
     private SchoolClass newSchoolClass(User creator) {
         Curriculum curriculum = new Curriculum();
         curriculum.setCode("CUR-ATT-" + SEQ.incrementAndGet());

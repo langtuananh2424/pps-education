@@ -6,14 +6,15 @@ import vn.com.pps.education.exception.OutsideGpsRadiusException;
 import vn.com.pps.education.repository.SiteRepository;
 
 /**
- * UC-09 A2 — chấm công GPS: kiểm tra vị trí trong bán kính cho phép quanh điểm trường.
+ * UC-09 A2 — chấm công GPS: kiểm tra vị trí trong bán kính cho phép quanh 1 địa điểm chấm công
+ * (site có used_for_attendance=TRUE — V176, không nhất thiết là điểm trường, VD trụ sở công ty).
  *
  * Bổ sung ngoài Main Flow gốc (xác nhận với người dùng 2026-08-18): thay vì chỉ kiểm tra ĐÚNG 1
- * siteId do client gửi lên (dễ sai khi client tự chọn/tự nhận diện lệch — VD 2 điểm trường có bán
- * kính chấm công chồng lấn nhau khiến FE detect/chọn nhầm điểm trường, hoặc dropdown thủ công còn
- * giữ giá trị cũ không khớp vị trí thực tế) — tự phân giải lại điểm trường ACTIVE gần nhất thực sự
- * khớp toạ độ GPS gửi lên (cùng logic AttendanceService#detectSite), dùng kết quả đó cho bản ghi
- * chấm công. Chỉ từ chối (OutsideGpsRadiusException) khi KHÔNG có điểm trường nào trong bán kính,
+ * siteId do client gửi lên (dễ sai khi client tự chọn/tự nhận diện lệch — VD 2 địa điểm có bán
+ * kính chấm công chồng lấn nhau khiến FE detect/chọn nhầm, hoặc dropdown thủ công còn giữ giá trị
+ * cũ không khớp vị trí thực tế) — tự phân giải lại địa điểm ACTIVE gần nhất thực sự khớp toạ độ
+ * GPS gửi lên (cùng logic AttendanceService#detectSite), dùng kết quả đó cho bản ghi chấm công.
+ * Chỉ từ chối (OutsideGpsRadiusException) khi KHÔNG có địa điểm chấm công nào trong bán kính,
  * không còn phụ thuộc client gửi đúng siteId.
  */
 @Component
@@ -46,6 +47,6 @@ public class GpsAttendanceMethodValidator implements AttendanceMethodValidator {
                 .map(SiteRepository.NearestSite::getId)
                 .orElseThrow(() -> new OutsideGpsRadiusException(
                         "error.outsideGpsRadius.attendanceCheck", new Object[]{},
-                        "Vị trí GPS hiện tại không nằm trong bán kính chấm công của bất kỳ điểm trường nào."));
+                        "Vị trí GPS hiện tại không nằm trong bán kính chấm công của công ty."));
     }
 }

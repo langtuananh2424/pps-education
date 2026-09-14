@@ -199,6 +199,17 @@ UC-09: Chấm công
 > ngày/nhân sự/điểm trường — không thay đổi Main Flow/Alternate Flow tự
 > phục vụ ở trên.
 
+> **Bổ sung 2026-09-14 (V176, ngoài Main Flow gốc, đã xác nhận với người
+> dùng):** Main Flow bước 6/A2 nói "bán kính cho phép quanh điểm trường" —
+> trước đây bán kính này tính trên MỌI site (kể cả site chỉ dùng để xếp
+> lớp, không phải nơi nhân sự thực sự làm việc), khiến không tách được
+> "chấm công tại trụ sở/văn phòng hành chính" khỏi "chấm công tại điểm
+> trường". `sites` nay có thêm cờ `used_for_attendance` (mặc định TRUE cho
+> mọi site hiện có) — chỉ site được đánh dấu cờ này mới tính vào bán kính
+> GPS ở bước 6/A2; site chỉ dùng xếp lớp (không dùng chấm công) đặt cờ
+> `used_for_classes=TRUE, used_for_attendance=FALSE`. Xem
+> docs/sdd-groups/03-co-so-vat-chat-and-diem-truong.md mục sites.
+
 ---
 
 UC-70: Quản lý Ca làm việc & Lịch làm việc/nghỉ lễ (bổ sung HOÀN TOÀN
