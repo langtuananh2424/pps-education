@@ -84,7 +84,23 @@
       "title": "Kho Video Ôn tập",
       "subtitle": "2 loại: \"Video từ kết nối\" (ôn từ vựng buổi học) và \"Video phản xạ\" (hỏi-đáp luyện nói). Mỗi Bộ gồm nhiều video/audio, gán khung chương trình CHỈ để lọc/tìm kiếm — gán tường minh cho (các) lớp cụ thể mới là điều kiện hiển thị. Công bố chỉ đánh dấu Bộ đủ điều kiện dùng làm nguồn — Giáo viên chọn Bộ đã công bố làm \"BTVN buổi sau\" ở Nhận xét học viên mới thật sự giao cho lớp xem, hệ thống tự theo dõi % đã xem thật.",
       "createButton": "Tạo Bộ video mới",
+      "importButton": "Nhập Excel",
       "loadSetsFailed": "Không tải được danh sách bộ video ôn tập."
+    },
+    "importModal": {
+      "title": "Nhập Excel hàng loạt Bộ video ôn tập",
+      "description": "Mỗi dòng = 1 Video. 7 cột đầu (Mã bộ/Loại video/Mã khung chương trình/Loại giáo viên/Tên sách/Mã Unit/Mã subtopic) để trống nghĩa là lặp lại dòng liền trước — Tiêu đề/Link video luôn bắt buộc mỗi dòng. Sách/Unit/Sub Topic phải đã có sẵn trong mục lục sách (không tự tạo mới). Loại video: TKN=Video từ kết nối, PXA=Video phản xạ. Loại giáo viên: GVVN=Giáo viên Việt Nam, GVNN=Giáo viên nước ngoài. Thời lượng video tự dò qua YouTube.",
+      "downloadTemplate": "Tải file mẫu",
+      "chooseFile": "Chọn file Excel (.xlsx)",
+      "importing": "Đang import...",
+      "onlyXlsx": "Chỉ chấp nhận file .xlsx.",
+      "importFailed": "Import thất bại.",
+      "errorDetailTitle": "Chi tiết lỗi từng dòng",
+      "stats": {
+        "totalRows": "Tổng số dòng",
+        "successRows": "Thành công",
+        "failedRows": "Lỗi"
+      }
     },
     "filter": {
       "allCurriculums": "Tất cả khung chương trình",

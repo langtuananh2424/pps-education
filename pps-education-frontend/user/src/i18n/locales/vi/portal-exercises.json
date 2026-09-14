@@ -309,6 +309,8 @@
       "overduePrefix": "Đã quá hạn nộp — ",
       "duePrefix": "Hạn nộp: ",
       "noDeadline": "Không giới hạn",
+      "lateSubmissionUntil": "Được nộp muộn đến {{date}}",
+      "lateSubmissionUnlimited": "Được nộp muộn không giới hạn",
       "teacherVietnamese": "Giáo viên Việt Nam phụ trách",
       "teacherForeign": "Giáo viên nước ngoài phụ trách",
       "assignedInSession": "Giao trong buổi {{date}}",

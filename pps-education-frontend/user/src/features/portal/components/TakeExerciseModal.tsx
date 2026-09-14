@@ -160,16 +160,26 @@ function chunkArray<T>(items: T[], size: number): T[][] {
  * cả khi nguồn không có dòng trống thật, không ảnh hưởng trường hợp GridQuestionBuilder cũ (đã có sẵn
  * "\n\n" thật, chèn thêm không đổi kết quả split).
  */
-function parsePassageParagraphs(text: string): { name: string | null; content: string }[] {
+/**
+ * V4 2026-09-13 (đã xác nhận với người dùng) — đoạn ĐẦU TIÊN đứng riêng (tách bởi dòng trống), không
+ * khớp dạng "Nhãn: nội dung", và đủ ngắn/không có dấu chấm câu giữa đoạn (không phải câu văn thường) thì
+ * coi là TIÊU ĐỀ bài đọc (VD "THE BENEFITS OF GARDENING") -- in đậm giống hệt "Nhãn:" thay vì hiện như
+ * một đoạn văn thường.
+ */
+function parsePassageParagraphs(text: string): { name: string | null; content: string; isTitle: boolean }[] {
   const withTurnBreaks = text.replace(/\n(?=\s*(?:[^\n:]{1,40}:\s|\d+\.\s))/g, "\n\n");
-  return withTurnBreaks
+  const rawParagraphs = withTurnBreaks
     .split(/\n\s*\n/)
     .map((para) => para.replace(/\s*\n\s*/g, " ").trim())
-    .filter(Boolean)
-    .map((para) => {
-      const match = para.match(/^([^:\n]{1,40}):\s*([\s\S]+)$/);
-      return match ? { name: match[1].trim(), content: match[2].trim() } : { name: null, content: para };
-    });
+    .filter(Boolean);
+  // Xet TIEU DE truoc khi thu tach "Ten: noi dung" -- tieu de tu than co the chua dau ":" (VD
+  // "COLLECTING: A VALUABLE ACTIVITY OR JUST A HOBBY?"), tach theo ":" truoc se lam mat 1 nua tieu de.
+  return rawParagraphs.map((para, i) => {
+    const isTitle = i === 0 && rawParagraphs.length > 1 && para.length <= 100 && !/[.!?]\s+[A-Z]/.test(para);
+    if (isTitle) return { name: null, content: para, isTitle: true };
+    const match = para.match(/^([^:\n]{1,40}):\s*([\s\S]+)$/);
+    return match ? { name: match[1].trim(), content: match[2].trim(), isTitle: false } : { name: null, content: para, isTitle: false };
+  });
 }
 
 export function groupQuestionsByGroupKey(questions: ExerciseQuestionResponse[]): RenderBlock[] {
@@ -617,7 +627,13 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
       )}
 
       <div className="border-b border-line/60 shrink-0">
-        <div className="max-w-2xl lg:max-w-3xl w-full mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
+        {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 (fix bug thật) — trước đây luôn
+            1 hàng ngang (flex items-center) dù màn hình hẹp, nên khi vừa hiện đủ 2 nút hành động ("Xem
+            đáp án & đóng lượt" + "Làm lại") vừa có tiêu đề dài, tổng bề rộng vượt màn hình mobile khiến
+            khối tiêu đề (min-w-0, được phép co) bị bóp gần như về 0 — nhìn như tiêu đề bị nút đè lên.
+            Giờ xuống dòng (flex-col) dưới breakpoint sm, tiêu đề 1 hàng riêng + hàng nút riêng bên dưới,
+            hàng nút cũng tự xuống dòng tiếp (flex-wrap) nếu 2 nút + nút đóng vẫn không đủ chỗ. */}
+        <div className="max-w-2xl lg:max-w-3xl w-full mx-auto px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="min-w-0">
             <h3 className="text-lg sm:text-xl lg:text-2xl font-extrabold text-ink truncate">{item.title}</h3>
             {/* Bổ sung 2026-09-04 (đã xác nhận với người dùng) — mirror AssignmentsTab.tsx/
@@ -639,7 +655,7 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
               </p>
             )}
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 flex-wrap justify-end shrink-0">
             {/* Chip ghim góc (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-12) — thay cho
                 banner amber căng hết chiều rộng trước đây, gọn lại thành 1 badge nhỏ ngay cạnh nút Đóng,
                 bấm/hover mới hiện đủ dòng cảnh báo. */}
@@ -1683,7 +1699,11 @@ export function GridQuestionGroup({
           {parsePassageParagraphs(block.referencePassage).map((p, i) => (
             <div key={i}>
               {p.name && <p className="text-xs sm:text-sm lg:text-base font-black text-ink">{p.name}</p>}
-              <p className="text-xs sm:text-sm lg:text-base text-ink whitespace-pre-line">{p.content}</p>
+              {p.isTitle ? (
+                <p className="text-xs sm:text-sm lg:text-base font-black text-ink text-center">{p.content}</p>
+              ) : (
+                <p className="text-xs sm:text-sm lg:text-base text-ink whitespace-pre-line">{p.content}</p>
+              )}
             </div>
           ))}
         </div>

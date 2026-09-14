@@ -7,14 +7,14 @@ import Select from "@/components/ui/Select";
 import { buildXlsxTemplateBlob, downloadBlob } from "@/lib/xlsxTemplate";
 import { BookCatalogImportResponse, ExamTeacherType, ExamType, importBookCatalog } from "../api";
 
-const TEMPLATE_HEADERS = ["Tên sách", "Tên Unit", "Tên Sub Topic", "Mã Lesson", "Loại giáo viên", "Mã exercise", "Tên exercise"];
+const TEMPLATE_HEADERS = ["Tên sách", "Tên Unit", "Tên Sub Topic", "Mã Lesson", "Tên Lesson", "Loại giáo viên", "Mã exercise", "Tên exercise"];
 
-/** Mirror đúng ví dụ thật (Lesson lẻ GVVN, Lesson chẵn GVNN xen kẽ) để người dùng thấy ngay cách khai cột E. */
+/** Mirror đúng ví dụ thật (Lesson lẻ GVVN, Lesson chẵn GVNN xen kẽ) để người dùng thấy ngay cách khai cột E/F. */
 const TEMPLATE_SAMPLE_ROWS = [
-  ["Grade 6 Standard Chaper 1", "UNIT 1: MY NEW SCHOOL", "SUB TOPIC 1: SCHOOL ACTIVITIES AND SUBJECTS", "G6-STD-C1-U1-SUB1-L1", "VIETNAMESE", "G6-STD-C1-U1-SUB1-L1-EX1", "Ex. 1: Choose the correct word from the word box below to complete the sentences."],
-  ["", "", "", "", "", "G6-STD-C1-U1-SUB1-L1-EX2", "Ex. 2: Underline the correct word in each sentence."],
-  ["", "", "", "G6-STD-C1-U1-SUB1-L2", "FOREIGN", "G6-STD-C1-U1-SUB1-L2-EX1", "Ex. 1: Scan the QR code then listen to the audio to finish the task below."],
-  ["", "", "", "", "", "G6-STD-C1-U1-SUB1-L2-EX2", "Ex. 2: Scan the QR code and practice speaking with the interactive video."]
+  ["Grade 6 Standard Chaper 1", "UNIT 1: MY NEW SCHOOL", "SUB TOPIC 1: SCHOOL ACTIVITIES AND SUBJECTS", "G6-STD-C1-U1-SUB1-L1", "Lesson 1", "VIETNAMESE", "G6-STD-C1-U1-SUB1-L1-EX1", "Ex. 1: Choose the correct word from the word box below to complete the sentences."],
+  ["", "", "", "", "", "", "G6-STD-C1-U1-SUB1-L1-EX2", "Ex. 2: Underline the correct word in each sentence."],
+  ["", "", "", "G6-STD-C1-U1-SUB1-L2", "Lesson 2", "FOREIGN", "G6-STD-C1-U1-SUB1-L2-EX1", "Ex. 1: Scan the QR code then listen to the audio to finish the task below."],
+  ["", "", "", "", "", "", "G6-STD-C1-U1-SUB1-L2-EX2", "Ex. 2: Scan the QR code and practice speaking with the interactive video."]
 ];
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";

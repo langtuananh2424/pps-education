@@ -76,7 +76,17 @@ mirror `exam_class_assignments`). `class_id` bị xóa khỏi bảng.
 
   uuid               UUID            UNIQUE, NOT NULL
 
-  code               VARCHAR(50)     NOT NULL
+  code               VARCHAR(50)     NOT NULL, UNIQUE          V175 (2026-09-14,
+                                     (V175)                     bổ sung ngoài SDD
+                                                                 gốc, đã xác nhận
+                                                                 với người dùng)
+                                                                 — thêm UNIQUE để
+                                                                 UC-73 (import
+                                                                 Excel hàng loạt)
+                                                                 tra idempotent
+                                                                 theo code, mirror
+                                                                 exams.code/
+                                                                 exercises.code
 
   title              VARCHAR(500)    NOT NULL
 
@@ -1669,27 +1679,58 @@ vì đây không phải Khung chương trình chính thức cần HEAD_ACADEMIC 
 dùng 2026-09-13):* thay vì tạo tay từng cấp rồi từng Đề/Bài, dùng lại hạ
 tầng `import_jobs` chung (SDD > Nền tảng > l), thêm giá trị
 `import_type = CURRICULUM_CATALOG` (cột đang là VARCHAR tự do, không cần
-đổi CHECK/enum DB). File nguồn 7 cột theo thứ tự Tên sách/Tên Unit/Tên Sub
-Topic/Mã Lesson/**Loại giáo viên (TÙY CHỌN)**/Mã exercise/Tên exercise —
-1 dòng = 1 Bài; 4 cột đầu để trống nghĩa là lặp lại giá trị dòng liền
-trước (merged cell khi xuất từ Excel) — parser forward-fill theo dòng
-trước khi upsert. Cột "Loại giáo viên" forward-fill RIÊNG trong phạm vi 1
-Lesson (reset về `teacher_type` mặc định mỗi khi sang Mã Lesson mới, rồi
-áp giá trị của chính dòng đầu Lesson đó nếu có khai) — bổ sung ngày
-2026-09-13, đã xác nhận với người dùng: thực tế 1 Sách THƯỜNG xen kẽ
-Lesson lẻ do Giáo viên Việt Nam dạy/Lesson chẵn do Giáo viên nước ngoài
-dạy NGAY TRONG CÙNG 1 file, không thể áp 1 `teacher_type` chung cho cả
-file như thiết kế ban đầu (2026-09-13, buổi sáng). `curriculum` đích +
-`exam_type` (Đề) + `exercise_type`/`total_points` mặc định (Bài) +
-`teacher_type` MẶC ĐỊNH (chỉ dùng khi cột "Loại giáo viên" để trống hoàn
-toàn cho 1 Lesson) chọn 1 lần cho cả file (mirror `defaultKind` của
-`QuestionImportService`). Idempotent: Sách/Unit/Sub Topic tra theo (cha,
-title đúng phạm vi); Đề theo `exams.code` = Mã Lesson nguyên văn; Bài
-theo `exercises.code` = Mã exercise nguyên văn — Đề/Bài đã tồn tại được
-TÁI SỬ DỤNG nguyên vẹn (không ghi đè
-teacherType/examType/exerciseType/totalPoints đã có), tránh phá câu hỏi/
-dữ liệu đã soạn nếu import lại cùng file. Xem
+đổi CHECK/enum DB). File nguồn 8 cột theo thứ tự Tên sách/Tên Unit/Tên Sub
+Topic/Mã Lesson/**Tên Lesson (TÙY CHỌN)**/**Loại giáo viên (TÙY CHỌN)**/
+Mã exercise/Tên exercise — 1 dòng = 1 Bài; 4 cột đầu để trống nghĩa là
+lặp lại giá trị dòng liền trước (merged cell khi xuất từ Excel) — parser
+forward-fill theo dòng trước khi upsert. Cột "Tên Lesson"/"Loại giáo
+viên" forward-fill RIÊNG trong phạm vi 1 Lesson (reset về rỗng/giá trị
+mặc định mỗi khi sang Mã Lesson mới, rồi áp giá trị của chính dòng đầu
+Lesson đó nếu có khai):
+- **"Tên Lesson"** (bổ sung 2026-09-13, đã xác nhận với người dùng —
+  trước đó `exams.title` của Đề mới tạo luôn lấy trùng `code`, VD
+  "G7-ADV-C1-U1-SUB1-L1", không thân thiện khi xem trong màn Kho đề) —
+  để trống cho 1 Lesson thì `title` fallback = chính Mã Lesson (giữ tương
+  thích ngược, không bắt buộc).
+- **"Loại giáo viên"** (bổ sung 2026-09-13, đã xác nhận với người dùng:
+  thực tế 1 Sách THƯỜNG xen kẽ Lesson lẻ do Giáo viên Việt Nam dạy/Lesson
+  chẵn do Giáo viên nước ngoài dạy NGAY TRONG CÙNG 1 file, không thể áp 1
+  `teacher_type` chung cho cả file như thiết kế ban đầu, 2026-09-13 buổi
+  sáng) — để trống hoàn toàn cho 1 Lesson thì dùng `teacher_type` mặc
+  định của cả lần import.
+
+`curriculum` đích + `exam_type` (Đề) + `exercise_type`/`total_points`
+mặc định (Bài) + `teacher_type` MẶC ĐỊNH (chỉ dùng khi cột "Loại giáo
+viên" để trống hoàn toàn cho 1 Lesson) chọn 1 lần cho cả file (mirror
+`defaultKind` của `QuestionImportService`). Idempotent: Sách/Unit/Sub
+Topic tra theo (cha, title đúng phạm vi); Đề theo `exams.code` = Mã
+Lesson nguyên văn; Bài theo `exercises.code` = Mã exercise nguyên văn —
+Đề/Bài đã tồn tại được TÁI SỬ DỤNG nguyên vẹn (không ghi đè
+title/teacherType/examType/exerciseType/totalPoints đã có), tránh phá
+câu hỏi/dữ liệu đã soạn nếu import lại cùng file. Xem
 docs/uc/phan-he-07-lms-portal.md (UC-72).
+
+*Import Excel hàng loạt "bộ" video ôn tập (UC-73, bổ sung ngoài SDD gốc,
+đã xác nhận với người dùng 2026-09-14):* mirror UC-72 nhưng cho Kho Video
+Ôn tập (mục a/b ở trên), thêm giá trị `import_type = REVIEW_VIDEO_CATALOG`
+trong `import_jobs`. File nguồn 9 cột theo thứ tự Mã bộ/Loại video
+(TKN=CONNECTION, PXA=REFLEX)/Mã khung chương trình/Loại giáo viên
+(GVVN=VIETNAMESE, GVNN=FOREIGN)/Tên sách/Mã Unit/Mã subtopic/Tiêu đề
+(video)/Link video (YouTube) — 1 dòng = 1 Video; 7 cột đầu để trống nghĩa
+là lặp lại giá trị dòng liền trước, sang 1 Mã bộ MỚI thì reset hết 6 cột
+Loại video/Mã khung/Loại giáo viên/Tên sách/Mã Unit/Mã subtopic (mirror
+reset teacherType/title mỗi Lesson mới ở UC-72). KHÁC UC-72: Sách/Unit/Sub
+Topic tra theo ĐÚNG title đã tạo sẵn (KHÔNG tự tạo mới nếu chưa có, báo
+lỗi ngay — đây là dữ liệu tham chiếu, không phải dựng cấu trúc mới).
+Idempotent: Bộ tra theo `review_video_sets.code` = Mã bộ nguyên văn (cần
+UNIQUE, xem migration V175 ở mục a); Video tra theo (setId, fileUrl) —
+KHÁC Đề/Bài (không có cột code riêng để tra). `durationSeconds` (bắt buộc
+NOT NULL trên `review_videos`, xem mục b) tự dò qua YouTube Data API v3
+(`videos.list?part=contentDetails`, cấu hình `YOUTUBE_API_KEY`) —
+`YouTubeDurationService`, HOÀN TOÀN KHÁC cơ chế dò thời lượng lúc tạo tay
+1 video ở LecturesPage.tsx (chạy phía trình duyệt qua YouTube IFrame
+Player API, backend không tái hiện được khi xử lý file Excel upload). Xem
+docs/uc/phan-he-07-lms-portal.md (UC-73).
 
 l)  Bảng attempt_integrity_events --- Giám sát thoát màn hình khi làm
 bài (MỚI HOÀN TOÀN, V70, 2026-07-31, bổ sung ngoài SDD gốc, đã xác

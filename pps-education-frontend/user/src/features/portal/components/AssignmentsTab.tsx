@@ -108,24 +108,44 @@ function isBatchOverduePending(items: AssignedExerciseResponse[]): boolean {
 }
 
 /**
- * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — "quá hạn" (isExerciseOverduePending)
- * chỉ có nghĩa THẬT SỰ hết cửa thao tác khi bản giao KHÔNG cho nộp muộn (lateSubmissionAllowed=false),
- * HOẶC có cho nộp muộn nhưng đã set 1 hạn chót cụ thể (lateSubmissionDeadline) và hạn đó cũng đã qua.
- * Quá hạn nhưng vẫn cho nộp muộn KHÔNG GIỚI HẠN (lateSubmissionAllowed=true, lateSubmissionDeadline=
- * null) thì học sinh còn làm được bình thường — không được coi là khóa. Dùng để đổi nút hành động
- * ("Làm bài ngay"/"Tiếp tục làm bài"/"Xem lại bài đã làm") thành "Đã khóa" (không bấm được nữa) thay
- * vì mời bấm vào rồi mới báo lỗi hết hạn bên trong modal. Mirror ExerciseAssignment#isPastEffectiveDeadline (backend).
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 (chỉnh lại cùng ngày) — tập con hẹp hơn
+ * isExercisePending, dùng RIÊNG cho khóa: CHỈ "chưa làm bao giờ" (myLatestAttemptStatus null) hoặc "đang
+ * làm dở, chưa nộp" (IN_PROGRESS). Bài ĐÃ nộp và CÓ KẾT QUẢ rồi (kể cả trượt còn lượt làm lại —
+ * needsRetake) thì KHÔNG thuộc diện bị khóa dù quá hạn — người dùng xác nhận rõ "làm rồi có kết quả thì
+ * hết hạn không tính vào case khóa", khác hẳn isExercisePending (dùng cho đếm "Cần hoàn thành"/tab lọc,
+ * vẫn tính cả needsRetake là pending, không đổi).
+ */
+function isExerciseLockable(item: AssignedExerciseResponse): boolean {
+  return item.myLatestAttemptStatus == null || item.myLatestAttemptStatus === "IN_PROGRESS";
+}
+
+/** Mirror isExerciseLockable, áp dụng cho cả nhóm Lô — Lô có thể khóa khi CÒN ÍT NHẤT 1 Bài trong đó lockable. */
+function isBatchLockable(items: AssignedExerciseResponse[]): boolean {
+  return items.some(isExerciseLockable);
+}
+
+/**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — quá hạn chỉ có nghĩa THẬT SỰ hết cửa
+ * thao tác khi (a) Bài thuộc diện lockable (xem isExerciseLockable) VÀ (b) bản giao KHÔNG cho nộp muộn
+ * (lateSubmissionAllowed=false), HOẶC có cho nộp muộn nhưng đã set 1 hạn chót cụ thể
+ * (lateSubmissionDeadline) và hạn đó cũng đã qua. Quá hạn nhưng vẫn cho nộp muộn KHÔNG GIỚI HẠN
+ * (lateSubmissionAllowed=true, lateSubmissionDeadline=null) thì học sinh còn làm được bình thường —
+ * không được coi là khóa. Dùng để đổi nút hành động ("Làm bài ngay"/"Tiếp tục làm bài"/"Xem lại bài đã
+ * làm") thành "Đã khóa" (không bấm được nữa) thay vì mời bấm vào rồi mới báo lỗi hết hạn bên trong modal.
+ * Mirror ExerciseAssignment#isPastEffectiveDeadline (backend).
  */
 function isExerciseLocked(item: AssignedExerciseResponse): boolean {
-  if (!isExerciseOverduePending(item)) return false;
+  if (!isExerciseLockable(item)) return false;
+  if (item.dueAt == null || new Date(item.dueAt) >= new Date()) return false;
   if (!item.lateSubmissionAllowed) return true;
   return item.lateSubmissionDeadline != null && new Date(item.lateSubmissionDeadline) < new Date();
 }
 
-/** Mirror isExerciseLocked, áp dụng cho cả nhóm Lô (dùng chung dueAt/lateSubmissionAllowed/lateSubmissionDeadline của Bài đại diện, nhưng "pending" tính theo CẢ LÔ — mirror isBatchOverduePending). */
+/** Mirror isExerciseLocked, áp dụng cho cả nhóm Lô (dùng chung dueAt/lateSubmissionAllowed/lateSubmissionDeadline của Bài đại diện, nhưng "lockable" tính theo CẢ LÔ — mirror isBatchLockable). */
 function isBatchLocked(items: AssignedExerciseResponse[]): boolean {
-  if (!isBatchOverduePending(items)) return false;
+  if (!isBatchLockable(items)) return false;
   const first = items[0];
+  if (first.dueAt == null || new Date(first.dueAt) >= new Date()) return false;
   if (!first.lateSubmissionAllowed) return true;
   return first.lateSubmissionDeadline != null && new Date(first.lateSubmissionDeadline) < new Date();
 }
@@ -221,6 +241,25 @@ function isVideoLocked(item: ReviewVideoHomeworkItem): boolean {
   return item.lateSubmissionDeadline != null && new Date(item.lateSubmissionDeadline) < new Date();
 }
 
+/**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — khi Bài/Lô/Video đã quá hạn nộp GỐC
+ * nhưng CHƯA bị khóa (isExerciseLocked/isBatchLocked/isVideoLocked = false vì GV đã bật "cho phép nộp
+ * muộn"), card vẫn mời "Tiếp tục làm bài"/"Trả lời câu hỏi" — nếu chỉ hiện badge "Đã quá hạn nộp" như
+ * cũ sẽ gây hiểu lầm là bug (tưởng phải khóa mà chưa khóa). Trả về key i18n + hạn cụ thể (nếu có) để
+ * hiện thêm 1 badge phụ màu khác giải thích rõ vẫn còn nộp muộn được, null nếu không cần hiện (chưa quá
+ * hạn, hoặc đã khóa hẳn).
+ */
+function lateSubmissionHint(
+  overduePending: boolean,
+  locked: boolean,
+  lateSubmissionAllowed: boolean | undefined,
+  lateSubmissionDeadline: string | null | undefined
+): { key: "assignments.exercise.lateSubmissionUntil" | "assignments.exercise.lateSubmissionUnlimited"; date?: string } | null {
+  if (!overduePending || locked || !lateSubmissionAllowed) return null;
+  if (lateSubmissionDeadline != null) return { key: "assignments.exercise.lateSubmissionUntil", date: lateSubmissionDeadline };
+  return { key: "assignments.exercise.lateSubmissionUnlimited" };
+}
+
 type FilterStatus = "ALL" | "PENDING" | "GRADED" | "OVERDUE";
 /**
  * V153 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — lọc "loại bài" tách hẳn theo
@@ -307,7 +346,9 @@ export default function AssignmentsTab({
   const [videoAssignments, setVideoAssignments] = useState<MyReviewVideoAssignmentResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filterStatus, setFilterStatus] = useState<FilterStatus>("ALL");
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — mặc định mở tab "Cần hoàn thành"
+  // thay vì "Tất cả bài tập", để học sinh vào BTVN thấy ngay việc còn phải làm thay vì phải tự bấm lọc.
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>("PENDING");
   /** V166 — cho đóng banner cảnh báo quá hạn, chỉ trong phiên xem hiện tại (không lưu lại). */
   const [overdueBannerDismissed, setOverdueBannerDismissed] = useState(false);
   const [filterType, setFilterType] = useState<FilterType>("ALL");
@@ -981,6 +1022,7 @@ function ExerciseCard({
    * chế độ chỉ-xem hoặc báo lỗi hết hạn bên trong — gây hiểu lầm còn thao tác được).
    */
   const locked = isExerciseLocked(item);
+  const lateHint = lateSubmissionHint(isOverdue && isExerciseLockable(item), locked, item.lateSubmissionAllowed, item.lateSubmissionDeadline);
 
   /**
    * V148 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23) — CHỦ Ý chỉ còn 2 nhánh ở màn
@@ -1036,6 +1078,12 @@ function ExerciseCard({
               <Clock size={12} />
               {isOverdue ? t("assignments.exercise.overduePrefix") : t("assignments.exercise.duePrefix")}
               {item.dueAt ? formatDateTimeHm(item.dueAt, i18n.language) : t("assignments.exercise.noDeadline")}
+            </span>
+          )}
+          {lateHint && (
+            <span className="px-2.5 py-0.5 rounded-lg border text-[13px] font-black flex items-center gap-1 shrink-0 whitespace-nowrap bg-teal/10 text-teal border-teal/20">
+              <CheckCircle2 size={12} />
+              {lateHint.date ? t(lateHint.key, { date: formatDateTimeHm(lateHint.date, i18n.language) }) : t(lateHint.key)}
             </span>
           )}
           {/* V123, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-14 — GV Việt Nam/nước
@@ -1154,6 +1202,7 @@ function BatchExerciseCard({
   const overdueLockedInProgress = isOverdue && !first.lateSubmissionAllowed && anyInProgress;
   /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — mirror ExerciseCard#locked. */
   const locked = isBatchLocked(items);
+  const lateHint = lateSubmissionHint(isOverdue && isBatchLockable(items), locked, first.lateSubmissionAllowed, first.lateSubmissionDeadline);
 
   const totalScore = items.reduce((sum, it) => sum + (it.myLatestTotalScore ?? 0), 0);
   const totalPoints = items.reduce((sum, it) => sum + (it.exerciseTotalPoints ?? 0), 0);
@@ -1201,6 +1250,12 @@ function BatchExerciseCard({
               <Clock size={12} />
               {isOverdue ? t("assignments.exercise.overduePrefix") : t("assignments.exercise.duePrefix")}
               {first.dueAt ? formatDateTimeHm(first.dueAt, i18n.language) : t("assignments.exercise.noDeadline")}
+            </span>
+          )}
+          {lateHint && (
+            <span className="px-2.5 py-0.5 rounded-lg border text-[13px] font-black flex items-center gap-1 shrink-0 whitespace-nowrap bg-teal/10 text-teal border-teal/20">
+              <CheckCircle2 size={12} />
+              {lateHint.date ? t(lateHint.key, { date: formatDateTimeHm(lateHint.date, i18n.language) }) : t(lateHint.key)}
             </span>
           )}
           <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-muted border border-line text-[13px] font-black flex items-center gap-1 shrink-0 whitespace-nowrap">
@@ -1327,6 +1382,7 @@ function ReviewVideoCard({
   const pending = answerable && !fullyAnswered;
   /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — mirror ExerciseCard#locked. */
   const locked = isVideoLocked(item);
+  const lateHint = lateSubmissionHint(isOverdue && pending, locked, item.lateSubmissionAllowed, item.lateSubmissionDeadline);
   const actionLabel = isConnection
     ? t("assignments.video.action.watch")
     : !answerable
@@ -1359,6 +1415,12 @@ function ReviewVideoCard({
               <Clock size={12} />
               {isOverdue ? t("assignments.exercise.overduePrefix") : t("assignments.exercise.duePrefix")}
               {formatDateTimeHm(dueAt, i18n.language)}
+            </span>
+          )}
+          {lateHint && (
+            <span className="px-2.5 py-0.5 rounded-lg border text-[13px] font-black flex items-center gap-1 shrink-0 whitespace-nowrap bg-teal/10 text-teal border-teal/20">
+              <CheckCircle2 size={12} />
+              {lateHint.date ? t(lateHint.key, { date: formatDateTimeHm(lateHint.date, i18n.language) }) : t(lateHint.key)}
             </span>
           )}
           {/* V123, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-14 — GV Việt Nam/nước
