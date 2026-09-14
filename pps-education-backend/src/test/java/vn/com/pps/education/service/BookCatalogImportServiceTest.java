@@ -90,12 +90,12 @@ class BookCatalogImportServiceTest extends AbstractIntegrationTest {
 
     @Test
     void importCatalog_UC72_MainFlow_createsFullHierarchyAndForwardFillsMergedCells() throws IOException {
-        // Mirror đúng dữ liệu mẫu người dùng cung cấp: 4 cột đầu (+ cột Loại giáo viên) để trống ở các
-        // dòng lặp lại trong cùng 1 Lesson.
+        // Mirror đúng dữ liệu mẫu người dùng cung cấp: 4 cột đầu (+ Tên Lesson/Loại giáo viên) để trống
+        // ở các dòng lặp lại trong cùng 1 Lesson.
         byte[] file = buildWorkbook(new String[][]{
-                {"Grade 6 Standard Chaper 1", "UNIT 1: MY NEW SCHOOL", "SUB TOPIC 1: SCHOOL ACTIVITIES", "G6-U1-SUB1-L1", "VIETNAMESE", "G6-U1-SUB1-L1-EX1", "Ex. 1: Choose the correct word."},
-                {"", "", "", "", "", "G6-U1-SUB1-L1-EX2", "Ex. 2: Underline the correct word."},
-                {"", "", "SUB TOPIC 2: SCHOOL OBJECTS", "G6-U1-SUB2-L2", "FOREIGN", "G6-U1-SUB2-L2-EX1", "Ex. 1: Odd one out."},
+                {"Grade 6 Standard Chaper 1", "UNIT 1: MY NEW SCHOOL", "SUB TOPIC 1: SCHOOL ACTIVITIES", "G6-U1-SUB1-L1", "Lesson 1", "VIETNAMESE", "G6-U1-SUB1-L1-EX1", "Ex. 1: Choose the correct word."},
+                {"", "", "", "", "", "", "G6-U1-SUB1-L1-EX2", "Ex. 2: Underline the correct word."},
+                {"", "", "SUB TOPIC 2: SCHOOL OBJECTS", "G6-U1-SUB2-L2", "Lesson 2", "FOREIGN", "G6-U1-SUB2-L2-EX1", "Ex. 1: Odd one out."},
         });
 
         BookCatalogImportResponse result = bookCatalogImportService.importCatalog(
@@ -113,13 +113,39 @@ class BookCatalogImportServiceTest extends AbstractIntegrationTest {
 
         var lesson1 = examRepository.findByCode("G6-U1-SUB1-L1").orElseThrow();
         assertThat(lesson1.getCurriculum().getId()).isEqualTo(curriculum.id());
+        assertThat(lesson1.getTitle()).isEqualTo("Lesson 1");
         assertThat(lesson1.getTeacherType().name()).isEqualTo("VIETNAMESE");
         assertThat(lesson1.getExamType().name()).isEqualTo("HOMEWORK");
         assertThat(exerciseRepository.findByExamId(lesson1.getId())).hasSize(2);
 
         var lesson2 = examRepository.findByCode("G6-U1-SUB2-L2").orElseThrow();
+        assertThat(lesson2.getTitle()).isEqualTo("Lesson 2");
         assertThat(lesson2.getSubTopic().getTitle()).isEqualTo("SUB TOPIC 2: SCHOOL OBJECTS");
         assertThat(exerciseRepository.findByCode("G6-U1-SUB2-L2-EX1")).isPresent();
+    }
+
+    /**
+     * Bổ sung 2026-09-13 (đã xác nhận với người dùng) — trước đó Đề mới tạo luôn lấy title = trùng
+     * code (VD "G7-ADV-C1-U1-SUB1-L1"), không thân thiện khi xem trong màn Kho đề. Cột E (Tên Lesson)
+     * cho phép khai tên thân thiện (VD "Lesson 1"), forward-fill trong phạm vi CHÍNH Lesson đó — reset
+     * về fallback (= chính Mã Lesson) khi sang Lesson mới không tự khai tên.
+     */
+    @Test
+    void importCatalog_boSung_appliesLessonTitlePerLessonWithFallbackToCodeWhenBlank() throws IOException {
+        byte[] file = buildWorkbook(new String[][]{
+                {"Sách A", "Unit 1", "Sub Topic 1", "L1", "Lesson 1", "VIETNAMESE", "L1-EX1", "Bài 1"},
+                {"", "", "", "L2", "Lesson 2", "FOREIGN", "L2-EX1", "Bài 2"},
+                {"", "", "", "L2", "", "", "L2-EX2", "Bài 3 (kế thừa tên Lesson 2)"},
+                {"", "", "", "L3", "", "", "L3-EX1", "Bài 4 (không khai tên -> fallback = Mã Lesson)"},
+        });
+
+        bookCatalogImportService.importCatalog(curriculum.id(),
+                new MockMultipartFile("file", "ten_lesson.xlsx", "application/vnd.openxmlformats", file),
+                "VIETNAMESE", "HOMEWORK", "SELF_PRACTICE", new BigDecimal("10"), teacher.getId());
+
+        assertThat(examRepository.findByCode("L1").orElseThrow().getTitle()).isEqualTo("Lesson 1");
+        assertThat(examRepository.findByCode("L2").orElseThrow().getTitle()).isEqualTo("Lesson 2");
+        assertThat(examRepository.findByCode("L3").orElseThrow().getTitle()).isEqualTo("L3");
     }
 
     /**
@@ -131,10 +157,10 @@ class BookCatalogImportServiceTest extends AbstractIntegrationTest {
     @Test
     void importCatalog_boSung_appliesDifferentTeacherTypePerLessonFromColumnE() throws IOException {
         byte[] file = buildWorkbook(new String[][]{
-                {"Sách A", "Unit 1", "Sub Topic 1", "L1", "VIETNAMESE", "L1-EX1", "Bài ngữ pháp"},
-                {"", "", "", "L2", "FOREIGN", "L2-EX1", "Bài nghe"},
-                {"", "", "", "L2", "", "L2-EX2", "Bài nói (kế thừa FOREIGN của L2)"},
-                {"", "", "", "L3", "", "L3-EX1", "Bài dùng lại mặc định VIETNAMESE (cột E để trống hoàn toàn cho Lesson này)"},
+                {"Sách A", "Unit 1", "Sub Topic 1", "L1", "", "VIETNAMESE", "L1-EX1", "Bài ngữ pháp"},
+                {"", "", "", "L2", "", "FOREIGN", "L2-EX1", "Bài nghe"},
+                {"", "", "", "L2", "", "", "L2-EX2", "Bài nói (kế thừa FOREIGN của L2)"},
+                {"", "", "", "L3", "", "", "L3-EX1", "Bài dùng lại mặc định VIETNAMESE (cột F để trống hoàn toàn cho Lesson này)"},
         });
 
         bookCatalogImportService.importCatalog(curriculum.id(),
@@ -149,8 +175,8 @@ class BookCatalogImportServiceTest extends AbstractIntegrationTest {
     @Test
     void importCatalog_boSung_A_rejectsInvalidTeacherTypeTokenWithoutCorruptingForwardFill() throws IOException {
         byte[] file = buildWorkbook(new String[][]{
-                {"Sách A", "Unit 1", "Sub Topic 1", "L1", "VN", "L1-EX1", "Token sai, chỉ dòng này lỗi"},
-                {"", "", "", "", "", "L1-EX2", "Dòng này vẫn dùng lại VIETNAMESE đã khai hợp lệ trước đó ở tham số mặc định"},
+                {"Sách A", "Unit 1", "Sub Topic 1", "L1", "", "VN", "L1-EX1", "Token sai, chỉ dòng này lỗi"},
+                {"", "", "", "", "", "", "L1-EX2", "Dòng này vẫn dùng lại VIETNAMESE đã khai hợp lệ trước đó ở tham số mặc định"},
         });
 
         BookCatalogImportResponse result = bookCatalogImportService.importCatalog(curriculum.id(),
@@ -167,8 +193,8 @@ class BookCatalogImportServiceTest extends AbstractIntegrationTest {
     @Test
     void importCatalog_UC72_Postcondition_reimportingSameFileReusesExistingRecordsWithoutOverwriting() throws IOException {
         byte[] file = buildWorkbook(new String[][]{
-                {"Sách A", "Unit 1", "Sub Topic 1", "L1", "", "L1-EX1", "Bài 1"},
-                {"", "", "", "", "", "L1-EX2", "Bài 2"},
+                {"Sách A", "Unit 1", "Sub Topic 1", "L1", "", "", "L1-EX1", "Bài 1"},
+                {"", "", "", "", "", "", "L1-EX2", "Bài 2"},
         });
 
         bookCatalogImportService.importCatalog(curriculum.id(),
@@ -198,8 +224,8 @@ class BookCatalogImportServiceTest extends AbstractIntegrationTest {
     @Test
     void importCatalog_UC72_A1_reportsRowErrorForMissingExerciseCodeWithoutBlockingOtherRows() throws IOException {
         byte[] file = buildWorkbook(new String[][]{
-                {"Sách A", "Unit 1", "Sub Topic 1", "L1", "", "", "Thiếu mã exercise"},
-                {"", "", "", "", "", "L1-EX2", "Bài hợp lệ"},
+                {"Sách A", "Unit 1", "Sub Topic 1", "L1", "", "", "", "Thiếu mã exercise"},
+                {"", "", "", "", "", "", "L1-EX2", "Bài hợp lệ"},
         });
 
         BookCatalogImportResponse result = bookCatalogImportService.importCatalog(curriculum.id(),
@@ -217,7 +243,7 @@ class BookCatalogImportServiceTest extends AbstractIntegrationTest {
     @Test
     void importCatalog_UC72_A2_reportsRowErrorWhenFirstRowHasNothingToForwardFill() throws IOException {
         byte[] file = buildWorkbook(new String[][]{
-                {"", "", "", "", "", "L1-EX1", "Không có dòng trước để dùng lại"},
+                {"", "", "", "", "", "", "L1-EX1", "Không có dòng trước để dùng lại"},
         });
 
         BookCatalogImportResponse result = bookCatalogImportService.importCatalog(curriculum.id(),
@@ -244,7 +270,7 @@ class BookCatalogImportServiceTest extends AbstractIntegrationTest {
         try (XSSFWorkbook workbook = new XSSFWorkbook()) {
             Sheet sheet = workbook.createSheet("DanhMuc");
             Row header = sheet.createRow(0);
-            String[] headers = {"Tên sách", "Tên Unit", "Tên Sub Topic", "Mã Lesson", "Loại giáo viên", "Mã exercise", "Tên exercise"};
+            String[] headers = {"Tên sách", "Tên Unit", "Tên Sub Topic", "Mã Lesson", "Tên Lesson", "Loại giáo viên", "Mã exercise", "Tên exercise"};
             for (int i = 0; i < headers.length; i++) {
                 header.createCell(i).setCellValue(headers[i]);
             }

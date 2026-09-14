@@ -392,7 +392,7 @@
     "importButton": "Nhập Excel",
     "importModal": {
       "title": "Nhập Excel danh mục Sách/Unit/Lesson",
-      "description": "Mỗi dòng = 1 Bài. Cột Tên sách/Tên Unit/Tên Sub Topic/Mã Lesson để trống nghĩa là lặp lại giá trị dòng liền trước (kiểu merged cell khi xuất từ Excel).",
+      "description": "Mỗi dòng = 1 Bài. Cột Tên sách/Tên Unit/Tên Sub Topic/Mã Lesson để trống nghĩa là lặp lại giá trị dòng liền trước (kiểu merged cell khi xuất từ Excel). Cột \"Tên Lesson\" (tùy chọn) đặt tên thân thiện cho Đề (VD \"Lesson 1\") thay vì hiển thị trùng Mã Lesson.",
       "downloadTemplate": "Tải file mẫu (.xlsx)",
       "teacherTypeLabel": "Loại giáo viên MẶC ĐỊNH (dùng khi cột \"Loại giáo viên\" trong file để trống)",
       "teacherTypePlaceholder": "Chọn loại giáo viên mặc định",
