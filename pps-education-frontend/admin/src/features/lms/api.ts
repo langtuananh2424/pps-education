@@ -850,6 +850,32 @@ export function listReviewVideoSetAssignedClasses(setId: number): Promise<ClassR
 }
 
 /**
+ * UC-73 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-14) —
+ * import Excel hàng loạt "bộ" + video vào Kho Video Ôn tập, mirror
+ * importBookCatalog (UC-72). Không nhận thêm tham số mặc định nào — mọi
+ * giá trị (khung chương trình, loại video/giáo viên, Sách/Unit/Sub Topic)
+ * đọc thẳng từ file, KHÁC UC-72 (không có cột khung chương trình).
+ */
+export interface ReviewVideoCatalogImportResponse {
+  id: number;
+  sourceFileName: string;
+  totalRows: number | null;
+  successRows: number;
+  failedRows: number;
+  status: string;
+  errorSummary: { row: number; reason: string }[];
+}
+
+export function importReviewVideoCatalog(file: File): Promise<ReviewVideoCatalogImportResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  return apiRequest<ReviewVideoCatalogImportResponse>("/review-video-sets/imports", {
+    method: "POST",
+    body: formData
+  });
+}
+
+/**
  * V65 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30): giao Video Ôn tập không còn
  * xảy ra khi Publish nữa — bản giao (ReviewVideoAssignment) tự động phát sinh khi Giáo viên chọn 1
  * bộ làm "BTVN buổi sau" ở Nhận xét học viên. Dùng để DailyCommentPanel tra ngược "bản giao này ứng
