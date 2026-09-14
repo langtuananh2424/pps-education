@@ -1955,13 +1955,14 @@ UC-72: Import Excel nhanh mục lục Sách/Unit/Sub Topic/Lesson/Bài (Kho đ�
 | **Luồng sự kiện | 1.  Giáo viên chọn 1 khung chương trình +           |
 | chính (Main     |     examType/exerciseType/totalPoints mặc định +   |
 | Flow)**         |     teacherType MẶC ĐỊNH (dùng khi cột E để trống), |
-|                 |     tải lên file Excel (.xlsx) đúng 7 cột theo thứ  |
+|                 |     tải lên file Excel (.xlsx) đúng 8 cột theo thứ  |
 |                 |     tự: Tên sách, Tên Unit, Tên Sub Topic, Mã       |
-|                 |     Lesson, Loại giáo viên (VIETNAMESE/FOREIGN, TÙY |
-|                 |     CHỌN), Mã exercise, Tên exercise. Dòng 1 = tiêu |
-|                 |     đề, dữ liệu từ dòng 2, mỗi dòng = 1 Bài. 4 cột  |
-|                 |     đầu để trống nghĩa là LẶP LẠI giá trị của dòng  |
-|                 |     liền trước (kiểu merged cell khi xuất từ Excel).|
+|                 |     Lesson, Tên Lesson (TÙY CHỌN), Loại giáo viên   |
+|                 |     (VIETNAMESE/FOREIGN, TÙY CHỌN), Mã exercise, Tên|
+|                 |     exercise. Dòng 1 = tiêu đề, dữ liệu từ dòng 2,  |
+|                 |     mỗi dòng = 1 Bài. 4 cột đầu để trống nghĩa là   |
+|                 |     LẶP LẠI giá trị của dòng liền trước (kiểu merged|
+|                 |     cell khi xuất từ Excel).                        |
 |                 |                                                    |
 |                 | 2.  Hệ thống forward-fill 4 cột phân cấp theo dòng  |
 |                 |     liền trước, rồi upsert theo khóa tự nhiên từng  |
@@ -1970,15 +1971,19 @@ UC-72: Import Excel nhanh mục lục Sách/Unit/Sub Topic/Lesson/Bài (Kho đ�
 |                 |     (Sách, Tên Unit); Sub Topic theo (Unit, Tên Sub |
 |                 |     Topic); Đề ("Lesson") theo `exams.code` = Mã    |
 |                 |     Lesson NGUYÊN VĂN; Bài theo `exercises.code` =  |
-|                 |     Mã exercise NGUYÊN VĂN. Cột "Loại giáo viên"    |
-|                 |     forward-fill RIÊNG trong phạm vi 1 Lesson (reset|
-|                 |     về giá trị MẶC ĐỊNH mỗi khi sang Mã Lesson mới,  |
-|                 |     rồi áp giá trị của chính dòng đầu Lesson đó nếu  |
-|                 |     có khai) --- cho phép Lesson 1/3 = VIETNAMESE,   |
-|                 |     Lesson 2/4 = FOREIGN xen kẽ NGAY TRONG CÙNG 1   |
-|                 |     file, khác hẳn 4 cột phân cấp kia (kế thừa       |
-|                 |     xuyên suốt tới khi có giá trị mới, không reset   |
-|                 |     theo Lesson). Sách/Unit/Sub Topic đã tồn tại     |
+|                 |     Mã exercise NGUYÊN VĂN. Cột "Tên Lesson"/"Loại  |
+|                 |     giáo viên" forward-fill RIÊNG trong phạm vi 1   |
+|                 |     Lesson (reset về rỗng/giá trị MẶC ĐỊNH mỗi khi   |
+|                 |     sang Mã Lesson mới, rồi áp giá trị của chính    |
+|                 |     dòng đầu Lesson đó nếu có khai) --- "Tên Lesson" |
+|                 |     để trống cho 1 Lesson thì `exams.title` = chính  |
+|                 |     Mã Lesson (fallback, giữ tương thích ngược);    |
+|                 |     "Loại giáo viên" cho phép Lesson 1/3 =           |
+|                 |     VIETNAMESE, Lesson 2/4 = FOREIGN xen kẽ NGAY     |
+|                 |     TRONG CÙNG 1 file, khác hẳn 4 cột phân cấp kia   |
+|                 |     (kế thừa xuyên suốt tới khi có giá trị mới,      |
+|                 |     không reset theo Lesson). Sách/Unit/Sub Topic đã |
+|                 |     tồn tại                                          |
 |                 |     (trùng tên trong đúng phạm vi cấp cha) được TÁI  |
 |                 |     SỬ DỤNG, không tạo trùng; Đề/Bài đã có đúng mã   |
 |                 |     (`code`) được TÁI SỬ DỤNG NGUYÊN VẸN (không sửa  |

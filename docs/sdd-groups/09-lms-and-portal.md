@@ -1669,26 +1669,35 @@ vì đây không phải Khung chương trình chính thức cần HEAD_ACADEMIC 
 dùng 2026-09-13):* thay vì tạo tay từng cấp rồi từng Đề/Bài, dùng lại hạ
 tầng `import_jobs` chung (SDD > Nền tảng > l), thêm giá trị
 `import_type = CURRICULUM_CATALOG` (cột đang là VARCHAR tự do, không cần
-đổi CHECK/enum DB). File nguồn 7 cột theo thứ tự Tên sách/Tên Unit/Tên Sub
-Topic/Mã Lesson/**Loại giáo viên (TÙY CHỌN)**/Mã exercise/Tên exercise —
-1 dòng = 1 Bài; 4 cột đầu để trống nghĩa là lặp lại giá trị dòng liền
-trước (merged cell khi xuất từ Excel) — parser forward-fill theo dòng
-trước khi upsert. Cột "Loại giáo viên" forward-fill RIÊNG trong phạm vi 1
-Lesson (reset về `teacher_type` mặc định mỗi khi sang Mã Lesson mới, rồi
-áp giá trị của chính dòng đầu Lesson đó nếu có khai) — bổ sung ngày
-2026-09-13, đã xác nhận với người dùng: thực tế 1 Sách THƯỜNG xen kẽ
-Lesson lẻ do Giáo viên Việt Nam dạy/Lesson chẵn do Giáo viên nước ngoài
-dạy NGAY TRONG CÙNG 1 file, không thể áp 1 `teacher_type` chung cho cả
-file như thiết kế ban đầu (2026-09-13, buổi sáng). `curriculum` đích +
-`exam_type` (Đề) + `exercise_type`/`total_points` mặc định (Bài) +
-`teacher_type` MẶC ĐỊNH (chỉ dùng khi cột "Loại giáo viên" để trống hoàn
-toàn cho 1 Lesson) chọn 1 lần cho cả file (mirror `defaultKind` của
-`QuestionImportService`). Idempotent: Sách/Unit/Sub Topic tra theo (cha,
-title đúng phạm vi); Đề theo `exams.code` = Mã Lesson nguyên văn; Bài
-theo `exercises.code` = Mã exercise nguyên văn — Đề/Bài đã tồn tại được
-TÁI SỬ DỤNG nguyên vẹn (không ghi đè
-teacherType/examType/exerciseType/totalPoints đã có), tránh phá câu hỏi/
-dữ liệu đã soạn nếu import lại cùng file. Xem
+đổi CHECK/enum DB). File nguồn 8 cột theo thứ tự Tên sách/Tên Unit/Tên Sub
+Topic/Mã Lesson/**Tên Lesson (TÙY CHỌN)**/**Loại giáo viên (TÙY CHỌN)**/
+Mã exercise/Tên exercise — 1 dòng = 1 Bài; 4 cột đầu để trống nghĩa là
+lặp lại giá trị dòng liền trước (merged cell khi xuất từ Excel) — parser
+forward-fill theo dòng trước khi upsert. Cột "Tên Lesson"/"Loại giáo
+viên" forward-fill RIÊNG trong phạm vi 1 Lesson (reset về rỗng/giá trị
+mặc định mỗi khi sang Mã Lesson mới, rồi áp giá trị của chính dòng đầu
+Lesson đó nếu có khai):
+- **"Tên Lesson"** (bổ sung 2026-09-13, đã xác nhận với người dùng —
+  trước đó `exams.title` của Đề mới tạo luôn lấy trùng `code`, VD
+  "G7-ADV-C1-U1-SUB1-L1", không thân thiện khi xem trong màn Kho đề) —
+  để trống cho 1 Lesson thì `title` fallback = chính Mã Lesson (giữ tương
+  thích ngược, không bắt buộc).
+- **"Loại giáo viên"** (bổ sung 2026-09-13, đã xác nhận với người dùng:
+  thực tế 1 Sách THƯỜNG xen kẽ Lesson lẻ do Giáo viên Việt Nam dạy/Lesson
+  chẵn do Giáo viên nước ngoài dạy NGAY TRONG CÙNG 1 file, không thể áp 1
+  `teacher_type` chung cho cả file như thiết kế ban đầu, 2026-09-13 buổi
+  sáng) — để trống hoàn toàn cho 1 Lesson thì dùng `teacher_type` mặc
+  định của cả lần import.
+
+`curriculum` đích + `exam_type` (Đề) + `exercise_type`/`total_points`
+mặc định (Bài) + `teacher_type` MẶC ĐỊNH (chỉ dùng khi cột "Loại giáo
+viên" để trống hoàn toàn cho 1 Lesson) chọn 1 lần cho cả file (mirror
+`defaultKind` của `QuestionImportService`). Idempotent: Sách/Unit/Sub
+Topic tra theo (cha, title đúng phạm vi); Đề theo `exams.code` = Mã
+Lesson nguyên văn; Bài theo `exercises.code` = Mã exercise nguyên văn —
+Đề/Bài đã tồn tại được TÁI SỬ DỤNG nguyên vẹn (không ghi đè
+title/teacherType/examType/exerciseType/totalPoints đã có), tránh phá
+câu hỏi/dữ liệu đã soạn nếu import lại cùng file. Xem
 docs/uc/phan-he-07-lms-portal.md (UC-72).
 
 l)  Bảng attempt_integrity_events --- Giám sát thoát màn hình khi làm
