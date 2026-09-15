@@ -11,6 +11,8 @@ REM     run_loadtest.bat smoke
 REM     run_loadtest.bat capacity        -> tim tran (ramping-arrival-rate)
 REM     run_loadtest.bat browse          -> mo phong nguoi dung that
 REM     run_loadtest.bat login           -> chi rieng luong auth
+REM     run_loadtest.bat reflex-writing  -> UC-23b: cham AI phan "viet" (Video phan xa)
+REM     run_loadtest.bat reflex-speaking -> UC-23b: cham AI phan "noi" (chay SAU reflex-writing)
 REM
 REM  Credential: KHONG hardcode trong file nay (repo public).
 REM  Dat truoc bang bien moi truong, hoac de script tu hoi:
@@ -20,8 +22,16 @@ REM
 REM  Bien co the doi (dat truoc khi chay):
 REM     TARGET_URL   mac dinh https://admin-staging.ppsvietnam.edu.vn
 REM     RPS_PEAK     mac dinh 800  (chi dung o mode capacity)
-REM     VU_PEAK      mac dinh 1000 (chi dung o mode browse)
+REM     VU_PEAK      mac dinh 1000 (chi dung o mode browse; reflex-* dung mac dinh rieng 50)
 REM     SKIP_WRITES  dat =1 de tat hoan toan phan ghi du lieu
+REM
+REM  Rieng reflex-writing/reflex-speaking BAT BUOC them:
+REM     REFLEX_ASSIGNMENT_ID   id lan giao Video phan xa TEST rieng
+REM     REFLEX_QUESTION_IDS    danh sach id cau hoi, vd "501,502,503"
+REM     REFLEX_AUDIO_URL       (chi reflex-speaking) link audio that da upload san
+REM  TEST_USERNAME/TEST_PASSWORD phai la 1 tai khoan HOC SINH test rieng, KHONG
+REM  dung tai khoan/bo Video phan xa dang giao that cho lop hoc sinh that -- xem
+REM  ghi chu "LUU Y DU LIEU" trong loadtest_reflex_ai_grading.js.
 REM ===================================================================
 
 cd /d "%~dp0"
@@ -66,6 +76,9 @@ set "SUMMARY=results\k6-%MODE_ARG%-%TS%.json"
 set "COMMON=-e TARGET_URL=%TARGET_URL% -e TEST_USERNAME=%TEST_USERNAME% -e TEST_PASSWORD=%TEST_PASSWORD%"
 if not "%SKIP_WRITES%"=="" set "COMMON=%COMMON% -e SKIP_WRITES=%SKIP_WRITES%"
 if not "%BYPASS_CACHE%"=="" set "COMMON=%COMMON% -e BYPASS_CACHE=%BYPASS_CACHE%"
+if not "%REFLEX_ASSIGNMENT_ID%"=="" set "COMMON=%COMMON% -e REFLEX_ASSIGNMENT_ID=%REFLEX_ASSIGNMENT_ID%"
+if not "%REFLEX_QUESTION_IDS%"=="" set "COMMON=%COMMON% -e REFLEX_QUESTION_IDS=%REFLEX_QUESTION_IDS%"
+if not "%REFLEX_AUDIO_URL%"=="" set "COMMON=%COMMON% -e REFLEX_AUDIO_URL=%REFLEX_AUDIO_URL%"
 
 echo.
 echo ============================================================
@@ -80,9 +93,11 @@ if /i "%MODE_ARG%"=="smoke" goto :smoke
 if /i "%MODE_ARG%"=="capacity" goto :capacity
 if /i "%MODE_ARG%"=="browse" goto :browse
 if /i "%MODE_ARG%"=="login" goto :login
+if /i "%MODE_ARG%"=="reflex-writing" goto :reflex_writing
+if /i "%MODE_ARG%"=="reflex-speaking" goto :reflex_speaking
 
 echo [LOI] Mode khong hop le: %MODE_ARG%
-echo       Chon: smoke ^| capacity ^| browse ^| login
+echo       Chon: smoke ^| capacity ^| browse ^| login ^| reflex-writing ^| reflex-speaking
 exit /b 1
 
 REM ---------------------------------------------------------------------
@@ -127,6 +142,38 @@ k6 run %COMMON% --summary-export "%SUMMARY%" loadtest_login_flow.js
 goto :done
 
 REM ---------------------------------------------------------------------
+:reflex_writing
+if "%REFLEX_ASSIGNMENT_ID%"=="" goto :no_reflex_params
+if "%REFLEX_QUESTION_IDS%"=="" goto :no_reflex_params
+echo UC-23b - cham AI phan VIET (Video phan xa). TEST_USERNAME phai la
+echo tai khoan HOC SINH test rieng (khong dung tai khoan/bo video that).
+echo.
+k6 run %COMMON% -e STEP=writing --summary-export "%SUMMARY%" loadtest_reflex_ai_grading.js
+goto :done
+
+REM ---------------------------------------------------------------------
+:reflex_speaking
+if "%REFLEX_ASSIGNMENT_ID%"=="" goto :no_reflex_params
+if "%REFLEX_QUESTION_IDS%"=="" goto :no_reflex_params
+if "%REFLEX_AUDIO_URL%"=="" goto :no_reflex_params
+echo UC-23b - cham AI phan NOI (Video phan xa). Chay SAU reflex-writing -
+echo combo (hoc sinh, cau hoi) chua dat writing se bi 400 (dem rieng, khong
+echo tinh la loi that - xem script).
+echo.
+k6 run %COMMON% -e STEP=speaking --summary-export "%SUMMARY%" loadtest_reflex_ai_grading.js
+goto :done
+
+REM ---------------------------------------------------------------------
+:no_reflex_params
+echo.
+echo [LOI] Thieu tham so cho reflex-writing/reflex-speaking - khong chay.
+echo       Dat truoc bang bien moi truong, vi du:
+echo           set REFLEX_ASSIGNMENT_ID=123
+echo           set REFLEX_QUESTION_IDS=501,502,503
+echo           set REFLEX_AUDIO_URL=https://files-staging.ppsvietnam.edu.vn/pps-media/... (chi reflex-speaking)
+exit /b 1
+
+REM ---------------------------------------------------------------------
 :no_cred
 echo.
 echo [LOI] Thieu tai khoan hoac mat khau - khong chay.
@@ -155,5 +202,12 @@ if "%EXITCODE%"=="99" (
 )
 
 echo.
-echo Nho don du lieu test sau khi chay - xem LOADTEST.md muc "Don du lieu".
+if /i "%MODE_ARG:~0,6%"=="reflex" (
+    echo Luu y: reflex-writing/reflex-speaking GHI DE tien trinh that cua
+    echo combo hoc sinh/cau hoi test - khong tao ban ghi rieng de don bang
+    echo SQL nhu leads/device_tokens. Xem LOADTEST.md muc "Load test rieng
+    echo cho cham AI Video phan xa".
+) else (
+    echo Nho don du lieu test sau khi chay - xem LOADTEST.md muc "Don du lieu".
+)
 endlocal & exit /b %EXITCODE%

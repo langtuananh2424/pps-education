@@ -4,12 +4,13 @@ Hướng dẫn để **bạn tự chạy** trên hạ tầng của mình. Đây 
 phải tấn công — chỉ nhắm vào staging/production của chính bạn, từ máy do bạn
 kiểm soát, đã báo trước cho người liên quan.
 
-## Ba script trong thư mục này
+## Bốn script trong thư mục này
 
 | File | Dùng khi |
 |---|---|
 | `loadtest_login_flow.js` | Chỉ đo riêng luồng auth (login→me→refresh→logout). Nhẹ, chạy nhanh, tốt để smoke test. |
 | `loadtest_api_suite.js` | Đo diện rộng nhiều phân hệ, có 2 chế độ (xem dưới). Đây là script chính. |
+| `loadtest_reflex_ai_grading.js` | Đo riêng 2 API chấm AI của Video phản xạ (UC-23b) — nút thắt khác hẳn (gọi ra 9Router/AI provider, không chỉ DB/CPU nội bộ). Xem mục riêng bên dưới. |
 | `monitor_server.sh` | Chạy **trên server** song song lúc test, ghi CSV các chỉ số Cockpit không thấy. |
 | `run_loadtest.bat` | Chạy từ **máy Windows** — bọc sẵn mọi tham số, không phải nhớ cú pháp `-e`. |
 
@@ -17,10 +18,12 @@ kiểm soát, đã báo trước cho người liên quan.
 
 ```bat
 cd security-lab
-run_loadtest.bat smoke        :: kiểm tra đăng nhập/endpoint trước, ~10 giây
-run_loadtest.bat capacity     :: tìm trần (~17 phút)
-run_loadtest.bat browse       :: mô phỏng người dùng thật
-run_loadtest.bat login        :: chỉ luồng auth
+run_loadtest.bat smoke            :: kiểm tra đăng nhập/endpoint trước, ~10 giây
+run_loadtest.bat capacity         :: tìm trần (~17 phút)
+run_loadtest.bat browse           :: mô phỏng người dùng thật
+run_loadtest.bat login            :: chỉ luồng auth
+run_loadtest.bat reflex-writing   :: UC-23b: chấm AI phần "viết" (~3.5 phút)
+run_loadtest.bat reflex-speaking  :: UC-23b: chấm AI phần "nói" (chạy SAU reflex-writing)
 ```
 
 Script tự hỏi tài khoản/mật khẩu (mật khẩu nhập ẩn), hoặc đọc từ biến môi
@@ -65,6 +68,64 @@ hạn của laptop và của tunnel, không phải của server 40 core.
 Vì sao `browse` không tìm được trần: khi server chậm lại, mỗi VU tự gửi ít
 request hơn (nó đang chờ response), tải tự co lại vừa đúng mức server chịu
 được. Bạn chỉ thấy latency tăng dần, không bao giờ thấy điểm gãy.
+
+---
+
+## Load test riêng cho chấm AI Video phản xạ (UC-23b)
+
+`loadtest_api_suite.js`/`loadtest_login_flow.js` đo capacity của app + DB —
+`loadtest_reflex_ai_grading.js` đo 1 thứ khác hẳn: 2 API
+`PUT /api/review-video-questions/{id}/reflex-progress/{writing|speaking}`
+gọi RA NGOÀI hạ tầng (9Router → AI provider thật), không chỉ chạm CPU/DB nội
+bộ. Nút thắt cần tìm ở đây là `app.ai-grading.nine-router-max-concurrent`
+(Semaphore trong `NineRouterAiClient.java`, mặc định 5) và `DB_POOL_SIZE`
+(mỗi lượt chấm giữ 1 connection SUỐT thời gian chờ AI trả lời).
+
+**API này không báo lỗi qua HTTP status khi AI chấm thất bại** — vẫn trả
+`200` với `writingFeedback`/`speakingFeedback` = *"Không chấm được tự động
+— vui lòng thử nộp lại."*. Script tự parse response, đếm riêng metric
+`ai_grading_failed_rate` — đọc số này thay vì `http_req_failed` để biết mức
+độ nghẽn thật.
+
+### Chuẩn bị trước khi chạy (bắt buộc)
+
+1. **1 tài khoản học sinh test riêng** (khác hẳn tài khoản dùng cho
+   `TEST_USERNAME` của `loadtest_api_suite.js`/`loadtest_login_flow.js` nếu
+   2 tài khoản đó không phải học sinh) — có `class_enrollment ACTIVE`.
+2. **1 bộ Video phản xạ TEST riêng**, đã giao (UC-21) cho lớp của học sinh
+   test đó — lấy `REFLEX_ASSIGNMENT_ID` (id lần giao) và vài
+   `REFLEX_QUESTION_IDS` (câu hỏi REFLEX thuộc bộ đó).
+3. **1 URL audio thật** đã upload sẵn qua API media chung (chỉ cần cho
+   `reflex-speaking`) — script dùng lại URL này cho mọi request.
+
+> ⚠️ **KHÔNG dùng bộ Video phản xạ/lần giao đang thật sự giao cho lớp học
+> sinh thật.** Khác với `leads`/`device_tokens` (đánh dấu tiền tố
+> `LOADTEST`, dọn bằng SQL sau test — xem mục "Dọn dữ liệu" bên dưới), bảng
+> `reflex_question_progress` KHÔNG có cột đánh dấu "đây là dữ liệu test" —
+> request của bài load test sẽ **ghi đè trực tiếp** điểm/nhận xét thật của
+> đúng (học sinh, câu hỏi, lần giao) đó. Dùng 1 bộ Video phản xạ tạo riêng
+> cho mục đích test.
+
+### Vì sao chạy `reflex-writing` xong mới chạy `reflex-speaking`
+
+`submitSpokenAnswer` bắt buộc `writingPassed=true` cho đúng combo (học
+sinh, câu hỏi, lần giao) trước (xem `ReflexSequentialGradingService.java`)
+— nếu chưa đạt, API trả `400`. Script không tự "ép" AI chấm đạt (rubric
+UC-23b hiện còn là **PLACEHOLDER**, tỷ lệ đạt/rớt không đoán trước được):
+chạy `reflex-writing` trước — nếu AI chấm đạt ≥70% sẽ tự mở khoá speaking
+cho đúng combo đó; combo nào chưa đạt khi chạy `reflex-speaking` sẽ báo
+`400`, script đếm riêng vào `speaking_blocked_writing_not_passed_count`
+(không lẫn vào `ai_grading_failed_rate`).
+
+```bat
+set REFLEX_ASSIGNMENT_ID=123
+set REFLEX_QUESTION_IDS=501,502,503,504,505
+run_loadtest.bat reflex-writing
+
+REM sau khi chay xong o tren:
+set REFLEX_AUDIO_URL=https://files-staging.ppsvietnam.edu.vn/pps-media/samples/sample.webm
+run_loadtest.bat reflex-speaking
+```
 
 ---
 
