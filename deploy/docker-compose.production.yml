@@ -115,6 +115,11 @@ services:
       MAIL_PORT: ${MAIL_PORT:-587}
       MAIL_USERNAME: ${MAIL_USERNAME:-}
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      # Bổ sung 2026-09-15 (đã xác nhận với người dùng) - fix gap: .env server ĐÃ có giá trị thật cho
+      # biến này (dùng bởi app.mail.from-address, xem EmailNotificationSender.java) nhưng file compose
+      # trước đây KHÔNG truyền vào container -> luôn fallback về mặc định cứng "no-reply@pps.edu.vn"
+      # trong application.yml bất kể .env set gì.
+      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-}
       MAIL_CONTACT_HOTLINE: ${MAIL_CONTACT_HOTLINE:-}
       MAIL_CONTACT_SUPPORT_EMAIL: ${MAIL_CONTACT_SUPPORT_EMAIL:-}
       MAIL_CONTACT_WEBSITE: ${MAIL_CONTACT_WEBSITE:-}
@@ -132,6 +137,11 @@ services:
       # .env, không sửa code.
       NINE_ROUTER_MAX_CONCURRENT: ${NINE_ROUTER_MAX_CONCURRENT:-5}
       NINE_ROUTER_ACQUIRE_TIMEOUT_SECONDS: ${NINE_ROUTER_ACQUIRE_TIMEOUT_SECONDS:-20}
+      # Bổ sung 2026-09-15 (đã xác nhận với người dùng) - fix gap tương tự MAIL_FROM_ADDRESS: .env server
+      # đã có key thật cho UC-73 (tự dò thời lượng video YouTube khi import Excel hàng loạt, xem
+      # YouTubeDurationService.java) nhưng chưa từng được truyền vào container - tính năng luôn báo
+      # "chưa cấu hình" trên môi trường thật dù key đã điền từ trước.
+      YOUTUBE_API_KEY: ${YOUTUBE_API_KEY:-}
     ports:
       - "127.0.0.1:8080:8080"
     depends_on:
