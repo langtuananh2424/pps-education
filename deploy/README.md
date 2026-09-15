@@ -58,8 +58,14 @@ ufw enable
 ```
 
 Copy `deploy/docker-compose.staging.yml` → `/opt/pps-education/staging/docker-compose.yml`
-(và tương tự cho production), thay `<owner>/<repo>` và `<DOMAIN>` bằng giá
-trị thật.
+(và tương tự cho production) **lần đầu** để bootstrap thư mục — từ 2026-09-15
+(đã xác nhận với người dùng), `cd-staging.yml`/`cd-production.yml` tự đồng bộ
+lại file này từ repo ở MỖI LẦN deploy (trước đây chỉ copy tay 1 lần lúc
+bootstrap rồi không bao giờ cập nhật lại — thay đổi sau này trong
+`deploy/docker-compose.*.yml`, VD `DB_POOL_SIZE`, im lặng không tới được
+server dù CI xanh, gây lệch giữa staging/production thật với repo mà không
+ai biết). Việc bootstrap tay ở đây chỉ còn cần thiết cho lần đầu (thư mục
+chưa tồn tại) — sau đó không cần copy tay nữa.
 
 `.env` mỗi stack (tạo tay 1 lần, `chmod 600`, **không** đi qua GitHub/CI):
 
