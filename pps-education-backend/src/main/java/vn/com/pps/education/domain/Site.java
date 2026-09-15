@@ -53,4 +53,18 @@ public class Site extends BaseAuditEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private Status status = Status.ACTIVE;
+
+    /**
+     * Phân loại mục đích sử dụng (V176, bổ sung ngoài SDD gốc, xác nhận
+     * 2026-09-14) — 1 site có thể dùng cho xếp lớp/Nhận lớp (UC-71),
+     * dùng cho Chấm công GPS (UC-09 A2), hoặc cả 2. Mặc định TRUE cho cả
+     * 2 cột (điểm trường thông thường dùng cho cả 2 mục đích); chỉ tắt 1
+     * trong 2 khi cần địa điểm chuyên biệt (VD trụ sở văn phòng hành
+     * chính: usedForClasses=false, chỉ dùng để tính bán kính chấm công).
+     */
+    @Column(name = "used_for_classes", nullable = false)
+    private boolean usedForClasses = true;
+
+    @Column(name = "used_for_attendance", nullable = false)
+    private boolean usedForAttendance = true;
 }
