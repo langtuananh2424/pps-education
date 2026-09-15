@@ -44,14 +44,28 @@
 // chạy xong (xem giải thích "Vì sao 2 lần chạy" bên dưới). Hoặc dùng
 // `run_loadtest.bat reflex-writing` / `run_loadtest.bat reflex-speaking`
 // (đã bọc sẵn tham số, xem LOADTEST.md).
+//
+// NHIỀU TÀI KHOẢN HỌC SINH (2026-09-15, đã xác nhận với người dùng) -- mặc
+// định TEST_USERNAME chỉ 1 tài khoản, mọi VU dùng CHUNG 1 token -- nghĩa
+// là mô phỏng "1 học sinh gửi N request đồng thời" (như mở nhiều
+// tab/thiết bị), KHÔNG PHẢI "N học sinh khác nhau nộp bài cùng lúc". Với
+// nút thắt cần đo (Semaphore/9Router/DB pool, dùng CHUNG cho mọi học sinh)
+// dùng 1 tài khoản vẫn đo đúng, nhưng nếu muốn mô phỏng sát hơn: đặt
+// STUDENT_USERNAMES (danh sách username phân cách dấu phẩy, DÙNG CHUNG 1
+// TEST_PASSWORD) -- mỗi username login riêng, VU xoay vòng qua danh sách.
 
 import http from "k6/http";
 import { check, sleep } from "k6";
 import { Rate, Trend, Counter } from "k6/metrics";
 
 const BASE_URL = __ENV.TARGET_URL || "https://REPLACE-WITH-YOUR-STAGING-URL";
-const USERNAME = __ENV.TEST_USERNAME || "REPLACE_WITH_SEEDED_TEST_STUDENT_ACCOUNT";
 const PASSWORD = __ENV.TEST_PASSWORD || "REPLACE_WITH_TEST_PASSWORD";
+// STUDENT_USERNAMES ưu tiên hơn TEST_USERNAME nếu cả 2 đều đặt -- xem ghi
+// chú "NHIỀU TÀI KHOẢN HỌC SINH" ở trên.
+const USERNAMES = (__ENV.STUDENT_USERNAMES || __ENV.TEST_USERNAME || "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
 const ASSIGNMENT_ID = __ENV.REFLEX_ASSIGNMENT_ID || "";
 const QUESTION_IDS = (__ENV.REFLEX_QUESTION_IDS || "")
   .split(",")
@@ -66,9 +80,9 @@ const ANSWER_TEXT =
 const STEP = __ENV.STEP || "writing";
 const VU_PEAK = Number(__ENV.VU_PEAK || 50);
 
-if (!ASSIGNMENT_ID || QUESTION_IDS.length === 0) {
+if (!ASSIGNMENT_ID || QUESTION_IDS.length === 0 || USERNAMES.length === 0) {
   throw new Error(
-    "Thiếu REFLEX_ASSIGNMENT_ID hoặc REFLEX_QUESTION_IDS -- xem hướng dẫn ở đầu file."
+    "Thiếu REFLEX_ASSIGNMENT_ID / REFLEX_QUESTION_IDS / STUDENT_USERNAMES (hoặc TEST_USERNAME) -- xem hướng dẫn ở đầu file."
   );
 }
 if (STEP === "speaking" && !AUDIO_URL) {
@@ -113,10 +127,10 @@ export const options = {
   },
 };
 
-function login() {
+function login(username) {
   const res = http.post(
     `${BASE_URL}/api/auth/login`,
-    JSON.stringify({ usernameOrEmail: USERNAME, password: PASSWORD }),
+    JSON.stringify({ usernameOrEmail: username, password: PASSWORD }),
     { headers: { "Content-Type": "application/json" }, tags: { name: "login" } }
   );
   const ok = check(res, {
@@ -126,7 +140,7 @@ function login() {
   if (res.status === 423) {
     // Dừng ngay -- max-failed-attempts=5 (app.security.brute-force) đã
     // khoá tài khoản test 15 phút, chạy tiếp chỉ tạo số liệu sai lệch.
-    throw new Error("Tài khoản test bị khoá (423) -- kiểm tra lại TEST_PASSWORD, đừng chạy tiếp.");
+    throw new Error(`Tài khoản ${username} bị khoá (423) -- kiểm tra lại TEST_PASSWORD, đừng chạy tiếp.`);
   }
   if (res.status === 409) {
     // requireNoActiveSessionForStudent() (AuthService.java) -- tài khoản HỌC SINH này còn 1 refresh
@@ -134,41 +148,45 @@ function login() {
     // chưa kịp gọi teardown()/logout() -- xem SQL gỡ session kẹt trong LOADTEST.md, hoặc chờ
     // teardown() ở lần chạy này tự thu hồi khi xong (nếu để chạy hết, không Ctrl+C).
     throw new Error(
-      "Tài khoản học sinh này đang có phiên đăng nhập ACTIVE khác (HTTP 409) -- có thể do lần chạy " +
+      `Tài khoản ${username} đang có phiên đăng nhập ACTIVE khác (HTTP 409) -- có thể do lần chạy ` +
         "trước bị Ctrl+C nên chưa kịp logout. Xem LOADTEST.md mục \"Load test riêng cho chấm AI Video " +
         "phản xạ\" để gỡ session kẹt bằng SQL trước khi chạy lại."
     );
   }
   if (!ok) {
-    throw new Error(`Login thất bại: HTTP ${res.status} ${res.body}`);
+    throw new Error(`Login thất bại cho ${username}: HTTP ${res.status} ${res.body}`);
   }
   const body = res.json();
-  return { accessToken: body.accessToken, refreshToken: body.refreshToken };
+  return { username, accessToken: body.accessToken, refreshToken: body.refreshToken };
 }
 
-// setup() chạy 1 lần, KHÔNG tính vào metric tải -- chỉ để đăng nhập trước,
-// giống loadtest_api_suite.js.
+// setup() chạy 1 lần, KHÔNG tính vào metric tải -- đăng nhập TRƯỚC cho mọi
+// tài khoản trong STUDENT_USERNAMES/TEST_USERNAME, giống loadtest_api_suite.js.
 export function setup() {
-  return login();
+  return { sessions: USERNAMES.map((u) => login(u)) };
 }
 
-// teardown() chạy 1 lần SAU khi hết mọi VU -- BẮT BUỘC logout để thu hồi
-// refresh token, nếu không lần chạy TIẾP THEO cho cùng tài khoản học sinh
-// này sẽ luôn bị chặn HTTP 409 (xem requireNoActiveSessionForStudent() ở
-// AuthService.java) -- CHÚ Ý: teardown() KHÔNG chạy nếu bạn Ctrl+C giữa
-// bài test (k6 không đảm bảo chạy teardown khi bị ngắt tín hiệu) -- khi đó
-// phải gỡ session kẹt bằng SQL thủ công (xem LOADTEST.md).
+// teardown() chạy 1 lần SAU khi hết mọi VU -- BẮT BUỘC logout TỪNG tài
+// khoản để thu hồi refresh token, nếu không lần chạy TIẾP THEO cho CÙNG
+// tài khoản học sinh sẽ luôn bị chặn HTTP 409 (xem
+// requireNoActiveSessionForStudent() ở AuthService.java) -- CHÚ Ý:
+// teardown() KHÔNG chạy nếu bạn Ctrl+C giữa bài test (k6 không đảm bảo
+// chạy teardown khi bị ngắt tín hiệu) -- khi đó phải gỡ session kẹt bằng
+// SQL thủ công (xem LOADTEST.md), cho TỪNG username đã dùng.
 export function teardown(data) {
-  const res = http.post(
-    `${BASE_URL}/api/auth/logout`,
-    JSON.stringify({ refreshToken: data.refreshToken }),
-    { headers: { "Content-Type": "application/json" }, tags: { name: "logout" } }
-  );
-  check(res, { "logout status 204": (r) => r.status === 204 });
+  data.sessions.forEach((session) => {
+    const res = http.post(
+      `${BASE_URL}/api/auth/logout`,
+      JSON.stringify({ refreshToken: session.refreshToken }),
+      { headers: { "Content-Type": "application/json" }, tags: { name: "logout" } }
+    );
+    check(res, { [`logout ${session.username} status 204`]: (r) => r.status === 204 });
+  });
 }
 
 export default function (data) {
   const questionId = QUESTION_IDS[(__VU + __ITER) % QUESTION_IDS.length];
+  const session = data.sessions[(__VU + __ITER) % data.sessions.length];
   const url = `${BASE_URL}/api/review-video-questions/${questionId}/reflex-progress/${STEP}?assignmentId=${ASSIGNMENT_ID}`;
   const payload =
     STEP === "writing"
@@ -176,7 +194,7 @@ export default function (data) {
       : JSON.stringify({ audioUrl: AUDIO_URL });
   const headers = {
     "Content-Type": "application/json",
-    Authorization: `Bearer ${data.accessToken}`,
+    Authorization: `Bearer ${session.accessToken}`,
   };
 
   const start = Date.now();

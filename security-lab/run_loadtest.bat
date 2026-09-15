@@ -32,6 +32,11 @@ REM     REFLEX_AUDIO_URL       (chi reflex-speaking) link audio that da upload s
 REM  TEST_USERNAME/TEST_PASSWORD phai la 1 tai khoan HOC SINH test rieng, KHONG
 REM  dung tai khoan/bo Video phan xa dang giao that cho lop hoc sinh that -- xem
 REM  ghi chu "LUU Y DU LIEU" trong loadtest_reflex_ai_grading.js.
+REM
+REM  NHIEU TAI KHOAN (tuy chon, chi reflex-writing/reflex-speaking): dat
+REM  STUDENT_USERNAMES (nhieu username phan cach dau phay) de mo phong nhieu
+REM  hoc sinh thay vi 1 - DUNG CHUNG 1 TEST_PASSWORD cho ca danh sach:
+REM     set STUDENT_USERNAMES=hs1,hs2,hs3,hs4
 REM ===================================================================
 
 cd /d "%~dp0"
@@ -86,6 +91,7 @@ if not "%BYPASS_CACHE%"=="" set "COMMON=%COMMON% -e BYPASS_CACHE=%BYPASS_CACHE%"
 if not "%REFLEX_ASSIGNMENT_ID%"=="" set "COMMON=%COMMON% -e REFLEX_ASSIGNMENT_ID=%REFLEX_ASSIGNMENT_ID%"
 if not "%REFLEX_QUESTION_IDS%"=="" set "COMMON=%COMMON% -e REFLEX_QUESTION_IDS=%REFLEX_QUESTION_IDS%"
 if not "%REFLEX_AUDIO_URL%"=="" set "COMMON=%COMMON% -e REFLEX_AUDIO_URL=%REFLEX_AUDIO_URL%"
+if not "%STUDENT_USERNAMES%"=="" set "COMMON=%COMMON% -e STUDENT_USERNAMES=%STUDENT_USERNAMES%"
 
 echo.
 echo ============================================================

@@ -127,6 +127,20 @@ set REFLEX_AUDIO_URL=https://files-staging.ppsvietnam.edu.vn/pps-media/samples/s
 run_loadtest.bat reflex-speaking
 ```
 
+**Mô phỏng nhiều học sinh thay vì 1** (mặc định `TEST_USERNAME` là 1 tài
+khoản, mọi VU dùng chung 1 token — xem ghi chú đầu
+`loadtest_reflex_ai_grading.js`): đặt `STUDENT_USERNAMES` (nhiều username,
+phân cách dấu phẩy, **dùng chung 1 `TEST_PASSWORD`**) — mỗi tài khoản đăng
+nhập riêng ở `setup()`, VU xoay vòng qua danh sách:
+
+```bat
+set STUDENT_USERNAMES=hs.test1,hs.test2,hs.test3,hs.test4
+set TEST_PASSWORD=<mat_khau_dung_chung>
+set REFLEX_ASSIGNMENT_ID=8
+set REFLEX_QUESTION_IDS=12,13,14,15,16,17,18,19,20,21
+run_loadtest.bat reflex-writing
+```
+
 ### Tài khoản học sinh bị chặn đăng nhập (HTTP 409) khi chạy lại
 
 Tài khoản dùng cho `TEST_USERNAME` **bắt buộc là học sinh** (Precondition
