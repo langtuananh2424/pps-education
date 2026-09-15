@@ -91,6 +91,8 @@ public class SiteService {
         site.setAddress(request.address());
         site.setDistrict(request.district());
         site.setPhone(request.phone());
+        site.setUsedForClasses(request.usedForClasses() == null || request.usedForClasses());
+        site.setUsedForAttendance(request.usedForAttendance() == null || request.usedForAttendance());
         site = siteRepository.save(site);
         updateGeoLocationIfPresent(site, request.latitude(), request.longitude());
         User actor = getUserOrThrow(actorUserId);
@@ -123,6 +125,12 @@ public class SiteService {
         site.setPhone(request.phone());
         if (request.status() != null) {
             site.setStatus(parseStatus(request.status()));
+        }
+        if (request.usedForClasses() != null) {
+            site.setUsedForClasses(request.usedForClasses());
+        }
+        if (request.usedForAttendance() != null) {
+            site.setUsedForAttendance(request.usedForAttendance());
         }
         site = siteRepository.save(site);
         updateGeoLocationIfPresent(site, request.latitude(), request.longitude());
@@ -338,7 +346,8 @@ public class SiteService {
                 currentManager.map(sm -> sm.getUser().getId()).orElse(null),
                 currentManager.map(sm -> sm.getUser().getFullName()).orElse(null),
                 geoPoint == null ? null : geoPoint.getLatitude(),
-                geoPoint == null ? null : geoPoint.getLongitude());
+                geoPoint == null ? null : geoPoint.getLongitude(),
+                site.isUsedForClasses(), site.isUsedForAttendance());
     }
 
     private SiteTeacherResponse toResponse(SiteTeacher st) {

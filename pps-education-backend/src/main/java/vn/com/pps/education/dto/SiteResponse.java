@@ -13,5 +13,7 @@ public record SiteResponse(
         Long currentManagerUserId,
         String currentManagerFullName,
         Double latitude,
-        Double longitude
+        Double longitude,
+        boolean usedForClasses,
+        boolean usedForAttendance
 ) {}
