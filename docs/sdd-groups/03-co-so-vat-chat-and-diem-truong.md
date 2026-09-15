@@ -154,11 +154,33 @@ a)  Bảng sites -- Điểm trường
   status           VARCHAR(20)             NOT NULL, DEFAULT         ACTIVE / INACTIVE /
                                            \'ACTIVE\'                PENDING
 
+  used_for_classes BOOLEAN                 NOT NULL, DEFAULT TRUE    (V176) Site có hiện ra để
+                                                                     chọn khi xếp lớp/tạo buổi
+                                                                     học (UC-71 Nhận lớp) không
+
+  used_for_        BOOLEAN                 NOT NULL, DEFAULT TRUE    (V176) Site có tính vào bán
+  attendance                                                         kính Chấm công GPS (UC-09
+                                                                     A2) không
+
   created_at,      TIMESTAMPTZ                                       
   updated_at                                                         
   ---------------------------------------------------------------------------------------------
 
 Không soft-delete --- dùng status=\'INACTIVE\'. Có sites_history.
+
+**used_for_classes / used_for_attendance (V176, bổ sung HOÀN TOÀN ngoài SDD
+gốc, xác nhận với người dùng 2026-09-14):** trước migration này, 1 site
+luôn vừa dùng để xếp lớp vừa tính vào bán kính Chấm công GPS, không có
+cách nào thêm 1 địa điểm CHỈ dùng cho chấm công (VD trụ sở văn phòng hành
+chính, không phải điểm trường thật) mà không bị lẫn vào danh sách điểm
+trường xếp lớp ở Facility/Academic. 2 cột này tách độc lập 2 mục đích sử
+dụng; mặc định TRUE cho cả 2 nên mọi site hiện có tiếp tục hoạt động y như
+trước migration. Trang "Địa điểm chấm công" (HRM) là nơi chỉnh 2 cờ này
+cho bất kỳ site nào (xem AttendanceSiteFormModal.tsx); dropdown chọn site
+khi tạo lớp/buổi học (ClassFormModal, CreateSessionModal) chỉ hiện site có
+used_for_classes=TRUE; truy vấn tự nhận diện điểm chấm công theo GPS
+(SiteRepository#findNearestWithinRadius, dùng bởi UC-09 A2 và
+detectSite) chỉ tính site có used_for_attendance=TRUE.
 
 b)  Bảng partner_school_info --- Thông tin liên hệ trường liên kết
 

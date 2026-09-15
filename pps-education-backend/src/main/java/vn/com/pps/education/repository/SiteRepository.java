@@ -44,8 +44,12 @@ public interface SiteRepository extends JpaRepository<Site, Long> {
     Optional<GeoPoint> findGeoLocation(@Param("id") Long id);
 
     // UC-09 bổ sung ngoài Main Flow gốc (tự nhận diện điểm chấm công theo GPS,
-    // xác nhận với người dùng 2026-08-17) -- điểm trường ACTIVE gần nhất trong
+    // xác nhận với người dùng 2026-08-17) -- điểm ACTIVE gần nhất trong
     // bán kính attendance.gps_radius_meters quanh vị trí hiện tại.
+    // used_for_attendance = TRUE (V176, xác nhận 2026-09-14): chỉ tính các
+    // site được đánh dấu dùng cho chấm công -- tách khỏi các site chỉ dùng
+    // để xếp lớp (used_for_classes), tránh chấm công GPS hợp lệ nhầm chỉ vì
+    // đứng gần 1 điểm trường không liên quan tới nơi làm việc thực tế.
     @Query(value = """
             SELECT s.id AS id, s.name AS name,
                    ST_Distance(
@@ -54,6 +58,7 @@ public interface SiteRepository extends JpaRepository<Site, Long> {
                    ) AS distanceMeters
             FROM sites s
             WHERE s.status = 'ACTIVE'
+              AND s.used_for_attendance = TRUE
               AND s.geo_location IS NOT NULL
               AND ST_DWithin(
                   s.geo_location,

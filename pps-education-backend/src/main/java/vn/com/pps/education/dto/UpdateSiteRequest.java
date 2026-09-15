@@ -8,6 +8,8 @@ import jakarta.validation.constraints.NotNull;
  * UC-36 Main Flow bước 1-3 áp dụng cho "chọn điểm trường hiện có".
  * latitude/longitude tùy chọn — để null thì giữ nguyên tọa độ hiện có (không
  * xóa geo_location đã set trước đó); truyền cả 2 để set/ghi đè tọa độ mới.
+ * usedForClasses/usedForAttendance (V176, bổ sung ngoài SDD gốc): để trống
+ * (null) thì giữ nguyên giá trị hiện có — xem Site.java.
  */
 public record UpdateSiteRequest(
         @NotBlank String name,
@@ -18,5 +20,7 @@ public record UpdateSiteRequest(
         String status,
         @Valid PartnerSchoolInfoRequest partnerInfo,
         Double latitude,
-        Double longitude
+        Double longitude,
+        Boolean usedForClasses,
+        Boolean usedForAttendance
 ) {}

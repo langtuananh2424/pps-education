@@ -11,6 +11,8 @@ import jakarta.validation.constraints.NotNull;
  * latitude/longitude tùy chọn — ghi vào sites.geo_location (SDD Nhóm 3, cột
  * dùng để validate bán kính GPS chấm công UC-09 A2); để trống nếu chưa xác
  * định tọa độ, cập nhật sau qua PUT /api/sites/{id}.
+ * usedForClasses/usedForAttendance (V176, bổ sung ngoài SDD gốc): để trống
+ * (null) mặc định TRUE cho cả 2 — xem Site.java.
  */
 public record CreateSiteRequest(
         @NotBlank String code,
@@ -22,5 +24,7 @@ public record CreateSiteRequest(
         @Valid PartnerSchoolInfoRequest partnerInfo,
         Long managerUserId,
         Double latitude,
-        Double longitude
+        Double longitude,
+        Boolean usedForClasses,
+        Boolean usedForAttendance
 ) {}
