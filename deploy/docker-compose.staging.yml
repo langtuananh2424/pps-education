@@ -149,6 +149,11 @@ services:
       MAIL_PORT: ${MAIL_PORT:-587}
       MAIL_USERNAME: ${MAIL_USERNAME:-}
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      # Bổ sung 2026-09-15 (đã xác nhận với người dùng) - fix gap: .env server ĐÃ có giá trị thật cho
+      # biến này (dùng bởi app.mail.from-address, xem EmailNotificationSender.java) nhưng file compose
+      # trước đây KHÔNG truyền vào container -> luôn fallback về mặc định cứng "no-reply@pps.edu.vn"
+      # trong application.yml bất kể .env set gì.
+      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-}
       MAIL_CONTACT_HOTLINE: ${MAIL_CONTACT_HOTLINE:-}
       MAIL_CONTACT_SUPPORT_EMAIL: ${MAIL_CONTACT_SUPPORT_EMAIL:-}
       MAIL_CONTACT_WEBSITE: ${MAIL_CONTACT_WEBSITE:-}
@@ -161,6 +166,15 @@ services:
       NINE_ROUTER_MODEL: ${NINE_ROUTER_MODEL:-}
       NINE_ROUTER_STT_MODEL: ${NINE_ROUTER_STT_MODEL:-groq/whisper-large-v3-turbo}
       NINE_ROUTER_AUDIO_MODEL: ${NINE_ROUTER_AUDIO_MODEL:-ag/gemini-3.5-flash-low}
+      # Giới hạn concurrency gọi sang 9Router (xem NineRouterAiClient.java) - đổi qua .env khi load test
+      # để tìm ngưỡng an toàn, không cần build lại image.
+      NINE_ROUTER_MAX_CONCURRENT: ${NINE_ROUTER_MAX_CONCURRENT:-5}
+      NINE_ROUTER_ACQUIRE_TIMEOUT_SECONDS: ${NINE_ROUTER_ACQUIRE_TIMEOUT_SECONDS:-20}
+      # Bổ sung 2026-09-15 (đã xác nhận với người dùng) - fix gap tương tự MAIL_FROM_ADDRESS: .env server
+      # đã có key thật cho UC-73 (tự dò thời lượng video YouTube khi import Excel hàng loạt, xem
+      # YouTubeDurationService.java) nhưng chưa từng được truyền vào container - tính năng luôn báo
+      # "chưa cấu hình" trên môi trường thật dù key đã điền từ trước.
+      YOUTUBE_API_KEY: ${YOUTUBE_API_KEY:-}
     ports:
       - "127.0.0.1:8081:8080"
     depends_on:

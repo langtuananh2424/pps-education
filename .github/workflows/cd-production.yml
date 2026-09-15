@@ -58,6 +58,17 @@ jobs:
     runs-on: [self-hosted, pps-education]
     environment: production # yêu cầu approval thủ công nếu đã cấu hình required reviewer
     steps:
+      - uses: actions/checkout@v4
+
+      # Bổ sung 2026-09-15 (đã xác nhận với người dùng, cùng gốc sự cố với cd-staging.yml) - job này
+      # trước đây chỉ pull image + restart container, KHÔNG BAO GIỜ đồng bộ lại docker-compose.yml trên
+      # server - phát hiện qua sự cố thật: DB_POOL_SIZE thêm vào deploy/docker-compose.production.yml
+      # không bao giờ tới được server dù CI xanh, khiến pool DB production luôn fallback mặc định cứng
+      # 10 connection. File repo chỉ chứa placeholder ${VAR} (secret thật nằm ở
+      # /opt/pps-education/production/.env, KHÔNG đi qua bước này) nên copy đè an toàn.
+      - name: Dong bo docker-compose.yml tu repo len server
+        run: cp deploy/docker-compose.production.yml /opt/pps-education/production/docker-compose.yml
+
       - name: Pull prod-latest + restart container (chạy trực tiếp trên server)
         run: |
           cd /opt/pps-education/production

@@ -58,8 +58,14 @@ ufw enable
 ```
 
 Copy `deploy/docker-compose.staging.yml` → `/opt/pps-education/staging/docker-compose.yml`
-(và tương tự cho production), thay `<owner>/<repo>` và `<DOMAIN>` bằng giá
-trị thật.
+(và tương tự cho production) **lần đầu** để bootstrap thư mục — từ 2026-09-15
+(đã xác nhận với người dùng), `cd-staging.yml`/`cd-production.yml` tự đồng bộ
+lại file này từ repo ở MỖI LẦN deploy (trước đây chỉ copy tay 1 lần lúc
+bootstrap rồi không bao giờ cập nhật lại — thay đổi sau này trong
+`deploy/docker-compose.*.yml`, VD `DB_POOL_SIZE`, im lặng không tới được
+server dù CI xanh, gây lệch giữa staging/production thật với repo mà không
+ai biết). Việc bootstrap tay ở đây chỉ còn cần thiết cho lần đầu (thư mục
+chưa tồn tại) — sau đó không cần copy tay nữa.
 
 `.env` mỗi stack (tạo tay 1 lần, `chmod 600`, **không** đi qua GitHub/CI):
 
@@ -146,7 +152,7 @@ Full). ⚠️ Domain gốc `ppsvietnam.edu.vn`/`www.`/`pma.` đang phục vụ 1
 khác (IP `103.179.190.129`, Proxied) — KHÔNG được đụng vào các record đó,
 chỉ thao tác trên 6 subdomain dưới đây.
 
-1. Copy `deploy/nginx/admin.conf.template`, `user.conf.template`,
+1. Copy `deploy/nginx/admin.conf.template`, `student.conf.template`,
    `files.conf.template` vào `/etc/nginx/sites-available/`, thay placeholder
    theo bảng:
 
@@ -154,15 +160,21 @@ chỉ thao tác trên 6 subdomain dưới đây.
    |---|---|---|---|
    | admin-staging | `admin-staging.ppsvietnam.edu.vn` | `/opt/pps-education/staging/frontend/admin` | 8081 |
    | admin (prod) | `admin.ppsvietnam.edu.vn` | `/opt/pps-education/production/frontend/admin` | 8080 |
-   | user-staging | `user-staging.ppsvietnam.edu.vn` | `/opt/pps-education/staging/frontend/user` | 8081 |
-   | user (prod) | `user.ppsvietnam.edu.vn` | `/opt/pps-education/production/frontend/user` | 8080 |
+   | student-staging | `student-staging.ppsvietnam.edu.vn` | `/opt/pps-education/staging/frontend/user` | 8081 |
+   | student (prod) | `student.ppsvietnam.edu.vn` | `/opt/pps-education/production/frontend/user` | 8080 |
    | files-staging | `files-staging.ppsvietnam.edu.vn` | — | 9002 |
    | files (prod) | `files.ppsvietnam.edu.vn` | — | 9000 |
 
+   Domain đổi từ `user` sang `student` (2026-09-15, đã xác nhận với người
+   dùng - phù hợp môi trường học đường hơn) - `__ROOT_PATH__` VẪN trỏ vào
+   thư mục `frontend/user` vì thư mục source `pps-education-frontend/user`
+   và `cd-frontend.yml` (matrix `app: [admin, user]`) CHƯA đổi tên theo
+   (quyết định phạm vi tối thiểu - chỉ đổi domain/nginx, không đổi code/CI).
+
 2. `ln -s` từng file vào `sites-enabled/`, `nginx -t && systemctl reload nginx`.
-   - `admin*`/`user*` template có `client_max_body_size 210m` trong `location
-     /api/` (upload media tới 200MB). Server đã cài trước bản này phải thêm
-     dòng đó thủ công rồi reload, nếu không upload >1MB bị 413.
+   - `admin*`/`student*` template có `client_max_body_size 210m` trong
+     `location /api/` (upload media tới 200MB). Server đã cài trước bản này
+     phải thêm dòng đó thủ công rồi reload, nếu không upload >1MB bị 413.
    - `files*` template có `rewrite ^/(.*)$ /pps-media/$1 break;` để chèn tên
      bucket MinIO vào path (URL public do backend sinh không kèm tên bucket).
 3. Cài `cloudflared` (gói `.deb` chính thức Cloudflare), `cloudflared tunnel login`,
@@ -174,11 +186,11 @@ chỉ thao tác trên 6 subdomain dưới đây.
    ingress:
      - hostname: admin.ppsvietnam.edu.vn
        service: http://localhost:80
-     - hostname: user.ppsvietnam.edu.vn
+     - hostname: student.ppsvietnam.edu.vn
        service: http://localhost:80
      - hostname: admin-staging.ppsvietnam.edu.vn
        service: http://localhost:80
-     - hostname: user-staging.ppsvietnam.edu.vn
+     - hostname: student-staging.ppsvietnam.edu.vn
        service: http://localhost:80
      - hostname: files.ppsvietnam.edu.vn
        service: http://localhost:80
@@ -189,7 +201,11 @@ chỉ thao tác trên 6 subdomain dưới đây.
 5. `cloudflared tunnel route dns pps-education <hostname>` cho từng hostname ở
    trên (6 lần) — tự động tạo/GHI ĐÈ record DNS đúng hostname đó thành CNAME
    trỏ vào tunnel (record `admin`/`user` cũ trỏ IP giả `192.0.2.1` sẽ được
-   thay thế, 4 record còn lại là tạo mới).
+   thay thế, 4 record còn lại là tạo mới). Domain `user`/`user-staging` đổi
+   thành `student`/`student-staging` từ 2026-09-15 (xem ghi chú mục 1) —
+   nếu tunnel/DNS trên server vẫn đang trỏ hostname `user` cũ, cần chạy lại
+   `cloudflared tunnel route dns` cho hostname `student` mới rồi mới sửa
+   `config.yml`, không tự động theo repo.
 6. `cloudflared service install && systemctl enable --now cloudflared`.
 7. Trên Cloudflare Dashboard: bật "Always Use HTTPS" + SSL/TLS mode "Full".
 

@@ -57,6 +57,18 @@ jobs:
     runs-on: [self-hosted, pps-education]
     environment: staging
     steps:
+      - uses: actions/checkout@v4
+
+      # Bổ sung 2026-09-15 (đã xác nhận với người dùng) - PHÁT HIỆN QUA SỰ CỐ THẬT: trước đây job này
+      # chỉ pull image + restart container, KHÔNG BAO GIỜ đồng bộ lại nội dung docker-compose.yml trên
+      # server - file đó chỉ được copy tay 1 lần lúc bootstrap (xem deploy/README.md), nên mọi thay đổi
+      # sau này trong deploy/docker-compose.staging.yml (VD tăng DB_POOL_SIZE) IM LẶNG không bao giờ tới
+      # được server dù CI/CD chạy xanh - khiến staging chấm điểm/chịu tải sai lệch hoàn toàn so với repo
+      # mà không ai biết. File repo CHỈ chứa placeholder ${VAR} (không có secret thật - secret nằm ở
+      # /opt/pps-education/staging/.env, KHÔNG đi qua bước này) nên copy đè an toàn.
+      - name: Dong bo docker-compose.yml tu repo len server
+        run: cp deploy/docker-compose.staging.yml /opt/pps-education/staging/docker-compose.yml
+
       - name: Pull staging-latest + restart container (chạy trực tiếp trên server)
         run: |
           cd /opt/pps-education/staging
