@@ -86,6 +86,16 @@ services:
       DB_URL: jdbc:postgresql://postgres:5432/pps_education
       DB_USERNAME: pps_app
       DB_PASSWORD: ${DB_PASSWORD}
+      # Bổ sung 2026-09-15 (đã xác nhận với người dùng) - fix gap: file này TRƯỚC ĐÂY không truyền
+      # DB_POOL_SIZE/DB_POOL_MIN_IDLE vào container -> application.yml fallback về mặc định cứng 10
+      # (xem comment tại spring.datasource.hikari trong application.yml), bất kể .env production có set
+      # gì - pool 10 connection quá thấp khi nhiều học sinh nộp bài đồng thời (mỗi lượt giữ 1 connection
+      # suốt thời gian chờ AI chấm - xem NineRouterAiClient.java). Mirror đúng giá trị đã dùng ở
+      # docker-compose.staging.yml. Postgres service bên dưới CHƯA custom max_connections (còn mặc định
+      # 100 của image postgis) - 50 vẫn còn dư chỗ cho psql/pgAdmin vì hiện chỉ 1 instance backend.
+      DB_POOL_SIZE: ${DB_POOL_SIZE:-50}
+      DB_POOL_MIN_IDLE: ${DB_POOL_MIN_IDLE:-10}
+      DB_POOL_TIMEOUT_MS: ${DB_POOL_TIMEOUT_MS:-10000}
       JWT_SECRET: ${JWT_SECRET}
       SEED_DEV_USERS: "false"
       # Bootstrap 1 tài khoản sysadmin lần đầu (KHÁC SEED_DEV_USERS - xem InitialAdminSeeder.java).
@@ -117,6 +127,11 @@ services:
       NINE_ROUTER_MODEL: ${NINE_ROUTER_MODEL:-}
       NINE_ROUTER_STT_MODEL: ${NINE_ROUTER_STT_MODEL:-groq/whisper-large-v3-turbo}
       NINE_ROUTER_AUDIO_MODEL: ${NINE_ROUTER_AUDIO_MODEL:-ag/gemini-3.5-flash-low}
+      # Giới hạn concurrency gọi sang 9Router (xem NineRouterAiClient.java) - giá trị mặc định (5) là ước
+      # lượng thận trọng ban đầu, CHƯA qua load test thật - đo trên staging trước rồi mới nâng ở đây qua
+      # .env, không sửa code.
+      NINE_ROUTER_MAX_CONCURRENT: ${NINE_ROUTER_MAX_CONCURRENT:-5}
+      NINE_ROUTER_ACQUIRE_TIMEOUT_SECONDS: ${NINE_ROUTER_ACQUIRE_TIMEOUT_SECONDS:-20}
     ports:
       - "127.0.0.1:8080:8080"
     depends_on:

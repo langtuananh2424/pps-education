@@ -161,6 +161,10 @@ services:
       NINE_ROUTER_MODEL: ${NINE_ROUTER_MODEL:-}
       NINE_ROUTER_STT_MODEL: ${NINE_ROUTER_STT_MODEL:-groq/whisper-large-v3-turbo}
       NINE_ROUTER_AUDIO_MODEL: ${NINE_ROUTER_AUDIO_MODEL:-ag/gemini-3.5-flash-low}
+      # Giới hạn concurrency gọi sang 9Router (xem NineRouterAiClient.java) - đổi qua .env khi load test
+      # để tìm ngưỡng an toàn, không cần build lại image.
+      NINE_ROUTER_MAX_CONCURRENT: ${NINE_ROUTER_MAX_CONCURRENT:-5}
+      NINE_ROUTER_ACQUIRE_TIMEOUT_SECONDS: ${NINE_ROUTER_ACQUIRE_TIMEOUT_SECONDS:-20}
     ports:
       - "127.0.0.1:8081:8080"
     depends_on:

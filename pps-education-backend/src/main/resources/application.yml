@@ -226,14 +226,29 @@ app:
     # nạp tiền trước) - Gemini free tier không cần thẻ thanh toán.
     gemini-api-key: ${GEMINI_API_KEY:}
     # SPIKE (2026-08-24, nhánh spike/openrouter-ai-rotation) - NineRouterAiClient, kênh điều hướng
-    # request AI qua 9Router (https://github.com/decolua/9router) chạy local, thay các lệnh gọi thẳng
+    # request AI qua 9Router (https://github.com/decolua/9router), thay các lệnh gọi thẳng
     # Gemini/Claude/Groq trước đây trong WritingAiGradingService (UC-40/41) và ReflexWritingGrammarAi-
     # GradingService/ReflexSpeakingContentAiGradingService (UC-23b). nine-router-model là combo đã tạo
     # trong Dashboard 9Router → Combo & Vision Adapter (VD "teacher-models"), để trống thì
-    # NineRouterAiClient.chat() bắt buộc truyền model qua tham số. LƯU Ý VẬN HÀNH: 9Router hiện CHỈ
-    # chạy local trên máy dev, CHƯA có kế hoạch tự host cho staging/production.
+    # NineRouterAiClient.chat() bắt buộc truyền model qua tham số. LƯU Ý VẬN HÀNH: 9Router chạy như 1
+    # systemd service DUY NHẤT trên server vật lý (dùng chung staging + production, xem
+    # deploy/README.md mục "9Router (chấm AI)") - KHÔNG scale nhiều instance.
     nine-router-base-url: ${NINE_ROUTER_BASE_URL:http://localhost:20128/v1}
     nine-router-api-key: ${NINE_ROUTER_API_KEY:}
+    # Bổ sung 2026-09-15 (đã xác nhận với người dùng) - giới hạn số request ĐỒNG THỜI backend gọi sang
+    # 9Router (Semaphore trong NineRouterAiClient), để tránh dội tải 1 process 9Router duy nhất khi
+    # nhiều học sinh nộp bài Video phản xạ (UC-23b) cùng lúc giờ cao điểm. Vượt ngưỡng thì request MỚI
+    # xếp hàng chờ - không bắn thẳng vào 9Router như trước - giữ nguyên UX (vẫn chấm đồng bộ, học sinh
+    # vẫn thấy kết quả ngay trong cùng response), chỉ đổi tốc độ khi tải cao. Giá trị mặc định 5 là ước
+    # lượng THẬN TRỌNG ban đầu, CHƯA qua load test thật - cần đo lại trên staging (bắn request đồng thời
+    # tăng dần, quan sát lỗi/latency) rồi tinh chỉnh qua NINE_ROUTER_MAX_CONCURRENT, không sửa code.
+    nine-router-max-concurrent: ${NINE_ROUTER_MAX_CONCURRENT:5}
+    # Thời gian tối đa 1 request chờ có "chỗ trống" (permit) trước khi bỏ cuộc - hết hạn thì trả null
+    # giống mọi lỗi gọi 9Router khác. Với UC-23b (Video phản xạ, ReflexSequentialGradingService) nghĩa là
+    # progress ghi nhận "AI chấm lỗi", KHÔNG mở khoá bước tiếp theo - học sinh nộp lại (không giới hạn số
+    # lần thử, V139). Với UC-40/41 (WritingAiGradingService, câu ESSAY) câu trả lời rơi lại hàng chờ Giáo
+    # viên chấm thủ công như mọi lỗi AI khác (V138) - KHÔNG có 1 fallback chung cho mọi caller.
+    nine-router-acquire-timeout-seconds: ${NINE_ROUTER_ACQUIRE_TIMEOUT_SECONDS:20}
     # Model chấm text (POST /chat/completions) - tên combo đã tạo trong Dashboard 9Router → Combo &
     # Vision Adapter (VD "teacher-models").
     nine-router-model: ${NINE_ROUTER_MODEL:}
