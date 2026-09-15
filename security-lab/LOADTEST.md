@@ -127,6 +127,31 @@ set REFLEX_AUDIO_URL=https://files-staging.ppsvietnam.edu.vn/pps-media/samples/s
 run_loadtest.bat reflex-speaking
 ```
 
+### Tài khoản học sinh bị chặn đăng nhập (HTTP 409) khi chạy lại
+
+Tài khoản dùng cho `TEST_USERNAME` **bắt buộc là học sinh** (Precondition
+UC-23b) — mà học sinh bị chặn đăng nhập thiết bị thứ 2 khi thiết bị 1 còn
+phiên ACTIVE (`requireNoActiveSessionForStudent()`,
+`AuthService.java`, chống "lách luật" 2 máy khi làm bài). Script tự
+`logout` ở `teardown()` sau khi chạy xong để nhả session — nhưng **nếu bạn
+Ctrl+C giữa bài test, `teardown()` không kịp chạy**, để lại 1 refresh token
+còn hiệu lực (TTL 14 ngày) chặn hẳn lần chạy sau. Gỡ bằng SQL:
+
+```bash
+sudo docker compose exec postgres psql -U pps_app -d pps_education
+```
+
+```sql
+UPDATE refresh_tokens
+SET revoked_at = now()
+WHERE user_id = (SELECT id FROM users WHERE username = '<TEST_USERNAME>')
+  AND revoked_at IS NULL;
+```
+
+> Nếu học sinh đó KHÔNG phải tài khoản test (đang thật sự dùng app), lệnh
+> trên sẽ đăng xuất phiên thật của em — đây chính xác là rủi ro đã cảnh báo
+> ở đầu mục này (nên dùng tài khoản/bộ Video phản xạ test riêng).
+
 ---
 
 ## Quy trình chạy "kịch sàn"

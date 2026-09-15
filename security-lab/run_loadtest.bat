@@ -63,8 +63,15 @@ if "%TEST_USERNAME%"=="" goto :no_cred
 if "%TEST_PASSWORD%"=="" goto :no_cred
 
 REM --- Mac dinh cho tung mode ------------------------------------------
+REM QUAN TRONG: VU_PEAK/RPS_PEAK la BIEN MOI TRUONG THAT (set /set) - k6
+REM (tien trinh con) doc duoc ngay ca khi KHONG truyen qua "-e", vi k6 tu
+REM doc __ENV tu process environment ke thua, khong chi tu "-e". Truoc day
+REM set mac dinh VU_PEAK=1000 O DAY (dung chung cho moi mode) lam "ri" gia
+REM tri nay sang ca reflex-writing/reflex-speaking du khong -e VU_PEAK cho
+REM 2 mode do - ghi de mat default rieng (50) trong loadtest_reflex_ai_
+REM grading.js, khien VU dinh thanh 1000 ngoai y muon. Chi dat default o
+REM DUNG label mode can no (:browse), khong dat chung o day nua.
 if "%RPS_PEAK%"=="" set "RPS_PEAK=800"
-if "%VU_PEAK%"=="" set "VU_PEAK=1000"
 
 REM Nhan thoi gian cho file ket qua. Dung PowerShell thay vi %DATE%/%TIME%
 REM vi 2 bien do phu thuoc dinh dang vung/mien, de sinh ten file hong.
@@ -127,6 +134,7 @@ goto :done
 
 REM ---------------------------------------------------------------------
 :browse
+if "%VU_PEAK%"=="" set "VU_PEAK=1000"
 echo MO PHONG NGUOI DUNG - ramping-vus, co think-time.
 echo Luu y: che do nay KHONG tim duoc tran (server cham lai thi tai tu co lai).
 echo Muon biet gioi han thi dung: run_loadtest.bat capacity
@@ -145,10 +153,17 @@ REM ---------------------------------------------------------------------
 :reflex_writing
 if "%REFLEX_ASSIGNMENT_ID%"=="" goto :no_reflex_params
 if "%REFLEX_QUESTION_IDS%"=="" goto :no_reflex_params
+REM VU_PEAK o day CHI duoc forward neu ban tu dat truoc (mac dinh 50 nam
+REM trong loadtest_reflex_ai_grading.js, KHONG dat default 1000 o day -
+REM xem ghi chu o dau file). Neu phien PowerShell nay TRUOC DO da tung
+REM chay "browse" va co dat $env:VU_PEAK, gia tri cu se con "ri" sang day -
+REM chay `$env:VU_PEAK = $null` de xoa neu khong chac chan.
+set "REFLEX_EXTRA="
+if not "%VU_PEAK%"=="" set "REFLEX_EXTRA=-e VU_PEAK=%VU_PEAK%"
 echo UC-23b - cham AI phan VIET (Video phan xa). TEST_USERNAME phai la
 echo tai khoan HOC SINH test rieng (khong dung tai khoan/bo video that).
 echo.
-k6 run %COMMON% -e STEP=writing --summary-export "%SUMMARY%" loadtest_reflex_ai_grading.js
+k6 run %COMMON% %REFLEX_EXTRA% -e STEP=writing --summary-export "%SUMMARY%" loadtest_reflex_ai_grading.js
 goto :done
 
 REM ---------------------------------------------------------------------
@@ -156,11 +171,13 @@ REM ---------------------------------------------------------------------
 if "%REFLEX_ASSIGNMENT_ID%"=="" goto :no_reflex_params
 if "%REFLEX_QUESTION_IDS%"=="" goto :no_reflex_params
 if "%REFLEX_AUDIO_URL%"=="" goto :no_reflex_params
+set "REFLEX_EXTRA="
+if not "%VU_PEAK%"=="" set "REFLEX_EXTRA=-e VU_PEAK=%VU_PEAK%"
 echo UC-23b - cham AI phan NOI (Video phan xa). Chay SAU reflex-writing -
 echo combo (hoc sinh, cau hoi) chua dat writing se bi 400 (dem rieng, khong
 echo tinh la loi that - xem script).
 echo.
-k6 run %COMMON% -e STEP=speaking --summary-export "%SUMMARY%" loadtest_reflex_ai_grading.js
+k6 run %COMMON% %REFLEX_EXTRA% -e STEP=speaking --summary-export "%SUMMARY%" loadtest_reflex_ai_grading.js
 goto :done
 
 REM ---------------------------------------------------------------------

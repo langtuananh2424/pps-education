@@ -128,16 +128,43 @@ function login() {
     // khoá tài khoản test 15 phút, chạy tiếp chỉ tạo số liệu sai lệch.
     throw new Error("Tài khoản test bị khoá (423) -- kiểm tra lại TEST_PASSWORD, đừng chạy tiếp.");
   }
+  if (res.status === 409) {
+    // requireNoActiveSessionForStudent() (AuthService.java) -- tài khoản HỌC SINH này còn 1 refresh
+    // token active (chưa revoke/hết hạn, TTL 14 ngày). Có thể do lần chạy TRƯỚC bị Ctrl+C giữa chừng,
+    // chưa kịp gọi teardown()/logout() -- xem SQL gỡ session kẹt trong LOADTEST.md, hoặc chờ
+    // teardown() ở lần chạy này tự thu hồi khi xong (nếu để chạy hết, không Ctrl+C).
+    throw new Error(
+      "Tài khoản học sinh này đang có phiên đăng nhập ACTIVE khác (HTTP 409) -- có thể do lần chạy " +
+        "trước bị Ctrl+C nên chưa kịp logout. Xem LOADTEST.md mục \"Load test riêng cho chấm AI Video " +
+        "phản xạ\" để gỡ session kẹt bằng SQL trước khi chạy lại."
+    );
+  }
   if (!ok) {
     throw new Error(`Login thất bại: HTTP ${res.status} ${res.body}`);
   }
-  return res.json("accessToken");
+  const body = res.json();
+  return { accessToken: body.accessToken, refreshToken: body.refreshToken };
 }
 
 // setup() chạy 1 lần, KHÔNG tính vào metric tải -- chỉ để đăng nhập trước,
 // giống loadtest_api_suite.js.
 export function setup() {
-  return { token: login() };
+  return login();
+}
+
+// teardown() chạy 1 lần SAU khi hết mọi VU -- BẮT BUỘC logout để thu hồi
+// refresh token, nếu không lần chạy TIẾP THEO cho cùng tài khoản học sinh
+// này sẽ luôn bị chặn HTTP 409 (xem requireNoActiveSessionForStudent() ở
+// AuthService.java) -- CHÚ Ý: teardown() KHÔNG chạy nếu bạn Ctrl+C giữa
+// bài test (k6 không đảm bảo chạy teardown khi bị ngắt tín hiệu) -- khi đó
+// phải gỡ session kẹt bằng SQL thủ công (xem LOADTEST.md).
+export function teardown(data) {
+  const res = http.post(
+    `${BASE_URL}/api/auth/logout`,
+    JSON.stringify({ refreshToken: data.refreshToken }),
+    { headers: { "Content-Type": "application/json" }, tags: { name: "logout" } }
+  );
+  check(res, { "logout status 204": (r) => r.status === 204 });
 }
 
 export default function (data) {
@@ -149,7 +176,7 @@ export default function (data) {
       : JSON.stringify({ audioUrl: AUDIO_URL });
   const headers = {
     "Content-Type": "application/json",
-    Authorization: `Bearer ${data.token}`,
+    Authorization: `Bearer ${data.accessToken}`,
   };
 
   const start = Date.now();
