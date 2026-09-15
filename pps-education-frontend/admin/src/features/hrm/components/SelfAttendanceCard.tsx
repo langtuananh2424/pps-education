@@ -8,7 +8,7 @@ import { useApp } from "@/context/AppContext";
 import { toLocaleTag } from "@/lib/i18nFormat";
 import { describeGeolocationError, getCurrentPosition } from "@/lib/geolocation";
 import { SiteResponse } from "@/features/facility/api";
-import { AttendanceRecordResponse, checkIn, checkOut, detectAttendanceSite } from "../api";
+import { ATTENDANCE_CHECKED_EVENT, AttendanceRecordResponse, checkIn, checkOut, detectAttendanceSite } from "../api";
 import { attendanceStatusLabel, attendanceStatusVariant, formatAttendanceTime } from "../attendanceFormat";
 import AttendanceSuccessModal from "./AttendanceSuccessModal";
 
@@ -84,6 +84,8 @@ export default function SelfAttendanceCard({ site, todayRecord, onChecked, onReq
       const result = await (kind === "in" ? checkIn(request) : checkOut(request));
       setLastRecord(result);
       onChecked?.(result);
+      // Đồng bộ các nơi khác đang fetch trạng thái chấm công độc lập (VD AttendanceReminderBanner).
+      window.dispatchEvent(new CustomEvent(ATTENDANCE_CHECKED_EVENT));
       setSuccessRecord({ kind, record: result });
     } catch (err) {
       let message: string;

@@ -16,7 +16,7 @@ import {
   listClasses
 } from "@/features/academic/api";
 import SessionCard from "@/features/academic/components/SessionCard";
-import { AttendanceRecordResponse, getMyTodayAttendance } from "@/features/hrm/api";
+import { ATTENDANCE_CHECKED_EVENT, AttendanceRecordResponse, getMyTodayAttendance } from "@/features/hrm/api";
 import SelfAttendanceCard from "@/features/hrm/components/SelfAttendanceCard";
 import { UserRole } from "@/types";
 import Avatar from "@/components/ui/Avatar";
@@ -75,7 +75,14 @@ export default function Header() {
   // không cần thiết (cả 2 đều "không chấm công qua hệ thống").
   const [myAttendance, setMyAttendance] = useState<AttendanceRecordResponse | undefined>(undefined);
   useEffect(() => {
-    getMyTodayAttendance().then(setMyAttendance).catch(() => setMyAttendance(undefined));
+    const load = () => {
+      getMyTodayAttendance().then(setMyAttendance).catch(() => setMyAttendance(undefined));
+    };
+    load();
+    // Đồng bộ khi chấm công diễn ra ở nơi khác (VD trang Điểm danh riêng) trong khi Header vẫn
+    // đang mount -- onChecked ở popup dưới chỉ phủ trường hợp chấm công NGAY tại Header.
+    window.addEventListener(ATTENDANCE_CHECKED_EVENT, load);
+    return () => window.removeEventListener(ATTENDANCE_CHECKED_EVENT, load);
   }, []);
 
   // UC-71 "Nhận lớp" (bổ sung ngoài SDD gốc, xác nhận 2026-08-18) — pill Header giống pattern
