@@ -104,7 +104,8 @@ export default function CreateSessionModal({ siteId, onClose, mode = "queue", on
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    listSites().then(setSites).catch(() => undefined);
+    // Chỉ site dùng cho xếp lớp (V176) — loại các địa điểm chỉ dùng cho Chấm công (VD trụ sở văn phòng).
+    listSites().then((all) => setSites(all.filter((s) => s.usedForClasses))).catch(() => undefined);
   }, []);
 
   useEffect(() => {
