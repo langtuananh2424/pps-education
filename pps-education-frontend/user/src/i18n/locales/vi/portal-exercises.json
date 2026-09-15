@@ -16,6 +16,7 @@
     "closeAriaLabel": "Đóng",
     "loadingExam": "Đang tải đề...",
     "noQuestions": "Đề này chưa có câu hỏi nào.",
+    "carriedOverBadge": "Đã đúng ở lượt trước — đã khoá",
     "attemptNumber": "Lượt làm #{{number}}",
     "status": {
       "inProgress": "Đang làm",

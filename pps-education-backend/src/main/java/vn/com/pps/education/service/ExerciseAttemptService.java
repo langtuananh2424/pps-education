@@ -131,6 +131,13 @@ public class ExerciseAttemptService {
      * thể có NHIỀU bản giao ACTIVE song song cho cùng 1 lớp (giao độc lập từ nhiều buổi Nhận xét khác
      * nhau, xem {@link ExerciseService#deliverToClass}), suy đoán 1 bản duy nhất không còn đáng tin —
      * FE (mỗi thẻ BTVN) đã biết sẵn đúng assignmentId của thẻ đang bấm.
+     *
+     * V177 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-15 — SỬA LẠI A2 gốc "làm lại từ
+     * đầu"): khi mở lượt LÀM LẠI (previousAttempts &gt; 0), mang nguyên các câu ĐÃ TRẢ LỜI ĐÚNG ở lượt
+     * gần nhất (chỉ nhóm auto-gradable) sang lượt mới, đánh dấu
+     * {@code StudentAnswer.carriedOverFromPreviousAttempt=true} và khoá không cho sửa (xem
+     * {@link #saveAnswer}) — học sinh chỉ cần làm lại câu sai/chưa trả lời, không phải làm lại toàn bộ
+     * đề. ESSAY/SPEAKING không có cờ correct tin cậy nên không carry-forward, luôn phải nộp lại.
      */
     @Transactional
     public ExerciseAttemptResponse startAttempt(Long exerciseId, Long assignmentId, Long actorUserId) {
@@ -156,6 +163,7 @@ public class ExerciseAttemptService {
         // hết lượt (maxAttempts) ở bản giao cũ sẽ bị chặn làm luôn cả bản giao MỚI vừa được giao lại.
         long previousAttempts = exerciseAttemptRepository.countByExerciseAssignmentIdAndStudentId(assignment.getId(), student.getId());
         int attemptNumber = (int) previousAttempts + 1;
+        ExerciseAttempt lastAttempt = null;
         if (previousAttempts > 0) {
             if (!exercise.isAllowRetake()) {
                 throw new RetakeNotAllowedException("error.retakeNotAllowed.notAllowed", new Object[]{}, "Đề này không cho phép làm lại.");
@@ -179,7 +187,7 @@ public class ExerciseAttemptService {
             }
             // Sửa 2026-09-04 — mirror guard mới ở canStartNewAttempt/revealAnswersAndClose: chặn ở BE
             // (không chỉ ẩn nút FE) học sinh đã TỰ NGUYỆN đóng sớm lượt gần nhất để xem đáp án.
-            ExerciseAttempt lastAttempt = exerciseAttemptRepository
+            lastAttempt = exerciseAttemptRepository
                     .findByExerciseAssignmentIdAndStudentIdOrderByAttemptNumberDesc(assignment.getId(), student.getId())
                     .stream().findFirst().orElse(null);
             if (lastAttempt != null && lastAttempt.isAnswersRevealedEarly()) {
@@ -194,6 +202,32 @@ public class ExerciseAttemptService {
         attempt.setStudent(student);
         attempt.setAttemptNumber(attemptNumber);
         attempt = exerciseAttemptRepository.save(attempt);
+
+        // V177 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-15) — UC-24/UC-27 A2: đổi
+        // "làm lại" từ full-reset sang chỉ cần làm lại CÂU SAI. Mang nguyên nội dung các câu ĐÃ TRẢ LỜI
+        // ĐÚNG ở lượt trước (chỉ nhóm auto-gradable — ESSAY/SPEAKING chấm tay/AI không có cờ correct
+        // tin cậy, xem Javadoc toResponse(StudentAnswer), nên KHÔNG carry-forward, luôn phải nộp lại)
+        // sang lượt mới, đánh dấu carriedOverFromPreviousAttempt=true. Copy nguyên NỘI DUNG câu trả lời
+        // (không chỉ cờ đúng/sai) để gradeAndFinalize chấm lại lượt mới theo ĐÚNG 1 pipeline
+        // isAnswerCorrect() sẵn có — không cần thêm nhánh xử lý điểm riêng cho câu carry-forward.
+        // saveAnswer() chặn sửa lên các câu này ở phía Backend (không chỉ ẩn nút ở FE).
+        if (lastAttempt != null) {
+            ExerciseAttempt newAttempt = attempt;
+            studentAnswerRepository.findByExerciseAttemptId(lastAttempt.getId()).stream()
+                    .filter(a -> a.isAutoGradable() && Boolean.TRUE.equals(a.getCorrect()))
+                    .forEach(previousAnswer -> {
+                        StudentAnswer carried = new StudentAnswer();
+                        carried.setExerciseAttempt(newAttempt);
+                        carried.setQuestion(previousAnswer.getQuestion());
+                        carried.setAnswerText(previousAnswer.getAnswerText());
+                        carried.setSelectedChoiceIds(previousAnswer.getSelectedChoiceIds());
+                        carried.setAudioAnswerUrl(previousAnswer.getAudioAnswerUrl());
+                        carried.setStructuredAnswer(previousAnswer.getStructuredAnswer());
+                        carried.setAutoGradable(previousAnswer.isAutoGradable());
+                        carried.setCarriedOverFromPreviousAttempt(true);
+                        studentAnswerRepository.save(carried);
+                    });
+        }
 
         writeHistory(attempt, actorUserId, ExerciseAttemptHistory.Action.CREATED);
         return toResponse(attempt);
@@ -228,6 +262,12 @@ public class ExerciseAttemptService {
 
         StudentAnswer answer = studentAnswerRepository.findByExerciseAttemptIdAndQuestionId(attemptId, request.questionId())
                 .orElseGet(StudentAnswer::new);
+        // V177 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-15) — câu đã được mang qua từ
+        // lượt trước (đã đúng, xem startAttempt) bị khoá — chặn sửa ở Backend, không chỉ ẩn nút ở FE.
+        if (answer.isCarriedOverFromPreviousAttempt()) {
+            throw new AttemptNotEditableException("error.attemptNotEditable.carriedOverLocked", new Object[]{},
+                    "Câu này đã làm đúng ở lượt trước, không cần và không thể sửa lại.");
+        }
         answer.setExerciseAttempt(attempt);
         Question question = exerciseQuestionRepository.findByExerciseIdOrderByDisplayOrder(attempt.getExercise().getId()).stream()
                 .map(ExerciseQuestion::getQuestion)
@@ -859,6 +899,6 @@ public class ExerciseAttemptService {
                 a.getId(), attempt.getId(), a.getQuestion().getId(), a.getAnswerText(),
                 a.getSelectedChoiceIds(), a.getAudioAnswerUrl(), a.isAutoGradable(), a.getAutoScore(), a.getCorrect(),
                 correctChoiceIds, correctAnswerText, explanation, a.getStructuredAnswer(), correctStructuredContent,
-                gradingScore, gradingMaxScore, gradingFeedback, gradingSource);
+                gradingScore, gradingMaxScore, gradingFeedback, gradingSource, a.isCarriedOverFromPreviousAttempt());
     }
 }

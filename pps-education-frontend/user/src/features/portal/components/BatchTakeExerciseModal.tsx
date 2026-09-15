@@ -21,7 +21,7 @@ import {
   submitAttempt,
   uploadMedia
 } from "../api";
-import { GridQuestionGroup, QuestionBlock, canRetakeExercise, groupQuestionsByGroupKey } from "./TakeExerciseModal";
+import { GridQuestionGroup, QuestionBlock, canRetakeExercise, groupQuestionsByGroupKey, isLockedCarriedOver } from "./TakeExerciseModal";
 import { useLockBodyScroll } from "@/components/ui/useLockBodyScroll";
 import { useIntegrityMonitor } from "../hooks/useIntegrityMonitor";
 import MonitoringBadge from "./MonitoringBadge";
@@ -341,11 +341,24 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
         return s;
       });
       setSubs(refreshed);
+      // V177 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-15) — lượt mới không còn trống
+      // hoàn toàn: BE đã carry-forward sẵn các câu ĐÃ ĐÚNG ở lượt trước (xem
+      // ExerciseAttemptService#startAttempt) — phải tải lại đúng answers của lượt mới (listAnswers),
+      // không chỉ xoá khỏi map như trước (lúc đó lượt mới luôn trống hoàn toàn nên xoá là đủ).
+      const newAnswerLists = await Promise.all(
+        refreshed.map((s, i) => {
+          const result = results[i];
+          return result.status === "fulfilled" && result.value ? listAnswers(result.value.id) : Promise.resolve(null);
+        })
+      );
       setAnswersByQuestion((prev) => {
         const next = new Map(prev);
         refreshed.forEach((s, i) => {
           const result = results[i];
-          if (result.status === "fulfilled" && result.value) s.questions.forEach((q) => next.delete(q.questionId));
+          if (result.status === "fulfilled" && result.value) {
+            s.questions.forEach((q) => next.delete(q.questionId));
+            newAnswerLists[i]?.forEach((a) => next.set(a.questionId, a));
+          }
         });
         return next;
       });
@@ -656,7 +669,7 @@ export default function BatchTakeExerciseModal({ items, onClose }: BatchTakeExer
                       question={block.question}
                       displayNumber={startNumber}
                       answer={answersByQuestion.get(block.question.questionId)}
-                      readOnly={sectionReadOnly}
+                      readOnly={sectionReadOnly || isLockedCarriedOver(answersByQuestion.get(block.question.questionId))}
                       saving={savingQuestionId === block.question.questionId}
                       attemptsRemainingBeforeAnswer={attemptsRemainingBeforeAnswer}
                       textValue={textDraft[block.question.questionId]}

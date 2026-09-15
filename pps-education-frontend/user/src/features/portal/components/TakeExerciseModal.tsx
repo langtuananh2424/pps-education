@@ -228,6 +228,26 @@ function isAnswerRevealed(answer: StudentAnswerResponse): boolean {
 }
 
 /**
+ * V177 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-15) — UC-24/UC-27 A2: câu đã được
+ * mang nguyên nội dung từ lượt làm TRƯỚC (đã đúng) sang lượt "Làm lại" hiện tại (xem
+ * ExerciseAttemptService#startAttempt) — phải hiện dạng chỉ xem/khoá, không cho sửa, độc lập với
+ * readOnly toàn-attempt (câu này khoá NGAY CẢ KHI attempt đang IN_PROGRESS).
+ */
+export function isLockedCarriedOver(answer: StudentAnswerResponse | undefined): boolean {
+  return answer?.carriedOverFromPreviousAttempt === true;
+}
+
+/** V177 — chỉ báo nhỏ cạnh câu đã khoá vì carry-forward, khác hẳn LockedAnswerBanner (đó là "chưa được XEM đáp án"). */
+function CarriedOverBadge() {
+  const { t } = useTranslation("portal-exercises");
+  return (
+    <span className="inline-flex items-center gap-1 text-[13px] font-extrabold text-teal-deep bg-teal/10 border border-teal/20 px-2 py-0.5 rounded-full">
+      <Lock size={10} /> {t("takeExercise.carriedOverBadge")}
+    </span>
+  );
+}
+
+/**
  * UC-24/UC-27: màn "Làm bài" thật — mở/tiếp tục lượt làm, trả lời từng câu, nộp bài.
  * Luôn ưu tiên tiếp tục/xem lại attempt đã có (item.myLatestAttemptId) qua getAttempt —
  * chỉ startAttempt khi CHƯA có attempt nào, tránh vô tình tạo thêm lượt làm mới lúc đang
@@ -483,6 +503,12 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
    * chỉ bấm được khi đang xem 1 lượt cũ (readOnly) và canRetakeExercise() còn true (chưa hết lượt,
    * chưa quá hạn nộp — xem ExerciseAttemptService#toAssignedResponse). Thay hẳn cho logic tự động mở
    * lượt mới lúc vào modal đã bỏ ở load() — học sinh phải chủ động bấm mới tạo lượt mới.
+   *
+   * V177 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-15) — KHÔNG còn tự xoá trắng
+   * answersByQuestion: lượt mới do BE tạo đã có sẵn các câu ĐÃ ĐÚNG ở lượt trước (carry-forward, xem
+   * ExerciseAttemptService#startAttempt) — loadAnswers(fresh.id) sẽ tải đúng các câu đó (kèm cờ
+   * carriedOverFromPreviousAttempt để khoá lại, xem isLockedCarriedOver), chỉ còn câu sai/chưa trả lời
+   * là thật sự trống.
    */
   const handleRetake = async () => {
     setError(null);
@@ -490,7 +516,6 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
     try {
       const fresh = await startAttempt(item.exerciseId, item.assignmentId);
       setAttempt(fresh);
-      setAnswersByQuestion(new Map());
       setTextDraft({});
       setJustSubmitted(false);
       loadAnswers(fresh.id);
@@ -811,7 +836,7 @@ export default function TakeExerciseModal({ item, onClose }: TakeExerciseModalPr
                   key={block.question.id}
                   question={block.question}
                   answer={answersByQuestion.get(block.question.questionId)}
-                  readOnly={readOnly}
+                  readOnly={readOnly || isLockedCarriedOver(answersByQuestion.get(block.question.questionId))}
                   saving={savingQuestionId === block.question.questionId}
                   attemptsRemainingBeforeAnswer={attemptsRemainingBeforeAnswer}
                   textValue={textDraft[block.question.questionId]}
@@ -1069,6 +1094,8 @@ export function QuestionBlock({
           <span className="text-[10px] sm:text-xs text-muted font-bold">{t("takeExercise.question.pointsSuffix", { points: question.points })}</span>
         </div>
       </div>
+
+      {isLockedCarriedOver(answer) && <CarriedOverBadge />}
 
       <ListeningAudioBlock question={question} onEnded={() => onListeningEnded(question)} />
 
@@ -1762,12 +1789,17 @@ export function GridQuestionGroup({
           const isChoiceRow = CHOICE_TYPES.has(q.questionType) && q.choices.length > 0;
           const isFillInBlankRow = q.questionType === "FILL_IN_BLANK";
           const isSpeakingRow = q.questionType === "SPEAKING";
+          // V177 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-15) — khoá TỪNG câu riêng
+          // trong nhóm theo carry-forward, khác `readOnly` (áp cho cả nhóm/cả attempt) — 1 nhóm có thể
+          // có câu đã đúng (khoá) lẫn câu sai (còn sửa được) cùng lúc.
+          const rowReadOnly = readOnly || isLockedCarriedOver(answer);
           return (
             <div key={q.id} className="py-2.5 lg:py-3.5 space-y-2">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-sm sm:text-sm lg:text-base font-bold text-ink flex-1 min-w-[160px]">
                   {startNumber != null ? startNumber + qIndex : q.displayOrder}. {q.questionContent}
                 </span>
+                {isLockedCarriedOver(answer) && <CarriedOverBadge />}
               </div>
 
               {/*
@@ -1808,7 +1840,7 @@ export function GridQuestionGroup({
                           <button
                             key={c.id}
                             type="button"
-                            disabled={readOnly || saving}
+                            disabled={rowReadOnly || saving}
                             onClick={() => onChoiceToggle(q.questionId, [c.id])}
                             className={`relative text-left rounded-xl border-2 overflow-hidden transition-colors ${stateClass} disabled:cursor-default`}
                           >
@@ -1845,7 +1877,7 @@ export function GridQuestionGroup({
                         <button
                           key={c.id}
                           type="button"
-                          disabled={readOnly || saving}
+                          disabled={rowReadOnly || saving}
                           onClick={() => onChoiceToggle(q.questionId, [c.id])}
                           className={`w-full text-left text-xs sm:text-sm font-bold px-3 py-2 rounded-xl border transition-colors flex items-center justify-between gap-2 ${stateClass} disabled:cursor-default`}
                         >
@@ -1875,7 +1907,7 @@ export function GridQuestionGroup({
                     value={textDraft[q.questionId] ?? answer?.answerText ?? ""}
                     onChange={(e) => onTextChange(q.questionId, e.target.value)}
                     onBlur={() => onTextBlur(q.questionId)}
-                    disabled={readOnly || saving}
+                    disabled={rowReadOnly || saving}
                     placeholder={t("takeExercise.question.answerPlaceholder")}
                     className="w-full bg-sky-2 border border-line/70 text-xs sm:text-sm lg:text-base p-2.5 sm:p-3 rounded-xl focus:outline-none disabled:opacity-70"
                   />
@@ -1897,7 +1929,7 @@ export function GridQuestionGroup({
                   <input
                     type="file"
                     accept="audio/*"
-                    disabled={readOnly || saving}
+                    disabled={rowReadOnly || saving}
                     onClick={onFilePickerOpen}
                     onChange={(e) => {
                       const file = e.target.files?.[0];
