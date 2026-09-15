@@ -33,7 +33,9 @@ export default function AttendanceSiteFormModal({ site, onClose, onSaved }: Atte
     phone: site?.phone ?? "",
     status: (site?.status ?? "ACTIVE") as "ACTIVE" | "INACTIVE" | "PENDING",
     latitude: site?.latitude != null ? String(site.latitude) : "",
-    longitude: site?.longitude != null ? String(site.longitude) : ""
+    longitude: site?.longitude != null ? String(site.longitude) : "",
+    usedForClasses: site?.usedForClasses ?? true,
+    usedForAttendance: site?.usedForAttendance ?? true
   });
   const [submitting, setSubmitting] = useState(false);
   const [locating, setLocating] = useState(false);
@@ -83,7 +85,9 @@ export default function AttendanceSiteFormModal({ site, onClose, onSaved }: Atte
           phone: form.phone.trim() || undefined,
           status: form.status,
           latitude,
-          longitude
+          longitude,
+          usedForClasses: form.usedForClasses,
+          usedForAttendance: form.usedForAttendance
         };
         const updated = await updateSite(site!.id, request);
         onSaved(updated.id);
@@ -96,7 +100,9 @@ export default function AttendanceSiteFormModal({ site, onClose, onSaved }: Atte
           district: form.district.trim() || undefined,
           phone: form.phone.trim() || undefined,
           latitude,
-          longitude
+          longitude,
+          usedForClasses: form.usedForClasses,
+          usedForAttendance: form.usedForAttendance
         };
         const created = await createSite(request);
         onSaved(created.id);
@@ -163,6 +169,25 @@ export default function AttendanceSiteFormModal({ site, onClose, onSaved }: Atte
               </Select>
             </div>
           )}
+        </div>
+
+        <div className="flex items-center gap-4 border-t border-slate-100 pt-4">
+          <label className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+            <input
+              type="checkbox"
+              checked={form.usedForClasses}
+              onChange={(e) => setForm({ ...form, usedForClasses: e.target.checked })}
+            />
+            {t("attendanceSiteForm.usedForClassesCheckbox")}
+          </label>
+          <label className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+            <input
+              type="checkbox"
+              checked={form.usedForAttendance}
+              onChange={(e) => setForm({ ...form, usedForAttendance: e.target.checked })}
+            />
+            {t("attendanceSiteForm.usedForAttendanceCheckbox")}
+          </label>
         </div>
 
         <div className="space-y-2 border-t border-slate-100 pt-4">
