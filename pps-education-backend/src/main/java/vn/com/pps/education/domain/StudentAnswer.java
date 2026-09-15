@@ -63,4 +63,14 @@ public class StudentAnswer {
 
     @Column(name = "is_correct")
     private Boolean correct;
+
+    /**
+     * V177 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-15) — UC-24/UC-27 A2: đánh dấu
+     * câu này được COPY nguyên nội dung từ lượt làm TRƯỚC (đã trả lời đúng, auto-gradable) sang lượt
+     * "Làm lại" hiện tại, thay vì học sinh vừa tự trả lời trong lượt này — xem
+     * ExerciseAttemptService#startAttempt. Câu carry-forward bị khoá, không cho sửa lại
+     * (ExerciseAttemptService#saveAnswer).
+     */
+    @Column(name = "carried_over_from_previous_attempt", nullable = false)
+    private boolean carriedOverFromPreviousAttempt;
 }

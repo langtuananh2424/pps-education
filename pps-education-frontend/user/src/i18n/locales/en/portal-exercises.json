@@ -16,6 +16,7 @@
     "closeAriaLabel": "Close",
     "loadingExam": "Loading exercise...",
     "noQuestions": "This exercise doesn't have any questions yet.",
+    "carriedOverBadge": "Already correct last attempt — locked",
     "attemptNumber": "Attempt #{{number}}",
     "status": {
       "inProgress": "In progress",

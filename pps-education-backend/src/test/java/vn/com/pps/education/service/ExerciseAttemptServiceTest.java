@@ -8,6 +8,7 @@ import vn.com.pps.education.domain.ExerciseAssignment;
 import vn.com.pps.education.domain.Role;
 import vn.com.pps.education.domain.Site;
 import vn.com.pps.education.domain.Student;
+import vn.com.pps.education.domain.StudentAnswer;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.domain.UserRole;
 import vn.com.pps.education.dto.AddExerciseQuestionRequest;
@@ -37,6 +38,7 @@ import vn.com.pps.education.exception.SubmissionPastDeadlineException;
 import vn.com.pps.education.repository.ExerciseAssignmentRepository;
 import vn.com.pps.education.repository.RoleRepository;
 import vn.com.pps.education.repository.SiteRepository;
+import vn.com.pps.education.repository.StudentAnswerRepository;
 import vn.com.pps.education.repository.StudentRepository;
 import vn.com.pps.education.repository.UserRepository;
 import vn.com.pps.education.repository.UserRoleRepository;
@@ -106,6 +108,9 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
 
     @Autowired
     private ExerciseAttemptTimeoutSchedulerService exerciseAttemptTimeoutSchedulerService;
+
+    @Autowired
+    private StudentAnswerRepository studentAnswerRepository;
 
     private User headAcademic;
     private User teacher;
@@ -321,6 +326,131 @@ class ExerciseAttemptServiceTest extends AbstractIntegrationTest {
         assertThat(second.attemptNumber()).isEqualTo(2);
         assertThatThrownBy(() -> exerciseAttemptService.startAttempt(exercise.id(), activeAssignmentId(exercise.id()), studentUser.getId()))
                 .isInstanceOf(RetakeNotAllowedException.class);
+    }
+
+    /**
+     * V177 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-15) — UC-24/UC-27 A2 (SỬA LẠI):
+     * "Làm lại" giờ chỉ cần làm lại câu SAI — câu đã trả lời ĐÚNG ở lượt trước được mang nguyên nội
+     * dung sang lượt mới (carriedOverFromPreviousAttempt=true), câu sai/chưa trả lời thì KHÔNG có sẵn
+     * dòng nào (học sinh phải tự làm lại).
+     */
+    @Test
+    void startAttempt_UC24_A2_carriesForwardCorrectAnswersOnRetake() {
+        QuestionResponse mc1 = createMcQuestion();
+        QuestionResponse mc2 = createMcQuestion();
+        ExerciseResponse exercise = exerciseService.createExercise(
+                new CreateExerciseRequest(exerciseCode(), "BTVN", defaultExam.id(), null, "SELF_PRACTICE",
+                        new BigDecimal("2"), null, true, null, true), teacher.getId());
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc1.id(), 1, new BigDecimal("1.0")), teacher.getId());
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc2.id(), 2, new BigDecimal("1.0")), teacher.getId());
+        examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
+        commitCurrentTransactionAndStartNew();
+        ExerciseAssignment assignment = exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId());
+
+        ExerciseAttemptResponse first = exerciseAttemptService.startAttempt(exercise.id(), assignment.getId(), studentUser.getId());
+        answerCorrectly(first.id(), mc1);
+        Long wrongChoiceId = mc2.choices().stream().filter(c -> !c.isCorrect()).findFirst().orElseThrow().id();
+        exerciseAttemptService.saveAnswer(first.id(), new SaveAnswerRequest(mc2.id(), null, List.of(wrongChoiceId), null, null), studentUser.getId());
+        ExerciseAttemptResponse submittedFirst = exerciseAttemptService.submitAttempt(first.id(), studentUser.getId());
+        assertThat(submittedFirst.passed()).isFalse(); // 50% < ngưỡng mặc định 70% -> còn ACTIVE, còn lượt làm lại
+
+        ExerciseAttemptResponse second = exerciseAttemptService.startAttempt(exercise.id(), assignment.getId(), studentUser.getId());
+
+        StudentAnswer carried = studentAnswerRepository.findByExerciseAttemptIdAndQuestionId(second.id(), mc1.id()).orElseThrow();
+        assertThat(carried.isCarriedOverFromPreviousAttempt()).isTrue();
+        Long correctChoiceId = mc1.choices().stream().filter(c -> c.isCorrect()).findFirst().orElseThrow().id();
+        assertThat(carried.getSelectedChoiceIds()).containsExactly(correctChoiceId);
+        assertThat(studentAnswerRepository.findByExerciseAttemptIdAndQuestionId(second.id(), mc2.id())).isEmpty();
+    }
+
+    /** V177 — chặn ở Backend, không chỉ ẩn nút ở FE. */
+    @Test
+    void saveAnswer_UC24_A2_rejectsEditingCarriedOverAnswer() {
+        QuestionResponse mc1 = createMcQuestion();
+        QuestionResponse mc2 = createMcQuestion();
+        ExerciseResponse exercise = exerciseService.createExercise(
+                new CreateExerciseRequest(exerciseCode(), "BTVN", defaultExam.id(), null, "SELF_PRACTICE",
+                        new BigDecimal("2"), null, true, null, true), teacher.getId());
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc1.id(), 1, new BigDecimal("1.0")), teacher.getId());
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc2.id(), 2, new BigDecimal("1.0")), teacher.getId());
+        examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
+        commitCurrentTransactionAndStartNew();
+        ExerciseAssignment assignment = exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId());
+
+        ExerciseAttemptResponse first = exerciseAttemptService.startAttempt(exercise.id(), assignment.getId(), studentUser.getId());
+        answerCorrectly(first.id(), mc1);
+        Long wrongChoiceId = mc2.choices().stream().filter(c -> !c.isCorrect()).findFirst().orElseThrow().id();
+        exerciseAttemptService.saveAnswer(first.id(), new SaveAnswerRequest(mc2.id(), null, List.of(wrongChoiceId), null, null), studentUser.getId());
+        exerciseAttemptService.submitAttempt(first.id(), studentUser.getId());
+        ExerciseAttemptResponse second = exerciseAttemptService.startAttempt(exercise.id(), assignment.getId(), studentUser.getId());
+
+        assertThatThrownBy(() -> exerciseAttemptService.saveAnswer(second.id(),
+                new SaveAnswerRequest(mc1.id(), null, List.of(wrongChoiceId), null, null), studentUser.getId()))
+                .isInstanceOf(AttemptNotEditableException.class);
+    }
+
+    /** V177 — điểm cuối cùng = điểm câu carry-forward (giữ nguyên) + điểm câu vừa sửa lại. */
+    @Test
+    void submitAttempt_UC24_A2_combinesCarriedOverAndNewlyCorrectedAnswerScoreOnRetake() {
+        QuestionResponse mc1 = createMcQuestion();
+        QuestionResponse mc2 = createMcQuestion();
+        ExerciseResponse exercise = exerciseService.createExercise(
+                new CreateExerciseRequest(exerciseCode(), "BTVN", defaultExam.id(), null, "SELF_PRACTICE",
+                        new BigDecimal("2"), null, true, null, true), teacher.getId());
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc1.id(), 1, new BigDecimal("1.0")), teacher.getId());
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc2.id(), 2, new BigDecimal("1.0")), teacher.getId());
+        examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
+        commitCurrentTransactionAndStartNew();
+        ExerciseAssignment assignment = exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId());
+
+        ExerciseAttemptResponse first = exerciseAttemptService.startAttempt(exercise.id(), assignment.getId(), studentUser.getId());
+        answerCorrectly(first.id(), mc1);
+        Long wrongChoiceId = mc2.choices().stream().filter(c -> !c.isCorrect()).findFirst().orElseThrow().id();
+        exerciseAttemptService.saveAnswer(first.id(), new SaveAnswerRequest(mc2.id(), null, List.of(wrongChoiceId), null, null), studentUser.getId());
+        exerciseAttemptService.submitAttempt(first.id(), studentUser.getId());
+
+        ExerciseAttemptResponse second = exerciseAttemptService.startAttempt(exercise.id(), assignment.getId(), studentUser.getId());
+        // Không đụng lại mc1 (đã carry-forward, khoá) — chỉ sửa mc2 (câu sai trước đó).
+        answerCorrectly(second.id(), mc2);
+        ExerciseAttemptResponse submittedSecond = exerciseAttemptService.submitAttempt(second.id(), studentUser.getId());
+
+        assertThat(submittedSecond.totalScore()).isEqualByComparingTo("2.0");
+        assertThat(submittedSecond.percentage()).isEqualByComparingTo("100.00");
+        assertThat(submittedSecond.passed()).isTrue();
+    }
+
+    /**
+     * V177 — ESSAY/SPEAKING chấm tay/AI không có cờ correct tin cậy (xem Javadoc
+     * ExerciseAttemptService#toResponse(StudentAnswer)) nên KHÔNG được carry-forward dù đã trả lời ở
+     * lượt trước — luôn phải nộp lại ở mọi lượt làm lại.
+     */
+    @Test
+    void startAttempt_UC24_A2_doesNotCarryOverManuallyGradedEssayAnswer() {
+        QuestionResponse mc = createMcQuestion();
+        QuestionResponse essay = examQuestionService.createQuestion(defaultExam.id(),
+                new CreateExamQuestionRequest("ESSAY", "WRITING", "MEDIUM", "Viết đoạn văn.", null, null, null,
+                        null, null, new BigDecimal("2.0"), null, null, null, null),
+                teacher.getId());
+        ExerciseResponse exercise = exerciseService.createExercise(
+                new CreateExerciseRequest(exerciseCode(), "BTVN", defaultExam.id(), null, "SELF_PRACTICE",
+                        new BigDecimal("3"), null, true, null, true), teacher.getId());
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("1.0")), teacher.getId());
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(essay.id(), 2, new BigDecimal("2.0")), teacher.getId());
+        examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
+        commitCurrentTransactionAndStartNew();
+        ExerciseAssignment assignment = exerciseService.deliverToClass(exercise.id(), schoolClass.id(), null, teacher.getId());
+
+        ExerciseAttemptResponse first = exerciseAttemptService.startAttempt(exercise.id(), assignment.getId(), studentUser.getId());
+        Long wrongChoiceId = mc.choices().stream().filter(c -> !c.isCorrect()).findFirst().orElseThrow().id();
+        exerciseAttemptService.saveAnswer(first.id(), new SaveAnswerRequest(mc.id(), null, List.of(wrongChoiceId), null, null), studentUser.getId());
+        exerciseAttemptService.saveAnswer(first.id(),
+                new SaveAnswerRequest(essay.id(), "Bài làm của em...", null, null, null), studentUser.getId());
+        exerciseAttemptService.submitAttempt(first.id(), studentUser.getId());
+
+        ExerciseAttemptResponse second = exerciseAttemptService.startAttempt(exercise.id(), assignment.getId(), studentUser.getId());
+
+        assertThat(studentAnswerRepository.findByExerciseAttemptIdAndQuestionId(second.id(), essay.id())).isEmpty();
+        assertThat(studentAnswerRepository.findByExerciseAttemptIdAndQuestionId(second.id(), mc.id())).isEmpty();
     }
 
     @Test
