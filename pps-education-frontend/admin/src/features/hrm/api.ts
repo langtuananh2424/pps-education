@@ -2,6 +2,13 @@ import { apiRequest, apiRequestBlob } from "@/lib/apiClient";
 import type { CreateUserRequest } from "@/features/system-admin/api";
 import type { ClassSessionCheckInStatusResponse, ClassSessionResponse } from "@/features/academic/api";
 
+/** Bắn ra khi chấm công cá nhân (vào/ra) thành công — để các nơi fetch trạng thái chấm công độc
+ * lập với nhau (VD pill ở Header vs AttendanceReminderBanner ở trang Điểm danh) tự refetch theo,
+ * cùng pattern với PUSH_RECEIVED_EVENT (xem lib/pushNotifications.ts). Bổ sung ngoài SDD gốc — sửa
+ * lỗi banner báo "chưa chấm công" dù đã chấm công xong ở popup Header trong cùng phiên, do trước
+ * đây mỗi nơi tự giữ state riêng không đồng bộ. */
+export const ATTENDANCE_CHECKED_EVENT = "pps:attendance-checked";
+
 /** Khớp EmployeeResponse thật của backend — xem UC-08 (Quản lý hồ sơ nhân sự). */
 export interface EmployeeResponse {
   id: number;
