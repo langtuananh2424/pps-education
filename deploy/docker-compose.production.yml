@@ -19,6 +19,36 @@ services:
   postgres:
     image: postgis/postgis:16-3.4
     restart: unless-stopped
+    # Bổ sung 2026-09-15 (đã xác nhận với người dùng) - fix gap: file này TRƯỚC ĐÂY không tune Postgres
+    # (chạy nguyên mặc định của image: shared_buffers 128MB, max_connections 100) dù chạy CHUNG 1 server
+    # vật lý 40 core/30GB với staging - staging đã tune từ trước, production bị sót khi tạo file này từ
+    # bản staging. Mirror ĐÚNG giá trị staging đang dùng (xem docker-compose.staging.yml để biết giải
+    # thích từng dòng) - production là nơi chịu tải thật (VD 300 học sinh làm bài Video phản xạ cùng lúc,
+    # mỗi lượt chấm AI giữ 1 DB connection suốt thời gian chờ - xem NineRouterAiClient.java), nên tune
+    # này còn quan trọng hơn cả staging.
+    command:
+      - postgres
+      - -c
+      - max_connections=200
+      - -c
+      - shared_buffers=4GB
+      - -c
+      - effective_cache_size=12GB
+      - -c
+      - work_mem=16MB
+      - -c
+      - maintenance_work_mem=512MB
+      - -c
+      - random_page_cost=1.1          # SSD, không phải đĩa quay
+      - -c
+      - max_worker_processes=16
+      - -c
+      - max_parallel_workers=16
+      - -c
+      - max_parallel_workers_per_gather=4
+    # Parallel worker của Postgres dùng /dev/shm; mặc định Docker chỉ cấp 64MB
+    # -> query song song sẽ lỗi "could not resize shared memory segment".
+    shm_size: 1gb
     environment:
       POSTGRES_DB: pps_education
       POSTGRES_USER: pps_app
@@ -91,8 +121,8 @@ services:
       # (xem comment tại spring.datasource.hikari trong application.yml), bất kể .env production có set
       # gì - pool 10 connection quá thấp khi nhiều học sinh nộp bài đồng thời (mỗi lượt giữ 1 connection
       # suốt thời gian chờ AI chấm - xem NineRouterAiClient.java). Mirror đúng giá trị đã dùng ở
-      # docker-compose.staging.yml. Postgres service bên dưới CHƯA custom max_connections (còn mặc định
-      # 100 của image postgis) - 50 vẫn còn dư chỗ cho psql/pgAdmin vì hiện chỉ 1 instance backend.
+      # docker-compose.staging.yml. Postgres service bên dưới nay đã tune max_connections=200 (xem
+      # comment tại service postgres) - 50 vẫn còn dư chỗ cho psql/pgAdmin vì hiện chỉ 1 instance backend.
       DB_POOL_SIZE: ${DB_POOL_SIZE:-50}
       DB_POOL_MIN_IDLE: ${DB_POOL_MIN_IDLE:-10}
       DB_POOL_TIMEOUT_MS: ${DB_POOL_TIMEOUT_MS:-10000}
