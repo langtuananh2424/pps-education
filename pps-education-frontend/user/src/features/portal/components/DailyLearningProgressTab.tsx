@@ -799,12 +799,12 @@ export default function DailyLearningProgressTab({
               </div>
 
               <div className="p-3.5 bg-slate-50/80 rounded-xl border-l-4 border-teal text-xs text-ink/90 font-medium leading-relaxed italic">
-                <span className="font-extrabold not-italic text-slate-700 block mb-0.5">{t("card.teacherComment")}</span>"{log.content}"
+                <span className="text-sm font-extrabold not-italic text-slate-700 block mb-0.5">{t("card.teacherComment")}</span>"{log.content}"
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
                 <div className="p-3.5 bg-slate-50 rounded-xl border border-line/80 space-y-2">
-                  <div className="flex items-center justify-between font-black text-slate-800 uppercase tracking-wider text-[11px]">
+                  <div className="flex items-center justify-between font-black text-slate-800 uppercase tracking-wider text-[12px]">
                     <span className="flex items-center gap-1">
                       <CheckCircle2 size={13} className="text-emerald-600" aria-hidden="true" /> {t("card.prevHomeworkResult")}
                     </span>
@@ -812,23 +812,23 @@ export default function DailyLearningProgressTab({
                   </div>
 
                   <div className="space-y-1.5 pt-1">
-                    <div className="flex justify-between text-[11px]">
+                    <div className="flex justify-between text-[12px]">
                       <span className="text-slate-600 font-semibold">{t("card.offlineLabel")}</span>
                       <span className="font-bold text-slate-900">{log.homeworkPreviousOfflineText || "—"}</span>
                     </div>
                     {isVietnameseSession && (
                       <>
-                        <div className="flex justify-between text-[11px]">
+                        <div className="flex justify-between text-[12px]">
                           <span className="text-slate-600 font-semibold">{t("table.reading")}:</span>
                           <span className="font-bold text-slate-900">{prevReadingDisplay || "—"}</span>
                         </div>
-                        <div className="flex justify-between text-[11px]">
+                        <div className="flex justify-between text-[12px]">
                           <span className="text-slate-600 font-semibold">{t("table.writing")}:</span>
                           <span className="font-bold text-slate-900">{prevWritingDisplay || "—"}</span>
                         </div>
                       </>
                     )}
-                    <div className="flex justify-between text-[11px]">
+                    <div className="flex justify-between text-[12px]">
                       <span className="text-slate-600 font-semibold">{cardGrammarLabel}:</span>
                       <span className="font-bold text-slate-900">{prevGrammarDisplay || "—"}</span>
                     </div>
@@ -837,7 +837,7 @@ export default function DailyLearningProgressTab({
                         <div className="bg-emerald-500 h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(100, Math.max(0, prevGrammarPercent))}%` }} />
                       </div>
                     )}
-                    <div className="flex justify-between text-[11px] pt-1">
+                    <div className="flex justify-between text-[12px] pt-1">
                       <span className="text-slate-600 font-semibold">{cardVideoLabel}:</span>
                       <span className="font-bold text-purple-900">{prevSpeakingDisplay || "—"}</span>
                     </div>
@@ -845,40 +845,40 @@ export default function DailyLearningProgressTab({
                 </div>
 
                 <div className="p-3.5 bg-slate-50 rounded-xl border border-line/80 space-y-2">
-                  <div className="flex items-center justify-between font-black text-slate-800 uppercase tracking-wider text-[11px]">
+                  <div className="flex items-center justify-between font-black text-slate-800 uppercase tracking-wider text-[12px]">
                     <span className="flex items-center gap-1">
                       <BookOpen size={13} className="text-blue-600" aria-hidden="true" /> {t("card.homework")}
                     </span>
                   </div>
 
                   <div className="space-y-2 pt-1">
-                    <div className="flex items-start justify-between gap-2 text-[11px]">
+                    <div className="flex items-start justify-between gap-2 text-[12px]">
                       <span className="font-bold text-slate-800 shrink-0">{t("card.offlineLabel")}</span>
                       <span className="font-semibold text-slate-700 text-right">{log.homeworkNextOfflineText || "—"}</span>
                     </div>
                     {isVietnameseSession && (
                       <>
-                        <div className="flex items-start justify-between gap-2 text-[11px]">
+                        <div className="flex items-start justify-between gap-2 text-[12px]">
                           <span className="font-bold text-slate-800 shrink-0">{t("table.reading")}:</span>
                           {renderReadingLabel(log, "font-semibold text-right")}
                         </div>
-                        <div className="flex items-start justify-between gap-2 text-[11px]">
+                        <div className="flex items-start justify-between gap-2 text-[12px]">
                           <span className="font-bold text-slate-800 shrink-0">{t("table.writing")}:</span>
                           {renderWritingLabel(log, "font-semibold text-right")}
                         </div>
                       </>
                     )}
-                    <div className="flex items-start justify-between gap-2 text-[11px]">
+                    <div className="flex items-start justify-between gap-2 text-[12px]">
                       <span className="font-bold text-slate-800 shrink-0">{cardGrammarLabel}:</span>
                       {renderGrammarLabel(log, "font-semibold text-right")}
                     </div>
-                    <div className="flex items-start justify-between gap-2 text-[11px]">
+                    <div className="flex items-start justify-between gap-2 text-[12px]">
                       <span className="flex items-center gap-1.5 font-bold text-slate-800 shrink-0">
                         <Video size={12} className="text-amber-600 shrink-0" aria-hidden="true" /> {cardVideoLabel}:
                       </span>
                       {renderVideoLabel(log, "font-semibold text-right")}
                     </div>
-                    <div className="pt-1 border-t border-line/60 flex items-start justify-between gap-2 text-[11px]">
+                    <div className="pt-1 border-t border-line/60 flex items-start justify-between gap-2 text-[12px]">
                       <span className="font-bold text-slate-800 shrink-0">{t("card.dueDateLabel")}</span>
                       <span className="font-semibold text-slate-700 text-right">
                         {log.homeworkNextDueAt ? formatDateTimeHm(log.homeworkNextDueAt, i18n.language) : "—"}
