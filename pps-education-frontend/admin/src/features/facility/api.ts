@@ -16,6 +16,9 @@ export interface SiteResponse {
   /** sites.geo_location (PostGIS) — dùng validate bán kính GPS chấm công UC-09 A2. null nếu chưa cấu hình. */
   latitude: number | null;
   longitude: number | null;
+  /** V176 (bổ sung ngoài SDD gốc, xác nhận 2026-09-14) — tách "dùng cho xếp lớp" khỏi "dùng cho chấm công GPS". Mặc định true cho cả 2. */
+  usedForClasses: boolean;
+  usedForAttendance: boolean;
 }
 
 export interface PartnerSchoolInfo {
@@ -38,6 +41,8 @@ export interface CreateSiteRequest {
   managerUserId?: number;
   latitude?: number;
   longitude?: number;
+  usedForClasses?: boolean;
+  usedForAttendance?: boolean;
 }
 
 /** Khớp UpdateSiteRequest thật — đổi siteType sang OWNED sẽ xóa cứng partnerInfo phía BE. */
@@ -51,6 +56,8 @@ export interface UpdateSiteRequest {
   partnerInfo?: PartnerSchoolInfo;
   latitude?: number;
   longitude?: number;
+  usedForClasses?: boolean;
+  usedForAttendance?: boolean;
 }
 
 export interface PartnerContractResponse {

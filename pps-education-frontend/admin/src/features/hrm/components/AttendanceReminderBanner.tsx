@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { AttendanceRecordResponse, getMyTodayAttendance } from "../api";
+import { ATTENDANCE_CHECKED_EVENT, AttendanceRecordResponse, getMyTodayAttendance } from "../api";
 
 /**
  * Nhắc mềm (KHÔNG chặn thao tác) khi GV mở màn Điểm danh/Nhận xét mà chưa chấm công hôm nay — bổ
@@ -14,9 +14,16 @@ export default function AttendanceReminderBanner() {
   const [myAttendance, setMyAttendance] = useState<AttendanceRecordResponse | undefined>(undefined);
 
   useEffect(() => {
-    getMyTodayAttendance()
-      .then(setMyAttendance)
-      .catch(() => setMyAttendance(undefined));
+    const load = () => {
+      getMyTodayAttendance()
+        .then(setMyAttendance)
+        .catch(() => setMyAttendance(undefined));
+    };
+    load();
+    // Chấm công qua popup ở Header không remount banner này -- tự refetch khi có sự kiện thay vì
+    // đợi F5/điều hướng lại, tránh còn báo "chưa chấm công" dù đã chấm công xong trong cùng phiên.
+    window.addEventListener(ATTENDANCE_CHECKED_EVENT, load);
+    return () => window.removeEventListener(ATTENDANCE_CHECKED_EVENT, load);
   }, []);
 
   if (!myAttendance || myAttendance.id != null) return null;

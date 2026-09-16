@@ -18,6 +18,9 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.UUID;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
 /**
  * SPIKE — KHÔNG phải business logic của 1 UC đã đặc tả trong docs/uc/. Dựng theo yêu cầu người dùng
@@ -34,11 +37,18 @@ import java.util.UUID;
  *   /audio/transcriptions}, model theo Dashboard 9Router → Media Providers → Speech To Text (VD
  *   "groq/whisper-large-v3-turbo").
  *
- * Yêu cầu chạy 9Router local trước (`npm install -g 9router && 9router`, mặc định cổng 20128) và cấu
- * hình provider tương ứng trong Dashboard — client này KHÔNG tự khởi động 9Router. Được gọi thật từ
+ * Yêu cầu chạy 9Router trước (`npm install -g 9router && 9router`, mặc định cổng 20128) và cấu hình
+ * provider tương ứng trong Dashboard — client này KHÔNG tự khởi động 9Router. Được gọi thật từ
  * {@link WritingAiGradingService} (UC-40/41) và {@link ReflexSpeakingContentAiGradingService}/
- * {@link ReflexWritingGrammarAiGradingService} (UC-23b) — LƯU Ý VẬN HÀNH: 9Router hiện CHỈ chạy local
- * trên máy dev, CHƯA có kế hoạch tự host cho staging/production (xem Javadoc các service gọi client này).
+ * {@link ReflexWritingGrammarAiGradingService} (UC-23b) — LƯU Ý VẬN HÀNH: 9Router chạy như 1 systemd
+ * service DUY NHẤT trên server vật lý (không phải container, không scale nhiều instance), dùng CHUNG
+ * cho cả staging lẫn production — backend mỗi stack gọi qua `host.docker.internal:20128` (Docker
+ * container → host), ufw giới hạn theo subnet Docker riêng của từng stack (xem `deploy/README.md` mục
+ * "9Router (chấm AI)"). Vì chỉ 1 process xử lý AI-grading cho CẢ 2 môi trường, traffic AI-grading của
+ * staging và production CẠNH TRANH nhau tại cùng 1 điểm nghẽn — cân nhắc khi đánh giá khả năng chịu tải
+ * giờ cao điểm. Client này gọi 9Router đồng bộ/blocking (request vẫn chờ và nhận kết quả chấm ngay
+ * trong response, không đổi UX) — từ 2026-09-15 có giới hạn số cuộc gọi ĐỒNG THỜI phía backend qua
+ * {@link #concurrencyLimiter} để tránh dội tải 1 process 9Router duy nhất, xem Javadoc field đó.
  */
 @Service
 public class NineRouterAiClient {
@@ -68,8 +78,27 @@ public class NineRouterAiClient {
     @Value("${app.ai-grading.nine-router-audio-model:ag/gemini-3.5-flash-low}")
     private String defaultAudioModel;
 
-    public NineRouterAiClient(ObjectMapper objectMapper) {
+    /**
+     * Bổ sung 2026-09-15 (đã xác nhận với người dùng) — giới hạn số request ĐỒNG THỜI mà backend gửi
+     * sang 9Router. 9Router chạy như 1 systemd service DUY NHẤT trên server (xem
+     * {@code app.ai-grading.nine-router-base-url}), không scale nhiều instance — nếu backend bắn thẳng
+     * mọi request đồng thời (VD nhiều học sinh nộp bài Video phản xạ giờ cao điểm), 9Router hoặc AI
+     * provider phía sau (rate-limit theo request/phút) có thể bị dội tải, gây lỗi hàng loạt thay vì chỉ
+     * vài request. {@link Semaphore} này KHÔNG đổi UX — request vẫn được xử lý đồng bộ, học sinh vẫn
+     * nhận kết quả chấm trong cùng 1 response; chỉ khác là khi vượt ngưỡng, request mới phải CHỜ trong
+     * hàng đợi (tối đa {@code nineRouterAcquireTimeoutSeconds}) thay vì gọi thẳng 9Router ngay lập tức.
+     * Ngưỡng mặc định (5) là ước lượng THẬN TRỌNG ban đầu, CHƯA qua load test thật — cần đo lại trên
+     * staging rồi tinh chỉnh qua {@code app.ai-grading.nine-router-max-concurrent}.
+     */
+    private final Semaphore concurrencyLimiter;
+
+    @Value("${app.ai-grading.nine-router-acquire-timeout-seconds:20}")
+    private int acquireTimeoutSeconds;
+
+    public NineRouterAiClient(ObjectMapper objectMapper,
+                               @Value("${app.ai-grading.nine-router-max-concurrent:5}") int maxConcurrentCalls) {
         this.objectMapper = objectMapper;
+        this.concurrencyLimiter = new Semaphore(maxConcurrentCalls);
     }
 
     /**
@@ -86,6 +115,10 @@ public class NineRouterAiClient {
             log.warn("NineRouterAiClient: chưa cấu hình model (app.ai-grading.nine-router-model hoặc tham số model).");
             return null;
         }
+        return callWithConcurrencyLimit("chat", () -> doChat(systemPrompt, userMessage, resolvedModel));
+    }
+
+    private String doChat(String systemPrompt, String userMessage, String resolvedModel) {
         try {
             ObjectNode payload = objectMapper.createObjectNode();
             payload.put("model", resolvedModel);
@@ -146,6 +179,10 @@ public class NineRouterAiClient {
             log.warn("NineRouterAiClient: chưa cấu hình audio model (app.ai-grading.nine-router-audio-model hoặc tham số model).");
             return null;
         }
+        return callWithConcurrencyLimit("chatWithAudio", () -> doChatWithAudio(systemPrompt, userText, audioBytes, mimeType, resolvedModel));
+    }
+
+    private String doChatWithAudio(String systemPrompt, String userText, byte[] audioBytes, String mimeType, String resolvedModel) {
         try {
             ObjectNode payload = objectMapper.createObjectNode();
             payload.put("model", resolvedModel);
@@ -206,6 +243,10 @@ public class NineRouterAiClient {
             log.warn("NineRouterAiClient: chưa cấu hình STT model (app.ai-grading.nine-router-stt-model hoặc tham số model).");
             return null;
         }
+        return callWithConcurrencyLimit("transcribe", () -> doTranscribe(audioBytes, mimeType, resolvedModel));
+    }
+
+    private String doTranscribe(byte[] audioBytes, String mimeType, String resolvedModel) {
         try {
             String boundary = "----ppsNineRouterBoundary" + UUID.randomUUID();
             byte[] body = buildMultipartBody(boundary, resolvedModel, audioBytes, mimeType == null ? "audio/webm" : mimeType);
@@ -231,6 +272,33 @@ public class NineRouterAiClient {
             }
             log.warn("NineRouterAiClient: gọi 9Router (STT) thất bại. {}", e.getMessage());
             return null;
+        }
+    }
+
+    /**
+     * Giữ chỗ (permit) trước khi thực sự gọi 9Router, nhả lại ngay sau khi xong (thành công hay lỗi đều
+     * nhả) — xem Javadoc {@link #concurrencyLimiter}. Chờ quá {@code nineRouterAcquireTimeoutSeconds} mà
+     * vẫn không có permit thì bỏ cuộc, trả {@code null} giống mọi lỗi gọi 9Router khác (KHÔNG tự gọi
+     * thẳng bất chấp giới hạn, KHÔNG treo vô hạn).
+     */
+    private String callWithConcurrencyLimit(String operationName, Supplier<String> call) {
+        boolean acquired = false;
+        try {
+            acquired = concurrencyLimiter.tryAcquire(acquireTimeoutSeconds, TimeUnit.SECONDS);
+            if (!acquired) {
+                log.warn("NineRouterAiClient: {} bị bỏ qua - chờ quá {}s vẫn không có chỗ trống (đang giới hạn "
+                                + "app.ai-grading.nine-router-max-concurrent cuộc gọi đồng thời tới 9Router).",
+                        operationName, acquireTimeoutSeconds);
+                return null;
+            }
+            return call.get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return null;
+        } finally {
+            if (acquired) {
+                concurrencyLimiter.release();
+            }
         }
     }
 

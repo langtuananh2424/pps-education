@@ -42,7 +42,8 @@ export default function ClassFormModal({ onClose, onCreated }: ClassFormModalPro
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    listSites().then(setSites).catch(() => undefined);
+    // Chỉ site dùng cho xếp lớp (V176) — loại các địa điểm chỉ dùng cho Chấm công (VD trụ sở văn phòng).
+    listSites().then((all) => setSites(all.filter((s) => s.usedForClasses))).catch(() => undefined);
     listCurriculums().then(setCurriculums).catch(() => undefined);
     listAcademicYears().then(setAcademicYears).catch(() => undefined);
   }, []);

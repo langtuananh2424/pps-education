@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, ClipboardList, Layers, Pencil, Plus, Trash2, Users, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
@@ -121,43 +121,70 @@ export default function ExerciseAssignPage() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
     setBookFilter(null);
     if (!curriculumFilter) {
       setBookFilterOptions([]);
       return;
     }
-    listBooks(curriculumFilter).then(setBookFilterOptions).catch(() => setBookFilterOptions([]));
+    listBooks(curriculumFilter)
+      .then((res) => !cancelled && setBookFilterOptions(res))
+      .catch(() => !cancelled && setBookFilterOptions([]));
+    return () => {
+      cancelled = true;
+    };
   }, [curriculumFilter]);
 
   useEffect(() => {
+    let cancelled = false;
     setUnitFilter(null);
     setUnitFilterSubTopicIds(null);
     if (!bookFilter) {
       setUnitFilterOptions([]);
       return;
     }
-    listUnits(bookFilter).then(setUnitFilterOptions).catch(() => setUnitFilterOptions([]));
+    listUnits(bookFilter)
+      .then((res) => !cancelled && setUnitFilterOptions(res))
+      .catch(() => !cancelled && setUnitFilterOptions([]));
+    return () => {
+      cancelled = true;
+    };
   }, [bookFilter]);
 
   useEffect(() => {
+    let cancelled = false;
     if (!unitFilter) {
       setUnitFilterSubTopicIds(null);
       return;
     }
     listSubTopics(unitFilter)
-      .then((subTopics) => setUnitFilterSubTopicIds(new Set(subTopics.map((s) => s.id))))
-      .catch(() => setUnitFilterSubTopicIds(new Set()));
+      .then((subTopics) => !cancelled && setUnitFilterSubTopicIds(new Set(subTopics.map((s) => s.id))))
+      .catch(() => !cancelled && setUnitFilterSubTopicIds(new Set()));
+    return () => {
+      cancelled = true;
+    };
   }, [unitFilter]);
 
+  // Đổi filter liên tiếp (Curriculum/TeacherType) trước khi request trước hoàn tất từng làm response cũ
+  // về sau ghi đè state mới (selectedExamId nhảy lung tung -> tự kích lại loadExercises/loadAssignedClassCount
+  // ở ExamDetailPanel liên hồi) — chỉ áp dụng response của lần gọi loadExams() mới nhất.
+  const examsRequestIdRef = useRef(0);
   const loadExams = () => {
+    const requestId = ++examsRequestIdRef.current;
     setLoadingExams(true);
     listExams(curriculumFilter ?? undefined, teacherTypeFilter ?? undefined)
       .then((res) => {
+        if (requestId !== examsRequestIdRef.current) return;
         setExams(res);
         if (!res.some((e) => e.id === selectedExamId)) setSelectedExamId(res[0]?.id ?? null);
       })
-      .catch((err) => setError(err instanceof ApiError ? err.message : t("assignPage.loadExamsFailed")))
-      .finally(() => setLoadingExams(false));
+      .catch((err) => {
+        if (requestId !== examsRequestIdRef.current) return;
+        setError(err instanceof ApiError ? err.message : t("assignPage.loadExamsFailed"));
+      })
+      .finally(() => {
+        if (requestId === examsRequestIdRef.current) setLoadingExams(false);
+      });
   };
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -734,16 +761,37 @@ function ExamDetailPanel({
   const [error, setError] = useState<string | null>(null);
   const { confirmDialog } = useDialog();
 
+  // exam.id đổi liên tục khi người dùng đổi filter nhanh (Curriculum/Sách/Unit) trước khi request
+  // trước hoàn tất -> response cũ về sau có thể ghi đè danh sách Bài của Đề đang chọn hiện tại. Chỉ
+  // áp dụng response của lần gọi mới nhất cho mỗi hàm (bao gồm cả khi gọi thủ công để refresh sau khi
+  // tạo/gán, không chỉ từ effect [exam.id] bên dưới).
+  const exercisesRequestIdRef = useRef(0);
+  const assignedClassCountRequestIdRef = useRef(0);
+
   const loadExercises = () => {
+    const requestId = ++exercisesRequestIdRef.current;
     setLoadingExercises(true);
     listExercisesByExam(exam.id)
-      .then(setExercises)
-      .catch((err) => setError(err instanceof ApiError ? err.message : t("assignPage.examDetail.loadExercisesFailed")))
-      .finally(() => setLoadingExercises(false));
+      .then((res) => {
+        if (requestId !== exercisesRequestIdRef.current) return;
+        setExercises(res);
+      })
+      .catch((err) => {
+        if (requestId !== exercisesRequestIdRef.current) return;
+        setError(err instanceof ApiError ? err.message : t("assignPage.examDetail.loadExercisesFailed"));
+      })
+      .finally(() => {
+        if (requestId === exercisesRequestIdRef.current) setLoadingExercises(false);
+      });
   };
 
   const loadAssignedClassCount = () => {
-    listExamAssignedClasses(exam.id).then((cls) => setAssignedClassCount(cls.length)).catch(() => undefined);
+    const requestId = ++assignedClassCountRequestIdRef.current;
+    listExamAssignedClasses(exam.id)
+      .then((cls) => {
+        if (requestId === assignedClassCountRequestIdRef.current) setAssignedClassCount(cls.length);
+      })
+      .catch(() => undefined);
   };
 
   useEffect(() => {

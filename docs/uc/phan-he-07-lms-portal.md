@@ -883,6 +883,27 @@ UC-24: Làm bài kiểm tra trực tuyến
 > buộc nào giữa `timestampSeconds` của các câu hỏi khác nhau ngoài thứ tự
 > hiển thị (`displayOrder`, FE tự sắp theo `timestampSeconds` tăng dần).
 
+> **V177 (2026-09-15, đã xác nhận với người dùng) — SỬA LẠI A2 "Muốn làm
+> lại (retake)": chỉ cần làm lại CÂU SAI, không phải làm lại toàn bộ đề.**
+> Mô tả gốc ở A2 phía trên ("hệ thống cho phép Học sinh làm lại từ đầu")
+> chỉ còn đúng cho lượt làm ĐẦU TIÊN của mỗi bản giao. Từ lượt làm lại thứ
+> 2 trở đi (còn `allow_retake` + còn lượt theo `max_attempts`): hệ thống
+> tự mang nguyên nội dung các câu ĐÃ TRẢ LỜI ĐÚNG ở lượt gần nhất (chỉ áp
+> dụng nhóm câu hỏi tự chấm được — trắc nghiệm/điền khuyết/sắp xếp; câu tự
+> luận/Nói chấm tay/AI không có cờ đúng/sai tin cậy nên KHÔNG áp dụng,
+> luôn phải nộp lại) sang lượt mới, hiển thị các câu đó ở dạng CHỈ XEM/
+> KHOÁ (không ẩn khỏi đề) — Học sinh chỉ cần trả lời lại các câu SAI hoặc
+> chưa trả lời. Điểm cuối cùng của lượt làm lại = điểm các câu carry-
+> forward (giữ nguyên) + điểm các câu vừa làm lại, cộng gộp theo đúng công
+> thức tính `passed`/`percentage` hiện có (không đổi ngưỡng đạt ở A5).
+> Cột mới `student_answers.carried_over_from_previous_attempt` (migration
+> V177) đánh dấu các dòng carry-forward này; `saveAnswer` từ chối sửa lên
+> dòng đã đánh dấu (`AttemptNotEditableException`) — chặn ở Backend, không
+> chỉ ẩn nút ở FE. Phạm vi CHỈ áp dụng UC-24/UC-27 (cùng dùng
+> `ExerciseAttempt`/`student_answers`) — KHÔNG áp dụng cho quiz cuối lượt
+> xem Review Video CONNECTION (UC-23b) hay luồng REFLEX ở trên (2 luồng đó
+> dùng bảng/cơ chế retry khác, ngoài phạm vi thay đổi lần này).
+
 ---
 
 UC-25: Xem Portal Phụ huynh

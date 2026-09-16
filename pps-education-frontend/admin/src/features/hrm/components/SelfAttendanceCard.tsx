@@ -7,8 +7,7 @@ import { useDialog } from "@/components/ui/DialogProvider";
 import { useApp } from "@/context/AppContext";
 import { toLocaleTag } from "@/lib/i18nFormat";
 import { describeGeolocationError, getCurrentPosition } from "@/lib/geolocation";
-import { SiteResponse } from "@/features/facility/api";
-import { AttendanceRecordResponse, checkIn, checkOut, detectAttendanceSite } from "../api";
+import { ATTENDANCE_CHECKED_EVENT, AttendanceRecordResponse, DetectedSiteResponse, checkIn, checkOut, detectAttendanceSite } from "../api";
 import { attendanceStatusLabel, attendanceStatusVariant, formatAttendanceTime } from "../attendanceFormat";
 import AttendanceSuccessModal from "./AttendanceSuccessModal";
 
@@ -16,10 +15,6 @@ import AttendanceSuccessModal from "./AttendanceSuccessModal";
 const COMPANY_NAME = "PPS English";
 
 interface SelfAttendanceCardProps {
-  /** Điểm trường dùng để chấm công -- lấy đúng điểm trường đang chọn/khoá ở pill "Điểm trường"
-   * của Header (không có dropdown chọn riêng ở đây nữa, tránh chọn lệch với dữ liệu đang xem).
-   * undefined khi Header đang ở chế độ "Tất cả cơ sở" -- GPS tự nhận diện sẽ tự bù vào lúc chấm công. */
-  site?: SiteResponse;
   /** Trạng thái chấm công hôm nay đã fetch sẵn ở nơi gọi (VD Header) — seed để thẻ hiện đúng
    * trạng thái (đã vào/đã ra) ngay khi mở, không đợi người dùng bấm trong phiên hiện tại mới biết. */
   todayRecord?: AttendanceRecordResponse;
@@ -29,9 +24,19 @@ interface SelfAttendanceCardProps {
   onRequestClose?: () => void;
 }
 
-/** Khối "Chấm công của tôi" tự phục vụ (UC-09) — tách khỏi AttendancePage để dùng lại được cả
- * trong popup chấm công nhanh ở Header, không bắt buộc điều hướng sang trang riêng. */
-export default function SelfAttendanceCard({ site, todayRecord, onChecked, onRequestClose }: SelfAttendanceCardProps) {
+/**
+ * Khối "Chấm công của tôi" tự phục vụ (UC-09) — tách khỏi AttendancePage để dùng lại được cả
+ * trong popup chấm công nhanh ở Header, không bắt buộc điều hướng sang trang riêng.
+ *
+ * Địa điểm hiển thị (V176, sửa 2026-09-14): TRƯỚC đây lấy tên điểm trường đang chọn ở pill
+ * "Điểm trường" của Header để hiển thị -- hợp lý khi Chấm công còn gắn với điểm trường đang xem.
+ * Từ khi tách used_for_attendance khỏi used_for_classes (Chấm công GPS giờ luôn nhắm tới địa
+ * điểm được cấu hình dùng cho chấm công, VD trụ sở công ty, KHÔNG còn phụ thuộc điểm trường đang
+ * chọn ở Header), hiển thị theo pill Header sai/gây hiểu lầm cho nhân viên hành chính (họ không
+ * liên quan gì tới điểm trường). Nay tự dò vị trí thật qua GPS ngay khi mở thẻ (best-effort, im
+ * lặng nếu lỗi/chưa cấp quyền) để hiển thị ĐÚNG địa điểm sẽ được dùng khi chấm công.
+ */
+export default function SelfAttendanceCard({ todayRecord, onChecked, onRequestClose }: SelfAttendanceCardProps) {
   const { t, i18n } = useTranslation("hrm-attendance");
   const { t: tc } = useTranslation("common");
   const { currentUser, currentRoleLabel } = useApp();
@@ -40,6 +45,13 @@ export default function SelfAttendanceCard({ site, todayRecord, onChecked, onReq
   const [lastRecord, setLastRecord] = useState<AttendanceRecordResponse | null>(todayRecord ?? null);
   const [successRecord, setSuccessRecord] = useState<{ kind: "in" | "out"; record: AttendanceRecordResponse } | null>(null);
   const [now, setNow] = useState(() => new Date());
+  const [detectedSite, setDetectedSite] = useState<DetectedSiteResponse | null>(null);
+  const [detecting, setDetecting] = useState(true);
+  // Phân biệt 2 trường hợp khác nhau khi không có detectedSite -- "outOfRange": lấy GPS THÀNH
+  // CÔNG nhưng không có địa điểm chấm công nào trong bán kính (đúng, không phải lỗi kỹ thuật);
+  // "gpsError": bản thân việc lấy toạ độ GPS thất bại (quyền/timeout/không hỗ trợ). Gộp chung 1
+  // câu trước đây khiến người dùng tưởng nhầm "ngoài bán kính" là "lỗi xin quyền GPS".
+  const [locationIssue, setLocationIssue] = useState<"outOfRange" | "gpsError" | null>(null);
   // Chặn gọi chồng lấn khi bấm nhanh 2 lần liên tiếp — `processing` (state) chỉ cập nhật
   // disabled sau khi React re-render (có độ trễ, nhất là ở dev/HMR), nên riêng nó không đủ
   // nhanh để chặn click thứ 2 lọt qua trước khi nút kịp vô hiệu hoá; cờ ref này đồng bộ tức thời.
@@ -54,6 +66,48 @@ export default function SelfAttendanceCard({ site, todayRecord, onChecked, onReq
     return () => clearInterval(id);
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      let position: GeolocationPosition;
+      try {
+        position = await getCurrentPosition(tc);
+      } catch (err) {
+        // Lỗi lấy toạ độ GPS thật sự (quyền/timeout/không hỗ trợ) -- log ra console để debug.
+        // eslint-disable-next-line no-console
+        console.warn("Chấm công — không lấy được toạ độ GPS lúc mở popup:", err);
+        if (!cancelled) {
+          setDetectedSite(null);
+          setLocationIssue("gpsError");
+          setDetecting(false);
+        }
+        return;
+      }
+      try {
+        const detected = await detectAttendanceSite(position.coords.latitude, position.coords.longitude);
+        if (!cancelled) {
+          setDetectedSite(detected ?? null);
+          // Lấy GPS thành công (position có giá trị) nhưng không có site nào trong bán kính --
+          // đây là kết quả ĐÚNG (ngoài bán kính), không phải lỗi kỹ thuật.
+          setLocationIssue(detected ? null : "outOfRange");
+        }
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn("Chấm công — không tự dò được địa điểm lúc mở popup:", err);
+        if (!cancelled) {
+          setDetectedSite(null);
+          setLocationIssue("gpsError");
+        }
+      } finally {
+        if (!cancelled) setDetecting(false);
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const alreadyCheckedIn = lastRecord?.checkInAt != null;
   const alreadyCheckedOut = lastRecord?.checkOutAt != null;
   const nextAction: "in" | "out" | null = alreadyCheckedOut ? null : alreadyCheckedIn ? "out" : "in";
@@ -64,9 +118,9 @@ export default function SelfAttendanceCard({ site, todayRecord, onChecked, onReq
     setProcessing(kind);
     try {
       const position = await getCurrentPosition(tc);
-      // Mặc định dùng điểm trường đang chọn ở Header -- tự nhận diện theo GPS chỉ dùng để tự
-      // động sửa lại nếu khác với vị trí thực tế lúc chấm công (không chặn luồng nếu nhận diện lỗi).
-      let siteId = site?.id;
+      // Mặc định dùng địa điểm đã tự dò lúc mở thẻ -- dò lại 1 lần nữa ngay lúc bấm để lấy toạ độ
+      // mới nhất (vị trí có thể đổi giữa lúc mở thẻ và lúc bấm nút thật sự).
+      let siteId = detectedSite?.siteId;
       try {
         const detected = await detectAttendanceSite(position.coords.latitude, position.coords.longitude);
         if (detected) {
@@ -84,6 +138,8 @@ export default function SelfAttendanceCard({ site, todayRecord, onChecked, onReq
       const result = await (kind === "in" ? checkIn(request) : checkOut(request));
       setLastRecord(result);
       onChecked?.(result);
+      // Đồng bộ các nơi khác đang fetch trạng thái chấm công độc lập (VD AttendanceReminderBanner).
+      window.dispatchEvent(new CustomEvent(ATTENDANCE_CHECKED_EVENT));
       setSuccessRecord({ kind, record: result });
     } catch (err) {
       let message: string;
@@ -166,15 +222,17 @@ export default function SelfAttendanceCard({ site, todayRecord, onChecked, onReq
         <p className="text-sm font-bold text-slate-800 flex items-center justify-center gap-1.5">
           <Building2 className="w-4 h-4 text-brand-orange shrink-0" />
           {COMPANY_NAME}
-          {site && <span className="font-normal text-slate-500"> · {site.name}</span>}
+          {detectedSite && <span className="font-normal text-slate-500"> · {detectedSite.siteName}</span>}
         </p>
-        {site?.address ? (
-          <p className="text-xs text-slate-400 flex items-center justify-center gap-1">
-            <MapPin className="w-3 h-3 shrink-0" />
-            {site.address}
-          </p>
+        {detecting ? (
+          <p className="text-xs text-slate-400 italic">{t("selfAttendance.detectingLocation")}</p>
         ) : (
-          !site && <p className="text-xs text-slate-400 italic">{t("selfAttendance.noSiteSelected")}</p>
+          locationIssue && (
+            <p className="text-xs text-slate-400 flex items-center justify-center gap-1">
+              <MapPin className="w-3 h-3 shrink-0" />
+              {locationIssue === "outOfRange" ? t("selfAttendance.outOfRange") : t("selfAttendance.noSiteSelected")}
+            </p>
+          )
         )}
       </div>
 

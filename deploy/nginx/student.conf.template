@@ -1,7 +1,9 @@
-# Template server block cho app user (pps-education-frontend/user) — copy
-# thành 2 file thật trên server:
-#   /etc/nginx/sites-available/app-staging.<DOMAIN>.conf
-#   /etc/nginx/sites-available/app.<DOMAIN>.conf
+# Template server block cho app học sinh (thư mục source vẫn tên
+# pps-education-frontend/user - CHƯA đổi tên thư mục/CI, chỉ đổi domain/tên
+# file nginx cho phù hợp môi trường học đường, xác nhận với người dùng
+# 2026-09-15) — copy thành 2 file thật trên server:
+#   /etc/nginx/sites-available/student-staging.<DOMAIN>.conf
+#   /etc/nginx/sites-available/student.<DOMAIN>.conf
 # rồi thay __HOSTNAME__/__ROOT_PATH__/__API_PORT__ theo đúng stack (xem
 # deploy/README.md bảng giá trị). Chỉ listen 80 — TLS do Cloudflare Tunnel lo.
 
