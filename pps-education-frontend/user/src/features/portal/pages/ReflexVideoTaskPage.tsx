@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { CheckCircle2, Loader2, Lock, Mic, Pause, Play, RotateCcw, ShieldAlert, Square } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Loader2, Lock, Mic, Pause, Play, RotateCcw, ShieldAlert, Square } from "lucide-react";
 import { friendlyApiErrorMessage } from "@/lib/apiClient";
 import {
   ReflexQuestionProgressResponse,
@@ -1257,8 +1257,15 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                 {/*
                  * V181 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-16) — bỏ feedback văn
                  * xuôi dài dòng, hiện lại CHÍNH câu trả lời của học sinh với phần lỗi bôi đỏ/gạch chân
-                 * (writingMarkedAnswer) — đồng nhất cách hiển thị với bước Speaking. writingFeedback nay
-                 * CHỈ còn dùng khi AI chấm thất bại (không có markedAnswer trong trường hợp đó).
+                 * (writingMarkedAnswer) — đồng nhất cách hiển thị với bước Speaking.
+                 *
+                 * V184 (2026-09-16, phát hiện qua test thật trên staging, xác nhận với người dùng) — V181
+                 * làm học sinh KHÔNG biết vì sao điểm thấp khi Cổng chặn (VD "Quá ngắn") kích hoạt mà
+                 * không có lỗi ngữ pháp nào để bôi đỏ (vì thực sự không sai) — im lặng hoàn toàn, rất khó
+                 * hiểu hướng sửa (UX tệ). writingFeedback giờ tái dùng để chứa gateNote (lý do cổng chặn,
+                 * xem ReflexWritingGrammarAiGradingService) HOẶC thông báo AI chấm lỗi — hiện RIÊNG thành
+                 * 1 ô cảnh báo có icon, tách khỏi đoạn markedAnswer, để học sinh thấy rõ NGAY hướng sửa
+                 * thay vì phải tự suy đoán từ 1 câu không bị bôi đỏ gì.
                  */}
                 {(displayProgress?.writingMarkedAnswer || displayProgress?.writingFeedback) && (
                   <div
@@ -1273,11 +1280,17 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                       {displayProgress.writingScorePercent != null &&
                         ` — ${t("reflexVideoTask.writingStage.scoreLabel", { score: displayProgress.writingScorePercent })}`}
                     </p>
-                    <p className="font-medium mt-1.5 normal-case whitespace-pre-line text-base leading-relaxed">
-                      {displayProgress.writingMarkedAnswer
-                        ? renderHighlightedErrors(displayProgress.writingMarkedAnswer, t("reflexVideoTask.speakingStage.unclearWordTooltip"))
-                        : displayProgress.writingFeedback}
-                    </p>
+                    {displayProgress.writingMarkedAnswer && (
+                      <p className="font-medium mt-1.5 normal-case whitespace-pre-line text-base leading-relaxed">
+                        {renderHighlightedErrors(displayProgress.writingMarkedAnswer, t("reflexVideoTask.speakingStage.unclearWordTooltip"))}
+                      </p>
+                    )}
+                    {displayProgress.writingFeedback && (
+                      <div className="mt-1.5 flex items-start gap-1.5 rounded-lg bg-white/70 border border-current/20 p-2">
+                        <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+                        <p className="font-medium normal-case whitespace-pre-line text-[13px] leading-relaxed">{displayProgress.writingFeedback}</p>
+                      </div>
+                    )}
                   </div>
                 )}
                 {/*

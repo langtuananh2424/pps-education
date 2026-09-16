@@ -56,9 +56,15 @@ public class ReflexQuestionProgress extends BaseAuditEntity {
     private BigDecimal writingMaxScore;
 
     /**
-     * V181 (2026-09-16, xác nhận với người dùng) — nay CHỈ dùng cho thông báo lỗi khi AI chấm thất bại
-     * (xem ReflexSequentialGradingService#AI_GRADING_FAILED_FEEDBACK); khi chấm thành công KHÔNG còn
-     * ghi feedback văn xuôi dài dòng vào đây nữa — xem {@link #writingMarkedAnswer}.
+     * V181 (2026-09-16, xác nhận với người dùng) — KHÔNG còn ghi feedback văn xuôi 7 mục dài dòng vào
+     * đây nữa — xem {@link #writingMarkedAnswer}.
+     *
+     * V184 (2026-09-16, phát hiện qua test thật trên staging, xác nhận với người dùng) — tái dùng field
+     * này cho 2 trường hợp NGẮN GỌN cần giải thích lý do: (1) AI chấm thất bại (xem
+     * ReflexSequentialGradingService#AI_GRADING_FAILED_FEEDBACK), (2) Cổng chặn của rubric kích hoạt (VD
+     * "Quá ngắn") — {@code gateNote} từ ReflexWritingGrammarAiGradingService, tối đa 40 từ, GIẢI THÍCH
+     * vì sao điểm thấp dù markedAnswer không bôi đỏ lỗi nào (đã xảy ra thật: học sinh không hiểu vì sao
+     * bị điểm thấp khi câu đúng ngữ pháp nhưng quá ngắn). NULL khi không rơi vào 2 trường hợp trên.
      */
     @Column(name = "writing_feedback", columnDefinition = "TEXT")
     private String writingFeedback;
