@@ -997,6 +997,12 @@ export interface StudentAnswerResponse {
   gradingMaxScore: number | null;
   gradingFeedback: string | null;
   gradingSource: "HUMAN" | "AI" | null;
+  /**
+   * V177 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-15) — UC-24/UC-27 A2: câu này được
+   * mang nguyên nội dung từ lượt làm TRƯỚC (đã đúng) sang lượt "Làm lại" hiện tại — hiện dạng chỉ xem/
+   * khoá, không cho sửa (BE cũng chặn nếu cố gọi saveAnswer).
+   */
+  carriedOverFromPreviousAttempt: boolean;
 }
 
 /** Main Flow bước 2: trả lời 1 câu — ghi/ghi đè, gọi lại nhiều lần trong lúc attempt còn IN_PROGRESS. */
