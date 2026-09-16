@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "admin-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "pps-education-frontend/admin", "run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "user-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "pps-education-frontend/user", "run", "dev"],
+      "port": 3001
+    }
+  ]
+}
