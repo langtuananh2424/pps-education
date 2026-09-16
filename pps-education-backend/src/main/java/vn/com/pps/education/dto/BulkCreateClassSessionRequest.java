@@ -35,5 +35,13 @@ public record BulkCreateClassSessionRequest(
          * không có tài khoản hệ thống); đồng bộ với field cùng tên ở Nhận
          * xét học viên (class_sessions.actual_teacher_name).
          */
-        String actualTeacherName
+        String actualTeacherName,
+        /**
+         * Cho phép bỏ qua chặn trùng giờ Giáo viên (bổ sung ngoài SDD gốc,
+         * xác nhận với người dùng 2026-09-16) — phục vụ trường hợp 1 lớp
+         * tách 2 nhóm (VD KT-7A4-1/KT-7A4-2) dùng chung 1 giáo viên VÀ
+         * chung khung giờ (dạy đồng thời 2 nhóm). Không ảnh hưởng chặn
+         * trùng phòng/trùng giờ trong cùng lớp. null coi như false.
+         */
+        Boolean allowTeacherOverlap
 ) {}
