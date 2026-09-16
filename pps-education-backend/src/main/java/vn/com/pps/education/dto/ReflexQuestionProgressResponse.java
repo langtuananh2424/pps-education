@@ -1,6 +1,9 @@
 package vn.com.pps.education.dto;
 
+import vn.com.pps.education.common.CriteriaScoreItem;
+
 import java.time.OffsetDateTime;
+import java.util.List;
 
 /**
  * V139 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-22) — UC-23b V2: tiến trình tuần tự
@@ -15,7 +18,14 @@ public record ReflexQuestionProgressResponse(
         Long questionId,
         String answerText,
         Integer writingScorePercent,
+        /** V181 — nay CHỈ có giá trị khi AI chấm thất bại (thông báo lỗi); chấm thành công xem {@code writingMarkedAnswer}. */
         String writingFeedback,
+        /**
+         * V181 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-16) — chính câu trả lời của
+         * học sinh, đánh dấu lỗi bằng markup {@code {{err}}...{{/err}}} — FE tự regex-split để bôi
+         * đỏ/gạch chân, thay cho feedback văn xuôi dài dòng cũ. NULL khi chưa nộp/chưa chấm được.
+         */
+        String writingMarkedAnswer,
         boolean writingPassed,
         int writingAttemptCount,
         /**
@@ -28,6 +38,13 @@ public record ReflexQuestionProgressResponse(
         String audioUrl,
         Integer speakingScorePercent,
         String speakingFeedback,
+        /**
+         * V178 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-16) — transcript audio, có
+         * đánh dấu lỗi bằng markup {@code {{err}}...{{/err}}} — FE tự regex-split để bôi đỏ/gạch chân.
+         */
+        String speakingTranscript,
+        /** V178 — % từng tiêu chí rubric, tách riêng khỏi {@code speakingFeedback}. */
+        List<CriteriaScoreItem> speakingCriteriaScores,
         boolean speakingPassed,
         int speakingAttemptCount,
         /** true khi CẢ 2 bước đã đạt — câu tiếp theo được mở khoá. */

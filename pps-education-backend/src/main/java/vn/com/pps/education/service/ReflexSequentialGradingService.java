@@ -124,7 +124,7 @@ public class ReflexSequentialGradingService {
             audioFile = null;
         }
         ReflexSpeakingContentAiGradingService.GradeResult result =
-                audioFile == null ? null : speakingGradingService.grade(audioFile.bytes(), audioFile.contentType(), question.getPrompt(), question.getReviewVideo().getReviewVideoSet().getCurriculum());
+                audioFile == null ? null : speakingGradingService.grade(audioFile.bytes(), audioFile.contentType(), question.getPrompt(), progress.getAnswerText(), question.getReviewVideo().getReviewVideoSet().getCurriculum());
         applySpeakingResult(progress, result);
         progress = reflexQuestionProgressRepository.save(progress);
         return toResponse(progress);
@@ -143,11 +143,18 @@ public class ReflexSequentialGradingService {
 
     // ===================== Helpers =====================
 
+    /**
+     * V181 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-16) — chấm thành công KHÔNG còn
+     * ghi feedback văn xuôi dài dòng nữa (writingFeedback để null) — thay bằng writingMarkedAnswer
+     * (chính câu trả lời của học sinh, đánh dấu lỗi bằng markup). writingFeedback nay CHỈ còn dùng cho
+     * thông báo khi AI chấm thất bại (nhánh else bên dưới).
+     */
     private void applyWritingResult(ReflexQuestionProgress progress, ReflexWritingGrammarAiGradingService.GradeResult result) {
         if (result != null) {
             progress.setWritingScore(BigDecimal.valueOf(result.scorePercent()));
             progress.setWritingMaxScore(HUNDRED);
-            progress.setWritingFeedback(result.feedback());
+            progress.setWritingFeedback(null);
+            progress.setWritingMarkedAnswer(result.markedAnswer());
             progress.setWritingGradedAt(OffsetDateTime.now());
             // V141 — chỉ có ý nghĩa khi CHƯA đạt (đạt rồi thì không cần gợi ý sửa nữa) — không set khi đạt
             // để tránh FE lỡ hiện gợi ý sửa cho 1 câu đã đúng.
@@ -156,6 +163,7 @@ public class ReflexSequentialGradingService {
             progress.setWritingScore(null);
             progress.setWritingMaxScore(null);
             progress.setWritingFeedback(AI_GRADING_FAILED_FEEDBACK);
+            progress.setWritingMarkedAnswer(null);
             progress.setWritingGradedAt(null);
             progress.setWritingCorrectedAnswer(null);
         }
@@ -166,11 +174,15 @@ public class ReflexSequentialGradingService {
             progress.setSpeakingScore(BigDecimal.valueOf(result.scorePercent()));
             progress.setSpeakingMaxScore(HUNDRED);
             progress.setSpeakingFeedback(result.feedback());
+            progress.setSpeakingTranscript(result.transcript());
+            progress.setSpeakingCriteriaScores(result.criteriaScores());
             progress.setSpeakingGradedAt(OffsetDateTime.now());
         } else {
             progress.setSpeakingScore(null);
             progress.setSpeakingMaxScore(null);
             progress.setSpeakingFeedback(AI_GRADING_FAILED_FEEDBACK);
+            progress.setSpeakingTranscript(null);
+            progress.setSpeakingCriteriaScores(null);
             progress.setSpeakingGradedAt(null);
         }
     }
@@ -219,12 +231,15 @@ public class ReflexSequentialGradingService {
                 p.getAnswerText(),
                 p.getWritingScore() == null ? null : p.getWritingScore().intValue(),
                 p.getWritingFeedback(),
+                p.getWritingMarkedAnswer(),
                 writingPassed,
                 p.getWritingAttemptCount(),
                 p.getWritingCorrectedAnswer(),
                 p.getAudioUrl(),
                 p.getSpeakingScore() == null ? null : p.getSpeakingScore().intValue(),
                 p.getSpeakingFeedback(),
+                p.getSpeakingTranscript(),
+                p.getSpeakingCriteriaScores(),
                 speakingPassed,
                 p.getSpeakingAttemptCount(),
                 writingPassed && speakingPassed,
