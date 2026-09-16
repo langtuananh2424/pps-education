@@ -100,6 +100,7 @@ export default function CreateSessionModal({ siteId, onClose, mode = "queue", on
   const [cmTeacherId, setCmTeacherId] = useState<number | null>(null);
   const [cmTeacherName, setCmTeacherName] = useState<string | null>(null);
   const [actualTeacherName, setActualTeacherName] = useState("");
+  const [allowTeacherOverlap, setAllowTeacherOverlap] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
 
@@ -163,7 +164,8 @@ export default function CreateSessionModal({ siteId, onClose, mode = "queue", on
       primaryTeacherId,
       assistantTeacherId: assistantTeacherId ?? undefined,
       cmTeacherId: cmTeacherId ?? undefined,
-      actualTeacherName: teacherType === "FOREIGN" && actualTeacherName.trim() ? actualTeacherName.trim() : undefined
+      actualTeacherName: teacherType === "FOREIGN" && actualTeacherName.trim() ? actualTeacherName.trim() : undefined,
+      allowTeacherOverlap: allowTeacherOverlap || undefined
     };
 
     if (mode === "immediate") {
@@ -319,6 +321,21 @@ export default function CreateSessionModal({ siteId, onClose, mode = "queue", on
             </p>
           </div>
         )}
+
+        <label className="flex items-start gap-2 text-xs text-slate-600 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={allowTeacherOverlap}
+            onChange={(e) => setAllowTeacherOverlap(e.target.checked)}
+            className="mt-0.5"
+          />
+          <span>
+            Cho phép giáo viên chính trùng giờ với buổi dạy khác
+            <span className="block text-[10px] text-slate-400 italic">
+              Dùng khi lớp tách nhóm (VD 7A4-1/7A4-2) dùng chung 1 giáo viên và dạy đồng thời cùng khung giờ.
+            </span>
+          </span>
+        </label>
 
         <p className="text-[11px] text-slate-400 italic">
           {mode === "immediate"
