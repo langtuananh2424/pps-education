@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Clock, History } from "lucide-react";
+import { Clock, History, PenLine } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
@@ -9,15 +9,22 @@ import DailyCommentPanel from "../components/DailyCommentPanel";
 import CommentApprovalByClass from "../components/CommentApprovalByClass";
 import CommentHistoryPanel from "../components/CommentHistoryPanel";
 
-type SiteManagerTab = "pending" | "history";
+type SiteManagerTab = "write" | "pending" | "history";
 
 export default function CommentsPage() {
   const { t } = useTranslation("academic-comments");
-  const [siteManagerTab, setSiteManagerTab] = useState<SiteManagerTab>("pending");
   const { currentUser } = useApp();
   // Hàng chờ duyệt (UC-22) chỉ có ý nghĩa với Quản lý điểm trường — API tự scope theo site được gán.
-  // Quản lý điểm trường không viết nhận xét nên thay hẳn khu vực viết ở trên bằng khu vực xem chi tiết yêu cầu duyệt.
   const isSiteManager = currentUser?.roleCodes?.includes(UserRole.SITE_MANAGER) ?? false;
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-16: 1 nhân viên có thể VỪA là Quản lý
+  // điểm trường VỪA đứng lớp (role TEACHER gán kèm) — trước đây isSiteManager=true thay hẳn khu vực
+  // viết nhận xét bằng khu vực duyệt, khiến các tài khoản kiêm nhiệm này không có chỗ tự viết nhận xét
+  // cho lớp mình dạy, phải nhờ tài khoản Giáo viên khác viết hộ. DailyCommentPanel tự lọc đúng lớp được
+  // phân công qua useEligibleClasses (ưu tiên phân công thật, không bị quyền Site Manager mở rộng phạm
+  // vi) nên dùng lại nguyên component đó, chỉ thêm 1 tab "Viết nhận xét" khi có cả 2 role.
+  const isTeacher = currentUser?.roleCodes?.includes(UserRole.TEACHER) ?? false;
+  const showWriteTab = isSiteManager && isTeacher;
+  const [siteManagerTab, setSiteManagerTab] = useState<SiteManagerTab>(showWriteTab ? "write" : "pending");
 
   const [pending, setPending] = useState<StudentCommentResponse[]>([]);
   const [loadingPending, setLoadingPending] = useState(true);
@@ -49,6 +56,7 @@ export default function CommentsPage() {
           <div className="flex border-b border-slate-200 gap-5">
             {(
               [
+                ...(showWriteTab ? ([["write", t("commentsPage.tabs.write"), PenLine]] as const) : []),
                 ["pending", t("commentsPage.tabs.pending"), Clock],
                 ["history", t("commentsPage.tabs.history"), History]
               ] as const
@@ -69,15 +77,23 @@ export default function CommentsPage() {
             ))}
           </div>
 
+          {/* "Viết nhận xét" giữ mounted (chỉ ẩn qua CSS) thay vì unmount khi đổi tab — DailyCommentPanel
+              giữ state nháp chưa lưu (ô nhận xét đang gõ dở) trong bộ nhớ component, đổi tab qua "Chờ
+              duyệt"/"Lịch sử" rồi quay lại không được mất nội dung đang viết dở. */}
+          {showWriteTab && (
+            <div className={siteManagerTab === "write" ? "" : "hidden"}>
+              <DailyCommentPanel />
+            </div>
+          )}
           {siteManagerTab === "pending" ? (
             <CommentApprovalByClass
               items={pending}
               loading={loadingPending}
               onDecided={loadPending}
             />
-          ) : (
+          ) : siteManagerTab === "history" ? (
             <CommentHistoryPanel />
-          )}
+          ) : null}
         </>
       ) : (
         <DailyCommentPanel />
