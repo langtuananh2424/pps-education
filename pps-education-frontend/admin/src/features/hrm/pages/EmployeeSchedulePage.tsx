@@ -261,16 +261,31 @@ export default function EmployeeSchedulePage() {
   const [siteFilterOpen, setSiteFilterOpen] = useState(false);
   const siteFilterTriggerRef = useRef<HTMLButtonElement>(null);
   const siteFilterPanelRef = useRef<HTMLDivElement>(null);
-  const [siteFilterRect, setSiteFilterRect] = useState<{ top: number; left: number } | null>(null);
+  const [siteFilterRect, setSiteFilterRect] = useState<{ top: number; left: number; maxHeight: number } | null>(null);
   /** Buộc 1 khối ClassPeriodGrid tải lại sau khi tạo buổi qua nút "+ Xếp lịch" chung (mode="immediate", không có lưới cụ thể nào tự refetch). */
   const [gridRefreshNonce, setGridRefreshNonce] = useState<Record<number, number>>({});
   const [globalCreateOpen, setGlobalCreateOpen] = useState(false);
+
+  /**
+   * Fix tiếp bug clip dropdown (đã chuyển qua Portal + position:fixed ở lần sửa trước) — vẫn còn bị cắt
+   * khi viewport (cửa sổ trình duyệt/khung xem) THẤP hơn chiều cao thật của panel: `position: fixed`
+   * không tự cuộn theo trang, nên phần tràn quá đáy màn hình sẽ nằm NGOÀI vùng nhìn thấy được, không có
+   * cách nào cuộn tới — kéo cao "thẻ" bên ngoài (yêu cầu người dùng) KHÔNG giải quyết được vì panel đã
+   * portal ra document.body, không còn phụ thuộc chiều cao của thẻ cha nữa. Fix đúng: tự giới hạn
+   * `maxHeight` panel theo khoảng trống thật còn lại phía dưới nút bấm tới đáy viewport, danh sách
+   * checkbox bên trong tự cuộn (overflow-y-auto) trong khoảng đó — luôn hiện được TRỌN VẸN phần có thể
+   * hiện, có thanh cuộn khi danh sách điểm trường dài hơn khoảng trống.
+   */
+  const SITE_FILTER_VIEWPORT_MARGIN = 12;
+  const SITE_FILTER_MIN_HEIGHT = 160;
 
   const updateSiteFilterRect = () => {
     const el = siteFilterTriggerRef.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
-    setSiteFilterRect({ top: r.bottom + 4, left: r.left });
+    const top = r.bottom + 4;
+    const maxHeight = Math.max(SITE_FILTER_MIN_HEIGHT, window.innerHeight - top - SITE_FILTER_VIEWPORT_MARGIN);
+    setSiteFilterRect({ top, left: r.left, maxHeight });
   };
 
   useLayoutEffect(() => {
@@ -522,16 +537,18 @@ export default function EmployeeSchedulePage() {
                 {/* Render qua Portal + position: fixed (mirror DatePicker.tsx) — dropdown trước đây
                     position: absolute bên trong DOM cha bị Card cha `overflow-hidden` (dòng khai báo
                     wrapper "bg-white rounded-xl ... overflow-hidden" ở trên) CẮT MẤT phần danh sách
-                    checkbox tràn xuống dưới, không còn bị cắt bởi bất kỳ cha nào nữa. */}
+                    checkbox tràn xuống dưới, không còn bị cắt bởi bất kỳ cha nào nữa. `maxHeight` tự
+                    tính theo khoảng trống thật còn lại tới đáy viewport (xem updateSiteFilterRect) —
+                    panel + danh sách bên trong luôn hiện trọn trong màn hình, có cuộn riêng khi dài hơn. */}
                 {siteFilterOpen &&
                   siteFilterRect &&
                   createPortal(
                     <div
                       ref={siteFilterPanelRef}
-                      style={{ position: "fixed", top: siteFilterRect.top, left: siteFilterRect.left }}
-                      className="z-[200] w-64 bg-white border border-slate-200 rounded-lg shadow-xl p-2 animate-in fade-in slide-in-from-top-1 duration-150"
+                      style={{ position: "fixed", top: siteFilterRect.top, left: siteFilterRect.left, maxHeight: siteFilterRect.maxHeight }}
+                      className="z-[200] w-64 bg-white border border-slate-200 rounded-lg shadow-xl p-2 flex flex-col animate-in fade-in slide-in-from-top-1 duration-150"
                     >
-                      <div className="flex justify-between items-center px-1 pb-1.5 mb-1.5 border-b border-slate-100">
+                      <div className="shrink-0 flex justify-between items-center px-1 pb-1.5 mb-1.5 border-b border-slate-100">
                         <button type="button" className="text-[10px] font-bold text-brand-red" onClick={() => setSelectedGridSiteIds(sites.map((s) => s.id))}>
                           {t("employeeSchedulePage.classGrid.siteFilter.selectAll")}
                         </button>
@@ -539,7 +556,7 @@ export default function EmployeeSchedulePage() {
                           {t("employeeSchedulePage.classGrid.siteFilter.clearAll")}
                         </button>
                       </div>
-                      <div className="max-h-56 overflow-y-auto space-y-0.5">
+                      <div className="min-h-0 overflow-y-auto space-y-0.5">
                         {sites.map((s) => (
                           <label key={s.id} className="flex items-center gap-2 text-xs px-1.5 py-1 rounded hover:bg-slate-50 cursor-pointer">
                             <input
