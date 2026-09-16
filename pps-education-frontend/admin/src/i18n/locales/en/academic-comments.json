@@ -309,6 +309,7 @@
     "title": "Student comments",
     "subtitle": "Teachers write daily comments; the Site Manager reviews them before they appear on the Parent Portal.",
     "tabs": {
+      "write": "Write comments",
       "pending": "Pending review",
       "history": "Past comment history"
     },
