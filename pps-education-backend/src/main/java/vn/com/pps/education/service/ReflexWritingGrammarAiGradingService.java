@@ -109,8 +109,26 @@ public class ReflexWritingGrammarAiGradingService {
      * feedback văn xuôi 7 mục dài dòng trước đây: CHÍNH câu trả lời của học sinh, giữ NGUYÊN VẸN, AI chỉ
      * chèn thêm markup {@code {{err}}...{{/err}}} quanh phần lỗi ngữ pháp/từ vựng nhận diện được — đồng
      * nhất cách hiển thị với {@code transcript} của {@link ReflexSpeakingContentAiGradingService} (V178).
+     *
+     * V184 (2026-09-16, phát hiện qua test thật trên staging, xác nhận với người dùng) — bỏ hẳn feedback
+     * ở V181 khiến khi Cổng chặn (VD C3 "Quá ngắn", xem V182/V183) kích hoạt, học sinh thấy điểm thấp mà
+     * KHÔNG có lỗi ngữ pháp nào bị đánh dấu (vì thực sự không sai) và KHÔNG có gì giải thích lý do — hoàn
+     * toàn không biết phải sửa gì. Thêm lại {@code gateNote}: 1 dòng NGẮN (tối đa 40 từ) giải thích lý do
+     * cổng chặn kích hoạt, CHỈ xuất hiện khi thực sự có cổng kích hoạt (rỗng "" trong mọi trường hợp
+     * khác) — không phải quay lại feedback 7 mục dài dòng như trước V181. Yêu cầu giọng văn "Yêu cầu: ..."
+     * mang tính hướng dẫn (nêu rõ cần bổ sung gì), KHÔNG phê phán/kể lể hậu quả điểm số kiểu "bị trần
+     * điểm" (xác nhận với người dùng — giọng văn cũ "hơi không hay" với học sinh).
+     *
+     * V187 (2026-09-16, phát hiện qua test thật trên staging, xác nhận với người dùng) — V184 CHƯA đủ:
+     * chỉ yêu cầu gateNote khi Cổng chặn CỦA RUBRIC kích hoạt, bỏ sót nhánh LẠC ĐỀ (câu trả lời sai hẳn
+     * trọng tâm câu hỏi, scorePercent=0 theo điều kiện đầu prompt, KHÔNG liên quan gì tới mục "Cổng chặn"
+     * trong rubric) — case thật: học sinh nộp nhầm câu trả lời của câu hỏi KHÁC, bị 0% nhưng không có
+     * markup lỗi (đúng, vì lạc đề không đánh dấu ngữ pháp) VÀ không có gateNote nào giải thích, y hệt lỗ
+     * hổng UX của V184 nhưng ở nhánh khác. Sửa: yêu cầu gateNote CẢ khi lạc đề (nêu đúng câu hỏi yêu cầu
+     * gì vs bài đang lạc sang đâu), cùng giọng "Yêu cầu: ..." như V184 — không cần đổi tên field/DTO/FE,
+     * gateNote vốn đã trung lập ý nghĩa ("lý do cần sửa"), chỉ mở rộng ĐIỀU KIỆN kích hoạt trong prompt.
      */
-    public record GradeResult(int scorePercent, String markedAnswer, String correctedAnswer) {
+    public record GradeResult(int scorePercent, String markedAnswer, String correctedAnswer, String gateNote) {
     }
 
     /**
@@ -157,6 +175,7 @@ public class ReflexWritingGrammarAiGradingService {
         }
         JsonNode parsed = objectMapper.readTree(rawText.substring(start, end + 1));
         int scorePercent = Math.min(100, Math.max(0, parsed.path("scorePercent").asInt(0)));
-        return new GradeResult(scorePercent, parsed.path("markedAnswer").asText(""), parsed.path("correctedAnswer").asText(""));
+        return new GradeResult(scorePercent, parsed.path("markedAnswer").asText(""), parsed.path("correctedAnswer").asText(""),
+                parsed.path("gateNote").asText(""));
     }
 }

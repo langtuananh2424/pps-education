@@ -148,12 +148,19 @@ public class ReflexSequentialGradingService {
      * ghi feedback văn xuôi dài dòng nữa (writingFeedback để null) — thay bằng writingMarkedAnswer
      * (chính câu trả lời của học sinh, đánh dấu lỗi bằng markup). writingFeedback nay CHỈ còn dùng cho
      * thông báo khi AI chấm thất bại (nhánh else bên dưới).
+     *
+     * V184 (2026-09-16, phát hiện qua test thật trên staging, xác nhận với người dùng) — V181 làm học
+     * sinh không biết vì sao điểm thấp khi Cổng chặn kích hoạt (VD "Quá ngắn") mà không có lỗi ngữ pháp
+     * nào bị đánh dấu (vì thực sự không sai) — writingFeedback = null tuyệt đối nên chẳng có gì giải
+     * thích. Sửa: tái dùng CHÍNH writingFeedback để chứa {@code result.gateNote()} khi cổng chặn có kích
+     * hoạt (rỗng thì vẫn null như cũ) — field này giờ dùng chung cho 2 trường hợp "cần giải thích ngắn
+     * gọn vì sao chưa tốt" (cổng chặn HOẶC AI chấm lỗi), không phải feedback 7 mục dài dòng như trước V181.
      */
     private void applyWritingResult(ReflexQuestionProgress progress, ReflexWritingGrammarAiGradingService.GradeResult result) {
         if (result != null) {
             progress.setWritingScore(BigDecimal.valueOf(result.scorePercent()));
             progress.setWritingMaxScore(HUNDRED);
-            progress.setWritingFeedback(null);
+            progress.setWritingFeedback(result.gateNote() == null || result.gateNote().isBlank() ? null : result.gateNote());
             progress.setWritingMarkedAnswer(result.markedAnswer());
             progress.setWritingGradedAt(OffsetDateTime.now());
             // V141 — chỉ có ý nghĩa khi CHƯA đạt (đạt rồi thì không cần gợi ý sửa nữa) — không set khi đạt
