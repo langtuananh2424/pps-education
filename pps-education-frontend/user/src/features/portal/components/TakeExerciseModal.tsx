@@ -38,6 +38,47 @@ interface TakeExerciseModalProps {
 const CHOICE_TYPES = new Set(["MULTIPLE_CHOICE", "MULTIPLE_ANSWER", "TRUE_FALSE"]);
 
 /**
+ * V182 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-16, PILOT Khối 7 IELTS) — rubric
+ * Writing "v3" đánh dấu lỗi ngay trong bài viết bằng markup thuần `{{mã|đoạn văn bản}}` — 5 loại lỗi
+ * (sp/gr/wd/pu chính tả/ngữ pháp/từ vựng/dấu câu) × 2 mức độ (hậu tố 1=nhẹ/vàng, 2=nặng/đỏ), cộng `ok`
+ * cho chỗ dùng đúng/tốt (xanh) — xem WritingAiGradingService. BE không có sanitizer/markdown nào nên
+ * KHÔNG dùng dangerouslySetInnerHTML — tự regex-split ra text node thường vs span tô màu.
+ */
+const MARKED_ESSAY_TOKEN = /\{\{(ok|sp1|sp2|gr1|gr2|wd1|wd2|pu1|pu2)\|([\s\S]*?)\}\}/g;
+
+function markedEssayTokenClassName(code: string): string {
+  if (code === "ok") {
+    return "text-emerald-700 underline decoration-emerald-400 decoration-2 underline-offset-2 font-semibold";
+  }
+  return code.endsWith("2")
+    ? "text-red-600 underline decoration-red-500 decoration-2 underline-offset-2 font-semibold"
+    : "text-amber-700 underline decoration-amber-400 decoration-2 underline-offset-2 font-semibold";
+}
+
+function renderMarkedEssay(text: string): React.ReactNode[] {
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  let key = 0;
+  MARKED_ESSAY_TOKEN.lastIndex = 0;
+  while ((match = MARKED_ESSAY_TOKEN.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(<React.Fragment key={key++}>{text.slice(lastIndex, match.index)}</React.Fragment>);
+    }
+    parts.push(
+      <span key={key++} className={markedEssayTokenClassName(match[1])}>
+        {match[2]}
+      </span>
+    );
+    lastIndex = MARKED_ESSAY_TOKEN.lastIndex;
+  }
+  if (lastIndex < text.length) {
+    parts.push(<React.Fragment key={key++}>{text.slice(lastIndex)}</React.Fragment>);
+  }
+  return parts;
+}
+
+/**
  * Bổ sung 2026-09-13 (fix bug thật, đã xác nhận với người dùng) — điều kiện "còn làm lại được" ĐÚNG
  * NGAY TRONG PHIÊN đang mở, không chỉ dựa vào {@code item.canStartNewAttempt} (cờ BE tính SẴN lúc tải
  * danh sách BTVN, đứng yên suốt phiên modal đang mở). 2 field tĩnh của {@code meta}
@@ -1282,7 +1323,7 @@ export function QuestionBlock({
        * việc lộ ĐÁP ÁN ĐÚNG) — nhận xét bài của chính học sinh luôn hiện ngay khi có, để trả lời "vì
        * sao đạt/không đạt" thay vì chỉ thấy % tổng ở popup kết quả.
        */}
-      {answer?.gradingFeedback && (
+      {(answer?.gradingFeedback || answer?.gradingMarkedAnswer) && (
         <div className="text-sm font-bold p-3 rounded-xl border bg-sky-2 border-teal/20 space-y-1.5">
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <span className="text-teal-deep uppercase text-base tracking-wide">{t("takeExercise.question.gradingFeedbackTitle")}</span>
@@ -1293,7 +1334,34 @@ export function QuestionBlock({
                 : ""}
             </span>
           </div>
-          <p className="font-medium text-ink normal-case whitespace-pre-line">{answer.gradingFeedback}</p>
+          {/*
+           * V182 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-16, PILOT Khối 7 IELTS) —
+           * rubric v3: hiện lại CHÍNH bài viết của học sinh với lỗi tô màu/gạch chân (gradingMarkedAnswer)
+           * + % từng tiêu chí (gradingCriteriaScores), thay cho chỉ 1 đoạn feedback dài như trước. Rubric
+           * cũ (chưa lên v3) không có 2 field này — vẫn hiện gradingFeedback dạng văn bản như cũ.
+           */}
+          {answer.gradingMarkedAnswer && (
+            <div className="space-y-1">
+              <p className="text-[11px] font-extrabold uppercase tracking-wide normal-case">
+                {t("takeExercise.question.markedEssayTitle")}
+              </p>
+              <p className="normal-case whitespace-pre-line text-[13px] leading-relaxed font-medium text-ink">
+                {renderMarkedEssay(answer.gradingMarkedAnswer)}
+              </p>
+            </div>
+          )}
+          {answer.gradingCriteriaScores && answer.gradingCriteriaScores.length > 0 && (
+            <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] font-bold normal-case text-teal-deep">
+              {answer.gradingCriteriaScores.map((c) => (
+                <span key={c.criterion}>
+                  {c.criterion}: {c.percent}%
+                </span>
+              ))}
+            </div>
+          )}
+          {answer.gradingFeedback && (
+            <p className="font-medium text-ink normal-case whitespace-pre-line">{answer.gradingFeedback}</p>
+          )}
         </div>
       )}
 
