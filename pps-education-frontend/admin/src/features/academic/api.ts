@@ -755,6 +755,8 @@ export interface CreateClassSessionRequest {
   makeupForSessionId?: number;
   /** "Tên giáo viên giảng dạy" nhập tay — chỉ có ý nghĩa khi teacherType=FOREIGN (GVNN không có tài khoản), đồng bộ với field cùng tên ở Nhận xét học viên — bổ sung ngoài SDD gốc, 2026-09-12. */
   actualTeacherName?: string;
+  /** Bỏ qua chặn trùng giờ Giáo viên chính — phục vụ lớp tách nhóm dùng chung 1 GV/1 khung giờ (bổ sung ngoài SDD gốc, 2026-09-16). Không ảnh hưởng chặn trùng phòng/trùng giờ trong lớp. */
+  allowTeacherOverlap?: boolean;
 }
 
 /** Đảo ngược 2026-08-13 (xác nhận lại 2026-08-19): newStartTime/newEndTime đổi sang newPeriodNumbers; GV chính/phụ/CM giữ nguyên từ buổi cũ (sửa GV dùng updateSessionAssignment riêng). */
@@ -764,6 +766,8 @@ export interface RescheduleClassSessionRequest {
   newPeriodNumbers: number[];
   newRoomId?: number;
   reason?: string;
+  /** Bỏ qua chặn trùng giờ Giáo viên chính — phục vụ lớp tách nhóm dùng chung 1 GV/1 khung giờ (bổ sung ngoài SDD gốc, 2026-09-16). Không ảnh hưởng chặn trùng phòng/trùng giờ trong lớp. */
+  allowTeacherOverlap?: boolean;
 }
 
 /** Sửa nhanh tại chỗ 1 buổi SCHEDULED (bổ sung ngoài SDD gốc, xác nhận 2026-08-19) — phục vụ click-thẻ trên lưới thời khóa biểu. */
@@ -777,6 +781,8 @@ export interface UpdateSessionAssignmentRequest {
   periodNumbers: number[];
   /** "Tên giáo viên giảng dạy" nhập tay — chỉ có ý nghĩa khi teacherType=FOREIGN (GVNN không có tài khoản), đồng bộ với field cùng tên ở Nhận xét học viên — bổ sung ngoài SDD gốc, 2026-09-12. */
   actualTeacherName?: string;
+  /** Bỏ qua chặn trùng giờ Giáo viên chính — phục vụ lớp tách nhóm dùng chung 1 GV/1 khung giờ (bổ sung ngoài SDD gốc, 2026-09-16). Không ảnh hưởng chặn trùng phòng/trùng giờ trong lớp. */
+  allowTeacherOverlap?: boolean;
 }
 
 export function updateSessionAssignment(
@@ -839,6 +845,8 @@ export interface BulkCreateClassSessionRequest {
   cmTeacherId?: number;
   /** "Tên giáo viên giảng dạy" nhập tay — chỉ có ý nghĩa khi teacherType=FOREIGN (GVNN không có tài khoản), đồng bộ với field cùng tên ở Nhận xét học viên — bổ sung ngoài SDD gốc, 2026-09-12. */
   actualTeacherName?: string;
+  /** Bỏ qua chặn trùng giờ Giáo viên chính — phục vụ lớp tách nhóm dùng chung 1 GV/1 khung giờ (bổ sung ngoài SDD gốc, 2026-09-16). Không ảnh hưởng chặn trùng phòng/trùng giờ trong lớp. */
+  allowTeacherOverlap?: boolean;
 }
 
 export interface BulkCreateClassSessionResponse {

@@ -91,7 +91,8 @@
       "gradingFeedbackTitle": "Feedback",
       "gradedByAi": "Graded by AI",
       "gradedByTeacher": "Graded by teacher",
-      "gradingScoreSuffix": "{{score}}/{{max}} points"
+      "gradingScoreSuffix": "{{score}}/{{max}} points",
+      "markedEssayTitle": "Your writing (errors highlighted and underlined)"
     },
     "locked": {
       "remaining": "{{count}} attempt(s) left — finish all your attempts to see the answer.",
@@ -240,6 +241,10 @@
       "failedFeedbackTitle": "Not passed yet",
       "scoreLabel": "content score {{score}}%",
       "listenBackLabel": "Listen to your recording",
+      "quietWarning": "Your recording sounds quiet — try speaking louder and clearer for a more accurate AI grade. You can tap \"Re-record\" or still submit this one.",
+      "unclearWordTooltip": "Unclear word",
+      "criteriaScoresLabel": "Score by criteria",
+      "transcriptLabel": "Transcript (errors highlighted in red, underlined)",
       "retryButton": "Record again",
       "attemptCount": "Recorded {{count}} time(s)",
       "passedPopup": {

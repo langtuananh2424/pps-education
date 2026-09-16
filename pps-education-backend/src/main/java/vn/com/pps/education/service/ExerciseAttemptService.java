@@ -2,6 +2,7 @@ package vn.com.pps.education.service;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.com.pps.education.common.CriteriaScoreItem;
 import vn.com.pps.education.domain.ClassEnrollment;
 import vn.com.pps.education.domain.Curriculum;
 import vn.com.pps.education.domain.Exercise;
@@ -428,7 +429,8 @@ public class ExerciseAttemptService {
      * chưa có điểm, tự rơi vào hàng chờ chấm tay UC-41 như hành vi mặc định cũ.
      */
     private BigDecimal gradeEssayWithAi(StudentAnswer answer, BigDecimal maxPoints, OffsetDateTime now, Curriculum curriculum) {
-        WritingAiGradingService.GradeResult result = writingAiGradingService.grade(answer.getAnswerText(), curriculum);
+        WritingAiGradingService.GradeResult result =
+                writingAiGradingService.grade(answer.getAnswerText(), answer.getQuestion().getContent(), curriculum);
         if (result == null) {
             return null;
         }
@@ -448,6 +450,9 @@ public class ExerciseAttemptService {
         grading.setScore(score);
         grading.setMaxScore(maxPoints);
         grading.setFeedback(result.feedback());
+        // V182 — chỉ có giá trị khi rubric Khối/track này đã là bản "v3" (xem Javadoc WritingAiGradingService).
+        grading.setMarkedAnswer(result.markedAnswer());
+        grading.setCriteriaScores(result.criteriaScores());
         grading.setGradedAt(now);
         grading.setLatest(true);
         studentAnswerGradingRepository.save(grading);
@@ -886,6 +891,8 @@ public class ExerciseAttemptService {
         BigDecimal gradingMaxScore = null;
         String gradingFeedback = null;
         String gradingSource = null;
+        String gradingMarkedAnswer = null;
+        List<CriteriaScoreItem> gradingCriteriaScores = null;
         if (!a.isAutoGradable() && attempt.getStatus() != ExerciseAttempt.Status.IN_PROGRESS) {
             StudentAnswerGrading grading = studentAnswerGradingRepository.findByStudentAnswerIdAndLatestIsTrue(a.getId()).orElse(null);
             if (grading != null) {
@@ -893,12 +900,16 @@ public class ExerciseAttemptService {
                 gradingMaxScore = grading.getMaxScore();
                 gradingFeedback = grading.getFeedback();
                 gradingSource = grading.getGradingSource().name();
+                // V182 — chỉ có giá trị khi được chấm bằng rubric "v3" (xem Javadoc WritingAiGradingService).
+                gradingMarkedAnswer = grading.getMarkedAnswer();
+                gradingCriteriaScores = grading.getCriteriaScores();
             }
         }
         return new StudentAnswerResponse(
                 a.getId(), attempt.getId(), a.getQuestion().getId(), a.getAnswerText(),
                 a.getSelectedChoiceIds(), a.getAudioAnswerUrl(), a.isAutoGradable(), a.getAutoScore(), a.getCorrect(),
                 correctChoiceIds, correctAnswerText, explanation, a.getStructuredAnswer(), correctStructuredContent,
-                gradingScore, gradingMaxScore, gradingFeedback, gradingSource, a.isCarriedOverFromPreviousAttempt());
+                gradingScore, gradingMaxScore, gradingFeedback, gradingSource, gradingMarkedAnswer, gradingCriteriaScores,
+                a.isCarriedOverFromPreviousAttempt());
     }
 }

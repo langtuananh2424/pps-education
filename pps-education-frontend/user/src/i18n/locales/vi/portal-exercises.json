@@ -91,7 +91,8 @@
       "gradingFeedbackTitle": "Nhận xét bài làm",
       "gradedByAi": "AI chấm",
       "gradedByTeacher": "Giáo viên chấm",
-      "gradingScoreSuffix": "{{score}}/{{max}} điểm"
+      "gradingScoreSuffix": "{{score}}/{{max}} điểm",
+      "markedEssayTitle": "Bài làm của bạn (phần lỗi được tô màu, gạch chân)"
     },
     "locked": {
       "remaining": "Còn {{count}} lượt làm — hoàn thành hết lượt để xem đáp án.",
@@ -240,6 +241,10 @@
       "failedFeedbackTitle": "Chưa đạt",
       "scoreLabel": "điểm nội dung {{score}}%",
       "listenBackLabel": "Nghe lại bài ghi âm của bạn",
+      "quietWarning": "Bản ghi hơi nhỏ — hãy thử nói to và rõ hơn để AI chấm chính xác hơn. Bạn có thể bấm \"Ghi âm lại\" hoặc vẫn nộp bài này.",
+      "unclearWordTooltip": "Không rõ từ",
+      "criteriaScoresLabel": "Điểm theo từng tiêu chí",
+      "transcriptLabel": "Bài nói đã chuyển thành chữ (phần lỗi được bôi đỏ, gạch chân)",
       "retryButton": "Ghi âm lại",
       "attemptCount": "Đã ghi âm {{count}} lần",
       "passedPopup": {

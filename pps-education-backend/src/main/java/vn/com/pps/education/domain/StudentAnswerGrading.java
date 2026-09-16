@@ -3,9 +3,13 @@ package vn.com.pps.education.domain;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+import vn.com.pps.education.common.CriteriaScoreItem;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.List;
 
 /**
  * Bảng student_answer_grading (SDD > LMS & Portal > Ngân hàng câu hỏi &
@@ -48,6 +52,21 @@ public class StudentAnswerGrading {
 
     @Column(columnDefinition = "TEXT")
     private String feedback;
+
+    /**
+     * V182 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-16, PILOT Khối 7 IELTS) — CHÍNH
+     * bài viết của học sinh, đánh dấu lỗi bằng markup {@code {{mã|đoạn văn bản}}} (5 loại lỗi × 2 mức độ,
+     * do AI chèn trực tiếp) — CHỈ có giá trị khi được chấm bằng rubric "v3", xem
+     * {@link vn.com.pps.education.service.WritingAiGradingService}. NULL khi HUMAN chấm hoặc AI chấm
+     * bằng rubric cũ (chưa lên v3) — khi đó vẫn dùng {@link #feedback} như trước.
+     */
+    @Column(name = "marked_answer", columnDefinition = "TEXT")
+    private String markedAnswer;
+
+    /** V182 — % từng tiêu chí rubric v3 (TR/TA, CC, LR, GRA...), tách riêng khỏi {@link #feedback}. */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "criteria_scores", columnDefinition = "jsonb")
+    private List<CriteriaScoreItem> criteriaScores;
 
     @Column(name = "graded_at", nullable = false)
     private OffsetDateTime gradedAt = OffsetDateTime.now();

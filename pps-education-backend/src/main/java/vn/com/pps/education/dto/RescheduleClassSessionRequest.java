@@ -19,5 +19,12 @@ public record RescheduleClassSessionRequest(
         @NotBlank String newDayPart,
         @NotEmpty List<Integer> newPeriodNumbers,
         Long newRoomId,
-        String reason
+        String reason,
+        /**
+         * Cho phép bỏ qua chặn trùng giờ Giáo viên (bổ sung ngoài SDD gốc,
+         * xác nhận với người dùng 2026-09-16) — xem Javadoc
+         * BulkCreateClassSessionRequest.allowTeacherOverlap. null coi như
+         * false.
+         */
+        Boolean allowTeacherOverlap
 ) {}
