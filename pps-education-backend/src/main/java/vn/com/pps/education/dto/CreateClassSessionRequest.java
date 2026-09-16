@@ -37,5 +37,12 @@ public record CreateClassSessionRequest(
          * không có tài khoản hệ thống); đồng bộ với field cùng tên ở Nhận
          * xét học viên (class_sessions.actual_teacher_name).
          */
-        String actualTeacherName
+        String actualTeacherName,
+        /**
+         * Cho phép bỏ qua chặn trùng giờ Giáo viên (bổ sung ngoài SDD gốc,
+         * xác nhận với người dùng 2026-09-16) — xem Javadoc
+         * BulkCreateClassSessionRequest.allowTeacherOverlap. null coi như
+         * false.
+         */
+        Boolean allowTeacherOverlap
 ) {}
