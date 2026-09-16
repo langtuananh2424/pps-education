@@ -53,6 +53,18 @@ export function getMyParents(): Promise<ParentStudentResponse[]> {
   return apiRequest<ParentStudentResponse[]>("/students/me/parents");
 }
 
+/**
+ * UC-45: tự đổi mật khẩu của chính tài khoản đang đăng nhập (Học sinh/Phụ huynh) — cùng endpoint
+ * dùng chung với vai trò nhân viên (xem admin/src/features/auth/api.ts), UC-45 áp dụng cho mọi tài khoản.
+ * currentPassword để trống chỉ hợp lệ với tài khoản chưa từng có mật khẩu (chỉ đăng nhập Google — UC-45 A3).
+ */
+export function changeOwnPassword(currentPassword: string, newPassword: string): Promise<void> {
+  return apiRequest<void>("/auth/me/password", {
+    method: "PUT",
+    body: JSON.stringify({ currentPassword: currentPassword || undefined, newPassword })
+  });
+}
+
 /** UC-63: Phụ huynh tự xem/sửa hồ sơ của chính mình (khác hồ sơ con em — xem ChildResponse). */
 export interface MyParentProfileResponse {
   id: number;
