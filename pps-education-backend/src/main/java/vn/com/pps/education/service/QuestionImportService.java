@@ -354,12 +354,7 @@ public class QuestionImportService {
                 "[DIEN_TU]",
                 "Nội dung: She ___ (go) to school every day.",
                 "Đáp án đúng: goes",
-                "Giải thích: Hiện tại đơn, ngôi thứ 3 số ít.",
-                "---",
-                "[DIEN_TU]",
-                "Nội dung: I ___ to the cinema last weekend.",
-                "Đáp án đúng: went/have gone",
-                "Giải thích: Nhiều đáp án đúng thì phân tách bằng dấu / (khác dấu | dùng cho danh sách nhiều chỗ trống ở Điền từ - Hộp từ vựng) — học sinh chỉ cần khớp 1 trong các đáp án.",
+                "Giải thích: Hiện tại đơn, ngôi thứ 3 số ít. Nhiều đáp án đúng thì phân tách bằng dấu / (VD: went/have gone), khác dấu | dùng cho danh sách nhiều chỗ trống ở Điền từ - Hộp từ vựng — học sinh chỉ cần khớp 1 trong các đáp án.",
                 "---"));
         blocks.put("TU_LUAN", List.of(
                 "[TU_LUAN]",
