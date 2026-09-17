@@ -56,10 +56,10 @@ public class Question {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
-    @Column(name = "audio_url", length = 1000)
+    @Column(name = "audio_url", columnDefinition = "TEXT")
     private String audioUrl;
 
-    @Column(name = "image_url", length = 1000)
+    @Column(name = "image_url", columnDefinition = "TEXT")
     private String imageUrl;
 
     @Column(name = "reference_passage", columnDefinition = "TEXT")
