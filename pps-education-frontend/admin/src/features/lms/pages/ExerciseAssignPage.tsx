@@ -625,7 +625,12 @@ function EditExerciseModal({
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
           <label className={labelClass}>{t("assignPage.editExerciseModal.exerciseTitleLabel")}</label>
-          <input value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} />
+          <textarea
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className={`${inputClass} resize-y`}
+            rows={3}
+          />
         </div>
         <div>
           <label className={labelClass}>{t("assignModal.infoStep.skillCategoryLabel")}</label>

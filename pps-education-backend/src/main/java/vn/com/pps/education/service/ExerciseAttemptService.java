@@ -41,6 +41,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -60,7 +61,10 @@ import java.util.stream.Collectors;
  * question_choices.is_correct) và FILL_IN_BLANK (so khớp case-insensitive +
  * trim, với questions.correct_answer_text — V54, bổ sung ngoài SDD gốc, đã
  * xác nhận với người dùng 2026-07-27; V166 nới lỏng thêm 2026-09-05 — bỏ
- * dấu câu Ở CUỐI chuỗi trước khi so khớp, xem {@link #stripTrailingPunctuation}).
+ * dấu câu Ở CUỐI chuỗi trước khi so khớp, xem {@link #stripTrailingPunctuation};
+ * bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-17 — correct_answer_text
+ * giờ chấp nhận NHIỀU đáp án đúng cho cùng 1 chỗ trống, phân tách bằng dấu "/", xem
+ * {@link #parseAcceptedAnswers}).
  * ESSAY/SPEAKING KHÔNG tự chấm được vì SDD không có cột đáp án tham
  * khảo dạng chấm được cho 2 loại này — luôn chờ Giáo viên chấm thủ công
  * (UC-41).
@@ -684,10 +688,13 @@ public class ExerciseAttemptService {
     private boolean isAnswerCorrect(StudentAnswer answer) {
         Question question = answer.getQuestion();
         if (question.getQuestionType() == Question.QuestionType.FILL_IN_BLANK) {
-            String correct = question.getCorrectAnswerText();
             String given = answer.getAnswerText();
-            return correct != null && given != null
-                    && stripTrailingPunctuation(correct).equalsIgnoreCase(stripTrailingPunctuation(given));
+            if (given == null) {
+                return false;
+            }
+            String strippedGiven = stripTrailingPunctuation(given);
+            return parseAcceptedAnswers(question.getCorrectAnswerText()).stream()
+                    .anyMatch(accepted -> stripTrailingPunctuation(accepted).equalsIgnoreCase(strippedGiven));
         }
         if (question.getQuestionType() == Question.QuestionType.WORD_BANK) {
             return structuredAnswerMatches(question, "blanks", answer.getStructuredAnswer());
@@ -710,6 +717,24 @@ public class ExerciseAttemptService {
      */
     private static String stripTrailingPunctuation(String text) {
         return text.trim().replaceAll("\\p{Punct}+$", "").trim();
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-17 — FILL_IN_BLANK giờ chấp nhận
+     * NHIỀU đáp án đúng cho CÙNG 1 chỗ trống (trước đây chỉ so khớp được đúng 1 chuỗi duy nhất).
+     * Nhiều phương án phân tách bằng dấu "/" trong cùng correct_answer_text (VD "go/goes") — học
+     * sinh chỉ cần khớp ÍT NHẤT 1 phương án là ĐÚNG. Cố tình dùng dấu "/" thay vì "|" (đã có nghĩa
+     * khác: DANH SÁCH THEO THỨ TỰ cho NHIỀU chỗ trống khác nhau ở DIEN_TU_HOP_TU_VUNG/SAP_XEP_CAU/
+     * SAP_XEP_CHU_CAI, xem QuestionImportService) để tránh nhầm lẫn cho GV khi soạn Excel/Word.
+     */
+    private static List<String> parseAcceptedAnswers(String correctAnswerText) {
+        if (correctAnswerText == null) {
+            return List.of();
+        }
+        return Arrays.stream(correctAnswerText.split("/"))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toList();
     }
 
     /**

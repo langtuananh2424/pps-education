@@ -355,6 +355,11 @@ public class QuestionImportService {
                 "Nội dung: She ___ (go) to school every day.",
                 "Đáp án đúng: goes",
                 "Giải thích: Hiện tại đơn, ngôi thứ 3 số ít.",
+                "---",
+                "[DIEN_TU]",
+                "Nội dung: I ___ to the cinema last weekend.",
+                "Đáp án đúng: went/have gone",
+                "Giải thích: Nhiều đáp án đúng thì phân tách bằng dấu / (khác dấu | dùng cho danh sách nhiều chỗ trống ở Điền từ - Hộp từ vựng) — học sinh chỉ cần khớp 1 trong các đáp án.",
                 "---"));
         blocks.put("TU_LUAN", List.of(
                 "[TU_LUAN]",
@@ -380,7 +385,7 @@ public class QuestionImportService {
                 "Nội dung: Tom is very ___.|English is my ___ subject.|Our football ___ helps us win the game.",
                 "Đáp án đúng: smart|favourite|coach",
                 "Transcript: activity, advanced, beginner, classmate, smart, coach, competition, course, favourite, geography, history, practice",
-                "Giải thích: Mỗi câu phân tách bằng dấu | trong \"Nội dung\", ĐÚNG thứ tự khớp \"Đáp án đúng\" (cũng phân tách bằng dấu |, phải cùng số lượng). Cột Transcript (tùy chọn) = hộp từ vựng THAM KHẢO hiện chung 1 lần, không phải đáp án. URL Hình ảnh (tùy chọn) = ảnh riêng từng câu, phân tách bằng dấu | cùng số lượng với Nội dung (để trống 1 vị trí = câu đó không có ảnh). Mỗi câu tạo thành 1 câu hỏi riêng, tự có điểm/nhãn \"Câu N.\" riêng — không chấm all-or-nothing như Điền từ - Hộp từ vựng.",
+                "Giải thích: Mỗi câu phân tách bằng dấu | trong \"Nội dung\", ĐÚNG thứ tự khớp \"Đáp án đúng\" (cũng phân tách bằng dấu |, phải cùng số lượng). Cột Transcript (tùy chọn) = hộp từ vựng THAM KHẢO hiện chung 1 lần, không phải đáp án. URL Hình ảnh (tùy chọn) = ảnh riêng từng câu, phân tách bằng dấu | cùng số lượng với Nội dung (để trống 1 vị trí = câu đó không có ảnh). Mỗi câu tạo thành 1 câu hỏi riêng, tự có điểm/nhãn \"Câu N.\" riêng — không chấm all-or-nothing như Điền từ - Hộp từ vựng. 1 câu có nhiều đáp án đúng thì dùng thêm dấu / NGAY TRONG phần tử đó (VD: smart/clever|favourite|coach — câu 1 chấp nhận cả \"smart\" lẫn \"clever\"), không đụng tới dấu | đang phân tách giữa các câu.",
                 "---"));
         blocks.put("SAP_XEP_CAU", List.of(
                 "[SAP_XEP_CAU]",
@@ -412,7 +417,7 @@ public class QuestionImportService {
                 "Nội dung: Listen and fill in the blank: She usually ___ to work.",
                 "URL Audio: https://example-r2.dev/lms/questions/audio/mau-nghe-dien-tu.mp3",
                 "Đáp án đúng: drives",
-                "Giải thích: Hệ thống tự chấm theo đáp án đúng.",
+                "Giải thích: Hệ thống tự chấm theo đáp án đúng. Nhiều đáp án đúng thì phân tách bằng dấu / (VD: drives/rides).",
                 "---"));
         blocks.put("NGHE_CHON_HINH", List.of(
                 "[NGHE_CHON_HINH]",
