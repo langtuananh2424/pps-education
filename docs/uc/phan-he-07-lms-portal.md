@@ -946,6 +946,13 @@ UC-24: Làm bài kiểm tra trực tuyến
 > "Không rõ từ" khi học sinh trỏ chuột vào. `{{err}}...{{/err}}` từ nay
 > CHỈ dùng cho lỗi ngữ pháp/từ vựng nhận diện rõ ràng.
 
+> **Bổ sung V190 (2026-09-16, đã xác nhận với người dùng) — fix bug thật:
+> tooltip `[?]` ở V185 dùng thuộc tính `title` chuẩn HTML, không hoạt
+> động trên thiết bị cảm ứng (không có "hover") — đa số học sinh dùng
+> tablet/điện thoại nên gần như không bao giờ thấy được chú thích.** Thay
+> bằng component `UnclearMarker` tự dựng tooltip, bật/tắt qua chạm
+> (`onClick`) và vẫn giữ hover cho máy tính bàn.
+
 > **Bổ sung V186 (2026-09-16, đã xác nhận với người dùng) — truyền câu
 > học sinh đã viết ở bước 1 làm gợi ý từ vựng cho AI chấm Speaking.**
 > Phát hiện qua test tay: tên riêng lạ (VD "PPS School") bị AI nghe NHẦM
@@ -957,6 +964,36 @@ UC-24: Làm bài kiểm tra trực tuyến
 > vào prompt CHỈ để tham khảo từ vựng/tên riêng khó nghe — prompt dặn rõ
 > đây KHÔNG phải nội dung chuẩn để copy, học sinh có thể nói khác hẳn câu
 > đã viết khi ghi âm thật (đã có bằng chứng thật ở V178 — câu 6).
+
+> **Bổ sung V188 (2026-09-16, đã xác nhận với người dùng) — ĐÃ REVERT
+> V186.** Kiểm tra DB sau khi triển khai V186 phát hiện `speaking_
+> transcript` GIỐNG HỆT `answer_text` (câu viết) ở NHIỀU bản ghi liên
+> tiếp, kể cả điểm Phát âm vẫn 90-100% — dặn dò bằng lời trong prompt
+> ("không copy nguyên văn") KHÔNG đủ sức cản model, nó chỉ "rubber-stamp"
+> lại câu gợi ý kèm điểm cao mặc định thay vì thực sự nghe/phân tích
+> audio. Đây là hồi quy nghiêm trọng hơn hẳn vấn đề gốc V186 định sửa
+> (thỉnh thoảng nghe nhầm 1 tên riêng lạ) — bỏ hẳn cơ chế gợi ý câu viết,
+> chấp nhận sống chung với rủi ro hiếm "tên riêng lạ bị nghe nhầm" thay vì
+> làm hỏng tính xác thực của việc chấm Phát âm/nội dung. KHÔNG thử lại
+> hướng "gợi ý cả câu" nếu không có cơ chế RÀNG BUỘC CỨNG chống copy
+> nguyên văn (ngoài dặn dò bằng lời).
+
+> **Bổ sung V189 (2026-09-16, đã xác nhận với người dùng) — fix bug thật
+> bên bước Viết (`ReflexWritingGrammarAiGradingService`, phần "Video phản
+> xạ" V139 trở lên — các bản vá V179-V187 của nhóm này KHÔNG có mặt trong
+> mục UC ở trên, chỉ nằm trong Javadoc code, xem ghi chú tại đó):** bài
+> viết đủ dài, chính tả/từ vựng sai rõ ràng (VD "usally"→"usually",
+> "sped"→"spend", "footall"→"football") vẫn đạt 90% ngữ pháp. Gốc rễ: lúc
+> trích bảng checkpoint GV/DM/LR/GRA từ rubric Speaking gốc (V179), CHỈ
+> trích bảng điểm — BỎ SÓT §2b "Cấm chấm theo thiện chí. Không suy đoán ý
+> học sinh định nói" của rubric gốc, khiến model tự "hiểu ý" rồi bỏ qua
+> lỗi chính tả/từ sai. SỬA: thêm lại đúng đoạn này vào 3 file rubric v2
+> (`writing-grammar-rubric-grade6-shared.md`/`grade7-cambridge.md`/
+> `grade7-ielts.md`) VÀ thêm ở tầng wrapper prompt (`reflex-writing-
+> grammar-grading-system-prompt.txt`) để áp dụng đồng nhất cho MỌI khối kể
+> cả 8-9 (rubric dạng bảng mô tả cũ không có §2b để trích) — mirror đúng
+> bài học từ V183 phía Speaking (chỉ dựa vào nội dung rubric nhúng vào
+> không đủ, phải nhắc lại/tăng cường ở tầng wrapper prompt).
 
 > **V177 (2026-09-15, đã xác nhận với người dùng) — SỬA LẠI A2 "Muốn làm
 > lại (retake)": chỉ cần làm lại CÂU SAI, không phải làm lại toàn bộ đề.**

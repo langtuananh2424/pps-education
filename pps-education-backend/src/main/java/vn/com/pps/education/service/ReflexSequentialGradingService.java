@@ -124,7 +124,7 @@ public class ReflexSequentialGradingService {
             audioFile = null;
         }
         ReflexSpeakingContentAiGradingService.GradeResult result =
-                audioFile == null ? null : speakingGradingService.grade(audioFile.bytes(), audioFile.contentType(), question.getPrompt(), progress.getAnswerText(), question.getReviewVideo().getReviewVideoSet().getCurriculum());
+                audioFile == null ? null : speakingGradingService.grade(audioFile.bytes(), audioFile.contentType(), question.getPrompt(), question.getReviewVideo().getReviewVideoSet().getCurriculum());
         applySpeakingResult(progress, result);
         progress = reflexQuestionProgressRepository.save(progress);
         return toResponse(progress);
