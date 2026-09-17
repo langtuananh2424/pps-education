@@ -296,6 +296,23 @@ function isAnswerRevealed(answer: StudentAnswerResponse): boolean {
 }
 
 /**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-17 — FILL_IN_BLANK giờ chấp nhận NHIỀU
+ * đáp án đúng cho cùng 1 chỗ trống, lưu phân tách bằng dấu "/" trong correctAnswerText (xem
+ * ExerciseAttemptService#parseAcceptedAnswers). Hiện TẤT CẢ phương án khi reveal cho học sinh
+ * (không chỉ phương án đầu tiên), format lại khoảng trắng quanh dấu "/" cho dễ đọc.
+ */
+function formatCorrectAnswerText(correctAnswerText: string | null | undefined): string {
+  if (!correctAnswerText) {
+    return "—";
+  }
+  return correctAnswerText
+    .split("/")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
+    .join(" / ");
+}
+
+/**
  * V177 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-15) — UC-24/UC-27 A2: câu đã được
  * mang nguyên nội dung từ lượt làm TRƯỚC (đã đúng) sang lượt "Làm lại" hiện tại (xem
  * ExerciseAttemptService#startAttempt) — phải hiện dạng chỉ xem/khoá, không cho sửa, độc lập với
@@ -1302,10 +1319,10 @@ export function QuestionBlock({
             <div className={`flex items-center gap-1.5 text-xs font-bold ${notAnswered ? "text-coral" : answer?.isCorrect ? "text-teal-deep" : "text-coral"}`}>
               {notAnswered ? <HelpCircle size={14} /> : answer?.isCorrect ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
               {notAnswered
-                ? t("takeExercise.question.notAnsweredPrefix", { answer: answer?.correctAnswerText ?? "—" })
+                ? t("takeExercise.question.notAnsweredPrefix", { answer: formatCorrectAnswerText(answer?.correctAnswerText) })
                 : answer?.isCorrect
                   ? t("takeExercise.question.correct")
-                  : t("takeExercise.question.correctAnswerPrefix", { answer: answer?.correctAnswerText ?? "—" })}
+                  : t("takeExercise.question.correctAnswerPrefix", { answer: formatCorrectAnswerText(answer?.correctAnswerText) })}
             </div>
           )}
         </div>
@@ -2010,10 +2027,10 @@ export function GridQuestionGroup({
                     <div className={`flex items-center gap-1.5 text-xs font-bold ${notAnswered ? "text-coral" : answer?.isCorrect ? "text-teal-deep" : "text-coral"}`}>
                       {notAnswered ? <HelpCircle size={14} /> : answer?.isCorrect ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
                       {notAnswered
-                        ? t("takeExercise.question.notAnsweredPrefix", { answer: answer?.correctAnswerText ?? "—" })
+                        ? t("takeExercise.question.notAnsweredPrefix", { answer: formatCorrectAnswerText(answer?.correctAnswerText) })
                         : answer?.isCorrect
                           ? t("takeExercise.question.correct")
-                          : t("takeExercise.question.correctAnswerPrefix", { answer: answer?.correctAnswerText ?? "—" })}
+                          : t("takeExercise.question.correctAnswerPrefix", { answer: formatCorrectAnswerText(answer?.correctAnswerText) })}
                     </div>
                   )}
                 </div>

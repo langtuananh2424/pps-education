@@ -1029,7 +1029,21 @@ b)  Bảng questions --- Câu hỏi
                                                              gốc, đã xác
                                                              nhận với người
                                                              dùng
-                                                             2026-07-27)
+                                                             2026-07-27).
+                                                             Hỗ trợ NHIỀU
+                                                             đáp án đúng
+                                                             cho CÙNG 1 chỗ
+                                                             trống, phân
+                                                             tách bằng dấu
+                                                             "/" (VD "go/
+                                                             goes") — khớp
+                                                             ÍT NHẤT 1
+                                                             phương án là
+                                                             ĐÚNG (bổ sung
+                                                             ngoài SDD gốc,
+                                                             đã xác nhận
+                                                             với người dùng
+                                                             2026-09-17)
 
   default_points      DECIMAL(5,2)     NOT NULL, DEFAULT 1.0 
 
@@ -1227,6 +1241,21 @@ TRUE_FALSE/FILL_IN_BLANK) chỉ trả `explanation` khi học sinh trả lời
 SAI; câu **chấm tay** (ESSAY/SPEAKING) giữ nguyên hành vi cũ — luôn trả
 `explanation` khi `revealAnswer=true` (vì `ManualGradingService` không
 set cờ `student_answers.is_correct`, không có tín hiệu đúng/sai đáng tin
+cậy).
+
+**Bổ sung ngoài SDD gốc, đã xác nhận với người dùng (2026-09-17):**
+FILL_IN_BLANK giờ chấp nhận NHIỀU đáp án đúng cho CÙNG 1 chỗ trống (trước
+đây `correct_answer_text` chỉ chứa được 1 chuỗi duy nhất). Nhiều phương án
+phân tách bằng dấu `/` trong cùng cột `correct_answer_text` (VD
+`go/goes`), học sinh chỉ cần khớp ÍT NHẤT 1 phương án (case-insensitive +
+trim + bỏ dấu câu cuối, xem `ExerciseAttemptService#parseAcceptedAnswers`)
+là tính ĐÚNG. Cố tình dùng dấu `/` thay vì `|` — `|` đã mang nghĩa khác
+(DANH SÁCH THEO THỨ TỰ cho NHIỀU chỗ trống khác nhau, dùng ở
+DIEN_TU_HOP_TU_VUNG/SAP_XEP_CAU/SAP_XEP_CHU_CAI khi import Excel/Word) để
+tránh GV nhầm lẫn 2 cú pháp khi soạn câu hỏi. Không cần migration Flyway
+mới vì cột đã là kiểu `TEXT` sẵn — chỉ đổi cách parse chuỗi. Khi hiện đáp
+án đúng cho học sinh sau khi nộp (reveal), FE hiện TẤT CẢ phương án được
+chấp nhận (xem `TakeExerciseModal.tsx`), không chỉ phương án đầu tiên.
 cậy để lọc theo).
 
 e)  Bảng exercise_questions --- Câu hỏi thuộc đề
