@@ -756,6 +756,23 @@ UC-48: Xếp lịch buổi học
 > việc" (`TimetableSessionCard`) hiển thị tên mới + tên gốc dạng gạch
 > ngang, tô đậm/nổi màu, để nhận biết đã phát sinh thay GV ngoài kế hoạch.
 
+> **Cho phép trùng giờ Giáo viên có kiểm soát — lớp tách nhóm (bổ sung
+> ngoài SDD gốc, xác nhận với người dùng 2026-09-16):** thực tế vận hành
+> có trường hợp 1 lớp tách thành 2 nhóm (VD `KT-7A4-1`/`KT-7A4-2`) học
+> chung 1 khung giờ và do CÙNG 1 giáo viên chính đứng dạy đồng thời cả 2
+> nhóm — `checkTeacherConflict` (ghi chú ở trên, xác nhận 2026-07-30) chặn
+> đúng như thiết kế nhưng lại chặn nhầm case hợp lệ này. Thêm field tuỳ
+> chọn `allowTeacherOverlap` (mặc định `false`) vào `CreateClassSessionRequest`/
+> `BulkCreateClassSessionRequest`/`UpdateSessionAssignmentRequest`/
+> `RescheduleClassSessionRequest` — khi `true`, `ClassSessionService` bỏ
+> qua riêng bước `checkTeacherConflict` cho request đó, KHÔNG ảnh hưởng
+> `checkRoomConflict`/`checkClassConflict` (vẫn chặn trùng phòng và chặn
+> trùng giờ trong cùng 1 lớp như cũ). Frontend hiện checkbox "Cho phép
+> giáo viên chính trùng giờ với buổi dạy khác" ở `CreateSessionModal` (tạo
+> buổi/UC-48, UC-56) và `SessionEditModal` (tab "Sửa thông tin" =
+> `updateAssignment`, tab "Dời lịch" = UC-48 A3) — người dùng phải tự tick,
+> không mặc định bật, để tránh xếp trùng giờ ngoài ý muốn.
+
 ---
 
 UC-56: Sinh lịch học hàng loạt theo mẫu lặp

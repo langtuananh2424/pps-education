@@ -290,7 +290,7 @@ export default function ExerciseAssignPage() {
             </div>
           ) : (
             <>
-              <div className="divide-y divide-slate-100 overflow-y-auto">
+              <div className="divide-y divide-slate-100 overflow-y-auto max-h-[65vh]">
                 {pageExams.map((exam) => (
                   <button
                     key={exam.id}

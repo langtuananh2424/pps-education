@@ -3,10 +3,14 @@ package vn.com.pps.education.domain;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import vn.com.pps.education.common.BaseAuditEntity;
+import vn.com.pps.education.common.CriteriaScoreItem;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.List;
 
 /**
  * Bảng reflex_question_progress (V139, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-22)
@@ -51,8 +55,29 @@ public class ReflexQuestionProgress extends BaseAuditEntity {
     @Column(name = "writing_max_score", precision = 5, scale = 2)
     private BigDecimal writingMaxScore;
 
+    /**
+     * V181 (2026-09-16, xác nhận với người dùng) — KHÔNG còn ghi feedback văn xuôi 7 mục dài dòng vào
+     * đây nữa — xem {@link #writingMarkedAnswer}.
+     *
+     * V184 (2026-09-16, phát hiện qua test thật trên staging, xác nhận với người dùng) — tái dùng field
+     * này cho 2 trường hợp NGẮN GỌN cần giải thích lý do: (1) AI chấm thất bại (xem
+     * ReflexSequentialGradingService#AI_GRADING_FAILED_FEEDBACK), (2) Cổng chặn của rubric kích hoạt (VD
+     * "Quá ngắn") — {@code gateNote} từ ReflexWritingGrammarAiGradingService, tối đa 40 từ, GIẢI THÍCH
+     * vì sao điểm thấp dù markedAnswer không bôi đỏ lỗi nào (đã xảy ra thật: học sinh không hiểu vì sao
+     * bị điểm thấp khi câu đúng ngữ pháp nhưng quá ngắn). NULL khi không rơi vào 2 trường hợp trên.
+     */
     @Column(name = "writing_feedback", columnDefinition = "TEXT")
     private String writingFeedback;
+
+    /**
+     * V181 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-16) — chính câu trả lời viết của
+     * học sinh, có đánh dấu lỗi ngữ pháp/từ vựng bằng markup {@code {{err}}...{{/err}}} do AI chèn trực
+     * tiếp trong chuỗi (xem ReflexWritingGrammarAiGradingService) — FE tự regex-split để bôi đỏ/gạch
+     * chân, đồng nhất cách hiển thị với {@link #speakingTranscript} (V178). Thay cho feedback văn xuôi
+     * 7 mục dài dòng trước đây.
+     */
+    @Column(name = "writing_marked_answer", columnDefinition = "TEXT")
+    private String writingMarkedAnswer;
 
     @Column(name = "writing_graded_at")
     private OffsetDateTime writingGradedAt;
@@ -79,6 +104,22 @@ public class ReflexQuestionProgress extends BaseAuditEntity {
 
     @Column(name = "speaking_feedback", columnDefinition = "TEXT")
     private String speakingFeedback;
+
+    /**
+     * V178 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-16) — transcript của audio, có
+     * đánh dấu lỗi ngữ pháp/từ vựng bằng markup {@code {{err}}...{{/err}}} do AI chèn trực tiếp trong
+     * chuỗi (xem ReflexSpeakingContentAiGradingService) — FE tự regex-split để bôi đỏ/gạch chân.
+     */
+    @Column(name = "speaking_transcript", columnDefinition = "TEXT")
+    private String speakingTranscript;
+
+    /**
+     * V178 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-16) — % từng tiêu chí rubric,
+     * tách riêng khỏi {@link #speakingFeedback} (trước đây nhúng thành dòng text trong feedback).
+     */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "speaking_criteria_scores", columnDefinition = "jsonb")
+    private List<CriteriaScoreItem> speakingCriteriaScores;
 
     @Column(name = "speaking_graded_at")
     private OffsetDateTime speakingGradedAt;

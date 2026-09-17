@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { CheckCircle2, Loader2, Lock, Mic, Pause, Play, RotateCcw, ShieldAlert, Square } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Loader2, Lock, Mic, Pause, Play, RotateCcw, ShieldAlert, Square } from "lucide-react";
 import { friendlyApiErrorMessage } from "@/lib/apiClient";
 import {
   ReflexQuestionProgressResponse,
@@ -45,6 +45,87 @@ function stageForProgress(p: ReflexQuestionProgressResponse | undefined): "writi
 }
 
 /**
+ * V178 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-16) — AI bọc phần lỗi ngữ pháp/từ vựng
+ * bằng markup thuần `{{err}}...{{/err}}` (BE không có sanitizer/markdown nào nên KHÔNG dùng
+ * dangerouslySetInnerHTML — tự regex-split ra text node thường vs span bôi đỏ/gạch chân). Dùng chung cho
+ * CẢ speakingTranscript (V178) VÀ writingMarkedAnswer (V181, bổ sung 2026-09-16) để 2 bước hiển thị lỗi
+ * đồng nhất 1 kiểu.
+ *
+ * V185 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-16) — thêm nhận diện ký hiệu `[?]` mà
+ * prompt Speaking (V183) yêu cầu AI dùng khi 1 từ/cụm từ nghe không rõ đến mức không tự tin — TRƯỚC ĐÂY
+ * AI vẫn phải "đoán sát âm thanh nhất" rồi bọc {{err}}, nhưng thực tế đoán sai vẫn hiện ra như 1 từ chắc
+ * chắn, gây hiểu lầm. Nay AI KHÔNG đoán nữa, chỉ để lại `[?]` — FE hiện thành 1 dấu `?` kèm chú thích
+ * "không rõ từ".
+ *
+ * V190 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-16) — fix bug thật: V185 dùng thuộc
+ * tính `title` chuẩn HTML cho chú thích, nhưng trình duyệt chỉ hiện sau khi DI CHUỘT đứng yên khá lâu
+ * VÀ hoàn toàn KHÔNG hoạt động trên máy tính bảng/điện thoại (không có con trỏ chuột để "hover") — đa số
+ * học sinh dùng thiết bị cảm ứng nên gần như không bao giờ thấy được chú thích. Thay bằng tooltip tự
+ * dựng ({@link UnclearMarker}), bật/tắt qua chạm (`onClick`) VÀ vẫn giữ hover cho máy tính bàn.
+ */
+const ERROR_MARKUP = /\{\{err\}\}([\s\S]*?)\{\{\/err\}\}/g;
+const UNCLEAR_MARKER = "[?]";
+
+/** Xem ghi chú V190 ở trên — thay `title` HTML (không hoạt động trên cảm ứng) bằng tooltip tự dựng. */
+function UnclearMarker({ tooltip }: { tooltip: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <span
+      className="relative inline-block cursor-help font-extrabold text-amber-600 underline decoration-dotted decoration-2 underline-offset-2"
+      onClick={(e) => {
+        e.stopPropagation();
+        setOpen((o) => !o);
+      }}
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
+      ?
+      {open && (
+        <span className="absolute z-10 left-1/2 -translate-x-1/2 bottom-full mb-1 whitespace-nowrap rounded-md bg-ink text-white text-[11px] font-medium px-2 py-1 normal-case">
+          {tooltip}
+        </span>
+      )}
+    </span>
+  );
+}
+
+function renderUnclearMarkers(text: string, keyPrefix: string, tooltip: string): React.ReactNode[] {
+  const segments = text.split(UNCLEAR_MARKER);
+  const nodes: React.ReactNode[] = [];
+  segments.forEach((segment, idx) => {
+    if (segment) nodes.push(<React.Fragment key={`${keyPrefix}-t${idx}`}>{segment}</React.Fragment>);
+    if (idx < segments.length - 1) {
+      nodes.push(<UnclearMarker key={`${keyPrefix}-q${idx}`} tooltip={tooltip} />);
+    }
+  });
+  return nodes;
+}
+
+function renderHighlightedErrors(text: string, unclearTooltip: string): React.ReactNode[] {
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  let key = 0;
+  ERROR_MARKUP.lastIndex = 0;
+  while ((match = ERROR_MARKUP.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(...renderUnclearMarkers(text.slice(lastIndex, match.index), `plain-${key}`, unclearTooltip));
+    }
+    parts.push(
+      <span key={`err-${key}`} className="text-red-600 underline decoration-2 underline-offset-2 font-semibold">
+        {renderUnclearMarkers(match[1], `errinner-${key}`, unclearTooltip)}
+      </span>
+    );
+    key++;
+    lastIndex = ERROR_MARKUP.lastIndex;
+  }
+  if (lastIndex < text.length) {
+    parts.push(...renderUnclearMarkers(text.slice(lastIndex), `tail-${key}`, unclearTooltip));
+  }
+  return parts;
+}
+
+/**
  * Ghi âm trực tiếp qua microphone (MediaRecorder API) — 1 instance dùng chung cho cả trang, vì chỉ 1
  * câu được ghi âm tại 1 thời điểm (câu đang mở khoá — video tạm dừng chờ trong lúc ghi/chấm).
  *
@@ -55,6 +136,16 @@ function stageForProgress(p: ReflexQuestionProgressResponse | undefined): "writi
  * (`ensureStream` chỉ gọi `getUserMedia()` nếu chưa có stream còn sống), tái dùng cho mọi câu — chỉ dừng
  * hẳn khi rời trang (cleanup effect khi unmount).
  */
+/**
+ * V184 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-16) — fix constraint audio (V183)
+ * không đủ: 1 lượt ghi âm sau đó vẫn bị AI (kể cả Whisper, độc lập hoàn toàn với Gemini) nghe sai hẳn
+ * nội dung — đo được mean volume -30.2dB (nhỏ hơn hẳn các lượt trước). Nguyên nhân gốc là học sinh nói
+ * quá nhỏ, KHÔNG phải do encode/model — không có xử lý code nào "phục hồi" được giọng nói chưa từng đủ
+ * to. Ngưỡng RMS dưới đây ước lượng từ chính 2 mẫu lỗi thật đã đo (không phải số liệu chuẩn hoá y khoa/
+ * audio-engineering), có thể cần tinh chỉnh lại sau khi thu thập thêm dữ liệu thật.
+ */
+const QUIET_RMS_THRESHOLD = 0.035;
+
 function useAudioRecorder() {
   const { t } = useTranslation("portal-exercises");
   const [recording, setRecording] = useState(false);
@@ -62,10 +153,23 @@ function useAudioRecorder() {
   const [maxSeconds, setMaxSeconds] = useState(0);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [quietWarning, setQuietWarning] = useState(false);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<number | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const volumeSumRef = useRef(0);
+  const volumeSamplesRef = useRef(0);
+
+  const closeVolumeMeter = () => {
+    analyserRef.current = null;
+    if (audioCtxRef.current) {
+      audioCtxRef.current.close().catch(() => {});
+      audioCtxRef.current = null;
+    }
+  };
 
   const stop = () => {
     recorderRef.current?.stop();
@@ -74,21 +178,36 @@ function useAudioRecorder() {
       window.clearInterval(timerRef.current);
       timerRef.current = null;
     }
+    const avgRms = volumeSamplesRef.current > 0 ? volumeSumRef.current / volumeSamplesRef.current : 0;
+    setQuietWarning(avgRms > 0 && avgRms < QUIET_RMS_THRESHOLD);
+    closeVolumeMeter();
   };
 
-  /** Trả lại stream micro đang còn sống nếu có, chỉ xin quyền lại khi chưa từng xin hoặc track đã bị dừng. */
+  /**
+   * Trả lại stream micro đang còn sống nếu có, chỉ xin quyền lại khi chưa từng xin hoặc track đã bị dừng.
+   *
+   * V183 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-16) — fix bug thật phát hiện qua test AI
+   * chấm Speaking: để trống `audio: true` khiến trình duyệt tự bật `noiseSuppression`/`autoGainControl`
+   * mặc định, có lúc xử lý quá tay làm mất gần hết dải tần số thấp của giọng nói thật (xác nhận qua
+   * spectrogram — mất hẳn dải <2000Hz ở 1 số lượt ghi) — khiến AI (kể cả Whisper, không liên quan gì tới
+   * Gemini) nghe sai nội dung nhiều hơn hẳn so với các lượt ghi giữ được dải tần thấp. Tắt hẳn 2 xử lý
+   * này, chỉ giữ `echoCancellation` (không ảnh hưởng dải tần giọng, chỉ chống hú loa-mic).
+   */
   const ensureStream = async (): Promise<MediaStream> => {
     const existing = streamRef.current;
     if (existing && existing.getAudioTracks().some((tr) => tr.readyState === "live")) {
       return existing;
     }
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false }
+    });
     streamRef.current = stream;
     return stream;
   };
 
   const start = async (limitSeconds: number) => {
     setError(null);
+    setQuietWarning(false);
     try {
       const stream = await ensureStream();
       chunksRef.current = [];
@@ -106,10 +225,39 @@ function useAudioRecorder() {
       setMaxSeconds(limitSeconds);
       setRecording(true);
       setElapsedSeconds(0);
+
+      // V184 — đo mức âm lượng trong lúc ghi (KHÔNG ảnh hưởng chất lượng audio thật lưu lại, chỉ đọc
+      // song song qua AnalyserNode) để cảnh báo học sinh nói quá nhỏ ngay sau khi dừng ghi.
+      volumeSumRef.current = 0;
+      volumeSamplesRef.current = 0;
+      try {
+        const AudioContextCtor = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+        if (AudioContextCtor) {
+          const audioCtx = new AudioContextCtor();
+          const source = audioCtx.createMediaStreamSource(stream);
+          const analyser = audioCtx.createAnalyser();
+          analyser.fftSize = 2048;
+          source.connect(analyser);
+          audioCtxRef.current = audioCtx;
+          analyserRef.current = analyser;
+        }
+      } catch {
+        // Môi trường không hỗ trợ AnalyserNode (hiếm) — bỏ qua cảnh báo âm lượng, không chặn ghi âm.
+      }
+
       const startedAt = Date.now();
       timerRef.current = window.setInterval(() => {
         const elapsed = Math.round((Date.now() - startedAt) / 1000);
         setElapsedSeconds(elapsed);
+        const analyser = analyserRef.current;
+        if (analyser) {
+          const data = new Float32Array(analyser.fftSize);
+          analyser.getFloatTimeDomainData(data);
+          let sumSquares = 0;
+          for (let i = 0; i < data.length; i++) sumSquares += data[i] * data[i];
+          volumeSumRef.current += Math.sqrt(sumSquares / data.length);
+          volumeSamplesRef.current += 1;
+        }
         if (elapsed >= limitSeconds) stop();
       }, 500);
     } catch {
@@ -117,17 +265,21 @@ function useAudioRecorder() {
     }
   };
 
-  const reset = () => setAudioBlob(null);
+  const reset = () => {
+    setAudioBlob(null);
+    setQuietWarning(false);
+  };
 
   useEffect(
     () => () => {
       streamRef.current?.getTracks().forEach((t) => t.stop());
       if (timerRef.current) window.clearInterval(timerRef.current);
+      closeVolumeMeter();
     },
     []
   );
 
-  return { recording, elapsedSeconds, maxSeconds, audioBlob, error, start, stop, reset, ensureStream };
+  return { recording, elapsedSeconds, maxSeconds, audioBlob, error, quietWarning, start, stop, reset, ensureStream };
 }
 
 /**
@@ -350,7 +502,7 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
   const [speakingSubmitting, setSpeakingSubmitting] = useState(false);
   const [speakingError, setSpeakingError] = useState<string | null>(null);
   const [speakingPassedPopup, setSpeakingPassedPopup] = useState<{ scorePercent: number | null; feedback: string | null } | null>(null);
-  const [writingPassedPopup, setWritingPassedPopup] = useState<{ scorePercent: number | null; feedback: string | null } | null>(null);
+  const [writingPassedPopup, setWritingPassedPopup] = useState<{ scorePercent: number | null } | null>(null);
   const recorder = useAudioRecorder();
 
   const allQuestionsPassed = questions.length > 0 && questions.every((q) => progress[q.id]?.questionPassed);
@@ -695,7 +847,7 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
       // sinh tự bấm "Tiếp tục" khi sẵn sàng (xem handleContinueAfterWritingPass) — video chạy tiếp cho
       // nghe lại câu hỏi, còn GHI ÂM THẬT phải bấm riêng nút "Bắt đầu ghi âm" trong panel (handleStartRecording).
       if (stageForProgress(response) === "speaking") {
-        setWritingPassedPopup({ scorePercent: response.writingScorePercent, feedback: response.writingFeedback });
+        setWritingPassedPopup({ scorePercent: response.writingScorePercent });
       }
     } catch (err) {
       setWritingError(friendlyApiErrorMessage(err, t("reflexVideoTask.submitError")));
@@ -917,11 +1069,6 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
               {writingPassedPopup.scorePercent != null &&
                 ` — ${t("reflexVideoTask.writingStage.scoreLabel", { score: writingPassedPopup.scorePercent })}`}
             </h3>
-            {writingPassedPopup.feedback && (
-              <p className="text-xs font-medium text-muted text-left normal-case whitespace-pre-line max-h-48 overflow-y-auto">
-                {writingPassedPopup.feedback}
-              </p>
-            )}
             <button
               onClick={handleContinueAfterWritingPass}
               className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 bg-teal hover:bg-teal-deep text-white rounded-xl text-xs sm:text-sm font-extrabold"
@@ -1128,7 +1275,20 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                   placeholder={t("reflexVideoTask.writingStage.placeholder")}
                   className="w-full rounded-xl border border-line p-3 text-sm font-medium text-ink disabled:opacity-60"
                 />
-                {displayProgress?.writingFeedback && (
+                {/*
+                 * V181 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-16) — bỏ feedback văn
+                 * xuôi dài dòng, hiện lại CHÍNH câu trả lời của học sinh với phần lỗi bôi đỏ/gạch chân
+                 * (writingMarkedAnswer) — đồng nhất cách hiển thị với bước Speaking.
+                 *
+                 * V184 (2026-09-16, phát hiện qua test thật trên staging, xác nhận với người dùng) — V181
+                 * làm học sinh KHÔNG biết vì sao điểm thấp khi Cổng chặn (VD "Quá ngắn") kích hoạt mà
+                 * không có lỗi ngữ pháp nào để bôi đỏ (vì thực sự không sai) — im lặng hoàn toàn, rất khó
+                 * hiểu hướng sửa (UX tệ). writingFeedback giờ tái dùng để chứa gateNote (lý do cổng chặn,
+                 * xem ReflexWritingGrammarAiGradingService) HOẶC thông báo AI chấm lỗi — hiện RIÊNG thành
+                 * 1 ô cảnh báo có icon, tách khỏi đoạn markedAnswer, để học sinh thấy rõ NGAY hướng sửa
+                 * thay vì phải tự suy đoán từ 1 câu không bị bôi đỏ gì.
+                 */}
+                {(displayProgress?.writingMarkedAnswer || displayProgress?.writingFeedback) && (
                   <div
                     className={`text-sm font-bold p-3 rounded-xl border ${
                       displayProgress.writingPassed ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-amber-50 border-amber-200 text-amber-700"
@@ -1141,7 +1301,17 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                       {displayProgress.writingScorePercent != null &&
                         ` — ${t("reflexVideoTask.writingStage.scoreLabel", { score: displayProgress.writingScorePercent })}`}
                     </p>
-                    <p className="font-medium mt-1.5 normal-case whitespace-pre-line text-base leading-relaxed">{displayProgress.writingFeedback}</p>
+                    {displayProgress.writingMarkedAnswer && (
+                      <p className="font-medium mt-1.5 normal-case whitespace-pre-line text-base leading-relaxed">
+                        {renderHighlightedErrors(displayProgress.writingMarkedAnswer, t("reflexVideoTask.speakingStage.unclearWordTooltip"))}
+                      </p>
+                    )}
+                    {displayProgress.writingFeedback && (
+                      <div className="mt-1.5 flex items-start gap-1.5 rounded-lg bg-white/70 border border-current/20 p-2">
+                        <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+                        <p className="font-medium normal-case whitespace-pre-line text-[13px] leading-relaxed">{displayProgress.writingFeedback}</p>
+                      </div>
+                    )}
                   </div>
                 )}
                 {/*
@@ -1224,6 +1394,15 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                       /* eslint-disable-next-line jsx-a11y/media-has-caption */
                       <audio controls src={audioPreviewUrl} className="w-full" />
                     )}
+                    {/* V184 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-16) — cảnh báo
+                        SỚM ngay sau khi dừng ghi nếu âm lượng trung bình quá nhỏ, thay vì để học sinh
+                        nộp bài rồi mới biết AI chấm sai vì không nghe rõ được giọng. Chỉ cảnh báo, KHÔNG
+                        chặn nộp — môi trường mic/phòng ồn khác nhau, không nên chặn cứng theo 1 ngưỡng. */}
+                    {recorder.quietWarning && (
+                      <p className="text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                        {t("reflexVideoTask.speakingStage.quietWarning")}
+                      </p>
+                    )}
                     <div className="flex items-center gap-2 flex-wrap">
                       <button
                         onClick={handleRetrySpeaking}
@@ -1275,6 +1454,35 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                         </p>
                         {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
                         <audio controls src={displayProgress.audioUrl} className="w-full" />
+                      </div>
+                    )}
+                    {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-16 — % từng tiêu chí
+                        tách riêng khỏi feedback văn xuôi (trước đây nhúng thành dòng text bên trong). */}
+                    {displayProgress.speakingCriteriaScores && displayProgress.speakingCriteriaScores.length > 0 && (
+                      <div className="mt-1.5 space-y-1">
+                        <p className="text-[11px] font-extrabold uppercase tracking-wide normal-case">
+                          {t("reflexVideoTask.speakingStage.criteriaScoresLabel")}
+                        </p>
+                        <ul className="space-y-0.5">
+                          {displayProgress.speakingCriteriaScores.map((item, idx) => (
+                            <li key={idx} className="flex items-center justify-between text-[13px] font-medium normal-case">
+                              <span>{item.criterion}</span>
+                              <span className="font-extrabold">{item.percent}%</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-16 — transcript có
+                        bôi đỏ/gạch chân phần lỗi (xem renderHighlightedErrors). */}
+                    {displayProgress.speakingTranscript && (
+                      <div className="mt-1.5 space-y-1">
+                        <p className="text-[11px] font-extrabold uppercase tracking-wide normal-case">
+                          {t("reflexVideoTask.speakingStage.transcriptLabel")}
+                        </p>
+                        <p className="normal-case whitespace-pre-line text-[13px] leading-relaxed">
+                          {renderHighlightedErrors(displayProgress.speakingTranscript, t("reflexVideoTask.speakingStage.unclearWordTooltip"))}
+                        </p>
                       </div>
                     )}
                     <p className="font-medium mt-1.5 normal-case whitespace-pre-line text-base leading-relaxed">{displayProgress.speakingFeedback}</p>

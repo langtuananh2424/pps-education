@@ -55,6 +55,7 @@ export default function SessionEditModal({ session, siteId, rooms, onClose, onQu
   const [actualTeacherName, setActualTeacherName] = useState(session.actualTeacherName ?? "");
   const [dayPart, setDayPart] = useState<DayPart>(session.dayPart ?? "MORNING");
   const [selectedPeriods, setSelectedPeriods] = useState<Set<number>>(new Set(session.periodNumbers));
+  const [allowTeacherOverlap, setAllowTeacherOverlap] = useState(false);
 
   const [newSessionDate, setNewSessionDate] = useState(session.sessionDate);
   const [newDayPart, setNewDayPart] = useState<DayPart>(session.dayPart ?? "MORNING");
@@ -80,7 +81,8 @@ export default function SessionEditModal({ session, siteId, rooms, onClose, onQu
       cmTeacherId: cmTeacherId ?? undefined,
       dayPart,
       periodNumbers: Array.from(selectedPeriods),
-      actualTeacherName: teacherType === "FOREIGN" && actualTeacherName.trim() ? actualTeacherName.trim() : undefined
+      actualTeacherName: teacherType === "FOREIGN" && actualTeacherName.trim() ? actualTeacherName.trim() : undefined,
+      allowTeacherOverlap: allowTeacherOverlap || undefined
     };
     onQueueUpdate(request, {
       roomName: roomId ? rooms.find((r) => r.id === Number(roomId))?.name ?? null : null,
@@ -104,7 +106,8 @@ export default function SessionEditModal({ session, siteId, rooms, onClose, onQu
         newDayPart,
         newPeriodNumbers: Array.from(newPeriods),
         newRoomId: roomId ? Number(roomId) : undefined,
-        reason: rescheduleReason.trim() || undefined
+        reason: rescheduleReason.trim() || undefined,
+        allowTeacherOverlap: allowTeacherOverlap || undefined
       });
       onRescheduled();
     } catch (err) {
@@ -225,6 +228,16 @@ export default function SessionEditModal({ session, siteId, rooms, onClose, onQu
                   </div>
                 )}
 
+                <label className="flex items-start gap-2 text-xs text-slate-600 cursor-pointer">
+                  <input type="checkbox" checked={allowTeacherOverlap} onChange={(e) => setAllowTeacherOverlap(e.target.checked)} className="mt-0.5" />
+                  <span>
+                    Cho phép giáo viên chính trùng giờ với buổi dạy khác
+                    <span className="block text-[10px] text-slate-400 italic">
+                      Dùng khi lớp tách nhóm (VD 7A4-1/7A4-2) dùng chung 1 giáo viên và dạy đồng thời cùng khung giờ.
+                    </span>
+                  </span>
+                </label>
+
                 <p className="text-[11px] text-slate-400 italic">Thay đổi chỉ hiện tạm trên lưới — bấm "Lưu" ở đầu lưới để ghi thật.</p>
 
                 <div className="flex justify-end pt-2 border-t border-slate-100">
@@ -261,6 +274,15 @@ export default function SessionEditModal({ session, siteId, rooms, onClose, onQu
                   </Select>
                 </div>
                 <p className="text-[11px] text-slate-500">Giáo viên chính giữ nguyên: {session.primaryTeacherName}.</p>
+                <label className="flex items-start gap-2 text-xs text-slate-600 cursor-pointer">
+                  <input type="checkbox" checked={allowTeacherOverlap} onChange={(e) => setAllowTeacherOverlap(e.target.checked)} className="mt-0.5" />
+                  <span>
+                    Cho phép giáo viên chính trùng giờ với buổi dạy khác
+                    <span className="block text-[10px] text-slate-400 italic">
+                      Dùng khi lớp tách nhóm (VD 7A4-1/7A4-2) dùng chung 1 giáo viên và dạy đồng thời cùng khung giờ.
+                    </span>
+                  </span>
+                </label>
                 <div>
                   <label className={labelClass}>Lý do dời lịch (không bắt buộc)</label>
                   <input value={rescheduleReason} onChange={(e) => setRescheduleReason(e.target.value)} className={inputClass} />

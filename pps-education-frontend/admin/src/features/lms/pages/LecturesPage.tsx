@@ -814,7 +814,7 @@ export default function LecturesPage() {
             </div>
           ) : (
             <>
-              <div className="divide-y divide-slate-100 overflow-y-auto">
+              <div className="divide-y divide-slate-100 overflow-y-auto max-h-[65vh]">
                 {pageSets.map((set) => (
                   <button
                     key={set.id}

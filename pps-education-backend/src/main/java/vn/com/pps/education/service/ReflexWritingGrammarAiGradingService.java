@@ -39,13 +39,49 @@ import java.util.Map;
  * — dù rubric Writing có cột CONTENT (kiểm tra liên quan nhiệm vụ) xuyên suốt mọi mức điểm, AI không có
  * căn cứ nào để biết "nhiệm vụ" là câu hỏi nào mà đối chiếu, nên câu trả lời lạc đề nhưng ngữ pháp đúng
  * vẫn được chấm cao. Thêm {@code questionPrompt} vào tham số + system prompt để AI đối chiếu đúng.
+ *
+ * V179 (2026-09-16, xác nhận với người dùng) — ĐỔI rubric nguồn: TRƯỚC ĐÂY dùng {@code writing-rubric-*}
+ * (rubric luận văn 4 tiêu chí CONTENT/ORGANISATION/LANGUAGE/COMMUNICATIVE ACHIEVEMENT hoặc TA/CC/LR/GRA
+ * — thiết kế cho bài luận dài, không khớp bản chất bước "viết trước khi nói" chỉ là 1 câu trả lời ngắn
+ * chuẩn bị cho phần Speaking). Bước viết này chấm TRƯỚC bước Speaking của cùng câu hỏi (xem
+ * {@link ReflexSpeakingContentAiGradingService}) nên đổi sang {@code writing-grammar-rubric-*} — rubric
+ * MỚI trích ĐÚNG tiêu chí Ngữ pháp/Từ vựng (GV theo track CAMBRIDGE, LR+GRA theo track IELTS) từ CHÍNH
+ * rubric Speaking cùng Khối/track (xem {@code speaking-rubric-*.md}), để 2 bước dùng chung 1 chuẩn ngữ
+ * pháp/từ vựng, KHÔNG lệch nhau. Không dùng tiêu chí chỉ áp dụng được cho audio (P/DM/FC).
+ *
+ * V180 (2026-09-16, xác nhận với người dùng) — Khối 7 CAMBRIDGE: phát hiện bug thật — bài viết đạt
+ * ngưỡng chỉ nhờ rubric GV (không có checkpoint độ dài) vẫn được mở khoá ghi âm, nhưng khi qua bước
+ * Speaking lại KHÔNG đạt vì rubric Speaking có thêm DM.D2 (yêu cầu ≥15 từ / ≥3 câu) — 2 bước lệch
+ * ngưỡng. Sửa: thêm tiêu chí DM (D1-D5) vào {@code writing-grammar-rubric-grade7-cambridge.md}, GIỮ
+ * NGUYÊN checkpoint D1-D4; RIÊNG D5 gốc chấm gộp "khoảng im lặng" (chỉ đánh giá được từ audio) VÀ "số ý
+ * lặp nguyên si" (đọc được từ chữ) — bản viết CHỈ giữ vế "số ý lặp nguyên si", bỏ vế khoảng im lặng vì
+ * không có audio để đánh giá. scorePercent = trung bình cộng GV% và DM%. CHƯA áp dụng cho Khối/track
+ * khác (Khối 6/8/9, track IELTS) dù có thể gặp vấn đề tương tự — chỉ sửa đúng phạm vi đã xác nhận.
+ *
+ * V182 (2026-09-16, phát hiện qua test thật, xác nhận với người dùng) — V180 CHƯA đủ: checkpoint D2 chỉ
+ * là 1/5 ô của DM rồi lấy TRUNG BÌNH CỘNG với GV — bài 13 từ vẫn đạt 75% (qua ngưỡng 70%) vì GV tốt kéo
+ * trung bình lên, D2 không đủ sức "chặn". Rubric Speaking gốc có 1 cơ chế RIÊNG cho việc này — Cổng chặn
+ * (§2, C3 "Quá ngắn": <30 từ → mọi tiêu chí trần 40%) — TRẦN CỨNG đè lên điểm, độc lập với checkpoint,
+ * KHÔNG bị pha loãng khi lấy trung bình. V180 chỉ trích bảng checkpoint (GV/DM), bỏ sót cổng chặn này.
+ * Sửa: thêm mục "Cổng chặn — C3 Quá ngắn" (<30 từ, bỏ vế "hoặc <20 giây nói thật" vì audio-only) vào
+ * {@code writing-grammar-rubric-grade7-cambridge.md}, và dặn system prompt áp cổng chặn TRƯỚC checkpoint
+ * nếu rubric có mục này (xem reflex-writing-grammar-grading-system-prompt.txt).
+ *
+ * V183 (2026-09-16, phát hiện qua test thật, xác nhận với người dùng) — CÙNG lỗi V182 nhưng ở Khối 7
+ * IELTS: track này còn nặng hơn — LR/GRA (checkpoint L1-L5/R1-R5) KHÔNG có checkpoint nào đo độ dài (độ
+ * dài chỉ nằm ở FC, đã bỏ vì gắn lượt nói) nên bài cực ngắn (VD "I want to become a scientist." — 6 từ)
+ * vẫn đạt 70% nếu ngữ pháp/từ vựng không sai. Sửa tương tự V182: thêm "Cổng chặn — C3 Quá ngắn" (<15 từ
+ * → LR%/GRA% trần 40%; <5 từ → scorePercent = 0) vào {@code writing-grammar-rubric-grade7-ielts.md},
+ * đúng ngưỡng C3 của {@code speaking-rubric-grade7-ielts.md} (bỏ vế "hoặc <10 giây nói thật" audio-only).
+ * VẪN CHƯA áp dụng cho Khối 6/8/9 (Khối 8/9 dùng format rubric cũ — bảng mô tả %, không có checkpoint/
+ * cổng chặn tách rời — cần thiết kế riêng nếu phát hiện vấn đề tương tự, chưa làm trong lần sửa này).
  */
 @Service
 public class ReflexWritingGrammarAiGradingService {
 
     private static final Logger log = LoggerFactory.getLogger(ReflexWritingGrammarAiGradingService.class);
 
-    private static final String RUBRIC_FILE_PREFIX = "writing-rubric";
+    private static final String RUBRIC_FILE_PREFIX = "writing-grammar-rubric";
     private static final String SYSTEM_PROMPT_FILE = "reflex-writing-grammar-grading-system-prompt.txt";
 
     private final ObjectMapper objectMapper;
@@ -68,8 +104,45 @@ public class ReflexWritingGrammarAiGradingService {
      * lời CHỈ sửa lỗi ngữ pháp trong chính bài học sinh viết (giữ nguyên cấu trúc/ý gốc), KHÔNG phải
      * câu mẫu tự bịa — luôn yêu cầu AI trả về cùng lúc chấm (không gọi thêm lần API riêng), FE tự quyết
      * định khi nào hiện ra (chỉ hiện từ lần nộp thứ 3 trở đi mà vẫn chưa đạt, xem ReflexVideoTaskPage.tsx).
+     *
+     * V181 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-16) — markedAnswer THAY cho
+     * feedback văn xuôi 7 mục dài dòng trước đây: CHÍNH câu trả lời của học sinh, giữ NGUYÊN VẸN, AI chỉ
+     * chèn thêm markup {@code {{err}}...{{/err}}} quanh phần lỗi ngữ pháp/từ vựng nhận diện được — đồng
+     * nhất cách hiển thị với {@code transcript} của {@link ReflexSpeakingContentAiGradingService} (V178).
+     *
+     * V184 (2026-09-16, phát hiện qua test thật trên staging, xác nhận với người dùng) — bỏ hẳn feedback
+     * ở V181 khiến khi Cổng chặn (VD C3 "Quá ngắn", xem V182/V183) kích hoạt, học sinh thấy điểm thấp mà
+     * KHÔNG có lỗi ngữ pháp nào bị đánh dấu (vì thực sự không sai) và KHÔNG có gì giải thích lý do — hoàn
+     * toàn không biết phải sửa gì. Thêm lại {@code gateNote}: 1 dòng NGẮN (tối đa 40 từ) giải thích lý do
+     * cổng chặn kích hoạt, CHỈ xuất hiện khi thực sự có cổng kích hoạt (rỗng "" trong mọi trường hợp
+     * khác) — không phải quay lại feedback 7 mục dài dòng như trước V181. Yêu cầu giọng văn "Yêu cầu: ..."
+     * mang tính hướng dẫn (nêu rõ cần bổ sung gì), KHÔNG phê phán/kể lể hậu quả điểm số kiểu "bị trần
+     * điểm" (xác nhận với người dùng — giọng văn cũ "hơi không hay" với học sinh).
+     *
+     * V187 (2026-09-16, phát hiện qua test thật trên staging, xác nhận với người dùng) — V184 CHƯA đủ:
+     * chỉ yêu cầu gateNote khi Cổng chặn CỦA RUBRIC kích hoạt, bỏ sót nhánh LẠC ĐỀ (câu trả lời sai hẳn
+     * trọng tâm câu hỏi, scorePercent=0 theo điều kiện đầu prompt, KHÔNG liên quan gì tới mục "Cổng chặn"
+     * trong rubric) — case thật: học sinh nộp nhầm câu trả lời của câu hỏi KHÁC, bị 0% nhưng không có
+     * markup lỗi (đúng, vì lạc đề không đánh dấu ngữ pháp) VÀ không có gateNote nào giải thích, y hệt lỗ
+     * hổng UX của V184 nhưng ở nhánh khác. Sửa: yêu cầu gateNote CẢ khi lạc đề (nêu đúng câu hỏi yêu cầu
+     * gì vs bài đang lạc sang đâu), cùng giọng "Yêu cầu: ..." như V184 — không cần đổi tên field/DTO/FE,
+     * gateNote vốn đã trung lập ý nghĩa ("lý do cần sửa"), chỉ mở rộng ĐIỀU KIỆN kích hoạt trong prompt.
+     *
+     * V189 (2026-09-16, phát hiện qua test thật, xác nhận với người dùng) — fix bug thật khác hẳn
+     * V180-V187 (toàn bộ nhóm đó xử lý bài QUÁ NGẮN lọt cổng chặn): case thật là bài ĐỦ DÀI, chính tả/
+     * từ vựng sai rõ ràng (VD "usally"→"usually", "sped"→"spend", "footall"→"football", "Sometime"→
+     * "Sometimes") NHƯNG vẫn đạt 90% ngữ pháp. Gốc rễ: khi trích checkpoint GV/DM/LR/GRA từ rubric
+     * Speaking gốc ({@code speaking-rubric-grade6-shared.md}/{@code grade7-*.md}) ở V179, CHỈ trích bảng
+     * checkpoint — BỎ SÓT §2b "Cấm chấm theo thiện chí. Không suy đoán ý học sinh định nói" của rubric
+     * gốc, khiến model tự do "hiểu ý" rồi bỏ qua lỗi chính tả/từ sai vì đoán được ý định của học sinh.
+     * Sửa: (1) thêm lại đúng đoạn "Cấm chấm theo thiện chí" vào 3 file rubric v2
+     * ({@code writing-grammar-rubric-grade6-shared.md}/{@code grade7-cambridge.md}/{@code grade7-
+     * ielts.md}), (2) thêm CẢ ở tầng wrapper prompt ({@code reflex-writing-grammar-grading-system-
+     * prompt.txt}) để áp dụng ĐỒNG NHẤT cho MỌI khối kể cả 8-9 (rubric dạng bảng mô tả cũ vốn không có
+     * §2b để trích) — mirror đúng bài học từ V183 bên {@link ReflexSpeakingContentAiGradingService}
+     * (chỉ dựa vào nội dung {{RUBRIC}} không đủ, phải nhắc lại/tăng cường ở tầng wrapper).
      */
-    public record GradeResult(int scorePercent, String feedback, String correctedAnswer) {
+    public record GradeResult(int scorePercent, String markedAnswer, String correctedAnswer, String gateNote) {
     }
 
     /**
@@ -116,6 +189,7 @@ public class ReflexWritingGrammarAiGradingService {
         }
         JsonNode parsed = objectMapper.readTree(rawText.substring(start, end + 1));
         int scorePercent = Math.min(100, Math.max(0, parsed.path("scorePercent").asInt(0)));
-        return new GradeResult(scorePercent, parsed.path("feedback").asText(""), parsed.path("correctedAnswer").asText(""));
+        return new GradeResult(scorePercent, parsed.path("markedAnswer").asText(""), parsed.path("correctedAnswer").asText(""),
+                parsed.path("gateNote").asText(""));
     }
 }

@@ -38,6 +38,22 @@
       "profileUpdateFailed": "Failed to update profile."
     }
   },
+  "changePassword": {
+    "openButton": "Change password",
+    "title": "Change password",
+    "currentPassword": "Current password",
+    "currentPasswordPlaceholder": "Leave blank if this account only signs in with Google",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm new password",
+    "newPasswordRequired": "Please enter a new password.",
+    "newPasswordTooShort": "New password must be at least 8 characters.",
+    "confirmMismatch": "Password confirmation does not match.",
+    "changeSuccess": "Password changed successfully.",
+    "changeFailed": "Failed to change password.",
+    "close": "Close",
+    "submit": "Confirm",
+    "saving": "Saving..."
+  },
   "notifications": {
     "bellLabel": "Notifications",
     "listLabel": "Notification list",

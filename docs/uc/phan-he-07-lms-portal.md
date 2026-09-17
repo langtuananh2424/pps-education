@@ -883,6 +883,118 @@ UC-24: Làm bài kiểm tra trực tuyến
 > buộc nào giữa `timestampSeconds` của các câu hỏi khác nhau ngoài thứ tự
 > hiển thị (`displayOrder`, FE tự sắp theo `timestampSeconds` tăng dần).
 
+> **Bổ sung V178 (2026-09-16, đã xác nhận với người dùng) — rút gọn kết
+> quả AI chấm Speaking trả cho học sinh (`ReflexSpeakingContentAiGrading
+> Service`), phạm vi CHỈ bước ghi âm của luồng REFLEX (V139), KHÔNG áp
+> dụng bước viết (`ReflexWritingGrammarAiGradingService`) hay Writing bài
+> tập tự luận (UC-40/41):** trước V178, feedback là 1 khối văn xuôi cố
+> định 7 mục (điểm từng tiêu chí nhúng thành dòng text, điểm mạnh/hạn
+> chế/3 ưu tiên/mục tiêu...) khiến học sinh thấy quá dài, khó đọc nhanh.
+> Từ V178: (1) transcript audio giờ được trả về và lưu lại (trước đây AI
+> đã transcribe nhưng bị bỏ qua hoàn toàn, không lưu/không hiện), có đánh
+> dấu phần lỗi ngữ pháp/từ vựng nhận diện được qua chữ bằng markup thuần
+> `{{err}}...{{/err}}` (lỗi phát âm không đánh dấu được vì không thể hiện
+> bằng chữ) — FE tự regex-split để bôi đỏ/gạch chân, không dùng HTML thô
+> vì FE không có sanitizer; (2) % từng tiêu chí tách thành mảng có cấu
+> trúc riêng (`criteriaScores`), không còn nhúng trong feedback; (3)
+> `feedback` rút gọn còn ĐÚNG 1 đoạn tối đa 50 từ. Cột mới `reflex_
+> question_progress.speaking_transcript` (TEXT) và `.speaking_criteria_
+> scores` (JSONB, xem `docs/sdd-groups/09-lms-and-portal.md`), migration
+> `V178__reflex_speaking_transcript_and_criteria_breakdown.sql`.
+
+> **Bổ sung V183 (2026-09-16, đã xác nhận với người dùng) — fix bug thật:
+> transcript AI đôi lúc bịa hẳn 1 câu khác thay vì transcribe đúng audio
+> gốc, phát hiện qua test tay đối chiếu với nội dung học sinh thực sự đã
+> nói.** Nguyên nhân kép: (a) audio ghi được có lúc mất gần hết dải tần
+> <2000Hz vì FE gọi `getUserMedia({ audio: true })` không truyền
+> constraint tường minh, để trình duyệt tự bật `noiseSuppression`/
+> `autoGainControl` mặc định (xử lý quá tay, không ổn định giữa các lượt
+> ghi) — SỬA: tắt hẳn 2 xử lý này trong `ReflexVideoTaskPage.tsx#ensure
+> Stream`, chỉ giữ `echoCancellation`; (b) prompt hệ thống (V178) không có
+> chỉ dẫn "không được làm mượt/tự suy đoán nội dung", trong khi rubric
+> giáo viên cho khối 6-7 (`speaking-rubric-grade6-shared.md`/`grade7-
+> *.md`) ĐÃ có sẵn chỉ dẫn này (§0/§1: "Không chấm từ transcript do STT
+> sinh sẵn", "Không sửa, không làm mượt câu, không đoán hộ") nhưng KHÔNG
+> được prompt hệ thống nhắc lại/tăng cường nên bị model bỏ qua khi phải
+> cân bằng với yêu cầu xuất JSON đúng schema; rubric khối 8-9 (dạng bảng
+> mô tả đơn giản, `speaking-rubric-grade8-*.md`/`grade9-ielts.md`) còn
+> chưa có chỉ dẫn này. SỬA: thêm đoạn "QUY TẮC TRANSCRIBE BẮT BUỘC" vào
+> prompt (áp dụng MỌI khối) — cấm làm mượt, bắt buộc đoán sát âm thanh
+> nghe được thay vì đoán theo ngữ nghĩa câu hỏi, và MỞ RỘNG markup
+> `{{err}}...{{/err}}` để đánh dấu luôn cả đoạn nghe không rõ/phải đoán
+> (trước đây chỉ đánh dấu lỗi ngữ pháp/từ vựng). Đã CÂN NHẮC nhưng KHÔNG
+> chọn hướng tách 3 lệnh gọi (Whisper transcript riêng + Gemini riêng
+> Phát âm + LLM text chấm phần còn lại) vì vi phạm trực tiếp §0 rubric
+> khối 6-7 ("Không chấm từ transcript do STT sinh sẵn").
+
+> **Bổ sung V184 (2026-09-16, đã xác nhận với người dùng) — cảnh báo âm
+> lượng khi ghi âm.** Sau V183 vẫn còn ghi nhận 1 lượt ghi bị AI (kể cả
+> Whisper, kiểm chứng độc lập với Gemini) nghe sai hoàn toàn nội dung —
+> đo được mean volume -30.2dB, thấp hơn hẳn các lượt khác. Xác định gốc rễ
+> là học sinh nói quá nhỏ, không phải lỗi encode/model — không xử lý được
+> bằng code phía sau. Thêm đo âm lượng bằng `AnalyserNode` (Web Audio API)
+> ngay trong lúc ghi (`ReflexVideoTaskPage.tsx#useAudioRecorder`), cảnh
+> báo NGAY sau khi dừng ghi nếu RMS trung bình dưới ngưỡng heuristic — chỉ
+> cảnh báo, KHÔNG chặn nộp bài (môi trường mic/phòng khác nhau, không nên
+> chặn cứng theo 1 ngưỡng đo tạm thời từ 2 mẫu lỗi thật).
+
+> **Bổ sung V185 (2026-09-16, đã xác nhận với người dùng) — bỏ yêu cầu AI
+> "đoán sát âm thanh" ở V183 cho đoạn không nghe rõ, thay bằng ký hiệu
+> `[?]` không đoán chữ nào.** Lý do: đoán sai (dù bọc `{{err}}`) vẫn hiện
+> ra như 1 từ chắc chắn, chỉ khác màu — dễ gây hiểu lầm hơn là giúp ích.
+> FE hiện `[?]` thành dấu hỏi có tooltip (thuộc tính `title` chuẩn HTML)
+> "Không rõ từ" khi học sinh trỏ chuột vào. `{{err}}...{{/err}}` từ nay
+> CHỈ dùng cho lỗi ngữ pháp/từ vựng nhận diện rõ ràng.
+
+> **Bổ sung V190 (2026-09-16, đã xác nhận với người dùng) — fix bug thật:
+> tooltip `[?]` ở V185 dùng thuộc tính `title` chuẩn HTML, không hoạt
+> động trên thiết bị cảm ứng (không có "hover") — đa số học sinh dùng
+> tablet/điện thoại nên gần như không bao giờ thấy được chú thích.** Thay
+> bằng component `UnclearMarker` tự dựng tooltip, bật/tắt qua chạm
+> (`onClick`) và vẫn giữ hover cho máy tính bàn.
+
+> **Bổ sung V186 (2026-09-16, đã xác nhận với người dùng) — truyền câu
+> học sinh đã viết ở bước 1 làm gợi ý từ vựng cho AI chấm Speaking.**
+> Phát hiện qua test tay: tên riêng lạ (VD "PPS School") bị AI nghe NHẦM
+> THÀNH 1 tên riêng phổ biến nó "biết" (VD "Vinschool") — khác hẳn kiểu
+> lỗi ở V183/V185 (model ở đây KHÔNG tự thấy mình không chắc, tin là nghe
+> đúng, nên `[?]` không xử lý được). SỬA: `ReflexSpeakingContentAiGrading
+> Service.grade()` nhận thêm `writtenAnswerHint` (= `answerText` học sinh
+> đã viết, xem `ReflexSequentialGradingService#submitSpokenAnswer`), đưa
+> vào prompt CHỈ để tham khảo từ vựng/tên riêng khó nghe — prompt dặn rõ
+> đây KHÔNG phải nội dung chuẩn để copy, học sinh có thể nói khác hẳn câu
+> đã viết khi ghi âm thật (đã có bằng chứng thật ở V178 — câu 6).
+
+> **Bổ sung V188 (2026-09-16, đã xác nhận với người dùng) — ĐÃ REVERT
+> V186.** Kiểm tra DB sau khi triển khai V186 phát hiện `speaking_
+> transcript` GIỐNG HỆT `answer_text` (câu viết) ở NHIỀU bản ghi liên
+> tiếp, kể cả điểm Phát âm vẫn 90-100% — dặn dò bằng lời trong prompt
+> ("không copy nguyên văn") KHÔNG đủ sức cản model, nó chỉ "rubber-stamp"
+> lại câu gợi ý kèm điểm cao mặc định thay vì thực sự nghe/phân tích
+> audio. Đây là hồi quy nghiêm trọng hơn hẳn vấn đề gốc V186 định sửa
+> (thỉnh thoảng nghe nhầm 1 tên riêng lạ) — bỏ hẳn cơ chế gợi ý câu viết,
+> chấp nhận sống chung với rủi ro hiếm "tên riêng lạ bị nghe nhầm" thay vì
+> làm hỏng tính xác thực của việc chấm Phát âm/nội dung. KHÔNG thử lại
+> hướng "gợi ý cả câu" nếu không có cơ chế RÀNG BUỘC CỨNG chống copy
+> nguyên văn (ngoài dặn dò bằng lời).
+
+> **Bổ sung V189 (2026-09-16, đã xác nhận với người dùng) — fix bug thật
+> bên bước Viết (`ReflexWritingGrammarAiGradingService`, phần "Video phản
+> xạ" V139 trở lên — các bản vá V179-V187 của nhóm này KHÔNG có mặt trong
+> mục UC ở trên, chỉ nằm trong Javadoc code, xem ghi chú tại đó):** bài
+> viết đủ dài, chính tả/từ vựng sai rõ ràng (VD "usally"→"usually",
+> "sped"→"spend", "footall"→"football") vẫn đạt 90% ngữ pháp. Gốc rễ: lúc
+> trích bảng checkpoint GV/DM/LR/GRA từ rubric Speaking gốc (V179), CHỈ
+> trích bảng điểm — BỎ SÓT §2b "Cấm chấm theo thiện chí. Không suy đoán ý
+> học sinh định nói" của rubric gốc, khiến model tự "hiểu ý" rồi bỏ qua
+> lỗi chính tả/từ sai. SỬA: thêm lại đúng đoạn này vào 3 file rubric v2
+> (`writing-grammar-rubric-grade6-shared.md`/`grade7-cambridge.md`/
+> `grade7-ielts.md`) VÀ thêm ở tầng wrapper prompt (`reflex-writing-
+> grammar-grading-system-prompt.txt`) để áp dụng đồng nhất cho MỌI khối kể
+> cả 8-9 (rubric dạng bảng mô tả cũ không có §2b để trích) — mirror đúng
+> bài học từ V183 phía Speaking (chỉ dựa vào nội dung rubric nhúng vào
+> không đủ, phải nhắc lại/tăng cường ở tầng wrapper prompt).
+
 > **V177 (2026-09-15, đã xác nhận với người dùng) — SỬA LẠI A2 "Muốn làm
 > lại (retake)": chỉ cần làm lại CÂU SAI, không phải làm lại toàn bộ đề.**
 > Mô tả gốc ở A2 phía trên ("hệ thống cho phép Học sinh làm lại từ đầu")
