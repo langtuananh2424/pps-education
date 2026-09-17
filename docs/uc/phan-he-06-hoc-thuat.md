@@ -1511,8 +1511,25 @@ chiếu) — 2 biểu mẫu này ĐÃ BỊ BỎ HẲN từ 2026-08-12 (đã xác
 dùng), `StudentComment.CommentType` nay chỉ còn DAILY.
 
 -   Luồng thao tác: Giáo viên điểm danh buổi học (UC-15) → nhận xét từng
-    học sinh của buổi đó. Học sinh Vắng/Có phép thì không cần điền các
-    trường nhận xét.
+    học sinh của buổi đó.
+-   ~~Học sinh Vắng/Có phép thì không cần điền các trường nhận xét (không
+    bắt buộc, nhưng vẫn cho ghi nếu muốn).~~ **Thắt chặt 2026-09-17 (đã xác
+    nhận với người dùng) — cơ chế LOCK theo điểm danh:** học sinh đã điểm
+    danh Vắng (ABSENT)/Có phép (EXCUSED) cho đúng buổi này thì KHÔNG được
+    ghi/sửa nhận xét hàng ngày nữa (kể cả Lưu nháp) — chặn cứng (422), áp
+    dụng cho `writeComment`/`updateComment`/`saveDraftBatch`/import Excel
+    (`importComments`/`previewImportComments`), xem
+    `StudentCommentService#requireNotLockedByAttendance`. Dòng Excel để
+    trống hết vẫn được bỏ qua êm (không báo lỗi — mẫu Excel liệt kê sẵn mọi
+    học sinh ACTIVE kể cả học sinh vắng), nhưng có điền bất kỳ cột nào thì
+    bị chặn. Nội dung nhận xét/BTVN đã ghi TRƯỚC KHI điểm danh chuyển sang
+    Vắng/Có phép bị TỰ ĐỘNG XÓA ngay lúc điểm danh (chỉ áp dụng cho
+    DRAFT/REJECTED — nhận xét đã PENDING/APPROVED không bị đụng tới, xem
+    `StudentAttendanceService#resetDailyCommentIfLocked`). "Áp dụng cho cả
+    lớp" giao BTVN (`applyHomeworkToClass`, cả kênh online lẫn offline ở
+    FE) BỎ QUA hoàn toàn học sinh Vắng/Có phép. Trên UI, hàng của học sinh
+    Vắng/Có phép được tô nền đỏ trong bảng Nhận xét hàng ngày
+    (`DailyCommentPanel.tsx`) và mọi ô nhập bị vô hiệu hóa.
 -   ~~Ràng buộc thứ tự (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
     2026-08-13): ghi/sửa nội dung nhận xét (`writeComment`/`updateComment`)
     và nhập nhận xét qua Excel (`importComments`) đều bị chặn (422) nếu

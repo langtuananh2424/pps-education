@@ -36,7 +36,14 @@
       "FOREIGN": "Clip phản xạ"
     },
     "grammarChannelFallback": "Bài",
-    "videoChannelFallback": "Video"
+    "videoChannelFallback": "Video",
+    "attendanceStatus": {
+      "PRESENT": "Có mặt",
+      "ABSENT": "Vắng",
+      "EXCUSED": "Có phép",
+      "LATE": "Muộn",
+      "EARLY_LEAVE": "Về sớm"
+    }
   },
   "approvalByClass": {
     "loading": "Đang tải...",
@@ -257,6 +264,7 @@
     "homeworkPreviousOfflinePlaceholder": "VD: 80%",
     "homeworkPreviousSpeakingPlaceholder": "VD: Đã thực hiện 85% (kênh Video luôn Online — % tự động sẽ hiện sau khi Gửi)",
     "autoBadge": "Tự động",
+    "attendanceLockedHint": "Không thể nhận xét/giao bài",
     "chooseExercisePlaceholder": "-- Chọn đề đã Publish --",
     "attitudePlaceholder": "-- Chưa chọn --",
     "contentPlaceholder": "Viết nhận xét cho học sinh này...",

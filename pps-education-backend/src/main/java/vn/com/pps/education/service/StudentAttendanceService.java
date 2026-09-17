@@ -14,6 +14,7 @@ import vn.com.pps.education.domain.SchoolClass;
 import vn.com.pps.education.domain.SessionPeriod;
 import vn.com.pps.education.domain.SiteManager;
 import vn.com.pps.education.domain.Student;
+import vn.com.pps.education.domain.StudentComment;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.dto.AttendanceMarkResponse;
 import vn.com.pps.education.dto.AttendanceSessionResponse;
@@ -36,6 +37,7 @@ import vn.com.pps.education.repository.SchoolClassRepository;
 import vn.com.pps.education.repository.SessionPeriodRepository;
 import vn.com.pps.education.repository.SiteManagerRepository;
 import vn.com.pps.education.repository.SiteTeacherRepository;
+import vn.com.pps.education.repository.StudentCommentRepository;
 import vn.com.pps.education.repository.StudentRepository;
 import vn.com.pps.education.repository.UserRepository;
 
@@ -88,6 +90,7 @@ public class StudentAttendanceService {
     private final SiteManagerRepository siteManagerRepository;
     private final StudentAttendanceSettings studentAttendanceSettings;
     private final Clock clock;
+    private final StudentCommentRepository studentCommentRepository;
 
     public StudentAttendanceService(ClassSessionRepository classSessionRepository,
                                      SessionPeriodRepository sessionPeriodRepository,
@@ -105,7 +108,8 @@ public class StudentAttendanceService {
                                      ClassEnrollmentRepository classEnrollmentRepository,
                                      SiteManagerRepository siteManagerRepository,
                                      StudentAttendanceSettings studentAttendanceSettings,
-                                     Clock clock) {
+                                     Clock clock,
+                                     StudentCommentRepository studentCommentRepository) {
         this.classSessionRepository = classSessionRepository;
         this.sessionPeriodRepository = sessionPeriodRepository;
         this.attendanceSessionRepository = attendanceSessionRepository;
@@ -123,6 +127,7 @@ public class StudentAttendanceService {
         this.siteManagerRepository = siteManagerRepository;
         this.studentAttendanceSettings = studentAttendanceSettings;
         this.clock = clock;
+        this.studentCommentRepository = studentCommentRepository;
     }
 
     /**
@@ -180,6 +185,7 @@ public class StudentAttendanceService {
         mark.setAbsenceReason(request.absenceReason());
         mark = attendanceMarkRepository.save(mark);
         writeAttendanceMarkHistory(mark, actor, action);
+        resetDailyCommentIfLocked(attendanceSession.getClassSession().getId(), student.getId(), status);
 
         // SDD: điểm danh SESSION_LEVEL tự tạo attendance_period_marks cho từng tiết
         // với cùng status. AttendancePeriodMark.Status không có EARLY_LEAVE (chỉ
@@ -200,6 +206,48 @@ public class StudentAttendanceService {
             periodMark.setStatus(periodStatus);
             attendancePeriodMarkRepository.save(periodMark);
         }
+    }
+
+    /**
+     * UC-21 mở rộng — cơ chế lock theo điểm danh (đã xác nhận với người dùng 2026-09-17): điểm danh
+     * Vắng (ABSENT)/Có phép (EXCUSED) khoá luôn việc ghi nhận xét hàng ngày của đúng học sinh đó cho
+     * buổi này (xem {@code StudentCommentService#requireNotLockedByAttendance}). Ở ĐÂY chỉ lo phần dữ
+     * liệu CŨ: nếu học sinh đã có sẵn nhận xét/BTVN (DRAFT/REJECTED — chưa Gửi duyệt) TRƯỚC KHI bị
+     * điểm danh Vắng/Có phép, tự xóa sạch nội dung đó ngay lúc điểm danh (đã xác nhận với người dùng —
+     * không giữ lại "nhận xét mồ côi" của buổi học sinh không có mặt). KHÔNG đụng nhận xét đã
+     * PENDING/APPROVED — đã qua khỏi quyền sửa của Giáo viên (UC-22), không thuộc phạm vi khoá này.
+     *
+     * Cố tình dùng thẳng {@link StudentCommentRepository} (module Nhận xét) thay vì gọi qua
+     * {@code StudentCommentService} — {@code StudentCommentService} đã phụ thuộc NGƯỢC LẠI
+     * {@code StudentAttendanceService} (đọc điểm danh hiện tại khi ghi nhận xét), gọi 2 chiều qua
+     * Service sẽ tạo phụ thuộc vòng tròn giữa 2 bean Spring. Đúng theo architecture.md: "Service chỉ
+     * gọi Repository (của module mình + module khác nếu cần phối hợp nghiệp vụ)".
+     */
+    private void resetDailyCommentIfLocked(Long classSessionId, Long studentId, AttendanceMark.Status status) {
+        if (status != AttendanceMark.Status.ABSENT && status != AttendanceMark.Status.EXCUSED) {
+            return;
+        }
+        studentCommentRepository.findByClassSessionIdAndStudentId(classSessionId, studentId)
+                .filter(c -> c.getStatus() == StudentComment.Status.DRAFT || c.getStatus() == StudentComment.Status.REJECTED)
+                .ifPresent(comment -> {
+                    comment.setContent("");
+                    comment.setStructuredContent(null);
+                    comment.setWarning(false);
+                    comment.setAttitude(null);
+                    comment.setHomeworkPreviousScore(null);
+                    comment.setHomeworkPreviousSpeakingScore(null);
+                    comment.setHomeworkPreviousReadingScore(null);
+                    comment.setHomeworkPreviousWritingScore(null);
+                    comment.setHomeworkNext(null);
+                    comment.setHomeworkNextReading(null);
+                    comment.setHomeworkNextWriting(null);
+                    comment.setHomeworkNextGrammarBatch(null);
+                    comment.setHomeworkNextReviewVideoAssignment(null);
+                    comment.setHomeworkNextReadingBatch(null);
+                    comment.setHomeworkNextWritingBatch(null);
+                    comment.setNote(null);
+                    studentCommentRepository.save(comment);
+                });
     }
 
     /** Main Flow bước 3: sửa chi tiết điểm danh 1 tiết cho 1 học sinh cụ thể. */
