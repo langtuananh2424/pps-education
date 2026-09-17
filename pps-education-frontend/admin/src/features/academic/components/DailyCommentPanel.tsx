@@ -6,11 +6,13 @@ import { downloadBlob } from "@/lib/xlsxTemplate";
 import { useApp, UnsavedSaveResult } from "@/context/AppContext";
 import Modal from "@/components/ui/Modal";
 import {
+  AttendanceMarkResponse,
   AutoProgressPreviewResponse,
   ClassEnrollmentResponse,
   ClassSessionResponse,
   StudentCommentResponse,
   downloadDailyCommentTemplate,
+  getAttendanceSession,
   previewAutoProgress,
   previewImportDailyComments,
   DailyCommentImportPreviewResponse,
@@ -293,6 +295,14 @@ export default function DailyCommentPanel() {
   // nhất 1 comment DAILY (bất kể DRAFT/PENDING/APPROVED/REJECTED — chỉ cần "đã động tới") / tổng học
   // sinh ACTIVE của lớp.
   const [sessionCommentStats, setSessionCommentStats] = useState<Record<number, { commented: number; total: number }>>({});
+  /**
+   * Bổ sung 2026-09-17 (đã xác nhận với người dùng) — cơ chế lock UC-21: điểm danh Vắng
+   * (ABSENT)/Có phép (EXCUSED) của TỪNG học sinh cho buổi đang xem, dùng để tô đỏ hàng + khoá ô nhập
+   * trong bảng bên dưới + loại khỏi "Gán nhanh cho cả lớp" (mirror rào cứng đã thêm ở BE
+   * StudentCommentService#requireNotLockedByAttendance). Tải lại bất cứ khi nào rows có thể lệch với
+   * điểm danh mới nhất (đổi buổi, sau khi nhập Excel — importComments cũng tự ghi điểm danh).
+   */
+  const [attendanceByStudent, setAttendanceByStudent] = useState<Record<number, AttendanceMarkResponse["status"]>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   // "Bài học hôm nay" (2026-07-29, chuyển từ Điểm danh sang đây) — bắt buộc điền trước khi Gửi nhận
   // xét DAILY (backend chặn 422 nếu trống), nên đặt ngay đầu màn hình để giáo viên điền trước tiên.
@@ -520,6 +530,7 @@ export default function DailyCommentPanel() {
     if (!selectedClassId || !selectedSessionId) {
       setRows([]);
       setHistory([]);
+      setAttendanceByStudent({});
       setAutoProgress({});
       return;
     }
@@ -559,8 +570,18 @@ export default function DailyCommentPanel() {
       .finally(() => setLoadingRows(false));
   }, [selectedClassId, selectedSessionId]);
 
+  /** Mirror refreshSessionCommentStats — tải lại điểm danh SESSION_LEVEL hiện tại của buổi đang xem. */
+  const refreshAttendance = (sessionId: number) => {
+    getAttendanceSession(sessionId)
+      .then((session) => {
+        setAttendanceByStudent(Object.fromEntries(session.marks.map((m) => [m.studentId, m.status])));
+      })
+      .catch(() => setAttendanceByStudent({}));
+  };
+
   const loadHistory = async (classId: number, sessionId: number, studentIds: number[]) => {
     setLoadingHistory(true);
+    refreshAttendance(sessionId);
     try {
       // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-12 — 1 request duy nhất cho cả lớp
       // thay N request/học sinh (xem listCommentsForClass), lọc lại theo studentIds (chỉ học sinh ACTIVE
@@ -738,8 +759,13 @@ export default function DailyCommentPanel() {
     setConfirmingApplyHomework(false);
     if (!selectedClassId || !selectedSession) return;
     const lockedIds = new Set(history.filter((h) => h.status === "PENDING" || h.status === "APPROVED").map((h) => h.studentId));
+    // 2026-09-17 (đã xác nhận với người dùng) — "Gán nhanh cho cả lớp" (BTVN offline) cũng phải BỎ QUA
+    // học sinh Vắng/Có phép, mirror applyClassHomework ở BE (BTVN online) — cả 2 cơ chế "áp dụng cho cả
+    // lớp" đều không được đụng tới học sinh đang bị khoá vì điểm danh.
+    const isAttendanceLocked = (studentId: number) =>
+      attendanceByStudent[studentId] === "ABSENT" || attendanceByStudent[studentId] === "EXCUSED";
     const updatedRows = rows.map((r) =>
-      lockedIds.has(r.studentId)
+      lockedIds.has(r.studentId) || isAttendanceLocked(r.studentId)
         ? r
         : {
             ...r,
@@ -1106,6 +1132,9 @@ export default function DailyCommentPanel() {
     try {
       const res = await previewImportDailyComments(selectedSessionId, file);
       setImportResult(res);
+      // previewImportComments (BE) đã ghi điểm danh THẬT ngay trong lúc preview (mirror importComments,
+      // xem Javadoc BE) — tải lại để bảng tô đỏ/khoá đúng học sinh vừa đổi sang Vắng/Có phép qua Excel.
+      refreshAttendance(selectedSessionId);
 
       // "Bài học hôm nay"/"Tên GV giảng dạy"/"Hạn nộp" chỉ fill vào ô nhập ở đầu trang — giáo viên tự
       // bấm nút "Lưu" riêng của từng ô (đã có sẵn) để ghi DB, giống hệt khi gõ tay. Không đè lên nếu
@@ -1671,23 +1700,44 @@ export default function DailyCommentPanel() {
                 // dữ liệu ở loadHistory) để giáo viên xem/sửa tiếp trước khi bấm "Gửi nhận xét" (đã xác
                 // nhận với người dùng 2026-07-29).
                 const sent = history.find((h) => h.studentId === r.studentId);
-                const locked = !!sent && (sent.status === "PENDING" || sent.status === "APPROVED");
+                const sentLocked = !!sent && (sent.status === "PENDING" || sent.status === "APPROVED");
+                // Bổ sung 2026-09-17 (đã xác nhận với người dùng) — cơ chế lock UC-21: học sinh đã điểm
+                // danh Vắng (ABSENT)/Có phép (EXCUSED) cho đúng buổi này KHÔNG được nhận xét nữa (mirror
+                // rào cứng requireNotLockedByAttendance ở BE) — tô đỏ + khoá read-only mọi ô, kể cả khi
+                // chưa từng có StudentComment nào (sent undefined, xem các nhánh `sent?.` bên dưới thay vì
+                // `sent!.` cũ — locked giờ có thể true dù sent chưa tồn tại).
+                const attendanceStatus = attendanceByStudent[r.studentId];
+                const isAbsentLocked = attendanceStatus === "ABSENT" || attendanceStatus === "EXCUSED";
+                const locked = sentLocked || isAbsentLocked;
                 // V146 — fallback % tự động khi buổi CHƯA có StudentComment nào (sent undefined), xem
                 // previewAutoProgress/AutoProgressPreviewResponse.
                 const auto = autoProgress[r.studentId];
                 const autoVideo = sent?.videoPreviousProgress ?? auto?.videoPreviousProgress ?? null;
                 // Nền đặc cho 3 cột cố định (khác Td mặc định trong suốt) — cuộn ngang thì nội dung cột
                 // sau không được lộ ra qua cột cố định phía trên (bổ sung ngoài SDD gốc, 2026-08-14).
-                const stickyBg = locked ? "bg-emerald-50" : "bg-white";
+                // Vắng/Có phép ưu tiên tô ĐỎ (tín hiệu khóa hiện tại) ngay cả khi trước đó đã có nhận xét
+                // PENDING/APPROVED (trường hợp hiếm: gửi nhận xét xong mới đổi điểm danh sang Vắng).
+                const stickyBg = isAbsentLocked ? "bg-red-50" : sentLocked ? "bg-emerald-50" : "bg-white";
                 return (
                   <tr
                     key={r.studentId}
-                    onClick={locked ? () => notifyAlreadySent(r, sent) : undefined}
-                    className={`transition-colors ${locked ? "bg-emerald-50/20 cursor-pointer hover:bg-emerald-50/40" : "hover:bg-slate-50/40"}`}
+                    onClick={sentLocked ? () => notifyAlreadySent(r, sent!) : undefined}
+                    className={`transition-colors ${
+                      isAbsentLocked
+                        ? "bg-red-50/40 hover:bg-red-50/60"
+                        : sentLocked
+                          ? "bg-emerald-50/20 cursor-pointer hover:bg-emerald-50/40"
+                          : "hover:bg-slate-50/40"
+                    }`}
                   >
                     <Td style={STICKY_COL_STYLE[0]} className={`sticky left-0 z-10 ${stickyBg} font-mono font-bold text-slate-500 border-r border-b border-slate-300`}>{r.studentCode}</Td>
                     <Td style={STICKY_COL_STYLE[1]} className={`sticky z-10 ${stickyBg} font-bold text-slate-900 whitespace-nowrap border-r border-b border-slate-300`}>
                       <StudentNameLink studentId={r.studentId} name={r.studentFullName} />
+                      {isAbsentLocked && (
+                        <div className="text-[9px] font-bold text-red-600 uppercase tracking-wide mt-0.5">
+                          {t(`shared.attendanceStatus.${attendanceStatus}`, { defaultValue: attendanceStatus })} · {t("dailyCommentPanel.attendanceLockedHint")}
+                        </div>
+                      )}
                     </Td>
                     <Td style={STICKY_COL_STYLE[2]} className={`sticky z-10 ${stickyBg} whitespace-nowrap text-slate-500 border-r border-b border-slate-300`}>{r.studentDateOfBirth ?? "—"}</Td>
                     {isVietnamese ? (
@@ -1697,7 +1747,7 @@ export default function DailyCommentPanel() {
                             WritingScore, không liên quan tới field homeworkPreviousScore (đã chuyển hẳn sang buổi FOREIGN). */}
                         <Td className="min-w-[110px] border-r border-b border-slate-300">
                           {locked ? (
-                            <div className={readOnlyFieldClass}>{sent!.homeworkPreviousReadingScore || "—"}</div>
+                            <div className={readOnlyFieldClass}>{sent?.homeworkPreviousReadingScore || "—"}</div>
                           ) : (
                             <input
                               value={r.homeworkPreviousReadingScore}
@@ -1709,7 +1759,7 @@ export default function DailyCommentPanel() {
                         </Td>
                         <Td className="min-w-[110px] border-r border-b border-slate-300">
                           {locked ? (
-                            <div className={readOnlyFieldClass}>{sent!.homeworkPreviousWritingScore || "—"}</div>
+                            <div className={readOnlyFieldClass}>{sent?.homeworkPreviousWritingScore || "—"}</div>
                           ) : (
                             <input
                               value={r.homeworkPreviousWritingScore}
@@ -1737,7 +1787,7 @@ export default function DailyCommentPanel() {
                             homeworkPreviousScore với cột "{grammarLabel}" bên phải (backend không phân biệt 2 cột — cùng
                             là điểm chấm tay cho kênh Ngữ pháp/Bài nghe buổi trước, chỉ khác chỗ hiển thị trên UI). */}
                         {locked ? (
-                          <div className={readOnlyFieldClass}>{sent!.homeworkPreviousScore || "—"}</div>
+                          <div className={readOnlyFieldClass}>{sent?.homeworkPreviousScore || "—"}</div>
                         ) : (
                           <input
                             value={r.homeworkPreviousScore}
@@ -1756,7 +1806,7 @@ export default function DailyCommentPanel() {
                     </Td>
                     <Td className="min-w-[150px] border-r border-b border-slate-300">
                       {locked ? (
-                        <PreviousProgressCell auto={autoVideo} manual={sent!.homeworkPreviousSpeakingScore} autoLabel={t("dailyCommentPanel.autoBadge")} />
+                        <PreviousProgressCell auto={autoVideo} manual={sent?.homeworkPreviousSpeakingScore ?? null} autoLabel={t("dailyCommentPanel.autoBadge")} />
                       ) : autoVideo ? (
                         // V146 — buổi CHƯA có bản nháp nhưng đã tính được % tự động (video luôn Online nên
                         // hầu như luôn có) — ưu tiên hiện luôn, mirror đúng cách PreviousProgressCell xử lý
@@ -1778,7 +1828,7 @@ export default function DailyCommentPanel() {
                             homeworkNext như trước, xem nhánh else bên dưới. */}
                         <Td className="min-w-[140px] border-r border-b border-slate-300">
                           {locked ? (
-                            <div className={readOnlyFieldClass}>{sent!.homeworkNextReading || "—"}</div>
+                            <div className={readOnlyFieldClass}>{sent?.homeworkNextReading || "—"}</div>
                           ) : (
                             <input
                               value={r.homeworkNextReading}
@@ -1790,7 +1840,7 @@ export default function DailyCommentPanel() {
                         </Td>
                         <Td className="min-w-[140px] border-r border-b border-slate-300">
                           {locked ? (
-                            <div className={readOnlyFieldClass}>{sent!.homeworkNextWriting || "—"}</div>
+                            <div className={readOnlyFieldClass}>{sent?.homeworkNextWriting || "—"}</div>
                           ) : (
                             <input
                               value={r.homeworkNextWriting}
@@ -1812,7 +1862,7 @@ export default function DailyCommentPanel() {
                     ) : (
                       <Td className="min-w-[160px] border-r border-b border-slate-300">
                         {locked ? (
-                          <div className={readOnlyFieldClass}>{sent!.homeworkNext || "—"}</div>
+                          <div className={readOnlyFieldClass}>{sent?.homeworkNext || "—"}</div>
                         ) : (
                           <input
                             value={r.homeworkNext}
@@ -1833,8 +1883,8 @@ export default function DailyCommentPanel() {
                     </Td>
                     <Td className="min-w-[120px] whitespace-nowrap border-r border-b border-slate-300">
                       {locked
-                        ? sent!.homeworkNextDueAt
-                          ? new Date(sent!.homeworkNextDueAt).toLocaleString(toLocaleTag(i18n.language), { dateStyle: "short", timeStyle: "short" })
+                        ? sent?.homeworkNextDueAt
+                          ? new Date(sent.homeworkNextDueAt).toLocaleString(toLocaleTag(i18n.language), { dateStyle: "short", timeStyle: "short" })
                           : "—"
                         : dueDateTime
                           ? new Date(dueDateTime).toLocaleString(toLocaleTag(i18n.language), { dateStyle: "short", timeStyle: "short" })
@@ -1842,7 +1892,7 @@ export default function DailyCommentPanel() {
                     </Td>
                     <Td className="min-w-[130px] border-r border-b border-slate-300">
                       {locked ? (
-                        <div className={readOnlyFieldClass}>{sent!.attitude ? t(`shared.attitudeWithPercent.${sent!.attitude}`) : "—"}</div>
+                        <div className={readOnlyFieldClass}>{sent?.attitude ? t(`shared.attitudeWithPercent.${sent.attitude}`) : "—"}</div>
                       ) : (
                         <Select
                           value={r.attitude}
@@ -1860,7 +1910,7 @@ export default function DailyCommentPanel() {
                     </Td>
                     <Td className="min-w-[320px] border-r border-b border-slate-300">
                       {locked ? (
-                        <div className={`${readOnlyFieldClass} whitespace-pre-wrap`}>{sent!.content}</div>
+                        <div className={`${readOnlyFieldClass} whitespace-pre-wrap`}>{sent?.content || (isAbsentLocked ? "—" : "")}</div>
                       ) : (
                         <textarea
                           value={r.content}
@@ -1873,7 +1923,7 @@ export default function DailyCommentPanel() {
                     </Td>
                     <Td className="min-w-[140px] border-r border-b border-slate-300">
                       {locked ? (
-                        <div className={readOnlyFieldClass}>{sent!.note || "—"}</div>
+                        <div className={readOnlyFieldClass}>{sent?.note || "—"}</div>
                       ) : (
                         <input
                           value={r.note}
