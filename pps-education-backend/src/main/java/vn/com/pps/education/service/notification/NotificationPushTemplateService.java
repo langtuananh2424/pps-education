@@ -315,7 +315,11 @@ public class NotificationPushTemplateService {
         if (value instanceof OffsetDateTime dt) {
             return dt.format(DATE_FMT);
         }
-        return value.toString();
+        // metadata là JSONB (Map<String, Object> generic) — sau khi đọc lại từ DB,
+        // OffsetDateTime/LocalDate lưu lúc notify() chỉ còn là chuỗi ISO-8601, không
+        // tự khôi phục về đúng kiểu Java gốc (xem HibernateJsonMapperConfig).
+        Optional<LocalDate> parsed = parseIsoDate(value.toString());
+        return parsed.map(d -> d.format(DATE_FMT)).orElseGet(value::toString);
     }
 
     private String fmtTime(Map<String, Object> m, String key) {
@@ -337,7 +341,29 @@ public class NotificationPushTemplateService {
         if (value instanceof OffsetDateTime dt) {
             return dt.format(DATETIME_FMT);
         }
-        return value.toString();
+        // Xem ghi chú trong fmtDate() — chuỗi ISO-8601 sau round-trip JSONB.
+        Optional<OffsetDateTime> parsed = parseIsoDateTime(value.toString());
+        return parsed.map(dt -> dt.format(DATETIME_FMT)).orElseGet(value::toString);
+    }
+
+    private Optional<LocalDate> parseIsoDate(String raw) {
+        try {
+            return Optional.of(OffsetDateTime.parse(raw).toLocalDate());
+        } catch (java.time.format.DateTimeParseException ex) {
+            try {
+                return Optional.of(LocalDate.parse(raw));
+            } catch (java.time.format.DateTimeParseException ex2) {
+                return Optional.empty();
+            }
+        }
+    }
+
+    private Optional<OffsetDateTime> parseIsoDateTime(String raw) {
+        try {
+            return Optional.of(OffsetDateTime.parse(raw));
+        } catch (java.time.format.DateTimeParseException ex) {
+            return Optional.empty();
+        }
     }
 
     private String fmtMoney(Map<String, Object> m, String key) {

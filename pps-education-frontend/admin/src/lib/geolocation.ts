@@ -23,6 +23,17 @@ export function getCurrentPosition(t?: (key: string) => string): Promise<Geoloca
 }
 
 /**
+ * true nếu trang đang chạy như app standalone đã "Add to Home Screen" (không có thanh địa chỉ
+ * trình duyệt) — cả kiểu chuẩn (display-mode: standalone) lẫn kiểu riêng của iOS Safari cũ
+ * (navigator.standalone). Dùng để đổi hướng dẫn lỗi quyền định vị: standalone không có biểu
+ * tượng khoá trên thanh địa chỉ để bấm như hướng dẫn mặc định.
+ */
+export function isStandaloneDisplayMode(): boolean {
+  const nav = navigator as Navigator & { standalone?: boolean };
+  return nav.standalone === true || (typeof window.matchMedia === "function" && window.matchMedia("(display-mode: standalone)").matches);
+}
+
+/**
  * GeolocationPositionError.code không phải lúc nào cũng là "chưa cấp quyền" — trước đây hiện
  * chung 1 câu "vui lòng cho phép quyền định vị" cho MỌI lỗi GPS, gây hiểu lầm khi người dùng đã
  * cấp quyền trình duyệt rồi mà vẫn lỗi (thường do POSITION_UNAVAILABLE: tắt Location Services ở
@@ -33,6 +44,14 @@ export function describeGeolocationError(err: { code: number; message?: string }
   // không truy cập được tuỳ trình duyệt/cách object lỗi được tạo ra, literal luôn đáng tin cậy.
   switch (err.code) {
     case 1: // PERMISSION_DENIED
+      // Khi mở từ shortcut Home Screen (standalone), KHÔNG có thanh địa chỉ để bấm biểu tượng
+      // khoá — hướng dẫn mặc định (dành cho tab Safari thường) khiến người dùng bị kẹt, phải
+      // đổi sang hướng dẫn qua app Cài đặt của iOS.
+      if (isStandaloneDisplayMode()) {
+        return t
+          ? t("geolocation.permissionDeniedStandalone")
+          : "Trình duyệt đang CHẶN quyền định vị cho lối tắt này — vào Cài đặt (Settings) → Quyền riêng tư & Bảo mật → Dịch vụ định vị → Safari Websites, cho phép định vị, rồi mở lại lối tắt và thử lại.";
+      }
       return t
         ? t("geolocation.permissionDenied")
         : "Trình duyệt đang CHẶN quyền định vị cho trang này — bấm vào biểu tượng khoá/vị trí trên thanh địa chỉ, chọn Vị trí = Cho phép, rồi tải lại trang và thử lại.";
