@@ -22,6 +22,7 @@
   "geolocation": {
     "unsupported": "Trình duyệt không hỗ trợ định vị GPS.",
     "permissionDenied": "Trình duyệt đang CHẶN quyền định vị cho trang này — bấm vào biểu tượng khoá/vị trí trên thanh địa chỉ, chọn Vị trí = Cho phép, rồi tải lại trang và thử lại.",
+    "permissionDeniedStandalone": "Trình duyệt đang CHẶN quyền định vị cho lối tắt này — vào Cài đặt (Settings) → Quyền riêng tư & Bảo mật → Dịch vụ định vị → Safari Websites, cho phép định vị, rồi mở lại lối tắt và thử lại.",
     "positionUnavailable": "Không xác định được vị trí hiện tại — kiểm tra dịch vụ định vị (Location Services) của máy/hệ điều hành đã bật chưa, rồi thử lại.",
     "timeout": "Định vị GPS quá thời gian chờ — thử lại ở nơi có tín hiệu GPS/Wi-Fi tốt hơn.",
     "unknownWithDetail": "Không lấy được vị trí GPS ({{detail}}) — vui lòng thử lại.",
