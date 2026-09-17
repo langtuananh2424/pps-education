@@ -127,6 +127,20 @@ public class ReflexWritingGrammarAiGradingService {
      * hổng UX của V184 nhưng ở nhánh khác. Sửa: yêu cầu gateNote CẢ khi lạc đề (nêu đúng câu hỏi yêu cầu
      * gì vs bài đang lạc sang đâu), cùng giọng "Yêu cầu: ..." như V184 — không cần đổi tên field/DTO/FE,
      * gateNote vốn đã trung lập ý nghĩa ("lý do cần sửa"), chỉ mở rộng ĐIỀU KIỆN kích hoạt trong prompt.
+     *
+     * V189 (2026-09-16, phát hiện qua test thật, xác nhận với người dùng) — fix bug thật khác hẳn
+     * V180-V187 (toàn bộ nhóm đó xử lý bài QUÁ NGẮN lọt cổng chặn): case thật là bài ĐỦ DÀI, chính tả/
+     * từ vựng sai rõ ràng (VD "usally"→"usually", "sped"→"spend", "footall"→"football", "Sometime"→
+     * "Sometimes") NHƯNG vẫn đạt 90% ngữ pháp. Gốc rễ: khi trích checkpoint GV/DM/LR/GRA từ rubric
+     * Speaking gốc ({@code speaking-rubric-grade6-shared.md}/{@code grade7-*.md}) ở V179, CHỈ trích bảng
+     * checkpoint — BỎ SÓT §2b "Cấm chấm theo thiện chí. Không suy đoán ý học sinh định nói" của rubric
+     * gốc, khiến model tự do "hiểu ý" rồi bỏ qua lỗi chính tả/từ sai vì đoán được ý định của học sinh.
+     * Sửa: (1) thêm lại đúng đoạn "Cấm chấm theo thiện chí" vào 3 file rubric v2
+     * ({@code writing-grammar-rubric-grade6-shared.md}/{@code grade7-cambridge.md}/{@code grade7-
+     * ielts.md}), (2) thêm CẢ ở tầng wrapper prompt ({@code reflex-writing-grammar-grading-system-
+     * prompt.txt}) để áp dụng ĐỒNG NHẤT cho MỌI khối kể cả 8-9 (rubric dạng bảng mô tả cũ vốn không có
+     * §2b để trích) — mirror đúng bài học từ V183 bên {@link ReflexSpeakingContentAiGradingService}
+     * (chỉ dựa vào nội dung {{RUBRIC}} không đủ, phải nhắc lại/tăng cường ở tầng wrapper).
      */
     public record GradeResult(int scorePercent, String markedAnswer, String correctedAnswer, String gateNote) {
     }

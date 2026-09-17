@@ -45,7 +45,7 @@ class ReflexSpeakingContentAiGradingServiceTest {
         when(nineRouterAiClient.chatWithAudio(anyString(), anyString(), any(byte[].class), anyString(), any())).thenReturn(rawText);
 
         ReflexSpeakingContentAiGradingService.GradeResult result =
-                service.grade("audio-bytes".getBytes(), "audio/webm", "What did you do yesterday?", "I went to school yesterday.", curriculum);
+                service.grade("audio-bytes".getBytes(), "audio/webm", "What did you do yesterday?", curriculum);
 
         assertThat(result).isNotNull();
         assertThat(result.transcript()).isEqualTo("I go {{err}}to school yesterday{{/err}}.");
@@ -67,7 +67,7 @@ class ReflexSpeakingContentAiGradingServiceTest {
         when(nineRouterAiClient.chatWithAudio(anyString(), anyString(), any(byte[].class), anyString(), any())).thenReturn(rawText);
 
         ReflexSpeakingContentAiGradingService.GradeResult result =
-                service.grade("audio-bytes".getBytes(), "audio/webm", "What subject do you like most?", "I like Math.", curriculum);
+                service.grade("audio-bytes".getBytes(), "audio/webm", "What subject do you like most?", curriculum);
 
         assertThat(result).isNotNull();
         assertThat(result.criteriaScores()).isEmpty();
@@ -80,7 +80,7 @@ class ReflexSpeakingContentAiGradingServiceTest {
         when(rubricLoader.load(anyString(), any(), any())).thenReturn(null);
 
         ReflexSpeakingContentAiGradingService.GradeResult result =
-                service.grade("audio-bytes".getBytes(), "audio/webm", "What subject do you like most?", "I like Math.", curriculum);
+                service.grade("audio-bytes".getBytes(), "audio/webm", "What subject do you like most?", curriculum);
 
         assertThat(result).isNull();
     }

@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Award, Camera, GraduationCap, Heart, Loader2, Lock, Phone, Sparkles, User, Users, X } from "lucide-react";
+import { Award, Camera, GraduationCap, Heart, KeyRound, Loader2, Lock, Phone, Sparkles, User, Users, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { getMyParentProfile, getMyParents, getMyStudentProfile, updateMyParentProfile, updateMyStudentProfile, uploadMedia } from "../api";
+import ChangePasswordModal from "./ChangePasswordModal";
 
 interface ProfileModalProps {
   fullName: string;
@@ -56,6 +57,8 @@ export default function ProfileModal({
 
   /** UC-63: Học sinh tự xem hồ sơ — phụ huynh liên hệ chính (isPrimaryContact), tự tra qua GET /students/me/parents. */
   const [myParentContact, setMyParentContact] = useState<{ fullName: string; phone: string | null } | null>(null);
+
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
 
   const [editingParent, setEditingParent] = useState(false);
   const [parentPortraitUrl, setParentPortraitUrl] = useState<string | null>(null);
@@ -183,9 +186,18 @@ export default function ProfileModal({
             </div>
           </div>
           {avatarError && <p className="text-[10px] text-rose-500 font-bold -mt-4 mb-3">{avatarError}</p>}
-          <p className="text-[11px] text-muted font-bold -mt-4 mb-6 flex items-center gap-1.5">
-            <User size={12} /> {t("profile.systemId", { code: studentCode ?? "—" })}
-          </p>
+          <div className="flex items-center justify-between flex-wrap gap-2 -mt-4 mb-6">
+            <p className="text-[11px] text-muted font-bold flex items-center gap-1.5">
+              <User size={12} /> {t("profile.systemId", { code: studentCode ?? "—" })}
+            </p>
+            <button
+              type="button"
+              onClick={() => setChangePasswordOpen(true)}
+              className="text-[10px] font-extrabold text-teal-deep hover:underline flex items-center gap-1"
+            >
+              <KeyRound size={11} /> {t("changePassword.openButton")}
+            </button>
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -341,6 +353,7 @@ export default function ProfileModal({
           </div>
         </div>
       </div>
+      {changePasswordOpen && <ChangePasswordModal onClose={() => setChangePasswordOpen(false)} />}
     </div>
   );
 }
