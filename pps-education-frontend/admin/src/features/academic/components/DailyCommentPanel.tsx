@@ -1734,7 +1734,7 @@ export default function DailyCommentPanel() {
                     <Td style={STICKY_COL_STYLE[1]} className={`sticky z-10 ${stickyBg} font-bold text-slate-900 whitespace-nowrap border-r border-b border-slate-300`}>
                       <StudentNameLink studentId={r.studentId} name={r.studentFullName} />
                       {isAbsentLocked && (
-                        <div className="text-[9px] font-bold text-red-600 uppercase tracking-wide mt-0.5">
+                        <div className="text-[9px] font-bold text-red-600 uppercase tracking-wide mt-0.5 whitespace-normal leading-snug">
                           {t(`shared.attendanceStatus.${attendanceStatus}`, { defaultValue: attendanceStatus })} · {t("dailyCommentPanel.attendanceLockedHint")}
                         </div>
                       )}
