@@ -87,6 +87,16 @@ import java.util.Map;
  * ở bước 1 ({@code writtenAnswerHint}) làm GỢI Ý từ vựng/tên riêng cho AI trước khi nghe audio — dặn rõ
  * trong prompt đây KHÔNG phải nội dung chuẩn để copy (học sinh có thể nói khác hẳn câu đã viết, xem V178
  * — câu 6 thực tế), chỉ giúp AI nhận diện đúng từ/tên riêng khó đoán thuần từ âm thanh.
+ *
+ * V188 (2026-09-16, phát hiện qua test thật, xác nhận với người dùng) — ĐÃ REVERT V186: dặn dò trong
+ * prompt ("KHÔNG copy nguyên văn") KHÔNG đủ sức cản model — kiểm tra DB sau khi triển khai V186 cho thấy
+ * {@code speaking_transcript} GIỐNG HỆT {@code answer_text} (câu viết ở bước 1) ở NHIỀU bản ghi liên
+ * tiếp, kể cả criteriaScores Phát âm vẫn ra 90-100% — tức model không thực sự nghe/phân tích audio nữa,
+ * chỉ "rubber-stamp" lại y nguyên câu gợi ý kèm điểm cao mặc định. Đây là hồi quy NGHIÊM TRỌNG hơn hẳn
+ * vấn đề gốc V186 định sửa (thỉnh thoảng nghe nhầm 1 tên riêng lạ) — chấp nhận đánh đổi ngược lại: bỏ hẳn
+ * gợi ý câu viết, sống chung với rủi ro hiếm gặp "tên riêng lạ bị nghe nhầm thành tên phổ biến" thay vì
+ * làm hỏng toàn bộ tính xác thực của việc chấm Phát âm/nội dung. KHÔNG thử lại hướng "gợi ý cả câu" nữa
+ * nếu không có cơ chế RÀNG BUỘC CỨNG (ngoài dặn dò bằng lời) chống copy nguyên văn.
  */
 @Service
 public class ReflexSpeakingContentAiGradingService {
@@ -120,17 +130,14 @@ public class ReflexSpeakingContentAiGradingService {
      * Trả null nếu chưa xác định được rubric (xem {@link RubricByGradeTrackLoader}) HOẶC 9Router chấm
      * thất bại — caller tự quyết định, KHÔNG tự cho qua.
      *
-     * @param writtenAnswerHint câu học sinh đã viết ở bước 1 (xem {@link ReflexWritingGrammarAiGradingService})
-     *                          — CHỈ dùng làm gợi ý từ vựng/tên riêng cho AI (V186, xem Javadoc lớp),
-     *                          KHÔNG phải nội dung chuẩn để copy vào transcript.
      */
-    public GradeResult grade(byte[] audioBytes, String mimeType, String questionPrompt, String writtenAnswerHint, Curriculum curriculum) {
+    public GradeResult grade(byte[] audioBytes, String mimeType, String questionPrompt, Curriculum curriculum) {
         String rubric = rubricLoader.load(RUBRIC_FILE_PREFIX, curriculum.getGradeLevel(), curriculum.getTrack());
         if (rubric == null) {
             return null;
         }
         String rawText = nineRouterAiClient.chatWithAudio(
-                systemPrompt(rubric, questionPrompt, writtenAnswerHint),
+                systemPrompt(rubric, questionPrompt),
                 "Đây là audio câu trả lời speaking của học sinh cho câu hỏi \"" + questionPrompt + "\". Hãy transcribe rồi chấm theo tiêu chí đã cho — kể cả tiêu chí Phát âm/ngữ điệu, chỉ đánh giá được vì bạn nghe trực tiếp audio gốc.",
                 audioBytes, mimeType, null);
         if (rawText == null) {
@@ -145,11 +152,10 @@ public class ReflexSpeakingContentAiGradingService {
         }
     }
 
-    private String systemPrompt(String rubric, String questionPrompt, String writtenAnswerHint) {
+    private String systemPrompt(String rubric, String questionPrompt) {
         return promptTemplateLoader.load(SYSTEM_PROMPT_FILE, Map.of(
                 "QUESTION_PROMPT", questionPrompt,
-                "RUBRIC", rubric,
-                "WRITTEN_ANSWER_HINT", writtenAnswerHint == null ? "" : writtenAnswerHint));
+                "RUBRIC", rubric));
     }
 
     /** LLM đôi khi bọc thêm text/markdown quanh JSON dù đã dặn "chỉ trả JSON" — cắt từ '{' đầu tới '}' cuối cho an toàn. */

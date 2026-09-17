@@ -9,6 +9,11 @@
 
 **Nếu một checkpoint không có dữ liệu để đếm** (VD bài viết không dùng câu ghép nên không xét được G3): cho **0,5đ** và ghi "n/a" ở phần bằng chứng. Không cho 1đ.
 
+**Cấm chấm theo thiện chí** (trích §2b rubric Speaking gốc — bị bỏ sót khi trích bảng checkpoint lần
+đầu, bổ sung lại V189): không suy đoán ý học sinh định viết. Lỗi chính tả/từ dùng sai (VD gõ nhầm, viết
+sai 1 từ thành 1 từ khác có nghĩa khác) PHẢI tính là lỗi thực sự ở G5, không được bỏ qua vì "vẫn hiểu ý
+học sinh muốn nói gì".
+
 ### GV — Ngữ pháp & Từ vựng
 
 |#|Checkpoint|1đ|0,5đ|0đ|

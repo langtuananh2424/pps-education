@@ -54,11 +54,40 @@ function stageForProgress(p: ReflexQuestionProgressResponse | undefined): "writi
  * V185 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-16) — thêm nhận diện ký hiệu `[?]` mà
  * prompt Speaking (V183) yêu cầu AI dùng khi 1 từ/cụm từ nghe không rõ đến mức không tự tin — TRƯỚC ĐÂY
  * AI vẫn phải "đoán sát âm thanh nhất" rồi bọc {{err}}, nhưng thực tế đoán sai vẫn hiện ra như 1 từ chắc
- * chắn, gây hiểu lầm. Nay AI KHÔNG đoán nữa, chỉ để lại `[?]` — FE hiện thành 1 dấu `?` có thể trỏ chuột
- * vào xem chú thích "không rõ từ" (thuộc tính `title` chuẩn HTML, không cần thư viện tooltip nào).
+ * chắn, gây hiểu lầm. Nay AI KHÔNG đoán nữa, chỉ để lại `[?]` — FE hiện thành 1 dấu `?` kèm chú thích
+ * "không rõ từ".
+ *
+ * V190 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-16) — fix bug thật: V185 dùng thuộc
+ * tính `title` chuẩn HTML cho chú thích, nhưng trình duyệt chỉ hiện sau khi DI CHUỘT đứng yên khá lâu
+ * VÀ hoàn toàn KHÔNG hoạt động trên máy tính bảng/điện thoại (không có con trỏ chuột để "hover") — đa số
+ * học sinh dùng thiết bị cảm ứng nên gần như không bao giờ thấy được chú thích. Thay bằng tooltip tự
+ * dựng ({@link UnclearMarker}), bật/tắt qua chạm (`onClick`) VÀ vẫn giữ hover cho máy tính bàn.
  */
 const ERROR_MARKUP = /\{\{err\}\}([\s\S]*?)\{\{\/err\}\}/g;
 const UNCLEAR_MARKER = "[?]";
+
+/** Xem ghi chú V190 ở trên — thay `title` HTML (không hoạt động trên cảm ứng) bằng tooltip tự dựng. */
+function UnclearMarker({ tooltip }: { tooltip: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <span
+      className="relative inline-block cursor-help font-extrabold text-amber-600 underline decoration-dotted decoration-2 underline-offset-2"
+      onClick={(e) => {
+        e.stopPropagation();
+        setOpen((o) => !o);
+      }}
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
+      ?
+      {open && (
+        <span className="absolute z-10 left-1/2 -translate-x-1/2 bottom-full mb-1 whitespace-nowrap rounded-md bg-ink text-white text-[11px] font-medium px-2 py-1 normal-case">
+          {tooltip}
+        </span>
+      )}
+    </span>
+  );
+}
 
 function renderUnclearMarkers(text: string, keyPrefix: string, tooltip: string): React.ReactNode[] {
   const segments = text.split(UNCLEAR_MARKER);
@@ -66,15 +95,7 @@ function renderUnclearMarkers(text: string, keyPrefix: string, tooltip: string):
   segments.forEach((segment, idx) => {
     if (segment) nodes.push(<React.Fragment key={`${keyPrefix}-t${idx}`}>{segment}</React.Fragment>);
     if (idx < segments.length - 1) {
-      nodes.push(
-        <span
-          key={`${keyPrefix}-q${idx}`}
-          title={tooltip}
-          className="cursor-help font-extrabold text-amber-600 underline decoration-dotted decoration-2 underline-offset-2"
-        >
-          ?
-        </span>
-      );
+      nodes.push(<UnclearMarker key={`${keyPrefix}-q${idx}`} tooltip={tooltip} />);
     }
   });
   return nodes;

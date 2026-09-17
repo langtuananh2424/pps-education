@@ -17,6 +17,11 @@
 |-|-|-|
 |**C3 — Quá ngắn**|Bài viết <15 từ|Cả **LR% và GRA%** đều bị **trần 40%** (dù checkpoint tính ra cao hơn, lấy giá trị NHỎ HƠN giữa điểm checkpoint và trần). Nếu <5 từ → **scorePercent = 0**, ghi "không đủ dữ liệu", bỏ qua chấm checkpoint.|
 
+**Cấm chấm theo thiện chí** (trích §2b rubric Speaking gốc — bị bỏ sót khi trích bảng checkpoint lần
+đầu, bổ sung lại V189): không suy đoán ý học sinh định viết. Lỗi chính tả/từ dùng sai (VD gõ nhầm, viết
+sai 1 từ thành 1 từ khác có nghĩa khác) PHẢI tính là lỗi thực sự ở L4/R5, không được bỏ qua vì "vẫn hiểu
+ý học sinh muốn nói gì".
+
 "Câu hoàn chỉnh" = có chủ ngữ + động từ chia. "Từ nội dung" = danh/động/tính/trạng từ mang nghĩa, không tính từ lặp và không tính từ lấy lại từ câu hỏi.
 
 **Nếu một checkpoint không có dữ liệu để đếm** (VD bài viết không dùng câu hỏi/phủ định nên không xét được R3): cho **0,5đ** và ghi "n/a" ở phần bằng chứng. Không cho 1đ.
