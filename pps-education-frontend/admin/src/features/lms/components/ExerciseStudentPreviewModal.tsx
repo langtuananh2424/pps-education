@@ -241,6 +241,33 @@ function useChoiceSelection(isMulti: boolean) {
   return { selected, toggle };
 }
 
+/**
+ * Bổ sung 2026-09-17 (fix bug thật, người dùng báo mất ảnh sau khi import bài "Match the words with the
+ * correct pictures") — DIEN_TU_HOP_TU_VUNG_ANH lưu NHIỀU URL ảnh nối bằng "|" trong CHUNG 1 cột imageUrl
+ * (tối đa 10 ảnh/10 chỗ trống, xem QuestionImportService#mapToRequest) — gán thẳng cả string nối "|" vào
+ * 1 <img src> duy nhất là 1 URL sai định dạng, ảnh không tải được nên không hiện ảnh nào. Tách thành danh
+ * sách, hiện dạng lưới có số thứ tự khi có NHIỀU ảnh; các loại câu hỏi khác chỉ có 1 URL vẫn hiện như cũ.
+ */
+function QuestionImages({ imageUrl }: { imageUrl: string }) {
+  const urls = imageUrl
+    .split("|")
+    .map((u) => u.trim())
+    .filter(Boolean);
+  if (urls.length <= 1) {
+    return <img src={urls[0] ?? imageUrl} alt="" className="w-full max-w-sm rounded-xl border border-slate-200" />;
+  }
+  return (
+    <div className="grid grid-cols-5 gap-2">
+      {urls.map((url, i) => (
+        <div key={i} className="space-y-1">
+          <img src={url} alt="" className="w-full aspect-square object-contain rounded-lg border border-slate-200 bg-white" />
+          <p className="text-center text-[10px] font-bold text-slate-400">{i + 1}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function QuestionPreview({ question, displayNumber }: { question: ExerciseQuestionResponse; displayNumber: number }) {
   const { t } = useTranslation("lms-question-authoring");
   const isChoice = CHOICE_TYPES.has(question.questionType) && question.choices.length > 0;
@@ -263,7 +290,7 @@ function QuestionPreview({ question, displayNumber }: { question: ExerciseQuesti
         <audio controls src={question.audioUrl} className="w-full" />
       )}
 
-      {question.imageUrl && <img src={question.imageUrl} alt="" className="w-full max-w-sm rounded-xl border border-slate-200" />}
+      {question.imageUrl && <QuestionImages imageUrl={question.imageUrl} />}
 
       {isChoice ? (
         <ChoiceButtons choices={question.choices} selected={selected} onToggle={toggle} />
@@ -456,7 +483,7 @@ function GridQuestionRowPreview({ question, displayNumber }: { question: Exercis
         {displayNumber}. {question.questionContent}
       </span>
 
-      {question.imageUrl && <img src={question.imageUrl} alt="" className="w-full max-w-sm rounded-xl border border-slate-200" />}
+      {question.imageUrl && <QuestionImages imageUrl={question.imageUrl} />}
 
       {isChoiceRow && <ChoiceButtons choices={question.choices} selected={selected} onToggle={toggle} />}
 

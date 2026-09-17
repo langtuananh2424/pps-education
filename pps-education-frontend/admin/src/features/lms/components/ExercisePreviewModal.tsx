@@ -28,6 +28,33 @@ function chunkArray<T>(items: T[], size: number): T[][] {
 }
 
 /**
+ * Bổ sung 2026-09-17 (fix bug thật, mirror ExerciseStudentPreviewModal.tsx cùng thư mục) —
+ * DIEN_TU_HOP_TU_VUNG_ANH lưu NHIỀU URL ảnh nối bằng "|" trong CHUNG 1 cột imageUrl (tối đa 10 ảnh/10
+ * chỗ trống, xem QuestionImportService#mapToRequest) — gán thẳng cả string nối "|" vào 1 <img src> duy
+ * nhất là 1 URL sai định dạng, ảnh không tải được. Tách thành danh sách, hiện dạng lưới có số thứ tự khi
+ * có NHIỀU ảnh; các loại câu hỏi khác chỉ có 1 URL vẫn hiện như cũ.
+ */
+function QuestionImages({ imageUrl }: { imageUrl: string }) {
+  const urls = imageUrl
+    .split("|")
+    .map((u) => u.trim())
+    .filter(Boolean);
+  if (urls.length <= 1) {
+    return <img src={urls[0] ?? imageUrl} alt="" className="max-h-40 rounded-lg mb-2" />;
+  }
+  return (
+    <div className="grid grid-cols-5 gap-2 mb-2">
+      {urls.map((url, i) => (
+        <div key={i} className="space-y-1">
+          <img src={url} alt="" className="w-full aspect-square object-contain rounded-lg border border-slate-200 bg-white" />
+          <p className="text-center text-[10px] font-bold text-slate-400">{i + 1}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
  * Bổ sung 2026-09-04 (đã xác nhận với người dùng, mirror ExerciseStudentPreviewModal.tsx cùng thư mục)
  * — chỉ coi dòng trống (2+ \n liên tiếp) là ranh giới đoạn văn thật (VD 3 đoạn Tom/Max/Anna của "Bài
  * đọc hiểu — Lưới", GridQuestionBuilder nối bằng "\n\n") — giữ lại làm dòng trống hiển thị; mọi \n đơn
@@ -134,7 +161,7 @@ export default function ExercisePreviewModal({ exercise, onClose }: ExercisePrev
                 </div>
                 <p className="text-[10px] text-slate-400 uppercase font-bold mb-2">{t(`exercisePreviewModal.questionTypeLabels.${eq.questionType}`)}</p>
 
-                {q?.imageUrl && <img src={q.imageUrl} alt="" className="max-h-40 rounded-lg mb-2" />}
+                {q?.imageUrl && <QuestionImages imageUrl={q.imageUrl} />}
                 {q?.audioUrl && <audio controls src={q.audioUrl} className="mb-2 w-full" />}
                 {q?.referencePassage && (
                   <p className="text-xs text-slate-500 bg-slate-50 p-2 rounded-lg mb-2 whitespace-pre-line">{normalizeReferencePassage(q.referencePassage)}</p>

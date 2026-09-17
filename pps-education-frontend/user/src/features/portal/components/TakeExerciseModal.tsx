@@ -123,6 +123,33 @@ function hasMeaningfulChoiceCaption(choiceLabel: string, content: string): boole
   return trimmed.length > 0 && trimmed.toUpperCase() !== choiceLabel.trim().toUpperCase();
 }
 
+/**
+ * Bổ sung 2026-09-17 (fix bug thật, mirror ExerciseStudentPreviewModal.tsx bên admin) —
+ * DIEN_TU_HOP_TU_VUNG_ANH lưu NHIỀU URL ảnh nối bằng "|" trong CHUNG 1 cột imageUrl (tối đa 10 ảnh/10
+ * chỗ trống, xem QuestionImportService#mapToRequest) — gán thẳng cả string nối "|" vào 1 <img src> duy
+ * nhất là 1 URL sai định dạng, ảnh không tải được nên học sinh không thấy ảnh nào. Tách thành danh sách,
+ * hiện dạng lưới có số thứ tự khi có NHIỀU ảnh; các loại câu hỏi khác chỉ có 1 URL vẫn hiện như cũ.
+ */
+function QuestionImages({ imageUrl, className }: { imageUrl: string; className: string }) {
+  const urls = imageUrl
+    .split("|")
+    .map((u) => u.trim())
+    .filter(Boolean);
+  if (urls.length <= 1) {
+    return <img src={urls[0] ?? imageUrl} alt="" className={className} />;
+  }
+  return (
+    <div className="grid grid-cols-5 gap-2">
+      {urls.map((url, i) => (
+        <div key={i} className="space-y-1">
+          <img src={url} alt="" className="w-full aspect-square object-contain rounded-lg border border-line/60 bg-white" />
+          <p className="text-center text-[10px] font-bold text-muted">{i + 1}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 const SEEK_TOLERANCE_SECONDS = 1;
 
 /**
@@ -1141,7 +1168,7 @@ export function QuestionBlock({
       <ListeningAudioBlock question={question} onEnded={() => onListeningEnded(question)} />
 
       {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — ảnh minh họa câu hỏi (ESSAY/WORD_BANK/SENTENCE_BUILDING), trước đây soạn có ảnh nhưng học sinh không thấy vì DTO chưa trả field này. */}
-      {question.imageUrl && <img src={question.imageUrl} alt="" className="w-full max-w-[240px] rounded-xl border border-line/60" />}
+      {question.imageUrl && <QuestionImages imageUrl={question.imageUrl} className="w-full max-w-[240px] rounded-xl border border-line/60" />}
 
       {isChoiceQuestion && question.choices.some((c) => c.imageUrl) ? (
         // V143 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23) — Listening "chọn đáp án
@@ -1876,7 +1903,7 @@ export function GridQuestionGroup({
                * those", mỗi câu 1 ảnh khác nhau) — trước đây chỉ câu đơn lẻ (không thuộc nhóm) mới hiện
                * ảnh, khối "grid" này thiếu hẳn nên ảnh bị lưu nhưng học sinh không thấy.
                */}
-              {q.imageUrl && <img src={q.imageUrl} alt="" className="w-full max-w-[240px] rounded-xl border border-line/60" />}
+              {q.imageUrl && <QuestionImages imageUrl={q.imageUrl} className="w-full max-w-[240px] rounded-xl border border-line/60" />}
 
               {/*
                * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — fix bug thật: trước đây
