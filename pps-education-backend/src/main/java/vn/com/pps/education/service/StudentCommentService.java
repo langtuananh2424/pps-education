@@ -402,6 +402,7 @@ public class StudentCommentService {
         requireCanWriteDailyComment(classSession, actorUserId);
         Student student = studentRepository.findByIdAndDeletedAtIsNull(request.studentId())
                 .orElseThrow(() -> new ResourceNotFoundException("error.studentComment.studentNotFoundById", new Object[]{request.studentId()}, "Không tìm thấy học sinh id=" + request.studentId()));
+        requireNotLockedByAttendance(classSession.getId(), student.getId(), student.getUser().getFullName());
 
         StudentComment existing = studentCommentRepository
                 .findByClassSessionIdAndStudentId(classSession.getId(), student.getId()).orElse(null);
@@ -469,6 +470,7 @@ public class StudentCommentService {
                 .collect(java.util.stream.Collectors.toMap(Student::getId, s -> s));
         Map<Long, StudentComment> existingByStudentId = studentCommentRepository.findByClassSessionId(classSession.getId()).stream()
                 .collect(java.util.stream.Collectors.toMap(c -> c.getStudent().getId(), c -> c, (a, b) -> a));
+        Map<Long, AttendanceMark.Status> attendanceByStudent = currentAttendanceByStudent(classSession.getId());
 
         List<StudentComment> toSave = new ArrayList<>();
         Map<Long, StudentCommentHistory.Action> actionByStudentId = new HashMap<>();
@@ -479,6 +481,7 @@ public class StudentCommentService {
                 if (student == null) {
                     throw new ResourceNotFoundException("error.studentComment.studentNotFoundById", new Object[]{row.studentId()}, "Không tìm thấy học sinh id=" + row.studentId());
                 }
+                requireNotLockedByAttendance(attendanceByStudent, student.getId(), student.getUser().getFullName());
                 StudentComment existing = existingByStudentId.get(student.getId());
                 if (existing != null && existing.getStatus() != StudentComment.Status.DRAFT
                         && existing.getStatus() != StudentComment.Status.REJECTED) {
@@ -531,6 +534,7 @@ public class StudentCommentService {
                     "error.studentCommentNotEditable.notDraftOrRejected", new Object[]{comment.getStatus()},
                     "Nhận xét này đang ở trạng thái " + comment.getStatus() + " — chỉ sửa được khi Nháp (DRAFT) hoặc Bị từ chối (REJECTED).");
         }
+        requireNotLockedByAttendance(comment.getClassSession().getId(), comment.getStudent().getId(), comment.getStudent().getUser().getFullName());
 
         // 2026-09-12: BTVN online (Exercise/ReviewVideoSet) không còn ở DTO này nữa — sửa Nhận xét ở
         // đây KHÔNG đụng/ghi đè homeworkNextGrammarBatch/homeworkNextReviewVideoAssignment/... (dù
@@ -1318,10 +1322,16 @@ public class StudentCommentService {
                             && parsed.note() == null && parsed.homeworkPreviousSpeaking() == null
                             && parsed.homeworkPreviousReading() == null && parsed.homeworkPreviousWriting() == null
                             && parsed.homeworkNextReading() == null && parsed.homeworkNextWriting() == null;
-                    if (!(absent && allBlank)) {
+                    // 2026-09-17 — mirror lock cứng của importRow (xem Javadoc ở đó).
+                    if (absent) {
+                        if (!allBlank) {
+                            throw new IllegalArgumentException(
+                                    "Học sinh đã điểm danh " + attendanceLabel(effectiveAttendance) + " cho buổi này — không thể ghi nhận xét.");
+                        }
+                    } else {
                         if (parsed.content() == null || parsed.content().isBlank()) {
                             throw new IllegalArgumentException(
-                                    "Thiếu nhận xét (cột " + colLetter(HomeworkColumns.of(classSession.getTeacherType()).content) + ") — bắt buộc trừ khi học sinh vắng/có phép.");
+                                    "Thiếu nhận xét (cột " + colLetter(HomeworkColumns.of(classSession.getTeacherType()).content) + ") — bắt buộc.");
                         }
                         previewRows.add(new DailyCommentImportPreviewRow(
                                 parsed.student().getId(), parsed.attitude(), parsed.homeworkPrevious(),
@@ -1527,11 +1537,18 @@ public class StudentCommentService {
                 && homeworkNext == null && note == null
                 && homeworkPreviousSpeaking == null && homeworkPreviousReading == null
                 && homeworkPreviousWriting == null && homeworkNextReading == null && homeworkNextWriting == null;
-        if (absent && allBlank) {
-            return;
+        // 2026-09-17 (đã xác nhận với người dùng, THẮT CHẶT quyết định 2026-07-24) — Vắng/Có phép giờ
+        // là LOCK CỨNG: dòng để trống hết vẫn bỏ qua êm (mẫu Excel liệt kê sẵn mọi học sinh ACTIVE kể
+        // cả học sinh vắng), nhưng có điền BẤT KỲ cột nào thì CHẶN (trước đây cho ghi tự do, chỉ miễn
+        // bắt buộc cột Nhận xét).
+        if (absent) {
+            if (allBlank) {
+                return;
+            }
+            throw new IllegalArgumentException("Học sinh đã điểm danh " + attendanceLabel(attendance) + " cho buổi này — không thể ghi nhận xét.");
         }
         if (content == null || content.isBlank()) {
-            throw new IllegalArgumentException("Thiếu nhận xét (cột " + colLetter(HomeworkColumns.of(classSession.getTeacherType()).content) + ") — bắt buộc trừ khi học sinh vắng/có phép.");
+            throw new IllegalArgumentException("Thiếu nhận xét (cột " + colLetter(HomeworkColumns.of(classSession.getTeacherType()).content) + ") — bắt buộc.");
         }
 
         StudentComment comment = studentCommentRepository
@@ -1633,10 +1650,18 @@ public class StudentCommentService {
         if (enrollments.isEmpty()) {
             throw new IllegalStateException("Lớp học này chưa có học sinh đang hoạt động (ACTIVE) — không có ai để giao BTVN.");
         }
+        // 2026-09-17 (đã xác nhận với người dùng) — cơ chế lock UC-21: học sinh đã điểm danh Vắng/Có
+        // phép cho đúng buổi này bị BỎ QUA hoàn toàn khi "Áp dụng cho cả lớp" (không tạo StudentComment
+        // rỗng, không gán FK BTVN) — mirror rào requireNotLockedByAttendance ở writeComment/updateComment.
+        Map<Long, AttendanceMark.Status> attendanceByStudent = currentAttendanceByStudent(classSessionId);
 
         List<StudentComment> editable = new ArrayList<>();
         for (ClassEnrollment enrollment : enrollments) {
             Student student = enrollment.getStudent();
+            AttendanceMark.Status attendance = attendanceByStudent.get(student.getId());
+            if (attendance == AttendanceMark.Status.ABSENT || attendance == AttendanceMark.Status.EXCUSED) {
+                continue;
+            }
             StudentComment comment = studentCommentRepository
                     .findByClassSessionIdAndStudentId(classSessionId, student.getId()).orElse(null);
             if (comment != null && comment.getStatus() != StudentComment.Status.DRAFT
@@ -1658,7 +1683,7 @@ public class StudentCommentService {
             editable.add(comment);
         }
         if (editable.isEmpty()) {
-            throw new IllegalStateException("Mọi học sinh ACTIVE của lớp đều đã Gửi/Duyệt nhận xét buổi này — không còn dòng nào để giao BTVN mới.");
+            throw new IllegalStateException("Không còn học sinh nào để giao BTVN mới — mọi học sinh ACTIVE của lớp đều đã Gửi/Duyệt nhận xét buổi này hoặc đã điểm danh Vắng/Có phép.");
         }
 
         OffsetDateTime dueAt = resolveDueAt(session, request.dueDate());
@@ -2023,6 +2048,34 @@ public class StudentCommentService {
                 .map(session -> attendanceMarkRepository.findByAttendanceSessionId(session.getId()).stream()
                         .collect(java.util.stream.Collectors.toMap(m -> m.getStudent().getId(), AttendanceMark::getStatus)))
                 .orElseGet(Map::of);
+    }
+
+    /**
+     * UC-21 mở rộng — cơ chế lock theo điểm danh (đã xác nhận với người dùng 2026-09-17, THẮT CHẶT
+     * lại quyết định 2026-07-24 vốn chỉ nới lỏng "không cần điền" — không cấm — cho học sinh Vắng/Có
+     * phép): học
+     * sinh đã điểm danh ABSENT/EXCUSED cho đúng buổi này thì KHÔNG được ghi/sửa nhận xét hàng ngày
+     * nữa — chặn cứng (throw), không âm thầm bỏ qua. Nội dung đã ghi TRƯỚC KHI điểm danh chuyển sang
+     * Vắng/Có phép được tự xóa ngay lúc điểm danh, xem
+     * {@code StudentAttendanceService#resetDailyCommentIfLocked} (chặn ở đây chỉ lo phần ghi MỚI).
+     */
+    private void requireNotLockedByAttendance(Long classSessionId, Long studentId, String studentFullName) {
+        requireNotLockedByAttendance(currentAttendanceByStudent(classSessionId), studentId, studentFullName);
+    }
+
+    /**
+     * Overload dùng cho luồng BATCH ({@link #saveDraftBatch}) — nhận thẳng map điểm danh đã tra 1 LẦN
+     * cho cả lô thay vì để mỗi dòng tự gọi lại {@link #currentAttendanceByStudent} (N+1 query, mirror
+     * đúng tinh thần fix N+1 đã áp dụng ở submitComments/decideComments — xem previousCommentsByClassSessionAndStudent).
+     */
+    private void requireNotLockedByAttendance(Map<Long, AttendanceMark.Status> attendanceByStudent, Long studentId, String studentFullName) {
+        AttendanceMark.Status status = attendanceByStudent.get(studentId);
+        if (status == AttendanceMark.Status.ABSENT || status == AttendanceMark.Status.EXCUSED) {
+            throw new StudentCommentNotEditableException(
+                    "error.studentCommentNotEditable.lockedByAttendance", new Object[]{studentFullName, attendanceLabel(status)},
+                    "Học sinh " + studentFullName + " đã điểm danh " + attendanceLabel(status)
+                            + " cho buổi này — không thể ghi nhận xét.");
+        }
     }
 
     private AttendanceMark.Status parseAttendanceStatus(String text) {

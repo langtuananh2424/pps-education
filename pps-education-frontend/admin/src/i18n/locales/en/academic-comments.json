@@ -36,7 +36,14 @@
       "FOREIGN": "Reflex clip"
     },
     "grammarChannelFallback": "Assignment",
-    "videoChannelFallback": "Video"
+    "videoChannelFallback": "Video",
+    "attendanceStatus": {
+      "PRESENT": "Present",
+      "ABSENT": "Absent",
+      "EXCUSED": "Excused",
+      "LATE": "Late",
+      "EARLY_LEAVE": "Early leave"
+    }
   },
   "approvalByClass": {
     "loading": "Loading...",
@@ -256,6 +263,7 @@
     "homeworkPreviousOfflinePlaceholder": "E.g. 80%",
     "homeworkPreviousSpeakingPlaceholder": "E.g. Completed 85% (Video channel is always online — auto % will appear after sending)",
     "autoBadge": "Auto",
+    "attendanceLockedHint": "Cannot comment/assign homework",
     "chooseExercisePlaceholder": "-- Select a published exercise --",
     "attitudePlaceholder": "-- Not selected --",
     "contentPlaceholder": "Write a comment for this student...",
