@@ -1475,7 +1475,9 @@ mục "Bổ sung V139" trong `docs/uc/phan-he-07-lms-portal.md`)
 | writing_attempt_count | INT | NOT NULL, DEFAULT 0 | Chỉ để thống kê, KHÔNG giới hạn số lần thử |
 | audio_url | VARCHAR(1000) | NULL | Audio trả lời — chỉ có sau khi đã đạt phần viết |
 | speaking_score, speaking_max_score | DECIMAL(5,2) | NULL | % AI chấm nội dung (Gemini transcribe + chấm) |
-| speaking_feedback | TEXT | NULL | |
+| speaking_feedback | TEXT | NULL | Từ V178: rút gọn còn 1 đoạn tối đa 50 từ (trước đó là khối văn xuôi 7 mục) |
+| speaking_transcript | TEXT | NULL | V178, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-16 — transcript audio, có đánh dấu lỗi bằng markup `{{err}}...{{/err}}` (xem mục "Bổ sung V178" trong `docs/uc/phan-he-07-lms-portal.md`) |
+| speaking_criteria_scores | JSONB | NULL | V178 — mảng `{criterion, percent}` theo từng tiêu chí rubric, tách riêng khỏi speaking_feedback |
 | speaking_graded_at | TIMESTAMPTZ | NULL | |
 | speaking_attempt_count | INT | NOT NULL, DEFAULT 0 | Chỉ để thống kê, KHÔNG giới hạn số lần thử |
 | created_at, updated_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | |

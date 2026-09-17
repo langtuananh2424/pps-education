@@ -318,6 +318,7 @@
     "title": "Nhận xét học viên",
     "subtitle": "Giáo viên viết nhận xét hàng ngày, Quản lý điểm trường duyệt trước khi hiển thị Portal phụ huynh.",
     "tabs": {
+      "write": "Viết nhận xét",
       "pending": "Chờ duyệt",
       "history": "Lịch sử nhận xét cũ"
     },

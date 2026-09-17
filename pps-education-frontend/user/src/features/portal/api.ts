@@ -53,6 +53,18 @@ export function getMyParents(): Promise<ParentStudentResponse[]> {
   return apiRequest<ParentStudentResponse[]>("/students/me/parents");
 }
 
+/**
+ * UC-45: tự đổi mật khẩu của chính tài khoản đang đăng nhập (Học sinh/Phụ huynh) — cùng endpoint
+ * dùng chung với vai trò nhân viên (xem admin/src/features/auth/api.ts), UC-45 áp dụng cho mọi tài khoản.
+ * currentPassword để trống chỉ hợp lệ với tài khoản chưa từng có mật khẩu (chỉ đăng nhập Google — UC-45 A3).
+ */
+export function changeOwnPassword(currentPassword: string, newPassword: string): Promise<void> {
+  return apiRequest<void>("/auth/me/password", {
+    method: "PUT",
+    body: JSON.stringify({ currentPassword: currentPassword || undefined, newPassword })
+  });
+}
+
 /** UC-63: Phụ huynh tự xem/sửa hồ sơ của chính mình (khác hồ sơ con em — xem ChildResponse). */
 export interface MyParentProfileResponse {
   id: number;
@@ -653,7 +665,15 @@ export interface ReflexQuestionProgressResponse {
   questionId: number;
   answerText: string | null;
   writingScorePercent: number | null;
+  /** V181 — nay CHỈ có giá trị khi AI chấm thất bại (thông báo lỗi); chấm thành công xem writingMarkedAnswer. */
   writingFeedback: string | null;
+  /**
+   * V181 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-16) — chính câu trả lời của học
+   * sinh, có đánh dấu lỗi ngữ pháp/từ vựng bằng markup `{{err}}...{{/err}}` quanh phần lỗi — tự
+   * regex-split để bôi đỏ/gạch chân khi hiện ra (xem renderHighlightedErrors trong ReflexVideoTaskPage.tsx),
+   * đồng nhất cách hiển thị với speakingTranscript (V178). Thay cho feedback văn xuôi dài dòng trước đây.
+   */
+  writingMarkedAnswer: string | null;
   writingPassed: boolean;
   writingAttemptCount: number;
   /**
@@ -665,6 +685,14 @@ export interface ReflexQuestionProgressResponse {
   audioUrl: string | null;
   speakingScorePercent: number | null;
   speakingFeedback: string | null;
+  /**
+   * V178 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-16) — transcript audio, có đánh dấu
+   * lỗi ngữ pháp/từ vựng bằng markup `{{err}}...{{/err}}` quanh phần lỗi — tự regex-split để bôi
+   * đỏ/gạch chân khi hiện ra, xem renderHighlightedErrors trong ReflexVideoTaskPage.tsx.
+   */
+  speakingTranscript: string | null;
+  /** V178 — % từng tiêu chí rubric, tách riêng khỏi speakingFeedback (trước đây nhúng trong feedback). */
+  speakingCriteriaScores: { criterion: string; percent: number }[] | null;
   speakingPassed: boolean;
   speakingAttemptCount: number;
   /** true khi CẢ 2 bước đã đạt — câu tiếp theo được mở khoá (BE không tự chặn nộp câu sau, FE tự khoá UI theo cờ này). */
@@ -997,6 +1025,15 @@ export interface StudentAnswerResponse {
   gradingMaxScore: number | null;
   gradingFeedback: string | null;
   gradingSource: "HUMAN" | "AI" | null;
+  /**
+   * V182 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-16, PILOT Khối 7 IELTS) — chính bài
+   * viết của học sinh, đánh dấu lỗi bằng markup `{{mã|đoạn văn bản}}` (5 loại lỗi × 2 mức độ, xem
+   * renderMarkedEssay trong TakeExerciseModal.tsx). NULL khi chưa chấm bằng rubric "v3" — khi đó vẫn
+   * dùng gradingFeedback dạng văn bản như trước.
+   */
+  gradingMarkedAnswer: string | null;
+  /** V182 — % từng tiêu chí rubric v3 (TR/TA, CC, LR, GRA...), tách riêng khỏi gradingFeedback. */
+  gradingCriteriaScores: { criterion: string; percent: number }[] | null;
   /**
    * V177 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-15) — UC-24/UC-27 A2: câu này được
    * mang nguyên nội dung từ lượt làm TRƯỚC (đã đúng) sang lượt "Làm lại" hiện tại — hiện dạng chỉ xem/

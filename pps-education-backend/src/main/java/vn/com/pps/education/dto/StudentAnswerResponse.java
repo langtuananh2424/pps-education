@@ -1,5 +1,7 @@
 package vn.com.pps.education.dto;
 
+import vn.com.pps.education.common.CriteriaScoreItem;
+
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
@@ -40,6 +42,15 @@ public record StudentAnswerResponse(
         BigDecimal gradingMaxScore,
         String gradingFeedback,
         String gradingSource,
+        /**
+         * V182 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-16, PILOT Khối 7 IELTS) —
+         * chính bài viết của học sinh, đánh dấu lỗi bằng markup {@code {{mã|đoạn văn bản}}} — FE tự
+         * regex-split để tô màu theo mã lỗi. NULL khi chưa chấm bằng rubric "v3" (vẫn dùng gradingFeedback
+         * dạng văn bản như trước).
+         */
+        String gradingMarkedAnswer,
+        /** V182 — % từng tiêu chí rubric v3, tách riêng khỏi gradingFeedback. NULL cùng điều kiện trên. */
+        List<CriteriaScoreItem> gradingCriteriaScores,
         /**
          * V177 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-15) — UC-24/UC-27 A2: câu này
          * được mang nguyên nội dung từ lượt làm TRƯỚC (đã đúng) sang lượt "Làm lại" hiện tại — FE phải
