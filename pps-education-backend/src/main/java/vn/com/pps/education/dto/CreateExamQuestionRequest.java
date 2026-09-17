@@ -2,7 +2,6 @@ package vn.com.pps.education.dto;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -20,8 +19,8 @@ public record CreateExamQuestionRequest(
         String skill,
         String difficulty,
         @NotBlank String content,
-        @Size(max = 1000, message = "URL Audio quá dài (tối đa 1000 ký tự).") String audioUrl,
-        @Size(max = 1000, message = "URL Hình ảnh quá dài (tối đa 1000 ký tự).") String imageUrl,
+        String audioUrl,
+        String imageUrl,
         String referencePassage,
         String explanation,
         String correctAnswerText,

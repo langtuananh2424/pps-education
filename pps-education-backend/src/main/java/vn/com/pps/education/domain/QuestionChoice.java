@@ -31,7 +31,7 @@ public class QuestionChoice {
      * dùng cho câu hỏi Listening dạng "nghe rồi chọn đáp án bằng hình" (mỗi đáp án là 1 tấm ảnh thay vì
      * chữ). NULL với mọi dạng câu hỏi khác (đáp án vẫn là chữ như trước).
      */
-    @Column(name = "image_url", length = 1000)
+    @Column(name = "image_url", columnDefinition = "TEXT")
     private String imageUrl;
 
     @Column(name = "is_correct", nullable = false)

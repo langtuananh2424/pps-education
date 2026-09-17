@@ -206,7 +206,6 @@ public class QuestionImportService {
                             ? mapToClozeGroupRequests(row, bank.getId(), rejectActiveDuplicate)
                             : List.of(mapToRequest(row, bank.getId(), kind, autoGroupKeys.get(row.rowNumber())));
                     for (CreateQuestionRequest request : requests) {
-                        requireColumnLengthsWithinLimit(request);
                         QuestionResponse created = questionBankService.createQuestionInBank(
                                 bank, request, actorUserId, rejectActiveDuplicate);
                         Map<String, Object> summary = new LinkedHashMap<>();
@@ -1128,44 +1127,6 @@ public class QuestionImportService {
         }
         List<String> tags = Arrays.stream(raw.split(",")).map(String::trim).filter(s -> !s.isEmpty()).toList();
         return tags.isEmpty() ? null : tags;
-    }
-
-    /**
-     * Bổ sung 2026-09-17 (fix bug thật đã gặp trên production, đã xác nhận với người dùng) —
-     * {@code questions.audio_url}/{@code image_url} và {@code question_choices.image_url} đều
-     * VARCHAR(1000) (xem V17__lms_question_bank_core.sql/V143__question_choice_image_url.sql), nhưng
-     * chưa từng có validate độ dài ở tầng import — GV dán nhầm 1 chuỗi quá dài (VD dán nhầm nội dung
-     * thay vì URL) vào cột "URL Audio"/"URL Hình ảnh" trong Excel khiến INSERT vỡ ràng buộc DB
-     * (Postgres 22001 "value too long for type character varying(1000)").
-     *
-     * QUAN TRỌNG — không thể validate/bắt exception BÊN TRONG
-     * {@link QuestionBankService#createQuestionInBank}: method đó là bean KHÁC, @Transactional riêng,
-     * tham gia CHUNG 1 transaction vật lý với {@link #importQuestionsIntoBank} (PROPAGATION_REQUIRED
-     * mặc định) — theo đúng cơ chế Spring đã ghi chú ở StudentCommentService#importComments (gọi 1 bean
-     * @Transactional khác rồi bắt exception ở đây KHÔNG ngăn được transaction NGOÀI bị đánh dấu
-     * rollback-only tại chính proxy của bean kia), dù dòng này được `catch (RuntimeException ex)` gộp
-     * vào errors bình thường, các dòng ĐÃ TẠO THÀNH CÔNG trước đó trong CÙNG request vẫn bị cuốn theo
-     * khi importQuestionsIntoBank commit ở cuối — ném UnexpectedRollbackException, mất trắng cả batch.
-     * Validate NGAY TẠI ĐÂY (trong chính method này, trước khi gọi sang QuestionBankService) để lỗi chỉ
-     * dừng ở 1 dòng — không đụng transaction chung.
-     */
-    private static final int MAX_URL_LENGTH = 1000;
-
-    private void requireColumnLengthsWithinLimit(CreateQuestionRequest request) {
-        requireUrlWithinLimit(request.audioUrl(), "URL Audio");
-        requireUrlWithinLimit(request.imageUrl(), "URL Hình ảnh");
-        if (request.choices() != null) {
-            for (QuestionChoiceRequest choice : request.choices()) {
-                requireUrlWithinLimit(choice.imageUrl(), "URL Hình ảnh đáp án " + choice.choiceLabel());
-            }
-        }
-    }
-
-    private void requireUrlWithinLimit(String value, String columnLabel) {
-        if (value != null && value.length() > MAX_URL_LENGTH) {
-            throw new IllegalArgumentException(columnLabel + " quá dài (" + value.length() + " ký tự, tối đa "
-                    + MAX_URL_LENGTH + ") — kiểm tra lại đã dán đúng đường dẫn URL, chưa dán nhầm nội dung khác.");
-        }
     }
 
     private boolean isBlank(String s) {
