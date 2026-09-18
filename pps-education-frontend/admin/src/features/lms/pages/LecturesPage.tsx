@@ -18,6 +18,7 @@ import {
   ReviewVideoSourceType,
   ReviewVideoTeacherType,
   ReviewVideoType,
+  SubTopicResponse,
   UnitResponse,
   UpdateConnectionChoiceRequest,
   UpdateReviewVideoSetRequest,
@@ -655,7 +656,10 @@ export default function LecturesPage() {
   const [bookFilter, setBookFilter] = useState<number | null>(null);
   const [unitFilterOptions, setUnitFilterOptions] = useState<UnitResponse[]>([]);
   const [unitFilter, setUnitFilter] = useState<number | null>(null);
-  const [unitFilterSubTopicIds, setUnitFilterSubTopicIds] = useState<Set<number> | null>(null);
+  // Tập subTopicId dùng để lọc — mirror ExerciseAssignPage.tsx: khi đã chọn Unit cụ thể thì chỉ lấy
+  // subTopic của Unit đó; khi mới chọn Sách (chưa chọn Unit) phải gộp subTopicId của TẤT CẢ Unit thuộc
+  // Sách đó, nếu không chọn Sách sẽ không lọc được gì (bug đã xác nhận với người dùng 2026-09-17).
+  const [filterSubTopicIds, setFilterSubTopicIds] = useState<Set<number> | null>(null);
   const [videoSets, setVideoSets] = useState<ReviewVideoSetResponse[]>([]);
   const [loadingSets, setLoadingSets] = useState(false);
   const [selectedSetId, setSelectedSetId] = useState<number | null>(null);
@@ -679,7 +683,6 @@ export default function LecturesPage() {
 
   useEffect(() => {
     setUnitFilter(null);
-    setUnitFilterSubTopicIds(null);
     if (!bookFilter) {
       setUnitFilterOptions([]);
       return;
@@ -688,14 +691,29 @@ export default function LecturesPage() {
   }, [bookFilter]);
 
   useEffect(() => {
-    if (!unitFilter) {
-      setUnitFilterSubTopicIds(null);
-      return;
+    let cancelled = false;
+    if (unitFilter) {
+      listSubTopics(unitFilter)
+        .then((subTopics) => !cancelled && setFilterSubTopicIds(new Set(subTopics.map((s) => s.id))))
+        .catch(() => !cancelled && setFilterSubTopicIds(new Set()));
+      return () => {
+        cancelled = true;
+      };
     }
-    listSubTopics(unitFilter)
-      .then((subTopics) => setUnitFilterSubTopicIds(new Set(subTopics.map((s) => s.id))))
-      .catch(() => setUnitFilterSubTopicIds(new Set()));
-  }, [unitFilter]);
+    if (bookFilter) {
+      listUnits(bookFilter)
+        .then((units) => Promise.all(units.map((u) => listSubTopics(u.id).catch(() => [] as SubTopicResponse[]))))
+        .then((perUnit) => !cancelled && setFilterSubTopicIds(new Set(perUnit.flat().map((s) => s.id))))
+        .catch(() => !cancelled && setFilterSubTopicIds(new Set()));
+      return () => {
+        cancelled = true;
+      };
+    }
+    setFilterSubTopicIds(null);
+    return () => {
+      cancelled = true;
+    };
+  }, [bookFilter, unitFilter]);
 
   const loadSets = () => {
     setLoadingSets(true);
@@ -714,15 +732,15 @@ export default function LecturesPage() {
 
   const selectedSet = videoSets.find((s) => s.id === selectedSetId) ?? null;
 
-  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — lọc thêm theo Unit (phía FE, xem ghi
-  // chú unitFilterSubTopicIds ở trên) TRƯỚC khi phân trang, mirror unitFilteredExams (ExerciseAssignPage.tsx).
-  const unitFilteredSets = unitFilterSubTopicIds
-    ? videoSets.filter((s) => s.subTopicId != null && unitFilterSubTopicIds.has(s.subTopicId))
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — lọc thêm theo Sách/Unit (phía FE, xem
+  // ghi chú filterSubTopicIds ở trên) TRƯỚC khi phân trang, mirror unitFilteredExams (ExerciseAssignPage.tsx).
+  const unitFilteredSets = filterSubTopicIds
+    ? videoSets.filter((s) => s.subTopicId != null && filterSubTopicIds.has(s.subTopicId))
     : videoSets;
 
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
-  useEffect(() => setPage(0), [videoSets, unitFilter]);
+  useEffect(() => setPage(0), [videoSets, bookFilter, unitFilter]);
   const pageSets = unitFilteredSets.slice(page * pageSize, (page + 1) * pageSize);
 
   return (
