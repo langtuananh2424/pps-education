@@ -380,7 +380,7 @@ public class ExerciseAttemptService {
             boolean correct = isAnswerCorrect(answer);
             answer.setCorrect(correct);
             BigDecimal points = pointsByQuestionId.getOrDefault(answer.getQuestion().getId(), BigDecimal.ZERO);
-            BigDecimal score = correct ? points : BigDecimal.ZERO;
+            BigDecimal score = computeAutoScore(answer, correct, points);
             answer.setAutoScore(score);
             autoGradeScore = autoGradeScore.add(score);
             studentAnswerRepository.save(answer);
@@ -758,6 +758,42 @@ public class ExerciseAttemptService {
             }
         }
         return true;
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-17: WORD_BANK (điền từ, các ô độc
+     * lập nhau) chấm THEO TỈ LỆ số ô đúng/tổng số ô thay vì all-or-nothing — 1 câu DIEN_TU_DOAN_VAN
+     * có thể gộp nhiều ô trống trong 1 đoạn văn, sai 1 ô mất hết điểm cả câu là quá nặng (VD 5/8 ô
+     * đúng, câu 8 điểm -> 5 điểm). SENTENCE_BUILDING (sắp xếp câu) KHÔNG áp dụng — người dùng chọn
+     * giữ nguyên all-or-nothing vì lệch 1 vị trí có hiệu ứng dây chuyền sang các vị trí sau, tỷ lệ
+     * tính được không phản ánh đúng "số khối đúng" như cảm giác trực quan.
+     */
+    private BigDecimal computeAutoScore(StudentAnswer answer, boolean correct, BigDecimal points) {
+        Question question = answer.getQuestion();
+        if (question.getQuestionType() == Question.QuestionType.WORD_BANK) {
+            return structuredPartialScore(question, "blanks", answer.getStructuredAnswer(), points);
+        }
+        return correct ? points : BigDecimal.ZERO;
+    }
+
+    private BigDecimal structuredPartialScore(Question question, String key, List<String> given, BigDecimal points) {
+        if (given == null || question.getStructuredContent() == null) {
+            return BigDecimal.ZERO;
+        }
+        Object raw = question.getStructuredContent().get(key);
+        if (!(raw instanceof List<?> correctList) || correctList.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+        int total = correctList.size();
+        int matched = 0;
+        for (int i = 0; i < total; i++) {
+            String correct = String.valueOf(correctList.get(i));
+            String submitted = i < given.size() ? given.get(i) : null;
+            if (submitted != null && correct.trim().equalsIgnoreCase(submitted.trim())) {
+                matched++;
+            }
+        }
+        return points.multiply(BigDecimal.valueOf(matched)).divide(BigDecimal.valueOf(total), 2, RoundingMode.HALF_UP);
     }
 
     /**
