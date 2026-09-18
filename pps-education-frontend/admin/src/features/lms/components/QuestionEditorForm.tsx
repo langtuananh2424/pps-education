@@ -163,7 +163,10 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
   const [audioUrl, setAudioUrl] = useState(existingQuestion?.audioUrl ?? "");
   const [transcript, setTranscript] = useState(existingQuestion?.referencePassage ?? "");
 
-  // Điền từ: đáp án đúng duy nhất, BE so khớp case-insensitive + trim khi tự chấm (V54).
+  // Điền từ: BE so khớp case-insensitive + trim khi tự chấm (V54). Hỗ trợ NHIỀU đáp án đúng cho
+  // cùng 1 chỗ trống, phân tách bằng dấu "/" (VD "go/goes") — bổ sung ngoài SDD gốc, đã xác nhận
+  // với người dùng 2026-09-17. Cố tình KHÔNG dùng "|" vì đã mang nghĩa khác (danh sách theo thứ tự
+  // cho nhiều chỗ trống ở WORD_BANK/SENTENCE_BUILDING).
   const [correctAnswerText, setCorrectAnswerText] = useState(existingQuestion?.correctAnswerText ?? "");
 
   // Tự luận: ảnh/tài liệu scan đề bài (imageUrl).

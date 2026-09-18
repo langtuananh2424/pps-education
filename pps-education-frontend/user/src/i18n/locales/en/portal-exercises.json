@@ -214,6 +214,7 @@
     },
     "writingStage": {
       "title": "Step 1 · Write your answer",
+      "tabLabel": "Writing",
       "placeholder": "Type your answer...",
       "submitButton": "Submit answer",
       "submitting": "Grading...",
@@ -231,6 +232,7 @@
     },
     "speakingStage": {
       "title": "Step 2 · Record your answer",
+      "tabLabel": "Speaking",
       "instructions": "Tap the button below when you're ready — say back what you just wrote.",
       "recording": "Recording ({{elapsed}}s/{{max}}s)",
       "grading": "Grading your recording...",
@@ -244,9 +246,10 @@
       "quietWarning": "Your recording sounds quiet — try speaking louder and clearer for a more accurate AI grade. You can tap \"Re-record\" or still submit this one.",
       "unclearWordTooltip": "Unclear word",
       "criteriaScoresLabel": "Score by criteria",
-      "transcriptLabel": "Transcript (errors highlighted in red, underlined)",
+      "transcriptLabel": "Transcript (errors boxed in red)",
       "retryButton": "Record again",
       "attemptCount": "Recorded {{count}} time(s)",
+      "passThresholdNote": "Goal: score {{threshold}}%+ to pass",
       "passedPopup": {
         "heading": "Passed — next question unlocked",
         "continueButton": "Continue"
@@ -300,6 +303,19 @@
       "typeGroupExercise": "Exercises",
       "typeGroupVideo": "Review videos",
       "typeOther": "Other exercises"
+    },
+    "nav": {
+      "breadcrumbRoot": "Homework",
+      "uncategorizedUnit": "Uncategorized unit",
+      "uncategorizedLesson": "Uncategorized lesson",
+      "unitLessonCount": "{{count}} lessons",
+      "itemCount": "{{count}} items",
+      "pendingBadge": "{{count}} to do",
+      "emptyUnitGroup": "No unit matches the current filter.",
+      "emptyLessonGroup": "This unit has no items matching the current filter — the filter may have changed.",
+      "emptyAssignmentGroup": "This lesson has no items matching the current filter.",
+      "backToUnits": "Back to units",
+      "backToLessons": "Back to lessons"
     },
     "empty": "No homework in this category.",
     "lockedAction": "Locked",

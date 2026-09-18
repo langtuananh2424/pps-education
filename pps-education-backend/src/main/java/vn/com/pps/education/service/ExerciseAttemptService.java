@@ -41,6 +41,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -60,7 +61,10 @@ import java.util.stream.Collectors;
  * question_choices.is_correct) và FILL_IN_BLANK (so khớp case-insensitive +
  * trim, với questions.correct_answer_text — V54, bổ sung ngoài SDD gốc, đã
  * xác nhận với người dùng 2026-07-27; V166 nới lỏng thêm 2026-09-05 — bỏ
- * dấu câu Ở CUỐI chuỗi trước khi so khớp, xem {@link #stripTrailingPunctuation}).
+ * dấu câu Ở CUỐI chuỗi trước khi so khớp, xem {@link #stripTrailingPunctuation};
+ * bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-17 — correct_answer_text
+ * giờ chấp nhận NHIỀU đáp án đúng cho cùng 1 chỗ trống, phân tách bằng dấu "/", xem
+ * {@link #parseAcceptedAnswers}).
  * ESSAY/SPEAKING KHÔNG tự chấm được vì SDD không có cột đáp án tham
  * khảo dạng chấm được cho 2 loại này — luôn chờ Giáo viên chấm thủ công
  * (UC-41).
@@ -376,7 +380,7 @@ public class ExerciseAttemptService {
             boolean correct = isAnswerCorrect(answer);
             answer.setCorrect(correct);
             BigDecimal points = pointsByQuestionId.getOrDefault(answer.getQuestion().getId(), BigDecimal.ZERO);
-            BigDecimal score = correct ? points : BigDecimal.ZERO;
+            BigDecimal score = computeAutoScore(answer, correct, points);
             answer.setAutoScore(score);
             autoGradeScore = autoGradeScore.add(score);
             studentAnswerRepository.save(answer);
@@ -684,10 +688,13 @@ public class ExerciseAttemptService {
     private boolean isAnswerCorrect(StudentAnswer answer) {
         Question question = answer.getQuestion();
         if (question.getQuestionType() == Question.QuestionType.FILL_IN_BLANK) {
-            String correct = question.getCorrectAnswerText();
             String given = answer.getAnswerText();
-            return correct != null && given != null
-                    && stripTrailingPunctuation(correct).equalsIgnoreCase(stripTrailingPunctuation(given));
+            if (given == null) {
+                return false;
+            }
+            String strippedGiven = stripTrailingPunctuation(given);
+            return parseAcceptedAnswers(question.getCorrectAnswerText()).stream()
+                    .anyMatch(accepted -> stripTrailingPunctuation(accepted).equalsIgnoreCase(strippedGiven));
         }
         if (question.getQuestionType() == Question.QuestionType.WORD_BANK) {
             return structuredAnswerMatches(question, "blanks", answer.getStructuredAnswer());
@@ -713,6 +720,24 @@ public class ExerciseAttemptService {
     }
 
     /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-17 — FILL_IN_BLANK giờ chấp nhận
+     * NHIỀU đáp án đúng cho CÙNG 1 chỗ trống (trước đây chỉ so khớp được đúng 1 chuỗi duy nhất).
+     * Nhiều phương án phân tách bằng dấu "/" trong cùng correct_answer_text (VD "go/goes") — học
+     * sinh chỉ cần khớp ÍT NHẤT 1 phương án là ĐÚNG. Cố tình dùng dấu "/" thay vì "|" (đã có nghĩa
+     * khác: DANH SÁCH THEO THỨ TỰ cho NHIỀU chỗ trống khác nhau ở DIEN_TU_HOP_TU_VUNG/SAP_XEP_CAU/
+     * SAP_XEP_CHU_CAI, xem QuestionImportService) để tránh nhầm lẫn cho GV khi soạn Excel/Word.
+     */
+    private static List<String> parseAcceptedAnswers(String correctAnswerText) {
+        if (correctAnswerText == null) {
+            return List.of();
+        }
+        return Arrays.stream(correctAnswerText.split("/"))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toList();
+    }
+
+    /**
      * WORD_BANK/SENTENCE_BUILDING (V85, bổ sung ngoài SDD gốc, đã xác nhận với người dùng
      * 2026-08-04): so khớp elementwise (case-insensitive + trim), ĐÚNG thứ tự — student phải chọn
      * đúng thứ tự (khớp key "blanks"/"chunks" trong Question.structuredContent).
@@ -733,6 +758,42 @@ public class ExerciseAttemptService {
             }
         }
         return true;
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-17: WORD_BANK (điền từ, các ô độc
+     * lập nhau) chấm THEO TỈ LỆ số ô đúng/tổng số ô thay vì all-or-nothing — 1 câu DIEN_TU_DOAN_VAN
+     * có thể gộp nhiều ô trống trong 1 đoạn văn, sai 1 ô mất hết điểm cả câu là quá nặng (VD 5/8 ô
+     * đúng, câu 8 điểm -> 5 điểm). SENTENCE_BUILDING (sắp xếp câu) KHÔNG áp dụng — người dùng chọn
+     * giữ nguyên all-or-nothing vì lệch 1 vị trí có hiệu ứng dây chuyền sang các vị trí sau, tỷ lệ
+     * tính được không phản ánh đúng "số khối đúng" như cảm giác trực quan.
+     */
+    private BigDecimal computeAutoScore(StudentAnswer answer, boolean correct, BigDecimal points) {
+        Question question = answer.getQuestion();
+        if (question.getQuestionType() == Question.QuestionType.WORD_BANK) {
+            return structuredPartialScore(question, "blanks", answer.getStructuredAnswer(), points);
+        }
+        return correct ? points : BigDecimal.ZERO;
+    }
+
+    private BigDecimal structuredPartialScore(Question question, String key, List<String> given, BigDecimal points) {
+        if (given == null || question.getStructuredContent() == null) {
+            return BigDecimal.ZERO;
+        }
+        Object raw = question.getStructuredContent().get(key);
+        if (!(raw instanceof List<?> correctList) || correctList.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+        int total = correctList.size();
+        int matched = 0;
+        for (int i = 0; i < total; i++) {
+            String correct = String.valueOf(correctList.get(i));
+            String submitted = i < given.size() ? given.get(i) : null;
+            if (submitted != null && correct.trim().equalsIgnoreCase(submitted.trim())) {
+                matched++;
+            }
+        }
+        return points.multiply(BigDecimal.valueOf(matched)).divide(BigDecimal.valueOf(total), 2, RoundingMode.HALF_UP);
     }
 
     /**
