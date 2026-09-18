@@ -304,6 +304,19 @@
       "typeGroupVideo": "Video ôn tập",
       "typeOther": "Bài khác"
     },
+    "nav": {
+      "breadcrumbRoot": "Bài tập về nhà",
+      "uncategorizedUnit": "Chưa phân loại Unit",
+      "uncategorizedLesson": "Chưa phân loại bài học",
+      "unitLessonCount": "{{count}} bài học",
+      "itemCount": "{{count}} bài tập",
+      "pendingBadge": "{{count}} cần hoàn thành",
+      "emptyUnitGroup": "Không có Unit nào khớp bộ lọc hiện tại.",
+      "emptyLessonGroup": "Unit này không còn bài tập khớp bộ lọc — có thể đã bị đổi bộ lọc.",
+      "emptyAssignmentGroup": "Bài học này không còn bài tập khớp bộ lọc.",
+      "backToUnits": "Quay lại danh sách Unit",
+      "backToLessons": "Quay lại danh sách bài học"
+    },
     "empty": "Không có bài tập nào trong mục này.",
     "lockedAction": "Đã khóa",
     "exercise": {
