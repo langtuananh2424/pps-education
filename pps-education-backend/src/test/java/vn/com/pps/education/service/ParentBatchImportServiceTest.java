@@ -210,6 +210,39 @@ class ParentBatchImportServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void importParents_UC50_MainFlow_usesProvidedEmailInsteadOfPlaceholderWhenCreatingNewAccount() throws IOException {
+        Student student = newStudent("Học Sinh Email");
+        String phone = newPhone();
+        String email = "phuhuynh" + SEQ.incrementAndGet() + "@gmail.com";
+        byte[] file = buildWorkbook(new String[][]{
+                {"Nguyễn Văn Email", username(), phone, "Cha", student.getStudentCode(), "", "", email},
+        });
+
+        ParentBatchImportResponse result = parentBatchImportService.importParents(
+                new MockMultipartFile("file", "phu_huynh.xlsx", "application/vnd.openxmlformats", file), staff.getId());
+
+        assertThat(result.status()).isEqualTo("COMPLETED");
+        User parentUser = userRepository.findByPhone(phone).orElseThrow();
+        assertThat(parentUser.getEmail()).isEqualTo(email);
+    }
+
+    @Test
+    void importParents_UC50_A2_rejectsDuplicateEmailOnlyWhenCreatingNewAccount() throws IOException {
+        Student student = newStudent("Học Sinh Trùng Email");
+        User existing = newUser("parent.dup.email");
+        byte[] file = buildWorkbook(new String[][]{
+                {"Phụ Huynh Trùng Email", username(), newPhone(), "Cha", student.getStudentCode(), "", "", existing.getEmail()},
+        });
+
+        ParentBatchImportResponse result = parentBatchImportService.importParents(
+                new MockMultipartFile("file", "phu_huynh.xlsx", "application/vnd.openxmlformats", file), staff.getId());
+
+        assertThat(result.status()).isEqualTo("PARTIAL_SUCCESS");
+        assertThat(result.failedRows()).isEqualTo(1);
+        assertThat(result.errorSummary().get(0).get("reason")).isEqualTo("Email đã tồn tại: " + existing.getEmail());
+    }
+
+    @Test
     void importParents_UC50_A2_rejectsDuplicateUsernameOnlyWhenCreatingNewAccount() throws IOException {
         Student student = newStudent("Học Sinh Trùng Username");
         User existing = newUser("parent.dup.username");
@@ -249,7 +282,7 @@ class ParentBatchImportServiceTest extends AbstractIntegrationTest {
             assertThat(headers).containsExactly(
                     "Họ và tên phụ huynh*", "Username*", "Số điện thoại*",
                     "Quan hệ (Cha/Mẹ/Người giám hộ/Khác)*", "Mã học sinh*",
-                    "Là người liên hệ chính (Có/Không)", "Chịu trách nhiệm tài chính (Có/Không)");
+                    "Là người liên hệ chính (Có/Không)", "Chịu trách nhiệm tài chính (Có/Không)", "Email");
             assertThat(workbook.getSheet("Hướng dẫn")).isNotNull();
         }
     }
@@ -259,7 +292,7 @@ class ParentBatchImportServiceTest extends AbstractIntegrationTest {
             Sheet sheet = workbook.createSheet("PhuHuynh");
             Row header = sheet.createRow(0);
             String[] headers = {"Họ và tên phụ huynh", "Username", "Số điện thoại", "Quan hệ", "Mã học sinh",
-                    "Là người liên hệ chính", "Chịu trách nhiệm tài chính"};
+                    "Là người liên hệ chính", "Chịu trách nhiệm tài chính", "Email"};
             for (int i = 0; i < headers.length; i++) {
                 header.createCell(i).setCellValue(headers[i]);
             }
