@@ -214,6 +214,7 @@
     },
     "writingStage": {
       "title": "Bước 1 · Viết câu trả lời",
+      "tabLabel": "Viết",
       "placeholder": "Nhập câu trả lời của bạn...",
       "submitButton": "Nộp bài viết",
       "submitting": "Đang chấm...",
@@ -231,6 +232,7 @@
     },
     "speakingStage": {
       "title": "Bước 2 · Ghi âm nói lại",
+      "tabLabel": "Nói",
       "instructions": "Bấm nút bên dưới khi bạn sẵn sàng — nói lại đúng nội dung bạn vừa viết.",
       "recording": "Đang ghi âm ({{elapsed}}s/{{max}}s)",
       "grading": "Đang chấm bài nói...",
@@ -244,9 +246,10 @@
       "quietWarning": "Bản ghi hơi nhỏ — hãy thử nói to và rõ hơn để AI chấm chính xác hơn. Bạn có thể bấm \"Ghi âm lại\" hoặc vẫn nộp bài này.",
       "unclearWordTooltip": "Không rõ từ",
       "criteriaScoresLabel": "Điểm theo từng tiêu chí",
-      "transcriptLabel": "Bài nói đã chuyển thành chữ (phần lỗi được bôi đỏ, gạch chân)",
+      "transcriptLabel": "Bài nói đã chuyển thành chữ (phần lỗi được đóng khung đỏ)",
       "retryButton": "Ghi âm lại",
       "attemptCount": "Đã ghi âm {{count}} lần",
+      "passThresholdNote": "Mục tiêu: đạt từ {{threshold}}% để vượt qua",
       "passedPopup": {
         "heading": "Đạt — mở khoá câu tiếp theo",
         "continueButton": "Tiếp tục"
@@ -300,6 +303,19 @@
       "typeGroupExercise": "Bài tập",
       "typeGroupVideo": "Video ôn tập",
       "typeOther": "Bài khác"
+    },
+    "nav": {
+      "breadcrumbRoot": "Bài tập về nhà",
+      "uncategorizedUnit": "Chưa phân loại Unit",
+      "uncategorizedLesson": "Chưa phân loại bài học",
+      "unitLessonCount": "{{count}} bài học",
+      "itemCount": "{{count}} bài tập",
+      "pendingBadge": "{{count}} cần hoàn thành",
+      "emptyUnitGroup": "Không có Unit nào khớp bộ lọc hiện tại.",
+      "emptyLessonGroup": "Unit này không còn bài tập khớp bộ lọc — có thể đã bị đổi bộ lọc.",
+      "emptyAssignmentGroup": "Bài học này không còn bài tập khớp bộ lọc.",
+      "backToUnits": "Quay lại danh sách Unit",
+      "backToLessons": "Quay lại danh sách bài học"
     },
     "empty": "Không có bài tập nào trong mục này.",
     "lockedAction": "Đã khóa",
