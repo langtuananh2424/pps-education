@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { AlertTriangle, CheckCircle2, Loader2, Lock, Mic, Pause, Play, RotateCcw, ShieldAlert, Square } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Lightbulb, Loader2, Lock, Mic, Pause, PenLine, Play, RotateCcw, ShieldAlert, Square } from "lucide-react";
 import { friendlyApiErrorMessage } from "@/lib/apiClient";
 import {
   ReflexQuestionProgressResponse,
@@ -66,6 +66,20 @@ function stageForProgress(p: ReflexQuestionProgressResponse | undefined): "writi
 const ERROR_MARKUP = /\{\{err\}\}([\s\S]*?)\{\{\/err\}\}/g;
 const UNCLEAR_MARKER = "[?]";
 
+/**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-18 — chú thích tiếng Việt ngắn cho từng tiêu
+ * chí chấm Speaking, hiện kèm dưới tên tiêu chí (nguyên văn tiếng Anh AI trả về — xem
+ * ReflexSpeakingContentAiGradingService — không đổi được) để học sinh chưa quen thuật ngữ IELTS Speaking
+ * vẫn hiểu ý nghĩa. Danh sách 4 tiêu chí CỐ ĐỊNH theo đúng prompt chấm hiện tại — nếu BE đổi/thêm tiêu
+ * chí mới, tiêu chí lạ sẽ đơn giản không có phụ đề (fallback an toàn, không lỗi).
+ */
+const SPEAKING_CRITERIA_SUBTITLES_VI: Record<string, string> = {
+  "Fluency and Coherence": "Độ trôi chảy & mạch lạc",
+  "Lexical Resource": "Vốn từ vựng",
+  "Grammatical Range and Accuracy": "Ngữ pháp & độ chính xác",
+  Pronunciation: "Phát âm chuẩn xác"
+};
+
 /** Xem ghi chú V190 ở trên — thay `title` HTML (không hoạt động trên cảm ứng) bằng tooltip tự dựng. */
 function UnclearMarker({ tooltip }: { tooltip: string }) {
   const [open, setOpen] = useState(false);
@@ -112,7 +126,9 @@ function renderHighlightedErrors(text: string, unclearTooltip: string): React.Re
       parts.push(...renderUnclearMarkers(text.slice(lastIndex, match.index), `plain-${key}`, unclearTooltip));
     }
     parts.push(
-      <span key={`err-${key}`} className="text-red-600 underline decoration-2 underline-offset-2 font-semibold">
+      // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-18 — đổi từ gạch chân sang "chip" bo
+      // tròn viền đỏ nhạt (dễ nhận biết hơn trên câu dài, đặc biệt trong khung transcript mới).
+      <span key={`err-${key}`} className="inline-block rounded-md border border-rose-300 bg-rose-50 px-1 font-semibold text-rose-600">
         {renderUnclearMarkers(match[1], `errinner-${key}`, unclearTooltip)}
       </span>
     );
@@ -145,6 +161,15 @@ function renderHighlightedErrors(text: string, unclearTooltip: string): React.Re
  * audio-engineering), có thể cần tinh chỉnh lại sau khi thu thập thêm dữ liệu thật.
  */
 const QUIET_RMS_THRESHOLD = 0.035;
+/**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-18 — fix bug thật: mỗi mẫu RMS lấy mỗi 500ms
+ * (xem `timerRef` interval trong `start()`), nên 1 lượt ghi RẤT NGẮN (VD 1 giây) chỉ có 1-2 mẫu — trung
+ * bình dựa trên quá ít mẫu dễ trúng đúng khoảnh khắc im lặng (VD đầu câu, giữa 2 từ) rồi báo "hơi nhỏ"
+ * dù học sinh nói to bình thường ở phần còn lại. Yêu cầu tối thiểu 4 mẫu (~2 giây) mới đánh giá âm
+ * lượng — ghi ngắn hơn thì bỏ qua cảnh báo này (để cổng chặn nội dung "quá ngắn" phía AI chấm — xem
+ * ReflexSpeakingContentAiGradingService — báo đúng lý do thay vì lẫn với cảnh báo âm lượng gây hiểu lầm).
+ */
+const MIN_VOLUME_SAMPLES_FOR_QUIET_CHECK = 4;
 
 function useAudioRecorder() {
   const { t } = useTranslation("portal-exercises");
@@ -179,7 +204,7 @@ function useAudioRecorder() {
       timerRef.current = null;
     }
     const avgRms = volumeSamplesRef.current > 0 ? volumeSumRef.current / volumeSamplesRef.current : 0;
-    setQuietWarning(avgRms > 0 && avgRms < QUIET_RMS_THRESHOLD);
+    setQuietWarning(volumeSamplesRef.current >= MIN_VOLUME_SAMPLES_FOR_QUIET_CHECK && avgRms > 0 && avgRms < QUIET_RMS_THRESHOLD);
     closeVolumeMeter();
   };
 
@@ -316,6 +341,51 @@ function ManualPauseOverlay({
         </span>
       )}
     </button>
+  );
+}
+
+/**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-18 — SPIKE lần 2, đổi hẳn kiểu dáng sau khi
+ * người dùng xem 3 mẫu Word Art và chọn phong cách mềm mại hơn (không phải "Sticker Nổi" viền đen dày ở
+ * bản trước) — viền màu mảnh + nền trắng, pill nhãn đè nhẹ lên mép trên card, nghiêng nhẹ như 2 nét chữ
+ * V chụm vào nhau (`tiltClass` truyền từ nơi gọi: bên trái nghiêng trái, bên phải nghiêng phải), rung lắc
+ * (`animate-wiggle`, khai báo ở index.css) khi di chuột qua rồi tự về lại đúng góc nghiêng tĩnh ban đầu.
+ */
+function ScoreSticker({
+  icon,
+  label,
+  percent,
+  tone,
+  tiltClass
+}: {
+  icon: React.ReactNode;
+  label: string;
+  percent: number | null;
+  tone: "pass" | "fail" | "pending";
+  tiltClass: string;
+}) {
+  const border = tone === "pass" ? "border-teal" : tone === "fail" ? "border-coral" : "border-line";
+  const text = tone === "pass" ? "text-teal-deep" : tone === "fail" ? "text-coral" : "text-muted";
+  return (
+    // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-18 — thu nhỏ hẳn trên di động (mặc định,
+    // dưới `sm:`) — sticker luôn `absolute` ghim góc phải trên (xem nơi gọi) ở MỌI kích thước màn hình,
+    // nên phải đủ nhỏ để không đè lên dòng "CÂU HỎI n" bên trái kể cả ở điện thoại nhỏ nhất (320px, đã
+    // test — 68px/thẻ vẫn hụt vài px, giảm xuống 58px mới đủ an toàn).
+    <div className={`${tiltClass} wiggle-on-hover shrink-0 cursor-default`}>
+      <span
+        className={`relative z-10 -mb-1.5 ml-2 flex w-fit items-center gap-1 rounded-full border-2 ${border} bg-white px-1.5 py-0.5 text-[8px] font-extrabold uppercase ${text} whitespace-nowrap sm:-mb-2 sm:ml-3 sm:px-2.5 sm:py-1 sm:text-[10px]`}
+      >
+        {icon} {label}
+      </span>
+      <div
+        className={`flex w-[58px] items-center justify-center rounded-xl border-2 ${border} bg-white pt-2 pb-1 shadow-md sm:w-[114px] sm:rounded-2xl sm:pt-4 sm:pb-2.5`}
+      >
+        <span className={`font-display text-base font-extrabold sm:text-4xl ${text}`}>
+          {percent != null ? percent : "—"}
+          {percent != null && <span className="align-top text-[9px] sm:text-lg">%</span>}
+        </span>
+      </div>
+    </div>
   );
 }
 
@@ -793,6 +863,18 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
   const displayStage = stageForProgress(displayProgress);
   const isReviewing = reviewQuestionId != null;
 
+  /**
+   * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-18 — TRƯỚC ĐÂY khi qua bước Nói, bài viết
+   * bước 1 vẫn hiện cố định phía trên phần ghi âm (đọc-only) — học sinh nhìn thấy nguyên văn bài viết
+   * trong lúc nói lại, mất tác dụng "phản xạ" (không tự nói mà dựa hẳn vào bài viết). Sửa: tách 2 bước
+   * thành 2 tab đổi qua lại — mặc định LUÔN mở tab "Nói" (không lộ bài viết), học sinh phải chủ động bấm
+   * qua tab "Viết" mới xem lại được. Reset về tab "Nói" mỗi khi đổi câu đang hiển thị.
+   */
+  const [answerViewTab, setAnswerViewTab] = useState<"writing" | "speaking">("speaking");
+  useEffect(() => {
+    setAnswerViewTab("speaking");
+  }, [displayQuestionId]);
+
   const handleReviewQuestion = (q: ReviewVideoQuestionResponse) => {
     // Không cho mở xem lại khi đang ghi âm/đang chờ chấm câu THẬT — tránh học sinh tưởng đã dừng ghi âm.
     if (recorder.recording || writingSubmitting || speakingSubmitting) return;
@@ -1235,9 +1317,9 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
         {questionsError && <div className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-xl">{questionsError}</div>}
 
         {displayQuestion && (
-          <div className={`bg-white border-2 rounded-[16px] p-4 sm:p-5 space-y-3 shadow-lg ${isReviewing ? "border-line" : "border-teal"}`}>
+          <div className={`relative bg-white border-2 rounded-[16px] p-4 sm:p-5 space-y-3 shadow-lg ${isReviewing ? "border-line" : "border-teal"}`}>
             <div className="flex items-center justify-between gap-2 text-[10px] sm:text-[11px] font-extrabold text-teal-deep uppercase tracking-wide">
-              <span className="text-sm flex items-center gap-1.5">
+              <span className="text-sm flex items-center gap-1.5 flex-wrap">
                 {t("reflexVideoTask.question.label", { index: questions.findIndex((q) => q.id === displayQuestion.id) + 1 })}
                 <span className="px-1.5 py-0.5 rounded-md bg-sky-2 text-teal-deep normal-case font-bold">{formatTimestamp(displayQuestion.timestampSeconds)}</span>
                 {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25 — tua video lùi về đúng mốc câu ĐANG HIỂN THỊ (dù là câu THẬT đang làm dở hay câu đang xem lại) để nghe/xem lại, xem handleReviewQuestion. */}
@@ -1250,20 +1332,90 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                 >
                   <RotateCcw size={11} />
                 </button>
+                {/*
+                 * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-18 — nút "Đóng xem lại" TRƯỚC
+                 * ĐÂY nằm bên phải hàng này (cùng chỗ sticker điểm giờ đang ghim `absolute`) — bị đè lên
+                 * nhau khi vừa xem lại 1 câu đã đạt vừa hiện sticker (2 điều kiện luôn đi cùng nhau, xem
+                 * isReviewing). Dời sang cụm bên TRÁI (cạnh nút nghe lại) — không còn chung chỗ với góc
+                 * sticker nữa dù cửa sổ rộng hay hẹp.
+                 */}
+                {isReviewing && (
+                  <button onClick={handleCloseReview} className="flex items-center gap-1 text-muted normal-case hover:text-ink">
+                    {t("reflexVideoTask.reviewBadge")} · {t("reflexVideoTask.closeReviewButton")}
+                  </button>
+                )}
               </span>
-              {isReviewing ? (
-                <button onClick={handleCloseReview} className="flex items-center gap-1 text-muted normal-case hover:text-ink">
-                  {t("reflexVideoTask.reviewBadge")} · {t("reflexVideoTask.closeReviewButton")}
-                </button>
-              ) : (
-                <span className="text-sm text-muted normal-case">
-                  {displayStage === "writing"
-                    ? t("reflexVideoTask.writingStage.title")
-                    : t("reflexVideoTask.speakingStage.title")}
-                </span>
-              )}
+              {!isReviewing && displayStage === "writing" && <span className="text-sm text-muted normal-case">{t("reflexVideoTask.writingStage.title")}</span>}
             </div>
-            {displayQuestion.prompt && <p className="text-sm sm:text-base lg:text-lg font-bold text-ink">{displayQuestion.prompt}</p>}
+
+            {/*
+             * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-18 — SPIKE lần 4: bản trước chỉ
+             * ghim `absolute` từ `sm:` (640px) trở lên, dưới mốc đó rơi về hàng riêng full-width
+             * (`justify-end`) — vẫn còn đúng lỗi khoảng trống ban đầu ở MỌI màn hẹp hơn 640px (điện thoại
+             * lớn/tablet dọc, xem ảnh người dùng báo lại ở khổ ~495px). Từ khi sticker đã thu nhỏ hẳn cho
+             * mobile (58px/thẻ, xem ScoreSticker), tổng bề ngang 2 sticker đủ nhỏ để KHÔNG cần chờ tới
+             * `sm:` mới ghim được nữa — ghim `absolute` NGAY Ở MỌI KÍCH THƯỚC màn hình, chỉ đổi kích
+             * thước sticker theo breakpoint (không đổi cách định vị nữa).
+             *
+             * SPIKE bổ sung (người dùng báo lại lần 2 — prompt câu hỏi bị đè, khác dòng label vì prompt
+             * chạy FULL-WIDTH nên thực sự chạm tới vùng sticker trên màn hẹp) — `pr-24 sm:pr-40` cũ TÍNH
+             * SAI, nhỏ hơn hẳn bề ngang thật của 2 sticker: mobile 2×58px+gap-2(8px)+lề phải right-3(12px)
+             * = 136px (pr-24 chỉ 96px); desktop 2×114px+gap-5(20px)+lề phải right-4(16px) = 264px (sm:pr-40
+             * chỉ 160px). Tính lại đúng + chừa dư ra 1 chút: `pr-40` (160px) và `sm:pr-72` (288px).
+             */}
+            {displayStage !== "writing" && (
+              <div className="absolute top-3 right-3 sm:top-4 sm:right-4 flex gap-2 sm:gap-5 z-10">
+                <ScoreSticker
+                  icon={<PenLine size={10} />}
+                  label={t("reflexVideoTask.writingStage.tabLabel")}
+                  percent={displayProgress?.writingScorePercent ?? null}
+                  tone="pass"
+                  tiltClass="-rotate-6"
+                />
+                <ScoreSticker
+                  icon={<Mic size={10} />}
+                  label={t("reflexVideoTask.speakingStage.tabLabel")}
+                  percent={displayProgress?.speakingScorePercent ?? null}
+                  tone={displayProgress?.speakingScorePercent == null ? "pending" : displayProgress?.speakingPassed ? "pass" : "fail"}
+                  tiltClass="rotate-6"
+                />
+              </div>
+            )}
+
+            {displayQuestion.prompt && (
+              <p className={`text-sm sm:text-base lg:text-lg font-bold text-ink ${displayStage !== "writing" ? "pr-40 sm:pr-72" : ""}`}>
+                {displayQuestion.prompt}
+              </p>
+            )}
+
+            {/*
+             * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-18 — đã qua bước Viết (đang ở
+             * bước Nói, hoặc đang xem lại câu đã đạt cả 2 bước): thay vì hiện nối tiếp cả bài viết lẫn
+             * phần ghi âm, tách thành 2 tab bấm chuyển qua lại (xem answerViewTab) — tab "Nói" mở mặc
+             * định, không lộ bài viết; học sinh chủ động bấm tab "Viết" mới xem lại được.
+             */}
+            {displayStage !== "writing" && (
+              <div className="flex items-center gap-1.5 border-b border-line">
+                <button
+                  type="button"
+                  onClick={() => setAnswerViewTab("writing")}
+                  className={`px-3 py-2 text-xs sm:text-sm font-extrabold border-b-2 -mb-px transition-colors ${
+                    answerViewTab === "writing" ? "border-teal text-teal-deep" : "border-transparent text-muted hover:text-ink"
+                  }`}
+                >
+                  {t("reflexVideoTask.writingStage.title")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAnswerViewTab("speaking")}
+                  className={`px-3 py-2 text-xs sm:text-sm font-extrabold border-b-2 -mb-px transition-colors ${
+                    answerViewTab === "speaking" ? "border-teal text-teal-deep" : "border-transparent text-muted hover:text-ink"
+                  }`}
+                >
+                  {t("reflexVideoTask.speakingStage.title")}
+                </button>
+              </div>
+            )}
 
             {displayStage === "writing" ? (
               <div className="space-y-2">
@@ -1348,22 +1500,21 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                   </button>
                 </div>
               </div>
-            ) : (
-              // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — đã qua bước viết (đang ở
-              // bước nói, hoặc đang xem lại câu đã đạt): LUÔN hiện lại câu trả lời viết (đọc-only) để học
-              // sinh dựa vào đó khi nói lại, thay vì mất hẳn khỏi màn hình như trước.
+            ) : answerViewTab === "writing" ? (
+              // Tab "Viết" — xem lại đúng bài viết bước 1 (đọc-only) + điểm, chỉ hiện khi học sinh chủ
+              // động bấm qua tab này (xem ghi chú answerViewTab ở trên).
               <div className="rounded-xl border border-line bg-sky-2/40 p-3 space-y-1">
                 <p className="text-[13px] font-extrabold uppercase text-teal-deep tracking-wide">{t("reflexVideoTask.writingStage.yourAnswerLabel")}</p>
-                <p className="text-lg font-medium text-ink whitespace-pre-line">{displayProgress?.answerText}</p>
+                <p className="text-sm font-medium text-ink whitespace-pre-line">{displayProgress?.answerText}</p>
                 {displayProgress?.writingScorePercent != null && (
                   <p className="text-[13px] font-bold text-teal-deep">
                     {t("reflexVideoTask.writingStage.scoreLabel", { score: displayProgress.writingScorePercent })}
                   </p>
                 )}
               </div>
-            )}
+            ) : null}
 
-            {displayStage !== "writing" && (
+            {displayStage !== "writing" && answerViewTab === "speaking" && (
               <div className="space-y-2">
                 {!isReviewing && <p className="text-xs font-bold text-muted">{t("reflexVideoTask.speakingStage.instructions")}</p>}
                 {recorder.recording ? (
@@ -1431,69 +1582,140 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                 ) : null}
                 {recorder.error && <p className="text-xs font-bold text-rose-600">{recorder.error}</p>}
                 {speakingError && <p className="text-xs font-bold text-rose-600">{speakingError}</p>}
+                {/*
+                 * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-18 — thiết kế lại toàn bộ
+                 * khung kết quả chấm nói theo mẫu người dùng chọn: icon + tiêu đề tách riêng, khung
+                 * trắng bo góc cho từng khối con (audio/tiêu chí/transcript) thay vì dồn hết vào 1 khối
+                 * màu phẳng, tiêu chí có thanh tiến trình + phụ đề tiếng Việt, nhận xét AI tách thành ô
+                 * "mẹo" riêng có icon bóng đèn, hàng dưới cùng hiện nút Ghi âm lại + ngưỡng đạt thật của
+                 * hệ thống (70% — xem ReflexSequentialGradingService, KHÔNG phải 75% như 1 vài app luyện
+                 * IELTS khác). CHƯA làm nút "Xem câu trả lời mẫu theo band điểm" có trong ảnh mẫu — tính
+                 * năng này cần BE sinh/lưu câu trả lời mẫu theo thang điểm mới (chưa có sẵn, ngoài phạm
+                 * vi 1 lần chỉnh UI) — xem trao đổi lại với người dùng nếu muốn làm tiếp.
+                 */}
                 {displayProgress?.speakingFeedback && !recorder.recording && !speakingSubmitting && (
                   <div
-                    className={`text-sm font-bold p-3 rounded-xl border ${
-                      displayProgress.speakingPassed ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-amber-50 border-amber-200 text-amber-700"
+                    className={`rounded-2xl border p-4 space-y-3 ${
+                      displayProgress.speakingPassed ? "bg-emerald-50/50 border-emerald-200" : "bg-amber-50/50 border-amber-200"
                     }`}
                   >
-                    <p>
-                      {displayProgress.speakingPassed
-                        ? t("reflexVideoTask.speakingStage.passedFeedbackTitle")
-                        : t("reflexVideoTask.speakingStage.failedFeedbackTitle")}
-                      {displayProgress.speakingScorePercent != null &&
-                        ` — ${t("reflexVideoTask.speakingStage.scoreLabel", { score: displayProgress.speakingScorePercent })}`}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      {displayProgress.speakingPassed ? (
+                        <CheckCircle2 size={20} className="text-emerald-600 shrink-0" />
+                      ) : (
+                        <AlertTriangle size={20} className="text-amber-600 shrink-0" />
+                      )}
+                      <p className={`text-sm font-extrabold normal-case ${displayProgress.speakingPassed ? "text-emerald-700" : "text-amber-700"}`}>
+                        {displayProgress.speakingPassed
+                          ? t("reflexVideoTask.speakingStage.passedFeedbackTitle")
+                          : t("reflexVideoTask.speakingStage.failedFeedbackTitle")}
+                        {displayProgress.speakingScorePercent != null &&
+                          ` — ${t("reflexVideoTask.speakingStage.scoreLabel", { score: displayProgress.speakingScorePercent })}`}
+                      </p>
+                    </div>
+
                     {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-08 — cho nghe lại chính
                         audio đã ghi âm kèm đọc nhận xét AI, dữ liệu audioUrl đã có sẵn từ trước nhưng
                         chưa được hiện ra (mirror pattern TakeExerciseModal.tsx cho câu SPEAKING). */}
                     {displayProgress.audioUrl && (
-                      <div className="mt-1.5 space-y-1">
-                        <p className="text-[11px] font-extrabold uppercase tracking-wide normal-case">
+                      <div className="rounded-xl border border-line bg-white p-3 space-y-2">
+                        <p className="text-[11px] font-extrabold uppercase tracking-wide text-muted normal-case">
                           {t("reflexVideoTask.speakingStage.listenBackLabel")}
                         </p>
                         {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
                         <audio controls src={displayProgress.audioUrl} className="w-full" />
                       </div>
                     )}
-                    {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-16 — % từng tiêu chí
-                        tách riêng khỏi feedback văn xuôi (trước đây nhúng thành dòng text bên trong). */}
+
+                    {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-16, đổi giao diện
+                        2026-09-18 — % từng tiêu chí. SPIKE cùng ngày (phản hồi thật trên điện thoại) —
+                        dạng lưới thẻ (border/subtitle/thanh tiến trình) cho 4 tiêu chí xếp DỌC hết cỡ
+                        trên màn hẹp (grid-cols-1 do không đủ chỗ 2 cột), chiếm quá nhiều chiều cao khi
+                        cuộn — quay lại dạng DANH SÁCH TEXT gọn cho mobile (mặc định, `sm:hidden`), vẫn
+                        giữ dạng lưới thẻ trực quan cho tablet/desktop (`hidden sm:grid`, đủ rộng để chia
+                        2 cột không bị dồn dọc). */}
                     {displayProgress.speakingCriteriaScores && displayProgress.speakingCriteriaScores.length > 0 && (
-                      <div className="mt-1.5 space-y-1">
-                        <p className="text-[11px] font-extrabold uppercase tracking-wide normal-case">
+                      <div className="space-y-2">
+                        <p className="text-[11px] font-extrabold uppercase tracking-wide text-muted normal-case">
                           {t("reflexVideoTask.speakingStage.criteriaScoresLabel")}
                         </p>
-                        <ul className="space-y-0.5">
+                        <ul className="sm:hidden divide-y divide-line rounded-xl border border-line bg-white">
                           {displayProgress.speakingCriteriaScores.map((item, idx) => (
-                            <li key={idx} className="flex items-center justify-between text-[13px] font-medium normal-case">
-                              <span>{item.criterion}</span>
-                              <span className="font-extrabold">{item.percent}%</span>
+                            <li key={idx} className="flex items-center justify-between gap-2 px-3 py-2 text-[13px] font-medium normal-case">
+                              <span className="text-ink">
+                                {item.criterion}
+                                {SPEAKING_CRITERIA_SUBTITLES_VI[item.criterion] && (
+                                  <span className="text-muted"> · {SPEAKING_CRITERIA_SUBTITLES_VI[item.criterion]}</span>
+                                )}
+                              </span>
+                              <span className="font-extrabold text-ink shrink-0">{item.percent}%</span>
                             </li>
                           ))}
                         </ul>
+                        <div className="hidden sm:grid grid-cols-2 gap-2">
+                          {displayProgress.speakingCriteriaScores.map((item, idx) => (
+                            <div key={idx} className="rounded-xl border border-line bg-white p-2.5 space-y-1.5">
+                              <div>
+                                <p className="text-[13px] font-extrabold text-ink normal-case">{item.criterion}</p>
+                                {SPEAKING_CRITERIA_SUBTITLES_VI[item.criterion] && (
+                                  <p className="text-[11px] font-medium text-muted normal-case">{SPEAKING_CRITERIA_SUBTITLES_VI[item.criterion]}</p>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <div className="flex-1 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full ${item.percent >= 70 ? "bg-emerald-500" : "bg-gradient-to-r from-gold to-coral"}`}
+                                    style={{ width: `${Math.min(100, Math.max(0, item.percent))}%` }}
+                                  />
+                                </div>
+                                <span className="text-[12px] font-extrabold text-ink shrink-0">{item.percent}%</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
-                    {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-16 — transcript có
-                        bôi đỏ/gạch chân phần lỗi (xem renderHighlightedErrors). */}
+
+                    {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-16, đổi giao diện
+                        2026-09-18 — transcript bọc trong khung trắng riêng, lỗi hiện dạng chip viền đỏ
+                        (xem renderHighlightedErrors) thay vì chỉ gạch chân. */}
                     {displayProgress.speakingTranscript && (
-                      <div className="mt-1.5 space-y-1">
-                        <p className="text-[11px] font-extrabold uppercase tracking-wide normal-case">
+                      <div className="space-y-1.5">
+                        <p className="text-[11px] font-extrabold uppercase tracking-wide text-muted normal-case">
                           {t("reflexVideoTask.speakingStage.transcriptLabel")}
                         </p>
-                        <p className="normal-case whitespace-pre-line text-[13px] leading-relaxed">
-                          {renderHighlightedErrors(displayProgress.speakingTranscript, t("reflexVideoTask.speakingStage.unclearWordTooltip"))}
-                        </p>
+                        <div className="rounded-xl border border-line bg-white p-3">
+                          <p className="normal-case whitespace-pre-line text-[13px] leading-relaxed text-ink">
+                            {renderHighlightedErrors(displayProgress.speakingTranscript, t("reflexVideoTask.speakingStage.unclearWordTooltip"))}
+                          </p>
+                        </div>
                       </div>
                     )}
-                    <p className="font-medium mt-1.5 normal-case whitespace-pre-line text-base leading-relaxed">{displayProgress.speakingFeedback}</p>
-                    {!displayProgress.speakingPassed && !isReviewing && (
-                      <button
-                        onClick={handleRetrySpeaking}
-                        className="mt-2 flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 border border-line rounded-lg text-[13px] font-extrabold text-ink"
-                      >
-                        <RotateCcw size={12} /> {t("reflexVideoTask.speakingStage.retryButton")}
-                      </button>
-                    )}
+
+                    {/* Nhận xét AI dạng văn xuôi — tách thành ô "mẹo" riêng (icon bóng đèn) thay vì nằm
+                        lẫn trong khối màu phẳng như bản cũ, dễ phân biệt với các khối dữ liệu ở trên. */}
+                    <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-100/60 p-3">
+                      <Lightbulb size={16} className="text-amber-600 shrink-0 mt-0.5" />
+                      <p className="font-medium normal-case whitespace-pre-line text-[13px] leading-relaxed text-amber-800">
+                        {displayProgress.speakingFeedback}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-line/60">
+                      {!displayProgress.speakingPassed && !isReviewing ? (
+                        <button
+                          onClick={handleRetrySpeaking}
+                          className="flex items-center gap-1.5 px-3.5 py-2 bg-coral hover:bg-coral/90 text-white rounded-xl text-xs font-extrabold"
+                        >
+                          <RotateCcw size={13} /> {t("reflexVideoTask.speakingStage.retryButton")}
+                        </button>
+                      ) : (
+                        <span />
+                      )}
+                      <span className="text-[12px] font-bold text-muted normal-case">
+                        {t("reflexVideoTask.speakingStage.passThresholdNote", { threshold: 70 })}
+                      </span>
+                    </div>
                   </div>
                 )}
                 {!isReviewing && (
