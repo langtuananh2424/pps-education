@@ -254,7 +254,11 @@ function QuestionImages({ imageUrl }: { imageUrl: string }) {
     .map((u) => u.trim())
     .filter(Boolean);
   if (urls.length <= 1) {
-    return <img src={urls[0] ?? imageUrl} alt="" className="w-full max-w-sm rounded-xl border border-slate-200" />;
+    // Bổ sung 2026-09-18 — fix bug thật (người dùng báo ảnh "vỡ"/mờ): ảnh câu hỏi thường là icon/clipart
+    // nhỏ (VD ~176x284px), max-w-sm (384px) phóng to quá xa kích thước gốc gây vỡ pixel khi w-full kéo
+    // hết chiều rộng modal. Giảm mốc phóng tối đa xuống gần kích thước gốc hơn (mirror max-w-[240px] đã
+    // dùng ở TakeExerciseModal.tsx app học sinh thật).
+    return <img src={urls[0] ?? imageUrl} alt="" className="w-full max-w-[240px] rounded-xl border border-slate-200" />;
   }
   return (
     <div className="grid grid-cols-5 gap-2">
@@ -469,6 +473,7 @@ function SentenceBuildingPreview({ chunkPool }: { chunkPool: string[] }) {
 
 /** Mirror TakeExerciseModal#GridQuestionGroup — "Đọc hiểu — lưới" / "1 audio nhiều câu". */
 function GridQuestionGroupPreview({ block, startNumber }: { block: Extract<RenderBlock, { type: "grid" }>; startNumber: number }) {
+  const { t } = useTranslation("lms-question-authoring");
   return (
     <div className="border border-slate-200 rounded-[16px] p-4 sm:p-5 space-y-3">
       {/* V3 2026-09-04 — xem Javadoc parsePassageParagraphs: mỗi đoạn hiện tên nhân vật thành dòng tiêu
@@ -509,11 +514,31 @@ function GridQuestionGroupPreview({ block, startNumber }: { block: Extract<Rende
         <audio controls src={block.audioUrl} className="w-full" />
       )}
 
-      <div className="divide-y divide-slate-100">
-        {block.questions.map((q, qIndex) => (
-          <GridQuestionRowPreview key={q.id} question={q} displayNumber={startNumber + qIndex} />
-        ))}
-      </div>
+      {/*
+       * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-18, mirror TakeExerciseModal#GridQuestionGroup
+       * — bài "Match the words with their correct picture" (DIEN_TU_NHOM, mỗi câu 1 ảnh riêng) đúng hình
+       * thức sách in là LƯỚI ảnh nhỏ gọn, ô điền ngay dưới mỗi ảnh — không liệt kê dọc từng câu 1 dòng.
+       */}
+      {block.questions.length >= 2 && block.questions.every((q) => q.imageUrl && q.questionType === "FILL_IN_BLANK") ? (
+        <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+          {block.questions.map((q, qIndex) => (
+            <div key={q.id} className="space-y-1.5">
+              <img src={q.imageUrl ?? undefined} alt="" className="w-full aspect-square object-contain rounded-xl border border-slate-200 bg-white" />
+              <p className="text-center text-[10px] font-bold text-slate-400">{startNumber + qIndex}</p>
+              <input
+                placeholder={t("studentPreviewModal.answerPlaceholder")}
+                className="w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-xl text-center focus:outline-none"
+              />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="divide-y divide-slate-100">
+          {block.questions.map((q, qIndex) => (
+            <GridQuestionRowPreview key={q.id} question={q} displayNumber={startNumber + qIndex} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
