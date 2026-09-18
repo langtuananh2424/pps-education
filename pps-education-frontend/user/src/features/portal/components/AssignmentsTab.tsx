@@ -367,6 +367,23 @@ function isEntryPending(entry: FeedEntry): boolean {
   return isVideoActionablePending(entry.item);
 }
 
+/** Mirror isEntryPending — dùng tính số đếm "Đã nộp & Đã chấm" theo đúng phạm vi breadcrumb (xem
+ * scopeEntries trong AssignmentsTab), khớp đúng logic gradedCount toàn lớp đã có sẵn. */
+function isEntryGraded(entry: FeedEntry): boolean {
+  if (entry.type === "exercise") return !isExercisePending(entry.item);
+  if (entry.type === "exerciseBatch") return !isBatchPending(entry.items);
+  const video = entry.item;
+  if (video.videoType === "CONNECTION") return isConnectionAnswerable(video) && isConnectionCompleted(video);
+  return isReflexAnswerable(video) && isReflexFullyAnswered(video);
+}
+
+/** Mirror isEntryPending — dùng tính số đếm "Bài tập quá hạn" theo đúng phạm vi breadcrumb. */
+function isEntryOverduePending(entry: FeedEntry): boolean {
+  if (entry.type === "exercise") return isExerciseOverduePending(entry.item);
+  if (entry.type === "exerciseBatch") return isBatchOverduePending(entry.items);
+  return isVideoOverduePending(entry.item);
+}
+
 /** So sánh tự nhiên (nhận biết số trong chuỗi, VD "Unit 2" < "Unit 10") — dùng sắp xếp thẻ Unit/Lesson
  * theo đúng thứ tự số bài học thay vì so sánh chuỗi thuần (sẽ ra "Unit 10" trước "Unit 2"). */
 function naturalCompare(a: string, b: string): number {
@@ -587,6 +604,32 @@ export default function AssignmentsTab({
   const currentLesson = navView.level === "assignments" ? currentUnit?.lessons.find((l) => l.lessonKey === navView.lessonKey) : undefined;
   const lessonEntries = currentLesson?.entries ?? [];
   const pageItems = lessonEntries.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-19 (fix bug thật) — số đếm hiển thị TRÊN 4
+  // nút tab trạng thái (Tất cả/Cần hoàn thành/Đã chấm/Quá hạn) phải phản ánh ĐÚNG phạm vi breadcrumb
+  // đang đứng (toàn lớp / 1 Unit / 1 Lesson) — trước đây dùng thẳng exerciseCardCount/pendingCount/
+  // gradedCount/overdueCount ở trên (CHỦ Ý giữ nguyên = toàn lớp, dùng cho banner đầu trang + badge
+  // sidebar), khiến đứng trong 1 Lesson chỉ có vài bài mà tab vẫn hiện số đếm của CẢ LỚP, gây hiểu lầm.
+  // Tính lại từ `typeOnlyEntries` (chỉ lọc theo filterType, KHÔNG lọc theo filterStatus — để biết trước
+  // bấm tab nào cũng ra đúng số) rồi thu hẹp theo scope hiện tại (scopeEntries).
+  const typeOnlySingleExercises = singleExercises.filter((e) => matchesExerciseSkillFilter(e.skillCategory, filterType));
+  const typeOnlyBatchGroups = batchGroups.filter((items) => matchesExerciseSkillFilter(items[0].skillCategory, filterType));
+  const typeOnlyReviewItems = reviewItems.filter((x) => filterType === "ALL" || (VIDEO_TYPE_FILTER_ORDER.includes(filterType) && x.videoType === filterType));
+  const typeOnlyEntries: FeedEntry[] = [
+    ...typeOnlySingleExercises.map((item) => ({ type: "exercise" as const, key: `ex-${item.assignmentId}`, item })),
+    ...typeOnlyBatchGroups.map((items) => ({ type: "exerciseBatch" as const, key: `exb-${items[0].homeworkBatchId}`, items })),
+    ...typeOnlyReviewItems.map((item) => ({ type: "video" as const, key: `rv-${item.assignmentId ?? "lib"}-${item.video.id}`, item }))
+  ];
+  const scopeEntries = typeOnlyEntries.filter((entry) => {
+    if (navView.level === "units") return true;
+    if ((entryUnitTitle(entry)?.trim() || UNASSIGNED_GROUP_KEY) !== navView.unitKey) return false;
+    if (navView.level === "lessons") return true;
+    return (entrySubTopicTitle(entry)?.trim() || UNASSIGNED_GROUP_KEY) === navView.lessonKey;
+  });
+  const tabAllCount = scopeEntries.length;
+  const tabPendingCount = scopeEntries.filter(isEntryPending).length;
+  const tabGradedCount = scopeEntries.filter(isEntryGraded).length;
+  const tabOverdueCount = scopeEntries.filter(isEntryOverduePending).length;
 
   const load = () => {
     setLoading(true);
@@ -941,13 +984,17 @@ export default function AssignmentsTab({
                 : undefined
           };
           if (navView.level === "units") return [root];
-          const unitLabel = currentUnit?.unitLabel ?? t("assignments.nav.uncategorizedUnit");
+          // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-19 (fix bug thật) — trước đây khi
+          // đổi filter khiến Unit/Lesson đang chọn KHÔNG còn bài nào khớp (currentUnit/currentLesson =
+          // undefined), breadcrumb rơi thẳng về nhãn "Chưa phân loại Unit/bài học" dù Unit/Lesson đó có
+          // tên thật (VD "UNIT 1: HOBBIES") — gây hiểu lầm đang đứng nhầm Unit. `navView.unitKey`/
+          // `lessonKey` CHÍNH LÀ tên Unit/Lesson thật (chỉ là "__unassigned__" khi thật sự chưa gắn Unit/
+          // SubTopic, xem buildUnitGroups) nên dùng lại chuỗi đó làm nhãn dự phòng thay vì suy diễn sai.
+          const unitLabel = currentUnit?.unitLabel ?? (navView.unitKey === UNASSIGNED_GROUP_KEY ? t("assignments.nav.uncategorizedUnit") : navView.unitKey);
           if (navView.level === "lessons") return [root, { label: unitLabel }];
-          return [
-            root,
-            { label: unitLabel, onClick: () => setNavView({ level: "lessons", unitKey: navView.unitKey }) },
-            { label: currentLesson?.lessonLabel ?? t("assignments.nav.uncategorizedLesson") }
-          ];
+          const lessonLabel =
+            currentLesson?.lessonLabel ?? (navView.lessonKey === UNASSIGNED_GROUP_KEY ? t("assignments.nav.uncategorizedLesson") : navView.lessonKey);
+          return [root, { label: unitLabel, onClick: () => setNavView({ level: "lessons", unitKey: navView.unitKey }) }, { label: lessonLabel }];
         })()}
       />
 
@@ -963,7 +1010,7 @@ export default function AssignmentsTab({
                 filterStatus === "ALL" ? "bg-teal text-white shadow-sm" : "bg-slate-100 hover:bg-slate-200 text-muted"
               }`}
             >
-              {t("assignments.filters.all", { count: exerciseCardCount + reviewItems.length })}
+              {t("assignments.filters.all", { count: tabAllCount })}
             </button>
             <button
               onClick={() => setFilterStatus("PENDING")}
@@ -971,7 +1018,7 @@ export default function AssignmentsTab({
                 filterStatus === "PENDING" ? "bg-orange-500 text-white shadow-sm" : "bg-slate-100 hover:bg-slate-200 text-muted"
               }`}
             >
-              <Clock size={14} /> {t("assignments.filters.pending", { count: pendingCount })}
+              <Clock size={14} /> {t("assignments.filters.pending", { count: tabPendingCount })}
             </button>
             <button
               onClick={() => setFilterStatus("GRADED")}
@@ -979,7 +1026,7 @@ export default function AssignmentsTab({
                 filterStatus === "GRADED" ? "bg-teal text-white shadow-sm" : "bg-slate-100 hover:bg-slate-200 text-muted"
               }`}
             >
-              <CheckCircle2 size={14} /> {t("assignments.filters.graded", { count: gradedCount })}
+              <CheckCircle2 size={14} /> {t("assignments.filters.graded", { count: tabGradedCount })}
             </button>
             {/* V152 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — tab lọc riêng cho
                 BTVN đã quá hạn nộp (chưa hoàn thành xong), giúp học sinh/phụ huynh tìm nhanh thay vì
@@ -990,7 +1037,7 @@ export default function AssignmentsTab({
                 filterStatus === "OVERDUE" ? "bg-coral text-white shadow-sm" : "bg-slate-100 hover:bg-slate-200 text-muted"
               }`}
             >
-              <AlertCircle size={14} /> {t("assignments.filters.overdue", { count: overdueCount })}
+              <AlertCircle size={14} /> {t("assignments.filters.overdue", { count: tabOverdueCount })}
             </button>
           </div>
 
@@ -1253,8 +1300,8 @@ function UnitCard({ unit, index, onOpen }: { unit: UnitGroup; index: number; onO
         <AccentIcon size={26} />
       </div>
       <div className="space-y-1 min-w-0">
-        <h3 className="text-base font-black text-ink font-display truncate">{unit.unitLabel}</h3>
-        <p className="text-[13px] font-bold text-muted">{t("assignments.nav.unitLessonCount", { count: unit.lessons.length })}</p>
+        <h3 className="text-xl font-black text-ink font-display truncate">{unit.unitLabel}</h3>
+        <p className="text-sm font-bold text-muted">{t("assignments.nav.unitLessonCount", { count: unit.lessons.length })}</p>
       </div>
       <div className="flex items-center justify-between gap-2 mt-auto pt-2 border-t border-line/60">
         <span className="text-[13px] font-bold text-muted">{t("assignments.nav.itemCount", { count: unit.entries.length })}</span>
@@ -1286,8 +1333,8 @@ function LessonCard({ lesson, onOpen }: { lesson: LessonGroup; onOpen: () => voi
         <Layers size={26} />
       </div>
       <div className="space-y-1 min-w-0">
-        <h3 className="text-base font-black text-ink font-display truncate">{lesson.lessonLabel}</h3>
-        <p className="text-[13px] font-bold text-muted">{t("assignments.nav.itemCount", { count: lesson.entries.length })}</p>
+        <h3 className="text-xl font-black text-ink font-display truncate">{lesson.lessonLabel}</h3>
+        <p className="text-sm font-bold text-muted">{t("assignments.nav.itemCount", { count: lesson.entries.length })}</p>
       </div>
       <div className="flex items-center justify-end gap-2 mt-auto pt-2 border-t border-line/60">
         {pendingCount > 0 ? (
