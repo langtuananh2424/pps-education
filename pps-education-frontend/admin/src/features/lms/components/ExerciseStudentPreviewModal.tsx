@@ -276,11 +276,17 @@ function QuestionPreview({ question, displayNumber }: { question: ExerciseQuesti
   return (
     <div className="border border-slate-200 rounded-[16px] p-4 sm:p-5 space-y-3">
       <div className="flex items-start justify-between gap-3">
+        {/*
+         * Fix bug thật 2026-09-17 (đã xác nhận với người dùng qua ảnh chụp, mirror TakeExerciseModal.tsx
+         * bên app user) — WORD_BANK dùng questionContent làm CHÍNH VĂN BẢN TƯƠNG TÁC (WordBankPreview
+         * render ngay bên dưới với <select>/<input> thật), hiện lại nguyên văn ở đây gây lặp cả đoạn 2
+         * lần. Ẩn span nội dung cho riêng WORD_BANK, chỉ giữ số thứ tự.
+         */}
         <p className="text-sm font-bold text-slate-800">
           <span className="block text-slate-400 text-xs uppercase tracking-wider mb-1">
             {t("studentPreviewModal.questionNumberPrefix", { number: displayNumber })}
           </span>
-          <span className="whitespace-pre-line">{question.questionContent}</span>
+          {question.questionType !== "WORD_BANK" && <span className="whitespace-pre-line">{question.questionContent}</span>}
         </p>
         <span className="text-[10px] text-slate-400 font-bold shrink-0">{t("studentPreviewModal.pointsSuffix", { points: question.points })}</span>
       </div>
@@ -297,7 +303,15 @@ function QuestionPreview({ question, displayNumber }: { question: ExerciseQuesti
       ) : question.questionType === "SPEAKING" ? (
         <SpeakingInputPreview />
       ) : question.questionType === "WORD_BANK" && question.structuredContent?.blanks ? (
-        <WordBankPreview content={question.questionContent} wordPool={question.structuredContent.wordBankOptions ?? question.structuredContent.blanks} />
+        <WordBankPreview
+          content={question.questionContent}
+          wordPool={
+            question.structuredContent.inputMode === "text"
+              ? (question.structuredContent.wordBankOptions ?? [])
+              : (question.structuredContent.wordBankOptions ?? question.structuredContent.blanks)
+          }
+          inputMode={question.structuredContent.inputMode}
+        />
       ) : question.questionType === "SENTENCE_BUILDING" && question.structuredContent?.chunks ? (
         <SentenceBuildingPreview chunkPool={question.structuredContent.chunks} />
       ) : (
@@ -327,10 +341,24 @@ function SpeakingInputPreview() {
   );
 }
 
-/** Mirror TakeExerciseModal#WordBankBlock (không lưu lại lựa chọn, chỉ để GV thử thao tác chọn). */
-function WordBankPreview({ content, wordPool }: { content: string; wordPool: string[] }) {
+/**
+ * Mirror TakeExerciseModal#WordBankBlock (không lưu lại lựa chọn, chỉ để GV thử thao tác chọn).
+ * inputMode="text" (bổ sung 2026-09-17, đã xác nhận với người dùng — DIEN_TU_DOAN_VAN ở BE): mỗi chỗ
+ * trống đổi thành <input> gõ tay thay vì <select> — xem đúng lý do KHÔNG fallback wordPool=blanks
+ * cho chế độ gõ tay ở TakeExerciseModal#WordBankBlock (tránh lộ sẵn đáp án trong hộp tham khảo).
+ */
+function WordBankPreview({ content, wordPool, inputMode = "select" }: { content: string; wordPool: string[]; inputMode?: "select" | "text" }) {
   const { t } = useTranslation("lms-question-authoring");
-  const parts = content.split("___");
+  // Bổ sung 2026-09-17, đã xác nhận với người dùng — content của bài đọc dạng "đoạn văn" (VD
+  // DIEN_TU_DOAN_VAN) thường có dòng TIÊU ĐỀ đứng riêng (tách bởi \n\n) trước phần thân có "___", mirror
+  // ĐÚNG cách nhận diện tiêu đề đã dùng cho referencePassage (xem parsePassageParagraphs) — tách tiêu đề
+  // ra hiện in đậm+căn giữa riêng, phần thân còn lại mới đem tách theo "___" như cũ.
+  const firstBreak = content.indexOf("\n\n");
+  const titleCandidate = firstBreak === -1 ? "" : content.slice(0, firstBreak).trim();
+  const isTitle = titleCandidate.length > 0 && titleCandidate.length <= 100 && !titleCandidate.includes("___") && !/[.!?]\s+[A-Z]/.test(titleCandidate);
+  const title = isTitle ? titleCandidate : null;
+  const body = isTitle ? content.slice(firstBreak + 2).trimStart() : content;
+  const parts = body.split("___");
   const blankCount = parts.length - 1;
   const [selections, setSelections] = useState<string[]>(new Array(blankCount).fill(""));
 
@@ -342,32 +370,52 @@ function WordBankPreview({ content, wordPool }: { content: string; wordPool: str
   // "flex flex-wrap" trước đây coi mỗi đoạn văn bản (<span>) là 1 flex item RIÊNG, khiến trình duyệt
   // xuống dòng theo TỪNG item thay vì cho chữ chảy liên tục như 1 đoạn văn bình thường (đoạn dài bị đẩy
   // xuống dòng riêng, dropdown lại đứng tách biệt dòng kế tiếp — không giống đề gốc). Đổi sang flow chữ
-  // tự nhiên: <p> khối văn bản bình thường, <select> là inline-block xen giữa chữ, để trình duyệt tự
-  // ngắt dòng theo TỪNG TỪ như văn bản thật.
+  // tự nhiên: <p> khối văn bản bình thường, <select>/<input> là inline-block xen giữa chữ, để trình
+  // duyệt tự ngắt dòng theo TỪNG TỪ như văn bản thật.
   return (
-    <p className="text-sm font-bold text-slate-800 leading-8">
-      {parts.map((part, idx) => (
-        <React.Fragment key={idx}>
-          {part}
-          {idx < blankCount && (
-            <select
-              value={selections[idx]}
-              onChange={(e) => handleSelect(idx, e.target.value)}
-              className="bg-slate-50 border border-slate-200 text-xs font-bold px-2 py-1 mx-1 rounded-lg align-middle focus:outline-none"
-            >
-              <option value="">{t("studentPreviewModal.wordBankChoosePlaceholder")}</option>
-              {wordPool
-                .filter((w) => w === selections[idx] || !selections.includes(w))
-                .map((w, wIdx) => (
-                  <option key={`${w}-${wIdx}`} value={w}>
-                    {w}
-                  </option>
-                ))}
-            </select>
-          )}
-        </React.Fragment>
-      ))}
-    </p>
+    <div className="space-y-2">
+      {title && <p className="text-sm font-black text-slate-800 text-center">{title}</p>}
+      <p className="text-sm font-bold text-slate-800 leading-8">
+        {parts.map((part, idx) => (
+          <React.Fragment key={idx}>
+            {part}
+            {idx < blankCount &&
+              (inputMode === "text" ? (
+                <input
+                  type="text"
+                  value={selections[idx]}
+                  onChange={(e) => handleSelect(idx, e.target.value)}
+                  className="bg-slate-50 border border-slate-200 text-xs font-bold px-2 py-1 mx-1 rounded-lg align-middle focus:outline-none w-24"
+                />
+              ) : (
+                <select
+                  value={selections[idx]}
+                  onChange={(e) => handleSelect(idx, e.target.value)}
+                  className="bg-slate-50 border border-slate-200 text-xs font-bold px-2 py-1 mx-1 rounded-lg align-middle focus:outline-none"
+                >
+                  <option value="">{t("studentPreviewModal.wordBankChoosePlaceholder")}</option>
+                  {wordPool
+                    .filter((w) => w === selections[idx] || !selections.includes(w))
+                    .map((w, wIdx) => (
+                      <option key={`${w}-${wIdx}`} value={w}>
+                        {w}
+                      </option>
+                    ))}
+                </select>
+              ))}
+          </React.Fragment>
+        ))}
+      </p>
+      {inputMode === "text" && wordPool.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 bg-slate-50 border border-slate-200 rounded-lg p-2">
+          {wordPool.map((w, wIdx) => (
+            <span key={`${w}-${wIdx}`} className="text-xs font-bold text-slate-800 bg-white border border-slate-200 rounded-md px-2 py-1">
+              {w}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 

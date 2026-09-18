@@ -50,6 +50,16 @@ import java.util.Set;
  * QuestionEditorForm.tsx đã có từ V78): 9 loại UI —
  * TRAC_NGHIEM/TRAC_NGHIEM_VOICE/DIEN_TU/TU_LUAN/SPEAKING/DIEN_TU_HOP_TU_VUNG/
  * DIEN_TU_HOP_TU_VUNG_ANH/SAP_XEP_CAU/SAP_XEP_CHU_CAI — không mở rộng sang
+ *
+ * DIEN_TU_DOAN_VAN (bổ sung 2026-09-17, đã xác nhận với người dùng — biến thể Ô NHẬP CHỮ TỰ DO của
+ * DIEN_TU_HOP_TU_VUNG_ANH, cho bài "đoạn văn liền mạch, mỗi chỗ trống là 1 ô input gõ tay" thay vì
+ * dropdown chọn sẵn — VD sách in kèm 1 "Word Bank" chỉ để THAM KHẢO, không bắt buộc chọn đúng từ
+ * trong đó): dùng LẠI NGUYÊN questionType WORD_BANK (không thêm Question.QuestionType mới, không cần
+ * migration DB vì question_type chỉ là VARCHAR(30) không có CHECK constraint — xem
+ * V17__lms_question_bank_core.sql) và chấm điểm y hệt DIEN_TU_HOP_TU_VUNG_ANH (case-insensitive+trim
+ * theo đúng thứ tự "blanks", xem ExerciseAttemptService#structuredAnswerMatches — không sửa gì ở đó).
+ * Chỉ khác 1 field structuredContent.inputMode="text" để FE rẽ nhánh hiển thị <input> thay vì
+ * <select> (xem WordBankBlock/WordBankPreview ở TakeExerciseModal.tsx/ExerciseStudentPreviewModal.tsx).
  * TRUE_FALSE/MULTIPLE_ANSWER (dù Question.QuestionType có 6 giá trị) để câu
  * hỏi tạo qua import luôn sửa lại được bằng form tay sẵn có. CỐ Ý vẫn không
  * hỗ trợ INLINE_CHOICE/VOICE_PICTURE_CHOICE (kind ảo phụ thuộc số lượng/ảnh
@@ -105,7 +115,7 @@ public class QuestionImportService {
 
     private static final Set<String> VALID_KINDS = Set.of(
             "TRAC_NGHIEM", "TRAC_NGHIEM_VOICE", "DIEN_TU", "TU_LUAN", "SPEAKING",
-            "DIEN_TU_HOP_TU_VUNG", "DIEN_TU_HOP_TU_VUNG_ANH", "SAP_XEP_CAU", "SAP_XEP_CHU_CAI",
+            "DIEN_TU_HOP_TU_VUNG", "DIEN_TU_HOP_TU_VUNG_ANH", "DIEN_TU_DOAN_VAN", "SAP_XEP_CAU", "SAP_XEP_CHU_CAI",
             "NGHE_NOP_AUDIO", "NGHE_DIEN_TU", "NGHE_CHON_HINH", KIND_FILL_IN_BLANK_GROUP, KIND_GRID_GROUP, KIND_CLOZE_GROUP);
     private static final Set<String> VALID_DIFFICULTIES = Set.of("EASY", "MEDIUM", "HARD");
 
@@ -260,7 +270,7 @@ public class QuestionImportService {
      */
     private static final Map<String, Set<String>> SKILL_CATEGORY_KIND_TOKENS = Map.of(
             "VOCAB_GRAMMAR", Set.of("TRAC_NGHIEM", "TRAC_NGHIEM_VOICE", "DIEN_TU", KIND_FILL_IN_BLANK_GROUP,
-                    "DIEN_TU_HOP_TU_VUNG", "DIEN_TU_HOP_TU_VUNG_ANH", "SAP_XEP_CAU", "SAP_XEP_CHU_CAI"),
+                    "DIEN_TU_HOP_TU_VUNG", "DIEN_TU_HOP_TU_VUNG_ANH", "DIEN_TU_DOAN_VAN", "SAP_XEP_CAU", "SAP_XEP_CHU_CAI"),
             "WRITING", Set.of("TU_LUAN"),
             "LISTENING", Set.of("TRAC_NGHIEM_VOICE", "NGHE_NOP_AUDIO", "NGHE_DIEN_TU", "NGHE_CHON_HINH"),
             // Bổ sung 2026-09-08 — trước đây READING không có entry (Cloze/Grid chưa import được), giờ
@@ -375,6 +385,13 @@ public class QuestionImportService {
                 "Transcript: under, next to, behind, in front of, on",
                 "Giải thích: Cột Transcript dùng làm hộp từ vựng hiển thị cho học sinh (có thể thêm từ nhiễu), để trống thì hộp từ = chính đáp án đúng.",
                 "---"));
+        blocks.put("DIEN_TU_DOAN_VAN", List.of(
+                "[DIEN_TU_DOAN_VAN]",
+                "Nội dung: In recent years, tourism has become a (1) ___ industry. Many travellers now book a (2) ___ that includes both transport and accommodation.",
+                "Đáp án đúng: growing|package deal",
+                "Transcript: growing, package deal, accommodation, destination, resort",
+                "Giải thích: Giống hệt Điền từ - Hộp từ vựng (Ảnh) về cách chấm (mỗi chỗ trống 1 đáp án, phân tách |, đúng thứ tự) nhưng học sinh GÕ TAY vào ô nhập chữ thay vì chọn từ danh sách sổ xuống — phù hợp khi muốn hiện đoạn văn liền mạch kèm hộp từ vựng CHỈ ĐỂ THAM KHẢO (không bắt buộc chọn đúng từ trong hộp). Cột Transcript (tùy chọn) = hộp từ vựng tham khảo, để trống thì không hiện hộp từ.",
+                "---"));
         blocks.put(KIND_FILL_IN_BLANK_GROUP, List.of(
                 "[DIEN_TU_NHOM]",
                 "Nội dung: Tom is very ___.|English is my ___ subject.|Our football ___ helps us win the game.",
@@ -473,7 +490,7 @@ public class QuestionImportService {
         if (!VALID_KINDS.contains(kind)) {
             throw new IllegalArgumentException("Loại câu hỏi không hợp lệ: '" + raw
                     + "' — chỉ chấp nhận TRAC_NGHIEM/TRAC_NGHIEM_VOICE/DIEN_TU/DIEN_TU_NHOM/TU_LUAN/SPEAKING/"
-                    + "DIEN_TU_HOP_TU_VUNG/DIEN_TU_HOP_TU_VUNG_ANH/SAP_XEP_CAU/SAP_XEP_CHU_CAI/"
+                    + "DIEN_TU_HOP_TU_VUNG/DIEN_TU_HOP_TU_VUNG_ANH/DIEN_TU_DOAN_VAN/SAP_XEP_CAU/SAP_XEP_CHU_CAI/"
                     + "NGHE_NOP_AUDIO/NGHE_DIEN_TU/NGHE_CHON_HINH/DOC_HIEU_LUOI/DOC_DIEN_TU.");
         }
         return kind;
@@ -613,16 +630,24 @@ public class QuestionImportService {
             correctAnswerText = row.correctAnswer().trim();
         } else if (kind.equals("TU_LUAN")) {
             imageUrl = blankToNull(row.imageUrl());
-        } else if (kind.equals("DIEN_TU_HOP_TU_VUNG") || kind.equals("DIEN_TU_HOP_TU_VUNG_ANH")) {
+        } else if (kind.equals("DIEN_TU_HOP_TU_VUNG") || kind.equals("DIEN_TU_HOP_TU_VUNG_ANH") || kind.equals("DIEN_TU_DOAN_VAN")) {
             // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — tái dùng cột "Đáp án đúng"
             // làm danh sách blanks CÓ THỨ TỰ, phân tách bằng dấu | (không thêm cột mới, mirror cách
             // "Transcript/Từ khóa phát âm" đã mang nhiều nghĩa tùy loại từ trước).
+            //
+            // DIEN_TU_DOAN_VAN (bổ sung 2026-09-17, đã xác nhận với người dùng — cùng bản chất WORD_BANK
+            // ở BE/chấm điểm giống hệt DIEN_TU_HOP_TU_VUNG_ANH, chỉ khác Ở FE: mỗi chỗ trống hiện Ô
+            // NHẬP CHỮ TỰ DO thay vì <select> chọn sẵn — học sinh gõ tay, không chọn từ danh sách. Đánh
+            // dấu bằng structuredContent.inputMode="text" để FE biết rẽ nhánh hiển thị đúng widget (xem
+            // WordBankBlock/WordBankPreview ở TakeExerciseModal.tsx/ExerciseStudentPreviewModal.tsx) —
+            // KHÔNG cần sửa gì ở ExerciseAttemptService#structuredAnswerMatches vì đã chấm case-insensitive
+            // + trim theo đúng thứ tự "blanks" sẵn có, phù hợp luôn với văn bản tự gõ.
             if (isBlank(row.correctAnswer())) {
-                throw new IllegalArgumentException("Điền từ - Hộp từ vựng cần danh sách đáp án đúng theo thứ tự chỗ trống, phân tách bằng dấu | (VD: went|to|school).");
+                throw new IllegalArgumentException("Điền từ - Hộp từ vựng/Đoạn văn cần danh sách đáp án đúng theo thứ tự chỗ trống, phân tách bằng dấu | (VD: went|to|school).");
             }
             Map<String, Object> sc = new LinkedHashMap<>();
             sc.put("blanks", splitOrdered(row.correctAnswer()));
-            if (kind.equals("DIEN_TU_HOP_TU_VUNG_ANH")) {
+            if (kind.equals("DIEN_TU_HOP_TU_VUNG_ANH") || kind.equals("DIEN_TU_DOAN_VAN")) {
                 imageUrl = blankToNull(row.imageUrl());
                 // Tái dùng cột "Transcript/Từ khóa phát âm" (referencePassage) làm hộp từ vựng — tùy
                 // chọn, để trống thì hộp từ = chính blanks (mirror hành vi mặc định của form tay).
@@ -630,6 +655,9 @@ public class QuestionImportService {
                 if (wordBankOptions != null) {
                     sc.put("wordBankOptions", wordBankOptions);
                 }
+            }
+            if (kind.equals("DIEN_TU_DOAN_VAN")) {
+                sc.put("inputMode", "text");
             }
             structuredContent = sc;
         } else if (kind.equals("SAP_XEP_CAU") || kind.equals("SAP_XEP_CHU_CAI")) {
@@ -688,7 +716,7 @@ public class QuestionImportService {
         String questionType = kind.startsWith("TRAC_NGHIEM") || kind.equals("NGHE_CHON_HINH") ? "MULTIPLE_CHOICE"
                 : kind.equals("DIEN_TU") || kind.equals("NGHE_DIEN_TU") ? "FILL_IN_BLANK"
                 : kind.equals("TU_LUAN") ? "ESSAY"
-                : kind.startsWith("DIEN_TU_HOP_TU_VUNG") ? "WORD_BANK"
+                : kind.startsWith("DIEN_TU_HOP_TU_VUNG") || kind.equals("DIEN_TU_DOAN_VAN") ? "WORD_BANK"
                 : kind.startsWith("SAP_XEP") ? "SENTENCE_BUILDING"
                 : "SPEAKING";
 
