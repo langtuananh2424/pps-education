@@ -1897,6 +1897,13 @@ export function GridQuestionGroup({
     const a = answersByQuestion.get(q.questionId);
     return a != null && a.isAutoGradable && a.isCorrect != null && !isAnswerRevealed(a);
   });
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-18 — bài "Match the words with their
+  // correct picture" (DIEN_TU_NHOM, mỗi câu 1 ảnh riêng + điền từ tự do) đúng hình thức sách in là
+  // LƯỚI ảnh nhỏ gọn nhiều cột, ô điền ngay dưới mỗi ảnh — không phải liệt kê dọc từng câu 1 dòng như
+  // layout mặc định bên dưới (ảnh bị phóng to 240px/dòng gây vỡ pixel với ảnh gốc nhỏ, lại dài lê thê
+  // 10 dòng thay vì 1 khối gọn). Chỉ áp dụng khi CẢ NHÓM đều là FILL_IN_BLANK có ảnh (không đụng các
+  // nhóm khác — nghe điền từ, đọc hiểu lưới trắc nghiệm... vẫn giữ nguyên layout liệt kê dọc cũ).
+  const isPictureMatchGrid = block.questions.length >= 2 && block.questions.every((q) => q.imageUrl && q.questionType === "FILL_IN_BLANK");
   return (
     <div className="border border-line/60 rounded-[16px] p-4 sm:p-5 lg:p-6 space-y-3 lg:space-y-4">
       {/* V3 2026-09-04 — xem Javadoc parsePassageParagraphs: mỗi đoạn hiện tên nhân vật thành dòng tiêu
@@ -1957,6 +1964,49 @@ export function GridQuestionGroup({
           )}
         </div>
       )}
+      {isPictureMatchGrid ? (
+        <div className="grid grid-cols-3 sm:grid-cols-5 gap-3 sm:gap-4">
+          {block.questions.map((q, qIndex) => {
+            const answer = answersByQuestion.get(q.questionId);
+            const showFeedback = answer != null && isAnswerRevealed(answer);
+            const notAnswered = showFeedback && answer!.isAutoGradable && answer!.isCorrect == null;
+            const saving = savingQuestionId === q.questionId;
+            const rowReadOnly = readOnly || isLockedCarriedOver(answer);
+            const displayNum = startNumber != null ? startNumber + qIndex : q.displayOrder;
+            return (
+              <div key={q.id} className="space-y-1.5">
+                <img
+                  src={q.imageUrl ?? undefined}
+                  alt=""
+                  className="w-full aspect-square object-contain rounded-xl border border-line/60 bg-white"
+                />
+                <p className="text-center text-[10px] sm:text-xs font-bold text-muted">{displayNum}</p>
+                <input
+                  value={textDraft[q.questionId] ?? answer?.answerText ?? ""}
+                  onChange={(e) => onTextChange(q.questionId, e.target.value)}
+                  onBlur={() => onTextBlur(q.questionId)}
+                  disabled={rowReadOnly || saving}
+                  placeholder={t("takeExercise.question.answerPlaceholder")}
+                  className="w-full bg-sky-2 border border-line/70 text-xs sm:text-sm p-2 rounded-xl text-center focus:outline-none disabled:opacity-70"
+                />
+                {isLockedCarriedOver(answer) && <CarriedOverBadge />}
+                {showFeedback && (
+                  <div
+                    className={`flex items-center justify-center gap-1 text-[10px] sm:text-xs font-bold text-center ${
+                      notAnswered ? "text-coral" : answer?.isCorrect ? "text-teal-deep" : "text-coral"
+                    }`}
+                  >
+                    {notAnswered ? <HelpCircle size={12} /> : answer?.isCorrect ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
+                    <span className="truncate">
+                      {notAnswered || !answer?.isCorrect ? formatCorrectAnswerText(answer?.correctAnswerText) : t("takeExercise.question.correct")}
+                    </span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
       <div className="divide-y divide-line/50">
         {block.questions.map((q, qIndex) => {
           const answer = answersByQuestion.get(q.questionId);
@@ -2129,6 +2179,7 @@ export function GridQuestionGroup({
           );
         })}
       </div>
+      )}
 
       {anyLockedByRetake && <LockedAnswerBanner attemptsRemainingBeforeAnswer={attemptsRemainingBeforeAnswer} />}
     </div>
