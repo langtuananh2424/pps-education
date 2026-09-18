@@ -307,15 +307,11 @@
     "nav": {
       "breadcrumbRoot": "Homework",
       "uncategorizedUnit": "Uncategorized unit",
-      "uncategorizedLesson": "Uncategorized lesson",
-      "unitLessonCount": "{{count}} lessons",
       "itemCount": "{{count}} items",
       "pendingBadge": "{{count}} to do",
       "emptyUnitGroup": "No unit matches the current filter.",
-      "emptyLessonGroup": "This unit has no items matching the current filter — the filter may have changed.",
-      "emptyAssignmentGroup": "This lesson has no items matching the current filter.",
-      "backToUnits": "Back to units",
-      "backToLessons": "Back to lessons"
+      "emptyAssignmentGroup": "This unit has no items matching the current filter — the filter may have changed.",
+      "backToUnits": "Back to units"
     },
     "empty": "No homework in this category.",
     "lockedAction": "Locked",
