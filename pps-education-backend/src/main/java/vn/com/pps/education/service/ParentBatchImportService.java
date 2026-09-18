@@ -51,7 +51,11 @@ import java.util.Map;
  * dòng tạo mới), C=Số điện thoại, D=Quan hệ (Cha/Mẹ/Người giám hộ/Khác),
  * E=Mã học sinh (student_code, bắt buộc tồn tại sẵn), F=Là người liên hệ
  * chính (Có/Không, tùy chọn), G=Chịu trách nhiệm tài chính (Có/Không, tùy
- * chọn). Dòng 1 = header, dữ liệu từ dòng 2.
+ * chọn), H=Email (tùy chọn — bổ sung ngoài SDD gốc, đã xác nhận với người
+ * dùng 2026-09-18, giống pattern cột Email của EmployeeBatchImportService:
+ * CHỈ áp dụng ở dòng thực sự tạo User mới, để trống thì dùng lại email
+ * placeholder theo số điện thoại như trước). Dòng 1 = header, dữ liệu từ
+ * dòng 2.
  *
  * Tạo tài khoản/hồ sơ phụ huynh: tái dùng NGUYÊN XI cơ chế đã có ở
  * LeadService.findOrCreateParent (UC-34) — không phát minh quy tắc mới:
@@ -120,7 +124,7 @@ public class ParentBatchImportService {
 
     private static final int HEADER_ROW_INDEX = 0;
     private static final int FIRST_DATA_ROW_INDEX = 1;
-    private static final int COLUMN_COUNT = 7;
+    private static final int COLUMN_COUNT = 8;
     private static final String TEMP_PASSWORD_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
     private static final SecureRandom RANDOM = new SecureRandom();
 
@@ -223,20 +227,23 @@ public class ParentBatchImportService {
 
     /**
      * File mẫu để nhập phụ huynh theo lô (bổ sung ngoài SDD gốc, đã xác
-     * nhận với người dùng 2026-07-24) — đúng 7 cột theo thứ tự importRow()
-     * đọc phía trên. Sheet "Hướng dẫn" giải thích thêm trường hợp cột A/B
-     * không bắt buộc (dùng lại phụ huynh có sẵn theo SĐT).
+     * nhận với người dùng 2026-07-24) — đúng 8 cột theo thứ tự importRow()
+     * đọc phía trên (cột H=Email bổ sung 2026-09-18). Sheet "Hướng dẫn"
+     * giải thích thêm trường hợp cột A/B/H không bắt buộc (dùng lại phụ
+     * huynh có sẵn theo SĐT).
      */
     public byte[] buildTemplate() {
         List<String> headers = List.of(
                 "Họ và tên phụ huynh*", "Username*", "Số điện thoại*",
                 "Quan hệ (Cha/Mẹ/Người giám hộ/Khác)*", "Mã học sinh*",
-                "Là người liên hệ chính (Có/Không)", "Chịu trách nhiệm tài chính (Có/Không)");
+                "Là người liên hệ chính (Có/Không)", "Chịu trách nhiệm tài chính (Có/Không)", "Email");
         List<String> notes = List.of(
                 "Cột A (Họ và tên phụ huynh) và cột B (Username) chỉ THỰC SỰ bắt buộc khi",
                 "số điện thoại (cột C) CHƯA từng nhập cho phụ huynh nào trước đó.",
                 "Nếu số điện thoại đã tồn tại, hệ thống dùng lại đúng tài khoản phụ huynh đó",
-                "(liên kết thêm 1 học sinh nữa) và bỏ qua giá trị ở cột A/B của dòng này.");
+                "(liên kết thêm 1 học sinh nữa) và bỏ qua giá trị ở cột A/B/H của dòng này.",
+                "Cột H (Email) không bắt buộc — để trống thì hệ thống tự sinh email placeholder",
+                "theo số điện thoại (không đăng nhập Google được cho tới khi cập nhật lại qua UC-55).");
         return ExcelExportHelper.buildWorkbook("Nhập phụ huynh", headers, List.of(), notes);
     }
 
@@ -268,6 +275,7 @@ public class ParentBatchImportService {
         String studentCode = cell(row, formatter, 4);
         String primaryContactText = cell(row, formatter, 5);
         String financialResponsibleText = cell(row, formatter, 6);
+        String email = cell(row, formatter, 7);
 
         if (fullName == null || fullName.isBlank()) {
             throw new IllegalArgumentException("Thiếu họ và tên phụ huynh (cột A).");
@@ -294,7 +302,8 @@ public class ParentBatchImportService {
         // linkParent() phát hiện xung đột role sau khi đã tạo User+Parent (xem Javadoc đầu file).
         studentService.assertContactRoleAvailable(student.getId(), primaryContact, financialResponsible);
 
-        ParentAndCredential result = findOrCreateParent(fullName.trim(), phone.trim(), username.trim(), actor, actorUserId);
+        ParentAndCredential result = findOrCreateParent(fullName.trim(), phone.trim(), username.trim(),
+                email == null || email.isBlank() ? null : email.trim(), actor, actorUserId);
 
         studentService.linkParent(student.getId(), new LinkParentRequest(
                 result.parent().getId(), relationship.name(), primaryContact, financialResponsible, null));
@@ -315,18 +324,30 @@ public class ParentBatchImportService {
      *
      * username (cột B) chỉ được đọc/kiểm tra trùng trong nhánh orElseGet
      * (tạo User MỚI) — dòng dùng lại Parent có sẵn theo SĐT thì bỏ qua,
-     * giống cách fullName cũng chỉ áp dụng ở dòng tạo mới.
+     * giống cách fullName cũng chỉ áp dụng ở dòng tạo mới. email (cột H,
+     * bổ sung 2026-09-18) tương tự — chỉ đọc/kiểm tra trùng ở nhánh này,
+     * để trống thì dùng lại email placeholder theo phone như trước, giống
+     * hệt pattern cột Email của EmployeeBatchImportService.
      */
-    private ParentAndCredential findOrCreateParent(String fullName, String phone, String username, User actor, Long actorUserId) {
+    private ParentAndCredential findOrCreateParent(String fullName, String phone, String username, String email, User actor, Long actorUserId) {
         String[] tempPasswordHolder = new String[1];
         User parentUser = userRepository.findByPhone(phone).orElseGet(() -> {
             if (userRepository.findByUsername(username).isPresent()) {
                 throw new IllegalArgumentException("Username đã tồn tại: " + username);
             }
+            String resolvedEmail;
+            if (email == null) {
+                resolvedEmail = generatePlaceholderEmail(phone);
+            } else {
+                resolvedEmail = email;
+                if (userRepository.findByEmail(resolvedEmail).isPresent()) {
+                    throw new IllegalArgumentException("Email đã tồn tại: " + resolvedEmail);
+                }
+            }
             String tempPassword = generateTempPassword();
             User newUser = new User();
             newUser.setUsername(username);
-            newUser.setEmail(generatePlaceholderEmail(phone));
+            newUser.setEmail(resolvedEmail);
             newUser.setFullName(fullName);
             newUser.setPhone(phone);
             newUser.setPasswordHash(passwordEncoder.encode(tempPassword));
