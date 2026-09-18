@@ -108,7 +108,11 @@ export default function ExerciseAssignPage() {
   const [bookFilter, setBookFilter] = useState<number | null>(null);
   const [unitFilterOptions, setUnitFilterOptions] = useState<UnitResponse[]>([]);
   const [unitFilter, setUnitFilter] = useState<number | null>(null);
-  const [unitFilterSubTopicIds, setUnitFilterSubTopicIds] = useState<Set<number> | null>(null);
+  // Tập subTopicId dùng để lọc — khi đã chọn Unit cụ thể thì chỉ lấy subTopic của Unit đó; khi mới chọn
+  // Sách (chưa chọn Unit) thì phải gộp subTopicId của TẤT CẢ Unit thuộc Sách đó, nếu không chọn Sách sẽ
+  // không có tác dụng lọc gì cả (bug đã xác nhận với người dùng 2026-09-17 — trước đây chỉ tính set này
+  // khi có unitFilter nên chọn riêng Sách bị rơi về "không lọc", hiện hết Đề/Video của cả Khung).
+  const [filterSubTopicIds, setFilterSubTopicIds] = useState<Set<number> | null>(null);
   const [exams, setExams] = useState<ExamResponse[]>([]);
   const [loadingExams, setLoadingExams] = useState(false);
   const [selectedExamId, setSelectedExamId] = useState<number | null>(null);
@@ -138,7 +142,6 @@ export default function ExerciseAssignPage() {
   useEffect(() => {
     let cancelled = false;
     setUnitFilter(null);
-    setUnitFilterSubTopicIds(null);
     if (!bookFilter) {
       setUnitFilterOptions([]);
       return;
@@ -153,17 +156,28 @@ export default function ExerciseAssignPage() {
 
   useEffect(() => {
     let cancelled = false;
-    if (!unitFilter) {
-      setUnitFilterSubTopicIds(null);
-      return;
+    if (unitFilter) {
+      listSubTopics(unitFilter)
+        .then((subTopics) => !cancelled && setFilterSubTopicIds(new Set(subTopics.map((s) => s.id))))
+        .catch(() => !cancelled && setFilterSubTopicIds(new Set()));
+      return () => {
+        cancelled = true;
+      };
     }
-    listSubTopics(unitFilter)
-      .then((subTopics) => !cancelled && setUnitFilterSubTopicIds(new Set(subTopics.map((s) => s.id))))
-      .catch(() => !cancelled && setUnitFilterSubTopicIds(new Set()));
+    if (bookFilter) {
+      listUnits(bookFilter)
+        .then((units) => Promise.all(units.map((u) => listSubTopics(u.id).catch(() => [] as SubTopicResponse[]))))
+        .then((perUnit) => !cancelled && setFilterSubTopicIds(new Set(perUnit.flat().map((s) => s.id))))
+        .catch(() => !cancelled && setFilterSubTopicIds(new Set()));
+      return () => {
+        cancelled = true;
+      };
+    }
+    setFilterSubTopicIds(null);
     return () => {
       cancelled = true;
     };
-  }, [unitFilter]);
+  }, [bookFilter, unitFilter]);
 
   // Đổi filter liên tiếp (Curriculum/TeacherType) trước khi request trước hoàn tất từng làm response cũ
   // về sau ghi đè state mới (selectedExamId nhảy lung tung -> tự kích lại loadExercises/loadAssignedClassCount
@@ -192,16 +206,16 @@ export default function ExerciseAssignPage() {
 
   const selectedExam = exams.find((e) => e.id === selectedExamId) ?? null;
 
-  // V144 — lọc thêm theo Unit (phía FE, xem ghi chú unitFilterSubTopicIds ở trên) TRƯỚC khi phân trang.
-  const unitFilteredExams = unitFilterSubTopicIds
-    ? exams.filter((e) => e.subTopicId != null && unitFilterSubTopicIds.has(e.subTopicId))
+  // V144/V148 — lọc thêm theo Sách/Unit (phía FE, xem ghi chú filterSubTopicIds ở trên) TRƯỚC khi phân trang.
+  const unitFilteredExams = filterSubTopicIds
+    ? exams.filter((e) => e.subTopicId != null && filterSubTopicIds.has(e.subTopicId))
     : exams;
 
   // "Kho đề" toàn khung chương trình có thể tăng lên hàng trăm Đề theo thời gian — backend GET
   // /exams chưa hỗ trợ phân trang, phân trang phía client. Reset về trang 1 mỗi khi đổi bộ lọc/tải lại.
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
-  useEffect(() => setPage(0), [exams, unitFilter]);
+  useEffect(() => setPage(0), [exams, bookFilter, unitFilter]);
   const pageExams = unitFilteredExams.slice(page * pageSize, (page + 1) * pageSize);
 
   return (
