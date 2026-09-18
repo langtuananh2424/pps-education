@@ -1685,7 +1685,7 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                           {t("reflexVideoTask.speakingStage.transcriptLabel")}
                         </p>
                         <div className="rounded-xl border border-line bg-white p-3">
-                          <p className="normal-case whitespace-pre-line text-[13px] leading-relaxed text-ink">
+                          <p className="normal-case whitespace-pre-line text-[14px] leading-relaxed text-ink">
                             {renderHighlightedErrors(displayProgress.speakingTranscript, t("reflexVideoTask.speakingStage.unclearWordTooltip"))}
                           </p>
                         </div>
