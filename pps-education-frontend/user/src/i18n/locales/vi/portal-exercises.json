@@ -297,11 +297,6 @@
       "pending": "Cần hoàn thành ({{count}})",
       "graded": "Đã nộp & Đã chấm ({{count}})",
       "overdue": "Bài tập quá hạn ({{count}})",
-      "typeAriaLabel": "Lọc theo loại bài",
-      "typeDialogAriaLabel": "Chọn loại bài",
-      "typeAll": "Tất cả loại bài",
-      "typeGroupExercise": "Bài tập",
-      "typeGroupVideo": "Video ôn tập",
       "typeOther": "Bài khác"
     },
     "nav": {
@@ -310,8 +305,10 @@
       "itemCount": "{{count}} bài tập",
       "pendingBadge": "{{count}} cần hoàn thành",
       "emptyUnitGroup": "Không có Unit nào khớp bộ lọc hiện tại.",
-      "emptyAssignmentGroup": "Unit này không còn bài tập khớp bộ lọc — có thể đã bị đổi bộ lọc.",
-      "backToUnits": "Quay lại danh sách Unit"
+      "emptySkillGroup": "Unit này không còn bài tập khớp bộ lọc — có thể đã bị đổi bộ lọc.",
+      "emptyAssignmentGroup": "Kỹ năng này không còn bài tập khớp bộ lọc.",
+      "backToUnits": "Quay lại danh sách Unit",
+      "backToSkills": "Quay lại danh sách kỹ năng"
     },
     "empty": "Không có bài tập nào trong mục này.",
     "lockedAction": "Đã khóa",

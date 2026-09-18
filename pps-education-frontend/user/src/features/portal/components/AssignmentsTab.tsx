@@ -1,24 +1,28 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   AlertCircle,
   Bell,
   BookOpen,
   CalendarDays,
-  Check,
   CheckCircle2,
   ChevronRight,
   ClipboardCheck,
   Clock,
-  Filter,
+  FileText,
   GraduationCap,
+  Headphones,
+  Layers,
   Link2,
   Lock,
   MessageCircle,
+  Mic,
+  PenLine,
   Play,
   Rocket,
   Sparkles,
   Star,
+  Video,
   X
 } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
@@ -283,26 +287,25 @@ function lateSubmissionHint(
 
 type FilterStatus = "ALL" | "PENDING" | "GRADED" | "OVERDUE";
 /**
- * V153 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — lọc "loại bài" tách hẳn theo
- * kỹ năng thật (skillCategory) thay vì gộp chung mọi Bài không-phải-video vào 1 nhãn "Bài ngữ pháp" như
- * trước (sai khi lớp có cả Bài Nghe — xem AssignedExerciseResponse.skillCategory). OTHER_EXERCISE dành
- * cho Bài chưa gắn kỹ năng nào (skillCategory null, thường là bài tự luyện cũ trước khi có trường này).
+ * V153 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — phân loại theo kỹ năng thật
+ * (skillCategory) thay vì gộp chung mọi Bài không-phải-video vào 1 nhãn "Bài ngữ pháp" như trước (sai khi
+ * lớp có cả Bài Nghe — xem AssignedExerciseResponse.skillCategory). OTHER_EXERCISE dành cho Bài chưa gắn
+ * kỹ năng nào (skillCategory null, thường là bài tự luyện cũ trước khi có trường này). CONNECTION/REFLEX
+ * là 2 loại Video ôn tập.
+ *
+ * Bổ sung 2026-09-19 (đã xác nhận với người dùng) — trước đây là dropdown lọc "loại bài", nay thành 1 CẤP
+ * điều hướng riêng Unit → Kỹ năng → danh sách bài (xem NavView), nên dropdown cũ đã bỏ.
  */
-type FilterType = "ALL" | "VOCAB_GRAMMAR" | "READING" | "WRITING" | "LISTENING" | "OTHER_EXERCISE" | "CONNECTION" | "REFLEX";
+type SkillKey = "VOCAB_GRAMMAR" | "READING" | "WRITING" | "LISTENING" | "OTHER_EXERCISE" | "CONNECTION" | "REFLEX";
 
-const EXERCISE_SKILL_FILTER_ORDER: FilterType[] = ["VOCAB_GRAMMAR", "LISTENING", "READING", "WRITING", "OTHER_EXERCISE"];
-const VIDEO_TYPE_FILTER_ORDER: FilterType[] = ["CONNECTION", "REFLEX"];
+/** Thứ tự hiển thị thẻ Kỹ năng: Bài tập trước (Ngữ pháp → Nghe → Reading → Writing → Khác), Video sau. */
+const SKILL_ORDER: SkillKey[] = ["VOCAB_GRAMMAR", "LISTENING", "READING", "WRITING", "OTHER_EXERCISE", "CONNECTION", "REFLEX"];
 
-/** Bài khớp filter "loại bài" đang chọn — OTHER_EXERCISE khớp skillCategory null (chưa gắn kỹ năng). */
-function matchesExerciseSkillFilter(skillCategory: AssignedExerciseResponse["skillCategory"], filterType: FilterType): boolean {
-  if (filterType === "ALL") return true;
-  if (!EXERCISE_SKILL_FILTER_ORDER.includes(filterType)) return false;
-  if (filterType === "OTHER_EXERCISE") return skillCategory == null;
-  return skillCategory === filterType;
-}
-
-function skillFilterLabel(t: (key: string) => string, skill: FilterType): string {
-  return skill === "OTHER_EXERCISE" ? t("assignments.filters.typeOther") : t(`assignments.batch.skillLabel.${skill}`);
+function skillLabel(t: (key: string) => string, skill: SkillKey): string {
+  if (skill === "OTHER_EXERCISE") return t("assignments.filters.typeOther");
+  if (skill === "CONNECTION") return t("assignments.video.connectionType");
+  if (skill === "REFLEX") return t("assignments.video.reflexType");
+  return t(`assignments.batch.skillLabel.${skill}`);
 }
 
 interface ReviewVideoHomeworkItem {
@@ -336,14 +339,17 @@ interface ReviewVideoHomeworkItem {
 }
 
 /**
- * Điều hướng phân cấp Unit → Bài tập ở màn BTVN (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
- * 2026-09-18, RÚT GỌN lại 2026-09-19 — ban đầu định làm 3 cấp Unit → Lesson → Bài tập, nhưng dữ liệu
- * hiện tại KHÔNG có field nào biểu diễn đúng "Lesson" cho Video ôn tập [chỉ Bài tập ngữ pháp/đọc/viết/
- * nghe có examTitle, Video chỉ có Unit/SubTopic] — cần đổi schema (thêm cột lesson_number + sửa 2 form
- * Admin) mới làm đúng được. Người dùng chọn rút gọn tạm về 2 cấp, không chờ đổi backend) — thay danh
- * sách phẳng cũ bằng chọn Unit → xem danh sách bài tập/video của đúng Unit đó, kèm breadcrumb.
+ * Điều hướng phân cấp Unit → Kỹ năng → danh sách bài ở màn BTVN (bổ sung ngoài SDD gốc, đã xác nhận với
+ * người dùng 2026-09-18/19) — thay danh sách phẳng cũ. Ban đầu định làm Unit → Lesson → Bài tập, nhưng dữ
+ * liệu hiện tại KHÔNG có field nào biểu diễn đúng "Lesson" cho Video ôn tập [chỉ Bài tập ngữ pháp/đọc/
+ * viết/nghe có examTitle, Video chỉ có Unit/SubTopic] — cần đổi schema (thêm cột lesson_number + sửa 2
+ * form Admin) mới làm đúng được, nên người dùng chọn cấp giữa là KỸ NĂNG (Ngữ pháp/Nghe/Reading/Writing/
+ * Video kết nối/Video phản xạ — trước đây là dropdown lọc "loại bài"), dữ liệu đã có sẵn, kèm breadcrumb.
  */
-type NavView = { level: "units" } | { level: "assignments"; unitKey: string };
+type NavView =
+  | { level: "units" }
+  | { level: "skills"; unitKey: string }
+  | { level: "assignments"; unitKey: string; skillKey: SkillKey };
 
 /** Khoá nhóm dùng khi Bài/Video không gắn Unit (unitTitle null/rỗng) — luôn xếp cuối, xem buildUnitGroups. */
 const UNASSIGNED_GROUP_KEY = "__unassigned__";
@@ -357,6 +363,13 @@ function entryUnitTitle(entry: FeedEntry): string | null | undefined {
   if (entry.type === "exercise") return entry.item.unitTitle;
   if (entry.type === "exerciseBatch") return entry.items[0].unitTitle;
   return entry.item.unitTitle;
+}
+
+/** Khoá kỹ năng của 1 entry: Bài lẻ/Lô theo skillCategory (null → OTHER_EXERCISE), Video theo videoType. */
+function entrySkillKey(entry: FeedEntry): SkillKey {
+  if (entry.type === "exercise") return entry.item.skillCategory ?? "OTHER_EXERCISE";
+  if (entry.type === "exerciseBatch") return entry.items[0].skillCategory ?? "OTHER_EXERCISE";
+  return entry.item.videoType;
 }
 
 function isEntryPending(entry: FeedEntry): boolean {
@@ -388,17 +401,25 @@ function naturalCompare(a: string, b: string): number {
   return a.localeCompare(b, "vi", { numeric: true, sensitivity: "base" });
 }
 
-interface UnitGroup {
-  unitKey: string;
-  unitLabel: string;
+interface SkillGroup {
+  skillKey: SkillKey;
   entries: FeedEntry[];
 }
 
+interface UnitGroup {
+  unitKey: string;
+  unitLabel: string;
+  /** Toàn bộ entries của Unit (mọi kỹ năng gộp lại) — dùng đếm tổng/cần hoàn thành ở UnitCard. */
+  entries: FeedEntry[];
+  /** Các kỹ năng CÓ bài trong Unit này, theo thứ tự SKILL_ORDER. */
+  skills: SkillGroup[];
+}
+
 /**
- * Nhóm feedItems (đã lọc theo filterStatus/filterType, đã sort theo hạn nộp — xem AssignmentsTab) theo
- * Unit bằng chuỗi `unitTitle` sẵn có trên từng entry — nhánh Bài tập ngữ pháp/đọc/viết/nghe chưa có id
- * số riêng cho Unit ở FE (chỉ có chuỗi tên, xem AssignedExerciseResponse) nên phải nhóm theo tên, không
- * phải id. Giữ nguyên thứ tự entries đúng thứ tự đã sort ở feedItems (hạn nộp sớm nhất lên đầu).
+ * Nhóm feedItems (đã lọc theo filterStatus, đã sort theo hạn nộp — xem AssignmentsTab) theo Unit rồi theo
+ * Kỹ năng. Unit nhóm bằng chuỗi `unitTitle` sẵn có trên từng entry — nhánh Bài tập ngữ pháp/đọc/viết/nghe
+ * chưa có id số riêng cho Unit ở FE (chỉ có chuỗi tên, xem AssignedExerciseResponse) nên phải nhóm theo
+ * tên, không phải id. Giữ nguyên thứ tự entries đúng thứ tự đã sort ở feedItems (hạn nộp sớm nhất lên đầu).
  */
 function buildUnitGroups(entries: FeedEntry[], t: (key: string) => string): UnitGroup[] {
   const unitMap = new Map<string, { label: string; entries: FeedEntry[] }>();
@@ -418,7 +439,14 @@ function buildUnitGroups(entries: FeedEntry[], t: (key: string) => string): Unit
       if (bKey === UNASSIGNED_GROUP_KEY) return -1;
       return naturalCompare(aKey, bKey);
     })
-    .map(([unitKey, unit]) => ({ unitKey, unitLabel: unit.label, entries: unit.entries }));
+    .map(([unitKey, unit]) => ({
+      unitKey,
+      unitLabel: unit.label,
+      entries: unit.entries,
+      skills: SKILL_ORDER.map((skillKey) => ({ skillKey, entries: unit.entries.filter((e) => entrySkillKey(e) === skillKey) })).filter(
+        (group) => group.entries.length > 0
+      )
+    }));
 }
 
 /**
@@ -458,9 +486,8 @@ export default function AssignmentsTab({
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("PENDING");
   /** V166 — cho đóng banner cảnh báo quá hạn, chỉ trong phiên xem hiện tại (không lưu lại). */
   const [overdueBannerDismissed, setOverdueBannerDismissed] = useState(false);
-  const [filterType, setFilterType] = useState<FilterType>("ALL");
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-18 — cấp điều hướng đang xem (Unit/
-  // Lesson/danh sách bài tập), xem NavView. Mặc định mở ở cấp "units" (chọn Unit trước tiên).
+  // Kỹ năng/danh sách bài), xem NavView. Mặc định mở ở cấp "units" (chọn Unit trước tiên).
   const [navView, setNavView] = useState<NavView>({ level: "units" });
   const [takingExercise, setTakingExercise] = useState<AssignedExerciseResponse | null>(null);
   /** V150 — 1 Lô đang được làm liên tục (N thẻ cùng homeworkBatchId, xem groupExercisesByBatch/BatchTakeExerciseModal). */
@@ -468,32 +495,19 @@ export default function AssignmentsTab({
   const [openReviewItem, setOpenReviewItem] = useState<ReviewVideoHomeworkItem | null>(null);
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — danh sách BTVN có thể dài (nhiều
   // Bài ngữ pháp + Video ôn tập cộng lại), phân trang để tránh cuộn quá nhiều. Về trang 1 mỗi khi đổi
-  // bộ lọc trạng thái/loại bài.
+  // bộ lọc trạng thái hoặc đổi cấp điều hướng.
   const [page, setPage] = useState(0);
-  // Bổ sung ngoài SDD gốc — reset về trang 1 khi đổi bộ lọc (hoặc đổi cấp điều hướng Unit/Lesson, bổ
+  // Bổ sung ngoài SDD gốc — reset về trang 1 khi đổi bộ lọc (hoặc đổi cấp điều hướng Unit/Kỹ năng, bổ
   // sung 2026-09-18 — xem navView). PHẢI đặt trước early-return `if (loading)` bên dưới (Rules of Hooks:
   // mọi hook phải gọi VÔ ĐIỀU KIỆN, không được đặt sau early-return — trước đây đặt sai chỗ, hook bị bỏ
   // qua lúc loading=true rồi lại gọi khi loading=false, gây lỗi "Rendered more hooks than during the
   // previous render").
-  useEffect(() => setPage(0), [filterStatus, filterType, navView]);
-  // Dropdown icon lọc "loại bài" thay cho hàng nút riêng — đỡ chiếm thêm 1 hàng, gộp chung hàng với
-  // 3 nút trạng thái, dùng chung cho mọi kích thước màn hình (theo yêu cầu người dùng, 2026-08-01).
-  const [filterTypeOpen, setFilterTypeOpen] = useState(false);
-  const filterTypeRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!filterTypeOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (filterTypeRef.current && !filterTypeRef.current.contains(e.target as Node)) setFilterTypeOpen(false);
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [filterTypeOpen]);
+  useEffect(() => setPage(0), [filterStatus, navView]);
 
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-18 — toàn bộ khối đếm/lọc/gộp feedItems +
-  // nhóm theo Unit/Lesson (buildUnitGroups) được TÍNH TRƯỚC early-return `if (loading)` bên dưới (dù chỉ
+  // nhóm theo Unit/Kỹ năng (buildUnitGroups) được TÍNH TRƯỚC early-return `if (loading)` bên dưới (dù chỉ
   // dùng để render SAU return đó) — bắt buộc vì effect "auto-open" (highlight/cuộn tới đúng thẻ, xem bên
-  // dưới) cần đọc `lessonEntries` để tính đúng trang, mà mọi hook (useEffect) phải khai báo TRƯỚC
+  // dưới) cần đọc `skillEntries` để tính đúng trang, mà mọi hook (useEffect) phải khai báo TRƯỚC
   // early-return theo Rules of Hooks (xem ghi chú ở effect reset trang phía trên).
   const exerciseCardCount = singleExercises.length + batchGroups.length;
   const pendingCount =
@@ -511,34 +525,19 @@ export default function AssignmentsTab({
     batchGroups.filter(isBatchOverduePending).length +
     reviewItems.filter(isVideoOverduePending).length;
 
-  // V153 — số lượng theo TỪNG kỹ năng/loại video, dùng dựng dropdown lọc "loại bài" bên dưới (chỉ hiện
-  // lựa chọn nào thực sự có bài, tránh liệt kê rỗng).
-  const exerciseSkillCounts = new Map<FilterType, number>();
-  const countExerciseSkill = (skillCategory: AssignedExerciseResponse["skillCategory"]) => {
-    const key: FilterType = skillCategory ?? "OTHER_EXERCISE";
-    exerciseSkillCounts.set(key, (exerciseSkillCounts.get(key) ?? 0) + 1);
-  };
-  singleExercises.forEach((e) => countExerciseSkill(e.skillCategory));
-  batchGroups.forEach((items) => countExerciseSkill(items[0].skillCategory));
-  const videoTypeCounts = new Map<FilterType, number>();
-  reviewItems.forEach((x) => videoTypeCounts.set(x.videoType, (videoTypeCounts.get(x.videoType) ?? 0) + 1));
-
   const filteredSingleExercises = singleExercises.filter((e) => {
-    if (!matchesExerciseSkillFilter(e.skillCategory, filterType)) return false;
     if (filterStatus === "PENDING") return isExerciseActionablePending(e);
     if (filterStatus === "GRADED") return !isExercisePending(e);
     if (filterStatus === "OVERDUE") return isExerciseOverduePending(e);
     return true;
   });
   const filteredBatchGroups = batchGroups.filter((items) => {
-    if (!matchesExerciseSkillFilter(items[0].skillCategory, filterType)) return false;
     if (filterStatus === "PENDING") return isBatchActionablePending(items);
     if (filterStatus === "GRADED") return !isBatchPending(items);
     if (filterStatus === "OVERDUE") return isBatchOverduePending(items);
     return true;
   });
   const filteredReviewItems = reviewItems.filter((x) => {
-    if (filterType !== "ALL" && (!VIDEO_TYPE_FILTER_ORDER.includes(filterType) || x.videoType !== filterType)) return false;
     if (filterStatus === "ALL") return true;
     if (filterStatus === "OVERDUE") return isVideoOverduePending(x);
     if (filterStatus === "PENDING") return isVideoActionablePending(x);
@@ -568,34 +567,34 @@ export default function AssignmentsTab({
   feedItems.sort((a, b) => dueAtMillisOf(a) - dueAtMillisOf(b));
 
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-18 — nhóm feedItems (đã lọc theo
-  // filterStatus/filterType, đã sort theo hạn nộp) thành cây Unit → Lesson (xem buildUnitGroups) để đổi
-  // màn BTVN từ danh sách phẳng sang điều hướng phân cấp kiểu "như sách". `navView` quyết định đang xem
-  // cấp nào; `lessonEntries` (rỗng nếu chưa chọn tới cấp "assignments") là nguồn DUY NHẤT cho phân trang
-  // cấp lá — cũng được effect "auto-open" bên dưới dùng lại để tính đúng trang cần nhảy tới, tránh trùng
-  // lặp logic lọc/sort với 1 bản riêng (dễ lệch nhau).
+  // filterStatus, đã sort theo hạn nộp) thành cây Unit → Kỹ năng (xem buildUnitGroups) để đổi màn BTVN từ
+  // danh sách phẳng sang điều hướng phân cấp kiểu "như sách". `navView` quyết định đang xem cấp nào;
+  // `skillEntries` (rỗng nếu chưa chọn tới cấp "assignments") là nguồn DUY NHẤT cho phân trang cấp lá —
+  // cũng được effect "auto-open" bên dưới dùng lại để tính đúng trang cần nhảy tới, tránh trùng lặp logic
+  // lọc/sort với 1 bản riêng (dễ lệch nhau).
   const unitGroups = buildUnitGroups(feedItems, t);
-  const currentUnit = navView.level === "assignments" ? unitGroups.find((u) => u.unitKey === navView.unitKey) : undefined;
-  const unitEntries = currentUnit?.entries ?? [];
-  const pageItems = unitEntries.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const currentUnit = navView.level !== "units" ? unitGroups.find((u) => u.unitKey === navView.unitKey) : undefined;
+  const currentSkill = navView.level === "assignments" ? currentUnit?.skills.find((s) => s.skillKey === navView.skillKey) : undefined;
+  const skillEntries = currentSkill?.entries ?? [];
+  const pageItems = skillEntries.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-19 (fix bug thật) — số đếm hiển thị TRÊN 4
   // nút tab trạng thái (Tất cả/Cần hoàn thành/Đã chấm/Quá hạn) phải phản ánh ĐÚNG phạm vi breadcrumb
-  // đang đứng (toàn lớp / 1 Unit) — trước đây dùng thẳng exerciseCardCount/pendingCount/gradedCount/
-  // overdueCount ở trên (CHỦ Ý giữ nguyên = toàn lớp, dùng cho banner đầu trang + badge sidebar), khiến
-  // đứng trong 1 Unit chỉ có vài bài mà tab vẫn hiện số đếm của CẢ LỚP, gây hiểu lầm. Tính lại từ
-  // `typeOnlyEntries` (chỉ lọc theo filterType, KHÔNG lọc theo filterStatus — để biết trước bấm tab nào
-  // cũng ra đúng số) rồi thu hẹp theo scope hiện tại (scopeEntries).
-  const typeOnlySingleExercises = singleExercises.filter((e) => matchesExerciseSkillFilter(e.skillCategory, filterType));
-  const typeOnlyBatchGroups = batchGroups.filter((items) => matchesExerciseSkillFilter(items[0].skillCategory, filterType));
-  const typeOnlyReviewItems = reviewItems.filter((x) => filterType === "ALL" || (VIDEO_TYPE_FILTER_ORDER.includes(filterType) && x.videoType === filterType));
-  const typeOnlyEntries: FeedEntry[] = [
-    ...typeOnlySingleExercises.map((item) => ({ type: "exercise" as const, key: `ex-${item.assignmentId}`, item })),
-    ...typeOnlyBatchGroups.map((items) => ({ type: "exerciseBatch" as const, key: `exb-${items[0].homeworkBatchId}`, items })),
-    ...typeOnlyReviewItems.map((item) => ({ type: "video" as const, key: `rv-${item.assignmentId ?? "lib"}-${item.video.id}`, item }))
+  // đang đứng (toàn lớp / 1 Unit / 1 Kỹ năng) — trước đây dùng thẳng exerciseCardCount/pendingCount/
+  // gradedCount/overdueCount ở trên (CHỦ Ý giữ nguyên = toàn lớp, dùng cho banner đầu trang + badge
+  // sidebar), khiến đứng trong 1 Unit chỉ có vài bài mà tab vẫn hiện số đếm của CẢ LỚP, gây hiểu lầm. Tính
+  // lại từ `allEntries` (KHÔNG lọc theo filterStatus — để biết trước bấm tab nào cũng ra đúng số) rồi thu
+  // hẹp theo scope hiện tại (scopeEntries).
+  const allEntries: FeedEntry[] = [
+    ...singleExercises.map((item) => ({ type: "exercise" as const, key: `ex-${item.assignmentId}`, item })),
+    ...batchGroups.map((items) => ({ type: "exerciseBatch" as const, key: `exb-${items[0].homeworkBatchId}`, items })),
+    ...reviewItems.map((item) => ({ type: "video" as const, key: `rv-${item.assignmentId ?? "lib"}-${item.video.id}`, item }))
   ];
-  const scopeEntries = typeOnlyEntries.filter(
-    (entry) => navView.level === "units" || (entryUnitTitle(entry)?.trim() || UNASSIGNED_GROUP_KEY) === navView.unitKey
-  );
+  const scopeEntries = allEntries.filter((entry) => {
+    if (navView.level === "units") return true;
+    if ((entryUnitTitle(entry)?.trim() || UNASSIGNED_GROUP_KEY) !== navView.unitKey) return false;
+    return navView.level === "skills" || entrySkillKey(entry) === navView.skillKey;
+  });
   const tabAllCount = scopeEntries.length;
   const tabPendingCount = scopeEntries.filter(isEntryPending).length;
   const tabGradedCount = scopeEntries.filter(isEntryGraded).length;
@@ -751,9 +750,9 @@ export default function AssignmentsTab({
     if (loading) return;
     if (autoOpenExerciseAssignmentId == null && autoOpenReviewVideoAssignmentId == null) return;
     setFilterStatus("ALL");
-    setFilterType("ALL");
     let key: string | null = null;
     let unitTitle: string | null | undefined;
+    let skillKey: SkillKey = "OTHER_EXERCISE";
     if (autoOpenExerciseAssignmentId != null) {
       const match = exercises.find((e) => e.assignmentId === autoOpenExerciseAssignmentId);
       // V150 — Bài thuộc 1 Lô giờ hiện gộp thành 1 thẻ "exb-<batchId>" (xem groupExercisesByBatch),
@@ -761,6 +760,7 @@ export default function AssignmentsTab({
       if (match) {
         key = match.homeworkBatchId != null ? `exb-${match.homeworkBatchId}` : `ex-${match.assignmentId}`;
         unitTitle = match.unitTitle;
+        skillKey = match.skillCategory ?? "OTHER_EXERCISE";
       }
     } else if (autoOpenReviewVideoAssignmentId != null) {
       const assignment = videoAssignments.find((a) => a.assignmentId === autoOpenReviewVideoAssignmentId);
@@ -771,14 +771,16 @@ export default function AssignmentsTab({
       if (match) {
         key = `rv-${match.assignmentId ?? "lib"}-${match.video.id}`;
         unitTitle = match.unitTitle;
+        skillKey = match.videoType;
       }
     }
     setPendingHighlightKey(key);
     // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-18 — màn BTVN giờ điều hướng phân cấp
-    // Unit (xem NavView), phải tự nhảy thẳng tới đúng cấp "assignments" của Unit chứa thẻ cần focus, nếu
-    // không thẻ vẫn tồn tại trong dữ liệu nhưng học sinh sẽ không thấy vì đang đứng ở màn chọn Unit khác.
+    // Unit → Kỹ năng (xem NavView), phải tự nhảy thẳng tới đúng cấp "assignments" của Unit + Kỹ năng chứa
+    // thẻ cần focus, nếu không thẻ vẫn tồn tại trong dữ liệu nhưng học sinh sẽ không thấy vì đang đứng ở
+    // màn chọn Unit/Kỹ năng khác.
     if (key) {
-      setNavView({ level: "assignments", unitKey: unitTitle?.trim() || UNASSIGNED_GROUP_KEY });
+      setNavView({ level: "assignments", unitKey: unitTitle?.trim() || UNASSIGNED_GROUP_KEY, skillKey });
     }
     onAutoOpenHandled?.();
     // onAutoOpenHandled cố tình không đưa vào deps — PortalPage truyền hàm inline (đổi identity mỗi
@@ -790,12 +792,12 @@ export default function AssignmentsTab({
   useEffect(() => {
     if (loading || !pendingHighlightKey) return;
     // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-18 — chờ effect trên set xong navView
-    // đúng cấp "assignments" (Unit chứa thẻ cần focus) rồi mới tìm vị trí/trang trong `unitEntries` (đã
-    // lọc+sort đúng bộ lọc "ALL/ALL" vừa reset ở effect trên, dùng LẠI nguyên xi mảng dùng để phân trang
-    // thật — tránh dựng 1 bản `allKeys` riêng dễ lệch thứ tự với cách feedItems được sort theo hạn nộp).
-    // Nếu chưa tới cấp này, unitEntries rỗng, effect tự chạy lại khi navView đổi.
+    // đúng cấp "assignments" (Unit + Kỹ năng chứa thẻ cần focus) rồi mới tìm vị trí/trang trong
+    // `skillEntries` (đã lọc+sort đúng bộ lọc "ALL" vừa reset ở effect trên, dùng LẠI nguyên xi mảng dùng
+    // để phân trang thật — tránh dựng 1 bản `allKeys` riêng dễ lệch thứ tự với cách feedItems được sort
+    // theo hạn nộp). Nếu chưa tới cấp này, skillEntries rỗng, effect tự chạy lại khi navView đổi.
     if (navView.level !== "assignments") return;
-    const idx = unitEntries.findIndex((entry) => entry.key === pendingHighlightKey);
+    const idx = skillEntries.findIndex((entry) => entry.key === pendingHighlightKey);
     if (idx === -1) {
       setPendingHighlightKey(null);
       return;
@@ -812,7 +814,7 @@ export default function AssignmentsTab({
     setPendingHighlightKey(null);
     const timer = setTimeout(() => setHighlightKey(null), 2500);
     return () => clearTimeout(timer);
-  }, [loading, pendingHighlightKey, page, navView, unitEntries]);
+  }, [loading, pendingHighlightKey, page, navView, skillEntries]);
 
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — báo pendingCount lên PortalPage
   // (badge sidebar). Đặt TRƯỚC early-return `if (loading)` bên dưới (Rules of Hooks — cùng lý do đã
@@ -929,9 +931,10 @@ export default function AssignmentsTab({
       <Breadcrumb
         items={((): BreadcrumbItem[] => {
           // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-18 — bấm breadcrumb gốc "Bài tập
-          // về nhà" (quay hẳn về cấp chọn Unit) thì reset luôn bộ lọc trạng thái/loại bài về mặc định
-          // ("Cần hoàn thành"/"Tất cả loại bài"), tránh tình huống đang lọc "Đã chấm" sâu trong 1 Unit
-          // rồi lùi về thấy danh sách Unit bị thu hẹp theo đúng filter cũ, gây hiểu lầm mất bài.
+          // về nhà" (quay hẳn về cấp chọn Unit) thì reset luôn bộ lọc trạng thái về mặc định ("Cần hoàn
+          // thành"), tránh tình huống đang lọc "Đã chấm" sâu trong 1 Unit rồi lùi về thấy danh sách Unit
+          // bị thu hẹp theo đúng filter cũ, gây hiểu lầm mất bài. CHỈ áp dụng cho breadcrumb gốc — bấm
+          // vào tên Unit (quay về cấp Kỹ năng trong CÙNG Unit) không reset, vì filter vẫn còn ý nghĩa.
           const root: BreadcrumbItem = {
             label: t("assignments.nav.breadcrumbRoot"),
             onClick:
@@ -939,7 +942,6 @@ export default function AssignmentsTab({
                 ? () => {
                     setNavView({ level: "units" });
                     setFilterStatus("PENDING");
-                    setFilterType("ALL");
                   }
                 : undefined
           };
@@ -949,16 +951,21 @@ export default function AssignmentsTab({
           // rơi thẳng về nhãn "Chưa phân loại Unit" dù Unit đó có tên thật (VD "UNIT 1: HOBBIES") — gây
           // hiểu lầm đang đứng nhầm Unit. `navView.unitKey` CHÍNH LÀ tên Unit thật (chỉ là
           // "__unassigned__" khi thật sự chưa gắn Unit nào, xem buildUnitGroups) nên dùng lại chuỗi đó
-          // làm nhãn dự phòng thay vì suy diễn sai.
+          // làm nhãn dự phòng thay vì suy diễn sai. Kỹ năng thì luôn có nhãn thật (skillLabel).
           const unitLabel = currentUnit?.unitLabel ?? (navView.unitKey === UNASSIGNED_GROUP_KEY ? t("assignments.nav.uncategorizedUnit") : navView.unitKey);
-          return [root, { label: unitLabel }];
+          if (navView.level === "skills") return [root, { label: unitLabel }];
+          return [
+            root,
+            { label: unitLabel, onClick: () => setNavView({ level: "skills", unitKey: navView.unitKey }) },
+            { label: skillLabel(t, navView.skillKey) }
+          ];
         })()}
       />
 
       <div className="space-y-2.5 border-b border-line pb-3">
-        {/* 1 hàng — 3 nút trạng thái tự cuộn ngang kiểu carousel, cuối hàng là icon dropdown lọc
-            "loại bài" — dùng chung cho mọi kích thước màn hình (theo yêu cầu người dùng, 2026-08-01;
-            trước đó desktop có 1 khối riêng 2 hàng nút đầy đủ, nay bỏ để đồng nhất với mobile). */}
+        {/* 1 hàng — các nút trạng thái tự cuộn ngang kiểu carousel, dùng chung cho mọi kích thước màn
+            hình (theo yêu cầu người dùng, 2026-08-01). Dropdown lọc "loại bài" cũ ở cuối hàng đã bỏ
+            2026-09-19 — thay bằng cấp điều hướng Kỹ năng (xem NavView). */}
         <div className="flex items-center gap-2">
           <div className="flex-1 min-w-0 flex items-center gap-2 overflow-x-auto scrollbar-hide snap-x snap-proximity">
             <button
@@ -997,97 +1004,6 @@ export default function AssignmentsTab({
               <AlertCircle size={14} /> {t("assignments.filters.overdue", { count: tabOverdueCount })}
             </button>
           </div>
-
-          <div className="relative shrink-0" ref={filterTypeRef}>
-            <button
-              type="button"
-              onClick={() => setFilterTypeOpen((v) => !v)}
-              aria-label={t("assignments.filters.typeAriaLabel")}
-              aria-haspopup="dialog"
-              aria-expanded={filterTypeOpen}
-              className={`w-10 h-10 rounded-xl border flex items-center justify-center transition-all cursor-pointer ${
-                filterType !== "ALL" ? "bg-ink text-white border-ink" : "bg-white border-line text-muted hover:bg-slate-50"
-              }`}
-            >
-              <Filter size={16} aria-hidden="true" />
-            </button>
-
-            {filterTypeOpen && (
-              <div
-                role="dialog"
-                aria-label={t("assignments.filters.typeDialogAriaLabel")}
-                className="absolute right-0 top-full mt-2 z-30 w-64 max-h-80 overflow-y-auto bg-white border border-line rounded-2xl shadow-lg p-1.5 space-y-0.5"
-              >
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFilterType("ALL");
-                    setFilterTypeOpen(false);
-                  }}
-                  className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-sm font-bold text-left transition-colors ${
-                    filterType === "ALL" ? "bg-ink/5 text-ink font-black" : "text-muted hover:bg-slate-50"
-                  }`}
-                >
-                  <span>{t("assignments.filters.typeAll")}</span>
-                  {filterType === "ALL" && <Check size={14} className="shrink-0" aria-hidden="true" />}
-                </button>
-
-                {exerciseSkillCounts.size > 0 && (
-                  <>
-                    <p className="px-3 pt-2 pb-1 text-[10px] font-black uppercase tracking-wider text-muted/70">
-                      {t("assignments.filters.typeGroupExercise")}
-                    </p>
-                    {EXERCISE_SKILL_FILTER_ORDER.filter((skill) => exerciseSkillCounts.has(skill)).map((skill) => (
-                      <button
-                        key={skill}
-                        type="button"
-                        onClick={() => {
-                          setFilterType(skill);
-                          setFilterTypeOpen(false);
-                        }}
-                        className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-sm font-bold text-left transition-colors ${
-                          filterType === skill ? "bg-ink/5 text-ink font-black" : "text-muted hover:bg-slate-50"
-                        }`}
-                      >
-                        <span className="flex items-center gap-1.5">
-                          <BookOpen size={13} aria-hidden="true" /> {skillFilterLabel(t, skill)} ({exerciseSkillCounts.get(skill)})
-                        </span>
-                        {filterType === skill && <Check size={14} className="shrink-0" aria-hidden="true" />}
-                      </button>
-                    ))}
-                  </>
-                )}
-
-                {videoTypeCounts.size > 0 && (
-                  <>
-                    <p className="px-3 pt-2 pb-1 text-[10px] font-black uppercase tracking-wider text-muted/70">
-                      {t("assignments.filters.typeGroupVideo")}
-                    </p>
-                    {VIDEO_TYPE_FILTER_ORDER.filter((videoType) => videoTypeCounts.has(videoType)).map((videoType) => (
-                      <button
-                        key={videoType}
-                        type="button"
-                        onClick={() => {
-                          setFilterType(videoType);
-                          setFilterTypeOpen(false);
-                        }}
-                        className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-sm font-bold text-left transition-colors ${
-                          filterType === videoType ? "bg-ink/5 text-ink font-black" : "text-muted hover:bg-slate-50"
-                        }`}
-                      >
-                        <span className="flex items-center gap-1.5">
-                          {videoType === "CONNECTION" ? <Link2 size={13} aria-hidden="true" /> : <MessageCircle size={13} aria-hidden="true" />}{" "}
-                          {videoType === "CONNECTION" ? t("assignments.video.connectionType") : t("assignments.video.reflexType")} (
-                          {videoTypeCounts.get(videoType)})
-                        </span>
-                        {filterType === videoType && <Check size={14} className="shrink-0" aria-hidden="true" />}
-                      </button>
-                    ))}
-                  </>
-                )}
-              </div>
-            )}
-          </div>
         </div>
       </div>
 
@@ -1097,18 +1013,38 @@ export default function AssignmentsTab({
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {unitGroups.map((unit, index) => (
-              <UnitCard key={unit.unitKey} unit={unit} index={index} onOpen={() => setNavView({ level: "assignments", unitKey: unit.unitKey })} />
+              <UnitCard key={unit.unitKey} unit={unit} index={index} onOpen={() => setNavView({ level: "skills", unitKey: unit.unitKey })} />
             ))}
           </div>
         )
       ) : !currentUnit ? (
         <div className="text-center py-10 space-y-3">
-          <p className="text-sm text-muted font-bold italic">{t("assignments.nav.emptyAssignmentGroup")}</p>
+          <p className="text-sm text-muted font-bold italic">{t("assignments.nav.emptySkillGroup")}</p>
           <button
             onClick={() => setNavView({ level: "units" })}
             className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-ink text-sm font-black transition-colors cursor-pointer"
           >
             {t("assignments.nav.backToUnits")}
+          </button>
+        </div>
+      ) : navView.level === "skills" ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {currentUnit.skills.map((skill) => (
+            <SkillCard
+              key={skill.skillKey}
+              skill={skill}
+              onOpen={() => setNavView({ level: "assignments", unitKey: currentUnit.unitKey, skillKey: skill.skillKey })}
+            />
+          ))}
+        </div>
+      ) : !currentSkill ? (
+        <div className="text-center py-10 space-y-3">
+          <p className="text-sm text-muted font-bold italic">{t("assignments.nav.emptyAssignmentGroup")}</p>
+          <button
+            onClick={() => setNavView({ level: "skills", unitKey: navView.unitKey })}
+            className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-ink text-sm font-black transition-colors cursor-pointer"
+          >
+            {t("assignments.nav.backToSkills")}
           </button>
         </div>
       ) : (
@@ -1148,7 +1084,7 @@ export default function AssignmentsTab({
               );
             })}
           </div>
-          <Pagination page={page} pageSize={PAGE_SIZE} totalElements={unitEntries.length} itemLabel={t("assignments.itemLabel")} onPageChange={setPage} />
+          <Pagination page={page} pageSize={PAGE_SIZE} totalElements={skillEntries.length} itemLabel={t("assignments.itemLabel")} onPageChange={setPage} />
         </>
       )}
 
@@ -1237,6 +1173,53 @@ function UnitCard({ unit, index, onOpen }: { unit: UnitGroup; index: number; onO
       <div className="space-y-1 min-w-0">
         <h3 className="text-xl font-black text-ink font-display truncate">{unit.unitLabel}</h3>
         <p className="text-sm font-bold text-muted">{t("assignments.nav.itemCount", { count: unit.entries.length })}</p>
+      </div>
+      <div className="flex items-center justify-end gap-2 mt-auto pt-2 border-t border-line/60">
+        {pendingCount > 0 ? (
+          <span className="px-2 py-0.5 rounded-lg bg-amber-100 text-amber-800 border border-amber-300 text-[11px] font-black whitespace-nowrap">
+            {t("assignments.nav.pendingBadge", { count: pendingCount })}
+          </span>
+        ) : (
+          <ChevronRight size={16} className="text-muted shrink-0" />
+        )}
+      </div>
+    </button>
+  );
+}
+
+/** Icon + màu nền đặc theo từng Kỹ năng ở thẻ SkillCard (cùng bảng màu teal/coral/gold/plum như UnitCard). */
+const SKILL_CARD_STYLE: Record<SkillKey, { bg: string; icon: typeof BookOpen }> = {
+  VOCAB_GRAMMAR: { bg: "bg-gradient-to-br from-teal to-teal-deep", icon: BookOpen },
+  LISTENING: { bg: "bg-gradient-to-br from-coral to-plum", icon: Headphones },
+  READING: { bg: "bg-gradient-to-br from-gold to-coral", icon: FileText },
+  WRITING: { bg: "bg-gradient-to-br from-plum to-teal-deep", icon: PenLine },
+  OTHER_EXERCISE: { bg: "bg-gradient-to-br from-teal-deep to-teal", icon: Layers },
+  CONNECTION: { bg: "bg-gradient-to-br from-teal to-gold", icon: Video },
+  REFLEX: { bg: "bg-gradient-to-br from-coral to-gold", icon: Mic }
+};
+
+/**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-19 — thẻ cấp "Kỹ năng" trong điều hướng
+ * Unit → Kỹ năng → danh sách bài (xem buildUnitGroups). Thay cho dropdown lọc "loại bài" cũ. Đếm "cần
+ * hoàn thành" tính trên CHÍNH bộ feedItems đã lọc theo filterStatus hiện tại (skill.entries).
+ */
+function SkillCard({ skill, onOpen }: { skill: SkillGroup; onOpen: () => void }) {
+  const { t } = useTranslation("portal-exercises");
+  const pendingCount = skill.entries.filter(isEntryPending).length;
+  const style = SKILL_CARD_STYLE[skill.skillKey];
+  const SkillIcon = style.icon;
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="text-left p-5 bg-white border border-line/80 rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-teal/40 transition-all cursor-pointer flex flex-col gap-3"
+    >
+      <div className={`w-14 h-14 rounded-2xl ${style.bg} text-white flex items-center justify-center shrink-0 shadow-sm`}>
+        <SkillIcon size={26} />
+      </div>
+      <div className="space-y-1 min-w-0">
+        <h3 className="text-xl font-black text-ink font-display truncate">{skillLabel(t, skill.skillKey)}</h3>
+        <p className="text-sm font-bold text-muted">{t("assignments.nav.itemCount", { count: skill.entries.length })}</p>
       </div>
       <div className="flex items-center justify-end gap-2 mt-auto pt-2 border-t border-line/60">
         {pendingCount > 0 ? (
