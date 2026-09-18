@@ -628,6 +628,12 @@ public class QuestionImportService {
                 throw new IllegalArgumentException("Điền từ cần đáp án đúng để hệ thống tự chấm.");
             }
             correctAnswerText = row.correctAnswer().trim();
+            // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-18 — fix bug thật (mirror fix
+            // 2026-09-09 cho TRAC_NGHIEM ở trên): cột "URL Hình ảnh" tồn tại chung cho mọi loại câu hỏi
+            // (questions.image_url) nhưng DIEN_TU trước đây bị bỏ sót không đọc, nên bài "hoàn thành câu
+            // từ gợi ý dựa trên biểu đồ/hình ảnh" (VD IELTS Writing Task 1 dùng chart) không thể đính
+            // kèm ảnh dù màn xem trước học sinh đã render question.imageUrl không phân biệt questionType.
+            imageUrl = blankToNull(row.imageUrl());
         } else if (kind.equals("TU_LUAN")) {
             imageUrl = blankToNull(row.imageUrl());
         } else if (kind.equals("DIEN_TU_HOP_TU_VUNG") || kind.equals("DIEN_TU_HOP_TU_VUNG_ANH") || kind.equals("DIEN_TU_DOAN_VAN")) {
