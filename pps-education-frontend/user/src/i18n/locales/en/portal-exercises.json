@@ -297,11 +297,6 @@
       "pending": "To do ({{count}})",
       "graded": "Submitted & graded ({{count}})",
       "overdue": "Overdue ({{count}})",
-      "typeAriaLabel": "Filter by type",
-      "typeDialogAriaLabel": "Choose a type",
-      "typeAll": "All types",
-      "typeGroupExercise": "Exercises",
-      "typeGroupVideo": "Review videos",
       "typeOther": "Other exercises"
     },
     "nav": {
@@ -310,8 +305,10 @@
       "itemCount": "{{count}} items",
       "pendingBadge": "{{count}} to do",
       "emptyUnitGroup": "No unit matches the current filter.",
-      "emptyAssignmentGroup": "This unit has no items matching the current filter — the filter may have changed.",
-      "backToUnits": "Back to units"
+      "emptySkillGroup": "This unit has no items matching the current filter — the filter may have changed.",
+      "emptyAssignmentGroup": "This skill has no items matching the current filter.",
+      "backToUnits": "Back to units",
+      "backToSkills": "Back to skills"
     },
     "empty": "No homework in this category.",
     "lockedAction": "Locked",
