@@ -76,6 +76,8 @@ export interface QuestionStructuredContent {
    * referencePassage/audioUrl dùng chung của ListeningGroupBuilder), FE chỉ đọc từ câu đầu nhóm.
    */
   wordBox?: string[];
+  /** Bổ sung 2026-09-17, đã xác nhận với người dùng — chỉ có ở WORD_BANK: "text" = mỗi chỗ trống hiện ô nhập chữ tự do (học sinh gõ tay) thay vì <select> chọn sẵn. Thiếu field này (undefined) = hành vi cũ (dropdown). */
+  inputMode?: "select" | "text";
 }
 
 /** Khớp Question.Skill thật (Question.java) — KHÔNG phải free-text, backend chỉ nhận đúng 1 trong 6 giá trị này. */
