@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
+import Pagination from "@/components/ui/Pagination";
 import { formatDate, formatDateTimeHm, formatHm, toLocaleTag } from "@/lib/format";
 import {
   AttendanceMarkResponse,
@@ -128,6 +129,9 @@ interface SessionFeedbackLog {
   homeworkNextReadingExerciseAssignmentId: number | null;
   homeworkNextWritingExerciseAssignmentId: number | null;
 }
+
+/** Số buổi tối đa mỗi trang của Bảng tổng quan nhật ký học tập (xem tablePage). */
+const TABLE_PAGE_SIZE = 6;
 
 interface DailyLearningProgressTabProps {
   studentName: string;
@@ -284,6 +288,11 @@ export default function DailyLearningProgressTab({
     if (dateTo && log.commentDate > dateTo) return false;
     return true;
   });
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-19 — Bảng tổng quan chỉ hiện TABLE_PAGE_SIZE
+  // buổi/trang (giới hạn chiều cao bảng) kèm phân trang phía client ở chân bảng; về trang 1 mỗi khi đổi bộ lọc.
+  const [tablePage, setTablePage] = useState(0);
+  useEffect(() => setTablePage(0), [selectedSessionId, attitudeFilter, dateFrom, dateTo]);
+  const pagedLogs = filteredLogs.slice(tablePage * TABLE_PAGE_SIZE, (tablePage + 1) * TABLE_PAGE_SIZE);
   const displayCode = studentCode || "";
   const selectedLog = logs.find((log) => log.id === selectedSessionId) ?? null;
 
@@ -765,14 +774,14 @@ export default function DailyLearningProgressTab({
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-line/70 pb-3">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-800 text-[11px] font-black font-mono border border-slate-200">
+                    <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-800 text-xs font-black font-mono border border-slate-200">
                       {log.commentDate}
                     </span>
-                    <span className="text-xs font-extrabold text-muted flex items-center gap-1">
+                    <span className="text-sm font-extrabold text-muted flex items-center gap-1">
                       <Clock size={12} className="text-teal" aria-hidden="true" /> {log.timeSlot ?? "—"}
                     </span>
                     {log.roomName && (
-                      <span className="text-xs font-extrabold text-muted flex items-center gap-1">
+                      <span className="text-sm font-extrabold text-muted flex items-center gap-1">
                         <MapPin size={12} className="text-teal" aria-hidden="true" /> {log.roomName}
                       </span>
                     )}
@@ -785,12 +794,12 @@ export default function DailyLearningProgressTab({
 
                 <div className="flex items-center gap-2 flex-wrap shrink-0">
                   {log.teacherType && (
-                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${teacherTypeStyles[log.teacherType]}`}>
+                    <span className={`px-2.5 py-0.5 rounded-full text-sm font-bold border ${teacherTypeStyles[log.teacherType]}`}>
                       {t("card.teacherLabel", { type: teacherTypeLabels[log.teacherType] })}
                     </span>
                   )}
                   <span
-                    className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${log.attitude ? attitudeStyles[log.attitude] : "bg-slate-100 text-slate-700 border-slate-200"
+                    className={`px-2.5 py-0.5 rounded-full text-sm font-bold border ${log.attitude ? attitudeStyles[log.attitude] : "bg-slate-100 text-slate-700 border-slate-200"
                       }`}
                   >
                     {t("card.attitudeLabel", { attitude: log.attitude ? attitudeLabels[log.attitude] : "—" })}
@@ -798,13 +807,13 @@ export default function DailyLearningProgressTab({
                 </div>
               </div>
 
-              <div className="p-3.5 bg-slate-50/80 rounded-xl border-l-4 border-teal text-xs text-ink/90 font-medium leading-relaxed italic">
+              <div className="p-3.5 bg-slate-50/80 rounded-xl border-l-4 border-teal text-sm text-ink/90 font-medium leading-relaxed italic">
                 <span className="text-sm font-extrabold not-italic text-slate-700 block mb-0.5">{t("card.teacherComment")}</span>"{log.content}"
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                 <div className="p-3.5 bg-slate-50 rounded-xl border border-line/80 space-y-2">
-                  <div className="flex items-center justify-between font-black text-slate-800 uppercase tracking-wider text-[12px]">
+                  <div className="flex items-center justify-between font-black text-slate-800 uppercase tracking-wider text-[13px]">
                     <span className="flex items-center gap-1">
                       <CheckCircle2 size={13} className="text-emerald-600" aria-hidden="true" /> {t("card.prevHomeworkResult")}
                     </span>
@@ -812,23 +821,23 @@ export default function DailyLearningProgressTab({
                   </div>
 
                   <div className="space-y-1.5 pt-1">
-                    <div className="flex justify-between text-[12px]">
+                    <div className="flex justify-between text-sm">
                       <span className="text-slate-600 font-semibold">{t("card.offlineLabel")}</span>
                       <span className="font-bold text-slate-900">{log.homeworkPreviousOfflineText || "—"}</span>
                     </div>
                     {isVietnameseSession && (
                       <>
-                        <div className="flex justify-between text-[12px]">
+                        <div className="flex justify-between text-sm">
                           <span className="text-slate-600 font-semibold">{t("table.reading")}:</span>
                           <span className="font-bold text-slate-900">{prevReadingDisplay || "—"}</span>
                         </div>
-                        <div className="flex justify-between text-[12px]">
+                        <div className="flex justify-between text-sm">
                           <span className="text-slate-600 font-semibold">{t("table.writing")}:</span>
                           <span className="font-bold text-slate-900">{prevWritingDisplay || "—"}</span>
                         </div>
                       </>
                     )}
-                    <div className="flex justify-between text-[12px]">
+                    <div className="flex justify-between text-sm">
                       <span className="text-slate-600 font-semibold">{cardGrammarLabel}:</span>
                       <span className="font-bold text-slate-900">{prevGrammarDisplay || "—"}</span>
                     </div>
@@ -837,7 +846,7 @@ export default function DailyLearningProgressTab({
                         <div className="bg-emerald-500 h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(100, Math.max(0, prevGrammarPercent))}%` }} />
                       </div>
                     )}
-                    <div className="flex justify-between text-[12px] pt-1">
+                    <div className="flex justify-between text-sm pt-1">
                       <span className="text-slate-600 font-semibold">{cardVideoLabel}:</span>
                       <span className="font-bold text-purple-900">{prevSpeakingDisplay || "—"}</span>
                     </div>
@@ -845,40 +854,40 @@ export default function DailyLearningProgressTab({
                 </div>
 
                 <div className="p-3.5 bg-slate-50 rounded-xl border border-line/80 space-y-2">
-                  <div className="flex items-center justify-between font-black text-slate-800 uppercase tracking-wider text-[12px]">
+                  <div className="flex items-center justify-between font-black text-slate-800 uppercase tracking-wider text-[13px]">
                     <span className="flex items-center gap-1">
                       <BookOpen size={13} className="text-blue-600" aria-hidden="true" /> {t("card.homework")}
                     </span>
                   </div>
 
                   <div className="space-y-2 pt-1">
-                    <div className="flex items-start justify-between gap-2 text-[12px]">
+                    <div className="flex items-start justify-between gap-2 text-sm">
                       <span className="font-bold text-slate-800 shrink-0">{t("card.offlineLabel")}</span>
                       <span className="font-semibold text-slate-700 text-right">{log.homeworkNextOfflineText || "—"}</span>
                     </div>
                     {isVietnameseSession && (
                       <>
-                        <div className="flex items-start justify-between gap-2 text-[12px]">
+                        <div className="flex items-start justify-between gap-2 text-sm">
                           <span className="font-bold text-slate-800 shrink-0">{t("table.reading")}:</span>
                           {renderReadingLabel(log, "font-semibold text-right")}
                         </div>
-                        <div className="flex items-start justify-between gap-2 text-[12px]">
+                        <div className="flex items-start justify-between gap-2 text-sm">
                           <span className="font-bold text-slate-800 shrink-0">{t("table.writing")}:</span>
                           {renderWritingLabel(log, "font-semibold text-right")}
                         </div>
                       </>
                     )}
-                    <div className="flex items-start justify-between gap-2 text-[12px]">
+                    <div className="flex items-start justify-between gap-2 text-sm">
                       <span className="font-bold text-slate-800 shrink-0">{cardGrammarLabel}:</span>
                       {renderGrammarLabel(log, "font-semibold text-right")}
                     </div>
-                    <div className="flex items-start justify-between gap-2 text-[12px]">
+                    <div className="flex items-start justify-between gap-2 text-sm">
                       <span className="flex items-center gap-1.5 font-bold text-slate-800 shrink-0">
                         <Video size={12} className="text-amber-600 shrink-0" aria-hidden="true" /> {cardVideoLabel}:
                       </span>
                       {renderVideoLabel(log, "font-semibold text-right")}
                     </div>
-                    <div className="pt-1 border-t border-line/60 flex items-start justify-between gap-2 text-[12px]">
+                    <div className="pt-1 border-t border-line/60 flex items-start justify-between gap-2 text-sm">
                       <span className="font-bold text-slate-800 shrink-0">{t("card.dueDateLabel")}</span>
                       <span className="font-semibold text-slate-700 text-right">
                         {log.homeworkNextDueAt ? formatDateTimeHm(log.homeworkNextDueAt, i18n.language) : "—"}
@@ -889,7 +898,7 @@ export default function DailyLearningProgressTab({
               </div>
 
               {log.note && (
-                <p className="text-[11px] font-bold text-teal bg-teal/10 px-3 py-1.5 rounded-lg border border-teal/20 inline-block">
+                <p className="text-[13px] font-bold text-teal bg-teal/10 px-3 py-1.5 rounded-lg border border-teal/20 inline-block">
                   {t("card.noteLabel", { note: log.note })}
                 </p>
               )}
@@ -1262,8 +1271,9 @@ export default function DailyLearningProgressTab({
           {filteredLogs.length === 0 ? (
             <p className="text-sm text-muted font-bold italic text-center py-10">{t("noApprovedComments")}</p>
           ) : (
+            <>
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse min-w-[1700px]">
+              <table className="w-full text-left border-separate border-spacing-0 min-w-[1700px]">
                 <thead>
                   {/* Cỡ chữ bảng tăng trên mobile (đọc rõ hơn theo phản hồi người dùng, 2026-07-31) —
                         desktop (md+) giữ nguyên cỡ gốc qua md:text-*. */}
@@ -1280,10 +1290,10 @@ export default function DailyLearningProgressTab({
                     FOREIGN, cột Reading/Writing chỉ có giá trị ở buổi VIETNAMESE) — "—" tự nhiên cho ô
                     không áp dụng, không cần bảng con đổi cấu trúc theo từng dòng.
                   */}
-                  <tr className="bg-slate-100 border-b border-slate-300 [&>th]:text-center text-xs md:text-[11px] font-black uppercase text-slate-700 tracking-wider">
-                    <th rowSpan={3} className="p-3 border-r border-slate-300 w-28 whitespace-nowrap">{t("table.date")}</th>
-                    <th rowSpan={3} className="p-3 border-r border-slate-300 min-w-[200px]">{t("table.todayLesson")}</th>
-                    <th rowSpan={3} className="p-3 border-r border-slate-300 w-28 whitespace-nowrap text-center">{t("table.teacher")}</th>
+                  <tr className="bg-slate-100 [&>th]:border-b [&>th]:border-slate-300 [&>th]:text-center text-xs font-black uppercase text-slate-700 tracking-wider">
+                    <th rowSpan={3} className="p-3 border-r border-slate-300 w-28 min-w-28 whitespace-nowrap sticky left-0 z-30 bg-slate-100">{t("table.date")}</th>
+                    <th rowSpan={3} className="p-3 border-r border-slate-300 w-52 min-w-52 max-w-52 sticky left-28 z-30 bg-slate-100">{t("table.todayLesson")}</th>
+                    <th rowSpan={3} className="p-3 border-r border-slate-300 w-28 min-w-28 whitespace-nowrap text-center sticky left-80 z-30 bg-slate-100">{t("table.teacher")}</th>
                     <th colSpan={7} className="p-3 border-r border-slate-300 text-center">{t("table.homeworkPrev")}</th>
                     <th colSpan={7} className="p-3 border-r border-slate-300 text-center">{t("table.homeworkNextGroup")}</th>
                     <th rowSpan={3} className="p-3 border-r border-slate-300 w-32 whitespace-nowrap">{t("table.dueDate")}</th>
@@ -1291,13 +1301,13 @@ export default function DailyLearningProgressTab({
                     <th rowSpan={3} className="p-3 border-r border-slate-300 min-w-[220px]">{t("table.studentComment")}</th>
                     <th rowSpan={3} className="p-3 min-w-[140px]">{t("table.note")}</th>
                   </tr>
-                  <tr className="bg-slate-100 border-b border-slate-300 [&>th]:text-center text-xs md:text-[11px] font-black uppercase text-slate-700 tracking-wider">
+                  <tr className="bg-slate-100 [&>th]:border-b [&>th]:border-slate-300 [&>th]:text-center text-xs font-black uppercase text-slate-700 tracking-wider">
                     <th colSpan={3} className="p-3 border-r border-slate-300 text-center">{t("table.offline")}</th>
                     <th colSpan={4} className="p-3 border-r border-slate-300 text-center">{t("table.online")}</th>
                     <th colSpan={3} className="p-3 border-r border-slate-300 text-center">{t("table.offline")}</th>
                     <th colSpan={4} className="p-3 border-r border-slate-300 text-center">{t("table.online")}</th>
                   </tr>
-                  <tr className="bg-slate-100 border-b border-slate-300 [&>th]:text-center text-xs md:text-[11px] font-black uppercase text-slate-700 tracking-wider">
+                  <tr className="bg-slate-100 [&>th]:border-b [&>th]:border-slate-300 [&>th]:text-center text-xs font-black uppercase text-slate-700 tracking-wider">
                     <th className="p-3 border-r border-slate-300 w-28 whitespace-nowrap text-center">{t("table.offline")}</th>
                     <th className="p-3 border-r border-slate-300 w-24 whitespace-nowrap text-center">{t("table.reading")}</th>
                     <th className="p-3 border-r border-slate-300 w-24 whitespace-nowrap text-center">{t("table.writing")}</th>
@@ -1314,16 +1324,16 @@ export default function DailyLearningProgressTab({
                     <th className="p-3 border-r border-slate-300 min-w-[160px] text-center">{t("table.videoTkn")}</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-300 text-sm md:text-xs font-medium text-ink">
-                  {filteredLogs.map((log) => (
-                    <tr key={log.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="p-3 border-r border-slate-300 font-mono font-bold text-slate-700 whitespace-nowrap align-top">{log.commentDate}</td>
-                      <td className="p-3 border-r border-slate-300 align-top">
+                <tbody className="[&_td]:border-b [&_td]:border-slate-300 [&>tr:last-child>td]:border-b-0 text-sm md:text-[13px] font-medium text-ink">
+                  {pagedLogs.map((log) => (
+                    <tr key={log.id} className="group hover:bg-slate-50/80 transition-colors">
+                      <td className="p-3 border-r border-slate-300 font-mono font-bold text-slate-700 whitespace-nowrap align-top w-28 min-w-28 sticky left-0 z-20 bg-white group-hover:bg-slate-50">{log.commentDate}</td>
+                      <td className="p-3 border-r border-slate-300 align-top w-52 min-w-52 max-w-52 sticky left-28 z-20 bg-white group-hover:bg-slate-50">
                         <div className="font-bold text-teal-deep">
                           {log.sessionNumber != null ? t("sessionNumber", { number: log.sessionNumber }) : log.sessionTypeLabel ?? t("sessionFallback")}
                           {log.lessonContent && <span className="font-bold text-teal-deep">: {log.lessonContent}</span>}
                         </div>
-                        <div className="text-xs md:text-[10px] text-muted font-mono flex items-center gap-1 mt-1">
+                        <div className="text-xs text-muted font-mono flex items-center gap-1 mt-1">
                           <Clock size={10} aria-hidden="true" /> {log.timeSlot ?? "—"}
                           {log.roomName && (
                             <>
@@ -1333,9 +1343,9 @@ export default function DailyLearningProgressTab({
                           )}
                         </div>
                       </td>
-                      <td className="p-3 border-r border-slate-300 text-center whitespace-nowrap align-top">
+                      <td className="p-3 border-r border-slate-300 text-center whitespace-nowrap align-top w-28 min-w-28 sticky left-80 z-20 bg-white group-hover:bg-slate-50">
                         {log.teacherType ? (
-                          <span className={`px-2 py-0.5 rounded text-xs md:text-[10px] border font-bold ${teacherTypeStyles[log.teacherType]}`}>
+                          <span className={`px-2 py-0.5 rounded text-xs border font-bold ${teacherTypeStyles[log.teacherType]}`}>
                             {teacherTypeLabels[log.teacherType]}
                           </span>
                         ) : (
@@ -1372,17 +1382,28 @@ export default function DailyLearningProgressTab({
                         {log.homeworkNextDueAt ? formatDateTimeHm(log.homeworkNextDueAt, i18n.language) : "—"}
                       </td>
                       <td className="p-3 border-r border-slate-300 text-center whitespace-nowrap align-top">
-                        <span className={`px-2 py-0.5 rounded text-xs md:text-[10px] border ${log.attitude ? attitudeStyles[log.attitude] : "bg-slate-100 text-slate-700 border-slate-200"}`}>
+                        <span className={`px-2 py-0.5 rounded text-xs border ${log.attitude ? attitudeStyles[log.attitude] : "bg-slate-100 text-slate-700 border-slate-200"}`}>
                           {log.attitude ? attitudeLabels[log.attitude] : "—"}
                         </span>
                       </td>
                       <td className="p-3 border-r border-slate-300 text-slate-700 italic align-top">"{log.content}"</td>
-                      <td className="p-3 text-slate-600 text-xs md:text-[11px] align-top">{log.note || "—"}</td>
+                      <td className="p-3 text-slate-600 text-xs align-top">{log.note || "—"}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+            {/* Phân trang ở chân bảng (Pagination tự ẩn khi chỉ có 1 trang). */}
+            <div className="px-4 py-3 border-t border-line bg-slate-50/80 empty:hidden">
+              <Pagination
+                page={tablePage}
+                pageSize={TABLE_PAGE_SIZE}
+                totalElements={filteredLogs.length}
+                itemLabel={t("table.showingSuffix")}
+                onPageChange={setTablePage}
+              />
+            </div>
+            </>
           )}
         </div>
       ) : (
