@@ -14,6 +14,16 @@ const documentTypeIcons: Record<CurriculumDocumentResponse["documentType"], Reac
   OTHER: <FileText size={12} />
 };
 
+/** Nền pastel gradient của thẻ tài liệu theo loại (kiểu "glass", 2026-09-19, đã xác nhận với người dùng — đồng bộ với thẻ BTVN). */
+const documentTypeTints: Record<CurriculumDocumentResponse["documentType"], string> = {
+  PDF: "from-teal/15 via-white/70 to-white/50",
+  SLIDE: "from-teal/15 via-white/70 to-white/50",
+  VIDEO: "from-coral/15 via-white/70 to-white/50",
+  AUDIO: "from-plum/15 via-white/70 to-white/50",
+  IMAGE: "from-gold/20 via-white/70 to-white/50",
+  OTHER: "from-gold/20 via-white/70 to-white/50"
+};
+
 type CategoryFilter = "ALL" | "DOCUMENT" | "MEDIA" | "OTHER";
 
 /** Nhóm theo documentType THẬT (VIDEO/PDF/AUDIO/SLIDE/IMAGE/OTHER) — không bịa thêm phân loại (VD "Flashcards"/"E-Book") ngoài dữ liệu backend đang có.
@@ -123,8 +133,10 @@ export default function DocumentLibraryTab({ classId }: DocumentLibraryTabProps)
             <button
               key={c.key}
               onClick={() => setCategoryFilter(c.key)}
-              className={`shrink-0 snap-start px-3.5 py-2 rounded-xl text-sm font-bold transition-colors ${
-                categoryFilter === c.key ? "bg-teal text-white shadow-sm" : "bg-white border border-line/80 text-muted hover:bg-sky-2"
+              className={`shrink-0 snap-start px-4 py-2 rounded-xl text-sm font-black transition-all cursor-pointer ${
+                categoryFilter === c.key
+                  ? "bg-teal text-white shadow-md"
+                  : "bg-white/70 backdrop-blur-md border border-white/80 text-ink shadow-sm hover:bg-white/90"
               }`}
             >
               {t(`documents.categoryFilters.${c.key}`)} ({count})
@@ -142,8 +154,11 @@ export default function DocumentLibraryTab({ classId }: DocumentLibraryTabProps)
             const thumbnailUrl = doc.coverImageUrl ?? (youtubeVideoId ? getYouTubeThumbnailUrl(youtubeVideoId) : null);
 
             return (
-              <div key={doc.id} className="flex flex-col rounded-[16px] border border-line/80 bg-white overflow-hidden shadow-sm">
-                <div className="relative w-full h-32 bg-teal/10 flex items-center justify-center text-teal overflow-hidden">
+              <div
+                key={doc.id}
+                className={`flex flex-col rounded-3xl p-2.5 bg-gradient-to-br ${documentTypeTints[doc.documentType]} backdrop-blur-md border border-white/80 shadow-[0_8px_30px_rgba(30,42,69,0.06)] hover:border-teal/50 hover:ring-4 hover:ring-teal/10 hover:shadow-[0_12px_36px_rgba(30,42,69,0.12)] hover:-translate-y-0.5 transition-all overflow-hidden`}
+              >
+                <div className="relative w-full h-32 rounded-2xl bg-white/60 flex items-center justify-center text-teal overflow-hidden">
                   {thumbnailUrl ? <img src={thumbnailUrl} alt="" className="w-full h-32 object-cover" /> : <FileText size={28} />}
                   <span className="absolute top-2 left-2 flex items-center gap-1 bg-ink/70 text-white text-[10px] font-extrabold uppercase px-2 py-1 rounded-lg">
                     {documentTypeIcons[doc.documentType]} {t(`documents.type.${doc.documentType}`)}
@@ -156,22 +171,22 @@ export default function DocumentLibraryTab({ classId }: DocumentLibraryTabProps)
                     </div>
                   )}
                 </div>
-                <div className="p-3.5 flex-1 min-w-0 space-y-1">
-                  <p title={doc.title} style={clampLines(2)} className="font-extrabold text-ink text-sm leading-snug">
+                <div className="px-2 pt-3 pb-2 flex-1 min-w-0 space-y-1">
+                  <p title={doc.title} style={clampLines(2)} className="font-black text-ink text-base leading-snug">
                     {doc.title}
                   </p>
                   {doc.description && (
-                    <p title={doc.description} style={clampLines(2)} className="text-[10px] text-muted font-bold">
+                    <p title={doc.description} style={clampLines(2)} className="text-xs text-muted font-semibold">
                       {doc.description}
                     </p>
                   )}
                 </div>
-                <div className="p-3.5 pt-0">
+                <div className="px-2 pb-2">
                   {youtubeVideoId ? (
                     <button
                       type="button"
                       onClick={() => setActiveYouTubeDoc({ title: doc.title, videoId: youtubeVideoId })}
-                      className="w-full flex items-center justify-center gap-1.5 bg-slate-50 hover:bg-slate-100 border border-line/80 rounded-xl py-2 text-xs font-extrabold text-ink transition-colors"
+                      className="w-full flex items-center justify-center gap-1.5 bg-white/80 hover:bg-white border border-white rounded-full py-2 text-xs font-extrabold text-ink transition-colors cursor-pointer"
                     >
                       <Play size={13} className="text-teal" /> {t("documents.watchVideo")}
                     </button>
@@ -180,7 +195,7 @@ export default function DocumentLibraryTab({ classId }: DocumentLibraryTabProps)
                       href={doc.fileUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="w-full flex items-center justify-center gap-1.5 bg-slate-50 hover:bg-slate-100 border border-line/80 rounded-xl py-2 text-xs font-extrabold text-ink transition-colors"
+                      className="w-full flex items-center justify-center gap-1.5 bg-white/80 hover:bg-white border border-white rounded-full py-2 text-xs font-extrabold text-ink transition-colors"
                     >
                       <Download size={13} className="text-teal" /> {t("documents.readAndDownload", { type: t(`documents.type.${doc.documentType}`) })}
                     </a>

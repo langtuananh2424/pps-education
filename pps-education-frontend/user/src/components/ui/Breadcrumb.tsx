@@ -11,9 +11,9 @@ export interface BreadcrumbItem {
  * điều hướng phân cấp Unit → Lesson → Bài tập, xem AssignmentsTab.tsx. Mục cuối (đang đứng) không phải
  * link; các mục trước có `onClick` render thành nút bấm để quay lại cấp tương ứng.
  */
-export default function Breadcrumb({ items }: { items: BreadcrumbItem[] }) {
+export default function Breadcrumb({ items, className = "" }: { items: BreadcrumbItem[]; className?: string }) {
   return (
-    <nav aria-label="breadcrumb" className="flex items-center gap-1.5 flex-wrap text-sm">
+    <nav aria-label="breadcrumb" className={`flex items-center gap-1.5 flex-wrap text-sm ${className}`}>
       {items.map((item, idx) => {
         const isLast = idx === items.length - 1;
         return (

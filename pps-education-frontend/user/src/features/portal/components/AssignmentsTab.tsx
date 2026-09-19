@@ -7,7 +7,6 @@ import {
   CalendarDays,
   CheckCircle2,
   ChevronRight,
-  ClipboardCheck,
   Clock,
   FileText,
   GraduationCap,
@@ -874,38 +873,36 @@ export default function AssignmentsTab({
         // đỏ (mirror tab lọc "Bài tập quá hạn" cùng màu) khi còn bài quá hạn, chỉ hiện banner xanh khi
         // THẬT SỰ không còn gì (pendingCount=0 VÀ overdueCount=0). Cho đóng lại (nút X) — chỉ ẩn trong
         // phiên xem hiện tại, không lưu lại (mở lại/tải lại trang thì hiện lại nếu vẫn còn quá hạn).
-        <div className="relative p-5 bg-gradient-to-r from-rose-50 via-rose-50 to-white border border-rose-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 overflow-hidden">
+        // Kiểu gradient hồng → đỏ/cam (2026-09-19, theo mẫu người dùng đưa): nền hồng nhạt, ô icon vuông
+        // gradient kèm huy hiệu đồng hồ, nhãn hồng nhạt, nút gradient. Không có nút "Nhắn giáo viên" như
+        // ảnh mẫu vì hệ thống chưa có chức năng nhắn tin cho giáo viên.
+        <div className="relative p-5 bg-gradient-to-r from-rose-50 via-rose-50/80 to-pink-100/60 border-1 border-rose-200 shadow-[0_8px_30px_rgba(244,63,94,0.15)] rounded-3xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <button
             onClick={() => setOverdueBannerDismissed(true)}
             aria-label={t("assignments.overdueBanner.dismiss")}
-            className="absolute top-3 right-3 w-7 h-7 rounded-full flex items-center justify-center text-rose-400 hover:text-rose-600 hover:bg-rose-100 transition-colors cursor-pointer"
+            className="absolute top-3 right-3 w-7 h-7 rounded-full flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-100 transition-colors cursor-pointer"
           >
             <X size={16} />
           </button>
-          <div className="flex items-center gap-3 pr-8 sm:pr-0">
+          <div className="flex items-center gap-4 pr-8 sm:pr-0">
             <div className="hidden sm:flex w-12 h-12 rounded-full bg-coral items-center justify-center shrink-0 shadow-sm">
               <AlertCircle size={24} className="text-white" />
             </div>
             <div>
-              <span className="px-2.5 py-0.5 rounded-full bg-coral text-white text-[10px] font-black uppercase tracking-wider">
+              <span className="inline-flex items-center gap-1.5 pl-2 pr-2.5 py-0.5 rounded-full bg-rose-100 text-rose-700 text-[10px] font-black uppercase tracking-wider">
+                {/* Chấm đỏ nhấp nháy kiểu chấm thông báo, nằm trái và ngang hàng với chữ (2026-09-19, theo yêu cầu người dùng) — thu hút chú ý vào cảnh báo quá hạn. */}
+                <span className="relative flex h-2.5 w-2.5 shrink-0" aria-hidden="true">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400 opacity-80" />
+                  <span className="relative inline-flex h-2.5 w-2.5 animate-blink-dot rounded-full bg-rose-500" />
+                </span>
                 {t("assignments.overdueBanner.label")}
               </span>
               <h3 className="text-base md:text-lg font-black font-display mt-1 text-ink">
                 {t("assignments.overdueBanner.titlePrefix")}{" "}
-                <span className="text-coral">{t("assignments.overdueBanner.titleCount", { count: overdueCount })}</span>{" "}
+                <span className="text-rose-600">{t("assignments.overdueBanner.titleCount", { count: overdueCount })}</span>{" "}
                 {t("assignments.overdueBanner.titleSuffix")}
               </h3>
-              <p className="text-xs text-slate-500 font-semibold mt-0.5">{t("assignments.overdueBanner.description")}</p>
-            </div>
-          </div>
-
-          {/* Minh hoạ trang trí — ghép từ 2 icon sẵn có (clipboard + đồng hồ), tránh phải thêm ảnh/asset mới. */}
-          <div className="relative hidden sm:flex items-center justify-center w-20 h-16 shrink-0 mx-auto">
-            <div className="absolute w-14 h-14 rounded-2xl bg-white shadow-md -rotate-6 flex items-center justify-center">
-              <ClipboardCheck className="w-7 h-7 text-coral" />
-            </div>
-            <div className="absolute right-0 bottom-0 w-8 h-8 rounded-full bg-coral shadow-md flex items-center justify-center ring-2 ring-white">
-              <Clock className="w-4 h-4 text-white" />
+              <p className="text-xs text-slate-600 font-semibold mt-0.5">{t("assignments.overdueBanner.description")}</p>
             </div>
           </div>
 
@@ -914,7 +911,7 @@ export default function AssignmentsTab({
               setFilterStatus("OVERDUE");
               setNavView({ level: "units" });
             }}
-            className="w-full sm:w-auto px-5 py-2.5 bg-coral hover:opacity-90 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-sm transition-all shrink-0 cursor-pointer self-stretch sm:self-center"
+            className="w-full sm:w-auto sm:mr-8 px-5 py-2.5 bg-coral hover:opacity-90 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-sm transition-all shrink-0 cursor-pointer self-stretch sm:self-center"
           >
             {t("assignments.overdueBanner.actionButton")}
           </button>
@@ -960,51 +957,41 @@ export default function AssignmentsTab({
             { label: skillLabel(t, navView.skillKey) }
           ];
         })()}
+        // Viên thuốc kính mờ + kéo sát hàng tab bên dưới (mb-3 ghi đè khoảng cách space-y-6 của khối cha) —
+        // 2026-09-19, theo yêu cầu người dùng, để breadcrumb không "lơ lửng" cách xa tab.
+        className="w-fit max-w-full px-4 py-2 rounded-full bg-white/70 backdrop-blur-md border border-white/80 shadow-sm mb-3"
       />
 
-      <div className="space-y-2.5 border-b border-line pb-3">
-        {/* 1 hàng — các nút trạng thái tự cuộn ngang kiểu carousel, dùng chung cho mọi kích thước màn
-            hình (theo yêu cầu người dùng, 2026-08-01). Dropdown lọc "loại bài" cũ ở cuối hàng đã bỏ
-            2026-09-19 — thay bằng cấp điều hướng Kỹ năng (xem NavView). */}
-        <div className="flex items-center gap-2">
-          <div className="flex-1 min-w-0 flex items-center gap-2 overflow-x-auto scrollbar-hide snap-x snap-proximity">
+      {/* Hàng tab trạng thái tự cuộn ngang kiểu carousel, dùng chung mọi kích thước màn hình (yêu cầu
+          2026-08-01). Dropdown lọc "loại bài" cũ đã bỏ 2026-09-19 — thay bằng cấp điều hướng Kỹ năng (xem
+          NavView). Kiểu "glass" pill + chip số đếm (2026-09-19, đã xác nhận với người dùng, thử ở khu vực
+          BTVN trước). Tab "Quá hạn" (V152, 2026-08-25) tách riêng khỏi "Cần hoàn thành". */}
+      <div className="flex items-center gap-2.5 overflow-x-auto scrollbar-hide snap-x snap-proximity py-1 px-1">
+        {(
+          [
+            { status: "ALL", label: t("assignments.filters.labelAll"), count: tabAllCount, icon: null, active: "bg-teal text-white" },
+            { status: "PENDING", label: t("assignments.filters.labelPending"), count: tabPendingCount, icon: Clock, active: "bg-orange-500 text-white" },
+            { status: "GRADED", label: t("assignments.filters.labelGraded"), count: tabGradedCount, icon: CheckCircle2, active: "bg-teal text-white" },
+            { status: "OVERDUE", label: t("assignments.filters.labelOverdue"), count: tabOverdueCount, icon: AlertCircle, active: "bg-coral text-white" }
+          ] as const
+        ).map((tab) => {
+          const isActive = filterStatus === tab.status;
+          const TabIcon = tab.icon;
+          return (
             <button
-              onClick={() => setFilterStatus("ALL")}
-              className={`shrink-0 snap-start px-4 py-2 rounded-xl text-sm font-black transition-all cursor-pointer ${
-                filterStatus === "ALL" ? "bg-teal text-white shadow-sm" : "bg-slate-100 hover:bg-slate-200 text-muted"
+              key={tab.status}
+              onClick={() => setFilterStatus(tab.status)}
+              className={`shrink-0 snap-start flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-black transition-all cursor-pointer ${
+                isActive
+                  ? `${tab.active} shadow-md`
+                  : "bg-white/70 backdrop-blur-md border border-white/80 text-ink shadow-sm hover:bg-white/90"
               }`}
             >
-              {t("assignments.filters.all", { count: tabAllCount })}
+              {TabIcon && <TabIcon size={14} />}
+              {tab.label} ({tab.count})
             </button>
-            <button
-              onClick={() => setFilterStatus("PENDING")}
-              className={`shrink-0 snap-start px-4 py-2 rounded-xl text-sm font-black transition-all cursor-pointer flex items-center gap-1.5 ${
-                filterStatus === "PENDING" ? "bg-orange-500 text-white shadow-sm" : "bg-slate-100 hover:bg-slate-200 text-muted"
-              }`}
-            >
-              <Clock size={14} /> {t("assignments.filters.pending", { count: tabPendingCount })}
-            </button>
-            <button
-              onClick={() => setFilterStatus("GRADED")}
-              className={`shrink-0 snap-start px-4 py-2 rounded-xl text-sm font-black transition-all cursor-pointer flex items-center gap-1.5 ${
-                filterStatus === "GRADED" ? "bg-teal text-white shadow-sm" : "bg-slate-100 hover:bg-slate-200 text-muted"
-              }`}
-            >
-              <CheckCircle2 size={14} /> {t("assignments.filters.graded", { count: tabGradedCount })}
-            </button>
-            {/* V152 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25) — tab lọc riêng cho
-                BTVN đã quá hạn nộp (chưa hoàn thành xong), giúp học sinh/phụ huynh tìm nhanh thay vì
-                phải đọc từng badge quá hạn rải rác trong danh sách "Cần hoàn thành". */}
-            <button
-              onClick={() => setFilterStatus("OVERDUE")}
-              className={`shrink-0 snap-start px-4 py-2 rounded-xl text-sm font-black transition-all cursor-pointer flex items-center gap-1.5 ${
-                filterStatus === "OVERDUE" ? "bg-coral text-white shadow-sm" : "bg-slate-100 hover:bg-slate-200 text-muted"
-              }`}
-            >
-              <AlertCircle size={14} /> {t("assignments.filters.overdue", { count: tabOverdueCount })}
-            </button>
-          </div>
-        </div>
+          );
+        })}
       </div>
 
       {navView.level === "units" ? (
@@ -1143,95 +1130,136 @@ export default function AssignmentsTab({
 }
 
 /**
- * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-18 (chỉnh lại cùng ngày, thẻ ban đầu quá
- * đơn điệu — 1 icon xám nhạt duy nhất) — xoay vòng 4 cặp icon/màu đặc theo bảng màu sẵn có (teal/coral/
- * gold/plum) theo INDEX của Unit trong danh sách, để nhiều thẻ Unit cạnh nhau trông sinh động, dễ phân
- * biệt bằng mắt (kiểu bìa sách nhiều màu) thay vì tất cả cùng 1 màu nhạt. Xoay theo index (ổn định giữa
- * các lần render) chứ không random để tránh icon "nhảy" đổi màu mỗi khi component re-render.
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-19 — thẻ điều hướng kiểu "glass" dùng chung cho
+ * cấp Unit và cấp Kỹ năng (xem NavView): nền pastel gradient bán trong suốt + blur, ô icon màu đặc, huy hiệu
+ * trạng thái, 2 dòng tên bài đầu tiên, số bài + hạn gần nhất, nút mũi tên tròn. Thử ở khu vực BTVN trước.
+ * Đếm/hạn tính trên CHÍNH bộ feedItems đã lọc theo filterStatus hiện tại (entries), không phải toàn lớp.
  */
-const UNIT_CARD_ACCENTS: { bg: string; icon: typeof BookOpen }[] = [
-  { bg: "bg-gradient-to-br from-teal to-teal-deep", icon: BookOpen },
-  { bg: "bg-gradient-to-br from-coral to-plum", icon: Rocket },
-  { bg: "bg-gradient-to-br from-gold to-coral", icon: Star },
-  { bg: "bg-gradient-to-br from-plum to-teal-deep", icon: Sparkles }
+interface NavTint {
+  card: string;
+  iconBg: string;
+}
+
+const NAV_TINTS: NavTint[] = [
+  { card: "from-teal/15 via-white/70 to-white/50", iconBg: "from-teal to-teal-deep" },
+  { card: "from-coral/15 via-white/70 to-white/50", iconBg: "from-coral to-plum" },
+  { card: "from-gold/20 via-white/70 to-white/50", iconBg: "from-gold to-coral" },
+  { card: "from-plum/15 via-white/70 to-white/50", iconBg: "from-plum to-teal-deep" }
 ];
 
-function UnitCard({ unit, index, onOpen }: { unit: UnitGroup; index: number; onOpen: () => void }) {
-  const { t } = useTranslation("portal-exercises");
-  const pendingCount = unit.entries.filter(isEntryPending).length;
-  const accent = UNIT_CARD_ACCENTS[index % UNIT_CARD_ACCENTS.length];
-  const AccentIcon = accent.icon;
+/** Xoay theo INDEX của Unit (ổn định giữa các lần render, không random để tránh đổi màu mỗi lần re-render). */
+const UNIT_CARD_ICONS: (typeof BookOpen)[] = [BookOpen, Rocket, Star, Sparkles];
+
+/** Icon + tông màu theo từng Kỹ năng (chỉ số = vị trí trong NAV_TINTS). */
+const SKILL_CARD_STYLE: Record<SkillKey, { tint: number; icon: typeof BookOpen }> = {
+  VOCAB_GRAMMAR: { tint: 0, icon: BookOpen },
+  LISTENING: { tint: 1, icon: Headphones },
+  READING: { tint: 2, icon: FileText },
+  WRITING: { tint: 3, icon: PenLine },
+  OTHER_EXERCISE: { tint: 0, icon: Layers },
+  CONNECTION: { tint: 2, icon: Video },
+  REFLEX: { tint: 1, icon: Mic }
+};
+
+function entryDueAt(entry: FeedEntry): string | null | undefined {
+  if (entry.type === "exercise") return entry.item.dueAt;
+  if (entry.type === "exerciseBatch") return entry.items[0].dueAt;
+  return entry.item.dueAt;
+}
+
+function entryTitle(t: (key: string) => string, entry: FeedEntry): string {
+  if (entry.type === "exercise") return entry.item.title;
+  if (entry.type === "exerciseBatch") return batchGroupTitle(t, entry.items);
+  return entry.item.video.title;
+}
+
+function NavCard({
+  title,
+  icon: Icon,
+  tint,
+  entries,
+  onOpen
+}: {
+  title: string;
+  icon: typeof BookOpen;
+  tint: NavTint;
+  entries: FeedEntry[];
+  onOpen: () => void;
+}) {
+  const { t, i18n } = useTranslation("portal-exercises");
+  const overdueCount = entries.filter(isEntryOverduePending).length;
+  const pendingCount = entries.filter(isEntryPending).length;
+  const earliestDue = entries
+    .map(entryDueAt)
+    .filter((d): d is string => d != null)
+    .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())[0];
+  const previewTitles = entries.slice(0, 2).map((entry) => entryTitle(t, entry));
+
   return (
     <button
       type="button"
       onClick={onOpen}
-      className="text-left p-5 bg-white border border-line/80 rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-teal/40 transition-all cursor-pointer flex flex-col gap-3"
+      className={`group text-left p-5 rounded-3xl bg-gradient-to-br ${tint.card} backdrop-blur-md border border-white/80 shadow-[0_8px_30px_rgba(30,42,69,0.06)] hover:border-teal/50 hover:ring-4 hover:ring-teal/10 hover:shadow-[0_12px_36px_rgba(30,42,69,0.12)] hover:-translate-y-0.5 transition-all cursor-pointer flex flex-col gap-3`}
     >
-      <div className={`w-14 h-14 rounded-2xl ${accent.bg} text-white flex items-center justify-center shrink-0 shadow-sm`}>
-        <AccentIcon size={26} />
-      </div>
-      <div className="space-y-1 min-w-0">
-        <h3 className="text-xl font-black text-ink font-display truncate">{unit.unitLabel}</h3>
-        <p className="text-sm font-bold text-muted">{t("assignments.nav.itemCount", { count: unit.entries.length })}</p>
-      </div>
-      <div className="flex items-center justify-end gap-2 mt-auto pt-2 border-t border-line/60">
-        {pendingCount > 0 ? (
-          <span className="px-2 py-0.5 rounded-lg bg-amber-100 text-amber-800 border border-amber-300 text-[11px] font-black whitespace-nowrap">
-            {t("assignments.nav.pendingBadge", { count: pendingCount })}
+      <div className="flex items-start justify-between gap-3">
+        <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${tint.iconBg} text-white flex items-center justify-center shrink-0 shadow-md`}>
+          <Icon size={26} />
+        </div>
+        {overdueCount > 0 ? (
+          <span className="px-2.5 py-1 rounded-full bg-rose-50/90 border border-rose-200 text-rose-600 text-xs font-black flex items-center gap-1 whitespace-nowrap">
+            <AlertCircle size={12} /> {t("assignments.nav.overdueBadge")}
+          </span>
+        ) : pendingCount > 0 ? (
+          <span className="px-2.5 py-1 rounded-full bg-amber-50/90 border border-amber-200 text-amber-700 text-xs font-black flex items-center gap-1 whitespace-nowrap">
+            <Clock size={12} /> {t("assignments.nav.pendingBadge", { count: pendingCount })}
           </span>
         ) : (
-          <ChevronRight size={16} className="text-muted shrink-0" />
+          <span className="px-2.5 py-1 rounded-full bg-emerald-50/90 border border-emerald-200 text-emerald-700 text-xs font-black flex items-center gap-1 whitespace-nowrap">
+            <CheckCircle2 size={12} /> {t("assignments.nav.doneBadge")}
+          </span>
         )}
+      </div>
+
+      <h3 className="text-xl font-black text-ink font-display truncate">{title}</h3>
+
+      <ul className="space-y-1 min-h-[2.75rem]">
+        {previewTitles.map((name, i) => (
+          <li key={i} className="flex items-center gap-2 text-sm font-semibold text-slate-600 min-w-0">
+            <span className="w-1.5 h-1.5 rounded-full bg-muted/40 shrink-0" />
+            <span className="truncate">{name}</span>
+          </li>
+        ))}
+      </ul>
+
+      <div className="flex items-center justify-between gap-2 mt-auto pt-3 border-t border-white/70">
+        <span className="text-sm font-bold text-slate-600 truncate">
+          {t("assignments.nav.itemCount", { count: entries.length })}
+          {earliestDue ? ` • ${formatDate(earliestDue, i18n.language)}` : ""}
+        </span>
+        <span className="w-9 h-9 rounded-full bg-white/80 border border-white flex items-center justify-center text-muted shrink-0 group-hover:bg-teal group-hover:border-teal group-hover:text-white group-hover:shadow-md transition-colors">
+          <ChevronRight size={16} />
+        </span>
       </div>
     </button>
   );
 }
 
-/** Icon + màu nền đặc theo từng Kỹ năng ở thẻ SkillCard (cùng bảng màu teal/coral/gold/plum như UnitCard). */
-const SKILL_CARD_STYLE: Record<SkillKey, { bg: string; icon: typeof BookOpen }> = {
-  VOCAB_GRAMMAR: { bg: "bg-gradient-to-br from-teal to-teal-deep", icon: BookOpen },
-  LISTENING: { bg: "bg-gradient-to-br from-coral to-plum", icon: Headphones },
-  READING: { bg: "bg-gradient-to-br from-gold to-coral", icon: FileText },
-  WRITING: { bg: "bg-gradient-to-br from-plum to-teal-deep", icon: PenLine },
-  OTHER_EXERCISE: { bg: "bg-gradient-to-br from-teal-deep to-teal", icon: Layers },
-  CONNECTION: { bg: "bg-gradient-to-br from-teal to-gold", icon: Video },
-  REFLEX: { bg: "bg-gradient-to-br from-coral to-gold", icon: Mic }
-};
+function UnitCard({ unit, index, onOpen }: { unit: UnitGroup; index: number; onOpen: () => void }) {
+  return (
+    <NavCard
+      title={unit.unitLabel}
+      icon={UNIT_CARD_ICONS[index % UNIT_CARD_ICONS.length]}
+      tint={NAV_TINTS[index % NAV_TINTS.length]}
+      entries={unit.entries}
+      onOpen={onOpen}
+    />
+  );
+}
 
-/**
- * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-19 — thẻ cấp "Kỹ năng" trong điều hướng
- * Unit → Kỹ năng → danh sách bài (xem buildUnitGroups). Thay cho dropdown lọc "loại bài" cũ. Đếm "cần
- * hoàn thành" tính trên CHÍNH bộ feedItems đã lọc theo filterStatus hiện tại (skill.entries).
- */
 function SkillCard({ skill, onOpen }: { skill: SkillGroup; onOpen: () => void }) {
   const { t } = useTranslation("portal-exercises");
-  const pendingCount = skill.entries.filter(isEntryPending).length;
   const style = SKILL_CARD_STYLE[skill.skillKey];
-  const SkillIcon = style.icon;
-  return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className="text-left p-5 bg-white border border-line/80 rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-teal/40 transition-all cursor-pointer flex flex-col gap-3"
-    >
-      <div className={`w-14 h-14 rounded-2xl ${style.bg} text-white flex items-center justify-center shrink-0 shadow-sm`}>
-        <SkillIcon size={26} />
-      </div>
-      <div className="space-y-1 min-w-0">
-        <h3 className="text-xl font-black text-ink font-display truncate">{skillLabel(t, skill.skillKey)}</h3>
-        <p className="text-sm font-bold text-muted">{t("assignments.nav.itemCount", { count: skill.entries.length })}</p>
-      </div>
-      <div className="flex items-center justify-end gap-2 mt-auto pt-2 border-t border-line/60">
-        {pendingCount > 0 ? (
-          <span className="px-2 py-0.5 rounded-lg bg-amber-100 text-amber-800 border border-amber-300 text-[11px] font-black whitespace-nowrap">
-            {t("assignments.nav.pendingBadge", { count: pendingCount })}
-          </span>
-        ) : (
-          <ChevronRight size={16} className="text-muted shrink-0" />
-        )}
-      </div>
-    </button>
-  );
+  return <NavCard title={skillLabel(t, skill.skillKey)} icon={style.icon} tint={NAV_TINTS[style.tint]} entries={skill.entries} onOpen={onOpen} />;
 }
 
 function ExerciseCard({
