@@ -939,7 +939,14 @@ export interface ExerciseQuestionResponse {
   skill: string | null;
   audioUrl: string | null;
   referencePassage: string | null;
-  structuredContent: { blanks?: string[]; chunks?: string[]; wordBankOptions?: string[]; wordBox?: string[] } | null;
+  structuredContent: {
+    blanks?: string[];
+    chunks?: string[];
+    wordBankOptions?: string[];
+    wordBox?: string[];
+    /** Bổ sung 2026-09-17, đã xác nhận với người dùng — chỉ có ở WORD_BANK: "text" = mỗi chỗ trống hiện ô nhập chữ tự do (học sinh gõ tay) thay vì <select> chọn sẵn (mirror ExerciseStudentPreviewModal#WordBankPreview). Thiếu field này (undefined) = hành vi cũ (dropdown). */
+    inputMode?: "select" | "text";
+  } | null;
   groupKey: string | null;
   /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — ảnh minh họa dùng cho ESSAY/WORD_BANK/SENTENCE_BUILDING. */
   imageUrl: string | null;

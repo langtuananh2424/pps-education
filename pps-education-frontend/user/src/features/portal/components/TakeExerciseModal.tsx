@@ -296,6 +296,23 @@ function isAnswerRevealed(answer: StudentAnswerResponse): boolean {
 }
 
 /**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-17 — FILL_IN_BLANK giờ chấp nhận NHIỀU
+ * đáp án đúng cho cùng 1 chỗ trống, lưu phân tách bằng dấu "/" trong correctAnswerText (xem
+ * ExerciseAttemptService#parseAcceptedAnswers). Hiện TẤT CẢ phương án khi reveal cho học sinh
+ * (không chỉ phương án đầu tiên), format lại khoảng trắng quanh dấu "/" cho dễ đọc.
+ */
+function formatCorrectAnswerText(correctAnswerText: string | null | undefined): string {
+  if (!correctAnswerText) {
+    return "—";
+  }
+  return correctAnswerText
+    .split("/")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
+    .join(" / ");
+}
+
+/**
  * V177 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-15) — UC-24/UC-27 A2: câu đã được
  * mang nguyên nội dung từ lượt làm TRƯỚC (đã đúng) sang lượt "Làm lại" hiện tại (xem
  * ExerciseAttemptService#startAttempt) — phải hiện dạng chỉ xem/khoá, không cho sửa, độc lập với
@@ -1143,12 +1160,20 @@ export function QuestionBlock({
          * Bổ sung 2026-08-28 (đã xác nhận với người dùng) — tách số thứ tự câu ra dòng riêng khỏi nội
          * dung: dạng WORD_BANK nhiều câu con thường tự đánh số "1. 2. 3..." ngay trong nội dung, để
          * chung 1 dòng với số thứ tự câu gây nhìn nhầm thành 2 số dính nhau (VD "1. 1. Tom is...").
+         *
+         * Fix bug thật 2026-09-17 (đã xác nhận với người dùng qua ảnh chụp) — WORD_BANK dùng
+         * questionContent làm CHÍNH VĂN BẢN TƯƠNG TÁC (đoạn văn/câu có "___", WordBankBlock render
+         * ngay bên dưới với <select>/<input> thật) chứ không phải 1 câu hỏi ngắn tách biệt như mọi
+         * loại khác — hiện lại y nguyên ở đây thành ra lặp NGUYÊN VĂN cả đoạn 2 lần (1 lần thô không
+         * tương tác, 1 lần có ô điền thật). Ẩn hẳn span nội dung cho riêng WORD_BANK, chỉ giữ số thứ tự.
          */}
         <p className="text-sm sm:text-base lg:text-lg font-bold text-ink">
           <span className="block text-muted text-xs sm:text-sm uppercase tracking-wider mb-1">
             {t("takeExercise.question.numberPrefix", { number: displayNumber ?? question.displayOrder })}
           </span>
-          <span className="text-sm sm:text-sm lg:text-base whitespace-pre-line">{question.questionContent}</span>
+          {question.questionType !== "WORD_BANK" && (
+            <span className="text-sm sm:text-sm lg:text-base whitespace-pre-line">{question.questionContent}</span>
+          )}
         </p>
         <div className="flex items-center gap-2 shrink-0">
           {question.skill === "LISTENING" && question.audioUrl && attemptId != null && (
@@ -1279,7 +1304,17 @@ export function QuestionBlock({
       ) : question.questionType === "WORD_BANK" && question.structuredContent?.blanks ? (
         <WordBankBlock
           content={question.questionContent}
-          wordPool={question.structuredContent.wordBankOptions ?? question.structuredContent.blanks}
+          // Bổ sung 2026-09-17, đã xác nhận với người dùng — inputMode="text" (gõ tay) KHÔNG fallback
+          // hộp từ = blanks (đáp án đúng) như dropdown vẫn làm: dropdown BẮT BUỘC chọn từ pool đó nên
+          // không phải "lộ đáp án" (vẫn phải tự ghép đúng vị trí), còn ô gõ tay mà hiện sẵn đúng đáp án
+          // thành hộp tham khảo thì mất hẳn ý nghĩa "tự nhớ từ" — chỉ hiện hộp từ khi GV chủ động điền
+          // cột Transcript.
+          wordPool={
+            question.structuredContent.inputMode === "text"
+              ? (question.structuredContent.wordBankOptions ?? [])
+              : (question.structuredContent.wordBankOptions ?? question.structuredContent.blanks)
+          }
+          inputMode={question.structuredContent.inputMode}
           initialAnswer={answer?.structuredAnswer ?? undefined}
           readOnly={readOnly}
           saving={saving}
@@ -1302,10 +1337,10 @@ export function QuestionBlock({
             <div className={`flex items-center gap-1.5 text-xs font-bold ${notAnswered ? "text-coral" : answer?.isCorrect ? "text-teal-deep" : "text-coral"}`}>
               {notAnswered ? <HelpCircle size={14} /> : answer?.isCorrect ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
               {notAnswered
-                ? t("takeExercise.question.notAnsweredPrefix", { answer: answer?.correctAnswerText ?? "—" })
+                ? t("takeExercise.question.notAnsweredPrefix", { answer: formatCorrectAnswerText(answer?.correctAnswerText) })
                 : answer?.isCorrect
                   ? t("takeExercise.question.correct")
-                  : t("takeExercise.question.correctAnswerPrefix", { answer: answer?.correctAnswerText ?? "—" })}
+                  : t("takeExercise.question.correctAnswerPrefix", { answer: formatCorrectAnswerText(answer?.correctAnswerText) })}
             </div>
           )}
         </div>
@@ -1620,10 +1655,20 @@ function ListeningHintButton({
   );
 }
 
-/** V78 — Điền từ - Hộp từ vựng: content chứa marker "___" theo đúng số chỗ trống, mỗi dropdown liệt kê từ CÒN LẠI (chưa chọn ở chỗ trống khác). */
+/**
+ * V78 — Điền từ - Hộp từ vựng: content chứa marker "___" theo đúng số chỗ trống, mỗi dropdown liệt kê từ CÒN LẠI (chưa chọn ở chỗ trống khác).
+ *
+ * inputMode="text" (bổ sung 2026-09-17, đã xác nhận với người dùng — DIEN_TU_DOAN_VAN ở BE): mỗi chỗ
+ * trống đổi thành <input> gõ tay thay vì <select> — wordPool khi đó CHỈ hiện thành hộp từ vựng tham
+ * khảo TĨNH phía trên đoạn văn (không phải lựa chọn để bấm), vẫn chấm case-insensitive+trim giống hệt
+ * dropdown (xem ExerciseAttemptService#structuredAnswerMatches — không đổi gì ở BE). Vì gõ tay không có
+ * "commit" rời rạc như chọn dropdown, chỉ gọi onChange (lưu) khi rời khỏi ô (blur) VÀ đã điền đủ mọi ô —
+ * tránh lưu liên tục theo từng phím gõ dở dang.
+ */
 function WordBankBlock({
   content,
   wordPool,
+  inputMode = "select",
   initialAnswer,
   readOnly,
   saving,
@@ -1631,13 +1676,23 @@ function WordBankBlock({
 }: {
   content: string;
   wordPool: string[];
+  inputMode?: "select" | "text";
   initialAnswer: string[] | undefined;
   readOnly: boolean;
   saving: boolean;
   onChange: (values: string[]) => void;
 }) {
   const { t } = useTranslation("portal-exercises");
-  const parts = content.split("___");
+  // Bổ sung 2026-09-17, đã xác nhận với người dùng — content của bài đọc dạng "đoạn văn" (VD
+  // DIEN_TU_DOAN_VAN) thường có dòng TIÊU ĐỀ đứng riêng (tách bởi \n\n) trước phần thân có "___", mirror
+  // ĐÚNG cách nhận diện tiêu đề đã dùng cho referencePassage (xem parsePassageParagraphs) — tách tiêu đề
+  // ra hiện in đậm+căn giữa riêng, phần thân còn lại mới đem tách theo "___" như cũ.
+  const firstBreak = content.indexOf("\n\n");
+  const titleCandidate = firstBreak === -1 ? "" : content.slice(0, firstBreak).trim();
+  const isTitle = titleCandidate.length > 0 && titleCandidate.length <= 100 && !titleCandidate.includes("___") && !/[.!?]\s+[A-Z]/.test(titleCandidate);
+  const title = isTitle ? titleCandidate : null;
+  const body = isTitle ? content.slice(firstBreak + 2).trimStart() : content;
+  const parts = body.split("___");
   const blankCount = parts.length - 1;
   const [selections, setSelections] = useState<string[]>(
     initialAnswer && initialAnswer.length === blankCount ? initialAnswer : new Array(blankCount).fill("")
@@ -1649,37 +1704,67 @@ function WordBankBlock({
     if (next.every((s) => s)) onChange(next);
   };
 
+  const handleTypeChange = (idx: number, value: string) => {
+    setSelections((prev) => prev.map((s, i) => (i === idx ? value : s)));
+  };
+
+  const handleTypeBlur = () => {
+    if (selections.every((s) => s.trim())) onChange(selections.map((s) => s.trim()));
+  };
+
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-09 — fix bug hiển thị thật: container
   // "flex flex-wrap" trước đây coi mỗi đoạn văn bản (<span>) là 1 flex item RIÊNG, khiến trình duyệt
   // xuống dòng theo TỪNG item thay vì cho chữ chảy liên tục như 1 đoạn văn bình thường (đoạn dài bị đẩy
   // xuống dòng riêng, dropdown lại đứng tách biệt dòng kế tiếp — không giống đề gốc). Đổi sang flow chữ
-  // tự nhiên: <p> khối văn bản bình thường, <select> là inline-block xen giữa chữ, để trình duyệt tự
-  // ngắt dòng theo TỪNG TỪ như văn bản thật (mirror ExerciseStudentPreviewModal#WordBankPreview).
+  // tự nhiên: <p> khối văn bản bình thường, <select>/<input> là inline-block xen giữa chữ, để trình
+  // duyệt tự ngắt dòng theo TỪNG TỪ như văn bản thật (mirror ExerciseStudentPreviewModal#WordBankPreview).
   return (
-    <p className="text-sm sm:text-base lg:text-lg font-bold text-ink leading-8 lg:leading-10">
-      {parts.map((part, idx) => (
-        <React.Fragment key={idx}>
-          {part}
-          {idx < blankCount && (
-            <select
-              value={selections[idx]}
-              disabled={readOnly || saving}
-              onChange={(e) => handleSelect(idx, e.target.value)}
-              className="bg-sky-2 border border-line/70 text-sm sm:text-sm lg:text-base font-bold px-2 py-1 mx-1 sm:px-3 sm:py-2 rounded-lg align-middle focus:outline-none disabled:opacity-70"
-            >
-              <option value="">{t("takeExercise.wordBank.choosePlaceholder")}</option>
-              {wordPool
-                .filter((w) => w === selections[idx] || !selections.includes(w))
-                .map((w, wIdx) => (
-                  <option key={`${w}-${wIdx}`} value={w}>
-                    {w}
-                  </option>
-                ))}
-            </select>
-          )}
-        </React.Fragment>
-      ))}
-    </p>
+    <div className="space-y-2">
+      {title && <p className="text-sm sm:text-base lg:text-lg font-bold text-ink text-center">{title}</p>}
+      <p className="text-sm sm:text-base lg:text-lg font-bold text-ink leading-8 lg:leading-10">
+        {parts.map((part, idx) => (
+          <React.Fragment key={idx}>
+            {part}
+            {idx < blankCount &&
+              (inputMode === "text" ? (
+                <input
+                  type="text"
+                  value={selections[idx]}
+                  disabled={readOnly || saving}
+                  onChange={(e) => handleTypeChange(idx, e.target.value)}
+                  onBlur={handleTypeBlur}
+                  className="bg-sky-2 border border-line/70 text-sm sm:text-sm lg:text-base font-bold px-2 py-1 mx-1 sm:px-3 sm:py-2 rounded-lg align-middle focus:outline-none disabled:opacity-70 w-28 sm:w-36"
+                />
+              ) : (
+                <select
+                  value={selections[idx]}
+                  disabled={readOnly || saving}
+                  onChange={(e) => handleSelect(idx, e.target.value)}
+                  className="bg-sky-2 border border-line/70 text-sm sm:text-sm lg:text-base font-bold px-2 py-1 mx-1 sm:px-3 sm:py-2 rounded-lg align-middle focus:outline-none disabled:opacity-70"
+                >
+                  <option value="">{t("takeExercise.wordBank.choosePlaceholder")}</option>
+                  {wordPool
+                    .filter((w) => w === selections[idx] || !selections.includes(w))
+                    .map((w, wIdx) => (
+                      <option key={`${w}-${wIdx}`} value={w}>
+                        {w}
+                      </option>
+                    ))}
+                </select>
+              ))}
+          </React.Fragment>
+        ))}
+      </p>
+      {inputMode === "text" && wordPool.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 bg-sky-2/60 border border-line/60 rounded-lg p-2.5">
+          {wordPool.map((w, wIdx) => (
+            <span key={`${w}-${wIdx}`} className="text-xs sm:text-sm font-bold text-ink bg-surface border border-line/70 rounded-md px-2 py-1">
+              {w}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -1812,6 +1897,13 @@ export function GridQuestionGroup({
     const a = answersByQuestion.get(q.questionId);
     return a != null && a.isAutoGradable && a.isCorrect != null && !isAnswerRevealed(a);
   });
+  // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-18 — bài "Match the words with their
+  // correct picture" (DIEN_TU_NHOM, mỗi câu 1 ảnh riêng + điền từ tự do) đúng hình thức sách in là
+  // LƯỚI ảnh nhỏ gọn nhiều cột, ô điền ngay dưới mỗi ảnh — không phải liệt kê dọc từng câu 1 dòng như
+  // layout mặc định bên dưới (ảnh bị phóng to 240px/dòng gây vỡ pixel với ảnh gốc nhỏ, lại dài lê thê
+  // 10 dòng thay vì 1 khối gọn). Chỉ áp dụng khi CẢ NHÓM đều là FILL_IN_BLANK có ảnh (không đụng các
+  // nhóm khác — nghe điền từ, đọc hiểu lưới trắc nghiệm... vẫn giữ nguyên layout liệt kê dọc cũ).
+  const isPictureMatchGrid = block.questions.length >= 2 && block.questions.every((q) => q.imageUrl && q.questionType === "FILL_IN_BLANK");
   return (
     <div className="border border-line/60 rounded-[16px] p-4 sm:p-5 lg:p-6 space-y-3 lg:space-y-4">
       {/* V3 2026-09-04 — xem Javadoc parsePassageParagraphs: mỗi đoạn hiện tên nhân vật thành dòng tiêu
@@ -1872,6 +1964,49 @@ export function GridQuestionGroup({
           )}
         </div>
       )}
+      {isPictureMatchGrid ? (
+        <div className="grid grid-cols-3 sm:grid-cols-5 gap-3 sm:gap-4">
+          {block.questions.map((q, qIndex) => {
+            const answer = answersByQuestion.get(q.questionId);
+            const showFeedback = answer != null && isAnswerRevealed(answer);
+            const notAnswered = showFeedback && answer!.isAutoGradable && answer!.isCorrect == null;
+            const saving = savingQuestionId === q.questionId;
+            const rowReadOnly = readOnly || isLockedCarriedOver(answer);
+            const displayNum = startNumber != null ? startNumber + qIndex : q.displayOrder;
+            return (
+              <div key={q.id} className="space-y-1.5">
+                <img
+                  src={q.imageUrl ?? undefined}
+                  alt=""
+                  className="w-full aspect-square object-contain rounded-xl border border-line/60 bg-white"
+                />
+                <p className="text-center text-[10px] sm:text-xs font-bold text-muted">{displayNum}</p>
+                <input
+                  value={textDraft[q.questionId] ?? answer?.answerText ?? ""}
+                  onChange={(e) => onTextChange(q.questionId, e.target.value)}
+                  onBlur={() => onTextBlur(q.questionId)}
+                  disabled={rowReadOnly || saving}
+                  placeholder={t("takeExercise.question.answerPlaceholder")}
+                  className="w-full bg-sky-2 border border-line/70 text-xs sm:text-sm p-2 rounded-xl text-center focus:outline-none disabled:opacity-70"
+                />
+                {isLockedCarriedOver(answer) && <CarriedOverBadge />}
+                {showFeedback && (
+                  <div
+                    className={`flex items-center justify-center gap-1 text-[10px] sm:text-xs font-bold text-center ${
+                      notAnswered ? "text-coral" : answer?.isCorrect ? "text-teal-deep" : "text-coral"
+                    }`}
+                  >
+                    {notAnswered ? <HelpCircle size={12} /> : answer?.isCorrect ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
+                    <span className="truncate">
+                      {notAnswered || !answer?.isCorrect ? formatCorrectAnswerText(answer?.correctAnswerText) : t("takeExercise.question.correct")}
+                    </span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
       <div className="divide-y divide-line/50">
         {block.questions.map((q, qIndex) => {
           const answer = answersByQuestion.get(q.questionId);
@@ -2010,10 +2145,10 @@ export function GridQuestionGroup({
                     <div className={`flex items-center gap-1.5 text-xs font-bold ${notAnswered ? "text-coral" : answer?.isCorrect ? "text-teal-deep" : "text-coral"}`}>
                       {notAnswered ? <HelpCircle size={14} /> : answer?.isCorrect ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
                       {notAnswered
-                        ? t("takeExercise.question.notAnsweredPrefix", { answer: answer?.correctAnswerText ?? "—" })
+                        ? t("takeExercise.question.notAnsweredPrefix", { answer: formatCorrectAnswerText(answer?.correctAnswerText) })
                         : answer?.isCorrect
                           ? t("takeExercise.question.correct")
-                          : t("takeExercise.question.correctAnswerPrefix", { answer: answer?.correctAnswerText ?? "—" })}
+                          : t("takeExercise.question.correctAnswerPrefix", { answer: formatCorrectAnswerText(answer?.correctAnswerText) })}
                     </div>
                   )}
                 </div>
@@ -2044,6 +2179,7 @@ export function GridQuestionGroup({
           );
         })}
       </div>
+      )}
 
       {anyLockedByRetake && <LockedAnswerBanner attemptsRemainingBeforeAnswer={attemptsRemainingBeforeAnswer} />}
     </div>

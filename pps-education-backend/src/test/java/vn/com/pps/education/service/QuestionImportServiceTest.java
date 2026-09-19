@@ -823,18 +823,20 @@ class QuestionImportServiceTest extends AbstractIntegrationTest {
 
     /**
      * Round-trip: file mẫu Word tự sinh (buildWordTemplate) phải tự đọc lại
-     * được đúng cả 15 loại trong VALID_KINDS — bảo vệ khỏi mẫu và parser
+     * được đúng cả 16 loại trong VALID_KINDS — bảo vệ khỏi mẫu và parser
      * lệch cú pháp nhau (giống buildTemplate_roundTrip của
-     * GradeImportServiceTest cho UC-53). Số lượng 15 khớp đúng
-     * VALID_KINDS/TEMPLATE_BLOCKS sau khi bổ sung NGHE_CHON_HINH ngày
-     * 2026-09-09 (trước đó 14 loại kể từ đợt bổ sung DOC_HIEU_LUOI/DOC_DIEN_TU
-     * 2026-09-08, xem Javadoc lớp QuestionImportService) — successRows đếm
-     * THEO DÒNG (15) nhưng DIEN_TU_NHOM/DOC_HIEU_LUOI/DOC_DIEN_TU mỗi loại
-     * tạo ra 3 Question/1 dòng nên tổng câu hỏi thật sự tạo ra là 12 + 3 + 3
-     * + 3 = 21, tên method giữ nguyên hậu tố "boSung" theo đúng đợt bổ sung.
+     * GradeImportServiceTest cho UC-53). Số lượng 16 khớp đúng
+     * VALID_KINDS/TEMPLATE_BLOCKS sau khi bổ sung DIEN_TU_DOAN_VAN ngày
+     * 2026-09-17 (trước đó 15 loại kể từ đợt bổ sung NGHE_CHON_HINH
+     * 2026-09-09, xem Javadoc lớp QuestionImportService) — successRows đếm
+     * THEO DÒNG (16) nhưng DIEN_TU_NHOM/DOC_HIEU_LUOI/DOC_DIEN_TU mỗi loại
+     * tạo ra 3 Question/1 dòng nên tổng câu hỏi thật sự tạo ra là 13 + 3 + 3
+     * + 3 = 22 (DIEN_TU_DOAN_VAN là 1 dòng/1 Question như DIEN_TU_HOP_TU_VUNG_ANH,
+     * không phải kind nhóm), tên method giữ nguyên hậu tố "boSung" theo đúng
+     * đợt bổ sung.
      */
     @Test
-    void buildWordTemplate_boSung_roundTripsThroughImportAndCreatesAllFifteenKinds() {
+    void buildWordTemplate_boSung_roundTripsThroughImportAndCreatesAllSixteenKinds() {
         byte[] template = questionImportService.buildWordTemplate();
 
         QuestionImportResponse result = questionImportService.importQuestions(bank.id(),
@@ -842,10 +844,10 @@ class QuestionImportServiceTest extends AbstractIntegrationTest {
                         "application/vnd.openxmlformats-officedocument.wordprocessingml.document", template), teacher.getId());
 
         assertThat(result.status()).isEqualTo("COMPLETED");
-        assertThat(result.totalRows()).isEqualTo(15);
-        assertThat(result.successRows()).isEqualTo(15);
+        assertThat(result.totalRows()).isEqualTo(16);
+        assertThat(result.successRows()).isEqualTo(16);
         assertThat(result.failedRows()).isEqualTo(0);
-        assertThat(questionBankService.listQuestions(bank.id())).hasSize(21);
+        assertThat(questionBankService.listQuestions(bank.id())).hasSize(22);
     }
 
     /**
