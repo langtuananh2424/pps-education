@@ -20,7 +20,7 @@ export default function Breadcrumb({ items, className = "" }: { items: Breadcrum
           <React.Fragment key={idx}>
             {idx > 0 && <ChevronRight size={14} className="text-muted shrink-0" aria-hidden="true" />}
             {isLast || !item.onClick ? (
-              <span className={`font-black truncate max-w-[220px] ${isLast ? "text-ink" : "text-muted"}`}>{item.label}</span>
+              <span className={`font-bold truncate max-w-[220px] ${isLast ? "text-ink" : "text-muted"}`}>{item.label}</span>
             ) : (
               <button
                 type="button"

@@ -133,7 +133,7 @@ export default function DocumentLibraryTab({ classId }: DocumentLibraryTabProps)
             <button
               key={c.key}
               onClick={() => setCategoryFilter(c.key)}
-              className={`shrink-0 snap-start px-4 py-2 rounded-xl text-sm font-black transition-all cursor-pointer ${
+              className={`shrink-0 snap-start px-4 py-2 rounded-xl text-sm font-bold transition-all cursor-pointer ${
                 categoryFilter === c.key
                   ? "bg-teal text-white shadow-md"
                   : "bg-white/70 backdrop-blur-md border border-white/80 text-ink shadow-sm hover:bg-white/90"

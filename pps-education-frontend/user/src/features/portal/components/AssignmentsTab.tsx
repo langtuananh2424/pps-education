@@ -981,7 +981,7 @@ export default function AssignmentsTab({
             <button
               key={tab.status}
               onClick={() => setFilterStatus(tab.status)}
-              className={`shrink-0 snap-start flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-black transition-all cursor-pointer ${
+              className={`shrink-0 snap-start flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all cursor-pointer ${
                 isActive
                   ? `${tab.active} shadow-md`
                   : "bg-white/70 backdrop-blur-md border border-white/80 text-ink shadow-sm hover:bg-white/90"
