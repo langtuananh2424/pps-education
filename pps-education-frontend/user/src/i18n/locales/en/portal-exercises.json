@@ -293,10 +293,10 @@
       "dismiss": "Dismiss notice"
     },
     "filters": {
-      "all": "All homework ({{count}})",
-      "pending": "To do ({{count}})",
-      "graded": "Submitted & graded ({{count}})",
-      "overdue": "Overdue ({{count}})",
+      "labelAll": "All homework",
+      "labelPending": "To do",
+      "labelGraded": "Submitted & graded",
+      "labelOverdue": "Overdue",
       "typeOther": "Other exercises"
     },
     "nav": {
@@ -304,6 +304,8 @@
       "uncategorizedUnit": "Uncategorized unit",
       "itemCount": "{{count}} items",
       "pendingBadge": "{{count}} to do",
+      "overdueBadge": "Overdue",
+      "doneBadge": "Done",
       "emptyUnitGroup": "No unit matches the current filter.",
       "emptySkillGroup": "This unit has no items matching the current filter — the filter may have changed.",
       "emptyAssignmentGroup": "This skill has no items matching the current filter.",

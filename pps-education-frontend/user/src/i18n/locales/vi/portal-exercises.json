@@ -293,10 +293,10 @@
       "dismiss": "Đóng thông báo"
     },
     "filters": {
-      "all": "Tất cả bài tập ({{count}})",
-      "pending": "Cần hoàn thành ({{count}})",
-      "graded": "Đã nộp & Đã chấm ({{count}})",
-      "overdue": "Bài tập quá hạn ({{count}})",
+      "labelAll": "Tất cả bài tập",
+      "labelPending": "Cần hoàn thành",
+      "labelGraded": "Đã nộp & Đã chấm",
+      "labelOverdue": "Bài tập quá hạn",
       "typeOther": "Bài khác"
     },
     "nav": {
@@ -304,6 +304,8 @@
       "uncategorizedUnit": "Chưa phân loại Unit",
       "itemCount": "{{count}} bài tập",
       "pendingBadge": "{{count}} cần hoàn thành",
+      "overdueBadge": "Quá hạn",
+      "doneBadge": "Đã xong",
       "emptyUnitGroup": "Không có Unit nào khớp bộ lọc hiện tại.",
       "emptySkillGroup": "Unit này không còn bài tập khớp bộ lọc — có thể đã bị đổi bộ lọc.",
       "emptyAssignmentGroup": "Kỹ năng này không còn bài tập khớp bộ lọc.",

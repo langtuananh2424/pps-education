@@ -11,16 +11,16 @@ export interface BreadcrumbItem {
  * điều hướng phân cấp Unit → Lesson → Bài tập, xem AssignmentsTab.tsx. Mục cuối (đang đứng) không phải
  * link; các mục trước có `onClick` render thành nút bấm để quay lại cấp tương ứng.
  */
-export default function Breadcrumb({ items }: { items: BreadcrumbItem[] }) {
+export default function Breadcrumb({ items, className = "" }: { items: BreadcrumbItem[]; className?: string }) {
   return (
-    <nav aria-label="breadcrumb" className="flex items-center gap-1.5 flex-wrap text-sm">
+    <nav aria-label="breadcrumb" className={`flex items-center gap-1.5 flex-wrap text-sm ${className}`}>
       {items.map((item, idx) => {
         const isLast = idx === items.length - 1;
         return (
           <React.Fragment key={idx}>
             {idx > 0 && <ChevronRight size={14} className="text-muted shrink-0" aria-hidden="true" />}
             {isLast || !item.onClick ? (
-              <span className={`font-black truncate max-w-[220px] ${isLast ? "text-ink" : "text-muted"}`}>{item.label}</span>
+              <span className={`font-bold truncate max-w-[220px] ${isLast ? "text-ink" : "text-muted"}`}>{item.label}</span>
             ) : (
               <button
                 type="button"
