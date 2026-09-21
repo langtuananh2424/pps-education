@@ -7,6 +7,14 @@ import { ApiError } from "@/lib/apiClient";
 interface GoogleSignInButtonProps {
   onSuccess: () => void;
   onError: (message: string) => void;
+  /**
+   * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-09-19) — tài khoản Học sinh đã có phiên
+   * ACTIVE ở thiết bị khác (backend trả 409, xem AuthService#requireNoActiveSessionForStudent): thay
+   * vì hiện thẳng lỗi qua onError, giao lại cho LoginPage hiện banner xác nhận "Có muốn đăng xuất?".
+   * `retry` gọi lại loginWithGoogle với chính idToken đã có (không cần mở lại popup Google) và
+   * confirm=true nếu người dùng đồng ý.
+   */
+  onActiveSessionConflict: (retry: () => Promise<void>) => void;
 }
 
 /**
@@ -14,7 +22,7 @@ interface GoogleSignInButtonProps {
  * Phụ huynh/Học sinh nào đã được cấp phát, backend trả message "Vui lòng liên hệ
  * Quản trị viên" — hiện thẳng message đó, không tự viết lại khác đi.
  */
-export default function GoogleSignInButton({ onSuccess, onError }: GoogleSignInButtonProps) {
+export default function GoogleSignInButton({ onSuccess, onError, onActiveSessionConflict }: GoogleSignInButtonProps) {
   const { t } = useTranslation("auth");
   const { loginWithGoogle } = useApp();
 
@@ -33,10 +41,22 @@ export default function GoogleSignInButton({ onSuccess, onError }: GoogleSignInB
             onError(t("errors.googleNoCredential"));
             return;
           }
+          const idToken = credentialResponse.credential;
           try {
-            await loginWithGoogle(credentialResponse.credential);
+            await loginWithGoogle(idToken);
             onSuccess();
           } catch (err) {
+            if (err instanceof ApiError && err.status === 409) {
+              onActiveSessionConflict(async () => {
+                try {
+                  await loginWithGoogle(idToken, true);
+                  onSuccess();
+                } catch (err2) {
+                  onError(err2 instanceof ApiError ? err2.message : t("errors.googleFailed"));
+                }
+              });
+              return;
+            }
             onError(err instanceof ApiError ? err.message : t("errors.googleFailed"));
           }
         }}

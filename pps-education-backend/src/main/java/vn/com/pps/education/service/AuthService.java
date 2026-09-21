@@ -145,7 +145,7 @@ public class AuthService {
 
         recordAttempt(input, user, httpRequest, true, null,
                 request.screenResolution(), request.browserLanguage(), request.timezone());
-        requireNoActiveSessionForStudent(user);
+        requireNoActiveSessionForStudent(user, request.confirm());
         return issueSuccessfulLogin(user, httpRequest);
     }
 
@@ -181,7 +181,7 @@ public class AuthService {
 
         recordAttempt(identity.email(), user, httpRequest, true, null,
                 request.screenResolution(), request.browserLanguage(), request.timezone());
-        requireNoActiveSessionForStudent(user);
+        requireNoActiveSessionForStudent(user, request.confirm());
         return issueSuccessfulLogin(user, httpRequest);
     }
 
@@ -287,21 +287,37 @@ public class AuthService {
      * (refresh token chưa revoke, chưa hết hạn) — tránh học sinh dùng song song 2 thiết bị để "lách
      * luật" khi làm bài (VD 1 máy mở đề tra cứu, máy kia thao tác nộp bài). KHÔNG áp dụng cho giáo
      * viên/nhân viên/phụ huynh — các vai trò này vẫn cần đăng nhập nhiều thiết bị cùng lúc bình thường
-     * (điện thoại + máy tính). Học sinh muốn đổi thiết bị phải chủ động "Đăng xuất" ở thiết bị cũ trước
-     * (thu hồi refresh token qua {@link #logout}) — hoặc chờ refresh token tự hết hạn
-     * ({@code refreshTokenTtlDays}).
+     * (điện thoại + máy tính).
+     *
+     * Bổ sung tiếp ngoài SDD gốc, đã xác nhận với người dùng 2026-09-19 — trước đây học sinh BẮT BUỘC
+     * phải tự tay "Đăng xuất" ở thiết bị cũ trước (hoặc chờ refresh token tự hết hạn theo
+     * {@code refreshTokenTtlDays}), kể cả khi thiết bị cũ đã tắt/mất mà chưa kịp gọi {@link #logout}
+     * (session vẫn còn ACTIVE trong DB dù thiết bị thực tế không còn dùng nữa) — không có lối thoát nào
+     * khác ngoài chờ hết hạn. Nay cho phép {@code request.confirm() == true} (FE hiện popup xác nhận
+     * "Tài khoản đang đăng nhập ở một nơi khác. Bạn có muốn đăng xuất?") để CHỦ ĐỘNG thu hồi (revoke)
+     * toàn bộ refresh token ACTIVE của tài khoản rồi đăng nhập tiếp — cùng cơ chế thu hồi đã dùng ở
+     * {@link #logout}/{@link #refresh} (nhánh phát hiện reuse token). Hệ thống KHÔNG có kênh push
+     * real-time nào tới thiết bị cũ (chưa có WebSocket/SSE) nên thiết bị đó sẽ chỉ thực sự bị đăng xuất
+     * ở lần gọi API kế tiếp (access token hết hạn hoặc gọi /auth/refresh thất bại do token đã revoke) —
+     * chấp nhận được vì access token có TTL ngắn.
      */
-    private void requireNoActiveSessionForStudent(User user) {
+    private void requireNoActiveSessionForStudent(User user, boolean confirm) {
         if (studentRepository.findByUserId(user.getId()).isEmpty()) {
             return;
         }
         OffsetDateTime now = OffsetDateTime.now();
-        boolean hasActiveSession = refreshTokenRepository.findByUserIdAndRevokedAtIsNull(user.getId()).stream()
-                .anyMatch(token -> token.getExpiresAt().isAfter(now));
-        if (hasActiveSession) {
+        List<RefreshToken> activeTokens = refreshTokenRepository.findByUserIdAndRevokedAtIsNull(user.getId()).stream()
+                .filter(token -> token.getExpiresAt().isAfter(now))
+                .toList();
+        if (activeTokens.isEmpty()) {
+            return;
+        }
+        if (!confirm) {
             throw new ActiveSessionExistsException("error.activeSessionExists.default", new Object[]{},
                     "Tài khoản này đang được đăng nhập trên thiết bị khác. Vui lòng đăng xuất ở thiết bị đó trước khi đăng nhập tiếp.");
         }
+        activeTokens.forEach(token -> token.setRevokedAt(now));
+        refreshTokenRepository.saveAll(activeTokens);
     }
 
     private LoginResponse issueSuccessfulLogin(User user, HttpServletRequest httpRequest) {

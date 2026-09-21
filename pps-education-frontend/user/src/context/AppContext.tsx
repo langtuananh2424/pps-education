@@ -16,8 +16,8 @@ interface AppContextValue {
   currentUser: CurrentUserResponse | null;
   isParent: boolean;
   isStudent: boolean;
-  login: (usernameOrEmail: string, password: string) => Promise<void>;
-  loginWithGoogle: (idToken: string) => Promise<void>;
+  login: (usernameOrEmail: string, password: string, confirm?: boolean) => Promise<void>;
+  loginWithGoogle: (idToken: string, confirm?: boolean) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -69,13 +69,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       .catch(() => undefined);
   };
 
-  const login = async (usernameOrEmail: string, password: string) => {
-    await loginApi(usernameOrEmail, password);
+  const login = async (usernameOrEmail: string, password: string, confirm = false) => {
+    await loginApi(usernameOrEmail, password, confirm);
     await completeLogin();
   };
 
-  const loginWithGoogle = async (idToken: string) => {
-    await loginWithGoogleApi(idToken);
+  const loginWithGoogle = async (idToken: string, confirm = false) => {
+    await loginWithGoogleApi(idToken, confirm);
     await completeLogin();
   };
 
