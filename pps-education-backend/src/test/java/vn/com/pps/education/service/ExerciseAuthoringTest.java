@@ -687,6 +687,10 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
         commitCurrentTransactionAndStartNew();
 
         ClassSession session = newClassSession();
+        // deliverToClass chạy REQUIRES_NEW nội bộ (xem Javadoc method đó) -> phải commit ClassSession
+        // vừa tạo TRƯỚC, nếu không FK source_class_session_id sẽ không thấy row này (mirror lý do dùng
+        // commitCurrentTransactionAndStartNew() ở examService.assignToClass phía trên).
+        commitCurrentTransactionAndStartNew();
         ExerciseAssignment sessionLinked = exerciseService.deliverToClass(
                 exercise.id(), schoolClass.id(), OffsetDateTime.now().plusDays(2), false, teacher.getId(), session);
         ExerciseAssignmentResponse quick = exerciseService.quickAssignToClass(exercise.id(), schoolClass.id(), teacher.getId());
