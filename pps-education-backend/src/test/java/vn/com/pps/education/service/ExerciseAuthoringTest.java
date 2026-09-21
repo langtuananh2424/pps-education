@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import vn.com.pps.education.domain.ClassSession;
 import vn.com.pps.education.domain.ExerciseAssignment;
 import vn.com.pps.education.domain.Role;
 import vn.com.pps.education.domain.Site;
@@ -39,6 +40,8 @@ import vn.com.pps.education.dto.UpdateQuestionRequest;
 import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
 import vn.com.pps.education.exception.QuestionLockedException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
+import vn.com.pps.education.repository.ClassSessionRepository;
+import vn.com.pps.education.repository.ExerciseAssignmentRepository;
 import vn.com.pps.education.repository.NotificationRepository;
 import vn.com.pps.education.repository.RoleRepository;
 import vn.com.pps.education.repository.SiteRepository;
@@ -50,12 +53,14 @@ import vn.com.pps.education.support.AbstractIntegrationTest;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** UC-40: Soạn & giao đề kiểm tra — Main Flow (bước 1-4), A1 (đề có câu tự luận/Nói). */
@@ -111,6 +116,15 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
 
     @Autowired
     private NotificationRepository notificationRepository;
+
+    @Autowired
+    private ExerciseAssignmentRepository exerciseAssignmentRepository;
+
+    @Autowired
+    private ClassSessionRepository classSessionRepository;
+
+    @Autowired
+    private vn.com.pps.education.repository.SchoolClassRepository schoolClassRepository;
 
     private User headAcademic;
     private User teacher;
@@ -600,6 +614,108 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
                 .isInstanceOf(NotAssignedTeacherForClassException.class);
     }
 
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-19 — "gán nhanh" 1 Bài cho lớp thẳng từ
+     * Kho đề (không qua UC-21). Main Flow: Đề đã gán lớp -> gán nhanh tạo được bản giao không hạn nộp.
+     */
+    @Test
+    void quickAssignToClass_boSung_MainFlow_createsAssignmentWithoutDueDate() {
+        QuestionResponse mc = createMcQuestion();
+        ExerciseResponse exercise = exerciseService.createExercise(
+                new CreateExerciseRequest(exerciseCode(), "Kiểm tra", defaultExam.id(), null, "ASSIGNED",
+                        new BigDecimal("10"), null, false, 1, true), teacher.getId());
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("10")), teacher.getId());
+        examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
+        commitCurrentTransactionAndStartNew();
+
+        ExerciseAssignmentResponse assignment = exerciseService.quickAssignToClass(exercise.id(), schoolClass.id(), teacher.getId());
+
+        assertThat(assignment.exerciseId()).isEqualTo(exercise.id());
+        assertThat(assignment.classId()).isEqualTo(schoolClass.id());
+        assertThat(assignment.dueAt()).isNull();
+        assertThat(assignment.status()).isEqualTo("ACTIVE");
+        assertThat(exerciseService.listQuickAssignedClasses(exercise.id(), teacher.getId()))
+                .extracting(ClassResponse::id).containsExactly(schoolClass.id());
+    }
+
+    /** A: mirror deliverToClass_rejectsWhenExamNotAssignedToClass — rào Đề chưa gán lớp áp dụng y hệt cho gán nhanh. */
+    @Test
+    void quickAssignToClass_boSung_A_rejectsWhenExamNotAssignedToClass() {
+        QuestionResponse mc = createMcQuestion();
+        ExerciseResponse exercise = exerciseService.createExercise(
+                new CreateExerciseRequest(exerciseCode(), "Bài tự luyện", defaultExam.id(), null, "SELF_PRACTICE",
+                        new BigDecimal("10"), null, true, null, true), teacher.getId());
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("10")), teacher.getId());
+        // Chưa gọi examService.assignToClass -> Đề chưa được gán cho lớp.
+
+        assertThatThrownBy(() -> exerciseService.quickAssignToClass(exercise.id(), schoolClass.id(), teacher.getId()))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    /** Gọi lại gán nhanh cho đúng (Bài, lớp) đã gán -> trả về đúng bản giao cũ, không tạo bản ghi trùng (mirror deliverToClass_V70). */
+    @Test
+    void quickAssignToClass_boSung_isIdempotentWhenCalledAgain() {
+        QuestionResponse mc = createMcQuestion();
+        ExerciseResponse exercise = exerciseService.createExercise(
+                new CreateExerciseRequest(exerciseCode(), "Kiểm tra", defaultExam.id(), null, "ASSIGNED",
+                        new BigDecimal("10"), null, false, 1, true), teacher.getId());
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("10")), teacher.getId());
+        examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
+        commitCurrentTransactionAndStartNew();
+
+        ExerciseAssignmentResponse first = exerciseService.quickAssignToClass(exercise.id(), schoolClass.id(), teacher.getId());
+        ExerciseAssignmentResponse second = exerciseService.quickAssignToClass(exercise.id(), schoolClass.id(), teacher.getId());
+
+        assertThat(second.id()).isEqualTo(first.id());
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-19 — gỡ "gán nhanh" CHỈ hủy đúng bản
+     * giao không gắn buổi Nhận xét (sourceClassSession=null), KHÔNG đụng bản giao thật phát sinh từ
+     * UC-21 (sourceClassSession khác NULL) dù cùng (Bài, lớp) — 2 bản giao độc lập song song theo đúng
+     * thiết kế đã chốt (khác V128 "cùng buổi nguồn mới coi là 1", ở đây 1 bên có buổi, 1 bên không nên
+     * luôn là 2 bản giao tách biệt).
+     */
+    @Test
+    void quickUnassignFromClass_boSung_cancelsOnlyQuickAssignmentNotSessionLinkedOne() {
+        QuestionResponse mc = createMcQuestion();
+        ExerciseResponse exercise = exerciseService.createExercise(
+                new CreateExerciseRequest(exerciseCode(), "Kiểm tra", defaultExam.id(), null, "ASSIGNED",
+                        new BigDecimal("10"), null, false, 1, true), teacher.getId());
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("10")), teacher.getId());
+        examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
+        commitCurrentTransactionAndStartNew();
+
+        ClassSession session = newClassSession();
+        ExerciseAssignment sessionLinked = exerciseService.deliverToClass(
+                exercise.id(), schoolClass.id(), OffsetDateTime.now().plusDays(2), false, teacher.getId(), session);
+        ExerciseAssignmentResponse quick = exerciseService.quickAssignToClass(exercise.id(), schoolClass.id(), teacher.getId());
+        assertThat(quick.id()).isNotEqualTo(sessionLinked.getId());
+
+        exerciseService.quickUnassignFromClass(exercise.id(), schoolClass.id(), teacher.getId());
+
+        assertThat(exerciseAssignmentRepository.findById(quick.id()).orElseThrow().getStatus())
+                .isEqualTo(ExerciseAssignment.Status.CANCELLED);
+        assertThat(exerciseAssignmentRepository.findById(sessionLinked.getId()).orElseThrow().getStatus())
+                .as("bản giao thật từ UC-21 (có buổi nguồn) không bị đụng tới")
+                .isEqualTo(ExerciseAssignment.Status.ACTIVE);
+        assertThat(exerciseService.listQuickAssignedClasses(exercise.id(), teacher.getId())).isEmpty();
+    }
+
+    /** Gỡ khi chưa từng gán nhanh -> không throw, coi như no-op (mirror unassignFromClass ở ExamService). */
+    @Test
+    void quickUnassignFromClass_boSung_noopWhenNothingAssigned() {
+        QuestionResponse mc = createMcQuestion();
+        ExerciseResponse exercise = exerciseService.createExercise(
+                new CreateExerciseRequest(exerciseCode(), "Kiểm tra", defaultExam.id(), null, "ASSIGNED",
+                        new BigDecimal("10"), null, false, 1, true), teacher.getId());
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(mc.id(), 1, new BigDecimal("10")), teacher.getId());
+        examService.assignToClass(defaultExam.id(), schoolClass.id(), teacher.getId());
+
+        assertThatCode(() -> exerciseService.quickUnassignFromClass(exercise.id(), schoolClass.id(), teacher.getId()))
+                .doesNotThrowAnyException();
+    }
+
     @Test
     void getExercise_boSung_rejectsStudentWithoutActiveAssignmentForAssignedExercise() {
         Student student = enrollStudent();
@@ -805,6 +921,23 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
         userRole.setRole(role);
         userRole.setAssignedBy(user);
         userRoleRepository.save(userRole);
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-19 — dựng thẳng 1 ClassSession tối
+     * thiểu qua repository (không qua ClassSessionService, tránh kéo theo validate phòng/lịch trùng
+     * không liên quan tới test này) để mô phỏng "bản giao thật từ UC-21" trong
+     * quickUnassignFromClass_boSung_cancelsOnlyQuickAssignmentNotSessionLinkedOne.
+     */
+    private ClassSession newClassSession() {
+        ClassSession session = new ClassSession();
+        session.setSchoolClass(schoolClassRepository.findById(schoolClass.id()).orElseThrow());
+        session.setSessionDate(LocalDate.now());
+        session.setStartTime(LocalTime.of(8, 0));
+        session.setEndTime(LocalTime.of(9, 30));
+        session.setPrimaryTeacher(teacher);
+        session.setCreatedBy(teacher);
+        return classSessionRepository.save(session);
     }
 
     private Site newSite() {

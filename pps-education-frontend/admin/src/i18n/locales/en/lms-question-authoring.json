@@ -542,7 +542,8 @@
       "loadingQuestions": "Loading questions...",
       "noQuestions": "This exercise has no questions attached yet.",
       "editQuestionTooltip": "Edit question",
-      "removeQuestionTooltip": "Remove question (only while still Draft)"
+      "removeQuestionTooltip": "Remove question (only while still Draft)",
+      "assignClassTooltip": "Assign to class (quick-assign this exercise, without going through Student Comments)"
     },
     "assignClassModal": {
       "title": "Assign exam to classes",
@@ -551,6 +552,11 @@
       "updateAssignmentFailed": "Failed to update the class assignment.",
       "noClasses": "No classes available to assign.",
       "savingLabel": "Saving..."
+    },
+    "assignExerciseClassModal": {
+      "title": "Assign this exercise to classes",
+      "description": "Quick-assign just this exercise to a class, without waiting for a Student Comments session — no due date (self-practice). Only classes already assigned to the exam (Lesson) containing this exercise are shown; use \"Assigned to N classes\" above to assign the exam to a class first if it's missing.",
+      "noEligibleClasses": "No class has been assigned to this exam (Lesson) yet — assign the exam to a class first via \"Assigned to N classes\"."
     }
   },
   "bankPage": {
