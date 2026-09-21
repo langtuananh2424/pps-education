@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import vn.com.pps.education.dto.AddExerciseQuestionRequest;
+import vn.com.pps.education.dto.ClassResponse;
 import vn.com.pps.education.dto.CreateExerciseRequest;
 import vn.com.pps.education.dto.ExerciseAssignmentResponse;
 import vn.com.pps.education.dto.ExerciseQuestionResponse;
@@ -127,5 +128,31 @@ public class ExerciseController {
     public ResponseEntity<ExerciseResponse> publishExercise(@PathVariable Long id,
                                                               @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(exerciseService.publishExercise(id, actor.userId()));
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-19 — "gán nhanh" 1 Bài cho 1 lớp thẳng
+     * từ Kho đề, không qua buổi Nhận xét (UC-21). Xem Javadoc ExerciseService#quickAssignToClass.
+     * Dùng lại quyền lms.exam.assign (mirror ExamController — cùng hành động "gán ... cho lớp").
+     */
+    @PreAuthorize("hasPermission(null, 'lms.exam.assign')")
+    @PostMapping("/api/exercises/{id}/classes/{classId}")
+    public ResponseEntity<ExerciseAssignmentResponse> quickAssignToClass(@PathVariable Long id, @PathVariable Long classId,
+                                                                           @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(exerciseService.quickAssignToClass(id, classId, actor.userId()));
+    }
+
+    @PreAuthorize("hasPermission(null, 'lms.exam.assign')")
+    @DeleteMapping("/api/exercises/{id}/classes/{classId}")
+    public ResponseEntity<Void> quickUnassignFromClass(@PathVariable Long id, @PathVariable Long classId,
+                                                         @AuthenticationPrincipal AuthenticatedUser actor) {
+        exerciseService.quickUnassignFromClass(id, classId, actor.userId());
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/api/exercises/{id}/classes")
+    public ResponseEntity<List<ClassResponse>> listQuickAssignedClasses(@PathVariable Long id,
+                                                                          @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(exerciseService.listQuickAssignedClasses(id, actor.userId()));
     }
 }

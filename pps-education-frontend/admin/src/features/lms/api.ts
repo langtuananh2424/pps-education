@@ -697,8 +697,10 @@ export function updateExerciseQuestionPoints(exerciseId: number, exerciseQuestio
  * lựa chọn này chuyển sang academic/api.ts ApplyClassHomeworkRequest.grammarExamId (nút "Áp dụng cho
  * cả lớp", tách khỏi CreateStudentCommentRequest). Interface/hàm dưới đây CHỈ còn dùng để GV xem lại
  * bản giao đã phát sinh (lịch sử) hoặc để DailyCommentPanel tra ngược "bản giao này ứng với Exercise
- * nào" khi tải lại 1 comment đã chọn sẵn — không còn cách nào tạo bản giao thủ công từ FE nữa
- * (endpoint POST .../assign đã bị xóa bên BE).
+ * nào" khi tải lại 1 comment đã chọn sẵn — trước đây không còn cách nào tạo bản giao thủ công từ FE
+ * (endpoint POST .../assign cũ đã bị xóa bên BE ở V65). Bổ sung ngoài SDD gốc, đã xác nhận với người
+ * dùng 2026-09-19 — thêm lại 1 đường "gán nhanh" khác (quickAssignExerciseToClass bên dưới, path khác
+ * hẳn endpoint cũ), không phục hồi endpoint cũ.
  */
 export interface ExerciseAssignmentResponse {
   id: number;
@@ -721,6 +723,24 @@ export interface ExerciseAssignmentResponse {
 /** Giáo viên xem lại các bản giao (tự động phát sinh từ Nhận xét học viên, V65) của 1 lớp — API lọc sẵn status=ACTIVE. */
 export function listAssignmentsForClass(classId: number): Promise<ExerciseAssignmentResponse[]> {
   return apiRequest<ExerciseAssignmentResponse[]>(`/classes/${classId}/exercises`);
+}
+
+/**
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-19 — "gán nhanh" 1 Bài cho 1 lớp thẳng từ
+ * Kho đề (mirror assignExamToClass/unassignExamFromClass/listExamAssignedClasses ở trên, cùng UX toggle
+ * checkbox), độc lập song song với gán cả Đề — lớp phải đã được gán Đề trước (BE trả 400 nếu chưa).
+ * Không deadline (dueAt=null), không đụng bản giao thật phát sinh từ Nhận xét học viên (sourceClassSession khác NULL).
+ */
+export function quickAssignExerciseToClass(exerciseId: number, classId: number): Promise<ExerciseAssignmentResponse> {
+  return apiRequest<ExerciseAssignmentResponse>(`/exercises/${exerciseId}/classes/${classId}`, { method: "POST" });
+}
+
+export function quickUnassignExerciseFromClass(exerciseId: number, classId: number): Promise<void> {
+  return apiRequest<void>(`/exercises/${exerciseId}/classes/${classId}`, { method: "DELETE" });
+}
+
+export function listExerciseQuickAssignedClasses(exerciseId: number): Promise<ClassResponse[]> {
+  return apiRequest<ClassResponse[]>(`/exercises/${exerciseId}/classes`);
 }
 
 /** Kho đề: nguồn cho dropdown "BTVN buổi sau" ở Nhận xét học viên — mọi loại Bài đã Publish, thuộc 1 Đề đã gán cho lớp (không còn theo khung chương trình). */

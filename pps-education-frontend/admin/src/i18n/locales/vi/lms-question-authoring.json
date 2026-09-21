@@ -542,7 +542,8 @@
       "loadingQuestions": "Đang tải câu hỏi...",
       "noQuestions": "Bài này chưa gắn câu hỏi nào.",
       "editQuestionTooltip": "Sửa câu hỏi",
-      "removeQuestionTooltip": "Gỡ câu hỏi (chỉ khi còn Nháp)"
+      "removeQuestionTooltip": "Gỡ câu hỏi (chỉ khi còn Nháp)",
+      "assignClassTooltip": "Gán lớp (giao nhanh Bài này, không qua Nhận xét học viên)"
     },
     "assignClassModal": {
       "title": "Gán Đề cho lớp",
@@ -551,6 +552,11 @@
       "updateAssignmentFailed": "Cập nhật gán lớp thất bại.",
       "noClasses": "Không có lớp nào để gán.",
       "savingLabel": "Đang lưu..."
+    },
+    "assignExerciseClassModal": {
+      "title": "Gán lớp cho Bài này",
+      "description": "Giao nhanh riêng Bài này cho lớp, không cần chờ tới buổi Nhận xét học viên — không đặt hạn nộp (bài tự luyện). Chỉ hiện các lớp đã được gán Đề (Lesson) chứa Bài này; vào \"Đã gán N lớp\" ở trên để gán Đề cho lớp trước nếu chưa thấy.",
+      "noEligibleClasses": "Chưa có lớp nào được gán Đề (Lesson) này — gán Đề cho lớp trước ở nút \"Đã gán N lớp\"."
     }
   },
   "bankPage": {
