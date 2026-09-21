@@ -2899,4 +2899,26 @@ xem ghi chú dưới UC-70 ở docs/uc/phan-he-04-nhan-su.md): `NOT_YET_OPEN`
 thúc, không có bản ghi). Buổi CANCELLED/RESCHEDULED không tính trạng thái
 này (không cần nhận lớp). Xem `ClassSessionCheckInService#listEffectiveStatus`.
 
+**Cảnh báo chưa nhận lớp / không nhận lớp** (bổ sung ngoài SDD gốc, đã xác
+nhận với người dùng 2026-09-21 — migration V184, `ClassCheckInAlertSchedulerService`,
+job quét mỗi phút):
+
+| Mốc | Điều kiện | Gửi tới Quản lý điểm trường (site của lớp, `site_managers` đang hiệu lực) | Gửi tới giáo viên dạy buổi (primaryTeacher + cmTeacher nếu có) |
+|---|---|---|---|
+| **Chưa nhận lớp** (`CLASS_CHECKIN_LATE_ALERT`) | Đã qua giờ bắt đầu + `class_checkin_alert.late_after_minutes` (mặc định 5) mà chưa có bản ghi `class_session_check_ins` | PUSH (+ in-app): "Lớp X: giáo viên chưa nhận lớp — hãy kiểm tra" | EMAIL (+ in-app): báo đã tới giờ học nhưng chưa nhận lớp, nhận lúc này sẽ tính MUỘN |
+| **Không nhận lớp** (`CLASS_CHECKIN_ABSENT_ALERT`) | Đã qua giờ kết thúc buổi học mà vẫn chưa có bản ghi nhận lớp (đúng trạng thái `ABSENT` tính ra ở trên) | PUSH (+ in-app): "Lớp X: không có giáo viên nhận lớp — hãy kiểm tra" | EMAIL (+ in-app): báo buổi học được tính KHÔNG NHẬN LỚP |
+
+- Kênh gửi được ÉP theo nghiệp vụ (bỏ qua `notification_preferences` cá
+  nhân) — mục đích là Quản lý nhận push ngay trên điện thoại, giáo viên có
+  email làm bằng chứng.
+- Mỗi buổi học chỉ gửi TỐI ĐA 1 lần cho mỗi mốc (`class_sessions.
+  checkin_late_alert_sent_at` / `checkin_absent_alert_sent_at`); giáo viên
+  nhận lớp muộn sau khi đã có cảnh báo "chưa nhận lớp" thì KHÔNG phát sinh
+  cảnh báo "không nhận lớp" nữa. Buổi CANCELLED/RESCHEDULED không cảnh báo.
+- Bật/tắt toàn bộ bằng `system_settings.class_checkin_alert.enabled` (nhóm
+  NOTIFICATION trên trang Cài đặt hệ thống, hiệu lực ngay không cần
+  restart). Khi tắt, job không quét và không đánh dấu — bật lại thì chỉ
+  cảnh báo các buổi trong cửa sổ quét (hôm qua + hôm nay), không dội lại
+  lịch sử cũ.
+
 Phân hệ 7 --- Cổng thông tin và E-Learning (Portal & LMS)

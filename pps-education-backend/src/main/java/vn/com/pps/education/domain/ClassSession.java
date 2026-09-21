@@ -7,6 +7,7 @@ import vn.com.pps.education.common.BaseAuditEntity;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 /**
@@ -144,4 +145,16 @@ public class ClassSession extends BaseAuditEntity {
      */
     @Column(name = "original_teacher_name")
     private String originalTeacherName;
+
+    /**
+     * Mốc đã gửi cảnh báo "chưa nhận lớp" (tới giờ bắt đầu + late_after_minutes mà chưa có
+     * class_session_check_ins) — V184, bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-09-21.
+     * NULL = chưa gửi. Mirror parent_reminder_sent_at (V92). Xem ClassCheckInAlertSchedulerService.
+     */
+    @Column(name = "checkin_late_alert_sent_at")
+    private OffsetDateTime checkinLateAlertSentAt;
+
+    /** Mốc đã gửi cảnh báo "không nhận lớp" (hết giờ buổi học vẫn chưa nhận) — V184, cùng ngữ nghĩa trên. */
+    @Column(name = "checkin_absent_alert_sent_at")
+    private OffsetDateTime checkinAbsentAlertSentAt;
 }

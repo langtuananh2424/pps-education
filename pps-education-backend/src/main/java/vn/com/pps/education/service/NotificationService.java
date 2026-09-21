@@ -106,6 +106,21 @@ public class NotificationService {
                 priority, triggeredByUserId, forceChannels);
     }
 
+    /**
+     * Như {@link #notifyWithForcedChannels(Long, Notification.NotificationType, String, String, Notification.Priority, Long, Set)}
+     * nhưng có metadata/entity liên kết — dùng cho luồng tự động cần ÉP đúng kênh theo nghiệp vụ
+     * (VD cảnh báo chưa nhận lớp V184: PUSH tới Quản lý điểm trường, EMAIL tới giáo viên — đã xác
+     * nhận với người dùng 2026-09-21), vẫn giữ metadata để template push/email render nội dung.
+     */
+    @Transactional
+    public Notification notifyWithForcedChannels(Long recipientUserId, Notification.NotificationType type, String title, String content,
+                                                  Map<String, Object> metadata, String entityType, Long entityId,
+                                                  Notification.Priority priority, Long triggeredByUserId,
+                                                  Set<NotificationDelivery.Channel> forceChannels) {
+        return notifyInternal(recipientUserId, type, title, content, metadata, entityType, entityId,
+                priority, triggeredByUserId, forceChannels);
+    }
+
     private Notification notifyInternal(Long recipientUserId, Notification.NotificationType type, String title, String content,
                                          Map<String, Object> metadata, String entityType, Long entityId,
                                          Notification.Priority priority, Long triggeredByUserId,
