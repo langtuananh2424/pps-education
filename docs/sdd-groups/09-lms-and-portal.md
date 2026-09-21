@@ -1509,6 +1509,10 @@ mục "Bổ sung V139" trong `docs/uc/phan-he-07-lms-portal.md`)
 | speaking_criteria_scores | JSONB | NULL | V178 — mảng `{criterion, percent}` theo từng tiêu chí rubric, tách riêng khỏi speaking_feedback |
 | speaking_graded_at | TIMESTAMPTZ | NULL | |
 | speaking_attempt_count | INT | NOT NULL, DEFAULT 0 | Chỉ để thống kê, KHÔNG giới hạn số lần thử |
+| rubric_version | VARCHAR(10) | NULL | V185, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-21 — `'v2'` = chấm bằng bộ tiêu chí Speaking v2 (Khối 6-9), NULL = luồng cũ; bước Nói định tuyến theo cột này |
+| writing_locked_grammar_percent | DECIMAL(5,2) | NULL | V185 — điểm Ngữ pháp KHOÁ từ bước viết (luồng v2), bước Nói lấy nguyên |
+| writing_red_error_count | INT | NULL | V185 — số lỗi đỏ của bài viết (luồng v2); lỗi đỏ mới khi nói cộng vào, từ 2 trở lên thì Ngữ pháp trần 60% |
+| writing_audit, speaking_audit | JSONB | NULL | V185 — bằng chứng chấm (model thực tế, cổng chặn, danh sách đếm, suspect_words, độ khớp nội dung, điểm gồm Phát âm...) để hiệu chuẩn; KHÔNG trả ra FE |
 | created_at, updated_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | |
 | | UNIQUE(review_video_question_id, student_id, review_video_assignment_id) | | 1 dòng/(câu hỏi, học sinh, lần giao) — SỬA ĐÈ tại chỗ mỗi lần thử lại, KHÔNG giữ lịch sử từng lần |
 

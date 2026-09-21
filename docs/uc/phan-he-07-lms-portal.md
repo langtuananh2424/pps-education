@@ -995,6 +995,46 @@ UC-24: Làm bài kiểm tra trực tuyến
 > bài học từ V183 phía Speaking (chỉ dựa vào nội dung rubric nhúng vào
 > không đủ, phải nhắc lại/tăng cường ở tầng wrapper prompt).
 
+> **Bổ sung V185 (2026-09-21, đã xác nhận với người dùng) — bộ tiêu chí
+> Speaking v2 cho "Video phản xạ" Khối 6-9, do người training bàn giao
+> (`ReflexV2AiGradingService`), thay cặp
+> `ReflexWritingGrammarAiGradingService`/`ReflexSpeakingContentAiGradingService`
+> cho Khối 6, Khối 7 IELTS/CAMBRIDGE, Khối 8 IELTS/CAMBRIDGE (PET Part 4) và
+> Khối 9 IELTS khi bật cờ `app.ai-grading.reflex-v2.enabled` (mặc định TẮT);
+> Khối 9 CAMBRIDGE (chưa có bộ tiêu chí) và khi cờ tắt giữ nguyên luồng cũ.
+> Dạng miêu tả ảnh (PICTURE, Khối 7 Cambridge) CHƯA làm. Khối 8-9 IELTS có
+> 2 dạng đề dùng chung một cặp rubric nhưng khác cột ngưỡng — SHORT (ghi âm
+> tối đa 30 giây) và PART2 (cue card, 90 giây); hệ thống chưa có trường "dạng
+> đề" nên SUY RA từ `review_video_questions.max_recording_seconds` (từ 60 giây
+> trở lên là PART2) và luôn truyền cột ngưỡng vào prompt (người training coi
+> thiếu cột là lỗi chấm số một của khối này). Mã cổng chặn C1/C2/C3 có nghĩa
+> khác nhau giữa Khối 8-9 IELTS (C1 = không đủ dữ liệu, C2 = lạc đề) và các
+> dạng còn lại (C1 = lạc đề, C2 = không nghe ra, C3 = quá ngắn).** Mỗi câu hỏi
+> chạy: (1) chấm bài viết → điểm Ngữ pháp KHOÁ (LR+GRA ở Khối 7 IELTS chấm
+> viết, GRA khoá; GV ở Khối 6/Cambridge) + số lỗi đỏ; điểm Bước 1 = trung
+> bình các tiêu chí chấm viết, ≥2 lỗi đỏ thì Ngữ pháp trần 60%; (2) phiên
+> âm MÙ (không đề, không rubric, không bài viết) bằng model nhận audio,
+> giữ nguyên từ phát âm sai và ghi `suspect_words`; (3) backend chặn TRƯỚC
+> khi chấm (HTTP 422, không trả điểm, không tính lượt): bản ghi không đọc
+> được (số từ > 3,5 × giây nói đo được — cần đo tiếng nói từ WAV, nên bản
+> ghi webm/mp4 được `AudioTranscoder` chuyển sang WAV bằng ffmpeg) và nói
+> khác hẳn bài đã viết (độ khớp nội dung < 0,45/0,35/0,25 theo độ dài bài
+> viết); (4) chấm bài nói trên transcript cố định + audio gốc. AI CHỈ trả
+> checkpoint 0/0,5/1 + trần % do cổng chặn — backend quy đổi, làm tròn
+> XUỐNG bội số 5; nhận xét đúng 2 câu ≤50 từ, cấm gợi ý sửa (câu giải thích
+> cổng chặn do backend soạn; câu đã sửa V141 sinh ở lệnh gọi riêng từ lần
+> nộp thứ 3). **Điểm mở khoá câu tiếp theo mặc định KHÔNG gồm Phát âm**
+> (chưa được kiểm chứng — xem `TRANG-THAI-BAN-GIAO.md` của bộ tiêu chí),
+> điểm Phát âm chỉ hiển thị kèm nhãn "tham khảo" và điểm cuối gồm Phát âm
+> lưu ở `speaking_audit`; bật lại bằng
+> `app.ai-grading.reflex-v2.unlock-includes-pronunciation`. Cấu hình BẮT
+> BUỘC theo người training: model `gemini-3.6-flash` mức medium
+> (`ag/gemini-3.6-flash-medium` trên 9Router), `temperature=0`, KHÔNG
+> chấm bằng model khác (backend từ chối kết quả nếu 9Router trả model
+> khác). Rubric nạp nguyên văn từ `resources/rubrics-v2/`. Bước Nói định
+> tuyến theo `reflex_question_progress.rubric_version`, không theo cờ hiện
+> tại.
+
 > **V177 (2026-09-15, đã xác nhận với người dùng) — SỬA LẠI A2 "Muốn làm
 > lại (retake)": chỉ cần làm lại CÂU SAI, không phải làm lại toàn bộ đề.**
 > Mô tả gốc ở A2 phía trên ("hệ thống cho phép Học sinh làm lại từ đầu")

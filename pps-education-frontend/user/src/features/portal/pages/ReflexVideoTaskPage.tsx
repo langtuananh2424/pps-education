@@ -77,8 +77,19 @@ const SPEAKING_CRITERIA_SUBTITLES_VI: Record<string, string> = {
   "Fluency and Coherence": "Độ trôi chảy & mạch lạc",
   "Lexical Resource": "Vốn từ vựng",
   "Grammatical Range and Accuracy": "Ngữ pháp & độ chính xác",
-  Pronunciation: "Phát âm chuẩn xác"
+  Pronunciation: "Phát âm chuẩn xác",
+  // Bộ tiêu chí Speaking v2 (Khối 7 Cambridge / Khối 6) — xem ReflexV2AiGradingService.
+  "Grammar and Vocabulary": "Ngữ pháp & từ vựng",
+  "Discourse Management": "Quản lý diễn ngôn"
 };
+
+/**
+ * Luồng chấm v2 (2026-09-21) có thể gắn chú thích tiếng Việt trong ngoặc sau tên tiêu chí, VD
+ * "Pronunciation (tham khảo)" hoặc "Grammatical Range and Accuracy (từ bước viết)" — bỏ phần ngoặc khi tra phụ đề.
+ */
+function criterionSubtitle(criterion: string): string | undefined {
+  return SPEAKING_CRITERIA_SUBTITLES_VI[criterion.replace(/\s*\([^)]*\)\s*$/, "")];
+}
 
 /** Xem ghi chú V190 ở trên — thay `title` HTML (không hoạt động trên cảm ứng) bằng tooltip tự dựng. */
 function UnclearMarker({ tooltip }: { tooltip: string }) {
@@ -1644,8 +1655,8 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                             <li key={idx} className="flex items-center justify-between gap-2 px-3 py-2 text-[13px] font-medium normal-case">
                               <span className="text-ink">
                                 {item.criterion}
-                                {SPEAKING_CRITERIA_SUBTITLES_VI[item.criterion] && (
-                                  <span className="text-muted"> · {SPEAKING_CRITERIA_SUBTITLES_VI[item.criterion]}</span>
+                                {criterionSubtitle(item.criterion) && (
+                                  <span className="text-muted"> · {criterionSubtitle(item.criterion)}</span>
                                 )}
                               </span>
                               <span className="font-extrabold text-ink shrink-0">{item.percent}%</span>
@@ -1657,8 +1668,8 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                             <div key={idx} className="rounded-xl border border-line bg-white p-2.5 space-y-1.5">
                               <div>
                                 <p className="text-[13px] font-extrabold text-ink normal-case">{item.criterion}</p>
-                                {SPEAKING_CRITERIA_SUBTITLES_VI[item.criterion] && (
-                                  <p className="text-[11px] font-medium text-muted normal-case">{SPEAKING_CRITERIA_SUBTITLES_VI[item.criterion]}</p>
+                                {criterionSubtitle(item.criterion) && (
+                                  <p className="text-[11px] font-medium text-muted normal-case">{criterionSubtitle(item.criterion)}</p>
                                 )}
                               </div>
                               <div className="flex items-center gap-2">

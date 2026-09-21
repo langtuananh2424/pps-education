@@ -95,6 +95,27 @@ public class NineRouterAiClient {
     @Value("${app.ai-grading.nine-router-acquire-timeout-seconds:20}")
     private int acquireTimeoutSeconds;
 
+    /**
+     * Bổ sung 2026-09-21 (đã xác nhận với người dùng) — cho các lệnh gọi chấm Speaking v2 (bộ tiêu chí
+     * Khối 6-7, xem {@code ReflexV2AiGradingService}): nếu true thì gửi kèm {@code response_format}
+     * json_schema. Mặc định TẮT vì đã thử trên 9Router: field được chấp nhận nhưng kết quả vẫn bọc
+     * trong khối ```json (không ép cứng) — parser phía backend tự bóc, prompt đã kèm schema dạng chữ.
+     */
+    @Value("${app.ai-grading.reflex-v2.json-schema-enabled:false}")
+    private boolean jsonSchemaEnabled;
+
+    /**
+     * Chuỗi phải có mặt trong trường {@code model} 9Router trả về (VD "gemini-3.6-flash" khớp cả
+     * "gemini-3.6-flash-tiered") — người training cảnh báo model dự phòng làm hỏng độ trung thực
+     * transcript nên KHÔNG chấp nhận âm thầm chấm bằng model khác. Để trống = không kiểm tra.
+     */
+    @Value("${app.ai-grading.reflex-v2.expected-model-contains:gemini-3.6-flash}")
+    private String expectedModelContains;
+
+    /** Kết quả gọi có cấu trúc: nội dung + tên model thực tế 9Router đã dùng (để kiểm chứng/ghi audit). */
+    public record AiJsonResponse(String content, String model) {
+    }
+
     public NineRouterAiClient(ObjectMapper objectMapper,
                                @Value("${app.ai-grading.nine-router-max-concurrent:5}") int maxConcurrentCalls) {
         this.objectMapper = objectMapper;
@@ -227,6 +248,109 @@ public class NineRouterAiClient {
     }
 
     /**
+     * Bổ sung 2026-09-21 (đã xác nhận với người dùng) — chấm Speaking v2 (bộ tiêu chí Khối 6-7): gọi text
+     * với {@code temperature=0} (bắt buộc theo người training, KHÔNG đổi), tùy chọn ép JSON schema, thử
+     * lại TỐI ĐA 1 lần khi 429/503 (lỗi 503 vẫn bị trừ quota ngày nên không thử nhiều hơn), và từ chối
+     * kết quả nếu model thực tế khác model mong đợi. Trả {@code null} khi mọi lỗi — caller (service chấm)
+     * coi là "chưa chấm được". Model do caller truyền (VD "ag/gemini-3.6-flash-medium").
+     */
+    public AiJsonResponse chatJson(String systemPrompt, String userMessage, String model, JsonNode schema) {
+        if (model == null || model.isBlank()) {
+            log.warn("NineRouterAiClient: chưa cấu hình model chấm Speaking v2.");
+            return null;
+        }
+        return callWithConcurrencyLimit("chatJson", () -> doJsonCall(systemPrompt, userMessage, null, null, model, schema));
+    }
+
+    /** Như {@link #chatJson} nhưng đính kèm audio (multimodal {@code input_audio}); WAV là định dạng đã kiểm chứng qua 9Router. */
+    public AiJsonResponse chatWithAudioJson(String systemPrompt, String userText, byte[] audioBytes, String mimeType,
+                                            String model, JsonNode schema) {
+        if (audioBytes == null || audioBytes.length == 0 || model == null || model.isBlank()) {
+            return null;
+        }
+        return callWithConcurrencyLimit("chatWithAudioJson",
+                () -> doJsonCall(systemPrompt, userText, audioBytes, mimeType, model, schema));
+    }
+
+    private AiJsonResponse doJsonCall(String systemPrompt, String userText, byte[] audioBytes, String mimeType,
+                                      String model, JsonNode schema) {
+        try {
+            ObjectNode payload = objectMapper.createObjectNode();
+            payload.put("model", model);
+            payload.put("stream", false);
+            payload.put("temperature", 0);
+            if (jsonSchemaEnabled && schema != null) {
+                ObjectNode format = payload.putObject("response_format");
+                format.put("type", "json_schema");
+                ObjectNode js = format.putObject("json_schema");
+                js.put("name", "grading");
+                js.set("schema", schema);
+                js.put("strict", false);
+            }
+            ArrayNode messages = payload.putArray("messages");
+            if (systemPrompt != null && !systemPrompt.isBlank()) {
+                ObjectNode systemMsg = messages.addObject();
+                systemMsg.put("role", "system");
+                systemMsg.put("content", systemPrompt);
+            }
+            ObjectNode userMsg = messages.addObject();
+            userMsg.put("role", "user");
+            if (audioBytes == null) {
+                userMsg.put("content", userText);
+            } else {
+                ArrayNode parts = userMsg.putArray("content");
+                parts.addObject().put("type", "text").put("text", userText);
+                ObjectNode audioPart = parts.addObject();
+                audioPart.put("type", "input_audio");
+                ObjectNode inputAudio = audioPart.putObject("input_audio");
+                inputAudio.put("data", java.util.Base64.getEncoder().encodeToString(audioBytes));
+                inputAudio.put("format", extensionFor(mimeType == null ? "audio/wav" : mimeType));
+            }
+            String body = objectMapper.writeValueAsString(payload);
+            HttpResponse<String> response = sendChatCompletions(body);
+            if (response.statusCode() == 429 || response.statusCode() == 503) {
+                log.warn("NineRouterAiClient: HTTP {} — thử lại 1 lần sau 2 giây.", response.statusCode());
+                Thread.sleep(2000);
+                response = sendChatCompletions(body);
+            }
+            if (response.statusCode() >= 300) {
+                log.warn("NineRouterAiClient: gọi 9Router (JSON) lỗi (HTTP {}): {}", response.statusCode(), response.body());
+                return null;
+            }
+            JsonNode json = objectMapper.readTree(response.body());
+            String content = json.path("choices").path(0).path("message").path("content").asText(null);
+            String actualModel = json.path("model").asText("");
+            if (content == null || content.isBlank()) {
+                return null;
+            }
+            if (expectedModelContains != null && !expectedModelContains.isBlank() && !actualModel.isBlank()
+                    && !actualModel.toLowerCase(java.util.Locale.ROOT).contains(expectedModelContains.toLowerCase(java.util.Locale.ROOT))) {
+                log.warn("NineRouterAiClient: 9Router trả model '{}' KHÔNG chứa '{}' (đã yêu cầu '{}') — bỏ kết quả, không chấm bằng model khác.",
+                        actualModel, expectedModelContains, model);
+                return null;
+            }
+            return new AiJsonResponse(content, actualModel);
+        } catch (IOException | InterruptedException e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            log.warn("NineRouterAiClient: gọi 9Router (JSON) thất bại. {}", e.getMessage());
+            return null;
+        }
+    }
+
+    private HttpResponse<String> sendChatCompletions(String body) throws IOException, InterruptedException {
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(baseUrl + "/chat/completions"))
+                .header("Authorization", "Bearer " + apiKey)
+                .header("content-type", "application/json")
+                .timeout(Duration.ofSeconds(90))
+                .POST(HttpRequest.BodyPublishers.ofString(body))
+                .build();
+        return httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+    }
+
+    /**
      * Gọi {@code POST /audio/transcriptions} (multipart/form-data, shape OpenAI chuẩn) — 9Router tự
      * route tới provider STT thật đã cấu hình trong Dashboard → Media Providers → Speech To Text (VD
      * Groq Whisper). Trả {@code null} nếu chưa cấu hình model, gọi lỗi, hoặc response rỗng.
@@ -281,7 +405,7 @@ public class NineRouterAiClient {
      * vẫn không có permit thì bỏ cuộc, trả {@code null} giống mọi lỗi gọi 9Router khác (KHÔNG tự gọi
      * thẳng bất chấp giới hạn, KHÔNG treo vô hạn).
      */
-    private String callWithConcurrencyLimit(String operationName, Supplier<String> call) {
+    private <T> T callWithConcurrencyLimit(String operationName, Supplier<T> call) {
         boolean acquired = false;
         try {
             acquired = concurrencyLimiter.tryAcquire(acquireTimeoutSeconds, TimeUnit.SECONDS);

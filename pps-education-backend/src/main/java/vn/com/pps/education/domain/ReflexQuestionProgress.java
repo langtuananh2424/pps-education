@@ -11,6 +11,7 @@ import vn.com.pps.education.common.CriteriaScoreItem;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Bảng reflex_question_progress (V139, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-22)
@@ -135,4 +136,29 @@ public class ReflexQuestionProgress extends BaseAuditEntity {
      */
     @Column(name = "is_late_submission", nullable = false)
     private boolean lateSubmission = false;
+
+    /**
+     * V185 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-21) — 'v2' nếu dòng này chấm bằng
+     * bộ tiêu chí Speaking v2 (xem ReflexV2AiGradingService); NULL = luồng cũ. Bước Nói định tuyến theo cột này.
+     */
+    @Column(name = "rubric_version", length = 10)
+    private String rubricVersion;
+
+    /** V185 — điểm Ngữ pháp KHOÁ từ bước viết (luồng v2), mang sang bước nói. */
+    @Column(name = "writing_locked_grammar_percent", precision = 5, scale = 2)
+    private BigDecimal writingLockedGrammarPercent;
+
+    /** V185 — số lỗi đỏ tô được trong bài viết (luồng v2), đầu vào của trần lỗi đỏ ở bước nói. */
+    @Column(name = "writing_red_error_count")
+    private Integer writingRedErrorCount;
+
+    /** V185 — bằng chứng chấm bước viết (luồng v2), phục vụ hiệu chuẩn; KHÔNG trả ra FE. */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "writing_audit", columnDefinition = "jsonb")
+    private Map<String, Object> writingAudit;
+
+    /** V185 — bằng chứng chấm bước nói (luồng v2), phục vụ hiệu chuẩn; KHÔNG trả ra FE. */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "speaking_audit", columnDefinition = "jsonb")
+    private Map<String, Object> speakingAudit;
 }
