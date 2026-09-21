@@ -79,6 +79,10 @@ services:
       NINE_ROUTER_MODEL: ${NINE_ROUTER_MODEL:-}
       NINE_ROUTER_STT_MODEL: ${NINE_ROUTER_STT_MODEL:-groq/whisper-large-v3-turbo}
       NINE_ROUTER_AUDIO_MODEL: ${NINE_ROUTER_AUDIO_MODEL:-ag/gemini-3.5-flash-low}
+      # Luồng chấm Speaking v2 (Khối 6-7, UC-23b) - mặc định TẮT, xem application.yml app.ai-grading.reflex-v2.
+      REFLEX_V2_ENABLED: ${REFLEX_V2_ENABLED:-false}
+      REFLEX_V2_MODEL: ${REFLEX_V2_MODEL:-ag/gemini-3.6-flash-medium}
+      REFLEX_V2_UNLOCK_INCLUDES_PRONUNCIATION: ${REFLEX_V2_UNLOCK_INCLUDES_PRONUNCIATION:-false}
       # UC-73 (Import Excel hàng loạt "bộ" video ôn tập) - YouTube Data API v3, dò durationSeconds tự
       # động cho link YouTube lúc import - tùy chọn, để trống thì mọi dòng link YouTube báo lỗi có
       # kiểm soát (xem YouTubeDurationService, .env.example).

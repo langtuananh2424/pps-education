@@ -11,6 +11,8 @@ RUN mvn -B clean package -DskipTests
 # ---- Runtime stage ----
 FROM eclipse-temurin:21-jre-jammy
 WORKDIR /app
+# ffmpeg: chuyen ban ghi webm/mp4 sang WAV de do tieng noi (luong cham Speaking v2, xem AudioTranscoder).
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
 RUN useradd --no-create-home appuser
 COPY --from=build /app/target/*.jar app.jar
 USER appuser
