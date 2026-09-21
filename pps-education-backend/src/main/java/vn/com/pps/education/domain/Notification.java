@@ -36,7 +36,12 @@ public class Notification {
         // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-12: cảnh báo thái độ học
         // tập (StudentComment.attitude = WEAK/AVERAGE) — xem StudentAttitudeAlertTrackingService/
         // StudentAttitudeEscalationService.
-        STUDENT_ATTITUDE_ALERT, STUDENT_ATTITUDE_ESCALATION_PENDING_APPROVAL, STUDENT_ATTITUDE_ESCALATION
+        STUDENT_ATTITUDE_ALERT, STUDENT_ATTITUDE_ESCALATION_PENDING_APPROVAL, STUDENT_ATTITUDE_ESCALATION,
+        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-21 (UC-71 mở rộng): cảnh báo
+        // giáo viên CHƯA nhận lớp khi tới giờ học (LATE) / KHÔNG nhận lớp khi đã hết giờ học
+        // (ABSENT) — gửi PUSH tới Quản lý điểm trường + EMAIL tới giáo viên dạy buổi đó. Xem
+        // ClassCheckInAlertSchedulerService.
+        CLASS_CHECKIN_LATE_ALERT, CLASS_CHECKIN_ABSENT_ALERT
     }
 
     public enum Priority { LOW, NORMAL, HIGH, URGENT }

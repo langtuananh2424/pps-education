@@ -68,7 +68,7 @@ class AuthServiceRefreshLogoutTest extends AbstractIntegrationTest {
 
     private String loginAndGetRefreshToken() {
         LoginResponse response = authService.login(
-                new LoginRequest(activeUser.getUsername(), RAW_PASSWORD, null, null, null), request());
+                new LoginRequest(activeUser.getUsername(), RAW_PASSWORD, null, null, null, false), request());
         return response.refreshToken();
     }
 

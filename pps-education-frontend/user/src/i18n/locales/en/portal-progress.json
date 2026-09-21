@@ -107,6 +107,7 @@
     "welcomeMessage": "Welcome,",
     "notificationsTitle": "Notifications",
     "noNotifications": "No notifications yet.",
+    "notificationsItemLabel": "notifications",
     "warningsTitle": "Teacher warnings",
     "recentCommentsTitle": "Recent teacher comments",
     "dailyBadge": "Daily",

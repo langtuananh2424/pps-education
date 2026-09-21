@@ -70,7 +70,9 @@
     "HOMEWORK_MEETING_INVITE_PENDING_APPROVAL": "Parent meeting invite pending approval (Site Manager)",
     "STUDENT_ATTITUDE_ALERT": "Learning attitude alert (single session)",
     "STUDENT_ATTITUDE_ESCALATION_PENDING_APPROVAL": "Attitude escalation pending approval (Site Manager)",
-    "STUDENT_ATTITUDE_ESCALATION": "Learning attitude escalation (3 consecutive sessions)"
+    "STUDENT_ATTITUDE_ESCALATION": "Learning attitude escalation (3 consecutive sessions)",
+    "CLASS_CHECKIN_LATE_ALERT": "Teacher has not checked in to class (push to Site manager + email to teacher)",
+    "CLASS_CHECKIN_ABSENT_ALERT": "Teacher did not check in to class (push to Site manager + email to teacher)"
   },
   "sendNotificationPage": {
     "title": "Send Notification",
