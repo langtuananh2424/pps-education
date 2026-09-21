@@ -294,4 +294,39 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, Long
     List<ClassSession> findBySiteIdAndDateRange(@Param("siteId") Long siteId,
                                                  @Param("fromDate") LocalDate fromDate,
                                                  @Param("toDate") LocalDate toDate);
+
+    /**
+     * V184 — buổi học tới giờ bắt đầu (+ trễ cho phép) mà CHƯA có bản ghi nhận lớp và chưa gửi cảnh
+     * báo "chưa nhận lớp". Quét trong [fromDate, today]: ngày < today lấy hết (buổi gần nửa đêm bị
+     * lệch sang ngày mới), ngày = today chỉ lấy buổi có startTime <= cutoffTime. Không tính buổi
+     * CANCELLED/RESCHEDULED (không cần nhận lớp — cùng quy tắc UC-71).
+     */
+    @Query("""
+            SELECT s FROM ClassSession s
+            WHERE s.checkinLateAlertSentAt IS NULL
+              AND s.status NOT IN :excludedStatuses
+              AND s.sessionDate >= :fromDate
+              AND (s.sessionDate < :today OR (s.sessionDate = :today AND s.startTime <= :cutoffTime))
+              AND NOT EXISTS (SELECT 1 FROM ClassSessionCheckIn c WHERE c.classSession = s)
+            ORDER BY s.sessionDate, s.startTime
+            """)
+    List<ClassSession> findPendingCheckInLateAlerts(@Param("fromDate") LocalDate fromDate,
+                                                     @Param("today") LocalDate today,
+                                                     @Param("cutoffTime") LocalTime cutoffTime,
+                                                     @Param("excludedStatuses") List<ClassSession.Status> excludedStatuses);
+
+    /** V184 — buổi học đã qua giờ kết thúc mà vẫn CHƯA có bản ghi nhận lớp và chưa gửi cảnh báo "không nhận lớp". */
+    @Query("""
+            SELECT s FROM ClassSession s
+            WHERE s.checkinAbsentAlertSentAt IS NULL
+              AND s.status NOT IN :excludedStatuses
+              AND s.sessionDate >= :fromDate
+              AND (s.sessionDate < :today OR (s.sessionDate = :today AND s.endTime <= :cutoffTime))
+              AND NOT EXISTS (SELECT 1 FROM ClassSessionCheckIn c WHERE c.classSession = s)
+            ORDER BY s.sessionDate, s.endTime
+            """)
+    List<ClassSession> findPendingCheckInAbsentAlerts(@Param("fromDate") LocalDate fromDate,
+                                                       @Param("today") LocalDate today,
+                                                       @Param("cutoffTime") LocalTime cutoffTime,
+                                                       @Param("excludedStatuses") List<ClassSession.Status> excludedStatuses);
 }
