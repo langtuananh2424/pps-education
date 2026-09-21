@@ -20,7 +20,9 @@ import vn.com.pps.education.exception.AccountLockedException;
 import vn.com.pps.education.exception.ActiveSessionExistsException;
 import vn.com.pps.education.exception.InvalidCredentialsException;
 import vn.com.pps.education.dto.LogoutRequest;
+import vn.com.pps.education.domain.RefreshToken;
 import vn.com.pps.education.repository.LoginAttemptRepository;
+import vn.com.pps.education.repository.RefreshTokenRepository;
 import vn.com.pps.education.repository.RoleRepository;
 import vn.com.pps.education.repository.StudentRepository;
 import vn.com.pps.education.repository.UserRepository;
@@ -63,6 +65,9 @@ class AuthServiceTest extends AbstractIntegrationTest {
     private StudentRepository studentRepository;
 
     @Autowired
+    private RefreshTokenRepository refreshTokenRepository;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     @Autowired
@@ -97,7 +102,7 @@ class AuthServiceTest extends AbstractIntegrationTest {
     @Test
     void login_UC01_MainFlow_returnsTokensOnValidCredentials() {
         LoginResponse response = authService.login(
-                new LoginRequest(activeUser.getUsername(), RAW_PASSWORD, null, null, null), request());
+                new LoginRequest(activeUser.getUsername(), RAW_PASSWORD, null, null, null, false), request());
 
         assertThat(response.accessToken()).isNotBlank();
         assertThat(response.refreshToken()).isNotBlank();
@@ -117,7 +122,7 @@ class AuthServiceTest extends AbstractIntegrationTest {
     @Test
     void login_UC01_A1_rejectsWrongPassword() {
         assertThatThrownBy(() -> authService.login(
-                new LoginRequest(activeUser.getUsername(), "wrong-password", null, null, null), request()))
+                new LoginRequest(activeUser.getUsername(), "wrong-password", null, null, null, false), request()))
                 .isInstanceOf(InvalidCredentialsException.class);
 
         User reloaded = userRepository.findById(activeUser.getId()).orElseThrow();
@@ -133,7 +138,7 @@ class AuthServiceTest extends AbstractIntegrationTest {
     @Test
     void login_UC01_A1_rejectsUnknownUsername() {
         assertThatThrownBy(() -> authService.login(
-                new LoginRequest("khong-ton-tai", RAW_PASSWORD, null, null, null), request()))
+                new LoginRequest("khong-ton-tai", RAW_PASSWORD, null, null, null, false), request()))
                 .isInstanceOf(InvalidCredentialsException.class);
 
         List<LoginAttempt> attempts = loginAttemptRepository.findAll().stream()
@@ -149,7 +154,7 @@ class AuthServiceTest extends AbstractIntegrationTest {
     void login_UC01_A2_locksAccountAfter5FailedAttempts() {
         for (int i = 0; i < 5; i++) {
             assertThatThrownBy(() -> authService.login(
-                    new LoginRequest(activeUser.getUsername(), "wrong-password", null, null, null), request()))
+                    new LoginRequest(activeUser.getUsername(), "wrong-password", null, null, null, false), request()))
                     .isInstanceOf(InvalidCredentialsException.class);
         }
 
@@ -159,7 +164,7 @@ class AuthServiceTest extends AbstractIntegrationTest {
 
         // Đúng mật khẩu nhưng tài khoản đang khóa — vẫn phải từ chối (A2.3)
         assertThatThrownBy(() -> authService.login(
-                new LoginRequest(activeUser.getUsername(), RAW_PASSWORD, null, null, null), request()))
+                new LoginRequest(activeUser.getUsername(), RAW_PASSWORD, null, null, null, false), request()))
                 .isInstanceOf(AccountLockedException.class);
 
         List<LoginAttempt> attempts = attemptsFor(activeUser);
@@ -173,7 +178,7 @@ class AuthServiceTest extends AbstractIntegrationTest {
         userRepository.save(activeUser);
 
         assertThatThrownBy(() -> authService.login(
-                new LoginRequest(activeUser.getUsername(), RAW_PASSWORD, null, null, null), request()))
+                new LoginRequest(activeUser.getUsername(), RAW_PASSWORD, null, null, null, false), request()))
                 .isInstanceOf(AccountInactiveException.class);
 
         List<LoginAttempt> attempts = attemptsFor(activeUser);
@@ -189,10 +194,10 @@ class AuthServiceTest extends AbstractIntegrationTest {
     @Test
     void login_boSung_rejectsSecondDeviceWhileStudentSessionActive() {
         makeStudent(activeUser);
-        authService.login(new LoginRequest(activeUser.getUsername(), RAW_PASSWORD, null, null, null), request());
+        authService.login(new LoginRequest(activeUser.getUsername(), RAW_PASSWORD, null, null, null, false), request());
 
         assertThatThrownBy(() -> authService.login(
-                new LoginRequest(activeUser.getUsername(), RAW_PASSWORD, null, null, null), request()))
+                new LoginRequest(activeUser.getUsername(), RAW_PASSWORD, null, null, null, false), request()))
                 .isInstanceOf(ActiveSessionExistsException.class);
 
         // Vẫn phải ghi login_attempts=success (mật khẩu đúng, chỉ bị chặn bởi policy 1-thiết-bị — xem
@@ -202,27 +207,52 @@ class AuthServiceTest extends AbstractIntegrationTest {
         assertThat(attempts.get(1).isSuccess()).isTrue();
     }
 
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-19 — thay vì bị chặn hẳn như test
+     * trên, học sinh có thể xác nhận (confirm=true, tương ứng bấm "Có" ở popup FE "Tài khoản đang
+     * đăng nhập ở một nơi khác. Bạn có muốn đăng xuất?") để chủ động thu hồi phiên cũ rồi đăng nhập
+     * tiếp — không cần biết mật khẩu/truy cập được thiết bị cũ để tự "Đăng xuất" trước.
+     */
+    @Test
+    void login_boSung_forceLogoutRevokesOldSessionWhenConfirmed() {
+        makeStudent(activeUser);
+        LoginResponse firstDevice = authService.login(
+                new LoginRequest(activeUser.getUsername(), RAW_PASSWORD, null, null, null, false), request());
+
+        LoginResponse secondDevice = authService.login(
+                new LoginRequest(activeUser.getUsername(), RAW_PASSWORD, null, null, null, true), request());
+        assertThat(secondDevice.accessToken()).isNotBlank();
+        assertThat(firstDevice.accessToken()).isNotBlank();
+
+        List<RefreshToken> tokens = refreshTokenRepository.findAll().stream()
+                .filter(t -> t.getUser().getId().equals(activeUser.getId()))
+                .toList();
+        assertThat(tokens).hasSize(2);
+        assertThat(tokens).anyMatch(t -> t.getRevokedAt() != null); // thiết bị 1 bị thu hồi
+        assertThat(tokens).anyMatch(t -> t.getRevokedAt() == null); // thiết bị 2 vừa đăng nhập, còn active
+    }
+
     /** Đăng xuất thiết bị 1 (thu hồi refresh token) xong thì đăng nhập thiết bị 2 phải được cho phép lại bình thường. */
     @Test
     void login_boSung_allowsSecondDeviceAfterLogoutFromFirstDevice() {
         makeStudent(activeUser);
         LoginResponse firstDevice = authService.login(
-                new LoginRequest(activeUser.getUsername(), RAW_PASSWORD, null, null, null), request());
+                new LoginRequest(activeUser.getUsername(), RAW_PASSWORD, null, null, null, false), request());
 
         authService.logout(new LogoutRequest(firstDevice.refreshToken()));
 
         LoginResponse secondDevice = authService.login(
-                new LoginRequest(activeUser.getUsername(), RAW_PASSWORD, null, null, null), request());
+                new LoginRequest(activeUser.getUsername(), RAW_PASSWORD, null, null, null, false), request());
         assertThat(secondDevice.accessToken()).isNotBlank();
     }
 
     /** Rào 1-thiết-bị CHỈ áp dụng cho tài khoản Học sinh — giáo viên/nhân viên vẫn đăng nhập nhiều thiết bị cùng lúc bình thường. */
     @Test
     void login_boSung_allowsMultipleDevicesForNonStudentRoles() {
-        authService.login(new LoginRequest(activeUser.getUsername(), RAW_PASSWORD, null, null, null), request());
+        authService.login(new LoginRequest(activeUser.getUsername(), RAW_PASSWORD, null, null, null, false), request());
 
         LoginResponse secondDevice = authService.login(
-                new LoginRequest(activeUser.getUsername(), RAW_PASSWORD, null, null, null), request());
+                new LoginRequest(activeUser.getUsername(), RAW_PASSWORD, null, null, null, false), request());
         assertThat(secondDevice.accessToken()).isNotBlank();
     }
 
