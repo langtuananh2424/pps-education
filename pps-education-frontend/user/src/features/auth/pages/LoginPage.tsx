@@ -1,9 +1,10 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { ChevronDown, Eye, EyeOff, Lock, Mail } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import GoogleSignInButton from "../components/GoogleSignInButton";
+import ForceLogoutConfirmDialog from "../components/ForceLogoutConfirmDialog";
 import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
 import heroBoy from "@/assets/hero-boy.png";
 import heroUnicorn from "@/assets/hero-unicorn.png";
@@ -20,18 +21,57 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /**
+   * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-09-19) — tài khoản Học sinh đã có phiên
+   * ACTIVE ở thiết bị khác: backend trả 409 (ActiveSessionExistsException, xem
+   * AuthService#requireNoActiveSessionForStudent) thay vì đăng nhập luôn hoặc chặn hẳn. Duy nhất
+   * ActiveSessionExistsException trả 409 trên endpoint đăng nhập (các lỗi khác dùng 401/403/423) nên
+   * chỉ cần khớp status, không cần match chuỗi message theo ngôn ngữ. Dùng chung 1 banner xác nhận cho
+   * cả 2 luồng đăng nhập (mật khẩu + Google) — pendingConfirmRetry giữ lại đúng hành động cần gọi lại
+   * với confirm=true khi người dùng bấm "Có" (mật khẩu: gọi lại submitLogin; Google: gọi lại
+   * loginWithGoogle với idToken đã có sẵn, không cần mở lại popup Google).
+   */
+  const [confirmingForceLogout, setConfirmingForceLogout] = useState(false);
+  const pendingConfirmRetry = useRef<(() => Promise<void>) | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const submitLogin = async (confirm: boolean) => {
     setSubmitting(true);
     setError(null);
     try {
-      await login(usernameOrEmail.trim(), password);
+      await login(usernameOrEmail.trim(), password, confirm);
+      setConfirmingForceLogout(false);
     } catch (err) {
+      if (!confirm && err instanceof ApiError && err.status === 409) {
+        pendingConfirmRetry.current = () => submitLogin(true);
+        setConfirmingForceLogout(true);
+        return;
+      }
+      setConfirmingForceLogout(false);
       setError(err instanceof ApiError ? err.message : t("errors.loginFailed"));
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await submitLogin(false);
+  };
+
+  const handleConfirmForceLogout = async () => {
+    setSubmitting(true);
+    try {
+      await pendingConfirmRetry.current?.();
+    } finally {
+      setConfirmingForceLogout(false);
+      setSubmitting(false);
+    }
+  };
+
+  const handleActiveSessionConflict = (retry: () => Promise<void>) => {
+    pendingConfirmRetry.current = retry;
+    setError(null);
+    setConfirmingForceLogout(true);
   };
 
   return (
@@ -124,7 +164,10 @@ export default function LoginPage() {
                   type="text"
                   placeholder={t("card.emailPlaceholder")}
                   value={usernameOrEmail}
-                  onChange={(e) => setUsernameOrEmail(e.target.value)}
+                  onChange={(e) => {
+                    setUsernameOrEmail(e.target.value);
+                    setConfirmingForceLogout(false);
+                  }}
                   required
                 />
               </div>
@@ -139,7 +182,10 @@ export default function LoginPage() {
                   type={showPassword ? "text" : "password"}
                   placeholder={t("card.passwordPlaceholder")}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setConfirmingForceLogout(false);
+                  }}
                   required
                 />
                 <button type="button" className="toggle-eye" onClick={() => setShowPassword((v) => !v)}>
@@ -160,9 +206,21 @@ export default function LoginPage() {
 
           <div className="divider">{t("card.orDivider")}</div>
 
-          <GoogleSignInButton onSuccess={() => setError(null)} onError={setError} />
+          <GoogleSignInButton
+            onSuccess={() => setError(null)}
+            onError={setError}
+            onActiveSessionConflict={handleActiveSessionConflict}
+          />
         </section>
       </main>
+
+      {confirmingForceLogout && (
+        <ForceLogoutConfirmDialog
+          submitting={submitting}
+          onCancel={() => setConfirmingForceLogout(false)}
+          onConfirm={handleConfirmForceLogout}
+        />
+      )}
     </div>
   );
 }

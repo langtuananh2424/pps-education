@@ -33,11 +33,17 @@ function deviceMetadata() {
   };
 }
 
-export async function login(usernameOrEmail: string, password: string): Promise<void> {
+/**
+ * confirm: bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-09-19) — học sinh đã có phiên
+ * ACTIVE ở thiết bị khác bị backend chặn với 409 (ActiveSessionExistsException, xem
+ * AuthService#requireNoActiveSessionForStudent). confirm=true xác nhận thu hồi phiên cũ đó rồi đăng
+ * nhập tiếp — gọi lại sau khi người dùng bấm "Có" ở popup xác nhận (xem LoginPage).
+ */
+export async function login(usernameOrEmail: string, password: string, confirm = false): Promise<void> {
   const response = await apiRequest<LoginResponse>("/auth/login", {
     method: "POST",
     skipAuth: true,
-    body: JSON.stringify({ usernameOrEmail, password, ...deviceMetadata() })
+    body: JSON.stringify({ usernameOrEmail, password, confirm, ...deviceMetadata() })
   });
   setTokens(response.accessToken, response.refreshToken);
 }
@@ -47,12 +53,13 @@ export async function login(usernameOrEmail: string, password: string): Promise<
  * Google chưa khớp tài khoản nào trong hệ thống, backend trả 403 kèm message "Tài
  * khoản chưa được cấp phát... Vui lòng liên hệ Quản trị viên." (GoogleAccountNotProvisionedException) —
  * hiện thẳng message đó ra UI, không tự viết lại.
+ * confirm: xem ghi chú ở login(...).
  */
-export async function loginWithGoogle(idToken: string): Promise<void> {
+export async function loginWithGoogle(idToken: string, confirm = false): Promise<void> {
   const response = await apiRequest<LoginResponse>("/auth/login/google", {
     method: "POST",
     skipAuth: true,
-    body: JSON.stringify({ idToken, ...deviceMetadata() })
+    body: JSON.stringify({ idToken, confirm, ...deviceMetadata() })
   });
   setTokens(response.accessToken, response.refreshToken);
 }

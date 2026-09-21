@@ -262,6 +262,23 @@ h3,
   box-shadow: 0 2px 6px rgba(255, 122, 89, 0.2);
 }
 
+/* Chấm đỏ nhấp nháy (cảnh báo quá hạn ở tab BTVN, 2026-09-19) — mờ/sáng rõ rệt, 1 nhịp/giây. */
+@keyframes blink-dot {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.15;
+  }
+}
+
+.animate-blink-dot {
+  animation: blink-dot 1s ease-in-out infinite;
+}
+
 /* Custom animation for bobbing elements */
 @keyframes bob {
 

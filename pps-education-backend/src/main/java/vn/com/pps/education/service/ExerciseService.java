@@ -19,6 +19,7 @@ import vn.com.pps.education.domain.QuestionChoice;
 import vn.com.pps.education.domain.SchoolClass;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.dto.AddExerciseQuestionRequest;
+import vn.com.pps.education.dto.ClassResponse;
 import vn.com.pps.education.dto.CreateExerciseRequest;
 import vn.com.pps.education.dto.ExerciseAssignmentResponse;
 import vn.com.pps.education.dto.ExerciseQuestionChoiceResponse;
@@ -343,6 +344,40 @@ public class ExerciseService {
         requireAssignedTeacher(classId, actorUserId);
         return exerciseAssignmentRepository.findBySchoolClassIdAndStatus(classId, ExerciseAssignment.Status.ACTIVE)
                 .stream().map(this::toResponse).toList();
+    }
+
+    /**
+     * UC-40 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-19) — "gán nhanh" 1 Bài cho 1
+     * lớp thẳng từ Kho đề, KHÔNG qua buổi Nhận xét (UC-21). Đảo ngược một phần quyết định V65 (đã gỡ
+     * endpoint giao thủ công khỏi ExerciseController) vì nhu cầu mới: GV muốn chọn lẻ vài Bài (VD Ex.1,
+     * Ex.3, Ex.5) giao cho 1 lớp mà không cần mở buổi Nhận xét. Độc lập song song với gán cả Đề
+     * ({@link ExamClassAssignmentRepository}) — Đề vẫn phải gán cho lớp trước (xem guard trong
+     * {@link #deliverToClass}), bản giao tạo ra ở đây không deadline (dueAt=null, "bài tự luyện"),
+     * sourceClassSession=null để phân biệt với bản giao thật từ UC-21 (không đụng vào nhau khi hủy).
+     */
+    @Transactional
+    public ExerciseAssignmentResponse quickAssignToClass(Long exerciseId, Long classId, Long actorUserId) {
+        ExerciseAssignment assignment = deliverToClass(exerciseId, classId, null, false, actorUserId, null);
+        return toResponse(assignment);
+    }
+
+    /** Gỡ "gán nhanh" 1 Bài khỏi 1 lớp — CHỈ hủy bản giao sourceClassSession=null, không đụng bản giao thật từ UC-21 nếu có. */
+    @Transactional
+    public void quickUnassignFromClass(Long exerciseId, Long classId, Long actorUserId) {
+        requireAssignedTeacher(classId, actorUserId);
+        exerciseAssignmentRepository
+                .findByExerciseIdAndSchoolClassIdAndStatusAndSourceClassSessionIsNull(
+                        exerciseId, classId, ExerciseAssignment.Status.ACTIVE)
+                .ifPresent(this::cancelAssignment);
+    }
+
+    /** Danh sách lớp đã được "gán nhanh" 1 Bài — nguồn cho modal quản lý ở Kho đề (mirror ExamService#listAssignedClasses). */
+    @Transactional(readOnly = true)
+    public List<ClassResponse> listQuickAssignedClasses(Long exerciseId, Long actorUserId) {
+        getExerciseOrThrow(exerciseId);
+        return exerciseAssignmentRepository
+                .findByExerciseIdAndStatusAndSourceClassSessionIsNull(exerciseId, ExerciseAssignment.Status.ACTIVE)
+                .stream().map(a -> toClassResponse(a.getSchoolClass())).toList();
     }
 
     /**
@@ -679,6 +714,18 @@ public class ExerciseService {
         return exerciseAssignmentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("error.exercise.assignmentNotFound",
                         new Object[]{id}, "Không tìm thấy bản giao id=" + id));
+    }
+
+    /** Mirror ExamService#toResponse(SchoolClass) — dùng cho listQuickAssignedClasses. */
+    private ClassResponse toClassResponse(SchoolClass c) {
+        return new ClassResponse(c.getId(), c.getClassCode(), c.getName(),
+                c.getSite().getId(), c.getSite().getName(),
+                c.getCurriculum().getId(), c.getCurriculum().getCode(),
+                c.getClassType().name(), c.getClassCategory(),
+                c.getMaxStudents(), c.getMinStudents(), c.getStartDate(), c.getEndDate(),
+                c.getAcademicYear() == null ? null : c.getAcademicYear().getId(),
+                c.getAcademicYear() == null ? null : c.getAcademicYear().getCode(),
+                c.getStatus().name(), c.getColor());
     }
 
     private ExerciseResponse toResponse(Exercise e, List<ExerciseQuestion> questions) {
