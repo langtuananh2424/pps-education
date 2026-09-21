@@ -146,4 +146,48 @@ Implementation: `AuthService#requireNoActiveSessionForStudent`, exception
 / `..._allowsSecondDeviceAfterLogoutFromFirstDevice` /
 `..._allowsMultipleDevicesForNonStudentRoles`.
 
+**Bổ sung 2026-09-19 (đã xác nhận với người dùng) — cho phép chủ động
+"đăng xuất từ xa" thiết bị cũ ngay lúc đăng nhập, thay vì phải chờ hết
+hạn**
+
+Vấn đề của quy tắc 2026-09-13 ở trên: nếu thiết bị 1 bị mất/hỏng/xóa cache
+mà học sinh KHÔNG kịp bấm "Đăng xuất" trước, refresh token vẫn còn ACTIVE
+trong DB tới khi hết hạn (`refreshTokenTtlDays`) — học sinh bị khóa hoàn
+toàn khỏi tài khoản của chính mình cho tới lúc đó, không có lối thoát nào
+khác.
+
+Thay đổi Main Flow bước 2 (request đăng nhập) và bước 5 (kiểm tra 1-thiết-
+bị ở trên):
+
+-   `LoginRequest`/`GoogleLoginRequest` có thêm field `confirm` (mặc định
+    `false`) — cùng pattern `confirm` đã dùng ở UC-16
+    (`UpdateCurriculumRequest`).
+-   Nếu phát hiện có refresh token ACTIVE ở thiết bị khác (như luồng
+    2026-09-13) VÀ `confirm == false` → vẫn từ chối như cũ (HTTP 409),
+    nhưng FE nay hiểu 409 này là tín hiệu để hỏi lại người dùng: "Tài
+    khoản đang đăng nhập ở một nơi khác. Bạn có muốn đăng xuất?" (thay vì
+    chỉ hiện lỗi rồi dừng).
+-   Nếu người dùng xác nhận "Có" → FE gọi lại đúng request đăng nhập đó
+    với `confirm = true`. Backend khi đó THU HỒI (revoke) toàn bộ refresh
+    token ACTIVE hiện có của tài khoản (`revoked_at = now()`, cùng cơ chế
+    revoke đã dùng ở `logout`/nhánh phát hiện reuse token ở `refresh`),
+    rồi tiếp tục Main Flow bước 5-7 cấp Access/Refresh Token mới bình
+    thường.
+-   Hệ thống hiện KHÔNG có kênh push real-time (WebSocket/SSE) tới thiết
+    bị cũ, nên thiết bị đó KHÔNG bị đăng xuất ngay lập tức — nó chỉ thực
+    sự mất quyền truy cập ở lần gọi API kế tiếp (access token hết hạn,
+    hoặc `POST /api/auth/refresh` thất bại vì refresh token đã bị revoke).
+    Chấp nhận được vì access token có TTL ngắn.
+-   Quy tắc CHỈ áp dụng thiết bị mới đăng nhập (đọc request `confirm`) —
+    không đổi gì ở luồng học sinh tự "Đăng xuất" chủ động qua
+    `POST /api/auth/logout`.
+
+Implementation: `AuthService#requireNoActiveSessionForStudent` (đã sửa để
+nhận thêm `confirm`, revoke danh sách refresh token ACTIVE khi
+`confirm == true`). Xem
+`AuthServiceTest#login_boSung_forceLogoutRevokesOldSessionWhenConfirmed`.
+FE: `LoginPage.tsx`/`GoogleSignInButton.tsx` (app `user`) — bắt HTTP 409 ở
+endpoint đăng nhập (duy nhất `ActiveSessionExistsException` trả 409 ở đây)
+để hiện banner xác nhận, gọi lại đúng API đăng nhập với `confirm: true`.
+
 Phân hệ 2 --- Quản trị người dùng & Phân quyền
