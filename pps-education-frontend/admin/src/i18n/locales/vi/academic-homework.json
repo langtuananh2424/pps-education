@@ -199,10 +199,33 @@
       "viewCountSuffix": "{{viewed}}/{{required}} lượt",
       "notGraded": "Chưa chấm",
       "lateSubmission": "Nộp muộn",
-      "lateSubmissionBadge": "Trễ hạn"
+      "lateSubmissionBadge": "Trễ hạn",
+      "viewDetail": "Xem chi tiết"
     },
     "questionRow": {
       "titleSuffix": " — {{title}}"
+    },
+    "exportReflexData": {
+      "button": "Tải toàn bộ audio + kết quả AI chấm",
+      "exporting": "Đang xuất...",
+      "failed": "Không xuất được dữ liệu."
+    },
+    "reflexHistoryModal": {
+      "title": "Lịch sử chấm AI — {{studentName}}",
+      "loading": "Đang tải...",
+      "loadFailed": "Không tải được lịch sử chấm AI.",
+      "empty": "Học sinh chưa làm câu hỏi nào.",
+      "questionLabel": "Câu {{order}}: {{prompt}}",
+      "writingAttempt": "Viết — lần {{attempt}}",
+      "speakingAttempt": "Ghi âm — lần {{attempt}}",
+      "score": "Điểm: {{score}}/{{maxScore}}",
+      "notGradedYet": "Chưa chấm được",
+      "gradedAt": "Chấm lúc {{time}}",
+      "audioNotAvailable": "Không có audio",
+      "transcriptLabel": "Transcript AI",
+      "feedbackLabel": "Nhận xét",
+      "criteriaLabel": "Chi tiết theo tiêu chí",
+      "answerTextLabel": "Câu trả lời viết"
     }
   }
 }
