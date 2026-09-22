@@ -25,6 +25,10 @@ const NOTIFICATIONS_PAGE_SIZE = 5;
 export default function HomeTab({ studentName, classId, parentStudentId }: HomeTabProps) {
   const { t, i18n } = useTranslation("portal-progress");
   const [notifications, setNotifications] = useState<NotificationResponse[]>([]);
+  // Nhãn loại thông báo: dịch theo `home.notificationType.<enum>` thay vì hiện thẳng mã enum
+  // (HOMEWORK_DUE_SOON_REMINDER...) — theo yêu cầu người dùng 2026-09-22. Loại mới backend thêm
+  // mà chưa có key dịch thì rơi về mã enum như trước, không vỡ giao diện.
+  const notificationTypeLabel = (type: string) => t(`home.notificationType.${type}`, { defaultValue: type });
   // Phân trang khối Thông báo (theo yêu cầu người dùng, 2026-09-21) — dùng phân trang server sẵn có
   // của `listMyNotifications(page, size)` thay vì kéo hết về rồi cắt client, vì học sinh lâu năm
   // tích lũy hàng trăm thông báo. Đổi trang chỉ tải lại thông báo, không tải lại nhận xét.
@@ -146,7 +150,7 @@ export default function HomeTab({ studentName, classId, parentStudentId }: HomeT
                       className="shrink-0 w-[85%] snap-start bg-slate-50/50 border border-line/60 p-4 rounded-[16px] space-y-1"
                     >
                       <div className="flex justify-between items-center">
-                        <span className="text-[13px] font-bold text-teal uppercase">{n.notificationType}</span>
+                        <span className="text-[13px] font-bold text-teal uppercase">{notificationTypeLabel(n.notificationType)}</span>
                         <span className="text-sm text-muted font-semibold">{formatDateTimeHm(n.createdAt, i18n.language)}</span>
                       </div>
                       <h4 className="font-extrabold text-ink text-[16px]">{n.title}</h4>
@@ -169,7 +173,7 @@ export default function HomeTab({ studentName, classId, parentStudentId }: HomeT
                 {notifications.map((n) => (
                   <div key={n.id} className="bg-slate-50/50 border border-line/60 p-4 rounded-[16px] space-y-1">
                     <div className="flex justify-between items-center">
-                      <span className="text-[11px] font-bold text-teal uppercase">{n.notificationType}</span>
+                      <span className="text-[11px] font-bold text-teal uppercase">{notificationTypeLabel(n.notificationType)}</span>
                       <span className="text-sm text-muted font-semibold">{formatDateTimeHm(n.createdAt, i18n.language)}</span>
                     </div>
                     <h4 className="font-extrabold text-ink text-lg">{n.title}</h4>

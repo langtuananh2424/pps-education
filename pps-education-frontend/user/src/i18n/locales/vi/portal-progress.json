@@ -2,7 +2,15 @@
   "loading": "Đang tải...",
   "loadError": "Không tải được quá trình học tập.",
   "homeLoadError": "Không tải được bảng tin.",
-  "weekdayLabels": ["T2", "T3", "T4", "T5", "T6", "T7", "CN"],
+  "weekdayLabels": [
+    "T2",
+    "T3",
+    "T4",
+    "T5",
+    "T6",
+    "T7",
+    "CN"
+  ],
   "sessionType": {
     "regular": "Buổi học thường",
     "review": "Ôn tập",
@@ -111,6 +119,39 @@
     "warningsTitle": "Cảnh báo từ giáo viên",
     "recentCommentsTitle": "Nhận xét của giáo viên gần đây",
     "dailyBadge": "Hàng ngày",
-    "noComments": "Chưa có nhận xét nào."
+    "noComments": "Chưa có nhận xét nào.",
+    "notificationType": {
+      "SYSTEM_ANNOUNCEMENT": "Thông báo hệ thống",
+      "OTHER": "Khác",
+      "ATTENDANCE_ABSENT": "Vắng học",
+      "ATTENDANCE_PRESENT": "Có mặt",
+      "ATTENDANCE_LATE": "Đi học muộn",
+      "ATTENDANCE_EXCUSED": "Nghỉ có phép",
+      "ATTENDANCE_EARLY_LEAVE": "Về sớm",
+      "TASK_ASSIGNED": "Giao việc mới",
+      "TASK_COMMENT": "Bình luận công việc",
+      "INVOICE_DUE": "Học phí đến hạn",
+      "GRADE_PUBLISHED": "Công bố điểm",
+      "GRADE_REJECTED": "Điểm bị từ chối",
+      "COMMENT_APPROVED": "Nhận xét của giáo viên",
+      "COMMENT_PENDING_APPROVAL": "Nhận xét chờ duyệt",
+      "COMMENT_REJECTED": "Nhận xét bị từ chối",
+      "PARTNER_FEEDBACK": "Phản hồi đối tác",
+      "LEAVE_REQUEST_STATUS": "Đơn nghỉ phép",
+      "EXAM_INTEGRITY_VIOLATION": "Vi phạm giám sát thi",
+      "EXAM_INTEGRITY_VIOLATION_PARENT": "Vi phạm giám sát thi",
+      "HOMEWORK_DEADLINE_SUMMARY": "Tổng hợp hạn BTVN",
+      "HOMEWORK_MISS_REMINDER": "Nhắc thiếu BTVN",
+      "HOMEWORK_MISS_WARNING": "Cảnh báo thiếu BTVN",
+      "HOMEWORK_MISS_PARENT_MEETING_INVITE": "Thư mời phụ huynh",
+      "HOMEWORK_MISS_REMINDER_NON_CONSECUTIVE": "Nhắc thiếu BTVN",
+      "HOMEWORK_DUE_SOON_REMINDER": "Sắp tới hạn BTVN",
+      "HOMEWORK_MEETING_INVITE_PENDING_APPROVAL": "Thư mời phụ huynh chờ duyệt",
+      "STUDENT_ATTITUDE_ALERT": "Cảnh báo thái độ học tập",
+      "STUDENT_ATTITUDE_ESCALATION_PENDING_APPROVAL": "Cảnh báo thái độ chờ duyệt",
+      "STUDENT_ATTITUDE_ESCALATION": "Cảnh báo thái độ học tập",
+      "CLASS_CHECKIN_LATE_ALERT": "Giáo viên chưa nhận lớp",
+      "CLASS_CHECKIN_ABSENT_ALERT": "Giáo viên không nhận lớp"
+    }
   }
 }
