@@ -388,3 +388,182 @@ code lạ từ PR fork chạy được trên server thật).
   đúng stack sang tag `<sha>` cũ, `docker compose up -d --no-deps backend`.
 - Frontend rollback: re-run job cũ trong tab GitHub Actions (rsync `--delete`
   ghi đè lại đúng bản build đó).
+
+## 11. Backup Postgres (3-2-1)
+
+Backup tự động hàng ngày cho cả 2 stack (`staging` + `production`), theo quy
+tắc **3-2-1**: 3 bản dữ liệu (1 bản gốc đang chạy + 2 bản local + 1 bản
+cloud), lưu trên ít nhất 2 loại lưu trữ khác nhau, 1 bản off-site.
+
+- **2 bản local** (chưa mã hoá, dùng để restore nhanh): thư mục
+  `/opt/pps-education/backups/<stack>/{daily,weekly,monthly}` trên chính SSD
+  server — hiện chưa có ổ cứng ngoài riêng, nên "2 bản" ở đây là daily +
+  weekly/monthly xoay vòng trên cùng ổ (chống xoá/ghi đè nhầm 1 bản, **không**
+  chống hỏng ổ vật lý). Khi có ổ USB/external HDD sau này, nên đổi
+  `BACKUP_ROOT` trong `backup-db.sh` sang mount point của ổ đó để đúng tinh
+  thần 3-2-1 (2 *media* vật lý khác nhau).
+- **1 bản cloud**: bản mã hoá GPG (đối xứng, 1 passphrase) trong
+  `/opt/pps-education/backups/encrypted/`, đồng bộ lên Google Drive cá nhân
+  qua `rclone` (remote tên `gdrive`). Mã hoá riêng bản này vì DB chứa dữ liệu
+  cá nhân học sinh/phụ huynh — không đẩy plaintext lên Drive cá nhân.
+  Sau khi backup lên Drive, định kỳ tải thủ công về máy cá nhân để có thêm 1
+  bản offline (việc này làm tay, ngoài phạm vi script).
+- Lịch: **hàng ngày 02:30** (giờ server, ít tải nhất), giữ **7 bản daily + 4
+  bản weekly (Chủ Nhật) + 6 bản monthly (ngày 01)** cho mỗi stack, cả bản
+  local lẫn bản mã hoá.
+
+### Cài đặt lần đầu
+
+```bash
+# 1. Copy script + systemd units lên server
+sudo mkdir -p /opt/pps-education
+sudo cp deploy/backup-db.sh /opt/pps-education/backup-db.sh
+sudo chown deploy:deploy /opt/pps-education/backup-db.sh
+sudo chmod 750 /opt/pps-education/backup-db.sh
+
+sudo cp deploy/systemd/pps-db-backup.service deploy/systemd/pps-db-backup.timer \
+  /etc/systemd/system/
+
+# 2. Cai gpg (thuong co san tren Ubuntu Server) + rclone
+sudo apt install -y gnupg
+curl https://rclone.org/install.sh | sudo bash
+```
+
+**Tạo passphrase mã hoá** (chỉ 1 lần — **lưu passphrase này vào password
+manager cá nhân**, mất passphrase = mất luôn khả năng đọc bản backup trên
+Drive dù file vẫn còn):
+
+```bash
+sudo -u deploy bash -c 'umask 077; openssl rand -base64 32 > /opt/pps-education/backup.gpg-passphrase'
+sudo chmod 600 /opt/pps-education/backup.gpg-passphrase
+sudo chown deploy:deploy /opt/pps-education/backup.gpg-passphrase
+cat /opt/pps-education/backup.gpg-passphrase   # copy vào password manager, KHÔNG chỉ lưu trên server
+```
+
+**Cấu hình rclone remote `gdrive`** (làm tay, cần đăng nhập Google — Claude
+không thể thực hiện bước này, bạn tự chạy trên server qua SSH):
+
+```bash
+sudo -u deploy rclone config
+```
+
+Chọn `n` (New remote) → name `gdrive` → storage type `drive` (Google Drive)
+→ để trống `client_id`/`client_secret` (dùng app mặc định của rclone) →
+scope `drive` (full access) → để trống `root_folder_id`/`service_account_file`
+→ "Edit advanced config?" chọn `n` → "Use auto config?" chọn **`n`** (server
+không có trình duyệt) → rclone in ra 1 lệnh `rclone authorize "drive"` cùng 1
+URL. Chạy lệnh đó (kèm URL) trên **máy cá nhân đã cài rclone**, đăng nhập
+Google trên máy đó, rclone trả về 1 đoạn token JSON → paste đoạn token đó
+ngược lại vào prompt trên server → xác nhận `y` để lưu remote.
+
+Kiểm tra:
+
+```bash
+sudo -u deploy rclone lsd gdrive:
+```
+
+**Kích hoạt timer:**
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now pps-db-backup.timer
+systemctl list-timers pps-db-backup.timer   # kiểm tra lần chạy kế tiếp
+```
+
+Chạy thử ngay (không đợi tới 02:30) để verify:
+
+```bash
+sudo systemctl start pps-db-backup.service
+journalctl -u pps-db-backup.service -n 100 --no-pager
+tail -n 50 /opt/pps-education/backups/backup.log
+```
+
+### Kiểm tra định kỳ
+
+- `systemctl status pps-db-backup.timer` — timer phải `active (waiting)`.
+- `journalctl -u pps-db-backup.service --since -7d` — không có dòng `LOI`.
+- **Test restore ít nhất mỗi quý** (backup không test = không đáng tin):
+
+```bash
+# Giai ma neu dung ban tu Drive:
+gpg --batch --yes --pinentry-mode loopback \
+  --passphrase-file /opt/pps-education/backup.gpg-passphrase \
+  -d staging_pps_education_<timestamp>.dump.gpg > restored.dump
+
+# Restore vao 1 DB SCRATCH de test (KHONG restore de vao container postgres
+# dang phuc vu thật - se ghi đè toàn bộ dữ liệu hiện có):
+docker exec -i pps-staging-postgres-1 psql -U pps_app -c "CREATE DATABASE pps_restore_test;"
+docker exec -i pps-staging-postgres-1 pg_restore -U pps_app -d pps_restore_test < restored.dump
+```
+
+### Ghi chú vận hành
+
+- `backup-db.sh` tự bỏ qua bước cloud (chỉ log cảnh báo, không fail cả job)
+  nếu chưa có `backup.gpg-passphrase` hoặc remote `gdrive` — script vẫn chạy
+  được ngay sau khi copy lên server, cấu hình cloud sau không chặn backup
+  local.
+- Dung lượng: mỗi dump DB nén sẵn (`pg_dump -Fc`); theo dõi dung lượng
+  `/opt/pps-education/backups` qua `du -sh` định kỳ, còn free chưa cấp phát
+  trong `ubuntu-vg` nếu cần mở rộng LVM (xem mục 12 — đã cấp 150GB+100GB cho
+  data production, còn ~590GB free trong VG tính tới 2026-09-19).
+- Không backup MinIO (media file) trong script này — nếu cần, cân nhắc
+  `mc mirror`/`rclone` riêng cho `minio_data` (khối lượng lớn hơn nhiều, nên
+  tách lịch/retention riêng, không trộn chung với DB).
+
+## 12. Logical Volume riêng cho dữ liệu production (DB + media)
+
+Bổ sung 2026-09-19 (đã xác nhận với người dùng) — trước đây `pg_data`/
+`minio_data` là Docker named volume, thực chất ghi vào
+`/var/lib/docker/volumes/...` nằm trên `ubuntu-lv` (root filesystem, `/`).
+Tách riêng 2 Logical Volume mới trong `ubuntu-vg` (còn ~846GB free lúc tạo)
+để dữ liệu production không cạnh tranh dung lượng với root filesystem —
+tránh kịch bản media/DB phình to làm đầy `/` gây sập cả server (không chỉ
+riêng app). Chỉ áp dụng cho **production** (staging vẫn dùng named volume
+trên root — dung lượng nhỏ, mất cũng không nghiêm trọng).
+
+`deploy/docker-compose.production.yml` đã đổi `postgres`/`minio` sang bind
+mount `/mnt/pps-production/db` và `/mnt/pps-production/media` (thay vì named
+volume `pg_data`/`minio_data`) — 2 đường dẫn này **phải được mount sẵn qua
+fstab trước khi chạy `docker compose up -d`**, nếu không Docker tự tạo thư
+mục rỗng ngay trên root và ghi nhầm vào đó (im lặng, không báo lỗi).
+
+### Setup lần đầu (đã làm 2026-09-19)
+
+```bash
+# 1. Tạo LV (150GB cho DB, 100GB cho media - dư sức tăng trưởng nhiều năm,
+#    còn ~590GB free trong ubuntu-vg để lvextend sau này nếu cần)
+sudo lvcreate -L 150G -n lv-pps-prod-db ubuntu-vg
+sudo lvcreate -L 100G -n lv-pps-prod-media ubuntu-vg
+sudo mkfs.ext4 /dev/ubuntu-vg/lv-pps-prod-db
+sudo mkfs.ext4 /dev/ubuntu-vg/lv-pps-prod-media
+
+# 2. Mount point + fstab (persist qua reboot)
+sudo mkdir -p /mnt/pps-production/db /mnt/pps-production/media
+DB_UUID=$(sudo blkid -s UUID -o value /dev/ubuntu-vg/lv-pps-prod-db)
+MEDIA_UUID=$(sudo blkid -s UUID -o value /dev/ubuntu-vg/lv-pps-prod-media)
+echo "UUID=$DB_UUID  /mnt/pps-production/db     ext4  defaults  0 2" | sudo tee -a /etc/fstab
+echo "UUID=$MEDIA_UUID  /mnt/pps-production/media  ext4  defaults  0 2" | sudo tee -a /etc/fstab
+sudo mount -a
+df -h /mnt/pps-production/db /mnt/pps-production/media   # xác nhận đã mount đúng
+
+# 3. Downtime ngắn (~1-2 phút) — dừng container để copy dữ liệu an toàn,
+#    dùng "stop" (không "down") để giữ nguyên named volume cũ làm backup
+#    cho tới khi xác nhận dữ liệu mới hoạt động ổn
+cd /opt/pps-education/production
+docker compose stop postgres minio
+
+PG_SRC=$(docker volume inspect pps-production_pg_data --format '{{ .Mountpoint }}')
+MEDIA_SRC=$(docker volume inspect pps-production_minio_data --format '{{ .Mountpoint }}')
+sudo rsync -aHAX --info=progress2 "$PG_SRC"/ /mnt/pps-production/db/
+sudo rsync -aHAX --info=progress2 "$MEDIA_SRC"/ /mnt/pps-production/media/
+
+# 4. Deploy code đã đổi compose sang bind mount (merge PR vào nhánh trigger
+#    cd-production.yml) - CI tự đồng bộ docker-compose.production.yml mới
+#    lên server rồi "docker compose up -d", compose tự nhận diện volume
+#    config đổi và recreate 2 container postgres/minio trỏ vào LV mới.
+
+# 5. Verify sau khi lên: app chạy bình thường, dữ liệu cũ còn nguyên
+#    (đăng nhập, xem lại 1 bài học có media cũ). Sau khi ổn định vài ngày,
+#    xoá named volume cũ để giải phóng chỗ trên root:
+docker volume rm pps-production_pg_data pps-production_minio_data
+```

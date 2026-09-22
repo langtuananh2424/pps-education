@@ -321,8 +321,8 @@
         "continue": "Continue",
         "reviewGraded": "Review your work"
       },
-      "needsRetake": "Not passed {{percent}} — needs retake",
-      "failedNoMoreRetakes": "Not passed {{percent}} — no retakes left",
+      "retakeSuffix": "needs retake",
+      "noMoreRetakesSuffix": "no retakes left",
       "overduePrefix": "Overdue — ",
       "duePrefix": "Due: ",
       "noDeadline": "No deadline",

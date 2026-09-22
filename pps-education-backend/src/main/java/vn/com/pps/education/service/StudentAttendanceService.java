@@ -209,13 +209,17 @@ public class StudentAttendanceService {
     }
 
     /**
-     * UC-21 mở rộng — cơ chế lock theo điểm danh (đã xác nhận với người dùng 2026-09-17): điểm danh
-     * Vắng (ABSENT)/Có phép (EXCUSED) khoá luôn việc ghi nhận xét hàng ngày của đúng học sinh đó cho
-     * buổi này (xem {@code StudentCommentService#requireNotLockedByAttendance}). Ở ĐÂY chỉ lo phần dữ
-     * liệu CŨ: nếu học sinh đã có sẵn nhận xét/BTVN (DRAFT/REJECTED — chưa Gửi duyệt) TRƯỚC KHI bị
-     * điểm danh Vắng/Có phép, tự xóa sạch nội dung đó ngay lúc điểm danh (đã xác nhận với người dùng —
-     * không giữ lại "nhận xét mồ côi" của buổi học sinh không có mặt). KHÔNG đụng nhận xét đã
-     * PENDING/APPROVED — đã qua khỏi quyền sửa của Giáo viên (UC-22), không thuộc phạm vi khoá này.
+     * UC-21 mở rộng — cơ chế lock theo điểm danh (đã xác nhận với người dùng 2026-09-17, NỚI LẠI
+     * 2026-09-22): điểm danh Vắng (ABSENT)/Có phép (EXCUSED) khoá việc ghi Nhận xét/Thái độ hàng ngày
+     * của đúng học sinh đó cho buổi này (xem {@code StudentCommentService#requireNotLockedByAttendance})
+     * — riêng "Giao BTVN buổi sau" (áp dụng cho cả lớp, {@code StudentCommentService#applyHomeworkToClass})
+     * KHÔNG còn bị khoá, học sinh vắng vẫn nhận bài bình thường. Ở ĐÂY chỉ lo phần dữ liệu CŨ: nếu học
+     * sinh đã có sẵn Nhận xét/Thái độ (DRAFT/REJECTED — chưa Gửi duyệt) TRƯỚC KHI bị điểm danh Vắng/Có
+     * phép, tự xóa sạch nội dung đó ngay lúc điểm danh (đã xác nhận với người dùng — không giữ lại
+     * "nhận xét mồ côi" của buổi học sinh không có mặt). KHÔNG đụng BTVN buổi sau dạng batch
+     * (homeworkNext*Batch/ReviewVideoAssignment — giao qua applyHomeworkToClass, không thuộc phạm vi
+     * khoá này nữa) và KHÔNG đụng nhận xét đã PENDING/APPROVED — đã qua khỏi quyền sửa của Giáo viên
+     * (UC-22), không thuộc phạm vi khoá này.
      *
      * Cố tình dùng thẳng {@link StudentCommentRepository} (module Nhận xét) thay vì gọi qua
      * {@code StudentCommentService} — {@code StudentCommentService} đã phụ thuộc NGƯỢC LẠI
@@ -241,10 +245,6 @@ public class StudentAttendanceService {
                     comment.setHomeworkNext(null);
                     comment.setHomeworkNextReading(null);
                     comment.setHomeworkNextWriting(null);
-                    comment.setHomeworkNextGrammarBatch(null);
-                    comment.setHomeworkNextReviewVideoAssignment(null);
-                    comment.setHomeworkNextReadingBatch(null);
-                    comment.setHomeworkNextWritingBatch(null);
                     comment.setNote(null);
                     studentCommentRepository.save(comment);
                 });

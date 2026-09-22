@@ -1277,7 +1277,14 @@ function ExerciseCard({
   const isOverdue = item.dueAt != null && new Date(item.dueAt) < new Date();
   const retake = needsRetake(item);
   const noMoreRetakes = failedNoMoreRetakes(item);
-  const attemptMeta = retake || noMoreRetakes ? null : item.myLatestAttemptStatus ? attemptStatusMeta(t, item.myLatestAttemptStatus) : null;
+  /**
+   * Fix 2026-09-22 (đã xác nhận với người dùng) — TRƯỚC ĐÂY badge "cần làm lại"/"đã hết lượt" tách riêng
+   * ở đầu thẻ, hiện % TỔNG cạnh pill "Hoàn thành: X/Y (Z%) Đạt/Chưa đạt" bên dưới — 2 chỗ cùng hiện %
+   * nhưng đọc dễ hiểu lầm là 2 kết luận khác nhau. Gộp hẳn info "cần làm lại"/"hết lượt" vào pill dưới
+   * (xem notPassedSuffix), header giờ chỉ còn badge trạng thái lượt chung (attemptMeta) không phân biệt
+   * retake/noMoreRetakes nữa.
+   */
+  const attemptMeta = item.myLatestAttemptStatus ? attemptStatusMeta(t, item.myLatestAttemptStatus) : null;
   const isFullyGraded = item.myLatestAttemptStatus === "FULLY_GRADED";
   const pending = isExercisePending(item);
   /**
@@ -1321,17 +1328,7 @@ function ExerciseCard({
         <div className="flex flex-nowrap items-center gap-2 overflow-x-auto scrollbar-hide">
           <span className="px-2.5 py-0.5 rounded-lg bg-teal/10 text-teal border border-teal/20 text-[13px] font-black shrink-0">{item.exerciseCode}</span>
           <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-muted text-[13px] font-bold shrink-0 whitespace-nowrap">{item.className}</span>
-          {retake ? (
-            <span className="px-2.5 py-0.5 rounded-lg bg-coral/10 text-coral border border-coral/20 text-[13px] font-black flex items-center gap-1 shrink-0 whitespace-nowrap">
-              <Clock size={12} />{" "}
-              {t("assignments.exercise.needsRetake", { percent: item.myLatestPercentage != null ? `(${item.myLatestPercentage}%)` : "" })}
-            </span>
-          ) : noMoreRetakes ? (
-            <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-muted border border-line text-[13px] font-black flex items-center gap-1 shrink-0 whitespace-nowrap">
-              <AlertCircle size={12} />{" "}
-              {t("assignments.exercise.failedNoMoreRetakes", { percent: item.myLatestPercentage != null ? `(${item.myLatestPercentage}%)` : "" })}
-            </span>
-          ) : attemptMeta ? (
+          {attemptMeta ? (
             <span className={`px-2.5 py-0.5 rounded-lg text-[13px] font-black flex items-center gap-1 shrink-0 whitespace-nowrap ${attemptMeta.className}`}>
               <CheckCircle2 size={12} /> {attemptMeta.label}
             </span>
@@ -1405,6 +1402,12 @@ function ExerciseCard({
               <span className="flex items-center gap-1 font-black">
                 {item.myLatestPassed ? <CheckCircle2 size={13} aria-hidden="true" /> : <AlertCircle size={13} aria-hidden="true" />}
                 {item.myLatestPassed ? t("assignments.exercise.passed") : t("assignments.exercise.notPassed")}
+                {!item.myLatestPassed &&
+                  (retake
+                    ? ` — ${t("assignments.exercise.retakeSuffix")}`
+                    : noMoreRetakes
+                      ? ` — ${t("assignments.exercise.noMoreRetakesSuffix")}`
+                      : "")}
               </span>
             )}
           </div>
@@ -1461,14 +1464,15 @@ function BatchExerciseCard({
   const anyInProgress = items.some((it) => it.myLatestAttemptStatus === "IN_PROGRESS");
   const allFullyGraded = items.every((it) => it.myLatestAttemptStatus === "FULLY_GRADED");
   const noneStarted = items.every((it) => it.myLatestAttemptStatus == null);
-  const attemptMeta =
-    anyRetake || anyFailedNoMoreRetakes || noneStarted
-      ? null
-      : anyInProgress
-        ? attemptStatusMeta(t, "IN_PROGRESS")
-        : allFullyGraded
-          ? attemptStatusMeta(t, "FULLY_GRADED")
-          : attemptStatusMeta(t, "AUTO_GRADED");
+  /** Fix 2026-09-22 (đã xác nhận với người dùng) — mirror ExerciseCard: bỏ badge "cần làm lại"/"hết
+   * lượt" riêng ở header, gộp vào pill "Hoàn thành..." bên dưới (xem notPassedSuffix). */
+  const attemptMeta = noneStarted
+    ? null
+    : anyInProgress
+      ? attemptStatusMeta(t, "IN_PROGRESS")
+      : allFullyGraded
+        ? attemptStatusMeta(t, "FULLY_GRADED")
+        : attemptStatusMeta(t, "AUTO_GRADED");
   /** V152 — mirror ExerciseCard#overdueLockedInProgress, áp dụng cho cả Lô (dùng chung dueAt/lateSubmissionAllowed của Bài đại diện). */
   const overdueLockedInProgress = isOverdue && !first.lateSubmissionAllowed && anyInProgress;
   /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — mirror ExerciseCard#locked. */
@@ -1478,7 +1482,16 @@ function BatchExerciseCard({
   const totalScore = items.reduce((sum, it) => sum + (it.myLatestTotalScore ?? 0), 0);
   const totalPoints = items.reduce((sum, it) => sum + (it.exerciseTotalPoints ?? 0), 0);
   const percentage = totalPoints > 0 ? Math.round((totalScore / totalPoints) * 10000) / 100 : null;
-  const passed = allFullyGraded && percentage != null ? percentage >= 70 : null;
+  /**
+   * Fix 2026-09-22 (bug thật, đã xác nhận với người dùng) — TRƯỚC ĐÂY so % gộp cả Lô với ngưỡng cứng
+   * 70%, KHÔNG khớp với ngưỡng đạt riêng từng Bài (passThresholdPercent, đã cấu hình lúc soạn/giao đề,
+   * dùng để tính myLatestPassed per-item ở BE) — gây badge trên (anyRetake, bật theo từng Bài trượt
+   * ngưỡng RIÊNG của nó) và pill dưới (đạt/chưa đạt theo % TỔNG so 70%) mâu thuẫn nhau dù cùng hiện 1 %.
+   * Đổi lại: hễ CÒN 1 Bài trong Lô trượt ngưỡng riêng của nó (anyRetake/anyFailedNoMoreRetakes, tính
+   * trước — không cần đợi allFullyGraded) là "Chưa đạt" ngay; "Đạt" chỉ khi mọi Bài đã chấm xong VÀ
+   * không còn Bài nào trượt. % tổng vẫn giữ nguyên chỉ để hiển thị.
+   */
+  const passed = anyRetake || anyFailedNoMoreRetakes ? false : allFullyGraded ? true : null;
 
   const actionLabel = noneStarted
     ? t("assignments.exercise.action.start")
@@ -1499,15 +1512,7 @@ function BatchExerciseCard({
             {t("assignments.batch.countSuffix", { count: items.length })}
           </span>
           <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-muted text-[13px] font-bold shrink-0 whitespace-nowrap">{first.className}</span>
-          {anyRetake ? (
-            <span className="px-2.5 py-0.5 rounded-lg bg-coral/10 text-coral border border-coral/20 text-[13px] font-black flex items-center gap-1 shrink-0 whitespace-nowrap">
-              <Clock size={12} /> {t("assignments.exercise.needsRetake", { percent: percentage != null ? `(${percentage}%)` : "" })}
-            </span>
-          ) : anyFailedNoMoreRetakes ? (
-            <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-muted border border-line text-[13px] font-black flex items-center gap-1 shrink-0 whitespace-nowrap">
-              <AlertCircle size={12} /> {t("assignments.exercise.failedNoMoreRetakes", { percent: percentage != null ? `(${percentage}%)` : "" })}
-            </span>
-          ) : attemptMeta ? (
+          {attemptMeta ? (
             <span className={`px-2.5 py-0.5 rounded-lg text-[13px] font-black flex items-center gap-1 shrink-0 whitespace-nowrap ${attemptMeta.className}`}>
               <CheckCircle2 size={12} /> {attemptMeta.label}
             </span>
@@ -1569,6 +1574,12 @@ function BatchExerciseCard({
               <span className="flex items-center gap-1 font-black">
                 {passed ? <CheckCircle2 size={13} aria-hidden="true" /> : <AlertCircle size={13} aria-hidden="true" />}
                 {passed ? t("assignments.exercise.passed") : t("assignments.exercise.notPassed")}
+                {!passed &&
+                  (anyRetake
+                    ? ` — ${t("assignments.exercise.retakeSuffix")}`
+                    : anyFailedNoMoreRetakes
+                      ? ` — ${t("assignments.exercise.noMoreRetakesSuffix")}`
+                      : "")}
               </span>
             )}
           </div>
