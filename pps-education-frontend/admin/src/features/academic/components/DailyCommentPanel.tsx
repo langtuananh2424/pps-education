@@ -759,13 +759,13 @@ export default function DailyCommentPanel() {
     setConfirmingApplyHomework(false);
     if (!selectedClassId || !selectedSession) return;
     const lockedIds = new Set(history.filter((h) => h.status === "PENDING" || h.status === "APPROVED").map((h) => h.studentId));
-    // 2026-09-17 (đã xác nhận với người dùng) — "Gán nhanh cho cả lớp" (BTVN offline) cũng phải BỎ QUA
-    // học sinh Vắng/Có phép, mirror applyClassHomework ở BE (BTVN online) — cả 2 cơ chế "áp dụng cho cả
-    // lớp" đều không được đụng tới học sinh đang bị khoá vì điểm danh.
-    const isAttendanceLocked = (studentId: number) =>
-      attendanceByStudent[studentId] === "ABSENT" || attendanceByStudent[studentId] === "EXCUSED";
+    // 2026-09-17 (đã xác nhận với người dùng), NỚI LẠI 2026-09-22 (đã xác nhận với người dùng) —
+    // "Gán nhanh cho cả lớp" (BTVN offline, chữ tự do) giờ giao được BÌNH THƯỜNG cho học sinh Vắng/Có
+    // phép, mirror BE (StudentCommentService#requireNotLockedByAttendance chỉ còn khoá Nhận xét/Thái
+    // độ/BTVN buổi trước, không khoá BTVN buổi sau chữ tự do nữa) — chỉ còn loại trừ học sinh đã
+    // PENDING/APPROVED (đúng như "Áp dụng cho cả lớp" kênh online).
     const updatedRows = rows.map((r) =>
-      lockedIds.has(r.studentId) || isAttendanceLocked(r.studentId)
+      lockedIds.has(r.studentId)
         ? r
         : {
             ...r,
@@ -1709,6 +1709,11 @@ export default function DailyCommentPanel() {
                 const attendanceStatus = attendanceByStudent[r.studentId];
                 const isAbsentLocked = attendanceStatus === "ABSENT" || attendanceStatus === "EXCUSED";
                 const locked = sentLocked || isAbsentLocked;
+                // 2026-09-22 (đã xác nhận với người dùng, NỚI LẠI 2026-09-17) — Vắng/Có phép chỉ còn khoá
+                // Nhận xét/Thái độ/BTVN buổi trước (`locked` ở trên, giữ nguyên); riêng 3 ô BTVN buổi sau
+                // chữ tự do (homeworkNext/homeworkNextReading/homeworkNextWriting) vẫn mở, chỉ khoá khi đã
+                // Gửi/Duyệt (sentLocked) — mirror StudentCommentService#requireNotLockedByAttendance (BE).
+                const homeworkNextLocked = sentLocked;
                 // V146 — fallback % tự động khi buổi CHƯA có StudentComment nào (sent undefined), xem
                 // previewAutoProgress/AutoProgressPreviewResponse.
                 const auto = autoProgress[r.studentId];
@@ -1827,7 +1832,7 @@ export default function DailyCommentPanel() {
                             (bài + trang), thay cho ô "BTVN offline" gộp cũ (homeworkNext) — buổi FOREIGN vẫn dùng
                             homeworkNext như trước, xem nhánh else bên dưới. */}
                         <Td className="min-w-[140px] border-r border-b border-slate-300">
-                          {locked ? (
+                          {homeworkNextLocked ? (
                             <div className={readOnlyFieldClass}>{sent?.homeworkNextReading || "—"}</div>
                           ) : (
                             <input
@@ -1839,7 +1844,7 @@ export default function DailyCommentPanel() {
                           )}
                         </Td>
                         <Td className="min-w-[140px] border-r border-b border-slate-300">
-                          {locked ? (
+                          {homeworkNextLocked ? (
                             <div className={readOnlyFieldClass}>{sent?.homeworkNextWriting || "—"}</div>
                           ) : (
                             <input
@@ -1861,7 +1866,7 @@ export default function DailyCommentPanel() {
                       </>
                     ) : (
                       <Td className="min-w-[160px] border-r border-b border-slate-300">
-                        {locked ? (
+                        {homeworkNextLocked ? (
                           <div className={readOnlyFieldClass}>{sent?.homeworkNext || "—"}</div>
                         ) : (
                           <input
