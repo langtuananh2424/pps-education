@@ -177,6 +177,17 @@ chỉ thao tác trên 6 subdomain dưới đây.
      phải thêm dòng đó thủ công rồi reload, nếu không upload >1MB bị 413.
    - `files*` template có `rewrite ^/(.*)$ /pps-media/$1 break;` để chèn tên
      bucket MinIO vào path (URL public do backend sinh không kèm tên bucket).
+   - `admin*`/`student*` template (từ 2026-09-22) có 2 block `Cache-Control`:
+     `/assets/` (file có hash) cache 1 năm `immutable`; `index.html` (và với
+     student thêm `sw.js`/`registerSW.js`/`manifest.webmanifest`) bắt buộc
+     `no-cache`. Lý do: sự cố 2026-09-21 — shortcut iOS "Thêm vào Màn hình
+     chính" của app admin giữ bundle JS cũ nhiều ngày sau deploy (web mở bằng
+     Safari bình thường vẫn đúng), vì nginx mặc định không ép revalidate
+     `index.html`. Server đã cài trước bản này phải thêm 2 block đó thủ công
+     vào 4 file `admin*`/`student*` rồi `nginx -t && systemctl reload nginx`
+     (đã áp dụng trên server 2026-09-22); Cloudflare đã cache `sw.js` cũ ở
+     edge với TTL mặc định 4h -> purge URL đó 1 lần sau khi reload nginx;
+     người dùng đang bị kẹt cần xoá và thêm lại shortcut 1 lần cuối.
 3. Cài `cloudflared` (gói `.deb` chính thức Cloudflare), `cloudflared tunnel login`,
    `cloudflared tunnel create pps-education`.
 4. Tạo `~/.cloudflared/config.yml`:
