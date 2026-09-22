@@ -11,7 +11,8 @@
       "name": "user-dev",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["--prefix", "pps-education-frontend/user", "run", "dev"],
-      "port": 3001
+      "port": 3001,
+      "url": "https://localhost:3001"
     }
   ]
 }

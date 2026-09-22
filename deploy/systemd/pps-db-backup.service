@@ -1,0 +1,9 @@
+[Unit]
+Description=PPS Education - Backup Postgres (staging + production)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=deploy
+ExecStart=/opt/pps-education/backup-db.sh

@@ -1,0 +1,10 @@
+[Unit]
+Description=Chay pps-db-backup.service hang ngay luc 02:30 (gio he thong server)
+
+[Timer]
+OnCalendar=*-*-* 02:30:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target
