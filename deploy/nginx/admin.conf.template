@@ -26,6 +26,21 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
+    # Asset Vite build ra có hash trong tên file (/assets/index-a1b2c3.js) — nội dung
+    # không bao giờ đổi dưới cùng 1 tên, cache 1 năm an toàn. Đổi code -> index.html
+    # trỏ sang tên file mới.
+    location /assets/ {
+        add_header Cache-Control "public, max-age=31536000, immutable";
+        try_files $uri =404;
+    }
+
+    # index.html KHÔNG có hash -> bắt buộc no-cache, nếu không iOS "Thêm vào Màn hình
+    # chính" (apple-mobile-web-app-capable) giữ bản HTML+bundle JS cũ rất lâu, không
+    # tự cập nhật sau deploy (sự cố 2026-09-21: shortcut iOS chạy bundle cũ, web bình thường).
+    location = /index.html {
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+    }
+
     location / {
         try_files $uri $uri/ /index.html; # SPA fallback (react-router)
     }
