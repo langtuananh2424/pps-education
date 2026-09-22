@@ -1,12 +1,16 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, ChevronDown, ChevronRight, ShieldAlert, XCircle } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronRight, Download, Eye, ShieldAlert, XCircle } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
+import { downloadBlob } from "@/lib/xlsxTemplate";
 import {
+  ReflexQuestionProgressHistoryEntry,
   ReviewVideoAssignmentQuestionRow,
   ReviewVideoAssignmentQuestionStatsResponse,
   ReviewVideoAssignmentStudentStatsResponse,
+  exportReflexAssignmentData,
+  getReflexStudentHistory,
   getReviewVideoAssignmentQuestionStats,
   getReviewVideoAssignmentStudentStats,
   updateReviewVideoAssignmentLateSubmissionAllowed
@@ -46,6 +50,11 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
   const [deadlineDate, setDeadlineDate] = useState("");
   const [deadlineTime, setDeadlineTime] = useState("");
   const [confirmDeadlineOpen, setConfirmDeadlineOpen] = useState(false);
+  // V191 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-21) — nghe lại audio + xem AI chấm
+  // theo từng lần làm (REFLEX), và xuất toàn bộ dữ liệu (audio + kết quả AI chấm) để train AI.
+  const [viewingStudent, setViewingStudent] = useState<{ id: number; name: string } | null>(null);
+  const [exportingReflexData, setExportingReflexData] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const numAssignmentId = assignmentId ? parseInt(assignmentId, 10) : null;
   const isConnection = studentStats?.assignment.videoType === "CONNECTION";
@@ -107,6 +116,21 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
 
   const handleCancelDeadlineChange = () => {
     setConfirmDeadlineOpen(false);
+  };
+
+  /** V191 — xuất toàn bộ audio + kết quả AI chấm (mọi học sinh, mọi lần làm) của lần giao này thành ZIP. */
+  const handleExportReflexData = async () => {
+    if (!numAssignmentId) return;
+    setExportingReflexData(true);
+    setExportError(null);
+    try {
+      const blob = await exportReflexAssignmentData(numAssignmentId);
+      downloadBlob(blob, `video-phan-xa-${numAssignmentId}.zip`);
+    } catch (err) {
+      setExportError(err instanceof ApiError ? err.message : t("reviewVideoDetail.exportReflexData.failed"));
+    } finally {
+      setExportingReflexData(false);
+    }
   };
 
   useEffect(() => {
@@ -229,6 +253,7 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
       </div>
 
       {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-lg">{error}</div>}
+      {exportError && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-lg">{exportError}</div>}
 
       <Card padded={false} className="overflow-hidden">
         {isConnection && (
@@ -241,6 +266,15 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
               activeId={tab}
               onChange={(id) => setTab(id as "students" | "questions")}
             />
+          </div>
+        )}
+
+        {!isConnection && (
+          <div className="px-5 py-3 border-b border-slate-100 bg-slate-50 flex justify-end">
+            <Button variant="secondary" size="sm" onClick={handleExportReflexData} disabled={exportingReflexData}>
+              <Download className="w-3.5 h-3.5" />
+              {exportingReflexData ? t("reviewVideoDetail.exportReflexData.exporting") : t("reviewVideoDetail.exportReflexData.button")}
+            </Button>
           </div>
         )}
 
@@ -267,6 +301,7 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
                         <Th className="text-center">{t("reviewVideoDetail.table.submittedQuestions")}</Th>
                         <Th className="text-center">{t("reviewVideoDetail.table.averageScore")}</Th>
                         <Th className="text-center">{t("reviewVideoDetail.table.lateSubmission")}</Th>
+                        <Th className="text-center">{t("reviewVideoDetail.table.viewDetail")}</Th>
                       </>
                     )}
                   </tr>
@@ -310,6 +345,16 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
                           </Td>
                           <Td className="text-center">
                             {s.lateSubmission && <Badge variant="warning">{t("reviewVideoDetail.table.lateSubmissionBadge")}</Badge>}
+                          </Td>
+                          <Td className="text-center">
+                            <button
+                              type="button"
+                              onClick={() => setViewingStudent({ id: s.studentId, name: s.studentFullName })}
+                              className="text-slate-400 hover:text-brand-orange"
+                              title={t("reviewVideoDetail.table.viewDetail")}
+                            >
+                              <Eye className="w-4 h-4 inline" />
+                            </button>
                           </Td>
                         </>
                       )}
@@ -373,6 +418,149 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
           </div>
         </div>
       </Modal>
+
+      {viewingStudent && numAssignmentId && (
+        <ReflexStudentHistoryModal
+          assignmentId={numAssignmentId}
+          studentId={viewingStudent.id}
+          studentName={viewingStudent.name}
+          onClose={() => setViewingStudent(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * V191 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-21) — UC-23b (Video phản xạ): nghe lại
+ * audio + xem kết quả AI chấm theo TỪNG lần làm của 1 học sinh, gom theo câu hỏi (viết trước, ghi âm
+ * sau, mới nhất lên trên trong mỗi loại).
+ */
+function ReflexStudentHistoryModal({
+  assignmentId,
+  studentId,
+  studentName,
+  onClose
+}: {
+  assignmentId: number;
+  studentId: number;
+  studentName: string;
+  onClose: () => void;
+}) {
+  const { t, i18n } = useTranslation("academic-homework");
+  const [entries, setEntries] = useState<ReflexQuestionProgressHistoryEntry[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLoading(true);
+    setLoadError(null);
+    getReflexStudentHistory(assignmentId, studentId)
+      .then(setEntries)
+      .catch((err) => setLoadError(err instanceof ApiError ? err.message : t("reviewVideoDetail.reflexHistoryModal.loadFailed")))
+      .finally(() => setLoading(false));
+  }, [assignmentId, studentId]);
+
+  const questionGroups = React.useMemo(() => {
+    const byQuestion = new Map<number, { order: number; prompt: string; entries: ReflexQuestionProgressHistoryEntry[] }>();
+    for (const e of entries) {
+      const group = byQuestion.get(e.questionId) ?? { order: e.questionDisplayOrder, prompt: e.questionPrompt, entries: [] };
+      group.entries.push(e);
+      byQuestion.set(e.questionId, group);
+    }
+    return [...byQuestion.values()].sort((a, b) => a.order - b.order);
+  }, [entries]);
+
+  return (
+    <Modal open onClose={onClose} title={t("reviewVideoDetail.reflexHistoryModal.title", { studentName })}>
+      <div className="max-h-[70vh] overflow-y-auto space-y-4">
+        {loading ? (
+          <p className="text-sm text-slate-500">{t("reviewVideoDetail.reflexHistoryModal.loading")}</p>
+        ) : loadError ? (
+          <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-lg">{loadError}</div>
+        ) : questionGroups.length === 0 ? (
+          <p className="text-sm text-slate-400 italic">{t("reviewVideoDetail.reflexHistoryModal.empty")}</p>
+        ) : (
+          questionGroups.map((group) => (
+            <div key={group.order} className="border border-slate-200 rounded-lg p-3 space-y-2">
+              <p className="text-xs font-semibold text-slate-700">
+                {t("reviewVideoDetail.reflexHistoryModal.questionLabel", { order: group.order, prompt: group.prompt })}
+              </p>
+              <div className="space-y-2">
+                {[...group.entries]
+                  .sort((a, b) => (a.gradedAt ?? "").localeCompare(b.gradedAt ?? ""))
+                  .reverse()
+                  .map((entry, idx) => (
+                    <ReflexHistoryEntryRow key={`${entry.attemptType}-${entry.attemptNumber}-${idx}`} entry={entry} language={i18n.language} />
+                  ))}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+function ReflexHistoryEntryRow({ entry, language }: { entry: ReflexQuestionProgressHistoryEntry; language: string }) {
+  const { t } = useTranslation("academic-homework");
+  const isSpeaking = entry.attemptType === "SPEAKING";
+  return (
+    <div className="bg-slate-50 border border-slate-100 rounded-lg p-2.5 space-y-1.5">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-semibold text-slate-600">
+          {isSpeaking
+            ? t("reviewVideoDetail.reflexHistoryModal.speakingAttempt", { attempt: entry.attemptNumber })
+            : t("reviewVideoDetail.reflexHistoryModal.writingAttempt", { attempt: entry.attemptNumber })}
+        </span>
+        <span className="text-[11px] text-slate-500">
+          {entry.score != null && entry.maxScore != null
+            ? t("reviewVideoDetail.reflexHistoryModal.score", { score: entry.score, maxScore: entry.maxScore })
+            : t("reviewVideoDetail.reflexHistoryModal.notGradedYet")}
+        </span>
+      </div>
+      {entry.gradedAt && <p className="text-[10px] text-slate-400">{t("reviewVideoDetail.reflexHistoryModal.gradedAt", { time: formatDateTime(entry.gradedAt, language) })}</p>}
+
+      {!isSpeaking && entry.answerText && (
+        <p className="text-xs text-slate-700">
+          <span className="font-semibold">{t("reviewVideoDetail.reflexHistoryModal.answerTextLabel")}: </span>
+          {entry.answerText}
+        </p>
+      )}
+
+      {isSpeaking &&
+        (entry.audioUrl ? (
+          <audio controls src={entry.audioUrl} className="w-full h-8" />
+        ) : (
+          <p className="text-[11px] text-slate-400 italic">{t("reviewVideoDetail.reflexHistoryModal.audioNotAvailable")}</p>
+        ))}
+
+      {isSpeaking && entry.transcript && (
+        <p className="text-xs text-slate-700">
+          <span className="font-semibold">{t("reviewVideoDetail.reflexHistoryModal.transcriptLabel")}: </span>
+          {entry.transcript}
+        </p>
+      )}
+
+      {entry.feedback && (
+        <p className="text-xs text-slate-600">
+          <span className="font-semibold">{t("reviewVideoDetail.reflexHistoryModal.feedbackLabel")}: </span>
+          {entry.feedback}
+        </p>
+      )}
+
+      {isSpeaking && entry.criteriaScores && entry.criteriaScores.length > 0 && (
+        <div className="text-[11px] text-slate-600">
+          <span className="font-semibold">{t("reviewVideoDetail.reflexHistoryModal.criteriaLabel")}: </span>
+          <ul className="list-disc list-inside">
+            {entry.criteriaScores.map((c) => (
+              <li key={c.criterion}>
+                {c.criterion}: {c.percent}%
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
