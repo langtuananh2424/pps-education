@@ -9,6 +9,7 @@ import vn.com.pps.education.common.ReflexV2Task;
 import vn.com.pps.education.domain.ClassEnrollment;
 import vn.com.pps.education.domain.Curriculum;
 import vn.com.pps.education.domain.ReflexQuestionProgress;
+import vn.com.pps.education.domain.ReflexQuestionProgressHistory;
 import vn.com.pps.education.domain.ReviewVideoAssignment;
 import vn.com.pps.education.domain.ReviewVideoQuestion;
 import vn.com.pps.education.domain.ReviewVideoSet;
@@ -17,6 +18,7 @@ import vn.com.pps.education.dto.ReflexQuestionProgressResponse;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.exception.SubmissionPastDeadlineException;
 import vn.com.pps.education.repository.ClassEnrollmentRepository;
+import vn.com.pps.education.repository.ReflexQuestionProgressHistoryRepository;
 import vn.com.pps.education.repository.ReflexQuestionProgressRepository;
 import vn.com.pps.education.repository.ReviewVideoAssignmentRepository;
 import vn.com.pps.education.repository.ReviewVideoQuestionRepository;
@@ -57,6 +59,7 @@ public class ReflexSequentialGradingService {
     private final ReviewVideoQuestionRepository reviewVideoQuestionRepository;
     private final ReviewVideoAssignmentRepository reviewVideoAssignmentRepository;
     private final ReflexQuestionProgressRepository reflexQuestionProgressRepository;
+    private final ReflexQuestionProgressHistoryRepository reflexQuestionProgressHistoryRepository;
     private final ClassEnrollmentRepository classEnrollmentRepository;
     private final StudentRepository studentRepository;
     private final MediaStorageService mediaStorageService;
@@ -76,6 +79,7 @@ public class ReflexSequentialGradingService {
     public ReflexSequentialGradingService(ReviewVideoQuestionRepository reviewVideoQuestionRepository,
                                            ReviewVideoAssignmentRepository reviewVideoAssignmentRepository,
                                            ReflexQuestionProgressRepository reflexQuestionProgressRepository,
+                                           ReflexQuestionProgressHistoryRepository reflexQuestionProgressHistoryRepository,
                                            ClassEnrollmentRepository classEnrollmentRepository,
                                            StudentRepository studentRepository,
                                            MediaStorageService mediaStorageService,
@@ -85,6 +89,7 @@ public class ReflexSequentialGradingService {
         this.reviewVideoQuestionRepository = reviewVideoQuestionRepository;
         this.reviewVideoAssignmentRepository = reviewVideoAssignmentRepository;
         this.reflexQuestionProgressRepository = reflexQuestionProgressRepository;
+        this.reflexQuestionProgressHistoryRepository = reflexQuestionProgressHistoryRepository;
         this.classEnrollmentRepository = classEnrollmentRepository;
         this.studentRepository = studentRepository;
         this.mediaStorageService = mediaStorageService;
@@ -119,6 +124,7 @@ public class ReflexSequentialGradingService {
             applyWritingResult(progress, result);
         }
         progress = reflexQuestionProgressRepository.save(progress);
+        recordWritingHistory(progress);
         return toResponse(progress);
     }
 
@@ -170,6 +176,7 @@ public class ReflexSequentialGradingService {
             applySpeakingResult(progress, result);
         }
         progress = reflexQuestionProgressRepository.save(progress);
+        recordSpeakingHistory(progress);
         return toResponse(progress);
     }
 
@@ -314,6 +321,47 @@ public class ReflexSequentialGradingService {
             progress.setSpeakingCriteriaScores(null);
             progress.setSpeakingGradedAt(null);
         }
+    }
+
+    /**
+     * V191 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-21) — ghi 1 dòng snapshot CHỈ-THÊM
+     * vào {@link ReflexQuestionProgressHistory} mỗi khi AI chấm phần viết xong, vì {@link ReflexQuestionProgress}
+     * ghi đè tại chỗ nên không tự giữ lịch sử — phục vụ giáo viên xem/xuất lịch sử từng lần làm.
+     */
+    private void recordWritingHistory(ReflexQuestionProgress progress) {
+        ReflexQuestionProgressHistory h = new ReflexQuestionProgressHistory();
+        h.setReflexQuestionProgress(progress);
+        h.setReviewVideoQuestion(progress.getReviewVideoQuestion());
+        h.setStudent(progress.getStudent());
+        h.setReviewVideoAssignment(progress.getReviewVideoAssignment());
+        h.setAttemptType(ReflexQuestionProgressHistory.AttemptType.WRITING);
+        h.setAttemptNumber(progress.getWritingAttemptCount());
+        h.setAnswerText(progress.getAnswerText());
+        h.setScore(progress.getWritingScore());
+        h.setMaxScore(progress.getWritingMaxScore());
+        h.setFeedback(progress.getWritingFeedback());
+        h.setMarkedAnswer(progress.getWritingMarkedAnswer());
+        h.setGradedAt(progress.getWritingGradedAt());
+        reflexQuestionProgressHistoryRepository.save(h);
+    }
+
+    /** V191 — như {@link #recordWritingHistory}, cho bước ghi âm (có audioUrl/transcript/criteriaScores). */
+    private void recordSpeakingHistory(ReflexQuestionProgress progress) {
+        ReflexQuestionProgressHistory h = new ReflexQuestionProgressHistory();
+        h.setReflexQuestionProgress(progress);
+        h.setReviewVideoQuestion(progress.getReviewVideoQuestion());
+        h.setStudent(progress.getStudent());
+        h.setReviewVideoAssignment(progress.getReviewVideoAssignment());
+        h.setAttemptType(ReflexQuestionProgressHistory.AttemptType.SPEAKING);
+        h.setAttemptNumber(progress.getSpeakingAttemptCount());
+        h.setAudioUrl(progress.getAudioUrl());
+        h.setScore(progress.getSpeakingScore());
+        h.setMaxScore(progress.getSpeakingMaxScore());
+        h.setFeedback(progress.getSpeakingFeedback());
+        h.setTranscript(progress.getSpeakingTranscript());
+        h.setCriteriaScores(progress.getSpeakingCriteriaScores());
+        h.setGradedAt(progress.getSpeakingGradedAt());
+        reflexQuestionProgressHistoryRepository.save(h);
     }
 
     private boolean isWritingPassed(ReflexQuestionProgress progress) {

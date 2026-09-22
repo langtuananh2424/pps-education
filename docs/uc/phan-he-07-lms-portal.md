@@ -1035,6 +1035,31 @@ UC-24: Làm bài kiểm tra trực tuyến
 > tuyến theo `reflex_question_progress.rubric_version`, không theo cờ hiện
 > tại.
 
+> **Bổ sung V191 (2026-09-21, đã xác nhận với người dùng) — giáo viên
+> nghe lại audio + xem kết quả AI chấm THEO TỪNG LẦN LÀM, và xuất toàn bộ
+> dữ liệu để tiếp tục train AI.** `reflex_question_progress` SỬA ĐÈ tại
+> chỗ mỗi lần học sinh nộp lại (chỉ giữ lần gần nhất) — giáo viên không
+> xem lại được audio/kết quả của các lần TRƯỚC. Thêm bảng MỚI
+> `reflex_question_progress_history` (xem `docs/sdd-groups/09-lms-and-
+> portal.md`, mục "i-quat"): 1 dòng SNAPSHOT CHỈ-THÊM (không sửa đè) mỗi
+> khi AI chấm xong 1 bước (viết hoặc ghi âm) —
+> `ReflexSequentialGradingService#recordWritingHistory`/
+> `#recordSpeakingHistory`, gọi ngay sau mỗi lần `save()` progress hiện
+> có (KHÔNG đổi luồng chấm/ngưỡng đạt hiện tại, chỉ ghi thêm log).
+>
+> 2 endpoint mới ở `ReviewVideoReportController`/`ReviewVideoReportService`
+> (cùng permission `lms.review-video.view` như các endpoint thống kê
+> khác): `GET .../stats/students/{studentId}/reflex-history` (danh sách
+> lịch sử của 1 học sinh, FE hiện trong modal mới `ReflexStudentHistoryModal`
+> ở `ReviewVideoAssignmentStatsDetailPage.tsx`, mở từ nút "Xem chi tiết"
+> icon mắt ở mỗi hàng học sinh REFLEX) và `GET .../export-reflex-data`
+> (xuất TOÀN BỘ audio + kết quả AI chấm của cả lớp/lần giao thành 1 file
+> ZIP: thư mục `audio/` đặt tên `{mã học sinh}_cau{thứ tự}_lan{số lần}.
+> {đuôi file}` + `manifest.csv` đối chiếu file ↔ học sinh ↔ câu hỏi ↔ lần
+> làm ↔ điểm/feedback/transcript, nút "Tải toàn bộ audio + kết quả AI
+> chấm" chỉ hiện với REFLEX). Audio bị xoá khỏi R2/lỗi mạng lúc xuất chỉ
+> bỏ trống cột file trong manifest, không làm hỏng cả file xuất.
+
 > **V177 (2026-09-15, đã xác nhận với người dùng) — SỬA LẠI A2 "Muốn làm
 > lại (retake)": chỉ cần làm lại CÂU SAI, không phải làm lại toàn bộ đề.**
 > Mô tả gốc ở A2 phía trên ("hệ thống cho phép Học sinh làm lại từ đầu")
