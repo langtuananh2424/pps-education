@@ -142,12 +142,14 @@ public class NineRouterAiClient {
                     .timeout(Duration.ofSeconds(60))
                     .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(payload)))
                     .build();
+            long startedAtMillis = System.currentTimeMillis();
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() >= 300) {
                 log.warn("NineRouterAiClient: gọi 9Router lỗi (HTTP {}): {}", response.statusCode(), response.body());
                 return null;
             }
             JsonNode json = objectMapper.readTree(response.body());
+            logUsage("chat", resolvedModel, json, System.currentTimeMillis() - startedAtMillis);
             return json.path("choices").path(0).path("message").path("content").asText(null);
         } catch (IOException | InterruptedException e) {
             if (e instanceof InterruptedException) {
@@ -210,12 +212,14 @@ public class NineRouterAiClient {
                     .timeout(Duration.ofSeconds(60))
                     .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(payload)))
                     .build();
+            long startedAtMillis = System.currentTimeMillis();
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() >= 300) {
                 log.warn("NineRouterAiClient: gọi 9Router (audio chat) lỗi (HTTP {}): {}", response.statusCode(), response.body());
                 return null;
             }
             JsonNode json = objectMapper.readTree(response.body());
+            logUsage("chatWithAudio", resolvedModel, json, System.currentTimeMillis() - startedAtMillis);
             return json.path("choices").path(0).path("message").path("content").asText(null);
         } catch (IOException | InterruptedException e) {
             if (e instanceof InterruptedException) {
@@ -258,12 +262,14 @@ public class NineRouterAiClient {
                     .timeout(Duration.ofSeconds(60))
                     .POST(HttpRequest.BodyPublishers.ofByteArray(body))
                     .build();
+            long startedAtMillis = System.currentTimeMillis();
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() >= 300) {
                 log.warn("NineRouterAiClient: gọi 9Router (STT) lỗi (HTTP {}): {}", response.statusCode(), response.body());
                 return null;
             }
             JsonNode json = objectMapper.readTree(response.body());
+            logUsage("transcribe", resolvedModel, json, System.currentTimeMillis() - startedAtMillis);
             String text = json.path("text").asText(null);
             return (text == null || text.isBlank()) ? null : text.trim();
         } catch (IOException | InterruptedException e) {
@@ -273,6 +279,71 @@ public class NineRouterAiClient {
             log.warn("NineRouterAiClient: gọi 9Router (STT) thất bại. {}", e.getMessage());
             return null;
         }
+    }
+
+    /**
+     * V192 (2026-09-22, bước ĐO mở đầu cho hướng tối ưu chi phí AI-grading) — ghi log mức tiêu thụ token của MỌI lệnh gọi
+     * 9Router. TRƯỚC ĐÂY client chỉ đọc đúng {@code choices[0].message.content} và VỨT BỎ field
+     * {@code usage} của response — hệ quả: không có bất kỳ số liệu nào về chi phí AI-grading, nên mọi
+     * đề xuất tối ưu (rút gọn prompt, bật prompt caching, đổi sang model rẻ hơn) đều KHÔNG kiểm chứng
+     * được trước/sau. Đây là bước ĐO, không đổi hành vi chấm: không sửa payload gửi đi, không sửa cách
+     * parse kết quả, lỗi đọc usage cũng không được phép làm hỏng lệnh gọi (xem khối try/catch).
+     *
+     * 3 thông tin then chốt được log, mỗi thông tin phục vụ 1 quyết định cụ thể:
+     * - {@code servedModel} (field "model" trong response, tức model 9Router THỰC SỰ route tới, có thể
+     *   khác {@code requestedModel} là tên combo) — 9Router xoay vòng nhiều provider/account
+     *   (fallback 3-tier, multi-account round-robin, xem Javadoc class). Prompt cache là tài nguyên
+     *   RIÊNG của từng provider/account, nên xoay vòng chính là thứ PHÁ cache: log này cho biết 1 combo
+     *   đang bị tản ra bao nhiêu route khác nhau, để quyết định có cần ghim route cho luồng Reflex không.
+     * - {@code cachedTokens} — số token input được tính giá cache (rẻ hơn nhiều). Mỗi provider đặt tên
+     *   field khác nhau nên phải dò nhiều đường dẫn, xem {@link #extractCachedTokens}. Bằng 0 kéo dài
+     *   nghĩa là caching KHÔNG hoạt động, bất kể Dashboard khai báo gì.
+     * - {@code promptTokens}/{@code completionTokens} — với luồng Reflex, prompt (wrapper + rubric
+     *   theo Khối/track) chiếm ~97% input ở bước viết, nên tỷ lệ 2 số này cho thấy ngay phần nào đáng cắt.
+     *
+     * Mức INFO (không phải DEBUG) vì đây là số liệu vận hành cần có sẵn trên staging/production để đối
+     * chiếu hoá đơn, không phải thông tin gỡ lỗi bật tạm khi nghi có sự cố.
+     */
+    private void logUsage(String operation, String requestedModel, JsonNode json, long elapsedMillis) {
+        try {
+            JsonNode usage = json.path("usage");
+            if (usage.isMissingNode() || usage.isNull()) {
+                // STT và 1 số provider không trả usage — vẫn log latency + route để theo dõi xoay vòng.
+                log.info("NineRouterAiClient usage: op={} requestedModel={} servedModel={} usage=n/a elapsedMs={}",
+                        operation, requestedModel, json.path("model").asText("?"), elapsedMillis);
+                return;
+            }
+            int promptTokens = usage.path("prompt_tokens").asInt(usage.path("input_tokens").asInt(0));
+            int completionTokens = usage.path("completion_tokens").asInt(usage.path("output_tokens").asInt(0));
+            int cachedTokens = extractCachedTokens(usage);
+            log.info("NineRouterAiClient usage: op={} requestedModel={} servedModel={} promptTokens={} "
+                            + "cachedTokens={} completionTokens={} elapsedMs={}",
+                    operation, requestedModel, json.path("model").asText("?"), promptTokens, cachedTokens,
+                    completionTokens, elapsedMillis);
+        } catch (RuntimeException e) {
+            // Đo đạc KHÔNG bao giờ được làm hỏng luồng chấm — nuốt lỗi, chỉ ghi nhận ở mức debug.
+            log.debug("NineRouterAiClient: đọc usage thất bại ({}).", e.getMessage());
+        }
+    }
+
+    /**
+     * Số token input được tính giá cache — mỗi provider đặt ở 1 đường dẫn khác nhau và 9Router chuyển
+     * tiếp gần như nguyên vẹn usage của provider thật, nên phải dò lần lượt: OpenAI/Gemini qua lớp
+     * OpenAI-compatible dùng {@code usage.prompt_tokens_details.cached_tokens}, Anthropic dùng
+     * {@code usage.cache_read_input_tokens}, Gemini gọi thẳng dùng {@code usage.cachedContentTokenCount}.
+     * Không tìm thấy đường dẫn nào thì trả 0 — nghĩa là "không có bằng chứng cache hit", đúng với thực
+     * tế cần biết, KHÔNG phải lỗi.
+     */
+    private int extractCachedTokens(JsonNode usage) {
+        JsonNode openAiStyle = usage.path("prompt_tokens_details").path("cached_tokens");
+        if (openAiStyle.isNumber()) {
+            return openAiStyle.asInt();
+        }
+        JsonNode anthropicStyle = usage.path("cache_read_input_tokens");
+        if (anthropicStyle.isNumber()) {
+            return anthropicStyle.asInt();
+        }
+        return usage.path("cachedContentTokenCount").asInt(0);
     }
 
     /**
