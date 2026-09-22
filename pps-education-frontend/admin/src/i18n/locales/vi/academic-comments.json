@@ -53,6 +53,7 @@
     "decidingAll": "Đang duyệt...",
     "pendingBadge": "{{count}} chờ duyệt",
     "sessionLabel": "Buổi {{date}} ({{weekday}})",
+    "sessionTeacherName": "- {{name}}",
     "studentCount": "{{count}} học sinh",
     "lessonContentPrefix": "· Bài học hôm nay: {{content}}",
     "columns": {

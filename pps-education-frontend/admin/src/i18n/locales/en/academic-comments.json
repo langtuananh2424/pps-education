@@ -53,6 +53,7 @@
     "decidingAll": "Approving...",
     "pendingBadge": "{{count}} pending",
     "sessionLabel": "Session {{date}} ({{weekday}})",
+    "sessionTeacherName": "- {{name}}",
     "studentCount": "{{count}} students",
     "lessonContentPrefix": "· Today's lesson: {{content}}",
     "columns": {

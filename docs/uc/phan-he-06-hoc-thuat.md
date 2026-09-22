@@ -2326,13 +2326,22 @@ cho Video phản xạ/Video từ kết nối). Với dòng Video Ôn tập:
     Đạt/Chưa đạt — mirror `passedCount`/`passRatePercent` ở danh sách
     tổng hợp) + tab "Phân tích câu hỏi" (câu hay sai + danh sách học sinh
     sai, mirror UC-66 Exercise) — vì đã có sẵn dữ liệu đúng/sai thật.
-  - REFLEX: CHỈ có bảng tổng hợp mỗi học sinh (đã xem lượt, đã nộp bao
-    nhiêu câu hỏi, điểm trung bình nếu đã chấm) — KHÔNG có tab phân tích
-    câu hỏi (không có khái niệm đúng/sai tự chấm), KHÔNG nghe lại
-    audio/chấm điểm ngay tại trang này — việc chấm audio vẫn làm ở trang
-    "Chấm bài Video phản xạ" (UC-23b, ExamsPage) như cũ.
+  - REFLEX: bảng tổng hợp mỗi học sinh (đã xem lượt, đã nộp bao nhiêu câu
+    hỏi, điểm trung bình nếu đã chấm) — KHÔNG có tab phân tích câu hỏi
+    (không có khái niệm đúng/sai tự chấm). Việc CHẤM vẫn không đổi — tự
+    động qua `ReflexSequentialGradingService` (AI chấm ngay lúc nộp),
+    KHÔNG phải chấm tay ở trang "Chấm bài Video phản xạ" cũ (đó là luồng
+    UC-23b V1, không còn dùng cho REFLEX từ V139 — xem UC-23b).
+  - Bổ sung V191 (2026-09-21, đã xác nhận với người dùng) — mỗi dòng
+    REFLEX có nút "Xem chi tiết" (icon mắt) mở modal nghe lại audio đã
+    nộp + xem kết quả AI chấm (điểm, feedback, transcript, breakdown theo
+    tiêu chí rubric) theo TỪNG lần làm (không chỉ lần gần nhất) — xem mục
+    "Bổ sung V191" ở UC-23b (`docs/uc/phan-he-07-lms-portal.md`). Kèm nút
+    "Tải toàn bộ audio + kết quả AI chấm" xuất 1 file ZIP (audio mọi học
+    sinh/mọi lần ghi âm + `manifest.csv` đối chiếu) để tiếp tục train AI.
   - KHÔNG có nút "Xuất Excel" cho Video Ôn tập (chỉ Exercise có, chưa yêu
-    cầu cho review-video).
+    cầu cho review-video) — nút xuất ZIP nói trên là RIÊNG, chỉ hiện với
+    REFLEX.
 
 ---
 
