@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import vn.com.pps.education.common.AiTokenUsage;
 import vn.com.pps.education.common.CriteriaScoreItem;
 import vn.com.pps.education.domain.Curriculum;
 
@@ -91,7 +92,9 @@ public class WritingAiGradingService {
      * V182 — markedAnswer/criteriaScores CHỈ có giá trị khi rubric là bản "v3" (xem Javadoc lớp); với
      * rubric cũ, cả 2 là {@code null} và feedback vẫn là đoạn văn 7 mục như trước.
      */
-    public record GradeResult(int scorePercent, String feedback, String markedAnswer, List<CriteriaScoreItem> criteriaScores) {
+    /** {@code usage} (V192) — chi phí token của CHÍNH lượt chấm này, caller (ExerciseAttemptService) lưu kèm ngữ cảnh học sinh. */
+    public record GradeResult(int scorePercent, String feedback, String markedAnswer, List<CriteriaScoreItem> criteriaScores,
+                              AiTokenUsage usage) {
     }
 
     /**
@@ -109,16 +112,18 @@ public class WritingAiGradingService {
             return null;
         }
         boolean v3 = rubric.startsWith(RUBRIC_V3_MARKER);
-        String rawText = nineRouterAiClient.chat(
+        NineRouterAiClient.AiTextResponse response = nineRouterAiClient.chatWithUsage(
                 v3 ? systemPromptV3(rubric, taskPrompt) : systemPrompt(rubric),
                 "Bài viết của học sinh: \"" + essayText + "\"",
                 null);
-        if (rawText == null) {
+        if (response == null) {
             log.warn("WritingAiGradingService: 9Router chấm thất bại, rơi lại hàng chờ chấm tay.");
             return null;
         }
         try {
-            return v3 ? parseResultV3(rawText) : parseResultLegacy(rawText);
+            GradeResult result = v3 ? parseResultV3(response.content()) : parseResultLegacy(response.content());
+            return new GradeResult(result.scorePercent(), result.feedback(), result.markedAnswer(), result.criteriaScores(),
+                    response.usage());
         } catch (IOException e) {
             log.warn("WritingAiGradingService: parse kết quả chấm thất bại, rơi lại hàng chờ chấm tay. {}", e.getMessage());
             return null;
@@ -144,7 +149,7 @@ public class WritingAiGradingService {
         }
         JsonNode parsed = objectMapper.readTree(rawText.substring(start, end + 1));
         int scorePercent = Math.min(100, Math.max(0, parsed.path("scorePercent").asInt(0)));
-        return new GradeResult(scorePercent, parsed.path("feedback").asText(""), null, null);
+        return new GradeResult(scorePercent, parsed.path("feedback").asText(""), null, null, null);
     }
 
     private static final Pattern SECTION_HEADER = Pattern.compile("(?m)^###\\s*(\\d+)\\.[^\\n]*$");
@@ -181,7 +186,7 @@ public class WritingAiGradingService {
         if (finalPercent == null) {
             throw new IOException("Model chấm bài (v3) không xuất dòng Final % trong bảng điểm: " + rawText);
         }
-        return new GradeResult(finalPercent, feedback, markedAnswer, criteriaScores);
+        return new GradeResult(finalPercent, feedback, markedAnswer, criteriaScores, null);
     }
 
     /** Cắt văn bản thành các mục theo header {@code ### N. ...} — key là số N, value là nội dung mục đó. */

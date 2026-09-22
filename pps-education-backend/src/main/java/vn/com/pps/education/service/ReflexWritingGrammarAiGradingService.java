@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import vn.com.pps.education.common.AiTokenUsage;
 import vn.com.pps.education.domain.Curriculum;
 
 import java.io.IOException;
@@ -142,7 +143,8 @@ public class ReflexWritingGrammarAiGradingService {
      * §2b để trích) — mirror đúng bài học từ V183 bên {@link ReflexSpeakingContentAiGradingService}
      * (chỉ dựa vào nội dung {{RUBRIC}} không đủ, phải nhắc lại/tăng cường ở tầng wrapper).
      */
-    public record GradeResult(int scorePercent, String markedAnswer, String correctedAnswer, String gateNote) {
+    /** {@code usage} (V192) — chi phí token của CHÍNH lượt chấm này, caller (ReflexSequentialGradingService) lưu kèm ngữ cảnh học sinh. */
+    public record GradeResult(int scorePercent, String markedAnswer, String correctedAnswer, String gateNote, AiTokenUsage usage) {
     }
 
     /**
@@ -158,16 +160,18 @@ public class ReflexWritingGrammarAiGradingService {
         if (rubric == null) {
             return null;
         }
-        String rawText = nineRouterAiClient.chat(
+        NineRouterAiClient.AiTextResponse response = nineRouterAiClient.chatWithUsage(
                 systemPrompt(rubric, questionPrompt),
                 "Câu hỏi: \"" + questionPrompt + "\"\nCâu trả lời của học sinh: \"" + answerText + "\"",
                 null);
-        if (rawText == null) {
+        if (response == null) {
             log.warn("ReflexWritingGrammarAiGradingService: 9Router chấm thất bại.");
             return null;
         }
         try {
-            return parseResult(rawText);
+            GradeResult result = parseResult(response.content());
+            return new GradeResult(result.scorePercent(), result.markedAnswer(), result.correctedAnswer(), result.gateNote(),
+                    response.usage());
         } catch (IOException e) {
             log.warn("ReflexWritingGrammarAiGradingService: parse kết quả chấm thất bại. {}", e.getMessage());
             return null;
@@ -190,6 +194,6 @@ public class ReflexWritingGrammarAiGradingService {
         JsonNode parsed = objectMapper.readTree(rawText.substring(start, end + 1));
         int scorePercent = Math.min(100, Math.max(0, parsed.path("scorePercent").asInt(0)));
         return new GradeResult(scorePercent, parsed.path("markedAnswer").asText(""), parsed.path("correctedAnswer").asText(""),
-                parsed.path("gateNote").asText(""));
+                parsed.path("gateNote").asText(""), null);
     }
 }
