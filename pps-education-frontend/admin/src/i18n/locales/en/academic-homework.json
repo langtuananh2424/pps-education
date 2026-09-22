@@ -199,10 +199,33 @@
       "viewCountSuffix": "{{viewed}}/{{required}} views",
       "notGraded": "Not graded",
       "lateSubmission": "Late",
-      "lateSubmissionBadge": "Late"
+      "lateSubmissionBadge": "Late",
+      "viewDetail": "View detail"
     },
     "questionRow": {
       "titleSuffix": " — {{title}}"
+    },
+    "exportReflexData": {
+      "button": "Download all audio + AI grading results",
+      "exporting": "Exporting...",
+      "failed": "Could not export data."
+    },
+    "reflexHistoryModal": {
+      "title": "AI grading history — {{studentName}}",
+      "loading": "Loading...",
+      "loadFailed": "Could not load AI grading history.",
+      "empty": "This student hasn't answered any question yet.",
+      "questionLabel": "Question {{order}}: {{prompt}}",
+      "writingAttempt": "Writing — attempt {{attempt}}",
+      "speakingAttempt": "Recording — attempt {{attempt}}",
+      "score": "Score: {{score}}/{{maxScore}}",
+      "notGradedYet": "Not graded yet",
+      "gradedAt": "Graded at {{time}}",
+      "audioNotAvailable": "No audio",
+      "transcriptLabel": "AI transcript",
+      "feedbackLabel": "Feedback",
+      "criteriaLabel": "Criteria breakdown",
+      "answerTextLabel": "Written answer"
     }
   }
 }
