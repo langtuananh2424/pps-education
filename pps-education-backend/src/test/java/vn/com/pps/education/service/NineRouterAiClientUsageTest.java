@@ -21,7 +21,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 class NineRouterAiClientUsageTest {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private final NineRouterAiClient client = new NineRouterAiClient(objectMapper, 5);
+    // AiUsageSink.NO_OP: test này chỉ kiểm việc ĐỌC field usage, không cần ghi DB lượt bị loại.
+    private final NineRouterAiClient client = new NineRouterAiClient(objectMapper, 5, AiUsageSink.NO_OP);
 
     private JsonNode usage(String json) {
         try {

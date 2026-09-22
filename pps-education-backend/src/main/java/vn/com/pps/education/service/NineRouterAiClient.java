@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import vn.com.pps.education.common.AiTokenUsage;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -112,14 +113,26 @@ public class NineRouterAiClient {
     @Value("${app.ai-grading.reflex-v2.expected-model-contains:gemini-3.6-flash}")
     private String expectedModelContains;
 
-    /** Kết quả gọi có cấu trúc: nội dung + tên model thực tế 9Router đã dùng (để kiểm chứng/ghi audit). */
-    public record AiJsonResponse(String content, String model) {
+    /**
+     * Kết quả gọi có cấu trúc: nội dung + tên model thực tế 9Router đã dùng (để kiểm chứng/ghi audit) +
+     * mức tiêu thụ token của CHÍNH lệnh gọi này (V192 — service gọi mới biết ngữ cảnh học sinh/bài tập
+     * để lưu lại, xem {@link vn.com.pps.education.common.AiTokenUsage}).
+     */
+    public record AiJsonResponse(String content, String model, AiTokenUsage usage) {
     }
 
+    /** Như {@link AiJsonResponse} nhưng cho lệnh gọi text thuần trả chuỗi (xem {@link #chatWithUsage}). */
+    public record AiTextResponse(String content, AiTokenUsage usage) {
+    }
+
+    private final AiUsageSink usageSink;
+
     public NineRouterAiClient(ObjectMapper objectMapper,
-                               @Value("${app.ai-grading.nine-router-max-concurrent:5}") int maxConcurrentCalls) {
+                               @Value("${app.ai-grading.nine-router-max-concurrent:5}") int maxConcurrentCalls,
+                               AiUsageSink usageSink) {
         this.objectMapper = objectMapper;
         this.concurrencyLimiter = new Semaphore(maxConcurrentCalls);
+        this.usageSink = usageSink;
     }
 
     /**
@@ -131,6 +144,16 @@ public class NineRouterAiClient {
      *              để trống thì dùng {@code app.ai-grading.nine-router-model}.
      */
     public String chat(String systemPrompt, String userMessage, String model) {
+        AiTextResponse response = chatWithUsage(systemPrompt, userMessage, model);
+        return response == null ? null : response.content();
+    }
+
+    /**
+     * V192 — như {@link #chat} nhưng trả kèm mức tiêu thụ token, cho caller nào cần lưu chi phí gắn với
+     * ngữ cảnh nghiệp vụ (VD bước sinh câu sửa mẫu của Video phản xạ). {@link #chat} giữ nguyên chữ ký
+     * chuỗi cho các caller cũ không quan tâm chi phí, không phải sửa hàng loạt.
+     */
+    public AiTextResponse chatWithUsage(String systemPrompt, String userMessage, String model) {
         String resolvedModel = (model == null || model.isBlank()) ? defaultModel : model;
         if (resolvedModel == null || resolvedModel.isBlank()) {
             log.warn("NineRouterAiClient: chưa cấu hình model (app.ai-grading.nine-router-model hoặc tham số model).");
@@ -139,7 +162,7 @@ public class NineRouterAiClient {
         return callWithConcurrencyLimit("chat", () -> doChat(systemPrompt, userMessage, resolvedModel));
     }
 
-    private String doChat(String systemPrompt, String userMessage, String resolvedModel) {
+    private AiTextResponse doChat(String systemPrompt, String userMessage, String resolvedModel) {
         try {
             ObjectNode payload = objectMapper.createObjectNode();
             payload.put("model", resolvedModel);
@@ -170,8 +193,9 @@ public class NineRouterAiClient {
                 return null;
             }
             JsonNode json = objectMapper.readTree(response.body());
-            logUsage("chat", resolvedModel, false, json, System.currentTimeMillis() - startedAtMillis);
-            return json.path("choices").path(0).path("message").path("content").asText(null);
+            AiTokenUsage usage = logUsage("chat", resolvedModel, false, json, System.currentTimeMillis() - startedAtMillis);
+            String content = json.path("choices").path(0).path("message").path("content").asText(null);
+            return content == null ? null : new AiTextResponse(content, usage);
         } catch (IOException | InterruptedException e) {
             if (e instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
@@ -323,21 +347,24 @@ public class NineRouterAiClient {
                 return null;
             }
             JsonNode json = objectMapper.readTree(response.body());
-            // Log TRƯỚC các nhánh trả null bên dưới: 1 lượt bị loại vì sai model hoặc content rỗng VẪN đã
-            // tiêu thụ token thật và vẫn bị tính tiền — bỏ log ở nhánh đó sẽ làm số liệu thấp hơn hoá đơn.
-            logUsage(operation, model, audioBytes != null, json, System.currentTimeMillis() - startedAtMillis);
+            // Đo TRƯỚC các nhánh trả null bên dưới: 1 lượt bị loại vì sai model hoặc content rỗng VẪN đã
+            // tiêu thụ token thật và vẫn bị tính tiền — bỏ qua ở nhánh đó sẽ làm số liệu thấp hơn hoá đơn.
+            AiTokenUsage usage = logUsage(operation, model, audioBytes != null, json,
+                    System.currentTimeMillis() - startedAtMillis);
             String content = json.path("choices").path(0).path("message").path("content").asText(null);
             String actualModel = json.path("model").asText("");
             if (content == null || content.isBlank()) {
+                usageSink.recordRejected(operation, model, usage);
                 return null;
             }
             if (expectedModelContains != null && !expectedModelContains.isBlank() && !actualModel.isBlank()
                     && !actualModel.toLowerCase(java.util.Locale.ROOT).contains(expectedModelContains.toLowerCase(java.util.Locale.ROOT))) {
                 log.warn("NineRouterAiClient: 9Router trả model '{}' KHÔNG chứa '{}' (đã yêu cầu '{}') — bỏ kết quả, không chấm bằng model khác.",
                         actualModel, expectedModelContains, model);
+                usageSink.recordRejected(operation, model, usage);
                 return null;
             }
-            return new AiJsonResponse(content, actualModel);
+            return new AiJsonResponse(content, actualModel, usage);
         } catch (IOException | InterruptedException e) {
             if (e instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
@@ -432,24 +459,29 @@ public class NineRouterAiClient {
      * Mức INFO vì đây là số liệu vận hành cần có sẵn trên staging/production để đối chiếu hoá đơn, không
      * phải thông tin gỡ lỗi bật tạm khi nghi có sự cố.
      */
-    private void logUsage(String operation, String requestedModel, boolean audioAttached, JsonNode json, long elapsedMillis) {
+    private AiTokenUsage logUsage(String operation, String requestedModel, boolean audioAttached, JsonNode json, long elapsedMillis) {
+        String servedModel = json.path("model").asText("?");
         try {
             JsonNode usage = json.path("usage");
-            String servedModel = json.path("model").asText("?");
             if (usage.isMissingNode() || usage.isNull()) {
                 // Một số provider/route không trả usage — vẫn log route + latency để theo dõi xoay vòng model.
                 log.info("NineRouterAiClient usage: op={} requestedModel={} servedModel={} audio={} usage=n/a elapsedMs={}",
                         operation, requestedModel, servedModel, audioAttached, elapsedMillis);
-                return;
+                return AiTokenUsage.unknown(servedModel, audioAttached, elapsedMillis);
             }
-            int promptTokens = usage.path("prompt_tokens").asInt(usage.path("input_tokens").asInt(0));
-            int completionTokens = usage.path("completion_tokens").asInt(usage.path("output_tokens").asInt(0));
+            AiTokenUsage parsed = new AiTokenUsage(servedModel, audioAttached,
+                    usage.path("prompt_tokens").asInt(usage.path("input_tokens").asInt(0)),
+                    extractCachedTokens(usage),
+                    usage.path("completion_tokens").asInt(usage.path("output_tokens").asInt(0)),
+                    extractReasoningTokens(usage), elapsedMillis);
             log.info("NineRouterAiClient usage: op={} requestedModel={} servedModel={} audio={} promptTokens={} "
                             + "cachedTokens={} completionTokens={} reasoningTokens={} elapsedMs={}",
-                    operation, requestedModel, servedModel, audioAttached, promptTokens, extractCachedTokens(usage),
-                    completionTokens, extractReasoningTokens(usage), elapsedMillis);
+                    operation, requestedModel, servedModel, audioAttached, parsed.promptTokens(), parsed.cachedTokens(),
+                    parsed.completionTokens(), parsed.reasoningTokens(), elapsedMillis);
+            return parsed;
         } catch (RuntimeException e) {
             log.debug("NineRouterAiClient: đọc usage thất bại ({}).", e.getMessage());
+            return AiTokenUsage.unknown(servedModel, audioAttached, elapsedMillis);
         }
     }
 

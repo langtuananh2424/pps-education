@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import vn.com.pps.education.common.AiTokenUsage;
 import vn.com.pps.education.common.CriteriaScoreItem;
 import vn.com.pps.education.common.ReflexContentOverlap;
 import vn.com.pps.education.common.ReflexV2Scoring;
@@ -80,9 +81,10 @@ public class ReflexV2AiGradingService {
      * @param markedText     bài viết gốc đánh dấu lỗi bằng markup {@code {{err}}...{{/err}}} (FE hiện có).
      * @param gateNote       câu giải thích cổng chặn (backend soạn) — rỗng nếu không có cổng nào kích hoạt.
      */
+    /** {@code usage} (V192) — chi phí token của CHÍNH lượt chấm viết này, caller lưu kèm ngữ cảnh học sinh. */
     public record WritingResult(int step1Percent, int grammarPercent, int redCount, List<CriteriaScoreItem> criteria,
                                 String markedText, String feedback, String gateNote, List<String> gates,
-                                Map<String, Object> audit) {
+                                Map<String, Object> audit, AiTokenUsage usage) {
     }
 
     public record LockedGrammar(int percent, int redCount, String text) {
@@ -92,8 +94,14 @@ public class ReflexV2AiGradingService {
      * @param unlockPercent điểm dùng để mở khoá câu tiếp theo (mặc định KHÔNG gồm Phát âm).
      * @param finalPercent  điểm cuối theo công thức của người training (gồm cả Phát âm) — chỉ để tham khảo/audit.
      */
+    /**
+     * V192 — TÁCH RIÊNG chi phí 2 lượt gọi AI của bước nói ({@code transcriptionUsage} = phiên âm mù,
+     * {@code gradingUsage} = chấm nói) thay vì cộng gộp: cả hai cùng gửi 1 file audio nên nhìn tổng sẽ
+     * không biết phần nào do audio, phần nào do rubric dạng chữ — đúng câu hỏi cần trả lời khi tối ưu.
+     */
     public record SpeakingResult(String markedTranscript, List<CriteriaScoreItem> criteria, int unlockPercent,
-                                 int finalPercent, String feedback, List<String> gates, Map<String, Object> audit) {
+                                 int finalPercent, String feedback, List<String> gates, Map<String, Object> audit,
+                                 AiTokenUsage transcriptionUsage, AiTokenUsage gradingUsage) {
     }
 
     // ===================== Bước 1: chấm bài viết =====================
@@ -132,7 +140,8 @@ public class ReflexV2AiGradingService {
             audit.put("countingNotes", data.path("counting_notes").asText(""));
             return new WritingResult(scored.finalPercent(), grammarPercent, redCount, items,
                     ReflexV2Scoring.toErrMarkup(text, highlights), ReflexV2Scoring.trimFeedback(data.path("feedback").asText("")),
-                    ReflexV2Scoring.buildGateNote(task, scored.gates(), ReflexV2Scoring.wordCount(text)), scored.gates(), audit);
+                    ReflexV2Scoring.buildGateNote(task, scored.gates(), ReflexV2Scoring.wordCount(text)), scored.gates(), audit,
+                    response.usage());
         } catch (IOException | IllegalStateException e) {
             log.warn("ReflexV2AiGradingService: parse kết quả chấm bài viết thất bại. {}", e.getMessage());
             return null;
@@ -292,7 +301,7 @@ public class ReflexV2AiGradingService {
             audit.put("audioQualityInsufficient", audioQualityInsufficient);
             audit.put("countingNotes", data.path("counting_notes").asText(""));
             return new SpeakingResult(ReflexV2Scoring.toErrMarkup(transcript, highlights), items, unlockPercent,
-                    finalPercent, feedback, scored.gates(), audit);
+                    finalPercent, feedback, scored.gates(), audit, transcription.usage(), graded.usage());
         } catch (IOException | IllegalStateException e) {
             log.warn("ReflexV2AiGradingService: parse kết quả chấm bài nói thất bại. {}", e.getMessage());
             return null;
@@ -306,7 +315,15 @@ public class ReflexV2AiGradingService {
      * LỆNH GỌI RIÊNG — theo người training, bộ mới cấm AI để dạng đúng/cách sửa lọt vào {@code feedback}
      * của lượt chấm. CHỈ sửa lỗi trong chính câu học sinh viết, không viết câu mẫu khác.
      */
-    public String generateCorrectedAnswer(String question, String answerText) {
+    /**
+     * V192 — câu sửa mẫu kèm chi phí token của chính lượt gọi sinh ra nó. Đây là lượt gọi AI THỨ TƯ của
+     * 1 câu hỏi (sau chấm viết / phiên âm / chấm nói) và chỉ chạy khi học sinh đã trượt từ lần 3 trở đi,
+     * nên nếu không đo riêng sẽ không ai ngờ nó tồn tại trong hoá đơn.
+     */
+    public record CorrectedAnswer(String text, AiTokenUsage usage) {
+    }
+
+    public CorrectedAnswer generateCorrectedAnswer(String question, String answerText) {
         if (answerText == null || answerText.isBlank()) {
             return null;
         }
@@ -315,11 +332,11 @@ public class ReflexV2AiGradingService {
                 + "TUYỆT ĐỐI KHÔNG viết lại thành câu trả lời khác, KHÔNG thêm ý mới, KHÔNG nâng cấp từ vựng nếu không phải lỗi sai. "
                 + "Chỉ trả về đúng câu đã sửa, không giải thích, không đặt trong dấu ngoặc kép.";
         String user = "Câu hỏi: \"" + question + "\"\nCâu trả lời của học sinh: \"" + answerText + "\"";
-        String result = nineRouterAiClient.chat(system, user, model);
-        if (result == null || result.isBlank()) {
+        NineRouterAiClient.AiTextResponse response = nineRouterAiClient.chatWithUsage(system, user, model);
+        if (response == null || response.content() == null || response.content().isBlank()) {
             return null;
         }
-        return result.trim().replaceAll("^\"|\"$", "").trim();
+        return new CorrectedAnswer(response.content().trim().replaceAll("^\"|\"$", "").trim(), response.usage());
     }
 
     // ===================== Tiện ích =====================
