@@ -195,7 +195,11 @@ public class NineRouterAiClient {
             JsonNode json = objectMapper.readTree(response.body());
             AiTokenUsage usage = logUsage("chat", resolvedModel, false, json, System.currentTimeMillis() - startedAtMillis);
             String content = json.path("choices").path(0).path("message").path("content").asText(null);
-            return content == null ? null : new AiTextResponse(content, usage);
+            if (content == null) {
+                usageSink.recordRejected("chat", resolvedModel, usage);
+                return null;
+            }
+            return new AiTextResponse(content, usage);
         } catch (IOException | InterruptedException e) {
             if (e instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
@@ -218,6 +222,16 @@ public class NineRouterAiClient {
      *              chấp nhận audio) — KHÔNG dùng model/combo Claude cho tham số này.
      */
     public String chatWithAudio(String systemPrompt, String userText, byte[] audioBytes, String mimeType, String model) {
+        AiTextResponse response = chatWithAudioWithUsage(systemPrompt, userText, audioBytes, mimeType, model);
+        return response == null ? null : response.content();
+    }
+
+    /**
+     * V192 — như {@link #chatWithAudio} nhưng trả kèm mức tiêu thụ token, cho caller nào cần lưu chi phí
+     * gắn với ngữ cảnh nghiệp vụ (VD luồng Reflex cũ trước khi có bộ tiêu chí v2). {@link #chatWithAudio}
+     * giữ nguyên chữ ký chuỗi cho caller cũ không quan tâm chi phí.
+     */
+    public AiTextResponse chatWithAudioWithUsage(String systemPrompt, String userText, byte[] audioBytes, String mimeType, String model) {
         if (audioBytes == null || audioBytes.length == 0) {
             return null;
         }
@@ -229,7 +243,7 @@ public class NineRouterAiClient {
         return callWithConcurrencyLimit("chatWithAudio", () -> doChatWithAudio(systemPrompt, userText, audioBytes, mimeType, resolvedModel));
     }
 
-    private String doChatWithAudio(String systemPrompt, String userText, byte[] audioBytes, String mimeType, String resolvedModel) {
+    private AiTextResponse doChatWithAudio(String systemPrompt, String userText, byte[] audioBytes, String mimeType, String resolvedModel) {
         try {
             ObjectNode payload = objectMapper.createObjectNode();
             payload.put("model", resolvedModel);
@@ -264,8 +278,13 @@ public class NineRouterAiClient {
                 return null;
             }
             JsonNode json = objectMapper.readTree(response.body());
-            logUsage("chatWithAudio", resolvedModel, true, json, System.currentTimeMillis() - startedAtMillis);
-            return json.path("choices").path(0).path("message").path("content").asText(null);
+            AiTokenUsage usage = logUsage("chatWithAudio", resolvedModel, true, json, System.currentTimeMillis() - startedAtMillis);
+            String content = json.path("choices").path(0).path("message").path("content").asText(null);
+            if (content == null) {
+                usageSink.recordRejected("chatWithAudio", resolvedModel, usage);
+                return null;
+            }
+            return new AiTextResponse(content, usage);
         } catch (IOException | InterruptedException e) {
             if (e instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
