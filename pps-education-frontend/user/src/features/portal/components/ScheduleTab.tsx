@@ -204,7 +204,7 @@ export default function ScheduleTab({ studentId, classId, siteId }: ScheduleTabP
                     </span>
                   </div>
                   <p className="text-sm text-muted font-bold">
-                    {t("scheduleCard.teacherLabel")} <span className="font-extrabold text-ink">{s.primaryTeacherName ?? "—"}</span>
+                    {t("scheduleCard.teacherLabel")}
                     {s.teacherType && <span className="text-[12px] text-teal-deep font-bold"> ({teacherTypeLabels[s.teacherType]})</span>}
                   </p>
                   {s.status === "CANCELLED" && s.cancellationReason && (
