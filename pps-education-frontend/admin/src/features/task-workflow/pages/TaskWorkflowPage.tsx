@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useLocation, useSearchParams } from "react-router-dom";
 import { LayoutGrid, Plus, Table2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import { formatDateTime } from "@/lib/i18nFormat";
-import { listMyAssignments, listOverview, listTasksCreatedByMe, TaskAssignmentResponse, TaskResponse, TaskStatus } from "../api";
+import { getTask, listMyAssignments, listOverview, listTasksCreatedByMe, TaskAssignmentResponse, TaskResponse, TaskStatus } from "../api";
 import AssignmentKanbanBoard from "../components/AssignmentKanbanBoard";
 import AssignmentSheetView from "../components/AssignmentSheetView";
 import AssignmentDetailModal from "../components/AssignmentDetailModal";
@@ -95,6 +96,43 @@ export default function TaskWorkflowPage() {
   const [createdPageSize, setCreatedPageSize] = useState(20);
   useEffect(() => setCreatedPage(0), [createdTasks]);
   const pageCreatedTasks = createdTasks.slice(createdPage * createdPageSize, (createdPage + 1) * createdPageSize);
+
+  // Deep-link từ thông báo TASK_ASSIGNED/TASK_COMMENT ở Header (?taskId=) — Plan link hoá thông báo
+  // (2026-09-22). Trang giữ 2 danh sách tách biệt theo tab, chưa có route theo id, nên: chờ cả 2 tải xong,
+  // tìm task trong "Việc của tôi" trước (mở AssignmentDetailModal), rồi "Việc tôi giao" (CreatedTaskDetailModal);
+  // không thấy ở đâu (VD overview phân trang/ngoài scope) thì gọi GET /tasks/{id} nếu có quyền xem.
+  // Khoá theo location.key để mỗi lần bấm thông báo (kể cả cùng taskId) chỉ xử lý đúng 1 lần.
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const [handledDeepLinkKey, setHandledDeepLinkKey] = useState<string | null>(null);
+  useEffect(() => {
+    const param = searchParams.get("taskId");
+    if (!param || handledDeepLinkKey === location.key) return;
+    if (loading || createdLoading) return;
+    const taskId = Number(param);
+    if (!Number.isFinite(taskId)) return;
+    setHandledDeepLinkKey(location.key);
+    const assignment = assignments.find((a) => a.taskId === taskId);
+    if (assignment) {
+      setTab("assigned-to-me");
+      setSelected(assignment);
+      return;
+    }
+    const created = createdTasks.find((task) => task.id === taskId);
+    if (created) {
+      setTab("assigned-by-me");
+      setSelectedTask(created);
+      return;
+    }
+    if (!canCreateTask) return;
+    getTask(taskId)
+      .then((task) => {
+        setTab("assigned-by-me");
+        setSelectedTask(task);
+      })
+      .catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, location.key, loading, createdLoading, assignments, createdTasks]);
 
   const filteredAssignments = useMemo(() => {
     if (!dateFrom && !dateTo) return assignments;

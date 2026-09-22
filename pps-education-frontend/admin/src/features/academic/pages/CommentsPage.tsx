@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Clock, History, PenLine } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
@@ -41,6 +42,17 @@ export default function CommentsPage() {
   useEffect(() => {
     if (isSiteManager) loadPending();
   }, [isSiteManager]);
+
+  // Deep-link từ thông báo COMMENT_PENDING_APPROVAL ở Header (?classId=) — nhảy sang tab "Chờ duyệt" và
+  // cuộn tới đúng khối lớp trong CommentApprovalByClass (Plan link hoá thông báo, 2026-09-22).
+  const [searchParams] = useSearchParams();
+  const [highlightClassId, setHighlightClassId] = useState<number | null>(null);
+  useEffect(() => {
+    const param = searchParams.get("classId");
+    if (!param || !Number.isFinite(Number(param))) return;
+    setHighlightClassId(Number(param));
+    if (isSiteManager) setSiteManagerTab("pending");
+  }, [searchParams, isSiteManager]);
 
   return (
     <div className="space-y-6">
@@ -90,6 +102,8 @@ export default function CommentsPage() {
               items={pending}
               loading={loadingPending}
               onDecided={loadPending}
+              highlightClassId={highlightClassId}
+              onHighlightHandled={() => setHighlightClassId(null)}
             />
           ) : siteManagerTab === "history" ? (
             <CommentHistoryPanel />

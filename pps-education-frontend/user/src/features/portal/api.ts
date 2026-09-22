@@ -437,6 +437,11 @@ export interface NotificationResponse {
   priority: string;
   createdAt: string;
   readAt: string | null;
+  /** Toạ độ điều hướng (Plan link hoá thông báo, 2026-09-22) — BE chỉ điền field có nghĩa với từng loại, còn lại null. */
+  studentId: number | null;
+  classId: number | null;
+  exerciseAssignmentId: number | null;
+  reviewVideoAssignmentId: number | null;
 }
 
 export function listMyChildren(): Promise<ChildResponse[]> {

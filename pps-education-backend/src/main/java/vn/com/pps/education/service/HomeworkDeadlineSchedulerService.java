@@ -100,7 +100,7 @@ public class HomeworkDeadlineSchedulerService {
                         "EXERCISE_ASSIGNMENT", assignment.getId());
                 for (Student s : students) {
                     boolean passed = homeworkProgressService.grammarPassed(assignment, s.getId());
-                    accumulate(missByStudentClass, s, assignment.getSchoolClass(), StudentHomeworkAlertState.Channel.GRAMMAR, passed);
+                    accumulate(missByStudentClass, s, assignment.getSchoolClass(), StudentHomeworkAlertState.Channel.GRAMMAR, passed, assignment.getId());
                 }
             }
             assignment.setTeacherNotifiedAt(now);
@@ -127,7 +127,7 @@ public class HomeworkDeadlineSchedulerService {
                         "REVIEW_VIDEO_ASSIGNMENT", assignment.getId());
                 for (Student s : students) {
                     boolean passed = homeworkProgressService.videoPassed(assignment, s.getId(), homeworkAlertSettings.reflexPassThresholdPercent());
-                    accumulate(missByStudentClass, s, assignment.getSchoolClass(), StudentHomeworkAlertState.Channel.VIDEO, passed);
+                    accumulate(missByStudentClass, s, assignment.getSchoolClass(), StudentHomeworkAlertState.Channel.VIDEO, passed, assignment.getId());
                 }
             }
             assignment.setTeacherNotifiedAt(now);
@@ -139,10 +139,10 @@ public class HomeworkDeadlineSchedulerService {
     }
 
     private void accumulate(Map<StudentClassKey, MissAccumulator> missByStudentClass, Student student, SchoolClass schoolClass,
-                             StudentHomeworkAlertState.Channel channel, boolean passed) {
+                             StudentHomeworkAlertState.Channel channel, boolean passed, Long assignmentId) {
         StudentClassKey key = new StudentClassKey(student.getId(), schoolClass.getId());
         MissAccumulator acc = missByStudentClass.computeIfAbsent(key, k -> new MissAccumulator(student, schoolClass));
-        acc.results.add(new HomeworkAlertTrackingService.ChannelMissResult(channel, passed));
+        acc.results.add(new HomeworkAlertTrackingService.ChannelMissResult(channel, passed, assignmentId));
     }
 
     private record StudentClassKey(Long studentId, Long schoolClassId) {}

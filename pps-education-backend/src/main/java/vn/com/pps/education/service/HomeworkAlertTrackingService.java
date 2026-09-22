@@ -36,10 +36,19 @@ import java.util.Map;
 @Service
 public class HomeworkAlertTrackingService {
 
-    public record ChannelMissResult(StudentHomeworkAlertState.Channel channel, boolean passed) {}
+    /**
+     * assignmentId: id bản giao vừa hết hạn của kênh đó (exercise_assignments.id với GRAMMAR,
+     * review_video_assignments.id với VIDEO) — chỉ dùng để ghi vào metadata thông báo cho Portal
+     * mở đúng bài (Plan link hoá thông báo, 2026-09-22); null nếu nơi gọi không có.
+     */
+    public record ChannelMissResult(StudentHomeworkAlertState.Channel channel, boolean passed, Long assignmentId) {
+        public ChannelMissResult(StudentHomeworkAlertState.Channel channel, boolean passed) {
+            this(channel, passed, null);
+        }
+    }
 
     private record TriggeredAlert(String line, int rank, Notification.NotificationType type, Notification.Priority priority,
-                                   String channelLabel, int count) {}
+                                   String channelLabel, int count, StudentHomeworkAlertState.Channel channel, Long assignmentId) {}
 
     private final StudentHomeworkAlertStateRepository stateRepository;
     private final AcademicTermRepository academicTermRepository;
@@ -74,7 +83,7 @@ public class HomeworkAlertTrackingService {
                 stateRepository.save(state);
                 continue;
             }
-            triggered.addAll(applyMiss(state, result.channel()));
+            triggered.addAll(applyMiss(state, result.channel(), result.assignmentId()));
             stateRepository.save(state);
         }
 
@@ -85,7 +94,7 @@ public class HomeworkAlertTrackingService {
     }
 
     /** Cập nhật streak/tổng cho 1 kênh không đạt, trả về 0-1 cảnh báo vừa chạm mốc (kiểu 1 ưu tiên hơn kiểu 2 — giả định 5 đã xác nhận). */
-    private List<TriggeredAlert> applyMiss(StudentHomeworkAlertState state, StudentHomeworkAlertState.Channel channel) {
+    private List<TriggeredAlert> applyMiss(StudentHomeworkAlertState state, StudentHomeworkAlertState.Channel channel, Long assignmentId) {
         String channelLabel = channel == StudentHomeworkAlertState.Channel.GRAMMAR ? "BTVN Ngữ pháp" : "BTVN Video";
 
         int streak = state.getConsecutiveMissCount() + 1;
@@ -96,15 +105,15 @@ public class HomeworkAlertTrackingService {
         TriggeredAlert type1 = switch (streak) {
             case 2 -> new TriggeredAlert(channelLabel + ": thiếu liên tục 2 buổi (Nhắc nhở).",
                     0, Notification.NotificationType.HOMEWORK_MISS_REMINDER, Notification.Priority.NORMAL,
-                    channelLabel, streak);
+                    channelLabel, streak, channel, assignmentId);
             case 3 -> new TriggeredAlert(channelLabel + ": thiếu liên tục 3 buổi (Cảnh báo học tập).",
                     1, Notification.NotificationType.HOMEWORK_MISS_WARNING, Notification.Priority.HIGH,
-                    channelLabel, streak);
+                    channelLabel, streak, channel, assignmentId);
             case 4 -> {
                 state.setConsecutiveMissCount(0); // reset ngay sau khi chạm mốc mời làm việc (đã xác nhận với người dùng)
                 yield new TriggeredAlert(channelLabel + ": thiếu liên tục 4 buổi (Thư mời phụ huynh tới làm việc).",
                         2, Notification.NotificationType.HOMEWORK_MISS_PARENT_MEETING_INVITE, Notification.Priority.URGENT,
-                        channelLabel, streak);
+                        channelLabel, streak, channel, assignmentId);
             }
             default -> null;
         };
@@ -116,7 +125,7 @@ public class HomeworkAlertTrackingService {
             state.setType2AlertSent(true);
             return List.of(new TriggeredAlert(channelLabel + ": thiếu " + total + " buổi không liên tục trong kỳ (Nhắc nhở).",
                     0, Notification.NotificationType.HOMEWORK_MISS_REMINDER_NON_CONSECUTIVE, Notification.Priority.NORMAL,
-                    channelLabel, total));
+                    channelLabel, total, channel, assignmentId));
         }
         return List.of();
     }
@@ -139,6 +148,18 @@ public class HomeworkAlertTrackingService {
         metadata.put("className", schoolClass.getName());
         metadata.put("channelLabel", heaviest.channelLabel());
         metadata.put("count", heaviest.count());
+        // Khoá số để NotificationService.toResponse() promote lên NotificationResponse — Portal đổi đúng
+        // con/lớp và cuộn tới đúng bài (Plan link hoá thông báo, 2026-09-22). Gộp 2 kênh trong 1 thông
+        // báo thì ghi cả 2 id (mỗi kênh tối đa 1 bản giao trong 1 lượt đánh giá).
+        metadata.put("studentId", student.getId());
+        metadata.put("classId", schoolClass.getId());
+        for (TriggeredAlert alert : triggered) {
+            if (alert.assignmentId() == null) {
+                continue;
+            }
+            metadata.put(alert.channel() == StudentHomeworkAlertState.Channel.GRAMMAR
+                    ? "exerciseAssignmentId" : "reviewVideoAssignmentId", alert.assignmentId());
+        }
 
         for (ParentStudent link : parentStudentRepository.findByStudentId(student.getId())) {
             notificationService.notify(link.getParent().getUser().getId(), heaviest.type(), title, content,

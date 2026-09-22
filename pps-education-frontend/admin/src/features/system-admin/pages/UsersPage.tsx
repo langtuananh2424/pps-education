@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { KeyRound, Lock, Search, ShieldCheck, Unlock, Users as UsersIcon } from "lucide-react";
 import TableContainer, { Td, Th } from "@/components/ui/TableContainer";
@@ -63,6 +64,13 @@ export default function UsersPage() {
   const [roles, setRoles] = useState<RoleResponse[]>([]);
 
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  // Deep-link từ thông báo "Tài khoản bị khoá" ở Header (?userId=) — UserDetailModal tự fetch theo userId
+  // nên mở được ngay, không phụ thuộc trang danh sách đang hiện (Plan link hoá thông báo, 2026-09-22).
+  const [searchParams] = useSearchParams();
+  useEffect(() => {
+    const param = searchParams.get("userId");
+    if (param && Number.isFinite(Number(param))) setSelectedUserId(Number(param));
+  }, [searchParams]);
 
   useEffect(() => {
     // GET /api/departments không yêu cầu quyền riêng — chỉ dùng để đổi ID sang tên hiển thị, không dùng để sửa.
