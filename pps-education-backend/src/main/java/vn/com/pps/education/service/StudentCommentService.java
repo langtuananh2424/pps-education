@@ -1736,14 +1736,30 @@ public class StudentCommentService {
         ReviewVideoAssignment previousVideoAssignment = firstNonNull(editable, StudentComment::getHomeworkNextReviewVideoAssignment);
         HomeworkSkillBatch previousReadingBatch = firstNonNull(editable, StudentComment::getHomeworkNextReadingBatch);
         HomeworkSkillBatch previousWritingBatch = firstNonNull(editable, StudentComment::getHomeworkNextWritingBatch);
+        // 2026-09-22 (fix bug thật, đã xác nhận với người dùng) — "previous" ở trên chỉ nhìn trong
+        // `editable` (loại trừ học sinh đã Gửi/Duyệt), nên khi TOÀN BỘ `editable` là dòng MỚI (VD chỉ
+        // còn lại đúng học sinh Vắng/Có phép vừa được mở khoá giao bài, mọi học sinh khác đã Gửi từ
+        // trước), previous* luôn null dù buổi NÀY đã có sẵn batch/assignment (do học sinh đã Gửi đang
+        // giữ). Không có "existing*" bên dưới, materializeExamHomework/materializeVideoHomework tưởng
+        // đây là lần giao ĐẦU nên tạo batch MỚI cho cùng 1 Exam/VideoSet — deliverToClass bên trong lại
+        // tái dùng NGUYÊN bản ExerciseAssignment/ReviewVideoAssignment ACTIVE cũ (cùng buổi nguồn+hạn
+        // nộp) rồi gán FK sang batch MỚI đó, làm "mồ côi" batch CŨ mà học sinh đã Gửi vẫn đang tham
+        // chiếu — nhận xét lịch sử của họ hiện "—" dù trước đó có bài. Fix: tính thêm existing* từ TOÀN
+        // BỘ nhận xét của buổi (kể cả đã khoá) để tái dùng ĐÚNG batch/assignment đang có thay vì tạo
+        // bản trùng, còn previous* vẫn giữ nguyên ý nghĩa cũ (chỉ huỷ batch mà nhóm editable đang giữ).
+        List<StudentComment> allSessionComments = studentCommentRepository.findByClassSessionId(classSessionId);
+        HomeworkSkillBatch existingGrammarBatch = firstNonNull(allSessionComments, StudentComment::getHomeworkNextGrammarBatch);
+        ReviewVideoAssignment existingVideoAssignment = firstNonNull(allSessionComments, StudentComment::getHomeworkNextReviewVideoAssignment);
+        HomeworkSkillBatch existingReadingBatch = firstNonNull(allSessionComments, StudentComment::getHomeworkNextReadingBatch);
+        HomeworkSkillBatch existingWritingBatch = firstNonNull(allSessionComments, StudentComment::getHomeworkNextWritingBatch);
 
-        HomeworkSkillBatch grammarBatch = materializeExamHomework(session, request.grammarExamId(), previousGrammarBatch,
+        HomeworkSkillBatch grammarBatch = materializeExamHomework(session, request.grammarExamId(), previousGrammarBatch, existingGrammarBatch,
                 grammarChannelSkillCategory(session.getTeacherType()), dueAt, lateSubmissionAllowed, actorUserId);
-        ReviewVideoAssignment videoAssignment = materializeVideoHomework(session, request.videoSetId(), previousVideoAssignment,
+        ReviewVideoAssignment videoAssignment = materializeVideoHomework(session, request.videoSetId(), previousVideoAssignment, existingVideoAssignment,
                 dueAt, lateSubmissionAllowed, actorUserId);
-        HomeworkSkillBatch readingBatch = materializeExamHomework(session, request.readingExamId(), previousReadingBatch,
+        HomeworkSkillBatch readingBatch = materializeExamHomework(session, request.readingExamId(), previousReadingBatch, existingReadingBatch,
                 Exercise.SkillCategory.READING, dueAt, lateSubmissionAllowed, actorUserId);
-        HomeworkSkillBatch writingBatch = materializeExamHomework(session, request.writingExamId(), previousWritingBatch,
+        HomeworkSkillBatch writingBatch = materializeExamHomework(session, request.writingExamId(), previousWritingBatch, existingWritingBatch,
                 Exercise.SkillCategory.WRITING, dueAt, lateSubmissionAllowed, actorUserId);
 
         for (StudentComment comment : editable) {
@@ -1765,21 +1781,39 @@ public class StudentCommentService {
      * Giao/huỷ BTVN kênh dùng {@link HomeworkSkillBatch} (Ngữ pháp/Bài nghe dùng chung field theo
      * {@code skillCategory} truyền vào, Reading, Writing) — mirror {@link #materializeVideoHomework}
      * cho kênh Video. {@code examId=null} huỷ bản cũ (nếu có), không giao gì; không đổi so với
-     * {@code previous} (cùng Exam + cùng hạn nộp + cùng "cho phép nộp muộn") thì giữ nguyên, không tạo
+     * {@code existing} (cùng Exam + cùng hạn nộp + cùng "cho phép nộp muộn") thì giữ nguyên, không tạo
      * lại — khác cơ chế cũ (chỉ so Exam, bỏ sót trường hợp CHỈ đổi hạn nộp mà giữ nguyên đề).
+     *
+     * 2026-09-22 (fix bug thật, đã xác nhận với người dùng) — tách riêng {@code previous} (batch nhóm
+     * `editable` ĐANG giữ, dùng để quyết định có cần huỷ hay không) khỏi {@code existing} (batch của
+     * TOÀN BỘ buổi, kể cả học sinh đã Gửi/Duyệt — dùng để quyết định có TÁI DÙNG hay không). Trước đây
+     * chỉ có 1 tham số {@code previous} lấy từ `editable`, nên khi `editable` toàn dòng MỚI (VD editable
+     * chỉ còn học sinh Vắng/Có phép vừa mở khoá, mọi học sinh khác đã Gửi từ trước) thì {@code previous}
+     * luôn null dù buổi NÀY đã có batch — hàm tưởng nhầm là giao mới, gọi assignBatchToClass tạo 1
+     * {@link HomeworkSkillBatch} MỚI cho CÙNG Exam, trong khi {@code exerciseService.deliverToClass}
+     * bên trong lại tái dùng nguyên {@code ExerciseAssignment} ACTIVE cũ (cùng buổi nguồn+hạn nộp) rồi
+     * gán FK sang batch MỚI — "mồ côi" batch CŨ mà học sinh đã Gửi vẫn đang tham chiếu (họ tự nhiên mất
+     * trắng BTVN đã giao, hiện "—"). Giờ ưu tiên tái dùng {@code existing} nếu khớp tham số — không tạo
+     * batch trùng, không đụng gì tới học sinh đã khoá; chỉ huỷ {@code previous} khi nó KHÁC batch cuối
+     * cùng trả về (tức nhóm editable trước đó đang giữ 1 lựa chọn khác, giờ đổi sang dùng chung với
+     * phần còn lại của buổi).
      */
     private HomeworkSkillBatch materializeExamHomework(ClassSession session, Long examId, HomeworkSkillBatch previous,
-                                                        Exercise.SkillCategory skillCategory, OffsetDateTime dueAt,
-                                                        boolean lateSubmissionAllowed, Long actorUserId) {
+                                                        HomeworkSkillBatch existing, Exercise.SkillCategory skillCategory,
+                                                        OffsetDateTime dueAt, boolean lateSubmissionAllowed, Long actorUserId) {
         if (examId == null) {
             if (previous != null) {
                 homeworkSkillBatchService.cancelBatch(previous);
             }
             return null;
         }
-        if (previous != null && previous.getExam().getId().equals(examId)
-                && batchDueAt(previous).isEqual(dueAt) && batchLateSubmissionAllowed(previous) == lateSubmissionAllowed) {
-            return previous;
+        HomeworkSkillBatch reusable = existing != null ? existing : previous;
+        if (reusable != null && reusable.getExam().getId().equals(examId)
+                && batchDueAt(reusable).isEqual(dueAt) && batchLateSubmissionAllowed(reusable) == lateSubmissionAllowed) {
+            if (previous != null && !previous.getId().equals(reusable.getId())) {
+                homeworkSkillBatchService.cancelBatch(previous);
+            }
+            return reusable;
         }
         examRepository.findByIdAndDeletedAtIsNull(examId)
                 .orElseThrow(() -> new ResourceNotFoundException("error.studentComment.examNotFoundById", new Object[]{examId}, "Không tìm thấy Đề (Lesson) id=" + examId));
@@ -1791,18 +1825,23 @@ public class StudentCommentService {
         return batch;
     }
 
-    /** Mirror {@link #materializeExamHomework} cho kênh Video Ôn tập (TKN/Clip phản xạ). */
+    /** Mirror {@link #materializeExamHomework} cho kênh Video Ôn tập (TKN/Clip phản xạ) — xem Javadoc đó để biết ý nghĩa {@code previous} vs {@code existing}. */
     private ReviewVideoAssignment materializeVideoHomework(ClassSession session, Long videoSetId, ReviewVideoAssignment previous,
-                                                            OffsetDateTime dueAt, boolean lateSubmissionAllowed, Long actorUserId) {
+                                                            ReviewVideoAssignment existing, OffsetDateTime dueAt,
+                                                            boolean lateSubmissionAllowed, Long actorUserId) {
         if (videoSetId == null) {
             if (previous != null) {
                 reviewVideoService.cancelAssignment(previous);
             }
             return null;
         }
-        if (previous != null && previous.getReviewVideoSet().getId().equals(videoSetId)
-                && previous.getDueAt().isEqual(dueAt) && previous.isLateSubmissionAllowed() == lateSubmissionAllowed) {
-            return previous;
+        ReviewVideoAssignment reusable = existing != null ? existing : previous;
+        if (reusable != null && reusable.getReviewVideoSet().getId().equals(videoSetId)
+                && reusable.getDueAt().isEqual(dueAt) && reusable.isLateSubmissionAllowed() == lateSubmissionAllowed) {
+            if (previous != null && !previous.getId().equals(reusable.getId())) {
+                reviewVideoService.cancelAssignment(previous);
+            }
+            return reusable;
         }
         reviewVideoSetRepository.findById(videoSetId)
                 .orElseThrow(() -> new ResourceNotFoundException("error.studentComment.videoSetNotFoundById", new Object[]{videoSetId}, "Không tìm thấy bộ video id=" + videoSetId));
