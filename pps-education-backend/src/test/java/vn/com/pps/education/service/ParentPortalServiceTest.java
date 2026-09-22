@@ -382,8 +382,17 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
      * Đề đã gán lớp mới thành công).
      */
     private ExerciseResponse createGrammarOnlineExercise() {
+        return createOnlineExercise("VOCAB_GRAMMAR", "Ngữ pháp homework", examCode());
+    }
+
+    /**
+     * Mirror {@link #createGrammarOnlineExercise()} — tổng quát hoá theo skillCategory để tái dùng cho
+     * Reading/Writing (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-22, khi bổ sung 2 kênh
+     * này cho Cổng phụ huynh — trước đó chỉ có sẵn cho Ngữ pháp).
+     */
+    private ExerciseResponse createOnlineExercise(String skillCategory, String label, String examCode) {
         var exam = examService.createExam(
-                new CreateExamRequest(examCode(), "Đề Ngữ pháp homework", schoolClass.curriculumId(), "VIETNAMESE", "HOMEWORK", null), teacher.getId());
+                new CreateExamRequest(examCode, "Đề " + label, schoolClass.curriculumId(), "VIETNAMESE", "HOMEWORK", null), teacher.getId());
         examService.assignToClass(exam.id(), schoolClass.id(), teacher.getId());
         // V75 (Kho đề): mỗi Exam tự sinh 1 QuestionBank nội bộ riêng, không nhận câu hỏi qua
         // QuestionBankService#createQuestion (chỉ dành cho bank "legacy" độc lập) — phải qua
@@ -394,8 +403,8 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
                         List.of(new QuestionChoiceRequest("A", "go", null, false, 1), new QuestionChoiceRequest("B", "goes", null, true, 2)), null, null),
                 teacher.getId());
         ExerciseResponse exercise = exerciseService.createExercise(
-                new CreateExerciseRequest(exerciseCode(), "Bài ngữ pháp homework", exam.id(), null,
-                        "ASSIGNED", new BigDecimal("1"), null, false, 1, true, null, "VOCAB_GRAMMAR"), teacher.getId());
+                new CreateExerciseRequest(exerciseCode(), "Bài " + label, exam.id(), null,
+                        "ASSIGNED", new BigDecimal("1"), null, false, 1, true, null, skillCategory), teacher.getId());
         exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(question.id(), 1, new BigDecimal("1.0")), teacher.getId());
         // V150 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25): assignBatchToClass
         // (giao BTVN theo "Lô kỹ năng") chỉ nhận Bài đã PUBLISHED cùng skillCategory với kênh buổi
@@ -405,6 +414,25 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
         // commit Đề/Bài vừa tạo trước.
         commitCurrentTransactionAndStartNew();
         return exercise;
+    }
+
+    /**
+     * Mirror {@link #createOnlineExercise} nhưng thêm 1 Bài THỨ 2 cùng skillCategory VÀO CÙNG 1 Exam đã
+     * có sẵn — dùng để dựng 1 Lô (HomeworkSkillBatch) gồm nhiều Bài thật (bổ sung ngoài SDD gốc, đã xác
+     * nhận với người dùng 2026-09-22, kiểm tra breakdown từng Bài trong Lô ở Cổng phụ huynh).
+     */
+    private void addSecondExerciseToExam(Long examId, String skillCategory, String label) {
+        QuestionResponse question = examQuestionService.createQuestion(examId,
+                new CreateExamQuestionRequest("MULTIPLE_CHOICE", "GRAMMAR", "EASY", "They ___ to school.",
+                        null, null, null, null, null, new BigDecimal("1.0"), null,
+                        List.of(new QuestionChoiceRequest("A", "go", null, true, 1), new QuestionChoiceRequest("B", "goes", null, false, 2)), null, null),
+                teacher.getId());
+        ExerciseResponse exercise = exerciseService.createExercise(
+                new CreateExerciseRequest(exerciseCode(), "Bài " + label + " 2", examId, null,
+                        "ASSIGNED", new BigDecimal("1"), null, false, 2, true, null, skillCategory), teacher.getId());
+        exerciseService.addQuestion(exercise.id(), new AddExerciseQuestionRequest(question.id(), 1, new BigDecimal("1.0")), teacher.getId());
+        exerciseService.publishExercise(exercise.id(), teacher.getId());
+        commitCurrentTransactionAndStartNew();
     }
 
     /** V65: hạn nộp BTVN buổi sau = buổi kế tiếp — cần 1 buổi trong tương lai để resolveNextSessionDueAt không chặn. */
@@ -451,14 +479,23 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
      * StudentCommentService#writeComment (không setter field BTVN online).
      */
     private StudentCommentResponse writeDailyComment(Long grammarExerciseId, Long videoSetId, String homeworkNext) {
-        if (grammarExerciseId != null || videoSetId != null) {
+        return writeDailyComment(grammarExerciseId, videoSetId, null, null, homeworkNext, null, null);
+    }
+
+    /**
+     * Mirror bản 3-tham số ở trên, mở rộng thêm kênh Reading/Writing (bổ sung ngoài SDD gốc, đã xác
+     * nhận với người dùng 2026-09-22, khi bổ sung 2 kênh này cho Cổng phụ huynh).
+     */
+    private StudentCommentResponse writeDailyComment(Long grammarExerciseId, Long videoSetId, Long readingExamId, Long writingExamId,
+                                                       String homeworkNext, String homeworkNextReading, String homeworkNextWriting) {
+        if (grammarExerciseId != null || videoSetId != null || readingExamId != null || writingExamId != null) {
             studentCommentService.applyHomeworkToClass(session.id(),
-                    new ApplyClassHomeworkRequest(grammarExerciseId, videoSetId, null, null, null, null), teacher.getId());
+                    new ApplyClassHomeworkRequest(grammarExerciseId, videoSetId, readingExamId, writingExamId, null, null), teacher.getId());
         }
         StudentCommentResponse comment = studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), session.id(),
                         session.sessionDate(), "Nội dung buổi.", null, null, false, null, null, null, null, null,
-                        homeworkNext, null, null, null),
+                        homeworkNext, homeworkNextReading, homeworkNextWriting, null),
                 teacher.getId());
         List<StudentCommentResponse> submitted = studentCommentService.submitComments(
                 schoolClass.id(), new SubmitCommentsRequest(List.of(comment.id())), teacher.getId());
@@ -496,6 +533,73 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
         assertThat(result.get(0).grammarAssignmentId()).isEqualTo(assignments.get(0).getHomeworkBatch().getId());
         assertThat(result.get(0).grammarOfflineText()).isNull();
         assertThat(result.get(0).grammarProgress()).isEqualTo("Chưa làm bài");
+        // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-22 (fix bug thật) — "Chưa làm bài"
+        // KHÔNG được coi là "Chưa đạt" (trước đây grammarPassed() trả về false thay vì null ở case này,
+        // khiến FE hiện nhầm pill đỏ — xem Javadoc ParentPortalService#aggregatePassed).
+        assertThat(result.get(0).grammarPassed()).isNull();
+        assertThat(result.get(0).grammarItems()).hasSize(1);
+        assertThat(result.get(0).grammarItems().get(0).progress()).isEqualTo("Chưa làm bài");
+        assertThat(result.get(0).grammarItems().get(0).passed()).isNull();
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-22 — Cổng phụ huynh trước đây CHỈ lộ
+     * kênh Ngữ pháp/Video (dữ liệu Reading/Writing đã có ở StudentComment từ V137 nhưng chưa lộ ra API
+     * Cổng phụ huynh). Mirror listHomeworkProgress_MainFlow_onlineGrammarNotYetAttemptedShowsChuaLamBai
+     * cho kênh Reading.
+     */
+    @Test
+    void listHomeworkProgress_boSung_readingOnlineNotYetAttemptedShowsChuaLamBai() {
+        ExerciseResponse exercise = createOnlineExercise("READING", "Đọc hiểu homework", examCode());
+        createNextSession();
+        writeDailyComment(null, null, exercise.examId(), null, null, null, null);
+
+        List<HomeworkProgressResponse> result = parentPortalService.listHomeworkProgress(student.getId(), schoolClass.id(), parentUser.getId());
+
+        assertThat(result).hasSize(1);
+        List<ExerciseAssignment> assignments = exerciseAssignmentRepository.findByExerciseIdAndSchoolClassIdAndStatus(
+                exercise.id(), schoolClass.id(), ExerciseAssignment.Status.ACTIVE);
+        assertThat(assignments).hasSize(1);
+        assertThat(result.get(0).readingAssignmentId()).isEqualTo(assignments.get(0).getHomeworkBatch().getId());
+        assertThat(result.get(0).readingOfflineText()).isNull();
+        assertThat(result.get(0).readingProgress()).isEqualTo("Chưa làm bài");
+        assertThat(result.get(0).readingPassed()).isNull();
+        // Kênh khác không được giao ở buổi này vẫn phải null hết, không "ăn nhầm" dữ liệu Reading.
+        assertThat(result.get(0).grammarAssignmentId()).isNull();
+        assertThat(result.get(0).writingAssignmentId()).isNull();
+    }
+
+    /** Mirror listHomeworkProgress_MainFlow_offlineGrammarHasTextButNoProgress cho kênh Writing (V135, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-22). */
+    @Test
+    void listHomeworkProgress_boSung_writingOfflineHasTextButNoProgress() {
+        writeDailyComment(null, null, null, null, null, null, "Viết đoạn văn 5 câu về gia đình");
+
+        List<HomeworkProgressResponse> result = parentPortalService.listHomeworkProgress(student.getId(), schoolClass.id(), parentUser.getId());
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).writingOfflineText()).isEqualTo("Viết đoạn văn 5 câu về gia đình");
+        assertThat(result.get(0).writingAssignmentId()).isNull();
+        assertThat(result.get(0).writingProgress()).isNull();
+    }
+
+    /**
+     * V150 mở rộng (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-22) — 1 Lô gồm NHIỀU Bài
+     * cùng kỹ năng: % gộp trước đây có thể che mất 1 Bài làm kém bị Bài khác kéo điểm lên. Kiểm tra
+     * grammarItems trả đủ TỪNG Bài kèm % riêng, không chỉ 1 con số gộp.
+     */
+    @Test
+    void listHomeworkProgress_boSung_grammarBatchWithMultipleExercisesExposesPerItemProgress() {
+        ExerciseResponse exercise1 = createGrammarOnlineExercise();
+        addSecondExerciseToExam(exercise1.examId(), "VOCAB_GRAMMAR", "Ngữ pháp homework");
+        createNextSession();
+        writeDailyComment(exercise1.examId(), null, null);
+
+        List<HomeworkProgressResponse> result = parentPortalService.listHomeworkProgress(student.getId(), schoolClass.id(), parentUser.getId());
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).grammarTitle()).contains("2 bài");
+        assertThat(result.get(0).grammarItems()).hasSize(2);
+        assertThat(result.get(0).grammarItems()).allSatisfy(item -> assertThat(item.progress()).isEqualTo("Chưa làm bài"));
     }
 
     @Test
@@ -510,6 +614,68 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
         assertThat(comment.homeworkNextReviewVideoAssignmentId()).isNotNull();
         assertThat(result.get(0).videoAssignmentId()).isEqualTo(comment.homeworkNextReviewVideoAssignmentId());
         assertThat(result.get(0).videoProgress()).isEqualTo("0%");
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-22 (fix bug thật) — trước đây BTVN
+     * online (giao qua applyHomeworkToClass, tách hẳn khỏi Viết/Gửi nhận xét từ 2026-09-12) bị ẩn khỏi
+     * Cổng phụ huynh nếu GV chưa viết/gửi/duyệt XONG phần nhận xét text của ĐÚNG buổi đó — dù học sinh
+     * vẫn thấy và làm được bình thường ở Portal Học sinh. Ca thật gặp: GV nước ngoài giao Video phản xạ
+     * xong nhưng chưa viết nhận xét ngày hôm đó, Phụ huynh thấy "Chưa có bài tập nào được giao" sai sự
+     * thật. Test này KHÔNG gọi writeDailyComment (luôn submit+duyệt) — chỉ gọi thẳng
+     * applyHomeworkToClass rồi dừng ở DRAFT, mirror đúng ca lỗi.
+     */
+    @Test
+    void listHomeworkProgress_boSung_onlineVideoVisibleEvenWhenDailyCommentNotApprovedYet() {
+        ReviewVideoSetResponse set = createConnectionVideoAssignedToClass();
+        createNextSession();
+        List<StudentCommentResponse> applied = studentCommentService.applyHomeworkToClass(session.id(),
+                new ApplyClassHomeworkRequest(null, set.id(), null, null, null, null), teacher.getId());
+        assertThat(applied).hasSize(1);
+        assertThat(applied.get(0).status()).isEqualTo("DRAFT");
+
+        List<HomeworkProgressResponse> result = parentPortalService.listHomeworkProgress(student.getId(), schoolClass.id(), parentUser.getId());
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).videoAssignmentId()).isEqualTo(applied.get(0).homeworkNextReviewVideoAssignmentId());
+        assertThat(result.get(0).videoProgress()).isEqualTo("0%");
+    }
+
+    /**
+     * Mirror trực tiếp {@link #listHomeworkProgress_boSung_onlineVideoVisibleEvenWhenDailyCommentNotApprovedYet}
+     * cho kênh Ngữ pháp ONLINE (Lô) — chứng minh fix áp dụng chung 1 code path cho cả 4 kênh online, không
+     * chỉ riêng Video.
+     */
+    @Test
+    void listHomeworkProgress_boSung_onlineGrammarVisibleEvenWhenDailyCommentNotApprovedYet() {
+        ExerciseResponse exercise = createGrammarOnlineExercise();
+        createNextSession();
+        List<StudentCommentResponse> applied = studentCommentService.applyHomeworkToClass(session.id(),
+                new ApplyClassHomeworkRequest(exercise.examId(), null, null, null, null, null), teacher.getId());
+        assertThat(applied.get(0).status()).isEqualTo("DRAFT");
+
+        List<HomeworkProgressResponse> result = parentPortalService.listHomeworkProgress(student.getId(), schoolClass.id(), parentUser.getId());
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).grammarProgress()).isEqualTo("Chưa làm bài");
+    }
+
+    /**
+     * Đối chứng — BTVN OFFLINE (chữ tự do gõ CHUNG lúc viết nhận xét, chưa tách khỏi luồng Viết/Gửi/
+     * Duyệt) vẫn PHẢI đợi APPROVED mới lộ ra, khác hẳn 4 kênh online ở 2 test trên (bổ sung ngoài SDD
+     * gốc, đã xác nhận với người dùng 2026-09-22) — tránh lộ nội dung GV còn đang gõ dở/chưa duyệt.
+     */
+    @Test
+    void listHomeworkProgress_boSung_offlineGrammarTextHiddenWhileDailyCommentNotApprovedYet() {
+        StudentCommentResponse comment = studentCommentService.writeComment(schoolClass.id(),
+                new CreateStudentCommentRequest(student.getId(), session.id(), session.sessionDate(), "Nội dung buổi.",
+                        null, null, false, null, null, null, null, null, "Ôn lại Unit 3 ở nhà", null, null, null),
+                teacher.getId());
+        assertThat(comment.status()).isEqualTo("DRAFT");
+
+        List<HomeworkProgressResponse> result = parentPortalService.listHomeworkProgress(student.getId(), schoolClass.id(), parentUser.getId());
+
+        assertThat(result).isEmpty();
     }
 
     @Test
