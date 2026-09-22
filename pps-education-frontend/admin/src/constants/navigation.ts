@@ -1,4 +1,5 @@
 import {
+  Coins,
   AlertTriangle,
   ArrowLeftRight,
   Award,
@@ -119,7 +120,11 @@ export const navSections: NavSection[] = [
       { id: "sys-audit", label: "Nhật ký thay đổi", path: "/system-admin/audit-log", icon: History, requiredPermission: "permission.audit.view" },
       // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-08 — chỉ Quản trị viên hệ thống (V105).
       { id: "sys-settings", label: "Cài đặt hệ thống", path: "/system-admin/settings", icon: Settings2, requiredPermission: "system.settings.manage" },
-      { id: "sys-send-notification", label: "Gửi thông báo", path: "/system-admin/send-notification", icon: Send, requiredPermission: "notification.send.manual" }
+      { id: "sys-send-notification", label: "Gửi thông báo", path: "/system-admin/send-notification", icon: Send, requiredPermission: "notification.send.manual" },
+      // V192 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-22) — chi phí token của luồng
+      // chấm AI. Dùng lại system.settings.manage (SYS_ADMIN, xem V105) thay vì tạo mã quyền mới: số
+      // liệu gắn chi phí vận hành + có tên học sinh, cùng nhóm người xem với "Cài đặt hệ thống".
+      { id: "sys-ai-token-usage", label: "Sử dụng token AI", path: "/system-admin/ai-token-usage", icon: Coins, requiredPermission: "system.settings.manage" }
     ]
   },
   // "Giao việc & Kanban" tiếp tục ẩn (đang phát triển, theo yêu cầu 2026-07-23) — route /task-workflow

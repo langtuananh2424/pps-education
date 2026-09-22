@@ -13,6 +13,7 @@ import RolesPage from "@/features/system-admin/pages/RolesPage";
 import OverridesPage from "@/features/system-admin/pages/OverridesPage";
 import AuditLogPage from "@/features/system-admin/pages/AuditLogPage";
 import SystemSettingsPage from "@/features/system-admin/pages/SystemSettingsPage";
+import AiTokenUsagePage from "@/features/system-admin/pages/AiTokenUsagePage";
 import SendNotificationPage from "@/features/system-admin/pages/SendNotificationPage";
 import TaskWorkflowPage from "@/features/task-workflow/pages/TaskWorkflowPage";
 import HrmProfilesPage from "@/features/hrm/pages/ProfilesPage";
@@ -82,6 +83,7 @@ export default function App() {
           <Route path="/system-admin/overrides" element={<OverridesPage />} />
           <Route path="/system-admin/audit-log" element={<AuditLogPage />} />
           <Route path="/system-admin/settings" element={<SystemSettingsPage />} />
+          <Route path="/system-admin/ai-token-usage" element={<AiTokenUsagePage />} />
           <Route path="/system-admin/send-notification" element={<SendNotificationPage />} />
           <Route path="/task-workflow" element={<TaskWorkflowPage />} />
           <Route path="/hrm/profile" element={<HrmProfilesPage />} />
