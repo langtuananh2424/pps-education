@@ -163,12 +163,14 @@ public class NineRouterAiClient {
                     .timeout(Duration.ofSeconds(60))
                     .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(payload)))
                     .build();
+            long startedAtMillis = System.currentTimeMillis();
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() >= 300) {
                 log.warn("NineRouterAiClient: gọi 9Router lỗi (HTTP {}): {}", response.statusCode(), response.body());
                 return null;
             }
             JsonNode json = objectMapper.readTree(response.body());
+            logUsage("chat", resolvedModel, false, json, System.currentTimeMillis() - startedAtMillis);
             return json.path("choices").path(0).path("message").path("content").asText(null);
         } catch (IOException | InterruptedException e) {
             if (e instanceof InterruptedException) {
@@ -231,12 +233,14 @@ public class NineRouterAiClient {
                     .timeout(Duration.ofSeconds(60))
                     .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(payload)))
                     .build();
+            long startedAtMillis = System.currentTimeMillis();
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() >= 300) {
                 log.warn("NineRouterAiClient: gọi 9Router (audio chat) lỗi (HTTP {}): {}", response.statusCode(), response.body());
                 return null;
             }
             JsonNode json = objectMapper.readTree(response.body());
+            logUsage("chatWithAudio", resolvedModel, true, json, System.currentTimeMillis() - startedAtMillis);
             return json.path("choices").path(0).path("message").path("content").asText(null);
         } catch (IOException | InterruptedException e) {
             if (e instanceof InterruptedException) {
@@ -259,7 +263,7 @@ public class NineRouterAiClient {
             log.warn("NineRouterAiClient: chưa cấu hình model chấm Speaking v2.");
             return null;
         }
-        return callWithConcurrencyLimit("chatJson", () -> doJsonCall(systemPrompt, userMessage, null, null, model, schema));
+        return callWithConcurrencyLimit("chatJson", () -> doJsonCall("chatJson", systemPrompt, userMessage, null, null, model, schema));
     }
 
     /** Như {@link #chatJson} nhưng đính kèm audio (multimodal {@code input_audio}); WAV là định dạng đã kiểm chứng qua 9Router. */
@@ -269,11 +273,11 @@ public class NineRouterAiClient {
             return null;
         }
         return callWithConcurrencyLimit("chatWithAudioJson",
-                () -> doJsonCall(systemPrompt, userText, audioBytes, mimeType, model, schema));
+                () -> doJsonCall("chatWithAudioJson", systemPrompt, userText, audioBytes, mimeType, model, schema));
     }
 
-    private AiJsonResponse doJsonCall(String systemPrompt, String userText, byte[] audioBytes, String mimeType,
-                                      String model, JsonNode schema) {
+    private AiJsonResponse doJsonCall(String operation, String systemPrompt, String userText, byte[] audioBytes,
+                                      String mimeType, String model, JsonNode schema) {
         try {
             ObjectNode payload = objectMapper.createObjectNode();
             payload.put("model", model);
@@ -307,6 +311,7 @@ public class NineRouterAiClient {
                 inputAudio.put("format", extensionFor(mimeType == null ? "audio/wav" : mimeType));
             }
             String body = objectMapper.writeValueAsString(payload);
+            long startedAtMillis = System.currentTimeMillis();
             HttpResponse<String> response = sendChatCompletions(body);
             if (response.statusCode() == 429 || response.statusCode() == 503) {
                 log.warn("NineRouterAiClient: HTTP {} — thử lại 1 lần sau 2 giây.", response.statusCode());
@@ -318,6 +323,9 @@ public class NineRouterAiClient {
                 return null;
             }
             JsonNode json = objectMapper.readTree(response.body());
+            // Log TRƯỚC các nhánh trả null bên dưới: 1 lượt bị loại vì sai model hoặc content rỗng VẪN đã
+            // tiêu thụ token thật và vẫn bị tính tiền — bỏ log ở nhánh đó sẽ làm số liệu thấp hơn hoá đơn.
+            logUsage(operation, model, audioBytes != null, json, System.currentTimeMillis() - startedAtMillis);
             String content = json.path("choices").path(0).path("message").path("content").asText(null);
             String actualModel = json.path("model").asText("");
             if (content == null || content.isBlank()) {
@@ -382,12 +390,14 @@ public class NineRouterAiClient {
                     .timeout(Duration.ofSeconds(60))
                     .POST(HttpRequest.BodyPublishers.ofByteArray(body))
                     .build();
+            long startedAtMillis = System.currentTimeMillis();
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() >= 300) {
                 log.warn("NineRouterAiClient: gọi 9Router (STT) lỗi (HTTP {}): {}", response.statusCode(), response.body());
                 return null;
             }
             JsonNode json = objectMapper.readTree(response.body());
+            logUsage("transcribe", resolvedModel, true, json, System.currentTimeMillis() - startedAtMillis);
             String text = json.path("text").asText(null);
             return (text == null || text.isBlank()) ? null : text.trim();
         } catch (IOException | InterruptedException e) {
@@ -397,6 +407,92 @@ public class NineRouterAiClient {
             log.warn("NineRouterAiClient: gọi 9Router (STT) thất bại. {}", e.getMessage());
             return null;
         }
+    }
+
+    /**
+     * V192 (2026-09-22, bước ĐO mở đầu cho hướng tối ưu chi phí AI-grading) — ghi log mức tiêu thụ token
+     * của mỗi lệnh gọi. TRƯỚC ĐÂY client chỉ đọc {@code choices[0].message.content} + {@code model} và
+     * VỨT BỎ field {@code usage} — không có số liệu nào về chi phí, nên mọi đề xuất tối ưu đều không
+     * kiểm chứng được trước/sau, chỉ suy đoán từ số ký tự prompt. Thuần đo đạc: không sửa payload gửi
+     * đi, không sửa cách parse, lỗi đọc usage bị nuốt để không bao giờ làm hỏng luồng chấm.
+     *
+     * Vì sao log ĐỦ 4 loại token chứ không chỉ tổng — mỗi loại trả lời 1 câu hỏi tối ưu khác nhau:
+     * - {@code cachedTokens}: luồng Speaking v2 đã cố tình dựng prompt hệ thống GIỐNG HỆT NHAU giữa mọi
+     *   học sinh cùng Khối/track để phần đầu ổn định cho cache nhà cung cấp (xem Javadoc
+     *   {@code ReflexV2Prompts#speakingSystem}), nhưng thử tay 2026-09-21 CHƯA thấy cache qua 9Router.
+     *   Số này bằng 0 kéo dài là bằng chứng cache thật sự không hoạt động, thay vì phỏng đoán.
+     * - {@code reasoningTokens}: model chạy thinking mức medium và schema bắt model trả
+     *   {@code counting_notes}/{@code evidence} (đánh dấu "Nội bộ" — không hiện cho học sinh nhưng VẪN
+     *   bị tính tiền như output). Với model lớp Flash, output đắt hơn input nhiều lần, nên nếu số này
+     *   lớn thì cắt prompt đầu vào là tối ưu nhầm vế.
+     * - {@code promptTokens} tách khỏi {@code audioAttached}: lượt phiên âm và lượt chấm nói gửi CÙNG 1
+     *   file audio 2 lần (thiết kế có chủ đích — rubric cần nghe thật mới chấm được phát âm), cần biết
+     *   audio chiếm bao nhiêu phần input so với rubric dạng chữ trước khi bàn cắt chỗ nào.
+     *
+     * Mức INFO vì đây là số liệu vận hành cần có sẵn trên staging/production để đối chiếu hoá đơn, không
+     * phải thông tin gỡ lỗi bật tạm khi nghi có sự cố.
+     */
+    private void logUsage(String operation, String requestedModel, boolean audioAttached, JsonNode json, long elapsedMillis) {
+        try {
+            JsonNode usage = json.path("usage");
+            String servedModel = json.path("model").asText("?");
+            if (usage.isMissingNode() || usage.isNull()) {
+                // Một số provider/route không trả usage — vẫn log route + latency để theo dõi xoay vòng model.
+                log.info("NineRouterAiClient usage: op={} requestedModel={} servedModel={} audio={} usage=n/a elapsedMs={}",
+                        operation, requestedModel, servedModel, audioAttached, elapsedMillis);
+                return;
+            }
+            int promptTokens = usage.path("prompt_tokens").asInt(usage.path("input_tokens").asInt(0));
+            int completionTokens = usage.path("completion_tokens").asInt(usage.path("output_tokens").asInt(0));
+            log.info("NineRouterAiClient usage: op={} requestedModel={} servedModel={} audio={} promptTokens={} "
+                            + "cachedTokens={} completionTokens={} reasoningTokens={} elapsedMs={}",
+                    operation, requestedModel, servedModel, audioAttached, promptTokens, extractCachedTokens(usage),
+                    completionTokens, extractReasoningTokens(usage), elapsedMillis);
+        } catch (RuntimeException e) {
+            log.debug("NineRouterAiClient: đọc usage thất bại ({}).", e.getMessage());
+        }
+    }
+
+    /**
+     * Token input được tính giá cache. 9Router chuyển tiếp gần như nguyên vẹn usage của provider thật mà
+     * mỗi provider lại đặt 1 tên khác nhau, nên phải dò lần lượt: OpenAI/Gemini qua lớp OpenAI-compatible
+     * dùng {@code prompt_tokens_details.cached_tokens}, Anthropic dùng {@code cache_read_input_tokens},
+     * Gemini gọi thẳng dùng {@code cachedContentTokenCount}. Không thấy đường dẫn nào thì trả 0 — nghĩa là
+     * "không có bằng chứng cache hit", đúng với điều cần biết, KHÔNG phải lỗi.
+     *
+     * <p>Package-private (không private) để {@code NineRouterAiClientUsageTest} kiểm được từng shape
+     * provider: dò sai tên field sẽ khiến số luôn ra 0 và dẫn tới kết luận ngược ("cache không chạy"),
+     * mà lỗi kiểu này không hề lộ ra lúc chạy — log vẫn in đẹp, chỉ là in số sai.
+     */
+    int extractCachedTokens(JsonNode usage) {
+        JsonNode openAiStyle = usage.path("prompt_tokens_details").path("cached_tokens");
+        if (openAiStyle.isNumber()) {
+            return openAiStyle.asInt();
+        }
+        JsonNode anthropicStyle = usage.path("cache_read_input_tokens");
+        if (anthropicStyle.isNumber()) {
+            return anthropicStyle.asInt();
+        }
+        return usage.path("cachedContentTokenCount").asInt(0);
+    }
+
+    /**
+     * Token "suy nghĩ" (thinking/reasoning) — tính tiền như output nhưng KHÔNG nằm trong nội dung trả về,
+     * nên nhìn {@code completion_tokens} không thấy hết. Dò theo tên của lớp OpenAI-compatible
+     * ({@code completion_tokens_details.reasoning_tokens}) rồi tới tên gốc của Gemini
+     * ({@code thoughts_token_count}/{@code thoughtsTokenCount}). Package-private vì lý do như
+     * {@link #extractCachedTokens}.
+     */
+    int extractReasoningTokens(JsonNode usage) {
+        JsonNode openAiStyle = usage.path("completion_tokens_details").path("reasoning_tokens");
+        if (openAiStyle.isNumber()) {
+            return openAiStyle.asInt();
+        }
+        JsonNode geminiSnake = usage.path("thoughts_token_count");
+        if (geminiSnake.isNumber()) {
+            return geminiSnake.asInt();
+        }
+        return usage.path("thoughtsTokenCount").asInt(0);
     }
 
     /**
