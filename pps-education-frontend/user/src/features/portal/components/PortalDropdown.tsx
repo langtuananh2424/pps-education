@@ -49,7 +49,7 @@ export default function PortalDropdown<T extends string | number>({ icon: Icon, 
         </div>
         <div className="flex-1 min-w-0 text-left">
           <div className="text-[9px] text-muted font-extrabold uppercase tracking-wide">{label}</div>
-          <div className="text-xs font-extrabold text-ink truncate">{selected?.label ?? "—"}</div>
+          <div className="text-sm font-extrabold text-ink truncate">{selected?.label ?? "—"}</div>
         </div>
         <ChevronDown size={14} className={`text-muted shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
@@ -64,7 +64,7 @@ export default function PortalDropdown<T extends string | number>({ icon: Icon, 
                 onChange(o.value);
                 setOpen(false);
               }}
-              className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-[12px] text-xs font-bold text-left transition-colors ${
+              className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-[12px] text-sm font-bold text-left transition-colors ${
                 o.value === value ? "bg-teal/10 text-teal-deep font-extrabold" : "text-ink hover:bg-sky-2"
               }`}
             >

@@ -1079,6 +1079,14 @@ export interface StudentAnswerResponse {
   /** V182 — % từng tiêu chí rubric v3 (TR/TA, CC, LR, GRA...), tách riêng khỏi gradingFeedback. */
   gradingCriteriaScores: { criterion: string; percent: number }[] | null;
   /**
+   * V196 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-22, Key Grammar filter 2) — NULL khi
+   * Bài không gắn Key Grammar hoặc chưa chấm bằng rubric "v3". `redoRequired=true` → hiện dải cảnh báo
+   * "cần viết lại bài".
+   */
+  gradingKeyGrammar:
+    | { status: "pass" | "fail" | "unparsed"; correct: number; attempts: number; redoRequired: boolean; note: string | null }
+    | null;
+  /**
    * V177 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-15) — UC-24/UC-27 A2: câu này được
    * mang nguyên nội dung từ lượt làm TRƯỚC (đã đúng) sang lượt "Làm lại" hiện tại — hiện dạng chỉ xem/
    * khoá, không cho sửa (BE cũng chặn nếu cố gọi saveAnswer).

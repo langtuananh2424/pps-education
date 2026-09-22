@@ -22,5 +22,10 @@ public record QuestionResponse(
         Long createdBy,
         List<QuestionChoiceResponse> choices,
         Map<String, Object> structuredContent,
-        String groupKey
+        String groupKey,
+        /**
+         * Key Grammar (filter 2, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-22) — mảng mã
+         * cấu trúc đã gắn cho câu hỏi này, NULL/rỗng = không kiểm. Chỉ có ý nghĩa khi questionType=ESSAY.
+         */
+        List<String> keyGrammar
 ) {}

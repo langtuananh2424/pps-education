@@ -197,7 +197,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
         markQuestionAsAnswered(question.id());
 
         assertThatThrownBy(() -> questionBankService.updateQuestion(question.id(),
-                new UpdateQuestionRequest("Nội dung mới", null, null, null, null, null, null, null, null, null, null), teacher.getId()))
+                new UpdateQuestionRequest("Nội dung mới", null, null, null, null, null, null, null, null, null, null, null), teacher.getId()))
                 .isInstanceOf(QuestionLockedException.class);
     }
 
@@ -209,7 +209,7 @@ class ExerciseAuthoringTest extends AbstractIntegrationTest {
         QuestionResponse archived = questionBankService.updateQuestion(question.id(),
                 new UpdateQuestionRequest(question.content(), question.audioUrl(), question.imageUrl(),
                         question.referencePassage(), question.explanation(), question.correctAnswerText(), null, question.defaultPoints(),
-                        question.tags(), null, "ARCHIVED"),
+                        question.tags(), null, "ARCHIVED", null),
                 teacher.getId());
 
         assertThat(archived.status()).isEqualTo("ARCHIVED");

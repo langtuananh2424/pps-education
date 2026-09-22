@@ -3,8 +3,8 @@ package vn.com.pps.education.service;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.common.CriteriaScoreItem;
+import vn.com.pps.education.common.KeyGrammarOutcome;
 import vn.com.pps.education.domain.ClassEnrollment;
-import vn.com.pps.education.domain.Curriculum;
 import vn.com.pps.education.domain.Exercise;
 import vn.com.pps.education.domain.ExerciseAssignment;
 import vn.com.pps.education.domain.ExerciseAttempt;
@@ -402,7 +402,7 @@ public class ExerciseAttemptService {
                     continue;
                 }
                 BigDecimal points = pointsByQuestionId.getOrDefault(answer.getQuestion().getId(), BigDecimal.ZERO);
-                BigDecimal score = gradeEssayWithAi(answer, points, now, attempt.getExercise().getExam().getCurriculum());
+                BigDecimal score = gradeEssayWithAi(answer, points, now, attempt.getExercise());
                 if (score != null) {
                     aiGradeScore = aiGradeScore.add(score);
                     aiGradedAnswerIds.add(answer.getId());
@@ -432,9 +432,13 @@ public class ExerciseAttemptService {
      * StudentAnswerGrading.GradingSource). Trả null nếu AI chưa cấu hình/gọi lỗi — answer giữ nguyên
      * chưa có điểm, tự rơi vào hàng chờ chấm tay UC-41 như hành vi mặc định cũ.
      */
-    private BigDecimal gradeEssayWithAi(StudentAnswer answer, BigDecimal maxPoints, OffsetDateTime now, Curriculum curriculum) {
-        WritingAiGradingService.GradeResult result =
-                writingAiGradingService.grade(answer.getAnswerText(), answer.getQuestion().getContent(), curriculum);
+    private BigDecimal gradeEssayWithAi(StudentAnswer answer, BigDecimal maxPoints, OffsetDateTime now, Exercise exercise) {
+        // V196 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-22) — Key Grammar gắn vào CHÍNH
+        // câu hỏi (Question.keyGrammar), không phải Bài — xem Javadoc Question#keyGrammar lý do đổi so
+        // với thiết kế trước đó (gắn Bài): người dùng muốn Key Grammar đi cùng đúng đề bài tự luận cụ thể,
+        // sửa ở modal "Sửa câu hỏi" thay vì "Sửa Bài".
+        WritingAiGradingService.GradeResult result = writingAiGradingService.grade(answer.getAnswerText(),
+                answer.getQuestion().getContent(), exercise.getExam().getCurriculum(), answer.getQuestion().getKeyGrammar());
         if (result == null) {
             return null;
         }
@@ -457,6 +461,8 @@ public class ExerciseAttemptService {
         // V182 — chỉ có giá trị khi rubric Khối/track này đã là bản "v3" (xem Javadoc WritingAiGradingService).
         grading.setMarkedAnswer(result.markedAnswer());
         grading.setCriteriaScores(result.criteriaScores());
+        // V196 — chỉ có giá trị khi Bài có gắn Key Grammar (Exercise.keyGrammar) VÀ model in được khối này ở mục 0.
+        grading.setKeyGrammar(result.keyGrammar());
         grading.setGradedAt(now);
         grading.setLatest(true);
         studentAnswerGradingRepository.save(grading);
@@ -954,6 +960,7 @@ public class ExerciseAttemptService {
         String gradingSource = null;
         String gradingMarkedAnswer = null;
         List<CriteriaScoreItem> gradingCriteriaScores = null;
+        KeyGrammarOutcome gradingKeyGrammar = null;
         if (!a.isAutoGradable() && attempt.getStatus() != ExerciseAttempt.Status.IN_PROGRESS) {
             StudentAnswerGrading grading = studentAnswerGradingRepository.findByStudentAnswerIdAndLatestIsTrue(a.getId()).orElse(null);
             if (grading != null) {
@@ -964,6 +971,8 @@ public class ExerciseAttemptService {
                 // V182 — chỉ có giá trị khi được chấm bằng rubric "v3" (xem Javadoc WritingAiGradingService).
                 gradingMarkedAnswer = grading.getMarkedAnswer();
                 gradingCriteriaScores = grading.getCriteriaScores();
+                // V196 — chỉ có giá trị khi Bài có gắn Key Grammar (filter 2).
+                gradingKeyGrammar = grading.getKeyGrammar();
             }
         }
         return new StudentAnswerResponse(
@@ -971,6 +980,6 @@ public class ExerciseAttemptService {
                 a.getSelectedChoiceIds(), a.getAudioAnswerUrl(), a.isAutoGradable(), a.getAutoScore(), a.getCorrect(),
                 correctChoiceIds, correctAnswerText, explanation, a.getStructuredAnswer(), correctStructuredContent,
                 gradingScore, gradingMaxScore, gradingFeedback, gradingSource, gradingMarkedAnswer, gradingCriteriaScores,
-                a.isCarriedOverFromPreviousAttempt());
+                gradingKeyGrammar, a.isCarriedOverFromPreviousAttempt());
     }
 }
