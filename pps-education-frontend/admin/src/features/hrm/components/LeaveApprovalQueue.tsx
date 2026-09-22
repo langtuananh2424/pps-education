@@ -13,6 +13,8 @@ interface LeaveApprovalQueueProps {
   leaveRequests: LeaveRequestResponse[];
   loading: boolean;
   onDecided: () => void;
+  /** Đơn đang được nổi viền tạm (deep-link từ thông báo — LeavesPage tự cuộn tới id="leave-request-pending-{id}"). */
+  highlightId?: number | null;
 }
 
 /** Nhãn trạng thái dịch qua i18next namespace "hrm-leaves" — xem src/i18n/locales/{vi,en}/hrm-leaves.json. */
@@ -21,7 +23,7 @@ function leaveRequestStatusLabel(t: (key: string) => string, status: LeaveReques
 }
 
 /** UC-11: Duyệt đơn từ — hàng chờ duyệt thuộc thẩm quyền người gọi (GET /api/leave-requests/pending-for-me). */
-export default function LeaveApprovalQueue({ leaveRequests, loading, onDecided }: LeaveApprovalQueueProps) {
+export default function LeaveApprovalQueue({ leaveRequests, loading, onDecided, highlightId }: LeaveApprovalQueueProps) {
   const { t } = useTranslation("hrm-leaves");
   const getLeaveTypeLabel = useLeaveTypeLabel();
   const [opinionNotes, setOpinionNotes] = useState<Record<number, string>>({});
@@ -76,7 +78,11 @@ export default function LeaveApprovalQueue({ leaveRequests, loading, onDecided }
           </div>
         ) : (
           leaveRequests.map((req) => (
-            <div key={req.id} className="p-4 space-y-3">
+            <div
+              key={req.id}
+              id={`leave-request-pending-${req.id}`}
+              className={`p-4 space-y-3 transition-all ${highlightId === req.id ? "ring-2 ring-inset ring-brand-red/50 bg-brand-red/5" : ""}`}
+            >
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">

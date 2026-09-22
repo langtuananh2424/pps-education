@@ -242,12 +242,15 @@ function HomeworkCardView({
   card,
   expanded,
   onToggleExpand,
-  language
+  language,
+  highlighted
 }: {
   card: HomeworkCard;
   expanded: boolean;
   onToggleExpand: () => void;
   language: string;
+  /** Plan link hoá thông báo (2026-09-22) — bấm thông báo/link nhảy tới đúng thẻ này, viền nổi tạm ~2.5s mirror khối "Ghi chú ngoài giờ". */
+  highlighted?: boolean;
 }) {
   const { t } = useTranslation("portal-exercises");
   const style = CHANNEL_STYLE[card.kind];
@@ -260,7 +263,7 @@ function HomeworkCardView({
         : { label: t("assignments.filters.labelGraded"), className: "bg-teal/10 text-teal-deep border-teal/20" };
 
   return (
-    <div className={`p-5 rounded-2xl border ${style.bg} ${style.border} space-y-2.5`}>
+    <div className={`p-5 rounded-2xl border ${style.bg} space-y-2.5 transition-all ${highlighted ? "border-teal ring-2 ring-teal/40" : style.border}`}>
       <div className="flex items-center gap-2 flex-wrap text-[13px] font-black">
         <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg border ${style.iconColor} ${style.border} bg-white/70`}>
           <Icon size={14} aria-hidden="true" /> {card.typeLabel}
@@ -358,16 +361,32 @@ interface ParentHomeworkProgressTabProps {
    * tới bài làm" ở đây nghĩa là cuộn tới + highlight tạm đúng thẻ tương ứng thay vì mở modal.
    */
   highlightCommentId?: number | null;
+  /**
+   * Plan link hoá thông báo (2026-09-22): bấm thông báo BTVN sắp/quá hạn ở quả chuông — cùng cơ chế
+   * cuộn + nổi viền như highlightCommentId nhưng khớp theo id bản giao (grammarAssignmentId/
+   * videoAssignmentId của từng dòng) vì thông báo không biết commentId. Ưu tiên: commentId > exercise > video.
+   */
+  highlightExerciseAssignmentId?: number | null;
+  highlightReviewVideoAssignmentId?: number | null;
   onHighlightHandled?: () => void;
 }
 
 /** UC-64 (2026-07-29) — Cổng phụ huynh xem tiến độ BTVN đã giao cho con (chỉ xem, không phải giao diện làm bài — con tự làm ở Portal Học sinh). */
-export default function ParentHomeworkProgressTab({ studentId, classId, highlightCommentId, onHighlightHandled }: ParentHomeworkProgressTabProps) {
+export default function ParentHomeworkProgressTab({
+  studentId,
+  classId,
+  highlightCommentId,
+  highlightExerciseAssignmentId,
+  highlightReviewVideoAssignmentId,
+  onHighlightHandled
+}: ParentHomeworkProgressTabProps) {
   const { t, i18n } = useTranslation("portal-exercises");
   const [rows, setRows] = useState<HomeworkProgressResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [justHighlighted, setJustHighlighted] = useState<number | null>(null);
+  /** Đích đang cuộn tới + nổi viền tạm ~2.5s — `row-{commentId}` (khối "Ghi chú ngoài giờ") hoặc `card.key`
+   *  (thẻ BTVN thường, VD "grammar-123"). null = không có gì đang nổi bật. */
+  const [highlightedKey, setHighlightedKey] = useState<string | null>(null);
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("ALL");
   const toggleCard = (key: string) =>
@@ -386,18 +405,6 @@ export default function ParentHomeworkProgressTab({ studentId, classId, highligh
       .catch((err) => setError(err instanceof ApiError ? err.message : t("parentHomework.loadError")))
       .finally(() => setLoading(false));
   }, [studentId, classId]);
-
-  useEffect(() => {
-    if (loading || highlightCommentId == null) return;
-    const el = document.getElementById(`parent-homework-comment-${highlightCommentId}`);
-    if (!el) return;
-    el.scrollIntoView({ behavior: "smooth", block: "center" });
-    setJustHighlighted(highlightCommentId);
-    onHighlightHandled?.();
-    const timer = setTimeout(() => setJustHighlighted(null), 2500);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, highlightCommentId, rows]);
 
   const cards = useMemo(() => buildCards(rows, t), [rows, t]);
   const offlineRows = rows.filter((r) => r.grammarOfflineText || r.readingOfflineText || r.writingOfflineText);
@@ -425,6 +432,65 @@ export default function ParentHomeworkProgressTab({ studentId, classId, highligh
   useEffect(() => setNavView({ level: "units" }), [filterStatus]);
   const currentUnit = navView.level !== "units" ? unitGroups.find((u) => u.unitKey === navView.unitKey) : undefined;
   const currentSkill = navView.level === "list" ? currentUnit?.skills.find((s) => s.skillKey === navView.skillKey) : undefined;
+
+  /**
+   * Bước 1/2 — suy ra đích cần cuộn tới từ commentId (link từ tab Quá trình học tập, chỉ khớp khối "Ghi
+   * chú ngoài giờ" — buổi có commentId nhưng không giao bài online thì không có thẻ BTVN nào) hoặc id
+   * bản giao (Plan link hoá thông báo, 2026-09-22 — thông báo BTVN sắp/quá hạn không biết commentId, chỉ
+   * biết grammarAssignmentId/readingAssignmentId/writingAssignmentId/videoAssignmentId). Ép filter "Tất
+   * cả" + mở đúng Unit→Kỹ năng chứa thẻ (thẻ chỉ có trong DOM khi navView đang ở đúng cấp "list") rồi mới
+   * lưu đích vào highlightedKey — cuộn thật sự nằm ở effect bước 2 vì setNavView chưa render kịp ở đây.
+   */
+  useEffect(() => {
+    if (loading) return;
+    if (highlightCommentId != null) {
+      setFilterStatus("ALL");
+      setNavView({ level: "units" });
+      setHighlightedKey(`row-${highlightCommentId}`);
+      return;
+    }
+    if (highlightExerciseAssignmentId == null && highlightReviewVideoAssignmentId == null) return;
+    const row = rows.find(
+      (r) =>
+        (highlightExerciseAssignmentId != null &&
+          (r.grammarAssignmentId === highlightExerciseAssignmentId ||
+            r.readingAssignmentId === highlightExerciseAssignmentId ||
+            r.writingAssignmentId === highlightExerciseAssignmentId)) ||
+        (highlightReviewVideoAssignmentId != null && r.videoAssignmentId === highlightReviewVideoAssignmentId)
+    );
+    // Chưa khớp dòng nào (rows của lớp cũ còn hiện lúc đổi con/lớp, hoặc chưa tải xong) — giữ nguyên
+    // pending (không gọi onHighlightHandled) để effect này thử lại khi rows đổi.
+    if (!row) return;
+    const kind: Kind | null =
+      highlightExerciseAssignmentId != null
+        ? row.grammarAssignmentId === highlightExerciseAssignmentId
+          ? "grammar"
+          : row.readingAssignmentId === highlightExerciseAssignmentId
+            ? "reading"
+            : row.writingAssignmentId === highlightExerciseAssignmentId
+              ? "writing"
+              : null
+        : "video";
+    const card = kind != null ? cards.find((c) => c.key === `${kind}-${row.commentId}`) : undefined;
+    if (!card) return;
+    setFilterStatus("ALL");
+    setNavView({ level: "list", unitKey: card.unitTitle?.trim() || UNASSIGNED_UNIT_KEY, skillKey: card.skillKey });
+    setHighlightedKey(card.key);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, highlightCommentId, highlightExerciseAssignmentId, highlightReviewVideoAssignmentId, rows, cards]);
+
+  // Bước 2/2 — cuộn + xoá nổi bật sau ~2.5s, chạy lại mỗi khi navView/filterStatus đổi (đợi DOM render
+  // đúng thẻ/khối theo điều hướng effect trên vừa set) cho tới khi phần tử đích thực sự xuất hiện.
+  useEffect(() => {
+    if (!highlightedKey) return;
+    const domId = highlightedKey.startsWith("row-") ? highlightedKey.slice(4) : highlightedKey;
+    const el = document.getElementById(`parent-homework-comment-${domId}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    onHighlightHandled?.();
+    const timer = setTimeout(() => setHighlightedKey(null), 2500);
+    return () => clearTimeout(timer);
+  }, [highlightedKey, navView, filterStatus, onHighlightHandled]);
 
   if (loading) return <p className="text-sm text-muted font-bold">{t("parentHomework.loading")}</p>;
 
@@ -529,7 +595,13 @@ export default function ParentHomeworkProgressTab({ studentId, classId, highligh
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {currentSkill.cards.map((card) => (
                 <div key={card.key} id={`parent-homework-comment-${card.key}`}>
-                  <HomeworkCardView card={card} expanded={expandedCards.has(card.key)} onToggleExpand={() => toggleCard(card.key)} language={i18n.language} />
+                  <HomeworkCardView
+                    card={card}
+                    expanded={expandedCards.has(card.key)}
+                    onToggleExpand={() => toggleCard(card.key)}
+                    language={i18n.language}
+                    highlighted={highlightedKey === card.key}
+                  />
                 </div>
               ))}
             </div>
@@ -542,7 +614,7 @@ export default function ParentHomeworkProgressTab({ studentId, classId, highligh
                   key={`offline-${row.commentId}`}
                   id={`parent-homework-comment-${row.commentId}`}
                   className={`bg-white border rounded-2xl p-4 space-y-2 transition-all ${
-                    justHighlighted === row.commentId ? "border-teal ring-2 ring-teal/40" : "border-line/80"
+                    highlightedKey === `row-${row.commentId}` ? "border-teal ring-2 ring-teal/40" : "border-line/80"
                   }`}
                 >
                   <div className="flex items-center gap-1.5 text-xs font-black text-muted uppercase">

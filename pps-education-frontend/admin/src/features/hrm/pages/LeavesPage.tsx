@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { History, Repeat } from "lucide-react";
 import Badge from "@/components/ui/Badge";
@@ -79,6 +80,29 @@ export default function LeavesPage() {
     loadSubstitutions();
   }, []);
 
+  // Deep-link từ thông báo LEAVE_REQUEST_STATUS ở Header (?leaveRequestId=) — Plan link hoá thông báo
+  // (2026-09-22). Đơn có thể nằm ở hàng chờ duyệt (người duyệt nhận thông báo) HOẶC lịch sử của tôi
+  // (người nộp nhận kết quả); cả 2 đều là list phẳng nên cuộn tới + nổi viền tạm ~2.5s đúng dòng theo id.
+  const [searchParams] = useSearchParams();
+  const [pendingHighlightId, setPendingHighlightId] = useState<number | null>(null);
+  const [justHighlightedId, setJustHighlightedId] = useState<number | null>(null);
+  useEffect(() => {
+    const param = searchParams.get("leaveRequestId");
+    if (param && Number.isFinite(Number(param))) setPendingHighlightId(Number(param));
+  }, [searchParams]);
+  useEffect(() => {
+    if (pendingHighlightId == null || pendingLoading || mineLoading) return;
+    const el =
+      document.getElementById(`leave-request-pending-${pendingHighlightId}`) ??
+      document.getElementById(`leave-request-mine-${pendingHighlightId}`);
+    setPendingHighlightId(null);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    setJustHighlightedId(pendingHighlightId);
+    const timer = setTimeout(() => setJustHighlightedId(null), 2500);
+    return () => clearTimeout(timer);
+  }, [pendingHighlightId, pendingLoading, mineLoading, pending, mine]);
+
   // Ban giám đốc bị chặn nộp đơn hoàn toàn (UC-10 Precondition/A1) — với họ, đơn từ/lịch sử
   // dạy thay của "bản thân" không có ý nghĩa vì họ không bao giờ nộp đơn qua hệ thống.
   const isExecutive = currentRole === UserRole.EXECUTIVE;
@@ -112,6 +136,7 @@ export default function LeavesPage() {
           <LeaveApprovalQueue
             leaveRequests={pending}
             loading={pendingLoading}
+            highlightId={justHighlightedId}
             onDecided={() => {
               loadPending();
               loadSubstitutions();
@@ -134,7 +159,11 @@ export default function LeavesPage() {
               <div className="p-6 text-center text-xs text-slate-400">{t("leavesPage.myHistory.empty")}</div>
             ) : (
               mine.map((req) => (
-                <div key={req.id} className="p-3 space-y-1">
+                <div
+                  key={req.id}
+                  id={`leave-request-mine-${req.id}`}
+                  className={`p-3 space-y-1 transition-all ${justHighlightedId === req.id ? "ring-2 ring-inset ring-brand-red/50 bg-brand-red/5" : ""}`}
+                >
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-xs font-bold text-slate-800">{getLeaveTypeLabel(req.leaveType)}</span>
                     <Badge variant={statusVariant[req.status]}>{leaveRequestStatusLabel(t, req.status)}</Badge>

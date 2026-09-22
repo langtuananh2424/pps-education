@@ -142,6 +142,10 @@ public class HomeworkParentMeetingInviteService {
         metadata.put("className", schoolClass.getName());
         metadata.put("channelLabel", invite.getChannelLabel());
         metadata.put("count", invite.getMissCount());
+        // Khoá số để Portal đổi đúng con/lớp khi bấm thông báo (Plan link hoá thông báo, 2026-09-22).
+        // Bản ghi invite không lưu id bản giao nên không có exerciseAssignmentId/reviewVideoAssignmentId ở đây.
+        metadata.put("studentId", student.getId());
+        metadata.put("classId", schoolClass.getId());
 
         for (ParentStudent link : parentStudentRepository.findByStudentId(student.getId())) {
             notificationService.notify(link.getParent().getUser().getId(),

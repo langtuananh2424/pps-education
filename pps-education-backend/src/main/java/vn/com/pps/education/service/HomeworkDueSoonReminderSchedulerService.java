@@ -16,6 +16,8 @@ import vn.com.pps.education.repository.ParentStudentRepository;
 import vn.com.pps.education.repository.ReviewVideoAssignmentRepository;
 
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +38,10 @@ import java.util.Map;
 public class HomeworkDueSoonReminderSchedulerService {
 
     private static final Logger log = LoggerFactory.getLogger(HomeworkDueSoonReminderSchedulerService.class);
+    // Hạn nộp hiện trong nội dung thông báo in-app phải là giờ Việt Nam, dạng "16:59 ngày 22/09/2026"
+    // (theo yêu cầu người dùng 2026-09-22) — trước đây nối thẳng OffsetDateTime (UTC, ISO-8601) vào chuỗi.
+    private static final ZoneId APP_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
+    private static final DateTimeFormatter DUE_AT_FMT = DateTimeFormatter.ofPattern("HH:mm 'ngày' dd/MM/yyyy");
 
     private final ExerciseAssignmentRepository exerciseAssignmentRepository;
     private final ReviewVideoAssignmentRepository reviewVideoAssignmentRepository;
@@ -82,7 +88,8 @@ public class HomeworkDueSoonReminderSchedulerService {
             List<Student> students = homeworkDeadlineSchedulerService.targetStudents(assignment.getSchoolClass(), assignment.getTargetStudentIds());
             for (Student s : students) {
                 if (!homeworkProgressService.grammarPassed(assignment, s.getId())) {
-                    notifyParents(s, assignment.getSchoolClass(), "BTVN \"" + assignment.getExercise().getTitle() + "\"", assignment.getDueAt());
+                    notifyParents(s, assignment.getSchoolClass(), "BTVN \"" + assignment.getExercise().getTitle() + "\"", assignment.getDueAt(),
+                            assignment.getId(), null);
                 }
             }
             assignment.setParentReminderSentAt(now);
@@ -102,7 +109,8 @@ public class HomeworkDueSoonReminderSchedulerService {
             List<Student> students = homeworkDeadlineSchedulerService.targetStudents(assignment.getSchoolClass(), assignment.getTargetStudentIds());
             for (Student s : students) {
                 if (!homeworkProgressService.videoPassed(assignment, s.getId(), homeworkAlertSettings.reflexPassThresholdPercent())) {
-                    notifyParents(s, assignment.getSchoolClass(), "Video Ôn tập \"" + assignment.getReviewVideoSet().getTitle() + "\"", assignment.getDueAt());
+                    notifyParents(s, assignment.getSchoolClass(), "Video Ôn tập \"" + assignment.getReviewVideoSet().getTitle() + "\"", assignment.getDueAt(),
+                            null, assignment.getId());
                 }
             }
             assignment.setParentReminderSentAt(now);
@@ -113,16 +121,31 @@ public class HomeworkDueSoonReminderSchedulerService {
         }
     }
 
-    private void notifyParents(Student student, SchoolClass schoolClass, String assignmentLabel, OffsetDateTime dueAt) {
+    /**
+     * exerciseAssignmentId/reviewVideoAssignmentId: đúng 1 trong 2 khác null (tuỳ kênh) — ghi vào metadata
+     * dạng số cùng classId/studentId để NotificationService.toResponse() promote lên NotificationResponse,
+     * Portal mở/cuộn tới đúng thẻ BTVN khi bấm thông báo (Plan link hoá thông báo, 2026-09-22).
+     */
+    private void notifyParents(Student student, SchoolClass schoolClass, String assignmentLabel, OffsetDateTime dueAt,
+                               Long exerciseAssignmentId, Long reviewVideoAssignmentId) {
         Map<String, Object> metadata = new LinkedHashMap<>();
         metadata.put("studentName", student.getUser().getFullName());
         metadata.put("className", schoolClass.getName());
         metadata.put("assignmentLabel", assignmentLabel);
         metadata.put("dueAt", dueAt);
+        metadata.put("studentId", student.getId());
+        metadata.put("classId", schoolClass.getId());
+        if (exerciseAssignmentId != null) {
+            metadata.put("exerciseAssignmentId", exerciseAssignmentId);
+        }
+        if (reviewVideoAssignmentId != null) {
+            metadata.put("reviewVideoAssignmentId", reviewVideoAssignmentId);
+        }
 
+        String dueAtLabel = dueAt.atZoneSameInstant(APP_ZONE).format(DUE_AT_FMT);
         String parentTitle = "Sắp tới hạn nộp " + assignmentLabel;
         String parentContent = "Con " + student.getUser().getFullName() + " (lớp " + schoolClass.getName() + ") chưa hoàn thành "
-                + assignmentLabel + ", hạn nộp " + dueAt + " — nhắc con hoàn thành trước hạn nhé.";
+                + assignmentLabel + ", hạn nộp " + dueAtLabel + " — Phụ huynh nhắc con hoàn thành trước hạn nhé.";
         for (ParentStudent link : parentStudentRepository.findByStudentId(student.getId())) {
             notificationService.notify(link.getParent().getUser().getId(), Notification.NotificationType.HOMEWORK_DUE_SOON_REMINDER,
                     parentTitle, parentContent, metadata, "STUDENT", student.getId(), Notification.Priority.NORMAL, null);
@@ -132,7 +155,7 @@ public class HomeworkDueSoonReminderSchedulerService {
         // học sinh không thấy nhắc nhở nào trên Portal của chính mình trước khi hết hạn — gửi thêm
         // 1 bản cho tài khoản Portal của chính học sinh, cùng metadata/thời điểm với bản gửi Phụ huynh.
         String studentTitle = "Sắp tới hạn nộp " + assignmentLabel;
-        String studentContent = "Bạn chưa hoàn thành " + assignmentLabel + " (lớp " + schoolClass.getName() + "), hạn nộp " + dueAt
+        String studentContent = "Bạn chưa hoàn thành " + assignmentLabel + " (lớp " + schoolClass.getName() + "), hạn nộp " + dueAtLabel
                 + " — hoàn thành trước hạn nhé.";
         notificationService.notify(student.getUser().getId(), Notification.NotificationType.HOMEWORK_DUE_SOON_REMINDER,
                 studentTitle, studentContent, metadata, "STUDENT", student.getId(), Notification.Priority.NORMAL, null);
