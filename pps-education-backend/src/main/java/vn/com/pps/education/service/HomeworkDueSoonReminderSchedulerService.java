@@ -88,7 +88,8 @@ public class HomeworkDueSoonReminderSchedulerService {
             List<Student> students = homeworkDeadlineSchedulerService.targetStudents(assignment.getSchoolClass(), assignment.getTargetStudentIds());
             for (Student s : students) {
                 if (!homeworkProgressService.grammarPassed(assignment, s.getId())) {
-                    notifyParents(s, assignment.getSchoolClass(), "BTVN \"" + assignment.getExercise().getTitle() + "\"", assignment.getDueAt());
+                    notifyParents(s, assignment.getSchoolClass(), "BTVN \"" + assignment.getExercise().getTitle() + "\"", assignment.getDueAt(),
+                            assignment.getId(), null);
                 }
             }
             assignment.setParentReminderSentAt(now);
@@ -108,7 +109,8 @@ public class HomeworkDueSoonReminderSchedulerService {
             List<Student> students = homeworkDeadlineSchedulerService.targetStudents(assignment.getSchoolClass(), assignment.getTargetStudentIds());
             for (Student s : students) {
                 if (!homeworkProgressService.videoPassed(assignment, s.getId(), homeworkAlertSettings.reflexPassThresholdPercent())) {
-                    notifyParents(s, assignment.getSchoolClass(), "Video Ôn tập \"" + assignment.getReviewVideoSet().getTitle() + "\"", assignment.getDueAt());
+                    notifyParents(s, assignment.getSchoolClass(), "Video Ôn tập \"" + assignment.getReviewVideoSet().getTitle() + "\"", assignment.getDueAt(),
+                            null, assignment.getId());
                 }
             }
             assignment.setParentReminderSentAt(now);
@@ -119,12 +121,26 @@ public class HomeworkDueSoonReminderSchedulerService {
         }
     }
 
-    private void notifyParents(Student student, SchoolClass schoolClass, String assignmentLabel, OffsetDateTime dueAt) {
+    /**
+     * exerciseAssignmentId/reviewVideoAssignmentId: đúng 1 trong 2 khác null (tuỳ kênh) — ghi vào metadata
+     * dạng số cùng classId/studentId để NotificationService.toResponse() promote lên NotificationResponse,
+     * Portal mở/cuộn tới đúng thẻ BTVN khi bấm thông báo (Plan link hoá thông báo, 2026-09-22).
+     */
+    private void notifyParents(Student student, SchoolClass schoolClass, String assignmentLabel, OffsetDateTime dueAt,
+                               Long exerciseAssignmentId, Long reviewVideoAssignmentId) {
         Map<String, Object> metadata = new LinkedHashMap<>();
         metadata.put("studentName", student.getUser().getFullName());
         metadata.put("className", schoolClass.getName());
         metadata.put("assignmentLabel", assignmentLabel);
         metadata.put("dueAt", dueAt);
+        metadata.put("studentId", student.getId());
+        metadata.put("classId", schoolClass.getId());
+        if (exerciseAssignmentId != null) {
+            metadata.put("exerciseAssignmentId", exerciseAssignmentId);
+        }
+        if (reviewVideoAssignmentId != null) {
+            metadata.put("reviewVideoAssignmentId", reviewVideoAssignmentId);
+        }
 
         String dueAtLabel = dueAt.atZoneSameInstant(APP_ZONE).format(DUE_AT_FMT);
         String parentTitle = "Sắp tới hạn nộp " + assignmentLabel;
