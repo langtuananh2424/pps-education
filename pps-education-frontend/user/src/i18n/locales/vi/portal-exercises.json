@@ -321,8 +321,8 @@
         "continue": "Tiếp tục làm bài",
         "reviewGraded": "Xem lại bài đã làm"
       },
-      "needsRetake": "Chưa đạt {{percent}} — cần làm lại",
-      "failedNoMoreRetakes": "Chưa đạt {{percent}} — đã hết lượt làm lại",
+      "retakeSuffix": "cần làm lại",
+      "noMoreRetakesSuffix": "đã hết lượt làm lại",
       "overduePrefix": "Đã quá hạn nộp — ",
       "duePrefix": "Hạn nộp: ",
       "noDeadline": "Không giới hạn",
