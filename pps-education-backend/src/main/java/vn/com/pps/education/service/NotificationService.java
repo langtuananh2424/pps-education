@@ -288,9 +288,66 @@ public class NotificationService {
     }
 
     private NotificationResponse toResponse(Notification n) {
+        NavigationHints nav = resolveNavigationHints(n);
         return new NotificationResponse(
                 n.getId(), n.getNotificationType().name(), n.getTitle(), n.getContent(),
-                n.getEntityType(), n.getEntityId(), n.getPriority().name(), n.getCreatedAt(), n.getReadAt());
+                n.getEntityType(), n.getEntityId(), n.getPriority().name(), n.getCreatedAt(), n.getReadAt(),
+                nav.studentId(), nav.classId(), nav.exerciseAssignmentId(), nav.reviewVideoAssignmentId());
+    }
+
+    /** Toạ độ điều hướng đã chọn lọc từ metadata — xem {@link #resolveNavigationHints}. */
+    private record NavigationHints(Long studentId, Long classId, Long exerciseAssignmentId, Long reviewVideoAssignmentId) {
+        static final NavigationHints NONE = new NavigationHints(null, null, null, null);
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-22 ("Plan: Link hoá thông báo") —
+     * quyết định "entityType/notificationType nào thì field điều hướng nào có nghĩa" là business
+     * logic nên đặt ở Service (không đẩy switch này ra Controller, không để FE tự đoán từ metadata).
+     * Chỉ promote đúng các khoá số đã được nơi tạo thông báo ghi vào metadata (xem
+     * StudentAttendanceService, GradeService, HomeworkDueSoonReminderSchedulerService,
+     * HomeworkAlertTrackingService, HomeworkParentMeetingInviteService); loại khác trả NONE.
+     */
+    private NavigationHints resolveNavigationHints(Notification n) {
+        String entityType = n.getEntityType();
+        if (entityType == null) {
+            return NavigationHints.NONE;
+        }
+        Map<String, Object> m = n.getMetadata() == null ? Map.of() : n.getMetadata();
+        return switch (entityType) {
+            // Điểm danh (Phụ huynh) — đổi đúng con + đúng lớp trước khi vào tab Lịch học.
+            case "ATTENDANCE_MARK" -> new NavigationHints(asLong(m.get("studentId")), asLong(m.get("classId")), null, null);
+            // Điểm số công bố (Phụ huynh) — đổi đúng con + đúng lớp trước khi vào tab Điểm số.
+            case "GRADE_ENTRY", "GRADE_PERIOD_RESULT" ->
+                    new NavigationHints(asLong(m.get("studentId")), asLong(m.get("classId")), null, null);
+            // Bài/Video mới được giao (Học sinh) — entityId đã là id bản giao, thêm classId để chọn đúng lớp.
+            case "EXERCISE_ASSIGNMENT" -> new NavigationHints(null, asLong(m.get("classId")), n.getEntityId(), null);
+            case "REVIEW_VIDEO_ASSIGNMENT" -> new NavigationHints(null, asLong(m.get("classId")), null, n.getEntityId());
+            // Nhắc/cảnh báo BTVN gửi theo học sinh — entityId là studentId; các id còn lại lấy từ metadata.
+            case "STUDENT" -> switch (n.getNotificationType()) {
+                case HOMEWORK_DUE_SOON_REMINDER, HOMEWORK_MISS_REMINDER, HOMEWORK_MISS_WARNING,
+                     HOMEWORK_MISS_PARENT_MEETING_INVITE, HOMEWORK_MISS_REMINDER_NON_CONSECUTIVE ->
+                        new NavigationHints(n.getEntityId(), asLong(m.get("classId")),
+                                asLong(m.get("exerciseAssignmentId")), asLong(m.get("reviewVideoAssignmentId")));
+                default -> NavigationHints.NONE;
+            };
+            default -> NavigationHints.NONE;
+        };
+    }
+
+    /** metadata là jsonb — số đọc lại có thể là Integer/Long/String tuỳ driver, quy về Long; không phải số → null. */
+    private static Long asLong(Object value) {
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        if (value instanceof String text) {
+            try {
+                return Long.parseLong(text.trim());
+            } catch (NumberFormatException ex) {
+                return null;
+            }
+        }
+        return null;
     }
 
     private NotificationPreferenceResponse toResponse(NotificationPreference p) {

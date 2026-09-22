@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { AlertTriangle, Bell, CheckCircle2, ChevronDown, Clock, GraduationCap, KeyRound, Lock, LogOut, Menu, MapPin, MapPinCheck, Settings, User } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useApp } from "@/context/AppContext";
@@ -7,6 +7,8 @@ import { cn } from "@/lib/cn";
 import { getMyPartnerSite, listSites, listSiteTeachers, SiteResponse, SiteTeacherResponse } from "@/features/facility/api";
 import { useEligibleClasses } from "@/features/academic/hooks/useEligibleClasses";
 import { listMyNotifications, markNotificationRead, NotificationResponse } from "@/features/notifications/api";
+import { resolveAdminNotificationTarget } from "@/features/notifications/navigation";
+import { useStudentProfileModal } from "@/features/reports/context/StudentProfileModalContext";
 import { PUSH_RECEIVED_EVENT } from "@/lib/pushNotifications";
 import {
   ClassSessionCheckInStatusResponse,
@@ -58,6 +60,8 @@ export default function Header() {
     hasPermission
   } = useApp();
   const location = useLocation();
+  const navigate = useNavigate();
+  const { openStudentProfile } = useStudentProfileModal();
   const [sites, setSites] = useState<SiteResponse[]>([]);
   const [profileOpen, setProfileOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
@@ -146,11 +150,21 @@ export default function Header() {
     return () => window.removeEventListener(PUSH_RECEIVED_EVENT, loadNotifications);
   }, []);
   const unreadNotificationCount = notifications.filter((n) => !n.readAt).length;
+  // Plan link hoá thông báo (2026-09-22): ngoài đánh dấu đã đọc, điều hướng tới đúng màn/bản ghi theo
+  // entityType/notificationType (xem resolveAdminNotificationTarget). Dropdown tự đóng khi bấm vào panel.
   const handleOpenNotification = (n: NotificationResponse) => {
-    if (n.readAt) return;
-    markNotificationRead(n.id)
-      .then((updated) => setNotifications((prev) => prev.map((x) => (x.id === updated.id ? updated : x))))
-      .catch(() => undefined);
+    if (!n.readAt) {
+      markNotificationRead(n.id)
+        .then((updated) => setNotifications((prev) => prev.map((x) => (x.id === updated.id ? updated : x))))
+        .catch(() => undefined);
+    }
+    const target = resolveAdminNotificationTarget(n);
+    if (!target) return;
+    if (target.kind === "studentProfile") {
+      openStudentProfile(target.studentId);
+      return;
+    }
+    navigate(target.url);
   };
 
   // Bất kỳ vai trò nào gắn với đúng 1 (vài) điểm trường cụ thể — Quản lý điểm trường (site_managers),

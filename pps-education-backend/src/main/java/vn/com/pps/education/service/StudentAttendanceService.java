@@ -351,6 +351,9 @@ public class StudentAttendanceService {
                 + " được ghi nhận " + mark.getStatus() + ".";
         Map<String, Object> metadata = new LinkedHashMap<>();
         metadata.put("classSessionId", classSession.getId());
+        // classId/studentId dạng số: NotificationService.toResponse() promote lên NotificationResponse để
+        // Portal Phụ huynh đổi đúng con + đúng lớp khi bấm thông báo (Plan link hoá thông báo, 2026-09-22).
+        metadata.put("classId", classSession.getSchoolClass().getId());
         metadata.put("studentId", mark.getStudent().getId());
         metadata.put("status", mark.getStatus().name());
         metadata.put("studentName", studentName);

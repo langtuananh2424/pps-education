@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { HelpCircle, Send } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
@@ -58,6 +59,14 @@ export default function FeedbackPage() {
   };
 
   useEffect(load, []);
+
+  // Deep-link từ thông báo PARTNER_FEEDBACK ở Header (?feedbackId=) — chọn sẵn đúng ticket; selectedTicket
+  // là derived từ tickets nên không cần chờ load xong (Plan link hoá thông báo, 2026-09-22).
+  const [searchParams] = useSearchParams();
+  useEffect(() => {
+    const param = searchParams.get("feedbackId");
+    if (param && Number.isFinite(Number(param))) setSelectedId(Number(param));
+  }, [searchParams]);
 
   const siteName = (siteId: number) => sites.find((s) => s.id === siteId)?.name ?? t("feedbackPage.siteFallback", { id: siteId });
   const selectedTicket = tickets.find((t) => t.id === selectedId) ?? null;

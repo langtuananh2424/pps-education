@@ -52,6 +52,13 @@ interface CommentApprovalByClassProps {
   items: StudentCommentResponse[];
   loading: boolean;
   onDecided: () => void;
+  /**
+   * Plan link hoá thông báo (2026-09-22): lớp cần cuộn tới + nổi viền tạm ~2.5s khi vào từ thông báo
+   * COMMENT_PENDING_APPROVAL (mọi lớp vẫn gộp trong 1 danh sách, chỉ định vị bằng mắt). Dùng 1 lần rồi
+   * gọi onHighlightHandled để CommentsPage clear.
+   */
+  highlightClassId?: number | null;
+  onHighlightHandled?: () => void;
 }
 
 /**
@@ -59,8 +66,23 @@ interface CommentApprovalByClassProps {
  * — thay cho danh sách tên rời rạc + panel chi tiết riêng trước đây (đã xác nhận với người dùng 2026-07-29:
  * hiển thị từng tên rời rạc không ổn khi số lượng nhiều). Duyệt/Từ chối làm trực tiếp ngay tại dòng.
  */
-export default function CommentApprovalByClass({ items, loading, onDecided }: CommentApprovalByClassProps) {
+export default function CommentApprovalByClass({ items, loading, onDecided, highlightClassId, onHighlightHandled }: CommentApprovalByClassProps) {
   const { t, i18n } = useTranslation("academic-comments");
+  const [justHighlightedClassId, setJustHighlightedClassId] = useState<number | null>(null);
+  // Cuộn tới + nổi viền khối lớp theo highlightClassId — chỉ sau khi items tải xong và DOM đã render
+  // (id="comment-approval-class-{classId}"). Lớp không còn dòng chờ duyệt (đã duyệt hết) thì bỏ qua nhưng
+  // vẫn báo handled để không treo sang lần sau. PHẢI đặt trước early-return (Rules of Hooks).
+  useEffect(() => {
+    if (loading || highlightClassId == null) return;
+    const el = document.getElementById(`comment-approval-class-${highlightClassId}`);
+    onHighlightHandled?.();
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+    setJustHighlightedClassId(highlightClassId);
+    const timer = setTimeout(() => setJustHighlightedClassId(null), 2500);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, highlightClassId, items]);
   const [classesById, setClassesById] = useState<Record<number, ClassResponse>>({});
   // "Loại giáo viên" của từng buổi (ClassSession.teacherType) — để đổi nhãn 2 kênh BTVN đúng như
   // DailyCommentPanel (Ngữ pháp/Bài nghe, Từ Vựng (TKN)/Clip phản xạ), 2026-08-06.
@@ -225,7 +247,12 @@ export default function CommentApprovalByClass({ items, loading, onDecided }: Co
         // với người dùng 2026-07-29).
         const datesInOrder = Array.from(new Set(classItems.map((it) => it.commentDate))).sort();
         return (
-          <Card key={classId} padded={false} className="overflow-hidden">
+          <Card
+            key={classId}
+            id={`comment-approval-class-${classId}`}
+            padded={false}
+            className={`overflow-hidden transition-all ${justHighlightedClassId === classId ? "ring-2 ring-brand-red/50 border-brand-red" : ""}`}
+          >
             <div className="px-5 py-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between flex-wrap gap-2">
               <span className="text-xs font-bold text-slate-700 font-display">
                 {cls ? `${cls.name} (${cls.classCode})` : t("approvalByClass.classFallback", { id: classId })}
