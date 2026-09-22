@@ -378,8 +378,12 @@
     "description": "Theo dõi bài tập giáo viên đã giao cho con theo từng buổi học — chỉ xem, không thao tác làm bài ở đây.",
     "empty": "Chưa có bài tập nào được giao.",
     "grammarLabel": "Ngữ pháp",
+    "readingLabel": "Đọc hiểu",
+    "writingLabel": "Viết",
     "videoLabel": "Video ôn tập",
     "passed": "Đạt",
-    "notPassed": "Chưa đạt"
+    "notPassed": "Chưa đạt",
+    "viewDetails": "Xem chi tiết {{count}} bài",
+    "hideDetails": "Ẩn chi tiết"
   }
 }
