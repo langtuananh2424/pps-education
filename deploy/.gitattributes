@@ -1,0 +1,4 @@
+# Script/unit chay tren server Linux - luon giu LF ke ca khi checkout tren
+# Windows (core.autocrlf=true doi sang CRLF -> bash tren server bao loi "\r").
+*.sh text eol=lf
+systemd/* text eol=lf
