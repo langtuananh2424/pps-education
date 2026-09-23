@@ -543,19 +543,38 @@ không thể thực hiện bước này, bạn tự chạy trên server qua SSH)
 sudo -u deploy rclone config
 ```
 
-Chọn `n` (New remote) → name `gdrive` → storage type `drive` (Google Drive)
-→ để trống `client_id`/`client_secret` (dùng app mặc định của rclone) →
-scope `drive` (full access) → để trống `root_folder_id`/`service_account_file`
-→ "Edit advanced config?" chọn `n` → "Use auto config?" chọn **`n`** (server
-không có trình duyệt) → rclone in ra 1 lệnh `rclone authorize "drive"` cùng 1
-URL. Chạy lệnh đó (kèm URL) trên **máy cá nhân đã cài rclone**, đăng nhập
-Google trên máy đó, rclone trả về 1 đoạn token JSON → paste đoạn token đó
-ngược lại vào prompt trên server → xác nhận `y` để lưu remote.
+**Trước tiên tạo OAuth Client ID riêng** — client_id dùng chung của rclone
+đang bị ngừng trong năm 2026 (rclone ≥ 1.75 cảnh báo khi để trống), nên không
+dùng nữa. Trên [Google Cloud Console](https://console.cloud.google.com/),
+đăng nhập tài khoản Google sẽ chứa backup:
+
+1. Tạo project mới (VD `pps-db-backup`) — tách riêng khỏi project OAuth/Firebase
+   của app.
+2. *APIs & Services → Library* → bật **Google Drive API**.
+3. *Google Auth Platform → Branding*: tên app (VD `pps-db-backup-rclone`) +
+   email hỗ trợ. *Audience*: tài khoản Workspace chọn **Internal**; tài khoản
+   Gmail thường chọn **External** rồi bấm **Publish app** (chuyển sang *In
+   production*) — nếu để *Testing*, refresh token hết hạn sau 7 ngày và backup
+   lên Drive sẽ tự ngừng. Scope `drive.file` là non-sensitive nên publish không
+   cần Google xét duyệt.
+4. *Data Access → Add or remove scopes*: thêm `.../auth/drive.file`.
+5. *Clients → Create client* → Application type **Desktop app** → lưu Client
+   ID + Client secret vào password manager (không commit, không chụp màn hình).
+
+Rồi chạy `rclone config` ở trên: `n` (New remote) → name `gdrive` → storage
+`drive` → dán `client_id`/`client_secret` vừa tạo → scope **`drive.file`**
+(rclone chỉ thấy/xoá được file do chính nó tạo — lộ server cũng không đọc được
+phần còn lại của Drive) → để trống `service_account_file` → "Edit advanced
+config?" `n` → "Use web browser…?" **`n`** (server không có trình duyệt) →
+rclone in ra 1 lệnh `rclone authorize "drive" "eyJ..."`. Chạy lệnh đó trên
+**máy cá nhân đã cài rclone** (`winget install Rclone.Rclone`, mở PowerShell
+mới), đăng nhập Google, rclone trả về 1 đoạn token → dán vào `config_token>`
+trên server → Shared Drive `n` → `y` để lưu remote.
 
 Kiểm tra:
 
 ```bash
-sudo -u deploy rclone lsd gdrive:
+sudo -u deploy rclone mkdir gdrive:pps-education-backups && sudo -u deploy rclone lsd gdrive:
 ```
 
 **Kích hoạt timer:**
