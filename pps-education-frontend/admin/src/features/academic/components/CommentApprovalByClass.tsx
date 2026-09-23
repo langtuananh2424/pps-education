@@ -291,13 +291,19 @@ export default function CommentApprovalByClass({ items, loading, onDecided, high
                   <div className="px-5 py-2 bg-slate-50/60 flex items-center gap-2 flex-wrap">
                     <span className="text-[11px] font-bold text-slate-600">
                       {t("approvalByClass.sessionLabel", { date, weekday })}
-                      {sessionTeacherName && ` ${t("approvalByClass.sessionTeacherName", { name: sessionTeacherName })}`}
                     </span>
                     <span className="text-[10px] text-slate-400">{t("approvalByClass.studentCount", { count: dateItems.length })}</span>
                     {/* lessonContent giống nhau cho cả buổi (class_sessions.lesson_content) — chỉ cần lấy từ dòng đầu, 2026-07-30. */}
                     {dateItems[0]?.lessonContent && (
                       <span className="text-[10px] text-amber-700 font-semibold">
                         {t("approvalByClass.lessonContentPrefix", { content: dateItems[0].lessonContent })}
+                      </span>
+                    )}
+                    {/* Đẩy tên GV gửi nhận xét sang bên phải hàng, song song với "Buổi ..." — đã xác nhận
+                        với người dùng 2026-09-23 (trước đó dính liền ngay sau ngày/thứ). */}
+                    {sessionTeacherName && (
+                      <span className="ml-auto text-[10px] text-slate-500">
+                        {t("shared.sessionTeacherName", { name: sessionTeacherName })}
                       </span>
                     )}
                   </div>

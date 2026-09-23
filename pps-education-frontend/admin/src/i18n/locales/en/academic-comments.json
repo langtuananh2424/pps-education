@@ -43,7 +43,8 @@
       "EXCUSED": "Excused",
       "LATE": "Late",
       "EARLY_LEAVE": "Early leave"
-    }
+    },
+    "sessionTeacherName": "Teacher: {{name}}"
   },
   "approvalByClass": {
     "loading": "Loading...",
@@ -53,7 +54,6 @@
     "decidingAll": "Approving...",
     "pendingBadge": "{{count}} pending",
     "sessionLabel": "Session {{date}} ({{weekday}})",
-    "sessionTeacherName": "- {{name}}",
     "studentCount": "{{count}} students",
     "lessonContentPrefix": "· Today's lesson: {{content}}",
     "columns": {

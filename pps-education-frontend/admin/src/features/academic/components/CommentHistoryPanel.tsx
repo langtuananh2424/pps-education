@@ -2,11 +2,11 @@ import React, { useEffect, useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
-import { ClassResponse, ClassSessionResponse, StudentCommentResponse, listClassEnrollments, listClassSessions, listCommentsForClass } from "../api";
+import { ClassResponse, ClassSessionResponse, StudentCommentResponse, listClassEnrollments, listClassSessions, listClassTeachers, listCommentsForClass } from "../api";
 import { useEligibleClasses } from "../hooks/useEligibleClasses";
 import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
-import TableContainer, { Td, Th } from "@/components/ui/TableContainer";
+import { Td, Th } from "@/components/ui/TableContainer";
 import Select from "@/components/ui/Select";
 import DatePicker from "@/components/ui/DatePicker";
 import { formatDateTime, toLocaleTag } from "@/lib/i18nFormat";
@@ -15,6 +15,24 @@ import { formatDateTime, toLocaleTag } from "@/lib/i18nFormat";
 // SDD gốc, đã xác nhận với người dùng 2026-08-06. Nhãn 2 kênh BTVN ăn theo "Loại giáo viên" của buổi
 // (ClassSession.teacherType) — mirror đúng key shared.grammarChannel/shared.videoChannel (i18n) ở DailyCommentPanel.
 type TeacherType = "VIETNAMESE" | "FOREIGN";
+
+/**
+ * Ghim 3 cột đầu (Mã học viên/Họ và tên/Ngày sinh) + toàn bộ header khi cuộn — đồng bộ đúng với
+ * CommentApprovalByClass.tsx (tab Chờ duyệt), bổ sung theo yêu cầu người dùng 2026-09-23. Cột Loại
+ * KHÔNG ghim — cuộn theo bảng như các cột BTVN, xem chú thích đầy đủ ở CommentApprovalByClass.tsx.
+ */
+const STICKY_COL_WIDTHS = [110, 170, 110];
+const STICKY_COL_LEFT = [
+  0,
+  STICKY_COL_WIDTHS[0],
+  STICKY_COL_WIDTHS[0] + STICKY_COL_WIDTHS[1]
+];
+const STICKY_COL_STYLE: React.CSSProperties[] = STICKY_COL_WIDTHS.map((w, i) => ({
+  width: w,
+  minWidth: w,
+  maxWidth: w,
+  left: STICKY_COL_LEFT[i]
+}));
 
 /**
  * UC-22 bổ sung (2026-07-31, theo yêu cầu người dùng): Quản lý điểm trường xem lại LỊCH SỬ nhận xét
@@ -40,6 +58,9 @@ export default function CommentHistoryPanel() {
   // "Loại giáo viên" của từng buổi (ClassSession.teacherType) — để đổi nhãn 2 kênh BTVN đúng như
   // DailyCommentPanel/CommentApprovalByClass (Ngữ pháp/Bài nghe, Từ Vựng (TKN)/Clip phản xạ), 2026-08-06.
   const [sessionsById, setSessionsById] = useState<Record<number, ClassSessionResponse>>({});
+  // Tên GV gửi nhận xét theo từng buổi — tra qua danh sách GV của lớp (classId-teacherUserId), đồng bộ
+  // đúng với CommentApprovalByClass.tsx, bổ sung theo yêu cầu người dùng 2026-09-23.
+  const [teacherNameByClassAndTeacher, setTeacherNameByClassAndTeacher] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<"ALL" | "APPROVED" | "REJECTED">("ALL");
@@ -91,6 +112,22 @@ export default function CommentHistoryPanel() {
           });
         });
         setSessionsById(map);
+      })
+      .catch(() => undefined);
+  }, [classes]);
+
+  useEffect(() => {
+    if (classes.length === 0) return;
+    Promise.allSettled(classes.map((cls) => listClassTeachers(cls.id).then((teachers) => ({ classId: cls.id, teachers }))))
+      .then((results) => {
+        const map: Record<string, string> = {};
+        results.forEach((r) => {
+          if (r.status !== "fulfilled") return;
+          r.value.teachers.forEach((tc) => {
+            map[`${r.value.classId}-${tc.teacherUserId}`] = tc.teacherFullName;
+          });
+        });
+        setTeacherNameByClassAndTeacher(map);
       })
       .catch(() => undefined);
   }, [classes]);
@@ -192,10 +229,12 @@ export default function CommentHistoryPanel() {
                 {Array.from(new Set(classComments.map((c) => c.commentDate))).map((date) => (
                   <SessionGroup
                     key={date}
+                    classId={classId}
                     date={date}
                     items={classComments.filter((c) => c.commentDate === date)}
                     studentCodeByStudent={studentCodeByStudent}
                     sessionsById={sessionsById}
+                    teacherNameByClassAndTeacher={teacherNameByClassAndTeacher}
                     formatDecidedAt={formatDecidedAt}
                   />
                 ))}
@@ -210,16 +249,20 @@ export default function CommentHistoryPanel() {
 
 /** 1 buổi học trong 1 lớp — gập/mở độc lập, mặc định gập để danh sách nhiều buổi không chiếm hết màn hình. */
 function SessionGroup({
+  classId,
   date,
   items,
   studentCodeByStudent,
   sessionsById,
+  teacherNameByClassAndTeacher,
   formatDecidedAt
 }: {
+  classId: number;
   date: string;
   items: StudentCommentResponse[];
   studentCodeByStudent: Record<number, string>;
   sessionsById: Record<number, ClassSessionResponse>;
+  teacherNameByClassAndTeacher: Record<string, string>;
   formatDecidedAt: (cm: StudentCommentResponse) => string;
 }) {
   const { t, i18n } = useTranslation("academic-comments");
@@ -235,6 +278,11 @@ function SessionGroup({
   const isVietnamese = sessionTeacherType === "VIETNAMESE";
   const onlineGrammarLabel = isVietnamese ? t("dailyCommentPanel.columns.onlineGrammarShort") : grammarLabel;
   const onlineVideoLabel = isVietnamese ? t("dailyCommentPanel.columns.onlineVideoShort") : videoLabel;
+  // GV gửi nhận xét của buổi này — lấy teacherId từ dòng đầu (cả buổi cùng 1 GV gửi), mirror
+  // CommentApprovalByClass.tsx, bổ sung theo yêu cầu người dùng 2026-09-23.
+  const sessionTeacherId = items[0]?.teacherId;
+  const sessionTeacherName =
+    sessionTeacherId != null ? teacherNameByClassAndTeacher[`${classId}-${sessionTeacherId}`] : undefined;
 
   return (
     <div className="border-b border-slate-100 last:border-b-0">
@@ -246,117 +294,130 @@ function SessionGroup({
         {expanded ? <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />}
         <span className="text-[11px] font-bold text-slate-600">{t("historyPanel.sessionLabel", { date, weekday })}</span>
         <span className="text-[10px] text-slate-400">{t("historyPanel.sessionItemCount", { count: items.length })}</span>
+        {/* Tên GV gửi nhận xét — song song với "Buổi ..." nhưng đẩy sang bên phải hàng, đồng bộ đúng
+            với CommentApprovalByClass.tsx (tab Chờ duyệt), 2026-09-23. */}
+        {sessionTeacherName && (
+          <span className="ml-auto text-[10px] text-slate-500">
+            {t("shared.sessionTeacherName", { name: sessionTeacherName })}
+          </span>
+        )}
       </button>
       {expanded && (
-        <TableContainer className="rounded-none border-0">
-          <thead>
+        // KHÔNG dùng <TableContainer> chung (table border-collapse) ở đây — border-collapse phá vỡ
+        // position:sticky trên từng <td>/<th> riêng lẻ (mirror CommentApprovalByClass.tsx, xem chú
+        // thích STICKY_COL_STYLE ở đầu file). Table riêng dùng border-separate + border-spacing-0
+        // để sticky định vị đúng, viền vẫn liền mạch như border-collapse (spacing=0).
+        <div className="overflow-x-auto overflow-y-auto max-h-[65vh]">
+          <table className="w-full text-xs text-left border-separate border-spacing-0">
+          <thead className="sticky top-0 z-20 bg-slate-50">
             {/* Border rõ giữa các cột/dòng header (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
                 2026-08-06) — Th mặc định không có border. */}
             <tr className="border-b border-slate-300 [&>th]:text-center">
-              <Th rowSpan={isVietnamese ? 3 : 2} className="min-w-[110px] border-r border-slate-300">{t("historyPanel.columns.studentCode")}</Th>
-              <Th rowSpan={isVietnamese ? 3 : 2} className="border-r border-slate-300">{t("historyPanel.columns.fullName")}</Th>
-              <Th rowSpan={isVietnamese ? 3 : 2} className="border-r border-slate-300">{t("historyPanel.columns.type")}</Th>
-              <Th rowSpan={isVietnamese ? 3 : 2} className="border-r border-slate-300">{t("historyPanel.columns.dateOfBirth")}</Th>
-              <Th colSpan={isVietnamese ? 6 : 3} className="text-center border-r border-slate-300">{t("historyPanel.columns.homeworkPrevious")}</Th>
-              <Th colSpan={isVietnamese ? 6 : 3} className="text-center border-r border-slate-300">{t("dailyCommentPanel.columns.homeworkNextGroup")}</Th>
-              <Th rowSpan={isVietnamese ? 3 : 2} className="border-r border-slate-300">{t("historyPanel.columns.dueDate")}</Th>
-              <Th rowSpan={isVietnamese ? 3 : 2} className="border-r border-slate-300">{t("historyPanel.columns.attitude")}</Th>
-              <Th rowSpan={isVietnamese ? 3 : 2} className="min-w-[260px] border-r border-slate-300">{t("historyPanel.columns.comment")}</Th>
-              <Th rowSpan={isVietnamese ? 3 : 2} className="border-r border-slate-300">{t("historyPanel.columns.note")}</Th>
-              <Th rowSpan={isVietnamese ? 3 : 2} className="border-r border-slate-300">{t("historyPanel.columns.status")}</Th>
-              <Th rowSpan={isVietnamese ? 3 : 2} className="min-w-[140px] border-r border-slate-300">{t("historyPanel.columns.decidedAt")}</Th>
-              <Th rowSpan={isVietnamese ? 3 : 2} className="min-w-[180px]">{t("historyPanel.columns.rejectionReason")}</Th>
+              <Th rowSpan={isVietnamese ? 3 : 2} style={STICKY_COL_STYLE[0]} className="sticky left-0 z-30 bg-slate-50 border-r border-b border-slate-300">{t("historyPanel.columns.studentCode")}</Th>
+              <Th rowSpan={isVietnamese ? 3 : 2} style={STICKY_COL_STYLE[1]} className="sticky z-30 bg-slate-50 border-r border-b border-slate-300">{t("historyPanel.columns.fullName")}</Th>
+              <Th rowSpan={isVietnamese ? 3 : 2} style={STICKY_COL_STYLE[2]} className="sticky z-30 bg-slate-50 border-r border-b border-slate-300">{t("historyPanel.columns.dateOfBirth")}</Th>
+              <Th rowSpan={isVietnamese ? 3 : 2} className="border-r border-b border-slate-300">{t("historyPanel.columns.type")}</Th>
+              <Th colSpan={isVietnamese ? 6 : 3} className="text-center border-r border-b border-slate-300">{t("historyPanel.columns.homeworkPrevious")}</Th>
+              <Th colSpan={isVietnamese ? 6 : 3} className="text-center border-r border-b border-slate-300">{t("dailyCommentPanel.columns.homeworkNextGroup")}</Th>
+              <Th rowSpan={isVietnamese ? 3 : 2} className="border-r border-b border-slate-300">{t("historyPanel.columns.dueDate")}</Th>
+              <Th rowSpan={isVietnamese ? 3 : 2} className="border-r border-b border-slate-300">{t("historyPanel.columns.attitude")}</Th>
+              <Th rowSpan={isVietnamese ? 3 : 2} className="min-w-[260px] border-r border-b border-slate-300">{t("historyPanel.columns.comment")}</Th>
+              <Th rowSpan={isVietnamese ? 3 : 2} className="border-r border-b border-slate-300">{t("historyPanel.columns.note")}</Th>
+              <Th rowSpan={isVietnamese ? 3 : 2} className="border-r border-b border-slate-300">{t("historyPanel.columns.status")}</Th>
+              <Th rowSpan={isVietnamese ? 3 : 2} className="min-w-[140px] border-r border-b border-slate-300">{t("historyPanel.columns.decidedAt")}</Th>
+              <Th rowSpan={isVietnamese ? 3 : 2} className="min-w-[180px] border-b border-slate-300">{t("historyPanel.columns.rejectionReason")}</Th>
             </tr>
             {isVietnamese ? (
               <>
                 <tr className="border-b border-slate-300 [&>th]:text-center">
-                  <Th colSpan={2} className="border-r border-slate-300 text-center">{t("historyPanel.columns.offline")}</Th>
-                  <Th colSpan={4} className="border-r border-slate-300 text-center">{t("dailyCommentPanel.columns.online")}</Th>
-                  <Th colSpan={2} className="border-r border-slate-300 text-center">{t("historyPanel.columns.offline")}</Th>
-                  <Th colSpan={4} className="border-r border-slate-300 text-center">{t("dailyCommentPanel.columns.online")}</Th>
+                  <Th colSpan={2} className="border-r border-b border-slate-300 text-center">{t("historyPanel.columns.offline")}</Th>
+                  <Th colSpan={4} className="border-r border-b border-slate-300 text-center">{t("dailyCommentPanel.columns.online")}</Th>
+                  <Th colSpan={2} className="border-r border-b border-slate-300 text-center">{t("historyPanel.columns.offline")}</Th>
+                  <Th colSpan={4} className="border-r border-b border-slate-300 text-center">{t("dailyCommentPanel.columns.online")}</Th>
                 </tr>
                 <tr className="border-b border-slate-300 [&>th]:text-center">
-                  <Th className="border-r border-slate-300 text-center">{t("dailyCommentPanel.columns.reading")}</Th>
-                  <Th className="border-r border-slate-300 text-center">{t("dailyCommentPanel.columns.writing")}</Th>
-                  <Th className="border-r border-slate-300 text-center">{t("dailyCommentPanel.columns.reading")}</Th>
-                  <Th className="border-r border-slate-300 text-center">{t("dailyCommentPanel.columns.writing")}</Th>
-                  <Th className="border-r border-slate-300 text-center">{onlineGrammarLabel}</Th>
-                  <Th className="border-r border-slate-300 text-center">{onlineVideoLabel}</Th>
-                  <Th className="border-r border-slate-300 text-center">{t("dailyCommentPanel.columns.reading")}</Th>
-                  <Th className="border-r border-slate-300 text-center">{t("dailyCommentPanel.columns.writing")}</Th>
-                  <Th className="border-r border-slate-300 text-center">{t("dailyCommentPanel.columns.reading")}</Th>
-                  <Th className="border-r border-slate-300 text-center">{t("dailyCommentPanel.columns.writing")}</Th>
-                  <Th className="border-r border-slate-300 text-center">{onlineGrammarLabel}</Th>
-                  <Th className="border-r border-slate-300 text-center">{onlineVideoLabel}</Th>
+                  <Th className="border-r border-b border-slate-300 text-center">{t("dailyCommentPanel.columns.reading")}</Th>
+                  <Th className="border-r border-b border-slate-300 text-center">{t("dailyCommentPanel.columns.writing")}</Th>
+                  <Th className="border-r border-b border-slate-300 text-center">{t("dailyCommentPanel.columns.reading")}</Th>
+                  <Th className="border-r border-b border-slate-300 text-center">{t("dailyCommentPanel.columns.writing")}</Th>
+                  <Th className="border-r border-b border-slate-300 text-center">{onlineGrammarLabel}</Th>
+                  <Th className="border-r border-b border-slate-300 text-center">{onlineVideoLabel}</Th>
+                  <Th className="border-r border-b border-slate-300 text-center">{t("dailyCommentPanel.columns.reading")}</Th>
+                  <Th className="border-r border-b border-slate-300 text-center">{t("dailyCommentPanel.columns.writing")}</Th>
+                  <Th className="border-r border-b border-slate-300 text-center">{t("dailyCommentPanel.columns.reading")}</Th>
+                  <Th className="border-r border-b border-slate-300 text-center">{t("dailyCommentPanel.columns.writing")}</Th>
+                  <Th className="border-r border-b border-slate-300 text-center">{onlineGrammarLabel}</Th>
+                  <Th className="border-r border-b border-slate-300 text-center">{onlineVideoLabel}</Th>
                 </tr>
               </>
             ) : (
               <tr className="border-b border-slate-300 [&>th]:text-center">
-                <Th className="border-r border-slate-300 text-center">{t("historyPanel.columns.offline")}</Th>
-                <Th className="border-r border-slate-300 text-center">{grammarLabel}</Th>
-                <Th className="border-r border-slate-300 text-center">{videoLabel}</Th>
-                <Th className="border-r border-slate-300 text-center">{t("historyPanel.columns.offline")}</Th>
-                <Th className="border-r border-slate-300 text-center">{grammarLabel}</Th>
-                <Th className="border-r border-slate-300 text-center">{videoLabel}</Th>
+                <Th className="border-r border-b border-slate-300 text-center">{t("historyPanel.columns.offline")}</Th>
+                <Th className="border-r border-b border-slate-300 text-center">{grammarLabel}</Th>
+                <Th className="border-r border-b border-slate-300 text-center">{videoLabel}</Th>
+                <Th className="border-r border-b border-slate-300 text-center">{t("historyPanel.columns.offline")}</Th>
+                <Th className="border-r border-b border-slate-300 text-center">{grammarLabel}</Th>
+                <Th className="border-r border-b border-slate-300 text-center">{videoLabel}</Th>
               </tr>
             )}
           </thead>
-          <tbody className="divide-y divide-slate-300">
+          <tbody>
             {items.map((cm) => (
               <tr key={cm.id} className="hover:bg-slate-50/40">
-                <Td className="font-mono font-bold text-slate-500 border-r border-slate-300">{studentCodeByStudent[cm.studentId] ?? "—"}</Td>
-                <Td className="font-bold text-slate-900 whitespace-nowrap border-r border-slate-300">{cm.studentFullName}</Td>
-                <Td className="border-r border-slate-300">
+                <Td style={STICKY_COL_STYLE[0]} className="sticky left-0 z-10 bg-white font-mono font-bold text-slate-500 border-r border-b border-slate-300">{studentCodeByStudent[cm.studentId] ?? "—"}</Td>
+                <Td style={STICKY_COL_STYLE[1]} className="sticky z-10 bg-white font-bold text-slate-900 whitespace-nowrap border-r border-b border-slate-300">{cm.studentFullName}</Td>
+                <Td style={STICKY_COL_STYLE[2]} className="sticky z-10 bg-white whitespace-nowrap text-slate-500 border-r border-b border-slate-300">{cm.studentDateOfBirth ?? "—"}</Td>
+                <Td className="border-r border-b border-slate-300">
                   <Badge variant="info">{t(`shared.commentType.${cm.commentType}`)}</Badge>
                 </Td>
-                <Td className="whitespace-nowrap text-slate-500 border-r border-slate-300">{cm.studentDateOfBirth ?? "—"}</Td>
                 {isVietnamese ? (
                   <>
-                    <Td className="min-w-[110px] border-r border-slate-300">{cm.homeworkPreviousReadingScore || "—"}</Td>
-                    <Td className="min-w-[110px] border-r border-slate-300">{cm.homeworkPreviousWritingScore || "—"}</Td>
+                    <Td className="min-w-[110px] border-r border-b border-slate-300">{cm.homeworkPreviousReadingScore || "—"}</Td>
+                    <Td className="min-w-[110px] border-r border-b border-slate-300">{cm.homeworkPreviousWritingScore || "—"}</Td>
                   </>
                 ) : (
-                  <Td className="min-w-[110px] border-r border-slate-300">{cm.homeworkPreviousOfflineText || "—"}</Td>
+                  <Td className="min-w-[110px] border-r border-b border-slate-300">{cm.homeworkPreviousOfflineText || "—"}</Td>
                 )}
                 {isVietnamese && (
                   <>
                     {/* V137 — "BTVN buổi trước - Online - Reading/Writing": chỉ hiện % TỰ ĐỘNG, mirror cột {onlineGrammarLabel}. */}
-                    <Td className="min-w-[130px] border-r border-slate-300">{cm.readingPreviousProgress || "—"}</Td>
-                    <Td className="min-w-[130px] border-r border-slate-300">{cm.writingPreviousProgress || "—"}</Td>
+                    <Td className="min-w-[130px] border-r border-b border-slate-300">{cm.readingPreviousProgress || "—"}</Td>
+                    <Td className="min-w-[130px] border-r border-b border-slate-300">{cm.writingPreviousProgress || "—"}</Td>
                   </>
                 )}
-                <Td className="min-w-[130px] border-r border-slate-300">{cm.homeworkPreviousScore || "—"}</Td>
-                <Td className="min-w-[130px] border-r border-slate-300">{cm.homeworkPreviousSpeakingScore || "—"}</Td>
+                <Td className="min-w-[130px] border-r border-b border-slate-300">{cm.homeworkPreviousScore || "—"}</Td>
+                <Td className="min-w-[130px] border-r border-b border-slate-300">{cm.homeworkPreviousSpeakingScore || "—"}</Td>
                 {isVietnamese ? (
                   <>
-                    <Td className="min-w-[140px] border-r border-slate-300">{cm.homeworkNextReading || "—"}</Td>
-                    <Td className="min-w-[140px] border-r border-slate-300">{cm.homeworkNextWriting || "—"}</Td>
+                    <Td className="min-w-[140px] border-r border-b border-slate-300">{cm.homeworkNextReading || "—"}</Td>
+                    <Td className="min-w-[140px] border-r border-b border-slate-300">{cm.homeworkNextWriting || "—"}</Td>
                     {/* V137 — "BTVN - Online - Reading/Writing" (giao buổi sau). */}
-                    <Td className="min-w-[180px] border-r border-slate-300">{cm.homeworkNextReadingExerciseTitle || "—"}</Td>
-                    <Td className="min-w-[180px] border-r border-slate-300">{cm.homeworkNextWritingExerciseTitle || "—"}</Td>
+                    <Td className="min-w-[180px] border-r border-b border-slate-300">{cm.homeworkNextReadingExerciseTitle || "—"}</Td>
+                    <Td className="min-w-[180px] border-r border-b border-slate-300">{cm.homeworkNextWritingExerciseTitle || "—"}</Td>
                   </>
                 ) : (
-                  <Td className="min-w-[160px] border-r border-slate-300">{cm.homeworkNext || "—"}</Td>
+                  <Td className="min-w-[160px] border-r border-b border-slate-300">{cm.homeworkNext || "—"}</Td>
                 )}
-                <Td className="min-w-[180px] border-r border-slate-300">{cm.homeworkNextExerciseTitle || "—"}</Td>
-                <Td className="min-w-[180px] border-r border-slate-300">{cm.homeworkNextReviewVideoSetTitle || "—"}</Td>
-                <Td className="min-w-[120px] whitespace-nowrap border-r border-slate-300">
+                <Td className="min-w-[180px] border-r border-b border-slate-300">{cm.homeworkNextExerciseTitle || "—"}</Td>
+                <Td className="min-w-[180px] border-r border-b border-slate-300">{cm.homeworkNextReviewVideoSetTitle || "—"}</Td>
+                <Td className="min-w-[120px] whitespace-nowrap border-r border-b border-slate-300">
                   {cm.homeworkNextDueAt ? new Date(cm.homeworkNextDueAt).toLocaleString(toLocaleTag(i18n.language), { dateStyle: "short", timeStyle: "short" }) : "—"}
                 </Td>
-                <Td className="min-w-[110px] border-r border-slate-300">{cm.attitude ? t(`shared.attitude.${cm.attitude}`) : "—"}</Td>
-                <Td className="min-w-[260px] whitespace-pre-wrap border-r border-slate-300">{cm.content}</Td>
-                <Td className="min-w-[120px] border-r border-slate-300">{cm.note || "—"}</Td>
-                <Td className="border-r border-slate-300">
+                <Td className="min-w-[110px] border-r border-b border-slate-300">{cm.attitude ? t(`shared.attitude.${cm.attitude}`) : "—"}</Td>
+                <Td className="min-w-[260px] whitespace-pre-wrap border-r border-b border-slate-300">{cm.content}</Td>
+                <Td className="min-w-[120px] border-r border-b border-slate-300">{cm.note || "—"}</Td>
+                <Td className="border-r border-b border-slate-300">
                   <Badge variant={cm.status === "APPROVED" ? "success" : "danger"}>
                     {cm.status === "APPROVED" ? t("shared.status.APPROVED") : t("shared.status.REJECTED")}
                   </Badge>
                 </Td>
-                <Td className="whitespace-nowrap border-r border-slate-300">{formatDecidedAt(cm)}</Td>
-                <Td className="min-w-[180px] text-rose-600 border-r border-slate-300">{cm.rejectionReason || "—"}</Td>
+                <Td className="whitespace-nowrap border-r border-b border-slate-300">{formatDecidedAt(cm)}</Td>
+                <Td className="min-w-[180px] text-rose-600 border-r border-b border-slate-300">{cm.rejectionReason || "—"}</Td>
               </tr>
             ))}
           </tbody>
-        </TableContainer>
+          </table>
+        </div>
       )}
     </div>
   );
