@@ -4,9 +4,14 @@ import {
   DEV_PASSWORD,
   createLeaveRequest,
   createTaskAssignedTo,
+  enterAndRejectGrade,
   ensureEmployeeProfile,
+  findRecentClassSession,
+  findUsableClass,
   login,
-  me
+  me,
+  createAndEnrollStudent,
+  writeSubmitAndRejectComment
 } from "./api";
 
 /**
@@ -79,5 +84,70 @@ test.describe("Đợt 1 — App admin: bấm thông báo mở đúng đích", ()
 
     await expect(page).toHaveURL(new RegExp(`/hrm/leaves\\?leaveRequestId=${leaveRequest.id}\\b`));
     await expect(page.locator(`#leave-request-pending-${leaveRequest.id}`)).toBeVisible({ timeout: 10_000 });
+  });
+});
+
+test.describe("Đợt 2 — App admin: bấm thông báo mở đúng đích", () => {
+  test("GRADE_REJECTED — mở đúng lớp ở Sổ điểm (Header → /academic/grades?classId=)", async ({ page, request }) => {
+    const sysadminToken = await login(request, "sysadmin");
+    const smToken = await login(request, "sitemanager");
+    const usable = await findUsableClass(request, sysadminToken);
+    const studentId = await createAndEnrollStudent(request, sysadminToken, usable.classId);
+
+    // sysadmin nhập điểm (academic.grade.manage) → sitemanager từ chối (academic.grade.approve) —
+    // notification GRADE_REJECTED bắn cho người NHẬP (entry.getEnteredBy() = sysadmin ở đây).
+    await enterAndRejectGrade(
+      request,
+      sysadminToken,
+      smToken,
+      usable.classId,
+      usable.gradeEvaluationComponentId,
+      studentId,
+      6.5,
+      `E2E reject reason ${Date.now()}`
+    );
+
+    const classInfo = await request
+      .get(`${BACKEND_URL}/api/classes/${usable.classId}`, { headers: { Authorization: `Bearer ${sysadminToken}` } })
+      .then((r) => r.json());
+
+    await loginAsync(page, "sysadmin");
+    await openNotification(page, "Điểm bị từ chối");
+
+    await expect(page).toHaveURL(new RegExp(`/academic/grades\\?classId=${usable.classId}\\b`));
+    // GradesPage (nhánh !isSiteManager, sysadmin không có role SITE_MANAGER) hiện "Lớp: {classCode} — {className}".
+    await expect(page.getByText(`Lớp: ${classInfo.classCode} — ${classInfo.name}`)).toBeVisible({ timeout: 10_000 });
+  });
+
+  test("COMMENT_REJECTED — mở đúng lớp ở Viết nhận xét (Header → /academic/comments?writeClassId=)", async ({ page, request }) => {
+    const sysadminToken = await login(request, "sysadmin");
+    const teacherToken = await login(request, "teacher");
+    const smToken = await login(request, "sitemanager");
+    const usable = await findUsableClass(request, sysadminToken);
+    const studentId = await createAndEnrollStudent(request, sysadminToken, usable.classId);
+    const session = await findRecentClassSession(request, sysadminToken, usable.classId);
+
+    await writeSubmitAndRejectComment(
+      request,
+      teacherToken,
+      smToken,
+      usable.classId,
+      session.id,
+      session.sessionDate,
+      studentId,
+      `E2E test comment ${Date.now()}`,
+      "E2E sai buổi test"
+    );
+
+    const classInfo = await request
+      .get(`${BACKEND_URL}/api/classes/${usable.classId}`, { headers: { Authorization: `Bearer ${sysadminToken}` } })
+      .then((r) => r.json());
+
+    await loginAsync(page, "teacher");
+    await openNotification(page, "Nhận xét học sinh bị từ chối");
+
+    await expect(page).toHaveURL(new RegExp(`/academic/comments\\?writeClassId=${usable.classId}\\b`));
+    // DailyCommentPanel hiện "{className} ({classCode})" khi đã chọn đúng lớp.
+    await expect(page.getByText(`${classInfo.name} (${classInfo.classCode})`)).toBeVisible({ timeout: 10_000 });
   });
 });

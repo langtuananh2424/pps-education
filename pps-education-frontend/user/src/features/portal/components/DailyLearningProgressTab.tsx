@@ -150,6 +150,13 @@ interface DailyLearningProgressTabProps {
    */
   onOpenGrammarHomework?: (commentId: number, exerciseAssignmentId: number) => void;
   onOpenVideoHomework?: (commentId: number, reviewVideoAssignmentId: number) => void;
+  /**
+   * Đợt 2 (Plan link hoá thông báo, 2026-09-23) — bấm thông báo STUDENT_ATTITUDE_ALERT ở quả chuông,
+   * PortalPage truyền vào commentId (StudentComment.id) của đúng buổi cần mở. Chỉ Phụ huynh nhận loại
+   * thông báo này nên chỉ PortalPage truyền prop này ở nhánh Phụ huynh.
+   */
+  highlightCommentId?: number | null;
+  onHighlightHandled?: () => void;
 }
 
 /**
@@ -170,7 +177,9 @@ export default function DailyLearningProgressTab({
   classId,
   parentStudentId,
   onOpenGrammarHomework,
-  onOpenVideoHomework
+  onOpenVideoHomework,
+  highlightCommentId,
+  onHighlightHandled
 }: DailyLearningProgressTabProps) {
   const { t, i18n } = useTranslation("portal-progress");
 
@@ -295,6 +304,24 @@ export default function DailyLearningProgressTab({
   const pagedLogs = filteredLogs.slice(tablePage * TABLE_PAGE_SIZE, (tablePage + 1) * TABLE_PAGE_SIZE);
   const displayCode = studentCode || "";
   const selectedLog = logs.find((log) => log.id === selectedSessionId) ?? null;
+
+  // Đợt 2 (Plan link hoá thông báo, 2026-09-23) — bấm thông báo STUDENT_ATTITUDE_ALERT: chọn đúng buổi
+  // (mirror hành vi bấm vào 1 buổi ở dải chọn buổi phía trên) thay vì tự cuộn/nổi viền riêng — component
+  // này đã có sẵn cơ chế "xem 1 buổi" (selectedSessionId khác "ALL" tự lọc chỉ còn đúng buổi đó). Bỏ
+  // luôn bộ lọc Thái độ/Từ-Đến ngày đang áp (nếu có) để buổi mục tiêu không bị lọc mất. Chỉ chạy sau khi
+  // logs đã tải xong (loading=false) và đúng buổi tồn tại trong logs; không có thì bỏ qua (không treo
+  // pending) vì log của lớp/con khác đang hiện tạm trong lúc chuyển — PortalPage sẽ set lại classId đúng.
+  useEffect(() => {
+    if (loading || highlightCommentId == null) return;
+    const match = logs.find((log) => log.id === String(highlightCommentId));
+    if (!match) return;
+    setSelectedSessionId(match.id);
+    setAttitudeFilter("ALL");
+    setDateFrom("");
+    setDateTo("");
+    onHighlightHandled?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, highlightCommentId, logs]);
 
   // Đồng bộ "Chuyên cần" với đúng bộ lọc "Các buổi"/"Từ → Đến" của bảng Nhật ký học tập (đã xác nhận
   // với người dùng 2026-08-12, cùng hướng với "Thái độ học tập" ở dưới) — attendance là dữ liệu tải

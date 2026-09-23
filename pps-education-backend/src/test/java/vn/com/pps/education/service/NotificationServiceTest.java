@@ -398,6 +398,69 @@ class NotificationServiceTest extends AbstractIntegrationTest {
         assertThat(r.classId()).isNull();
     }
 
+    // ===== Đợt 2 (GRADE_REJECTED, COMMENT_REJECTED, STUDENT_ATTITUDE_ALERT, STUDENT_ATTITUDE_ESCALATION) =====
+
+    @Test
+    void listMine_gradeRejected_exposesStudentIdAndClassId() {
+        // GRADE_REJECTED tái dùng chung case entityType GRADE_ENTRY/GRADE_PERIOD_RESULT với GRADE_PUBLISHED
+        // (đã có studentId/classId trong metadata từ trước — không cần sửa BE, chỉ cần FE thêm case).
+        notificationService.notify(recipient.getId(), Notification.NotificationType.GRADE_REJECTED, "Điểm bị từ chối", "x",
+                Map.of("studentId", 11, "classId", 22, "gradeEvaluationComponentId", 5), "GRADE_ENTRY", 44L,
+                Notification.Priority.HIGH, null);
+
+        NotificationResponse r = firstMine();
+
+        assertThat(r.studentId()).isEqualTo(11L);
+        assertThat(r.classId()).isEqualTo(22L);
+    }
+
+    @Test
+    void listMine_commentRejected_exposesStudentIdAndClassId() {
+        notificationService.notify(recipient.getId(), Notification.NotificationType.COMMENT_REJECTED, "Nhận xét bị từ chối", "x",
+                Map.of("studentId", 11, "classId", 22), "STUDENT_COMMENT", 44L, Notification.Priority.NORMAL, null);
+
+        NotificationResponse r = firstMine();
+
+        assertThat(r.studentId()).isEqualTo(11L);
+        assertThat(r.classId()).isEqualTo(22L);
+    }
+
+    @Test
+    void listMine_studentAttitudeAlert_exposesStudentIdAndClassId() {
+        notificationService.notify(recipient.getId(), Notification.NotificationType.STUDENT_ATTITUDE_ALERT, "Thái độ cần lưu ý", "x",
+                Map.of("studentId", 11, "classId", 22, "attitudeLabel", "Yếu"), "STUDENT_COMMENT", 44L,
+                Notification.Priority.NORMAL, null);
+
+        NotificationResponse r = firstMine();
+
+        assertThat(r.studentId()).isEqualTo(11L);
+        assertThat(r.classId()).isEqualTo(22L);
+    }
+
+    @Test
+    void listMine_studentAttitudeEscalation_exposesStudentIdAndClassId() {
+        notificationService.notify(recipient.getId(), Notification.NotificationType.STUDENT_ATTITUDE_ESCALATION, "Thái độ liên tục", "x",
+                Map.of("classId", 22, "streakCount", 3), "STUDENT", 11L, Notification.Priority.URGENT, null);
+
+        NotificationResponse r = firstMine();
+
+        assertThat(r.studentId()).isEqualTo(11L);
+        assertThat(r.classId()).isEqualTo(22L);
+    }
+
+    @Test
+    void listMine_studentCommentWithoutMetadata_leavesNavigationFieldsNull() {
+        // Thông báo STUDENT_COMMENT cũ (trước 2026-09-23) chưa có studentId/classId trong metadata —
+        // không được vỡ, chỉ thiếu toạ độ điều hướng.
+        notificationService.notify(recipient.getId(), Notification.NotificationType.COMMENT_REJECTED, "Nhận xét bị từ chối", "x",
+                Map.of("reason", "sai buổi"), "STUDENT_COMMENT", 44L, Notification.Priority.NORMAL, null);
+
+        NotificationResponse r = firstMine();
+
+        assertThat(r.studentId()).isNull();
+        assertThat(r.classId()).isNull();
+    }
+
     private NotificationResponse firstMine() {
         return notificationService.listMine(recipient.getId(), PageRequest.of(0, 10)).getContent().get(0);
     }
