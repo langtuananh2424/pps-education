@@ -114,7 +114,7 @@ function renderMarkedEssay(text: string, t: (key: string) => string): React.Reac
  */
 function MarkedEssayLegend({ t }: { t: (key: string) => string }) {
   return (
-    <div className="space-y-1.5 rounded-xl bg-white/60 px-3 py-2 text-[12.5px] font-bold normal-case text-ink-soft">
+    <div className="space-y-1.5 rounded-xl bg-white/60 px-3 py-2 text-[13px] font-bold normal-case text-ink-soft">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
         <span className="text-[11px] font-extrabold uppercase tracking-wide text-muted">
           {t("takeExercise.question.markedEssayLegendTitle")}
@@ -1501,14 +1501,14 @@ export function QuestionBlock({
               <p className="text-[11px] font-extrabold uppercase tracking-wide normal-case">
                 {t("takeExercise.question.markedEssayTitle")}
               </p>
-              <p className="normal-case whitespace-pre-line text-[13px] leading-relaxed font-medium text-ink">
+              <p className="normal-case whitespace-pre-line text-base leading-relaxed font-medium text-ink">
                 {renderMarkedEssay(answer.gradingMarkedAnswer, t)}
               </p>
               <MarkedEssayLegend t={t} />
             </div>
           )}
           {answer.gradingCriteriaScores && answer.gradingCriteriaScores.length > 0 && (
-            <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] font-bold normal-case text-teal-deep">
+            <div className="flex flex-wrap gap-x-3 gap-y-1 text-[12.5px] font-bold normal-case text-teal-deep">
               {answer.gradingCriteriaScores.map((c) => (
                 <span key={c.criterion}>
                   {c.criterion}: {c.percent}%
@@ -1517,7 +1517,7 @@ export function QuestionBlock({
             </div>
           )}
           {answer.gradingFeedback && (
-            <p className="font-medium text-ink normal-case whitespace-pre-line">{answer.gradingFeedback}</p>
+            <p className="font-medium text-ink normal-case whitespace-pre-line text-base">{answer.gradingFeedback}</p>
           )}
           {/*
            * V196 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-22) — Key Grammar (filter 2):
