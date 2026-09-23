@@ -27,5 +27,13 @@ public record UpdateQuestionRequest(
         BigDecimal defaultPoints,
         List<String> tags,
         @Valid List<QuestionChoiceRequest> choices,
-        String status
+        String status,
+        /**
+         * Key Grammar (filter 2, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-22) — 1-3 mã
+         * cấu trúc, khớp từ điển đúng Khối/track (xem QuestionBankService#updateResolvedQuestion). Luôn
+         * PHẢN ÁNH TOÀN BỘ trạng thái mong muốn (giống content/tags, không theo quy ước "NULL = giữ
+         * nguyên") — NULL/rỗng = xoá Key Grammar khỏi câu hỏi này. Chỉ áp dụng được khi questionType =
+         * ESSAY, server tự bỏ qua nếu không.
+         */
+        List<String> keyGrammarIds
 ) {}

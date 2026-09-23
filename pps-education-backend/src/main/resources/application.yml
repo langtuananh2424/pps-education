@@ -259,6 +259,13 @@ app:
     # cho chấm Speaking (cần nghe phát âm/ngữ điệu, transcript chữ không đủ). PHẢI là model đa phương
     # thức (Gemini/GPT-4o-audio) - KHÔNG dùng combo có Claude (Claude không nhận input audio).
     nine-router-audio-model: ${NINE_ROUTER_AUDIO_MODEL:ag/gemini-3.5-flash-low}
+    # Bổ sung 2026-09-22 (đã xác nhận với người dùng) - rubric Writing "v3" (UC-40/41, gói bo-cham-writing-K6-K9
+    # do người training bàn giao). Combo RIÊNG (không dùng nine-router-model mặc định) - người dùng tự tạo
+    # trong Dashboard 9Router, CHỈ gồm ag/gemini-3.6-flash-medium (không fallback sang mức thinking khác -
+    # đã kiểm tra 2026-09-22: response không phân biệt được member nào của combo đã trả lời, nên fallback
+    # sang model khác sẽ ÂM THẦM chấm bằng model chưa hiệu chuẩn). Xem WritingAiGradingService.
+    writing:
+      model: ${WRITING_AI_MODEL:writing-pps}
     # Bổ sung 2026-09-21 (đã xác nhận với người dùng) - luồng chấm Speaking v2 cho Video phản xạ (UC-23b),
     # bộ tiêu chí Khối 6-9 do người training bàn giao (xem ReflexV2AiGradingService). MẶC ĐỊNH TẮT - chỉ
     # bật (REFLEX_V2_ENABLED=true) sau khi kiểm chứng 9Router + ffmpeg. Khối 9 CAMBRIDGE chưa có bộ v2 nên luôn dùng luồng cũ.
