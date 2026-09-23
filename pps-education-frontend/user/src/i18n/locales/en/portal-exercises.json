@@ -91,6 +91,8 @@
       "gradingFeedbackTitle": "Feedback",
       "gradedByAi": "Graded by AI",
       "gradedByTeacher": "Graded by teacher",
+      "gradedByAiShort": "AI",
+      "gradedByTeacherShort": "Teacher",
       "gradingScoreSuffix": "{{score}}/{{max}} points",
       "markedEssayTitle": "Your writing (errors highlighted and underlined)",
       "markedEssayLegendTitle": "Colour legend",

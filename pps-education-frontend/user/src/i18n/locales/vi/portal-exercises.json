@@ -91,6 +91,8 @@
       "gradingFeedbackTitle": "Nhận xét bài làm",
       "gradedByAi": "AI chấm",
       "gradedByTeacher": "Giáo viên chấm",
+      "gradedByAiShort": "Chấm",
+      "gradedByTeacherShort": "GV",
       "gradingScoreSuffix": "{{score}}/{{max}} điểm",
       "markedEssayTitle": "Bài làm của bạn (phần lỗi được tô màu, gạch chân)",
       "markedEssayLegendTitle": "Chú giải màu",
