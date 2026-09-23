@@ -5,6 +5,7 @@ import Toast from "@/components/ui/Toast";
 import { cn } from "@/lib/cn";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
+import EnablePushBanner from "./EnablePushBanner";
 
 export default function AppShell() {
   const { loginNotice, sidebarCollapsed } = useApp();
@@ -32,6 +33,8 @@ export default function AppShell() {
         )}
       >
         <Header />
+
+        <EnablePushBanner />
 
         <main className="flex-1 min-w-0 bg-white rounded-3xl border border-slate-200/40 shadow-soft p-4 md:p-8 animate-in fade-in duration-300 overflow-x-hidden">
           <Outlet />
