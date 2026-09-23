@@ -6,9 +6,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.common.ReflexV2Task;
+import vn.com.pps.education.domain.AiGradingTokenUsage;
 import vn.com.pps.education.domain.ClassEnrollment;
 import vn.com.pps.education.domain.Curriculum;
 import vn.com.pps.education.domain.ReflexQuestionProgress;
+import vn.com.pps.education.domain.ReflexQuestionProgressHistory;
 import vn.com.pps.education.domain.ReviewVideoAssignment;
 import vn.com.pps.education.domain.ReviewVideoQuestion;
 import vn.com.pps.education.domain.ReviewVideoSet;
@@ -17,6 +19,7 @@ import vn.com.pps.education.dto.ReflexQuestionProgressResponse;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.exception.SubmissionPastDeadlineException;
 import vn.com.pps.education.repository.ClassEnrollmentRepository;
+import vn.com.pps.education.repository.ReflexQuestionProgressHistoryRepository;
 import vn.com.pps.education.repository.ReflexQuestionProgressRepository;
 import vn.com.pps.education.repository.ReviewVideoAssignmentRepository;
 import vn.com.pps.education.repository.ReviewVideoQuestionRepository;
@@ -57,12 +60,14 @@ public class ReflexSequentialGradingService {
     private final ReviewVideoQuestionRepository reviewVideoQuestionRepository;
     private final ReviewVideoAssignmentRepository reviewVideoAssignmentRepository;
     private final ReflexQuestionProgressRepository reflexQuestionProgressRepository;
+    private final ReflexQuestionProgressHistoryRepository reflexQuestionProgressHistoryRepository;
     private final ClassEnrollmentRepository classEnrollmentRepository;
     private final StudentRepository studentRepository;
     private final MediaStorageService mediaStorageService;
     private final ReflexWritingGrammarAiGradingService writingGradingService;
     private final ReflexSpeakingContentAiGradingService speakingGradingService;
     private final ReflexV2AiGradingService reflexV2GradingService;
+    private final AiGradingTokenUsageRecorder tokenUsageRecorder;
 
     /**
      * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-21 — bật luồng chấm bộ tiêu chí Speaking v2
@@ -76,21 +81,25 @@ public class ReflexSequentialGradingService {
     public ReflexSequentialGradingService(ReviewVideoQuestionRepository reviewVideoQuestionRepository,
                                            ReviewVideoAssignmentRepository reviewVideoAssignmentRepository,
                                            ReflexQuestionProgressRepository reflexQuestionProgressRepository,
+                                           ReflexQuestionProgressHistoryRepository reflexQuestionProgressHistoryRepository,
                                            ClassEnrollmentRepository classEnrollmentRepository,
                                            StudentRepository studentRepository,
                                            MediaStorageService mediaStorageService,
                                            ReflexWritingGrammarAiGradingService writingGradingService,
                                            ReflexSpeakingContentAiGradingService speakingGradingService,
-                                           ReflexV2AiGradingService reflexV2GradingService) {
+                                           ReflexV2AiGradingService reflexV2GradingService,
+                                           AiGradingTokenUsageRecorder tokenUsageRecorder) {
         this.reviewVideoQuestionRepository = reviewVideoQuestionRepository;
         this.reviewVideoAssignmentRepository = reviewVideoAssignmentRepository;
         this.reflexQuestionProgressRepository = reflexQuestionProgressRepository;
+        this.reflexQuestionProgressHistoryRepository = reflexQuestionProgressHistoryRepository;
         this.classEnrollmentRepository = classEnrollmentRepository;
         this.studentRepository = studentRepository;
         this.mediaStorageService = mediaStorageService;
         this.writingGradingService = writingGradingService;
         this.speakingGradingService = speakingGradingService;
         this.reflexV2GradingService = reflexV2GradingService;
+        this.tokenUsageRecorder = tokenUsageRecorder;
     }
 
     /** Bước 1: nộp câu trả lời viết, AI chấm ngữ pháp ngay. */
@@ -111,7 +120,11 @@ public class ReflexSequentialGradingService {
         Curriculum curriculum = question.getReviewVideo().getReviewVideoSet().getCurriculum();
         Optional<ReflexV2Task> v2Task = reflexV2Task(curriculum, question, reflexV2Enabled);
         if (v2Task.isPresent()) {
-            applyWritingResultV2(progress, reflexV2GradingService.gradeWriting(v2Task.get(), question.getPrompt(), answerText), question);
+            ReflexV2AiGradingService.WritingResult v2Result =
+                    reflexV2GradingService.gradeWriting(v2Task.get(), question.getPrompt(), answerText);
+            recordUsage(AiGradingTokenUsage.Step.WRITING, "chatJson",
+                    v2Result == null ? null : v2Result.usage(), progress);
+            applyWritingResultV2(progress, v2Result, question);
         } else {
             progress.setRubricVersion(null);
             ReflexWritingGrammarAiGradingService.GradeResult result =
@@ -119,6 +132,7 @@ public class ReflexSequentialGradingService {
             applyWritingResult(progress, result);
         }
         progress = reflexQuestionProgressRepository.save(progress);
+        recordWritingHistory(progress);
         return toResponse(progress);
     }
 
@@ -163,6 +177,10 @@ public class ReflexSequentialGradingService {
             // giao dịch rollback nên KHÔNG tính lượt nộp và KHÔNG ghi điểm.
             ReflexV2AiGradingService.SpeakingResult result = audioFile == null ? null
                     : reflexV2GradingService.gradeSpeaking(v2Task.get(), question.getPrompt(), audioFile.bytes(), audioFile.contentType(), locked);
+            if (result != null) {
+                recordUsage(AiGradingTokenUsage.Step.TRANSCRIPTION, "chatWithAudioJson", result.transcriptionUsage(), progress);
+                recordUsage(AiGradingTokenUsage.Step.SPEAKING, "chatWithAudioJson", result.gradingUsage(), progress);
+            }
             applySpeakingResultV2(progress, result);
         } else {
             ReflexSpeakingContentAiGradingService.GradeResult result =
@@ -170,6 +188,7 @@ public class ReflexSequentialGradingService {
             applySpeakingResult(progress, result);
         }
         progress = reflexQuestionProgressRepository.save(progress);
+        recordSpeakingHistory(progress);
         return toResponse(progress);
     }
 
@@ -270,8 +289,15 @@ public class ReflexSequentialGradingService {
         progress.setWritingRedErrorCount(result.redCount());
         progress.setWritingAudit(result.audit());
         boolean passed = result.step1Percent() >= passThresholdPercent(progress);
-        progress.setWritingCorrectedAnswer(passed || progress.getWritingAttemptCount() < 3 ? null
-                : reflexV2GradingService.generateCorrectedAnswer(question.getPrompt(), progress.getAnswerText()));
+        if (passed || progress.getWritingAttemptCount() < 3) {
+            progress.setWritingCorrectedAnswer(null);
+        } else {
+            ReflexV2AiGradingService.CorrectedAnswer corrected =
+                    reflexV2GradingService.generateCorrectedAnswer(question.getPrompt(), progress.getAnswerText());
+            progress.setWritingCorrectedAnswer(corrected == null ? null : corrected.text());
+            recordUsage(AiGradingTokenUsage.Step.CORRECTED_ANSWER, "chat",
+                    corrected == null ? null : corrected.usage(), progress);
+        }
     }
 
     /**
@@ -314,6 +340,63 @@ public class ReflexSequentialGradingService {
             progress.setSpeakingCriteriaScores(null);
             progress.setSpeakingGradedAt(null);
         }
+    }
+
+    /**
+     * V191 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-21) — ghi 1 dòng snapshot CHỈ-THÊM
+     * vào {@link ReflexQuestionProgressHistory} mỗi khi AI chấm phần viết xong, vì {@link ReflexQuestionProgress}
+     * ghi đè tại chỗ nên không tự giữ lịch sử — phục vụ giáo viên xem/xuất lịch sử từng lần làm.
+     */
+    private void recordWritingHistory(ReflexQuestionProgress progress) {
+        ReflexQuestionProgressHistory h = new ReflexQuestionProgressHistory();
+        h.setReflexQuestionProgress(progress);
+        h.setReviewVideoQuestion(progress.getReviewVideoQuestion());
+        h.setStudent(progress.getStudent());
+        h.setReviewVideoAssignment(progress.getReviewVideoAssignment());
+        h.setAttemptType(ReflexQuestionProgressHistory.AttemptType.WRITING);
+        h.setAttemptNumber(progress.getWritingAttemptCount());
+        h.setAnswerText(progress.getAnswerText());
+        h.setScore(progress.getWritingScore());
+        h.setMaxScore(progress.getWritingMaxScore());
+        h.setFeedback(progress.getWritingFeedback());
+        h.setMarkedAnswer(progress.getWritingMarkedAnswer());
+        h.setGradedAt(progress.getWritingGradedAt());
+        reflexQuestionProgressHistoryRepository.save(h);
+    }
+
+    /** V191 — như {@link #recordWritingHistory}, cho bước ghi âm (có audioUrl/transcript/criteriaScores). */
+    private void recordSpeakingHistory(ReflexQuestionProgress progress) {
+        ReflexQuestionProgressHistory h = new ReflexQuestionProgressHistory();
+        h.setReflexQuestionProgress(progress);
+        h.setReviewVideoQuestion(progress.getReviewVideoQuestion());
+        h.setStudent(progress.getStudent());
+        h.setReviewVideoAssignment(progress.getReviewVideoAssignment());
+        h.setAttemptType(ReflexQuestionProgressHistory.AttemptType.SPEAKING);
+        h.setAttemptNumber(progress.getSpeakingAttemptCount());
+        h.setAudioUrl(progress.getAudioUrl());
+        h.setScore(progress.getSpeakingScore());
+        h.setMaxScore(progress.getSpeakingMaxScore());
+        h.setFeedback(progress.getSpeakingFeedback());
+        h.setTranscript(progress.getSpeakingTranscript());
+        h.setCriteriaScores(progress.getSpeakingCriteriaScores());
+        h.setGradedAt(progress.getSpeakingGradedAt());
+        reflexQuestionProgressHistoryRepository.save(h);
+    }
+
+    /**
+     * V192 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-22) — ghi chi phí token của 1 lượt
+     * gọi AI kèm ngữ cảnh học sinh/bài/câu hỏi, cho trang Quản trị hệ thống → Sử dụng token AI. Đây là
+     * tầng DUY NHẤT biết đủ cả 3 thứ: {@link NineRouterAiClient} cố tình không biết học sinh là ai, còn
+     * {@link ReflexV2AiGradingService} không biết dòng tiến trình nào.
+     *
+     * {@link AiGradingTokenUsageRecorder} chạy giao dịch RIÊNG (REQUIRES_NEW) nên dòng chi phí vẫn còn
+     * kể cả khi giao dịch chấm bị rollback vì {@code ReflexAudioRejectedException} — lượt phiên âm mù đã
+     * tốn tiền thật trước khi bản ghi bị từ chối, xem Javadoc của recorder.
+     */
+    private void recordUsage(AiGradingTokenUsage.Step step, String operation,
+                             vn.com.pps.education.common.AiTokenUsage usage, ReflexQuestionProgress progress) {
+        tokenUsageRecorder.record(step, operation, null, usage, progress.getStudent(),
+                progress.getReviewVideoAssignment(), progress.getReviewVideoQuestion());
     }
 
     private boolean isWritingPassed(ReflexQuestionProgress progress) {

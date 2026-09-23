@@ -1060,6 +1060,37 @@ export interface ReviewVideoAssignmentQuestionStatsResponse {
   questions: ReviewVideoAssignmentQuestionRow[];
 }
 
+/**
+ * V191 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-21) — UC-23b (Video phản xạ): 1 dòng
+ * lịch sử AI chấm (viết hoặc ghi âm) — mirror ReflexQuestionProgressHistoryResponse backend.
+ */
+export interface ReflexQuestionProgressHistoryEntry {
+  questionId: number;
+  questionPrompt: string;
+  questionDisplayOrder: number;
+  attemptType: "WRITING" | "SPEAKING";
+  attemptNumber: number;
+  answerText: string | null;
+  audioUrl: string | null;
+  score: number | null;
+  maxScore: number | null;
+  feedback: string | null;
+  markedAnswer: string | null;
+  transcript: string | null;
+  criteriaScores: { criterion: string; percent: number }[] | null;
+  gradedAt: string | null;
+}
+
+/** V191 — giáo viên nghe lại audio + xem kết quả AI chấm theo TỪNG lần làm của 1 học sinh (Video phản xạ). */
+export function getReflexStudentHistory(assignmentId: number, studentId: number): Promise<ReflexQuestionProgressHistoryEntry[]> {
+  return apiRequest<ReflexQuestionProgressHistoryEntry[]>(`/review-video-assignments/${assignmentId}/stats/students/${studentId}/reflex-history`);
+}
+
+/** V191 — xuất toàn bộ audio (mọi lần ghi âm, mọi học sinh) + kết quả AI chấm của 1 lần giao thành ZIP. */
+export function exportReflexAssignmentData(assignmentId: number): Promise<Blob> {
+  return apiRequestBlob(`/review-video-assignments/${assignmentId}/export-reflex-data`);
+}
+
 export function getReviewVideoAssignmentQuestionStats(assignmentId: number): Promise<ReviewVideoAssignmentQuestionStatsResponse> {
   return apiRequest<ReviewVideoAssignmentQuestionStatsResponse>(`/review-video-assignments/${assignmentId}/stats/questions`);
 }
