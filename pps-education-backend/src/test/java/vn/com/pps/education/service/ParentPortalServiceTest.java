@@ -490,7 +490,10 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
                                                        String homeworkNext, String homeworkNextReading, String homeworkNextWriting) {
         if (grammarExerciseId != null || videoSetId != null || readingExamId != null || writingExamId != null) {
             studentCommentService.applyHomeworkToClass(session.id(),
-                    new ApplyClassHomeworkRequest(grammarExerciseId, videoSetId, readingExamId, writingExamId, null, null), teacher.getId());
+                    new ApplyClassHomeworkRequest(grammarExerciseId, publishedExerciseIdsForExam(grammarExerciseId), videoSetId,
+                            readingExamId, publishedExerciseIdsForExam(readingExamId),
+                            writingExamId, publishedExerciseIdsForExam(writingExamId), null, null),
+                    teacher.getId());
         }
         StudentCommentResponse comment = studentCommentService.writeComment(schoolClass.id(),
                 new CreateStudentCommentRequest(student.getId(), session.id(),
@@ -501,6 +504,21 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
                 schoolClass.id(), new SubmitCommentsRequest(List.of(comment.id())), teacher.getId());
         studentCommentService.decideComments(new DecideCommentsRequest(List.of(comment.id()), "APPROVED", null), siteManagerUser.getId());
         return submitted.get(0);
+    }
+
+    /**
+     * Bổ sung 2026-09-23 — mirror StudentCommentService#materializeExamHomework: giờ bắt buộc kèm
+     * danh sách exerciseIds cụ thể (không còn tự suy ra "toàn bộ Published"). Test dùng chung helper
+     * này chỉ tạo ĐÚNG 1 Exercise/Đề nên "toàn bộ Published của Đề" luôn khớp hành vi CŨ ("giao full").
+     */
+    private List<Long> publishedExerciseIdsForExam(Long examId) {
+        if (examId == null) {
+            return null;
+        }
+        return exerciseService.listByExam(examId, teacher.getId()).stream()
+                .filter(e -> "PUBLISHED".equals(e.status()))
+                .map(ExerciseResponse::id)
+                .toList();
     }
 
     @Test
@@ -630,7 +648,7 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
         ReviewVideoSetResponse set = createConnectionVideoAssignedToClass();
         createNextSession();
         List<StudentCommentResponse> applied = studentCommentService.applyHomeworkToClass(session.id(),
-                new ApplyClassHomeworkRequest(null, set.id(), null, null, null, null), teacher.getId());
+                new ApplyClassHomeworkRequest(null, null, set.id(), null, null, null, null, null, null), teacher.getId());
         assertThat(applied).hasSize(1);
         assertThat(applied.get(0).status()).isEqualTo("DRAFT");
 
@@ -651,7 +669,7 @@ class ParentPortalServiceTest extends AbstractIntegrationTest {
         ExerciseResponse exercise = createGrammarOnlineExercise();
         createNextSession();
         List<StudentCommentResponse> applied = studentCommentService.applyHomeworkToClass(session.id(),
-                new ApplyClassHomeworkRequest(exercise.examId(), null, null, null, null, null), teacher.getId());
+                new ApplyClassHomeworkRequest(exercise.examId(), List.of(exercise.id()), null, null, null, null, null, null, null), teacher.getId());
         assertThat(applied.get(0).status()).isEqualTo("DRAFT");
 
         List<HomeworkProgressResponse> result = parentPortalService.listHomeworkProgress(student.getId(), schoolClass.id(), parentUser.getId());

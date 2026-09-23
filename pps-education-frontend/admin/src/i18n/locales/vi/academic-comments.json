@@ -220,6 +220,7 @@
       "onlineGrammarLabel": "BTVN online — {{grammarLabel}}",
       "onlineVideoLabel": "BTVN online — {{videoLabel}}",
       "noAssign": "-- Không giao --",
+      "exerciseChecklistEmpty": "Chưa chọn Bài nào — bỏ chọn hết Lesson ở trên nếu không muốn giao kênh này.",
       "dueDateLabel": "Hạn nộp bài — ngày",
       "dueTimeLabel": "Hạn nộp bài — giờ",
       "lateSubmissionAllowedLabel": "Cho phép nộp bài muộn",
