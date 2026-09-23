@@ -220,6 +220,7 @@
       "onlineGrammarLabel": "Online homework — {{grammarLabel}}",
       "onlineVideoLabel": "Online homework — {{videoLabel}}",
       "noAssign": "-- Not assigned --",
+      "exerciseChecklistSummary": "{{selected}}/{{total}} exercises selected",
       "exerciseChecklistEmpty": "No exercise selected — clear the Lesson above if you don't want to assign this channel.",
       "dueDateLabel": "Due date — date",
       "dueTimeLabel": "Due date — time",
