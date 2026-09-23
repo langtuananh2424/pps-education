@@ -27,13 +27,10 @@ import {
   listExamAssignedClasses,
   listExercisesByExam,
   listExerciseQuestions,
-  listExerciseQuickAssignedClasses,
   listExams,
   listSubTopics,
   listUnits,
   publishExercise,
-  quickAssignExerciseToClass,
-  quickUnassignExerciseFromClass,
   removeExerciseQuestion,
   unassignExamFromClass,
   updateExam,
@@ -978,7 +975,6 @@ function ExerciseRow({
   const [studentPreviewOpen, setStudentPreviewOpen] = useState(false);
   const [editExerciseOpen, setEditExerciseOpen] = useState(false);
   const [addQuestionsOpen, setAddQuestionsOpen] = useState(false);
-  const [assignClassOpen, setAssignClassOpen] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [deletingExercise, setDeletingExercise] = useState(false);
   const [removingId, setRemovingId] = useState<number | null>(null);
@@ -1160,22 +1156,6 @@ function ExerciseRow({
             {exercise.skillCategory ? t(`assignModal.infoStep.skillCategory${skillCategoryLabelSuffix[exercise.skillCategory]}`) : t("assignPage.examDetail.noSkillCategory")}
           </Badge>
           <Badge variant={statusVariants[exercise.status]}>{t(`assignPage.statusLabels.${exercise.status}`)}</Badge>
-          {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-19 — "gán nhanh" 1 Bài cho lớp
-              thẳng từ Kho đề, độc lập song song với gán cả Đề (nút "Đã gán N lớp" ở ExamDetailPanel).
-              Chỉ hiện khi Bài đã Published (deliverToClass tự publish Bài, tránh gán ngầm 1 Bài còn
-              Nháp mà GV chưa bấm Publish tường minh). */}
-          {canManage && exercise.status === "PUBLISHED" && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setAssignClassOpen(true);
-              }}
-              title={t("assignPage.exerciseRow.assignClassTooltip")}
-              className="text-slate-400 hover:text-brand-red shrink-0"
-            >
-              <Users className="w-3.5 h-3.5" />
-            </button>
-          )}
           {canManage && exercise.status === "DRAFT" && (
             <button
               onClick={handlePublish}
@@ -1226,10 +1206,6 @@ function ExerciseRow({
             showToast(t("assignPage.exerciseRow.questionsAddedToast"));
           }}
         />
-      )}
-
-      {assignClassOpen && (
-        <AssignExerciseClassModal exerciseId={exercise.id} examId={exercise.examId} onClose={() => setAssignClassOpen(false)} />
       )}
 
       {editingQuestion && (
@@ -1386,85 +1362,3 @@ function AssignClassModal({ examId, onClose }: { examId: number; onClose: () => 
   );
 }
 
-/**
- * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-19 — "gán nhanh" 1 Bài cho lớp, độc lập
- * song song với AssignClassModal (cả Đề). Chỉ hiện checkbox cho lớp ĐÃ được gán Đề (examId) — gán lớp
- * chưa có Đề sẽ bị BE trả lỗi 400 "Đề chưa gán lớp", lọc trước ở đây để GV không bấm vào rồi thấy lỗi.
- */
-function AssignExerciseClassModal({ exerciseId, examId, onClose }: { exerciseId: number; examId: number; onClose: () => void }) {
-  const { t } = useTranslation("lms-question-authoring");
-  const { classes } = useEligibleClasses();
-  const [examAssignedIds, setExamAssignedIds] = useState<Set<number> | null>(null);
-  const [assignedIds, setAssignedIds] = useState<Set<number>>(new Set());
-  const [loading, setLoading] = useState(true);
-  const [pendingId, setPendingId] = useState<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setLoading(true);
-    Promise.all([listExamAssignedClasses(examId), listExerciseQuickAssignedClasses(exerciseId)])
-      .then(([examClasses, exerciseClasses]) => {
-        setExamAssignedIds(new Set(examClasses.map((c) => c.id)));
-        setAssignedIds(new Set(exerciseClasses.map((c) => c.id)));
-      })
-      .catch((err) => setError(err instanceof ApiError ? err.message : t("assignPage.assignClassModal.loadAssignedFailed")))
-      .finally(() => setLoading(false));
-  }, [exerciseId, examId]);
-
-  const toggle = async (classId: number) => {
-    setError(null);
-    setPendingId(classId);
-    try {
-      if (assignedIds.has(classId)) {
-        await quickUnassignExerciseFromClass(exerciseId, classId);
-        setAssignedIds((prev) => {
-          const next = new Set(prev);
-          next.delete(classId);
-          return next;
-        });
-      } else {
-        await quickAssignExerciseToClass(exerciseId, classId);
-        setAssignedIds((prev) => new Set(prev).add(classId));
-      }
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : t("assignPage.assignClassModal.updateAssignmentFailed"));
-    } finally {
-      setPendingId(null);
-    }
-  };
-
-  const eligibleClasses = classes.filter((c) => examAssignedIds?.has(c.id));
-
-  return (
-    <Modal open onClose={onClose} title={t("assignPage.assignExerciseClassModal.title")} size="md">
-      <p className="text-[11px] text-slate-500 mb-3">{t("assignPage.assignExerciseClassModal.description")}</p>
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
-      {loading ? (
-        <p className="text-xs text-slate-500 p-3 text-center">{t("common.loading")}</p>
-      ) : eligibleClasses.length === 0 ? (
-        <p className="text-xs text-slate-400 italic p-3 text-center">{t("assignPage.assignExerciseClassModal.noEligibleClasses")}</p>
-      ) : (
-        <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 max-h-72 overflow-y-auto">
-          {eligibleClasses.map((c) => (
-            <label key={c.id} className="flex items-center gap-2 px-3 py-2 text-xs cursor-pointer hover:bg-slate-50">
-              <input
-                type="checkbox"
-                checked={assignedIds.has(c.id)}
-                disabled={pendingId === c.id}
-                onChange={() => toggle(c.id)}
-              />
-              <span className="flex-1">{c.classCode} — {c.name}</span>
-              {pendingId === c.id && <span className="text-[10px] text-slate-400">{t("assignPage.assignClassModal.savingLabel")}</span>}
-            </label>
-          ))}
-        </div>
-      )}
-      <div className="flex justify-end pt-3">
-        <Button type="button" variant="secondary" size="sm" onClick={onClose}>
-          <X className="w-3.5 h-3.5" />
-          {t("common.close")}
-        </Button>
-      </div>
-    </Modal>
-  );
-}

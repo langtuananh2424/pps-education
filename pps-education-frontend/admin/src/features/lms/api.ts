@@ -755,24 +755,6 @@ export function listAssignmentsForClass(classId: number): Promise<ExerciseAssign
   return apiRequest<ExerciseAssignmentResponse[]>(`/classes/${classId}/exercises`);
 }
 
-/**
- * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-19 — "gán nhanh" 1 Bài cho 1 lớp thẳng từ
- * Kho đề (mirror assignExamToClass/unassignExamFromClass/listExamAssignedClasses ở trên, cùng UX toggle
- * checkbox), độc lập song song với gán cả Đề — lớp phải đã được gán Đề trước (BE trả 400 nếu chưa).
- * Không deadline (dueAt=null), không đụng bản giao thật phát sinh từ Nhận xét học viên (sourceClassSession khác NULL).
- */
-export function quickAssignExerciseToClass(exerciseId: number, classId: number): Promise<ExerciseAssignmentResponse> {
-  return apiRequest<ExerciseAssignmentResponse>(`/exercises/${exerciseId}/classes/${classId}`, { method: "POST" });
-}
-
-export function quickUnassignExerciseFromClass(exerciseId: number, classId: number): Promise<void> {
-  return apiRequest<void>(`/exercises/${exerciseId}/classes/${classId}`, { method: "DELETE" });
-}
-
-export function listExerciseQuickAssignedClasses(exerciseId: number): Promise<ClassResponse[]> {
-  return apiRequest<ClassResponse[]>(`/exercises/${exerciseId}/classes`);
-}
-
 /** Kho đề: nguồn cho dropdown "BTVN buổi sau" ở Nhận xét học viên — mọi loại Bài đã Publish, thuộc 1 Đề đã gán cho lớp (không còn theo khung chương trình). */
 export function listPublishedExercisesForClass(classId: number): Promise<ExerciseResponse[]> {
   return apiRequest<ExerciseResponse[]>(`/classes/${classId}/exercises/published`);
@@ -781,9 +763,12 @@ export function listPublishedExercisesForClass(classId: number): Promise<Exercis
 /**
  * V150 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-24) — "Lô giao BTVN theo kỹ năng":
  * 1 entry/Lesson (Đề) có >=1 Bài Published cùng skillCategory, thay cho danh sách Exercise lẻ/bản gộp
- * cũ ở kênh "BTVN online" của Nhận xét học viên (UC-21). Chọn 1 nhóm = giao TOÀN BỘ exerciseCount Bài
- * trong đó cùng lúc — value gửi lên (homeworkNext*ExerciseId trong CreateStudentCommentRequest) là
- * examId của nhóm này, KHÔNG còn là 1 exerciseId đơn.
+ * cũ ở kênh "BTVN online" của Nhận xét học viên (UC-21). value gửi lên (grammarExamId/readingExamId/
+ * writingExamId trong ApplyClassHomeworkRequest) là examId của nhóm này, KHÔNG còn là 1 exerciseId đơn.
+ *
+ * Bổ sung 2026-09-23 (đã xác nhận với người dùng) — trước đây chọn 1 nhóm là giao TOÀN BỘ exerciseCount
+ * Bài trong đó cùng lúc, không chọn lọc được. `exercises` cho phép GV bỏ bớt Bài không muốn giao (xem
+ * checklist ở DailyCommentPanel) — gửi kèm *ExerciseIds tương ứng trong ApplyClassHomeworkRequest.
  */
 export interface HomeworkSkillGroupResponse {
   examId: number;
@@ -796,6 +781,16 @@ export interface HomeworkSkillGroupResponse {
   /** Bổ sung 2026-09-04 — tên Unit/SubTopic chứa Lesson này, phân biệt Lesson trùng tên giữa các Unit khác nhau. */
   unitTitle: string | null;
   subTopicTitle: string | null;
+  /** Bổ sung 2026-09-23 — từng Bài PUBLISHED trong nhóm, nguồn cho checklist chọn lọc. */
+  exercises: HomeworkSkillGroupExercise[];
+}
+
+/** 1 dòng checklist trong 1 nhóm kỹ năng — mirror BE HomeworkSkillGroupResponse.ExerciseSummary. */
+export interface HomeworkSkillGroupExercise {
+  id: number;
+  code: string;
+  title: string;
+  questionCount: number;
 }
 
 export function listHomeworkSkillGroupsForClass(classId: number, skillCategory: ExerciseSkillCategory): Promise<HomeworkSkillGroupResponse[]> {
