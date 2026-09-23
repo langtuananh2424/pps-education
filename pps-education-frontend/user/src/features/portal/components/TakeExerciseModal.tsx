@@ -1,7 +1,7 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { CheckCircle2, HelpCircle, KeyRound, Loader2, Lock, PartyPopper, RotateCcw, ShieldAlert, X, XCircle } from "lucide-react";
+import { CheckCircle2, GraduationCap, HelpCircle, KeyRound, Loader2, Lock, PartyPopper, RotateCcw, ShieldAlert, Sparkles, X, XCircle } from "lucide-react";
 import { friendlyApiErrorMessage } from "@/lib/apiClient";
 import {
   AssignedExerciseResponse,
@@ -27,6 +27,7 @@ import {
 } from "../api";
 import { useIntegrityMonitor } from "../hooks/useIntegrityMonitor";
 import MonitoringBadge from "./MonitoringBadge";
+import { ScoreSticker } from "./ScoreSticker";
 import { useCountdown, formatRemaining } from "@/components/ui/useCountdown";
 import { useLockBodyScroll } from "@/components/ui/useLockBodyScroll";
 
@@ -1469,12 +1470,25 @@ export function QuestionBlock({
         <div className="text-sm font-bold p-3 rounded-xl border bg-sky-2 border-teal/20 space-y-1.5">
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <span className="text-teal-deep uppercase text-base tracking-wide">{t("takeExercise.question.gradingFeedbackTitle")}</span>
-            <span className="text-[10px] text-muted font-black uppercase">
-              {answer.gradingSource === "AI" ? t("takeExercise.question.gradedByAi") : t("takeExercise.question.gradedByTeacher")}
-              {answer.gradingScore != null && answer.gradingMaxScore != null
-                ? ` · ${t("takeExercise.question.gradingScoreSuffix", { score: answer.gradingScore, max: answer.gradingMaxScore })}`
-                : ""}
-            </span>
+            {/*
+             * Bổ sung 2026-09-23 (đã xác nhận với người dùng) — đổi badge text "AI CHẤM · X/Y ĐIỂM" sang
+             * ScoreSticker (% tròn, cùng style với badge "Viết"/"Nói" ở màn Video phản xạ) để đồng bộ
+             * ngôn ngữ hình ảnh chấm điểm toàn Portal. gradingMaxScore > 0 mới tính được % — bài chưa có
+             * điểm số (chỉ có gradingFeedback text, rubric cũ) thì vẫn giữ text nguồn chấm như cũ.
+             */}
+            {answer.gradingScore != null && answer.gradingMaxScore != null && answer.gradingMaxScore > 0 ? (
+              <ScoreSticker
+                icon={answer.gradingSource === "AI" ? <Sparkles size={10} /> : <GraduationCap size={10} />}
+                label={answer.gradingSource === "AI" ? t("takeExercise.question.gradedByAiShort") : t("takeExercise.question.gradedByTeacherShort")}
+                percent={Math.round((answer.gradingScore / answer.gradingMaxScore) * 100)}
+                tone="pass"
+                tiltClass="rotate-3"
+              />
+            ) : (
+              <span className="text-[10px] text-muted font-black uppercase">
+                {answer.gradingSource === "AI" ? t("takeExercise.question.gradedByAi") : t("takeExercise.question.gradedByTeacher")}
+              </span>
+            )}
           </div>
           {/*
            * V182 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-16, PILOT Khối 7 IELTS) —
