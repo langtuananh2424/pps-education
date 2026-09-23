@@ -1,0 +1,14 @@
+{
+  "name": "pps-education-e2e",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Playwright E2E — Plan link hoá thông báo (2026-09-22): verify bấm 1 thông báo ở quả chuông mở đúng đích (app admin + Portal user). Dữ liệu test tạo qua API thật (POST /api/...), không insert SQL trực tiếp.",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.48.0"
+  }
+}
