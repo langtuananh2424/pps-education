@@ -66,3 +66,7 @@ e2e/test-results/
 e2e/playwright-report/
 e2e/.certs/
 
+
+# Dump DB local (deploy/RUNBOOK-db-backup-restore.md muc 3) - co the chua email that, khong commit
+backups-local/
+*.dump
