@@ -85,6 +85,7 @@ import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -1753,13 +1754,13 @@ public class StudentCommentService {
         HomeworkSkillBatch existingReadingBatch = firstNonNull(allSessionComments, StudentComment::getHomeworkNextReadingBatch);
         HomeworkSkillBatch existingWritingBatch = firstNonNull(allSessionComments, StudentComment::getHomeworkNextWritingBatch);
 
-        HomeworkSkillBatch grammarBatch = materializeExamHomework(session, request.grammarExamId(), previousGrammarBatch, existingGrammarBatch,
+        HomeworkSkillBatch grammarBatch = materializeExamHomework(session, request.grammarExamId(), request.grammarExerciseIds(), previousGrammarBatch, existingGrammarBatch,
                 grammarChannelSkillCategory(session.getTeacherType()), dueAt, lateSubmissionAllowed, actorUserId);
         ReviewVideoAssignment videoAssignment = materializeVideoHomework(session, request.videoSetId(), previousVideoAssignment, existingVideoAssignment,
                 dueAt, lateSubmissionAllowed, actorUserId);
-        HomeworkSkillBatch readingBatch = materializeExamHomework(session, request.readingExamId(), previousReadingBatch, existingReadingBatch,
+        HomeworkSkillBatch readingBatch = materializeExamHomework(session, request.readingExamId(), request.readingExerciseIds(), previousReadingBatch, existingReadingBatch,
                 Exercise.SkillCategory.READING, dueAt, lateSubmissionAllowed, actorUserId);
-        HomeworkSkillBatch writingBatch = materializeExamHomework(session, request.writingExamId(), previousWritingBatch, existingWritingBatch,
+        HomeworkSkillBatch writingBatch = materializeExamHomework(session, request.writingExamId(), request.writingExerciseIds(), previousWritingBatch, existingWritingBatch,
                 Exercise.SkillCategory.WRITING, dueAt, lateSubmissionAllowed, actorUserId);
 
         for (StudentComment comment : editable) {
@@ -1798,7 +1799,7 @@ public class StudentCommentService {
      * cùng trả về (tức nhóm editable trước đó đang giữ 1 lựa chọn khác, giờ đổi sang dùng chung với
      * phần còn lại của buổi).
      */
-    private HomeworkSkillBatch materializeExamHomework(ClassSession session, Long examId, HomeworkSkillBatch previous,
+    private HomeworkSkillBatch materializeExamHomework(ClassSession session, Long examId, List<Long> exerciseIds, HomeworkSkillBatch previous,
                                                         HomeworkSkillBatch existing, Exercise.SkillCategory skillCategory,
                                                         OffsetDateTime dueAt, boolean lateSubmissionAllowed, Long actorUserId) {
         if (examId == null) {
@@ -1807,9 +1808,17 @@ public class StudentCommentService {
             }
             return null;
         }
+        // Bổ sung 2026-09-23 (đã xác nhận với người dùng) — examId khác null nghĩa là GV CÓ chọn kênh
+        // này, bắt buộc phải kèm ít nhất 1 Bài (checklist rỗng = coi như chưa chọn gì, FE phải tự gửi
+        // examId=null trong trường hợp đó, không gửi examId kèm danh sách rỗng).
+        if (exerciseIds == null || exerciseIds.isEmpty()) {
+            throw new IllegalArgumentException("Chưa chọn Bài nào cho kỹ năng " + skillCategory + " — bỏ chọn hết Lesson nếu không muốn giao kênh này.");
+        }
+        Set<Long> desiredExerciseIds = new HashSet<>(exerciseIds);
         HomeworkSkillBatch reusable = existing != null ? existing : previous;
         if (reusable != null && reusable.getExam().getId().equals(examId)
-                && batchDueAt(reusable).isEqual(dueAt) && batchLateSubmissionAllowed(reusable) == lateSubmissionAllowed) {
+                && batchDueAt(reusable).isEqual(dueAt) && batchLateSubmissionAllowed(reusable) == lateSubmissionAllowed
+                && new HashSet<>(batchExerciseIds(reusable)).equals(desiredExerciseIds)) {
             if (previous != null && !previous.getId().equals(reusable.getId())) {
                 homeworkSkillBatchService.cancelBatch(previous);
             }
@@ -1818,7 +1827,7 @@ public class StudentCommentService {
         examRepository.findByIdAndDeletedAtIsNull(examId)
                 .orElseThrow(() -> new ResourceNotFoundException("error.studentComment.examNotFoundById", new Object[]{examId}, "Không tìm thấy Đề (Lesson) id=" + examId));
         HomeworkSkillBatch batch = homeworkSkillBatchService.assignBatchToClass(
-                examId, skillCategory, session.getSchoolClass().getId(), dueAt, lateSubmissionAllowed, actorUserId, session);
+                examId, skillCategory, session.getSchoolClass().getId(), exerciseIds, dueAt, lateSubmissionAllowed, actorUserId, session);
         if (previous != null) {
             homeworkSkillBatchService.cancelBatch(previous);
         }
@@ -1982,6 +1991,12 @@ public class StudentCommentService {
                 .mapToLong(a -> exerciseQuestionRepository.countByExerciseId(a.getExercise().getId())).sum();
         return batch.getExam().getCode() + " - " + batch.getExam().getTitle()
                 + " (" + skillCategoryLabel(batch.getSkillCategory()) + ", " + assignments.size() + " bài, " + questionCount + " câu)";
+    }
+
+    /** Bổ sung 2026-09-23 — id từng Bài THẬT trong 1 Lô, mirror {@link #batchLabel} (cùng nguồn dữ liệu). */
+    private List<Long> batchExerciseIds(HomeworkSkillBatch batch) {
+        return exerciseAssignmentRepository.findByHomeworkBatchId(batch.getId()).stream()
+                .map(a -> a.getExercise().getId()).toList();
     }
 
     /** V150 — hạn nộp chung của 1 Lô (mọi bản giao con trong cùng lô luôn cùng 1 dueAt, xem HomeworkSkillBatchService#assignBatchToClass). */
