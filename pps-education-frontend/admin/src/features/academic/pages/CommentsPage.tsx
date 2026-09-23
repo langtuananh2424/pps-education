@@ -14,7 +14,7 @@ type SiteManagerTab = "write" | "pending" | "history";
 
 export default function CommentsPage() {
   const { t } = useTranslation("academic-comments");
-  const { currentUser } = useApp();
+  const { currentUser, selectedClassId, setSelectedClassId } = useApp();
   // Hàng chờ duyệt (UC-22) chỉ có ý nghĩa với Quản lý điểm trường — API tự scope theo site được gán.
   const isSiteManager = currentUser?.roleCodes?.includes(UserRole.SITE_MANAGER) ?? false;
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-16: 1 nhân viên có thể VỪA là Quản lý
@@ -53,6 +53,24 @@ export default function CommentsPage() {
     setHighlightClassId(Number(param));
     if (isSiteManager) setSiteManagerTab("pending");
   }, [searchParams, isSiteManager]);
+
+  // Deep-link từ thông báo COMMENT_REJECTED ở Header (?writeClassId=) — chọn sẵn đúng lớp toàn cục
+  // (Header) + nhảy sang tab "Viết nhận xét" trước khi Giáo viên sửa lại nhận xét bị từ chối (Đợt 2,
+  // Plan link hoá thông báo, 2026-09-23). Khác ?classId= của COMMENT_PENDING_APPROVAL ở trên.
+  //
+  // Phụ thuộc thêm `selectedClassId` (không chỉ `searchParams`) để tự áp LẠI khi bị ghi đè: Header.tsx
+  // có 1 effect async riêng tự chọn site quản lý (managedSites tải xong) → gọi setSelectedCampusId →
+  // side-effect reset selectedClassId về null — chạy SAU effect này (API bất đồng bộ) nên có thể xoá
+  // mất lựa chọn vừa set. Effect này tự kích hoạt lại ngay khi thấy giá trị bị lệch khỏi target, tự ổn
+  // định sau khi Header chọn xong site (đã xác nhận: Header chỉ tự chọn site đúng 1 lần).
+  useEffect(() => {
+    const param = searchParams.get("writeClassId");
+    if (!param || !Number.isFinite(Number(param))) return;
+    const target = Number(param);
+    if (selectedClassId !== target) setSelectedClassId(target);
+    if (showWriteTab) setSiteManagerTab("write");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, selectedClassId]);
 
   return (
     <div className="space-y-6">

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
@@ -28,7 +29,7 @@ const inputClass = "bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg f
 
 export default function GradesPage() {
   const { t } = useTranslation("academic-grades");
-  const { hasPermission, currentUser, selectedClassId } = useApp();
+  const { hasPermission, currentUser, selectedClassId, setSelectedClassId } = useApp();
   const canManage = hasPermission("academic.grade.manage");
   // Hàng chờ duyệt (UC-20) chỉ có ý nghĩa với Quản lý điểm trường — API tự scope theo site được gán,
   // ẩn hẳn khối này với tài khoản khác để đỡ hiện 1 panel rỗng không liên quan.
@@ -82,6 +83,23 @@ export default function GradesPage() {
     if (isSiteManager) loadPendingGroups();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSiteManager]);
+
+  // Deep-link từ thông báo GRADE_REJECTED ở Header (?classId=) — chọn sẵn đúng lớp toàn cục (Header)
+  // trước khi Giáo viên vào sửa lại điểm bị từ chối (Đợt 2, Plan link hoá thông báo, 2026-09-23).
+  //
+  // Phụ thuộc thêm `selectedClassId` (không chỉ `searchParams`) để tự áp LẠI khi bị ghi đè: Header.tsx
+  // có 1 effect async riêng tự chọn site quản lý (managedSites tải xong) → gọi setSelectedCampusId →
+  // side-effect reset selectedClassId về null — chạy SAU effect này (API bất đồng bộ) nên có thể xoá
+  // mất lựa chọn vừa set. Effect này tự kích hoạt lại ngay khi thấy giá trị bị lệch khỏi target, tự ổn
+  // định sau khi Header chọn xong site (đã xác nhận: Header chỉ tự chọn site đúng 1 lần).
+  const [searchParams] = useSearchParams();
+  useEffect(() => {
+    const param = searchParams.get("classId");
+    if (!param || !Number.isFinite(Number(param))) return;
+    const target = Number(param);
+    if (selectedClassId !== target) setSelectedClassId(target);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, selectedClassId]);
 
   useEffect(() => {
     if (!selectedClassId) return;
