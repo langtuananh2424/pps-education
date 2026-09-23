@@ -54,23 +54,29 @@ export default function CommentsPage() {
     if (isSiteManager) setSiteManagerTab("pending");
   }, [searchParams, isSiteManager]);
 
-  // Deep-link từ thông báo COMMENT_REJECTED ở Header (?writeClassId=) — chọn sẵn đúng lớp toàn cục
-  // (Header) + nhảy sang tab "Viết nhận xét" trước khi Giáo viên sửa lại nhận xét bị từ chối (Đợt 2,
-  // Plan link hoá thông báo, 2026-09-23). Khác ?classId= của COMMENT_PENDING_APPROVAL ở trên.
+  // Deep-link từ thông báo COMMENT_REJECTED ở Header (?writeClassId=&sessionId=&studentId=) — chọn sẵn
+  // đúng lớp toàn cục (Header) + nhảy sang tab "Viết nhận xét", rồi tự chọn đúng buổi/cuộn tới đúng
+  // dòng học sinh vừa bị từ chối (xem DailyCommentPanel#goToStudentRow). Dùng "writeClassId" (khác
+  // "classId" ở trên, đích COMMENT_PENDING_APPROVAL) để 2 luồng không giẫm lên nhau dù cùng đích
+  // /academic/comments (PR #530, bổ sung sessionId/studentId theo yêu cầu người dùng 2026-09-23).
   //
   // Phụ thuộc thêm `selectedClassId` (không chỉ `searchParams`) để tự áp LẠI khi bị ghi đè: Header.tsx
   // có 1 effect async riêng tự chọn site quản lý (managedSites tải xong) → gọi setSelectedCampusId →
   // side-effect reset selectedClassId về null — chạy SAU effect này (API bất đồng bộ) nên có thể xoá
   // mất lựa chọn vừa set. Effect này tự kích hoạt lại ngay khi thấy giá trị bị lệch khỏi target, tự ổn
   // định sau khi Header chọn xong site (đã xác nhận: Header chỉ tự chọn site đúng 1 lần).
+  const writeClassIdParam = searchParams.get("writeClassId");
+  const sessionIdParam = searchParams.get("sessionId");
+  const deepLinkSessionId = sessionIdParam && Number.isFinite(Number(sessionIdParam)) ? Number(sessionIdParam) : null;
+  const studentIdParam = searchParams.get("studentId");
+  const deepLinkStudentId = studentIdParam && Number.isFinite(Number(studentIdParam)) ? Number(studentIdParam) : null;
   useEffect(() => {
-    const param = searchParams.get("writeClassId");
-    if (!param || !Number.isFinite(Number(param))) return;
-    const target = Number(param);
+    if (!writeClassIdParam || !Number.isFinite(Number(writeClassIdParam))) return;
+    const target = Number(writeClassIdParam);
     if (selectedClassId !== target) setSelectedClassId(target);
     if (showWriteTab) setSiteManagerTab("write");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, selectedClassId]);
+  }, [writeClassIdParam, selectedClassId]);
 
   return (
     <div className="space-y-6">
@@ -112,7 +118,7 @@ export default function CommentsPage() {
               duyệt"/"Lịch sử" rồi quay lại không được mất nội dung đang viết dở. */}
           {showWriteTab && (
             <div className={siteManagerTab === "write" ? "" : "hidden"}>
-              <DailyCommentPanel />
+              <DailyCommentPanel deepLinkSessionId={deepLinkSessionId} deepLinkStudentId={deepLinkStudentId} />
             </div>
           )}
           {siteManagerTab === "pending" ? (
@@ -128,7 +134,7 @@ export default function CommentsPage() {
           ) : null}
         </>
       ) : (
-        <DailyCommentPanel />
+        <DailyCommentPanel deepLinkSessionId={deepLinkSessionId} deepLinkStudentId={deepLinkStudentId} />
       )}
     </div>
   );

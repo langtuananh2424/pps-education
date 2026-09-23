@@ -338,6 +338,33 @@ class NotificationServiceTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void listMine_commentRejected_exposesStudentClassAndClassSessionId() {
+        notificationService.notify(recipient.getId(), Notification.NotificationType.COMMENT_REJECTED, "Bị từ chối", "x",
+                Map.of("studentId", 11, "classId", 22, "classSessionId", 33), "STUDENT_COMMENT", 44L,
+                Notification.Priority.NORMAL, null);
+
+        NotificationResponse r = firstMine();
+
+        assertThat(r.studentId()).isEqualTo(11L);
+        assertThat(r.classId()).isEqualTo(22L);
+        assertThat(r.exerciseAssignmentId()).isNull();
+        assertThat(r.reviewVideoAssignmentId()).isNull();
+        assertThat(r.classSessionId()).isEqualTo(33L);
+    }
+
+    @Test
+    void listMine_commentPendingApproval_exposesNoNavigationHints() {
+        notificationService.notify(recipient.getId(), Notification.NotificationType.COMMENT_PENDING_APPROVAL, "Chờ duyệt", "x",
+                Map.of("className", "6A"), "SCHOOL_CLASS", 44L, Notification.Priority.NORMAL, null);
+
+        NotificationResponse r = firstMine();
+
+        assertThat(r.studentId()).isNull();
+        assertThat(r.classId()).isNull();
+        assertThat(r.classSessionId()).isNull();
+    }
+
+    @Test
     void listMine_exerciseAssignment_exposesEntityIdAsExerciseAssignmentId() {
         notificationService.notify(recipient.getId(), Notification.NotificationType.OTHER, "Bài mới", "x",
                 Map.of("classId", 22), "EXERCISE_ASSIGNMENT", 55L, Notification.Priority.NORMAL, null);
