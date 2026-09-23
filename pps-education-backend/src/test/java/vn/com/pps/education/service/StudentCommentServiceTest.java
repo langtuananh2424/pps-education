@@ -1108,8 +1108,24 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
     /** "Áp dụng cho cả lớp" cho buổi mặc định (classSession, actor=teacher, hạn nộp tự động = buổi kế tiếp). */
     private List<StudentCommentResponse> applyHomework(ClassSessionResponse session, Long grammarExamId, Long videoSetId) {
         return studentCommentService.applyHomeworkToClass(session.id(),
-                new ApplyClassHomeworkRequest(grammarExamId, videoSetId, null, null, null, null),
+                new ApplyClassHomeworkRequest(grammarExamId, publishedExerciseIdsForExam(grammarExamId), videoSetId, null, null, null, null, null, null),
                 teacher.getId());
+    }
+
+    /**
+     * Bổ sung 2026-09-23 — mirror StudentCommentService#materializeExamHomework: giờ bắt buộc kèm
+     * danh sách exerciseIds cụ thể (không còn tự suy ra "toàn bộ Published"). Mọi fixture của test này
+     * chỉ tạo ĐÚNG 1 Exercise/Đề (xem GrammarFixture) nên "toàn bộ Published của Đề" luôn khớp hành vi
+     * CŨ ("giao full").
+     */
+    private List<Long> publishedExerciseIdsForExam(Long examId) {
+        if (examId == null) {
+            return null;
+        }
+        return exerciseService.listByExam(examId, teacher.getId()).stream()
+                .filter(e -> "PUBLISHED".equals(e.status()))
+                .map(ExerciseResponse::id)
+                .toList();
     }
 
     /** Gán 1 giáo viên chính loại FOREIGN cho lớp (UC-18) -- trả về để caller dùng làm primaryTeacherId khi xếp buổi FOREIGN (chọn tay, không còn tự suy ra — xác nhận 2026-08-19). */
@@ -1291,7 +1307,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
                 headAcademic.getId());
 
         assertThatThrownBy(() -> studentCommentService.applyHomeworkToClass(emptySession.id(),
-                new ApplyClassHomeworkRequest(null, null, null, null, null, null), teacher.getId()))
+                new ApplyClassHomeworkRequest(null, null, null, null, null, null, null, null, null), teacher.getId()))
                 .isInstanceOf(IllegalStateException.class);
     }
 
@@ -1303,7 +1319,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         // Chỉ 1 học sinh ACTIVE (student, xem setUp) và đã Gửi -- không còn dòng nào editable.
 
         assertThatThrownBy(() -> studentCommentService.applyHomeworkToClass(classSession.id(),
-                new ApplyClassHomeworkRequest(null, null, null, null, null, null), teacher.getId()))
+                new ApplyClassHomeworkRequest(null, null, null, null, null, null, null, null, null), teacher.getId()))
                 .isInstanceOf(IllegalStateException.class);
     }
 
@@ -1337,12 +1353,12 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         GrammarFixture fixture = createGrammarOnlineExercise();
         LocalDateTime dueDate1 = LocalDate.now().plusDays(3).atTime(9, 0);
         studentCommentService.applyHomeworkToClass(classSession.id(),
-                new ApplyClassHomeworkRequest(fixture.exercise().examId(), null, null, null, dueDate1, false), teacher.getId());
+                new ApplyClassHomeworkRequest(fixture.exercise().examId(), List.of(fixture.exercise().id()), null, null, null, null, null, dueDate1, false), teacher.getId());
         StudentCommentResponse first = studentCommentService.listComments(schoolClass.id(), student.getId()).get(0);
 
         LocalDateTime dueDate2 = LocalDate.now().plusDays(5).atTime(9, 0);
         studentCommentService.applyHomeworkToClass(classSession.id(),
-                new ApplyClassHomeworkRequest(fixture.exercise().examId(), null, null, null, dueDate2, false), teacher.getId());
+                new ApplyClassHomeworkRequest(fixture.exercise().examId(), List.of(fixture.exercise().id()), null, null, null, null, null, dueDate2, false), teacher.getId());
         StudentCommentResponse second = studentCommentService.listComments(schoolClass.id(), student.getId()).get(0);
 
         assertThat(second.homeworkNextDueAt()).isNotEqualTo(first.homeworkNextDueAt());

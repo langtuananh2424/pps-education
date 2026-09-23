@@ -18,16 +18,6 @@ public interface ExerciseAssignmentRepository extends JpaRepository<ExerciseAssi
     List<ExerciseAssignment> findByExerciseIdAndSchoolClassIdAndStatus(
             Long exerciseId, Long classId, ExerciseAssignment.Status status);
 
-    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-19 — "gán nhanh" 1 Bài cho lớp từ Kho
-     * đề (không qua UC-21), phân biệt với bản giao có {@code sourceClassSession} thật bằng điều kiện
-     * NULL này, xem Javadoc {@code ExerciseService#quickAssignToClass}. */
-    Optional<ExerciseAssignment> findByExerciseIdAndSchoolClassIdAndStatusAndSourceClassSessionIsNull(
-            Long exerciseId, Long classId, ExerciseAssignment.Status status);
-
-    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-19 — liệt kê các lớp đã "gán nhanh" 1 Bài. */
-    List<ExerciseAssignment> findByExerciseIdAndStatusAndSourceClassSessionIsNull(
-            Long exerciseId, ExerciseAssignment.Status status);
-
     /** UC-21 mở rộng (BTVN online — dán uuid làm phương án thay dropdown, V55). */
     Optional<ExerciseAssignment> findByUuid(UUID uuid);
 
