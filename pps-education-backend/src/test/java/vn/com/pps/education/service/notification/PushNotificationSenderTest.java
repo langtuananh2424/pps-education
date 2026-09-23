@@ -142,6 +142,25 @@ class PushNotificationSenderTest {
     }
 
     @Test
+    void send_throwsWithFcmErrorCode_whenEveryTokenIsRejected() throws Exception {
+        // Sự cố THẬT (2026-09-23, staging, 1 tài khoản phụ huynh): token active nhưng FCM từ chối,
+        // lỗi bị nuốt -> error_message chỉ ghi "sender trả về false", không biết nguyên nhân. Mã lỗi
+        // FCM phải đi vào exception để dispatcher ghi vào notification_deliveries.error_message.
+        DeviceToken rejected = token("tok-rejected");
+        when(deviceTokenRepository.findByUserIdAndActiveTrue(7L)).thenReturn(List.of(rejected));
+        FirebaseMessagingException mismatch = mock(FirebaseMessagingException.class);
+        when(mismatch.getMessagingErrorCode()).thenReturn(MessagingErrorCode.SENDER_ID_MISMATCH);
+        when(firebaseMessaging.send(any(Message.class))).thenThrow(mismatch);
+
+        assertThatThrownBy(() -> sender.send(delivery, notification, recipient))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("SENDER_ID_MISMATCH");
+        assertThat(rejected.isActive())
+                .as("chỉ UNREGISTERED mới tự vô hiệu hoá token, lỗi khác giữ nguyên để retry")
+                .isTrue();
+    }
+
+    @Test
     void send_throws_whenFirebaseNotConfigured() {
         PushNotificationSender noFirebase =
                 new PushNotificationSender(Optional.empty(), deviceTokenRepository, new NotificationPushTemplateService());

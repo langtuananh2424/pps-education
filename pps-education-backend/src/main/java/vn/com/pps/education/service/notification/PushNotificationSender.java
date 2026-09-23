@@ -5,6 +5,8 @@ import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.FirebaseMessagingException;
 import com.google.firebase.messaging.Message;
 import com.google.firebase.messaging.MessagingErrorCode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import vn.com.pps.education.domain.DeviceToken;
 import vn.com.pps.education.domain.Notification;
@@ -46,6 +48,8 @@ import java.util.Optional;
  */
 @Component
 public class PushNotificationSender implements NotificationChannelSender {
+
+    private static final Logger log = LoggerFactory.getLogger(PushNotificationSender.class);
 
     private final FirebaseMessaging firebaseMessaging;
     private final DeviceTokenRepository deviceTokenRepository;
@@ -94,6 +98,7 @@ public class PushNotificationSender implements NotificationChannelSender {
                 .orElseGet(notification::getContent);
 
         StringBuilder sentTokens = new StringBuilder();
+        List<String> fcmErrors = new ArrayList<>();
         for (DeviceToken deviceToken : tokens) {
             Message message = Message.builder()
                     .setToken(deviceToken.getToken())
@@ -120,6 +125,14 @@ public class PushNotificationSender implements NotificationChannelSender {
                 }
                 sentTokens.append(deviceToken.getToken());
             } catch (FirebaseMessagingException ex) {
+                // Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-09-23): trước đây lỗi FCM bị
+                // nuốt im lặng — sự cố THẬT trên staging (1 tài khoản phụ huynh): token active
+                // nhưng mọi push FAILED "sender trả về false", không log/DB nào cho biết mã lỗi FCM.
+                String errorCode = describeErrorCode(ex);
+                log.warn("FCM từ chối device_token id={} (…{}) của user_id={}: {} - {}",
+                        deviceToken.getId(), tokenSuffix(deviceToken.getToken()), recipient.getId(),
+                        errorCode, ex.getMessage());
+                fcmErrors.add("token id=" + deviceToken.getId() + ": " + errorCode + " (" + ex.getMessage() + ")");
                 if (ex.getMessagingErrorCode() == MessagingErrorCode.UNREGISTERED) {
                     deviceToken.setActive(false);
                     deviceTokenRepository.save(deviceToken);
@@ -128,7 +141,10 @@ public class PushNotificationSender implements NotificationChannelSender {
         }
 
         if (sentTokens.length() == 0) {
-            return false;
+            // Mọi token đều bị FCM từ chối -> ném exception (đúng hợp đồng NotificationChannelSender)
+            // để NotificationDeliveryDispatchService ghi mã lỗi FCM vào notification_deliveries
+            // .error_message thay cho câu chung chung "sender trả về false".
+            throw new IllegalStateException("FCM từ chối mọi device token: " + String.join("; ", fcmErrors));
         }
         delivery.setRecipientAddress(truncateToColumnLimit(sentTokens.toString()));
         delivery.setProvider("FCM");
@@ -150,6 +166,22 @@ public class PushNotificationSender implements NotificationChannelSender {
         }
         final String suffix = "...(cat bot)";
         return value.substring(0, maxLength - suffix.length()) + suffix;
+    }
+
+    /** MessagingErrorCode (VD SENDER_ID_MISMATCH) nếu có, không thì ErrorCode chung (VD lỗi mạng/UNAVAILABLE). */
+    private String describeErrorCode(FirebaseMessagingException ex) {
+        if (ex.getMessagingErrorCode() != null) {
+            return ex.getMessagingErrorCode().name();
+        }
+        return ex.getErrorCode() != null ? ex.getErrorCode().name() : "UNKNOWN";
+    }
+
+    /** Chỉ log 8 ký tự cuối của token — đủ đối chiếu với device_tokens, không lộ nguyên token ra log. */
+    private String tokenSuffix(String token) {
+        if (token == null) {
+            return "";
+        }
+        return token.length() <= 8 ? token : token.substring(token.length() - 8);
     }
 
     /** FCM Message.putData() ném NPE nếu value null — title/content vốn NOT NULL nhưng vẫn phòng thủ. */
