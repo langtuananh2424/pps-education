@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { AlertTriangle, Bell, BellRing, CheckCircle2, ChevronDown, Clock, GraduationCap, KeyRound, Lock, LogOut, Menu, MapPin, MapPinCheck, Settings, User } from "lucide-react";
+import { AlertTriangle, ArrowRight, Bell, BellRing, CheckCircle2, ChevronDown, Clock, GraduationCap, KeyRound, Lock, LogOut, Menu, MapPin, MapPinCheck, Settings, User } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useApp } from "@/context/AppContext";
 import { cn } from "@/lib/cn";
@@ -172,14 +172,18 @@ export default function Header() {
       setEnablingPush(false);
     }
   };
-  // Plan link hoá thông báo (2026-09-22): ngoài đánh dấu đã đọc, điều hướng tới đúng màn/bản ghi theo
-  // entityType/notificationType (xem resolveAdminNotificationTarget). Dropdown tự đóng khi bấm vào panel.
-  const handleOpenNotification = (n: NotificationResponse) => {
-    if (!n.readAt) {
-      markNotificationRead(n.id)
-        .then((updated) => setNotifications((prev) => prev.map((x) => (x.id === updated.id ? updated : x))))
-        .catch(() => undefined);
-    }
+  const handleMarkNotificationRead = (n: NotificationResponse) => {
+    if (n.readAt) return;
+    markNotificationRead(n.id)
+      .then((updated) => setNotifications((prev) => prev.map((x) => (x.id === updated.id ? updated : x))))
+      .catch(() => undefined);
+  };
+  // Plan link hoá thông báo (2026-09-22, tách nút "Xem chi tiết" riêng 2026-09-23 theo yêu cầu người
+  // dùng): bấm cả dòng CHỈ đánh dấu đã đọc; chỉ bấm nút "Xem chi tiết" (chỉ hiện khi có
+  // resolveAdminNotificationTarget) mới điều hướng tới đúng màn/bản ghi theo entityType/notificationType.
+  const handleViewNotificationDetail = (n: NotificationResponse, e: React.MouseEvent) => {
+    e.stopPropagation();
+    handleMarkNotificationRead(n);
     const target = resolveAdminNotificationTarget(n);
     if (!target) return;
     if (target.kind === "studentProfile") {
@@ -559,33 +563,50 @@ export default function Header() {
             <p className="text-xs text-slate-400 italic p-4">{t("header.notifications.empty")}</p>
           ) : (
             <div className="divide-y divide-slate-100">
-              {notifications.map((notif) => (
-                <button
-                  key={notif.id}
-                  type="button"
-                  onClick={() => handleOpenNotification(notif)}
-                  className={`w-full text-left p-3.5 hover:bg-slate-50/60 transition-colors ${!notif.readAt ? "bg-brand-orange/5" : ""}`}
-                >
-                  <div className="flex items-start gap-2.5">
-                    <div
-                      className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${
-                        !notif.readAt
-                          ? notif.priority === "URGENT" || notif.priority === "HIGH"
-                            ? "bg-brand-red"
-                            : "bg-brand-orange"
-                          : "bg-transparent"
-                      }`}
-                    />
-                    <div className="min-w-0">
-                      <p className={`text-xs leading-normal ${!notif.readAt ? "font-bold text-slate-800" : "font-medium text-slate-500"}`}>{notif.title}</p>
-                      <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-2">{notif.content}</p>
-                      <span className="text-[10px] text-slate-400 block mt-1 font-mono">
-                        {formatDateTime(notif.createdAt, i18n.language)}
-                      </span>
+              {notifications.map((notif) => {
+                const hasDetailTarget = resolveAdminNotificationTarget(notif) != null;
+                return (
+                  <div
+                    key={notif.id}
+                    onClick={() => handleMarkNotificationRead(notif)}
+                    className={`w-full text-left p-3.5 hover:bg-slate-50/60 transition-colors cursor-pointer ${!notif.readAt ? "bg-brand-orange/5" : ""}`}
+                  >
+                    <div className="flex items-start gap-2.5">
+                      <div
+                        className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${
+                          !notif.readAt
+                            ? notif.priority === "URGENT" || notif.priority === "HIGH"
+                              ? "bg-brand-red"
+                              : "bg-brand-orange"
+                            : "bg-transparent"
+                        }`}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className={`text-xs leading-normal ${!notif.readAt ? "font-bold text-slate-800" : "font-medium text-slate-500"}`}>{notif.title}</p>
+                        <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-2">{notif.content}</p>
+                        <div className="flex items-center justify-between gap-2 mt-1">
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            {formatDateTime(notif.createdAt, i18n.language)}
+                          </span>
+                          {/* Chỉ hiện nút "Xem chi tiết" khi thông báo có đích điều hướng — đã xác nhận
+                              với người dùng 2026-09-23: bấm cả dòng chỉ đánh dấu đã đọc, bấm nút này mới
+                              điều hướng, tránh nhầm giữa 2 loại thông báo có/không có link. */}
+                          {hasDetailTarget && (
+                            <button
+                              type="button"
+                              onClick={(e) => handleViewNotificationDetail(notif, e)}
+                              className="shrink-0 flex items-center gap-1 text-[10px] font-bold text-brand-red hover:underline"
+                            >
+                              {t("header.notifications.viewDetail")}
+                              <ArrowRight className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </button>
-              ))}
+                );
+              })}
             </div>
           )}
         </Dropdown>

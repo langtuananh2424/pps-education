@@ -117,7 +117,8 @@
     "notifications": {
       "title": "Thông báo vận hành",
       "newCount": "{{count}} Mới",
-      "empty": "Chưa có thông báo nào."
+      "empty": "Chưa có thông báo nào.",
+      "viewDetail": "Xem chi tiết"
     },
     "enablePush": {
       "button": "Bật thông báo",
