@@ -14,6 +14,10 @@
 # local binh thuong (chi bo qua buoc cloud + log canh bao) - thieu cau hinh
 # cloud khong bao gio duoc lam mat luon backup local.
 set -uo pipefail
+# Chay tay bang "sudo -u deploy" tu /home/ppsadmin (deploy khong vao duoc) ->
+# find bao "Failed to restore initial working directory". Script khong nhan
+# duong dan tuong doi nao nen doi sang / cho an toan.
+cd /
 
 BACKUP_ROOT=${BACKUP_ROOT:-/opt/pps-education/backups}
 # ppsvn = website cong khai ppsvietnam.edu.vn (repo ppsvn-web, /opt/pps-center,
