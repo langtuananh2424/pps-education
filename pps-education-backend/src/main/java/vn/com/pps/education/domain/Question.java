@@ -111,7 +111,7 @@ public class Question {
     private User createdBy;
 
     /**
-     * Key Grammar (filter 2, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-22, V186) — mảng
+     * Key Grammar (filter 2, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-22, V193) — mảng
      * mã cấu trúc (VD {@code ["pres_perf","past_perf"]}), 1-3 phần tử, khớp từ điển đúng Khối/track của
      * {@code questionBank.curriculum} (xem {@link vn.com.pps.education.service.KeyGrammarDictionaryLoader}).
      * Chỉ có ý nghĩa khi {@code questionType=ESSAY} — validate ở QuestionBankService, không CHECK

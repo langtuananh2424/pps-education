@@ -260,7 +260,7 @@ public class QuestionBankService {
     }
 
     /**
-     * Key Grammar (filter 2, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-22, V186) — validate
+     * Key Grammar (filter 2, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-22, V193) — validate
      * 1-3 mã, khớp từ điển đúng Khối/track của {@code questionBank.curriculum}, và chỉ chấp nhận khi
      * {@code questionType=ESSAY}. Câu hỏi không phải ESSAY luôn bị ép về {@code null} (kể cả khi request
      * gửi kèm ids) — Key Grammar không có ý nghĩa ngoài câu tự luận.
