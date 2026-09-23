@@ -8,7 +8,16 @@ interface DropdownProps {
   panelClassName?: string;
 }
 
-/** Popover chuẩn cho role-switcher, notification, profile menu ở Header. */
+/**
+ * Popover chuẩn cho role-switcher, notification, profile menu ở Header.
+ *
+ * Responsive dưới sm/mobile (bổ sung ngoài thiết kế gốc, xác nhận với người dùng 2026-09-23): panel
+ * "absolute" neo cứng theo trigger (VD notification "w-80" neo right-0) dễ tràn ra ngoài màn hình hẹp
+ * (<360px) hoặc bị cắt sát mép phải, gây scroll ngang cả trang -- đổi sang "fixed" căn theo 2 mép
+ * trái/phải viewport (cách Header 1 khoảng, giống notification center của app mobile) khi dưới sm.
+ * Từ sm trở lên GIỮ NGUYÊN hành vi cũ (absolute, neo theo trigger, rộng theo panelClassName) — không
+ * đổi giao diện chính trên desktop.
+ */
 export default function Dropdown({ trigger, children, align = "right", panelClassName }: DropdownProps) {
   const [open, setOpen] = useState(false);
 
@@ -20,8 +29,9 @@ export default function Dropdown({ trigger, children, align = "right", panelClas
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div
             className={cn(
-              "absolute mt-2 bg-white rounded-lg shadow-xl border border-slate-200 z-50 animate-in fade-in slide-in-from-top-2 duration-150 overflow-hidden",
-              align === "right" ? "right-0" : "left-0",
+              "fixed left-3 right-3 top-[72px] sm:absolute sm:inset-x-auto sm:left-auto sm:right-auto sm:top-auto sm:mt-2",
+              "bg-white rounded-2xl sm:rounded-lg shadow-xl border border-slate-200 z-50 animate-in fade-in slide-in-from-top-3 sm:slide-in-from-top-2 duration-150 overflow-hidden",
+              align === "right" ? "sm:right-0" : "sm:left-0",
               panelClassName
             )}
             onClick={() => setOpen(false)}

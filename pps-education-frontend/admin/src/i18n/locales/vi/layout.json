@@ -119,6 +119,12 @@
       "newCount": "{{count}} Mới",
       "empty": "Chưa có thông báo nào."
     },
+    "enablePush": {
+      "button": "Bật thông báo",
+      "enabling": "Đang bật...",
+      "ariaLabel": "Bật thông báo đẩy trên thiết bị này",
+      "failedHint": "Chưa bật được thông báo đẩy — vui lòng kiểm tra quyền thông báo của trình duyệt rồi thử lại."
+    },
     "profileMenu": {
       "fallbackName": "Cán bộ PPS",
       "profile": "Hồ sơ cá nhân",

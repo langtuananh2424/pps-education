@@ -119,6 +119,12 @@
       "newCount": "{{count}} new",
       "empty": "No notifications yet."
     },
+    "enablePush": {
+      "button": "Enable notifications",
+      "enabling": "Enabling...",
+      "ariaLabel": "Enable push notifications on this device",
+      "failedHint": "Couldn't enable push notifications — please check your browser's notification permission and try again."
+    },
     "profileMenu": {
       "fallbackName": "PPS Staff",
       "profile": "My profile",
