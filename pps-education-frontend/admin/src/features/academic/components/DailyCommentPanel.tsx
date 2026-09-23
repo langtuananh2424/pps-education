@@ -441,8 +441,19 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
    * UC-21 áp cùng nguyên tắc "đến giờ học mới nhận xét" như UC-15 (Điểm danh) — chặn chọn buổi tương lai.
    * Đẩy buổi CHƯA nhận xét đủ (NONE/PARTIAL) lên trước buổi đã DONE — sort ổn định (giữ nguyên thứ tự
    * theo ngày trong từng nhóm), đỡ Giáo viên phải dò cả danh sách dài mới thấy buổi còn thiếu (2026-07-30).
+   *
+   * Bổ sung 2026-09-23 (đã xác nhận với người dùng, sửa bug thật gặp qua test tay — mirror rào chắn đã
+   * thêm ở auto-fill "buổi hôm nay" phía trên) — chỉ hiện buổi mà chính actor đang đăng nhập là GV
+   * chính/phụ/CM: dropdown này TRƯỚC ĐÓ liệt kê MỌI buổi của lớp (kể cả buổi do GV khác dạy/đã gửi
+   * duyệt), 1 GV có thể tự bấm chọn sang xem/nhầm tưởng là buổi của mình. KHÔNG lọc `sessions` gốc (vẫn
+   * cần đủ để tính hasUpcomingSession/khớp deep-link) — chỉ lọc danh sách hiện trong dropdown. Component
+   * này luôn chạy ở vai trò "Giáo viên viết nhận xét" (kể cả khi tài khoản đó cũng có role Quản lý điểm
+   * trường — xem CommentsPage.tsx#showWriteTab), nên lọc vô điều kiện, không cần tách theo permission;
+   * màn hình DUYỆT của Quản lý điểm trường dùng hẳn component khác (CommentApprovalByClass.tsx) không
+   * bị ảnh hưởng.
    */
   const selectableSessions = sessions
+    .filter((s) => currentUser != null && (s.primaryTeacherId === currentUser.id || s.assistantTeacherId === currentUser.id || s.cmTeacherId === currentUser.id))
     .filter((s) => new Date(`${s.sessionDate}T${s.startTime}`) <= new Date())
     .map((s, index) => ({ s, index, rank: getSessionCommentStatus(s.id) === "DONE" ? 1 : 0 }))
     .sort((a, b) => a.rank - b.rank || a.index - b.index)
