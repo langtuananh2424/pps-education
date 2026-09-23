@@ -109,4 +109,23 @@ public class Question {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "created_by", nullable = false)
     private User createdBy;
+
+    /**
+     * Key Grammar (filter 2, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-22, V186) — mảng
+     * mã cấu trúc (VD {@code ["pres_perf","past_perf"]}), 1-3 phần tử, khớp từ điển đúng Khối/track của
+     * {@code questionBank.curriculum} (xem {@link vn.com.pps.education.service.KeyGrammarDictionaryLoader}).
+     * Chỉ có ý nghĩa khi {@code questionType=ESSAY} — validate ở QuestionBankService, không CHECK
+     * constraint DB. {@code null} = không kiểm Key Grammar cho câu hỏi này (mặc định).
+     *
+     * Gắn vào CÂU HỎI (không phải Bài/Exercise) — set 1 lần trong modal "Sửa câu hỏi", áp dụng cho MỌI
+     * lượt giao Bài chứa câu hỏi này sau này (giao nhanh lẫn qua Nhận xét học viên UC-21), đã xác nhận
+     * với người dùng 2026-09-22 sau khi xem qua UI thật: Key Grammar đi cùng đúng đề bài tự luận cụ thể,
+     * không phải cấu hình chung của cả Bài. An toàn khi 1 câu hỏi được TÁI SỬ DỤNG ở nhiều Bài khác nhau
+     * (qua {@code exercise_questions}) — {@code questionBank.curriculum} cố định 1 Khối/track duy nhất
+     * cho mọi Bài dùng lại câu hỏi này (xem ExerciseService#addQuestion, ràng buộc questionBank khớp),
+     * nên từ điển Key Grammar tra ra luôn đúng bất kể Bài nào đang dùng.
+     */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "key_grammar", columnDefinition = "jsonb")
+    private List<String> keyGrammar;
 }

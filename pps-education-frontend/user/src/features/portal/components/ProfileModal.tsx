@@ -193,7 +193,7 @@ export default function ProfileModal({
             <button
               type="button"
               onClick={() => setChangePasswordOpen(true)}
-              className="text-[10px] font-extrabold text-teal-deep hover:underline flex items-center gap-1"
+              className="text-[13px] font-extrabold text-teal-deep hover:underline flex items-center gap-1"
             >
               <KeyRound size={11} /> {t("changePassword.openButton")}
             </button>
@@ -253,7 +253,7 @@ export default function ProfileModal({
                 <Users size={14} /> {t("profile.familyContact")}
               </h4>
               {isParent && !editingParent && (
-                <button onClick={() => setEditingParent(true)} className="text-[10px] font-extrabold text-teal-deep hover:underline">
+                <button onClick={() => setEditingParent(true)} className="text-[13px] font-extrabold text-teal-deep hover:underline">
                   {t("profile.editMyProfile")}
                 </button>
               )}

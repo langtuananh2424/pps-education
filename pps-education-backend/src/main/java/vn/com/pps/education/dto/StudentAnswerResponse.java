@@ -1,6 +1,7 @@
 package vn.com.pps.education.dto;
 
 import vn.com.pps.education.common.CriteriaScoreItem;
+import vn.com.pps.education.common.KeyGrammarOutcome;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -51,6 +52,12 @@ public record StudentAnswerResponse(
         String gradingMarkedAnswer,
         /** V182 — % từng tiêu chí rubric v3, tách riêng khỏi gradingFeedback. NULL cùng điều kiện trên. */
         List<CriteriaScoreItem> gradingCriteriaScores,
+        /**
+         * V196 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-22) — kết quả Key Grammar (filter
+         * 2). NULL khi Bài không gắn Key Grammar hoặc chưa chấm bằng rubric "v3". FE dùng
+         * {@code redoRequired} để hiện dải cảnh báo "cần viết lại bài".
+         */
+        KeyGrammarOutcome gradingKeyGrammar,
         /**
          * V177 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-15) — UC-24/UC-27 A2: câu này
          * được mang nguyên nội dung từ lượt làm TRƯỚC (đã đúng) sang lượt "Làm lại" hiện tại — FE phải

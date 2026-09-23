@@ -2,6 +2,8 @@ package vn.com.pps.education.service;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.com.pps.education.common.KeyGrammarDictionary;
+import vn.com.pps.education.common.WritingV3Grade;
 import vn.com.pps.education.domain.Curriculum;
 import vn.com.pps.education.domain.CurriculumSubject;
 import vn.com.pps.education.domain.Question;
@@ -11,6 +13,7 @@ import vn.com.pps.education.domain.QuestionHistory;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.dto.CreateQuestionBankRequest;
 import vn.com.pps.education.dto.CreateQuestionRequest;
+import vn.com.pps.education.dto.KeyGrammarStructureResponse;
 import vn.com.pps.education.dto.QuestionBankResponse;
 import vn.com.pps.education.dto.QuestionChoiceRequest;
 import vn.com.pps.education.dto.QuestionChoiceResponse;
@@ -63,6 +66,7 @@ public class QuestionBankService {
     private final CurriculumRepository curriculumRepository;
     private final CurriculumSubjectRepository curriculumSubjectRepository;
     private final UserRepository userRepository;
+    private final KeyGrammarDictionaryLoader keyGrammarDictionaryLoader;
 
     public QuestionBankService(QuestionBankRepository questionBankRepository,
                                 ExamRepository examRepository,
@@ -72,7 +76,8 @@ public class QuestionBankService {
                                 StudentAnswerRepository studentAnswerRepository,
                                 CurriculumRepository curriculumRepository,
                                 CurriculumSubjectRepository curriculumSubjectRepository,
-                                UserRepository userRepository) {
+                                UserRepository userRepository,
+                                KeyGrammarDictionaryLoader keyGrammarDictionaryLoader) {
         this.questionBankRepository = questionBankRepository;
         this.examRepository = examRepository;
         this.questionRepository = questionRepository;
@@ -82,6 +87,7 @@ public class QuestionBankService {
         this.curriculumRepository = curriculumRepository;
         this.curriculumSubjectRepository = curriculumSubjectRepository;
         this.userRepository = userRepository;
+        this.keyGrammarDictionaryLoader = keyGrammarDictionaryLoader;
     }
 
     @Transactional
@@ -242,6 +248,7 @@ public class QuestionBankService {
         if (request.status() != null) {
             question.setStatus(Question.Status.valueOf(request.status()));
         }
+        question.setKeyGrammar(resolveKeyGrammar(question, request.keyGrammarIds()));
         question = questionRepository.save(question);
         if (request.choices() != null) {
             questionChoiceRepository.deleteAll(questionChoiceRepository.findByQuestionIdOrderByDisplayOrder(id));
@@ -250,6 +257,75 @@ public class QuestionBankService {
 
         writeHistory(question, actor, QuestionHistory.Action.UPDATED);
         return toResponse(question);
+    }
+
+    /**
+     * Key Grammar (filter 2, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-22, V186) — validate
+     * 1-3 mã, khớp từ điển đúng Khối/track của {@code questionBank.curriculum}, và chỉ chấp nhận khi
+     * {@code questionType=ESSAY}. Câu hỏi không phải ESSAY luôn bị ép về {@code null} (kể cả khi request
+     * gửi kèm ids) — Key Grammar không có ý nghĩa ngoài câu tự luận.
+     */
+    private List<String> resolveKeyGrammar(Question question, List<String> requestedIds) {
+        if (question.getQuestionType() != Question.QuestionType.ESSAY) {
+            return null;
+        }
+        if (requestedIds == null || requestedIds.isEmpty()) {
+            return null;
+        }
+        if (requestedIds.size() > 3) {
+            throw new IllegalArgumentException("Key Grammar chỉ được chọn tối đa 3 mã cấu trúc.");
+        }
+        KeyGrammarDictionary dictionary = loadKeyGrammarDictionary(question);
+        if (dictionary == null) {
+            throw new IllegalArgumentException(
+                    "Khối/chương trình của câu hỏi này chưa có từ điển Key Grammar (chỉ Khối 6-8 có filter 2).");
+        }
+        for (String reqId : requestedIds) {
+            if (dictionary.find(reqId).isEmpty()) {
+                throw new IllegalArgumentException("Mã Key Grammar không hợp lệ: " + reqId);
+            }
+        }
+        return requestedIds;
+    }
+
+    /**
+     * Key Grammar (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-22) — danh sách mã cấu trúc
+     * khả dụng để hiện dropdown chọn tay ở modal "Sửa câu hỏi" (FE) — rỗng nếu câu hỏi không phải ESSAY
+     * hoặc Khối/chương trình chưa có từ điển (VD Khối 9).
+     */
+    @Transactional(readOnly = true)
+    public List<KeyGrammarStructureResponse> listKeyGrammarOptions(Long questionId, Long actorUserId) {
+        return listKeyGrammarOptionsForResolvedQuestion(questionOrThrow(questionId));
+    }
+
+    /** Primitive dùng chung — caller (VD ExamQuestionService) đã tự verify ownership của câu hỏi. */
+    @Transactional(readOnly = true)
+    List<KeyGrammarStructureResponse> listKeyGrammarOptionsForResolvedQuestion(Question question) {
+        if (question.getQuestionType() != Question.QuestionType.ESSAY) {
+            return List.of();
+        }
+        KeyGrammarDictionary dictionary = loadKeyGrammarDictionary(question);
+        if (dictionary == null) {
+            return List.of();
+        }
+        return dictionary.structures().stream()
+                .map(s -> new KeyGrammarStructureResponse(s.id(), s.name(), s.base()))
+                .toList();
+    }
+
+    private KeyGrammarDictionary loadKeyGrammarDictionary(Question question) {
+        Curriculum curriculum = question.getQuestionBank().getCurriculum();
+        if (curriculum == null) {
+            return null;
+        }
+        WritingV3Grade grade = WritingV3Grade.forGradeTrack(curriculum.getGradeLevel(), curriculum.getTrack());
+        return keyGrammarDictionaryLoader.load(grade);
+    }
+
+    private Question questionOrThrow(Long id) {
+        return questionRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("error.questionBank.questionNotFound",
+                        new Object[]{id}, "Không tìm thấy câu hỏi id=" + id));
     }
 
     @Transactional(readOnly = true)
@@ -378,7 +454,7 @@ public class QuestionBankService {
                 q.getContent(), q.getAudioUrl(), q.getImageUrl(), q.getReferencePassage(), q.getExplanation(),
                 q.getCorrectAnswerText(),
                 q.getDefaultPoints(), q.getTags(), q.getStatus().name(), q.getCreatedBy().getId(), choices,
-                q.getStructuredContent(), q.getGroupKey());
+                q.getStructuredContent(), q.getGroupKey(), q.getKeyGrammar());
     }
 
     private QuestionChoiceResponse toResponse(QuestionChoice c) {

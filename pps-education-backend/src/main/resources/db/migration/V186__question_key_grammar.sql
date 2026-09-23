@@ -1,0 +1,14 @@
+-- Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-22: Key Grammar (filter 2) của gói
+-- key-grammar do người training bàn giao cùng đợt với rubric Writing "v3" (bo-cham-writing-K6-K9).
+--
+-- Gắn vào CÂU HỎI (questions), không phải Bài (exercises) — quyết định đổi sau khi xem qua UI thật, xác
+-- nhận 2026-09-22: Key Grammar đi cùng đúng đề bài tự luận cụ thể (nội dung câu hỏi ESSAY), không phải
+-- cấu hình chung của cả Bài. An toàn khi 1 câu hỏi được tái sử dụng ở nhiều Bài khác nhau — questions
+-- thuộc question_banks, mỗi question_bank chỉ gắn ĐÚNG 1 curriculum_id (1 Khối/track cố định), nên mọi
+-- Bài tái dùng câu hỏi này luôn tra ra cùng 1 từ điển Key Grammar.
+--
+-- key_grammar: mảng mã cấu trúc được giao, VD ["pres_perf","past_perf"] — 1-3 phần tử, phải khớp đúng
+-- các mã trong từ điển đúng Khối/track của questionBank.curriculum (xem KeyGrammarDictionaryLoader).
+-- NULL (mặc định) = không kiểm Key Grammar cho câu hỏi này. Chỉ có ý nghĩa khi question_type=ESSAY —
+-- validate ở QuestionBankService#updateResolvedQuestion, không ràng buộc CHECK ở DB.
+ALTER TABLE questions ADD COLUMN key_grammar JSONB;

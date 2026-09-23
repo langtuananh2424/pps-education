@@ -127,6 +127,33 @@ public class NineRouterAiClient {
 
     private final AiUsageSink usageSink;
 
+    /**
+     * Bổ sung 2026-09-22 (đã xác nhận với người dùng) — cho {@link WritingAiGradingService} (rubric v3 do
+     * người training bàn giao, gói {@code bo-cham-writing-K6-K9}): cần biết {@code finish_reason} để phát
+     * hiện "kết quả dở dang" (model dừng giữa chừng vì hết {@code max_tokens} hoặc lỗi khác STOP) theo đúng
+     * yêu cầu mục 5.3 {@code HUONG_DAN_TICH_HOP.md} — {@link #chat} cũ chỉ trả nội dung, không đủ để kiểm
+     * tra. {@code finishReason} chuẩn hoá chữ thường (VD "stop", "length") theo đúng dạng 9Router trả về
+     * (đã xác nhận bằng gọi thật 2026-09-22), {@code null} nếu response không có field này. {@code usage}
+     * (V192) đi kèm luôn — {@code chatWithFinishReason} và {@code chat} cùng gọi 1 endpoint, không có lý do
+     * đường nào mất số liệu chi phí so với đường kia.
+     */
+    public record ChatResult(String content, String finishReason, AiTokenUsage usage) {
+    }
+
+    /**
+     * Như {@link #chat} nhưng trả kèm {@code finish_reason} — dùng khi caller cần tự phát hiện kết quả dở
+     * dang (hiện chỉ {@link WritingAiGradingService} dùng). Không đổi hành vi của {@link #chat} để không
+     * ảnh hưởng các caller cũ ({@link ReflexWritingGrammarAiGradingService}...).
+     */
+    public ChatResult chatWithFinishReason(String systemPrompt, String userMessage, String model) {
+        String resolvedModel = (model == null || model.isBlank()) ? defaultModel : model;
+        if (resolvedModel == null || resolvedModel.isBlank()) {
+            log.warn("NineRouterAiClient: chưa cấu hình model (app.ai-grading.nine-router-model hoặc tham số model).");
+            return null;
+        }
+        return callWithConcurrencyLimit("chatWithFinishReason", () -> doChatWithMeta(systemPrompt, userMessage, resolvedModel));
+    }
+
     public NineRouterAiClient(ObjectMapper objectMapper,
                                @Value("${app.ai-grading.nine-router-max-concurrent:5}") int maxConcurrentCalls,
                                AiUsageSink usageSink) {
@@ -163,12 +190,27 @@ public class NineRouterAiClient {
     }
 
     private AiTextResponse doChat(String systemPrompt, String userMessage, String resolvedModel) {
+        ChatResult result = doChatWithMeta(systemPrompt, userMessage, resolvedModel);
+        return result == null || result.content() == null ? null : new AiTextResponse(result.content(), result.usage());
+    }
+
+    /**
+     * Bổ sung 2026-09-22 (đã xác nhận với người dùng) — thêm {@code temperature: 0}: MỌI rubric chấm AI
+     * (Writing/Speaking/Reflex) người training bàn giao đều yêu cầu tuyệt đối "temperature 0" ở mục cấu
+     * hình, nhưng trước đây field này chưa hề được gửi — đặt chung ở đây (không phải riêng lẻ từng
+     * service) vì không caller nào từng cần nhiệt độ khác 0. Đọc kèm {@code finish_reason} (field chuẩn
+     * OpenAI-compat, đã xác nhận 9Router trả đúng field này bằng gọi thật 2026-09-22) để
+     * {@link #chatWithFinishReason} dùng được, và {@code usage} (V192) để không mất số liệu chi phí trên
+     * đường gọi này — {@link #doChat} chỉ lấy {@code content}/{@code usage}, bỏ qua {@code finishReason}.
+     */
+    private ChatResult doChatWithMeta(String systemPrompt, String userMessage, String resolvedModel) {
         try {
             ObjectNode payload = objectMapper.createObjectNode();
             payload.put("model", resolvedModel);
             // 9Router mặc định trả SSE stream (nhiều dòng "data: {...}") nếu thiếu field này — HttpClient
             // đọc nguyên body như 1 JSON sẽ lỗi parse. Tắt stream để có 1 JSON response thường.
             payload.put("stream", false);
+            payload.put("temperature", 0);
             ArrayNode messages = payload.putArray("messages");
             if (systemPrompt != null && !systemPrompt.isBlank()) {
                 ObjectNode systemMsg = messages.addObject();
@@ -183,7 +225,7 @@ public class NineRouterAiClient {
                     .uri(URI.create(baseUrl + "/chat/completions"))
                     .header("Authorization", "Bearer " + apiKey)
                     .header("content-type", "application/json")
-                    .timeout(Duration.ofSeconds(60))
+                    .timeout(Duration.ofSeconds(90))
                     .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(payload)))
                     .build();
             long startedAtMillis = System.currentTimeMillis();
@@ -195,7 +237,8 @@ public class NineRouterAiClient {
             JsonNode json = objectMapper.readTree(response.body());
             AiTokenUsage usage = logUsage("chat", resolvedModel, false, json, System.currentTimeMillis() - startedAtMillis);
             String content = json.path("choices").path(0).path("message").path("content").asText(null);
-            return content == null ? null : new AiTextResponse(content, usage);
+            String finishReason = json.path("choices").path(0).path("finish_reason").asText(null);
+            return new ChatResult(content, finishReason, usage);
         } catch (IOException | InterruptedException e) {
             if (e instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
