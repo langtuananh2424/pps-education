@@ -207,3 +207,136 @@ export async function findUsableClass(request: APIRequestContext, sysadminToken:
   }
   throw new Error("Không tìm thấy lớp demo nào IN_PROGRESS có sẵn buổi học + bộ tiêu chí điểm — cần seed thêm dữ liệu demo trước khi chạy suite này.");
 }
+
+/**
+ * Buổi học gần nhất (không CANCELLED) của lớp — dùng cho luồng nhận xét (StudentComment chỉ tạo/sửa
+ * được trong vòng 7 ngày kể từ ngày buổi học, xem StudentCommentService) khác với buổi dùng cho điểm
+ * danh/điểm (không giới hạn ngày) nên tách hàm riêng, không dùng chung classSessionId của findUsableClass.
+ */
+export async function findRecentClassSession(request: APIRequestContext, sysadminToken: string, classId: number) {
+  const sessions = (await getJson(request, sysadminToken, `/api/classes/${classId}/sessions`)) as Array<{
+    id: number;
+    status: string;
+    sessionDate: string;
+  }>;
+  const usable = sessions
+    .filter((s) => s.status !== "CANCELLED")
+    .sort((a, b) => (a.sessionDate < b.sessionDate ? 1 : -1))[0];
+  if (!usable) throw new Error(`Lớp id=${classId} không có buổi học nào (không CANCELLED) để tạo nhận xét test.`);
+  return usable;
+}
+
+/** Nhập điểm → submit → TỪ CHỐI (khác enterAndPublishGrade ở action REJECT) — notification GRADE_REJECTED bắn cho người nhập điểm. */
+export async function enterAndRejectGrade(
+  request: APIRequestContext,
+  enterAsToken: string,
+  rejectAsToken: string,
+  classId: number,
+  gradeEvaluationComponentId: number,
+  studentId: number,
+  score: number,
+  rejectReason: string
+) {
+  const entry = await postJson(request, enterAsToken, `/api/classes/${classId}/grades/components/${gradeEvaluationComponentId}`, {
+    studentId,
+    score
+  });
+  await postJson(request, enterAsToken, "/api/grades/submit", { gradeEntryIds: [entry.id] });
+  await postJson(request, rejectAsToken, "/api/grades/decision", {
+    action: "REJECT",
+    gradeEntryIds: [entry.id],
+    rejectReason
+  });
+  return entry.id as number;
+}
+
+/**
+ * Viết → gửi duyệt → TỪ CHỐI 1 nhận xét (COMMENT_REJECTED) — notification bắn cho Giáo viên đã viết
+ * (teacherToken). Phải điền "lesson-content" cho buổi trước khi gửi duyệt (ràng buộc nghiệp vụ —
+ * "Buổi học này chưa điền bài học hôm nay").
+ */
+export async function writeSubmitAndRejectComment(
+  request: APIRequestContext,
+  teacherToken: string,
+  approverToken: string,
+  classId: number,
+  classSessionId: number,
+  sessionDate: string,
+  studentId: number,
+  content: string,
+  rejectReason: string
+) {
+  await request.put(`${BACKEND_URL}/api/class-sessions/${classSessionId}/comments/lesson-content`, {
+    headers: authHeaders(teacherToken),
+    data: { lessonContent: "E2E test lesson" }
+  });
+  const comment = await postJson(request, teacherToken, `/api/classes/${classId}/comments`, {
+    studentId,
+    commentDate: sessionDate,
+    commentType: "DAILY",
+    content,
+    classSessionId
+  });
+  await postJson(request, teacherToken, `/api/classes/${classId}/comments/submit`, { commentIds: [comment.id] });
+  await postJson(request, approverToken, "/api/comments/decision", {
+    commentIds: [comment.id],
+    decision: "REJECTED",
+    comment: rejectReason
+  });
+  return comment.id as number;
+}
+
+/**
+ * Viết (kèm attitude WEAK/AVERAGE) → gửi duyệt → DUYỆT 1 nhận xét (STUDENT_ATTITUDE_ALERT bắn cho
+ * Phụ huynh khi duyệt — xem StudentAttitudeAlertTrackingService, chỉ trigger lúc APPROVE).
+ */
+export async function writeSubmitAndApproveAttitudeComment(
+  request: APIRequestContext,
+  teacherToken: string,
+  approverToken: string,
+  classId: number,
+  classSessionId: number,
+  sessionDate: string,
+  studentId: number,
+  content: string
+) {
+  await request.put(`${BACKEND_URL}/api/class-sessions/${classSessionId}/comments/lesson-content`, {
+    headers: authHeaders(teacherToken),
+    data: { lessonContent: "E2E test lesson" }
+  });
+  const comment = await postJson(request, teacherToken, `/api/classes/${classId}/comments`, {
+    studentId,
+    commentDate: sessionDate,
+    commentType: "DAILY",
+    content,
+    classSessionId,
+    attitude: "WEAK"
+  });
+  await postJson(request, teacherToken, `/api/classes/${classId}/comments/submit`, { commentIds: [comment.id] });
+  await postJson(request, approverToken, "/api/comments/decision", { commentIds: [comment.id], decision: "APPROVED" });
+  return comment.id as number;
+}
+
+/** Lấy 1 studentId ACTIVE bất kỳ đã ghi danh sẵn trong lớp — dùng cho test không cần "đúng con Phụ huynh nào", chỉ cần 1 học sinh hợp lệ trong lớp. */
+export async function pickEnrolledStudentId(request: APIRequestContext, sysadminToken: string, classId: number): Promise<number> {
+  const enrollments = (await getJson(request, sysadminToken, `/api/classes/${classId}/enrollments`)) as Array<{
+    studentId: number;
+    status: string;
+  }>;
+  const active = enrollments.find((e) => e.status === "ACTIVE");
+  if (!active) throw new Error(`Lớp id=${classId} không có học sinh ACTIVE nào đã ghi danh.`);
+  return active.studentId;
+}
+
+/** Tạo 1 học sinh mới (không kèm phụ huynh) + ghi danh vào lớp — dùng cho test không cần Phụ huynh, chỉ cần 1 học sinh CHƯA có điểm/nhận xét nào (tránh đụng dữ liệu OFFICIAL có sẵn từ lượt seed/chạy trước). */
+export async function createAndEnrollStudent(request: APIRequestContext, sysadminToken: string, classId: number): Promise<number> {
+  const ts = Date.now();
+  const student = await postJson(request, sysadminToken, "/api/students", {
+    studentCode: `E2E-S-${ts}`,
+    dateOfBirth: "2013-05-01",
+    enrollmentDate: "2026-09-23",
+    newAccount: { username: `e2e_stu_${ts}`, email: `e2e_stu_${ts}@pps.edu.vn`, fullName: `E2E Student ${ts}`, password: "E2eTest@123456" }
+  });
+  await postJson(request, sysadminToken, `/api/classes/${classId}/enrollments`, { studentId: student.id, enrolledDate: "2026-09-23" });
+  return student.id as number;
+}

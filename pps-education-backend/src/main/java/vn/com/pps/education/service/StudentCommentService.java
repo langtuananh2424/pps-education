@@ -2317,6 +2317,10 @@ public class StudentCommentService {
         if (comment.getRejectionReason() != null && !comment.getRejectionReason().isBlank()) {
             metadata.put("reason", comment.getRejectionReason());
         }
+        // Khoá số để Admin đổi đúng lớp (AppContext.selectedClassId) khi mở "Viết nhận xét" từ thông
+        // báo (Đợt 2, Plan link hoá thông báo, 2026-09-23).
+        metadata.put("studentId", comment.getStudent().getId());
+        metadata.put("classId", comment.getSchoolClass().getId());
         notificationService.notify(comment.getTeacher().getId(), Notification.NotificationType.COMMENT_REJECTED, title, content,
                 metadata, "STUDENT_COMMENT", comment.getId(), Notification.Priority.NORMAL, null);
     }

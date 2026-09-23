@@ -3,9 +3,11 @@ import {
   BACKEND_URL,
   createParentWithTwoChildren,
   enterAndPublishGrade,
+  findRecentClassSession,
   findUsableClass,
   login,
-  markAndSubmitAbsence
+  markAndSubmitAbsence,
+  writeSubmitAndApproveAttitudeComment
 } from "./api";
 
 /**
@@ -88,5 +90,43 @@ test.describe("Đợt 1 — Portal Phụ huynh: bấm thông báo đổi đúng 
 
     await expect(page.locator("button:has(svg.lucide-users)").first()).toContainText(fixture.studentAName, { timeout: 10_000 });
     await expect(page.locator("button", { hasText: "Khảo thí & Điểm số" })).toHaveClass(/bg-teal/);
+  });
+});
+
+test.describe("Đợt 2 — Portal Phụ huynh: bấm thông báo đổi đúng con + đúng buổi", () => {
+  test("STUDENT_ATTITUDE_ALERT — đang xem con A, bấm thông báo thái độ của con B → đổi đúng con + mở đúng buổi ở tab Quá trình học tập", async ({
+    page,
+    request
+  }) => {
+    const sysadminToken = await login(request, "sysadmin");
+    const teacherToken = await login(request, "teacher");
+    const smToken = await login(request, "sitemanager");
+    const usable = await findUsableClass(request, sysadminToken);
+    const fixture = await createParentWithTwoChildren(request, sysadminToken, usable.classId);
+    const session = await findRecentClassSession(request, sysadminToken, usable.classId);
+
+    const commentContent = `E2E attitude comment ${Date.now()}`;
+    // Duyệt (không phải chỉ gửi) mới bắn STUDENT_ATTITUDE_ALERT — xem StudentAttitudeAlertTrackingService,
+    // chỉ trigger lúc StudentCommentService gọi evaluateAndNotify() trong luồng decideComments APPROVED.
+    await writeSubmitAndApproveAttitudeComment(
+      request,
+      teacherToken,
+      smToken,
+      usable.classId,
+      session.id,
+      session.sessionDate,
+      fixture.studentBId,
+      commentContent
+    );
+
+    await loginPortal(page, fixture.parentUsername, fixture.parentPassword);
+    await selectChild(page, fixture.studentAName);
+
+    await openNotification(page, fixture.studentBName);
+
+    await expect(page.locator("button:has(svg.lucide-users)").first()).toContainText(fixture.studentBName, { timeout: 10_000 });
+    await expect(page.locator("button", { hasText: "Quá trình học tập" })).toHaveClass(/bg-teal/);
+    // selectedSessionId được set đúng buổi → bảng chỉ còn hiện đúng 1 dòng, chứa nội dung nhận xét vừa viết.
+    await expect(page.getByText(`"${commentContent}"`)).toBeVisible({ timeout: 10_000 });
   });
 });

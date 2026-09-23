@@ -329,8 +329,14 @@ public class NotificationService {
                      HOMEWORK_MISS_PARENT_MEETING_INVITE, HOMEWORK_MISS_REMINDER_NON_CONSECUTIVE ->
                         new NavigationHints(n.getEntityId(), asLong(m.get("classId")),
                                 asLong(m.get("exerciseAssignmentId")), asLong(m.get("reviewVideoAssignmentId")));
+                // Cảnh báo thái độ học tập leo thang (Đợt 2, Plan link hoá thông báo, 2026-09-23) —
+                // theo streak nhiều buổi, không có 1 StudentComment cụ thể để trỏ tới, chỉ cần lớp.
+                case STUDENT_ATTITUDE_ESCALATION -> new NavigationHints(n.getEntityId(), asLong(m.get("classId")), null, null);
                 default -> NavigationHints.NONE;
             };
+            // Nhận xét bị từ chối (Giáo viên, admin) / cảnh báo thái độ 1 buổi đơn lẻ (Phụ huynh, Portal) —
+            // cùng entityType STUDENT_COMMENT, entityId = StudentComment.id (Đợt 2, 2026-09-23).
+            case "STUDENT_COMMENT" -> new NavigationHints(asLong(m.get("studentId")), asLong(m.get("classId")), null, null);
             default -> NavigationHints.NONE;
         };
     }
