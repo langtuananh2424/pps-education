@@ -76,6 +76,10 @@ export default function PortalPage() {
   const [pendingExerciseAssignmentId, setPendingExerciseAssignmentId] = useState<number | null>(null);
   const [pendingReviewVideoAssignmentId, setPendingReviewVideoAssignmentId] = useState<number | null>(null);
   const [pendingHighlightCommentId, setPendingHighlightCommentId] = useState<number | null>(null);
+  // Đợt 2 (Plan link hoá thông báo, 2026-09-23) — STUDENT_ATTITUDE_ALERT nhảy thẳng vào tab "Quá trình
+  // học tập" + mở đúng buổi (DailyLearningProgressTab). Tách riêng khỏi pendingHighlightCommentId (dùng
+  // cho ParentHomeworkProgressTab ở tab BTVN) dù cùng là StudentComment.id — khác component đích.
+  const [pendingAttitudeCommentId, setPendingAttitudeCommentId] = useState<number | null>(null);
   // Plan link hoá thông báo (2026-09-22): lớp cần chọn theo thông báo vừa bấm. KHÔNG set selectedClassId
   // ngay trong handleNotificationNavigate — effect tải classOptions theo selectedChildId bên dưới sẽ ghi
   // đè bằng lớp "recommended" ngay sau đó (khi đổi con) hoặc classOptions còn chưa có (lần đầu). Giữ ở
@@ -151,6 +155,7 @@ export default function PortalPage() {
     if (target.classId != null) setPendingClassId(target.classId);
     if (target.exerciseAssignmentId != null) setPendingExerciseAssignmentId(target.exerciseAssignmentId);
     if (target.reviewVideoAssignmentId != null) setPendingReviewVideoAssignmentId(target.reviewVideoAssignmentId);
+    if (target.commentId != null) setPendingAttitudeCommentId(target.commentId);
     setActiveTab(target.tab);
   };
 
@@ -428,6 +433,8 @@ export default function PortalPage() {
                         studentCode={selectedChild.studentCode}
                         classId={selectedClassId}
                         parentStudentId={selectedChild.studentId}
+                        highlightCommentId={pendingAttitudeCommentId}
+                        onHighlightHandled={() => setPendingAttitudeCommentId(null)}
                         onOpenGrammarHomework={(commentId) => {
                           setPendingHighlightCommentId(commentId);
                           setActiveTab("homework");

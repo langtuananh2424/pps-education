@@ -8,7 +8,7 @@ import { PUSH_RECEIVED_EVENT } from "@/lib/pushNotifications";
 
 const PAGE_SIZE = 15;
 
-export type NotificationTab = "homework" | "schedule" | "grades" | "billing";
+export type NotificationTab = "homework" | "schedule" | "grades" | "billing" | "learning-progress";
 
 /** Đích chuyển trang khi bấm 1 thông báo — PortalPage nhận rồi tự set activeTab + các state "pending" liên quan. */
 export interface NotificationNavTarget {
@@ -19,6 +19,12 @@ export interface NotificationNavTarget {
   studentId?: number;
   /** Lớp liên quan — PortalPage chọn đúng lớp (sau khi classOptions tải xong) trước khi đổi tab. */
   classId?: number;
+  /**
+   * Đợt 2 (Plan link hoá thông báo, 2026-09-23) — id StudentComment cần mở đúng buổi ở tab "Quá trình
+   * học tập" (STUDENT_ATTITUDE_ALERT). Không dùng entityId chung với exerciseAssignmentId/
+   * reviewVideoAssignmentId vì khác component đích (DailyLearningProgressTab, không phải AssignmentsTab).
+   */
+  commentId?: number;
 }
 
 /** Toạ độ điều hướng chung (studentId/classId) BE đã chọn lọc sẵn trong NotificationResponse — bỏ null. */
@@ -73,9 +79,22 @@ function resolveNotificationTarget(n: NotificationResponse): NotificationNavTarg
           if (n.reviewVideoAssignmentId != null) target.reviewVideoAssignmentId = n.reviewVideoAssignmentId;
           return target;
         }
+        // Đợt 2 (2026-09-23): cảnh báo thái độ học tập leo thang (nhiều buổi liên tục) — không có 1
+        // buổi cụ thể để mở (khác STUDENT_ATTITUDE_ALERT bên dưới), chỉ đổi đúng con/lớp rồi vào tab.
+        case "STUDENT_ATTITUDE_ESCALATION":
+          return baseTarget(n, "learning-progress");
         default:
           return null;
       }
+    // Đợt 2 (2026-09-23): cảnh báo thái độ học tập 1 buổi đơn lẻ — entityId là StudentComment.id, mở
+    // đúng buổi đó ở tab "Quá trình học tập" (DailyLearningProgressTab). Gate thêm theo notificationType
+    // vì entityType này còn dùng cho COMMENT_REJECTED (gửi Giáo viên ở app admin, không map ở Portal).
+    case "STUDENT_COMMENT": {
+      if (n.notificationType !== "STUDENT_ATTITUDE_ALERT") return null;
+      const target = baseTarget(n, "learning-progress");
+      if (n.entityId != null) target.commentId = n.entityId;
+      return target;
+    }
     default:
       return n.notificationType === "INVOICE_DUE" ? { tab: "billing" } : null;
   }

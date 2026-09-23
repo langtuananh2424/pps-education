@@ -60,6 +60,13 @@ export type PushSetupResult =
   | { status: "needs-ios-shortcut" }
   /** detail: giá trị Notification.permission trước/sau + có user activation hay không — xem ghi chú ở app "user". */
   | { status: "permission-denied"; detail?: string }
+  /**
+   * Quyền chưa được cấp và luồng hiện tại KHÔNG có user gesture nên không được phép xin quyền — cần
+   * người dùng bấm nút "Bật thông báo" ở Header (enablePushFromUserGesture). Bổ sung ngoài SDD gốc,
+   * đồng bộ với app "user" 2026-09-23: trước đây admin gộp nhầm case này vào "permission-denied" và
+   * KHÔNG có cách nào để bấm xin lại quyền — luồng tự động im lặng dừng lại vĩnh viễn.
+   */
+  | { status: "needs-user-gesture"; detail?: string }
   | { status: "not-configured" }
   /** Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-09-07) — permission ĐÃ granted nhưng getToken() vẫn trả về rỗng (không throw) — trước đây gộp chung nhầm vào "permission-denied", gây hiểu sai nguyên nhân khi debug qua log. */
   | { status: "token-unavailable" }
@@ -134,7 +141,11 @@ function serviceWorkerUrl(): string {
  */
 function logPushSetupResult(result: PushSetupResult): void {
   const errorMessage =
-    result.status === "error" ? result.message : result.status === "permission-denied" ? result.detail : undefined;
+    result.status === "error"
+      ? result.message
+      : result.status === "permission-denied" || result.status === "needs-user-gesture"
+        ? result.detail
+        : undefined;
   apiRequest("/notifications/push-setup-log", {
     method: "POST",
     body: JSON.stringify({ status: result.status, errorMessage, platform: detectPlatform() })
@@ -166,28 +177,69 @@ export async function setupPushNotifications(): Promise<PushSetupResult> {
   return result;
 }
 
-async function computeSetupPushNotifications(): Promise<PushSetupResult> {
-  try {
-    if (!isConfigured()) return { status: "not-configured" };
-    if (isIosNonStandalone()) return { status: "needs-ios-shortcut" };
+function permissionDeniedResult(permissionBefore: NotificationPermission, permission: NotificationPermission,
+                                 hadUserActivation: boolean | undefined): PushSetupResult {
+  return {
+    status: "permission-denied",
+    detail: `before=${permissionBefore} after=${permission} userActivation=${hadUserActivation ?? "unknown"}`
+  };
+}
 
+function currentUserActivation(): boolean | undefined {
+  return (navigator as Navigator & { userActivation?: { isActive: boolean } }).userActivation?.isActive;
+}
+
+/**
+ * Xin quyền + đăng ký device token NGAY TRONG 1 THAO TÁC CHẠM THẬT của người dùng (nút bấm) — bổ
+ * sung ngoài SDD gốc 2026-09-23, mirror đúng app "user" (xem ghi chú đầy đủ ở đó): Apple bắt buộc
+ * Notification.requestPermission() phải gọi trực tiếp bên trong 1 sự kiện tương tác của người dùng.
+ * Luồng tự động sau login (setupPushNotifications) chỉ ĐỌC quyền, không tự xin — trước đây admin
+ * KHÔNG có đường nào khác để user chủ động bật lại, khác app "user" đã có nút "Bật thông báo".
+ *
+ * ⚠️ Notification.requestPermission() PHẢI là lệnh await ĐẦU TIÊN — mọi await chèn trước nó đều làm
+ * mất user activation trên iOS. Các kiểm tra đồng bộ (isConfigured/isIosNonStandalone) thì an toàn.
+ */
+export async function enablePushFromUserGesture(): Promise<PushSetupResult> {
+  if (!isConfigured()) return { status: "not-configured" };
+  if (isIosNonStandalone()) return { status: "needs-ios-shortcut" };
+
+  const permissionBefore = Notification.permission;
+  const hadUserActivation = currentUserActivation();
+  const permission = permissionBefore === "granted" ? "granted" : await Notification.requestPermission();
+
+  const result =
+    permission !== "granted"
+      ? permissionDeniedResult(permissionBefore, permission, hadUserActivation)
+      : await registerAfterPermissionGranted();
+  logPushSetupResult(result);
+  return result;
+}
+
+async function computeSetupPushNotifications(): Promise<PushSetupResult> {
+  if (!isConfigured()) return { status: "not-configured" };
+  if (isIosNonStandalone()) return { status: "needs-ios-shortcut" };
+
+  /**
+   * CHỈ đọc trạng thái quyền, KHÔNG gọi requestPermission() — bổ sung ngoài SDD gốc 2026-09-07
+   * (xem ghi chú đầy đủ ở app "user"): bằng chứng thực tế trên iOS cho thấy gọi requestPermission()
+   * khi không có user activation trả về "denied" GIẢ dù quyền thật đang là "granted"
+   * (`before=granted after=denied userActivation=false`), làm hỏng cả trạng thái đang đúng.
+   */
+  if (Notification.permission !== "granted") {
+    return {
+      status: "needs-user-gesture",
+      detail: `permission=${Notification.permission} userActivation=${currentUserActivation() ?? "unknown"}`
+    };
+  }
+
+  return registerAfterPermissionGranted();
+}
+
+/** Phần đăng ký thật sự — chỉ chạy khi permission đã chắc chắn "granted" (dùng chung 2 luồng ở trên). */
+async function registerAfterPermissionGranted(): Promise<PushSetupResult> {
+  try {
     const messagingInstance = await getMessagingInstance();
     if (!messagingInstance) return { status: "unsupported" };
-
-    /**
-     * CHỈ đọc trạng thái quyền, KHÔNG gọi requestPermission() — bổ sung ngoài SDD gốc 2026-09-07
-     * (xem ghi chú đầy đủ ở app "user"): bằng chứng thực tế trên iOS cho thấy gọi requestPermission()
-     * khi không có user activation trả về "denied" GIẢ dù quyền thật đang là "granted"
-     * (`before=granted after=denied userActivation=false`), làm hỏng cả trạng thái đang đúng.
-     */
-    if (Notification.permission !== "granted") {
-      return {
-        status: "permission-denied",
-        detail: `permission=${Notification.permission} userActivation=${
-          (navigator as Navigator & { userActivation?: { isActive: boolean } }).userActivation?.isActive ?? "unknown"
-        } (khong goi requestPermission o luong tu dong)`
-      };
-    }
 
     // Đã gỡ bước unregister() registration cũ (2026-09-07) — giả thuyết cũ sai và chính nó gây lỗi
     // "Getting push subscription requires a service worker" cho lệnh getToken chạy ngay sau đó.

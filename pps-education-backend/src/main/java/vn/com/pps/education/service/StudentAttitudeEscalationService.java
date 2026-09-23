@@ -136,6 +136,9 @@ public class StudentAttitudeEscalationService {
         metadata.put("studentName", studentName);
         metadata.put("className", schoolClass.getName());
         metadata.put("streakCount", escalation.getStreakCount());
+        // Khoá số để Portal đổi đúng con/lớp trước khi vào tab "Quá trình học tập" (Đợt 2, Plan link
+        // hoá thông báo) — không có 1 buổi cụ thể để mở (cảnh báo theo streak nhiều buổi), chỉ cần lớp.
+        metadata.put("classId", schoolClass.getId());
 
         for (ParentStudent link : parentStudentRepository.findByStudentId(student.getId())) {
             notificationService.notify(link.getParent().getUser().getId(),

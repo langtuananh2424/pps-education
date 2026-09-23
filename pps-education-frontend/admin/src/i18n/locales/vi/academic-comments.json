@@ -43,7 +43,8 @@
       "EXCUSED": "Có phép",
       "LATE": "Muộn",
       "EARLY_LEAVE": "Về sớm"
-    }
+    },
+    "sessionTeacherName": "GV: {{name}}"
   },
   "approvalByClass": {
     "loading": "Đang tải...",
@@ -53,7 +54,6 @@
     "decidingAll": "Đang duyệt...",
     "pendingBadge": "{{count}} chờ duyệt",
     "sessionLabel": "Buổi {{date}} ({{weekday}})",
-    "sessionTeacherName": "- {{name}}",
     "studentCount": "{{count}} học sinh",
     "lessonContentPrefix": "· Bài học hôm nay: {{content}}",
     "columns": {
@@ -266,6 +266,7 @@
     "homeworkPreviousSpeakingPlaceholder": "VD: Đã thực hiện 85% (kênh Video luôn Online — % tự động sẽ hiện sau khi Gửi)",
     "autoBadge": "Tự động",
     "attendanceLockedHint": "Khóa nhận xét/thái độ",
+    "rejectionReasonHint": "Bị từ chối: {{reason}}",
     "chooseExercisePlaceholder": "-- Chọn đề đã Publish --",
     "attitudePlaceholder": "-- Chưa chọn --",
     "contentPlaceholder": "Viết nhận xét cho học sinh này...",
@@ -367,6 +368,8 @@
     "empty": "Buổi này chưa có lịch sử chỉnh sửa nào.",
     "latestBadge": "Mới nhất",
     "studentsCount": "{{count}} học sinh",
+    "rejectionReasonLabel": "Lý do từ chối: {{value}}",
+    "goToStudentRow": "Sửa ngay",
     "columns": {
       "studentCode": "Mã HV",
       "fullName": "Họ và tên",

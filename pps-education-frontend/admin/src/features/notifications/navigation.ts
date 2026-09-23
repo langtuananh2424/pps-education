@@ -10,10 +10,10 @@ export type AdminNotificationTarget = { kind: "route"; url: string } | { kind: "
 /**
  * Map entityType/notificationType → đích. Chỉ map những loại đã có màn đích thật trong admin app; loại
  * chưa có màn (CLASS_CHECKIN_*_ALERT, SYSTEM_ANNOUNCEMENT hợp đồng đối tác...) cố tình trả null — bấm
- * vào chỉ đánh dấu đã đọc như trước. Đợt 2 (GRADE_REJECTED, COMMENT_REJECTED) chưa đủ dữ liệu BE, để sau.
+ * vào chỉ đánh dấu đã đọc như trước.
  *
- * Trang đích đọc query param (`?feedbackId=`, `?userId=`, `?taskId=`, `?classId=`, `?leaveRequestId=`)
- * lúc mount để mở/cuộn sẵn đúng bản ghi — xem từng page tương ứng.
+ * Trang đích đọc query param (`?feedbackId=`, `?userId=`, `?taskId=`, `?classId=`, `?leaveRequestId=`,
+ * `?sessionId=`, `?studentId=`) lúc mount để mở/cuộn sẵn đúng bản ghi — xem từng page tương ứng.
  */
 export function resolveAdminNotificationTarget(n: NotificationResponse): AdminNotificationTarget | null {
   const id = n.entityId;
@@ -42,6 +42,23 @@ export function resolveAdminNotificationTarget(n: NotificationResponse): AdminNo
       return { kind: "route", url: n.entityType === "SCHOOL_CLASS" && id != null ? `/academic/comments?classId=${id}` : "/academic/comments" };
     case "LEAVE_REQUEST_STATUS":
       return { kind: "route", url: id != null ? `/hrm/leaves?leaveRequestId=${id}` : "/hrm/leaves" };
+    case "GRADE_REJECTED":
+      // n.classId đã được BE promote sẵn (GradeService dùng chung metadata với GRADE_PUBLISHED) —
+      // GradesPage đọc ?classId= để tự chọn đúng lớp (AppContext.selectedClassId) trước khi Giáo viên
+      // vào sửa lại điểm bị từ chối (Đợt 2, Plan link hoá thông báo, 2026-09-23).
+      return { kind: "route", url: n.classId != null ? `/academic/grades?classId=${n.classId}` : "/academic/grades" };
+    case "COMMENT_REJECTED": {
+      // Dùng ?writeClassId= (khác ?classId= của COMMENT_PENDING_APPROVAL, xem case trên) — 2 loại
+      // thông báo cùng đích /academic/comments nhưng khác nghĩa: chờ duyệt (Site Manager, tab "Chờ
+      // duyệt") vs nhận xét bị từ chối (Giáo viên, tab "Viết nhận xét" + AppContext.selectedClassId).
+      // sessionId/studentId (bổ sung 2026-09-23, tiếp) — nhảy thẳng đúng buổi/dòng học sinh thay vì chỉ
+      // dừng ở lớp (xem CommentsPage#deepLinkSessionId + DailyCommentPanel#goToStudentRow).
+      if (n.classId == null) return { kind: "route", url: "/academic/comments" };
+      const params = new URLSearchParams({ writeClassId: String(n.classId) });
+      if (n.classSessionId != null) params.set("sessionId", String(n.classSessionId));
+      if (n.studentId != null) params.set("studentId", String(n.studentId));
+      return { kind: "route", url: `/academic/comments?${params.toString()}` };
+    }
     default:
       return null;
   }

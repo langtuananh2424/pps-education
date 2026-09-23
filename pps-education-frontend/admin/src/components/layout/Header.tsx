@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { AlertTriangle, Bell, CheckCircle2, ChevronDown, Clock, GraduationCap, KeyRound, Lock, LogOut, Menu, MapPin, MapPinCheck, Settings, User } from "lucide-react";
+import { AlertTriangle, ArrowRight, Bell, BellRing, CheckCircle2, ChevronDown, Clock, GraduationCap, KeyRound, Lock, LogOut, Menu, MapPin, MapPinCheck, Settings, User } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useApp } from "@/context/AppContext";
 import { cn } from "@/lib/cn";
@@ -9,7 +9,7 @@ import { useEligibleClasses } from "@/features/academic/hooks/useEligibleClasses
 import { listMyNotifications, markNotificationRead, NotificationResponse } from "@/features/notifications/api";
 import { resolveAdminNotificationTarget } from "@/features/notifications/navigation";
 import { useStudentProfileModal } from "@/features/reports/context/StudentProfileModalContext";
-import { PUSH_RECEIVED_EVENT } from "@/lib/pushNotifications";
+import { enablePushFromUserGesture, PUSH_RECEIVED_EVENT } from "@/lib/pushNotifications";
 import {
   ClassSessionCheckInStatusResponse,
   ClassSessionResponse,
@@ -150,14 +150,40 @@ export default function Header() {
     return () => window.removeEventListener(PUSH_RECEIVED_EVENT, loadNotifications);
   }, []);
   const unreadNotificationCount = notifications.filter((n) => !n.readAt).length;
-  // Plan link hoá thông báo (2026-09-22): ngoài đánh dấu đã đọc, điều hướng tới đúng màn/bản ghi theo
-  // entityType/notificationType (xem resolveAdminNotificationTarget). Dropdown tự đóng khi bấm vào panel.
-  const handleOpenNotification = (n: NotificationResponse) => {
-    if (!n.readAt) {
-      markNotificationRead(n.id)
-        .then((updated) => setNotifications((prev) => prev.map((x) => (x.id === updated.id ? updated : x))))
-        .catch(() => undefined);
+
+  // Nút "Bật thông báo" — bổ sung ngoài SDD gốc 2026-09-23, mirror EnablePushBanner bên app "user".
+  // Luồng tự động (setupPushNotifications ở AppContext) chỉ ĐỌC Notification.permission, không tự
+  // gọi requestPermission() (Apple bắt buộc phải có user gesture) — trước đây admin không có cách
+  // nào khác để chủ động xin lại quyền khi luồng tự động dừng ở "needs-user-gesture"/"permission-denied".
+  const pushSupported = typeof Notification !== "undefined";
+  const [pushPermission, setPushPermission] = useState<NotificationPermission | null>(
+    pushSupported ? Notification.permission : null
+  );
+  const [enablingPush, setEnablingPush] = useState(false);
+  const handleEnablePush = async () => {
+    setEnablingPush(true);
+    try {
+      const result = await enablePushFromUserGesture();
+      setPushPermission(Notification.permission);
+      if (result.status !== "registered") {
+        alertDialog(t("header.enablePush.failedHint"));
+      }
+    } finally {
+      setEnablingPush(false);
     }
+  };
+  const handleMarkNotificationRead = (n: NotificationResponse) => {
+    if (n.readAt) return;
+    markNotificationRead(n.id)
+      .then((updated) => setNotifications((prev) => prev.map((x) => (x.id === updated.id ? updated : x))))
+      .catch(() => undefined);
+  };
+  // Plan link hoá thông báo (2026-09-22, tách nút "Xem chi tiết" riêng 2026-09-23 theo yêu cầu người
+  // dùng): bấm cả dòng CHỈ đánh dấu đã đọc; chỉ bấm nút "Xem chi tiết" (chỉ hiện khi có
+  // resolveAdminNotificationTarget) mới điều hướng tới đúng màn/bản ghi theo entityType/notificationType.
+  const handleViewNotificationDetail = (n: NotificationResponse, e: React.MouseEvent) => {
+    e.stopPropagation();
+    handleMarkNotificationRead(n);
     const target = resolveAdminNotificationTarget(n);
     if (!target) return;
     if (target.kind === "studentProfile") {
@@ -344,7 +370,7 @@ export default function Header() {
           <div className="hidden sm:block">
             <Dropdown
               align="left"
-              panelClassName="w-64 py-1.5 max-h-80 overflow-y-auto"
+              panelClassName="sm:w-64 py-1.5 max-h-80 overflow-y-auto"
               trigger={
                 <button className="flex items-center gap-2 text-xs font-medium px-4 py-2 rounded-full shadow-soft border bg-white border-slate-200/50 hover:bg-slate-50 hover:border-brand-orange/30 text-slate-500 transition-all cursor-pointer">
                   <MapPin className="w-3.5 h-3.5 text-brand-orange shrink-0" />
@@ -385,7 +411,7 @@ export default function Header() {
           <div className="hidden sm:block">
             <Dropdown
               align="left"
-              panelClassName="w-64 py-1.5 max-h-80 overflow-y-auto"
+              panelClassName="sm:w-64 py-1.5 max-h-80 overflow-y-auto"
               trigger={
                 <button className="flex items-center gap-2 text-xs font-medium px-4 py-2 rounded-full shadow-soft border bg-white border-slate-200/50 hover:bg-slate-50 hover:border-brand-orange/30 text-slate-500 transition-all cursor-pointer">
                   <GraduationCap className="w-3.5 h-3.5 text-brand-orange shrink-0" />
@@ -496,8 +522,23 @@ export default function Header() {
 
         <LanguageSwitcher />
 
+        {pushSupported && pushPermission !== "granted" && (
+          <button
+            type="button"
+            onClick={handleEnablePush}
+            disabled={enablingPush}
+            aria-label={t("header.enablePush.ariaLabel")}
+            className="flex items-center gap-1.5 text-xs font-medium px-3 sm:px-3.5 py-2 rounded-full shadow-soft border border-teal-200 bg-teal-50 text-teal-700 hover:bg-teal-100 transition-all cursor-pointer disabled:opacity-50"
+          >
+            <BellRing className="w-3.5 h-3.5 shrink-0" />
+            <span className="hidden sm:inline font-semibold">
+              {enablingPush ? t("header.enablePush.enabling") : t("header.enablePush.button")}
+            </span>
+          </button>
+        )}
+
         <Dropdown
-          panelClassName="w-80 max-h-[420px] overflow-y-auto"
+          panelClassName="max-h-[70vh] sm:max-h-[420px] overflow-y-auto sm:w-80"
           trigger={
             <button className="w-9 h-9 flex items-center justify-center rounded-full text-slate-500 hover:text-slate-800 bg-white border border-slate-200/50 hover:bg-slate-50 transition-colors relative shadow-soft">
               <Bell className="w-4 h-4" />
@@ -522,39 +563,56 @@ export default function Header() {
             <p className="text-xs text-slate-400 italic p-4">{t("header.notifications.empty")}</p>
           ) : (
             <div className="divide-y divide-slate-100">
-              {notifications.map((notif) => (
-                <button
-                  key={notif.id}
-                  type="button"
-                  onClick={() => handleOpenNotification(notif)}
-                  className={`w-full text-left p-3.5 hover:bg-slate-50/60 transition-colors ${!notif.readAt ? "bg-brand-orange/5" : ""}`}
-                >
-                  <div className="flex items-start gap-2.5">
-                    <div
-                      className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${
-                        !notif.readAt
-                          ? notif.priority === "URGENT" || notif.priority === "HIGH"
-                            ? "bg-brand-red"
-                            : "bg-brand-orange"
-                          : "bg-transparent"
-                      }`}
-                    />
-                    <div className="min-w-0">
-                      <p className={`text-xs leading-normal ${!notif.readAt ? "font-bold text-slate-800" : "font-medium text-slate-500"}`}>{notif.title}</p>
-                      <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-2">{notif.content}</p>
-                      <span className="text-[10px] text-slate-400 block mt-1 font-mono">
-                        {formatDateTime(notif.createdAt, i18n.language)}
-                      </span>
+              {notifications.map((notif) => {
+                const hasDetailTarget = resolveAdminNotificationTarget(notif) != null;
+                return (
+                  <div
+                    key={notif.id}
+                    onClick={() => handleMarkNotificationRead(notif)}
+                    className={`w-full text-left p-3.5 hover:bg-slate-50/60 transition-colors cursor-pointer ${!notif.readAt ? "bg-brand-orange/5" : ""}`}
+                  >
+                    <div className="flex items-start gap-2.5">
+                      <div
+                        className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${
+                          !notif.readAt
+                            ? notif.priority === "URGENT" || notif.priority === "HIGH"
+                              ? "bg-brand-red"
+                              : "bg-brand-orange"
+                            : "bg-transparent"
+                        }`}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className={`text-xs leading-normal ${!notif.readAt ? "font-bold text-slate-800" : "font-medium text-slate-500"}`}>{notif.title}</p>
+                        <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-2">{notif.content}</p>
+                        <div className="flex items-center justify-between gap-2 mt-1">
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            {formatDateTime(notif.createdAt, i18n.language)}
+                          </span>
+                          {/* Chỉ hiện nút "Xem chi tiết" khi thông báo có đích điều hướng — đã xác nhận
+                              với người dùng 2026-09-23: bấm cả dòng chỉ đánh dấu đã đọc, bấm nút này mới
+                              điều hướng, tránh nhầm giữa 2 loại thông báo có/không có link. */}
+                          {hasDetailTarget && (
+                            <button
+                              type="button"
+                              onClick={(e) => handleViewNotificationDetail(notif, e)}
+                              className="shrink-0 flex items-center gap-1 text-[10px] font-bold text-brand-red hover:underline"
+                            >
+                              {t("header.notifications.viewDetail")}
+                              <ArrowRight className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </button>
-              ))}
+                );
+              })}
             </div>
           )}
         </Dropdown>
 
         <Dropdown
-          panelClassName="w-56 py-1.5"
+          panelClassName="sm:w-56 py-1.5"
           trigger={
             <button className="flex items-center gap-3 pl-4 pr-2.5 py-2 bg-white border border-slate-200/50 hover:bg-slate-50 rounded-2xl transition-all shadow-soft">
               <div className="hidden md:block text-left leading-tight">
