@@ -34,6 +34,7 @@ RCLONE_REMOTE=gdrive
 RCLONE_REMOTE_PATH="pps-education-backups"
 LOG_FILE="$BACKUP_ROOT/backup.log"
 LOCK_FILE="$BACKUP_ROOT/.backup.lock"
+READER_GROUP=pps-backup
 
 umask 077
 mkdir -p "$BACKUP_ROOT"
@@ -184,6 +185,20 @@ elif [ ! -f "$GPG_PASSPHRASE_FILE" ]; then
   log "BO QUA day len cloud (chua co $GPG_PASSPHRASE_FILE) - CHUA dat du 3-2-1. Xem deploy/README.md muc 11."
 else
   log "BO QUA day len cloud (chua cai rclone hoac chua co remote '${RCLONE_REMOTE}') - CHUA dat du 3-2-1. Xem deploy/README.md muc 11."
+fi
+
+# Cho group READER_GROUP (user chi-doc pps-backup-pull, laptop keo ve qua SFTP
+# trong LAN - xem deploy/README.md) DOC DUOC RIENG thu muc encrypted/. Ban dump
+# chua ma hoa van 700 chi deploy doc duoc. Bo qua neu group chua duoc tao.
+# (deploy phai la thanh vien group nay thi moi chgrp duoc.)
+if getent group "$READER_GROUP" > /dev/null && [ -d "$BACKUP_ROOT/encrypted" ]; then
+  if chgrp "$READER_GROUP" "$BACKUP_ROOT" && chmod 0710 "$BACKUP_ROOT" \
+      && chgrp -R "$READER_GROUP" "$BACKUP_ROOT/encrypted" \
+      && chmod -R g+rX,g-w "$BACKUP_ROOT/encrypted"; then
+    :
+  else
+    log "Canh bao: khong cap duoc quyen doc encrypted/ cho group $READER_GROUP (deploy da thuoc group nay chua?)"
+  fi
 fi
 
 log "Dung luong backup: $(du -sh "$BACKUP_ROOT" | cut -f1), con trong: $(df -Ph "$BACKUP_ROOT" | awk 'NR==2 {print $4}')"

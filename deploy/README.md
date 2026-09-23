@@ -593,6 +593,80 @@ journalctl -u pps-db-backup.service -n 100 --no-pager
 tail -n 50 /opt/pps-education/backups/backup.log
 ```
 
+### Tải backup về laptop qua mạng nội bộ (LAN)
+
+Bản sao ngoài server khi chưa đẩy lên cloud (hoặc thêm 1 bản offline). Laptop
+chỉ kéo **bản đã mã hoá GPG** (`backups/encrypted/`) — mất laptop cũng không lộ
+dữ liệu nếu không có passphrase — qua **user riêng `pps-backup-pull`**: chỉ
+SFTP, chỉ đọc, không shell, không sudo, chỉ đăng nhập bằng SSH key, và chỉ từ
+LAN (ufw mục 1). `backup-db.sh` tự cấp quyền đọc `encrypted/` cho group
+`pps-backup` sau mỗi lần chạy; bản dump chưa mã hoá vẫn chỉ `deploy` đọc được.
+
+**Trên server** (1 lần):
+
+```bash
+sudo groupadd pps-backup
+sudo usermod -aG pps-backup deploy
+sudo adduser --disabled-password --gecos "" --shell /usr/sbin/nologin pps-backup-pull
+sudo usermod -aG pps-backup pps-backup-pull
+
+# Chi SFTP chi doc cho user nay
+sudo tee /etc/ssh/sshd_config.d/60-pps-backup-pull.conf > /dev/null <<'EOF'
+Match User pps-backup-pull
+    ForceCommand internal-sftp -R
+    PasswordAuthentication no
+    AllowTcpForwarding no
+    X11Forwarding no
+    PermitTTY no
+EOF
+sudo sshd -t && sudo systemctl reload ssh
+
+# Kiem tra Match chi ap cho dung user: dong 1 phai ra "forcecommand internal-sftp -R",
+# dong 2 (ppsadmin) phai KHONG in gi - neu in ra thi dung lai, ppsadmin se mat shell
+sudo sshd -T -C user=pps-backup-pull,host=laptop,addr=192.168.100.10 | grep -i forcecommand
+sudo sshd -T -C user=ppsadmin,host=laptop,addr=192.168.100.10 | grep -i forcecommand
+
+# Cap quyen ngay (khong doi toi lan backup ke tiep)
+sudo systemctl start pps-db-backup.service
+```
+
+**Trên laptop Windows** (PowerShell) — tạo key riêng cho việc này:
+
+```powershell
+ssh-keygen -t ed25519 -f $env:USERPROFILE\.ssh\pps_backup_pull -N '""' -C "pps-backup-pull@laptop"
+Get-Content $env:USERPROFILE\.ssh\pps_backup_pull.pub
+```
+
+Dán dòng public key vừa in vào server (thay `<PUBLIC_KEY>`):
+
+```bash
+sudo install -d -m 700 -o pps-backup-pull -g pps-backup-pull /home/pps-backup-pull/.ssh
+echo '<PUBLIC_KEY>' | sudo tee /home/pps-backup-pull/.ssh/authorized_keys > /dev/null
+sudo chown pps-backup-pull:pps-backup-pull /home/pps-backup-pull/.ssh/authorized_keys
+sudo chmod 600 /home/pps-backup-pull/.ssh/authorized_keys
+```
+
+Laptop — kết nối thử lần đầu (gõ `yes` để lưu host key vào `known_hosts`),
+rồi tạo remote rclone `ppsserver` và kéo về:
+
+```powershell
+sftp -i $env:USERPROFILE\.ssh\pps_backup_pull pps-backup-pull@192.168.100.90
+# trong sftp: ls /opt/pps-education/backups/encrypted  -> thay staging/production/ppsvn, roi: bye
+
+rclone config create ppsserver sftp host 192.168.100.90 user pps-backup-pull `
+  key_file $env:USERPROFILE\.ssh\pps_backup_pull known_hosts_file $env:USERPROFILE\.ssh\known_hosts
+
+rclone copy ppsserver:/opt/pps-education/backups/encrypted D:\pps-db-backups --progress
+```
+
+`rclone copy` chỉ tải file mới, không xoá bản cũ trên laptop — chạy lại lệnh
+cuối mỗi lần laptop ở trong mạng trung tâm. Giải mã khi cần (Git Bash, passphrase
+lấy từ password manager):
+
+```bash
+gpg --pinentry-mode loopback -d -o restored.dump production_pps_education_<ts>.dump.gpg
+```
+
 ### Kiểm tra định kỳ
 
 - `systemctl status pps-db-backup.timer` — timer phải `active (waiting)`.
