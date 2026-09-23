@@ -135,8 +135,8 @@ function ExerciseSelectionChecklist({
           {group.exercises.map((ex) => (
             <label key={ex.id} className="flex items-center gap-1.5 px-2 py-1 text-[11px] cursor-pointer hover:bg-slate-50">
               <input type="checkbox" checked={selectedIds.has(ex.id)} disabled={disabled} onChange={() => onToggle(ex.id)} />
-              <span className="flex-1 truncate" title={`${ex.code} — ${ex.title}`}>
-                {ex.code} — {ex.title}
+              <span className="flex-1 truncate" title={ex.title}>
+                {ex.title}
               </span>
             </label>
           ))}

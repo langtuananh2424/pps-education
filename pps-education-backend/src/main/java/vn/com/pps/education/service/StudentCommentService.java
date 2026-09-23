@@ -1989,7 +1989,7 @@ public class StudentCommentService {
         }
         long questionCount = assignments.stream()
                 .mapToLong(a -> exerciseQuestionRepository.countByExerciseId(a.getExercise().getId())).sum();
-        return batch.getExam().getCode() + " - " + batch.getExam().getTitle()
+        return batch.getExam().getTitle()
                 + " (" + skillCategoryLabel(batch.getSkillCategory()) + ", " + assignments.size() + " bài, " + questionCount + " câu)";
     }
 
@@ -2020,7 +2020,7 @@ public class StudentCommentService {
         List<Exercise> sources = exerciseRepository.findByExamIdAndSkillCategoryAndStatus(
                 exam.getId(), skillCategory, Exercise.Status.PUBLISHED);
         long questionCount = sources.stream().mapToLong(e -> exerciseQuestionRepository.countByExerciseId(e.getId())).sum();
-        return exam.getCode() + " - " + exam.getTitle()
+        return exam.getTitle()
                 + " (" + skillCategoryLabel(skillCategory) + ", " + sources.size() + " bài, " + questionCount + " câu)";
     }
 
