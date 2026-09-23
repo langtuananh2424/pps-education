@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { AlertTriangle, ArrowRight, Bell, BellRing, CheckCircle2, ChevronDown, Clock, GraduationCap, KeyRound, Lock, LogOut, Menu, MapPin, MapPinCheck, Settings, User } from "lucide-react";
+import { AlertTriangle, ArrowRight, Bell, CheckCircle2, ChevronDown, Clock, GraduationCap, KeyRound, Lock, LogOut, Menu, MapPin, MapPinCheck, Settings, User } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useApp } from "@/context/AppContext";
 import { cn } from "@/lib/cn";
@@ -9,7 +9,7 @@ import { useEligibleClasses } from "@/features/academic/hooks/useEligibleClasses
 import { listMyNotifications, markNotificationRead, NotificationResponse } from "@/features/notifications/api";
 import { resolveAdminNotificationTarget } from "@/features/notifications/navigation";
 import { useStudentProfileModal } from "@/features/reports/context/StudentProfileModalContext";
-import { enablePushFromUserGesture, PUSH_RECEIVED_EVENT } from "@/lib/pushNotifications";
+import { PUSH_RECEIVED_EVENT } from "@/lib/pushNotifications";
 import {
   ClassSessionCheckInStatusResponse,
   ClassSessionResponse,
@@ -151,27 +151,6 @@ export default function Header() {
   }, []);
   const unreadNotificationCount = notifications.filter((n) => !n.readAt).length;
 
-  // Nút "Bật thông báo" — bổ sung ngoài SDD gốc 2026-09-23, mirror EnablePushBanner bên app "user".
-  // Luồng tự động (setupPushNotifications ở AppContext) chỉ ĐỌC Notification.permission, không tự
-  // gọi requestPermission() (Apple bắt buộc phải có user gesture) — trước đây admin không có cách
-  // nào khác để chủ động xin lại quyền khi luồng tự động dừng ở "needs-user-gesture"/"permission-denied".
-  const pushSupported = typeof Notification !== "undefined";
-  const [pushPermission, setPushPermission] = useState<NotificationPermission | null>(
-    pushSupported ? Notification.permission : null
-  );
-  const [enablingPush, setEnablingPush] = useState(false);
-  const handleEnablePush = async () => {
-    setEnablingPush(true);
-    try {
-      const result = await enablePushFromUserGesture();
-      setPushPermission(Notification.permission);
-      if (result.status !== "registered") {
-        alertDialog(t("header.enablePush.failedHint"));
-      }
-    } finally {
-      setEnablingPush(false);
-    }
-  };
   const handleMarkNotificationRead = (n: NotificationResponse) => {
     if (n.readAt) return;
     markNotificationRead(n.id)
@@ -521,21 +500,6 @@ export default function Header() {
         </div>
 
         <LanguageSwitcher />
-
-        {pushSupported && pushPermission !== "granted" && (
-          <button
-            type="button"
-            onClick={handleEnablePush}
-            disabled={enablingPush}
-            aria-label={t("header.enablePush.ariaLabel")}
-            className="flex items-center gap-1.5 text-xs font-medium px-3 sm:px-3.5 py-2 rounded-full shadow-soft border border-teal-200 bg-teal-50 text-teal-700 hover:bg-teal-100 transition-all cursor-pointer disabled:opacity-50"
-          >
-            <BellRing className="w-3.5 h-3.5 shrink-0" />
-            <span className="hidden sm:inline font-semibold">
-              {enablingPush ? t("header.enablePush.enabling") : t("header.enablePush.button")}
-            </span>
-          </button>
-        )}
 
         <Dropdown
           panelClassName="max-h-[70vh] sm:max-h-[420px] overflow-y-auto sm:w-80"
