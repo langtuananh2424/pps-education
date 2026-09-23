@@ -622,7 +622,8 @@ EOF
 sudo sshd -t && sudo systemctl reload ssh
 
 # Kiem tra Match chi ap cho dung user: dong 1 phai ra "forcecommand internal-sftp -R",
-# dong 2 (ppsadmin) phai KHONG in gi - neu in ra thi dung lai, ppsadmin se mat shell
+# dong 2 (ppsadmin) phai ra "forcecommand none" - neu ra internal-sftp thi dung lai,
+# KHONG dong phien SSH dang mo (ppsadmin se mat shell), xoa file .conf roi reload
 sudo sshd -T -C user=pps-backup-pull,host=laptop,addr=192.168.100.10 | grep -i forcecommand
 sudo sshd -T -C user=ppsadmin,host=laptop,addr=192.168.100.10 | grep -i forcecommand
 
