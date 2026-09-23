@@ -265,6 +265,7 @@
     "homeworkPreviousSpeakingPlaceholder": "E.g. Completed 85% (Video channel is always online — auto % will appear after sending)",
     "autoBadge": "Auto",
     "attendanceLockedHint": "Comment/attitude locked",
+    "rejectionReasonHint": "Rejected: {{reason}}",
     "chooseExercisePlaceholder": "-- Select a published exercise --",
     "attitudePlaceholder": "-- Not selected --",
     "contentPlaceholder": "Write a comment for this student...",
@@ -358,6 +359,8 @@
     "empty": "This session has no edit history yet.",
     "latestBadge": "Latest",
     "studentsCount": "{{count}} students",
+    "rejectionReasonLabel": "Rejection reason: {{value}}",
+    "goToStudentRow": "Edit now",
     "columns": {
       "studentCode": "Student ID",
       "fullName": "Full name",

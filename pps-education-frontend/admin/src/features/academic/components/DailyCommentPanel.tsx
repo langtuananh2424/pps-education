@@ -222,11 +222,31 @@ function PreviousProgressCell({ auto, manual, autoLabel }: { auto: string | null
   return <div className={readOnlyFieldClass}>{manual || "—"}</div>;
 }
 
+interface DailyCommentPanelProps {
+  /**
+   * Deep-link từ thông báo COMMENT_REJECTED (bổ sung theo yêu cầu người dùng 2026-09-23) — tự chọn
+   * đúng buổi này thay vì "buổi hôm nay" (mặc định), rồi cuộn/tô sáng dòng deepLinkStudentId (nếu có).
+   * CommentsPage đã tự gọi setSelectedClassId đúng lớp trước khi truyền prop này xuống.
+   */
+  deepLinkSessionId?: number | null;
+  deepLinkStudentId?: number | null;
+}
+
 /** UC-21 Main Flow (nhánh DAILY): viết nhận xét hàng ngày theo buổi học — cùng khuôn thao tác với Điểm danh nhanh. */
-export default function DailyCommentPanel() {
+export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkStudentId = null }: DailyCommentPanelProps = {}) {
   const { t, i18n } = useTranslation("academic-comments");
   const { selectedClassId, setUnsavedChanges } = useApp();
   const { classes } = useEligibleClasses();
+  // Luôn đồng bộ theo prop mới nhất (KHÔNG chỉ đọc 1 lần lúc mount) — sửa 2026-09-23: route
+  // /academic/comments không remount lại DailyCommentPanel khi chỉ đổi query string (React Router
+  // giữ nguyên instance cùng path), nên bấm "Xem chi tiết" lần 2 trong lúc panel đã mở sẵn cần ref này
+  // cập nhật lại giá trị mới, không được đông cứng theo giá trị lúc mount đầu tiên. Chỉ dùng bên trong
+  // callback bất đồng bộ (listTodaySessions().then()) để tránh đua race đọc state cũ.
+  const deepLinkSessionIdRef = useRef(deepLinkSessionId);
+  useEffect(() => {
+    deepLinkSessionIdRef.current = deepLinkSessionId;
+  }, [deepLinkSessionId]);
+  const appliedDeepLinkStudentKeyRef = useRef<string | null>(null);
   const [sessions, setSessions] = useState<ClassSessionResponse[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState<number | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
@@ -270,6 +290,18 @@ export default function DailyCommentPanel() {
   const [showHistory, setShowHistory] = useState(true);
   /** Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-19) — version history kiểu Google Sheets, xem cả bảng. */
   const [showSessionHistory, setShowSessionHistory] = useState(false);
+  /**
+   * Cuộn tới + tô sáng tạm dòng học sinh khi bấm "Sửa ngay" từ dòng BỊ TỪ CHỐI trong
+   * SessionVersionHistoryModal — bổ sung theo yêu cầu người dùng 2026-09-23, mirror pattern
+   * highlightClassId của CommentApprovalByClass.tsx (cuộn xong tự tắt tô sáng sau ~2.5s).
+   */
+  const [highlightedStudentId, setHighlightedStudentId] = useState<number | null>(null);
+  const goToStudentRow = (studentId: number) => {
+    const el = document.getElementById(`daily-comment-row-${studentId}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    setHighlightedStudentId(studentId);
+    setTimeout(() => setHighlightedStudentId((prev) => (prev === studentId ? null : prev)), 2500);
+  };
   /**
    * V150 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-24) — nguồn khả dụng cho dropdown
    * "BTVN Ngữ pháp buổi sau" đổi từ danh sách Exercise lẻ sang danh sách "nhóm kỹ năng" (1 entry/Lesson,
@@ -466,6 +498,9 @@ export default function DailyCommentPanel() {
     // nay chưa bắt đầu hoặc không có buổi nào thì báo rõ, để GV tự chọn buổi khác nếu cần.
     listTodaySessions(selectedClassId)
       .then((todaySessions) => {
+        // Có deep-link buổi cụ thể (COMMENT_REJECTED, xem deepLinkSessionIdRef ở đầu file) — nhường
+        // chỗ, không tự chọn "buổi hôm nay" đè lên buổi GV cần sửa lại.
+        if (deepLinkSessionIdRef.current != null) return;
         const started = todaySessions.find((s) => new Date(`${s.sessionDate}T${s.startTime}`) <= new Date());
         if (started) {
           setSelectedSessionId(started.id);
@@ -491,6 +526,36 @@ export default function DailyCommentPanel() {
     // Bản giao ACTIVE hiện có — chỉ để tra ngược lựa chọn đã lưu trước đó ra id nguồn khi prefill (xem loadHistory).
     listReviewVideoAssignmentsForClass(selectedClassId).then(setVideoAssignments).catch(() => undefined);
   }, [selectedClassId]);
+
+  /**
+   * Deep-link COMMENT_REJECTED (2026-09-23) — tự chọn đúng buổi ngay khi sessions tải xong, thay cho
+   * "buổi hôm nay". Dùng thẳng prop deepLinkSessionId (không qua ref) để phản ứng đúng cả khi panel đã
+   * mở sẵn và bấm "Xem chi tiết" một thông báo KHÁC (route không đổi, chỉ đổi query string — xem chú
+   * thích deepLinkSessionIdRef ở trên). Check selectedSessionId !== deepLinkSessionId để không lặp vô
+   * hạn sau khi đã set xong (set lại giá trị giống hệt không kích hoạt re-render nhưng effect vẫn chạy
+   * lại do sessions/deepLinkSessionId nằm trong deps — chặn sớm cho rõ ý định).
+   */
+  useEffect(() => {
+    if (deepLinkSessionId == null || selectedSessionId === deepLinkSessionId) return;
+    if (!sessions.some((s) => s.id === deepLinkSessionId)) return;
+    setSelectedSessionId(deepLinkSessionId);
+  }, [sessions, deepLinkSessionId, selectedSessionId]);
+
+  /**
+   * Deep-link COMMENT_REJECTED (2026-09-23, tiếp) — cuộn/tô sáng đúng dòng học sinh khi rows của đúng
+   * buổi đã tải xong. Guard bằng "key đã áp dụng" (không phải cờ boolean 1 lần) để vẫn cuộn lại đúng khi
+   * bấm "Xem chi tiết" 1 thông báo KHÁC trỏ tới học sinh/buổi khác trong lúc panel đang mở sẵn, nhưng
+   * không lặp lại cuộn mỗi khi rows đổi do gõ nhận xét (setRows từ updateRow) cho CÙNG 1 đích.
+   */
+  useEffect(() => {
+    if (deepLinkStudentId == null || deepLinkSessionId == null) return;
+    if (selectedSessionId !== deepLinkSessionId) return;
+    if (!rows.some((r) => r.studentId === deepLinkStudentId)) return;
+    const key = `${deepLinkSessionId}-${deepLinkStudentId}`;
+    if (appliedDeepLinkStudentKeyRef.current === key) return;
+    appliedDeepLinkStudentKeyRef.current = key;
+    goToStudentRow(deepLinkStudentId);
+  }, [rows, selectedSessionId, deepLinkSessionId, deepLinkStudentId]);
 
   /**
    * Sửa 2026-09-11 (fix bug thật, đã xác nhận với người dùng) — trước đây gộp CHUNG 1 effect, phụ
@@ -1726,13 +1791,16 @@ export default function DailyCommentPanel() {
                 return (
                   <tr
                     key={r.studentId}
+                    id={`daily-comment-row-${r.studentId}`}
                     onClick={sentLocked ? () => notifyAlreadySent(r, sent!) : undefined}
                     className={`transition-colors ${
-                      isAbsentLocked
-                        ? "bg-red-50/40 hover:bg-red-50/60"
-                        : sentLocked
-                          ? "bg-emerald-50/20 cursor-pointer hover:bg-emerald-50/40"
-                          : "hover:bg-slate-50/40"
+                      highlightedStudentId === r.studentId
+                        ? "bg-amber-100"
+                        : isAbsentLocked
+                          ? "bg-red-50/40 hover:bg-red-50/60"
+                          : sentLocked
+                            ? "bg-emerald-50/20 cursor-pointer hover:bg-emerald-50/40"
+                            : "hover:bg-slate-50/40"
                     }`}
                   >
                     <Td style={STICKY_COL_STYLE[0]} className={`sticky left-0 z-10 ${stickyBg} font-mono font-bold text-slate-500 border-r border-b border-slate-300`}>{r.studentCode}</Td>
@@ -1741,6 +1809,14 @@ export default function DailyCommentPanel() {
                       {isAbsentLocked && (
                         <div className="text-[9px] font-bold text-red-600 uppercase tracking-wide mt-0.5 whitespace-normal leading-snug">
                           {t(`shared.attendanceStatus.${attendanceStatus}`, { defaultValue: attendanceStatus })} · {t("dailyCommentPanel.attendanceLockedHint")}
+                        </div>
+                      )}
+                      {/* Lý do từ chối ngay tại dòng đang sửa — trước đây GV chỉ thấy nội dung cũ được
+                          điền lại (loadHistory) mà không biết TẠI SAO bị từ chối, phải mò qua thông báo
+                          quả chuông hoặc Lịch sử phiên bản (bổ sung theo yêu cầu người dùng 2026-09-23). */}
+                      {sent?.status === "REJECTED" && sent.rejectionReason && (
+                        <div className="text-[9px] font-bold text-rose-600 mt-0.5 whitespace-normal leading-snug">
+                          {t("dailyCommentPanel.rejectionReasonHint", { reason: sent.rejectionReason })}
                         </div>
                       )}
                     </Td>
@@ -2111,6 +2187,7 @@ export default function DailyCommentPanel() {
             videoLabel={videoLabel}
             isVietnamese={isVietnamese}
             onClose={() => setShowSessionHistory(false)}
+            onGoToStudent={goToStudentRow}
           />
         )}
       </div>

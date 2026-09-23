@@ -292,12 +292,12 @@ public class NotificationService {
         return new NotificationResponse(
                 n.getId(), n.getNotificationType().name(), n.getTitle(), n.getContent(),
                 n.getEntityType(), n.getEntityId(), n.getPriority().name(), n.getCreatedAt(), n.getReadAt(),
-                nav.studentId(), nav.classId(), nav.exerciseAssignmentId(), nav.reviewVideoAssignmentId());
+                nav.studentId(), nav.classId(), nav.exerciseAssignmentId(), nav.reviewVideoAssignmentId(), nav.classSessionId());
     }
 
     /** Toạ độ điều hướng đã chọn lọc từ metadata — xem {@link #resolveNavigationHints}. */
-    private record NavigationHints(Long studentId, Long classId, Long exerciseAssignmentId, Long reviewVideoAssignmentId) {
-        static final NavigationHints NONE = new NavigationHints(null, null, null, null);
+    private record NavigationHints(Long studentId, Long classId, Long exerciseAssignmentId, Long reviewVideoAssignmentId, Long classSessionId) {
+        static final NavigationHints NONE = new NavigationHints(null, null, null, null, null);
     }
 
     /**
@@ -316,21 +316,30 @@ public class NotificationService {
         Map<String, Object> m = n.getMetadata() == null ? Map.of() : n.getMetadata();
         return switch (entityType) {
             // Điểm danh (Phụ huynh) — đổi đúng con + đúng lớp trước khi vào tab Lịch học.
-            case "ATTENDANCE_MARK" -> new NavigationHints(asLong(m.get("studentId")), asLong(m.get("classId")), null, null);
+            case "ATTENDANCE_MARK" -> new NavigationHints(asLong(m.get("studentId")), asLong(m.get("classId")), null, null, null);
             // Điểm số công bố (Phụ huynh) — đổi đúng con + đúng lớp trước khi vào tab Điểm số.
             case "GRADE_ENTRY", "GRADE_PERIOD_RESULT" ->
-                    new NavigationHints(asLong(m.get("studentId")), asLong(m.get("classId")), null, null);
+                    new NavigationHints(asLong(m.get("studentId")), asLong(m.get("classId")), null, null, null);
             // Bài/Video mới được giao (Học sinh) — entityId đã là id bản giao, thêm classId để chọn đúng lớp.
-            case "EXERCISE_ASSIGNMENT" -> new NavigationHints(null, asLong(m.get("classId")), n.getEntityId(), null);
-            case "REVIEW_VIDEO_ASSIGNMENT" -> new NavigationHints(null, asLong(m.get("classId")), null, n.getEntityId());
+            case "EXERCISE_ASSIGNMENT" -> new NavigationHints(null, asLong(m.get("classId")), n.getEntityId(), null, null);
+            case "REVIEW_VIDEO_ASSIGNMENT" -> new NavigationHints(null, asLong(m.get("classId")), null, n.getEntityId(), null);
             // Nhắc/cảnh báo BTVN gửi theo học sinh — entityId là studentId; các id còn lại lấy từ metadata.
             case "STUDENT" -> switch (n.getNotificationType()) {
                 case HOMEWORK_DUE_SOON_REMINDER, HOMEWORK_MISS_REMINDER, HOMEWORK_MISS_WARNING,
                      HOMEWORK_MISS_PARENT_MEETING_INVITE, HOMEWORK_MISS_REMINDER_NON_CONSECUTIVE ->
                         new NavigationHints(n.getEntityId(), asLong(m.get("classId")),
-                                asLong(m.get("exerciseAssignmentId")), asLong(m.get("reviewVideoAssignmentId")));
+                                asLong(m.get("exerciseAssignmentId")), asLong(m.get("reviewVideoAssignmentId")), null);
+                // Cảnh báo thái độ học tập leo thang (Đợt 2, Plan link hoá thông báo, 2026-09-23) —
+                // theo streak nhiều buổi, không có 1 StudentComment cụ thể để trỏ tới, chỉ cần lớp.
+                case STUDENT_ATTITUDE_ESCALATION -> new NavigationHints(n.getEntityId(), asLong(m.get("classId")), null, null, null);
                 default -> NavigationHints.NONE;
             };
+            // Nhận xét bị từ chối (Giáo viên, admin) / cảnh báo thái độ 1 buổi đơn lẻ (Phụ huynh, Portal) —
+            // cùng entityType STUDENT_COMMENT, entityId = StudentComment.id (Đợt 2, 2026-09-23).
+            // classSessionId (2026-09-23, tiếp) chỉ COMMENT_REJECTED ghi vào metadata — các loại khác
+            // (VD STUDENT_ATTITUDE_ALERT) không có khoá này nên asLong tự trả null, không cần tách case.
+            case "STUDENT_COMMENT" -> new NavigationHints(asLong(m.get("studentId")), asLong(m.get("classId")),
+                    null, null, asLong(m.get("classSessionId")));
             default -> NavigationHints.NONE;
         };
     }

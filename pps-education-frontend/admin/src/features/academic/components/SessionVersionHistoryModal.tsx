@@ -90,6 +90,12 @@ interface SessionVersionHistoryModalProps {
   /** V130 — buổi teacherType=VIETNAMESE tách "Offline" thành Reading/Writing (mirror DailyCommentPanel.tsx). */
   isVietnamese?: boolean;
   onClose: () => void;
+  /**
+   * Đóng modal + cuộn/tô sáng đúng dòng học sinh này ở bảng nhập chính (DailyCommentPanel) — bổ sung
+   * theo yêu cầu người dùng 2026-09-23: từ dòng BỊ TỪ CHỐI xem được lý do, bấm "Sửa ngay" để nhảy thẳng
+   * sang ô nhập đã điền sẵn nội dung cũ (backend tự cho sửa lại khi REJECTED) mà không cần tự dò tìm.
+   */
+  onGoToStudent?: (studentId: number) => void;
 }
 
 /**
@@ -102,7 +108,7 @@ interface SessionVersionHistoryModalProps {
  * tập/Nhận xét học sinh/Ghi chú) + thêm cột Trạng thái (không có ở bảng chính, nhưng cần thiết ở đây vì
  * đang xem lịch sử NHIỀU trạng thái khác nhau theo thời gian).
  */
-export default function SessionVersionHistoryModal({ classSessionId, students, grammarLabel, videoLabel, isVietnamese = false, onClose }: SessionVersionHistoryModalProps) {
+export default function SessionVersionHistoryModal({ classSessionId, students, grammarLabel, videoLabel, isVietnamese = false, onClose, onGoToStudent }: SessionVersionHistoryModalProps) {
   const { t, i18n } = useTranslation("academic-comments");
   const [history, setHistory] = useState<StudentCommentHistoryResponse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -300,7 +306,29 @@ export default function SessionVersionHistoryModal({ classSessionId, students, g
                         </td>
                         <td className={`${tdClass} text-slate-500`}>{d?.attitude ? t(`shared.attitude.${d.attitude}`) : "—"}</td>
                         <td className={`${tdClass} max-w-[260px] whitespace-pre-wrap text-slate-700`}>{d?.content || "—"}</td>
-                        <td className={`${tdClass} text-slate-500`}>{d?.note || "—"}</td>
+                        <td className={`${tdClass} text-slate-500 max-w-[200px]`}>
+                          {d?.note || "—"}
+                          {/* Lý do từ chối — trước đây chỉ hiện ở thông báo quả chuông, không hiện ở
+                              đâu khác trong màn hình GV thao tác (đã xác nhận với người dùng 2026-09-23:
+                              GV kiểm tra lịch sử phiên bản mà không thấy lý do bị từ chối ở đâu). */}
+                          {d?.status === "REJECTED" && d?.rejectionReason && (
+                            <p className="text-rose-600 font-semibold mt-1 whitespace-pre-wrap">
+                              {t("sessionVersionHistoryModal.rejectionReasonLabel", { value: d.rejectionReason })}
+                            </p>
+                          )}
+                          {d?.status === "REJECTED" && onGoToStudent && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                onClose();
+                                onGoToStudent(s.studentId);
+                              }}
+                              className="text-brand-red font-bold hover:underline mt-1"
+                            >
+                              {t("sessionVersionHistoryModal.goToStudentRow")} →
+                            </button>
+                          )}
+                        </td>
                         <td className={`px-2 py-2 border-b border-slate-100 ${rowBg ?? ""}`}>
                           {d ? <Badge variant={statusVariants[d.status]}>{t(`shared.status.${d.status}`)}</Badge> : "—"}
                         </td>

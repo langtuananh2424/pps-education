@@ -44,20 +44,39 @@ npm run test:headed               # xem trình duyệt chạy trực tiếp
 npm run report                    # mở HTML report lần chạy gần nhất
 ```
 
-## Phạm vi hiện tại (Đợt 1)
+## Phạm vi hiện tại
 
 | Test | App | Loại thông báo | Verify |
 |---|---|---|---|
 | `admin.spec.ts` | admin | `TASK_ASSIGNED` | `navigate()` tới `/task-workflow?taskId=` + `AssignmentDetailModal` mở đúng task |
 | `admin.spec.ts` | admin | `LEAVE_REQUEST_STATUS` (chờ duyệt) | `navigate()` tới `/hrm/leaves?leaveRequestId=` + đúng dòng hiện trong hàng chờ duyệt |
+| `admin.spec.ts` | admin | `GRADE_REJECTED` | `navigate()` tới `/academic/grades?classId=` + đúng lớp hiện ở Sổ điểm (Giáo viên) |
+| `admin.spec.ts` | admin | `COMMENT_REJECTED` | `navigate()` tới `/academic/comments?writeClassId=` + đúng lớp hiện ở "Viết nhận xét" |
 | `user.spec.ts` | Portal | `ATTENDANCE_MARK` | Phụ huynh đang xem con A, bấm thông báo của con B → đổi đúng con + tab "Lịch học & Chuyên cần" |
 | `user.spec.ts` | Portal | `GRADE_PUBLISHED` | Phụ huynh đang xem con B, bấm thông báo của con A → đổi đúng con + tab "Khảo thí & Điểm số" |
+| `user.spec.ts` | Portal | `STUDENT_ATTITUDE_ALERT` | Phụ huynh đang xem con A, bấm thông báo của con B → đổi đúng con + tab "Quá trình học tập" + mở đúng buổi (nội dung nhận xét hiện ra) |
 
 Chưa cover: `PARTNER_FEEDBACK`, `EXAM_INTEGRITY_VIOLATION`,
 `COMMENT_PENDING_APPROVAL`, `STUDENT_ATTITUDE_ESCALATION_PENDING_APPROVAL`
 (admin) và `HOMEWORK_DUE_SOON_REMINDER`/`HOMEWORK_MISS_*` (Portal — nguồn
-gốc là scheduled job, không có endpoint kích hoạt thủ công qua API) — có
-thể bổ sung theo mẫu `tests/api.ts` khi cần.
+gốc là scheduled job, không có endpoint kích hoạt thủ công qua API) —
+`STUDENT_ATTITUDE_ESCALATION` cũng chưa cover bằng E2E (cần 3 buổi liên
+tục thái độ Yếu/Trung bình → cần dựng ≥3 buổi học mới trong 7 ngày, phức
+tạp hơn hẳn các case còn lại; đã cover ở test đơn vị BE
+`NotificationServiceTest`, và dùng chung cơ chế điều hướng
+`baseTarget()`/tab "learning-progress" đã verify qua `STUDENT_ATTITUDE_ALERT`
+nên rủi ro thấp). Có thể bổ sung theo mẫu `tests/api.ts` khi cần.
+
+### Bug phát hiện qua E2E (đã sửa cùng đợt)
+
+Viết `GradesPage.tsx`/`CommentsPage.tsx` gọi thẳng `AppContext.setSelectedClassId(x)`
+1 lần trong `useEffect([searchParams])` KHÔNG đứng vững trước 1 effect khác
+ở `Header.tsx`: khi `managedSites` tải xong (bất đồng bộ), Header tự chọn
+site quản lý qua `setSelectedCampusId()`, side-effect này RESET
+`selectedClassId` về `null` — chạy sau effect đọc query param (do API bất
+đồng bộ) nên xoá mất lựa chọn vừa set, y hệt race condition. Chỉ test qua
+trình duyệt thật (không phải chỉ gọi API) mới bắt được. Sửa: 2 effect trên
+phụ thuộc thêm `selectedClassId`, tự áp lại ngay khi phát hiện bị ghi đè.
 
 ## Dữ liệu test tồn dư
 

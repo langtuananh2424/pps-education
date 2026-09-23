@@ -102,6 +102,10 @@ public class StudentAttitudeAlertTrackingService {
         metadata.put("className", schoolClass.getName());
         metadata.put("commentDate", comment.getCommentDate());
         metadata.put("attitudeLabel", attitudeLabel);
+        // Khoá số để NotificationService.toResponse() promote lên NotificationResponse — Portal đổi
+        // đúng con/lớp + mở đúng buổi ở tab "Quá trình học tập" (Đợt 2, Plan link hoá thông báo).
+        metadata.put("studentId", student.getId());
+        metadata.put("classId", schoolClass.getId());
 
         for (ParentStudent link : parentStudentRepository.findByStudentId(student.getId())) {
             notificationService.notify(link.getParent().getUser().getId(), Notification.NotificationType.STUDENT_ATTITUDE_ALERT,

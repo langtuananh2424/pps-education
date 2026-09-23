@@ -402,7 +402,11 @@ code lạ từ PR fork chạy được trên server thật).
 
 ## 11. Backup Postgres (3-2-1)
 
-Backup tự động hàng ngày cho cả 2 stack (`staging` + `production`), theo quy
+> Thao tác tay (backup thủ công trước thay đổi lớn về DB, khôi phục, rollback
+> migration hỏng): xem [`RUNBOOK-db-backup-restore.md`](RUNBOOK-db-backup-restore.md).
+
+Backup tự động hàng ngày cho cả 3 DB trên server (`staging`, `production` và
+`ppsvn` — website công khai ở `/opt/pps-center`), theo quy
 tắc **3-2-1**: 3 bản dữ liệu (1 bản gốc đang chạy + 2 bản local + 1 bản
 cloud), lưu trên ít nhất 2 loại lưu trữ khác nhau, 1 bản off-site.
 
@@ -423,17 +427,98 @@ cloud), lưu trên ít nhất 2 loại lưu trữ khác nhau, 1 bản off-site.
   bản weekly (Chủ Nhật) + 6 bản monthly (ngày 01)** cho mỗi stack, cả bản
   local lẫn bản mã hoá.
 
+### Sơ đồ quy trình
+
+**Backup** (`backup-db.sh`, chạy tự động qua systemd timer):
+
+```mermaid
+flowchart TD
+    T(["systemd timer pps-db-backup.timer<br/>hằng ngày 02:30"]) --> S["pps-db-backup.service<br/>chạy backup-db.sh dưới user deploy"]
+    S --> L{"flock: có lần backup<br/>khác đang chạy?"}
+    L -- Có --> X1(["Thoát, exit 1"])
+    L -- Không --> D{"BACKUP_ROOT còn<br/>≥ 5GB trống?"}
+    D -- Không --> X1
+    D -- Có --> LOOP[/"Lặp qua từng stack:<br/>staging → production → ppsvn"/]
+
+    LOOP --> C{"Container postgres<br/>đang chạy?"}
+    C -- Không --> F["Ghi log LOI, đánh dấu FAILED<br/>bỏ qua stack này"]
+    C -- Có --> P["pg_dump -Fc → file .dump.tmp"]
+    P --> PV{"pg_dump OK và<br/>pg_restore -l đọc được?"}
+    PV -- Không --> F
+    PV -- Có --> SAVE["Đổi tên → .dump<br/>+ .sha256 + globals.sql<br/>vào backups/&lt;stack&gt;/daily"]
+    SAVE --> W{"Chủ Nhật?"}
+    W -- Có --> WL["Hard link sang weekly/"] --> M
+    W -- Không --> M{"Ngày 01?"}
+    M -- Có --> ML["Hard link sang monthly/"] --> R
+    M -- Không --> R["Xoay vòng: giữ 7 daily,<br/>4 weekly, 6 monthly"]
+    R --> G{"Có backup.gpg-passphrase?"}
+    G -- Không --> NEXT
+    G -- Có --> E["gpg AES256 → encrypted/&lt;stack&gt;/<br/>link weekly/monthly + xoay vòng"]
+    E --> NEXT{"Còn stack<br/>chưa backup?"}
+    F --> NEXT
+    NEXT -- Còn --> LOOP
+    NEXT -- Hết --> RC{"Có passphrase + rclone<br/>+ remote gdrive?"}
+    RC -- Không --> SK["Log BO QUA cloud<br/>chưa đủ 3-2-1"]
+    RC -- Có --> CP["rclone copy encrypted/<br/>→ gdrive:pps-education-backups"]
+    CP --> PR["Xoá bản cũ trên Drive theo tuổi<br/>daily > 8d, weekly > 29d, monthly > 187d"]
+    SK --> END{"Có stack nào FAILED?"}
+    PR --> END
+    END -- Có --> X1
+    END -- Không --> OK(["Backup hoàn tất, exit 0"])
+```
+
+**Khôi phục** (`restore-db.sh`, chạy tay khi test định kỳ hoặc khi sự cố):
+
+```mermaid
+flowchart TD
+    IN(["restore-db.sh &lt;stack&gt; &lt;file&gt; [--live]"]) --> GPG{"File .gpg?"}
+    GPG -- Có --> DEC["Giải mã bằng<br/>backup.gpg-passphrase"] --> SHA
+    GPG -- Không --> SHA{"Có file .sha256<br/>đi kèm?"}
+    SHA -- Có --> CK{"Checksum khớp?"}
+    CK -- Không --> X1(["Dừng: file backup hỏng"])
+    CK -- Có --> V
+    SHA -- Không --> V{"pg_restore -l<br/>đọc được?"}
+    V -- Không --> X1
+    V -- Có --> MODE{"Có cờ --live?"}
+
+    MODE -- "Không (mặc định)" --> SC["CREATE DATABASE<br/>&lt;db&gt;_restore_&lt;timestamp&gt;"]
+    SC --> SR["pg_restore vào DB scratch"]
+    SR --> SQ["In số dòng 10 bảng lớn nhất<br/>để đối chiếu"]
+    SQ --> SD(["Xong. Kiểm tra rồi DROP DB scratch<br/>DB thật không bị động tới"])
+
+    MODE -- Có --> CF{"Gõ lại đúng<br/>tên stack?"}
+    CF -- Không --> X2(["Huỷ, không thay đổi gì"])
+    CF -- Có --> PRE["pg_dump DB hiện tại →<br/>backups/&lt;stack&gt;/pre-restore/"]
+    PRE --> BK{"Backend đang chạy?"}
+    BK -- Có --> STOP["docker stop backend"] --> DROP
+    BK -- Không --> DROP["Ngắt kết nối, DROP DATABASE,<br/>CREATE DATABASE lại"]
+    DROP --> RS{"pg_restore<br/>thành công?"}
+    RS -- Không --> RB(["Dừng: DB dở dang<br/>chạy lại với file pre-restore --live"])
+    RS -- Có --> START["docker start backend<br/>nếu trước đó đang chạy"]
+    START --> LD(["Restore LIVE hoàn tất<br/>giữ bản pre-restore để quay lui"])
+```
+
 ### Cài đặt lần đầu
 
 ```bash
-# 1. Copy script + systemd units lên server
-sudo mkdir -p /opt/pps-education
-sudo cp deploy/backup-db.sh /opt/pps-education/backup-db.sh
-sudo chown deploy:deploy /opt/pps-education/backup-db.sh
-sudo chmod 750 /opt/pps-education/backup-db.sh
+# 1. Tải script + systemd units từ GitHub (server KHÔNG có sẵn bản checkout
+#    repo) - REF = nhánh đã chứa các file này (develop sau khi merge PR, hoặc
+#    main khi đã lên staging). Chạy lại đúng khối này mỗi khi script đổi.
+REF=develop
+RAW=https://raw.githubusercontent.com/langtuananh2424/pps-education/$REF/deploy
+for f in backup-db.sh backup-db-manual.sh restore-db.sh; do
+  sudo curl -fsSL "$RAW/$f" -o /opt/pps-education/$f
+  sudo chown deploy:deploy /opt/pps-education/$f
+  sudo chmod 750 /opt/pps-education/$f
+done
+for f in pps-db-backup.service pps-db-backup.timer; do
+  sudo curl -fsSL "$RAW/systemd/$f" -o /etc/systemd/system/$f
+done
+head -1 /opt/pps-education/backup-db.sh   # phải là "#!/usr/bin/env bash" (không phải trang lỗi 404)
 
-sudo cp deploy/systemd/pps-db-backup.service deploy/systemd/pps-db-backup.timer \
-  /etc/systemd/system/
+# Thư mục backup thuộc user deploy (script chạy dưới user này, /opt/pps-education
+# có thể đang thuộc root)
+sudo install -d -o deploy -g deploy -m 700 /opt/pps-education/backups
 
 # 2. Cai gpg (thuong co san tren Ubuntu Server) + rclone
 sudo apt install -y gnupg
@@ -445,9 +530,9 @@ manager cá nhân**, mất passphrase = mất luôn khả năng đọc bản bac
 Drive dù file vẫn còn):
 
 ```bash
-sudo -u deploy bash -c 'umask 077; openssl rand -base64 32 > /opt/pps-education/backup.gpg-passphrase'
-sudo chmod 600 /opt/pps-education/backup.gpg-passphrase
+openssl rand -base64 32 | sudo tee /opt/pps-education/backup.gpg-passphrase > /dev/null
 sudo chown deploy:deploy /opt/pps-education/backup.gpg-passphrase
+sudo chmod 600 /opt/pps-education/backup.gpg-passphrase
 cat /opt/pps-education/backup.gpg-passphrase   # copy vào password manager, KHÔNG chỉ lưu trên server
 ```
 
@@ -496,19 +581,31 @@ tail -n 50 /opt/pps-education/backups/backup.log
 - **Test restore ít nhất mỗi quý** (backup không test = không đáng tin):
 
 ```bash
-# Giai ma neu dung ban tu Drive:
-gpg --batch --yes --pinentry-mode loopback \
-  --passphrase-file /opt/pps-education/backup.gpg-passphrase \
-  -d staging_pps_education_<timestamp>.dump.gpg > restored.dump
+# Mac dinh restore vao 1 DB SCRATCH moi (<db>_restore_<ts>), KHONG dung DB
+# dang phuc vu. Nhan ca ban .dump (local) lan .dump.gpg (tai tu Drive - tu giai
+# ma bang backup.gpg-passphrase); in so dong cac bang lon nhat de doi chieu.
+sudo -u deploy /opt/pps-education/restore-db.sh production \
+  /opt/pps-education/backups/production/daily/production_pps_education_<timestamp>.dump
+```
 
-# Restore vao 1 DB SCRATCH de test (KHONG restore de vao container postgres
-# dang phuc vu thật - se ghi đè toàn bộ dữ liệu hiện có):
-docker exec -i pps-staging-postgres-1 psql -U pps_app -c "CREATE DATABASE pps_restore_test;"
-docker exec -i pps-staging-postgres-1 pg_restore -U pps_app -d pps_restore_test < restored.dump
+**Restore đè DB thật (chỉ khi sự cố thật)** — thêm `--live`; script bắt gõ
+lại tên stack để xác nhận, tự dump 1 bản `backups/<stack>/pre-restore/` của
+DB hiện tại, dừng container backend, drop + tạo lại DB, `pg_restore`, rồi bật
+lại backend:
+
+```bash
+sudo -u deploy /opt/pps-education/restore-db.sh production <file.dump|file.dump.gpg> --live
 ```
 
 ### Ghi chú vận hành
 
+- Mỗi bản dump được kiểm tra bằng `pg_restore -l` trước khi giữ lại (dump
+  hỏng/cắt ngang bị loại, job báo lỗi), kèm file `.sha256` và
+  `<stack>_globals_<ts>.sql` (role/quyền cấp cluster). Có `flock` chống 2 lần
+  chạy chồng nhau, và huỷ job nếu `BACKUP_ROOT` còn < 5GB trống.
+- Lên Drive dùng `rclone copy` + tự xoá bản cũ theo tuổi (daily > 8 ngày,
+  weekly > 29 ngày, monthly > 187 ngày) — **không** dùng `rclone sync`, để lỡ
+  thư mục local bị xoá nhầm thì bản trên Drive không bị xoá theo.
 - `backup-db.sh` tự bỏ qua bước cloud (chỉ log cảnh báo, không fail cả job)
   nếu chưa có `backup.gpg-passphrase` hoặc remote `gdrive` — script vẫn chạy
   được ngay sau khi copy lên server, cấu hình cloud sau không chặn backup
