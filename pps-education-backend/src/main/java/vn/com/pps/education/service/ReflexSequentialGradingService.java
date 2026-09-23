@@ -129,6 +129,7 @@ public class ReflexSequentialGradingService {
             progress.setRubricVersion(null);
             ReflexWritingGrammarAiGradingService.GradeResult result =
                     writingGradingService.grade(answerText, question.getPrompt(), curriculum);
+            recordUsage(AiGradingTokenUsage.Step.WRITING, "chat", result == null ? null : result.usage(), progress);
             applyWritingResult(progress, result);
         }
         progress = reflexQuestionProgressRepository.save(progress);
@@ -185,6 +186,7 @@ public class ReflexSequentialGradingService {
         } else {
             ReflexSpeakingContentAiGradingService.GradeResult result =
                     audioFile == null ? null : speakingGradingService.grade(audioFile.bytes(), audioFile.contentType(), question.getPrompt(), curriculum);
+            recordUsage(AiGradingTokenUsage.Step.SPEAKING, "chatWithAudio", result == null ? null : result.usage(), progress);
             applySpeakingResult(progress, result);
         }
         progress = reflexQuestionProgressRepository.save(progress);
