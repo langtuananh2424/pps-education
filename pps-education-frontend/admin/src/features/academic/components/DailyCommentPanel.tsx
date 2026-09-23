@@ -235,7 +235,7 @@ interface DailyCommentPanelProps {
 /** UC-21 Main Flow (nhánh DAILY): viết nhận xét hàng ngày theo buổi học — cùng khuôn thao tác với Điểm danh nhanh. */
 export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkStudentId = null }: DailyCommentPanelProps = {}) {
   const { t, i18n } = useTranslation("academic-comments");
-  const { selectedClassId, setUnsavedChanges } = useApp();
+  const { selectedClassId, setUnsavedChanges, currentUser } = useApp();
   const { classes } = useEligibleClasses();
   // Luôn đồng bộ theo prop mới nhất (KHÔNG chỉ đọc 1 lần lúc mount) — sửa 2026-09-23: route
   // /academic/comments không remount lại DailyCommentPanel khi chỉ đổi query string (React Router
@@ -501,12 +501,20 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
         // Có deep-link buổi cụ thể (COMMENT_REJECTED, xem deepLinkSessionIdRef ở đầu file) — nhường
         // chỗ, không tự chọn "buổi hôm nay" đè lên buổi GV cần sửa lại.
         if (deepLinkSessionIdRef.current != null) return;
-        const started = todaySessions.find((s) => new Date(`${s.sessionDate}T${s.startTime}`) <= new Date());
+        // Bổ sung 2026-09-23 (đã xác nhận với người dùng, sửa bug thật gặp qua test tay) — 1 lớp có thể
+        // có ≥2 buổi cùng ngày (VD buổi GVVN + buổi GVNN riêng), trước đây lấy buổi ĐẦU TIÊN "đã bắt
+        // đầu" bất kể của giáo viên nào: GV A đăng nhập trước giờ dạy của mình nhưng buổi của GV B hôm
+        // đó đã bắt đầu/kết thúc trước → tự fill NHẦM sang buổi của GV B, dễ ghi đè nhận xét của người
+        // khác. Giờ chỉ xét buổi mà chính actor đang đăng nhập là GV chính/phụ/CM.
+        const ownTodaySessions = todaySessions.filter(
+          (s) => currentUser != null && (s.primaryTeacherId === currentUser.id || s.assistantTeacherId === currentUser.id || s.cmTeacherId === currentUser.id)
+        );
+        const started = ownTodaySessions.find((s) => new Date(`${s.sessionDate}T${s.startTime}`) <= new Date());
         if (started) {
           setSelectedSessionId(started.id);
-        } else if (todaySessions.length > 0) {
+        } else if (ownTodaySessions.length > 0) {
           setNotification(
-            t("dailyCommentPanel.notifications.todayNotStarted", { start: todaySessions[0].startTime, end: todaySessions[0].endTime })
+            t("dailyCommentPanel.notifications.todayNotStarted", { start: ownTodaySessions[0].startTime, end: ownTodaySessions[0].endTime })
           );
         } else {
           setNotification(t("dailyCommentPanel.notifications.noTodaySession"));
