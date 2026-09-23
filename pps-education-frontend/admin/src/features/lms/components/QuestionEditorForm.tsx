@@ -1,10 +1,25 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Blocks, Check, CheckSquare, FileText, Headphones, Image as ImageIcon, ImagePlus, Images, ListOrdered, Mic, PenLine, Shuffle, SplitSquareHorizontal, Volume2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import Button from "@/components/ui/Button";
 import FileUploadField from "@/components/ui/FileUploadField";
-import { CreateExamQuestionRequest, CreateQuestionRequest, QuestionChoiceRequest, QuestionDifficulty, QuestionResponse, QuestionType, createExamQuestion, createQuestion, updateExamQuestion, updateQuestion, uploadMedia } from "../api";
+import {
+  CreateExamQuestionRequest,
+  CreateQuestionRequest,
+  KeyGrammarStructureResponse,
+  QuestionChoiceRequest,
+  QuestionDifficulty,
+  QuestionResponse,
+  QuestionType,
+  createExamQuestion,
+  createQuestion,
+  listExamQuestionKeyGrammarOptions,
+  listQuestionKeyGrammarOptions,
+  updateExamQuestion,
+  updateQuestion,
+  uploadMedia
+} from "../api";
 import Select from "@/components/ui/Select";
 
 const inputClass = "w-full bg-white border border-slate-200 text-xs px-3.5 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-red";
@@ -188,6 +203,38 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
     existingQuestion?.structuredContent?.chunks?.length ? existingQuestion.structuredContent.chunks : ["", "", ""]
   );
 
+  /**
+   * Key Grammar (filter 2, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-22) — gắn vào
+   * CHÍNH câu hỏi (set 1 lần, dùng chung cho mọi lượt giao Bài chứa câu hỏi này sau này), KHÔNG phải
+   * theo Bài hay lượt giao — xem Javadoc Question#keyGrammar. Chỉ hiện khi đang SỬA (existingQuestion,
+   * options cần questionId có sẵn) VÀ kind="ESSAY". Chọn tay tối đa 3 mã, cùng 1 kiểu UI cho mọi Khối
+   * 6-8 (Khối 9 không có từ điển, options trả về rỗng).
+   */
+  const [keyGrammarIds, setKeyGrammarIds] = useState<string[]>(existingQuestion?.keyGrammar ?? []);
+  const [keyGrammarOptions, setKeyGrammarOptions] = useState<KeyGrammarStructureResponse[]>([]);
+  const [loadingKeyGrammarOptions, setLoadingKeyGrammarOptions] = useState(false);
+
+  useEffect(() => {
+    if (kind !== "ESSAY" || !existingQuestion) {
+      setKeyGrammarOptions([]);
+      return;
+    }
+    setLoadingKeyGrammarOptions(true);
+    const request = examId
+      ? listExamQuestionKeyGrammarOptions(examId, existingQuestion.id)
+      : listQuestionKeyGrammarOptions(existingQuestion.id);
+    request
+      .then(setKeyGrammarOptions)
+      .catch(() => setKeyGrammarOptions([]))
+      .finally(() => setLoadingKeyGrammarOptions(false));
+  }, [kind, examId, existingQuestion]);
+
+  const toggleKeyGrammarId = (id: string) => {
+    setKeyGrammarIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : prev.length >= 3 ? prev : [...prev, id]
+    );
+  };
+
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -328,7 +375,8 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
           correctAnswerText:
             kind === "FILL_IN_BLANK" || kind === "LISTENING_FILL_IN_BLANK" || kind === "FILL_IN_BLANK_PICTURE" ? correctAnswerText.trim() || undefined : undefined,
           structuredContent,
-          choices
+          choices,
+          keyGrammarIds: kind === "ESSAY" ? (keyGrammarIds.length > 0 ? keyGrammarIds : null) : null
         };
         result = examId
           ? await updateExamQuestion(examId, existingQuestion.id, updateRequest)
@@ -438,7 +486,57 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
           className={inputClass}
         />
       </div>
-      
+
+      {kind === "ESSAY" && !isEditing && (
+        <p className="text-[10px] text-slate-400 italic">{t("questionEditorForm.keyGrammar.saveFirstHint")}</p>
+      )}
+
+      {kind === "ESSAY" && isEditing && (
+        <div className="border-2 border-amber-200 bg-amber-50/60 rounded-xl p-3.5 space-y-2.5">
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-extrabold uppercase tracking-wide text-slate-800">{t("questionEditorForm.keyGrammar.title")}</span>
+            <span className="text-[10px] font-extrabold text-white bg-emerald-600 px-2 py-0.5 rounded-full">{t("questionEditorForm.keyGrammar.newBadge")}</span>
+          </div>
+          <p className="text-xs text-slate-600 leading-relaxed">{t("questionEditorForm.keyGrammar.description")}</p>
+          {loadingKeyGrammarOptions ? (
+            <p className="text-xs text-slate-500">{t("common.loading")}</p>
+          ) : keyGrammarOptions.length === 0 ? (
+            <p className="text-xs text-slate-400 italic">{t("questionEditorForm.keyGrammar.noOptions")}</p>
+          ) : (
+            <>
+              <div className="flex flex-col gap-1.5 max-h-52 overflow-y-auto pr-1">
+                {keyGrammarOptions.map((opt) => {
+                  const checked = keyGrammarIds.includes(opt.id);
+                  const disabled = !checked && keyGrammarIds.length >= 3;
+                  return (
+                    <label
+                      key={opt.id}
+                      className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border text-xs font-semibold cursor-pointer ${
+                        checked
+                          ? "border-emerald-300 bg-emerald-50 text-slate-800"
+                          : disabled
+                            ? "border-slate-200 bg-slate-50 text-slate-300 cursor-not-allowed"
+                            : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                      }`}
+                    >
+                      <input type="checkbox" checked={checked} disabled={disabled} onChange={() => toggleKeyGrammarId(opt.id)} className="shrink-0" />
+                      <span>
+                        {opt.name}
+                        {opt.base && <span className="text-slate-400 font-normal"> ({t("questionEditorForm.keyGrammar.baseLabel")})</span>}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+              <p className="text-[11px] text-slate-500">{t("questionEditorForm.keyGrammar.selectedCount", { count: keyGrammarIds.length })}</p>
+            </>
+          )}
+          <div className="bg-white border border-amber-200 rounded-lg px-3 py-2 text-[11px] leading-relaxed text-amber-900">
+            {t("questionEditorForm.keyGrammar.consequenceNote")}
+          </div>
+        </div>
+      )}
+
       {isVoiceOrListeningAudio && (
         <div className={`p-4 rounded-xl border space-y-3 ${AUDIO_SECTION_STYLE[kind]?.box ?? "bg-sky-50/40 border-sky-200"}`}>
           <div className={`flex items-center gap-1 font-bold uppercase tracking-wider text-[9px] ${AUDIO_SECTION_STYLE[kind]?.title ?? "text-sky-900"}`}>

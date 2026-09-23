@@ -7,6 +7,7 @@ import vn.com.pps.education.domain.Exam;
 import vn.com.pps.education.domain.Question;
 import vn.com.pps.education.dto.CreateExamQuestionRequest;
 import vn.com.pps.education.dto.CreateQuestionRequest;
+import vn.com.pps.education.dto.KeyGrammarStructureResponse;
 import vn.com.pps.education.dto.QuestionImportResponse;
 import vn.com.pps.education.dto.QuestionResponse;
 import vn.com.pps.education.dto.UpdateQuestionRequest;
@@ -67,6 +68,16 @@ public class ExamQuestionService {
                                            UpdateQuestionRequest request, Long actorUserId) {
         return questionBankService.updateResolvedQuestion(
                 questionOrThrow(examId, questionId), request, actorUserId);
+    }
+
+    /**
+     * Key Grammar (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-22) — danh sách mã cấu trúc
+     * khả dụng cho dropdown chọn tay ở modal "Sửa câu hỏi" (FE, ExerciseAssignPage.tsx). Rỗng nếu câu hỏi
+     * không phải ESSAY hoặc Khối/chương trình chưa có từ điển.
+     */
+    @Transactional(readOnly = true)
+    public List<KeyGrammarStructureResponse> listKeyGrammarOptions(Long examId, Long questionId) {
+        return questionBankService.listKeyGrammarOptionsForResolvedQuestion(questionOrThrow(examId, questionId));
     }
 
     /**

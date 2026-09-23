@@ -146,6 +146,30 @@ export interface QuestionResponse {
   choices: QuestionChoiceResponse[];
   structuredContent: QuestionStructuredContent | null;
   groupKey: string | null;
+  /**
+   * Key Grammar (filter 2, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-22) — mảng mã cấu
+   * trúc đã gắn cho câu hỏi này, null/rỗng = không kiểm. Chỉ có ý nghĩa khi questionType=ESSAY. Gắn vào
+   * CÂU HỎI (không phải Bài) — set 1 lần ở modal "Sửa câu hỏi", áp dụng cho mọi lượt giao Bài chứa câu
+   * hỏi này sau này.
+   */
+  keyGrammar: string[] | null;
+}
+
+/** Key Grammar — 1 mã cấu trúc khả dụng để chọn, nguồn cho dropdown ở modal "Sửa câu hỏi". */
+export interface KeyGrammarStructureResponse {
+  id: string;
+  name: string;
+  base: boolean;
+}
+
+/** Rỗng nếu câu hỏi không phải ESSAY hoặc Khối/chương trình chưa có từ điển Key Grammar (VD Khối 9). */
+export function listQuestionKeyGrammarOptions(questionId: number): Promise<KeyGrammarStructureResponse[]> {
+  return apiRequest<KeyGrammarStructureResponse[]>(`/questions/${questionId}/key-grammar-options`);
+}
+
+/** Bản theo Đề (không lộ questionBankId cho Giáo viên), mirror listQuestionKeyGrammarOptions. */
+export function listExamQuestionKeyGrammarOptions(examId: number, questionId: number): Promise<KeyGrammarStructureResponse[]> {
+  return apiRequest<KeyGrammarStructureResponse[]>(`/exams/${examId}/questions/${questionId}/key-grammar-options`);
 }
 
 export function listQuestions(bankId: number): Promise<QuestionResponse[]> {
@@ -164,6 +188,12 @@ export interface UpdateQuestionRequest {
   tags?: string[];
   choices?: QuestionChoiceRequest[];
   status?: "ACTIVE" | "ARCHIVED";
+  /**
+   * Key Grammar (filter 2, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-22) — 1-3 mã cấu
+   * trúc, khớp từ điển đúng Khối/track. Luôn PHẢN ÁNH TOÀN BỘ trạng thái mong muốn (giống content) —
+   * null/rỗng = xoá Key Grammar khỏi câu hỏi này. Chỉ áp dụng được khi questionType=ESSAY.
+   */
+  keyGrammarIds?: string[] | null;
 }
 
 /**
