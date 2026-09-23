@@ -17,6 +17,8 @@ export interface NotificationResponse {
   classId: number | null;
   exerciseAssignmentId: number | null;
   reviewVideoAssignmentId: number | null;
+  /** Buổi học liên quan (class_sessions.id) — bổ sung 2026-09-23, dùng cho COMMENT_REJECTED. */
+  classSessionId: number | null;
 }
 
 export function listMyNotifications(page = 0, size = 20): Promise<Page<NotificationResponse>> {

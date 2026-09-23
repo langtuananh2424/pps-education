@@ -29,5 +29,8 @@ public record NotificationResponse(
         /** Bản giao Bài tập Ngữ pháp liên quan (exercise_assignments.id) — mở/cuộn tới đúng thẻ BTVN. */
         Long exerciseAssignmentId,
         /** Bản giao Video Ôn tập liên quan (review_video_assignments.id) — mirror exerciseAssignmentId. */
-        Long reviewVideoAssignmentId
+        Long reviewVideoAssignmentId,
+        /** Buổi học liên quan (class_sessions.id) — bổ sung 2026-09-23, dùng cho COMMENT_REJECTED để
+         * mở đúng buổi ở màn "Viết nhận xét" thay vì chỉ đúng lớp. */
+        Long classSessionId
 ) {}

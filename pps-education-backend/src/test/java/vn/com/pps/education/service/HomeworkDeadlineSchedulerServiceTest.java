@@ -172,8 +172,10 @@ class HomeworkDeadlineSchedulerServiceTest extends AbstractIntegrationTest {
         assertThat(notifications.getTotalElements()).isEqualTo(before + 1);
         Notification created = notifications.getContent().get(0);
         assertThat(created.getNotificationType()).isEqualTo(Notification.NotificationType.HOMEWORK_DEADLINE_SUMMARY);
+        // Content rút gọn (2026-09-23, xem HomeworkDeadlineSchedulerService#sendSummary) — không còn
+        // liệt kê "Chi tiết từng em" trong content nữa, chỉ giữ tỷ lệ hoàn thành; chi tiết xem qua nút
+        // "Xem chi tiết" (deep-link sang trang thống kê BTVN).
         assertThat(created.getContent()).contains("1/2 học sinh (50%)");
-        assertThat(created.getContent()).contains("Chưa làm bài");
 
         ExerciseAssignment reloaded = exerciseAssignmentRepository.findById(assignment.getId()).orElseThrow();
         assertThat(reloaded.getTeacherNotifiedAt()).isNotNull();
