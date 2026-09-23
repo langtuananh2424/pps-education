@@ -1561,9 +1561,13 @@ export function submitComments(classId: number, commentIds: number[]): Promise<S
  */
 export interface ApplyClassHomeworkRequest {
   grammarExamId?: number;
+  /** Bổ sung 2026-09-23 — Bài CỤ THỂ được chọn trong nhóm grammarExamId (bắt buộc, không rỗng, khi grammarExamId có giá trị). */
+  grammarExerciseIds?: number[];
   videoSetId?: number;
   readingExamId?: number;
+  readingExerciseIds?: number[];
   writingExamId?: number;
+  writingExerciseIds?: number[];
   dueDate?: string;
   lateSubmissionAllowed?: boolean;
 }
