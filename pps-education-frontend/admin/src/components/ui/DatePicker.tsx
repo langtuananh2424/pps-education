@@ -135,9 +135,13 @@ export default function DatePicker({ value, onChange, min, max, placeholder, has
         disabled={disabled}
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          "w-full bg-slate-50 border text-xs p-2.5 rounded-lg focus:outline-none flex items-center justify-between gap-2 disabled:opacity-50",
+          "bg-slate-50 border text-xs p-2.5 rounded-lg focus:outline-none flex items-center justify-between gap-2 disabled:opacity-50",
           hasError ? "border-rose-400 focus:ring-1 focus:ring-rose-300" : "border-slate-200 hover:border-slate-300",
-          className
+          // className tự đặt bề rộng riêng (VD "w-40" ở AiTokenUsagePage để 2 ô nằm ngang) — nếu không
+          // truyền thì mặc định w-full như cũ. cn() chỉ nối chuỗi (không phải tailwind-merge), nên để "w-full"
+          // luôn có mặt cùng "w-40" sẽ đụng độ theo thứ tự CSS biên dịch (không phải thứ tự trong class=""),
+          // khiến "w-full" thắng bất kể className truyền gì — đây là bug thật đã xảy ra ở AiTokenUsagePage.
+          className ?? "w-full"
         )}
       >
         <span className={value ? "text-slate-800 font-medium" : "text-slate-400"}>{value ? formatDisplay(value) : placeholder ?? t("datePicker.placeholder")}</span>

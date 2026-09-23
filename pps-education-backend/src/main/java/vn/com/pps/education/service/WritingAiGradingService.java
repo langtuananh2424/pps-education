@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import vn.com.pps.education.common.AiTokenUsage;
 import vn.com.pps.education.common.CriteriaScoreItem;
 import vn.com.pps.education.common.KeyGrammarDictionary;
 import vn.com.pps.education.common.KeyGrammarOutcome;
@@ -104,6 +105,7 @@ public class WritingAiGradingService {
     private final PromptTemplateLoader promptTemplateLoader;
     private final WritingV3PromptBuilder promptBuilderV3;
     private final KeyGrammarDictionaryLoader keyGrammarDictionaryLoader;
+    private final AiUsageSink usageSink;
 
     /**
      * V190 (2026-09-22, xác nhận với người dùng) — combo RIÊNG cho Writing, do người dùng tự tạo trong
@@ -118,13 +120,15 @@ public class WritingAiGradingService {
 
     public WritingAiGradingService(ObjectMapper objectMapper, RubricByGradeTrackLoader rubricLoader,
                                     NineRouterAiClient nineRouterAiClient, PromptTemplateLoader promptTemplateLoader,
-                                    WritingV3PromptBuilder promptBuilderV3, KeyGrammarDictionaryLoader keyGrammarDictionaryLoader) {
+                                    WritingV3PromptBuilder promptBuilderV3, KeyGrammarDictionaryLoader keyGrammarDictionaryLoader,
+                                    AiUsageSink usageSink) {
         this.objectMapper = objectMapper;
         this.rubricLoader = rubricLoader;
         this.nineRouterAiClient = nineRouterAiClient;
         this.promptTemplateLoader = promptTemplateLoader;
         this.promptBuilderV3 = promptBuilderV3;
         this.keyGrammarDictionaryLoader = keyGrammarDictionaryLoader;
+        this.usageSink = usageSink;
     }
 
     /**
@@ -136,9 +140,16 @@ public class WritingAiGradingService {
      *                      soát lại hoặc gỡ lỗi khi điểm trông bất thường. {@code null} ở đường rubric cũ.
      * @param keyGrammar V196 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-22, Key Grammar
      *                   filter 2) — {@code null} khi Bài không gắn Key Grammar hoặc đang ở đường rubric cũ.
+     * @param usage V192 — chi phí token của CHÍNH lượt gọi AI cho ra kết quả này, caller
+     *              (ExerciseAttemptService) lưu kèm ngữ cảnh học sinh. Các lần thử bị loại trước đó (dở
+     *              dang/parse lỗi ở đường v3) đã được ghi riêng qua {@link AiUsageSink#recordRejected}.
      */
     public record GradeResult(int scorePercent, String feedback, String markedAnswer, List<CriteriaScoreItem> criteriaScores,
-                              String auditMarkdown, KeyGrammarOutcome keyGrammar) {
+                              String auditMarkdown, KeyGrammarOutcome keyGrammar, AiTokenUsage usage) {
+
+        GradeResult withUsage(AiTokenUsage usage) {
+            return new GradeResult(scorePercent, feedback, markedAnswer, criteriaScores, auditMarkdown, keyGrammar, usage);
+        }
     }
 
     /**
@@ -166,15 +177,17 @@ public class WritingAiGradingService {
     }
 
     private GradeResult gradeLegacy(String essayText, String rubric) {
-        String rawText = nineRouterAiClient.chat(systemPrompt(rubric), "Bài viết của học sinh: \"" + essayText + "\"", null);
-        if (rawText == null) {
+        NineRouterAiClient.AiTextResponse response = nineRouterAiClient.chatWithUsage(
+                systemPrompt(rubric), "Bài viết của học sinh: \"" + essayText + "\"", null);
+        if (response == null) {
             log.warn("WritingAiGradingService: 9Router chấm thất bại, rơi lại hàng chờ chấm tay.");
             return null;
         }
         try {
-            return parseResultLegacy(rawText);
+            return parseResultLegacy(response.content()).withUsage(response.usage());
         } catch (IOException e) {
             log.warn("WritingAiGradingService: parse kết quả chấm thất bại, rơi lại hàng chờ chấm tay. {}", e.getMessage());
+            usageSink.recordRejected("chat", null, response.usage());
             return null;
         }
     }
@@ -196,19 +209,25 @@ public class WritingAiGradingService {
             NineRouterAiClient.ChatResult result = nineRouterAiClient.chatWithFinishReason(system, user, writingModel);
             if (result == null || result.content() == null || result.content().isBlank()) {
                 log.warn("WritingAiGradingService: 9Router chấm (v3) thất bại, rơi lại hàng chờ chấm tay.");
+                // V192 — token vẫn tốn nếu 9Router trả response rỗng (result != null), không để mất chi phí.
+                if (result != null) {
+                    usageSink.recordRejected("chatWithFinishReason", writingModel, result.usage());
+                }
                 return null;
             }
             if (isTruncated(result)) {
                 log.warn("WritingAiGradingService: kết quả dở dang (finishReason={}, lần {}/{}) — {}.",
                         result.finishReason(), attempt, MAX_ATTEMPTS_TOTAL,
                         attempt < MAX_ATTEMPTS_TOTAL ? "thử chấm lại" : "rơi lại hàng chờ chấm tay");
+                usageSink.recordRejected("chatWithFinishReason", writingModel, result.usage());
                 continue;
             }
             try {
-                return parseResultV3(result.content(), grade, keyGrammarDictionary);
+                return parseResultV3(result.content(), grade, keyGrammarDictionary).withUsage(result.usage());
             } catch (IOException e) {
                 log.warn("WritingAiGradingService: parse kết quả chấm (v3) thất bại (lần {}/{}). {}", attempt, MAX_ATTEMPTS_TOTAL, e.getMessage());
                 // Coi như "dở dang" theo tinh thần mục 5.3 — thử lại thay vì bỏ cuộc ngay từ lần đầu.
+                usageSink.recordRejected("chatWithFinishReason", writingModel, result.usage());
             }
         }
         return null;
@@ -239,7 +258,7 @@ public class WritingAiGradingService {
         }
         JsonNode parsed = objectMapper.readTree(rawText.substring(start, end + 1));
         int scorePercent = Math.min(100, Math.max(0, parsed.path("scorePercent").asInt(0)));
-        return new GradeResult(scorePercent, parsed.path("feedback").asText(""), null, null, null, null);
+        return new GradeResult(scorePercent, parsed.path("feedback").asText(""), null, null, null, null, null);
     }
 
     private static final Pattern SECTION_HEADER = Pattern.compile("(?m)^###\\s*(\\d+)\\.[^\\n]*$");
@@ -295,7 +314,7 @@ public class WritingAiGradingService {
                 keyGrammarOutcome = new KeyGrammarOutcome(c.status(), c.correct(), c.attempts(), "fail".equals(c.status()), fs.keyGrammarNote());
             }
         }
-        return new GradeResult(Math.min(100, Math.max(0, total)), finalFeedback, markedAnswer, criteriaScores, split.audit(), keyGrammarOutcome);
+        return new GradeResult(Math.min(100, Math.max(0, total)), finalFeedback, markedAnswer, criteriaScores, split.audit(), keyGrammarOutcome, null);
     }
 
     /** Cắt văn bản thành các mục theo header {@code ### N. ...} — key là số N, value là nội dung mục đó. */

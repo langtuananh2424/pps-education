@@ -4,6 +4,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.common.CriteriaScoreItem;
 import vn.com.pps.education.common.KeyGrammarOutcome;
+import vn.com.pps.education.domain.AiGradingTokenUsage;
 import vn.com.pps.education.domain.ClassEnrollment;
 import vn.com.pps.education.domain.Exercise;
 import vn.com.pps.education.domain.ExerciseAssignment;
@@ -97,6 +98,7 @@ public class ExerciseAttemptService {
     private final UserRepository userRepository;
     private final StudentAnswerGradingRepository studentAnswerGradingRepository;
     private final WritingAiGradingService writingAiGradingService;
+    private final AiGradingTokenUsageRecorder tokenUsageRecorder;
 
     private static final Set<Question.QuestionType> AUTO_GRADABLE_TYPES = Set.of(
             Question.QuestionType.MULTIPLE_CHOICE, Question.QuestionType.MULTIPLE_ANSWER, Question.QuestionType.TRUE_FALSE,
@@ -113,7 +115,8 @@ public class ExerciseAttemptService {
                                    StudentRepository studentRepository,
                                    UserRepository userRepository,
                                    StudentAnswerGradingRepository studentAnswerGradingRepository,
-                                   WritingAiGradingService writingAiGradingService) {
+                                   WritingAiGradingService writingAiGradingService,
+                                   AiGradingTokenUsageRecorder tokenUsageRecorder) {
         this.exerciseAttemptRepository = exerciseAttemptRepository;
         this.exerciseAttemptHistoryRepository = exerciseAttemptHistoryRepository;
         this.studentAnswerRepository = studentAnswerRepository;
@@ -126,6 +129,7 @@ public class ExerciseAttemptService {
         this.userRepository = userRepository;
         this.studentAnswerGradingRepository = studentAnswerGradingRepository;
         this.writingAiGradingService = writingAiGradingService;
+        this.tokenUsageRecorder = tokenUsageRecorder;
     }
 
     /**
@@ -439,6 +443,8 @@ public class ExerciseAttemptService {
         // sửa ở modal "Sửa câu hỏi" thay vì "Sửa Bài".
         WritingAiGradingService.GradeResult result = writingAiGradingService.grade(answer.getAnswerText(),
                 answer.getQuestion().getContent(), exercise.getExam().getCurriculum(), answer.getQuestion().getKeyGrammar());
+        tokenUsageRecorder.record(AiGradingTokenUsage.Step.ESSAY, "chat", null, result == null ? null : result.usage(),
+                answer.getExerciseAttempt().getStudent(), null, null);
         if (result == null) {
             return null;
         }
