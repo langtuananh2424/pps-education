@@ -276,6 +276,16 @@ export type RenderBlock =
   | { type: "single"; question: ExerciseQuestionResponse }
   | { type: "grid"; groupKey: string; referencePassage: string | null; audioUrl: string | null; wordBox: string[] | null; questions: ExerciseQuestionResponse[] };
 
+/**
+ * Bổ sung 2026-09-24 (đã xác nhận với người dùng, sửa bug thật) — lưới ảnh "Match the words with their
+ * correct picture" chỉ hiện ảnh + số thứ tự, BỎ nội dung câu. Trước đây áp cho MỌI nhóm FILL_IN_BLANK có
+ * ảnh, kể cả bài có câu thật (VD "Ex. 3: ___ is my pen here.") → học sinh mất nội dung câu. Chỉ coi là
+ * lưới ảnh khi nội dung mỗi câu KHÔNG có chữ thật (chỉ số thứ tự + chỗ trống, VD "1. ___").
+ */
+function isBlankOnlyContent(content: string | null | undefined): boolean {
+  return (content ?? "").replace(/[\d.)_\s]/g, "") === "";
+}
+
 /** Bổ sung 2026-08-28 — chia mảng thành các hàng cố định `size` phần tử, dùng để dựng bảng hộp từ vựng (wordBox). */
 function chunkArray<T>(items: T[], size: number): T[][] {
   const rows: T[][] = [];
@@ -2031,7 +2041,7 @@ export function GridQuestionGroup({
   // layout mặc định bên dưới (ảnh bị phóng to 240px/dòng gây vỡ pixel với ảnh gốc nhỏ, lại dài lê thê
   // 10 dòng thay vì 1 khối gọn). Chỉ áp dụng khi CẢ NHÓM đều là FILL_IN_BLANK có ảnh (không đụng các
   // nhóm khác — nghe điền từ, đọc hiểu lưới trắc nghiệm... vẫn giữ nguyên layout liệt kê dọc cũ).
-  const isPictureMatchGrid = block.questions.length >= 2 && block.questions.every((q) => q.imageUrl && q.questionType === "FILL_IN_BLANK");
+  const isPictureMatchGrid = block.questions.length >= 2 && block.questions.every((q) => q.imageUrl && q.questionType === "FILL_IN_BLANK" && isBlankOnlyContent(q.questionContent));
   return (
     <div className="border border-line/60 rounded-[16px] p-4 sm:p-5 lg:p-6 space-y-3 lg:space-y-4">
       {/* V3 2026-09-04 — xem Javadoc parsePassageParagraphs: mỗi đoạn hiện tên nhân vật thành dòng tiêu
