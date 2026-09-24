@@ -28,6 +28,8 @@ import {
   assignReviewVideoSetToClass,
   createReviewVideoSet,
   deleteReviewVideo,
+  deleteReviewVideoConnectionQuestion,
+  deleteReviewVideoQuestion,
   deleteReviewVideoSet,
   getReviewVideoSetStats,
   listBooks,
@@ -1819,6 +1821,8 @@ function VideoQuestionsPanel({ videoId }: { videoId: number }) {
   const [editForm, setEditForm] = useState<ReflexQuestionFormValue>({ timestampSeconds: "", prompt: "", maxRecordingSeconds: "60", maxAttempts: "" });
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+  const { confirmDialog } = useDialog();
+  const [deletingQuestionId, setDeletingQuestionId] = useState<number | null>(null);
 
   const load = () => {
     setLoading(true);
@@ -1894,6 +1898,21 @@ function VideoQuestionsPanel({ videoId }: { videoId: number }) {
     }
   };
 
+  /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-24 — BE chặn (400) nếu câu đã có học sinh làm bài, lỗi hiện thẳng ra. */
+  const handleDelete = async (questionId: number, index: number) => {
+    if (!(await confirmDialog(t("lectures.common.deleteQuestionConfirm", { index }), { danger: true }))) return;
+    setDeletingQuestionId(questionId);
+    setError(null);
+    try {
+      await deleteReviewVideoQuestion(questionId);
+      load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t("lectures.common.deleteQuestionFailed"));
+    } finally {
+      setDeletingQuestionId(null);
+    }
+  };
+
   return (
     <div className="border-t border-slate-100 mt-2 pt-2 space-y-2">
       {error && <div className="text-[11px] text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
@@ -1935,14 +1954,25 @@ function VideoQuestionsPanel({ videoId }: { videoId: number }) {
                       ? t("lectures.reflexQuestions.maxAttemptsLabel", { count: q.maxAttempts })
                       : t("lectures.reflexQuestions.unlimitedAttempts")}
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => startEdit(q)}
-                    className="shrink-0 text-slate-400 hover:text-brand-red transition-colors"
-                    title={t("lectures.common.editQuestionTooltip")}
-                  >
-                    <Pencil className="w-3.5 h-3.5" />
-                  </button>
+                  <span className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => startEdit(q)}
+                      className="text-slate-400 hover:text-brand-red transition-colors"
+                      title={t("lectures.common.editQuestionTooltip")}
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(q.id, i + 1)}
+                      disabled={deletingQuestionId === q.id}
+                      className="text-slate-400 hover:text-rose-600 transition-colors disabled:opacity-50"
+                      title={t("lectures.common.deleteQuestionTooltip")}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </span>
                 </div>
                 {q.prompt && <p className="text-slate-500 mt-0.5">{q.prompt}</p>}
               </div>
@@ -2017,6 +2047,8 @@ function VideoMcqQuestionsPanel({ videoId }: { videoId: number }) {
   const [editChoices, setEditChoices] = useState<EditingConnectionChoice[]>([]);
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+  const { confirmDialog } = useDialog();
+  const [deletingQuestionId, setDeletingQuestionId] = useState<number | null>(null);
 
   const load = () => {
     setLoading(true);
@@ -2096,6 +2128,21 @@ function VideoMcqQuestionsPanel({ videoId }: { videoId: number }) {
     }
   };
 
+  /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-24 — BE chặn (400) nếu câu đã có học sinh làm bài, lỗi hiện thẳng ra. */
+  const handleDelete = async (questionId: number, index: number) => {
+    if (!(await confirmDialog(t("lectures.common.deleteQuestionConfirm", { index }), { danger: true }))) return;
+    setDeletingQuestionId(questionId);
+    setError(null);
+    try {
+      await deleteReviewVideoConnectionQuestion(questionId);
+      load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t("lectures.common.deleteQuestionFailed"));
+    } finally {
+      setDeletingQuestionId(null);
+    }
+  };
+
   return (
     <div className="border-t border-slate-100 mt-2 pt-2 space-y-2">
       {error && <div className="text-[11px] text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
@@ -2149,14 +2196,25 @@ function VideoMcqQuestionsPanel({ videoId }: { videoId: number }) {
               <div key={q.id} className="bg-slate-50 border border-slate-200 rounded-lg p-2">
                 <div className="flex items-start justify-between gap-2">
                   <p className="font-bold text-slate-700">{t("lectures.connectionQuestions.itemSummary", { index: i + 1, prompt: q.prompt })}</p>
-                  <button
-                    type="button"
-                    onClick={() => startEdit(q)}
-                    className="shrink-0 text-slate-400 hover:text-brand-red transition-colors"
-                    title={t("lectures.common.editQuestionTooltip")}
-                  >
-                    <Pencil className="w-3.5 h-3.5" />
-                  </button>
+                  <span className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => startEdit(q)}
+                      className="text-slate-400 hover:text-brand-red transition-colors"
+                      title={t("lectures.common.editQuestionTooltip")}
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(q.id, i + 1)}
+                      disabled={deletingQuestionId === q.id}
+                      className="text-slate-400 hover:text-rose-600 transition-colors disabled:opacity-50"
+                      title={t("lectures.common.deleteQuestionTooltip")}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </span>
                 </div>
                 <div className="mt-1 space-y-0.5">
                   {q.choices.map((c) => (

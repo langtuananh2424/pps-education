@@ -211,6 +211,15 @@ public class ReviewVideoController {
         return ResponseEntity.ok(reviewVideoService.updateQuestion(questionId, request, actor.userId()));
     }
 
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-24 — xem Javadoc ReviewVideoService#deleteQuestion. */
+    @PreAuthorize("hasPermission(null, 'lms.review-video.update')")
+    @DeleteMapping("/api/review-video-questions/{questionId}")
+    public ResponseEntity<Void> deleteQuestion(@PathVariable Long questionId,
+                                                @AuthenticationPrincipal AuthenticatedUser actor) {
+        reviewVideoService.deleteQuestion(questionId, actor.userId());
+        return ResponseEntity.ok().build();
+    }
+
     /** V83 — mirror addQuestion/listQuestions của REFLEX, dành cho câu hỏi trắc nghiệm của video CONNECTION. */
     @PreAuthorize("hasPermission(null, 'lms.review-video.update')")
     @PostMapping("/api/review-videos/{videoId}/connection-questions")
@@ -241,6 +250,15 @@ public class ReviewVideoController {
             @PathVariable Long questionId, @Valid @RequestBody UpdateReviewVideoConnectionQuestionRequest request,
             @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(reviewVideoService.updateConnectionQuestion(questionId, request, actor.userId()));
+    }
+
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-24 — xem Javadoc ReviewVideoService#deleteConnectionQuestion. */
+    @PreAuthorize("hasPermission(null, 'lms.review-video.update')")
+    @DeleteMapping("/api/review-video-connection-questions/{questionId}")
+    public ResponseEntity<Void> deleteConnectionQuestion(@PathVariable Long questionId,
+                                                          @AuthenticationPrincipal AuthenticatedUser actor) {
+        reviewVideoService.deleteConnectionQuestion(questionId, actor.userId());
+        return ResponseEntity.ok().build();
     }
 
     // V128/V129 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-19) — assignmentId bắt
