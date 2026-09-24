@@ -33,23 +33,23 @@ function deviceMetadata() {
   };
 }
 
-export async function login(usernameOrEmail: string, password: string): Promise<void> {
+export async function login(usernameOrEmail: string, password: string, rememberMe: boolean): Promise<void> {
   const response = await apiRequest<LoginResponse>("/auth/login", {
     method: "POST",
     skipAuth: true,
     body: JSON.stringify({ usernameOrEmail, password, ...deviceMetadata() })
   });
-  setTokens(response.accessToken, response.refreshToken);
+  setTokens(response.accessToken, response.refreshToken, rememberMe);
 }
 
 /** UC-01 Main Flow bước 4 — idToken lấy từ Google Identity Services (credential trả về của nút Sign in with Google). */
-export async function loginWithGoogle(idToken: string): Promise<void> {
+export async function loginWithGoogle(idToken: string, rememberMe: boolean): Promise<void> {
   const response = await apiRequest<LoginResponse>("/auth/login/google", {
     method: "POST",
     skipAuth: true,
     body: JSON.stringify({ idToken, ...deviceMetadata() })
   });
-  setTokens(response.accessToken, response.refreshToken);
+  setTokens(response.accessToken, response.refreshToken, rememberMe);
 }
 
 export function fetchCurrentUser(): Promise<CurrentUserResponse> {

@@ -39,7 +39,7 @@ export default function LoginForm({ usernameOrEmail, onUsernameOrEmailChange, on
 
     setLoading(true);
     try {
-      await login(usernameOrEmail.trim(), password);
+      await login(usernameOrEmail.trim(), password, rememberMe);
       onLoginSuccess();
     } catch (err) {
       if (err instanceof ApiError) {
@@ -160,6 +160,7 @@ export default function LoginForm({ usernameOrEmail, onUsernameOrEmailChange, on
 
           <div className="mt-4">
             <GoogleSignInButton
+              rememberMe={rememberMe}
               onSuccess={onLoginSuccess}
               onError={(message) => setError(message)}
             />
