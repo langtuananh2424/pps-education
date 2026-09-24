@@ -175,13 +175,13 @@ public class ReflexSequentialGradingService {
                     progress.getWritingRedErrorCount() == null ? 0 : progress.getWritingRedErrorCount(),
                     progress.getAnswerText());
             // ReflexAudioRejectedException (bản ghi không đọc được / nói khác bài viết) ném thẳng ra → HTTP 422,
-            // giao dịch rollback nên KHÔNG tính lượt nộp và KHÔNG ghi điểm.
+            // giao dịch rollback nên KHÔNG tính lượt nộp và KHÔNG ghi điểm. Chi phí từng lượt AI được ghi qua sink
+            // ngay khi AI trả về — kể cả khi sau đó bị từ chối / parse lỗi (recorder chạy REQUIRES_NEW nên không
+            // bị rollback theo).
+            ReflexQuestionProgress usageContext = progress;
             ReflexV2AiGradingService.SpeakingResult result = audioFile == null ? null
-                    : reflexV2GradingService.gradeSpeaking(v2Task.get(), question.getPrompt(), audioFile.bytes(), audioFile.contentType(), locked);
-            if (result != null) {
-                recordUsage(AiGradingTokenUsage.Step.TRANSCRIPTION, "chatWithAudioJson", result.transcriptionUsage(), progress);
-                recordUsage(AiGradingTokenUsage.Step.SPEAKING, "chatWithAudioJson", result.gradingUsage(), progress);
-            }
+                    : reflexV2GradingService.gradeSpeaking(v2Task.get(), question.getPrompt(), audioFile.bytes(), audioFile.contentType(), locked,
+                            (step, usage) -> recordUsage(step, "chatWithAudioJson", usage, usageContext));
             applySpeakingResultV2(progress, result);
         } else {
             ReflexSpeakingContentAiGradingService.GradeResult result =
