@@ -319,6 +319,14 @@ export interface StudentCommentResponse {
   lessonContent: string | null;
 }
 
+/** Mirror ExerciseAssignment record — 1 Bài lẻ trong Lô (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-22). */
+export interface HomeworkSkillItemResponse {
+  exerciseAssignmentId: number;
+  title: string;
+  progress: string | null;
+  passed: boolean | null;
+}
+
 /** UC-64 (bổ sung ngoài SDD gốc, 2026-07-29) — Cổng phụ huynh xem tiến độ BTVN đã giao cho con, chỉ xem không phải giao diện làm bài. */
 export interface HomeworkProgressResponse {
   commentId: number;
@@ -330,12 +338,41 @@ export interface HomeworkProgressResponse {
   grammarProgress: string | null;
   /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — null khi grammarAssignmentId null (chưa giao/giao offline), phân biệt "đạt"/"chưa đạt" thay vì chỉ nhìn %. */
   grammarPassed: boolean | null;
+  /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-22 — % + đạt/chưa đạt của TỪNG Bài trong Lô (rỗng nếu không có Lô nào giao). */
+  grammarItems: HomeworkSkillItemResponse[];
+  /** "VOCAB_GRAMMAR" (buổi VIETNAMESE, hiện "Ngữ pháp") hoặc "LISTENING" (buổi FOREIGN, hiện "Nghe") — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-22, dùng chọn nhãn/badge GV phụ trách cho card BTVN. */
+  grammarSkillCategory: "VOCAB_GRAMMAR" | "LISTENING" | null;
+  grammarDueAt: string | null;
+  grammarUnitTitle: string | null;
+  /** Kênh Đọc hiểu (V137, chỉ áp dụng buổi teacherType=VIETNAMESE) — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-22, mirror kênh Ngữ pháp ở trên (trước đây có dữ liệu nhưng chưa lộ ra Cổng phụ huynh). */
+  readingAssignmentId: number | null;
+  readingTitle: string | null;
+  readingOfflineText: string | null;
+  readingProgress: string | null;
+  readingPassed: boolean | null;
+  readingItems: HomeworkSkillItemResponse[];
+  readingDueAt: string | null;
+  readingUnitTitle: string | null;
+  /** Kênh Viết — mirror readingXxx ở trên. */
+  writingAssignmentId: number | null;
+  writingTitle: string | null;
+  writingOfflineText: string | null;
+  writingProgress: string | null;
+  writingPassed: boolean | null;
+  writingItems: HomeworkSkillItemResponse[];
+  writingDueAt: string | null;
+  writingUnitTitle: string | null;
   /** V65 (2026-07-30, bổ sung ngoài SDD gốc): đổi tên từ videoSetId — giờ là id bản giao (ReviewVideoAssignment), không phải id ReviewVideoSet nguồn. */
   videoAssignmentId: number | null;
   videoTitle: string | null;
   videoProgress: string | null;
   /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — mirror grammarPassed. */
   videoPassed: boolean | null;
+  /** "REFLEX" | "CONNECTION" — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-22. */
+  videoType: "REFLEX" | "CONNECTION" | null;
+  videoTeacherType: "VIETNAMESE" | "FOREIGN" | null;
+  videoDueAt: string | null;
+  videoUnitTitle: string | null;
 }
 
 /** UC-18 — khớp ClassSessionResponse thật. */
@@ -400,6 +437,11 @@ export interface NotificationResponse {
   priority: string;
   createdAt: string;
   readAt: string | null;
+  /** Toạ độ điều hướng (Plan link hoá thông báo, 2026-09-22) — BE chỉ điền field có nghĩa với từng loại, còn lại null. */
+  studentId: number | null;
+  classId: number | null;
+  exerciseAssignmentId: number | null;
+  reviewVideoAssignmentId: number | null;
 }
 
 export function listMyChildren(): Promise<ChildResponse[]> {
@@ -1041,6 +1083,14 @@ export interface StudentAnswerResponse {
   gradingMarkedAnswer: string | null;
   /** V182 — % từng tiêu chí rubric v3 (TR/TA, CC, LR, GRA...), tách riêng khỏi gradingFeedback. */
   gradingCriteriaScores: { criterion: string; percent: number }[] | null;
+  /**
+   * V196 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-22, Key Grammar filter 2) — NULL khi
+   * Bài không gắn Key Grammar hoặc chưa chấm bằng rubric "v3". `redoRequired=true` → hiện dải cảnh báo
+   * "cần viết lại bài".
+   */
+  gradingKeyGrammar:
+    | { status: "pass" | "fail" | "unparsed"; correct: number; attempts: number; redoRequired: boolean; note: string | null }
+    | null;
   /**
    * V177 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-15) — UC-24/UC-27 A2: câu này được
    * mang nguyên nội dung từ lượt làm TRƯỚC (đã đúng) sang lượt "Làm lại" hiện tại — hiện dạng chỉ xem/

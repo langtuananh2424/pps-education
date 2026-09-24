@@ -22,7 +22,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-04: khi hết hạn nộp BTVN (Bài tập Ngữ
@@ -100,7 +99,7 @@ public class HomeworkDeadlineSchedulerService {
                         "EXERCISE_ASSIGNMENT", assignment.getId());
                 for (Student s : students) {
                     boolean passed = homeworkProgressService.grammarPassed(assignment, s.getId());
-                    accumulate(missByStudentClass, s, assignment.getSchoolClass(), StudentHomeworkAlertState.Channel.GRAMMAR, passed);
+                    accumulate(missByStudentClass, s, assignment.getSchoolClass(), StudentHomeworkAlertState.Channel.GRAMMAR, passed, assignment.getId());
                 }
             }
             assignment.setTeacherNotifiedAt(now);
@@ -127,7 +126,7 @@ public class HomeworkDeadlineSchedulerService {
                         "REVIEW_VIDEO_ASSIGNMENT", assignment.getId());
                 for (Student s : students) {
                     boolean passed = homeworkProgressService.videoPassed(assignment, s.getId(), homeworkAlertSettings.reflexPassThresholdPercent());
-                    accumulate(missByStudentClass, s, assignment.getSchoolClass(), StudentHomeworkAlertState.Channel.VIDEO, passed);
+                    accumulate(missByStudentClass, s, assignment.getSchoolClass(), StudentHomeworkAlertState.Channel.VIDEO, passed, assignment.getId());
                 }
             }
             assignment.setTeacherNotifiedAt(now);
@@ -139,10 +138,10 @@ public class HomeworkDeadlineSchedulerService {
     }
 
     private void accumulate(Map<StudentClassKey, MissAccumulator> missByStudentClass, Student student, SchoolClass schoolClass,
-                             StudentHomeworkAlertState.Channel channel, boolean passed) {
+                             StudentHomeworkAlertState.Channel channel, boolean passed, Long assignmentId) {
         StudentClassKey key = new StudentClassKey(student.getId(), schoolClass.getId());
         MissAccumulator acc = missByStudentClass.computeIfAbsent(key, k -> new MissAccumulator(student, schoolClass));
-        acc.results.add(new HomeworkAlertTrackingService.ChannelMissResult(channel, passed));
+        acc.results.add(new HomeworkAlertTrackingService.ChannelMissResult(channel, passed, assignmentId));
     }
 
     private record StudentClassKey(Long studentId, Long schoolClassId) {}
@@ -177,12 +176,10 @@ public class HomeworkDeadlineSchedulerService {
         int ratePercent = Math.round(completedCount * 100f / total);
 
         String title = "Hết hạn " + assignmentLabel + " — lớp " + schoolClass.getName();
-        String detail = progress.stream()
-                .sorted((a, b) -> a.student().getUser().getFullName().compareToIgnoreCase(b.student().getUser().getFullName()))
-                .map(p -> "- " + p.student().getUser().getFullName() + ": " + (p.label() == null ? NOT_DONE_LABEL : p.label()))
-                .collect(Collectors.joining("\n"));
-        String content = "Tỷ lệ hoàn thành: %d/%d học sinh (%d%%).\n\nChi tiết từng em:\n%s"
-                .formatted(completedCount, total, ratePercent, detail);
+        // Bỏ danh sách "Chi tiết từng em" khỏi nội dung thông báo (đã xác nhận với người dùng
+        // 2026-09-23) — chi tiết từng em đã xem được khi bấm "Xem chi tiết" sang trang thống kê BTVN
+        // của đúng bài giao này, không cần lặp lại full danh sách ngay trong thông báo.
+        String content = "Tỷ lệ hoàn thành: %d/%d học sinh (%d%%).".formatted(completedCount, total, ratePercent);
         Map<String, Object> metadata = new LinkedHashMap<>();
         metadata.put("className", schoolClass.getName());
         metadata.put("assignmentLabel", assignmentLabel);

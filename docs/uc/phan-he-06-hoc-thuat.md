@@ -1525,11 +1525,38 @@ dùng), `StudentComment.CommentType` nay chỉ còn DAILY.
     bị chặn. Nội dung nhận xét/BTVN đã ghi TRƯỚC KHI điểm danh chuyển sang
     Vắng/Có phép bị TỰ ĐỘNG XÓA ngay lúc điểm danh (chỉ áp dụng cho
     DRAFT/REJECTED — nhận xét đã PENDING/APPROVED không bị đụng tới, xem
-    `StudentAttendanceService#resetDailyCommentIfLocked`). "Áp dụng cho cả
-    lớp" giao BTVN (`applyHomeworkToClass`, cả kênh online lẫn offline ở
-    FE) BỎ QUA hoàn toàn học sinh Vắng/Có phép. Trên UI, hàng của học sinh
-    Vắng/Có phép được tô nền đỏ trong bảng Nhận xét hàng ngày
-    (`DailyCommentPanel.tsx`) và mọi ô nhập bị vô hiệu hóa.
+    `StudentAttendanceService#resetDailyCommentIfLocked`). **Nới lại
+    2026-09-22 (đã xác nhận với người dùng)** — rào LOCK trên chỉ còn áp
+    dụng cho Nhận xét (`content`/`structuredContent`/`note`), điểm BTVN
+    buổi trước (`homeworkPreviousScore*`) và Thái độ (`attitude`); **BTVN
+    buổi sau (giao bài) thì KHÔNG còn bị khoá nữa, ở CẢ 2 kênh:**
+      - "Áp dụng cho cả lớp" giao BTVN online (`applyHomeworkToClass`, qua
+        đề/video) — không còn bỏ qua học sinh Vắng/Có phép, giao bình
+        thường như học sinh có mặt (chỉ còn bị chặn nếu nhận xét đã
+        PENDING/APPROVED, như mọi học sinh khác).
+      - BTVN buổi sau chữ tự do (`homeworkNext`/`homeworkNextReading`/
+        `homeworkNextWriting`, nhập kèm form Nhận xét qua
+        `writeComment`/`updateComment`/`saveDraftBatch`/import Excel) —
+        `requireNotLockedByAttendance` (BE) giờ chỉ throw khi request có
+        điền `content`/`structuredContent`/`attitude`/`homeworkPreviousScore*`/
+        `note`; nếu CHỈ điền 3 field BTVN buổi sau nói trên (Nhận
+        xét/Thái độ/BTVN buổi trước để trống) thì vẫn ghi được bình
+        thường cho học sinh Vắng/Có phép (mirror ở `importRow`/
+        `previewImportComments`: dòng Excel absent chỉ điền 3 cột BTVN
+        buổi sau vẫn hợp lệ, điền thêm cột Nhận xét/Thái độ/BTVN buổi
+        trước thì mới bị chặn).
+    Theo đó `resetDailyCommentIfLocked` cũng không còn xóa các field BTVN
+    batch (`homeworkNextGrammarBatch`/`homeworkNextReviewVideoAssignment`/
+    `homeworkNextReadingBatch`/`homeworkNextWritingBatch`) lẫn 3 field
+    BTVN chữ tự do (`homeworkNext`/`homeworkNextReading`/
+    `homeworkNextWriting`) khi điểm danh chuyển sang Vắng/Có phép — chỉ
+    còn xóa phần Nhận xét/Thái độ/điểm BTVN buổi trước. Trên UI, hàng của
+    học sinh Vắng/Có phép vẫn tô nền đỏ trong bảng Nhận xét hàng ngày
+    (`DailyCommentPanel.tsx`); FE hiện tại vẫn khoá luôn ô BTVN buổi sau
+    chữ tự do trên hàng này theo `isAbsentLocked` cũ — cần nới lại UI
+    tương ứng nếu muốn giáo viên tự gõ BTVN chữ tự do cho học sinh vắng
+    ngay trên bảng (nút "Áp dụng cho cả lớp"/"Gán nhanh cho cả lớp" đã
+    tác động được lên các học sinh này qua API).
 -   ~~Ràng buộc thứ tự (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
     2026-08-13): ghi/sửa nội dung nhận xét (`writeComment`/`updateComment`)
     và nhập nhận xét qua Excel (`importComments`) đều bị chặn (422) nếu
@@ -2326,13 +2353,22 @@ cho Video phản xạ/Video từ kết nối). Với dòng Video Ôn tập:
     Đạt/Chưa đạt — mirror `passedCount`/`passRatePercent` ở danh sách
     tổng hợp) + tab "Phân tích câu hỏi" (câu hay sai + danh sách học sinh
     sai, mirror UC-66 Exercise) — vì đã có sẵn dữ liệu đúng/sai thật.
-  - REFLEX: CHỈ có bảng tổng hợp mỗi học sinh (đã xem lượt, đã nộp bao
-    nhiêu câu hỏi, điểm trung bình nếu đã chấm) — KHÔNG có tab phân tích
-    câu hỏi (không có khái niệm đúng/sai tự chấm), KHÔNG nghe lại
-    audio/chấm điểm ngay tại trang này — việc chấm audio vẫn làm ở trang
-    "Chấm bài Video phản xạ" (UC-23b, ExamsPage) như cũ.
+  - REFLEX: bảng tổng hợp mỗi học sinh (đã xem lượt, đã nộp bao nhiêu câu
+    hỏi, điểm trung bình nếu đã chấm) — KHÔNG có tab phân tích câu hỏi
+    (không có khái niệm đúng/sai tự chấm). Việc CHẤM vẫn không đổi — tự
+    động qua `ReflexSequentialGradingService` (AI chấm ngay lúc nộp),
+    KHÔNG phải chấm tay ở trang "Chấm bài Video phản xạ" cũ (đó là luồng
+    UC-23b V1, không còn dùng cho REFLEX từ V139 — xem UC-23b).
+  - Bổ sung V191 (2026-09-21, đã xác nhận với người dùng) — mỗi dòng
+    REFLEX có nút "Xem chi tiết" (icon mắt) mở modal nghe lại audio đã
+    nộp + xem kết quả AI chấm (điểm, feedback, transcript, breakdown theo
+    tiêu chí rubric) theo TỪNG lần làm (không chỉ lần gần nhất) — xem mục
+    "Bổ sung V191" ở UC-23b (`docs/uc/phan-he-07-lms-portal.md`). Kèm nút
+    "Tải toàn bộ audio + kết quả AI chấm" xuất 1 file ZIP (audio mọi học
+    sinh/mọi lần ghi âm + `manifest.csv` đối chiếu) để tiếp tục train AI.
   - KHÔNG có nút "Xuất Excel" cho Video Ôn tập (chỉ Exercise có, chưa yêu
-    cầu cho review-video).
+    cầu cho review-video) — nút xuất ZIP nói trên là RIÊNG, chỉ hiện với
+    REFLEX.
 
 ---
 
@@ -2898,5 +2934,27 @@ xem ghi chú dưới UC-70 ở docs/uc/phan-he-04-nhan-su.md): `NOT_YET_OPEN`
 `LATE` (đã nhận, lấy nguyên trạng thái đã lưu), `ABSENT` (đã qua giờ kết
 thúc, không có bản ghi). Buổi CANCELLED/RESCHEDULED không tính trạng thái
 này (không cần nhận lớp). Xem `ClassSessionCheckInService#listEffectiveStatus`.
+
+**Cảnh báo chưa nhận lớp / không nhận lớp** (bổ sung ngoài SDD gốc, đã xác
+nhận với người dùng 2026-09-21 — migration V184, `ClassCheckInAlertSchedulerService`,
+job quét mỗi phút):
+
+| Mốc | Điều kiện | Gửi tới Quản lý điểm trường (site của lớp, `site_managers` đang hiệu lực) | Gửi tới giáo viên dạy buổi (primaryTeacher + cmTeacher nếu có) |
+|---|---|---|---|
+| **Chưa nhận lớp** (`CLASS_CHECKIN_LATE_ALERT`) | Đã qua giờ bắt đầu + `class_checkin_alert.late_after_minutes` (mặc định 5) mà chưa có bản ghi `class_session_check_ins` | PUSH (+ in-app): "Lớp X: giáo viên chưa nhận lớp — hãy kiểm tra" | EMAIL (+ in-app): báo đã tới giờ học nhưng chưa nhận lớp, nhận lúc này sẽ tính MUỘN |
+| **Không nhận lớp** (`CLASS_CHECKIN_ABSENT_ALERT`) | Đã qua giờ kết thúc buổi học mà vẫn chưa có bản ghi nhận lớp (đúng trạng thái `ABSENT` tính ra ở trên) | PUSH (+ in-app): "Lớp X: không có giáo viên nhận lớp — hãy kiểm tra" | EMAIL (+ in-app): báo buổi học được tính KHÔNG NHẬN LỚP |
+
+- Kênh gửi được ÉP theo nghiệp vụ (bỏ qua `notification_preferences` cá
+  nhân) — mục đích là Quản lý nhận push ngay trên điện thoại, giáo viên có
+  email làm bằng chứng.
+- Mỗi buổi học chỉ gửi TỐI ĐA 1 lần cho mỗi mốc (`class_sessions.
+  checkin_late_alert_sent_at` / `checkin_absent_alert_sent_at`); giáo viên
+  nhận lớp muộn sau khi đã có cảnh báo "chưa nhận lớp" thì KHÔNG phát sinh
+  cảnh báo "không nhận lớp" nữa. Buổi CANCELLED/RESCHEDULED không cảnh báo.
+- Bật/tắt toàn bộ bằng `system_settings.class_checkin_alert.enabled` (nhóm
+  NOTIFICATION trên trang Cài đặt hệ thống, hiệu lực ngay không cần
+  restart). Khi tắt, job không quét và không đánh dấu — bật lại thì chỉ
+  cảnh báo các buổi trong cửa sổ quét (hôm qua + hôm nay), không dội lại
+  lịch sử cũ.
 
 Phân hệ 7 --- Cổng thông tin và E-Learning (Portal & LMS)

@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import vn.com.pps.education.common.AiTokenUsage;
 import vn.com.pps.education.common.CriteriaScoreItem;
 import vn.com.pps.education.domain.Curriculum;
 
@@ -121,7 +122,9 @@ public class ReflexSpeakingContentAiGradingService {
         this.promptTemplateLoader = promptTemplateLoader;
     }
 
-    public record GradeResult(String transcript, List<CriteriaScoreItem> criteriaScores, int scorePercent, String feedback) {
+    /** {@code usage} (V192) — chi phí token của CHÍNH lượt chấm này, caller (ReflexSequentialGradingService) lưu kèm ngữ cảnh học sinh. */
+    public record GradeResult(String transcript, List<CriteriaScoreItem> criteriaScores, int scorePercent, String feedback,
+                              AiTokenUsage usage) {
     }
 
     /**
@@ -136,16 +139,18 @@ public class ReflexSpeakingContentAiGradingService {
         if (rubric == null) {
             return null;
         }
-        String rawText = nineRouterAiClient.chatWithAudio(
+        NineRouterAiClient.AiTextResponse response = nineRouterAiClient.chatWithAudioWithUsage(
                 systemPrompt(rubric, questionPrompt),
                 "Đây là audio câu trả lời speaking của học sinh cho câu hỏi \"" + questionPrompt + "\". Hãy transcribe rồi chấm theo tiêu chí đã cho — kể cả tiêu chí Phát âm/ngữ điệu, chỉ đánh giá được vì bạn nghe trực tiếp audio gốc.",
                 audioBytes, mimeType, null);
-        if (rawText == null) {
+        if (response == null) {
             log.warn("ReflexSpeakingContentAiGradingService: 9Router chấm thất bại.");
             return null;
         }
         try {
-            return parseResult(rawText);
+            GradeResult result = parseResult(response.content());
+            return new GradeResult(result.transcript(), result.criteriaScores(), result.scorePercent(), result.feedback(),
+                    response.usage());
         } catch (IOException e) {
             log.warn("ReflexSpeakingContentAiGradingService: parse kết quả chấm thất bại. {}", e.getMessage());
             return null;
@@ -172,6 +177,6 @@ public class ReflexSpeakingContentAiGradingService {
             int percent = Math.min(100, Math.max(0, item.path("percent").asInt(0)));
             criteriaScores.add(new CriteriaScoreItem(item.path("criterion").asText(""), percent));
         }
-        return new GradeResult(parsed.path("transcript").asText(""), criteriaScores, scorePercent, parsed.path("feedback").asText(""));
+        return new GradeResult(parsed.path("transcript").asText(""), criteriaScores, scorePercent, parsed.path("feedback").asText(""), null);
     }
 }

@@ -121,6 +121,21 @@ public class NotificationPushTemplateService {
                 "%s (lớp %s) có thái độ học tập yếu/trung bình liên tục %s buổi. Kính mong Quý Phụ huynh quan tâm, đồng hành cùng con.".formatted(
                         str(m, "studentName"), str(m, "className"), str(m, "streakCount"))));
 
+        // V184 — cảnh báo nhận lớp (UC-71 mở rộng, xác nhận với người dùng 2026-09-21). Cùng 1 type
+        // gửi cho cả Quản lý điểm trường (PUSH) lẫn giáo viên (EMAIL); push thực tế chỉ tới Quản lý
+        // nên diễn đạt theo góc nhìn người kiểm tra.
+        renderers.put(Notification.NotificationType.CLASS_CHECKIN_LATE_ALERT, m -> new PushTemplate(
+                "Lớp " + str(m, "className") + ": GV chưa nhận lớp",
+                "Buổi %s %s, GV %s chưa nhận lớp %s (điểm trường %s) — hãy kiểm tra.".formatted(
+                        fmtDate(m, "sessionDate"), fmtTime(m, "startTime"), str(m, "teacherName"),
+                        str(m, "className"), str(m, "siteName"))));
+
+        renderers.put(Notification.NotificationType.CLASS_CHECKIN_ABSENT_ALERT, m -> new PushTemplate(
+                "Lớp " + str(m, "className") + ": không có GV nhận lớp",
+                "Buổi %s %s-%s đã kết thúc, GV %s không nhận lớp %s (điểm trường %s) — hãy kiểm tra.".formatted(
+                        fmtDate(m, "sessionDate"), fmtTime(m, "startTime"), fmtTime(m, "endTime"), str(m, "teacherName"),
+                        str(m, "className"), str(m, "siteName"))));
+
         renderers.put(Notification.NotificationType.HOMEWORK_MISS_REMINDER, m -> new PushTemplate(
                 "Nhắc bài tập: " + str(m, "studentName"),
                 "%s (lớp %s) đã thiếu %s liên tục %s buổi — nhắc con hoàn thành nhé!".formatted(

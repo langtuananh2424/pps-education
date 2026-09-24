@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Clock, History, PenLine } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
@@ -13,7 +14,7 @@ type SiteManagerTab = "write" | "pending" | "history";
 
 export default function CommentsPage() {
   const { t } = useTranslation("academic-comments");
-  const { currentUser } = useApp();
+  const { currentUser, selectedClassId, setSelectedClassId } = useApp();
   // Hàng chờ duyệt (UC-22) chỉ có ý nghĩa với Quản lý điểm trường — API tự scope theo site được gán.
   const isSiteManager = currentUser?.roleCodes?.includes(UserRole.SITE_MANAGER) ?? false;
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-16: 1 nhân viên có thể VỪA là Quản lý
@@ -41,6 +42,41 @@ export default function CommentsPage() {
   useEffect(() => {
     if (isSiteManager) loadPending();
   }, [isSiteManager]);
+
+  // Deep-link từ thông báo COMMENT_PENDING_APPROVAL ở Header (?classId=) — nhảy sang tab "Chờ duyệt" và
+  // cuộn tới đúng khối lớp trong CommentApprovalByClass (Plan link hoá thông báo, 2026-09-22).
+  const [searchParams] = useSearchParams();
+  const [highlightClassId, setHighlightClassId] = useState<number | null>(null);
+  useEffect(() => {
+    const param = searchParams.get("classId");
+    if (!param || !Number.isFinite(Number(param))) return;
+    setHighlightClassId(Number(param));
+    if (isSiteManager) setSiteManagerTab("pending");
+  }, [searchParams, isSiteManager]);
+
+  // Deep-link từ thông báo COMMENT_REJECTED ở Header (?writeClassId=&sessionId=&studentId=) — chọn sẵn
+  // đúng lớp toàn cục (Header) + nhảy sang tab "Viết nhận xét", rồi tự chọn đúng buổi/cuộn tới đúng
+  // dòng học sinh vừa bị từ chối (xem DailyCommentPanel#goToStudentRow). Dùng "writeClassId" (khác
+  // "classId" ở trên, đích COMMENT_PENDING_APPROVAL) để 2 luồng không giẫm lên nhau dù cùng đích
+  // /academic/comments (PR #530, bổ sung sessionId/studentId theo yêu cầu người dùng 2026-09-23).
+  //
+  // Phụ thuộc thêm `selectedClassId` (không chỉ `searchParams`) để tự áp LẠI khi bị ghi đè: Header.tsx
+  // có 1 effect async riêng tự chọn site quản lý (managedSites tải xong) → gọi setSelectedCampusId →
+  // side-effect reset selectedClassId về null — chạy SAU effect này (API bất đồng bộ) nên có thể xoá
+  // mất lựa chọn vừa set. Effect này tự kích hoạt lại ngay khi thấy giá trị bị lệch khỏi target, tự ổn
+  // định sau khi Header chọn xong site (đã xác nhận: Header chỉ tự chọn site đúng 1 lần).
+  const writeClassIdParam = searchParams.get("writeClassId");
+  const sessionIdParam = searchParams.get("sessionId");
+  const deepLinkSessionId = sessionIdParam && Number.isFinite(Number(sessionIdParam)) ? Number(sessionIdParam) : null;
+  const studentIdParam = searchParams.get("studentId");
+  const deepLinkStudentId = studentIdParam && Number.isFinite(Number(studentIdParam)) ? Number(studentIdParam) : null;
+  useEffect(() => {
+    if (!writeClassIdParam || !Number.isFinite(Number(writeClassIdParam))) return;
+    const target = Number(writeClassIdParam);
+    if (selectedClassId !== target) setSelectedClassId(target);
+    if (showWriteTab) setSiteManagerTab("write");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [writeClassIdParam, selectedClassId]);
 
   return (
     <div className="space-y-6">
@@ -82,7 +118,7 @@ export default function CommentsPage() {
               duyệt"/"Lịch sử" rồi quay lại không được mất nội dung đang viết dở. */}
           {showWriteTab && (
             <div className={siteManagerTab === "write" ? "" : "hidden"}>
-              <DailyCommentPanel />
+              <DailyCommentPanel deepLinkSessionId={deepLinkSessionId} deepLinkStudentId={deepLinkStudentId} />
             </div>
           )}
           {siteManagerTab === "pending" ? (
@@ -90,13 +126,15 @@ export default function CommentsPage() {
               items={pending}
               loading={loadingPending}
               onDecided={loadPending}
+              highlightClassId={highlightClassId}
+              onHighlightHandled={() => setHighlightClassId(null)}
             />
           ) : siteManagerTab === "history" ? (
             <CommentHistoryPanel />
           ) : null}
         </>
       ) : (
-        <DailyCommentPanel />
+        <DailyCommentPanel deepLinkSessionId={deepLinkSessionId} deepLinkStudentId={deepLinkStudentId} />
       )}
     </div>
   );

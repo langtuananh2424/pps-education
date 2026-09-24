@@ -43,7 +43,8 @@
       "EXCUSED": "Excused",
       "LATE": "Late",
       "EARLY_LEAVE": "Early leave"
-    }
+    },
+    "sessionTeacherName": "Teacher: {{name}}"
   },
   "approvalByClass": {
     "loading": "Loading...",
@@ -219,6 +220,8 @@
       "onlineGrammarLabel": "Online homework — {{grammarLabel}}",
       "onlineVideoLabel": "Online homework — {{videoLabel}}",
       "noAssign": "-- Not assigned --",
+      "exerciseChecklistSummary": "{{selected}}/{{total}} exercises selected",
+      "exerciseChecklistEmpty": "No exercise selected — clear the Lesson above if you don't want to assign this channel.",
       "dueDateLabel": "Due date — date",
       "dueTimeLabel": "Due date — time",
       "lateSubmissionAllowedLabel": "Allow late submission",
@@ -263,7 +266,8 @@
     "homeworkPreviousOfflinePlaceholder": "E.g. 80%",
     "homeworkPreviousSpeakingPlaceholder": "E.g. Completed 85% (Video channel is always online — auto % will appear after sending)",
     "autoBadge": "Auto",
-    "attendanceLockedHint": "Comment/homework locked",
+    "attendanceLockedHint": "Comment/attitude locked",
+    "rejectionReasonHint": "Rejected: {{reason}}",
     "chooseExercisePlaceholder": "-- Select a published exercise --",
     "attitudePlaceholder": "-- Not selected --",
     "contentPlaceholder": "Write a comment for this student...",
@@ -357,6 +361,8 @@
     "empty": "This session has no edit history yet.",
     "latestBadge": "Latest",
     "studentsCount": "{{count}} students",
+    "rejectionReasonLabel": "Rejection reason: {{value}}",
+    "goToStudentRow": "Edit now",
     "columns": {
       "studentCode": "Student ID",
       "fullName": "Full name",

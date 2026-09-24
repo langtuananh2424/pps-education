@@ -9,6 +9,7 @@ import {
   decideComments,
   listClassEnrollments,
   listClassSessions,
+  listClassTeachers,
   listClasses,
   updatePendingCommentContent
 } from "../api";
@@ -18,6 +19,7 @@ import { Td, Th } from "@/components/ui/TableContainer";
 import { useDialog } from "@/components/ui/DialogProvider";
 import NotificationBanner from "@/features/student/components/NotificationBanner";
 import { toLocaleTag } from "@/lib/i18nFormat";
+import StudentNameLink from "@/features/reports/components/StudentNameLink";
 
 // Đồng bộ đúng bố cục/tên cột với form Giáo viên điền & gửi (DailyCommentPanel.tsx) — bổ sung ngoài
 // SDD gốc, đã xác nhận với người dùng 2026-08-06. Nhãn 2 kênh BTVN ăn theo "Loại giáo viên" của buổi
@@ -25,19 +27,19 @@ import { toLocaleTag } from "@/lib/i18nFormat";
 type TeacherType = "VIETNAMESE" | "FOREIGN";
 
 /**
- * Ghim 4 cột đầu (Mã học viên/Họ và tên/Loại/Ngày sinh) + toàn bộ header khi cuộn — mirror đúng cơ chế
+ * Ghim 3 cột đầu (Mã học viên/Họ và tên/Ngày sinh) + toàn bộ header khi cuộn — mirror đúng cơ chế
  * STICKY_COL_STYLE của DailyCommentPanel.tsx (màn Giáo viên nhập, xem chú thích chi tiết ở đó), bổ
- * sung theo yêu cầu người dùng 2026-09-14: màn Quản lý điểm trường duyệt cũng cần ghim giống hệt. Phải
- * ép cứng width/minWidth/maxWidth bằng nhau trên từng ô (không chỉ width) — position:sticky trên ô có
- * rowSpan không tôn trọng width khai báo ở colgroup, đây là cách duy nhất buộc trình duyệt giữ đúng
- * width để tính left offset cộng dồn không bị lệch.
+ * sung theo yêu cầu người dùng 2026-09-14: màn Quản lý điểm trường duyệt cũng cần ghim giống hệt.
+ * Cột Loại KHÔNG ghim nữa (đã xác nhận với người dùng 2026-09-22) — cuộn theo bảng như các cột BTVN.
+ * Phải ép cứng width/minWidth/maxWidth bằng nhau trên từng ô (không chỉ width) — position:sticky trên
+ * ô có rowSpan không tôn trọng width khai báo ở colgroup, đây là cách duy nhất buộc trình duyệt giữ
+ * đúng width để tính left offset cộng dồn không bị lệch.
  */
-const STICKY_COL_WIDTHS = [110, 170, 110, 110];
+const STICKY_COL_WIDTHS = [110, 170, 110];
 const STICKY_COL_LEFT = [
   0,
   STICKY_COL_WIDTHS[0],
-  STICKY_COL_WIDTHS[0] + STICKY_COL_WIDTHS[1],
-  STICKY_COL_WIDTHS[0] + STICKY_COL_WIDTHS[1] + STICKY_COL_WIDTHS[2]
+  STICKY_COL_WIDTHS[0] + STICKY_COL_WIDTHS[1]
 ];
 const STICKY_COL_STYLE: React.CSSProperties[] = STICKY_COL_WIDTHS.map((w, i) => ({
   width: w,
@@ -50,6 +52,13 @@ interface CommentApprovalByClassProps {
   items: StudentCommentResponse[];
   loading: boolean;
   onDecided: () => void;
+  /**
+   * Plan link hoá thông báo (2026-09-22): lớp cần cuộn tới + nổi viền tạm ~2.5s khi vào từ thông báo
+   * COMMENT_PENDING_APPROVAL (mọi lớp vẫn gộp trong 1 danh sách, chỉ định vị bằng mắt). Dùng 1 lần rồi
+   * gọi onHighlightHandled để CommentsPage clear.
+   */
+  highlightClassId?: number | null;
+  onHighlightHandled?: () => void;
 }
 
 /**
@@ -57,13 +66,32 @@ interface CommentApprovalByClassProps {
  * — thay cho danh sách tên rời rạc + panel chi tiết riêng trước đây (đã xác nhận với người dùng 2026-07-29:
  * hiển thị từng tên rời rạc không ổn khi số lượng nhiều). Duyệt/Từ chối làm trực tiếp ngay tại dòng.
  */
-export default function CommentApprovalByClass({ items, loading, onDecided }: CommentApprovalByClassProps) {
+export default function CommentApprovalByClass({ items, loading, onDecided, highlightClassId, onHighlightHandled }: CommentApprovalByClassProps) {
   const { t, i18n } = useTranslation("academic-comments");
+  const [justHighlightedClassId, setJustHighlightedClassId] = useState<number | null>(null);
+  // Cuộn tới + nổi viền khối lớp theo highlightClassId — chỉ sau khi items tải xong và DOM đã render
+  // (id="comment-approval-class-{classId}"). Lớp không còn dòng chờ duyệt (đã duyệt hết) thì bỏ qua nhưng
+  // vẫn báo handled để không treo sang lần sau. PHẢI đặt trước early-return (Rules of Hooks).
+  useEffect(() => {
+    if (loading || highlightClassId == null) return;
+    const el = document.getElementById(`comment-approval-class-${highlightClassId}`);
+    onHighlightHandled?.();
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+    setJustHighlightedClassId(highlightClassId);
+    const timer = setTimeout(() => setJustHighlightedClassId(null), 2500);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, highlightClassId, items]);
   const [classesById, setClassesById] = useState<Record<number, ClassResponse>>({});
   // "Loại giáo viên" của từng buổi (ClassSession.teacherType) — để đổi nhãn 2 kênh BTVN đúng như
   // DailyCommentPanel (Ngữ pháp/Bài nghe, Từ Vựng (TKN)/Clip phản xạ), 2026-08-06.
   const [sessionsById, setSessionsById] = useState<Record<number, ClassSessionResponse>>({});
   const [studentCodeByClassAndStudent, setStudentCodeByClassAndStudent] = useState<Record<string, string>>({});
+  // Tên GV gửi nhận xét theo từng buổi — tra qua danh sách GV của lớp (classId-teacherUserId), bổ sung
+  // theo yêu cầu người dùng 2026-09-22: hiện tên GV ngay cạnh nhãn "Buổi ..." để dễ phân biệt khi 1 lớp
+  // có nhiều GV gửi nhận xét khác buổi nhau.
+  const [teacherNameByClassAndTeacher, setTeacherNameByClassAndTeacher] = useState<Record<string, string>>({});
   const [decidingId, setDecidingId] = useState<number | null>(null);
   const [decidingAllClassId, setDecidingAllClassId] = useState<number | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -92,6 +120,24 @@ export default function CommentApprovalByClass({ items, loading, onDecided }: Co
           });
         });
         setStudentCodeByClassAndStudent((prev) => ({ ...prev, ...map }));
+      })
+      .catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items.map((it) => it.classId).join(",")]);
+
+  useEffect(() => {
+    const classIds = Array.from(new Set(items.map((it) => it.classId)));
+    if (classIds.length === 0) return;
+    Promise.allSettled(classIds.map((classId) => listClassTeachers(classId).then((teachers) => ({ classId, teachers }))))
+      .then((results) => {
+        const map: Record<string, string> = {};
+        results.forEach((r) => {
+          if (r.status !== "fulfilled") return;
+          r.value.teachers.forEach((tc) => {
+            map[`${r.value.classId}-${tc.teacherUserId}`] = tc.teacherFullName;
+          });
+        });
+        setTeacherNameByClassAndTeacher((prev) => ({ ...prev, ...map }));
       })
       .catch(() => undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -201,7 +247,12 @@ export default function CommentApprovalByClass({ items, loading, onDecided }: Co
         // với người dùng 2026-07-29).
         const datesInOrder = Array.from(new Set(classItems.map((it) => it.commentDate))).sort();
         return (
-          <Card key={classId} padded={false} className="overflow-hidden">
+          <Card
+            key={classId}
+            id={`comment-approval-class-${classId}`}
+            padded={false}
+            className={`overflow-hidden transition-all ${justHighlightedClassId === classId ? "ring-2 ring-brand-red/50 border-brand-red" : ""}`}
+          >
             <div className="px-5 py-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between flex-wrap gap-2">
               <span className="text-xs font-bold text-slate-700 font-display">
                 {cls ? `${cls.name} (${cls.classCode})` : t("approvalByClass.classFallback", { id: classId })}
@@ -231,6 +282,10 @@ export default function CommentApprovalByClass({ items, loading, onDecided }: Co
               const isVietnamese = sessionTeacherType === "VIETNAMESE";
               const onlineGrammarLabel = isVietnamese ? t("dailyCommentPanel.columns.onlineGrammarShort") : grammarLabel;
               const onlineVideoLabel = isVietnamese ? t("dailyCommentPanel.columns.onlineVideoShort") : videoLabel;
+              // GV gửi nhận xét của buổi này — lấy teacherId từ dòng đầu (cả buổi cùng 1 GV gửi).
+              const sessionTeacherId = dateItems[0]?.teacherId;
+              const sessionTeacherName =
+                sessionTeacherId != null ? teacherNameByClassAndTeacher[`${classId}-${sessionTeacherId}`] : undefined;
               return (
                 <div key={date} className="border-b border-slate-100 last:border-b-0">
                   <div className="px-5 py-2 bg-slate-50/60 flex items-center gap-2 flex-wrap">
@@ -242,6 +297,13 @@ export default function CommentApprovalByClass({ items, loading, onDecided }: Co
                     {dateItems[0]?.lessonContent && (
                       <span className="text-[10px] text-amber-700 font-semibold">
                         {t("approvalByClass.lessonContentPrefix", { content: dateItems[0].lessonContent })}
+                      </span>
+                    )}
+                    {/* Đẩy tên GV gửi nhận xét sang bên phải hàng, song song với "Buổi ..." — đã xác nhận
+                        với người dùng 2026-09-23 (trước đó dính liền ngay sau ngày/thứ). */}
+                    {sessionTeacherName && (
+                      <span className="ml-auto text-[10px] text-slate-500">
+                        {t("shared.sessionTeacherName", { name: sessionTeacherName })}
                       </span>
                     )}
                   </div>
@@ -258,8 +320,8 @@ export default function CommentApprovalByClass({ items, loading, onDecided }: Co
                       <tr className="border-b border-slate-300 [&>th]:text-center">
                         <Th rowSpan={isVietnamese ? 3 : 2} style={STICKY_COL_STYLE[0]} className="sticky left-0 z-30 bg-slate-50 border-r border-b border-slate-300">{t("approvalByClass.columns.studentCode")}</Th>
                         <Th rowSpan={isVietnamese ? 3 : 2} style={STICKY_COL_STYLE[1]} className="sticky z-30 bg-slate-50 border-r border-b border-slate-300">{t("approvalByClass.columns.fullName")}</Th>
-                        <Th rowSpan={isVietnamese ? 3 : 2} style={STICKY_COL_STYLE[2]} className="sticky z-30 bg-slate-50 border-r border-b border-slate-300">{t("approvalByClass.columns.type")}</Th>
-                        <Th rowSpan={isVietnamese ? 3 : 2} style={STICKY_COL_STYLE[3]} className="sticky z-30 bg-slate-50 border-r border-b border-slate-300">{t("approvalByClass.columns.dateOfBirth")}</Th>
+                        <Th rowSpan={isVietnamese ? 3 : 2} style={STICKY_COL_STYLE[2]} className="sticky z-30 bg-slate-50 border-r border-b border-slate-300">{t("approvalByClass.columns.dateOfBirth")}</Th>
+                        <Th rowSpan={isVietnamese ? 3 : 2} className="border-r border-b border-slate-300">{t("approvalByClass.columns.type")}</Th>
                         <Th colSpan={isVietnamese ? 6 : 3} className="text-center border-r border-b border-slate-300">{t("approvalByClass.columns.homeworkPrevious")}</Th>
                         <Th colSpan={isVietnamese ? 6 : 3} className="text-center border-r border-b border-slate-300">{t("dailyCommentPanel.columns.homeworkNextGroup")}</Th>
                         <Th rowSpan={isVietnamese ? 3 : 2} className="border-r border-b border-slate-300">{t("approvalByClass.columns.dueDate")}</Th>
@@ -307,13 +369,13 @@ export default function CommentApprovalByClass({ items, loading, onDecided }: Co
                         <tr key={cm.id} className="hover:bg-slate-50/40">
                           <Td style={STICKY_COL_STYLE[0]} className="sticky left-0 z-10 bg-white font-mono font-bold text-slate-500 border-r border-b border-slate-300">{studentCodeByClassAndStudent[`${cm.classId}-${cm.studentId}`] ?? "—"}</Td>
                           <Td style={STICKY_COL_STYLE[1]} className="sticky z-10 bg-white font-bold text-slate-900 whitespace-nowrap border-r border-b border-slate-300">
-                            {cm.studentFullName}
+                            <StudentNameLink studentId={cm.studentId} name={cm.studentFullName} />
                             {cm.isWarning && <Flag className="w-3 h-3 text-rose-500 inline ml-1.5" />}
                           </Td>
-                          <Td style={STICKY_COL_STYLE[2]} className="sticky z-10 bg-white border-r border-b border-slate-300">
+                          <Td style={STICKY_COL_STYLE[2]} className="sticky z-10 bg-white whitespace-nowrap text-slate-500 border-r border-b border-slate-300">{cm.studentDateOfBirth ?? "—"}</Td>
+                          <Td className="border-r border-b border-slate-300">
                             <Badge variant="info">{t(`shared.commentType.${cm.commentType}`)}</Badge>
                           </Td>
-                          <Td style={STICKY_COL_STYLE[3]} className="sticky z-10 bg-white whitespace-nowrap text-slate-500 border-r border-b border-slate-300">{cm.studentDateOfBirth ?? "—"}</Td>
                           {isVietnamese ? (
                             <>
                               <Td className="min-w-[110px] border-r border-b border-slate-300">{cm.homeworkPreviousReadingScore || "—"}</Td>

@@ -1,7 +1,7 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { CheckCircle2, HelpCircle, KeyRound, Loader2, Lock, PartyPopper, RotateCcw, ShieldAlert, X, XCircle } from "lucide-react";
+import { CheckCircle2, GraduationCap, HelpCircle, KeyRound, Loader2, Lock, PartyPopper, RotateCcw, ShieldAlert, Sparkles, X, XCircle } from "lucide-react";
 import { friendlyApiErrorMessage } from "@/lib/apiClient";
 import {
   AssignedExerciseResponse,
@@ -27,6 +27,7 @@ import {
 } from "../api";
 import { useIntegrityMonitor } from "../hooks/useIntegrityMonitor";
 import MonitoringBadge from "./MonitoringBadge";
+import { ScoreSticker } from "./ScoreSticker";
 import { useCountdown, formatRemaining } from "@/components/ui/useCountdown";
 import { useLockBodyScroll } from "@/components/ui/useLockBodyScroll";
 
@@ -43,11 +44,16 @@ const CHOICE_TYPES = new Set(["MULTIPLE_CHOICE", "MULTIPLE_ANSWER", "TRUE_FALSE"
  * (sp/gr/wd/pu chính tả/ngữ pháp/từ vựng/dấu câu) × 2 mức độ (hậu tố 1=nhẹ/vàng, 2=nặng/đỏ), cộng `ok`
  * cho chỗ dùng đúng/tốt (xanh) — xem WritingAiGradingService. BE không có sanitizer/markdown nào nên
  * KHÔNG dùng dangerouslySetInnerHTML — tự regex-split ra text node thường vs span tô màu.
+ *
+ * V196 (2026-09-22, bổ sung ngoài SDD gốc, Key Grammar filter 2) — thêm mã `kg` (dùng ĐÚNG cấu trúc
+ * Key Grammar được giao — xanh, nhãn "KG", THAY cho `ok` ở đúng chỗ đó theo đặc tả
+ * {@code 00_DAC_TA_GIAO_NHAN.md} §5). Bug đã sửa: quên thêm `kg` vào regex khi mới làm — token in ra
+ * thô `{{kg|...}}` không được tô màu, phát hiện qua verify UI thật.
  */
-const MARKED_ESSAY_TOKEN = /\{\{(ok|sp1|sp2|gr1|gr2|wd1|wd2|pu1|pu2)\|([\s\S]*?)\}\}/g;
+const MARKED_ESSAY_TOKEN = /\{\{(ok|kg|sp1|sp2|gr1|gr2|wd1|wd2|pu1|pu2)\|([\s\S]*?)\}\}/g;
 
 function markedEssayTokenClassName(code: string): string {
-  if (code === "ok") {
+  if (code === "ok" || code === "kg") {
     return "text-emerald-700 underline decoration-emerald-400 decoration-2 underline-offset-2 font-semibold";
   }
   return code.endsWith("2")
@@ -55,7 +61,24 @@ function markedEssayTokenClassName(code: string): string {
     : "text-amber-700 underline decoration-amber-400 decoration-2 underline-offset-2 font-semibold";
 }
 
-function renderMarkedEssay(text: string): React.ReactNode[] {
+/**
+ * Bổ sung 2026-09-22 (phản hồi người dùng khi xem thử qua UI thật) — màu một mình không đủ để học sinh
+ * hiểu vì sao 1 chỗ bị tô: (1) không giải thích vàng/đỏ nghĩa là gì, (2) cả 4 loại lỗi (chính tả/ngữ
+ * pháp/từ vựng/dấu câu) đang tô CÙNG màu theo mức độ nặng nhẹ, không phân biệt được LOẠI lỗi. Thêm nhãn
+ * viết tắt ngay cạnh mỗi chỗ tô — mirror đúng thiết kế {@code data-tag}/{@code .mk::after} của gói rubric
+ * tham chiếu ({@code bo-cham-writing-K6-K9/tham-khao/index.html}) — kèm chú giải màu ở
+ * {@link MarkedEssayLegend} ngay dưới bài làm.
+ */
+function markedEssayTagLabel(code: string, t: (key: string) => string): string {
+  if (code === "kg") return t("takeExercise.question.markedEssayTagKeyGrammar");
+  if (code === "ok") return t("takeExercise.question.markedEssayTagOk");
+  if (code.startsWith("sp")) return t("takeExercise.question.markedEssayTagSpelling");
+  if (code.startsWith("gr")) return t("takeExercise.question.markedEssayTagGrammar");
+  if (code.startsWith("wd")) return t("takeExercise.question.markedEssayTagWordChoice");
+  return t("takeExercise.question.markedEssayTagPunctuation");
+}
+
+function renderMarkedEssay(text: string, t: (key: string) => string): React.ReactNode[] {
   const parts: React.ReactNode[] = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;
@@ -65,9 +88,13 @@ function renderMarkedEssay(text: string): React.ReactNode[] {
     if (match.index > lastIndex) {
       parts.push(<React.Fragment key={key++}>{text.slice(lastIndex, match.index)}</React.Fragment>);
     }
+    const code = match[1];
     parts.push(
-      <span key={key++} className={markedEssayTokenClassName(match[1])}>
+      <span key={key++} className={markedEssayTokenClassName(code)}>
         {match[2]}
+        <sup className="ml-0.5 align-super text-[9px] font-black not-italic tracking-wide no-underline">
+          {markedEssayTagLabel(code, t)}
+        </sup>
       </span>
     );
     lastIndex = MARKED_ESSAY_TOKEN.lastIndex;
@@ -76,6 +103,60 @@ function renderMarkedEssay(text: string): React.ReactNode[] {
     parts.push(<React.Fragment key={key++}>{text.slice(lastIndex)}</React.Fragment>);
   }
   return parts;
+}
+
+/**
+ * Chú giải màu + nhãn viết tắt cho {@link renderMarkedEssay} — xem Javadoc hàm đó.
+ *
+ * V2 (2026-09-22, phản hồi người dùng khi xem thử qua UI thật lần 2 — "chữ to lên, giải thích rõ ràng
+ * ra") — chữ trước đó quá nhỏ (10.5px) và dồn hết vào 1 dòng flex-wrap khó đọc. Tách 2 dòng riêng (màu
+ * sắc / viết tắt loại lỗi), mỗi viết tắt tách thành 1 khối riêng thay vì nối chuỗi bằng dấu "·".
+ */
+function MarkedEssayLegend({ t }: { t: (key: string) => string }) {
+  return (
+    <div className="space-y-1.5 rounded-xl bg-white/60 px-3 py-2 text-[13px] font-bold normal-case text-ink-soft">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+        <span className="text-[11px] font-extrabold uppercase tracking-wide text-muted">
+          {t("takeExercise.question.markedEssayLegendTitle")}
+        </span>
+        <span className="inline-flex items-center gap-1.5 text-emerald-700">
+          <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
+          {t("takeExercise.question.markedEssayLegendOk")}
+        </span>
+        <span className="inline-flex items-center gap-1.5 text-amber-700">
+          <span className="inline-block h-2.5 w-2.5 rounded-full bg-amber-500" />
+          {t("takeExercise.question.markedEssayLegendMinor")}
+        </span>
+        <span className="inline-flex items-center gap-1.5 text-red-600">
+          <span className="inline-block h-2.5 w-2.5 rounded-full bg-red-500" />
+          {t("takeExercise.question.markedEssayLegendMajor")}
+        </span>
+      </div>
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+        <span className="text-[11px] font-extrabold uppercase tracking-wide text-muted">
+          {t("takeExercise.question.markedEssayLegendAbbrevIntro")}
+        </span>
+        {[
+          "markedEssayLegendAbbrevSpelling",
+          "markedEssayLegendAbbrevGrammar",
+          "markedEssayLegendAbbrevWordChoice",
+          "markedEssayLegendAbbrevPunctuation"
+        ].map((key) => (
+          <span key={key} className="rounded-lg border border-line/60 bg-white px-2 py-0.5 text-ink">
+            {t(`takeExercise.question.${key}`)}
+          </span>
+        ))}
+        {/*
+         * V196 (bổ sung ngoài SDD gốc, Key Grammar filter 2) — "KG" không phải loại LỖI như 4 mã trên,
+         * nên tách viền xanh riêng thay vì border xám mặc định — phản hồi người dùng: xem bài chấm thật
+         * thấy nhãn "KG" trong bài nhưng không có giải thích ở đây, không biết là gì.
+         */}
+        <span className="rounded-lg border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-emerald-800">
+          {t("takeExercise.question.markedEssayLegendAbbrevKeyGrammar")}
+        </span>
+      </div>
+    </div>
+  );
 }
 
 /**
@@ -194,6 +275,16 @@ function listeningKeyOf(q: ExerciseQuestionResponse): string {
 export type RenderBlock =
   | { type: "single"; question: ExerciseQuestionResponse }
   | { type: "grid"; groupKey: string; referencePassage: string | null; audioUrl: string | null; wordBox: string[] | null; questions: ExerciseQuestionResponse[] };
+
+/**
+ * Bổ sung 2026-09-24 (đã xác nhận với người dùng, sửa bug thật) — lưới ảnh "Match the words with their
+ * correct picture" chỉ hiện ảnh + số thứ tự, BỎ nội dung câu. Trước đây áp cho MỌI nhóm FILL_IN_BLANK có
+ * ảnh, kể cả bài có câu thật (VD "Ex. 3: ___ is my pen here.") → học sinh mất nội dung câu. Chỉ coi là
+ * lưới ảnh khi nội dung mỗi câu KHÔNG có chữ thật (chỉ số thứ tự + chỗ trống, VD "1. ___").
+ */
+function isBlankOnlyContent(content: string | null | undefined): boolean {
+  return (content ?? "").replace(/[\d.)_\s]/g, "") === "";
+}
 
 /** Bổ sung 2026-08-28 — chia mảng thành các hàng cố định `size` phần tử, dùng để dựng bảng hộp từ vựng (wordBox). */
 function chunkArray<T>(items: T[], size: number): T[][] {
@@ -1389,12 +1480,25 @@ export function QuestionBlock({
         <div className="text-sm font-bold p-3 rounded-xl border bg-sky-2 border-teal/20 space-y-1.5">
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <span className="text-teal-deep uppercase text-base tracking-wide">{t("takeExercise.question.gradingFeedbackTitle")}</span>
-            <span className="text-[10px] text-muted font-black uppercase">
-              {answer.gradingSource === "AI" ? t("takeExercise.question.gradedByAi") : t("takeExercise.question.gradedByTeacher")}
-              {answer.gradingScore != null && answer.gradingMaxScore != null
-                ? ` · ${t("takeExercise.question.gradingScoreSuffix", { score: answer.gradingScore, max: answer.gradingMaxScore })}`
-                : ""}
-            </span>
+            {/*
+             * Bổ sung 2026-09-23 (đã xác nhận với người dùng) — đổi badge text "AI CHẤM · X/Y ĐIỂM" sang
+             * ScoreSticker (% tròn, cùng style với badge "Viết"/"Nói" ở màn Video phản xạ) để đồng bộ
+             * ngôn ngữ hình ảnh chấm điểm toàn Portal. gradingMaxScore > 0 mới tính được % — bài chưa có
+             * điểm số (chỉ có gradingFeedback text, rubric cũ) thì vẫn giữ text nguồn chấm như cũ.
+             */}
+            {answer.gradingScore != null && answer.gradingMaxScore != null && answer.gradingMaxScore > 0 ? (
+              <ScoreSticker
+                icon={answer.gradingSource === "AI" ? <Sparkles size={10} /> : <GraduationCap size={10} />}
+                label={answer.gradingSource === "AI" ? t("takeExercise.question.gradedByAiShort") : t("takeExercise.question.gradedByTeacherShort")}
+                percent={Math.round((answer.gradingScore / answer.gradingMaxScore) * 100)}
+                tone="pass"
+                tiltClass="rotate-3"
+              />
+            ) : (
+              <span className="text-[10px] text-muted font-black uppercase">
+                {answer.gradingSource === "AI" ? t("takeExercise.question.gradedByAi") : t("takeExercise.question.gradedByTeacher")}
+              </span>
+            )}
           </div>
           {/*
            * V182 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-16, PILOT Khối 7 IELTS) —
@@ -1403,17 +1507,18 @@ export function QuestionBlock({
            * cũ (chưa lên v3) không có 2 field này — vẫn hiện gradingFeedback dạng văn bản như cũ.
            */}
           {answer.gradingMarkedAnswer && (
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <p className="text-[11px] font-extrabold uppercase tracking-wide normal-case">
                 {t("takeExercise.question.markedEssayTitle")}
               </p>
-              <p className="normal-case whitespace-pre-line text-[13px] leading-relaxed font-medium text-ink">
-                {renderMarkedEssay(answer.gradingMarkedAnswer)}
+              <p className="normal-case whitespace-pre-line text-base leading-relaxed font-medium text-ink">
+                {renderMarkedEssay(answer.gradingMarkedAnswer, t)}
               </p>
+              <MarkedEssayLegend t={t} />
             </div>
           )}
           {answer.gradingCriteriaScores && answer.gradingCriteriaScores.length > 0 && (
-            <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] font-bold normal-case text-teal-deep">
+            <div className="flex flex-wrap gap-x-3 gap-y-1 text-[12.5px] font-bold normal-case text-teal-deep">
               {answer.gradingCriteriaScores.map((c) => (
                 <span key={c.criterion}>
                   {c.criterion}: {c.percent}%
@@ -1422,7 +1527,40 @@ export function QuestionBlock({
             </div>
           )}
           {answer.gradingFeedback && (
-            <p className="font-medium text-ink normal-case whitespace-pre-line">{answer.gradingFeedback}</p>
+            <p className="font-medium text-ink normal-case whitespace-pre-line text-base">{answer.gradingFeedback}</p>
+          )}
+          {/*
+           * V196 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-22) — Key Grammar (filter 2):
+           * dải riêng, khác màu tuỳ Đạt/Chưa đạt/unparsed. status="unparsed" (hiếm — model bỏ sót dòng
+           * kết luận) không hiện dải, chỉ ảnh hưởng nội bộ (không áp trần), tránh làm học sinh hoang mang.
+           */}
+          {answer.gradingKeyGrammar && answer.gradingKeyGrammar.status !== "unparsed" && (
+            <div
+              className={`rounded-lg border px-3 py-2 space-y-1 normal-case ${
+                answer.gradingKeyGrammar.redoRequired
+                  ? "bg-rose-50 border-rose-200 text-rose-900"
+                  : "bg-emerald-50 border-emerald-200 text-emerald-900"
+              }`}
+            >
+              <div className="flex items-center gap-2 flex-wrap text-[11px] font-black uppercase tracking-wide">
+                <span>{t("takeExercise.question.keyGrammarTitle")}</span>
+                <span>
+                  {answer.gradingKeyGrammar.redoRequired
+                    ? t("takeExercise.question.keyGrammarFail")
+                    : t("takeExercise.question.keyGrammarPass")}
+                </span>
+                <span className="font-bold normal-case">
+                  {t("takeExercise.question.keyGrammarCountSuffix", {
+                    correct: answer.gradingKeyGrammar.correct,
+                    attempts: answer.gradingKeyGrammar.attempts
+                  })}
+                </span>
+              </div>
+              {answer.gradingKeyGrammar.note && <p className="font-medium">{answer.gradingKeyGrammar.note}</p>}
+              {answer.gradingKeyGrammar.redoRequired && (
+                <p className="font-black">{t("takeExercise.question.keyGrammarRedoRequired")}</p>
+              )}
+            </div>
           )}
         </div>
       )}
@@ -1903,7 +2041,7 @@ export function GridQuestionGroup({
   // layout mặc định bên dưới (ảnh bị phóng to 240px/dòng gây vỡ pixel với ảnh gốc nhỏ, lại dài lê thê
   // 10 dòng thay vì 1 khối gọn). Chỉ áp dụng khi CẢ NHÓM đều là FILL_IN_BLANK có ảnh (không đụng các
   // nhóm khác — nghe điền từ, đọc hiểu lưới trắc nghiệm... vẫn giữ nguyên layout liệt kê dọc cũ).
-  const isPictureMatchGrid = block.questions.length >= 2 && block.questions.every((q) => q.imageUrl && q.questionType === "FILL_IN_BLANK");
+  const isPictureMatchGrid = block.questions.length >= 2 && block.questions.every((q) => q.imageUrl && q.questionType === "FILL_IN_BLANK" && isBlankOnlyContent(q.questionContent));
   return (
     <div className="border border-line/60 rounded-[16px] p-4 sm:p-5 lg:p-6 space-y-3 lg:space-y-4">
       {/* V3 2026-09-04 — xem Javadoc parsePassageParagraphs: mỗi đoạn hiện tên nhân vật thành dòng tiêu

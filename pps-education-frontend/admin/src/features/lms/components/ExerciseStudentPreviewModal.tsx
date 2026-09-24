@@ -17,6 +17,16 @@ function hasMeaningfulCaption(choiceLabel: string, content: string): boolean {
   return trimmed.length > 0 && trimmed.toUpperCase() !== choiceLabel.trim().toUpperCase();
 }
 
+/**
+ * Bổ sung 2026-09-24 (đã xác nhận với người dùng, sửa bug thật) — lưới ảnh "Match the words with their
+ * correct picture" chỉ hiện ảnh + số thứ tự, BỎ nội dung câu. Trước đây áp cho MỌI nhóm FILL_IN_BLANK có
+ * ảnh, kể cả bài có câu thật (VD "Ex. 3: ___ is my pen here.") → học sinh mất nội dung câu. Chỉ coi là
+ * lưới ảnh khi nội dung mỗi câu KHÔNG có chữ thật (chỉ số thứ tự + chỗ trống, VD "1. ___").
+ */
+function isBlankOnlyContent(content: string | null | undefined): boolean {
+  return (content ?? "").replace(/[\d.)_\s]/g, "") === "";
+}
+
 /** Bổ sung 2026-08-28 — chia mảng thành các hàng cố định `size` phần tử, dùng để dựng bảng hộp từ vựng (wordBox). */
 function chunkArray<T>(items: T[], size: number): T[][] {
   const rows: T[][] = [];
@@ -519,7 +529,7 @@ function GridQuestionGroupPreview({ block, startNumber }: { block: Extract<Rende
        * — bài "Match the words with their correct picture" (DIEN_TU_NHOM, mỗi câu 1 ảnh riêng) đúng hình
        * thức sách in là LƯỚI ảnh nhỏ gọn, ô điền ngay dưới mỗi ảnh — không liệt kê dọc từng câu 1 dòng.
        */}
-      {block.questions.length >= 2 && block.questions.every((q) => q.imageUrl && q.questionType === "FILL_IN_BLANK") ? (
+      {block.questions.length >= 2 && block.questions.every((q) => q.imageUrl && q.questionType === "FILL_IN_BLANK" && isBlankOnlyContent(q.questionContent)) ? (
         <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
           {block.questions.map((q, qIndex) => (
             <div key={q.id} className="space-y-1.5">

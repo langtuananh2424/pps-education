@@ -1509,6 +1509,10 @@ mục "Bổ sung V139" trong `docs/uc/phan-he-07-lms-portal.md`)
 | speaking_criteria_scores | JSONB | NULL | V178 — mảng `{criterion, percent}` theo từng tiêu chí rubric, tách riêng khỏi speaking_feedback |
 | speaking_graded_at | TIMESTAMPTZ | NULL | |
 | speaking_attempt_count | INT | NOT NULL, DEFAULT 0 | Chỉ để thống kê, KHÔNG giới hạn số lần thử |
+| rubric_version | VARCHAR(10) | NULL | V185, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-21 — `'v2'` = chấm bằng bộ tiêu chí Speaking v2 (Khối 6-9), NULL = luồng cũ; bước Nói định tuyến theo cột này |
+| writing_locked_grammar_percent | DECIMAL(5,2) | NULL | V185 — điểm Ngữ pháp KHOÁ từ bước viết (luồng v2), bước Nói lấy nguyên |
+| writing_red_error_count | INT | NULL | V185 — số lỗi đỏ của bài viết (luồng v2); lỗi đỏ mới khi nói cộng vào, từ 2 trở lên thì Ngữ pháp trần 60% |
+| writing_audit, speaking_audit | JSONB | NULL | V185 — bằng chứng chấm (model thực tế, cổng chặn, danh sách đếm, suspect_words, độ khớp nội dung, điểm gồm Phát âm...) để hiệu chuẩn; KHÔNG trả ra FE |
 | created_at, updated_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | |
 | | UNIQUE(review_video_question_id, student_id, review_video_assignment_id) | | 1 dòng/(câu hỏi, học sinh, lần giao) — SỬA ĐÈ tại chỗ mỗi lần thử lại, KHÔNG giữ lịch sử từng lần |
 
@@ -1517,6 +1521,46 @@ NULL` — không hợp với việc "đã viết nhưng chưa ghi âm", giữ ng
 luồng cũ/lịch sử, KHÔNG đụng vào). Ngưỡng đạt 70% CỐ ĐỊNH trong code
 (`ReflexSequentialGradingService.PASS_THRESHOLD_PERCENT`) --- chưa có cột
 ngưỡng riêng trên `review_video_sets` như `exercises.pass_threshold_percent`.
+
+i-quat) Bảng reflex_question_progress_history --- Lịch sử AI chấm mỗi
+lần làm (V191, 2026-09-21, bổ sung ngoài SDD gốc, đã xác nhận với người
+dùng --- xem mục "Bổ sung V191" trong `docs/uc/phan-he-07-lms-portal.md`)
+
+`reflex_question_progress` ở trên SỬA ĐÈ tại chỗ mỗi lần học sinh nộp
+lại, nên giáo viên không nghe lại được audio/xem lại kết quả AI chấm của
+các lần TRƯỚC lần gần nhất. Bảng này lưu 1 dòng SNAPSHOT CHỈ-THÊM (không
+sửa đè) mỗi khi AI chấm xong 1 bước (viết hoặc ghi âm) — phục vụ giáo
+viên xem lịch sử từng lần làm (nghe audio + đọc transcript/feedback/điểm
+theo tiêu chí) và xuất toàn bộ dữ liệu audio + kết quả chấm để tiếp tục
+train AI.
+
+| Cột | Kiểu | Ràng buộc | Ghi chú |
+| --- | --- | --- | --- |
+| id | BIGSERIAL | PK | |
+| reflex_question_progress_id | BIGINT | FK → reflex_question_progress(id), NOT NULL | |
+| review_video_question_id | BIGINT | FK → review_video_questions(id), NOT NULL | |
+| student_id | BIGINT | FK → students(id), NOT NULL | |
+| review_video_assignment_id | BIGINT | FK → review_video_assignments(id), NOT NULL | |
+| attempt_type | VARCHAR(20) | NOT NULL, CHECK IN ('WRITING','SPEAKING') | Bước nào của lần chấm này |
+| attempt_number | INT | NOT NULL | = writing_attempt_count/speaking_attempt_count của progress tại thời điểm chấm |
+| answer_text | TEXT | NULL | Chỉ có khi attempt_type=WRITING |
+| audio_url | VARCHAR(1000) | NULL | Chỉ có khi attempt_type=SPEAKING |
+| score, max_score | DECIMAL(5,2) | NULL | |
+| feedback | TEXT | NULL | |
+| marked_answer | TEXT | NULL | Chỉ có khi attempt_type=WRITING |
+| transcript | TEXT | NULL | Chỉ có khi attempt_type=SPEAKING |
+| criteria_scores | JSONB | NULL | Chỉ có khi attempt_type=SPEAKING |
+| graded_at | TIMESTAMPTZ | NULL | |
+| created_at, updated_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | |
+
+Không có UNIQUE constraint (CHỈ-THÊM, không ghi đè) — mỗi lần AI chấm
+xong (`ReflexSequentialGradingService#recordWritingHistory`/
+`#recordSpeakingHistory`) ghi thêm đúng 1 dòng, không sửa dòng cũ.
+Giáo viên xem qua `GET /api/review-video-assignments/{assignmentId}/
+stats/students/{studentId}/reflex-history`, xuất toàn lớp qua
+`GET /api/review-video-assignments/{assignmentId}/export-reflex-data`
+(trả về file ZIP: `audio/*` + `manifest.csv` đối chiếu file ↔ học sinh ↔
+câu hỏi ↔ lần làm ↔ kết quả chấm).
 
 j)  Bảng exams --- "Đề" (Kho đề, MỚI HOÀN TOÀN, V66, 2026-07-30, bổ
 sung ngoài SDD gốc, đã xác nhận với người dùng — gộp nhiều "Bài"

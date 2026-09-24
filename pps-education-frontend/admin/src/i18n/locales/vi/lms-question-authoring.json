@@ -89,6 +89,16 @@
     "essaySectionTitle": "Đính kèm hình ảnh / File scan đề bài",
     "essayImageLabel": "Hình ảnh/Tài liệu scan mẫu",
     "essayImagePlaceholder": "Chọn ảnh hoặc file PDF...",
+    "keyGrammar": {
+      "saveFirstHint": "Lưu câu hỏi này lại rồi mở sửa lần nữa để gắn Key Grammar.",
+      "title": "Key Grammar (tuỳ chọn)",
+      "newBadge": "MỚI",
+      "description": "Áp dụng cho câu hỏi này — dùng chung cho mọi lượt giao Bài chứa câu hỏi này sau này (giao nhanh lẫn \"BTVN buổi sau\" ở Nhận xét học viên), không cần chọn lại mỗi lần giao. Chọn tay tối đa 3 cấu trúc.",
+      "noOptions": "Khối/chương trình của câu hỏi này chưa có từ điển Key Grammar.",
+      "baseLabel": "cấu trúc nền",
+      "selectedCount": "Đã chọn {{count}}/3",
+      "consequenceNote": "Học sinh dùng đúng ≥2 lần → Đạt. Dùng đúng 0–1 lần → tiêu chí ngữ pháp bị trần 40–50% và bài bị yêu cầu viết lại."
+    },
     "speakingSectionTitle": "Bộ phân tích phát âm tiếng Anh",
     "speakingKeywordsLabel": "Các âm vị / Từ vựng trọng điểm cần học viên phát âm chính xác *",
     "speakingKeywordsPlaceholder": "Ví dụ: Target pronunciation sounds: 'enthusiasm', 'literature', 'variety'...",
@@ -542,8 +552,7 @@
       "loadingQuestions": "Đang tải câu hỏi...",
       "noQuestions": "Bài này chưa gắn câu hỏi nào.",
       "editQuestionTooltip": "Sửa câu hỏi",
-      "removeQuestionTooltip": "Gỡ câu hỏi (chỉ khi còn Nháp)",
-      "assignClassTooltip": "Gán lớp (giao nhanh Bài này, không qua Nhận xét học viên)"
+      "removeQuestionTooltip": "Gỡ câu hỏi (chỉ khi còn Nháp)"
     },
     "assignClassModal": {
       "title": "Gán Đề cho lớp",
@@ -552,11 +561,6 @@
       "updateAssignmentFailed": "Cập nhật gán lớp thất bại.",
       "noClasses": "Không có lớp nào để gán.",
       "savingLabel": "Đang lưu..."
-    },
-    "assignExerciseClassModal": {
-      "title": "Gán lớp cho Bài này",
-      "description": "Giao nhanh riêng Bài này cho lớp, không cần chờ tới buổi Nhận xét học viên — không đặt hạn nộp (bài tự luyện). Chỉ hiện các lớp đã được gán Đề (Lesson) chứa Bài này; vào \"Đã gán N lớp\" ở trên để gán Đề cho lớp trước nếu chưa thấy.",
-      "noEligibleClasses": "Chưa có lớp nào được gán Đề (Lesson) này — gán Đề cho lớp trước ở nút \"Đã gán N lớp\"."
     }
   },
   "bankPage": {

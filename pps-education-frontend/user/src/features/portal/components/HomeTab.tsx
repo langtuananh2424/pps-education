@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { formatDateTimeHm } from "@/lib/format";
 import { clampLines } from "@/lib/textClamp";
+import Pagination from "@/components/ui/Pagination";
 import { listComments, listMyComments, listMyNotifications, NotificationResponse, StudentCommentResponse } from "../api";
 
 interface HomeTabProps {
@@ -18,9 +19,22 @@ interface HomeTabProps {
   parentStudentId?: number;
 }
 
+/** Số thông báo mỗi trang ở khối "Thông báo" Trang chủ (phân trang phía server qua `/notifications`). */
+const NOTIFICATIONS_PAGE_SIZE = 5;
+
 export default function HomeTab({ studentName, classId, parentStudentId }: HomeTabProps) {
   const { t, i18n } = useTranslation("portal-progress");
   const [notifications, setNotifications] = useState<NotificationResponse[]>([]);
+  // Nhãn loại thông báo: dịch theo `home.notificationType.<enum>` thay vì hiện thẳng mã enum
+  // (HOMEWORK_DUE_SOON_REMINDER...) — theo yêu cầu người dùng 2026-09-22. Loại mới backend thêm
+  // mà chưa có key dịch thì rơi về mã enum như trước, không vỡ giao diện.
+  const notificationTypeLabel = (type: string) => t(`home.notificationType.${type}`, { defaultValue: type });
+  // Phân trang khối Thông báo (theo yêu cầu người dùng, 2026-09-21) — dùng phân trang server sẵn có
+  // của `listMyNotifications(page, size)` thay vì kéo hết về rồi cắt client, vì học sinh lâu năm
+  // tích lũy hàng trăm thông báo. Đổi trang chỉ tải lại thông báo, không tải lại nhận xét.
+  const [notifPage, setNotifPage] = useState(0);
+  const [notifTotal, setNotifTotal] = useState(0);
+  const [notifLoading, setNotifLoading] = useState(false);
   const [comments, setComments] = useState<StudentCommentResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -46,6 +60,12 @@ export default function HomeTab({ studentName, classId, parentStudentId }: HomeT
     return () => clearInterval(timer);
   }, [notifications.length]);
 
+  // Sang trang khác thì carousel mobile quay về thẻ đầu (danh sách thẻ đã thay đổi hoàn toàn).
+  useEffect(() => {
+    setCarouselIndex(0);
+    cardRefs.current[0]?.scrollIntoView({ behavior: "auto", inline: "start", block: "nearest" });
+  }, [notifications]);
+
   const pauseCarousel = () => {
     pausedRef.current = true;
   };
@@ -58,14 +78,28 @@ export default function HomeTab({ studentName, classId, parentStudentId }: HomeT
   useEffect(() => {
     setLoading(true);
     const commentsPromise = classId == null ? Promise.resolve([]) : parentStudentId != null ? listComments(parentStudentId, classId) : listMyComments(classId);
-    Promise.all([listMyNotifications(), commentsPromise])
+    setNotifPage(0);
+    Promise.all([listMyNotifications(0, NOTIFICATIONS_PAGE_SIZE), commentsPromise])
       .then(([notif, cmt]) => {
         setNotifications(notif.content);
+        setNotifTotal(notif.totalElements);
         setComments(cmt);
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : t("homeLoadError")))
       .finally(() => setLoading(false));
   }, [classId, parentStudentId]);
+
+  const changeNotifPage = (page: number) => {
+    setNotifLoading(true);
+    listMyNotifications(page, NOTIFICATIONS_PAGE_SIZE)
+      .then((notif) => {
+        setNotifications(notif.content);
+        setNotifTotal(notif.totalElements);
+        setNotifPage(page);
+      })
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("homeLoadError")))
+      .finally(() => setNotifLoading(false));
+  };
 
   const warned = comments.filter((c) => c.isWarning);
   const regular = comments.filter((c) => !c.isWarning);
@@ -105,7 +139,7 @@ export default function HomeTab({ studentName, classId, parentStudentId }: HomeT
                   onTouchEnd={resumeCarouselSoon}
                   onMouseDown={pauseCarousel}
                   onMouseUp={resumeCarouselSoon}
-                  className="flex gap-3 overflow-x-auto scrollbar-hide snap-x snap-mandatory"
+                  className={`flex gap-3 overflow-x-auto scrollbar-hide snap-x snap-mandatory transition-opacity ${notifLoading ? "opacity-50 pointer-events-none" : ""}`}
                 >
                   {notifications.map((n, i) => (
                     <div
@@ -116,7 +150,7 @@ export default function HomeTab({ studentName, classId, parentStudentId }: HomeT
                       className="shrink-0 w-[85%] snap-start bg-slate-50/50 border border-line/60 p-4 rounded-[16px] space-y-1"
                     >
                       <div className="flex justify-between items-center">
-                        <span className="text-[13px] font-bold text-teal uppercase">{n.notificationType}</span>
+                        <span className="text-[13px] font-bold text-teal uppercase">{notificationTypeLabel(n.notificationType)}</span>
                         <span className="text-sm text-muted font-semibold">{formatDateTimeHm(n.createdAt, i18n.language)}</span>
                       </div>
                       <h4 className="font-extrabold text-ink text-[16px]">{n.title}</h4>
@@ -135,11 +169,11 @@ export default function HomeTab({ studentName, classId, parentStudentId }: HomeT
                 )}
               </div>
 
-              <div className="hidden md:block space-y-3">
+              <div className={`hidden md:block space-y-3 transition-opacity ${notifLoading ? "opacity-50 pointer-events-none" : ""}`}>
                 {notifications.map((n) => (
                   <div key={n.id} className="bg-slate-50/50 border border-line/60 p-4 rounded-[16px] space-y-1">
                     <div className="flex justify-between items-center">
-                      <span className="text-[11px] font-bold text-teal uppercase">{n.notificationType}</span>
+                      <span className="text-[11px] font-bold text-teal uppercase">{notificationTypeLabel(n.notificationType)}</span>
                       <span className="text-sm text-muted font-semibold">{formatDateTimeHm(n.createdAt, i18n.language)}</span>
                     </div>
                     <h4 className="font-extrabold text-ink text-lg">{n.title}</h4>
@@ -147,6 +181,14 @@ export default function HomeTab({ studentName, classId, parentStudentId }: HomeT
                   </div>
                 ))}
               </div>
+
+              <Pagination
+                page={notifPage}
+                pageSize={NOTIFICATIONS_PAGE_SIZE}
+                totalElements={notifTotal}
+                itemLabel={t("home.notificationsItemLabel")}
+                onPageChange={changeNotifPage}
+              />
             </>
           )}
         </div>

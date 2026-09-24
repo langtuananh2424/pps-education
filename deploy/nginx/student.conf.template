@@ -27,6 +27,23 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
+    # Asset Vite build ra có hash trong tên file (/assets/index-a1b2c3.js) — nội dung
+    # không bao giờ đổi dưới cùng 1 tên, cache 1 năm an toàn. Đổi code -> index.html
+    # trỏ sang tên file mới.
+    location /assets/ {
+        add_header Cache-Control "public, max-age=31536000, immutable";
+        try_files $uri =404;
+    }
+
+    # App này dùng vite-plugin-pwa (registerType autoUpdate): service worker chỉ phát
+    # hiện bản build mới khi tải được sw.js/manifest/index.html MỚI từ server -> các
+    # file không có hash này bắt buộc no-cache (cùng lý do sự cố shortcut iOS
+    # 2026-09-21 ở app admin: client giữ bundle cũ, không tự cập nhật sau deploy).
+    location ~ ^/(index\.html|sw\.js|registerSW\.js|manifest\.webmanifest)$ {
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+        try_files $uri =404;
+    }
+
     location / {
         try_files $uri $uri/ /index.html; # SPA fallback
     }

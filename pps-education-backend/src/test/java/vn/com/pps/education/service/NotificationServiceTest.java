@@ -21,6 +21,7 @@ import vn.com.pps.education.support.AbstractIntegrationTest;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -225,6 +226,270 @@ class NotificationServiceTest extends AbstractIntegrationTest {
                 parentUser.getId(), Notification.NotificationType.GRADE_PUBLISHED);
 
         assertThat(pref.smsEnabled()).isTrue();
+    }
+
+    // ===== Toạ độ điều hướng trên NotificationResponse (Plan link hoá thông báo, 2026-09-22) =====
+    // Mỗi entityType/notificationType có 1 test riêng (testing.md: 1 luồng = 1 test) — kiểm tra đúng
+    // field nào được promote từ metadata, field không liên quan phải null.
+
+    @Test
+    void listMine_attendanceMark_exposesStudentIdAndClassId() {
+        notificationService.notify(recipient.getId(), Notification.NotificationType.ATTENDANCE_ABSENT, "Vắng", "x",
+                Map.of("studentId", 11, "classId", 22, "classSessionId", 33), "ATTENDANCE_MARK", 44L,
+                Notification.Priority.HIGH, null);
+
+        NotificationResponse r = firstMine();
+
+        assertThat(r.studentId()).isEqualTo(11L);
+        assertThat(r.classId()).isEqualTo(22L);
+        assertThat(r.exerciseAssignmentId()).isNull();
+        assertThat(r.reviewVideoAssignmentId()).isNull();
+    }
+
+    @Test
+    void listMine_gradeEntry_exposesStudentIdAndClassId() {
+        notificationService.notify(recipient.getId(), Notification.NotificationType.GRADE_PUBLISHED, "Điểm", "x",
+                Map.of("studentId", 11, "classId", 22, "gradeEvaluationComponentId", 5), "GRADE_ENTRY", 44L,
+                Notification.Priority.NORMAL, null);
+
+        NotificationResponse r = firstMine();
+
+        assertThat(r.studentId()).isEqualTo(11L);
+        assertThat(r.classId()).isEqualTo(22L);
+        assertThat(r.exerciseAssignmentId()).isNull();
+    }
+
+    @Test
+    void listMine_gradePeriodResult_exposesStudentIdAndClassId() {
+        notificationService.notify(recipient.getId(), Notification.NotificationType.GRADE_PUBLISHED, "Tổng kết", "x",
+                Map.of("studentId", 11, "classId", 22, "academicTermId", 7), "GRADE_PERIOD_RESULT", 44L,
+                Notification.Priority.NORMAL, null);
+
+        NotificationResponse r = firstMine();
+
+        assertThat(r.studentId()).isEqualTo(11L);
+        assertThat(r.classId()).isEqualTo(22L);
+    }
+
+    @Test
+    void listMine_homeworkDueSoonReminder_exposesStudentClassAndExerciseAssignmentId() {
+        notificationService.notify(recipient.getId(), Notification.NotificationType.HOMEWORK_DUE_SOON_REMINDER, "Sắp hạn", "x",
+                Map.of("studentId", 11, "classId", 22, "exerciseAssignmentId", 55), "STUDENT", 11L,
+                Notification.Priority.NORMAL, null);
+
+        NotificationResponse r = firstMine();
+
+        assertThat(r.studentId()).isEqualTo(11L);
+        assertThat(r.classId()).isEqualTo(22L);
+        assertThat(r.exerciseAssignmentId()).isEqualTo(55L);
+        assertThat(r.reviewVideoAssignmentId()).isNull();
+    }
+
+    @Test
+    void listMine_homeworkMissReminder_exposesReviewVideoAssignmentId() {
+        notificationService.notify(recipient.getId(), Notification.NotificationType.HOMEWORK_MISS_REMINDER, "Thiếu BTVN", "x",
+                Map.of("studentId", 11, "classId", 22, "reviewVideoAssignmentId", 66), "STUDENT", 11L,
+                Notification.Priority.NORMAL, null);
+
+        NotificationResponse r = firstMine();
+
+        assertThat(r.studentId()).isEqualTo(11L);
+        assertThat(r.classId()).isEqualTo(22L);
+        assertThat(r.exerciseAssignmentId()).isNull();
+        assertThat(r.reviewVideoAssignmentId()).isEqualTo(66L);
+    }
+
+    @Test
+    void listMine_homeworkMissWarningWithBothChannels_exposesBothAssignmentIds() {
+        notificationService.notify(recipient.getId(), Notification.NotificationType.HOMEWORK_MISS_WARNING, "Cảnh báo", "x",
+                Map.of("studentId", 11, "classId", 22, "exerciseAssignmentId", 55, "reviewVideoAssignmentId", 66), "STUDENT", 11L,
+                Notification.Priority.HIGH, null);
+
+        NotificationResponse r = firstMine();
+
+        assertThat(r.exerciseAssignmentId()).isEqualTo(55L);
+        assertThat(r.reviewVideoAssignmentId()).isEqualTo(66L);
+    }
+
+    @Test
+    void listMine_homeworkMissParentMeetingInvite_exposesStudentAndClassOnly() {
+        notificationService.notify(recipient.getId(), Notification.NotificationType.HOMEWORK_MISS_PARENT_MEETING_INVITE, "Thư mời", "x",
+                Map.of("studentId", 11, "classId", 22), "STUDENT", 11L, Notification.Priority.URGENT, null);
+
+        NotificationResponse r = firstMine();
+
+        assertThat(r.studentId()).isEqualTo(11L);
+        assertThat(r.classId()).isEqualTo(22L);
+        assertThat(r.exerciseAssignmentId()).isNull();
+        assertThat(r.reviewVideoAssignmentId()).isNull();
+    }
+
+    @Test
+    void listMine_homeworkMissReminderNonConsecutive_exposesStudentClassAndAssignment() {
+        notificationService.notify(recipient.getId(), Notification.NotificationType.HOMEWORK_MISS_REMINDER_NON_CONSECUTIVE, "Nhắc", "x",
+                Map.of("studentId", 11, "classId", 22, "exerciseAssignmentId", 55), "STUDENT", 11L,
+                Notification.Priority.NORMAL, null);
+
+        NotificationResponse r = firstMine();
+
+        assertThat(r.studentId()).isEqualTo(11L);
+        assertThat(r.classId()).isEqualTo(22L);
+        assertThat(r.exerciseAssignmentId()).isEqualTo(55L);
+    }
+
+    @Test
+    void listMine_commentRejected_exposesStudentClassAndClassSessionId() {
+        notificationService.notify(recipient.getId(), Notification.NotificationType.COMMENT_REJECTED, "Bị từ chối", "x",
+                Map.of("studentId", 11, "classId", 22, "classSessionId", 33), "STUDENT_COMMENT", 44L,
+                Notification.Priority.NORMAL, null);
+
+        NotificationResponse r = firstMine();
+
+        assertThat(r.studentId()).isEqualTo(11L);
+        assertThat(r.classId()).isEqualTo(22L);
+        assertThat(r.exerciseAssignmentId()).isNull();
+        assertThat(r.reviewVideoAssignmentId()).isNull();
+        assertThat(r.classSessionId()).isEqualTo(33L);
+    }
+
+    @Test
+    void listMine_commentPendingApproval_exposesNoNavigationHints() {
+        notificationService.notify(recipient.getId(), Notification.NotificationType.COMMENT_PENDING_APPROVAL, "Chờ duyệt", "x",
+                Map.of("className", "6A"), "SCHOOL_CLASS", 44L, Notification.Priority.NORMAL, null);
+
+        NotificationResponse r = firstMine();
+
+        assertThat(r.studentId()).isNull();
+        assertThat(r.classId()).isNull();
+        assertThat(r.classSessionId()).isNull();
+    }
+
+    @Test
+    void listMine_exerciseAssignment_exposesEntityIdAsExerciseAssignmentId() {
+        notificationService.notify(recipient.getId(), Notification.NotificationType.OTHER, "Bài mới", "x",
+                Map.of("classId", 22), "EXERCISE_ASSIGNMENT", 55L, Notification.Priority.NORMAL, null);
+
+        NotificationResponse r = firstMine();
+
+        assertThat(r.exerciseAssignmentId()).isEqualTo(55L);
+        assertThat(r.classId()).isEqualTo(22L);
+        assertThat(r.studentId()).isNull();
+        assertThat(r.reviewVideoAssignmentId()).isNull();
+    }
+
+    @Test
+    void listMine_reviewVideoAssignment_exposesEntityIdAsReviewVideoAssignmentId() {
+        notificationService.notify(recipient.getId(), Notification.NotificationType.OTHER, "Video mới", "x",
+                Map.of("classId", 22), "REVIEW_VIDEO_ASSIGNMENT", 66L, Notification.Priority.NORMAL, null);
+
+        NotificationResponse r = firstMine();
+
+        assertThat(r.reviewVideoAssignmentId()).isEqualTo(66L);
+        assertThat(r.classId()).isEqualTo(22L);
+        assertThat(r.exerciseAssignmentId()).isNull();
+    }
+
+    @Test
+    void listMine_studentEntityWithNonHomeworkType_leavesNavigationFieldsNull() {
+        // EXAM_INTEGRITY_VIOLATION cũng gắn entityType=STUDENT nhưng không thuộc nhóm nhắc BTVN — không promote gì.
+        notificationService.notify(recipient.getId(), Notification.NotificationType.EXAM_INTEGRITY_VIOLATION, "Vi phạm", "x",
+                Map.of("studentId", 11, "classId", 22), "STUDENT", 11L, Notification.Priority.HIGH, null);
+
+        NotificationResponse r = firstMine();
+
+        assertThat(r.studentId()).isNull();
+        assertThat(r.classId()).isNull();
+    }
+
+    @Test
+    void listMine_notificationWithoutEntityType_leavesNavigationFieldsNull() {
+        notificationService.notify(recipient.getId(), Notification.NotificationType.SYSTEM_ANNOUNCEMENT, "Hệ thống", "x");
+
+        NotificationResponse r = firstMine();
+
+        assertThat(r.studentId()).isNull();
+        assertThat(r.classId()).isNull();
+        assertThat(r.exerciseAssignmentId()).isNull();
+        assertThat(r.reviewVideoAssignmentId()).isNull();
+    }
+
+    @Test
+    void listMine_attendanceMarkWithoutClassIdInMetadata_leavesClassIdNull() {
+        // Thông báo tạo trước 2026-09-22 chưa có classId trong metadata — không được vỡ, chỉ thiếu classId.
+        notificationService.notify(recipient.getId(), Notification.NotificationType.ATTENDANCE_LATE, "Muộn", "x",
+                Map.of("studentId", 11), "ATTENDANCE_MARK", 44L, Notification.Priority.NORMAL, null);
+
+        NotificationResponse r = firstMine();
+
+        assertThat(r.studentId()).isEqualTo(11L);
+        assertThat(r.classId()).isNull();
+    }
+
+    // ===== Đợt 2 (GRADE_REJECTED, COMMENT_REJECTED, STUDENT_ATTITUDE_ALERT, STUDENT_ATTITUDE_ESCALATION) =====
+
+    @Test
+    void listMine_gradeRejected_exposesStudentIdAndClassId() {
+        // GRADE_REJECTED tái dùng chung case entityType GRADE_ENTRY/GRADE_PERIOD_RESULT với GRADE_PUBLISHED
+        // (đã có studentId/classId trong metadata từ trước — không cần sửa BE, chỉ cần FE thêm case).
+        notificationService.notify(recipient.getId(), Notification.NotificationType.GRADE_REJECTED, "Điểm bị từ chối", "x",
+                Map.of("studentId", 11, "classId", 22, "gradeEvaluationComponentId", 5), "GRADE_ENTRY", 44L,
+                Notification.Priority.HIGH, null);
+
+        NotificationResponse r = firstMine();
+
+        assertThat(r.studentId()).isEqualTo(11L);
+        assertThat(r.classId()).isEqualTo(22L);
+    }
+
+    @Test
+    void listMine_commentRejected_exposesStudentIdAndClassId() {
+        notificationService.notify(recipient.getId(), Notification.NotificationType.COMMENT_REJECTED, "Nhận xét bị từ chối", "x",
+                Map.of("studentId", 11, "classId", 22), "STUDENT_COMMENT", 44L, Notification.Priority.NORMAL, null);
+
+        NotificationResponse r = firstMine();
+
+        assertThat(r.studentId()).isEqualTo(11L);
+        assertThat(r.classId()).isEqualTo(22L);
+    }
+
+    @Test
+    void listMine_studentAttitudeAlert_exposesStudentIdAndClassId() {
+        notificationService.notify(recipient.getId(), Notification.NotificationType.STUDENT_ATTITUDE_ALERT, "Thái độ cần lưu ý", "x",
+                Map.of("studentId", 11, "classId", 22, "attitudeLabel", "Yếu"), "STUDENT_COMMENT", 44L,
+                Notification.Priority.NORMAL, null);
+
+        NotificationResponse r = firstMine();
+
+        assertThat(r.studentId()).isEqualTo(11L);
+        assertThat(r.classId()).isEqualTo(22L);
+    }
+
+    @Test
+    void listMine_studentAttitudeEscalation_exposesStudentIdAndClassId() {
+        notificationService.notify(recipient.getId(), Notification.NotificationType.STUDENT_ATTITUDE_ESCALATION, "Thái độ liên tục", "x",
+                Map.of("classId", 22, "streakCount", 3), "STUDENT", 11L, Notification.Priority.URGENT, null);
+
+        NotificationResponse r = firstMine();
+
+        assertThat(r.studentId()).isEqualTo(11L);
+        assertThat(r.classId()).isEqualTo(22L);
+    }
+
+    @Test
+    void listMine_studentCommentWithoutMetadata_leavesNavigationFieldsNull() {
+        // Thông báo STUDENT_COMMENT cũ (trước 2026-09-23) chưa có studentId/classId trong metadata —
+        // không được vỡ, chỉ thiếu toạ độ điều hướng.
+        notificationService.notify(recipient.getId(), Notification.NotificationType.COMMENT_REJECTED, "Nhận xét bị từ chối", "x",
+                Map.of("reason", "sai buổi"), "STUDENT_COMMENT", 44L, Notification.Priority.NORMAL, null);
+
+        NotificationResponse r = firstMine();
+
+        assertThat(r.studentId()).isNull();
+        assertThat(r.classId()).isNull();
+    }
+
+    private NotificationResponse firstMine() {
+        return notificationService.listMine(recipient.getId(), PageRequest.of(0, 10)).getContent().get(0);
     }
 
     private User newUser(String prefix) {

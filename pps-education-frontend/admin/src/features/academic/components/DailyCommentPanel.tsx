@@ -78,8 +78,8 @@ function renderExerciseOptionLabel(ex: HomeworkSkillGroupResponse) {
   const detail = [ex.unitTitle, ex.subTopicTitle].filter(Boolean).join(" · ");
   return (
     <span className="block py-0.5">
-      <span className="block font-extrabold text-slate-900 text-[13px] leading-snug">{ex.examTitle}</span>
-      <span className="block font-normal text-slate-400 text-[12px] leading-snug mt-0.5">
+      <span className="block truncate font-extrabold text-slate-900 text-[13px] leading-snug">{ex.examTitle}</span>
+      <span className="block truncate font-normal text-slate-400 text-[12px] leading-snug mt-0.5">
         {detail && `${detail} · `}
         {ex.exerciseCount} bài, {ex.questionCount} câu
       </span>
@@ -87,12 +87,74 @@ function renderExerciseOptionLabel(ex: HomeworkSkillGroupResponse) {
   );
 }
 
+/**
+ * Bổ sung 2026-09-23 — hiện thêm "(đã chọn X/Y bài)" trong popup xác nhận "Áp dụng cho cả lớp" khi GV
+ * đã bỏ tick bớt Bài trong nhóm (khác đúng exerciseCount gốc) — không hiện gì thêm nếu vẫn chọn đủ cả
+ * nhóm (renderExerciseOptionLabel đã có sẵn "N bài" trong nhãn, không cần lặp lại).
+ */
+function renderSelectedCountSuffix(group: HomeworkSkillGroupResponse | undefined, selectedIds: Set<number>) {
+  if (!group || selectedIds.size === group.exerciseCount) return null;
+  return <span className="text-rose-600 font-semibold"> (đã chọn {selectedIds.size}/{group.exerciseCount} bài)</span>;
+}
+
+/**
+ * Bổ sung 2026-09-23 (đã xác nhận với người dùng) — checklist chọn lọc Bài, hiện ngay dưới dropdown
+ * "BTVN buổi sau" khi đã chọn 1 nhóm kỹ năng (group != null). Trước đây chọn 1 nhóm là giao TOÀN BỘ
+ * Bài Published trong đó, không chọn lọc được — checklist này cho GV bỏ tick bớt Bài không muốn giao
+ * cho đúng lớp/buổi đang xử lý. Mặc định mọi Bài đã được tick sẵn (set ở onChange của dropdown, xem nơi
+ * gọi) — component này chỉ hiện/toggle, không tự set mặc định.
+ */
+function ExerciseSelectionChecklist({
+  group,
+  selectedIds,
+  onToggle,
+  disabled
+}: {
+  group: HomeworkSkillGroupResponse | undefined;
+  selectedIds: Set<number>;
+  onToggle: (exerciseId: number) => void;
+  disabled: boolean;
+}) {
+  const { t } = useTranslation("academic-comments");
+  const [collapsed, setCollapsed] = useState(false);
+  if (!group || group.exercises.length === 0) return null;
+  return (
+    <div className="mt-1 border border-slate-200 rounded-lg bg-white">
+      <button
+        type="button"
+        onClick={() => setCollapsed((c) => !c)}
+        className="w-full flex items-center justify-between gap-1 px-2 py-1 text-[11px] font-bold text-slate-600 hover:bg-slate-50 rounded-lg"
+      >
+        <span className={selectedIds.size === 0 ? "text-rose-600" : undefined}>
+          {t("dailyCommentPanel.quickAssign.exerciseChecklistSummary", { selected: selectedIds.size, total: group.exercises.length })}
+        </span>
+        {collapsed ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
+      </button>
+      {!collapsed && (
+        <div className="border-t border-slate-100 divide-y divide-slate-100 max-h-28 overflow-y-auto">
+          {group.exercises.map((ex) => (
+            <label key={ex.id} className="flex items-center gap-1.5 px-2 py-1 text-[11px] cursor-pointer hover:bg-slate-50">
+              <input type="checkbox" checked={selectedIds.has(ex.id)} disabled={disabled} onChange={() => onToggle(ex.id)} />
+              <span className="flex-1 truncate" title={ex.title}>
+                {ex.title}
+              </span>
+            </label>
+          ))}
+        </div>
+      )}
+      {selectedIds.size === 0 && (
+        <p className="px-2 py-1 text-[10px] font-bold text-rose-600">{t("dailyCommentPanel.quickAssign.exerciseChecklistEmpty")}</p>
+      )}
+    </div>
+  );
+}
+
 /** Cùng kiểu 2 dòng bold-title/muted-code như renderExerciseOptionLabel, áp dụng cho dropdown "BTVN online — Video TKN". */
 function renderVideoOptionLabel(s: { title: string; code: string }) {
   return (
     <span className="block py-0.5">
-      <span className="block font-extrabold text-slate-900 text-[13px] leading-snug">{s.title}</span>
-      <span className="block font-normal text-slate-400 text-[12px] leading-snug mt-0.5">{s.code}</span>
+      <span className="block truncate font-extrabold text-slate-900 text-[13px] leading-snug">{s.title}</span>
+      <span className="block truncate font-normal text-slate-400 text-[12px] leading-snug mt-0.5">{s.code}</span>
     </span>
   );
 }
@@ -222,11 +284,35 @@ function PreviousProgressCell({ auto, manual, autoLabel }: { auto: string | null
   return <div className={readOnlyFieldClass}>{manual || "—"}</div>;
 }
 
+interface DailyCommentPanelProps {
+  /**
+   * Deep-link từ thông báo COMMENT_REJECTED (bổ sung theo yêu cầu người dùng 2026-09-23) — tự chọn
+   * đúng buổi này thay vì "buổi hôm nay" (mặc định), rồi cuộn/tô sáng dòng deepLinkStudentId (nếu có).
+   * CommentsPage đã tự gọi setSelectedClassId đúng lớp trước khi truyền prop này xuống.
+   */
+  deepLinkSessionId?: number | null;
+  deepLinkStudentId?: number | null;
+}
+
 /** UC-21 Main Flow (nhánh DAILY): viết nhận xét hàng ngày theo buổi học — cùng khuôn thao tác với Điểm danh nhanh. */
-export default function DailyCommentPanel() {
+export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkStudentId = null }: DailyCommentPanelProps = {}) {
   const { t, i18n } = useTranslation("academic-comments");
-  const { selectedClassId, setUnsavedChanges } = useApp();
+  const { selectedClassId, setUnsavedChanges, currentUser, hasPermission } = useApp();
+  // Sửa 2026-09-23 (đã xác nhận với người dùng) — tài khoản quản trị (academic.class.manage /
+  // academic.class.view-all, mirror useEligibleClasses) phải xem được MỌI buổi của lớp để xem/sửa nhận xét
+  // thay giáo viên, không bị lọc theo "chính mình là GV chính/phụ/CM" như Giáo viên thuần (xem selectableSessions).
+  const canSeeAllSessions = hasPermission("academic.class.manage") || hasPermission("academic.class.view-all");
   const { classes } = useEligibleClasses();
+  // Luôn đồng bộ theo prop mới nhất (KHÔNG chỉ đọc 1 lần lúc mount) — sửa 2026-09-23: route
+  // /academic/comments không remount lại DailyCommentPanel khi chỉ đổi query string (React Router
+  // giữ nguyên instance cùng path), nên bấm "Xem chi tiết" lần 2 trong lúc panel đã mở sẵn cần ref này
+  // cập nhật lại giá trị mới, không được đông cứng theo giá trị lúc mount đầu tiên. Chỉ dùng bên trong
+  // callback bất đồng bộ (listTodaySessions().then()) để tránh đua race đọc state cũ.
+  const deepLinkSessionIdRef = useRef(deepLinkSessionId);
+  useEffect(() => {
+    deepLinkSessionIdRef.current = deepLinkSessionId;
+  }, [deepLinkSessionId]);
+  const appliedDeepLinkStudentKeyRef = useRef<string | null>(null);
   const [sessions, setSessions] = useState<ClassSessionResponse[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState<number | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
@@ -270,6 +356,18 @@ export default function DailyCommentPanel() {
   const [showHistory, setShowHistory] = useState(true);
   /** Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-19) — version history kiểu Google Sheets, xem cả bảng. */
   const [showSessionHistory, setShowSessionHistory] = useState(false);
+  /**
+   * Cuộn tới + tô sáng tạm dòng học sinh khi bấm "Sửa ngay" từ dòng BỊ TỪ CHỐI trong
+   * SessionVersionHistoryModal — bổ sung theo yêu cầu người dùng 2026-09-23, mirror pattern
+   * highlightClassId của CommentApprovalByClass.tsx (cuộn xong tự tắt tô sáng sau ~2.5s).
+   */
+  const [highlightedStudentId, setHighlightedStudentId] = useState<number | null>(null);
+  const goToStudentRow = (studentId: number) => {
+    const el = document.getElementById(`daily-comment-row-${studentId}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    setHighlightedStudentId(studentId);
+    setTimeout(() => setHighlightedStudentId((prev) => (prev === studentId ? null : prev)), 2500);
+  };
   /**
    * V150 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-24) — nguồn khả dụng cho dropdown
    * "BTVN Ngữ pháp buổi sau" đổi từ danh sách Exercise lẻ sang danh sách "nhóm kỹ năng" (1 entry/Lesson,
@@ -348,6 +446,15 @@ export default function DailyCommentPanel() {
   /** V137 — mirror quickExerciseId/quickVideoId, kênh "BTVN online" Reading/Writing mới. */
   const [quickReadingExerciseId, setQuickReadingExerciseId] = useState<number | "">("");
   const [quickWritingExerciseId, setQuickWritingExerciseId] = useState<number | "">("");
+  /**
+   * Bổ sung 2026-09-23 (đã xác nhận với người dùng) — trước đây chọn 1 nhóm kỹ năng (dropdown trên) là
+   * giao TOÀN BỘ Bài Published trong đó, không chọn lọc được. 3 state dưới đây giữ đúng tập Bài GV
+   * MUỐN giao trong nhóm đang chọn — mặc định = TOÀN BỘ Bài của nhóm ngay khi chọn dropdown (giữ đúng
+   * hành vi cũ nếu GV không đụng gì thêm), GV bỏ tick bớt trong checklist hiện ngay dưới dropdown.
+   */
+  const [quickGrammarExerciseIds, setQuickGrammarExerciseIds] = useState<Set<number>>(new Set());
+  const [quickReadingExerciseIds, setQuickReadingExerciseIds] = useState<Set<number>>(new Set());
+  const [quickWritingExerciseIds, setQuickWritingExerciseIds] = useState<Set<number>>(new Set());
 
   const selectedClass = classes.find((c) => c.id === selectedClassId) ?? null;
   const selectedSession = sessions.find((s) => s.id === selectedSessionId) ?? null;
@@ -409,8 +516,19 @@ export default function DailyCommentPanel() {
    * UC-21 áp cùng nguyên tắc "đến giờ học mới nhận xét" như UC-15 (Điểm danh) — chặn chọn buổi tương lai.
    * Đẩy buổi CHƯA nhận xét đủ (NONE/PARTIAL) lên trước buổi đã DONE — sort ổn định (giữ nguyên thứ tự
    * theo ngày trong từng nhóm), đỡ Giáo viên phải dò cả danh sách dài mới thấy buổi còn thiếu (2026-07-30).
+   *
+   * Bổ sung 2026-09-23 (đã xác nhận với người dùng, sửa bug thật gặp qua test tay — mirror rào chắn đã
+   * thêm ở auto-fill "buổi hôm nay" phía trên) — chỉ hiện buổi mà chính actor đang đăng nhập là GV
+   * chính/phụ/CM: dropdown này TRƯỚC ĐÓ liệt kê MỌI buổi của lớp (kể cả buổi do GV khác dạy/đã gửi
+   * duyệt), 1 GV có thể tự bấm chọn sang xem/nhầm tưởng là buổi của mình. KHÔNG lọc `sessions` gốc (vẫn
+   * cần đủ để tính hasUpcomingSession/khớp deep-link) — chỉ lọc danh sách hiện trong dropdown. Component
+   * này luôn chạy ở vai trò "Giáo viên viết nhận xét" (kể cả khi tài khoản đó cũng có role Quản lý điểm
+   * trường — xem CommentsPage.tsx#showWriteTab), nên lọc vô điều kiện, không cần tách theo permission;
+   * màn hình DUYỆT của Quản lý điểm trường dùng hẳn component khác (CommentApprovalByClass.tsx) không
+   * bị ảnh hưởng.
    */
   const selectableSessions = sessions
+    .filter((s) => canSeeAllSessions || (currentUser != null && (s.primaryTeacherId === currentUser.id || s.assistantTeacherId === currentUser.id || s.cmTeacherId === currentUser.id)))
     .filter((s) => new Date(`${s.sessionDate}T${s.startTime}`) <= new Date())
     .map((s, index) => ({ s, index, rank: getSessionCommentStatus(s.id) === "DONE" ? 1 : 0 }))
     .sort((a, b) => a.rank - b.rank || a.index - b.index)
@@ -466,12 +584,23 @@ export default function DailyCommentPanel() {
     // nay chưa bắt đầu hoặc không có buổi nào thì báo rõ, để GV tự chọn buổi khác nếu cần.
     listTodaySessions(selectedClassId)
       .then((todaySessions) => {
-        const started = todaySessions.find((s) => new Date(`${s.sessionDate}T${s.startTime}`) <= new Date());
+        // Có deep-link buổi cụ thể (COMMENT_REJECTED, xem deepLinkSessionIdRef ở đầu file) — nhường
+        // chỗ, không tự chọn "buổi hôm nay" đè lên buổi GV cần sửa lại.
+        if (deepLinkSessionIdRef.current != null) return;
+        // Bổ sung 2026-09-23 (đã xác nhận với người dùng, sửa bug thật gặp qua test tay) — 1 lớp có thể
+        // có ≥2 buổi cùng ngày (VD buổi GVVN + buổi GVNN riêng), trước đây lấy buổi ĐẦU TIÊN "đã bắt
+        // đầu" bất kể của giáo viên nào: GV A đăng nhập trước giờ dạy của mình nhưng buổi của GV B hôm
+        // đó đã bắt đầu/kết thúc trước → tự fill NHẦM sang buổi của GV B, dễ ghi đè nhận xét của người
+        // khác. Giờ chỉ xét buổi mà chính actor đang đăng nhập là GV chính/phụ/CM.
+        const ownTodaySessions = todaySessions.filter(
+          (s) => currentUser != null && (s.primaryTeacherId === currentUser.id || s.assistantTeacherId === currentUser.id || s.cmTeacherId === currentUser.id)
+        );
+        const started = ownTodaySessions.find((s) => new Date(`${s.sessionDate}T${s.startTime}`) <= new Date());
         if (started) {
           setSelectedSessionId(started.id);
-        } else if (todaySessions.length > 0) {
+        } else if (ownTodaySessions.length > 0) {
           setNotification(
-            t("dailyCommentPanel.notifications.todayNotStarted", { start: todaySessions[0].startTime, end: todaySessions[0].endTime })
+            t("dailyCommentPanel.notifications.todayNotStarted", { start: ownTodaySessions[0].startTime, end: ownTodaySessions[0].endTime })
           );
         } else {
           setNotification(t("dailyCommentPanel.notifications.noTodaySession"));
@@ -493,6 +622,36 @@ export default function DailyCommentPanel() {
   }, [selectedClassId]);
 
   /**
+   * Deep-link COMMENT_REJECTED (2026-09-23) — tự chọn đúng buổi ngay khi sessions tải xong, thay cho
+   * "buổi hôm nay". Dùng thẳng prop deepLinkSessionId (không qua ref) để phản ứng đúng cả khi panel đã
+   * mở sẵn và bấm "Xem chi tiết" một thông báo KHÁC (route không đổi, chỉ đổi query string — xem chú
+   * thích deepLinkSessionIdRef ở trên). Check selectedSessionId !== deepLinkSessionId để không lặp vô
+   * hạn sau khi đã set xong (set lại giá trị giống hệt không kích hoạt re-render nhưng effect vẫn chạy
+   * lại do sessions/deepLinkSessionId nằm trong deps — chặn sớm cho rõ ý định).
+   */
+  useEffect(() => {
+    if (deepLinkSessionId == null || selectedSessionId === deepLinkSessionId) return;
+    if (!sessions.some((s) => s.id === deepLinkSessionId)) return;
+    setSelectedSessionId(deepLinkSessionId);
+  }, [sessions, deepLinkSessionId, selectedSessionId]);
+
+  /**
+   * Deep-link COMMENT_REJECTED (2026-09-23, tiếp) — cuộn/tô sáng đúng dòng học sinh khi rows của đúng
+   * buổi đã tải xong. Guard bằng "key đã áp dụng" (không phải cờ boolean 1 lần) để vẫn cuộn lại đúng khi
+   * bấm "Xem chi tiết" 1 thông báo KHÁC trỏ tới học sinh/buổi khác trong lúc panel đang mở sẵn, nhưng
+   * không lặp lại cuộn mỗi khi rows đổi do gõ nhận xét (setRows từ updateRow) cho CÙNG 1 đích.
+   */
+  useEffect(() => {
+    if (deepLinkStudentId == null || deepLinkSessionId == null) return;
+    if (selectedSessionId !== deepLinkSessionId) return;
+    if (!rows.some((r) => r.studentId === deepLinkStudentId)) return;
+    const key = `${deepLinkSessionId}-${deepLinkStudentId}`;
+    if (appliedDeepLinkStudentKeyRef.current === key) return;
+    appliedDeepLinkStudentKeyRef.current = key;
+    goToStudentRow(deepLinkStudentId);
+  }, [rows, selectedSessionId, deepLinkSessionId, deepLinkStudentId]);
+
+  /**
    * Sửa 2026-09-11 (fix bug thật, đã xác nhận với người dùng) — trước đây gộp CHUNG 1 effect, phụ
    * thuộc cả `selectedSession?.lessonContent`/`actualTeacherName` lẫn `id`: bấm "Lưu" ở ô "Bài học
    * hôm nay"/"Tên giáo viên giảng dạy" (handleSaveLessonContent/handleSaveActualTeacherName) cập nhật
@@ -509,6 +668,11 @@ export default function DailyCommentPanel() {
     setQuickOffline("");
     setQuickExerciseId("");
     setQuickVideoId("");
+    setQuickReadingExerciseId("");
+    setQuickWritingExerciseId("");
+    setQuickGrammarExerciseIds(new Set());
+    setQuickReadingExerciseIds(new Set());
+    setQuickWritingExerciseIds(new Set());
     setDirty(false);
     setLastSavedAt(null);
   }, [selectedSession?.id]);
@@ -728,6 +892,16 @@ export default function DailyCommentPanel() {
   /** Có ít nhất 1 trong 4 kênh BTVN ONLINE đang được chọn ở panel "Gán nhanh" (Reading/Writing chỉ có ý nghĩa khi buổi teacherType=VIETNAMESE). */
   const hasQuickOnlineChoice =
     quickExerciseId !== "" || quickVideoId !== "" || (isVietnamese && (quickReadingExerciseId !== "" || quickWritingExerciseId !== ""));
+  /**
+   * Bổ sung 2026-09-23 — 1 kênh Exercise (Ngữ pháp/Reading/Writing) có chọn Lesson (examId khác "")
+   * nhưng checklist bị bỏ tick hết là lựa chọn KHÔNG hợp lệ (mirror validate ở BE
+   * StudentCommentService#materializeExamHomework) — chặn nút "Áp dụng cho cả lớp" tới khi GV tick lại
+   * ít nhất 1 Bài hoặc bỏ chọn hẳn Lesson đó.
+   */
+  const quickAssignSelectionValid =
+    (quickExerciseId === "" || quickGrammarExerciseIds.size > 0) &&
+    (!isVietnamese || quickReadingExerciseId === "" || quickReadingExerciseIds.size > 0) &&
+    (!isVietnamese || quickWritingExerciseId === "" || quickWritingExerciseIds.size > 0);
 
   /**
    * "Gán nhanh cho cả lớp" (2026-08-05). Bổ sung 2026-09-12 (đã xác nhận với người dùng) — TÁCH HẲN
@@ -759,13 +933,13 @@ export default function DailyCommentPanel() {
     setConfirmingApplyHomework(false);
     if (!selectedClassId || !selectedSession) return;
     const lockedIds = new Set(history.filter((h) => h.status === "PENDING" || h.status === "APPROVED").map((h) => h.studentId));
-    // 2026-09-17 (đã xác nhận với người dùng) — "Gán nhanh cho cả lớp" (BTVN offline) cũng phải BỎ QUA
-    // học sinh Vắng/Có phép, mirror applyClassHomework ở BE (BTVN online) — cả 2 cơ chế "áp dụng cho cả
-    // lớp" đều không được đụng tới học sinh đang bị khoá vì điểm danh.
-    const isAttendanceLocked = (studentId: number) =>
-      attendanceByStudent[studentId] === "ABSENT" || attendanceByStudent[studentId] === "EXCUSED";
+    // 2026-09-17 (đã xác nhận với người dùng), NỚI LẠI 2026-09-22 (đã xác nhận với người dùng) —
+    // "Gán nhanh cho cả lớp" (BTVN offline, chữ tự do) giờ giao được BÌNH THƯỜNG cho học sinh Vắng/Có
+    // phép, mirror BE (StudentCommentService#requireNotLockedByAttendance chỉ còn khoá Nhận xét/Thái
+    // độ/BTVN buổi trước, không khoá BTVN buổi sau chữ tự do nữa) — chỉ còn loại trừ học sinh đã
+    // PENDING/APPROVED (đúng như "Áp dụng cho cả lớp" kênh online).
     const updatedRows = rows.map((r) =>
-      lockedIds.has(r.studentId) || isAttendanceLocked(r.studentId)
+      lockedIds.has(r.studentId)
         ? r
         : {
             ...r,
@@ -816,9 +990,12 @@ export default function DailyCommentPanel() {
       try {
         await applyClassHomework(selectedSessionId, {
           grammarExamId: quickExerciseId !== "" ? quickExerciseId : undefined,
+          grammarExerciseIds: quickExerciseId !== "" ? Array.from(quickGrammarExerciseIds) : undefined,
           videoSetId: quickVideoId !== "" ? quickVideoId : undefined,
           readingExamId: isVietnamese && quickReadingExerciseId !== "" ? quickReadingExerciseId : undefined,
+          readingExerciseIds: isVietnamese && quickReadingExerciseId !== "" ? Array.from(quickReadingExerciseIds) : undefined,
           writingExamId: isVietnamese && quickWritingExerciseId !== "" ? quickWritingExerciseId : undefined,
+          writingExerciseIds: isVietnamese && quickWritingExerciseId !== "" ? Array.from(quickWritingExerciseIds) : undefined,
           dueDate: dueDateTime || undefined,
           lateSubmissionAllowed
         });
@@ -1341,14 +1518,14 @@ export default function DailyCommentPanel() {
 
         {selectedSessionId && teacherType && (
           <div className="px-5 py-3 border-b border-slate-100 bg-orange-50/40 space-y-2">
-            <span className="text-[10px] font-bold uppercase text-slate-500">
+            <span className="text-[11px] font-bold uppercase text-slate-500 mb-2">
               {t("dailyCommentPanel.quickAssign.title")}
             </span>
             <div className="flex flex-wrap items-end gap-2">
               {isVietnamese ? (
                 <>
                   <div className="min-w-[140px]">
-                    <label className="text-[9px] font-bold uppercase text-slate-400 block mb-0.5">{t("dailyCommentPanel.quickAssign.readingLabel")}</label>
+                    <label className="text-[11px] font-bold uppercase text-slate-400 block mb-0.5">{t("dailyCommentPanel.quickAssign.readingLabel")}</label>
                     <input
                       value={quickReading}
                       onChange={(e) => setQuickReading(e.target.value)}
@@ -1357,7 +1534,7 @@ export default function DailyCommentPanel() {
                     />
                   </div>
                   <div className="min-w-[140px]">
-                    <label className="text-[9px] font-bold uppercase text-slate-400 block mb-0.5">{t("dailyCommentPanel.quickAssign.writingLabel")}</label>
+                    <label className="text-[11px] font-bold uppercase text-slate-400 block mb-0.5">{t("dailyCommentPanel.quickAssign.writingLabel")}</label>
                     <input
                       value={quickWriting}
                       onChange={(e) => setQuickWriting(e.target.value)}
@@ -1366,12 +1543,17 @@ export default function DailyCommentPanel() {
                     />
                   </div>
                   {/* V137 — kênh "BTVN online" Reading/Writing mới, mirror ô Ngữ pháp/Video TKN bên dưới. */}
-                  <div className="min-w-[200px]">
-                    <label className="text-[9px] font-bold uppercase text-slate-400 block mb-0.5">{t("dailyCommentPanel.quickAssign.onlineReadingLabel")}</label>
+                  <div className="w-[240px] shrink-0">
+                    <label className="text-[11px] font-bold uppercase text-slate-400 block mb-0.5">{t("dailyCommentPanel.quickAssign.onlineReadingLabel")}</label>
                     <Select
                       value={quickReadingExerciseId}
                       disabled={blockOnlineHomework}
-                      onChange={(e) => setQuickReadingExerciseId(e.target.value ? Number(e.target.value) : "")}
+                      onChange={(e) => {
+                        const examId = e.target.value ? Number(e.target.value) : "";
+                        setQuickReadingExerciseId(examId);
+                        const group = readingOptions.find((g) => g.examId === examId);
+                        setQuickReadingExerciseIds(new Set(group?.exercises.map((ex) => ex.id) ?? []));
+                      }}
                       className="w-full bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none disabled:opacity-40"
                     >
                       <option value="">{t("dailyCommentPanel.quickAssign.noAssign")}</option>
@@ -1382,12 +1564,17 @@ export default function DailyCommentPanel() {
                       ))}
                     </Select>
                   </div>
-                  <div className="min-w-[200px]">
-                    <label className="text-[9px] font-bold uppercase text-slate-400 block mb-0.5">{t("dailyCommentPanel.quickAssign.onlineWritingLabel")}</label>
+                  <div className="w-[240px] shrink-0">
+                    <label className="text-[11px] font-bold uppercase text-slate-400 block mb-0.5">{t("dailyCommentPanel.quickAssign.onlineWritingLabel")}</label>
                     <Select
                       value={quickWritingExerciseId}
                       disabled={blockOnlineHomework}
-                      onChange={(e) => setQuickWritingExerciseId(e.target.value ? Number(e.target.value) : "")}
+                      onChange={(e) => {
+                        const examId = e.target.value ? Number(e.target.value) : "";
+                        setQuickWritingExerciseId(examId);
+                        const group = writingOptions.find((g) => g.examId === examId);
+                        setQuickWritingExerciseIds(new Set(group?.exercises.map((ex) => ex.id) ?? []));
+                      }}
                       className="w-full bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none disabled:opacity-40"
                     >
                       <option value="">{t("dailyCommentPanel.quickAssign.noAssign")}</option>
@@ -1402,7 +1589,7 @@ export default function DailyCommentPanel() {
               ) : (
                 <>
                   <div className="min-w-[160px]">
-                    <label className="text-[9px] font-bold uppercase text-slate-400 block mb-0.5">{t("dailyCommentPanel.quickAssign.offlineLabel")}</label>
+                    <label className="text-[11px] font-bold uppercase text-slate-400 block mb-0.5">{t("dailyCommentPanel.quickAssign.offlineLabel")}</label>
                     <input
                       value={quickOffline}
                       onChange={(e) => setQuickOffline(e.target.value)}
@@ -1412,14 +1599,19 @@ export default function DailyCommentPanel() {
                   </div>
                 </>
               )}
-              <div className="min-w-[200px]">
-                <label className="text-[9px] font-bold uppercase text-slate-400 block mb-0.5">
+              <div className="w-[240px] shrink-0">
+                <label className="text-[11px] font-bold uppercase text-slate-400 block mb-0.5">
                   {t("dailyCommentPanel.quickAssign.onlineGrammarLabel", { grammarLabel: onlineGrammarLabel })}
                 </label>
                 <Select
                   value={quickExerciseId}
                   disabled={blockOnlineHomework}
-                  onChange={(e) => setQuickExerciseId(e.target.value ? Number(e.target.value) : "")}
+                  onChange={(e) => {
+                    const examId = e.target.value ? Number(e.target.value) : "";
+                    setQuickExerciseId(examId);
+                    const group = filteredGrammarOptions.find((g) => g.examId === examId);
+                    setQuickGrammarExerciseIds(new Set(group?.exercises.map((ex) => ex.id) ?? []));
+                  }}
                   className="w-full bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none disabled:opacity-40"
                 >
                   <option value="">{t("dailyCommentPanel.quickAssign.noAssign")}</option>
@@ -1430,8 +1622,8 @@ export default function DailyCommentPanel() {
                   ))}
                 </Select>
               </div>
-              <div className="min-w-[200px]">
-                <label className="text-[9px] font-bold uppercase text-slate-400 block mb-0.5">
+              <div className="w-[240px] shrink-0">
+                <label className="text-[11px] font-bold uppercase text-slate-400 block mb-0.5">
                   {t("dailyCommentPanel.quickAssign.onlineVideoLabel", { videoLabel: onlineVideoLabel })}
                 </label>
                 <Select
@@ -1449,7 +1641,7 @@ export default function DailyCommentPanel() {
                 </Select>
               </div>
               <div className="min-w-[150px]">
-                <label className="text-[9px] font-bold uppercase text-slate-400 block mb-0.5">{t("dailyCommentPanel.quickAssign.dueDateLabel")}</label>
+                <label className="text-[11px] font-bold uppercase text-slate-400 block mb-0.5">{t("dailyCommentPanel.quickAssign.dueDateLabel")}</label>
                 <DatePicker
                   value={dueDate}
                   min={selectedSession?.sessionDate}
@@ -1461,7 +1653,7 @@ export default function DailyCommentPanel() {
                 />
               </div>
               <div className="min-w-[110px]">
-                <label className="text-[9px] font-bold uppercase text-slate-400 block mb-0.5">{t("dailyCommentPanel.quickAssign.dueTimeLabel")}</label>
+                <label className="text-[11px] font-bold uppercase text-slate-400 block mb-0.5">{t("dailyCommentPanel.quickAssign.dueTimeLabel")}</label>
                 <Time24Input
                   value={dueTime}
                   disabled={!dueDate}
@@ -1484,6 +1676,7 @@ export default function DailyCommentPanel() {
                 disabled={
                   applyingHomework ||
                   savingDraft ||
+                  !quickAssignSelectionValid ||
                   (isVietnamese
                     ? !quickReading && !quickWriting && quickExerciseId === "" && quickVideoId === "" && quickReadingExerciseId === "" && quickWritingExerciseId === ""
                     : !quickOffline && quickExerciseId === "" && quickVideoId === "")
@@ -1493,6 +1686,64 @@ export default function DailyCommentPanel() {
                 {applyingHomework || savingDraft ? t("dailyCommentPanel.quickAssign.applying") : t("dailyCommentPanel.quickAssign.applyButton")}
               </button>
             </div>
+            {/* Checklist chọn lọc Bài để RIÊNG 1 hàng dưới hàng dropdown (không nhét trong từng cột) — cột nào có checklist cao lên sẽ kéo cả hàng `items-end` phía trên giãn theo, vỡ bố cục. */}
+            {(quickExerciseId !== "" || (isVietnamese && (quickReadingExerciseId !== "" || quickWritingExerciseId !== ""))) && (
+              <div className="flex flex-wrap items-start gap-3">
+                {quickExerciseId !== "" && (
+                  <div className="w-[260px]">
+                    <span className="text-[10px] font-bold uppercase text-slate-400 block">
+                      {t("dailyCommentPanel.quickAssign.onlineGrammarLabel", { grammarLabel: onlineGrammarLabel })}
+                    </span>
+                    <ExerciseSelectionChecklist
+                      group={filteredGrammarOptions.find((g) => g.examId === quickExerciseId)}
+                      selectedIds={quickGrammarExerciseIds}
+                      disabled={blockOnlineHomework}
+                      onToggle={(id) =>
+                        setQuickGrammarExerciseIds((prev) => {
+                          const next = new Set(prev);
+                          next.has(id) ? next.delete(id) : next.add(id);
+                          return next;
+                        })
+                      }
+                    />
+                  </div>
+                )}
+                {isVietnamese && quickReadingExerciseId !== "" && (
+                  <div className="w-[260px]">
+                    <span className="text-[10px] font-bold uppercase text-slate-400 block">{t("dailyCommentPanel.quickAssign.onlineReadingLabel")}</span>
+                    <ExerciseSelectionChecklist
+                      group={readingOptions.find((g) => g.examId === quickReadingExerciseId)}
+                      selectedIds={quickReadingExerciseIds}
+                      disabled={blockOnlineHomework}
+                      onToggle={(id) =>
+                        setQuickReadingExerciseIds((prev) => {
+                          const next = new Set(prev);
+                          next.has(id) ? next.delete(id) : next.add(id);
+                          return next;
+                        })
+                      }
+                    />
+                  </div>
+                )}
+                {isVietnamese && quickWritingExerciseId !== "" && (
+                  <div className="w-[260px]">
+                    <span className="text-[10px] font-bold uppercase text-slate-400 block">{t("dailyCommentPanel.quickAssign.onlineWritingLabel")}</span>
+                    <ExerciseSelectionChecklist
+                      group={writingOptions.find((g) => g.examId === quickWritingExerciseId)}
+                      selectedIds={quickWritingExerciseIds}
+                      disabled={blockOnlineHomework}
+                      onToggle={(id) =>
+                        setQuickWritingExerciseIds((prev) => {
+                          const next = new Set(prev);
+                          next.has(id) ? next.delete(id) : next.add(id);
+                          return next;
+                        })
+                      }
+                    />
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -1709,6 +1960,11 @@ export default function DailyCommentPanel() {
                 const attendanceStatus = attendanceByStudent[r.studentId];
                 const isAbsentLocked = attendanceStatus === "ABSENT" || attendanceStatus === "EXCUSED";
                 const locked = sentLocked || isAbsentLocked;
+                // 2026-09-22 (đã xác nhận với người dùng, NỚI LẠI 2026-09-17) — Vắng/Có phép chỉ còn khoá
+                // Nhận xét/Thái độ/BTVN buổi trước (`locked` ở trên, giữ nguyên); riêng 3 ô BTVN buổi sau
+                // chữ tự do (homeworkNext/homeworkNextReading/homeworkNextWriting) vẫn mở, chỉ khoá khi đã
+                // Gửi/Duyệt (sentLocked) — mirror StudentCommentService#requireNotLockedByAttendance (BE).
+                const homeworkNextLocked = sentLocked;
                 // V146 — fallback % tự động khi buổi CHƯA có StudentComment nào (sent undefined), xem
                 // previewAutoProgress/AutoProgressPreviewResponse.
                 const auto = autoProgress[r.studentId];
@@ -1721,13 +1977,16 @@ export default function DailyCommentPanel() {
                 return (
                   <tr
                     key={r.studentId}
+                    id={`daily-comment-row-${r.studentId}`}
                     onClick={sentLocked ? () => notifyAlreadySent(r, sent!) : undefined}
                     className={`transition-colors ${
-                      isAbsentLocked
-                        ? "bg-red-50/40 hover:bg-red-50/60"
-                        : sentLocked
-                          ? "bg-emerald-50/20 cursor-pointer hover:bg-emerald-50/40"
-                          : "hover:bg-slate-50/40"
+                      highlightedStudentId === r.studentId
+                        ? "bg-amber-100"
+                        : isAbsentLocked
+                          ? "bg-red-50/40 hover:bg-red-50/60"
+                          : sentLocked
+                            ? "bg-emerald-50/20 cursor-pointer hover:bg-emerald-50/40"
+                            : "hover:bg-slate-50/40"
                     }`}
                   >
                     <Td style={STICKY_COL_STYLE[0]} className={`sticky left-0 z-10 ${stickyBg} font-mono font-bold text-slate-500 border-r border-b border-slate-300`}>{r.studentCode}</Td>
@@ -1736,6 +1995,14 @@ export default function DailyCommentPanel() {
                       {isAbsentLocked && (
                         <div className="text-[9px] font-bold text-red-600 uppercase tracking-wide mt-0.5 whitespace-normal leading-snug">
                           {t(`shared.attendanceStatus.${attendanceStatus}`, { defaultValue: attendanceStatus })} · {t("dailyCommentPanel.attendanceLockedHint")}
+                        </div>
+                      )}
+                      {/* Lý do từ chối ngay tại dòng đang sửa — trước đây GV chỉ thấy nội dung cũ được
+                          điền lại (loadHistory) mà không biết TẠI SAO bị từ chối, phải mò qua thông báo
+                          quả chuông hoặc Lịch sử phiên bản (bổ sung theo yêu cầu người dùng 2026-09-23). */}
+                      {sent?.status === "REJECTED" && sent.rejectionReason && (
+                        <div className="text-[9px] font-bold text-rose-600 mt-0.5 whitespace-normal leading-snug">
+                          {t("dailyCommentPanel.rejectionReasonHint", { reason: sent.rejectionReason })}
                         </div>
                       )}
                     </Td>
@@ -1827,7 +2094,7 @@ export default function DailyCommentPanel() {
                             (bài + trang), thay cho ô "BTVN offline" gộp cũ (homeworkNext) — buổi FOREIGN vẫn dùng
                             homeworkNext như trước, xem nhánh else bên dưới. */}
                         <Td className="min-w-[140px] border-r border-b border-slate-300">
-                          {locked ? (
+                          {homeworkNextLocked ? (
                             <div className={readOnlyFieldClass}>{sent?.homeworkNextReading || "—"}</div>
                           ) : (
                             <input
@@ -1839,7 +2106,7 @@ export default function DailyCommentPanel() {
                           )}
                         </Td>
                         <Td className="min-w-[140px] border-r border-b border-slate-300">
-                          {locked ? (
+                          {homeworkNextLocked ? (
                             <div className={readOnlyFieldClass}>{sent?.homeworkNextWriting || "—"}</div>
                           ) : (
                             <input
@@ -1861,7 +2128,7 @@ export default function DailyCommentPanel() {
                       </>
                     ) : (
                       <Td className="min-w-[160px] border-r border-b border-slate-300">
-                        {locked ? (
+                        {homeworkNextLocked ? (
                           <div className={readOnlyFieldClass}>{sent?.homeworkNext || "—"}</div>
                         ) : (
                           <input
@@ -2035,6 +2302,7 @@ export default function DailyCommentPanel() {
                   <li>
                     <span className="font-semibold text-slate-700">{grammarLabel}: </span>
                     {renderExerciseOptionLabel(filteredGrammarOptions.find((ex) => ex.examId === quickExerciseId)!)}
+                    {renderSelectedCountSuffix(filteredGrammarOptions.find((ex) => ex.examId === quickExerciseId), quickGrammarExerciseIds)}
                   </li>
                 )}
                 {quickVideoId !== "" && (
@@ -2047,12 +2315,14 @@ export default function DailyCommentPanel() {
                   <li>
                     <span className="font-semibold text-slate-700">Reading: </span>
                     {renderExerciseOptionLabel(readingOptions.find((ex) => ex.examId === quickReadingExerciseId)!)}
+                    {renderSelectedCountSuffix(readingOptions.find((ex) => ex.examId === quickReadingExerciseId), quickReadingExerciseIds)}
                   </li>
                 )}
                 {isVietnamese && quickWritingExerciseId !== "" && (
                   <li>
                     <span className="font-semibold text-slate-700">Writing: </span>
                     {renderExerciseOptionLabel(writingOptions.find((ex) => ex.examId === quickWritingExerciseId)!)}
+                    {renderSelectedCountSuffix(writingOptions.find((ex) => ex.examId === quickWritingExerciseId), quickWritingExerciseIds)}
                   </li>
                 )}
               </ul>
@@ -2106,6 +2376,7 @@ export default function DailyCommentPanel() {
             videoLabel={videoLabel}
             isVietnamese={isVietnamese}
             onClose={() => setShowSessionHistory(false)}
+            onGoToStudent={goToStudentRow}
           />
         )}
       </div>

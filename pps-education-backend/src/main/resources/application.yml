@@ -136,6 +136,7 @@ app:
     # Hiển thị trong footer chuẩn của email (NotificationEmailTemplateService) - chưa có
     # giá trị thật từ PM, để trống thì footer giữ nguyên placeholder dạng "[Hotline PPS]"
     # thay vì tự bịa số/email/website.
+    # Email gửi Phụ huynh ưu tiên số điện thoại Quản lý điểm trường của lớp; hotline này là fallback.
     hotline: ${MAIL_CONTACT_HOTLINE:}
     support-email: ${MAIL_CONTACT_SUPPORT_EMAIL:}
     website: ${MAIL_CONTACT_WEBSITE:}
@@ -259,6 +260,33 @@ app:
     # cho chấm Speaking (cần nghe phát âm/ngữ điệu, transcript chữ không đủ). PHẢI là model đa phương
     # thức (Gemini/GPT-4o-audio) - KHÔNG dùng combo có Claude (Claude không nhận input audio).
     nine-router-audio-model: ${NINE_ROUTER_AUDIO_MODEL:ag/gemini-3.5-flash-low}
+    # Bổ sung 2026-09-22 (đã xác nhận với người dùng) - rubric Writing "v3" (UC-40/41, gói bo-cham-writing-K6-K9
+    # do người training bàn giao). Combo RIÊNG (không dùng nine-router-model mặc định) - người dùng tự tạo
+    # trong Dashboard 9Router, CHỈ gồm ag/gemini-3.6-flash-medium (không fallback sang mức thinking khác -
+    # đã kiểm tra 2026-09-22: response không phân biệt được member nào của combo đã trả lời, nên fallback
+    # sang model khác sẽ ÂM THẦM chấm bằng model chưa hiệu chuẩn). Xem WritingAiGradingService.
+    writing:
+      model: ${WRITING_AI_MODEL:writing-pps}
+    # Bổ sung 2026-09-21 (đã xác nhận với người dùng) - luồng chấm Speaking v2 cho Video phản xạ (UC-23b),
+    # bộ tiêu chí Khối 6-9 do người training bàn giao (xem ReflexV2AiGradingService). MẶC ĐỊNH TẮT - chỉ
+    # bật (REFLEX_V2_ENABLED=true) sau khi kiểm chứng 9Router + ffmpeg. Khối 9 CAMBRIDGE chưa có bộ v2 nên luôn dùng luồng cũ.
+    reflex-v2:
+      enabled: ${REFLEX_V2_ENABLED:false}
+      # Model BẮT BUỘC theo người training: gemini-3.6-flash, thinking medium (chọn qua hậu tố tên model
+      # của 9Router), temperature 0 (NineRouterAiClient luôn gửi). KHÔNG dùng model dự phòng khác.
+      model: ${REFLEX_V2_MODEL:ag/gemini-3.6-flash-medium}
+      # Chuỗi phải có trong trường "model" 9Router trả về (9Router thực tế trả "gemini-3.6-flash-tiered");
+      # khác thì bỏ kết quả thay vì chấm bằng model khác. Để trống = tắt kiểm tra.
+      expected-model-contains: ${REFLEX_V2_EXPECTED_MODEL_CONTAINS:gemini-3.6-flash}
+      # Ép response_format json_schema - qua 9Router chỉ được chấp nhận chứ không ép cứng (kết quả vẫn bọc
+      # trong khối ```json), backend tự bóc JSON nên mặc định tắt.
+      json-schema-enabled: ${REFLEX_V2_JSON_SCHEMA_ENABLED:false}
+      # Tiêu chí Phát âm CHƯA được kiểm chứng (TRANG-THAI-BAN-GIAO.md mục 2) nên mặc định không tính vào
+      # điểm mở khoá câu tiếp theo, chỉ hiển thị kèm nhãn "tham khảo".
+      unlock-includes-pronunciation: ${REFLEX_V2_UNLOCK_INCLUDES_PRONUNCIATION:false}
+      # ffmpeg chuyển webm/mp4 -> WAV để đo tiếng nói (bộ chặn transcript bịa). Không có ffmpeg thì bộ chặn không chạy.
+      ffmpeg-path: ${REFLEX_V2_FFMPEG_PATH:ffmpeg}
+      ffmpeg-timeout-seconds: ${REFLEX_V2_FFMPEG_TIMEOUT_SECONDS:20}
 
 springdoc:
   swagger-ui:

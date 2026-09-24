@@ -42,7 +42,8 @@ class ReflexSpeakingContentAiGradingServiceTest {
                 + "\"criteriaScores\": [{\"criterion\": \"Ngữ pháp\", \"percent\": 70}, {\"criterion\": \"Phát âm\", \"percent\": 80}],"
                 + "\"scorePercent\": 75,"
                 + "\"feedback\": \"Phát âm rõ ràng, nhưng cần chú ý thì quá khứ.\"}";
-        when(nineRouterAiClient.chatWithAudio(anyString(), anyString(), any(byte[].class), anyString(), any())).thenReturn(rawText);
+        when(nineRouterAiClient.chatWithAudioWithUsage(anyString(), anyString(), any(byte[].class), anyString(), any()))
+                .thenReturn(new NineRouterAiClient.AiTextResponse(rawText, null));
 
         ReflexSpeakingContentAiGradingService.GradeResult result =
                 service.grade("audio-bytes".getBytes(), "audio/webm", "What did you do yesterday?", curriculum);
@@ -64,7 +65,8 @@ class ReflexSpeakingContentAiGradingServiceTest {
                 + "\"criteriaScores\": [],"
                 + "\"scorePercent\": 0,"
                 + "\"feedback\": \"LẠC ĐỀ: câu trả lời không liên quan tới câu hỏi.\"}";
-        when(nineRouterAiClient.chatWithAudio(anyString(), anyString(), any(byte[].class), anyString(), any())).thenReturn(rawText);
+        when(nineRouterAiClient.chatWithAudioWithUsage(anyString(), anyString(), any(byte[].class), anyString(), any()))
+                .thenReturn(new NineRouterAiClient.AiTextResponse(rawText, null));
 
         ReflexSpeakingContentAiGradingService.GradeResult result =
                 service.grade("audio-bytes".getBytes(), "audio/webm", "What subject do you like most?", curriculum);

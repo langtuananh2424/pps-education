@@ -8,15 +8,31 @@ import { PUSH_RECEIVED_EVENT } from "@/lib/pushNotifications";
 
 const PAGE_SIZE = 15;
 
-export type NotificationTab = "homework" | "schedule" | "grades" | "billing";
+export type NotificationTab = "homework" | "schedule" | "grades" | "billing" | "learning-progress";
 
 /** Đích chuyển trang khi bấm 1 thông báo — PortalPage nhận rồi tự set activeTab + các state "pending" liên quan. */
 export interface NotificationNavTarget {
   tab: NotificationTab;
   exerciseAssignmentId?: number;
   reviewVideoAssignmentId?: number;
-  /** entityId khi entityType=STUDENT — PortalPage dùng để chuyển đúng con (Phụ huynh nhiều con). */
+  /** Học sinh liên quan — PortalPage dùng để chuyển đúng con (Phụ huynh nhiều con). */
   studentId?: number;
+  /** Lớp liên quan — PortalPage chọn đúng lớp (sau khi classOptions tải xong) trước khi đổi tab. */
+  classId?: number;
+  /**
+   * Đợt 2 (Plan link hoá thông báo, 2026-09-23) — id StudentComment cần mở đúng buổi ở tab "Quá trình
+   * học tập" (STUDENT_ATTITUDE_ALERT). Không dùng entityId chung với exerciseAssignmentId/
+   * reviewVideoAssignmentId vì khác component đích (DailyLearningProgressTab, không phải AssignmentsTab).
+   */
+  commentId?: number;
+}
+
+/** Toạ độ điều hướng chung (studentId/classId) BE đã chọn lọc sẵn trong NotificationResponse — bỏ null. */
+function baseTarget(n: NotificationResponse, tab: NotificationTab): NotificationNavTarget {
+  const target: NotificationNavTarget = { tab };
+  if (n.studentId != null) target.studentId = n.studentId;
+  if (n.classId != null) target.classId = n.classId;
+  return target;
 }
 
 /**
@@ -25,29 +41,60 @@ export interface NotificationNavTarget {
  * NotificationService.notify() với entityType) VÀ có trang tương ứng ở Portal — entityType "STUDENT"
  * của EXAM_INTEGRITY_VIOLATION_PARENT chưa có trang xem cho Phụ huynh (chỉ Giáo viên xem qua
  * integrity-summary, quyền lms.grading.manage) nên cố tình không map, trả null.
+ *
+ * Plan link hoá thông báo (2026-09-22): studentId/classId/exerciseAssignmentId/reviewVideoAssignmentId
+ * lấy thẳng từ NotificationResponse (BE đã quyết định loại nào có field nào — không đoán từ metadata),
+ * để PortalPage đổi đúng con + đúng lớp rồi mới đổi tab, và mở/cuộn tới đúng thẻ BTVN.
  */
 function resolveNotificationTarget(n: NotificationResponse): NotificationNavTarget | null {
   switch (n.entityType) {
-    case "EXERCISE_ASSIGNMENT":
-      return n.entityId != null ? { tab: "homework", exerciseAssignmentId: n.entityId } : { tab: "homework" };
-    case "REVIEW_VIDEO_ASSIGNMENT":
-      return n.entityId != null ? { tab: "homework", reviewVideoAssignmentId: n.entityId } : { tab: "homework" };
+    case "EXERCISE_ASSIGNMENT": {
+      const target = baseTarget(n, "homework");
+      const id = n.exerciseAssignmentId ?? n.entityId;
+      if (id != null) target.exerciseAssignmentId = id;
+      return target;
+    }
+    case "REVIEW_VIDEO_ASSIGNMENT": {
+      const target = baseTarget(n, "homework");
+      const id = n.reviewVideoAssignmentId ?? n.entityId;
+      if (id != null) target.reviewVideoAssignmentId = id;
+      return target;
+    }
     case "ATTENDANCE_MARK":
-      return { tab: "schedule" };
+      return baseTarget(n, "schedule");
     case "GRADE_ENTRY":
     case "GRADE_PERIOD_RESULT":
-      return { tab: "grades" };
+      return baseTarget(n, "grades");
     case "STUDENT":
       switch (n.notificationType) {
         case "HOMEWORK_DUE_SOON_REMINDER":
         case "HOMEWORK_MISS_REMINDER":
         case "HOMEWORK_MISS_WARNING":
         case "HOMEWORK_MISS_PARENT_MEETING_INVITE":
-        case "HOMEWORK_MISS_REMINDER_NON_CONSECUTIVE":
-          return { tab: "homework", studentId: n.entityId ?? undefined };
+        case "HOMEWORK_MISS_REMINDER_NON_CONSECUTIVE": {
+          const target = baseTarget(n, "homework");
+          // Thông báo cũ (trước 2026-09-22) BE chưa điền studentId — entityId vẫn là studentId, giữ fallback.
+          if (target.studentId == null && n.entityId != null) target.studentId = n.entityId;
+          if (n.exerciseAssignmentId != null) target.exerciseAssignmentId = n.exerciseAssignmentId;
+          if (n.reviewVideoAssignmentId != null) target.reviewVideoAssignmentId = n.reviewVideoAssignmentId;
+          return target;
+        }
+        // Đợt 2 (2026-09-23): cảnh báo thái độ học tập leo thang (nhiều buổi liên tục) — không có 1
+        // buổi cụ thể để mở (khác STUDENT_ATTITUDE_ALERT bên dưới), chỉ đổi đúng con/lớp rồi vào tab.
+        case "STUDENT_ATTITUDE_ESCALATION":
+          return baseTarget(n, "learning-progress");
         default:
           return null;
       }
+    // Đợt 2 (2026-09-23): cảnh báo thái độ học tập 1 buổi đơn lẻ — entityId là StudentComment.id, mở
+    // đúng buổi đó ở tab "Quá trình học tập" (DailyLearningProgressTab). Gate thêm theo notificationType
+    // vì entityType này còn dùng cho COMMENT_REJECTED (gửi Giáo viên ở app admin, không map ở Portal).
+    case "STUDENT_COMMENT": {
+      if (n.notificationType !== "STUDENT_ATTITUDE_ALERT") return null;
+      const target = baseTarget(n, "learning-progress");
+      if (n.entityId != null) target.commentId = n.entityId;
+      return target;
+    }
     default:
       return n.notificationType === "INVOICE_DUE" ? { tab: "billing" } : null;
   }

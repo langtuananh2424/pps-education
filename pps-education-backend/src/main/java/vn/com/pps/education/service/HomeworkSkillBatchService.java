@@ -88,26 +88,41 @@ public class HomeworkSkillBatchService {
     }
 
     /**
-     * Giao TOÀN BỘ Bài PUBLISHED cùng (examId, skillCategory) cho 1 lớp — gọi từ StudentCommentService
-     * khi Giáo viên chọn kênh kỹ năng làm "BTVN buổi sau" ở UC-21. Mirror {@code deliverToClass}: gọi
-     * lại chính method đó cho TỪNG Bài (đã tự dedupe/reuse bản giao ACTIVE cùng buổi nguồn) — không lặp
-     * logic due-date/conflict, chỉ thêm bước gắn {@code homeworkBatchId} sau khi có assignment.
+     * Giao đúng {@code exerciseIds} (Bài PUBLISHED cùng (examId, skillCategory) do GV CHỌN, không còn
+     * bắt buộc "toàn bộ") cho 1 lớp — gọi từ StudentCommentService khi Giáo viên chọn kênh kỹ năng làm
+     * "BTVN buổi sau" ở UC-21. Mirror {@code deliverToClass}: gọi lại chính method đó cho TỪNG Bài (đã
+     * tự dedupe/reuse bản giao ACTIVE cùng buổi nguồn) — không lặp logic due-date/conflict, chỉ thêm
+     * bước gắn {@code homeworkBatchId} sau khi có assignment.
      *
      * V150 sửa lỗi thật (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25, xem ảnh chụp
      * Portal học sinh) — gọi {@code deliverToClass} với {@code notify=false} cho TỪNG Bài (khác trước:
      * mỗi Bài tự gửi 1 thông báo, học sinh nhận N thông báo gần như giống hệt nhau cho cùng 1 Lô), rồi
      * tự gửi đúng 1 thông báo GỘP cho cả Lô sau khi giao xong toàn bộ N Bài.
+     *
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-23 — trước đây tự lấy HẾT Bài PUBLISHED
+     * cùng (examId, skillCategory) (all-or-nothing, không chọn lọc được), giờ nhận {@code exerciseIds}
+     * tường minh từ FE (checklist dưới dropdown "BTVN buổi sau") — validate từng id PHẢI thuộc đúng
+     * (examId, skillCategory, PUBLISHED), chặn GV gửi lẫn Bài của Đề/kỹ năng khác.
      */
     @Transactional
     public HomeworkSkillBatch assignBatchToClass(Long examId, Exercise.SkillCategory skillCategory, Long classId,
-                                                   OffsetDateTime dueAt, boolean lateSubmissionAllowed,
+                                                   List<Long> exerciseIds, OffsetDateTime dueAt, boolean lateSubmissionAllowed,
                                                    Long actorUserId, ClassSession sourceClassSession) {
-        List<Exercise> sources = exerciseRepository.findByExamIdAndSkillCategoryAndStatus(
-                examId, skillCategory, Exercise.Status.PUBLISHED);
-        if (sources.isEmpty()) {
-            throw new IllegalArgumentException(
-                    "Lesson này chưa có Bài nào thuộc kỹ năng " + skillCategory + " đã Publish.");
+        if (exerciseIds == null || exerciseIds.isEmpty()) {
+            throw new IllegalArgumentException("Chưa chọn Bài nào để giao.");
         }
+        List<Exercise> eligible = exerciseRepository.findByExamIdAndSkillCategoryAndStatus(
+                examId, skillCategory, Exercise.Status.PUBLISHED);
+        Map<Long, Exercise> eligibleById = eligible.stream()
+                .collect(Collectors.toMap(Exercise::getId, e -> e, (a, b) -> a, LinkedHashMap::new));
+        List<Exercise> sources = exerciseIds.stream().map(id -> {
+            Exercise e = eligibleById.get(id);
+            if (e == null) {
+                throw new IllegalArgumentException(
+                        "Bài id=" + id + " không thuộc kỹ năng " + skillCategory + " đã Publish của Lesson này.");
+            }
+            return e;
+        }).toList();
 
         Exam exam = examOrThrow(examId);
         SchoolClass schoolClass = classOrThrow(classId);
@@ -226,7 +241,11 @@ public class HomeworkSkillBatchService {
                         list.get(0).examId(), list.get(0).examCode(), list.get(0).examTitle(), list.get(0).examTeacherType(), skillCategory.name(),
                         list.size(),
                         list.stream().mapToLong(e -> exerciseQuestionRepository.countByExerciseId(e.id())).sum(),
-                        list.get(0).unitTitle(), list.get(0).subTopicTitle()))
+                        list.get(0).unitTitle(), list.get(0).subTopicTitle(),
+                        list.stream()
+                                .map(e -> new HomeworkSkillGroupResponse.ExerciseSummary(
+                                        e.id(), e.code(), e.title(), exerciseQuestionRepository.countByExerciseId(e.id())))
+                                .toList()))
                 .toList();
     }
 

@@ -67,6 +67,12 @@ server dù CI xanh, gây lệch giữa staging/production thật với repo mà 
 ai biết). Việc bootstrap tay ở đây chỉ còn cần thiết cho lần đầu (thư mục
 chưa tồn tại) — sau đó không cần copy tay nữa.
 
+Lưu ý: CD chỉ chạy khi push có đổi `pps-education-backend/**` hoặc đúng file
+`deploy/docker-compose.<stack>.yml` (bổ sung 2026-09-24 — trước đó PR chỉ đổi
+compose, VD ghim image MinIO, không kích hoạt CD nên file trên server không
+được cập nhật). CD vẫn chỉ `pull`/`up` service `backend`: đổi image của
+service khác (`minio`, `postgres`...) vẫn phải làm tay trên server, xem mục 3b.
+
 `.env` mỗi stack (tạo tay 1 lần, `chmod 600`, **không** đi qua GitHub/CI):
 
 ```
@@ -134,16 +140,226 @@ docker compose -f docker-compose.yml logs minio-init   # thay "up" xanh: "bucket
 
 Fallback thủ công (chỉ khi cần chạy lại ngoài luồng compose, VD sau khi xoá
 nhầm policy) — thay `pps-staging_internal` bằng `pps-production_internal` cho
-prod:
+prod. Dùng **đúng image `mc` đã ghim** trong compose (xem 3a — `minio/mc` trên
+Docker Hub không còn tồn tại):
 
 ```bash
 docker run --rm --network pps-staging_internal --entrypoint /bin/sh \
-  -e MC_HOST_s="http://<S3_ACCESS_KEY>:<S3_SECRET_KEY>@minio:9000" minio/mc \
+  -e MC_HOST_s="http://<S3_ACCESS_KEY>:<S3_SECRET_KEY>@minio:9000" \
+  quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727 \
   -c 'mc mb --ignore-existing s/pps-media && mc anonymous set download s/pps-media'
 ```
 
 Nếu có dữ liệu cũ thật trên R2 cần giữ lại: dùng `rclone`/`mc mirror` chuyển
 1 lần trước khi cắt hẳn sang MinIO (không tự động, làm tay khi cần).
+
+### 3a. Nguồn image MinIO — ghim phiên bản, KHÔNG dùng `:latest`
+
+2026-09-24 phát hiện Docker Hub đã **gỡ hẳn** `minio/minio` và `minio/mc`
+(`docker pull minio/minio:latest` → "pull access denied ... repository does
+not exist"). Bối cảnh: từ 23/10/2025 MinIO community chỉ phát hành mã nguồn,
+không build binary/image mới; repo GitHub `minio/minio` bị archive
+13/02/2026. Registry chính thức còn lại là `quay.io/minio/*` (bản cuối
+`RELEASE.2025-09-07T16-13-09Z`), nhưng quay.io cũng có thể bị gỡ bất cứ lúc
+nào.
+
+Compose production/staging giờ ghim **tag + digest**:
+
+| Service | Image |
+|---|---|
+| `minio` | `quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e` |
+| `minio-init` | `quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727` |
+
+Nguyên tắc:
+
+- **Không đổi phiên bản MinIO tùy tiện.** MinIO bản mới có thể nâng cấp định
+  dạng dữ liệu trong `/data` (`xl.meta`, `.minio.sys`) một chiều — chạy bản mới
+  lên `/mnt/pps-production/media` rồi thì không chắc quay về bản cũ được. Mọi
+  lần đổi image `minio` phải backup media trước (xem 3b bước 3).
+- Mọi lệnh `docker run ... mc` thủ công (fallback ở trên, tạo tài khoản MinIO
+  chỉ-đọc cho backup media...) dùng đúng image `mc` đã ghim ở bảng trên,
+  không dùng `minio/mc` hay `:latest`.
+- `docker system prune -a` xoá mọi image không có container dùng — sau khi
+  pull được image ghim, **lưu 1 bản offline** (3b bước 6) để dựng lại server
+  vẫn được nếu quay.io cũng gỡ.
+
+### 3b. Chuyển server đang chạy sang image ghim (làm 1 lần, staging trước)
+
+Trạng thái: **đã chuyển xong cả staging lẫn production ngày 2026-09-24**
+(staging 415 object / 245MiB, production 21 object / 91MiB còn nguyên). Bản
+copy thô media production trước khi đổi:
+`/opt/pps-education/backups/media-raw-2026-09-24{,.tar.gz}`. Các bước dưới đây
+giữ lại để tham khảo khi dựng lại server hoặc đổi phiên bản MinIO.
+
+CD đồng bộ `docker-compose.yml` từ repo nhưng chỉ `pull`/`up` service
+`backend`, nên container `minio` đang chạy **không bị đụng** khi merge. Image
+chỉ đổi khi có người chạy `docker compose up -d` toàn stack. Vì vậy phải làm
+tay theo thứ tự dưới đây ngay sau khi thay đổi lên server, **làm trên staging
+trước**, xong mới tới production. Ví dụ cho production (staging: đổi
+`production` → `staging`, container `pps-staging-minio-1`).
+
+> Chạy mọi lệnh `docker compose` qua `sudo -u deploy`. `.env` của stack là
+> `chmod 600` thuộc user `deploy`, nên `ppsadmin` chạy thẳng sẽ báo
+> `open .../.env: permission denied`. Thư mục `/opt/pps-education/backups/`
+> cũng chỉ `deploy`/root đọc được, nên xem bằng `sudo ls`.
+> Riêng `docker exec` / `docker inspect` không đọc `.env`, chạy thẳng được.
+
+1. **Xác định phiên bản đang chạy thật** — chỉ đọc, không đổi gì:
+
+   ```bash
+   cd /opt/pps-education/production
+   docker exec pps-production-minio-1 minio --version
+   docker inspect --format '{{.Image}}' pps-production-minio-1
+   docker image inspect --format '{{json .RepoDigests}}' minio/minio:latest minio/mc:latest
+   ```
+
+   - Kỳ vọng: `RELEASE.2025-09-07T16-13-09Z` (commit `07c3a429bfed`) và
+     RepoDigest `minio/minio@sha256:14cea493...8936e`, cùng digest với image
+     ghim. Tức là đổi image thực chất vẫn là cùng 1 image, không nâng cấp định
+     dạng. Đã xác nhận đúng như vậy trên cả production lẫn staging ngày
+     2026-09-24.
+   - Nếu ra **phiên bản khác**: DỪNG, không recreate. Mở PR mới ghim đúng tag
+     đó trên quay.io (`quay.io/minio/minio:RELEASE.<đúng bản đang chạy>` +
+     digest; danh sách tag:
+     `curl -s 'https://quay.io/api/v1/repository/minio/minio/tag/?limit=100&onlyActiveTags=true'`)
+     rồi làm lại từ đầu. Nâng phiên bản là việc riêng, có kế hoạch + backup.
+   - Nếu `minio/mc:latest` không còn trong cache: không sao (`minio-init`
+     không giữ dữ liệu).
+
+2. **Lưu image đang chạy ra file** (đường quay lại nếu cần). Production và
+   staging dùng chung 1 image nên chỉ cần làm 1 lần. **Đã làm 2026-09-24**:
+   `minio-dockerhub-latest-2026-09-24.tar.gz`, 60MB.
+
+   ```bash
+   sudo mkdir -p /opt/pps-education/backups/images
+   docker save minio/minio:latest | gzip | \
+     sudo tee /opt/pps-education/backups/images/minio-dockerhub-latest-$(date +%F).tar.gz > /dev/null
+   sudo ls -lh /opt/pps-education/backups/images/
+   sudo gzip -t /opt/pps-education/backups/images/minio-dockerhub-latest-*.tar.gz && echo GZIP_OK
+   ```
+
+3. **Backup media trước khi recreate container** (bắt buộc với production):
+   - Nếu đã triển khai `backup-media.sh` + timer (mục 11b): chạy
+     `sudo systemctl start pps-media-backup.service`, rồi
+     `journalctl -u pps-media-backup.service -n 20` phải có "Backup media hoan
+     tat, khong loi".
+   - Copy thô **khi MinIO đã dừng** (copy lúc đang chạy có thể không nhất
+     quán) sang 1 ổ/LV **khác** root filesystem. Kiểm tra đủ chỗ trước
+     (`sudo du -sh /mnt/pps-production/media` so với `df -h <ĐÍCH>`). Media
+     public lỗi trong lúc copy, nên làm ngoài giờ học:
+
+     ```bash
+     sudo -u deploy docker compose stop minio
+     sudo rsync -aHAX /mnt/pps-production/media/ <ĐÍCH>/media-raw-$(date +%F)/
+     sudo -u deploy docker compose start minio
+     ```
+
+     Staging để media trong Docker volume chứ không phải `/mnt/...`. Nguồn
+     copy là `$(docker volume inspect pps-staging_minio_data --format '{{ .Mountpoint }}')/`.
+
+   Nên có cả bản copy thô này kể cả khi đã có `backup-media.sh`. Nó khôi phục
+   đúng nguyên trạng (cả định dạng nội bộ) cho phiên bản MinIO cũ, và là
+   đường rollback nếu bước 4 làm hỏng dữ liệu.
+
+4. **Pull + đổi image.** Trước hết kiểm tra file compose trên server đã là bản
+   mới:
+
+   ```bash
+   grep -n 'image: quay.io/minio' docker-compose.yml   # phải thấy 2 dòng đã ghim
+   ```
+
+   Nếu chưa thấy (CD chưa chạy), tải về, so sánh rồi mới thay:
+
+   ```bash
+   sudo -u deploy curl -fsSL https://raw.githubusercontent.com/langtuananh2424/pps-education/<nhánh>/deploy/docker-compose.production.yml -o docker-compose.yml.new
+   diff docker-compose.yml docker-compose.yml.new   # chỉ được khác 2 dòng image: + comment
+   sudo -u deploy mv docker-compose.yml.new docker-compose.yml
+   ```
+
+   `<nhánh>` là `production` cho production, `main` cho staging. Sau đó:
+
+   ```bash
+   sudo -u deploy docker compose pull minio minio-init
+   sudo -u deploy docker compose up -d --no-deps minio
+   sudo -u deploy docker compose up --no-deps minio-init   # phải thấy "bucket pps-media da san sang", exit 0
+   ```
+
+   `minio` restart vài giây, upload/xem media lỗi trong lúc đó. Không cần
+   restart `backend` vì endpoint `http://minio:9000` không đổi. Dòng
+   "Bucket created successfully" của `minio-init` là bình thường: với
+   `--ignore-existing`, `mc mb` vẫn in câu đó dù bucket đã có sẵn.
+
+5. **Kiểm tra:**
+
+   ```bash
+   docker exec pps-production-minio-1 minio --version   # RELEASE.2025-09-07T16-13-09Z
+   docker inspect --format '{{.Config.Image}}' pps-production-minio-1   # quay.io/minio/minio:...@sha256:14cea493...
+   sudo -u deploy docker compose logs --tail 50 minio   # không có lỗi định dạng/"unformatted"/"corrupted"
+   docker exec pps-production-minio-1 sh -c 'mc alias set l http://127.0.0.1:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null && mc du l/pps-media'
+   curl -sI https://files.ppsvietnam.edu.vn/<key 1 file có thật> | head -1   # HTTP 200
+   ```
+
+   Lệnh `mc du` phải ra số object / dung lượng như trước khi đổi, không phải 0.
+   Rồi thử upload 1 file qua app (VD ảnh đại diện) và mở lại được.
+
+6. **Lưu image ghim ra file** (sau khi đã chạy ổn; production + staging dùng
+   chung nên chỉ cần 1 lần). **Đã làm 2026-09-24**: `minio-quay-pinned.tar.gz`,
+   81MB.
+
+   Compose pull theo `tag@sha256:`, nên image nằm trong store **chỉ có digest,
+   TAG `<none>`** (xem `docker image ls --digests | grep quay.io/minio`). Khi
+   đó `docker save <tag>` báo `No such image`. Pipe `| gzip` vẫn ra 1 file gzip
+   rỗng hợp lệ, `gzip -t` vẫn OK, nên lỗi không bị phát hiện. Phải gắn tag
+   trước rồi mới save, và kiểm tra **dung lượng** file chứ không chỉ `gzip -t`.
+   Gắn tag cũng giữ image không bị `docker image prune` dọn.
+
+   ```bash
+   docker tag quay.io/minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
+   docker tag quay.io/minio/mc@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727 quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z
+   docker save \
+     quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z \
+     quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z | gzip | \
+     sudo tee /opt/pps-education/backups/images/minio-quay-pinned.tar.gz > /dev/null
+   sudo ls -lh /opt/pps-education/backups/images/   # ~80MB, KHÔNG phải vài chục byte
+   ```
+
+   Khôi phục khi registry không còn: `gunzip -c <file> | docker load`, rồi
+   `docker image inspect --format '{{json .RepoDigests}}' <image>`. Server
+   dùng containerd image store (IMAGE ID = digest), đã thử trên store này:
+   digest được giữ, compose ghim `@sha256:` chạy luôn không cần pull. Nếu một
+   máy khác dùng image store cũ (overlay2) và RepoDigests rỗng thì compose sẽ
+   cố pull. Khi đó bỏ tạm phần `@sha256:...` trong `docker-compose.yml` trên
+   máy đó (tag vẫn trỏ đúng image vừa load).
+
+**Rollback** (nếu bước 5 lỗi): `sudo -u deploy docker compose stop minio`;
+nếu dữ liệu hỏng thì khôi phục `/mnt/pps-production/media` từ bản copy thô
+bước 3; `gunzip -c <file bước 2> | docker load`; sửa tạm
+`image: minio/minio:latest` trong `docker-compose.yml` trên server;
+`sudo -u deploy docker compose up -d --no-deps minio`. Sau đó báo lại để sửa
+repo, vì CD lần sau sẽ ghi đè file compose.
+
+### 3c. Hướng lâu dài (chưa làm — cần quyết định riêng)
+
+Image ghim ở trên **không còn được vá bảo mật** (VD CVE-2025-62506 — leo
+thang quyền qua session policy của service account/STS; hệ thống không dùng
+tính năng này, MinIO chỉ nghe trong network `internal` + `127.0.0.1`, public
+chỉ đi qua Nginx GET, nên rủi ro thấp nhưng không bằng 0). Các lựa chọn:
+
+- **`cgr.dev/chainguard/minio` + `cgr.dev/chainguard/minio-client`** —
+  Chainguard tự build từ mã nguồn và vẫn vá. Lưu ý: bản miễn phí chỉ có tag
+  `latest` (ghim được theo digest nhưng digest cũ có thể bị dọn); hiện là
+  `RELEASE.2026-09-22T19-25-18Z` — **nhảy 1 năm phiên bản so với dữ liệu hiện
+  có** → coi như nâng cấp định dạng, phải thử trên bản copy dữ liệu trước;
+  chạy user `65532` (không phải root) → phải `chown -R 65532:65532` thư mục
+  dữ liệu; `minio-client:latest` entrypoint `mc` và **không có `/bin/sh`** →
+  `minio-init` phải dùng `minio-client:latest-dev` (có shell) hoặc viết lại
+  thành các lệnh `mc` riêng.
+- **Chuyển sang object storage khác tương thích S3** (Garage, SeaweedFS,
+  RustFS, Ceph RGW...) — backend chỉ dùng S3 API (`R2_ENDPOINT_URL`) nên chỉ
+  đổi config + chuyển dữ liệu 1 lần bằng `rclone copy` S3→S3, kiểm tra lại
+  hành vi anonymous download của bucket.
+- **Tự build image từ mã nguồn MinIO** (release cuối + tự vá) — tốn công bảo
+  trì, chỉ nên chọn nếu 2 hướng trên không ổn.
 
 ## 4. Nginx + Cloudflare Tunnel
 
@@ -177,6 +393,17 @@ chỉ thao tác trên 6 subdomain dưới đây.
      phải thêm dòng đó thủ công rồi reload, nếu không upload >1MB bị 413.
    - `files*` template có `rewrite ^/(.*)$ /pps-media/$1 break;` để chèn tên
      bucket MinIO vào path (URL public do backend sinh không kèm tên bucket).
+   - `admin*`/`student*` template (từ 2026-09-22) có 2 block `Cache-Control`:
+     `/assets/` (file có hash) cache 1 năm `immutable`; `index.html` (và với
+     student thêm `sw.js`/`registerSW.js`/`manifest.webmanifest`) bắt buộc
+     `no-cache`. Lý do: sự cố 2026-09-21 — shortcut iOS "Thêm vào Màn hình
+     chính" của app admin giữ bundle JS cũ nhiều ngày sau deploy (web mở bằng
+     Safari bình thường vẫn đúng), vì nginx mặc định không ép revalidate
+     `index.html`. Server đã cài trước bản này phải thêm 2 block đó thủ công
+     vào 4 file `admin*`/`student*` rồi `nginx -t && systemctl reload nginx`
+     (đã áp dụng trên server 2026-09-22); Cloudflare đã cache `sw.js` cũ ở
+     edge với TTL mặc định 4h -> purge URL đó 1 lần sau khi reload nginx;
+     người dùng đang bị kẹt cần xoá và thêm lại shortcut 1 lần cuối.
 3. Cài `cloudflared` (gói `.deb` chính thức Cloudflare), `cloudflared tunnel login`,
    `cloudflared tunnel create pps-education`.
 4. Tạo `~/.cloudflared/config.yml`:
@@ -391,7 +618,11 @@ code lạ từ PR fork chạy được trên server thật).
 
 ## 11. Backup Postgres (3-2-1)
 
-Backup tự động hàng ngày cho cả 2 stack (`staging` + `production`), theo quy
+> Thao tác tay (backup thủ công trước thay đổi lớn về DB, khôi phục, rollback
+> migration hỏng): xem [`RUNBOOK-db-backup-restore.md`](RUNBOOK-db-backup-restore.md).
+
+Backup tự động hàng ngày cho cả 3 DB trên server (`staging`, `production` và
+`ppsvn` — website công khai ở `/opt/pps-center`), theo quy
 tắc **3-2-1**: 3 bản dữ liệu (1 bản gốc đang chạy + 2 bản local + 1 bản
 cloud), lưu trên ít nhất 2 loại lưu trữ khác nhau, 1 bản off-site.
 
@@ -412,17 +643,98 @@ cloud), lưu trên ít nhất 2 loại lưu trữ khác nhau, 1 bản off-site.
   bản weekly (Chủ Nhật) + 6 bản monthly (ngày 01)** cho mỗi stack, cả bản
   local lẫn bản mã hoá.
 
+### Sơ đồ quy trình
+
+**Backup** (`backup-db.sh`, chạy tự động qua systemd timer):
+
+```mermaid
+flowchart TD
+    T(["systemd timer pps-db-backup.timer<br/>hằng ngày 02:30"]) --> S["pps-db-backup.service<br/>chạy backup-db.sh dưới user deploy"]
+    S --> L{"flock: có lần backup<br/>khác đang chạy?"}
+    L -- Có --> X1(["Thoát, exit 1"])
+    L -- Không --> D{"BACKUP_ROOT còn<br/>≥ 5GB trống?"}
+    D -- Không --> X1
+    D -- Có --> LOOP[/"Lặp qua từng stack:<br/>staging → production → ppsvn"/]
+
+    LOOP --> C{"Container postgres<br/>đang chạy?"}
+    C -- Không --> F["Ghi log LOI, đánh dấu FAILED<br/>bỏ qua stack này"]
+    C -- Có --> P["pg_dump -Fc → file .dump.tmp"]
+    P --> PV{"pg_dump OK và<br/>pg_restore -l đọc được?"}
+    PV -- Không --> F
+    PV -- Có --> SAVE["Đổi tên → .dump<br/>+ .sha256 + globals.sql<br/>vào backups/&lt;stack&gt;/daily"]
+    SAVE --> W{"Chủ Nhật?"}
+    W -- Có --> WL["Hard link sang weekly/"] --> M
+    W -- Không --> M{"Ngày 01?"}
+    M -- Có --> ML["Hard link sang monthly/"] --> R
+    M -- Không --> R["Xoay vòng: giữ 7 daily,<br/>4 weekly, 6 monthly"]
+    R --> G{"Có backup.gpg-passphrase?"}
+    G -- Không --> NEXT
+    G -- Có --> E["gpg AES256 → encrypted/&lt;stack&gt;/<br/>link weekly/monthly + xoay vòng"]
+    E --> NEXT{"Còn stack<br/>chưa backup?"}
+    F --> NEXT
+    NEXT -- Còn --> LOOP
+    NEXT -- Hết --> RC{"Có passphrase + rclone<br/>+ remote gdrive?"}
+    RC -- Không --> SK["Log BO QUA cloud<br/>chưa đủ 3-2-1"]
+    RC -- Có --> CP["rclone copy encrypted/<br/>→ gdrive:pps-education-backups"]
+    CP --> PR["Xoá bản cũ trên Drive theo tuổi<br/>daily > 8d, weekly > 29d, monthly > 187d"]
+    SK --> END{"Có stack nào FAILED?"}
+    PR --> END
+    END -- Có --> X1
+    END -- Không --> OK(["Backup hoàn tất, exit 0"])
+```
+
+**Khôi phục** (`restore-db.sh`, chạy tay khi test định kỳ hoặc khi sự cố):
+
+```mermaid
+flowchart TD
+    IN(["restore-db.sh &lt;stack&gt; &lt;file&gt; [--live]"]) --> GPG{"File .gpg?"}
+    GPG -- Có --> DEC["Giải mã bằng<br/>backup.gpg-passphrase"] --> SHA
+    GPG -- Không --> SHA{"Có file .sha256<br/>đi kèm?"}
+    SHA -- Có --> CK{"Checksum khớp?"}
+    CK -- Không --> X1(["Dừng: file backup hỏng"])
+    CK -- Có --> V
+    SHA -- Không --> V{"pg_restore -l<br/>đọc được?"}
+    V -- Không --> X1
+    V -- Có --> MODE{"Có cờ --live?"}
+
+    MODE -- "Không (mặc định)" --> SC["CREATE DATABASE<br/>&lt;db&gt;_restore_&lt;timestamp&gt;"]
+    SC --> SR["pg_restore vào DB scratch"]
+    SR --> SQ["In số dòng 10 bảng lớn nhất<br/>để đối chiếu"]
+    SQ --> SD(["Xong. Kiểm tra rồi DROP DB scratch<br/>DB thật không bị động tới"])
+
+    MODE -- Có --> CF{"Gõ lại đúng<br/>tên stack?"}
+    CF -- Không --> X2(["Huỷ, không thay đổi gì"])
+    CF -- Có --> PRE["pg_dump DB hiện tại →<br/>backups/&lt;stack&gt;/pre-restore/"]
+    PRE --> BK{"Backend đang chạy?"}
+    BK -- Có --> STOP["docker stop backend"] --> DROP
+    BK -- Không --> DROP["Ngắt kết nối, DROP DATABASE,<br/>CREATE DATABASE lại"]
+    DROP --> RS{"pg_restore<br/>thành công?"}
+    RS -- Không --> RB(["Dừng: DB dở dang<br/>chạy lại với file pre-restore --live"])
+    RS -- Có --> START["docker start backend<br/>nếu trước đó đang chạy"]
+    START --> LD(["Restore LIVE hoàn tất<br/>giữ bản pre-restore để quay lui"])
+```
+
 ### Cài đặt lần đầu
 
 ```bash
-# 1. Copy script + systemd units lên server
-sudo mkdir -p /opt/pps-education
-sudo cp deploy/backup-db.sh /opt/pps-education/backup-db.sh
-sudo chown deploy:deploy /opt/pps-education/backup-db.sh
-sudo chmod 750 /opt/pps-education/backup-db.sh
+# 1. Tải script + systemd units từ GitHub (server KHÔNG có sẵn bản checkout
+#    repo) - REF = nhánh đã chứa các file này (develop sau khi merge PR, hoặc
+#    main khi đã lên staging). Chạy lại đúng khối này mỗi khi script đổi.
+REF=develop
+RAW=https://raw.githubusercontent.com/langtuananh2424/pps-education/$REF/deploy
+for f in backup-db.sh backup-db-manual.sh restore-db.sh; do
+  sudo curl -fsSL "$RAW/$f" -o /opt/pps-education/$f
+  sudo chown deploy:deploy /opt/pps-education/$f
+  sudo chmod 750 /opt/pps-education/$f
+done
+for f in pps-db-backup.service pps-db-backup.timer; do
+  sudo curl -fsSL "$RAW/systemd/$f" -o /etc/systemd/system/$f
+done
+head -1 /opt/pps-education/backup-db.sh   # phải là "#!/usr/bin/env bash" (không phải trang lỗi 404)
 
-sudo cp deploy/systemd/pps-db-backup.service deploy/systemd/pps-db-backup.timer \
-  /etc/systemd/system/
+# Thư mục backup thuộc user deploy (script chạy dưới user này, /opt/pps-education
+# có thể đang thuộc root)
+sudo install -d -o deploy -g deploy -m 700 /opt/pps-education/backups
 
 # 2. Cai gpg (thuong co san tren Ubuntu Server) + rclone
 sudo apt install -y gnupg
@@ -434,9 +746,9 @@ manager cá nhân**, mất passphrase = mất luôn khả năng đọc bản bac
 Drive dù file vẫn còn):
 
 ```bash
-sudo -u deploy bash -c 'umask 077; openssl rand -base64 32 > /opt/pps-education/backup.gpg-passphrase'
-sudo chmod 600 /opt/pps-education/backup.gpg-passphrase
+openssl rand -base64 32 | sudo tee /opt/pps-education/backup.gpg-passphrase > /dev/null
 sudo chown deploy:deploy /opt/pps-education/backup.gpg-passphrase
+sudo chmod 600 /opt/pps-education/backup.gpg-passphrase
 cat /opt/pps-education/backup.gpg-passphrase   # copy vào password manager, KHÔNG chỉ lưu trên server
 ```
 
@@ -447,19 +759,38 @@ không thể thực hiện bước này, bạn tự chạy trên server qua SSH)
 sudo -u deploy rclone config
 ```
 
-Chọn `n` (New remote) → name `gdrive` → storage type `drive` (Google Drive)
-→ để trống `client_id`/`client_secret` (dùng app mặc định của rclone) →
-scope `drive` (full access) → để trống `root_folder_id`/`service_account_file`
-→ "Edit advanced config?" chọn `n` → "Use auto config?" chọn **`n`** (server
-không có trình duyệt) → rclone in ra 1 lệnh `rclone authorize "drive"` cùng 1
-URL. Chạy lệnh đó (kèm URL) trên **máy cá nhân đã cài rclone**, đăng nhập
-Google trên máy đó, rclone trả về 1 đoạn token JSON → paste đoạn token đó
-ngược lại vào prompt trên server → xác nhận `y` để lưu remote.
+**Trước tiên tạo OAuth Client ID riêng** — client_id dùng chung của rclone
+đang bị ngừng trong năm 2026 (rclone ≥ 1.75 cảnh báo khi để trống), nên không
+dùng nữa. Trên [Google Cloud Console](https://console.cloud.google.com/),
+đăng nhập tài khoản Google sẽ chứa backup:
+
+1. Tạo project mới (VD `pps-db-backup`) — tách riêng khỏi project OAuth/Firebase
+   của app.
+2. *APIs & Services → Library* → bật **Google Drive API**.
+3. *Google Auth Platform → Branding*: tên app (VD `pps-db-backup-rclone`) +
+   email hỗ trợ. *Audience*: tài khoản Workspace chọn **Internal**; tài khoản
+   Gmail thường chọn **External** rồi bấm **Publish app** (chuyển sang *In
+   production*) — nếu để *Testing*, refresh token hết hạn sau 7 ngày và backup
+   lên Drive sẽ tự ngừng. Scope `drive.file` là non-sensitive nên publish không
+   cần Google xét duyệt.
+4. *Data Access → Add or remove scopes*: thêm `.../auth/drive.file`.
+5. *Clients → Create client* → Application type **Desktop app** → lưu Client
+   ID + Client secret vào password manager (không commit, không chụp màn hình).
+
+Rồi chạy `rclone config` ở trên: `n` (New remote) → name `gdrive` → storage
+`drive` → dán `client_id`/`client_secret` vừa tạo → scope **`drive.file`**
+(rclone chỉ thấy/xoá được file do chính nó tạo — lộ server cũng không đọc được
+phần còn lại của Drive) → để trống `service_account_file` → "Edit advanced
+config?" `n` → "Use web browser…?" **`n`** (server không có trình duyệt) →
+rclone in ra 1 lệnh `rclone authorize "drive" "eyJ..."`. Chạy lệnh đó trên
+**máy cá nhân đã cài rclone** (`winget install Rclone.Rclone`, mở PowerShell
+mới), đăng nhập Google, rclone trả về 1 đoạn token → dán vào `config_token>`
+trên server → Shared Drive `n` → `y` để lưu remote.
 
 Kiểm tra:
 
 ```bash
-sudo -u deploy rclone lsd gdrive:
+sudo -u deploy rclone mkdir gdrive:pps-education-backups && sudo -u deploy rclone lsd gdrive:
 ```
 
 **Kích hoạt timer:**
@@ -478,6 +809,81 @@ journalctl -u pps-db-backup.service -n 100 --no-pager
 tail -n 50 /opt/pps-education/backups/backup.log
 ```
 
+### Tải backup về laptop qua mạng nội bộ (LAN)
+
+Bản sao ngoài server khi chưa đẩy lên cloud (hoặc thêm 1 bản offline). Laptop
+chỉ kéo **bản đã mã hoá GPG** (`backups/encrypted/`) — mất laptop cũng không lộ
+dữ liệu nếu không có passphrase — qua **user riêng `pps-backup-pull`**: chỉ
+SFTP, chỉ đọc, không shell, không sudo, chỉ đăng nhập bằng SSH key, và chỉ từ
+LAN (ufw mục 1). `backup-db.sh` tự cấp quyền đọc `encrypted/` cho group
+`pps-backup` sau mỗi lần chạy; bản dump chưa mã hoá vẫn chỉ `deploy` đọc được.
+
+**Trên server** (1 lần):
+
+```bash
+sudo groupadd pps-backup
+sudo usermod -aG pps-backup deploy
+sudo adduser --disabled-password --gecos "" --shell /usr/sbin/nologin pps-backup-pull
+sudo usermod -aG pps-backup pps-backup-pull
+
+# Chi SFTP chi doc cho user nay
+sudo tee /etc/ssh/sshd_config.d/60-pps-backup-pull.conf > /dev/null <<'EOF'
+Match User pps-backup-pull
+    ForceCommand internal-sftp -R
+    PasswordAuthentication no
+    AllowTcpForwarding no
+    X11Forwarding no
+    PermitTTY no
+EOF
+sudo sshd -t && sudo systemctl reload ssh
+
+# Kiem tra Match chi ap cho dung user: dong 1 phai ra "forcecommand internal-sftp -R",
+# dong 2 (ppsadmin) phai ra "forcecommand none" - neu ra internal-sftp thi dung lai,
+# KHONG dong phien SSH dang mo (ppsadmin se mat shell), xoa file .conf roi reload
+sudo sshd -T -C user=pps-backup-pull,host=laptop,addr=192.168.100.10 | grep -i forcecommand
+sudo sshd -T -C user=ppsadmin,host=laptop,addr=192.168.100.10 | grep -i forcecommand
+
+# Cap quyen ngay (khong doi toi lan backup ke tiep)
+sudo systemctl start pps-db-backup.service
+```
+
+**Trên laptop Windows** (PowerShell) — tạo key riêng cho việc này:
+
+```powershell
+ssh-keygen -t ed25519 -f $env:USERPROFILE\.ssh\pps_backup_pull -N '""' -C "pps-backup-pull@laptop"
+Get-Content $env:USERPROFILE\.ssh\pps_backup_pull.pub
+```
+
+Dán dòng public key vừa in vào server (thay `<PUBLIC_KEY>`):
+
+```bash
+sudo install -d -m 700 -o pps-backup-pull -g pps-backup-pull /home/pps-backup-pull/.ssh
+echo '<PUBLIC_KEY>' | sudo tee /home/pps-backup-pull/.ssh/authorized_keys > /dev/null
+sudo chown pps-backup-pull:pps-backup-pull /home/pps-backup-pull/.ssh/authorized_keys
+sudo chmod 600 /home/pps-backup-pull/.ssh/authorized_keys
+```
+
+Laptop — kết nối thử lần đầu (gõ `yes` để lưu host key vào `known_hosts`),
+rồi tạo remote rclone `ppsserver` và kéo về:
+
+```powershell
+sftp -i $env:USERPROFILE\.ssh\pps_backup_pull pps-backup-pull@192.168.100.90
+# trong sftp: ls /opt/pps-education/backups/encrypted  -> thay staging/production/ppsvn, roi: bye
+
+rclone config create ppsserver sftp host 192.168.100.90 user pps-backup-pull `
+  key_file $env:USERPROFILE\.ssh\pps_backup_pull known_hosts_file $env:USERPROFILE\.ssh\known_hosts
+
+rclone copy ppsserver:/opt/pps-education/backups/encrypted D:\pps-db-backups --progress
+```
+
+`rclone copy` chỉ tải file mới, không xoá bản cũ trên laptop — chạy lại lệnh
+cuối mỗi lần laptop ở trong mạng trung tâm. Giải mã khi cần (Git Bash, passphrase
+lấy từ password manager):
+
+```bash
+gpg --pinentry-mode loopback -d -o restored.dump production_pps_education_<ts>.dump.gpg
+```
+
 ### Kiểm tra định kỳ
 
 - `systemctl status pps-db-backup.timer` — timer phải `active (waiting)`.
@@ -485,19 +891,31 @@ tail -n 50 /opt/pps-education/backups/backup.log
 - **Test restore ít nhất mỗi quý** (backup không test = không đáng tin):
 
 ```bash
-# Giai ma neu dung ban tu Drive:
-gpg --batch --yes --pinentry-mode loopback \
-  --passphrase-file /opt/pps-education/backup.gpg-passphrase \
-  -d staging_pps_education_<timestamp>.dump.gpg > restored.dump
+# Mac dinh restore vao 1 DB SCRATCH moi (<db>_restore_<ts>), KHONG dung DB
+# dang phuc vu. Nhan ca ban .dump (local) lan .dump.gpg (tai tu Drive - tu giai
+# ma bang backup.gpg-passphrase); in so dong cac bang lon nhat de doi chieu.
+sudo -u deploy /opt/pps-education/restore-db.sh production \
+  /opt/pps-education/backups/production/daily/production_pps_education_<timestamp>.dump
+```
 
-# Restore vao 1 DB SCRATCH de test (KHONG restore de vao container postgres
-# dang phuc vu thật - se ghi đè toàn bộ dữ liệu hiện có):
-docker exec -i pps-staging-postgres-1 psql -U pps_app -c "CREATE DATABASE pps_restore_test;"
-docker exec -i pps-staging-postgres-1 pg_restore -U pps_app -d pps_restore_test < restored.dump
+**Restore đè DB thật (chỉ khi sự cố thật)** — thêm `--live`; script bắt gõ
+lại tên stack để xác nhận, tự dump 1 bản `backups/<stack>/pre-restore/` của
+DB hiện tại, dừng container backend, drop + tạo lại DB, `pg_restore`, rồi bật
+lại backend:
+
+```bash
+sudo -u deploy /opt/pps-education/restore-db.sh production <file.dump|file.dump.gpg> --live
 ```
 
 ### Ghi chú vận hành
 
+- Mỗi bản dump được kiểm tra bằng `pg_restore -l` trước khi giữ lại (dump
+  hỏng/cắt ngang bị loại, job báo lỗi), kèm file `.sha256` và
+  `<stack>_globals_<ts>.sql` (role/quyền cấp cluster). Có `flock` chống 2 lần
+  chạy chồng nhau, và huỷ job nếu `BACKUP_ROOT` còn < 5GB trống.
+- Lên Drive dùng `rclone copy` + tự xoá bản cũ theo tuổi (daily > 8 ngày,
+  weekly > 29 ngày, monthly > 187 ngày) — **không** dùng `rclone sync`, để lỡ
+  thư mục local bị xoá nhầm thì bản trên Drive không bị xoá theo.
 - `backup-db.sh` tự bỏ qua bước cloud (chỉ log cảnh báo, không fail cả job)
   nếu chưa có `backup.gpg-passphrase` hoặc remote `gdrive` — script vẫn chạy
   được ngay sau khi copy lên server, cấu hình cloud sau không chặn backup
@@ -506,9 +924,114 @@ docker exec -i pps-staging-postgres-1 pg_restore -U pps_app -d pps_restore_test 
   `/opt/pps-education/backups` qua `du -sh` định kỳ, còn free chưa cấp phát
   trong `ubuntu-vg` nếu cần mở rộng LVM (xem mục 12 — đã cấp 150GB+100GB cho
   data production, còn ~590GB free trong VG tính tới 2026-09-19).
-- Không backup MinIO (media file) trong script này — nếu cần, cân nhắc
-  `mc mirror`/`rclone` riêng cho `minio_data` (khối lượng lớn hơn nhiều, nên
-  tách lịch/retention riêng, không trộn chung với DB).
+- Script này chỉ backup DB — file media (MinIO) backup riêng ở mục 11b.
+
+## 11b. Backup media MinIO (chỉ production)
+
+`deploy/backup-media.sh` + systemd `pps-media-backup.{service,timer}` —
+hằng ngày **03:15** (sau backup DB 02:30), chỉ bucket `pps-media` của
+**production** (staging không backup).
+
+- Đọc qua **S3 API** bằng tài khoản MinIO **chỉ-đọc** `pps-media-backup`
+  (không dùng root MinIO), KHÔNG copy thô `/mnt/pps-production/media` (định
+  dạng nội bộ `xl.meta` của MinIO, copy lúc đang chạy có thể không nhất quán).
+  Kết quả là file thường đúng tên key → xem trực tiếp được, khôi phục vào
+  MinIO/S3 bất kỳ (runbook mục 4.5).
+- `current/` = bản mới nhất, **không bao giờ xoá theo** khi object bị xoá trên
+  MinIO. `changed/<ts>/` = bản cũ của object bị ghi đè, giữ 90 ngày.
+- Mỗi lần chạy đối chiếu lại: mọi object trên MinIO phải có trong `current/`
+  cùng kích thước (`rclone check --one-way --size-only`).
+- Lưu trên **LV riêng `/mnt/pps-backup`** — script từ chối chạy nếu LV chưa
+  mount (tránh ghi thẳng lên `/`). LV này nằm **cùng SSD vật lý** với dữ liệu
+  gốc: chống xoá/ghi đè nhầm, lỗi app, KHÔNG chống hỏng ổ — bản off-site cho
+  media chưa có (dung lượng lớn, xem xét cùng lúc với cloud cho DB).
+
+### Cài đặt lần đầu
+
+**1. Đo dung lượng media để chọn kích thước LV** (nên ≥ 1.5× dung lượng hiện
+tại + dư tăng trưởng; LV mở rộng sau được bằng `lvextend -r`):
+
+```bash
+sudo du -sh /mnt/pps-production/media
+sudo vgs ubuntu-vg   # cot VFree = dung luong con trong de cap
+```
+
+**2. Tạo LV `/mnt/pps-backup`** (VD 150G):
+
+```bash
+sudo lvcreate -L 150G -n lv-pps-backup ubuntu-vg
+sudo mkfs.ext4 /dev/ubuntu-vg/lv-pps-backup
+sudo mkdir -p /mnt/pps-backup
+echo "UUID=$(sudo blkid -s UUID -o value /dev/ubuntu-vg/lv-pps-backup)  /mnt/pps-backup  ext4  defaults  0 2" | sudo tee -a /etc/fstab
+sudo mount -a && df -h /mnt/pps-backup
+sudo install -d -o deploy -g deploy -m 700 /mnt/pps-backup/media
+```
+
+**3. Tải script + systemd units:**
+
+```bash
+REF=develop
+RAW=https://raw.githubusercontent.com/langtuananh2424/pps-education/$REF/deploy
+sudo curl -fsSL "$RAW/backup-media.sh" -o /opt/pps-education/backup-media.sh
+sudo chown deploy:deploy /opt/pps-education/backup-media.sh
+sudo chmod 750 /opt/pps-education/backup-media.sh
+for f in pps-media-backup.service pps-media-backup.timer; do
+  sudo curl -fsSL "$RAW/systemd/$f" -o /etc/systemd/system/$f
+done
+```
+
+**4. Tạo tài khoản MinIO chỉ-đọc** — mật khẩu sinh ngẫu nhiên, lưu thẳng vào
+file credentials (không hiện ra màn hình):
+
+```bash
+printf 'RCLONE_S3_ACCESS_KEY_ID=pps-media-backup\nRCLONE_S3_SECRET_ACCESS_KEY=%s\n' "$(openssl rand -hex 24)" \
+  | sudo tee /opt/pps-education/media-backup.env > /dev/null
+sudo chown deploy:deploy /opt/pps-education/media-backup.env
+sudo chmod 600 /opt/pps-education/media-backup.env
+
+# Tai khoan root MinIO lay tu CONTAINER dang chay (gia tri compose da resolve) -
+# KHONG doc thang .env: docker --env-file khong bo comment "# ..." cuoi dong
+# nhu compose -> sai mat khau. File tam 600, xoa ngay sau khi dung.
+sudo -u deploy bash -c 'umask 077; docker inspect -f "{{range .Config.Env}}{{println .}}{{end}}" pps-production-minio-1 | grep -E "^MINIO_ROOT_(USER|PASSWORD)=" > /tmp/pps-minio-root.env'
+
+# Policy: chi ListBucket + GetObject tren dung bucket pps-media. Dung dung
+# image mc da ghim nhu service minio-init (xem muc 3a).
+sudo -u deploy docker run --rm --network pps-production_internal \
+  --env-file /tmp/pps-minio-root.env --env-file /opt/pps-education/media-backup.env \
+  --entrypoint sh quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727 -c '
+set -e
+mc alias set m http://minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" > /dev/null
+printf "%s" "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"s3:GetBucketLocation\",\"s3:ListBucket\"],\"Resource\":[\"arn:aws:s3:::pps-media\"]},{\"Effect\":\"Allow\",\"Action\":[\"s3:GetObject\"],\"Resource\":[\"arn:aws:s3:::pps-media/*\"]}]}" > /tmp/p.json
+mc admin policy create m pps-media-read /tmp/p.json
+mc admin user add m "$RCLONE_S3_ACCESS_KEY_ID" "$RCLONE_S3_SECRET_ACCESS_KEY"
+mc admin policy attach m pps-media-read --user "$RCLONE_S3_ACCESS_KEY_ID"
+'
+sudo rm -f /tmp/pps-minio-root.env
+```
+
+> Image `mc` ở trên là bản ghim trên quay.io, giống `minio-init` (Docker Hub đã
+> gỡ `minio/mc`, xem mục 3a). Nếu quay.io cũng gỡ: nạp lại từ file lưu offline
+> ở mục 3b bước 6 (`gunzip -c <file> | docker load`).
+
+**5. Chạy thử rồi bật timer:**
+
+```bash
+sudo -u deploy /opt/pps-education/backup-media.sh
+sudo systemctl daemon-reload && sudo systemctl enable --now pps-media-backup.timer
+systemctl list-timers 'pps-*'
+```
+
+Lần đầu tải toàn bộ bucket (lâu tuỳ dung lượng); các lần sau chỉ tải file
+mới/đổi. Kết quả đúng: `rclone copy OK`, `Doi chieu OK`, `Backup media hoan
+tat, khong loi`.
+
+### Kiểm tra định kỳ
+
+```bash
+sudo tail -n 5 /mnt/pps-backup/media/backup-media.log
+journalctl -u pps-media-backup.service --since -7d | grep -E 'LOI|hoan tat'
+df -h /mnt/pps-backup
+```
 
 ## 12. Logical Volume riêng cho dữ liệu production (DB + media)
 

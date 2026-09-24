@@ -91,8 +91,31 @@
       "gradingFeedbackTitle": "Feedback",
       "gradedByAi": "Graded by AI",
       "gradedByTeacher": "Graded by teacher",
+      "gradedByAiShort": "AI",
+      "gradedByTeacherShort": "Teacher",
       "gradingScoreSuffix": "{{score}}/{{max}} points",
-      "markedEssayTitle": "Your writing (errors highlighted and underlined)"
+      "markedEssayTitle": "Your writing (errors highlighted and underlined)",
+      "markedEssayLegendTitle": "Colour legend",
+      "markedEssayLegendOk": "correct or well used",
+      "markedEssayLegendMinor": "minor error, still understandable",
+      "markedEssayLegendMajor": "serious error, changes meaning or hard to understand",
+      "markedEssayTagOk": "OK",
+      "markedEssayTagKeyGrammar": "KG",
+      "markedEssayTagSpelling": "SP",
+      "markedEssayTagGrammar": "GR",
+      "markedEssayTagWordChoice": "WD",
+      "markedEssayTagPunctuation": "PU",
+      "markedEssayLegendAbbrevIntro": "Abbreviations:",
+      "markedEssayLegendAbbrevSpelling": "SP: spelling",
+      "markedEssayLegendAbbrevGrammar": "GR: grammar",
+      "markedEssayLegendAbbrevWordChoice": "WD: word choice",
+      "markedEssayLegendAbbrevPunctuation": "PU: punctuation / capitalisation",
+      "markedEssayLegendAbbrevKeyGrammar": "KG: correct use of the assigned key grammar structure",
+      "keyGrammarTitle": "Key Grammar:",
+      "keyGrammarPass": "Pass",
+      "keyGrammarFail": "Not yet",
+      "keyGrammarCountSuffix": "{{correct}}/{{attempts}} correct uses",
+      "keyGrammarRedoRequired": "You need to rewrite this essay, using the assigned structure correctly at least 2 times."
     },
     "locked": {
       "remaining": "{{count}} attempt(s) left — finish all your attempts to see the answer.",
@@ -321,8 +344,8 @@
         "continue": "Continue",
         "reviewGraded": "Review your work"
       },
-      "needsRetake": "Not passed {{percent}} — needs retake",
-      "failedNoMoreRetakes": "Not passed {{percent}} — no retakes left",
+      "retakeSuffix": "needs retake",
+      "noMoreRetakesSuffix": "no retakes left",
       "overduePrefix": "Overdue — ",
       "duePrefix": "Due: ",
       "noDeadline": "No deadline",
@@ -378,8 +401,12 @@
     "description": "Track the homework your child's teachers have assigned by session — view only, this isn't where your child does the homework.",
     "empty": "No homework has been assigned yet.",
     "grammarLabel": "Grammar",
+    "readingLabel": "Reading",
+    "writingLabel": "Writing",
     "videoLabel": "Review video",
     "passed": "Passed",
-    "notPassed": "Not passed"
+    "notPassed": "Not passed",
+    "viewDetails": "View {{count}} exercises",
+    "hideDetails": "Hide details"
   }
 }

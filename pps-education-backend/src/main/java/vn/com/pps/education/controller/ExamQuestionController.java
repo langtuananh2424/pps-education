@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import vn.com.pps.education.dto.CreateExamQuestionRequest;
+import vn.com.pps.education.dto.KeyGrammarStructureResponse;
 import vn.com.pps.education.dto.QuestionImportResponse;
 import vn.com.pps.education.dto.QuestionResponse;
 import vn.com.pps.education.dto.UpdateQuestionRequest;
@@ -60,6 +61,17 @@ public class ExamQuestionController {
                                                             @Valid @RequestBody UpdateQuestionRequest request,
                                                             @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(examQuestionService.updateQuestion(examId, questionId, request, actor.userId()));
+    }
+
+    /**
+     * Key Grammar (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-22) — danh sách mã cấu trúc
+     * khả dụng cho dropdown chọn tay ở modal "Sửa câu hỏi". Rỗng nếu câu hỏi không phải ESSAY hoặc
+     * Khối/chương trình chưa có từ điển.
+     */
+    @PreAuthorize("hasPermission(null, 'lms.exam-question.view')")
+    @GetMapping("/api/exams/{examId}/questions/{questionId}/key-grammar-options")
+    public ResponseEntity<List<KeyGrammarStructureResponse>> listKeyGrammarOptions(@PathVariable Long examId, @PathVariable Long questionId) {
+        return ResponseEntity.ok(examQuestionService.listKeyGrammarOptions(examId, questionId));
     }
 
     @PreAuthorize("hasPermission(null, 'lms.exam-question.create')")

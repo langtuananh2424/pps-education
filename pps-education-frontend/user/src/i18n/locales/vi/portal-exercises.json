@@ -91,8 +91,31 @@
       "gradingFeedbackTitle": "Nhận xét bài làm",
       "gradedByAi": "AI chấm",
       "gradedByTeacher": "Giáo viên chấm",
+      "gradedByAiShort": "Chấm",
+      "gradedByTeacherShort": "GV",
       "gradingScoreSuffix": "{{score}}/{{max}} điểm",
-      "markedEssayTitle": "Bài làm của bạn (phần lỗi được tô màu, gạch chân)"
+      "markedEssayTitle": "Bài làm của bạn (phần lỗi được tô màu, gạch chân)",
+      "markedEssayLegendTitle": "Chú giải màu",
+      "markedEssayLegendOk": "tốt",
+      "markedEssayLegendMinor": "lỗi nhẹ, vẫn hiểu được",
+      "markedEssayLegendMajor": "lỗi nặng, sai nghĩa hoặc khó hiểu",
+      "markedEssayTagOk": "ĐÚNG",
+      "markedEssayTagKeyGrammar": "KG",
+      "markedEssayTagSpelling": "CT",
+      "markedEssayTagGrammar": "NP",
+      "markedEssayTagWordChoice": "TV",
+      "markedEssayTagPunctuation": "DC",
+      "markedEssayLegendAbbrevIntro": "Viết tắt:",
+      "markedEssayLegendAbbrevSpelling": "CT: chính tả",
+      "markedEssayLegendAbbrevGrammar": "NP: ngữ pháp",
+      "markedEssayLegendAbbrevWordChoice": "TV: từ vựng / cách dùng từ",
+      "markedEssayLegendAbbrevPunctuation": "DC: dấu câu / viết hoa",
+      "markedEssayLegendAbbrevKeyGrammar": "KG: đúng cấu trúc ngữ pháp trọng tâm được giao",
+      "keyGrammarTitle": "Key Grammar:",
+      "keyGrammarPass": "Đạt",
+      "keyGrammarFail": "Chưa đạt",
+      "keyGrammarCountSuffix": "dùng đúng {{correct}}/{{attempts}} lần",
+      "keyGrammarRedoRequired": "Bạn cần viết lại bài này, dùng đúng cấu trúc được giao ít nhất 2 lần."
     },
     "locked": {
       "remaining": "Còn {{count}} lượt làm — hoàn thành hết lượt để xem đáp án.",
@@ -321,8 +344,8 @@
         "continue": "Tiếp tục làm bài",
         "reviewGraded": "Xem lại bài đã làm"
       },
-      "needsRetake": "Chưa đạt {{percent}} — cần làm lại",
-      "failedNoMoreRetakes": "Chưa đạt {{percent}} — đã hết lượt làm lại",
+      "retakeSuffix": "cần làm lại",
+      "noMoreRetakesSuffix": "đã hết lượt làm lại",
       "overduePrefix": "Đã quá hạn nộp — ",
       "duePrefix": "Hạn nộp: ",
       "noDeadline": "Không giới hạn",
@@ -378,8 +401,12 @@
     "description": "Theo dõi bài tập giáo viên đã giao cho con theo từng buổi học — chỉ xem, không thao tác làm bài ở đây.",
     "empty": "Chưa có bài tập nào được giao.",
     "grammarLabel": "Ngữ pháp",
+    "readingLabel": "Đọc hiểu",
+    "writingLabel": "Viết",
     "videoLabel": "Video ôn tập",
     "passed": "Đạt",
-    "notPassed": "Chưa đạt"
+    "notPassed": "Chưa đạt",
+    "viewDetails": "Xem chi tiết {{count}} bài",
+    "hideDetails": "Ẩn chi tiết"
   }
 }

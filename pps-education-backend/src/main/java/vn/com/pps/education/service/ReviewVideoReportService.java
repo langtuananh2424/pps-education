@@ -4,6 +4,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.ClassEnrollment;
 import vn.com.pps.education.domain.ReflexQuestionProgress;
+import vn.com.pps.education.domain.ReflexQuestionProgressHistory;
 import vn.com.pps.education.domain.ReviewVideo;
 import vn.com.pps.education.domain.ReviewVideoAssignment;
 import vn.com.pps.education.domain.ReviewVideoConnectionAnswer;
@@ -12,6 +13,7 @@ import vn.com.pps.education.domain.ReviewVideoProgress;
 import vn.com.pps.education.domain.ReviewVideoQuestion;
 import vn.com.pps.education.domain.ReviewVideoSet;
 import vn.com.pps.education.domain.Student;
+import vn.com.pps.education.dto.ReflexQuestionProgressHistoryResponse;
 import vn.com.pps.education.dto.ReviewVideoAssignmentQuestionStatsResponse;
 import vn.com.pps.education.dto.ReviewVideoAssignmentStatsResponse;
 import vn.com.pps.education.dto.ReviewVideoAssignmentStudentStatsResponse;
@@ -19,6 +21,7 @@ import vn.com.pps.education.exception.NotAssignedTeacherForClassException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.repository.ClassEnrollmentRepository;
 import vn.com.pps.education.repository.ClassTeacherRepository;
+import vn.com.pps.education.repository.ReflexQuestionProgressHistoryRepository;
 import vn.com.pps.education.repository.ReflexQuestionProgressRepository;
 import vn.com.pps.education.repository.ReviewVideoAssignmentRepository;
 import vn.com.pps.education.repository.ReviewVideoConnectionAnswerRepository;
@@ -27,11 +30,17 @@ import vn.com.pps.education.repository.ReviewVideoProgressRepository;
 import vn.com.pps.education.repository.ReviewVideoQuestionRepository;
 import vn.com.pps.education.repository.ReviewVideoRepository;
 
+import java.io.ByteArrayOutputStream;
+import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.nio.charset.StandardCharsets;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 /**
  * UC-66 bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-08-12) — trang "Xem chi tiết" 1
@@ -45,6 +54,13 @@ import java.util.stream.Collectors;
  * câu hỏi hay chấm bài ở đây (việc chấm vẫn làm ở ExamsPage/ReviewVideoGradingPanel như hiện tại,
  * đã xác nhận với người dùng 2026-08-12). CONNECTION có đủ bảng tổng hợp + phân tích câu hỏi vì đã
  * có sẵn dữ liệu đúng/sai thật.
+ *
+ * V191 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-21) — cập nhật ghi chú trên: REFLEX
+ * nay CÓ thêm {@link #getStudentReflexHistory} (nghe lại audio + xem kết quả AI chấm theo TỪNG lần làm,
+ * đọc {@link ReflexQuestionProgressHistory} — bảng snapshot chỉ-thêm, KHÔNG phải bảng
+ * {@code reflex_question_progress} ghi đè tại chỗ) và {@link #exportReflexData} (xuất toàn bộ audio +
+ * kết quả AI chấm của cả lớp/lần giao thành 1 file ZIP, phục vụ tiếp tục train AI). Việc CHẤM bài vẫn
+ * không đổi — vẫn tự động qua {@link ReflexSequentialGradingService}, không phải chấm tay ở đây.
  *
  * V145 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23) — REFLEX từ V139 đã chuyển
  * hẳn sang {@link ReflexSequentialGradingService} (AI tự chấm viết+nói tuần tự, KHÔNG còn chấm tay
@@ -62,11 +78,13 @@ public class ReviewVideoReportService {
     private final ReviewVideoProgressRepository reviewVideoProgressRepository;
     private final ReviewVideoQuestionRepository reviewVideoQuestionRepository;
     private final ReflexQuestionProgressRepository reflexQuestionProgressRepository;
+    private final ReflexQuestionProgressHistoryRepository reflexQuestionProgressHistoryRepository;
     private final ReviewVideoConnectionQuestionRepository reviewVideoConnectionQuestionRepository;
     private final ReviewVideoConnectionAnswerRepository reviewVideoConnectionAnswerRepository;
     private final ClassEnrollmentRepository classEnrollmentRepository;
     private final ClassTeacherRepository classTeacherRepository;
     private final PermissionEvaluationService permissionEvaluationService;
+    private final MediaStorageService mediaStorageService;
 
     private static final String PERM_REVIEW_VIDEO_MANAGE = "lms.review-video.manage";
 
@@ -87,22 +105,26 @@ public class ReviewVideoReportService {
                                      ReviewVideoProgressRepository reviewVideoProgressRepository,
                                      ReviewVideoQuestionRepository reviewVideoQuestionRepository,
                                      ReflexQuestionProgressRepository reflexQuestionProgressRepository,
+                                     ReflexQuestionProgressHistoryRepository reflexQuestionProgressHistoryRepository,
                                      ReviewVideoConnectionQuestionRepository reviewVideoConnectionQuestionRepository,
                                      ReviewVideoConnectionAnswerRepository reviewVideoConnectionAnswerRepository,
                                      ClassEnrollmentRepository classEnrollmentRepository,
                                      ClassTeacherRepository classTeacherRepository,
-                                     PermissionEvaluationService permissionEvaluationService) {
+                                     PermissionEvaluationService permissionEvaluationService,
+                                     MediaStorageService mediaStorageService) {
         this.reviewVideoAssignmentRepository = reviewVideoAssignmentRepository;
         this.reviewVideoService = reviewVideoService;
         this.reviewVideoRepository = reviewVideoRepository;
         this.reviewVideoProgressRepository = reviewVideoProgressRepository;
         this.reviewVideoQuestionRepository = reviewVideoQuestionRepository;
         this.reflexQuestionProgressRepository = reflexQuestionProgressRepository;
+        this.reflexQuestionProgressHistoryRepository = reflexQuestionProgressHistoryRepository;
         this.reviewVideoConnectionQuestionRepository = reviewVideoConnectionQuestionRepository;
         this.reviewVideoConnectionAnswerRepository = reviewVideoConnectionAnswerRepository;
         this.classEnrollmentRepository = classEnrollmentRepository;
         this.classTeacherRepository = classTeacherRepository;
         this.permissionEvaluationService = permissionEvaluationService;
+        this.mediaStorageService = mediaStorageService;
     }
 
     @Transactional(readOnly = true)
@@ -166,6 +188,143 @@ public class ReviewVideoReportService {
                 .toList();
 
         return new ReviewVideoAssignmentQuestionStatsResponse(rows);
+    }
+
+    /**
+     * V191 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-21) — UC-23b (Video phản xạ):
+     * giáo viên nghe lại audio + xem kết quả AI chấm (điểm, feedback, transcript, criteria) theo TỪNG
+     * lần làm của 1 học sinh — đọc {@link ReflexQuestionProgressHistory} (snapshot chỉ-thêm), KHÔNG phải
+     * {@code reflex_question_progress} (ghi đè tại chỗ, chỉ còn lần gần nhất).
+     */
+    @Transactional(readOnly = true)
+    public List<ReflexQuestionProgressHistoryResponse> getStudentReflexHistory(Long assignmentId, Long studentId, Long actorUserId) {
+        ReviewVideoAssignment assignment = getAssignmentOrThrow(assignmentId);
+        requireAssignedTeacher(assignment.getSchoolClass().getId(), actorUserId);
+
+        return reflexQuestionProgressHistoryRepository
+                .findByReviewVideoAssignmentIdAndStudentIdOrderByCreatedAtAsc(assignmentId, studentId)
+                .stream()
+                .sorted(Comparator
+                        .comparing((ReflexQuestionProgressHistory h) -> h.getReviewVideoQuestion().getDisplayOrder())
+                        .thenComparing(h -> h.getCreatedAt()))
+                .map(this::toHistoryResponse)
+                .toList();
+    }
+
+    private ReflexQuestionProgressHistoryResponse toHistoryResponse(ReflexQuestionProgressHistory h) {
+        return new ReflexQuestionProgressHistoryResponse(
+                h.getReviewVideoQuestion().getId(),
+                h.getReviewVideoQuestion().getPrompt(),
+                h.getReviewVideoQuestion().getDisplayOrder(),
+                h.getAttemptType(),
+                h.getAttemptNumber(),
+                h.getAnswerText(),
+                h.getAudioUrl(),
+                h.getScore(),
+                h.getMaxScore(),
+                h.getFeedback(),
+                h.getMarkedAnswer(),
+                h.getTranscript(),
+                h.getCriteriaScores(),
+                h.getGradedAt());
+    }
+
+    /**
+     * V191 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-21) — UC-23b (Video phản xạ):
+     * xuất TOÀN BỘ audio (mọi lần ghi âm, mọi học sinh) + kết quả AI chấm (điểm/feedback/transcript) của
+     * 1 lần giao thành 1 file ZIP — phục vụ tải data về tiếp tục train AI. manifest.csv ghi rõ file audio
+     * nào ứng với học sinh/câu hỏi/lần làm nào. Chỉ export bước SPEAKING (có audio); bước WRITING không
+     * có file, chỉ xuất trong manifest để đối chiếu ngữ cảnh câu trả lời viết đi kèm.
+     */
+    @Transactional(readOnly = true)
+    public byte[] exportReflexData(Long assignmentId, Long actorUserId) {
+        ReviewVideoAssignment assignment = getAssignmentOrThrow(assignmentId);
+        requireAssignedTeacher(assignment.getSchoolClass().getId(), actorUserId);
+
+        List<ReflexQuestionProgressHistory> history = reflexQuestionProgressHistoryRepository
+                .findByReviewVideoAssignmentIdOrderByStudentIdAscCreatedAtAsc(assignmentId);
+
+        StringBuilder manifest = new StringBuilder();
+        manifest.append("ma_hoc_sinh,ten_hoc_sinh,cau_hoi_thu_tu,cau_hoi_prompt,loai,lan_lam,ten_file_audio,")
+                .append("diem,diem_toi_da,transcript,feedback,cham_luc\n");
+
+        try (ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+             ZipOutputStream zip = new ZipOutputStream(buffer, StandardCharsets.UTF_8)) {
+            java.util.Set<String> usedNames = new java.util.HashSet<>();
+            for (ReflexQuestionProgressHistory h : history) {
+                Student student = h.getStudent();
+                String audioFileName = "";
+                if (h.getAttemptType() == ReflexQuestionProgressHistory.AttemptType.SPEAKING && h.getAudioUrl() != null) {
+                    audioFileName = writeAudioEntry(zip, usedNames, student, h);
+                }
+                manifest.append(csv(student.getStudentCode())).append(',')
+                        .append(csv(student.getUser().getFullName())).append(',')
+                        .append(h.getReviewVideoQuestion().getDisplayOrder()).append(',')
+                        .append(csv(h.getReviewVideoQuestion().getPrompt())).append(',')
+                        .append(h.getAttemptType()).append(',')
+                        .append(h.getAttemptNumber()).append(',')
+                        .append(csv(audioFileName)).append(',')
+                        .append(h.getScore() == null ? "" : h.getScore()).append(',')
+                        .append(h.getMaxScore() == null ? "" : h.getMaxScore()).append(',')
+                        .append(csv(h.getTranscript())).append(',')
+                        .append(csv(h.getFeedback())).append(',')
+                        .append(h.getGradedAt() == null ? "" : h.getGradedAt()).append('\n');
+            }
+            zip.putNextEntry(new ZipEntry("manifest.csv"));
+            // BOM để Excel mở tiếng Việt UTF-8 không bị lỗi font (giống ExportExcel hiện có ở FE).
+            zip.write(new byte[]{(byte) 0xEF, (byte) 0xBB, (byte) 0xBF});
+            zip.write(manifest.toString().getBytes(StandardCharsets.UTF_8));
+            zip.closeEntry();
+            zip.finish();
+            return buffer.toByteArray();
+        } catch (java.io.IOException e) {
+            throw new UncheckedIOException("Không xuất được dữ liệu Video phản xạ.", e);
+        }
+    }
+
+    private String writeAudioEntry(ZipOutputStream zip, java.util.Set<String> usedNames, Student student, ReflexQuestionProgressHistory h) {
+        try {
+            MediaStorageService.DownloadedFile audio = mediaStorageService.downloadWithContentType(h.getAudioUrl());
+            String ext = extensionForContentType(audio.contentType(), h.getAudioUrl());
+            String baseName = student.getStudentCode() + "_cau" + h.getReviewVideoQuestion().getDisplayOrder() + "_lan" + h.getAttemptNumber();
+            String fileName = baseName + "." + ext;
+            int suffix = 2;
+            while (!usedNames.add(fileName)) {
+                fileName = baseName + "-" + (suffix++) + "." + ext;
+            }
+            zip.putNextEntry(new ZipEntry("audio/" + fileName));
+            zip.write(audio.bytes());
+            zip.closeEntry();
+            return fileName;
+        } catch (Exception e) {
+            // Audio đã bị xoá khỏi R2 hoặc lỗi mạng — vẫn xuất được dòng manifest, chỉ thiếu file audio này.
+            return "";
+        }
+    }
+
+    private String extensionForContentType(String contentType, String url) {
+        if (contentType != null) {
+            String type = contentType.toLowerCase();
+            if (type.contains("webm")) return "webm";
+            if (type.contains("mp4") || type.contains("m4a")) return "m4a";
+            if (type.contains("mpeg") || type.contains("mp3")) return "mp3";
+            if (type.contains("wav")) return "wav";
+            if (type.contains("ogg")) return "ogg";
+        }
+        if (url != null) {
+            int dot = url.lastIndexOf('.');
+            if (dot >= 0 && dot > url.lastIndexOf('/')) {
+                String ext = url.substring(dot + 1);
+                if (ext.length() <= 5) return ext;
+            }
+        }
+        return "bin";
+    }
+
+    private String csv(String value) {
+        if (value == null) return "";
+        String escaped = value.replace("\"", "\"\"").replace("\n", " ").replace("\r", " ");
+        return "\"" + escaped + "\"";
     }
 
     // ===================== CONNECTION =====================

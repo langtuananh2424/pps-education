@@ -6,6 +6,7 @@ import lombok.Setter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import vn.com.pps.education.common.CriteriaScoreItem;
+import vn.com.pps.education.common.KeyGrammarOutcome;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -67,6 +68,15 @@ public class StudentAnswerGrading {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "criteria_scores", columnDefinition = "jsonb")
     private List<CriteriaScoreItem> criteriaScores;
+
+    /**
+     * V196 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-22) — Key Grammar (filter 2, gói
+     * {@code key-grammar}) — {@code null} khi Bài không gắn Key Grammar hoặc chưa lên rubric "v3". FE dùng
+     * {@code redoRequired} để hiện dải cảnh báo "cần viết lại bài" (UC-40/41 mở rộng).
+     */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "key_grammar", columnDefinition = "jsonb")
+    private KeyGrammarOutcome keyGrammar;
 
     @Column(name = "graded_at", nullable = false)
     private OffsetDateTime gradedAt = OffsetDateTime.now();

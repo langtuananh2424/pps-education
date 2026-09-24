@@ -4,8 +4,14 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import vn.com.pps.education.common.AiTokenUsage;
 import vn.com.pps.education.common.CriteriaScoreItem;
+import vn.com.pps.education.common.KeyGrammarDictionary;
+import vn.com.pps.education.common.KeyGrammarOutcome;
+import vn.com.pps.education.common.WritingV3Grade;
+import vn.com.pps.education.common.WritingV3Scoring;
 import vn.com.pps.education.domain.Curriculum;
 
 import java.io.IOException;
@@ -24,45 +30,63 @@ import java.util.regex.Pattern;
  *
  * V140 (2026-08-23) — rubric giờ chọn theo Khối (6/7/8/9) + chương trình (IELTS/CAMBRIDGE) của
  * Curriculum chứa Đề (Exercise → Exam → Curriculum), KHÔNG còn 1 rubric tĩnh "Writing Scoring Standard"
- * chung cho mọi học sinh — xem {@link RubricByGradeTrackLoader}, dùng CHUNG rubric với
- * {@link ReflexWritingGrammarAiGradingService} (cùng 1 chuẩn chấm writing giáo viên cung cấp). AI trả
- * thẳng % theo đúng thang "Mức điểm (%)" của bảng, không còn quy đổi band 0-9 → %.
+ * chung cho mọi học sinh — xem {@link RubricByGradeTrackLoader}. AI trả thẳng % theo đúng thang "Mức
+ * điểm (%)" của bảng, không còn quy đổi band 0-9 → %.
  *
- * V145 (2026-08-24, xác nhận với người dùng trên nhánh spike/openrouter-ai-rotation) — gọi AI chấm qua
- * {@link NineRouterAiClient} (proxy local xoay vòng nhiều provider/API key, xem Javadoc lớp đó) thay vì
- * gọi thẳng Gemini/Claude như trước — bỏ luôn logic tự chọn Gemini/Claude theo key nào có sẵn, vì
- * combo trong Dashboard 9Router đã tự làm fallback giữa nhiều provider. LƯU Ý VẬN HÀNH: 9Router hiện
- * CHỈ chạy local trên máy dev (xem app.ai-grading.nine-router-base-url) — CHƯA có kế hoạch tự host cho
- * staging/production.
+ * V145 (2026-08-24, xác nhận với người dùng) — gọi AI chấm qua {@link NineRouterAiClient} (proxy local
+ * xoay vòng nhiều provider/API key) thay vì gọi thẳng Gemini/Claude. LƯU Ý VẬN HÀNH: 9Router hiện CHỈ
+ * chạy local trên máy dev — CHƯA có kế hoạch tự host cho staging/production.
  *
  * Lỗi gọi API (thiếu model/timeout/HTTP lỗi) HOẶC chưa xác định được đúng rubric trả về {@code null} —
  * KHÔNG throw, để câu trả lời rơi lại đúng hàng chờ chấm tay UC-41 (ManualGradingService) thay vì làm
  * hỏng cả giao dịch nộp bài của học sinh.
  *
- * V147 (2026-08-25, xác nhận với người dùng) — system prompt tách ra
- * {@code resources/prompts/writing-grading-system-prompt.txt} (xem {@link PromptTemplateLoader}), yêu
- * cầu feedback theo cấu trúc rõ ràng (điểm từng tiêu chí, Strongest area, Main limitation, What you did
- * well, What is limiting your score, Top 3 priorities, Target for next submission) thay vì 1 đoạn văn
- * liền mạch — đồng bộ với {@link ReflexWritingGrammarAiGradingService}/
- * {@link ReflexSpeakingContentAiGradingService}.
+ * V182 (2026-09-16, PILOT chỉ Khối 7 IELTS) — rubric "v3" do giáo viên cung cấp KHÔNG còn là 1 bảng mô
+ * tả % đơn thuần như {@code writing-rubric-*.md} cũ — mà tự chứa TOÀN BỘ hướng dẫn chấm VÀ tự quy định
+ * định dạng output riêng (markdown 3 mục, KHÔNG phải JSON): bài viết được đánh dấu lỗi ngay trong chữ
+ * bằng cú pháp {@code {{mã|đoạn văn bản}}}. Nhận diện rubric v3 qua tiêu đề {@code "# WRITING RUBRIC"}.
+ * Rubric CŨ (nếu còn) vẫn đi qua đường JSON như cũ — {@link GradeResult#markedAnswer()}/
+ * {@link GradeResult#criteriaScores()} là {@code null} trong trường hợp đó.
  *
- * V182 (2026-09-16, xác nhận với người dùng — PILOT chỉ Khối 7 IELTS) — rubric "v3" do giáo viên cung
- * cấp mới KHÔNG còn là 1 bảng mô tả % đơn thuần như {@code writing-rubric-*.md} cũ — mà tự chứa TOÀN BỘ
- * hướng dẫn chấm (cấu hình/cổng dữ liệu/checkpoint/quy đổi) VÀ tự quy định LUÔN định dạng output riêng
- * (markdown 3 mục, KHÔNG phải JSON): bài viết được đánh dấu lỗi ngay trong chữ bằng cú pháp
- * {@code {{mã|đoạn văn bản}}} (5 loại: ok/sp/gr/wd/pu, 2 mức độ nặng nhẹ mỗi loại lỗi — xem chi tiết
- * trong rubric) thay vì 1 đoạn feedback dài dòng như trước.
+ * V190 (2026-09-22, xác nhận với người dùng — gói {@code bo-cham-writing-K6-K9} do người training bàn
+ * giao, đóng gói 22/09/2026, mở rộng ra ĐỦ 6 khối, không còn PILOT riêng Khối 7 IELTS) — rubric v3 KHÔNG
+ * còn "tự đủ" như V182 tưởng: {@code HUONG_DAN_TICH_HOP.md} khẳng định "chỉ gửi file rubric thì điểm
+ * dao động 10–40 điểm" — cần thêm 3 lớp KHÔNG nằm trong file {@code .md}:
+ * <ol>
+ *   <li><b>Đo trước bằng máy</b> — {@link WritingV3Scoring#countWords}/{@link WritingV3Scoring#countCopied}
+ *       tính N_total/N_copy/N_net và tự suy kết luận cổng G1, ghim thẳng vào prompt (model KHÔNG được tự
+ *       đếm lại) — xem {@link WritingV3PromptBuilder#userPrompt}.</li>
+ *   <li><b>Khung "mục 0 Kiểm đếm"</b> — bắt model liệt kê bằng chứng cho mọi checkpoint trước khi chấm,
+ *       ẩn khỏi học sinh (chỉ giáo viên xem qua {@link GradeResult#auditMarkdown()}) — xem
+ *       {@link WritingV3PromptBuilder#systemPrompt}.</li>
+ *   <li><b>Hậu kiểm bằng máy</b> — {@link WritingV3Scoring#enforceScore} đọc lại mục 0, TỰ TÍNH lại bảng
+ *       điểm (không tin % model tự điền), áp trần theo mật độ lỗi và trần Tổng kết 35% khi hỏng thì động
+ *       từ, ghi đè bảng điểm mục 2 nếu lệch.</li>
+ * </ol>
+ * Mã khối theo {@link WritingV3Grade} (g6/g7/g7b1/g8/g8b1/g9, khớp {@code HUONG_DAN_TICH_HOP.md} mục 2) —
+ * KHÔNG dùng lại {@code RubricByGradeTrackLoader}'s suffix trực tiếp vì cần thêm label/exam/rows/trần mỏng
+ * theo khối để dựng prompt, xem {@link WritingV3Grade#forGradeTrack}. Model gọi qua combo riêng
+ * {@code app.ai-grading.writing.model} (KHÔNG dùng combo mặc định {@code nine-router-model} — combo đó có
+ * thể xoay qua model/mức thinking khác, phá vỡ hiệu chuẩn "gemini-3.6-flash, thinking medium" người training
+ * đã chốt, xem {@code 00_BAN_GIAO.md}/{@code HUONG_DAN_TICH_HOP.md} mục 5.1).
  *
- * Nhận diện rubric v3 qua tiêu đề {@code "# WRITING RUBRIC"} (khác hẳn tiêu đề
- * {@code "# Tiêu chí chấm Writing —"} của rubric cũ) — dùng system prompt riêng
- * ({@code writing-grading-system-prompt-v3.txt}, gần như rỗng vì rubric đã tự đủ hướng dẫn) và parser
- * riêng (markdown, không phải JSON). Rubric CŨ (Khối 6/8/9, chưa đổi trong đợt pilot này) vẫn đi qua
- * đường JSON như cũ — {@link GradeResult#markedAnswer}/{@link GradeResult#criteriaScores} là {@code null}
- * trong trường hợp đó, FE tự fallback hiện {@code feedback} dạng văn bản như trước.
+ * "Kết quả dở dang" ({@code HUONG_DAN_TICH_HOP.md} mục 5.3: {@code finishReason} khác STOP, hoặc thiếu mục
+ * 2/dòng Tổng kết) tự gọi lại tối đa {@value #MAX_ATTEMPTS_TOTAL} lần — vẫn dở dang thì trả {@code null}
+ * như mọi lỗi AI khác (rơi hàng chờ chấm tay), KHÔNG trả điểm cụt cho học sinh.
  *
- * Cần thêm {@code taskPrompt} (đề bài — {@link vn.com.pps.education.domain.Question#getContent()}) vì
- * rubric v3 có cổng G2 "Off-topic" cần đối chiếu đúng đề mới chấm được — rubric cũ KHÔNG có cổng này nên
- * trước đây service này chưa hề nhận taskPrompt (lỗ hổng tương tự đã sửa cho luồng Reflex ở V147).
+ * V196 (2026-09-22, xác nhận với người dùng) — Key Grammar (filter 2, gói {@code key-grammar} do người
+ * training bàn giao cùng đợt) tích hợp đủ: {@code keyGrammarIds} lấy từ {@code Question.keyGrammar} (gắn
+ * vào CÂU HỎI, KHÔNG vào Bài hay lượt giao — xem Javadoc {@code Question#keyGrammar}: đổi từ thiết kế ban
+ * đầu gắn Bài sau khi xem qua UI thật, xác nhận Key Grammar nên đi cùng đúng đề bài tự luận cụ thể), bơm
+ * vào system prompt qua {@link WritingV3PromptBuilder#systemPrompt} khi có,
+ * đọc lại số liệu ở mục 0 (KHÔNG tin dòng "Kết luận" model tự viết, mirror triết lý hậu kiểm điểm số) qua
+ * {@link WritingV3Scoring#parseKeyGrammarConclusion}, áp trần tiêu chí ngữ pháp qua
+ * {@link WritingV3Scoring#enforceScore}. {@link GradeResult#keyGrammar()} mang {@code redoRequired} để FE
+ * hiện dải "cần viết lại bài".
+ *
+ * {@link GradeResult#auditMarkdown()} (mục 0, dùng để giáo viên soát lại vì sao có điểm đó) hiện CHƯA được
+ * lưu vào DB — chỉ ghi log khi hậu kiểm có sửa điểm — lưu lâu dài cần thêm cột mới, phải xác nhận với
+ * người dùng trước (xem .claude/rules/business-fidelity.md).
  */
 @Service
 public class WritingAiGradingService {
@@ -71,36 +95,74 @@ public class WritingAiGradingService {
 
     private static final String RUBRIC_FILE_PREFIX = "writing-rubric";
     private static final String SYSTEM_PROMPT_FILE = "writing-grading-system-prompt.txt";
-    private static final String SYSTEM_PROMPT_FILE_V3 = "writing-grading-system-prompt-v3.txt";
     private static final String RUBRIC_V3_MARKER = "# WRITING RUBRIC";
+    /** 1 lần gọi đầu + tối đa 2 lần chấm lại khi "dở dang" — đúng {@code HUONG_DAN_TICH_HOP.md} mục 5.3. */
+    private static final int MAX_ATTEMPTS_TOTAL = 3;
 
     private final ObjectMapper objectMapper;
     private final RubricByGradeTrackLoader rubricLoader;
     private final NineRouterAiClient nineRouterAiClient;
     private final PromptTemplateLoader promptTemplateLoader;
+    private final WritingV3PromptBuilder promptBuilderV3;
+    private final KeyGrammarDictionaryLoader keyGrammarDictionaryLoader;
+    private final AiUsageSink usageSink;
+
+    /**
+     * V190 (2026-09-22, xác nhận với người dùng) — combo RIÊNG cho Writing, do người dùng tự tạo trong
+     * Dashboard 9Router (chỉ gồm {@code ag/gemini-3.6-flash-medium}, KHÔNG fallback sang mức thinking
+     * khác — đã kiểm tra qua gọi thật 2026-09-22: response không có field nào phân biệt được member nào
+     * của combo đã trả lời, nên combo fallback sang model/mức thinking KHÁC sẽ ÂM THẦM chấm bằng 1 model
+     * chưa từng được hiệu chuẩn, vi phạm business-fidelity). KHÔNG dùng {@code nine-router-model} mặc định
+     * (combo {@code pps-edu}, dùng chung nhiều mục đích khác, có thể gồm nhiều model/mức thinking).
+     */
+    @Value("${app.ai-grading.writing.model:writing-pps}")
+    private String writingModel;
 
     public WritingAiGradingService(ObjectMapper objectMapper, RubricByGradeTrackLoader rubricLoader,
-                                    NineRouterAiClient nineRouterAiClient, PromptTemplateLoader promptTemplateLoader) {
+                                    NineRouterAiClient nineRouterAiClient, PromptTemplateLoader promptTemplateLoader,
+                                    WritingV3PromptBuilder promptBuilderV3, KeyGrammarDictionaryLoader keyGrammarDictionaryLoader,
+                                    AiUsageSink usageSink) {
         this.objectMapper = objectMapper;
         this.rubricLoader = rubricLoader;
         this.nineRouterAiClient = nineRouterAiClient;
         this.promptTemplateLoader = promptTemplateLoader;
+        this.promptBuilderV3 = promptBuilderV3;
+        this.keyGrammarDictionaryLoader = keyGrammarDictionaryLoader;
+        this.usageSink = usageSink;
     }
 
     /**
-     * V182 — markedAnswer/criteriaScores CHỈ có giá trị khi rubric là bản "v3" (xem Javadoc lớp); với
-     * rubric cũ, cả 2 là {@code null} và feedback vẫn là đoạn văn 7 mục như trước.
+     * V182 — markedAnswer/criteriaScores CHỈ có giá trị khi rubric là bản "v3"; với rubric cũ, cả 2 là
+     * {@code null} và feedback vẫn là đoạn văn 7 mục như trước.
+     *
+     * @param auditMarkdown V190 — mục 0 "Kiểm đếm" (bằng chứng + phép cộng checkpoint từng tiêu chí), chỉ
+     *                      có giá trị ở đường v3. KHÔNG BAO GIỜ hiển thị cho học sinh — dùng để giáo viên
+     *                      soát lại hoặc gỡ lỗi khi điểm trông bất thường. {@code null} ở đường rubric cũ.
+     * @param keyGrammar V196 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-22, Key Grammar
+     *                   filter 2) — {@code null} khi Bài không gắn Key Grammar hoặc đang ở đường rubric cũ.
+     * @param usage V192 — chi phí token của CHÍNH lượt gọi AI cho ra kết quả này, caller
+     *              (ExerciseAttemptService) lưu kèm ngữ cảnh học sinh. Các lần thử bị loại trước đó (dở
+     *              dang/parse lỗi ở đường v3) đã được ghi riêng qua {@link AiUsageSink#recordRejected}.
      */
-    public record GradeResult(int scorePercent, String feedback, String markedAnswer, List<CriteriaScoreItem> criteriaScores) {
+    public record GradeResult(int scorePercent, String feedback, String markedAnswer, List<CriteriaScoreItem> criteriaScores,
+                              String auditMarkdown, KeyGrammarOutcome keyGrammar, AiTokenUsage usage) {
+
+        GradeResult withUsage(AiTokenUsage usage) {
+            return new GradeResult(scorePercent, feedback, markedAnswer, criteriaScores, auditMarkdown, keyGrammar, usage);
+        }
     }
 
     /**
-     * Trả null nếu chưa xác định được rubric (xem {@link RubricByGradeTrackLoader}) HOẶC 9Router chấm
-     * thất bại (kể cả sau khi tự retry/fallback nội bộ giữa các provider trong combo) — caller
-     * (ExerciseAttemptService) coi đây là "chưa chấm được", câu trả lời tự động rơi lại hàng chờ Giáo
-     * viên chấm tay (UC-41), KHÔNG chặn học sinh nộp bài.
+     * Trả null nếu chưa xác định được rubric/khối (xem {@link RubricByGradeTrackLoader}/{@link WritingV3Grade})
+     * HOẶC 9Router chấm thất bại/dở dang sau {@value #MAX_ATTEMPTS_TOTAL} lần — caller (ExerciseAttemptService)
+     * coi đây là "chưa chấm được", câu trả lời tự động rơi lại hàng chờ Giáo viên chấm tay (UC-41), KHÔNG
+     * chặn học sinh nộp bài.
+     *
+     * @param keyGrammarIds V196 — {@code answer.getQuestion().getKeyGrammar()} của câu hỏi đang chấm,
+     *                      {@code null}/rỗng = không gắn Key Grammar (giữ nguyên hành vi cũ). Ở đường
+     *                      rubric cũ (legacy) bị bỏ qua — chưa hỗ trợ Key Grammar ngoài rubric "v3".
      */
-    public GradeResult grade(String essayText, String taskPrompt, Curriculum curriculum) {
+    public GradeResult grade(String essayText, String taskPrompt, Curriculum curriculum, List<String> keyGrammarIds) {
         if (essayText == null || essayText.isBlank()) {
             return null;
         }
@@ -108,31 +170,83 @@ public class WritingAiGradingService {
         if (rubric == null) {
             return null;
         }
-        boolean v3 = rubric.startsWith(RUBRIC_V3_MARKER);
-        String rawText = nineRouterAiClient.chat(
-                v3 ? systemPromptV3(rubric, taskPrompt) : systemPrompt(rubric),
-                "Bài viết của học sinh: \"" + essayText + "\"",
-                null);
-        if (rawText == null) {
+        if (!rubric.startsWith(RUBRIC_V3_MARKER)) {
+            return gradeLegacy(essayText, rubric);
+        }
+        return gradeV3(essayText, taskPrompt, curriculum, keyGrammarIds);
+    }
+
+    private GradeResult gradeLegacy(String essayText, String rubric) {
+        NineRouterAiClient.AiTextResponse response = nineRouterAiClient.chatWithUsage(
+                systemPrompt(rubric), "Bài viết của học sinh: \"" + essayText + "\"", null);
+        if (response == null) {
             log.warn("WritingAiGradingService: 9Router chấm thất bại, rơi lại hàng chờ chấm tay.");
             return null;
         }
         try {
-            return v3 ? parseResultV3(rawText) : parseResultLegacy(rawText);
+            return parseResultLegacy(response.content()).withUsage(response.usage());
         } catch (IOException e) {
             log.warn("WritingAiGradingService: parse kết quả chấm thất bại, rơi lại hàng chờ chấm tay. {}", e.getMessage());
+            usageSink.recordRejected("chat", null, response.usage());
             return null;
         }
     }
 
-    private String systemPrompt(String rubric) {
-        return promptTemplateLoader.load(SYSTEM_PROMPT_FILE, Map.of("RUBRIC", rubric));
+    private GradeResult gradeV3(String essayText, String taskPrompt, Curriculum curriculum, List<String> keyGrammarIds) {
+        WritingV3Grade grade = WritingV3Grade.forGradeTrack(curriculum.getGradeLevel(), curriculum.getTrack());
+        if (grade == null) {
+            log.warn("WritingAiGradingService: rubric v3 tồn tại nhưng chưa xác định được mã khối (gradeLevel={}, track={}) — rơi lại hàng chờ chấm tay.",
+                    curriculum.getGradeLevel(), curriculum.getTrack());
+            return null;
+        }
+        String rubric = rubricLoader.load(RUBRIC_FILE_PREFIX, curriculum.getGradeLevel(), curriculum.getTrack());
+        KeyGrammarDictionary keyGrammarDictionary = (keyGrammarIds == null || keyGrammarIds.isEmpty())
+                ? null : keyGrammarDictionaryLoader.load(grade);
+        String system = promptBuilderV3.systemPrompt(grade, rubric, keyGrammarDictionary, keyGrammarIds);
+        String user = promptBuilderV3.userPrompt(grade, taskPrompt, essayText);
+
+        for (int attempt = 1; attempt <= MAX_ATTEMPTS_TOTAL; attempt++) {
+            NineRouterAiClient.ChatResult result = nineRouterAiClient.chatWithFinishReason(system, user, writingModel);
+            if (result == null || result.content() == null || result.content().isBlank()) {
+                log.warn("WritingAiGradingService: 9Router chấm (v3) thất bại, rơi lại hàng chờ chấm tay.");
+                // V192 — token vẫn tốn nếu 9Router trả response rỗng (result != null), không để mất chi phí.
+                if (result != null) {
+                    usageSink.recordRejected("chatWithFinishReason", writingModel, result.usage());
+                }
+                return null;
+            }
+            if (isTruncated(result)) {
+                log.warn("WritingAiGradingService: kết quả dở dang (finishReason={}, lần {}/{}) — {}.",
+                        result.finishReason(), attempt, MAX_ATTEMPTS_TOTAL,
+                        attempt < MAX_ATTEMPTS_TOTAL ? "thử chấm lại" : "rơi lại hàng chờ chấm tay");
+                usageSink.recordRejected("chatWithFinishReason", writingModel, result.usage());
+                continue;
+            }
+            try {
+                return parseResultV3(result.content(), grade, keyGrammarDictionary).withUsage(result.usage());
+            } catch (IOException e) {
+                log.warn("WritingAiGradingService: parse kết quả chấm (v3) thất bại (lần {}/{}). {}", attempt, MAX_ATTEMPTS_TOTAL, e.getMessage());
+                // Coi như "dở dang" theo tinh thần mục 5.3 — thử lại thay vì bỏ cuộc ngay từ lần đầu.
+                usageSink.recordRejected("chatWithFinishReason", writingModel, result.usage());
+            }
+        }
+        return null;
     }
 
-    private String systemPromptV3(String rubric, String taskPrompt) {
-        return promptTemplateLoader.load(SYSTEM_PROMPT_FILE_V3, Map.of(
-                "TASK_PROMPT", taskPrompt == null ? "" : taskPrompt,
-                "RUBRIC", rubric));
+    /**
+     * "Dở dang" theo {@code HUONG_DAN_TICH_HOP.md} mục 5.3: {@code finishReason} khác STOP (kể cả
+     * MAX_TOKENS), hoặc thiếu mục 2/dòng "Tổng kết". {@code finishReason == null} (9Router không trả field
+     * này ở 1 số nhánh) KHÔNG tự coi là dở dang — chỉ dựa vào nội dung trong trường hợp đó.
+     */
+    private boolean isTruncated(NineRouterAiClient.ChatResult result) {
+        String fr = result.finishReason();
+        boolean badFinish = fr != null && !fr.equalsIgnoreCase("stop");
+        boolean missingSections = !result.content().contains("### 2.") || !result.content().contains("Tổng kết");
+        return badFinish || missingSections;
+    }
+
+    private String systemPrompt(String rubric) {
+        return promptTemplateLoader.load(SYSTEM_PROMPT_FILE, Map.of("RUBRIC", rubric));
     }
 
     /** LLM đôi khi bọc thêm text/markdown quanh JSON dù đã dặn "chỉ trả JSON" — cắt từ '{' đầu tới '}' cuối cho an toàn. */
@@ -144,44 +258,63 @@ public class WritingAiGradingService {
         }
         JsonNode parsed = objectMapper.readTree(rawText.substring(start, end + 1));
         int scorePercent = Math.min(100, Math.max(0, parsed.path("scorePercent").asInt(0)));
-        return new GradeResult(scorePercent, parsed.path("feedback").asText(""), null, null);
+        return new GradeResult(scorePercent, parsed.path("feedback").asText(""), null, null, null, null, null);
     }
 
     private static final Pattern SECTION_HEADER = Pattern.compile("(?m)^###\\s*(\\d+)\\.[^\\n]*$");
-    private static final Pattern SCORE_ROW = Pattern.compile("^\\|\\s*\\*{0,2}([^|]+?)\\*{0,2}\\s*\\|\\s*\\*{0,2}(\\d+)\\s*%?\\*{0,2}\\s*\\|?\\s*$");
 
     /**
-     * Parse output rubric v3 (markdown 3 mục đánh số — xem mục "Output bắt buộc" trong
-     * {@code writing-rubric-grade7-ielts.md}, KHÔNG phải JSON). Ném IOException nếu thiếu mục 1/2 hoặc
-     * bảng điểm không có dòng "Final" — caller coi như chấm thất bại, rơi lại hàng chờ chấm tay.
+     * Parse output rubric v3 (markdown 3 mục đánh số + mục 0 Kiểm đếm — xem "Output bắt buộc" trong
+     * {@code rubric/00_BAN_GIAO.md}, KHÔNG phải JSON). V190: chạy hậu kiểm ({@link WritingV3Scoring#enforceScore})
+     * TRƯỚC khi tách mục 0, vì hậu kiểm cần đọc số liệu trong mục 0 để tự tính lại bảng điểm. Ném
+     * IOException nếu thiếu mục 0/1/2 hoặc bảng điểm không đủ tiêu chí/dòng Tổng kết — caller coi như chấm
+     * thất bại (thử lại hoặc rơi hàng chờ chấm tay).
      */
-    private GradeResult parseResultV3(String rawText) throws IOException {
-        Map<Integer, String> sections = splitNumberedSections(rawText);
+    private GradeResult parseResultV3(String rawText, WritingV3Grade grade, KeyGrammarDictionary keyGrammarDictionary) throws IOException {
+        if (!rawText.contains("### 0.")) {
+            throw new IOException("Model chấm bài (v3) thiếu mục 0 Kiểm đếm — không hậu kiểm được: " + rawText);
+        }
+        String corrected = WritingV3Scoring.enforceScore(rawText, grade, keyGrammarDictionary);
+        WritingV3Scoring.AuditSplit split = WritingV3Scoring.splitAudit(corrected);
+        String visible = split.visible();
+
+        Map<Integer, String> sections = splitNumberedSections(visible);
         String markedAnswer = stripCodeFence(sections.getOrDefault(1, ""));
-        String scoreTable = sections.getOrDefault(2, "");
-        String feedback = sections.getOrDefault(3, "").trim();
-        if (markedAnswer.isBlank() || scoreTable.isBlank()) {
+        String scoreTableSection = sections.getOrDefault(2, "");
+        String feedback = stripFeedbackMarkdown(sections.getOrDefault(3, ""));
+        if (markedAnswer.isBlank() || scoreTableSection.isBlank()) {
             throw new IOException("Model chấm bài (v3) không trả đủ mục 1/2 theo định dạng yêu cầu: " + rawText);
         }
+
+        Map<String, Integer> scores = WritingV3Scoring.readScoreTable(visible, grade.rows());
+        Integer total = WritingV3Scoring.readTotal(visible);
+        if (total == null || scores.size() != grade.rows().size()) {
+            throw new IOException("Model chấm bài (v3) không xuất đủ bảng điểm (thiếu tiêu chí hoặc dòng Tổng kết): " + rawText);
+        }
         List<CriteriaScoreItem> criteriaScores = new ArrayList<>();
-        Integer finalPercent = null;
-        for (String line : scoreTable.split("\n")) {
-            Matcher rowMatcher = SCORE_ROW.matcher(line.trim());
-            if (!rowMatcher.matches()) {
-                continue;
-            }
-            String criterion = rowMatcher.group(1).trim();
-            int percent = Math.min(100, Math.max(0, Integer.parseInt(rowMatcher.group(2))));
-            if (criterion.equalsIgnoreCase("Final")) {
-                finalPercent = percent;
+        for (String row : grade.rows()) {
+            criteriaScores.add(new CriteriaScoreItem(row, scores.get(row)));
+        }
+        if (!corrected.equals(rawText)) {
+            log.info("WritingAiGradingService: hậu kiểm đã sửa bảng điểm model tự điền — audit:\n{}", split.audit());
+        }
+        String finalFeedback = feedback;
+        KeyGrammarOutcome keyGrammarOutcome = null;
+        if (keyGrammarDictionary != null) {
+            WritingV3Scoring.KeyGrammarConclusion c =
+                    WritingV3Scoring.parseKeyGrammarConclusion(split.audit(), keyGrammarDictionary.passIfAtLeast());
+            if (c == null) {
+                log.warn("WritingAiGradingService: Bài có gắn Key Grammar nhưng model không in khối 'Key grammar được giao' ở mục 0.");
             } else {
-                criteriaScores.add(new CriteriaScoreItem(criterion, percent));
+                if ("unparsed".equals(c.status())) {
+                    log.warn("WritingAiGradingService: Key Grammar status=unparsed (đọc được header nhưng không đọc được 'Dùng đúng: N') — audit:\n{}", split.audit());
+                }
+                FeedbackSplit fs = splitKeyGrammarFeedback(feedback);
+                finalFeedback = fs.mainFeedback();
+                keyGrammarOutcome = new KeyGrammarOutcome(c.status(), c.correct(), c.attempts(), "fail".equals(c.status()), fs.keyGrammarNote());
             }
         }
-        if (finalPercent == null) {
-            throw new IOException("Model chấm bài (v3) không xuất dòng Final % trong bảng điểm: " + rawText);
-        }
-        return new GradeResult(finalPercent, feedback, markedAnswer, criteriaScores);
+        return new GradeResult(Math.min(100, Math.max(0, total)), finalFeedback, markedAnswer, criteriaScores, split.audit(), keyGrammarOutcome, null);
     }
 
     /** Cắt văn bản thành các mục theo header {@code ### N. ...} — key là số N, value là nội dung mục đó. */
@@ -200,6 +333,41 @@ public class WritingAiGradingService {
             sections.put(headers.get(i).number(), text.substring(contentStart, contentEnd).trim());
         }
         return sections;
+    }
+
+    /**
+     * V190 — mục 3 của rubric v3 bắt đầu bằng {@code **Nhận xét chung:**} (markdown in đậm), nhưng FE
+     * ({@code TakeExerciseModal.tsx}) hiện hiển thị {@code gradingFeedback} dạng văn bản thuần
+     * ({@code whitespace-pre-line}), không tự parse markdown — để nguyên sẽ lộ dấu {@code **} thô cho học
+     * sinh. Bỏ nhãn "Nhận xét chung:" và mọi cặp {@code **} còn sót, KHÔNG đổi nội dung nhận xét.
+     */
+    private String stripFeedbackMarkdown(String section) {
+        return section.replaceFirst("(?i)^\\*{0,2}\\s*Nhận xét chung\\s*:\\s*\\*{0,2}\\s*", "")
+                .replace("**", "")
+                .trim();
+    }
+
+    private record FeedbackSplit(String mainFeedback, String keyGrammarNote) {
+    }
+
+    /**
+     * V196 — {@code feedback} (mục 3) chứa CẢ nhận xét chung LẪN khối "Key grammar: ..." liền ngay dưới
+     * (đúng format ở {@link WritingV3PromptBuilder#applyKeyGrammar}) — tách riêng để FE hiện dải cảnh báo
+     * "cần viết lại bài" thay vì lẫn vào 1 đoạn văn dài. Không tìm thấy marker (model bỏ sót dù Bài có gắn
+     * Key Grammar) thì trả nguyên {@code feedback}, {@code keyGrammarNote=null}.
+     */
+    private FeedbackSplit splitKeyGrammarFeedback(String feedback) {
+        int idx = feedback.indexOf("Key grammar:");
+        if (idx < 0) {
+            return new FeedbackSplit(feedback, null);
+        }
+        String main = feedback.substring(0, idx).trim();
+        String[] lines = feedback.substring(idx).split("\n", -1);
+        // lines[0] = "Key grammar: <tên cấu trúc>" ; lines[1] = "Đạt/Chưa đạt · dùng đúng N/N lần (...)"; phần còn lại = 2 câu nhận xét.
+        String note = lines.length > 2
+                ? String.join("\n", java.util.Arrays.asList(lines).subList(2, lines.length)).trim()
+                : "";
+        return new FeedbackSplit(main, note.isBlank() ? null : note);
     }
 
     /** LLM đôi khi bọc mục 1 (bài viết đã đánh dấu) trong ``` dù rubric đã dặn không làm vậy — cắt bỏ cho an toàn. */

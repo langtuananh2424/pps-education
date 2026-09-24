@@ -89,6 +89,16 @@
     "essaySectionTitle": "Attach image / scanned prompt file",
     "essayImageLabel": "Sample image/scanned document",
     "essayImagePlaceholder": "Choose an image or PDF file...",
+    "keyGrammar": {
+      "saveFirstHint": "Save this question first, then reopen it to attach Key Grammar.",
+      "title": "Key Grammar (optional)",
+      "newBadge": "NEW",
+      "description": "Applies to this question — shared by every future assignment of an exercise containing it (quick-assign or the \"next-session homework\" pick in Student Comments), no need to reselect each time. Pick up to 3 structures by hand.",
+      "noOptions": "This question's grade/track has no Key Grammar dictionary yet.",
+      "baseLabel": "base structure",
+      "selectedCount": "Selected {{count}}/3",
+      "consequenceNote": "Correct use ≥2 times → Pass. 0–1 correct uses → the grammar criterion is capped at 40–50% and the student must redo the essay."
+    },
     "speakingSectionTitle": "English pronunciation analysis",
     "speakingKeywordsLabel": "Key phonemes / vocabulary the student must pronounce accurately *",
     "speakingKeywordsPlaceholder": "Example: Target pronunciation sounds: 'enthusiasm', 'literature', 'variety'...",
@@ -542,8 +552,7 @@
       "loadingQuestions": "Loading questions...",
       "noQuestions": "This exercise has no questions attached yet.",
       "editQuestionTooltip": "Edit question",
-      "removeQuestionTooltip": "Remove question (only while still Draft)",
-      "assignClassTooltip": "Assign to class (quick-assign this exercise, without going through Student Comments)"
+      "removeQuestionTooltip": "Remove question (only while still Draft)"
     },
     "assignClassModal": {
       "title": "Assign exam to classes",
@@ -552,11 +561,6 @@
       "updateAssignmentFailed": "Failed to update the class assignment.",
       "noClasses": "No classes available to assign.",
       "savingLabel": "Saving..."
-    },
-    "assignExerciseClassModal": {
-      "title": "Assign this exercise to classes",
-      "description": "Quick-assign just this exercise to a class, without waiting for a Student Comments session — no due date (self-practice). Only classes already assigned to the exam (Lesson) containing this exercise are shown; use \"Assigned to N classes\" above to assign the exam to a class first if it's missing.",
-      "noEligibleClasses": "No class has been assigned to this exam (Lesson) yet — assign the exam to a class first via \"Assigned to N classes\"."
     }
   },
   "bankPage": {

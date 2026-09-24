@@ -51,6 +51,9 @@ export default function PortalPage() {
   const [children, setChildren] = useState<ChildResponse[]>([]);
   const [selectedChildId, setSelectedChildId] = useState<number | null>(null);
   const [classOptions, setClassOptions] = useState<PortalClassOptionResponse[]>([]);
+  // classOptions hiện tại thuộc về con nào — effect áp pendingClassId bên dưới cần biết để không dùng nhầm
+  // classOptions của con cũ trong render ngay sau khi đổi con (state chưa kịp reset).
+  const [classOptionsForChildId, setClassOptionsForChildId] = useState<number | null>(null);
   const [selectedClassId, setSelectedClassId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -73,6 +76,16 @@ export default function PortalPage() {
   const [pendingExerciseAssignmentId, setPendingExerciseAssignmentId] = useState<number | null>(null);
   const [pendingReviewVideoAssignmentId, setPendingReviewVideoAssignmentId] = useState<number | null>(null);
   const [pendingHighlightCommentId, setPendingHighlightCommentId] = useState<number | null>(null);
+  // Đợt 2 (Plan link hoá thông báo, 2026-09-23) — STUDENT_ATTITUDE_ALERT nhảy thẳng vào tab "Quá trình
+  // học tập" + mở đúng buổi (DailyLearningProgressTab). Tách riêng khỏi pendingHighlightCommentId (dùng
+  // cho ParentHomeworkProgressTab ở tab BTVN) dù cùng là StudentComment.id — khác component đích.
+  const [pendingAttitudeCommentId, setPendingAttitudeCommentId] = useState<number | null>(null);
+  // Plan link hoá thông báo (2026-09-22): lớp cần chọn theo thông báo vừa bấm. KHÔNG set selectedClassId
+  // ngay trong handleNotificationNavigate — effect tải classOptions theo selectedChildId bên dưới sẽ ghi
+  // đè bằng lớp "recommended" ngay sau đó (khi đổi con) hoặc classOptions còn chưa có (lần đầu). Giữ ở
+  // đây rồi áp bằng effect riêng khi classOptions đã sẵn sàng, mirror cách pendingHighlightCommentId chờ
+  // loading=false ở ParentHomeworkProgressTab.
+  const [pendingClassId, setPendingClassId] = useState<number | null>(null);
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06 — badge số BTVN "Cần hoàn thành" trên
   // mục sidebar, do AssignmentsTab báo lên (xem prop onPendingCountChange). AssignmentsTab giờ luôn được
   // mount cho Học sinh (chỉ ẩn/hiện bằng CSS theo activeTab, xem nhánh render bên dưới — sửa 2026-08-08)
@@ -111,21 +124,38 @@ export default function PortalPage() {
   useEffect(() => {
     setSelectedClassId(null);
     setClassOptions([]);
+    setClassOptionsForChildId(null);
     if (!selectedChildId) return;
     listClassOptions(selectedChildId)
       .then((options) => {
         setClassOptions(options);
+        setClassOptionsForChildId(selectedChildId);
         const recommended = options.find((o) => o.recommended) ?? options[0];
         if (recommended) setSelectedClassId(recommended.classId);
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : t("loadErrors.classOptions")));
   }, [selectedChildId]);
 
-  /** Bấm 1 thông báo ở NotificationBell — chuyển đúng tab, mở đúng bài (BTVN) hoặc đúng con (Phụ huynh nhiều con). */
+  // Áp lớp theo thông báo (pendingClassId) SAU KHI classOptions của đúng con đã tải xong — chạy sau effect
+  // trên nên không bị lớp "recommended" ghi đè. Lớp không nằm trong classOptions (VD đã kết thúc/không còn
+  // ghi danh) thì bỏ qua, giữ lớp recommended như thường; luôn clear pendingClassId để không áp lại về sau.
+  useEffect(() => {
+    if (pendingClassId == null || classOptionsForChildId == null || classOptionsForChildId !== selectedChildId) return;
+    if (classOptions.some((c) => c.classId === pendingClassId)) setSelectedClassId(pendingClassId);
+    setPendingClassId(null);
+  }, [pendingClassId, classOptions, classOptionsForChildId, selectedChildId]);
+
+  /**
+   * Bấm 1 thông báo ở NotificationBell — đổi đúng con (Phụ huynh nhiều con), đúng lớp, rồi đúng tab; với
+   * BTVN mở đúng bài (Học sinh: AssignmentsTab autoOpen) hoặc cuộn/nổi bật đúng thẻ (Phụ huynh:
+   * ParentHomeworkProgressTab highlight). Thứ tự quan trọng: đổi con trước, lớp áp qua effect pendingClassId.
+   */
   const handleNotificationNavigate = (target: NotificationNavTarget) => {
     if (isParent && target.studentId != null) setSelectedChildId(target.studentId);
+    if (target.classId != null) setPendingClassId(target.classId);
     if (target.exerciseAssignmentId != null) setPendingExerciseAssignmentId(target.exerciseAssignmentId);
     if (target.reviewVideoAssignmentId != null) setPendingReviewVideoAssignmentId(target.reviewVideoAssignmentId);
+    if (target.commentId != null) setPendingAttitudeCommentId(target.commentId);
     setActiveTab(target.tab);
   };
 
@@ -403,6 +433,8 @@ export default function PortalPage() {
                         studentCode={selectedChild.studentCode}
                         classId={selectedClassId}
                         parentStudentId={selectedChild.studentId}
+                        highlightCommentId={pendingAttitudeCommentId}
+                        onHighlightHandled={() => setPendingAttitudeCommentId(null)}
                         onOpenGrammarHomework={(commentId) => {
                           setPendingHighlightCommentId(commentId);
                           setActiveTab("homework");
@@ -456,7 +488,13 @@ export default function PortalPage() {
                         studentId={selectedChild.studentId}
                         classId={selectedClassId}
                         highlightCommentId={pendingHighlightCommentId}
-                        onHighlightHandled={() => setPendingHighlightCommentId(null)}
+                        highlightExerciseAssignmentId={pendingExerciseAssignmentId}
+                        highlightReviewVideoAssignmentId={pendingReviewVideoAssignmentId}
+                        onHighlightHandled={() => {
+                          setPendingHighlightCommentId(null);
+                          setPendingExerciseAssignmentId(null);
+                          setPendingReviewVideoAssignmentId(null);
+                        }}
                       />
                     ) : (
                       <ComingSoon title={t("tabs.homework")} description={t("comingSoon.notLinkedDescription")} />

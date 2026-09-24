@@ -146,6 +146,30 @@ export interface QuestionResponse {
   choices: QuestionChoiceResponse[];
   structuredContent: QuestionStructuredContent | null;
   groupKey: string | null;
+  /**
+   * Key Grammar (filter 2, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-22) — mảng mã cấu
+   * trúc đã gắn cho câu hỏi này, null/rỗng = không kiểm. Chỉ có ý nghĩa khi questionType=ESSAY. Gắn vào
+   * CÂU HỎI (không phải Bài) — set 1 lần ở modal "Sửa câu hỏi", áp dụng cho mọi lượt giao Bài chứa câu
+   * hỏi này sau này.
+   */
+  keyGrammar: string[] | null;
+}
+
+/** Key Grammar — 1 mã cấu trúc khả dụng để chọn, nguồn cho dropdown ở modal "Sửa câu hỏi". */
+export interface KeyGrammarStructureResponse {
+  id: string;
+  name: string;
+  base: boolean;
+}
+
+/** Rỗng nếu câu hỏi không phải ESSAY hoặc Khối/chương trình chưa có từ điển Key Grammar (VD Khối 9). */
+export function listQuestionKeyGrammarOptions(questionId: number): Promise<KeyGrammarStructureResponse[]> {
+  return apiRequest<KeyGrammarStructureResponse[]>(`/questions/${questionId}/key-grammar-options`);
+}
+
+/** Bản theo Đề (không lộ questionBankId cho Giáo viên), mirror listQuestionKeyGrammarOptions. */
+export function listExamQuestionKeyGrammarOptions(examId: number, questionId: number): Promise<KeyGrammarStructureResponse[]> {
+  return apiRequest<KeyGrammarStructureResponse[]>(`/exams/${examId}/questions/${questionId}/key-grammar-options`);
 }
 
 export function listQuestions(bankId: number): Promise<QuestionResponse[]> {
@@ -164,6 +188,12 @@ export interface UpdateQuestionRequest {
   tags?: string[];
   choices?: QuestionChoiceRequest[];
   status?: "ACTIVE" | "ARCHIVED";
+  /**
+   * Key Grammar (filter 2, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-22) — 1-3 mã cấu
+   * trúc, khớp từ điển đúng Khối/track. Luôn PHẢN ÁNH TOÀN BỘ trạng thái mong muốn (giống content) —
+   * null/rỗng = xoá Key Grammar khỏi câu hỏi này. Chỉ áp dụng được khi questionType=ESSAY.
+   */
+  keyGrammarIds?: string[] | null;
 }
 
 /**
@@ -725,24 +755,6 @@ export function listAssignmentsForClass(classId: number): Promise<ExerciseAssign
   return apiRequest<ExerciseAssignmentResponse[]>(`/classes/${classId}/exercises`);
 }
 
-/**
- * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-19 — "gán nhanh" 1 Bài cho 1 lớp thẳng từ
- * Kho đề (mirror assignExamToClass/unassignExamFromClass/listExamAssignedClasses ở trên, cùng UX toggle
- * checkbox), độc lập song song với gán cả Đề — lớp phải đã được gán Đề trước (BE trả 400 nếu chưa).
- * Không deadline (dueAt=null), không đụng bản giao thật phát sinh từ Nhận xét học viên (sourceClassSession khác NULL).
- */
-export function quickAssignExerciseToClass(exerciseId: number, classId: number): Promise<ExerciseAssignmentResponse> {
-  return apiRequest<ExerciseAssignmentResponse>(`/exercises/${exerciseId}/classes/${classId}`, { method: "POST" });
-}
-
-export function quickUnassignExerciseFromClass(exerciseId: number, classId: number): Promise<void> {
-  return apiRequest<void>(`/exercises/${exerciseId}/classes/${classId}`, { method: "DELETE" });
-}
-
-export function listExerciseQuickAssignedClasses(exerciseId: number): Promise<ClassResponse[]> {
-  return apiRequest<ClassResponse[]>(`/exercises/${exerciseId}/classes`);
-}
-
 /** Kho đề: nguồn cho dropdown "BTVN buổi sau" ở Nhận xét học viên — mọi loại Bài đã Publish, thuộc 1 Đề đã gán cho lớp (không còn theo khung chương trình). */
 export function listPublishedExercisesForClass(classId: number): Promise<ExerciseResponse[]> {
   return apiRequest<ExerciseResponse[]>(`/classes/${classId}/exercises/published`);
@@ -751,9 +763,12 @@ export function listPublishedExercisesForClass(classId: number): Promise<Exercis
 /**
  * V150 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-24) — "Lô giao BTVN theo kỹ năng":
  * 1 entry/Lesson (Đề) có >=1 Bài Published cùng skillCategory, thay cho danh sách Exercise lẻ/bản gộp
- * cũ ở kênh "BTVN online" của Nhận xét học viên (UC-21). Chọn 1 nhóm = giao TOÀN BỘ exerciseCount Bài
- * trong đó cùng lúc — value gửi lên (homeworkNext*ExerciseId trong CreateStudentCommentRequest) là
- * examId của nhóm này, KHÔNG còn là 1 exerciseId đơn.
+ * cũ ở kênh "BTVN online" của Nhận xét học viên (UC-21). value gửi lên (grammarExamId/readingExamId/
+ * writingExamId trong ApplyClassHomeworkRequest) là examId của nhóm này, KHÔNG còn là 1 exerciseId đơn.
+ *
+ * Bổ sung 2026-09-23 (đã xác nhận với người dùng) — trước đây chọn 1 nhóm là giao TOÀN BỘ exerciseCount
+ * Bài trong đó cùng lúc, không chọn lọc được. `exercises` cho phép GV bỏ bớt Bài không muốn giao (xem
+ * checklist ở DailyCommentPanel) — gửi kèm *ExerciseIds tương ứng trong ApplyClassHomeworkRequest.
  */
 export interface HomeworkSkillGroupResponse {
   examId: number;
@@ -766,6 +781,16 @@ export interface HomeworkSkillGroupResponse {
   /** Bổ sung 2026-09-04 — tên Unit/SubTopic chứa Lesson này, phân biệt Lesson trùng tên giữa các Unit khác nhau. */
   unitTitle: string | null;
   subTopicTitle: string | null;
+  /** Bổ sung 2026-09-23 — từng Bài PUBLISHED trong nhóm, nguồn cho checklist chọn lọc. */
+  exercises: HomeworkSkillGroupExercise[];
+}
+
+/** 1 dòng checklist trong 1 nhóm kỹ năng — mirror BE HomeworkSkillGroupResponse.ExerciseSummary. */
+export interface HomeworkSkillGroupExercise {
+  id: number;
+  code: string;
+  title: string;
+  questionCount: number;
 }
 
 export function listHomeworkSkillGroupsForClass(classId: number, skillCategory: ExerciseSkillCategory): Promise<HomeworkSkillGroupResponse[]> {
@@ -1030,6 +1055,37 @@ export interface ReviewVideoAssignmentQuestionStatsResponse {
   questions: ReviewVideoAssignmentQuestionRow[];
 }
 
+/**
+ * V191 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-21) — UC-23b (Video phản xạ): 1 dòng
+ * lịch sử AI chấm (viết hoặc ghi âm) — mirror ReflexQuestionProgressHistoryResponse backend.
+ */
+export interface ReflexQuestionProgressHistoryEntry {
+  questionId: number;
+  questionPrompt: string;
+  questionDisplayOrder: number;
+  attemptType: "WRITING" | "SPEAKING";
+  attemptNumber: number;
+  answerText: string | null;
+  audioUrl: string | null;
+  score: number | null;
+  maxScore: number | null;
+  feedback: string | null;
+  markedAnswer: string | null;
+  transcript: string | null;
+  criteriaScores: { criterion: string; percent: number }[] | null;
+  gradedAt: string | null;
+}
+
+/** V191 — giáo viên nghe lại audio + xem kết quả AI chấm theo TỪNG lần làm của 1 học sinh (Video phản xạ). */
+export function getReflexStudentHistory(assignmentId: number, studentId: number): Promise<ReflexQuestionProgressHistoryEntry[]> {
+  return apiRequest<ReflexQuestionProgressHistoryEntry[]>(`/review-video-assignments/${assignmentId}/stats/students/${studentId}/reflex-history`);
+}
+
+/** V191 — xuất toàn bộ audio (mọi lần ghi âm, mọi học sinh) + kết quả AI chấm của 1 lần giao thành ZIP. */
+export function exportReflexAssignmentData(assignmentId: number): Promise<Blob> {
+  return apiRequestBlob(`/review-video-assignments/${assignmentId}/export-reflex-data`);
+}
+
 export function getReviewVideoAssignmentQuestionStats(assignmentId: number): Promise<ReviewVideoAssignmentQuestionStatsResponse> {
   return apiRequest<ReviewVideoAssignmentQuestionStatsResponse>(`/review-video-assignments/${assignmentId}/stats/questions`);
 }
@@ -1156,6 +1212,11 @@ export type UpdateReviewVideoQuestionRequest = AddReviewVideoQuestionRequest;
 
 export function updateReviewVideoQuestion(questionId: number, request: UpdateReviewVideoQuestionRequest): Promise<ReviewVideoQuestionResponse> {
   return apiRequest<ReviewVideoQuestionResponse>(`/review-video-questions/${questionId}`, { method: "PUT", body: JSON.stringify(request) });
+}
+
+/** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-24 — BE chặn (400) nếu câu đã có học sinh làm bài. */
+export function deleteReviewVideoQuestion(questionId: number): Promise<void> {
+  return apiRequest<void>(`/review-video-questions/${questionId}`, { method: "DELETE" });
 }
 
 // ===================== Kho Video Ôn tập — Import Excel câu hỏi (bổ sung ngoài SDD gốc, đã xác nhận với người dùng) =====================
@@ -1322,6 +1383,11 @@ export function updateReviewVideoConnectionQuestion(
     method: "PUT",
     body: JSON.stringify(request)
   });
+}
+
+/** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-24 — BE chặn (400) nếu câu đã có học sinh trả lời, hoặc là câu cuối của video trong bộ đã Publish. */
+export function deleteReviewVideoConnectionQuestion(questionId: number): Promise<void> {
+  return apiRequest<void>(`/review-video-connection-questions/${questionId}`, { method: "DELETE" });
 }
 
 // ===================== Kho tài liệu tham khảo (UC-60) =====================

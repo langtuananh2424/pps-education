@@ -85,6 +85,7 @@ import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -402,7 +403,10 @@ public class StudentCommentService {
         requireCanWriteDailyComment(classSession, actorUserId);
         Student student = studentRepository.findByIdAndDeletedAtIsNull(request.studentId())
                 .orElseThrow(() -> new ResourceNotFoundException("error.studentComment.studentNotFoundById", new Object[]{request.studentId()}, "Không tìm thấy học sinh id=" + request.studentId()));
-        requireNotLockedByAttendance(classSession.getId(), student.getId(), student.getUser().getFullName());
+        requireNotLockedByAttendance(classSession.getId(), student.getId(), student.getUser().getFullName(),
+                request.content(), request.structuredContent(), request.attitude(),
+                request.homeworkPreviousScore(), request.homeworkPreviousSpeakingScore(),
+                request.homeworkPreviousReadingScore(), request.homeworkPreviousWritingScore(), request.note());
 
         StudentComment existing = studentCommentRepository
                 .findByClassSessionIdAndStudentId(classSession.getId(), student.getId()).orElse(null);
@@ -481,7 +485,10 @@ public class StudentCommentService {
                 if (student == null) {
                     throw new ResourceNotFoundException("error.studentComment.studentNotFoundById", new Object[]{row.studentId()}, "Không tìm thấy học sinh id=" + row.studentId());
                 }
-                requireNotLockedByAttendance(attendanceByStudent, student.getId(), student.getUser().getFullName());
+                requireNotLockedByAttendance(attendanceByStudent, student.getId(), student.getUser().getFullName(),
+                        row.content(), row.structuredContent(), row.attitude(),
+                        row.homeworkPreviousScore(), row.homeworkPreviousSpeakingScore(),
+                        row.homeworkPreviousReadingScore(), row.homeworkPreviousWritingScore(), row.note());
                 StudentComment existing = existingByStudentId.get(student.getId());
                 if (existing != null && existing.getStatus() != StudentComment.Status.DRAFT
                         && existing.getStatus() != StudentComment.Status.REJECTED) {
@@ -534,7 +541,10 @@ public class StudentCommentService {
                     "error.studentCommentNotEditable.notDraftOrRejected", new Object[]{comment.getStatus()},
                     "Nhận xét này đang ở trạng thái " + comment.getStatus() + " — chỉ sửa được khi Nháp (DRAFT) hoặc Bị từ chối (REJECTED).");
         }
-        requireNotLockedByAttendance(comment.getClassSession().getId(), comment.getStudent().getId(), comment.getStudent().getUser().getFullName());
+        requireNotLockedByAttendance(comment.getClassSession().getId(), comment.getStudent().getId(), comment.getStudent().getUser().getFullName(),
+                request.content(), request.structuredContent(), request.attitude(),
+                request.homeworkPreviousScore(), request.homeworkPreviousSpeakingScore(),
+                request.homeworkPreviousReadingScore(), request.homeworkPreviousWritingScore(), request.note());
 
         // 2026-09-12: BTVN online (Exercise/ReviewVideoSet) không còn ở DTO này nữa — sửa Nhận xét ở
         // đây KHÔNG đụng/ghi đè homeworkNextGrammarBatch/homeworkNextReviewVideoAssignment/... (dù
@@ -1303,8 +1313,8 @@ public class StudentCommentService {
             }
             Map<Long, AttendanceMark.Status> currentAttendance = currentAttendanceByStudent(classSessionId);
 
-            // Mirror điều kiện importRow() (bỏ qua Vắng/Có phép mà mọi cột nhận xét đều trống, bắt
-            // buộc có nội dung nếu không) — không ghi comment, chỉ dựng preview row trả về FE.
+            // Mirror điều kiện importRow() (Vắng/Có phép vẫn giao được BTVN buổi sau, chỉ chặn cột
+            // Nhận xét/Thái độ/BTVN buổi trước) — không ghi comment, chỉ dựng preview row trả về FE.
             List<DailyCommentImportPreviewRow> previewRows = new ArrayList<>();
             int successRows = 0;
             for (ParsedRow parsed : parsedRows) {
@@ -1317,16 +1327,24 @@ public class StudentCommentService {
                     }
                     boolean absent = effectiveAttendance == AttendanceMark.Status.ABSENT
                             || effectiveAttendance == AttendanceMark.Status.EXCUSED;
-                    boolean allBlank = parsed.attitude() == null && parsed.homeworkPrevious() == null
-                            && parsed.content() == null && parsed.homeworkNext() == null
-                            && parsed.note() == null && parsed.homeworkPreviousSpeaking() == null
-                            && parsed.homeworkPreviousReading() == null && parsed.homeworkPreviousWriting() == null
-                            && parsed.homeworkNextReading() == null && parsed.homeworkNextWriting() == null;
-                    // 2026-09-17 — mirror lock cứng của importRow (xem Javadoc ở đó).
+                    // 2026-09-22 (đã xác nhận với người dùng, mirror importRow) — Vắng/Có phép chỉ còn khoá
+                    // Nhận xét/Thái độ/điểm BTVN buổi trước; BTVN buổi sau (chữ tự do) vẫn giao được.
+                    boolean hasLockedContent = parsed.attitude() != null || parsed.content() != null
+                            || parsed.note() != null || parsed.homeworkPrevious() != null
+                            || parsed.homeworkPreviousSpeaking() != null || parsed.homeworkPreviousReading() != null
+                            || parsed.homeworkPreviousWriting() != null;
+                    boolean hasHomeworkNext = parsed.homeworkNext() != null || parsed.homeworkNextReading() != null
+                            || parsed.homeworkNextWriting() != null;
                     if (absent) {
-                        if (!allBlank) {
+                        if (hasLockedContent) {
                             throw new IllegalArgumentException(
-                                    "Học sinh đã điểm danh " + attendanceLabel(effectiveAttendance) + " cho buổi này — không thể ghi nhận xét.");
+                                    "Học sinh đã điểm danh " + attendanceLabel(effectiveAttendance) + " cho buổi này — không thể ghi nhận xét/thái độ.");
+                        }
+                        if (hasHomeworkNext) {
+                            previewRows.add(new DailyCommentImportPreviewRow(
+                                    parsed.student().getId(), null, null, null, null, null, null,
+                                    parsed.homeworkNext(), parsed.homeworkNextReading(), parsed.homeworkNextWriting(),
+                                    null));
                         }
                     } else {
                         if (parsed.content() == null || parsed.content().isBlank()) {
@@ -1526,6 +1544,13 @@ public class StudentCommentService {
      * xét đã tồn tại thì chỉ sửa được khi đang DRAFT/REJECTED (giống hệt
      * updateComment) — tránh Excel âm thầm ghi đè 1 dòng đã PENDING/
      * APPROVED, bỏ qua quy trình duyệt.
+     *
+     * 2026-09-17 (đã xác nhận với người dùng, THẮT CHẶT quyết định 2026-07-24), NỚI LẠI 2026-09-22
+     * (đã xác nhận với người dùng) — Vắng/Có phép LOCK CỨNG cột Nhận xét ({@code content}/{@code note}),
+     * điểm BTVN buổi trước ({@code homeworkPrevious*}) và Thái độ ({@code attitude}): có điền bất kỳ
+     * cột nào trong nhóm này thì CHẶN. Riêng BTVN buổi sau chữ tự do
+     * ({@code homeworkNext}/{@code homeworkNextReading}/{@code homeworkNextWriting}) KHÔNG còn bị khoá
+     * — học sinh vắng vẫn giao được, chỉ ghi đúng 3 field này (không đụng Nhận xét/Thái độ).
      */
     private void importRow(ClassSession classSession, Student student, AttendanceMark.Status attendance,
                             String attitude, String homeworkPrevious, String content, String homeworkNext, String note,
@@ -1533,19 +1558,43 @@ public class StudentCommentService {
                             String homeworkPreviousWriting, String homeworkNextReading, String homeworkNextWriting,
                             User actor) {
         boolean absent = attendance == AttendanceMark.Status.ABSENT || attendance == AttendanceMark.Status.EXCUSED;
-        boolean allBlank = attitude == null && homeworkPrevious == null && content == null
-                && homeworkNext == null && note == null
-                && homeworkPreviousSpeaking == null && homeworkPreviousReading == null
-                && homeworkPreviousWriting == null && homeworkNextReading == null && homeworkNextWriting == null;
-        // 2026-09-17 (đã xác nhận với người dùng, THẮT CHẶT quyết định 2026-07-24) — Vắng/Có phép giờ
-        // là LOCK CỨNG: dòng để trống hết vẫn bỏ qua êm (mẫu Excel liệt kê sẵn mọi học sinh ACTIVE kể
-        // cả học sinh vắng), nhưng có điền BẤT KỲ cột nào thì CHẶN (trước đây cho ghi tự do, chỉ miễn
-        // bắt buộc cột Nhận xét).
+        boolean hasLockedContent = attitude != null || homeworkPrevious != null || content != null || note != null
+                || homeworkPreviousSpeaking != null || homeworkPreviousReading != null || homeworkPreviousWriting != null;
+        boolean hasHomeworkNext = homeworkNext != null || homeworkNextReading != null || homeworkNextWriting != null;
         if (absent) {
-            if (allBlank) {
+            if (hasLockedContent) {
+                throw new IllegalArgumentException("Học sinh đã điểm danh " + attendanceLabel(attendance) + " cho buổi này — không thể ghi nhận xét/thái độ.");
+            }
+            if (!hasHomeworkNext) {
                 return;
             }
-            throw new IllegalArgumentException("Học sinh đã điểm danh " + attendanceLabel(attendance) + " cho buổi này — không thể ghi nhận xét.");
+            StudentComment comment = studentCommentRepository
+                    .findByClassSessionIdAndStudentId(classSession.getId(), student.getId())
+                    .orElseGet(() -> {
+                        StudentComment created = new StudentComment();
+                        created.setStudent(student);
+                        created.setSchoolClass(classSession.getSchoolClass());
+                        created.setCommentType(StudentComment.CommentType.DAILY);
+                        created.setClassSession(classSession);
+                        created.setCommentDate(classSession.getSessionDate());
+                        created.setContent("");
+                        return created;
+                    });
+            if (comment.getStatus() != StudentComment.Status.DRAFT && comment.getStatus() != StudentComment.Status.REJECTED) {
+                throw new StudentCommentNotEditableException(
+                        "error.studentCommentNotEditable.importNotDraftOrRejected", new Object[]{student.getStudentCode(), comment.getStatus()},
+                        "Nhận xét học sinh mã=" + student.getStudentCode() + " đang ở trạng thái "
+                                + comment.getStatus() + " — chỉ sửa được khi DRAFT hoặc REJECTED.");
+            }
+            comment.setTeacher(actor);
+            comment.setApprovalFlow(null);
+            comment.setHomeworkNext(homeworkNext);
+            comment.setHomeworkNextReading(homeworkNextReading);
+            comment.setHomeworkNextWriting(homeworkNextWriting);
+            comment.setStatus(StudentComment.Status.DRAFT);
+            comment = studentCommentRepository.save(comment);
+            writeHistory(comment, actor, StudentCommentHistory.Action.UPDATED);
+            return;
         }
         if (content == null || content.isBlank()) {
             throw new IllegalArgumentException("Thiếu nhận xét (cột " + colLetter(HomeworkColumns.of(classSession.getTeacherType()).content) + ") — bắt buộc.");
@@ -1650,18 +1699,14 @@ public class StudentCommentService {
         if (enrollments.isEmpty()) {
             throw new IllegalStateException("Lớp học này chưa có học sinh đang hoạt động (ACTIVE) — không có ai để giao BTVN.");
         }
-        // 2026-09-17 (đã xác nhận với người dùng) — cơ chế lock UC-21: học sinh đã điểm danh Vắng/Có
-        // phép cho đúng buổi này bị BỎ QUA hoàn toàn khi "Áp dụng cho cả lớp" (không tạo StudentComment
-        // rỗng, không gán FK BTVN) — mirror rào requireNotLockedByAttendance ở writeComment/updateComment.
-        Map<Long, AttendanceMark.Status> attendanceByStudent = currentAttendanceByStudent(classSessionId);
-
+        // 2026-09-22 (đã xác nhận với người dùng, NỚI LẠI quyết định 2026-09-17) — cơ chế lock UC-21
+        // theo điểm danh CHỈ còn áp dụng cho Nhận xét/Thái độ (xem requireNotLockedByAttendance ở
+        // writeComment/updateComment/saveDraftBatch/import) — riêng "Giao BTVN buổi sau" (áp dụng cho
+        // cả lớp) vẫn giao được BÌNH THƯỜNG cho học sinh Vắng/Có phép (học sinh vắng vẫn cần nhận bài
+        // để học bù), không còn bị bỏ qua như trước.
         List<StudentComment> editable = new ArrayList<>();
         for (ClassEnrollment enrollment : enrollments) {
             Student student = enrollment.getStudent();
-            AttendanceMark.Status attendance = attendanceByStudent.get(student.getId());
-            if (attendance == AttendanceMark.Status.ABSENT || attendance == AttendanceMark.Status.EXCUSED) {
-                continue;
-            }
             StudentComment comment = studentCommentRepository
                     .findByClassSessionIdAndStudentId(classSessionId, student.getId()).orElse(null);
             if (comment != null && comment.getStatus() != StudentComment.Status.DRAFT
@@ -1683,7 +1728,7 @@ public class StudentCommentService {
             editable.add(comment);
         }
         if (editable.isEmpty()) {
-            throw new IllegalStateException("Không còn học sinh nào để giao BTVN mới — mọi học sinh ACTIVE của lớp đều đã Gửi/Duyệt nhận xét buổi này hoặc đã điểm danh Vắng/Có phép.");
+            throw new IllegalStateException("Không còn học sinh nào để giao BTVN mới — mọi học sinh ACTIVE của lớp đều đã Gửi/Duyệt nhận xét buổi này.");
         }
 
         OffsetDateTime dueAt = resolveDueAt(session, request.dueDate());
@@ -1692,14 +1737,30 @@ public class StudentCommentService {
         ReviewVideoAssignment previousVideoAssignment = firstNonNull(editable, StudentComment::getHomeworkNextReviewVideoAssignment);
         HomeworkSkillBatch previousReadingBatch = firstNonNull(editable, StudentComment::getHomeworkNextReadingBatch);
         HomeworkSkillBatch previousWritingBatch = firstNonNull(editable, StudentComment::getHomeworkNextWritingBatch);
+        // 2026-09-22 (fix bug thật, đã xác nhận với người dùng) — "previous" ở trên chỉ nhìn trong
+        // `editable` (loại trừ học sinh đã Gửi/Duyệt), nên khi TOÀN BỘ `editable` là dòng MỚI (VD chỉ
+        // còn lại đúng học sinh Vắng/Có phép vừa được mở khoá giao bài, mọi học sinh khác đã Gửi từ
+        // trước), previous* luôn null dù buổi NÀY đã có sẵn batch/assignment (do học sinh đã Gửi đang
+        // giữ). Không có "existing*" bên dưới, materializeExamHomework/materializeVideoHomework tưởng
+        // đây là lần giao ĐẦU nên tạo batch MỚI cho cùng 1 Exam/VideoSet — deliverToClass bên trong lại
+        // tái dùng NGUYÊN bản ExerciseAssignment/ReviewVideoAssignment ACTIVE cũ (cùng buổi nguồn+hạn
+        // nộp) rồi gán FK sang batch MỚI đó, làm "mồ côi" batch CŨ mà học sinh đã Gửi vẫn đang tham
+        // chiếu — nhận xét lịch sử của họ hiện "—" dù trước đó có bài. Fix: tính thêm existing* từ TOÀN
+        // BỘ nhận xét của buổi (kể cả đã khoá) để tái dùng ĐÚNG batch/assignment đang có thay vì tạo
+        // bản trùng, còn previous* vẫn giữ nguyên ý nghĩa cũ (chỉ huỷ batch mà nhóm editable đang giữ).
+        List<StudentComment> allSessionComments = studentCommentRepository.findByClassSessionId(classSessionId);
+        HomeworkSkillBatch existingGrammarBatch = firstNonNull(allSessionComments, StudentComment::getHomeworkNextGrammarBatch);
+        ReviewVideoAssignment existingVideoAssignment = firstNonNull(allSessionComments, StudentComment::getHomeworkNextReviewVideoAssignment);
+        HomeworkSkillBatch existingReadingBatch = firstNonNull(allSessionComments, StudentComment::getHomeworkNextReadingBatch);
+        HomeworkSkillBatch existingWritingBatch = firstNonNull(allSessionComments, StudentComment::getHomeworkNextWritingBatch);
 
-        HomeworkSkillBatch grammarBatch = materializeExamHomework(session, request.grammarExamId(), previousGrammarBatch,
+        HomeworkSkillBatch grammarBatch = materializeExamHomework(session, request.grammarExamId(), request.grammarExerciseIds(), previousGrammarBatch, existingGrammarBatch,
                 grammarChannelSkillCategory(session.getTeacherType()), dueAt, lateSubmissionAllowed, actorUserId);
-        ReviewVideoAssignment videoAssignment = materializeVideoHomework(session, request.videoSetId(), previousVideoAssignment,
+        ReviewVideoAssignment videoAssignment = materializeVideoHomework(session, request.videoSetId(), previousVideoAssignment, existingVideoAssignment,
                 dueAt, lateSubmissionAllowed, actorUserId);
-        HomeworkSkillBatch readingBatch = materializeExamHomework(session, request.readingExamId(), previousReadingBatch,
+        HomeworkSkillBatch readingBatch = materializeExamHomework(session, request.readingExamId(), request.readingExerciseIds(), previousReadingBatch, existingReadingBatch,
                 Exercise.SkillCategory.READING, dueAt, lateSubmissionAllowed, actorUserId);
-        HomeworkSkillBatch writingBatch = materializeExamHomework(session, request.writingExamId(), previousWritingBatch,
+        HomeworkSkillBatch writingBatch = materializeExamHomework(session, request.writingExamId(), request.writingExerciseIds(), previousWritingBatch, existingWritingBatch,
                 Exercise.SkillCategory.WRITING, dueAt, lateSubmissionAllowed, actorUserId);
 
         for (StudentComment comment : editable) {
@@ -1721,44 +1782,75 @@ public class StudentCommentService {
      * Giao/huỷ BTVN kênh dùng {@link HomeworkSkillBatch} (Ngữ pháp/Bài nghe dùng chung field theo
      * {@code skillCategory} truyền vào, Reading, Writing) — mirror {@link #materializeVideoHomework}
      * cho kênh Video. {@code examId=null} huỷ bản cũ (nếu có), không giao gì; không đổi so với
-     * {@code previous} (cùng Exam + cùng hạn nộp + cùng "cho phép nộp muộn") thì giữ nguyên, không tạo
+     * {@code existing} (cùng Exam + cùng hạn nộp + cùng "cho phép nộp muộn") thì giữ nguyên, không tạo
      * lại — khác cơ chế cũ (chỉ so Exam, bỏ sót trường hợp CHỈ đổi hạn nộp mà giữ nguyên đề).
+     *
+     * 2026-09-22 (fix bug thật, đã xác nhận với người dùng) — tách riêng {@code previous} (batch nhóm
+     * `editable` ĐANG giữ, dùng để quyết định có cần huỷ hay không) khỏi {@code existing} (batch của
+     * TOÀN BỘ buổi, kể cả học sinh đã Gửi/Duyệt — dùng để quyết định có TÁI DÙNG hay không). Trước đây
+     * chỉ có 1 tham số {@code previous} lấy từ `editable`, nên khi `editable` toàn dòng MỚI (VD editable
+     * chỉ còn học sinh Vắng/Có phép vừa mở khoá, mọi học sinh khác đã Gửi từ trước) thì {@code previous}
+     * luôn null dù buổi NÀY đã có batch — hàm tưởng nhầm là giao mới, gọi assignBatchToClass tạo 1
+     * {@link HomeworkSkillBatch} MỚI cho CÙNG Exam, trong khi {@code exerciseService.deliverToClass}
+     * bên trong lại tái dùng nguyên {@code ExerciseAssignment} ACTIVE cũ (cùng buổi nguồn+hạn nộp) rồi
+     * gán FK sang batch MỚI — "mồ côi" batch CŨ mà học sinh đã Gửi vẫn đang tham chiếu (họ tự nhiên mất
+     * trắng BTVN đã giao, hiện "—"). Giờ ưu tiên tái dùng {@code existing} nếu khớp tham số — không tạo
+     * batch trùng, không đụng gì tới học sinh đã khoá; chỉ huỷ {@code previous} khi nó KHÁC batch cuối
+     * cùng trả về (tức nhóm editable trước đó đang giữ 1 lựa chọn khác, giờ đổi sang dùng chung với
+     * phần còn lại của buổi).
      */
-    private HomeworkSkillBatch materializeExamHomework(ClassSession session, Long examId, HomeworkSkillBatch previous,
-                                                        Exercise.SkillCategory skillCategory, OffsetDateTime dueAt,
-                                                        boolean lateSubmissionAllowed, Long actorUserId) {
+    private HomeworkSkillBatch materializeExamHomework(ClassSession session, Long examId, List<Long> exerciseIds, HomeworkSkillBatch previous,
+                                                        HomeworkSkillBatch existing, Exercise.SkillCategory skillCategory,
+                                                        OffsetDateTime dueAt, boolean lateSubmissionAllowed, Long actorUserId) {
         if (examId == null) {
             if (previous != null) {
                 homeworkSkillBatchService.cancelBatch(previous);
             }
             return null;
         }
-        if (previous != null && previous.getExam().getId().equals(examId)
-                && batchDueAt(previous).isEqual(dueAt) && batchLateSubmissionAllowed(previous) == lateSubmissionAllowed) {
-            return previous;
+        // Bổ sung 2026-09-23 (đã xác nhận với người dùng) — examId khác null nghĩa là GV CÓ chọn kênh
+        // này, bắt buộc phải kèm ít nhất 1 Bài (checklist rỗng = coi như chưa chọn gì, FE phải tự gửi
+        // examId=null trong trường hợp đó, không gửi examId kèm danh sách rỗng).
+        if (exerciseIds == null || exerciseIds.isEmpty()) {
+            throw new IllegalArgumentException("Chưa chọn Bài nào cho kỹ năng " + skillCategory + " — bỏ chọn hết Lesson nếu không muốn giao kênh này.");
+        }
+        Set<Long> desiredExerciseIds = new HashSet<>(exerciseIds);
+        HomeworkSkillBatch reusable = existing != null ? existing : previous;
+        if (reusable != null && reusable.getExam().getId().equals(examId)
+                && batchDueAt(reusable).isEqual(dueAt) && batchLateSubmissionAllowed(reusable) == lateSubmissionAllowed
+                && new HashSet<>(batchExerciseIds(reusable)).equals(desiredExerciseIds)) {
+            if (previous != null && !previous.getId().equals(reusable.getId())) {
+                homeworkSkillBatchService.cancelBatch(previous);
+            }
+            return reusable;
         }
         examRepository.findByIdAndDeletedAtIsNull(examId)
                 .orElseThrow(() -> new ResourceNotFoundException("error.studentComment.examNotFoundById", new Object[]{examId}, "Không tìm thấy Đề (Lesson) id=" + examId));
         HomeworkSkillBatch batch = homeworkSkillBatchService.assignBatchToClass(
-                examId, skillCategory, session.getSchoolClass().getId(), dueAt, lateSubmissionAllowed, actorUserId, session);
+                examId, skillCategory, session.getSchoolClass().getId(), exerciseIds, dueAt, lateSubmissionAllowed, actorUserId, session);
         if (previous != null) {
             homeworkSkillBatchService.cancelBatch(previous);
         }
         return batch;
     }
 
-    /** Mirror {@link #materializeExamHomework} cho kênh Video Ôn tập (TKN/Clip phản xạ). */
+    /** Mirror {@link #materializeExamHomework} cho kênh Video Ôn tập (TKN/Clip phản xạ) — xem Javadoc đó để biết ý nghĩa {@code previous} vs {@code existing}. */
     private ReviewVideoAssignment materializeVideoHomework(ClassSession session, Long videoSetId, ReviewVideoAssignment previous,
-                                                            OffsetDateTime dueAt, boolean lateSubmissionAllowed, Long actorUserId) {
+                                                            ReviewVideoAssignment existing, OffsetDateTime dueAt,
+                                                            boolean lateSubmissionAllowed, Long actorUserId) {
         if (videoSetId == null) {
             if (previous != null) {
                 reviewVideoService.cancelAssignment(previous);
             }
             return null;
         }
-        if (previous != null && previous.getReviewVideoSet().getId().equals(videoSetId)
-                && previous.getDueAt().isEqual(dueAt) && previous.isLateSubmissionAllowed() == lateSubmissionAllowed) {
-            return previous;
+        ReviewVideoAssignment reusable = existing != null ? existing : previous;
+        if (reusable != null && reusable.getReviewVideoSet().getId().equals(videoSetId)
+                && reusable.getDueAt().isEqual(dueAt) && reusable.isLateSubmissionAllowed() == lateSubmissionAllowed) {
+            if (previous != null && !previous.getId().equals(reusable.getId())) {
+                reviewVideoService.cancelAssignment(previous);
+            }
+            return reusable;
         }
         reviewVideoSetRepository.findById(videoSetId)
                 .orElseThrow(() -> new ResourceNotFoundException("error.studentComment.videoSetNotFoundById", new Object[]{videoSetId}, "Không tìm thấy bộ video id=" + videoSetId));
@@ -1897,8 +1989,14 @@ public class StudentCommentService {
         }
         long questionCount = assignments.stream()
                 .mapToLong(a -> exerciseQuestionRepository.countByExerciseId(a.getExercise().getId())).sum();
-        return batch.getExam().getCode() + " - " + batch.getExam().getTitle()
+        return batch.getExam().getTitle()
                 + " (" + skillCategoryLabel(batch.getSkillCategory()) + ", " + assignments.size() + " bài, " + questionCount + " câu)";
+    }
+
+    /** Bổ sung 2026-09-23 — id từng Bài THẬT trong 1 Lô, mirror {@link #batchLabel} (cùng nguồn dữ liệu). */
+    private List<Long> batchExerciseIds(HomeworkSkillBatch batch) {
+        return exerciseAssignmentRepository.findByHomeworkBatchId(batch.getId()).stream()
+                .map(a -> a.getExercise().getId()).toList();
     }
 
     /** V150 — hạn nộp chung của 1 Lô (mọi bản giao con trong cùng lô luôn cùng 1 dueAt, xem HomeworkSkillBatchService#assignBatchToClass). */
@@ -1922,7 +2020,7 @@ public class StudentCommentService {
         List<Exercise> sources = exerciseRepository.findByExamIdAndSkillCategoryAndStatus(
                 exam.getId(), skillCategory, Exercise.Status.PUBLISHED);
         long questionCount = sources.stream().mapToLong(e -> exerciseQuestionRepository.countByExerciseId(e.getId())).sum();
-        return exam.getCode() + " - " + exam.getTitle()
+        return exam.getTitle()
                 + " (" + skillCategoryLabel(skillCategory) + ", " + sources.size() + " bài, " + questionCount + " câu)";
     }
 
@@ -2053,14 +2151,24 @@ public class StudentCommentService {
     /**
      * UC-21 mở rộng — cơ chế lock theo điểm danh (đã xác nhận với người dùng 2026-09-17, THẮT CHẶT
      * lại quyết định 2026-07-24 vốn chỉ nới lỏng "không cần điền" — không cấm — cho học sinh Vắng/Có
-     * phép): học
-     * sinh đã điểm danh ABSENT/EXCUSED cho đúng buổi này thì KHÔNG được ghi/sửa nhận xét hàng ngày
-     * nữa — chặn cứng (throw), không âm thầm bỏ qua. Nội dung đã ghi TRƯỚC KHI điểm danh chuyển sang
+     * phép; NỚI LẠI 2026-09-22, đã xác nhận với người dùng): học sinh đã điểm danh ABSENT/EXCUSED cho
+     * đúng buổi này KHÔNG được ghi/sửa Nhận xét ({@code content}/{@code structuredContent}/
+     * {@code note}), điểm BTVN buổi trước ({@code homeworkPreviousScore*}) hay Thái độ
+     * ({@code attitude}) nữa — chặn cứng (throw), không âm thầm bỏ qua. Riêng BTVN buổi sau dạng chữ
+     * tự do ({@code homeworkNext}/{@code homeworkNextReading}/{@code homeworkNextWriting}) KHÔNG còn
+     * bị khoá — học sinh vắng vẫn được giao bài bình thường (mirror {@link #applyHomeworkToClass} đã
+     * nới cho BTVN dạng batch). Nội dung Nhận xét/Thái độ đã ghi TRƯỚC KHI điểm danh chuyển sang
      * Vắng/Có phép được tự xóa ngay lúc điểm danh, xem
      * {@code StudentAttendanceService#resetDailyCommentIfLocked} (chặn ở đây chỉ lo phần ghi MỚI).
      */
-    private void requireNotLockedByAttendance(Long classSessionId, Long studentId, String studentFullName) {
-        requireNotLockedByAttendance(currentAttendanceByStudent(classSessionId), studentId, studentFullName);
+    private void requireNotLockedByAttendance(Long classSessionId, Long studentId, String studentFullName,
+                                               String content, Map<String, Object> structuredContent, String attitude,
+                                               String homeworkPreviousScore, String homeworkPreviousSpeakingScore,
+                                               String homeworkPreviousReadingScore, String homeworkPreviousWritingScore,
+                                               String note) {
+        requireNotLockedByAttendance(currentAttendanceByStudent(classSessionId), studentId, studentFullName,
+                content, structuredContent, attitude, homeworkPreviousScore, homeworkPreviousSpeakingScore,
+                homeworkPreviousReadingScore, homeworkPreviousWritingScore, note);
     }
 
     /**
@@ -2068,14 +2176,28 @@ public class StudentCommentService {
      * cho cả lô thay vì để mỗi dòng tự gọi lại {@link #currentAttendanceByStudent} (N+1 query, mirror
      * đúng tinh thần fix N+1 đã áp dụng ở submitComments/decideComments — xem previousCommentsByClassSessionAndStudent).
      */
-    private void requireNotLockedByAttendance(Map<Long, AttendanceMark.Status> attendanceByStudent, Long studentId, String studentFullName) {
+    private void requireNotLockedByAttendance(Map<Long, AttendanceMark.Status> attendanceByStudent, Long studentId, String studentFullName,
+                                               String content, Map<String, Object> structuredContent, String attitude,
+                                               String homeworkPreviousScore, String homeworkPreviousSpeakingScore,
+                                               String homeworkPreviousReadingScore, String homeworkPreviousWritingScore,
+                                               String note) {
         AttendanceMark.Status status = attendanceByStudent.get(studentId);
-        if (status == AttendanceMark.Status.ABSENT || status == AttendanceMark.Status.EXCUSED) {
+        if (status != AttendanceMark.Status.ABSENT && status != AttendanceMark.Status.EXCUSED) {
+            return;
+        }
+        boolean hasLockedField = notBlank(content) || (structuredContent != null && !structuredContent.isEmpty())
+                || attitude != null || notBlank(homeworkPreviousScore) || notBlank(homeworkPreviousSpeakingScore)
+                || notBlank(homeworkPreviousReadingScore) || notBlank(homeworkPreviousWritingScore) || notBlank(note);
+        if (hasLockedField) {
             throw new StudentCommentNotEditableException(
                     "error.studentCommentNotEditable.lockedByAttendance", new Object[]{studentFullName, attendanceLabel(status)},
                     "Học sinh " + studentFullName + " đã điểm danh " + attendanceLabel(status)
-                            + " cho buổi này — không thể ghi nhận xét.");
+                            + " cho buổi này — không thể ghi nhận xét/thái độ (vẫn giao BTVN buổi sau được).");
         }
+    }
+
+    private static boolean notBlank(String s) {
+        return s != null && !s.isBlank();
     }
 
     private AttendanceMark.Status parseAttendanceStatus(String text) {
@@ -2210,6 +2332,12 @@ public class StudentCommentService {
         if (comment.getRejectionReason() != null && !comment.getRejectionReason().isBlank()) {
             metadata.put("reason", comment.getRejectionReason());
         }
+        // Link hoá thông báo (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-23) — GV bấm
+        // "Xem chi tiết" nhảy thẳng tới đúng lớp/buổi/học sinh vừa bị từ chối ở màn "Viết nhận xét" thay
+        // vì phải tự dò tìm lại (xem NotificationService#resolveNavigationHints case STUDENT_COMMENT).
+        metadata.put("classId", comment.getSchoolClass().getId());
+        metadata.put("classSessionId", comment.getClassSession().getId());
+        metadata.put("studentId", comment.getStudent().getId());
         notificationService.notify(comment.getTeacher().getId(), Notification.NotificationType.COMMENT_REJECTED, title, content,
                 metadata, "STUDENT_COMMENT", comment.getId(), Notification.Priority.NORMAL, null);
     }

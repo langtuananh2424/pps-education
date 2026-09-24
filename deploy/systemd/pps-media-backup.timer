@@ -1,0 +1,10 @@
+[Unit]
+Description=Chay pps-media-backup.service hang ngay luc 03:15 (sau backup DB 02:30)
+
+[Timer]
+OnCalendar=*-*-* 03:15:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

@@ -117,7 +117,17 @@
     "notifications": {
       "title": "Operational notifications",
       "newCount": "{{count}} new",
-      "empty": "No notifications yet."
+      "empty": "No notifications yet.",
+      "viewDetail": "View details"
+    },
+    "enablePush": {
+      "title": "Enable push notifications",
+      "description": "Get notified about homework, grades and your teaching schedule right on this device.",
+      "button": "Enable notifications",
+      "enabling": "Enabling...",
+      "ariaLabel": "Enable push notifications on this device",
+      "dismiss": "Dismiss",
+      "failedHint": "Couldn't enable push notifications — please check your browser's notification permission and try again."
     },
     "profileMenu": {
       "fallbackName": "PPS Staff",
