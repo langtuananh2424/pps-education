@@ -134,16 +134,174 @@ docker compose -f docker-compose.yml logs minio-init   # thay "up" xanh: "bucket
 
 Fallback thủ công (chỉ khi cần chạy lại ngoài luồng compose, VD sau khi xoá
 nhầm policy) — thay `pps-staging_internal` bằng `pps-production_internal` cho
-prod:
+prod. Dùng **đúng image `mc` đã ghim** trong compose (xem 3a — `minio/mc` trên
+Docker Hub không còn tồn tại):
 
 ```bash
 docker run --rm --network pps-staging_internal --entrypoint /bin/sh \
-  -e MC_HOST_s="http://<S3_ACCESS_KEY>:<S3_SECRET_KEY>@minio:9000" minio/mc \
+  -e MC_HOST_s="http://<S3_ACCESS_KEY>:<S3_SECRET_KEY>@minio:9000" \
+  quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727 \
   -c 'mc mb --ignore-existing s/pps-media && mc anonymous set download s/pps-media'
 ```
 
 Nếu có dữ liệu cũ thật trên R2 cần giữ lại: dùng `rclone`/`mc mirror` chuyển
 1 lần trước khi cắt hẳn sang MinIO (không tự động, làm tay khi cần).
+
+### 3a. Nguồn image MinIO — ghim phiên bản, KHÔNG dùng `:latest`
+
+2026-09-24 phát hiện Docker Hub đã **gỡ hẳn** `minio/minio` và `minio/mc`
+(`docker pull minio/minio:latest` → "pull access denied ... repository does
+not exist"). Bối cảnh: từ 23/10/2025 MinIO community chỉ phát hành mã nguồn,
+không build binary/image mới; repo GitHub `minio/minio` bị archive
+13/02/2026. Registry chính thức còn lại là `quay.io/minio/*` (bản cuối
+`RELEASE.2025-09-07T16-13-09Z`), nhưng quay.io cũng có thể bị gỡ bất cứ lúc
+nào.
+
+Compose production/staging giờ ghim **tag + digest**:
+
+| Service | Image |
+|---|---|
+| `minio` | `quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e` |
+| `minio-init` | `quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727` |
+
+Nguyên tắc:
+
+- **Không đổi phiên bản MinIO tùy tiện.** MinIO bản mới có thể nâng cấp định
+  dạng dữ liệu trong `/data` (`xl.meta`, `.minio.sys`) một chiều — chạy bản mới
+  lên `/mnt/pps-production/media` rồi thì không chắc quay về bản cũ được. Mọi
+  lần đổi image `minio` phải backup media trước (xem 3b bước 3).
+- Mọi lệnh `docker run ... mc` thủ công (fallback ở trên, tạo tài khoản MinIO
+  chỉ-đọc cho backup media...) dùng đúng image `mc` đã ghim ở bảng trên,
+  không dùng `minio/mc` hay `:latest`.
+- `docker system prune -a` xoá mọi image không có container dùng — sau khi
+  pull được image ghim, **lưu 1 bản offline** (3b bước 6) để dựng lại server
+  vẫn được nếu quay.io cũng gỡ.
+
+### 3b. Chuyển server đang chạy sang image ghim (làm 1 lần, staging trước)
+
+CD tự đồng bộ `docker-compose.yml` từ repo nhưng chỉ `pull`/`up` service
+`backend` — container `minio` đang chạy **không bị đụng** khi merge. Việc đổi
+image chỉ xảy ra khi ai đó chạy `docker compose up -d` toàn stack, nên phải
+làm tay theo thứ tự dưới đây ngay sau khi thay đổi lên server, **làm trên
+staging trước**, xong mới tới production. Ví dụ cho production (staging: đổi
+`production` → `staging`, container `pps-staging-minio-1`):
+
+1. **Xác định phiên bản đang chạy thật** — chỉ đọc, không đổi gì:
+
+   ```bash
+   cd /opt/pps-education/production
+   docker exec pps-production-minio-1 minio --version
+   docker inspect --format '{{.Image}}' pps-production-minio-1
+   docker image inspect --format '{{json .RepoDigests}}' minio/minio:latest minio/mc:latest
+   ```
+
+   - Kỳ vọng: `RELEASE.2025-09-07T16-13-09Z` (commit `07c3a429bfed`) và
+     RepoDigest `minio/minio@sha256:14cea493...8936e` — cùng digest với image
+     ghim → đổi image thực chất là cùng 1 image, không có nâng cấp định dạng.
+   - Nếu ra **phiên bản khác**: DỪNG, không recreate. Mở PR mới ghim đúng tag
+     đó trên quay.io (`quay.io/minio/minio:RELEASE.<đúng bản đang chạy>` +
+     digest; danh sách tag:
+     `curl -s 'https://quay.io/api/v1/repository/minio/minio/tag/?limit=100&onlyActiveTags=true'`)
+     rồi làm lại từ đầu. Nâng phiên bản là việc riêng, có kế hoạch + backup.
+   - Nếu `minio/mc:latest` không còn trong cache: không sao (`minio-init`
+     không giữ dữ liệu).
+
+2. **Lưu image đang chạy ra file** (đường quay lại nếu cần):
+
+   ```bash
+   sudo mkdir -p /opt/pps-education/backups/images
+   docker save minio/minio:latest | gzip | \
+     sudo tee /opt/pps-education/backups/images/minio-dockerhub-latest-$(date +%F).tar.gz > /dev/null
+   ```
+
+3. **Backup media trước khi recreate container:**
+   - Nếu đã triển khai `backup-media.sh` + timer (mục 11b): chạy
+     `sudo systemctl start pps-media-backup.service`, rồi
+     `journalctl -u pps-media-backup.service -n 20` phải có "Backup media hoan
+     tat, khong loi".
+   - Nếu chưa có: copy thô **khi MinIO đã dừng** (copy lúc đang chạy có thể
+     không nhất quán) sang 1 ổ/LV **khác** root filesystem, kiểm tra đủ chỗ
+     trước (`sudo du -sh /mnt/pps-production/media` so với `df -h <ĐÍCH>`).
+     Media public lỗi trong lúc copy → làm ngoài giờ học:
+
+     ```bash
+     docker compose stop minio
+     sudo rsync -aHAX /mnt/pps-production/media/ <ĐÍCH>/media-raw-$(date +%F)/
+     docker compose start minio
+     ```
+
+   Nên có cả bản copy thô này kể cả khi đã có `backup-media.sh`: nó khôi phục
+   đúng nguyên trạng (cả định dạng nội bộ) cho phiên bản MinIO cũ — đường
+   rollback nếu bước 4 làm hỏng dữ liệu.
+
+4. **Pull + đổi image** (compose file đã được CD đồng bộ; nếu chưa, copy tay
+   `deploy/docker-compose.production.yml` như mục 2):
+
+   ```bash
+   grep -n 'image: quay.io/minio' docker-compose.yml   # phải thấy 2 dòng đã ghim
+   docker compose pull minio minio-init
+   docker compose up -d --no-deps minio
+   docker compose up --no-deps minio-init              # phải thấy "bucket pps-media da san sang"
+   ```
+
+   `minio` restart vài giây (upload/xem media lỗi trong lúc đó). Không cần
+   restart `backend` (endpoint `http://minio:9000` không đổi).
+
+5. **Kiểm tra:**
+
+   ```bash
+   docker exec pps-production-minio-1 minio --version   # RELEASE.2025-09-07T16-13-09Z
+   docker compose ps minio
+   docker compose logs --tail 50 minio                  # không có lỗi định dạng/"unformatted"/"corrupted"
+   curl -sI https://files.ppsvietnam.edu.vn/<key 1 file có thật> | head -1   # HTTP 200
+   ```
+
+   Rồi thử upload 1 file qua app (VD ảnh đại diện) và mở lại được.
+
+6. **Lưu image ghim ra file** (sau khi đã chạy ổn):
+
+   ```bash
+   docker save \
+     quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z \
+     quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z | gzip | \
+     sudo tee /opt/pps-education/backups/images/minio-quay-pinned.tar.gz > /dev/null
+   ```
+
+   Khôi phục khi registry không còn: `gunzip -c <file> | docker load`, rồi
+   `docker image inspect --format '{{json .RepoDigests}}' <image>` — đã thử
+   với containerd image store: digest được giữ, compose ghim `@sha256:` chạy
+   luôn không cần pull. Nếu server dùng image store cũ (overlay2) và
+   RepoDigests rỗng → compose sẽ cố pull: bỏ tạm phần `@sha256:...` trong
+   `docker-compose.yml` trên server (tag vẫn trỏ đúng image vừa load).
+
+**Rollback** (nếu bước 5 lỗi): `docker compose stop minio`; nếu dữ liệu hỏng
+thì khôi phục `/mnt/pps-production/media` từ bản copy thô bước 3;
+`gunzip -c <file bước 2> | docker load`; sửa tạm `image: minio/minio:latest`
+trong `docker-compose.yml` trên server; `docker compose up -d --no-deps
+minio` — rồi báo lại để sửa repo (CD lần sau sẽ ghi đè file compose).
+
+### 3c. Hướng lâu dài (chưa làm — cần quyết định riêng)
+
+Image ghim ở trên **không còn được vá bảo mật** (VD CVE-2025-62506 — leo
+thang quyền qua session policy của service account/STS; hệ thống không dùng
+tính năng này, MinIO chỉ nghe trong network `internal` + `127.0.0.1`, public
+chỉ đi qua Nginx GET, nên rủi ro thấp nhưng không bằng 0). Các lựa chọn:
+
+- **`cgr.dev/chainguard/minio` + `cgr.dev/chainguard/minio-client`** —
+  Chainguard tự build từ mã nguồn và vẫn vá. Lưu ý: bản miễn phí chỉ có tag
+  `latest` (ghim được theo digest nhưng digest cũ có thể bị dọn); hiện là
+  `RELEASE.2026-09-22T19-25-18Z` — **nhảy 1 năm phiên bản so với dữ liệu hiện
+  có** → coi như nâng cấp định dạng, phải thử trên bản copy dữ liệu trước;
+  chạy user `65532` (không phải root) → phải `chown -R 65532:65532` thư mục
+  dữ liệu; `minio-client:latest` entrypoint `mc` và **không có `/bin/sh`** →
+  `minio-init` phải dùng `minio-client:latest-dev` (có shell) hoặc viết lại
+  thành các lệnh `mc` riêng.
+- **Chuyển sang object storage khác tương thích S3** (Garage, SeaweedFS,
+  RustFS, Ceph RGW...) — backend chỉ dùng S3 API (`R2_ENDPOINT_URL`) nên chỉ
+  đổi config + chuyển dữ liệu 1 lần bằng `rclone copy` S3→S3, kiểm tra lại
+  hành vi anonymous download của bucket.
+- **Tự build image từ mã nguồn MinIO** (release cuối + tự vá) — tốn công bảo
+  trì, chỉ nên chọn nếu 2 hướng trên không ổn.
 
 ## 4. Nginx + Cloudflare Tunnel
 
@@ -778,11 +936,11 @@ sudo chmod 600 /opt/pps-education/media-backup.env
 # nhu compose -> sai mat khau. File tam 600, xoa ngay sau khi dung.
 sudo -u deploy bash -c 'umask 077; docker inspect -f "{{range .Config.Env}}{{println .}}{{end}}" pps-production-minio-1 | grep -E "^MINIO_ROOT_(USER|PASSWORD)=" > /tmp/pps-minio-root.env'
 
-# Policy: chi ListBucket + GetObject tren dung bucket pps-media. Dung image
-# minio/mc da co san tren server (minio-init dung) - xem canh bao ben duoi.
+# Policy: chi ListBucket + GetObject tren dung bucket pps-media. Dung dung
+# image mc da ghim nhu service minio-init (xem muc 3a).
 sudo -u deploy docker run --rm --network pps-production_internal \
   --env-file /tmp/pps-minio-root.env --env-file /opt/pps-education/media-backup.env \
-  --entrypoint sh minio/mc:latest -c '
+  --entrypoint sh quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727 -c '
 set -e
 mc alias set m http://minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" > /dev/null
 printf "%s" "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"s3:GetBucketLocation\",\"s3:ListBucket\"],\"Resource\":[\"arn:aws:s3:::pps-media\"]},{\"Effect\":\"Allow\",\"Action\":[\"s3:GetObject\"],\"Resource\":[\"arn:aws:s3:::pps-media/*\"]}]}" > /tmp/p.json
@@ -793,10 +951,9 @@ mc admin policy attach m pps-media-read --user "$RCLONE_S3_ACCESS_KEY_ID"
 sudo rm -f /tmp/pps-minio-root.env
 ```
 
-> ⚠️ Docker Hub đã gỡ repo `minio/minio` và `minio/mc` (phát hiện 2026-09-24,
-> API trả 404). Lệnh trên chạy được vì server còn image `minio/mc:latest` cache
-> từ `minio-init` — KHÔNG `docker image rm`/`docker system prune -a` image này
-> cho tới khi compose chuyển sang image thay thế.
+> Image `mc` ở trên là bản ghim trên quay.io, giống `minio-init` (Docker Hub đã
+> gỡ `minio/mc`, xem mục 3a). Nếu quay.io cũng gỡ: nạp lại từ file lưu offline
+> ở mục 3b bước 6 (`gunzip -c <file> | docker load`).
 
 **5. Chạy thử rồi bật timer:**
 

@@ -70,7 +70,14 @@ services:
       retries: 10
 
   minio:
-    image: minio/minio:latest
+    # Docker Hub da GO minio/minio + minio/mc (phat hien 2026-09-24); MinIO
+    # community tu 10/2025 chi phat hanh ma nguon, KHONG build image moi.
+    # quay.io/minio la registry chinh thuc con lai -> GHIM tag + digest (khong
+    # dung :latest). RELEASE.2025-09-07T16-13-09Z = ban cuoi cung tung la
+    # minio/minio:latest -> cung dinh dang du lieu dang chay tren server. Doi
+    # phien ban MinIO = co the nang cap dinh dang /data KHONG quay lui duoc ->
+    # backup media truoc, xem deploy/README.md muc 3.
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
@@ -91,7 +98,9 @@ services:
   # up`, idempotent (--ignore-existing + set lai policy). Backend cho service
   # nay xong moi khoi dong (xem depends_on ben duoi).
   minio-init:
-    image: minio/mc:latest
+    # Ghim cung ly do voi service minio o tren (can /bin/sh cho entrypoint ben
+    # duoi - image chainguard/minio-client:latest KHONG co shell).
+    image: quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727
     depends_on: [minio]
     entrypoint: ["/bin/sh", "-c"]
     command:

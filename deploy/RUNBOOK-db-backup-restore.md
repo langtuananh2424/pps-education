@@ -310,7 +310,7 @@ sudo find /mnt/pps-backup/media -path '*<mot-phan-ten-file>*' -printf '%TY-%Tm-%
 ```bash
 sudo -u deploy docker run --rm --network pps-production_internal \
   --env-file /tmp/pps-minio-root.env -v /mnt/pps-backup/media:/bk:ro \
-  --entrypoint sh minio/mc:latest -c '
+  --entrypoint sh quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727 -c '
 mc alias set m http://minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" > /dev/null &&
 mc cp "/bk/current/<key>" "m/pps-media/<key>"'
 ```
@@ -324,7 +324,7 @@ không ghi đè file đang có. Chạy `--dry-run` trước để xem danh sách
 ```bash
 sudo -u deploy docker run --rm --network pps-production_internal \
   --env-file /tmp/pps-minio-root.env -v /mnt/pps-backup/media:/bk:ro \
-  --entrypoint sh minio/mc:latest -c '
+  --entrypoint sh quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727 -c '
 mc alias set m http://minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" > /dev/null &&
 mc mb --ignore-existing m/pps-media &&
 mc mirror --dry-run /bk/current m/pps-media'
@@ -342,8 +342,9 @@ sudo rm -f /tmp/pps-minio-root.env
 Kiểm tra: mở lại trên app đúng bài học/bài nộp có file vừa khôi phục, hoặc
 `curl -sI https://files.ppsvietnam.edu.vn/<key>` phải trả `200`.
 
-> Lệnh trên dùng image `minio/mc:latest` còn cache trên server — Docker Hub đã
-> gỡ repo này (2026-09-24). Nếu image mất, xem ghi chú ở README mục 11b.
+> Lệnh trên dùng image `mc` đã ghim trên quay.io (giống `minio-init`; Docker Hub
+> đã gỡ `minio/mc`). Nếu quay.io cũng gỡ: nạp lại từ file lưu offline, xem
+> README mục 3b bước 6.
 
 ## 5. Dọn dẹp
 
