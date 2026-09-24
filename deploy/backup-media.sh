@@ -14,6 +14,10 @@
 #                     object bi xoa tren MinIO (xoa nham van con de lay lai).
 # - changed/<ts>/   : ban cu cua object bi GHI DE (rclone --backup-dir), giu
 #                     KEEP_CHANGED_DAYS ngay.
+# - Laptop keo current/ ve qua SFTP (user chi-doc pps-backup-pull, group
+#   READER_GROUP) roi ma hoa bang rclone crypt - xem deploy/laptop/tai-backup.cmd
+#   va deploy/README.md muc 11b. Script cap quyen doc RIENG current/ cho group
+#   nay sau moi lan chay (umask 077 ben duoi lam file moi chi deploy doc duoc).
 # Tai khoan MinIO dung o day chi co quyen DOC bucket pps-media (khong dung
 # root) - credentials trong CRED_FILE, xem README muc 11b.
 set -uo pipefail
@@ -28,6 +32,7 @@ CRED_FILE=${CRED_FILE:-/opt/pps-education/media-backup.env}
 MINIO_ENDPOINT=${MINIO_ENDPOINT:-http://127.0.0.1:9000}
 BUCKET=pps-media
 KEEP_CHANGED_DAYS=90
+READER_GROUP=pps-backup
 MIN_FREE_MB=10240
 
 LOG_FILE="$MEDIA_BACKUP_ROOT/backup-media.log"
@@ -94,6 +99,17 @@ fi
 find "$MEDIA_BACKUP_ROOT/changed" -mindepth 1 -maxdepth 1 -type d -mtime "+$KEEP_CHANGED_DAYS" \
   -exec rm -rf {} + 2>>"$LOG_FILE"
 find "$MEDIA_BACKUP_ROOT/changed" -mindepth 1 -maxdepth 1 -type d -empty -delete 2>>"$LOG_FILE"
+
+# Cho group READER_GROUP DOC DUOC RIENG current/ (giong encrypted/ cua
+# backup-db.sh). changed/ va log van chi deploy doc. deploy phai thuoc group
+# nay thi moi chgrp duoc - loi o day chi canh bao, khong lam hong backup.
+if getent group "$READER_GROUP" > /dev/null; then
+  if chgrp "$READER_GROUP" "$MEDIA_BACKUP_ROOT" && chmod 0710 "$MEDIA_BACKUP_ROOT"       && chgrp -R "$READER_GROUP" "$MEDIA_BACKUP_ROOT/current"       && chmod -R g+rX,g-w "$MEDIA_BACKUP_ROOT/current"; then
+    log "Da cap quyen doc current/ cho group $READER_GROUP (laptop keo ve qua SFTP)"
+  else
+    log "Canh bao: khong cap duoc quyen doc current/ cho group $READER_GROUP (deploy da thuoc group nay chua?)"
+  fi
+fi
 
 count="$(find "$MEDIA_BACKUP_ROOT/current" -type f | wc -l)"
 log "Backup media: $count file, $(du -sh "$MEDIA_BACKUP_ROOT/current" | cut -f1) (current) + $(du -sh "$MEDIA_BACKUP_ROOT/changed" | cut -f1) (changed), con trong: $(df -Ph "$MEDIA_BACKUP_ROOT" | awk 'NR==2 {print $4}')"
