@@ -878,7 +878,10 @@ rclone copy ppsserver:/opt/pps-education/backups/encrypted D:\pps-db-backups --p
 ```
 
 `rclone copy` chỉ tải file mới, không xoá bản cũ trên laptop — chạy lại lệnh
-cuối mỗi lần laptop ở trong mạng trung tâm. Giải mã khi cần (Git Bash, passphrase
+cuối mỗi lần laptop ở trong mạng trung tâm. Dùng hằng ngày: chép
+`deploy/laptop/tai-backup.cmd` vào `D:\pps-db-backups\` rồi bấm đúp. Script
+kéo DB (bản `.gpg`) và media (mục 11b, mã hoá trên laptop), khai báo SFTP ngay
+trong lệnh, không cần `rclone.conf`. Giải mã khi cần (Git Bash, passphrase
 lấy từ password manager):
 
 ```bash
@@ -948,8 +951,10 @@ bucket bị `403 AccessDenied`.
   cùng kích thước (`rclone check --one-way --size-only`).
 - Lưu trên **LV riêng `/mnt/pps-backup`** — script từ chối chạy nếu LV chưa
   mount (tránh ghi thẳng lên `/`). LV này nằm **cùng SSD vật lý** với dữ liệu
-  gốc: chống xoá/ghi đè nhầm, lỗi app, KHÔNG chống hỏng ổ — bản off-site cho
-  media chưa có (dung lượng lớn, xem xét cùng lúc với cloud cho DB).
+  gốc: chống xoá/ghi đè nhầm, lỗi app, KHÔNG chống hỏng ổ. Bản ngoài server:
+  laptop kéo `current/` về qua LAN và **mã hoá ngay trên laptop** (mục
+  "Kéo media về laptop" bên dưới). Bản cloud chưa có (xem xét cùng lúc với
+  cloud cho DB).
 
 ### Cài đặt lần đầu
 
@@ -1041,6 +1046,43 @@ Kiểm tra tài khoản backup thật sự chỉ-đọc (phải báo `AccessDeni
 ```bash
 sudo -u deploy bash -c 'set -a; . /opt/pps-education/media-backup.env; set +a; echo test > /tmp/w.txt; RCLONE_S3_PROVIDER=Minio RCLONE_S3_ENDPOINT=http://127.0.0.1:9000 RCLONE_S3_ENV_AUTH=false rclone copyto /tmp/w.txt :s3:pps-media/_write_test.txt 2>&1 | tail -1; rm -f /tmp/w.txt'
 ```
+
+### Kéo media về laptop (mã hoá rclone crypt)
+
+Media là ảnh/audio của học sinh (có trẻ em) nên laptop **không lưu dạng file
+thường**. `deploy/laptop/tai-backup.cmd` (bước 2/2) kéo
+`/mnt/pps-backup/media/current` qua SFTP bằng user chỉ-đọc `pps-backup-pull`
+(mục 11), rồi ghi vào `D:\pps-db-backups\media` qua **rclone crypt**: cả tên
+file/thư mục lẫn nội dung đều mã hoá. Mất laptop không lộ media nếu không có
+mật khẩu.
+
+- Server: `backup-media.sh` cấp quyền đọc **riêng `current/`** cho group
+  `pps-backup` sau mỗi lần chạy. `changed/` và log vẫn chỉ `deploy` đọc được.
+  Lần đầu sau khi cập nhật script, chạy tay 1 lần để cấp quyền ngay:
+  `sudo -u deploy /opt/pps-education/backup-media.sh`.
+- Mật khẩu mã hoá: tự đặt (≥ 12 ký tự), lưu **Google Password Manager** mục
+  `pps-media-backup-crypt`, **khác** passphrase GPG của DB. Script hỏi mỗi lần
+  chạy (gõ ẩn, lần đầu gõ 2 lần). Để trống thì bỏ qua media, DB vẫn tải.
+  Mất mật khẩu thì không đọc lại được bản media trên laptop: xoá thư mục
+  `media\` rồi kéo lại với mật khẩu mới.
+- Script giữ file kiểm tra `.pps-crypt-check` (đã mã hoá) trong `media\`. Gõ
+  sai mật khẩu thì dừng lại, **không** ghi thêm file mã hoá bằng khoá khác.
+- Chỉ tải file mới. Object bị ghi đè trên server được thay trên laptop (bản cũ
+  vẫn còn ở `changed/` trên server 90 ngày). Object bị xoá không bị xoá theo.
+
+Xem/khôi phục trên laptop (PowerShell, giải mã ra thư mục tạm, xem xong thì
+xoá):
+
+```powershell
+$env:RCLONE_CRYPT_PASSWORD = (Read-Host 'Mat khau' -AsSecureString | ForEach-Object { [Runtime.InteropServices.Marshal]::PtrToStringBSTR([Runtime.InteropServices.Marshal]::SecureStringToBSTR($_)) } | rclone obscure -)
+rclone ls ":crypt,remote='D:\pps-db-backups\media':" --exclude /.pps-crypt-check
+rclone copy ":crypt,remote='D:\pps-db-backups\media':lms/questions/audio" D:\restore-media --exclude /.pps-crypt-check
+Remove-Item Env:RCLONE_CRYPT_PASSWORD
+```
+
+Đẩy ngược lên MinIO khi mất cả server: giải mã ra thư mục như trên rồi làm
+theo `RUNBOOK-db-backup-restore.md` mục 4.5 (nguồn là thư mục đã giải mã
+thay cho `/mnt/pps-backup/media/current`).
 
 ### Kiểm tra định kỳ
 
