@@ -19,6 +19,10 @@ on:
     branches: [main]
     paths:
       - "pps-education-backend/**"
+      # Them 2026-09-24: PR chi doi file compose (VD ghim image MinIO #553) truoc day KHONG kich hoat CD
+      # -> buoc "Dong bo docker-compose.yml" khong chay, file tren server lech repo. Luu y: CD van chi
+      # pull/up service backend - doi image service khac (minio...) van phai lam tay tren server.
+      - "deploy/docker-compose.staging.yml"
   workflow_dispatch: {} # cho phép bấm "Run workflow" tay trên GitHub, không cần commit mới (VD verify runner/redeploy thủ công)
 
 jobs:
