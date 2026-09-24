@@ -185,8 +185,11 @@ Nguyên tắc:
 
 ### 3b. Chuyển server đang chạy sang image ghim (làm 1 lần, staging trước)
 
-Trạng thái: **staging đã chuyển 2026-09-24** (415 object / 245MiB còn nguyên).
-Production chờ hotfix #559 rồi làm theo các bước dưới đây.
+Trạng thái: **đã chuyển xong cả staging lẫn production ngày 2026-09-24**
+(staging 415 object / 245MiB, production 21 object / 91MiB còn nguyên). Bản
+copy thô media production trước khi đổi:
+`/opt/pps-education/backups/media-raw-2026-09-24{,.tar.gz}`. Các bước dưới đây
+giữ lại để tham khảo khi dựng lại server hoặc đổi phiên bản MinIO.
 
 CD đồng bộ `docker-compose.yml` từ repo nhưng chỉ `pull`/`up` service
 `backend`, nên container `minio` đang chạy **không bị đụng** khi merge. Image
@@ -299,21 +302,34 @@ trước**, xong mới tới production. Ví dụ cho production (staging: đổ
    Lệnh `mc du` phải ra số object / dung lượng như trước khi đổi, không phải 0.
    Rồi thử upload 1 file qua app (VD ảnh đại diện) và mở lại được.
 
-6. **Lưu image ghim ra file** (sau khi đã chạy ổn):
+6. **Lưu image ghim ra file** (sau khi đã chạy ổn; production + staging dùng
+   chung nên chỉ cần 1 lần). **Đã làm 2026-09-24**: `minio-quay-pinned.tar.gz`,
+   81MB.
+
+   Compose pull theo `tag@sha256:`, nên image nằm trong store **chỉ có digest,
+   TAG `<none>`** (xem `docker image ls --digests | grep quay.io/minio`). Khi
+   đó `docker save <tag>` báo `No such image`. Pipe `| gzip` vẫn ra 1 file gzip
+   rỗng hợp lệ, `gzip -t` vẫn OK, nên lỗi không bị phát hiện. Phải gắn tag
+   trước rồi mới save, và kiểm tra **dung lượng** file chứ không chỉ `gzip -t`.
+   Gắn tag cũng giữ image không bị `docker image prune` dọn.
 
    ```bash
+   docker tag quay.io/minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
+   docker tag quay.io/minio/mc@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727 quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z
    docker save \
      quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z \
      quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z | gzip | \
      sudo tee /opt/pps-education/backups/images/minio-quay-pinned.tar.gz > /dev/null
+   sudo ls -lh /opt/pps-education/backups/images/   # ~80MB, KHÔNG phải vài chục byte
    ```
 
    Khôi phục khi registry không còn: `gunzip -c <file> | docker load`, rồi
-   `docker image inspect --format '{{json .RepoDigests}}' <image>`. Đã thử
-   với containerd image store: digest được giữ, compose ghim `@sha256:` chạy
-   luôn không cần pull. Nếu server dùng image store cũ (overlay2) và
-   RepoDigests rỗng thì compose sẽ cố pull. Khi đó bỏ tạm phần `@sha256:...`
-   trong `docker-compose.yml` trên server (tag vẫn trỏ đúng image vừa load).
+   `docker image inspect --format '{{json .RepoDigests}}' <image>`. Server
+   dùng containerd image store (IMAGE ID = digest), đã thử trên store này:
+   digest được giữ, compose ghim `@sha256:` chạy luôn không cần pull. Nếu một
+   máy khác dùng image store cũ (overlay2) và RepoDigests rỗng thì compose sẽ
+   cố pull. Khi đó bỏ tạm phần `@sha256:...` trong `docker-compose.yml` trên
+   máy đó (tag vẫn trỏ đúng image vừa load).
 
 **Rollback** (nếu bước 5 lỗi): `sudo -u deploy docker compose stop minio`;
 nếu dữ liệu hỏng thì khôi phục `/mnt/pps-production/media` từ bản copy thô
