@@ -20,4 +20,7 @@ public interface ReviewVideoConnectionAnswerRepository extends JpaRepository<Rev
 
     /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-26 — gate "Xóa video" (xem ReviewVideoService#deleteVideo): câu hỏi CONNECTION của video đã có học sinh trả lời thì không cho xóa. */
     boolean existsByReviewVideoConnectionQuestion_ReviewVideoId(Long reviewVideoId);
+
+    /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-24 — gate "Xóa câu hỏi" CONNECTION (xem ReviewVideoService#deleteConnectionQuestion). */
+    boolean existsByReviewVideoConnectionQuestionId(Long reviewVideoConnectionQuestionId);
 }
