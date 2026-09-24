@@ -67,6 +67,12 @@ server dù CI xanh, gây lệch giữa staging/production thật với repo mà 
 ai biết). Việc bootstrap tay ở đây chỉ còn cần thiết cho lần đầu (thư mục
 chưa tồn tại) — sau đó không cần copy tay nữa.
 
+Lưu ý: CD chỉ chạy khi push có đổi `pps-education-backend/**` hoặc đúng file
+`deploy/docker-compose.<stack>.yml` (bổ sung 2026-09-24 — trước đó PR chỉ đổi
+compose, VD ghim image MinIO, không kích hoạt CD nên file trên server không
+được cập nhật). CD vẫn chỉ `pull`/`up` service `backend`: đổi image của
+service khác (`minio`, `postgres`...) vẫn phải làm tay trên server, xem mục 3b.
+
 `.env` mỗi stack (tạo tay 1 lần, `chmod 600`, **không** đi qua GitHub/CI):
 
 ```
@@ -179,12 +185,21 @@ Nguyên tắc:
 
 ### 3b. Chuyển server đang chạy sang image ghim (làm 1 lần, staging trước)
 
-CD tự đồng bộ `docker-compose.yml` từ repo nhưng chỉ `pull`/`up` service
-`backend` — container `minio` đang chạy **không bị đụng** khi merge. Việc đổi
-image chỉ xảy ra khi ai đó chạy `docker compose up -d` toàn stack, nên phải
-làm tay theo thứ tự dưới đây ngay sau khi thay đổi lên server, **làm trên
-staging trước**, xong mới tới production. Ví dụ cho production (staging: đổi
-`production` → `staging`, container `pps-staging-minio-1`):
+Trạng thái: **staging đã chuyển 2026-09-24** (415 object / 245MiB còn nguyên).
+Production chờ hotfix #559 rồi làm theo các bước dưới đây.
+
+CD đồng bộ `docker-compose.yml` từ repo nhưng chỉ `pull`/`up` service
+`backend`, nên container `minio` đang chạy **không bị đụng** khi merge. Image
+chỉ đổi khi có người chạy `docker compose up -d` toàn stack. Vì vậy phải làm
+tay theo thứ tự dưới đây ngay sau khi thay đổi lên server, **làm trên staging
+trước**, xong mới tới production. Ví dụ cho production (staging: đổi
+`production` → `staging`, container `pps-staging-minio-1`).
+
+> Chạy mọi lệnh `docker compose` qua `sudo -u deploy`. `.env` của stack là
+> `chmod 600` thuộc user `deploy`, nên `ppsadmin` chạy thẳng sẽ báo
+> `open .../.env: permission denied`. Thư mục `/opt/pps-education/backups/`
+> cũng chỉ `deploy`/root đọc được, nên xem bằng `sudo ls`.
+> Riêng `docker exec` / `docker inspect` không đọc `.env`, chạy thẳng được.
 
 1. **Xác định phiên bản đang chạy thật** — chỉ đọc, không đổi gì:
 
@@ -196,8 +211,10 @@ staging trước**, xong mới tới production. Ví dụ cho production (stagin
    ```
 
    - Kỳ vọng: `RELEASE.2025-09-07T16-13-09Z` (commit `07c3a429bfed`) và
-     RepoDigest `minio/minio@sha256:14cea493...8936e` — cùng digest với image
-     ghim → đổi image thực chất là cùng 1 image, không có nâng cấp định dạng.
+     RepoDigest `minio/minio@sha256:14cea493...8936e`, cùng digest với image
+     ghim. Tức là đổi image thực chất vẫn là cùng 1 image, không nâng cấp định
+     dạng. Đã xác nhận đúng như vậy trên cả production lẫn staging ngày
+     2026-09-24.
    - Nếu ra **phiên bản khác**: DỪNG, không recreate. Mở PR mới ghim đúng tag
      đó trên quay.io (`quay.io/minio/minio:RELEASE.<đúng bản đang chạy>` +
      digest; danh sách tag:
@@ -206,56 +223,80 @@ staging trước**, xong mới tới production. Ví dụ cho production (stagin
    - Nếu `minio/mc:latest` không còn trong cache: không sao (`minio-init`
      không giữ dữ liệu).
 
-2. **Lưu image đang chạy ra file** (đường quay lại nếu cần):
+2. **Lưu image đang chạy ra file** (đường quay lại nếu cần). Production và
+   staging dùng chung 1 image nên chỉ cần làm 1 lần. **Đã làm 2026-09-24**:
+   `minio-dockerhub-latest-2026-09-24.tar.gz`, 60MB.
 
    ```bash
    sudo mkdir -p /opt/pps-education/backups/images
    docker save minio/minio:latest | gzip | \
      sudo tee /opt/pps-education/backups/images/minio-dockerhub-latest-$(date +%F).tar.gz > /dev/null
+   sudo ls -lh /opt/pps-education/backups/images/
+   sudo gzip -t /opt/pps-education/backups/images/minio-dockerhub-latest-*.tar.gz && echo GZIP_OK
    ```
 
-3. **Backup media trước khi recreate container:**
+3. **Backup media trước khi recreate container** (bắt buộc với production):
    - Nếu đã triển khai `backup-media.sh` + timer (mục 11b): chạy
      `sudo systemctl start pps-media-backup.service`, rồi
      `journalctl -u pps-media-backup.service -n 20` phải có "Backup media hoan
      tat, khong loi".
-   - Nếu chưa có: copy thô **khi MinIO đã dừng** (copy lúc đang chạy có thể
-     không nhất quán) sang 1 ổ/LV **khác** root filesystem, kiểm tra đủ chỗ
-     trước (`sudo du -sh /mnt/pps-production/media` so với `df -h <ĐÍCH>`).
-     Media public lỗi trong lúc copy → làm ngoài giờ học:
+   - Copy thô **khi MinIO đã dừng** (copy lúc đang chạy có thể không nhất
+     quán) sang 1 ổ/LV **khác** root filesystem. Kiểm tra đủ chỗ trước
+     (`sudo du -sh /mnt/pps-production/media` so với `df -h <ĐÍCH>`). Media
+     public lỗi trong lúc copy, nên làm ngoài giờ học:
 
      ```bash
-     docker compose stop minio
+     sudo -u deploy docker compose stop minio
      sudo rsync -aHAX /mnt/pps-production/media/ <ĐÍCH>/media-raw-$(date +%F)/
-     docker compose start minio
+     sudo -u deploy docker compose start minio
      ```
 
-   Nên có cả bản copy thô này kể cả khi đã có `backup-media.sh`: nó khôi phục
-   đúng nguyên trạng (cả định dạng nội bộ) cho phiên bản MinIO cũ — đường
-   rollback nếu bước 4 làm hỏng dữ liệu.
+     Staging để media trong Docker volume chứ không phải `/mnt/...`. Nguồn
+     copy là `$(docker volume inspect pps-staging_minio_data --format '{{ .Mountpoint }}')/`.
 
-4. **Pull + đổi image** (compose file đã được CD đồng bộ; nếu chưa, copy tay
-   `deploy/docker-compose.production.yml` như mục 2):
+   Nên có cả bản copy thô này kể cả khi đã có `backup-media.sh`. Nó khôi phục
+   đúng nguyên trạng (cả định dạng nội bộ) cho phiên bản MinIO cũ, và là
+   đường rollback nếu bước 4 làm hỏng dữ liệu.
+
+4. **Pull + đổi image.** Trước hết kiểm tra file compose trên server đã là bản
+   mới:
 
    ```bash
    grep -n 'image: quay.io/minio' docker-compose.yml   # phải thấy 2 dòng đã ghim
-   docker compose pull minio minio-init
-   docker compose up -d --no-deps minio
-   docker compose up --no-deps minio-init              # phải thấy "bucket pps-media da san sang"
    ```
 
-   `minio` restart vài giây (upload/xem media lỗi trong lúc đó). Không cần
-   restart `backend` (endpoint `http://minio:9000` không đổi).
+   Nếu chưa thấy (CD chưa chạy), tải về, so sánh rồi mới thay:
+
+   ```bash
+   sudo -u deploy curl -fsSL https://raw.githubusercontent.com/langtuananh2424/pps-education/<nhánh>/deploy/docker-compose.production.yml -o docker-compose.yml.new
+   diff docker-compose.yml docker-compose.yml.new   # chỉ được khác 2 dòng image: + comment
+   sudo -u deploy mv docker-compose.yml.new docker-compose.yml
+   ```
+
+   `<nhánh>` là `production` cho production, `main` cho staging. Sau đó:
+
+   ```bash
+   sudo -u deploy docker compose pull minio minio-init
+   sudo -u deploy docker compose up -d --no-deps minio
+   sudo -u deploy docker compose up --no-deps minio-init   # phải thấy "bucket pps-media da san sang", exit 0
+   ```
+
+   `minio` restart vài giây, upload/xem media lỗi trong lúc đó. Không cần
+   restart `backend` vì endpoint `http://minio:9000` không đổi. Dòng
+   "Bucket created successfully" của `minio-init` là bình thường: với
+   `--ignore-existing`, `mc mb` vẫn in câu đó dù bucket đã có sẵn.
 
 5. **Kiểm tra:**
 
    ```bash
    docker exec pps-production-minio-1 minio --version   # RELEASE.2025-09-07T16-13-09Z
-   docker compose ps minio
-   docker compose logs --tail 50 minio                  # không có lỗi định dạng/"unformatted"/"corrupted"
+   docker inspect --format '{{.Config.Image}}' pps-production-minio-1   # quay.io/minio/minio:...@sha256:14cea493...
+   sudo -u deploy docker compose logs --tail 50 minio   # không có lỗi định dạng/"unformatted"/"corrupted"
+   docker exec pps-production-minio-1 sh -c 'mc alias set l http://127.0.0.1:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null && mc du l/pps-media'
    curl -sI https://files.ppsvietnam.edu.vn/<key 1 file có thật> | head -1   # HTTP 200
    ```
 
+   Lệnh `mc du` phải ra số object / dung lượng như trước khi đổi, không phải 0.
    Rồi thử upload 1 file qua app (VD ảnh đại diện) và mở lại được.
 
 6. **Lưu image ghim ra file** (sau khi đã chạy ổn):
@@ -268,17 +309,18 @@ staging trước**, xong mới tới production. Ví dụ cho production (stagin
    ```
 
    Khôi phục khi registry không còn: `gunzip -c <file> | docker load`, rồi
-   `docker image inspect --format '{{json .RepoDigests}}' <image>` — đã thử
+   `docker image inspect --format '{{json .RepoDigests}}' <image>`. Đã thử
    với containerd image store: digest được giữ, compose ghim `@sha256:` chạy
    luôn không cần pull. Nếu server dùng image store cũ (overlay2) và
-   RepoDigests rỗng → compose sẽ cố pull: bỏ tạm phần `@sha256:...` trong
-   `docker-compose.yml` trên server (tag vẫn trỏ đúng image vừa load).
+   RepoDigests rỗng thì compose sẽ cố pull. Khi đó bỏ tạm phần `@sha256:...`
+   trong `docker-compose.yml` trên server (tag vẫn trỏ đúng image vừa load).
 
-**Rollback** (nếu bước 5 lỗi): `docker compose stop minio`; nếu dữ liệu hỏng
-thì khôi phục `/mnt/pps-production/media` từ bản copy thô bước 3;
-`gunzip -c <file bước 2> | docker load`; sửa tạm `image: minio/minio:latest`
-trong `docker-compose.yml` trên server; `docker compose up -d --no-deps
-minio` — rồi báo lại để sửa repo (CD lần sau sẽ ghi đè file compose).
+**Rollback** (nếu bước 5 lỗi): `sudo -u deploy docker compose stop minio`;
+nếu dữ liệu hỏng thì khôi phục `/mnt/pps-production/media` từ bản copy thô
+bước 3; `gunzip -c <file bước 2> | docker load`; sửa tạm
+`image: minio/minio:latest` trong `docker-compose.yml` trên server;
+`sudo -u deploy docker compose up -d --no-deps minio`. Sau đó báo lại để sửa
+repo, vì CD lần sau sẽ ghi đè file compose.
 
 ### 3c. Hướng lâu dài (chưa làm — cần quyết định riêng)
 
