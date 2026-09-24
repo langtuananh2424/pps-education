@@ -866,9 +866,115 @@ sudo -u deploy /opt/pps-education/restore-db.sh production <file.dump|file.dump.
   `/opt/pps-education/backups` qua `du -sh` định kỳ, còn free chưa cấp phát
   trong `ubuntu-vg` nếu cần mở rộng LVM (xem mục 12 — đã cấp 150GB+100GB cho
   data production, còn ~590GB free trong VG tính tới 2026-09-19).
-- Không backup MinIO (media file) trong script này — nếu cần, cân nhắc
-  `mc mirror`/`rclone` riêng cho `minio_data` (khối lượng lớn hơn nhiều, nên
-  tách lịch/retention riêng, không trộn chung với DB).
+- Script này chỉ backup DB — file media (MinIO) backup riêng ở mục 11b.
+
+## 11b. Backup media MinIO (chỉ production)
+
+`deploy/backup-media.sh` + systemd `pps-media-backup.{service,timer}` —
+hằng ngày **03:15** (sau backup DB 02:30), chỉ bucket `pps-media` của
+**production** (staging không backup).
+
+- Đọc qua **S3 API** bằng tài khoản MinIO **chỉ-đọc** `pps-media-backup`
+  (không dùng root MinIO), KHÔNG copy thô `/mnt/pps-production/media` (định
+  dạng nội bộ `xl.meta` của MinIO, copy lúc đang chạy có thể không nhất quán).
+  Kết quả là file thường đúng tên key → xem trực tiếp được, khôi phục vào
+  MinIO/S3 bất kỳ (runbook mục 4.5).
+- `current/` = bản mới nhất, **không bao giờ xoá theo** khi object bị xoá trên
+  MinIO. `changed/<ts>/` = bản cũ của object bị ghi đè, giữ 90 ngày.
+- Mỗi lần chạy đối chiếu lại: mọi object trên MinIO phải có trong `current/`
+  cùng kích thước (`rclone check --one-way --size-only`).
+- Lưu trên **LV riêng `/mnt/pps-backup`** — script từ chối chạy nếu LV chưa
+  mount (tránh ghi thẳng lên `/`). LV này nằm **cùng SSD vật lý** với dữ liệu
+  gốc: chống xoá/ghi đè nhầm, lỗi app, KHÔNG chống hỏng ổ — bản off-site cho
+  media chưa có (dung lượng lớn, xem xét cùng lúc với cloud cho DB).
+
+### Cài đặt lần đầu
+
+**1. Đo dung lượng media để chọn kích thước LV** (nên ≥ 1.5× dung lượng hiện
+tại + dư tăng trưởng; LV mở rộng sau được bằng `lvextend -r`):
+
+```bash
+sudo du -sh /mnt/pps-production/media
+sudo vgs ubuntu-vg   # cot VFree = dung luong con trong de cap
+```
+
+**2. Tạo LV `/mnt/pps-backup`** (VD 150G):
+
+```bash
+sudo lvcreate -L 150G -n lv-pps-backup ubuntu-vg
+sudo mkfs.ext4 /dev/ubuntu-vg/lv-pps-backup
+sudo mkdir -p /mnt/pps-backup
+echo "UUID=$(sudo blkid -s UUID -o value /dev/ubuntu-vg/lv-pps-backup)  /mnt/pps-backup  ext4  defaults  0 2" | sudo tee -a /etc/fstab
+sudo mount -a && df -h /mnt/pps-backup
+sudo install -d -o deploy -g deploy -m 700 /mnt/pps-backup/media
+```
+
+**3. Tải script + systemd units:**
+
+```bash
+REF=develop
+RAW=https://raw.githubusercontent.com/langtuananh2424/pps-education/$REF/deploy
+sudo curl -fsSL "$RAW/backup-media.sh" -o /opt/pps-education/backup-media.sh
+sudo chown deploy:deploy /opt/pps-education/backup-media.sh
+sudo chmod 750 /opt/pps-education/backup-media.sh
+for f in pps-media-backup.service pps-media-backup.timer; do
+  sudo curl -fsSL "$RAW/systemd/$f" -o /etc/systemd/system/$f
+done
+```
+
+**4. Tạo tài khoản MinIO chỉ-đọc** — mật khẩu sinh ngẫu nhiên, lưu thẳng vào
+file credentials (không hiện ra màn hình):
+
+```bash
+printf 'RCLONE_S3_ACCESS_KEY_ID=pps-media-backup\nRCLONE_S3_SECRET_ACCESS_KEY=%s\n' "$(openssl rand -hex 24)" \
+  | sudo tee /opt/pps-education/media-backup.env > /dev/null
+sudo chown deploy:deploy /opt/pps-education/media-backup.env
+sudo chmod 600 /opt/pps-education/media-backup.env
+
+# Tai khoan root MinIO lay tu CONTAINER dang chay (gia tri compose da resolve) -
+# KHONG doc thang .env: docker --env-file khong bo comment "# ..." cuoi dong
+# nhu compose -> sai mat khau. File tam 600, xoa ngay sau khi dung.
+sudo -u deploy bash -c 'umask 077; docker inspect -f "{{range .Config.Env}}{{println .}}{{end}}" pps-production-minio-1 | grep -E "^MINIO_ROOT_(USER|PASSWORD)=" > /tmp/pps-minio-root.env'
+
+# Policy: chi ListBucket + GetObject tren dung bucket pps-media. Dung image
+# minio/mc da co san tren server (minio-init dung) - xem canh bao ben duoi.
+sudo -u deploy docker run --rm --network pps-production_internal \
+  --env-file /tmp/pps-minio-root.env --env-file /opt/pps-education/media-backup.env \
+  --entrypoint sh minio/mc:latest -c '
+set -e
+mc alias set m http://minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" > /dev/null
+printf "%s" "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"s3:GetBucketLocation\",\"s3:ListBucket\"],\"Resource\":[\"arn:aws:s3:::pps-media\"]},{\"Effect\":\"Allow\",\"Action\":[\"s3:GetObject\"],\"Resource\":[\"arn:aws:s3:::pps-media/*\"]}]}" > /tmp/p.json
+mc admin policy create m pps-media-read /tmp/p.json
+mc admin user add m "$RCLONE_S3_ACCESS_KEY_ID" "$RCLONE_S3_SECRET_ACCESS_KEY"
+mc admin policy attach m pps-media-read --user "$RCLONE_S3_ACCESS_KEY_ID"
+'
+sudo rm -f /tmp/pps-minio-root.env
+```
+
+> ⚠️ Docker Hub đã gỡ repo `minio/minio` và `minio/mc` (phát hiện 2026-09-24,
+> API trả 404). Lệnh trên chạy được vì server còn image `minio/mc:latest` cache
+> từ `minio-init` — KHÔNG `docker image rm`/`docker system prune -a` image này
+> cho tới khi compose chuyển sang image thay thế.
+
+**5. Chạy thử rồi bật timer:**
+
+```bash
+sudo -u deploy /opt/pps-education/backup-media.sh
+sudo systemctl daemon-reload && sudo systemctl enable --now pps-media-backup.timer
+systemctl list-timers 'pps-*'
+```
+
+Lần đầu tải toàn bộ bucket (lâu tuỳ dung lượng); các lần sau chỉ tải file
+mới/đổi. Kết quả đúng: `rclone copy OK`, `Doi chieu OK`, `Backup media hoan
+tat, khong loi`.
+
+### Kiểm tra định kỳ
+
+```bash
+sudo tail -n 5 /mnt/pps-backup/media/backup-media.log
+journalctl -u pps-media-backup.service --since -7d | grep -E 'LOI|hoan tat'
+df -h /mnt/pps-backup
+```
 
 ## 12. Logical Volume riêng cho dữ liệu production (DB + media)
 
