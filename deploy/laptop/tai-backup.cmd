@@ -124,7 +124,7 @@ if "%FIRST_RUN%"=="1" goto :media_init
 
 rem Kiem tra mat khau bang file canary: sai mat khau thi rclone khong giai ma
 rem duoc ten file -> dung lai, tranh tron du lieu ma hoa bang 2 khoa khac nhau.
-"%RCLONE%" cat "%CRYPT%%CHECK_FILE%" 2>nul | findstr /x /c:"%CHECK_TEXT%" >nul
+"%RCLONE%" cat "%CRYPT%%CHECK_FILE%" --log-level ERROR 2>nul | findstr /x /c:"%CHECK_TEXT%" >nul
 if errorlevel 1 (
   echo [LOI] Sai mat khau ma hoa media ^(khong giai ma duoc file kiem tra^) - KHONG tai.
   set "MEDIA_RC=1"
@@ -153,7 +153,7 @@ if errorlevel 1 (
 )
 echo.
 echo Xong media. So file ^(da ma hoa^) tren laptop:
-"%RCLONE%" size "%CRYPT%" --exclude "/%CHECK_FILE%"
+"%RCLONE%" size "%CRYPT%" --exclude "/%CHECK_FILE%" --log-level ERROR
 
 :summary
 set "RCLONE_CRYPT_PASSWORD="
