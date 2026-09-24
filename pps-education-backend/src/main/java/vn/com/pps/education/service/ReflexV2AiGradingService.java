@@ -13,6 +13,7 @@ import vn.com.pps.education.common.ReflexV2Scoring;
 import vn.com.pps.education.common.ReflexV2Tags;
 import vn.com.pps.education.common.ReflexV2Task;
 import vn.com.pps.education.common.SpeechMeter;
+import vn.com.pps.education.domain.AiGradingTokenUsage;
 import vn.com.pps.education.exception.ReflexAudioRejectedException;
 
 import java.io.IOException;
@@ -94,14 +95,22 @@ public class ReflexV2AiGradingService {
      * @param unlockPercent điểm dùng để mở khoá câu tiếp theo (mặc định KHÔNG gồm Phát âm).
      * @param finalPercent  điểm cuối theo công thức của người training (gồm cả Phát âm) — chỉ để tham khảo/audit.
      */
-    /**
-     * V192 — TÁCH RIÊNG chi phí 2 lượt gọi AI của bước nói ({@code transcriptionUsage} = phiên âm mù,
-     * {@code gradingUsage} = chấm nói) thay vì cộng gộp: cả hai cùng gửi 1 file audio nên nhìn tổng sẽ
-     * không biết phần nào do audio, phần nào do rubric dạng chữ — đúng câu hỏi cần trả lời khi tối ưu.
-     */
     public record SpeakingResult(String markedTranscript, List<CriteriaScoreItem> criteria, int unlockPercent,
-                                 int finalPercent, String feedback, List<String> gates, Map<String, Object> audit,
-                                 AiTokenUsage transcriptionUsage, AiTokenUsage gradingUsage) {
+                                 int finalPercent, String feedback, List<String> gates, Map<String, Object> audit) {
+    }
+
+    /**
+     * V192 — nơi nhận chi phí từng lượt gọi AI của bước nói, TÁCH RIÊNG theo bước ({@code TRANSCRIPTION} = phiên
+     * âm mù, {@code SPEAKING} = chấm nói) thay vì cộng gộp: cả hai cùng gửi 1 file audio nên nhìn tổng sẽ không
+     * biết phần nào do audio, phần nào do rubric dạng chữ — đúng câu hỏi cần trả lời khi tối ưu.
+     *
+     * Gọi NGAY sau mỗi lượt AI trả về, TRƯỚC mọi bước có thể dừng giữa chừng (từ chối 422 / parse lỗi / trả
+     * {@code null}) — token đã tốn thật từ lúc AI trả lời, không phụ thuộc việc chấm có đi hết hay không. Caller
+     * (tầng biết học sinh/bài/câu hỏi) ghi qua {@link AiGradingTokenUsageRecorder}.
+     */
+    @FunctionalInterface
+    public interface SpeakingUsageSink {
+        void record(AiGradingTokenUsage.Step step, AiTokenUsage usage);
     }
 
     // ===================== Bước 1: chấm bài viết =====================
@@ -151,11 +160,12 @@ public class ReflexV2AiGradingService {
     // ===================== Bước 2: phiên âm mù + chấm nói =====================
 
     /**
+     * @param usageSink nhận chi phí từng lượt gọi AI — xem {@link SpeakingUsageSink}.
      * @throws ReflexAudioRejectedException khi bản ghi không đọc được hoặc nói khác bài đã viết (HTTP 422).
      * @return kết quả, hoặc {@code null} nếu gọi AI/parse thất bại.
      */
     public SpeakingResult gradeSpeaking(ReflexV2Task task, String question, byte[] audioBytes, String mimeType,
-                                        LockedGrammar locked) {
+                                        LockedGrammar locked, SpeakingUsageSink usageSink) {
         Optional<byte[]> wav = isWav(audioBytes) ? Optional.of(audioBytes) : audioTranscoder.toWav(audioBytes, mimeType);
         Optional<SpeechMeter.Measurement> measured = wav.flatMap(SpeechMeter::measure);
         byte[] audioForModel = wav.orElse(audioBytes);
@@ -173,6 +183,7 @@ public class ReflexV2AiGradingService {
             log.warn("ReflexV2AiGradingService: 9Router phiên âm thất bại.");
             return null;
         }
+        usageSink.record(AiGradingTokenUsage.Step.TRANSCRIPTION, transcription.usage());
         String rawTranscript;
         double aiSpeechSec;
         double aiLongestPause;
@@ -232,6 +243,7 @@ public class ReflexV2AiGradingService {
             log.warn("ReflexV2AiGradingService: 9Router chấm bài nói thất bại.");
             return null;
         }
+        usageSink.record(AiGradingTokenUsage.Step.SPEAKING, graded.usage());
         try {
             JsonNode data = parseJson(graded.content());
             ReflexV2Scoring.ScoreSet scored = ReflexV2Scoring.computeScores(task, gradedCodes, data);
@@ -301,7 +313,7 @@ public class ReflexV2AiGradingService {
             audit.put("audioQualityInsufficient", audioQualityInsufficient);
             audit.put("countingNotes", data.path("counting_notes").asText(""));
             return new SpeakingResult(ReflexV2Scoring.toErrMarkup(transcript, highlights), items, unlockPercent,
-                    finalPercent, feedback, scored.gates(), audit, transcription.usage(), graded.usage());
+                    finalPercent, feedback, scored.gates(), audit);
         } catch (IOException | IllegalStateException e) {
             log.warn("ReflexV2AiGradingService: parse kết quả chấm bài nói thất bại. {}", e.getMessage());
             return null;
