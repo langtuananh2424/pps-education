@@ -800,6 +800,24 @@ public class ReviewVideoService {
         return toResponse(question);
     }
 
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-24 — "Xóa câu hỏi" REFLEX, mirror rào chặn
+     * của {@link #deleteVideo}: chỉ xóa được khi CHƯA có học sinh nộp bài/có tiến độ cho câu này (bảng
+     * lịch sử/token AI chỉ phát sinh sau khi có bài nộp nên đã được chặn gián tiếp).
+     */
+    @Transactional
+    public void deleteQuestion(Long questionId, Long actorUserId) {
+        ReviewVideoQuestion question = getQuestionOrThrow(questionId);
+        requireOwnerScope(question.getReviewVideo().getReviewVideoSet(), actorUserId);
+
+        List<Long> ids = List.of(questionId);
+        if (reviewVideoQuestionSubmissionRepository.existsByReviewVideoQuestionIdIn(ids)
+                || reflexQuestionProgressRepository.existsByReviewVideoQuestionIdIn(ids)) {
+            throw new IllegalArgumentException("Câu hỏi này đã có học sinh làm bài — không xóa được nữa.");
+        }
+        reviewVideoQuestionRepository.delete(question);
+    }
+
     @Transactional(readOnly = true)
     public List<ReviewVideoQuestionResponse> listQuestions(Long videoId, Long actorUserId) {
         ReviewVideo video = getVideoOrThrow(videoId);
@@ -887,6 +905,32 @@ public class ReviewVideoService {
         }
         updatedChoices.sort((a, b) -> Integer.compare(a.getDisplayOrder(), b.getDisplayOrder()));
         return toResponse(question, updatedChoices, true);
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-24 — "Xóa câu hỏi" CONNECTION, mirror rào
+     * chặn của {@link #deleteVideo}: chỉ xóa được khi CHƯA có học sinh trả lời câu này. Bộ đã Publish thì
+     * không cho xóa câu cuối cùng của video (giữ đúng gate requireConnectionVideosHaveQuestions). Slot
+     * chia lượt (V115) của câu này bị dọn theo — các câu còn lại giữ nguyên slot đã chia cho học sinh.
+     */
+    @Transactional
+    public void deleteConnectionQuestion(Long questionId, Long actorUserId) {
+        ReviewVideoConnectionQuestion question = getConnectionQuestionOrThrow(questionId);
+        ReviewVideo video = question.getReviewVideo();
+        requireOwnerScope(video.getReviewVideoSet(), actorUserId);
+
+        if (reviewVideoConnectionAnswerRepository.existsByReviewVideoConnectionQuestionId(questionId)) {
+            throw new IllegalArgumentException("Câu hỏi này đã có học sinh trả lời — không xóa được nữa.");
+        }
+        if (video.getReviewVideoSet().getStatus() == ReviewVideoSet.Status.PUBLISHED
+                && reviewVideoConnectionQuestionRepository.findByReviewVideoIdOrderByDisplayOrder(video.getId()).size() <= 1) {
+            throw new IllegalArgumentException(
+                    "Bộ video đã Publish — video Kết nối phải còn ít nhất 1 câu hỏi, không xóa được câu cuối cùng.");
+        }
+
+        reviewVideoConnectionQuestionSlotRepository.deleteByReviewVideoConnectionQuestionId(questionId);
+        reviewVideoConnectionChoiceRepository.deleteByReviewVideoConnectionQuestionIdIn(List.of(questionId));
+        reviewVideoConnectionQuestionRepository.delete(question);
     }
 
     /**
