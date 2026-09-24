@@ -718,9 +718,10 @@ flowchart TD
 
 ```bash
 # 1. Tải script + systemd units từ GitHub (server KHÔNG có sẵn bản checkout
-#    repo) - REF = nhánh đã chứa các file này (develop sau khi merge PR, hoặc
-#    main khi đã lên staging). Chạy lại đúng khối này mỗi khi script đổi.
-REF=develop
+#    repo) - REF=production: đúng bản đang chạy trên production (script
+#    backup chỉ phục vụ production). Chỉ dùng develop/main khi cần thử bản
+#    chưa release. Chạy lại đúng khối này mỗi khi script đổi.
+REF=production
 RAW=https://raw.githubusercontent.com/langtuananh2424/pps-education/$REF/deploy
 for f in backup-db.sh backup-db-manual.sh restore-db.sh; do
   sudo curl -fsSL "$RAW/$f" -o /opt/pps-education/$f
@@ -932,6 +933,10 @@ sudo -u deploy /opt/pps-education/restore-db.sh production <file.dump|file.dump.
 hằng ngày **03:15** (sau backup DB 02:30), chỉ bucket `pps-media` của
 **production** (staging không backup).
 
+Trạng thái: **đã cài trên server 2026-09-24**. LV `lv-pps-backup` 150G, lần
+chạy đầu 31 file / 212M, đã kiểm tra tài khoản `pps-media-backup` ghi vào
+bucket bị `403 AccessDenied`.
+
 - Đọc qua **S3 API** bằng tài khoản MinIO **chỉ-đọc** `pps-media-backup`
   (không dùng root MinIO), KHÔNG copy thô `/mnt/pps-production/media` (định
   dạng nội bộ `xl.meta` của MinIO, copy lúc đang chạy có thể không nhất quán).
@@ -959,10 +964,14 @@ sudo vgs ubuntu-vg   # cot VFree = dung luong con trong de cap
 **2. Tạo LV `/mnt/pps-backup`** (VD 150G):
 
 ```bash
+sudo cp /etc/fstab /etc/fstab.bak-$(date +%F)
 sudo lvcreate -L 150G -n lv-pps-backup ubuntu-vg
 sudo mkfs.ext4 /dev/ubuntu-vg/lv-pps-backup
 sudo mkdir -p /mnt/pps-backup
 echo "UUID=$(sudo blkid -s UUID -o value /dev/ubuntu-vg/lv-pps-backup)  /mnt/pps-backup  ext4  defaults  0 2" | sudo tee -a /etc/fstab
+tail -3 /etc/fstab        # dong cuoi phai co UUID=<khong rong>
+sudo findmnt --verify     # 0 errors (canh bao /swap.img + "systemd still uses the old version" la binh thuong)
+sudo systemctl daemon-reload
 sudo mount -a && df -h /mnt/pps-backup
 sudo install -d -o deploy -g deploy -m 700 /mnt/pps-backup/media
 ```
@@ -970,7 +979,7 @@ sudo install -d -o deploy -g deploy -m 700 /mnt/pps-backup/media
 **3. Tải script + systemd units:**
 
 ```bash
-REF=develop
+REF=production
 RAW=https://raw.githubusercontent.com/langtuananh2424/pps-education/$REF/deploy
 sudo curl -fsSL "$RAW/backup-media.sh" -o /opt/pps-education/backup-media.sh
 sudo chown deploy:deploy /opt/pps-education/backup-media.sh
@@ -984,10 +993,12 @@ done
 file credentials (không hiện ra màn hình):
 
 ```bash
-printf 'RCLONE_S3_ACCESS_KEY_ID=pps-media-backup\nRCLONE_S3_SECRET_ACCESS_KEY=%s\n' "$(openssl rand -hex 24)" \
-  | sudo tee /opt/pps-education/media-backup.env > /dev/null
+# 1 DONG DUY NHAT - dan tach dong (co dong trong sau "\") se in mat khau ra man
+# hinh ma khong ghi file.
+printf 'RCLONE_S3_ACCESS_KEY_ID=pps-media-backup\nRCLONE_S3_SECRET_ACCESS_KEY=%s\n' "$(openssl rand -hex 24)" | sudo tee /opt/pps-education/media-backup.env > /dev/null
 sudo chown deploy:deploy /opt/pps-education/media-backup.env
 sudo chmod 600 /opt/pps-education/media-backup.env
+sudo grep -c '^RCLONE_S3_' /opt/pps-education/media-backup.env   # phai ra 2
 
 # Tai khoan root MinIO lay tu CONTAINER dang chay (gia tri compose da resolve) -
 # KHONG doc thang .env: docker --env-file khong bo comment "# ..." cuoi dong
@@ -1024,6 +1035,12 @@ systemctl list-timers 'pps-*'
 Lần đầu tải toàn bộ bucket (lâu tuỳ dung lượng); các lần sau chỉ tải file
 mới/đổi. Kết quả đúng: `rclone copy OK`, `Doi chieu OK`, `Backup media hoan
 tat, khong loi`.
+
+Kiểm tra tài khoản backup thật sự chỉ-đọc (phải báo `AccessDenied`/`403`):
+
+```bash
+sudo -u deploy bash -c 'set -a; . /opt/pps-education/media-backup.env; set +a; echo test > /tmp/w.txt; RCLONE_S3_PROVIDER=Minio RCLONE_S3_ENDPOINT=http://127.0.0.1:9000 RCLONE_S3_ENV_AUTH=false rclone copyto /tmp/w.txt :s3:pps-media/_write_test.txt 2>&1 | tail -1; rm -f /tmp/w.txt'
+```
 
 ### Kiểm tra định kỳ
 
