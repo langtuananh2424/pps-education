@@ -2,7 +2,7 @@ import React, { createContext, useContext, useMemo, useRef, useState } from "rea
 import { useTranslation } from "react-i18next";
 import { UserRole } from "@/types";
 import { CurrentUserResponse, fetchCurrentUser, login as loginApi, loginWithGoogle as loginWithGoogleApi, logout as logoutApi } from "@/features/auth/api";
-import { getAccessToken } from "@/lib/tokenStorage";
+import { getAccessToken, getAuthStorage } from "@/lib/tokenStorage";
 import { setupPushNotifications, teardownPushNotifications } from "@/lib/pushNotifications";
 import { deriveCurrentRoleLabel, rolePriorityOrder } from "@/constants/roles";
 
@@ -37,8 +37,9 @@ interface AppContextValue {
   setSidebarOpen: (open: boolean) => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
   loginNotice: string | null;
-  login: (usernameOrEmail: string, password: string) => Promise<void>;
-  loginWithGoogle: (idToken: string) => Promise<void>;
+  /** rememberMe = ô "Ghi nhớ đăng nhập" — quyết định token sống qua việc đóng trình duyệt hay không (xem tokenStorage.ts). */
+  login: (usernameOrEmail: string, password: string, rememberMe: boolean) => Promise<void>;
+  loginWithGoogle: (idToken: string, rememberMe: boolean) => Promise<void>;
   logout: () => Promise<void>;
   hasPermission: (requiredPermission?: string) => boolean;
   /** Trang hiện tại (VD Nhận xét học viên) đang có dữ liệu nhập dở chưa lưu — Sidebar dùng để chặn điều hướng + hỏi xác nhận. */
@@ -56,8 +57,10 @@ interface AppContextValue {
 
 const AppContext = createContext<AppContextValue | null>(null);
 
+/** Cache hồ sơ nằm cùng storage với token (getAuthStorage) — nếu lệch nơi, mở lại trình duyệt khi đã
+ *  "Ghi nhớ đăng nhập" sẽ còn token nhưng mất hồ sơ, Sidebar/phân quyền trống cho tới khi gọi lại /me. */
 function readCachedUser(): CurrentUserResponse | null {
-  const saved = sessionStorage.getItem(CURRENT_USER_CACHE_KEY);
+  const saved = getAuthStorage().getItem(CURRENT_USER_CACHE_KEY);
   try {
     return saved ? (JSON.parse(saved) as CurrentUserResponse) : null;
   } catch {
@@ -115,7 +118,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const completeLogin = async () => {
     const profile = await fetchCurrentUser();
-    sessionStorage.setItem(CURRENT_USER_CACHE_KEY, JSON.stringify(profile));
+    getAuthStorage().setItem(CURRENT_USER_CACHE_KEY, JSON.stringify(profile));
     setCurrentUser(profile);
     setCurrentRole(deriveCurrentRole(profile.roleCodes));
     setIsLoggedIn(true);
@@ -129,13 +132,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       .catch(() => undefined);
   };
 
-  const login = async (usernameOrEmail: string, password: string) => {
-    await loginApi(usernameOrEmail, password);
+  const login = async (usernameOrEmail: string, password: string, rememberMe: boolean) => {
+    await loginApi(usernameOrEmail, password, rememberMe);
     await completeLogin();
   };
 
-  const loginWithGoogle = async (idToken: string) => {
-    await loginWithGoogleApi(idToken);
+  const loginWithGoogle = async (idToken: string, rememberMe: boolean) => {
+    await loginWithGoogleApi(idToken, rememberMe);
     await completeLogin();
   };
 
@@ -143,6 +146,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await teardownPushNotifications();
     await logoutApi();
     sessionStorage.removeItem(CURRENT_USER_CACHE_KEY);
+    localStorage.removeItem(CURRENT_USER_CACHE_KEY);
     setIsLoggedIn(false);
     setCurrentUser(null);
     setCurrentRole(UserRole.STUDENT);
