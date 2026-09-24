@@ -17,6 +17,7 @@ giả định đã cài xong mục đó.
 | Dữ liệu bị xoá/sửa nhầm, schema không đổi | [Mục 4.2](#42-dữ-liệu-bị-xoásửa-nhầm) |
 | Migration vừa deploy làm hỏng DB/app | [Mục 4.3](#43-rollback-migration-hỏng-db--image-backend) |
 | Mất bản local trên server, phải lấy từ Google Drive | [Mục 4.4](#44-lấy-bản-backup-từ-google-drive) |
+| File media (ảnh/audio/video) production bị xoá/ghi đè/mất | [Mục 4.5](#45-khôi-phục-file-media-minio-production) |
 
 ```mermaid
 flowchart TD
@@ -282,6 +283,67 @@ sudo -u deploy /opt/pps-education/restore-db.sh production /opt/pps-education/ba
 ```
 
 Lệnh cuối restore vào DB scratch trước; ổn rồi mới chạy lại với `--live`.
+
+### 4.5 Khôi phục file media (MinIO production)
+
+Nguồn: `/mnt/pps-backup/media/` do `backup-media.sh` tạo (README mục 11b) —
+`current/<key>` là bản mới nhất (kể cả file đã bị xoá trên MinIO),
+`changed/<ts>/<key>` là bản cũ của file bị ghi đè. `<key>` chính là đường dẫn
+object trong bucket `pps-media` (cột URL media trong DB, bỏ phần
+`https://files.ppsvietnam.edu.vn/`).
+
+Ghi vào MinIO cần tài khoản root (tài khoản backup chỉ đọc) — lấy từ container
+đang chạy, dùng xong xoá:
+
+```bash
+sudo -u deploy bash -c 'umask 077; docker inspect -f "{{range .Config.Env}}{{println .}}{{end}}" pps-production-minio-1 | grep -E "^MINIO_ROOT_(USER|PASSWORD)=" > /tmp/pps-minio-root.env'
+```
+
+Tìm file trong backup:
+
+```bash
+sudo find /mnt/pps-backup/media -path '*<mot-phan-ten-file>*' -printf '%TY-%Tm-%Td %TH:%TM  %s  %p\n'
+```
+
+**Khôi phục 1 file / 1 thư mục** (thay `<key>`; thư mục thì thêm `--recursive`):
+
+```bash
+sudo -u deploy docker run --rm --network pps-production_internal \
+  --env-file /tmp/pps-minio-root.env -v /mnt/pps-backup/media:/bk:ro \
+  --entrypoint sh minio/mc:latest -c '
+mc alias set m http://minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" > /dev/null &&
+mc cp "/bk/current/<key>" "m/pps-media/<key>"'
+```
+
+Lấy bản cũ trước khi bị ghi đè: thay `/bk/current/<key>` bằng
+`/bk/changed/<ts>/<key>`.
+
+**Khôi phục toàn bộ bucket** (mất cả volume media) — chỉ chép file còn thiếu,
+không ghi đè file đang có. Chạy `--dry-run` trước để xem danh sách:
+
+```bash
+sudo -u deploy docker run --rm --network pps-production_internal \
+  --env-file /tmp/pps-minio-root.env -v /mnt/pps-backup/media:/bk:ro \
+  --entrypoint sh minio/mc:latest -c '
+mc alias set m http://minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" > /dev/null &&
+mc mb --ignore-existing m/pps-media &&
+mc mirror --dry-run /bk/current m/pps-media'
+```
+
+Ổn thì chạy lại bỏ `--dry-run`. `current/` còn cả file đã bị xoá có chủ đích
+trên MinIO — không sao (DB không còn trỏ tới), chỉ tốn dung lượng.
+
+Xong **luôn** xoá file tạm chứa mật khẩu root:
+
+```bash
+sudo rm -f /tmp/pps-minio-root.env
+```
+
+Kiểm tra: mở lại trên app đúng bài học/bài nộp có file vừa khôi phục, hoặc
+`curl -sI https://files.ppsvietnam.edu.vn/<key>` phải trả `200`.
+
+> Lệnh trên dùng image `minio/mc:latest` còn cache trên server — Docker Hub đã
+> gỡ repo này (2026-09-24). Nếu image mất, xem ghi chú ở README mục 11b.
 
 ## 5. Dọn dẹp
 
