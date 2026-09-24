@@ -136,6 +136,7 @@ app:
     # Hiển thị trong footer chuẩn của email (NotificationEmailTemplateService) - chưa có
     # giá trị thật từ PM, để trống thì footer giữ nguyên placeholder dạng "[Hotline PPS]"
     # thay vì tự bịa số/email/website.
+    # Email gửi Phụ huynh ưu tiên số điện thoại Quản lý điểm trường của lớp; hotline này là fallback.
     hotline: ${MAIL_CONTACT_HOTLINE:}
     support-email: ${MAIL_CONTACT_SUPPORT_EMAIL:}
     website: ${MAIL_CONTACT_WEBSITE:}
