@@ -1214,6 +1214,11 @@ export function updateReviewVideoQuestion(questionId: number, request: UpdateRev
   return apiRequest<ReviewVideoQuestionResponse>(`/review-video-questions/${questionId}`, { method: "PUT", body: JSON.stringify(request) });
 }
 
+/** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-24 — BE chặn (400) nếu câu đã có học sinh làm bài. */
+export function deleteReviewVideoQuestion(questionId: number): Promise<void> {
+  return apiRequest<void>(`/review-video-questions/${questionId}`, { method: "DELETE" });
+}
+
 // ===================== Kho Video Ôn tập — Import Excel câu hỏi (bổ sung ngoài SDD gốc, đã xác nhận với người dùng) =====================
 
 export interface ReviewVideoQuestionImportedRow {
@@ -1378,6 +1383,11 @@ export function updateReviewVideoConnectionQuestion(
     method: "PUT",
     body: JSON.stringify(request)
   });
+}
+
+/** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-24 — BE chặn (400) nếu câu đã có học sinh trả lời, hoặc là câu cuối của video trong bộ đã Publish. */
+export function deleteReviewVideoConnectionQuestion(questionId: number): Promise<void> {
+  return apiRequest<void>(`/review-video-connection-questions/${questionId}`, { method: "DELETE" });
 }
 
 // ===================== Kho tài liệu tham khảo (UC-60) =====================
