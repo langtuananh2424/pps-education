@@ -936,11 +936,11 @@ sudo chmod 600 /opt/pps-education/media-backup.env
 # nhu compose -> sai mat khau. File tam 600, xoa ngay sau khi dung.
 sudo -u deploy bash -c 'umask 077; docker inspect -f "{{range .Config.Env}}{{println .}}{{end}}" pps-production-minio-1 | grep -E "^MINIO_ROOT_(USER|PASSWORD)=" > /tmp/pps-minio-root.env'
 
-# Policy: chi ListBucket + GetObject tren dung bucket pps-media. Dung image
-# minio/mc da co san tren server (minio-init dung) - xem canh bao ben duoi.
+# Policy: chi ListBucket + GetObject tren dung bucket pps-media. Dung dung
+# image mc da ghim nhu service minio-init (xem muc 3a).
 sudo -u deploy docker run --rm --network pps-production_internal \
   --env-file /tmp/pps-minio-root.env --env-file /opt/pps-education/media-backup.env \
-  --entrypoint sh minio/mc:latest -c '
+  --entrypoint sh quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727 -c '
 set -e
 mc alias set m http://minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" > /dev/null
 printf "%s" "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"s3:GetBucketLocation\",\"s3:ListBucket\"],\"Resource\":[\"arn:aws:s3:::pps-media\"]},{\"Effect\":\"Allow\",\"Action\":[\"s3:GetObject\"],\"Resource\":[\"arn:aws:s3:::pps-media/*\"]}]}" > /tmp/p.json
@@ -951,10 +951,9 @@ mc admin policy attach m pps-media-read --user "$RCLONE_S3_ACCESS_KEY_ID"
 sudo rm -f /tmp/pps-minio-root.env
 ```
 
-> ⚠️ Docker Hub đã gỡ repo `minio/minio` và `minio/mc` (phát hiện 2026-09-24,
-> API trả 404). Lệnh trên chạy được vì server còn image `minio/mc:latest` cache
-> từ `minio-init` — KHÔNG `docker image rm`/`docker system prune -a` image này
-> cho tới khi compose chuyển sang image thay thế.
+> Image `mc` ở trên là bản ghim trên quay.io, giống `minio-init` (Docker Hub đã
+> gỡ `minio/mc`, xem mục 3a). Nếu quay.io cũng gỡ: nạp lại từ file lưu offline
+> ở mục 3b bước 6 (`gunzip -c <file> | docker load`).
 
 **5. Chạy thử rồi bật timer:**
 
