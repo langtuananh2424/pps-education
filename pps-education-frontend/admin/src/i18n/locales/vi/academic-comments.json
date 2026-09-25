@@ -72,9 +72,10 @@
       "offline": "Offline"
     },
     "cancel": "Hủy",
-    "saveEdit": "Lưu sửa",
+    "saveEdit": "Lưu nội dung",
     "savingEdit": "Đang lưu...",
-    "actionEdit": "Sửa",
+    "actionEdit": "Sửa nội dung",
+    "editingHint": "Bạn đang sửa trực tiếp NỘI DUNG nhận xét của học sinh (thay cho nội dung giáo viên đã viết) — không phải nhập lý do từ chối. Muốn trả về cho giáo viên sửa, bấm Hủy rồi bấm \"Từ chối\".",
     "actionReject": "Từ chối",
     "actionApprove": "Duyệt",
     "deciding": "...",
