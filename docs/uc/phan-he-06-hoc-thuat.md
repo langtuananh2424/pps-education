@@ -2941,8 +2941,8 @@ job quét mỗi phút):
 
 | Mốc | Điều kiện | Gửi tới Quản lý điểm trường (site của lớp, `site_managers` đang hiệu lực) | Gửi tới giáo viên dạy buổi (primaryTeacher + cmTeacher nếu có) |
 |---|---|---|---|
-| **Chưa nhận lớp** (`CLASS_CHECKIN_LATE_ALERT`) | Đã qua giờ bắt đầu + `class_checkin_alert.late_after_minutes` (mặc định 5) mà chưa có bản ghi `class_session_check_ins` | PUSH (+ in-app): "Lớp X: giáo viên chưa nhận lớp — hãy kiểm tra" | EMAIL (+ in-app): báo đã tới giờ học nhưng chưa nhận lớp, nhận lúc này sẽ tính MUỘN |
-| **Không nhận lớp** (`CLASS_CHECKIN_ABSENT_ALERT`) | Đã qua giờ kết thúc buổi học mà vẫn chưa có bản ghi nhận lớp (đúng trạng thái `ABSENT` tính ra ở trên) | PUSH (+ in-app): "Lớp X: không có giáo viên nhận lớp — hãy kiểm tra" | EMAIL (+ in-app): báo buổi học được tính KHÔNG NHẬN LỚP |
+| **Chưa nhận lớp** (`CLASS_CHECKIN_LATE_ALERT`) | Đã qua giờ bắt đầu + `class_checkin_alert.late_after_minutes` (mặc định 5) mà chưa có bản ghi `class_session_check_ins` | PUSH (+ in-app): "Lớp X: giáo viên {tên GV} chưa nhận lớp — hãy kiểm tra" (tên GV nằm ngay trong tiêu đề) | EMAIL (+ in-app): báo đã tới giờ học nhưng chưa nhận lớp, nhận lúc này sẽ tính MUỘN |
+| **Không nhận lớp** (`CLASS_CHECKIN_ABSENT_ALERT`) | Đã qua giờ kết thúc buổi học mà vẫn chưa có bản ghi nhận lớp (đúng trạng thái `ABSENT` tính ra ở trên) | PUSH (+ in-app): "Lớp X: giáo viên {tên GV} không nhận lớp — hãy kiểm tra" (tên GV nằm ngay trong tiêu đề) | EMAIL (+ in-app): báo buổi học được tính KHÔNG NHẬN LỚP |
 
 - Kênh gửi được ÉP theo nghiệp vụ (bỏ qua `notification_preferences` cá
   nhân) — mục đích là Quản lý nhận push ngay trên điện thoại, giáo viên có
