@@ -125,13 +125,13 @@ public class NotificationPushTemplateService {
         // gửi cho cả Quản lý điểm trường (PUSH) lẫn giáo viên (EMAIL); push thực tế chỉ tới Quản lý
         // nên diễn đạt theo góc nhìn người kiểm tra.
         renderers.put(Notification.NotificationType.CLASS_CHECKIN_LATE_ALERT, m -> new PushTemplate(
-                "Lớp " + str(m, "className") + ": GV chưa nhận lớp",
+                "Lớp " + str(m, "className") + ": GV " + str(m, "teacherName") + " chưa nhận lớp",
                 "Buổi %s %s, GV %s chưa nhận lớp %s (điểm trường %s) — hãy kiểm tra.".formatted(
                         fmtDate(m, "sessionDate"), fmtTime(m, "startTime"), str(m, "teacherName"),
                         str(m, "className"), str(m, "siteName"))));
 
         renderers.put(Notification.NotificationType.CLASS_CHECKIN_ABSENT_ALERT, m -> new PushTemplate(
-                "Lớp " + str(m, "className") + ": không có GV nhận lớp",
+                "Lớp " + str(m, "className") + ": GV " + str(m, "teacherName") + " không nhận lớp",
                 "Buổi %s %s-%s đã kết thúc, GV %s không nhận lớp %s (điểm trường %s) — hãy kiểm tra.".formatted(
                         fmtDate(m, "sessionDate"), fmtTime(m, "startTime"), fmtTime(m, "endTime"), str(m, "teacherName"),
                         str(m, "className"), str(m, "siteName"))));
