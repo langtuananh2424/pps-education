@@ -72,9 +72,10 @@
       "offline": "Offline"
     },
     "cancel": "Cancel",
-    "saveEdit": "Save changes",
+    "saveEdit": "Save content",
     "savingEdit": "Saving...",
-    "actionEdit": "Edit",
+    "actionEdit": "Edit content",
+    "editingHint": "You are directly editing the student comment CONTENT (replacing what the teacher wrote) — this is not a rejection reason. To send it back to the teacher, click Cancel and then \"Reject\".",
     "actionReject": "Reject",
     "actionApprove": "Approve",
     "deciding": "...",

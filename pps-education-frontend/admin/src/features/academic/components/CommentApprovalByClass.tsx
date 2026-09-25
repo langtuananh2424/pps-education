@@ -405,8 +405,15 @@ export default function CommentApprovalByClass({ items, loading, onDecided, high
                           </Td>
                           <Td className="min-w-[110px] border-r border-b border-slate-300">{cm.attitude ? t(`shared.attitude.${cm.attitude}`) : "—"}</Td>
                           <Td className="min-w-[260px] border-r border-b border-slate-300">
+                            {/* Nút "Sửa nội dung" đặt ngay dưới nội dung, tách khỏi cụm Từ chối/Duyệt ở cột
+                                Hành động + nhắc rõ khi đang sửa (2026-09-25, theo phản hồi người dùng) —
+                                trước đây nút "Sửa" nằm sát "Từ chối", người duyệt bấm nhầm rồi gõ lý do từ
+                                chối vào đây, ghi đè mất nội dung nhận xét giáo viên đã viết. */}
                             {editingId === cm.id ? (
                               <div className="space-y-2">
+                                <p className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5 whitespace-normal leading-snug">
+                                  {t("approvalByClass.editingHint")}
+                                </p>
                                 <textarea
                                   value={editingContent}
                                   onChange={(e) => setEditingContent(e.target.value)}
@@ -430,20 +437,22 @@ export default function CommentApprovalByClass({ items, loading, onDecided, high
                                 </div>
                               </div>
                             ) : (
-                              <div className="whitespace-pre-wrap">{cm.content}</div>
+                              <div className="space-y-1.5">
+                                <div className="whitespace-pre-wrap">{cm.content}</div>
+                                <button
+                                  onClick={() => handleStartEdit(cm)}
+                                  disabled={decidingId === cm.id}
+                                  className="flex items-center gap-1 text-[10px] font-bold text-slate-500 hover:text-slate-800 hover:underline disabled:opacity-50"
+                                >
+                                  <Edit3 className="w-3 h-3" />
+                                  {t("approvalByClass.actionEdit")}
+                                </button>
+                              </div>
                             )}
                           </Td>
                           <Td className="min-w-[120px] border-r border-b border-slate-300">{cm.note || "—"}</Td>
                           <Td className="min-w-[230px] whitespace-nowrap border-b border-slate-300">
                             <div className="flex gap-1.5 flex-nowrap">
-                              <button
-                                onClick={() => handleStartEdit(cm)}
-                                disabled={decidingId === cm.id || editingId === cm.id}
-                                className="px-2 py-1 text-slate-600 hover:bg-slate-100 border border-slate-200 text-[11px] font-bold rounded-lg disabled:opacity-50"
-                              >
-                                <Edit3 className="w-3 h-3 inline mr-0.5" />
-                                {t("approvalByClass.actionEdit")}
-                              </button>
                               <button
                                 onClick={() => handleDecide(cm, "REJECTED")}
                                 disabled={decidingId === cm.id || editingId === cm.id}
