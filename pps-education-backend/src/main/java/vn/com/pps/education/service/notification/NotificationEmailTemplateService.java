@@ -28,11 +28,11 @@ import java.util.Optional;
  * huynh/Thầy Cô/Quản lý Điểm trường tương ứng, không liệt kê cả 3 vai trò
  * như bản 2026-08-07) — xem {@link #footerHtml}.
  *
- * <p>Hotline: mẫu gửi Phụ huynh dùng số điện thoại của Quản lý điểm trường
- * phụ trách điểm trường chứa lớp của học viên (nơi gọi truyền vào qua
- * {@code siteManagerHotline}); không có thì fallback về Hotline chung cấu
- * hình qua biến môi trường (app.mail.hotline). Mẫu gửi Giáo viên/Quản lý
- * điểm trường luôn dùng Hotline chung.
+ * <p>Hotline: mẫu gửi Phụ huynh và Giáo viên dùng số điện thoại của Quản lý
+ * điểm trường phụ trách điểm trường chứa lớp liên quan (nơi gọi truyền vào
+ * qua {@code siteManagerHotline}); không có thì fallback về Hotline chung
+ * cấu hình qua biến môi trường (app.mail.hotline). Mẫu gửi Quản lý điểm
+ * trường luôn dùng Hotline chung (người nhận chính là Quản lý).
  */
 @Component
 public class NotificationEmailTemplateService {
@@ -68,16 +68,16 @@ public class NotificationEmailTemplateService {
         registerTemplates();
     }
 
-    /** true nếu type có mẫu email gửi Phụ huynh — nơi gọi chỉ cần tra Hotline điểm trường cho các type này. */
-    public boolean isParentTemplate(Notification.NotificationType type) {
+    /** true nếu mẫu email của type dùng Hotline Quản lý điểm trường (gửi Phụ huynh/Giáo viên) — nơi gọi chỉ cần tra số cho các type này. */
+    public boolean usesSiteManagerHotline(Notification.NotificationType type) {
         TemplateSpec spec = templates.get(type);
-        return spec != null && AUDIENCE_PARENT.equals(spec.audience());
+        return spec != null && usesSiteManagerHotline(spec);
     }
 
     /**
      * @param studentName        tên học viên liên quan (null nếu thông báo theo lớp/theo lô, không phải 1 học viên cụ thể)
      * @param className          tên lớp liên quan (null nếu không xác định được, VD gộp nhiều lớp trong 1 thông báo)
-     * @param siteManagerHotline số điện thoại Quản lý điểm trường của lớp — chỉ áp dụng cho mẫu gửi Phụ huynh;
+     * @param siteManagerHotline số điện thoại Quản lý điểm trường của lớp — chỉ áp dụng cho mẫu gửi Phụ huynh/Giáo viên;
      *                           null/rỗng thì dùng Hotline chung (app.mail.hotline)
      */
     public Optional<EmailTemplate> renderFor(Notification.NotificationType type, String studentName, String className,
@@ -99,9 +99,13 @@ public class NotificationEmailTemplateService {
     }
 
     private String resolveHotline(TemplateSpec spec, String siteManagerHotline) {
-        boolean useSiteHotline = AUDIENCE_PARENT.equals(spec.audience())
+        boolean useSiteHotline = usesSiteManagerHotline(spec)
                 && siteManagerHotline != null && !siteManagerHotline.isBlank();
         return useSiteHotline ? siteManagerHotline.strip() : hotline;
+    }
+
+    private boolean usesSiteManagerHotline(TemplateSpec spec) {
+        return AUDIENCE_PARENT.equals(spec.audience()) || AUDIENCE_TEACHER.equals(spec.audience());
     }
 
     private void registerTemplates() {

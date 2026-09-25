@@ -27,7 +27,7 @@ import java.util.Map;
  * notify() có truyền) được chèn vào mẫu để định danh đúng học viên/lớp trên
  * dữ liệu thật — bổ sung ngoài mẫu gốc, đã xác nhận với người dùng 2026-08-07.
  *
- * <p>Mẫu gửi Phụ huynh: Hotline lấy theo số điện thoại của Quản lý điểm
+ * <p>Mẫu gửi Phụ huynh/Giáo viên: Hotline lấy theo số điện thoại của Quản lý điểm
  * trường đang phụ trách điểm trường chứa lớp (khoá "classId", hoặc
  * "schoolClassId" ở cảnh báo vi phạm khi làm bài, trong metadata); không
  * xác định được lớp hoặc Quản lý chưa có số điện thoại thì fallback về
@@ -64,7 +64,7 @@ public class EmailNotificationSender implements NotificationChannelSender {
         var metadata = notification.getMetadata();
         String studentName = metadata == null ? null : asString(metadata.get("studentName"));
         String className = metadata == null ? null : asString(metadata.get("className"));
-        String siteManagerHotline = templateService.isParentTemplate(notification.getNotificationType())
+        String siteManagerHotline = templateService.usesSiteManagerHotline(notification.getNotificationType())
                 ? resolveSiteManagerHotline(metadata)
                 : null;
         var template = templateService.renderFor(notification.getNotificationType(), studentName, className,
