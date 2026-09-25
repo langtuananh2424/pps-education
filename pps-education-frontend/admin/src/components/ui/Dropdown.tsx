@@ -3,9 +3,17 @@ import { cn } from "@/lib/cn";
 
 interface DropdownProps {
   trigger: React.ReactNode;
-  children: React.ReactNode;
+  /** Truyền hàm (close) => ... khi nội dung cần tự đóng panel (VD nút điều hướng trong panel thông báo). */
+  children: React.ReactNode | ((close: () => void) => React.ReactNode);
   align?: "left" | "right";
   panelClassName?: string;
+  /**
+   * Mặc định true — bấm bất kỳ đâu trong panel cũng đóng (hợp với menu chọn 1 mục rồi xong: đổi vai
+   * trò, menu hồ sơ). false cho panel đọc/tương tác nhiều lần như danh sách thông báo (2026-09-25,
+   * theo phản hồi người dùng: bấm 1 thông báo để đánh dấu đã đọc thì panel không được tắt, chỉ tắt khi
+   * bấm ra ngoài).
+   */
+  closeOnPanelClick?: boolean;
 }
 
 /**
@@ -18,8 +26,9 @@ interface DropdownProps {
  * Từ sm trở lên GIỮ NGUYÊN hành vi cũ (absolute, neo theo trigger, rộng theo panelClassName) — không
  * đổi giao diện chính trên desktop.
  */
-export default function Dropdown({ trigger, children, align = "right", panelClassName }: DropdownProps) {
+export default function Dropdown({ trigger, children, align = "right", panelClassName, closeOnPanelClick = true }: DropdownProps) {
   const [open, setOpen] = useState(false);
+  const close = () => setOpen(false);
 
   return (
     <div className="relative">
@@ -40,9 +49,9 @@ export default function Dropdown({ trigger, children, align = "right", panelClas
               align === "right" ? "sm:left-auto sm:right-0" : "sm:right-auto sm:left-0",
               panelClassName
             )}
-            onClick={() => setOpen(false)}
+            onClick={closeOnPanelClick ? close : undefined}
           >
-            {children}
+            {typeof children === "function" ? children(close) : children}
           </div>
         </>
       )}

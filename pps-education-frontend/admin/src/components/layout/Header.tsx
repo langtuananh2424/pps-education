@@ -503,6 +503,7 @@ export default function Header() {
 
         <Dropdown
           panelClassName="max-h-[70vh] sm:max-h-[420px] overflow-y-auto sm:w-80"
+          closeOnPanelClick={false}
           trigger={
             <button className="w-9 h-9 flex items-center justify-center rounded-full text-slate-500 hover:text-slate-800 bg-white border border-slate-200/50 hover:bg-slate-50 transition-colors relative shadow-soft">
               <Bell className="w-4 h-4" />
@@ -515,6 +516,8 @@ export default function Header() {
             </button>
           }
         >
+          {(closeNotifications) => (
+          <>
           <div className="px-4 py-3 bg-slate-50 border-b border-slate-100 flex items-center justify-between sticky top-0 z-10">
             <span className="text-xs font-semibold text-slate-700">{t("header.notifications.title")}</span>
             {unreadNotificationCount > 0 && (
@@ -558,7 +561,10 @@ export default function Header() {
                           {hasDetailTarget && (
                             <button
                               type="button"
-                              onClick={(e) => handleViewNotificationDetail(notif, e)}
+                              onClick={(e) => {
+                                handleViewNotificationDetail(notif, e);
+                                closeNotifications();
+                              }}
                               className="shrink-0 flex items-center gap-1 text-[10px] font-bold text-brand-red hover:underline"
                             >
                               {t("header.notifications.viewDetail")}
@@ -572,6 +578,8 @@ export default function Header() {
                 );
               })}
             </div>
+          )}
+          </>
           )}
         </Dropdown>
 
