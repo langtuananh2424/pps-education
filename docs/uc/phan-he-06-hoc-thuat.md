@@ -1760,6 +1760,21 @@ dùng), `StudentComment.CommentType` nay chỉ còn DAILY.
     chạy lại. Bài KHÔNG có hạn nộp (`due_at IS NULL`, "bài tự luyện")
     không bao giờ khớp điều kiện quét — không bao giờ kích hoạt.
 
+-   **Bổ sung V195 (2026-09-25, đã xác nhận với người dùng) — khung đêm
+    cho nhắc hạn BTVN (`HOMEWORK_DUE_SOON_REMINDER`, V92):** nhắc Phụ
+    huynh/Học sinh chưa làm xong vẫn gửi trước hạn nộp
+    `homework_alert.reminder_before_due_hours` (mặc định 12) tiếng, NHƯNG
+    nếu mốc đó rơi vào khung đêm
+    [`homework_alert.reminder_quiet_start_hour`,
+    `homework_alert.reminder_quiet_end_hour`) — mặc định 21:00–07:00 giờ
+    VN — thì gửi SỚM hơn, lúc 21:00 tối ngay trước đó (VD hạn 12:00 trưa:
+    mốc cũ 0:00 → gửi 21:00 tối hôm trước; hạn 10:00: mốc cũ 22:00 → 21:00
+    cùng tối; hạn 19:00: mốc 07:00 đã hết khung đêm → giữ 07:00). Giao bài
+    trong khung đêm mà mốc nhắc đã qua (VD 22:30 giao, hạn 08:00 sáng) thì
+    vẫn gửi ngay ở lượt quét kế tiếp vì hạn đã gần. Chỉ áp dụng cho nhắc
+    hạn BTVN — các loại thông báo khác không đổi. Đặt 2 giờ bằng nhau để
+    tắt khung đêm. Xem `HomeworkDueSoonReminderSchedulerService#reminderSendAt`.
+
 -   Excel round-trip theo buổi học (**V65: dropdown cột Ngữ pháp đổi
     nguồn từ "bài đã giao sẵn cho lớp" sang mọi `Exercise` loại ASSIGNED
     đang PUBLISHED trong khung chương trình của lớp — chọn ở đây mới là
