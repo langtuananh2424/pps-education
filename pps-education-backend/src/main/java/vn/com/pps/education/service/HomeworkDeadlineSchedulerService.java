@@ -186,6 +186,8 @@ public class HomeworkDeadlineSchedulerService {
         metadata.put("completedCount", completedCount);
         metadata.put("total", total);
         metadata.put("ratePercent", ratePercent);
+        // Để email tra đúng Hotline Quản lý điểm trường của lớp (EmailNotificationSender).
+        metadata.put("classId", schoolClass.getId());
 
         notificationService.notify(teacherUserId, Notification.NotificationType.HOMEWORK_DEADLINE_SUMMARY,
                 title, content, metadata, entityType, entityId, Notification.Priority.NORMAL, null);
