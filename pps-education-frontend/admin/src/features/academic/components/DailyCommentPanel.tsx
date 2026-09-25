@@ -55,14 +55,18 @@ const readOnlyFieldClass = "w-full bg-emerald-50/60 border border-emerald-200 te
  * width; table-layout:fixed + <colgroup> đã thử nhưng position:sticky trên ô có rowSpan không tôn
  * trọng width khai báo ở đó (đo thực tế bằng DevTools 2026-08-14, giới hạn/bug trình duyệt) — ép cứng
  * min/max trực tiếp trên từng ô là cách duy nhất buộc trình duyệt giữ đúng width.
+ *
+ * Mobile chỉ ghim cột Họ và tên (2026-09-25) — 3 cột ghim (390px) rộng hơn cả màn hình điện thoại,
+ * che hết phần cuộn ngang khiến bảng trông như không cuộn được; từ md trở lên mới ghim đủ 3 cột. Vì
+ * left đổi theo breakpoint nên đặt bằng class Tailwind (left-0 md:left-[110px]...) trên từng ô thay vì
+ * inline style. Các bảng mirror (CommentApprovalByClass/CommentHistoryPanel/SessionVersionHistoryModal)
+ * làm y hệt.
  */
 const STICKY_COL_WIDTHS = [110, 170, 110];
-const STICKY_COL_LEFT = [0, STICKY_COL_WIDTHS[0], STICKY_COL_WIDTHS[0] + STICKY_COL_WIDTHS[1]];
-const STICKY_COL_STYLE: React.CSSProperties[] = STICKY_COL_WIDTHS.map((w, i) => ({
+const STICKY_COL_STYLE: React.CSSProperties[] = STICKY_COL_WIDTHS.map((w) => ({
   width: w,
   minWidth: w,
-  maxWidth: w,
-  left: STICKY_COL_LEFT[i]
+  maxWidth: w
 }));
 
 /**
@@ -1870,9 +1874,9 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
               không đổi field/vị trí cột nào khác.
             */}
             <tr className="border-b border-slate-300 [&>th]:text-center">
-              <Th rowSpan={isVietnamese ? 3 : 2} style={STICKY_COL_STYLE[0]} className="sticky left-0 z-30 bg-slate-50 border-r border-b border-slate-300">{t("dailyCommentPanel.columns.studentCode")}</Th>
-              <Th rowSpan={isVietnamese ? 3 : 2} style={STICKY_COL_STYLE[1]} className="sticky z-30 bg-slate-50 border-r border-b border-slate-300">{t("dailyCommentPanel.columns.fullName")}</Th>
-              <Th rowSpan={isVietnamese ? 3 : 2} style={STICKY_COL_STYLE[2]} className="sticky z-30 bg-slate-50 border-r border-b border-slate-300">{t("dailyCommentPanel.columns.dateOfBirth")}</Th>
+              <Th rowSpan={isVietnamese ? 3 : 2} style={STICKY_COL_STYLE[0]} className="md:sticky left-0 z-30 bg-slate-50 border-r border-b border-slate-300">{t("dailyCommentPanel.columns.studentCode")}</Th>
+              <Th rowSpan={isVietnamese ? 3 : 2} style={STICKY_COL_STYLE[1]} className="sticky left-0 md:left-[110px] z-30 bg-slate-50 border-r border-b border-slate-300">{t("dailyCommentPanel.columns.fullName")}</Th>
+              <Th rowSpan={isVietnamese ? 3 : 2} style={STICKY_COL_STYLE[2]} className="md:sticky md:left-[280px] z-30 bg-slate-50 border-r border-b border-slate-300">{t("dailyCommentPanel.columns.dateOfBirth")}</Th>
               <Th colSpan={isVietnamese ? 6 : 3} className="text-center border-r border-b border-slate-300">{t("dailyCommentPanel.columns.homeworkPrevious")}</Th>
               <Th colSpan={isVietnamese ? 6 : 3} className="text-center border-r border-b border-slate-300">{t("dailyCommentPanel.columns.homeworkNextGroup")}</Th>
               <Th rowSpan={isVietnamese ? 3 : 2} className="border-r border-b border-slate-300">{t("dailyCommentPanel.columns.dueDate")}</Th>
@@ -1989,8 +1993,8 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
                             : "hover:bg-slate-50/40"
                     }`}
                   >
-                    <Td style={STICKY_COL_STYLE[0]} className={`sticky left-0 z-10 ${stickyBg} font-mono font-bold text-slate-500 border-r border-b border-slate-300`}>{r.studentCode}</Td>
-                    <Td style={STICKY_COL_STYLE[1]} className={`sticky z-10 ${stickyBg} font-bold text-slate-900 whitespace-nowrap border-r border-b border-slate-300`}>
+                    <Td style={STICKY_COL_STYLE[0]} className={`md:sticky left-0 z-10 ${stickyBg} font-mono font-bold text-slate-500 border-r border-b border-slate-300`}>{r.studentCode}</Td>
+                    <Td style={STICKY_COL_STYLE[1]} className={`sticky left-0 md:left-[110px] z-10 ${stickyBg} font-bold text-slate-900 whitespace-nowrap border-r border-b border-slate-300`}>
                       <StudentNameLink studentId={r.studentId} name={r.studentFullName} />
                       {isAbsentLocked && (
                         <div className="text-[9px] font-bold text-red-600 uppercase tracking-wide mt-0.5 whitespace-normal leading-snug">
@@ -2006,7 +2010,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
                         </div>
                       )}
                     </Td>
-                    <Td style={STICKY_COL_STYLE[2]} className={`sticky z-10 ${stickyBg} whitespace-nowrap text-slate-500 border-r border-b border-slate-300`}>{r.studentDateOfBirth ?? "—"}</Td>
+                    <Td style={STICKY_COL_STYLE[2]} className={`md:sticky md:left-[280px] z-10 ${stickyBg} whitespace-nowrap text-slate-500 border-r border-b border-slate-300`}>{r.studentDateOfBirth ?? "—"}</Td>
                     {isVietnamese ? (
                       <>
                         {/* V130 — "BTVN buổi trước - Offline - Reading/Writing": GV nhập tay điểm % chấm bài giấy,

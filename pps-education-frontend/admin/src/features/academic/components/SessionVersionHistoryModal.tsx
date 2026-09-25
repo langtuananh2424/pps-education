@@ -20,12 +20,10 @@ const statusVariants: Record<StudentCommentHistoryResponse["details"]["status"],
  * nếu chỉ đặt width thường, phải ép cứng width/minWidth/maxWidth bằng nhau trực tiếp trên từng ô.
  */
 const STICKY_COL_WIDTHS = [110, 160, 100];
-const STICKY_COL_LEFT = [0, STICKY_COL_WIDTHS[0], STICKY_COL_WIDTHS[0] + STICKY_COL_WIDTHS[1]];
-const STICKY_COL_STYLE: React.CSSProperties[] = STICKY_COL_WIDTHS.map((w, i) => ({
+const STICKY_COL_STYLE: React.CSSProperties[] = STICKY_COL_WIDTHS.map((w) => ({
   width: w,
   minWidth: w,
-  maxWidth: w,
-  left: STICKY_COL_LEFT[i]
+  maxWidth: w
 }));
 
 /**
@@ -190,13 +188,13 @@ export default function SessionVersionHistoryModal({ classSessionId, students, g
               <table className="text-[11px] text-left border-separate border-spacing-0">
                 <thead className="sticky top-0 z-20 bg-white shadow-sm">
                   <tr className="[&>th]:text-center">
-                    <th rowSpan={isVietnamese ? 3 : 2} style={STICKY_COL_STYLE[0]} className={`${thClass} sticky left-0 z-30`}>
+                    <th rowSpan={isVietnamese ? 3 : 2} style={STICKY_COL_STYLE[0]} className={`${thClass} md:sticky left-0 z-30`}>
                       {t("sessionVersionHistoryModal.columns.studentCode")}
                     </th>
-                    <th rowSpan={isVietnamese ? 3 : 2} style={STICKY_COL_STYLE[1]} className={`${thClass} sticky z-30`}>
+                    <th rowSpan={isVietnamese ? 3 : 2} style={STICKY_COL_STYLE[1]} className={`${thClass} sticky left-0 md:left-[110px] z-30`}>
                       {t("sessionVersionHistoryModal.columns.fullName")}
                     </th>
-                    <th rowSpan={isVietnamese ? 3 : 2} style={STICKY_COL_STYLE[2]} className={`${thClass} sticky z-30`}>
+                    <th rowSpan={isVietnamese ? 3 : 2} style={STICKY_COL_STYLE[2]} className={`${thClass} md:sticky md:left-[270px] z-30`}>
                       {t("sessionVersionHistoryModal.columns.dateOfBirth")}
                     </th>
                     <th colSpan={isVietnamese ? 6 : 3} className={thClass}>
@@ -261,16 +259,16 @@ export default function SessionVersionHistoryModal({ classSessionId, students, g
                     const d = entry?.details;
                     const rowBg = touchedNow ? "bg-amber-50" : undefined;
                     const tdClass = `px-2 py-2 border-b border-r border-slate-100 ${rowBg ?? ""}`;
-                    const stickyTdClass = `px-2 py-2 border-b border-r border-slate-100 sticky z-10 ${touchedNow ? "bg-amber-50" : "bg-white"}`;
+                    const stickyTdClass = `px-2 py-2 border-b border-r border-slate-100 z-10 ${touchedNow ? "bg-amber-50" : "bg-white"}`;
                     return (
                       <tr key={s.studentId}>
-                        <td style={STICKY_COL_STYLE[0]} className={`${stickyTdClass} font-mono font-bold text-slate-500 whitespace-nowrap`}>
+                        <td style={STICKY_COL_STYLE[0]} className={`${stickyTdClass} md:sticky left-0 font-mono font-bold text-slate-500 whitespace-nowrap`}>
                           {s.studentCode}
                         </td>
-                        <td style={STICKY_COL_STYLE[1]} className={`${stickyTdClass} font-bold text-slate-800 whitespace-nowrap`}>
+                        <td style={STICKY_COL_STYLE[1]} className={`${stickyTdClass} sticky left-0 md:left-[110px] font-bold text-slate-800 whitespace-nowrap`}>
                           {s.studentFullName}
                         </td>
-                        <td style={STICKY_COL_STYLE[2]} className={`${stickyTdClass} whitespace-nowrap text-slate-500`}>{s.studentDateOfBirth ?? "—"}</td>
+                        <td style={STICKY_COL_STYLE[2]} className={`${stickyTdClass} md:sticky md:left-[270px] whitespace-nowrap text-slate-500`}>{s.studentDateOfBirth ?? "—"}</td>
                         {isVietnamese ? (
                           <>
                             <td className={`${tdClass} text-slate-500`}>{d?.homeworkPreviousReadingScore || "—"}</td>

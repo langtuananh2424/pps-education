@@ -1299,6 +1299,9 @@ export default function DailyLearningProgressTab({
             <p className="text-sm text-muted font-bold italic text-center py-10">{t("noApprovedComments")}</p>
           ) : (
             <>
+            {/* Mobile chỉ ghim cột Ngày — 3 cột ghim (Ngày + Bài học + Giáo viên = 432px) rộng hơn cả
+                màn hình điện thoại, che hết phần cuộn ngang khiến bảng trông như không cuộn được
+                (2026-09-25); từ md trở lên mới ghim đủ 3 cột như cũ. */}
             <div className="overflow-x-auto">
               <table className="w-full text-left border-separate border-spacing-0 min-w-[1700px]">
                 <thead>
@@ -1319,8 +1322,8 @@ export default function DailyLearningProgressTab({
                   */}
                   <tr className="bg-slate-100 [&>th]:border-b [&>th]:border-slate-300 [&>th]:text-center text-xs font-black uppercase text-slate-700 tracking-wider">
                     <th rowSpan={3} className="p-3 border-r border-slate-300 w-28 min-w-28 whitespace-nowrap sticky left-0 z-30 bg-slate-100">{t("table.date")}</th>
-                    <th rowSpan={3} className="p-3 border-r border-slate-300 w-52 min-w-52 max-w-52 sticky left-28 z-30 bg-slate-100">{t("table.todayLesson")}</th>
-                    <th rowSpan={3} className="p-3 border-r border-slate-300 w-28 min-w-28 whitespace-nowrap text-center sticky left-80 z-30 bg-slate-100">{t("table.teacher")}</th>
+                    <th rowSpan={3} className="p-3 border-r border-slate-300 w-52 min-w-52 max-w-52 md:sticky md:left-28 z-30 bg-slate-100">{t("table.todayLesson")}</th>
+                    <th rowSpan={3} className="p-3 border-r border-slate-300 w-28 min-w-28 whitespace-nowrap text-center md:sticky md:left-80 z-30 bg-slate-100">{t("table.teacher")}</th>
                     <th colSpan={7} className="p-3 border-r border-slate-300 text-center">{t("table.homeworkPrev")}</th>
                     <th colSpan={7} className="p-3 border-r border-slate-300 text-center">{t("table.homeworkNextGroup")}</th>
                     <th rowSpan={3} className="p-3 border-r border-slate-300 w-32 whitespace-nowrap">{t("table.dueDate")}</th>
@@ -1355,7 +1358,7 @@ export default function DailyLearningProgressTab({
                   {pagedLogs.map((log) => (
                     <tr key={log.id} className="group hover:bg-slate-50/80 transition-colors">
                       <td className="p-3 border-r border-slate-300 font-mono font-bold text-slate-700 whitespace-nowrap align-top w-28 min-w-28 sticky left-0 z-20 bg-white group-hover:bg-slate-50">{log.commentDate}</td>
-                      <td className="p-3 border-r border-slate-300 align-top w-52 min-w-52 max-w-52 sticky left-28 z-20 bg-white group-hover:bg-slate-50">
+                      <td className="p-3 border-r border-slate-300 align-top w-52 min-w-52 max-w-52 md:sticky md:left-28 z-20 bg-white group-hover:bg-slate-50">
                         <div className="font-bold text-teal-deep">
                           {log.sessionNumber != null ? t("sessionNumber", { number: log.sessionNumber }) : log.sessionTypeLabel ?? t("sessionFallback")}
                           {log.lessonContent && <span className="font-bold text-teal-deep">: {log.lessonContent}</span>}
@@ -1370,7 +1373,7 @@ export default function DailyLearningProgressTab({
                           )}
                         </div>
                       </td>
-                      <td className="p-3 border-r border-slate-300 text-center whitespace-nowrap align-top w-28 min-w-28 sticky left-80 z-20 bg-white group-hover:bg-slate-50">
+                      <td className="p-3 border-r border-slate-300 text-center whitespace-nowrap align-top w-28 min-w-28 md:sticky md:left-80 z-20 bg-white group-hover:bg-slate-50">
                         {log.teacherType ? (
                           <span className={`px-2 py-0.5 rounded text-xs border font-bold ${teacherTypeStyles[log.teacherType]}`}>
                             {teacherTypeLabels[log.teacherType]}
