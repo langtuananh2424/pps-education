@@ -2,3 +2,5 @@
 # Windows (core.autocrlf=true doi sang CRLF -> bash tren server bao loi "\r").
 *.sh text eol=lf
 systemd/* text eol=lf
+# Script chay tren laptop Windows - bat buoc CRLF.
+laptop/*.cmd text eol=crlf
