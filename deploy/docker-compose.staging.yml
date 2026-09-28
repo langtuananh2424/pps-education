@@ -140,6 +140,9 @@ services:
       # test với bao nhiêu, và chừa RAM cho Postgres shared_buffers (4GB).
       JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--Xms2g -Xmx6g -XX:+UseG1GC -XX:MaxGCPauseMillis=200}
       JWT_SECRET: ${JWT_SECRET}
+      # UC-30 webhook ngân hàng (X-Webhook-Secret). Để trống = webhook TẮT (InvoiceController từ chối
+      # mọi request) - trước đây không khai báo nên app dùng giá trị mẫu mặc định ai cũng biết.
+      BANK_WEBHOOK_SECRET: ${BANK_WEBHOOK_SECRET:-}
       SEED_DEV_USERS: ${SEED_DEV_USERS:-false}
       # Bootstrap 1 tài khoản sysadmin lần đầu (KHÁC SEED_DEV_USERS - xem InitialAdminSeeder.java).
       # Mặc định tắt - chỉ bật 1 lần khi cần tạo sysadmin đầu tiên, rồi tắt lại (đặt false trong .env).

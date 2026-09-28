@@ -38,8 +38,6 @@ import java.util.UUID;
 @Service
 public class MediaStorageService {
 
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(MediaStorageService.class);
-
     private static final long MAX_IMAGE_BYTES = 10L * 1024 * 1024;
     private static final long MAX_AUDIO_BYTES = 50L * 1024 * 1024;
     private static final long MAX_DOCUMENT_BYTES = 20L * 1024 * 1024;
@@ -142,43 +140,40 @@ public class MediaStorageService {
      * cho AI đa phương thức) dùng hàm này thay vì {@link #download}.
      */
     public DownloadedFile downloadWithContentType(String publicUrl) {
-        if (publicUrl == null || publicUrl.isBlank()) {
+        String key = objectKeyOf(publicUrl);
+        try (var stream = r2Client.getObject(GetObjectRequest.builder().bucket(bucket).key(key).build())) {
+            return new DownloadedFile(stream.readAllBytes(), stream.response().contentType());
+        } catch (IOException ex) {
+            throw new UncheckedIOException("Không tải được file từ storage (key=" + key + ").", ex);
+        }
+    }
+
+    /**
+     * Validate URL media do người dùng gửi lên (VD audioUrl khi nộp bài) TRƯỚC khi lưu vào DB - chỉ
+     * nhận URL do chính hệ thống sinh ra qua {@link #store}. Ném IllegalArgumentException (400) nếu không.
+     */
+    public void requireStoredUrl(String publicUrl) {
+        objectKeyOf(publicUrl);
+    }
+
+    /**
+     * Chống SSRF (rà soát bảo mật 2026-09-28, đã xác nhận với người dùng): URL truyền vào có thể đến
+     * từ request của người dùng (VD audioUrl học sinh gửi khi nộp bài Video phản xạ - UC-23b), nên
+     * TUYỆT ĐỐI không mở kết nối tới địa chỉ trong URL. Chỉ chấp nhận URL do chính {@link #store}/
+     * {@link #storeGeneratedFile} sinh ra ({publicBaseUrl}/{key}), suy ngược ra object key rồi đọc qua
+     * S3 client - server không bao giờ tự đi tới host/scheme (http, file...) do người dùng chọn.
+     * Trước đây có nhánh fallback tải qua URLConnection + trả HTML mẫu giả lập khi lỗi - đã bỏ.
+     */
+    private String objectKeyOf(String publicUrl) {
+        if (publicUrl == null || !publicUrl.startsWith(publicBaseUrl + "/")) {
+            throw new IllegalArgumentException("URL file không thuộc kho lưu trữ của hệ thống.");
+        }
+        String key = publicUrl.substring(publicBaseUrl.length() + 1);
+        if (key.isBlank() || key.startsWith("/") || key.contains("..") || key.contains("\\")
+                || key.contains("?") || key.contains("#")) {
             throw new IllegalArgumentException("URL file không hợp lệ.");
         }
-        if (publicUrl.startsWith(publicBaseUrl + "/")) {
-            String key = publicUrl.substring(publicBaseUrl.length() + 1);
-            try (var stream = r2Client.getObject(GetObjectRequest.builder().bucket(bucket).key(key).build())) {
-                return new DownloadedFile(stream.readAllBytes(), stream.response().contentType());
-            } catch (Exception ex) {
-                log.warn("Không tải được từ R2 storage (key={}): {}, nỗ lực fallback...", key, ex.getMessage());
-            }
-        }
-        // Cho phép tải qua HTTP GET từ bên ngoài hoặc đọc mock fallback cho dữ liệu seed
-        try {
-            java.net.URL url = new java.net.URI(publicUrl).toURL();
-            java.net.URLConnection connection = url.openConnection();
-            try (java.io.InputStream in = connection.getInputStream()) {
-                return new DownloadedFile(in.readAllBytes(), connection.getContentType());
-            }
-        } catch (Exception e) {
-            // Trường hợp seed mock URL giả lập (storage.pps.edu.vn): trả về mẫu byte HTML/Text đại diện hợp lệ
-            String fallbackContent = "<html><body>"
-                    + "<h1>BÁO CÁO MẪU GIẢ LẬP ([CLASS_NAME])</h1>"
-                    + "<p>Năm học: [ACADEMIC_YEAR] - Ngày xuất: [GENERATED_DATE]</p>"
-                    + "<p>Giáo viên: [PRIMARY_TEACHER_NAME]</p>"
-                    + "<p>Học sinh: [STUDENT_NAME] ([STUDENT_CODE])</p>"
-                    + "<ul>"
-                    + "<li>Nói (Speaking): [SPEAKING_MID1]</li>"
-                    + "<li>Đọc (Reading): [READING_MID1]</li>"
-                    + "<li>Nghe (Listening): [LISTENING_MID1]</li>"
-                    + "<li>Viết (Writing): [WRITING_MID1]</li>"
-                    + "<li>Ngữ pháp (Grammar): [GRAMMAR_MID1]</li>"
-                    + "<li>Tổng kết (Overall): [OVERALL_MID1] - Xếp loại: [LEVEL_MID1]</li>"
-                    + "</ul>"
-                    + "<p><b>Nhận xét:</b> [COMMENT_MID1] [STUDENT_COMMENT]</p>"
-                    + "</body></html>";
-            return new DownloadedFile(fallbackContent.getBytes(java.nio.charset.StandardCharsets.UTF_8), "text/html");
-        }
+        return key;
     }
 
     /**
