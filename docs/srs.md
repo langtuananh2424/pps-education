@@ -527,6 +527,17 @@ nhân đó mới được thao tác.*
         X ngày) — không tạo permission mới, tái dùng đúng
         `academic.comment.write`/`academic.comment.approve` đã có.
 
+        **Trợ lý AI soạn nháp nhận xét từ audio (UC-74, bổ sung ngoài SDD
+        gốc, đã xác nhận với người dùng 2026-09-28):** Giáo viên nói nhận
+        xét chung cả lớp + vài học sinh được nhắc riêng (audio ≤ 5 phút),
+        AI soạn sẵn Thái độ + Nhận xét cho từng học sinh có mặt (không
+        trùng lặp máy móc giữa các học sinh trong buổi và với các buổi
+        trước của cùng học sinh). AI không được điền điểm/trường cần con
+        số chính xác, quyền lưu cao nhất là Lưu nháp; Gửi duyệt vẫn do
+        Giáo viên. Màn hình Nhận xét học viên có thêm dạng xem Thẻ bên
+        cạnh dạng Bảng, và sidebar trò chuyện với trợ lý kèm nút gợi ý
+        thao tác (Áp dụng vào bảng, Lưu nháp, Viết lại).
+
     -   **FR-ACA-05: Xếp lịch buổi học -** Nhân viên giáo vụ/Trưởng phòng
         đào tạo xếp lịch từng buổi học cụ thể (ngày, khung giờ, phòng,
         giáo viên phụ trách) cho 1 lớp đã khởi tạo (FR-ACA-02); hệ thống
@@ -941,6 +952,10 @@ CDN)**
 
   UC-21             Viết nhận xét học FR-ACA-04         6
                     sinh                                
+
+  UC-74             Trợ lý AI soạn    FR-ACA-04         6
+                    nháp nhận xét từ                    
+                    audio                               
 
   UC-22             Duyệt nhận xét    FR-LMS-09         6, 7
 
