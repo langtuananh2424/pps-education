@@ -42,12 +42,30 @@ although, relative clause hoặc cấu trúc mở rộng tương đương.
 
 | Gate | Kích hoạt | Hậu quả |
 |---|---|---|
-| **G1 – Underlength** | `N_net` = 50–79% số từ yêu cầu | Task/Content tối đa **60%** |
+| **G1 – Underlength** | `N_net` = 50–79% số từ yêu cầu | Task/Content tối đa **50%**; **Communicative Achievement / Organisation / Coherence & Cohesion tối đa 60%** — thiếu chữ thì mọi hàng đều thiếu bằng chứng, không riêng hàng nội dung. Hàng ngôn ngữ chấm theo checkpoint |
 |  | `N_net` <50% | Mọi criterion tối đa **40%** |
 |  | `N_net` <25% | **0% – insufficient data** |
-| **G2 – Off-topic** | Bài hoàn toàn không trả lời đề | Task/Content = **0%**; các criterion ngôn ngữ vẫn chấm nếu đủ dữ liệu |
+| **G2 – Off-topic** | `R_answered` = 0 (không trả lời yêu cầu nào của đề) | Task/Content = **0%** và **MỌI tiêu chí khác tối đa 20%** — kể cả các hàng ngôn ngữ |
+| | `R_answered` / `R_total` ≤ 1/3 | **Mọi tiêu chí tối đa 40%** |
+| | trả lời một phần, chưa đủ | **Mọi tiêu chí tối đa 70%** |
 | **G3 – Copied input** | Có chuỗi trùng ≥5 từ liên tiếp với đề/nguồn | Loại khỏi `N_net`; không tính làm bằng chứng LR/Language/GRA |
 | **G4 – Non-English** | Phần lớn bài không phải tiếng Anh | **0% – insufficient English evidence** |
+
+**Trần lạc đề — bắt buộc, hệ thống tự áp.** Mục 0 phải ghi `R_total` (số yêu cầu của đề) và `R_answered`
+(số yêu cầu bài đã trả lời, mỗi yêu cầu phải trích được nguyên văn câu trả lời). Trần này áp cho **mọi tiêu chí**,
+kể cả các hàng ngôn ngữ, vì một bài không làm đúng đề thì không thể đạt dù viết hay đến đâu:
+
+| `R_answered` / `R_total` | Trần cho MỌI tiêu chí |
+|---|---|
+| 0 | **20%** (Content / Task Response = 0%) |
+| ≤ 1/3 | **40%** |
+| còn thiếu (chưa đủ) | **70%** |
+| đủ | không trần |
+
+**Ví dụ bắt buộc đọc.** Đề yêu cầu trả lời thư của Ben với 3 ý: sở thích và lý do · khuyên chọn photography hay
+cooking · gợi ý sở thích chung cho hai người. Bài nộp là một lá thư kể trận bóng đá Manchester United — tiếng Anh
+chuẩn, đúng định dạng thư, mạch lạc, nhưng **không trả lời ý nào**. `R_answered` = 0 → mọi tiêu chí tối đa **20%**.
+Chấm 25 lượt bài này theo luật cũ ra trung bình **68,6%** (60–80%) vì chỉ hàng nội dung bị trừ — đó là lý do có luật này.
 
 Từ/cụm tiếng Việt lẻ tẻ được tính là **lexical gap** ở Language/LR, không trừ thêm lần thứ hai.
 
@@ -70,11 +88,11 @@ Nếu có bài mẫu/reference text được cung cấp và bài học sinh trù
 
 | ID | Checkpoint | **1** | **0.5** | **0** |
 |---|---|---|---|---|
-| **CC1** | **Progression** | Mạch rõ xuyên suốt | 1 chỗ đứt mạch | Ý rời rạc |
+| **CC1** | **Progression** — đọc thẳng số `Chỗ đứt mạch` ở mục 0. Chuyển sang nhóm ý mới mà không có từ nối, không tham chiếu, không mốc thời gian = 1 chỗ đứt mạch | 0 chỗ đứt mạch | 1 chỗ đứt mạch | ≥ 2 / ý rời rạc |
 | **CC2** | **Paragraphing / grouping** — đếm đoạn | Mở bài · ≥ 1 đoạn thân · kết bài, mỗi phần một đoạn riêng | 2 đoạn (mở bài hoặc kết bài không tách riêng) | Toàn bài một khối |
 | **CC3** | **Linking** | ≥4 correct links, ≥3 types | 2–3 links, ≥2 types | ≤1 / mostly wrong |
-| **CC4** | **Reference / pronouns** | ≥3 correct cohesive uses | 1–2 | 0 / unclear reference |
-| **CC5** | **Repetition control** — trích từng ý / cụm lặp lại không cần thiết | 0–1 | 2 | ≥ 3 |
+| **CC4** | **Reference / pronouns** — đọc thẳng `số phương tiện KHÁC NHAU` ở mục 0 (cùng một đại từ lặp lại chỉ tính một lần) | ≥ 3 phương tiện khác nhau | 1–2 | 0 / tham chiếu không rõ |
+| **CC5** | **Repetition control** — đọc thẳng số ở dòng `Từ, cụm lặp không cần thiết` của mục 0 | 0–1 mục | 2 mục | ≥ 3 mục |
 
 ### LEXICAL RESOURCE — LR
 
@@ -82,9 +100,14 @@ Nếu có bài mẫu/reference text được cung cấp và bài học sinh trù
 |---|---|---|---|---|
 | **L1** | **Vocabulary sufficiency** | Resource đủ cho mọi ý chính | Đủ cho ý chính nhưng có 1–2 lexical gaps | Limited; nhiều ý phải bỏ/đơn giản hóa |
 | **L2** | **Word choice** | `N_lex` 0–2 | 3–5 | ≥6 / repeated meaning loss |
-| **L3** | **Variety theo ngữ cảnh** — `K_topic` = số từ/cụm **hợp chủ đề theo ngữ cảnh đề bài**, dùng đúng, **không có sẵn trong đề**; mỗi mục tính 1 lần, phải trích nguyên văn | `K_topic` ≥ 6 | 3–5 | ≤ 2 |
+| **L3** | **Variety theo ngữ cảnh** — `K_topic` = số từ/cụm **hợp chủ đề theo ngữ cảnh đề bài**, dùng đúng, **không có sẵn trong đề**; mỗi mục tính 1 lần, phải trích nguyên văn | `K_topic` ≥ 6 **và** `K_phrase` ≥ 2 | `K_topic` ≥ 6 nhưng `K_phrase` ≤ 1, hoặc `K_topic` 3–5 | ≤ 2 |
 | **L4** | **Spelling / word formation** | ≤2 lỗi / 50 từ | 3–5 | ≥6 / cản meaning |
 | **L5** | **Paraphrase** — `P_para` = số chỗ **nói lại ý của đề bằng lời khác** (trích cặp *đề → bài*); `N_copy` do máy đo | `P_para` ≥ 1 **và** `N_copy` = 0 | `P_para` ≥ 1 nhưng `N_copy` > 0; hoặc `P_para` = 0 và `N_copy` = 0 | `P_para` = 0 **và** `N_copy` > 0 |
+
+**`K_phrase` — bắt buộc đọc cùng `K_topic`.** `K_phrase` là số mục trong `K_topic` là **cụm từ 2 tiếng trở lên dùng đúng**
+(*a guided tour* · *took many photos* · *local food* · *get on the bus*). Từ đơn lẻ không tính vào `K_phrase`.
+Lý do: một bài 40 từ chỉ gồm *museum, football, tired, happy* vẫn đủ `K_topic` ≥ 4 nhưng đó là vốn từ A1 —
+đếm số lượng không phản ánh trình độ, nên mức `1` đòi thêm cụm từ.
 
 ### GRAMMATICAL RANGE & ACCURACY — GRA
 
