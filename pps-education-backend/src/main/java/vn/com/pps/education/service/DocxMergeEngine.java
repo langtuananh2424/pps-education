@@ -262,14 +262,22 @@ class DocxMergeEngine {
         String originalText = paragraph.getText();
         String replacedText = replacer.apply(originalText);
         if (!replacedText.equals(originalText)) {
-            org.openxmlformats.schemas.wordprocessingml.x2006.main.CTText[] tArray = runs.get(0).getCTR().getTArray();
+            // Giá trị nhiều dòng (VD HOMEWORK_CONTENT) — "\n" trong <w:t> Word hiển thị thành khoảng
+            // trắng, phải tách thành <w:br/> để xuống dòng thật trong cùng đoạn văn.
+            String[] lines = replacedText.split("\n", -1);
+            XWPFRun firstRun = runs.get(0);
+            org.openxmlformats.schemas.wordprocessingml.x2006.main.CTText[] tArray = firstRun.getCTR().getTArray();
             if (tArray.length > 0) {
-                tArray[0].setStringValue(replacedText);
+                tArray[0].setStringValue(lines[0]);
                 for (int t = tArray.length - 1; t >= 1; t--) {
-                    runs.get(0).getCTR().removeT(t);
+                    firstRun.getCTR().removeT(t);
                 }
             } else {
-                runs.get(0).setText(replacedText, 0);
+                firstRun.setText(lines[0], 0);
+            }
+            for (int l = 1; l < lines.length; l++) {
+                firstRun.addBreak();
+                firstRun.setText(lines[l]);
             }
             for (int i = runs.size() - 1; i >= 1; i--) {
                 paragraph.removeRun(i);

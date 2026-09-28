@@ -172,33 +172,93 @@ class DailyReportGenerationControllerTest extends AbstractControllerTest {
     void generate_UC68_MainFlow_clonesStudentsTableSortedByNameWithAttendanceAndComment() throws Exception {
         Student binh = enrollStudent("Bình");
         Student an = enrollStudent("An");
+        Student cuong = enrollStudent("Cường");
+        Student dung = enrollStudent("Dũng");
+        enrollStudent("Em");
 
         ClassSession session = newClassSession();
+        User assistant = newUser("assistant.daily");
+        assistant.setFullName("Trợ Giảng Test");
+        userRepository.save(assistant);
+        session.setAssistantTeacher(assistant);
+        classSessionRepository.save(session);
+
         AttendanceSession attendanceSession = newAttendanceSession(session);
         markAttendance(attendanceSession, an, AttendanceMark.Status.PRESENT);
         markAttendance(attendanceSession, binh, AttendanceMark.Status.ABSENT);
-        writeDailyComment(session, an, "Con học tốt hôm nay.");
+        markAttendance(attendanceSession, cuong, AttendanceMark.Status.EXCUSED);
+        markAttendance(attendanceSession, dung, AttendanceMark.Status.LATE);
+        StudentComment anComment = writeDailyComment(session, an, "Con học tốt hôm nay.");
+        // GV nhập tay "Chưa làm bài" ở cột BTVN buổi trước (nhập tay thắng fallback tự động).
+        anComment.setHomeworkPreviousScore("Chưa làm bài");
+        anComment.setHomeworkNext("Unit 8 trang 1 & 2");
+        studentCommentRepository.save(anComment);
+        StudentComment dungComment = writeDailyComment(session, dung, "");
+        dungComment.setHomeworkPreviousScore("80%");
+        dungComment.setHomeworkNext("Unit 8 trang 1 & 2"); // trùng với An -> chỉ in 1 lần
+        dungComment.setHomeworkNextReading("Reading trang 5");
+        studentCommentRepository.save(dungComment);
 
         Long templateId = createDailyReportTemplate();
-        configureFieldMappings(templateId,
-                new FieldMappingItemRequest("[CLASS_NAME]", "CLASS_NAME", null),
-                new FieldMappingItemRequest("[TOTAL_STUDENTS]", "TOTAL_STUDENTS", null),
-                new FieldMappingItemRequest("[ABSENT_COUNT]", "ABSENT_COUNT", null),
-                new FieldMappingItemRequest("[[TABLE:STUDENTS]]", null, null));
+        configureAllHeaderFieldMappings(templateId);
 
         GenerateReportRequest request = new GenerateReportRequest(templateId, "CLASS_SESSION", null, null, List.of(), session.getId());
 
         byte[] mergedDocx = generateAndCaptureBytes(request);
 
+        // Vắng tính cả Vắng có phép (Bình + Cường); Có mặt tính cả Đi trễ (An + Dũng); "Em" chưa điểm danh không nằm trong 2 con số.
         String headerText = extractFirstParagraphText(mergedDocx);
-        assertThat(headerText).isEqualTo("Lớp: 7A2 - Sĩ số: 2 - Vắng: 1");
+        assertThat(headerText).isEqualTo("Lớp: 7A2 - Có mặt: 2/5 - Vắng: 2 - Trợ giảng: Trợ Giảng Test");
+        assertThat(extractParagraphText(mergedDocx, 1))
+                .isEqualTo("HS vắng: Bình Test, Cường Test | Thiếu BTVN: An Test");
+        // HOMEWORK_CONTENT nhiều dòng -> <w:br/> trong cùng đoạn văn (POI đọc lại thành "\n").
+        assertThat(extractParagraphText(mergedDocx, 2))
+                .isEqualTo("BTVN: - Unit 8 trang 1 & 2\n- Reading: Reading trang 5");
 
         List<List<String>> tableRows = extractTableRows(mergedDocx);
-        // Dòng 0 là header cột (ngoài marker) -> dòng 1,2 là dữ liệu học sinh, sắp A-Z: "An" trước "Bình".
+        // Dòng 0 là header cột (ngoài marker) -> các dòng sau là dữ liệu học sinh, sắp A-Z.
         assertThat(tableRows).containsExactly(
                 List.of("Ten", "Diem danh", "Nhan xet"),
                 List.of("An Test", "Có mặt", "Con học tốt hôm nay."),
-                List.of("Bình Test", "Vắng", ""));
+                List.of("Bình Test", "Vắng", ""),
+                List.of("Cường Test", "Vắng có phép", ""),
+                List.of("Dũng Test", "Đi trễ", ""),
+                List.of("Em Test", "Chưa điểm danh", ""));
+    }
+
+    @Test
+    void generate_UC68_MainFlow_leavesOptionalFieldsBlankWhenNothingToShow() throws Exception {
+        Student an = enrollStudent("An");
+
+        ClassSession session = newClassSession();
+        AttendanceSession attendanceSession = newAttendanceSession(session);
+        markAttendance(attendanceSession, an, AttendanceMark.Status.PRESENT);
+
+        Long templateId = createDailyReportTemplate();
+        configureAllHeaderFieldMappings(templateId);
+
+        GenerateReportRequest request = new GenerateReportRequest(templateId, "CLASS_SESSION", null, null, List.of(), session.getId());
+
+        byte[] mergedDocx = generateAndCaptureBytes(request);
+
+        assertThat(extractFirstParagraphText(mergedDocx))
+                .isEqualTo("Lớp: 7A2 - Có mặt: 1/1 - Vắng: 0 - Trợ giảng: ");
+        // Không ai vắng/thiếu BTVN, chưa giao BTVN -> để rỗng, không chặn xuất.
+        assertThat(extractParagraphText(mergedDocx, 1)).isEqualTo("HS vắng:  | Thiếu BTVN: ");
+        assertThat(extractParagraphText(mergedDocx, 2)).isEqualTo("BTVN: ");
+    }
+
+    private void configureAllHeaderFieldMappings(Long templateId) throws Exception {
+        configureFieldMappings(templateId,
+                new FieldMappingItemRequest("[CLASS_NAME]", "CLASS_NAME", null),
+                new FieldMappingItemRequest("[PRESENT_COUNT]", "PRESENT_COUNT", null),
+                new FieldMappingItemRequest("[TOTAL_STUDENTS]", "TOTAL_STUDENTS", null),
+                new FieldMappingItemRequest("[ABSENT_COUNT]", "ABSENT_COUNT", null),
+                new FieldMappingItemRequest("[ASSISTANT_TEACHER_NAME]", "ASSISTANT_TEACHER_NAME", null),
+                new FieldMappingItemRequest("[ABSENT_STUDENT_NAMES]", "ABSENT_STUDENT_NAMES", null),
+                new FieldMappingItemRequest("[MISSING_HOMEWORK_STUDENT_NAMES]", "MISSING_HOMEWORK_STUDENT_NAMES", null),
+                new FieldMappingItemRequest("[HOMEWORK_CONTENT]", "HOMEWORK_CONTENT", null),
+                new FieldMappingItemRequest("[[TABLE:STUDENTS]]", null, null));
     }
 
     private byte[] generateAndCaptureBytes(GenerateReportRequest request) throws Exception {
@@ -243,7 +303,11 @@ class DailyReportGenerationControllerTest extends AbstractControllerTest {
              ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             XWPFParagraph header = document.createParagraph();
             XWPFRun run = header.createRun();
-            run.setText("Lớp: [CLASS_NAME] - Sĩ số: [TOTAL_STUDENTS] - Vắng: [ABSENT_COUNT]");
+            run.setText("Lớp: [CLASS_NAME] - Có mặt: [PRESENT_COUNT]/[TOTAL_STUDENTS] - Vắng: [ABSENT_COUNT] - Trợ giảng: [ASSISTANT_TEACHER_NAME]");
+
+            document.createParagraph().createRun()
+                    .setText("HS vắng: [ABSENT_STUDENT_NAMES] | Thiếu BTVN: [MISSING_HOMEWORK_STUDENT_NAMES]");
+            document.createParagraph().createRun().setText("BTVN: [HOMEWORK_CONTENT]");
 
             XWPFTable table = document.createTable(4, 3);
             table.getRow(0).getCell(0).setText("Ten");
@@ -261,8 +325,12 @@ class DailyReportGenerationControllerTest extends AbstractControllerTest {
     }
 
     private String extractFirstParagraphText(byte[] docxBytes) throws IOException {
+        return extractParagraphText(docxBytes, 0);
+    }
+
+    private String extractParagraphText(byte[] docxBytes, int index) throws IOException {
         try (XWPFDocument document = new XWPFDocument(new ByteArrayInputStream(docxBytes))) {
-            return document.getParagraphs().get(0).getText();
+            return document.getParagraphs().get(index).getText();
         }
     }
 
@@ -315,7 +383,7 @@ class DailyReportGenerationControllerTest extends AbstractControllerTest {
         attendanceMarkRepository.save(mark);
     }
 
-    private void writeDailyComment(ClassSession session, Student student, String content) {
+    private StudentComment writeDailyComment(ClassSession session, Student student, String content) {
         StudentComment comment = new StudentComment();
         comment.setStudent(student);
         comment.setSchoolClass(schoolClassRepository.getReferenceById(schoolClass.id()));
@@ -324,7 +392,7 @@ class DailyReportGenerationControllerTest extends AbstractControllerTest {
         comment.setClassSession(session);
         comment.setCommentDate(session.getSessionDate());
         comment.setContent(content);
-        studentCommentRepository.save(comment);
+        return studentCommentRepository.save(comment);
     }
 
     private void assignRole(User user, String roleCode) {
