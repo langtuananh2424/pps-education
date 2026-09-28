@@ -14,6 +14,18 @@ kiểm soát, đã báo trước cho người liên quan.
 | `monitor_server.sh` | Chạy **trên server** song song lúc test, ghi CSV các chỉ số Cockpit không thấy. |
 | `run_loadtest.bat` | Chạy từ **máy Windows** — bọc sẵn mọi tham số, không phải nhớ cú pháp `-e`. |
 
+Ngoài 4 script trên (đo hiệu năng), còn có 2 script Python — KHÔNG phải đo
+hiệu năng, mà đo **chất lượng chấm AI** cho cả lớp bằng nhiều dạng nội dung
+khác nhau (ngắn/dài/lạc đề/để trống/ngữ pháp kém.../...). Xem hướng dẫn đầy
+đủ ở docstring đầu mỗi file:
+
+- `loadtest_writing_submissions.py` — UC-24/27 (`WritingAiGradingService`),
+  bài Writing dạng thư trả lời trong Kho đề.
+- `loadtest_reflex_writing_speaking.py` — UC-23b V2 (`ReflexSequentialGradingService`),
+  luồng viết→chấm ngữ pháp→đạt→ghi âm→chấm nội dung→đạt→câu tiếp theo của
+  Video phản xạ. Phần ghi âm cần audio thật đã upload sẵn (`REFLEX_AUDIO_URLS`),
+  nếu chưa có thì script tự động chỉ chạy phần viết.
+
 ## Chạy nhanh từ Windows
 
 ```bat
