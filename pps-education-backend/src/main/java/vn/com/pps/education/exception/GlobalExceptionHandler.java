@@ -138,6 +138,11 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.FORBIDDEN, ex);
     }
 
+    @ExceptionHandler(PartTimeTeacherExemptFromAttendanceException.class)
+    public ResponseEntity<Object> handlePartTimeTeacherExempt(PartTimeTeacherExemptFromAttendanceException ex) {
+        return error(HttpStatus.FORBIDDEN, ex);
+    }
+
     @ExceptionHandler({OutsideAttendanceWindowException.class, OutsideGpsRadiusException.class,
             BiometricVerificationFailedException.class, NotAWorkingDayException.class,
             AttendanceMethodNotAvailableException.class, AlreadyCheckedInException.class,
