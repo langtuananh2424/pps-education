@@ -20,6 +20,9 @@ export default function ClassesPage() {
   const { t } = useTranslation("academic-classes");
   const { selectedCampusId, hasPermission, currentUser, selectedClassId: globalClassId } = useApp();
   const canManage = hasPermission("academic.class.manage");
+  // academic.class.view-all: được xem mọi lớp (không lọc theo phân công) dù đã tắt quyền manage — mirror
+  // ClassService.resolveAllowedSiteIds ở BE và canSeeAllSessions ở DailyCommentPanel.
+  const canSeeAllClasses = canManage || hasPermission("academic.class.view-all");
   // GV thuần (không kiêm vai trò quản trị nào ở trên) không cần màn xếp/tạo lớp — chỉ xem/thao tác
   // đúng lớp đang chọn ở Header (giống 6 màn Sổ điểm/Điểm danh/Giao đề/Nhận xét/Kho bài giảng khác),
   // không cần lặp lại việc chọn lớp lần nữa ở đây.
@@ -50,7 +53,7 @@ export default function ClassesPage() {
     })
       .then(async (res) => {
         const filtered =
-          canManage || !currentUser
+          canSeeAllClasses || !currentUser
             ? res
             : await Promise.all(res.map((c) => listClassTeachers(c.id).catch(() => []))).then((teacherLists) =>
                 res.filter((_, i) => teacherLists[i].some((t) => t.teacherUserId === currentUser.id && !t.assignedTo))
@@ -62,7 +65,7 @@ export default function ClassesPage() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(load, [selectedCampusId, academicYearFilter, canManage, currentUser]);
+  useEffect(load, [selectedCampusId, academicYearFilter, canSeeAllClasses, currentUser]);
 
   const selectedClass = classes.find((c) => c.id === effectiveSelectedId) ?? null;
 
