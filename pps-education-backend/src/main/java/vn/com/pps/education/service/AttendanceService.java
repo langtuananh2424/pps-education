@@ -7,10 +7,8 @@ import vn.com.pps.education.domain.AttendanceRecordHistory;
 import vn.com.pps.education.domain.ClassSession;
 import vn.com.pps.education.domain.Employee;
 import vn.com.pps.education.domain.EmployeeShift;
-import vn.com.pps.education.domain.Shift;
 import vn.com.pps.education.domain.Site;
 import vn.com.pps.education.domain.User;
-import vn.com.pps.education.domain.WorkCalendar;
 import vn.com.pps.education.dto.AttendanceCheckRequest;
 import vn.com.pps.education.dto.AttendanceRecordAdminResponse;
 import vn.com.pps.education.dto.AttendanceRecordResponse;
@@ -21,6 +19,7 @@ import vn.com.pps.education.exception.AttendanceMethodNotAvailableException;
 import vn.com.pps.education.exception.ManagementExemptFromAttendanceException;
 import vn.com.pps.education.exception.NotAWorkingDayException;
 import vn.com.pps.education.exception.OutsideAttendanceWindowException;
+import vn.com.pps.education.exception.PartTimeTeacherExemptFromAttendanceException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.repository.AttendanceRecordHistoryRepository;
 import vn.com.pps.education.repository.AttendanceRecordRepository;
@@ -29,21 +28,15 @@ import vn.com.pps.education.repository.EmployeeRepository;
 import vn.com.pps.education.repository.EmployeeShiftRepository;
 import vn.com.pps.education.repository.SiteRepository;
 import vn.com.pps.education.repository.UserRepository;
-import vn.com.pps.education.repository.WorkCalendarRepository;
 import vn.com.pps.education.service.attendance.AttendanceCheckContext;
 import vn.com.pps.education.service.attendance.AttendanceMethodValidator;
 import vn.com.pps.education.service.attendance.AttendanceSettings;
 
 import java.time.LocalDate;
-import java.time.LocalTime;
 import java.time.OffsetDateTime;
-import java.time.temporal.WeekFields;
-import java.util.Arrays;
-import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 /**
  * UC-09: Chấm công (FR-HRM-02).
@@ -63,7 +56,8 @@ import java.util.Optional;
  * override tường minh nào (mọi scope ALL/SHIFT/EMPLOYEE) — tiết dạy KHÔNG
  * bao giờ ghi đè 1 quyết định HOLIDAY/OFF đã khai báo (VD buổi MAKEUP xếp
  * vào ngày Lễ vẫn bị chặn trừ khi HR bổ sung override COMPENSATORY cho ngày
- * đó). Xác nhận với PM 2026-07-15 — xem isWorkingDay(...).
+ * đó). Xác nhận với PM 2026-07-15 — xem AttendanceWindowResolver#isWorkingDay(...)
+ * (tách khỏi Service này 2026-09-11 để dùng chung với AttendanceMissingSchedulerService).
  */
 @Service
 public class AttendanceService {
@@ -73,7 +67,6 @@ public class AttendanceService {
 
     private final EmployeeRepository employeeRepository;
     private final EmployeeShiftRepository employeeShiftRepository;
-    private final WorkCalendarRepository workCalendarRepository;
     private final AttendanceRecordRepository attendanceRecordRepository;
     private final AttendanceRecordHistoryRepository attendanceRecordHistoryRepository;
     private final SiteRepository siteRepository;
@@ -81,20 +74,20 @@ public class AttendanceService {
     private final ClassSessionRepository classSessionRepository;
     private final List<AttendanceMethodValidator> methodValidators;
     private final AttendanceSettings attendanceSettings;
+    private final AttendanceWindowResolver windowResolver;
 
     public AttendanceService(EmployeeRepository employeeRepository,
                               EmployeeShiftRepository employeeShiftRepository,
-                              WorkCalendarRepository workCalendarRepository,
                               AttendanceRecordRepository attendanceRecordRepository,
                               AttendanceRecordHistoryRepository attendanceRecordHistoryRepository,
                               SiteRepository siteRepository,
                               UserRepository userRepository,
                               ClassSessionRepository classSessionRepository,
                               List<AttendanceMethodValidator> methodValidators,
-                              AttendanceSettings attendanceSettings) {
+                              AttendanceSettings attendanceSettings,
+                              AttendanceWindowResolver windowResolver) {
         this.employeeRepository = employeeRepository;
         this.employeeShiftRepository = employeeShiftRepository;
-        this.workCalendarRepository = workCalendarRepository;
         this.attendanceRecordRepository = attendanceRecordRepository;
         this.attendanceRecordHistoryRepository = attendanceRecordHistoryRepository;
         this.siteRepository = siteRepository;
@@ -102,6 +95,7 @@ public class AttendanceService {
         this.classSessionRepository = classSessionRepository;
         this.methodValidators = methodValidators;
         this.attendanceSettings = attendanceSettings;
+        this.windowResolver = windowResolver;
     }
 
     /**
@@ -154,6 +148,9 @@ public class AttendanceService {
     public AttendanceRecordResponse getMyTodayRecord(Long actorUserId) {
         return employeeRepository.findByUserId(actorUserId)
                 .filter(e -> !e.isManagement())
+                // Bổ sung 2026-09-11 -- GV part-time (trả lương theo giờ) cũng miễn trừ hoàn toàn,
+                // xem PartTimeTeacherExemptFromAttendanceException ở process().
+                .filter(e -> !(e.getEmployeeType() == Employee.EmployeeType.TEACHER && windowResolver.isHourlyPaidTeacher(e.getId())))
                 .map(e -> attendanceRecordRepository.findByEmployeeIdAndWorkDate(e.getId(), LocalDate.now())
                         .map(this::toResponse)
                         .orElseGet(() -> new AttendanceRecordResponse(
@@ -172,6 +169,15 @@ public class AttendanceService {
             throw new ManagementExemptFromAttendanceException("error.managementExemptFromAttendance.default", new Object[]{}, "Cấp quản lý được miễn trừ chấm công.");
         }
 
+        // Bổ sung ngoài Main Flow gốc, đã xác nhận với người dùng 2026-09-11 -- GV trả lương theo giờ
+        // (part-time) miễn trừ HOÀN TOÀN khỏi Chấm công ca, chỉ dùng Nhận lớp (UC-71). Kiểm tra ngay ở
+        // đây (trước khi lấy activeShifts/todaySessions) để chặn TRIỆT ĐỂ, không chỉ ẩn nhánh lịch dạy.
+        if (employee.getEmployeeType() == Employee.EmployeeType.TEACHER && windowResolver.isHourlyPaidTeacher(employee.getId())) {
+            throw new PartTimeTeacherExemptFromAttendanceException(
+                    "error.partTimeTeacherExemptFromAttendance.default", new Object[]{},
+                    "Giáo viên trả lương theo giờ (part-time) được miễn trừ chấm công ca — dùng Nhận lớp để ghi nhận có mặt.");
+        }
+
         OffsetDateTime now = OffsetDateTime.now();
         LocalDate workDate = now.toLocalDate();
         // V124 (2026-08-14): 1 nhân sự có thể có NHIỀU ca active song song (VD "T7 xen kẽ" =
@@ -185,19 +191,19 @@ public class AttendanceService {
         // Main Flow bước 3 -- xác định ngày D có phải ngày làm việc. GV có tiết dạy hôm nay cũng được
         // coi là ngày làm việc, nhưng CHỈ khi không có work_calendar override tường minh nào (mọi scope)
         // -- không bao giờ ghi đè quyết định HOLIDAY/OFF đã khai báo (xác nhận với PM, xem UC-09 A2 mới).
-        if (!isWorkingDay(workDate, employee.getId(), activeShifts, !todaySessions.isEmpty())) {
+        if (!windowResolver.isWorkingDay(workDate, employee.getId(), activeShifts, !todaySessions.isEmpty())) {
             throw new NotAWorkingDayException("error.notAWorkingDay.default", new Object[]{workDate}, "Ngày " + workDate + " không phải ngày làm việc.");
         }
 
         // Ca khớp đúng pattern ngày hôm nay trong số các ca active (chống chồng chéo đã được
         // EmployeeShiftService đảm bảo tối đa 1 ca khớp mỗi ngày -- xem overlaps()).
-        EmployeeShift matchedShift = resolveApplicableShift(activeShifts, workDate);
+        EmployeeShift matchedShift = windowResolver.resolveApplicableShift(activeShifts, workDate);
 
         // Main Flow bước 4-5 -- xác định cửa sổ hợp lệ: A12/A13 cửa sổ theo lịch dạy
         // (GV có tiết dạy hôm nay) ưu tiên trước, A14/A15 cửa sổ ca cố định xét sau.
-        WindowMatch windowMatch = resolveTeachingScheduleWindow(todaySessions, now, isCheckIn);
+        AttendanceWindowResolver.WindowMatch windowMatch = windowResolver.resolveTeachingScheduleWindow(todaySessions, now, isCheckIn);
         if (windowMatch == null) {
-            windowMatch = resolveShiftWindow(matchedShift, employee.isDefaultShiftRequired(), now, isCheckIn);
+            windowMatch = windowResolver.resolveShiftWindow(matchedShift, employee.isDefaultShiftRequired(), now, isCheckIn);
         }
         if (windowMatch == null) {
             throw new OutsideAttendanceWindowException(
@@ -274,101 +280,6 @@ public class AttendanceService {
         writeHistory(record, actor, isNewRecord ? AttendanceRecordHistory.Action.CREATED : AttendanceRecordHistory.Action.UPDATED);
 
         return toResponse(record);
-    }
-
-    private boolean isWorkingDay(LocalDate date, Long employeeId, List<EmployeeShift> activeShifts, boolean hasTeachingSessionToday) {
-        Optional<WorkCalendar> override = workCalendarRepository
-                .findByCalendarDateAndAppliesToScopeAndEmployeeId(date, WorkCalendar.Scope.EMPLOYEE, employeeId);
-        if (override.isEmpty()) {
-            for (EmployeeShift activeShift : activeShifts) {
-                override = workCalendarRepository.findByCalendarDateAndAppliesToScopeAndShiftId(
-                        date, WorkCalendar.Scope.SHIFT, activeShift.getShift().getId());
-                if (override.isPresent()) {
-                    break;
-                }
-            }
-        }
-        if (override.isEmpty()) {
-            override = workCalendarRepository.findByCalendarDateAndAppliesToScope(date, WorkCalendar.Scope.ALL);
-        }
-        if (override.isPresent()) {
-            WorkCalendar.DayType dayType = override.get().getDayType();
-            return dayType == WorkCalendar.DayType.WORKING || dayType == WorkCalendar.DayType.COMPENSATORY;
-        }
-        // Không có override tường minh nào -- fallback theo pattern của bất kỳ ca active nào, hoặc
-        // (mới) GV có tiết dạy hôm nay. Chỉ áp dụng ở fallback cuối cùng này, không ghi đè HOLIDAY/OFF
-        // đã khai báo.
-        return activeShifts.stream().anyMatch(es -> matchesShiftPattern(es.getShift(), date)) || hasTeachingSessionToday;
-    }
-
-    /** V124 (2026-08-14): trong số các ca active, ca nào khớp pattern ngày hôm nay (nếu có). */
-    private EmployeeShift resolveApplicableShift(List<EmployeeShift> activeShifts, LocalDate date) {
-        return activeShifts.stream()
-                .filter(es -> matchesShiftPattern(es.getShift(), date))
-                .findFirst()
-                .orElse(null);
-    }
-
-    private boolean matchesShiftPattern(Shift shift, LocalDate date) {
-        if (!shift.isActive()) {
-            return false;
-        }
-        // getDayOfWeek().getValue() = 1(Thứ Hai)..7(Chủ Nhật), khớp đúng quy ước "1=T2...7=CN".
-        String isoDay = String.valueOf(date.getDayOfWeek().getValue());
-        List<String> weekdays = Arrays.asList(shift.getAppliesToWeekdays().split(","));
-        if (!weekdays.contains(isoDay)) {
-            return false;
-        }
-        if (shift.getWeekParity() == Shift.WeekParity.ALL) {
-            return true;
-        }
-        boolean oddWeek = date.get(WeekFields.ISO.weekOfWeekBasedYear()) % 2 != 0;
-        return shift.getWeekParity() == Shift.WeekParity.ODD ? oddWeek : !oddWeek;
-    }
-
-    /** A12/A13: cửa sổ theo lịch dạy = [startTime tiết sớm nhất, endTime tiết muộn nhất] trong ngày, không buffer. */
-    private WindowMatch resolveTeachingScheduleWindow(List<ClassSession> todaySessions, OffsetDateTime now, boolean isCheckIn) {
-        if (todaySessions.isEmpty()) {
-            return null;
-        }
-        ClassSession earliest = todaySessions.stream().min(Comparator.comparing(ClassSession::getStartTime)).orElseThrow();
-        ClassSession latest = todaySessions.stream().max(Comparator.comparing(ClassSession::getEndTime)).orElseThrow();
-        LocalTime t = now.toLocalTime();
-        if (t.isBefore(earliest.getStartTime()) || t.isAfter(latest.getEndTime())) {
-            return null;
-        }
-        return isCheckIn
-                ? new WindowMatch(AttendanceRecord.MatchedSource.TEACHING_SCHEDULE, earliest.getId(), earliest.getStartTime())
-                : new WindowMatch(AttendanceRecord.MatchedSource.TEACHING_SCHEDULE, latest.getId(), latest.getEndTime());
-    }
-
-    /** A14/A15: cửa sổ theo ca cố định, chỉ áp dụng khi is_default_shift_required=TRUE và có ca đang active. */
-    private WindowMatch resolveShiftWindow(EmployeeShift activeShift, boolean defaultShiftRequired, OffsetDateTime now, boolean isCheckIn) {
-        if (activeShift == null || !defaultShiftRequired) {
-            return null;
-        }
-        Shift shift = activeShift.getShift();
-        if (!isWithinShiftWindow(shift, now, isCheckIn)) {
-            return null;
-        }
-        LocalTime anchor = isCheckIn ? shift.getCheckInTime() : shift.getCheckOutTime();
-        return new WindowMatch(AttendanceRecord.MatchedSource.SHIFT, shift.getId(), anchor);
-    }
-
-    private record WindowMatch(AttendanceRecord.MatchedSource source, Long referenceId, LocalTime anchorTime) {}
-
-    private boolean isWithinShiftWindow(Shift shift, OffsetDateTime now, boolean isCheckIn) {
-        LocalTime t = now.toLocalTime();
-        LocalTime anchor = isCheckIn ? shift.getCheckInTime() : shift.getCheckOutTime();
-        int beforeMin = isCheckIn ? shift.getCheckInWindowBeforeMinutes() : shift.getCheckOutWindowBeforeMinutes();
-        int afterMin = isCheckIn ? shift.getCheckInWindowAfterMinutes() : shift.getCheckOutWindowAfterMinutes();
-        LocalTime windowStart = anchor.minusMinutes(beforeMin);
-        LocalTime windowEnd = anchor.plusMinutes(afterMin);
-        if (!windowStart.isAfter(windowEnd)) {
-            return !t.isBefore(windowStart) && !t.isAfter(windowEnd);
-        }
-        // Cửa sổ vắt qua nửa đêm (VD ca đêm check_in_time gần 00:00).
-        return !t.isBefore(windowStart) || !t.isAfter(windowEnd);
     }
 
     private AttendanceRecord.CheckMethod parseMethod(String raw) {

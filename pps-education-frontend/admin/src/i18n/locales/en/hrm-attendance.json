@@ -20,6 +20,10 @@
     "allEmployees": "All employees",
     "allSites": "All sites",
     "loadError": "Couldn't load attendance data.",
+    "tabs": {
+      "shift": "Shift attendance data",
+      "classSession": "Class check-in data"
+    },
     "columns": {
       "employee": "Employee",
       "date": "Date",
@@ -28,6 +32,9 @@
       "method": "Method",
       "site": "Site",
       "status": "Status"
+    },
+    "classSessionColumns": {
+      "session": "Session"
     },
     "loading": "Loading...",
     "empty": "No attendance records in the selected range."

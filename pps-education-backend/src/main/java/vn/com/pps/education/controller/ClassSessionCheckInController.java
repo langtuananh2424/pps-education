@@ -3,6 +3,7 @@ package vn.com.pps.education.controller;
 import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -11,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import vn.com.pps.education.dto.ClassSessionCheckInAdminResponse;
 import vn.com.pps.education.dto.ClassSessionCheckInRequest;
 import vn.com.pps.education.dto.ClassSessionCheckInResponse;
 import vn.com.pps.education.dto.ClassSessionCheckInStatusResponse;
@@ -55,5 +57,22 @@ public class ClassSessionCheckInController {
             @AuthenticationPrincipal AuthenticatedUser actor) {
         var sessions = classSessionService.listMySessions(actor.userId(), from, to);
         return ResponseEntity.ok(classSessionCheckInService.listEffectiveStatus(sessions));
+    }
+
+    /**
+     * UC-71 — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-11.
+     * Bảng "Dữ liệu chấm công nhận lớp" cho HR/Điều hành — tái dùng đúng
+     * quyền hrm.attendance.view-all của bảng "Dữ liệu chấm công ca làm
+     * việc" (UC-09, xem AttendanceController) vì cùng thuộc nhóm "xem tổng
+     * hợp chấm công toàn trung tâm", không tách permission riêng.
+     */
+    @GetMapping("/check-ins")
+    @PreAuthorize("hasPermission(null, 'hrm.attendance.view-all')")
+    public ResponseEntity<List<ClassSessionCheckInAdminResponse>> listCheckIns(
+            @RequestParam(required = false) Long employeeId,
+            @RequestParam(required = false) Long siteId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return ResponseEntity.ok(classSessionCheckInService.listAdminEffectiveStatus(employeeId, siteId, from, to));
     }
 }

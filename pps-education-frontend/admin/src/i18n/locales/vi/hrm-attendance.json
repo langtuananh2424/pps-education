@@ -20,6 +20,10 @@
     "allEmployees": "Tất cả nhân sự",
     "allSites": "Tất cả điểm trường",
     "loadError": "Không tải được dữ liệu chấm công.",
+    "tabs": {
+      "shift": "Dữ liệu chấm công ca làm việc",
+      "classSession": "Dữ liệu chấm công nhận lớp"
+    },
     "columns": {
       "employee": "Nhân sự",
       "date": "Ngày",
@@ -28,6 +32,9 @@
       "method": "Phương thức",
       "site": "Điểm trường",
       "status": "Trạng thái"
+    },
+    "classSessionColumns": {
+      "session": "Buổi học"
     },
     "loading": "Đang tải...",
     "empty": "Không có bản ghi chấm công trong khoảng đã chọn."

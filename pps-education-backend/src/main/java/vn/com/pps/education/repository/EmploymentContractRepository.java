@@ -16,6 +16,15 @@ public interface EmploymentContractRepository extends JpaRepository<EmploymentCo
     Optional<EmploymentContract> findByEmployeeIdAndStatusAndDeletedAtIsNull(
             Long employeeId, EmploymentContract.Status status);
 
+    /**
+     * Bổ sung ngoài SDD gốc, xác nhận 2026-09-11 — bản batch của
+     * findByEmployeeIdAndStatusAndDeletedAtIsNull, dùng ở
+     * AttendanceWindowResolver#filterHourlyPaidEmployeeIds (xác định GV
+     * part-time trả lương theo giờ, loại khỏi UC-09 Chấm công).
+     */
+    List<EmploymentContract> findByEmployeeIdInAndStatusAndDeletedAtIsNull(
+            List<Long> employeeIds, EmploymentContract.Status status);
+
     Optional<EmploymentContract> findByContractNumber(String contractNumber);
 
     /** A2 — hợp đồng ACTIVE sắp/đã hết hạn tính tới mốc threshold (today + withinDays). */
