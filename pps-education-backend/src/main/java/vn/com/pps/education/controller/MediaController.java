@@ -1,11 +1,13 @@
 package vn.com.pps.education.controller;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import vn.com.pps.education.dto.MediaUploadResponse;
+import vn.com.pps.education.security.AuthenticatedUser;
 import vn.com.pps.education.service.MediaStorageService;
 
 /**
@@ -17,6 +19,10 @@ import vn.com.pps.education.service.MediaStorageService;
  * (anyRequest().authenticated() ở SecurityConfig) - không gate permission
  * riêng, vì API ghi dữ liệu thật (VD POST /api/questions) đã tự gate qua
  * lms.question-bank.create/update.
+ *
+ * Rà soát bảo mật 2026-09-28 (đã xác nhận với người dùng): module nào ai được
+ * upload do MediaStorageService.storeUpload kiểm tra (MediaModule.UploadAccess) -
+ * Học sinh/Phụ huynh chỉ upload được bài nộp và ảnh đại diện.
  */
 @RestController
 public class MediaController {
@@ -29,8 +35,9 @@ public class MediaController {
 
     @PostMapping(value = "/api/media/upload", consumes = "multipart/form-data")
     public ResponseEntity<MediaUploadResponse> upload(@RequestParam("file") MultipartFile file,
-                                                        @RequestParam("module") String module) {
-        String url = mediaStorageService.store(file, module);
+                                                        @RequestParam("module") String module,
+                                                        @AuthenticationPrincipal AuthenticatedUser actor) {
+        String url = mediaStorageService.storeUpload(file, module, actor.userId());
         return ResponseEntity.ok(new MediaUploadResponse(url));
     }
 }

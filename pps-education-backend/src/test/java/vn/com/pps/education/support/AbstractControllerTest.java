@@ -31,7 +31,7 @@ public abstract class AbstractControllerTest extends AbstractIntegrationTest {
     private JwtService jwtService;
 
     @Autowired
-    private UserRepository userRepository;
+    protected UserRepository userRepository;
 
     @Autowired
     private RoleRepository roleRepository;

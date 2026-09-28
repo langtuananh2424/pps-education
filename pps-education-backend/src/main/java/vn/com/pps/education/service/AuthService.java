@@ -21,6 +21,7 @@ import vn.com.pps.education.exception.AccountLockedException;
 import vn.com.pps.education.exception.ActiveSessionExistsException;
 import vn.com.pps.education.exception.GoogleAccountNotProvisionedException;
 import vn.com.pps.education.exception.InvalidCredentialsException;
+import vn.com.pps.education.exception.TooManyLoginAttemptsException;
 import vn.com.pps.education.exception.InvalidRefreshTokenException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.domain.Notification;
@@ -63,6 +64,7 @@ public class AuthService {
     private final GoogleIdTokenVerifier googleIdTokenVerifier;
     private final NotificationService notificationService;
     private final PermissionEvaluationService permissionEvaluationService;
+    private final LoginIpThrottle loginIpThrottle;
     private final int maxFailedAttempts;
     private final int lockDurationMinutes;
     private final long refreshTokenTtlDays;
@@ -79,6 +81,7 @@ public class AuthService {
                         GoogleIdTokenVerifier googleIdTokenVerifier,
                         NotificationService notificationService,
                         PermissionEvaluationService permissionEvaluationService,
+                        LoginIpThrottle loginIpThrottle,
                         @Value("${app.security.brute-force.max-failed-attempts}") int maxFailedAttempts,
                         @Value("${app.security.brute-force.lock-duration-minutes}") int lockDurationMinutes,
                         @Value("${app.jwt.refresh-token-ttl-days}") long refreshTokenTtlDays) {
@@ -94,6 +97,7 @@ public class AuthService {
         this.googleIdTokenVerifier = googleIdTokenVerifier;
         this.notificationService = notificationService;
         this.permissionEvaluationService = permissionEvaluationService;
+        this.loginIpThrottle = loginIpThrottle;
         this.maxFailedAttempts = maxFailedAttempts;
         this.lockDurationMinutes = lockDurationMinutes;
         this.refreshTokenTtlDays = refreshTokenTtlDays;
@@ -115,16 +119,29 @@ public class AuthService {
      * ActiveSessionExistsException (xem requireNoActiveSessionForStudent)
      * ném RA SAU khi đã ghi login_attempts (success=true, mật khẩu đúng) —
      * cùng lý do noRollbackFor như trên, không được để mất bản ghi audit.
+     *
+     * Rà soát bảo mật 2026-09-28 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng) - trước cả Main
+     * Flow: IP đã đăng nhập sai quá ngưỡng (LoginIpThrottle) bị từ chối 429, không chạm tới tài khoản nào
+     * (không tăng failed_login_count, không khoá thêm ai). Mỗi lần A1 (sai tài khoản/mật khẩu) cộng 1 lần
+     * sai cho IP.
      */
     @Transactional(noRollbackFor = {InvalidCredentialsException.class, AccountLockedException.class,
             AccountInactiveException.class, ActiveSessionExistsException.class})
     public LoginResponse login(LoginRequest request, HttpServletRequest httpRequest) {
+        String clientIp = httpRequest.getRemoteAddr();
+        if (loginIpThrottle.isBlocked(clientIp)) {
+            throw new TooManyLoginAttemptsException("error.auth.tooManyLoginAttempts",
+                    new Object[]{loginIpThrottle.windowMinutes()},
+                    "Quá nhiều lần đăng nhập từ thiết bị/mạng này. Vui lòng thử lại sau "
+                            + loginIpThrottle.windowMinutes() + " phút.");
+        }
         String input = request.usernameOrEmail();
         Optional<User> maybeUser = userRepository.findByUsername(input)
                 .or(() -> userRepository.findByEmail(input));
 
         // A1 — không tiết lộ tài khoản có tồn tại hay không
         if (maybeUser.isEmpty()) {
+            loginIpThrottle.recordFailure(clientIp);
             recordAttempt(input, null, httpRequest, false, LoginAttempt.FailureReason.USER_NOT_FOUND,
                     request.screenResolution(), request.browserLanguage(), request.timezone());
             throw new InvalidCredentialsException("error.invalidCredentials.default", new Object[]{},
@@ -136,6 +153,7 @@ public class AuthService {
                 request.screenResolution(), request.browserLanguage(), request.timezone());
 
         if (user.getPasswordHash() == null || !passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+            loginIpThrottle.recordFailure(clientIp);
             registerFailedAttempt(user, httpRequest);
             recordAttempt(input, user, httpRequest, false, LoginAttempt.FailureReason.WRONG_PASSWORD,
                     request.screenResolution(), request.browserLanguage(), request.timezone());

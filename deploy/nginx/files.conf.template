@@ -2,13 +2,46 @@
 # copy thành 2 file thật trên server:
 #   /etc/nginx/sites-available/files-staging.<DOMAIN>.conf  (__MINIO_PORT__ = 9002)
 #   /etc/nginx/sites-available/files.<DOMAIN>.conf           (__MINIO_PORT__ = 9000)
-# rồi thay __HOSTNAME__/__MINIO_PORT__. Chỉ phục vụ GET công khai (bucket đã
-# bật "anonymous download" — xem deploy/README.md mục MinIO) — PUT/upload
-# thật đi thẳng từ backend → minio qua network Docker nội bộ, không qua Nginx.
+# rồi thay __HOSTNAME__/__MINIO_PORT__. Chỉ phục vụ GET — PUT/upload thật đi
+# thẳng từ backend → minio qua network Docker nội bộ, không qua Nginx.
+#
+# Rà soát bảo mật 2026-09-28 (đã xác nhận với người dùng):
+# - Bucket chỉ còn đọc ẩn danh nội dung giảng dạy (xem minio-init trong
+#   docker-compose.*.yml). File cá nhân đi qua URL có chữ ký S3 do backend
+#   cấp, dạng https://__HOSTNAME__/pps-media/<key>?X-Amz-... (MediaUrlSigner).
+# - Cần pps-security.conf đã cài vào /etc/nginx/conf.d/ (limit_req_zone,
+#   map $pps_files_csp: file HTML/SVG/XML mở trên domain này bị sandbox,
+#   không chạy được script).
 
 server {
     listen 80;
     server_name __HOSTNAME__;
+
+    # Header chung cho mọi response (kể cả lỗi 403/404 từ MinIO).
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "no-referrer" always;
+    add_header Content-Security-Policy $pps_files_csp always;
+
+    limit_req zone=pps_files burst=100 nodelay;
+    limit_req_status 429;
+
+    # Chỉ đọc file - không cho PUT/DELETE/POST lọt tới MinIO qua domain public.
+    if ($request_method !~ ^(GET|HEAD)$) {
+        return 405;
+    }
+
+    # Không lộ danh sách object (ListObjects) khi gọi thẳng vào gốc domain.
+    location = / {
+        return 404;
+    }
+
+    # URL có chữ ký (file cá nhân): chữ ký SigV4 tính trên path /pps-media/<key>
+    # + Host, nên chuyển NGUYÊN path, KHÔNG rewrite, và giữ Host gốc.
+    location ^~ /pps-media/ {
+        proxy_pass http://127.0.0.1:__MINIO_PORT__;
+        proxy_set_header Host $host;
+        proxy_hide_header X-Content-Type-Options; # MinIO đã tự gửi - tránh trùng với header ở server
+    }
 
     location / {
         # Backend sinh URL public dạng {publicBaseUrl}/{key} KHÔNG kèm tên
@@ -18,5 +51,6 @@ server {
         rewrite ^/(.*)$ /pps-media/$1 break;
         proxy_pass http://127.0.0.1:__MINIO_PORT__;
         proxy_set_header Host $host;
+        proxy_hide_header X-Content-Type-Options; # MinIO đã tự gửi - tránh trùng với header ở server
     }
 }
