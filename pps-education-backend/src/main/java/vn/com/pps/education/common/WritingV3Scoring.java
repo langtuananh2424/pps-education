@@ -11,8 +11,10 @@ import java.util.regex.Pattern;
 /**
  * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-22 — port THUẦN JAVA (không gọi mạng, dễ viết
  * test) của {@code countCopied}/{@code errorCap}/{@code errorCapTable}/{@code enforceAnchorBound}/
- * {@code splitAudit} trong {@code tham-khao/index.html} (gói {@code bo-cham-writing-K6-K9}, đóng gói
- * 22/09/2026). {@code HUONG_DAN_TICH_HOP.md}: "khi tài liệu và mã tham chiếu khác nhau, mã tham chiếu là
+ * {@code splitAudit} trong {@code tham-khao/index.html} (gói {@code bo-cham-writing-K6-K9}, cập nhật tới
+ * vòng hiệu chuẩn 15 — bản 25/09/2026: trần lạc đề, trần thiếu độ dài theo nhóm tiêu chí, trần bài mỏng do máy
+ * áp, trần Language khối 6 theo tỉ lệ động từ sai, errorCap theo mật độ cho cả khối 6, đề cho sẵn câu mở đầu).
+ * {@code HUONG_DAN_TICH_HOP.md}: "khi tài liệu và mã tham chiếu khác nhau, mã tham chiếu là
  * chuẩn" — file này bám {@code index.html}, không bám mô tả văn xuôi.
  *
  * ĐƠN GIẢN HOÁ có chủ đích so với bản gốc: bản gốc còn nhánh "theo neo" cho khối CHƯA hiệu chuẩn xong (vòng
@@ -29,8 +31,13 @@ public final class WritingV3Scoring {
 
     // ===================== Đếm từ / cổng G1 (mirror countCopied, buildPrompt phần "SỐ LIỆU ĐÃ ĐO") =====================
 
-    public record CopiedResult(int n, int opening) {
+    /** @param givenOpening đề cho sẵn câu mở đầu (vòng 15) — câu đó là chữ của ĐỀ nên {@code opening} luôn = 0, không được miễn trừ. */
+    public record CopiedResult(int n, int opening, boolean givenOpening) {
     }
+
+    private static final Pattern GIVEN_OPENING_CUE = Pattern.compile(
+            "begins?\\s+with|must\\s+begin|start(s|ing)?\\s+with|bắt đầu bằng|mở đầu bằng", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+    private static final Pattern QUOTED_TEXT = Pattern.compile("[\"“”']([^\"“”']{10,})[\"“”']");
 
     private static final Pattern WORD_NORM = Pattern.compile("[^a-z0-9\\s']");
     /** Khối 6/7 (g6/g7/g7b1): câu mở bài nhắc lại đề không bị trừ khỏi N_net, tối đa 10 từ — mirror OPENING_EXEMPT_MAX. */
@@ -64,7 +71,7 @@ public final class WritingV3Scoring {
         List<String> t = normalize(task == null ? "" : task);
         List<String> e = normalize(essay == null ? "" : essay);
         if (t.size() < 5 || e.size() < 5) {
-            return new CopiedResult(0, 0);
+            return new CopiedResult(0, 0, false);
         }
         Map<String, Boolean> grams = new java.util.HashMap<>();
         for (int i = 0; i + 5 <= t.size(); i++) {
@@ -93,7 +100,35 @@ public final class WritingV3Scoring {
                 n++;
             }
         }
-        return new CopiedResult(n, Math.min(opening, OPENING_EXEMPT_MAX));
+        // Đề dạng "câu mở đầu cho sẵn" (câu trong ngoặc kép, ≥ 5 từ): câu đó là CHỮ CỦA ĐỀ, không phải của học sinh
+        // → KHÔNG miễn trừ, phải trừ khỏi N_net như mọi phần chép khác. Chỉ tính khi đề NÓI RÕ bài phải bắt đầu
+        // bằng câu đó — đề email thường trích lời người viết thư, đó KHÔNG phải câu mở đầu cho sẵn.
+        boolean given = false;
+        if (task != null && GIVEN_OPENING_CUE.matcher(task).find()) {
+            Matcher qm = QUOTED_TEXT.matcher(task);
+            while (qm.find()) {
+                if (normalize(qm.group()).size() >= 5) {
+                    given = true;
+                }
+            }
+        }
+        return new CopiedResult(n, given ? 0 : Math.min(opening, OPENING_EXEMPT_MAX), given);
+    }
+
+    /**
+     * Số liệu độ dài do MÁY đo (N_total/N_copy/N_net/% so với số từ đề yêu cầu) — dùng chung cho prompt gửi model và hậu kiểm,
+     * để hai nơi không bao giờ lệch nhau. {@code nExempt} là số từ chép ở câu mở bài được cộng lại vào {@code nNet} (khối 6/7).
+     */
+    public record LengthMeasure(int nTotal, int nCopy, int nExempt, int nNet, int wordLimit, double percent, boolean givenOpening) {
+    }
+
+    public static LengthMeasure measureLength(WritingV3Grade grade, String task, String essay) {
+        int nTotal = countWords(essay);
+        CopiedResult copied = countCopied(essay, task);
+        int nExempt = grade.openingSentenceExempt() ? copied.opening() : 0;
+        int nNet = nTotal - copied.n() + nExempt;
+        int wordLimit = extractWordLimit(task, grade.defaultWordLimit());
+        return new LengthMeasure(nTotal, copied.n(), nExempt, nNet, wordLimit, percentOfRequirement(nNet, wordLimit), copied.givenOpening());
     }
 
     /** Kết luận cổng G1, ĐÚNG câu chữ ghim vào prompt của bản tham chiếu — model không tự đánh giá lại. */
@@ -144,13 +179,17 @@ public final class WritingV3Scoring {
 
     // ===================== Trần theo mật độ lỗi (mirror errorCap/errorCapTable) =====================
 
-    /** @param isG6 Khối 6 chỉ áp trần TUYỆT ĐỐI (không tính theo mật độ /100 từ) — mirror {@code byRate = grade !== "g6"}. */
+    /**
+     * Trần theo số lỗi — mirror {@code errorCap} ở {@code index.html}. Từ vòng 12 cả 6 khối đều dùng MẬT ĐỘ lỗi /100 từ
+     * (lấy mức thấp hơn giữa trần tuyệt đối và trần mật độ); riêng Khối 6 nới một bậc cho bài gần sạch lỗi:
+     * 1–2 lỗi giữ trần tuyệt đối 90%, không kéo xuống theo mật độ (bài 25–45 từ, 2 lỗi đã là 4–8 lỗi/100 từ).
+     */
     public static int errorCap(int errors, int totalWords, boolean isG6) {
         if (errors <= 0) {
             return 100;
         }
-        int abs = errors <= 2 ? 90 : errors <= 4 ? 80 : (isG6 ? 100 : 80);
-        if (isG6) {
+        int abs = errors <= 2 ? 90 : 80;
+        if (isG6 && errors <= 2) {
             return abs;
         }
         double rate = errors * 100.0 / Math.max(totalWords, 1);
@@ -227,14 +266,16 @@ public final class WritingV3Scoring {
         if (!h.find()) {
             return null;
         }
-        String window = audit.substring(h.end(), Math.min(audit.length(), h.end() + 600));
-        int correct = readInt(window, "Dùng đúng\\s*:\\s*\\**\\s*(\\d+)", -1);
-        if (correct < 0) {
+        String window = audit.substring(h.end());
+        // Dòng "Kết luận: Đạt · 11/11" (N_kg_ok/N_kg) là nguồn số duy nhất luôn có: model hay liệt kê từng cấu trúc ở
+        // "Dùng đúng:"/"Dùng sai:" (VD "Dùng đúng: 11 lần — …") nên không đọc được số tổng từ 2 dòng đó một cách tin cậy.
+        Matcher m = Pattern.compile("Kết luận\\s*:[^\\n]*?(\\d+)\\s*/\\s*(\\d+)", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE).matcher(window);
+        if (!m.find()) {
             return new KeyGrammarConclusion("unparsed", 0, 0);
         }
-        int incorrect = readInt(window, "Dùng sai\\s*:\\s*\\**\\s*(\\d+)", 0);
-        int attempts = correct + Math.max(incorrect, 0);
-        return new KeyGrammarConclusion(correct >= passIfAtLeast ? "pass" : "fail", correct, attempts);
+        int correct = Integer.parseInt(m.group(1));
+        int attempts = Integer.parseInt(m.group(2));
+        return new KeyGrammarConclusion(correct >= passIfAtLeast ? "pass" : "fail", correct, Math.max(attempts, correct));
     }
 
     /** Trần % tiêu chí ngữ pháp khi Key Grammar Chưa đạt (0 lần đúng → {@code grammarCapAtZero}, 1 lần → {@code grammarCapAtOne}); {@code null} nếu Đạt/unparsed/không gắn. */
@@ -275,6 +316,13 @@ public final class WritingV3Scoring {
             "Language", c -> c.gr + c.sp + c.wd + c.pu
     );
 
+    /** Nhóm tiêu chí cho trần thiếu độ dài (G1) — mirror {@code LEN_GROUP} ở {@code index.html}. */
+    private static final Map<String, String> LEN_GROUP = Map.of(
+            "Task Response / Achievement", "task", "Content", "task",
+            "Communicative Achievement", "org", "Organisation", "org", "Coherence & Cohesion", "org",
+            "Lexical Resource", "lang", "Grammatical Range & Accuracy", "lang", "Language", "lang"
+    );
+
     private static final Map<String, Pattern> ALIAS = Map.ofEntries(
             Map.entry("Task Response / Achievement", Pattern.compile("Task|TR\\b|TA\\b", Pattern.CASE_INSENSITIVE)),
             Map.entry("Content", Pattern.compile("Content", Pattern.CASE_INSENSITIVE)),
@@ -301,6 +349,16 @@ public final class WritingV3Scoring {
      *         văn {@code rawMarkdown} nếu không cần sửa gì.
      */
     public static String enforceScore(String rawMarkdown, WritingV3Grade grade, KeyGrammarDictionary keyGrammarDictionary) {
+        return enforceScore(rawMarkdown, grade, keyGrammarDictionary, null);
+    }
+
+    /**
+     * @param measuredLengthPercent {@code N_net / số từ đề yêu cầu × 100} do MÁY đo (xem {@code userPrompt}) — ưu tiên hơn số
+     *                              model chép lại ở dòng "% so với yêu cầu" của mục 0 (model có thể chép sai/bỏ sót dòng này).
+     *                              {@code null} thì chỉ đọc từ mục 0 như bản tham chiếu.
+     */
+    public static String enforceScore(String rawMarkdown, WritingV3Grade grade, KeyGrammarDictionary keyGrammarDictionary,
+                                      Double measuredLengthPercent) {
         AuditSplit split = splitAudit(rawMarkdown);
         if (split.audit().isBlank()) {
             return rawMarkdown;
@@ -323,6 +381,55 @@ public final class WritingV3Scoring {
         Map<String, Integer> finals = new LinkedHashMap<>();
         List<String> fixes = new ArrayList<>();
         boolean changed = false;
+
+        // Trần lạc đề (vòng 11) — máy tự áp theo số yêu cầu của đề đã được trả lời (R_answered / R_total ở mục 0):
+        // không trả lời ý nào → MỌI tiêu chí tối đa 20%; ≤ 1/3 → 40%; trả lời chưa đủ → 70%.
+        Integer topicCap = null;
+        String topicNote = "";
+        Matcher rm = Pattern.compile("R_total\\s*:\\s*(\\d+)\\s*[·|,;]?\\s*R_answered\\s*:\\s*(\\d+)", Pattern.CASE_INSENSITIVE).matcher(audit);
+        if (rm.find() && Integer.parseInt(rm.group(1)) > 0) {
+            int rTot = Integer.parseInt(rm.group(1));
+            int rAns = Math.min(Integer.parseInt(rm.group(2)), rTot);
+            double ratio = rAns / (double) rTot;
+            if (ratio == 0) {
+                topicCap = 20;
+            } else if (ratio <= 0.34) {
+                topicCap = 40;
+            } else if (ratio < 1) {
+                topicCap = 70;
+            }
+            if (topicCap != null) {
+                topicNote = "trả lời " + rAns + "/" + rTot + " yêu cầu của đề → tối đa " + topicCap + "%";
+            }
+        }
+        // Trần thiếu độ dài (G1, vòng 12) — bài thiếu chữ thì mọi hàng đều thiếu bằng chứng, không riêng hàng nội dung.
+        // Ngưỡng % do máy đo sẵn, không phụ thuộc model (ưu tiên số máy đo, fallback số model chép ở mục 0).
+        Double lengthPct = measuredLengthPercent;
+        if (lengthPct == null) {
+            Matcher pm = Pattern.compile("%\\s*so với yêu cầu\\s*:\\s*(\\d+(?:[.,]\\d+)?)\\s*%", Pattern.CASE_INSENSITIVE).matcher(audit);
+            if (pm.find()) {
+                lengthPct = Double.parseDouble(pm.group(1).replace(',', '.'));
+            }
+        }
+        Map<String, Integer> lenCaps = null;
+        String lenNote = "";
+        if (lengthPct != null) {
+            if (lengthPct < 50) {
+                lenCaps = Map.of("task", 40, "org", 40, "lang", 40);
+                lenNote = fmtPct(lengthPct) + "% độ dài → mọi tiêu chí tối đa 40%";
+            } else if (lengthPct < 80) {
+                lenCaps = Map.of("task", 50, "org", 60, "lang", 60);
+                lenNote = fmtPct(lengthPct) + "% độ dài → nội dung tối đa 50%, các tiêu chí còn lại tối đa 60%";
+            }
+        }
+        // Trần bài mỏng (vòng 14) — máy tự áp vì model đọc đúng luật nhưng có lượt quên áp (S5: 90% thay vì 40%).
+        Integer thinCap = null;
+        Matcher dm = Pattern.compile("Ý được phát triển\\s*:\\s*\\**\\s*(\\d+)", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE).matcher(audit);
+        Matcher mm = Pattern.compile("Ý bắt buộc của đề bị thiếu\\s*:\\s*([^\\n]*)", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE).matcher(audit);
+        if (dm.find() && Integer.parseInt(dm.group(1)) == 0 && mm.find()
+                && Pattern.compile("^\\s*\\**\\s*(không|khong|none|0)(?![\\p{L}\\d_])", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE).matcher(mm.group(1)).find()) {
+            thinCap = grade.thinContentCapPercent();
+        }
 
         for (String name : grade.rows()) {
             CheckpointMatch line = findCheckpointLine(audit, name);
@@ -352,6 +459,24 @@ public final class WritingV3Scoring {
                     fin = ec;
                 }
             }
+            // Trần lạc đề áp cho MỌI tiêu chí, kể cả các hàng ngôn ngữ.
+            if (topicCap != null && topicCap < fin) {
+                fixes.add(name + ": " + topicNote);
+                fin = topicCap;
+            }
+            // Trần bài mỏng chỉ chạm hàng nội dung.
+            if (thinCap != null && name.equals(grade.contentCriterion()) && thinCap < fin) {
+                fixes.add(name + ": bài mỏng (0 ý được phát triển) → tối đa " + thinCap + "%");
+                fin = thinCap;
+            }
+            // Trần thiếu độ dài theo nhóm tiêu chí.
+            if (lenCaps != null) {
+                int lc = lenCaps.get(LEN_GROUP.getOrDefault(name, "lang"));
+                if (lc < fin) {
+                    fixes.add(name + ": " + lenNote);
+                    fin = lc;
+                }
+            }
             if (kgCap != null && name.equals(grammarCriterionName) && kgCap < fin) {
                 fixes.add(name + ": Key Grammar chưa đạt (" + kgConclusion.correct() + "/" + kgConclusion.attempts() + " lần đúng) → trần " + kgCap + "%");
                 fin = kgCap;
@@ -362,11 +487,27 @@ public final class WritingV3Scoring {
             }
         }
 
-        // Trần Tổng kết 35% khi quá nửa động từ chính sai thì/dạng (Khối 7-9; Khối 6 không áp).
+        // Khối 6 (vòng 15): trần Language theo tỉ lệ động từ sai — máy áp vì model hay lật băng ở đúng mốc 50%.
+        // > 50% sai → 20%; 34–50% sai → 40%. N_verb chỉ đếm động từ CÓ MẶT (câu thiếu hẳn động từ đã bị trừ ở câu cụt).
+        Matcher vm = Pattern.compile("N_verb_ok\\s*/\\s*N_verb\\s*:\\s*(\\d+)\\s*/\\s*(\\d+)", Pattern.CASE_INSENSITIVE).matcher(audit);
+        boolean hasVerbCounts = vm.find();
+        if (hasVerbCounts && isG6 && Integer.parseInt(vm.group(2)) > 0) {
+            int ok = Integer.parseInt(vm.group(1));
+            int total = Integer.parseInt(vm.group(2));
+            double wrongRatio = (total - ok) / (double) total;
+            Integer vCap = wrongRatio > 0.5 ? Integer.valueOf(20) : wrongRatio >= 0.34 ? Integer.valueOf(40) : null;
+            Integer languageNow = finals.get("Language");
+            if (vCap != null && languageNow != null && vCap < languageNow) {
+                fixes.add("Language: " + (total - ok) + "/" + total + " động từ sai → tối đa " + vCap + "%");
+                finals.put("Language", vCap);
+                changed = true;
+            }
+        }
+
+        // Trần Tổng kết 35% khi quá nửa động từ chính sai thì/dạng (Khối 7-9; Khối 6 dùng trần Language ở trên).
         Integer verbCapTotal = null;
         int wrongVerbs = 0;
-        Matcher vm = Pattern.compile("N_verb_ok\\s*/\\s*N_verb\\s*:\\s*(\\d+)\\s*/\\s*(\\d+)", Pattern.CASE_INSENSITIVE).matcher(audit);
-        if (!isG6 && vm.find()) {
+        if (hasVerbCounts && !isG6) {
             int ok = Integer.parseInt(vm.group(1));
             int total = Integer.parseInt(vm.group(2));
             if (total > 0 && (total - ok) / (double) total > 0.5) {

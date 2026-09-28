@@ -1041,6 +1041,29 @@ public class StudentCommentService {
         return previous.getHomeworkNext();
     }
 
+    /**
+     * UC-68 — báo cáo ngày (DAILY_REPORT, label MISSING_HOMEWORK_STUDENT_NAMES; bổ sung ngoài SDD gốc,
+     * đã xác nhận với người dùng 2026-09-28): trong {@code studentIds}, trả về id các học sinh có cột
+     * "BTVN buổi trước" kênh online Ngữ pháp/Nghe tại buổi {@code classSession} là
+     * {@link HomeworkProgressService#NOT_DONE_LABEL}. Dùng đúng {@link #resolvedGrammarPrevious} (nhập
+     * tay thắng, fallback % tự động theo buổi liền trước) như bảng Nhận xét hàng ngày để báo cáo không
+     * lệch với màn hình. Chỉ đọc, 2 truy vấn bulk (không N+1).
+     */
+    @Transactional(readOnly = true)
+    public Set<Long> studentIdsWithUndoneGrammarHomework(ClassSession classSession, List<Long> studentIds) {
+        if (studentIds.isEmpty()) {
+            return Set.of();
+        }
+        Map<Long, StudentComment> existingByStudentId = studentCommentRepository
+                .findByClassSessionIdAndStudentIdIn(classSession.getId(), studentIds).stream()
+                .collect(java.util.stream.Collectors.toMap(c -> c.getStudent().getId(), c -> c, (a, b) -> a));
+        Map<Long, StudentComment> previousByStudentId = previousCommentsByStudentIdForSession(classSession, studentIds);
+        return studentIds.stream()
+                .filter(id -> HomeworkProgressService.NOT_DONE_LABEL.equals(
+                        resolvedGrammarPrevious(existingByStudentId.get(id), previousByStudentId.get(id))))
+                .collect(java.util.stream.Collectors.toSet());
+    }
+
     /** Ghi đè tay thắng — chỉ fallback về % tự động khi chưa có giá trị nhập tay. */
     private String resolvedGrammarPrevious(StudentComment existing, StudentComment previous) {
         if (existing != null && existing.getHomeworkPreviousScore() != null) {

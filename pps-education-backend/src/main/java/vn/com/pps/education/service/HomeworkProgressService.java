@@ -38,6 +38,9 @@ public class HomeworkProgressService {
     private final ReviewVideoQuestionRepository reviewVideoQuestionRepository;
     private final ReflexQuestionProgressRepository reflexQuestionProgressRepository;
 
+    /** Nhãn "BTVN buổi trước" khi học sinh chưa có lượt làm nào — dùng chung cho Nhận xét hàng ngày và báo cáo ngày (UC-68). */
+    public static final String NOT_DONE_LABEL = "Chưa làm bài";
+
     public HomeworkProgressService(ExerciseAttemptRepository exerciseAttemptRepository,
                                     ReviewVideoRepository reviewVideoRepository,
                                     ReviewVideoProgressRepository reviewVideoProgressRepository,
@@ -68,7 +71,7 @@ public class HomeworkProgressService {
         List<ExerciseAttempt> attempts = exerciseAttemptRepository
                 .findByExerciseIdAndStudentIdOrderByAttemptNumberDesc(exercise.getId(), studentId);
         if (attempts.isEmpty()) {
-            return "Chưa làm bài";
+            return NOT_DONE_LABEL;
         }
         ExerciseAttempt latest = attempts.get(0);
         if (latest.getTotalScore() == null) {
@@ -113,7 +116,7 @@ public class HomeworkProgressService {
             totalPoints = totalPoints.add(exercise.getTotalPoints() == null ? BigDecimal.ZERO : exercise.getTotalPoints());
         }
         if (!anyAttempted) {
-            return "Chưa làm bài";
+            return NOT_DONE_LABEL;
         }
         if (totalPoints.signum() <= 0) {
             return null;

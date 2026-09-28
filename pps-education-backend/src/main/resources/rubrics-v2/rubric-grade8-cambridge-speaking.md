@@ -39,12 +39,23 @@ Không có cổng "đọc thuộc": nói trôi chảy, đều nhịp **không b�
 > - **P2 (âm cuối):** chỉ tính mất âm cuối khi **transcript cho thấy điều đó** — từ ghi thiếu phụ âm cuối (fren, hep, understan, depen) hoặc thiếu -s/-es/-ed mà ngữ cảnh đòi hỏi. Từ ghi đúng chính tả → đã bật đủ âm cuối. **Mẫu số** = mọi lượt xuất hiện của từ tiếng Anh kết thúc bằng phụ âm khi nói (kể cả /g/, /l/, /p/, /m/, /n/…; lặp lại tính mỗi lượt; từ vỡ mảnh tính 1; không tính từ tiếng Việt).
 > - **P3 (trọng âm):** chỉ tính sai khi transcript ghi từ bị tách/biến dạng âm tiết (tog-da, bat-min-tun, in-tơ-res-ting). Từ ≥2 âm tiết ghi đúng chính tả → đúng trọng âm.
 > - **Một từ vỡ thành nhiều mảnh** ("bat minet tum", "bot cus") = **MỘT** từ phát âm sai, kể cả khi tính tỷ lệ P1.
-> - **Danh sách `suspect_words` do lượt phiên âm gửi kèm là bằng chứng ngang hàng với transcript.** Mọi từ trong danh sách đó — **kể cả từ đã ghi đúng chính tả** (dạng `tink→think`, `fren→friend`) — đều tính là **phát âm sai** ở P1, P2 và P4. **Trừ** các mục chỉ khác nhau ở đuôi chia động từ (`make→makes`, `relax→relaxed`) — đó là lỗi ngữ pháp, bỏ qua ở đây, không trừ hai lần. Không có danh sách thì mới chỉ dựa vào chính tả trong transcript.
+> - **Danh sách `suspect_words` (quy tắc phiên âm v4) = từ phát âm lệch NHƯNG NHẬN RA**, đã ghi chính tả chuẩn trong transcript (dạng `scoo→school`). Các từ này **tính là nhận ra ở P1**; chỉ trừ ở P2 nếu độ lệch là mất âm cuối / thiếu -s danh từ, ở P4 nếu là thay âm. **Mỗi lỗi chỉ trừ ở một checkpoint.** Từ ghi theo âm trong transcript, `[?]` = không nhận ra → trừ ở P1. Mục chỉ khác ở đuôi chia động từ (`make→makes`) là lỗi ngữ pháp → bỏ qua.
 > - **P5** là checkpoint duy nhất chấm bằng tai.
 
+> **BẮT BUỘC — đếm bằng chứng phát âm trước khi cho điểm** (ghi vào `counting_notes`):
+> 1. Liệt kê **mọi từ trong transcript không đúng chính tả chuẩn** — `Zis`, `produc`, `fren`, `chip`, `bát-mi`, `[?]`. Đây là bằng chứng học sinh phát âm lệch: lượt phiên âm chỉ ghi khác chính tả khi **nghe thấy** âm bị thiếu hoặc bị thay.
+> 2. Tách danh sách đó thành: **mất âm cuối** (`produc`, `fren`, `chip`) và **thay âm** (`Zis` = /ð/→/z/, `wis` = /θ/→/s/).
+> 3. **Nghe audio**: chỗ nào người nghe phải căng tai hoặc đoán mới hiểu — dù transcript ghi đúng chính tả — cũng cộng vào danh sách.
+>
+> **Trần theo bằng chứng (áp cho cả tiêu chí Phát âm, sau khi tính checkpoint):**
+> - ≥2 từ lệch → Phát âm **tối đa 80%**
+> - ≥4 từ lệch → **tối đa 60%**
+> - ≥6 từ lệch → **tối đa 40%**
+>
+> Ghi trần này vào `cap_percent` của tiêu chí Phát âm. **Bài có từ ghi theo âm trong transcript thì không bao giờ được 100% Phát âm.**
 |#|Checkpoint|1|0,5|0|
 |-|-|-|-|-|
-|P1|Tỷ lệ **từ nội dung** nhận ra ngay. **Mẫu số chỉ gồm từ nội dung** (danh từ, động từ chính, tính từ, trạng từ — §B.11): **không** tính từ chức năng (a, the, and, is, I, my, to, at, when, not, very…), tên riêng, con số. Từ ghi đúng chính tả nhưng lệch với bài viết (§A.4b) **cũng không tính là nhận ra**. **Mọi từ viết sai chính tả trong transcript (tink, fren, ham…) KHÔNG tính là nhận ra**. **Chỉ tính từ tiếng Anh**: không tính từ tiếng Việt, từ đệm (um/uh/ờ) và `(...Ns)`.|≥95%|85–94%|<85%|
+|P1|Tỷ lệ **từ nội dung** nhận ra ngay. **Từ trong `suspect_words` (lệch nhưng nhận ra) TÍNH LÀ NHẬN RA.** **Mẫu số chỉ gồm từ nội dung** (danh từ, động từ chính, tính từ, trạng từ — §B.11): **không** tính từ chức năng (a, the, and, is, I, my, to, at, when, not, very…), tên riêng, con số. Từ ghi đúng chính tả nhưng lệch với bài viết (§A.4b) **cũng không tính là nhận ra**. **Mọi từ viết sai chính tả trong transcript (tink, fren, ham…) KHÔNG tính là nhận ra**. **Chỉ tính từ tiếng Anh**: không tính từ tiếng Việt, từ đệm (um/uh/ờ) và `(...Ns)`.|≥95%|85–94%|<85%|
 |P2|Tỷ lệ bật đúng âm cuối cần có. **Mẫu số** = mọi lượt xuất hiện của từ tiếng Anh kết thúc bằng phụ âm khi nói (lặp lại tính mỗi lượt; từ vỡ mảnh tính 1; **không tính từ tiếng Việt**). Từ ghi đúng chính tả = đã bật đủ âm cuối|≥85%|70–84%|<70%|
 |P3|Trọng âm đúng ở từ ≥2 âm tiết|≥90% **và** có ≥3 từ ≥2 âm tiết|75–89%, **hoặc chỉ có 1–2 từ ≥2 âm tiết (dù đúng hết)**|<75%|
 |P4|Số từ phát âm sai đến mức thành từ khác (§A.4b; đếm theo từng lượt xuất hiện) / phải đoán theo ngữ cảnh / thay âm kiểu tiếng Việt|0|1–2|≥3|
@@ -75,6 +86,7 @@ Chỉ dùng để kiểm tra chéo, **không chép vào đầu ra**. Vector = ch
 
 **Neo DM 30% · P 0% — DM [1,0,0,0,0.5] · P [0,0,0,0,0]**
 > Um (...3s) I like fren. Fren play. Um family ờ (...4s) busy. I go cinema with fren. Um happy.
+> **Từ 23/9/2026: điểm ngữ pháp KHÔNG còn khoá từ Bước 1.** Học sinh được quyền sửa lỗi khi nói, nên tiêu chí ngữ pháp được **chấm lại từ transcript** theo checkpoint trong file rubric Bước 1 (gửi kèm ở lượt này). Lỗi phát âm không phải lỗi ngữ pháp (§A.3); thiếu -s danh từ số nhiều tính ở Phát âm.
 - C3: 13 từ → trần 40%. D1: "I like friends" trả lời trúng → 1. D2: <25 từ → 0. D3: 0. D4: ≤2 → 0. D5: dừng 4 giây → 0,5.
 - P1: fren ×3 = 3/13 → 77% → 0. P2 → 0. P3 → 0. P4: ≥3 → 0. P5: ≤1 → 0.
 

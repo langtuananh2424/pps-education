@@ -204,6 +204,8 @@ public class WritingAiGradingService {
                 ? null : keyGrammarDictionaryLoader.load(grade);
         String system = promptBuilderV3.systemPrompt(grade, rubric, keyGrammarDictionary, keyGrammarIds);
         String user = promptBuilderV3.userPrompt(grade, taskPrompt, essayText);
+        // Số liệu độ dài do máy đo — hậu kiểm dùng thẳng, không tin dòng "% so với yêu cầu" model chép lại ở mục 0.
+        double lengthPercent = WritingV3Scoring.measureLength(grade, taskPrompt, essayText).percent();
 
         for (int attempt = 1; attempt <= MAX_ATTEMPTS_TOTAL; attempt++) {
             NineRouterAiClient.ChatResult result = nineRouterAiClient.chatWithFinishReason(system, user, writingModel);
@@ -223,7 +225,7 @@ public class WritingAiGradingService {
                 continue;
             }
             try {
-                return parseResultV3(result.content(), grade, keyGrammarDictionary).withUsage(result.usage());
+                return parseResultV3(result.content(), grade, keyGrammarDictionary, lengthPercent).withUsage(result.usage());
             } catch (IOException e) {
                 log.warn("WritingAiGradingService: parse kết quả chấm (v3) thất bại (lần {}/{}). {}", attempt, MAX_ATTEMPTS_TOTAL, e.getMessage());
                 // Coi như "dở dang" theo tinh thần mục 5.3 — thử lại thay vì bỏ cuộc ngay từ lần đầu.
@@ -270,11 +272,12 @@ public class WritingAiGradingService {
      * IOException nếu thiếu mục 0/1/2 hoặc bảng điểm không đủ tiêu chí/dòng Tổng kết — caller coi như chấm
      * thất bại (thử lại hoặc rơi hàng chờ chấm tay).
      */
-    private GradeResult parseResultV3(String rawText, WritingV3Grade grade, KeyGrammarDictionary keyGrammarDictionary) throws IOException {
+    private GradeResult parseResultV3(String rawText, WritingV3Grade grade, KeyGrammarDictionary keyGrammarDictionary,
+                                      double lengthPercent) throws IOException {
         if (!rawText.contains("### 0.")) {
             throw new IOException("Model chấm bài (v3) thiếu mục 0 Kiểm đếm — không hậu kiểm được: " + rawText);
         }
-        String corrected = WritingV3Scoring.enforceScore(rawText, grade, keyGrammarDictionary);
+        String corrected = WritingV3Scoring.enforceScore(rawText, grade, keyGrammarDictionary, lengthPercent);
         WritingV3Scoring.AuditSplit split = WritingV3Scoring.splitAudit(corrected);
         String visible = split.visible();
 

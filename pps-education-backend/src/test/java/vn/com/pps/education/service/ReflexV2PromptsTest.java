@@ -5,6 +5,8 @@ import org.junit.jupiter.api.Test;
 import vn.com.pps.education.common.ReflexV2Task;
 import vn.com.pps.education.domain.Curriculum;
 
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -22,6 +24,13 @@ class ReflexV2PromptsTest {
         return ReflexV2Task.forGradeTrack(g, t, seconds).orElseThrow();
     }
 
+    private static String rubricText(String file) throws Exception {
+        try (InputStream in = ReflexV2PromptsTest.class.getClassLoader().getResourceAsStream("rubrics-v2/" + file)) {
+            assertThat(in).as("thiếu file rubric " + file).isNotNull();
+            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        }
+    }
+
     @Test
     void writingAndSpeakingPrompts_loadForEveryV2Task() {
         for (ReflexV2Task t : List.of(
@@ -31,44 +40,77 @@ class ReflexV2PromptsTest {
             String writing = prompts.writingSystem(t);
             assertThat(writing).contains("Quy tắc chung cho mọi rubric Speaking").contains("BƯỚC 1").contains("QUY TẮC TÔ MÀU").contains("JSON SCHEMA");
             String speaking = prompts.speakingSystem(t);
-            assertThat(speaking).contains("BƯỚC 2").contains("KHÔNG chấm lại").contains("new_red_errors");
+            assertThat(speaking).contains("BƯỚC 2").contains("CHẤM LẠI từ transcript").contains("KHÔNG tự áp cổng độ dài (C3)");
         }
     }
 
     @Test
-    void grade7Ielts_writingGradesLrAndGra_speakingGradesFcLrP() {
+    void grade7Ielts_writingGradesLrAndGra_speakingGradesAllFourIncludingGrammarRegrade() {
         ReflexV2Task t = task(Curriculum.GradeLevel.GRADE_7, Curriculum.Track.IELTS);
         assertThat(prompts.writingSystem(t)).contains("LR = Lexical Resource; GRA = Grammatical Range and Accuracy");
-        assertThat(prompts.speakingSystem(t)).contains("FC = Fluency and Coherence; LR = Lexical Resource; P = Pronunciation");
+        // Từ 23/9 Ngữ pháp KHÔNG còn khoá: lượt nói chấm cả FC, LR, GRA, P
+        assertThat(prompts.speakingSystem(t)).contains("FC = Fluency and Coherence; LR = Lexical Resource; GRA = Grammatical Range and Accuracy; P = Pronunciation");
+    }
+
+    @Test
+    void speakingSystem_carriesBothTheStep1AndTheSpeakingRubric_soGrammarCanBeRegradedFromTranscript() throws Exception {
+        for (ReflexV2Task t : List.of(
+                task(Curriculum.GradeLevel.GRADE_6, null),
+                task(Curriculum.GradeLevel.GRADE_7, Curriculum.Track.CAMBRIDGE),
+                task(Curriculum.GradeLevel.GRADE_9, Curriculum.Track.IELTS, 90))) {
+            String speaking = prompts.speakingSystem(t);
+            assertThat(speaking).contains(rubricText(t.writingRubricFile())).contains(rubricText(t.speakingRubricFile()));
+        }
+        // Bước 1 chỉ cần rubric viết — không kéo theo rubric nói
+        ReflexV2Task g6 = task(Curriculum.GradeLevel.GRADE_6, null);
+        assertThat(prompts.writingSystem(g6)).doesNotContain(rubricText(g6.speakingRubricFile()));
+    }
+
+    @Test
+    void redErrorsCountTripleWhenCounting() {
+        ReflexV2Task t = task(Curriculum.GradeLevel.GRADE_7, Curriculum.Track.IELTS);
+        assertThat(prompts.writingSystem(t)).contains("1 lỗi đỏ = 3 lỗi").doesNotContain("1 lỗi đỏ = 2 lỗi");
+        assertThat(prompts.speakingSystem(t)).contains("1 lỗi đỏ = 3 lỗi");
     }
 
     @Test
     void transcriptionPrompt_isBlind_noRubricNoQuestion() {
         String system = prompts.transcriptionSystem();
-        assertThat(system).contains("Bạn là máy phiên âm âm vị").doesNotContain("Quy tắc chung cho mọi rubric").doesNotContain("Checkpoint");
+        assertThat(system).contains("Quy tắc phiên âm").contains("Lượt này không nhận đề bài, không nhận rubric")
+                .doesNotContain("Quy tắc chung cho mọi rubric").doesNotContain("Checkpoint");
         assertThat(prompts.transcriptionUser(12.34)).isEqualTo("File ghi âm dài 12.3 giây. Phiên âm theo đúng quy tắc.");
     }
 
     @Test
-    void speakingUser_carriesTranscriptAndSuspectWords() {
+    void transcriptionSchema_requiresWordAudit_andSuspectWordsMeanDeviantButRecognisable() {
+        assertThat(prompts.transcriptionSchema().path("required").toString()).contains("word_audit").contains("suspect_words");
+        assertThat(prompts.transcriptionSchema().path("properties").path("suspect_words").path("description").asText())
+                .contains("LỆCH NHƯNG VẪN NHẬN RA");
+        assertThat(prompts.transcriptionSystem()).contains("word_audit");
+    }
+
+    @Test
+    void speakingUser_carriesTranscriptSuspectWordsAndDeviantWords_butNoLockedScore() {
         ReflexV2Task t = task(Curriculum.GradeLevel.GRADE_7, Curriculum.Track.IELTS);
-        String user = prompts.speakingUser(t, 70, "What do you do?", "I play.", "I pley.", List.of("pley→play"), 10, 6, 1);
-        assertThat(user).contains("GRA = 70%").contains("I pley.").contains("pley→play").contains("BÀI VIẾT CỦA HỌC SINH Ở BƯỚC 1").endsWith("File âm thanh gốc:");
-        assertThat(prompts.speakingUser(t, 70, "q", "w", "t", List.of(), 10, 6, 1)).doesNotContain("TỪ PHÁT ÂM SAI");
+        String user = prompts.speakingUser(t, "What do you do?", "I play.", "I pley.", List.of("pley→play"), List.of("play→pley"), 10, 6, 1);
+        assertThat(user).contains("I pley.").contains("pley→play").contains("play→pley")
+                .contains("BÀI VIẾT Ở BƯỚC 1").contains("chấm theo transcript")
+                .contains("TÍNH LÀ NHẬN RA").contains("KHÔNG lấy số lượng từ trong danh sách làm căn cứ")
+                .doesNotContain("ĐIỂM ĐÃ KHOÁ").endsWith("File âm thanh gốc:");
+        String bare = prompts.speakingUser(t, "q", "w", "t", List.of(), List.of(), 10, 6, 1);
+        assertThat(bare).doesNotContain("TỪ PHÁT ÂM LỆCH");
     }
 
     @Test
-    void gradingSchema_requiresNewRedErrorsOnlyForSpeaking() {
-        assertThat(prompts.gradingSchema(List.of("P"), true).path("required").toString()).contains("new_red_errors");
-        assertThat(prompts.gradingSchema(List.of("GV"), false).path("required").toString()).doesNotContain("new_red_errors");
+    void gradingSchema_neverAsksForNewRedErrors_sinceGrammarIsRegradedFromTranscript() {
+        assertThat(prompts.gradingSchema(List.of("P")).path("required").toString()).doesNotContain("new_red_errors");
+        assertThat(prompts.gradingSchema(List.of("GV", "P")).path("properties").has("new_red_errors")).isFalse();
     }
 
     @Test
-    void speakingSystem_isIdenticalRegardlessOfLockedScore_soPrefixIsStable() {
+    void speakingSystem_isStableForTheSameTask_soPrefixIsCacheable() {
         ReflexV2Task t = task(Curriculum.GradeLevel.GRADE_6, null);
         assertThat(prompts.speakingSystem(t)).isEqualTo(prompts.speakingSystem(t));
-        assertThat(prompts.speakingUser(t, 30, "q", "w", "t", List.of(), 10, 6, 1)).contains("GV = 30%");
-        assertThat(prompts.speakingUser(t, 100, "q", "w", "t", List.of(), 10, 6, 1)).contains("GV = 100%");
     }
 
     @Test
@@ -85,13 +127,13 @@ class ReflexV2PromptsTest {
         ReflexV2Task part2 = task(Curriculum.GradeLevel.GRADE_8, Curriculum.Track.IELTS, 90);
         assertThat(prompts.speakingSystem(part2)).contains("dùng cột ngưỡng **PART2** của rubric").contains("tối đa 90 giây");
         assertThat(prompts.writingSystem(part2)).contains("dùng cột ngưỡng **PART2** của rubric");
-        assertThat(prompts.speakingUser(part2, 70, "Describe a place.", "w", "t", List.of(), 60, 40, 1))
+        assertThat(prompts.speakingUser(part2, "Describe a place.", "w", "t", List.of(), List.of(), 60, 40, 1))
                 .startsWith(">>> DÙNG CỘT NGƯỠNG **PART2** CỦA RUBRIC <<<");
         ReflexV2Task shortTask = task(Curriculum.GradeLevel.GRADE_9, Curriculum.Track.IELTS, 30);
-        assertThat(prompts.speakingUser(shortTask, 70, "q", "w", "t", List.of(), 20, 10, 1))
+        assertThat(prompts.speakingUser(shortTask, "q", "w", "t", List.of(), List.of(), 20, 10, 1))
                 .startsWith(">>> DÙNG CỘT NGƯỠNG **SHORT** CỦA RUBRIC <<<");
         // Khối 6-7 và PET Part 4 không có cột theo dạng đề → không thêm dòng nhắc cột
-        assertThat(prompts.speakingUser(task(Curriculum.GradeLevel.GRADE_7, Curriculum.Track.IELTS), 70, "q", "w", "t", List.of(), 20, 10, 1))
+        assertThat(prompts.speakingUser(task(Curriculum.GradeLevel.GRADE_7, Curriculum.Track.IELTS), "q", "w", "t", List.of(), List.of(), 20, 10, 1))
                 .doesNotContain("CỘT NGƯỠNG");
         assertThat(prompts.speakingSystem(task(Curriculum.GradeLevel.GRADE_8, Curriculum.Track.CAMBRIDGE, 60))).doesNotContain("dùng cột ngưỡng");
     }

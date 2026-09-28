@@ -22,6 +22,9 @@ N_copy = số từ thuộc chuỗi trùng ≥5 từ liên tiếp với đề/ngu
 N_net = N_total - N_copy.
 N_sent = tổng số câu.
 N_complete = số câu/mệnh đề có chủ ngữ + động từ chia + ý hoàn chỉnh.
+             Dùng cho checkpoint ngữ pháp (L4); KHÔNG xét viết hoa và dấu câu.
+N_bound    = số câu vừa viết hoa chữ đầu, vừa có dấu kết câu, vừa đủ chủ ngữ
+             và động từ. Câu cụt và comma splice không tính. Chỉ dùng cho O3.
 N_sp = lỗi chính tả/word formation.
 N_pu = lỗi dấu câu/viết hoa (mỗi chỗ thiếu dấu chấm, mỗi chữ đầu câu
        hoặc tên riêng viết thường đều tính là một lỗi).
@@ -43,12 +46,30 @@ although, relative clause hoặc cấu trúc mở rộng tương đương.
 
 | Gate | Kích hoạt | Hậu quả |
 |---|---|---|
-| **G1 – Underlength** | `N_net` = 50–79% số từ yêu cầu | Task/Content tối đa **60%** |
+| **G1 – Underlength** | `N_net` = 50–79% số từ yêu cầu | Task/Content tối đa **50%**; **Communicative Achievement / Organisation / Coherence & Cohesion tối đa 60%** — thiếu chữ thì mọi hàng đều thiếu bằng chứng, không riêng hàng nội dung. Hàng ngôn ngữ chấm theo checkpoint |
 |  | `N_net` <50% | Mọi criterion tối đa **40%** |
 |  | `N_net` <25% | **0% – insufficient data** |
-| **G2 – Off-topic** | Bài hoàn toàn không trả lời đề | Task/Content = **0%**; các criterion ngôn ngữ vẫn chấm nếu đủ dữ liệu |
-| **G3 – Copied input** | Có chuỗi trùng ≥5 từ liên tiếp với đề/nguồn | Loại khỏi `N_net`; không tính làm bằng chứng LR/Language/GRA **Ngoại lệ khối 6–7:** từ trùng nằm trong **câu mở bài** (câu nhắc lại đề, tối đa 10 từ) **không bị trừ khỏi `N_net`** — vẫn tính là chép khi chấm paraphrase và không dùng làm bằng chứng từ vựng. |
+| **G2 – Off-topic** | `R_answered` = 0 (không trả lời yêu cầu nào của đề) | Task/Content = **0%** và **MỌI tiêu chí khác tối đa 20%** — kể cả các hàng ngôn ngữ |
+| | `R_answered` / `R_total` ≤ 1/3 | **Mọi tiêu chí tối đa 40%** |
+| | trả lời một phần, chưa đủ | **Mọi tiêu chí tối đa 70%** |
+| **G3 – Copied input** | Có chuỗi trùng ≥5 từ liên tiếp với đề/nguồn | Loại khỏi `N_net`; không tính làm bằng chứng LR/Language/GRA **Ngoại lệ khối 6–7:** từ trùng nằm trong **câu mở bài** (câu nhắc lại đề, tối đa 10 từ) **không bị trừ khỏi `N_net`** — vẫn tính là chép khi chấm paraphrase và không dùng làm bằng chứng từ vựng. **Ngoại lệ này KHÔNG áp dụng khi đề cho sẵn câu mở đầu** (câu đặt trong ngoặc kép của đề story): câu đó là chữ của đề, bị trừ khỏi `N_net`, không tính là ý của học sinh và không dùng làm bằng chứng cho bất kỳ tiêu chí nào. |
 | **G4 – Non-English** | Phần lớn bài không phải tiếng Anh | **0% – insufficient English evidence** |
+
+**Trần lạc đề — bắt buộc, hệ thống tự áp.** Mục 0 phải ghi `R_total` (số yêu cầu của đề) và `R_answered`
+(số yêu cầu bài đã trả lời, mỗi yêu cầu phải trích được nguyên văn câu trả lời). Trần này áp cho **mọi tiêu chí**,
+kể cả các hàng ngôn ngữ, vì một bài không làm đúng đề thì không thể đạt dù viết hay đến đâu:
+
+| `R_answered` / `R_total` | Trần cho MỌI tiêu chí |
+|---|---|
+| 0 | **20%** (Content / Task Response = 0%) |
+| ≤ 1/3 | **40%** |
+| còn thiếu (chưa đủ) | **70%** |
+| đủ | không trần |
+
+**Ví dụ bắt buộc đọc.** Đề yêu cầu trả lời thư của Ben với 3 ý: sở thích và lý do · khuyên chọn photography hay
+cooking · gợi ý sở thích chung cho hai người. Bài nộp là một lá thư kể trận bóng đá Manchester United — tiếng Anh
+chuẩn, đúng định dạng thư, mạch lạc, nhưng **không trả lời ý nào**. `R_answered` = 0 → mọi tiêu chí tối đa **20%**.
+Chấm 25 lượt bài này theo luật cũ ra trung bình **68,6%** (60–80%) vì chỉ hàng nội dung bị trừ — đó là lý do có luật này.
 
 Từ/cụm tiếng Việt lẻ tẻ được tính là **lexical gap** ở Language/LR, không trừ thêm lần thứ hai.
 
@@ -78,11 +99,21 @@ Nếu có bài mẫu/reference text được cung cấp và bài học sinh trù
 
 | ID | Checkpoint | **1** | **0.5** | **0** |
 |---|---|---|---|---|
-| **O1** | **Basic linking** — liệt kê từng từ nối dùng đúng (and, but, because, so, then, when…) | ≥ 3 lần đúng, ≥ 2 loại | 1–2 lần đúng | 0 / phần lớn sai |
-| **O2** | **Logical order** | Mạch rõ toàn bài | 1 chỗ nhảy ý | Khó theo dõi |
-| **O3** | **Sentence boundaries** — câu có ranh giới rõ = **viết hoa chữ đầu câu và có dấu kết câu**; câu nối bằng dấu phẩy (comma splice) không tính | ≥ 80% câu | 50–79% | < 50% |
+| **O1** | **Từ nối ý** — liệt kê từng từ nối dùng đúng **giữa hai hành động / hai mệnh đề** hoặc nối câu với câu (and, but, because, so, then, after that, when…). **"and" nối hai danh từ hoặc hai tính từ KHÔNG tính** (*four leg and eye black*, *small and wite*) | ≥ 3 lần đúng, ≥ 2 loại | 1–2 lần đúng | 0 / phần lớn sai |
+| **O2** | **Mạch triển khai ý** — ý sắp xếp hợp lý, không lặp lại thông tin đã nói, và có phương tiện nối câu (đại từ / mốc thời gian: it, she, then, after that…) | Mạch rõ **và** ≥ 1 phương tiện nối | 1 chỗ nhảy ý hoặc lặp ý, hoặc không có phương tiện nối nào | Khó theo dõi / các câu rời rạc |
+| **O3** | **Ranh giới câu và câu đủ thành phần** — đọc thẳng `N_bound` ở mục 0: một câu chỉ được tính khi **viết hoa chữ đầu + có dấu kết câu + có đủ chủ ngữ và động từ**. Câu nối bằng dấu phẩy (comma splice) và câu cụt (*Have brown ear.* · *Very good dog.* · *My dog very beutiful.*) **không tính** | ≥ 80% câu | 50–79% | < 50% |
 | **O4** | **Task layout / genre** — đếm thành phần, mỗi phần phải có mặt **và** đúng hình thức (viết hoa). Email: lời chào + tên · câu mở / câu đầu tiên đúng chủ đề · câu chào cuối · ký tên. Story: mở đầu có thời gian hoặc nhân vật · diễn biến · kết thúc | Đủ, đúng hình thức | Thiếu / sai 1–2 | Thiếu / sai ≥ 3 |
-| **O5** | **Simple cohesion** — liệt kê từng đại từ / mốc thời gian nối ý với câu trước (it, they, she, then, after that…) | ≥ 2 | 1 | 0 / gây rối |
+| **O5** | **Câu ghép / mở rộng ý** — đếm số câu có **≥ 2 mệnh đề đầy đủ** (mỗi mệnh đề có chủ ngữ riêng và động từ riêng) nối đúng bằng liên từ. **Vị ngữ ghép chung chủ ngữ KHÔNG tính** (*we will eat pizza and sing karaoke*) | ≥ 2 câu | 1 câu | 0 — toàn câu đơn |
+
+**Chuẩn Organisation ở khối 6 — đọc trước khi chấm O1, O2, O5:**
+
+- Organisation đo **bố cục + từ nối + mạch triển khai ý**, không đo "bài trông có giống email không". Một bài đúng đủ bốn phần email (`O4` = 1) mà **toàn câu đơn, không từ nối, có câu cụt** thì chỉ được **40%**, không phải 80–90%.
+- Chấm mẫu bắt buộc — bài dưới đây (email tả con chó, 11 câu) là **40%**:
+  > *I have dog. His name Mily. He are small and wite. Have brown ear. I like it. My dog very beutiful. He have four leg and eye black. Mily is my pet. I have him two year. He sleep in my hous. Very good dog.*
+
+  `O1` = 0 (hai chữ "and" đều nối danh từ / tính từ, không nối mệnh đề) · `O2` = 0.5 ("I like it" chen giữa phần tả ngoại hình; "Mily is my pet" lặp lại thông tin đã nêu) · `O3` = 0.5 (7/11 câu đủ thành phần = 64%; hỏng: *His name Mily* · *Have brown ear* · *My dog very beutiful* · *Very good dog*) · `O4` = 1 (đủ Hi Tom · câu mở · Bye · Nam) · `O5` = 0 (không một câu ghép nào) → 2/5 = **40%**.
+- `O3` đếm **câu cụt** (thiếu chủ ngữ hoặc thiếu động từ) là câu không đạt, ngang với câu không viết hoa. Đây là chỗ khác v3 cũ: trước đây chỉ nhìn dấu câu nên bài toàn câu cụt vẫn được `O3` = 1.
+- `O5` và `O1` cùng đo một hiện tượng theo hai hướng (có câu ghép chưa / có từ nối chưa). Trùng nhau là **cố ý**: bài toàn câu đơn bị trừ ở cả hai, vì đó là điểm yếu bố cục nặng nhất ở khối này.
 
 ### LANGUAGE — L
 
@@ -208,12 +239,35 @@ vẫn vượt mọi ngưỡng và lên 100% — nhưng 100% phải có nghĩa l�
 | 3–4 | tối đa **80%** |
 | ≥5 | theo checkpoint như bình thường |
 
+**Từ vòng 12, khối 6 có thêm trần theo MẬT ĐỘ lỗi** (lỗi trên 100 từ), giống khối 7–9, và máy lấy **mức thấp hơn**
+giữa hai trần: ≤2 lỗi/100 từ → 90% · ≤4 → 80% · ≤7 → 70% · ≤10 → 60% · ≤14 → 50% · >14 → 40%.
+
+**Ngoại lệ nới (vòng 15):** bài chỉ có **1–2 lỗi tuyệt đối** thì giữ trần 90% của bảng trên, **không** kéo xuống
+theo mật độ. Lý do: bài khối 6 chỉ 25–45 từ, nên 2 lỗi đã thành 4–8 lỗi trên 100 từ — phạt theo mật độ là quá nặng
+với bài gần sạch lỗi. Ví dụ: truyện 41 từ, 2 lỗi nhẹ → Language **90%** (không phải 70%).
+Từ 3 lỗi trở lên thì mật độ áp bình thường: note 41 từ, 3 lỗi → Language **60%**.
+
 Số lỗi phải **bằng đúng** số token lỗi tương ứng đánh dấu ở mục 1.
 
 ### Phát triển ý phải khớp với số đã trích dẫn — bắt buộc
 
 `C3` được chấm theo **đúng số ý đã trích dẫn được bằng chứng** (con số, tên riêng, hoặc việc đã xảy ra).
 Không trích dẫn được ý nào → `C3` = 0, dù bài "trông" có chi tiết.
+
+**Riêng khối 6 — tên riêng và con số phải gắn với một SỰ VIỆC:**
+
+Một tên riêng hay một con số chỉ tính là ý được phát triển khi nó **gắn vào một việc đã xảy ra, kể lại được** (ai làm gì, khi nào). Khi nó chỉ là **nhãn dán cho một danh từ** — tên gọi, số lượng, đặc điểm — thì **không tính**, dù trích dẫn được nguyên văn.
+
+| Trích dẫn | Tính? | Vì sao |
+|---|---|---|
+| *We go by car, it take 2 hours* | **Có** | con số gắn với việc đã xảy ra: chuyến đi bằng xe |
+| *Last weekend I go to Vung Tau beach with my family* | **Có** | tên riêng gắn với việc đã xảy ra: chuyến đi |
+| *My brother buy a kite* | **Có** | một việc xảy ra một lần, kể lại được |
+| *His name Mily* | **Không** | chỉ là tên gọi của con vật, không có sự việc nào |
+| *I have him two year* | **Không** | con số mô tả trạng thái sở hữu, không phải sự việc |
+| *He have four leg and eye black* | **Không** | đặc điểm ngoại hình, không phải sự việc |
+
+Bài **chỉ tả đặc điểm và gọi tên**, không kể được việc gì đã xảy ra → `C3` = 0 → rơi vào **trần bài mỏng 60%** của khối 6. Bài kể được ≥ 2 việc có chi tiết → `C3` = 1. (Đây là chỗ hay dao động nhất ở khối 6: kiểm chứng vòng 10, cùng một bài tả con chó ra Content 100% ở lượt 1 và 60% ở lượt 2 khi luật này chưa được viết rõ.)
 
 ### Lỗi ngôn ngữ không được lan sang tiêu chí nội dung — bắt buộc
 
@@ -258,7 +312,7 @@ Một cụm chỉ được tô `{{ok|...}}` khi nó **vừa đúng vừa tự nh
 
 ---
 
-### NEO A — 40%
+### NEO A — 35%
 
 **Bài gốc (24 từ):**
 
@@ -277,9 +331,9 @@ Một cụm chỉ được tô `{{ok|...}}` khi nó **vừa đúng vừa tự nh
 | Tiêu chí | % |
 |---|---:|
 | Content | 50% |
-| Organisation | 40% |
+| Organisation | 20% |
 | Language | 40% |
-| **Tổng kết** | **40%** |
+| **Tổng kết** | **35%** |
 
 ### 3. Nhận xét
 
@@ -287,9 +341,9 @@ Em đã mời bạn và nói được nơi tổ chức tiệc. Ưu tiên sắp t
 
 **Checkpoint:**
 `C1` = 0 (thiếu 2 ý: khi nào, làm gì) · `C2` = 1 · `C3` = 0 · `C4` = 1 · `C5` = 0.5 → 2.5/5 = **50%** (thiếu ý nên không phải bài "mỏng" — trần 60% không áp).
-`O1` = 0 (không từ nối) · `O2` = 1 · `O3` = 0 (0/6 câu viết hoa đầu câu) · `O4` = 0.5 (lời chào viết thường, không ký tên) · `O5` = 0.5 (1: "it") → 2/5 = **40%**.
+`O1` = 0 (không từ nối) · `O2` = 0.5 ("i very happy" chen giữa; chỉ 1 phương tiện nối: "it") · `O3` = 0 (0/6 câu đạt: không câu nào viết hoa; "i very happy", "my house near scool" còn thiếu động từ) · `O4` = 0.5 (lời chào viết thường, không ký tên) · `O5` = 0 (toàn câu đơn) → 1/5 = **20%**.
 `L1` = 1 · `L2` = 1 · `L3` = 0 (`N_sp + N_pu` = 8 / 24 từ) · `L4` = 0.5 (3/5 mệnh đề đúng) · `L5` = 0 (chỉ câu đơn / cụm rời) → 2.5/5 = 50% → động từ sai 2/5 = 40% → **trần 40%**.
-Tổng kết (50 + 40 + 40) / 3 = 43.3 → **40%**.
+Tổng kết (50 + 20 + 40) / 3 = 36.7 → **35%**.
 
 ---
 
@@ -321,19 +375,19 @@ Em đã viết được lời mời bạn đến dự tiệc. Ưu tiên sắp t�
 
 **Checkpoint:**
 `C1` = 0 (thiếu 2 ý: khi nào, ở đâu) · `C2` = 1 · `C3` = 0 · `C4` = 0 (≥ 2 chỗ phải đoán: "i want you com my birtday", "you com pls you com") · `C5` = 0 → 1/5 = **20%**.
-`O1` = 0.5 (1 "and") · `O2` = 0.5 · `O3` = 0 · `O4` = 0.5 · `O5` = 0 → 1.5/5 = **30%**.
+`O1` = 0.5 (1 lần: "we play and we eat") · `O2` = 0 (lặp nguyên ý "you com pls you com"; không phương tiện nối nào) · `O3` = 0 · `O4` = 0.5 · `O5` = 0.5 ("we play and we eat" = 1 câu ghép đủ hai mệnh đề) → 1.5/5 = **30%**.
 Language: động từ sai > 50% → **trần 20%**.
 Tổng kết (20 + 30 + 20) / 3 = 23.3 → **20%**. **Đây là 20%, không phải 0%: bài vẫn là tiếng Anh, vẫn đủ dài, vẫn nhận ra được ý định.**
 
 ---
 
-### NEO A1 — 45% · đủ tình tiết, hiểu được, nhưng hỏng ngôn ngữ
+### NEO A1 — 40% · đủ tình tiết, hiểu được, nhưng hỏng ngôn ngữ
 
 Neo này **tách Content khỏi Language**, và là cặp đối chứng bắt buộc phải đọc cùng NEO A.
 
-So sánh với NEO A (40%): cả hai bài đều viết thường, đều cụt câu, đều thiếu động từ. Nhưng **NEO A thiếu hẳn một ý bắt buộc** (không nói khi nào tổ chức tiệc), còn bài dưới đây **có đủ mọi tình tiết** và người đọc dựng lại được trọn vẹn câu chuyện.
+So sánh với NEO A (35%): cả hai bài đều viết thường, đều cụt câu, đều thiếu động từ. Nhưng **NEO A thiếu hẳn một ý bắt buộc** (không nói khi nào tổ chức tiệc), còn bài dưới đây **có đủ mọi tình tiết** và người đọc dựng lại được trọn vẹn câu chuyện.
 
-Vì vậy Content của hai bài **phải khác nhau**: NEO A được 40%, bài này được **60%**. Đừng nhìn vẻ ngoài lộn xộn rồi cho cùng một mức.
+Vì vậy Content của hai bài **phải khác nhau**: NEO A được 50%, bài này được **60%**. Đừng nhìn vẻ ngoài lộn xộn rồi cho cùng một mức.
 
 **Output chuẩn:**
 
@@ -345,9 +399,9 @@ Vì vậy Content của hai bài **phải khác nhau**: NEO A được 40%, bài
 | Tiêu chí | % |
 |---|---:|
 | Content | 60% |
-| Organisation | 60% |
+| Organisation | 40% |
 | Language | 20% |
-| **Tổng kết** | **45%** |
+| **Tổng kết** | **40%** |
 
 ### 3. Nhận xét
 
@@ -359,9 +413,9 @@ Toàn bộ lỗi ngôn ngữ — thiếu dấu chấm, viết thường, thiếu
 
 **Checkpoint:**
 `C1` = 1 · `C2` = 1 · `C3` = 0 · `C4` = 0.5 · `C5` = 0.5 → 3/5 = **60%** (động từ sai > 50% nhưng chỉ 1 chỗ phải đoán → Content **không** bị trần ở khối 6).
-`O1` = 0 (không từ nối) · `O2` = 1 · `O3` = 0 (không câu nào có ranh giới) · `O4` = 1 (mở đầu có thời gian "last saturday", diễn biến, kết thúc) · `O5` = 1 (the box, she, they, it) → 3/5 = **60%**.
+`O1` = 0 (không từ nối) · `O2` = 1 (mạch kể rõ; phương tiện nối: the box, she, they, it) · `O3` = 0 (không câu nào có ranh giới) · `O4` = 1 (mở đầu có thời gian "last saturday", diễn biến, kết thúc) · `O5` = 0 (toàn câu đơn) → 2/5 = **40%**.
 Language: động từ sai > 50% → **trần 20%**.
-Tổng kết (60 + 60 + 20) / 3 = 46.7 → **45%**.
+Tổng kết (60 + 40 + 20) / 3 = 40 → **40%**.
 
 ---
 
@@ -387,7 +441,7 @@ Nam
 | Tiêu chí | % |
 |---|---:|
 | Content | 60% |
-| Organisation | 50% |
+| Organisation | 40% |
 | Language | 80% |
 | **Tổng kết** | **60%** |
 
@@ -397,9 +451,9 @@ Em nêu đủ ba ý bắt buộc và câu đều hoàn chỉnh. Ưu tiên sắp 
 
 **Checkpoint:**
 `C1` = 1 · `C2` = 1 · `C3` = 0 ("Saturday at 5 o'clock", "my house" là **trả lời** trực tiếp, không có chi tiết thêm) · `C4` = 1 · `C5` = 1 → 4/5 = 80% → **trần bài mỏng khối 6: 60%**.
-`O1` = 0 (không từ nối) · `O2` = 1 · `O3` = 0.5 (3/5 câu viết hoa và có dấu kết câu = 60%) · `O4` = 0.5 (không có câu chào cuối trước tên) · `O5` = 0.5 (1: "it") → 2.5/5 = **50%**.
+`O1` = 0 (không từ nối mệnh đề) · `O2` = 1 (mạch rõ; phương tiện nối: "it") · `O3` = 0.5 (3/5 câu đủ thành phần và viết hoa = 60%; hỏng: "it is in my house", "please come") · `O4` = 0.5 (không có câu chào cuối trước tên) · `O5` = 0 (toàn câu đơn) → 2/5 = **40%**.
 `L1` = 1 · `L2` = 1 · `L3` = 0.5 (`N_sp + N_pu` = 2 / 30 từ = 3.3 / 50 từ) · `L4` = 1 · `L5` = 0.5 (chỉ câu đơn) → 4/5 = 80%; 4 lỗi → trần 80% → **80%**.
-Tổng kết (60 + 50 + 80) / 3 = 63.3 → **60%**.
+Tổng kết (60 + 40 + 80) / 3 = 60 → **60%**.
 
 ---
 
@@ -440,7 +494,7 @@ Em nêu đủ ba ý, có địa chỉ cụ thể và câu mở rộng với beca
 
 **Checkpoint:**
 `C1` = 1 · `C2` = 1 · `C3` = 0.5 (1 ý có chi tiết thêm: "on Tran Phu Street" — tên riêng; giờ tổ chức là trả lời trực tiếp) · `C4` = 1 · `C5` = 1 → 4.5/5 = **90%**.
-`O1` = 0.5 (2 lần: and, because) · `O2` = 1 · `O3` = 1 · `O4` = 1 (Hi Linh · câu mở · See you soon · Nam) · `O5` = 0.5 (1: "It") → 4/5 = **80%**.
+`O1` = 0.5 (2 lần, 2 loại: "eat cake and play game", "because the weather is sunny") · `O2` = 1 (mạch rõ; phương tiện nối: "It") · `O3` = 1 (5/5 câu đủ thành phần) · `O4` = 1 (Hi Linh · câu mở · See you soon · Nam) · `O5` = 0.5 (1 câu ghép: mệnh đề chính + "because the weather is sunny now") → 4/5 = **80%**.
 `L1`–`L5` = 1 (`N_sp + N_pu` = 2 / 44 từ) → 5/5; 3 lỗi → **trần 80%**.
 Tổng kết (90 + 80 + 80) / 3 = 83.3 → **80%**.
 
@@ -470,7 +524,7 @@ Từ v3 này, `N_pu` được tính vào **L3** cùng với chính tả. Bài d�
 | Tiêu chí | % |
 |---|---:|
 | Content | 60% |
-| Organisation | 50% |
+| Organisation | 40% |
 | Language | 80% |
 | **Tổng kết** | **60%** |
 
@@ -478,24 +532,24 @@ Từ v3 này, `N_pu` được tính vào **L3** cùng với chính tả. Bài d�
 
 Em nêu đủ cả ba ý và còn thêm được chi tiết hay về món ăn và trò chơi. Ưu tiên sắp tới: chấm câu và viết hoa đầu câu cùng tên riêng, vì cả bài chưa có dấu chấm nào.
 
-**Vì sao 70%:** Content đạt 100% vì đủ ba ý bắt buộc, có chi tiết mở rộng và người đọc không phải đoán gì. Organisation 60% vì O3 (ranh giới câu) = 0 — cả bài không có ranh giới câu nào — dù O1, O2, O4, O5 vẫn ổn. Language 60% vì L3 = 0 do `N_pu` quá ngưỡng, trong khi L1, L2, L4 đều đạt (không sai chính tả, không sai ngữ pháp). **Điểm mấu chốt: dấu câu là lỗi Language, không chỉ là lỗi Organisation.**
+**Vì sao 60%:** Content 60% vì đủ ba ý nhưng không ý nào có chi tiết mở rộng — trần bài mỏng khối 6. Organisation 40% vì `O3` = 0 (cả bài không có một ranh giới câu nào) và `O5` = 0 (toàn câu đơn, "eat pizza and sing karaoke" chỉ là vị ngữ ghép). Language 80% vì `L3` = 0 do `N_pu` quá ngưỡng, trong khi `L1`, `L2`, `L4`, `L5` đều đạt (không sai chính tả, không sai ngữ pháp). **Điểm mấu chốt: dấu câu là lỗi Language, không chỉ là lỗi Organisation.**
 
 ---
 
 **Checkpoint:**
 `C1` = 1 · `C2` = 1 · `C3` = 0 (pizza, karaoke là **trả lời** câu hỏi "làm gì"; "near the market" không phải tên riêng hay con số) · `C4` = 1 · `C5` = 1 → 4/5 = 80% → **trần bài mỏng khối 6: 60%**.
-`O1` = 0.5 (2 lần "and") · `O2` = 1 · `O3` = 0 (không câu nào có ranh giới) · `O4` = 0.5 (lời chào và tên viết thường) · `O5` = 0.5 (1: "it") → 2.5/5 = **50%**.
+`O1` = 0.5 (2 lần, 1 loại: "eat pizza and sing karaoke", "come and bring your sister") · `O2` = 1 (mạch rõ; phương tiện nối: "it") · `O3` = 0 (không câu nào có ranh giới) · `O4` = 0.5 (lời chào và tên viết thường) · `O5` = 0 (không câu nào có hai mệnh đề đủ — cả hai chữ "and" đều nối vị ngữ chung chủ ngữ) → 2/5 = **40%**.
 `L1` = 1 · `L2` = 1 · `L3` = 0 (`N_pu` ≈ 9 / 38 từ) · `L4` = 1 · `L5` = 1 → 4/5 = **80%** (≥ 5 lỗi → theo checkpoint).
-Tổng kết (60 + 50 + 80) / 3 = 63.3 → **60%**. **Dấu câu bị tính ở cả O3 (ranh giới câu) và L3 — đó là hai checkpoint khác nhau đo hai thứ khác nhau, không phải trừ hai lần cùng một lỗi.**
+Tổng kết (60 + 40 + 80) / 3 = 60 → **60%**. **Dấu câu bị tính ở cả O3 (ranh giới câu) và L3 — đó là hai checkpoint khác nhau đo hai thứ khác nhau, không phải trừ hai lần cùng một lỗi.**
 
-### NEO A2 — 65% · đủ ý CÓ chi tiết, nhưng gần như mọi động từ sai thì
+### NEO A2 — 60% · đủ ý CÓ chi tiết, nhưng gần như mọi động từ sai thì
 
-Cặp đối chứng bắt buộc với **NEO A1 (45%)**. Cả hai bài đều hỏng động từ gần như toàn bộ. Khác nhau ở nội dung:
+Cặp đối chứng bắt buộc với **NEO A1 (40%)**. Cả hai bài đều hỏng động từ gần như toàn bộ. Khác nhau ở nội dung:
 NEO A1 chỉ liệt kê tình tiết (`C3` = 0); bài dưới đây có **chi tiết thật** — tên nơi chốn, thời lượng, món ăn, đồ vật.
 
 **Phép thử của neo này:** trần động từ (>50% sai) **không** kéo Content xuống, vì người đọc không phải đoán chỗ nào —
 mốc thời gian "last weekend" nằm sẵn trong bài. Lỗi động từ đã bị tính trọn ở Language (20%).
-(Kiểm chứng vòng 7: 3/3 lượt trên hai model khác nhau đều ra đúng 100/80/20 → 65.)
+(Kiểm chứng vòng 7 với bảng Organisation cũ: 3/3 lượt trên hai model đều ra 100/80/20 → 65. Từ vòng 10, `O5` đếm câu ghép nên Organisation còn 60% → 100/60/20 → **60**.)
 
 **Đề:**
 
@@ -523,9 +577,9 @@ Lan
 | Tiêu chí | % |
 |---|---:|
 | Content | 100% |
-| Organisation | 80% |
+| Organisation | 60% |
 | Language | 20% |
-| **Tổng kết** | **65%** |
+| **Tổng kết** | **60%** |
 
 ### 3. Nhận xét
 
@@ -534,5 +588,5 @@ Em kể đủ ba ý với nhiều chi tiết cụ thể về chuyến đi Vũng 
 **Checkpoint:**
 `C1` = 1 (đủ nơi, người, việc) · `C2` = 1 · `C3` = 1 (chi tiết: Vung Tau, 2 hours, seafood, kite) · `C4` = 1 (0 chỗ phải đoán) · `C5` = 1 → **5/5 = 100%**.
 Trần động từ: 7/8 động từ sai (>50%) → Language tối đa 20%; Content **không** bị trần vì `Chỗ người đọc phải đoán` = 0.
-`O1` = 0.5 (chỉ "and") · `O2` = 1 · `O3` = 0.5 (2 comma splice / 5 câu → 60% câu rõ ranh giới) · `O4` = 1 · `O5` = 1 → **4/5 = 80%**.
-Language → **20%** (trần động từ). Tổng kết (100 + 80 + 20) / 3 = 66.7 → **65%**.
+`O1` = 0.5 (1 lần: "swim in the sea and eat seafood") · `O2` = 1 (mạch kể rõ; phương tiện nối: "it" ×2) · `O3` = 0.5 (2 comma splice / 5 câu → 60% câu đạt) · `O4` = 1 · `O5` = 0 (không câu nào có hai mệnh đề đủ — "and" nối vị ngữ chung chủ ngữ; hai chỗ nối mệnh đề còn lại là comma splice, không tính) → **3/5 = 60%**.
+Language → **20%** (trần động từ). Tổng kết (100 + 60 + 20) / 3 = 60 → **60%**.
