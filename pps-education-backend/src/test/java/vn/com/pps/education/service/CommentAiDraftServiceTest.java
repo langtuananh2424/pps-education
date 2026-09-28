@@ -408,7 +408,7 @@ class CommentAiDraftServiceTest {
     void revise_UC74_rewriteAllKeepsTeacherAdjustedAttitudeAndAvoidsOldTexts() {
         stubAi(CommentAiDraftService.WRITE_PROMPT, """
                 {"comments": [{"studentId": 1, "content": "An giữ được sự chú ý trong giờ, rất đáng khen."}]}""");
-        CommentAiDraftResult.Extraction extraction = new CommentAiDraftResult.Extraction("GOOD", List.of("tập trung tốt"), List.of());
+        CommentAiDraftResult.Extraction extraction = new CommentAiDraftResult.Extraction("GOOD", List.of("tập trung tốt"), List.of(), "cô");
         ReviseCommentAiDraftRequest request = new ReviseCommentAiDraftRequest(ReviseCommentAiDraftRequest.Mode.REWRITE_ALL,
                 null, "transcript", extraction,
                 List.of(new ReviseCommentAiDraftRequest.CurrentRow(1L, "FAIR", "An tập trung tốt.")), List.of());
@@ -419,6 +419,54 @@ class CommentAiDraftServiceTest {
         assertThat(result.rows().get(0).content()).isEqualTo("An giữ được sự chú ý trong giờ, rất đáng khen.");
         verify(aiClient).chatWithFinishReason(eq(CommentAiDraftService.WRITE_PROMPT),
                 org.mockito.ArgumentMatchers.contains("An tập trung tốt."), anyString());
+        verify(aiClient).chatWithFinishReason(eq(CommentAiDraftService.WRITE_PROMPT),
+                org.mockito.ArgumentMatchers.contains("\"teacherPronoun\":\"cô\""), anyString());
+    }
+
+    // ---- Đại từ giáo viên tự xưng + rubric ----
+
+    @Test
+    void generateDraft_UC74_teacherPronounFromAiIsPassedToWritingStep() {
+        stubAi(CommentAiDraftService.EXTRACT_PROMPT,
+                "{\"teacherPronoun\": \"Thầy\", \"classAttitude\": \"GOOD\", \"classPoints\": [\"tích cực\"], \"individuals\": [], \"unmatched\": []}");
+        stubAi(CommentAiDraftService.WRITE_PROMPT, "{\"comments\": [{\"studentId\": 1, \"content\": \"Thầy rất vui vì An tích cực.\"}]}");
+
+        CommentAiDraftResult result = service.generateDraft(context(AN), null, null, "Thầy tuyên dương cả lớp tích cực");
+
+        assertThat(result.extraction().teacherPronoun()).isEqualTo("thầy");
+        verify(aiClient).chatWithFinishReason(eq(CommentAiDraftService.WRITE_PROMPT),
+                org.mockito.ArgumentMatchers.contains("\"teacherPronoun\":\"thầy\""), anyString());
+    }
+
+    @Test
+    void generateDraft_UC74_pronounDetectedFromTeacherTextWhenAiOmitsIt() {
+        stubAi(CommentAiDraftService.EXTRACT_PROMPT,
+                "{\"classAttitude\": null, \"classPoints\": [\"tích cực\"], \"individuals\": [], \"unmatched\": []}");
+        stubAi(CommentAiDraftService.WRITE_PROMPT, "{\"comments\": [{\"studentId\": 1, \"content\": \"An học tích cực.\"}]}");
+
+        CommentAiDraftResult result = service.generateDraft(context(AN), null, null, "Hôm nay cô thấy cả lớp rất tích cực");
+
+        assertThat(result.extraction().teacherPronoun()).isEqualTo("cô");
+    }
+
+    @Test
+    void detectPronoun_UC74_ambiguousOrMissingReturnsNull() {
+        assertThat(CommentAiDraftService.detectPronoun("Cô giáo chủ nhiệm nhờ thầy nhắc cả lớp")).isNull();
+        assertThat(CommentAiDraftService.detectPronoun("Cả lớp hôm nay học tốt")).isNull();
+        assertThat(CommentAiDraftService.detectPronoun("Côn trùng")).isNull();
+    }
+
+    @Test
+    void generateDraft_UC74_rubricIsInjectedIntoPrompts() {
+        stubAi(CommentAiDraftService.EXTRACT_PROMPT,
+                "{\"classAttitude\": null, \"classPoints\": [\"tích cực\"], \"individuals\": [], \"unmatched\": []}");
+        stubAi(CommentAiDraftService.WRITE_PROMPT, "{\"comments\": [{\"studentId\": 1, \"content\": \"An học tích cực.\"}]}");
+
+        service.generateDraft(context(AN), null, null, "ghi chú");
+
+        verify(promptTemplateLoader, org.mockito.Mockito.atLeastOnce()).load(eq(CommentAiDraftService.RUBRIC_FILE), anyMap());
+        verify(promptTemplateLoader, org.mockito.Mockito.atLeastOnce()).load(eq(CommentAiDraftService.WRITE_PROMPT),
+                eq(java.util.Map.of("RUBRIC", CommentAiDraftService.RUBRIC_FILE)));
     }
 
     @Test

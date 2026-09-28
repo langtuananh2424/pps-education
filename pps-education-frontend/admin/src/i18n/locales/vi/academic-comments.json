@@ -341,7 +341,8 @@
         "PENDING": "Chờ duyệt",
         "APPROVED": "Đã duyệt",
         "REJECTED": "Bị từ chối"
-      }
+      },
+      "absentHint": "Vắng buổi này — khoá Thái độ/Nhận xét, trợ lý AI không soạn cho bạn này."
     },
     "aiAssistant": {
       "openButton": "Trợ lý nhận xét AI",
@@ -393,7 +394,9 @@
         "tooLong": "File audio dài hơn 5 phút — hãy cắt ngắn hoặc chia làm nhiều lần.",
         "generic": "Trợ lý gặp lỗi — vui lòng thử lại.",
         "timeout": "Trợ lý xử lý quá lâu — vui lòng thử lại."
-      }
+      },
+      "pronounDetected": "Giáo viên xưng: {{pronoun}}",
+      "pronounUnknown": "Chưa nhận ra thầy hay cô — đang viết \"thầy/cô\". Gõ \"xưng thầy\" hoặc \"xưng cô\" để đổi."
     }
   },
   "commentsPage": {

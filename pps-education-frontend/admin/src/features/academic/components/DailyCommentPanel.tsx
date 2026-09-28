@@ -44,6 +44,7 @@ import TableContainer, { Td, Th } from "@/components/ui/TableContainer";
 import CommentHistoryList from "./CommentHistoryList";
 import DailyCommentCardGrid from "./DailyCommentCardGrid";
 import CommentAiAssistantSidebar from "./CommentAiAssistantSidebar";
+import AiAssistantFab from "@/components/ai/AiAssistantFab";
 import SessionVersionHistoryModal from "./SessionVersionHistoryModal";
 import StudentNameLink from "@/features/reports/components/StudentNameLink";
 import Select from "@/components/ui/Select";
@@ -345,6 +346,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
   const [viewMode, setViewMode] = useState<CommentViewMode>(readViewMode);
   // UC-74 — trợ lý AI soạn nháp nhận xét (sidebar) + dấu vết các dòng vừa áp dụng từ bản nháp AI.
   const [assistantOpen, setAssistantOpen] = useState(false);
+  const [assistantBusy, setAssistantBusy] = useState(false);
   const [aiWarningsByStudent, setAiWarningsByStudent] = useState<Record<number, CommentAiDraftWarning[]>>({});
   const [aiAppliedStudentIds, setAiAppliedStudentIds] = useState<Set<number>>(new Set());
   // Nhận xét các buổi TRƯỚC trong lớp của từng học sinh (mới nhất trước) — hiện ở dạng Thẻ để tự đối chiếu trùng lặp.
@@ -2540,6 +2542,13 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
         onApply={(draft) => applyAiDraft(draft).appliedCount}
         onApplyAndSaveDraft={handleApplyAiDraftAndSave}
         savingDraft={savingDraft}
+        onBusyChange={setAssistantBusy}
+      />
+      <AiAssistantFab
+        label={t("dailyCommentPanel.aiAssistant.openButton")}
+        onClick={() => setAssistantOpen(true)}
+        busy={assistantBusy}
+        hidden={assistantOpen || !selectedSessionId}
       />
     </div>
   );

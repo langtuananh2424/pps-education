@@ -332,7 +332,8 @@
         "PENDING": "Pending",
         "APPROVED": "Approved",
         "REJECTED": "Rejected"
-      }
+      },
+      "absentHint": "Absent this session — Attitude/Comment locked, the AI assistant skips this student."
     },
     "aiAssistant": {
       "openButton": "AI comment assistant",
@@ -384,7 +385,9 @@
         "tooLong": "Audio longer than 5 minutes — trim it or send in parts.",
         "generic": "The assistant ran into an error — please try again.",
         "timeout": "The assistant took too long — please try again."
-      }
+      },
+      "pronounDetected": "Teacher refers to self as: {{pronoun}}",
+      "pronounUnknown": "Couldn't tell thầy or cô — writing \"thầy/cô\". Type \"xưng thầy\" or \"xưng cô\" to change."
     }
   },
   "commentsPage": {
