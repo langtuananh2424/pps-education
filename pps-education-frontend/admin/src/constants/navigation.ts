@@ -190,8 +190,10 @@ export const navSections: NavSection[] = [
       // "Thời khóa biểu" (route /academic/timetable) đã XOÁ (xác nhận với người dùng 2026-08-20) —
       // trùng lặp hoàn toàn với chế độ xem "Theo lớp học" của "Lịch làm việc" bên QUẢN LÝ NHÂN SỰ
       // (EmployeeSchedulePage, cùng dùng chung ClassPeriodGrid) sau khi thử gộp 2 trang lịch.
-      // academic.class.manage: TEACHER/HEAD_ACADEMIC đều có sẵn permission này (xem UC-18) — không cần gate thêm role.
-      { id: "acad-classes", label: "Quản lý lớp học", path: "/academic/classes", icon: GraduationCap, requiredPermission: "academic.class.manage" },
+      // Không gate quyền (sửa 2026-09-28, đã xác nhận với người dùng) — trước đây gate academic.class.manage
+      // nên tắt quyền "Xếp lớp & gán khóa học" là mất luôn cả mục xem lớp. Các API đọc lớp không đòi quyền
+      // manage (BE tự giới hạn theo site), ClassesPage tự lọc lớp theo phân công + ẩn nút thao tác khi thiếu quyền.
+      { id: "acad-classes", label: "Quản lý lớp học", path: "/academic/classes", icon: GraduationCap },
       // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31 — trước đó chỉ vào được qua nút
       // deep-link trong Quản lý lớp học (xem ghi chú "stu-attendance" cũ ở section QUẢN LÝ HỌC SINH).
       // Lọc theo lớp lấy từ lớp đang chọn ở Header (đã có sẵn, không đổi gì ở AttendancePage.tsx).
