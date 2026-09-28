@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ChevronDown, ChevronUp, Download, History, Save, Send, ShieldAlert, UploadCloud } from "lucide-react";
+import { Bot, ChevronDown, ChevronUp, Download, History, LayoutGrid, Save, Send, ShieldAlert, Table2, UploadCloud } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { downloadBlob } from "@/lib/xlsxTemplate";
@@ -9,6 +9,8 @@ import {
   AttendanceMarkResponse,
   AutoProgressPreviewResponse,
   ClassEnrollmentResponse,
+  CommentAiDraftResult,
+  CommentAiDraftWarning,
   ClassSessionResponse,
   StudentCommentResponse,
   downloadDailyCommentTemplate,
@@ -40,6 +42,8 @@ import NotificationBanner from "@/features/student/components/NotificationBanner
 import AttendanceReminderBanner from "@/features/hrm/components/AttendanceReminderBanner";
 import TableContainer, { Td, Th } from "@/components/ui/TableContainer";
 import CommentHistoryList from "./CommentHistoryList";
+import DailyCommentCardGrid from "./DailyCommentCardGrid";
+import CommentAiAssistantSidebar from "./CommentAiAssistantSidebar";
 import SessionVersionHistoryModal from "./SessionVersionHistoryModal";
 import StudentNameLink from "@/features/reports/components/StudentNameLink";
 import Select from "@/components/ui/Select";
@@ -288,6 +292,17 @@ function PreviousProgressCell({ auto, manual, autoLabel }: { auto: string | null
   return <div className={readOnlyFieldClass}>{manual || "—"}</div>;
 }
 
+/** Dạng xem Bảng/Thẻ (bổ sung ngoài SDD gốc, 2026-09-28) — nhớ lựa chọn theo trình duyệt, lỗi storage thì mặc định Bảng. */
+type CommentViewMode = "table" | "cards";
+const VIEW_MODE_STORAGE_KEY = "pps.dailyComment.viewMode";
+function readViewMode(): CommentViewMode {
+  try {
+    return window.localStorage.getItem(VIEW_MODE_STORAGE_KEY) === "cards" ? "cards" : "table";
+  } catch {
+    return "table";
+  }
+}
+
 interface DailyCommentPanelProps {
   /**
    * Deep-link từ thông báo COMMENT_REJECTED (bổ sung theo yêu cầu người dùng 2026-09-23) — tự chọn
@@ -327,6 +342,13 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
   // StudentComment nào (sent undefined) để vẫn hiện được % thay vì bỏ trống, xem previewAutoProgress.
   const [autoProgress, setAutoProgress] = useState<Record<number, AutoProgressPreviewResponse>>({});
   const [sending, setSending] = useState(false);
+  const [viewMode, setViewMode] = useState<CommentViewMode>(readViewMode);
+  // UC-74 — trợ lý AI soạn nháp nhận xét (sidebar) + dấu vết các dòng vừa áp dụng từ bản nháp AI.
+  const [assistantOpen, setAssistantOpen] = useState(false);
+  const [aiWarningsByStudent, setAiWarningsByStudent] = useState<Record<number, CommentAiDraftWarning[]>>({});
+  const [aiAppliedStudentIds, setAiAppliedStudentIds] = useState<Set<number>>(new Set());
+  // Nhận xét các buổi TRƯỚC trong lớp của từng học sinh (mới nhất trước) — hiện ở dạng Thẻ để tự đối chiếu trùng lặp.
+  const [previousByStudent, setPreviousByStudent] = useState<Record<number, StudentCommentResponse[]>>({});
   /**
    * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-25 — "Gửi nhận xét" gộp cả 2 bước (ghi
    * DRAFT + gửi duyệt, xem Javadoc handleSend) và tự động khoá read-only mọi dòng vừa gửi ngay khi
@@ -367,7 +389,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
    */
   const [highlightedStudentId, setHighlightedStudentId] = useState<number | null>(null);
   const goToStudentRow = (studentId: number) => {
-    const el = document.getElementById(`daily-comment-row-${studentId}`);
+    const el = document.getElementById(`daily-comment-row-${studentId}`) ?? document.getElementById(`daily-comment-card-${studentId}`);
     el?.scrollIntoView({ behavior: "smooth", block: "center" });
     setHighlightedStudentId(studentId);
     setTimeout(() => setHighlightedStudentId((prev) => (prev === studentId ? null : prev)), 2500);
@@ -760,6 +782,24 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
         .filter((c) => c.commentType === "DAILY" && c.classSessionId === sessionId && studentIdSet.has(c.studentId))
         .sort((a, b) => (a.studentFullName > b.studentFullName ? 1 : -1));
       setHistory(filtered);
+      const currentSessionDate = sessions.find((s) => s.id === sessionId)?.sessionDate;
+      const previous: Record<number, StudentCommentResponse[]> = {};
+      all
+        .filter(
+          (c) =>
+            c.commentType === "DAILY" &&
+            c.classSessionId !== sessionId &&
+            studentIdSet.has(c.studentId) &&
+            c.status !== "REJECTED" &&
+            c.content?.trim() &&
+            (!currentSessionDate || c.commentDate < currentSessionDate)
+        )
+        .sort((a, b) => (a.commentDate < b.commentDate ? 1 : -1))
+        .forEach((c) => {
+          const list = (previous[c.studentId] ??= []);
+          if (list.length < 3) list.push(c);
+        });
+      setPreviousByStudent(previous);
       // Prefill hạn nộp (ngày + giờ) từ 1 nhận xét DRAFT/REJECTED đã có sẵn (VD nhập từ Excel, hoặc mở
       // lại buổi đang soạn dở) — chỉ khi Giáo viên chưa tự gõ gì ở panel "Gán nhanh cho cả lớp" (2026-08-05).
       // V127 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-19, sửa bug thật đã gặp: các
@@ -1088,12 +1128,14 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
    * trong popup xác nhận. Trước đây luôn coi như thành công (không trả gì, Sidebar cứ điều hướng đi
    * bất kể), khiến dữ liệu dở bị mất mà người dùng tưởng đã lưu.
    */
-  const handleSaveDraft = async (): Promise<UnsavedSaveResult> => {
+  const handleSaveDraft = async (rowsOverride?: Row[]): Promise<UnsavedSaveResult> => {
     if (!selectedClassId || !selectedSession) return { ok: true };
+    // UC-74 — "Lưu nháp" từ sidebar trợ lý truyền thẳng các dòng vừa áp dụng (state `rows` chưa kịp render lại).
+    const sourceRows = rowsOverride ?? rows;
     // Chặn bấm chồng (VD double-click nhanh trước khi React kịp render lại nút disabled) — cùng cơ chế
     // idempotent với handleSend bên dưới, phòng race tạo trùng StudentComment (2026-08-19).
     if (savingDraft) return { ok: false, message: t("dailyCommentPanel.errors.savingDraftInProgress") };
-    const filled = rows.filter(rowHasAnyData);
+    const filled = sourceRows.filter(rowHasAnyData);
     if (filled.length === 0) {
       const message = t("dailyCommentPanel.errors.noDataToSave");
       setError(message);
@@ -1125,7 +1167,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
             })
           : t("dailyCommentPanel.notifications.draftSavedSuccess", { count: filled.length })
       );
-      await loadHistory(selectedClassId, selectedSession.id, rows.map((r) => r.studentId));
+      await loadHistory(selectedClassId, selectedSession.id, sourceRows.map((r) => r.studentId));
       refreshSessionCommentStats(selectedClassId);
       listReviewVideoAssignmentsForClass(selectedClassId).then(setVideoAssignments).catch(() => undefined);
       return failedCount > 0
@@ -1146,6 +1188,57 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
       return { ok: false, message };
     } finally {
       setSavingDraft(false);
+    }
+  };
+
+  /**
+   * UC-74 bước 10 — điền bản nháp của trợ lý AI vào form: CHỈ 2 ô Thái độ + Nhận xét, CHỈ dòng chưa khoá
+   * (đã Gửi/Duyệt hoặc Vắng/Có phép thì bỏ qua, mirror rào BE). Thái độ AI để trống (giáo viên không nói,
+   * UC-74 A7) thì giữ nguyên giá trị đang có. Điểm/BTVN/Ghi chú không bao giờ bị đụng tới.
+   */
+  const mergeAiDraft = (draft: CommentAiDraftResult): { next: Row[]; appliedIds: number[] } => {
+    const draftById = new Map(draft.rows.map((d) => [d.studentId, d]));
+    const lockedIds = new Set(history.filter((h) => h.status === "PENDING" || h.status === "APPROVED").map((h) => h.studentId));
+    const appliedIds: number[] = [];
+    const next = rows.map((r) => {
+      const d = draftById.get(r.studentId);
+      const absent = attendanceByStudent[r.studentId] === "ABSENT" || attendanceByStudent[r.studentId] === "EXCUSED";
+      if (!d || lockedIds.has(r.studentId) || absent || (!d.content && !d.attitude)) return r;
+      appliedIds.push(r.studentId);
+      return { ...r, attitude: d.attitude ?? r.attitude, content: d.content ?? r.content };
+    });
+    return { next, appliedIds };
+  };
+
+  const applyAiDraft = (draft: CommentAiDraftResult): { next: Row[]; appliedCount: number } => {
+    const { next, appliedIds } = mergeAiDraft(draft);
+    if (appliedIds.length > 0) {
+      setRows(next);
+      setDirty(true);
+      setAiAppliedStudentIds(new Set(appliedIds));
+      setAiWarningsByStudent(Object.fromEntries(draft.rows.filter((d) => appliedIds.includes(d.studentId)).map((d) => [d.studentId, d.warnings])));
+    }
+    return { next, appliedCount: appliedIds.length };
+  };
+
+  const handleApplyAiDraftAndSave = async (draft: CommentAiDraftResult): Promise<string> => {
+    const { next } = applyAiDraft(draft);
+    const result = await handleSaveDraft(next);
+    return result.ok ? t("dailyCommentPanel.aiAssistant.savedMessage") : result.message ?? t("dailyCommentPanel.errors.saveDraftFailed");
+  };
+
+  // Đổi buổi học: bỏ dấu vết "vừa áp dụng từ AI" của buổi cũ.
+  useEffect(() => {
+    setAiAppliedStudentIds(new Set());
+    setAiWarningsByStudent({});
+  }, [selectedSessionId]);
+
+  const changeViewMode = (mode: CommentViewMode) => {
+    setViewMode(mode);
+    try {
+      window.localStorage.setItem(VIEW_MODE_STORAGE_KEY, mode);
+    } catch {
+      // Không lưu được lựa chọn (chế độ riêng tư/chặn storage) — vẫn đổi dạng xem trong phiên này.
     }
   };
 
@@ -1849,6 +1942,58 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
             BẰNG NHAU trực tiếp trên từng ô CỦA MỌI DÒNG (không qua colgroup) — buộc trình duyệt không co
             giãn cột đó bất kể nội dung, làm việc ổn định với sticky. Các cột KHÔNG sticky vẫn giữ auto
             layout + min-w như cũ, không ảnh hưởng. */}
+        {/* Dạng xem Bảng/Thẻ + mở Trợ lý nhận xét AI (UC-74, bổ sung ngoài SDD gốc, 2026-09-28). */}
+        {selectedSessionId && (
+          <div className="px-5 py-2 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+                {(
+                  [
+                    ["table", Table2, t("dailyCommentPanel.viewMode.table")],
+                    ["cards", LayoutGrid, t("dailyCommentPanel.viewMode.cards")]
+                  ] as const
+                ).map(([mode, Icon, label]) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => changeViewMode(mode)}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold ${
+                      viewMode === mode ? "bg-white shadow-sm text-slate-800" : "text-slate-500 hover:text-slate-700"
+                    }`}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {viewMode === "cards" && <span className="hidden md:inline text-[10px] text-slate-400">{t("dailyCommentPanel.viewMode.cardsHint")}</span>}
+            </div>
+            <button
+              type="button"
+              onClick={() => setAssistantOpen(true)}
+              className="flex items-center gap-1.5 border border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100 rounded-lg px-3 py-1.5 text-[11px] font-semibold"
+            >
+              <Bot className="w-3.5 h-3.5" />
+              {t("dailyCommentPanel.aiAssistant.openButton")}
+            </button>
+          </div>
+        )}
+
+        {viewMode === "cards" && selectedSessionId && !loadingRows && rows.length > 0 ? (
+          <DailyCommentCardGrid
+            rows={rows}
+            history={history}
+            attendanceByStudent={attendanceByStudent}
+            previousByStudent={previousByStudent}
+            aiWarningsByStudent={aiWarningsByStudent}
+            aiAppliedStudentIds={aiAppliedStudentIds}
+            highlightedStudentId={highlightedStudentId}
+            onUpdateRow={(studentId, patch) => {
+              setRows((prev) => prev.map((row) => (row.studentId === studentId ? { ...row, ...patch } : row)));
+              setDirty(true);
+            }}
+          />
+        ) : (
         <div className="overflow-x-auto overflow-y-auto max-h-[65vh]">
           {/* w-full — bảng <table> mặc định co theo nội dung (auto width), không tự giãn hết chiều
               rộng vùng chứa, để lại khoảng trắng thừa bên phải khi vùng chứa rộng hơn tổng các cột.
@@ -2210,6 +2355,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
           </tbody>
           </table>
         </div>
+        )}
 
         {selectedSessionId && rows.length > 0 && (
           <div className="px-6 py-4 bg-slate-50 border-t flex justify-end">
@@ -2384,6 +2530,17 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
           />
         )}
       </div>
+
+      <CommentAiAssistantSidebar
+        open={assistantOpen}
+        onClose={() => setAssistantOpen(false)}
+        classSessionId={selectedSessionId}
+        sessionLabel={selectedClass && selectedSession ? `${selectedClass.name} · ${selectedSession.sessionDate}` : ""}
+        isForeignSession={teacherType === "FOREIGN"}
+        onApply={(draft) => applyAiDraft(draft).appliedCount}
+        onApplyAndSaveDraft={handleApplyAiDraftAndSave}
+        savingDraft={savingDraft}
+      />
     </div>
   );
 }
