@@ -13,6 +13,15 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
 
     Optional<Invoice> findByInvoiceNumber(String invoiceNumber);
 
+    /**
+     * UC-30 webhook ngân hàng — khoá dòng hóa đơn (SELECT ... FOR UPDATE) trước khi cộng paid_amount,
+     * tránh 2 webhook đồng thời cùng đọc paid_amount cũ rồi ghi đè lẫn nhau (lost update).
+     */
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("SELECT i FROM Invoice i WHERE i.invoiceNumber = :invoiceNumber")
+    Optional<Invoice> findForUpdateByInvoiceNumber(
+            @org.springframework.data.repository.query.Param("invoiceNumber") String invoiceNumber);
+
     long countByInvoiceNumberStartingWith(String prefix);
 
     List<Invoice> findByStudentIdAndDeletedAtIsNullOrderByIssueDateDesc(Long studentId);

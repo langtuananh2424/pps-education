@@ -2,18 +2,26 @@ package vn.com.pps.education.service;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.mock.web.MockMultipartFile;
+import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectResponse;
+
+import java.io.ByteArrayInputStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -192,5 +200,63 @@ class MediaStorageServiceTest {
         String url = service.store(file, MODULE);
 
         assertThat(url).startsWith(PUBLIC_BASE_URL + "/lms/questions/video/").endsWith(".mp4");
+    }
+
+    // ===================== Chống SSRF (rà soát bảo mật 2026-09-28) =====================
+
+    @Test
+    void download_ownUrl_readsObjectByKeyFromStorage() {
+        GetObjectResponse meta = GetObjectResponse.builder().contentType("audio/mp4").build();
+        when(r2Client.getObject(any(GetObjectRequest.class))).thenReturn(
+                new ResponseInputStream<>(meta, new ByteArrayInputStream("audio-bytes".getBytes())));
+
+        MediaStorageService.DownloadedFile file =
+                service.downloadWithContentType(PUBLIC_BASE_URL + "/review-videos/audio/abc.m4a");
+
+        assertThat(file.bytes()).isEqualTo("audio-bytes".getBytes());
+        assertThat(file.contentType()).isEqualTo("audio/mp4");
+        ArgumentCaptor<GetObjectRequest> captor = ArgumentCaptor.forClass(GetObjectRequest.class);
+        verify(r2Client).getObject(captor.capture());
+        assertThat(captor.getValue().bucket()).isEqualTo(BUCKET);
+        assertThat(captor.getValue().key()).isEqualTo("review-videos/audio/abc.m4a");
+    }
+
+    /** URL không do hệ thống sinh ra -> từ chối, server KHÔNG được mở kết nối tới bất kỳ đâu. */
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "http://minio:9000/pps-media/x.webm",
+            "http://127.0.0.1:8080/actuator/health",
+            "file:///etc/hostname",
+            "https://media.pps.edu.vn.evil.com/x.webm",
+            "https://media.pps.edu.vn@evil.com/x.webm",
+            "https://media.pps.edu.vn",
+            "https://media.pps.edu.vn/",
+            "https://media.pps.edu.vn/../secret",
+            "https://media.pps.edu.vn/a/../../secret",
+            "https://media.pps.edu.vn//x.webm",
+            "https://media.pps.edu.vn/x.webm?redirect=http://127.0.0.1",
+            " "
+    })
+    void download_foreignOrMalformedUrl_rejectedWithoutTouchingStorage(String url) {
+        assertThatThrownBy(() -> service.downloadWithContentType(url))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.requireStoredUrl(url))
+                .isInstanceOf(IllegalArgumentException.class);
+        verifyNoInteractions(r2Client);
+    }
+
+    @Test
+    void download_nullUrl_rejected() {
+        assertThatThrownBy(() -> service.downloadWithContentType(null)).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    /** Trước đây lỗi storage bị nuốt rồi trả HTML mẫu giả lập - giờ phải báo lỗi thật cho caller. */
+    @Test
+    void download_storageError_propagatesInsteadOfFakeContent() {
+        when(r2Client.getObject(any(GetObjectRequest.class)))
+                .thenThrow(software.amazon.awssdk.services.s3.model.NoSuchKeyException.builder().message("missing").build());
+
+        assertThatThrownBy(() -> service.downloadWithContentType(PUBLIC_BASE_URL + "/lms/x.docx"))
+                .isInstanceOf(software.amazon.awssdk.services.s3.model.NoSuchKeyException.class);
     }
 }
