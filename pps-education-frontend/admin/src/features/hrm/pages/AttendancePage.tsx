@@ -185,7 +185,7 @@ function AttendanceAdminSummary({ sites }: { sites: SiteResponse[] }) {
               <tr key={r.id} className="hover:bg-slate-50/50 transition-colors">
                 <Td className="font-bold text-slate-800">
                   {r.employeeFullName}
-                  <div className="text-[10px] text-slate-400 font-normal">{r.employeeCode}</div>
+                  <div className="text-[11px] text-slate-400 font-normal">{r.employeeCode}</div>
                 </Td>
                 <Td>{r.workDate}</Td>
                 <Td>{formatAttendanceTime(r.checkInAt, i18n.language)}</Td>
@@ -329,19 +329,29 @@ function ClassSessionCheckInAdminSummary({ sites }: { sites: SiteResponse[] }) {
               <tr key={r.classSessionId} className="hover:bg-slate-50/50 transition-colors">
                 <Td className="font-bold text-slate-800">
                   {r.teacherFullName}
-                  <div className="text-[10px] text-slate-400 font-normal">{r.teacherCode}</div>
+                  <div className="text-[11px] text-slate-400 font-normal">{r.teacherCode}</div>
                 </Td>
                 <Td>{r.sessionDate}</Td>
                 <Td>
                   {r.className}
-                  <div className="text-[10px] text-slate-400 font-normal">
+                  <div className="text-[11px] text-slate-400 font-normal">
                     {r.startTime}–{r.endTime}
-                    {r.checkInTime && ` · ${formatAttendanceTime(r.checkInTime, i18n.language)}`}
                   </div>
                 </Td>
                 <Td>{r.siteName}</Td>
                 <Td>
-                  <Badge variant={checkInStatusVariants[r.effectiveStatus] ?? "neutral"}>{checkInStatusLabel(tc, r.effectiveStatus)}</Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={checkInStatusVariants[r.effectiveStatus] ?? "neutral"}>{checkInStatusLabel(tc, r.effectiveStatus)}</Badge>
+                    {r.checkInTime && (
+                      <span
+                        className={`text-xs font-bold tabular-nums ${
+                          r.effectiveStatus === "LATE" ? "text-amber-600" : "text-slate-500"
+                        }`}
+                      >
+                        {formatAttendanceTime(r.checkInTime, i18n.language)}
+                      </span>
+                    )}
+                  </div>
                 </Td>
               </tr>
             ))
