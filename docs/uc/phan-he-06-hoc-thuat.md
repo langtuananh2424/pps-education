@@ -1994,6 +1994,216 @@ duyệt/Đã duyệt (Phụ huynh xem được) luôn có nội dung.
 
 ---
 
+UC-74: Trợ lý AI soạn nháp nhận xét hàng ngày từ audio
+
++-----------------+----------------------------------------------------+
+| **Mã Use Case** | UC-74                                              |
++-----------------+----------------------------------------------------+
+| **Tên Use       | Trợ lý AI soạn nháp nhận xét hàng ngày từ audio    |
+| Case**          |                                                    |
++-----------------+----------------------------------------------------+
+| **Phân hệ**     | Phân hệ 6                                          |
++-----------------+----------------------------------------------------+
+| **Yêu cầu chức  | FR-ACA-04 (mở rộng — bổ sung ngoài SDD gốc, đã xác |
+| năng gốc**      | nhận với người dùng 2026-09-28)                    |
++-----------------+----------------------------------------------------+
+| **Tác nhân**    | Giáo viên (và actor có quyền                       |
+|                 | academic.comment.write, cùng rào với Lưu nháp của  |
+|                 | UC-21)                                             |
++-----------------+----------------------------------------------------+
+| **Mô tả tóm     | Sau buổi học, Giáo viên nói nhận xét (thường là    |
+| tắt**           | nhận xét chung cả lớp + vài học sinh được nhắc     |
+|                 | riêng) thành 1 đoạn audio. Trợ lý AI chuyển giọng  |
+|                 | nói thành chữ, tách ý chung/ý riêng, rồi soạn sẵn  |
+|                 | Thái độ học tập + Nhận xét cho từng học sinh có    |
+|                 | mặt. Kết quả chỉ là BẢN XEM TRƯỚC — AI chỉ được    |
+|                 | điền 2 ô Thái độ/Nhận xét, không bao giờ đụng tới  |
+|                 | điểm hoặc trường cần con số chính xác (BTVN buổi   |
+|                 | trước, hạn nộp...), và quyền lưu cao nhất là Lưu   |
+|                 | nháp (DRAFT) do chính Giáo viên bấm; Gửi duyệt vẫn |
+|                 | đi đúng UC-21 bước 4.                              |
++-----------------+----------------------------------------------------+
+| **Sự kiện kích  | Giáo viên mở sidebar "Trợ lý nhận xét" ở màn hình  |
+| hoạt**          | Nhận xét học viên (UC-21) của 1 buổi học và gửi    |
+|                 | audio (ghi âm trực tiếp hoặc tải file) và/hoặc ghi |
+|                 | chú dạng chữ.                                      |
++-----------------+----------------------------------------------------+
+| **Điều kiện     | - Thoả rào ghi nhận xét DAILY của UC-21            |
+| tiên quyết (    |   (requireCanWriteDailyComment): Giáo viên được    |
+| Precondition)** |   phân công lớp và còn trong hạn X ngày kể từ ngày |
+|                 |   buổi học, hoặc actor có academic.comment.approve |
+|                 |   hoặc academic.comment.manage.                    |
+|                 | - Buổi học có Loại giáo viên khác FOREIGN (tạm     |
+|                 |   thời Giáo viên nước ngoài không nhận xét qua trợ |
+|                 |   lý AI).                                          |
+|                 | - Hệ thống đã cấu hình 9Router (STT + model soạn   |
+|                 |   nhận xét).                                       |
++-----------------+----------------------------------------------------+
+| **Luồng sự kiện | 1.  Giáo viên chọn buổi học, mở sidebar Trợ lý     |
+| chính (Main     |     nhận xét, ghi âm (tự dừng khi đủ 5 phút) hoặc  |
+| Flow)**         |     tải file audio (tối đa 5 phút), có thể kèm ghi |
+|                 |     chú dạng chữ, rồi gửi.                         |
+|                 |                                                    |
+|                 | 2.  Hệ thống kiểm tra rào như Lưu nháp của UC-21   |
+|                 |     và Loại giáo viên của buổi, nhận yêu cầu và xử |
+|                 |     lý bất đồng bộ (trả mã công việc, sidebar tự   |
+|                 |     hỏi lại trạng thái — tránh timeout của reverse |
+|                 |     proxy).                                        |
+|                 |                                                    |
+|                 | 3.  Hệ thống chuyển audio thành văn bản            |
+|                 |     (speech-to-text) — audio không được lưu lại    |
+|                 |     sau bước này.                                  |
+|                 |                                                    |
+|                 | 4.  Hệ thống xác định danh sách học sinh cần soạn: |
+|                 |     học sinh ACTIVE của lớp, không điểm danh       |
+|                 |     Vắng/Có phép ở buổi này, chưa có nhận xét      |
+|                 |     PENDING/APPROVED ở buổi này.                   |
+|                 |                                                    |
+|                 | 5.  AI tách từ văn bản: (a) nhận xét chung cả lớp  |
+|                 |     và Thái độ chung (nếu Giáo viên có nói); (b)   |
+|                 |     nhận xét riêng + Thái độ riêng cho từng học    |
+|                 |     sinh được nhắc tên, gắn đúng học sinh theo     |
+|                 |     danh sách ở bước 4.                            |
+|                 |                                                    |
+|                 | 6.  AI viết Nhận xét cho từng học sinh: học sinh   |
+|                 |     được nhắc riêng dùng ý riêng, các học sinh còn |
+|                 |     lại dùng ý chung. Chỉ được diễn đạt lại lời    |
+|                 |     Giáo viên, không thêm chi tiết không có trong  |
+|                 |     audio; câu chữ phải KHÁC NHAU giữa các học     |
+|                 |     sinh trong buổi và khác N nhận xét gần nhất    |
+|                 |     (mặc định 3, cấu hình được) của chính học sinh |
+|                 |     đó.                                            |
+|                 |                                                    |
+|                 | 7.  Hệ thống đo độ trùng lặp câu chữ (tỷ lệ cụm 3  |
+|                 |     từ liên tiếp trùng nhau, ngưỡng mặc định 0.5,  |
+|                 |     cấu hình được) giữa các học sinh trong buổi và |
+|                 |     giữa nhận xét mới với N nhận xét cũ của cùng   |
+|                 |     học sinh; dòng vượt ngưỡng được AI viết lại 1  |
+|                 |     lần.                                           |
+|                 |                                                    |
+|                 | 8.  Sidebar hiển thị bản xem trước (chưa ghi DB):  |
+|                 |     văn bản audio, danh sách Thái độ/Nhận xét từng |
+|                 |     học sinh, cảnh báo (nếu có), kèm các nút gợi ý |
+|                 |     thao tác: "Áp dụng vào bảng", "Lưu nháp",      |
+|                 |     "Viết lại cho đa dạng hơn".                    |
+|                 |                                                    |
+|                 | 9.  (Tuỳ chọn) Giáo viên trò chuyện với trợ lý để  |
+|                 |     yêu cầu sửa (VD "bạn An hôm nay cho Trung      |
+|                 |     bình"); AI chỉ sửa đúng các dòng liên quan, hệ |
+|                 |     thống lặp lại bước 7 cho các dòng đó.          |
+|                 |                                                    |
+|                 | 10. Giáo viên bấm "Áp dụng vào bảng" (chỉ ghi đè 2 |
+|                 |     ô Thái độ/Nhận xét của các dòng chưa khoá trên |
+|                 |     form UC-21) hoặc "Lưu nháp" (áp dụng + gọi Lưu |
+|                 |     nháp cả lớp của UC-21, nhận xét ở trạng thái   |
+|                 |     DRAFT).                                        |
+|                 |                                                    |
+|                 | 11. Giáo viên tự xem lại, sửa nếu cần và Gửi duyệt |
+|                 |     theo UC-21 bước 4 — trợ lý AI không có quyền   |
+|                 |     Gửi duyệt.                                     |
++-----------------+----------------------------------------------------+
+| **Luồng thay    | ***A1 — Buổi của Giáo viên nước ngoài***           |
+| thế / ngoại lệ  |                                                    |
+| (Alternate      | 1.  Tại bước 2, buổi có Loại giáo viên = FOREIGN:  |
+| Flow)**         |     từ chối (422), sidebar ẩn nút gửi.             |
+|                 |                                                    |
+|                 | ***A2 — Không đủ quyền / hết hạn sửa***            |
+|                 |                                                    |
+|                 | 1.  Tại bước 2, không thoả rào UC-21: từ chối đúng |
+|                 |     như Lưu nháp (403 không được phân công, 422    |
+|                 |     hết hạn X ngày).                               |
+|                 |                                                    |
+|                 | ***A3 — Đầu vào không hợp lệ***                    |
+|                 |                                                    |
+|                 | 1.  Tại bước 2, không có cả audio lẫn ghi chú chữ, |
+|                 |     hoặc file audio vượt giới hạn dung lượng: từ   |
+|                 |     chối (422). Giới hạn 5 phút được sidebar kiểm  |
+|                 |     tra trước khi gửi (ghi âm tự dừng, file dài    |
+|                 |     hơn bị chặn).                                  |
+|                 |                                                    |
+|                 | ***A4 — Không còn học sinh nào cần soạn***         |
+|                 |                                                    |
+|                 | 1.  Tại bước 4, danh sách rỗng (vắng hết hoặc đã   |
+|                 |     Gửi hết): từ chối (422).                       |
+|                 |                                                    |
+|                 | ***A5 — Lỗi STT/AI hoặc quá thời gian***           |
+|                 |                                                    |
+|                 | 1.  Tại bước 3/5/6, 9Router lỗi hoặc trả kết quả   |
+|                 |     không đọc được: công việc chuyển FAILED,       |
+|                 |     sidebar báo lỗi, bảng nhận xét không thay đổi; |
+|                 |     Giáo viên thử lại.                             |
+|                 |                                                    |
+|                 | ***A6 — Không xác định chắc chắn học sinh được     |
+|                 | nhắc tên***                                        |
+|                 |                                                    |
+|                 | 1.  Tại bước 5, tên nghe được không khớp chắc chắn |
+|                 |     1 học sinh trong danh sách (hoặc khớp học sinh |
+|                 |     ngoài danh sách bước 4): AI KHÔNG đoán, đưa    |
+|                 |     câu trích vào mục "Chưa xác định" kèm các học  |
+|                 |     sinh ứng viên; các học sinh đó tạm dùng ý      |
+|                 |     chung, Giáo viên tự xử lý.                     |
+|                 |                                                    |
+|                 | ***A7 — Audio không nói rõ Thái độ***              |
+|                 |                                                    |
+|                 | 1.  Tại bước 5, Giáo viên không nói gì về thái độ  |
+|                 |     (chung hoặc riêng): để trống Thái độ, không tự |
+|                 |     điền mức mặc định.                             |
+|                 |                                                    |
+|                 | ***A8 — Vẫn trùng lặp sau khi viết lại***          |
+|                 |                                                    |
+|                 | 1.  Tại bước 7, dòng vẫn vượt ngưỡng sau 1 lần     |
+|                 |     viết lại: giữ kết quả, gắn cảnh báo kèm %      |
+|                 |     giống và nguồn (học sinh khác trong buổi /     |
+|                 |     buổi cũ ngày nào) để Giáo viên tự sửa.         |
+|                 |                                                    |
+|                 | ***A9 — Nội dung có chữ số***                      |
+|                 |                                                    |
+|                 | 1.  Tại bước 6/9, Nhận xét AI viết có chứa chữ số: |
+|                 |     gắn cảnh báo để Giáo viên kiểm tra (AI không   |
+|                 |     được ghi điểm/số liệu).                        |
+|                 |                                                    |
+|                 | ***A10 — Lưu nháp bị bỏ qua 1 số dòng***           |
+|                 |                                                    |
+|                 | 1.  Tại bước 10, có dòng không lưu được (VD vừa bị |
+|                 |     duyệt/khoá giữa chừng): xử lý đúng như Lưu     |
+|                 |     nháp cả lớp của UC-21 (các dòng khác vẫn lưu). |
++-----------------+----------------------------------------------------+
+| **Hậu điều kiện | - Trước khi Giáo viên bấm Lưu nháp: không có dữ    |
+| (P              |   liệu nào được ghi vào DB (bản xem trước chỉ nằm  |
+| ostcondition)** |   trong bộ nhớ, tự hết hạn); audio không được lưu  |
+|                 |   trữ.                                             |
+|                 | - Sau khi Lưu nháp: nhận xét của các học sinh được |
+|                 |   áp dụng ở trạng thái DRAFT, chỉ 2 trường         |
+|                 |   attitude/content được lấy từ trợ lý; các trường  |
+|                 |   điểm/BTVN/hạn nộp/ghi chú giữ nguyên giá trị     |
+|                 |   Giáo viên đã nhập.                               |
++-----------------+----------------------------------------------------+
+
+Ghi chú kỹ thuật (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+2026-09-28):
+
+-   Không thêm bảng/cột mới (không có migration) — bản xem trước và cuộc
+    trò chuyện giữ trong bộ nhớ backend (hết hạn sau 30 phút, mất khi
+    restart), chỉ khi Giáo viên bấm Lưu nháp mới đi qua đúng endpoint
+    `POST .../comments/draft-batch` của UC-21.
+-   Endpoint: `POST /api/class-sessions/{id}/comments/ai-draft`
+    (multipart: `audio`, `note`) và
+    `POST /api/class-sessions/{id}/comments/ai-draft/revise` (JSON) trả
+    202 + mã công việc; `GET /api/comment-ai-drafts/{jobId}` để hỏi trạng
+    thái (chỉ người tạo xem được).
+-   Kênh AI: STT qua `NineRouterAiClient#transcribe` (Groq Whisper, gửi kèm
+    danh sách tên học sinh làm gợi ý chính tả), soạn nhận xét qua combo
+    riêng `app.ai-comment-draft.model` (combo chỉ gồm Claude — Claude không
+    nhận audio nên luôn qua bước STT). Các ngưỡng cấu hình ở
+    `app.ai-comment-draft.*` (số nhận xét cũ đem so, ngưỡng trùng, kích
+    thước lô viết, dung lượng audio tối đa).
+-   Màn hình Nhận xét học viên có thêm dạng xem **Thẻ** bên cạnh dạng
+    **Bảng** (cùng dữ liệu, cùng rào khoá dòng) — thẻ tập trung vào Thái
+    độ/Nhận xét/Ghi chú, hiện kèm nhận xét buổi trước của học sinh để
+    Giáo viên tự đối chiếu trùng lặp mà không phải mở hồ sơ từng bạn.
+
+---
+
 UC-22: Duyệt nhận xét
 
 +-----------------+----------------------------------------------------+

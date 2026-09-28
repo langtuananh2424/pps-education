@@ -459,6 +459,16 @@ public class NineRouterAiClient {
      *              dùng {@code app.ai-grading.nine-router-stt-model}.
      */
     public String transcribe(byte[] audioBytes, String mimeType, String model) {
+        return transcribe(audioBytes, mimeType, model, null);
+    }
+
+    /**
+     * UC-74 (bổ sung 2026-09-28, đã xác nhận với người dùng) — như {@link #transcribe(byte[], String, String)}
+     * nhưng gửi kèm field {@code prompt} chuẩn OpenAI/Whisper: đoạn văn gợi ý chính tả (VD danh sách họ
+     * tên học sinh của lớp) giúp STT viết đúng tên riêng tiếng Việt thay vì phiên âm sai. Để trống thì
+     * gửi y hệt overload cũ.
+     */
+    public String transcribe(byte[] audioBytes, String mimeType, String model, String spellingHint) {
         if (audioBytes == null || audioBytes.length == 0) {
             return null;
         }
@@ -467,13 +477,13 @@ public class NineRouterAiClient {
             log.warn("NineRouterAiClient: chưa cấu hình STT model (app.ai-grading.nine-router-stt-model hoặc tham số model).");
             return null;
         }
-        return callWithConcurrencyLimit("transcribe", () -> doTranscribe(audioBytes, mimeType, resolvedModel));
+        return callWithConcurrencyLimit("transcribe", () -> doTranscribe(audioBytes, mimeType, resolvedModel, spellingHint));
     }
 
-    private String doTranscribe(byte[] audioBytes, String mimeType, String resolvedModel) {
+    private String doTranscribe(byte[] audioBytes, String mimeType, String resolvedModel, String spellingHint) {
         try {
             String boundary = "----ppsNineRouterBoundary" + UUID.randomUUID();
-            byte[] body = buildMultipartBody(boundary, resolvedModel, audioBytes, mimeType == null ? "audio/webm" : mimeType);
+            byte[] body = buildMultipartBody(boundary, resolvedModel, audioBytes, mimeType == null ? "audio/webm" : mimeType, spellingHint);
 
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(baseUrl + "/audio/transcriptions"))
@@ -619,10 +629,14 @@ public class NineRouterAiClient {
         }
     }
 
-    private byte[] buildMultipartBody(String boundary, String model, byte[] audioBytes, String mimeType) throws IOException {
+    private byte[] buildMultipartBody(String boundary, String model, byte[] audioBytes, String mimeType,
+                                      String spellingHint) throws IOException {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         writeField(out, boundary, "model", model);
         writeField(out, boundary, "response_format", "json");
+        if (spellingHint != null && !spellingHint.isBlank()) {
+            writeField(out, boundary, "prompt", spellingHint);
+        }
 
         out.write(("--" + boundary + "\r\n").getBytes(StandardCharsets.UTF_8));
         out.write(("Content-Disposition: form-data; name=\"file\"; filename=\"answer." + extensionFor(mimeType) + "\"\r\n")
