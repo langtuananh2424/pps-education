@@ -1,6 +1,7 @@
 package vn.com.pps.education.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import vn.com.pps.education.domain.UserRole;
 
 import java.util.List;
@@ -17,4 +18,8 @@ public interface UserRoleRepository extends JpaRepository<UserRole, Long> {
 
     /** UC-10 bước 3 — tra cứu toàn bộ tài khoản mang 1 role (VD "TEACHER") để chọn giáo viên dạy thay. */
     List<UserRole> findByRole_Code(String roleCode);
+
+    /** Rà soát bảo mật 2026-09-28 - MediaStorageService.storeUpload phân quyền upload theo role, không cần nạp entity. */
+    @Query("select ur.role.code from UserRole ur where ur.user.id = :userId")
+    List<String> findRoleCodesByUserId(Long userId);
 }

@@ -101,7 +101,7 @@ class MediaControllerTest extends AbstractControllerTest {
         when(r2Client.putObject(any(PutObjectRequest.class), any(RequestBody.class)))
                 .thenReturn(PutObjectResponse.builder().build());
         User staff = userWithRole("staff.media.doc", "HEAD_ACADEMIC");
-        MockMultipartFile file = new MockMultipartFile("file", "tai-lieu.pdf", "application/pdf", "fake-pdf".getBytes());
+        MockMultipartFile file = new MockMultipartFile("file", "tai-lieu.pdf", "application/pdf", "%PDF-1.7 fake".getBytes());
 
         mockMvc.perform(multipart("/api/media/upload")
                         .file(file)
@@ -117,7 +117,7 @@ class MediaControllerTest extends AbstractControllerTest {
         when(r2Client.putObject(any(PutObjectRequest.class), any(RequestBody.class)))
                 .thenReturn(PutObjectResponse.builder().build());
         User teacher = userWithRole("teacher.media.pdf", "TEACHER");
-        MockMultipartFile file = new MockMultipartFile("file", "tai-lieu.pdf", "application/pdf", "fake-pdf".getBytes());
+        MockMultipartFile file = new MockMultipartFile("file", "tai-lieu.pdf", "application/pdf", "%PDF-1.7 fake".getBytes());
 
         mockMvc.perform(multipart("/api/media/upload")
                         .file(file)
@@ -126,5 +126,33 @@ class MediaControllerTest extends AbstractControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.url").value(startsWith(PUBLIC_BASE_URL + "/lms/questions/documents/")))
                 .andExpect(jsonPath("$.url").value(endsWith(".pdf")));
+    }
+
+    /** Rà soát bảo mật 2026-09-28: Học sinh không upload được vào thư mục nội dung giảng dạy. */
+    @Test
+    void upload_security_studentUploadToTeachingContent_returns403() throws Exception {
+        User student = userWithRole("student.media.lms", "STUDENT");
+        MockMultipartFile file = new MockMultipartFile("file", "cau-hoi.mp3", "audio/mpeg", "fake-audio".getBytes());
+
+        mockMvc.perform(multipart("/api/media/upload")
+                        .file(file)
+                        .param("module", "LMS_QUESTION")
+                        .header("Authorization", bearerToken(student, "STUDENT")))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void upload_MainFlow_studentUploadsExerciseAnswerAudio_returns200() throws Exception {
+        when(r2Client.putObject(any(PutObjectRequest.class), any(RequestBody.class)))
+                .thenReturn(PutObjectResponse.builder().build());
+        User student = userWithRole("student.media.answer", "STUDENT");
+        MockMultipartFile file = new MockMultipartFile("file", "tra-loi.webm", "audio/webm", "fake-audio".getBytes());
+
+        mockMvc.perform(multipart("/api/media/upload")
+                        .file(file)
+                        .param("module", "EXERCISE_ANSWER_SUBMISSION")
+                        .header("Authorization", bearerToken(student, "STUDENT")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.url").value(startsWith(PUBLIC_BASE_URL + "/lms/exercise-answer-submissions/audio/")));
     }
 }
