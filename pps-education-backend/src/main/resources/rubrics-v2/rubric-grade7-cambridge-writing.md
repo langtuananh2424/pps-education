@@ -27,8 +27,8 @@ Tiếng Việt chêm vào được tính trong G5 (không trừ riêng).
 |G1|Tỷ lệ động từ chính có chủ ngữ chia đúng thì và dạng theo ngữ cảnh. **Mẫu số chỉ gồm động từ có chủ ngữ rõ ràng**: câu thiếu hẳn chủ ngữ ("Behind them have many tree", "Play ball") **không vào mẫu số** — lỗi đó đã tính một lần ở G5|≥85% **và** ≥3 động từ có chủ ngữ|60–84% (với ≥3 động từ)|<60%, **hoặc chỉ có 0–2 động từ có chủ ngữ — kể cả khi chia đúng hết (→ 0, không phải 0,5)**|
 |G2|Tỷ lệ câu không có lỗi GV nào trên tổng số câu. **Mẫu số gồm MỌI câu và cụm**, kể cả câu một từ ("No.", "Yes.") và cụm không có động từ — bỏ sót chúng làm tỷ lệ cao lên sai|≥70%|40–69%|<40%|
 |G3|Số câu phức/ghép đúng (mệnh đề với *because / when / if / that / who / although / so / but*, hai vế đủ chủ–vị). **Lược *that* vẫn tính**: "I think (that) they are happy", "I know (that) she is nice" = 1 câu phức|≥2|1|0|
-|G4|Số từ nội dung tiếng Anh khác nhau, đúng chủ đề (không tính từ trong câu hỏi, từ lặp, từ không nhận ra)|≥10|6–9|≤5|
-|G5|Tổng số lỗi ngữ pháp + dùng từ + cụm tiếng Việt chêm vào (lỗi đỏ tính 2, lỗi vàng tính 1)|0–1|2–3|≥4|
+|G4|Số từ nội dung tiếng Anh khác nhau, đúng chủ đề (không tính từ lặp, từ không nhận ra). Từ lấy lại từ câu hỏi **VẪN tính** khi nằm trong câu trả lời của học sinh — dùng lại chủ đề/khung thời gian của đề ("with my family", "at the weekend") là cách trả lời tự nhiên, không phải nghèo từ. Chỉ không tính khi học sinh **chép nguyên câu hỏi** thay cho câu trả lời|≥10|6–9|≤5|
+|G5|Tổng số lỗi ngữ pháp + dùng từ + cụm tiếng Việt chêm vào (lỗi đỏ tính 3, lỗi vàng tính 1)|0–1|2–3|≥4|
 
 
 **Dạng PICTURE — không tính là sai thì:** tả ảnh bằng **hiện tại đơn** hay **hiện tại tiếp diễn** đều đúng ("Two children play ball" = "Two children are playing ball"). Chỉ tính sai thì khi dùng quá khứ hoặc tương lai cho cảnh đang diễn ra trong ảnh.

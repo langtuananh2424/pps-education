@@ -13,7 +13,7 @@ Extended sentence = MỘT câu chứa hai mệnh đề đủ chủ–vị, nối
   although / and / mệnh đề quan hệ. Vế thiếu chủ ngữ hoặc thiếu động từ ("because it bad") KHÔNG tính.
   Liên từ mở đầu một câu đơn ("So I only use it one hour.") KHÔNG tính.
 Content word = danh từ / động từ chính / tính từ / trạng từ / cụm mang nghĩa bằng tiếng Anh;
-  không tính từ lặp, từ lấy từ câu hỏi, từ không nhận ra.
+  không tính từ lặp, từ không nhận ra. Từ lấy lại từ câu hỏi **VẪN tính** khi nằm trong câu trả lời của học sinh — dùng lại chủ đề/khung thời gian của đề ("with my family", "at the weekend") là cách trả lời tự nhiên, không phải nghèo từ. Chỉ không tính khi học sinh **chép nguyên câu hỏi** thay cho câu trả lời.
 ```
 
 ## §2. Cổng dữ liệu
@@ -48,10 +48,10 @@ Tiếng Việt thay cho từ tiếng Anh bị thiếu → tính là LB.
 |ID|Checkpoint|SHORT: 1 / 0,5 / 0|PART2: 1 / 0,5 / 0|
 |-|-|-|-|
 |**R1**|Tỷ lệ complete clauses trên tổng số câu/cụm. **Mẫu số gồm MỌI câu và cụm**, kể cả câu một từ ("No.", "Yes.", "Good.") và cụm không có động từ — bỏ sót chúng làm tỷ lệ cao lên sai|≥85% / 60–84% / <60%|như SHORT|
-|**R2**|Số lỗi ngữ pháp cơ bản **không phải** thì/dạng động từ: trật tự từ, thiếu chủ ngữ / *to be* / trợ động từ, mạo từ, giới từ, số nhiều trong bài viết (lỗi đỏ tính 2). **KHÔNG tính ở đây**: sai từ loại, dùng sai nghĩa, sai kết hợp từ — những lỗi đó đã tính ở **L2**; đếm lại ở R2 là trừ hai lần cùng một lỗi|0 / 1 / ≥2|0–2 / 3–4 / ≥5|
+|**R2**|Số lỗi ngữ pháp cơ bản **không phải** thì/dạng động từ: trật tự từ, thiếu chủ ngữ / *to be* / trợ động từ, mạo từ, giới từ, số nhiều trong bài viết (lỗi đỏ tính 3). **Thừa/thiếu giới từ làm hỏng cụm (*At here*, *discuss about*, *go to home*) là lỗi ĐỎ ở khối 8–9** — chuẩn B1+ không còn coi đây là lỗi nhỏ. **KHÔNG tính ở đây**: sai từ loại, dùng sai nghĩa, sai kết hợp từ — những lỗi đó đã tính ở **L2**; đếm lại ở R2 là trừ hai lần cùng một lỗi|0 / 1 / ≥2|0–2 / 3–4 / ≥5|
 |**R3**|Extended sentences. **Lỗi thì/dạng động từ KHÔNG làm mất tư cách extended sentence** — lỗi đó đã trừ ở R4|≥2 thuộc ≥2 loại / 1 / 0|≥4 thuộc ≥3 loại / 2–3 / ≤1|
 |**R4**|Tỷ lệ động từ có chủ ngữ đúng thì và dạng|≥85% / 60–84% / <60% **hoặc <2 động từ có chủ ngữ (→ 0, kể cả khi chia đúng hết)**|≥85% / 60–84% / <60% hoặc <4 động từ|
-|**R5**|Số ý bị khó hiểu do lỗi ngữ pháp (lỗi đỏ tính 2)|0 / 1 / ≥2|0 / 1 / ≥2|
+|**R5**|Số ý bị khó hiểu do lỗi ngữ pháp (lỗi đỏ tính 3)|0 / 1 / ≥2|0 / 1 / ≥2|
 
 ## §4. Bài neo — SHORT, đề mẫu "Do you like reading books? Why?"
 

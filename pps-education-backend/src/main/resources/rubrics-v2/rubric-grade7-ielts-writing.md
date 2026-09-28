@@ -24,10 +24,10 @@
 
 |#|Checkpoint|1|0,5|0|
 |-|-|-|-|-|
-|L1|Số từ nội dung tiếng Anh khác nhau, đúng chủ đề (không tính từ câu hỏi, từ lặp, từ không nhận ra)|≥10|6–9|≤5|
-|L2|Số lần lặp nguyên văn cụm từ trong câu hỏi|≤1|2|≥3|
+|L1|Số từ nội dung tiếng Anh khác nhau, đúng chủ đề (không tính từ lặp, từ không nhận ra). Từ lấy lại từ câu hỏi **VẪN tính** khi nằm trong câu trả lời của học sinh — dùng lại chủ đề/khung thời gian của đề ("with my family", "at the weekend") là cách trả lời tự nhiên, không phải nghèo từ. Chỉ không tính khi học sinh **chép nguyên câu hỏi** thay cho câu trả lời|≥10|6–9|≤5|
+|L2|Số lần lặp nguyên văn cụm từ trong câu hỏi **như câu giờ** — nhắc lại để mở câu trả lời, hoặc dùng lại cụm chủ đề của đề trong câu của mình ("with my family"), là bình thường và **không tính**. Chỉ tính khi cụm của đề được lặp đi lặp lại thay cho nội dung mới|≤1|2|≥3|
 |L3|Số collocation / phrasal verb / cụm cố định dùng đúng (*do homework, hang out, be good at*)|≥2|1|0|
-|L4|Số lỗi **dùng từ** (sai nghĩa, sai dạng từ, sai kết hợp). Không tính lỗi cấu trúc / thiếu thành phần / chêm tiếng Việt — những lỗi đó tính ở GRA và L5. Lỗi dùng từ mức đỏ tính 2|0|1|≥2|
+|L4|Số lỗi **dùng từ** (sai nghĩa, sai dạng từ, sai kết hợp). Không tính lỗi cấu trúc / thiếu thành phần / chêm tiếng Việt — những lỗi đó tính ở GRA và L5. Lỗi dùng từ mức đỏ tính 3|0|1|≥2|
 |L5|Khi bí từ|không bí từ, hoặc diễn đạt vòng được bằng tiếng Anh|có thử nhưng lúng túng|bỏ ý hoặc chêm tiếng Việt|
 
 ### GRA — Grammatical Range and Accuracy
@@ -38,7 +38,7 @@
 |R2|Số câu phức có mệnh đề phụ đúng (*because / when / if / although / that / who*)|≥2|1|0|
 |R3|Số lỗi mạo từ / giới từ / từ hạn định (*a, the, many, much*)|0|1–2|≥3|
 |R4|Số câu thiếu chủ ngữ / thiếu *to be* / thiếu trợ động từ|0|1|≥2|
-|R5|Tổng số lỗi ngữ pháp (mọi loại; lỗi đỏ tính 2, lỗi vàng tính 1)|0–1|2–3|≥4|
+|R5|Tổng số lỗi ngữ pháp (mọi loại; lỗi đỏ tính 3, lỗi vàng tính 1)|0–1|2–3|≥4|
 
 ## §4. Bài neo — đề mẫu "What do you usually do after school?"
 
