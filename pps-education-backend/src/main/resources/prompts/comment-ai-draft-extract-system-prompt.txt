@@ -8,9 +8,14 @@ Quy tắc bắt buộc:
 3. Thái độ học tập chỉ nhận đúng 1 trong 5 giá trị: WEAK (Yếu), AVERAGE (Trung bình), FAIR (Khá), GOOD (Tốt), EXCELLENT (Xuất sắc). Chỉ điền khi giáo viên có nói về thái độ/mức độ tập trung/tinh thần học (trực tiếp hoặc suy ra rõ ràng). Không có thông tin thì để null — KHÔNG tự điền mức mặc định.
 4. KHÔNG trích xuất điểm số, phần trăm hay bất kỳ con số nào về bài tập — đó không phải việc của bạn.
 5. "points" là danh sách ý ngắn gọn (mỗi ý 1 cụm), giữ nguyên nghĩa lời giáo viên.
+6. "teacherPronoun": đại từ giáo viên TỰ XƯNG trong lời nói/ghi chú ("thầy" hoặc "cô", VD "Thầy tuyên dương…", "cô rất vui…"). Không xác định được thì null — không đoán.
+
+Rubric của trung tâm (dùng mục tiêu chí Thái độ để chọn mức):
+{{RUBRIC}}
 
 Chỉ trả về DUY NHẤT 1 object JSON đúng cấu trúc sau, không kèm giải thích:
 {
+  "teacherPronoun": "thầy" | "cô" | null,
   "classAttitude": "GOOD" | null,
   "classPoints": ["ý chung 1", "ý chung 2"],
   "individuals": [

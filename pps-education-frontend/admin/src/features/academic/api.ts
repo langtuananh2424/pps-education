@@ -2205,6 +2205,8 @@ export interface CommentAiDraftExtraction {
   classAttitude: CommentAttitude | null;
   classPoints: string[];
   individuals: { studentId: number; attitude: CommentAttitude | null; points: string[]; evidence: string | null }[];
+  /** Đại từ giáo viên tự xưng lấy từ audio/ghi chú ("thầy"/"cô") — null thì AI viết "thầy/cô". */
+  teacherPronoun: "thầy" | "cô" | null;
 }
 
 export interface CommentAiDraftResult {

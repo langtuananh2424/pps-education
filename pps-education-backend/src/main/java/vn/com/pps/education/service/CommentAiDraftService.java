@@ -69,6 +69,8 @@ public class CommentAiDraftService {
     static final String EXTRACT_PROMPT = "comment-ai-draft-extract-system-prompt.txt";
     static final String WRITE_PROMPT = "comment-ai-draft-write-system-prompt.txt";
     static final String REVISE_PROMPT = "comment-ai-draft-revise-system-prompt.txt";
+    /** Rubric nhận xét do học vụ tự làm giàu — chèn vào chỗ {{RUBRIC}} của cả 3 prompt trên. */
+    static final String RUBRIC_FILE = "comment-ai-draft-rubric.md";
 
     static final String SOURCE_CLASS = "CLASS";
     static final String SOURCE_INDIVIDUAL = "INDIVIDUAL";
@@ -76,6 +78,9 @@ public class CommentAiDraftService {
     private static final Map<String, String> ATTITUDE_LABELS = Map.of(
             "WEAK", "Yếu", "AVERAGE", "Trung bình", "FAIR", "Khá", "GOOD", "Tốt", "EXCELLENT", "Xuất sắc");
     private static final Pattern DIGIT = Pattern.compile("\\d");
+    private static final Pattern HTML_COMMENT = Pattern.compile("<!--.*?-->", Pattern.DOTALL);
+    private static final Pattern PRONOUN_THAY = Pattern.compile("(?iu)(?<!\\p{L})thầy(?!\\p{L})");
+    private static final Pattern PRONOUN_CO = Pattern.compile("(?iu)(?<!\\p{L})cô(?!\\p{L})");
     private static final int MAX_AVOID_TEXTS = 30;
     private static final int MAX_HISTORY_TURNS = 6;
     private static final int MAX_INSTRUCTION_LENGTH = 2000;
@@ -296,7 +301,7 @@ public class CommentAiDraftService {
             throw new CommentAiDraftFailedException(
                     "Không tìm thấy ý nhận xét nào trong lời giáo viên — hãy nói rõ nhận xét chung cả lớp hoặc tên học sinh cần nhận xét.");
         }
-        Map<Long, String> contents = writeAndDeduplicate(context, targets, List.of());
+        Map<Long, String> contents = writeAndDeduplicate(context, targets, List.of(), outcome.extraction().teacherPronoun());
         List<CommentAiDraftResult.Row> rows = toRows(context, targets, contents);
 
         long individualCount = targets.stream().filter(t -> SOURCE_INDIVIDUAL.equals(t.source())).count();
@@ -339,7 +344,7 @@ public class CommentAiDraftService {
         }
         List<String> oldTexts = current.values().stream().map(ReviseCommentAiDraftRequest.CurrentRow::content)
                 .filter(c -> c != null && !c.isBlank()).toList();
-        Map<Long, String> contents = writeAndDeduplicate(context, targets, oldTexts);
+        Map<Long, String> contents = writeAndDeduplicate(context, targets, oldTexts, outcome.extraction().teacherPronoun());
         List<CommentAiDraftResult.Row> rows = toRows(context, targets, contents);
         StringBuilder message = new StringBuilder("Đã viết lại câu chữ cho ").append(rows.size())
                 .append(" học sinh, giữ nguyên ý giáo viên đã nói.");
@@ -357,6 +362,8 @@ public class CommentAiDraftService {
         List<ReviseCommentAiDraftRequest.ChatTurn> history = request.history() == null ? List.of() : request.history();
         payload.put("history", history.subList(Math.max(0, history.size() - MAX_HISTORY_TURNS), history.size()));
         payload.put("instruction", request.instruction().trim());
+        String currentPronoun = request.extraction() == null ? null : normalizePronoun(request.extraction().teacherPronoun());
+        payload.put("teacherPronoun", currentPronoun);
         List<Map<String, Object>> students = new ArrayList<>();
         for (RosterStudent student : context.roster()) {
             ReviseCommentAiDraftRequest.CurrentRow row = current.get(student.id());
@@ -419,7 +426,14 @@ public class CommentAiDraftService {
         String message = response.path("assistantMessage").asText("").isBlank()
                 ? (changed > 0 ? "Đã cập nhật " + changed + " học sinh theo yêu cầu." : "Không có dòng nào cần sửa theo yêu cầu này.")
                 : response.path("assistantMessage").asText().trim();
-        return new CommentAiDraftResult(request.transcript(), message, request.extraction(), rows, List.of(), context.skipped());
+        // Giáo viên yêu cầu đổi cách xưng ("xưng cô") — cập nhật để lượt "Viết lại" sau dùng đúng đại từ mới.
+        String newPronoun = normalizePronoun(response.path("teacherPronoun").asText(null));
+        CommentAiDraftResult.Extraction extraction = request.extraction();
+        if (newPronoun != null && extraction != null) {
+            extraction = new CommentAiDraftResult.Extraction(extraction.classAttitude(), extraction.classPoints(),
+                    extraction.individuals(), newPronoun);
+        }
+        return new CommentAiDraftResult(request.transcript(), message, extraction, rows, List.of(), context.skipped());
     }
 
     // ---- Bước 5: tách ý ----
@@ -439,8 +453,10 @@ public class CommentAiDraftService {
             individuals.add(new CommentAiDraftResult.IndividualPoints(node.path("studentId").asLong(0),
                     node.path("attitude").asText(null), texts(node.path("points")), node.path("evidence").asText(null)));
         }
+        String pronoun = normalizePronoun(response.path("teacherPronoun").asText(null));
         CommentAiDraftResult.Extraction raw = new CommentAiDraftResult.Extraction(
-                response.path("classAttitude").asText(null), texts(response.path("classPoints")), individuals);
+                response.path("classAttitude").asText(null), texts(response.path("classPoints")), individuals,
+                pronoun != null ? pronoun : detectPronoun(teacherText));
         ExtractionOutcome sanitized = sanitize(context, raw);
         List<CommentAiDraftResult.UnmatchedMention> unmatched = new ArrayList<>(sanitized.unmatched());
         Set<Long> rosterIds = context.rosterById().keySet();
@@ -486,7 +502,7 @@ public class CommentAiDraftService {
         List<String> classPoints = raw.classPoints() == null ? List.of()
                 : raw.classPoints().stream().filter(p -> p != null && !p.isBlank()).toList();
         return new ExtractionOutcome(new CommentAiDraftResult.Extraction(normalizeAttitude(raw.classAttitude()), classPoints,
-                individuals), unmatched);
+                individuals, normalizePronoun(raw.teacherPronoun())), unmatched);
     }
 
     /**
@@ -519,13 +535,14 @@ public class CommentAiDraftService {
 
     // ---- Bước 6-7: viết + chống trùng lặp ----
 
-    private Map<Long, String> writeAndDeduplicate(DraftContext context, List<Target> targets, List<String> extraAvoid) {
+    private Map<Long, String> writeAndDeduplicate(DraftContext context, List<Target> targets, List<String> extraAvoid,
+                                                  String teacherPronoun) {
         Map<Long, String> contents = new LinkedHashMap<>();
         List<String> avoid = new ArrayList<>(extraAvoid);
         boolean anyWritten = false;
         for (int from = 0; from < targets.size(); from += settings.writeBatchSize()) {
             List<Target> batch = targets.subList(from, Math.min(targets.size(), from + settings.writeBatchSize()));
-            Map<Long, String> written = writeBatch(context, batch, avoid);
+            Map<Long, String> written = writeBatch(context, batch, avoid, teacherPronoun);
             anyWritten |= !written.isEmpty();
             contents.putAll(written);
             avoid.addAll(written.values());
@@ -572,7 +589,7 @@ public class CommentAiDraftService {
         });
         for (int from = 0; from < retry.size(); from += settings.writeBatchSize()) {
             List<Target> batch = retry.subList(from, Math.min(retry.size(), from + settings.writeBatchSize()));
-            writeBatch(context, batch, retryAvoid).forEach((id, text) -> {
+            writeBatch(context, batch, retryAvoid, teacherPronoun).forEach((id, text) -> {
                 contents.put(id, text);
                 retryAvoid.add(text);
             });
@@ -580,9 +597,10 @@ public class CommentAiDraftService {
         return contents;
     }
 
-    private Map<Long, String> writeBatch(DraftContext context, List<Target> batch, List<String> avoid) {
+    private Map<Long, String> writeBatch(DraftContext context, List<Target> batch, List<String> avoid, String teacherPronoun) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("lessonContent", context.lessonContent());
+        payload.put("teacherPronoun", teacherPronoun);
         List<Map<String, Object>> students = new ArrayList<>();
         for (Target target : batch) {
             Map<String, Object> item = new LinkedHashMap<>();
@@ -685,7 +703,8 @@ public class CommentAiDraftService {
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("CommentAiDraftService: không dựng được payload JSON.", e);
         }
-        String systemPrompt = promptTemplateLoader.load(promptFile, Map.of());
+        String rubric = HTML_COMMENT.matcher(promptTemplateLoader.load(RUBRIC_FILE, Map.of())).replaceAll("").trim();
+        String systemPrompt = promptTemplateLoader.load(promptFile, Map.of("RUBRIC", rubric));
         NineRouterAiClient.ChatResult result = aiClient.chatWithFinishReason(systemPrompt, userMessage, settings.model());
         if (result == null || result.content() == null) {
             return null;
@@ -716,6 +735,32 @@ public class CommentAiDraftService {
         }
         String value = raw.trim().toUpperCase(Locale.ROOT);
         return ATTITUDE_LABELS.containsKey(value) ? value : null;
+    }
+
+    static String normalizePronoun(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        String value = raw.trim().toLowerCase(Locale.forLanguageTag("vi"));
+        return value.equals("thầy") || value.equals("cô") ? value : null;
+    }
+
+    /**
+     * Dự phòng khi AI không trả {@code teacherPronoun}: giáo viên tự xưng thế nào thì lời nói chứa đại từ đó
+     * nhiều hơn hẳn. Chỉ nhận khi CHỈ có 1 trong 2 đại từ xuất hiện — lẫn cả hai (VD "cô giáo chủ nhiệm có
+     * nhắc…") thì không đoán.
+     */
+    static String detectPronoun(String teacherText) {
+        if (teacherText == null) {
+            return null;
+        }
+        String text = java.text.Normalizer.normalize(teacherText, java.text.Normalizer.Form.NFC);
+        boolean thay = PRONOUN_THAY.matcher(text).find();
+        boolean co = PRONOUN_CO.matcher(text).find();
+        if (thay == co) {
+            return null;
+        }
+        return thay ? "thầy" : "cô";
     }
 
     private static List<String> texts(JsonNode array) {

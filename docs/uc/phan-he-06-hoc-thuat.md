@@ -2201,6 +2201,14 @@ Ghi chú kỹ thuật (bổ sung ngoài SDD gốc, đã xác nhận với ngư�
     **Bảng** (cùng dữ liệu, cùng rào khoá dòng) — thẻ tập trung vào Thái
     độ/Nhận xét/Ghi chú, hiện kèm nhận xét buổi trước của học sinh để
     Giáo viên tự đối chiếu trùng lặp mà không phải mở hồ sơ từng bạn.
+-   **Bổ sung 2026-09-28 (đã xác nhận với người dùng):** (1) trợ lý tự lấy
+    đại từ giáo viên tự xưng ("thầy"/"cô") từ audio/ghi chú và viết nhất
+    quán theo đại từ đó — không xác định được (hoặc lời nói lẫn cả hai) thì
+    viết "thầy/cô", giáo viên gõ "xưng cô"/"xưng thầy" để đổi; (2) rubric
+    nhận xét (tiêu chí 5 mức Thái độ, cấu trúc, văn phong, mẫu câu) nằm ở
+    `pps-education-backend/src/main/resources/prompts/comment-ai-draft-rubric.md`,
+    học vụ tự làm giàu, chèn vào prompt của cả 3 bước; (3) nút nổi mở trợ
+    lý (`AiAssistantFab`, dùng chung được cho các trợ lý AI khác sau này).
 
 ---
 

@@ -4,9 +4,14 @@ Quy tắc bắt buộc:
 1. CHỈ diễn đạt lại các ý được cung cấp cho từng học sinh. Không thêm chi tiết, sự việc, lời khen/chê không có trong ý (không bịa "con phát biểu 3 lần", "con làm bài đúng hết"...).
 2. KHÔNG viết bất kỳ con số, điểm số, phần trăm nào.
 3. Nhiều học sinh dùng chung ý của cả lớp — nội dung có thể na ná nhau nhưng câu chữ PHẢI KHÁC NHAU rõ rệt giữa các học sinh: đổi cấu trúc câu, thứ tự ý, câu mở đầu, từ ngữ. Không lặp lại cùng 1 câu mở đầu cho nhiều học sinh.
-4. Mỗi học sinh có thể kèm "previousComments" (nhận xét các buổi trước) và danh sách "avoidTexts" (câu đã dùng cho học sinh khác trong buổi này): KHÔNG được lặp lại cách diễn đạt của các câu đó. Có thể tham khảo văn phong/cách xưng hô của previousComments.
+4. Mỗi học sinh có thể kèm "previousComments" (nhận xét các buổi trước) và danh sách "avoidTexts" (câu đã dùng cho học sinh khác trong buổi này): KHÔNG được lặp lại cách diễn đạt của các câu đó. Có thể tham khảo văn phong của previousComments.
 5. Văn phong lịch sự, gần gũi, ngắn gọn 2–4 câu tiếng Việt. Gọi học sinh bằng tên gọi (tên cuối trong họ tên, VD "Nguyễn Văn An" → "An") hoặc "con".
 6. Viết đủ cho MỌI học sinh được yêu cầu, đúng studentId.
+7. Giáo viên tự xưng theo "teacherPronoun" trong dữ liệu (VD "thầy" → "Thầy rất vui…", "cô" → "Cô mong…"), dùng NHẤT QUÁN cho mọi học sinh. Chỉ khi teacherPronoun là null mới dùng "thầy/cô".
+8. Tuân thủ rubric của trung tâm dưới đây (cấu trúc, văn phong, từ nên tránh).
+
+Rubric của trung tâm:
+{{RUBRIC}}
 
 Chỉ trả về DUY NHẤT 1 object JSON, không kèm giải thích:
 {"comments": [{"studentId": 123, "content": "nhận xét"}]}

@@ -7,6 +7,11 @@ Quy tắc bắt buộc:
 4. Không bịa thêm chi tiết ngoài lời giáo viên (transcript + yêu cầu). Nội dung mới phải khác câu chữ của học sinh khác trong buổi và của previousComments.
 5. Gắn tên giáo viên nhắc với đúng studentId trong danh sách; nếu không chắc chắn là học sinh nào, KHÔNG sửa mà hỏi lại trong "assistantMessage".
 6. "assistantMessage": 1–2 câu tiếng Việt tóm tắt đã sửa gì (hoặc câu hỏi lại giáo viên).
+7. Giáo viên tự xưng theo "teacherPronoun" (null thì dùng "thầy/cô"). Nếu giáo viên yêu cầu đổi cách xưng (VD "xưng cô"), trả thêm "teacherPronoun": "cô" và viết lại "content" của MỌI học sinh có câu chứa cách xưng cũ.
+8. Tuân thủ rubric của trung tâm dưới đây.
+
+Rubric của trung tâm:
+{{RUBRIC}}
 
 Chỉ trả về DUY NHẤT 1 object JSON, không kèm giải thích:
-{"assistantMessage": "…", "changes": [{"studentId": 123, "attitude": "AVERAGE", "content": "…"}]}
+{"assistantMessage": "…", "teacherPronoun": "cô" (chỉ khi đổi cách xưng), "changes": [{"studentId": 123, "attitude": "AVERAGE", "content": "…"}]}
