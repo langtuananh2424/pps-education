@@ -46,7 +46,10 @@ import java.util.stream.Collectors;
  * hàng loạt test class không liên quan). Fix: TRUNCATE toàn bộ bảng nghiệp vụ ngay sau các
  * test đó (xem cleanupCommittedDataIfAny) thay vì trông chờ DirtiesContext.
  */
-@SpringBootTest
+// Ngưỡng chặn đăng nhập sai theo IP (LoginIpThrottle) nâng rất cao cho cả suite: mọi test đều gọi từ
+// 127.0.0.1 và dùng chung 1 Spring context, bộ đếm trong bộ nhớ sẽ cộng dồn giữa các test class.
+// LoginIpThrottleControllerTest tự hạ ngưỡng để kiểm tra nhánh 429.
+@SpringBootTest(properties = "app.security.brute-force.ip-max-failed-attempts=1000000")
 public abstract class AbstractIntegrationTest {
 
     @ServiceConnection

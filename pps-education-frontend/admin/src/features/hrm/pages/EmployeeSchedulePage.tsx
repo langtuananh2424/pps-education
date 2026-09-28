@@ -682,7 +682,7 @@ export default function EmployeeSchedulePage() {
                       <tr key={emp.id} className="hover:bg-slate-50/50 transition-colors">
                         <Td className="font-bold text-slate-800">
                           {emp.fullName}
-                          <div className="text-[10px] text-slate-400 font-normal">{emp.employeeCode}</div>
+                          <div className="text-[11px] text-slate-400 font-normal">{emp.employeeCode}</div>
                         </Td>
                         <Td>{employeeTypeLabel(t, emp.employeeType)}</Td>
                         <Td>{shiftDayCount}</Td>
@@ -726,7 +726,7 @@ export default function EmployeeSchedulePage() {
                       <tr key={emp.id} className="hover:bg-slate-50/40 transition-colors">
                         <td className="sticky left-0 bg-white text-left px-3 py-2 font-bold text-slate-800 z-10 border-r border-slate-100">
                           {emp.fullName}
-                          <div className="text-[10px] text-slate-400 font-normal">{emp.employeeCode} · {employeeTypeLabel(t, emp.employeeType)}</div>
+                          <div className="text-[11px] text-slate-400 font-normal">{emp.employeeCode} · {employeeTypeLabel(t, emp.employeeType)}</div>
                         </td>
                         {dateRange.map((d) => {
                           const shifts = shiftsForEmployeeOnDate(emp, d);

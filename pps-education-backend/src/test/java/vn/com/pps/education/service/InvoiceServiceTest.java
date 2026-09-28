@@ -4,6 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
+import vn.com.pps.education.domain.Invoice;
 import vn.com.pps.education.domain.Parent;
 import vn.com.pps.education.domain.ParentStudent;
 import vn.com.pps.education.domain.Role;
@@ -27,6 +28,7 @@ import vn.com.pps.education.dto.RecordManualPaymentRequest;
 import vn.com.pps.education.dto.TuitionPlanResponse;
 import vn.com.pps.education.dto.UpdateCurriculumRequest;
 import vn.com.pps.education.exception.NotAuthorizedForPortalAccessException;
+import vn.com.pps.education.repository.InvoiceRepository;
 import vn.com.pps.education.repository.ParentRepository;
 import vn.com.pps.education.repository.ParentStudentRepository;
 import vn.com.pps.education.repository.RoleRepository;
@@ -58,6 +60,9 @@ class InvoiceServiceTest extends AbstractIntegrationTest {
 
     @Autowired
     private InvoiceService invoiceService;
+
+    @Autowired
+    private InvoiceRepository invoiceRepository;
 
     @Autowired
     private TuitionPlanService tuitionPlanService;
@@ -220,6 +225,37 @@ class InvoiceServiceTest extends AbstractIntegrationTest {
 
         assertThat(payment.paymentMethod()).isEqualTo("QR_BANK");
         assertThat(invoiceService.getInvoice(invoice.id(), parentUser.getId()).status()).isEqualTo("PAID");
+    }
+
+    /** Rà soát bảo mật 2026-09-28: ngân hàng gửi lại cùng 1 giao dịch -> không cộng tiền lần 2. */
+    @Test
+    void confirmBankWebhook_boSung_sameBankTransactionTwice_isIdempotent() {
+        InvoiceResponse invoice = invoiceService.generateInvoices(billingRequest(), accountant.getId()).get(0);
+        String txnId = "BANK-TXN-DUP-" + SEQ.incrementAndGet();
+
+        PaymentResponse first = invoiceService.confirmBankWebhook(new BankWebhookPaymentRequest(
+                invoice.invoiceNumber(), new BigDecimal("1000000"), txnId, OffsetDateTime.now()));
+        PaymentResponse replay = invoiceService.confirmBankWebhook(new BankWebhookPaymentRequest(
+                invoice.invoiceNumber(), new BigDecimal("1000000"), txnId, OffsetDateTime.now()));
+
+        assertThat(replay.id()).isEqualTo(first.id());
+        assertThat(invoiceService.getInvoice(invoice.id(), parentUser.getId()).status()).isEqualTo("PARTIAL_PAID");
+        assertThat(invoiceRepository.findById(invoice.id()).orElseThrow().getPaidAmount())
+                .isEqualByComparingTo("1000000");
+    }
+
+    /** Rà soát bảo mật 2026-09-28: không tự gạch nợ vào hóa đơn đã hủy. */
+    @Test
+    void confirmBankWebhook_boSung_cancelledInvoice_rejected() {
+        InvoiceResponse invoice = invoiceService.generateInvoices(billingRequest(), accountant.getId()).get(0);
+        Invoice entity = invoiceRepository.findById(invoice.id()).orElseThrow();
+        entity.setStatus(Invoice.Status.CANCELLED);
+        invoiceRepository.save(entity);
+
+        assertThatThrownBy(() -> invoiceService.confirmBankWebhook(new BankWebhookPaymentRequest(
+                invoice.invoiceNumber(), new BigDecimal("2000000"), "BANK-TXN-CXL-" + SEQ.incrementAndGet(), OffsetDateTime.now())))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(invoiceRepository.findById(invoice.id()).orElseThrow().getPaidAmount()).isEqualByComparingTo("0");
     }
 
     private GenerateInvoicesRequest billingRequest() {

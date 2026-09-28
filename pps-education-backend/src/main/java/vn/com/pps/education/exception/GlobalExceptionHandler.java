@@ -33,6 +33,11 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.UNAUTHORIZED, ex);
     }
 
+    @ExceptionHandler(TooManyLoginAttemptsException.class)
+    public ResponseEntity<Object> handleTooManyLoginAttempts(TooManyLoginAttemptsException ex) {
+        return error(HttpStatus.TOO_MANY_REQUESTS, ex);
+    }
+
     @ExceptionHandler(AccountLockedException.class)
     public ResponseEntity<Object> handleAccountLocked(AccountLockedException ex) {
         return error(HttpStatus.LOCKED, ex);
@@ -123,7 +128,7 @@ public class GlobalExceptionHandler {
             NotAssignedTeacherForClassException.class, NotAssignedTeacherForSessionException.class,
             AssigneeOutsideDepartmentException.class,
             NotTaskParticipantException.class, NotTaskCreatorException.class, NotAuthorizedForFeedbackException.class,
-            NotAuthorizedForTaskOverviewException.class})
+            NotAuthorizedForTaskOverviewException.class, MediaModuleNotAllowedException.class})
     public ResponseEntity<Object> handleAcademicAuthorization(RuntimeException ex) {
         return error(HttpStatus.FORBIDDEN, ex);
     }

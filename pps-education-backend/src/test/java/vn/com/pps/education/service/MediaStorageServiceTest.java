@@ -2,18 +2,29 @@ package vn.com.pps.education.service;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.mock.web.MockMultipartFile;
+import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectResponse;
+import vn.com.pps.education.exception.MediaModuleNotAllowedException;
+import vn.com.pps.education.repository.UserRoleRepository;
+
+import java.io.ByteArrayInputStream;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -29,9 +40,12 @@ class MediaStorageServiceTest {
     private static final String BUCKET = "test-bucket";
     private static final String PUBLIC_BASE_URL = "https://media.pps.edu.vn";
     private static final String MODULE = "LMS_QUESTION";
+    private static final byte[] PNG_BYTES = {(byte) 0x89, 'P', 'N', 'G', '\r', '\n', 0x1A, '\n', 0, 0};
+    private static final byte[] PDF_BYTES = "%PDF-1.7 fake".getBytes();
 
     private final S3Client r2Client = mock(S3Client.class);
-    private final MediaStorageService service = new MediaStorageService(r2Client, BUCKET, PUBLIC_BASE_URL);
+    private final UserRoleRepository userRoleRepository = mock(UserRoleRepository.class);
+    private final MediaStorageService service = new MediaStorageService(r2Client, userRoleRepository, BUCKET, PUBLIC_BASE_URL);
 
     @BeforeEach
     void stubPutObject() {
@@ -41,7 +55,7 @@ class MediaStorageServiceTest {
 
     @Test
     void store_MainFlow_uploadsImageAndReturnsPublicUrlPreservingExtension() {
-        MockMultipartFile file = new MockMultipartFile("file", "de-thi.PNG", "image/png", "fake-png-bytes".getBytes());
+        MockMultipartFile file = new MockMultipartFile("file", "de-thi.PNG", "image/png", PNG_BYTES);
 
         String url = service.store(file, MODULE);
 
@@ -87,7 +101,7 @@ class MediaStorageServiceTest {
 
     @Test
     void store_boSung_sanitizesUnsafeExtensionFromOriginalFilename() {
-        MockMultipartFile file = new MockMultipartFile("file", "../../etc/passwd", "image/png", "x".getBytes());
+        MockMultipartFile file = new MockMultipartFile("file", "../../etc/passwd", "image/png", PNG_BYTES);
 
         String url = service.store(file, MODULE);
 
@@ -96,7 +110,7 @@ class MediaStorageServiceTest {
 
     @Test
     void store_boSung_rejectsUnknownModule() {
-        MockMultipartFile file = new MockMultipartFile("file", "de-thi.png", "image/png", "x".getBytes());
+        MockMultipartFile file = new MockMultipartFile("file", "de-thi.png", "image/png", PNG_BYTES);
 
         assertThatThrownBy(() -> service.store(file, "KHONG_TON_TAI")).isInstanceOf(IllegalArgumentException.class);
         verify(r2Client, never()).putObject(any(PutObjectRequest.class), any(RequestBody.class));
@@ -110,7 +124,7 @@ class MediaStorageServiceTest {
      */
     @Test
     void store_boSung_curriculumDocumentAcceptsPdf() {
-        MockMultipartFile file = new MockMultipartFile("file", "tai-lieu.pdf", "application/pdf", "fake-pdf-bytes".getBytes());
+        MockMultipartFile file = new MockMultipartFile("file", "tai-lieu.pdf", "application/pdf", PDF_BYTES);
 
         String url = service.store(file, "CURRICULUM_DOCUMENT");
 
@@ -177,7 +191,7 @@ class MediaStorageServiceTest {
      */
     @Test
     void store_boSung_lmsQuestionAcceptsPdf() {
-        MockMultipartFile file = new MockMultipartFile("file", "de-thi.pdf", "application/pdf", "fake-pdf-bytes".getBytes());
+        MockMultipartFile file = new MockMultipartFile("file", "de-thi.pdf", "application/pdf", PDF_BYTES);
 
         String url = service.store(file, MODULE);
 
@@ -192,5 +206,146 @@ class MediaStorageServiceTest {
         String url = service.store(file, MODULE);
 
         assertThat(url).startsWith(PUBLIC_BASE_URL + "/lms/questions/video/").endsWith(".mp4");
+    }
+
+    // ===================== Siết upload (rà soát bảo mật 2026-09-28) =====================
+
+    @Test
+    void store_security_rejectsSvgImage() {
+        MockMultipartFile file = new MockMultipartFile("file", "logo.svg", "image/svg+xml",
+                "<svg xmlns='http://www.w3.org/2000/svg'><script>alert(1)</script></svg>".getBytes());
+
+        assertThatThrownBy(() -> service.store(file, MODULE)).isInstanceOf(IllegalArgumentException.class);
+        verify(r2Client, never()).putObject(any(PutObjectRequest.class), any(RequestBody.class));
+    }
+
+    @Test
+    void store_security_rejectsHtmlOutsideReportTemplate() {
+        MockMultipartFile file = new MockMultipartFile("file", "trang.html", "text/html", "<script>x</script>".getBytes());
+
+        assertThatThrownBy(() -> service.store(file, MODULE)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.store(file, "CURRICULUM_DOCUMENT")).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void store_regression_reportTemplateStillAcceptsHtml() {
+        MockMultipartFile file = new MockMultipartFile("file", "mau.html", "text/html; charset=UTF-8", "<p>{{ten}}</p>".getBytes());
+
+        String url = service.store(file, "REPORT_TEMPLATE");
+
+        assertThat(url).startsWith(PUBLIC_BASE_URL + "/academic/report-templates/documents/").endsWith(".html");
+    }
+
+    /** Content-Type do client tự khai - file HTML đổi tên thành .png/.pdf phải bị chặn theo magic bytes. */
+    @ParameterizedTest
+    @ValueSource(strings = {"image/png", "image/jpeg", "image/webp", "application/pdf"})
+    void store_security_rejectsContentNotMatchingDeclaredType(String declaredType) {
+        MockMultipartFile file = new MockMultipartFile("file", "anh.png", declaredType, "<html><script>x</script></html>".getBytes());
+
+        assertThatThrownBy(() -> service.store(file, MODULE)).isInstanceOf(IllegalArgumentException.class);
+        verify(r2Client, never()).putObject(any(PutObjectRequest.class), any(RequestBody.class));
+    }
+
+    @Test
+    void storeUpload_security_studentCannotUploadToStaffModule() {
+        givenRoles(7L, "STUDENT");
+        MockMultipartFile file = new MockMultipartFile("file", "a.png", "image/png", PNG_BYTES);
+
+        assertThatThrownBy(() -> service.storeUpload(file, "LMS_QUESTION", 7L))
+                .isInstanceOf(MediaModuleNotAllowedException.class);
+        assertThatThrownBy(() -> service.storeUpload(file, "EMPLOYEE", 7L))
+                .isInstanceOf(MediaModuleNotAllowedException.class);
+        verify(r2Client, never()).putObject(any(PutObjectRequest.class), any(RequestBody.class));
+    }
+
+    @Test
+    void storeUpload_MainFlow_studentUploadsOwnSubmissionAndPortrait() {
+        givenRoles(7L, "STUDENT");
+
+        assertThat(service.storeUpload(new MockMultipartFile("file", "bai.webm", "audio/webm", "x".getBytes()),
+                "EXERCISE_ANSWER_SUBMISSION", 7L)).startsWith(PUBLIC_BASE_URL + "/lms/exercise-answer-submissions/audio/");
+        assertThat(service.storeUpload(new MockMultipartFile("file", "a.png", "image/png", PNG_BYTES),
+                "STUDENT", 7L)).startsWith(PUBLIC_BASE_URL + "/profiles/students/images/");
+    }
+
+    @Test
+    void storeUpload_MainFlow_staffUploadsTeachingContent() {
+        givenRoles(8L, "TEACHER");
+
+        String url = service.storeUpload(new MockMultipartFile("file", "a.png", "image/png", PNG_BYTES), "LMS_QUESTION", 8L);
+
+        assertThat(url).startsWith(PUBLIC_BASE_URL + "/lms/questions/images/");
+    }
+
+    /** REPORT_TEMPLATE chỉ nhận qua UC-67 (ReportTemplateService tự phân quyền), kể cả sysadmin cũng không qua API chung. */
+    @Test
+    void storeUpload_security_reportTemplateNeverThroughGenericApi() {
+        givenRoles(9L, "SYS_ADMIN");
+        MockMultipartFile file = new MockMultipartFile("file", "mau.html", "text/html", "<p>x</p>".getBytes());
+
+        assertThatThrownBy(() -> service.storeUpload(file, "REPORT_TEMPLATE", 9L))
+                .isInstanceOf(MediaModuleNotAllowedException.class);
+    }
+
+    private void givenRoles(Long userId, String... roleCodes) {
+        when(userRoleRepository.findRoleCodesByUserId(userId)).thenReturn(List.of(roleCodes));
+    }
+
+    // ===================== Chống SSRF (rà soát bảo mật 2026-09-28) =====================
+
+    @Test
+    void download_ownUrl_readsObjectByKeyFromStorage() {
+        GetObjectResponse meta = GetObjectResponse.builder().contentType("audio/mp4").build();
+        when(r2Client.getObject(any(GetObjectRequest.class))).thenReturn(
+                new ResponseInputStream<>(meta, new ByteArrayInputStream("audio-bytes".getBytes())));
+
+        MediaStorageService.DownloadedFile file =
+                service.downloadWithContentType(PUBLIC_BASE_URL + "/review-videos/audio/abc.m4a");
+
+        assertThat(file.bytes()).isEqualTo("audio-bytes".getBytes());
+        assertThat(file.contentType()).isEqualTo("audio/mp4");
+        ArgumentCaptor<GetObjectRequest> captor = ArgumentCaptor.forClass(GetObjectRequest.class);
+        verify(r2Client).getObject(captor.capture());
+        assertThat(captor.getValue().bucket()).isEqualTo(BUCKET);
+        assertThat(captor.getValue().key()).isEqualTo("review-videos/audio/abc.m4a");
+    }
+
+    /** URL không do hệ thống sinh ra -> từ chối, server KHÔNG được mở kết nối tới bất kỳ đâu. */
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "http://minio:9000/pps-media/x.webm",
+            "http://127.0.0.1:8080/actuator/health",
+            "file:///etc/hostname",
+            "https://media.pps.edu.vn.evil.com/x.webm",
+            "https://media.pps.edu.vn@evil.com/x.webm",
+            "https://media.pps.edu.vn",
+            "https://media.pps.edu.vn/",
+            "https://media.pps.edu.vn/../secret",
+            "https://media.pps.edu.vn/a/../../secret",
+            "https://media.pps.edu.vn//x.webm",
+            "https://media.pps.edu.vn/x.webm?redirect=http://127.0.0.1",
+            " "
+    })
+    void download_foreignOrMalformedUrl_rejectedWithoutTouchingStorage(String url) {
+        assertThatThrownBy(() -> service.downloadWithContentType(url))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.requireStoredUrl(url))
+                .isInstanceOf(IllegalArgumentException.class);
+        verifyNoInteractions(r2Client);
+    }
+
+    @Test
+    void download_nullUrl_rejected() {
+        assertThatThrownBy(() -> service.downloadWithContentType(null)).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    /** Trước đây lỗi storage bị nuốt rồi trả HTML mẫu giả lập - giờ phải báo lỗi thật cho caller. */
+    @Test
+    void download_storageError_propagatesInsteadOfFakeContent() {
+        when(r2Client.getObject(any(GetObjectRequest.class)))
+                .thenThrow(software.amazon.awssdk.services.s3.model.NoSuchKeyException.builder().message("missing").build());
+
+        assertThatThrownBy(() -> service.downloadWithContentType(PUBLIC_BASE_URL + "/lms/x.docx"))
+                .isInstanceOf(software.amazon.awssdk.services.s3.model.NoSuchKeyException.class);
     }
 }

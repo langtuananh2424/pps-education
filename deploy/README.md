@@ -77,7 +77,8 @@ service khác (`minio`, `postgres`...) vẫn phải làm tay trên server, xem m
 
 ```
 DB_PASSWORD=...
-JWT_SECRET=...
+JWT_SECRET=...          # BẮT BUỘC ngẫu nhiên ≥32 byte: openssl rand -base64 48. Giá trị mẫu/ngắn -> backend staging/production từ chối khởi động
+BANK_WEBHOOK_SECRET=     # webhook ngân hàng UC-30; để trống = webhook TẮT. Khi tích hợp thật: openssl rand -hex 32
 GOOGLE_OAUTH_CLIENT_IDS=...
 S3_ACCESS_KEY=...        # dùng chung cho MinIO root user + R2_ACCESS_KEY_ID trong compose
 S3_SECRET_KEY=...        # dùng chung cho MinIO root password + R2_SECRET_ACCESS_KEY trong compose
@@ -126,16 +127,36 @@ tiếp các tài khoản thật khác qua UI quản lý người dùng của app
 
 ## 3. MinIO (thay Cloudflare R2)
 
-Bucket `pps-media` + quyền `anonymous download` (giữ đúng hành vi bucket
-public của R2) được **service `minio-init` trong `docker-compose.*.yml` tự
-tạo** mỗi lần `docker compose up -d` — idempotent, và `backend` chờ nó chạy
-xong mới khởi động (`depends_on: service_completed_successfully`). Không cần
-thao tác tay.
+Bucket `pps-media` + policy đọc ẩn danh được **service `minio-init` trong
+`docker-compose.*.yml` tự tạo** mỗi lần `docker compose up -d` — idempotent, và
+`backend` chờ nó chạy xong mới khởi động (`depends_on:
+service_completed_successfully`). Không cần thao tác tay.
+
+Rà soát bảo mật 2026-09-28 (đã xác nhận với người dùng): policy **chỉ** cho
+đọc ẩn danh nội dung giảng dạy (`lms/questions/`, `lms/curriculum-documents/`,
+`lms/review-videos/`), **không** cho liệt kê bucket. Trước đây `anonymous set
+download` mở cả bucket kèm quyền liệt kê — ai mở `https://files.ppsvietnam.edu.vn/`
+cũng thấy toàn bộ key (ảnh đại diện, audio bài nộp, báo cáo) rồi tải về. File
+cá nhân giờ chỉ đọc được qua URL có chữ ký, hết hạn sau 60 phút
+(`R2_SIGNED_URL_ENDPOINT`, xem `MediaUrlSigner.java`) — cần Nginx `files*` có
+`location ^~ /pps-media/` (mục 4) **trước** khi deploy backend bản này, nếu
+không ảnh đại diện/audio/báo cáo sẽ không mở được.
+
+CD chỉ chạy `docker compose up -d --no-deps backend` nên **không** tự chạy lại
+`minio-init` — sau khi CD đồng bộ compose bản mới lên server, chạy tay 1 lần ở
+mỗi stack (staging trước):
+
+```bash
+cd /opt/pps-education/staging && docker compose up -d minio-init && docker compose logs minio-init | tail -3
+```
 
 Kiểm tra sau khi stack lên:
 
 ```bash
 docker compose -f docker-compose.yml logs minio-init   # thay "up" xanh: "bucket pps-media da san sang"
+# Kiểm tra policy: file cá nhân KHÔNG tải được khi không có chữ ký, gốc domain KHÔNG liệt kê key
+curl -s -o /dev/null -w "%{http_code}\n" https://files.ppsvietnam.edu.vn/            # 404
+curl -s -o /dev/null -w "%{http_code}\n" https://files.ppsvietnam.edu.vn/pps-media/  # 403
 ```
 
 Fallback thủ công (chỉ khi cần chạy lại ngoài luồng compose, VD sau khi xoá
@@ -147,8 +168,11 @@ Docker Hub không còn tồn tại):
 docker run --rm --network pps-staging_internal --entrypoint /bin/sh \
   -e MC_HOST_s="http://<S3_ACCESS_KEY>:<S3_SECRET_KEY>@minio:9000" \
   quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727 \
-  -c 'mc mb --ignore-existing s/pps-media && mc anonymous set download s/pps-media'
+  -c 'mc mb --ignore-existing s/pps-media && mc anonymous set none s/pps-media'
 ```
+
+Rồi chạy lại `docker compose up -d minio-init` để nạp đúng policy (chỉ nội dung
+giảng dạy) — KHÔNG dùng lại `mc anonymous set download` cho cả bucket.
 
 Nếu có dữ liệu cũ thật trên R2 cần giữ lại: dùng `rclone`/`mc mirror` chuyển
 1 lần trước khi cắt hẳn sang MinIO (không tự động, làm tay khi cần).
@@ -387,7 +411,28 @@ chỉ thao tác trên 6 subdomain dưới đây.
    và `cd-frontend.yml` (matrix `app: [admin, user]`) CHƯA đổi tên theo
    (quyết định phạm vi tối thiểu - chỉ đổi domain/nginx, không đổi code/CI).
 
-2. `ln -s` từng file vào `sites-enabled/`, `nginx -t && systemctl reload nginx`.
+2. Cài 2 file dùng chung (rà soát bảo mật 2026-09-28 — rate limit theo IP thật
+   `CF-Connecting-IP`, header bảo mật CSP/X-Frame-Options/nosniff/HSTS, sandbox
+   file HTML/SVG trên domain `files*`). Template bản mới `include`/dùng biến
+   của 2 file này nên phải cài **trước** khi nạp template, nếu không `nginx -t` lỗi:
+   ```bash
+   sudo cp deploy/nginx/pps-security.conf /etc/nginx/conf.d/pps-security.conf
+   sudo mkdir -p /etc/nginx/snippets
+   sudo cp deploy/nginx/pps-security-headers.conf /etc/nginx/snippets/pps-security-headers.conf
+   ```
+   Server đã cài template cũ: copy lại cả 6 file từ template bản mới (thay
+   placeholder theo bảng trên), `nginx -t && systemctl reload nginx` — làm
+   **trước** khi deploy backend có ký URL (xem mục 3), rồi purge cache
+   Cloudflare cho `files.ppsvietnam.edu.vn`/`files-staging...` 1 lần (edge có
+   thể còn giữ bản cache ảnh/audio cá nhân từ lúc bucket còn public).
+   Sau khi reload, kiểm tra nhanh:
+   ```bash
+   curl -sI https://admin.ppsvietnam.edu.vn/ | grep -i content-security-policy
+   ```
+   Nếu CSP chặn nhầm 1 tính năng (Console trình duyệt báo "Refused to load the
+   script ..."), thêm đúng domain đó vào `script-src` trong
+   `pps-security-headers.conf` rồi reload — không bỏ cả header.
+3. `ln -s` từng file vào `sites-enabled/`, `nginx -t && systemctl reload nginx`.
    - `admin*`/`student*` template có `client_max_body_size 210m` trong
      `location /api/` (upload media tới 200MB). Server đã cài trước bản này
      phải thêm dòng đó thủ công rồi reload, nếu không upload >1MB bị 413.
@@ -404,9 +449,9 @@ chỉ thao tác trên 6 subdomain dưới đây.
      (đã áp dụng trên server 2026-09-22); Cloudflare đã cache `sw.js` cũ ở
      edge với TTL mặc định 4h -> purge URL đó 1 lần sau khi reload nginx;
      người dùng đang bị kẹt cần xoá và thêm lại shortcut 1 lần cuối.
-3. Cài `cloudflared` (gói `.deb` chính thức Cloudflare), `cloudflared tunnel login`,
+4. Cài `cloudflared` (gói `.deb` chính thức Cloudflare), `cloudflared tunnel login`,
    `cloudflared tunnel create pps-education`.
-4. Tạo `~/.cloudflared/config.yml`:
+5. Tạo `~/.cloudflared/config.yml`:
    ```yaml
    tunnel: pps-education
    credentials-file: /root/.cloudflared/<TUNNEL_ID>.json
@@ -425,7 +470,7 @@ chỉ thao tác trên 6 subdomain dưới đây.
        service: http://localhost:80
      - service: http_status:404
    ```
-5. `cloudflared tunnel route dns pps-education <hostname>` cho từng hostname ở
+6. `cloudflared tunnel route dns pps-education <hostname>` cho từng hostname ở
    trên (6 lần) — tự động tạo/GHI ĐÈ record DNS đúng hostname đó thành CNAME
    trỏ vào tunnel (record `admin`/`user` cũ trỏ IP giả `192.0.2.1` sẽ được
    thay thế, 4 record còn lại là tạo mới). Domain `user`/`user-staging` đổi
@@ -433,8 +478,8 @@ chỉ thao tác trên 6 subdomain dưới đây.
    nếu tunnel/DNS trên server vẫn đang trỏ hostname `user` cũ, cần chạy lại
    `cloudflared tunnel route dns` cho hostname `student` mới rồi mới sửa
    `config.yml`, không tự động theo repo.
-6. `cloudflared service install && systemctl enable --now cloudflared`.
-7. Trên Cloudflare Dashboard: bật "Always Use HTTPS" + SSL/TLS mode "Full".
+7. `cloudflared service install && systemctl enable --now cloudflared`.
+8. Trên Cloudflare Dashboard: bật "Always Use HTTPS" + SSL/TLS mode "Full".
 
 ## 5. 9Router (chấm AI)
 

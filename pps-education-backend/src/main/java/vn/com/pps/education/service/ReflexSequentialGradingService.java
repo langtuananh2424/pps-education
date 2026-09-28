@@ -140,6 +140,9 @@ public class ReflexSequentialGradingService {
     /** Bước 2 — CHỈ chấp nhận khi bước 1 đã đạt: nộp audio, AI transcribe + chấm nội dung ngay. */
     @Transactional
     public ReflexQuestionProgressResponse submitSpokenAnswer(Long questionId, Long assignmentId, String audioUrl, Long actorUserId) {
+        // Chống SSRF: audioUrl do học sinh gửi lên, server sẽ tự tải file này để chấm AI -> chỉ nhận URL
+        // do chính hệ thống sinh ra lúc upload (xem MediaStorageService#requireStoredUrl).
+        mediaStorageService.requireStoredUrl(audioUrl);
         ReviewVideoQuestion question = getQuestionOrThrow(questionId);
         StudentAccess access = resolveStudentAccessForAssignment(question.getReviewVideo().getReviewVideoSet(), assignmentId, actorUserId);
         boolean late = requireNotPastDeadline(access.assignment());

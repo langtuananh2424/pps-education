@@ -13,16 +13,48 @@ server {
     root __ROOT_PATH__;
     index index.html;
 
-    location /api/ {
-        # Upload media (POST /api/media/upload): video ≤200MB, request ≤205MB
-        # (khớp spring.servlet.multipart.max-request-size). Mặc định nginx là
-        # 1MB -> ảnh/tài liệu >1MB bị chặn bằng 413 trước khi tới backend.
+    # Rà soát bảo mật 2026-09-28 - cần pps-security.conf (conf.d) và
+    # pps-security-headers.conf (snippets), xem file pps-security.conf.
+    include snippets/pps-security-headers.conf;
+    limit_req_status 429;
+
+    # Đăng nhập (mật khẩu + Google): chặn dò mật khẩu hàng loạt theo IP. Chỉ áp cho
+    # /api/auth/login* - /api/auth/me, /refresh gọi thường xuyên nên để zone API chung.
+    location ^~ /api/auth/login {
+        limit_req zone=pps_auth burst=60 nodelay;
+        proxy_pass http://127.0.0.1:__API_PORT__;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $pps_client_ip;
+        proxy_set_header X-Forwarded-For $pps_client_ip;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Upload media dùng chung (video ≤200MB): chặn làm đầy ổ đĩa MinIO.
+    location = /api/media/upload {
+        limit_req zone=pps_upload burst=20 nodelay;
         client_max_body_size 210m;
+        proxy_pass http://127.0.0.1:__API_PORT__;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $pps_client_ip;
+        proxy_set_header X-Forwarded-For $pps_client_ip;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /api/ {
+        # Upload qua API khác (VD mẫu báo cáo, import Excel): request ≤205MB (khớp
+        # spring.servlet.multipart.max-request-size). Mặc định nginx là 1MB -> file
+        # >1MB bị chặn bằng 413 trước khi tới backend.
+        client_max_body_size 210m;
+        limit_req zone=pps_api burst=500 nodelay;
         proxy_pass http://127.0.0.1:__API_PORT__/api/;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        # IP thật (CF-Connecting-IP) thay vì 127.0.0.1 của cloudflared - backend dùng cho
+        # login_attempts/audit log và LoginIpThrottle (server.forward-headers-strategy=native).
+        proxy_set_header X-Real-IP $pps_client_ip;
+        proxy_set_header X-Forwarded-For $pps_client_ip;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
@@ -31,6 +63,7 @@ server {
     # trỏ sang tên file mới.
     location /assets/ {
         add_header Cache-Control "public, max-age=31536000, immutable";
+        include snippets/pps-security-headers.conf;
         try_files $uri =404;
     }
 
@@ -39,6 +72,7 @@ server {
     # tự cập nhật sau deploy (sự cố 2026-09-21: shortcut iOS chạy bundle cũ, web bình thường).
     location = /index.html {
         add_header Cache-Control "no-cache, no-store, must-revalidate";
+        include snippets/pps-security-headers.conf;
     }
 
     location / {
