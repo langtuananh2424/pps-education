@@ -167,13 +167,11 @@ public class ReflexSequentialGradingService {
         }
         Curriculum curriculum = question.getReviewVideo().getReviewVideoSet().getCurriculum();
         // Định tuyến theo CHÍNH rubricVersion của dòng (không theo cờ hiện tại): 1 câu đã chấm viết bằng v2 thì
-        // bước nói cũng phải v2 (cần điểm Ngữ pháp khoá + số lỗi đỏ) dù cờ có bị đổi giữa chừng.
+        // bước nói cũng phải v2 (cần điểm Ngữ pháp Bước 1 làm sàn + bài viết làm mốc so đọc lệch) dù cờ có bị đổi giữa chừng.
         Optional<ReflexV2Task> v2Task = "v2".equals(progress.getRubricVersion()) ? reflexV2Task(curriculum, question, true) : Optional.empty();
         if (v2Task.isPresent() && progress.getWritingLockedGrammarPercent() != null) {
-            ReflexV2AiGradingService.LockedGrammar locked = new ReflexV2AiGradingService.LockedGrammar(
-                    progress.getWritingLockedGrammarPercent().intValue(),
-                    progress.getWritingRedErrorCount() == null ? 0 : progress.getWritingRedErrorCount(),
-                    progress.getAnswerText());
+            ReflexV2AiGradingService.Step1Anchor locked = new ReflexV2AiGradingService.Step1Anchor(
+                    progress.getWritingLockedGrammarPercent().intValue(), progress.getAnswerText());
             // ReflexAudioRejectedException (bản ghi không đọc được / nói khác bài viết) ném thẳng ra → HTTP 422,
             // giao dịch rollback nên KHÔNG tính lượt nộp và KHÔNG ghi điểm. Chi phí từng lượt AI được ghi qua sink
             // ngay khi AI trả về — kể cả khi sau đó bị từ chối / parse lỗi (recorder chạy REQUIRES_NEW nên không
@@ -256,7 +254,8 @@ public class ReflexSequentialGradingService {
 
     /**
      * Luồng v2 (2026-09-21, đã xác nhận với người dùng) — điểm Bước 1 = trung bình các tiêu chí chấm ở bước
-     * viết; điểm Ngữ pháp KHOÁ + số lỗi đỏ lưu lại cho bước nói. {@code writingFeedback} chứa nhận xét 2 câu
+     * viết; điểm Ngữ pháp Bước 1 + số lỗi đỏ lưu lại cho bước nói (từ 23/9 chỉ làm sàn điểm, không còn
+     * khoá — xem {@link ReflexV2AiGradingService}). {@code writingFeedback} chứa nhận xét 2 câu
      * của AI cộng câu giải thích cổng chặn (backend soạn). Câu đã sửa (V141) sinh ở lệnh gọi RIÊNG và chỉ
      * khi đã nộp từ lần thứ 3 mà vẫn chưa đạt — đúng điều kiện FE mới hiện.
      */

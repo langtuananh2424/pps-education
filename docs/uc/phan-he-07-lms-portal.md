@@ -1035,6 +1035,36 @@ UC-24: Làm bài kiểm tra trực tuyến
 > tuyến theo `reflex_question_progress.rubric_version`, không theo cờ hiện
 > tại.
 
+> **Cập nhật theo bản bàn giao 26/9/2026 của người training (2026-09-28,
+> ĐÈ LÊN mô tả "Ngữ pháp KHOÁ" ở đoạn V185 phía trên)** — không có migration
+> mới, chỉ đổi rubric + cách tính điểm ở backend:
+> (a) Từ 23/9 điểm Ngữ pháp KHÔNG còn khoá từ Bước 1: lượt chấm nói chấm lại
+> CẢ tiêu chí Ngữ pháp từ transcript (nạp thêm rubric Bước 1), trần 60% nếu
+> bài NÓI có ≥2 lỗi đỏ, rồi áp SÀN = nửa điểm Ngữ pháp Bước 1 làm tròn xuống
+> bội 5 (không áp sàn khi không nói được gì; sàn chạy SAU mọi trần theo lỗi để
+> một lỗi không bị phạt hai lần). Cột `writing_locked_grammar_percent` giữ tên
+> cũ nhưng nay là mốc sàn; cơ chế "lỗi đỏ mới khi nói" (`new_red_errors`)
+> không còn dùng.
+> (b) Lỗi đỏ tính bằng 3 lỗi nhẹ (trước là 2) ở mọi checkpoint đếm lỗi.
+> (c) Backend tự tính các trần từ transcript, KHÔNG hỏi AI: mỗi tiêu chí không
+> vượt quá `100 − 10×lỗi nhẹ − 20×lỗi nặng` của chính nó; Phát âm/Từ vựng/Trôi
+> chảy/Diễn ngôn tối đa 90%; Diễn ngôn/Trôi chảy không quá Ngữ pháp + 40; trần
+> độ rộng từ vựng (số từ nội dung khác nhau trên mỗi giây đề cho); trần trôi
+> chảy theo từ đệm (kể cả `à`, `ờ`), tự sửa và khoảng dừng dài nhất; cổng độ
+> dài Part 2 (nói ≥45 giây HOẶC ≥60 từ là đủ, ngược lại Trôi chảy ≤60%, Từ
+> vựng ≤80% — model bị cấm tự áp cổng C3); dải Phát âm theo tỷ lệ từ đọc lệch
+> so với BÀI VIẾT BƯỚC 1 (so theo bộ khung phụ âm, từ nói thêm không bị tính);
+> trần Phát âm 80% khi không có bằng chứng (đánh đổi đã biết: học sinh Part 2
+> phát âm thật sự tốt cũng bị chặn ở 80%; muốn bỏ thì đặt
+> `ReflexV2Scoring.NO_EVIDENCE_P_CAP = 100`). Chi tiết từng trần và bằng chứng
+> lưu ở `speaking_audit` (`caps`, `lexical`, `fluency`, `length`, `readback`).
+> (d) Câu "Lỗi nặng nhất" trong nhận xét chỉ xuất hiện khi bài CÓ lỗi được tô;
+> sai thì mà đề đã ấn định (VD đề hỏi quá khứ, trả lời hiện tại) là lỗi NẶNG;
+> dùng lại từ của câu hỏi không còn bị trừ (chỉ không tính khi chép nguyên câu
+> hỏi). Tồn đọng người training đã nêu: Phát âm còn dao động giữa các lượt
+> chấm cùng một file (lượt phiên âm khi trung thực khi làm mượt) và một số bài
+> dài vẫn ra Phát âm cao hơn giáo viên — xem `CALIBRATION.md` của bộ tiêu chí.
+
 > **Bổ sung V191 (2026-09-21, đã xác nhận với người dùng) — giáo viên
 > nghe lại audio + xem kết quả AI chấm THEO TỪNG LẦN LÀM, và xuất toàn bộ
 > dữ liệu để tiếp tục train AI.** `reflex_question_progress` SỬA ĐÈ tại

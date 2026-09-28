@@ -127,7 +127,8 @@ class HtmlMergeEngine {
                 .filter(m -> m.getFieldType() == ReportTemplateFieldMapping.FieldType.FIELD).toList();
         for (ReportTemplateFieldMapping mapping : fieldMappings) {
             if (result.contains(mapping.getPlaceholderKey())) {
-                String value = PlaceholderValueResolver.resolveField(mapping, context);
+                // Giá trị nhiều dòng (VD HOMEWORK_CONTENT) — HTML bỏ qua "\n", đổi sang <br/> để xuống dòng thật.
+                String value = PlaceholderValueResolver.resolveField(mapping, context).replace("\n", "<br/>");
                 result = result.replace(mapping.getPlaceholderKey(), value);
             }
         }

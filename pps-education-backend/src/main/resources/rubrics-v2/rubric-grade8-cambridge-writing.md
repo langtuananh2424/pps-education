@@ -27,9 +27,9 @@ Tiếng Việt chêm vào được tính trong G5.
 |-|-|-|-|-|
 |G1|Số **loại** cấu trúc phức khác nhau dùng đúng|≥3|1–2|0|
 |G2|Tỷ lệ động từ chính có chủ ngữ chia đúng thì và dạng. **Mẫu số chỉ gồm động từ có chủ ngữ rõ ràng**: câu thiếu hẳn chủ ngữ ("Behind them have many tree", "Play ball") **không vào mẫu số** — lỗi đó đã tính một lần ở checkpoint đếm lỗi|≥85%|70–84%|<70%, hoặc <3 động từ có chủ ngữ|
-|G3|Số từ nội dung tiếng Anh khác nhau, đúng chủ đề (không tính từ câu hỏi, từ lặp, từ không nhận ra)|≥18|11–17|≤10|
+|G3|Số từ nội dung tiếng Anh khác nhau, đúng chủ đề (không tính từ lặp, từ không nhận ra). Từ lấy lại từ câu hỏi **VẪN tính** khi nằm trong câu trả lời của học sinh — dùng lại chủ đề/khung thời gian của đề ("with my family", "at the weekend") là cách trả lời tự nhiên, không phải nghèo từ. Chỉ không tính khi học sinh **chép nguyên câu hỏi** thay cho câu trả lời|≥18|11–17|≤10|
 |G4|Số collocation / phrasal verb / cụm cố định dùng đúng|≥3|1–2|0|
-|G5|Tổng số lỗi ngữ pháp + dùng từ + cụm tiếng Việt chêm vào (lỗi đỏ tính 2, lỗi vàng tính 1)|0–2|3–5|≥6|
+|G5|Tổng số lỗi ngữ pháp + dùng từ + cụm tiếng Việt chêm vào (lỗi đỏ tính 3, lỗi vàng tính 1)|0–2|3–5|≥6|
 
 ## §4. Bài neo — đề mẫu "Do you prefer spending time with your friends or with your family? Why?"
 

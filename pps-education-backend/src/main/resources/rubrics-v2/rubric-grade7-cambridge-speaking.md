@@ -17,7 +17,7 @@
 |-|-|-|-|
 |**C1 — Lạc đề / vô nghĩa**|Không trả lời câu hỏi, nói đùa, ghép từ không tạo thông điệp|**Phần lớn bài** không liên quan tới nội dung mô tả ảnh được gửi kèm (kể cả khi câu cú trôi chảy), nói đùa, ghép từ không tạo thông điệp|**DM trần 20%**|
 |**C2 — Không nghe ra**|>25% số từ là `[?]`/lằng nhằng/phát âm sai không nhận ra|như SHORT|**P trần 40%**. >50% → **P trần 20%**|
-|**C3 — Quá ngắn**|<15 từ tiếng Anh nhận ra được|<30 từ tiếng Anh nhận ra được|**DM và P trần 40%**|
+|**C3 — Quá ngắn**|<15 từ tiếng Anh nhận ra được|<18 từ tiếng Anh nhận ra được|**DM và P trần 40%**|
 ||<5 từ|<12 từ|**0%**|
 
 Không có cổng "đọc thuộc": nói trôi chảy, đều nhịp **không bị trừ điểm vì nghi đọc thuộc**.
@@ -26,6 +26,8 @@ Không có cổng "đọc thuộc": nói trôi chảy, đều nhịp **không b�
 
 ## §3. Checkpoint — mỗi ô 1 / 0,5 / 0
 
+> **Mức kỳ vọng của khối 7 với dạng ảnh (23/9/2026, phòng đào tạo):** học sinh mới học miêu tả chung theo khung **AEE / AREA** — nêu tổng quan, 2–3 chi tiết, câu ngắn. **Bốn câu ngắn đúng và đủ ý là đạt tối đa.** Không chấm theo chuẩn bài PET Speaking Task 2 đầy đủ (nói liên tục 60 giây, nhiều mệnh đề phức).
+>
 > "Mở rộng ý" và "phương tiện liên kết" theo quy tắc chung §B.12–B.13. Checkpoint tỷ lệ theo §B.8. Bài chạm cổng C3 theo §B.9.
 
 ### DM — Discourse Management
@@ -33,10 +35,10 @@ Không có cổng "đọc thuộc": nói trôi chảy, đều nhịp **không b�
 |#|Checkpoint|SHORT: 1 / 0,5 / 0|PICTURE: 1 / 0,5 / 0|
 |-|-|-|-|
 |D1|Câu mở đầu. **Phải là câu hoàn chỉnh** (§B.10): cụm không có động từ ("At home.", "In the park.") → 0. Câu **thiếu chủ ngữ** kiểu "In the picture have a park", "Here have many people" cũng → 0 (dịch thẳng từ *có* trong tiếng Việt)|Trả lời thẳng trọng tâm câu hỏi / vòng vo 1 câu rồi mới trúng / không trả lời trúng|Nêu **tổng quan** ảnh — ít nhất hai trong ba yếu tố *nơi chốn / có ai / đang làm gì* / chỉ nêu một yếu tố / không nêu tổng quan, vào thẳng chi tiết lẻ|
-|D2|Số từ tiếng Anh nhận ra được|≥35 / 20–34 / <20|≥70 / 40–69 / <40|
-|D3|SHORT: số lần **mở rộng ý** (§B.12). PICTURE: số **thuộc tính hoặc phỏng đoán** gắn vào một đối tượng đã nêu — màu sắc, số lượng, kích thước, trang phục, thời tiết, cảm xúc, hoặc suy đoán (*maybe…*, *I think…*, *it looks like…*)|≥2 / 1 / 0|≥4 / 2–3 / ≤1|
-|D4|Số phương tiện liên kết **khác nhau** dùng đúng chức năng (§B.13). **PICTURE tính thêm nhóm vị trí**: on the left, on the right, in the middle, behind, next to, in front of, at the back|≥3 / 2 / ≤1|≥4 thuộc ≥2 nhóm / 2–3 / ≤1|
-|D5|Khoảng im lặng dài nhất **và** số ý bị lặp nguyên si|≤3 giây và 0 ý lặp / 4–6 giây hoặc 1 ý lặp / >6 giây hoặc ≥2 ý lặp|≤4 giây và ≤1 ý lặp / 5–7 giây hoặc 2 ý lặp / >7 giây hoặc ≥3 ý lặp|
+|D2|Số từ tiếng Anh nhận ra được. **PICTURE khối 7 theo chuẩn AREA/AEE cơ bản: 4 câu ngắn đúng là đạt** — không đòi bài PET Task 2 đầy đủ của người lớn|≥35 / 20–34 / <20|≥35 / 18–34 / <18|
+|D3|SHORT: số lần **mở rộng ý** (§B.12). PICTURE: số **thuộc tính hoặc phỏng đoán** gắn vào một đối tượng đã nêu — màu sắc, số lượng, kích thước, trang phục, thời tiết, cảm xúc, hoặc suy đoán (*maybe…*, *I think…*, *it looks like…*)|≥2 / 1 / 0|≥2 / 1 / 0|
+|D4|Số phương tiện liên kết **khác nhau** dùng đúng chức năng (§B.13). **PICTURE tính thêm nhóm vị trí**: on the left, on the right, in the middle, behind, next to, in front of, at the back|≥3 / 2 / ≤1|≥2 / 1 / 0|
+|D5|Khoảng im lặng dài nhất, số ý bị lặp nguyên si, **và số chỗ ngập ngừng** (từ đệm `um`/`uh`/`na`, nói vấp, tự sửa — đếm trong transcript; ≥4 chỗ → ô này tối đa 0,5; ≥7 chỗ → 0)|≤3 giây và 0 ý lặp / 4–6 giây hoặc 1 ý lặp / >6 giây hoặc ≥2 ý lặp|≤4 giây và ≤1 ý lặp / 5–7 giây hoặc 2 ý lặp / >7 giây hoặc ≥3 ý lặp|
 
 **PICTURE — chống chấm lỏng ở D3.** Hai thứ **không** tính là thuộc tính/phỏng đoán:
 - Liệt kê đồ vật trần trụi: "I see a tree, a dog, a car" = **một** ý, không phải ba.
@@ -50,12 +52,23 @@ Phải liệt kê từng thuộc tính/phỏng đoán rồi mới đếm; số �
 > - **P2 (âm cuối):** chỉ tính mất âm cuối khi **transcript cho thấy điều đó** — từ ghi thiếu phụ âm cuối (fren, hep, understan, depen) hoặc thiếu -s/-es/-ed mà ngữ cảnh đòi hỏi. Từ ghi đúng chính tả → đã bật đủ âm cuối. **Mẫu số** = mọi lượt xuất hiện của từ tiếng Anh kết thúc bằng phụ âm khi nói (kể cả /g/, /l/, /p/, /m/, /n/…; lặp lại tính mỗi lượt; từ vỡ mảnh tính 1; không tính từ tiếng Việt).
 > - **P3 (trọng âm):** chỉ tính sai khi transcript ghi từ bị tách/biến dạng âm tiết (tog-da, bat-min-tun, in-tơ-res-ting). Từ ≥2 âm tiết ghi đúng chính tả → đúng trọng âm.
 > - **Một từ vỡ thành nhiều mảnh** ("bat minet tum", "bot cus") = **MỘT** từ phát âm sai, kể cả khi tính tỷ lệ P1.
-> - **Danh sách `suspect_words` do lượt phiên âm gửi kèm là bằng chứng ngang hàng với transcript.** Mọi từ trong danh sách đó — **kể cả từ đã ghi đúng chính tả** (dạng `tink→think`, `fren→friend`) — đều tính là **phát âm sai** ở P1, P2 và P4. **Trừ** các mục chỉ khác nhau ở đuôi chia động từ (`make→makes`, `relax→relaxed`) — đó là lỗi ngữ pháp, bỏ qua ở đây, không trừ hai lần. Không có danh sách thì mới chỉ dựa vào chính tả trong transcript.
+> - **Danh sách `suspect_words` (quy tắc phiên âm v4) = từ phát âm lệch NHƯNG NHẬN RA**, đã ghi chính tả chuẩn trong transcript (dạng `scoo→school`). Các từ này **tính là nhận ra ở P1**; chỉ trừ ở P2 nếu độ lệch là mất âm cuối / thiếu -s danh từ, ở P4 nếu là thay âm. **Mỗi lỗi chỉ trừ ở một checkpoint.** Từ ghi theo âm trong transcript, `[?]` = không nhận ra → trừ ở P1. Mục chỉ khác ở đuôi chia động từ (`make→makes`) là lỗi ngữ pháp → bỏ qua.
 > - **P5** là checkpoint duy nhất chấm bằng tai: ≥1 chỗ nhấn đúng từ khoá **và** ≥1 chỗ lên/xuống giọng phục vụ nghĩa → 1; chỉ một trong hai → 0,5; đều đều cả bài → 0.
 
+> **BẮT BUỘC — đếm bằng chứng phát âm trước khi cho điểm** (ghi vào `counting_notes`):
+> 1. Liệt kê **mọi từ trong transcript không đúng chính tả chuẩn** — `Zis`, `produc`, `fren`, `chip`, `bát-mi`, `[?]`. Đây là bằng chứng học sinh phát âm lệch: lượt phiên âm chỉ ghi khác chính tả khi **nghe thấy** âm bị thiếu hoặc bị thay.
+> 2. Tách danh sách đó thành: **mất âm cuối** (`produc`, `fren`, `chip`) và **thay âm** (`Zis` = /ð/→/z/, `wis` = /θ/→/s/).
+> 3. **Nghe audio**: chỗ nào người nghe phải căng tai hoặc đoán mới hiểu — dù transcript ghi đúng chính tả — cũng cộng vào danh sách.
+>
+> **Trần theo bằng chứng (áp cho cả tiêu chí Phát âm, sau khi tính checkpoint):**
+> - ≥2 từ lệch → Phát âm **tối đa 80%**
+> - ≥4 từ lệch → **tối đa 60%**
+> - ≥6 từ lệch → **tối đa 40%**
+>
+> Ghi trần này vào `cap_percent` của tiêu chí Phát âm. **Bài có từ ghi theo âm trong transcript thì không bao giờ được 100% Phát âm.**
 |#|Checkpoint|SHORT: 1 / 0,5 / 0|PICTURE: 1 / 0,5 / 0|
 |-|-|-|-|
-|P1|Tỷ lệ **từ nội dung** nhận ra ngay. **Mẫu số chỉ gồm từ nội dung** (danh từ, động từ chính, tính từ, trạng từ — §B.11): **không** tính từ chức năng (a, the, and, is, I, my, to, at, when, not, very…), tên riêng, con số. Từ ghi đúng chính tả nhưng lệch với bài viết (§A.4b) **cũng không tính là nhận ra**. **Mọi từ viết sai chính tả trong transcript (tink, fren, lai, ham…) KHÔNG tính là nhận ra**; `[?]` và chuỗi lằng nhằng cũng không tính. **Chỉ tính từ tiếng Anh**: không tính từ tiếng Việt, từ đệm (um/uh/ờ) và `(...Ns)`.|≥90% / 75–89% / <75%|như SHORT|
+|P1|Tỷ lệ **từ nội dung** nhận ra ngay. **Từ trong `suspect_words` (lệch nhưng nhận ra) TÍNH LÀ NHẬN RA.** **Mẫu số chỉ gồm từ nội dung** (danh từ, động từ chính, tính từ, trạng từ — §B.11): **không** tính từ chức năng (a, the, and, is, I, my, to, at, when, not, very…), tên riêng, con số. Từ ghi đúng chính tả nhưng lệch với bài viết (§A.4b) **cũng không tính là nhận ra**. **Mọi từ viết sai chính tả trong transcript (tink, fren, lai, ham…) KHÔNG tính là nhận ra**; `[?]` và chuỗi lằng nhằng cũng không tính. **Chỉ tính từ tiếng Anh**: không tính từ tiếng Việt, từ đệm (um/uh/ờ) và `(...Ns)`.|≥90% / 75–89% / <75%|như SHORT|
 |P2|Tỷ lệ bật đúng âm cuối cần có. **Mẫu số** = mọi lượt xuất hiện của từ tiếng Anh kết thúc bằng phụ âm khi nói (lặp lại tính mỗi lượt; từ vỡ mảnh tính 1; **không tính từ tiếng Việt**). Từ ghi đúng chính tả = đã bật đủ âm cuối|≥80% / 60–79% / <60%|như SHORT|
 |P3|Trọng âm đúng ở từ ≥2 âm tiết|≥85% **và** có ≥3 từ ≥2 âm tiết / 65–84%, **hoặc chỉ có 1–2 từ ≥2 âm tiết (dù đúng hết)** / <65%, hoặc không có từ ≥2 âm tiết vì nói quá ít|≥85% **và** có ≥6 từ ≥2 âm tiết / 65–84%, hoặc chỉ có 1–5 từ ≥2 âm tiết (dù đúng hết) / <65%|
 |P4|Số từ phát âm sai đến mức thành từ khác (§A.4b; đếm theo từng lượt xuất hiện) / phải đoán theo ngữ cảnh / thay âm kiểu tiếng Việt|≤1 / 2 / ≥3|≤2 / 3–4 / ≥5|
@@ -114,6 +127,7 @@ Chỉ dùng để kiểm tra chéo, **không chép vào đầu ra**. Vector = ch
 
 **Neo DM 30% · P 40% — DM [1,0,0,0,0.5] · P [1,0.5,0.5,0.5,0]**
 > Um (...4s) In the pak I see family. Um children. (...5s) Play ball. Um cây. Tree. Um they eat. (...4s) Sunny. Um one man sit. Um good.
+> **Từ 23/9/2026: điểm ngữ pháp KHÔNG còn khoá từ Bước 1.** Học sinh được quyền sửa lỗi khi nói, nên tiêu chí ngữ pháp được **chấm lại từ transcript** theo checkpoint trong file rubric Bước 1 (gửi kèm ở lượt này). Lỗi phát âm không phải lỗi ngữ pháp (§A.3); thiếu -s danh từ số nhiều tính ở Phát âm.
 - C3: 16 từ tiếng Anh nhận ra được → **DM và P trần 40%**.
 - D1: "In the pak I see family" là câu hoàn chỉnh, có nơi chốn + có ai → 1. D2: <40 từ → 0.
 - D3: "Sunny" đứng một mình, không nằm trong mệnh đề có động từ → không tính → 0. D4: 0.
