@@ -2546,7 +2546,19 @@ FIELD, tham chiếu cho bước 3 Main Flow — key công bố bởi resolver t�
     attendance_marks (điểm danh cấp buổi), student_comments (DAILY). Bảng
     động `[[TABLE:STUDENTS]]` là tên bảng DUY NHẤT được hỗ trợ, gồm 3
     field con STUDENT_NAME/ATTENDANCE_STATUS/STUDENT_COMMENT, sắp theo
-    tên học sinh A-Z.
+    tên học sinh A-Z. Cập nhật 2026-09-28: thêm ASSISTANT_TEACHER_NAME
+    (class_sessions.assistant_teacher_id, để trống nếu buổi không có trợ
+    giảng) và PRESENT_COUNT (Có mặt + Đi trễ + Về sớm); ABSENT_COUNT tính
+    cả Vắng có phép (ABSENT + EXCUSED). HS chưa điểm danh không nằm trong
+    cả 2 con số. Thêm ABSENT_STUDENT_NAMES (họ tên đúng nhóm HS của
+    ABSENT_COUNT, A-Z, cách nhau dấu phẩy), MISSING_HOMEWORK_STUDENT_NAMES
+    (HS có "BTVN buổi trước" kênh online Ngữ pháp/Nghe = "Chưa làm bài",
+    dùng đúng logic cột này ở bảng Nhận xét hàng ngày — nhập tay thắng,
+    fallback % tự động) và HOMEWORK_CONTENT (BTVN giao cho buổi sau, gộp
+    offline chữ tự do + tên Đề/Video online đã giao, bỏ trùng giữa các HS,
+    mỗi mục 1 dòng). Các key danh sách/trợ giảng để rỗng khi không có gì
+    (không coi là thiếu dữ liệu theo A1). Engine DOCX/HTML hỗ trợ giá trị
+    nhiều dòng (xuống dòng trong cùng ô).
 -   **STUDENT_PROFILE** (Hồ sơ học sinh) — StudentProfileReportDataResolver:
     students, users, parents, parent_student (is_primary_contact,
     is_financial_responsible).
