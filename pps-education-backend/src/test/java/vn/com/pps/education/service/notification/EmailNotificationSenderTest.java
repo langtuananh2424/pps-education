@@ -24,7 +24,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Kênh EMAIL — Hotline trong mẫu gửi Phụ huynh lấy theo số điện thoại Quản
+ * Kênh EMAIL — Hotline trong mẫu gửi Phụ huynh/Giáo viên lấy theo số điện thoại Quản
  * lý điểm trường của lớp, fallback về Hotline chung (env). Unit test thuần
  * (mock JavaMailSender + SiteManagerRepository), không chạm DB/SMTP.
  */
@@ -85,8 +85,26 @@ class EmailNotificationSenderTest {
     }
 
     @Test
-    void send_teacherTemplate_alwaysUsesEnvHotline() throws Exception {
-        String body = sendAndCaptureBody(Notification.NotificationType.EXAM_INTEGRITY_VIOLATION, Map.of("classId", 10L));
+    void send_teacherTemplate_usesSiteManagerPhoneOfClassSite() throws Exception {
+        when(siteManagerRepository.findActiveSiteManagerPhonesByClassId(10L)).thenReturn(List.of(SITE_MANAGER_PHONE));
+
+        String body = sendAndCaptureBody(Notification.NotificationType.HOMEWORK_DEADLINE_SUMMARY, Map.of("classId", 10L));
+
+        assertThat(body).contains(SITE_MANAGER_PHONE).doesNotContain(ENV_HOTLINE);
+    }
+
+    @Test
+    void send_teacherTemplate_fallsBackToEnvHotline_whenSiteHasNoManagerPhone() throws Exception {
+        when(siteManagerRepository.findActiveSiteManagerPhonesByClassId(11L)).thenReturn(List.of());
+
+        String body = sendAndCaptureBody(Notification.NotificationType.EXAM_INTEGRITY_VIOLATION, Map.of("schoolClassId", 11L));
+
+        assertThat(body).contains(ENV_HOTLINE).doesNotContain("{hotline}");
+    }
+
+    @Test
+    void send_siteManagerTemplate_alwaysUsesEnvHotline() throws Exception {
+        String body = sendAndCaptureBody(Notification.NotificationType.COMMENT_PENDING_APPROVAL, Map.of("classId", 10L));
 
         assertThat(body).contains(ENV_HOTLINE);
         verify(siteManagerRepository, never()).findActiveSiteManagerPhonesByClassId(anyLong());
