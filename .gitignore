@@ -61,6 +61,27 @@ pps-education-backend/test_sample_*.pdf
 security-lab/results/
 security-lab/*.csv
 
+# Load test chấm AI (Writing/Reflex): audio mẫu (~18MB, tạo lại được bằng
+# generate_*_audio.py) và cache Python.
+security-lab/__pycache__/
+security-lab/*.zip
+security-lab/reflex_speaking_audio/
+security-lab/reflex_ladder_audio/
+security-lab/reflex_audio_extracted/
+# SQL chứa username/mã học sinh THẬT (dữ liệu cá nhân) hoặc ID cứng của 1 lần
+# chạy cụ thể — chỉ giữ ở máy người chạy, KHÔNG đẩy lên repo.
+security-lab/sql_revoke_test_sessions.sql
+security-lab/sql_check_existing_attempts.sql
+security-lab/sql_cleanup_runs_*.sql
+security-lab/sql_delete_test_attempts.sql
+security-lab/sql_get_usernames_from_student_codes.sql
+security-lab/sql_force_update_question_*.sql
+security-lab/sql_check_question_locked.sql
+security-lab/sql_check_reflex_progress_now.sql
+security-lab/sql_export_reflex_progress_full.sql
+security-lab/sql_get_question_full_content.sql
+security-lab/sql_join_token_usage_with_loadtest.sql
+
 # Playwright E2E (e2e/) — output từng lần chạy, không phải nguồn chân lý.
 e2e/test-results/
 e2e/playwright-report/

@@ -108,6 +108,11 @@ spring:
 
 server:
   port: ${SERVER_PORT:8080}
+  # Rà soát bảo mật 2026-09-28 - lấy IP thật của người dùng từ X-Forwarded-For do Nginx đặt (Nginx lấy
+  # từ CF-Connecting-IP của Cloudflare, xem deploy/nginx/pps-security.conf). Tomcat chỉ tin header này khi
+  # request tới từ dải IP nội bộ (Nginx trên host -> container). Trước đây getRemoteAddr() luôn là IP
+  # gateway Docker -> login_attempts/audit log không có IP thật, không chặn được theo IP (LoginIpThrottle).
+  forward-headers-strategy: native
 
 # Health check cho Docker/Railway (NFR-TECH-06) - chỉ expose "health", không lộ
 # /actuator/env, /actuator/beans... ra ngoài (NFR-SEC-03)
@@ -127,6 +132,10 @@ app:
     brute-force:
       max-failed-attempts: 5
       lock-duration-minutes: 15
+      # Rà soát bảo mật 2026-09-28 - chặn đăng nhập sai hàng loạt theo IP (LoginIpThrottle). Rộng tay vì
+      # cả lớp học có thể dùng chung 1 IP công cộng.
+      ip-max-failed-attempts: ${LOGIN_IP_MAX_FAILED_ATTEMPTS:50}
+      ip-window-minutes: ${LOGIN_IP_WINDOW_MINUTES:15}
     google:
       # CSV client-id (Web/Mobile) dùng làm audience khi verify id_token (UC-01 A4).
       client-ids: ${GOOGLE_OAUTH_CLIENT_IDS:}
@@ -207,6 +216,12 @@ app:
       # R2 thật trên server production - xem R2StorageConfig). Để trống thì
       # giữ hành vi cũ (tự dựng URL R2 từ account-id).
       endpoint-url: ${R2_ENDPOINT_URL:}
+      # Rà soát bảo mật 2026-09-28 (đã xác nhận với người dùng) - file cá nhân (ảnh đại diện, bài nộp của
+      # Học sinh, mẫu/báo cáo đã sinh) chỉ đọc được qua URL có chữ ký, có hạn (xem MediaUrlSigner). Gốc URL
+      # mà trình duyệt gọi được và chuyển nguyên path + Host tới storage (production: https://files.
+      # ppsvietnam.edu.vn, Nginx proxy /pps-media/* vào MinIO). Để trống = tắt ký, URL trả nguyên (máy dev/CI).
+      signed-url-endpoint: ${R2_SIGNED_URL_ENDPOINT:}
+      signed-url-ttl-minutes: ${R2_SIGNED_URL_TTL_MINUTES:60}
   youtube:
     # UC-73 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-14) - dùng YouTube Data API v3
     # (videos.list?part=contentDetails) để tự động dò durationSeconds cho video import hàng loạt qua

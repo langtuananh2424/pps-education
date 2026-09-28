@@ -20,6 +20,8 @@ import vn.com.pps.education.exception.InvalidWebhookSecretException;
 import vn.com.pps.education.security.AuthenticatedUser;
 import vn.com.pps.education.service.InvoiceService;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.List;
 
 /** UC-30: Xem hóa đơn & thanh toán học phí (FR-FIN-01, FR-FIN-02) — xem Javadoc InvoiceService. */
@@ -68,12 +70,27 @@ public class InvoiceController {
      * X-Webhook-Secret (app.finance.bank-webhook-secret).
      */
     @PostMapping("/api/webhooks/bank-payment")
-    public ResponseEntity<PaymentResponse> confirmBankWebhook(@RequestHeader("X-Webhook-Secret") String secret,
+    public ResponseEntity<PaymentResponse> confirmBankWebhook(@RequestHeader(value = "X-Webhook-Secret", required = false) String secret,
                                                                  @Valid @RequestBody BankWebhookPaymentRequest request) {
-        if (!bankWebhookSecret.equals(secret)) {
+        if (!isValidWebhookSecret(secret)) {
             throw new InvalidWebhookSecretException("error.invalidWebhookSecret.default", new Object[]{},
                     "Webhook secret không hợp lệ.");
         }
         return ResponseEntity.ok(invoiceService.confirmBankWebhook(request));
+    }
+
+    /**
+     * Rà soát bảo mật 2026-09-28: (1) secret chưa cấu hình (rỗng) hoặc còn là giá trị mẫu mặc định
+     * trong application.yml -> TẮT webhook (từ chối mọi request) thay vì chấp nhận secret ai cũng biết;
+     * (2) so sánh thời gian hằng (MessageDigest.isEqual) để không dò được secret qua thời gian phản hồi.
+     */
+    private boolean isValidWebhookSecret(String provided) {
+        if (bankWebhookSecret == null || bankWebhookSecret.isBlank() || bankWebhookSecret.startsWith("CHANGE_THIS")
+                || provided == null) {
+            return false;
+        }
+        return MessageDigest.isEqual(
+                bankWebhookSecret.getBytes(StandardCharsets.UTF_8),
+                provided.getBytes(StandardCharsets.UTF_8));
     }
 }

@@ -570,6 +570,27 @@ public class NineRouterAiClient {
      * <p>Package-private (không private) để {@code NineRouterAiClientUsageTest} kiểm được từng shape
      * provider: dò sai tên field sẽ khiến số luôn ra 0 và dẫn tới kết luận ngược ("cache không chạy"),
      * mà lỗi kiểu này không hề lộ ra lúc chạy — log vẫn in đẹp, chỉ là in số sai.
+     *
+     * <p><b>XÁC NHẬN 2026-09-23 (đã gọi tay qua {@code /v1/chat/completions}, xem load test Writing ở
+     * {@code security-lab/loadtest_writing_submissions.py})</b> — KHÔNG PHẢI trường hợp "dò sai tên field"
+     * nói trên: trang Dashboard 9Router (biểu đồ request) báo cache thật rất cao (~81% — hợp lý vì load
+     * test gửi lặp lại system prompt + nội dung bài y hệt hàng chục lần), nhưng trang "Sử dụng token AI"
+     * của app lại luôn ra 0%. Gọi tay {@code /v1/chat/completions} 2 lần liên tiếp (cách nhau 2 giây) với
+     * ĐÚNG 1 system prompt dài ~1400 token giống hệt nhau — để ép cache hit ở lần gọi thứ 2 — nhưng
+     * {@code usage} ở CẢ 2 lần đều KHÔNG có bất kỳ field nào trong 3 field ở trên (không
+     * {@code prompt_tokens_details}, không {@code cache_read_input_tokens}, không
+     * {@code cachedContentTokenCount}), chỉ có {@code prompt_tokens}/{@code completion_tokens}/
+     * {@code total_tokens}/{@code completion_tokens_details.reasoning_tokens}.
+     *
+     * <p>Kết luận: endpoint {@code /v1/chat/completions} (OpenAI-compatible) của 9Router KHÔNG BAO GIỜ trả
+     * thông tin cache qua {@code usage}, dù cache có xảy ra thật hay không — số cache hiển thị trên
+     * Dashboard 9Router được 9Router tự tính/lưu nội bộ, KHÔNG đi qua API response mà client (app này)
+     * nhận được. Vì vậy hàm này sẽ MÃI MÃI trả 0 cho mọi lượt gọi qua {@link #chatWithFinishReason}/
+     * {@link #doChatWithMeta} bất kể cache thật có xảy ra không — không phải bug ở hàm này hay sai tên
+     * field, mà là giới hạn của chính 9Router API. Trang "Sử dụng token AI" của app do đó KHÔNG BAO GIỜ
+     * phản ánh đúng % cache thật — muốn có số đúng phải lấy từ Dashboard 9Router (hoặc 1 API
+     * analytics/usage riêng của 9Router, nếu có, KHÁC {@code /v1/chat/completions}) chứ không sửa được
+     * bằng cách thêm tên field mới vào hàm này.
      */
     int extractCachedTokens(JsonNode usage) {
         JsonNode openAiStyle = usage.path("prompt_tokens_details").path("cached_tokens");

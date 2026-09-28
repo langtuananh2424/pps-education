@@ -13,6 +13,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import vn.com.pps.education.service.AccountStatusService;
 
 import java.io.IOException;
 import java.util.List;
@@ -28,9 +29,11 @@ import java.util.List;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
+    private final AccountStatusService accountStatusService;
 
-    public JwtAuthenticationFilter(JwtService jwtService) {
+    public JwtAuthenticationFilter(JwtService jwtService, AccountStatusService accountStatusService) {
         this.jwtService = jwtService;
+        this.accountStatusService = accountStatusService;
     }
 
     @Override
@@ -48,6 +51,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         roles.stream().map(r -> (GrantedAuthority) new SimpleGrantedAuthority("ROLE_" + r)).toList();
 
                 Long userId = claims.get("uid", Long.class);
+                // Rà soát bảo mật 2026-09-28: token hợp lệ nhưng tài khoản đã bị vô hiệu hoá -> coi như
+                // chưa đăng nhập (401), không đợi token hết hạn. Xem AccountStatusService.
+                if (!accountStatusService.isActive(userId)) {
+                    SecurityContextHolder.clearContext();
+                    filterChain.doFilter(request, response);
+                    return;
+                }
                 AuthenticatedUser principal = new AuthenticatedUser(userId, claims.getSubject());
                 var authToken = new UsernamePasswordAuthenticationToken(principal, null, authorities);
                 SecurityContextHolder.getContext().setAuthentication(authToken);
