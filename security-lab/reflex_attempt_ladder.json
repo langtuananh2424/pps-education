@@ -1,0 +1,75 @@
+{
+  "_ghi_chu": "Bac thang 3 lan cho moi cau Reflex (assignment 14): viet lan 1 = dung chu de nhung nhieu loi ngu phap (truot), lan 2 = sua gan het con ~2 loi (van truot), lan 3 = chuan (dat). Phan NOI doc lai DUNG bai viet lan 3 (bat buoc cua Reflex V2, khac noi dung -> 422) voi do troi chay tang dan: xem generate_ladder_audio.py. Cap nhat 2026-09-24 sau luot thu: lan 2 tang tu ~2 len 6-7 loi (2 loi -> 80%, 4 loi -> 75%, deu dat som), noi lan 3 doi sang giong tieng Anh en-US-AnaNeural (giong Viet doc tieng Anh bi tru diem Phat am ~60-65% du luu loat).",
+  "46": {
+    "question": "Do you have any hobbies?",
+    "writing": [
+      "Yes, I have. I is like playing badminton with my friend. She play very good and we is happy when we playing together.",
+      "Yes, I do. My favourite hobby is play badminton. I usually plays it with my friend after school, two time a week. I really enjoys it because it help me stay healthy and relax after study.",
+      "Yes, I do. My favourite hobby is playing badminton. I usually play it with my friends after school, twice a week. I really enjoy it because it helps me stay healthy."
+    ]
+  },
+  "47": {
+    "question": "Do you have the same hobbies as your family members?",
+    "writing": [
+      "No, my family is have different hobby. My father like fishing but I doesn't like it. We is different and we not do same thing.",
+      "Not exactly. My father enjoy fishing on weekend, while my mother prefer gardening. I don't really shares those hobby, but we all enjoys watching movie together every Sunday evening.",
+      "Not exactly. My father enjoys fishing on weekends, while my mother prefers gardening. I don't really share those hobbies, but we all enjoy watching movies together as a family every Sunday evening."
+    ]
+  },
+  "48": {
+    "question": "Are there any differences between the activities you liked when you were a child and those you like now?",
+    "writing": [
+      "Yes, is have differences. When I is child I liked toy car. Now I likes sport and reading more better than before.",
+      "Yes, definitely. When I was a child, I love play with toy cars and building block. Nowadays, I prefers more active hobbies like play badminton and read books, because my interests has changed a lot.",
+      "Yes, definitely. When I was a child, I loved playing with toy cars and building blocks. Nowadays, I prefer more active hobbies like playing badminton and reading books, because I've grown up and my interests have changed a lot."
+    ]
+  },
+  "49": {
+    "question": "Do you usually spend your days off with your parents or with your friends?",
+    "writing": [
+      "I usually spends day off with my friend. We is play badminton in park. My parents also I spend time sometimes on Sunday.",
+      "I usually spend my day off with my friends. We often goes to the park to playing badminton or just hanging out and chat. However, I also try to spending some time with my parent on Sunday evening.",
+      "I usually spend my days off with my friends. We often go to the park to play badminton or just hang out and chat. However, I also try to spend some time with my parents, especially having dinner together on Sunday evenings."
+    ]
+  },
+  "50": {
+    "question": "Have you ever posted anything on social media?",
+    "writing": [
+      "Yes, I posts sometimes. I posting photo from trip with my family. My friend is liking it very much and they is comment.",
+      "Yes, I have. I sometimes posts photo of my badminton matches or picture from family trip on social media. I enjoy share happy moments with my friend and seeing they reactions.",
+      "Yes, I have. I sometimes post photos of my badminton matches or pictures from family trips on social media. I enjoy sharing happy moments with my friends and seeing their reactions."
+    ]
+  },
+  "51": {
+    "question": "Do you think you spend too much time on social media?",
+    "writing": [
+      "Yes, I think I spends too much time. I uses phone every night and is hard to stop, so I sleeping late.",
+      "Honestly, I think I spends a bit too much times on social media, especially in the evening. I'm try to limit it now because I wants to focus more on study and spend time with my family.",
+      "Honestly, I think I do spend a bit too much time on social media, especially in the evenings. I'm trying to limit it now because I want to focus more on studying and spending time with my family instead."
+    ]
+  },
+  "52": {
+    "question": "Do you enjoy reading books?",
+    "writing": [
+      "Yes, I enjoys reading book. I reads adventure story every night and it make me happy very much.",
+      "Yes, I really enjoys reading book, especially adventure story and science fiction. Reading help me relax and also improve my vocabulary, so I try to reading a few page every night before bed.",
+      "Yes, I really enjoy reading books, especially adventure stories and science fiction. Reading helps me relax and also improves my vocabulary, so I try to read at least a few pages every night before bed."
+    ]
+  },
+  "53": {
+    "question": "Do you like listening to music?",
+    "writing": [
+      "Yes, I likes music very much. I listening pop song every day after school and it make me happy.",
+      "Yes, I loves listening to music, especially pop song in English. It help me feels relaxed after school, and I think it also help me improving my listening skill at the same time.",
+      "Yes, I love listening to music, especially pop songs in English. It helps me feel relaxed after school, and I think it also helps me improve my listening and pronunciation skills at the same time."
+    ]
+  },
+  "54": {
+    "question": "Are you into playing sports?",
+    "writing": [
+      "Yes, I is into sport. I plays badminton and football with my friend after school and is very fun.",
+      "Yes, I'm really into sport, especially badminton and football. I usually plays with my friend after school, and I think play sports help me stay fit and make me feels more confident.",
+      "Yes, I'm really into sports, especially badminton and football. I usually play with my friends after school, and I think playing sports helps me stay fit and also makes me feel more confident."
+    ]
+  }
+}
