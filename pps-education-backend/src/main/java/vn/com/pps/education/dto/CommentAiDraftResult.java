@@ -19,7 +19,12 @@ public record CommentAiDraftResult(
         List<SkippedStudent> skippedStudents
 ) {
 
-    public record Extraction(String classAttitude, List<String> classPoints, List<IndividualPoints> individuals) {
+    /**
+     * @param teacherPronoun đại từ giáo viên tự xưng ("thầy"/"cô") lấy từ lời nói/ghi chú — AI viết nhất quán
+     *                       theo đại từ này; {@code null} khi không xác định được (viết "thầy/cô").
+     */
+    public record Extraction(String classAttitude, List<String> classPoints, List<IndividualPoints> individuals,
+                             String teacherPronoun) {
     }
 
     public record IndividualPoints(Long studentId, String attitude, List<String> points, String evidence) {

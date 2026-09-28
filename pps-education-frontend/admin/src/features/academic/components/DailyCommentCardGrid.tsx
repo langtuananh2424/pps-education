@@ -100,6 +100,10 @@ export default function DailyCommentCardGrid({
               </div>
             </div>
 
+            {isAbsentLocked && (
+              <p className="text-[10px] font-bold text-red-600">{t("dailyCommentPanel.cardView.absentHint")}</p>
+            )}
+
             {sent?.status === "REJECTED" && sent.rejectionReason && (
               <p className="text-[10px] font-bold text-rose-600">{t("dailyCommentPanel.rejectionReasonHint", { reason: sent.rejectionReason })}</p>
             )}

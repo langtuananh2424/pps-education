@@ -40,6 +40,8 @@ interface Props {
   /** Điền vào form rồi gọi đúng "Lưu nháp" của UC-21 — quyền lưu cao nhất của trợ lý là DRAFT. */
   onApplyAndSaveDraft: (draft: CommentAiDraftResult) => Promise<string>;
   savingDraft: boolean;
+  /** Báo trạng thái đang chạy nền ra ngoài — nút nổi (AiAssistantFab) hiện vòng xoay khi sidebar đã đóng. */
+  onBusyChange?: (busy: boolean) => void;
 }
 
 function formatSeconds(total: number): string {
@@ -72,7 +74,8 @@ export default function CommentAiAssistantSidebar({
   isForeignSession,
   onApply,
   onApplyAndSaveDraft,
-  savingDraft
+  savingDraft,
+  onBusyChange
 }: Props) {
   const { t } = useTranslation("academic-comments");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -108,6 +111,11 @@ export default function CommentAiAssistantSidebar({
   }, [classSessionId]);
 
   useEffect(() => () => abortRef.current?.abort(), []);
+
+  useEffect(() => {
+    onBusyChange?.(busy);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busy]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -273,14 +281,14 @@ export default function CommentAiAssistantSidebar({
   const latestDraftMessageId = [...messages].reverse().find((m) => m.role === "assistant" && m.draft)?.id;
 
   return (
-    <div className="fixed inset-y-0 right-0 z-40 w-full sm:w-[420px] bg-white border-l border-slate-200 shadow-2xl flex flex-col">
+    <div className="fixed inset-y-0 right-0 z-40 w-full sm:w-[560px] xl:w-[640px] bg-white border-l border-slate-200 shadow-2xl flex flex-col">
       <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between gap-2 bg-slate-50">
         <div className="min-w-0">
-          <div className="flex items-center gap-1.5 text-sm font-bold text-slate-800">
-            <Bot className="w-4 h-4 text-violet-600" />
+          <div className="flex items-center gap-1.5 text-base font-bold text-slate-800">
+            <Bot className="w-5 h-5 text-violet-600" />
             {t("dailyCommentPanel.aiAssistant.title")}
           </div>
-          <p className="text-[10px] text-slate-400 truncate">{sessionLabel || t("dailyCommentPanel.aiAssistant.noSession")}</p>
+          <p className="text-xs text-slate-400 truncate">{sessionLabel || t("dailyCommentPanel.aiAssistant.noSession")}</p>
         </div>
         <button type="button" onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-500" aria-label={t("dailyCommentPanel.aiAssistant.close")}>
           <X className="w-4 h-4" />
@@ -288,22 +296,22 @@ export default function CommentAiAssistantSidebar({
       </div>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
-        <div className="text-xs text-slate-600 bg-violet-50 border border-violet-100 rounded-lg p-3 space-y-1.5">
+        <div className="text-sm text-slate-600 bg-violet-50 border border-violet-100 rounded-lg p-3 space-y-1.5">
           <p>{t("dailyCommentPanel.aiAssistant.intro")}</p>
-          <p className="text-[10px] text-violet-700">{t("dailyCommentPanel.aiAssistant.permissionNote")}</p>
+          <p className="text-xs text-violet-700">{t("dailyCommentPanel.aiAssistant.permissionNote")}</p>
         </div>
 
         {isForeignSession ? (
-          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg p-3">{t("dailyCommentPanel.aiAssistant.foreignSession")}</p>
+          <p className="text-sm text-amber-700 bg-amber-50 border border-amber-100 rounded-lg p-3">{t("dailyCommentPanel.aiAssistant.foreignSession")}</p>
         ) : (
           messages.length === 0 &&
           classSessionId && (
             <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={startRecording} disabled={recording} className="flex items-center gap-1.5 text-[11px] font-semibold border border-violet-200 text-violet-700 bg-white hover:bg-violet-50 rounded-full px-3 py-1.5">
+              <button type="button" onClick={startRecording} disabled={recording} className="flex items-center gap-1.5 text-[13px] font-semibold border border-violet-200 text-violet-700 bg-white hover:bg-violet-50 rounded-full px-3 py-1.5">
                 <Mic className="w-3.5 h-3.5" />
                 {t("dailyCommentPanel.aiAssistant.suggestions.record")}
               </button>
-              <button type="button" onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1.5 text-[11px] font-semibold border border-violet-200 text-violet-700 bg-white hover:bg-violet-50 rounded-full px-3 py-1.5">
+              <button type="button" onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1.5 text-[13px] font-semibold border border-violet-200 text-violet-700 bg-white hover:bg-violet-50 rounded-full px-3 py-1.5">
                 <Paperclip className="w-3.5 h-3.5" />
                 {t("dailyCommentPanel.aiAssistant.suggestions.upload")}
               </button>
@@ -314,14 +322,14 @@ export default function CommentAiAssistantSidebar({
         {messages.map((m) =>
           m.role === "teacher" ? (
             <div key={m.id} className="flex justify-end">
-              <div className="max-w-[85%] bg-brand-orange/10 border border-brand-orange/20 text-xs text-slate-800 rounded-2xl rounded-br-sm px-3 py-2 space-y-1.5">
+              <div className="max-w-[85%] bg-brand-orange/10 border border-brand-orange/20 text-sm text-slate-800 rounded-2xl rounded-br-sm px-3 py-2 space-y-1.5">
                 <p className="whitespace-pre-wrap">{m.text}</p>
                 {m.audioUrl && <audio controls src={m.audioUrl} className="w-full h-8" />}
               </div>
             </div>
           ) : (
             <div key={m.id} className="flex justify-start">
-              <div className={`max-w-[95%] w-full text-xs rounded-2xl rounded-bl-sm px-3 py-2 space-y-2 border ${m.error ? "bg-rose-50 border-rose-100 text-rose-700" : "bg-slate-50 border-slate-200 text-slate-700"}`}>
+              <div className={`max-w-[95%] w-full text-sm rounded-2xl rounded-bl-sm px-3 py-2 space-y-2 border ${m.error ? "bg-rose-50 border-rose-100 text-rose-700" : "bg-slate-50 border-slate-200 text-slate-700"}`}>
                 <p className="whitespace-pre-wrap">{m.text}</p>
                 {m.draft && (
                   <DraftCard
@@ -343,7 +351,7 @@ export default function CommentAiAssistantSidebar({
         )}
 
         {busy && (
-          <div className="flex items-center gap-2 text-xs text-slate-500">
+          <div className="flex items-center gap-2 text-sm text-slate-500">
             <Loader2 className="w-3.5 h-3.5 animate-spin" />
             {t("dailyCommentPanel.aiAssistant.working")}
           </div>
@@ -351,14 +359,14 @@ export default function CommentAiAssistantSidebar({
       </div>
 
       <div className="border-t border-slate-100 p-3 space-y-2">
-        {localError && <p className="text-[11px] text-rose-600">{localError}</p>}
+        {localError && <p className="text-[13px] text-rose-600">{localError}</p>}
         {recording && (
           <div className="flex items-center justify-between gap-2 bg-rose-50 border border-rose-100 rounded-lg px-3 py-2">
-            <span className="flex items-center gap-2 text-xs font-semibold text-rose-600">
+            <span className="flex items-center gap-2 text-sm font-semibold text-rose-600">
               <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
               {t("dailyCommentPanel.aiAssistant.recording", { elapsed: formatSeconds(recordSeconds), max: formatSeconds(MAX_AUDIO_SECONDS) })}
             </span>
-            <button type="button" onClick={() => stopRecording()} className="flex items-center gap-1 text-[11px] font-bold text-rose-700 hover:underline">
+            <button type="button" onClick={() => stopRecording()} className="flex items-center gap-1 text-[13px] font-bold text-rose-700 hover:underline">
               <Square className="w-3 h-3" />
               {t("dailyCommentPanel.aiAssistant.stopRecording")}
             </button>
@@ -404,7 +412,7 @@ export default function CommentAiAssistantSidebar({
             disabled={!classSessionId || isForeignSession}
             rows={2}
             placeholder={draft ? t("dailyCommentPanel.aiAssistant.inputPlaceholderRevise") : t("dailyCommentPanel.aiAssistant.inputPlaceholder")}
-            className="flex-1 bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none resize-none"
+            className="flex-1 bg-slate-50 border border-slate-200 text-sm p-2 rounded-lg focus:outline-none resize-none"
           />
           <button
             type="button"
@@ -456,23 +464,28 @@ function DraftCard({
   const nameById = new Map(draft.rows.map((r) => [r.studentId, r.studentFullName]));
   return (
     <div className={`space-y-2 ${active ? "" : "opacity-60"}`}>
-      <ul className="space-y-1.5 max-h-80 overflow-y-auto pr-1">
+      <p className="text-xs text-slate-500">
+        {draft.extraction?.teacherPronoun
+          ? t("dailyCommentPanel.aiAssistant.pronounDetected", { pronoun: draft.extraction.teacherPronoun })
+          : t("dailyCommentPanel.aiAssistant.pronounUnknown")}
+      </p>
+      <ul className="space-y-1.5 max-h-[28rem] overflow-y-auto pr-1">
         {draft.rows.map((r: CommentAiDraftRow) => (
           <li key={r.studentId} className="bg-white border border-slate-200 rounded-lg p-2 space-y-1">
             <div className="flex flex-wrap items-center gap-1">
               <span className="font-bold text-slate-800">{r.studentFullName}</span>
               {r.source === "INDIVIDUAL" && (
-                <span className="text-[9px] font-bold uppercase bg-brand-orange/10 text-brand-orange px-1.5 py-0.5 rounded">{t("dailyCommentPanel.aiAssistant.individualBadge")}</span>
+                <span className="text-[11px] font-bold uppercase bg-brand-orange/10 text-brand-orange px-1.5 py-0.5 rounded">{t("dailyCommentPanel.aiAssistant.individualBadge")}</span>
               )}
               {r.attitude ? (
-                <span className={`text-[9px] font-bold border px-1.5 py-0.5 rounded ${ATTITUDE_BADGE[r.attitude] ?? ""}`}>{t(`shared.attitudeWithPercent.${r.attitude}`)}</span>
+                <span className={`text-[11px] font-bold border px-1.5 py-0.5 rounded ${ATTITUDE_BADGE[r.attitude] ?? ""}`}>{t(`shared.attitudeWithPercent.${r.attitude}`)}</span>
               ) : (
-                <span className="text-[9px] text-slate-400 italic">{t("dailyCommentPanel.aiAssistant.noAttitude")}</span>
+                <span className="text-[11px] text-slate-400 italic">{t("dailyCommentPanel.aiAssistant.noAttitude")}</span>
               )}
             </div>
             <p className="text-slate-600 whitespace-pre-wrap">{r.content || "—"}</p>
             {r.warnings.map((w, i) => (
-              <p key={i} className="flex items-start gap-1 text-[10px] text-amber-700">
+              <p key={i} className="flex items-start gap-1 text-xs text-amber-700">
                 <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
                 {w.message}
               </p>
@@ -483,9 +496,9 @@ function DraftCard({
 
       {draft.unmatchedMentions.length > 0 && (
         <div className="bg-amber-50 border border-amber-100 rounded-lg p-2 space-y-1">
-          <p className="text-[10px] font-bold uppercase text-amber-700">{t("dailyCommentPanel.aiAssistant.unmatchedTitle")}</p>
+          <p className="text-xs font-bold uppercase text-amber-700">{t("dailyCommentPanel.aiAssistant.unmatchedTitle")}</p>
           {draft.unmatchedMentions.map((u, i) => (
-            <p key={i} className="text-[11px] text-amber-800">
+            <p key={i} className="text-[13px] text-amber-800">
               “{u.quote}”
               {u.candidateStudentIds.length > 0 &&
                 ` — ${t("dailyCommentPanel.aiAssistant.unmatchedCandidates", { names: u.candidateStudentIds.map((id) => nameById.get(id) ?? `#${id}`).join(", ") })}`}
@@ -495,33 +508,33 @@ function DraftCard({
       )}
 
       {draft.skippedStudents.length > 0 && (
-        <p className="text-[10px] text-slate-400">
+        <p className="text-xs text-slate-400">
           {t("dailyCommentPanel.aiAssistant.skipped", { names: draft.skippedStudents.map((s) => `${s.studentFullName} (${s.reason})`).join(", ") })}
         </p>
       )}
 
       {draft.transcript && active && (
         <div>
-          <button type="button" onClick={onToggleTranscript} className="flex items-center gap-1 text-[10px] font-bold text-slate-500 hover:text-slate-700">
+          <button type="button" onClick={onToggleTranscript} className="flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-slate-700">
             {showTranscript ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
             {t("dailyCommentPanel.aiAssistant.transcriptToggle")}
           </button>
-          {showTranscript && <p className="mt-1 text-[11px] text-slate-500 bg-white border border-slate-100 rounded p-2 whitespace-pre-wrap">{draft.transcript}</p>}
+          {showTranscript && <p className="mt-1 text-[13px] text-slate-500 bg-white border border-slate-100 rounded p-2 whitespace-pre-wrap">{draft.transcript}</p>}
         </div>
       )}
 
       {active && (
         <div className="space-y-1.5 pt-1">
           <div className="flex flex-wrap gap-1.5">
-            <button type="button" onClick={onApply} disabled={busy || savingDraft} className="flex items-center gap-1 text-[11px] font-semibold bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 rounded-full px-3 py-1.5 disabled:opacity-50">
+            <button type="button" onClick={onApply} disabled={busy || savingDraft} className="flex items-center gap-1 text-[13px] font-semibold bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 rounded-full px-3 py-1.5 disabled:opacity-50">
               <Table2 className="w-3.5 h-3.5" />
               {t("dailyCommentPanel.aiAssistant.actions.apply")}
             </button>
-            <button type="button" onClick={onSaveDraft} disabled={busy || savingDraft} className="flex items-center gap-1 text-[11px] font-semibold bg-brand-orange text-white hover:bg-brand-orange/90 rounded-full px-3 py-1.5 disabled:opacity-50">
+            <button type="button" onClick={onSaveDraft} disabled={busy || savingDraft} className="flex items-center gap-1 text-[13px] font-semibold bg-brand-orange text-white hover:bg-brand-orange/90 rounded-full px-3 py-1.5 disabled:opacity-50">
               <Save className="w-3.5 h-3.5" />
               {savingDraft ? t("dailyCommentPanel.savingDraft") : t("dailyCommentPanel.aiAssistant.actions.saveDraft")}
             </button>
-            <button type="button" onClick={onRewrite} disabled={busy || !draft.extraction} className="flex items-center gap-1 text-[11px] font-semibold bg-white border border-violet-200 text-violet-700 hover:bg-violet-50 rounded-full px-3 py-1.5 disabled:opacity-50">
+            <button type="button" onClick={onRewrite} disabled={busy || !draft.extraction} className="flex items-center gap-1 text-[13px] font-semibold bg-white border border-violet-200 text-violet-700 hover:bg-violet-50 rounded-full px-3 py-1.5 disabled:opacity-50">
               <RefreshCw className="w-3.5 h-3.5" />
               {t("dailyCommentPanel.aiAssistant.actions.rewrite")}
             </button>
@@ -533,7 +546,7 @@ function DraftCard({
                 type="button"
                 onClick={() => onQuickInstruction(t(`dailyCommentPanel.aiAssistant.quickInstructions.${key}`))}
                 disabled={busy}
-                className="text-[10px] text-slate-500 border border-dashed border-slate-300 rounded-full px-2.5 py-1 hover:bg-white disabled:opacity-50"
+                className="text-xs text-slate-500 border border-dashed border-slate-300 rounded-full px-2.5 py-1 hover:bg-white disabled:opacity-50"
               >
                 {t(`dailyCommentPanel.aiAssistant.quickInstructionLabels.${key}`)}
               </button>
