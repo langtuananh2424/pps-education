@@ -890,6 +890,29 @@ gpg --pinentry-mode loopback -d -o restored.dump production_pps_education_<ts>.d
 
 ### Kiểm tra định kỳ
 
+**Báo cáo 1 màn hình** cho cả backup DB lẫn media: `deploy/check-backups.sh`
+(chỉ đọc). Cài 1 lần:
+
+```bash
+REF=production   # hoac develop neu chua release
+sudo curl -fsSL https://raw.githubusercontent.com/langtuananh2424/pps-education/$REF/deploy/check-backups.sh -o /opt/pps-education/check-backups.sh
+sudo chown deploy:deploy /opt/pps-education/check-backups.sh && sudo chmod 750 /opt/pps-education/check-backups.sh
+```
+
+Chạy (nên xem mỗi tuần, và sau mỗi lần deploy/sửa script backup):
+
+```bash
+sudo /opt/pps-education/check-backups.sh
+```
+
+Kiểm tra 2 timer (đang bật, lần chạy cuối + kết quả, lần kế tiếp); mỗi stack
+DB có bản daily mới (< 26 giờ) và bản `.gpg` khớp; kết quả lần chạy cuối
+trong `backup.log` / `backup-media.log`; LV `/mnt/pps-backup` đang mount; dung
+lượng các ổ (cảnh báo từ 85%). Dòng `[!!]` là cảnh báo, dòng cuối tóm tắt số
+cảnh báo; exit code 1 nếu có cảnh báo.
+
+Kiểm tra lẻ bằng tay:
+
 - `systemctl status pps-db-backup.timer` — timer phải `active (waiting)`.
 - `journalctl -u pps-db-backup.service --since -7d` — không có dòng `LOI`.
 - **Test restore ít nhất mỗi quý** (backup không test = không đáng tin):
