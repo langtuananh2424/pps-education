@@ -302,6 +302,24 @@ app:
       # ffmpeg chuyển webm/mp4 -> WAV để đo tiếng nói (bộ chặn transcript bịa). Không có ffmpeg thì bộ chặn không chạy.
       ffmpeg-path: ${REFLEX_V2_FFMPEG_PATH:ffmpeg}
       ffmpeg-timeout-seconds: ${REFLEX_V2_FFMPEG_TIMEOUT_SECONDS:20}
+  ai-comment-draft:
+    # UC-74 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-28) - trợ lý AI soạn nháp nhận xét
+    # hàng ngày từ audio, xem CommentAiDraftService. STT dùng lại nine-router-stt-model ở trên.
+    # Combo RIÊNG trong Dashboard 9Router, CHỈ gồm model Claude (Claude không nhận audio nên luôn qua STT
+    # trước; response 9Router không cho biết member nào của combo đã trả lời, nên không trộn model khác).
+    model: ${COMMENT_AI_MODEL:comment-pps}
+    # Số nhận xét gần nhất/học sinh (mọi lớp) đem so để không lặp lại câu chữ giữa các buổi.
+    previous-comment-count: ${COMMENT_AI_PREVIOUS_COUNT:3}
+    previous-lookback-days: ${COMMENT_AI_PREVIOUS_LOOKBACK_DAYS:120}
+    # Tỷ lệ cụm 3 từ liên tiếp trùng nhau (0..1) từ mức này trở lên coi là trùng lặp máy móc - viết lại 1
+    # lần, vẫn trùng thì cảnh báo trên dòng. Ước lượng ban đầu, tinh chỉnh sau khi xem kết quả thật.
+    similarity-threshold: ${COMMENT_AI_SIMILARITY_THRESHOLD:0.5}
+    # Số học sinh mỗi lượt gọi AI viết câu - giữ mỗi lượt dưới timeout 90s của NineRouterAiClient.
+    write-batch-size: ${COMMENT_AI_WRITE_BATCH_SIZE:10}
+    # 20MB - FE giới hạn 5 phút/lần (ghi âm tự dừng), backend chặn thêm theo dung lượng.
+    max-audio-bytes: ${COMMENT_AI_MAX_AUDIO_BYTES:20971520}
+    worker-threads: ${COMMENT_AI_WORKER_THREADS:2}
+    job-ttl-minutes: ${COMMENT_AI_JOB_TTL_MINUTES:30}
 
 springdoc:
   swagger-ui:

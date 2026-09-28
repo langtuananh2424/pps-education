@@ -2180,3 +2180,88 @@ export function deleteEntranceAssessmentResult(id: number): Promise<void> {
 export function markEntranceAssessmentResultPlaced(id: number): Promise<EntranceAssessmentResultResponse> {
   return apiRequest<EntranceAssessmentResultResponse>(`/entrance-assessment-results/${id}/mark-placed`, { method: "POST" });
 }
+
+// ---- UC-74: Trợ lý AI soạn nháp nhận xét hàng ngày từ audio (bổ sung ngoài SDD gốc, 2026-09-28) ----
+
+export type CommentAttitude = NonNullable<StudentCommentResponse["attitude"]>;
+
+export interface CommentAiDraftWarning {
+  type: "SIMILAR_IN_SESSION" | "SIMILAR_TO_PREVIOUS" | "CONTAINS_DIGITS" | "NOT_WRITTEN";
+  message: string;
+  similarity: number | null;
+}
+
+/** Mirror CommentAiDraftResult (BE) — mỗi dòng CHỈ có Thái độ + Nhận xét, AI không có trường điểm/BTVN nào. */
+export interface CommentAiDraftRow {
+  studentId: number;
+  studentFullName: string;
+  attitude: CommentAttitude | null;
+  content: string | null;
+  source: "CLASS" | "INDIVIDUAL";
+  warnings: CommentAiDraftWarning[];
+}
+
+export interface CommentAiDraftExtraction {
+  classAttitude: CommentAttitude | null;
+  classPoints: string[];
+  individuals: { studentId: number; attitude: CommentAttitude | null; points: string[]; evidence: string | null }[];
+}
+
+export interface CommentAiDraftResult {
+  transcript: string;
+  assistantMessage: string;
+  extraction: CommentAiDraftExtraction | null;
+  rows: CommentAiDraftRow[];
+  unmatchedMentions: { quote: string; candidateStudentIds: number[] }[];
+  skippedStudents: { studentId: number; studentFullName: string; reason: string }[];
+}
+
+export interface CommentAiDraftJob {
+  jobId: string;
+  status: "RUNNING" | "DONE" | "FAILED";
+  errorMessage: string | null;
+  result: CommentAiDraftResult | null;
+}
+
+export interface ReviseCommentAiDraftRequest {
+  mode: "INSTRUCTION" | "REWRITE_ALL";
+  instruction?: string;
+  transcript?: string;
+  extraction?: CommentAiDraftExtraction | null;
+  currentRows: { studentId: number; attitude: CommentAttitude | null; content: string | null }[];
+  history?: { role: "teacher" | "assistant"; text: string }[];
+}
+
+/** UC-74 bước 1-2 — gửi audio (≤ 5 phút, FE tự kiểm tra) và/hoặc ghi chú chữ; BE trả job chạy nền. */
+export function startCommentAiDraft(classSessionId: number, audio: Blob | null, note: string): Promise<CommentAiDraftJob> {
+  const formData = new FormData();
+  if (audio) {
+    const extension = audio.type.includes("mp4") || audio.type.includes("m4a") ? "m4a" : audio.type.includes("wav") ? "wav" : audio.type.includes("mpeg") ? "mp3" : "webm";
+    formData.append("audio", audio, `nhan-xet.${extension}`);
+  }
+  if (note.trim()) formData.append("note", note.trim());
+  return apiRequest<CommentAiDraftJob>(`/class-sessions/${classSessionId}/comments/ai-draft`, { method: "POST", body: formData });
+}
+
+/** UC-74 bước 9 — sửa bản nháp theo yêu cầu, hoặc viết lại câu chữ toàn bộ. */
+export function reviseCommentAiDraft(classSessionId: number, request: ReviseCommentAiDraftRequest): Promise<CommentAiDraftJob> {
+  return apiRequest<CommentAiDraftJob>(`/class-sessions/${classSessionId}/comments/ai-draft/revise`, {
+    method: "POST",
+    body: JSON.stringify(request)
+  });
+}
+
+export function getCommentAiDraftJob(jobId: string): Promise<CommentAiDraftJob> {
+  return apiRequest<CommentAiDraftJob>(`/comment-ai-drafts/${jobId}`);
+}
+
+/** Hỏi lại trạng thái job mỗi 2 giây tới khi xong/lỗi (tối đa ~5 phút) — dừng khi `signal` bị huỷ. */
+export async function waitForCommentAiDraftJob(job: CommentAiDraftJob, signal?: AbortSignal): Promise<CommentAiDraftJob> {
+  let current = job;
+  for (let i = 0; i < 150 && current.status === "RUNNING"; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    if (signal?.aborted) throw new DOMException("aborted", "AbortError");
+    current = await getCommentAiDraftJob(current.jobId);
+  }
+  return current;
+}

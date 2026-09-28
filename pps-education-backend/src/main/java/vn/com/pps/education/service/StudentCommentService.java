@@ -2148,6 +2148,16 @@ public class StudentCommentService {
      * xem Javadoc lớp). Ngược lại: phải là GV được phân công lớp (giữ
      * nguyên rào cũ) VÀ còn trong hạn X ngày kể từ ngày buổi học.
      */
+    /**
+     * UC-74 bước 2 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-28) — trợ lý AI soạn nháp
+     * nhận xét dùng ĐÚNG rào của Lưu nháp (không có rào riêng), xem {@code CommentAiDraftService}.
+     */
+    public ClassSession requireCanWriteDailyCommentFor(Long classSessionId, Long actorUserId) {
+        ClassSession classSession = getClassSessionOrThrow(classSessionId);
+        requireCanWriteDailyComment(classSession, actorUserId);
+        return classSession;
+    }
+
     private void requireCanWriteDailyComment(ClassSession classSession, Long actorUserId) {
         if (permissionEvaluationService.hasPermission(actorUserId, "academic.comment.approve")
                 || permissionEvaluationService.hasPermission(actorUserId, PERM_COMMENT_MANAGE)) {

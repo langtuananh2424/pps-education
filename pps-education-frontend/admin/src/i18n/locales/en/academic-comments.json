@@ -316,6 +316,75 @@
       "saveDraftBeforeDownloadFailed": "Couldn't save the draft, so the file wasn't downloaded — {{reason}}",
       "xlsxOnly": "Only .xlsx files are supported.",
       "importFailed": "Failed to import from Excel."
+    },
+    "viewMode": {
+      "table": "Table",
+      "cards": "Cards",
+      "cardsHint": "Cards edit Attitude/Comment/Note only — enter scores and homework in Table view."
+    },
+    "cardView": {
+      "aiBadge": "AI draft",
+      "previousComment": "Previous comment",
+      "noPreviousComment": "No previous comment in this class.",
+      "similarToPrevious": "{{percent}}% similar to last time",
+      "status": {
+        "DRAFT": "Draft",
+        "PENDING": "Pending",
+        "APPROVED": "Approved",
+        "REJECTED": "Rejected"
+      }
+    },
+    "aiAssistant": {
+      "openButton": "AI comment assistant",
+      "title": "Comment assistant",
+      "noSession": "Select a session to start",
+      "close": "Close assistant",
+      "intro": "Record or upload your spoken feedback for the session (up to 5 minutes): a general comment for the class, then mention students who need specific feedback. The assistant drafts Attitude + Comment for every present student.",
+      "permissionNote": "The assistant only fills Attitude and Comment, never scores/homework. Its highest save level is Save draft — you review and submit.",
+      "foreignSession": "Foreign-teacher session — not supported by the assistant yet.",
+      "suggestions": {
+        "record": "Record feedback",
+        "upload": "Upload audio file"
+      },
+      "audioMessage": "🎙️ Audio feedback ({{duration}})",
+      "recording": "Recording {{elapsed}} / {{max}}",
+      "stopRecording": "Stop",
+      "removeAudio": "Remove audio",
+      "inputPlaceholder": "Extra notes or type feedback (Enter to send)…",
+      "inputPlaceholderRevise": "Ask for changes, e.g. \"An gets Average today\"…",
+      "send": "Send",
+      "working": "The assistant is drafting comments… (may take 1–2 minutes)",
+      "individualBadge": "Specific",
+      "noAttitude": "attitude not mentioned",
+      "unmatchedTitle": "Student not identified",
+      "unmatchedCandidates": "maybe: {{names}}",
+      "skipped": "Skipped: {{names}}",
+      "transcriptToggle": "Show transcript",
+      "actions": {
+        "apply": "Apply to table",
+        "saveDraft": "Save draft",
+        "rewrite": "Rewrite with more variety"
+      },
+      "quickInstructionLabels": {
+        "shorter": "Shorter",
+        "warmer": "Warmer tone",
+        "changeAttitude": "Change one attitude…"
+      },
+      "quickInstructions": {
+        "shorter": "Make every comment shorter.",
+        "warmer": "Use a warmer, more encouraging tone.",
+        "changeAttitude": "Student … gets attitude … today"
+      },
+      "appliedMessage": "Filled Attitude + Comment for {{count}} students (submitted/absent rows unchanged). Remember to save a draft before leaving.",
+      "savedMessage": "Applied and saved as draft. Review and press \"Send comments\" when ready.",
+      "errors": {
+        "recordingUnsupported": "This browser cannot record — please upload an audio file.",
+        "microphoneDenied": "Cannot access the microphone — check browser permissions.",
+        "notAudio": "The selected file is not audio.",
+        "tooLong": "Audio longer than 5 minutes — trim it or send in parts.",
+        "generic": "The assistant ran into an error — please try again.",
+        "timeout": "The assistant took too long — please try again."
+      }
     }
   },
   "commentsPage": {

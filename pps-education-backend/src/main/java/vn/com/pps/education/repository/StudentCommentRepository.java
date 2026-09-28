@@ -29,6 +29,19 @@ public interface StudentCommentRepository extends JpaRepository<StudentComment, 
     /** V65: toàn bộ nhận xét DAILY của 1 buổi học (mọi học sinh) — dùng kiểm tra xung đột lựa chọn BTVN buổi sau cùng buổi. */
     List<StudentComment> findByClassSessionId(Long classSessionId);
 
+    /**
+     * UC-74 bước 6-7 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-28) — nhận xét các buổi
+     * TRƯỚC của N học sinh trên MỌI lớp (giống trang hồ sơ học sinh giáo viên vẫn mở để đối chiếu trùng
+     * lặp), trong 1 query cho cả lớp. Mới nhất trước; service tự lấy N bản gần nhất/học sinh.
+     */
+    @Query("select c from StudentComment c join fetch c.student s where s.id in :studentIds"
+            + " and c.status <> :excludedStatus and c.commentDate >= :fromDate and c.commentDate < :beforeDate"
+            + " order by c.commentDate desc, c.id desc")
+    List<StudentComment> findRecentByStudentIds(@Param("studentIds") List<Long> studentIds,
+                                                @Param("excludedStatus") StudentComment.Status excludedStatus,
+                                                @Param("fromDate") java.time.LocalDate fromDate,
+                                                @Param("beforeDate") java.time.LocalDate beforeDate);
+
     /** UC-25 Portal Phụ huynh — nhận xét/cảnh báo: student_comments WHERE status=APPROVED (SDD). */
     List<StudentComment> findBySchoolClassIdAndStudentIdAndStatusOrderByCommentDateDesc(
             Long classId, Long studentId, StudentComment.Status status);
