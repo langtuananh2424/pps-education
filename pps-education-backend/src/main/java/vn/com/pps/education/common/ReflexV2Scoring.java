@@ -3,19 +3,24 @@ package vn.com.pps.education.common;
 import com.fasterxml.jackson.databind.JsonNode;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-21 — tính điểm TẤT ĐỊNH cho bộ tiêu chí
- * Speaking v2 (Khối 6-7), mirror {@code computeScores}/{@code applyRedCap}/{@code locateHighlights}/
- * {@code trimFeedback} trong {@code ma-nguon-tham-chieu/prompts.js} + {@code grading.js} do người training
- * bàn giao. AI CHỈ trả checkpoint 0/0,5/1 và trần % do cổng chặn — quy đổi sang % làm ở đây, không để
- * AI tự tính (xem mục "Không tự quy đổi phần trăm" trong prompt).
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-21 (cập nhật theo bản bàn giao 26/9) — tính
+ * điểm TẤT ĐỊNH cho bộ tiêu chí Speaking v2 (Khối 6-9), mirror {@code computeScores}/{@code applyRedCap}/
+ * {@code applyErrorCaps}/{@code locateHighlights}/{@code trimFeedback} trong {@code prompts.js} +
+ * {@code grading.js} do người training bàn giao. AI CHỈ trả checkpoint 0/0,5/1 và trần % do cổng chặn —
+ * quy đổi sang % và mọi trần đo được từ transcript làm ở đây, không để AI tự tính.
  *
  * KHÁC bản tham chiếu 1 điểm có chủ đích: bản JS tự điền 0,5 khi AI trả THIẾU checkpoint (âm thầm nới
  * điểm); ở đây trả thiếu/sai là kết quả hỏng → {@link IllegalStateException}, caller coi như "AI chấm
@@ -29,13 +34,57 @@ public final class ReflexV2Scoring {
     /** Từ 2 lỗi đỏ trở lên → tiêu chí Ngữ pháp không vượt mức này (quy tắc chung §C). */
     public static final int RED_CAP = 60;
 
-    public record CriterionScore(String code, int percent, boolean cappedByRedErrors) {
+    /** 100% nghĩa là gần như bản ngữ — học sinh THCS Việt Nam không có tiêu chí bài NÓI nào vượt mức này (phòng đào tạo 24/9). */
+    public static final int NON_NATIVE_CAP = 90;
+
+    /**
+     * Trần Phát âm khi transcript không còn bằng chứng (lượt phiên âm ghi toàn chính tả chuẩn). Đánh đổi đã
+     * biết: học sinh Part 2 phát âm thật sự tốt cũng bị chặn ở đây; muốn bỏ trần thì đặt = 100.
+     */
+    public static final int NO_EVIDENCE_P_CAP = 80;
+
+    public record CriterionScore(String code, int percent, boolean cappedByRedErrors, Integer floorPercent, List<String> caps) {
+
+        public CriterionScore(String code, int percent, boolean cappedByRedErrors) {
+            this(code, percent, cappedByRedErrors, null, List.of());
+        }
+
+        private CriterionScore with(int newPercent, String note) {
+            List<String> all = new ArrayList<>(caps);
+            all.add(note);
+            return new CriterionScore(code, newPercent, cappedByRedErrors, floorPercent, all);
+        }
+
+        private CriterionScore cappedTo(int limit, String note) {
+            return percent > limit ? with(limit, note) : this;
+        }
     }
 
     public record ScoreSet(List<CriterionScore> criteria, int finalPercent, List<String> gates) {
     }
 
     public record Highlight(int start, int end, String level, String label, String tag) {
+    }
+
+    /** Độ rộng từ vựng: số từ nội dung KHÁC NHAU trên mỗi giây đề cho. */
+    public record LexicalEvidence(int distinct, int total, double density, int ceil) {
+    }
+
+    /** Trôi chảy: tỷ lệ từ đệm + tự sửa, và khoảng dừng dài nhất. */
+    public record FluencyEvidence(int fillers, int words, double ratio, double pauseSec, int ceil) {
+    }
+
+    /** Cổng độ dài bài Part 2 — hệ thống tự đo, model KHÔNG được tự áp. */
+    public record LengthEvidence(int words, double spokenSec, boolean enough, int fcCeil, int lrCeil) {
+    }
+
+    /** So transcript với bài viết Bước 1: chỗ nào lệch khỏi từ đã viết là chỗ đọc lệch. */
+    public record Readback(int total, int count, double ratio, List<String> words) {
+    }
+
+    /** Bằng chứng đo được từ transcript; bài VIẾT không có bằng chứng nào trong số này ({@link #NONE}). */
+    public record ErrorEvidence(LexicalEvidence lexical, FluencyEvidence fluency, LengthEvidence length, Readback readback) {
+        public static final ErrorEvidence NONE = new ErrorEvidence(null, null, null, null);
     }
 
     /** Trung bình cộng các % tiêu chí, làm tròn XUỐNG bội số 5 (+1e-9 chống sai số dấu phẩy động, như bản JS). */
@@ -93,7 +142,7 @@ public final class ReflexV2Scoring {
         List<CriterionScore> criteria = new ArrayList<>();
         for (CriterionScore c : scored.criteria()) {
             if (c.code().equals(grammarCode) && c.percent() > RED_CAP) {
-                criteria.add(new CriterionScore(c.code(), RED_CAP, true));
+                criteria.add(new CriterionScore(c.code(), RED_CAP, true, c.floorPercent(), c.caps()));
             } else {
                 criteria.add(c);
             }
@@ -129,6 +178,314 @@ public final class ReflexV2Scoring {
         return new ArrayList<>(gates);
     }
 
+    // ===================== Chấm lại Ngữ pháp từ transcript + các trần tất định =====================
+
+    /**
+     * Từ 23/9 điểm Ngữ pháp KHÔNG còn khoá từ Bước 1: chấm lại từ transcript, trần 60% nếu bài NÓI có ≥2 lỗi
+     * đỏ, rồi áp SÀN = nửa điểm Bước 1 (làm tròn xuống bội 5). Không áp sàn khi không nói được gì — khi đó
+     * điểm phải là thật. Sàn được ghi vào {@code floorPercent} để {@link #applyGrammarFloor} áp lại sau các
+     * trần theo lỗi (tránh một lỗi bị phạt hai lần).
+     */
+    public static CriterionScore regradeGrammar(CriterionScore graded, int spokenRedCount, int step1Percent, boolean noSpeech) {
+        boolean capped = spokenRedCount >= 2 && graded.percent() > RED_CAP;
+        int percent = capped ? RED_CAP : graded.percent();
+        Integer floor = noSpeech ? null : (int) (Math.floor(step1Percent / 2.0 / 5) * 5);
+        if (floor != null && percent < floor) {
+            percent = floor;
+        }
+        return new CriterionScore(graded.code(), percent, capped, floor, graded.caps());
+    }
+
+    /** Đưa Ngữ pháp về lại mức sàn nếu trần theo lỗi đã tô đạp xuyên qua nó (đo 26/9: 5 vàng + 2 đỏ cho trần 10% → điểm ra 0%). */
+    public static List<CriterionScore> applyGrammarFloor(String grammarCode, List<CriterionScore> criteria) {
+        List<CriterionScore> out = new ArrayList<>();
+        for (CriterionScore c : criteria) {
+            if (c.code().equals(grammarCode) && c.floorPercent() != null && c.percent() < c.floorPercent()) {
+                out.add(c.with(c.floorPercent(), "sàn = nửa điểm Bước 1"));
+            } else {
+                out.add(c);
+            }
+        }
+        return out;
+    }
+
+    /**
+     * Mirror {@code applyErrorCaps} của {@code grading.js}: một tiêu chí KHÔNG thể đạt 100% khi chính nó còn
+     * lỗi (mỗi lỗi nhẹ −10%, mỗi lỗi nặng −20%), cộng các trần đo được từ transcript. Là TRẦN chứ không phải
+     * trừ chồng lên checkpoint: điểm cuối = min(điểm checkpoint, trần). Riêng dải Phát âm theo bài viết có
+     * thể NÂNG điểm lên tới sàn của dải.
+     *
+     * Dùng cho cả bài VIẾT (bằng chứng = {@link ErrorEvidence#NONE}) lẫn bài NÓI.
+     */
+    public static List<CriterionScore> applyErrorCaps(ReflexV2Task task, List<CriterionScore> criteria,
+                                                      List<Highlight> highlights, ErrorEvidence ev) {
+        String g = task.grammarCode();
+        boolean hasLR = task.criteria().contains("LR");
+        Map<String, int[]> counts = new HashMap<>();
+        for (Highlight h : highlights) {
+            if (h.level().equals("green")) {
+                continue;
+            }
+            String bucket = ReflexV2Tags.PRON_TAGS.contains(h.tag()) ? "P"
+                    : (hasLR && ReflexV2Tags.VOCAB_TAGS.contains(h.tag()) ? "LR" : g);
+            counts.computeIfAbsent(bucket, k -> new int[2])[h.level().equals("red") ? 1 : 0]++;
+        }
+        Integer gPercent = criteria.stream().filter(c -> c.code().equals(g)).map(CriterionScore::percent).findFirst().orElse(null);
+        boolean fluencyAppliesToP = !task.criteria().contains("FC") && !task.criteria().contains("DM");
+
+        List<CriterionScore> out = new ArrayList<>();
+        for (CriterionScore original : criteria) {
+            CriterionScore c = original;
+            String code = c.code();
+            boolean discourse = code.equals("DM") || code.equals("FC");
+            // Bài sai ngữ pháp nặng thì người nghe không theo được mạch ý: DM/FC không vượt quá ngữ pháp + 40.
+            if (discourse && gPercent != null) {
+                c = c.cappedTo(gPercent + 40, "Ngữ pháp + 40");
+            }
+            if (code.equals("P") || code.equals("LR") || discourse) {
+                c = c.cappedTo(NON_NATIVE_CAP, "trần 90% (không bản ngữ)");
+            }
+            if (code.equals("LR") && ev.lexical() != null) {
+                c = c.cappedTo(ev.lexical().ceil(), "độ rộng từ vựng " + ev.lexical().density() + " từ/giây");
+            }
+            if (ev.length() != null && !ev.length().enough()) {
+                if (code.equals("FC")) {
+                    c = c.cappedTo(ev.length().fcCeil(), "chưa đủ độ dài Part 2");
+                } else if (code.equals("LR")) {
+                    c = c.cappedTo(ev.length().lrCeil(), "chưa đủ độ dài Part 2");
+                }
+            }
+            if (code.equals("P") && ev.readback() != null) {
+                int[] band = pronBandFor(ev.readback().ratio());
+                if (c.percent() > band[1]) {
+                    c = c.with(band[1], "trần dải đọc lệch " + ev.readback().count() + "/" + ev.readback().total());
+                } else if (c.percent() < band[0]) {
+                    c = c.with(band[0], "sàn dải đọc lệch " + ev.readback().count() + "/" + ev.readback().total());
+                }
+            }
+            if (code.equals("P") && c.percent() > NO_EVIDENCE_P_CAP) {
+                Readback rb = ev.readback();
+                boolean weak = rb == null || (rb.total() >= 30 && rb.count() <= 1);
+                if (weak) {
+                    c = c.with(NO_EVIDENCE_P_CAP, "không có bằng chứng phát âm");
+                }
+            }
+            if ((discourse || (code.equals("P") && fluencyAppliesToP)) && ev.fluency() != null) {
+                c = c.cappedTo(ev.fluency().ceil(), "từ đệm/khoảng dừng");
+            }
+            int[] n = counts.get(code);
+            if (n != null) {
+                c = c.cappedTo(Math.max(0, 100 - 10 * n[0] - 20 * n[1]), "lỗi đã tô (" + n[0] + " nhẹ, " + n[1] + " nặng)");
+            }
+            out.add(c);
+        }
+        return out;
+    }
+
+    /** Dải Phát âm theo TỶ LỆ từ đọc lệch (không theo số đếm tuyệt đối): [sàn, trần]. */
+    static int[] pronBandFor(double ratio) {
+        if (ratio < 0.12) {
+            return new int[]{85, 100};
+        }
+        if (ratio < 0.25) {
+            return new int[]{75, 90};
+        }
+        if (ratio < 0.40) {
+            return new int[]{60, 80};
+        }
+        return new int[]{40, 60};
+    }
+
+    // ---------- Bằng chứng đo tất định từ transcript ----------
+
+    private static final Set<String> FUNCTION_WORDS = new HashSet<>(Arrays.asList((
+            "a an the and or but so because if when while that this these those there here "
+                    + "i you he she it we they me him her us them my your his its our their "
+                    + "is am are was were be been being do does did done have has had having "
+                    + "will would can could shall should may might must to of in on at by for with from into about as "
+                    + "not no yes very too also then than very more most much many some any all every "
+                    + "um uh er ah oh hmm one two three").split(" ")));
+
+    /** Lookaround thay cho \b vì "à" đứng giữa hai dấu cách không tạo ranh giới ASCII (từ đệm tiếng Việt từng bị bỏ sót). */
+    private static final Pattern FILLER = Pattern.compile(
+            "(?<![a-zà-ỹ])(u+m+|u+h+|e+r+|a+h+|hm+|ờ+|à+|ừ+|na+h?)(?![a-zà-ỹ])", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+    private static final Pattern PAUSE_MARK = Pattern.compile("\\(\\.\\.\\.\\d+s\\)");
+    private static final Pattern NON_CONTENT_SPLIT = Pattern.compile("[^a-zà-ỹ']+");
+    private static final Pattern WHITESPACE = Pattern.compile("\\s+");
+
+    private static List<String> contentWords(String transcript) {
+        String lower = PAUSE_MARK.matcher(transcript == null ? "" : transcript.toLowerCase(Locale.ROOT)).replaceAll(" ");
+        return Arrays.stream(NON_CONTENT_SPLIT.split(lower)).filter(w -> w.length() >= 2 && !FUNCTION_WORDS.contains(w)).toList();
+    }
+
+    /** Bài quá ngắn (<8 từ nội dung) trả {@code null}: đã có cổng độ dài của rubric lo. */
+    public static LexicalEvidence lexicalCeiling(String transcript, int seconds) {
+        List<String> words = contentWords(transcript);
+        if (seconds <= 0 || words.size() < 8) {
+            return null;
+        }
+        int distinct = (int) words.stream().distinct().count();
+        double density = distinct / (double) seconds;
+        int ceil = density < 0.40 ? 60 : density < 0.60 ? 80 : density < 0.80 ? 90 : 100;
+        return new LexicalEvidence(distinct, words.size(), Math.round(density * 100) / 100.0, ceil);
+    }
+
+    /** Cùng một từ lặp lại trong vòng 3 tiếng = nói vấp hoặc tự sửa ("I I go", "because I à because"). */
+    private static int selfRepairs(List<String> tokens) {
+        int n = 0;
+        for (int i = 0; i < tokens.size(); i++) {
+            for (int j = i + 1; j <= Math.min(i + 3, tokens.size() - 1); j++) {
+                if (!tokens.get(i).isEmpty() && tokens.get(i).equals(tokens.get(j))) {
+                    n++;
+                    i = j;
+                    break;
+                }
+            }
+        }
+        return n;
+    }
+
+    public static FluencyEvidence fluencyCeiling(String transcript, double longestPauseSec) {
+        List<String> all = Arrays.stream(WHITESPACE.split(transcript == null ? "" : transcript)).filter(s -> !s.isEmpty()).toList();
+        if (all.size() < 8) {
+            return null;
+        }
+        List<String> norm = all.stream().map(w -> w.toLowerCase(Locale.ROOT).replaceAll("[^a-zà-ỹ']", "")).toList();
+        Matcher m = FILLER.matcher(transcript);
+        int fillers = 0;
+        while (m.find()) {
+            fillers++;
+        }
+        fillers += selfRepairs(norm);
+        double ratio = fillers / (double) all.size();
+        int ceil = ratio >= 0.15 ? 50 : ratio >= 0.08 ? 70 : ratio >= 0.04 ? 85 : 100;
+        if (longestPauseSec >= 5) {
+            ceil = Math.min(ceil, 50);
+        } else if (longestPauseSec >= 3) {
+            ceil = Math.min(ceil, 70);
+        }
+        return new FluencyEvidence(fillers, all.size(), Math.round(ratio * 100) / 100.0, longestPauseSec, ceil);
+    }
+
+    /** Đủ ý cho 4 gợi ý của đề Part 2 (từ tiếng Anh). */
+    public static final int PART2_MIN_WORDS = 60;
+    /** Giây nói thật — mức trung bình học sinh đạt được. */
+    public static final double PART2_MIN_SPOKEN_SEC = 45;
+
+    /** Chỉ áp cho dạng PART2; các dạng khác trả {@code null}. {@code spokenSec} = thời gian nói thật đo từ tín hiệu (0 nếu không đo được). */
+    public static LengthEvidence lengthGate(ReflexV2Task task, String transcript, double spokenSec) {
+        if (!"PART2".equals(task.rubricFormat())) {
+            return null;
+        }
+        int words = (int) Arrays.stream(WHITESPACE.split(transcript == null ? "" : transcript))
+                .filter(w -> !w.isEmpty() && w.chars().anyMatch(ch -> (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z')) && w.charAt(0) != '(')
+                .count();
+        boolean enough = words >= PART2_MIN_WORDS || spokenSec >= PART2_MIN_SPOKEN_SEC;
+        return new LengthEvidence(words, Math.round(spokenSec * 10) / 10.0, enough, enough ? 100 : 60, enough ? 100 : 80);
+    }
+
+    // ---------- Bằng chứng phát âm: so transcript với bài viết Bước 1 ----------
+
+    private static final Set<String> SPOKEN_FILLERS = Set.of("um", "uh", "ah", "er", "hm", "a", "o");
+
+    private static String normWord(String w) {
+        return w.toLowerCase(Locale.ROOT).replaceAll("[^a-z']", "");
+    }
+
+    /** Bộ khung phụ âm: phát âm tiếng Việt làm rụng/đổi phụ âm cuối nên so theo khung, không so chính tả. */
+    private static String skeleton(String w) {
+        return w.replaceAll("[aeiouy']", "");
+    }
+
+    private static int editDistance(String a, String b) {
+        int[][] d = new int[a.length() + 1][b.length() + 1];
+        for (int i = 0; i <= a.length(); i++) {
+            d[i][0] = i;
+        }
+        for (int j = 0; j <= b.length(); j++) {
+            d[0][j] = j;
+        }
+        for (int i = 1; i <= a.length(); i++) {
+            for (int j = 1; j <= b.length(); j++) {
+                d[i][j] = Math.min(Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1), d[i - 1][j - 1] + (a.charAt(i - 1) == b.charAt(j - 1) ? 0 : 1));
+            }
+        }
+        return d[a.length()][b.length()];
+    }
+
+    /**
+     * Học sinh đọc lại chính bài mình viết (cổng độ khớp nội dung đã bảo đảm), nên bài viết là vốn từ kỳ
+     * vọng của đúng bài đó. Tất định hoàn toàn — không hỏi model. Từ học sinh nói thêm ngoài bài viết không
+     * bị tính lỗi. Trả {@code null} nếu bài viết hoặc transcript dưới 4 từ.
+     */
+    public static Readback writtenVsSpoken(String writtenText, String transcript) {
+        List<String> written = Arrays.stream(WHITESPACE.split(writtenText == null ? "" : writtenText))
+                .map(ReflexV2Scoring::normWord).filter(w -> w.length() >= 2).toList();
+        List<String> spoken = Arrays.stream(WHITESPACE.split(transcript == null ? "" : transcript))
+                .map(ReflexV2Scoring::normWord).filter(w -> w.length() >= 2 && !SPOKEN_FILLERS.contains(w)).toList();
+        if (written.size() < 4 || spoken.size() < 4) {
+            return null;
+        }
+        boolean[] used = new boolean[written.size()];
+        // Lượt 1: từ đọc đúng nguyên văn tiêu thụ từ đã viết, không tính lỗi.
+        for (String w : spoken) {
+            for (int k = 0; k < written.size(); k++) {
+                if (!used[k] && written.get(k).equals(w)) {
+                    used[k] = true;
+                    break;
+                }
+            }
+        }
+        // Lượt 2: từ còn lại tìm từ đã viết chưa bị tiêu thụ; mỗi từ đã viết chỉ khớp MỘT lần.
+        List<String> deviant = new ArrayList<>();
+        for (String w : spoken) {
+            if (written.contains(w)) {
+                continue;
+            }
+            int best = -1;
+            int bestScore = Integer.MAX_VALUE;
+            for (int k = 0; k < written.size(); k++) {
+                String r = written.get(k);
+                if (used[k] || r.charAt(0) != w.charAt(0) || Math.abs(r.length() - w.length()) > 3) {
+                    continue;
+                }
+                int score = editDistance(skeleton(w), skeleton(r)) * 2 + editDistance(w, r);
+                if (score < bestScore) {
+                    bestScore = score;
+                    best = k;
+                }
+            }
+            if (best >= 0 && editDistance(skeleton(w), skeleton(written.get(best))) <= 2) {
+                deviant.add(written.get(best) + "→" + w);
+                used[best] = true;
+            }
+        }
+        return new Readback(spoken.size(), deviant.size(), deviant.size() / (double) spoken.size(), deviant);
+    }
+
+    // ===================== Tô màu =====================
+
+    private static boolean isWordChar(char c) {
+        return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= 'À' && c <= 'ỹ') || (c >= '0' && c <= '9') || c == '\'';
+    }
+
+    /** Tìm đoạn trích như một cụm từ trọn vẹn: "in" không được khớp vào giữa "planning". */
+    private static int findWhole(String source, String quote, int from) {
+        boolean needStart = isWordChar(quote.charAt(0));
+        boolean needEnd = isWordChar(quote.charAt(quote.length() - 1));
+        for (int idx = source.indexOf(quote, from); idx != -1; idx = source.indexOf(quote, idx + 1)) {
+            if (needStart && idx > 0 && isWordChar(source.charAt(idx - 1))) {
+                continue;
+            }
+            int after = idx + quote.length();
+            if (needEnd && after < source.length() && isWordChar(source.charAt(after))) {
+                continue;
+            }
+            return idx;
+        }
+        return -1;
+    }
+
     /**
      * Tìm vị trí từng đoạn trích trong văn bản gốc; bỏ đoạn không tìm thấy hoặc chồng lấn. Mức độ
      * (đỏ/vàng/xanh) do LOẠI lỗi (tag) quyết định, KHÔNG dùng {@code level} AI tự điền.
@@ -154,14 +511,14 @@ public final class ReflexV2Scoring {
             int idx = -1;
             int from = 0;
             for (int i = 0; i < occurrence; i++) {
-                idx = source.indexOf(quote, from);
+                idx = findWhole(source, quote, from);
                 if (idx == -1) {
                     break;
                 }
                 from = idx + quote.length();
             }
             if (idx == -1) {
-                idx = source.indexOf(quote);
+                idx = findWhole(source, quote, 0);
             }
             if (idx == -1) {
                 continue;
@@ -222,17 +579,28 @@ public final class ReflexV2Scoring {
         return n;
     }
 
-    /** Nhận xét bị giới hạn 50 từ theo rubric; bỏ ký tự markdown. */
-    public static String trimFeedback(String s) {
-        String plain = s == null ? "" : s.replaceAll("\\*\\*|__|[*_`#>]", "").trim();
+    private static final Pattern WORST_ERROR = Pattern.compile("\\s*Lỗi nặng nhất\\s*:[^.!?]*[.!?]?", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+    private static final Pattern NO_ERROR = Pattern.compile(
+            "\\s*Lỗi nặng nhất\\s*:\\s*(không có|chưa có|không phát hiện|không mắc)[^.!?]*[.!?]?", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+
+    /**
+     * Nhận xét bị giới hạn 50 từ theo rubric; bỏ ký tự markdown. Bài không có lỗi nào được tô thì bỏ câu
+     * "Lỗi nặng nhất" (phản hồi phòng đào tạo 22/9) — {@code highlights == null} nghĩa là không xét điều kiện này.
+     */
+    public static String trimFeedback(String s, List<Highlight> highlights) {
+        String plain = NO_ERROR.matcher(s == null ? "" : s.replaceAll("\\*\\*|__|[*_`#>]", "")).replaceAll("");
+        if (highlights != null && highlights.stream().noneMatch(h -> h.level().equals("red") || h.level().equals("yellow"))) {
+            plain = WORST_ERROR.matcher(plain).replaceAll("");
+        }
+        plain = plain.trim();
         if (plain.isEmpty()) {
             return "";
         }
-        String[] words = plain.split("\\s+");
+        String[] words = WHITESPACE.split(plain);
         if (words.length <= 50) {
             return String.join(" ", words);
         }
-        return String.join(" ", java.util.Arrays.copyOf(words, 50)) + "…";
+        return String.join(" ", Arrays.copyOf(words, 50)) + "…";
     }
 
     /**

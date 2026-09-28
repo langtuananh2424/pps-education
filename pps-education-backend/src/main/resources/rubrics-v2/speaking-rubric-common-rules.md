@@ -6,9 +6,10 @@
 
 1. Bài nói: transcript do lượt phiên âm độc lập tạo ra (không biết đề). Bài viết: văn bản học sinh gõ. **Không được sửa, thêm, bớt, hay "hiểu lại" transcript.**
 2. Được nghe audio để chấm phát âm, trọng âm, ngữ điệu, khoảng dừng. **Không được dùng audio hay đề bài để đổi một từ trong transcript thành từ khác.**
-3. Từ viết sai trong transcript (`tink`, `scoo`, `lai`) = học sinh phát âm sai:
-   - luôn tính vào lỗi Phát âm;
-   - chỉ được tính là từ đúng cho Ngữ pháp/Từ vựng khi người nghe nhận ra ngay từ gốc **mà không cần đoán theo ngữ cảnh** (`tink` trong "I tink it is good" → nhận ra; `bai`, `fa`, `sờ` → không nhận ra).
+3. **Hai mức phát âm lệch** (quy tắc phiên âm v4):
+   - **Lệch nhưng nhận ra** → transcript đã ghi **chính tả chuẩn** và từ đó nằm trong danh sách `suspect_words` (`scoo→school`). Tính là **từ nhận ra** ở checkpoint tỷ lệ nhận ra, và là **từ đúng** cho Ngữ pháp/Từ vựng. Chỉ trừ nhẹ ở checkpoint âm cuối / thay âm theo ô của rubric khối.
+   - **Lệch đến mức không nhận ra** → transcript ghi **theo âm** (`bi-fa`, `sờ-tốp`). Luôn là lỗi Phát âm, **không** tính là từ nhận ra, và không tính là từ đúng cho Ngữ pháp/Từ vựng.
+   - Transcript cũ (trước v4) có thể còn từ ghi theo âm nhưng vẫn nhận ra ngay (`tink` trong "I tink it is good"): xử lý như mức "lệch nhưng nhận ra".
 4. `[?]`, chuỗi âm lằng nhằng, từ tiếng Việt: **không bao giờ** được tính là từ nội dung, câu hoàn chỉnh hay cấu trúc đúng.
 4b. **Phát âm sai thành một từ tiếng Anh khác.** Khi transcript ghi một từ **đúng chính tả** nhưng lệch với từ ở vị trí tương ứng trong **bài viết của học sinh** (viết *think*, transcript ghi *take*; viết *walk*, transcript ghi *work*), đó là **lỗi phát âm**, không phải lỗi dùng từ:
    - **không** tính là "nhận ra ngay" ở checkpoint tỷ lệ Phát âm (P1 / R1 tuỳ khối);
@@ -46,22 +47,25 @@
 
 | Đỏ — lỗi nặng | Vàng — lỗi nhẹ |
 |---|---|
-| Thiếu động từ chính / thiếu *to be* / thiếu trợ động từ ("I very tired", "me dress like girl") | Chia sai thì hoặc sai dạng động từ khi cấu trúc câu vẫn đúng ("I go yesterday") |
+| Thiếu động từ chính / thiếu *to be* / thiếu trợ động từ ("I very tired", "me dress like girl") | Chia sai thì hoặc sai dạng động từ **khi đề bài không ấn định thì**, cấu trúc câu vẫn đúng ("I go yesterday" cho câu hỏi không có mốc thời gian) |
+| **Trả lời sai thì mà ĐỀ BÀI ĐÃ ẤN ĐỊNH**: đề hỏi quá khứ (*Did you… when you were a young child?*, *What did you do yesterday?*) mà trả lời thì hiện tại ("Yes, I **like** drawing… because it **makes** me relax"), hoặc ngược lại. Đây không phải lỡ tay chia sai — nó trả lời sang một câu hỏi khác | |
 | Sai trật tự từ ("will beautiful look") | Hoà hợp chủ ngữ – động từ ("she like") |
 | Sai cấu trúc sau động từ ("want buy", "like go", "explain for me") | Mạo từ, số ít/số nhiều, giới từ nhỏ |
+| **Thừa hoặc thiếu giới từ làm hỏng cụm** — *At here*, *discuss about*, *go to home*, *listen music* — **ở khối 8–9** (chuẩn B1+, lỗi này không còn được coi là nhỏ) | Cùng loại lỗi đó **ở khối 6–7** |
 | Dùng sai từ làm sai nghĩa, kể cả từ đồng âm ("two" thay cho "too") | Chính tả sai nhưng vẫn nhận ra ngay ("becuase") |
 | Sai từ loại phá cụm ("very relax", "beautiful look") | Lặp từ, ngập ngừng, câu giờ |
 | Thiếu chủ ngữ, thiếu tân ngữ bắt buộc ("Is good", "I don't like.") | Thiếu âm cuối, sai trọng âm (bài nói) |
 | Chêm tiếng Việt thay cho từ tiếng Anh | Phát âm sai nhưng vẫn nhận ra ngay từ gốc |
+| **Sai số ít/số nhiều ở chủ ngữ – đại từ – động từ làm câu sai nghĩa**: danh từ số nhiều nhưng nhắc lại bằng đại từ số ít và động từ số ít ("I like **animals** because **it is** cute"), hoặc ngược lại | Thiếu -s ở một danh từ số nhiều mà phần còn lại vẫn hoà hợp ("two book") |
 | Từ phát âm sai đến mức không nhận ra / `[?]` | |
 
 Quy tắc phụ: một chỗ sai nhiều thứ thì lấy **mức nặng nhất**. Câu 2 của phần nhận xét phải gọi tên **một loại lỗi đỏ** nếu bài có lỗi đỏ.
 
 ### Lỗi đỏ ảnh hưởng tới điểm
 
-1. **Mỗi lỗi đỏ tính bằng 2 lỗi** ở mọi checkpoint **đếm số lỗi**. Lỗi vàng tính 1. Ghi rõ trong `counting_notes`: số lỗi đỏ, số lỗi vàng, tổng quy đổi.
+1. **Mỗi lỗi đỏ tính bằng 3 lỗi** ở mọi checkpoint **đếm số lỗi**. Lỗi vàng tính 1. Ghi rõ trong `counting_notes`: số lỗi đỏ, số lỗi vàng, tổng quy đổi.
 
-   | Khối | Checkpoint áp quy tắc nhân đôi |
+   | Khối | Checkpoint áp quy tắc nhân ba |
    |---|---|
    | Khối 6, khối 7 Cambridge, khối 8 Cambridge | **G5** (tổng số lỗi) |
    | Khối 7 IELTS | **L4** (lỗi dùng từ), **R3** (mạo từ/giới từ/từ hạn định), **R5** (tổng lỗi ngữ pháp) |
@@ -69,7 +73,7 @@ Quy tắc phụ: một chỗ sai nhiều thứ thì lấy **mức nặng nhất*
 
    **Không** áp cho checkpoint đếm **điểm mạnh** (số câu phức, số collocation, số từ nội dung) hay checkpoint đếm lặp (L2 của khối 7 IELTS là *số lần lặp cụm câu hỏi*, không phải đếm lỗi).
 
-   Ví dụ: 2 lỗi đỏ + 1 lỗi vàng = 2×2 + 1 = **5 lỗi quy đổi**.
+   Ví dụ: 2 lỗi đỏ + 1 lỗi vàng = 2×3 + 1 = **7 lỗi quy đổi**. Nói cách khác: **1 lỗi nặng nặng ngang 3 lỗi nhẹ**.
 2. **Từ 2 lỗi đỏ trở lên: tiêu chí Ngữ pháp bị trần 60%** (Grammar and Vocabulary ở khối 6 và Cambridge; Grammatical Range and Accuracy ở khối IELTS). Trần này áp sau khi tính checkpoint, và lấy giá trị nhỏ hơn giữa điểm checkpoint và 60%.
    Vì điểm Ngữ pháp của Bước 2 lấy nguyên từ Bước 1, trần này theo sang cả bài nói.
 
@@ -81,9 +85,10 @@ Quy tắc phụ: một chỗ sai nhiều thứ thì lấy **mức nặng nhất*
 
 ## §D. Nhận xét — không gợi ý sửa
 
-1. **Đúng 2 câu, tổng ≤50 từ, tiếng Việt:**
+1. **Tối đa 2 câu, tổng ≤50 từ, tiếng Việt:**
    - Câu 1: 1 điểm học sinh làm được (có bằng chứng trong bài).
    - Câu 2: **lỗi nặng nhất** — chỉ gọi tên loại lỗi, theo khuôn "Lỗi nặng nhất: <tên loại lỗi>."
+   - **Bài không có lỗi nào được tô → bỏ hẳn câu 2.** Không viết "Lỗi nặng nhất: Không có", không bịa ra một lỗi để đủ 2 câu. Câu 2 chỉ được nêu loại lỗi **đã tô trong highlights**.
    - Không thêm câu thứ ba, không mở đầu, không kết luận, không markdown.
 2. **Chỉ được gọi tên loại lỗi** ("lỗi chia động từ", "thiếu âm cuối", "câu thiếu thành phần").
 3. **Cấm:** đưa dạng đúng, thì đúng, từ đúng, cấu trúc đúng, ví dụ sửa; cấm "cần/nên + hành động sửa cụ thể" ("cần dùng quá khứ đơn", "nên thêm động từ", "hãy bật âm /s/", "tránh chêm tiếng Việt", "cần nói dài hơn").

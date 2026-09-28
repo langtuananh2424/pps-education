@@ -21,6 +21,11 @@ public final class ReflexV2Tags {
     public static final Set<String> SEVERE_TAGS = Set.of(
             "thieu_thanh_phan", "cau_truc_cau", "trat_tu_tu", "dung_tu", "tu_loai", "tieng_viet", "khong_ro", "lac_y");
 
+    /** Lỗi tô trong transcript thuộc tiêu chí Phát âm (dùng khi phân lỗi vào từng tiêu chí để tính trần). */
+    public static final Set<String> PRON_TAGS = Set.of("phat_am", "am_cuoi", "trong_am", "khong_ro");
+    /** Lỗi thuộc tiêu chí Từ vựng (chỉ khi dạng bài có tiêu chí LR; nếu không thì tính vào Ngữ pháp). */
+    public static final Set<String> VOCAB_TAGS = Set.of("dung_tu", "tu_loai", "tieng_viet");
+
     /** Tên tiếng Anh / tiếng Việt của tiêu chí, theo mã. */
     public static final Map<String, String> CRITERIA_EN = new LinkedHashMap<>();
     public static final Map<String, String> CRITERIA_VI = new LinkedHashMap<>();
