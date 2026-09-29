@@ -51,6 +51,7 @@ class CommentAiDraftServiceTest {
     private static final LocalDate SESSION_DATE = LocalDate.of(2026, 9, 28);
 
     private final StudentCommentService studentCommentService = mock(StudentCommentService.class);
+    private final StudentAttitudeAlertTrackingService attitudeAlertTrackingService = mock(StudentAttitudeAlertTrackingService.class);
     private final ClassEnrollmentRepository classEnrollmentRepository = mock(ClassEnrollmentRepository.class);
     private final AttendanceSessionRepository attendanceSessionRepository = mock(AttendanceSessionRepository.class);
     private final AttendanceMarkRepository attendanceMarkRepository = mock(AttendanceMarkRepository.class);
@@ -59,10 +60,10 @@ class CommentAiDraftServiceTest {
     private final PromptTemplateLoader promptTemplateLoader = mock(PromptTemplateLoader.class);
     private final AiJobRegistry jobRegistry = mock(AiJobRegistry.class);
 
-    private final CommentAiDraftService service = new CommentAiDraftService(studentCommentService,
+    private final CommentAiDraftService service = new CommentAiDraftService(studentCommentService, attitudeAlertTrackingService,
             classEnrollmentRepository, attendanceSessionRepository, attendanceMarkRepository, studentCommentRepository,
             aiClient, new CommentAiJsonCaller(aiClient, promptTemplateLoader, new ObjectMapper()), jobRegistry,
-            "comment-pps", 3, 120, 0.5, 10, 1024);
+            "comment-pps", 3, 120, 0.5, 10, 1024, 20);
 
     private final ClassSession session = mock(ClassSession.class);
 
@@ -182,7 +183,9 @@ class CommentAiDraftServiceTest {
         assertThat(an.attitude()).isEqualTo("AVERAGE");
         assertThat(result.rows().get(1).source()).isEqualTo(CommentAiDraftService.SOURCE_CLASS);
         assertThat(result.rows().get(1).attitude()).isEqualTo("GOOD");
-        assertThat(result.rows()).allSatisfy(r -> assertThat(r.warnings()).isEmpty());
+        // Mức Trung bình luôn kèm lời nhắc hệ quả cảnh báo phụ huynh; các dòng khác không có cảnh báo.
+        assertThat(an.warnings()).extracting(CommentAiDraftResult.Warning::type).containsExactly("ATTITUDE_ALERT");
+        assertThat(result.rows().subList(1, 3)).allSatisfy(r -> assertThat(r.warnings()).isEmpty());
         assertThat(result.assistantMessage()).contains("3 học sinh").contains("Nguyễn Văn An");
         // Không có dòng trùng -> không gọi viết lại.
         verify(aiClient, times(1)).chatWithFinishReason(eq(CommentAiDraftService.WRITE_PROMPT), anyString(), anyString());
@@ -227,7 +230,7 @@ class CommentAiDraftServiceTest {
 
     @Test
     void startDraft_UC74_A3_rejectsWhenNoAudioAndNoNote() {
-        assertThatThrownBy(() -> service.startDraft(SESSION_ID, null, "  ", ACTOR_ID))
+        assertThatThrownBy(() -> service.startDraft(SESSION_ID, null, "  ", null, ACTOR_ID))
                 .isInstanceOf(CommentAiDraftRejectedException.class);
         verify(jobRegistry, never()).submit(any(), any());
     }
@@ -237,9 +240,9 @@ class CommentAiDraftServiceTest {
         MockMultipartFile big = new MockMultipartFile("audio", "a.webm", "audio/webm", new byte[2048]);
         MockMultipartFile notAudio = new MockMultipartFile("audio", "a.pdf", "application/pdf", new byte[10]);
 
-        assertThatThrownBy(() -> service.startDraft(SESSION_ID, big, null, ACTOR_ID))
+        assertThatThrownBy(() -> service.startDraft(SESSION_ID, big, null, null, ACTOR_ID))
                 .isInstanceOf(CommentAiDraftRejectedException.class).hasMessageContaining("quá lớn");
-        assertThatThrownBy(() -> service.startDraft(SESSION_ID, notAudio, null, ACTOR_ID))
+        assertThatThrownBy(() -> service.startDraft(SESSION_ID, notAudio, null, null, ACTOR_ID))
                 .isInstanceOf(CommentAiDraftRejectedException.class).hasMessageContaining("không phải audio");
         verify(jobRegistry, never()).submit(any(), any());
     }
@@ -374,7 +377,7 @@ class CommentAiDraftServiceTest {
     @Test
     void startRevise_UC74_A3_rejectsBlankInstruction() {
         ReviseCommentAiDraftRequest request = new ReviseCommentAiDraftRequest(ReviseCommentAiDraftRequest.Mode.INSTRUCTION,
-                " ", "", null, List.of(), List.of());
+                " ", "", null, List.of(), List.of(), null);
 
         assertThatThrownBy(() -> service.startRevise(SESSION_ID, request, ACTOR_ID))
                 .isInstanceOf(CommentAiDraftRejectedException.class);
@@ -392,7 +395,7 @@ class CommentAiDraftServiceTest {
                 "Bình hôm nay cho Trung bình", "transcript", null,
                 List.of(new ReviseCommentAiDraftRequest.CurrentRow(1L, "GOOD", "An tập trung tốt."),
                         new ReviseCommentAiDraftRequest.CurrentRow(2L, "GOOD", "Bình tập trung tốt.")),
-                List.of(new ReviseCommentAiDraftRequest.ChatTurn("teacher", "soạn giúp")));
+                List.of(new ReviseCommentAiDraftRequest.ChatTurn("teacher", "soạn giúp")), null);
 
         CommentAiDraftResult result = service.revise(context(AN, BINH), request);
 
@@ -411,7 +414,7 @@ class CommentAiDraftServiceTest {
         CommentAiDraftResult.Extraction extraction = new CommentAiDraftResult.Extraction("GOOD", List.of("tập trung tốt"), List.of(), "cô");
         ReviseCommentAiDraftRequest request = new ReviseCommentAiDraftRequest(ReviseCommentAiDraftRequest.Mode.REWRITE_ALL,
                 null, "transcript", extraction,
-                List.of(new ReviseCommentAiDraftRequest.CurrentRow(1L, "FAIR", "An tập trung tốt.")), List.of());
+                List.of(new ReviseCommentAiDraftRequest.CurrentRow(1L, "FAIR", "An tập trung tốt.")), List.of(), null);
 
         CommentAiDraftResult result = service.revise(context(AN), request);
 
@@ -486,5 +489,67 @@ class CommentAiDraftServiceTest {
 
         verify(aiClient, never()).chatWithFinishReason(anyString(), org.mockito.ArgumentMatchers.contains("lessonContent"), anyString());
         assertThat(result.rows().get(0).warnings()).extracting(CommentAiDraftResult.Warning::type).contains("LESSON_TITLE");
+    }
+
+    // ---- Nhắc chuỗi cảnh báo Thái độ (4.1) ----
+
+    @Test
+    void generateDraft_UC74_warnsWhenAttitudeWouldReachEscalationStreak() {
+        CommentAiDraftService.RosterStudent anWithStreak = new CommentAiDraftService.RosterStudent(1L, "Nguyễn Văn An", List.of(), 2);
+        stubAi(CommentAiDraftService.EXTRACT_PROMPT, """
+                {"classAttitude": null, "classPoints": ["cả lớp ổn"],
+                 "individuals": [{"studentId": 1, "attitude": "WEAK", "points": ["không làm bài"]}], "unmatched": []}""");
+        stubAi(CommentAiDraftService.WRITE_PROMPT, "{\"comments\": [{\"studentId\": 1, \"content\": \"An cần tập trung hơn.\"}]}");
+
+        CommentAiDraftResult result = service.generateDraft(context(anWithStreak), null, null, "ghi chú");
+
+        // AI không tự đổi mức Thái độ — chỉ nhắc giáo viên.
+        assertThat(result.rows().get(0).attitude()).isEqualTo("WEAK");
+        assertThat(result.rows().get(0).warnings()).extracting(CommentAiDraftResult.Warning::message)
+                .anySatisfy(m -> assertThat(m).contains("2 buổi").contains("mốc cảnh báo 3 buổi"));
+    }
+
+    @Test
+    void attitudeAlertWarning_UC74_onlyForWeakOrAverage() {
+        assertThat(CommentAiDraftService.attitudeAlertWarning("GOOD", 5)).isNull();
+        assertThat(CommentAiDraftService.attitudeAlertWarning(null, 0)).isNull();
+        assertThat(CommentAiDraftService.attitudeAlertWarning("AVERAGE", 0).message()).contains("gửi cảnh báo thái độ cho phụ huynh");
+    }
+
+    // ---- Điểm BTVN buổi trước (bổ sung 2026-09-29) ----
+
+    @Test
+    void generateDraft_UC74_homeworkNoteSentToAiInWordsWithoutNumbers() {
+        CommentAiDraftService.RosterStudent an = new CommentAiDraftService.RosterStudent(1L, "Nguyễn Văn An", List.of(), 0,
+                "BTVN buổi trước: chưa hoàn thành (bài tập online).");
+        stubAi(CommentAiDraftService.EXTRACT_PROMPT,
+                "{\"classAttitude\": null, \"classPoints\": [\"tích cực\"], \"individuals\": [], \"unmatched\": []}");
+        stubAi(CommentAiDraftService.WRITE_PROMPT, "{\"comments\": [{\"studentId\": 1, \"content\": \"An học tích cực.\"}]}");
+
+        service.generateDraft(context(an), null, null, "ghi chú");
+
+        verify(aiClient).chatWithFinishReason(eq(CommentAiDraftService.WRITE_PROMPT),
+                org.mockito.ArgumentMatchers.contains("chưa hoàn thành (bài tập online)"), anyString());
+    }
+
+    @Test
+    void loadContext_UC74_buildsHomeworkNoteFromTableScoresAndAutoProgress() {
+        vn.com.pps.education.domain.Student an = student(1L, "Nguyễn Văn An");
+        vn.com.pps.education.domain.Student binh = student(2L, "Trần Thị Bình");
+        List<vn.com.pps.education.domain.ClassEnrollment> enrollments = List.of(enrollment(an), enrollment(binh));
+        when(classEnrollmentRepository.findBySchoolClassIdAndStatus(5L, vn.com.pps.education.domain.ClassEnrollment.Status.ACTIVE)).thenReturn(enrollments);
+        when(studentCommentService.previewAutoProgress(SESSION_ID, ACTOR_ID)).thenReturn(List.of(
+                new vn.com.pps.education.dto.AutoProgressPreviewResponse(1L, "Chưa làm bài", null, null, null),
+                new vn.com.pps.education.dto.AutoProgressPreviewResponse(2L, "65%", null, null, null)));
+
+        CommentAiDraftService.DraftContext context = service.loadContext(SESSION_ID, ACTOR_ID,
+                List.of(new vn.com.pps.education.dto.HomeworkScoreInput(1L, "90%", null, null, null)));
+
+        CommentAiDraftService.RosterStudent anRow = context.rosterById().get(1L);
+        CommentAiDraftService.RosterStudent binhRow = context.rosterById().get(2L);
+        assertThat(anRow.homeworkNote()).contains("làm tốt (bài tập offline)").contains("chưa hoàn thành (bài tập online)")
+                .doesNotContainPattern("\\d");
+        // 65% = "làm được" — không nổi bật nên không nhắc.
+        assertThat(binhRow.homeworkNote()).isNull();
     }
 }

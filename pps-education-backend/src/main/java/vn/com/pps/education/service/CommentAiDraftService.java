@@ -8,13 +8,16 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import vn.com.pps.education.common.CommentSimilarity;
+import vn.com.pps.education.common.HomeworkScoreInsight;
 import vn.com.pps.education.domain.AttendanceMark;
 import vn.com.pps.education.domain.ClassEnrollment;
 import vn.com.pps.education.domain.ClassSession;
 import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.StudentComment;
+import vn.com.pps.education.dto.AutoProgressPreviewResponse;
 import vn.com.pps.education.dto.CommentAiDraftJobResponse;
 import vn.com.pps.education.dto.CommentAiDraftResult;
+import vn.com.pps.education.dto.HomeworkScoreInput;
 import vn.com.pps.education.dto.ReviseCommentAiDraftRequest;
 import vn.com.pps.education.exception.CommentAiDraftFailedException;
 import vn.com.pps.education.exception.CommentAiDraftRejectedException;
@@ -86,6 +89,7 @@ public class CommentAiDraftService {
     private static final int MAX_SPELLING_HINT_LENGTH = 800;
 
     private final StudentCommentService studentCommentService;
+    private final StudentAttitudeAlertTrackingService attitudeAlertTrackingService;
     private final ClassEnrollmentRepository classEnrollmentRepository;
     private final AttendanceSessionRepository attendanceSessionRepository;
     private final AttendanceMarkRepository attendanceMarkRepository;
@@ -104,10 +108,11 @@ public class CommentAiDraftService {
      * @param maxAudioBytes chặn dung lượng ở backend (giới hạn 5 phút kiểm tra ở FE, xem UC-74 A3).
      */
     public record Settings(String model, int previousCommentCount, int previousLookbackDays,
-                           double similarityThreshold, int writeBatchSize, long maxAudioBytes) {
+                           double similarityThreshold, int writeBatchSize, long maxAudioBytes, int homeworkTrendPoints) {
     }
 
     public CommentAiDraftService(StudentCommentService studentCommentService,
+                                 StudentAttitudeAlertTrackingService attitudeAlertTrackingService,
                                  ClassEnrollmentRepository classEnrollmentRepository,
                                  AttendanceSessionRepository attendanceSessionRepository,
                                  AttendanceMarkRepository attendanceMarkRepository,
@@ -120,8 +125,10 @@ public class CommentAiDraftService {
                                  @Value("${app.ai-comment-draft.previous-lookback-days:120}") int previousLookbackDays,
                                  @Value("${app.ai-comment-draft.similarity-threshold:0.5}") double similarityThreshold,
                                  @Value("${app.ai-comment-draft.write-batch-size:10}") int writeBatchSize,
-                                 @Value("${app.ai-comment-draft.max-audio-bytes:20971520}") long maxAudioBytes) {
+                                 @Value("${app.ai-comment-draft.max-audio-bytes:20971520}") long maxAudioBytes,
+                                 @Value("${app.ai-comment-draft.homework-trend-points:20}") int homeworkTrendPoints) {
         this.studentCommentService = studentCommentService;
+        this.attitudeAlertTrackingService = attitudeAlertTrackingService;
         this.classEnrollmentRepository = classEnrollmentRepository;
         this.attendanceSessionRepository = attendanceSessionRepository;
         this.attendanceMarkRepository = attendanceMarkRepository;
@@ -130,15 +137,30 @@ public class CommentAiDraftService {
         this.jsonCaller = jsonCaller;
         this.jobRegistry = jobRegistry;
         this.settings = new Settings(model, previousCommentCount, previousLookbackDays, similarityThreshold,
-                Math.max(1, writeBatchSize), maxAudioBytes);
+                Math.max(1, writeBatchSize), maxAudioBytes, homeworkTrendPoints);
     }
 
     // ---- Bản chụp dữ liệu buổi học (đọc trong request, dùng ở luồng nền) ----
 
-    record PreviousComment(LocalDate date, String content) {
+    /** @param homeworkPercent trung bình % BTVN nhập tay của buổi đó (để nhận biết tăng/giảm rõ), null nếu không có. */
+    record PreviousComment(LocalDate date, String content, Integer homeworkPercent) {
+        PreviousComment(LocalDate date, String content) {
+            this(date, content, null);
+        }
     }
 
-    record RosterStudent(Long id, String fullName, List<PreviousComment> previousComments) {
+    /**
+     * @param lowStreak số buổi Thái độ Yếu/Trung bình liên tiếp đã duyệt hiện tại (UC-74, nhắc chuỗi cảnh báo 3 buổi).
+     */
+    record RosterStudent(Long id, String fullName, List<PreviousComment> previousComments, int lowStreak, String homeworkNote) {
+        RosterStudent(Long id, String fullName, List<PreviousComment> previousComments) {
+            this(id, fullName, previousComments, 0, null);
+        }
+
+        RosterStudent(Long id, String fullName, List<PreviousComment> previousComments, int lowStreak) {
+            this(id, fullName, previousComments, lowStreak, null);
+        }
+
         String callName() {
             String[] parts = fullName.trim().split("\\s+");
             return parts[parts.length - 1];
@@ -167,7 +189,8 @@ public class CommentAiDraftService {
      * UC-74 Main Flow bước 1-2: kiểm tra đầu vào + rào (A1-A4) ngay trong request, rồi chạy nền bước 3-8.
      */
     @Transactional(readOnly = true)
-    public CommentAiDraftJobResponse startDraft(Long classSessionId, MultipartFile audio, String note, Long actorUserId) {
+    public CommentAiDraftJobResponse startDraft(Long classSessionId, MultipartFile audio, String note,
+                                                List<HomeworkScoreInput> homeworkScores, Long actorUserId) {
         boolean hasAudio = audio != null && !audio.isEmpty();
         boolean hasNote = note != null && !note.isBlank();
         if (!hasAudio && !hasNote) {
@@ -190,7 +213,7 @@ public class CommentAiDraftService {
                 throw new CommentAiDraftRejectedException("Không đọc được file audio — vui lòng gửi lại.");
             }
         }
-        DraftContext context = loadContext(classSessionId, actorUserId);
+        DraftContext context = loadContext(classSessionId, actorUserId, homeworkScores);
         byte[] finalAudio = audioBytes;
         String finalMimeType = mimeType;
         String finalNote = hasNote ? note.trim() : null;
@@ -211,7 +234,7 @@ public class CommentAiDraftService {
         if (request.mode() == ReviseCommentAiDraftRequest.Mode.REWRITE_ALL && request.extraction() == null) {
             throw new CommentAiDraftRejectedException("Chưa có bản nháp để viết lại — hãy gửi audio trước.");
         }
-        DraftContext context = loadContext(classSessionId, actorUserId);
+        DraftContext context = loadContext(classSessionId, actorUserId, request.homeworkScores());
         return toResponse(jobRegistry.submit(actorUserId, () -> revise(context, request)));
     }
 
@@ -228,6 +251,15 @@ public class CommentAiDraftService {
      * duyệt, và chụp N nhận xét gần nhất/học sinh (mọi lớp) để AI tránh lặp lại (bước 6-7).
      */
     DraftContext loadContext(Long classSessionId, Long actorUserId) {
+        return loadContext(classSessionId, actorUserId, null);
+    }
+
+    /**
+     * @param homeworkScores điểm BTVN buổi trước giáo viên đang nhập trên bảng (có thể null) — cùng % tự động của
+     *                       bài online (backend tính) được quy ra LỜI bằng {@link HomeworkScoreInsight}, chỉ giữ
+     *                       kênh nổi bật hoặc tăng/giảm rõ; AI không nhận con số nào.
+     */
+    DraftContext loadContext(Long classSessionId, Long actorUserId, List<HomeworkScoreInput> homeworkScores) {
         ClassSession session = studentCommentService.requireCanWriteDailyCommentFor(classSessionId, actorUserId);
         if (session.getTeacherType() == ClassSession.TeacherType.FOREIGN) {
             throw new CommentAiDraftRejectedException(
@@ -271,16 +303,65 @@ public class CommentAiDraftService {
             }
             List<PreviousComment> list = previousById.computeIfAbsent(comment.getStudent().getId(), k -> new ArrayList<>());
             if (list.size() < settings.previousCommentCount()) {
-                list.add(new PreviousComment(comment.getCommentDate(), comment.getContent().trim()));
+                java.util.OptionalInt homeworkAverage = HomeworkScoreInsight.averagePercent(java.util.Arrays.asList(
+                        comment.getHomeworkPreviousScore(), comment.getHomeworkPreviousSpeakingScore(),
+                        comment.getHomeworkPreviousReadingScore(), comment.getHomeworkPreviousWritingScore()));
+                list.add(new PreviousComment(comment.getCommentDate(), comment.getContent().trim(),
+                        homeworkAverage.isPresent() ? homeworkAverage.getAsInt() : null));
             }
         }
+        Map<Long, Integer> lowStreaks = attitudeAlertTrackingService.currentLowStreaks(session.getSchoolClass(), ids);
+        Map<Long, String> homeworkNotes = homeworkNotes(session.getId(), actorUserId, homeworkScores, previousById);
         Collator collator = Collator.getInstance(Locale.forLanguageTag("vi"));
         List<RosterStudent> roster = eligible.stream()
-                .map(s -> new RosterStudent(s.getId(), s.getUser().getFullName(), List.copyOf(previousById.getOrDefault(s.getId(), List.of()))))
+                .map(s -> new RosterStudent(s.getId(), s.getUser().getFullName(), List.copyOf(previousById.getOrDefault(s.getId(), List.of())),
+                        lowStreaks.getOrDefault(s.getId(), 0), homeworkNotes.get(s.getId())))
                 .sorted(Comparator.comparing(RosterStudent::callName, collator).thenComparing(RosterStudent::fullName, collator))
                 .toList();
         return new DraftContext(session.getId(), session.getSchoolClass().getName(), session.getSessionDate(),
                 session.getLessonContent(), roster, List.copyOf(skipped));
+    }
+
+    private Map<Long, String> homeworkNotes(Long classSessionId, Long actorUserId, List<HomeworkScoreInput> homeworkScores,
+                                            Map<Long, List<PreviousComment>> previousById) {
+        Map<Long, AutoProgressPreviewResponse> autoById = new HashMap<>();
+        for (AutoProgressPreviewResponse auto : studentCommentService.previewAutoProgress(classSessionId, actorUserId)) {
+            autoById.put(auto.studentId(), auto);
+        }
+        Map<Long, HomeworkScoreInput> manualById = new HashMap<>();
+        if (homeworkScores != null) {
+            homeworkScores.stream().filter(h -> h != null && h.studentId() != null).forEach(h -> manualById.putIfAbsent(h.studentId(), h));
+        }
+        Set<Long> studentIds = new HashSet<>(autoById.keySet());
+        studentIds.addAll(manualById.keySet());
+        Map<Long, String> notes = new HashMap<>();
+        for (Long studentId : studentIds) {
+            List<HomeworkScoreInsight.Channel> channels = new ArrayList<>();
+            HomeworkScoreInput manual = manualById.get(studentId);
+            if (manual != null) {
+                channels.add(new HomeworkScoreInsight.Channel("bài tập offline", manual.offline()));
+                channels.add(new HomeworkScoreInsight.Channel("bài Reading offline", manual.reading()));
+                channels.add(new HomeworkScoreInsight.Channel("bài Writing offline", manual.writing()));
+                channels.add(new HomeworkScoreInsight.Channel("video ôn tập", manual.speaking()));
+            }
+            AutoProgressPreviewResponse auto = autoById.get(studentId);
+            if (auto != null) {
+                channels.add(new HomeworkScoreInsight.Channel("bài tập online", auto.grammarPreviousProgress()));
+                channels.add(new HomeworkScoreInsight.Channel("video ôn tập online", auto.videoPreviousProgress()));
+                channels.add(new HomeworkScoreInsight.Channel("bài Reading online", auto.readingPreviousProgress()));
+                channels.add(new HomeworkScoreInsight.Channel("bài Writing online", auto.writingPreviousProgress()));
+            }
+            java.util.OptionalInt previousAverage = previousById.getOrDefault(studentId, List.of()).stream()
+                    .map(PreviousComment::homeworkPercent).filter(java.util.Objects::nonNull).findFirst()
+                    .map(java.util.OptionalInt::of).orElse(java.util.OptionalInt.empty());
+            java.util.OptionalInt currentManualAverage = manual == null ? java.util.OptionalInt.empty()
+                    : HomeworkScoreInsight.averagePercent(java.util.Arrays.asList(manual.offline(), manual.speaking(), manual.reading(), manual.writing()));
+            String note = HomeworkScoreInsight.describe(channels, currentManualAverage, previousAverage, settings.homeworkTrendPoints());
+            if (note != null) {
+                notes.put(studentId, note);
+            }
+        }
+        return notes;
     }
 
     // ---- Luồng nền ----
@@ -372,6 +453,7 @@ public class CommentAiDraftService {
             item.put("attitude", row == null ? null : normalizeAttitude(row.attitude()));
             item.put("content", row == null ? null : row.content());
             item.put("previousComments", student.previousComments().stream().map(PreviousComment::content).toList());
+            item.put("homework", student.homeworkNote());
             students.add(item);
         }
         payload.put("students", students);
@@ -607,6 +689,7 @@ public class CommentAiDraftService {
             item.put("attitude", target.attitude() == null ? null : ATTITUDE_LABELS.get(target.attitude()));
             item.put("points", target.points());
             item.put("previousComments", target.student().previousComments().stream().map(PreviousComment::content).toList());
+            item.put("homework", target.student().homeworkNote());
             students.add(item);
         }
         payload.put("students", students);
@@ -676,6 +759,10 @@ public class CommentAiDraftService {
                             "Nhận xét nhắc tên bài học — giáo viên thường không ghi tên bài vào nhận xét.", null));
                 }
             }
+            CommentAiDraftResult.Warning attitudeAlert = attitudeAlertWarning(target.attitude(), target.student().lowStreak());
+            if (attitudeAlert != null) {
+                warnings.add(attitudeAlert);
+            }
             rows.add(new CommentAiDraftResult.Row(id, target.student().fullName(), target.attitude(), content,
                     target.source(), warnings));
         }
@@ -713,6 +800,24 @@ public class CommentAiDraftService {
         java.util.function.Function<String, String> norm = text -> java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFC)
                 .toLowerCase(Locale.forLanguageTag("vi")).replaceAll("[^\\p{L}\\p{N}]+", " ").trim();
         return norm.apply(content).contains(norm.apply(lessonContent));
+    }
+
+    /**
+     * UC-74 (bổ sung 2026-09-29, đã xác nhận với người dùng — thay cho đề xuất "AI tự hạ mức để tránh cảnh báo"):
+     * AI KHÔNG tự đổi mức Thái độ; chỉ nhắc giáo viên hệ quả khi mức Yếu/Trung bình được duyệt — mỗi buổi đều báo
+     * phụ huynh, và đủ chuỗi liên tiếp thì sinh cảnh báo escalation chờ Quản lý duyệt
+     * (xem {@link StudentAttitudeAlertTrackingService}).
+     */
+    static CommentAiDraftResult.Warning attitudeAlertWarning(String attitude, int lowStreak) {
+        if (!"WEAK".equals(attitude) && !"AVERAGE".equals(attitude)) {
+            return null;
+        }
+        int threshold = StudentAttitudeAlertTrackingService.escalationThreshold();
+        String message = lowStreak + 1 >= threshold
+                ? "Đã " + lowStreak + " buổi Yếu/Trung bình liên tiếp — nếu duyệt mức này sẽ chạm mốc cảnh báo " + threshold
+                        + " buổi gửi phụ huynh (cần Quản lý duyệt). Kiểm tra lại mức Thái độ."
+                : "Mức Yếu/Trung bình sẽ gửi cảnh báo thái độ cho phụ huynh khi nhận xét được duyệt.";
+        return new CommentAiDraftResult.Warning("ATTITUDE_ALERT", message, null);
     }
 
     /** Nhãn tiếng Việt của mã Thái độ (VD GOOD → "Tốt"), {@code null} nếu mã không hợp lệ. */

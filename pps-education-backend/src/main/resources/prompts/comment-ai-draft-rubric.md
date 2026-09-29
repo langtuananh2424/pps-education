@@ -11,10 +11,11 @@ Những việc code đã tự chặn, KHÔNG cần viết vào đây: AI chỉ �
 
 ## 1. Tiêu chí xác định Thái độ học tập (5 mức)
 Chỉ chọn mức khi lời giáo viên có thông tin tương ứng; không đủ thông tin thì để trống.
+Bảng này CHỈ dùng để chọn mức nội bộ — tuyệt đối không viết "nhất lớp", "hơn các bạn" hay so sánh với bạn khác vào nhận xét.
 
 | Mức | Mã | Dấu hiệu trong lời giáo viên |
 |---|---|---|
-| Xuất sắc | EXCELLENT | Nổi bật nhất lớp, được tuyên dương riêng, chủ động dẫn dắt/giúp bạn, hoàn thành vượt yêu cầu. |
+| Xuất sắc | EXCELLENT | Nổi bật trong lớp, được tuyên dương riêng, chủ động dẫn dắt/giúp bạn, hoàn thành vượt yêu cầu. |
 | Tốt | GOOD | Tập trung, tích cực phát biểu, hợp tác tốt, hoàn thành đầy đủ nhiệm vụ trên lớp. |
 | Khá | FAIR | Nhìn chung ổn nhưng chưa thật chủ động; đôi lúc cần nhắc nhở nhẹ. |
 | Trung bình | AVERAGE | Hay mất tập trung, nói chuyện riêng, ít tham gia xây dựng bài, phải nhắc nhở nhiều lần. |
@@ -36,8 +37,11 @@ Chỉ chọn mức khi lời giáo viên có thông tin tương ứng; không đ
 - Người đọc là phụ huynh: lịch sự, gần gũi, tích cực; không phán xét.
 - Nhận xét tiêu cực phải đi kèm hướng khắc phục hoặc lời động viên.
 - Tránh từ nặng nề: "hư", "lười biếng", "kém cỏi", "không chịu học", "ngỗ nghịch".
-- Không dùng tiếng lóng, emoji, dấu chấm than liên tiếp.
+- Không dùng tiếng lóng, emoji. Tối đa 1 dấu "!" cho cả nhận xét, không dùng "!!"/"!!!".
 - Kỹ năng tiếng Anh dùng thống nhất: nghe, nói, đọc, viết, phát âm, từ vựng, ngữ pháp. Giữ nguyên thuật ngữ tiếng Anh của trung tâm (Speaking, Writing, Reflex…), không tự dịch.
+- ĐƯỢC PHÉP: tên kỹ năng/hoạt động (Speaking, Writing, Reflex, Phonics…). CẤM: tên Unit, tên chủ đề hay tên bài học cụ thể của buổi.
+- Xưng hô: câu đầu gọi tên (tên cuối trong họ tên), các câu sau dùng "con". Không rõ giáo viên là thầy hay cô thì không tự xưng — viết câu không chủ ngữ ("Mong con…"), KHÔNG viết "thầy/cô".
+- Nhịp câu: dài ngắn xen kẽ, nên có ít nhất 1 câu ngắn (khoảng 8 từ trở xuống).
 
 ### Cách diễn đạt hành vi cần cải thiện
 | Giáo viên nói | Viết cho phụ huynh |
@@ -51,12 +55,31 @@ Chỉ chọn mức khi lời giáo viên có thông tin tương ứng; không đ
 
 ## 4. Những điều KHÔNG được viết
 - **Không nhắc tên, lỗi hay hành vi của học sinh khác** trong nhận xét của 1 bạn (VD giáo viên nói "An với Bình nói chuyện riêng" → nhận xét của An chỉ viết "con còn nói chuyện riêng trong giờ", không có tên Bình). Mỗi nhận xét chỉ nói về đúng học sinh đó.
-- Không so sánh, xếp hạng với bạn khác hay cả lớp ("kém nhất lớp", "giỏi hơn các bạn").
-- Không nhắc bài tập về nhà, điểm số, hạn nộp — các thông tin này đã có ô riêng trên form.
+- Không so sánh, xếp hạng với bạn khác hay cả lớp ("kém nhất lớp", "giỏi hơn các bạn"). ĐƯỢC so sánh với CHÍNH học sinh đó ở buổi trước (VD "lần này con đã mạnh dạn hơn") nhưng CHỈ khi giáo viên có nói về sự tiến bộ/thụt lùi đó.
+- Không ghi con số điểm/phần trăm, không nhắc hạn nộp hay giao bài mới — các thông tin này đã có ô riêng trên form.
+- Được nhắc kết quả BTVN buổi trước BẰNG LỜI, chỉ khi dữ liệu "homework" có (đã chỉ gồm điểm nổi bật hoặc tăng/giảm rõ): ≥ 80% "làm tốt", < 50% "cần cố gắng", chưa làm "chưa hoàn thành"; tối đa 1 câu. Lời giáo viên khác dữ liệu thì theo lời giáo viên.
 - Không nhắc tên bài học/Unit của buổi (VD "Unit 1: Hello Friend", "bài Past simple") — giáo viên không ghi tên bài vào nhận xét; kể cả khi giáo viên đọc tên bài trong lời nói.
 - Không nhắc sức khoẻ, hoàn cảnh gia đình, hình thức kỷ luật, không dán nhãn tính cách ("con hay nóng tính", "con nhút nhát").
 
-## 5. Mẫu câu tham khảo (chỉ lấy văn phong, KHÔNG chép nguyên văn)
+## 5. Gợi ý đa dạng câu mở đầu và câu kết
+Trong cùng 1 buổi, mỗi kiểu chỉ dùng cho 1 học sinh; chọn luân phiên, diễn đạt lại theo ý giáo viên.
+
+Mở đầu:
+1. Bắt đầu bằng tên + hành động: "An tập trung nghe giảng suốt buổi."
+2. Bắt đầu bằng điểm nổi bật: "Điểm đáng khen nhất buổi này là…"
+3. Bắt đầu bằng tinh thần học: "Tinh thần học của An hôm nay rất tích cực."
+4. Bắt đầu bằng hoạt động: "Ở phần hoạt động nhóm, An…"
+5. Bắt đầu bằng lời ghi nhận của giáo viên (khi biết thầy/cô): "Cô ghi nhận An…"
+6. Bắt đầu bằng điều cần lưu ý (khi ý chính là cần cải thiện): "An cần chú ý hơn…"
+
+Câu kết:
+1. Lời hẹn: "Hẹn gặp con ở buổi sau nhé."
+2. Ghi nhận: "Sự cố gắng của con rất đáng ghi nhận."
+3. Định hướng cụ thể: "Buổi sau con thử giơ tay phát biểu trước nhé."
+4. Mong muốn: "Mong con giữ vững tinh thần này."
+5. Động viên ngắn: "Cố lên con!"
+
+## 6. Mẫu câu tham khảo (chỉ lấy văn phong, KHÔNG chép nguyên văn)
 - Tốt: "... tập trung nghe giảng và hăng hái phát biểu, …"
 - Cần cải thiện: "... trong giờ còn nói chuyện riêng, … mong con chú ý hơn ở buổi sau."
 <!-- TODO(học vụ): bổ sung 2–3 câu nhận xét THẬT đã được Quản lý duyệt cho mỗi mức Thái độ (Xuất sắc/Tốt/Khá/Trung bình/Yếu). Chọn lọc vài câu tiêu biểu, không dán quá nhiều. -->

@@ -272,4 +272,16 @@ class CommentAiReviewServiceTest {
 
         verify(aiClient, never()).chatWithFinishReason(anyString(), contains("lessonContent"), anyString());
     }
+
+    @Test
+    void suggest_UC75_A5_revisionIsRecheckedWithRuleChecks() {
+        stubAi(CommentAiReviewService.SUGGEST_PROMPT,
+                "{\"content\": \"Bình còn nói chuyện với Nguyễn Văn An trong giờ Unit 4.\", \"explanation\": \"\"}");
+        CommentAiReviewService.ReviewItem binh = item(2, "Trần Thị Bình", null, "Bình nói chuyện riêng nhiều.", List.of());
+
+        CommentAiSuggestionResult result = service.suggest(binh, List.of("x"));
+
+        assertThat(result.warnings()).anySatisfy(w -> assertThat(w).contains("Nguyễn Văn An"));
+        assertThat(result.warnings()).anySatisfy(w -> assertThat(w).contains("chữ số"));
+    }
 }

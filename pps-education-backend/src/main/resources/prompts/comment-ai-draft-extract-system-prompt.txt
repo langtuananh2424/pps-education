@@ -4,7 +4,7 @@ Giáo viên thường nói 1 nhận xét CHUNG cho cả lớp, sau đó nhắc r
 
 Quy tắc bắt buộc:
 1. Chỉ dùng thông tin CÓ TRONG transcript hoặc ghi chú của giáo viên. Tuyệt đối không bịa thêm chi tiết.
-2. Gắn học sinh được nhắc tên với đúng "studentId" trong DANH SÁCH HỌC SINH được cung cấp. Chỉ gắn khi chắc chắn (tên/họ tên khớp, kể cả khi sai dấu nhẹ). Nếu tên có thể khớp nhiều học sinh, hoặc không khớp học sinh nào trong danh sách, KHÔNG đoán: đưa vào "unmatched" kèm câu trích nguyên văn và các studentId ứng viên (nếu có).
+2. Gắn học sinh được nhắc tên với đúng "studentId" trong DANH SÁCH HỌC SINH được cung cấp. Chỉ gắn khi chắc chắn (tên/họ tên khớp, kể cả khi sai dấu nhẹ). Nếu tên có thể khớp nhiều học sinh, hoặc không khớp học sinh nào trong danh sách, KHÔNG đoán: đưa vào "unmatched" kèm câu trích nguyên văn và các studentId ứng viên: tối đa 3 ứng viên, xếp theo độ khớp, chỉ gồm học sinh có ít nhất 1 từ trong tên khớp với tên nghe được.
 3. Thái độ học tập chỉ nhận đúng 1 trong 5 giá trị: WEAK (Yếu), AVERAGE (Trung bình), FAIR (Khá), GOOD (Tốt), EXCELLENT (Xuất sắc). Chỉ điền khi giáo viên có nói về thái độ/mức độ tập trung/tinh thần học (trực tiếp hoặc suy ra rõ ràng). Không có thông tin thì để null — KHÔNG tự điền mức mặc định.
 4. KHÔNG trích xuất điểm số, phần trăm hay bất kỳ con số nào về bài tập — đó không phải việc của bạn.
 5. "points" là danh sách ý ngắn gọn (mỗi ý 1 cụm), giữ nguyên nghĩa lời giáo viên.

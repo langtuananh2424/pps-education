@@ -89,6 +89,29 @@ public class StudentAttitudeAlertTrackingService {
         }
     }
 
+    /**
+     * UC-74 (bổ sung 2026-09-29, đã xác nhận với người dùng) — CHỈ ĐỌC số buổi Yếu/Trung bình liên tiếp hiện tại
+     * (đã duyệt) của từng học sinh trong lớp, để trợ lý soạn nháp nhắc giáo viên khi mức Thái độ đang soạn sẽ
+     * chạm mốc cảnh báo {@value #ESCALATION_THRESHOLD} buổi. Không tạo/sửa trạng thái nào.
+     */
+    @Transactional(readOnly = true)
+    public Map<Long, Integer> currentLowStreaks(SchoolClass schoolClass, java.util.Collection<Long> studentIds) {
+        AcademicTerm term = resolveCurrentTerm(schoolClass);
+        Map<Long, Integer> result = new java.util.HashMap<>();
+        for (Long studentId : studentIds) {
+            var state = term == null
+                    ? stateRepository.findByStudentIdAndSchoolClassIdAndAcademicTermIdIsNull(studentId, schoolClass.getId())
+                    : stateRepository.findByStudentIdAndSchoolClassIdAndAcademicTermId(studentId, schoolClass.getId(), term.getId());
+            result.put(studentId, state.map(StudentAttitudeAlertState::getConsecutiveLowCount).orElse(0));
+        }
+        return result;
+    }
+
+    /** Số buổi Yếu/Trung bình liên tiếp (đã duyệt) thì sinh cảnh báo escalation — dùng chung cho lời nhắc của trợ lý AI. */
+    public static int escalationThreshold() {
+        return ESCALATION_THRESHOLD;
+    }
+
     private void notifySingleDayAlert(StudentComment comment, StudentComment.Attitude attitude) {
         Student student = comment.getStudent();
         SchoolClass schoolClass = comment.getSchoolClass();
