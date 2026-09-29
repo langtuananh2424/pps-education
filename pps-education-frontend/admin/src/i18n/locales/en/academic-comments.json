@@ -88,6 +88,28 @@
       "decideAllFailed": "Failed to approve all comments.",
       "emptyContent": "Comment content cannot be empty.",
       "saveEditFailed": "Failed to save the edited content."
+    },
+    "aiReview": {
+      "button": "AI review",
+      "reviewing": "Reviewing…",
+      "approveClean": "Approve {{count}} rows without warnings",
+      "approvedClean": "Approved {{count}} comments without warnings.",
+      "confirmApproveAll": "{{count}} rows still have AI assistant warnings. Approve the whole class anyway?",
+      "source": {
+        "RULE": "Auto",
+        "AI": "AI"
+      },
+      "suggestButton": "AI suggest a fix",
+      "suggesting": "Suggesting…",
+      "suggestionTitle": "AI suggested revision (not saved)",
+      "dismiss": "Dismiss",
+      "editFirst": "Edit first",
+      "apply": "Apply",
+      "applied": "Applied the revision for {{name}} — the comment is still pending.",
+      "errors": {
+        "failed": "The assistant could not review — please try again.",
+        "suggestFailed": "The assistant could not suggest a fix — please try again."
+      }
     }
   },
   "historyList": {
