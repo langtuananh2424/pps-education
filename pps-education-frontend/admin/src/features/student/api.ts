@@ -147,11 +147,15 @@ export interface SiteOption {
   name: string;
 }
 
-/** UC-13 Main Flow bước 1: danh sách/tìm kiếm học sinh — lọc thêm theo điểm trường (siteId) nếu có. */
-export function listStudents(query?: string, siteId?: number): Promise<StudentResponse[]> {
+/**
+ * UC-13 Main Flow bước 1: danh sách/tìm kiếm học sinh — lọc thêm theo điểm trường (siteId) và lớp
+ * đang học (classId, ghi danh ACTIVE — khớp bộ lọc "Lớp" trên header) nếu có.
+ */
+export function listStudents(query?: string, siteId?: number, classId?: number): Promise<StudentResponse[]> {
   const params = new URLSearchParams();
   if (query?.trim()) params.set("query", query.trim());
   if (siteId) params.set("siteId", String(siteId));
+  if (classId) params.set("classId", String(classId));
   const qs = params.toString();
   return apiRequest<StudentResponse[]>(`/students${qs ? `?${qs}` : ""}`);
 }

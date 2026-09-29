@@ -90,8 +90,6 @@
       "saveEditFailed": "Failed to save the edited content."
     },
     "aiReview": {
-      "button": "AI review",
-      "reviewing": "Reviewing…",
       "approveClean": "Approve {{count}} rows without warnings",
       "approvedClean": "Approved {{count}} comments without warnings.",
       "confirmApproveAll": "{{count}} rows still have AI assistant warnings. Approve the whole class anyway?",
@@ -110,6 +108,26 @@
         "failed": "The assistant could not review — please try again.",
         "suggestFailed": "The assistant could not suggest a fix — please try again."
       }
+    },
+    "assistant": {
+      "openButton": "AI review assistant",
+      "title": "Comment review assistant",
+      "classOption": "{{className}} — {{count}} pending",
+      "intro": "Pick a class and press \"Review this class\" to flag issues on each comment. To fix something, record or type a request (e.g. \"remove the phrase about disrupting in Dat's comment\"); the assistant proposes revisions for you to Apply.",
+      "permissionNote": "The assistant only suggests — it never approves, rejects or edits by itself. A revision is saved only when you press Apply; the comment stays pending.",
+      "reviewChip": "Review this class",
+      "recordChip": "Record a fix request",
+      "reviewCommand": "Review class {{className}}",
+      "reviewAgain": "Review again",
+      "classDone": "This class has no pending comments left.",
+      "audioMessage": "🎙️ Voice request ({{duration}})",
+      "heard": "The assistant heard: \"{{text}}\"",
+      "applied": "Applied",
+      "applyAll": "Apply all",
+      "appliedAll": "Applied {{count}} revisions — the comments are still pending.",
+      "noLongerPending": "No longer pending",
+      "working": "The assistant is working… (may take up to a minute)",
+      "inputPlaceholder": "Request a fix, e.g. \"Make Dat's comment gentler\"…"
     }
   },
   "historyList": {

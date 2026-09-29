@@ -5,7 +5,7 @@ import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Select from "@/components/ui/Select";
 import DatePicker from "@/components/ui/DatePicker";
-import { DayPart, listSites, SiteResponse } from "@/features/facility/api";
+import { DayPart, listRoomsBySite, listSites, RoomResponse, SiteResponse } from "@/features/facility/api";
 import { BulkCreateClassSessionRequest, BulkCreateClassSessionResponse, ClassResponse, bulkCreateClassSessions, listClasses } from "../api";
 import PeriodMultiSelect from "./PeriodMultiSelect";
 import TeacherSearchSelect from "./TeacherSearchSelect";
@@ -40,6 +40,13 @@ export interface QueuedCreatePayload {
   primaryTeacherName: string;
   assistantTeacherName: string | null;
   cmTeacherName: string | null;
+  roomName: string | null;
+}
+
+/** Gộp lý do bỏ qua từng ngày (trùng phòng/trùng giờ GV/...) do server trả về thành 1 dòng ngắn gọn. */
+export function describeSkipped(result: BulkCreateClassSessionResponse): string {
+  const reasons = Array.from(new Set(result.skipped.map((s) => s.reason)));
+  return `bỏ qua ${result.skippedCount}/${result.totalDates} ngày trùng lịch${reasons.length > 0 ? ` — ${reasons.join("; ")}` : ""}.`;
 }
 
 interface CreateSessionModalProps {
@@ -101,6 +108,13 @@ export default function CreateSessionModal({ siteId, onClose, mode = "queue", on
   const [cmTeacherName, setCmTeacherName] = useState<string | null>(null);
   const [actualTeacherName, setActualTeacherName] = useState("");
   const [allowTeacherOverlap, setAllowTeacherOverlap] = useState(false);
+  // GV phụ/CM ẩn sau tickbox, chỉ hiện ô tìm khi tick (xác nhận với người dùng 2026-09-29).
+  const [hasAssistant, setHasAssistant] = useState(false);
+  const [hasCm, setHasCm] = useState(false);
+  // Phòng học tuỳ chọn + cho phép trùng phòng khi 2 nhóm lớp gộp học chung (xác nhận với người dùng 2026-09-29).
+  const [rooms, setRooms] = useState<RoomResponse[]>([]);
+  const [roomId, setRoomId] = useState<number | "">("");
+  const [allowRoomOverlap, setAllowRoomOverlap] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
 
@@ -112,9 +126,12 @@ export default function CreateSessionModal({ siteId, onClose, mode = "queue", on
   useEffect(() => {
     if (effectiveSiteId == null) {
       setClasses([]);
+      setRooms([]);
       return;
     }
     listClasses({ siteId: effectiveSiteId }).then(setClasses).catch(() => undefined);
+    listRoomsBySite(effectiveSiteId).then(setRooms).catch(() => undefined);
+    setRoomId("");
     // Đổi điểm trường (chỉ xảy ra khi không khoá siteId) — lớp/tiết đã chọn của điểm trường cũ không
     // còn hợp lệ, reset lại để tránh gửi nhầm classId/periodNumbers thuộc điểm trường khác.
     if (!siteLocked) {
@@ -150,7 +167,11 @@ export default function CreateSessionModal({ siteId, onClose, mode = "queue", on
       return;
     }
     if (!teacherType || !primaryTeacherId || !primaryTeacherName) {
-      setError("Vui lòng chọn loại giáo viên và giáo viên chính.");
+      setError("Vui lòng chọn loại giáo viên và giáo viên chính (gõ tên rồi chọn 1 giáo viên trong danh sách).");
+      return;
+    }
+    if ((hasAssistant && !assistantTeacherId) || (hasCm && !cmTeacherId)) {
+      setError("Đã tick Giáo viên phụ/CM nhưng chưa chọn người — chọn trong danh sách hoặc bỏ tick.");
       return;
     }
     const request: BulkCreateClassSessionRequest = {
@@ -162,10 +183,12 @@ export default function CreateSessionModal({ siteId, onClose, mode = "queue", on
       sessionType,
       teacherType: teacherType as "VIETNAMESE" | "FOREIGN",
       primaryTeacherId,
-      assistantTeacherId: assistantTeacherId ?? undefined,
-      cmTeacherId: cmTeacherId ?? undefined,
+      roomId: roomId === "" ? undefined : roomId,
+      assistantTeacherId: hasAssistant ? assistantTeacherId ?? undefined : undefined,
+      cmTeacherId: hasCm ? cmTeacherId ?? undefined : undefined,
       actualTeacherName: teacherType === "FOREIGN" && actualTeacherName.trim() ? actualTeacherName.trim() : undefined,
-      allowTeacherOverlap: allowTeacherOverlap || undefined
+      allowTeacherOverlap: allowTeacherOverlap || undefined,
+      allowRoomOverlap: (roomId !== "" && allowRoomOverlap) || undefined
     };
 
     if (mode === "immediate") {
@@ -173,7 +196,7 @@ export default function CreateSessionModal({ siteId, onClose, mode = "queue", on
       try {
         const result: BulkCreateClassSessionResponse = await bulkCreateClassSessions(Number(classId), request);
         if (result.skippedCount > 0) {
-          setError(`Đã lưu, nhưng bỏ qua ${result.skippedCount}/${result.totalDates} ngày trùng lịch.`);
+          setError(`Đã lưu, nhưng ${describeSkipped(result)}`);
         }
         onCreated?.(effectiveSiteId);
         if (result.skippedCount === 0) onClose();
@@ -191,8 +214,9 @@ export default function CreateSessionModal({ siteId, onClose, mode = "queue", on
       classColor: selectedClass.color,
       request,
       primaryTeacherName,
-      assistantTeacherName,
-      cmTeacherName
+      assistantTeacherName: hasAssistant ? assistantTeacherName : null,
+      cmTeacherName: hasCm ? cmTeacherName : null,
+      roomName: roomId === "" ? null : rooms.find((r) => r.id === roomId)?.name ?? null
     });
   };
 
@@ -269,12 +293,76 @@ export default function CreateSessionModal({ siteId, onClose, mode = "queue", on
         )}
 
         <div>
+          <label className={labelClass}>Phòng học</label>
+          <Select
+            value={roomId}
+            onChange={(e) => setRoomId(e.target.value ? Number(e.target.value) : "")}
+            className={inputClass}
+            disabled={effectiveSiteId == null}
+          >
+            <option value="">-- Không chọn phòng --</option>
+            {rooms.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.code}
+                {r.name && r.name !== r.code ? ` — ${r.name}` : ""}
+                {r.flexible ? " (linh hoạt)" : ""}
+              </option>
+            ))}
+          </Select>
+          {effectiveSiteId != null && rooms.length === 0 && (
+            <p className="text-[10px] text-slate-400 italic mt-1">Điểm trường chưa có phòng — thêm ở trang Phòng học &amp; Thiết bị.</p>
+          )}
+          {roomId !== "" && (
+            <label className="flex items-start gap-2 text-xs text-slate-600 cursor-pointer mt-2">
+              <input type="checkbox" checked={allowRoomOverlap} onChange={(e) => setAllowRoomOverlap(e.target.checked)} className="mt-0.5" />
+              <span>
+                Cho phép trùng phòng học với buổi khác
+                <span className="block text-[10px] text-slate-400 italic">
+                  Dùng khi 2 nhóm lớp gộp lại học chung 1 phòng cùng khung giờ. Không tick thì ngày trùng phòng sẽ bị bỏ qua khi lưu.
+                </span>
+              </span>
+            </label>
+          )}
+        </div>
+
+        <div>
           <label className={labelClass}>Loại giáo viên *</label>
           <Select value={teacherType} onChange={(e) => setTeacherType(e.target.value)} className={inputClass}>
             <option value="">-- Chọn loại giáo viên --</option>
             <option value="VIETNAMESE">GV Việt Nam</option>
             <option value="FOREIGN">GV nước ngoài</option>
           </Select>
+        </div>
+
+        <div className="flex flex-wrap gap-x-5 gap-y-1">
+          <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={hasAssistant}
+              onChange={(e) => {
+                setHasAssistant(e.target.checked);
+                if (!e.target.checked) {
+                  setAssistantTeacherId(null);
+                  setAssistantTeacherName(null);
+                }
+              }}
+            />
+            Có giáo viên phụ
+          </label>
+          <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={hasCm}
+              onChange={(e) => {
+                setHasCm(e.target.checked);
+                if (!e.target.checked) {
+                  setCmTeacherId(null);
+                  setCmTeacherName(null);
+                }
+              }}
+            />
+            Có CM
+          </label>
         </div>
 
         <TeacherSearchSelect
@@ -287,24 +375,30 @@ export default function CreateSessionModal({ siteId, onClose, mode = "queue", on
             setPrimaryTeacherName(name);
           }}
         />
-        <TeacherSearchSelect
-          label="Giáo viên phụ (tuỳ chọn)"
-          value={assistantTeacherId}
-          valueName={assistantTeacherName}
-          onChange={(id, name) => {
-            setAssistantTeacherId(id);
-            setAssistantTeacherName(name);
-          }}
-        />
-        <TeacherSearchSelect
-          label="CM (tuỳ chọn)"
-          value={cmTeacherId}
-          valueName={cmTeacherName}
-          onChange={(id, name) => {
-            setCmTeacherId(id);
-            setCmTeacherName(name);
-          }}
-        />
+        {hasAssistant && (
+          <TeacherSearchSelect
+            label="Giáo viên phụ"
+            required
+            value={assistantTeacherId}
+            valueName={assistantTeacherName}
+            onChange={(id, name) => {
+              setAssistantTeacherId(id);
+              setAssistantTeacherName(name);
+            }}
+          />
+        )}
+        {hasCm && (
+          <TeacherSearchSelect
+            label="CM"
+            required
+            value={cmTeacherId}
+            valueName={cmTeacherName}
+            onChange={(id, name) => {
+              setCmTeacherId(id);
+              setCmTeacherName(name);
+            }}
+          />
+        )}
 
         {teacherType === "FOREIGN" && (
           <div>

@@ -768,6 +768,8 @@ export interface RescheduleClassSessionRequest {
   reason?: string;
   /** Bỏ qua chặn trùng giờ Giáo viên chính — phục vụ lớp tách nhóm dùng chung 1 GV/1 khung giờ (bổ sung ngoài SDD gốc, 2026-09-16). Không ảnh hưởng chặn trùng phòng/trùng giờ trong lớp. */
   allowTeacherOverlap?: boolean;
+  /** Bỏ qua chặn trùng phòng — 2 nhóm lớp gộp học chung 1 phòng (bổ sung ngoài SDD gốc, 2026-09-29). Chỉ có ý nghĩa khi có newRoomId. */
+  allowRoomOverlap?: boolean;
 }
 
 /** Sửa nhanh tại chỗ 1 buổi SCHEDULED (bổ sung ngoài SDD gốc, xác nhận 2026-08-19) — phục vụ click-thẻ trên lưới thời khóa biểu. */
@@ -783,6 +785,8 @@ export interface UpdateSessionAssignmentRequest {
   actualTeacherName?: string;
   /** Bỏ qua chặn trùng giờ Giáo viên chính — phục vụ lớp tách nhóm dùng chung 1 GV/1 khung giờ (bổ sung ngoài SDD gốc, 2026-09-16). Không ảnh hưởng chặn trùng phòng/trùng giờ trong lớp. */
   allowTeacherOverlap?: boolean;
+  /** Bỏ qua chặn trùng phòng — 2 nhóm lớp gộp học chung 1 phòng (bổ sung ngoài SDD gốc, 2026-09-29). Chỉ có ý nghĩa khi có roomId. */
+  allowRoomOverlap?: boolean;
 }
 
 export function updateSessionAssignment(
@@ -847,6 +851,8 @@ export interface BulkCreateClassSessionRequest {
   actualTeacherName?: string;
   /** Bỏ qua chặn trùng giờ Giáo viên chính — phục vụ lớp tách nhóm dùng chung 1 GV/1 khung giờ (bổ sung ngoài SDD gốc, 2026-09-16). Không ảnh hưởng chặn trùng phòng/trùng giờ trong lớp. */
   allowTeacherOverlap?: boolean;
+  /** Bỏ qua chặn trùng phòng — 2 nhóm lớp gộp học chung 1 phòng cùng khung giờ (bổ sung ngoài SDD gốc, 2026-09-29). Chỉ có ý nghĩa khi có roomId. */
+  allowRoomOverlap?: boolean;
 }
 
 export interface BulkCreateClassSessionResponse {
@@ -2331,3 +2337,34 @@ export async function waitForAiJob<T>(job: AiJob<T>, path: (jobId: string) => st
 
 export const commentAiReviewJobPath = (jobId: string) => `/comment-ai-reviews/${jobId}`;
 export const commentAiSuggestionJobPath = (jobId: string) => `/comment-ai-suggestions/${jobId}`;
+
+export interface CommentAiInstructionChange {
+  commentId: number;
+  studentFullName: string;
+  originalContent: string;
+  suggestedContent: string;
+  warnings: string[];
+}
+
+export interface CommentAiInstructionResult {
+  transcript: string;
+  assistantMessage: string;
+  changes: CommentAiInstructionChange[];
+}
+
+/**
+ * UC-75 bước 9 — Quản lý ra yêu cầu sửa bằng audio (≤ 5 phút) và/hoặc chữ cho các nhận xét chờ duyệt đang xem;
+ * trả bản sửa đề xuất (chưa lưu — "Áp dụng" dùng updatePendingCommentContent).
+ */
+export function startCommentAiInstruction(commentIds: number[], audio: Blob | null, note: string): Promise<AiJob<CommentAiInstructionResult>> {
+  const formData = new FormData();
+  commentIds.forEach((id) => formData.append("commentIds", String(id)));
+  if (audio) {
+    const extension = audio.type.includes("mp4") || audio.type.includes("m4a") ? "m4a" : audio.type.includes("wav") ? "wav" : audio.type.includes("mpeg") ? "mp3" : "webm";
+    formData.append("audio", audio, `yeu-cau.${extension}`);
+  }
+  if (note.trim()) formData.append("note", note.trim());
+  return apiRequest<AiJob<CommentAiInstructionResult>>("/comments/ai-instruction", { method: "POST", body: formData });
+}
+
+export const commentAiInstructionJobPath = (jobId: string) => `/comment-ai-instructions/${jobId}`;

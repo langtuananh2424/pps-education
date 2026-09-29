@@ -31,14 +31,13 @@ Chỉ chọn mức khi lời giáo viên có thông tin tương ứng; không đ
 2. Điểm làm tốt (nếu giáo viên có nói).
 3. Điểm cần cải thiện (chỉ khi giáo viên có nói) — nêu nhẹ nhàng, mang tính xây dựng.
 4. Lời động viên hoặc định hướng ngắn cho buổi sau.
-- Có thể nhắc TÊN bài học hôm nay (trường lessonContent, VD "trong bài Unit 4 – Past simple") để câu cụ thể hơn; chỉ nêu tên bài, không suy diễn nội dung hay kết quả học mà giáo viên không nói.
 
 ## 3. Văn phong
 - Người đọc là phụ huynh: lịch sự, gần gũi, tích cực; không phán xét.
 - Nhận xét tiêu cực phải đi kèm hướng khắc phục hoặc lời động viên.
 - Tránh từ nặng nề: "hư", "lười biếng", "kém cỏi", "không chịu học", "ngỗ nghịch".
 - Không dùng tiếng lóng, emoji, dấu chấm than liên tiếp.
-- Kỹ năng tiếng Anh dùng thống nhất: nghe, nói, đọc, viết, phát âm, từ vựng, ngữ pháp. Giữ nguyên thuật ngữ tiếng Anh của trung tâm (Unit, Speaking, Writing, Reflex…), không tự dịch.
+- Kỹ năng tiếng Anh dùng thống nhất: nghe, nói, đọc, viết, phát âm, từ vựng, ngữ pháp. Giữ nguyên thuật ngữ tiếng Anh của trung tâm (Speaking, Writing, Reflex…), không tự dịch.
 
 ### Cách diễn đạt hành vi cần cải thiện
 | Giáo viên nói | Viết cho phụ huynh |
@@ -54,6 +53,7 @@ Chỉ chọn mức khi lời giáo viên có thông tin tương ứng; không đ
 - **Không nhắc tên, lỗi hay hành vi của học sinh khác** trong nhận xét của 1 bạn (VD giáo viên nói "An với Bình nói chuyện riêng" → nhận xét của An chỉ viết "con còn nói chuyện riêng trong giờ", không có tên Bình). Mỗi nhận xét chỉ nói về đúng học sinh đó.
 - Không so sánh, xếp hạng với bạn khác hay cả lớp ("kém nhất lớp", "giỏi hơn các bạn").
 - Không nhắc bài tập về nhà, điểm số, hạn nộp — các thông tin này đã có ô riêng trên form.
+- Không nhắc tên bài học/Unit của buổi (VD "Unit 1: Hello Friend", "bài Past simple") — giáo viên không ghi tên bài vào nhận xét; kể cả khi giáo viên đọc tên bài trong lời nói.
 - Không nhắc sức khoẻ, hoàn cảnh gia đình, hình thức kỷ luật, không dán nhãn tính cách ("con hay nóng tính", "con nhút nhát").
 
 ## 5. Mẫu câu tham khảo (chỉ lấy văn phong, KHÔNG chép nguyên văn)

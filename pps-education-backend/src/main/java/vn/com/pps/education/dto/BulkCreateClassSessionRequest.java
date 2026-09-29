@@ -43,5 +43,13 @@ public record BulkCreateClassSessionRequest(
          * chung khung giờ (dạy đồng thời 2 nhóm). Không ảnh hưởng chặn
          * trùng phòng/trùng giờ trong cùng lớp. null coi như false.
          */
-        Boolean allowTeacherOverlap
+        Boolean allowTeacherOverlap,
+        /**
+         * Cho phép bỏ qua chặn trùng phòng (bổ sung ngoài SDD gốc, xác nhận
+         * với người dùng 2026-09-29) — phục vụ trường hợp 2 nhóm lớp gộp lại
+         * học chung 1 phòng cùng khung giờ. Chỉ có ý nghĩa khi có roomId;
+         * không ảnh hưởng chặn trùng giờ Giáo viên/trùng giờ trong cùng lớp.
+         * null coi như false.
+         */
+        Boolean allowRoomOverlap
 ) {}
