@@ -37,7 +37,7 @@ public record CommentAiDraftResult(
 
     /**
      * @param type {@code SIMILAR_IN_SESSION} (giống học sinh khác trong buổi), {@code SIMILAR_TO_PREVIOUS}
-     *             (giống nhận xét buổi trước của chính học sinh), {@code CONTAINS_DIGITS} (có chữ số — AI
+     *             (giống nhận xét buổi trước của chính học sinh), {@code LESSON_TITLE} (nhắc tên bài học), {@code CONTAINS_DIGITS} (có chữ số — AI
      *             không được ghi điểm/số liệu), {@code NOT_WRITTEN} (AI không trả nhận xét cho học sinh này).
      * @param similarity tỷ lệ trùng 0..1 (chỉ có với 2 loại SIMILAR_*).
      */

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
-import { AlertTriangle, Bot, ChevronDown, ChevronUp, Loader2, Mic, Paperclip, RefreshCw, Save, Send, Square, Table2, Trash2, X } from "lucide-react";
+import { AlertTriangle, Bot, ChevronDown, ChevronUp, Loader2, Mic, Paperclip, RefreshCw, Save, Table2, X } from "lucide-react";
+import AiChatComposer, { AiChatComposerHandle, AiComposerAudio, formatSeconds } from "@/components/ai/AiChatComposer";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import {
@@ -11,19 +12,10 @@ import {
   waitForCommentAiDraftJob
 } from "../api";
 
-/** UC-74 A3 — mỗi lần gửi tối đa 5 phút (đã xác nhận với người dùng 2026-09-28). */
-const MAX_AUDIO_SECONDS = 300;
-
 type ChatMessageInput =
   | { role: "teacher"; text: string; audioUrl?: string }
   | { role: "assistant"; text: string; draft?: CommentAiDraftResult; error?: boolean };
 type ChatMessage = ChatMessageInput & { id: number };
-
-interface PendingAudio {
-  blob: Blob;
-  url: string;
-  seconds: number | null;
-}
 
 interface Props {
   open: boolean;
@@ -42,22 +34,6 @@ interface Props {
   savingDraft: boolean;
   /** Báo trạng thái đang chạy nền ra ngoài — nút nổi (AiAssistantFab) hiện vòng xoay khi sidebar đã đóng. */
   onBusyChange?: (busy: boolean) => void;
-}
-
-function formatSeconds(total: number): string {
-  const m = Math.floor(total / 60);
-  const s = Math.floor(total % 60);
-  return `${m}:${String(s).padStart(2, "0")}`;
-}
-
-function readAudioDuration(url: string): Promise<number | null> {
-  return new Promise((resolve) => {
-    const audio = new Audio();
-    audio.preload = "metadata";
-    audio.onloadedmetadata = () => resolve(Number.isFinite(audio.duration) ? audio.duration : null);
-    audio.onerror = () => resolve(null);
-    audio.src = url;
-  });
 }
 
 /**
@@ -80,19 +56,11 @@ export default function CommentAiAssistantSidebar({
   const { t } = useTranslation("academic-comments");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState<CommentAiDraftResult | null>(null);
-  const [input, setInput] = useState("");
-  const [pendingAudio, setPendingAudio] = useState<PendingAudio | null>(null);
-  const [recording, setRecording] = useState(false);
-  const [recordSeconds, setRecordSeconds] = useState(0);
   const [busy, setBusy] = useState(false);
-  const [localError, setLocalError] = useState<string | null>(null);
   const [showTranscript, setShowTranscript] = useState(false);
   const nextId = useRef(1);
-  const recorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const timerRef = useRef<number | null>(null);
   const abortRef = useRef<AbortController | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const composerRef = useRef<AiChatComposerHandle>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const push = (message: ChatMessageInput) => setMessages((prev) => [...prev, { ...message, id: nextId.current++ }]);
@@ -100,13 +68,10 @@ export default function CommentAiAssistantSidebar({
   // Đổi buổi học = cuộc trò chuyện mới (bản nháp gắn với danh sách học sinh của đúng buổi đó).
   useEffect(() => {
     abortRef.current?.abort();
-    stopRecording(true);
     setMessages([]);
     setDraft(null);
-    setPendingAudio(null);
-    setInput("");
+    composerRef.current?.setText("");
     setBusy(false);
-    setLocalError(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [classSessionId]);
 
@@ -120,72 +85,6 @@ export default function CommentAiAssistantSidebar({
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, busy]);
-
-  const stopRecording = (discard = false) => {
-    if (timerRef.current) {
-      window.clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-    const recorder = recorderRef.current;
-    if (recorder && recorder.state !== "inactive") {
-      if (discard) recorder.onstop = null;
-      recorder.stop();
-      recorder.stream.getTracks().forEach((track) => track.stop());
-    }
-    recorderRef.current = null;
-    setRecording(false);
-  };
-
-  const startRecording = async () => {
-    setLocalError(null);
-    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
-      setLocalError(t("dailyCommentPanel.aiAssistant.errors.recordingUnsupported"));
-      return;
-    }
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : undefined;
-      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
-      chunksRef.current = [];
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
-      };
-      const startedAt = Date.now();
-      recorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: (recorder.mimeType || "audio/webm").split(";")[0] });
-        setPendingAudio({ blob, url: URL.createObjectURL(blob), seconds: Math.min(MAX_AUDIO_SECONDS, (Date.now() - startedAt) / 1000) });
-      };
-      recorder.start(1000);
-      recorderRef.current = recorder;
-      setRecordSeconds(0);
-      setRecording(true);
-      timerRef.current = window.setInterval(() => {
-        const elapsed = Math.floor((Date.now() - startedAt) / 1000);
-        setRecordSeconds(elapsed);
-        if (elapsed >= MAX_AUDIO_SECONDS) stopRecording();
-      }, 250);
-    } catch {
-      setLocalError(t("dailyCommentPanel.aiAssistant.errors.microphoneDenied"));
-    }
-  };
-
-  const handlePickFile = async (file: File | null) => {
-    if (fileInputRef.current) fileInputRef.current.value = "";
-    if (!file) return;
-    setLocalError(null);
-    if (!file.type.startsWith("audio/")) {
-      setLocalError(t("dailyCommentPanel.aiAssistant.errors.notAudio"));
-      return;
-    }
-    const url = URL.createObjectURL(file);
-    const seconds = await readAudioDuration(url);
-    if (seconds !== null && seconds > MAX_AUDIO_SECONDS + 1) {
-      URL.revokeObjectURL(url);
-      setLocalError(t("dailyCommentPanel.aiAssistant.errors.tooLong"));
-      return;
-    }
-    setPendingAudio({ blob: file, url, seconds });
-  };
 
   const runJob = async (start: () => Promise<CommentAiDraftJob>) => {
     abortRef.current?.abort();
@@ -220,20 +119,14 @@ export default function CommentAiAssistantSidebar({
   const currentRows = (d: CommentAiDraftResult) =>
     d.rows.map((r) => ({ studentId: r.studentId, attitude: r.attitude, content: r.content }));
 
-  const handleSend = () => {
-    if (!classSessionId || busy || recording) return;
-    const text = input.trim();
-    if (pendingAudio) {
-      const audio = pendingAudio;
+  const handleSend = (audio: AiComposerAudio | null, text: string): boolean => {
+    if (!classSessionId || busy) return false;
+    if (audio) {
       push({ role: "teacher", text: text || t("dailyCommentPanel.aiAssistant.audioMessage", { duration: audio.seconds ? formatSeconds(audio.seconds) : "?" }), audioUrl: audio.url });
-      setPendingAudio(null);
-      setInput("");
       void runJob(() => startCommentAiDraft(classSessionId, audio.blob, text));
-      return;
+      return true;
     }
-    if (!text) return;
     push({ role: "teacher", text });
-    setInput("");
     const d = draft;
     if (!d) {
       void runJob(() => startCommentAiDraft(classSessionId, null, text));
@@ -249,6 +142,7 @@ export default function CommentAiAssistantSidebar({
         })
       );
     }
+    return true;
   };
 
   const handleRewriteAll = () => {
@@ -261,7 +155,7 @@ export default function CommentAiAssistantSidebar({
   };
 
   const handleQuickInstruction = (text: string) => {
-    setInput(text);
+    composerRef.current?.setText(text);
   };
 
   const handleApply = () => {
@@ -307,11 +201,11 @@ export default function CommentAiAssistantSidebar({
           messages.length === 0 &&
           classSessionId && (
             <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={startRecording} disabled={recording} className="flex items-center gap-1.5 text-[13px] font-semibold border border-violet-200 text-violet-700 bg-white hover:bg-violet-50 rounded-full px-3 py-1.5">
+              <button type="button" onClick={() => composerRef.current?.startRecording()} className="flex items-center gap-1.5 text-[13px] font-semibold border border-violet-200 text-violet-700 bg-white hover:bg-violet-50 rounded-full px-3 py-1.5">
                 <Mic className="w-3.5 h-3.5" />
                 {t("dailyCommentPanel.aiAssistant.suggestions.record")}
               </button>
-              <button type="button" onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1.5 text-[13px] font-semibold border border-violet-200 text-violet-700 bg-white hover:bg-violet-50 rounded-full px-3 py-1.5">
+              <button type="button" onClick={() => composerRef.current?.openFilePicker()} className="flex items-center gap-1.5 text-[13px] font-semibold border border-violet-200 text-violet-700 bg-white hover:bg-violet-50 rounded-full px-3 py-1.5">
                 <Paperclip className="w-3.5 h-3.5" />
                 {t("dailyCommentPanel.aiAssistant.suggestions.upload")}
               </button>
@@ -358,73 +252,13 @@ export default function CommentAiAssistantSidebar({
         )}
       </div>
 
-      <div className="border-t border-slate-100 p-3 space-y-2">
-        {localError && <p className="text-[13px] text-rose-600">{localError}</p>}
-        {recording && (
-          <div className="flex items-center justify-between gap-2 bg-rose-50 border border-rose-100 rounded-lg px-3 py-2">
-            <span className="flex items-center gap-2 text-sm font-semibold text-rose-600">
-              <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-              {t("dailyCommentPanel.aiAssistant.recording", { elapsed: formatSeconds(recordSeconds), max: formatSeconds(MAX_AUDIO_SECONDS) })}
-            </span>
-            <button type="button" onClick={() => stopRecording()} className="flex items-center gap-1 text-[13px] font-bold text-rose-700 hover:underline">
-              <Square className="w-3 h-3" />
-              {t("dailyCommentPanel.aiAssistant.stopRecording")}
-            </button>
-          </div>
-        )}
-        {pendingAudio && (
-          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5">
-            <audio controls src={pendingAudio.url} className="flex-1 h-8" />
-            <button type="button" onClick={() => setPendingAudio(null)} className="p-1 text-slate-400 hover:text-rose-600" aria-label={t("dailyCommentPanel.aiAssistant.removeAudio")}>
-              <Trash2 className="w-4 h-4" />
-            </button>
-          </div>
-        )}
-        <div className="flex items-end gap-2">
-          <button
-            type="button"
-            onClick={recording ? () => stopRecording() : startRecording}
-            disabled={!classSessionId || isForeignSession || busy || !!pendingAudio}
-            className={`p-2 rounded-lg border ${recording ? "border-rose-300 bg-rose-50 text-rose-600" : "border-slate-200 text-slate-600 hover:bg-slate-50"} disabled:opacity-40`}
-            title={t("dailyCommentPanel.aiAssistant.suggestions.record")}
-          >
-            {recording ? <Square className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-          </button>
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={!classSessionId || isForeignSession || busy || recording || !!pendingAudio}
-            className="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40"
-            title={t("dailyCommentPanel.aiAssistant.suggestions.upload")}
-          >
-            <Paperclip className="w-4 h-4" />
-          </button>
-          <input ref={fileInputRef} type="file" accept="audio/*" className="hidden" onChange={(e) => void handlePickFile(e.target.files?.[0] ?? null)} />
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                handleSend();
-              }
-            }}
-            disabled={!classSessionId || isForeignSession}
-            rows={2}
-            placeholder={draft ? t("dailyCommentPanel.aiAssistant.inputPlaceholderRevise") : t("dailyCommentPanel.aiAssistant.inputPlaceholder")}
-            className="flex-1 bg-slate-50 border border-slate-200 text-sm p-2 rounded-lg focus:outline-none resize-none"
-          />
-          <button
-            type="button"
-            onClick={handleSend}
-            disabled={!classSessionId || isForeignSession || busy || recording || (!pendingAudio && !input.trim())}
-            className="p-2 rounded-lg bg-brand-orange text-white hover:bg-brand-orange/90 disabled:opacity-40"
-            title={t("dailyCommentPanel.aiAssistant.send")}
-          >
-            <Send className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
+      <AiChatComposer
+        ref={composerRef}
+        disabled={!classSessionId || isForeignSession}
+        busy={busy}
+        placeholder={draft ? t("dailyCommentPanel.aiAssistant.inputPlaceholderRevise") : t("dailyCommentPanel.aiAssistant.inputPlaceholder")}
+        onSend={handleSend}
+      />
     </div>
   );
 }

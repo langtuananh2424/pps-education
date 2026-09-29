@@ -90,8 +90,6 @@
       "saveEditFailed": "Sửa nội dung thất bại."
     },
     "aiReview": {
-      "button": "Soát bằng AI",
-      "reviewing": "Đang soát…",
       "approveClean": "Duyệt {{count}} dòng không có cảnh báo",
       "approvedClean": "Đã duyệt {{count}} nhận xét không có cảnh báo.",
       "confirmApproveAll": "Còn {{count}} dòng có cảnh báo của trợ lý AI. Vẫn duyệt cả lớp?",
@@ -110,6 +108,26 @@
         "failed": "Trợ lý chưa soát được — vui lòng thử lại.",
         "suggestFailed": "Trợ lý chưa đề xuất được bản sửa — vui lòng thử lại."
       }
+    },
+    "assistant": {
+      "openButton": "Trợ lý duyệt AI",
+      "title": "Trợ lý duyệt nhận xét",
+      "classOption": "{{className}} — {{count}} chờ duyệt",
+      "intro": "Chọn lớp rồi bấm \"Soát lớp này\" để trợ lý gắn cảnh báo lên từng nhận xét. Muốn sửa, hãy ghi âm hoặc gõ yêu cầu (VD \"bỏ cụm quậy phá trong nhận xét của Đạt\"), trợ lý đề xuất bản sửa để thầy/cô bấm Áp dụng.",
+      "permissionNote": "Trợ lý chỉ gợi ý — không tự duyệt, từ chối hay sửa. Bản sửa chỉ được lưu khi thầy/cô bấm Áp dụng, nhận xét vẫn ở trạng thái Chờ duyệt.",
+      "reviewChip": "Soát lớp này",
+      "recordChip": "Ghi âm yêu cầu sửa",
+      "reviewCommand": "Soát lớp {{className}}",
+      "reviewAgain": "Soát lại",
+      "classDone": "Lớp này đã được duyệt hết.",
+      "audioMessage": "🎙️ Yêu cầu bằng giọng nói ({{duration}})",
+      "heard": "Trợ lý nghe được: \"{{text}}\"",
+      "applied": "Đã áp dụng",
+      "applyAll": "Áp dụng tất cả",
+      "appliedAll": "Đã áp dụng {{count}} bản sửa — các nhận xét vẫn đang chờ duyệt.",
+      "noLongerPending": "Không còn chờ duyệt",
+      "working": "Trợ lý đang xử lý… (có thể mất tới 1 phút)",
+      "inputPlaceholder": "Yêu cầu sửa, VD: \"Nhận xét của Đạt viết nhẹ nhàng hơn\"…"
     }
   },
   "historyList": {

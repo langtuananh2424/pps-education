@@ -226,7 +226,7 @@ class UserAccountServiceTest extends AbstractIntegrationTest {
         assignRole(account.id(), role);
 
         Page<UserListItemResponse> page = userAccountService.search(
-                new UserSearchRequest(suffix, null, null), PageRequest.of(0, 20));
+                new UserSearchRequest(suffix, null, null, null), PageRequest.of(0, 20));
 
         assertThat(page.getContent()).hasSize(1);
         UserListItemResponse item = page.getContent().get(0);
@@ -245,18 +245,35 @@ class UserAccountServiceTest extends AbstractIntegrationTest {
         userRepository.save(user);
 
         Page<UserListItemResponse> byDepartment = userAccountService.search(
-                new UserSearchRequest(null, department.getId(), null), PageRequest.of(0, 20));
+                new UserSearchRequest(null, department.getId(), null, null), PageRequest.of(0, 20));
         assertThat(byDepartment.getContent()).extracting(UserListItemResponse::id).contains(account.id());
 
         Page<UserListItemResponse> byStatus = userAccountService.search(
-                new UserSearchRequest(null, null, "SUSPENDED"), PageRequest.of(0, 20));
+                new UserSearchRequest(null, null, "SUSPENDED", null), PageRequest.of(0, 20));
         assertThat(byStatus.getContent()).extracting(UserListItemResponse::id).contains(account.id());
+    }
+
+    /** Bổ sung ngoài SDD gốc, xác nhận 2026-09-29: lọc theo role ngay ở DB (ô tìm giáo viên khi xếp lịch). */
+    @Test
+    void search_boSung_filtersByRoleCode() {
+        String suffix = "rc" + SEQ.incrementAndGet();
+        UserResponse teacher = userAccountService.create(
+                new CreateUserRequest(username(), email(), "Giáo Viên " + suffix, null, null));
+        assignRole(teacher.id(), roleRepository.findByCode("TEACHER").orElseThrow());
+        UserResponse staff = userAccountService.create(
+                new CreateUserRequest(username(), email(), "Nhân Viên " + suffix, null, null));
+        assignRole(staff.id(), roleRepository.findByCode("STAFF").orElseThrow());
+
+        Page<UserListItemResponse> page = userAccountService.search(
+                new UserSearchRequest(suffix, null, null, "TEACHER"), PageRequest.of(0, 20));
+
+        assertThat(page.getContent()).extracting(UserListItemResponse::id).containsExactly(teacher.id());
     }
 
     @Test
     void search_UC44_A1_returnsEmptyPageWhenNoMatch() {
         Page<UserListItemResponse> page = userAccountService.search(
-                new UserSearchRequest("khong-ton-tai-" + SEQ.incrementAndGet(), null, null), PageRequest.of(0, 20));
+                new UserSearchRequest("khong-ton-tai-" + SEQ.incrementAndGet(), null, null, null), PageRequest.of(0, 20));
 
         assertThat(page.getContent()).isEmpty();
     }
