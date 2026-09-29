@@ -363,10 +363,7 @@ public class CommentAiReviewService {
         if (suggested.isEmpty()) {
             throw new CommentAiDraftFailedException("Trợ lý chưa đề xuất được bản sửa (AI lỗi hoặc quá thời gian) — vui lòng thử lại.");
         }
-        List<String> warnings = new ArrayList<>();
-        if (DIGIT.matcher(suggested).find()) {
-            warnings.add("Bản sửa có chữ số — kiểm tra lại trước khi áp dụng.");
-        }
+        List<String> warnings = new ArrayList<>(recheck(item, suggested));
         if (normalize(suggested).equals(normalize(item.content() == null ? "" : item.content()))) {
             warnings.add("Bản sửa giống hệt bản gốc — có thể không cần sửa.");
         }
@@ -419,8 +416,7 @@ public class CommentAiReviewService {
                     || normalize(content).equals(normalize(item.content() == null ? "" : item.content()))) {
                 continue;
             }
-            List<String> warnings = DIGIT.matcher(content).find()
-                    ? List.of("Bản sửa có chữ số — kiểm tra lại trước khi áp dụng.") : List.of();
+            List<String> warnings = recheck(item, content);
             changes.put(item.commentId(), new CommentAiInstructionResult.Change(item.commentId(), item.studentFullName(),
                     item.content(), content, warnings));
         }
@@ -429,6 +425,19 @@ public class CommentAiReviewService {
             message = changes.isEmpty() ? "Không có nhận xét nào cần sửa theo yêu cầu này." : "Đã đề xuất sửa " + changes.size() + " nhận xét.";
         }
         return new CommentAiInstructionResult(transcript, message, List.copyOf(changes.values()));
+    }
+
+    /**
+     * UC-75 A5 (bổ sung 2026-09-29) — chạy lại đúng bộ kiểm tra tự động trên BẢN SỬA trước khi hiện cho Quản lý,
+     * để bản sửa không vô tình phát sinh lỗi mới (chữ số, tên bạn khác, tên bài học, giống buổi trước...). Không tốn AI.
+     */
+    List<String> recheck(ReviewItem original, String revisedContent) {
+        ReviewItem revised = new ReviewItem(original.commentId(), original.classSessionId(), original.studentFullName(),
+                original.attitude(), revisedContent, original.commentDate(), original.lessonContent(),
+                original.classmateNames(), original.previousComments());
+        return ruleIssues(revised, List.of(revised)).stream()
+                .map(issue -> "Bản sửa: " + issue.message())
+                .toList();
     }
 
     // ---- Tiện ích ----

@@ -2229,6 +2229,18 @@ Ghi chú kỹ thuật (bổ sung ngoài SDD gốc, đã xác nhận với ngư�
     `pps-education-backend/src/main/resources/prompts/comment-ai-draft-rubric.md`,
     học vụ tự làm giàu, chèn vào prompt của cả 3 bước; (3) nút nổi mở trợ
     lý (`AiAssistantFab`, dùng chung được cho các trợ lý AI khác sau này).
+-   **Bổ sung 2026-09-29 (đã xác nhận với người dùng, sau đánh giá rubric):**
+    (1) không nhận ra thầy hay cô thì viết câu không chủ ngữ giáo viên
+    ("Mong con…"), KHÔNG viết "thầy/cô"; (2) rubric thêm quy tắc xưng hô
+    (câu đầu gọi tên, sau dùng "con"), nhịp câu, kho kiểu câu mở đầu/câu
+    kết (mỗi kiểu 1 học sinh/buổi), phân biệt tên kỹ năng (được) với tên
+    bài học (cấm), cho phép so sánh với chính học sinh ở buổi trước khi
+    giáo viên có nói; (3) học sinh được nhắc riêng vẫn CHỈ dùng ý riêng
+    (không gộp ý chung của lớp); (4) trợ lý KHÔNG tự đổi mức Thái độ để
+    tránh cảnh báo — thay vào đó dòng có mức Yếu/Trung bình kèm lời nhắc
+    `ATTITUDE_ALERT` (mỗi buổi đều báo phụ huynh khi duyệt; đã có 2 buổi
+    liên tiếp thì nhắc sắp chạm mốc cảnh báo 3 buổi), đọc từ
+    `StudentAttitudeAlertTrackingService#currentLowStreaks` (chỉ đọc).
 
 ---
 

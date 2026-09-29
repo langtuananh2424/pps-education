@@ -51,6 +51,7 @@ class CommentAiDraftServiceTest {
     private static final LocalDate SESSION_DATE = LocalDate.of(2026, 9, 28);
 
     private final StudentCommentService studentCommentService = mock(StudentCommentService.class);
+    private final StudentAttitudeAlertTrackingService attitudeAlertTrackingService = mock(StudentAttitudeAlertTrackingService.class);
     private final ClassEnrollmentRepository classEnrollmentRepository = mock(ClassEnrollmentRepository.class);
     private final AttendanceSessionRepository attendanceSessionRepository = mock(AttendanceSessionRepository.class);
     private final AttendanceMarkRepository attendanceMarkRepository = mock(AttendanceMarkRepository.class);
@@ -59,7 +60,7 @@ class CommentAiDraftServiceTest {
     private final PromptTemplateLoader promptTemplateLoader = mock(PromptTemplateLoader.class);
     private final AiJobRegistry jobRegistry = mock(AiJobRegistry.class);
 
-    private final CommentAiDraftService service = new CommentAiDraftService(studentCommentService,
+    private final CommentAiDraftService service = new CommentAiDraftService(studentCommentService, attitudeAlertTrackingService,
             classEnrollmentRepository, attendanceSessionRepository, attendanceMarkRepository, studentCommentRepository,
             aiClient, new CommentAiJsonCaller(aiClient, promptTemplateLoader, new ObjectMapper()), jobRegistry,
             "comment-pps", 3, 120, 0.5, 10, 1024);
@@ -182,7 +183,9 @@ class CommentAiDraftServiceTest {
         assertThat(an.attitude()).isEqualTo("AVERAGE");
         assertThat(result.rows().get(1).source()).isEqualTo(CommentAiDraftService.SOURCE_CLASS);
         assertThat(result.rows().get(1).attitude()).isEqualTo("GOOD");
-        assertThat(result.rows()).allSatisfy(r -> assertThat(r.warnings()).isEmpty());
+        // Mức Trung bình luôn kèm lời nhắc hệ quả cảnh báo phụ huynh; các dòng khác không có cảnh báo.
+        assertThat(an.warnings()).extracting(CommentAiDraftResult.Warning::type).containsExactly("ATTITUDE_ALERT");
+        assertThat(result.rows().subList(1, 3)).allSatisfy(r -> assertThat(r.warnings()).isEmpty());
         assertThat(result.assistantMessage()).contains("3 học sinh").contains("Nguyễn Văn An");
         // Không có dòng trùng -> không gọi viết lại.
         verify(aiClient, times(1)).chatWithFinishReason(eq(CommentAiDraftService.WRITE_PROMPT), anyString(), anyString());
@@ -486,5 +489,30 @@ class CommentAiDraftServiceTest {
 
         verify(aiClient, never()).chatWithFinishReason(anyString(), org.mockito.ArgumentMatchers.contains("lessonContent"), anyString());
         assertThat(result.rows().get(0).warnings()).extracting(CommentAiDraftResult.Warning::type).contains("LESSON_TITLE");
+    }
+
+    // ---- Nhắc chuỗi cảnh báo Thái độ (4.1) ----
+
+    @Test
+    void generateDraft_UC74_warnsWhenAttitudeWouldReachEscalationStreak() {
+        CommentAiDraftService.RosterStudent anWithStreak = new CommentAiDraftService.RosterStudent(1L, "Nguyễn Văn An", List.of(), 2);
+        stubAi(CommentAiDraftService.EXTRACT_PROMPT, """
+                {"classAttitude": null, "classPoints": ["cả lớp ổn"],
+                 "individuals": [{"studentId": 1, "attitude": "WEAK", "points": ["không làm bài"]}], "unmatched": []}""");
+        stubAi(CommentAiDraftService.WRITE_PROMPT, "{\"comments\": [{\"studentId\": 1, \"content\": \"An cần tập trung hơn.\"}]}");
+
+        CommentAiDraftResult result = service.generateDraft(context(anWithStreak), null, null, "ghi chú");
+
+        // AI không tự đổi mức Thái độ — chỉ nhắc giáo viên.
+        assertThat(result.rows().get(0).attitude()).isEqualTo("WEAK");
+        assertThat(result.rows().get(0).warnings()).extracting(CommentAiDraftResult.Warning::message)
+                .anySatisfy(m -> assertThat(m).contains("2 buổi").contains("mốc cảnh báo 3 buổi"));
+    }
+
+    @Test
+    void attitudeAlertWarning_UC74_onlyForWeakOrAverage() {
+        assertThat(CommentAiDraftService.attitudeAlertWarning("GOOD", 5)).isNull();
+        assertThat(CommentAiDraftService.attitudeAlertWarning(null, 0)).isNull();
+        assertThat(CommentAiDraftService.attitudeAlertWarning("AVERAGE", 0).message()).contains("gửi cảnh báo thái độ cho phụ huynh");
     }
 }

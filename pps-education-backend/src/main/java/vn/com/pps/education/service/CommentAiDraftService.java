@@ -86,6 +86,7 @@ public class CommentAiDraftService {
     private static final int MAX_SPELLING_HINT_LENGTH = 800;
 
     private final StudentCommentService studentCommentService;
+    private final StudentAttitudeAlertTrackingService attitudeAlertTrackingService;
     private final ClassEnrollmentRepository classEnrollmentRepository;
     private final AttendanceSessionRepository attendanceSessionRepository;
     private final AttendanceMarkRepository attendanceMarkRepository;
@@ -108,6 +109,7 @@ public class CommentAiDraftService {
     }
 
     public CommentAiDraftService(StudentCommentService studentCommentService,
+                                 StudentAttitudeAlertTrackingService attitudeAlertTrackingService,
                                  ClassEnrollmentRepository classEnrollmentRepository,
                                  AttendanceSessionRepository attendanceSessionRepository,
                                  AttendanceMarkRepository attendanceMarkRepository,
@@ -122,6 +124,7 @@ public class CommentAiDraftService {
                                  @Value("${app.ai-comment-draft.write-batch-size:10}") int writeBatchSize,
                                  @Value("${app.ai-comment-draft.max-audio-bytes:20971520}") long maxAudioBytes) {
         this.studentCommentService = studentCommentService;
+        this.attitudeAlertTrackingService = attitudeAlertTrackingService;
         this.classEnrollmentRepository = classEnrollmentRepository;
         this.attendanceSessionRepository = attendanceSessionRepository;
         this.attendanceMarkRepository = attendanceMarkRepository;
@@ -138,7 +141,14 @@ public class CommentAiDraftService {
     record PreviousComment(LocalDate date, String content) {
     }
 
-    record RosterStudent(Long id, String fullName, List<PreviousComment> previousComments) {
+    /**
+     * @param lowStreak số buổi Thái độ Yếu/Trung bình liên tiếp đã duyệt hiện tại (UC-74, nhắc chuỗi cảnh báo 3 buổi).
+     */
+    record RosterStudent(Long id, String fullName, List<PreviousComment> previousComments, int lowStreak) {
+        RosterStudent(Long id, String fullName, List<PreviousComment> previousComments) {
+            this(id, fullName, previousComments, 0);
+        }
+
         String callName() {
             String[] parts = fullName.trim().split("\\s+");
             return parts[parts.length - 1];
@@ -274,9 +284,11 @@ public class CommentAiDraftService {
                 list.add(new PreviousComment(comment.getCommentDate(), comment.getContent().trim()));
             }
         }
+        Map<Long, Integer> lowStreaks = attitudeAlertTrackingService.currentLowStreaks(session.getSchoolClass(), ids);
         Collator collator = Collator.getInstance(Locale.forLanguageTag("vi"));
         List<RosterStudent> roster = eligible.stream()
-                .map(s -> new RosterStudent(s.getId(), s.getUser().getFullName(), List.copyOf(previousById.getOrDefault(s.getId(), List.of()))))
+                .map(s -> new RosterStudent(s.getId(), s.getUser().getFullName(), List.copyOf(previousById.getOrDefault(s.getId(), List.of())),
+                        lowStreaks.getOrDefault(s.getId(), 0)))
                 .sorted(Comparator.comparing(RosterStudent::callName, collator).thenComparing(RosterStudent::fullName, collator))
                 .toList();
         return new DraftContext(session.getId(), session.getSchoolClass().getName(), session.getSessionDate(),
@@ -676,6 +688,10 @@ public class CommentAiDraftService {
                             "Nhận xét nhắc tên bài học — giáo viên thường không ghi tên bài vào nhận xét.", null));
                 }
             }
+            CommentAiDraftResult.Warning attitudeAlert = attitudeAlertWarning(target.attitude(), target.student().lowStreak());
+            if (attitudeAlert != null) {
+                warnings.add(attitudeAlert);
+            }
             rows.add(new CommentAiDraftResult.Row(id, target.student().fullName(), target.attitude(), content,
                     target.source(), warnings));
         }
@@ -713,6 +729,24 @@ public class CommentAiDraftService {
         java.util.function.Function<String, String> norm = text -> java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFC)
                 .toLowerCase(Locale.forLanguageTag("vi")).replaceAll("[^\\p{L}\\p{N}]+", " ").trim();
         return norm.apply(content).contains(norm.apply(lessonContent));
+    }
+
+    /**
+     * UC-74 (bổ sung 2026-09-29, đã xác nhận với người dùng — thay cho đề xuất "AI tự hạ mức để tránh cảnh báo"):
+     * AI KHÔNG tự đổi mức Thái độ; chỉ nhắc giáo viên hệ quả khi mức Yếu/Trung bình được duyệt — mỗi buổi đều báo
+     * phụ huynh, và đủ chuỗi liên tiếp thì sinh cảnh báo escalation chờ Quản lý duyệt
+     * (xem {@link StudentAttitudeAlertTrackingService}).
+     */
+    static CommentAiDraftResult.Warning attitudeAlertWarning(String attitude, int lowStreak) {
+        if (!"WEAK".equals(attitude) && !"AVERAGE".equals(attitude)) {
+            return null;
+        }
+        int threshold = StudentAttitudeAlertTrackingService.escalationThreshold();
+        String message = lowStreak + 1 >= threshold
+                ? "Đã " + lowStreak + " buổi Yếu/Trung bình liên tiếp — nếu duyệt mức này sẽ chạm mốc cảnh báo " + threshold
+                        + " buổi gửi phụ huynh (cần Quản lý duyệt). Kiểm tra lại mức Thái độ."
+                : "Mức Yếu/Trung bình sẽ gửi cảnh báo thái độ cho phụ huynh khi nhận xét được duyệt.";
+        return new CommentAiDraftResult.Warning("ATTITUDE_ALERT", message, null);
     }
 
     /** Nhãn tiếng Việt của mã Thái độ (VD GOOD → "Tốt"), {@code null} nếu mã không hợp lệ. */
