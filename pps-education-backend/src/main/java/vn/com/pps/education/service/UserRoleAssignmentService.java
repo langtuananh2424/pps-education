@@ -14,6 +14,7 @@ import vn.com.pps.education.repository.PermissionAuditLogRepository;
 import vn.com.pps.education.repository.RoleRepository;
 import vn.com.pps.education.repository.UserRepository;
 import vn.com.pps.education.repository.UserRoleRepository;
+import vn.com.pps.education.security.ClientIpResolver;
 
 import java.time.OffsetDateTime;
 import java.util.Comparator;
@@ -33,15 +34,18 @@ public class UserRoleAssignmentService {
     private final RoleRepository roleRepository;
     private final UserRoleRepository userRoleRepository;
     private final PermissionAuditLogRepository permissionAuditLogRepository;
+    private final ClientIpResolver clientIpResolver;
 
     public UserRoleAssignmentService(UserRepository userRepository,
                                       RoleRepository roleRepository,
                                       UserRoleRepository userRoleRepository,
-                                      PermissionAuditLogRepository permissionAuditLogRepository) {
+                                      PermissionAuditLogRepository permissionAuditLogRepository,
+                                      ClientIpResolver clientIpResolver) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.userRoleRepository = userRoleRepository;
         this.permissionAuditLogRepository = permissionAuditLogRepository;
+        this.clientIpResolver = clientIpResolver;
     }
 
     /** Main Flow bước 1: danh sách role hiện tại của 1 tài khoản. */
@@ -106,7 +110,7 @@ public class UserRoleAssignmentService {
         log.setTargetUser(target);
         log.setAction(action);
         log.setTargetRole(role);
-        log.setIpAddress(httpRequest.getRemoteAddr());
+        log.setIpAddress(clientIpResolver.resolve(httpRequest));
         permissionAuditLogRepository.save(log);
     }
 

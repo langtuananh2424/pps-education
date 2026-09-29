@@ -108,8 +108,10 @@ class AuthServiceRefreshLogoutTest extends AbstractIntegrationTest {
         String firstSessionToken = loginAndGetRefreshToken();
         String secondSessionToken = loginAndGetRefreshToken();
 
-        // Rotate token phiên 1 -- token gốc giờ đã revoked
+        // Rotate token phiên 1 -- token gốc giờ đã revoked; lùi thời điểm xoay vòng ra ngoài khoảng ân
+        // hạn nhiều-tab-refresh-cùng-lúc (refresh-reuse-grace-seconds) để mô phỏng token cũ bị đánh cắp.
         authService.refresh(new RefreshTokenRequest(firstSessionToken), request());
+        backdateRotatedTokens(OffsetDateTime.now().minusMinutes(5));
 
         // Dùng lại token gốc đã revoked -- nghi ngờ bị đánh cắp, phải từ chối và thu hồi cả phiên 2
         assertThatThrownBy(() -> authService.refresh(new RefreshTokenRequest(firstSessionToken), request()))
@@ -122,6 +124,50 @@ class AuthServiceRefreshLogoutTest extends AbstractIntegrationTest {
 
         assertThatThrownBy(() -> authService.refresh(new RefreshTokenRequest(secondSessionToken), request()))
                 .isInstanceOf(InvalidRefreshTokenException.class);
+    }
+
+    /**
+     * Sửa lỗi 2026-09-29 — 2 tab dùng chung 1 refresh token (localStorage) refresh gần như đồng thời:
+     * tab chậm hơn gửi token vừa bị tab kia xoay vòng. Chỉ từ chối token đó, KHÔNG coi là đánh cắp —
+     * phiên mới tab kia vừa nhận vẫn phải còn dùng được.
+     */
+    @Test
+    void refresh_boSung_reuseWithinGraceRejectsWithoutRevokingOtherSessions() {
+        String originalToken = loginAndGetRefreshToken();
+        RefreshTokenResponse fasterTab = authService.refresh(new RefreshTokenRequest(originalToken), request());
+
+        assertThatThrownBy(() -> authService.refresh(new RefreshTokenRequest(originalToken), request()))
+                .isInstanceOf(InvalidRefreshTokenException.class);
+
+        RefreshTokenResponse next = authService.refresh(new RefreshTokenRequest(fasterTab.refreshToken()), request());
+        assertThat(next.accessToken()).isNotBlank();
+    }
+
+    /**
+     * Sửa lỗi 2026-09-29 — token bị thu hồi do đăng xuất/Quản trị viên gỡ/vượt giới hạn thiết bị (chưa
+     * từng xoay vòng) được thiết bị cũ gửi lại: chỉ từ chối, không kéo theo thu hồi phiên của thiết bị
+     * khác (trước đây thiết bị bị "đăng xuất nơi khác" gọi refresh lần cuối làm văng luôn thiết bị mới).
+     */
+    @Test
+    void refresh_boSung_tokenRevokedWithoutRotationDoesNotRevokeOtherSessions() {
+        String evictedDeviceToken = loginAndGetRefreshToken();
+        String otherDeviceToken = loginAndGetRefreshToken();
+        authService.logout(new LogoutRequest(evictedDeviceToken));
+
+        assertThatThrownBy(() -> authService.refresh(new RefreshTokenRequest(evictedDeviceToken), request()))
+                .isInstanceOf(InvalidRefreshTokenException.class);
+
+        RefreshTokenResponse stillWorks = authService.refresh(new RefreshTokenRequest(otherDeviceToken), request());
+        assertThat(stillWorks.accessToken()).isNotBlank();
+    }
+
+    private void backdateRotatedTokens(OffsetDateTime revokedAt) {
+        List<RefreshToken> rotated = refreshTokenRepository.findAll().stream()
+                .filter(t -> t.getUser().getId().equals(activeUser.getId()))
+                .filter(t -> t.getRevokedAt() != null && t.getLastUsedAt() != null)
+                .toList();
+        rotated.forEach(t -> t.setRevokedAt(revokedAt));
+        refreshTokenRepository.saveAll(rotated);
     }
 
     @Test

@@ -24,7 +24,7 @@ export default function LoginPage() {
   /**
    * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-09-19) — tài khoản Học sinh đã có phiên
    * ACTIVE ở thiết bị khác: backend trả 409 (ActiveSessionExistsException, xem
-   * AuthService#requireNoActiveSessionForStudent) thay vì đăng nhập luôn hoặc chặn hẳn. Duy nhất
+   * AuthService#enforceActiveSessionLimit) thay vì đăng nhập luôn hoặc chặn hẳn. Duy nhất
    * ActiveSessionExistsException trả 409 trên endpoint đăng nhập (các lỗi khác dùng 401/403/423) nên
    * chỉ cần khớp status, không cần match chuỗi message theo ngôn ngữ. Dùng chung 1 banner xác nhận cho
    * cả 2 luồng đăng nhập (mật khẩu + Google) — pendingConfirmRetry giữ lại đúng hành động cần gọi lại
