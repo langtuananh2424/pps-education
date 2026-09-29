@@ -88,6 +88,28 @@
       "decideAllFailed": "Duyệt tất cả thất bại.",
       "emptyContent": "Nội dung nhận xét không được để trống.",
       "saveEditFailed": "Sửa nội dung thất bại."
+    },
+    "aiReview": {
+      "button": "Soát bằng AI",
+      "reviewing": "Đang soát…",
+      "approveClean": "Duyệt {{count}} dòng không có cảnh báo",
+      "approvedClean": "Đã duyệt {{count}} nhận xét không có cảnh báo.",
+      "confirmApproveAll": "Còn {{count}} dòng có cảnh báo của trợ lý AI. Vẫn duyệt cả lớp?",
+      "source": {
+        "RULE": "Tự động",
+        "AI": "AI"
+      },
+      "suggestButton": "AI đề xuất bản sửa",
+      "suggesting": "Đang đề xuất…",
+      "suggestionTitle": "Bản sửa AI đề xuất (chưa lưu)",
+      "dismiss": "Bỏ qua",
+      "editFirst": "Sửa tiếp",
+      "apply": "Áp dụng",
+      "applied": "Đã áp dụng bản sửa cho {{name}} — nhận xét vẫn đang chờ duyệt.",
+      "errors": {
+        "failed": "Trợ lý chưa soát được — vui lòng thử lại.",
+        "suggestFailed": "Trợ lý chưa đề xuất được bản sửa — vui lòng thử lại."
+      }
     }
   },
   "historyList": {

@@ -57,11 +57,11 @@ class CommentAiDraftServiceTest {
     private final StudentCommentRepository studentCommentRepository = mock(StudentCommentRepository.class);
     private final NineRouterAiClient aiClient = mock(NineRouterAiClient.class);
     private final PromptTemplateLoader promptTemplateLoader = mock(PromptTemplateLoader.class);
-    private final CommentAiDraftJobRegistry jobRegistry = mock(CommentAiDraftJobRegistry.class);
+    private final AiJobRegistry jobRegistry = mock(AiJobRegistry.class);
 
     private final CommentAiDraftService service = new CommentAiDraftService(studentCommentService,
             classEnrollmentRepository, attendanceSessionRepository, attendanceMarkRepository, studentCommentRepository,
-            aiClient, promptTemplateLoader, new ObjectMapper(), jobRegistry,
+            aiClient, new CommentAiJsonCaller(aiClient, promptTemplateLoader, new ObjectMapper()), jobRegistry,
             "comment-pps", 3, 120, 0.5, 10, 1024);
 
     private final ClassSession session = mock(ClassSession.class);

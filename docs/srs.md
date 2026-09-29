@@ -538,6 +538,13 @@ nhân đó mới được thao tác.*
         cạnh dạng Bảng, và sidebar trò chuyện với trợ lý kèm nút gợi ý
         thao tác (Áp dụng vào bảng, Lưu nháp, Viết lại).
 
+        **Trợ lý AI soát nhận xét chờ duyệt (UC-75, bổ sung ngoài SDD gốc,
+        đã xác nhận với người dùng 2026-09-29):** ở tab Chờ duyệt, Quản lý
+        điểm trường bấm "Soát bằng AI" cho từng lớp — hệ thống kiểm tra tự
+        động + AI theo rubric, gắn cảnh báo từng dòng, có nút duyệt các dòng
+        không cảnh báo và AI đề xuất bản sửa (Quản lý bấm Áp dụng mới lưu).
+        Trợ lý không tự duyệt/từ chối/sửa.
+
     -   **FR-ACA-05: Xếp lịch buổi học -** Nhân viên giáo vụ/Trưởng phòng
         đào tạo xếp lịch từng buổi học cụ thể (ngày, khung giờ, phòng,
         giáo viên phụ trách) cho 1 lớp đã khởi tạo (FR-ACA-02); hệ thống
@@ -958,6 +965,10 @@ CDN)**
                     audio                               
 
   UC-22             Duyệt nhận xét    FR-LMS-09         6, 7
+
+  UC-75             Trợ lý AI soát    FR-LMS-09         6
+                    nhận xét chờ                        
+                    duyệt                               
 
   UC-23             Quản lý Kho Video FR-LMS-01         7
                     Ôn tập                              
