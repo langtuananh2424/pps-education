@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Bot, ChevronDown, ChevronUp, Download, History, LayoutGrid, Save, Send, ShieldAlert, Table2, UploadCloud } from "lucide-react";
+import { ChevronDown, ChevronUp, Download, History, LayoutGrid, Save, Send, ShieldAlert, Table2, UploadCloud } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { downloadBlob } from "@/lib/xlsxTemplate";
@@ -1944,7 +1944,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
             BẰNG NHAU trực tiếp trên từng ô CỦA MỌI DÒNG (không qua colgroup) — buộc trình duyệt không co
             giãn cột đó bất kể nội dung, làm việc ổn định với sticky. Các cột KHÔNG sticky vẫn giữ auto
             layout + min-w như cũ, không ảnh hưởng. */}
-        {/* Dạng xem Bảng/Thẻ + mở Trợ lý nhận xét AI (UC-74, bổ sung ngoài SDD gốc, 2026-09-28). */}
+        {/* Dạng xem Bảng/Thẻ (bổ sung ngoài SDD gốc, 2026-09-28). Trợ lý nhận xét AI chỉ mở qua nút nổi AiAssistantFab — thống nhất với Trợ lý duyệt (2026-09-29). */}
         {selectedSessionId && (
           <div className="px-5 py-2 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
@@ -1970,14 +1970,6 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
               </div>
               {viewMode === "cards" && <span className="hidden md:inline text-[10px] text-slate-400">{t("dailyCommentPanel.viewMode.cardsHint")}</span>}
             </div>
-            <button
-              type="button"
-              onClick={() => setAssistantOpen(true)}
-              className="flex items-center gap-1.5 border border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100 rounded-lg px-3 py-1.5 text-[11px] font-semibold"
-            >
-              <Bot className="w-3.5 h-3.5" />
-              {t("dailyCommentPanel.aiAssistant.openButton")}
-            </button>
           </div>
         )}
 
