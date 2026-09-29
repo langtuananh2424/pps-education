@@ -346,7 +346,14 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
                           <Td className="text-center">
                             {s.lateSubmission && <Badge variant="warning">{t("reviewVideoDetail.table.lateSubmissionBadge")}</Badge>}
                           </Td>
-                          <Td className="text-center">
+                          <Td className="text-center whitespace-nowrap">
+                            {/* V198 — lần ghi âm cần giáo viên soát điểm Ngữ pháp (AI chỉ phiên âm 1 lượt, có thể nghe nhầm) */}
+                            {s.grammarReviewRequired && (
+                              <Badge variant="danger" className="mr-1.5">
+                                <ShieldAlert className="w-3 h-3 inline mr-0.5" />
+                                {t("reviewVideoDetail.table.grammarReviewBadge")}
+                              </Badge>
+                            )}
                             <button
                               type="button"
                               onClick={() => setViewingStudent({ id: s.studentId, name: s.studentFullName })}
@@ -521,10 +528,35 @@ function ReflexHistoryEntryRow({ entry, language }: { entry: ReflexQuestionProgr
       </div>
       {entry.gradedAt && <p className="text-[10px] text-slate-400">{t("reviewVideoDetail.reflexHistoryModal.gradedAt", { time: formatDateTime(entry.gradedAt, language) })}</p>}
 
+      {isSpeaking && entry.grammarReviewRequired && (
+        <div className="text-[11px] text-rose-700 bg-rose-50 border border-rose-100 rounded-md p-2 space-y-1">
+          <p className="font-semibold">
+            <ShieldAlert className="w-3.5 h-3.5 inline mr-1" />
+            {t("reviewVideoDetail.reflexHistoryModal.grammarReviewTitle")}
+          </p>
+          <p>{t("reviewVideoDetail.reflexHistoryModal.grammarReviewBody")}</p>
+          {entry.grammarReviewQuotes.length > 0 && (
+            <ul className="list-disc list-inside font-mono">
+              {entry.grammarReviewQuotes.map((q, i) => (
+                <li key={`${q}-${i}`}>{q}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
       {!isSpeaking && entry.answerText && (
         <p className="text-xs text-slate-700">
           <span className="font-semibold">{t("reviewVideoDetail.reflexHistoryModal.answerTextLabel")}: </span>
           {entry.answerText}
+        </p>
+      )}
+
+      {isSpeaking && entry.recordingFilter != null && (
+        <p className="text-[10px] text-slate-400">
+          {entry.recordingFilter
+            ? t("reviewVideoDetail.reflexHistoryModal.recordingFiltered")
+            : t("reviewVideoDetail.reflexHistoryModal.recordingRaw")}
         </p>
       )}
 

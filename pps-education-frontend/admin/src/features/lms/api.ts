@@ -1005,6 +1005,8 @@ export interface ReviewVideoAssignmentStudentRow {
   averageMaxScore: number | null;
   /** V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — true nếu học sinh từng nộp muộn (mirror status "TRE_HAN" bên Exercise). Luôn false với CONNECTION. */
   lateSubmission: boolean;
+  /** V198 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-29) — REFLEX: lần ghi âm gần nhất của ít nhất 1 câu cần giáo viên soát điểm Ngữ pháp. Luôn false với CONNECTION. */
+  grammarReviewRequired: boolean;
 }
 
 export interface ReviewVideoAssignmentStudentStatsResponse {
@@ -1074,6 +1076,12 @@ export interface ReflexQuestionProgressHistoryEntry {
   transcript: string | null;
   criteriaScores: { criterion: string; percent: number }[] | null;
   gradedAt: string | null;
+  /** V198 — lần ghi âm có ≥2 lỗi đỏ ngữ pháp ở nhánh chấm lại từ transcript: điểm Ngữ pháp chỉ là tham khảo, giáo viên cần soát. */
+  grammarReviewRequired: boolean;
+  /** V198 — các đoạn transcript bị tô đỏ ngữ pháp (chỗ cần nghe lại). */
+  grammarReviewQuotes: string[];
+  /** V199 — chế độ thu âm thực tế: true = đã lọc, false = thô, null = không rõ (trước V199 / bài viết). */
+  recordingFilter: boolean | null;
 }
 
 /** V191 — giáo viên nghe lại audio + xem kết quả AI chấm theo TỪNG lần làm của 1 học sinh (Video phản xạ). */

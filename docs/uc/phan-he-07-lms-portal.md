@@ -1065,6 +1065,48 @@ UC-24: Làm bài kiểm tra trực tuyến
 > chấm cùng một file (lượt phiên âm khi trung thực khi làm mượt) và một số bài
 > dài vẫn ra Phát âm cao hơn giáo viên — xem `CALIBRATION.md` của bộ tiêu chí.
 
+> **Cập nhật rubric v3 — bản bàn giao 29/9/2026 (đã xác nhận với người dùng
+> 2026-09-29, ĐÈ LÊN mục (a) phía trên)** — không có migration mới:
+> (a) Rubric nạp từ `resources/rubrics-v3/` cho bài viết nộp mới
+> (`rubric_version = 'v3'`); câu đã chấm viết bằng v2 trước đó vẫn chấm nói bằng
+> `rubrics-v2/` + cấu hình v2 (định tuyến theo `rubric_version` của dòng). Bản 29/9
+> xoá câu "điểm GV/GRA đã khoá từ Bước 1" khỏi 12 file rubric; riêng câu còn sót ở
+> §C.2 của `speaking-rubric-common-rules.md` do PPS sửa (ngoại lệ duy nhất của
+> quy tắc "nạp nguyên văn"). Cấu hình v3: PET Part 4 Khối 8 Cambridge khai cột
+> `PET4` (rubric có hai cột PET4/PICTURE); IELTS Part 2 Khối 9 tối đa 120 giây.
+> (b) Trần 60% tiêu chí Ngữ pháp CHỈ đếm lỗi đỏ NGỮ PHÁP — ở cả bài viết lẫn bài
+> nói: thiếu thành phần câu, sai cấu trúc câu, sai trật tự từ, trả lời sai thì mà đề
+> đã ấn định (tag `thi_de_an_dinh`, luôn đỏ), thừa/thiếu giới từ làm hỏng cụm (tag
+> `gioi_tu_pha_cum`, đỏ từ Khối 8, vàng ở Khối 6-7 — đúng bảng §C). Lỗi đỏ khác (dùng
+> từ, từ loại, chêm tiếng Việt, không nghe rõ, lạc ý) vẫn tô đỏ và vẫn tính ở trần
+> theo lỗi đã tô, nhưng không kéo trần 60%. Khối 6/Cambridge (GV) cũng vậy: lỗi dùng
+> từ không kéo trần GV.
+> (c) Cách B: backend so transcript với bài viết Bước 1 theo thứ tự từ (dãy con
+> chung dài nhất, bỏ từ đệm/lặp từ/khoảng dừng; từ ≥3 chữ cái lệch bộ khung phụ âm
+> ≤2 coi là cùng từ vì đó là lỗi Phát âm). Nói GIỐNG bài viết (tỷ lệ khớp
+> `2·khớp/(từ viết + từ nói)` ≥85% — căn cứ duy nhất) → điểm Ngữ pháp GIỮ NGUYÊN
+> điểm Bước 1, không trần, không sàn,
+> không trần theo lỗi đã tô. Nói KHÁC → dùng điểm chấm lại từ transcript như mục
+> (a) phía trên (trần 60%, sàn nửa điểm Bước 1). Bằng chứng lưu ở `speaking_audit`
+> (`spokenMatch`, `grammarKeptFromStep1`). Rủi ro còn lại: lượt phiên âm nghe nhầm
+> nhiều từ (VD 3 từ đầu câu) sẽ đẩy bài sang nhánh chấm lại.
+> (d) Cờ "cần giáo viên soát Ngữ pháp" (V198): lần ghi âm đi nhánh chấm lại mà có
+> ≥2 lỗi đỏ ngữ pháp → `reflex_question_progress_history.grammar_review_required`
+> + các đoạn bị tô đỏ (`grammar_review_quotes`). Trang thống kê BTVN Video Ôn tập
+> (`ReviewVideoAssignmentStatsDetailPage`) hiện huy hiệu "Cần soát ngữ pháp" ở hàng
+> học sinh (lần ghi âm GẦN NHẤT của ít nhất 1 câu cần soát) và khung đỏ kèm các
+> đoạn cần nghe lại trong modal lịch sử từng lần làm. Chưa có thao tác "đã soát /
+> sửa điểm tay" — giáo viên sửa theo quy trình hiện có.
+> (e) Công tắc bộ lọc thu âm (V199): `system_settings.reflex.recording_filter_enabled`
+> (nhóm Cờ tính năng ở Quản trị hệ thống → Cài đặt hệ thống), MẶC ĐỊNH TẮT. Bật thì
+> màn ghi âm của học sinh lọc bản ghi trước khi nộp — port bộ lọc của mã tham chiếu
+> 29/9 (WAV 16 kHz mono, lọc tần 90–7800 Hz, dìm tiếng nền −7 dB giữa các đoạn nói)
+> nhưng KHÔNG bật lọc ồn/tự chỉnh âm lượng của trình duyệt (giữ quyết định V183).
+> Lọc lỗi thì nộp bản thô. Chế độ thực tế của từng lần ghi lưu ở
+> `reflex_question_progress_history.recording_filter` (+ `speaking_audit.recordingFilter`),
+> hiện trong modal lịch sử và cột `loc_thu_am` của file xuất ZIP — để so độ chính xác
+> phiên âm giữa hai chế độ trên bài thật rồi mới quyết định. Không đổi cách chấm.
+
 > **Bổ sung V191 (2026-09-21, đã xác nhận với người dùng) — giáo viên
 > nghe lại audio + xem kết quả AI chấm THEO TỪNG LẦN LÀM, và xuất toàn bộ
 > dữ liệu để tiếp tục train AI.** `reflex_question_progress` SỬA ĐÈ tại

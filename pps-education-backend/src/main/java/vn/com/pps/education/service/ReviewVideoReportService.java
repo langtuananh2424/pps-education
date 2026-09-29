@@ -226,7 +226,10 @@ public class ReviewVideoReportService {
                 h.getMarkedAnswer(),
                 h.getTranscript(),
                 h.getCriteriaScores(),
-                h.getGradedAt());
+                h.getGradedAt(),
+                h.isGrammarReviewRequired(),
+                h.getGrammarReviewQuotes() == null ? List.of() : h.getGrammarReviewQuotes(),
+                h.getRecordingFilter());
     }
 
     /**
@@ -246,7 +249,9 @@ public class ReviewVideoReportService {
 
         StringBuilder manifest = new StringBuilder();
         manifest.append("ma_hoc_sinh,ten_hoc_sinh,cau_hoi_thu_tu,cau_hoi_prompt,loai,lan_lam,ten_file_audio,")
-                .append("diem,diem_toi_da,transcript,feedback,cham_luc\n");
+                // V198/V199: 2 cột cuối — cờ cần giáo viên soát Ngữ pháp, chế độ thu âm (1 = đã lọc, 0 = thô, trống = không
+                // rõ). Thêm vào CUỐI để công cụ đọc manifest cũ không lệch cột.
+                .append("diem,diem_toi_da,transcript,feedback,cham_luc,can_soat_ngu_phap,loc_thu_am\n");
 
         try (ByteArrayOutputStream buffer = new ByteArrayOutputStream();
              ZipOutputStream zip = new ZipOutputStream(buffer, StandardCharsets.UTF_8)) {
@@ -268,7 +273,9 @@ public class ReviewVideoReportService {
                         .append(h.getMaxScore() == null ? "" : h.getMaxScore()).append(',')
                         .append(csv(h.getTranscript())).append(',')
                         .append(csv(h.getFeedback())).append(',')
-                        .append(h.getGradedAt() == null ? "" : h.getGradedAt()).append('\n');
+                        .append(h.getGradedAt() == null ? "" : h.getGradedAt()).append(',')
+                        .append(h.isGrammarReviewRequired() ? 1 : 0).append(',')
+                        .append(h.getRecordingFilter() == null ? "" : (h.getRecordingFilter() ? "1" : "0")).append('\n');
             }
             zip.putNextEntry(new ZipEntry("manifest.csv"));
             // BOM để Excel mở tiếng Việt UTF-8 không bị lỗi font (giống ExportExcel hiện có ở FE).
@@ -378,7 +385,7 @@ public class ReviewVideoReportService {
                     studentId, student.getStudentCode(), student.getUser().getFullName(),
                     viewCount, requiredViewCount, allVideosCompleted,
                     correctCount, totalQuestions, allVideosPassed,
-                    null, null, null, null, false);
+                    null, null, null, null, false, false);
         }).filter(java.util.Objects::nonNull).toList();
     }
 
@@ -504,12 +511,19 @@ public class ReviewVideoReportService {
                 ReflexQuestionProgress progress = progressByQuestionAndStudent.get(q.getId() + ":" + studentId);
                 return progress != null && progress.isLateSubmission();
             });
+            // V198 — lần ghi âm GẦN NHẤT của câu nào đó cần giáo viên soát điểm Ngữ pháp (cờ nằm trong speaking_audit;
+            // học sinh ghi âm lại mà lần mới không còn cần soát thì cờ tự tắt).
+            boolean grammarReviewRequired = questions.stream().anyMatch(q -> {
+                ReflexQuestionProgress progress = progressByQuestionAndStudent.get(q.getId() + ":" + studentId);
+                return progress != null && progress.getSpeakingAudit() != null
+                        && Boolean.TRUE.equals(progress.getSpeakingAudit().get(ReflexV2AiGradingService.AUDIT_GRAMMAR_REVIEW_REQUIRED));
+            });
 
             return new ReviewVideoAssignmentStudentStatsResponse.StudentRow(
                     studentId, student.getStudentCode(), student.getUser().getFullName(),
                     viewCount, requiredViewCount, allVideosCompleted,
                     null, null, null,
-                    answered, totalReflexQuestions, averageScore, averageMaxScore, lateSubmission);
+                    answered, totalReflexQuestions, averageScore, averageMaxScore, lateSubmission, grammarReviewRequired);
         }).filter(java.util.Objects::nonNull).toList();
     }
 

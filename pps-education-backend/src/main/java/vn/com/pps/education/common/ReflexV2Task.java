@@ -16,20 +16,24 @@ import java.util.Optional;
  * ngưỡng, và người training yêu cầu BẮT BUỘC truyền cột đúng — thiếu thì AI mặc định cột SHORT và chấm sai
  * toàn bộ checkpoint dạng đếm của bài 90 giây ({@code HANDOFF-grade8.md} §1). Hệ thống chưa có trường
  * "dạng đề" trên câu hỏi, nên SUY RA từ thời lượng ghi âm tối đa của câu hỏi — người training quy định cố
- * định SHORT = 30 giây, PART2 = 90 giây: từ {@link #PART2_MIN_SECONDS} giây trở lên là PART2. Giả định này
+ * định SHORT = 30 giây, PART2 = 90 giây (khối 9 từ v3: 120): từ {@link #PART2_MIN_SECONDS} giây trở lên là PART2. Giả định này
  * cần người dùng xác nhận; nếu sau này thêm cột "dạng đề" thì thay đúng chỗ {@link #forGradeTrack}.
  *
- * @param criteria        các tiêu chí của bài NÓI, theo thứ tự (gồm cả tiêu chí ngữ pháp đã khoá từ Bước 1).
+ * @param criteria        các tiêu chí của bài NÓI, theo thứ tự (gồm cả tiêu chí Ngữ pháp).
  * @param writingCriteria các tiêu chí chấm ở Bước 1 (bài viết).
- * @param grammarCode     tiêu chí Ngữ pháp — chấm ở Bước 1 rồi KHOÁ, Bước 2 không chấm lại.
+ * @param grammarCode     tiêu chí Ngữ pháp — bài nói giữ điểm Bước 1 khi nói giống bài viết, nói khác thì chấm
+ *                        lại từ transcript (cách B, xem {@link ReflexV2Scoring#sameAsWritten}).
  * @param seconds         thời lượng ghi âm tối đa mà mọi ngưỡng của rubric được hiệu chuẩn theo.
  * @param minWords        ngưỡng số từ của cổng "quá ngắn/không đủ dữ liệu" (dưới ngưỡng → trần 40%).
  * @param gateScheme      ý nghĩa của mã cổng C1/C2/C3 — xem {@link GateScheme}.
- * @param rubricFormat    {@code "SHORT"}/{@code "PART2"} cho Khối 8-9 IELTS (bắt buộc truyền vào prompt); null nếu rubric không có cột theo dạng đề.
+ * @param rubricFormat    cột ngưỡng bắt buộc truyền vào prompt: {@code "SHORT"}/{@code "PART2"} (Khối 8-9 IELTS,
+ *                        Khối 7 từ v3), {@code "PET4"} (Khối 8 Cambridge từ v3); null nếu rubric không có cột theo dạng đề.
+ * @param rubricVersion   {@link #RUBRIC_V2}/{@link #RUBRIC_V3} — quyết định thư mục rubric ({@link #rubricDir()}).
  */
 public record ReflexV2Task(String id, List<String> criteria, List<String> writingCriteria, String grammarCode,
                            int seconds, int minWords, GateScheme gateScheme, String rubricFormat,
-                           String levelLabel, String formatLabel, String writingRubricFile, String speakingRubricFile) {
+                           String levelLabel, String formatLabel, String writingRubricFile, String speakingRubricFile,
+                           String rubricVersion) {
 
     /**
      * STANDARD (Khối 6, 7, 8 Cambridge): C1 = lạc đề, C2 = không nghe ra (chặn Phát âm), C3 = quá ngắn.
@@ -38,7 +42,22 @@ public record ReflexV2Task(String id, List<String> criteria, List<String> writin
      */
     public enum GateScheme { STANDARD, V3 }
 
-    /** Ghi âm tối đa từ ngưỡng này trở lên coi là PART2 (SHORT = 30 giây, PART2 = 90 giây theo người training). */
+    /**
+     * Bộ rubric 21/9–26/9 (thư mục {@code rubrics-v2/}). Chỉ còn dùng để chấm NỐT bước nói của câu đã chấm viết
+     * bằng v2 trước khi lên v3 — không dùng cho bài nộp mới.
+     */
+    public static final String RUBRIC_V2 = "v2";
+    /**
+     * Bộ rubric bàn giao 29/9 (thư mục {@code rubrics-v3/}, §C.2 của quy tắc chung đã sửa theo người dùng
+     * 2026-09-29). Khác v2 ở cấu hình: rubric khối 7 (IELTS SHORT/PART2, Cambridge SHORT/PICTURE) và khối 8
+     * Cambridge (PET4/PICTURE) đều có hai cột ngưỡng nên phải khai cột ({@code "SHORT"}/{@code "PET4"}); khối 9
+     * Part 2 tối đa 120 giây (v2: 90).
+     */
+    public static final String RUBRIC_V3 = "v3";
+    /** Version áp cho bài viết nộp mới; bước nói luôn dùng version đã lưu ở dòng tiến trình. */
+    public static final String CURRENT_RUBRIC_VERSION = RUBRIC_V3;
+
+    /** Ghi âm tối đa từ ngưỡng này trở lên coi là PART2 (SHORT = 30 giây, PART2 = 90/120 giây theo người training). */
     public static final int PART2_MIN_SECONDS = 60;
 
     /** Tiêu chí P (Phát âm) luôn là tiêu chí chấm ở Bước 2 — chưa được kiểm chứng đủ, xem {@code ReflexV2AiGradingService}. */
@@ -52,49 +71,87 @@ public record ReflexV2Task(String id, List<String> criteria, List<String> writin
     private static final ReflexV2Task GRADE_6 = new ReflexV2Task(
             "g6-short", List.of("GV", "P"), CAMBRIDGE_WRITING, "GV", 20, 8, GateScheme.STANDARD, null,
             "CEFR A1–A2, học sinh 11–12 tuổi", "Short question",
-            "rubric-grade6-writing.md", "rubric-grade6-speaking.md");
+            "rubric-grade6-writing.md", "rubric-grade6-speaking.md", RUBRIC_V3);
 
     private static final ReflexV2Task GRADE_7_IELTS = new ReflexV2Task(
-            "g7-ielts-short", IELTS_SPEAKING, IELTS_WRITING, "GRA", 25, 15, GateScheme.STANDARD, null,
+            "g7-ielts-short", IELTS_SPEAKING, IELTS_WRITING, "GRA", 25, 15, GateScheme.STANDARD, "SHORT",
             "CEFR A2–B1 (IELTS 3.5–4.0), học sinh 12–13 tuổi", "Short question",
-            "rubric-grade7-ielts-writing.md", "rubric-grade7-ielts-speaking.md");
+            "rubric-grade7-ielts-writing.md", "rubric-grade7-ielts-speaking.md", RUBRIC_V3);
 
     private static final ReflexV2Task GRADE_7_CAMBRIDGE = new ReflexV2Task(
-            "g7-cam-short", CAMBRIDGE_SPEAKING, CAMBRIDGE_WRITING, "GV", 25, 15, GateScheme.STANDARD, null,
+            "g7-cam-short", CAMBRIDGE_SPEAKING, CAMBRIDGE_WRITING, "GV", 25, 15, GateScheme.STANDARD, "SHORT",
             "CEFR A2–B1, học sinh 12–13 tuổi", "Short question",
-            "rubric-grade7-cambridge-writing.md", "rubric-grade7-cambridge-speaking.md");
+            "rubric-grade7-cambridge-writing.md", "rubric-grade7-cambridge-speaking.md", RUBRIC_V3);
 
     private static final ReflexV2Task GRADE_8_IELTS_SHORT = new ReflexV2Task(
             "g8-ielts-short", IELTS_SPEAKING, IELTS_WRITING, "GRA", 30, 15, GateScheme.V3, "SHORT",
             "IELTS 4.0 foundation, học sinh 13–14 tuổi", "Short question",
-            "rubric-grade8-ielts-writing.md", "rubric-grade8-ielts-speaking.md");
+            "rubric-grade8-ielts-writing.md", "rubric-grade8-ielts-speaking.md", RUBRIC_V3);
 
     private static final ReflexV2Task GRADE_8_IELTS_PART2 = new ReflexV2Task(
             "g8-ielts-part2", IELTS_SPEAKING, IELTS_WRITING, "GRA", 90, 30, GateScheme.V3, "PART2",
             "IELTS 4.0 foundation, học sinh 13–14 tuổi", "IELTS Speaking Part 2",
-            "rubric-grade8-ielts-writing.md", "rubric-grade8-ielts-speaking.md");
+            "rubric-grade8-ielts-writing.md", "rubric-grade8-ielts-speaking.md", RUBRIC_V3);
 
     private static final ReflexV2Task GRADE_8_CAMBRIDGE = new ReflexV2Task(
-            "g8-cam-pet4", CAMBRIDGE_SPEAKING, CAMBRIDGE_WRITING, "GV", 60, 30, GateScheme.STANDARD, null,
+            "g8-cam-pet4", CAMBRIDGE_SPEAKING, CAMBRIDGE_WRITING, "GV", 60, 30, GateScheme.STANDARD, "PET4",
             "IELTS 4.0 (≈ CEFR A2+/B1), học sinh 13–14 tuổi", "PET Speaking Part 4",
-            "rubric-grade8-cambridge-writing.md", "rubric-grade8-cambridge-speaking.md");
+            "rubric-grade8-cambridge-writing.md", "rubric-grade8-cambridge-speaking.md", RUBRIC_V3);
 
     private static final ReflexV2Task GRADE_9_IELTS_SHORT = new ReflexV2Task(
             "g9-ielts-short", IELTS_SPEAKING, IELTS_WRITING, "GRA", 30, 18, GateScheme.V3, "SHORT",
             "IELTS 4.0–5.0 foundation, học sinh 14–15 tuổi", "Short question",
-            "rubric-grade9-ielts-writing.md", "rubric-grade9-ielts-speaking.md");
+            "rubric-grade9-ielts-writing.md", "rubric-grade9-ielts-speaking.md", RUBRIC_V3);
 
     private static final ReflexV2Task GRADE_9_IELTS_PART2 = new ReflexV2Task(
-            "g9-ielts-part2", IELTS_SPEAKING, IELTS_WRITING, "GRA", 90, 35, GateScheme.V3, "PART2",
+            "g9-ielts-part2", IELTS_SPEAKING, IELTS_WRITING, "GRA", 120, 35, GateScheme.V3, "PART2",
             "IELTS 4.0–5.0 foundation, học sinh 14–15 tuổi", "IELTS Speaking Part 2",
-            "rubric-grade9-ielts-writing.md", "rubric-grade9-ielts-speaking.md");
+            "rubric-grade9-ielts-writing.md", "rubric-grade9-ielts-speaking.md", RUBRIC_V3);
+
+    public static boolean isSupportedVersion(String rubricVersion) {
+        return RUBRIC_V2.equals(rubricVersion) || RUBRIC_V3.equals(rubricVersion);
+    }
+
+    /** Khối (6-9), đọc từ mã dạng bài ({@code "g8-cam-pet4"} → 8). */
+    public int grade() {
+        return Character.getNumericValue(id.charAt(1));
+    }
+
+    /** Thư mục classpath chứa bộ rubric của dạng bài này. */
+    public String rubricDir() {
+        return "rubrics-" + rubricVersion + "/";
+    }
+
+    /** Dạng bài theo version hiện hành ({@link #CURRENT_RUBRIC_VERSION}) — dùng cho bài viết nộp mới. */
+    public static Optional<ReflexV2Task> forGradeTrack(Curriculum.GradeLevel gradeLevel, Curriculum.Track track,
+                                                       int maxRecordingSeconds) {
+        return forGradeTrack(gradeLevel, track, maxRecordingSeconds, CURRENT_RUBRIC_VERSION);
+    }
 
     /**
      * @param maxRecordingSeconds thời lượng ghi âm tối đa của câu hỏi — CHỈ dùng để phân biệt SHORT/PART2 ở
      *                            Khối 8-9 IELTS (xem Javadoc lớp); các dạng còn lại bỏ qua.
+     * @param rubricVersion       {@link #RUBRIC_V2} hoặc {@link #RUBRIC_V3}; version khác → {@link Optional#empty()}.
      */
     public static Optional<ReflexV2Task> forGradeTrack(Curriculum.GradeLevel gradeLevel, Curriculum.Track track,
-                                                       int maxRecordingSeconds) {
+                                                       int maxRecordingSeconds, String rubricVersion) {
+        if (!isSupportedVersion(rubricVersion)) {
+            return Optional.empty();
+        }
+        return forGradeTrackV3(gradeLevel, track, maxRecordingSeconds)
+                .map(t -> RUBRIC_V2.equals(rubricVersion) ? t.asV2() : t);
+    }
+
+    /** Cấu hình v2 = v3 trừ các chỗ khác nêu ở {@link #RUBRIC_V3}. */
+    private ReflexV2Task asV2() {
+        String format = id.equals("g8-cam-pet4") || id.startsWith("g7-") ? null : rubricFormat;
+        int maxSeconds = id.equals("g9-ielts-part2") ? 90 : seconds;
+        return new ReflexV2Task(id, criteria, writingCriteria, grammarCode, maxSeconds, minWords, gateScheme, format,
+                levelLabel, formatLabel, writingRubricFile, speakingRubricFile, RUBRIC_V2);
+    }
+
+    private static Optional<ReflexV2Task> forGradeTrackV3(Curriculum.GradeLevel gradeLevel, Curriculum.Track track,
+                                                          int maxRecordingSeconds) {
         if (gradeLevel == null) {
             return Optional.empty();
         }

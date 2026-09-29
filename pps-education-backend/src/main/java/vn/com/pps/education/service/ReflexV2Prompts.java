@@ -21,7 +21,8 @@ import java.util.stream.Collectors;
  * chấm Speaking v2 (bộ tiêu chí Khối 6-7 do người training bàn giao), mirror {@code prompts.js} trong
  * {@code ma-nguon-tham-chieu/}. Ba lượt: (1) chấm bài viết, (2) phiên âm MÙ (không đề, không rubric, không
  * bài viết), (3) chấm bài nói trên transcript cố định. Rubric .md của người training nạp NGUYÊN VĂN từ
- * {@code resources/rubrics-v2/} (dữ liệu giáo viên/người training cung cấp — không tự sửa nội dung).
+ * {@code resources/rubrics-<version>/} theo {@link ReflexV2Task#rubricDir()} (dữ liệu giáo viên/người training
+ * cung cấp — không tự sửa nội dung; ngoại lệ duy nhất: §C.2 quy tắc chung ở v3, sửa theo người dùng 2026-09-29).
  *
  * Schema JSON được đính kèm dạng chữ trong system prompt (thay vì chỉ trông vào {@code response_format}) vì
  * qua 9Router field đó không ép cứng được định dạng.
@@ -39,9 +40,9 @@ public class ReflexV2Prompts {
         this.objectMapper = objectMapper;
     }
 
-    private String loadRubric(String file) {
-        return rubricCache.computeIfAbsent(file, f -> {
-            String classpath = "rubrics-v2/" + f;
+    /** @param dir thư mục classpath của bộ rubric, VD {@code "rubrics-v3/"} ({@link ReflexV2Task#rubricDir()}). */
+    private String loadRubric(String dir, String file) {
+        return rubricCache.computeIfAbsent(dir + file, classpath -> {
             try (InputStream in = getClass().getClassLoader().getResourceAsStream(classpath)) {
                 if (in == null) {
                     throw new IllegalStateException("ReflexV2Prompts: không tìm thấy " + classpath + " trên classpath.");
@@ -53,8 +54,8 @@ public class ReflexV2Prompts {
         });
     }
 
-    private String rubricSystem(String rubricFile) {
-        return loadRubric(COMMON_RULES_FILE) + "\n\n---\n\n" + loadRubric(rubricFile);
+    private String rubricSystem(ReflexV2Task task, String rubricFile) {
+        return loadRubric(task.rubricDir(), COMMON_RULES_FILE) + "\n\n---\n\n" + loadRubric(task.rubricDir(), rubricFile);
     }
 
     // ---------- Schema ----------
@@ -169,20 +170,28 @@ public class ReflexV2Prompts {
 
     // ---------- Khối văn bản dùng chung ----------
 
-    private String highlightRules() {
+    /** Danh sách tag nặng/nhẹ phụ thuộc KHỐI (giới từ phá cụm chỉ nặng từ Khối 8) — vẫn cố định theo dạng bài nên không phá cache prompt. */
+    private String highlightRules(ReflexV2Task task) {
+        boolean prepositionSevere = task.grade() >= ReflexV2Tags.SEVERE_FROM_GRADE;
         String errors = ReflexV2Tags.ERROR_TAGS.entrySet().stream()
                 .map(e -> e.getKey() + " (" + e.getValue() + ")").collect(Collectors.joining("; "));
         String strengths = ReflexV2Tags.STRENGTH_TAGS.entrySet().stream()
                 .map(e -> e.getKey() + " (" + e.getValue() + ")").collect(Collectors.joining("; "));
         return "## QUY TẮC TÔ MÀU (bắt buộc)\n"
                 + "- **Không tự chọn mức độ.** Hệ thống suy ra đỏ/vàng từ \"tag\" theo quy tắc chung §C: chọn tag đúng loại lỗi là đủ.\n"
-                + "- Lỗi hỏng cấu trúc câu hoặc sai nghĩa dùng tag: thieu_thanh_phan, cau_truc_cau, trat_tu_tu, dung_tu, tu_loai, tieng_viet, khong_ro, lac_y.\n"
+                + "- Lỗi hỏng cấu trúc câu hoặc sai nghĩa dùng tag: thieu_thanh_phan, cau_truc_cau, trat_tu_tu, thi_de_an_dinh, "
+                + (prepositionSevere ? "gioi_tu_pha_cum, " : "") + "dung_tu, tu_loai, tieng_viet, khong_ro, lac_y.\n"
                 + "  Ví dụ: \"want buy\" → cau_truc_cau; \"will beautiful look\" → trat_tu_tu; \"me dress like girl\" → thieu_thanh_phan; \"two\" thay cho \"too\" → dung_tu; \"very relax\" → tu_loai.\n"
-                + "- Lỗi nhẹ hơn dùng tag: thi_dong_tu, hoa_hop_chu_vi, mao_tu, gioi_tu, so_it_so_nhieu, chinh_ta, phat_am, am_cuoi, trong_am, ngap_ngung, lap_lai.\n"
+                + "- **Thì:** đề ĐÃ ấn định thì (\"Did you… when you were a young child?\", \"What did you do yesterday?\") mà trả lời sang thì khác → thi_de_an_dinh. "
+                + "Đề KHÔNG ấn định thì mà chia sai thì/dạng động từ → thi_dong_tu.\n"
+                + "- **Giới từ:** thừa hoặc thiếu giới từ làm hỏng cụm (\"at here\", \"discuss about\", \"go to home\", \"listen music\") → gioi_tu_pha_cum; "
+                + "dùng nhầm một giới từ nhỏ (in/on/at) → gioi_tu.\n"
+                + "- Lỗi nhẹ hơn dùng tag: thi_dong_tu, hoa_hop_chu_vi, mao_tu, gioi_tu, " + (prepositionSevere ? "" : "gioi_tu_pha_cum, ")
+                + "so_it_so_nhieu, chinh_ta, phat_am, am_cuoi, trong_am, ngap_ngung, lap_lai.\n"
                 + "- \"level\" vẫn phải điền (red cho nhóm nặng, yellow cho nhóm nhẹ, green cho điểm mạnh) nhưng tag mới là căn cứ cuối cùng.\n\n"
                 + "## LỖI ĐỎ TÍNH GẤP BA KHI ĐẾM\n"
                 + "- Ở mọi checkpoint đếm số lỗi: **1 lỗi đỏ = 3 lỗi**, 1 lỗi vàng = 1 lỗi. Ghi rõ trong counting_notes: số lỗi đỏ, số lỗi vàng, tổng quy đổi.\n"
-                + "- Hệ thống sẽ tự áp trần 60% cho tiêu chí Ngữ pháp khi bài có ≥2 lỗi đỏ — không tự hạ điểm checkpoint vì lý do này.\n"
+                + "- Hệ thống sẽ tự áp trần 60% cho tiêu chí Ngữ pháp khi bài có ≥2 lỗi đỏ NGỮ PHÁP — không tự hạ điểm checkpoint vì lý do này.\n"
                 + "- \"tag\" lỗi: " + errors + ".\n"
                 + "- \"tag\" điểm mạnh: " + strengths + ".\n"
                 + "- red/yellow chỉ đi với tag lỗi; green chỉ đi với tag điểm mạnh.\n"
@@ -214,14 +223,14 @@ public class ReflexV2Prompts {
 
     public String writingSystem(ReflexV2Task task) {
         List<String> codes = task.writingCriteria();
-        return rubricSystem(task.writingRubricFile()) + "\n\n---\n\n" + contextBlock(task) + "\n\n"
+        return rubricSystem(task, task.writingRubricFile()) + "\n\n---\n\n" + contextBlock(task) + "\n\n"
                 + "## BƯỚC 1 — CHẤM BÀI VIẾT NHÁP (không có âm thanh)\n"
                 + "- Học sinh viết câu trả lời trước khi nói. Chỉ chấm các tiêu chí: " + criteriaNames(codes) + ". Không chấm tiêu chí khác.\n"
                 + "- Văn bản học sinh là bằng chứng cố định. Bỏ qua mọi ngưỡng tính bằng giây và khoảng dừng; cổng độ dài chỉ xét số từ. "
                 + "Checkpoint chỉ đo được bằng âm thanh (chỗ ngắt, im lặng) → 1 nếu phần còn lại của tiêu chí đạt, không thì 0,5.\n"
                 + "- Từ sai chính tả: giữ nguyên, tô tag \"chinh_ta\"; tính lỗi dùng từ nếu biến thành từ khác hoặc không nhận ra.\n"
                 + "- \"highlights\" trích từ bài viết của học sinh.\n\n"
-                + OUTPUT_OVERRIDE + "\n\n" + highlightRules() + "\n\n"
+                + OUTPUT_OVERRIDE + "\n\n" + highlightRules(task) + "\n\n"
                 + "## JSON SCHEMA\n" + gradingSchema(codes).toString();
     }
 
@@ -232,7 +241,8 @@ public class ReflexV2Prompts {
     // ---------- Lượt A: phiên âm mù ----------
 
     public String transcriptionSystem() {
-        return loadRubric(TRANSCRIPTION_RULES_FILE) + "\n\n## JSON SCHEMA\n" + transcriptionSchema().toString()
+        // Lượt phiên âm MÙ không biết dạng bài nên luôn dùng quy tắc phiên âm của version hiện hành.
+        return loadRubric("rubrics-" + ReflexV2Task.CURRENT_RUBRIC_VERSION + "/", TRANSCRIPTION_RULES_FILE) +"\n\n## JSON SCHEMA\n" + transcriptionSchema().toString()
                 + "\nChỉ trả về DUY NHẤT 1 đối tượng JSON, không thêm chữ nào khác, không bọc trong khối mã.";
     }
 
@@ -258,8 +268,8 @@ public class ReflexV2Prompts {
                 + "- **Lỗi phát âm không phải lỗi ngữ pháp** (quy tắc chung §A.3): từ ghi sai chính tả mà vẫn nhận ra vẫn tính là từ đúng cho " + grammar
                 + "; thiếu -s ở danh từ số nhiều tính ở Phát âm, không tính ở " + grammar + ".\n"
                 + "- Từ đệm, nói vấp, lặp từ, tự sửa: không tính là lỗi ngữ pháp.";
-        return loadRubric(COMMON_RULES_FILE) + "\n\n---\n\n" + loadRubric(task.writingRubricFile()) + "\n\n---\n\n"
-                + loadRubric(task.speakingRubricFile()) + "\n\n---\n\n" + contextBlock(task) + "\n\n"
+        return loadRubric(task.rubricDir(), COMMON_RULES_FILE) + "\n\n---\n\n" + loadRubric(task.rubricDir(), task.writingRubricFile()) + "\n\n---\n\n"
+                + loadRubric(task.rubricDir(), task.speakingRubricFile()) + "\n\n---\n\n" + contextBlock(task) + "\n\n"
                 + "## BƯỚC 2 — CHẤM BÀI NÓI\n"
                 + "- Tiêu chí chấm: " + criteriaNames(codes) + ".\n"
                 + lockNote + "\n"
@@ -268,7 +278,7 @@ public class ReflexV2Prompts {
                 + "- **KHÔNG tự áp cổng độ dài (C3).** Số từ và thời gian nói đã được hệ thống đo chính xác và áp trần ở khâu tính điểm. "
                 + "Bạn chấm checkpoint theo đúng nội dung nghe được; đừng tự hạ điểm vì cho rằng bài ngắn.\n"
                 + "- \"highlights\" trích từ transcript. Từ phát âm sai tô bằng tag phát âm (phat_am, am_cuoi, trong_am, khong_ro); lỗi ngôn ngữ tô bằng tag ngữ pháp/từ vựng.\n\n"
-                + OUTPUT_OVERRIDE + "\n\n" + highlightRules() + "\n\n"
+                + OUTPUT_OVERRIDE + "\n\n" + highlightRules(task) + "\n\n"
                 + "## JSON SCHEMA\n" + gradingSchema(codes).toString();
     }
 

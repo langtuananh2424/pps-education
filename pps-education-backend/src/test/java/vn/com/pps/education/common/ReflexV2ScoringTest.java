@@ -93,7 +93,8 @@ class ReflexV2ScoringTest {
         List<ReflexV2Scoring.Highlight> found = ReflexV2Scoring.locateHighlights(text, hs);
         // Theo thứ tự vị trí trong bài: Sometime (vàng, chinh_ta), đá cầu (đỏ, tieng_viet), because (xanh), it hot (đỏ)
         assertThat(found).extracting(ReflexV2Scoring.Highlight::level).containsExactly("yellow", "red", "green", "red");
-        assertThat(ReflexV2Scoring.countRed(found)).isEqualTo(2);
+        // Trần Ngữ pháp chỉ đếm lỗi đỏ NGỮ PHÁP: "it hot" (thieu_thanh_phan) có, "đá cầu" (tieng_viet) thì không
+        assertThat(ReflexV2Scoring.countRed(found)).isEqualTo(1);
         String marked = ReflexV2Scoring.toErrMarkup(text, found);
         assertThat(marked).contains("{{err}}đá cầu{{/err}}").contains("{{err}}it hot{{/err}}").contains("{{err}}Sometime{{/err}}");
         assertThat(marked).doesNotContain("{{err}}because");
@@ -396,7 +397,7 @@ class ReflexV2ScoringTest {
 
         ReflexV2Task g8Cam = ReflexV2Task.forGradeTrack(Curriculum.GradeLevel.GRADE_8, Curriculum.Track.CAMBRIDGE, 60).orElseThrow();
         assertThat(g8Cam.id()).isEqualTo("g8-cam-pet4");
-        assertThat(g8Cam.rubricFormat()).isNull();
+        assertThat(g8Cam.rubricFormat()).isEqualTo("PET4");
         assertThat(g8Cam.criteria()).containsExactly("GV", "DM", "P");
 
         assertThat(ReflexV2Task.forGradeTrack(Curriculum.GradeLevel.GRADE_9, Curriculum.Track.IELTS, 90).orElseThrow().id())
@@ -428,5 +429,115 @@ class ReflexV2ScoringTest {
         // PART2 yêu cầu dài hơn
         ReflexV2Task part2 = ReflexV2Task.forGradeTrack(Curriculum.GradeLevel.GRADE_8, Curriculum.Track.IELTS, 90).orElseThrow();
         assertThat(ReflexV2Scoring.buildGateNote(part2, List.of("C1"), 20)).contains("30 từ");
+    }
+
+    // ---------- 29/9: trần chỉ đếm lỗi đỏ ngữ pháp, cách B, rubric v3 ----------
+
+    private static ReflexV2Scoring.Highlight red(String tag) {
+        return new ReflexV2Scoring.Highlight(0, 1, "red", tag, tag);
+    }
+
+    @Test
+    void countRed_countsOnlyGrammarRedErrors_forTheGrammarCap() {
+        // Hai từ nghe không ra + chêm tiếng Việt + dùng sai từ: vẫn đỏ nhưng KHÔNG kéo trần Ngữ pháp
+        List<ReflexV2Scoring.Highlight> nonGrammar = List.of(red("khong_ro"), red("khong_ro"), red("tieng_viet"), red("dung_tu"), red("lac_y"));
+        assertThat(ReflexV2Scoring.countRed(nonGrammar)).isZero();
+        assertThat(ReflexV2Scoring.regradeGrammar(cs("GV", 90), ReflexV2Scoring.countRed(nonGrammar), 80, false).percent()).isEqualTo(90);
+
+        List<ReflexV2Scoring.Highlight> grammar = List.of(red("thieu_thanh_phan"), red("trat_tu_tu"), red("khong_ro"));
+        assertThat(ReflexV2Scoring.countRed(grammar)).isEqualTo(2);
+        assertThat(ReflexV2Scoring.regradeGrammar(cs("GV", 90), ReflexV2Scoring.countRed(grammar), 80, false).percent()).isEqualTo(60);
+        // Lỗi vàng cùng loại ngữ pháp không bao giờ đếm
+        assertThat(ReflexV2Scoring.countRed(List.of(new ReflexV2Scoring.Highlight(0, 1, "yellow", "x", "thieu_thanh_phan")))).isZero();
+    }
+
+    @Test
+    void tenseFixedByQuestion_isAlwaysRedGrammar_prepositionBreakingPhraseIsRedOnlyFromGrade8() throws Exception {
+        String text = "Yesterday I go to home and discuss about it.";
+        JsonNode hs = json("[{\"quote\":\"go\",\"occurrence\":1,\"level\":\"yellow\",\"tag\":\"thi_de_an_dinh\"},"
+                + "{\"quote\":\"to home\",\"occurrence\":1,\"level\":\"red\",\"tag\":\"gioi_tu_pha_cum\"},"
+                + "{\"quote\":\"discuss about\",\"occurrence\":1,\"level\":\"red\",\"tag\":\"gioi_tu_pha_cum\"}]");
+        // Khối 7: sai thì đề ấn định luôn đỏ; giới từ phá cụm còn là lỗi vàng → chỉ 1 lỗi đỏ ngữ pháp, chưa chạm trần
+        List<ReflexV2Scoring.Highlight> g7 = ReflexV2Scoring.locateHighlights(text, hs, 7);
+        assertThat(g7).extracting(ReflexV2Scoring.Highlight::level).containsExactly("red", "yellow", "yellow");
+        assertThat(ReflexV2Scoring.countRed(g7)).isEqualTo(1);
+        // Khối 8: cả ba đều đỏ ngữ pháp → tính vào trần 60%
+        List<ReflexV2Scoring.Highlight> g8 = ReflexV2Scoring.locateHighlights(text, hs, 8);
+        assertThat(g8).extracting(ReflexV2Scoring.Highlight::level).containsExactly("red", "red", "red");
+        assertThat(ReflexV2Scoring.countRed(g8)).isEqualTo(3);
+        assertThat(ReflexV2Scoring.grammarRedQuotes(text, g8)).containsExactly("go", "to home", "discuss about");
+        assertThat(ReflexV2Scoring.grammarRedQuotes(text, g7)).containsExactly("go");
+    }
+
+    @Test
+    void sameAsWritten_ignoresFillersRepeatsPausesAndPronunciationSlips() {
+        String written = "My favourite food is fried chicken because it is very tasty.";
+        ReflexV2Scoring.SpokenMatch clean = ReflexV2Scoring.sameAsWritten(written,
+                "um My my favourite food is fried chicken (...3s) because it is very tasty.");
+        assertThat(clean.same()).isTrue();
+        assertThat(clean.diff()).isZero();
+        // mất âm cuối / đọc lệch là lỗi Phát âm (đã trừ ở P), không phải đổi câu
+        ReflexV2Scoring.SpokenMatch slips = ReflexV2Scoring.sameAsWritten(written,
+                "My favourite foo is fry chicken becau it is very tasty.");
+        assertThat(slips.same()).isTrue();
+        assertThat(slips.diff()).isZero();
+    }
+
+    @Test
+    void sameAsWritten_toleratesOneOrTwoMisheardWords() {
+        String written = "On Sunday I usually go to the park with my family and we play badminton.";
+        // lượt phiên âm nghe nhầm 1 từ ngắn ("the" → "a") và 1 từ nội dung → vẫn là cùng một câu
+        ReflexV2Scoring.SpokenMatch m = ReflexV2Scoring.sameAsWritten(written,
+                "On Sunday I usually go to a park with my family and we play tennis.");
+        assertThat(m.diff()).isEqualTo(4);
+        assertThat(m.ratio()).isGreaterThanOrEqualTo(ReflexV2Scoring.SAME_AS_WRITTEN_MIN_RATIO);
+        assertThat(m.same()).isTrue();
+        // Căn cứ duy nhất là tỷ lệ ≥85%: bài 3 từ lệch 1 từ chỉ khớp 67% → coi là nói khác, chấm lại
+        ReflexV2Scoring.SpokenMatch tiny = ReflexV2Scoring.sameAsWritten("I like cats.", "I like dogs.");
+        assertThat(tiny.diff()).isEqualTo(2);
+        assertThat(tiny.same()).isFalse();
+    }
+
+    @Test
+    void sameAsWritten_isFalse_whenTheStudentReshapesOrExtendsTheSentence() {
+        ReflexV2Scoring.SpokenMatch extended = ReflexV2Scoring.sameAsWritten("I like play football.",
+                "I like to play football with my friends after school.");
+        assertThat(extended.same()).isFalse();
+        assertThat(extended.diff()).isEqualTo(6);
+        // Rủi ro đã biết (TRANG-THAI-BAN-GIAO 29/9): nghe nhầm 3 từ đầu câu → coi là nói khác → chấm lại từ
+        // transcript. Chỉ giáo viên soát lại mới phát hiện được.
+        assertThat(ReflexV2Scoring.sameAsWritten("Like I said, I used to play Minecraft a lot as a kid.",
+                "A game that I used to play, Minecraft, a lot as a kid.").same()).isFalse();
+        assertThat(ReflexV2Scoring.sameAsWritten(null, "I like cats.")).isNull();
+        assertThat(ReflexV2Scoring.sameAsWritten("I like cats.", "um (...4s)")).isNull();
+    }
+
+    @Test
+    void keepGrammarFromStep1_overridesEveryCapOnGrammarOnly() {
+        List<ReflexV2Scoring.CriterionScore> capped = List.of(cs("GV", 40), cs("DM", 70), cs("P", 60));
+        List<ReflexV2Scoring.CriterionScore> kept = ReflexV2Scoring.keepGrammarFromStep1("GV", capped, 80);
+        assertThat(kept).extracting(ReflexV2Scoring.CriterionScore::percent).containsExactly(80, 70, 60);
+        assertThat(kept.get(0).caps()).containsExactly("giữ điểm Bước 1 (nói giống bài viết)");
+        assertThat(kept.get(0).cappedByRedErrors()).isFalse();
+    }
+
+    @Test
+    void task_v3IsCurrent_andV2KeepsItsOwnConfigForUnfinishedQuestions() {
+        assertThat(ReflexV2Task.CURRENT_RUBRIC_VERSION).isEqualTo(ReflexV2Task.RUBRIC_V3);
+        ReflexV2Task g9v3 = ReflexV2Task.forGradeTrack(Curriculum.GradeLevel.GRADE_9, Curriculum.Track.IELTS, 120).orElseThrow();
+        assertThat(g9v3.seconds()).isEqualTo(120);
+        assertThat(g9v3.rubricDir()).isEqualTo("rubrics-v3/");
+
+        ReflexV2Task g9v2 = ReflexV2Task.forGradeTrack(Curriculum.GradeLevel.GRADE_9, Curriculum.Track.IELTS, 90, ReflexV2Task.RUBRIC_V2).orElseThrow();
+        assertThat(g9v2.id()).isEqualTo("g9-ielts-part2");
+        assertThat(g9v2.seconds()).isEqualTo(90);
+        assertThat(g9v2.rubricDir()).isEqualTo("rubrics-v2/");
+        assertThat(ReflexV2Task.forGradeTrack(Curriculum.GradeLevel.GRADE_8, Curriculum.Track.CAMBRIDGE, 60, ReflexV2Task.RUBRIC_V2)
+                .orElseThrow().rubricFormat()).isNull();
+        // Dòng luồng cũ (rubric_version NULL) hoặc version lạ → không vào luồng v2/v3
+        assertThat(ReflexV2Task.forGradeTrack(Curriculum.GradeLevel.GRADE_6, null, 20, null)).isEmpty();
+        assertThat(ReflexV2Task.forGradeTrack(Curriculum.GradeLevel.GRADE_6, null, 20, "v9")).isEmpty();
+        assertThat(g9v3.grade()).isEqualTo(9);
+        assertThat(ReflexV2Task.forGradeTrack(Curriculum.GradeLevel.GRADE_6, null, 20).orElseThrow().grade()).isEqualTo(6);
     }
 }

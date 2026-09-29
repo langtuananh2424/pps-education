@@ -31,7 +31,7 @@ public final class ReflexV2Scoring {
     private ReflexV2Scoring() {
     }
 
-    /** Từ 2 lỗi đỏ trở lên → tiêu chí Ngữ pháp không vượt mức này (quy tắc chung §C). */
+    /** Từ 2 lỗi đỏ NGỮ PHÁP trở lên ({@link #countRed}) → tiêu chí Ngữ pháp không vượt mức này (quy tắc chung §C.2). */
     public static final int RED_CAP = 60;
 
     /** 100% nghĩa là gần như bản ngữ — học sinh THCS Việt Nam không có tiêu chí bài NÓI nào vượt mức này (phòng đào tạo 24/9). */
@@ -134,7 +134,7 @@ public final class ReflexV2Scoring {
         return new ScoreSet(criteria, average(criteria), gateCodes(task, data));
     }
 
-    /** Trần 60% cho tiêu chí Ngữ pháp khi bài có từ 2 lỗi đỏ (Bước 1). Chỉ giảm, không bao giờ tăng. */
+    /** Trần 60% cho tiêu chí Ngữ pháp khi bài có từ 2 lỗi đỏ ngữ pháp (Bước 1, đếm bằng {@link #countRed}). Chỉ giảm, không bao giờ tăng. */
     public static ScoreSet applyRedCap(String grammarCode, ScoreSet scored, int redCount) {
         if (redCount < 2) {
             return scored;
@@ -463,6 +463,110 @@ public final class ReflexV2Scoring {
         return new Readback(spoken.size(), deviant.size(), deviant.size() / (double) spoken.size(), deviant);
     }
 
+    // ---------- Nói giống bài viết → giữ điểm Ngữ pháp Bước 1 (cách B, 2026-09-29) ----------
+
+    /**
+     * Tỷ lệ khớp tối thiểu {@code 2·khớp / (số từ viết + số từ nói)} để coi là nói lại đúng bài đã viết — căn cứ
+     * DUY NHẤT (người dùng chốt 2026-09-29). Bài rất ngắn nghe nhầm 1 từ có thể rơi dưới ngưỡng và bị chấm lại.
+     */
+    public static final double SAME_AS_WRITTEN_MIN_RATIO = 0.85;
+
+    private static final Set<String> MATCH_FILLERS = Set.of("um", "uh", "ah", "er", "erm", "hm", "mm");
+    private static final Pattern PAUSE_TOKEN = Pattern.compile("\\(\\.\\.\\.\\d+s\\)");
+
+    /**
+     * @param matched số từ khớp theo thứ tự (dãy con chung dài nhất).
+     * @param diff    số từ lệch = từ viết không được nói + từ nói không có trong bài viết.
+     * @param same    nói lại đúng bài đã viết → giữ nguyên điểm Ngữ pháp Bước 1.
+     */
+    public record SpokenMatch(int writtenWords, int spokenWords, int matched, int diff, double ratio, boolean same) {
+    }
+
+    private static List<String> matchTokens(String text, boolean spoken) {
+        List<String> out = new ArrayList<>();
+        for (String raw : WHITESPACE.split(PAUSE_TOKEN.matcher(text == null ? "" : text).replaceAll(" "))) {
+            String w = normWord(raw).replace("'", "");
+            if (w.isEmpty() || (spoken && MATCH_FILLERS.contains(w))) {
+                continue;
+            }
+            // Lặp từ khi nói ("I I go") là ngập ngừng, không phải câu khác.
+            if (spoken && !out.isEmpty() && out.get(out.size() - 1).equals(w)) {
+                continue;
+            }
+            out.add(w);
+        }
+        return out;
+    }
+
+    /**
+     * Cùng một từ theo nghĩa "nói lại bài viết": trùng nguyên văn, hoặc — với từ từ 3 chữ cái — cùng chữ đầu và
+     * bộ khung phụ âm lệch ≤2 (như {@link #writtenVsSpoken}). Nhờ vậy từ phát âm lệch / mất âm cuối
+     * ({@code fren}≈{@code friends}, {@code play}≈{@code played}) vẫn là "giống": đó là lỗi Phát âm, đã trừ ở P.
+     * Từ ngắn (a, is, are, go) phải trùng nguyên văn — thêm/bớt/đổi những từ này mới là đổi câu.
+     */
+    private static boolean sameWord(String w, String s) {
+        if (w.equals(s)) {
+            return true;
+        }
+        return w.length() >= 3 && s.length() >= 3 && w.charAt(0) == s.charAt(0)
+                && Math.abs(w.length() - s.length()) <= 3 && editDistance(skeleton(w), skeleton(s)) <= 2;
+    }
+
+    /**
+     * Cách B (đã xác nhận với người dùng 2026-09-29): học sinh nói lại ĐÚNG câu đã viết thì điểm Ngữ pháp giữ
+     * nguyên điểm Bước 1 — AI chấm lại cùng một câu không được ra điểm khác. Chỉ khi nói khác bài viết (sửa lỗi,
+     * nói thêm, bỏ bớt) mới dùng điểm chấm lại từ transcript. Tất định hoàn toàn, không hỏi model.
+     *
+     * So theo thứ tự từ (dãy con chung dài nhất), tính cả từ chức năng vì thay đổi ngữ pháp nằm chủ yếu ở đó.
+     * Chừa biên cho lượt phiên âm nghe nhầm vài từ bằng {@link #SAME_AS_WRITTEN_MIN_RATIO}. Trả {@code null} khi
+     * thiếu bài viết hoặc transcript rỗng.
+     */
+    public static SpokenMatch sameAsWritten(String writtenText, String transcript) {
+        List<String> written = matchTokens(writtenText, false);
+        List<String> spoken = matchTokens(transcript, true);
+        if (written.isEmpty() || spoken.isEmpty()) {
+            return null;
+        }
+        int[][] lcs = new int[written.size() + 1][spoken.size() + 1];
+        for (int i = 1; i <= written.size(); i++) {
+            for (int j = 1; j <= spoken.size(); j++) {
+                lcs[i][j] = sameWord(written.get(i - 1), spoken.get(j - 1))
+                        ? lcs[i - 1][j - 1] + 1 : Math.max(lcs[i - 1][j], lcs[i][j - 1]);
+            }
+        }
+        int matched = lcs[written.size()][spoken.size()];
+        int total = written.size() + spoken.size();
+        int diff = total - 2 * matched;
+        double ratio = 2.0 * matched / total;
+        boolean same = ratio >= SAME_AS_WRITTEN_MIN_RATIO;
+        return new SpokenMatch(written.size(), spoken.size(), matched, diff, Math.round(ratio * 100) / 100.0, same);
+    }
+
+    /** Các đoạn bị tô đỏ NGỮ PHÁP (đúng tập {@link #countRed} đếm), trích nguyên văn — chỗ giáo viên cần soát. */
+    public static List<String> grammarRedQuotes(String source, List<Highlight> highlights) {
+        List<String> quotes = new ArrayList<>();
+        for (Highlight h : highlights) {
+            if (h.level().equals("red") && ReflexV2Tags.GRAMMAR_SEVERE_TAGS.contains(h.tag())) {
+                quotes.add(source.substring(h.start(), h.end()));
+            }
+        }
+        return quotes;
+    }
+
+    /** Điểm Ngữ pháp Bước 1 giữ nguyên cho bài nói (cách B) — không trần, không sàn, không trần theo lỗi đã tô. */
+    public static CriterionScore keptFromStep1(String grammarCode, int step1Percent) {
+        return new CriterionScore(grammarCode, step1Percent, false, null, List.of("giữ điểm Bước 1 (nói giống bài viết)"));
+    }
+
+    /** Đặt lại tiêu chí Ngữ pháp về điểm Bước 1 sau các trần (cách B) — các tiêu chí khác giữ nguyên. */
+    public static List<CriterionScore> keepGrammarFromStep1(String grammarCode, List<CriterionScore> criteria, int step1Percent) {
+        List<CriterionScore> out = new ArrayList<>();
+        for (CriterionScore c : criteria) {
+            out.add(c.code().equals(grammarCode) ? keptFromStep1(grammarCode, step1Percent) : c);
+        }
+        return out;
+    }
+
     // ===================== Tô màu =====================
 
     private static boolean isWordChar(char c) {
@@ -491,6 +595,11 @@ public final class ReflexV2Scoring {
      * (đỏ/vàng/xanh) do LOẠI lỗi (tag) quyết định, KHÔNG dùng {@code level} AI tự điền.
      */
     public static List<Highlight> locateHighlights(String source, JsonNode highlights) {
+        return locateHighlights(source, highlights, 0);
+    }
+
+    /** @param grade khối của dạng bài — quyết định mức đỏ/vàng của tag phụ thuộc khối ({@link ReflexV2Tags#isSevere}). */
+    public static List<Highlight> locateHighlights(String source, JsonNode highlights, int grade) {
         List<Highlight> found = new ArrayList<>();
         if (source == null || !highlights.isArray()) {
             return found;
@@ -506,7 +615,7 @@ public final class ReflexV2Scoring {
             if (errorLabel == null && strengthLabel == null) {
                 continue;
             }
-            String level = strengthLabel != null ? "green" : (ReflexV2Tags.SEVERE_TAGS.contains(tag) ? "red" : "yellow");
+            String level = strengthLabel != null ? "green" : (ReflexV2Tags.isSevere(tag, grade) ? "red" : "yellow");
             int occurrence = Math.max(1, h.path("occurrence").asInt(1));
             int idx = -1;
             int from = 0;
@@ -538,8 +647,14 @@ public final class ReflexV2Scoring {
         return result;
     }
 
+    /**
+     * Số lỗi đỏ NGỮ PHÁP ({@link ReflexV2Tags#GRAMMAR_SEVERE_TAGS}) — căn cứ DUY NHẤT của trần 60% tiêu chí Ngữ pháp,
+     * ở cả bài viết lẫn bài nói (2026-09-29). Lỗi đỏ loại khác không đếm ở đây.
+     */
     public static int countRed(List<Highlight> highlights) {
-        return (int) highlights.stream().filter(h -> h.level().equals("red")).count();
+        return (int) highlights.stream()
+                .filter(h -> h.level().equals("red") && ReflexV2Tags.GRAMMAR_SEVERE_TAGS.contains(h.tag()))
+                .count();
     }
 
     /**
