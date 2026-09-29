@@ -19,10 +19,21 @@ import java.util.Set;
  *
  * <p>1 dòng bị coi là lặp khi: (1) cùng khoá với học sinh đứng NGAY TRƯỚC, hoặc (2) khoá đó đã xuất hiện quá
  * {@code max(2, floor(maxShare × số dòng))} lần — các lần vượt ngưỡng bị đánh dấu (giữ lại các lần đầu).</p>
+ *
+ * <p>Bổ sung 2026-09-29 (tổng hợp nhận xét thật của 21 lớp): cụm sáo mòn giáo viên hay lặp ở MỌI học sinh
+ * ({@link #OVERUSED_PHRASES}, ở bất kỳ vị trí nào trong nhận xét) cũng áp cùng ngưỡng {@code max(2, ...)}.</p>
  */
 public final class CommentPatternCheck {
 
     private static final int KEY_WORDS = 3;
+
+    /**
+     * Cụm hay bị lặp nguyên khuôn cho cả lớp (tổng hợp từ nhận xét thật, 2026-09-29) — đã chuẩn hoá chữ thường, bỏ
+     * dấu câu như {@link CommentSimilarity#words}. Dùng được 1–2 lần/buổi, chỉ chặn khi lặp quá ngưỡng.
+     */
+    static final List<String> OVERUSED_PHRASES = List.of(
+            "hơn thế nữa", "về nhà luyện nói", "về nhà con luyện nói", "mong con", "con ngoan", "rất vui",
+            "rất ấn tượng", "con đã nắm được", "con có cố gắng", "con cần chú ý", "nhờ bố mẹ", "tiếp tục phát huy");
 
     private CommentPatternCheck() {
     }
@@ -31,11 +42,15 @@ public final class CommentPatternCheck {
     public record Entry(Long id, String fullName, String content) {
     }
 
-    /** @param openingIds dòng lặp kiểu mở đầu; {@code closingIds} dòng lặp kiểu câu kết. */
-    public record Result(Set<Long> openingIds, Set<Long> closingIds) {
+    /**
+     * @param openingIds dòng lặp kiểu mở đầu; {@code closingIds} dòng lặp kiểu câu kết; {@code phraseIds} dòng dùng
+     *                   cụm sáo mòn đã vượt ngưỡng (xem {@link #OVERUSED_PHRASES}).
+     */
+    public record Result(Set<Long> openingIds, Set<Long> closingIds, Set<Long> phraseIds) {
         public Set<Long> all() {
             Set<Long> all = new LinkedHashSet<>(openingIds);
             all.addAll(closingIds);
+            all.addAll(phraseIds);
             return all;
         }
     }
@@ -49,7 +64,36 @@ public final class CommentPatternCheck {
         }
         int written = (int) entries.stream().filter(e -> e.content() != null && !e.content().isBlank()).count();
         int allowed = Math.max(2, (int) Math.floor(maxShare * written));
-        return new Result(repeated(entries, openings, allowed), repeated(entries, closings, allowed));
+        return new Result(repeated(entries, openings, allowed), repeated(entries, closings, allowed),
+                overusedPhrases(entries, allowed));
+    }
+
+    /** Các cụm sáo mòn có trong 1 nhận xét (rỗng nếu không có). */
+    public static Set<String> phrasesIn(String content) {
+        Set<String> found = new LinkedHashSet<>();
+        if (content == null || content.isBlank()) {
+            return found;
+        }
+        String normalized = " " + String.join(" ", CommentSimilarity.words(content)) + " ";
+        for (String phrase : OVERUSED_PHRASES) {
+            if (normalized.contains(" " + phrase + " ")) {
+                found.add(phrase);
+            }
+        }
+        return found;
+    }
+
+    private static Set<Long> overusedPhrases(List<Entry> entries, int allowed) {
+        Set<Long> flagged = new LinkedHashSet<>();
+        Map<String, Integer> seen = new HashMap<>();
+        for (Entry entry : entries) {
+            for (String phrase : phrasesIn(entry.content())) {
+                if (seen.merge(phrase, 1, Integer::sum) > allowed) {
+                    flagged.add(entry.id());
+                }
+            }
+        }
+        return flagged;
     }
 
     /** Tỷ lệ dòng có khoá mở đầu trùng với ít nhất 1 dòng khác (0..1) — dùng cho log chỉ số. */

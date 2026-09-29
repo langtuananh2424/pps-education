@@ -47,6 +47,30 @@ class CommentPatternCheckTest {
         assertThat(CommentPatternCheck.openingRepeatRate(entries)).isEqualTo(0.5);
     }
 
+    @Test
+    void phrasesIn_UC74_findsOverusedPhrasesAsWholeWords() {
+        assertThat(CommentPatternCheck.phrasesIn("Con tập trung tốt. Hơn thế nữa, con rất vui vẻ khi phát biểu."))
+                .containsExactly("hơn thế nữa", "rất vui");
+        assertThat(CommentPatternCheck.phrasesIn("Con ngoạn mục vượt qua bài khó.")).isEmpty();
+    }
+
+    @Test
+    void check_UC74_flagsOverusedPhraseBeyondMaxShare() {
+        // 5 dòng, ngưỡng 30% → mỗi cụm tối đa max(2, 1) = 2 lần; mở đầu khác nhau để chỉ dính luật cụm.
+        List<CommentPatternCheck.Entry> entries = List.of(
+                new CommentPatternCheck.Entry(1L, "A An", "Tập trung tốt. Hơn thế nữa con phát biểu nhiều."),
+                new CommentPatternCheck.Entry(2L, "B Bình", "Hợp tác với bạn tốt. Hơn thế nữa con làm bài cẩn thận."),
+                new CommentPatternCheck.Entry(3L, "C Chi", "Chủ động phát biểu. Hơn thế nữa con giúp bạn."),
+                new CommentPatternCheck.Entry(4L, "D Dũng", "Nghe giảng chăm chú, con tiến bộ."),
+                new CommentPatternCheck.Entry(5L, "E Em", "Làm bài nhanh và chính xác, con rất chăm."));
+
+        CommentPatternCheck.Result result = CommentPatternCheck.check(entries, 0.3);
+
+        assertThat(result.phraseIds()).containsExactly(3L);
+        // Câu cuối cùng bắt đầu bằng "Hơn thế nữa" nên dòng 2, 3 còn dính luật câu kết liền kề.
+        assertThat(result.closingIds()).containsExactly(2L, 3L);
+    }
+
     private static CommentPatternCheck.Entry entry(long id, String opening) {
         return new CommentPatternCheck.Entry(id, "Học Sinh X" + id, opening + ".");
     }

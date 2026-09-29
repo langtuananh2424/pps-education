@@ -271,6 +271,11 @@ export default function CommentApprovalAssistantSidebar({
                         {t("approvalByClass.aiReview.summary.escalations", { count: m.summary.escalationCount })}
                       </span>
                     )}
+                    {m.summary.repeatedPatternCount > 0 && (
+                      <span className="text-[11px] font-semibold rounded-full px-2 py-0.5 bg-sky-50 text-sky-700 border border-sky-200">
+                        {t("approvalByClass.aiReview.summary.repeatedPattern", { count: m.summary.repeatedPatternCount })}
+                      </span>
+                    )}
                     {m.summary.homeworkMismatchCount > 0 && (
                       <span className="text-[11px] font-semibold rounded-full px-2 py-0.5 bg-sky-50 text-sky-700 border border-sky-200">
                         {t("approvalByClass.aiReview.summary.homeworkMismatch", { count: m.summary.homeworkMismatchCount })}

@@ -124,7 +124,8 @@
         "issue": "{{count}} {{label}}",
         "parentAlerts": "{{count}} will alert parents",
         "escalations": "{{count}} reach 3-session alert",
-        "homeworkMismatch": "{{count}} homework remark contradicts data"
+        "homeworkMismatch": "{{count}} homework remark contradicts data",
+        "repeatedPattern": "{{count}} reuse the same template"
       },
       "issueType": {
         "CONTAINS_DIGITS": "contain digits",

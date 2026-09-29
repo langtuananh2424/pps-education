@@ -124,7 +124,8 @@
         "issue": "{{count}} {{label}}",
         "parentAlerts": "{{count}} sẽ báo phụ huynh",
         "escalations": "{{count}} chạm mốc 3 buổi",
-        "homeworkMismatch": "{{count}} nhắc BTVN ngược dữ liệu"
+        "homeworkMismatch": "{{count}} nhắc BTVN ngược dữ liệu",
+        "repeatedPattern": "{{count}} dòng lặp khuôn câu"
       },
       "issueType": {
         "CONTAINS_DIGITS": "có chữ số",

@@ -55,7 +55,7 @@ class CommentAiReviewServiceTest {
     private final CommentAiReviewService service = new CommentAiReviewService(studentCommentService, attitudeAlertTrackingService,
             mock(ClassEnrollmentRepository.class), mock(StudentCommentRepository.class),
             new CommentAiJsonCaller(aiClient, promptTemplateLoader, new ObjectMapper()), jobRegistry, aiClient,
-            "comment-pps", 3, 120, 0.5, 1024);
+            "comment-pps", 3, 120, 0.5, 1024, 0.3);
 
     @BeforeEach
     void setUp() {
@@ -414,5 +414,23 @@ class CommentAiReviewServiceTest {
         CommentAiReviewService.ReviewItem chi = item(3, "Lê Minh Chi", "FAIR", "Chi làm đúng 8 câu.", List.of());
 
         assertThatThrownBy(() -> service.rejectionReason(chi, List.of())).isInstanceOf(CommentAiDraftFailedException.class);
+    }
+
+    @Test
+    void review_UC75_teacherTemplateRepeatedAcrossSessionIsNoticeNotIssue() {
+        stubAi(CommentAiReviewService.REVIEW_PROMPT, "{\"reviews\": []}");
+        List<CommentAiReviewService.ReviewItem> items = List.of(
+                item(1, "Nguyễn Văn An", "GOOD", "An tập trung tốt. Hơn thế nữa con phát biểu nhiều.", List.of()),
+                item(2, "Trần Thị Bình", "GOOD", "Bình hợp tác tốt với bạn. Hơn thế nữa con làm bài cẩn thận.", List.of()),
+                item(3, "Lê Minh Chi", "GOOD", "Chi chủ động giúp bạn. Hơn thế nữa con đọc to rõ ràng.", List.of()));
+
+        CommentAiReviewResult result = service.review(items);
+
+        assertThat(result.flaggedCount()).isZero();
+        assertThat(result.reviews().get(2).notices()).extracting(CommentAiReviewResult.Notice::type).containsExactly("REPEATED_PATTERN");
+        assertThat(result.reviews().get(2).notices().get(0).message()).contains("hơn thế nữa");
+        // Dòng 2 dính luật câu kết liền kề ("Hơn thế nữa…"), dòng 3 dính cả câu kết lẫn cụm vượt ngưỡng.
+        assertThat(result.summary().repeatedPatternCount()).isEqualTo(2);
+        assertThat(result.message()).contains("khuôn câu");
     }
 }

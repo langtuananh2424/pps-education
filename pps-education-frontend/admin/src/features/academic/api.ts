@@ -2301,9 +2301,9 @@ export interface CommentAiReviewIssue {
   message: string;
 }
 
-/** Lưu ý KHÔNG phải lỗi nội dung (dòng vẫn tính là sạch): ATTITUDE_ALERT (duyệt sẽ báo phụ huynh), HOMEWORK_MISMATCH. */
+/** Lưu ý KHÔNG phải lỗi nội dung (dòng vẫn tính là sạch): ATTITUDE_ALERT (duyệt sẽ báo phụ huynh), HOMEWORK_MISMATCH, REPEATED_PATTERN. */
 export interface CommentAiReviewNotice {
-  type: "ATTITUDE_ALERT" | "HOMEWORK_MISMATCH" | string;
+  type: "ATTITUDE_ALERT" | "HOMEWORK_MISMATCH" | "REPEATED_PATTERN" | string;
   source: "RULE" | "AI";
   message: string;
 }
@@ -2322,6 +2322,8 @@ export interface CommentAiReviewSummary {
   parentAlertCount: number;
   escalationCount: number;
   homeworkMismatchCount: number;
+  /** Số dòng dùng chung khuôn câu (câu mở/kết, cụm sáo mòn) với nhiều bạn — lưu ý, không chặn duyệt. */
+  repeatedPatternCount: number;
 }
 
 export interface CommentAiReviewResult {

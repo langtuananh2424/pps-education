@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import vn.com.pps.education.common.CommentPatternCheck;
 import vn.com.pps.education.common.CommentSimilarity;
 import vn.com.pps.education.common.HomeworkScoreInsight;
 import vn.com.pps.education.domain.ClassEnrollment;
@@ -95,6 +96,7 @@ public class CommentAiReviewService {
     private final int previousCommentCount;
     private final int previousLookbackDays;
     private final double similarityThreshold;
+    private final double maxPatternShare;
 
     public CommentAiReviewService(StudentCommentService studentCommentService,
                                   StudentAttitudeAlertTrackingService attitudeAlertTrackingService,
@@ -107,7 +109,8 @@ public class CommentAiReviewService {
                                   @Value("${app.ai-comment-draft.previous-comment-count:3}") int previousCommentCount,
                                   @Value("${app.ai-comment-draft.previous-lookback-days:120}") int previousLookbackDays,
                                   @Value("${app.ai-comment-draft.similarity-threshold:0.5}") double similarityThreshold,
-                                  @Value("${app.ai-comment-draft.max-audio-bytes:20971520}") long maxAudioBytes) {
+                                  @Value("${app.ai-comment-draft.max-audio-bytes:20971520}") long maxAudioBytes,
+                                  @Value("${app.ai-comment-draft.max-pattern-share:0.3}") double maxPatternShare) {
         this.studentCommentService = studentCommentService;
         this.attitudeAlertTrackingService = attitudeAlertTrackingService;
         this.classEnrollmentRepository = classEnrollmentRepository;
@@ -120,6 +123,7 @@ public class CommentAiReviewService {
         this.previousCommentCount = previousCommentCount;
         this.previousLookbackDays = previousLookbackDays;
         this.similarityThreshold = similarityThreshold;
+        this.maxPatternShare = maxPatternShare;
     }
 
     /** Bản chụp 1 nhận xét chờ duyệt (đọc trong request, dùng ở luồng nền — không chạm entity JPA). */
@@ -364,6 +368,19 @@ public class CommentAiReviewService {
             }
             noticesById.put(item.commentId(), notices);
         });
+        // Bổ sung 2026-09-29 — giáo viên dùng chung 1 khuôn câu cho cả buổi (câu mở/kết, cụm sáo mòn): lưu ý, không chặn duyệt.
+        items.stream().collect(Collectors.groupingBy(i -> i.classSessionId() == null ? -1L : i.classSessionId(), LinkedHashMap::new, Collectors.toList()))
+                .values().forEach(sessionItems -> {
+                    CommentPatternCheck.Result patterns = CommentPatternCheck.check(sessionItems.stream()
+                            .map(i -> new CommentPatternCheck.Entry(i.commentId(), i.studentFullName(), i.content())).toList(), maxPatternShare);
+                    for (ReviewItem item : sessionItems) {
+                        boolean similarFlagged = issuesById.get(item.commentId()).stream().anyMatch(i -> "SIMILAR_IN_SESSION".equals(i.type()));
+                        if (patterns.all().contains(item.commentId()) && !similarFlagged) {
+                            noticesById.get(item.commentId()).add(new CommentAiReviewResult.Notice("REPEATED_PATTERN", SOURCE_RULE,
+                                    CommentAiDraftService.repeatedPatternMessage(patterns, item.commentId(), item.content())));
+                        }
+                    }
+                });
 
         boolean aiComplete = true;
         Map<Long, List<ReviewItem>> bySession = items.stream()
@@ -405,6 +422,7 @@ public class CommentAiReviewService {
         Map<String, Integer> counts = new LinkedHashMap<>();
         int clean = 0;
         int homeworkMismatch = 0;
+        int repeatedPattern = 0;
         for (CommentAiReviewResult.Review review : reviews) {
             if (review.issues().isEmpty()) {
                 clean++;
@@ -415,13 +433,16 @@ public class CommentAiReviewService {
             if (review.notices().stream().anyMatch(n -> "HOMEWORK_MISMATCH".equals(n.type()))) {
                 homeworkMismatch++;
             }
+            if (review.notices().stream().anyMatch(n -> "REPEATED_PATTERN".equals(n.type()))) {
+                repeatedPattern++;
+            }
         }
         List<CommentAiReviewResult.IssueCount> issueCounts = counts.entrySet().stream()
                 .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
                 .map(e -> new CommentAiReviewResult.IssueCount(e.getKey(), e.getValue())).toList();
         int parentAlerts = (int) items.stream().filter(i -> i.attitudeAlert() != null).count();
         int escalations = (int) items.stream().filter(i -> i.attitudeAlert() != null && i.attitudeAlert().escalation()).count();
-        return new CommentAiReviewResult.Summary(clean, issueCounts, parentAlerts, escalations, homeworkMismatch);
+        return new CommentAiReviewResult.Summary(clean, issueCounts, parentAlerts, escalations, homeworkMismatch, repeatedPattern);
     }
 
     private static String summaryMessage(int total, CommentAiReviewResult.Summary summary, boolean aiComplete) {
@@ -443,6 +464,10 @@ public class CommentAiReviewService {
                         .append(StudentAttitudeAlertTrackingService.escalationThreshold()).append(" buổi liên tiếp");
             }
             message.append(".");
+        }
+        if (summary.repeatedPatternCount() > 0) {
+            message.append(" ").append(summary.repeatedPatternCount())
+                    .append(" dòng dùng chung khuôn câu với nhiều bạn (câu mở/kết hoặc cụm lặp lại) — nên nhắc giáo viên đa dạng cách viết.");
         }
         if (summary.homeworkMismatchCount() > 0) {
             message.append(" ").append(summary.homeworkMismatchCount()).append(" dòng nhắc BTVN có vẻ ngược dữ liệu điểm — nên xem lại.");

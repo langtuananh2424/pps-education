@@ -2294,6 +2294,16 @@ Ghi chú kỹ thuật (bổ sung ngoài SDD gốc, đã xác nhận với ngư�
     số dòng theo từng cảnh báo, số lần nhắc BTVN khi không có dữ liệu —
     không chứa nội dung hay tên học sinh. `scripts/comment-ai-metrics.py`
     tổng hợp theo tuần và đối chiếu ngưỡng đã thống nhất.
+-   **Bổ sung 2026-09-29 (tổng hợp nhận xét thật của 21 lớp):** (1) rubric
+    cấm thêm các dạng lộ điểm đã gặp (điểm thập phân, số lần xung phong,
+    bảng xếp hạng xung phong) và dạng "báo cáo điểm" liệt kê ("Điểm thể
+    hiện trên lớp: …"); cấm số trang/tên dạng bài, nghỉ học, đi thi, đá
+    bóng; thêm danh sách cụm sáo mòn (mỗi cụm tối đa 1–2 lần/lượt), 1 kiểu
+    câu kết và câu mẫu mới (đã bỏ đại từ, tên bài, tên giáo viên). (2) code
+    chặn thêm cụm sáo mòn (`CommentPatternCheck.OVERUSED_PHRASES`, vd "hơn
+    thế nữa", "mong con", "con ngoan"): cụm vượt cùng ngưỡng
+    `max-pattern-share` thì viết lại, vẫn vượt thì cảnh báo
+    `REPEATED_PATTERN`. Không đưa bảng xếp hạng giáo viên vào hệ thống.
 
 ---
 
@@ -2591,6 +2601,11 @@ Ghi chú kỹ thuật (bổ sung ngoài SDD gốc, đã xác nhận với ngư�
     giáo viên dựa trên cảnh báo đã soát, rồi mở đúng hộp thoại Từ chối
     với lý do điền sẵn. Quản lý sửa và tự bấm xác nhận; trợ lý không tự từ
     chối.
+    (5) *Giáo viên lặp khuôn câu* (bổ sung 2026-09-29) — kiểm tra bằng code
+    theo từng buổi (cùng `CommentPatternCheck` với UC-74): dòng dùng chung câu
+    mở/kết hoặc cụm sáo mòn quá ngưỡng được gắn lưu ý `REPEATED_PATTERN`
+    (không chặn duyệt, không gắn nếu dòng đã có `SIMILAR_IN_SESSION`), tóm tắt
+    có `repeatedPatternCount`.
 
 ---
 
