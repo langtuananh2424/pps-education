@@ -474,4 +474,17 @@ class CommentAiDraftServiceTest {
         assertThat(CommentAiDraftService.normalizeAttitude("good")).isEqualTo("GOOD");
         assertThat(CommentAiDraftService.normalizeAttitude("POOR")).isNull();
     }
+
+    @Test
+    void generateDraft_UC74_lessonTitleNotSentToAiAndWarnedIfWritten() {
+        stubAi(CommentAiDraftService.EXTRACT_PROMPT,
+                "{\"classAttitude\": null, \"classPoints\": [\"tích cực\"], \"individuals\": [], \"unmatched\": []}");
+        stubAi(CommentAiDraftService.WRITE_PROMPT,
+                "{\"comments\": [{\"studentId\": 1, \"content\": \"Trong bài Unit 4 - Past simple, An rất tích cực.\"}]}");
+
+        CommentAiDraftResult result = service.generateDraft(context(AN), null, null, "ghi chú");
+
+        verify(aiClient, never()).chatWithFinishReason(anyString(), org.mockito.ArgumentMatchers.contains("lessonContent"), anyString());
+        assertThat(result.rows().get(0).warnings()).extracting(CommentAiDraftResult.Warning::type).contains("LESSON_TITLE");
+    }
 }

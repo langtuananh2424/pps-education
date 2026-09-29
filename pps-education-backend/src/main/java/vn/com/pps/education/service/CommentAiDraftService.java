@@ -357,7 +357,6 @@ public class CommentAiDraftService {
                                                      Map<Long, ReviseCommentAiDraftRequest.CurrentRow> current) {
         Map<Long, RosterStudent> rosterById = context.rosterById();
         Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("lessonContent", context.lessonContent());
         payload.put("transcript", request.transcript());
         List<ReviseCommentAiDraftRequest.ChatTurn> history = request.history() == null ? List.of() : request.history();
         payload.put("history", history.subList(Math.max(0, history.size() - MAX_HISTORY_TURNS), history.size()));
@@ -440,7 +439,6 @@ public class CommentAiDraftService {
 
     private ExtractionOutcome extract(DraftContext context, String teacherText) {
         Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("lessonContent", context.lessonContent());
         payload.put("students", context.roster().stream()
                 .map(s -> Map.<String, Object>of("studentId", s.id(), "fullName", s.fullName())).toList());
         payload.put("teacherText", teacherText);
@@ -599,7 +597,6 @@ public class CommentAiDraftService {
 
     private Map<Long, String> writeBatch(DraftContext context, List<Target> batch, List<String> avoid, String teacherPronoun) {
         Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("lessonContent", context.lessonContent());
         payload.put("teacherPronoun", teacherPronoun);
         List<Map<String, Object>> students = new ArrayList<>();
         for (Target target : batch) {
@@ -674,6 +671,10 @@ public class CommentAiDraftService {
                     warnings.add(new CommentAiDraftResult.Warning("CONTAINS_DIGITS",
                             "Nhận xét có chữ số — kiểm tra lại, trợ lý không được ghi điểm/số liệu.", null));
                 }
+                if (mentionsLessonTitle(content, context.lessonContent())) {
+                    warnings.add(new CommentAiDraftResult.Warning("LESSON_TITLE",
+                            "Nhận xét nhắc tên bài học — giáo viên thường không ghi tên bài vào nhận xét.", null));
+                }
             }
             rows.add(new CommentAiDraftResult.Row(id, target.student().fullName(), target.attitude(), content,
                     target.source(), warnings));
@@ -698,6 +699,20 @@ public class CommentAiDraftService {
 
     private JsonNode callJson(String promptFile, Object payload) {
         return jsonCaller.callJson(promptFile, payload, settings.model());
+    }
+
+    /**
+     * Tên bài học (class_sessions.lesson_content, VD "Unit 1: Hello Friend") KHÔNG được đưa vào nhận xét (đã xác
+     * nhận với người dùng 2026-09-29) — trợ lý không còn gửi trường này cho AI; kiểm tra này bắt trường hợp AI
+     * vẫn tự viết ra (VD giáo viên đọc tên bài trong audio).
+     */
+    static boolean mentionsLessonTitle(String content, String lessonContent) {
+        if (content == null || lessonContent == null || lessonContent.trim().length() < 5) {
+            return false;
+        }
+        java.util.function.Function<String, String> norm = text -> java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFC)
+                .toLowerCase(Locale.forLanguageTag("vi")).replaceAll("[^\\p{L}\\p{N}]+", " ").trim();
+        return norm.apply(content).contains(norm.apply(lessonContent));
     }
 
     /** Nhãn tiếng Việt của mã Thái độ (VD GOOD → "Tốt"), {@code null} nếu mã không hợp lệ. */

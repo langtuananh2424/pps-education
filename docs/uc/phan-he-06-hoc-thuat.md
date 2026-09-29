@@ -2334,33 +2334,33 @@ UC-75: Trợ lý AI soát nhận xét chờ duyệt
 |                 | academic.comment.approve, cùng rào với duyệt nhận  |
 |                 | xét của UC-22)                                     |
 +-----------------+----------------------------------------------------+
-| **Mô tả tóm     | Ở tab "Chờ duyệt", Quản lý bấm "Soát bằng AI" cho  |
-| tắt**           | các nhận xét đang chờ duyệt của 1 lớp. Hệ thống    |
-|                 | kiểm tra tự động (chữ số, độ dài, nhắc họ tên bạn  |
-|                 | khác, trùng lặp trong buổi và với buổi trước) và   |
-|                 | AI kiểm tra theo rubric nhận xét (nhắc bạn khác,   |
-|                 | nhắc BTVN/điểm, từ ngữ nặng nề, Thái độ lệch nội   |
-|                 | dung, chủ đề không được viết), rồi gắn cảnh báo    |
-|                 | lên từng dòng. Với dòng có cảnh báo, Quản lý có    |
-|                 | thể xin AI đề xuất bản sửa. Trợ lý chỉ GỢI Ý:      |
-|                 | không duyệt, không từ chối, không tự sửa — mọi     |
-|                 | quyết định vẫn do Quản lý bấm theo UC-22.          |
+| **Mô tả tóm     | Ở tab "Chờ duyệt", Quản lý mở sidebar "Trợ lý      |
+| tắt**           | duyệt AI" bằng nút nổi (giống trợ lý soạn nháp của |
+|                 | Giáo viên, UC-74). Trong sidebar: chọn lớp, bấm    |
+|                 | "Soát lớp này" để hệ thống kiểm tra tự động + AI   |
+|                 | kiểm tra theo rubric và gắn cảnh báo lên từng      |
+|                 | dòng; xin AI đề xuất bản sửa cho dòng có cảnh báo; |
+|                 | hoặc ra yêu cầu sửa bằng giọng nói/chữ. Trợ lý chỉ |
+|                 | GỢI Ý: không duyệt, không từ chối, không tự sửa —  |
+|                 | mọi thay đổi do Quản lý bấm, lưu qua chức năng     |
+|                 | duyệt/sửa nội dung của UC-22.                      |
 +-----------------+----------------------------------------------------+
-| **Sự kiện kích  | Quản lý bấm "Soát bằng AI" ở khối lớp trong tab    |
-| hoạt**          | Chờ duyệt (không tự soát khi mở tab — tránh tốn    |
-|                 | token cho mọi lô).                                 |
+| **Sự kiện kích  | Quản lý bấm nút nổi Trợ lý duyệt AI ở tab Chờ      |
+| hoạt**          | duyệt, rồi bấm "Soát lớp này" hoặc gửi yêu cầu sửa |
+|                 | (không tự soát khi mở tab — tránh tốn token cho    |
+|                 | mọi lô).                                           |
 +-----------------+----------------------------------------------------+
 | **Điều kiện     | - Quản lý có quyền academic.comment.approve và     |
 | tiên quyết (    |   được gán phụ trách điểm trường của lớp (giống    |
 | Precondition)** |   UC-22).                                          |
-|                 | - Các nhận xét được soát đang ở trạng thái Chờ     |
+|                 | - Các nhận xét được soát/sửa đang ở trạng thái Chờ |
 |                 |   duyệt (PENDING).                                 |
-|                 | - Hệ thống đã cấu hình 9Router (combo model của    |
-|                 |   trợ lý nhận xét, dùng chung với UC-74).          |
+|                 | - Hệ thống đã cấu hình 9Router (STT + combo model  |
+|                 |   của trợ lý nhận xét, dùng chung với UC-74).      |
 +-----------------+----------------------------------------------------+
-| **Luồng sự kiện | 1.  Quản lý bấm "Soát bằng AI" ở khối lớp; hệ      |
-| chính (Main     |     thống gửi danh sách nhận xét chờ duyệt của lớp |
-| Flow)**         |     đó.                                            |
+| **Luồng sự kiện | 1.  Quản lý mở sidebar Trợ lý duyệt AI, chọn lớp   |
+| chính (Main     |     đang có nhận xét chờ duyệt, bấm "Soát lớp      |
+| Flow)**         |     này".                                          |
 |                 |                                                    |
 |                 | 2.  Hệ thống kiểm tra rào như duyệt nhận xét của   |
 |                 |     UC-22, nhận yêu cầu và xử lý bất đồng bộ (trả  |
@@ -2369,43 +2369,53 @@ UC-75: Trợ lý AI soát nhận xét chờ duyệt
 |                 |                                                    |
 |                 | 3.  Hệ thống kiểm tra tự động từng nhận xét: có    |
 |                 |     chữ số; dài quá khoảng 500 ký tự; để trống;    |
-|                 |     nhắc họ tên bạn cùng lớp; giống nhận xét của   |
-|                 |     bạn khác cùng buổi hoặc giống N nhận xét trước |
-|                 |     của chính học sinh (cùng thang đo và ngưỡng    |
-|                 |     với UC-74).                                    |
+|                 |     nhắc họ tên bạn cùng lớp; nhắc tên bài học của |
+|                 |     buổi; giống nhận xét của bạn khác cùng buổi    |
+|                 |     hoặc giống N nhận xét trước của chính học sinh |
+|                 |     (cùng thang đo và ngưỡng với UC-74).           |
 |                 |                                                    |
 |                 | 4.  AI kiểm tra theo rubric nhận xét, theo lô từng |
 |                 |     buổi: nhắc học sinh khác, nhắc BTVN/điểm/hạn   |
 |                 |     nộp, từ ngữ nặng nề, Thái độ lệch nội dung,    |
-|                 |     chủ đề không được viết, lỗi rõ ràng khác.      |
+|                 |     chủ đề không được viết, lỗi rõ ràng khác. Tên  |
+|                 |     bài học KHÔNG được gửi cho AI.                 |
 |                 |                                                    |
-|                 | 5.  Giao diện gắn cảnh báo lên từng dòng (kèm      |
-|                 |     nguồn: tự động hoặc AI), hiện tóm tắt số dòng  |
-|                 |     có cảnh báo và nút "Duyệt các dòng không có    |
-|                 |     cảnh báo".                                     |
+|                 | 5.  Bảng nhận xét gắn cảnh báo lên từng dòng (kèm  |
+|                 |     nguồn: tự động hoặc AI); sidebar hiện tóm tắt, |
+|                 |     danh sách dòng có cảnh báo và nút "Duyệt N     |
+|                 |     dòng không có cảnh báo".                       |
 |                 |                                                    |
 |                 | 6.  Với dòng có cảnh báo, Quản lý bấm "AI đề xuất  |
-|                 |     bản sửa"; AI viết bản sửa chỉ khắc phục các    |
-|                 |     cảnh báo đó, giữ nguyên ý và cách xưng của     |
-|                 |     giáo viên, không tự đổi mức Thái độ (chưa ghi  |
-|                 |     DB).                                           |
+|                 |     bản sửa" (trong sidebar hoặc ngay trên bảng);  |
+|                 |     AI viết bản sửa chỉ khắc phục các cảnh báo đó, |
+|                 |     giữ nguyên ý và cách xưng của giáo viên, không |
+|                 |     tự đổi mức Thái độ (chưa ghi DB).              |
 |                 |                                                    |
 |                 | 7.  Quản lý chọn "Áp dụng" (lưu qua đúng chức năng |
 |                 |     sửa nội dung Chờ duyệt của UC-22), "Sửa tiếp"  |
-|                 |     (mở ô sửa với bản đề xuất) hoặc "Bỏ qua".      |
+|                 |     (trên bảng, mở ô sửa với bản đề xuất) hoặc "Bỏ |
+|                 |     qua".                                          |
 |                 |                                                    |
 |                 | 8.  Quản lý Duyệt/Từ chối theo UC-22 như cũ.       |
+|                 |                                                    |
+|                 | 9.  (Tuỳ chọn) Quản lý ghi âm (tự dừng khi đủ 5    |
+|                 |     phút), tải file audio hoặc gõ yêu cầu sửa cho  |
+|                 |     lớp đang chọn (VD "bỏ cụm quậy phá trong nhận  |
+|                 |     xét của Đạt"); hệ thống chuyển audio thành chữ |
+|                 |     (tiếng Việt), AI đề xuất bản sửa chỉ cho các   |
+|                 |     nhận xét được nhắc tới; Quản lý bấm "Áp dụng"  |
+|                 |     từng bản hoặc "Áp dụng tất cả".                |
 +-----------------+----------------------------------------------------+
 | **Luồng thay    | ***A1 — Không đủ quyền / không phụ trách điểm      |
 | thế / ngoại lệ  | trường***                                          |
 | (Alternate      |                                                    |
-| Flow)**         | 1.  Tại bước 2: từ chối đúng như UC-22 (403).      |
+| Flow)**         | 1.  Tại bước 2/9: từ chối đúng như UC-22 (403).    |
 |                 |                                                    |
 |                 | ***A2 — Nhận xét không còn chờ duyệt***            |
 |                 |                                                    |
-|                 | 1.  Tại bước 2, có nhận xét đã được duyệt/từ chối  |
-|                 |     (VD người khác vừa xử lý): từ chối (409), giao |
-|                 |     diện tải lại danh sách.                        |
+|                 | 1.  Tại bước 2/9, có nhận xét đã được duyệt/từ     |
+|                 |     chối (VD người khác vừa xử lý): từ chối (409), |
+|                 |     giao diện tải lại danh sách.                   |
 |                 |                                                    |
 |                 | ***A3 — Duyệt cả lớp khi còn cảnh báo***           |
 |                 |                                                    |
@@ -2414,29 +2424,38 @@ UC-75: Trợ lý AI soát nhận xét chờ duyệt
 |                 |     "còn X dòng có cảnh báo, vẫn duyệt?" — KHÔNG   |
 |                 |     chặn, Quản lý quyết định.                      |
 |                 |                                                    |
-|                 | ***A4 — AI lỗi hoặc quá thời gian***               |
+|                 | ***A4 — STT/AI lỗi hoặc quá thời gian***           |
 |                 |                                                    |
 |                 | 1.  Tại bước 4: lô bị lỗi vẫn có kết quả kiểm tra  |
 |                 |     tự động ở bước 3, giao diện báo phần kiểm tra  |
-|                 |     theo rubric chưa hoàn tất. Tại bước 6: công    |
+|                 |     theo rubric chưa hoàn tất. Tại bước 6/9: công  |
 |                 |     việc chuyển FAILED, nhận xét giữ nguyên, Quản  |
 |                 |     lý thử lại.                                    |
 |                 |                                                    |
 |                 | ***A5 — Bản đề xuất có vấn đề***                   |
 |                 |                                                    |
-|                 | 1.  Tại bước 6, bản sửa có chữ số hoặc giống hệt   |
-|                 |     bản gốc: hiện cảnh báo trên bản đề xuất để     |
-|                 |     Quản lý cân nhắc.                              |
+|                 | 1.  Tại bước 6/9, bản sửa có chữ số hoặc giống hệt |
+|                 |     bản gốc: hiện cảnh báo trên bản đề xuất (bản   |
+|                 |     giống hệt ở bước 9 bị bỏ).                     |
 |                 |                                                    |
 |                 | ***A6 — Nội dung đã đổi sau khi soát***            |
 |                 |                                                    |
-|                 | 1.  Sau bước 7 (đã áp dụng/sửa nội dung), kết quả  |
-|                 |     soát cũ của dòng đó bị gỡ — Quản lý soát lại   |
-|                 |     nếu cần.                                       |
+|                 | 1.  Sau bước 7/9 (đã áp dụng/sửa nội dung), kết    |
+|                 |     quả soát cũ của dòng đó bị gỡ — Quản lý soát   |
+|                 |     lại nếu cần.                                   |
+|                 |                                                    |
+|                 | ***A7 — Yêu cầu sửa không hợp lệ***                |
+|                 |                                                    |
+|                 | 1.  Tại bước 9, không có audio lẫn chữ, file không |
+|                 |     phải audio hoặc vượt giới hạn dung lượng: từ   |
+|                 |     chối (422). Yêu cầu không phải sửa nội dung    |
+|                 |     (duyệt, từ chối, đổi Thái độ): trợ lý không đề |
+|                 |     xuất gì và nhắc Quản lý tự thao tác trên bảng. |
 +-----------------+----------------------------------------------------+
-| **Hậu điều kiện | - Soát và đề xuất KHÔNG thay đổi trạng thái, nội   |
-| (P              |   dung hay Thái độ của nhận xét nào; kết quả chỉ   |
-| ostcondition)** |   nằm trong bộ nhớ (tự hết hạn).                   |
+| **Hậu điều kiện | - Soát, đề xuất và yêu cầu sửa KHÔNG thay đổi      |
+| (P              |   trạng thái, nội dung hay Thái độ của nhận xét    |
+| ostcondition)** |   nào; kết quả chỉ nằm trong bộ nhớ (tự hết hạn);  |
+|                 |   audio không được lưu trữ.                        |
 |                 | - Chỉ khi Quản lý bấm "Áp dụng", nội dung nhận xét |
 |                 |   được cập nhật qua chức năng sửa nội dung Chờ     |
 |                 |   duyệt của UC-22 (ghi lịch sử phiên bản như cũ),  |
@@ -2454,6 +2473,14 @@ Ghi chú kỹ thuật (bổ sung ngoài SDD gốc, đã xác nhận với ngư�
 -   Kiểm tra theo rubric dùng chung file
     `prompts/comment-ai-draft-rubric.md` với UC-74 — học vụ làm giàu 1 chỗ,
     cả soạn lẫn soát cùng áp dụng.
+-   Yêu cầu sửa bằng audio/chữ (bước 9): `POST /api/comments/ai-instruction`
+    (multipart: `commentIds`, `audio`, `note`) + `GET /api/comment-ai-instructions/{jobId}`.
+    Sidebar dùng chung ô soạn tin (ghi âm/tải audio/gõ chữ) và nút nổi
+    với trợ lý của Giáo viên (`AiChatComposer`, `AiAssistantFab`).
+-   Tên bài học của buổi (`class_sessions.lesson_content`) không được đưa
+    vào nhận xét (đã xác nhận với người dùng 2026-09-29): cả UC-74 lẫn UC-75
+    không gửi trường này cho AI, rubric cấm nhắc, và kiểm tra tự động gắn
+    cảnh báo `LESSON_TITLE` nếu nhận xét vẫn chứa tên bài.
 -   Quản lý điểm trường thuần (không kiêm Giáo viên) vẫn KHÔNG dùng được trợ
     lý soạn nháp của UC-74 (không có quyền `academic.comment.write`) — UC-75
     là trợ lý riêng cho khâu duyệt.

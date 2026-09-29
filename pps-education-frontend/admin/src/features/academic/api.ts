@@ -2331,3 +2331,34 @@ export async function waitForAiJob<T>(job: AiJob<T>, path: (jobId: string) => st
 
 export const commentAiReviewJobPath = (jobId: string) => `/comment-ai-reviews/${jobId}`;
 export const commentAiSuggestionJobPath = (jobId: string) => `/comment-ai-suggestions/${jobId}`;
+
+export interface CommentAiInstructionChange {
+  commentId: number;
+  studentFullName: string;
+  originalContent: string;
+  suggestedContent: string;
+  warnings: string[];
+}
+
+export interface CommentAiInstructionResult {
+  transcript: string;
+  assistantMessage: string;
+  changes: CommentAiInstructionChange[];
+}
+
+/**
+ * UC-75 bước 9 — Quản lý ra yêu cầu sửa bằng audio (≤ 5 phút) và/hoặc chữ cho các nhận xét chờ duyệt đang xem;
+ * trả bản sửa đề xuất (chưa lưu — "Áp dụng" dùng updatePendingCommentContent).
+ */
+export function startCommentAiInstruction(commentIds: number[], audio: Blob | null, note: string): Promise<AiJob<CommentAiInstructionResult>> {
+  const formData = new FormData();
+  commentIds.forEach((id) => formData.append("commentIds", String(id)));
+  if (audio) {
+    const extension = audio.type.includes("mp4") || audio.type.includes("m4a") ? "m4a" : audio.type.includes("wav") ? "wav" : audio.type.includes("mpeg") ? "mp3" : "webm";
+    formData.append("audio", audio, `yeu-cau.${extension}`);
+  }
+  if (note.trim()) formData.append("note", note.trim());
+  return apiRequest<AiJob<CommentAiInstructionResult>>("/comments/ai-instruction", { method: "POST", body: formData });
+}
+
+export const commentAiInstructionJobPath = (jobId: string) => `/comment-ai-instructions/${jobId}`;

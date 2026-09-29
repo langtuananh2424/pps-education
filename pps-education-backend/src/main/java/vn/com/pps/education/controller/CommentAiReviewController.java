@@ -9,13 +9,18 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+import vn.com.pps.education.dto.CommentAiInstructionJobResponse;
 import vn.com.pps.education.dto.CommentAiReviewJobResponse;
 import vn.com.pps.education.dto.CommentAiReviewRequest;
 import vn.com.pps.education.dto.CommentAiSuggestionJobResponse;
 import vn.com.pps.education.dto.CommentAiSuggestionRequest;
 import vn.com.pps.education.security.AuthenticatedUser;
 import vn.com.pps.education.service.CommentAiReviewService;
+
+import java.util.List;
 
 /**
  * UC-75: Trợ lý AI soát nhận xét chờ duyệt — xem Javadoc CommentAiReviewService. Cùng quyền với duyệt nhận xét
@@ -57,5 +62,23 @@ public class CommentAiReviewController {
     public ResponseEntity<CommentAiSuggestionJobResponse> getSuggestion(@PathVariable String jobId,
                                                                         @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(commentAiReviewService.getSuggestion(jobId, actor.userId()));
+    }
+
+    /** UC-75 bước 9 — yêu cầu sửa bằng audio (multipart "audio") và/hoặc chữ ("note") cho các nhận xét chờ duyệt. */
+    @PreAuthorize("hasPermission(null, 'academic.comment.approve')")
+    @PostMapping(value = "/api/comments/ai-instruction", consumes = "multipart/form-data")
+    public ResponseEntity<CommentAiInstructionJobResponse> startInstruction(@RequestParam("commentIds") List<Long> commentIds,
+                                                                            @RequestParam(value = "audio", required = false) MultipartFile audio,
+                                                                            @RequestParam(value = "note", required = false) String note,
+                                                                            @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
+                .body(commentAiReviewService.startInstruction(commentIds, audio, note, actor.userId()));
+    }
+
+    @PreAuthorize("hasPermission(null, 'academic.comment.approve')")
+    @GetMapping("/api/comment-ai-instructions/{jobId}")
+    public ResponseEntity<CommentAiInstructionJobResponse> getInstruction(@PathVariable String jobId,
+                                                                          @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(commentAiReviewService.getInstruction(jobId, actor.userId()));
     }
 }

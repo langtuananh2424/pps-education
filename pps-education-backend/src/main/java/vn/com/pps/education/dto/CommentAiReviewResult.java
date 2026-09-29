@@ -16,7 +16,7 @@ public record CommentAiReviewResult(String message, int checkedCount, int flagge
     }
 
     /**
-     * @param type   {@code CONTAINS_DIGITS}, {@code TOO_LONG}, {@code EMPTY}, {@code OTHER_STUDENT_NAME},
+     * @param type   {@code CONTAINS_DIGITS}, {@code TOO_LONG}, {@code EMPTY}, {@code OTHER_STUDENT_NAME}, {@code LESSON_TITLE},
      *               {@code SIMILAR_IN_SESSION}, {@code SIMILAR_TO_PREVIOUS} (kiểm tra tự động) hoặc
      *               {@code OTHER_STUDENT}, {@code HOMEWORK_OR_SCORE}, {@code HARSH_WORDING},
      *               {@code ATTITUDE_MISMATCH}, {@code FORBIDDEN_TOPIC}, {@code OTHER} (AI theo rubric).
