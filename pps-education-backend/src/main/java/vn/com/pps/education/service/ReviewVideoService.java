@@ -164,6 +164,8 @@ public class ReviewVideoService {
      * DataIntegrityViolationException do UNIQUE index) chỉ rollback đúng giao dịch con này, không kéo
      * theo giao dịch ngoài (đang cần đọc lại bản ghi đã thắng) — xem Javadoc deliverToClass. */
     private final TransactionTemplate requiresNewTransactionTemplate;
+    /** V200 — kiểm tra + gán dạng đề / dữ liệu tranh của câu hỏi REFLEX. */
+    private final ReflexQuestionFormatService reflexQuestionFormatService;
 
     private static final String PERM_REVIEW_VIDEO_MANAGE = "lms.review-video.manage";
     /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — mirror StudentCommentService#APP_ZONE. */
@@ -205,7 +207,8 @@ public class ReviewVideoService {
                                NotificationService notificationService,
                                AttemptIntegrityService attemptIntegrityService,
                                PermissionEvaluationService permissionEvaluationService,
-                               PlatformTransactionManager transactionManager) {
+                               PlatformTransactionManager transactionManager,
+                               ReflexQuestionFormatService reflexQuestionFormatService) {
         this.reviewVideoSetRepository = reviewVideoSetRepository;
         this.reviewVideoSetClassAssignmentRepository = reviewVideoSetClassAssignmentRepository;
         this.reviewVideoRepository = reviewVideoRepository;
@@ -233,6 +236,7 @@ public class ReviewVideoService {
         this.permissionEvaluationService = permissionEvaluationService;
         this.requiresNewTransactionTemplate = new TransactionTemplate(transactionManager);
         this.requiresNewTransactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        this.reflexQuestionFormatService = reflexQuestionFormatService;
     }
 
     /** UC-23 Main Flow bước 1: tạo bộ mới (metadata) — curriculum CHỈ dùng lọc/tìm kiếm (V98, xem Javadoc lớp). */
@@ -777,6 +781,9 @@ public class ReviewVideoService {
         question.setMaxRecordingSeconds(request.maxRecordingSeconds());
         question.setMaxAttempts(request.maxAttempts());
         question.setDisplayOrder(request.displayOrder() == null ? 0 : request.displayOrder());
+        // V200 — dạng đề + dữ liệu tranh, kiểm tra theo khối/tuyến của chương trình (400 nếu không hợp lệ).
+        reflexQuestionFormatService.applyTo(question, video.getReviewVideoSet().getCurriculum(),
+                request.questionFormat(), request.pictureImageUrl(), request.pictureBrief());
         question = reviewVideoQuestionRepository.save(question);
         return toResponse(question);
     }
@@ -796,6 +803,8 @@ public class ReviewVideoService {
         question.setMaxRecordingSeconds(request.maxRecordingSeconds());
         question.setMaxAttempts(request.maxAttempts());
         question.setDisplayOrder(request.displayOrder() == null ? question.getDisplayOrder() : request.displayOrder());
+        reflexQuestionFormatService.applyTo(question, question.getReviewVideo().getReviewVideoSet().getCurriculum(),
+                request.questionFormat(), request.pictureImageUrl(), request.pictureBrief());
         question = reviewVideoQuestionRepository.save(question);
         return toResponse(question);
     }
@@ -821,10 +830,13 @@ public class ReviewVideoService {
     @Transactional(readOnly = true)
     public List<ReviewVideoQuestionResponse> listQuestions(Long videoId, Long actorUserId) {
         ReviewVideo video = getVideoOrThrow(videoId);
-        if (isStudent(actorUserId)) {
+        boolean student = isStudent(actorUserId);
+        if (student) {
             requireStudentCanViewSet(video.getReviewVideoSet(), actorUserId);
         }
-        return reviewVideoQuestionRepository.findByReviewVideoIdOrderByDisplayOrder(videoId).stream().map(this::toResponse).toList();
+        // V200 — học sinh KHÔNG nhận ảnh/mô tả tranh (mô tả là căn cứ xét lạc đề — lộ ra thành "đáp án" nội dung).
+        return reviewVideoQuestionRepository.findByReviewVideoIdOrderByDisplayOrder(videoId).stream()
+                .map(q -> student ? toStudentResponse(q) : toResponse(q)).toList();
     }
 
     /**
@@ -2042,7 +2054,16 @@ public class ReviewVideoService {
     private ReviewVideoQuestionResponse toResponse(ReviewVideoQuestion q) {
         return new ReviewVideoQuestionResponse(
                 q.getId(), q.getReviewVideo().getId(), q.getTimestampSeconds(), q.getPrompt(),
-                q.getMaxRecordingSeconds(), q.getMaxAttempts(), q.getDisplayOrder());
+                q.getMaxRecordingSeconds(), q.getMaxAttempts(), q.getDisplayOrder(),
+                q.getQuestionFormat() == null ? null : q.getQuestionFormat().name(), q.getPictureImageUrl(), q.getPictureBrief());
+    }
+
+    /** V200 — bản cho học sinh: giữ dạng đề (FE có thể cần hiển thị) nhưng bỏ ảnh + mô tả tranh. */
+    private ReviewVideoQuestionResponse toStudentResponse(ReviewVideoQuestion q) {
+        return new ReviewVideoQuestionResponse(
+                q.getId(), q.getReviewVideo().getId(), q.getTimestampSeconds(), q.getPrompt(),
+                q.getMaxRecordingSeconds(), q.getMaxAttempts(), q.getDisplayOrder(),
+                q.getQuestionFormat() == null ? null : q.getQuestionFormat().name(), null, null);
     }
 
     /** showAnswers=false (học sinh chưa nộp) -> isCorrect=null cho mọi lựa chọn, mirror ExerciseQuestionChoiceResponse. */

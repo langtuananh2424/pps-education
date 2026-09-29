@@ -650,6 +650,8 @@ export interface ReviewVideoQuestionResponse {
   /** null = không giới hạn số lần nộp lại. */
   maxAttempts: number | null;
   displayOrder: number;
+  /** V200 — dạng đề (SHORT/PART2/PET4/PICTURE); null = câu hỏi cũ. Học sinh không bao giờ nhận ảnh/mô tả tranh. */
+  questionFormat?: "SHORT" | "PART2" | "PET4" | "PICTURE" | null;
 }
 
 export function listReviewVideoQuestions(videoId: number): Promise<ReviewVideoQuestionResponse[]> {

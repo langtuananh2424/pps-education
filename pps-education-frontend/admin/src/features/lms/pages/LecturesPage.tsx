@@ -58,6 +58,7 @@ import Pagination from "@/components/ui/Pagination";
 import ReviewVideoQuestionImportPanel from "../components/ReviewVideoQuestionImportPanel";
 import ReviewVideoCatalogImportModal from "../components/ReviewVideoCatalogImportModal";
 import UnitSubTopicPicker from "../components/UnitSubTopicPicker";
+import ReflexQuestionFormatFields, { EMPTY_REFLEX_FORMAT, ReflexFormatValue, toFormatRequest } from "../components/ReflexQuestionFormatFields";
 import { useDialog } from "@/components/ui/DialogProvider";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
@@ -257,14 +258,26 @@ function ConnectionThresholdFields({
   );
 }
 
-export interface PendingReflexQuestion {
+/** V200 — kèm dạng đề + dữ liệu tranh ({@link ReflexFormatValue}). */
+export interface PendingReflexQuestion extends ReflexFormatValue {
   timestampSeconds: string;
   prompt: string;
   maxRecordingSeconds: string;
   maxAttempts: string;
 }
 
-export const EMPTY_PENDING_QUESTION: PendingReflexQuestion = { timestampSeconds: "", prompt: "", maxRecordingSeconds: "60", maxAttempts: "" };
+export const EMPTY_PENDING_QUESTION: PendingReflexQuestion = {
+  timestampSeconds: "",
+  prompt: "",
+  maxRecordingSeconds: "60",
+  maxAttempts: "",
+  ...EMPTY_REFLEX_FORMAT
+};
+
+/** V200 — dạng tả tranh bắt buộc có mô tả tranh trước khi thêm/lưu câu hỏi. */
+function pictureBriefMissing(v: ReflexFormatValue) {
+  return v.questionFormat === "PICTURE" && !v.pictureBrief.trim();
+}
 
 /**
  * UC-23b (V57) — soạn sẵn danh sách câu hỏi REFLEX ngay trong form tạo bộ video mới (không phải tạo
@@ -272,7 +285,21 @@ export const EMPTY_PENDING_QUESTION: PendingReflexQuestion = { timestampSeconds:
  * 2026-07-29). Chỉ giữ ở state client — thật sự gọi addReviewVideoQuestion sau khi tạo xong Set+Video.
  * Export (V77): tái dùng ở CreateAndAssignExerciseModal.tsx cho nhánh "Video phản xạ" (Đề FOREIGN).
  */
-export function ReflexQuestionsBuilder({ value, onChange }: { value: PendingReflexQuestion[]; onChange: (v: PendingReflexQuestion[]) => void }) {
+export function ReflexQuestionsBuilder({
+  value,
+  onChange,
+  curriculumId = null,
+  videoUrl,
+  sourceType
+}: {
+  value: PendingReflexQuestion[];
+  onChange: (v: PendingReflexQuestion[]) => void;
+  /** V200 — chương trình của bộ đang tạo: quyết định các dạng đề chọn được. */
+  curriculumId?: number | null;
+  /** V200 — video đang tạo (để chụp khung hình cho dạng tả tranh). */
+  videoUrl?: string;
+  sourceType?: ReviewVideoSourceType;
+}) {
   const { t } = useTranslation("lms-review-video");
   const [draft, setDraft] = useState<PendingReflexQuestion>(EMPTY_PENDING_QUESTION);
   const [draftError, setDraftError] = useState<string | null>(null);
@@ -280,6 +307,10 @@ export function ReflexQuestionsBuilder({ value, onChange }: { value: PendingRefl
   const handleAddDraft = () => {
     if (!draft.timestampSeconds || !draft.maxRecordingSeconds) {
       setDraftError(t("lectures.common.timestampAndDurationRequired"));
+      return;
+    }
+    if (pictureBriefMissing(draft)) {
+      setDraftError(t("lectures.reflexFormat.briefMissing"));
       return;
     }
     setDraftError(null);
@@ -307,7 +338,13 @@ export function ReflexQuestionsBuilder({ value, onChange }: { value: PendingRefl
                     ? t("lectures.reflexBuilder.maxAttemptsLabel", { count: q.maxAttempts })
                     : t("lectures.reflexBuilder.unlimitedAttempts")
                 })}
+                {q.questionFormat && (
+                  <Badge variant="info" className="ml-1.5">{t(`lectures.reflexFormat.formats.${q.questionFormat}`)}</Badge>
+                )}
                 {q.prompt && <span className="block text-slate-500 mt-0.5">{q.prompt}</span>}
+                {q.questionFormat === "PICTURE" && q.pictureBrief && (
+                  <span className="block text-sky-700 mt-0.5 whitespace-pre-line">{q.pictureBrief}</span>
+                )}
               </span>
               <button type="button" onClick={() => handleRemove(i)} className="text-rose-500 hover:text-rose-700 shrink-0">
                 <X className="w-3.5 h-3.5" />
@@ -318,6 +355,15 @@ export function ReflexQuestionsBuilder({ value, onChange }: { value: PendingRefl
       )}
 
       {draftError && <p className="text-[11px] text-rose-600 font-semibold">{draftError}</p>}
+
+      <ReflexQuestionFormatFields
+        curriculumId={curriculumId}
+        videoUrl={videoUrl}
+        sourceType={sourceType}
+        timestampSeconds={draft.timestampSeconds}
+        value={draft}
+        onChange={(f, s) => setDraft((d) => ({ ...d, ...f, ...(s ? { maxRecordingSeconds: String(s) } : {}) }))}
+      />
 
       <div className="grid grid-cols-3 gap-2">
         <input
@@ -1218,7 +1264,8 @@ function CreateSetModal({
             prompt: q.prompt.trim() || undefined,
             maxRecordingSeconds: Number(q.maxRecordingSeconds),
             maxAttempts: q.maxAttempts ? Number(q.maxAttempts) : undefined,
-            displayOrder: i
+            displayOrder: i,
+            ...toFormatRequest(q)
           });
         }
       }
@@ -1356,7 +1403,13 @@ function CreateSetModal({
           <ConnectionQuizBuilder value={pendingConnectionQuestions} onChange={setPendingConnectionQuestions} />
         )}
         {questionSourceMode === "manual" && form.videoType === "REFLEX" && (
-          <ReflexQuestionsBuilder value={pendingQuestions} onChange={setPendingQuestions} />
+          <ReflexQuestionsBuilder
+            value={pendingQuestions}
+            onChange={setPendingQuestions}
+            curriculumId={form.curriculumId ? Number(form.curriculumId) : null}
+            videoUrl={content.fileUrl.trim() || undefined}
+            sourceType={content.sourceType}
+          />
         )}
         {questionSourceMode === "excel" && (
           <p className="text-[11px] text-slate-500 bg-slate-50 border border-slate-200 rounded-lg p-2.5">
@@ -1704,7 +1757,7 @@ function VideoListSection({ set }: { set: ReviewVideoSetResponse }) {
                     {expandedVideoId === v.id ? t("lectures.videoList.closeQuestions") : t("lectures.videoList.manageQuestions")}
                   </button>
                 )}
-                {set.videoType === "REFLEX" && expandedVideoId === v.id && <VideoQuestionsPanel videoId={v.id} />}
+                {set.videoType === "REFLEX" && expandedVideoId === v.id && <VideoQuestionsPanel videoId={v.id} curriculumId={set.curriculumId} video={v} />}
                 {set.videoType === "CONNECTION" && expandedVideoId === v.id && <VideoMcqQuestionsPanel videoId={v.id} />}
               </div>
             ))}
@@ -1761,13 +1814,34 @@ function VideoListSection({ set }: { set: ReviewVideoSetResponse }) {
   );
 }
 
-type ReflexQuestionFormValue = { timestampSeconds: string; prompt: string; maxRecordingSeconds: string; maxAttempts: string };
+type ReflexQuestionFormValue = ReflexFormatValue & { timestampSeconds: string; prompt: string; maxRecordingSeconds: string; maxAttempts: string };
+
+const EMPTY_REFLEX_QUESTION_FORM: ReflexQuestionFormValue = { timestampSeconds: "", prompt: "", maxRecordingSeconds: "60", maxAttempts: "", ...EMPTY_REFLEX_FORMAT };
 
 /** Dùng chung cho form "Thêm câu hỏi" VÀ form "Sửa câu hỏi" REFLEX — tránh lặp 2 lần y hệt nhau. */
-function ReflexQuestionFields({ value, onChange }: { value: ReflexQuestionFormValue; onChange: (v: ReflexQuestionFormValue) => void }) {
+function ReflexQuestionFields({
+  value,
+  onChange,
+  curriculumId,
+  video
+}: {
+  value: ReflexQuestionFormValue;
+  onChange: (v: ReflexQuestionFormValue) => void;
+  /** V200 — chương trình của bộ + video chứa câu hỏi (dạng đề, chụp khung hình tả tranh). */
+  curriculumId: number;
+  video: ReviewVideoResponse;
+}) {
   const { t } = useTranslation("lms-review-video");
   return (
     <>
+      <ReflexQuestionFormatFields
+        curriculumId={curriculumId}
+        videoUrl={video.fileUrl}
+        sourceType={video.sourceType}
+        timestampSeconds={value.timestampSeconds}
+        value={value}
+        onChange={(f, s) => onChange({ ...value, ...f, ...(s ? { maxRecordingSeconds: String(s) } : {}) })}
+      />
       <div className="grid grid-cols-3 gap-2">
         <input
           type="number"
@@ -1806,19 +1880,19 @@ function ReflexQuestionFields({ value, onChange }: { value: ReflexQuestionFormVa
 }
 
 /** UC-23b (V57): quản lý câu hỏi gắn mốc thời gian của 1 video REFLEX — mỗi câu tự có thời lượng ghi âm/số lần nộp lại riêng. */
-function VideoQuestionsPanel({ videoId }: { videoId: number }) {
+function VideoQuestionsPanel({ videoId, curriculumId, video }: { videoId: number; curriculumId: number; video: ReviewVideoResponse }) {
   const { t } = useTranslation("lms-review-video");
   const [questions, setQuestions] = useState<ReviewVideoQuestionResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [showImportPanel, setShowImportPanel] = useState(false);
-  const [form, setForm] = useState<ReflexQuestionFormValue>({ timestampSeconds: "", prompt: "", maxRecordingSeconds: "60", maxAttempts: "" });
+  const [form, setForm] = useState<ReflexQuestionFormValue>(EMPTY_REFLEX_QUESTION_FORM);
   const [submitting, setSubmitting] = useState(false);
 
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-12 — sửa câu hỏi đã có (trước đây chỉ thêm mới được).
   const [editingQuestionId, setEditingQuestionId] = useState<number | null>(null);
-  const [editForm, setEditForm] = useState<ReflexQuestionFormValue>({ timestampSeconds: "", prompt: "", maxRecordingSeconds: "60", maxAttempts: "" });
+  const [editForm, setEditForm] = useState<ReflexQuestionFormValue>(EMPTY_REFLEX_QUESTION_FORM);
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const { confirmDialog } = useDialog();
@@ -1841,6 +1915,10 @@ function VideoQuestionsPanel({ videoId }: { videoId: number }) {
       setError(t("lectures.common.timestampAndDurationRequired"));
       return;
     }
+    if (pictureBriefMissing(form)) {
+      setError(t("lectures.reflexFormat.briefMissing"));
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
@@ -1849,9 +1927,10 @@ function VideoQuestionsPanel({ videoId }: { videoId: number }) {
         prompt: form.prompt.trim() || undefined,
         maxRecordingSeconds: Number(form.maxRecordingSeconds),
         maxAttempts: form.maxAttempts ? Number(form.maxAttempts) : undefined,
-        displayOrder: questions.length
+        displayOrder: questions.length,
+        ...toFormatRequest(form)
       });
-      setForm({ timestampSeconds: "", prompt: "", maxRecordingSeconds: "60", maxAttempts: "" });
+      setForm(EMPTY_REFLEX_QUESTION_FORM);
       setShowAddForm(false);
       load();
     } catch (err) {
@@ -1868,7 +1947,10 @@ function VideoQuestionsPanel({ videoId }: { videoId: number }) {
       timestampSeconds: String(q.timestampSeconds),
       prompt: q.prompt ?? "",
       maxRecordingSeconds: String(q.maxRecordingSeconds),
-      maxAttempts: q.maxAttempts != null ? String(q.maxAttempts) : ""
+      maxAttempts: q.maxAttempts != null ? String(q.maxAttempts) : "",
+      questionFormat: q.questionFormat ?? "",
+      pictureImageUrl: q.pictureImageUrl ?? "",
+      pictureBrief: q.pictureBrief ?? ""
     });
     setEditingQuestionId(q.id);
   };
@@ -1879,6 +1961,10 @@ function VideoQuestionsPanel({ videoId }: { videoId: number }) {
       setEditError(t("lectures.common.timestampAndDurationRequired"));
       return;
     }
+    if (pictureBriefMissing(editForm)) {
+      setEditError(t("lectures.reflexFormat.briefMissing"));
+      return;
+    }
     setEditSubmitting(true);
     setEditError(null);
     try {
@@ -1887,7 +1973,8 @@ function VideoQuestionsPanel({ videoId }: { videoId: number }) {
         prompt: editForm.prompt.trim() || undefined,
         maxRecordingSeconds: Number(editForm.maxRecordingSeconds),
         maxAttempts: editForm.maxAttempts ? Number(editForm.maxAttempts) : undefined,
-        displayOrder
+        displayOrder,
+        ...toFormatRequest(editForm)
       });
       setEditingQuestionId(null);
       load();
@@ -1930,7 +2017,7 @@ function VideoQuestionsPanel({ videoId }: { videoId: number }) {
                 className="bg-white border border-brand-red/30 rounded-lg p-2.5 space-y-2"
               >
                 {editError && <div className="text-[11px] text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{editError}</div>}
-                <ReflexQuestionFields value={editForm} onChange={setEditForm} />
+                <ReflexQuestionFields value={editForm} onChange={setEditForm} curriculumId={curriculumId} video={video} />
                 <div className="flex justify-end gap-2">
                   <Button type="button" variant="secondary" size="sm" onClick={() => setEditingQuestionId(null)}>
                     {t("lectures.common.cancel")}
@@ -1974,7 +2061,13 @@ function VideoQuestionsPanel({ videoId }: { videoId: number }) {
                     </button>
                   </span>
                 </div>
+                {q.questionFormat && (
+                  <Badge variant="info" className="mt-0.5">{t(`lectures.reflexFormat.formats.${q.questionFormat}`)}</Badge>
+                )}
                 {q.prompt && <p className="text-slate-500 mt-0.5">{q.prompt}</p>}
+                {q.questionFormat === "PICTURE" && q.pictureBrief && (
+                  <p className="text-sky-700 mt-0.5 whitespace-pre-line">{q.pictureBrief}</p>
+                )}
               </div>
             )
           )}
@@ -1983,7 +2076,7 @@ function VideoQuestionsPanel({ videoId }: { videoId: number }) {
 
       {showAddForm ? (
         <form onSubmit={handleAdd} className="bg-white border border-slate-200 rounded-lg p-2.5 space-y-2">
-          <ReflexQuestionFields value={form} onChange={setForm} />
+          <ReflexQuestionFields value={form} onChange={setForm} curriculumId={curriculumId} video={video} />
           <div className="flex justify-end gap-2">
             <Button type="button" variant="secondary" size="sm" onClick={() => setShowAddForm(false)}>
               {t("lectures.common.cancel")}
