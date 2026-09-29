@@ -27,16 +27,23 @@ public interface StudentRepository extends JpaRepository<Student, Long> {
      * tính, xem StudentService.resolveAllowedSiteIds) — không kèm text
      * query. Luôn truyền 1 list cụ thể (không bao giờ null/rỗng) cho
      * allowedSiteIds, tránh vấn đề Hibernate không xử lý được tham số IN
-     * null/rỗng.
+     * null/rỗng. classId (tuỳ chọn, bổ sung ngoài SDD gốc 2026-09-29): chỉ
+     * giữ học sinh đang có ghi danh ACTIVE ở lớp đó — khớp bộ lọc "Lớp" trên
+     * header admin.
      */
     @Query("""
             SELECT s FROM Student s JOIN s.user u
             WHERE s.deletedAt IS NULL
             AND (:siteId IS NULL OR s.primarySite.id = :siteId)
             AND (:restrictSites = FALSE OR s.primarySite.id IN :allowedSiteIds)
+            AND (:classId IS NULL OR EXISTS (
+                SELECT 1 FROM ClassEnrollment ce
+                WHERE ce.student = s AND ce.schoolClass.id = :classId
+                AND ce.status = vn.com.pps.education.domain.ClassEnrollment.Status.ACTIVE))
             ORDER BY u.fullName
             """)
     List<Student> search(@Param("siteId") Long siteId,
+                          @Param("classId") Long classId,
                           @Param("restrictSites") boolean restrictSites,
                           @Param("allowedSiteIds") List<Long> allowedSiteIds);
 
@@ -49,10 +56,15 @@ public interface StudentRepository extends JpaRepository<Student, Long> {
                  OR LOWER(u.fullName) LIKE LOWER(CONCAT('%', :query, '%')))
             AND (:siteId IS NULL OR s.primarySite.id = :siteId)
             AND (:restrictSites = FALSE OR s.primarySite.id IN :allowedSiteIds)
+            AND (:classId IS NULL OR EXISTS (
+                SELECT 1 FROM ClassEnrollment ce
+                WHERE ce.student = s AND ce.schoolClass.id = :classId
+                AND ce.status = vn.com.pps.education.domain.ClassEnrollment.Status.ACTIVE))
             ORDER BY u.fullName
             """)
     List<Student> searchByQuery(@Param("query") String query,
                                  @Param("siteId") Long siteId,
+                                 @Param("classId") Long classId,
                                  @Param("restrictSites") boolean restrictSites,
                                  @Param("allowedSiteIds") List<Long> allowedSiteIds);
 
