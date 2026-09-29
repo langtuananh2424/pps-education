@@ -5,6 +5,7 @@ import { ApiError } from "@/lib/apiClient";
 import AccountSelector, { AccountSelection } from "@/features/system-admin/components/AccountSelector";
 import {
   createParent,
+  getStudentProfile,
   linkParent,
   listSites,
   listStatusHistory,
@@ -15,6 +16,7 @@ import {
   RecordTransferRequest,
   searchParents,
   SiteOption,
+  StudentProfileEnrollment,
   StudentResponse,
   StudentStatusHistoryResponse,
   StudentTransferHistoryResponse,
@@ -34,6 +36,7 @@ import DatePicker from "@/components/ui/DatePicker";
 import AvatarUploadField from "@/components/ui/AvatarUploadField";
 import { uploadMedia } from "@/features/lms/api";
 import Select from "@/components/ui/Select";
+import { ClassResponse, listClasses } from "@/features/academic/api";
 
 const TODAY_ISO = new Date().toISOString().slice(0, 10);
 
@@ -92,7 +95,7 @@ export default function StudentDetailPanel({ student, onChanged }: StudentDetail
       <div className="flex-1 p-5 overflow-y-auto max-h-[560px]">
         {tab === "profile" && <ProfileTab student={student} onChanged={onChanged} showToast={showToast} />}
         {tab === "parents" && <ParentsTab studentId={student.id} showToast={showToast} />}
-        {tab === "transfer" && <TransferTab studentId={student.id} onChanged={onChanged} showToast={showToast} />}
+        {tab === "transfer" && <TransferTab student={student} onChanged={onChanged} showToast={showToast} />}
         {tab === "status" && <StatusTab student={student} onChanged={onChanged} showToast={showToast} />}
       </div>
 
@@ -342,10 +345,18 @@ const TRANSFER_TYPE_KEYS: Record<string, string> = {
   BOTH: "studentDetail.transfer.typeBoth"
 };
 
-function TransferTab({ studentId, onChanged, showToast }: { studentId: number; onChanged: () => void; showToast: (msg: string) => void }) {
+/** BE chỉ cho chuyển tới lớp Đang tuyển sinh/Đang học — xem StudentService.recordTransfer. */
+const TRANSFER_TARGET_CLASS_STATUSES: ClassResponse["status"][] = ["OPEN_ENROLLMENT", "IN_PROGRESS"];
+
+function TransferTab({ student, onChanged, showToast }: { student: StudentResponse; onChanged: () => void; showToast: (msg: string) => void }) {
   const { t } = useTranslation("student");
+  const studentId = student.id;
   const [history, setHistory] = useState<StudentTransferHistoryResponse[]>([]);
   const [sites, setSites] = useState<SiteOption[]>([]);
+  // Chọn lớp qua dropdown thay cho gõ ID tay (góp ý người dùng 2026-09-29): lớp đang học lấy từ ghi danh
+  // ACTIVE của học sinh, lớp mới lấy theo điểm trường đích (hoặc điểm trường hiện tại khi chỉ chuyển lớp).
+  const [activeEnrollments, setActiveEnrollments] = useState<StudentProfileEnrollment[]>([]);
+  const [targetClasses, setTargetClasses] = useState<ClassResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ transferType: "SITE_CHANGE", toSiteId: "", fromClassId: "", toClassId: "", effectiveDate: "", reason: "" });
   const [submitting, setSubmitting] = useState(false);
@@ -362,6 +373,32 @@ function TransferTab({ studentId, onChanged, showToast }: { studentId: number; o
   useEffect(() => {
     listSites().then(setSites).catch(() => undefined);
   }, []);
+
+  const needsSite = form.transferType === "SITE_CHANGE" || form.transferType === "BOTH";
+  const needsClass = form.transferType === "CLASS_CHANGE" || form.transferType === "BOTH";
+  const targetSiteId = needsSite ? (form.toSiteId ? Number(form.toSiteId) : null) : student.primarySiteId;
+
+  useEffect(() => {
+    if (!showForm) return;
+    getStudentProfile(studentId)
+      .then((profile) => {
+        const active = profile.enrollments.filter((e) => e.status === "ACTIVE");
+        setActiveEnrollments(active);
+        // Chỉ đang học 1 lớp thì chọn sẵn — trường hợp phổ biến nhất.
+        if (active.length === 1) setForm((f) => (f.fromClassId ? f : { ...f, fromClassId: String(active[0].classId) }));
+      })
+      .catch(() => setActiveEnrollments([]));
+  }, [showForm, studentId]);
+
+  useEffect(() => {
+    if (!showForm || !needsClass || !targetSiteId) {
+      setTargetClasses([]);
+      return;
+    }
+    listClasses({ siteId: targetSiteId })
+      .then((classes) => setTargetClasses(classes.filter((c) => TRANSFER_TARGET_CLASS_STATUSES.includes(c.status))))
+      .catch(() => setTargetClasses([]));
+  }, [showForm, needsClass, targetSiteId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -393,8 +430,7 @@ function TransferTab({ studentId, onChanged, showToast }: { studentId: number; o
     }
   };
 
-  const needsSite = form.transferType === "SITE_CHANGE" || form.transferType === "BOTH";
-  const needsClass = form.transferType === "CLASS_CHANGE" || form.transferType === "BOTH";
+  const toClassOptions = targetClasses.filter((c) => String(c.id) !== form.fromClassId);
 
   return (
     <div className="space-y-4">
@@ -416,7 +452,7 @@ function TransferTab({ studentId, onChanged, showToast }: { studentId: number; o
           </Select>
           <div className="grid grid-cols-2 gap-3">
             {needsSite && (
-              <Select value={form.toSiteId} onChange={(e) => setForm({ ...form, toSiteId: e.target.value })} className={inputClass}>
+              <Select value={form.toSiteId} onChange={(e) => setForm({ ...form, toSiteId: e.target.value, toClassId: "" })} className={inputClass}>
                 <option value="">{t("studentDetail.transfer.newSitePlaceholder")}</option>
                 {sites.map((s) => (
                   <option key={s.id} value={s.id}>
@@ -427,18 +463,35 @@ function TransferTab({ studentId, onChanged, showToast }: { studentId: number; o
             )}
             {needsClass && (
               <>
-                <input
-                  value={form.fromClassId}
-                  onChange={(e) => setForm({ ...form, fromClassId: e.target.value.replace(/[^0-9]/g, "") })}
-                  placeholder={t("studentDetail.transfer.fromClassPlaceholder")}
-                  className={inputClass}
-                />
-                <input
+                <Select value={form.fromClassId} onChange={(e) => setForm({ ...form, fromClassId: e.target.value })} className={inputClass}>
+                  <option value="">
+                    {activeEnrollments.length === 0 ? t("studentDetail.transfer.noActiveClass") : t("studentDetail.transfer.fromClassPlaceholder")}
+                  </option>
+                  {activeEnrollments.map((e) => (
+                    <option key={e.classId} value={e.classId}>
+                      {e.className} ({e.classCode})
+                    </option>
+                  ))}
+                </Select>
+                <Select
                   value={form.toClassId}
-                  onChange={(e) => setForm({ ...form, toClassId: e.target.value.replace(/[^0-9]/g, "") })}
-                  placeholder={t("studentDetail.transfer.toClassPlaceholder")}
+                  onChange={(e) => setForm({ ...form, toClassId: e.target.value })}
+                  disabled={!targetSiteId}
                   className={inputClass}
-                />
+                >
+                  <option value="">
+                    {!targetSiteId
+                      ? t("studentDetail.transfer.selectSiteFirst")
+                      : toClassOptions.length === 0
+                        ? t("studentDetail.transfer.noTargetClass")
+                        : t("studentDetail.transfer.toClassPlaceholder")}
+                  </option>
+                  {toClassOptions.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.classCode})
+                    </option>
+                  ))}
+                </Select>
               </>
             )}
             <div>
