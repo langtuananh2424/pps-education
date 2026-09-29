@@ -176,7 +176,7 @@ public class CommentAiDraftService {
         }
     }
 
-    private record Target(RosterStudent student, String attitude, List<String> points, String source) {
+    private record Target(RosterStudent student, String attitude, List<String> points, String source, List<Long> sharedWith) {
     }
 
     private record ExtractionOutcome(CommentAiDraftResult.Extraction extraction,
@@ -383,7 +383,7 @@ public class CommentAiDraftService {
                     "Không tìm thấy ý nhận xét nào trong lời giáo viên — hãy nói rõ nhận xét chung cả lớp hoặc tên học sinh cần nhận xét.");
         }
         Map<Long, String> contents = writeAndDeduplicate(context, targets, List.of(), outcome.extraction().teacherPronoun());
-        List<CommentAiDraftResult.Row> rows = toRows(context, targets, contents);
+        List<CommentAiDraftResult.Row> rows = toRows(context, targets, contents, outcome.extraction().teacherPronoun());
 
         long individualCount = targets.stream().filter(t -> SOURCE_INDIVIDUAL.equals(t.source())).count();
         StringBuilder message = new StringBuilder("Đã soạn nhận xét cho ").append(rows.size()).append(" học sinh");
@@ -426,7 +426,7 @@ public class CommentAiDraftService {
         List<String> oldTexts = current.values().stream().map(ReviseCommentAiDraftRequest.CurrentRow::content)
                 .filter(c -> c != null && !c.isBlank()).toList();
         Map<Long, String> contents = writeAndDeduplicate(context, targets, oldTexts, outcome.extraction().teacherPronoun());
-        List<CommentAiDraftResult.Row> rows = toRows(context, targets, contents);
+        List<CommentAiDraftResult.Row> rows = toRows(context, targets, contents, outcome.extraction().teacherPronoun());
         StringBuilder message = new StringBuilder("Đã viết lại câu chữ cho ").append(rows.size())
                 .append(" học sinh, giữ nguyên ý giáo viên đã nói.");
         appendReviewHints(message, rows, outcome.unmatched().size(), 0);
@@ -501,9 +501,8 @@ public class CommentAiDraftService {
         List<Target> targets = new ArrayList<>();
         for (Long id : attitudes.keySet()) {
             targets.add(new Target(rosterById.get(id), attitudes.get(id), List.of(),
-                    individualIds.contains(id) ? SOURCE_INDIVIDUAL : SOURCE_CLASS));
+                    individualIds.contains(id) ? SOURCE_INDIVIDUAL : SOURCE_CLASS, List.of()));
         }
-        List<CommentAiDraftResult.Row> rows = toRows(context, targets, contents);
         String message = response.path("assistantMessage").asText("").isBlank()
                 ? (changed > 0 ? "Đã cập nhật " + changed + " học sinh theo yêu cầu." : "Không có dòng nào cần sửa theo yêu cầu này.")
                 : response.path("assistantMessage").asText().trim();
@@ -514,6 +513,7 @@ public class CommentAiDraftService {
             extraction = new CommentAiDraftResult.Extraction(extraction.classAttitude(), extraction.classPoints(),
                     extraction.individuals(), newPronoun);
         }
+        List<CommentAiDraftResult.Row> rows = toRows(context, targets, contents, newPronoun != null ? newPronoun : currentPronoun);
         return new CommentAiDraftResult(request.transcript(), message, extraction, rows, List.of(), context.skipped());
     }
 
@@ -531,7 +531,8 @@ public class CommentAiDraftService {
         List<CommentAiDraftResult.IndividualPoints> individuals = new ArrayList<>();
         for (JsonNode node : response.path("individuals")) {
             individuals.add(new CommentAiDraftResult.IndividualPoints(node.path("studentId").asLong(0),
-                    node.path("attitude").asText(null), texts(node.path("points")), node.path("evidence").asText(null)));
+                    node.path("attitude").asText(null), texts(node.path("points")), node.path("evidence").asText(null),
+                    ids(node.path("sharedWith"))));
         }
         String pronoun = normalizePronoun(response.path("teacherPronoun").asText(null));
         CommentAiDraftResult.Extraction raw = new CommentAiDraftResult.Extraction(
@@ -575,8 +576,10 @@ public class CommentAiDraftService {
                 continue;
             }
             if (seen.add(item.studentId())) {
+                List<Long> sharedWith = item.sharedWith() == null ? List.of() : item.sharedWith().stream()
+                        .filter(id -> id != null && !id.equals(item.studentId()) && rosterIds.contains(id)).distinct().toList();
                 individuals.add(new CommentAiDraftResult.IndividualPoints(item.studentId(), normalizeAttitude(item.attitude()),
-                        points, item.evidence()));
+                        points, item.evidence(), sharedWith));
             }
         }
         List<String> classPoints = raw.classPoints() == null ? List.of()
@@ -602,11 +605,12 @@ public class CommentAiDraftService {
                 List<String> points = individual.points().isEmpty() ? extraction.classPoints() : individual.points();
                 if (!points.isEmpty()) {
                     String attitude = attitudeOverrides.containsKey(student.id()) ? attitudeOverrides.get(student.id()) : individual.attitude();
-                    individualTargets.add(new Target(student, attitude, points, SOURCE_INDIVIDUAL));
+                    individualTargets.add(new Target(student, attitude, points, SOURCE_INDIVIDUAL,
+                            individual.sharedWith() == null ? List.of() : individual.sharedWith()));
                 }
             } else if (!extraction.classPoints().isEmpty()) {
                 String attitude = attitudeOverrides.containsKey(student.id()) ? attitudeOverrides.get(student.id()) : extraction.classAttitude();
-                classTargets.add(new Target(student, attitude, extraction.classPoints(), SOURCE_CLASS));
+                classTargets.add(new Target(student, attitude, extraction.classPoints(), SOURCE_CLASS, List.of()));
             }
         }
         individualTargets.addAll(classTargets);
@@ -690,6 +694,9 @@ public class CommentAiDraftService {
             item.put("points", target.points());
             item.put("previousComments", target.student().previousComments().stream().map(PreviousComment::content).toList());
             item.put("homework", target.student().homeworkNote());
+            if (!target.sharedWith().isEmpty()) {
+                item.put("sharedWithStudentIds", target.sharedWith());
+            }
             students.add(item);
         }
         payload.put("students", students);
@@ -711,7 +718,8 @@ public class CommentAiDraftService {
     }
 
     /** Dựng dòng xem trước + cảnh báo cuối cùng (A6/A8/A9 và dòng AI không trả về). */
-    private List<CommentAiDraftResult.Row> toRows(DraftContext context, List<Target> targets, Map<Long, String> contents) {
+    private List<CommentAiDraftResult.Row> toRows(DraftContext context, List<Target> targets, Map<Long, String> contents,
+                                                  String teacherPronoun) {
         List<CommentAiDraftResult.Row> rows = new ArrayList<>();
         for (Target target : targets) {
             Long id = target.student().id();
@@ -757,6 +765,10 @@ public class CommentAiDraftService {
                 if (mentionsLessonTitle(content, context.lessonContent())) {
                     warnings.add(new CommentAiDraftResult.Warning("LESSON_TITLE",
                             "Nhận xét nhắc tên bài học — giáo viên thường không ghi tên bài vào nhận xét.", null));
+                }
+                CommentAiDraftResult.Warning pronounWarning = pronounMismatchWarning(content, teacherPronoun);
+                if (pronounWarning != null) {
+                    warnings.add(pronounWarning);
                 }
             }
             CommentAiDraftResult.Warning attitudeAlert = attitudeAlertWarning(target.attitude(), target.student().lowStreak());
@@ -857,6 +869,41 @@ public class CommentAiDraftService {
             return null;
         }
         return thay ? "thầy" : "cô";
+    }
+
+    /**
+     * Kiểm tra xưng hô (bổ sung 2026-09-29): chưa xác định được giáo viên xưng thầy hay cô thì nhận xét không được
+     * có "thầy"/"cô"; đã xác định thì không được lẫn đại từ còn lại. AI đôi khi vẫn chép theo thói quen dù prompt
+     * đã cấm, nên chặn thêm bằng quy tắc để giáo viên thấy ngay trước khi Lưu nháp.
+     */
+    static CommentAiDraftResult.Warning pronounMismatchWarning(String content, String teacherPronoun) {
+        if (content == null || content.isBlank()) {
+            return null;
+        }
+        String text = java.text.Normalizer.normalize(content, java.text.Normalizer.Form.NFC);
+        boolean thay = PRONOUN_THAY.matcher(text).find();
+        boolean co = PRONOUN_CO.matcher(text).find();
+        String pronoun = normalizePronoun(teacherPronoun);
+        if (pronoun == null && (thay || co)) {
+            return new CommentAiDraftResult.Warning("PRONOUN_MISMATCH",
+                    "Nhận xét có \"thầy/cô\" nhưng chưa rõ giáo viên xưng thầy hay cô — kiểm tra lại xưng hô.", null);
+        }
+        if ("thầy".equals(pronoun) && co || "cô".equals(pronoun) && thay) {
+            return new CommentAiDraftResult.Warning("PRONOUN_MISMATCH",
+                    "Nhận xét dùng \"" + ("thầy".equals(pronoun) ? "cô" : "thầy") + "\" trong khi giáo viên xưng \""
+                            + pronoun + "\" — kiểm tra lại xưng hô.", null);
+        }
+        return null;
+    }
+
+    private static List<Long> ids(JsonNode array) {
+        List<Long> result = new ArrayList<>();
+        array.forEach(n -> {
+            if (n.canConvertToLong() && n.asLong() > 0) {
+                result.add(n.asLong());
+            }
+        });
+        return result;
     }
 
     private static List<String> texts(JsonNode array) {

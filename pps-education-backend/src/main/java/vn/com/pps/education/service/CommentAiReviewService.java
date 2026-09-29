@@ -398,6 +398,9 @@ public class CommentAiReviewService {
             Map<String, Object> entry = new LinkedHashMap<>();
             entry.put("commentId", item.commentId());
             entry.put("studentFullName", item.studentFullName());
+            // Ngày + buổi học giúp phân biệt khi cùng 1 tên có nhiều nhận xét (trùng tên hoặc nhiều buổi) — xem rule 4 prompt.
+            entry.put("commentDate", item.commentDate() == null ? null : item.commentDate().toString());
+            entry.put("classSessionId", item.classSessionId());
             entry.put("attitude", CommentAiDraftService.attitudeLabel(item.attitude()));
             entry.put("content", item.content());
             comments.add(entry);

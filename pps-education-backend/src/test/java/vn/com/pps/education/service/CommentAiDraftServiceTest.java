@@ -170,7 +170,7 @@ class CommentAiDraftServiceTest {
         stubAi(CommentAiDraftService.WRITE_PROMPT, """
                 {"comments": [
                   {"studentId": 1, "content": "An cần chú ý hơn, trong giờ con vẫn còn nói chuyện riêng."},
-                  {"studentId": 2, "content": "Bình giữ được sự tập trung suốt buổi, thầy cô rất vui."},
+                  {"studentId": 2, "content": "Bình giữ được sự tập trung suốt buổi, rất đáng khen."},
                   {"studentId": 3, "content": "Chi theo sát bài giảng và rất chú tâm vào hoạt động lớp."}
                 ]}""");
 
@@ -450,6 +450,48 @@ class CommentAiDraftServiceTest {
         CommentAiDraftResult result = service.generateDraft(context(AN), null, null, "Hôm nay cô thấy cả lớp rất tích cực");
 
         assertThat(result.extraction().teacherPronoun()).isEqualTo("cô");
+    }
+
+    @Test
+    void generateDraft_UC74_studentsSharingOneSentenceAreSplitWithSharedWithFiltered() {
+        stubAi(CommentAiDraftService.EXTRACT_PROMPT, """
+                {"classAttitude": null, "classPoints": [],
+                 "individuals": [
+                   {"studentId": 1, "attitude": "AVERAGE", "points": ["nói chuyện riêng"], "evidence": "An / Bình: nói chuyện riêng", "sharedWith": [2, 1, 999]},
+                   {"studentId": 2, "attitude": "AVERAGE", "points": ["nói chuyện riêng"], "evidence": "An / Bình: nói chuyện riêng", "sharedWith": [1]}],
+                 "unmatched": []}""");
+        stubAi(CommentAiDraftService.WRITE_PROMPT, """
+                {"comments": [{"studentId": 1, "content": "An cần tập trung hơn trong giờ học."},
+                              {"studentId": 2, "content": "Buổi này Bình còn làm việc riêng, mong con chú ý hơn."}]}""");
+
+        CommentAiDraftResult result = service.generateDraft(context(AN, BINH, CHI), null, null, "An / Bình: nói chuyện riêng");
+
+        assertThat(result.rows()).extracting(CommentAiDraftResult.Row::studentId).containsExactly(1L, 2L);
+        assertThat(result.extraction().individuals()).extracting(CommentAiDraftResult.IndividualPoints::sharedWith)
+                .containsExactly(List.of(2L), List.of(1L));
+        verify(aiClient).chatWithFinishReason(eq(CommentAiDraftService.WRITE_PROMPT),
+                org.mockito.ArgumentMatchers.contains("\"sharedWithStudentIds\":[2]"), anyString());
+    }
+
+    @Test
+    void generateDraft_UC74_warnsWhenPronounWrittenButTeacherPronounUnknown() {
+        stubAi(CommentAiDraftService.EXTRACT_PROMPT,
+                "{\"classAttitude\": null, \"classPoints\": [\"tích cực\"], \"individuals\": [], \"unmatched\": []}");
+        stubAi(CommentAiDraftService.WRITE_PROMPT, "{\"comments\": [{\"studentId\": 1, \"content\": \"Thầy/cô ghi nhận An học tích cực.\"}]}");
+
+        CommentAiDraftResult result = service.generateDraft(context(AN), null, null, "Cả lớp học tích cực");
+
+        assertThat(result.extraction().teacherPronoun()).isNull();
+        assertThat(result.rows().get(0).warnings()).extracting(CommentAiDraftResult.Warning::type).contains("PRONOUN_MISMATCH");
+    }
+
+    @Test
+    void pronounMismatchWarning_UC74_flagsOnlyWrongOrUnknownPronoun() {
+        assertThat(CommentAiDraftService.pronounMismatchWarning("Cô mong con cố gắng hơn.", "thầy")).isNotNull();
+        assertThat(CommentAiDraftService.pronounMismatchWarning("Thầy rất vui vì con.", "cô")).isNotNull();
+        assertThat(CommentAiDraftService.pronounMismatchWarning("Cô mong con cố gắng hơn.", null)).isNotNull();
+        assertThat(CommentAiDraftService.pronounMismatchWarning("Cô mong con cố gắng hơn.", "cô")).isNull();
+        assertThat(CommentAiDraftService.pronounMismatchWarning("Mong con có thêm tự tin, con cố lên.", null)).isNull();
     }
 
     @Test

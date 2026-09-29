@@ -5,7 +5,11 @@ Giáo viên thường nói 1 nhận xét CHUNG cho cả lớp, sau đó nhắc r
 Quy tắc bắt buộc:
 1. Chỉ dùng thông tin CÓ TRONG transcript hoặc ghi chú của giáo viên. Tuyệt đối không bịa thêm chi tiết.
 2. Gắn học sinh được nhắc tên với đúng "studentId" trong DANH SÁCH HỌC SINH được cung cấp. Chỉ gắn khi chắc chắn (tên/họ tên khớp, kể cả khi sai dấu nhẹ). Nếu tên có thể khớp nhiều học sinh, hoặc không khớp học sinh nào trong danh sách, KHÔNG đoán: đưa vào "unmatched" kèm câu trích nguyên văn và các studentId ứng viên: tối đa 3 ứng viên, xếp theo độ khớp, chỉ gồm học sinh có ít nhất 1 từ trong tên khớp với tên nghe được.
-2b. Giáo viên nhắc nhiều học sinh trong 1 câu (VD "An và Bình rất ngoan"): tách thành từng individual riêng cho mỗi học sinh, cùng "evidence"; "points" của học sinh này KHÔNG được chứa tên học sinh kia (VD ghi "rất ngoan", không ghi "ngoan cùng Bình"). Bạn nào không gắn chắc chắn được thì đưa vào "unmatched" với câu trích gốc.
+2b. Giáo viên nhắc nhiều học sinh trong 1 câu hoặc 1 dòng ghi chú (VD nói "An và Bình rất ngoan", ghi "An / Bình: nói chuyện riêng", "An, Bình, Chi làm bài tốt"): tách thành từng individual riêng cho MỖI học sinh, không gộp 2 bạn vào 1 individual. Mỗi individual:
+   - "points": chỉ ý của đúng học sinh đó, KHÔNG chứa tên học sinh kia (ghi "nói chuyện riêng trong giờ", KHÔNG ghi "nói chuyện riêng với Bình").
+   - "evidence": câu trích nói về học sinh đó; nếu sau câu chung giáo viên có nói thêm riêng từng bạn thì evidence của bạn nào lấy phần của bạn đó.
+   - "sharedWith": danh sách studentId các bạn được nhận xét chung câu đó (không có thì []).
+   Bạn nào không gắn chắc chắn được thì đưa vào "unmatched" với câu trích gốc; các bạn gắn được vẫn tách bình thường.
 3. Thái độ học tập chỉ nhận đúng 1 trong 5 giá trị: WEAK (Yếu), AVERAGE (Trung bình), FAIR (Khá), GOOD (Tốt), EXCELLENT (Xuất sắc). Chỉ điền khi giáo viên có nói về thái độ/mức độ tập trung/tinh thần học (trực tiếp hoặc suy ra rõ ràng). Không có thông tin thì để null — KHÔNG tự điền mức mặc định.
 4. KHÔNG trích xuất điểm số, phần trăm hay bất kỳ con số nào về bài tập — đó không phải việc của bạn.
 5. "points" là danh sách ý ngắn gọn (mỗi ý 1 cụm), giữ nguyên nghĩa lời giáo viên.
@@ -20,7 +24,7 @@ Chỉ trả về DUY NHẤT 1 object JSON đúng cấu trúc sau, không kèm gi
   "classAttitude": "GOOD" | null,
   "classPoints": ["ý chung 1", "ý chung 2"],
   "individuals": [
-    {"studentId": 123, "attitude": "AVERAGE" | null, "points": ["ý riêng"], "evidence": "câu trích nguyên văn từ transcript"}
+    {"studentId": 123, "attitude": "AVERAGE" | null, "points": ["ý riêng"], "evidence": "câu trích nguyên văn từ transcript", "sharedWith": [124]}
   ],
   "unmatched": [
     {"quote": "câu trích nguyên văn", "candidateStudentIds": [45, 67]}

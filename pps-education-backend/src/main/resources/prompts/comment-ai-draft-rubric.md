@@ -25,6 +25,7 @@ Bảng này CHỈ dùng để chọn mức nội bộ — tuyệt đối không 
 - Chỉ chọn Yếu/Trung bình khi giáo viên nói RÕ hành vi tiêu cực (VD "nói chuyện riêng nhiều lần", "không làm bài dù đã nhắc").
 - Lời nói mơ hồ, nhẹ ("chưa tích cực lắm", "hơi trầm", "cần cố gắng thêm") → chọn Khá hoặc để trống, KHÔNG hạ xuống Trung bình.
 - Còn phân vân giữa 2 mức → để trống cho giáo viên tự chọn.
+- Câu ví dụ cho từng mức: xem mục 6.
 
 ## 2. Cấu trúc một nhận xét
 - 2–4 câu, tối đa khoảng 400 ký tự.
@@ -54,12 +55,21 @@ Bảng này CHỈ dùng để chọn mức nội bộ — tuyệt đối không 
 | đến muộn | cần chú ý đến lớp đúng giờ |
 
 ## 4. Những điều KHÔNG được viết
-- **Không nhắc tên, lỗi hay hành vi của học sinh khác** trong nhận xét của 1 bạn (VD giáo viên nói "An với Bình nói chuyện riêng" → nhận xét của An chỉ viết "con còn nói chuyện riêng trong giờ", không có tên Bình). Mỗi nhận xét chỉ nói về đúng học sinh đó.
+- **Không nhắc tên, lỗi hay hành vi của học sinh khác** trong nhận xét của 1 bạn (VD giáo viên nói "An với Bình nói chuyện riêng" → nhận xét của An chỉ viết "con còn nói chuyện riêng trong giờ", không có tên Bình; SAI: "con nói chuyện riêng với Bình", "con và Bình còn làm việc riêng"). Mỗi nhận xét chỉ nói về đúng học sinh đó.
 - Không so sánh, xếp hạng với bạn khác hay cả lớp ("kém nhất lớp", "giỏi hơn các bạn"). ĐƯỢC so sánh với CHÍNH học sinh đó ở buổi trước (VD "lần này con đã mạnh dạn hơn") nhưng CHỈ khi giáo viên có nói về sự tiến bộ/thụt lùi đó.
-- Không ghi con số điểm/phần trăm, không nhắc hạn nộp hay giao bài mới — các thông tin này đã có ô riêng trên form.
-- Được nhắc kết quả BTVN buổi trước BẰNG LỜI, chỉ khi dữ liệu "homework" có (đã chỉ gồm điểm nổi bật hoặc tăng/giảm rõ): ≥ 80% "làm tốt", < 50% "cần cố gắng", chưa làm "chưa hoàn thành"; tối đa 1 câu. Lời giáo viên khác dữ liệu thì theo lời giáo viên.
+- Không ghi con số điểm/phần trăm, không nhắc hạn nộp hay giao bài mới — các thông tin này đã có ô riêng trên form. Cấm mọi dạng lộ điểm, kể cả viết bằng chữ: "4/5", "12/14", "đúng 41/49 câu", "được 8 điểm", "3 sao", "80%", "đúng mười hai trên mười bốn câu", "điểm tối đa".
+- Kết quả BTVN buổi trước: chỉ nhắc khi học sinh có trường "homework" (do hệ thống tính, đã chỉ giữ điểm nổi bật hoặc tăng/giảm rõ). Dạng dữ liệu: "BTVN buổi trước: <mức> (<loại bài>); …", có thể kèm "tiến bộ rõ so với buổi trước" hoặc "giảm rõ so với buổi trước". Các mức và cách viết:
+  - "làm tốt" (≥ 80%) → "Con hoàn thành bài tập về nhà tốt."
+  - "cần cố gắng" (< 50%) → "Con cần cố gắng hơn với bài tập về nhà."
+  - "chưa hoàn thành" (chưa làm) → "Con chưa hoàn thành bài tập về nhà buổi trước."
+  - "tiến bộ rõ"/"giảm rõ so với buổi trước" → nhắc nhẹ bằng lời ("bài tập về nhà của con tiến bộ rõ"), không so số.
+  - Không có trường "homework" → KHÔNG nhắc BTVN.
+  Tối đa 1 câu hoặc 1 vế; lời giáo viên khác dữ liệu thì theo lời giáo viên.
 - Không nhắc tên bài học/Unit của buổi (VD "Unit 1: Hello Friend", "bài Past simple") — giáo viên không ghi tên bài vào nhận xét; kể cả khi giáo viên đọc tên bài trong lời nói.
-- Không nhắc sức khoẻ, hoàn cảnh gia đình, hình thức kỷ luật, không dán nhãn tính cách ("con hay nóng tính", "con nhút nhát").
+- Không nhắc sức khoẻ, hoàn cảnh gia đình, không dán nhãn tính cách ("con hay nóng tính", "con nhút nhát").
+- Không đe doạ hay nhắc hình thức kỷ luật/phạt: bản tường trình, bảng kiểm điểm, chép phạt, quay video phạt, kiểm tra đột xuất, mời phụ huynh lên làm việc.
+- Không nhắc tên hay việc của giáo viên khác (giáo viên nước ngoài, trợ giảng, giáo viên buổi trước).
+- Không nhắc hoạt động ngoài giờ học tiếng Anh (tập văn nghệ, sự kiện, dã ngoại, thông báo nghỉ học).
 
 ## 5. Gợi ý đa dạng câu mở đầu và câu kết
 Trong mỗi lượt viết: không dùng cùng 1 kiểu mở đầu (hoặc câu kết) cho 2 học sinh LIỀN KỀ; có ít nhất 4 kiểu mở đầu và 3 kiểu kết khác nhau. Chọn luân phiên, diễn đạt lại theo ý giáo viên — không chép nguyên câu gợi ý.
@@ -92,10 +102,12 @@ Tổng hợp từ nhận xét cũ của trung tâm — chỉ lấy VĂN PHONG, K
 Xuất sắc (EXCELLENT):
 - "Con sẵn sàng giúp các bạn chỉnh sửa khi phát âm chưa chính xác — tinh thần hợp tác này rất đáng khen."
 - "Con chủ động đặt câu hỏi khi chưa hiểu bài, cho thấy con thực sự muốn nắm chắc kiến thức."
+- "Con tự nhận ra lỗi ngữ pháp và tự chỉnh sửa."
 
 Tốt (GOOD):
 - "Con tập trung nghe giảng và hăng hái phát biểu, góp phần làm lớp học sôi nổi."
 - "Con hoàn thành đầy đủ nhiệm vụ trên lớp và hợp tác tốt với bạn bè."
+- "Con nhận ra từ vựng nhanh khi chỉ cần nghe gợi ý bằng định nghĩa."
 
 Khá (FAIR):
 - "Con ngoan và hoàn thành bài, tuy đôi lúc còn cần nhắc nhở để tập trung hơn."
@@ -113,4 +125,27 @@ Góp ý mềm (dùng thay vì chê trực tiếp):
 - "Nếu con ôn kỹ hơn phần ngữ pháp, kết quả sẽ còn tiến bộ hơn nữa."
 - "Chỉ cần cẩn thận hơn khi làm bài, con sẽ tránh được lỗi nhỏ."
 - "Con thử chú ý hơn đến các từ nối giữa các đoạn để nắm mạch bài nhé."
+- "Con cố gắng nói to hơn một chút để cả lớp nghe rõ hơn nhé."
+
+Góp ý theo lỗi cụ thể (chỉ khi giáo viên nói đúng lỗi đó):
+- "Con cần chú ý phân biệt is/am/are và have/has khi nói."
+- "Con nhớ bật rõ âm cuối và thêm s cho danh từ số nhiều."
+- "Con ôn lại các từ mới để dùng chính xác hơn."
+
+Khen có bằng chứng (khen đúng việc giáo viên nêu, theo kỹ năng/tiêu chí):
+- "Con phát âm rõ ràng, giọng đọc dễ nghe."
+- "Con biết dùng từ nối để câu trả lời trôi chảy hơn."
+- "Con bắt đầu dùng được mệnh đề quan hệ khi nói." (lớp IELTS có thể giữ tên tiêu chí: Pronunciation, Fluency, Grammatical Range, Lexical Resource, Coherence)
+
+Ghi nhận tiến bộ so với CHÍNH học sinh (chỉ khi giáo viên có nói):
+- "So với buổi trước, con đã mạnh dạn phát biểu hơn."
+- "Từ chỗ còn rụt rè, nay con đã tự tin hơn nhiều."
+- "Hôm nay con xung phong nhiều hơn hẳn buổi trước."
+- "Phần phát âm của con có tiến bộ rõ."
+
+Gợi ý cách luyện (tối đa 1 gợi ý, đúng điểm cần cải thiện giáo viên đã nêu):
+- "Con thử nghe và nhại lại (shadowing) các đoạn hội thoại ngắn."
+- "Con đặt mục tiêu mỗi buổi xung phong ít nhất một lần nhé."
+- "Con ghi âm lại phần nói để tự kiểm tra phát âm."
+- "Con chuẩn bị trước vài ý về chủ đề buổi sau."
 <!-- Học vụ có thể thay/bổ sung bằng câu thật đã được Quản lý duyệt. Quy tắc: câu mẫu KHÔNG chứa "thầy"/"cô" (có test tự động kiểm tra — CommentAiRubricTest). -->

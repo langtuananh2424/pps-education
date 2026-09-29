@@ -2267,6 +2267,21 @@ Ghi chú kỹ thuật (bổ sung ngoài SDD gốc, đã xác nhận với ngư�
     danh sách chưa khớp; (4) prompt sửa theo lệnh có ví dụ lặp nguyên văn
     và cách xử lý khi giáo viên đổi xưng hô; prompt gợi ý bản sửa (UC-75)
     có danh sách 5 điểm tự kiểm trước khi trả kết quả.
+-   **Bổ sung 2026-09-29 (bảng tổng hợp 32 mục):** (1) rubric mục 4 định
+    nghĩa rõ dạng trường "homework" (các mức và câu gợi ý tương ứng), cấm
+    mọi dạng lộ điểm kể cả viết bằng chữ ("12/14", "đúng 41/49 câu", "3
+    sao"…), thêm ví dụ SAI khi nhắc tên bạn, cấm đe doạ/kỷ luật/phạt, nhắc
+    giáo viên khác, hoạt động ngoài giờ học; mục 6 thêm câu mẫu góp ý theo
+    lỗi cụ thể, khen có bằng chứng, ghi nhận tiến bộ, gợi ý cách luyện
+    (không đại từ, không chữ số); (2) bước trích ý trả thêm `sharedWith`
+    (studentId các bạn được nhận xét chung 1 câu, VD "An / Bình: …") —
+    backend lọc chỉ giữ học sinh trong danh sách, bước viết nhận
+    `sharedWithStudentIds` để diễn đạt khác nhau và không nhắc tên nhau;
+    (3) cảnh báo mới `PRONOUN_MISMATCH` (quy tắc, không cần AI): chưa rõ
+    giáo viên xưng thầy hay cô mà nhận xét có "thầy/cô", hoặc lẫn đại từ
+    còn lại; (4) UC-75 sửa theo lệnh: dữ liệu gửi AI kèm `commentDate`/
+    `classSessionId`, tên khớp nhiều nhận xét mà Quản lý không nói rõ buổi
+    nào thì AI hỏi lại thay vì đoán.
 
 ---
 

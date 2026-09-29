@@ -2192,7 +2192,7 @@ export function markEntranceAssessmentResultPlaced(id: number): Promise<Entrance
 export type CommentAttitude = NonNullable<StudentCommentResponse["attitude"]>;
 
 export interface CommentAiDraftWarning {
-  type: "SIMILAR_IN_SESSION" | "SIMILAR_TO_PREVIOUS" | "CONTAINS_DIGITS" | "NOT_WRITTEN";
+  type: "SIMILAR_IN_SESSION" | "SIMILAR_TO_PREVIOUS" | "CONTAINS_DIGITS" | "NOT_WRITTEN" | "LESSON_TITLE" | "ATTITUDE_ALERT" | "PRONOUN_MISMATCH";
   message: string;
   similarity: number | null;
 }
@@ -2210,7 +2210,7 @@ export interface CommentAiDraftRow {
 export interface CommentAiDraftExtraction {
   classAttitude: CommentAttitude | null;
   classPoints: string[];
-  individuals: { studentId: number; attitude: CommentAttitude | null; points: string[]; evidence: string | null }[];
+  individuals: { studentId: number; attitude: CommentAttitude | null; points: string[]; evidence: string | null; sharedWith?: number[] | null }[];
   /** Đại từ giáo viên tự xưng lấy từ audio/ghi chú ("thầy"/"cô") — null thì AI viết "thầy/cô". */
   teacherPronoun: "thầy" | "cô" | null;
 }
