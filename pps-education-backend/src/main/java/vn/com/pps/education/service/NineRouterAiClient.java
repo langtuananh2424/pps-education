@@ -469,6 +469,16 @@ public class NineRouterAiClient {
      * gửi y hệt overload cũ.
      */
     public String transcribe(byte[] audioBytes, String mimeType, String model, String spellingHint) {
+        return transcribe(audioBytes, mimeType, model, spellingHint, null);
+    }
+
+    /**
+     * UC-74 (bổ sung 2026-09-29, đã xác nhận với người dùng) — như trên, gửi thêm field {@code language} chuẩn
+     * OpenAI/Whisper (mã ISO-639-1, VD "vi") để STT không phải tự đoán ngôn ngữ: giáo viên nói tiếng Việt có
+     * chen từ tiếng Anh (tên bài, từ vựng) dễ khiến Whisper đoán lệch. Chỉ trợ lý nhận xét truyền "vi" — luồng
+     * phiên âm bài nói TIẾNG ANH của học sinh (UC-23b) vẫn gọi overload cũ, không gửi language.
+     */
+    public String transcribe(byte[] audioBytes, String mimeType, String model, String spellingHint, String language) {
         if (audioBytes == null || audioBytes.length == 0) {
             return null;
         }
@@ -477,13 +487,14 @@ public class NineRouterAiClient {
             log.warn("NineRouterAiClient: chưa cấu hình STT model (app.ai-grading.nine-router-stt-model hoặc tham số model).");
             return null;
         }
-        return callWithConcurrencyLimit("transcribe", () -> doTranscribe(audioBytes, mimeType, resolvedModel, spellingHint));
+        return callWithConcurrencyLimit("transcribe", () -> doTranscribe(audioBytes, mimeType, resolvedModel, spellingHint, language));
     }
 
-    private String doTranscribe(byte[] audioBytes, String mimeType, String resolvedModel, String spellingHint) {
+    private String doTranscribe(byte[] audioBytes, String mimeType, String resolvedModel, String spellingHint,
+                                String language) {
         try {
             String boundary = "----ppsNineRouterBoundary" + UUID.randomUUID();
-            byte[] body = buildMultipartBody(boundary, resolvedModel, audioBytes, mimeType == null ? "audio/webm" : mimeType, spellingHint);
+            byte[] body = buildMultipartBody(boundary, resolvedModel, audioBytes, mimeType == null ? "audio/webm" : mimeType, spellingHint, language);
 
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(baseUrl + "/audio/transcriptions"))
@@ -650,13 +661,17 @@ public class NineRouterAiClient {
         }
     }
 
-    private byte[] buildMultipartBody(String boundary, String model, byte[] audioBytes, String mimeType,
-                                      String spellingHint) throws IOException {
+    /** Package-private để test kiểm tra đúng các field multipart gửi đi (prompt/language chỉ có khi được truyền). */
+    byte[] buildMultipartBody(String boundary, String model, byte[] audioBytes, String mimeType,
+                                      String spellingHint, String language) throws IOException {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         writeField(out, boundary, "model", model);
         writeField(out, boundary, "response_format", "json");
         if (spellingHint != null && !spellingHint.isBlank()) {
             writeField(out, boundary, "prompt", spellingHint);
+        }
+        if (language != null && !language.isBlank()) {
+            writeField(out, boundary, "language", language);
         }
 
         out.write(("--" + boundary + "\r\n").getBytes(StandardCharsets.UTF_8));

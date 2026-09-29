@@ -71,6 +71,8 @@ public class CommentAiDraftService {
     static final String REVISE_PROMPT = "comment-ai-draft-revise-system-prompt.txt";
     /** Rubric nhận xét do học vụ tự làm giàu — chèn vào chỗ {{RUBRIC}} của cả 3 prompt trên. */
     static final String RUBRIC_FILE = "comment-ai-draft-rubric.md";
+    /** Giáo viên nói nhận xét bằng tiếng Việt — ép STT nhận dạng tiếng Việt thay vì tự đoán ngôn ngữ. */
+    static final String STT_LANGUAGE = "vi";
 
     static final String SOURCE_CLASS = "CLASS";
     static final String SOURCE_INDIVIDUAL = "INDIVIDUAL";
@@ -289,7 +291,7 @@ public class CommentAiDraftService {
     CommentAiDraftResult generateDraft(DraftContext context, byte[] audio, String mimeType, String note) {
         String transcript = "";
         if (audio != null) {
-            transcript = aiClient.transcribe(audio, mimeType, null, spellingHint(context));
+            transcript = aiClient.transcribe(audio, mimeType, null, spellingHint(context), STT_LANGUAGE);
             if (transcript == null || transcript.isBlank()) {
                 throw new CommentAiDraftFailedException(
                         "Không chuyển được audio thành văn bản (dịch vụ nhận dạng giọng nói lỗi hoặc audio không có tiếng nói) — vui lòng thử lại.");
