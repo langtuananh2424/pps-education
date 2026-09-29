@@ -329,6 +329,9 @@ app:
     max-audio-bytes: ${COMMENT_AI_MAX_AUDIO_BYTES:20971520}
     worker-threads: ${COMMENT_AI_WORKER_THREADS:2}
     job-ttl-minutes: ${COMMENT_AI_JOB_TTL_MINUTES:30}
+    # Chênh lệch tối thiểu (điểm %) giữa trung bình BTVN buổi trước và buổi trước nữa để AI được nhắc
+    # "tiến bộ rõ"/"giảm rõ" (bổ sung 2026-09-29) - ước lượng ban đầu, chỉnh qua biến môi trường.
+    homework-trend-points: ${COMMENT_AI_HOMEWORK_TREND_POINTS:20}
 
 springdoc:
   swagger-ui:

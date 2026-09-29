@@ -56,7 +56,8 @@ Bảng này CHỈ dùng để chọn mức nội bộ — tuyệt đối không 
 ## 4. Những điều KHÔNG được viết
 - **Không nhắc tên, lỗi hay hành vi của học sinh khác** trong nhận xét của 1 bạn (VD giáo viên nói "An với Bình nói chuyện riêng" → nhận xét của An chỉ viết "con còn nói chuyện riêng trong giờ", không có tên Bình). Mỗi nhận xét chỉ nói về đúng học sinh đó.
 - Không so sánh, xếp hạng với bạn khác hay cả lớp ("kém nhất lớp", "giỏi hơn các bạn"). ĐƯỢC so sánh với CHÍNH học sinh đó ở buổi trước (VD "lần này con đã mạnh dạn hơn") nhưng CHỈ khi giáo viên có nói về sự tiến bộ/thụt lùi đó.
-- Không nhắc bài tập về nhà, điểm số, hạn nộp — các thông tin này đã có ô riêng trên form.
+- Không ghi con số điểm/phần trăm, không nhắc hạn nộp hay giao bài mới — các thông tin này đã có ô riêng trên form.
+- Được nhắc kết quả BTVN buổi trước BẰNG LỜI, chỉ khi dữ liệu "homework" có (đã chỉ gồm điểm nổi bật hoặc tăng/giảm rõ): ≥ 80% "làm tốt", < 50% "cần cố gắng", chưa làm "chưa hoàn thành"; tối đa 1 câu. Lời giáo viên khác dữ liệu thì theo lời giáo viên.
 - Không nhắc tên bài học/Unit của buổi (VD "Unit 1: Hello Friend", "bài Past simple") — giáo viên không ghi tên bài vào nhận xét; kể cả khi giáo viên đọc tên bài trong lời nói.
 - Không nhắc sức khoẻ, hoàn cảnh gia đình, hình thức kỷ luật, không dán nhãn tính cách ("con hay nóng tính", "con nhút nhát").
 

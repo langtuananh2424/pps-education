@@ -2231,6 +2231,15 @@ export interface CommentAiDraftJob {
   result: CommentAiDraftResult | null;
 }
 
+/** Điểm BTVN buổi trước đang nhập trên bảng (kể cả chưa Lưu nháp) — chỉ để trợ lý đọc, quy ra lời, không ghi số vào nhận xét. */
+export interface HomeworkScoreInput {
+  studentId: number;
+  offline: string | null;
+  speaking: string | null;
+  reading: string | null;
+  writing: string | null;
+}
+
 export interface ReviseCommentAiDraftRequest {
   mode: "INSTRUCTION" | "REWRITE_ALL";
   instruction?: string;
@@ -2238,16 +2247,25 @@ export interface ReviseCommentAiDraftRequest {
   extraction?: CommentAiDraftExtraction | null;
   currentRows: { studentId: number; attitude: CommentAttitude | null; content: string | null }[];
   history?: { role: "teacher" | "assistant"; text: string }[];
+  homeworkScores?: HomeworkScoreInput[];
 }
 
 /** UC-74 bước 1-2 — gửi audio (≤ 5 phút, FE tự kiểm tra) và/hoặc ghi chú chữ; BE trả job chạy nền. */
-export function startCommentAiDraft(classSessionId: number, audio: Blob | null, note: string): Promise<CommentAiDraftJob> {
+export function startCommentAiDraft(
+  classSessionId: number,
+  audio: Blob | null,
+  note: string,
+  homeworkScores: HomeworkScoreInput[] = []
+): Promise<CommentAiDraftJob> {
   const formData = new FormData();
   if (audio) {
     const extension = audio.type.includes("mp4") || audio.type.includes("m4a") ? "m4a" : audio.type.includes("wav") ? "wav" : audio.type.includes("mpeg") ? "mp3" : "webm";
     formData.append("audio", audio, `nhan-xet.${extension}`);
   }
   if (note.trim()) formData.append("note", note.trim());
+  if (homeworkScores.length > 0) {
+    formData.append("homeworkScores", new Blob([JSON.stringify(homeworkScores)], { type: "application/json" }));
+  }
   return apiRequest<CommentAiDraftJob>(`/class-sessions/${classSessionId}/comments/ai-draft`, { method: "POST", body: formData });
 }
 

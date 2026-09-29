@@ -2241,6 +2241,18 @@ Ghi chú kỹ thuật (bổ sung ngoài SDD gốc, đã xác nhận với ngư�
     `ATTITUDE_ALERT` (mỗi buổi đều báo phụ huynh khi duyệt; đã có 2 buổi
     liên tiếp thì nhắc sắp chạm mốc cảnh báo 3 buổi), đọc từ
     `StudentAttitudeAlertTrackingService#currentLowStreaks` (chỉ đọc).
+-   **Bổ sung 2026-09-29 (đã xác nhận với người dùng) — dùng điểm BTVN buổi
+    trước:** trợ lý đọc % tự động của bài online (backend tính) và điểm nhập
+    tay đang hiện trên bảng (kể cả chưa Lưu nháp, frontend gửi kèm), quy ra
+    LỜI bằng `HomeworkScoreInsight` theo ngưỡng đã chốt: ≥ 80% "làm tốt",
+    50–79% "làm được, cần cẩn thận hơn", < 50% "cần cố gắng", "Chưa làm bài"
+    → "chưa hoàn thành", "Đang chờ chấm" → không nhắc. Chỉ đưa cho AI kênh
+    NỔI BẬT (làm tốt/cần cố gắng/chưa hoàn thành) hoặc tăng/giảm rõ so với
+    buổi trước (so điểm nhập tay với điểm nhập tay, chênh ≥
+    `app.ai-comment-draft.homework-trend-points`, mặc định 20). AI KHÔNG
+    nhận con số và vẫn không được ghi số vào nhận xét; không ảnh hưởng mức
+    Thái độ; lời giáo viên khác dữ liệu thì theo lời giáo viên. Quy tắc cũ
+    "không nhắc BTVN" đổi thành "không ghi con số/hạn nộp".
 
 ---
 

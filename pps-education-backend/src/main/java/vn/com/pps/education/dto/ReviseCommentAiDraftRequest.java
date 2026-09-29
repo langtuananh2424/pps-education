@@ -18,7 +18,9 @@ public record ReviseCommentAiDraftRequest(
         String transcript,
         CommentAiDraftResult.Extraction extraction,
         @NotNull List<@Valid CurrentRow> currentRows,
-        List<ChatTurn> history
+        List<ChatTurn> history,
+        /** Điểm BTVN buổi trước đang nhập trên bảng (UC-74, chỉ để AI đọc) — có thể null. */
+        List<HomeworkScoreInput> homeworkScores
 ) {
 
     public enum Mode { INSTRUCTION, REWRITE_ALL }
