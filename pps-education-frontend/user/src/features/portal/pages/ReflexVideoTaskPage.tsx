@@ -15,6 +15,9 @@ import {
 } from "../api";
 import { useIntegrityMonitor } from "../hooks/useIntegrityMonitor";
 import { filterRecording, recordingFilterSupported } from "../lib/reflexRecordingFilter";
+
+/** V200 — mirror ReflexSequentialGradingService.DEFAULT_PICTURE_PROMPT ở backend. */
+const DEFAULT_PICTURE_PROMPT = "Look at the photo. Describe what you can see.";
 import { extractYouTubeVideoId, formatTimestamp, loadYouTubeIframeApi } from "../lib/youtubePlayer";
 import MonitoringBadge from "../components/MonitoringBadge";
 import { ScoreSticker } from "../components/ScoreSticker";
@@ -1369,9 +1372,10 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
               </div>
             )}
 
-            {displayQuestion.prompt && (
+            {/* V200 — câu tả tranh giáo viên để trống đề: hiện câu lệnh mặc định (khớp đề backend gửi AI chấm). */}
+            {(displayQuestion.prompt || displayQuestion.questionFormat === "PICTURE") && (
               <p className={`text-sm sm:text-base lg:text-lg font-bold text-ink ${displayStage !== "writing" ? "pr-40 sm:pr-72" : ""}`}>
-                {displayQuestion.prompt}
+                {displayQuestion.prompt || DEFAULT_PICTURE_PROMPT}
               </p>
             )}
 
