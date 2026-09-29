@@ -26,7 +26,8 @@ export default function AttendanceReminderBanner() {
     return () => window.removeEventListener(ATTENDANCE_CHECKED_EVENT, load);
   }, []);
 
-  if (!myAttendance || myAttendance.id != null) return null;
+  // Xét checkInAt thay vì id: bản ghi MISSING do scheduler tạo có id nhưng chưa hề chấm công vào.
+  if (!myAttendance || myAttendance.checkInAt != null) return null;
 
   return (
     <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-100 p-2.5 rounded-lg">
