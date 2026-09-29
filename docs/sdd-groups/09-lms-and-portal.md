@@ -424,6 +424,26 @@ ban đầu của UC-23b, 2026-07-27)
 
   display_order           INT            NOT NULL
 
+  question_format         VARCHAR(20)    NULL, CHECK IN   V200 — dạng đề
+                                          (SHORT, PART2,   giáo viên chọn;
+                                          PET4, PICTURE)   NULL = câu cũ,
+                                                            suy theo thời
+                                                            lượng
+
+  picture_image_url       VARCHAR(1000)  NULL             V200 — PICTURE:
+                                                            ảnh tranh, chỉ
+                                                            GV xem; không
+                                                            gửi AI chấm
+
+  picture_brief           TEXT           NULL             V200 — PICTURE
+                                                            (bắt buộc): mô
+                                                            tả tranh GV đã
+                                                            duyệt, chỉ gửi
+                                                            lượt chấm để
+                                                            xét lạc đề;
+                                                            không trả cho
+                                                            HS
+
   created_at, updated_at  TIMESTAMPTZ    NOT NULL         BaseAuditEntity
   ------------------------------------------------------------------------
 

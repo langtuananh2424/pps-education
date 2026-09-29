@@ -222,6 +222,46 @@
         "updateThresholdsFailed": "Cập nhật ngưỡng thất bại."
       }
     },
+    "reflexFormat": {
+      "label": "Dạng đề",
+      "auto": "Tự động theo thời gian ghi âm (như câu hỏi cũ)",
+      "loading": "Đang tải dạng đề...",
+      "notSupported": "Chương trình của bộ này chưa có bộ tiêu chí theo dạng đề — câu hỏi chấm theo cách cũ.",
+      "formats": {
+        "SHORT": "Câu hỏi ngắn",
+        "PART2": "Part 2 (cue card)",
+        "PET4": "PET Part 4",
+        "PICTURE": "Tả tranh"
+      },
+      "seconds": "{{count}}s",
+      "briefMissing": "Dạng tả tranh cần có mô tả tranh (2–3 dòng) — bấm \"Soạn tranh & mô tả\"."
+    },
+    "reflexPicture": {
+      "openButton": "Soạn tranh & mô tả",
+      "title": "Tranh và mô tả tranh",
+      "description": "AI chấm KHÔNG nhìn tranh — chỉ đọc mô tả bên dưới để xét học sinh có tả đúng tranh không. Học sinh không thấy mô tả này.",
+      "imageTab": "1. Ảnh",
+      "briefTab": "2. Mô tả",
+      "captureAtLabel": "Chụp tại giây",
+      "captureButton": "Chụp từ video",
+      "capturing": "Đang chụp...",
+      "captureUnavailable": "Video này không chụp được khung hình (video YouTube hoặc chưa tải video lên) — hãy tải ảnh chụp màn hình lên.",
+      "captureHint": "Mặc định chụp đúng mốc hiện câu hỏi. Nếu tranh hiện lệch mốc, sửa giây chụp rồi chụp lại — mốc hiện câu hỏi không đổi.",
+      "uploadLabel": "Hoặc tải ảnh lên",
+      "uploading": "Đang tải ảnh...",
+      "noImage": "Chưa có ảnh — vẫn có thể tự gõ mô tả.",
+      "briefLabel": "Mô tả tranh (2–3 dòng)",
+      "briefPlaceholder": "Nơi chốn / bối cảnh.\nCó ai, đang làm gì.\nChi tiết nổi bật (màu sắc, thời tiết...).",
+      "reviewWarning": "AI chỉ viết nháp — hãy đối chiếu với ảnh và sửa cho đúng trước khi lưu.",
+      "draftButton": "AI viết nháp mô tả",
+      "drafting": "AI đang viết...",
+      "aiUnavailable": "AI chưa viết được mô tả lúc này — hãy tự gõ mô tả.",
+      "noPictureFound": "AI không thấy bức tranh trong ảnh này — kiểm tra lại mốc chụp hoặc tải ảnh khác.",
+      "draftFailed": "Không lấy được bản nháp mô tả.",
+      "captureFailed": "Không chụp được khung hình.",
+      "uploadFailed": "Không tải được ảnh lên.",
+      "saveButton": "Lưu mô tả"
+    },
     "reflexFields": {
       "timestampPlaceholder": "Mốc giây *",
       "maxRecordingPlaceholder": "Ghi âm tối đa (s) *",

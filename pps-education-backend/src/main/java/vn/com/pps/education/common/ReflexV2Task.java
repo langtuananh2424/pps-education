@@ -2,7 +2,9 @@ package vn.com.pps.education.common;
 
 import vn.com.pps.education.domain.Curriculum;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -107,6 +109,84 @@ public record ReflexV2Task(String id, List<String> criteria, List<String> writin
             "g9-ielts-part2", IELTS_SPEAKING, IELTS_WRITING, "GRA", 120, 35, GateScheme.V3, "PART2",
             "IELTS 4.0–5.0 foundation, học sinh 14–15 tuổi", "IELTS Speaking Part 2",
             "rubric-grade9-ielts-writing.md", "rubric-grade9-ielts-speaking.md", RUBRIC_V3);
+
+    // ---- V200: dạng đề chỉ có từ v3 (chọn tường minh qua ReflexQuestionFormat, không suy được từ thời lượng) ----
+
+    /** IELTS Part 2 Khối 7: chuẩn AREA/AEE — bốn câu ngắn đúng, đủ ý là đạt tối đa (rubric v3, 28/9). C3 PART2: <30 từ. */
+    private static final ReflexV2Task GRADE_7_IELTS_PART2 = new ReflexV2Task(
+            "g7-ielts-part2", IELTS_SPEAKING, IELTS_WRITING, "GRA", 60, 30, GateScheme.STANDARD, "PART2",
+            "CEFR A2–B1 (IELTS 3.5–4.0), học sinh 12–13 tuổi", "IELTS Speaking Part 2",
+            "rubric-grade7-ielts-writing.md", "rubric-grade7-ielts-speaking.md", RUBRIC_V3);
+
+    /** Tả tranh Khối 7 Cambridge (PET Speaking Task 2). C3 PICTURE: <18 từ. */
+    private static final ReflexV2Task GRADE_7_CAMBRIDGE_PICTURE = new ReflexV2Task(
+            "g7-cam-pet2", CAMBRIDGE_SPEAKING, CAMBRIDGE_WRITING, "GV", 60, 18, GateScheme.STANDARD, "PICTURE",
+            "CEFR A2–B1, học sinh 12–13 tuổi", "PET Speaking Task 2 (miêu tả ảnh)",
+            "rubric-grade7-cambridge-writing.md", "rubric-grade7-cambridge-speaking.md", RUBRIC_V3);
+
+    /** Tả tranh Khối 8 Cambridge — cột PICTURE bằng đúng Khối 7 (cùng khung AREA/AEE, rubric v3 29/9). C3 PICTURE: <18 từ. */
+    private static final ReflexV2Task GRADE_8_CAMBRIDGE_PICTURE = new ReflexV2Task(
+            "g8-cam-pet2", CAMBRIDGE_SPEAKING, CAMBRIDGE_WRITING, "GV", 60, 18, GateScheme.STANDARD, "PICTURE",
+            "IELTS 4.0 (≈ CEFR A2+/B1), học sinh 13–14 tuổi", "PET Speaking Task 2 (miêu tả ảnh)",
+            "rubric-grade8-cambridge-writing.md", "rubric-grade8-cambridge-speaking.md", RUBRIC_V3);
+
+    /**
+     * V200 — các dạng đề giáo viên được chọn cho khối/tuyến này, kèm dạng bài tương ứng (thứ tự = thứ tự hiện trên
+     * dropdown, dạng đầu tiên là mặc định). Rỗng = chương trình chưa có bộ tiêu chí (Khối 9 Cambridge, thiếu
+     * khối/tuyến) → câu hỏi chấm bằng luồng cũ, không chọn dạng đề.
+     */
+    public static Map<ReflexQuestionFormat, ReflexV2Task> allowedFormats(Curriculum.GradeLevel gradeLevel, Curriculum.Track track) {
+        Map<ReflexQuestionFormat, ReflexV2Task> m = new LinkedHashMap<>();
+        if (gradeLevel == null) {
+            return m;
+        }
+        switch (gradeLevel) {
+            case GRADE_6 -> m.put(ReflexQuestionFormat.SHORT, GRADE_6);
+            case GRADE_7 -> {
+                if (track == Curriculum.Track.IELTS) {
+                    m.put(ReflexQuestionFormat.SHORT, GRADE_7_IELTS);
+                    m.put(ReflexQuestionFormat.PART2, GRADE_7_IELTS_PART2);
+                } else if (track == Curriculum.Track.CAMBRIDGE) {
+                    m.put(ReflexQuestionFormat.SHORT, GRADE_7_CAMBRIDGE);
+                    m.put(ReflexQuestionFormat.PICTURE, GRADE_7_CAMBRIDGE_PICTURE);
+                }
+            }
+            case GRADE_8 -> {
+                if (track == Curriculum.Track.IELTS) {
+                    m.put(ReflexQuestionFormat.SHORT, GRADE_8_IELTS_SHORT);
+                    m.put(ReflexQuestionFormat.PART2, GRADE_8_IELTS_PART2);
+                } else if (track == Curriculum.Track.CAMBRIDGE) {
+                    m.put(ReflexQuestionFormat.PET4, GRADE_8_CAMBRIDGE);
+                    m.put(ReflexQuestionFormat.PICTURE, GRADE_8_CAMBRIDGE_PICTURE);
+                }
+            }
+            case GRADE_9 -> {
+                if (track == Curriculum.Track.IELTS) {
+                    m.put(ReflexQuestionFormat.SHORT, GRADE_9_IELTS_SHORT);
+                    m.put(ReflexQuestionFormat.PART2, GRADE_9_IELTS_PART2);
+                }
+            }
+            default -> {
+            }
+        }
+        return m;
+    }
+
+    /**
+     * V200 — dạng bài của 1 câu hỏi. Có dạng đề (giáo viên chọn, hợp lệ với khối/tuyến) và version v3 → lấy đúng
+     * dạng đó. Không có dạng đề (câu hỏi cũ), dạng đề không hợp lệ, hoặc câu dở dang bằng v2 (bộ v2 không có dạng
+     * đề mới) → suy theo thời lượng như trước.
+     */
+    public static Optional<ReflexV2Task> forQuestion(Curriculum.GradeLevel gradeLevel, Curriculum.Track track,
+                                                     int maxRecordingSeconds, ReflexQuestionFormat format, String rubricVersion) {
+        if (format != null && RUBRIC_V3.equals(rubricVersion)) {
+            ReflexV2Task chosen = allowedFormats(gradeLevel, track).get(format);
+            if (chosen != null) {
+                return Optional.of(chosen);
+            }
+        }
+        return forGradeTrack(gradeLevel, track, maxRecordingSeconds, rubricVersion);
+    }
 
     public static boolean isSupportedVersion(String rubricVersion) {
         return RUBRIC_V2.equals(rubricVersion) || RUBRIC_V3.equals(rubricVersion);
