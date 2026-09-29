@@ -141,7 +141,8 @@
         "ATTITUDE_MISMATCH": "Thái độ không khớp",
         "FORBIDDEN_TOPIC": "chủ đề không nên nhắc",
         "OTHER": "lỗi khác"
-      }
+      },
+      "repeatedPatternGroup": "{{count}} dòng dùng chung khuôn câu với nhiều bạn (câu mở/kết hoặc cụm lặp lại): {{names}}. Không chặn duyệt — nên nhắc giáo viên đa dạng cách viết."
     },
     "assistant": {
       "openButton": "Trợ lý duyệt AI",
