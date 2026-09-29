@@ -62,15 +62,19 @@ Bảng này CHỈ dùng để chọn mức nội bộ — tuyệt đối không 
 - Không nhắc sức khoẻ, hoàn cảnh gia đình, hình thức kỷ luật, không dán nhãn tính cách ("con hay nóng tính", "con nhút nhát").
 
 ## 5. Gợi ý đa dạng câu mở đầu và câu kết
-Trong cùng 1 buổi, mỗi kiểu chỉ dùng cho 1 học sinh; chọn luân phiên, diễn đạt lại theo ý giáo viên.
+Trong mỗi lượt viết: không dùng cùng 1 kiểu mở đầu (hoặc câu kết) cho 2 học sinh LIỀN KỀ; có ít nhất 4 kiểu mở đầu và 3 kiểu kết khác nhau. Chọn luân phiên, diễn đạt lại theo ý giáo viên — không chép nguyên câu gợi ý.
 
 Mở đầu:
-1. Bắt đầu bằng tên + hành động: "An tập trung nghe giảng suốt buổi."
-2. Bắt đầu bằng điểm nổi bật: "Điểm đáng khen nhất buổi này là…"
-3. Bắt đầu bằng tinh thần học: "Tinh thần học của An hôm nay rất tích cực."
-4. Bắt đầu bằng hoạt động: "Ở phần hoạt động nhóm, An…"
-5. Bắt đầu bằng lời ghi nhận của giáo viên (khi biết thầy/cô): "Cô ghi nhận An…"
-6. Bắt đầu bằng điều cần lưu ý (khi ý chính là cần cải thiện): "An cần chú ý hơn…"
+1. Tên + hành động: "An tập trung nghe giảng suốt buổi."
+2. Điểm nổi bật: "Điểm đáng khen nhất buổi này là…"
+3. Tinh thần học: "Tinh thần học của An hôm nay rất tích cực."
+4. Hoạt động cụ thể: "Ở phần hoạt động nhóm, An…"
+5. Điều cần lưu ý (khi ý chính là cần cải thiện): "An cần chú ý hơn…"
+6. Kỹ năng: "Phần Speaking hôm nay, An…"
+7. Thái độ với bạn bè: "An hợp tác rất tốt với các bạn trong nhóm."
+8. Sự thay đổi của chính học sinh (chỉ khi giáo viên có nói): "So với buổi trước, An đã mạnh dạn hơn."
+9. Câu ngắn gọn khởi đầu: "Một buổi học tích cực của An."
+10. Lời ghi nhận của giáo viên — CHỈ khi teacherPronoun có giá trị, dùng đúng đại từ đó (VD "[thầy/cô theo teacherPronoun] ghi nhận An…").
 
 Câu kết:
 1. Lời hẹn: "Hẹn gặp con ở buổi sau nhé."
@@ -78,8 +82,35 @@ Câu kết:
 3. Định hướng cụ thể: "Buổi sau con thử giơ tay phát biểu trước nhé."
 4. Mong muốn: "Mong con giữ vững tinh thần này."
 5. Động viên ngắn: "Cố lên con!"
+6. Gợi ý ôn luyện: "Con ôn lại phần vừa học để buổi sau tự tin hơn nhé."
+7. Niềm tin: "Chắc chắn con sẽ tiến bộ nhanh."
+8. Không cần câu kết riêng khi nhận xét đã trọn ý (với nhận xét ngắn).
 
-## 6. Mẫu câu tham khảo (chỉ lấy văn phong, KHÔNG chép nguyên văn)
-- Tốt: "... tập trung nghe giảng và hăng hái phát biểu, …"
-- Cần cải thiện: "... trong giờ còn nói chuyện riêng, … mong con chú ý hơn ở buổi sau."
-<!-- TODO(học vụ): bổ sung 2–3 câu nhận xét THẬT đã được Quản lý duyệt cho mỗi mức Thái độ (Xuất sắc/Tốt/Khá/Trung bình/Yếu). Chọn lọc vài câu tiêu biểu, không dán quá nhiều. -->
+## 6. Mẫu câu tham khảo theo mức Thái độ
+Tổng hợp từ nhận xét cũ của trung tâm — chỉ lấy VĂN PHONG, KHÔNG chép nguyên văn. Mẫu viết "Con" cho gọn; khi viết thật, câu đầu dùng tên gọi. Mẫu cố ý KHÔNG có đại từ "thầy/cô" (đại từ chỉ dùng theo teacherPronoun).
+
+Xuất sắc (EXCELLENT):
+- "Con sẵn sàng giúp các bạn chỉnh sửa khi phát âm chưa chính xác — tinh thần hợp tác này rất đáng khen."
+- "Con chủ động đặt câu hỏi khi chưa hiểu bài, cho thấy con thực sự muốn nắm chắc kiến thức."
+
+Tốt (GOOD):
+- "Con tập trung nghe giảng và hăng hái phát biểu, góp phần làm lớp học sôi nổi."
+- "Con hoàn thành đầy đủ nhiệm vụ trên lớp và hợp tác tốt với bạn bè."
+
+Khá (FAIR):
+- "Con ngoan và hoàn thành bài, tuy đôi lúc còn cần nhắc nhở để tập trung hơn."
+- "Nhìn chung con ổn, chỉ cần mạnh dạn phát biểu thêm là sẽ tiến bộ nhanh."
+
+Trung bình (AVERAGE):
+- "Con còn nói chuyện riêng trong giờ, cần tập trung hơn để không bỏ lỡ bài học. Mong con chú ý hơn ở buổi sau."
+- "Con chưa tham gia xây dựng bài và còn làm việc riêng. Buổi sau con thử giơ tay phát biểu trước nhé."
+
+Yếu (WEAK):
+- "Con chưa hoàn thành nhiệm vụ dù đã được nhắc. Mong con nghiêm túc hơn với việc học, bắt đầu từ việc chuẩn bị bài đầy đủ."
+- "Con cần tập trung ngay từ đầu giờ, tránh để việc riêng ảnh hưởng đến lớp. Hy vọng buổi sau con sẽ thay đổi."
+
+Góp ý mềm (dùng thay vì chê trực tiếp):
+- "Nếu con ôn kỹ hơn phần ngữ pháp, kết quả sẽ còn tiến bộ hơn nữa."
+- "Chỉ cần cẩn thận hơn khi làm bài, con sẽ tránh được lỗi nhỏ."
+- "Con thử chú ý hơn đến các từ nối giữa các đoạn để nắm mạch bài nhé."
+<!-- Học vụ có thể thay/bổ sung bằng câu thật đã được Quản lý duyệt. Quy tắc: câu mẫu KHÔNG chứa "thầy"/"cô" (có test tự động kiểm tra — CommentAiRubricTest). -->

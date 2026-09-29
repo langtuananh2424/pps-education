@@ -2233,7 +2233,7 @@ Ghi chú kỹ thuật (bổ sung ngoài SDD gốc, đã xác nhận với ngư�
     (1) không nhận ra thầy hay cô thì viết câu không chủ ngữ giáo viên
     ("Mong con…"), KHÔNG viết "thầy/cô"; (2) rubric thêm quy tắc xưng hô
     (câu đầu gọi tên, sau dùng "con"), nhịp câu, kho kiểu câu mở đầu/câu
-    kết (mỗi kiểu 1 học sinh/buổi), phân biệt tên kỹ năng (được) với tên
+    kết (quy tắc phân bổ xem bổ sung "sau đánh giá lần 3" bên dưới), phân biệt tên kỹ năng (được) với tên
     bài học (cấm), cho phép so sánh với chính học sinh ở buổi trước khi
     giáo viên có nói; (3) học sinh được nhắc riêng vẫn CHỈ dùng ý riêng
     (không gộp ý chung của lớp); (4) trợ lý KHÔNG tự đổi mức Thái độ để
@@ -2253,6 +2253,20 @@ Ghi chú kỹ thuật (bổ sung ngoài SDD gốc, đã xác nhận với ngư�
     nhận con số và vẫn không được ghi số vào nhận xét; không ảnh hưởng mức
     Thái độ; lời giáo viên khác dữ liệu thì theo lời giáo viên. Quy tắc cũ
     "không nhắc BTVN" đổi thành "không ghi con số/hạn nộp".
+-   **Bổ sung 2026-09-29 (sau đánh giá rubric lần 3):** (1) kho kiểu câu
+    mở rộng lên 10 kiểu mở đầu (kiểu 10 — ghi nhận của giáo viên — chỉ dùng
+    khi có `teacherPronoun`) và 8 kiểu câu kết; bỏ quy tắc "mỗi kiểu 1 học
+    sinh/buổi" (không khả thi với lớp ~26 học sinh), thay bằng: 2 học sinh
+    LIỀN KỀ không cùng kiểu, mỗi lô viết dùng ≥ 4 kiểu mở đầu và ≥ 3 kiểu
+    kết; mỗi nhận xét có ít nhất 1 câu ngắn (≤ 8 từ); (2) rubric mục 6 thêm
+    câu mẫu theo từng mức Thái độ + "góp ý mềm", tổng hợp từ nhận xét cũ
+    (chỉ lấy văn phong, không chép), KHÔNG chứa "thầy/cô" — có
+    `CommentAiRubricTest` kiểm tra; (3) bước trích ý: 1 câu nêu tên nhiều
+    học sinh tách thành từng học sinh cùng dẫn chứng, ý của học sinh này
+    không được chứa tên học sinh khác, khớp tên không chắc thì đưa vào
+    danh sách chưa khớp; (4) prompt sửa theo lệnh có ví dụ lặp nguyên văn
+    và cách xử lý khi giáo viên đổi xưng hô; prompt gợi ý bản sửa (UC-75)
+    có danh sách 5 điểm tự kiểm trước khi trả kết quả.
 
 ---
 
