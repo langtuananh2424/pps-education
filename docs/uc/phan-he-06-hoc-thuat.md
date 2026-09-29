@@ -2233,7 +2233,7 @@ Ghi chú kỹ thuật (bổ sung ngoài SDD gốc, đã xác nhận với ngư�
     (1) không nhận ra thầy hay cô thì viết câu không chủ ngữ giáo viên
     ("Mong con…"), KHÔNG viết "thầy/cô"; (2) rubric thêm quy tắc xưng hô
     (câu đầu gọi tên, sau dùng "con"), nhịp câu, kho kiểu câu mở đầu/câu
-    kết (mỗi kiểu 1 học sinh/buổi), phân biệt tên kỹ năng (được) với tên
+    kết (quy tắc phân bổ xem bổ sung "sau đánh giá lần 3" bên dưới), phân biệt tên kỹ năng (được) với tên
     bài học (cấm), cho phép so sánh với chính học sinh ở buổi trước khi
     giáo viên có nói; (3) học sinh được nhắc riêng vẫn CHỈ dùng ý riêng
     (không gộp ý chung của lớp); (4) trợ lý KHÔNG tự đổi mức Thái độ để
@@ -2253,6 +2253,57 @@ Ghi chú kỹ thuật (bổ sung ngoài SDD gốc, đã xác nhận với ngư�
     nhận con số và vẫn không được ghi số vào nhận xét; không ảnh hưởng mức
     Thái độ; lời giáo viên khác dữ liệu thì theo lời giáo viên. Quy tắc cũ
     "không nhắc BTVN" đổi thành "không ghi con số/hạn nộp".
+-   **Bổ sung 2026-09-29 (sau đánh giá rubric lần 3):** (1) kho kiểu câu
+    mở rộng lên 10 kiểu mở đầu (kiểu 10 — ghi nhận của giáo viên — chỉ dùng
+    khi có `teacherPronoun`) và 8 kiểu câu kết; bỏ quy tắc "mỗi kiểu 1 học
+    sinh/buổi" (không khả thi với lớp ~26 học sinh), thay bằng: 2 học sinh
+    LIỀN KỀ không cùng kiểu, mỗi lô viết dùng ≥ 4 kiểu mở đầu và ≥ 3 kiểu
+    kết; mỗi nhận xét có ít nhất 1 câu ngắn (≤ 8 từ); (2) rubric mục 6 thêm
+    câu mẫu theo từng mức Thái độ + "góp ý mềm", tổng hợp từ nhận xét cũ
+    (chỉ lấy văn phong, không chép), KHÔNG chứa "thầy/cô" — có
+    `CommentAiRubricTest` kiểm tra; (3) bước trích ý: 1 câu nêu tên nhiều
+    học sinh tách thành từng học sinh cùng dẫn chứng, ý của học sinh này
+    không được chứa tên học sinh khác, khớp tên không chắc thì đưa vào
+    danh sách chưa khớp; (4) prompt sửa theo lệnh có ví dụ lặp nguyên văn
+    và cách xử lý khi giáo viên đổi xưng hô; prompt gợi ý bản sửa (UC-75)
+    có danh sách 5 điểm tự kiểm trước khi trả kết quả.
+-   **Bổ sung 2026-09-29 (bảng tổng hợp 32 mục):** (1) rubric mục 4 định
+    nghĩa rõ dạng trường "homework" (các mức và câu gợi ý tương ứng), cấm
+    mọi dạng lộ điểm kể cả viết bằng chữ ("12/14", "đúng 41/49 câu", "3
+    sao"…), thêm ví dụ SAI khi nhắc tên bạn, cấm đe doạ/kỷ luật/phạt, nhắc
+    giáo viên khác, hoạt động ngoài giờ học; mục 6 thêm câu mẫu góp ý theo
+    lỗi cụ thể, khen có bằng chứng, ghi nhận tiến bộ, gợi ý cách luyện
+    (không đại từ, không chữ số); (2) bước trích ý trả thêm `sharedWith`
+    (studentId các bạn được nhận xét chung 1 câu, VD "An / Bình: …") —
+    backend lọc chỉ giữ học sinh trong danh sách, bước viết nhận
+    `sharedWithStudentIds` để diễn đạt khác nhau và không nhắc tên nhau;
+    (3) cảnh báo mới `PRONOUN_MISMATCH` (quy tắc, không cần AI): chưa rõ
+    giáo viên xưng thầy hay cô mà nhận xét có "thầy/cô", hoặc lẫn đại từ
+    còn lại; (4) UC-75 sửa theo lệnh: dữ liệu gửi AI kèm `commentDate`/
+    `classSessionId`, tên khớp nhiều nhận xét mà Quản lý không nói rõ buổi
+    nào thì AI hỏi lại thay vì đoán.
+-   **Bổ sung 2026-09-29 (đã xác nhận với người dùng):** (1) *chặn lặp kiểu
+    câu bằng code* (`CommentPatternCheck`): so "khoá" câu mở đầu (3 từ đầu
+    sau khi bỏ tên học sinh) và câu kết (3 từ đầu câu cuối). Trùng với bạn
+    liền trước, hoặc 1 kiểu vượt `app.ai-comment-draft.max-pattern-share`
+    (mặc định 0.3, tối thiểu 2 bạn) thì viết lại 1 lần cùng bước 7; vẫn
+    trùng thì cảnh báo `REPEATED_PATTERN` (không nhắc thêm nếu dòng đã có
+    `SIMILAR_IN_SESSION`). (2) *log chỉ số* (phương án A, không đổi schema):
+    mỗi lần soạn nháp/viết lại toàn bộ ghi 1 dòng log `COMMENT_AI_METRICS
+    {json}` gồm tỷ lệ lặp mở/kết, độ dài trung bình, số dòng có câu ngắn,
+    số dòng theo từng cảnh báo, số lần nhắc BTVN khi không có dữ liệu —
+    không chứa nội dung hay tên học sinh. `scripts/comment-ai-metrics.py`
+    tổng hợp theo tuần và đối chiếu ngưỡng đã thống nhất.
+-   **Bổ sung 2026-09-29 (tổng hợp nhận xét thật của 21 lớp):** (1) rubric
+    cấm thêm các dạng lộ điểm đã gặp (điểm thập phân, số lần xung phong,
+    bảng xếp hạng xung phong) và dạng "báo cáo điểm" liệt kê ("Điểm thể
+    hiện trên lớp: …"); cấm số trang/tên dạng bài, nghỉ học, đi thi, đá
+    bóng; thêm danh sách cụm sáo mòn (mỗi cụm tối đa 1–2 lần/lượt), 1 kiểu
+    câu kết và câu mẫu mới (đã bỏ đại từ, tên bài, tên giáo viên). (2) code
+    chặn thêm cụm sáo mòn (`CommentPatternCheck.OVERUSED_PHRASES`, vd "hơn
+    thế nữa", "mong con", "con ngoan"): cụm vượt cùng ngưỡng
+    `max-pattern-share` thì viết lại, vẫn vượt thì cảnh báo
+    `REPEATED_PATTERN`. Không đưa bảng xếp hạng giáo viên vào hệ thống.
 
 ---
 
@@ -2528,6 +2579,33 @@ Ghi chú kỹ thuật (bổ sung ngoài SDD gốc, đã xác nhận với ngư�
 -   Quản lý điểm trường thuần (không kiêm Giáo viên) vẫn KHÔNG dùng được trợ
     lý soạn nháp của UC-74 (không có quyền `academic.comment.write`) — UC-75
     là trợ lý riêng cho khâu duyệt.
+-   **Bổ sung 2026-09-29 (đã xác nhận với người dùng):**
+    (1) *Nhắc chuỗi Thái độ cho Quản lý* — `POST /api/comments/attitude-alert-preview`
+    (body `commentIds`, chỉ đọc, không gọi AI, cùng rào với soát): dòng Yếu/
+    Trung bình hiện nhãn "Sẽ báo phụ huynh" ngay ở cột Thái độ, dòng chạm
+    mốc cảnh báo 3 buổi liên tiếp hiện nhãn đỏ. Cách tính mô phỏng đúng
+    `StudentAttitudeAlertTrackingService#evaluateAndNotify`, nếu duyệt các
+    dòng của cùng học sinh theo thứ tự ngày. Bấm "Duyệt dòng không có cảnh
+    báo" hoặc "Duyệt cả lớp" mà nhóm có dòng như vậy thì hỏi xác nhận trước.
+    (2) *Lưu ý BTVN ngược dữ liệu* — bước soát gửi thêm kết quả BTVN buổi
+    trước đã lưu trên dòng (quy ra lời bằng `HomeworkScoreInsight`, không
+    kèm số); AI chỉ gắn `HOMEWORK_MISMATCH` khi nhận xét nói RÕ ngược dữ
+    liệu. Đây là *lưu ý* (`notices`), không phải lỗi: dòng vẫn tính là sạch.
+    Không có dữ liệu hoặc không nhắc BTVN thì không báo (giáo viên có thể
+    biết thông tin ngoài dữ liệu).
+    (3) *Tóm tắt lô* — kết quả soát có `summary` đếm bằng code: số dòng
+    sạch, số dòng theo từng loại lỗi, số dòng sẽ báo phụ huynh / chạm mốc 3
+    buổi, số dòng BTVN ngược dữ liệu; sidebar hiện thành các chip.
+    (4) *AI gợi ý lý do từ chối* — `POST /api/comments/{id}/ai-rejection-reason`
+    + `GET /api/comment-ai-rejection-reasons/{jobId}`: AI soạn 1–2 câu gửi
+    giáo viên dựa trên cảnh báo đã soát, rồi mở đúng hộp thoại Từ chối
+    với lý do điền sẵn. Quản lý sửa và tự bấm xác nhận; trợ lý không tự từ
+    chối.
+    (5) *Giáo viên lặp khuôn câu* (bổ sung 2026-09-29) — kiểm tra bằng code
+    theo từng buổi (cùng `CommentPatternCheck` với UC-74): dòng dùng chung câu
+    mở/kết hoặc cụm sáo mòn quá ngưỡng được gắn lưu ý `REPEATED_PATTERN`
+    (không chặn duyệt, không gắn nếu dòng đã có `SIMILAR_IN_SESSION`), tóm tắt
+    có `repeatedPatternCount`.
 
 ---
 

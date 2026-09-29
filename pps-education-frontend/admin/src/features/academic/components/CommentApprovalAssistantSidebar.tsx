@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { AlertTriangle, Bot, Check, CheckCheck, Loader2, Mic, Paperclip, RefreshCw, Sparkles, X } from "lucide-react";
+import { AlertTriangle, BellRing, Bot, Check, CheckCheck, Info, Loader2, Mic, Paperclip, RefreshCw, Sparkles, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import Select from "@/components/ui/Select";
@@ -8,7 +8,9 @@ import {
   CommentAiInstructionResult,
   CommentAiReview,
   CommentAiReviewResult,
+  CommentAiReviewSummary,
   CommentAiSuggestionResult,
+  CommentAttitudeAlert,
   StudentCommentResponse,
   commentAiInstructionJobPath,
   startCommentAiInstruction,
@@ -23,7 +25,14 @@ export interface PendingClassOption {
 
 type ChatMessageInput =
   | { role: "manager"; text: string; audioUrl?: string }
-  | { role: "assistant"; text: string; error?: boolean; reviewClassId?: number; instruction?: CommentAiInstructionResult };
+  | {
+      role: "assistant";
+      text: string;
+      error?: boolean;
+      reviewClassId?: number;
+      summary?: CommentAiReviewSummary;
+      instruction?: CommentAiInstructionResult;
+    };
 type ChatMessage = ChatMessageInput & { id: number };
 
 interface Props {
@@ -40,6 +49,11 @@ interface Props {
   /** Duyệt các dòng đã soát và không có cảnh báo — Quản lý bấm, trợ lý không tự duyệt. Trả số dòng đã duyệt. */
   onApproveClean: (classId: number) => Promise<number>;
   onSuggest: (comment: StudentCommentResponse) => Promise<void>;
+  /** AI soạn sẵn lý do từ chối rồi mở hộp thoại Từ chối điền sẵn — Quản lý sửa và tự bấm xác nhận. */
+  onRejectWithAi: (comment: StudentCommentResponse) => Promise<void>;
+  draftingReasonId: number | null;
+  /** Dòng Yếu/Trung bình: duyệt sẽ báo phụ huynh (bổ sung 2026-09-29). */
+  attitudeAlertById: Record<number, CommentAttitudeAlert>;
   onApplySuggestion: (comment: StudentCommentResponse) => Promise<boolean>;
   onDismissSuggestion: (commentId: number) => void;
   /** Lưu 1 bản sửa qua đúng chức năng sửa nội dung Chờ duyệt của UC-22. */
@@ -65,6 +79,9 @@ export default function CommentApprovalAssistantSidebar({
   onReview,
   onApproveClean,
   onSuggest,
+  onRejectWithAi,
+  draftingReasonId,
+  attitudeAlertById,
   onApplySuggestion,
   onDismissSuggestion,
   onApplyContent,
@@ -107,7 +124,11 @@ export default function CommentApprovalAssistantSidebar({
     setBusy(true);
     try {
       const result = await onReview(classId);
-      push(result ? { role: "assistant", text: result.message, reviewClassId: classId } : { role: "assistant", text: t("approvalByClass.aiReview.errors.failed"), error: true });
+      push(
+        result
+          ? { role: "assistant", text: result.message, reviewClassId: classId, summary: result.summary }
+          : { role: "assistant", text: t("approvalByClass.aiReview.errors.failed"), error: true }
+      );
     } finally {
       setBusy(false);
     }
@@ -227,10 +248,47 @@ export default function CommentApprovalAssistantSidebar({
             <div key={m.id} className="flex justify-start">
               <div className={`max-w-[95%] w-full text-sm rounded-2xl rounded-bl-sm px-3 py-2 space-y-2 border ${m.error ? "bg-rose-50 border-rose-100 text-rose-700" : "bg-slate-50 border-slate-200 text-slate-700"}`}>
                 <p className="whitespace-pre-wrap">{m.text}</p>
+                {m.summary && (
+                  <div className="flex flex-wrap gap-1">
+                    <span className="text-[11px] font-semibold rounded-full px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      {t("approvalByClass.aiReview.summary.clean", { count: m.summary.cleanCount })}
+                    </span>
+                    {m.summary.issueCounts.map((c) => (
+                      <span key={c.type} className="text-[11px] font-semibold rounded-full px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-200">
+                        {t("approvalByClass.aiReview.summary.issue", {
+                          count: c.count,
+                          label: t(`approvalByClass.aiReview.issueType.${c.type}`, { defaultValue: c.type })
+                        })}
+                      </span>
+                    ))}
+                    {m.summary.parentAlertCount > 0 && (
+                      <span className="text-[11px] font-semibold rounded-full px-2 py-0.5 bg-orange-50 text-orange-700 border border-orange-200">
+                        {t("approvalByClass.aiReview.summary.parentAlerts", { count: m.summary.parentAlertCount })}
+                      </span>
+                    )}
+                    {m.summary.escalationCount > 0 && (
+                      <span className="text-[11px] font-semibold rounded-full px-2 py-0.5 bg-rose-50 text-rose-700 border border-rose-200">
+                        {t("approvalByClass.aiReview.summary.escalations", { count: m.summary.escalationCount })}
+                      </span>
+                    )}
+                    {m.summary.repeatedPatternCount > 0 && (
+                      <span className="text-[11px] font-semibold rounded-full px-2 py-0.5 bg-sky-50 text-sky-700 border border-sky-200">
+                        {t("approvalByClass.aiReview.summary.repeatedPattern", { count: m.summary.repeatedPatternCount })}
+                      </span>
+                    )}
+                    {m.summary.homeworkMismatchCount > 0 && (
+                      <span className="text-[11px] font-semibold rounded-full px-2 py-0.5 bg-sky-50 text-sky-700 border border-sky-200">
+                        {t("approvalByClass.aiReview.summary.homeworkMismatch", { count: m.summary.homeworkMismatchCount })}
+                      </span>
+                    )}
+                  </div>
+                )}
                 {m.reviewClassId != null && m.id === latestReviewMessageId && (() => {
                   const cls = classes.find((c) => c.classId === m.reviewClassId);
                   if (!cls) return <p className="text-xs text-slate-400 italic">{t("approvalByClass.assistant.classDone")}</p>;
-                  const flagged = cls.items.filter((cm) => (reviewByCommentId[cm.id]?.issues.length ?? 0) > 0);
+                  const noticesOf = (id: number) => (reviewByCommentId[id]?.notices ?? []).filter((n) => n.type !== "ATTITUDE_ALERT");
+                  // Dòng có lỗi, hoặc chỉ có lưu ý của AI (VD BTVN ngược dữ liệu) — lưu ý không chặn "Duyệt dòng không có cảnh báo".
+                  const flagged = cls.items.filter((cm) => (reviewByCommentId[cm.id]?.issues.length ?? 0) > 0 || noticesOf(cm.id).length > 0);
                   const cleanCount = cls.items.filter((cm) => reviewByCommentId[cm.id] && reviewByCommentId[cm.id].issues.length === 0).length;
                   return (
                     <div className="space-y-2">
@@ -258,6 +316,21 @@ export default function CommentApprovalAssistantSidebar({
                             return (
                               <li key={cm.id} className="bg-white border border-amber-200 rounded-lg p-2 space-y-1">
                                 <p className="font-bold text-slate-800">{cm.studentFullName}</p>
+                                {attitudeAlertById[cm.id] && (
+                                  <p className={`flex items-start gap-1 text-xs ${attitudeAlertById[cm.id].escalation ? "text-rose-700" : "text-orange-700"}`}>
+                                    <BellRing className="w-3 h-3 mt-0.5 shrink-0" />
+                                    {attitudeAlertById[cm.id].message}
+                                  </p>
+                                )}
+                                {noticesOf(cm.id).map((notice, i) => (
+                                  <p key={`n${i}`} className="flex items-start gap-1 text-xs text-sky-800">
+                                    <Info className="w-3 h-3 mt-0.5 shrink-0" />
+                                    <span>
+                                      <span className="font-bold">{t("approvalByClass.aiReview.notice")}: </span>
+                                      {notice.message}
+                                    </span>
+                                  </p>
+                                ))}
                                 {reviewByCommentId[cm.id].issues.map((issue, i) => (
                                   <p key={i} className="flex items-start gap-1 text-xs text-amber-800">
                                     <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
@@ -293,15 +366,26 @@ export default function CommentApprovalAssistantSidebar({
                                     </div>
                                   </div>
                                 ) : (
-                                  <button
-                                    type="button"
-                                    onClick={() => void onSuggest(cm)}
-                                    disabled={suggestingId !== null}
-                                    className="flex items-center gap-1 text-xs font-bold text-violet-700 hover:underline disabled:opacity-50"
-                                  >
-                                    {suggestingId === cm.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                                    {suggestingId === cm.id ? t("approvalByClass.aiReview.suggesting") : t("approvalByClass.aiReview.suggestButton")}
-                                  </button>
+                                  <div className="flex flex-wrap gap-3">
+                                    <button
+                                      type="button"
+                                      onClick={() => void onSuggest(cm)}
+                                      disabled={suggestingId !== null}
+                                      className="flex items-center gap-1 text-xs font-bold text-violet-700 hover:underline disabled:opacity-50"
+                                    >
+                                      {suggestingId === cm.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                                      {suggestingId === cm.id ? t("approvalByClass.aiReview.suggesting") : t("approvalByClass.aiReview.suggestButton")}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => void onRejectWithAi(cm)}
+                                      disabled={draftingReasonId !== null}
+                                      className="flex items-center gap-1 text-xs font-bold text-rose-700 hover:underline disabled:opacity-50"
+                                    >
+                                      {draftingReasonId === cm.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
+                                      {draftingReasonId === cm.id ? t("approvalByClass.aiReview.rejectReasonLoading") : t("approvalByClass.aiReview.rejectReasonButton")}
+                                    </button>
+                                  </div>
                                 )}
                               </li>
                             );

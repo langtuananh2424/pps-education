@@ -21,13 +21,19 @@ public record CommentAiDraftResult(
 
     /**
      * @param teacherPronoun đại từ giáo viên tự xưng ("thầy"/"cô") lấy từ lời nói/ghi chú — AI viết nhất quán
-     *                       theo đại từ này; {@code null} khi không xác định được (viết "thầy/cô").
+     *                       theo đại từ này; {@code null} khi không xác định được (viết câu không chủ ngữ giáo viên, không dùng "thầy/cô").
      */
     public record Extraction(String classAttitude, List<String> classPoints, List<IndividualPoints> individuals,
                              String teacherPronoun) {
     }
 
-    public record IndividualPoints(Long studentId, String attitude, List<String> points, String evidence) {
+    /**
+     * @param sharedWith studentId các bạn được giáo viên nhận xét CHUNG 1 câu với học sinh này (VD "An / Bình: nói
+     *                   chuyện riêng") — mỗi bạn vẫn là 1 dòng riêng, bước viết phải diễn đạt khác nhau và không nhắc
+     *                   tên bạn kia; rỗng khi không có.
+     */
+    public record IndividualPoints(Long studentId, String attitude, List<String> points, String evidence,
+                                   List<Long> sharedWith) {
     }
 
     /** @param source {@code CLASS} (dùng ý chung cả lớp) hoặc {@code INDIVIDUAL} (được giáo viên nhắc riêng). */
@@ -38,7 +44,8 @@ public record CommentAiDraftResult(
     /**
      * @param type {@code SIMILAR_IN_SESSION} (giống học sinh khác trong buổi), {@code SIMILAR_TO_PREVIOUS}
      *             (giống nhận xét buổi trước của chính học sinh), {@code LESSON_TITLE} (nhắc tên bài học), {@code CONTAINS_DIGITS} (có chữ số — AI
-     *             không được ghi điểm/số liệu), {@code NOT_WRITTEN} (AI không trả nhận xét cho học sinh này).
+     *             không được ghi điểm/số liệu), {@code NOT_WRITTEN} (AI không trả nhận xét cho học sinh này), {@code ATTITUDE_ALERT} (nhắc chuỗi Thái độ
+     *             Yếu/Trung bình), {@code PRONOUN_MISMATCH} (xưng hô thầy/cô không khớp giáo viên).
      * @param similarity tỷ lệ trùng 0..1 (chỉ có với 2 loại SIMILAR_*).
      */
     public record Warning(String type, String message, Double similarity) {

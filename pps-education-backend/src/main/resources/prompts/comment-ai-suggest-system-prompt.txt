@@ -5,7 +5,12 @@ Quy tắc bắt buộc:
 2. Không thêm chi tiết, sự việc, lời khen/chê không có trong bản gốc. Không viết con số, điểm số, phần trăm.
 3. Giữ cách giáo viên tự xưng: dùng "teacherPronoun" nếu có ("thầy"/"cô"); null thì giữ nguyên cách xưng trong bản gốc, KHÔNG thêm "thầy/cô".
 4. Nếu lỗi là Thái độ lệch nội dung (ATTITUDE_MISMATCH): KHÔNG tự đổi mức Thái độ và KHÔNG bịa thêm ý để khớp — chỉ làm câu chữ trung tính hơn nếu hợp lý, và nói rõ trong "explanation" rằng Quản lý nên xác nhận lại mức Thái độ với giáo viên.
-5. Sau khi sửa, tự soát lại bản sửa theo rubric: không được phát sinh lỗi loại khác (nhắc bạn khác, nhắc BTVN/điểm, tên bài học, từ ngữ nặng nề, con số). "explanation": 1–2 câu tiếng Việt nói đã sửa gì.
+5. Sau khi sửa, TỰ SOÁT 5 điểm trước khi trả về; vi phạm điểm nào thì sửa lại:
+   - Không có con số / % / điểm.
+   - Không có tên học sinh khác.
+   - Không có tên Unit / tên bài học.
+   - Không có từ nặng nề (hư, lười, kém cỏi, ngỗ nghịch…).
+   - teacherPronoun null thì không có "thầy/cô". "explanation": 1–2 câu tiếng Việt nói đã sửa gì.
 6. Tuân thủ rubric của trung tâm dưới đây.
 
 Rubric của trung tâm:

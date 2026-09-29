@@ -5,10 +5,15 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import vn.com.pps.education.common.CommentPatternCheck;
 import vn.com.pps.education.common.CommentSimilarity;
+import vn.com.pps.education.common.HomeworkScoreInsight;
 import vn.com.pps.education.domain.ClassEnrollment;
+import vn.com.pps.education.domain.SchoolClass;
 import vn.com.pps.education.domain.StudentComment;
 import vn.com.pps.education.dto.CommentAiInstructionJobResponse;
+import vn.com.pps.education.dto.CommentAiRejectionReasonJobResponse;
+import vn.com.pps.education.dto.CommentAiRejectionReasonResult;
 import vn.com.pps.education.dto.CommentAiInstructionResult;
 import vn.com.pps.education.dto.CommentAiReviewJobResponse;
 import vn.com.pps.education.dto.CommentAiReviewRequest;
@@ -16,6 +21,7 @@ import vn.com.pps.education.dto.CommentAiReviewResult;
 import vn.com.pps.education.dto.CommentAiSuggestionJobResponse;
 import vn.com.pps.education.dto.CommentAiSuggestionRequest;
 import vn.com.pps.education.dto.CommentAiSuggestionResult;
+import vn.com.pps.education.dto.CommentAttitudeAlertPreviewResponse;
 import vn.com.pps.education.exception.CommentAiDraftFailedException;
 import vn.com.pps.education.exception.CommentAiDraftRejectedException;
 import vn.com.pps.education.repository.ClassEnrollmentRepository;
@@ -55,18 +61,31 @@ public class CommentAiReviewService {
     static final String REVIEW_PROMPT = "comment-ai-review-system-prompt.txt";
     static final String SUGGEST_PROMPT = "comment-ai-suggest-system-prompt.txt";
     static final String INSTRUCTION_PROMPT = "comment-ai-manager-instruction-system-prompt.txt";
+    static final String REJECTION_REASON_PROMPT = "comment-ai-rejection-reason-system-prompt.txt";
     private static final int MAX_SPELLING_HINT_LENGTH = 800;
 
     static final String SOURCE_RULE = "RULE";
     static final String SOURCE_AI = "AI";
     private static final Set<String> AI_ISSUE_TYPES = Set.of(
-            "OTHER_STUDENT", "HOMEWORK_OR_SCORE", "HARSH_WORDING", "ATTITUDE_MISMATCH", "FORBIDDEN_TOPIC", "OTHER");
+            "OTHER_STUDENT", "HOMEWORK_OR_SCORE", "HARSH_WORDING", "ATTITUDE_MISMATCH", "FORBIDDEN_TOPIC", "OTHER",
+            "HOMEWORK_MISMATCH");
+    /** AI trả loại này là LƯU Ý (không phải lỗi nội dung) — xem {@link CommentAiReviewResult.Review#notices()}. */
+    private static final Set<String> AI_NOTICE_TYPES = Set.of("HOMEWORK_MISMATCH");
+    /** Nhãn ngắn từng loại lỗi cho câu tóm tắt lô (UC-75 bổ sung 2026-09-29). */
+    private static final Map<String, String> ISSUE_LABELS = Map.ofEntries(
+            Map.entry("CONTAINS_DIGITS", "có chữ số"), Map.entry("TOO_LONG", "quá dài"), Map.entry("EMPTY", "để trống"),
+            Map.entry("OTHER_STUDENT_NAME", "nhắc bạn khác"), Map.entry("OTHER_STUDENT", "nhắc bạn khác"),
+            Map.entry("LESSON_TITLE", "nhắc tên bài học"), Map.entry("SIMILAR_IN_SESSION", "giống bạn khác trong buổi"),
+            Map.entry("SIMILAR_TO_PREVIOUS", "giống buổi trước"), Map.entry("HOMEWORK_OR_SCORE", "ghi điểm/hạn nộp"),
+            Map.entry("HARSH_WORDING", "từ ngữ nặng"), Map.entry("ATTITUDE_MISMATCH", "Thái độ không khớp nội dung"),
+            Map.entry("FORBIDDEN_TOPIC", "chủ đề không nên nhắc"), Map.entry("OTHER", "lỗi khác"));
     private static final Pattern DIGIT = Pattern.compile("\\d");
     /** Rubric nhận xét đặt mức khoảng 400 ký tự — chỉ cảnh báo khi vượt rõ rệt. */
     static final int MAX_CONTENT_LENGTH = 500;
     private static final int REVIEW_BATCH_SIZE = 15;
 
     private final StudentCommentService studentCommentService;
+    private final StudentAttitudeAlertTrackingService attitudeAlertTrackingService;
     private final ClassEnrollmentRepository classEnrollmentRepository;
     private final StudentCommentRepository studentCommentRepository;
     private final CommentAiJsonCaller jsonCaller;
@@ -77,8 +96,10 @@ public class CommentAiReviewService {
     private final int previousCommentCount;
     private final int previousLookbackDays;
     private final double similarityThreshold;
+    private final double maxPatternShare;
 
     public CommentAiReviewService(StudentCommentService studentCommentService,
+                                  StudentAttitudeAlertTrackingService attitudeAlertTrackingService,
                                   ClassEnrollmentRepository classEnrollmentRepository,
                                   StudentCommentRepository studentCommentRepository,
                                   CommentAiJsonCaller jsonCaller,
@@ -88,8 +109,10 @@ public class CommentAiReviewService {
                                   @Value("${app.ai-comment-draft.previous-comment-count:3}") int previousCommentCount,
                                   @Value("${app.ai-comment-draft.previous-lookback-days:120}") int previousLookbackDays,
                                   @Value("${app.ai-comment-draft.similarity-threshold:0.5}") double similarityThreshold,
-                                  @Value("${app.ai-comment-draft.max-audio-bytes:20971520}") long maxAudioBytes) {
+                                  @Value("${app.ai-comment-draft.max-audio-bytes:20971520}") long maxAudioBytes,
+                                  @Value("${app.ai-comment-draft.max-pattern-share:0.3}") double maxPatternShare) {
         this.studentCommentService = studentCommentService;
+        this.attitudeAlertTrackingService = attitudeAlertTrackingService;
         this.classEnrollmentRepository = classEnrollmentRepository;
         this.studentCommentRepository = studentCommentRepository;
         this.jsonCaller = jsonCaller;
@@ -100,12 +123,25 @@ public class CommentAiReviewService {
         this.previousCommentCount = previousCommentCount;
         this.previousLookbackDays = previousLookbackDays;
         this.similarityThreshold = similarityThreshold;
+        this.maxPatternShare = maxPatternShare;
     }
 
     /** Bản chụp 1 nhận xét chờ duyệt (đọc trong request, dùng ở luồng nền — không chạm entity JPA). */
+    /**
+     * @param homeworkData  kết quả BTVN buổi trước đã quy ra lời từ điểm đã lưu trên dòng (null nếu không có) — để
+     *                      AI đối chiếu nhận xét có nói ngược dữ liệu không (HOMEWORK_MISMATCH).
+     * @param attitudeAlert lời nhắc duyệt dòng này sẽ báo phụ huynh (null nếu không phải Yếu/Trung bình).
+     */
     record ReviewItem(Long commentId, Long classSessionId, String studentFullName, String attitude, String content,
                       LocalDate commentDate, String lessonContent, List<String> classmateNames,
-                      List<CommentAiDraftService.PreviousComment> previousComments) {
+                      List<CommentAiDraftService.PreviousComment> previousComments, String homeworkData,
+                      CommentAttitudeAlertPreviewResponse.Item attitudeAlert) {
+        ReviewItem(Long commentId, Long classSessionId, String studentFullName, String attitude, String content,
+                   LocalDate commentDate, String lessonContent, List<String> classmateNames,
+                   List<CommentAiDraftService.PreviousComment> previousComments) {
+            this(commentId, classSessionId, studentFullName, attitude, content, commentDate, lessonContent, classmateNames,
+                    previousComments, null, null);
+        }
     }
 
     // ---- Điểm vào từ Controller ----
@@ -178,6 +214,34 @@ public class CommentAiReviewService {
     }
 
     /**
+     * UC-75 (bổ sung 2026-09-29) — nhắc ngay trên bảng chờ duyệt dòng nào duyệt sẽ gửi cảnh báo thái độ cho phụ
+     * huynh (và dòng nào chạm mốc cảnh báo 3 buổi liên tiếp). Chỉ đọc, không gọi AI; cùng rào với soát.
+     */
+    @Transactional(readOnly = true)
+    public CommentAttitudeAlertPreviewResponse previewAttitudeAlerts(CommentAiReviewRequest request, Long actorUserId) {
+        List<StudentComment> comments = studentCommentService.requirePendingCommentsForAiReview(request.commentIds(), actorUserId);
+        List<CommentAttitudeAlertPreviewResponse.Item> items = new ArrayList<>(attitudeAlerts(comments).values());
+        items.sort(Comparator.comparing(CommentAttitudeAlertPreviewResponse.Item::commentId));
+        return new CommentAttitudeAlertPreviewResponse(items);
+    }
+
+    /**
+     * UC-75 (bổ sung 2026-09-29) — AI soạn sẵn lý do từ chối gửi giáo viên cho 1 nhận xét chờ duyệt. Chỉ trả
+     * văn bản: Quản lý sửa rồi tự bấm Từ chối qua đúng chức năng của UC-22 — trợ lý không tự từ chối.
+     */
+    @Transactional(readOnly = true)
+    public CommentAiRejectionReasonJobResponse startRejectionReason(Long commentId, CommentAiSuggestionRequest request, Long actorUserId) {
+        ReviewItem item = loadItems(List.of(commentId), actorUserId).get(0);
+        List<String> issues = request == null || request.issues() == null ? List.of()
+                : request.issues().stream().filter(i -> i != null && !i.isBlank()).toList();
+        return toRejectionReasonResponse(jobRegistry.submit(actorUserId, () -> rejectionReason(item, issues)));
+    }
+
+    public CommentAiRejectionReasonJobResponse getRejectionReason(String jobId, Long actorUserId) {
+        return toRejectionReasonResponse(jobRegistry.get(jobId, actorUserId, CommentAiRejectionReasonResult.class));
+    }
+
+    /**
      * UC-75 bước 2: rào của UC-22 (A1 không có quyền/không phụ trách điểm trường, A2 nhận xét không còn chờ
      * duyệt) + chụp tên các bạn cùng lớp và N nhận xét trước của từng học sinh.
      */
@@ -199,6 +263,7 @@ public class CommentAiReviewService {
                 .filter(c -> !reviewedIds.contains(c.getId()) && c.getContent() != null && !c.getContent().isBlank())
                 .collect(Collectors.groupingBy(c -> c.getStudent().getId()));
 
+        Map<Long, CommentAttitudeAlertPreviewResponse.Item> alerts = attitudeAlerts(comments);
         List<ReviewItem> items = new ArrayList<>();
         for (StudentComment comment : comments) {
             List<CommentAiDraftService.PreviousComment> previous = historyByStudent.getOrDefault(comment.getStudent().getId(), List.of())
@@ -213,10 +278,80 @@ public class CommentAiReviewService {
                     studentName, comment.getAttitude() == null ? null : comment.getAttitude().name(),
                     comment.getContent(), comment.getCommentDate(),
                     comment.getClassSession() == null ? null : comment.getClassSession().getLessonContent(),
-                    classmates, previous));
+                    classmates, previous, homeworkData(comment), alerts.get(comment.getId())));
         }
         items.sort(Comparator.comparing(ReviewItem::commentId));
         return items;
+    }
+
+    /**
+     * Mô phỏng (chỉ đọc) {@code StudentAttitudeAlertTrackingService#evaluateAndNotify} nếu duyệt các dòng theo thứ tự
+     * ngày: mỗi dòng Yếu/Trung bình báo phụ huynh; chuỗi (tính từ số buổi liên tiếp đã duyệt) chạm mốc thì tạo
+     * cảnh báo escalation rồi về 0; dòng Thái độ khác đưa chuỗi về 0; dòng chưa có Thái độ không ảnh hưởng.
+     */
+    Map<Long, CommentAttitudeAlertPreviewResponse.Item> attitudeAlerts(List<StudentComment> comments) {
+        int threshold = StudentAttitudeAlertTrackingService.escalationThreshold();
+        Map<Long, CommentAttitudeAlertPreviewResponse.Item> result = new HashMap<>();
+        Map<Long, List<StudentComment>> byClass = comments.stream().collect(Collectors.groupingBy(c -> c.getSchoolClass().getId()));
+        for (List<StudentComment> classComments : byClass.values()) {
+            boolean anyLow = classComments.stream().anyMatch(c -> isLow(c.getAttitude()));
+            if (!anyLow) {
+                continue;
+            }
+            SchoolClass schoolClass = classComments.get(0).getSchoolClass();
+            Map<Long, List<StudentComment>> byStudent = classComments.stream().collect(Collectors.groupingBy(c -> c.getStudent().getId()));
+            Map<Long, Integer> streaks = attitudeAlertTrackingService.currentLowStreaks(schoolClass, byStudent.keySet());
+            byStudent.forEach((studentId, studentComments) -> {
+                int running = streaks.getOrDefault(studentId, 0);
+                List<StudentComment> ordered = studentComments.stream()
+                        .sorted(Comparator.comparing(StudentComment::getCommentDate).thenComparing(StudentComment::getId)).toList();
+                for (StudentComment comment : ordered) {
+                    StudentComment.Attitude attitude = comment.getAttitude();
+                    if (attitude == null) {
+                        continue;
+                    }
+                    if (!isLow(attitude)) {
+                        running = 0;
+                        continue;
+                    }
+                    running++;
+                    boolean escalation = running >= threshold;
+                    String label = CommentAiDraftService.attitudeLabel(attitude.name());
+                    String message = escalation
+                            ? "Buổi " + label + " thứ " + running + " liên tiếp — duyệt dòng này sẽ báo phụ huynh và tạo cảnh báo "
+                                    + threshold + " buổi liên tiếp (chờ Quản lý duyệt gửi phụ huynh)."
+                            : "Duyệt dòng này sẽ gửi cảnh báo thái độ \"" + label + "\" cho phụ huynh"
+                                    + (running > 1 ? " — đã " + running + " buổi Yếu/Trung bình liên tiếp, thêm " + (threshold - running)
+                                            + " buổi nữa sẽ chạm mốc cảnh báo " + threshold + " buổi." : ".");
+                    result.put(comment.getId(), new CommentAttitudeAlertPreviewResponse.Item(comment.getId(), running, escalation, message));
+                    if (escalation) {
+                        running = 0;
+                    }
+                }
+            });
+        }
+        return result;
+    }
+
+    private static boolean isLow(StudentComment.Attitude attitude) {
+        return attitude == StudentComment.Attitude.WEAK || attitude == StudentComment.Attitude.AVERAGE;
+    }
+
+    /** Kết quả BTVN buổi trước đã lưu trên dòng, quy ra lời (mọi mức, kể cả "làm được") — không đưa con số cho AI. */
+    static String homeworkData(StudentComment comment) {
+        List<String> parts = new ArrayList<>();
+        addHomework(parts, "bài tập", comment.getHomeworkPreviousScore());
+        addHomework(parts, "video ôn tập", comment.getHomeworkPreviousSpeakingScore());
+        addHomework(parts, "bài Reading", comment.getHomeworkPreviousReadingScore());
+        addHomework(parts, "bài Writing", comment.getHomeworkPreviousWritingScore());
+        return parts.isEmpty() ? null : "BTVN buổi trước: " + String.join("; ", parts) + ".";
+    }
+
+    private static void addHomework(List<String> parts, String channel, String raw) {
+        HomeworkScoreInsight.Level level = HomeworkScoreInsight.levelOf(raw);
+        if (level != null) {
+            parts.add(HomeworkScoreInsight.phrase(level) + " (" + channel + ")");
+        }
     }
 
     // ---- Luồng nền ----
@@ -224,7 +359,28 @@ public class CommentAiReviewService {
     /** UC-75 Main Flow bước 3-5. */
     CommentAiReviewResult review(List<ReviewItem> items) {
         Map<Long, List<CommentAiReviewResult.Issue>> issuesById = new LinkedHashMap<>();
-        items.forEach(item -> issuesById.put(item.commentId(), new ArrayList<>(ruleIssues(item, items))));
+        Map<Long, List<CommentAiReviewResult.Notice>> noticesById = new LinkedHashMap<>();
+        items.forEach(item -> {
+            issuesById.put(item.commentId(), new ArrayList<>(ruleIssues(item, items)));
+            List<CommentAiReviewResult.Notice> notices = new ArrayList<>();
+            if (item.attitudeAlert() != null) {
+                notices.add(new CommentAiReviewResult.Notice("ATTITUDE_ALERT", SOURCE_RULE, item.attitudeAlert().message()));
+            }
+            noticesById.put(item.commentId(), notices);
+        });
+        // Bổ sung 2026-09-29 — giáo viên dùng chung 1 khuôn câu cho cả buổi (câu mở/kết, cụm sáo mòn): lưu ý, không chặn duyệt.
+        items.stream().collect(Collectors.groupingBy(i -> i.classSessionId() == null ? -1L : i.classSessionId(), LinkedHashMap::new, Collectors.toList()))
+                .values().forEach(sessionItems -> {
+                    CommentPatternCheck.Result patterns = CommentPatternCheck.check(sessionItems.stream()
+                            .map(i -> new CommentPatternCheck.Entry(i.commentId(), i.studentFullName(), i.content())).toList(), maxPatternShare);
+                    for (ReviewItem item : sessionItems) {
+                        boolean similarFlagged = issuesById.get(item.commentId()).stream().anyMatch(i -> "SIMILAR_IN_SESSION".equals(i.type()));
+                        if (patterns.all().contains(item.commentId()) && !similarFlagged) {
+                            noticesById.get(item.commentId()).add(new CommentAiReviewResult.Notice("REPEATED_PATTERN", SOURCE_RULE,
+                                    CommentAiDraftService.repeatedPatternMessage(patterns, item.commentId(), item.content())));
+                        }
+                    }
+                });
 
         boolean aiComplete = true;
         Map<Long, List<ReviewItem>> bySession = items.stream()
@@ -240,23 +396,86 @@ public class CommentAiReviewService {
                 aiIssues.forEach((id, list) -> {
                     List<CommentAiReviewResult.Issue> existing = issuesById.get(id);
                     boolean hasRuleOtherStudent = existing.stream().anyMatch(i -> "OTHER_STUDENT_NAME".equals(i.type()));
-                    list.stream()
-                            .filter(i -> !(hasRuleOtherStudent && "OTHER_STUDENT".equals(i.type())))
-                            .forEach(existing::add);
+                    for (CommentAiReviewResult.Issue issue : list) {
+                        if (AI_NOTICE_TYPES.contains(issue.type())) {
+                            noticesById.get(id).add(new CommentAiReviewResult.Notice(issue.type(), issue.source(), issue.message()));
+                        } else if (!(hasRuleOtherStudent && "OTHER_STUDENT".equals(issue.type()))) {
+                            existing.add(issue);
+                        }
+                    }
                 });
             }
         }
 
         List<CommentAiReviewResult.Review> reviews = items.stream()
-                .map(i -> new CommentAiReviewResult.Review(i.commentId(), i.studentFullName(), List.copyOf(issuesById.get(i.commentId()))))
+                .map(i -> new CommentAiReviewResult.Review(i.commentId(), i.studentFullName(), List.copyOf(issuesById.get(i.commentId())),
+                        List.copyOf(noticesById.get(i.commentId()))))
                 .toList();
-        int flagged = (int) reviews.stream().filter(r -> !r.issues().isEmpty()).count();
-        StringBuilder message = new StringBuilder("Đã soát ").append(items.size()).append(" nhận xét: ");
-        message.append(flagged == 0 ? "không phát hiện lỗi nào." : flagged + " dòng có cảnh báo, " + (items.size() - flagged) + " dòng ổn.");
+        CommentAiReviewResult.Summary summary = summarize(items, reviews);
+        int flagged = items.size() - summary.cleanCount();
+        return new CommentAiReviewResult(summaryMessage(items.size(), summary, aiComplete), items.size(), flagged, aiComplete,
+                reviews, summary);
+    }
+
+    /** UC-75 (bổ sung 2026-09-29) — tóm tắt cả lô bằng code: đếm dòng theo loại lỗi và dòng sẽ báo phụ huynh. */
+    static CommentAiReviewResult.Summary summarize(List<ReviewItem> items, List<CommentAiReviewResult.Review> reviews) {
+        Map<String, Integer> counts = new LinkedHashMap<>();
+        int clean = 0;
+        int homeworkMismatch = 0;
+        int repeatedPattern = 0;
+        for (CommentAiReviewResult.Review review : reviews) {
+            if (review.issues().isEmpty()) {
+                clean++;
+            }
+            // Đếm theo dòng: 1 dòng có 2 lỗi cùng nhóm nhãn chỉ tính 1 lần.
+            review.issues().stream().map(i -> "OTHER_STUDENT".equals(i.type()) ? "OTHER_STUDENT_NAME" : i.type()).distinct()
+                    .forEach(type -> counts.merge(type, 1, Integer::sum));
+            if (review.notices().stream().anyMatch(n -> "HOMEWORK_MISMATCH".equals(n.type()))) {
+                homeworkMismatch++;
+            }
+            if (review.notices().stream().anyMatch(n -> "REPEATED_PATTERN".equals(n.type()))) {
+                repeatedPattern++;
+            }
+        }
+        List<CommentAiReviewResult.IssueCount> issueCounts = counts.entrySet().stream()
+                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
+                .map(e -> new CommentAiReviewResult.IssueCount(e.getKey(), e.getValue())).toList();
+        int parentAlerts = (int) items.stream().filter(i -> i.attitudeAlert() != null).count();
+        int escalations = (int) items.stream().filter(i -> i.attitudeAlert() != null && i.attitudeAlert().escalation()).count();
+        return new CommentAiReviewResult.Summary(clean, issueCounts, parentAlerts, escalations, homeworkMismatch, repeatedPattern);
+    }
+
+    private static String summaryMessage(int total, CommentAiReviewResult.Summary summary, boolean aiComplete) {
+        int flagged = total - summary.cleanCount();
+        StringBuilder message = new StringBuilder("Đã soát ").append(total).append(" nhận xét: ");
+        if (flagged == 0) {
+            message.append("không phát hiện lỗi nào.");
+        } else {
+            message.append(flagged).append(" dòng có cảnh báo, ").append(summary.cleanCount()).append(" dòng ổn (")
+                    .append(summary.issueCounts().stream()
+                            .map(c -> c.count() + " " + ISSUE_LABELS.getOrDefault(c.type(), c.type()))
+                            .collect(Collectors.joining(", ")))
+                    .append(").");
+        }
+        if (summary.parentAlertCount() > 0) {
+            message.append(" ").append(summary.parentAlertCount()).append(" dòng Yếu/Trung bình sẽ báo phụ huynh khi duyệt");
+            if (summary.escalationCount() > 0) {
+                message.append(", trong đó ").append(summary.escalationCount()).append(" dòng chạm mốc cảnh báo ")
+                        .append(StudentAttitudeAlertTrackingService.escalationThreshold()).append(" buổi liên tiếp");
+            }
+            message.append(".");
+        }
+        if (summary.repeatedPatternCount() > 0) {
+            message.append(" ").append(summary.repeatedPatternCount())
+                    .append(" dòng dùng chung khuôn câu với nhiều bạn (câu mở/kết hoặc cụm lặp lại) — nên nhắc giáo viên đa dạng cách viết.");
+        }
+        if (summary.homeworkMismatchCount() > 0) {
+            message.append(" ").append(summary.homeworkMismatchCount()).append(" dòng nhắc BTVN có vẻ ngược dữ liệu điểm — nên xem lại.");
+        }
         if (!aiComplete) {
             message.append(" Phần kiểm tra theo rubric bằng AI bị lỗi ở một số dòng — các dòng đó chỉ có kết quả kiểm tra tự động.");
         }
-        return new CommentAiReviewResult(message.toString(), items.size(), flagged, aiComplete, reviews);
+        return message.toString();
     }
 
     /** UC-75 bước 3 — kiểm tra bằng code, không gọi AI. */
@@ -324,6 +543,9 @@ public class CommentAiReviewService {
             entry.put("studentFullName", item.studentFullName());
             entry.put("attitude", CommentAiDraftService.attitudeLabel(item.attitude()));
             entry.put("content", item.content());
+            if (item.homeworkData() != null) {
+                entry.put("homework", item.homeworkData());
+            }
             comments.add(entry);
         }
         payload.put("comments", comments);
@@ -371,6 +593,21 @@ public class CommentAiReviewService {
                 response.path("explanation").asText("").trim(), warnings);
     }
 
+    /** UC-75 (chạy nền) — AI lỗi thì job FAILED, Quản lý vẫn tự nhập lý do như cũ. */
+    CommentAiRejectionReasonResult rejectionReason(ReviewItem item, List<String> issues) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("studentFullName", item.studentFullName());
+        payload.put("attitude", CommentAiDraftService.attitudeLabel(item.attitude()));
+        payload.put("content", item.content());
+        payload.put("issues", issues.isEmpty() ? ruleIssues(item, List.of(item)).stream().map(CommentAiReviewResult.Issue::message).toList() : issues);
+        JsonNode response = jsonCaller.callJson(REJECTION_REASON_PROMPT, payload, model);
+        String reason = response == null ? "" : response.path("reason").asText("").trim();
+        if (reason.isEmpty()) {
+            throw new CommentAiDraftFailedException("Trợ lý chưa soạn được lý do từ chối (AI lỗi hoặc quá thời gian) — vui lòng thử lại hoặc tự nhập.");
+        }
+        return new CommentAiRejectionReasonResult(item.commentId(), reason);
+    }
+
     /** UC-75 bước 9 (chạy nền) — chỉ trả bản sửa đề xuất; STT/AI lỗi thì job FAILED (A4). */
     CommentAiInstructionResult instruct(List<ReviewItem> items, byte[] audio, String mimeType, String note) {
         String transcript = "";
@@ -398,6 +635,9 @@ public class CommentAiReviewService {
             Map<String, Object> entry = new LinkedHashMap<>();
             entry.put("commentId", item.commentId());
             entry.put("studentFullName", item.studentFullName());
+            // Ngày + buổi học giúp phân biệt khi cùng 1 tên có nhiều nhận xét (trùng tên hoặc nhiều buổi) — xem rule 4 prompt.
+            entry.put("commentDate", item.commentDate() == null ? null : item.commentDate().toString());
+            entry.put("classSessionId", item.classSessionId());
             entry.put("attitude", CommentAiDraftService.attitudeLabel(item.attitude()));
             entry.put("content", item.content());
             comments.add(entry);
@@ -456,6 +696,10 @@ public class CommentAiReviewService {
 
     private static CommentAiInstructionJobResponse toInstructionResponse(AiJobRegistry.Snapshot<CommentAiInstructionResult> snapshot) {
         return new CommentAiInstructionJobResponse(snapshot.jobId(), snapshot.status(), snapshot.errorMessage(), snapshot.result());
+    }
+
+    private static CommentAiRejectionReasonJobResponse toRejectionReasonResponse(AiJobRegistry.Snapshot<CommentAiRejectionReasonResult> snapshot) {
+        return new CommentAiRejectionReasonJobResponse(snapshot.jobId(), snapshot.status(), snapshot.errorMessage(), snapshot.result());
     }
 
     private static CommentAiSuggestionJobResponse toSuggestionResponse(AiJobRegistry.Snapshot<CommentAiSuggestionResult> snapshot) {

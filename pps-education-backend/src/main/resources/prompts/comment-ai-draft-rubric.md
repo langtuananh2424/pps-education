@@ -25,6 +25,7 @@ Bảng này CHỈ dùng để chọn mức nội bộ — tuyệt đối không 
 - Chỉ chọn Yếu/Trung bình khi giáo viên nói RÕ hành vi tiêu cực (VD "nói chuyện riêng nhiều lần", "không làm bài dù đã nhắc").
 - Lời nói mơ hồ, nhẹ ("chưa tích cực lắm", "hơi trầm", "cần cố gắng thêm") → chọn Khá hoặc để trống, KHÔNG hạ xuống Trung bình.
 - Còn phân vân giữa 2 mức → để trống cho giáo viên tự chọn.
+- Câu ví dụ cho từng mức: xem mục 6.
 
 ## 2. Cấu trúc một nhận xét
 - 2–4 câu, tối đa khoảng 400 ký tự.
@@ -54,23 +55,39 @@ Bảng này CHỈ dùng để chọn mức nội bộ — tuyệt đối không 
 | đến muộn | cần chú ý đến lớp đúng giờ |
 
 ## 4. Những điều KHÔNG được viết
-- **Không nhắc tên, lỗi hay hành vi của học sinh khác** trong nhận xét của 1 bạn (VD giáo viên nói "An với Bình nói chuyện riêng" → nhận xét của An chỉ viết "con còn nói chuyện riêng trong giờ", không có tên Bình). Mỗi nhận xét chỉ nói về đúng học sinh đó.
+- **Không nhắc tên, lỗi hay hành vi của học sinh khác** trong nhận xét của 1 bạn (VD giáo viên nói "An với Bình nói chuyện riêng" → nhận xét của An chỉ viết "con còn nói chuyện riêng trong giờ", không có tên Bình; SAI: "con nói chuyện riêng với Bình", "con và Bình còn làm việc riêng"). Mỗi nhận xét chỉ nói về đúng học sinh đó.
 - Không so sánh, xếp hạng với bạn khác hay cả lớp ("kém nhất lớp", "giỏi hơn các bạn"). ĐƯỢC so sánh với CHÍNH học sinh đó ở buổi trước (VD "lần này con đã mạnh dạn hơn") nhưng CHỈ khi giáo viên có nói về sự tiến bộ/thụt lùi đó.
-- Không ghi con số điểm/phần trăm, không nhắc hạn nộp hay giao bài mới — các thông tin này đã có ô riêng trên form.
-- Được nhắc kết quả BTVN buổi trước BẰNG LỜI, chỉ khi dữ liệu "homework" có (đã chỉ gồm điểm nổi bật hoặc tăng/giảm rõ): ≥ 80% "làm tốt", < 50% "cần cố gắng", chưa làm "chưa hoàn thành"; tối đa 1 câu. Lời giáo viên khác dữ liệu thì theo lời giáo viên.
-- Không nhắc tên bài học/Unit của buổi (VD "Unit 1: Hello Friend", "bài Past simple") — giáo viên không ghi tên bài vào nhận xét; kể cả khi giáo viên đọc tên bài trong lời nói.
-- Không nhắc sức khoẻ, hoàn cảnh gia đình, hình thức kỷ luật, không dán nhãn tính cách ("con hay nóng tính", "con nhút nhát").
+- Không ghi con số điểm/phần trăm, không nhắc hạn nộp hay giao bài mới — các thông tin này đã có ô riêng trên form. Cấm mọi dạng lộ điểm, kể cả viết bằng chữ: "4/5", "12/14", "đúng 41/49 câu", "được 8 điểm", "3 sao", "80%", "đúng mười hai trên mười bốn câu", "điểm tối đa", điểm thập phân ("6.5"), số lần xung phong, bảng xếp hạng xung phong.
+- Nhận xét là ĐOẠN VĂN, không viết dạng báo cáo/liệt kê ("Điểm thể hiện trên lớp: …", "Điểm nói: …", "Điểm nghe: …", "Xung phong: … lần", "Kiểm tra đầu giờ: …").
+- Kết quả BTVN buổi trước: chỉ nhắc khi học sinh có trường "homework" (do hệ thống tính, đã chỉ giữ điểm nổi bật hoặc tăng/giảm rõ). Dạng dữ liệu: "BTVN buổi trước: <mức> (<loại bài>); …", có thể kèm "tiến bộ rõ so với buổi trước" hoặc "giảm rõ so với buổi trước". Các mức và cách viết:
+  - "làm tốt" (≥ 80%) → "Con hoàn thành bài tập về nhà tốt."
+  - "cần cố gắng" (< 50%) → "Con cần cố gắng hơn với bài tập về nhà."
+  - "chưa hoàn thành" (chưa làm) → "Con chưa hoàn thành bài tập về nhà buổi trước."
+  - "tiến bộ rõ"/"giảm rõ so với buổi trước" → nhắc nhẹ bằng lời ("bài tập về nhà của con tiến bộ rõ"), không so số.
+  - Không có trường "homework" → KHÔNG nhắc BTVN.
+  Tối đa 1 câu hoặc 1 vế; lời giáo viên khác dữ liệu thì theo lời giáo viên.
+- Không nhắc tên bài học/Unit của buổi (VD "Unit 1: Hello Friend", "bài Past simple", "bài Friendship") hay số trang/tên dạng bài cụ thể ("trang 18 phần B", "đề cương ôn tập") — kể cả khi giáo viên đọc tên bài trong lời nói.
+- Không nhắc sức khoẻ, hoàn cảnh gia đình, không dán nhãn tính cách ("con hay nóng tính", "con nhút nhát").
+- Không đe doạ hay nhắc hình thức kỷ luật/phạt: bản tường trình, bảng kiểm điểm, chép phạt, quay video phạt, kiểm tra đột xuất, mời phụ huynh lên làm việc.
+- Không nhắc tên hay việc của giáo viên khác (giáo viên nước ngoài, trợ giảng, giáo viên buổi trước).
+- Không nhắc hoạt động ngoài giờ học tiếng Anh (tập văn nghệ, đá bóng, sự kiện, dã ngoại), việc nghỉ học, đi thi, về sớm hay thông báo lịch học.
 
 ## 5. Gợi ý đa dạng câu mở đầu và câu kết
-Trong cùng 1 buổi, mỗi kiểu chỉ dùng cho 1 học sinh; chọn luân phiên, diễn đạt lại theo ý giáo viên.
+Trong mỗi lượt viết: không dùng cùng 1 kiểu mở đầu (hoặc câu kết) cho 2 học sinh LIỀN KỀ; có ít nhất 4 kiểu mở đầu và 3 kiểu kết khác nhau. Chọn luân phiên, diễn đạt lại theo ý giáo viên — không chép nguyên câu gợi ý.
+
+Cụm sáo mòn hay bị lặp cho cả lớp — mỗi cụm dùng tối đa 1–2 lần mỗi lượt viết: "Hơn thế nữa", "Về nhà (con) luyện nói…", "…mong con…", "Con ngoan…", "…rất vui…", "…rất ấn tượng…", "Con đã nắm được…", "Con có cố gắng…", "Con cần chú ý…", "…nhờ bố mẹ…", "Tiếp tục phát huy…".
 
 Mở đầu:
-1. Bắt đầu bằng tên + hành động: "An tập trung nghe giảng suốt buổi."
-2. Bắt đầu bằng điểm nổi bật: "Điểm đáng khen nhất buổi này là…"
-3. Bắt đầu bằng tinh thần học: "Tinh thần học của An hôm nay rất tích cực."
-4. Bắt đầu bằng hoạt động: "Ở phần hoạt động nhóm, An…"
-5. Bắt đầu bằng lời ghi nhận của giáo viên (khi biết thầy/cô): "Cô ghi nhận An…"
-6. Bắt đầu bằng điều cần lưu ý (khi ý chính là cần cải thiện): "An cần chú ý hơn…"
+1. Tên + hành động: "An tập trung nghe giảng suốt buổi."
+2. Điểm nổi bật: "Điểm đáng khen nhất buổi này là…"
+3. Tinh thần học: "Tinh thần học của An hôm nay rất tích cực."
+4. Hoạt động cụ thể: "Ở phần hoạt động nhóm, An…"
+5. Điều cần lưu ý (khi ý chính là cần cải thiện): "An cần chú ý hơn…"
+6. Kỹ năng: "Phần Speaking hôm nay, An…"
+7. Thái độ với bạn bè: "An hợp tác rất tốt với các bạn trong nhóm."
+8. Sự thay đổi của chính học sinh (chỉ khi giáo viên có nói): "So với buổi trước, An đã mạnh dạn hơn."
+9. Câu ngắn gọn khởi đầu: "Một buổi học tích cực của An."
+10. Lời ghi nhận của giáo viên — CHỈ khi teacherPronoun có giá trị, dùng đúng đại từ đó (VD "[thầy/cô theo teacherPronoun] ghi nhận An…").
 
 Câu kết:
 1. Lời hẹn: "Hẹn gặp con ở buổi sau nhé."
@@ -78,8 +95,70 @@ Câu kết:
 3. Định hướng cụ thể: "Buổi sau con thử giơ tay phát biểu trước nhé."
 4. Mong muốn: "Mong con giữ vững tinh thần này."
 5. Động viên ngắn: "Cố lên con!"
+6. Gợi ý ôn luyện: "Con ôn lại phần vừa học để buổi sau tự tin hơn nhé."
+7. Niềm tin: "Chắc chắn con sẽ tiến bộ nhanh."
+8. Giữ phong độ: "Hãy giữ vững phong độ này nhé."
+9. Không cần câu kết riêng khi nhận xét đã trọn ý (với nhận xét ngắn).
 
-## 6. Mẫu câu tham khảo (chỉ lấy văn phong, KHÔNG chép nguyên văn)
-- Tốt: "... tập trung nghe giảng và hăng hái phát biểu, …"
-- Cần cải thiện: "... trong giờ còn nói chuyện riêng, … mong con chú ý hơn ở buổi sau."
-<!-- TODO(học vụ): bổ sung 2–3 câu nhận xét THẬT đã được Quản lý duyệt cho mỗi mức Thái độ (Xuất sắc/Tốt/Khá/Trung bình/Yếu). Chọn lọc vài câu tiêu biểu, không dán quá nhiều. -->
+## 6. Mẫu câu tham khảo theo mức Thái độ
+Tổng hợp từ nhận xét cũ của trung tâm — chỉ lấy VĂN PHONG, KHÔNG chép nguyên văn. Mẫu viết "Con" cho gọn; khi viết thật, câu đầu dùng tên gọi. Mẫu cố ý KHÔNG có đại từ "thầy/cô" (đại từ chỉ dùng theo teacherPronoun).
+
+Xuất sắc (EXCELLENT):
+- "Con sẵn sàng giúp các bạn chỉnh sửa khi phát âm chưa chính xác — tinh thần hợp tác này rất đáng khen."
+- "Con chủ động đặt câu hỏi khi chưa hiểu bài, cho thấy con thực sự muốn nắm chắc kiến thức."
+- "Con đọc bài tự tin, giọng rõ ràng, các âm khó đều phát âm dứt khoát và nhịp đọc trôi chảy."
+- "Con nói lưu loát, diễn đạt vượt ra ngoài phần gợi ý với nhiều ý tưởng sáng tạo."
+- "Con tự nhận ra lỗi ngữ pháp và tự chỉnh sửa."
+
+Tốt (GOOD):
+- "Con tập trung nghe giảng và hăng hái phát biểu, góp phần làm lớp học sôi nổi."
+- "Con hoàn thành đầy đủ nhiệm vụ trên lớp và hợp tác tốt với bạn bè."
+- "Con nhận ra từ vựng nhanh khi chỉ cần nghe gợi ý bằng định nghĩa."
+- "Con đọc hiểu tốt, nắm được ý chính từng đoạn và tìm thông tin chi tiết khá nhanh."
+
+Khá (FAIR):
+- "Con ngoan và hoàn thành bài, tuy đôi lúc còn cần nhắc nhở để tập trung hơn."
+- "Nhìn chung con ổn, chỉ cần mạnh dạn phát biểu thêm là sẽ tiến bộ nhanh."
+- "Phát âm của con bước đầu có tiến bộ, nhưng vẫn còn lẫn ở một số âm khó, nhất là âm cuối."
+
+Trung bình (AVERAGE):
+- "Con còn nói chuyện riêng trong giờ, cần tập trung hơn để không bỏ lỡ bài học. Mong con chú ý hơn ở buổi sau."
+- "Con chưa tham gia xây dựng bài và còn làm việc riêng. Buổi sau con thử giơ tay phát biểu trước nhé."
+
+Yếu (WEAK):
+- "Con chưa hoàn thành nhiệm vụ dù đã được nhắc. Mong con nghiêm túc hơn với việc học, bắt đầu từ việc chuẩn bị bài đầy đủ."
+- "Con cần tập trung ngay từ đầu giờ, tránh để việc riêng ảnh hưởng đến lớp. Hy vọng buổi sau con sẽ thay đổi."
+- "Con còn gặp nhiều khó khăn khi phát âm và chưa thật tự tin, cần luyện đọc thêm mỗi ngày."
+
+Góp ý mềm (dùng thay vì chê trực tiếp):
+- "Nếu con ôn kỹ hơn phần ngữ pháp, kết quả sẽ còn tiến bộ hơn nữa."
+- "Chỉ cần cẩn thận hơn khi làm bài, con sẽ tránh được lỗi nhỏ."
+- "Con thử chú ý hơn đến các từ nối giữa các đoạn để nắm mạch bài nhé."
+- "Con cố gắng nói to hơn một chút để cả lớp nghe rõ hơn nhé."
+- "Với sự chăm chỉ rèn luyện, con hoàn toàn có thể nói lưu loát hơn nữa."
+
+Góp ý theo lỗi cụ thể (chỉ khi giáo viên nói đúng lỗi đó):
+- "Con cần chú ý phân biệt is/am/are và have/has khi nói."
+- "Con nhớ bật rõ âm cuối và thêm s cho danh từ số nhiều."
+- "Con ôn lại các từ mới để dùng chính xác hơn."
+
+Khen có bằng chứng (khen đúng việc giáo viên nêu, theo kỹ năng/tiêu chí):
+- "Con phát âm rõ ràng, giọng đọc dễ nghe."
+- "Con biết dùng từ nối để câu trả lời trôi chảy hơn."
+- "Con biết kéo dài câu trả lời và dùng từ vựng hợp chủ đề."
+- "Con bắt đầu dùng được mệnh đề quan hệ khi nói." (lớp IELTS có thể giữ tên tiêu chí: Pronunciation, Fluency, Grammatical Range, Lexical Resource, Coherence)
+
+Ghi nhận tiến bộ so với CHÍNH học sinh (chỉ khi giáo viên có nói):
+- "So với buổi trước, con đã mạnh dạn phát biểu hơn."
+- "Từ chỗ còn rụt rè, nay con đã tự tin hơn nhiều."
+- "Hôm nay con xung phong nhiều hơn hẳn buổi trước."
+- "Phần phát âm của con có tiến bộ rõ."
+
+Gợi ý cách luyện (tối đa 1 gợi ý, đúng điểm cần cải thiện giáo viên đã nêu):
+- "Con thử nghe và nhại lại (shadowing) các đoạn hội thoại ngắn."
+- "Con đặt mục tiêu mỗi buổi xung phong ít nhất một lần nhé."
+- "Con ghi âm lại phần nói để tự kiểm tra phát âm."
+- "Con chuẩn bị trước vài ý về chủ đề buổi sau."
+- "Con luyện phát âm theo bảng IPA hoặc tra cách đọc trong từ điển."
+- "Con luyện thêm với video phản xạ để trả lời nhanh hơn."
+<!-- Học vụ có thể thay/bổ sung bằng câu thật đã được Quản lý duyệt. Quy tắc: câu mẫu KHÔNG chứa "thầy"/"cô" (có test tự động kiểm tra — CommentAiRubricTest). -->
