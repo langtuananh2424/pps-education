@@ -60,6 +60,8 @@ export interface UserSearchFilter {
   keyword?: string;
   departmentId?: number;
   status?: "ACTIVE" | "INACTIVE" | "SUSPENDED";
+  /** Lọc theo mã role ngay ở server (VD "TEACHER") — bổ sung ngoài SDD gốc, 2026-09-29. */
+  roleCode?: string;
 }
 
 /**
@@ -107,6 +109,7 @@ export function searchUsers(filter: UserSearchFilter, page: number, size: number
   if (filter.keyword) params.set("keyword", filter.keyword);
   if (filter.departmentId) params.set("departmentId", String(filter.departmentId));
   if (filter.status) params.set("status", filter.status);
+  if (filter.roleCode) params.set("roleCode", filter.roleCode);
   params.set("page", String(page));
   params.set("size", String(size));
   return apiRequest<Page<UserListItemResponse>>(`/users?${params.toString()}`);

@@ -406,7 +406,7 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
 
         LocalDate newDate = oldDate.plusDays(1);
         ClassSessionResponse newSession = classSessionService.rescheduleSession(schoolClass.id(), oldSession.id(),
-                new RescheduleClassSessionRequest(newDate, "MORNING", SLOT_C, room.getId(), "Phòng bảo trì", null),
+                new RescheduleClassSessionRequest(newDate, "MORNING", SLOT_C, room.getId(), "Phòng bảo trì", null, null),
                 headAcademic.getId());
 
         assertThat(newSession.status()).isEqualTo("SCHEDULED");
@@ -435,7 +435,7 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
                 headAcademic.getId());
 
         ClassSessionResponse newSession = classSessionService.rescheduleSession(schoolClass.id(), oldSession.id(),
-                new RescheduleClassSessionRequest(oldDate.plusDays(1), "MORNING", SLOT_C, room.getId(), "Phòng bảo trì", null),
+                new RescheduleClassSessionRequest(oldDate.plusDays(1), "MORNING", SLOT_C, room.getId(), "Phòng bảo trì", null, null),
                 headAcademic.getId());
 
         assertThat(newSession.teacherType()).isEqualTo("FOREIGN");
@@ -613,9 +613,40 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
                 headAcademic.getId());
 
         assertThatThrownBy(() -> classSessionService.rescheduleSession(schoolClass.id(), oldSession.id(),
-                new RescheduleClassSessionRequest(blockedDate, "MORNING", SLOT_D, room.getId(), null, null),
+                new RescheduleClassSessionRequest(blockedDate, "MORNING", SLOT_D, room.getId(), null, null, null),
                 headAcademic.getId()))
                 .isInstanceOf(RoomConflictException.class);
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-09-29: popup Sửa
+     * buổi học — allowRoomOverlap=true cho 2 nhóm lớp gộp học chung phòng.
+     */
+    @Test
+    void updateAssignment_boSung_allowRoomOverlapBypassesRoomConflictForMergedGroups() {
+        LocalDate date = LocalDate.now().plusDays(75);
+        classSessionService.createSession(schoolClass.id(),
+                new CreateClassSessionRequest(date, "MORNING", SLOT_A, room.getId(), "REGULAR", "VIETNAMESE",
+                        teacher.getId(), null, null, null, null, null),
+                headAcademic.getId());
+        ClassResponse otherGroup = classService.create(new CreateClassRequest(classCode(), "7A4-2", schoolClass.siteId(),
+                schoolClass.curriculumId(), "OPEN", 20, null, LocalDate.now(), null, null), headAcademic.getId());
+        User otherTeacher = newUser("teacher.room.overlap.edit");
+        assignRole(otherTeacher, "TEACHER");
+        ClassSessionResponse otherSession = classSessionService.createSession(otherGroup.id(),
+                new CreateClassSessionRequest(date, "MORNING", SLOT_A, null, "REGULAR", "VIETNAMESE",
+                        otherTeacher.getId(), null, null, null, null, null),
+                headAcademic.getId());
+
+        assertThatThrownBy(() -> classSessionService.updateAssignment(otherGroup.id(), otherSession.id(),
+                new UpdateSessionAssignmentRequest(room.getId(), "VIETNAMESE", otherTeacher.getId(), null, null, "MORNING", SLOT_A, null, null, null),
+                headAcademic.getId()))
+                .isInstanceOf(RoomConflictException.class);
+
+        ClassSessionResponse updated = classSessionService.updateAssignment(otherGroup.id(), otherSession.id(),
+                new UpdateSessionAssignmentRequest(room.getId(), "VIETNAMESE", otherTeacher.getId(), null, null, "MORNING", SLOT_A, null, null, true),
+                headAcademic.getId());
+        assertThat(updated.roomId()).isEqualTo(room.getId());
     }
 
     @Test
@@ -628,7 +659,7 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
         classSessionService.cancelSession(schoolClass.id(), session.id(), new CancelClassSessionRequest(null), headAcademic.getId());
 
         assertThatThrownBy(() -> classSessionService.rescheduleSession(schoolClass.id(), session.id(),
-                new RescheduleClassSessionRequest(date.plusDays(1), "MORNING", SLOT_A, room.getId(), null, null),
+                new RescheduleClassSessionRequest(date.plusDays(1), "MORNING", SLOT_A, room.getId(), null, null, null),
                 headAcademic.getId()))
                 .isInstanceOf(InvalidClassSessionStatusTransitionException.class);
     }
@@ -640,7 +671,7 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
 
         BulkCreateClassSessionResponse response = classSessionService.bulkCreateSessions(schoolClass.id(),
                 new BulkCreateClassSessionRequest(startDate, endDate, List.of("MONDAY", "WEDNESDAY"), "MORNING", SLOT_A, room.getId(),
-                        "REGULAR", "VIETNAMESE", teacher.getId(), null, null, null, null),
+                        "REGULAR", "VIETNAMESE", teacher.getId(), null, null, null, null, null),
                 headAcademic.getId());
 
         assertThat(response.totalDates()).isEqualTo(4);
@@ -664,13 +695,45 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
 
         BulkCreateClassSessionResponse response = classSessionService.bulkCreateSessions(schoolClass.id(),
                 new BulkCreateClassSessionRequest(startDate, endDate, List.of("MONDAY"), "MORNING", SLOT_A, room.getId(),
-                        "REGULAR", "VIETNAMESE", teacher.getId(), null, null, null, null),
+                        "REGULAR", "VIETNAMESE", teacher.getId(), null, null, null, null, null),
                 headAcademic.getId());
 
         assertThat(response.totalDates()).isEqualTo(2); // 2 Monday trong khoảng 14 ngày
         assertThat(response.createdCount()).isEqualTo(1);
         assertThat(response.skippedCount()).isEqualTo(1);
         assertThat(response.skipped().get(0).get("date")).isEqualTo(conflictDate.toString());
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-09-29: 2 nhóm lớp
+     * gộp học chung 1 phòng — allowRoomOverlap=true bỏ qua riêng chặn trùng
+     * phòng (lớp/GV khác nhau nên các chặn khác không bị kích hoạt).
+     */
+    @Test
+    void bulkCreateSessions_boSung_allowRoomOverlapBypassesRoomConflictForMergedGroups() {
+        LocalDate date = nextWeekday(LocalDate.now().plusDays(60), DayOfWeek.MONDAY);
+        classSessionService.createSession(schoolClass.id(),
+                new CreateClassSessionRequest(date, "MORNING", SLOT_A, room.getId(), "REGULAR", "VIETNAMESE",
+                        teacher.getId(), null, null, null, null, null),
+                headAcademic.getId());
+
+        ClassResponse otherGroup = classService.create(new CreateClassRequest(classCode(), "7A4-2", schoolClass.siteId(),
+                schoolClass.curriculumId(), "OPEN", 20, null, LocalDate.now(), null, null), headAcademic.getId());
+        User otherTeacher = newUser("teacher.room.overlap");
+        assignRole(otherTeacher, "TEACHER");
+
+        BulkCreateClassSessionResponse blocked = classSessionService.bulkCreateSessions(otherGroup.id(),
+                new BulkCreateClassSessionRequest(date, date, List.of("MONDAY"), "MORNING", SLOT_A, room.getId(),
+                        "REGULAR", "VIETNAMESE", otherTeacher.getId(), null, null, null, null, null),
+                headAcademic.getId());
+        assertThat(blocked.skippedCount()).isEqualTo(1);
+
+        BulkCreateClassSessionResponse allowed = classSessionService.bulkCreateSessions(otherGroup.id(),
+                new BulkCreateClassSessionRequest(date, date, List.of("MONDAY"), "MORNING", SLOT_A, room.getId(),
+                        "REGULAR", "VIETNAMESE", otherTeacher.getId(), null, null, null, null, true),
+                headAcademic.getId());
+        assertThat(allowed.createdCount()).isEqualTo(1);
+        assertThat(allowed.created().get(0).roomId()).isEqualTo(room.getId());
     }
 
     /** Bổ sung (đã xác nhận với người dùng 2026-07-29): 1 giá trị teacherType dùng chung cho cả lô sinh lịch. */
@@ -681,7 +744,7 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
 
         BulkCreateClassSessionResponse response = classSessionService.bulkCreateSessions(schoolClass.id(),
                 new BulkCreateClassSessionRequest(startDate, endDate, List.of("MONDAY"), "MORNING", SLOT_A, room.getId(),
-                        "REGULAR", "VIETNAMESE", teacher.getId(), null, null, null, null),
+                        "REGULAR", "VIETNAMESE", teacher.getId(), null, null, null, null, null),
                 headAcademic.getId());
 
         assertThat(response.created()).hasSize(2)
@@ -771,7 +834,7 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
                 headAcademic.getId());
 
         ClassSessionResponse updated = classSessionService.updateAssignment(schoolClass.id(), session.id(),
-                new UpdateSessionAssignmentRequest(newRoom.getId(), "FOREIGN", newTeacher.getId(), assistant.getId(), null, "MORNING", SLOT_C, null, null),
+                new UpdateSessionAssignmentRequest(newRoom.getId(), "FOREIGN", newTeacher.getId(), assistant.getId(), null, "MORNING", SLOT_C, null, null, null),
                 headAcademic.getId());
 
         assertThat(updated.id()).isEqualTo(session.id());
@@ -793,7 +856,7 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
         classSessionService.cancelSession(schoolClass.id(), session.id(), new CancelClassSessionRequest(null), headAcademic.getId());
 
         assertThatThrownBy(() -> classSessionService.updateAssignment(schoolClass.id(), session.id(),
-                new UpdateSessionAssignmentRequest(room.getId(), "VIETNAMESE", teacher.getId(), null, null, "MORNING", SLOT_A, null, null),
+                new UpdateSessionAssignmentRequest(room.getId(), "VIETNAMESE", teacher.getId(), null, null, "MORNING", SLOT_A, null, null, null),
                 headAcademic.getId()))
                 .isInstanceOf(InvalidClassSessionStatusTransitionException.class);
     }
@@ -813,7 +876,7 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
                 headAcademic.getId());
 
         ClassSessionResponse updated = classSessionService.updateAssignment(schoolClass.id(), session.id(),
-                new UpdateSessionAssignmentRequest(room.getId(), "VIETNAMESE", teacher.getId(), null, null, "MORNING", List.of(2, 3), null, null),
+                new UpdateSessionAssignmentRequest(room.getId(), "VIETNAMESE", teacher.getId(), null, null, "MORNING", List.of(2, 3), null, null, null),
                 headAcademic.getId());
 
         assertThat(updated.id()).isEqualTo(session.id());
@@ -902,7 +965,7 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
                 headAcademic.getId());
 
         ClassSessionResponse rescheduled = classSessionService.rescheduleSession(schoolClass.id(), makeup.id(),
-                new RescheduleClassSessionRequest(LocalDate.now().plusDays(132), "MORNING", SLOT_C, room.getId(), "Đổi giờ", null),
+                new RescheduleClassSessionRequest(LocalDate.now().plusDays(132), "MORNING", SLOT_C, room.getId(), "Đổi giờ", null, null),
                 headAcademic.getId());
 
         assertThat(rescheduled.makeupForSessionId()).isEqualTo(cancelled.getId());

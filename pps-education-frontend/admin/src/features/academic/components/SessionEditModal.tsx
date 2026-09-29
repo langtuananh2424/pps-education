@@ -56,6 +56,8 @@ export default function SessionEditModal({ session, siteId, rooms, onClose, onQu
   const [dayPart, setDayPart] = useState<DayPart>(session.dayPart ?? "MORNING");
   const [selectedPeriods, setSelectedPeriods] = useState<Set<number>>(new Set(session.periodNumbers));
   const [allowTeacherOverlap, setAllowTeacherOverlap] = useState(false);
+  // Cho phép trùng phòng khi 2 nhóm lớp gộp học chung (bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-09-29).
+  const [allowRoomOverlap, setAllowRoomOverlap] = useState(false);
 
   const [newSessionDate, setNewSessionDate] = useState(session.sessionDate);
   const [newDayPart, setNewDayPart] = useState<DayPart>(session.dayPart ?? "MORNING");
@@ -82,7 +84,8 @@ export default function SessionEditModal({ session, siteId, rooms, onClose, onQu
       dayPart,
       periodNumbers: Array.from(selectedPeriods),
       actualTeacherName: teacherType === "FOREIGN" && actualTeacherName.trim() ? actualTeacherName.trim() : undefined,
-      allowTeacherOverlap: allowTeacherOverlap || undefined
+      allowTeacherOverlap: allowTeacherOverlap || undefined,
+      allowRoomOverlap: (roomId !== "" && allowRoomOverlap) || undefined
     };
     onQueueUpdate(request, {
       roomName: roomId ? rooms.find((r) => r.id === Number(roomId))?.name ?? null : null,
@@ -107,7 +110,8 @@ export default function SessionEditModal({ session, siteId, rooms, onClose, onQu
         newPeriodNumbers: Array.from(newPeriods),
         newRoomId: roomId ? Number(roomId) : undefined,
         reason: rescheduleReason.trim() || undefined,
-        allowTeacherOverlap: allowTeacherOverlap || undefined
+        allowTeacherOverlap: allowTeacherOverlap || undefined,
+        allowRoomOverlap: (roomId !== "" && allowRoomOverlap) || undefined
       });
       onRescheduled();
     } catch (err) {
@@ -237,6 +241,17 @@ export default function SessionEditModal({ session, siteId, rooms, onClose, onQu
                     </span>
                   </span>
                 </label>
+                {roomId !== "" && (
+                  <label className="flex items-start gap-2 text-xs text-slate-600 cursor-pointer">
+                    <input type="checkbox" checked={allowRoomOverlap} onChange={(e) => setAllowRoomOverlap(e.target.checked)} className="mt-0.5" />
+                    <span>
+                      Cho phép trùng phòng học với buổi khác
+                      <span className="block text-[10px] text-slate-400 italic">
+                        Dùng khi 2 nhóm lớp gộp lại học chung 1 phòng cùng khung giờ.
+                      </span>
+                    </span>
+                  </label>
+                )}
 
                 <p className="text-[11px] text-slate-400 italic">Thay đổi chỉ hiện tạm trên lưới — bấm "Lưu" ở đầu lưới để ghi thật.</p>
 
@@ -283,6 +298,17 @@ export default function SessionEditModal({ session, siteId, rooms, onClose, onQu
                     </span>
                   </span>
                 </label>
+                {roomId !== "" && (
+                  <label className="flex items-start gap-2 text-xs text-slate-600 cursor-pointer">
+                    <input type="checkbox" checked={allowRoomOverlap} onChange={(e) => setAllowRoomOverlap(e.target.checked)} className="mt-0.5" />
+                    <span>
+                      Cho phép trùng phòng học với buổi khác
+                      <span className="block text-[10px] text-slate-400 italic">
+                        Dùng khi 2 nhóm lớp gộp lại học chung 1 phòng cùng khung giờ.
+                      </span>
+                    </span>
+                  </label>
+                )}
                 <div>
                   <label className={labelClass}>Lý do dời lịch (không bắt buộc)</label>
                   <input value={rescheduleReason} onChange={(e) => setRescheduleReason(e.target.value)} className={inputClass} />
