@@ -15,6 +15,7 @@ import vn.com.pps.education.repository.PermissionAuditLogRepository;
 import vn.com.pps.education.repository.PermissionRepository;
 import vn.com.pps.education.repository.UserPermissionOverrideRepository;
 import vn.com.pps.education.repository.UserRepository;
+import vn.com.pps.education.security.ClientIpResolver;
 
 import java.time.OffsetDateTime;
 import java.util.HashMap;
@@ -33,17 +34,20 @@ public class UserPermissionOverrideService {
     private final UserPermissionOverrideRepository userPermissionOverrideRepository;
     private final PermissionAuditLogRepository permissionAuditLogRepository;
     private final PermissionEvaluationService permissionEvaluationService;
+    private final ClientIpResolver clientIpResolver;
 
     public UserPermissionOverrideService(UserRepository userRepository,
                                           PermissionRepository permissionRepository,
                                           UserPermissionOverrideRepository userPermissionOverrideRepository,
                                           PermissionAuditLogRepository permissionAuditLogRepository,
-                                          PermissionEvaluationService permissionEvaluationService) {
+                                          PermissionEvaluationService permissionEvaluationService,
+                                          ClientIpResolver clientIpResolver) {
         this.userRepository = userRepository;
         this.permissionRepository = permissionRepository;
         this.userPermissionOverrideRepository = userPermissionOverrideRepository;
         this.permissionAuditLogRepository = permissionAuditLogRepository;
         this.permissionEvaluationService = permissionEvaluationService;
+        this.clientIpResolver = clientIpResolver;
     }
 
     @Transactional(readOnly = true)
@@ -117,7 +121,7 @@ public class UserPermissionOverrideService {
         log.setAction(action);
         log.setTargetPermission(permission);
         log.setDetails(details);
-        log.setIpAddress(httpRequest.getRemoteAddr());
+        log.setIpAddress(clientIpResolver.resolve(httpRequest));
         permissionAuditLogRepository.save(log);
     }
 

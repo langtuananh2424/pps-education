@@ -122,6 +122,33 @@ export function getUserLoginHistory(userId: number, page: number, size: number):
   return apiRequest<Page<LoginHistoryItemResponse>>(`/users/${userId}/login-history?page=${page}&size=${size}`);
 }
 
+/**
+ * Khớp UserSessionResponse thật (UC-44 bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-29) —
+ * 1 thiết bị đang đăng nhập (refresh token còn hiệu lực). lastActiveAt = lần hoạt động gần nhất.
+ */
+export interface UserSessionResponse {
+  id: number;
+  ipAddress: string | null;
+  deviceInfo: string | null;
+  lastActiveAt: string;
+  expiresAt: string;
+}
+
+/** Thiết bị đang đăng nhập của 1 tài khoản (quyền user.view). */
+export function getUserSessions(userId: number): Promise<UserSessionResponse[]> {
+  return apiRequest<UserSessionResponse[]>(`/users/${userId}/sessions`);
+}
+
+/** Gỡ 1 thiết bị đang đăng nhập (quyền user.update) — thiết bị đó bị đăng xuất ở lần gọi API kế tiếp. */
+export function revokeUserSession(userId: number, sessionId: number): Promise<void> {
+  return apiRequest<void>(`/users/${userId}/sessions/${sessionId}`, { method: "DELETE" });
+}
+
+/** Gỡ toàn bộ thiết bị đang đăng nhập của tài khoản (quyền user.update). */
+export function revokeAllUserSessions(userId: number): Promise<void> {
+  return apiRequest<void>(`/users/${userId}/sessions`, { method: "DELETE" });
+}
+
 /** UC-43: tạo tài khoản mới. */
 export function createUser(request: CreateUserRequest): Promise<UserResponse> {
   return apiRequest<UserResponse>("/users", { method: "POST", body: JSON.stringify(request) });

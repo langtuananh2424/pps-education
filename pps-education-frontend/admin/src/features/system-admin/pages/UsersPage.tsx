@@ -29,6 +29,7 @@ import {
 } from "../api";
 import Select from "@/components/ui/Select";
 import { formatDateTime } from "@/lib/i18nFormat";
+import UserSessionsSection from "../components/UserSessionsSection";
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 
@@ -564,6 +565,8 @@ function UserDetailModal({
               </Button>
             )}
           </div>
+
+          <UserSessionsSection userId={detail.id} username={detail.username} />
 
           <div className="border-t border-slate-100 pt-4 space-y-2">
             <div>

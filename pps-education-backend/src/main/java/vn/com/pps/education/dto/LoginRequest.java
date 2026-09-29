@@ -12,7 +12,7 @@ import jakarta.validation.constraints.NotBlank;
  * false (mặc định, client cũ không gửi vẫn đăng nhập được như cũ): học sinh có
  * phiên ACTIVE ở thiết bị khác bị chặn đăng nhập (ActiveSessionExistsException).
  * true: xác nhận thu hồi (revoke) phiên cũ đó rồi đăng nhập tiếp — xem
- * AuthService#requireNoActiveSessionForStudent.
+ * AuthService#enforceActiveSessionLimit.
  */
 public record LoginRequest(
         @NotBlank String usernameOrEmail,

@@ -92,6 +92,24 @@
         "changedToast": "Account switched to status \"{{statusLabel}}\"!",
         "saveError": "Failed to change status."
       },
+      "sessions": {
+        "sectionTitle": "Signed-in devices ({{count}})",
+        "sectionDescription": "Active sessions. Up to 3 devices (students: 1); signing in on another device asks to sign out the oldest one. A removed device is signed out within ~15 minutes.",
+        "loading": "Loading...",
+        "empty": "No devices are signed in.",
+        "loadError": "Could not load devices.",
+        "revoke": "Remove",
+        "revokeAll": "Remove all",
+        "revokeError": "Could not remove the session.",
+        "confirmRevokeOne": "Sign {{username}} out of {{device}} (IP {{ip}})?",
+        "confirmRevokeAll": "Sign {{username}} out of ALL devices?",
+        "columns": {
+          "device": "Device",
+          "ip": "IP",
+          "lastActive": "Last active",
+          "expires": "Expires"
+        }
+      },
       "loginHistory": {
         "sectionTitle": "Login History",
         "sectionDescription": "Every login (successful and failed) with device info reported by the browser.",

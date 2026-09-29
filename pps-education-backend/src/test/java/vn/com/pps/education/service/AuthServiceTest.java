@@ -246,7 +246,7 @@ class AuthServiceTest extends AbstractIntegrationTest {
         assertThat(secondDevice.accessToken()).isNotBlank();
     }
 
-    /** Rào 1-thiết-bị CHỈ áp dụng cho tài khoản Học sinh — giáo viên/nhân viên vẫn đăng nhập nhiều thiết bị cùng lúc bình thường. */
+    /** Rào 1-thiết-bị CHỈ áp dụng cho tài khoản Học sinh — giáo viên/nhân viên vẫn đăng nhập nhiều thiết bị (tối đa 3) cùng lúc bình thường. */
     @Test
     void login_boSung_allowsMultipleDevicesForNonStudentRoles() {
         authService.login(new LoginRequest(activeUser.getUsername(), RAW_PASSWORD, null, null, null, false), request());
@@ -254,6 +254,68 @@ class AuthServiceTest extends AbstractIntegrationTest {
         LoginResponse secondDevice = authService.login(
                 new LoginRequest(activeUser.getUsername(), RAW_PASSWORD, null, null, null, false), request());
         assertThat(secondDevice.accessToken()).isNotBlank();
+    }
+
+    /**
+     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-29 — tài khoản không phải Học sinh tối
+     * đa 3 thiết bị: thiết bị thứ 4 bị chặn 409 (FE hiện popup hỏi đăng xuất), 3 phiên cũ giữ nguyên.
+     */
+    @Test
+    void login_boSung_rejectsFourthDeviceForNonStudent() {
+        for (int i = 0; i < 3; i++) {
+            authService.login(new LoginRequest(activeUser.getUsername(), RAW_PASSWORD, null, null, null, false), request());
+        }
+
+        assertThatThrownBy(() -> authService.login(
+                new LoginRequest(activeUser.getUsername(), RAW_PASSWORD, null, null, null, false), request()))
+                .isInstanceOf(ActiveSessionExistsException.class);
+
+        assertThat(tokensOf(activeUser)).hasSize(3).allMatch(t -> t.getRevokedAt() == null);
+    }
+
+    /** Xác nhận đăng xuất ở thiết bị thứ 4 → chỉ thu hồi phiên CŨ NHẤT, 2 thiết bị còn lại không bị ảnh hưởng. */
+    @Test
+    void login_boSung_confirmOnFourthDeviceRevokesOnlyOldestSession() {
+        for (int i = 0; i < 3; i++) {
+            authService.login(new LoginRequest(activeUser.getUsername(), RAW_PASSWORD, null, null, null, false), request());
+        }
+        Long oldestId = tokensOf(activeUser).stream().map(RefreshToken::getId).min(Long::compare).orElseThrow();
+
+        LoginResponse fourthDevice = authService.login(
+                new LoginRequest(activeUser.getUsername(), RAW_PASSWORD, null, null, null, true), request());
+        assertThat(fourthDevice.accessToken()).isNotBlank();
+
+        List<RefreshToken> tokens = tokensOf(activeUser);
+        assertThat(tokens).hasSize(4);
+        assertThat(tokens).filteredOn(t -> t.getRevokedAt() != null)
+                .extracting(RefreshToken::getId).containsExactly(oldestId);
+        assertThat(tokens).filteredOn(t -> t.getRevokedAt() == null).hasSize(3);
+    }
+
+    /**
+     * Sửa lỗi 2026-09-29 — sau Cloudflare Tunnel + Nginx, remoteAddr luôn là gateway Docker; IP thật
+     * lấy từ CF-Connecting-IP (xem ClientIpResolver) cho cả login_attempts lẫn refresh_tokens.
+     */
+    @Test
+    void login_boSung_recordsRealClientIpFromCloudflareHeader() {
+        MockHttpServletRequest proxied = new MockHttpServletRequest();
+        proxied.setRemoteAddr("172.28.0.1");
+        proxied.addHeader("User-Agent", "junit-test");
+        proxied.addHeader("CF-Connecting-IP", "113.160.10.20");
+        proxied.addHeader("X-Forwarded-For", "113.160.10.20, 127.0.0.1");
+
+        authService.login(new LoginRequest(activeUser.getUsername(), RAW_PASSWORD, null, null, null, false), proxied);
+
+        assertThat(attemptsFor(activeUser)).singleElement()
+                .extracting(LoginAttempt::getIpAddress).isEqualTo("113.160.10.20");
+        assertThat(tokensOf(activeUser)).singleElement()
+                .extracting(RefreshToken::getIpAddress).isEqualTo("113.160.10.20");
+    }
+
+    private List<RefreshToken> tokensOf(User user) {
+        return refreshTokenRepository.findAll().stream()
+                .filter(t -> t.getUser().getId().equals(user.getId()))
+                .toList();
     }
 
     private void makeStudent(User user) {

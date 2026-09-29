@@ -36,7 +36,7 @@ function deviceMetadata() {
 /**
  * confirm: bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-09-19) — học sinh đã có phiên
  * ACTIVE ở thiết bị khác bị backend chặn với 409 (ActiveSessionExistsException, xem
- * AuthService#requireNoActiveSessionForStudent). confirm=true xác nhận thu hồi phiên cũ đó rồi đăng
+ * AuthService#enforceActiveSessionLimit). confirm=true xác nhận thu hồi phiên cũ đó rồi đăng
  * nhập tiếp — gọi lại sau khi người dùng bấm "Có" ở popup xác nhận (xem LoginPage).
  */
 export async function login(usernameOrEmail: string, password: string, confirm = false): Promise<void> {

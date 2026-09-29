@@ -23,6 +23,9 @@ async function loginPortal(page: Page, username: string, password: string) {
     await page.locator("#usernameOrEmail").fill(username);
     await page.locator("#password").fill(password);
     await page.locator('button[type="submit"]').click();
+    // Tài khoản đã đủ giới hạn thiết bị → popup hỏi đăng xuất thiết bị cũ (ForceLogoutConfirmDialog).
+    const forceLogout = page.getByRole("button", { name: /đăng xuất và tiếp tục/i });
+    if (await forceLogout.waitFor({ timeout: 3_000 }).then(() => true, () => false)) await forceLogout.click();
     // App.tsx không dùng react-router cho Portal — chỉ 1 ternary isLoggedIn ở gốc (LoginPage/PortalPage
     // render cùng URL "/login"), nên KHÔNG có URL đổi để chờ; chờ chuông thông báo (chỉ Portal mới có) xuất hiện.
     await expect(page.locator("button:has(svg.lucide-bell)")).toBeVisible({ timeout: 15_000 });
