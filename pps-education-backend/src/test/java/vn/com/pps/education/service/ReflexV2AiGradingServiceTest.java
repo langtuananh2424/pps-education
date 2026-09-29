@@ -35,6 +35,9 @@ class ReflexV2AiGradingServiceTest {
 
     private static final String WRITTEN =
             "My favourite sport is football because I play it with my friends every weekend.";
+    /** Nói khác bài viết (thêm ý) nhưng cùng nội dung — qua cổng "nói khác bài viết", không qua cách B. */
+    private static final String SPOKEN_EXTENDED =
+            "My favourite sport is football because I often play it with my best friends in the park every weekend and it is really fun.";
 
     private final NineRouterAiClient aiClient = mock(NineRouterAiClient.class);
     private final ReflexV2Prompts prompts = mock(ReflexV2Prompts.class);
@@ -97,11 +100,11 @@ class ReflexV2AiGradingServiceTest {
     }
 
     /**
-     * Từ 23/9 Ngữ pháp KHÔNG còn khoá: chấm lại từ transcript, nhưng không tụt dưới NỬA điểm Bước 1
-     * (80% → sàn 40%). Phát âm chỉ để tham khảo nên không tính vào điểm mở khoá câu tiếp theo.
+     * Cách B (29/9): nói lại ĐÚNG bài đã viết → điểm Ngữ pháp giữ nguyên điểm Bước 1 (80%), dù lượt chấm lại cho 0%.
+     * Phát âm chỉ để tham khảo nên không tính vào điểm mở khoá câu tiếp theo.
      */
     @Test
-    void gradeSpeaking_UC23b_MainFlow_regradesGrammarFromTranscript_floorsAtHalfOfStep1_pronunciationIsReferenceOnly() {
+    void gradeSpeaking_UC23b_MainFlow_spokeAsWritten_keepsStep1Grammar_pronunciationIsReferenceOnly() {
         when(aiClient.chatWithAudioJson(any(), any(), any(), any(), any(), any()))
                 .thenReturn(transcriptionResponse(WRITTEN))
                 .thenReturn(gradingResponse("[]", 0, 1));
@@ -110,22 +113,78 @@ class ReflexV2AiGradingServiceTest {
 
         assertThat(result.criteria()).extracting(CriteriaScoreItem::criterion)
                 .containsExactly("Grammar and Vocabulary", "Pronunciation (tham khảo)");
-        assertThat(result.criteria()).extracting(CriteriaScoreItem::percent).containsExactly(40, 90);
-        assertThat(result.unlockPercent()).isEqualTo(40);
-        assertThat(result.finalPercent()).isEqualTo(65);
-        assertThat(result.audit()).containsEntry("grammarStep1Percent", 80).containsEntry("grammarRegradedPercent", 0);
+        assertThat(result.criteria()).extracting(CriteriaScoreItem::percent).containsExactly(80, 90);
+        assertThat(result.unlockPercent()).isEqualTo(80);
+        assertThat(result.finalPercent()).isEqualTo(85);
+        assertThat(result.audit()).containsEntry("grammarStep1Percent", 80).containsEntry("grammarRegradedPercent", 0)
+                .containsEntry("grammarKeptFromStep1", true);
         verify(sink).record(AiGradingTokenUsage.Step.TRANSCRIPTION, transcriptionUsage);
         verify(sink).record(AiGradingTokenUsage.Step.SPEAKING, gradingUsage);
     }
 
-    /** Một lỗi không bị phạt hai lần: trần theo lỗi đã tô (10%) không được đạp xuyên sàn Ngữ pháp (40%). */
+    /** Nói giống bài viết: lỗi AI tô trên transcript (kể cả 2 lỗi đỏ ngữ pháp) không được đổi điểm Ngữ pháp Bước 1. */
+    @Test
+    void gradeSpeaking_UC23b_A_spokeAsWritten_highlightedErrorsDoNotTouchKeptGrammar() {
+        String highlights = "[" + highlight("sport", "thieu_thanh_phan", "red") + "," + highlight("play", "trat_tu_tu", "red") + "]";
+        when(aiClient.chatWithAudioJson(any(), any(), any(), any(), any(), any()))
+                .thenReturn(transcriptionResponse(WRITTEN))
+                .thenReturn(gradingResponse(highlights, 1, 1));
+
+        ReflexV2AiGradingService.SpeakingResult result = grade();
+
+        assertThat(result.criteria().get(0).percent()).isEqualTo(80);
+        @SuppressWarnings("unchecked")
+        Map<String, List<String>> caps = (Map<String, List<String>>) result.audit().get("caps");
+        assertThat(caps.get("GV")).containsExactly("giữ điểm Bước 1 (nói giống bài viết)");
+        assertThat(result.audit()).containsEntry("spokenRedCount", 2).containsEntry("grammarKeptFromStep1", true)
+                .containsEntry(ReflexV2AiGradingService.AUDIT_GRAMMAR_REVIEW_REQUIRED, false);
+    }
+
+    /**
+     * Quy trình 29/9: nói khác bài viết + ≥2 lỗi đỏ ngữ pháp → Ngữ pháp bị trần 60% và bài được đánh dấu cần giáo
+     * viên soát, kèm đúng các đoạn bị tô đỏ (lượt phiên âm có thể nghe nhầm).
+     */
+    @Test
+    void gradeSpeaking_UC23b_A_spokeDifferent_twoGrammarRedErrors_capsAndFlagsForTeacherReview() {
+        String highlights = "[" + highlight("often play", "thieu_thanh_phan", "red") + "," + highlight("really fun", "trat_tu_tu", "red") + "]";
+        when(aiClient.chatWithAudioJson(any(), any(), any(), any(), any(), any()))
+                .thenReturn(transcriptionResponse(SPOKEN_EXTENDED))
+                .thenReturn(gradingResponse(highlights, 1, 1));
+
+        ReflexV2AiGradingService.SpeakingResult result = grade();
+
+        assertThat(result.criteria().get(0).percent()).isEqualTo(60);
+        assertThat(result.audit()).containsEntry("spokenRedCount", 2)
+                .containsEntry(ReflexV2AiGradingService.AUDIT_GRAMMAR_REVIEW_REQUIRED, true)
+                .containsEntry(ReflexV2AiGradingService.AUDIT_GRAMMAR_REVIEW_QUOTES, List.of("often play", "really fun"));
+    }
+
+    /** Nói khác bài viết → chấm lại từ transcript, nhưng không tụt dưới NỬA điểm Bước 1 (80% → sàn 40%). */
+    @Test
+    void gradeSpeaking_UC23b_A_spokeDifferentFromWriting_regradesGrammar_floorsAtHalfOfStep1() {
+        when(aiClient.chatWithAudioJson(any(), any(), any(), any(), any(), any()))
+                .thenReturn(transcriptionResponse(SPOKEN_EXTENDED))
+                .thenReturn(gradingResponse("[]", 0, 1));
+
+        ReflexV2AiGradingService.SpeakingResult result = grade();
+
+        assertThat(result.criteria()).extracting(CriteriaScoreItem::percent).containsExactly(40, 90);
+        assertThat(result.unlockPercent()).isEqualTo(40);
+        assertThat(result.finalPercent()).isEqualTo(65);
+        assertThat(result.audit()).containsEntry("grammarRegradedPercent", 0).containsEntry("grammarKeptFromStep1", false);
+    }
+
+    /**
+     * Nói khác bài viết: một lỗi không bị phạt hai lần — trần theo lỗi đã tô (10%) không đạp xuyên sàn (40%).
+     * Dùng từ / từ loại vẫn đỏ nhưng KHÔNG phải lỗi đỏ ngữ pháp nên không tính vào trần 60% (29/9).
+     */
     @Test
     void gradeSpeaking_UC23b_A_manyErrorsCapDoesNotPushGrammarBelowStep1Floor() {
         String highlights = "[" + highlight("favourite", "thi_dong_tu") + "," + highlight("sport", "thi_dong_tu") + ","
                 + highlight("football", "mao_tu") + "," + highlight("play", "gioi_tu") + "," + highlight("friends", "so_it_so_nhieu") + ","
                 + highlight("weekend", "dung_tu") + "," + highlight("with", "tu_loai") + "]";
         when(aiClient.chatWithAudioJson(any(), any(), any(), any(), any(), any()))
-                .thenReturn(transcriptionResponse(WRITTEN))
+                .thenReturn(transcriptionResponse(SPOKEN_EXTENDED))
                 .thenReturn(gradingResponse(highlights, 0, 1));
 
         ReflexV2AiGradingService.SpeakingResult result = grade();
@@ -134,7 +193,7 @@ class ReflexV2AiGradingServiceTest {
         @SuppressWarnings("unchecked")
         Map<String, List<String>> caps = (Map<String, List<String>>) result.audit().get("caps");
         assertThat(caps.get("GV")).anyMatch(n -> n.contains("lỗi đã tô")).anyMatch(n -> n.contains("sàn"));
-        assertThat(result.audit()).containsEntry("spokenRedCount", 2);
+        assertThat(result.audit()).containsEntry("spokenRedCount", 0);
     }
 
     /** Không nói được gì: không có sàn Ngữ pháp — điểm phải là thật (0%), dù bài viết được 80%. */
@@ -168,7 +227,11 @@ class ReflexV2AiGradingServiceTest {
     }
 
     private static String highlight(String quote, String tag) {
-        return "{\"quote\":\"" + quote + "\",\"occurrence\":1,\"level\":\"yellow\",\"tag\":\"" + tag + "\"}";
+        return highlight(quote, tag, "yellow");
+    }
+
+    private static String highlight(String quote, String tag, String level) {
+        return "{\"quote\":\"" + quote + "\",\"occurrence\":1,\"level\":\"" + level + "\",\"tag\":\"" + tag + "\"}";
     }
 
     private NineRouterAiClient.AiJsonResponse gradingResponse(String highlightsJson, int gvCheckpoint, int pCheckpoint) {

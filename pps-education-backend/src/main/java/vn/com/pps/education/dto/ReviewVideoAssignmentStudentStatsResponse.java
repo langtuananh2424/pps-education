@@ -35,6 +35,12 @@ public record ReviewVideoAssignmentStudentStatsResponse(
              * bên Exercise. Luôn false cho CONNECTION (chỉ REFLEX có luồng nộp bài viết/nói được đánh
              * dấu muộn — xem ReflexSequentialGradingService).
              */
-            boolean lateSubmission
+            boolean lateSubmission,
+            /**
+             * V198 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-29) — REFLEX: lần ghi âm gần nhất của
+             * ít nhất 1 câu cần giáo viên soát điểm Ngữ pháp (≥2 lỗi đỏ ngữ pháp ở nhánh chấm lại từ transcript —
+             * lượt phiên âm có thể nghe nhầm). Luôn false cho CONNECTION.
+             */
+            boolean grammarReviewRequired
     ) {}
 }

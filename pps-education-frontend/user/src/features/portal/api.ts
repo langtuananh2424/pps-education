@@ -751,11 +751,21 @@ export function submitReflexWrittenAnswer(questionId: number, assignmentId: numb
 }
 
 /** Bước 2 — CHỈ chấp nhận khi bước 1 đã đạt: nộp audio (đã upload sẵn qua uploadMedia), AI transcribe + chấm nội dung ngay. */
-export function submitReflexSpokenAnswer(questionId: number, assignmentId: number, audioUrl: string): Promise<ReflexQuestionProgressResponse> {
+/** @param recordingFilter V199 — bản ghi đã qua bộ lọc thu âm (true) hay là bản thô (false); lưu lại để so sánh hai chế độ. */
+export function submitReflexSpokenAnswer(questionId: number, assignmentId: number, audioUrl: string, recordingFilter: boolean): Promise<ReflexQuestionProgressResponse> {
   return apiRequest<ReflexQuestionProgressResponse>(`/review-video-questions/${questionId}/reflex-progress/speaking?assignmentId=${assignmentId}`, {
     method: "PUT",
-    body: JSON.stringify({ audioUrl })
+    body: JSON.stringify({ audioUrl, recordingFilter })
   });
+}
+
+/** V199 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-29) — công tắc bộ lọc thu âm ở Cài đặt hệ thống. */
+export interface ReflexRecordingConfig {
+  filterEnabled: boolean;
+}
+
+export function getReflexRecordingConfig(): Promise<ReflexRecordingConfig> {
+  return apiRequest<ReflexRecordingConfig>("/reflex-recording-config");
 }
 
 /** Tiến trình đã lưu của MỌI câu hỏi thuộc video này trong lần giao đang mở — dùng để dựng lại đúng trạng thái khoá/mở khi vào/tải lại trang. */
