@@ -46,7 +46,13 @@ async function refreshAccessToken(): Promise<string | null> {
       body: JSON.stringify({ refreshToken })
     })
       .then(async (res) => {
-        if (!res.ok) return null;
+        if (!res.ok) {
+          // Tab khác (dùng chung token trong localStorage) vừa xoay vòng refresh token trước tab này —
+          // backend chỉ từ chối token cũ (ân hạn nhiều-tab, xem AuthService#refresh), dùng luôn token
+          // mới tab kia đã ghi thay vì đăng xuất tab này.
+          const latestRefreshToken = getRefreshToken();
+          return latestRefreshToken && latestRefreshToken !== refreshToken ? getAccessToken() : null;
+        }
         const data = await res.json();
         setTokens(data.accessToken, data.refreshToken);
         return data.accessToken as string;

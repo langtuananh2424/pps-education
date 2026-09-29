@@ -38,8 +38,9 @@ interface AppContextValue {
   setSidebarCollapsed: (collapsed: boolean) => void;
   loginNotice: string | null;
   /** rememberMe = ô "Ghi nhớ đăng nhập" — quyết định token sống qua việc đóng trình duyệt hay không (xem tokenStorage.ts). */
-  login: (usernameOrEmail: string, password: string, rememberMe: boolean) => Promise<void>;
-  loginWithGoogle: (idToken: string, rememberMe: boolean) => Promise<void>;
+  /** confirm = xác nhận đăng xuất thiết bị cũ nhất khi đã đủ số thiết bị tối đa (backend trả 409 nếu false). */
+  login: (usernameOrEmail: string, password: string, rememberMe: boolean, confirm?: boolean) => Promise<void>;
+  loginWithGoogle: (idToken: string, rememberMe: boolean, confirm?: boolean) => Promise<void>;
   logout: () => Promise<void>;
   hasPermission: (requiredPermission?: string) => boolean;
   /** Trang hiện tại (VD Nhận xét học viên) đang có dữ liệu nhập dở chưa lưu — Sidebar dùng để chặn điều hướng + hỏi xác nhận. */
@@ -132,13 +133,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       .catch(() => undefined);
   };
 
-  const login = async (usernameOrEmail: string, password: string, rememberMe: boolean) => {
-    await loginApi(usernameOrEmail, password, rememberMe);
+  const login = async (usernameOrEmail: string, password: string, rememberMe: boolean, confirm = false) => {
+    await loginApi(usernameOrEmail, password, rememberMe, confirm);
     await completeLogin();
   };
 
-  const loginWithGoogle = async (idToken: string, rememberMe: boolean) => {
-    await loginWithGoogleApi(idToken, rememberMe);
+  const loginWithGoogle = async (idToken: string, rememberMe: boolean, confirm = false) => {
+    await loginWithGoogleApi(idToken, rememberMe, confirm);
     await completeLogin();
   };
 

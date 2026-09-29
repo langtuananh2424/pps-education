@@ -136,6 +136,15 @@ app:
       # cả lớp học có thể dùng chung 1 IP công cộng.
       ip-max-failed-attempts: ${LOGIN_IP_MAX_FAILED_ATTEMPTS:50}
       ip-window-minutes: ${LOGIN_IP_WINDOW_MINUTES:15}
+    # Bổ sung ngoài SDD gốc (xác nhận với người dùng 2026-09-29) - số thiết bị (refresh token ACTIVE)
+    # tối đa đăng nhập cùng lúc; vượt giới hạn -> popup xác nhận đăng xuất thiết bị cũ nhất
+    # (AuthService#enforceActiveSessionLimit). Học sinh giữ 1 thiết bị để chống gian lận khi làm bài.
+    session:
+      max-active-sessions: ${MAX_ACTIVE_SESSIONS:3}
+      student-max-active-sessions: ${STUDENT_MAX_ACTIVE_SESSIONS:1}
+      # Refresh token vừa xoay vòng trong khoảng này bị dùng lại (nhiều tab refresh cùng lúc) chỉ bị
+      # từ chối, không bị coi là đánh cắp token (không thu hồi toàn bộ phiên).
+      refresh-reuse-grace-seconds: 30
     google:
       # CSV client-id (Web/Mobile) dùng làm audience khi verify id_token (UC-01 A4).
       client-ids: ${GOOGLE_OAUTH_CLIENT_IDS:}

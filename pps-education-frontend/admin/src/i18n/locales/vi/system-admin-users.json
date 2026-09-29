@@ -92,6 +92,24 @@
         "changedToast": "Đã chuyển tài khoản sang trạng thái \"{{statusLabel}}\"!",
         "saveError": "Đổi trạng thái thất bại."
       },
+      "sessions": {
+        "sectionTitle": "Thiết bị đang đăng nhập ({{count}})",
+        "sectionDescription": "Các phiên còn hiệu lực. Tối đa 3 thiết bị (Học sinh 1); đăng nhập thêm sẽ được hỏi đăng xuất thiết bị cũ nhất. Thiết bị bị gỡ sẽ bị đăng xuất trong vòng ~15 phút.",
+        "loading": "Đang tải...",
+        "empty": "Không có thiết bị nào đang đăng nhập.",
+        "loadError": "Không tải được danh sách thiết bị.",
+        "revoke": "Gỡ",
+        "revokeAll": "Gỡ tất cả",
+        "revokeError": "Gỡ phiên đăng nhập thất bại.",
+        "confirmRevokeOne": "Đăng xuất tài khoản {{username}} khỏi thiết bị {{device}} (IP {{ip}})?",
+        "confirmRevokeAll": "Đăng xuất tài khoản {{username}} khỏi TẤT CẢ thiết bị?",
+        "columns": {
+          "device": "Thiết bị",
+          "ip": "IP",
+          "lastActive": "Hoạt động gần nhất",
+          "expires": "Hết hạn"
+        }
+      },
       "loginHistory": {
         "sectionTitle": "Lịch sử đăng nhập",
         "sectionDescription": "Ghi nhận mọi lần đăng nhập (thành công và thất bại) kèm thông tin thiết bị do trình duyệt gửi.",

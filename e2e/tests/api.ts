@@ -14,7 +14,7 @@ export const BACKEND_URL = "http://localhost:8080";
 export const DEV_PASSWORD = "Dev@123456";
 
 export async function login(request: APIRequestContext, usernameOrEmail: string, password = DEV_PASSWORD): Promise<string> {
-  const res = await request.post(`${BACKEND_URL}/api/auth/login`, { data: { usernameOrEmail, password } });
+  const res = await request.post(`${BACKEND_URL}/api/auth/login`, { data: { usernameOrEmail, password, confirm: true } }); // confirm: tự đăng xuất thiết bị cũ nhất khi đủ giới hạn (AuthService#enforceActiveSessionLimit)
   expect(res.ok(), `login thất bại cho ${usernameOrEmail}: ${res.status()} ${await res.text()}`).toBeTruthy();
   const body = await res.json();
   return body.accessToken as string;
