@@ -7,6 +7,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import vn.com.pps.education.common.CommentAiDraftMetrics;
+import vn.com.pps.education.common.CommentPatternCheck;
 import vn.com.pps.education.common.CommentSimilarity;
 import vn.com.pps.education.common.HomeworkScoreInsight;
 import vn.com.pps.education.domain.AttendanceMark;
@@ -66,6 +68,8 @@ import java.util.stream.Collectors;
 public class CommentAiDraftService {
 
     private static final Logger log = LoggerFactory.getLogger(CommentAiDraftService.class);
+    static final String METRICS_LOG_PREFIX = "COMMENT_AI_METRICS";
+    private static final com.fasterxml.jackson.databind.ObjectMapper METRICS_MAPPER = new com.fasterxml.jackson.databind.ObjectMapper();
 
     static final String EXTRACT_PROMPT = "comment-ai-draft-extract-system-prompt.txt";
     static final String WRITE_PROMPT = "comment-ai-draft-write-system-prompt.txt";
@@ -106,9 +110,12 @@ public class CommentAiDraftService {
      * @param previousCommentCount N nhận xét gần nhất/học sinh đem so trùng (UC-74 bước 6-7).
      * @param similarityThreshold tỷ lệ cụm 3 từ trùng nhau từ mức này trở lên coi là trùng lặp máy móc.
      * @param maxAudioBytes chặn dung lượng ở backend (giới hạn 5 phút kiểm tra ở FE, xem UC-74 A3).
+     * @param maxPatternShare tỷ lệ tối đa số học sinh trong buổi được dùng chung 1 kiểu câu mở đầu/câu kết
+     *                        (xem {@link CommentPatternCheck}).
      */
     public record Settings(String model, int previousCommentCount, int previousLookbackDays,
-                           double similarityThreshold, int writeBatchSize, long maxAudioBytes, int homeworkTrendPoints) {
+                           double similarityThreshold, int writeBatchSize, long maxAudioBytes, int homeworkTrendPoints,
+                           double maxPatternShare) {
     }
 
     public CommentAiDraftService(StudentCommentService studentCommentService,
@@ -126,7 +133,8 @@ public class CommentAiDraftService {
                                  @Value("${app.ai-comment-draft.similarity-threshold:0.5}") double similarityThreshold,
                                  @Value("${app.ai-comment-draft.write-batch-size:10}") int writeBatchSize,
                                  @Value("${app.ai-comment-draft.max-audio-bytes:20971520}") long maxAudioBytes,
-                                 @Value("${app.ai-comment-draft.homework-trend-points:20}") int homeworkTrendPoints) {
+                                 @Value("${app.ai-comment-draft.homework-trend-points:20}") int homeworkTrendPoints,
+                                 @Value("${app.ai-comment-draft.max-pattern-share:0.3}") double maxPatternShare) {
         this.studentCommentService = studentCommentService;
         this.attitudeAlertTrackingService = attitudeAlertTrackingService;
         this.classEnrollmentRepository = classEnrollmentRepository;
@@ -137,7 +145,7 @@ public class CommentAiDraftService {
         this.jsonCaller = jsonCaller;
         this.jobRegistry = jobRegistry;
         this.settings = new Settings(model, previousCommentCount, previousLookbackDays, similarityThreshold,
-                Math.max(1, writeBatchSize), maxAudioBytes, homeworkTrendPoints);
+                Math.max(1, writeBatchSize), maxAudioBytes, homeworkTrendPoints, maxPatternShare);
     }
 
     // ---- Bản chụp dữ liệu buổi học (đọc trong request, dùng ở luồng nền) ----
@@ -395,6 +403,7 @@ public class CommentAiDraftService {
         }
         message.append(".");
         appendReviewHints(message, rows, outcome.unmatched().size(), context.skipped().size());
+        logMetrics("DRAFT", context, rows, outcome.unmatched().size(), outcome.extraction().teacherPronoun());
         return new CommentAiDraftResult(transcript, message.toString(), outcome.extraction(), rows,
                 outcome.unmatched(), context.skipped());
     }
@@ -430,6 +439,7 @@ public class CommentAiDraftService {
         StringBuilder message = new StringBuilder("Đã viết lại câu chữ cho ").append(rows.size())
                 .append(" học sinh, giữ nguyên ý giáo viên đã nói.");
         appendReviewHints(message, rows, outcome.unmatched().size(), 0);
+        logMetrics("REWRITE_ALL", context, rows, outcome.unmatched().size(), outcome.extraction().teacherPronoun());
         return new CommentAiDraftResult(request.transcript(), message.toString(), outcome.extraction(), rows,
                 outcome.unmatched(), context.skipped());
     }
@@ -660,6 +670,29 @@ public class CommentAiDraftService {
                 similarTextsById.put(order.get(i), new ArrayList<>(similar));
             }
         }
+        // Bổ sung 2026-09-29: lặp KIỂU câu mở đầu/câu kết (liền kề hoặc quá maxPatternShare lớp) cũng viết lại —
+        // đưa các câu cùng kiểu vào avoidTexts để AI chọn kiểu khác.
+        CommentPatternCheck.Result patterns = CommentPatternCheck.check(patternEntries(targets, contents), settings.maxPatternShare());
+        for (Long id : patterns.all()) {
+            RosterStudent student = context.rosterById().get(id);
+            String text = contents.get(id);
+            String openingKey = CommentPatternCheck.openingKey(text, student.fullName());
+            String closingKey = CommentPatternCheck.closingKey(text);
+            List<String> similar = similarTextsById.computeIfAbsent(id, k -> new ArrayList<>(List.of(text)));
+            for (Target other : targets) {
+                String otherText = contents.get(other.student().id());
+                if (other.student().id().equals(id) || otherText == null || similar.contains(otherText)) {
+                    continue;
+                }
+                boolean sameOpening = patterns.openingIds().contains(id) && openingKey != null
+                        && openingKey.equals(CommentPatternCheck.openingKey(otherText, other.student().fullName()));
+                boolean sameClosing = patterns.closingIds().contains(id) && closingKey != null
+                        && closingKey.equals(CommentPatternCheck.closingKey(otherText));
+                if (sameOpening || sameClosing) {
+                    similar.add(otherText);
+                }
+            }
+        }
         if (similarTextsById.isEmpty()) {
             return contents;
         }
@@ -679,6 +712,12 @@ public class CommentAiDraftService {
             });
         }
         return contents;
+    }
+
+    private static List<CommentPatternCheck.Entry> patternEntries(List<Target> targets, Map<Long, String> contents) {
+        return targets.stream()
+                .map(t -> new CommentPatternCheck.Entry(t.student().id(), t.student().fullName(), contents.get(t.student().id())))
+                .toList();
     }
 
     private Map<Long, String> writeBatch(DraftContext context, List<Target> batch, List<String> avoid, String teacherPronoun) {
@@ -720,6 +759,7 @@ public class CommentAiDraftService {
     /** Dựng dòng xem trước + cảnh báo cuối cùng (A6/A8/A9 và dòng AI không trả về). */
     private List<CommentAiDraftResult.Row> toRows(DraftContext context, List<Target> targets, Map<Long, String> contents,
                                                   String teacherPronoun) {
+        CommentPatternCheck.Result patterns = CommentPatternCheck.check(patternEntries(targets, contents), settings.maxPatternShare());
         List<CommentAiDraftResult.Row> rows = new ArrayList<>();
         for (Target target : targets) {
             Long id = target.student().id();
@@ -766,6 +806,14 @@ public class CommentAiDraftService {
                     warnings.add(new CommentAiDraftResult.Warning("LESSON_TITLE",
                             "Nhận xét nhắc tên bài học — giáo viên thường không ghi tên bài vào nhận xét.", null));
                 }
+                // Đã cảnh báo trùng cả đoạn thì không nhắc thêm trùng kiểu câu (tránh 2 cảnh báo cho cùng 1 lỗi).
+                boolean similarWarned = bestInSession >= settings.similarityThreshold();
+                if (!similarWarned && (patterns.openingIds().contains(id) || patterns.closingIds().contains(id))) {
+                    String part = patterns.openingIds().contains(id) && patterns.closingIds().contains(id) ? "câu mở đầu và câu kết"
+                            : patterns.openingIds().contains(id) ? "câu mở đầu" : "câu kết";
+                    warnings.add(new CommentAiDraftResult.Warning("REPEATED_PATTERN",
+                            "Kiểu " + part + " giống nhiều bạn khác trong buổi — nên đổi cách viết.", null));
+                }
                 CommentAiDraftResult.Warning pronounWarning = pronounMismatchWarning(content, teacherPronoun);
                 if (pronounWarning != null) {
                     warnings.add(pronounWarning);
@@ -779,6 +827,23 @@ public class CommentAiDraftService {
                     target.source(), warnings));
         }
         return rows;
+    }
+
+    /**
+     * Ghi 1 dòng log chỉ số (JSON, tiền tố {@value #METRICS_LOG_PREFIX}) cho script {@code scripts/comment-ai-metrics.py}
+     * — bổ sung 2026-09-29, phương án A không đổi schema. Không chứa nội dung/tên học sinh; lỗi ghi log không làm
+     * hỏng kết quả trả giáo viên.
+     */
+    private void logMetrics(String event, DraftContext context, List<CommentAiDraftResult.Row> rows, int unmatchedCount,
+                            String teacherPronoun) {
+        try {
+            Set<Long> withHomework = context.roster().stream().filter(s -> s.homeworkNote() != null)
+                    .map(RosterStudent::id).collect(Collectors.toSet());
+            log.info("{} {}", METRICS_LOG_PREFIX, METRICS_MAPPER.writeValueAsString(
+                    CommentAiDraftMetrics.of(event, context.classSessionId(), rows, unmatchedCount, teacherPronoun, withHomework)));
+        } catch (Exception e) {
+            log.warn("CommentAiDraftService: không ghi được log chỉ số ({})", e.getMessage());
+        }
     }
 
     private void appendReviewHints(StringBuilder message, List<CommentAiDraftResult.Row> rows, int unmatchedCount, int skippedCount) {

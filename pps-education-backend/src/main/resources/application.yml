@@ -332,6 +332,9 @@ app:
     # Chênh lệch tối thiểu (điểm %) giữa trung bình BTVN buổi trước và buổi trước nữa để AI được nhắc
     # "tiến bộ rõ"/"giảm rõ" (bổ sung 2026-09-29) - ước lượng ban đầu, chỉnh qua biến môi trường.
     homework-trend-points: ${COMMENT_AI_HOMEWORK_TREND_POINTS:20}
+    # Tỷ lệ tối đa học sinh trong 1 buổi được dùng chung 1 kiểu câu mở đầu/câu kết (bổ sung 2026-09-29) -
+    # vượt ngưỡng hoặc trùng với bạn liền trước thì viết lại 1 lần, vẫn trùng thì cảnh báo trên dòng.
+    max-pattern-share: ${COMMENT_AI_MAX_PATTERN_SHARE:0.3}
 
 springdoc:
   swagger-ui:

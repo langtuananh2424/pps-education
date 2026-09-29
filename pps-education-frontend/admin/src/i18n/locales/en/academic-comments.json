@@ -106,7 +106,40 @@
       "applied": "Applied the revision for {{name}} — the comment is still pending.",
       "errors": {
         "failed": "The assistant could not review — please try again.",
-        "suggestFailed": "The assistant could not suggest a fix — please try again."
+        "suggestFailed": "The assistant could not suggest a fix — please try again.",
+        "rejectReasonFailed": "The assistant could not draft a reason — please type it yourself."
+      },
+      "notice": "Note",
+      "confirmApproveCleanAlerts": "{{alerts}} of the {{count}} rows to approve have a Weak/Average attitude — approving sends an attitude alert to parents{{escalationNote}}. Continue?",
+      "confirmApproveAllAlerts": "This class has {{alerts}} rows with a Weak/Average attitude — approving sends an attitude alert to parents{{escalationNote}}. Approve the whole class anyway?",
+      "escalationNote": " ({{count}} rows reach the 3-session alert threshold)",
+      "attitudeAlert": {
+        "single": "Will alert parents",
+        "escalation": "Reaches 3-session alert"
+      },
+      "rejectReasonButton": "AI suggest a rejection reason",
+      "rejectReasonLoading": "Drafting reason…",
+      "summary": {
+        "clean": "{{count}} clean",
+        "issue": "{{count}} {{label}}",
+        "parentAlerts": "{{count}} will alert parents",
+        "escalations": "{{count}} reach 3-session alert",
+        "homeworkMismatch": "{{count}} homework remark contradicts data"
+      },
+      "issueType": {
+        "CONTAINS_DIGITS": "contain digits",
+        "TOO_LONG": "too long",
+        "EMPTY": "empty",
+        "OTHER_STUDENT_NAME": "mention another student",
+        "OTHER_STUDENT": "mention another student",
+        "LESSON_TITLE": "mention the lesson title",
+        "SIMILAR_IN_SESSION": "similar to a classmate",
+        "SIMILAR_TO_PREVIOUS": "similar to a previous session",
+        "HOMEWORK_OR_SCORE": "scores/deadlines",
+        "HARSH_WORDING": "harsh wording",
+        "ATTITUDE_MISMATCH": "attitude mismatch",
+        "FORBIDDEN_TOPIC": "off-limits topic",
+        "OTHER": "other issues"
       }
     },
     "assistant": {

@@ -4,7 +4,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockMultipartFile;
+import vn.com.pps.education.domain.SchoolClass;
+import vn.com.pps.education.domain.Student;
+import vn.com.pps.education.domain.StudentComment;
 import vn.com.pps.education.dto.CommentAiInstructionResult;
+import vn.com.pps.education.dto.CommentAiRejectionReasonResult;
+import vn.com.pps.education.dto.CommentAttitudeAlertPreviewResponse;
 import vn.com.pps.education.dto.CommentAiReviewRequest;
 import vn.com.pps.education.dto.CommentAiReviewResult;
 import vn.com.pps.education.dto.CommentAiSuggestionResult;
@@ -17,6 +22,7 @@ import vn.com.pps.education.repository.StudentCommentRepository;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -44,7 +50,9 @@ class CommentAiReviewServiceTest {
     private final PromptTemplateLoader promptTemplateLoader = mock(PromptTemplateLoader.class);
     private final AiJobRegistry jobRegistry = mock(AiJobRegistry.class);
 
-    private final CommentAiReviewService service = new CommentAiReviewService(studentCommentService,
+    private final StudentAttitudeAlertTrackingService attitudeAlertTrackingService = mock(StudentAttitudeAlertTrackingService.class);
+
+    private final CommentAiReviewService service = new CommentAiReviewService(studentCommentService, attitudeAlertTrackingService,
             mock(ClassEnrollmentRepository.class), mock(StudentCommentRepository.class),
             new CommentAiJsonCaller(aiClient, promptTemplateLoader, new ObjectMapper()), jobRegistry, aiClient,
             "comment-pps", 3, 120, 0.5, 1024);
@@ -283,5 +291,128 @@ class CommentAiReviewServiceTest {
 
         assertThat(result.warnings()).anySatisfy(w -> assertThat(w).contains("Nguyễn Văn An"));
         assertThat(result.warnings()).anySatisfy(w -> assertThat(w).contains("chữ số"));
+    }
+
+    // ---- Bổ sung 2026-09-29: lưu ý BTVN, nhắc chuỗi Thái độ, tóm tắt lô, lý do từ chối ----
+
+    private StudentComment comment(long id, long studentId, StudentComment.Attitude attitude, LocalDate date, SchoolClass schoolClass) {
+        StudentComment comment = mock(StudentComment.class);
+        Student student = mock(Student.class);
+        when(student.getId()).thenReturn(studentId);
+        when(comment.getId()).thenReturn(id);
+        when(comment.getStudent()).thenReturn(student);
+        when(comment.getSchoolClass()).thenReturn(schoolClass);
+        when(comment.getAttitude()).thenReturn(attitude);
+        when(comment.getCommentDate()).thenReturn(date);
+        return comment;
+    }
+
+    private CommentAiReviewService.ReviewItem withExtras(CommentAiReviewService.ReviewItem base, String homework,
+                                                         CommentAttitudeAlertPreviewResponse.Item alert) {
+        return new CommentAiReviewService.ReviewItem(base.commentId(), base.classSessionId(), base.studentFullName(), base.attitude(),
+                base.content(), base.commentDate(), base.lessonContent(), base.classmateNames(), base.previousComments(), homework, alert);
+    }
+
+    @Test
+    void attitudeAlerts_UC75_projectsStreakInDateOrderAndMarksEscalation() {
+        SchoolClass schoolClass = mock(SchoolClass.class);
+        when(schoolClass.getId()).thenReturn(50L);
+        StudentComment first = comment(11, 1, StudentComment.Attitude.AVERAGE, DATE.minusDays(2), schoolClass);
+        StudentComment second = comment(12, 1, StudentComment.Attitude.WEAK, DATE, schoolClass);
+        StudentComment good = comment(13, 2, StudentComment.Attitude.GOOD, DATE, schoolClass);
+        when(attitudeAlertTrackingService.currentLowStreaks(eq(schoolClass), any())).thenReturn(Map.of(1L, 1, 2L, 0));
+
+        Map<Long, CommentAttitudeAlertPreviewResponse.Item> alerts = service.attitudeAlerts(List.of(second, good, first));
+
+        assertThat(alerts).containsOnlyKeys(11L, 12L);
+        assertThat(alerts.get(11L).consecutiveLowCount()).isEqualTo(2);
+        assertThat(alerts.get(11L).escalation()).isFalse();
+        assertThat(alerts.get(11L).message()).contains("thêm 1 buổi nữa");
+        assertThat(alerts.get(12L).escalation()).isTrue();
+        assertThat(alerts.get(12L).message()).contains("3 buổi liên tiếp");
+    }
+
+    @Test
+    void previewAttitudeAlerts_UC75_A1_usesSameGuardAsReview() {
+        when(studentCommentService.requirePendingCommentsForAiReview(List.of(1L), ACTOR_ID))
+                .thenThrow(new NotSiteManagerForSiteException("error.x", new Object[]{}, "Không có quyền"));
+
+        assertThatThrownBy(() -> service.previewAttitudeAlerts(new CommentAiReviewRequest(List.of(1L)), ACTOR_ID))
+                .isInstanceOf(NotSiteManagerForSiteException.class);
+        verify(attitudeAlertTrackingService, never()).currentLowStreaks(any(), any());
+    }
+
+    @Test
+    void homeworkData_UC75_describesSavedScoresInWordsWithoutNumbers() {
+        StudentComment comment = mock(StudentComment.class);
+        when(comment.getHomeworkPreviousScore()).thenReturn("85%");
+        when(comment.getHomeworkPreviousSpeakingScore()).thenReturn("Chưa làm bài");
+        when(comment.getHomeworkPreviousReadingScore()).thenReturn("Đang chờ chấm");
+
+        String data = CommentAiReviewService.homeworkData(comment);
+
+        assertThat(data).isEqualTo("BTVN buổi trước: làm tốt (bài tập); chưa hoàn thành (video ôn tập).");
+        assertThat(data).doesNotContainPattern("\\d");
+    }
+
+    @Test
+    void review_UC75_homeworkMismatchIsNoticeNotIssueAndHomeworkSentToAi() {
+        stubAi(CommentAiReviewService.REVIEW_PROMPT, """
+                {"reviews": [{"commentId": 1, "issues": [{"type": "HOMEWORK_MISMATCH", "message": "Nói làm BTVN tốt nhưng dữ liệu là chưa hoàn thành."}]}]}""");
+        CommentAiReviewService.ReviewItem an = withExtras(item(1, "Nguyễn Văn An", "GOOD",
+                "An hoàn thành bài tập về nhà rất tốt.", List.of()), "BTVN buổi trước: chưa hoàn thành (bài tập).", null);
+
+        CommentAiReviewResult result = service.review(List.of(an));
+
+        CommentAiReviewResult.Review review = result.reviews().get(0);
+        assertThat(review.issues()).isEmpty();
+        assertThat(review.notices()).extracting(CommentAiReviewResult.Notice::type).containsExactly("HOMEWORK_MISMATCH");
+        assertThat(result.flaggedCount()).isZero();
+        assertThat(result.summary().homeworkMismatchCount()).isEqualTo(1);
+        assertThat(result.message()).contains("ngược dữ liệu điểm");
+        verify(aiClient).chatWithFinishReason(eq(CommentAiReviewService.REVIEW_PROMPT),
+                contains("\"homework\":\"BTVN buổi trước: chưa hoàn thành (bài tập).\""), anyString());
+    }
+
+    @Test
+    void review_UC75_summaryCountsIssueTypesAndParentAlerts() {
+        stubAi(CommentAiReviewService.REVIEW_PROMPT, "{\"reviews\": []}");
+        CommentAiReviewService.ReviewItem an = withExtras(item(1, "Nguyễn Văn An", "WEAK",
+                "An chưa hoàn thành nhiệm vụ trên lớp, mong con cố gắng hơn.", List.of()), null,
+                new CommentAttitudeAlertPreviewResponse.Item(1L, 3, true, "Buổi Yếu thứ 3 liên tiếp"));
+        CommentAiReviewService.ReviewItem binh = item(2, "Trần Thị Bình", "GOOD", "Bình làm đúng 9 câu.", List.of());
+        CommentAiReviewService.ReviewItem chi = item(3, "Lê Minh Chi", "GOOD", "Chi đạt 10 điểm.", List.of());
+
+        CommentAiReviewResult result = service.review(List.of(an, binh, chi));
+
+        assertThat(result.summary().cleanCount()).isEqualTo(1);
+        assertThat(result.summary().issueCounts()).containsExactly(new CommentAiReviewResult.IssueCount("CONTAINS_DIGITS", 2));
+        assertThat(result.summary().parentAlertCount()).isEqualTo(1);
+        assertThat(result.summary().escalationCount()).isEqualTo(1);
+        assertThat(result.reviews().get(0).notices()).extracting(CommentAiReviewResult.Notice::type).containsExactly("ATTITUDE_ALERT");
+        assertThat(result.message()).contains("2 dòng có cảnh báo").contains("2 có chữ số")
+                .contains("1 dòng Yếu/Trung bình sẽ báo phụ huynh").contains("chạm mốc cảnh báo 3 buổi");
+    }
+
+    @Test
+    void rejectionReason_UC75_returnsAiReasonWithoutDecidingAnything() {
+        stubAi(CommentAiReviewService.REJECTION_REASON_PROMPT,
+                "{\"reason\": \"Nhờ thầy/cô bỏ \\\"8 câu\\\" khỏi nhận xét vì điểm đã có ô riêng.\"}");
+        CommentAiReviewService.ReviewItem chi = item(3, "Lê Minh Chi", "FAIR", "Chi làm đúng 8 câu.", List.of());
+
+        CommentAiRejectionReasonResult result = service.rejectionReason(chi, List.of());
+
+        assertThat(result.commentId()).isEqualTo(3L);
+        assertThat(result.reason()).startsWith("Nhờ thầy/cô bỏ");
+        verify(aiClient).chatWithFinishReason(eq(CommentAiReviewService.REJECTION_REASON_PROMPT), contains("Nhận xét có chữ số"), anyString());
+        verify(studentCommentService, never()).decideComments(any(), any());
+    }
+
+    @Test
+    void rejectionReason_UC75_A4_failsWhenAiReturnsNothing() {
+        stubAi(CommentAiReviewService.REJECTION_REASON_PROMPT, "{\"reason\": \"\"}");
+        CommentAiReviewService.ReviewItem chi = item(3, "Lê Minh Chi", "FAIR", "Chi làm đúng 8 câu.", List.of());
+
+        assertThatThrownBy(() -> service.rejectionReason(chi, List.of())).isInstanceOf(CommentAiDraftFailedException.class);
     }
 }

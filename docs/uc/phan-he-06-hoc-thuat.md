@@ -2282,6 +2282,18 @@ Ghi chú kỹ thuật (bổ sung ngoài SDD gốc, đã xác nhận với ngư�
     còn lại; (4) UC-75 sửa theo lệnh: dữ liệu gửi AI kèm `commentDate`/
     `classSessionId`, tên khớp nhiều nhận xét mà Quản lý không nói rõ buổi
     nào thì AI hỏi lại thay vì đoán.
+-   **Bổ sung 2026-09-29 (đã xác nhận với người dùng):** (1) *chặn lặp kiểu
+    câu bằng code* (`CommentPatternCheck`): so "khoá" câu mở đầu (3 từ đầu
+    sau khi bỏ tên học sinh) và câu kết (3 từ đầu câu cuối). Trùng với bạn
+    liền trước, hoặc 1 kiểu vượt `app.ai-comment-draft.max-pattern-share`
+    (mặc định 0.3, tối thiểu 2 bạn) thì viết lại 1 lần cùng bước 7; vẫn
+    trùng thì cảnh báo `REPEATED_PATTERN` (không nhắc thêm nếu dòng đã có
+    `SIMILAR_IN_SESSION`). (2) *log chỉ số* (phương án A, không đổi schema):
+    mỗi lần soạn nháp/viết lại toàn bộ ghi 1 dòng log `COMMENT_AI_METRICS
+    {json}` gồm tỷ lệ lặp mở/kết, độ dài trung bình, số dòng có câu ngắn,
+    số dòng theo từng cảnh báo, số lần nhắc BTVN khi không có dữ liệu —
+    không chứa nội dung hay tên học sinh. `scripts/comment-ai-metrics.py`
+    tổng hợp theo tuần và đối chiếu ngưỡng đã thống nhất.
 
 ---
 
@@ -2557,6 +2569,28 @@ Ghi chú kỹ thuật (bổ sung ngoài SDD gốc, đã xác nhận với ngư�
 -   Quản lý điểm trường thuần (không kiêm Giáo viên) vẫn KHÔNG dùng được trợ
     lý soạn nháp của UC-74 (không có quyền `academic.comment.write`) — UC-75
     là trợ lý riêng cho khâu duyệt.
+-   **Bổ sung 2026-09-29 (đã xác nhận với người dùng):**
+    (1) *Nhắc chuỗi Thái độ cho Quản lý* — `POST /api/comments/attitude-alert-preview`
+    (body `commentIds`, chỉ đọc, không gọi AI, cùng rào với soát): dòng Yếu/
+    Trung bình hiện nhãn "Sẽ báo phụ huynh" ngay ở cột Thái độ, dòng chạm
+    mốc cảnh báo 3 buổi liên tiếp hiện nhãn đỏ. Cách tính mô phỏng đúng
+    `StudentAttitudeAlertTrackingService#evaluateAndNotify`, nếu duyệt các
+    dòng của cùng học sinh theo thứ tự ngày. Bấm "Duyệt dòng không có cảnh
+    báo" hoặc "Duyệt cả lớp" mà nhóm có dòng như vậy thì hỏi xác nhận trước.
+    (2) *Lưu ý BTVN ngược dữ liệu* — bước soát gửi thêm kết quả BTVN buổi
+    trước đã lưu trên dòng (quy ra lời bằng `HomeworkScoreInsight`, không
+    kèm số); AI chỉ gắn `HOMEWORK_MISMATCH` khi nhận xét nói RÕ ngược dữ
+    liệu. Đây là *lưu ý* (`notices`), không phải lỗi: dòng vẫn tính là sạch.
+    Không có dữ liệu hoặc không nhắc BTVN thì không báo (giáo viên có thể
+    biết thông tin ngoài dữ liệu).
+    (3) *Tóm tắt lô* — kết quả soát có `summary` đếm bằng code: số dòng
+    sạch, số dòng theo từng loại lỗi, số dòng sẽ báo phụ huynh / chạm mốc 3
+    buổi, số dòng BTVN ngược dữ liệu; sidebar hiện thành các chip.
+    (4) *AI gợi ý lý do từ chối* — `POST /api/comments/{id}/ai-rejection-reason`
+    + `GET /api/comment-ai-rejection-reasons/{jobId}`: AI soạn 1–2 câu gửi
+    giáo viên dựa trên cảnh báo đã soát, rồi mở đúng hộp thoại Từ chối
+    với lý do điền sẵn. Quản lý sửa và tự bấm xác nhận; trợ lý không tự từ
+    chối.
 
 ---
 

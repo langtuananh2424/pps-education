@@ -5,7 +5,8 @@ Với mỗi nhận xét (commentId, tên học sinh, Thái độ, nội dung), �
 - HOMEWORK_OR_SCORE: ghi con số điểm/phần trăm, nhắc hạn nộp hoặc giao bài mới (đã có ô riêng trên form). Nhắc kết quả BTVN buổi trước BẰNG LỜI (VD "con hoàn thành bài tập về nhà rất tốt") là được phép, không báo lỗi.
 - HARSH_WORDING: từ ngữ nặng nề, phán xét, dán nhãn, không phù hợp gửi phụ huynh.
 - ATTITUDE_MISMATCH: mức Thái độ không khớp nội dung (VD Thái độ "Tốt" nhưng nội dung chê mất tập trung nhiều; Thái độ "Yếu" nhưng nội dung toàn khen).
-- FORBIDDEN_TOPIC: so sánh/xếp hạng với bạn khác, sức khoẻ, hoàn cảnh gia đình, hình thức kỷ luật.
+- FORBIDDEN_TOPIC: so sánh/xếp hạng với bạn khác, sức khoẻ, hoàn cảnh gia đình, đe doạ/hình thức kỷ luật/phạt, nhắc giáo viên khác, hoạt động ngoài giờ học.
+- HOMEWORK_MISMATCH: nhận xét nói về kết quả BTVN buổi trước NGƯỢC với trường "homework" của dòng đó (dữ liệu điểm đã quy ra lời) — VD nhận xét "con hoàn thành bài tập về nhà rất tốt" nhưng homework là "chưa hoàn thành (bài tập)" hoặc "cần cố gắng". Chỉ báo khi mâu thuẫn RÕ; dòng không có trường "homework" hoặc nhận xét không nhắc BTVN thì KHÔNG báo loại này (giáo viên có thể biết thông tin ngoài dữ liệu). Đây là lưu ý để Quản lý xem lại, không phải lỗi chắc chắn.
 - OTHER: lỗi rõ ràng khác theo rubric (sai chính tả nghiêm trọng, câu tối nghĩa, sai đối tượng xưng hô).
 
 Quy tắc:

@@ -63,7 +63,7 @@ class CommentAiDraftServiceTest {
     private final CommentAiDraftService service = new CommentAiDraftService(studentCommentService, attitudeAlertTrackingService,
             classEnrollmentRepository, attendanceSessionRepository, attendanceMarkRepository, studentCommentRepository,
             aiClient, new CommentAiJsonCaller(aiClient, promptTemplateLoader, new ObjectMapper()), jobRegistry,
-            "comment-pps", 3, 120, 0.5, 10, 1024, 20);
+            "comment-pps", 3, 120, 0.5, 10, 1024, 20, 0.3);
 
     private final ClassSession session = mock(ClassSession.class);
 
@@ -322,6 +322,37 @@ class CommentAiDraftServiceTest {
         CommentAiDraftResult result = service.generateDraft(context(AN), null, null, "ghi chú");
 
         assertThat(result.rows().get(0).attitude()).isNull();
+    }
+
+    @Test
+    void generateDraft_UC74_Step7_rewritesAdjacentRowWithSameOpeningPattern() {
+        stubAi(CommentAiDraftService.EXTRACT_PROMPT,
+                "{\"classAttitude\": null, \"classPoints\": [\"tập trung tốt\"], \"individuals\": [], \"unmatched\": []}");
+        stubAi(CommentAiDraftService.WRITE_PROMPT, """
+                {"comments": [{"studentId": 1, "content": "An tập trung nghe giảng suốt buổi. Mong con giữ vững."},
+                              {"studentId": 2, "content": "Bình tập trung nghe giảng và làm bài rất cẩn thận, hẹn gặp con."}]}""",
+                "{\"comments\": [{\"studentId\": 2, \"content\": \"Điểm đáng khen của Bình hôm nay là sự cẩn thận.\"}]}");
+
+        CommentAiDraftResult result = service.generateDraft(context(AN, BINH), null, null, "ghi chú");
+
+        verify(aiClient, times(2)).chatWithFinishReason(eq(CommentAiDraftService.WRITE_PROMPT), anyString(), anyString());
+        assertThat(result.rows().get(1).content()).startsWith("Điểm đáng khen");
+        assertThat(result.rows()).allSatisfy(r -> assertThat(r.warnings()).extracting(CommentAiDraftResult.Warning::type)
+                .doesNotContain("REPEATED_PATTERN"));
+    }
+
+    @Test
+    void generateDraft_UC74_A8_warnsWhenOpeningPatternStillRepeatedAfterRewrite() {
+        stubAi(CommentAiDraftService.EXTRACT_PROMPT,
+                "{\"classAttitude\": null, \"classPoints\": [\"tập trung tốt\"], \"individuals\": [], \"unmatched\": []}");
+        stubAi(CommentAiDraftService.WRITE_PROMPT, """
+                {"comments": [{"studentId": 1, "content": "An tập trung nghe giảng suốt buổi. Mong con giữ vững."},
+                              {"studentId": 2, "content": "Bình tập trung nghe giảng và làm bài rất cẩn thận, hẹn gặp con."}]}""",
+                "{\"comments\": [{\"studentId\": 2, \"content\": \"Bình tập trung nghe giảng, phát biểu sôi nổi hơn hẳn.\"}]}");
+
+        CommentAiDraftResult result = service.generateDraft(context(AN, BINH), null, null, "ghi chú");
+
+        assertThat(result.rows().get(1).warnings()).extracting(CommentAiDraftResult.Warning::type).containsExactly("REPEATED_PATTERN");
     }
 
     @Test
