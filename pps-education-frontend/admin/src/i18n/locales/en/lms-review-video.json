@@ -222,6 +222,46 @@
         "updateThresholdsFailed": "Failed to update the thresholds."
       }
     },
+    "reflexFormat": {
+      "label": "Question format",
+      "auto": "Automatic by recording time (like old questions)",
+      "loading": "Loading formats...",
+      "notSupported": "This set's curriculum has no format-based rubric yet — questions are graded the old way.",
+      "formats": {
+        "SHORT": "Short question",
+        "PART2": "Part 2 (cue card)",
+        "PET4": "PET Part 4",
+        "PICTURE": "Picture description"
+      },
+      "seconds": "{{count}}s",
+      "briefMissing": "Picture questions need a picture description (2–3 lines) — click \"Picture & description\"."
+    },
+    "reflexPicture": {
+      "openButton": "Picture & description",
+      "title": "Picture and description",
+      "description": "The grading AI does NOT see the picture — it only reads the description below to check whether the student described the right picture. Students never see it.",
+      "imageTab": "1. Image",
+      "briefTab": "2. Description",
+      "captureAtLabel": "Capture at second",
+      "captureButton": "Capture from video",
+      "capturing": "Capturing...",
+      "captureUnavailable": "This video cannot be captured (YouTube or no uploaded video) — upload a screenshot instead.",
+      "captureHint": "By default the frame is taken at the question's timestamp. If the picture appears at a different moment, change the capture second — the question timestamp stays the same.",
+      "uploadLabel": "Or upload an image",
+      "uploading": "Uploading...",
+      "noImage": "No image yet — you can still type the description.",
+      "briefLabel": "Picture description (2–3 lines)",
+      "briefPlaceholder": "Place / setting.\nWho is there, what they are doing.\nNotable details (colours, weather...).",
+      "reviewWarning": "The AI only drafts — compare with the image and correct it before saving.",
+      "draftButton": "AI draft description",
+      "drafting": "AI is writing...",
+      "aiUnavailable": "The AI could not draft a description right now — please type it.",
+      "noPictureFound": "The AI found no picture in this image — check the capture second or upload another image.",
+      "draftFailed": "Could not get a description draft.",
+      "captureFailed": "Could not capture the frame.",
+      "uploadFailed": "Could not upload the image.",
+      "saveButton": "Save description"
+    },
     "reflexFields": {
       "timestampPlaceholder": "Timestamp (s) *",
       "maxRecordingPlaceholder": "Max recording (s) *",

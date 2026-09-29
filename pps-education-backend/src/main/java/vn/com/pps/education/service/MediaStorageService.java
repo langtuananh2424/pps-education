@@ -204,6 +204,22 @@ public class MediaStorageService {
     }
 
     /**
+     * V200 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-29) — ghi thẳng object ra file tạm thay vì
+     * đọc hết vào bộ nhớ ({@link #downloadWithContentType}): video REFLEX tới 200MB, chỉ cần để ffmpeg chụp 1 khung
+     * hình (UC-23b dạng tả tranh). Cùng cơ chế chống SSRF — chỉ nhận URL hệ thống đã lưu, đọc qua S3 client.
+     *
+     * @param target file đích (sẽ bị ghi đè).
+     */
+    public void downloadToFile(String publicUrl, java.nio.file.Path target) {
+        String key = objectKeyOf(publicUrl);
+        try (var stream = r2Client.getObject(GetObjectRequest.builder().bucket(bucket).key(key).build())) {
+            java.nio.file.Files.copy(stream, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException ex) {
+            throw new UncheckedIOException("Không tải được file từ storage (key=" + key + ").", ex);
+        }
+    }
+
+    /**
      * Validate URL media do người dùng gửi lên (VD audioUrl khi nộp bài) TRƯỚC khi lưu vào DB - chỉ
      * nhận URL do chính hệ thống sinh ra qua {@link #store}. Ném IllegalArgumentException (400) nếu không.
      */

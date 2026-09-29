@@ -367,10 +367,16 @@ public final class ReflexV2Scoring {
         return new FluencyEvidence(fillers, all.size(), Math.round(ratio * 100) / 100.0, longestPauseSec, ceil);
     }
 
-    /** Đủ ý cho 4 gợi ý của đề Part 2 (từ tiếng Anh). */
+    /** Đủ ý cho 4 gợi ý của đề Part 2 (từ tiếng Anh) — Khối 8-9. */
     public static final int PART2_MIN_WORDS = 60;
-    /** Giây nói thật — mức trung bình học sinh đạt được. */
+    /** Giây nói thật — mức trung bình học sinh đạt được — Khối 8-9. */
     public static final double PART2_MIN_SPOKEN_SEC = 45;
+    /**
+     * Khối 7 (Part 2 tối đa 60 giây, rubric v3 28/9): đòi 45 giây là đòi 75% thời lượng trong khi Khối 8 chỉ 50%, nên
+     * mã tham chiếu đặt riêng ≥30 giây hoặc ≥40 từ.
+     */
+    public static final int PART2_MIN_WORDS_GRADE_7 = 40;
+    public static final double PART2_MIN_SPOKEN_SEC_GRADE_7 = 30;
 
     /** Chỉ áp cho dạng PART2; các dạng khác trả {@code null}. {@code spokenSec} = thời gian nói thật đo từ tín hiệu (0 nếu không đo được). */
     public static LengthEvidence lengthGate(ReflexV2Task task, String transcript, double spokenSec) {
@@ -380,7 +386,10 @@ public final class ReflexV2Scoring {
         int words = (int) Arrays.stream(WHITESPACE.split(transcript == null ? "" : transcript))
                 .filter(w -> !w.isEmpty() && w.chars().anyMatch(ch -> (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z')) && w.charAt(0) != '(')
                 .count();
-        boolean enough = words >= PART2_MIN_WORDS || spokenSec >= PART2_MIN_SPOKEN_SEC;
+        boolean grade7 = task.grade() == 7;
+        int minWords = grade7 ? PART2_MIN_WORDS_GRADE_7 : PART2_MIN_WORDS;
+        double minSpokenSec = grade7 ? PART2_MIN_SPOKEN_SEC_GRADE_7 : PART2_MIN_SPOKEN_SEC;
+        boolean enough = words >= minWords || spokenSec >= minSpokenSec;
         return new LengthEvidence(words, Math.round(spokenSec * 10) / 10.0, enough, enough ? 100 : 60, enough ? 100 : 80);
     }
 
