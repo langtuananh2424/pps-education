@@ -773,6 +773,26 @@ UC-48: Xếp lịch buổi học
 > `updateAssignment`, tab "Dời lịch" = UC-48 A3) — người dùng phải tự tick,
 > không mặc định bật, để tránh xếp trùng giờ ngoài ý muốn.
 
+> **Phòng học + cho phép trùng phòng có kiểm soát ở popup "Xếp lịch buổi
+> học" (bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-09-29):**
+> `CreateSessionModal` (UC-56 từ lưới thời khóa biểu) có thêm dropdown
+> "Phòng học" tuỳ chọn — danh sách `rooms` của điểm trường (cấu hình ở
+> trang Phòng học & Thiết bị). Có chọn phòng thì `checkRoomConflict`
+> (FR-FAC-03, chỉ phòng `is_flexible=FALSE`) áp dụng như cũ — ngày trùng
+> phòng bị bỏ qua, lý do trả về trong `skipped`. Thêm field tuỳ chọn
+> `allowRoomOverlap` (mặc định `false`) vào `BulkCreateClassSessionRequest`
+> — khi `true` bỏ qua riêng `checkRoomConflict`, phục vụ 2 nhóm lớp gộp lại
+> học chung 1 phòng cùng khung giờ; KHÔNG ảnh hưởng chặn trùng giờ Giáo
+> viên/trùng giờ trong cùng lớp. Cùng field được thêm vào
+> `UpdateSessionAssignmentRequest`/`RescheduleClassSessionRequest` —
+> `SessionEditModal` (popup Sửa buổi học) hiện tickbox tương ứng ở cả tab
+> "Sửa thông tin" lẫn "Dời lịch" khi có chọn phòng. Chưa thêm vào
+> `CreateClassSessionRequest` (tạo 1 buổi lẻ UC-48). Cũng trong popup này: Giáo viên phụ/CM
+> ẩn sau 2 tickbox "Có giáo viên phụ"/"Có CM" đặt trên ô Giáo viên chính,
+> tick mới hiện ô tìm; ô tìm giáo viên lọc role `TEACHER` + `ACTIVE` ngay ở
+> server (`GET /api/users?roleCode=TEACHER&status=ACTIVE`, field
+> `UserSearchRequest.roleCode`) thay vì lọc ở client sau khi đã phân trang.
+
 ---
 
 UC-56: Sinh lịch học hàng loạt theo mẫu lặp

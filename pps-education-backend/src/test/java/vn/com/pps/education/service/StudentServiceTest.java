@@ -514,10 +514,31 @@ class StudentServiceTest extends AbstractIntegrationTest {
                         "MALE", null, otherSite.getId(), null, null, LocalDate.of(2026, 1, 1), null),
                 staff.getId());
 
-        assertThat(studentService.search(null, null, siteManagerUser.getId()))
+        assertThat(studentService.search(null, null, null, siteManagerUser.getId()))
                 .extracting(StudentResponse::id)
                 .contains(ownStudent.id())
                 .doesNotContain(otherStudent.id());
+    }
+
+    @Test
+    void search_filtersByActiveEnrollmentInClass() {
+        Site site = newSite("SITE-CLSFILTER");
+        CurriculumResponse curriculum = newActiveCurriculum();
+        ClassResponse targetClass = newClass(site, curriculum, "8E-FILTER");
+        ClassResponse otherClass = newClass(site, curriculum, "8G-FILTER");
+        StudentResponse inClass = studentService.create(
+                baseStudentRequest(newUser("student.inclass").getId(), LocalDate.of(2026, 1, 1)), staff.getId());
+        StudentResponse otherStudent = studentService.create(
+                baseStudentRequest(newUser("student.otherclass").getId(), LocalDate.of(2026, 1, 1)), staff.getId());
+        classService.enroll(targetClass.id(), new EnrollStudentRequest(inClass.id(), LocalDate.now()), staff.getId());
+        classService.enroll(otherClass.id(), new EnrollStudentRequest(otherStudent.id(), LocalDate.now()), staff.getId());
+
+        assertThat(studentService.search(null, null, targetClass.id(), staff.getId()))
+                .extracting(StudentResponse::id)
+                .containsExactly(inClass.id());
+        assertThat(studentService.search("student.inclass", null, targetClass.id(), staff.getId()))
+                .extracting(StudentResponse::id)
+                .containsExactly(inClass.id());
     }
 
     @Test

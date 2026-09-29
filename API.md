@@ -228,7 +228,7 @@
 
 | Method | Path | Auth | Input | Output |
 |---|---|---|---|---|
-| GET | `/api/students` | JWT + `student.profile.view` | Query: `query`?, `siteId`? | mảng [StudentResponse](#studentresponse) |
+| GET | `/api/students` | JWT + `student.profile.view` | Query: `query`?, `siteId`?, `classId`? (đang ghi danh ACTIVE) | mảng [StudentResponse](#studentresponse) |
 | POST | `/api/students` | JWT + `student.profile.create` | Body: [CreateStudentRequest](#createstudentrequest) | [StudentResponse](#studentresponse) |
 | GET | `/api/students/{id}` | JWT + `student.profile.view` | — | [StudentResponse](#studentresponse) |
 | PUT | `/api/students/{id}` | JWT + `student.profile.update` | Body: [UpdateStudentRequest](#updatestudentrequest) | [StudentResponse](#studentresponse) |

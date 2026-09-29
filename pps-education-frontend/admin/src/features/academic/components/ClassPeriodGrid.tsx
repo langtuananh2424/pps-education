@@ -29,7 +29,7 @@ import {
 import TimetableSessionCard, { SessionPendingKind } from "./TimetableSessionCard";
 import SessionInfoModal from "./SessionInfoModal";
 import SessionEditModal, { SessionAssignmentPreview } from "./SessionEditModal";
-import CreateSessionModal, { CreateSessionModalPrefill, QueuedCreatePayload, weekdayOf } from "./CreateSessionModal";
+import CreateSessionModal, { CreateSessionModalPrefill, describeSkipped, QueuedCreatePayload, weekdayOf } from "./CreateSessionModal";
 
 const HEADER_ROW_HEIGHT = 44;
 const SECTION_ROW_HEIGHT = 24;
@@ -37,6 +37,12 @@ const PERIOD_ROW_HEIGHT = 96;
 const PERIOD_LABEL_COLUMN_WIDTH = 80;
 /** Độ rộng 1 lane (1 buổi học) trong cột ngày — cột tự giãn theo bội số này (bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-08-21). */
 const LANE_WIDTH = 170;
+/**
+ * Dải trống luôn chừa bên phải mỗi cột ngày, thẻ buổi học không phủ lên — để vẫn bôi chọn ô tiết
+ * (kéo chuột) + chuột phải → "Xếp lịch" được cả khi ô đã có thẻ chiếm hết bề ngang (bổ sung ngoài
+ * SDD gốc, xác nhận với người dùng 2026-09-29).
+ */
+const SELECT_GUTTER_WIDTH = 36;
 
 interface ClassPeriodGridProps {
   siteId: number;
@@ -63,6 +69,7 @@ interface PendingCreate {
   primaryTeacherName: string;
   assistantTeacherName: string | null;
   cmTeacherName: string | null;
+  roomName: string | null;
 }
 
 interface PendingUpdate {
@@ -207,6 +214,7 @@ export default function ClassPeriodGrid({ siteId, dates, classId, minLanes = DEF
               request: {
                 ...c.request,
                 roomId: request.roomId,
+                allowRoomOverlap: request.allowRoomOverlap,
                 teacherType: request.teacherType,
                 primaryTeacherId: request.primaryTeacherId,
                 assistantTeacherId: request.assistantTeacherId,
@@ -216,7 +224,8 @@ export default function ClassPeriodGrid({ siteId, dates, classId, minLanes = DEF
               },
               primaryTeacherName: preview.primaryTeacherName,
               assistantTeacherName: preview.assistantTeacherName,
-              cmTeacherName: preview.cmTeacherName
+              cmTeacherName: preview.cmTeacherName,
+              roomName: preview.roomName
             }
           : c
       )
@@ -295,7 +304,7 @@ export default function ClassPeriodGrid({ siteId, dates, classId, minLanes = DEF
         try {
           const res = await bulkCreateClassSessions(pc.classId, pc.request);
           if (res.skippedCount > 0) {
-            errors.push(`${pc.className}: bỏ qua ${res.skippedCount}/${res.totalDates} ngày trùng lịch.`);
+            errors.push(`${pc.className}: ${describeSkipped(res)}`);
           }
         } catch (err) {
           errors.push(`${pc.className}: ${err instanceof ApiError ? err.message : "Tạo buổi thất bại."}`);
@@ -484,7 +493,7 @@ export default function ClassPeriodGrid({ siteId, dates, classId, minLanes = DEF
           dayPart: pc.request.dayPart,
           periodNumbers: pc.request.periodNumbers,
           roomId: pc.request.roomId ?? null,
-          roomName: null,
+          roomName: pc.roomName,
           primaryTeacherId: pc.request.primaryTeacherId,
           primaryTeacherName: pc.primaryTeacherName,
           assistantTeacherId: pc.request.assistantTeacherId ?? null,
@@ -614,7 +623,7 @@ export default function ClassPeriodGrid({ siteId, dates, classId, minLanes = DEF
         <div
           className="grid"
           style={{
-            gridTemplateColumns: `${PERIOD_LABEL_COLUMN_WIDTH}px ${laneCountByDate.map((n) => `${n * LANE_WIDTH}px`).join(" ")}`,
+            gridTemplateColumns: `${PERIOD_LABEL_COLUMN_WIDTH}px ${laneCountByDate.map((n) => `${n * LANE_WIDTH + SELECT_GUTTER_WIDTH}px`).join(" ")}`,
             gridTemplateRows: rowHeights.map((h) => `${h}px`).join(" ")
           }}
         >
@@ -692,8 +701,9 @@ export default function ClassPeriodGrid({ siteId, dates, classId, minLanes = DEF
                     })}
                   </div>
                   <div
-                    className="grid absolute inset-0 gap-0.5 p-0.5 pointer-events-none"
+                    className="grid absolute inset-y-0 left-0 gap-0.5 p-0.5 pointer-events-none"
                     style={{
+                      right: SELECT_GUTTER_WIDTH,
                       gridTemplateColumns: `repeat(${laneCount}, 1fr)`,
                       gridTemplateRows: `repeat(${section.periods.length}, ${PERIOD_ROW_HEIGHT}px)`
                     }}

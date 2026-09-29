@@ -13,7 +13,7 @@ import Toast from "@/components/ui/Toast";
 
 export default function ProfilesPage() {
   const { t } = useTranslation("student");
-  const { selectedCampusId } = useApp();
+  const { selectedCampusId, selectedClassId } = useApp();
   const [students, setStudents] = useState<StudentResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -25,16 +25,17 @@ export default function ProfilesPage() {
   const load = () => {
     setLoading(true);
     setError(null);
-    listStudents(query, selectedCampusId !== "ALL" ? Number(selectedCampusId) : undefined)
+    listStudents(query, selectedCampusId !== "ALL" ? Number(selectedCampusId) : undefined, selectedClassId ?? undefined)
       .then((res) => {
         setStudents(res);
-        if (selectedId == null && res.length > 0) setSelectedId(res[0].id);
+        // Đổi bộ lọc điểm trường/lớp mà học sinh đang chọn không còn trong danh sách thì chọn lại người đầu tiên.
+        setSelectedId((current) => (current != null && res.some((s) => s.id === current) ? current : res[0]?.id ?? null));
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : t("profilesPage.loadError")))
       .finally(() => setLoading(false));
   };
 
-  useEffect(load, [selectedCampusId]);
+  useEffect(load, [selectedCampusId, selectedClassId]);
 
   const selectedStudent = students.find((s) => s.id === selectedId) ?? null;
 

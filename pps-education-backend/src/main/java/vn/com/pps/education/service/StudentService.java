@@ -126,13 +126,13 @@ public class StudentService {
     }
 
     @Transactional(readOnly = true)
-    public List<StudentResponse> search(String query, Long siteId, Long actorUserId) {
+    public List<StudentResponse> search(String query, Long siteId, Long classId, Long actorUserId) {
         List<Long> allowedSiteIds = resolveAllowedSiteIds(actorUserId);
         boolean restrictSites = allowedSiteIds != null;
         List<Long> siteIdsForQuery = allowedSiteIds == null || allowedSiteIds.isEmpty() ? List.of(-1L) : allowedSiteIds;
         List<Student> students = query == null || query.isBlank()
-                ? studentRepository.search(siteId, restrictSites, siteIdsForQuery)
-                : studentRepository.searchByQuery(query.trim(), siteId, restrictSites, siteIdsForQuery);
+                ? studentRepository.search(siteId, classId, restrictSites, siteIdsForQuery)
+                : studentRepository.searchByQuery(query.trim(), siteId, classId, restrictSites, siteIdsForQuery);
         return students.stream().map(this::toResponse).toList();
     }
 

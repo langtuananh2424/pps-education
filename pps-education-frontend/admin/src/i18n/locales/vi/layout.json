@@ -104,6 +104,7 @@
       "checkIn": "Chấm công",
       "checkedInOut": "Đã chấm công {{checkIn}} – {{checkOut}}",
       "checkedInOnly": "Đã chấm công vào lúc {{checkIn}}",
+      "missing": "Chưa chấm công (đã quá giờ)",
       "modalTitle": "Chấm công của tôi",
       "modalDescription": "Bấm chấm công vào/ra — hệ thống dùng vị trí GPS hiện tại."
     },
