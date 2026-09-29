@@ -69,8 +69,9 @@ public class UserController {
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Long departmentId,
             @RequestParam(required = false) String status,
+            @RequestParam(required = false) String roleCode,
             @PageableDefault(size = 20) Pageable pageable) {
-        var filter = new UserSearchRequest(keyword, departmentId, status);
+        var filter = new UserSearchRequest(keyword, departmentId, status, roleCode);
         return ResponseEntity.ok(userAccountService.search(filter, pageable));
     }
 

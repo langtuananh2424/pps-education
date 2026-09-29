@@ -218,7 +218,7 @@ public class ClassSessionService {
 
         ClassSession session = createSessionEntity(schoolClass, request.sessionDate(), dayPart, request.periodNumbers(),
                 room, primaryTeacher, assistantTeacher, cmTeacher, sessionType, actor, teacherType, makeupForSession,
-                request.actualTeacherName(), Boolean.TRUE.equals(request.allowTeacherOverlap()));
+                request.actualTeacherName(), Boolean.TRUE.equals(request.allowTeacherOverlap()), false);
 
         return toResponse(session);
     }
@@ -303,7 +303,8 @@ public class ClassSessionService {
                 // makeupForSessionId không áp dụng cho sinh lịch hàng loạt — chỉ có nghĩa cho 1 buổi tạo lẻ (UC-48), ngoài phạm vi UC-56.
                 ClassSession session = createSessionEntity(schoolClass, date, dayPart, request.periodNumbers(),
                         room, primaryTeacher, assistantTeacher, cmTeacher, sessionType, actor, teacherType, null,
-                        request.actualTeacherName(), Boolean.TRUE.equals(request.allowTeacherOverlap()));
+                        request.actualTeacherName(), Boolean.TRUE.equals(request.allowTeacherOverlap()),
+                        Boolean.TRUE.equals(request.allowRoomOverlap()));
                 created.add(toResponse(session));
             } catch (RoomConflictException | TeacherScheduleConflictException | ClassScheduleConflictException
                     | ClassSessionOutsideClassPeriodException ex) {
@@ -345,7 +346,7 @@ public class ClassSessionService {
         // "Tên giáo viên giảng dạy" (actualTeacherName, bổ sung 2026-09-12) cũng chưa có cột riêng ở
         // Excel UC-57 — để trống, GV/CM tự nhập bổ sung sau qua Lịch làm việc/Nhận xét học viên.
         ClassSession session = createSessionEntity(schoolClass, sessionDate, parsedDayPart, periodNumbers, room, primaryTeacher, assistantTeacher, cmTeacher,
-                ClassSession.SessionType.valueOf(sessionType), actor, parsedTeacherType, null, null, false);
+                ClassSession.SessionType.valueOf(sessionType), actor, parsedTeacherType, null, null, false, false);
         return toResponse(session);
     }
 
@@ -415,7 +416,9 @@ public class ClassSessionService {
      * Lõi dùng chung: đã resolve đủ entity, chỉ check trùng phòng + trùng
      * giờ Giáo viên (bỏ qua nếu allowTeacherOverlap=true — bổ sung ngoài
      * SDD gốc, xác nhận với người dùng 2026-09-16, phục vụ lớp tách nhóm
-     * dùng chung 1 giáo viên/1 khung giờ) + trùng giờ trong cùng Lớp (2
+     * dùng chung 1 giáo viên/1 khung giờ; tương tự allowRoomOverlap bỏ qua
+     * chặn trùng phòng khi 2 nhóm lớp gộp học chung 1 phòng — xác nhận
+     * 2026-09-29, mở ở UC-56 + updateAssignment + reschedule) + trùng giờ trong cùng Lớp (2
      * chặn cuối bổ sung ngoài SDD gốc, đã xác nhận với người dùng
      * 2026-07-30) + save + history + sinh session_periods từ
      * site_period_templates (thay vì chia đều theo phút — đảo ngược
@@ -425,13 +428,14 @@ public class ClassSessionService {
                                               Room room, User primaryTeacher, User assistantTeacher, User cmTeacher,
                                               ClassSession.SessionType sessionType, User actor,
                                               ClassSession.TeacherType teacherType, ClassSession makeupForSession,
-                                              String actualTeacherName, boolean allowTeacherOverlap) {
+                                              String actualTeacherName, boolean allowTeacherOverlap,
+                                              boolean allowRoomOverlap) {
         checkWithinClassPeriod(schoolClass, sessionDate);
         List<SitePeriodTemplate> templates = resolvePeriodTemplates(schoolClass.getSite().getId(), dayPart, periodNumbers);
         LocalTime startTime = templates.get(0).getStartTime();
         LocalTime endTime = templates.get(templates.size() - 1).getEndTime();
 
-        if (room != null) {
+        if (room != null && !allowRoomOverlap) {
             checkRoomConflict(room, sessionDate, startTime, endTime, null);
         }
         if (!allowTeacherOverlap) {
@@ -509,7 +513,9 @@ public class ClassSessionService {
         Room newRoom = null;
         if (request.newRoomId() != null) {
             newRoom = getRoomOrThrow(request.newRoomId());
-            checkRoomConflict(newRoom, request.newSessionDate(), newStartTime, newEndTime, oldSession.getId());
+            if (!Boolean.TRUE.equals(request.allowRoomOverlap())) {
+                checkRoomConflict(newRoom, request.newSessionDate(), newStartTime, newEndTime, oldSession.getId());
+            }
         }
         if (!Boolean.TRUE.equals(request.allowTeacherOverlap())) {
             checkTeacherConflict(oldSession.getPrimaryTeacher(), request.newSessionDate(), newStartTime, newEndTime, oldSession.getId());
@@ -577,7 +583,7 @@ public class ClassSessionService {
         User assistantTeacher = request.assistantTeacherId() == null ? null : getUserOrThrow(request.assistantTeacherId());
         User cmTeacher = request.cmTeacherId() == null ? null : getUserOrThrow(request.cmTeacherId());
 
-        if (newRoom != null) {
+        if (newRoom != null && !Boolean.TRUE.equals(request.allowRoomOverlap())) {
             checkRoomConflict(newRoom, session.getSessionDate(), newStartTime, newEndTime, session.getId());
         }
         if (!Boolean.TRUE.equals(request.allowTeacherOverlap())) {
