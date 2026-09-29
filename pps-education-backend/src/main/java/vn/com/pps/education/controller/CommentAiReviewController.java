@@ -13,10 +13,12 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import vn.com.pps.education.dto.CommentAiInstructionJobResponse;
+import vn.com.pps.education.dto.CommentAiRejectionReasonJobResponse;
 import vn.com.pps.education.dto.CommentAiReviewJobResponse;
 import vn.com.pps.education.dto.CommentAiReviewRequest;
 import vn.com.pps.education.dto.CommentAiSuggestionJobResponse;
 import vn.com.pps.education.dto.CommentAiSuggestionRequest;
+import vn.com.pps.education.dto.CommentAttitudeAlertPreviewResponse;
 import vn.com.pps.education.security.AuthenticatedUser;
 import vn.com.pps.education.service.CommentAiReviewService;
 
@@ -80,5 +82,29 @@ public class CommentAiReviewController {
     public ResponseEntity<CommentAiInstructionJobResponse> getInstruction(@PathVariable String jobId,
                                                                           @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(commentAiReviewService.getInstruction(jobId, actor.userId()));
+    }
+
+    /** UC-75 (bổ sung 2026-09-29) — dòng nào duyệt sẽ gửi cảnh báo thái độ cho phụ huynh; chỉ đọc, không gọi AI. */
+    @PreAuthorize("hasPermission(null, 'academic.comment.approve')")
+    @PostMapping("/api/comments/attitude-alert-preview")
+    public ResponseEntity<CommentAttitudeAlertPreviewResponse> previewAttitudeAlerts(@Valid @RequestBody CommentAiReviewRequest request,
+                                                                                     @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(commentAiReviewService.previewAttitudeAlerts(request, actor.userId()));
+    }
+
+    /** UC-75 (bổ sung 2026-09-29) — AI soạn sẵn lý do từ chối; Quản lý sửa rồi tự bấm Từ chối (UC-22). */
+    @PreAuthorize("hasPermission(null, 'academic.comment.approve')")
+    @PostMapping("/api/comments/{id}/ai-rejection-reason")
+    public ResponseEntity<CommentAiRejectionReasonJobResponse> startRejectionReason(@PathVariable Long id,
+                                                                                    @Valid @RequestBody(required = false) CommentAiSuggestionRequest request,
+                                                                                    @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(commentAiReviewService.startRejectionReason(id, request, actor.userId()));
+    }
+
+    @PreAuthorize("hasPermission(null, 'academic.comment.approve')")
+    @GetMapping("/api/comment-ai-rejection-reasons/{jobId}")
+    public ResponseEntity<CommentAiRejectionReasonJobResponse> getRejectionReason(@PathVariable String jobId,
+                                                                                  @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(commentAiReviewService.getRejectionReason(jobId, actor.userId()));
     }
 }

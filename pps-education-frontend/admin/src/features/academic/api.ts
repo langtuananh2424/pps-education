@@ -2192,7 +2192,7 @@ export function markEntranceAssessmentResultPlaced(id: number): Promise<Entrance
 export type CommentAttitude = NonNullable<StudentCommentResponse["attitude"]>;
 
 export interface CommentAiDraftWarning {
-  type: "SIMILAR_IN_SESSION" | "SIMILAR_TO_PREVIOUS" | "CONTAINS_DIGITS" | "NOT_WRITTEN";
+  type: "SIMILAR_IN_SESSION" | "SIMILAR_TO_PREVIOUS" | "CONTAINS_DIGITS" | "NOT_WRITTEN" | "LESSON_TITLE" | "ATTITUDE_ALERT" | "PRONOUN_MISMATCH" | "REPEATED_PATTERN";
   message: string;
   similarity: number | null;
 }
@@ -2210,7 +2210,7 @@ export interface CommentAiDraftRow {
 export interface CommentAiDraftExtraction {
   classAttitude: CommentAttitude | null;
   classPoints: string[];
-  individuals: { studentId: number; attitude: CommentAttitude | null; points: string[]; evidence: string | null }[];
+  individuals: { studentId: number; attitude: CommentAttitude | null; points: string[]; evidence: string | null; sharedWith?: number[] | null }[];
   /** Đại từ giáo viên tự xưng lấy từ audio/ghi chú ("thầy"/"cô") — null thì AI viết "thầy/cô". */
   teacherPronoun: "thầy" | "cô" | null;
 }
@@ -2231,6 +2231,15 @@ export interface CommentAiDraftJob {
   result: CommentAiDraftResult | null;
 }
 
+/** Điểm BTVN buổi trước đang nhập trên bảng (kể cả chưa Lưu nháp) — chỉ để trợ lý đọc, quy ra lời, không ghi số vào nhận xét. */
+export interface HomeworkScoreInput {
+  studentId: number;
+  offline: string | null;
+  speaking: string | null;
+  reading: string | null;
+  writing: string | null;
+}
+
 export interface ReviseCommentAiDraftRequest {
   mode: "INSTRUCTION" | "REWRITE_ALL";
   instruction?: string;
@@ -2238,16 +2247,25 @@ export interface ReviseCommentAiDraftRequest {
   extraction?: CommentAiDraftExtraction | null;
   currentRows: { studentId: number; attitude: CommentAttitude | null; content: string | null }[];
   history?: { role: "teacher" | "assistant"; text: string }[];
+  homeworkScores?: HomeworkScoreInput[];
 }
 
 /** UC-74 bước 1-2 — gửi audio (≤ 5 phút, FE tự kiểm tra) và/hoặc ghi chú chữ; BE trả job chạy nền. */
-export function startCommentAiDraft(classSessionId: number, audio: Blob | null, note: string): Promise<CommentAiDraftJob> {
+export function startCommentAiDraft(
+  classSessionId: number,
+  audio: Blob | null,
+  note: string,
+  homeworkScores: HomeworkScoreInput[] = []
+): Promise<CommentAiDraftJob> {
   const formData = new FormData();
   if (audio) {
     const extension = audio.type.includes("mp4") || audio.type.includes("m4a") ? "m4a" : audio.type.includes("wav") ? "wav" : audio.type.includes("mpeg") ? "mp3" : "webm";
     formData.append("audio", audio, `nhan-xet.${extension}`);
   }
   if (note.trim()) formData.append("note", note.trim());
+  if (homeworkScores.length > 0) {
+    formData.append("homeworkScores", new Blob([JSON.stringify(homeworkScores)], { type: "application/json" }));
+  }
   return apiRequest<CommentAiDraftJob>(`/class-sessions/${classSessionId}/comments/ai-draft`, { method: "POST", body: formData });
 }
 
@@ -2283,10 +2301,29 @@ export interface CommentAiReviewIssue {
   message: string;
 }
 
+/** Lưu ý KHÔNG phải lỗi nội dung (dòng vẫn tính là sạch): ATTITUDE_ALERT (duyệt sẽ báo phụ huynh), HOMEWORK_MISMATCH, REPEATED_PATTERN. */
+export interface CommentAiReviewNotice {
+  type: "ATTITUDE_ALERT" | "HOMEWORK_MISMATCH" | "REPEATED_PATTERN" | string;
+  source: "RULE" | "AI";
+  message: string;
+}
+
 export interface CommentAiReview {
   commentId: number;
   studentFullName: string;
   issues: CommentAiReviewIssue[];
+  notices: CommentAiReviewNotice[];
+}
+
+/** Tóm tắt cả lô (đếm bằng code) — bổ sung 2026-09-29. */
+export interface CommentAiReviewSummary {
+  cleanCount: number;
+  issueCounts: { type: string; count: number }[];
+  parentAlertCount: number;
+  escalationCount: number;
+  homeworkMismatchCount: number;
+  /** Số dòng dùng chung khuôn câu (câu mở/kết, cụm sáo mòn) với nhiều bạn — lưu ý, không chặn duyệt. */
+  repeatedPatternCount: number;
 }
 
 export interface CommentAiReviewResult {
@@ -2295,6 +2332,20 @@ export interface CommentAiReviewResult {
   flaggedCount: number;
   aiCheckComplete: boolean;
   reviews: CommentAiReview[];
+  summary: CommentAiReviewSummary;
+}
+
+/** UC-75 (bổ sung 2026-09-29) — dòng Yếu/Trung bình: duyệt sẽ báo phụ huynh; escalation = chạm mốc cảnh báo 3 buổi. */
+export interface CommentAttitudeAlert {
+  commentId: number;
+  consecutiveLowCount: number;
+  escalation: boolean;
+  message: string;
+}
+
+export interface CommentAiRejectionReasonResult {
+  commentId: number;
+  reason: string;
 }
 
 export interface CommentAiSuggestionResult {
@@ -2325,6 +2376,19 @@ export function startCommentAiSuggestion(commentId: number, issues: string[]): P
   });
 }
 
+/** UC-75 (bổ sung 2026-09-29) — nhắc ngay trên bảng dòng nào duyệt sẽ gửi cảnh báo thái độ cho phụ huynh (chỉ đọc, không AI). */
+export function previewCommentAttitudeAlerts(commentIds: number[]): Promise<{ items: CommentAttitudeAlert[] }> {
+  return apiRequest<{ items: CommentAttitudeAlert[] }>("/comments/attitude-alert-preview", { method: "POST", body: JSON.stringify({ commentIds }) });
+}
+
+/** UC-75 (bổ sung 2026-09-29) — AI soạn sẵn lý do từ chối; FE điền vào hộp thoại, Quản lý sửa rồi tự bấm Từ chối. */
+export function startCommentAiRejectionReason(commentId: number, issues: string[]): Promise<AiJob<CommentAiRejectionReasonResult>> {
+  return apiRequest<AiJob<CommentAiRejectionReasonResult>>(`/comments/${commentId}/ai-rejection-reason`, {
+    method: "POST",
+    body: JSON.stringify({ issues })
+  });
+}
+
 /** Hỏi lại trạng thái job của trợ lý AI mỗi 2 giây tới khi xong/lỗi (tối đa ~5 phút). */
 export async function waitForAiJob<T>(job: AiJob<T>, path: (jobId: string) => string): Promise<AiJob<T>> {
   let current = job;
@@ -2337,6 +2401,7 @@ export async function waitForAiJob<T>(job: AiJob<T>, path: (jobId: string) => st
 
 export const commentAiReviewJobPath = (jobId: string) => `/comment-ai-reviews/${jobId}`;
 export const commentAiSuggestionJobPath = (jobId: string) => `/comment-ai-suggestions/${jobId}`;
+export const commentAiRejectionReasonJobPath = (jobId: string) => `/comment-ai-rejection-reasons/${jobId}`;
 
 export interface CommentAiInstructionChange {
   commentId: number;

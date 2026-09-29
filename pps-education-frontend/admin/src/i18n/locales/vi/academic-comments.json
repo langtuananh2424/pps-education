@@ -106,7 +106,41 @@
       "applied": "Đã áp dụng bản sửa cho {{name}} — nhận xét vẫn đang chờ duyệt.",
       "errors": {
         "failed": "Trợ lý chưa soát được — vui lòng thử lại.",
-        "suggestFailed": "Trợ lý chưa đề xuất được bản sửa — vui lòng thử lại."
+        "suggestFailed": "Trợ lý chưa đề xuất được bản sửa — vui lòng thử lại.",
+        "rejectReasonFailed": "Trợ lý chưa soạn được lý do từ chối — hãy tự nhập."
+      },
+      "notice": "Lưu ý",
+      "confirmApproveCleanAlerts": "Trong {{count}} dòng sắp duyệt có {{alerts}} dòng Thái độ Yếu/Trung bình — duyệt sẽ gửi cảnh báo thái độ cho phụ huynh{{escalationNote}}. Tiếp tục?",
+      "confirmApproveAllAlerts": "Lớp này có {{alerts}} dòng Thái độ Yếu/Trung bình — duyệt sẽ gửi cảnh báo thái độ cho phụ huynh{{escalationNote}}. Vẫn duyệt cả lớp?",
+      "escalationNote": " ({{count}} dòng chạm mốc cảnh báo 3 buổi liên tiếp)",
+      "attitudeAlert": {
+        "single": "Sẽ báo phụ huynh",
+        "escalation": "Chạm mốc cảnh báo 3 buổi"
+      },
+      "rejectReasonButton": "AI gợi ý lý do từ chối",
+      "rejectReasonLoading": "Đang soạn lý do…",
+      "summary": {
+        "clean": "{{count}} dòng sạch",
+        "issue": "{{count}} {{label}}",
+        "parentAlerts": "{{count}} sẽ báo phụ huynh",
+        "escalations": "{{count}} chạm mốc 3 buổi",
+        "homeworkMismatch": "{{count}} nhắc BTVN ngược dữ liệu",
+        "repeatedPattern": "{{count}} dòng lặp khuôn câu"
+      },
+      "issueType": {
+        "CONTAINS_DIGITS": "có chữ số",
+        "TOO_LONG": "quá dài",
+        "EMPTY": "để trống",
+        "OTHER_STUDENT_NAME": "nhắc bạn khác",
+        "OTHER_STUDENT": "nhắc bạn khác",
+        "LESSON_TITLE": "nhắc tên bài học",
+        "SIMILAR_IN_SESSION": "giống bạn khác",
+        "SIMILAR_TO_PREVIOUS": "giống buổi trước",
+        "HOMEWORK_OR_SCORE": "ghi điểm/hạn nộp",
+        "HARSH_WORDING": "từ ngữ nặng",
+        "ATTITUDE_MISMATCH": "Thái độ không khớp",
+        "FORBIDDEN_TOPIC": "chủ đề không nên nhắc",
+        "OTHER": "lỗi khác"
       }
     },
     "assistant": {
@@ -436,7 +470,7 @@
         "timeout": "Trợ lý xử lý quá lâu — vui lòng thử lại."
       },
       "pronounDetected": "Giáo viên xưng: {{pronoun}}",
-      "pronounUnknown": "Chưa nhận ra thầy hay cô — đang viết \"thầy/cô\". Gõ \"xưng thầy\" hoặc \"xưng cô\" để đổi."
+      "pronounUnknown": "Chưa nhận ra thầy hay cô — trợ lý viết câu không xưng hô (VD \"Mong con…\"). Gõ \"xưng thầy\" hoặc \"xưng cô\" để đổi."
     }
   },
   "commentsPage": {

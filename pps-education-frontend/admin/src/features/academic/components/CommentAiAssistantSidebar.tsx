@@ -7,6 +7,7 @@ import {
   CommentAiDraftJob,
   CommentAiDraftResult,
   CommentAiDraftRow,
+  HomeworkScoreInput,
   reviseCommentAiDraft,
   startCommentAiDraft,
   waitForCommentAiDraftJob
@@ -32,6 +33,8 @@ interface Props {
   /** Điền vào form rồi gọi đúng "Lưu nháp" của UC-21 — quyền lưu cao nhất của trợ lý là DRAFT. */
   onApplyAndSaveDraft: (draft: CommentAiDraftResult) => Promise<string>;
   savingDraft: boolean;
+  /** Điểm BTVN buổi trước đang hiện trên bảng — gửi kèm để trợ lý nhắc BTVN nổi bật bằng lời (không ghi số). */
+  getHomeworkScores: () => HomeworkScoreInput[];
   /** Báo trạng thái đang chạy nền ra ngoài — nút nổi (AiAssistantFab) hiện vòng xoay khi sidebar đã đóng. */
   onBusyChange?: (busy: boolean) => void;
 }
@@ -51,6 +54,7 @@ export default function CommentAiAssistantSidebar({
   onApply,
   onApplyAndSaveDraft,
   savingDraft,
+  getHomeworkScores,
   onBusyChange
 }: Props) {
   const { t } = useTranslation("academic-comments");
@@ -123,13 +127,13 @@ export default function CommentAiAssistantSidebar({
     if (!classSessionId || busy) return false;
     if (audio) {
       push({ role: "teacher", text: text || t("dailyCommentPanel.aiAssistant.audioMessage", { duration: audio.seconds ? formatSeconds(audio.seconds) : "?" }), audioUrl: audio.url });
-      void runJob(() => startCommentAiDraft(classSessionId, audio.blob, text));
+      void runJob(() => startCommentAiDraft(classSessionId, audio.blob, text, getHomeworkScores()));
       return true;
     }
     push({ role: "teacher", text });
     const d = draft;
     if (!d) {
-      void runJob(() => startCommentAiDraft(classSessionId, null, text));
+      void runJob(() => startCommentAiDraft(classSessionId, null, text, getHomeworkScores()));
     } else {
       void runJob(() =>
         reviseCommentAiDraft(classSessionId, {
@@ -138,7 +142,8 @@ export default function CommentAiAssistantSidebar({
           transcript: d.transcript,
           extraction: d.extraction,
           currentRows: currentRows(d),
-          history: historyForRequest()
+          history: historyForRequest(),
+          homeworkScores: getHomeworkScores()
         })
       );
     }
@@ -150,7 +155,13 @@ export default function CommentAiAssistantSidebar({
     const d = draft;
     push({ role: "teacher", text: t("dailyCommentPanel.aiAssistant.actions.rewrite") });
     void runJob(() =>
-      reviseCommentAiDraft(classSessionId, { mode: "REWRITE_ALL", transcript: d.transcript, extraction: d.extraction, currentRows: currentRows(d) })
+      reviseCommentAiDraft(classSessionId, {
+        mode: "REWRITE_ALL",
+        transcript: d.transcript,
+        extraction: d.extraction,
+        currentRows: currentRows(d),
+        homeworkScores: getHomeworkScores()
+      })
     );
   };
 

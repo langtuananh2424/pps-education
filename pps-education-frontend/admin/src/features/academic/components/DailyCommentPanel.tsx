@@ -2534,6 +2534,15 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
         onApply={(draft) => applyAiDraft(draft).appliedCount}
         onApplyAndSaveDraft={handleApplyAiDraftAndSave}
         savingDraft={savingDraft}
+        getHomeworkScores={() =>
+          rows.map((r) => ({
+            studentId: r.studentId,
+            offline: r.homeworkPreviousScore.trim() || null,
+            speaking: r.homeworkPreviousSpeakingScore.trim() || null,
+            reading: r.homeworkPreviousReadingScore.trim() || null,
+            writing: r.homeworkPreviousWritingScore.trim() || null
+          }))
+        }
         onBusyChange={setAssistantBusy}
       />
       <AiAssistantFab

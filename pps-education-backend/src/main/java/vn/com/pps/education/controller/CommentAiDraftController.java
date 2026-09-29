@@ -10,12 +10,16 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import vn.com.pps.education.dto.CommentAiDraftJobResponse;
+import vn.com.pps.education.dto.HomeworkScoreInput;
 import vn.com.pps.education.dto.ReviseCommentAiDraftRequest;
 import vn.com.pps.education.security.AuthenticatedUser;
 import vn.com.pps.education.service.CommentAiDraftService;
+
+import java.util.List;
 
 /**
  * UC-74: Trợ lý AI soạn nháp nhận xét hàng ngày từ audio — xem Javadoc CommentAiDraftService. Cùng quyền
@@ -35,9 +39,10 @@ public class CommentAiDraftController {
     public ResponseEntity<CommentAiDraftJobResponse> startDraft(@PathVariable Long classSessionId,
                                                                 @RequestParam(value = "audio", required = false) MultipartFile audio,
                                                                 @RequestParam(value = "note", required = false) String note,
+                                                                @RequestPart(value = "homeworkScores", required = false) List<HomeworkScoreInput> homeworkScores,
                                                                 @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.status(HttpStatus.ACCEPTED)
-                .body(commentAiDraftService.startDraft(classSessionId, audio, note, actor.userId()));
+                .body(commentAiDraftService.startDraft(classSessionId, audio, note, homeworkScores, actor.userId()));
     }
 
     @PreAuthorize("hasPermission(null, 'academic.comment.write')")
