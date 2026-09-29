@@ -461,7 +461,7 @@
         "timeout": "The assistant took too long — please try again."
       },
       "pronounDetected": "Teacher refers to self as: {{pronoun}}",
-      "pronounUnknown": "Couldn't tell thầy or cô — writing \"thầy/cô\". Type \"xưng thầy\" or \"xưng cô\" to change."
+      "pronounUnknown": "Could not tell whether you are \"thầy\" or \"cô\" — the assistant writes without a teacher pronoun (e.g. \"Mong con…\"). Type \"xưng thầy\" or \"xưng cô\" to change."
     }
   },
   "commentsPage": {
