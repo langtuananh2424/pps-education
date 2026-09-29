@@ -3,11 +3,14 @@ package vn.com.pps.education.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.mock.web.MockMultipartFile;
+import vn.com.pps.education.dto.CommentAiInstructionResult;
 import vn.com.pps.education.dto.CommentAiReviewRequest;
 import vn.com.pps.education.dto.CommentAiReviewResult;
 import vn.com.pps.education.dto.CommentAiSuggestionResult;
 import vn.com.pps.education.exception.ApprovalAlreadyDecidedException;
 import vn.com.pps.education.exception.CommentAiDraftFailedException;
+import vn.com.pps.education.exception.CommentAiDraftRejectedException;
 import vn.com.pps.education.exception.NotSiteManagerForSiteException;
 import vn.com.pps.education.repository.ClassEnrollmentRepository;
 import vn.com.pps.education.repository.StudentCommentRepository;
@@ -43,8 +46,8 @@ class CommentAiReviewServiceTest {
 
     private final CommentAiReviewService service = new CommentAiReviewService(studentCommentService,
             mock(ClassEnrollmentRepository.class), mock(StudentCommentRepository.class),
-            new CommentAiJsonCaller(aiClient, promptTemplateLoader, new ObjectMapper()), jobRegistry,
-            "comment-pps", 3, 120, 0.5);
+            new CommentAiJsonCaller(aiClient, promptTemplateLoader, new ObjectMapper()), jobRegistry, aiClient,
+            "comment-pps", 3, 120, 0.5, 1024);
 
     @BeforeEach
     void setUp() {
@@ -197,5 +200,76 @@ class CommentAiReviewServiceTest {
         CommentAiSuggestionResult result = service.suggest(binh, List.of("x"));
 
         assertThat(result.warnings()).hasSize(2);
+    }
+
+    // ---- Yêu cầu sửa bằng audio/chữ (bước 9) ----
+
+    @Test
+    void instruct_UC75_MainFlow_audioInstructionProposesChangesOnlyForTargetedComments() {
+        when(aiClient.transcribe(any(byte[].class), eq("audio/webm"), eq(null), contains("Trần Thị Bình"), eq("vi")))
+                .thenReturn("bỏ cụm nói chuyện với An trong nhận xét của Bình");
+        stubAi(CommentAiReviewService.INSTRUCTION_PROMPT, """
+                {"assistantMessage": "Đã bỏ tên bạn An khỏi nhận xét của Bình.",
+                 "changes": [{"commentId": 2, "content": "Bình còn nói chuyện riêng trong giờ."},
+                             {"commentId": 1, "content": "An tập trung nghe giảng."},
+                             {"commentId": 999, "content": "không thuộc lô"}]}""");
+        List<CommentAiReviewService.ReviewItem> items = List.of(
+                item(1, "Nguyễn Văn An", "GOOD", "An tập trung nghe giảng.", List.of()),
+                item(2, "Trần Thị Bình", "AVERAGE", "Bình nói chuyện với Nguyễn Văn An suốt giờ.", List.of()));
+
+        CommentAiInstructionResult result = service.instruct(items, new byte[]{1}, "audio/webm", null);
+
+        assertThat(result.transcript()).contains("nhận xét của Bình");
+        assertThat(result.assistantMessage()).isEqualTo("Đã bỏ tên bạn An khỏi nhận xét của Bình.");
+        // Bản sửa trùng nguyên văn (An) và commentId ngoài lô bị bỏ; không ghi DB.
+        assertThat(result.changes()).extracting(CommentAiInstructionResult.Change::commentId).containsExactly(2L);
+        assertThat(result.changes().get(0).originalContent()).isEqualTo("Bình nói chuyện với Nguyễn Văn An suốt giờ.");
+        verify(studentCommentService, never()).updatePendingCommentContent(any(), any(), any());
+    }
+
+    @Test
+    void startInstruction_UC75_A7_rejectsMissingOrInvalidInput() {
+        MockMultipartFile big = new MockMultipartFile("audio", "a.webm", "audio/webm", new byte[2048]);
+        MockMultipartFile notAudio = new MockMultipartFile("audio", "a.pdf", "application/pdf", new byte[10]);
+
+        assertThatThrownBy(() -> service.startInstruction(List.of(1L), null, " ", ACTOR_ID))
+                .isInstanceOf(CommentAiDraftRejectedException.class);
+        assertThatThrownBy(() -> service.startInstruction(List.of(), null, "sửa giúp", ACTOR_ID))
+                .isInstanceOf(CommentAiDraftRejectedException.class);
+        assertThatThrownBy(() -> service.startInstruction(List.of(1L), big, null, ACTOR_ID))
+                .isInstanceOf(CommentAiDraftRejectedException.class).hasMessageContaining("quá lớn");
+        assertThatThrownBy(() -> service.startInstruction(List.of(1L), notAudio, null, ACTOR_ID))
+                .isInstanceOf(CommentAiDraftRejectedException.class).hasMessageContaining("không phải audio");
+        verify(jobRegistry, never()).submit(any(), any());
+    }
+
+    @Test
+    void instruct_UC75_A4_failsWhenTranscriptionOrAiFails() {
+        CommentAiReviewService.ReviewItem binh = item(2, "Trần Thị Bình", null, "Bình học ổn.", List.of());
+        when(aiClient.transcribe(any(byte[].class), any(), any(), any(), any())).thenReturn(null);
+        when(aiClient.chatWithFinishReason(eq(CommentAiReviewService.INSTRUCTION_PROMPT), anyString(), anyString())).thenReturn(null);
+
+        assertThatThrownBy(() -> service.instruct(List.of(binh), new byte[]{1}, "audio/webm", null))
+                .isInstanceOf(CommentAiDraftFailedException.class).hasMessageContaining("Không chuyển được audio");
+        assertThatThrownBy(() -> service.instruct(List.of(binh), null, null, "viết ngắn lại"))
+                .isInstanceOf(CommentAiDraftFailedException.class);
+    }
+
+    @Test
+    void ruleIssues_UC75_flagsLessonTitleInComment() {
+        CommentAiReviewService.ReviewItem dat = new CommentAiReviewService.ReviewItem(4L, 100L, "Trần Tiến Đạt", "AVERAGE",
+                "Trong buổi học Unit 1: Hello Friend hôm nay, Đạt cần chú ý hơn.", DATE, "Unit 1: Hello Friend", List.of(), List.of());
+
+        assertThat(service.ruleIssues(dat, List.of(dat))).extracting(CommentAiReviewResult.Issue::type).contains("LESSON_TITLE");
+    }
+
+    @Test
+    void review_UC75_lessonTitleIsNotSentToAi() {
+        stubAi(CommentAiReviewService.REVIEW_PROMPT, "{\"reviews\": []}");
+        CommentAiReviewService.ReviewItem an = item(1, "Nguyễn Văn An", "GOOD", "An tập trung nghe giảng.", List.of());
+
+        service.review(List.of(an));
+
+        verify(aiClient, never()).chatWithFinishReason(anyString(), contains("lessonContent"), anyString());
     }
 }
