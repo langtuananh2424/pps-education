@@ -1,0 +1,61 @@
+package vn.com.pps.education.controller;
+
+import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
+import vn.com.pps.education.dto.CommentAiReviewJobResponse;
+import vn.com.pps.education.dto.CommentAiReviewRequest;
+import vn.com.pps.education.dto.CommentAiSuggestionJobResponse;
+import vn.com.pps.education.dto.CommentAiSuggestionRequest;
+import vn.com.pps.education.security.AuthenticatedUser;
+import vn.com.pps.education.service.CommentAiReviewService;
+
+/**
+ * UC-75: Trợ lý AI soát nhận xét chờ duyệt — xem Javadoc CommentAiReviewService. Cùng quyền với duyệt nhận xét
+ * của UC-22 ({@code academic.comment.approve}); không có endpoint nào để trợ lý tự duyệt/từ chối/sửa.
+ */
+@RestController
+public class CommentAiReviewController {
+
+    private final CommentAiReviewService commentAiReviewService;
+
+    public CommentAiReviewController(CommentAiReviewService commentAiReviewService) {
+        this.commentAiReviewService = commentAiReviewService;
+    }
+
+    @PreAuthorize("hasPermission(null, 'academic.comment.approve')")
+    @PostMapping("/api/comments/ai-review")
+    public ResponseEntity<CommentAiReviewJobResponse> startReview(@Valid @RequestBody CommentAiReviewRequest request,
+                                                                  @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(commentAiReviewService.startReview(request, actor.userId()));
+    }
+
+    @PreAuthorize("hasPermission(null, 'academic.comment.approve')")
+    @GetMapping("/api/comment-ai-reviews/{jobId}")
+    public ResponseEntity<CommentAiReviewJobResponse> getReview(@PathVariable String jobId,
+                                                                @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(commentAiReviewService.getReview(jobId, actor.userId()));
+    }
+
+    @PreAuthorize("hasPermission(null, 'academic.comment.approve')")
+    @PostMapping("/api/comments/{id}/ai-suggestion")
+    public ResponseEntity<CommentAiSuggestionJobResponse> startSuggestion(@PathVariable Long id,
+                                                                          @Valid @RequestBody(required = false) CommentAiSuggestionRequest request,
+                                                                          @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(commentAiReviewService.startSuggestion(id, request, actor.userId()));
+    }
+
+    @PreAuthorize("hasPermission(null, 'academic.comment.approve')")
+    @GetMapping("/api/comment-ai-suggestions/{jobId}")
+    public ResponseEntity<CommentAiSuggestionJobResponse> getSuggestion(@PathVariable String jobId,
+                                                                        @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(commentAiReviewService.getSuggestion(jobId, actor.userId()));
+    }
+}

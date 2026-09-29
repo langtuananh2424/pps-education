@@ -1,8 +1,6 @@
 package vn.com.pps.education.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -47,7 +45,7 @@ import java.util.stream.Collectors;
  * Flow/Alternate Flow.
  *
  * <p>Service này KHÔNG ghi DB: chỉ đọc dữ liệu buổi học (rào + danh sách học sinh + nhận xét cũ) trong
- * request, rồi giao phần gọi AI cho {@link CommentAiDraftJobRegistry} chạy nền trên 1 bản chụp bất biến
+ * request, rồi giao phần gọi AI cho {@link AiJobRegistry} chạy nền trên 1 bản chụp bất biến
  * ({@link DraftContext} — không chạm entity JPA ngoài transaction). Kết quả là bản xem trước; lưu thật
  * đi qua Lưu nháp của UC-21 ({@code StudentCommentService#saveDraftBatch}) do chính giáo viên bấm — quyền
  * lưu cao nhất của trợ lý là DRAFT, không có đường nào để trợ lý Gửi duyệt.</p>
@@ -69,8 +67,10 @@ public class CommentAiDraftService {
     static final String EXTRACT_PROMPT = "comment-ai-draft-extract-system-prompt.txt";
     static final String WRITE_PROMPT = "comment-ai-draft-write-system-prompt.txt";
     static final String REVISE_PROMPT = "comment-ai-draft-revise-system-prompt.txt";
-    /** Rubric nhận xét do học vụ tự làm giàu — chèn vào chỗ {{RUBRIC}} của cả 3 prompt trên. */
-    static final String RUBRIC_FILE = "comment-ai-draft-rubric.md";
+    /** Rubric nhận xét — chèn vào chỗ {{RUBRIC}} của cả 3 prompt trên, xem {@link CommentAiJsonCaller}. */
+    static final String RUBRIC_FILE = CommentAiJsonCaller.RUBRIC_FILE;
+    /** Giáo viên nói nhận xét bằng tiếng Việt — ép STT nhận dạng tiếng Việt thay vì tự đoán ngôn ngữ. */
+    static final String STT_LANGUAGE = "vi";
 
     static final String SOURCE_CLASS = "CLASS";
     static final String SOURCE_INDIVIDUAL = "INDIVIDUAL";
@@ -78,7 +78,6 @@ public class CommentAiDraftService {
     private static final Map<String, String> ATTITUDE_LABELS = Map.of(
             "WEAK", "Yếu", "AVERAGE", "Trung bình", "FAIR", "Khá", "GOOD", "Tốt", "EXCELLENT", "Xuất sắc");
     private static final Pattern DIGIT = Pattern.compile("\\d");
-    private static final Pattern HTML_COMMENT = Pattern.compile("<!--.*?-->", Pattern.DOTALL);
     private static final Pattern PRONOUN_THAY = Pattern.compile("(?iu)(?<!\\p{L})thầy(?!\\p{L})");
     private static final Pattern PRONOUN_CO = Pattern.compile("(?iu)(?<!\\p{L})cô(?!\\p{L})");
     private static final int MAX_AVOID_TEXTS = 30;
@@ -92,9 +91,8 @@ public class CommentAiDraftService {
     private final AttendanceMarkRepository attendanceMarkRepository;
     private final StudentCommentRepository studentCommentRepository;
     private final NineRouterAiClient aiClient;
-    private final PromptTemplateLoader promptTemplateLoader;
-    private final ObjectMapper objectMapper;
-    private final CommentAiDraftJobRegistry jobRegistry;
+    private final CommentAiJsonCaller jsonCaller;
+    private final AiJobRegistry jobRegistry;
     private final Settings settings;
 
     /**
@@ -115,9 +113,8 @@ public class CommentAiDraftService {
                                  AttendanceMarkRepository attendanceMarkRepository,
                                  StudentCommentRepository studentCommentRepository,
                                  NineRouterAiClient aiClient,
-                                 PromptTemplateLoader promptTemplateLoader,
-                                 ObjectMapper objectMapper,
-                                 CommentAiDraftJobRegistry jobRegistry,
+                                 CommentAiJsonCaller jsonCaller,
+                                 AiJobRegistry jobRegistry,
                                  @Value("${app.ai-comment-draft.model:comment-pps}") String model,
                                  @Value("${app.ai-comment-draft.previous-comment-count:3}") int previousCommentCount,
                                  @Value("${app.ai-comment-draft.previous-lookback-days:120}") int previousLookbackDays,
@@ -130,8 +127,7 @@ public class CommentAiDraftService {
         this.attendanceMarkRepository = attendanceMarkRepository;
         this.studentCommentRepository = studentCommentRepository;
         this.aiClient = aiClient;
-        this.promptTemplateLoader = promptTemplateLoader;
-        this.objectMapper = objectMapper;
+        this.jsonCaller = jsonCaller;
         this.jobRegistry = jobRegistry;
         this.settings = new Settings(model, previousCommentCount, previousLookbackDays, similarityThreshold,
                 Math.max(1, writeBatchSize), maxAudioBytes);
@@ -198,7 +194,7 @@ public class CommentAiDraftService {
         byte[] finalAudio = audioBytes;
         String finalMimeType = mimeType;
         String finalNote = hasNote ? note.trim() : null;
-        return jobRegistry.submit(actorUserId, () -> generateDraft(context, finalAudio, finalMimeType, finalNote));
+        return toResponse(jobRegistry.submit(actorUserId, () -> generateDraft(context, finalAudio, finalMimeType, finalNote)));
     }
 
     /** UC-74 Main Flow bước 9 — giáo viên yêu cầu sửa/viết lại bản nháp. */
@@ -216,11 +212,15 @@ public class CommentAiDraftService {
             throw new CommentAiDraftRejectedException("Chưa có bản nháp để viết lại — hãy gửi audio trước.");
         }
         DraftContext context = loadContext(classSessionId, actorUserId);
-        return jobRegistry.submit(actorUserId, () -> revise(context, request));
+        return toResponse(jobRegistry.submit(actorUserId, () -> revise(context, request)));
     }
 
     public CommentAiDraftJobResponse getJob(String jobId, Long actorUserId) {
-        return jobRegistry.get(jobId, actorUserId);
+        return toResponse(jobRegistry.get(jobId, actorUserId, CommentAiDraftResult.class));
+    }
+
+    private static CommentAiDraftJobResponse toResponse(AiJobRegistry.Snapshot<CommentAiDraftResult> snapshot) {
+        return new CommentAiDraftJobResponse(snapshot.jobId(), snapshot.status(), snapshot.errorMessage(), snapshot.result());
     }
 
     /**
@@ -289,7 +289,7 @@ public class CommentAiDraftService {
     CommentAiDraftResult generateDraft(DraftContext context, byte[] audio, String mimeType, String note) {
         String transcript = "";
         if (audio != null) {
-            transcript = aiClient.transcribe(audio, mimeType, null, spellingHint(context));
+            transcript = aiClient.transcribe(audio, mimeType, null, spellingHint(context), STT_LANGUAGE);
             if (transcript == null || transcript.isBlank()) {
                 throw new CommentAiDraftFailedException(
                         "Không chuyển được audio thành văn bản (dịch vụ nhận dạng giọng nói lỗi hoặc audio không có tiếng nói) — vui lòng thử lại.");
@@ -697,36 +697,12 @@ public class CommentAiDraftService {
     // ---- Tiện ích ----
 
     private JsonNode callJson(String promptFile, Object payload) {
-        String userMessage;
-        try {
-            userMessage = objectMapper.writeValueAsString(payload);
-        } catch (JsonProcessingException e) {
-            throw new IllegalStateException("CommentAiDraftService: không dựng được payload JSON.", e);
-        }
-        String rubric = HTML_COMMENT.matcher(promptTemplateLoader.load(RUBRIC_FILE, Map.of())).replaceAll("").trim();
-        String systemPrompt = promptTemplateLoader.load(promptFile, Map.of("RUBRIC", rubric));
-        NineRouterAiClient.ChatResult result = aiClient.chatWithFinishReason(systemPrompt, userMessage, settings.model());
-        if (result == null || result.content() == null) {
-            return null;
-        }
-        if (result.finishReason() != null && !"stop".equals(result.finishReason())) {
-            log.warn("CommentAiDraftService: kết quả AI dở dang (finish_reason={}) — bỏ, không dùng nửa chừng.", result.finishReason());
-            return null;
-        }
-        String text = result.content();
-        int start = text.indexOf('{');
-        int end = text.lastIndexOf('}');
-        if (start < 0 || end <= start) {
-            log.warn("CommentAiDraftService: AI không trả JSON ({} ký tự).", text.length());
-            return null;
-        }
-        try {
-            JsonNode node = objectMapper.readTree(text.substring(start, end + 1));
-            return node.isObject() ? node : null;
-        } catch (JsonProcessingException e) {
-            log.warn("CommentAiDraftService: JSON AI trả về không hợp lệ. {}", e.getOriginalMessage());
-            return null;
-        }
+        return jsonCaller.callJson(promptFile, payload, settings.model());
+    }
+
+    /** Nhãn tiếng Việt của mã Thái độ (VD GOOD → "Tốt"), {@code null} nếu mã không hợp lệ. */
+    static String attitudeLabel(String code) {
+        return code == null ? null : ATTITUDE_LABELS.get(code);
     }
 
     static String normalizeAttitude(String raw) {

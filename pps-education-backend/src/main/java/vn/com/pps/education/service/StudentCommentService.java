@@ -2149,6 +2149,31 @@ public class StudentCommentService {
      * nguyên rào cũ) VÀ còn trong hạn X ngày kể từ ngày buổi học.
      */
     /**
+     * UC-75 bước 2 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-29) — trợ lý AI soát nhận xét
+     * chờ duyệt dùng ĐÚNG rào của duyệt/sửa nội dung PENDING (UC-22, {@link #decideComments}/
+     * {@link #updatePendingCommentContent}): có quyền duyệt, phụ trách đúng điểm trường, nhận xét còn PENDING.
+     * Trả entity (gọi trong transaction của service gọi) — không đổi gì trên nhận xét.
+     */
+    public List<StudentComment> requirePendingCommentsForAiReview(List<Long> commentIds, Long actorUserId) {
+        if (!permissionEvaluationService.hasPermission(actorUserId, "academic.comment.approve")) {
+            throw new NotSiteManagerForSiteException("error.notSiteManagerForSite.noCommentApprovalPermission", new Object[]{}, "Tài khoản không có quyền duyệt nhận xét.");
+        }
+        List<StudentComment> comments = studentCommentRepository.findAllById(commentIds);
+        if (comments.size() != new HashSet<>(commentIds).size()) {
+            throw new ResourceNotFoundException("error.studentComment.commentIdsNotFound", new Object[]{}, "Có nhận xét không tồn tại trong danh sách commentIds.");
+        }
+        for (StudentComment comment : comments) {
+            requireSiteManagerForSite(comment.getSchoolClass().getSite().getId(), actorUserId);
+            if (comment.getStatus() != StudentComment.Status.PENDING) {
+                throw new ApprovalAlreadyDecidedException(
+                        "error.approvalAlreadyDecided.comment", new Object[]{comment.getStatus()},
+                        "Nhận xét này đã được quyết định (" + comment.getStatus() + ").");
+            }
+        }
+        return comments;
+    }
+
+    /**
      * UC-74 bước 2 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-28) — trợ lý AI soạn nháp
      * nhận xét dùng ĐÚNG rào của Lưu nháp (không có rào riêng), xem {@code CommentAiDraftService}.
      */

@@ -57,11 +57,11 @@ class CommentAiDraftServiceTest {
     private final StudentCommentRepository studentCommentRepository = mock(StudentCommentRepository.class);
     private final NineRouterAiClient aiClient = mock(NineRouterAiClient.class);
     private final PromptTemplateLoader promptTemplateLoader = mock(PromptTemplateLoader.class);
-    private final CommentAiDraftJobRegistry jobRegistry = mock(CommentAiDraftJobRegistry.class);
+    private final AiJobRegistry jobRegistry = mock(AiJobRegistry.class);
 
     private final CommentAiDraftService service = new CommentAiDraftService(studentCommentService,
             classEnrollmentRepository, attendanceSessionRepository, attendanceMarkRepository, studentCommentRepository,
-            aiClient, promptTemplateLoader, new ObjectMapper(), jobRegistry,
+            aiClient, new CommentAiJsonCaller(aiClient, promptTemplateLoader, new ObjectMapper()), jobRegistry,
             "comment-pps", 3, 120, 0.5, 10, 1024);
 
     private final ClassSession session = mock(ClassSession.class);
@@ -158,7 +158,7 @@ class CommentAiDraftServiceTest {
 
     @Test
     void generateDraft_UC74_MainFlow_classCommentForMostAndIndividualForMentioned() {
-        when(aiClient.transcribe(any(byte[].class), eq("audio/webm"), eq(null), anyString()))
+        when(aiClient.transcribe(any(byte[].class), eq("audio/webm"), eq(null), anyString(), eq("vi")))
                 .thenReturn("Hôm nay cả lớp tập trung tốt. Riêng bạn An còn nói chuyện riêng.");
         stubAi(CommentAiDraftService.EXTRACT_PROMPT, """
                 ```json
@@ -202,7 +202,7 @@ class CommentAiDraftServiceTest {
         assertThat(result.rows().get(1).content()).isEqualTo("Bình chú tâm nghe giảng suốt buổi, rất đáng khen.");
         assertThat(result.rows()).allSatisfy(r -> assertThat(r.warnings()).isEmpty());
         verify(aiClient, times(2)).chatWithFinishReason(eq(CommentAiDraftService.WRITE_PROMPT), anyString(), anyString());
-        verify(aiClient, never()).transcribe(any(), any(), any(), any());
+        verify(aiClient, never()).transcribe(any(), any(), any(), any(), any());
     }
 
     // ---- Alternate Flows ----
@@ -261,7 +261,7 @@ class CommentAiDraftServiceTest {
 
     @Test
     void generateDraft_UC74_A5_failsWhenTranscriptionFails() {
-        when(aiClient.transcribe(any(byte[].class), any(), any(), any())).thenReturn(null);
+        when(aiClient.transcribe(any(byte[].class), any(), any(), any(), any())).thenReturn(null);
 
         assertThatThrownBy(() -> service.generateDraft(context(AN), new byte[]{1}, "audio/webm", null))
                 .isInstanceOf(CommentAiDraftFailedException.class)

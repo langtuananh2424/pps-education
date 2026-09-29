@@ -2267,3 +2267,67 @@ export async function waitForCommentAiDraftJob(job: CommentAiDraftJob, signal?: 
   }
   return current;
 }
+
+// ---- UC-75: Trợ lý AI soát nhận xét chờ duyệt (bổ sung ngoài SDD gốc, 2026-09-29) ----
+
+export interface CommentAiReviewIssue {
+  type: string;
+  /** RULE = kiểm tra tự động bằng code; AI = kiểm tra theo rubric bằng AI. */
+  source: "RULE" | "AI";
+  message: string;
+}
+
+export interface CommentAiReview {
+  commentId: number;
+  studentFullName: string;
+  issues: CommentAiReviewIssue[];
+}
+
+export interface CommentAiReviewResult {
+  message: string;
+  checkedCount: number;
+  flaggedCount: number;
+  aiCheckComplete: boolean;
+  reviews: CommentAiReview[];
+}
+
+export interface CommentAiSuggestionResult {
+  commentId: number;
+  originalContent: string;
+  suggestedContent: string;
+  explanation: string;
+  warnings: string[];
+}
+
+export interface AiJob<T> {
+  jobId: string;
+  status: "RUNNING" | "DONE" | "FAILED";
+  errorMessage: string | null;
+  result: T | null;
+}
+
+/** UC-75 bước 1-2 — soát các nhận xét chờ duyệt (thường cả 1 lớp); chỉ trả cảnh báo, không đổi gì trên nhận xét. */
+export function startCommentAiReview(commentIds: number[]): Promise<AiJob<CommentAiReviewResult>> {
+  return apiRequest<AiJob<CommentAiReviewResult>>("/comments/ai-review", { method: "POST", body: JSON.stringify({ commentIds }) });
+}
+
+/** UC-75 bước 6 — AI đề xuất bản sửa cho 1 nhận xét chờ duyệt (chưa lưu; "Áp dụng" dùng updatePendingCommentContent). */
+export function startCommentAiSuggestion(commentId: number, issues: string[]): Promise<AiJob<CommentAiSuggestionResult>> {
+  return apiRequest<AiJob<CommentAiSuggestionResult>>(`/comments/${commentId}/ai-suggestion`, {
+    method: "POST",
+    body: JSON.stringify({ issues })
+  });
+}
+
+/** Hỏi lại trạng thái job của trợ lý AI mỗi 2 giây tới khi xong/lỗi (tối đa ~5 phút). */
+export async function waitForAiJob<T>(job: AiJob<T>, path: (jobId: string) => string): Promise<AiJob<T>> {
+  let current = job;
+  for (let i = 0; i < 150 && current.status === "RUNNING"; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    current = await apiRequest<AiJob<T>>(path(current.jobId));
+  }
+  return current;
+}
+
+export const commentAiReviewJobPath = (jobId: string) => `/comment-ai-reviews/${jobId}`;
+export const commentAiSuggestionJobPath = (jobId: string) => `/comment-ai-suggestions/${jobId}`;
