@@ -26,6 +26,12 @@ public record ReflexQuestionProgressHistoryResponse(
         String markedAnswer,
         String transcript,
         List<CriteriaScoreItem> criteriaScores,
-        OffsetDateTime gradedAt
+        OffsetDateTime gradedAt,
+        /** V198 — lần ghi âm cần giáo viên soát điểm Ngữ pháp (≥2 lỗi đỏ ngữ pháp ở nhánh chấm lại từ transcript). */
+        boolean grammarReviewRequired,
+        /** V198 — các đoạn transcript bị tô đỏ ngữ pháp; rỗng khi không cần soát. */
+        List<String> grammarReviewQuotes,
+        /** V199 — true = bản ghi đã lọc, false = thô, null = không rõ (trước V199 / bài viết). */
+        Boolean recordingFilter
 ) {
 }

@@ -81,4 +81,24 @@ public class ReflexQuestionProgressHistory extends BaseAuditEntity {
 
     @Column(name = "graded_at")
     private OffsetDateTime gradedAt;
+
+    /**
+     * V198 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-29) — lần ghi âm có ≥2 lỗi đỏ NGỮ PHÁP ở
+     * nhánh chấm lại từ transcript: điểm Ngữ pháp chỉ là tham khảo, giáo viên cần soát (lượt phiên âm có thể
+     * nghe nhầm). Luôn false với lần làm bài VIẾT và với luồng cũ.
+     */
+    @Column(name = "grammar_review_required", nullable = false)
+    private boolean grammarReviewRequired;
+
+    /**
+     * V199 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-29) — chế độ thu âm THỰC TẾ của lần ghi này:
+     * true = đã qua bộ lọc thu âm, false = bản ghi thô, null = lần ghi trước V199 / lần làm bài viết.
+     */
+    @Column(name = "recording_filter")
+    private Boolean recordingFilter;
+
+    /** V198 — các đoạn transcript bị tô đỏ ngữ pháp, chỗ giáo viên cần nghe lại. */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "grammar_review_quotes", columnDefinition = "jsonb")
+    private List<String> grammarReviewQuotes;
 }

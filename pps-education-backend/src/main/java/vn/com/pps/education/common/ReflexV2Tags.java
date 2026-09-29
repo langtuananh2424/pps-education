@@ -19,7 +19,29 @@ public final class ReflexV2Tags {
     public static final Map<String, String> STRENGTH_TAGS = new LinkedHashMap<>();
     /** Lỗi nặng (tô đỏ) — hỏng cấu trúc câu hoặc sai nghĩa. */
     public static final Set<String> SEVERE_TAGS = Set.of(
-            "thieu_thanh_phan", "cau_truc_cau", "trat_tu_tu", "dung_tu", "tu_loai", "tieng_viet", "khong_ro", "lac_y");
+            "thieu_thanh_phan", "cau_truc_cau", "trat_tu_tu", "thi_de_an_dinh", "dung_tu", "tu_loai", "tieng_viet", "khong_ro", "lac_y");
+
+    /**
+     * Lỗi chỉ ĐỎ từ Khối 8 (chuẩn B1+), vàng ở Khối 6-7 — quy tắc chung §C: "thừa hoặc thiếu giới từ làm hỏng
+     * cụm" (At here, discuss about, go to home, listen music). Sai giới từ nhỏ ({@code gioi_tu}) vẫn vàng mọi khối.
+     */
+    public static final Set<String> SEVERE_FROM_GRADE_8_TAGS = Set.of("gioi_tu_pha_cum");
+    public static final int SEVERE_FROM_GRADE = 8;
+
+    /**
+     * Lỗi đỏ NGỮ PHÁP — loại DUY NHẤT được đếm cho trần 60% tiêu chí Ngữ pháp (đã xác nhận với người dùng
+     * 2026-09-29, ghi vào §C.2 của {@code rubrics-v3}): thiếu thành phần câu, sai cấu trúc câu, sai trật tự từ, sai
+     * thì mà đề đã ấn định, và thừa/thiếu giới từ làm hỏng cụm (chỉ khi tag đó ĐỎ, tức từ Khối 8). Dùng từ/từ loại/tiếng Việt/
+     * không nghe rõ/lạc ý vẫn tô đỏ, vẫn nhân ba ở checkpoint đếm lỗi nhưng không kéo trần Ngữ pháp — trước đó
+     * hai từ phiên âm nghe không ra ({@code khong_ro}) cũng đủ hạ Ngữ pháp bài nói xuống 60%.
+     */
+    public static final Set<String> GRAMMAR_SEVERE_TAGS = Set.of(
+            "thieu_thanh_phan", "cau_truc_cau", "trat_tu_tu", "thi_de_an_dinh", "gioi_tu_pha_cum");
+
+    /** Mức đỏ của một tag lỗi theo khối — mức độ do LOẠI lỗi (và khối) quyết định, không để AI tự chọn. */
+    public static boolean isSevere(String tag, int grade) {
+        return SEVERE_TAGS.contains(tag) || (grade >= SEVERE_FROM_GRADE && SEVERE_FROM_GRADE_8_TAGS.contains(tag));
+    }
 
     /** Lỗi tô trong transcript thuộc tiêu chí Phát âm (dùng khi phân lỗi vào từng tiêu chí để tính trần). */
     public static final Set<String> PRON_TAGS = Set.of("phat_am", "am_cuoi", "trong_am", "khong_ro");
@@ -32,9 +54,11 @@ public final class ReflexV2Tags {
 
     static {
         ERROR_TAGS.put("thi_dong_tu", "Thì / dạng động từ");
+        ERROR_TAGS.put("thi_de_an_dinh", "Sai thì mà đề đã ấn định");
         ERROR_TAGS.put("hoa_hop_chu_vi", "Hòa hợp chủ ngữ và động từ");
         ERROR_TAGS.put("mao_tu", "Mạo từ");
         ERROR_TAGS.put("gioi_tu", "Giới từ");
+        ERROR_TAGS.put("gioi_tu_pha_cum", "Thừa / thiếu giới từ làm hỏng cụm");
         ERROR_TAGS.put("so_it_so_nhieu", "Số ít / số nhiều");
         ERROR_TAGS.put("trat_tu_tu", "Trật tự từ");
         ERROR_TAGS.put("thieu_thanh_phan", "Thiếu thành phần câu");

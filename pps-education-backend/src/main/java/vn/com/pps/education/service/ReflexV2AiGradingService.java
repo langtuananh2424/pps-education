@@ -34,9 +34,11 @@ import java.util.Optional;
  * Kiến trúc: (1) chấm bài viết → điểm Ngữ pháp Bước 1 (làm SÀN cho bài nói); (2) phiên âm MÙ (không đề,
  * không rubric, không bài viết — biết trước sẽ khiến AI "sửa" từ phát âm sai theo ngữ cảnh); (3) chặn bản
  * ghi bịa / nói khác bài viết TRƯỚC khi chấm (HTTP 422, không tốn lượt chấm thứ ba); (4) chấm bài nói trên
- * transcript cố định + audio gốc. Từ 23/9 Bước 4 chấm lại CẢ Ngữ pháp từ transcript (không còn khoá theo
- * Bước 1), rồi hệ thống áp các trần đo được từ transcript ({@link ReflexV2Scoring#applyErrorCaps}). Điểm quy
- * đổi làm ở backend ({@link ReflexV2Scoring}), AI chỉ trả checkpoint.
+ * transcript cố định + audio gốc. Từ 23/9 Bước 4 chấm lại CẢ Ngữ pháp từ transcript, rồi hệ thống áp các trần
+ * đo được từ transcript ({@link ReflexV2Scoring#applyErrorCaps}). Từ 29/9 (cách B, đã xác nhận với người dùng):
+ * nếu học sinh nói lại đúng bài đã viết ({@link ReflexV2Scoring#sameAsWritten}) thì điểm Ngữ pháp GIỮ NGUYÊN
+ * điểm Bước 1 — điểm AI chấm lại chỉ dùng khi nói khác bài viết; trần 60% chỉ đếm lỗi đỏ NGỮ PHÁP
+ * ({@link ReflexV2Scoring#countRed}). Điểm quy đổi làm ở backend ({@link ReflexV2Scoring}), AI chỉ trả checkpoint.
  *
  * Cấu hình bắt buộc theo người training: model {@code gemini-3.6-flash} (KHÔNG model dự phòng — đã kiểm
  * tra ở {@link NineRouterAiClient}), {@code temperature=0}, thinking mức medium (chọn qua tên model
@@ -60,6 +62,11 @@ public class ReflexV2AiGradingService {
     private static final int MAX_SUSPECT_WORDS = 40;
     private static final int MAX_AUDIT_DEVIANT_WORDS = 25;
 
+    /** Khoá trong {@code speaking_audit}: lần ghi âm cần giáo viên soát điểm Ngữ pháp (V198). */
+    public static final String AUDIT_GRAMMAR_REVIEW_REQUIRED = "grammarReviewRequired";
+    /** Khoá trong {@code speaking_audit}: các đoạn transcript bị tô đỏ ngữ pháp (V198). */
+    public static final String AUDIT_GRAMMAR_REVIEW_QUOTES = "grammarReviewQuotes";
+
     private final NineRouterAiClient nineRouterAiClient;
     private final ObjectMapper objectMapper;
     private final ReflexV2Prompts prompts;
@@ -81,8 +88,8 @@ public class ReflexV2AiGradingService {
 
     /**
      * @param step1Percent   điểm Bước 1 = trung bình các tiêu chí chấm ở bước viết (đã áp trần lỗi đỏ và trần theo lỗi đã tô), làm tròn xuống bội 5.
-     * @param grammarPercent điểm Ngữ pháp Bước 1 — mang sang Bước 2 làm SÀN (nửa điểm này), không còn là điểm khoá.
-     * @param redCount       số lỗi đỏ tô được trong bài viết (chỉ để audit).
+     * @param grammarPercent điểm Ngữ pháp Bước 1 — Bước 2 giữ nguyên khi nói giống bài viết, nói khác thì làm SÀN (nửa điểm này).
+     * @param redCount       số lỗi đỏ NGỮ PHÁP trong bài viết ({@link ReflexV2Scoring#countRed}) — căn cứ trần 60%.
      * @param markedText     bài viết gốc đánh dấu lỗi bằng markup {@code {{err}}...{{/err}}} (FE hiện có).
      * @param gateNote       câu giải thích cổng chặn (backend soạn) — rỗng nếu không có cổng nào kích hoạt.
      * @param usage          (V192) chi phí token của CHÍNH lượt chấm viết này, caller lưu kèm ngữ cảnh học sinh.
@@ -133,7 +140,7 @@ public class ReflexV2AiGradingService {
         }
         try {
             JsonNode data = parseJson(response.content());
-            List<ReflexV2Scoring.Highlight> highlights = ReflexV2Scoring.locateHighlights(text, data.path("highlights"));
+            List<ReflexV2Scoring.Highlight> highlights = ReflexV2Scoring.locateHighlights(text, data.path("highlights"), task.grade());
             int redCount = ReflexV2Scoring.countRed(highlights);
             ReflexV2Scoring.ScoreSet scored = ReflexV2Scoring.applyRedCap(task.grammarCode(),
                     ReflexV2Scoring.computeScores(task, task.writingCriteria(), data), redCount);
@@ -266,15 +273,20 @@ public class ReflexV2AiGradingService {
             // Không nói được gì (im lặng / không đủ dữ liệu) thì không có sàn Ngữ pháp, không có bằng chứng phát âm.
             boolean noSpeech = data.path("insufficient_data").asBoolean(false)
                     || transcript.replaceAll("\\.\\.\\.\\d+s|[\\s.,(){}\\[\\]…?-]", "").isEmpty();
-            List<ReflexV2Scoring.Highlight> highlights = ReflexV2Scoring.locateHighlights(transcript, data.path("highlights"));
+            List<ReflexV2Scoring.Highlight> highlights = ReflexV2Scoring.locateHighlights(transcript, data.path("highlights"), task.grade());
             int spokenRed = ReflexV2Scoring.countRed(highlights);
+            // Cách B (2026-09-29): nói lại đúng bài đã viết → giữ nguyên điểm Ngữ pháp Bước 1, không để AI chấm
+            // lại cùng một câu ra điểm khác; nói khác bài viết mới dùng điểm chấm lại từ transcript.
+            ReflexV2Scoring.SpokenMatch spokenMatch = noSpeech ? null : ReflexV2Scoring.sameAsWritten(anchor.text(), transcript);
+            boolean keepStep1Grammar = spokenMatch != null && spokenMatch.same();
 
             List<ReflexV2Scoring.CriterionScore> raw = new ArrayList<>();
             int gradedGrammarPercent = 0;
             for (ReflexV2Scoring.CriterionScore c : scored.criteria()) {
                 if (c.code().equals(grammar)) {
                     gradedGrammarPercent = c.percent();
-                    raw.add(ReflexV2Scoring.regradeGrammar(c, spokenRed, anchor.grammarPercent(), noSpeech));
+                    raw.add(keepStep1Grammar ? ReflexV2Scoring.keptFromStep1(grammar, anchor.grammarPercent())
+                            : ReflexV2Scoring.regradeGrammar(c, spokenRed, anchor.grammarPercent(), noSpeech));
                 } else {
                     raw.add(c);
                 }
@@ -287,6 +299,14 @@ public class ReflexV2AiGradingService {
             List<ReflexV2Scoring.CriterionScore> capped = ReflexV2Scoring.applyGrammarFloor(grammar,
                     ReflexV2Scoring.applyErrorCaps(task, raw, highlights,
                             new ReflexV2Scoring.ErrorEvidence(lexical, fluency, length, readback)));
+            if (keepStep1Grammar) {
+                // Trần theo lỗi đã tô trên transcript không được đụng tới điểm đã giữ từ Bước 1.
+                capped = ReflexV2Scoring.keepGrammarFromStep1(grammar, capped, anchor.grammarPercent());
+            }
+            // Quy trình phòng đào tạo 29/9: chỉ MỘT lượt phiên âm nên vài từ nghe nhầm có thể thành lỗi đỏ ngữ pháp
+            // giả. Bài đi nhánh chấm lại mà có ≥2 lỗi đỏ ngữ pháp → điểm Ngữ pháp chỉ là tham khảo, giáo viên soát
+            // lại (kể cả khi điểm chấm lại vốn đã ≤60% nên trần không đổi con số — nghe nhầm vẫn có thể đã kéo điểm).
+            boolean grammarReviewRequired = !keepStep1Grammar && !noSpeech && spokenRed >= 2;
 
             List<ReflexV2Scoring.CriterionScore> forUnlock = new ArrayList<>();
             List<CriteriaScoreItem> items = new ArrayList<>();
@@ -324,7 +344,11 @@ public class ReflexV2AiGradingService {
             audit.put("gates", scored.gates());
             audit.put("grammarStep1Percent", anchor.grammarPercent());
             audit.put("grammarRegradedPercent", gradedGrammarPercent);
+            audit.put("grammarKeptFromStep1", keepStep1Grammar);
+            audit.put("spokenMatch", toMap(spokenMatch));
             audit.put("spokenRedCount", spokenRed);
+            audit.put(AUDIT_GRAMMAR_REVIEW_REQUIRED, grammarReviewRequired);
+            audit.put(AUDIT_GRAMMAR_REVIEW_QUOTES, grammarReviewRequired ? ReflexV2Scoring.grammarRedQuotes(transcript, highlights) : List.of());
             audit.put("finalPercentWithPronunciation", finalPercent);
             audit.put("unlockIncludesPronunciation", unlockIncludesPronunciation);
             audit.put("audioMeasured", measured.isPresent());

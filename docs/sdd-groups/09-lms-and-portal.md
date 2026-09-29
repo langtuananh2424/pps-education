@@ -1509,9 +1509,9 @@ mục "Bổ sung V139" trong `docs/uc/phan-he-07-lms-portal.md`)
 | speaking_criteria_scores | JSONB | NULL | V178 — mảng `{criterion, percent}` theo từng tiêu chí rubric, tách riêng khỏi speaking_feedback |
 | speaking_graded_at | TIMESTAMPTZ | NULL | |
 | speaking_attempt_count | INT | NOT NULL, DEFAULT 0 | Chỉ để thống kê, KHÔNG giới hạn số lần thử |
-| rubric_version | VARCHAR(10) | NULL | V185, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-21 — `'v2'` = chấm bằng bộ tiêu chí Speaking v2 (Khối 6-9), NULL = luồng cũ; bước Nói định tuyến theo cột này |
-| writing_locked_grammar_percent | DECIMAL(5,2) | NULL | V185 — điểm Ngữ pháp từ bước viết (luồng v2). Từ bản bàn giao 26/9 (23/9 trở đi) KHÔNG còn khoá: bước Nói chấm lại Ngữ pháp từ transcript và dùng NỬA điểm này làm SÀN (tên cột giữ nguyên) |
-| writing_red_error_count | INT | NULL | V185 — số lỗi đỏ của bài viết (luồng v2), chỉ để đối chiếu; bước Nói tự đếm lại lỗi đỏ từ transcript (≥2 lỗi đỏ thì Ngữ pháp trần 60%) |
+| rubric_version | VARCHAR(10) | NULL | V185, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-21 — `'v2'` = chấm bằng bộ tiêu chí Speaking v2 (Khối 6-9), `'v3'` = bộ bàn giao 29/9 (từ 2026-09-29, bài nộp mới), NULL = luồng cũ; bước Nói định tuyến theo cột này |
+| writing_locked_grammar_percent | DECIMAL(5,2) | NULL | V185 — điểm Ngữ pháp từ bước viết (luồng v2). Từ bản bàn giao 26/9 (23/9 trở đi) KHÔNG còn khoá: bước Nói chấm lại Ngữ pháp từ transcript và dùng NỬA điểm này làm SÀN (tên cột giữ nguyên). Từ 29/9 (cách B): nói giống bài viết thì bước Nói GIỮ NGUYÊN điểm này |
+| writing_red_error_count | INT | NULL | V185 — số lỗi đỏ của bài viết (luồng v2), chỉ để đối chiếu; bước Nói tự đếm lại lỗi đỏ từ transcript (≥2 lỗi đỏ thì Ngữ pháp trần 60%). Từ 29/9 chỉ đếm lỗi đỏ NGỮ PHÁP (thiếu thành phần câu, sai cấu trúc câu, sai trật tự từ, sai thì mà đề đã ấn định, thừa/thiếu giới từ làm hỏng cụm ở Khối 8-9) |
 | writing_audit, speaking_audit | JSONB | NULL | V185 — bằng chứng chấm (model thực tế, cổng chặn, danh sách đếm, suspect_words, độ khớp nội dung, điểm gồm Phát âm...) để hiệu chuẩn; KHÔNG trả ra FE |
 | created_at, updated_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | |
 | | UNIQUE(review_video_question_id, student_id, review_video_assignment_id) | | 1 dòng/(câu hỏi, học sinh, lần giao) — SỬA ĐÈ tại chỗ mỗi lần thử lại, KHÔNG giữ lịch sử từng lần |
@@ -1551,6 +1551,9 @@ train AI.
 | transcript | TEXT | NULL | Chỉ có khi attempt_type=SPEAKING |
 | criteria_scores | JSONB | NULL | Chỉ có khi attempt_type=SPEAKING |
 | graded_at | TIMESTAMPTZ | NULL | |
+| grammar_review_required | BOOLEAN | NOT NULL DEFAULT FALSE | V198, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-29 — lần ghi âm có ≥2 lỗi đỏ NGỮ PHÁP ở nhánh chấm lại từ transcript (nói khác bài viết): điểm Ngữ pháp chỉ là tham khảo, giáo viên cần soát vì lượt phiên âm có thể nghe nhầm |
+| grammar_review_quotes | JSONB | NULL | V198 — mảng chuỗi: các đoạn transcript bị tô đỏ ngữ pháp, chỗ giáo viên cần nghe lại |
+| recording_filter | BOOLEAN | NULL | V199, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-29 — chế độ thu âm thực tế của lần ghi: true = đã qua bộ lọc thu âm, false = bản thô, NULL = trước V199 / lần làm bài viết. Công tắc: `system_settings.reflex.recording_filter_enabled` (FEATURE_FLAG, mặc định false) |
 | created_at, updated_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | |
 
 Không có UNIQUE constraint (CHỈ-THÊM, không ghi đè) — mỗi lần AI chấm

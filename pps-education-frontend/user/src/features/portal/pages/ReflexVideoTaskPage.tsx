@@ -6,6 +6,7 @@ import {
   ReflexQuestionProgressResponse,
   ReviewVideoQuestionResponse,
   ReviewVideoResponse,
+  getReflexRecordingConfig,
   listMyReflexProgress,
   listReviewVideoQuestions,
   submitReflexSpokenAnswer,
@@ -13,6 +14,7 @@ import {
   uploadMedia
 } from "../api";
 import { useIntegrityMonitor } from "../hooks/useIntegrityMonitor";
+import { filterRecording, recordingFilterSupported } from "../lib/reflexRecordingFilter";
 import { extractYouTubeVideoId, formatTimestamp, loadYouTubeIframeApi } from "../lib/youtubePlayer";
 import MonitoringBadge from "../components/MonitoringBadge";
 import { ScoreSticker } from "../components/ScoreSticker";
@@ -541,6 +543,13 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
   const [speakingPassedPopup, setSpeakingPassedPopup] = useState<{ scorePercent: number | null; feedback: string | null } | null>(null);
   const [writingPassedPopup, setWritingPassedPopup] = useState<{ scorePercent: number | null } | null>(null);
   const recorder = useAudioRecorder();
+  // V199 — công tắc bộ lọc thu âm (Quản trị hệ thống → Cài đặt hệ thống). Lỗi tải cấu hình → coi như tắt (bản thô).
+  const [recordingFilterEnabled, setRecordingFilterEnabled] = useState(false);
+  useEffect(() => {
+    getReflexRecordingConfig()
+      .then((c) => setRecordingFilterEnabled(c.filterEnabled))
+      .catch(() => setRecordingFilterEnabled(false));
+  }, []);
 
   const allQuestionsPassed = questions.length > 0 && questions.every((q) => progress[q.id]?.questionPassed);
 
@@ -934,9 +943,20 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
     setSpeakingSubmitting(true);
     setSpeakingError(null);
     try {
-      const file = new File([blob], "reflex-answer.webm", { type: blob.type || "audio/webm" });
+      // V199 — công tắc BẬT thì lọc bản ghi thành WAV 16 kHz trước khi nộp; lọc lỗi (trình duyệt không giải mã
+      // được) thì nộp bản thô và báo đúng chế độ đã dùng, để việc so sánh hai chế độ không bị lẫn.
+      let file = new File([blob], "reflex-answer.webm", { type: blob.type || "audio/webm" });
+      let filtered = false;
+      if (recordingFilterEnabled && recordingFilterSupported()) {
+        try {
+          file = new File([await filterRecording(blob)], "reflex-answer.wav", { type: "audio/wav" });
+          filtered = true;
+        } catch {
+          filtered = false;
+        }
+      }
       const { url } = await uploadMedia(file, "REVIEW_VIDEO_SUBMISSION");
-      const response = await submitReflexSpokenAnswer(activeQuestion.id, assignmentId, url);
+      const response = await submitReflexSpokenAnswer(activeQuestion.id, assignmentId, url, filtered);
       setProgress((prev) => ({ ...prev, [activeQuestion.id]: response }));
       // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — fix bug thật: trước đây pass thì
       // đóng câu ngay + video chạy tiếp lập tức, học sinh không kịp thấy điểm/nhận xét bước nói (khác
