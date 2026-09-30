@@ -75,17 +75,34 @@ class LeadControllerTest extends AbstractControllerTest {
                 .andExpect(jsonPath("$.message").value("Tài khoản không có quyền thực hiện thao tác này."));
     }
 
+    /**
+     * V202 (đã xác nhận với người dùng 2026-09-30): quyền mặc định theo sidebar đã chốt — mục Khách hàng tiềm
+     * năng thuộc Quản lý vận hành, không còn trong sidebar của Quản lý điểm trường.
+     */
     @Test
-    void assignLead_allowedForSiteManager_returns200() throws Exception {
+    void assignLead_allowedForOpsManager_returns200() throws Exception {
         var staff = userWithRole("staff.forassign", "STAFF");
         LeadResponse lead = leadService.createLead(newLeadRequest(), staff.getId());
-        var siteManager = userWithRole("sitemanager.access", "SITE_MANAGER");
+        var opsManager = userWithRole("opsmanager.access", "OPS_MANAGER");
+
+        mockMvc.perform(put("/api/leads/" + lead.id() + "/assign")
+                        .header("Authorization", bearerToken(opsManager, "OPS_MANAGER"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new AssignLeadRequest(staff.getId()))))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void assignLead_deniedForSiteManagerAfterV202_returns403() throws Exception {
+        var staff = userWithRole("staff.forassign2", "STAFF");
+        LeadResponse lead = leadService.createLead(newLeadRequest(), staff.getId());
+        var siteManager = userWithRole("sitemanager.noassign", "SITE_MANAGER");
 
         mockMvc.perform(put("/api/leads/" + lead.id() + "/assign")
                         .header("Authorization", bearerToken(siteManager, "SITE_MANAGER"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(new AssignLeadRequest(staff.getId()))))
-                .andExpect(status().isOk());
+                .andExpect(status().isForbidden());
     }
 
     private CreateLeadRequest newLeadRequest() {
