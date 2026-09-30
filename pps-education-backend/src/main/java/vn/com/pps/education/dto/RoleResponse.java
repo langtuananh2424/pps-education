@@ -6,5 +6,7 @@ public record RoleResponse(
         String code,
         String name,
         String description,
-        boolean isSystem
+        boolean isSystem,
+        /** V202 — ALL / SITE / CLASS / SELF, xem Role.DataScope. */
+        String dataScope
 ) {}

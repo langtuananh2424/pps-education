@@ -194,7 +194,7 @@ public class CommentAiDraftService {
     // ---- Điểm vào từ Controller ----
 
     /**
-     * UC-74 Main Flow bước 1-2: kiểm tra đầu vào + rào (A1-A4) ngay trong request, rồi chạy nền bước 3-8.
+     * UC-74 Main Flow bước 1-2: kiểm tra đầu vào + rào (A2-A4) ngay trong request, rồi chạy nền bước 3-8.
      */
     @Transactional(readOnly = true)
     public CommentAiDraftJobResponse startDraft(Long classSessionId, MultipartFile audio, String note,
@@ -255,8 +255,9 @@ public class CommentAiDraftService {
     }
 
     /**
-     * UC-74 bước 2 + 4: rào của Lưu nháp (A2), chặn buổi GVNN (A1), lọc học sinh Vắng/Có phép hoặc đã Gửi
-     * duyệt, và chụp N nhận xét gần nhất/học sinh (mọi lớp) để AI tránh lặp lại (bước 6-7).
+     * UC-74 bước 2 + 4: rào của Lưu nháp (A2), lọc học sinh Vắng/Có phép hoặc đã Gửi duyệt, và chụp N nhận
+     * xét gần nhất/học sinh (mọi lớp) để AI tránh lặp lại (bước 6-7). Buổi GVNN dùng được trợ lý như buổi GV
+     * Việt Nam (bỏ chặn A1 cũ — đã xác nhận với người dùng 2026-09-29).
      */
     DraftContext loadContext(Long classSessionId, Long actorUserId) {
         return loadContext(classSessionId, actorUserId, null);
@@ -269,10 +270,6 @@ public class CommentAiDraftService {
      */
     DraftContext loadContext(Long classSessionId, Long actorUserId, List<HomeworkScoreInput> homeworkScores) {
         ClassSession session = studentCommentService.requireCanWriteDailyCommentFor(classSessionId, actorUserId);
-        if (session.getTeacherType() == ClassSession.TeacherType.FOREIGN) {
-            throw new CommentAiDraftRejectedException(
-                    "Buổi học của giáo viên nước ngoài — tạm thời chưa hỗ trợ soạn nhận xét bằng trợ lý AI.");
-        }
         Map<Long, AttendanceMark.Status> attendance = attendanceSessionRepository.findByClassSessionId(session.getId())
                 .map(a -> attendanceMarkRepository.findByAttendanceSessionId(a.getId()).stream()
                         .collect(Collectors.toMap(m -> m.getStudent().getId(), AttendanceMark::getStatus, (x, y) -> x)))
@@ -641,6 +638,20 @@ public class CommentAiDraftService {
             contents.putAll(written);
             avoid.addAll(written.values());
         }
+        // Lô lỗi (AI lỗi/quá thời gian/kết quả dở dang) hoặc AI bỏ sót học sinh: thử lại 1 lần với lô nhỏ hơn
+        // (bằng nửa) trước khi gắn cảnh báo NOT_WRITTEN — lô nhỏ trả lời nhanh hơn, ít bị cắt giữa chừng hơn.
+        List<Target> missing = targets.stream().filter(t -> !contents.containsKey(t.student().id())).toList();
+        if (!missing.isEmpty()) {
+            log.warn("CommentAiDraftService: {} học sinh chưa được viết sau lượt đầu — thử lại 1 lần.", missing.size());
+            int retryBatchSize = Math.max(1, (settings.writeBatchSize() + 1) / 2);
+            for (int from = 0; from < missing.size(); from += retryBatchSize) {
+                List<Target> batch = missing.subList(from, Math.min(missing.size(), from + retryBatchSize));
+                Map<Long, String> written = writeBatch(context, batch, avoid, teacherPronoun);
+                anyWritten |= !written.isEmpty();
+                contents.putAll(written);
+                avoid.addAll(written.values());
+            }
+        }
         if (!anyWritten) {
             throw new CommentAiDraftFailedException("Trợ lý chưa viết được nhận xét (AI lỗi hoặc quá thời gian) — vui lòng thử lại.");
         }
@@ -689,7 +700,7 @@ public class CommentAiDraftService {
                 boolean sameClosing = patterns.closingIds().contains(id) && closingKey != null
                         && closingKey.equals(CommentPatternCheck.closingKey(otherText));
                 boolean samePhrase = patterns.phraseIds().contains(id)
-                        && CommentPatternCheck.phrasesIn(otherText).stream().anyMatch(CommentPatternCheck.phrasesIn(text)::contains);
+                        && CommentPatternCheck.phrasesIn(otherText).stream().anyMatch(patterns.phrasesById().get(id)::contains);
                 if (sameOpening || sameClosing || samePhrase) {
                     similar.add(otherText);
                 }
@@ -717,7 +728,7 @@ public class CommentAiDraftService {
     }
 
     /** Nội dung cảnh báo lặp kiểu câu — dùng chung cho trợ lý soạn nháp (UC-74) và trợ lý duyệt (UC-75). */
-    static String repeatedPatternMessage(CommentPatternCheck.Result patterns, Long id, String content) {
+    static String repeatedPatternMessage(CommentPatternCheck.Result patterns, Long id) {
         List<String> parts = new ArrayList<>();
         if (patterns.openingIds().contains(id)) {
             parts.add("câu mở đầu");
@@ -726,7 +737,7 @@ public class CommentAiDraftService {
             parts.add("câu kết");
         }
         if (patterns.phraseIds().contains(id)) {
-            parts.add("cụm \"" + String.join("\", \"", CommentPatternCheck.phrasesIn(content)) + "\"");
+            parts.add("cụm \"" + String.join("\", \"", patterns.phrasesById().get(id)) + "\"");
         }
         return "Kiểu " + String.join(" và ", parts) + " giống nhiều bạn khác trong buổi — nên đổi cách viết.";
     }
@@ -760,6 +771,7 @@ public class CommentAiDraftService {
         JsonNode response = callJson(WRITE_PROMPT, payload);
         Map<Long, String> written = new LinkedHashMap<>();
         if (response == null) {
+            log.warn("CommentAiDraftService: lô viết {} học sinh thất bại (AI lỗi/quá thời gian/kết quả dở dang).", batch.size());
             return written;
         }
         Set<Long> batchIds = batch.stream().map(t -> t.student().id()).collect(Collectors.toSet());
@@ -826,7 +838,7 @@ public class CommentAiDraftService {
                 // Đã cảnh báo trùng cả đoạn thì không nhắc thêm trùng kiểu câu (tránh 2 cảnh báo cho cùng 1 lỗi).
                 boolean similarWarned = bestInSession >= settings.similarityThreshold();
                 if (!similarWarned && patterns.all().contains(id)) {
-                    warnings.add(new CommentAiDraftResult.Warning("REPEATED_PATTERN", repeatedPatternMessage(patterns, id, content), null));
+                    warnings.add(new CommentAiDraftResult.Warning("REPEATED_PATTERN", repeatedPatternMessage(patterns, id), null));
                 }
                 CommentAiDraftResult.Warning pronounWarning = pronounMismatchWarning(content, teacherPronoun);
                 if (pronounWarning != null) {

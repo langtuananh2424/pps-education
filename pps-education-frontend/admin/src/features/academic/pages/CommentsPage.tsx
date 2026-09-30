@@ -4,7 +4,6 @@ import { Clock, History, PenLine } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
-import { UserRole } from "@/types";
 import { StudentCommentResponse, listPendingComments } from "../api";
 import DailyCommentPanel from "../components/DailyCommentPanel";
 import CommentApprovalByClass from "../components/CommentApprovalByClass";
@@ -14,16 +13,18 @@ type SiteManagerTab = "write" | "pending" | "history";
 
 export default function CommentsPage() {
   const { t } = useTranslation("academic-comments");
-  const { currentUser, selectedClassId, setSelectedClassId } = useApp();
+  const { hasPermission, selectedClassId, setSelectedClassId } = useApp();
   // Hàng chờ duyệt (UC-22) chỉ có ý nghĩa với Quản lý điểm trường — API tự scope theo site được gán.
-  const isSiteManager = currentUser?.roleCodes?.includes(UserRole.SITE_MANAGER) ?? false;
+  // V202 — khu vực duyệt hiện theo quyền academic.comment.approve, khu vực viết theo academic.comment.write,
+  // không theo tên vai trò nữa.
+  const isSiteManager = hasPermission("academic.comment.approve");
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-16: 1 nhân viên có thể VỪA là Quản lý
   // điểm trường VỪA đứng lớp (role TEACHER gán kèm) — trước đây isSiteManager=true thay hẳn khu vực
   // viết nhận xét bằng khu vực duyệt, khiến các tài khoản kiêm nhiệm này không có chỗ tự viết nhận xét
   // cho lớp mình dạy, phải nhờ tài khoản Giáo viên khác viết hộ. DailyCommentPanel tự lọc đúng lớp được
   // phân công qua useEligibleClasses (ưu tiên phân công thật, không bị quyền Site Manager mở rộng phạm
   // vi) nên dùng lại nguyên component đó, chỉ thêm 1 tab "Viết nhận xét" khi có cả 2 role.
-  const isTeacher = currentUser?.roleCodes?.includes(UserRole.TEACHER) ?? false;
+  const isTeacher = hasPermission("academic.comment.write");
   const showWriteTab = isSiteManager && isTeacher;
   const [siteManagerTab, setSiteManagerTab] = useState<SiteManagerTab>(showWriteTab ? "write" : "pending");
 

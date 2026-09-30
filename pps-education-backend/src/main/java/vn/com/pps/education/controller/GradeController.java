@@ -120,6 +120,7 @@ public class GradeController {
         return ResponseEntity.ok(gradeService.listEntries(classId, gradeEvaluationComponentId));
     }
 
+    @PreAuthorize("hasPermission(null, 'academic.grade.entry') or hasPermission(null, 'academic.grade.edit.override')")
     @PostMapping("/api/classes/{classId}/grades/components/{gradeEvaluationComponentId}")
     public ResponseEntity<GradeEntryResponse> enterGrade(@PathVariable Long classId, @PathVariable Long gradeEvaluationComponentId,
                                                              @Valid @RequestBody EnterGradeRequest request,
@@ -128,6 +129,7 @@ public class GradeController {
     }
 
     /** UC-19 (xoá điểm nháp, bổ sung ngoài SDD gốc, đã xác nhận với người dùng) — chỉ xoá được bản ghi DRAFT (hoặc academic.grade.edit.override). */
+    @PreAuthorize("hasPermission(null, 'academic.grade.entry') or hasPermission(null, 'academic.grade.edit.override')")
     @DeleteMapping("/api/classes/{classId}/grades/components/{gradeEvaluationComponentId}/students/{studentId}")
     public ResponseEntity<Void> deleteGradeEntry(@PathVariable Long classId, @PathVariable Long gradeEvaluationComponentId,
                                                   @PathVariable Long studentId,
@@ -137,6 +139,7 @@ public class GradeController {
     }
 
     /** UC-19 Main Flow bước 4 (V44): Giáo viên gửi duyệt — DRAFT/REJECTED -> SUBMITTED, chờ Quản lý điểm trường duyệt qua UC-20. */
+    @PreAuthorize("hasPermission(null, 'academic.grade.entry') or hasPermission(null, 'academic.grade.edit.override')")
     @PostMapping("/api/grades/submit")
     public ResponseEntity<List<GradeEntryResponse>> submitGradesForApproval(@Valid @RequestBody SubmitGradesRequest request,
                                                                               @AuthenticationPrincipal AuthenticatedUser actor) {
@@ -145,6 +148,7 @@ public class GradeController {
 
     // ---- UC-53: Overall/Level theo (kỳ học, Giữa/Cuối kỳ) (TEACHER + HEAD_ACADEMIC/SITE_MANAGER hỗ trợ) ----
 
+    @PreAuthorize("hasPermission(null, 'academic.grade.entry') or hasPermission(null, 'academic.grade.edit.override')")
     @PostMapping("/api/classes/{classId}/grades/students/{studentId}/setups/{setupId}/result")
     public ResponseEntity<GradeEvaluationResultResponse> enterEvaluationResult(@PathVariable Long classId,
                                                                        @PathVariable Long studentId,
@@ -161,6 +165,7 @@ public class GradeController {
     }
 
     /** UC-53 (xoá điểm tổng kết kỳ nháp, bổ sung ngoài SDD gốc, đã xác nhận với người dùng) — chỉ xoá được bản ghi DRAFT (hoặc academic.grade.edit.override). */
+    @PreAuthorize("hasPermission(null, 'academic.grade.entry') or hasPermission(null, 'academic.grade.edit.override')")
     @DeleteMapping("/api/classes/{classId}/grades/students/{studentId}/setups/{setupId}/result")
     public ResponseEntity<Void> deleteEvaluationResult(@PathVariable Long classId, @PathVariable Long studentId,
                                                     @PathVariable Long setupId,

@@ -1,4 +1,5 @@
 import React from "react";
+import { useApp } from "@/context/AppContext";
 import { BookOpen, Plus, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import Badge, { BadgeVariant } from "@/components/ui/Badge";
@@ -28,6 +29,7 @@ interface CurriculumListPanelProps {
 }
 
 export default function CurriculumListPanel({ curriculums, loading, selectedId, onSelect, onCreate, query, onQueryChange }: CurriculumListPanelProps) {
+  const { hasPermission } = useApp();
   const { t } = useTranslation("academic-curriculum");
   const filtered = curriculums.filter((c) => !query.trim() || c.name.toLowerCase().includes(query.toLowerCase()) || c.code.toLowerCase().includes(query.toLowerCase()));
 
@@ -38,10 +40,12 @@ export default function CurriculumListPanel({ curriculums, loading, selectedId, 
           <span className="text-xs font-bold text-slate-700 font-display block">{t("list.title")}</span>
           <p className="text-[10px] text-slate-400">{t("list.subtitle")}</p>
         </div>
-        <Button variant="primary" size="sm" onClick={onCreate}>
-          <Plus className="w-3.5 h-3.5" />
-          {t("list.addButton")}
-        </Button>
+        {hasPermission("academic.curriculum.create") && (
+          <Button variant="primary" size="sm" onClick={onCreate}>
+            <Plus className="w-3.5 h-3.5" />
+            {t("list.addButton")}
+          </Button>
+        )}
       </div>
 
       <div className="px-4 py-3 border-b border-slate-100 relative shrink-0">

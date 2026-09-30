@@ -15,8 +15,10 @@ import vn.com.pps.education.dto.CreateRoleRequest;
 import vn.com.pps.education.dto.RolePermissionMatrixResponse;
 import vn.com.pps.education.dto.RoleResponse;
 import vn.com.pps.education.dto.UpdateRolePermissionsRequest;
+import vn.com.pps.education.dto.UpdateRoleDataScopeRequest;
 import vn.com.pps.education.exception.DuplicateRoleCodeException;
 import vn.com.pps.education.exception.RoleNotDeletableException;
+import vn.com.pps.education.exception.RoleLockedException;
 import vn.com.pps.education.exception.RolePermissionConfirmationRequiredException;
 import vn.com.pps.education.repository.PermissionRepository;
 import vn.com.pps.education.repository.RolePermissionRepository;
@@ -127,20 +129,70 @@ class RoleServiceTest extends AbstractIntegrationTest {
     @Test
     void createRole_boSung_MainFlow_savesCustomRoleWithSystemFalse() {
         RoleResponse created = roleService.createRole(
-                new CreateRoleRequest("CUSTOM_ROLE_" + System.nanoTime(), "Vai trò tùy chỉnh", "Mô tả test"),
+                new CreateRoleRequest("CUSTOM_ROLE_" + System.nanoTime(), "Vai trò tùy chỉnh", "Mô tả test", Role.DataScope.SITE, null),
                 newUser().getId());
 
         assertThat(created.isSystem()).isFalse();
         assertThat(created.name()).isEqualTo("Vai trò tùy chỉnh");
     }
 
+    /** V202 "Tạo từ mẫu": sao chép toàn bộ quyền của vai trò mẫu và lưu phạm vi dữ liệu đã chọn. */
+    @Test
+    void createRole_V202_copiesPermissionsFromTemplateAndSavesDataScope() {
+        RoleResponse created = roleService.createRole(
+                new CreateRoleRequest("CUSTOM_ROLE_" + System.nanoTime(), "Từ mẫu", null, Role.DataScope.CLASS, role.getId()),
+                newUser().getId());
+
+        assertThat(created.dataScope()).isEqualTo("CLASS");
+        assertThat(rolePermissionRepository.findByRoleId(created.id()))
+                .extracting(rp -> rp.getPermission().getId())
+                .containsExactly(permissionA.getId());
+    }
+
+    @Test
+    void createRole_V202_withoutTemplate_startsWithNoPermission() {
+        RoleResponse created = roleService.createRole(
+                new CreateRoleRequest("CUSTOM_ROLE_" + System.nanoTime(), "Trống", null, Role.DataScope.ALL, null),
+                newUser().getId());
+
+        assertThat(rolePermissionRepository.findByRoleId(created.id())).isEmpty();
+    }
+
+    @Test
+    void updateDataScope_V202_MainFlow_changesScope() {
+        RoleResponse updated = roleService.updateDataScope(role.getId(),
+                new UpdateRoleDataScopeRequest(Role.DataScope.CLASS), newUser().getId());
+
+        assertThat(updated.dataScope()).isEqualTo("CLASS");
+        assertThat(roleRepository.findById(role.getId()).orElseThrow().getDataScope()).isEqualTo(Role.DataScope.CLASS);
+    }
+
+    /** V202: Quản trị viên luôn có mọi quyền — không cho sửa quyền hay phạm vi để tránh tự khoá khỏi hệ thống. */
+    @Test
+    void updateDataScope_V202_rejectsSysAdmin() {
+        Role sysAdmin = roleRepository.findByCode("SYS_ADMIN").orElseThrow();
+
+        assertThatThrownBy(() -> roleService.updateDataScope(sysAdmin.getId(),
+                new UpdateRoleDataScopeRequest(Role.DataScope.SITE), newUser().getId()))
+                .isInstanceOf(RoleLockedException.class);
+    }
+
+    @Test
+    void updatePermissions_V202_rejectsSysAdmin() {
+        Role sysAdmin = roleRepository.findByCode("SYS_ADMIN").orElseThrow();
+
+        assertThatThrownBy(() -> roleService.updatePermissions(sysAdmin.getId(),
+                new UpdateRolePermissionsRequest(Set.of(permissionB.getId()), true)))
+                .isInstanceOf(RoleLockedException.class);
+    }
+
     @Test
     void createRole_boSung_rejectsDuplicateCode() {
         Long actorId = newUser().getId();
         String code = "CUSTOM_ROLE_" + System.nanoTime();
-        roleService.createRole(new CreateRoleRequest(code, "Lần 1", null), actorId);
+        roleService.createRole(new CreateRoleRequest(code, "Lần 1", null, Role.DataScope.SITE, null), actorId);
 
-        assertThatThrownBy(() -> roleService.createRole(new CreateRoleRequest(code, "Lần 2", null), actorId))
+        assertThatThrownBy(() -> roleService.createRole(new CreateRoleRequest(code, "Lần 2", null, Role.DataScope.SITE, null), actorId))
                 .isInstanceOf(DuplicateRoleCodeException.class);
     }
 
@@ -148,7 +200,7 @@ class RoleServiceTest extends AbstractIntegrationTest {
     void deleteRole_boSung_MainFlow_removesRoleNeverAssigned() {
         Long actorId = newUser().getId();
         RoleResponse created = roleService.createRole(
-                new CreateRoleRequest("CUSTOM_ROLE_" + System.nanoTime(), "Xóa được", null), actorId);
+                new CreateRoleRequest("CUSTOM_ROLE_" + System.nanoTime(), "Xóa được", null, Role.DataScope.SITE, null), actorId);
 
         roleService.deleteRole(created.id(), actorId);
 

@@ -46,7 +46,7 @@ public class ExerciseReportController {
         return ResponseEntity.ok(exerciseReportService.getBatchStudentStats(batchId, actor.userId()));
     }
 
-    @PreAuthorize("hasPermission(null, 'lms.exercise.report.view')")
+    @PreAuthorize("hasPermission(null, 'lms.exercise.report.export')")
     @GetMapping("/api/homework-skill-batches/{batchId}/stats/export")
     public ResponseEntity<byte[]> exportBatchStudentStats(
             @PathVariable Long batchId, @AuthenticationPrincipal AuthenticatedUser actor) {
@@ -61,7 +61,7 @@ public class ExerciseReportController {
         return ResponseEntity.ok(exerciseReportService.getQuestionStats(assignmentId, actor.userId()));
     }
 
-    @PreAuthorize("hasPermission(null, 'lms.exercise.report.view')")
+    @PreAuthorize("hasPermission(null, 'lms.exercise.report.export')")
     @GetMapping("/api/exercise-assignments/{assignmentId}/stats/export")
     public ResponseEntity<byte[]> exportStudentStats(
             @PathVariable Long assignmentId, @AuthenticationPrincipal AuthenticatedUser actor) {

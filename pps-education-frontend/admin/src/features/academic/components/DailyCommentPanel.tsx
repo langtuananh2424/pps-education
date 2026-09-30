@@ -207,6 +207,8 @@ interface Row {
   homeworkNextReadingExerciseId: number | "";
   homeworkNextWritingExerciseId: number | "";
   note: string;
+  /** UC-74 (V201) — dòng vừa áp dụng từ bản nháp trợ lý AI; gửi kèm khi Lưu nháp để BE đánh dấu ai_drafted (chỉ bật lên). */
+  aiDrafted?: boolean;
 }
 
 /** Bổ sung ngoài SDD gốc, xác nhận 2026-08-17 — dùng cho "Lưu nháp": khác handleSend (chỉ cần content),
@@ -318,10 +320,10 @@ interface DailyCommentPanelProps {
 export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkStudentId = null }: DailyCommentPanelProps = {}) {
   const { t, i18n } = useTranslation("academic-comments");
   const { selectedClassId, setUnsavedChanges, currentUser, hasPermission } = useApp();
-  // Sửa 2026-09-23 (đã xác nhận với người dùng) — tài khoản quản trị (academic.class.manage /
+  // Sửa 2026-09-23 (đã xác nhận với người dùng) — tài khoản quản trị (academic.comment.manage — V202, thay academic.class.manage cũ /
   // academic.class.view-all, mirror useEligibleClasses) phải xem được MỌI buổi của lớp để xem/sửa nhận xét
   // thay giáo viên, không bị lọc theo "chính mình là GV chính/phụ/CM" như Giáo viên thuần (xem selectableSessions).
-  const canSeeAllSessions = hasPermission("academic.class.manage") || hasPermission("academic.class.view-all");
+  const canSeeAllSessions = hasPermission("academic.comment.manage") || hasPermission("academic.class.view-all");
   const { classes } = useEligibleClasses();
   // Luôn đồng bộ theo prop mới nhất (KHÔNG chỉ đọc 1 lần lúc mount) — sửa 2026-09-23: route
   // /academic/comments không remount lại DailyCommentPanel khi chỉ đổi query string (React Router
@@ -1094,7 +1096,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
     classId: number,
     session: ClassSessionResponse
   ): Promise<PromiseSettledResult<StudentCommentResponse>[]> => {
-    const rows = filled.map((r) => ({ studentId: r.studentId, ...buildCommentPayload(r) }));
+    const rows = filled.map((r) => ({ studentId: r.studentId, ...buildCommentPayload(r), aiDrafted: r.aiDrafted || undefined }));
     try {
       const response = await saveDraftBatch(classId, session.id, { commentDate: session.sessionDate, rows });
       const savedByStudentId = new Map(response.saved.map((s) => [s.studentId, s]));
@@ -1207,7 +1209,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
       const absent = attendanceByStudent[r.studentId] === "ABSENT" || attendanceByStudent[r.studentId] === "EXCUSED";
       if (!d || lockedIds.has(r.studentId) || absent || (!d.content && !d.attitude)) return r;
       appliedIds.push(r.studentId);
-      return { ...r, attitude: d.attitude ?? r.attitude, content: d.content ?? r.content };
+      return { ...r, attitude: d.attitude ?? r.attitude, content: d.content ?? r.content, aiDrafted: true };
     });
     return { next, appliedIds };
   };
@@ -2530,7 +2532,6 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
         onClose={() => setAssistantOpen(false)}
         classSessionId={selectedSessionId}
         sessionLabel={selectedClass && selectedSession ? `${selectedClass.name} · ${selectedSession.sessionDate}` : ""}
-        isForeignSession={teacherType === "FOREIGN"}
         onApply={(draft) => applyAiDraft(draft).appliedCount}
         onApplyAndSaveDraft={handleApplyAiDraftAndSave}
         savingDraft={savingDraft}

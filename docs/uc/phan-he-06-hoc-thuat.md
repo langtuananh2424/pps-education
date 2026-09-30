@@ -2053,9 +2053,6 @@ UC-74: Trợ lý AI soạn nháp nhận xét hàng ngày từ audio
 | Precondition)** |   phân công lớp và còn trong hạn X ngày kể từ ngày |
 |                 |   buổi học, hoặc actor có academic.comment.approve |
 |                 |   hoặc academic.comment.manage.                    |
-|                 | - Buổi học có Loại giáo viên khác FOREIGN (tạm     |
-|                 |   thời Giáo viên nước ngoài không nhận xét qua trợ |
-|                 |   lý AI).                                          |
 |                 | - Hệ thống đã cấu hình 9Router (STT + model soạn   |
 |                 |   nhận xét).                                       |
 +-----------------+----------------------------------------------------+
@@ -2065,8 +2062,9 @@ UC-74: Trợ lý AI soạn nháp nhận xét hàng ngày từ audio
 |                 |     chú dạng chữ, rồi gửi.                         |
 |                 |                                                    |
 |                 | 2.  Hệ thống kiểm tra rào như Lưu nháp của UC-21   |
-|                 |     và Loại giáo viên của buổi, nhận yêu cầu và xử |
-|                 |     lý bất đồng bộ (trả mã công việc, sidebar tự   |
+|                 |     (áp dụng cho cả buổi GV Việt Nam lẫn GVNN),    |
+|                 |     nhận yêu cầu và xử lý bất đồng bộ (trả mã công |
+|                 |     việc, sidebar tự                               |
 |                 |     hỏi lại trạng thái — tránh timeout của reverse |
 |                 |     proxy).                                        |
 |                 |                                                    |
@@ -2124,8 +2122,10 @@ UC-74: Trợ lý AI soạn nháp nhận xét hàng ngày từ audio
 +-----------------+----------------------------------------------------+
 | **Luồng thay    | ***A1 — Buổi của Giáo viên nước ngoài***           |
 | thế / ngoại lệ  |                                                    |
-| (Alternate      | 1.  Tại bước 2, buổi có Loại giáo viên = FOREIGN:  |
-| Flow)**         |     từ chối (422), sidebar ẩn nút gửi.             |
+| (Alternate      | 1.  (Đã bỏ 2026-09-29, xác nhận với người dùng —   |
+| Flow)**         |     GVNN cũng có nhận xét, do người Việt Nam ghi.) |
+|                 |     Buổi FOREIGN dùng trợ lý như buổi GV Việt Nam, |
+|                 |     không từ chối.                                 |
 |                 |                                                    |
 |                 | ***A2 — Không đủ quyền / hết hạn sửa***            |
 |                 |                                                    |
@@ -2152,6 +2152,12 @@ UC-74: Trợ lý AI soạn nháp nhận xét hàng ngày từ audio
 |                 |     không đọc được: công việc chuyển FAILED,       |
 |                 |     sidebar báo lỗi, bảng nhận xét không thay đổi; |
 |                 |     Giáo viên thử lại.                             |
+|                 |                                                    |
+|                 | 2.  Tại bước 6, chỉ 1 số lô viết lỗi (hoặc AI bỏ   |
+|                 |     sót học sinh): hệ thống thử lại 1 lần các học  |
+|                 |     sinh còn thiếu theo lô bằng nửa kích thước;    |
+|                 |     vẫn thiếu thì dòng đó gắn cảnh báo "chưa viết  |
+|                 |     được" (bổ sung 2026-09-29).                    |
 |                 |                                                    |
 |                 | ***A6 — Không xác định chắc chắn học sinh được     |
 |                 | nhắc tên***                                        |
@@ -2304,6 +2310,16 @@ Ghi chú kỹ thuật (bổ sung ngoài SDD gốc, đã xác nhận với ngư�
     thế nữa", "mong con", "con ngoan"): cụm vượt cùng ngưỡng
     `max-pattern-share` thì viết lại, vẫn vượt thì cảnh báo
     `REPEATED_PATTERN`. Không đưa bảng xếp hạng giáo viên vào hệ thống.
+-   **Bổ sung 2026-09-29 (đã xác nhận với người dùng):** (1) cột mới
+    `student_comments.ai_drafted` (V201): Lưu nháp dòng giáo viên vừa áp
+    dụng từ trợ lý thì gửi kèm `aiDrafted=true`, backend bật cờ (không tắt
+    lại, giáo viên sửa tay sau đó vẫn giữ). `scripts/comment-ai-approved-metrics.sql`
+    so sánh nhận xét AI soạn với nhận xét tự viết trên dữ liệu đã gửi duyệt
+    (tỷ lệ duyệt, từng bị từ chối, độ dài, có chữ số, nhắc tên bài, tỷ lệ
+    Yếu/Trung bình) theo tuần. (2) Cảnh báo `REPEATED_PATTERN` chỉ nêu các
+    cụm sáo mòn thực sự vượt ngưỡng ở dòng đó. Đã chốt với người dùng các
+    ngưỡng: BTVN tăng/giảm rõ 20 điểm, lặp kiểu câu 30% lớp, trùng lặp cả
+    đoạn 50%, danh sách cụm sáo mòn hiện tại.
 
 ---
 
@@ -2606,6 +2622,13 @@ Ghi chú kỹ thuật (bổ sung ngoài SDD gốc, đã xác nhận với ngư�
     mở/kết hoặc cụm sáo mòn quá ngưỡng được gắn lưu ý `REPEATED_PATTERN`
     (không chặn duyệt, không gắn nếu dòng đã có `SIMILAR_IN_SESSION`), tóm tắt
     có `repeatedPatternCount`.
+    (6) *Bổ sung 2026-09-29:* lưu ý BTVN đọc thêm % tự động của bài online
+    (bài tập online/video khi chưa nhập tay, Reading/Writing online), đúng
+    các cột Quản lý thấy trên bảng duyệt. Duyệt gộp nhiều buổi của 1 học
+    sinh thì cảnh báo thái độ được tính theo THỨ TỰ NGÀY
+    (`StudentCommentService#decideComments`), khớp nhãn "Sẽ báo phụ huynh";
+    nhãn ghi rõ khi đã tính cả buổi Yếu/Trung bình cũ hơn còn chờ duyệt.
+    Sidebar gom các dòng "lặp khuôn câu" thành 1 dòng tóm tắt.
 
 ---
 

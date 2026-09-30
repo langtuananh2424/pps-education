@@ -1654,6 +1654,7 @@ erDiagram
         BIGINT homework_next_exercise_assignment_id FK
         BIGINT homework_next_review_video_set_id FK
         TEXT note
+        BOOLEAN ai_drafted
     }
 ```
 
@@ -1729,6 +1730,18 @@ a)  Bảng student_comments --- Nhận xét học sinh
   visible_to_parent_at     TIMESTAMPTZ   NULL
 
   rejection_reason         TEXT          NULL
+
+  ai_drafted               BOOLEAN       NOT NULL, DEFAULT     (V201, bổ sung ngoài SDD gốc, đã
+                                        FALSE                  xác nhận với người dùng
+                                                                2026-09-29, UC-74) — TRUE nếu
+                                                                nội dung xuất phát từ bản nháp
+                                                                của trợ lý AI (giáo viên có thể
+                                                                đã sửa tay); chỉ bật lên khi Lưu
+                                                                nháp, không tắt lại. Dùng đo
+                                                                chất lượng nhận xét AI so với
+                                                                nhận xét tự viết
+                                                                (scripts/comment-ai-approved-
+                                                                metrics.sql)
 
   attitude                 VARCHAR(20)   NULL                  (V50, bổ sung ngoài SDD gốc, đã
                                                                 xác nhận với người dùng

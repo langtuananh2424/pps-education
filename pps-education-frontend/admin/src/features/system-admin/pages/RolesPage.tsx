@@ -35,7 +35,9 @@ export default function RolesPage() {
     setLoading(true);
     setListError(null);
     listRoles()
-      .then((res) => {
+      .then((all) => {
+        // V202: 3 vai trò Portal (Học sinh, Phụ huynh, Đại diện trường liên kết — phạm vi SELF) do hệ thống tự quản lý, không chỉnh ở đây.
+        const res = all.filter((r) => r.dataScope !== "SELF");
         setRoles(res);
         if (selectId != null) {
           setSelectedRoleId(selectId);
@@ -97,6 +99,8 @@ export default function RolesPage() {
           {activeRole ? (
             <RoleDetailPanel
               role={activeRole}
+              roles={roles}
+              onRoleChanged={() => loadRoles(activeRole.id)}
               canAssignMembers={canAssignMembers}
               canRevokeMembers={canRevokeMembers}
               onDelete={handleDeleteRole}
@@ -119,6 +123,7 @@ export default function RolesPage() {
 
       <Modal open={creatingNew} onClose={() => setCreatingNew(false)} title={t("rolesPage.createModalTitle")} size="lg">
         <CreateRolePanel
+          roles={roles}
           onCancel={() => setCreatingNew(false)}
           onCreated={(id) => {
             setCreatingNew(false);

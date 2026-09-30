@@ -141,7 +141,8 @@
         "ATTITUDE_MISMATCH": "attitude mismatch",
         "FORBIDDEN_TOPIC": "off-limits topic",
         "OTHER": "other issues"
-      }
+      },
+      "repeatedPatternGroup": "{{count}} rows reuse the same sentence template (opening/closing or repeated phrase): {{names}}. Does not block approval — consider asking the teacher to vary the wording."
     },
     "assistant": {
       "openButton": "AI review assistant",
@@ -414,9 +415,8 @@
       "title": "Comment assistant",
       "noSession": "Select a session to start",
       "close": "Close assistant",
-      "intro": "Record or upload your spoken feedback for the session (up to 5 minutes): a general comment for the class, then mention students who need specific feedback. The assistant drafts Attitude + Comment for every present student.",
+      "intro": "Type your feedback for the session (or record/upload audio up to 5 minutes if easier): a general comment for the class, then mention students who need specific feedback. The assistant drafts Attitude + Comment for every present student.",
       "permissionNote": "The assistant only fills Attitude and Comment, never scores/homework. Its highest save level is Save draft — you review and submit.",
-      "foreignSession": "Foreign-teacher session — not supported by the assistant yet.",
       "suggestions": {
         "record": "Record feedback",
         "upload": "Upload audio file"

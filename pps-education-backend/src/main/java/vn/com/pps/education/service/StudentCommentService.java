@@ -300,6 +300,7 @@ public class StudentCommentService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final PermissionEvaluationService permissionEvaluationService;
+    private final DataScopeService dataScopeService;
     private final AcademicSettingsService academicSettingsService;
     private final ClassEnrollmentRepository classEnrollmentRepository;
     private final AttendanceSessionRepository attendanceSessionRepository;
@@ -329,6 +330,7 @@ public class StudentCommentService {
                                   UserRepository userRepository,
                                   NotificationService notificationService,
                                   PermissionEvaluationService permissionEvaluationService,
+                                  DataScopeService dataScopeService,
                                   AcademicSettingsService academicSettingsService,
                                   ClassEnrollmentRepository classEnrollmentRepository,
                                   AttendanceSessionRepository attendanceSessionRepository,
@@ -357,6 +359,7 @@ public class StudentCommentService {
         this.userRepository = userRepository;
         this.notificationService = notificationService;
         this.permissionEvaluationService = permissionEvaluationService;
+        this.dataScopeService = dataScopeService;
         this.academicSettingsService = academicSettingsService;
         this.classEnrollmentRepository = classEnrollmentRepository;
         this.attendanceSessionRepository = attendanceSessionRepository;
@@ -513,6 +516,9 @@ public class StudentCommentService {
                         row.homeworkPreviousReadingScore(), row.homeworkPreviousWritingScore(),
                         row.homeworkNext(), row.homeworkNextReading(), row.homeworkNextWriting(), row.note());
                 comment.setStatus(StudentComment.Status.DRAFT);
+                if (Boolean.TRUE.equals(row.aiDrafted())) {
+                    comment.setAiDrafted(true);
+                }
                 actionByStudentId.put(student.getId(), existing != null ? StudentCommentHistory.Action.UPDATED : StudentCommentHistory.Action.CREATED);
                 toSave.add(comment);
             } catch (RuntimeException ex) {
@@ -691,9 +697,18 @@ public class StudentCommentService {
 
     // ===================== UC-22: Duyệt nhận xét (SITE_MANAGER) =====================
 
-    /** Main Flow bước 1: danh sách nhận xét Chờ duyệt của các điểm trường actor phụ trách. */
+    /**
+     * Main Flow bước 1: danh sách nhận xét Chờ duyệt của các điểm trường actor phụ trách.
+     * V202 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-30): tài khoản có phạm vi dữ liệu
+     * "Tất cả điểm trường" (VD Trưởng phòng đào tạo, Ban giám đốc) thấy nhận xét chờ duyệt của mọi điểm trường.
+     */
     @Transactional(readOnly = true)
     public List<StudentCommentResponse> listPendingForSite(Long actorUserId) {
+        if (dataScopeService.isUnrestricted(actorUserId)) {
+            return studentCommentRepository.findByStatusOrderBySubmittedAtAsc(StudentComment.Status.PENDING).stream()
+                    .map(this::toResponse)
+                    .toList();
+        }
         List<Long> siteIds = siteManagerRepository
                 .findByUserIdAndRoleTypeAndAssignedToIsNull(actorUserId, SiteManager.RoleType.SITE_MANAGER).stream()
                 .map(sm -> sm.getSite().getId()).toList();
@@ -753,7 +768,12 @@ public class StudentCommentService {
         } else {
             // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-12: cảnh báo thái độ học
             // tập chỉ tính trên nhận xét ĐÃ DUYỆT — xem StudentAttitudeAlertTrackingService.
-            saved.forEach(attitudeAlertTrackingService::evaluateAndNotify);
+            // Bổ sung 2026-09-29 (UC-75): tính theo THỨ TỰ NGÀY — duyệt gộp nhiều buổi của 1 học sinh thì chuỗi
+            // Yếu/Trung bình liên tiếp đúng trình tự buổi học (findAllById không bảo đảm thứ tự), khớp lời nhắc
+            // "Sẽ báo phụ huynh" của trợ lý duyệt (CommentAiReviewService#attitudeAlerts).
+            saved.stream()
+                    .sorted(java.util.Comparator.comparing(StudentComment::getCommentDate).thenComparing(StudentComment::getId))
+                    .forEach(attitudeAlertTrackingService::evaluateAndNotify);
         }
         return saved.stream().map(this::toResponse).toList();
     }
@@ -893,6 +913,25 @@ public class StudentCommentService {
                             writingPreviousProgressLabel(previous));
                 })
                 .toList();
+    }
+
+    /**
+     * UC-75 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-29) — % TỰ ĐỘNG "BTVN buổi trước" của từng
+     * nhận xét chờ duyệt (mirror đúng các cột tự động trên bảng duyệt), để trợ lý soát đối chiếu nhận xét nói về BTVN
+     * có ngược dữ liệu không. Chỉ đọc; người gọi đã qua rào {@link #requirePendingCommentsForAiReview}.
+     *
+     * @return commentId → % tự động (studentId trong phần tử là học sinh của nhận xét đó).
+     */
+    @Transactional(readOnly = true)
+    public Map<Long, AutoProgressPreviewResponse> previousAutoProgressOf(List<StudentComment> comments) {
+        Map<Long, AutoProgressPreviewResponse> result = new HashMap<>();
+        for (StudentComment comment : comments) {
+            StudentComment previous = previousComment(comment.getClassSession(), comment.getStudent().getId());
+            result.put(comment.getId(), new AutoProgressPreviewResponse(comment.getStudent().getId(),
+                    grammarPreviousProgressLabel(previous), videoPreviousProgressLabel(previous),
+                    readingPreviousProgressLabel(previous), writingPreviousProgressLabel(previous)));
+        }
+        return result;
     }
 
     @Transactional(readOnly = true)
@@ -2352,7 +2391,14 @@ public class StudentCommentService {
         }
     }
 
+    /**
+     * Phụ trách đúng điểm trường của nhận xét — V202: tài khoản có phạm vi dữ liệu "Tất cả điểm trường"
+     * duyệt được ở mọi điểm trường (quyền academic.comment.approve vẫn kiểm tra riêng ở từng nơi gọi).
+     */
     private void requireSiteManagerForSite(Long siteId, Long actorUserId) {
+        if (dataScopeService.isUnrestricted(actorUserId)) {
+            return;
+        }
         if (!siteManagerRepository.existsBySiteIdAndUserIdAndRoleTypeAndAssignedToIsNull(
                 siteId, actorUserId, SiteManager.RoleType.SITE_MANAGER)) {
             throw new NotSiteManagerForSiteException(

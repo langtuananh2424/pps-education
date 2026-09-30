@@ -330,6 +330,8 @@ class CommentAiReviewServiceTest {
         assertThat(alerts.get(11L).message()).contains("thêm 1 buổi nữa");
         assertThat(alerts.get(12L).escalation()).isTrue();
         assertThat(alerts.get(12L).message()).contains("3 buổi liên tiếp");
+        assertThat(alerts.get(11L).message()).doesNotContain("đang chờ duyệt");
+        assertThat(alerts.get(12L).message()).contains("Đã tính cả 1 buổi Yếu/Trung bình trước đó đang chờ duyệt");
     }
 
     @Test
@@ -349,10 +351,23 @@ class CommentAiReviewServiceTest {
         when(comment.getHomeworkPreviousSpeakingScore()).thenReturn("Chưa làm bài");
         when(comment.getHomeworkPreviousReadingScore()).thenReturn("Đang chờ chấm");
 
-        String data = CommentAiReviewService.homeworkData(comment);
+        String data = CommentAiReviewService.homeworkData(comment, null);
 
-        assertThat(data).isEqualTo("BTVN buổi trước: làm tốt (bài tập); chưa hoàn thành (video ôn tập).");
+        assertThat(data).isEqualTo("BTVN buổi trước: làm tốt (bài tập online); chưa hoàn thành (video ôn tập).");
         assertThat(data).doesNotContainPattern("\\d");
+    }
+
+    @Test
+    void homeworkData_UC75_usesAutoProgressForOnlineChannelsNotEnteredByHand() {
+        StudentComment comment = mock(StudentComment.class);
+        when(comment.getHomeworkPreviousSpeakingScore()).thenReturn("40%");
+
+        String data = CommentAiReviewService.homeworkData(comment,
+                new vn.com.pps.education.dto.AutoProgressPreviewResponse(1L, "90%", "100%", "Chưa làm bài", "60%"));
+
+        // Kênh video đã nhập tay (40%) thì theo điểm tay, không lấy % tự động 100%.
+        assertThat(data).isEqualTo("BTVN buổi trước: làm tốt (bài tập online); cần cố gắng (video ôn tập); "
+                + "chưa hoàn thành (bài Reading online); làm được, cần cẩn thận hơn (bài Writing online).");
     }
 
     @Test

@@ -85,6 +85,7 @@ public class StudentAttendanceService {
     private final NotificationService notificationService;
     private final SiteTeacherRepository siteTeacherRepository;
     private final PermissionEvaluationService permissionEvaluationService;
+    private final DataScopeService dataScopeService;
     private final SchoolClassRepository schoolClassRepository;
     private final ClassEnrollmentRepository classEnrollmentRepository;
     private final SiteManagerRepository siteManagerRepository;
@@ -104,6 +105,7 @@ public class StudentAttendanceService {
                                      NotificationService notificationService,
                                      SiteTeacherRepository siteTeacherRepository,
                                      PermissionEvaluationService permissionEvaluationService,
+                                DataScopeService dataScopeService,
                                      SchoolClassRepository schoolClassRepository,
                                      ClassEnrollmentRepository classEnrollmentRepository,
                                      SiteManagerRepository siteManagerRepository,
@@ -122,6 +124,7 @@ public class StudentAttendanceService {
         this.notificationService = notificationService;
         this.siteTeacherRepository = siteTeacherRepository;
         this.permissionEvaluationService = permissionEvaluationService;
+        this.dataScopeService = dataScopeService;
         this.schoolClassRepository = schoolClassRepository;
         this.classEnrollmentRepository = classEnrollmentRepository;
         this.siteManagerRepository = siteManagerRepository;
@@ -405,7 +408,7 @@ public class StudentAttendanceService {
     }
 
     /**
-     * null = không giới hạn (actor có academic.class.manage); danh sách rỗng
+     * null = không giới hạn (phạm vi dữ liệu ALL — V202 — hoặc có academic.class.view-all); danh sách rỗng
      * = không thấy buổi điểm danh nào. Hợp nhất site_teachers VÀ
      * site_managers (bổ sung ngoài SDD gốc, đã xác nhận với người dùng —
      * cùng lý do như ClassService.resolveAllowedSiteIds; trước đây Quản lý
@@ -414,7 +417,8 @@ public class StudentAttendanceService {
      * đây, không nhất quán).
      */
     private List<Long> resolveAllowedSiteIds(Long actorUserId) {
-        if (permissionEvaluationService.hasPermission(actorUserId, "academic.class.manage")) {
+        if (dataScopeService.isUnrestricted(actorUserId)
+                || permissionEvaluationService.hasPermission(actorUserId, "academic.class.view-all")) {
             return null;
         }
         return Stream.concat(

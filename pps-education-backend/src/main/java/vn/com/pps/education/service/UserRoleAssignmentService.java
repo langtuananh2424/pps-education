@@ -136,6 +136,7 @@ public class UserRoleAssignmentService {
     }
 
     private RoleResponse toResponse(Role role) {
-        return new RoleResponse(role.getId(), role.getCode(), role.getName(), role.getDescription(), role.isSystem());
+        return new RoleResponse(role.getId(), role.getCode(), role.getName(), role.getDescription(), role.isSystem(),
+                role.getDataScope().name());
     }
 }

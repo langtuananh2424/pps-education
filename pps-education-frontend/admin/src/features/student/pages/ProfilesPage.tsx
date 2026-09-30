@@ -13,7 +13,7 @@ import Toast from "@/components/ui/Toast";
 
 export default function ProfilesPage() {
   const { t } = useTranslation("student");
-  const { selectedCampusId, selectedClassId } = useApp();
+  const { selectedCampusId, selectedClassId, hasPermission } = useApp();
   const [students, setStudents] = useState<StudentResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,15 +46,17 @@ export default function ProfilesPage() {
           <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("profilesPage.title")}</h1>
           <p className="text-xs text-slate-500 mt-1">{t("profilesPage.description")}</p>
         </div>
-        <ImportExcelButton
-          title={t("profilesPage.importTitle")}
-          templateFileName={t("profilesPage.importTemplateFileName")}
-          fetchTemplate={downloadStudentImportTemplate}
-          uploadFn={importStudents}
-          exportAccounts={exportStudentAccounts}
-          accountsExportFileName={t("profilesPage.importAccountsFileName")}
-          onImported={load}
-        />
+        {hasPermission("student.profile.import") && (
+          <ImportExcelButton
+            title={t("profilesPage.importTitle")}
+            templateFileName={t("profilesPage.importTemplateFileName")}
+            fetchTemplate={downloadStudentImportTemplate}
+            uploadFn={importStudents}
+            exportAccounts={exportStudentAccounts}
+            accountsExportFileName={t("profilesPage.importAccountsFileName")}
+            onImported={load}
+          />
+        )}
       </div>
 
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}

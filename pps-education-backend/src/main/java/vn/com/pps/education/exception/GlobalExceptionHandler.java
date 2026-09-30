@@ -112,7 +112,7 @@ public class GlobalExceptionHandler {
             LeadNotQualifiedException.class, InvalidLeadStatusTransitionException.class,
             InvalidFeedbackStatusTransitionException.class, InvalidClassSessionStatusTransitionException.class,
             OperatingExpenseAlreadyDecidedException.class, PartnerContractNotDeletableException.class,
-            TuitionPlanNotActiveException.class, RoleNotDeletableException.class,
+            TuitionPlanNotActiveException.class, RoleNotDeletableException.class, RoleLockedException.class,
             DepartmentNotDeletableException.class, PositionNotDeletableException.class,
             GradeComponentNotDeletableException.class, GradeComponentSetupNotDeletableException.class,
             MissingLessonContentException.class, MissingCommentContentException.class, HomeworkNextConflictException.class,

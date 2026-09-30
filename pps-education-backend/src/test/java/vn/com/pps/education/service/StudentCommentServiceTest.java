@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.ExerciseAssignment;
 import vn.com.pps.education.domain.ReviewVideoAssignment;
 import vn.com.pps.education.domain.Role;
+import vn.com.pps.education.domain.UserPermissionOverride;
 import vn.com.pps.education.domain.Room;
 import vn.com.pps.education.domain.Site;
 import vn.com.pps.education.domain.SiteManager;
@@ -68,7 +69,9 @@ import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.exception.StudentCommentNotEditableException;
 import vn.com.pps.education.repository.ExerciseAssignmentRepository;
 import vn.com.pps.education.repository.ReviewVideoAssignmentRepository;
+import vn.com.pps.education.repository.PermissionRepository;
 import vn.com.pps.education.repository.RoleRepository;
+import vn.com.pps.education.repository.UserPermissionOverrideRepository;
 import vn.com.pps.education.repository.RoomRepository;
 import vn.com.pps.education.repository.SiteManagerRepository;
 import vn.com.pps.education.repository.SiteRepository;
@@ -195,7 +198,16 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
     private SiteManagerRepository siteManagerRepository;
 
     @Autowired
+    private PermissionRepository permissionRepository;
+
+    @Autowired
+    private UserPermissionOverrideRepository userPermissionOverrideRepository;
+
+    @Autowired
     private StudentRepository studentRepository;
+
+    @Autowired
+    private vn.com.pps.education.repository.StudentCommentRepository studentCommentRepository;
 
     @Autowired
     private RoomRepository roomRepository;
@@ -397,8 +409,8 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
 
         SaveDraftCommentsResponse response = studentCommentService.saveDraftBatch(schoolClass.id(), classSession.id(),
                 new SaveDraftCommentsRequest(classSession.sessionDate(), List.of(
-                        new SaveDraftCommentsRequest.Row(student.getId(), "Nội dung HS1.", null, null, false, null, null, null, null, null, null, null, null, null),
-                        new SaveDraftCommentsRequest.Row(student2.getId(), "Nội dung HS2.", null, null, false, null, null, null, null, null, null, null, null, null)
+                        new SaveDraftCommentsRequest.Row(student.getId(), "Nội dung HS1.", null, null, false, null, null, null, null, null, null, null, null, null, null),
+                        new SaveDraftCommentsRequest.Row(student2.getId(), "Nội dung HS2.", null, null, false, null, null, null, null, null, null, null, null, null, null)
                 )),
                 teacher.getId());
 
@@ -407,6 +419,31 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         assertThat(response.saved()).extracting(StudentCommentResponse::content).containsExactlyInAnyOrder("Nội dung HS1.", "Nội dung HS2.");
         assertThat(studentCommentService.listComments(schoolClass.id(), student.getId())).hasSize(1);
         assertThat(studentCommentService.listComments(schoolClass.id(), student2.getId())).hasSize(1);
+    }
+
+    /** V201 (UC-74) — dòng áp dụng từ trợ lý AI được đánh dấu ai_drafted; lần Lưu nháp sau không gửi cờ thì giữ nguyên. */
+    @Test
+    void saveDraftBatch_UC74_marksAiDraftedRowsAndKeepsFlagOnLaterSaves() {
+        Student student2 = newStudent();
+        classService.enroll(schoolClass.id(), new EnrollStudentRequest(student2.getId(), LocalDate.now()), headAcademic.getId());
+
+        SaveDraftCommentsResponse first = studentCommentService.saveDraftBatch(schoolClass.id(), classSession.id(),
+                new SaveDraftCommentsRequest(classSession.sessionDate(), List.of(
+                        new SaveDraftCommentsRequest.Row(student.getId(), "Bản AI soạn.", null, null, false, null, null, null, null, null, null, null, null, null, true),
+                        new SaveDraftCommentsRequest.Row(student2.getId(), "Giáo viên tự viết.", null, null, false, null, null, null, null, null, null, null, null, null, null)
+                )),
+                teacher.getId());
+        Long aiCommentId = first.saved().stream().filter(c -> c.studentId().equals(student.getId())).findFirst().orElseThrow().id();
+        Long manualCommentId = first.saved().stream().filter(c -> c.studentId().equals(student2.getId())).findFirst().orElseThrow().id();
+
+        studentCommentService.saveDraftBatch(schoolClass.id(), classSession.id(),
+                new SaveDraftCommentsRequest(classSession.sessionDate(), List.of(
+                        new SaveDraftCommentsRequest.Row(student.getId(), "Giáo viên sửa lại bản AI.", null, null, false, null, null, null, null, null, null, null, null, null, null)
+                )),
+                teacher.getId());
+
+        assertThat(studentCommentRepository.findById(aiCommentId).orElseThrow().isAiDrafted()).isTrue();
+        assertThat(studentCommentRepository.findById(manualCommentId).orElseThrow().isAiDrafted()).isFalse();
     }
 
     /** Mirror writeComment_boSung_rejectsWhenSessionAlreadyHasPendingComment — nhưng ở đây học sinh khác trong CÙNG lô vẫn phải lưu được, không bị chặn theo. */
@@ -419,8 +456,8 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
 
         SaveDraftCommentsResponse response = studentCommentService.saveDraftBatch(schoolClass.id(), classSession.id(),
                 new SaveDraftCommentsRequest(classSession.sessionDate(), List.of(
-                        new SaveDraftCommentsRequest.Row(student.getId(), "Sửa nội dung khác.", null, null, false, null, null, null, null, null, null, null, null, null),
-                        new SaveDraftCommentsRequest.Row(student2.getId(), "Nội dung HS2.", null, null, false, null, null, null, null, null, null, null, null, null)
+                        new SaveDraftCommentsRequest.Row(student.getId(), "Sửa nội dung khác.", null, null, false, null, null, null, null, null, null, null, null, null, null),
+                        new SaveDraftCommentsRequest.Row(student2.getId(), "Nội dung HS2.", null, null, false, null, null, null, null, null, null, null, null, null, null)
                 )),
                 teacher.getId());
 
@@ -956,9 +993,11 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
                         new EnterAttendanceMarkRequest(student.getId(), "PRESENT", null, null, null),
                         new EnterAttendanceMarkRequest(student2.getId(), "PRESENT", null, null, null))),
                 teacher.getId());
-        // siteManagerUser có academic.comment.approve nhưng KHÔNG phải GV được phân công buổi
-        // này và không có academic.attendance.create/update -- đổi điểm danh của student sẽ bị từ
-        // chối, nhưng dòng của student2 (điểm danh không đổi) vẫn phải xử lý bình thường.
+        // approver có academic.comment.approve nhưng KHÔNG phải GV được phân công buổi này và không
+        // có academic.attendance.create/update -- đổi điểm danh của student sẽ bị từ chối, nhưng dòng
+        // của student2 (điểm danh không đổi) vẫn phải xử lý bình thường. Dựng vai trò riêng chỉ có
+        // quyền duyệt nhận xét: từ V202, Quản lý điểm trường mặc định CÓ quyền sửa điểm danh sau giờ.
+        User approver = approverWithoutAttendancePermission();
         byte[] file = buildCommentWorkbook(new String[][]{
                 commentRow(classSession.sessionDate().toString(), student.getStudentCode(), "", "",
                         "Muộn", "", "", "", "Đến muộn.", "", "", "", "", "", ""),
@@ -967,7 +1006,7 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         });
 
         DailyCommentImportResponse result = studentCommentService.importComments(classSession.id(),
-                new MockMultipartFile("file", "nhanxet.xlsx", "application/vnd.openxmlformats", file), siteManagerUser.getId());
+                new MockMultipartFile("file", "nhanxet.xlsx", "application/vnd.openxmlformats", file), approver.getId());
 
         assertThat(result.status()).isEqualTo("PARTIAL_SUCCESS");
         assertThat(result.successRows()).isEqualTo(1);
@@ -1780,6 +1819,24 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
 
     private String classCode() {
         return "CLS-" + SEQ.incrementAndGet();
+    }
+
+    /**
+     * Quản lý điểm trường của lớp nhưng bị tước riêng quyền sửa điểm danh (override REVOKE) — từ V202, vai trò
+     * Quản lý điểm trường mặc định có academic.attendance.create/update; mỗi điểm trường chỉ có 1 quản lý đang
+     * hoạt động nên dùng lại siteManagerUser thay vì tạo quản lý thứ 2.
+     */
+    private User approverWithoutAttendancePermission() {
+        for (String code : List.of("academic.attendance.create", "academic.attendance.update", "academic.attendance.delete")) {
+            UserPermissionOverride revoke = new UserPermissionOverride();
+            revoke.setUser(siteManagerUser);
+            revoke.setPermission(permissionRepository.findByCode(code).orElseThrow());
+            revoke.setOverrideType(UserPermissionOverride.OverrideType.REVOKE);
+            revoke.setReason("Test: người duyệt không có quyền sửa điểm danh");
+            revoke.setGrantedBy(headAcademic);
+            userPermissionOverrideRepository.save(revoke);
+        }
+        return siteManagerUser;
     }
 
     private void assignRole(User user, String roleCode) {

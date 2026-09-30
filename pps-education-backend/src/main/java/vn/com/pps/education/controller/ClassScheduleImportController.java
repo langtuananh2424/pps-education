@@ -23,7 +23,7 @@ public class ClassScheduleImportController {
         this.classScheduleImportService = classScheduleImportService;
     }
 
-    @PreAuthorize("hasPermission(null, 'academic.class.manage')")
+    @PreAuthorize("hasPermission(null, 'academic.class-session.import')")
     @PostMapping(value = "/api/classes/{classId}/session-imports", consumes = "multipart/form-data")
     public ResponseEntity<ClassScheduleImportResponse> importSchedule(@PathVariable Long classId,
                                                                        @RequestParam("file") MultipartFile file,
@@ -31,7 +31,7 @@ public class ClassScheduleImportController {
         return ResponseEntity.ok(classScheduleImportService.importSchedule(classId, file, actor.userId()));
     }
 
-    @PreAuthorize("hasPermission(null, 'academic.class.manage')")
+    @PreAuthorize("hasPermission(null, 'academic.class-session.import')")
     @GetMapping("/api/classes/{classId}/session-imports/{id}")
     public ResponseEntity<ClassScheduleImportResponse> getJob(@PathVariable Long classId, @PathVariable Long id) {
         return ResponseEntity.ok(classScheduleImportService.getJob(id));

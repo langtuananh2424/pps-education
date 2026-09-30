@@ -43,14 +43,18 @@ public final class CommentPatternCheck {
     }
 
     /**
-     * @param openingIds dòng lặp kiểu mở đầu; {@code closingIds} dòng lặp kiểu câu kết; {@code phraseIds} dòng dùng
-     *                   cụm sáo mòn đã vượt ngưỡng (xem {@link #OVERUSED_PHRASES}).
+     * @param openingIds   dòng lặp kiểu mở đầu; {@code closingIds} dòng lặp kiểu câu kết.
+     * @param phrasesById  dòng dùng cụm sáo mòn vượt ngưỡng → CHỈ các cụm đã vượt ngưỡng ở dòng đó (xem {@link #OVERUSED_PHRASES}).
      */
-    public record Result(Set<Long> openingIds, Set<Long> closingIds, Set<Long> phraseIds) {
+    public record Result(Set<Long> openingIds, Set<Long> closingIds, Map<Long, Set<String>> phrasesById) {
+        public Set<Long> phraseIds() {
+            return phrasesById.keySet();
+        }
+
         public Set<Long> all() {
             Set<Long> all = new LinkedHashSet<>(openingIds);
             all.addAll(closingIds);
-            all.addAll(phraseIds);
+            all.addAll(phrasesById.keySet());
             return all;
         }
     }
@@ -83,13 +87,13 @@ public final class CommentPatternCheck {
         return found;
     }
 
-    private static Set<Long> overusedPhrases(List<Entry> entries, int allowed) {
-        Set<Long> flagged = new LinkedHashSet<>();
+    private static Map<Long, Set<String>> overusedPhrases(List<Entry> entries, int allowed) {
+        Map<Long, Set<String>> flagged = new java.util.LinkedHashMap<>();
         Map<String, Integer> seen = new HashMap<>();
         for (Entry entry : entries) {
             for (String phrase : phrasesIn(entry.content())) {
                 if (seen.merge(phrase, 1, Integer::sum) > allowed) {
-                    flagged.add(entry.id());
+                    flagged.computeIfAbsent(entry.id(), k -> new LinkedHashSet<>()).add(phrase);
                 }
             }
         }

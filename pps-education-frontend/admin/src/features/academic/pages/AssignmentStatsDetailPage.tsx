@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useApp } from "@/context/AppContext";
 import { useParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, CheckCircle2, ChevronDown, ChevronRight, Download, Eye, HelpCircle, ShieldAlert, X, XCircle } from "lucide-react";
@@ -50,6 +51,10 @@ function formatChoiceIds(ids: number[] | null | undefined, choices: ExerciseQues
 }
 
 export default function AssignmentStatsDetailPage() {
+  // V202 — bật nộp muộn/xác nhận hạn chót và xuất thống kê đi theo quyền riêng.
+  const { hasPermission } = useApp();
+  const canConfirmDeadline = hasPermission("lms.exercise.deadline.confirm");
+  const canExport = hasPermission("lms.exercise.report.export");
   const { t, i18n } = useTranslation("academic-homework");
   const studentStatusLabels: Record<string, string> = {
     CHUA_LAM: t("shared.studentStatus.CHUA_LAM"),
@@ -232,7 +237,7 @@ export default function AssignmentStatsDetailPage() {
             <input
               type="checkbox"
               checked={studentStats.assignment.lateSubmissionAllowed}
-              disabled={togglingLateSubmission}
+              disabled={togglingLateSubmission || !canConfirmDeadline}
               onChange={(e) => handleToggleLateSubmissionAllowed(e.target.checked)}
               className="rounded border-slate-300"
             />
@@ -241,7 +246,7 @@ export default function AssignmentStatsDetailPage() {
         </div>
         {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 — hạn chót nộp muộn cụ thể,
             chỉ hiện khi đang bật "Cho phép nộp muộn". Trống = nộp muộn không giới hạn thời gian. */}
-        {studentStats.assignment.lateSubmissionAllowed && (
+        {studentStats.assignment.lateSubmissionAllowed && canConfirmDeadline && (
           <div className="flex items-center gap-2 mt-2">
             <span className="text-xs font-semibold text-slate-500">{t("exerciseDetail.lateSubmissionDeadlineLabel")}</span>
             <DatePicker
@@ -400,9 +405,11 @@ export default function AssignmentStatsDetailPage() {
 
       {tab === "students" && (
         <div className="flex justify-end">
-          <Button variant="primary" size="sm" onClick={handleExport} disabled={exporting}>
-            <Download className="w-3.5 h-3.5" /> {exporting ? t("exerciseDetail.exporting") : t("exerciseDetail.exportExcel")}
-          </Button>
+          {canExport && (
+            <Button variant="primary" size="sm" onClick={handleExport} disabled={exporting}>
+              <Download className="w-3.5 h-3.5" /> {exporting ? t("exerciseDetail.exporting") : t("exerciseDetail.exportExcel")}
+            </Button>
+          )}
         </div>
       )}
 
