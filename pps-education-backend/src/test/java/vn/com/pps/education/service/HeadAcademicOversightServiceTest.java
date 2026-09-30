@@ -104,11 +104,14 @@ class HeadAcademicOversightServiceTest extends AbstractIntegrationTest {
 
     @Test
     void search_V203_MainFlow_returnsClassChangeWithPreviousSnapshot() {
+        // Trạng thái lúc tạo do ClassService tự suy theo ngày bắt đầu — đọc lại thay vì giả định PLANNED.
+        String createdStatus = String.valueOf(classHistoryRepository
+                .findBySchoolClassIdOrderByCreatedAtDesc(schoolClass.id()).get(0).getDetails().get("status"));
         Map<String, Object> updated = new LinkedHashMap<>();
         updated.put("classCode", schoolClass.classCode());
         updated.put("name", "8A2");
         updated.put("maxStudents", 20);
-        updated.put("status", "IN_PROGRESS");
+        updated.put("status", "COMPLETED");
         ClassHistory history = new ClassHistory();
         history.setSchoolClass(classEntity());
         history.setChangedBy(headAcademic);
@@ -122,8 +125,8 @@ class HeadAcademicOversightServiceTest extends AbstractIntegrationTest {
         assertThat(page.getTotalElements()).isEqualTo(2);
         ChangeHistoryItemResponse latest = page.getContent().get(0);
         assertThat(latest.action()).isEqualTo("UPDATED");
-        assertThat(latest.details()).containsEntry("status", "IN_PROGRESS");
-        assertThat(latest.previousDetails()).containsEntry("status", "PLANNED");
+        assertThat(latest.details()).containsEntry("status", "COMPLETED");
+        assertThat(latest.previousDetails()).containsEntry("status", createdStatus);
         assertThat(latest.changedByName()).isEqualTo(headAcademic.getFullName());
         assertThat(page.getContent().get(1).action()).isEqualTo("CREATED");
         assertThat(page.getContent().get(1).previousDetails()).isNull();
