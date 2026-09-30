@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Blocks, Check, CheckSquare, FileText, Headphones, Image as ImageIcon, ImagePlus, Images, ListOrdered, Mic, PenLine, Shuffle, SplitSquareHorizontal, Volume2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import Button from "@/components/ui/Button";
+import { useDialog } from "@/components/ui/DialogProvider";
 import FileUploadField from "@/components/ui/FileUploadField";
 import {
   CreateExamQuestionRequest,
@@ -258,6 +259,15 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { alertDialog } = useDialog();
+
+  // Dòng báo lỗi nằm đầu form, trong khi nút Lưu ở cuối modal (form dài, phải cuộn) — không tự cuộn
+  // thì GV bấm Lưu thất bại mà không thấy lỗi, tưởng đã lưu (QA 2026-09-30). Lỗi câu bị khoá dùng popup riêng.
+  // block "center" thay vì "nearest"/"start" — căn mép trên thì bị header sticky của Modal che mất.
+  const errorRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (error) errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [error]);
 
   /** Chuyển loại: reset số lựa chọn cho đúng (INLINE_CHOICE=2, MULTIPLE_CHOICE/VOICE=4 mặc định) khi tạo mới. */
   const handleSelectKind = (value: UiQuestionKind) => {
@@ -458,8 +468,10 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
       }
       onCreated(result);
     } catch (err) {
-      if (err instanceof ApiError && (err.status === 409 || err.status === 400) && isEditing) {
-        setError(t("questionEditorForm.errors.lockedAfterSubmission"));
+      // QuestionLockedException trả 422 (GlobalExceptionHandler) — 400 là lỗi validate thường, không phải bị khoá.
+      // Chỉ bắn popup (không set error inline) — popup đã đủ để GV thấy, tránh báo trùng 2 chỗ.
+      if (err instanceof ApiError && err.status === 422 && isEditing) {
+        void alertDialog(t("questionEditorForm.errors.lockedAfterSubmission"));
       } else {
         setError(err instanceof ApiError ? err.message : t("questionEditorForm.errors.saveFailed"));
       }
@@ -470,7 +482,7 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div ref={errorRef} className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       <div>
         <label className={labelClass}>{t("questionEditorForm.kindLabel")}{isEditing && <span className="text-slate-400 font-normal"> {t("questionEditorForm.kindLockedHint")}</span>}</label>
