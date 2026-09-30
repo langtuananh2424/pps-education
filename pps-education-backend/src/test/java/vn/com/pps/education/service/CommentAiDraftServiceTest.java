@@ -211,12 +211,15 @@ class CommentAiDraftServiceTest {
     // ---- Alternate Flows ----
 
     @Test
-    void loadContext_UC74_A1_rejectsForeignTeacherSession() {
+    void loadContext_UC74_A1_foreignTeacherSessionIsAllowed() {
         when(session.getTeacherType()).thenReturn(ClassSession.TeacherType.FOREIGN);
+        Student an = student(1L, "Nguyễn Văn An");
+        List<ClassEnrollment> enrollments = List.of(enrollment(an));
+        when(classEnrollmentRepository.findBySchoolClassIdAndStatus(5L, ClassEnrollment.Status.ACTIVE)).thenReturn(enrollments);
 
-        assertThatThrownBy(() -> service.loadContext(SESSION_ID, ACTOR_ID))
-                .isInstanceOf(CommentAiDraftRejectedException.class)
-                .hasMessageContaining("giáo viên nước ngoài");
+        CommentAiDraftService.DraftContext context = service.loadContext(SESSION_ID, ACTOR_ID);
+
+        assertThat(context.roster()).extracting(CommentAiDraftService.RosterStudent::id).containsExactly(1L);
     }
 
     @Test
@@ -278,6 +281,41 @@ class CommentAiDraftServiceTest {
 
         assertThatThrownBy(() -> service.generateDraft(context(AN), null, null, "cả lớp tốt"))
                 .isInstanceOf(CommentAiDraftFailedException.class);
+    }
+
+    @Test
+    void generateDraft_UC74_A5_retriesFailedWriteBatchOnceBeforeWarning() {
+        stubAi(CommentAiDraftService.EXTRACT_PROMPT,
+                "{\"classAttitude\": \"GOOD\", \"classPoints\": [\"cả lớp tập trung tốt\"], \"individuals\": [], \"unmatched\": []}");
+        when(aiClient.chatWithFinishReason(eq(CommentAiDraftService.WRITE_PROMPT), anyString(), anyString()))
+                .thenReturn(null)
+                .thenReturn(new NineRouterAiClient.ChatResult("{\"comments\": ["
+                        + "{\"studentId\": 1, \"content\": \"An chú tâm nghe giảng suốt buổi học.\"},"
+                        + "{\"studentId\": 2, \"content\": \"Bình hăng hái phát biểu, xây dựng bài sôi nổi.\"}]}", "stop", null));
+
+        CommentAiDraftResult result = service.generateDraft(context(AN, BINH), null, null, "cả lớp tập trung tốt");
+
+        assertThat(result.rows()).extracting(CommentAiDraftResult.Row::content)
+                .containsExactly("An chú tâm nghe giảng suốt buổi học.", "Bình hăng hái phát biểu, xây dựng bài sôi nổi.");
+        assertThat(result.rows()).allSatisfy(r -> assertThat(r.warnings()).isEmpty());
+        // Lô đầu lỗi -> thử lại đúng 1 lần (lô nửa kích thước vẫn chứa cả 2 học sinh).
+        verify(aiClient, times(2)).chatWithFinishReason(eq(CommentAiDraftService.WRITE_PROMPT), anyString(), anyString());
+    }
+
+    @Test
+    void generateDraft_UC74_A5_warnsNotWrittenWhenRetryAlsoFails() {
+        stubAi(CommentAiDraftService.EXTRACT_PROMPT,
+                "{\"classAttitude\": \"GOOD\", \"classPoints\": [\"cả lớp tập trung tốt\"], \"individuals\": [], \"unmatched\": []}");
+        when(aiClient.chatWithFinishReason(eq(CommentAiDraftService.WRITE_PROMPT), anyString(), anyString()))
+                .thenReturn(new NineRouterAiClient.ChatResult(
+                        "{\"comments\": [{\"studentId\": 1, \"content\": \"An chú tâm nghe giảng suốt buổi học.\"}]}", "stop", null))
+                .thenReturn(null);
+
+        CommentAiDraftResult result = service.generateDraft(context(AN, BINH), null, null, "cả lớp tập trung tốt");
+
+        assertThat(result.rows().get(1).warnings()).extracting(CommentAiDraftResult.Warning::type).containsExactly("NOT_WRITTEN");
+        // 1 lượt đầu + 1 lần thử lại cho Bình, không thử lần thứ 3.
+        verify(aiClient, times(2)).chatWithFinishReason(eq(CommentAiDraftService.WRITE_PROMPT), anyString(), anyString());
     }
 
     @Test

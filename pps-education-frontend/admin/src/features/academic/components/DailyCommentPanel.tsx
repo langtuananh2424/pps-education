@@ -2530,7 +2530,6 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
         onClose={() => setAssistantOpen(false)}
         classSessionId={selectedSessionId}
         sessionLabel={selectedClass && selectedSession ? `${selectedClass.name} · ${selectedSession.sessionDate}` : ""}
-        isForeignSession={teacherType === "FOREIGN"}
         onApply={(draft) => applyAiDraft(draft).appliedCount}
         onApplyAndSaveDraft={handleApplyAiDraftAndSave}
         savingDraft={savingDraft}

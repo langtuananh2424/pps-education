@@ -423,9 +423,8 @@
       "title": "Trợ lý nhận xét",
       "noSession": "Chọn buổi học để bắt đầu",
       "close": "Đóng trợ lý",
-      "intro": "Ghi âm hoặc tải audio nhận xét buổi học (tối đa 5 phút): nhận xét chung cả lớp, rồi nhắc riêng các bạn cần nhận xét. Trợ lý sẽ soạn sẵn Thái độ + Nhận xét cho từng học sinh có mặt.",
+      "intro": "Gõ nhận xét buổi học (hoặc ghi âm/tải audio tối đa 5 phút nếu tiện hơn): nhận xét chung cả lớp, rồi nhắc riêng các bạn cần nhận xét. Trợ lý sẽ soạn sẵn Thái độ + Nhận xét cho từng học sinh có mặt.",
       "permissionNote": "Trợ lý chỉ điền Thái độ và Nhận xét, không đụng tới điểm/BTVN. Quyền lưu cao nhất là Lưu nháp — thầy/cô tự xem lại và Gửi duyệt.",
-      "foreignSession": "Buổi của giáo viên nước ngoài — tạm thời chưa hỗ trợ soạn nhận xét bằng trợ lý.",
       "suggestions": {
         "record": "Ghi âm nhận xét",
         "upload": "Tải file audio"
