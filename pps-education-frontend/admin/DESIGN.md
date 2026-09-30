@@ -309,6 +309,14 @@ không IN HOA, không giãn chữ, không đậm hơn 600.
 **The Ledger Figures Rule.** Số trong thẻ thống kê và bảng dùng chữ số đều độ rộng
 (`font-variant-numeric: tabular-nums`).
 
+**The Paired Leading Rule.** Mỗi cỡ chữ đi với đúng một chiều cao dòng: 34/40, 28/34, 24/30,
+19/26, 17/24, 15/22, 14/20, 13/18, 12/16. Không có cỡ ngoài thang (không 16, 18, 20, 22, 40px);
+số liệu trong ô nhỏ dùng 24/30, số trong StatCard 28/34, và chỉ một số 34/40 mỗi màn.
+
+**The Medium Means Handle Rule.** Weight 500 chỉ cho thứ người dùng nắm lấy để dò hoặc bấm:
+nút, mục menu, tên dòng trong danh sách (15/500), tiêu đề cột bảng (13/500 text-secondary).
+Nhãn và mô tả là 400; tiêu đề và giá trị là 600. Nhãn trục biểu đồ SVG tối thiểu 12px.
+
 ## Layout
 
 Khung ứng dụng gồm sidebar trắng mờ rộng 256px (cột 288px gồm lề) chạy hết chiều cao
