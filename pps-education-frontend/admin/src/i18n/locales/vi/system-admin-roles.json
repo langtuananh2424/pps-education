@@ -121,5 +121,63 @@
     "FINANCE": {
       "expense": "Chi vận hành"
     }
+  },
+  "roleAccessEditor": {
+    "loading": "Đang tải quyền của vai trò...",
+    "loadError": "Không tải được quyền của vai trò.",
+    "saveError": "Lưu vai trò thất bại.",
+    "saveSuccess": "Đã lưu vai trò.",
+    "lockedNotice": "Quản trị viên luôn có mọi mục và mọi nút, không chỉnh được, để tránh tự khoá mình khỏi hệ thống.",
+    "templatePlaceholder": "Áp theo mẫu của vai trò…",
+    "applyTemplateButton": "Áp mẫu",
+    "applyTemplateConfirm": "Thay toàn bộ phạm vi và quyền của \"{{to}}\" bằng của \"{{from}}\"? Chưa lưu cho tới khi bạn bấm Lưu vai trò.",
+    "undoButton": "Huỷ thay đổi",
+    "saveButton": "Lưu vai trò",
+    "saving": "Đang lưu...",
+    "scopeTitle": "1. Vai trò này được xem dữ liệu của:",
+    "scopeHint": "Áp dụng cho mọi trang được tick bên dưới. Các trang cá nhân (Chấm công, Phiếu lương, Nghỉ phép, Lịch dạy) luôn chỉ hiện dữ liệu của chính người đăng nhập.",
+    "scopes": {
+      "ALL": {
+        "title": "Tất cả điểm trường",
+        "description": "Thấy học sinh, lớp, báo cáo của mọi điểm trường",
+        "short": "Tất cả điểm trường"
+      },
+      "SITE": {
+        "title": "Chỉ điểm trường mình phụ trách",
+        "description": "Điểm trường được gán cho tài khoản ở trang Điểm trường & HĐ",
+        "short": "Điểm trường mình phụ trách"
+      },
+      "CLASS": {
+        "title": "Chỉ lớp mình dạy",
+        "description": "Lớp mà tài khoản được gán làm giáo viên",
+        "short": "Lớp mình dạy"
+      },
+      "SELF": {
+        "title": "Dữ liệu của chính mình",
+        "description": "Vai trò Portal",
+        "short": "Portal"
+      }
+    },
+    "treeTitle": "2. Sidebar và nút hiển thị",
+    "treeHint": "Tick mục để hiện trong sidebar và vào được trang. Mở mục để chọn các nút được hiện trong trang. Bỏ tick mục thì các nút bên trong cũng bỏ theo.",
+    "searchPlaceholder": "Tìm mục hoặc nút…",
+    "onlyTicked": "Chỉ hiện đã tick",
+    "menuCount": "Đang hiện {{count}}/{{total}} mục",
+    "sectionCount": "{{count}}/{{total}} mục",
+    "actionCount": "{{count}}/{{total}} nút",
+    "viewOnly": "chỉ xem",
+    "toggleActions": "Mở danh sách nút",
+    "otherTitle": "Quyền khác ngoài sidebar ({{count}})",
+    "otherHint": "Các quyền không gắn với mục sidebar nào, ví dụ ngân hàng câu hỏi, luyện Nghe-Nói, kế hoạch giảng dạy.",
+    "previewTitle": "Sidebar của vai trò",
+    "previewEmpty": "Chưa tick mục nào.",
+    "previewHint": "Cập nhật ngay khi bạn tick. Tên mục dùng chung cho mọi vai trò."
+  },
+  "createRolePanelV202": {
+    "scopeLabel": "Vai trò này được xem dữ liệu của *",
+    "templateLabel": "Tạo từ mẫu",
+    "templateNone": "Trống — tự tick từ đầu",
+    "templateHint": "Mẫu chỉ để tick sẵn cho nhanh. Sau khi tạo, bạn chỉnh tiếp trên cây sidebar như bình thường.",
+    "saveButton": "Tạo và chỉnh quyền"
   }
 }

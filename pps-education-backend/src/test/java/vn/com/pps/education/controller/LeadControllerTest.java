@@ -49,12 +49,13 @@ class LeadControllerTest extends AbstractControllerTest {
                 .andExpect(jsonPath("$.message").value("Tài khoản không có quyền thực hiện thao tác này."));
     }
 
+    /** V202 (Q6): quyền CRM chuyển từ Nhân viên (STAFF) sang Tư vấn tuyển sinh (CONSULTANT). */
     @Test
-    void createLead_allowedForStaff_returns200() throws Exception {
-        var staff = userWithRole("staff.access", "STAFF");
+    void createLead_allowedForConsultant_returns200() throws Exception {
+        var consultant = userWithRole("consultant.access", "CONSULTANT");
 
         mockMvc.perform(post("/api/leads")
-                        .header("Authorization", bearerToken(staff, "STAFF"))
+                        .header("Authorization", bearerToken(consultant, "CONSULTANT"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(newLeadRequest())))
                 .andExpect(status().isOk());

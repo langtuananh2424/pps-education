@@ -25,7 +25,7 @@ export default function RoleListPanel({ roles, loading, selectedRoleId, onSelect
   );
 
   return (
-    <div className="w-full md:w-80 lg:w-96 border-r border-slate-200 flex flex-col bg-slate-50/50">
+    <div className="w-full md:w-72 xl:w-80 border-r border-slate-200 flex flex-col bg-slate-50/50">
       <div className="p-4 border-b border-slate-200 space-y-3 bg-white">
         <div className="flex items-center justify-between">
           <span className="text-xs font-bold text-slate-800 uppercase tracking-wide">{t("roleListPanel.title", { count: roles.length })}</span>
@@ -85,6 +85,7 @@ export default function RoleListPanel({ roles, loading, selectedRoleId, onSelect
                     <Shield className="w-3 h-3 text-slate-400" />
                     <code className="font-mono">{role.code}</code>
                   </span>
+                  <span className="text-slate-400">{t(`roleAccessEditor.scopes.${role.dataScope}.short`)}</span>
                 </div>
               </button>
             );

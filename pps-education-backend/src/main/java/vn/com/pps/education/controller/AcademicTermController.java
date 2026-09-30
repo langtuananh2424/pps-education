@@ -29,7 +29,7 @@ public class AcademicTermController {
         this.academicTermService = academicTermService;
     }
 
-    @PreAuthorize("hasPermission(null, 'academic.class.manage')")
+    @PreAuthorize("hasPermission(null, 'academic.year.manage')")
     @PostMapping("/api/academic-terms")
     public ResponseEntity<AcademicTermResponse> create(@Valid @RequestBody CreateAcademicTermRequest request,
                                                           @AuthenticationPrincipal AuthenticatedUser actor) {
@@ -46,7 +46,7 @@ public class AcademicTermController {
         return ResponseEntity.ok(academicTermService.getById(id));
     }
 
-    @PreAuthorize("hasPermission(null, 'academic.class.manage')")
+    @PreAuthorize("hasPermission(null, 'academic.year.manage')")
     @PutMapping("/api/academic-terms/{id}")
     public ResponseEntity<AcademicTermResponse> update(@PathVariable Long id, @Valid @RequestBody UpdateAcademicTermRequest request,
                                                           @AuthenticationPrincipal AuthenticatedUser actor) {

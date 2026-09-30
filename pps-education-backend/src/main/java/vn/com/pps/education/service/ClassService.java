@@ -76,8 +76,10 @@ import java.util.stream.Stream;
  * (giống cách EmployeeService gộp Employee+Contract+Qualification —
  * cùng 1 UC-18, các bảng phụ trợ trực tiếp).
  *
- * Authorization qua @PreAuthorize("hasPermission(null,'academic.class.manage')")
- * ở ClassController (Hybrid PBAC — V28), không còn role-check trong Service.
+ * Authorization qua @PreAuthorize ở ClassController theo từng nút (V202 tách
+ * academic.class.manage thành academic.class.create, update, teacher.assign,
+ * enrollment.create, enrollment.import, enrollment.withdraw, promote), không còn
+ * role-check trong Service.
  */
 @Service
 public class ClassService {
@@ -109,6 +111,7 @@ public class ClassService {
     private final StudentRepository studentRepository;
     private final UserRepository userRepository;
     private final PermissionEvaluationService permissionEvaluationService;
+    private final DataScopeService dataScopeService;
     private final ClassSessionRepository classSessionRepository;
     private final ClassSessionHistoryRepository classSessionHistoryRepository;
     private final LeaveSubstitutionRepository leaveSubstitutionRepository;
@@ -128,6 +131,7 @@ public class ClassService {
                          StudentRepository studentRepository,
                          UserRepository userRepository,
                          PermissionEvaluationService permissionEvaluationService,
+                                DataScopeService dataScopeService,
                          ClassSessionRepository classSessionRepository,
                          ClassSessionHistoryRepository classSessionHistoryRepository,
                          LeaveSubstitutionRepository leaveSubstitutionRepository) {
@@ -146,6 +150,7 @@ public class ClassService {
         this.studentRepository = studentRepository;
         this.userRepository = userRepository;
         this.permissionEvaluationService = permissionEvaluationService;
+        this.dataScopeService = dataScopeService;
         this.classSessionRepository = classSessionRepository;
         this.classSessionHistoryRepository = classSessionHistoryRepository;
         this.leaveSubstitutionRepository = leaveSubstitutionRepository;
@@ -175,8 +180,9 @@ public class ClassService {
     }
 
     /**
-     * null = không giới hạn (actor có academic.class.manage HOẶC
-     * academic.class.view-all); danh sách rỗng = không thấy lớp nào. Hợp
+     * null = không giới hạn (phạm vi dữ liệu của vai trò là ALL — V202, thay
+     * cho academic.class.manage cũ — HOẶC có academic.class.view-all); danh
+     * sách rỗng = không thấy lớp nào. Hợp
      * nhất site_teachers (Giáo viên) VÀ site_managers (Quản lý điểm trường
      * — bổ sung ngoài SDD gốc, đã xác nhận với người dùng; trước đây bỏ sót
      * khiến Quản lý điểm trường không kiêm giáo viên luôn nhận danh sách
@@ -190,7 +196,7 @@ public class ClassService {
      * sách lớp ở các màn khác (Sổ điểm/Điểm danh/Nhận xét/Soạn & giao đề).
      */
     private List<Long> resolveAllowedSiteIds(Long actorUserId) {
-        if (permissionEvaluationService.hasPermission(actorUserId, "academic.class.manage")
+        if (dataScopeService.isUnrestricted(actorUserId)
                 || permissionEvaluationService.hasPermission(actorUserId, "academic.class.view-all")) {
             return null;
         }

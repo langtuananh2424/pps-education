@@ -114,7 +114,7 @@ public class StudentController {
         return ResponseEntity.ok(studentService.listTransferHistory(id));
     }
 
-    @PreAuthorize("hasPermission(null, 'student.profile.update')")
+    @PreAuthorize("hasPermission(null, 'student.transfer.create')")
     @PostMapping("/{id}/transfers")
     public ResponseEntity<StudentTransferHistoryResponse> recordTransfer(@PathVariable Long id,
                                                                             @Valid @RequestBody RecordTransferRequest request,

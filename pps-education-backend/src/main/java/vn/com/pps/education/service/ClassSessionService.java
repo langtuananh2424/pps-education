@@ -67,9 +67,9 @@ import java.util.stream.Stream;
  * từng buổi (primaryTeacherId bắt buộc, assistantTeacherId/cmTeacherId
  * tuỳ chọn), gán trực tiếp trên class_sessions (V128).
  *
- * Authorization qua @PreAuthorize("hasPermission(null,'academic.class.manage')")
- * ở ClassSessionController (Hybrid PBAC — V28, dùng chung permission với
- * UC-18 vì cùng tập role HEAD_ACADEMIC/STAFF).
+ * Authorization qua @PreAuthorize ở ClassSessionController theo từng nút
+ * (V202 tách academic.class.manage thành academic.class-session.create/
+ * generate/import/reschedule/cancel).
  */
 @Service
 public class ClassSessionService {
@@ -84,6 +84,7 @@ public class ClassSessionService {
     private final SiteTeacherRepository siteTeacherRepository;
     private final SiteManagerRepository siteManagerRepository;
     private final PermissionEvaluationService permissionEvaluationService;
+    private final DataScopeService dataScopeService;
     private final ClassEnrollmentRepository classEnrollmentRepository;
     private final StudentRepository studentRepository;
     private final SitePeriodTemplateRepository sitePeriodTemplateRepository;
@@ -98,6 +99,7 @@ public class ClassSessionService {
                                 SiteTeacherRepository siteTeacherRepository,
                                 SiteManagerRepository siteManagerRepository,
                                 PermissionEvaluationService permissionEvaluationService,
+                                DataScopeService dataScopeService,
                                 ClassEnrollmentRepository classEnrollmentRepository,
                                 StudentRepository studentRepository,
                                 SitePeriodTemplateRepository sitePeriodTemplateRepository) {
@@ -111,6 +113,7 @@ public class ClassSessionService {
         this.siteTeacherRepository = siteTeacherRepository;
         this.siteManagerRepository = siteManagerRepository;
         this.permissionEvaluationService = permissionEvaluationService;
+        this.dataScopeService = dataScopeService;
         this.classEnrollmentRepository = classEnrollmentRepository;
         this.studentRepository = studentRepository;
         this.sitePeriodTemplateRepository = sitePeriodTemplateRepository;
@@ -181,13 +184,14 @@ public class ClassSessionService {
     }
 
     /**
-     * null = không giới hạn (actor có academic.class.manage); danh sách rỗng
+     * null = không giới hạn (phạm vi dữ liệu ALL — V202 — hoặc có academic.class.view-all); danh sách rỗng
      * = không thấy buổi/tiết học nào. Hợp nhất site_teachers VÀ site_managers
      * (bổ sung ngoài SDD gốc, đã xác nhận với người dùng — cùng lý do như
      * ClassService.resolveAllowedSiteIds).
      */
     private List<Long> resolveAllowedSiteIds(Long actorUserId) {
-        if (permissionEvaluationService.hasPermission(actorUserId, "academic.class.manage")) {
+        if (dataScopeService.isUnrestricted(actorUserId)
+                || permissionEvaluationService.hasPermission(actorUserId, "academic.class.view-all")) {
             return null;
         }
         return Stream.concat(

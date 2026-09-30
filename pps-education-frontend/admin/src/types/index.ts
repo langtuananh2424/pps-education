@@ -11,7 +11,9 @@ export enum UserRole {
   HEAD_ACADEMIC = "HEAD_ACADEMIC", // Trưởng phòng đào tạo
   SITE_MANAGER = "SITE_MANAGER", // Quản lý điểm trường
   HR_MANAGER = "HR_MANAGER", // Quản lý nhân sự
-  STAFF = "STAFF", // Nhân viên (tuyển sinh/CSKH/giáo vụ)
+  STAFF = "STAFF", // Giáo vụ (V202 đổi tên hiển thị, mã giữ nguyên)
+  ACCOUNTANT = "ACCOUNTANT", // Kế toán (V202)
+  CONSULTANT = "CONSULTANT", // Tư vấn tuyển sinh (V202)
   SYS_ADMIN = "SYS_ADMIN", // Quản trị viên
   SUPER_ADMIN = "SUPER_ADMIN", // Siêu quản trị viên
   PARTNER_REP = "PARTNER_REP", // Đại diện trường liên kết

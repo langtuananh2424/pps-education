@@ -7,7 +7,6 @@ import { cn } from "@/lib/cn";
 import { buildXlsxTemplateBlob, downloadBlob } from "@/lib/xlsxTemplate";
 import { formatDateTime } from "@/lib/i18nFormat";
 import { useApp } from "@/context/AppContext";
-import { UserRole } from "@/types";
 import { UserListItemResponse } from "@/features/system-admin/api";
 import UserSearchCombobox from "@/features/system-admin/components/UserSearchCombobox";
 import { listStudents, StudentResponse } from "@/features/student/api";
@@ -81,25 +80,24 @@ interface ClassDetailPanelProps {
 export default function ClassDetailPanel({ schoolClass, onChanged }: ClassDetailPanelProps) {
   const { t } = useTranslation("academic-classes");
   const [tab, setTab] = useState<Tab>("profile");
-  const { hasPermission, currentUser } = useApp();
-  const canManage = hasPermission("academic.class.manage");
-  // SITE_MANAGER thấy được tab "Sổ điểm" (đủ quyền quản trị lớp) nhưng KHÔNG được tự nhập/sửa điểm
-  // thay giáo viên ở đây — chỉ xem, khớp đúng hành vi readOnly đã có sẵn ở trang Sổ điểm hệ thống cũ.
-  const isSiteManagerRole = currentUser?.roleCodes?.includes(UserRole.SITE_MANAGER) ?? false;
-  // TEACHER cũng có sẵn academic.class.manage (dùng chung cho các thao tác khác trong tab này) nhưng
-  // KHÔNG được tự xếp/sinh/nhập lịch buổi học (việc này thuộc Trưởng phòng đào tạo/Nhân viên/Quản trị
-  // viên) — ẩn riêng 3 nút ở tab "Buổi học & Điểm danh", không đụng canManage dùng chung cho các tab
-  // khác (đã xác nhận với người dùng 2026-07-30).
-  // Dùng allow-list (role NÀO được thấy) thay vì loại trừ theo "có role TEACHER" — tài khoản test
-  // "superadmin" được gán CẢ 8 role (kể cả TEACHER) để test full quyền, loại trừ theo TEACHER sẽ ẩn
-  // luôn cả tài khoản này dù nó cũng có SYS_ADMIN/HEAD_ACADEMIC (phát hiện qua QA 2026-07-30). Theo DB
-  // role_permissions, academic.class.manage hiện gán cho đúng 3 role: HEAD_ACADEMIC/STAFF/TEACHER —
-  // chỉ 2 role đầu (+ SYS_ADMIN, luôn coi là đủ quyền quản trị) được thấy nút xếp lịch.
-  const canScheduleAdminRole =
-    (currentUser?.roleCodes?.includes(UserRole.HEAD_ACADEMIC) ||
-      currentUser?.roleCodes?.includes(UserRole.STAFF) ||
-      currentUser?.roleCodes?.includes(UserRole.SYS_ADMIN)) ??
-    false;
+  const { hasPermission } = useApp();
+  // V202 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-30) — mỗi nút một quyền, tách từ
+  // academic.class.manage cũ; không còn kiểm tra theo tên vai trò (trước đây ẩn nút xếp lịch với Giáo viên
+  // và khoá Sổ điểm với Quản lý điểm trường bằng roleCodes). Chỉnh trên màn "Nhóm vai trò".
+  const classOpen = schoolClass.status !== "COMPLETED" && schoolClass.status !== "CANCELLED";
+  const enrollOpen = classOpen && schoolClass.status !== "PLANNED";
+  const canUpdateProfile = hasPermission("academic.class.update");
+  const canAssignTeacher = hasPermission("academic.class.teacher.assign");
+  const canEnroll = enrollOpen && hasPermission("academic.class.enrollment.create");
+  const canImportEnrollments = enrollOpen && hasPermission("academic.class.enrollment.import");
+  const canWithdraw = enrollOpen && hasPermission("academic.class.enrollment.withdraw");
+  const canCreateSession = classOpen && hasPermission("academic.class-session.create");
+  const canGenerateSessions = classOpen && hasPermission("academic.class-session.generate");
+  const canImportSessions = classOpen && hasPermission("academic.class-session.import");
+  const canReschedule = hasPermission("academic.class-session.reschedule");
+  const canCancelSession = hasPermission("academic.class-session.cancel");
+  const canViewGrades = hasPermission("academic.grade.view");
+  const canEnterGrades = hasPermission("academic.grade.entry") || hasPermission("academic.grade.edit.override");
   const { message: toastMessage, showToast } = useToast();
 
   return (
@@ -125,7 +123,7 @@ export default function ClassDetailPanel({ schoolClass, onChanged }: ClassDetail
               ["sessions", t("classDetail.tabs.sessions"), Calendar],
               ["grades", t("classDetail.tabs.grades"), FileSpreadsheet]
             ] as const
-          ).map(([key, label, Icon]) => (
+          ).filter(([key]) => key !== "grades" || canViewGrades).map(([key, label, Icon]) => (
             <button
               key={key}
               onClick={() => setTab(key)}
@@ -141,15 +139,17 @@ export default function ClassDetailPanel({ schoolClass, onChanged }: ClassDetail
       </div>
 
       <div className="flex-1 p-5 overflow-y-auto max-h-[560px]">
-        {tab === "profile" && <ProfileTab schoolClass={schoolClass} onChanged={onChanged} canManage={canManage} showToast={showToast} />}
-        {tab === "teachers" && <TeachersTab classId={schoolClass.id} canManage={canManage} showToast={showToast} />}
+        {tab === "profile" && <ProfileTab schoolClass={schoolClass} onChanged={onChanged} canManage={canUpdateProfile} showToast={showToast} />}
+        {tab === "teachers" && <TeachersTab classId={schoolClass.id} canManage={canAssignTeacher} showToast={showToast} />}
         {tab === "students" && (
           <StudentsTab
             classId={schoolClass.id}
             curriculumId={schoolClass.curriculumId}
             siteId={schoolClass.siteId}
             siteName={schoolClass.siteName}
-            canManage={canManage && schoolClass.status !== "COMPLETED" && schoolClass.status !== "CANCELLED" && schoolClass.status !== "PLANNED"}
+            canEnroll={canEnroll}
+            canImport={canImportEnrollments}
+            canWithdraw={canWithdraw}
             showToast={showToast}
           />
         )}
@@ -157,12 +157,15 @@ export default function ClassDetailPanel({ schoolClass, onChanged }: ClassDetail
           <SessionsTab
             classId={schoolClass.id}
             siteId={schoolClass.siteId}
-            canManage={canManage}
-            canCreateSessions={canManage && canScheduleAdminRole && schoolClass.status !== "COMPLETED" && schoolClass.status !== "CANCELLED"}
+            canReschedule={canReschedule}
+            canCancel={canCancelSession}
+            canCreateSession={canCreateSession}
+            canGenerate={canGenerateSessions}
+            canImport={canImportSessions}
             showToast={showToast}
           />
         )}
-        {tab === "grades" && <ClassGradeSheetPanel classId={schoolClass.id} siteId={schoolClass.siteId} readOnly={isSiteManagerRole} />}
+        {tab === "grades" && canViewGrades && <ClassGradeSheetPanel classId={schoolClass.id} siteId={schoolClass.siteId} readOnly={!canEnterGrades} />}
       </div>
 
       <Toast message={toastMessage} />
@@ -680,14 +683,18 @@ function StudentsTab({
   curriculumId,
   siteId,
   siteName,
-  canManage,
+  canEnroll,
+  canImport,
+  canWithdraw,
   showToast
 }: {
   classId: number;
   curriculumId: number;
   siteId: number;
   siteName: string;
-  canManage: boolean;
+  canEnroll: boolean;
+  canImport: boolean;
+  canWithdraw: boolean;
   showToast: (msg: string) => void;
 }) {
   const { t } = useTranslation("academic-classes");
@@ -801,12 +808,14 @@ function StudentsTab({
             <Download className="w-3.5 h-3.5" />
             {t("classDetail.students.exportButton")}
           </button>
-          {canManage && (
+          {canEnroll && (
+            <Button size="sm" variant="secondary" onClick={() => setEnrolling(true)}>
+              <UserPlus className="w-3.5 h-3.5" />
+              {t("classDetail.students.enrollButton")}
+            </Button>
+          )}
+          {canImport && (
             <>
-              <Button size="sm" variant="secondary" onClick={() => setEnrolling(true)}>
-                <UserPlus className="w-3.5 h-3.5" />
-                {t("classDetail.students.enrollButton")}
-              </Button>
               <button
                 type="button"
                 onClick={handleDownloadTemplate}
@@ -876,7 +885,7 @@ function StudentsTab({
                 <span className="font-mono text-slate-400">{en.studentCode}</span>
                 <Badge variant={en.status === "ACTIVE" ? "success" : "neutral"}>{en.status}</Badge>
               </div>
-              {canManage && en.status === "ACTIVE" && (
+              {canWithdraw && en.status === "ACTIVE" && (
                 <button onClick={() => handleWithdraw(en.id)} className="text-rose-500 hover:text-rose-700">
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -1108,14 +1117,20 @@ function hasSessionEnded(s: ClassSessionResponse, gracePeriodMinutes: number): b
 function SessionsTab({
   classId,
   siteId,
-  canManage,
-  canCreateSessions,
+  canReschedule,
+  canCancel,
+  canCreateSession,
+  canGenerate,
+  canImport,
   showToast
 }: {
   classId: number;
   siteId: number;
-  canManage: boolean;
-  canCreateSessions: boolean;
+  canReschedule: boolean;
+  canCancel: boolean;
+  canCreateSession: boolean;
+  canGenerate: boolean;
+  canImport: boolean;
   showToast: (msg: string) => void;
 }) {
   const { t } = useTranslation("academic-classes");
@@ -1164,20 +1179,26 @@ function SessionsTab({
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <span className="text-[10px] font-bold uppercase text-slate-500">{t("classDetail.sessions.sectionTitle", { count: sessions.length })}</span>
-        {canCreateSessions && (
+        {(canCreateSession || canGenerate || canImport) && (
           <div className="flex items-center gap-1.5">
-            <Button size="sm" variant="secondary" onClick={() => setCreating("single")}>
-              <UserPlus className="w-3.5 h-3.5" />
-              {t("classDetail.sessions.createSingleButton")}
-            </Button>
-            <Button size="sm" variant="secondary" onClick={() => setCreating("bulk")}>
-              <Sparkles className="w-3.5 h-3.5" />
-              {t("classDetail.sessions.createBulkButton")}
-            </Button>
-            <Button size="sm" variant="secondary" onClick={() => setCreating("excel")}>
-              <FileSpreadsheet className="w-3.5 h-3.5" />
-              {t("classDetail.sessions.createExcelButton")}
-            </Button>
+            {canCreateSession && (
+              <Button size="sm" variant="secondary" onClick={() => setCreating("single")}>
+                <UserPlus className="w-3.5 h-3.5" />
+                {t("classDetail.sessions.createSingleButton")}
+              </Button>
+            )}
+            {canGenerate && (
+              <Button size="sm" variant="secondary" onClick={() => setCreating("bulk")}>
+                <Sparkles className="w-3.5 h-3.5" />
+                {t("classDetail.sessions.createBulkButton")}
+              </Button>
+            )}
+            {canImport && (
+              <Button size="sm" variant="secondary" onClick={() => setCreating("excel")}>
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                {t("classDetail.sessions.createExcelButton")}
+              </Button>
+            )}
           </div>
         )}
       </div>
@@ -1220,12 +1241,12 @@ function SessionsTab({
                       {attendanceStatusBySession[s.id] ? t("classDetail.sessions.viewAttendanceButton") : t("classDetail.sessions.takeAttendanceButton")}
                     </Button>
                   )}
-                  {canManage && s.status !== "CANCELLED" && (
+                  {canReschedule && s.status !== "CANCELLED" && (
                     <button onClick={() => setReschedulingSession(s)} title={t("classDetail.sessions.rescheduleTitle")} className="text-slate-500 hover:text-slate-800">
                       <CalendarClock className="w-3.5 h-3.5" />
                     </button>
                   )}
-                  {canManage && s.status !== "CANCELLED" && (
+                  {canCancel && s.status !== "CANCELLED" && (
                     <button onClick={() => handleCancel(s.id)} title={t("classDetail.sessions.cancelSessionTitle")} className="text-rose-500 hover:text-rose-700">
                       <X className="w-3.5 h-3.5" />
                     </button>

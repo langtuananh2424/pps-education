@@ -121,5 +121,63 @@
     "FINANCE": {
       "expense": "Operating Expenses"
     }
+  },
+  "roleAccessEditor": {
+    "loading": "Loading role permissions...",
+    "loadError": "Could not load the role permissions.",
+    "saveError": "Could not save the role.",
+    "saveSuccess": "Role saved.",
+    "lockedNotice": "The Administrator always has every menu and button; it cannot be edited so you cannot lock yourself out.",
+    "templatePlaceholder": "Apply another role as template…",
+    "applyTemplateButton": "Apply template",
+    "applyTemplateConfirm": "Replace the data scope and all permissions of \"{{to}}\" with those of \"{{from}}\"? Nothing is saved until you click Save role.",
+    "undoButton": "Discard changes",
+    "saveButton": "Save role",
+    "saving": "Saving...",
+    "scopeTitle": "1. This role can see data of:",
+    "scopeHint": "Applies to every page ticked below. Personal pages (Attendance, Payslip, Leave, Teaching schedule) always show only the signed-in user's own data.",
+    "scopes": {
+      "ALL": {
+        "title": "All campuses",
+        "description": "Sees students, classes and reports of every campus",
+        "short": "All campuses"
+      },
+      "SITE": {
+        "title": "Only campuses they manage",
+        "description": "Campuses assigned to the account on the Campuses & contracts page",
+        "short": "Own campuses"
+      },
+      "CLASS": {
+        "title": "Only classes they teach",
+        "description": "Classes where the account is assigned as a teacher",
+        "short": "Own classes"
+      },
+      "SELF": {
+        "title": "Own data only",
+        "description": "Portal role",
+        "short": "Portal"
+      }
+    },
+    "treeTitle": "2. Sidebar and visible buttons",
+    "treeHint": "Tick a menu to show it in the sidebar and allow opening the page. Expand a menu to choose the buttons shown on that page. Unticking a menu also unticks its buttons.",
+    "searchPlaceholder": "Search menus or buttons…",
+    "onlyTicked": "Only ticked",
+    "menuCount": "{{count}}/{{total}} menus shown",
+    "sectionCount": "{{count}}/{{total}} menus",
+    "actionCount": "{{count}}/{{total}} buttons",
+    "viewOnly": "view only",
+    "toggleActions": "Show buttons",
+    "otherTitle": "Other permissions outside the sidebar ({{count}})",
+    "otherHint": "Permissions not tied to a sidebar menu, e.g. question banks, listening-speaking practice, teaching plans.",
+    "previewTitle": "Role sidebar",
+    "previewEmpty": "No menu ticked yet.",
+    "previewHint": "Updates as you tick. Menu names are shared by every role."
+  },
+  "createRolePanelV202": {
+    "scopeLabel": "This role can see data of *",
+    "templateLabel": "Create from template",
+    "templateNone": "Empty — tick everything yourself",
+    "templateHint": "The template only pre-ticks permissions to save time. After creating, keep adjusting on the sidebar tree.",
+    "saveButton": "Create and edit permissions"
   }
 }
