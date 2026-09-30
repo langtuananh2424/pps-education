@@ -259,6 +259,18 @@ export const PAGE_PERMISSIONS: Record<string, PagePermissions> = {
       { label: "Xuất Excel, Tải audio và kết quả AI chấm", codes: ["lms.exercise.report.export"] },
     ]
   },
+  // Học thuật · Hồ sơ giáo viên (V203)
+  "acad-teachers": {
+    viewCodes: ["hrm.teacher.view"],
+    actions: [
+      { label: "Tab Lịch dạy của giáo viên", codes: ["hrm.employee-schedule.view"] },
+    ]
+  },
+  // Học thuật · Lịch sử thay đổi dữ liệu (V203)
+  "acad-change-history": {
+    viewCodes: ["academic.change-history.view"],
+    actions: []
+  },
   // Phụ huynh & phản hồi · Duyệt thư mời phụ huynh
   "noti-meeting-invites": {
     viewCodes: ["notification.meeting-invite.approve"],
@@ -358,6 +370,11 @@ export const PAGE_PERMISSIONS: Record<string, PagePermissions> = {
   // Báo cáo & thống kê · Số tiết thực tế
   "rep-actual-periods": {
     viewCodes: ["report.actual-periods.view"],
+    actions: []
+  },
+  // Báo cáo & thống kê · Thống kê giảng dạy theo GV (V203) — xem và Xuất Excel dùng chung 1 mã
+  "rep-teaching-stats": {
+    viewCodes: ["report.teacher-stats.view"],
     actions: []
   },
   // Tài chính · Thu phí & hoá đơn

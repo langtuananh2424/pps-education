@@ -594,6 +594,47 @@ export function getActualPeriodsGrid(params: {
   return apiRequest<ActualPeriodsGridResponse>(`/sites/${params.siteId}/actual-periods-grid?${query.toString()}`);
 }
 
+/** V203 — xuất Excel chế độ "Chi tiết" của báo cáo số tiết thực tế (cùng tham số getActualPeriodsStats). */
+export function exportActualPeriodsStats(params: {
+  siteId: number;
+  fromDate: string;
+  toDate: string;
+  periodType: EnrollmentMovementPeriodType | "WEEK";
+  periodLabel: string;
+  classId?: number;
+}): Promise<Blob> {
+  const query = new URLSearchParams({
+    fromDate: params.fromDate,
+    toDate: params.toDate,
+    periodType: params.periodType,
+    periodLabel: params.periodLabel
+  });
+  if (params.classId) query.set("classId", String(params.classId));
+  return apiRequestBlob(`/sites/${params.siteId}/actual-periods-stats/export?${query.toString()}`);
+}
+
+/** V203 — xuất Excel chế độ "Lưới tổng quan" của báo cáo số tiết thực tế (cùng tham số getActualPeriodsGrid). */
+export function exportActualPeriodsGrid(params: {
+  siteId: number;
+  periodType: EnrollmentMovementPeriodType;
+  year?: number;
+  classId?: number;
+}): Promise<Blob> {
+  const query = new URLSearchParams({ periodType: params.periodType });
+  if (params.year) query.set("year", String(params.year));
+  if (params.classId) query.set("classId", String(params.classId));
+  return apiRequestBlob(`/sites/${params.siteId}/actual-periods-grid/export?${query.toString()}`);
+}
+
+/** V203 — xuất Excel tổng hợp chuyên cần từng học sinh của 1 lớp; bỏ trống ngày = từ ngày bắt đầu lớp đến hôm nay. */
+export function exportClassAttendanceSummary(classId: number, fromDate?: string, toDate?: string): Promise<Blob> {
+  const qs = new URLSearchParams();
+  if (fromDate) qs.set("fromDate", fromDate);
+  if (toDate) qs.set("toDate", toDate);
+  const suffix = qs.toString() ? `?${qs.toString()}` : "";
+  return apiRequestBlob(`/classes/${classId}/attendance-summary/export${suffix}`);
+}
+
 // ===================== Năm học (V102, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-07) =====================
 // Danh mục DÙNG CHUNG TOÀN HỆ THỐNG (khác Kỳ học — giới hạn theo điểm trường). Nguồn cho
 // academicYearId trên classes/grade_entries/student_comments/class_enrollments/teaching_plans.
