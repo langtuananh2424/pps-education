@@ -31,6 +31,7 @@ import systemAdminUsersEn from "./locales/en/system-admin-users.json";
 import systemAdminOverridesEn from "./locales/en/system-admin-overrides.json";
 import systemAdminSettingsEn from "./locales/en/system-admin-settings.json";
 import notificationsEn from "./locales/en/notifications.json";
+import academicOversightEn from "./locales/en/academic-oversight.json";
 import commonVi from "./locales/vi/common.json";
 import authVi from "./locales/vi/auth.json";
 import dashboardVi from "./locales/vi/dashboard.json";
@@ -61,6 +62,7 @@ import systemAdminUsersVi from "./locales/vi/system-admin-users.json";
 import systemAdminOverridesVi from "./locales/vi/system-admin-overrides.json";
 import systemAdminSettingsVi from "./locales/vi/system-admin-settings.json";
 import notificationsVi from "./locales/vi/notifications.json";
+import academicOversightVi from "./locales/vi/academic-oversight.json";
 
 export const LANGUAGE_STORAGE_KEY = "pps_language";
 
@@ -98,7 +100,8 @@ i18n.use(initReactI18next).init({
       "system-admin-users": systemAdminUsersVi,
       "system-admin-overrides": systemAdminOverridesVi,
       "system-admin-settings": systemAdminSettingsVi,
-      notifications: notificationsVi
+      notifications: notificationsVi,
+      "academic-oversight": academicOversightVi
     },
     en: {
       common: commonEn,
@@ -130,7 +133,8 @@ i18n.use(initReactI18next).init({
       "system-admin-users": systemAdminUsersEn,
       "system-admin-overrides": systemAdminOverridesEn,
       "system-admin-settings": systemAdminSettingsEn,
-      notifications: notificationsEn
+      notifications: notificationsEn,
+      "academic-oversight": academicOversightEn
     }
   },
   lng: storedLanguage === "en" ? "en" : "vi",
@@ -166,7 +170,8 @@ i18n.use(initReactI18next).init({
     "system-admin-users",
     "system-admin-overrides",
     "system-admin-settings",
-    "notifications"
+    "notifications",
+    "academic-oversight"
   ],
   interpolation: { escapeValue: false },
   returnEmptyString: false

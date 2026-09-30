@@ -1,0 +1,178 @@
+package vn.com.pps.education.service;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import vn.com.pps.education.common.ExcelExportHelper;
+import vn.com.pps.education.domain.Employee;
+import vn.com.pps.education.domain.Site;
+import vn.com.pps.education.domain.User;
+import vn.com.pps.education.dto.TeacherTeachingStatsRow;
+import vn.com.pps.education.dto.TeachingStatsResponse;
+import vn.com.pps.education.exception.ResourceNotFoundException;
+import vn.com.pps.education.repository.ClassSessionRepository;
+import vn.com.pps.education.repository.EmployeeRepository;
+import vn.com.pps.education.repository.SiteRepository;
+import vn.com.pps.education.repository.UserRepository;
+
+import java.time.Clock;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+/**
+ * "Thống kê giảng dạy theo giáo viên" (V203 — bổ sung ngoài SDD gốc, xác nhận với người dùng
+ * 2026-09-30, quyền report.teacher-stats.view): với mỗi giáo viên trong khoảng ngày chọn — số lớp,
+ * số buổi đã xếp/đã diễn ra/bị huỷ, số tiết đã dạy, số lần nhận lớp đúng giờ/trễ và số buổi đã tới giờ
+ * mà không nhận lớp. Tính trực tiếp từ class_sessions/session_periods/class_session_check_ins (không
+ * có bảng snapshot riêng), cùng dáng báo cáo dẫn xuất như ActualPeriodsReportService.
+ *
+ * Phạm vi dữ liệu theo DataScopeService#resolveAllowedSiteIds; siteId = null là mọi điểm trường trong
+ * phạm vi. "Đã diễn ra" = buổi không huỷ/không dời và đã tới giờ bắt đầu (giờ Việt Nam).
+ */
+@Service
+public class TeachingStatsService {
+
+    private static final ZoneId APP_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
+
+    private final ClassSessionRepository classSessionRepository;
+    private final UserRepository userRepository;
+    private final EmployeeRepository employeeRepository;
+    private final SiteRepository siteRepository;
+    private final DataScopeService dataScopeService;
+    private final Clock clock;
+
+    public TeachingStatsService(ClassSessionRepository classSessionRepository,
+                                UserRepository userRepository,
+                                EmployeeRepository employeeRepository,
+                                SiteRepository siteRepository,
+                                DataScopeService dataScopeService,
+                                Clock clock) {
+        this.classSessionRepository = classSessionRepository;
+        this.userRepository = userRepository;
+        this.employeeRepository = employeeRepository;
+        this.siteRepository = siteRepository;
+        this.dataScopeService = dataScopeService;
+        this.clock = clock;
+    }
+
+    @Transactional(readOnly = true)
+    public TeachingStatsResponse getStats(Long siteId, LocalDate fromDate, LocalDate toDate, Long actorUserId) {
+        if (fromDate.isAfter(toDate)) {
+            throw new IllegalArgumentException("Từ ngày phải trước hoặc bằng Đến ngày.");
+        }
+        String siteName = null;
+        if (siteId != null) {
+            Site site = siteRepository.findById(siteId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy điểm trường id=" + siteId));
+            siteName = site.getName();
+        }
+        List<Long> allowedSiteIds = dataScopeService.resolveAllowedSiteIds(actorUserId);
+        boolean restrictSites = allowedSiteIds != null;
+        List<Long> siteIdsForQuery = allowedSiteIds == null || allowedSiteIds.isEmpty() ? List.of(-1L) : allowedSiteIds;
+        long siteFilter = siteId == null ? 0L : siteId;
+        LocalDateTime now = LocalDateTime.ofInstant(clock.instant(), APP_ZONE);
+
+        Map<Long, ClassSessionRepository.TeacherSessionStats> sessionStatsByTeacher = new HashMap<>();
+        for (ClassSessionRepository.TeacherSessionStats row : classSessionRepository.aggregateTeacherSessionStats(
+                fromDate, toDate, now, siteFilter, restrictSites, siteIdsForQuery)) {
+            sessionStatsByTeacher.put(row.getTeacherUserId(), row);
+        }
+        Map<Long, Long> periodsByTeacher = new HashMap<>();
+        for (ClassSessionRepository.TeacherPeriodCount row : classSessionRepository.countTaughtPeriodsByTeacher(
+                fromDate, toDate, now, siteFilter, restrictSites, siteIdsForQuery)) {
+            periodsByTeacher.put(row.getTeacherUserId(), row.getPeriodCount());
+        }
+
+        Set<Long> teacherIds = new HashSet<>(sessionStatsByTeacher.keySet());
+        teacherIds.addAll(periodsByTeacher.keySet());
+        Map<Long, String> nameById = new HashMap<>();
+        for (User user : userRepository.findAllById(teacherIds)) {
+            nameById.put(user.getId(), user.getFullName());
+        }
+        Map<Long, String> codeById = new HashMap<>();
+        for (Employee employee : employeeRepository.findByUserIdIn(teacherIds)) {
+            codeById.put(employee.getUser().getId(), employee.getEmployeeCode());
+        }
+
+        List<TeacherTeachingStatsRow> rows = new ArrayList<>();
+        for (Long teacherId : teacherIds) {
+            ClassSessionRepository.TeacherSessionStats s = sessionStatsByTeacher.get(teacherId);
+            rows.add(buildRow(teacherId, nameById.getOrDefault(teacherId, "—"), codeById.get(teacherId),
+                    s == null ? 0 : s.getClassCount(),
+                    s == null ? 0 : s.getScheduledSessions(),
+                    s == null ? 0 : s.getHeldSessions(),
+                    s == null ? 0 : s.getCancelledSessions(),
+                    periodsByTeacher.getOrDefault(teacherId, 0L),
+                    s == null ? 0 : s.getOnTimeCheckIns(),
+                    s == null ? 0 : s.getLateCheckIns(),
+                    s == null ? 0 : s.getMissingCheckIns()));
+        }
+        rows.sort(Comparator.comparing(TeacherTeachingStatsRow::teacherName, String.CASE_INSENSITIVE_ORDER));
+
+        // Số lớp ở dòng tổng là tổng theo từng giáo viên (1 lớp nhiều giáo viên được đếm nhiều lần).
+        TeacherTeachingStatsRow totals = buildRow(null, "Tổng cộng", null,
+                rows.stream().mapToLong(TeacherTeachingStatsRow::classCount).sum(),
+                rows.stream().mapToLong(TeacherTeachingStatsRow::scheduledSessions).sum(),
+                rows.stream().mapToLong(TeacherTeachingStatsRow::heldSessions).sum(),
+                rows.stream().mapToLong(TeacherTeachingStatsRow::cancelledSessions).sum(),
+                rows.stream().mapToLong(TeacherTeachingStatsRow::taughtPeriods).sum(),
+                rows.stream().mapToLong(TeacherTeachingStatsRow::onTimeCheckIns).sum(),
+                rows.stream().mapToLong(TeacherTeachingStatsRow::lateCheckIns).sum(),
+                rows.stream().mapToLong(TeacherTeachingStatsRow::missingCheckIns).sum());
+
+        return new TeachingStatsResponse(fromDate, toDate, siteId, siteName, rows, totals);
+    }
+
+    @Transactional(readOnly = true)
+    public byte[] exportStatsExcel(Long siteId, LocalDate fromDate, LocalDate toDate, Long actorUserId) {
+        TeachingStatsResponse stats = getStats(siteId, fromDate, toDate, actorUserId);
+        List<String> headers = List.of("Mã nhân sự", "Giáo viên", "Số lớp", "Buổi đã xếp", "Buổi đã diễn ra",
+                "Buổi bị huỷ", "Số tiết đã dạy", "Nhận lớp đúng giờ", "Nhận lớp trễ", "Không nhận lớp",
+                "Tỷ lệ đúng giờ (%)");
+        List<List<Object>> rows = new ArrayList<>();
+        for (TeacherTeachingStatsRow r : stats.teachers()) {
+            rows.add(toExcelRow(r));
+        }
+        rows.add(toExcelRow(stats.totals()));
+        List<String> notes = List.of(
+                "Khoảng thời gian: " + stats.fromDate() + " - " + stats.toDate(),
+                "Điểm trường: " + (stats.siteName() == null ? "Tất cả điểm trường trong phạm vi" : stats.siteName()),
+                "Buổi đã xếp: không tính buổi đã dời (buổi dời sang được tính riêng).",
+                "Buổi đã diễn ra: buổi không huỷ/không dời và đã tới giờ bắt đầu.",
+                "Số tiết đã dạy: tiết có giáo viên riêng tính cho giáo viên đó, còn lại tính cho giáo viên phụ trách buổi.",
+                "Không nhận lớp: buổi đã diễn ra nhưng giáo viên chưa bấm Nhận lớp.",
+                "Tỷ lệ đúng giờ = Nhận lớp đúng giờ / Buổi đã diễn ra.");
+        return ExcelExportHelper.buildWorkbook("Giảng dạy theo GV", headers, rows, notes);
+    }
+
+    private static List<Object> toExcelRow(TeacherTeachingStatsRow r) {
+        List<Object> row = new ArrayList<>();
+        row.add(r.employeeCode());
+        row.add(r.teacherName());
+        row.add(r.classCount());
+        row.add(r.scheduledSessions());
+        row.add(r.heldSessions());
+        row.add(r.cancelledSessions());
+        row.add(r.taughtPeriods());
+        row.add(r.onTimeCheckIns());
+        row.add(r.lateCheckIns());
+        row.add(r.missingCheckIns());
+        row.add(r.onTimeRate());
+        return row;
+    }
+
+    private static TeacherTeachingStatsRow buildRow(Long teacherUserId, String teacherName, String employeeCode,
+                                                    long classCount, long scheduled, long held, long cancelled,
+                                                    long periods, long onTime, long late, long missing) {
+        Double onTimeRate = held == 0 ? null : Math.round(onTime * 1000.0 / held) / 10.0;
+        return new TeacherTeachingStatsRow(teacherUserId, teacherName, employeeCode, classCount, scheduled, held,
+                cancelled, periods, onTime, late, missing, onTimeRate);
+    }
+}

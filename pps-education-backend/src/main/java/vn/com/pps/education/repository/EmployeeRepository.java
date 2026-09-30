@@ -50,4 +50,12 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
             ORDER BY u.fullName
             """)
     List<Employee> searchByQuery(@Param("query") String query, @Param("departmentId") Long departmentId);
+
+    /** V203 — nhân sự đang làm việc (chưa xoá) theo loại, VD toàn bộ giáo viên cho trang Hồ sơ giáo viên. */
+    @Query("""
+            SELECT e FROM Employee e JOIN FETCH e.user u
+            WHERE e.deletedAt IS NULL AND e.employeeType = :employeeType
+            ORDER BY u.fullName
+            """)
+    List<Employee> findActiveByEmployeeType(@Param("employeeType") Employee.EmployeeType employeeType);
 }

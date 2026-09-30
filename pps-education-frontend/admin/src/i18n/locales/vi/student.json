@@ -232,6 +232,17 @@
     "title": "Điểm Danh Chuyên Cần (SMS)",
     "description": "Giảng viên lưu chuyên cần, vắng học tự động cảnh báo phụ huynh.",
     "notificationModalTitle": "Báo cáo chuyên cần",
+    "summaryExport": {
+      "button": "Xuất tổng hợp chuyên cần",
+      "title": "Xuất tổng hợp chuyên cần",
+      "description": "File Excel mỗi học sinh 1 dòng: số lượt điểm danh, có mặt, đi muộn, về sớm, vắng có phép/không phép và tỷ lệ có mặt. Chỉ tính buổi đã điểm danh.",
+      "fromDate": "Từ ngày",
+      "toDate": "Đến ngày",
+      "cancel": "Huỷ",
+      "export": "Xuất Excel",
+      "exporting": "Đang xuất...",
+      "failed": "Không xuất được file Excel."
+    },
     "understood": "Đã hiểu",
     "loadSessionsError": "Không tải được danh sách buổi học.",
     "loadDataError": "Không tải được dữ liệu điểm danh.",

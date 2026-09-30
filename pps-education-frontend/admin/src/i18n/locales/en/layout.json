@@ -57,7 +57,10 @@
       "fac-rooms": "Rooms & Equipment",
       "fac-feedback": "Feedback",
       "part-syllabus": "Teaching Plan",
-      "part-portal": "Partnership Reports"
+      "part-portal": "Partnership Reports",
+      "acad-change-history": "Data change history",
+      "acad-teachers": "Teacher profiles",
+      "rep-teaching-stats": "Teaching stats by teacher"
     }
   },
   "roles": {

@@ -4,6 +4,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import vn.com.pps.education.domain.ClassTeacherHistory;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface ClassTeacherHistoryRepository extends JpaRepository<ClassTeacherHistory, Long> {
     List<ClassTeacherHistory> findByClassTeacherIdOrderByCreatedAtDesc(Long classTeacherId);
@@ -15,4 +16,7 @@ public interface ClassTeacherHistoryRepository extends JpaRepository<ClassTeache
      * thể như findByClassTeacherIdOrderByCreatedAtDesc.
      */
     List<ClassTeacherHistory> findByClassTeacher_SchoolClass_IdOrderByCreatedAtDesc(Long classId);
+
+    /** Bản ghi lịch sử liền trước của cùng phân công giáo viên — để hiển thị "giá trị cũ → mới" (V203). */
+    Optional<ClassTeacherHistory> findFirstByClassTeacherIdAndIdLessThanOrderByIdDesc(Long classTeacherId, Long id);
 }

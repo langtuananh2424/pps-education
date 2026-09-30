@@ -232,6 +232,17 @@
     "title": "Attendance (SMS)",
     "description": "Teachers record attendance; absences automatically alert parents.",
     "notificationModalTitle": "Attendance report",
+    "summaryExport": {
+      "button": "Export attendance summary",
+      "title": "Export attendance summary",
+      "description": "One row per student: attendance records, present, late, left early, excused/unexcused absences and attendance rate. Only sessions with recorded attendance are counted.",
+      "fromDate": "From",
+      "toDate": "To",
+      "cancel": "Cancel",
+      "export": "Export Excel",
+      "exporting": "Exporting...",
+      "failed": "Could not export the Excel file."
+    },
     "understood": "Got it",
     "loadSessionsError": "Couldn't load the session list.",
     "loadDataError": "Couldn't load the attendance data.",
