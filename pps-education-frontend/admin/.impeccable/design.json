@@ -1,0 +1,693 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-30T03:32:43+00:00",
+  "title": "Design System: PPS Admin 2.0",
+  "extensions": {
+    "colorMeta": {
+      "accent": {
+        "role": "primary",
+        "displayName": "PPS Ember",
+        "tonalRamp": [
+          "#1a0400",
+          "#411502",
+          "#6d2b0b",
+          "#a03e0a",
+          "#d45511",
+          "#fc7a40",
+          "#fdb699",
+          "#ffe9e1"
+        ],
+        "paletteVariants": {
+          "orange": "#cc4e00",
+          "teal": "#0f766e",
+          "blue": "#0066cc",
+          "ink": "#1d1d1f"
+        }
+      },
+      "accent-hover": {
+        "role": "primary",
+        "displayName": "Ember Pressed",
+        "tonalRamp": [
+          "#190500",
+          "#401603",
+          "#6f2903",
+          "#9d4112",
+          "#c95f2d",
+          "#f18252",
+          "#fbb79b",
+          "#feeae1"
+        ],
+        "paletteVariants": {
+          "orange": "#a84000",
+          "teal": "#115e59",
+          "blue": "#004f9e",
+          "ink": "#3a3a3c"
+        }
+      },
+      "accent-soft": {
+        "role": "primary",
+        "displayName": "Ember Wash",
+        "tonalRamp": [
+          "#0d0b08",
+          "#2c231c",
+          "#4a4038",
+          "#6a5f56",
+          "#8b8077",
+          "#afa299",
+          "#d3c7bd",
+          "#f2edea"
+        ],
+        "paletteVariants": {
+          "orange": "#fdf0e6",
+          "teal": "#e3f2f0",
+          "blue": "#e6f0fa",
+          "ink": "#ececf0"
+        }
+      },
+      "accent-ink": {
+        "role": "primary",
+        "displayName": "Ember Ink",
+        "tonalRamp": [
+          "#190500",
+          "#401603",
+          "#6f2903",
+          "#9d4112",
+          "#c95f2d",
+          "#f18252",
+          "#fbb79b",
+          "#feeae1"
+        ],
+        "paletteVariants": {
+          "orange": "#a84000",
+          "teal": "#115e59",
+          "blue": "#004f9e",
+          "ink": "#1d1d1f"
+        }
+      },
+      "highlight": {
+        "role": "primary",
+        "displayName": "PPS Signal",
+        "tonalRamp": [
+          "#1a0400",
+          "#411502",
+          "#6d2b0b",
+          "#a03e0a",
+          "#d45511",
+          "#fc7a40",
+          "#fdb699",
+          "#ffe9e1"
+        ],
+        "paletteVariants": {
+          "orange": "#cc4e00",
+          "teal": "#0f766e",
+          "blue": "#0066cc",
+          "ink": "#cc4e00"
+        }
+      },
+      "page-grey": {
+        "role": "neutral",
+        "displayName": "Paper Grey",
+        "tonalRamp": [
+          "#1d1d1f",
+          "#2c2c2e",
+          "#3a3a3c",
+          "#515154",
+          "#6e6e73",
+          "#d1d1d6",
+          "#e5e5ea",
+          "#f5f5f7"
+        ]
+      },
+      "white": {
+        "role": "neutral",
+        "displayName": "Sheet White",
+        "tonalRamp": [
+          "#1d1d1f",
+          "#2c2c2e",
+          "#3a3a3c",
+          "#515154",
+          "#6e6e73",
+          "#d1d1d6",
+          "#e5e5ea",
+          "#f5f5f7"
+        ]
+      },
+      "slate-100": {
+        "role": "neutral",
+        "displayName": "Quiet Fill",
+        "tonalRamp": [
+          "#1d1d1f",
+          "#2c2c2e",
+          "#3a3a3c",
+          "#515154",
+          "#6e6e73",
+          "#d1d1d6",
+          "#e5e5ea",
+          "#f5f5f7"
+        ]
+      },
+      "hairline": {
+        "role": "neutral",
+        "displayName": "Ruled Line",
+        "tonalRamp": [
+          "#1d1d1f",
+          "#2c2c2e",
+          "#3a3a3c",
+          "#515154",
+          "#6e6e73",
+          "#d1d1d6",
+          "#e5e5ea",
+          "#f5f5f7"
+        ]
+      },
+      "field-border": {
+        "role": "neutral",
+        "displayName": "Field Edge",
+        "tonalRamp": [
+          "#1d1d1f",
+          "#2c2c2e",
+          "#3a3a3c",
+          "#515154",
+          "#6e6e73",
+          "#d1d1d6",
+          "#e5e5ea",
+          "#f5f5f7"
+        ]
+      },
+      "text-tertiary": {
+        "role": "neutral",
+        "displayName": "Ink · Tertiary",
+        "tonalRamp": [
+          "#1d1d1f",
+          "#2c2c2e",
+          "#3a3a3c",
+          "#515154",
+          "#6e6e73",
+          "#d1d1d6",
+          "#e5e5ea",
+          "#f5f5f7"
+        ]
+      },
+      "text-secondary": {
+        "role": "neutral",
+        "displayName": "Ink · Secondary",
+        "tonalRamp": [
+          "#1d1d1f",
+          "#2c2c2e",
+          "#3a3a3c",
+          "#515154",
+          "#6e6e73",
+          "#d1d1d6",
+          "#e5e5ea",
+          "#f5f5f7"
+        ]
+      },
+      "text-muted": {
+        "role": "neutral",
+        "displayName": "Ink · Muted",
+        "tonalRamp": [
+          "#1d1d1f",
+          "#2c2c2e",
+          "#3a3a3c",
+          "#515154",
+          "#6e6e73",
+          "#d1d1d6",
+          "#e5e5ea",
+          "#f5f5f7"
+        ]
+      },
+      "text-dense": {
+        "role": "neutral",
+        "displayName": "Ink · Dense",
+        "tonalRamp": [
+          "#1d1d1f",
+          "#2c2c2e",
+          "#3a3a3c",
+          "#515154",
+          "#6e6e73",
+          "#d1d1d6",
+          "#e5e5ea",
+          "#f5f5f7"
+        ]
+      },
+      "text-primary": {
+        "role": "neutral",
+        "displayName": "Ink · Primary",
+        "tonalRamp": [
+          "#1d1d1f",
+          "#2c2c2e",
+          "#3a3a3c",
+          "#515154",
+          "#6e6e73",
+          "#d1d1d6",
+          "#e5e5ea",
+          "#f5f5f7"
+        ]
+      },
+      "success-soft": {
+        "role": "secondary",
+        "displayName": "Done Green Wash",
+        "tonalRamp": [
+          "#090c0a",
+          "#1e2821",
+          "#3b453e",
+          "#59645d",
+          "#7a867e",
+          "#9ca9a0",
+          "#c0cdc4",
+          "#ebf0ed"
+        ]
+      },
+      "success": {
+        "role": "secondary",
+        "displayName": "Done Green",
+        "tonalRamp": [
+          "#001002",
+          "#022e0f",
+          "#0e5021",
+          "#207336",
+          "#479657",
+          "#6bba79",
+          "#8fdf9c",
+          "#dcf7df"
+        ]
+      },
+      "warning-soft": {
+        "role": "secondary",
+        "displayName": "Attention Amber Wash",
+        "tonalRamp": [
+          "#0d0b07",
+          "#2b2417",
+          "#494133",
+          "#696052",
+          "#8a8172",
+          "#ada494",
+          "#d2c8b7",
+          "#f1eee8"
+        ]
+      },
+      "warning": {
+        "role": "secondary",
+        "displayName": "Attention Amber",
+        "tonalRamp": [
+          "#150800",
+          "#381e01",
+          "#5f3807",
+          "#8b5201",
+          "#af7332",
+          "#d49657",
+          "#fbba7a",
+          "#feebd9"
+        ]
+      },
+      "danger-soft": {
+        "role": "secondary",
+        "displayName": "Overdue Rose Wash",
+        "tonalRamp": [
+          "#0e0a0a",
+          "#2e2222",
+          "#4b3e3e",
+          "#6b5d5d",
+          "#8d7e7e",
+          "#b0a1a1",
+          "#d5c5c5",
+          "#f3eded"
+        ]
+      },
+      "danger": {
+        "role": "secondary",
+        "displayName": "Overdue Rose",
+        "tonalRamp": [
+          "#1f0001",
+          "#4c0208",
+          "#7d0e16",
+          "#b60920",
+          "#df4142",
+          "#f87872",
+          "#fcb4ae",
+          "#fee9e7"
+        ]
+      },
+      "info-soft": {
+        "role": "secondary",
+        "displayName": "Notice Sky Wash",
+        "tonalRamp": [
+          "#090b0e",
+          "#1f262d",
+          "#3c434b",
+          "#5a626b",
+          "#7b838c",
+          "#9ea6af",
+          "#c1cad4",
+          "#eceff2"
+        ]
+      },
+      "info": {
+        "role": "secondary",
+        "displayName": "Notice Sky",
+        "tonalRamp": [
+          "#000b1f",
+          "#02244b",
+          "#0c417b",
+          "#0c60b5",
+          "#3883db",
+          "#65a8f9",
+          "#a5ccfe",
+          "#e4f0fe"
+        ]
+      },
+      "attendance-soft": {
+        "role": "tertiary",
+        "displayName": "Attendance Teal Wash",
+        "tonalRamp": [
+          "#080c0b",
+          "#1b2826",
+          "#374543",
+          "#566562",
+          "#778683",
+          "#99a9a6",
+          "#bdcdca",
+          "#eaf0ef"
+        ]
+      },
+      "attendance": {
+        "role": "tertiary",
+        "displayName": "Attendance Teal",
+        "tonalRamp": [
+          "#000f0d",
+          "#052c28",
+          "#054d47",
+          "#177068",
+          "#429289",
+          "#66b6ac",
+          "#8bdbd0",
+          "#dbf5f1"
+        ]
+      },
+      "homework-soft": {
+        "role": "tertiary",
+        "displayName": "Homework Blue Wash",
+        "tonalRamp": [
+          "#090b0e",
+          "#1f262e",
+          "#3c434b",
+          "#5a626b",
+          "#7b838d",
+          "#9ea6b0",
+          "#c1cad5",
+          "#eceff3"
+        ]
+      },
+      "homework": {
+        "role": "tertiary",
+        "displayName": "Homework Blue",
+        "tonalRamp": [
+          "#000b1f",
+          "#02244b",
+          "#0c417b",
+          "#0c60b5",
+          "#3883db",
+          "#65a8f9",
+          "#a5ccfe",
+          "#e4f0fe"
+        ]
+      },
+      "scores-soft": {
+        "role": "tertiary",
+        "displayName": "Scores Violet Wash",
+        "tonalRamp": [
+          "#0b0a0e",
+          "#26232e",
+          "#43404c",
+          "#625f6c",
+          "#83808e",
+          "#a6a2b1",
+          "#cac6d6",
+          "#efedf3"
+        ]
+      },
+      "scores": {
+        "role": "tertiary",
+        "displayName": "Scores Violet",
+        "tonalRamp": [
+          "#0c0423",
+          "#290365",
+          "#452098",
+          "#6246be",
+          "#826ae5",
+          "#a394fa",
+          "#c7c1fe",
+          "#edecfe"
+        ]
+      },
+      "comments-soft": {
+        "role": "tertiary",
+        "displayName": "Comments Pink Wash",
+        "tonalRamp": [
+          "#0e0a0c",
+          "#2d2127",
+          "#4b3d44",
+          "#6b5c63",
+          "#8d7d84",
+          "#b0a0a7",
+          "#d5c4cb",
+          "#f3ecef"
+        ]
+      },
+      "comments": {
+        "role": "tertiary",
+        "displayName": "Comments Pink",
+        "tonalRamp": [
+          "#1d000a",
+          "#480323",
+          "#77103f",
+          "#a8235d",
+          "#d04b7e",
+          "#f870a1",
+          "#fcb0c7",
+          "#ffe8ee"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "large-title": {
+        "displayName": "Large Title",
+        "purpose": "Lời chào trang chủ giáo viên, số KPI lớn; tối đa một lần mỗi màn."
+      },
+      "title-1": {
+        "displayName": "Title 1",
+        "purpose": "Giá trị StatCard."
+      },
+      "title-2": {
+        "displayName": "Title 2",
+        "purpose": "Tiêu đề trang."
+      },
+      "title-3": {
+        "displayName": "Title 3",
+        "purpose": "Tiêu đề modal và thẻ mở đầu một phần."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Empty state, dòng nhấn."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Form, nút md, mô tả, nội dung modal."
+      },
+      "callout": {
+        "displayName": "Callout",
+        "purpose": "Bảng, danh sách, mục sidebar."
+      },
+      "footnote": {
+        "displayName": "Footnote",
+        "purpose": "Nhãn, header bảng, badge, tab, nút nhỏ."
+      },
+      "caption": {
+        "displayName": "Caption",
+        "purpose": "Cỡ nhỏ nhất: thời gian, bộ đếm."
+      },
+      "mono": {
+        "displayName": "Mono",
+        "purpose": "Giờ, mã, bộ đếm."
+      }
+    },
+    "shadows": [
+      {
+        "name": "segment-lift",
+        "value": "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)",
+        "purpose": "Phân đoạn đang chọn trong Tabs, LanguageSwitcher."
+      },
+      {
+        "name": "menu-float",
+        "value": "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)",
+        "purpose": "Dropdown, Select, DatePicker, ContextMenu."
+      },
+      {
+        "name": "dialog-float",
+        "value": "0 25px 50px -12px rgb(0 0 0 / 0.25)",
+        "purpose": "Modal và toast."
+      }
+    ],
+    "motion": [
+      {
+        "name": "color-transition",
+        "value": "150ms ease",
+        "purpose": "Chuyển động duy nhất: đổi màu khi hover/focus/chọn."
+      }
+    ],
+    "breakpoints": [],
+    "themes": [
+      {
+        "id": "orange",
+        "name": "Cam PPS",
+        "default": true
+      },
+      {
+        "id": "teal",
+        "name": "Xanh ngọc"
+      },
+      {
+        "id": "blue",
+        "name": "Xanh Apple"
+      },
+      {
+        "id": "ink",
+        "name": "Mực + cam"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Hành động quan trọng nhất của trang; một nút mỗi trang.",
+      "html": "<button class=\"ds-btn-primary\">Lưu điểm danh</button>",
+      "css": ".ds-btn-primary{height:40px;padding:0 16px;border:0;border-radius:8px;background:#cc4e00;color:#fff;font:500 15px/22px -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Inter, Roboto, sans-serif;cursor:pointer;transition:background-color 150ms}.ds-btn-primary:hover{background:#a84000}.ds-btn-primary:focus-visible{outline:2px solid #cc4e00;outline-offset:2px}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Hành động phụ.",
+      "html": "<button class=\"ds-btn-secondary\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4\"/><polyline points=\"7 10 12 15 17 10\"/><line x1=\"12\" x2=\"12\" y1=\"15\" y2=\"3\"/></svg>Xuất Excel</button>",
+      "css": ".ds-btn-secondary{display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 16px;border:0;border-radius:8px;background:#efeff2;color:#1d1d1f;font:500 15px/22px -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Inter, Roboto, sans-serif;cursor:pointer;transition:background-color 150ms}.ds-btn-secondary:hover{background:#e5e5ea}.ds-btn-secondary:focus-visible{outline:2px solid #cc4e00;outline-offset:2px}"
+    },
+    {
+      "name": "Danger Button",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "Hành động phá hủy hoặc từ chối.",
+      "html": "<button class=\"ds-btn-danger\">Từ chối đơn</button>",
+      "css": ".ds-btn-danger{height:40px;padding:0 16px;border:0;border-radius:8px;background:#fdecec;color:#c01c28;font:500 15px/22px -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Inter, Roboto, sans-serif;cursor:pointer;transition:background-color 150ms}.ds-btn-danger:hover{background:#fbdada}.ds-btn-danger:focus-visible{outline:2px solid #cc4e00;outline-offset:2px}"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Ô nhập liệu: luôn nền trắng, nhãn footnote phía trên.",
+      "html": "<label class=\"ds-field\"><span>Tên lớp</span><input class=\"ds-input\" placeholder=\"VD: IELTS 6.5 – K12\"></label>",
+      "css": ".ds-field{display:flex;flex-direction:column;gap:6px;font:400 13px/18px -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Inter, Roboto, sans-serif;color:#515154}.ds-input{height:40px;padding:0 12px;border:1px solid #d1d1d6;border-radius:8px;background:#fff;color:#1d1d1f;font:400 15px/22px -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Inter, Roboto, sans-serif;transition:border-color 150ms,box-shadow 150ms}.ds-input::placeholder{color:#76767b}.ds-input:hover{border-color:#76767b}.ds-input:focus{outline:none;border-color:#cc4e00;box-shadow:0 0 0 3px rgba(204,78,0,.18)}"
+    },
+    {
+      "name": "Status Badge",
+      "kind": "chip",
+      "refersTo": "badge-warning",
+      "description": "Trạng thái luôn có chữ; nền soft + chữ đậm cùng họ màu.",
+      "html": "<span class=\"ds-badge ds-badge-warn\">Chờ duyệt</span> <span class=\"ds-badge ds-badge-ok\">Đã duyệt</span> <span class=\"ds-badge ds-badge-bad\">Quá hạn</span>",
+      "css": ".ds-badge{display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:9999px;font:500 13px/18px -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Inter, Roboto, sans-serif}.ds-badge-warn{background:#fdf3e2;color:#8a5100}.ds-badge-ok{background:#e8f5ec;color:#166c2f}.ds-badge-bad{background:#fdecec;color:#c01c28}"
+    },
+    {
+      "name": "Sidebar Item",
+      "kind": "nav",
+      "refersTo": "nav-item",
+      "description": "Mục điều hướng; mục đang chọn tô accent-soft với chữ accent-ink.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-item is-active\" href=\"#\">Điểm danh</a><a class=\"ds-nav-item\" href=\"#\">Nhận xét học viên</a><a class=\"ds-nav-item\" href=\"#\">Lịch dạy</a></nav>",
+      "css": ".ds-nav{display:flex;flex-direction:column;gap:2px;width:224px}.ds-nav-item{display:flex;align-items:center;height:40px;padding:0 12px;border-radius:8px;color:#515154;text-decoration:none;font:400 14px/20px -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Inter, Roboto, sans-serif;transition:background-color 150ms}.ds-nav-item:hover{background:#efeff2}.ds-nav-item.is-active{background:#fdf0e6;color:#a84000;font-weight:600}.ds-nav-item:focus-visible{outline:2px solid #cc4e00;outline-offset:2px}"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Thẻ trắng bo 16px, viền 1px, không bóng.",
+      "html": "<section class=\"ds-card\"><h3>Việc chờ duyệt</h3><p>12 nhận xét · 2 đơn nghỉ phép</p></section>",
+      "css": ".ds-card{padding:24px;border:1px solid #e5e5ea;border-radius:16px;background:#fff;font-family:-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Inter, Roboto, sans-serif}.ds-card h3{margin:0 0 4px;font:600 19px/26px -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Inter, Roboto, sans-serif;color:#1d1d1f}.ds-card p{margin:0;font:400 14px/20px -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Inter, Roboto, sans-serif;color:#6e6e73}"
+    },
+    {
+      "name": "Stat Tile · Chuyên cần",
+      "kind": "custom",
+      "refersTo": "stat-tile-attendance",
+      "description": "Thẻ số liệu tô màu dữ liệu theo loại số.",
+      "html": "<div class=\"ds-stat\"><span class=\"ds-stat-label\">Chuyên cần tuần này</span><span class=\"ds-stat-value\">94%</span><span class=\"ds-stat-bar\"><i></i></span></div>",
+      "css": ".ds-stat{display:flex;flex-direction:column;gap:8px;width:240px;padding:20px;border-radius:16px;background:#e3f4f1;font-family:-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Inter, Roboto, sans-serif}.ds-stat-label{font:500 13px/18px -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Inter, Roboto, sans-serif;color:#0f6b63}.ds-stat-value{font:600 28px/34px -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Inter, Roboto, sans-serif;color:#1d1d1f;font-variant-numeric:tabular-nums}.ds-stat-bar{height:6px;border-radius:9999px;background:rgba(15,107,99,.15);overflow:hidden}.ds-stat-bar i{display:block;width:94%;height:100%;background:#0f6b63;border-radius:9999px}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Academic Ledger",
+    "overview": "**Creative North Star: \"The Academic Ledger\" (Sổ tay học vụ)**\n\nPPS Admin 2.0 đọc như một cuốn sổ ghi chép học vụ chuẩn mực: chính xác, dễ dò, số liệu rõ ràng. Mỗi trang là một tờ sổ — một tiêu đề, một dòng mô tả, rồi các bảng và thẻ trắng xếp gọn trên nền giấy xám. Người dùng mở sổ để tra và ghi, không để ngắm; giao diện lùi lại để nội dung (tên học sinh, điểm, buổi học, trạng thái duyệt) dẫn dắt.\n\nTinh thần là \"đơn giản và vừa đủ\", theo nguyên tắc giao diện của Apple — rõ ràng, nhường chỗ, chiều sâu bằng mặt phẳng. Mật độ thông tin cao nhưng không chật: chữ 15px cho nội dung, 14px cho bảng dày, không gì dưới 12px; điều khiển cao 40px để chạm được trên iPad. Màu nhấn chỉ dùng một lần cho hành động quan trọng nhất; màu dữ liệu gắn cố định với từng loại con số để người đọc nhận ra ngay \"đây là chuyên cần\", \"đây là điểm\".\n\nTừ chối rõ ràng: gradient, glow, khối trang trí, chữ IN HOA, emoji và minh họa — tất cả những gì bản 1.0 từng dùng để \"làm đẹp\" nay coi là nhiễu.",
+    "keyCharacteristics": [
+      "Nền xám, nội dung trắng, một đường viền mảnh duy nhất.",
+      "Một màu nhấn theo bảng màu người dùng chọn (4 bảng), mọi thứ khác trung tính.",
+      "Font hệ thống (SF Pro / Segoe UI / Inter), tối đa semibold 600.",
+      "Màu dữ liệu cố định theo loại số liệu; màu trạng thái luôn đi kèm chữ.",
+      "Bóng đổ chỉ cho lớp nổi (menu, modal, toast); thẻ phẳng.",
+      "Điều khiển 40px, hàng ≈ 44px — dùng tốt bằng tay trên máy tính bảng."
+    ],
+    "rules": [
+      {
+        "name": "The One Accent Rule",
+        "body": "Accent đánh dấu đúng một hành động quan trọng nhất và lựa chọn hiện tại trên màn hình. Một trang có đúng một nút primary.",
+        "section": "colors"
+      },
+      {
+        "name": "The Numbers Have Colours Rule",
+        "body": "Mỗi loại số liệu có một màu cố định ở mọi nơi. Màu dữ liệu chỉ dành cho số, thẻ số, biểu đồ, thanh — không bao giờ cho nút, link, hay để nói thành công/lỗi.",
+        "section": "colors"
+      },
+      {
+        "name": "The Status Speaks Rule",
+        "body": "Màu trạng thái luôn đi kèm một từ; không có chấm màu đứng một mình.",
+        "section": "colors"
+      },
+      {
+        "name": "The Twelve Floor Rule",
+        "body": "Không có chữ nào dưới 12px.",
+        "section": "typography"
+      },
+      {
+        "name": "The Sentence Case Rule",
+        "body": "Viết hoa kiểu câu ở mọi nơi (\"Quản lý lớp học\", \"Tạo lớp\"); không IN HOA, không giãn chữ, không đậm hơn 600.",
+        "section": "typography"
+      },
+      {
+        "name": "The Ledger Figures Rule",
+        "body": "Số trong thẻ thống kê và bảng dùng chữ số đều độ rộng (`font-variant-numeric: tabular-nums`).",
+        "section": "typography"
+      },
+      {
+        "name": "The Only Floaters Cast Shadows Rule",
+        "body": "Nếu một phần tử không đè lên nội dung khác, nó không có bóng.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** đặt nội dung trên thẻ trắng bo 16px, viền 1px `#e5e5ea`, trên nền `#f5f5f7`.",
+      "**Do** dùng accent cho đúng một hành động chính mỗi trang và cho lựa chọn hiện tại.",
+      "**Do** tô thẻ số liệu bằng màu dữ liệu theo loại: teal chuyên cần, blue BTVN, violet điểm, pink nhận xét.",
+      "**Do** giữ mọi ô nhập liệu nền trắng; nền xám chỉ cho giá trị chỉ đọc.",
+      "**Do** ghi ngày DD/MM/YYYY, giờ 24h HH:mm, phân cách hàng nghìn bằng dấu chấm (1.248).",
+      "**Do** dùng icon Lucide nét 2px, `currentColor`: 18px sidebar, 16px nút và menu, 20px đĩa icon, 28px empty state.",
+      "**Do** giới hạn chuyển động ở chuyển màu 150ms."
+    ],
+    "donts": [
+      "**Don't** dùng gradient, glow, khối trang trí (`bg-brand-gradient`, `shadow-glow` của bản 1.0), trừ trong logo P.",
+      "**Don't** đặt bóng đổ lên thẻ hay panel.",
+      "**Don't** viết IN HOA, giãn chữ, hay dùng weight trên 600.",
+      "**Don't** để chữ dưới 12px.",
+      "**Don't** dùng màu dữ liệu cho nút, link, hay để báo thành công/lỗi.",
+      "**Don't** dùng emoji hoặc hình minh họa.",
+      "**Don't** hiện lỗi cấp trang thành một hộp trên đầu bảng — dùng NoticeBanner.",
+      "**Don't** nhảy, nhấp nháy hay nảy — ngoại lệ duy nhất là chấm nhắc chấm công."
+    ]
+  }
+}
