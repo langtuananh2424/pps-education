@@ -2259,6 +2259,66 @@ Ghi chú kỹ thuật (bổ sung ngoài SDD gốc, đã xác nhận với ngư�
     nhận con số và vẫn không được ghi số vào nhận xét; không ảnh hưởng mức
     Thái độ; lời giáo viên khác dữ liệu thì theo lời giáo viên. Quy tắc cũ
     "không nhắc BTVN" đổi thành "không ghi con số/hạn nộp".
+-   **Sửa 2026-09-30 (đã xác nhận với người dùng) — BTVN theo từng kỹ
+    năng:** (1) ngưỡng đổi thành: ≥ 85% "làm tốt", 51–84% "làm được" (không
+    nhắc), ≤ 50% "cần cố gắng" (tính cả đúng 50%); (2) mỗi cột "BTVN buổi trước"
+    quy về đúng 1 kỹ năng theo Loại giáo viên của buổi — kênh chính (ô
+    Offline + % tự động) là **ngữ pháp** (buổi GV Việt Nam) / **nghe** (buổi
+    GVNN), kênh video là **từ vựng** / **phản xạ nói**, Reading/Writing
+    (online + trên giấy) là **đọc**/**viết**; (3) dữ liệu đưa AI có dạng
+    "BTVN buổi trước theo kỹ năng: nghe — cần cố gắng; đọc — làm tốt", 2
+    nguồn cùng kỹ năng khác mức thì ghi rõ nguồn; (4) AI giữ nguyên ý giáo
+    viên và THÊM 1 câu về BTVN nêu đúng tên kỹ năng (VD "Thủy cần luyện tập
+    thêm về kỹ năng nghe", "Con làm bài đọc ở nhà rất tốt", "Con nhớ hoàn
+    thành bài luyện viết ở nhà nhé") thay cho câu chung "bài tập về nhà";
+    nhiều hơn 2 kỹ năng thì ưu tiên kỹ năng "cần cố gắng"/"chưa hoàn
+    thành". UC-75 (soát nhận xét chờ duyệt) dùng cùng cách quy kỹ năng để
+    phát hiện mâu thuẫn BTVN theo từng kỹ năng.
+-   **Bổ sung 2026-09-30 (đã xác nhận với người dùng) — thống kê BTVN nhiều
+    buổi (`HomeworkInsightService` + `HomeworkHistoryInsight`, chỉ dùng cho
+    trợ lý, giáo viên không xem trực tiếp số liệu):** xét tối đa 4 lần BTVN
+    gần nhất (bài giao ở 4 buổi trước, cùng lớp + cùng Loại giáo viên; %
+    tự động các Lô online kênh chính/Reading/Writing tính theo Bài như cột
+    "BTVN buổi trước" + điểm nhập tay ghi ở buổi sau đó; lần gần nhất dùng
+    điểm giáo viên đang gõ trên bảng). Quy ra lời, không có số:
+    (1) **xu hướng** — 3 lần gần nhất của 1 kỹ năng đều có điểm, tăng
+    (giảm) liên tục và chênh ≥ 20 điểm % → "tiến bộ đều / đi xuống";
+    (2) **điểm yếu/mạnh cụ thể** của BTVN buổi trước (lượt mới nhất): tỷ lệ
+    đúng theo dạng câu hỏi và theo độ khó (câu chấm tự động, nhóm ≥ 3 câu),
+    % từng tiêu chí chấm tự luận/nói (bản chấm hiện hành, bỏ tên tiêu chí
+    có chữ số) — ≤ 50% yếu, ≥ 85% mạnh; chỉ nêu 1 điểm yếu nhất, hoặc 1
+    điểm mạnh nhất khi không có điểm yếu (dạng câu/độ khó chỉ khen khi học
+    sinh có ≥ 2 nhóm cùng loại); (3) **thói quen** — Bài làm ≥ 2 lượt đã
+    chấm và lượt mới nhất cao hơn lượt đầu → khen chăm làm lại; 4 lần liên
+    tiếp làm đủ (có bài và không kỹ năng nào "Chưa làm bài") → khen đều
+    đặn; cùng 1 kỹ năng "Chưa làm bài" 2 lần liền → nhắc nhẹ; nộp muộn ≥ 2
+    trong 3 lần gần nhất → nhắc nhẹ. Các ý xếp theo ưu tiên bỏ bài/nộp muộn
+    → điểm yếu cụ thể → xu hướng → khen, đưa AI qua trường
+    `homeworkDetails`; phần BTVN trong 1 nhận xét tối đa 2 câu (gộp cả
+    trường `homework`). Kênh video (từ vựng/phản xạ nói) chỉ dùng điểm nhập
+    tay cho các lần cũ. Mọi truy vấn theo lô cho cả lớp.
+-   **Bổ sung 2026-09-30 (đã xác nhận với người dùng) — tín hiệu ngoài lời
+    giáo viên (`StudentSignalService` + `StudentSignalInsight`, chỉ đọc):**
+    (1) **Điểm danh buổi này**: Đi muộn/Về sớm từ 10 phút → nhắc nhẹ; điểm
+    danh không ghi số phút (ô không bắt buộc) → KHÔNG nhắc. (2) **Chuyên
+    cần** 8 buổi gần nhất của lớp (tính cả buổi này, mọi Loại giáo viên):
+    đủ 8 buổi đều Có mặt → khen; Vắng không phép ≥ 2 hoặc Đi muộn ≥ 3 →
+    nhắc nhẹ; Vắng có phép không tính. Tối đa 1 câu, không ghi số buổi/số
+    phút, không ghi lý do. Rubric đổi quy tắc cũ "không nhắc việc nghỉ học,
+    về sớm" thành "chỉ nhắc khi có dữ liệu điểm danh hoặc giáo viên tự
+    nói". (3) **Nhận xét buổi khác Loại giáo viên**: nhận xét (không bị từ
+    chối) ở buổi gần nhất trước buổi này của loại giáo viên kia, cùng lớp
+    (so theo cặp ngày + id như "buổi trước", nên lấy được cả buổi sáng
+    cùng ngày) — chỉ để giữ nhất quán và đem so trùng lặp (bước 7), KHÔNG
+    nhắc tới giáo viên/buổi đó. (4) **Lời mời họp phụ huynh vì thiếu
+    BTVN** (`homework_parent_meeting_invites` PENDING/APPROVED, tạo trong
+    30 ngày trước buổi học, đúng lớp) → chỉ là gợi ý giọng văn: không khen
+    phần BTVN đó, không nhắc chuyện mời họp. (5) **Thông tin học sinh**:
+    ngày vào lớp trong 30 ngày trước buổi học → được nhắc "mới vào lớp";
+    dưới 10 tuổi (theo ngày sinh) → chỉ chỉnh giọng văn đơn giản, ấm áp,
+    không ghi tuổi. Dữ liệu học sinh có thể chưa chính xác nên dòng nhận
+    xét nhắc tới "mới vào lớp/tham gia lớp…" hoặc "tuổi" được gắn cảnh báo
+    `STUDENT_INFO_CHECK` để giáo viên xác thực trước khi gửi.
 -   **Bổ sung 2026-09-29 (sau đánh giá rubric lần 3):** (1) kho kiểu câu
     mở rộng lên 10 kiểu mở đầu (kiểu 10 — ghi nhận của giáo viên — chỉ dùng
     khi có `teacherPronoun`) và 8 kiểu câu kết; bỏ quy tắc "mỗi kiểu 1 học

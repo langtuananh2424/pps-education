@@ -11,6 +11,7 @@ import vn.com.pps.education.common.CommentAiDraftMetrics;
 import vn.com.pps.education.common.CommentPatternCheck;
 import vn.com.pps.education.common.CommentSimilarity;
 import vn.com.pps.education.common.HomeworkScoreInsight;
+import vn.com.pps.education.common.StudentSignalInsight;
 import vn.com.pps.education.domain.AttendanceMark;
 import vn.com.pps.education.domain.ClassEnrollment;
 import vn.com.pps.education.domain.ClassSession;
@@ -98,6 +99,8 @@ public class CommentAiDraftService {
     private final AttendanceSessionRepository attendanceSessionRepository;
     private final AttendanceMarkRepository attendanceMarkRepository;
     private final StudentCommentRepository studentCommentRepository;
+    private final HomeworkInsightService homeworkInsightService;
+    private final StudentSignalService studentSignalService;
     private final NineRouterAiClient aiClient;
     private final CommentAiJsonCaller jsonCaller;
     private final AiJobRegistry jobRegistry;
@@ -124,6 +127,8 @@ public class CommentAiDraftService {
                                  AttendanceSessionRepository attendanceSessionRepository,
                                  AttendanceMarkRepository attendanceMarkRepository,
                                  StudentCommentRepository studentCommentRepository,
+                                 HomeworkInsightService homeworkInsightService,
+                                 StudentSignalService studentSignalService,
                                  NineRouterAiClient aiClient,
                                  CommentAiJsonCaller jsonCaller,
                                  AiJobRegistry jobRegistry,
@@ -141,6 +146,8 @@ public class CommentAiDraftService {
         this.attendanceSessionRepository = attendanceSessionRepository;
         this.attendanceMarkRepository = attendanceMarkRepository;
         this.studentCommentRepository = studentCommentRepository;
+        this.homeworkInsightService = homeworkInsightService;
+        this.studentSignalService = studentSignalService;
         this.aiClient = aiClient;
         this.jsonCaller = jsonCaller;
         this.jobRegistry = jobRegistry;
@@ -158,15 +165,48 @@ public class CommentAiDraftService {
     }
 
     /**
-     * @param lowStreak số buổi Thái độ Yếu/Trung bình liên tiếp đã duyệt hiện tại (UC-74, nhắc chuỗi cảnh báo 3 buổi).
+     * @param lowStreak       số buổi Thái độ Yếu/Trung bình liên tiếp đã duyệt hiện tại (UC-74, nhắc chuỗi cảnh báo 3 buổi).
+     * @param homeworkDetails thống kê BTVN nhiều buổi bằng lời, theo thứ tự ưu tiên (bổ sung 2026-09-30, xem
+     *                        {@link HomeworkInsightService}); rỗng nếu không có gì đáng nhắc.
+     * @param signals         điểm danh/chuyên cần, gợi ý giọng văn, thông tin học sinh, nhận xét buổi khác Loại giáo viên
+     *                        (bổ sung 2026-09-30, xem {@link StudentSignalService}).
      */
-    record RosterStudent(Long id, String fullName, List<PreviousComment> previousComments, int lowStreak, String homeworkNote) {
+    record RosterStudent(Long id, String fullName, List<PreviousComment> previousComments, int lowStreak, String homeworkNote,
+                         List<String> homeworkDetails, StudentSignalService.Signals signals) {
         RosterStudent(Long id, String fullName, List<PreviousComment> previousComments) {
-            this(id, fullName, previousComments, 0, null);
+            this(id, fullName, previousComments, 0, null, List.of(), StudentSignalService.Signals.EMPTY);
         }
 
         RosterStudent(Long id, String fullName, List<PreviousComment> previousComments, int lowStreak) {
-            this(id, fullName, previousComments, lowStreak, null);
+            this(id, fullName, previousComments, lowStreak, null, List.of(), StudentSignalService.Signals.EMPTY);
+        }
+
+        RosterStudent(Long id, String fullName, List<PreviousComment> previousComments, int lowStreak, String homeworkNote) {
+            this(id, fullName, previousComments, lowStreak, homeworkNote, List.of(), StudentSignalService.Signals.EMPTY);
+        }
+
+        RosterStudent(Long id, String fullName, List<PreviousComment> previousComments, int lowStreak, String homeworkNote,
+                      List<String> homeworkDetails) {
+            this(id, fullName, previousComments, lowStreak, homeworkNote, homeworkDetails, StudentSignalService.Signals.EMPTY);
+        }
+
+        /** Đưa các tín hiệu ngoài lời giáo viên vào payload gửi AI (chỉ các trường có dữ liệu). */
+        void putSignals(Map<String, Object> item) {
+            if (!homeworkDetails.isEmpty()) {
+                item.put("homeworkDetails", homeworkDetails);
+            }
+            if (!signals.attendance().isEmpty()) {
+                item.put("attendance", signals.attendance());
+            }
+            if (!signals.toneHints().isEmpty()) {
+                item.put("toneHints", signals.toneHints());
+            }
+            if (!signals.studentInfo().isEmpty()) {
+                item.put("studentInfo", signals.studentInfo());
+            }
+            if (signals.otherTeacherComment() != null) {
+                item.put("otherTeacherComment", signals.otherTeacherComment().content());
+            }
         }
 
         String callName() {
@@ -270,10 +310,13 @@ public class CommentAiDraftService {
      */
     DraftContext loadContext(Long classSessionId, Long actorUserId, List<HomeworkScoreInput> homeworkScores) {
         ClassSession session = studentCommentService.requireCanWriteDailyCommentFor(classSessionId, actorUserId);
-        Map<Long, AttendanceMark.Status> attendance = attendanceSessionRepository.findByClassSessionId(session.getId())
+        Map<Long, AttendanceMark> todayMarks = attendanceSessionRepository.findByClassSessionId(session.getId())
                 .map(a -> attendanceMarkRepository.findByAttendanceSessionId(a.getId()).stream()
-                        .collect(Collectors.toMap(m -> m.getStudent().getId(), AttendanceMark::getStatus, (x, y) -> x)))
+                        .collect(Collectors.toMap(m -> m.getStudent().getId(), m -> m, (x, y) -> x)))
                 .orElseGet(Map::of);
+        Map<Long, AttendanceMark.Status> attendance = new HashMap<>();
+        todayMarks.forEach((id, mark) -> attendance.put(id, mark.getStatus()));
+        Map<Long, ClassEnrollment> eligibleEnrollments = new LinkedHashMap<>();
         Map<Long, StudentComment.Status> existingStatus = studentCommentRepository.findByClassSessionId(session.getId()).stream()
                 .collect(Collectors.toMap(c -> c.getStudent().getId(), StudentComment::getStatus, (x, y) -> x));
 
@@ -292,6 +335,7 @@ public class CommentAiDraftService {
                 skipped.add(new CommentAiDraftResult.SkippedStudent(student.getId(), name, "Đã gửi duyệt"));
             } else {
                 eligible.add(student);
+                eligibleEnrollments.putIfAbsent(student.getId(), enrollment);
             }
         }
         if (eligible.isEmpty()) {
@@ -316,19 +360,44 @@ public class CommentAiDraftService {
             }
         }
         Map<Long, Integer> lowStreaks = attitudeAlertTrackingService.currentLowStreaks(session.getSchoolClass(), ids);
-        Map<Long, String> homeworkNotes = homeworkNotes(session.getId(), actorUserId, homeworkScores, previousById);
+        Map<Long, String> homeworkNotes = homeworkNotes(session.getId(), actorUserId,
+                session.getTeacherType() == ClassSession.TeacherType.FOREIGN, homeworkScores, previousById);
+        Map<Long, HomeworkScoreInput> manualById = new HashMap<>();
+        if (homeworkScores != null) {
+            homeworkScores.stream().filter(h -> h != null && h.studentId() != null).forEach(h -> manualById.putIfAbsent(h.studentId(), h));
+        }
+        Map<Long, List<String>> homeworkDetails = homeworkInsightService.describe(session, ids, manualById);
+        Map<Long, StudentSignalService.Signals> signals = studentSignalService.describe(session, eligibleEnrollments, todayMarks);
+        // Nhận xét buổi khác Loại giáo viên cũng đem so trùng lặp (bước 7) như các nhận xét cũ khác.
+        signals.forEach((id, s) -> {
+            if (s.otherTeacherComment() != null) {
+                List<PreviousComment> list = previousById.computeIfAbsent(id, k -> new ArrayList<>());
+                if (list.stream().noneMatch(p -> p.content().equals(s.otherTeacherComment().content()))) {
+                    list.add(new PreviousComment(s.otherTeacherComment().date(), s.otherTeacherComment().content()));
+                }
+            }
+        });
         Collator collator = Collator.getInstance(Locale.forLanguageTag("vi"));
         List<RosterStudent> roster = eligible.stream()
                 .map(s -> new RosterStudent(s.getId(), s.getUser().getFullName(), List.copyOf(previousById.getOrDefault(s.getId(), List.of())),
-                        lowStreaks.getOrDefault(s.getId(), 0), homeworkNotes.get(s.getId())))
+                        lowStreaks.getOrDefault(s.getId(), 0), homeworkNotes.get(s.getId()),
+                        List.copyOf(homeworkDetails.getOrDefault(s.getId(), List.of())),
+                        signals.getOrDefault(s.getId(), StudentSignalService.Signals.EMPTY)))
                 .sorted(Comparator.comparing(RosterStudent::callName, collator).thenComparing(RosterStudent::fullName, collator))
                 .toList();
         return new DraftContext(session.getId(), session.getSchoolClass().getName(), session.getSessionDate(),
                 session.getLessonContent(), roster, List.copyOf(skipped));
     }
 
-    private Map<Long, String> homeworkNotes(Long classSessionId, Long actorUserId, List<HomeworkScoreInput> homeworkScores,
-                                            Map<Long, List<PreviousComment>> previousById) {
+    /**
+     * Mỗi cột "BTVN buổi trước" trên bảng quy về đúng 1 kỹ năng (bổ sung 2026-09-30, đã xác nhận với người dùng)
+     * để AI nhận xét cụ thể theo kỹ năng: kênh chính (ô Offline + % tự động) là ngữ pháp ở buổi GV Việt Nam, nghe
+     * ở buổi GVNN; kênh video là từ vựng / phản xạ nói; Reading/Writing là đọc/viết.
+     */
+    private Map<Long, String> homeworkNotes(Long classSessionId, Long actorUserId, boolean foreignSession,
+                                            List<HomeworkScoreInput> homeworkScores, Map<Long, List<PreviousComment>> previousById) {
+        String mainSkill = HomeworkScoreInsight.mainChannelSkill(foreignSession);
+        String videoSkill = HomeworkScoreInsight.videoChannelSkill(foreignSession);
         Map<Long, AutoProgressPreviewResponse> autoById = new HashMap<>();
         for (AutoProgressPreviewResponse auto : studentCommentService.previewAutoProgress(classSessionId, actorUserId)) {
             autoById.put(auto.studentId(), auto);
@@ -344,24 +413,24 @@ public class CommentAiDraftService {
             List<HomeworkScoreInsight.Channel> channels = new ArrayList<>();
             HomeworkScoreInput manual = manualById.get(studentId);
             if (manual != null) {
-                channels.add(new HomeworkScoreInsight.Channel("bài tập offline", manual.offline()));
-                channels.add(new HomeworkScoreInsight.Channel("bài Reading offline", manual.reading()));
-                channels.add(new HomeworkScoreInsight.Channel("bài Writing offline", manual.writing()));
-                channels.add(new HomeworkScoreInsight.Channel("video ôn tập", manual.speaking()));
+                channels.add(new HomeworkScoreInsight.Channel(mainSkill, "bài trên giấy", manual.offline()));
+                channels.add(new HomeworkScoreInsight.Channel(HomeworkScoreInsight.SKILL_READING, "bài trên giấy", manual.reading()));
+                channels.add(new HomeworkScoreInsight.Channel(HomeworkScoreInsight.SKILL_WRITING, "bài trên giấy", manual.writing()));
+                channels.add(new HomeworkScoreInsight.Channel(videoSkill, "video ôn tập", manual.speaking()));
             }
             AutoProgressPreviewResponse auto = autoById.get(studentId);
             if (auto != null) {
-                channels.add(new HomeworkScoreInsight.Channel("bài tập online", auto.grammarPreviousProgress()));
-                channels.add(new HomeworkScoreInsight.Channel("video ôn tập online", auto.videoPreviousProgress()));
-                channels.add(new HomeworkScoreInsight.Channel("bài Reading online", auto.readingPreviousProgress()));
-                channels.add(new HomeworkScoreInsight.Channel("bài Writing online", auto.writingPreviousProgress()));
+                channels.add(new HomeworkScoreInsight.Channel(mainSkill, "bài online", auto.grammarPreviousProgress()));
+                channels.add(new HomeworkScoreInsight.Channel(videoSkill, "video ôn tập", auto.videoPreviousProgress()));
+                channels.add(new HomeworkScoreInsight.Channel(HomeworkScoreInsight.SKILL_READING, "bài online", auto.readingPreviousProgress()));
+                channels.add(new HomeworkScoreInsight.Channel(HomeworkScoreInsight.SKILL_WRITING, "bài online", auto.writingPreviousProgress()));
             }
             java.util.OptionalInt previousAverage = previousById.getOrDefault(studentId, List.of()).stream()
                     .map(PreviousComment::homeworkPercent).filter(java.util.Objects::nonNull).findFirst()
                     .map(java.util.OptionalInt::of).orElse(java.util.OptionalInt.empty());
             java.util.OptionalInt currentManualAverage = manual == null ? java.util.OptionalInt.empty()
                     : HomeworkScoreInsight.averagePercent(java.util.Arrays.asList(manual.offline(), manual.speaking(), manual.reading(), manual.writing()));
-            String note = HomeworkScoreInsight.describe(channels, currentManualAverage, previousAverage, settings.homeworkTrendPoints());
+            String note = HomeworkScoreInsight.describe(channels, false, currentManualAverage, previousAverage, settings.homeworkTrendPoints());
             if (note != null) {
                 notes.put(studentId, note);
             }
@@ -461,6 +530,7 @@ public class CommentAiDraftService {
             item.put("content", row == null ? null : row.content());
             item.put("previousComments", student.previousComments().stream().map(PreviousComment::content).toList());
             item.put("homework", student.homeworkNote());
+            student.putSignals(item);
             students.add(item);
         }
         payload.put("students", students);
@@ -761,6 +831,7 @@ public class CommentAiDraftService {
             item.put("points", target.points());
             item.put("previousComments", target.student().previousComments().stream().map(PreviousComment::content).toList());
             item.put("homework", target.student().homeworkNote());
+            target.student().putSignals(item);
             if (!target.sharedWith().isEmpty()) {
                 item.put("sharedWithStudentIds", target.sharedWith());
             }
@@ -843,6 +914,12 @@ public class CommentAiDraftService {
                 CommentAiDraftResult.Warning pronounWarning = pronounMismatchWarning(content, teacherPronoun);
                 if (pronounWarning != null) {
                     warnings.add(pronounWarning);
+                }
+                // Bổ sung 2026-09-30 (đã xác nhận với người dùng): thông tin học sinh trên hệ thống (ngày vào lớp, ngày
+                // sinh) có thể chưa chính xác — dòng nào nhắc tới thì giáo viên phải xác thực lại trước khi gửi.
+                if (StudentSignalInsight.mentionsStudentInfo(content)) {
+                    warnings.add(new CommentAiDraftResult.Warning("STUDENT_INFO_CHECK",
+                            "Nhận xét dùng thông tin học sinh trên hệ thống (mới vào lớp/độ tuổi) — dữ liệu có thể chưa chính xác, thầy/cô xác thực lại.", null));
                 }
             }
             CommentAiDraftResult.Warning attitudeAlert = attitudeAlertWarning(target.attitude(), target.student().lowStreak());
