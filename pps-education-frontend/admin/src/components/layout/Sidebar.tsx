@@ -177,7 +177,7 @@ export default function Sidebar() {
                         >
                           {({ isActive }) => (
                             <>
-                              <Icon className={cn("w-4 h-4 shrink-0", isActive ? "text-white" : "text-slate-400")} />
+                              <Icon className={cn("w-4 h-4 shrink-0", isActive ? "text-white" : "text-slate-600")} />
                               <span className="truncate">{t(`nav.items.${item.id}`, item.label)}</span>
                               {item.id === "lms-exams" && <CountBadge count={pendingGradingCount} />}
                             </>
