@@ -198,6 +198,9 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
     private StudentRepository studentRepository;
 
     @Autowired
+    private vn.com.pps.education.repository.StudentCommentRepository studentCommentRepository;
+
+    @Autowired
     private RoomRepository roomRepository;
 
     @Autowired
@@ -397,8 +400,8 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
 
         SaveDraftCommentsResponse response = studentCommentService.saveDraftBatch(schoolClass.id(), classSession.id(),
                 new SaveDraftCommentsRequest(classSession.sessionDate(), List.of(
-                        new SaveDraftCommentsRequest.Row(student.getId(), "Nội dung HS1.", null, null, false, null, null, null, null, null, null, null, null, null),
-                        new SaveDraftCommentsRequest.Row(student2.getId(), "Nội dung HS2.", null, null, false, null, null, null, null, null, null, null, null, null)
+                        new SaveDraftCommentsRequest.Row(student.getId(), "Nội dung HS1.", null, null, false, null, null, null, null, null, null, null, null, null, null),
+                        new SaveDraftCommentsRequest.Row(student2.getId(), "Nội dung HS2.", null, null, false, null, null, null, null, null, null, null, null, null, null)
                 )),
                 teacher.getId());
 
@@ -407,6 +410,31 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
         assertThat(response.saved()).extracting(StudentCommentResponse::content).containsExactlyInAnyOrder("Nội dung HS1.", "Nội dung HS2.");
         assertThat(studentCommentService.listComments(schoolClass.id(), student.getId())).hasSize(1);
         assertThat(studentCommentService.listComments(schoolClass.id(), student2.getId())).hasSize(1);
+    }
+
+    /** V201 (UC-74) — dòng áp dụng từ trợ lý AI được đánh dấu ai_drafted; lần Lưu nháp sau không gửi cờ thì giữ nguyên. */
+    @Test
+    void saveDraftBatch_UC74_marksAiDraftedRowsAndKeepsFlagOnLaterSaves() {
+        Student student2 = newStudent();
+        classService.enroll(schoolClass.id(), new EnrollStudentRequest(student2.getId(), LocalDate.now()), headAcademic.getId());
+
+        SaveDraftCommentsResponse first = studentCommentService.saveDraftBatch(schoolClass.id(), classSession.id(),
+                new SaveDraftCommentsRequest(classSession.sessionDate(), List.of(
+                        new SaveDraftCommentsRequest.Row(student.getId(), "Bản AI soạn.", null, null, false, null, null, null, null, null, null, null, null, null, true),
+                        new SaveDraftCommentsRequest.Row(student2.getId(), "Giáo viên tự viết.", null, null, false, null, null, null, null, null, null, null, null, null, null)
+                )),
+                teacher.getId());
+        Long aiCommentId = first.saved().stream().filter(c -> c.studentId().equals(student.getId())).findFirst().orElseThrow().id();
+        Long manualCommentId = first.saved().stream().filter(c -> c.studentId().equals(student2.getId())).findFirst().orElseThrow().id();
+
+        studentCommentService.saveDraftBatch(schoolClass.id(), classSession.id(),
+                new SaveDraftCommentsRequest(classSession.sessionDate(), List.of(
+                        new SaveDraftCommentsRequest.Row(student.getId(), "Giáo viên sửa lại bản AI.", null, null, false, null, null, null, null, null, null, null, null, null, null)
+                )),
+                teacher.getId());
+
+        assertThat(studentCommentRepository.findById(aiCommentId).orElseThrow().isAiDrafted()).isTrue();
+        assertThat(studentCommentRepository.findById(manualCommentId).orElseThrow().isAiDrafted()).isFalse();
     }
 
     /** Mirror writeComment_boSung_rejectsWhenSessionAlreadyHasPendingComment — nhưng ở đây học sinh khác trong CÙNG lô vẫn phải lưu được, không bị chặn theo. */
@@ -419,8 +447,8 @@ class StudentCommentServiceTest extends AbstractIntegrationTest {
 
         SaveDraftCommentsResponse response = studentCommentService.saveDraftBatch(schoolClass.id(), classSession.id(),
                 new SaveDraftCommentsRequest(classSession.sessionDate(), List.of(
-                        new SaveDraftCommentsRequest.Row(student.getId(), "Sửa nội dung khác.", null, null, false, null, null, null, null, null, null, null, null, null),
-                        new SaveDraftCommentsRequest.Row(student2.getId(), "Nội dung HS2.", null, null, false, null, null, null, null, null, null, null, null, null)
+                        new SaveDraftCommentsRequest.Row(student.getId(), "Sửa nội dung khác.", null, null, false, null, null, null, null, null, null, null, null, null, null),
+                        new SaveDraftCommentsRequest.Row(student2.getId(), "Nội dung HS2.", null, null, false, null, null, null, null, null, null, null, null, null, null)
                 )),
                 teacher.getId());
 

@@ -2310,6 +2310,16 @@ Ghi chú kỹ thuật (bổ sung ngoài SDD gốc, đã xác nhận với ngư�
     thế nữa", "mong con", "con ngoan"): cụm vượt cùng ngưỡng
     `max-pattern-share` thì viết lại, vẫn vượt thì cảnh báo
     `REPEATED_PATTERN`. Không đưa bảng xếp hạng giáo viên vào hệ thống.
+-   **Bổ sung 2026-09-29 (đã xác nhận với người dùng):** (1) cột mới
+    `student_comments.ai_drafted` (V201): Lưu nháp dòng giáo viên vừa áp
+    dụng từ trợ lý thì gửi kèm `aiDrafted=true`, backend bật cờ (không tắt
+    lại, giáo viên sửa tay sau đó vẫn giữ). `scripts/comment-ai-approved-metrics.sql`
+    so sánh nhận xét AI soạn với nhận xét tự viết trên dữ liệu đã gửi duyệt
+    (tỷ lệ duyệt, từng bị từ chối, độ dài, có chữ số, nhắc tên bài, tỷ lệ
+    Yếu/Trung bình) theo tuần. (2) Cảnh báo `REPEATED_PATTERN` chỉ nêu các
+    cụm sáo mòn thực sự vượt ngưỡng ở dòng đó. Đã chốt với người dùng các
+    ngưỡng: BTVN tăng/giảm rõ 20 điểm, lặp kiểu câu 30% lớp, trùng lặp cả
+    đoạn 50%, danh sách cụm sáo mòn hiện tại.
 
 ---
 
@@ -2612,6 +2622,13 @@ Ghi chú kỹ thuật (bổ sung ngoài SDD gốc, đã xác nhận với ngư�
     mở/kết hoặc cụm sáo mòn quá ngưỡng được gắn lưu ý `REPEATED_PATTERN`
     (không chặn duyệt, không gắn nếu dòng đã có `SIMILAR_IN_SESSION`), tóm tắt
     có `repeatedPatternCount`.
+    (6) *Bổ sung 2026-09-29:* lưu ý BTVN đọc thêm % tự động của bài online
+    (bài tập online/video khi chưa nhập tay, Reading/Writing online), đúng
+    các cột Quản lý thấy trên bảng duyệt. Duyệt gộp nhiều buổi của 1 học
+    sinh thì cảnh báo thái độ được tính theo THỨ TỰ NGÀY
+    (`StudentCommentService#decideComments`), khớp nhãn "Sẽ báo phụ huynh";
+    nhãn ghi rõ khi đã tính cả buổi Yếu/Trung bình cũ hơn còn chờ duyệt.
+    Sidebar gom các dòng "lặp khuôn câu" thành 1 dòng tóm tắt.
 
 ---
 

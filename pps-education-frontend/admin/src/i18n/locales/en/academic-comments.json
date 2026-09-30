@@ -141,7 +141,8 @@
         "ATTITUDE_MISMATCH": "attitude mismatch",
         "FORBIDDEN_TOPIC": "off-limits topic",
         "OTHER": "other issues"
-      }
+      },
+      "repeatedPatternGroup": "{{count}} rows reuse the same sentence template (opening/closing or repeated phrase): {{names}}. Does not block approval — consider asking the teacher to vary the wording."
     },
     "assistant": {
       "openButton": "AI review assistant",

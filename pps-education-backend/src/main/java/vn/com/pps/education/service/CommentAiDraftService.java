@@ -700,7 +700,7 @@ public class CommentAiDraftService {
                 boolean sameClosing = patterns.closingIds().contains(id) && closingKey != null
                         && closingKey.equals(CommentPatternCheck.closingKey(otherText));
                 boolean samePhrase = patterns.phraseIds().contains(id)
-                        && CommentPatternCheck.phrasesIn(otherText).stream().anyMatch(CommentPatternCheck.phrasesIn(text)::contains);
+                        && CommentPatternCheck.phrasesIn(otherText).stream().anyMatch(patterns.phrasesById().get(id)::contains);
                 if (sameOpening || sameClosing || samePhrase) {
                     similar.add(otherText);
                 }
@@ -728,7 +728,7 @@ public class CommentAiDraftService {
     }
 
     /** Nội dung cảnh báo lặp kiểu câu — dùng chung cho trợ lý soạn nháp (UC-74) và trợ lý duyệt (UC-75). */
-    static String repeatedPatternMessage(CommentPatternCheck.Result patterns, Long id, String content) {
+    static String repeatedPatternMessage(CommentPatternCheck.Result patterns, Long id) {
         List<String> parts = new ArrayList<>();
         if (patterns.openingIds().contains(id)) {
             parts.add("câu mở đầu");
@@ -737,7 +737,7 @@ public class CommentAiDraftService {
             parts.add("câu kết");
         }
         if (patterns.phraseIds().contains(id)) {
-            parts.add("cụm \"" + String.join("\", \"", CommentPatternCheck.phrasesIn(content)) + "\"");
+            parts.add("cụm \"" + String.join("\", \"", patterns.phrasesById().get(id)) + "\"");
         }
         return "Kiểu " + String.join(" và ", parts) + " giống nhiều bạn khác trong buổi — nên đổi cách viết.";
     }
@@ -838,7 +838,7 @@ public class CommentAiDraftService {
                 // Đã cảnh báo trùng cả đoạn thì không nhắc thêm trùng kiểu câu (tránh 2 cảnh báo cho cùng 1 lỗi).
                 boolean similarWarned = bestInSession >= settings.similarityThreshold();
                 if (!similarWarned && patterns.all().contains(id)) {
-                    warnings.add(new CommentAiDraftResult.Warning("REPEATED_PATTERN", repeatedPatternMessage(patterns, id, content), null));
+                    warnings.add(new CommentAiDraftResult.Warning("REPEATED_PATTERN", repeatedPatternMessage(patterns, id), null));
                 }
                 CommentAiDraftResult.Warning pronounWarning = pronounMismatchWarning(content, teacherPronoun);
                 if (pronounWarning != null) {

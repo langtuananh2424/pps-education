@@ -1521,6 +1521,8 @@ export function updateComment(id: number, request: UpdateStudentCommentRequest):
  */
 export interface SaveDraftRowRequest extends UpdateStudentCommentRequest {
   studentId: number;
+  /** UC-74 (V201) — true khi dòng vừa áp dụng từ bản nháp trợ lý AI; bỏ trống thì BE giữ nguyên cờ đã lưu. */
+  aiDrafted?: boolean;
 }
 
 export interface SaveDraftCommentsRequest {

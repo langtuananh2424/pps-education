@@ -286,8 +286,12 @@ export default function CommentApprovalAssistantSidebar({
                 {m.reviewClassId != null && m.id === latestReviewMessageId && (() => {
                   const cls = classes.find((c) => c.classId === m.reviewClassId);
                   if (!cls) return <p className="text-xs text-slate-400 italic">{t("approvalByClass.assistant.classDone")}</p>;
-                  const noticesOf = (id: number) => (reviewByCommentId[id]?.notices ?? []).filter((n) => n.type !== "ATTITUDE_ALERT");
-                  // Dòng có lỗi, hoặc chỉ có lưu ý của AI (VD BTVN ngược dữ liệu) — lưu ý không chặn "Duyệt dòng không có cảnh báo".
+                  // Lưu ý hiện riêng từng dòng (VD BTVN ngược dữ liệu). Cảnh báo phụ huynh hiện ở dòng riêng; "lặp khuôn câu"
+                  // gom thành 1 dòng tóm tắt bên dưới để danh sách không dài ra với giáo viên viết theo khuôn.
+                  const noticesOf = (id: number) =>
+                    (reviewByCommentId[id]?.notices ?? []).filter((n) => n.type !== "ATTITUDE_ALERT" && n.type !== "REPEATED_PATTERN");
+                  const repeated = cls.items.filter((cm) => reviewByCommentId[cm.id]?.notices.some((n) => n.type === "REPEATED_PATTERN"));
+                  // Dòng có lỗi, hoặc có lưu ý của AI — lưu ý không chặn "Duyệt dòng không có cảnh báo".
                   const flagged = cls.items.filter((cm) => (reviewByCommentId[cm.id]?.issues.length ?? 0) > 0 || noticesOf(cm.id).length > 0);
                   const cleanCount = cls.items.filter((cm) => reviewByCommentId[cm.id] && reviewByCommentId[cm.id].issues.length === 0).length;
                   return (
@@ -309,6 +313,15 @@ export default function CommentApprovalAssistantSidebar({
                           {t("approvalByClass.assistant.reviewAgain")}
                         </button>
                       </div>
+                      {repeated.length > 0 && (
+                        <p className="flex items-start gap-1 text-xs text-sky-800 bg-sky-50 border border-sky-100 rounded-lg p-2">
+                          <Info className="w-3 h-3 mt-0.5 shrink-0" />
+                          {t("approvalByClass.aiReview.repeatedPatternGroup", {
+                            count: repeated.length,
+                            names: repeated.map((cm) => cm.studentFullName).join(", ")
+                          })}
+                        </p>
+                      )}
                       {flagged.length > 0 && (
                         <ul className="space-y-1.5 max-h-[28rem] overflow-y-auto pr-1">
                           {flagged.map((cm) => {
