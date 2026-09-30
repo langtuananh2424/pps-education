@@ -45,4 +45,17 @@ public interface AttendanceMarkRepository extends JpaRepository<AttendanceMark, 
             ORDER BY cs.sessionDate DESC
             """)
     List<AttendanceMark> findByStudentIdWithContext(@Param("studentId") Long studentId, Pageable pageable);
+
+    /**
+     * UC-74 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-30) — điểm danh nhiều buổi × nhiều học sinh
+     * trong 1 truy vấn (chuyên cần cho trợ lý nhận xét), kèm id buổi học để nhóm theo buổi.
+     */
+    @Query("""
+            SELECT m FROM AttendanceMark m
+            JOIN FETCH m.attendanceSession asess
+            WHERE asess.classSession.id IN :classSessionIds
+            AND m.student.id IN :studentIds
+            """)
+    List<AttendanceMark> findByClassSessionIdInAndStudentIdIn(@Param("classSessionIds") java.util.Collection<Long> classSessionIds,
+                                                              @Param("studentIds") java.util.Collection<Long> studentIds);
 }

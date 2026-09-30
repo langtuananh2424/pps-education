@@ -353,8 +353,21 @@ class CommentAiReviewServiceTest {
 
         String data = CommentAiReviewService.homeworkData(comment, null);
 
-        assertThat(data).isEqualTo("BTVN buổi trước: làm tốt (bài tập online); chưa hoàn thành (video ôn tập).");
+        assertThat(data).isEqualTo("BTVN buổi trước theo kỹ năng: ngữ pháp — làm tốt; từ vựng — chưa hoàn thành.");
         assertThat(data).doesNotContainPattern("\\d");
+    }
+
+    @Test
+    void homeworkData_UC75_foreignSessionMapsChannelsToListeningAndSpeakingReflex() {
+        StudentComment comment = mock(StudentComment.class);
+        vn.com.pps.education.domain.ClassSession session = mock(vn.com.pps.education.domain.ClassSession.class);
+        when(session.getTeacherType()).thenReturn(vn.com.pps.education.domain.ClassSession.TeacherType.FOREIGN);
+        when(comment.getClassSession()).thenReturn(session);
+        when(comment.getHomeworkPreviousScore()).thenReturn("40%");
+        when(comment.getHomeworkPreviousSpeakingScore()).thenReturn("95%");
+
+        assertThat(CommentAiReviewService.homeworkData(comment, null))
+                .isEqualTo("BTVN buổi trước theo kỹ năng: nghe — cần cố gắng; phản xạ nói — làm tốt.");
     }
 
     @Test
@@ -366,8 +379,8 @@ class CommentAiReviewServiceTest {
                 new vn.com.pps.education.dto.AutoProgressPreviewResponse(1L, "90%", "100%", "Chưa làm bài", "60%"));
 
         // Kênh video đã nhập tay (40%) thì theo điểm tay, không lấy % tự động 100%.
-        assertThat(data).isEqualTo("BTVN buổi trước: làm tốt (bài tập online); cần cố gắng (video ôn tập); "
-                + "chưa hoàn thành (bài Reading online); làm được, cần cẩn thận hơn (bài Writing online).");
+        assertThat(data).isEqualTo("BTVN buổi trước theo kỹ năng: ngữ pháp — làm tốt; từ vựng — cần cố gắng; "
+                + "đọc — chưa hoàn thành; viết — làm được, cần cẩn thận hơn.");
     }
 
     @Test

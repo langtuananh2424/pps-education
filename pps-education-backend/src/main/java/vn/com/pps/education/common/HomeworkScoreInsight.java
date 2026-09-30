@@ -3,10 +3,12 @@ package vn.com.pps.education.common;
 import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.OptionalInt;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -15,14 +17,26 @@ import java.util.regex.Pattern;
  * LỜI để trợ lý AI viết nhận xét, KHÔNG đưa con số cho AI (nhận xét vẫn không được ghi điểm/%). Thuần tính
  * toán, test được.
  *
- * <p>Ngưỡng đã chốt với người dùng: ≥ 80% "làm tốt"; 50–79% "làm được, cần cẩn thận hơn"; &lt; 50% "cần cố
- * gắng"; "Chưa làm bài" → "chưa hoàn thành"; "Đang chờ chấm"/không đọc được → không nhắc. Chỉ đưa cho AI các
- * kênh NỔI BẬT (làm tốt / cần cố gắng / chưa hoàn thành) hoặc khi điểm TĂNG/GIẢM RÕ so với buổi trước — mức
- * "làm được" không nổi bật nên không nhắc, tránh học sinh nào cũng có 1 câu BTVN giống khuôn.</p>
+ * <p>Ngưỡng đã chốt với người dùng (sửa 2026-09-30): ≥ 85% "làm tốt"; 51–84% "làm được, cần cẩn thận hơn";
+ * ≤ 50% "cần cố gắng"; "Chưa làm bài" → "chưa hoàn thành"; "Đang chờ chấm"/không đọc được → không nhắc. Chỉ
+ * đưa cho AI các kỹ năng NỔI BẬT (làm tốt / cần cố gắng / chưa hoàn thành) hoặc khi điểm TĂNG/GIẢM RÕ so với
+ * buổi trước — mức "làm được" không nổi bật nên không nhắc, tránh học sinh nào cũng có 1 câu BTVN giống khuôn.</p>
+ *
+ * <p>Bổ sung 2026-09-30 (đã xác nhận với người dùng): mô tả THEO TỪNG KỸ NĂNG (nghe/đọc/viết/ngữ pháp/từ vựng/
+ * phản xạ nói) thay vì theo loại bài ("bài tập online") — để AI viết cụ thể "con cần luyện thêm kỹ năng nghe"
+ * thay vì câu chung "con cần cố gắng hơn với bài tập về nhà".</p>
  */
 public final class HomeworkScoreInsight {
 
     public enum Level { GOOD, OK, LOW, NOT_DONE }
+
+    static final int GOOD_MIN_PERCENT = 85;
+    /** Từ mức này trở xuống là "cần cố gắng" (tính cả đúng 50%). */
+    static final int LOW_MAX_PERCENT = 50;
+
+    /** Kỹ năng của kênh Reading/Writing (chỉ buổi GV Việt Nam có 2 kênh này). */
+    public static final String SKILL_READING = "đọc";
+    public static final String SKILL_WRITING = "viết";
 
     private static final Pattern RATIO = Pattern.compile("(\\d+(?:[.,]\\d+)?)\\s*/\\s*(\\d+(?:[.,]\\d+)?)");
     private static final Pattern PERCENT = Pattern.compile("(\\d+(?:[.,]\\d+)?)\\s*%");
@@ -31,8 +45,28 @@ public final class HomeworkScoreInsight {
     private HomeworkScoreInsight() {
     }
 
-    /** Điểm/nhãn BTVN của 1 kênh (VD "Bài tập ngữ pháp online" → "80%" / "Chưa làm bài" / "8/10"). */
-    public record Channel(String name, String rawValue) {
+    /**
+     * Điểm/nhãn BTVN của 1 kênh.
+     *
+     * @param skill    kỹ năng của kênh (VD "nghe") — xem {@link #mainChannelSkill}/{@link #videoChannelSkill}.
+     * @param source   nguồn điểm để phân biệt khi 2 kênh cùng kỹ năng cho kết quả khác nhau (VD "bài online").
+     * @param rawValue điểm/nhãn như trên bảng (VD "80%" / "Chưa làm bài" / "8/10").
+     */
+    public record Channel(String skill, String source, String rawValue) {
+    }
+
+    /**
+     * Kỹ năng của kênh chính "BTVN buổi trước" (ô Offline + cột % tự động bên cạnh) — mirror nhãn kênh ở
+     * {@code StudentCommentService#grammarChannelLabel}: buổi GVNN giao Bài nghe (skill LISTENING), buổi GV Việt Nam
+     * giao Ngữ pháp (VOCAB_GRAMMAR).
+     */
+    public static String mainChannelSkill(boolean foreignSession) {
+        return foreignSession ? "nghe" : "ngữ pháp";
+    }
+
+    /** Kỹ năng của kênh video ôn tập — buổi GVNN là "Clip phản xạ", buổi GV Việt Nam là "Từ vựng (TKN)". */
+    public static String videoChannelSkill(boolean foreignSession) {
+        return foreignSession ? "phản xạ nói" : "từ vựng";
     }
 
     /** % đọc được từ nhãn/điểm nhập tay; rỗng nếu không đọc được hoặc đang chờ chấm. */
@@ -71,7 +105,7 @@ public final class HomeworkScoreInsight {
             return null;
         }
         int p = percent.getAsInt();
-        return p >= 80 ? Level.GOOD : p >= 50 ? Level.OK : Level.LOW;
+        return p >= GOOD_MIN_PERCENT ? Level.GOOD : p > LOW_MAX_PERCENT ? Level.OK : Level.LOW;
     }
 
     public static String phrase(Level level) {
@@ -96,37 +130,48 @@ public final class HomeworkScoreInsight {
     }
 
     /**
-     * Câu mô tả BẰNG LỜI (không có số) cho AI; {@code null} nếu không có gì nổi bật để nhắc.
+     * Câu mô tả BẰNG LỜI (không có số) theo từng kỹ năng cho AI; {@code null} nếu không có gì nổi bật để nhắc.
+     * VD "BTVN buổi trước theo kỹ năng: nghe — cần cố gắng; đọc — làm tốt." Hai kênh cùng kỹ năng cho mức khác
+     * nhau thì ghi rõ nguồn: "đọc — làm tốt (bài online), chưa hoàn thành (bài trên giấy)".
      *
+     * @param includeOk       {@code true} để ghi cả mức "làm được" (dữ liệu đối chiếu cho UC-75); {@code false}
+     *                        cho UC-74 — chỉ kỹ năng nổi bật.
      * @param currentAverage  trung bình % điểm NHẬP TAY buổi này — so với {@code previousAverage} cùng nguồn (nhập tay)
      *                        để không so lệch nguồn (online vs offline).
      * @param previousAverage trung bình % điểm nhập tay ở nhận xét buổi trước; rỗng nếu không có dữ liệu.
      * @param trendPoints     chênh lệch tối thiểu (điểm %) coi là tăng/giảm rõ.
      */
-    public static String describe(List<Channel> channels, OptionalInt currentAverage, OptionalInt previousAverage, int trendPoints) {
-        Map<Level, List<String>> byLevel = new LinkedHashMap<>();
+    public static String describe(List<Channel> channels, boolean includeOk, OptionalInt currentAverage,
+                                  OptionalInt previousAverage, int trendPoints) {
+        Map<String, Map<Level, Set<String>>> bySkill = new LinkedHashMap<>();
         for (Channel channel : channels) {
             Level level = levelOf(channel.rawValue());
-            if (level != null && level != Level.OK) {
-                byLevel.computeIfAbsent(level, k -> new ArrayList<>()).add(channel.name());
+            if (level == null || (level == Level.OK && !includeOk)) {
+                continue;
             }
+            bySkill.computeIfAbsent(channel.skill(), k -> new LinkedHashMap<>())
+                    .computeIfAbsent(level, k -> new LinkedHashSet<>()).add(channel.source());
         }
         List<String> parts = new ArrayList<>();
-        for (Level level : List.of(Level.GOOD, Level.LOW, Level.NOT_DONE)) {
-            List<String> names = byLevel.get(level);
-            if (names != null) {
-                parts.add(phrase(level) + " (" + String.join(", ", names) + ")");
+        bySkill.forEach((skill, levels) -> {
+            List<String> phrases = new ArrayList<>();
+            for (Level level : List.of(Level.GOOD, Level.OK, Level.LOW, Level.NOT_DONE)) {
+                Set<String> sources = levels.get(level);
+                if (sources != null) {
+                    phrases.add(levels.size() == 1 ? phrase(level) : phrase(level) + " (" + String.join(", ", sources) + ")");
+                }
             }
-        }
+            parts.add(skill + " — " + String.join(", ", phrases));
+        });
         if (currentAverage.isPresent() && previousAverage.isPresent()) {
             int diff = currentAverage.getAsInt() - previousAverage.getAsInt();
             if (diff >= trendPoints) {
-                parts.add("tiến bộ rõ so với buổi trước");
+                parts.add("nhìn chung tiến bộ rõ so với buổi trước");
             } else if (-diff >= trendPoints) {
-                parts.add("giảm rõ so với buổi trước");
+                parts.add("nhìn chung giảm rõ so với buổi trước");
             }
         }
-        return parts.isEmpty() ? null : "BTVN buổi trước: " + String.join("; ", parts) + ".";
+        return parts.isEmpty() ? null : "BTVN buổi trước theo kỹ năng: " + String.join("; ", parts) + ".";
     }
 
     private static double number(String text) {

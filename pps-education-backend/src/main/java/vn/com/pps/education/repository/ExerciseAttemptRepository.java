@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import vn.com.pps.education.domain.ExerciseAttempt;
 
+import java.util.Collection;
 import java.util.List;
 
 public interface ExerciseAttemptRepository extends JpaRepository<ExerciseAttempt, Long> {
@@ -46,4 +47,12 @@ public interface ExerciseAttemptRepository extends JpaRepository<ExerciseAttempt
      * thuộc cú pháp cộng khoảng thời gian riêng của từng DB.
      */
     List<ExerciseAttempt> findByStatusAndExercise_TimeLimitMinutesIsNotNull(ExerciseAttempt.Status status);
+
+    /**
+     * UC-74 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-30) — mọi lượt làm của nhiều Bài × nhiều học
+     * sinh trong 1 truy vấn, cho thống kê BTVN nhiều buổi của trợ lý nhận xét (tránh N+1 theo từng học sinh/Bài).
+     * Theo Bài (không theo bản giao) để khớp cách tính % "BTVN buổi trước" trên bảng
+     * ({@code HomeworkProgressService#grammarProgressLabel}).
+     */
+    List<ExerciseAttempt> findByExerciseIdInAndStudentIdIn(Collection<Long> exerciseIds, Collection<Long> studentIds);
 }

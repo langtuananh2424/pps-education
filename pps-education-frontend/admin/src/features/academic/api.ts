@@ -2194,7 +2194,7 @@ export function markEntranceAssessmentResultPlaced(id: number): Promise<Entrance
 export type CommentAttitude = NonNullable<StudentCommentResponse["attitude"]>;
 
 export interface CommentAiDraftWarning {
-  type: "SIMILAR_IN_SESSION" | "SIMILAR_TO_PREVIOUS" | "CONTAINS_DIGITS" | "NOT_WRITTEN" | "LESSON_TITLE" | "ATTITUDE_ALERT" | "PRONOUN_MISMATCH" | "REPEATED_PATTERN";
+  type: "SIMILAR_IN_SESSION" | "SIMILAR_TO_PREVIOUS" | "CONTAINS_DIGITS" | "NOT_WRITTEN" | "LESSON_TITLE" | "ATTITUDE_ALERT" | "PRONOUN_MISMATCH" | "REPEATED_PATTERN" | "STUDENT_INFO_CHECK";
   message: string;
   similarity: number | null;
 }
