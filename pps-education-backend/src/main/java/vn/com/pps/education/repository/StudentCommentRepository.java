@@ -54,6 +54,9 @@ public interface StudentCommentRepository extends JpaRepository<StudentComment, 
             """)
     List<StudentComment> findByStatusAndSiteId(@Param("status") StudentComment.Status status, @Param("siteId") Long siteId);
 
+    /** V202 — nhận xét chờ duyệt của mọi điểm trường, cho tài khoản có phạm vi dữ liệu "Tất cả điểm trường". */
+    List<StudentComment> findByStatusOrderBySubmittedAtAsc(StudentComment.Status status);
+
     /** Bổ sung ngoài SDD gốc — StudentProfileService (FR-REP-04): JOIN FETCH lớp/buổi học để tránh N+1 khi gộp toàn bộ nhận xét của 1 học sinh qua mọi lớp. */
     @Query("""
             SELECT c FROM StudentComment c
