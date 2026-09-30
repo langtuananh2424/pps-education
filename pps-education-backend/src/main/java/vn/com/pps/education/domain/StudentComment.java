@@ -242,6 +242,14 @@ public class StudentComment {
     @Column(columnDefinition = "TEXT")
     private String note;
 
+    /**
+     * V201 (UC-74, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-29) — nội dung xuất phát từ bản nháp
+     * của trợ lý AI. Chỉ bật lên khi Lưu nháp dòng giáo viên đã áp dụng từ trợ lý, không tắt lại; dùng để đo chất
+     * lượng nhận xét AI trên dữ liệu đã duyệt (scripts/comment-ai-approved-metrics.sql).
+     */
+    @Column(name = "ai_drafted", nullable = false)
+    private boolean aiDrafted;
+
     // ===== BTVN buổi sau CHƯA giao (còn DRAFT/REJECTED) — V127 =====
     // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-19 — trước V127,
     // homeworkNextExerciseAssignment/homeworkNextReviewVideoAssignment ở trên vừa lưu

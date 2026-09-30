@@ -11,6 +11,7 @@ import vn.com.pps.education.common.HomeworkScoreInsight;
 import vn.com.pps.education.domain.ClassEnrollment;
 import vn.com.pps.education.domain.SchoolClass;
 import vn.com.pps.education.domain.StudentComment;
+import vn.com.pps.education.dto.AutoProgressPreviewResponse;
 import vn.com.pps.education.dto.CommentAiInstructionJobResponse;
 import vn.com.pps.education.dto.CommentAiRejectionReasonJobResponse;
 import vn.com.pps.education.dto.CommentAiRejectionReasonResult;
@@ -264,6 +265,7 @@ public class CommentAiReviewService {
                 .collect(Collectors.groupingBy(c -> c.getStudent().getId()));
 
         Map<Long, CommentAttitudeAlertPreviewResponse.Item> alerts = attitudeAlerts(comments);
+        Map<Long, AutoProgressPreviewResponse> autoProgress = studentCommentService.previousAutoProgressOf(comments);
         List<ReviewItem> items = new ArrayList<>();
         for (StudentComment comment : comments) {
             List<CommentAiDraftService.PreviousComment> previous = historyByStudent.getOrDefault(comment.getStudent().getId(), List.of())
@@ -278,7 +280,7 @@ public class CommentAiReviewService {
                     studentName, comment.getAttitude() == null ? null : comment.getAttitude().name(),
                     comment.getContent(), comment.getCommentDate(),
                     comment.getClassSession() == null ? null : comment.getClassSession().getLessonContent(),
-                    classmates, previous, homeworkData(comment), alerts.get(comment.getId())));
+                    classmates, previous, homeworkData(comment, autoProgress.get(comment.getId())), alerts.get(comment.getId())));
         }
         items.sort(Comparator.comparing(ReviewItem::commentId));
         return items;
@@ -303,6 +305,7 @@ public class CommentAiReviewService {
             Map<Long, Integer> streaks = attitudeAlertTrackingService.currentLowStreaks(schoolClass, byStudent.keySet());
             byStudent.forEach((studentId, studentComments) -> {
                 int running = streaks.getOrDefault(studentId, 0);
+                int earlierPendingLow = 0;
                 List<StudentComment> ordered = studentComments.stream()
                         .sorted(Comparator.comparing(StudentComment::getCommentDate).thenComparing(StudentComment::getId)).toList();
                 for (StudentComment comment : ordered) {
@@ -323,7 +326,13 @@ public class CommentAiReviewService {
                             : "Duyệt dòng này sẽ gửi cảnh báo thái độ \"" + label + "\" cho phụ huynh"
                                     + (running > 1 ? " — đã " + running + " buổi Yếu/Trung bình liên tiếp, thêm " + (threshold - running)
                                             + " buổi nữa sẽ chạm mốc cảnh báo " + threshold + " buổi." : ".");
+                    if (earlierPendingLow > 0) {
+                        // Nhãn tính như khi duyệt các buổi theo thứ tự ngày (decideComments cũng xử lý theo ngày);
+                        // duyệt riêng dòng này trước các buổi cũ hơn thì chuỗi thực tế sẽ ngắn hơn.
+                        message += " (Đã tính cả " + earlierPendingLow + " buổi Yếu/Trung bình trước đó đang chờ duyệt — nên duyệt theo thứ tự ngày.)";
+                    }
                     result.put(comment.getId(), new CommentAttitudeAlertPreviewResponse.Item(comment.getId(), running, escalation, message));
+                    earlierPendingLow++;
                     if (escalation) {
                         running = 0;
                     }
@@ -337,14 +346,28 @@ public class CommentAiReviewService {
         return attitude == StudentComment.Attitude.WEAK || attitude == StudentComment.Attitude.AVERAGE;
     }
 
-    /** Kết quả BTVN buổi trước đã lưu trên dòng, quy ra lời (mọi mức, kể cả "làm được") — không đưa con số cho AI. */
-    static String homeworkData(StudentComment comment) {
+    /**
+     * Kết quả BTVN buổi trước quy ra lời (mọi mức, kể cả "làm được") — không đưa con số cho AI. Mirror các cột Quản
+     * lý thấy trên bảng duyệt: điểm nhập tay đã lưu trên dòng; kênh online chưa nhập tay thì lấy % tự động
+     * (bổ sung 2026-09-29), Reading/Writing online luôn là % tự động.
+     *
+     * @param auto % tự động BTVN buổi trước của nhận xét này, {@code null} nếu không có.
+     */
+    static String homeworkData(StudentComment comment, AutoProgressPreviewResponse auto) {
         List<String> parts = new ArrayList<>();
-        addHomework(parts, "bài tập", comment.getHomeworkPreviousScore());
-        addHomework(parts, "video ôn tập", comment.getHomeworkPreviousSpeakingScore());
-        addHomework(parts, "bài Reading", comment.getHomeworkPreviousReadingScore());
-        addHomework(parts, "bài Writing", comment.getHomeworkPreviousWritingScore());
+        addHomework(parts, "bài tập online", firstNonBlank(comment.getHomeworkPreviousScore(), auto == null ? null : auto.grammarPreviousProgress()));
+        addHomework(parts, "video ôn tập", firstNonBlank(comment.getHomeworkPreviousSpeakingScore(), auto == null ? null : auto.videoPreviousProgress()));
+        addHomework(parts, "bài Reading offline", comment.getHomeworkPreviousReadingScore());
+        addHomework(parts, "bài Writing offline", comment.getHomeworkPreviousWritingScore());
+        if (auto != null) {
+            addHomework(parts, "bài Reading online", auto.readingPreviousProgress());
+            addHomework(parts, "bài Writing online", auto.writingPreviousProgress());
+        }
         return parts.isEmpty() ? null : "BTVN buổi trước: " + String.join("; ", parts) + ".";
+    }
+
+    private static String firstNonBlank(String first, String second) {
+        return first != null && !first.isBlank() ? first : second;
     }
 
     private static void addHomework(List<String> parts, String channel, String raw) {
@@ -377,7 +400,7 @@ public class CommentAiReviewService {
                         boolean similarFlagged = issuesById.get(item.commentId()).stream().anyMatch(i -> "SIMILAR_IN_SESSION".equals(i.type()));
                         if (patterns.all().contains(item.commentId()) && !similarFlagged) {
                             noticesById.get(item.commentId()).add(new CommentAiReviewResult.Notice("REPEATED_PATTERN", SOURCE_RULE,
-                                    CommentAiDraftService.repeatedPatternMessage(patterns, item.commentId(), item.content())));
+                                    CommentAiDraftService.repeatedPatternMessage(patterns, item.commentId())));
                         }
                     }
                 });

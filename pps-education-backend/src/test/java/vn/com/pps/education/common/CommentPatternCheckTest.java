@@ -60,13 +60,15 @@ class CommentPatternCheckTest {
         List<CommentPatternCheck.Entry> entries = List.of(
                 new CommentPatternCheck.Entry(1L, "A An", "Tập trung tốt. Hơn thế nữa con phát biểu nhiều."),
                 new CommentPatternCheck.Entry(2L, "B Bình", "Hợp tác với bạn tốt. Hơn thế nữa con làm bài cẩn thận."),
-                new CommentPatternCheck.Entry(3L, "C Chi", "Chủ động phát biểu. Hơn thế nữa con giúp bạn."),
+                new CommentPatternCheck.Entry(3L, "C Chi", "Chủ động phát biểu. Hơn thế nữa con giúp bạn, cô rất vui."),
                 new CommentPatternCheck.Entry(4L, "D Dũng", "Nghe giảng chăm chú, con tiến bộ."),
                 new CommentPatternCheck.Entry(5L, "E Em", "Làm bài nhanh và chính xác, con rất chăm."));
 
         CommentPatternCheck.Result result = CommentPatternCheck.check(entries, 0.3);
 
         assertThat(result.phraseIds()).containsExactly(3L);
+        // Chỉ nêu cụm đã vượt ngưỡng — "rất vui" mới dùng 1 lần nên không bị nêu.
+        assertThat(result.phrasesById().get(3L)).containsExactly("hơn thế nữa");
         // Câu cuối cùng bắt đầu bằng "Hơn thế nữa" nên dòng 2, 3 còn dính luật câu kết liền kề.
         assertThat(result.closingIds()).containsExactly(2L, 3L);
     }

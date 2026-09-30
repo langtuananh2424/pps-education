@@ -21,7 +21,12 @@ public record SaveDraftCommentsRequest(
         @NotNull LocalDate commentDate,
         @NotEmpty List<@Valid Row> rows
 ) {
-    /** Mirror đúng các field nội dung của CreateStudentCommentRequest, trừ studentId/classSessionId/commentDate đã tách ra ngoài. */
+    /**
+     * Mirror đúng các field nội dung của CreateStudentCommentRequest, trừ studentId/classSessionId/commentDate đã tách ra ngoài.
+     *
+     * @param aiDrafted V201 (UC-74) — {@code true} khi dòng này vừa được áp dụng từ bản nháp của trợ lý AI; {@code null}/{@code false}
+     *                  giữ nguyên giá trị đã lưu (cờ chỉ bật lên, không tắt lại).
+     */
     public record Row(
             @NotNull Long studentId,
             String content,
@@ -36,6 +41,7 @@ public record SaveDraftCommentsRequest(
             String homeworkNext,
             String homeworkNextReading,
             String homeworkNextWriting,
-            String note
+            String note,
+            Boolean aiDrafted
     ) {}
 }
