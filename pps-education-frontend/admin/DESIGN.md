@@ -7,7 +7,11 @@ colors:
   accent-soft: "#fdf0e6"
   accent-ink: "#a84000"
   highlight: "#cc4e00"
+  brand-bg: "#fff4ea"
   page-grey: "#f5f5f7"
+  link: "#a84000"
+  gradient-from: "#cc4e00"
+  gradient-to: "#a84000"
   white: "#ffffff"
   slate-100: "#efeff2"
   hairline: "#e5e5ea"
@@ -183,8 +187,9 @@ components:
 # Design System: PPS Admin 2.0
 
 <!-- Nguồn: design system "PPS Admin 2.0" (https://claude.ai/artifact/JrkadaS3Wvc2x1Gz2rN7aJ).
-     Code trong src/ hiện vẫn là giao diện 1.0 (Plus Jakarta Sans, nút gradient cam, nền kem
-     #fff4ea); file này là đích chuyển đổi, không phải mô tả code hiện tại. -->
+     Code trong src/ hiện vẫn là giao diện 1.0 (Plus Jakarta Sans, gradient cam sáng #f68b1f,
+     nền kem #fff4ea); file này là đích chuyển đổi. Bản 2.0 giữ nền kem và gradient cam của 1.0
+     (quyết định 30/09/2026) nhưng làm tối gradient để đạt AA và chỉ cho một phần tử phát sáng. -->
 
 ## Overview
 
@@ -201,11 +206,12 @@ cho nội dung, 14px cho bảng dày, không gì dưới 12px; điều khiển c
 trên iPad. Màu nhấn chỉ dùng một lần cho hành động quan trọng nhất; màu dữ liệu gắn cố
 định với từng loại con số để người đọc nhận ra ngay "đây là chuyên cần", "đây là điểm".
 
-Từ chối rõ ràng: gradient, glow, khối trang trí, chữ IN HOA, emoji và minh họa — tất cả
-những gì bản 1.0 từng dùng để "làm đẹp" nay coi là nhiễu.
+Giữ hơi ấm của bản 1.0: nền kem, một dải cam rất nhạt sau tiêu đề trang, và gradient cam
+cho đúng một hành động chính. Từ chối: glow dàn trải, bóng chồng bóng, khối trang trí, chữ
+IN HOA, emoji và minh họa.
 
 **Key Characteristics:**
-- Nền xám, nội dung trắng, một đường viền mảnh duy nhất.
+- Nền kem (theo palette), panel trắng nổi một bậc, thẻ trắng viền mảnh không bóng.
 - Một màu nhấn theo bảng màu người dùng chọn (Cam PPS hoặc Mực), mọi thứ khác trung tính.
 - Tiền và điểm trường là trung tính; màu chỉ kể chuyện học tập và trạng thái.
 - Font hệ thống (SF Pro / Segoe UI / Inter), tối đa semibold 600.
@@ -259,8 +265,13 @@ Video TKN = xám.
   bảng), text-tertiary (thời gian, placeholder).
 
 ### Named Rules
-**The One Accent Rule.** Accent đánh dấu đúng một hành động quan trọng nhất và lựa chọn
-hiện tại trên màn hình. Một trang có đúng một nút primary.
+**The One Accent Rule.** Gradient cam + glow chỉ cho đúng một hành động chính mỗi màn.
+Lựa chọn hiện tại (mục sidebar, dòng được chọn) dùng accent-soft + accent-ink, không
+gradient, không glow. Tab/ngày lịch đang chọn và avatar được dùng gradient nhưng không glow.
+
+**The Gradient Passes AA Rule.** Gradient là `#cc4e00 → #a84000` (135°): chữ trắng ≥ 4.5:1
+trên toàn bộ nền. Không quay lại gradient sáng của bản 1.0 (#f68b1f/#f07818 chỉ 2.4–2.8:1).
+Link dùng `#a84000` (đạt AA trên trắng, kem và dải cam).
 
 **The Numbers Have Colours Rule.** Mỗi loại số liệu có một màu cố định ở mọi nơi. Màu dữ
 liệu chỉ dành cho số, thẻ số, biểu đồ, thanh — không bao giờ cho nút, link, hay để nói
@@ -374,32 +385,35 @@ trên di động sidebar thu vào, form và bảng xếp một cột (NFR-UI-01)
 
 ## Elevation & Depth
 
-Chiều sâu bằng mặt phẳng, không bằng trang trí: nền xám → tờ trắng → một đường viền
-mảnh. Thẻ và panel không có bóng. Bóng đổ chỉ xuất hiện khi một lớp thật sự nổi lên trên
-nội dung.
+Một bậc chiều sâu: nền kem (`var(--color-brand-bg)`, Mực: `#f5f5f7`) → sidebar và panel
+chính trắng nổi bằng `shadow-soft` → thẻ bên trong panel trắng, viền 1px `#e5e5ea`, không
+bóng. Panel chính có dải `accent-soft` mờ dần trong 200px đầu; mọi thẻ đặt trên đó phải có
+nền trắng tường minh để không bị nhuộm.
 
 ### Shadow Vocabulary
 - **Segment lift** (`box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)`): phân đoạn đang chọn trong Tabs và LanguageSwitcher.
 - **Menu float** (`box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)`): Dropdown, Select, DatePicker, ContextMenu.
 - **Dialog float** (`box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25)`): modal và toast.
+- **Panel lift** (`shadow-soft`: `0 4px 20px -2px rgba(148,163,184,.12), 0 2px 8px -1px rgba(148,163,184,.08)`): chỉ sidebar và panel chính.
+- **Action glow** (`0 4px 14px 0 var(--accent-glow)`): chỉ dưới một hành động chính của màn.
 
 ### Named Rules
-**The Only Floaters Cast Shadows Rule.** Nếu một phần tử không đè lên nội dung khác, nó
-không có bóng.
+**The One Lift Rule.** Mỗi bậc chỉ một cách tách lớp: panel dùng bóng, thẻ dùng viền.
+Không bao giờ viền + bóng trên cùng một thẻ, không thẻ có bóng nằm trong panel có bóng.
 
 ## Shapes
 
 Góc bo mềm, tăng theo kích thước bề mặt: điều khiển (nút, ô nhập, hàng danh sách, rãnh
 segmented) 8px; bảng và menu 12px; thẻ, modal, panel chính và sidebar 16px; badge,
-avatar, toast, đĩa icon và ngày lịch là hình viên thuốc/tròn. Viền luôn 1px. Logo chữ P
-là nơi duy nhất còn gradient cam.
+avatar, toast, đĩa icon và ngày lịch là hình viên thuốc/tròn. Viền luôn 1px. Gradient cam chỉ
+xuất hiện ở logo P, hành động chính và vài lựa chọn nhỏ (tab, ngày lịch, avatar).
 
 ## Components
 
 ### Buttons
 Chắc tay và kiệm lời — động từ nói rõ kết quả ("Lưu nhận xét", "Điểm danh", "Giao bài").
 - **Shape:** bo nhẹ (8px), cao 40px (nhỏ: 32px, chữ footnote).
-- **Primary:** nền accent, chữ trắng, weight 500. Một nút mỗi trang.
+- **Primary:** gradient `#cc4e00 → #a84000` + action glow, chữ trắng, weight 500. Một nút mỗi trang.
 - **Secondary:** nền Quiet Fill, chữ text-primary; hover sang Ruled Line.
 - **Danger:** nền danger-soft, chữ danger.
 - **Ghost:** trong suốt, chữ text-muted, hover Quiet Fill.
@@ -413,8 +427,8 @@ Chắc tay và kiệm lời — động từ nói rõ kết quả ("Lưu nhận 
 
 ### Cards / Containers
 - **Corner Style:** 16px.
-- **Background:** Sheet White trên Paper Grey.
-- **Shadow Strategy:** không có (xem Elevation & Depth).
+- **Background:** trắng tường minh (kể cả trên dải cam đầu panel).
+- **Shadow Strategy:** không có — bóng thuộc về panel (xem One Lift Rule).
 - **Border:** 1px Ruled Line.
 - **Internal Padding:** 24px (panel chính 32px).
 
@@ -463,8 +477,8 @@ thẩm mỹ.
 ## Do's and Don'ts
 
 ### Do:
-- **Do** đặt nội dung trên thẻ trắng bo 16px, viền 1px `#e5e5ea`, trên nền `#f5f5f7`.
-- **Do** dùng accent cho đúng một hành động chính mỗi trang và cho lựa chọn hiện tại.
+- **Do** đặt nội dung trên thẻ trắng bo 16px, viền 1px `#e5e5ea`, trong panel trắng nổi trên nền `var(--color-brand-bg)`.
+- **Do** dùng gradient + glow cho đúng một hành động chính mỗi trang; lựa chọn hiện tại dùng accent-soft.
 - **Do** tô thẻ số liệu bằng màu dữ liệu theo loại: teal chuyên cần, blue BTVN, violet điểm, pink nhận xét.
 - **Do** giữ mọi ô nhập liệu nền trắng; nền xám chỉ cho giá trị chỉ đọc.
 - **Do** ghi ngày DD/MM/YYYY, giờ 24h HH:mm, phân cách hàng nghìn bằng dấu chấm (1.248).
@@ -479,8 +493,9 @@ thẩm mỹ.
 - **Do** giữ nút phụ tối thiểu 32px, điều khiển chính 40px.
 
 ### Don't:
-- **Don't** dùng gradient, glow, khối trang trí (`bg-brand-gradient`, `shadow-glow` của bản 1.0), trừ trong logo P.
-- **Don't** đặt bóng đổ lên thẻ hay panel.
+- **Don't** dùng gradient sáng của bản 1.0 hay đặt glow lên nhiều hơn một phần tử mỗi màn; không khối trang trí.
+- **Don't** ghi cứng `#fff4ea` hay viền màu ấm riêng — dùng `var(--color-brand-bg)` và hairline `#e5e5ea` để palette Mực không vỡ.
+- **Don't** đặt bóng đổ lên thẻ bên trong panel, hay vừa viền vừa bóng.
 - **Don't** viết IN HOA, giãn chữ, hay dùng weight trên 600.
 - **Don't** để chữ dưới 12px.
 - **Don't** dùng màu dữ liệu cho nút, link, hay để báo thành công/lỗi.
