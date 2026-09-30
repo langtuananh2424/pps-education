@@ -632,7 +632,7 @@ class CommentAiDraftServiceTest {
     @Test
     void generateDraft_UC74_homeworkNoteSentToAiInWordsWithoutNumbers() {
         CommentAiDraftService.RosterStudent an = new CommentAiDraftService.RosterStudent(1L, "Nguyễn Văn An", List.of(), 0,
-                "BTVN buổi trước: chưa hoàn thành (bài tập online).");
+                "BTVN buổi trước theo kỹ năng: nghe — cần cố gắng.");
         stubAi(CommentAiDraftService.EXTRACT_PROMPT,
                 "{\"classAttitude\": null, \"classPoints\": [\"tích cực\"], \"individuals\": [], \"unmatched\": []}");
         stubAi(CommentAiDraftService.WRITE_PROMPT, "{\"comments\": [{\"studentId\": 1, \"content\": \"An học tích cực.\"}]}");
@@ -640,7 +640,7 @@ class CommentAiDraftServiceTest {
         service.generateDraft(context(an), null, null, "ghi chú");
 
         verify(aiClient).chatWithFinishReason(eq(CommentAiDraftService.WRITE_PROMPT),
-                org.mockito.ArgumentMatchers.contains("chưa hoàn thành (bài tập online)"), anyString());
+                org.mockito.ArgumentMatchers.contains("nghe — cần cố gắng"), anyString());
     }
 
     @Test
@@ -658,9 +658,26 @@ class CommentAiDraftServiceTest {
 
         CommentAiDraftService.RosterStudent anRow = context.rosterById().get(1L);
         CommentAiDraftService.RosterStudent binhRow = context.rosterById().get(2L);
-        assertThat(anRow.homeworkNote()).contains("làm tốt (bài tập offline)").contains("chưa hoàn thành (bài tập online)")
-                .doesNotContainPattern("\\d");
+        // Buổi GV Việt Nam: kênh chính = ngữ pháp; 2 nguồn cùng kỹ năng cho 2 mức khác nhau thì ghi rõ nguồn.
+        assertThat(anRow.homeworkNote()).isEqualTo(
+                "BTVN buổi trước theo kỹ năng: ngữ pháp — làm tốt (bài trên giấy), chưa hoàn thành (bài online).");
         // 65% = "làm được" — không nổi bật nên không nhắc.
         assertThat(binhRow.homeworkNote()).isNull();
+    }
+
+    @Test
+    void loadContext_UC74_foreignSessionHomeworkNamedListeningAndReadingWritingBySkill() {
+        when(session.getTeacherType()).thenReturn(ClassSession.TeacherType.FOREIGN);
+        vn.com.pps.education.domain.Student thuy = student(1L, "Nguyễn Thanh Thủy");
+        List<vn.com.pps.education.domain.ClassEnrollment> enrollments = List.of(enrollment(thuy));
+        when(classEnrollmentRepository.findBySchoolClassIdAndStatus(5L, vn.com.pps.education.domain.ClassEnrollment.Status.ACTIVE))
+                .thenReturn(enrollments);
+        when(studentCommentService.previewAutoProgress(SESSION_ID, ACTOR_ID)).thenReturn(List.of(
+                new vn.com.pps.education.dto.AutoProgressPreviewResponse(1L, "40%", "90%", null, null)));
+
+        CommentAiDraftService.DraftContext context = service.loadContext(SESSION_ID, ACTOR_ID, null);
+
+        assertThat(context.rosterById().get(1L).homeworkNote())
+                .isEqualTo("BTVN buổi trước theo kỹ năng: nghe — cần cố gắng; phản xạ nói — làm tốt.");
     }
 }

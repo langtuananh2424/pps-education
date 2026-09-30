@@ -2259,6 +2259,21 @@ Ghi chú kỹ thuật (bổ sung ngoài SDD gốc, đã xác nhận với ngư�
     nhận con số và vẫn không được ghi số vào nhận xét; không ảnh hưởng mức
     Thái độ; lời giáo viên khác dữ liệu thì theo lời giáo viên. Quy tắc cũ
     "không nhắc BTVN" đổi thành "không ghi con số/hạn nộp".
+-   **Sửa 2026-09-30 (đã xác nhận với người dùng) — BTVN theo từng kỹ
+    năng:** (1) ngưỡng đổi thành: ≥ 85% "làm tốt", 51–84% "làm được" (không
+    nhắc), ≤ 50% "cần cố gắng" (tính cả đúng 50%); (2) mỗi cột "BTVN buổi trước"
+    quy về đúng 1 kỹ năng theo Loại giáo viên của buổi — kênh chính (ô
+    Offline + % tự động) là **ngữ pháp** (buổi GV Việt Nam) / **nghe** (buổi
+    GVNN), kênh video là **từ vựng** / **phản xạ nói**, Reading/Writing
+    (online + trên giấy) là **đọc**/**viết**; (3) dữ liệu đưa AI có dạng
+    "BTVN buổi trước theo kỹ năng: nghe — cần cố gắng; đọc — làm tốt", 2
+    nguồn cùng kỹ năng khác mức thì ghi rõ nguồn; (4) AI giữ nguyên ý giáo
+    viên và THÊM 1 câu về BTVN nêu đúng tên kỹ năng (VD "Thủy cần luyện tập
+    thêm về kỹ năng nghe", "Con làm bài đọc ở nhà rất tốt", "Con nhớ hoàn
+    thành bài luyện viết ở nhà nhé") thay cho câu chung "bài tập về nhà";
+    nhiều hơn 2 kỹ năng thì ưu tiên kỹ năng "cần cố gắng"/"chưa hoàn
+    thành". UC-75 (soát nhận xét chờ duyệt) dùng cùng cách quy kỹ năng để
+    phát hiện mâu thuẫn BTVN theo từng kỹ năng.
 -   **Bổ sung 2026-09-29 (sau đánh giá rubric lần 3):** (1) kho kiểu câu
     mở rộng lên 10 kiểu mở đầu (kiểu 10 — ghi nhận của giáo viên — chỉ dùng
     khi có `teacherPronoun`) và 8 kiểu câu kết; bỏ quy tắc "mỗi kiểu 1 học

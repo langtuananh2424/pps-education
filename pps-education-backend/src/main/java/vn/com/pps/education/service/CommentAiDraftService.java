@@ -316,7 +316,8 @@ public class CommentAiDraftService {
             }
         }
         Map<Long, Integer> lowStreaks = attitudeAlertTrackingService.currentLowStreaks(session.getSchoolClass(), ids);
-        Map<Long, String> homeworkNotes = homeworkNotes(session.getId(), actorUserId, homeworkScores, previousById);
+        Map<Long, String> homeworkNotes = homeworkNotes(session.getId(), actorUserId,
+                session.getTeacherType() == ClassSession.TeacherType.FOREIGN, homeworkScores, previousById);
         Collator collator = Collator.getInstance(Locale.forLanguageTag("vi"));
         List<RosterStudent> roster = eligible.stream()
                 .map(s -> new RosterStudent(s.getId(), s.getUser().getFullName(), List.copyOf(previousById.getOrDefault(s.getId(), List.of())),
@@ -327,8 +328,15 @@ public class CommentAiDraftService {
                 session.getLessonContent(), roster, List.copyOf(skipped));
     }
 
-    private Map<Long, String> homeworkNotes(Long classSessionId, Long actorUserId, List<HomeworkScoreInput> homeworkScores,
-                                            Map<Long, List<PreviousComment>> previousById) {
+    /**
+     * Mỗi cột "BTVN buổi trước" trên bảng quy về đúng 1 kỹ năng (bổ sung 2026-09-30, đã xác nhận với người dùng)
+     * để AI nhận xét cụ thể theo kỹ năng: kênh chính (ô Offline + % tự động) là ngữ pháp ở buổi GV Việt Nam, nghe
+     * ở buổi GVNN; kênh video là từ vựng / phản xạ nói; Reading/Writing là đọc/viết.
+     */
+    private Map<Long, String> homeworkNotes(Long classSessionId, Long actorUserId, boolean foreignSession,
+                                            List<HomeworkScoreInput> homeworkScores, Map<Long, List<PreviousComment>> previousById) {
+        String mainSkill = HomeworkScoreInsight.mainChannelSkill(foreignSession);
+        String videoSkill = HomeworkScoreInsight.videoChannelSkill(foreignSession);
         Map<Long, AutoProgressPreviewResponse> autoById = new HashMap<>();
         for (AutoProgressPreviewResponse auto : studentCommentService.previewAutoProgress(classSessionId, actorUserId)) {
             autoById.put(auto.studentId(), auto);
@@ -344,24 +352,24 @@ public class CommentAiDraftService {
             List<HomeworkScoreInsight.Channel> channels = new ArrayList<>();
             HomeworkScoreInput manual = manualById.get(studentId);
             if (manual != null) {
-                channels.add(new HomeworkScoreInsight.Channel("bài tập offline", manual.offline()));
-                channels.add(new HomeworkScoreInsight.Channel("bài Reading offline", manual.reading()));
-                channels.add(new HomeworkScoreInsight.Channel("bài Writing offline", manual.writing()));
-                channels.add(new HomeworkScoreInsight.Channel("video ôn tập", manual.speaking()));
+                channels.add(new HomeworkScoreInsight.Channel(mainSkill, "bài trên giấy", manual.offline()));
+                channels.add(new HomeworkScoreInsight.Channel(HomeworkScoreInsight.SKILL_READING, "bài trên giấy", manual.reading()));
+                channels.add(new HomeworkScoreInsight.Channel(HomeworkScoreInsight.SKILL_WRITING, "bài trên giấy", manual.writing()));
+                channels.add(new HomeworkScoreInsight.Channel(videoSkill, "video ôn tập", manual.speaking()));
             }
             AutoProgressPreviewResponse auto = autoById.get(studentId);
             if (auto != null) {
-                channels.add(new HomeworkScoreInsight.Channel("bài tập online", auto.grammarPreviousProgress()));
-                channels.add(new HomeworkScoreInsight.Channel("video ôn tập online", auto.videoPreviousProgress()));
-                channels.add(new HomeworkScoreInsight.Channel("bài Reading online", auto.readingPreviousProgress()));
-                channels.add(new HomeworkScoreInsight.Channel("bài Writing online", auto.writingPreviousProgress()));
+                channels.add(new HomeworkScoreInsight.Channel(mainSkill, "bài online", auto.grammarPreviousProgress()));
+                channels.add(new HomeworkScoreInsight.Channel(videoSkill, "video ôn tập", auto.videoPreviousProgress()));
+                channels.add(new HomeworkScoreInsight.Channel(HomeworkScoreInsight.SKILL_READING, "bài online", auto.readingPreviousProgress()));
+                channels.add(new HomeworkScoreInsight.Channel(HomeworkScoreInsight.SKILL_WRITING, "bài online", auto.writingPreviousProgress()));
             }
             java.util.OptionalInt previousAverage = previousById.getOrDefault(studentId, List.of()).stream()
                     .map(PreviousComment::homeworkPercent).filter(java.util.Objects::nonNull).findFirst()
                     .map(java.util.OptionalInt::of).orElse(java.util.OptionalInt.empty());
             java.util.OptionalInt currentManualAverage = manual == null ? java.util.OptionalInt.empty()
                     : HomeworkScoreInsight.averagePercent(java.util.Arrays.asList(manual.offline(), manual.speaking(), manual.reading(), manual.writing()));
-            String note = HomeworkScoreInsight.describe(channels, currentManualAverage, previousAverage, settings.homeworkTrendPoints());
+            String note = HomeworkScoreInsight.describe(channels, false, currentManualAverage, previousAverage, settings.homeworkTrendPoints());
             if (note != null) {
                 notes.put(studentId, note);
             }

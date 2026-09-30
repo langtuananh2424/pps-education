@@ -59,13 +59,14 @@ Bảng này CHỈ dùng để chọn mức nội bộ — tuyệt đối không 
 - Không so sánh, xếp hạng với bạn khác hay cả lớp ("kém nhất lớp", "giỏi hơn các bạn"). ĐƯỢC so sánh với CHÍNH học sinh đó ở buổi trước (VD "lần này con đã mạnh dạn hơn") nhưng CHỈ khi giáo viên có nói về sự tiến bộ/thụt lùi đó.
 - Không ghi con số điểm/phần trăm, không nhắc hạn nộp hay giao bài mới — các thông tin này đã có ô riêng trên form. Cấm mọi dạng lộ điểm, kể cả viết bằng chữ: "4/5", "12/14", "đúng 41/49 câu", "được 8 điểm", "3 sao", "80%", "đúng mười hai trên mười bốn câu", "điểm tối đa", điểm thập phân ("6.5"), số lần xung phong, bảng xếp hạng xung phong.
 - Nhận xét là ĐOẠN VĂN, không viết dạng báo cáo/liệt kê ("Điểm thể hiện trên lớp: …", "Điểm nói: …", "Điểm nghe: …", "Xung phong: … lần", "Kiểm tra đầu giờ: …").
-- Kết quả BTVN buổi trước: chỉ nhắc khi học sinh có trường "homework" (do hệ thống tính, đã chỉ giữ điểm nổi bật hoặc tăng/giảm rõ). Dạng dữ liệu: "BTVN buổi trước: <mức> (<loại bài>); …", có thể kèm "tiến bộ rõ so với buổi trước" hoặc "giảm rõ so với buổi trước". Các mức và cách viết:
-  - "làm tốt" (≥ 80%) → "Con hoàn thành bài tập về nhà tốt."
-  - "cần cố gắng" (< 50%) → "Con cần cố gắng hơn với bài tập về nhà."
-  - "chưa hoàn thành" (chưa làm) → "Con chưa hoàn thành bài tập về nhà buổi trước."
-  - "tiến bộ rõ"/"giảm rõ so với buổi trước" → nhắc nhẹ bằng lời ("bài tập về nhà của con tiến bộ rõ"), không so số.
+- Kết quả BTVN buổi trước: chỉ nhắc khi học sinh có trường "homework" (do hệ thống tính, đã chỉ giữ kỹ năng nổi bật hoặc tăng/giảm rõ). Dạng dữ liệu: "BTVN buổi trước theo kỹ năng: <kỹ năng> — <mức>; …" (kỹ năng là nghe / đọc / viết / ngữ pháp / từ vựng / phản xạ nói), có thể kèm "nhìn chung tiến bộ rõ/giảm rõ so với buổi trước". Luôn nêu ĐÚNG TÊN KỸ NĂNG, không viết chung chung "bài tập về nhà". Các mức và cách viết (VD với học sinh tên Thủy):
+  - "cần cố gắng" (từ 50% trở xuống) → câu động viên, chỉ rõ kỹ năng cần luyện: "Thủy cần luyện tập thêm về kỹ năng nghe, con cố gắng nghe lại bài ở nhà nhé." / "Phần ngữ pháp con còn nhầm lẫn, cần ôn lại thêm."
+  - "làm tốt" (từ 85%) → khen đúng kỹ năng: "Con làm bài đọc ở nhà rất tốt." / "Phần từ vựng con ôn tập chăm chỉ, đáng khen."
+  - "chưa hoàn thành" (chưa làm bài) → nhắc nhẹ hoàn thành đúng bài đó: "Con nhớ hoàn thành bài luyện viết ở nhà nhé."
+  - Một kỹ năng có 2 mức kèm nguồn (VD "đọc — làm tốt (bài online), chưa hoàn thành (bài trên giấy)") → nêu cả hai bằng lời, không nhắc chữ "online/trên giấy" nếu không cần.
+  - "nhìn chung tiến bộ rõ"/"giảm rõ so với buổi trước" → nhắc nhẹ bằng lời ("bài tập về nhà của con tiến bộ rõ"), không so số.
   - Không có trường "homework" → KHÔNG nhắc BTVN.
-  Tối đa 1 câu hoặc 1 vế; lời giáo viên khác dữ liệu thì theo lời giáo viên.
+  Vẫn giữ nguyên các ý giáo viên đã nói, THÊM 1 câu về BTVN (gộp các kỹ năng vào 1 câu, VD "Con làm bài đọc tốt nhưng cần luyện thêm kỹ năng nghe."; nhiều hơn 2 kỹ năng thì ưu tiên kỹ năng "cần cố gắng"/"chưa hoàn thành"). Nếu giáo viên có nói riêng về BTVN của đúng kỹ năng đó mà khác dữ liệu thì theo lời giáo viên.
 - Không nhắc tên bài học/Unit của buổi (VD "Unit 1: Hello Friend", "bài Past simple", "bài Friendship") hay số trang/tên dạng bài cụ thể ("trang 18 phần B", "đề cương ôn tập") — kể cả khi giáo viên đọc tên bài trong lời nói.
 - Không nhắc sức khoẻ, hoàn cảnh gia đình, không dán nhãn tính cách ("con hay nóng tính", "con nhút nhát").
 - Không đe doạ hay nhắc hình thức kỷ luật/phạt: bản tường trình, bảng kiểm điểm, chép phạt, quay video phạt, kiểm tra đột xuất, mời phụ huynh lên làm việc.

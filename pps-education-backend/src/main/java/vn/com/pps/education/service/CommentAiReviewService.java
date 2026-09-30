@@ -9,6 +9,7 @@ import vn.com.pps.education.common.CommentPatternCheck;
 import vn.com.pps.education.common.CommentSimilarity;
 import vn.com.pps.education.common.HomeworkScoreInsight;
 import vn.com.pps.education.domain.ClassEnrollment;
+import vn.com.pps.education.domain.ClassSession;
 import vn.com.pps.education.domain.SchoolClass;
 import vn.com.pps.education.domain.StudentComment;
 import vn.com.pps.education.dto.AutoProgressPreviewResponse;
@@ -349,32 +350,33 @@ public class CommentAiReviewService {
     /**
      * Kết quả BTVN buổi trước quy ra lời (mọi mức, kể cả "làm được") — không đưa con số cho AI. Mirror các cột Quản
      * lý thấy trên bảng duyệt: điểm nhập tay đã lưu trên dòng; kênh online chưa nhập tay thì lấy % tự động
-     * (bổ sung 2026-09-29), Reading/Writing online luôn là % tự động.
+     * (bổ sung 2026-09-29), Reading/Writing online luôn là % tự động. Bổ sung 2026-09-30: mô tả theo từng kỹ năng
+     * (cùng cách quy kênh → kỹ năng với UC-74) để bắt được mâu thuẫn cụ thể, VD nhận xét khen kỹ năng nghe nhưng BTVN
+     * nghe chưa hoàn thành.
      *
      * @param auto % tự động BTVN buổi trước của nhận xét này, {@code null} nếu không có.
      */
     static String homeworkData(StudentComment comment, AutoProgressPreviewResponse auto) {
-        List<String> parts = new ArrayList<>();
-        addHomework(parts, "bài tập online", firstNonBlank(comment.getHomeworkPreviousScore(), auto == null ? null : auto.grammarPreviousProgress()));
-        addHomework(parts, "video ôn tập", firstNonBlank(comment.getHomeworkPreviousSpeakingScore(), auto == null ? null : auto.videoPreviousProgress()));
-        addHomework(parts, "bài Reading offline", comment.getHomeworkPreviousReadingScore());
-        addHomework(parts, "bài Writing offline", comment.getHomeworkPreviousWritingScore());
+        boolean foreign = comment.getClassSession() != null
+                && comment.getClassSession().getTeacherType() == ClassSession.TeacherType.FOREIGN;
+        String mainSkill = HomeworkScoreInsight.mainChannelSkill(foreign);
+        String videoSkill = HomeworkScoreInsight.videoChannelSkill(foreign);
+        List<HomeworkScoreInsight.Channel> channels = new ArrayList<>();
+        channels.add(new HomeworkScoreInsight.Channel(mainSkill, "bài tập",
+                firstNonBlank(comment.getHomeworkPreviousScore(), auto == null ? null : auto.grammarPreviousProgress())));
+        channels.add(new HomeworkScoreInsight.Channel(videoSkill, "video ôn tập",
+                firstNonBlank(comment.getHomeworkPreviousSpeakingScore(), auto == null ? null : auto.videoPreviousProgress())));
+        channels.add(new HomeworkScoreInsight.Channel(HomeworkScoreInsight.SKILL_READING, "bài trên giấy", comment.getHomeworkPreviousReadingScore()));
+        channels.add(new HomeworkScoreInsight.Channel(HomeworkScoreInsight.SKILL_WRITING, "bài trên giấy", comment.getHomeworkPreviousWritingScore()));
         if (auto != null) {
-            addHomework(parts, "bài Reading online", auto.readingPreviousProgress());
-            addHomework(parts, "bài Writing online", auto.writingPreviousProgress());
+            channels.add(new HomeworkScoreInsight.Channel(HomeworkScoreInsight.SKILL_READING, "bài online", auto.readingPreviousProgress()));
+            channels.add(new HomeworkScoreInsight.Channel(HomeworkScoreInsight.SKILL_WRITING, "bài online", auto.writingPreviousProgress()));
         }
-        return parts.isEmpty() ? null : "BTVN buổi trước: " + String.join("; ", parts) + ".";
+        return HomeworkScoreInsight.describe(channels, true, java.util.OptionalInt.empty(), java.util.OptionalInt.empty(), 0);
     }
 
     private static String firstNonBlank(String first, String second) {
         return first != null && !first.isBlank() ? first : second;
-    }
-
-    private static void addHomework(List<String> parts, String channel, String raw) {
-        HomeworkScoreInsight.Level level = HomeworkScoreInsight.levelOf(raw);
-        if (level != null) {
-            parts.add(HomeworkScoreInsight.phrase(level) + " (" + channel + ")");
-        }
     }
 
     // ---- Luồng nền ----
