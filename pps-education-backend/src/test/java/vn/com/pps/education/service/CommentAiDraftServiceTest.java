@@ -60,9 +60,12 @@ class CommentAiDraftServiceTest {
     private final PromptTemplateLoader promptTemplateLoader = mock(PromptTemplateLoader.class);
     private final AiJobRegistry jobRegistry = mock(AiJobRegistry.class);
 
+    private final HomeworkInsightService homeworkInsightService = mock(HomeworkInsightService.class);
+    private final StudentSignalService studentSignalService = mock(StudentSignalService.class);
+
     private final CommentAiDraftService service = new CommentAiDraftService(studentCommentService, attitudeAlertTrackingService,
             classEnrollmentRepository, attendanceSessionRepository, attendanceMarkRepository, studentCommentRepository,
-            aiClient, new CommentAiJsonCaller(aiClient, promptTemplateLoader, new ObjectMapper()), jobRegistry,
+            homeworkInsightService, studentSignalService, aiClient, new CommentAiJsonCaller(aiClient, promptTemplateLoader, new ObjectMapper()), jobRegistry,
             "comment-pps", 3, 120, 0.5, 10, 1024, 20, 0.3);
 
     private final ClassSession session = mock(ClassSession.class);
@@ -663,6 +666,86 @@ class CommentAiDraftServiceTest {
                 "BTVN buổi trước theo kỹ năng: ngữ pháp — làm tốt (bài trên giấy), chưa hoàn thành (bài online).");
         // 65% = "làm được" — không nổi bật nên không nhắc.
         assertThat(binhRow.homeworkNote()).isNull();
+    }
+
+    @Test
+    void generateDraft_UC74_homeworkDetailsSentToAiWhenPresent() {
+        CommentAiDraftService.RosterStudent thuy = new CommentAiDraftService.RosterStudent(1L, "Nguyễn Thanh Thủy", List.of(), 0,
+                null, List.of("kỹ năng nghe đi xuống qua các buổi gần đây"));
+        stubAi(CommentAiDraftService.EXTRACT_PROMPT,
+                "{\"classAttitude\": null, \"classPoints\": [\"tích cực\"], \"individuals\": [], \"unmatched\": []}");
+        stubAi(CommentAiDraftService.WRITE_PROMPT, "{\"comments\": [{\"studentId\": 1, \"content\": \"Thủy học tích cực.\"}]}");
+
+        service.generateDraft(context(thuy), null, null, "ghi chú");
+
+        verify(aiClient).chatWithFinishReason(eq(CommentAiDraftService.WRITE_PROMPT),
+                org.mockito.ArgumentMatchers.contains("\"homeworkDetails\":[\"kỹ năng nghe đi xuống qua các buổi gần đây\"]"), anyString());
+    }
+
+    @Test
+    void generateDraft_UC74_signalsSentToAiAndStudentInfoMentionIsFlaggedForVerification() {
+        StudentSignalService.Signals signals = new StudentSignalService.Signals(
+                List.of("hôm nay đến lớp muộn (nhắc nhẹ đến lớp đúng giờ)"),
+                List.of("học sinh nhỏ tuổi: câu chữ đơn giản, ấm áp, khích lệ nhiều hơn"),
+                List.of("mới vào lớp gần đây (theo dữ liệu hệ thống)"),
+                new StudentSignalService.OtherTeacherComment(SESSION_DATE.minusDays(1), "Thủy mạnh dạn nói tiếng Anh."));
+        CommentAiDraftService.RosterStudent thuy = new CommentAiDraftService.RosterStudent(1L, "Nguyễn Thanh Thủy", List.of(), 0,
+                null, List.of(), signals);
+        stubAi(CommentAiDraftService.EXTRACT_PROMPT,
+                "{\"classAttitude\": null, \"classPoints\": [\"tích cực\"], \"individuals\": [], \"unmatched\": []}");
+        stubAi(CommentAiDraftService.WRITE_PROMPT,
+                "{\"comments\": [{\"studentId\": 1, \"content\": \"Thủy mới vào lớp nhưng học rất tích cực. Con chú ý đến lớp đúng giờ nhé.\"}]}");
+
+        CommentAiDraftResult result = service.generateDraft(context(thuy), null, null, "ghi chú");
+
+        verify(aiClient).chatWithFinishReason(eq(CommentAiDraftService.WRITE_PROMPT),
+                org.mockito.ArgumentMatchers.argThat(payload -> payload.contains("\"attendance\":[\"hôm nay đến lớp muộn")
+                        && payload.contains("\"toneHints\":[\"học sinh nhỏ tuổi")
+                        && payload.contains("\"studentInfo\":[\"mới vào lớp gần đây")
+                        && payload.contains("\"otherTeacherComment\":\"Thủy mạnh dạn nói tiếng Anh.\"")), anyString());
+        assertThat(result.rows().get(0).warnings()).extracting(CommentAiDraftResult.Warning::type).contains("STUDENT_INFO_CHECK");
+    }
+
+    @Test
+    void generateDraft_UC74_commentWithoutStudentInfoIsNotFlagged() {
+        stubAi(CommentAiDraftService.EXTRACT_PROMPT,
+                "{\"classAttitude\": null, \"classPoints\": [\"tích cực\"], \"individuals\": [], \"unmatched\": []}");
+        stubAi(CommentAiDraftService.WRITE_PROMPT, "{\"comments\": [{\"studentId\": 1, \"content\": \"An học rất tích cực.\"}]}");
+
+        CommentAiDraftResult result = service.generateDraft(context(AN), null, null, "ghi chú");
+
+        assertThat(result.rows().get(0).warnings()).extracting(CommentAiDraftResult.Warning::type).doesNotContain("STUDENT_INFO_CHECK");
+    }
+
+    @Test
+    void loadContext_UC74_otherTeacherCommentJoinsPreviousCommentsForDuplicateCheck() {
+        vn.com.pps.education.domain.Student an = student(1L, "Nguyễn Văn An");
+        List<vn.com.pps.education.domain.ClassEnrollment> enrollments = List.of(enrollment(an));
+        when(classEnrollmentRepository.findBySchoolClassIdAndStatus(5L, vn.com.pps.education.domain.ClassEnrollment.Status.ACTIVE)).thenReturn(enrollments);
+        StudentSignalService.Signals signals = new StudentSignalService.Signals(List.of(), List.of(), List.of(),
+                new StudentSignalService.OtherTeacherComment(SESSION_DATE, "An phản xạ nhanh với câu hỏi."));
+        when(studentSignalService.describe(org.mockito.ArgumentMatchers.eq(session), org.mockito.ArgumentMatchers.anyMap(),
+                org.mockito.ArgumentMatchers.anyMap())).thenReturn(java.util.Map.of(1L, signals));
+
+        CommentAiDraftService.DraftContext context = service.loadContext(SESSION_ID, ACTOR_ID, null);
+
+        assertThat(context.rosterById().get(1L).previousComments())
+                .containsExactly(new CommentAiDraftService.PreviousComment(SESSION_DATE, "An phản xạ nhanh với câu hỏi."));
+        assertThat(context.rosterById().get(1L).signals()).isEqualTo(signals);
+    }
+
+    @Test
+    void loadContext_UC74_passesTableScoresToHomeworkInsight() {
+        vn.com.pps.education.domain.Student an = student(1L, "Nguyễn Văn An");
+        List<vn.com.pps.education.domain.ClassEnrollment> enrollments = List.of(enrollment(an));
+        when(classEnrollmentRepository.findBySchoolClassIdAndStatus(5L, vn.com.pps.education.domain.ClassEnrollment.Status.ACTIVE)).thenReturn(enrollments);
+        vn.com.pps.education.dto.HomeworkScoreInput input = new vn.com.pps.education.dto.HomeworkScoreInput(1L, "40%", null, null, null);
+        when(homeworkInsightService.describe(session, List.of(1L), java.util.Map.of(1L, input)))
+                .thenReturn(java.util.Map.of(1L, List.of("chăm làm lại bài để cải thiện điểm")));
+
+        CommentAiDraftService.DraftContext context = service.loadContext(SESSION_ID, ACTOR_ID, List.of(input));
+
+        assertThat(context.rosterById().get(1L).homeworkDetails()).containsExactly("chăm làm lại bài để cải thiện điểm");
     }
 
     @Test

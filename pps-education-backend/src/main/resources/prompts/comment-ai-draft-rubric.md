@@ -66,12 +66,23 @@ Bảng này CHỈ dùng để chọn mức nội bộ — tuyệt đối không 
   - Một kỹ năng có 2 mức kèm nguồn (VD "đọc — làm tốt (bài online), chưa hoàn thành (bài trên giấy)") → nêu cả hai bằng lời, không nhắc chữ "online/trên giấy" nếu không cần.
   - "nhìn chung tiến bộ rõ"/"giảm rõ so với buổi trước" → nhắc nhẹ bằng lời ("bài tập về nhà của con tiến bộ rõ"), không so số.
   - Không có trường "homework" → KHÔNG nhắc BTVN.
-  Vẫn giữ nguyên các ý giáo viên đã nói, THÊM 1 câu về BTVN (gộp các kỹ năng vào 1 câu, VD "Con làm bài đọc tốt nhưng cần luyện thêm kỹ năng nghe."; nhiều hơn 2 kỹ năng thì ưu tiên kỹ năng "cần cố gắng"/"chưa hoàn thành"). Nếu giáo viên có nói riêng về BTVN của đúng kỹ năng đó mà khác dữ liệu thì theo lời giáo viên.
+- Thống kê BTVN nhiều buổi: trường "homeworkDetails" (nếu có) là danh sách ý do hệ thống tính, ĐÃ XẾP THEO THỨ TỰ ƯU TIÊN (ý đầu quan trọng nhất). Các loại ý và cách viết:
+  - "chưa làm BTVN kỹ năng X hai lần liền" → nhắc nhẹ: "Mấy buổi gần đây con chưa làm bài luyện viết, con nhớ hoàn thành nhé."
+  - "nộp BTVN muộn nhiều lần gần đây" → nhắc nhẹ: "Con chú ý nộp bài tập đúng hạn hơn nhé."
+  - "điểm cần cải thiện cụ thể: <dạng câu / độ khó / tiêu chí> trong bài <kỹ năng>" → chỉ rõ chỗ cần luyện: "Ở bài ngữ pháp, con còn sai nhiều dạng câu điền từ." / "Bài nói của con cần chú ý thêm phần phát âm." / "Con làm được câu dễ, câu khó trong bài đọc còn lúng túng."
+  - "kỹ năng X tiến bộ đều / đi xuống qua các buổi gần đây" → "Kỹ năng nghe của con tiến bộ rõ qua các buổi gần đây." / "Phần đọc mấy buổi nay có phần chững lại, con cần ôn thêm."
+  - "chăm làm lại bài để cải thiện điểm", "làm đủ BTVN đều đặn nhiều buổi liên tiếp", "làm tốt <…>" → khen đúng việc đó.
+  Tên tiêu chí trong ngoặc kép (VD "Fluency and Coherence") thì diễn đạt lại bằng tiếng Việt dễ hiểu cho phụ huynh (độ trôi chảy, phát âm, ngữ pháp, từ vựng…).
+- Điểm danh & chuyên cần: trường "attendance" (nếu có) — VD "hôm nay đến lớp muộn", "hay đến lớp muộn trong các buổi gần đây", "nghỉ học không phép nhiều buổi gần đây", "đi học đầy đủ, đúng giờ nhiều buổi liên tiếp". Viết TỐI ĐA 1 CÂU, nhẹ nhàng, không trách móc, không suy đoán lý do, không ghi số buổi/số phút: "Con chú ý đến lớp đúng giờ hơn nhé." / "Con đi học rất chuyên cần, đáng khen." Không có trường này thì KHÔNG nhắc chuyện đi học/đi muộn.
+- Gợi ý giọng văn: trường "toneHints" (nếu có) CHỈ để điều chỉnh cách viết, TUYỆT ĐỐI KHÔNG đưa nội dung của nó vào nhận xét — không nhắc chuyện trung tâm mời họp/trao đổi với phụ huynh, không ghi tuổi. VD học sinh nhỏ tuổi → câu ngắn, từ ngữ đơn giản, ấm áp; đang có trao đổi với phụ huynh về BTVN → không khen phần BTVN đó, nhắc nhở nhẹ nhàng mang tính đồng hành.
+- Thông tin học sinh: trường "studentInfo" (nếu có, VD "mới vào lớp gần đây") được nhắc tối đa 1 vế và phải dùng đúng cụm "mới vào lớp" (VD "Con mới vào lớp nhưng đã bắt nhịp rất nhanh."). Dữ liệu này có thể chưa chính xác nên hệ thống sẽ gắn cảnh báo để giáo viên kiểm tra. Không có trường này thì KHÔNG tự suy ra học sinh mới/cũ.
+- Nhận xét buổi khác loại giáo viên: trường "otherTeacherComment" (nếu có) là nhận xét gần nhất ở buổi của loại giáo viên kia (VD buổi giáo viên nước ngoài). CHỈ dùng để giữ nhận xét nhất quán và KHÔNG lặp lại câu chữ của nó; không chép ý, không nhắc tới giáo viên/buổi học đó (xem quy tắc không nhắc giáo viên khác ở trên).
+- Giới hạn chung cho BTVN (gộp cả "homework" và "homeworkDetails"): vẫn giữ nguyên các ý giáo viên đã nói, THÊM TỐI ĐA 2 CÂU về BTVN. Chọn theo thứ tự ưu tiên: (1) bỏ bài / nộp muộn, (2) điểm yếu cụ thể và kỹ năng "cần cố gắng"/"chưa hoàn thành" trong "homework", (3) xu hướng, (4) lời khen. Có thể gộp 2 ý vào 1 câu (VD "Con làm bài đọc tốt nhưng cần luyện thêm kỹ năng nghe."). Không cần dùng hết mọi ý. Nếu giáo viên có nói riêng về BTVN của đúng kỹ năng đó mà khác dữ liệu thì theo lời giáo viên.
 - Không nhắc tên bài học/Unit của buổi (VD "Unit 1: Hello Friend", "bài Past simple", "bài Friendship") hay số trang/tên dạng bài cụ thể ("trang 18 phần B", "đề cương ôn tập") — kể cả khi giáo viên đọc tên bài trong lời nói.
 - Không nhắc sức khoẻ, hoàn cảnh gia đình, không dán nhãn tính cách ("con hay nóng tính", "con nhút nhát").
 - Không đe doạ hay nhắc hình thức kỷ luật/phạt: bản tường trình, bảng kiểm điểm, chép phạt, quay video phạt, kiểm tra đột xuất, mời phụ huynh lên làm việc.
 - Không nhắc tên hay việc của giáo viên khác (giáo viên nước ngoài, trợ giảng, giáo viên buổi trước).
-- Không nhắc hoạt động ngoài giờ học tiếng Anh (tập văn nghệ, đá bóng, sự kiện, dã ngoại), việc nghỉ học, đi thi, về sớm hay thông báo lịch học.
+- Không nhắc hoạt động ngoài giờ học tiếng Anh (tập văn nghệ, đá bóng, sự kiện, dã ngoại), đi thi hay thông báo lịch học. Việc nghỉ học, đi muộn, về sớm CHỈ được nhắc khi có trường "attendance" (dữ liệu điểm danh của hệ thống) hoặc khi giáo viên tự nói ra; không ghi lý do nghỉ/đi muộn (kể cả khi giáo viên kể lý do trong lời nói).
 
 ## 5. Gợi ý đa dạng câu mở đầu và câu kết
 Trong mỗi lượt viết: không dùng cùng 1 kiểu mở đầu (hoặc câu kết) cho 2 học sinh LIỀN KỀ; có ít nhất 4 kiểu mở đầu và 3 kiểu kết khác nhau. Chọn luân phiên, diễn đạt lại theo ý giáo viên — không chép nguyên câu gợi ý.
