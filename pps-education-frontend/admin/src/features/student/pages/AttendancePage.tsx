@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Save } from "lucide-react";
+import { Download, Save } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
@@ -8,6 +8,7 @@ import {
   AttendanceMarkResponse,
   ClassSessionResponse,
   EnterAttendanceMarkRequest,
+  exportClassAttendanceSummary,
   getAttendanceSession,
   listClassEnrollments,
   listClassSessions,
@@ -21,6 +22,9 @@ import TableContainer, { Td, Th } from "@/components/ui/TableContainer";
 import Select from "@/components/ui/Select";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
+import DatePicker from "@/components/ui/DatePicker";
+import { downloadBlob } from "@/lib/xlsxTemplate";
+import { toISODate } from "@/lib/calendarDates";
 import AttendanceReminderBanner from "@/features/hrm/components/AttendanceReminderBanner";
 
 type SimpleStatus = "PRESENT" | "ABSENT" | "EXCUSED" | "LATE";
@@ -99,6 +103,12 @@ export default function AttendancePage() {
   const [saving, setSaving] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // V203 — xuất Excel tổng hợp chuyên cần của lớp đang chọn (Trưởng phòng đào tạo cần xuất báo cáo quản lý).
+  const [summaryOpen, setSummaryOpen] = useState(false);
+  const [summaryFrom, setSummaryFrom] = useState("");
+  const [summaryTo, setSummaryTo] = useState("");
+  const [summaryExporting, setSummaryExporting] = useState(false);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
 
   const selectedClass = classes.find((c) => c.id === selectedClassId) ?? null;
   const selectedSession = sessions.find((s) => s.id === selectedSessionId) ?? null;
@@ -212,12 +222,73 @@ export default function AttendancePage() {
     }
   };
 
+  const openSummaryExport = () => {
+    setSummaryFrom(selectedClass?.startDate ?? "");
+    setSummaryTo(toISODate(new Date()));
+    setSummaryError(null);
+    setSummaryOpen(true);
+  };
+
+  const handleSummaryExport = async () => {
+    if (!selectedClass) return;
+    setSummaryExporting(true);
+    setSummaryError(null);
+    try {
+      const blob = await exportClassAttendanceSummary(selectedClass.id, summaryFrom || undefined, summaryTo || undefined);
+      downloadBlob(blob, `tong-hop-chuyen-can-${selectedClass.classCode}-${summaryFrom}-${summaryTo}.xlsx`);
+      setSummaryOpen(false);
+    } catch (err) {
+      setSummaryError(err instanceof ApiError ? err.message : t("attendancePage.summaryExport.failed"));
+    } finally {
+      setSummaryExporting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("attendancePage.title")}</h1>
-        <p className="text-xs text-slate-500 mt-1">{t("attendancePage.description")}</p>
+      <div className="border-b border-slate-200 pb-4 flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("attendancePage.title")}</h1>
+          <p className="text-xs text-slate-500 mt-1">{t("attendancePage.description")}</p>
+        </div>
+        {selectedClass && (
+          <Button type="button" variant="secondary" onClick={openSummaryExport}>
+            <Download className="w-3.5 h-3.5" /> {t("attendancePage.summaryExport.button")}
+          </Button>
+        )}
       </div>
+
+      <Modal
+        open={summaryOpen}
+        onClose={() => setSummaryOpen(false)}
+        title={t("attendancePage.summaryExport.title")}
+        description={selectedClass ? `${selectedClass.name} (${selectedClass.classCode})` : undefined}
+        size="md"
+      >
+        <div className="space-y-4">
+          <p className="text-xs text-slate-600 leading-relaxed">{t("attendancePage.summaryExport.description")}</p>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs text-slate-500 mb-1">{t("attendancePage.summaryExport.fromDate")}</label>
+              <DatePicker value={summaryFrom} onChange={setSummaryFrom} max={summaryTo || undefined} />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-500 mb-1">{t("attendancePage.summaryExport.toDate")}</label>
+              <DatePicker value={summaryTo} onChange={setSummaryTo} min={summaryFrom || undefined} />
+            </div>
+          </div>
+          {summaryError && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{summaryError}</div>}
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="secondary" onClick={() => setSummaryOpen(false)}>
+              {t("attendancePage.summaryExport.cancel")}
+            </Button>
+            <Button type="button" variant="primary" onClick={handleSummaryExport} disabled={summaryExporting}>
+              <Download className="w-3.5 h-3.5" />
+              {summaryExporting ? t("attendancePage.summaryExport.exporting") : t("attendancePage.summaryExport.export")}
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {notification && (
         <Modal open onClose={() => setNotification(null)} title={t("attendancePage.notificationModalTitle")} size="md">

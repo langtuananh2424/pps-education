@@ -12,4 +12,7 @@ public interface SiteTeacherRepository extends JpaRepository<SiteTeacher, Long> 
     List<SiteTeacher> findByTeacherIdAndAssignedToIsNull(Long teacherId);
 
     List<SiteTeacher> findBySiteIdAndAssignedToIsNull(Long siteId);
+
+    /** V203 — mọi phân công giáo viên–điểm trường đang hiệu lực, dùng cho trang Hồ sơ giáo viên. */
+    List<SiteTeacher> findByAssignedToIsNull();
 }

@@ -158,7 +158,9 @@ export const navSections: NavSection[] = [
       { id: "acad-entrance", label: "Đánh giá đầu vào", path: "/academic/entrance-assessment", icon: ClipboardCheck },
       { id: "acad-grades", label: "Sổ điểm hệ thống", path: "/academic/grades", icon: ClipboardList },
       { id: "acad-comments", label: "Nhận xét học viên", path: "/academic/comments", icon: MessageSquare },
-      { id: "acad-homework-stats", label: "Thống kê BTVN theo lớp", path: "/academic/homework-stats", icon: BarChart3 }
+      { id: "acad-homework-stats", label: "Thống kê BTVN theo lớp", path: "/academic/homework-stats", icon: BarChart3 },
+      { id: "acad-teachers", label: "Hồ sơ giáo viên", path: "/academic/teachers", icon: IdCard },
+      { id: "acad-change-history", label: "Lịch sử thay đổi dữ liệu", path: "/academic/change-history", icon: History }
     ]
   },
   {
@@ -190,7 +192,8 @@ export const navSections: NavSection[] = [
       { id: "rep-grades", label: "Thống kê điểm", path: "/reports/grades", icon: Award },
       { id: "rep-student", label: "Hồ sơ học tập", path: "/reports/student-progress", icon: BookUser },
       { id: "rep-enrollment-movement", label: "Thống kê biến động học sinh", path: "/reports/enrollment-movement", icon: ArrowLeftRight },
-      { id: "rep-actual-periods", label: "Số tiết thực tế theo lớp", path: "/reports/actual-periods", icon: BookOpenCheck }
+      { id: "rep-actual-periods", label: "Số tiết thực tế theo lớp", path: "/reports/actual-periods", icon: BookOpenCheck },
+      { id: "rep-teaching-stats", label: "Thống kê giảng dạy theo GV", path: "/reports/teaching-stats", icon: BarChart3 }
     ]
   },
   {

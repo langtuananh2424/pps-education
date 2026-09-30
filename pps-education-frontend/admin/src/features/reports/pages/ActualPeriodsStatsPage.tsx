@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { BookOpenCheck, Filter } from "lucide-react";
+import { BookOpenCheck, Download, Filter } from "lucide-react";
 import Select from "@/components/ui/Select";
 import DatePicker from "@/components/ui/DatePicker";
 import MonthPicker from "@/components/ui/MonthPicker";
@@ -9,6 +9,8 @@ import {
   ActualPeriodsStatsResponse,
   AcademicTermResponse,
   EnrollmentMovementPeriodType,
+  exportActualPeriodsGrid,
+  exportActualPeriodsStats,
   getActualPeriodsGrid,
   getActualPeriodsStats,
   listAcademicTerms
@@ -16,6 +18,9 @@ import {
 import { ApiError } from "@/lib/apiClient";
 import { getWeekDates, toISODate } from "@/lib/calendarDates";
 import { cn } from "@/lib/cn";
+import { downloadBlob } from "@/lib/xlsxTemplate";
+import { useToast } from "@/lib/useToast";
+import Toast from "@/components/ui/Toast";
 
 type PeriodType = "WEEK" | "MONTH" | "TERM" | "YEAR";
 
@@ -70,6 +75,8 @@ export default function ActualPeriodsStatsPage() {
   const [grid, setGrid] = useState<ActualPeriodsGridResponse | null>(null);
   const [loadingGrid, setLoadingGrid] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const { message: toastMsg, showToast } = useToast();
 
   // "Tuần" không có dạng lưới hợp lý -- chọn "Tuần" thì tự chuyển về Chi tiết.
   useEffect(() => {
@@ -160,6 +167,39 @@ export default function ActualPeriodsStatsPage() {
       .finally(() => setLoadingGrid(false));
   }, [displayMode, periodType, siteId, gridYear, selectedClassId]);
 
+  // V203 — Trưởng phòng đào tạo cần xuất báo cáo số tiết thực tế (cả 2 chế độ xem) phục vụ quản lý.
+  const canExport = displayMode === "grid" ? !!grid && periodType !== "WEEK" : !!stats;
+  const handleExport = async () => {
+    if (!siteId) return;
+    setExporting(true);
+    try {
+      if (displayMode === "grid") {
+        const blob = await exportActualPeriodsGrid({
+          siteId,
+          periodType: periodType as EnrollmentMovementPeriodType,
+          year: periodType === "MONTH" ? gridYear : undefined,
+          classId: selectedClassId ?? undefined
+        });
+        downloadBlob(blob, `so-tiet-thuc-te-luoi-${periodType.toLowerCase()}${periodType === "MONTH" ? `-${gridYear}` : ""}.xlsx`);
+      } else if (currentPeriod) {
+        const blob = await exportActualPeriodsStats({
+          siteId,
+          fromDate: currentPeriod.fromDate,
+          toDate: currentPeriod.toDate,
+          periodType,
+          periodLabel: currentPeriod.label,
+          classId: selectedClassId ?? undefined
+        });
+        downloadBlob(blob, `so-tiet-thuc-te-${currentPeriod.fromDate}-${currentPeriod.toDate}.xlsx`);
+      }
+      showToast("Đã xuất file Excel.");
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : "Không xuất được file Excel.");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
@@ -206,6 +246,15 @@ export default function ActualPeriodsStatsPage() {
             Lưới tổng quan
           </button>
         </div>
+        {canView && hasSite && (
+          <button
+            onClick={handleExport}
+            disabled={!canExport || exporting || loadingGrid || loadingStats}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold bg-brand-gradient text-white shadow-glow disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Download className="w-3.5 h-3.5" /> {exporting ? "Đang xuất..." : "Xuất Excel"}
+          </button>
+        )}
       </div>
 
       {!canView ? (
@@ -424,6 +473,7 @@ export default function ActualPeriodsStatsPage() {
           )}
         </>
       )}
+      <Toast message={toastMsg} />
     </div>
   );
 }

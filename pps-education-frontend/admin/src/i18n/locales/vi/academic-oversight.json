@@ -1,0 +1,220 @@
+{
+  "entityTypes": {
+    "CLASS": "Lớp học",
+    "CLASS_SESSION": "Lịch học (buổi học)",
+    "CLASS_ENROLLMENT": "Ghi danh",
+    "CLASS_TEACHER": "Giáo viên phụ trách lớp",
+    "STUDENT": "Học sinh",
+    "EMPLOYEE": "Giáo viên / nhân sự"
+  },
+  "actions": {
+    "CREATED": "Tạo mới",
+    "UPDATED": "Cập nhật"
+  },
+  "fields": {
+    "classCode": "Mã lớp",
+    "name": "Tên lớp",
+    "maxStudents": "Sĩ số tối đa",
+    "status": "Trạng thái",
+    "autoTransition": "Tự động chuyển trạng thái",
+    "sessionDate": "Ngày học",
+    "startTime": "Giờ bắt đầu",
+    "endTime": "Giờ kết thúc",
+    "primaryTeacherId": "Giáo viên phụ trách buổi",
+    "reason": "Lý do",
+    "studentId": "Học sinh",
+    "teacherUserId": "Giáo viên",
+    "teacherRole": "Vai trò",
+    "teacherType": "Loại giáo viên",
+    "assignedTo": "Kết thúc phụ trách",
+    "studentCode": "Mã học sinh",
+    "dateOfBirth": "Ngày sinh",
+    "gender": "Giới tính",
+    "primarySiteId": "Điểm trường",
+    "originalSchool": "Trường gốc",
+    "originalClass": "Lớp gốc",
+    "enrollmentDate": "Ngày nhập học",
+    "employeeCode": "Mã nhân sự",
+    "employeeType": "Loại nhân sự",
+    "positionCode": "Chức vụ",
+    "hireDate": "Ngày vào làm",
+    "terminationDate": "Ngày nghỉ việc",
+    "idCardNumber": "Số CCCD"
+  },
+  "values": {
+    "PLANNED": "Dự kiến",
+    "OPEN_ENROLLMENT": "Đang tuyển sinh",
+    "IN_PROGRESS": "Đang diễn ra",
+    "COMPLETED": "Hoàn thành",
+    "CANCELLED": "Đã huỷ",
+    "SCHEDULED": "Đã xếp lịch",
+    "RESCHEDULED": "Đã dời lịch",
+    "ACTIVE": "Đang hoạt động",
+    "WITHDRAWN": "Đã rút",
+    "TRANSFERRED": "Đã chuyển",
+    "SUSPENDED": "Tạm dừng",
+    "EXPELLED": "Buộc thôi học",
+    "GRADUATED": "Tốt nghiệp",
+    "DEFERRAL": "Bảo lưu",
+    "ON_LEAVE": "Tạm nghỉ",
+    "TERMINATED": "Đã nghỉ việc",
+    "PRIMARY": "Giáo viên chính",
+    "ASSISTANT": "Trợ giảng",
+    "SUBSTITUTE": "Dạy thay",
+    "CM": "Quản lý lớp (CM)",
+    "VIETNAMESE": "Giáo viên Việt Nam",
+    "FOREIGN": "Giáo viên nước ngoài",
+    "MALE": "Nam",
+    "FEMALE": "Nữ",
+    "OTHER": "Khác",
+    "TEACHER": "Giáo viên",
+    "STAFF": "Nhân viên",
+    "MANAGER": "Quản lý",
+    "true": "Có",
+    "false": "Không",
+    "changeTeacher cascade": "Đổi giáo viên phụ trách lớp"
+  },
+  "changeHistory": {
+    "title": "Lịch sử thay đổi dữ liệu",
+    "description": "Ai đã tạo/sửa lớp học, lịch học, ghi danh, giáo viên phụ trách, hồ sơ học sinh và giáo viên — lúc nào, đổi gì.",
+    "scopeHint": "Đang lọc theo điểm trường/lớp chọn trên thanh Header.",
+    "filters": {
+      "entityType": "Loại dữ liệu",
+      "allTypes": "Tất cả",
+      "fromDate": "Từ ngày",
+      "toDate": "Đến ngày",
+      "keyword": "Tìm theo lớp, học sinh, giáo viên, người thay đổi",
+      "reset": "Đặt lại"
+    },
+    "columns": {
+      "time": "Thời gian",
+      "changedBy": "Người thay đổi",
+      "type": "Loại",
+      "subject": "Đối tượng",
+      "action": "Hành động",
+      "changes": "Nội dung"
+    },
+    "sessionOf": "Buổi {{date}}",
+    "unchanged": "Không đổi so với lần ghi trước",
+    "empty": "Không có thay đổi nào trong khoảng thời gian này.",
+    "loadFailed": "Không tải được lịch sử thay đổi.",
+    "itemLabel": "thay đổi",
+    "noPermission": "Bạn không có quyền xem trang này."
+  },
+  "teacherProfiles": {
+    "title": "Hồ sơ giáo viên",
+    "description": "Thông tin công việc, bằng cấp, khen thưởng/kỷ luật, lớp phụ trách và lịch dạy của giáo viên.",
+    "privacyNote": "Không hiển thị CCCD, tài khoản ngân hàng, mã số thuế, BHXH, hợp đồng và lương.",
+    "searchPlaceholder": "Tìm theo tên, mã nhân sự, email",
+    "columns": {
+      "teacher": "Giáo viên",
+      "contact": "Liên hệ",
+      "sites": "Điểm trường",
+      "position": "Chức vụ",
+      "activeClasses": "Lớp đang phụ trách",
+      "status": "Trạng thái"
+    },
+    "status": {
+      "ACTIVE": "Đang làm việc",
+      "ON_LEAVE": "Tạm nghỉ",
+      "TERMINATED": "Đã nghỉ việc"
+    },
+    "empty": "Không có giáo viên nào phù hợp.",
+    "loadFailed": "Không tải được danh sách giáo viên.",
+    "detailLoadFailed": "Không tải được hồ sơ giáo viên.",
+    "tabs": {
+      "info": "Thông tin",
+      "qualifications": "Bằng cấp",
+      "commendations": "Khen thưởng/Kỷ luật",
+      "classes": "Lớp phụ trách",
+      "schedule": "Lịch dạy"
+    },
+    "info": {
+      "employeeCode": "Mã nhân sự",
+      "email": "Email",
+      "phone": "Số điện thoại",
+      "position": "Chức vụ",
+      "department": "Phòng ban",
+      "hireDate": "Ngày vào làm",
+      "sites": "Điểm trường",
+      "status": "Trạng thái"
+    },
+    "qualificationTypes": {
+      "DEGREE": "Bằng cấp",
+      "PEDAGOGY_CERT": "Chứng chỉ sư phạm",
+      "LANGUAGE_CERT": "Chứng chỉ ngoại ngữ",
+      "OTHER": "Khác"
+    },
+    "qualificationColumns": {
+      "type": "Loại",
+      "title": "Tên",
+      "issuer": "Nơi cấp",
+      "issuedDate": "Ngày cấp",
+      "expiryDate": "Hết hạn",
+      "file": "Tệp"
+    },
+    "viewFile": "Xem",
+    "recordTypes": {
+      "COMMENDATION": "Khen thưởng",
+      "DISCIPLINE": "Kỷ luật"
+    },
+    "commendationColumns": {
+      "type": "Loại",
+      "date": "Ngày",
+      "title": "Nội dung"
+    },
+    "classColumns": {
+      "class": "Lớp",
+      "site": "Điểm trường",
+      "role": "Vai trò",
+      "from": "Phụ trách từ",
+      "status": "Trạng thái lớp"
+    },
+    "scheduleColumns": {
+      "date": "Ngày",
+      "time": "Giờ",
+      "class": "Lớp",
+      "room": "Phòng",
+      "status": "Trạng thái"
+    },
+    "scheduleRange": "Từ {{from}} đến {{to}}",
+    "previousWeeks": "2 tuần trước",
+    "nextWeeks": "2 tuần sau",
+    "noQualifications": "Chưa có bằng cấp nào.",
+    "noCommendations": "Chưa có khen thưởng/kỷ luật nào.",
+    "noClasses": "Không phụ trách lớp nào.",
+    "noSessions": "Không có buổi dạy nào trong khoảng này.",
+    "noSchedulePermission": "Bạn không có quyền xem lịch dạy (cần quyền xem Lịch làm việc)."
+  },
+  "teachingStats": {
+    "title": "Thống kê giảng dạy theo giáo viên",
+    "description": "Số lớp, số buổi, số tiết đã dạy và tình hình nhận lớp của từng giáo viên trong khoảng thời gian chọn.",
+    "allSites": "Tất cả điểm trường trong phạm vi",
+    "fromDate": "Từ ngày",
+    "toDate": "Đến ngày",
+    "export": "Xuất Excel",
+    "exporting": "Đang xuất...",
+    "exportSuccess": "Đã xuất file Excel.",
+    "exportFailed": "Không xuất được file Excel.",
+    "loadFailed": "Không tải được thống kê giảng dạy.",
+    "empty": "Không có buổi dạy nào trong khoảng thời gian này.",
+    "columns": {
+      "teacher": "Giáo viên",
+      "classes": "Số lớp",
+      "scheduled": "Buổi đã xếp",
+      "held": "Buổi đã diễn ra",
+      "cancelled": "Buổi huỷ",
+      "periods": "Số tiết đã dạy",
+      "onTime": "Nhận lớp đúng giờ",
+      "late": "Nhận lớp trễ",
+      "missing": "Không nhận lớp",
+      "onTimeRate": "Tỷ lệ đúng giờ"
+    },
+    "totals": "Tổng cộng",
+    "notes": {
+      "held": "Buổi đã diễn ra: buổi không huỷ/không dời và đã tới giờ bắt đầu.",
+      "periods": "Số tiết đã dạy: tiết có giáo viên riêng tính cho giáo viên đó, còn lại tính cho giáo viên phụ trách buổi.",
+      "checkIn": "Nhận lớp chỉ có dữ liệu từ khi áp dụng chức năng Nhận lớp — các buổi trước đó sẽ hiện là Không nhận lớp."
+    }
+  }
+}

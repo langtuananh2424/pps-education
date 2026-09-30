@@ -2,6 +2,7 @@ package vn.com.pps.education.service;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.com.pps.education.common.ExcelExportHelper;
 import vn.com.pps.education.domain.AcademicTerm;
 import vn.com.pps.education.domain.SchoolClass;
 import vn.com.pps.education.domain.Site;
@@ -104,6 +105,51 @@ public class ActualPeriodsReportService {
                 .toList();
 
         return new ActualPeriodsGridResponse(periodType, site.getId(), site.getName(), columns, rows);
+    }
+
+    /** V203 — xuất Excel chế độ "Chi tiết" (1 khoảng thời gian), cùng số liệu getStats. */
+    @Transactional(readOnly = true)
+    public byte[] exportStatsExcel(Long siteId, LocalDate start, LocalDate end, Long classId,
+                                   Long actorUserId, String periodType, String periodLabel) {
+        ActualPeriodsStatsResponse stats = getStats(siteId, start, end, classId, actorUserId, periodType, periodLabel);
+        List<String> headers = List.of("Mã lớp", "Tên lớp", "Số tiết thực tế");
+        List<List<Object>> rows = new ArrayList<>();
+        for (ActualPeriodsClassRow r : stats.classes()) {
+            rows.add(List.<Object>of(r.classCode(), r.className(), r.actualPeriods()));
+        }
+        rows.add(List.<Object>of("", "Tổng cộng", stats.totalActualPeriods()));
+        List<String> notes = List.of(
+                "Kỳ: " + stats.periodLabel() + " (" + stats.startDate() + " - " + stats.endDate() + ")",
+                "Điểm trường: " + stats.siteName(),
+                "Số tiết thực tế: không tính buổi đã huỷ hoặc đã dời.");
+        return ExcelExportHelper.buildWorkbook("Số tiết thực tế", headers, rows, notes);
+    }
+
+    /** V203 — xuất Excel chế độ "Lưới tổng quan", cùng số liệu getGrid (thêm cột Tổng cuối mỗi dòng). */
+    @Transactional(readOnly = true)
+    public byte[] exportGridExcel(Long siteId, String periodType, Integer year, Long classId, Long actorUserId) {
+        ActualPeriodsGridResponse grid = getGrid(siteId, periodType, year, classId, actorUserId);
+        List<String> headers = new ArrayList<>(List.of("Mã lớp", "Tên lớp"));
+        grid.columns().forEach(c -> headers.add(c.label()));
+        headers.add("Tổng");
+        List<List<Object>> rows = new ArrayList<>();
+        for (ActualPeriodsGridRow r : grid.rows()) {
+            List<Object> row = new ArrayList<>(List.<Object>of(r.classCode(), r.className()));
+            long total = 0;
+            for (ActualPeriodsGridColumn c : grid.columns()) {
+                long value = r.actualPeriodsByColumnKey().getOrDefault(c.key(), 0L);
+                row.add(value);
+                total += value;
+            }
+            row.add(total);
+            rows.add(row);
+        }
+        List<String> notes = List.of(
+                "Điểm trường: " + grid.siteName(),
+                "Xem theo: " + ("MONTH".equals(periodType) ? "Tháng" + (year != null ? " năm " + year : "")
+                        : "YEAR".equals(periodType) ? "Năm" : "Học kỳ"),
+                "Số tiết thực tế: không tính buổi đã huỷ hoặc đã dời.");
+        return ExcelExportHelper.buildWorkbook("Số tiết thực tế", headers, rows, notes);
     }
 
     private List<ActualPeriodsGridColumn> buildGridColumns(String periodType, Integer year, Site site) {

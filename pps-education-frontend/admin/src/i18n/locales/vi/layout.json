@@ -57,7 +57,10 @@
       "fac-rooms": "Phòng học & thiết bị",
       "fac-feedback": "Ý kiến phản hồi",
       "part-syllabus": "Kế hoạch giảng dạy",
-      "part-portal": "Báo cáo liên kết"
+      "part-portal": "Báo cáo liên kết",
+      "acad-change-history": "Lịch sử thay đổi dữ liệu",
+      "acad-teachers": "Hồ sơ giáo viên",
+      "rep-teaching-stats": "Thống kê giảng dạy theo GV"
     }
   },
   "roles": {
