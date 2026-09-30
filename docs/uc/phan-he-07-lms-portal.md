@@ -1107,6 +1107,35 @@ UC-24: Làm bài kiểm tra trực tuyến
 > hiện trong modal lịch sử và cột `loc_thu_am` của file xuất ZIP — để so độ chính xác
 > phiên âm giữa hai chế độ trên bài thật rồi mới quyết định. Không đổi cách chấm.
 
+> **Bổ sung V200 (2026-09-29, đã xác nhận với người dùng) — DẠNG ĐỀ tường minh
+> cho câu hỏi Video phản xạ.** Trước đây dạng đề được SUY từ khối/tuyến + thời
+> gian ghi âm (≥60 giây = Part 2, chỉ Khối 8-9 IELTS) nên không phân biệt được PET
+> Part 4 với tả tranh (cùng 60 giây) và không có Part 2 Khối 7. Nay giáo viên
+> chọn dạng đề khi soạn câu hỏi (`review_video_questions.question_format`):
+> - Dạng hợp lệ theo chương trình (nguồn chân lý `ReflexV2Task#allowedFormats`,
+>   FE lấy qua `GET /api/reflex-question-formats?curriculumId=`): Khối 6 SHORT;
+>   Khối 7 IELTS SHORT/PART2; Khối 7 Cambridge SHORT/PICTURE; Khối 8 IELTS
+>   SHORT/PART2; Khối 8 Cambridge PET4/PICTURE; Khối 9 IELTS SHORT/PART2; Khối 9
+>   Cambridge / thiếu khối-tuyến: không chọn được (luồng cũ). Chọn dạng đề thì FE
+>   điền sẵn thời gian ghi âm rubric hiệu chuẩn theo.
+> - 3 dạng bài chấm mới: `g7-ielts-part2` (60s), `g7-cam-pet2` và `g8-cam-pet2`
+>   (tả tranh 60s, cột PICTURE). Cổng độ dài Part 2: Khối 7 ≥30 giây hoặc ≥40 từ;
+>   Khối 8-9 ≥45 giây hoặc ≥60 từ.
+> - Câu hỏi cũ (NULL) và câu dở dang bằng rubric v2 vẫn suy theo thời lượng.
+> - **Tả tranh:** AI chấm KHÔNG nhìn tranh. Giáo viên soạn trong popup 2 tab: (1)
+>   Ảnh — hệ thống chụp khung hình tại mốc câu hỏi (`POST /api/reflex-picture/
+>   capture`, tải video qua S3 về file tạm rồi ffmpeg; chỉnh được giây chụp mà
+>   không đổi mốc câu hỏi; video YouTube phải tải ảnh lên); (2) Mô tả — AI viết
+>   nháp 2-3 dòng (`POST /api/reflex-picture/brief`, CHƯA kiểm chứng đường gửi ảnh
+>   qua 9Router bằng gọi thật), giáo viên đối chiếu, sửa, lưu (`picture_brief`,
+>   bắt buộc với PICTURE). Lúc chấm, mô tả được ghép vào đề của lượt chấm viết và
+>   chấm nói (khối "MÔ TẢ ẢNH … chỉ dùng để xét đúng/lạc đề"), KHÔNG vào lượt phiên
+>   âm; học sinh không nhận ảnh/mô tả (`listQuestions` ẩn với học sinh). Giáo viên
+>   để trống đề thì dùng câu lệnh mặc định "Look at the photo. Describe what you
+>   can see."
+> - Chưa có: cột dạng đề trong file mẫu Excel nhập câu hỏi (câu nhập từ Excel để
+>   trống dạng đề = suy theo thời lượng).
+
 > **Bổ sung V191 (2026-09-21, đã xác nhận với người dùng) — giáo viên
 > nghe lại audio + xem kết quả AI chấm THEO TỪNG LẦN LÀM, và xuất toàn bộ
 > dữ liệu để tiếp tục train AI.** `reflex_question_progress` SỬA ĐÈ tại

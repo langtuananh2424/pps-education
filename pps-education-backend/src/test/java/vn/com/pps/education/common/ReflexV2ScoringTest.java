@@ -540,4 +540,72 @@ class ReflexV2ScoringTest {
         assertThat(g9v3.grade()).isEqualTo(9);
         assertThat(ReflexV2Task.forGradeTrack(Curriculum.GradeLevel.GRADE_6, null, 20).orElseThrow().grade()).isEqualTo(6);
     }
+
+    // ---------- V200: dạng đề tường minh ----------
+
+    @Test
+    void allowedFormats_matchRubricV3PerGradeAndTrack() {
+        assertThat(ReflexV2Task.allowedFormats(Curriculum.GradeLevel.GRADE_6, null)).containsOnlyKeys(ReflexQuestionFormat.SHORT);
+        assertThat(ReflexV2Task.allowedFormats(Curriculum.GradeLevel.GRADE_7, Curriculum.Track.IELTS).keySet())
+                .containsExactly(ReflexQuestionFormat.SHORT, ReflexQuestionFormat.PART2);
+        assertThat(ReflexV2Task.allowedFormats(Curriculum.GradeLevel.GRADE_7, Curriculum.Track.CAMBRIDGE).keySet())
+                .containsExactly(ReflexQuestionFormat.SHORT, ReflexQuestionFormat.PICTURE);
+        assertThat(ReflexV2Task.allowedFormats(Curriculum.GradeLevel.GRADE_8, Curriculum.Track.IELTS).keySet())
+                .containsExactly(ReflexQuestionFormat.SHORT, ReflexQuestionFormat.PART2);
+        assertThat(ReflexV2Task.allowedFormats(Curriculum.GradeLevel.GRADE_8, Curriculum.Track.CAMBRIDGE).keySet())
+                .containsExactly(ReflexQuestionFormat.PET4, ReflexQuestionFormat.PICTURE);
+        assertThat(ReflexV2Task.allowedFormats(Curriculum.GradeLevel.GRADE_9, Curriculum.Track.IELTS).keySet())
+                .containsExactly(ReflexQuestionFormat.SHORT, ReflexQuestionFormat.PART2);
+        // Chưa có bộ tiêu chí → không chọn được dạng đề (luồng cũ)
+        assertThat(ReflexV2Task.allowedFormats(Curriculum.GradeLevel.GRADE_9, Curriculum.Track.CAMBRIDGE)).isEmpty();
+        assertThat(ReflexV2Task.allowedFormats(Curriculum.GradeLevel.GRADE_7, null)).isEmpty();
+        assertThat(ReflexV2Task.allowedFormats(null, null)).isEmpty();
+    }
+
+    @Test
+    void forQuestion_explicitFormatWins_evenWhenDurationWouldSaySomethingElse() {
+        // Khối 8 Cambridge: PET4 và tả tranh cùng 60 giây — chỉ phân biệt được bằng dạng đề
+        ReflexV2Task picture = ReflexV2Task.forQuestion(Curriculum.GradeLevel.GRADE_8, Curriculum.Track.CAMBRIDGE, 60,
+                ReflexQuestionFormat.PICTURE, ReflexV2Task.RUBRIC_V3).orElseThrow();
+        assertThat(picture.id()).isEqualTo("g8-cam-pet2");
+        assertThat(picture.rubricFormat()).isEqualTo("PICTURE");
+        assertThat(picture.minWords()).isEqualTo(18);
+        // Khối 7 IELTS Part 2 — trước đây câu 60 giây bị chấm như câu ngắn 25 giây
+        ReflexV2Task g7Part2 = ReflexV2Task.forQuestion(Curriculum.GradeLevel.GRADE_7, Curriculum.Track.IELTS, 60,
+                ReflexQuestionFormat.PART2, ReflexV2Task.RUBRIC_V3).orElseThrow();
+        assertThat(g7Part2.id()).isEqualTo("g7-ielts-part2");
+        assertThat(g7Part2.seconds()).isEqualTo(60);
+        assertThat(ReflexV2Task.forQuestion(Curriculum.GradeLevel.GRADE_7, Curriculum.Track.CAMBRIDGE, 60,
+                ReflexQuestionFormat.PICTURE, ReflexV2Task.RUBRIC_V3).orElseThrow().id()).isEqualTo("g7-cam-pet2");
+        // Dạng đề thắng thời lượng: Khối 9 đặt SHORT dù ghi âm 90 giây
+        assertThat(ReflexV2Task.forQuestion(Curriculum.GradeLevel.GRADE_9, Curriculum.Track.IELTS, 90,
+                ReflexQuestionFormat.SHORT, ReflexV2Task.RUBRIC_V3).orElseThrow().id()).isEqualTo("g9-ielts-short");
+    }
+
+    @Test
+    void forQuestion_fallsBackToDurationInference_forOldQuestionsInvalidFormatsAndV2Rows() {
+        // Câu hỏi cũ (chưa chọn dạng đề)
+        assertThat(ReflexV2Task.forQuestion(Curriculum.GradeLevel.GRADE_8, Curriculum.Track.IELTS, 90, null,
+                ReflexV2Task.RUBRIC_V3).orElseThrow().id()).isEqualTo("g8-ielts-part2");
+        // Dạng đề không hợp lệ với khối/tuyến (lưu được là do dữ liệu cũ) → suy theo thời lượng
+        assertThat(ReflexV2Task.forQuestion(Curriculum.GradeLevel.GRADE_6, null, 20, ReflexQuestionFormat.PICTURE,
+                ReflexV2Task.RUBRIC_V3).orElseThrow().id()).isEqualTo("g6-short");
+        // Câu dở dang bằng v2: bộ v2 không có dạng đề mới → giữ cấu hình v2
+        ReflexV2Task v2 = ReflexV2Task.forQuestion(Curriculum.GradeLevel.GRADE_8, Curriculum.Track.CAMBRIDGE, 60,
+                ReflexQuestionFormat.PICTURE, ReflexV2Task.RUBRIC_V2).orElseThrow();
+        assertThat(v2.id()).isEqualTo("g8-cam-pet4");
+        assertThat(v2.rubricVersion()).isEqualTo(ReflexV2Task.RUBRIC_V2);
+    }
+
+    @Test
+    void lengthGate_part2Grade7_needs30SecondsOr40Words_grade8Needs45SecondsOr60Words() {
+        ReflexV2Task g7Part2 = ReflexV2Task.forQuestion(Curriculum.GradeLevel.GRADE_7, Curriculum.Track.IELTS, 60,
+                ReflexQuestionFormat.PART2, ReflexV2Task.RUBRIC_V3).orElseThrow();
+        String fortyWords = String.join(" ", java.util.Collections.nCopies(40, "word"));
+        assertThat(ReflexV2Scoring.lengthGate(g7Part2, fortyWords, 10).enough()).isTrue();
+        assertThat(ReflexV2Scoring.lengthGate(g7Part2, "short answer", 30).enough()).isTrue();
+        assertThat(ReflexV2Scoring.lengthGate(g7Part2, "short answer", 29).enough()).isFalse();
+        // Khối 8: 40 từ / 30 giây chưa đủ
+        assertThat(ReflexV2Scoring.lengthGate(G8_PART2, fortyWords, 30).enough()).isFalse();
+    }
 }

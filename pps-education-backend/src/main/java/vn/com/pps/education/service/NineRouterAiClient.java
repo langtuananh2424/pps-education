@@ -189,6 +189,63 @@ public class NineRouterAiClient {
         return callWithConcurrencyLimit("chat", () -> doChat(systemPrompt, userMessage, resolvedModel));
     }
 
+    /**
+     * V200 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-29) — gửi kèm 1 ảnh (content part
+     * {@code image_url} dạng data URI, shape OpenAI multimodal chuẩn) để AI viết nháp mô tả tranh cho dạng tả tranh
+     * UC-23b. CHƯA kiểm chứng đường ảnh qua 9Router bằng gọi thật (bản 28/9 của người training ghi nhận endpoint định
+     * dạng Gemini của 9Router từng nuốt mất audio mà vẫn trả 200) — kết quả chỉ là NHÁP, giáo viên bắt buộc đối chiếu
+     * với ảnh và sửa trước khi lưu. Trả {@code null} nếu lỗi/rỗng.
+     */
+    public AiTextResponse chatWithImage(String systemPrompt, String userText, byte[] imageBytes, String mimeType, String model) {
+        if (imageBytes == null || imageBytes.length == 0 || model == null || model.isBlank()) {
+            return null;
+        }
+        return callWithConcurrencyLimit("chatWithImage", () -> doImageCall(systemPrompt, userText, imageBytes, mimeType, model));
+    }
+
+    private AiTextResponse doImageCall(String systemPrompt, String userText, byte[] imageBytes, String mimeType, String model) {
+        try {
+            ObjectNode payload = objectMapper.createObjectNode();
+            payload.put("model", model);
+            payload.put("stream", false);
+            payload.put("temperature", 0);
+            ArrayNode messages = payload.putArray("messages");
+            if (systemPrompt != null && !systemPrompt.isBlank()) {
+                ObjectNode systemMsg = messages.addObject();
+                systemMsg.put("role", "system");
+                systemMsg.put("content", systemPrompt);
+            }
+            ObjectNode userMsg = messages.addObject();
+            userMsg.put("role", "user");
+            ArrayNode parts = userMsg.putArray("content");
+            parts.addObject().put("type", "text").put("text", userText);
+            ObjectNode imagePart = parts.addObject();
+            imagePart.put("type", "image_url");
+            imagePart.putObject("image_url").put("url", "data:" + (mimeType == null ? "image/jpeg" : mimeType) + ";base64,"
+                    + java.util.Base64.getEncoder().encodeToString(imageBytes));
+            long startedAtMillis = System.currentTimeMillis();
+            HttpResponse<String> response = sendChatCompletions(objectMapper.writeValueAsString(payload));
+            if (response.statusCode() >= 300) {
+                log.warn("NineRouterAiClient: gọi 9Router (ảnh) lỗi (HTTP {}): {}", response.statusCode(), response.body());
+                return null;
+            }
+            JsonNode json = objectMapper.readTree(response.body());
+            AiTokenUsage usage = logUsage("chatWithImage", model, false, json, System.currentTimeMillis() - startedAtMillis);
+            String content = json.path("choices").path(0).path("message").path("content").asText(null);
+            if (content == null || content.isBlank()) {
+                usageSink.recordRejected("chatWithImage", model, usage);
+                return null;
+            }
+            return new AiTextResponse(content, usage);
+        } catch (IOException | InterruptedException e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            log.warn("NineRouterAiClient: gọi 9Router (ảnh) thất bại. {}", e.getMessage());
+            return null;
+        }
+    }
+
     private AiTextResponse doChat(String systemPrompt, String userMessage, String resolvedModel) {
         ChatResult result = doChatWithMeta(systemPrompt, userMessage, resolvedModel);
         if (result == null) {
