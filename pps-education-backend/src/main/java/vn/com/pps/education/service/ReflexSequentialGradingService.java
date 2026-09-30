@@ -122,7 +122,7 @@ public class ReflexSequentialGradingService {
         Optional<ReflexV2Task> v2Task = reflexV2Task(curriculum, question, reflexV2Enabled, ReflexV2Task.CURRENT_RUBRIC_VERSION);
         if (v2Task.isPresent()) {
             ReflexV2AiGradingService.WritingResult v2Result =
-                    reflexV2GradingService.gradeWriting(v2Task.get(), question.getPrompt(), answerText);
+                    reflexV2GradingService.gradeWriting(v2Task.get(), gradingQuestionText(question, v2Task.get()), answerText);
             recordUsage(AiGradingTokenUsage.Step.WRITING, "chatJson",
                     v2Result == null ? null : v2Result.usage(), progress);
             applyWritingResultV2(progress, v2Result, question, v2Task.get());
@@ -188,7 +188,7 @@ public class ReflexSequentialGradingService {
             // bị rollback theo).
             ReflexQuestionProgress usageContext = progress;
             ReflexV2AiGradingService.SpeakingResult result = audioFile == null ? null
-                    : reflexV2GradingService.gradeSpeaking(v2Task.get(), question.getPrompt(), audioFile.bytes(), audioFile.contentType(), locked,
+                    : reflexV2GradingService.gradeSpeaking(v2Task.get(), gradingQuestionText(question, v2Task.get()), audioFile.bytes(), audioFile.contentType(), locked,
                             (step, usage) -> recordUsage(step, "chatWithAudioJson", usage, usageContext));
             applySpeakingResultV2(progress, result);
             if (progress.getSpeakingAudit() != null && recordingFilter != null) {
@@ -251,14 +251,42 @@ public class ReflexSequentialGradingService {
         }
     }
 
+    /** Câu lệnh mặc định của dạng tả tranh khi giáo viên để trống đề (mirror kho đề PET Task 2 của mã tham chiếu). */
+    static final String DEFAULT_PICTURE_PROMPT = "Look at the photo. Describe what you can see.";
+
+    /**
+     * V200 — đề gửi vào lượt chấm VIẾT và chấm NÓI. Dạng tả tranh: kèm mô tả tranh giáo viên đã duyệt, CHỈ để xét
+     * đúng/lạc đề (rubric §C1 dạng PICTURE) — mirror {@code bank.gradingText} của mã tham chiếu. Lượt phiên âm không
+     * nhận đề nên mô tả không bao giờ lọt vào đó; học sinh cũng không thấy mô tả (xem ReviewVideoService#listQuestions).
+     */
+    static String gradingQuestionText(ReviewVideoQuestion question, ReflexV2Task task) {
+        boolean picture = "PICTURE".equals(task.rubricFormat());
+        String prompt = question.getPrompt() == null || question.getPrompt().isBlank()
+                ? (picture ? DEFAULT_PICTURE_PROMPT : "") : question.getPrompt().trim();
+        String brief = question.getPictureBrief();
+        if (!picture || brief == null || brief.isBlank()) {
+            return prompt;
+        }
+        StringBuilder sb = new StringBuilder(prompt)
+                .append("\n\nMÔ TẢ ẢNH (giáo viên nhập — chỉ dùng để xét đúng/lạc đề, học sinh không thấy):\n");
+        for (String line : brief.split("\\R")) {
+            String l = line.strip().replaceFirst("^[-•*]\\s*", "");
+            if (!l.isEmpty()) {
+                sb.append("- ").append(l).append("\n");
+            }
+        }
+        return sb.toString().stripTrailing();
+    }
+
     /** @param rubricVersion version rubric ({@code null}/không hỗ trợ → luồng cũ). */
     private Optional<ReflexV2Task> reflexV2Task(Curriculum curriculum, ReviewVideoQuestion question, boolean enabled,
                                                 String rubricVersion) {
         if (!enabled || curriculum == null) {
             return Optional.empty();
         }
-        Optional<ReflexV2Task> task = ReflexV2Task.forGradeTrack(curriculum.getGradeLevel(), curriculum.getTrack(),
-                question.getMaxRecordingSeconds(), rubricVersion);
+        // V200 — dạng đề giáo viên chọn (nếu có) quyết định dạng bài; câu hỏi cũ chưa chọn thì suy theo thời lượng.
+        Optional<ReflexV2Task> task = ReflexV2Task.forQuestion(curriculum.getGradeLevel(), curriculum.getTrack(),
+                question.getMaxRecordingSeconds(), question.getQuestionFormat(), rubricVersion);
         // Ngưỡng của rubric được hiệu chuẩn theo đúng thời lượng ghi âm của dạng bài (20/25/30/60/90 giây) —
         // giáo viên đặt lệch thì ngưỡng đếm từ/ý/chỗ ngắt sai; chỉ cảnh báo, không chặn.
         task.filter(t -> t.seconds() != question.getMaxRecordingSeconds()).ifPresent(t ->

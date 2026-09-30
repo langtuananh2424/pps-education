@@ -470,7 +470,7 @@
         "timeout": "Trợ lý xử lý quá lâu — vui lòng thử lại."
       },
       "pronounDetected": "Giáo viên xưng: {{pronoun}}",
-      "pronounUnknown": "Chưa nhận ra thầy hay cô — đang viết \"thầy/cô\". Gõ \"xưng thầy\" hoặc \"xưng cô\" để đổi."
+      "pronounUnknown": "Chưa nhận ra thầy hay cô — trợ lý viết câu không xưng hô (VD \"Mong con…\"). Gõ \"xưng thầy\" hoặc \"xưng cô\" để đổi."
     }
   },
   "commentsPage": {

@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 import vn.com.pps.education.common.BaseAuditEntity;
+import vn.com.pps.education.common.ReflexQuestionFormat;
 
 /**
  * Bảng review_video_questions (SDD > LMS & Portal > Kho Video Ôn tập)
@@ -44,4 +45,23 @@ public class ReviewVideoQuestion extends BaseAuditEntity {
 
     @Column(name = "display_order", nullable = false)
     private int displayOrder = 0;
+
+    /**
+     * V200 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-29) — dạng đề giáo viên chọn. NULL = câu hỏi
+     * cũ, hệ thống suy dạng đề từ khối/tuyến + thời gian ghi âm như trước (xem ReflexV2Task#forGradeTrack).
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "question_format", length = 20)
+    private ReflexQuestionFormat questionFormat;
+
+    /** V200 — ảnh tranh (dạng PICTURE) để giáo viên đối chiếu khi soạn mô tả; không gửi vào AI chấm. */
+    @Column(name = "picture_image_url", length = 1000)
+    private String pictureImageUrl;
+
+    /**
+     * V200 — mô tả tranh bằng chữ (dạng PICTURE) giáo viên đã duyệt: chỉ gửi vào lượt chấm viết/nói để xét lạc
+     * đề; KHÔNG gửi vào lượt phiên âm, KHÔNG trả cho học sinh.
+     */
+    @Column(name = "picture_brief", columnDefinition = "TEXT")
+    private String pictureBrief;
 }
