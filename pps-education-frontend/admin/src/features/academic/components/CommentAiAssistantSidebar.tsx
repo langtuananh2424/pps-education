@@ -23,8 +23,6 @@ interface Props {
   onClose: () => void;
   classSessionId: number | null;
   sessionLabel: string;
-  /** Buổi GVNN — tạm thời không hỗ trợ (UC-74 A1). */
-  isForeignSession: boolean;
   /**
    * Điền Thái độ + Nhận xét của bản nháp vào form (chỉ các dòng chưa khoá) — trả về số dòng đã điền.
    * Trợ lý không có đường nào khác để ghi dữ liệu.
@@ -50,7 +48,6 @@ export default function CommentAiAssistantSidebar({
   onClose,
   classSessionId,
   sessionLabel,
-  isForeignSession,
   onApply,
   onApplyAndSaveDraft,
   savingDraft,
@@ -206,22 +203,17 @@ export default function CommentAiAssistantSidebar({
           <p className="text-xs text-violet-700">{t("dailyCommentPanel.aiAssistant.permissionNote")}</p>
         </div>
 
-        {isForeignSession ? (
-          <p className="text-sm text-amber-700 bg-amber-50 border border-amber-100 rounded-lg p-3">{t("dailyCommentPanel.aiAssistant.foreignSession")}</p>
-        ) : (
-          messages.length === 0 &&
-          classSessionId && (
-            <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={() => composerRef.current?.startRecording()} className="flex items-center gap-1.5 text-[13px] font-semibold border border-violet-200 text-violet-700 bg-white hover:bg-violet-50 rounded-full px-3 py-1.5">
-                <Mic className="w-3.5 h-3.5" />
-                {t("dailyCommentPanel.aiAssistant.suggestions.record")}
-              </button>
-              <button type="button" onClick={() => composerRef.current?.openFilePicker()} className="flex items-center gap-1.5 text-[13px] font-semibold border border-violet-200 text-violet-700 bg-white hover:bg-violet-50 rounded-full px-3 py-1.5">
-                <Paperclip className="w-3.5 h-3.5" />
-                {t("dailyCommentPanel.aiAssistant.suggestions.upload")}
-              </button>
-            </div>
-          )
+        {messages.length === 0 && classSessionId && (
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => composerRef.current?.startRecording()} className="flex items-center gap-1.5 text-[13px] font-semibold border border-violet-200 text-violet-700 bg-white hover:bg-violet-50 rounded-full px-3 py-1.5">
+              <Mic className="w-3.5 h-3.5" />
+              {t("dailyCommentPanel.aiAssistant.suggestions.record")}
+            </button>
+            <button type="button" onClick={() => composerRef.current?.openFilePicker()} className="flex items-center gap-1.5 text-[13px] font-semibold border border-violet-200 text-violet-700 bg-white hover:bg-violet-50 rounded-full px-3 py-1.5">
+              <Paperclip className="w-3.5 h-3.5" />
+              {t("dailyCommentPanel.aiAssistant.suggestions.upload")}
+            </button>
+          </div>
         )}
 
         {messages.map((m) =>
@@ -265,7 +257,7 @@ export default function CommentAiAssistantSidebar({
 
       <AiChatComposer
         ref={composerRef}
-        disabled={!classSessionId || isForeignSession}
+        disabled={!classSessionId}
         busy={busy}
         placeholder={draft ? t("dailyCommentPanel.aiAssistant.inputPlaceholderRevise") : t("dailyCommentPanel.aiAssistant.inputPlaceholder")}
         onSend={handleSend}
