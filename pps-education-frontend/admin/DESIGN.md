@@ -393,8 +393,9 @@ Chắc tay và kiệm lời — động từ nói rõ kết quả ("Lưu nhận 
 
 ### Navigation
 - **Sidebar:** trắng mờ, 256px, chạy hết chiều cao trang, nhóm theo công việc của vai trò (xem Layout); mục chữ callout
-  text-muted với icon 18px text-secondary; mục đang chọn tô accent-soft, chữ và icon
-  accent-ink, weight 600. Logo P 32px + wordmark "PPS VIETNAM" / "Caring Individuals".
+  weight 500 màu text-primary với icon 18px text-muted (`#515154`) để đọc rõ trên nền trắng mờ;
+  mục đang chọn tô accent-soft, chữ và icon accent-ink, weight 600. Tiêu đề nhóm giữ
+  footnote 600 text-secondary để tách khỏi các mục. Logo P 32px + wordmark "PPS VIETNAM" / "Caring Individuals".
 - **Header:** trong suốt, dính trên cùng; bộ chọn phạm vi điểm trường (Select 248px) ở đầu, trạng thái chấm công, ngày (mono), PaletteSwitcher (2 bảng), LanguageSwitcher, chuông thông báo.
 
 ### Approval inbox (signature)
