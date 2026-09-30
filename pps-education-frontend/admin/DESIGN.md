@@ -361,7 +361,11 @@ thống. Khi xem tất cả, mỗi dòng dữ liệu mang nhãn cơ sở.
 Mỗi vai trò có một trang chủ (lời chào, 4 số liệu, "Việc cần làm hôm nay" dẫn tới màn xử lý).
 Màn dùng chung (Lớp học, Sổ điểm, Nghỉ phép…) theo vai trò người đang xem: khung, tiêu đề và
 nội dung đổi theo vai trò đó (giáo viên xin nghỉ, quản lý duyệt đơn), không bao giờ đẩy người
-dùng sang khung của vai trò khác.
+dùng sang khung của vai trò khác. Khi người xem không có quyền sửa trên màn đó (Ban giám đốc ở
+Bảng lương/Chi phí, TP đào tạo ở Sổ điểm), màn **mặc định chỉ xem**: ẩn nút sửa/duyệt, hiện Badge
+neutral "Chỉ xem · thuộc quyền …". TopBar chỉ theo phạm vi của người xem khi Sidebar đã chấp nhận
+vai trò đó; trường liên kết không thấy trạng thái chấm công. Trang chủ có đúng một nút chính
+dẫn tới việc ưu tiên nhất, việc đó mang Badge "Làm trước" và đĩa icon Attention Amber.
 
 Mỗi trang: tiêu đề (title-2) + một dòng mô tả, rồi đến thẻ. Danh sách dùng TableContainer
 + Th/Td, Badge cho trạng thái, Tabs để lọc, Pagination bên dưới. Form một cột, nhãn
@@ -439,7 +443,10 @@ thì hiện EmptyState khép lại ngày làm việc.
 **The Same Safety Everywhere Rule.** Mọi hành động gửi tới phụ huynh hoặc công bố — ở hộp thư
 hay ở màn riêng, từng dòng hay hàng loạt — dùng cùng một cơ chế: duyệt hàng loạt mở xác nhận ghi
 số lượng; sau khi duyệt có `NoticeBanner` thành công với nút "Hoàn tác" và đếm ngược 10 giây; từ
-chối luôn bắt buộc lý do, báo lỗi ngay dưới ô.
+chối luôn bắt buộc lý do, báo lỗi ngay dưới ô. Duyệt liên tiếp gộp vào **một lô**: banner đếm số
+việc ("Đã duyệt 3 việc · gửi sau 10 giây"), mỗi lần duyệt thêm đặt lại 10 giây, "Hoàn tác" trả lại
+cả lô. Ở hộp thư, khung chi tiết đã hiển thị đúng nội dung người nhận thấy nên thay cho bước xác
+nhận; màn danh sách chỉ hỏi xác nhận khi bấm "Duyệt tất cả".
 
 ### Feedback
 - **NoticeBanner:** lỗi và cảnh báo cấp trang/thao tác rơi xuống từ giữa trên cùng màn
@@ -468,6 +475,8 @@ thẩm mỹ.
 - **Do** ghi số tiền bằng chữ text-primary; chênh lệch có dấu +/− và màu trạng thái.
 - **Do** cho mọi ô nhập viền focus accent khi dùng bàn phím; không để `outline: none` trơn.
 - **Do** đưa mỗi vai trò về trang chủ của chính nó và giữ khung vai trò khi đi sang màn dùng chung.
+- **Do** cho mọi tấm trượt bên đóng được bằng Esc và nền mờ; hover dùng được cả khi dòng có nền riêng.
+- **Do** giữ nút phụ tối thiểu 32px, điều khiển chính 40px.
 
 ### Don't:
 - **Don't** dùng gradient, glow, khối trang trí (`bg-brand-gradient`, `shadow-glow` của bản 1.0), trừ trong logo P.
