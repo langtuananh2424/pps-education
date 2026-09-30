@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-30T03:32:43+00:00",
+  "generatedAt": "2026-09-30T04:15:16+00:00",
   "title": "Design System: PPS Admin 2.0",
   "extensions": {
     "colorMeta": {
@@ -19,8 +19,6 @@
         ],
         "paletteVariants": {
           "orange": "#cc4e00",
-          "teal": "#0f766e",
-          "blue": "#0066cc",
           "ink": "#1d1d1f"
         }
       },
@@ -39,8 +37,6 @@
         ],
         "paletteVariants": {
           "orange": "#a84000",
-          "teal": "#115e59",
-          "blue": "#004f9e",
           "ink": "#3a3a3c"
         }
       },
@@ -59,8 +55,6 @@
         ],
         "paletteVariants": {
           "orange": "#fdf0e6",
-          "teal": "#e3f2f0",
-          "blue": "#e6f0fa",
           "ink": "#ececf0"
         }
       },
@@ -79,8 +73,6 @@
         ],
         "paletteVariants": {
           "orange": "#a84000",
-          "teal": "#115e59",
-          "blue": "#004f9e",
           "ink": "#1d1d1f"
         }
       },
@@ -99,8 +91,6 @@
         ],
         "paletteVariants": {
           "orange": "#cc4e00",
-          "teal": "#0f766e",
-          "blue": "#0066cc",
           "ink": "#cc4e00"
         }
       },
@@ -467,6 +457,36 @@
           "#fcb0c7",
           "#ffe8ee"
         ]
+      },
+      "chart-in": {
+        "role": "neutral",
+        "displayName": "Ledger Ink (thu)",
+        "canonical": "#3a3a3c",
+        "tonalRamp": [
+          "#1d1d1f",
+          "#2c2c2e",
+          "#3a3a3c",
+          "#515154",
+          "#6e6e73",
+          "#d1d1d6",
+          "#e5e5ea",
+          "#f5f5f7"
+        ]
+      },
+      "chart-out": {
+        "role": "neutral",
+        "displayName": "Ledger Grey (chi)",
+        "canonical": "#76767b",
+        "tonalRamp": [
+          "#1d1d1f",
+          "#2c2c2e",
+          "#3a3a3c",
+          "#515154",
+          "#76767b",
+          "#d1d1d6",
+          "#e5e5ea",
+          "#f5f5f7"
+        ]
       }
     },
     "typographyMeta": {
@@ -543,16 +563,25 @@
         "default": true
       },
       {
-        "id": "teal",
-        "name": "Xanh ngọc"
-      },
-      {
-        "id": "blue",
-        "name": "Xanh Apple"
-      },
-      {
         "id": "ink",
         "name": "Mực + cam"
+      }
+    ],
+    "layoutTemplates": [
+      {
+        "name": "master-detail",
+        "columns": "320px minmax(0, 1fr)",
+        "gap": "16px"
+      },
+      {
+        "name": "content-inspector",
+        "columns": "minmax(0, 1fr) 360px",
+        "gap": "16px"
+      },
+      {
+        "name": "three-pane",
+        "columns": "240px 300px minmax(0, 1fr)",
+        "gap": "16px"
       }
     ]
   },
@@ -627,7 +656,8 @@
     "overview": "**Creative North Star: \"The Academic Ledger\" (Sổ tay học vụ)**\n\nPPS Admin 2.0 đọc như một cuốn sổ ghi chép học vụ chuẩn mực: chính xác, dễ dò, số liệu rõ ràng. Mỗi trang là một tờ sổ — một tiêu đề, một dòng mô tả, rồi các bảng và thẻ trắng xếp gọn trên nền giấy xám. Người dùng mở sổ để tra và ghi, không để ngắm; giao diện lùi lại để nội dung (tên học sinh, điểm, buổi học, trạng thái duyệt) dẫn dắt.\n\nTinh thần là \"đơn giản và vừa đủ\", theo nguyên tắc giao diện của Apple — rõ ràng, nhường chỗ, chiều sâu bằng mặt phẳng. Mật độ thông tin cao nhưng không chật: chữ 15px cho nội dung, 14px cho bảng dày, không gì dưới 12px; điều khiển cao 40px để chạm được trên iPad. Màu nhấn chỉ dùng một lần cho hành động quan trọng nhất; màu dữ liệu gắn cố định với từng loại con số để người đọc nhận ra ngay \"đây là chuyên cần\", \"đây là điểm\".\n\nTừ chối rõ ràng: gradient, glow, khối trang trí, chữ IN HOA, emoji và minh họa — tất cả những gì bản 1.0 từng dùng để \"làm đẹp\" nay coi là nhiễu.",
     "keyCharacteristics": [
       "Nền xám, nội dung trắng, một đường viền mảnh duy nhất.",
-      "Một màu nhấn theo bảng màu người dùng chọn (4 bảng), mọi thứ khác trung tính.",
+      "Một màu nhấn theo bảng màu người dùng chọn (Cam PPS hoặc Mực), mọi thứ khác trung tính.",
+      "Tiền và điểm trường là trung tính; màu chỉ kể chuyện học tập và trạng thái.",
       "Font hệ thống (SF Pro / Segoe UI / Inter), tối đa semibold 600.",
       "Màu dữ liệu cố định theo loại số liệu; màu trạng thái luôn đi kèm chữ.",
       "Bóng đổ chỉ cho lớp nổi (menu, modal, toast); thẻ phẳng.",
@@ -646,7 +676,22 @@
       },
       {
         "name": "The Status Speaks Rule",
-        "body": "Màu trạng thái luôn đi kèm một từ; không có chấm màu đứng một mình.",
+        "body": "Màu trạng thái luôn đi kèm một từ; không có chấm màu đứng một mình. \"Chờ duyệt\" luôn là Attention Amber ở mọi màn.",
+        "section": "colors"
+      },
+      {
+        "name": "The Accent Never Draws Data Rule",
+        "body": "Biểu đồ, thanh, đường, phễu không bao giờ dùng accent. Số liệu học tập dùng màu dữ liệu của nó; mọi thứ khác dùng ink (`#3a3a3c`) và xám (`#76767b`).",
+        "section": "colors"
+      },
+      {
+        "name": "The Money Is Neutral Rule",
+        "body": "Doanh thu, chi phí, lương, công nợ là số màu text-primary. Cột \"thu\" `#3a3a3c`, cột \"chi\" `#76767b`, luôn kèm chú thích bằng chữ. Chỉ phần chênh lệch (+/−) được mang màu trạng thái, và luôn có dấu.",
+        "section": "colors"
+      },
+      {
+        "name": "The Campus Greys Rule",
+        "body": "Điểm trường phân biệt bằng thang xám có thứ tự (`#1d1d1f`, `#515154`, `#76767b`) kèm nhãn, không bao giờ bằng màu dữ liệu.",
         "section": "colors"
       },
       {
@@ -677,7 +722,10 @@
       "**Do** giữ mọi ô nhập liệu nền trắng; nền xám chỉ cho giá trị chỉ đọc.",
       "**Do** ghi ngày DD/MM/YYYY, giờ 24h HH:mm, phân cách hàng nghìn bằng dấu chấm (1.248).",
       "**Do** dùng icon Lucide nét 2px, `currentColor`: 18px sidebar, 16px nút và menu, 20px đĩa icon, 28px empty state.",
-      "**Do** giới hạn chuyển động ở chuyển màu 150ms."
+      "**Do** giới hạn chuyển động ở chuyển màu 150ms.",
+      "**Do** dùng đúng độ rộng cột chuẩn: trái 320px, phải 360px, ba cột 240/300/1fr.",
+      "**Do** cho hành động gửi tới phụ huynh một bước xác nhận có số lượng và 10 giây hoàn tác.",
+      "**Do** ghi số tiền bằng chữ text-primary; chênh lệch có dấu +/− và màu trạng thái."
     ],
     "donts": [
       "**Don't** dùng gradient, glow, khối trang trí (`bg-brand-gradient`, `shadow-glow` của bản 1.0), trừ trong logo P.",
@@ -687,7 +735,11 @@
       "**Don't** dùng màu dữ liệu cho nút, link, hay để báo thành công/lỗi.",
       "**Don't** dùng emoji hoặc hình minh họa.",
       "**Don't** hiện lỗi cấp trang thành một hộp trên đầu bảng — dùng NoticeBanner.",
-      "**Don't** nhảy, nhấp nháy hay nảy — ngoại lệ duy nhất là chấm nhắc chấm công."
+      "**Don't** nhảy, nhấp nháy hay nảy — ngoại lệ duy nhất là chấm nhắc chấm công.",
+      "**Don't** vẽ biểu đồ, thanh hay phễu bằng màu accent.",
+      "**Don't** tô tiền hay điểm trường bằng teal, blue, violet, pink.",
+      "**Don't** đánh dấu mục đang chọn bằng vạch sọc bên trái; dùng nền accent-soft.",
+      "**Don't** dùng khoảng cách lệch lưới 4px (10, 14, 18px)."
     ]
   }
 }

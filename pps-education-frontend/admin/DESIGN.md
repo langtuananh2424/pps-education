@@ -206,7 +206,8 @@ những gì bản 1.0 từng dùng để "làm đẹp" nay coi là nhiễu.
 
 **Key Characteristics:**
 - Nền xám, nội dung trắng, một đường viền mảnh duy nhất.
-- Một màu nhấn theo bảng màu người dùng chọn (4 bảng), mọi thứ khác trung tính.
+- Một màu nhấn theo bảng màu người dùng chọn (Cam PPS hoặc Mực), mọi thứ khác trung tính.
+- Tiền và điểm trường là trung tính; màu chỉ kể chuyện học tập và trạng thái.
 - Font hệ thống (SF Pro / Segoe UI / Inter), tối đa semibold 600.
 - Màu dữ liệu cố định theo loại số liệu; màu trạng thái luôn đi kèm chữ.
 - Bóng đổ chỉ cho lớp nổi (menu, modal, toast); thẻ phẳng.
@@ -219,9 +220,9 @@ họ màu phụ có nhiệm vụ cố định: trạng thái và dữ liệu.
 
 ### Primary
 - **PPS Ember** (accent): nút chính, ngày được chọn trên lịch, phân đoạn được chọn, link
-  trên nền trắng. Đây là giá trị của bảng mặc định **Cam PPS**; ba bảng khác thay bằng
-  Xanh ngọc `#0f766e`, Xanh Apple `#0066cc`, Mực `#1d1d1f`. Chữ trắng trên accent luôn
-  ≥ 4.5:1 ở cả bốn bảng.
+  trên nền trắng. Đây là giá trị của bảng mặc định **Cam PPS**; bảng thứ hai, **Mực + cam**,
+  thay accent bằng `#1d1d1f`. Chữ trắng trên accent luôn ≥ 4.5:1 ở cả hai bảng. Xanh ngọc
+  và Xanh Apple đã bỏ (30/09/2026) vì accent của chúng trùng màu dữ liệu chuyên cần và BTVN.
 - **Ember Pressed** (accent-hover): trạng thái hover/nhấn của vùng tô accent.
 - **Ember Wash** (accent-soft) + **Ember Ink** (accent-ink): nền mục sidebar đang chọn,
   option đang chọn, avatar, badge thương hiệu. Trên nền wash luôn dùng chữ ink, không
@@ -266,6 +267,17 @@ liệu chỉ dành cho số, thẻ số, biểu đồ, thanh — không bao gi�
 thành công/lỗi.
 
 **The Status Speaks Rule.** Màu trạng thái luôn đi kèm một từ; không có chấm màu đứng một mình.
+"Chờ duyệt" luôn là Attention Amber ở mọi màn.
+
+**The Accent Never Draws Data Rule.** Biểu đồ, thanh, đường, phễu không bao giờ dùng accent.
+Số liệu học tập dùng màu dữ liệu của nó; mọi thứ khác dùng ink (`#3a3a3c`) và xám (`#76767b`).
+
+**The Money Is Neutral Rule.** Doanh thu, chi phí, lương, công nợ là số màu text-primary. Cột
+"thu" `#3a3a3c`, cột "chi" `#76767b`, luôn kèm chú thích bằng chữ. Chỉ phần chênh lệch (+/−)
+được mang màu trạng thái, và luôn có dấu.
+
+**The Campus Greys Rule.** Điểm trường phân biệt bằng thang xám có thứ tự (`#1d1d1f`,
+`#515154`, `#76767b`) kèm nhãn, không bao giờ bằng màu dữ liệu.
 
 ## Typography
 
@@ -299,10 +311,27 @@ không IN HOA, không giãn chữ, không đậm hơn 600.
 
 ## Layout
 
-Khung ứng dụng gồm sidebar trắng mờ rộng 256px trên nền xám, header trong suốt dính trên
-cùng (64px), và một panel nội dung trắng bo 16px với padding 32px trên desktop. Nhịp
-8px trên lưới 4px của Tailwind: 16px giữa các thẻ, 24px padding thẻ và modal, 24–32px
-giữa các phần của trang. Điều khiển cao 40px (nhỏ 32px), hàng bảng ≈ 44–56px.
+Khung ứng dụng gồm sidebar trắng mờ rộng 256px (cột 288px gồm lề) chạy hết chiều cao
+trang trên nền xám, header trong suốt dính trên cùng (64px), và một panel nội dung trắng
+bo 16px với padding 32px trên desktop. Mọi khoảng cách nằm trên lưới 4px của Tailwind:
+16px giữa các thẻ, 24px padding thẻ và modal, 24–32px giữa các phần của trang; không dùng
+10, 14, 18px. Điều khiển cao 40px (nhỏ 32px), hàng bảng ≈ 44–56px.
+
+### Page templates
+Mỗi màn chọn đúng một trong năm khung, với độ rộng cột cố định:
+1. **Trang chủ vai trò** — lời chào, việc quan trọng nhất, các hàng việc/số liệu.
+2. **Danh sách** — bộ lọc trên, bảng toàn chiều rộng, phân trang dưới.
+3. **Master–detail** — cột danh sách trái **320px** + chi tiết `minmax(0, 1fr)`, gap 16px.
+4. **Nội dung + inspector** — nội dung `minmax(0, 1fr)` + cột phải **360px**, gap 16px.
+5. **Ba cột** (chấm bài, thống kê) — **240px / 300px / 1fr**, giữ vùng làm việc chính ≥ 500px.
+
+### Role and campus scope
+Menu dựng theo quyền: mỗi vai trò có menu mặc định 3–15 mục, nhóm theo công việc (Việc
+hôm nay, Học vụ, Học sinh, Nhân sự, Tài chính, Báo cáo, Hệ thống); quyền cấp thêm hoặc tước
+bớt làm hiện/ẩn mục; tài khoản nhiều vai trò thấy hợp các mục. Header luôn cho biết phạm vi
+điểm trường: "Tất cả cơ sở của tôi (n)" mặc định cho người phụ trách nhiều cơ sở, tên cơ
+sở cố định cho người một cơ sở hoặc trường liên kết, "Toàn hệ thống" cho vai trò cấp hệ
+thống. Khi xem tất cả, mỗi dòng dữ liệu mang nhãn cơ sở.
 
 Mỗi trang: tiêu đề (title-2) + một dòng mô tả, rồi đến thẻ. Danh sách dùng TableContainer
 + Th/Td, Badge cho trạng thái, Tabs để lọc, Pagination bên dưới. Form một cột, nhãn
@@ -363,10 +392,18 @@ Chắc tay và kiệm lời — động từ nói rõ kết quả ("Lưu nhận 
 - **Pickers:** luôn dùng Select, DatePicker, MonthPicker, Time24Input của hệ thống; không dùng picker gốc của trình duyệt.
 
 ### Navigation
-- **Sidebar:** trắng mờ, 256px, nhóm theo phân hệ có thể thu gọn; mục chữ callout
+- **Sidebar:** trắng mờ, 256px, chạy hết chiều cao trang, nhóm theo công việc của vai trò (xem Layout); mục chữ callout
   text-muted với icon 18px text-secondary; mục đang chọn tô accent-soft, chữ và icon
   accent-ink, weight 600. Logo P 32px + wordmark "PPS VIETNAM" / "Caring Individuals".
-- **Header:** trong suốt, dính trên cùng; trạng thái chấm công, ngày (mono), PaletteSwitcher, LanguageSwitcher, chuông thông báo.
+- **Header:** trong suốt, dính trên cùng; bộ chọn phạm vi điểm trường (Select 248px) ở đầu, trạng thái chấm công, ngày (mono), PaletteSwitcher (2 bảng), LanguageSwitcher, chuông thông báo.
+
+### Approval inbox (signature)
+Hàng chờ duyệt dùng khung master–detail: danh sách 320px xếp việc chờ lâu nhất lên đầu
+(thời gian chờ > 1 ngày màu Attention Amber), đĩa icon theo loại việc (nhận xét dùng
+Comments Pink, điểm dùng Scores Violet, cảnh báo dùng Amber, còn lại xám), chi tiết hiện
+đúng nội dung người nhận sẽ thấy. Duyệt thứ gì tới phụ huynh luôn có cửa sổ hoàn tác 10
+giây; từ chối luôn bắt buộc lý do ngay dưới ô nhập. Phím J/K/A/R trên danh sách. Hết việc
+thì hiện EmptyState khép lại ngày làm việc.
 
 ### Feedback
 - **NoticeBanner:** lỗi và cảnh báo cấp trang/thao tác rơi xuống từ giữa trên cùng màn
@@ -390,6 +427,9 @@ thẩm mỹ.
 - **Do** ghi ngày DD/MM/YYYY, giờ 24h HH:mm, phân cách hàng nghìn bằng dấu chấm (1.248).
 - **Do** dùng icon Lucide nét 2px, `currentColor`: 18px sidebar, 16px nút và menu, 20px đĩa icon, 28px empty state.
 - **Do** giới hạn chuyển động ở chuyển màu 150ms.
+- **Do** dùng đúng độ rộng cột chuẩn: trái 320px, phải 360px, ba cột 240/300/1fr.
+- **Do** cho hành động gửi tới phụ huynh một bước xác nhận có số lượng và 10 giây hoàn tác.
+- **Do** ghi số tiền bằng chữ text-primary; chênh lệch có dấu +/− và màu trạng thái.
 
 ### Don't:
 - **Don't** dùng gradient, glow, khối trang trí (`bg-brand-gradient`, `shadow-glow` của bản 1.0), trừ trong logo P.
@@ -400,3 +440,7 @@ thẩm mỹ.
 - **Don't** dùng emoji hoặc hình minh họa.
 - **Don't** hiện lỗi cấp trang thành một hộp trên đầu bảng — dùng NoticeBanner.
 - **Don't** nhảy, nhấp nháy hay nảy — ngoại lệ duy nhất là chấm nhắc chấm công.
+- **Don't** vẽ biểu đồ, thanh hay phễu bằng màu accent.
+- **Don't** tô tiền hay điểm trường bằng teal, blue, violet, pink.
+- **Don't** đánh dấu mục đang chọn bằng vạch sọc bên trái; dùng nền accent-soft.
+- **Don't** dùng khoảng cách lệch lưới 4px (10, 14, 18px).
