@@ -272,9 +272,19 @@ thành công/lỗi.
 **The Accent Never Draws Data Rule.** Biểu đồ, thanh, đường, phễu không bao giờ dùng accent.
 Số liệu học tập dùng màu dữ liệu của nó; mọi thứ khác dùng ink (`#3a3a3c`) và xám (`#76767b`).
 
-**The Money Is Neutral Rule.** Doanh thu, chi phí, lương, công nợ là số màu text-primary. Cột
+**The Money Is Neutral Rule.** Doanh thu, chi phí, lương, công nợ là số màu text-primary; thẻ
+số liệu tiền luôn `tone="slate"`, kể cả khi đó là con số chính của trang. `tone="brand"` chỉ
+dành cho con số chính không phải tiền (số lớp chờ, số học sinh cuối kỳ) và không bao giờ đi kèm
+thanh tiến độ. Cột
 "thu" `#3a3a3c`, cột "chi" `#76767b`, luôn kèm chú thích bằng chữ. Chỉ phần chênh lệch (+/−)
 được mang màu trạng thái, và luôn có dấu.
+
+**The Student Teal Rule.** Teal chỉ nói về chuyên cần của học sinh. Chấm công, ngày công của
+nhân sự dùng slate.
+
+**The Scores Ramp Exception.** Phổ điểm (histogram) được dùng thang tím có thứ tự `#efebfb`,
+`#e4dcf7`, `#c7b7ef`, `#a58be2`, `#7f5fd0`, `#5b3db5` — duy nhất ở biểu đồ phân bố điểm. Ngoài ra chỉ
+bản đồ chấm công (màu nước, cây xanh) và logo bên thứ ba (Google) được giữ màu riêng.
 
 **The Campus Greys Rule.** Điểm trường phân biệt bằng thang xám có thứ tự (`#1d1d1f`,
 `#515154`, `#76767b`) kèm nhãn, không bao giờ bằng màu dữ liệu.
@@ -322,8 +332,10 @@ Nhãn và mô tả là 400; tiêu đề và giá trị là 600. Nhãn trục bi�
 Khung ứng dụng gồm sidebar trắng mờ rộng 256px (cột 288px gồm lề) chạy hết chiều cao
 trang trên nền xám, header trong suốt dính trên cùng (64px), và một panel nội dung trắng
 bo 16px với padding 32px trên desktop. Mọi khoảng cách nằm trên lưới 4px của Tailwind:
-16px giữa các thẻ, 24px padding thẻ và modal, 24–32px giữa các phần của trang; không dùng
-10, 14, 18px. Điều khiển cao 40px (nhỏ 32px), hàng bảng ≈ 44–56px.
+16px giữa các thẻ, 24px padding thẻ và modal, 24–32px giữa các phần của trang. Bên trong một
+thành phần (icon–nhãn, nhãn–ô nhập, padding chip/hàng) được dùng nửa lưới 2px: 2, 6, 10, 14px.
+Không dùng số lẻ (3, 5, 11, 18, 22px). Mọi điều khiển bấm được cao tối thiểu 40px (nhỏ 32px),
+hàng bảng ≈ 44–56px.
 
 ### Page templates
 Mỗi màn chọn đúng một trong năm khung, với độ rộng cột cố định:
@@ -333,6 +345,11 @@ Mỗi màn chọn đúng một trong năm khung, với độ rộng cột cố �
 4. **Nội dung + inspector** — nội dung `minmax(0, 1fr)` + cột phải **360px**, gap 16px.
 5. **Ba cột** (chấm bài, thống kê) — **240px / 300px / 1fr**, giữ vùng làm việc chính ≥ 500px.
 
+Lớp phủ đi kèm: **tấm trượt bên** (side sheet) cố định mép phải, rộng **560px** cho chi tiết hoặc
+biểu mẫu, **720px** khi bên trong có bảng; nền mờ phía sau bấm để đóng và luôn có nút đóng.
+**Bảng** là `TableContainer` (trong canvas: `<table>` với header 13/500 nền `#f5f5f7`, ô
+`12px 16px`); chỉ sổ điểm và lịch được dựng bằng lưới CSS.
+
 ### Role and campus scope
 Menu dựng theo quyền: mỗi vai trò có menu mặc định 3–15 mục, nhóm theo công việc (Việc
 hôm nay, Học vụ, Học sinh, Nhân sự, Tài chính, Báo cáo, Hệ thống); quyền cấp thêm hoặc tước
@@ -340,6 +357,11 @@ bớt làm hiện/ẩn mục; tài khoản nhiều vai trò thấy hợp các m�
 điểm trường: "Tất cả cơ sở của tôi (n)" mặc định cho người phụ trách nhiều cơ sở, tên cơ
 sở cố định cho người một cơ sở hoặc trường liên kết, "Toàn hệ thống" cho vai trò cấp hệ
 thống. Khi xem tất cả, mỗi dòng dữ liệu mang nhãn cơ sở.
+
+Mỗi vai trò có một trang chủ (lời chào, 4 số liệu, "Việc cần làm hôm nay" dẫn tới màn xử lý).
+Màn dùng chung (Lớp học, Sổ điểm, Nghỉ phép…) theo vai trò người đang xem: khung, tiêu đề và
+nội dung đổi theo vai trò đó (giáo viên xin nghỉ, quản lý duyệt đơn), không bao giờ đẩy người
+dùng sang khung của vai trò khác.
 
 Mỗi trang: tiêu đề (title-2) + một dòng mô tả, rồi đến thẻ. Danh sách dùng TableContainer
 + Th/Td, Badge cho trạng thái, Tabs để lọc, Pagination bên dưới. Form một cột, nhãn
@@ -414,6 +436,11 @@ Comments Pink, điểm dùng Scores Violet, cảnh báo dùng Amber, còn lại 
 giây; từ chối luôn bắt buộc lý do ngay dưới ô nhập. Phím J/K/A/R trên danh sách. Hết việc
 thì hiện EmptyState khép lại ngày làm việc.
 
+**The Same Safety Everywhere Rule.** Mọi hành động gửi tới phụ huynh hoặc công bố — ở hộp thư
+hay ở màn riêng, từng dòng hay hàng loạt — dùng cùng một cơ chế: duyệt hàng loạt mở xác nhận ghi
+số lượng; sau khi duyệt có `NoticeBanner` thành công với nút "Hoàn tác" và đếm ngược 10 giây; từ
+chối luôn bắt buộc lý do, báo lỗi ngay dưới ô.
+
 ### Feedback
 - **NoticeBanner:** lỗi và cảnh báo cấp trang/thao tác rơi xuống từ giữa trên cùng màn
   hình, ở lại tới khi đóng, có thể kèm một hành động ("Thử lại"); xác nhận thành công tự
@@ -439,6 +466,8 @@ thẩm mỹ.
 - **Do** dùng đúng độ rộng cột chuẩn: trái 320px, phải 360px, ba cột 240/300/1fr.
 - **Do** cho hành động gửi tới phụ huynh một bước xác nhận có số lượng và 10 giây hoàn tác.
 - **Do** ghi số tiền bằng chữ text-primary; chênh lệch có dấu +/− và màu trạng thái.
+- **Do** cho mọi ô nhập viền focus accent khi dùng bàn phím; không để `outline: none` trơn.
+- **Do** đưa mỗi vai trò về trang chủ của chính nó và giữ khung vai trò khi đi sang màn dùng chung.
 
 ### Don't:
 - **Don't** dùng gradient, glow, khối trang trí (`bg-brand-gradient`, `shadow-glow` của bản 1.0), trừ trong logo P.
@@ -452,4 +481,6 @@ thẩm mỹ.
 - **Don't** vẽ biểu đồ, thanh hay phễu bằng màu accent.
 - **Don't** tô tiền hay điểm trường bằng teal, blue, violet, pink.
 - **Don't** đánh dấu mục đang chọn bằng vạch sọc bên trái; dùng nền accent-soft.
-- **Don't** dùng khoảng cách lệch lưới 4px (10, 14, 18px).
+- **Don't** dùng khoảng cách số lẻ (3, 5, 11, 18, 22px); 6/10/14px chỉ dùng bên trong thành phần.
+- **Don't** dùng `tone="brand"` cho thẻ tiền hoặc thẻ có thanh tiến độ.
+- **Don't** gửi gì tới phụ huynh mà không có cửa sổ hoàn tác.

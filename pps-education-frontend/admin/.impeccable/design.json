@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-30T04:15:16+00:00",
+  "generatedAt": "2026-09-30T04:37:54+00:00",
   "title": "Design System: PPS Admin 2.0",
   "extensions": {
     "colorMeta": {
@@ -487,6 +487,21 @@
           "#e5e5ea",
           "#f5f5f7"
         ]
+      },
+      "scores-ramp": {
+        "role": "tertiary",
+        "displayName": "Scores Ramp (phổ điểm)",
+        "canonical": "#5b3db5",
+        "tonalRamp": [
+          "#5b3db5",
+          "#7f5fd0",
+          "#a58be2",
+          "#c7b7ef",
+          "#e4dcf7",
+          "#efebfb",
+          "#f5f2fd",
+          "#faf8fe"
+        ]
       }
     },
     "typographyMeta": {
@@ -582,6 +597,16 @@
         "name": "three-pane",
         "columns": "240px 300px minmax(0, 1fr)",
         "gap": "16px"
+      },
+      {
+        "name": "side-sheet",
+        "width": "560px",
+        "purpose": "Chi tiết hoặc biểu mẫu"
+      },
+      {
+        "name": "side-sheet-wide",
+        "width": "720px",
+        "purpose": "Khi chứa bảng"
       }
     ]
   },
@@ -686,7 +711,17 @@
       },
       {
         "name": "The Money Is Neutral Rule",
-        "body": "Doanh thu, chi phí, lương, công nợ là số màu text-primary. Cột \"thu\" `#3a3a3c`, cột \"chi\" `#76767b`, luôn kèm chú thích bằng chữ. Chỉ phần chênh lệch (+/−) được mang màu trạng thái, và luôn có dấu.",
+        "body": "Doanh thu, chi phí, lương, công nợ là số màu text-primary; thẻ số liệu tiền luôn `tone=\"slate\"`, kể cả khi đó là con số chính của trang. `tone=\"brand\"` chỉ dành cho con số chính không phải tiền (số lớp chờ, số học sinh cuối kỳ) và không bao giờ đi kèm thanh tiến độ. Cột \"thu\" `#3a3a3c`, cột \"chi\" `#76767b`, luôn kèm chú thích bằng chữ. Chỉ phần chênh lệch (+/−) được mang màu trạng thái, và luôn có dấu.",
+        "section": "colors"
+      },
+      {
+        "name": "The Student Teal Rule",
+        "body": "Teal chỉ nói về chuyên cần của học sinh. Chấm công, ngày công của nhân sự dùng slate.",
+        "section": "colors"
+      },
+      {
+        "name": "The Scores Ramp Exception",
+        "body": "Phổ điểm (histogram) được dùng thang tím có thứ tự `#efebfb`, `#e4dcf7`, `#c7b7ef`, `#a58be2`, `#7f5fd0`, `#5b3db5` — duy nhất ở biểu đồ phân bố điểm. Ngoài ra chỉ bản đồ chấm công (màu nước, cây xanh) và logo bên thứ ba (Google) được giữ màu riêng.",
         "section": "colors"
       },
       {
@@ -710,9 +745,24 @@
         "section": "typography"
       },
       {
+        "name": "The Paired Leading Rule",
+        "body": "Mỗi cỡ chữ đi với đúng một chiều cao dòng: 34/40, 28/34, 24/30, 19/26, 17/24, 15/22, 14/20, 13/18, 12/16. Không có cỡ ngoài thang (không 16, 18, 20, 22, 40px); số liệu trong ô nhỏ dùng 24/30, số trong StatCard 28/34, và chỉ một số 34/40 mỗi màn.",
+        "section": "typography"
+      },
+      {
+        "name": "The Medium Means Handle Rule",
+        "body": "Weight 500 chỉ cho thứ người dùng nắm lấy để dò hoặc bấm: nút, mục menu, tên dòng trong danh sách (15/500), tiêu đề cột bảng (13/500 text-secondary). Nhãn và mô tả là 400; tiêu đề và giá trị là 600. Nhãn trục biểu đồ SVG tối thiểu 12px.",
+        "section": "typography"
+      },
+      {
         "name": "The Only Floaters Cast Shadows Rule",
         "body": "Nếu một phần tử không đè lên nội dung khác, nó không có bóng.",
         "section": "elevation"
+      },
+      {
+        "name": "The Same Safety Everywhere Rule",
+        "body": "Mọi hành động gửi tới phụ huynh hoặc công bố — ở hộp thư hay ở màn riêng, từng dòng hay hàng loạt — dùng cùng một cơ chế: duyệt hàng loạt mở xác nhận ghi số lượng; sau khi duyệt có `NoticeBanner` thành công với nút \"Hoàn tác\" và đếm ngược 10 giây; từ chối luôn bắt buộc lý do, báo lỗi ngay dưới ô.",
+        "section": "components"
       }
     ],
     "dos": [
@@ -725,7 +775,9 @@
       "**Do** giới hạn chuyển động ở chuyển màu 150ms.",
       "**Do** dùng đúng độ rộng cột chuẩn: trái 320px, phải 360px, ba cột 240/300/1fr.",
       "**Do** cho hành động gửi tới phụ huynh một bước xác nhận có số lượng và 10 giây hoàn tác.",
-      "**Do** ghi số tiền bằng chữ text-primary; chênh lệch có dấu +/− và màu trạng thái."
+      "**Do** ghi số tiền bằng chữ text-primary; chênh lệch có dấu +/− và màu trạng thái.",
+      "**Do** cho mọi ô nhập viền focus accent khi dùng bàn phím; không để `outline: none` trơn.",
+      "**Do** đưa mỗi vai trò về trang chủ của chính nó và giữ khung vai trò khi đi sang màn dùng chung."
     ],
     "donts": [
       "**Don't** dùng gradient, glow, khối trang trí (`bg-brand-gradient`, `shadow-glow` của bản 1.0), trừ trong logo P.",
@@ -739,7 +791,9 @@
       "**Don't** vẽ biểu đồ, thanh hay phễu bằng màu accent.",
       "**Don't** tô tiền hay điểm trường bằng teal, blue, violet, pink.",
       "**Don't** đánh dấu mục đang chọn bằng vạch sọc bên trái; dùng nền accent-soft.",
-      "**Don't** dùng khoảng cách lệch lưới 4px (10, 14, 18px)."
+      "**Don't** dùng khoảng cách số lẻ (3, 5, 11, 18, 22px); 6/10/14px chỉ dùng bên trong thành phần.",
+      "**Don't** dùng `tone=\"brand\"` cho thẻ tiền hoặc thẻ có thanh tiến độ.",
+      "**Don't** gửi gì tới phụ huynh mà không có cửa sổ hoàn tác."
     ]
   }
 }
