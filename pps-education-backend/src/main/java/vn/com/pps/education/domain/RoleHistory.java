@@ -21,7 +21,7 @@ import java.util.Map;
 @Table(name = "roles_history")
 public class RoleHistory {
 
-    public enum Action { CREATED, DELETED }
+    public enum Action { CREATED, DELETED, UPDATED }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

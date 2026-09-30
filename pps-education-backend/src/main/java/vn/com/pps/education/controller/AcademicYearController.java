@@ -28,7 +28,7 @@ public class AcademicYearController {
         this.academicYearService = academicYearService;
     }
 
-    @PreAuthorize("hasPermission(null, 'academic.class.manage')")
+    @PreAuthorize("hasPermission(null, 'academic.year.manage')")
     @PostMapping("/api/academic-years")
     public ResponseEntity<AcademicYearResponse> create(@Valid @RequestBody CreateAcademicYearRequest request,
                                                           @AuthenticationPrincipal AuthenticatedUser actor) {
@@ -45,7 +45,7 @@ public class AcademicYearController {
         return ResponseEntity.ok(academicYearService.getById(id));
     }
 
-    @PreAuthorize("hasPermission(null, 'academic.class.manage')")
+    @PreAuthorize("hasPermission(null, 'academic.year.manage')")
     @PutMapping("/api/academic-years/{id}")
     public ResponseEntity<AcademicYearResponse> update(@PathVariable Long id, @Valid @RequestBody UpdateAcademicYearRequest request,
                                                           @AuthenticationPrincipal AuthenticatedUser actor) {

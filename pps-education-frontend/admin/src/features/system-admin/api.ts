@@ -8,7 +8,11 @@ export interface RoleResponse {
   name: string;
   description: string | null;
   isSystem: boolean;
+  /** V202 — vai trò được xem dữ liệu của: tất cả điểm trường (ALL) / chỉ điểm trường mình phụ trách (SITE) / chỉ lớp mình dạy (CLASS); SELF = vai trò Portal. */
+  dataScope: DataScope;
 }
+
+export type DataScope = "ALL" | "SITE" | "CLASS" | "SELF";
 
 /** Khớp UserPermissionOverrideSummary thật — xem UserDetailResponse (UC-44 bước 3). */
 export interface UserPermissionOverrideSummary {
@@ -203,6 +207,9 @@ export interface CreateRoleRequest {
   code: string;
   name: string;
   description?: string;
+  dataScope: DataScope;
+  /** V202 "Tạo từ mẫu" — sao chép toàn bộ quyền của vai trò này; bỏ trống thì vai trò bắt đầu không có quyền nào. */
+  copyFromRoleId?: number | null;
 }
 
 /** UC-03: danh sách 11 role hệ thống + role tùy chỉnh. */
@@ -231,6 +238,11 @@ export function updateRolePermissions(roleId: number, permissionIds: number[], c
     method: "PUT",
     body: JSON.stringify({ permissionIds, confirm })
   });
+}
+
+/** V202: đổi phạm vi dữ liệu của vai trò. */
+export function updateRoleDataScope(roleId: number, dataScope: DataScope): Promise<RoleResponse> {
+  return apiRequest<RoleResponse>(`/roles/${roleId}/data-scope`, { method: "PUT", body: JSON.stringify({ dataScope }) });
 }
 
 /** UC-46: gán 1 role cho 1 tài khoản. */

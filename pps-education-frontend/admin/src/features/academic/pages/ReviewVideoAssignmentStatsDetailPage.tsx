@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useApp } from "@/context/AppContext";
 import { useParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, ChevronDown, ChevronRight, Download, Eye, ShieldAlert, XCircle } from "lucide-react";
@@ -32,6 +33,9 @@ import Modal from "@/components/ui/Modal";
  * thêm tab "Phân tích câu hỏi" vì đã có sẵn dữ liệu đúng/sai thật.
  */
 export default function ReviewVideoAssignmentStatsDetailPage() {
+  // V202 — bật nộp muộn/xác nhận hạn chót và xuất thống kê đi theo quyền riêng.
+  const { hasPermission } = useApp();
+  const canConfirmDeadline = hasPermission("lms.exercise.deadline.confirm");
   const { t, i18n } = useTranslation("academic-homework");
   const reviewVideoTypeLabels: Record<string, string> = {
     REFLEX: t("shared.reviewVideoType.REFLEX"),
@@ -203,14 +207,14 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
             <input
               type="checkbox"
               checked={assignment.lateSubmissionAllowed}
-              disabled={togglingLateSubmission}
+              disabled={togglingLateSubmission || !canConfirmDeadline}
               onChange={(e) => handleToggleLateSubmissionAllowed(e.target.checked)}
               className="rounded border-slate-300"
             />
             {t("reviewVideoDetail.lateSubmissionAllowedLabel")}
           </label>
         </div>
-        {assignment.lateSubmissionAllowed && (
+        {assignment.lateSubmissionAllowed && canConfirmDeadline && (
           <div className="flex items-center gap-2 mt-2">
             <span className="text-xs font-semibold text-slate-500">{t("reviewVideoDetail.lateSubmissionDeadlineLabel")}</span>
             <DatePicker

@@ -145,6 +145,7 @@ public class GradeService {
     private final SkillRepository skillRepository;
     private final UserRepository userRepository;
     private final PermissionEvaluationService permissionEvaluationService;
+    private final DataScopeService dataScopeService;
     private final AcademicSettingsService academicSettingsService;
     private final ClassEnrollmentRepository classEnrollmentRepository;
     private final ParentStudentRepository parentStudentRepository;
@@ -168,6 +169,7 @@ public class GradeService {
                          SkillRepository skillRepository,
                          UserRepository userRepository,
                          PermissionEvaluationService permissionEvaluationService,
+                         DataScopeService dataScopeService,
                          AcademicSettingsService academicSettingsService,
                          ClassEnrollmentRepository classEnrollmentRepository,
                          ParentStudentRepository parentStudentRepository,
@@ -190,6 +192,7 @@ public class GradeService {
         this.skillRepository = skillRepository;
         this.userRepository = userRepository;
         this.permissionEvaluationService = permissionEvaluationService;
+        this.dataScopeService = dataScopeService;
         this.academicSettingsService = academicSettingsService;
         this.classEnrollmentRepository = classEnrollmentRepository;
         this.parentStudentRepository = parentStudentRepository;
@@ -667,7 +670,9 @@ public class GradeService {
     @Transactional(readOnly = true)
     public List<GradeEntryResponse> listUnpublishedForSite(Long actorUserId) {
         requireGradeApprovePermission(actorUserId);
-        if (permissionEvaluationService.hasPermission(actorUserId, "academic.grade.manage")) {
+        // V202: phạm vi dữ liệu "Tất cả điểm trường" cũng thấy điểm chờ duyệt của mọi điểm trường.
+        if (permissionEvaluationService.hasPermission(actorUserId, "academic.grade.manage")
+                || dataScopeService.isUnrestricted(actorUserId)) {
             return gradeEntryRepository.findByStatusOrderByEnteredAtAsc(GradeEntry.Status.SUBMITTED)
                     .stream().map(this::toResponse).toList();
         }
@@ -1022,7 +1027,9 @@ public class GradeService {
      * gán phụ trách (site_managers, row-level).
      */
     private void requireCanApproveGrades(Long siteId, Long actorUserId) {
-        if (permissionEvaluationService.hasPermission(actorUserId, "academic.grade.manage")) {
+        // V202: phạm vi dữ liệu "Tất cả điểm trường" duyệt được mọi điểm trường.
+        if (permissionEvaluationService.hasPermission(actorUserId, "academic.grade.manage")
+                || dataScopeService.isUnrestricted(actorUserId)) {
             return;
         }
         if (!siteManagerRepository.existsBySiteIdAndUserIdAndRoleTypeAndAssignedToIsNull(

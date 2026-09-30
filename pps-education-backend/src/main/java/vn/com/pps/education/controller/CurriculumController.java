@@ -93,6 +93,7 @@ public class CurriculumController {
     }
 
     /** UC-16b Main Flow bước 1-2. */
+    @PreAuthorize("hasPermission(null, 'academic.curriculum.customize')")
     @PostMapping("/custom")
     public ResponseEntity<CurriculumResponse> createCustomCopy(@Valid @RequestBody CreateCustomCurriculumRequest request,
                                                                    @AuthenticationPrincipal AuthenticatedUser actor) {
@@ -100,6 +101,7 @@ public class CurriculumController {
     }
 
     /** UC-16b Main Flow bước 3, A1 (lưu nháp). */
+    @PreAuthorize("hasPermission(null, 'academic.curriculum.customize')")
     @PutMapping("/custom/{id}")
     public ResponseEntity<CurriculumResponse> updateCustomCopy(@PathVariable Long id,
                                                                    @Valid @RequestBody UpdateCustomCurriculumRequest request,
@@ -108,6 +110,7 @@ public class CurriculumController {
     }
 
     /** UC-16b Main Flow bước 4-5 (cũng dùng lại cho A1 của UC-17 — đề xuất lại sau khi bị từ chối). */
+    @PreAuthorize("hasPermission(null, 'academic.curriculum.customize')")
     @PostMapping("/custom/{id}/submit")
     public ResponseEntity<CurriculumApprovalResponse> submitForApproval(@PathVariable Long id,
                                                                             @AuthenticationPrincipal AuthenticatedUser actor) {

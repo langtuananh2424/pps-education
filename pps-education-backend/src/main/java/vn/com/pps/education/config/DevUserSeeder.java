@@ -41,7 +41,9 @@ public class DevUserSeeder implements ApplicationRunner {
 
     private static final List<String> ROLE_CODES = List.of(
             "SYS_ADMIN", "HEAD_ACADEMIC", "SITE_MANAGER", "HR_MANAGER", "STAFF",
-            "OPS_MANAGER", "EXECUTIVE", "PARTNER_REP", "TEACHER", "PARENT", "STUDENT"
+            "OPS_MANAGER", "EXECUTIVE", "PARTNER_REP", "TEACHER", "PARENT", "STUDENT",
+            // V202 — 2 vai trò mới (Kế toán, Tư vấn tuyển sinh)
+            "ACCOUNTANT", "CONSULTANT"
     );
 
     private final UserRepository userRepository;

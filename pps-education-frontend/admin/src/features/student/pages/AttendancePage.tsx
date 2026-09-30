@@ -114,6 +114,8 @@ export default function AttendancePage() {
   // Tài khoản có quyền quản trị điểm danh vượt rào này.
   const gracePeriodMinutes = useAttendanceGracePeriodMinutes();
   const locked = !hasAttendanceOverride && !!selectedSession && !isWithinAttendanceWindow(selectedSession, gracePeriodMinutes);
+  // V202 — vai trò chỉ có quyền xem điểm danh (VD Quản lý điểm trường) vào trang để xem, không thấy ô chọn và nút lưu.
+  const canMark = hasPermission("academic.attendance.mark") || hasAttendanceOverride;
   const lockedReason = !selectedSession
     ? null
     : new Date() < new Date(`${selectedSession.sessionDate}T${selectedSession.startTime}`)
@@ -258,7 +260,7 @@ export default function AttendancePage() {
               <Select
                 value={attendanceMode}
                 onChange={(e) => setAttendanceMode(e.target.value as "SESSION_LEVEL" | "PERIOD_LEVEL")}
-                disabled={locked}
+                disabled={locked || !canMark}
                 className="bg-white border text-[10px] font-bold text-slate-700 px-2 py-1 rounded focus:outline-none disabled:opacity-50"
               >
                 <option value="SESSION_LEVEL">{t("attendancePage.modeSessionLevel")}</option>
@@ -267,7 +269,7 @@ export default function AttendancePage() {
             </div>
           </div>
 
-          {locked && (
+          {locked && canMark && (
             <div className="px-5 py-2.5 bg-amber-50 border-b border-amber-100 text-amber-700 text-[11px] font-semibold">
               {t("attendancePage.lockedNotice", {
                 reason: lockedReason,
@@ -323,7 +325,7 @@ export default function AttendancePage() {
                           type="radio"
                           name={`att-${stud.studentId}`}
                           checked={stud.status === statusOption}
-                          disabled={locked}
+                          disabled={locked || !canMark}
                           onChange={() => setRows((prev) => prev.map((r) => (r.studentId === stud.studentId ? { ...r, status: statusOption } : r)))}
                           className={`h-4 w-4 border-slate-300 disabled:opacity-50 ${
                             statusOption === "PRESENT"
@@ -343,17 +345,19 @@ export default function AttendancePage() {
             </tbody>
           </TableContainer>
 
-          <div className="px-6 py-4 bg-slate-50 border-t flex justify-end">
-            <button
-              onClick={handleSaveAttendance}
-              disabled={locked || !selectedSessionId || rows.length === 0 || saving}
-              title={locked ? lockedReason ?? undefined : undefined}
-              className="bg-brand-orange hover:bg-brand-orange/90 text-white font-semibold text-xs px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-soft transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-brand-orange"
-            >
-              <Save className="w-4 h-4 text-white" />
-              <span>{saving ? t("attendancePage.saving") : t("attendancePage.saveButton")}</span>
-            </button>
-          </div>
+          {canMark && (
+            <div className="px-6 py-4 bg-slate-50 border-t flex justify-end">
+              <button
+                onClick={handleSaveAttendance}
+                disabled={locked || !selectedSessionId || rows.length === 0 || saving}
+                title={locked ? lockedReason ?? undefined : undefined}
+                className="bg-brand-orange hover:bg-brand-orange/90 text-white font-semibold text-xs px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-soft transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-brand-orange"
+              >
+                <Save className="w-4 h-4 text-white" />
+                <span>{saving ? t("attendancePage.saving") : t("attendancePage.saveButton")}</span>
+              </button>
+            </div>
+          )}
       </div>
     </div>
   );

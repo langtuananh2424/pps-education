@@ -2,13 +2,15 @@ import React from "react";
 import { Shield, Trash2, Users } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { RoleResponse } from "../api";
-import RolePermissionsEditor from "./RolePermissionsEditor";
+import RoleAccessEditor from "./RoleAccessEditor";
 import RoleMembersPanel from "./RoleMembersPanel";
 
 export type RoleDetailTab = "permissions" | "members";
 
 interface RoleDetailPanelProps {
   role: RoleResponse;
+  roles: RoleResponse[];
+  onRoleChanged: () => void;
   canAssignMembers: boolean;
   canRevokeMembers: boolean;
   onDelete: () => void;
@@ -16,7 +18,7 @@ interface RoleDetailPanelProps {
   onTabChange: (tab: RoleDetailTab) => void;
 }
 
-export default function RoleDetailPanel({ role, canAssignMembers, canRevokeMembers, onDelete, rightActiveTab, onTabChange }: RoleDetailPanelProps) {
+export default function RoleDetailPanel({ role, roles, onRoleChanged, canAssignMembers, canRevokeMembers, onDelete, rightActiveTab, onTabChange }: RoleDetailPanelProps) {
   const { t } = useTranslation("system-admin-roles");
   return (
     <div className="flex-1 flex flex-col h-full">
@@ -64,8 +66,8 @@ export default function RoleDetailPanel({ role, canAssignMembers, canRevokeMembe
         </div>
       </div>
 
-      <div className="flex-1 p-6 overflow-y-auto max-h-[460px]">
-        {rightActiveTab === "permissions" && <RolePermissionsEditor roleId={role.id} roleName={role.name} />}
+      <div className="flex-1 p-6 overflow-y-auto">
+        {rightActiveTab === "permissions" && <RoleAccessEditor role={role} roles={roles} onRoleChanged={onRoleChanged} />}
         {rightActiveTab === "members" && (
           <RoleMembersPanel roleId={role.id} roleName={role.name} canAssign={canAssignMembers} canRevoke={canRevokeMembers} />
         )}

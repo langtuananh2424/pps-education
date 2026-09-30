@@ -19,6 +19,8 @@ export interface CurrentUserResponse {
   roleCodes: string[];
   /** Effective permissions (hợp nhất role + override) của chính tài khoản đang gọi — dùng cho AppContext.hasPermission thay bảng mock tĩnh. */
   permissions: string[];
+  /** V202 — phạm vi dữ liệu hiệu lực (vai trò rộng nhất thắng): ALL / SITE / CLASS / SELF. */
+  dataScope?: "ALL" | "SITE" | "CLASS" | "SELF";
 }
 
 /**

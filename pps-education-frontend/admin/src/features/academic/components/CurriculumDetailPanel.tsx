@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useApp } from "@/context/AppContext";
 import { BookOpen, ListTree, Plus, Save, Send } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
@@ -94,6 +95,7 @@ function ProfileTab({
   onChanged: () => void;
   showToast: (msg: string) => void;
 }) {
+  const { hasPermission } = useApp();
   const { t } = useTranslation("academic-curriculum");
   const [form, setForm] = useState({
     name: curriculum.name,
@@ -258,13 +260,15 @@ function ProfileTab({
             </div>
           )}
         </div>
-        <Button type="submit" variant="primary" size="sm" disabled={saving}>
-          <Save className="w-3.5 h-3.5" />
-          {saving ? t("detail.profile.saving") : t("detail.profile.saveButton")}
-        </Button>
+        {hasPermission(isCustom ? "academic.curriculum.customize" : "academic.curriculum.update") && (
+          <Button type="submit" variant="primary" size="sm" disabled={saving}>
+            <Save className="w-3.5 h-3.5" />
+            {saving ? t("detail.profile.saving") : t("detail.profile.saveButton")}
+          </Button>
+        )}
       </form>
 
-      {isCustom && curriculum.status === "DRAFT" && (
+      {isCustom && curriculum.status === "DRAFT" && hasPermission("academic.curriculum.customize") && (
         <div className="border-t border-slate-100 pt-4">
           <Button type="button" variant="dark" size="sm" onClick={handleSubmitForApproval}>
             <Send className="w-3.5 h-3.5" />
@@ -273,7 +277,7 @@ function ProfileTab({
         </div>
       )}
 
-      {!isCustom && (
+      {!isCustom && hasPermission("academic.curriculum.customize") && (
         <div className="border-t border-slate-100 pt-4 space-y-3">
           <Button type="button" variant="secondary" size="sm" onClick={() => setShowCustomForm(true)}>
             <Plus className="w-3.5 h-3.5" />
@@ -353,6 +357,7 @@ function CreateCustomForm({ parentCurriculumId, onDone, onCancel }: { parentCurr
 }
 
 function SubjectsTab({ curriculumId, showToast }: { curriculumId: number; showToast: (msg: string) => void }) {
+  const { hasPermission } = useApp();
   const { t } = useTranslation("academic-curriculum");
   const [subjects, setSubjects] = useState<CurriculumSubjectResponse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -372,10 +377,12 @@ function SubjectsTab({ curriculumId, showToast }: { curriculumId: number; showTo
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <span className="text-[10px] font-bold uppercase text-slate-500">{t("detail.subjects.countLabel", { count: subjects.length })}</span>
-        <Button size="sm" variant="secondary" onClick={() => setAdding(true)}>
-          <Plus className="w-3.5 h-3.5" />
-          {t("detail.subjects.addButton")}
-        </Button>
+        {hasPermission("academic.curriculum.update") && (
+          <Button size="sm" variant="secondary" onClick={() => setAdding(true)}>
+            <Plus className="w-3.5 h-3.5" />
+            {t("detail.subjects.addButton")}
+          </Button>
+        )}
       </div>
 
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}

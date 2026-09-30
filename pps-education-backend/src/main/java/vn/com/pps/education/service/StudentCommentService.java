@@ -300,6 +300,7 @@ public class StudentCommentService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final PermissionEvaluationService permissionEvaluationService;
+    private final DataScopeService dataScopeService;
     private final AcademicSettingsService academicSettingsService;
     private final ClassEnrollmentRepository classEnrollmentRepository;
     private final AttendanceSessionRepository attendanceSessionRepository;
@@ -329,6 +330,7 @@ public class StudentCommentService {
                                   UserRepository userRepository,
                                   NotificationService notificationService,
                                   PermissionEvaluationService permissionEvaluationService,
+                                  DataScopeService dataScopeService,
                                   AcademicSettingsService academicSettingsService,
                                   ClassEnrollmentRepository classEnrollmentRepository,
                                   AttendanceSessionRepository attendanceSessionRepository,
@@ -357,6 +359,7 @@ public class StudentCommentService {
         this.userRepository = userRepository;
         this.notificationService = notificationService;
         this.permissionEvaluationService = permissionEvaluationService;
+        this.dataScopeService = dataScopeService;
         this.academicSettingsService = academicSettingsService;
         this.classEnrollmentRepository = classEnrollmentRepository;
         this.attendanceSessionRepository = attendanceSessionRepository;
@@ -694,9 +697,18 @@ public class StudentCommentService {
 
     // ===================== UC-22: Duyệt nhận xét (SITE_MANAGER) =====================
 
-    /** Main Flow bước 1: danh sách nhận xét Chờ duyệt của các điểm trường actor phụ trách. */
+    /**
+     * Main Flow bước 1: danh sách nhận xét Chờ duyệt của các điểm trường actor phụ trách.
+     * V202 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-30): tài khoản có phạm vi dữ liệu
+     * "Tất cả điểm trường" (VD Trưởng phòng đào tạo, Ban giám đốc) thấy nhận xét chờ duyệt của mọi điểm trường.
+     */
     @Transactional(readOnly = true)
     public List<StudentCommentResponse> listPendingForSite(Long actorUserId) {
+        if (dataScopeService.isUnrestricted(actorUserId)) {
+            return studentCommentRepository.findByStatusOrderBySubmittedAtAsc(StudentComment.Status.PENDING).stream()
+                    .map(this::toResponse)
+                    .toList();
+        }
         List<Long> siteIds = siteManagerRepository
                 .findByUserIdAndRoleTypeAndAssignedToIsNull(actorUserId, SiteManager.RoleType.SITE_MANAGER).stream()
                 .map(sm -> sm.getSite().getId()).toList();
@@ -2379,7 +2391,14 @@ public class StudentCommentService {
         }
     }
 
+    /**
+     * Phụ trách đúng điểm trường của nhận xét — V202: tài khoản có phạm vi dữ liệu "Tất cả điểm trường"
+     * duyệt được ở mọi điểm trường (quyền academic.comment.approve vẫn kiểm tra riêng ở từng nơi gọi).
+     */
     private void requireSiteManagerForSite(Long siteId, Long actorUserId) {
+        if (dataScopeService.isUnrestricted(actorUserId)) {
+            return;
+        }
         if (!siteManagerRepository.existsBySiteIdAndUserIdAndRoleTypeAndAssignedToIsNull(
                 siteId, actorUserId, SiteManager.RoleType.SITE_MANAGER)) {
             throw new NotSiteManagerForSiteException(

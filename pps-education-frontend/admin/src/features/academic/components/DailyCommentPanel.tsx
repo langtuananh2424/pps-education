@@ -320,10 +320,10 @@ interface DailyCommentPanelProps {
 export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkStudentId = null }: DailyCommentPanelProps = {}) {
   const { t, i18n } = useTranslation("academic-comments");
   const { selectedClassId, setUnsavedChanges, currentUser, hasPermission } = useApp();
-  // Sửa 2026-09-23 (đã xác nhận với người dùng) — tài khoản quản trị (academic.class.manage /
+  // Sửa 2026-09-23 (đã xác nhận với người dùng) — tài khoản quản trị (academic.comment.manage — V202, thay academic.class.manage cũ /
   // academic.class.view-all, mirror useEligibleClasses) phải xem được MỌI buổi của lớp để xem/sửa nhận xét
   // thay giáo viên, không bị lọc theo "chính mình là GV chính/phụ/CM" như Giáo viên thuần (xem selectableSessions).
-  const canSeeAllSessions = hasPermission("academic.class.manage") || hasPermission("academic.class.view-all");
+  const canSeeAllSessions = hasPermission("academic.comment.manage") || hasPermission("academic.class.view-all");
   const { classes } = useEligibleClasses();
   // Luôn đồng bộ theo prop mới nhất (KHÔNG chỉ đọc 1 lần lúc mount) — sửa 2026-09-23: route
   // /academic/comments không remount lại DailyCommentPanel khi chỉ đổi query string (React Router

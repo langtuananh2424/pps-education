@@ -109,8 +109,12 @@ type DisplaySession = ClassSessionResponse & { pendingKind?: SessionPendingKind;
  * cho DailyCommentPanel).
  */
 export default function ClassPeriodGrid({ siteId, dates, classId, minLanes = DEFAULT_LANES }: ClassPeriodGridProps) {
-  const { setUnsavedChanges } = useApp();
+  const { setUnsavedChanges, hasPermission } = useApp();
   const { promptDialog } = useDialog();
+  // V202 — xếp buổi (popup "Xếp lịch", bôi đen ô + chuột phải) cần quyền xếp/sinh lịch; sửa, dời, hủy buổi
+  // (chuột phải vào thẻ) cần quyền dời lịch/hủy buổi. Không có quyền nào thì lưới chỉ để xem.
+  const canSchedule = hasPermission("academic.class-session.create") || hasPermission("academic.class-session.generate");
+  const canEditSessions = hasPermission("academic.class-session.reschedule") || hasPermission("academic.class-session.cancel");
 
   const [periods, setPeriods] = useState<SitePeriodTemplateResponse[]>([]);
   const [sessions, setSessions] = useState<ClassSessionResponse[]>([]);
@@ -391,7 +395,7 @@ export default function ClassPeriodGrid({ siteId, dates, classId, minLanes = DEF
   };
 
   const handleCellMouseDown = (e: ReactMouseEvent, dateStr: string, dayPart: DayPart, periodNumber: number) => {
-    if (e.button !== 0) return;
+    if (e.button !== 0 || !canSchedule) return;
     draggingRef.current = true;
     setCellMenu(null);
     setCardMenu(null);
@@ -410,6 +414,7 @@ export default function ClassPeriodGrid({ siteId, dates, classId, minLanes = DEF
   const handleCellContextMenu = (e: ReactMouseEvent, dateStr: string, dayPart: DayPart, periodNumber: number) => {
     e.preventDefault();
     e.stopPropagation();
+    if (!canSchedule) return;
     draggingRef.current = false;
     const inSelection = cellSelection?.dateStr === dateStr && cellSelection.dayPart === dayPart && cellSelection.periods.has(periodNumber);
     const selPeriods = inSelection ? [...cellSelection!.periods].sort((a, b) => a - b) : [periodNumber];
@@ -428,6 +433,7 @@ export default function ClassPeriodGrid({ siteId, dates, classId, minLanes = DEF
   const handleCardContextMenu = (e: ReactMouseEvent, session: DisplaySession) => {
     e.preventDefault();
     e.stopPropagation();
+    if (!canEditSessions) return;
     draggingRef.current = false;
     if (session.pendingKind !== "create" && session.status !== "SCHEDULED") return;
     setCellMenu(null);
@@ -591,28 +597,32 @@ export default function ClassPeriodGrid({ siteId, dates, classId, minLanes = DEF
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          <Button type="button" variant="secondary" size="sm" onClick={handleUndo} disabled={opStack.length === 0 || saving}>
-            <Undo2 className="w-3.5 h-3.5" />
-            Hoàn tác
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={() => {
-              setCreatePrefill(classId != null ? { classId } : undefined);
-              setCreateOpen(true);
-            }}
-          >
-            <CalendarPlus className="w-3.5 h-3.5" />
-            Xếp lịch
-          </Button>
-          <Button type="button" variant="primary" size="sm" onClick={handleSaveAll} disabled={!hasPending || saving}>
-            <Save className="w-3.5 h-3.5" />
-            {saving ? "Đang lưu..." : "Lưu"}
-          </Button>
-        </div>
+        {(canSchedule || canEditSessions) && (
+          <div className="flex items-center gap-2">
+            <Button type="button" variant="secondary" size="sm" onClick={handleUndo} disabled={opStack.length === 0 || saving}>
+              <Undo2 className="w-3.5 h-3.5" />
+              Hoàn tác
+            </Button>
+            {canSchedule && (
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setCreatePrefill(classId != null ? { classId } : undefined);
+                  setCreateOpen(true);
+                }}
+              >
+                <CalendarPlus className="w-3.5 h-3.5" />
+                Xếp lịch
+              </Button>
+            )}
+            <Button type="button" variant="primary" size="sm" onClick={handleSaveAll} disabled={!hasPending || saving}>
+              <Save className="w-3.5 h-3.5" />
+              {saving ? "Đang lưu..." : "Lưu"}
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Tự cuộn cả 2 chiều bên trong khung riêng (thay vì cuộn theo trang) — nút chức năng ở trên

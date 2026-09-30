@@ -66,6 +66,7 @@ public class AuthService {
     private final GoogleIdTokenVerifier googleIdTokenVerifier;
     private final NotificationService notificationService;
     private final PermissionEvaluationService permissionEvaluationService;
+    private final DataScopeService dataScopeService;
     private final LoginIpThrottle loginIpThrottle;
     private final ClientIpResolver clientIpResolver;
     private final int maxFailedAttempts;
@@ -87,6 +88,7 @@ public class AuthService {
                         GoogleIdTokenVerifier googleIdTokenVerifier,
                         NotificationService notificationService,
                         PermissionEvaluationService permissionEvaluationService,
+                        DataScopeService dataScopeService,
                         LoginIpThrottle loginIpThrottle,
                         ClientIpResolver clientIpResolver,
                         @Value("${app.security.brute-force.max-failed-attempts}") int maxFailedAttempts,
@@ -107,6 +109,7 @@ public class AuthService {
         this.googleIdTokenVerifier = googleIdTokenVerifier;
         this.notificationService = notificationService;
         this.permissionEvaluationService = permissionEvaluationService;
+        this.dataScopeService = dataScopeService;
         this.loginIpThrottle = loginIpThrottle;
         this.clientIpResolver = clientIpResolver;
         this.maxFailedAttempts = maxFailedAttempts;
@@ -306,7 +309,8 @@ public class AuthService {
                 departmentName,
                 rolesOf(user),
                 studentId,
-                permissionEvaluationService.getEffectivePermissions(userId));
+                permissionEvaluationService.getEffectivePermissions(userId),
+                dataScopeService.resolve(userId).name());
     }
 
     /** A2 (khóa 5 lần sai) + A3 (INACTIVE/SUSPENDED) — áp dụng cho cả luồng mật khẩu và Google. */

@@ -49,9 +49,9 @@ public class ClassController {
 
     /**
      * Dropdown FE: chọn trường (siteId) -> hiển thị lớp của trường đó; lọc
-     * thêm theo chương trình (curriculumId/classCategory). Giáo viên (không
-     * có quyền academic.class.manage) chỉ thấy lớp thuộc (các) site được
-     * gán qua site_teachers — xem Javadoc ClassService.search.
+     * thêm theo chương trình (curriculumId/classCategory). Tài khoản có phạm
+     * vi dữ liệu hẹp hơn ALL (V202) chỉ thấy lớp thuộc (các) site được gán
+     * qua site_teachers/site_managers — xem Javadoc ClassService.search.
      */
     @GetMapping
     public ResponseEntity<List<ClassResponse>> search(@RequestParam(required = false) String query,
@@ -68,14 +68,14 @@ public class ClassController {
         return ResponseEntity.ok(classService.getById(id));
     }
 
-    @PreAuthorize("hasPermission(null, 'academic.class.manage')")
+    @PreAuthorize("hasPermission(null, 'academic.class.create')")
     @PostMapping
     public ResponseEntity<ClassResponse> create(@Valid @RequestBody CreateClassRequest request,
                                                    @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(classService.create(request, actor.userId()));
     }
 
-    @PreAuthorize("hasPermission(null, 'academic.class.manage')")
+    @PreAuthorize("hasPermission(null, 'academic.class.update')")
     @PutMapping("/{id}")
     public ResponseEntity<ClassResponse> update(@PathVariable Long id,
                                                    @Valid @RequestBody UpdateClassRequest request,
@@ -94,7 +94,7 @@ public class ClassController {
         return ResponseEntity.ok(classService.listTeacherHistory(id));
     }
 
-    @PreAuthorize("hasPermission(null, 'academic.class.manage')")
+    @PreAuthorize("hasPermission(null, 'academic.class.teacher.assign')")
     @PostMapping("/{id}/teachers")
     public ResponseEntity<ClassTeacherResponse> assignTeacher(@PathVariable Long id,
                                                                   @Valid @RequestBody AssignTeacherRequest request,
@@ -103,7 +103,7 @@ public class ClassController {
     }
 
     /** Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31 — kết thúc phụ trách của 1 giáo viên với lớp. */
-    @PreAuthorize("hasPermission(null, 'academic.class.manage')")
+    @PreAuthorize("hasPermission(null, 'academic.class.teacher.assign')")
     @PutMapping("/{id}/teachers/{classTeacherId}/end")
     public ResponseEntity<ClassTeacherResponse> endTeacherAssignment(@PathVariable Long id,
                                                                         @PathVariable Long classTeacherId,
@@ -118,7 +118,7 @@ public class ClassController {
      * mới trong 1 transaction, cascade cập nhật giáo viên phụ trách các
      * buổi học SCHEDULED tương lai cùng loại giáo viên.
      */
-    @PreAuthorize("hasPermission(null, 'academic.class.manage')")
+    @PreAuthorize("hasPermission(null, 'academic.class.teacher.assign')")
     @PutMapping("/{id}/teachers/{classTeacherId}/change")
     public ResponseEntity<ClassTeacherResponse> changeTeacher(@PathVariable Long id,
                                                                   @PathVariable Long classTeacherId,
@@ -132,7 +132,7 @@ public class ClassController {
         return ResponseEntity.ok(classService.listEnrollments(id));
     }
 
-    @PreAuthorize("hasPermission(null, 'academic.class.manage')")
+    @PreAuthorize("hasPermission(null, 'academic.class.enrollment.create')")
     @PostMapping("/{id}/enrollments")
     public ResponseEntity<ClassEnrollmentResponse> enroll(@PathVariable Long id,
                                                               @Valid @RequestBody EnrollStudentRequest request,
@@ -140,7 +140,7 @@ public class ClassController {
         return ResponseEntity.ok(classService.enroll(id, request, actor.userId()));
     }
 
-    @PreAuthorize("hasPermission(null, 'academic.class.manage')")
+    @PreAuthorize("hasPermission(null, 'academic.class.enrollment.withdraw')")
     @PostMapping("/{id}/enrollments/{enrollmentId}/withdraw")
     public ResponseEntity<ClassEnrollmentResponse> withdraw(@PathVariable Long id,
                                                                 @PathVariable Long enrollmentId,
@@ -150,7 +150,7 @@ public class ClassController {
     }
 
     /** UC-65: ghi danh học sinh (đã tồn tại sẵn) theo lô qua Excel — bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31. */
-    @PreAuthorize("hasPermission(null, 'academic.class.manage')")
+    @PreAuthorize("hasPermission(null, 'academic.class.enrollment.import')")
     @PostMapping(value = "/{id}/enrollments/import", consumes = "multipart/form-data")
     public ResponseEntity<ClassEnrollmentBatchImportResponse> importEnrollments(@PathVariable Long id,
                                                                                  @RequestParam("file") MultipartFile file,
@@ -159,14 +159,14 @@ public class ClassController {
     }
 
     /** File mẫu ghi danh học sinh theo lô (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-31). */
-    @PreAuthorize("hasPermission(null, 'academic.class.manage')")
+    @PreAuthorize("hasPermission(null, 'academic.class.enrollment.import')")
     @GetMapping("/{id}/enrollments/import-template")
     public ResponseEntity<byte[]> downloadEnrollmentImportTemplate(@PathVariable Long id) {
         return ExcelHttpResponses.attachment(classEnrollmentBatchImportService.buildTemplate(), "mau-ghi-danh-hoc-sinh.xlsx");
     }
 
     /** Chuyển lớp hàng loạt cuối năm học (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-07) — xem ClassService#promoteClass. */
-    @PreAuthorize("hasPermission(null, 'academic.class.manage')")
+    @PreAuthorize("hasPermission(null, 'academic.class.promote')")
     @PostMapping("/{id}/promote")
     public ResponseEntity<PromoteClassResponse> promoteClass(@PathVariable Long id,
                                                                  @Valid @RequestBody PromoteClassRequest request,
