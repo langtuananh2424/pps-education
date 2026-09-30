@@ -12,9 +12,11 @@ import vn.com.pps.education.dto.CreateRoleRequest;
 import vn.com.pps.education.dto.PermissionMatrixItem;
 import vn.com.pps.education.dto.RolePermissionMatrixResponse;
 import vn.com.pps.education.dto.RoleResponse;
+import vn.com.pps.education.dto.UpdateRoleDataScopeRequest;
 import vn.com.pps.education.dto.UpdateRolePermissionsRequest;
 import vn.com.pps.education.exception.DuplicateRoleCodeException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
+import vn.com.pps.education.exception.RoleLockedException;
 import vn.com.pps.education.exception.RoleNotDeletableException;
 import vn.com.pps.education.exception.RolePermissionConfirmationRequiredException;
 import vn.com.pps.education.repository.PermissionAuditLogRepository;
@@ -47,6 +49,8 @@ import java.util.stream.Collectors;
  */
 @Service
 public class RoleService {
+
+    private static final String SYS_ADMIN_ROLE_CODE = "SYS_ADMIN";
 
     private final RoleRepository roleRepository;
     private final PermissionRepository permissionRepository;
@@ -81,14 +85,49 @@ public class RoleService {
         }
         User actor = getUserOrThrow(actorUserId);
 
+        Role template = request.copyFromRoleId() == null ? null : getRoleOrThrow(request.copyFromRoleId());
+
         Role role = new Role();
         role.setCode(request.code());
         role.setName(request.name());
         role.setDescription(request.description());
         role.setSystem(false);
+        role.setDataScope(request.dataScope());
         role = roleRepository.save(role);
 
+        // V202 "Tạo từ mẫu" -- sao chép toàn bộ quyền của vai trò mẫu, người tạo chỉnh tiếp trên cây sidebar.
+        if (template != null) {
+            Role created = role;
+            rolePermissionRepository.saveAll(rolePermissionRepository.findByRoleId(template.getId()).stream()
+                    .map(source -> {
+                        RolePermission copy = new RolePermission();
+                        copy.setRole(created);
+                        copy.setPermission(source.getPermission());
+                        return copy;
+                    }).toList());
+        }
+
         writeHistory(role, actor, RoleHistory.Action.CREATED);
+        return toResponse(role);
+    }
+
+    /**
+     * V202 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-30) — đổi
+     * phạm vi dữ liệu của vai trò. Chặn với Quản trị viên (luôn toàn chuỗi).
+     */
+    @Transactional
+    public RoleResponse updateDataScope(Long roleId, UpdateRoleDataScopeRequest request, Long actorUserId) {
+        Role role = getRoleOrThrow(roleId);
+        requireEditable(role);
+        User actor = getUserOrThrow(actorUserId);
+        Role.DataScope previous = role.getDataScope();
+        role.setDataScope(request.dataScope());
+        role = roleRepository.save(role);
+
+        RoleHistory history = buildHistory(role, actor, RoleHistory.Action.UPDATED);
+        history.getDetails().put("dataScopeFrom", previous.name());
+        history.getDetails().put("dataScopeTo", request.dataScope().name());
+        roleHistoryRepository.save(history);
         return toResponse(role);
     }
 
@@ -150,6 +189,7 @@ public class RoleService {
     @Transactional
     public void updatePermissions(Long roleId, UpdateRolePermissionsRequest request) {
         Role role = getRoleOrThrow(roleId);
+        requireEditable(role);
         List<RolePermission> current = rolePermissionRepository.findByRoleId(roleId);
         Set<Long> currentIds = current.stream().map(rp -> rp.getPermission().getId()).collect(Collectors.toSet());
         Set<Long> requestedIds = new HashSet<>(request.permissionIds());
@@ -201,7 +241,19 @@ public class RoleService {
                         new Object[]{userId}, "Không tìm thấy tài khoản id=" + userId));
     }
 
+    /** V202 — Quản trị viên luôn có mọi quyền, không cho sửa để tránh tự khoá mình khỏi hệ thống. */
+    private void requireEditable(Role role) {
+        if (SYS_ADMIN_ROLE_CODE.equals(role.getCode())) {
+            throw new RoleLockedException("error.roleLocked.default", new Object[]{role.getCode()},
+                    "Vai trò Quản trị viên luôn có mọi quyền, không chỉnh quyền hay phạm vi được.");
+        }
+    }
+
     private void writeHistory(Role role, User actor, RoleHistory.Action action) {
+        roleHistoryRepository.save(buildHistory(role, actor, action));
+    }
+
+    private RoleHistory buildHistory(Role role, User actor, RoleHistory.Action action) {
         RoleHistory history = new RoleHistory();
         history.setRole(role);
         history.setChangedBy(actor);
@@ -210,10 +262,11 @@ public class RoleService {
         details.put("code", role.getCode());
         details.put("name", role.getName());
         history.setDetails(details);
-        roleHistoryRepository.save(history);
+        return history;
     }
 
     private RoleResponse toResponse(Role role) {
-        return new RoleResponse(role.getId(), role.getCode(), role.getName(), role.getDescription(), role.isSystem());
+        return new RoleResponse(role.getId(), role.getCode(), role.getName(), role.getDescription(), role.isSystem(),
+                role.getDataScope().name());
     }
 }

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useApp } from "@/context/AppContext";
 import { Plus, Search, Users } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { StudentResponse } from "../api";
@@ -33,6 +34,7 @@ interface StudentListPanelProps {
 }
 
 export default function StudentListPanel({ students, loading, selectedId, onSelect, onCreate, query, onQueryChange, onSearch }: StudentListPanelProps) {
+  const { hasPermission } = useApp();
   const { t } = useTranslation("student");
   // Backend GET /students chưa hỗ trợ phân trang (trả nguyên mảng) — phân trang phía client để danh
   // sách không dài vô hạn khi xem "Tất cả điểm trường". Reset về trang 1 mỗi khi kết quả tải mới
@@ -49,10 +51,12 @@ export default function StudentListPanel({ students, loading, selectedId, onSele
           <span className="text-xs font-bold text-slate-700 font-display block">{t("studentList.title")}</span>
           <p className="text-[10px] text-slate-400">{t("studentList.subtitle")}</p>
         </div>
-        <Button variant="primary" size="sm" onClick={onCreate} className="whitespace-nowrap shrink-0">
-          <Plus className="w-3.5 h-3.5" />
-          {t("studentList.addButton")}
-        </Button>
+        {hasPermission("student.profile.create") && (
+          <Button variant="primary" size="sm" onClick={onCreate} className="whitespace-nowrap shrink-0">
+            <Plus className="w-3.5 h-3.5" />
+            {t("studentList.addButton")}
+          </Button>
+        )}
       </div>
 
       <form

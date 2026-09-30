@@ -41,7 +41,7 @@ public class ClassSessionController {
         return ResponseEntity.ok(classSessionService.listSessions(classId, actor.userId()));
     }
 
-    @PreAuthorize("hasPermission(null, 'academic.class.manage')")
+    @PreAuthorize("hasPermission(null, 'academic.class-session.create')")
     @PostMapping
     public ResponseEntity<ClassSessionResponse> createSession(@PathVariable Long classId,
                                                                   @Valid @RequestBody CreateClassSessionRequest request,
@@ -50,7 +50,7 @@ public class ClassSessionController {
     }
 
     /** UC-56: Sinh lịch học hàng loạt theo mẫu lặp (FR-ACA-05, bổ sung ngoài SDD gốc, đã xác nhận với người dùng). */
-    @PreAuthorize("hasPermission(null, 'academic.class.manage')")
+    @PreAuthorize("hasPermission(null, 'academic.class-session.create') or hasPermission(null, 'academic.class-session.generate')")
     @PostMapping("/bulk")
     public ResponseEntity<BulkCreateClassSessionResponse> bulkCreateSessions(@PathVariable Long classId,
                                                                               @Valid @RequestBody BulkCreateClassSessionRequest request,
@@ -78,7 +78,7 @@ public class ClassSessionController {
         return ResponseEntity.ok(classSessionService.listPeriods(classSessionId, actor.userId()));
     }
 
-    @PreAuthorize("hasPermission(null, 'academic.class.manage')")
+    @PreAuthorize("hasPermission(null, 'academic.class-session.cancel')")
     @PostMapping("/{classSessionId}/cancel")
     public ResponseEntity<ClassSessionResponse> cancelSession(@PathVariable Long classId,
                                                                 @PathVariable Long classSessionId,
@@ -87,7 +87,7 @@ public class ClassSessionController {
         return ResponseEntity.ok(classSessionService.cancelSession(classId, classSessionId, request, actor.userId()));
     }
 
-    @PreAuthorize("hasPermission(null, 'academic.class.manage')")
+    @PreAuthorize("hasPermission(null, 'academic.class-session.reschedule')")
     @PostMapping("/{classSessionId}/reschedule")
     public ResponseEntity<ClassSessionResponse> rescheduleSession(@PathVariable Long classId,
                                                                     @PathVariable Long classSessionId,
@@ -97,7 +97,7 @@ public class ClassSessionController {
     }
 
     /** Sửa nhanh tại chỗ (phòng/loại GV/GV chính-phụ-CM/tiết) — phục vụ click-thẻ trên lưới thời khóa biểu, bổ sung ngoài SDD gốc, xác nhận 2026-08-19. */
-    @PreAuthorize("hasPermission(null, 'academic.class.manage')")
+    @PreAuthorize("hasPermission(null, 'academic.class-session.reschedule')")
     @PatchMapping("/{classSessionId}/assignment")
     public ResponseEntity<ClassSessionResponse> updateAssignment(@PathVariable Long classId,
                                                                     @PathVariable Long classSessionId,

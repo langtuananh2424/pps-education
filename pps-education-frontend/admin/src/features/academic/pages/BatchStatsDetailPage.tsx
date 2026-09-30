@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useApp } from "@/context/AppContext";
 import { useParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, Download, Eye, ShieldAlert, XCircle } from "lucide-react";
@@ -53,6 +54,10 @@ interface MemberQuestions {
  * Bài đó — không phải số liệu cộng dồn cả Lô ở bảng ngoài).
  */
 export default function BatchStatsDetailPage() {
+  // V202 — bật nộp muộn/xác nhận hạn chót và xuất thống kê đi theo quyền riêng.
+  const { hasPermission } = useApp();
+  const canConfirmDeadline = hasPermission("lms.exercise.deadline.confirm");
+  const canExport = hasPermission("lms.exercise.report.export");
   const { t, i18n } = useTranslation("academic-homework");
   const studentStatusLabels: Record<string, string> = {
     CHUA_LAM: t("shared.studentStatus.CHUA_LAM"),
@@ -221,14 +226,14 @@ export default function BatchStatsDetailPage() {
             <input
               type="checkbox"
               checked={studentStats.assignment.lateSubmissionAllowed}
-              disabled={togglingLateSubmission}
+              disabled={togglingLateSubmission || !canConfirmDeadline}
               onChange={(e) => handleToggleLateSubmissionAllowed(e.target.checked)}
               className="rounded border-slate-300"
             />
             {t("exerciseDetail.lateSubmissionAllowedLabel")}
           </label>
         </div>
-        {studentStats.assignment.lateSubmissionAllowed && (
+        {studentStats.assignment.lateSubmissionAllowed && canConfirmDeadline && (
           <div className="flex items-center gap-2 mt-2">
             <span className="text-xs font-semibold text-slate-500">{t("exerciseDetail.lateSubmissionDeadlineLabel")}</span>
             <DatePicker
@@ -380,9 +385,11 @@ export default function BatchStatsDetailPage() {
 
       {tab === "students" && (
         <div className="flex justify-end">
-          <Button variant="primary" size="sm" onClick={handleExport} disabled={exporting}>
-            <Download className="w-3.5 h-3.5" /> {exporting ? t("exerciseDetail.exporting") : t("exerciseDetail.exportExcel")}
-          </Button>
+          {canExport && (
+            <Button variant="primary" size="sm" onClick={handleExport} disabled={exporting}>
+              <Download className="w-3.5 h-3.5" /> {exporting ? t("exerciseDetail.exporting") : t("exerciseDetail.exportExcel")}
+            </Button>
+          )}
         </div>
       )}
 

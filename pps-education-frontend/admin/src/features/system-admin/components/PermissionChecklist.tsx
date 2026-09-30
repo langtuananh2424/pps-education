@@ -18,7 +18,7 @@ interface PermissionChecklistProps {
   onToggleModuleAll: (ids: number[]) => void;
 }
 
-/** Danh sách quyền hạt nhân theo module, có tìm kiếm/lọc — dùng chung cho sửa quyền role có sẵn (RolePermissionsEditor) và tạo role mới (CreateRolePanel). */
+/** Danh sách quyền hạt nhân theo module, có tìm kiếm/lọc — dùng cho khối "Quyền khác ngoài sidebar" trong RoleAccessEditor (V202). */
 export default function PermissionChecklist({ items, selectedIds, onToggle, onToggleModuleAll }: PermissionChecklistProps) {
   const { t } = useTranslation("system-admin-roles");
   const [searchQuery, setSearchQuery] = useState("");

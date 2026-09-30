@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useApp } from "@/context/AppContext";
-import { UserRole } from "@/types";
 import { ClassResponse, listClasses, listClassTeachers } from "../api";
 
 /**
@@ -25,8 +24,9 @@ import { ClassResponse, listClasses, listClassTeachers } from "../api";
  */
 export function useEligibleClasses() {
   const { hasPermission, currentUser, selectedCampusId } = useApp();
-  const isSiteManager = currentUser?.roleCodes?.includes(UserRole.SITE_MANAGER) ?? false;
-  const canSeeAllClasses = hasPermission("academic.class.manage") || hasPermission("academic.class.view-all") || isSiteManager;
+  // V202: phạm vi đọc từ roles.data_scope — rộng hơn "Chỉ lớp mình dạy" thì thấy hết lớp backend trả về
+  // (backend đã tự giới hạn theo điểm trường), thay cho việc đoán theo tên vai trò SITE_MANAGER.
+  const canSeeAllClasses = currentUser?.dataScope !== "CLASS" || hasPermission("academic.class.view-all");
 
   const [classes, setClasses] = useState<ClassResponse[]>([]);
   const [myAssignedClassCount, setMyAssignedClassCount] = useState(0);

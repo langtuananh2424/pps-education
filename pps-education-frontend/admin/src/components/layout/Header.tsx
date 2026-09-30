@@ -185,18 +185,13 @@ export default function Header() {
   // "chưa gán điểm trường" trước khi các API site_managers/site_teachers trả về.
   const [managedSitesLoading, setManagedSitesLoading] = useState(true);
 
-  // Vai trò bắt buộc gắn với (các) điểm trường cụ thể -- nếu tài khoản có 1 trong các
-  // vai trò này mà managedSites rỗng, đó là dấu hiệu CHƯA ĐƯỢC GÁN điểm trường (thiếu
-  // site_managers/site_teachers), không phải "không giới hạn site" như SYS_ADMIN/STAFF.
-  //
-  // Loại trừ tài khoản có academic.class.manage (đúng quyền BE dùng để bỏ giới hạn site
-  // ở ClassService.resolveAllowedSiteIds) — tài khoản demo "Super Admin" cố tình được gán
-  // ĐỦ mọi roleCodes (kể cả TEACHER/SITE_MANAGER) để test mọi màn hình, nhưng không thật
-  // sự được gán site_teachers/site_managers nào — nếu không loại trừ, tài khoản này bị
-  // hiểu lầm thành "chưa gán điểm trường" dù thực ra xem được hết mọi điểm trường.
-  const siteScopedRoles: string[] = [UserRole.SITE_MANAGER, UserRole.PARTNER_REP, UserRole.TEACHER];
-  const seesAllSites = hasPermission("academic.class.manage");
-  const isSiteScopedRole = !seesAllSites && (currentUser?.roleCodes ?? []).some((r) => siteScopedRoles.includes(r));
+  // V202 — phạm vi dữ liệu đọc từ roles.data_scope (vai trò rộng nhất thắng) thay vì đoán theo tên vai trò.
+  // "Tất cả điểm trường" (ALL) không khoá điểm trường; phạm vi hẹp hơn (SITE/CLASS) bắt buộc gắn với điểm
+  // trường cụ thể — managedSites rỗng nghĩa là CHƯA ĐƯỢC GÁN điểm trường (thiếu site_managers/site_teachers).
+  const seesAllSites = currentUser?.dataScope === "ALL";
+  const isSiteScopedRole =
+    !seesAllSites &&
+    (currentUser?.dataScope === "SITE" || currentUser?.dataScope === "CLASS" || (currentUser?.roleCodes ?? []).includes(UserRole.PARTNER_REP));
 
   useEffect(() => {
     if (!currentUser || sites.length === 0) {
@@ -205,7 +200,7 @@ export default function Header() {
     const roleCodes = currentUser.roleCodes ?? [];
     const tasks: Promise<SiteResponse[]>[] = [];
 
-    if (roleCodes.includes(UserRole.SITE_MANAGER)) {
+    if (!seesAllSites) {
       tasks.push(Promise.resolve(sites.filter((site) => site.currentManagerUserId === currentUser.id)));
     }
     if (roleCodes.includes(UserRole.PARTNER_REP)) {
@@ -215,7 +210,7 @@ export default function Header() {
           .catch(() => [] as SiteResponse[])
       );
     }
-    if (roleCodes.includes(UserRole.TEACHER)) {
+    if (!seesAllSites) {
       tasks.push(
         Promise.allSettled(sites.map((site) => listSiteTeachers(site.id).then((list) => ({ site, list }))))
           .then((results) =>
@@ -269,7 +264,7 @@ export default function Header() {
   // trường) — KHÔNG dùng roleCodes.includes(SITE_MANAGER) trực tiếp, vì tài khoản demo "Super
   // Admin" cố tình được gán roleCode SITE_MANAGER để test màn hình nhưng không thật sự quản lý
   // site nào (managedSites rỗng) — dùng roleCodes suông sẽ lại hiện nhầm pill cho tài khoản đó.
-  const isGenuineSiteManager = (currentUser?.roleCodes?.includes(UserRole.SITE_MANAGER) ?? false) && managedSites.length > 0;
+  const isGenuineSiteManager = currentUser?.dataScope === "SITE" && managedSites.length > 0;
   const { classes: eligibleClasses, myAssignedClassCount, loading: loadingEligibleClasses } = useEligibleClasses();
   // academic.class.view-all (V64, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30):
   // permission RIÊNG cho "được xem/chọn mọi lớp", dành cho Trưởng phòng đào tạo/Quản trị viên —

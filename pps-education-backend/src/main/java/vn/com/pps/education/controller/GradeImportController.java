@@ -1,6 +1,7 @@
 package vn.com.pps.education.controller;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -30,6 +31,7 @@ public class GradeImportController {
         this.gradeImportService = gradeImportService;
     }
 
+    @PreAuthorize("hasPermission(null, 'academic.grade.entry') or hasPermission(null, 'academic.grade.edit.override')")
     @PostMapping(value = "/api/classes/{classId}/grade-component-setups/{setupId}/grades/import",
             consumes = "multipart/form-data")
     public ResponseEntity<GradeImportResponse> importGrades(@PathVariable Long classId,
@@ -50,6 +52,7 @@ public class GradeImportController {
      * điểm/Nhận xét/Ghi chú để trống (V95). Quyền: giống importGrades
      * (xem Javadoc GradeImportService).
      */
+    @PreAuthorize("hasPermission(null, 'academic.grade.entry') or hasPermission(null, 'academic.grade.edit.override')")
     @GetMapping("/api/classes/{classId}/grade-component-setups/{setupId}/grades/import-template")
     public ResponseEntity<byte[]> downloadTemplate(@PathVariable Long classId,
                                                     @PathVariable Long setupId,

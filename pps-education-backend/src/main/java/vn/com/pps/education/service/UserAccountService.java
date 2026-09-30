@@ -409,7 +409,8 @@ public class UserAccountService {
     }
 
     private RoleResponse toRoleResponse(Role role) {
-        return new RoleResponse(role.getId(), role.getCode(), role.getName(), role.getDescription(), role.isSystem());
+        return new RoleResponse(role.getId(), role.getCode(), role.getName(), role.getDescription(), role.isSystem(),
+                role.getDataScope().name());
     }
 
     private UserPermissionOverrideSummary toOverrideSummary(UserPermissionOverride o) {

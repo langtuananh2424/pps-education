@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useApp } from "@/context/AppContext";
 import { Plus, Search, Users } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import Badge from "@/components/ui/Badge";
@@ -18,6 +19,7 @@ interface ParentListPanelProps {
 }
 
 export default function ParentListPanel({ parents, loading, selectedId, onSelect, onCreate, query, onQueryChange }: ParentListPanelProps) {
+  const { hasPermission } = useApp();
   const { t } = useTranslation("student");
   const filtered = parents.filter((p) => p.parentFullName.toLowerCase().includes(query.toLowerCase()));
 
@@ -36,10 +38,12 @@ export default function ParentListPanel({ parents, loading, selectedId, onSelect
           <span className="text-xs font-bold text-slate-700 font-display block">{t("parentList.title")}</span>
           <p className="text-[10px] text-slate-400">{t("parentList.subtitle")}</p>
         </div>
-        <Button variant="primary" size="sm" onClick={onCreate}>
-          <Plus className="w-3.5 h-3.5" />
-          {t("parentList.addButton")}
-        </Button>
+        {hasPermission("student.parent.create") && (
+          <Button variant="primary" size="sm" onClick={onCreate}>
+            <Plus className="w-3.5 h-3.5" />
+            {t("parentList.addButton")}
+          </Button>
+        )}
       </div>
 
       <div className="px-4 py-3 border-b border-slate-100 relative shrink-0">

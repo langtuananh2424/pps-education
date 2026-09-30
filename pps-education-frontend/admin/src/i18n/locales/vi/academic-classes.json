@@ -95,7 +95,7 @@
       "grades": "Sổ điểm"
     },
     "profile": {
-      "readOnlyNotice": "Tài khoản không có quyền \"Xếp lớp & gán khóa học\" — chỉ xem, không sửa được hồ sơ lớp.",
+      "readOnlyNotice": "Tài khoản không có quyền sửa hồ sơ lớp — chỉ xem.",
       "nameLabel": "Tên lớp *",
       "nameRequired": "Vui lòng nhập Tên lớp.",
       "statusLabel": "Trạng thái *",

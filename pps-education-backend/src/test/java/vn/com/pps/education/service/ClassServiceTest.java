@@ -560,6 +560,52 @@ class ClassServiceTest extends AbstractIntegrationTest {
         assertThat(result).extracting(ClassResponse::id).containsExactlyInAnyOrder(classAtA.id(), classAtB.id());
     }
 
+    /**
+     * V202 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-30): phạm vi
+     * dữ liệu đọc từ roles.data_scope — vai trò tự tạo với phạm vi "Tất cả điểm
+     * trường" (ALL) thấy lớp mọi điểm trường dù không có quyền nào, không cần đoán
+     * theo mã vai trò.
+     */
+    @Test
+    void search_V202_customRoleWithDataScopeAll_seesClassesAcrossAllSites() {
+        Site siteA = newSite(Site.SiteType.OWNED);
+        Site siteB = newSite(Site.SiteType.OWNED);
+        ClassResponse classAtA = classService.create(
+                new CreateClassRequest(classCode(), "Lớp A", siteA.getId(), activeCurriculum.id(), "OPEN", 20, null,
+                        LocalDate.now(), null, null), headAcademic.getId());
+        ClassResponse classAtB = classService.create(
+                new CreateClassRequest(classCode(), "Lớp B", siteB.getId(), activeCurriculum.id(), "OPEN", 20, null,
+                        LocalDate.now(), null, null), headAcademic.getId());
+        Role customRole = new Role();
+        customRole.setCode("SCOPE_ALL_" + System.nanoTime());
+        customRole.setName("Vai trò tự tạo toàn chuỗi");
+        customRole.setDataScope(Role.DataScope.ALL);
+        roleRepository.save(customRole);
+        User user = newUser("custom.scope.all");
+        assignRole(user, customRole.getCode());
+
+        var result = classService.search(null, null, null, null, null, user.getId());
+
+        assertThat(result).extracting(ClassResponse::id).contains(classAtA.id(), classAtB.id());
+    }
+
+    /** V202: vai trò tự tạo với phạm vi "Chỉ điểm trường mình phụ trách" (SITE) mà chưa được gán điểm trường thì không thấy lớp nào. */
+    @Test
+    void search_V202_customRoleWithDataScopeSiteWithoutAssignment_seesNoClasses() {
+        Site site = newSite(Site.SiteType.OWNED);
+        classService.create(new CreateClassRequest(classCode(), "Lớp A", site.getId(), activeCurriculum.id(), "OPEN", 20, null,
+                LocalDate.now(), null, null), headAcademic.getId());
+        Role customRole = new Role();
+        customRole.setCode("SCOPE_SITE_" + System.nanoTime());
+        customRole.setName("Vai trò tự tạo theo điểm trường");
+        customRole.setDataScope(Role.DataScope.SITE);
+        roleRepository.save(customRole);
+        User user = newUser("custom.scope.site");
+        assignRole(user, customRole.getCode());
+
+        assertThat(classService.search(null, null, null, null, null, user.getId())).isEmpty();
+    }
+
     @Test
     void promoteClass_UC18b_MainFlow_movesActiveStudentsToNewClassKeepingSiteAndClassType() {
         Site partnerSite = newSite(Site.SiteType.PARTNER);

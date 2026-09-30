@@ -41,7 +41,7 @@ public class HomeworkSkillBatchController {
      * V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — bật/tắt lại "Cho phép nộp
      * bài muộn" cho TOÀN BỘ bản giao thuộc 1 Lô cùng lúc, gọi từ trang "Xem chi tiết" BTVN theo Lô.
      */
-    @PreAuthorize("hasPermission(null, 'lms.exercise.update')")
+    @PreAuthorize("hasPermission(null, 'lms.exercise.deadline.confirm')")
     @PutMapping("/api/homework-skill-batches/{id}/late-submission-allowed")
     public ResponseEntity<Void> updateLateSubmissionAllowed(@PathVariable Long id,
                                                              @Valid @RequestBody UpdateLateSubmissionAllowedRequest request,

@@ -31,5 +31,7 @@ public record CurrentUserResponse(
         String departmentName,
         List<String> roleCodes,
         Long studentId,
-        Set<String> permissions
+        Set<String> permissions,
+        /** V202 — phạm vi dữ liệu hiệu lực (ALL/SITE/CLASS/SELF), vai trò rộng nhất thắng; FE dùng để lọc ô chọn Điểm trường/Lớp. */
+        String dataScope
 ) {}

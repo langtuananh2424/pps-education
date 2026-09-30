@@ -3,7 +3,6 @@ import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
-import { UserRole } from "@/types";
 import {
   ClassEnrollmentResponse,
   GradeComponentSetupResponse,
@@ -33,7 +32,11 @@ export default function GradesPage() {
   const canManage = hasPermission("academic.grade.manage");
   // Hàng chờ duyệt (UC-20) chỉ có ý nghĩa với Quản lý điểm trường — API tự scope theo site được gán,
   // ẩn hẳn khối này với tài khoản khác để đỡ hiện 1 panel rỗng không liên quan.
-  const isSiteManager = currentUser?.roleCodes?.includes(UserRole.SITE_MANAGER) ?? false;
+  // V202 — khối duyệt điểm hiện theo quyền academic.grade.approve thay vì tên vai trò Quản lý điểm trường.
+  const isSiteManager = hasPermission("academic.grade.approve");
+  // Phạm vi "Tất cả điểm trường" (VD Trưởng phòng đào tạo) vừa duyệt vừa xem sổ điểm từng lớp.
+  const showGradeSheet = !isSiteManager || currentUser?.dataScope === "ALL";
+  const canEnterGrades = hasPermission("academic.grade.entry") || hasPermission("academic.grade.edit.override");
   // Danh sách lớp + lớp đang chọn giờ dùng chung toàn cục (chọn 1 lần ở Header, cạnh Điểm trường)
   // thay vì mỗi trang tự có dropdown/state riêng — xem useEligibleClasses cho đúng quy tắc phân quyền
   // theo lớp (UC-19 Precondition: GV chỉ thấy lớp mình dạy; SITE_MANAGER thấy hết lớp thuộc site).
@@ -204,7 +207,7 @@ export default function GradesPage() {
         </div>
       )}
 
-      {!isSiteManager && (
+      {showGradeSheet && (
         <Card padded={false} className="overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-100 bg-slate-50">
             <span className="text-xs font-bold text-slate-700 font-display">
@@ -215,7 +218,7 @@ export default function GradesPage() {
           </div>
           <div className="p-5">
             {selectedClassId && selectedClass ? (
-              <ClassGradeSheetPanel classId={selectedClassId} siteId={selectedClass.siteId} />
+              <ClassGradeSheetPanel classId={selectedClassId} siteId={selectedClass.siteId} readOnly={!canEnterGrades} />
             ) : (
               <p className="text-xs text-slate-400 italic p-6 text-center">{t("gradesPage.selectClassPrompt")}</p>
             )}

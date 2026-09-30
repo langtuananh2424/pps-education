@@ -95,7 +95,7 @@
       "grades": "Gradebook"
     },
     "profile": {
-      "readOnlyNotice": "Your account doesn't have the \"Set up classes & assign curricula\" permission — you can view but not edit this class profile.",
+      "readOnlyNotice": "This account cannot edit the class profile — view only.",
       "nameLabel": "Class name *",
       "nameRequired": "Please enter a class name.",
       "statusLabel": "Status *",
