@@ -13,7 +13,7 @@ import Toast from "@/components/ui/Toast";
 
 export default function ProfilesPage() {
   const { t } = useTranslation("student");
-  const { selectedCampusId } = useApp();
+  const { selectedCampusId, selectedClassId, hasPermission } = useApp();
   const [students, setStudents] = useState<StudentResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -25,16 +25,17 @@ export default function ProfilesPage() {
   const load = () => {
     setLoading(true);
     setError(null);
-    listStudents(query, selectedCampusId !== "ALL" ? Number(selectedCampusId) : undefined)
+    listStudents(query, selectedCampusId !== "ALL" ? Number(selectedCampusId) : undefined, selectedClassId ?? undefined)
       .then((res) => {
         setStudents(res);
-        if (selectedId == null && res.length > 0) setSelectedId(res[0].id);
+        // Đổi bộ lọc điểm trường/lớp mà học sinh đang chọn không còn trong danh sách thì chọn lại người đầu tiên.
+        setSelectedId((current) => (current != null && res.some((s) => s.id === current) ? current : res[0]?.id ?? null));
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : t("profilesPage.loadError")))
       .finally(() => setLoading(false));
   };
 
-  useEffect(load, [selectedCampusId]);
+  useEffect(load, [selectedCampusId, selectedClassId]);
 
   const selectedStudent = students.find((s) => s.id === selectedId) ?? null;
 
@@ -45,15 +46,17 @@ export default function ProfilesPage() {
           <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("profilesPage.title")}</h1>
           <p className="text-xs text-slate-500 mt-1">{t("profilesPage.description")}</p>
         </div>
-        <ImportExcelButton
-          title={t("profilesPage.importTitle")}
-          templateFileName={t("profilesPage.importTemplateFileName")}
-          fetchTemplate={downloadStudentImportTemplate}
-          uploadFn={importStudents}
-          exportAccounts={exportStudentAccounts}
-          accountsExportFileName={t("profilesPage.importAccountsFileName")}
-          onImported={load}
-        />
+        {hasPermission("student.profile.import") && (
+          <ImportExcelButton
+            title={t("profilesPage.importTitle")}
+            templateFileName={t("profilesPage.importTemplateFileName")}
+            fetchTemplate={downloadStudentImportTemplate}
+            uploadFn={importStudents}
+            exportAccounts={exportStudentAccounts}
+            accountsExportFileName={t("profilesPage.importAccountsFileName")}
+            onImported={load}
+          />
+        )}
       </div>
 
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}

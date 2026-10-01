@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 import vn.com.pps.education.dto.CreateRoleRequest;
 import vn.com.pps.education.dto.RolePermissionMatrixResponse;
 import vn.com.pps.education.dto.RoleResponse;
+import vn.com.pps.education.dto.UpdateRoleDataScopeRequest;
 import vn.com.pps.education.dto.UpdateRolePermissionsRequest;
 import vn.com.pps.education.security.AuthenticatedUser;
 import vn.com.pps.education.service.RoleService;
@@ -64,5 +65,14 @@ public class RoleController {
                                                     @Valid @RequestBody UpdateRolePermissionsRequest request) {
         roleService.updatePermissions(id, request);
         return ResponseEntity.noContent().build();
+    }
+
+    /** V202 — đổi phạm vi dữ liệu của vai trò (tất cả điểm trường / điểm trường mình phụ trách / lớp mình dạy). */
+    @PreAuthorize("hasPermission(null, 'permission.role.update')")
+    @PutMapping("/{id}/data-scope")
+    public ResponseEntity<RoleResponse> updateDataScope(@PathVariable Long id,
+                                                          @Valid @RequestBody UpdateRoleDataScopeRequest request,
+                                                          @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(roleService.updateDataScope(id, request, actor.userId()));
     }
 }

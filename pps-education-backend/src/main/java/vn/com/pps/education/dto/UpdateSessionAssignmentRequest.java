@@ -35,5 +35,16 @@ public record UpdateSessionAssignmentRequest(
          * BulkCreateClassSessionRequest.allowTeacherOverlap. null coi như
          * false.
          */
-        Boolean allowTeacherOverlap
+        Boolean allowTeacherOverlap,
+        /**
+         * Cho phép bỏ qua chặn trùng phòng (bổ sung ngoài SDD gốc, xác nhận
+         * với người dùng 2026-09-29) — xem Javadoc
+         * BulkCreateClassSessionRequest.allowRoomOverlap. null coi như false.
+         */
+        Boolean allowRoomOverlap,
+        /**
+         * Lý do sửa — BẮT BUỘC khi buổi đã IN_PROGRESS/COMPLETED (UC-48 A7, bổ
+         * sung ngoài SDD gốc, xác nhận 2026-10-01), bỏ qua với buổi SCHEDULED.
+         */
+        String correctionReason
 ) {}

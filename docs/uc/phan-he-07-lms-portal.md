@@ -1035,6 +1035,149 @@ UC-24: Làm bài kiểm tra trực tuyến
 > tuyến theo `reflex_question_progress.rubric_version`, không theo cờ hiện
 > tại.
 
+> **Cập nhật theo bản bàn giao 26/9/2026 của người training (2026-09-28,
+> ĐÈ LÊN mô tả "Ngữ pháp KHOÁ" ở đoạn V185 phía trên)** — không có migration
+> mới, chỉ đổi rubric + cách tính điểm ở backend:
+> (a) Từ 23/9 điểm Ngữ pháp KHÔNG còn khoá từ Bước 1: lượt chấm nói chấm lại
+> CẢ tiêu chí Ngữ pháp từ transcript (nạp thêm rubric Bước 1), trần 60% nếu
+> bài NÓI có ≥2 lỗi đỏ, rồi áp SÀN = nửa điểm Ngữ pháp Bước 1 làm tròn xuống
+> bội 5 (không áp sàn khi không nói được gì; sàn chạy SAU mọi trần theo lỗi để
+> một lỗi không bị phạt hai lần). Cột `writing_locked_grammar_percent` giữ tên
+> cũ nhưng nay là mốc sàn; cơ chế "lỗi đỏ mới khi nói" (`new_red_errors`)
+> không còn dùng.
+> (b) Lỗi đỏ tính bằng 3 lỗi nhẹ (trước là 2) ở mọi checkpoint đếm lỗi.
+> (c) Backend tự tính các trần từ transcript, KHÔNG hỏi AI: mỗi tiêu chí không
+> vượt quá `100 − 10×lỗi nhẹ − 20×lỗi nặng` của chính nó; Phát âm/Từ vựng/Trôi
+> chảy/Diễn ngôn tối đa 90%; Diễn ngôn/Trôi chảy không quá Ngữ pháp + 40; trần
+> độ rộng từ vựng (số từ nội dung khác nhau trên mỗi giây đề cho); trần trôi
+> chảy theo từ đệm (kể cả `à`, `ờ`), tự sửa và khoảng dừng dài nhất; cổng độ
+> dài Part 2 (nói ≥45 giây HOẶC ≥60 từ là đủ, ngược lại Trôi chảy ≤60%, Từ
+> vựng ≤80% — model bị cấm tự áp cổng C3); dải Phát âm theo tỷ lệ từ đọc lệch
+> so với BÀI VIẾT BƯỚC 1 (so theo bộ khung phụ âm, từ nói thêm không bị tính);
+> trần Phát âm 80% khi không có bằng chứng (đánh đổi đã biết: học sinh Part 2
+> phát âm thật sự tốt cũng bị chặn ở 80%; muốn bỏ thì đặt
+> `ReflexV2Scoring.NO_EVIDENCE_P_CAP = 100`). Chi tiết từng trần và bằng chứng
+> lưu ở `speaking_audit` (`caps`, `lexical`, `fluency`, `length`, `readback`).
+> (d) Câu "Lỗi nặng nhất" trong nhận xét chỉ xuất hiện khi bài CÓ lỗi được tô;
+> sai thì mà đề đã ấn định (VD đề hỏi quá khứ, trả lời hiện tại) là lỗi NẶNG;
+> dùng lại từ của câu hỏi không còn bị trừ (chỉ không tính khi chép nguyên câu
+> hỏi). Tồn đọng người training đã nêu: Phát âm còn dao động giữa các lượt
+> chấm cùng một file (lượt phiên âm khi trung thực khi làm mượt) và một số bài
+> dài vẫn ra Phát âm cao hơn giáo viên — xem `CALIBRATION.md` của bộ tiêu chí.
+
+> **Cập nhật rubric v3 — bản bàn giao 29/9/2026 (đã xác nhận với người dùng
+> 2026-09-29, ĐÈ LÊN mục (a) phía trên)** — không có migration mới:
+> (a) Rubric nạp từ `resources/rubrics-v3/` cho bài viết nộp mới
+> (`rubric_version = 'v3'`); câu đã chấm viết bằng v2 trước đó vẫn chấm nói bằng
+> `rubrics-v2/` + cấu hình v2 (định tuyến theo `rubric_version` của dòng). Bản 29/9
+> xoá câu "điểm GV/GRA đã khoá từ Bước 1" khỏi 12 file rubric; riêng câu còn sót ở
+> §C.2 của `speaking-rubric-common-rules.md` do PPS sửa (ngoại lệ duy nhất của
+> quy tắc "nạp nguyên văn"). Cấu hình v3: PET Part 4 Khối 8 Cambridge khai cột
+> `PET4` (rubric có hai cột PET4/PICTURE); IELTS Part 2 Khối 9 tối đa 120 giây.
+> (b) Trần 60% tiêu chí Ngữ pháp CHỈ đếm lỗi đỏ NGỮ PHÁP — ở cả bài viết lẫn bài
+> nói: thiếu thành phần câu, sai cấu trúc câu, sai trật tự từ, trả lời sai thì mà đề
+> đã ấn định (tag `thi_de_an_dinh`, luôn đỏ), thừa/thiếu giới từ làm hỏng cụm (tag
+> `gioi_tu_pha_cum`, đỏ từ Khối 8, vàng ở Khối 6-7 — đúng bảng §C). Lỗi đỏ khác (dùng
+> từ, từ loại, chêm tiếng Việt, không nghe rõ, lạc ý) vẫn tô đỏ và vẫn tính ở trần
+> theo lỗi đã tô, nhưng không kéo trần 60%. Khối 6/Cambridge (GV) cũng vậy: lỗi dùng
+> từ không kéo trần GV.
+> (c) Cách B: backend so transcript với bài viết Bước 1 theo thứ tự từ (dãy con
+> chung dài nhất, bỏ từ đệm/lặp từ/khoảng dừng; từ ≥3 chữ cái lệch bộ khung phụ âm
+> ≤2 coi là cùng từ vì đó là lỗi Phát âm). Nói GIỐNG bài viết (tỷ lệ khớp
+> `2·khớp/(từ viết + từ nói)` ≥85% — căn cứ duy nhất) → điểm Ngữ pháp GIỮ NGUYÊN
+> điểm Bước 1, không trần, không sàn,
+> không trần theo lỗi đã tô. Nói KHÁC → dùng điểm chấm lại từ transcript như mục
+> (a) phía trên (trần 60%, sàn nửa điểm Bước 1). Bằng chứng lưu ở `speaking_audit`
+> (`spokenMatch`, `grammarKeptFromStep1`). Rủi ro còn lại: lượt phiên âm nghe nhầm
+> nhiều từ (VD 3 từ đầu câu) sẽ đẩy bài sang nhánh chấm lại.
+> (d) Cờ "cần giáo viên soát Ngữ pháp" (V198): lần ghi âm đi nhánh chấm lại mà có
+> ≥2 lỗi đỏ ngữ pháp → `reflex_question_progress_history.grammar_review_required`
+> + các đoạn bị tô đỏ (`grammar_review_quotes`). Trang thống kê BTVN Video Ôn tập
+> (`ReviewVideoAssignmentStatsDetailPage`) hiện huy hiệu "Cần soát ngữ pháp" ở hàng
+> học sinh (lần ghi âm GẦN NHẤT của ít nhất 1 câu cần soát) và khung đỏ kèm các
+> đoạn cần nghe lại trong modal lịch sử từng lần làm. Chưa có thao tác "đã soát /
+> sửa điểm tay" — giáo viên sửa theo quy trình hiện có.
+> (e) Công tắc bộ lọc thu âm (V199): `system_settings.reflex.recording_filter_enabled`
+> (nhóm Cờ tính năng ở Quản trị hệ thống → Cài đặt hệ thống), MẶC ĐỊNH TẮT. Bật thì
+> màn ghi âm của học sinh lọc bản ghi trước khi nộp — port bộ lọc của mã tham chiếu
+> 29/9 (WAV 16 kHz mono, lọc tần 90–7800 Hz, dìm tiếng nền −7 dB giữa các đoạn nói)
+> nhưng KHÔNG bật lọc ồn/tự chỉnh âm lượng của trình duyệt (giữ quyết định V183).
+> Lọc lỗi thì nộp bản thô. Chế độ thực tế của từng lần ghi lưu ở
+> `reflex_question_progress_history.recording_filter` (+ `speaking_audit.recordingFilter`),
+> hiện trong modal lịch sử và cột `loc_thu_am` của file xuất ZIP — để so độ chính xác
+> phiên âm giữa hai chế độ trên bài thật rồi mới quyết định. Không đổi cách chấm.
+
+> **Bổ sung V204 (bản bàn giao 30/9/2026, đã xác nhận với người dùng
+> 2026-10-01) — trường `hint` ("cách luyện") VÀ sửa lỗi đo tiếng nói bị chặn
+> nhầm. Không đổi rubric nội dung (12 file checkpoint y hệt bản 29/9) ngoài
+> việc thêm §D.5 vào `speaking-rubric-common-rules.md`.**
+> (a) §D.1–4 (nhận xét `feedback`, cấm gợi ý sửa) giữ nguyên — quy tắc đó viết
+> cho tình huống có giáo viên kèm. Khi học sinh tự luyện trên LMS không có ai
+> chữa giữa các lần thu, nên AI nay trả thêm trường RIÊNG `hint`: đúng 1 câu
+> tiếng Việt ≤35 từ, CHỈ nói về loại lỗi nặng nhất đã nêu ở `feedback`, BẮT
+> BUỘC nêu đích danh từ có thật trong transcript mắc lỗi đó, nội dung là
+> THAO TÁC TẬP (đọc chậm, giữ hơi, tách âm tiết, thu lại đối chiếu…), CẤM chép
+> sẵn câu tiếng Anh đã sửa đúng. Bài không có lỗi nào được tô → `hint` rỗng,
+> cùng điều kiện với việc `feedback` bỏ câu "Lỗi nặng nhất" — xem
+> `ReflexV2Scoring#trimHint`. Cột mới `reflex_question_progress.writing_hint`/
+> `speaking_hint` (và `reflex_question_progress_history.hint`, migration V204).
+> FE (`ReflexVideoTaskPage.tsx`) hiện "cách luyện" (icon quả tạ, tách khỏi ô
+> "mẹo" hiện có của `feedback`) từ lần nộp/ghi âm THỨ 2 trở đi và khi chưa đạt
+> — đề xuất của người training, vì lần đầu học sinh còn đang đọc nhận xét lần
+> đầu. Trang thống kê của giáo viên (`ReviewVideoReportService`) đã nhận
+> `hint` qua `ReflexQuestionProgressHistoryResponse` nhưng CHƯA hiện ra UI
+> (chưa làm — giáo viên vẫn xem `feedback`/transcript/`grammarReviewQuotes`
+> như trước).
+> (b) Sửa lỗi "chặn nhầm bài có tiếng nói" ở `SpeechMeter` (mirror bản sửa
+> cùng ngày của `audio.js`): bản ghi ồn (tín/tạp dưới ~9,5 dB) khiến ngưỡng
+> `noise × 3` tự vượt qua cả biên độ đỉnh — không khung nào qua được ngưỡng,
+> `hasSpeech` báo SAI thành `false` dù bản ghi nghe rõ tiếng nói, học sinh bị
+> bắt ghi âm lại oan và transcript hợp lệ bị xoá trắng (đo trên bản ghi thật
+> phòng đào tạo gửi 30/9: tín/tạp 7,5 dB, 2/2481 khung "voiced"). Sửa 2 lớp:
+> (1) thử lọc còn dải giọng nói 250–3500 Hz khi toàn dải không tách nổi (ồn
+> phòng học thường dồn năng lượng dưới 250 Hz); (2) vẫn không tách nổi thì
+> không còn tin "số khung vượt ngưỡng" — chỉ còn dám khẳng định có/không
+> tiếng nói qua biên độ đỉnh đơn thuần, nhường quyền quyết cho lượt phiên âm.
+> Bản ghi sạch (tín/tạp bình thường) không đổi số đo. Không liên quan tới bộ
+> lọc thu âm phía trình duyệt (`reflexRecordingFilter.ts`, V199) — đó là lọc
+> TRƯỚC khi nộp, còn đây là đo SAU khi nhận, hai cơ chế độc lập.
+> (c) Chưa làm (ngoài phạm vi đợt này, theo đúng báo cáo của người training):
+> điểm Trôi chảy (FC) vẫn chấm cao hơn thực tế 20–30 điểm ở nhiều bài — bốn
+> hướng sửa đã thử đều bị số đo bác bỏ (tốc độ nói, mật độ ngập ngừng, hạ
+> ngưỡng khoảng dừng, trần "FC ≤ Phát âm + 20") — xem `CALIBRATION.md` mục
+> "Điểm Trôi chảy (FC) rộng tay". Người training cũng nêu nghi vấn LMS và bộ
+> chấm tham chiếu của họ có thể đang cho điểm Phát âm NGƯỢC NHAU trên cùng 1
+> bài — CHƯA xác minh, cần đối chiếu lại nếu dùng dữ liệu hiệu chuẩn của họ.
+
+> **Bổ sung V200 (2026-09-29, đã xác nhận với người dùng) — DẠNG ĐỀ tường minh
+> cho câu hỏi Video phản xạ.** Trước đây dạng đề được SUY từ khối/tuyến + thời
+> gian ghi âm (≥60 giây = Part 2, chỉ Khối 8-9 IELTS) nên không phân biệt được PET
+> Part 4 với tả tranh (cùng 60 giây) và không có Part 2 Khối 7. Nay giáo viên
+> chọn dạng đề khi soạn câu hỏi (`review_video_questions.question_format`):
+> - Dạng hợp lệ theo chương trình (nguồn chân lý `ReflexV2Task#allowedFormats`,
+>   FE lấy qua `GET /api/reflex-question-formats?curriculumId=`): Khối 6 SHORT;
+>   Khối 7 IELTS SHORT/PART2; Khối 7 Cambridge SHORT/PICTURE; Khối 8 IELTS
+>   SHORT/PART2; Khối 8 Cambridge PET4/PICTURE; Khối 9 IELTS SHORT/PART2; Khối 9
+>   Cambridge / thiếu khối-tuyến: không chọn được (luồng cũ). Chọn dạng đề thì FE
+>   điền sẵn thời gian ghi âm rubric hiệu chuẩn theo.
+> - 3 dạng bài chấm mới: `g7-ielts-part2` (60s), `g7-cam-pet2` và `g8-cam-pet2`
+>   (tả tranh 60s, cột PICTURE). Cổng độ dài Part 2: Khối 7 ≥30 giây hoặc ≥40 từ;
+>   Khối 8-9 ≥45 giây hoặc ≥60 từ.
+> - Câu hỏi cũ (NULL) và câu dở dang bằng rubric v2 vẫn suy theo thời lượng.
+> - **Tả tranh:** AI chấm KHÔNG nhìn tranh. Giáo viên soạn trong popup 2 tab: (1)
+>   Ảnh — hệ thống chụp khung hình tại mốc câu hỏi (`POST /api/reflex-picture/
+>   capture`, tải video qua S3 về file tạm rồi ffmpeg; chỉnh được giây chụp mà
+>   không đổi mốc câu hỏi; video YouTube phải tải ảnh lên); (2) Mô tả — AI viết
+>   nháp 2-3 dòng (`POST /api/reflex-picture/brief`, CHƯA kiểm chứng đường gửi ảnh
+>   qua 9Router bằng gọi thật), giáo viên đối chiếu, sửa, lưu (`picture_brief`,
+>   bắt buộc với PICTURE). Lúc chấm, mô tả được ghép vào đề của lượt chấm viết và
+>   chấm nói (khối "MÔ TẢ ẢNH … chỉ dùng để xét đúng/lạc đề"), KHÔNG vào lượt phiên
+>   âm; học sinh không nhận ảnh/mô tả (`listQuestions` ẩn với học sinh). Giáo viên
+>   để trống đề thì dùng câu lệnh mặc định "Look at the photo. Describe what you
+>   can see."
+> - Chưa có: cột dạng đề trong file mẫu Excel nhập câu hỏi (câu nhập từ Excel để
+>   trống dạng đề = suy theo thời lượng).
+
 > **Bổ sung V191 (2026-09-21, đã xác nhận với người dùng) — giáo viên
 > nghe lại audio + xem kết quả AI chấm THEO TỪNG LẦN LÀM, và xuất toàn bộ
 > dữ liệu để tiếp tục train AI.** `reflex_question_progress` SỬA ĐÈ tại

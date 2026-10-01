@@ -200,6 +200,7 @@
       "notGraded": "Not graded",
       "lateSubmission": "Late",
       "lateSubmissionBadge": "Late",
+      "grammarReviewBadge": "Grammar review needed",
       "viewDetail": "View detail"
     },
     "questionRow": {
@@ -224,8 +225,13 @@
       "audioNotAvailable": "No audio",
       "transcriptLabel": "AI transcript",
       "feedbackLabel": "Feedback",
+      "hintLabel": "Practice hint shown to the student",
       "criteriaLabel": "Criteria breakdown",
-      "answerTextLabel": "Written answer"
+      "answerTextLabel": "Written answer",
+      "recordingFiltered": "Recording: filtered",
+      "recordingRaw": "Recording: raw",
+      "grammarReviewTitle": "Teacher review needed for the Grammar score",
+      "grammarReviewBody": "This recording has 2 or more red grammar errors, so the Grammar score was lowered. The AI transcribes only once and may mishear — listen to these parts before confirming the score:"
     }
   }
 }

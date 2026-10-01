@@ -11,6 +11,9 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
     Optional<Payment> findByPaymentReference(String paymentReference);
 
+    /** UC-30 webhook ngân hàng — chống ghi nhận trùng khi ngân hàng gửi lại cùng 1 giao dịch. */
+    Optional<Payment> findByBankTransactionId(String bankTransactionId);
+
     long countByPaymentReferenceStartingWith(String prefix);
 
     List<Payment> findByInvoiceId(Long invoiceId);

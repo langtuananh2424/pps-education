@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useApp } from "@/context/AppContext";
 import { Users } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
@@ -61,6 +62,7 @@ async function buildChildrenMap(): Promise<Map<number, ParentAggregateChild[]>> 
 }
 
 export default function ParentsPage() {
+  const { hasPermission } = useApp();
   const { t } = useTranslation("student");
   const [parents, setParents] = useState<ParentAggregate[]>([]);
   const [loading, setLoading] = useState(false);
@@ -95,15 +97,17 @@ export default function ParentsPage() {
           <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("parentsPage.title")}</h1>
           <p className="text-xs text-slate-500 mt-1">{t("parentsPage.description")}</p>
         </div>
-        <ImportExcelButton
-          title={t("parentsPage.importTitle")}
-          templateFileName={t("parentsPage.importTemplateFileName")}
-          fetchTemplate={downloadParentImportTemplate}
-          uploadFn={importParents}
-          exportAccounts={exportParentAccounts}
-          accountsExportFileName={t("parentsPage.importAccountsFileName")}
-          onImported={load}
-        />
+        {hasPermission("student.parent.import") && (
+          <ImportExcelButton
+            title={t("parentsPage.importTitle")}
+            templateFileName={t("parentsPage.importTemplateFileName")}
+            fetchTemplate={downloadParentImportTemplate}
+            uploadFn={importParents}
+            exportAccounts={exportParentAccounts}
+            accountsExportFileName={t("parentsPage.importAccountsFileName")}
+            onImported={load}
+          />
+        )}
       </div>
 
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}

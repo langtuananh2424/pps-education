@@ -120,7 +120,9 @@ public class ClassCheckInAlertSchedulerService {
         String className = session.getSchoolClass().getName();
         String when = sessionLabel(session);
 
-        String managerTitle = "Lớp " + className + ": giáo viên chưa nhận lớp";
+        // Tên GV đặt ngay trong tiêu đề: dropdown chuông Header cắt nội dung còn 2 dòng nên tên GV ở
+        // cuối content hay bị che — Quản lý điểm trường cần thấy ngay ai chưa nhận lớp.
+        String managerTitle = "Lớp " + className + ": giáo viên " + teacherLabel(session) + " chưa nhận lớp";
         String managerContent = "Lớp " + className + " (" + when + ", điểm trường " + session.getSchoolClass().getSite().getName()
                 + ") đã tới giờ học nhưng giáo viên " + teacherLabel(session) + " chưa nhận lớp — hãy kiểm tra.";
         notifyManagers(session, Notification.NotificationType.CLASS_CHECKIN_LATE_ALERT, managerTitle, managerContent, metadata);
@@ -136,7 +138,7 @@ public class ClassCheckInAlertSchedulerService {
         String className = session.getSchoolClass().getName();
         String when = sessionLabel(session);
 
-        String managerTitle = "Lớp " + className + ": không có giáo viên nhận lớp";
+        String managerTitle = "Lớp " + className + ": giáo viên " + teacherLabel(session) + " không nhận lớp";
         String managerContent = "Lớp " + className + " (" + when + ", điểm trường " + session.getSchoolClass().getSite().getName()
                 + ") đã kết thúc nhưng giáo viên " + teacherLabel(session) + " không nhận lớp — hãy kiểm tra.";
         notifyManagers(session, Notification.NotificationType.CLASS_CHECKIN_ABSENT_ALERT, managerTitle, managerContent, metadata);

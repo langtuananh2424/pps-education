@@ -19,6 +19,8 @@ export interface CurrentUserResponse {
   roleCodes: string[];
   /** Effective permissions (hợp nhất role + override) của chính tài khoản đang gọi — dùng cho AppContext.hasPermission thay bảng mock tĩnh. */
   permissions: string[];
+  /** V202 — phạm vi dữ liệu hiệu lực (vai trò rộng nhất thắng): ALL / SITE / CLASS / SELF. */
+  dataScope?: "ALL" | "SITE" | "CLASS" | "SELF";
 }
 
 /**
@@ -33,11 +35,16 @@ function deviceMetadata() {
   };
 }
 
+/**
+ * Đổi 2026-10-01 (đã xác nhận với người dùng) — tài khoản dùng trang admin (không phải Học sinh) đăng nhập
+ * không giới hạn thiết bị (xem AuthService#enforceActiveSessionLimit) nên không còn popup "đăng nhập ở thiết
+ * bị khác" / confirm. Backend vẫn nhận confirm (app user dùng cho Học sinh), ở đây luôn gửi false.
+ */
 export async function login(usernameOrEmail: string, password: string, rememberMe: boolean): Promise<void> {
   const response = await apiRequest<LoginResponse>("/auth/login", {
     method: "POST",
     skipAuth: true,
-    body: JSON.stringify({ usernameOrEmail, password, ...deviceMetadata() })
+    body: JSON.stringify({ usernameOrEmail, password, confirm: false, ...deviceMetadata() })
   });
   setTokens(response.accessToken, response.refreshToken, rememberMe);
 }
@@ -47,7 +54,7 @@ export async function loginWithGoogle(idToken: string, rememberMe: boolean): Pro
   const response = await apiRequest<LoginResponse>("/auth/login/google", {
     method: "POST",
     skipAuth: true,
-    body: JSON.stringify({ idToken, ...deviceMetadata() })
+    body: JSON.stringify({ idToken, confirm: false, ...deviceMetadata() })
   });
   setTokens(response.accessToken, response.refreshToken, rememberMe);
 }

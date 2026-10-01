@@ -3,7 +3,6 @@ import { ArrowRightLeft, GraduationCap } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
-import { UserRole } from "@/types";
 import { ClassResponse, listClassTeachers, listClasses } from "../api";
 import ClassListPanel from "../components/ClassListPanel";
 import ClassDetailPanel from "../components/ClassDetailPanel";
@@ -13,17 +12,18 @@ import Button from "@/components/ui/Button";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 
-/** Các vai trò "quản trị lớp" thật sự — vẫn dùng màn xếp/tạo lớp đầy đủ (search+list+Thêm lớp) ở đây. */
-const CLASS_ADMIN_ROLES: UserRole[] = [UserRole.HEAD_ACADEMIC, UserRole.SYS_ADMIN, UserRole.SITE_MANAGER];
-
 export default function ClassesPage() {
   const { t } = useTranslation("academic-classes");
   const { selectedCampusId, hasPermission, currentUser, selectedClassId: globalClassId } = useApp();
-  const canManage = hasPermission("academic.class.manage");
-  // GV thuần (không kiêm vai trò quản trị nào ở trên) không cần màn xếp/tạo lớp — chỉ xem/thao tác
-  // đúng lớp đang chọn ở Header (giống 6 màn Sổ điểm/Điểm danh/Giao đề/Nhận xét/Kho bài giảng khác),
-  // không cần lặp lại việc chọn lớp lần nữa ở đây.
-  const isClassAdmin = (currentUser?.roleCodes ?? []).some((r) => CLASS_ADMIN_ROLES.includes(r as UserRole));
+  // V202 — nút theo quyền, phạm vi theo roles.data_scope (không đoán theo tên vai trò nữa).
+  const canCreateClass = hasPermission("academic.class.create");
+  const canPromote = hasPermission("academic.class.promote");
+  // Phạm vi "Chỉ lớp mình dạy" (CLASS): chỉ thấy lớp đứng tên giáo viên và thao tác đúng lớp đang chọn ở
+  // Header, không cần danh sách lớp bên trái. Phạm vi rộng hơn (điểm trường/tất cả) hoặc có quyền "Xem mọi
+  // lớp" thì dùng màn danh sách đầy đủ — backend đã tự giới hạn theo điểm trường (ClassService.resolveAllowedSiteIds).
+  const isClassScoped = currentUser?.dataScope === "CLASS" && !hasPermission("academic.class.view-all");
+  const canSeeAllClasses = !isClassScoped;
+  const isClassAdmin = !isClassScoped;
   const [classes, setClasses] = useState<ClassResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,7 +39,7 @@ export default function ClassesPage() {
    * UC-18 Precondition: GV chỉ xếp/xem lớp mình được phân công dạy (class_teachers),
    * KHÔNG phải mọi lớp ở site mình được đăng ký dạy (site_teachers). GET /api/classes
    * hiện chỉ lọc theo site_teachers (coarse hơn) nên phải lọc thêm ở FE cho tài khoản
-   * không có academic.class.manage — cùng gốc rễ với fix ở GradesPage (Sổ điểm).
+   * có phạm vi "Chỉ lớp mình dạy" (V202) — cùng gốc rễ với fix ở GradesPage (Sổ điểm).
    */
   const load = () => {
     setLoading(true);
@@ -50,7 +50,7 @@ export default function ClassesPage() {
     })
       .then(async (res) => {
         const filtered =
-          canManage || !currentUser
+          canSeeAllClasses || !currentUser
             ? res
             : await Promise.all(res.map((c) => listClassTeachers(c.id).catch(() => []))).then((teacherLists) =>
                 res.filter((_, i) => teacherLists[i].some((t) => t.teacherUserId === currentUser.id && !t.assignedTo))
@@ -62,7 +62,7 @@ export default function ClassesPage() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(load, [selectedCampusId, academicYearFilter, canManage, currentUser]);
+  useEffect(load, [selectedCampusId, academicYearFilter, canSeeAllClasses, currentUser]);
 
   const selectedClass = classes.find((c) => c.id === effectiveSelectedId) ?? null;
 
@@ -73,7 +73,7 @@ export default function ClassesPage() {
           <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("classesPage.title")}</h1>
           <p className="text-xs text-slate-500 mt-1">{t("classesPage.description")}</p>
         </div>
-        {canManage && (
+        {canPromote && (
           <div className="flex items-center gap-2 flex-wrap">
             <Button size="sm" variant="secondary" onClick={() => setPromotionOpen(true)}>
               <ArrowRightLeft className="w-3.5 h-3.5" />
@@ -98,7 +98,7 @@ export default function ClassesPage() {
             onCreate={() => setCreateOpen(true)}
             query={query}
             onQueryChange={setQuery}
-            canManage={canManage}
+            canManage={canCreateClass}
             academicYearFilter={academicYearFilter}
             onAcademicYearFilterChange={setAcademicYearFilter}
           />

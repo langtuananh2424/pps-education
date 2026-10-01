@@ -21,6 +21,7 @@ import vn.com.pps.education.exception.AccountLockedException;
 import vn.com.pps.education.exception.ActiveSessionExistsException;
 import vn.com.pps.education.exception.GoogleAccountNotProvisionedException;
 import vn.com.pps.education.exception.InvalidCredentialsException;
+import vn.com.pps.education.exception.TooManyLoginAttemptsException;
 import vn.com.pps.education.exception.InvalidRefreshTokenException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.domain.Notification;
@@ -31,6 +32,7 @@ import vn.com.pps.education.repository.RoleRepository;
 import vn.com.pps.education.repository.StudentRepository;
 import vn.com.pps.education.repository.UserRepository;
 import vn.com.pps.education.repository.UserRoleRepository;
+import vn.com.pps.education.security.ClientIpResolver;
 import vn.com.pps.education.security.GoogleIdTokenVerifier;
 import vn.com.pps.education.security.GoogleIdentity;
 import vn.com.pps.education.security.JwtService;
@@ -39,6 +41,7 @@ import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.OffsetDateTime;
 import java.util.Base64;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -63,9 +66,15 @@ public class AuthService {
     private final GoogleIdTokenVerifier googleIdTokenVerifier;
     private final NotificationService notificationService;
     private final PermissionEvaluationService permissionEvaluationService;
+    private final DataScopeService dataScopeService;
+    private final LoginIpThrottle loginIpThrottle;
+    private final ClientIpResolver clientIpResolver;
     private final int maxFailedAttempts;
     private final int lockDurationMinutes;
     private final long refreshTokenTtlDays;
+    private final int maxActiveSessions;
+    private final int studentMaxActiveSessions;
+    private final long refreshReuseGraceSeconds;
 
     public AuthService(UserRepository userRepository,
                         UserRoleRepository userRoleRepository,
@@ -79,9 +88,15 @@ public class AuthService {
                         GoogleIdTokenVerifier googleIdTokenVerifier,
                         NotificationService notificationService,
                         PermissionEvaluationService permissionEvaluationService,
+                        DataScopeService dataScopeService,
+                        LoginIpThrottle loginIpThrottle,
+                        ClientIpResolver clientIpResolver,
                         @Value("${app.security.brute-force.max-failed-attempts}") int maxFailedAttempts,
                         @Value("${app.security.brute-force.lock-duration-minutes}") int lockDurationMinutes,
-                        @Value("${app.jwt.refresh-token-ttl-days}") long refreshTokenTtlDays) {
+                        @Value("${app.jwt.refresh-token-ttl-days}") long refreshTokenTtlDays,
+                        @Value("${app.security.session.max-active-sessions:0}") int maxActiveSessions,
+                        @Value("${app.security.session.student-max-active-sessions:1}") int studentMaxActiveSessions,
+                        @Value("${app.security.session.refresh-reuse-grace-seconds:30}") long refreshReuseGraceSeconds) {
         this.userRepository = userRepository;
         this.userRoleRepository = userRoleRepository;
         this.roleRepository = roleRepository;
@@ -94,9 +109,15 @@ public class AuthService {
         this.googleIdTokenVerifier = googleIdTokenVerifier;
         this.notificationService = notificationService;
         this.permissionEvaluationService = permissionEvaluationService;
+        this.dataScopeService = dataScopeService;
+        this.loginIpThrottle = loginIpThrottle;
+        this.clientIpResolver = clientIpResolver;
         this.maxFailedAttempts = maxFailedAttempts;
         this.lockDurationMinutes = lockDurationMinutes;
         this.refreshTokenTtlDays = refreshTokenTtlDays;
+        this.maxActiveSessions = maxActiveSessions;
+        this.studentMaxActiveSessions = studentMaxActiveSessions;
+        this.refreshReuseGraceSeconds = refreshReuseGraceSeconds;
     }
 
     /**
@@ -112,19 +133,32 @@ public class AuthService {
      * chung 1 transaction bao ngoài che mất rollback thật).
      *
      * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-13 —
-     * ActiveSessionExistsException (xem requireNoActiveSessionForStudent)
+     * ActiveSessionExistsException (xem enforceActiveSessionLimit)
      * ném RA SAU khi đã ghi login_attempts (success=true, mật khẩu đúng) —
      * cùng lý do noRollbackFor như trên, không được để mất bản ghi audit.
+     *
+     * Rà soát bảo mật 2026-09-28 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng) - trước cả Main
+     * Flow: IP đã đăng nhập sai quá ngưỡng (LoginIpThrottle) bị từ chối 429, không chạm tới tài khoản nào
+     * (không tăng failed_login_count, không khoá thêm ai). Mỗi lần A1 (sai tài khoản/mật khẩu) cộng 1 lần
+     * sai cho IP.
      */
     @Transactional(noRollbackFor = {InvalidCredentialsException.class, AccountLockedException.class,
             AccountInactiveException.class, ActiveSessionExistsException.class})
     public LoginResponse login(LoginRequest request, HttpServletRequest httpRequest) {
+        String clientIp = clientIpResolver.resolve(httpRequest);
+        if (loginIpThrottle.isBlocked(clientIp)) {
+            throw new TooManyLoginAttemptsException("error.auth.tooManyLoginAttempts",
+                    new Object[]{loginIpThrottle.windowMinutes()},
+                    "Quá nhiều lần đăng nhập từ thiết bị/mạng này. Vui lòng thử lại sau "
+                            + loginIpThrottle.windowMinutes() + " phút.");
+        }
         String input = request.usernameOrEmail();
         Optional<User> maybeUser = userRepository.findByUsername(input)
                 .or(() -> userRepository.findByEmail(input));
 
         // A1 — không tiết lộ tài khoản có tồn tại hay không
         if (maybeUser.isEmpty()) {
+            loginIpThrottle.recordFailure(clientIp);
             recordAttempt(input, null, httpRequest, false, LoginAttempt.FailureReason.USER_NOT_FOUND,
                     request.screenResolution(), request.browserLanguage(), request.timezone());
             throw new InvalidCredentialsException("error.invalidCredentials.default", new Object[]{},
@@ -136,6 +170,7 @@ public class AuthService {
                 request.screenResolution(), request.browserLanguage(), request.timezone());
 
         if (user.getPasswordHash() == null || !passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+            loginIpThrottle.recordFailure(clientIp);
             registerFailedAttempt(user, httpRequest);
             recordAttempt(input, user, httpRequest, false, LoginAttempt.FailureReason.WRONG_PASSWORD,
                     request.screenResolution(), request.browserLanguage(), request.timezone());
@@ -145,7 +180,7 @@ public class AuthService {
 
         recordAttempt(input, user, httpRequest, true, null,
                 request.screenResolution(), request.browserLanguage(), request.timezone());
-        requireNoActiveSessionForStudent(user, request.confirm());
+        enforceActiveSessionLimit(user, request.confirm());
         return issueSuccessfulLogin(user, httpRequest);
     }
 
@@ -181,7 +216,7 @@ public class AuthService {
 
         recordAttempt(identity.email(), user, httpRequest, true, null,
                 request.screenResolution(), request.browserLanguage(), request.timezone());
-        requireNoActiveSessionForStudent(user, request.confirm());
+        enforceActiveSessionLimit(user, request.confirm());
         return issueSuccessfulLogin(user, httpRequest);
     }
 
@@ -190,6 +225,15 @@ public class AuthService {
      * riêng, suy ra từ thiết kế bảng refresh_tokens).
      * noRollbackFor: nhánh phát hiện reuse token đã revoke ghi thu hồi toàn
      * bộ session TRƯỚC KHI throw — cùng lý do rollback-che-audit ở login(...).
+     *
+     * Sửa lỗi 2026-09-29 — nhánh reuse trước đây thu hồi TOÀN BỘ phiên với MỌI token đã revoke, gây
+     * "đá văng" oan ở 2 tình huống không phải đánh cắp token:
+     * - Token bị thu hồi bởi đăng xuất/Quản trị viên gỡ phiên/đăng nhập vượt giới hạn thiết bị
+     *   (last_used_at NULL — chưa từng xoay vòng): thiết bị cũ gọi refresh lần cuối → trước đây kéo
+     *   theo thu hồi luôn phiên của thiết bị MỚI vừa đăng nhập. Nay chỉ từ chối token đó.
+     * - Nhiều tab cùng dùng chung 1 refresh token trong localStorage ("Ghi nhớ đăng nhập") cùng refresh
+     *   gần như đồng thời: tab chậm hơn gửi token vừa bị tab kia xoay vòng. Nay token xoay vòng trong
+     *   vòng {@code refreshReuseGraceSeconds} chỉ bị từ chối (FE đọc lại token mới tab kia đã ghi).
      */
     @Transactional(noRollbackFor = InvalidRefreshTokenException.class)
     public RefreshTokenResponse refresh(RefreshTokenRequest request, HttpServletRequest httpRequest) {
@@ -198,11 +242,15 @@ public class AuthService {
                         new Object[]{}, "Refresh token không hợp lệ."));
 
         if (token.getRevokedAt() != null) {
-            // Token đã rotate trước đó nhưng vẫn bị dùng lại -- khả năng bị đánh cắp, thu hồi toàn bộ session đang hoạt động
             OffsetDateTime now = OffsetDateTime.now();
-            List<RefreshToken> activeTokens = refreshTokenRepository.findByUserIdAndRevokedAtIsNull(token.getUser().getId());
-            activeTokens.forEach(t -> t.setRevokedAt(now));
-            refreshTokenRepository.saveAll(activeTokens);
+            boolean rotated = token.getLastUsedAt() != null;
+            boolean withinGrace = token.getRevokedAt().isAfter(now.minusSeconds(refreshReuseGraceSeconds));
+            if (rotated && !withinGrace) {
+                // Token đã rotate từ lâu nhưng vẫn bị dùng lại -- khả năng bị đánh cắp, thu hồi toàn bộ session đang hoạt động
+                List<RefreshToken> activeTokens = refreshTokenRepository.findByUserIdAndRevokedAtIsNull(token.getUser().getId());
+                activeTokens.forEach(t -> t.setRevokedAt(now));
+                refreshTokenRepository.saveAll(activeTokens);
+            }
             throw new InvalidRefreshTokenException("error.invalidRefreshToken.invalid", new Object[]{},
                     "Refresh token không hợp lệ.");
         }
@@ -261,7 +309,8 @@ public class AuthService {
                 departmentName,
                 rolesOf(user),
                 studentId,
-                permissionEvaluationService.getEffectivePermissions(userId));
+                permissionEvaluationService.getEffectivePermissions(userId),
+                dataScopeService.resolve(userId).name());
     }
 
     /** A2 (khóa 5 lần sai) + A3 (INACTIVE/SUSPENDED) — áp dụng cho cả luồng mật khẩu và Google. */
@@ -300,24 +349,46 @@ public class AuthService {
      * real-time nào tới thiết bị cũ (chưa có WebSocket/SSE) nên thiết bị đó sẽ chỉ thực sự bị đăng xuất
      * ở lần gọi API kế tiếp (access token hết hạn hoặc gọi /auth/refresh thất bại do token đã revoke) —
      * chấp nhận được vì access token có TTL ngắn.
+     *
+     * Bổ sung tiếp ngoài SDD gốc, đã xác nhận với người dùng 2026-09-29 — mở rộng thành giới hạn số
+     * thiết bị (số refresh token ACTIVE) cho MỌI tài khoản: Học sinh tối đa {@code studentMaxActiveSessions}
+     * (mặc định 1, giữ nguyên quy tắc chống "lách luật" ở trên), các vai trò khác tối đa
+     * {@code maxActiveSessions} (mặc định 3) — trước đây giáo viên/nhân viên/Quản trị viên không giới hạn,
+     * phiên bỏ quên (đóng trình duyệt không đăng xuất) tích tụ tới 14 ngày. Đăng nhập khi đã đủ giới hạn:
+     * chưa confirm → 409 (FE hiện popup "Tài khoản của bạn đang đăng nhập ở thiết bị khác. Bạn có muốn
+     * đăng xuất?"); confirm → chỉ thu hồi (các) phiên CŨ NHẤT (issued_at nhỏ nhất — token ACTIVE luôn là
+     * token vừa xoay vòng gần nhất nên issued_at chính là lần hoạt động gần nhất của thiết bị đó) đủ để
+     * nhường chỗ cho thiết bị mới, các thiết bị khác đang dùng không bị ảnh hưởng. Với Học sinh (giới hạn
+     * 1) kết quả trùng hành vi cũ: thu hồi hết phiên cũ.
+     *
+     * Đổi 2026-10-01 (đã xác nhận với người dùng) — bỏ giới hạn thiết bị cho tài khoản KHÔNG phải Học sinh
+     * (nhân viên/giáo viên/Quản trị viên dùng trang admin, phụ huynh): {@code maxActiveSessions} mặc định 0
+     * = không giới hạn, đăng nhập thiết bị mới không bao giờ bị 409 hay đẩy thiết bị khác ra. Học sinh giữ
+     * nguyên giới hạn {@code studentMaxActiveSessions}. Giá trị <= 0 ở cả 2 cấu hình đều nghĩa là không giới hạn.
      */
-    private void requireNoActiveSessionForStudent(User user, boolean confirm) {
-        if (studentRepository.findByUserId(user.getId()).isEmpty()) {
+    private void enforceActiveSessionLimit(User user, boolean confirm) {
+        int limit = studentRepository.findByUserId(user.getId()).isPresent()
+                ? studentMaxActiveSessions
+                : maxActiveSessions;
+        if (limit <= 0) {
             return;
         }
         OffsetDateTime now = OffsetDateTime.now();
         List<RefreshToken> activeTokens = refreshTokenRepository.findByUserIdAndRevokedAtIsNull(user.getId()).stream()
                 .filter(token -> token.getExpiresAt().isAfter(now))
+                .sorted(Comparator.comparing(RefreshToken::getIssuedAt).thenComparing(RefreshToken::getId))
                 .toList();
-        if (activeTokens.isEmpty()) {
+        int excess = activeTokens.size() - limit + 1;
+        if (excess <= 0) {
             return;
         }
         if (!confirm) {
-            throw new ActiveSessionExistsException("error.activeSessionExists.default", new Object[]{},
-                    "Tài khoản này đang được đăng nhập trên thiết bị khác. Vui lòng đăng xuất ở thiết bị đó trước khi đăng nhập tiếp.");
+            throw new ActiveSessionExistsException("error.activeSessionExists.default", new Object[]{limit},
+                    "Tài khoản của bạn đang đăng nhập ở thiết bị khác. Bạn có muốn đăng xuất?");
         }
-        activeTokens.forEach(token -> token.setRevokedAt(now));
-        refreshTokenRepository.saveAll(activeTokens);
+        List<RefreshToken> evicted = activeTokens.subList(0, excess);
+        evicted.forEach(token -> token.setRevokedAt(now));
+        refreshTokenRepository.saveAll(evicted);
     }
 
     private LoginResponse issueSuccessfulLogin(User user, HttpServletRequest httpRequest) {
@@ -341,7 +412,7 @@ public class AuthService {
         if (user.getFailedLoginCount() >= maxFailedAttempts) {
             user.setLockedUntil(OffsetDateTime.now().plusMinutes(lockDurationMinutes));
             userRepository.save(user);
-            notifyAdminsAccountLocked(user, httpRequest.getRemoteAddr());
+            notifyAdminsAccountLocked(user, clientIpResolver.resolve(httpRequest));
             return;
         }
         userRepository.save(user);
@@ -371,7 +442,7 @@ public class AuthService {
         LoginAttempt attempt = new LoginAttempt();
         attempt.setUsernameOrEmail(usernameOrEmail);
         attempt.setUser(user);
-        attempt.setIpAddress(httpRequest.getRemoteAddr());
+        attempt.setIpAddress(clientIpResolver.resolve(httpRequest));
         attempt.setUserAgent(httpRequest.getHeader("User-Agent"));
         attempt.setSuccess(success);
         attempt.setFailureReason(failureReason);
@@ -386,7 +457,7 @@ public class AuthService {
         RefreshToken token = new RefreshToken();
         token.setUser(user);
         token.setTokenHash(sha256(rawToken));
-        token.setIpAddress(httpRequest.getRemoteAddr());
+        token.setIpAddress(clientIpResolver.resolve(httpRequest));
         token.setDeviceInfo(httpRequest.getHeader("User-Agent"));
         token.setExpiresAt(OffsetDateTime.now().plusDays(refreshTokenTtlDays));
         refreshTokenRepository.save(token);

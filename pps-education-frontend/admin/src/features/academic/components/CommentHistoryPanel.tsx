@@ -22,16 +22,10 @@ type TeacherType = "VIETNAMESE" | "FOREIGN";
  * KHÔNG ghim — cuộn theo bảng như các cột BTVN, xem chú thích đầy đủ ở CommentApprovalByClass.tsx.
  */
 const STICKY_COL_WIDTHS = [110, 170, 110];
-const STICKY_COL_LEFT = [
-  0,
-  STICKY_COL_WIDTHS[0],
-  STICKY_COL_WIDTHS[0] + STICKY_COL_WIDTHS[1]
-];
-const STICKY_COL_STYLE: React.CSSProperties[] = STICKY_COL_WIDTHS.map((w, i) => ({
+const STICKY_COL_STYLE: React.CSSProperties[] = STICKY_COL_WIDTHS.map((w) => ({
   width: w,
   minWidth: w,
-  maxWidth: w,
-  left: STICKY_COL_LEFT[i]
+  maxWidth: w
 }));
 
 /**
@@ -313,9 +307,9 @@ function SessionGroup({
             {/* Border rõ giữa các cột/dòng header (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
                 2026-08-06) — Th mặc định không có border. */}
             <tr className="border-b border-slate-300 [&>th]:text-center">
-              <Th rowSpan={isVietnamese ? 3 : 2} style={STICKY_COL_STYLE[0]} className="sticky left-0 z-30 bg-slate-50 border-r border-b border-slate-300">{t("historyPanel.columns.studentCode")}</Th>
-              <Th rowSpan={isVietnamese ? 3 : 2} style={STICKY_COL_STYLE[1]} className="sticky z-30 bg-slate-50 border-r border-b border-slate-300">{t("historyPanel.columns.fullName")}</Th>
-              <Th rowSpan={isVietnamese ? 3 : 2} style={STICKY_COL_STYLE[2]} className="sticky z-30 bg-slate-50 border-r border-b border-slate-300">{t("historyPanel.columns.dateOfBirth")}</Th>
+              <Th rowSpan={isVietnamese ? 3 : 2} style={STICKY_COL_STYLE[0]} className="md:sticky left-0 z-30 bg-slate-50 border-r border-b border-slate-300">{t("historyPanel.columns.studentCode")}</Th>
+              <Th rowSpan={isVietnamese ? 3 : 2} style={STICKY_COL_STYLE[1]} className="sticky left-0 md:left-[110px] z-30 bg-slate-50 border-r border-b border-slate-300">{t("historyPanel.columns.fullName")}</Th>
+              <Th rowSpan={isVietnamese ? 3 : 2} style={STICKY_COL_STYLE[2]} className="md:sticky md:left-[280px] z-30 bg-slate-50 border-r border-b border-slate-300">{t("historyPanel.columns.dateOfBirth")}</Th>
               <Th rowSpan={isVietnamese ? 3 : 2} className="border-r border-b border-slate-300">{t("historyPanel.columns.type")}</Th>
               <Th colSpan={isVietnamese ? 6 : 3} className="text-center border-r border-b border-slate-300">{t("historyPanel.columns.homeworkPrevious")}</Th>
               <Th colSpan={isVietnamese ? 6 : 3} className="text-center border-r border-b border-slate-300">{t("dailyCommentPanel.columns.homeworkNextGroup")}</Th>
@@ -364,9 +358,9 @@ function SessionGroup({
           <tbody>
             {items.map((cm) => (
               <tr key={cm.id} className="hover:bg-slate-50/40">
-                <Td style={STICKY_COL_STYLE[0]} className="sticky left-0 z-10 bg-white font-mono font-bold text-slate-500 border-r border-b border-slate-300">{studentCodeByStudent[cm.studentId] ?? "—"}</Td>
-                <Td style={STICKY_COL_STYLE[1]} className="sticky z-10 bg-white font-bold text-slate-900 whitespace-nowrap border-r border-b border-slate-300">{cm.studentFullName}</Td>
-                <Td style={STICKY_COL_STYLE[2]} className="sticky z-10 bg-white whitespace-nowrap text-slate-500 border-r border-b border-slate-300">{cm.studentDateOfBirth ?? "—"}</Td>
+                <Td style={STICKY_COL_STYLE[0]} className="md:sticky left-0 z-10 bg-white font-mono font-bold text-slate-500 border-r border-b border-slate-300">{studentCodeByStudent[cm.studentId] ?? "—"}</Td>
+                <Td style={STICKY_COL_STYLE[1]} className="sticky left-0 md:left-[110px] z-10 bg-white font-bold text-slate-900 whitespace-nowrap border-r border-b border-slate-300">{cm.studentFullName}</Td>
+                <Td style={STICKY_COL_STYLE[2]} className="md:sticky md:left-[280px] z-10 bg-white whitespace-nowrap text-slate-500 border-r border-b border-slate-300">{cm.studentDateOfBirth ?? "—"}</Td>
                 <Td className="border-r border-b border-slate-300">
                   <Badge variant="info">{t(`shared.commentType.${cm.commentType}`)}</Badge>
                 </Td>

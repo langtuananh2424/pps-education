@@ -41,7 +41,14 @@ public class Notification {
         // giáo viên CHƯA nhận lớp khi tới giờ học (LATE) / KHÔNG nhận lớp khi đã hết giờ học
         // (ABSENT) — gửi PUSH tới Quản lý điểm trường + EMAIL tới giáo viên dạy buổi đó. Xem
         // ClassCheckInAlertSchedulerService.
-        CLASS_CHECKIN_LATE_ALERT, CLASS_CHECKIN_ABSENT_ALERT
+        CLASS_CHECKIN_LATE_ALERT, CLASS_CHECKIN_ABSENT_ALERT,
+        // V207 (bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-10-01): theo dõi nộp & duyệt báo
+        // cáo buổi học — nhắc giáo viên (sắp hết hạn nộp / quá hạn nộp / quá hạn gửi lại), nhắc Quản lý
+        // điểm trường (sắp hết hạn duyệt / quá hạn duyệt), báo Trưởng phòng đào tạo khi quá hạn ở bất kỳ
+        // khâu nào + tổng hợp hằng ngày. Xem SessionReportAlertSchedulerService.
+        SESSION_REPORT_DUE_SOON, SESSION_REPORT_OVERDUE, SESSION_REPORT_RESUBMIT_OVERDUE,
+        SESSION_REPORT_APPROVAL_DUE_SOON, SESSION_REPORT_APPROVAL_OVERDUE,
+        SESSION_REPORT_ESCALATION, SESSION_REPORT_DAILY_DIGEST
     }
 
     public enum Priority { LOW, NORMAL, HIGH, URGENT }

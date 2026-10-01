@@ -773,6 +773,93 @@ UC-48: Xếp lịch buổi học
 > `updateAssignment`, tab "Dời lịch" = UC-48 A3) — người dùng phải tự tick,
 > không mặc định bật, để tránh xếp trùng giờ ngoài ý muốn.
 
+> **Phòng học + cho phép trùng phòng có kiểm soát ở popup "Xếp lịch buổi
+> học" (bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-09-29):**
+> `CreateSessionModal` (UC-56 từ lưới thời khóa biểu) có thêm dropdown
+> "Phòng học" tuỳ chọn — danh sách `rooms` của điểm trường (cấu hình ở
+> trang Phòng học & Thiết bị). Có chọn phòng thì `checkRoomConflict`
+> (FR-FAC-03, chỉ phòng `is_flexible=FALSE`) áp dụng như cũ — ngày trùng
+> phòng bị bỏ qua, lý do trả về trong `skipped`. Thêm field tuỳ chọn
+> `allowRoomOverlap` (mặc định `false`) vào `BulkCreateClassSessionRequest`
+> — khi `true` bỏ qua riêng `checkRoomConflict`, phục vụ 2 nhóm lớp gộp lại
+> học chung 1 phòng cùng khung giờ; KHÔNG ảnh hưởng chặn trùng giờ Giáo
+> viên/trùng giờ trong cùng lớp. Cùng field được thêm vào
+> `UpdateSessionAssignmentRequest`/`RescheduleClassSessionRequest` —
+> `SessionEditModal` (popup Sửa buổi học) hiện tickbox tương ứng ở cả tab
+> "Sửa thông tin" lẫn "Dời lịch" khi có chọn phòng. Chưa thêm vào
+> `CreateClassSessionRequest` (tạo 1 buổi lẻ UC-48). Cũng trong popup này: Giáo viên phụ/CM
+> ẩn sau 2 tickbox "Có giáo viên phụ"/"Có CM" đặt trên ô Giáo viên chính,
+> tick mới hiện ô tìm; ô tìm giáo viên lọc role `TEACHER` + `ACTIVE` ngay ở
+> server (`GET /api/users?roleCode=TEACHER&status=ACTIVE`, field
+> `UserSearchRequest.roleCode`) thay vì lọc ở client sau khi đã phân trang.
+
+> **Vòng đời trạng thái buổi học + hủy/sửa buổi đã diễn ra (bổ sung ngoài
+> SDD gốc, xác nhận với người dùng 2026-10-01):** trước đây không có luồng
+> nào chuyển `class_sessions` sang `IN_PROGRESS`/`COMPLETED` (2 trạng thái
+> này chỉ có trong SDD), nên buổi đã dạy xong vẫn ở `SCHEDULED` và vẫn
+> hủy/dời/sửa được — quy tắc chặn ở A2/A3 không có hiệu lực.
+>
+> ***A5 --- Tự chuyển trạng thái theo giờ***
+>
+> 1. Hệ thống định kỳ (mỗi phút, `ClassSessionStatusSchedulerService`,
+>    cấu hình `app.class-session-status.cron`) chuyển buổi `SCHEDULED` đã
+>    tới giờ bắt đầu (`session_date + start_time`, giờ Việt Nam) sang
+>    `IN_PROGRESS`, và buổi `SCHEDULED`/`IN_PROGRESS` đã qua giờ kết thúc
+>    (`session_date + end_time`) sang `COMPLETED`. Mốc là GIỜ, không phụ
+>    thuộc giáo viên có nhận lớp (UC-71) hay nộp điểm danh (UC-15) — việc đó
+>    đã có cảnh báo riêng.
+> 2. Mỗi lần chạy là 1 lệnh UPDATE có điều kiện trạng thái hiện tại (chỉ đổi
+>    dòng còn đúng trạng thái nguồn), nên chạy lặp lại hay nhiều phiên bản
+>    backend cùng chạy cũng không đổi trùng; có khoá advisory PostgreSQL để
+>    chỉ 1 lần chạy tại 1 thời điểm. Lần chạy bị lỗi thì lần sau tự bù (điều
+>    kiện là "đã qua giờ", không phải "qua giờ trong 1 phút vừa rồi"). Chuyển
+>    trạng thái tự động KHÔNG ghi `class_sessions_history` (suy ra được từ
+>    giờ học, tránh làm ngập trang "Lịch sử thay đổi dữ liệu").
+> 3. Hủy/dời/sửa buổi (A2/A3/A6/A7, "Sửa nhanh tại chỗ") khoá dòng buổi học
+>    (`SELECT ... FOR UPDATE`) trước khi kiểm tra trạng thái, để không chạy
+>    đè với lần chuyển trạng thái tự động. Các luồng khác chỉ ghi vài cột của
+>    buổi học (nhận xét, dạy thay, cảnh báo nhận lớp...) chỉ cập nhật đúng
+>    cột đã đổi (`@DynamicUpdate`), không ghi đè `status` cũ.
+>
+> Từ đây A2/A3/"Sửa nhanh tại chỗ" (quyền thường) chỉ còn áp dụng cho buổi
+> `SCHEDULED` (chưa tới giờ học) đúng như đặc tả.
+>
+> ***A6 --- Hủy buổi đã diễn ra***
+>
+> 1. Phát hiện sau giờ học rằng buổi thực tế không diễn ra (VD giáo viên
+>    vắng, không có người dạy thay). Người dùng có quyền
+>    `academic.class-session.cancel` VÀ `academic.class-session.correct-past`
+>    chọn hủy 1 buổi đang `IN_PROGRESS`/`COMPLETED`, BẮT BUỘC nhập lý do.
+> 2. Hệ thống chuyển buổi sang `CANCELLED`, lưu lý do vào
+>    `cancellation_reason`, ghi `class_sessions_history` (UPDATED, kèm
+>    `retroactive=true` và lý do). Buổi này không còn được tính vào số tiết
+>    thực tế và xuất hiện trong danh sách buổi hủy chờ tạo buổi bù (A4).
+> 3. Thiếu quyền `academic.class-session.correct-past` → từ chối (403).
+>    Thiếu lý do → từ chối. Buổi `CANCELLED`/`RESCHEDULED` → từ chối như A2.
+>
+> ***A7 --- Sửa buổi đã diễn ra***
+>
+> 1. Người dùng có quyền `academic.class-session.reschedule` VÀ
+>    `academic.class-session.correct-past` sửa phòng/loại GV/GV chính-phụ-
+>    CM/tên GV giảng dạy/tiết CÙNG NGÀY của 1 buổi `IN_PROGRESS`/`COMPLETED`
+>    (cùng API `PATCH .../assignment` với "Sửa nhanh tại chỗ"), BẮT BUỘC
+>    nhập lý do (`correctionReason`). Vẫn kiểm tra trùng phòng/trùng giờ GV/
+>    trùng giờ trong lớp như buổi thường. Không đổi ngày (dời lịch A3 không
+>    áp dụng cho buổi đã diễn ra).
+> 2. Hệ thống cập nhật buổi, sinh lại `session_periods`, ghi
+>    `class_sessions_history` (UPDATED, kèm `retroactive=true` và lý do),
+>    rồi tính lại trạng thái theo giờ mới (chưa tới giờ bắt đầu →
+>    `SCHEDULED`, đang trong giờ → `IN_PROGRESS`, đã qua giờ kết thúc →
+>    `COMPLETED`).
+> 3. Thiếu quyền `academic.class-session.correct-past` → từ chối (403).
+>    Thiếu lý do → từ chối.
+>
+> Quyền `academic.class-session.correct-past` ("Hủy, sửa buổi học đã diễn
+> ra") cấp mặc định cho Trưởng phòng đào tạo, Ban giám đốc, Quản trị viên.
+>
+> **Hậu điều kiện bổ sung:** báo cáo "Số tiết thực tế theo lớp" chỉ đếm tiết
+> của buổi `COMPLETED`.
+
 ---
 
 UC-56: Sinh lịch học hàng loạt theo mẫu lặp
@@ -1760,6 +1847,21 @@ dùng), `StudentComment.CommentType` nay chỉ còn DAILY.
     chạy lại. Bài KHÔNG có hạn nộp (`due_at IS NULL`, "bài tự luyện")
     không bao giờ khớp điều kiện quét — không bao giờ kích hoạt.
 
+-   **Bổ sung V195 (2026-09-25, đã xác nhận với người dùng) — khung đêm
+    cho nhắc hạn BTVN (`HOMEWORK_DUE_SOON_REMINDER`, V92):** nhắc Phụ
+    huynh/Học sinh chưa làm xong vẫn gửi trước hạn nộp
+    `homework_alert.reminder_before_due_hours` (mặc định 12) tiếng, NHƯNG
+    nếu mốc đó rơi vào khung đêm
+    [`homework_alert.reminder_quiet_start_hour`,
+    `homework_alert.reminder_quiet_end_hour`) — mặc định 21:00–07:00 giờ
+    VN — thì gửi SỚM hơn, lúc 21:00 tối ngay trước đó (VD hạn 12:00 trưa:
+    mốc cũ 0:00 → gửi 21:00 tối hôm trước; hạn 10:00: mốc cũ 22:00 → 21:00
+    cùng tối; hạn 19:00: mốc 07:00 đã hết khung đêm → giữ 07:00). Giao bài
+    trong khung đêm mà mốc nhắc đã qua (VD 22:30 giao, hạn 08:00 sáng) thì
+    vẫn gửi ngay ở lượt quét kế tiếp vì hạn đã gần. Chỉ áp dụng cho nhắc
+    hạn BTVN — các loại thông báo khác không đổi. Đặt 2 giờ bằng nhau để
+    tắt khung đêm. Xem `HomeworkDueSoonReminderSchedulerService#reminderSendAt`.
+
 -   Excel round-trip theo buổi học (**V65: dropdown cột Ngữ pháp đổi
     nguồn từ "bài đã giao sẵn cho lớp" sang mọi `Exercise` loại ASSIGNED
     đang PUBLISHED trong khung chương trình của lớp — chọn ở đây mới là
@@ -1979,6 +2081,375 @@ duyệt/Đã duyệt (Phụ huynh xem được) luôn có nội dung.
 
 ---
 
+UC-74: Trợ lý AI soạn nháp nhận xét hàng ngày từ audio
+
++-----------------+----------------------------------------------------+
+| **Mã Use Case** | UC-74                                              |
++-----------------+----------------------------------------------------+
+| **Tên Use       | Trợ lý AI soạn nháp nhận xét hàng ngày từ audio    |
+| Case**          |                                                    |
++-----------------+----------------------------------------------------+
+| **Phân hệ**     | Phân hệ 6                                          |
++-----------------+----------------------------------------------------+
+| **Yêu cầu chức  | FR-ACA-04 (mở rộng — bổ sung ngoài SDD gốc, đã xác |
+| năng gốc**      | nhận với người dùng 2026-09-28)                    |
++-----------------+----------------------------------------------------+
+| **Tác nhân**    | Giáo viên (và actor có quyền                       |
+|                 | academic.comment.write, cùng rào với Lưu nháp của  |
+|                 | UC-21)                                             |
++-----------------+----------------------------------------------------+
+| **Mô tả tóm     | Sau buổi học, Giáo viên nói nhận xét (thường là    |
+| tắt**           | nhận xét chung cả lớp + vài học sinh được nhắc     |
+|                 | riêng) thành 1 đoạn audio. Trợ lý AI chuyển giọng  |
+|                 | nói thành chữ, tách ý chung/ý riêng, rồi soạn sẵn  |
+|                 | Thái độ học tập + Nhận xét cho từng học sinh có    |
+|                 | mặt. Kết quả chỉ là BẢN XEM TRƯỚC — AI chỉ được    |
+|                 | điền 2 ô Thái độ/Nhận xét, không bao giờ đụng tới  |
+|                 | điểm hoặc trường cần con số chính xác (BTVN buổi   |
+|                 | trước, hạn nộp...), và quyền lưu cao nhất là Lưu   |
+|                 | nháp (DRAFT) do chính Giáo viên bấm; Gửi duyệt vẫn |
+|                 | đi đúng UC-21 bước 4.                              |
++-----------------+----------------------------------------------------+
+| **Sự kiện kích  | Giáo viên mở sidebar "Trợ lý nhận xét" ở màn hình  |
+| hoạt**          | Nhận xét học viên (UC-21) của 1 buổi học và gửi    |
+|                 | audio (ghi âm trực tiếp hoặc tải file) và/hoặc ghi |
+|                 | chú dạng chữ.                                      |
++-----------------+----------------------------------------------------+
+| **Điều kiện     | - Thoả rào ghi nhận xét DAILY của UC-21            |
+| tiên quyết (    |   (requireCanWriteDailyComment): Giáo viên được    |
+| Precondition)** |   phân công lớp và còn trong hạn X ngày kể từ ngày |
+|                 |   buổi học, hoặc actor có academic.comment.approve |
+|                 |   hoặc academic.comment.manage.                    |
+|                 | - Hệ thống đã cấu hình 9Router (STT + model soạn   |
+|                 |   nhận xét).                                       |
++-----------------+----------------------------------------------------+
+| **Luồng sự kiện | 1.  Giáo viên chọn buổi học, mở sidebar Trợ lý     |
+| chính (Main     |     nhận xét, ghi âm (tự dừng khi đủ 5 phút) hoặc  |
+| Flow)**         |     tải file audio (tối đa 5 phút), có thể kèm ghi |
+|                 |     chú dạng chữ, rồi gửi.                         |
+|                 |                                                    |
+|                 | 2.  Hệ thống kiểm tra rào như Lưu nháp của UC-21   |
+|                 |     (áp dụng cho cả buổi GV Việt Nam lẫn GVNN),    |
+|                 |     nhận yêu cầu và xử lý bất đồng bộ (trả mã công |
+|                 |     việc, sidebar tự                               |
+|                 |     hỏi lại trạng thái — tránh timeout của reverse |
+|                 |     proxy).                                        |
+|                 |                                                    |
+|                 | 3.  Hệ thống chuyển audio thành văn bản            |
+|                 |     (speech-to-text) — audio không được lưu lại    |
+|                 |     sau bước này.                                  |
+|                 |                                                    |
+|                 | 4.  Hệ thống xác định danh sách học sinh cần soạn: |
+|                 |     học sinh ACTIVE của lớp, không điểm danh       |
+|                 |     Vắng/Có phép ở buổi này, chưa có nhận xét      |
+|                 |     PENDING/APPROVED ở buổi này.                   |
+|                 |                                                    |
+|                 | 5.  AI tách từ văn bản: (a) nhận xét chung cả lớp  |
+|                 |     và Thái độ chung (nếu Giáo viên có nói); (b)   |
+|                 |     nhận xét riêng + Thái độ riêng cho từng học    |
+|                 |     sinh được nhắc tên, gắn đúng học sinh theo     |
+|                 |     danh sách ở bước 4.                            |
+|                 |                                                    |
+|                 | 6.  AI viết Nhận xét cho từng học sinh: học sinh   |
+|                 |     được nhắc riêng dùng ý riêng, các học sinh còn |
+|                 |     lại dùng ý chung. Chỉ được diễn đạt lại lời    |
+|                 |     Giáo viên, không thêm chi tiết không có trong  |
+|                 |     audio; câu chữ phải KHÁC NHAU giữa các học     |
+|                 |     sinh trong buổi và khác N nhận xét gần nhất    |
+|                 |     (mặc định 3, cấu hình được) của chính học sinh |
+|                 |     đó.                                            |
+|                 |                                                    |
+|                 | 7.  Hệ thống đo độ trùng lặp câu chữ (tỷ lệ cụm 3  |
+|                 |     từ liên tiếp trùng nhau, ngưỡng mặc định 0.5,  |
+|                 |     cấu hình được) giữa các học sinh trong buổi và |
+|                 |     giữa nhận xét mới với N nhận xét cũ của cùng   |
+|                 |     học sinh; dòng vượt ngưỡng được AI viết lại 1  |
+|                 |     lần.                                           |
+|                 |                                                    |
+|                 | 8.  Sidebar hiển thị bản xem trước (chưa ghi DB):  |
+|                 |     văn bản audio, danh sách Thái độ/Nhận xét từng |
+|                 |     học sinh, cảnh báo (nếu có), kèm các nút gợi ý |
+|                 |     thao tác: "Áp dụng vào bảng", "Lưu nháp",      |
+|                 |     "Viết lại cho đa dạng hơn".                    |
+|                 |                                                    |
+|                 | 9.  (Tuỳ chọn) Giáo viên trò chuyện với trợ lý để  |
+|                 |     yêu cầu sửa (VD "bạn An hôm nay cho Trung      |
+|                 |     bình"); AI chỉ sửa đúng các dòng liên quan, hệ |
+|                 |     thống lặp lại bước 7 cho các dòng đó.          |
+|                 |                                                    |
+|                 | 10. Giáo viên bấm "Áp dụng vào bảng" (chỉ ghi đè 2 |
+|                 |     ô Thái độ/Nhận xét của các dòng chưa khoá trên |
+|                 |     form UC-21) hoặc "Lưu nháp" (áp dụng + gọi Lưu |
+|                 |     nháp cả lớp của UC-21, nhận xét ở trạng thái   |
+|                 |     DRAFT).                                        |
+|                 |                                                    |
+|                 | 11. Giáo viên tự xem lại, sửa nếu cần và Gửi duyệt |
+|                 |     theo UC-21 bước 4 — trợ lý AI không có quyền   |
+|                 |     Gửi duyệt.                                     |
++-----------------+----------------------------------------------------+
+| **Luồng thay    | ***A1 — Buổi của Giáo viên nước ngoài***           |
+| thế / ngoại lệ  |                                                    |
+| (Alternate      | 1.  (Đã bỏ 2026-09-29, xác nhận với người dùng —   |
+| Flow)**         |     GVNN cũng có nhận xét, do người Việt Nam ghi.) |
+|                 |     Buổi FOREIGN dùng trợ lý như buổi GV Việt Nam, |
+|                 |     không từ chối.                                 |
+|                 |                                                    |
+|                 | ***A2 — Không đủ quyền / hết hạn sửa***            |
+|                 |                                                    |
+|                 | 1.  Tại bước 2, không thoả rào UC-21: từ chối đúng |
+|                 |     như Lưu nháp (403 không được phân công, 422    |
+|                 |     hết hạn X ngày).                               |
+|                 |                                                    |
+|                 | ***A3 — Đầu vào không hợp lệ***                    |
+|                 |                                                    |
+|                 | 1.  Tại bước 2, không có cả audio lẫn ghi chú chữ, |
+|                 |     hoặc file audio vượt giới hạn dung lượng: từ   |
+|                 |     chối (422). Giới hạn 5 phút được sidebar kiểm  |
+|                 |     tra trước khi gửi (ghi âm tự dừng, file dài    |
+|                 |     hơn bị chặn).                                  |
+|                 |                                                    |
+|                 | ***A4 — Không còn học sinh nào cần soạn***         |
+|                 |                                                    |
+|                 | 1.  Tại bước 4, danh sách rỗng (vắng hết hoặc đã   |
+|                 |     Gửi hết): từ chối (422).                       |
+|                 |                                                    |
+|                 | ***A5 — Lỗi STT/AI hoặc quá thời gian***           |
+|                 |                                                    |
+|                 | 1.  Tại bước 3/5/6, 9Router lỗi hoặc trả kết quả   |
+|                 |     không đọc được: công việc chuyển FAILED,       |
+|                 |     sidebar báo lỗi, bảng nhận xét không thay đổi; |
+|                 |     Giáo viên thử lại.                             |
+|                 |                                                    |
+|                 | 2.  Tại bước 6, chỉ 1 số lô viết lỗi (hoặc AI bỏ   |
+|                 |     sót học sinh): hệ thống thử lại 1 lần các học  |
+|                 |     sinh còn thiếu theo lô bằng nửa kích thước;    |
+|                 |     vẫn thiếu thì dòng đó gắn cảnh báo "chưa viết  |
+|                 |     được" (bổ sung 2026-09-29).                    |
+|                 |                                                    |
+|                 | ***A6 — Không xác định chắc chắn học sinh được     |
+|                 | nhắc tên***                                        |
+|                 |                                                    |
+|                 | 1.  Tại bước 5, tên nghe được không khớp chắc chắn |
+|                 |     1 học sinh trong danh sách (hoặc khớp học sinh |
+|                 |     ngoài danh sách bước 4): AI KHÔNG đoán, đưa    |
+|                 |     câu trích vào mục "Chưa xác định" kèm các học  |
+|                 |     sinh ứng viên; các học sinh đó tạm dùng ý      |
+|                 |     chung, Giáo viên tự xử lý.                     |
+|                 |                                                    |
+|                 | ***A7 — Audio không nói rõ Thái độ***              |
+|                 |                                                    |
+|                 | 1.  Tại bước 5, Giáo viên không nói gì về thái độ  |
+|                 |     (chung hoặc riêng): để trống Thái độ, không tự |
+|                 |     điền mức mặc định.                             |
+|                 |                                                    |
+|                 | ***A8 — Vẫn trùng lặp sau khi viết lại***          |
+|                 |                                                    |
+|                 | 1.  Tại bước 7, dòng vẫn vượt ngưỡng sau 1 lần     |
+|                 |     viết lại: giữ kết quả, gắn cảnh báo kèm %      |
+|                 |     giống và nguồn (học sinh khác trong buổi /     |
+|                 |     buổi cũ ngày nào) để Giáo viên tự sửa.         |
+|                 |                                                    |
+|                 | ***A9 — Nội dung có chữ số***                      |
+|                 |                                                    |
+|                 | 1.  Tại bước 6/9, Nhận xét AI viết có chứa chữ số: |
+|                 |     gắn cảnh báo để Giáo viên kiểm tra (AI không   |
+|                 |     được ghi điểm/số liệu).                        |
+|                 |                                                    |
+|                 | ***A10 — Lưu nháp bị bỏ qua 1 số dòng***           |
+|                 |                                                    |
+|                 | 1.  Tại bước 10, có dòng không lưu được (VD vừa bị |
+|                 |     duyệt/khoá giữa chừng): xử lý đúng như Lưu     |
+|                 |     nháp cả lớp của UC-21 (các dòng khác vẫn lưu). |
++-----------------+----------------------------------------------------+
+| **Hậu điều kiện | - Trước khi Giáo viên bấm Lưu nháp: không có dữ    |
+| (P              |   liệu nào được ghi vào DB (bản xem trước chỉ nằm  |
+| ostcondition)** |   trong bộ nhớ, tự hết hạn); audio không được lưu  |
+|                 |   trữ.                                             |
+|                 | - Sau khi Lưu nháp: nhận xét của các học sinh được |
+|                 |   áp dụng ở trạng thái DRAFT, chỉ 2 trường         |
+|                 |   attitude/content được lấy từ trợ lý; các trường  |
+|                 |   điểm/BTVN/hạn nộp/ghi chú giữ nguyên giá trị     |
+|                 |   Giáo viên đã nhập.                               |
++-----------------+----------------------------------------------------+
+
+Ghi chú kỹ thuật (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+2026-09-28):
+
+-   Không thêm bảng/cột mới (không có migration) — bản xem trước và cuộc
+    trò chuyện giữ trong bộ nhớ backend (hết hạn sau 30 phút, mất khi
+    restart), chỉ khi Giáo viên bấm Lưu nháp mới đi qua đúng endpoint
+    `POST .../comments/draft-batch` của UC-21.
+-   Endpoint: `POST /api/class-sessions/{id}/comments/ai-draft`
+    (multipart: `audio`, `note`) và
+    `POST /api/class-sessions/{id}/comments/ai-draft/revise` (JSON) trả
+    202 + mã công việc; `GET /api/comment-ai-drafts/{jobId}` để hỏi trạng
+    thái (chỉ người tạo xem được).
+-   Kênh AI: STT qua `NineRouterAiClient#transcribe` (Groq Whisper, gửi kèm
+    danh sách tên học sinh làm gợi ý chính tả), soạn nhận xét qua combo
+    riêng `app.ai-comment-draft.model` (combo chỉ gồm Claude — Claude không
+    nhận audio nên luôn qua bước STT). Các ngưỡng cấu hình ở
+    `app.ai-comment-draft.*` (số nhận xét cũ đem so, ngưỡng trùng, kích
+    thước lô viết, dung lượng audio tối đa).
+-   Màn hình Nhận xét học viên có thêm dạng xem **Thẻ** bên cạnh dạng
+    **Bảng** (cùng dữ liệu, cùng rào khoá dòng) — thẻ tập trung vào Thái
+    độ/Nhận xét/Ghi chú, hiện kèm nhận xét buổi trước của học sinh để
+    Giáo viên tự đối chiếu trùng lặp mà không phải mở hồ sơ từng bạn.
+-   **Bổ sung 2026-09-28 (đã xác nhận với người dùng):** (1) trợ lý tự lấy
+    đại từ giáo viên tự xưng ("thầy"/"cô") từ audio/ghi chú và viết nhất
+    quán theo đại từ đó — không xác định được (hoặc lời nói lẫn cả hai) thì
+    viết "thầy/cô", giáo viên gõ "xưng cô"/"xưng thầy" để đổi; (2) rubric
+    nhận xét (tiêu chí 5 mức Thái độ, cấu trúc, văn phong, mẫu câu) nằm ở
+    `pps-education-backend/src/main/resources/prompts/comment-ai-draft-rubric.md`,
+    học vụ tự làm giàu, chèn vào prompt của cả 3 bước; (3) nút nổi mở trợ
+    lý (`AiAssistantFab`, dùng chung được cho các trợ lý AI khác sau này).
+-   **Bổ sung 2026-09-29 (đã xác nhận với người dùng, sau đánh giá rubric):**
+    (1) không nhận ra thầy hay cô thì viết câu không chủ ngữ giáo viên
+    ("Mong con…"), KHÔNG viết "thầy/cô"; (2) rubric thêm quy tắc xưng hô
+    (câu đầu gọi tên, sau dùng "con"), nhịp câu, kho kiểu câu mở đầu/câu
+    kết (quy tắc phân bổ xem bổ sung "sau đánh giá lần 3" bên dưới), phân biệt tên kỹ năng (được) với tên
+    bài học (cấm), cho phép so sánh với chính học sinh ở buổi trước khi
+    giáo viên có nói; (3) học sinh được nhắc riêng vẫn CHỈ dùng ý riêng
+    (không gộp ý chung của lớp); (4) trợ lý KHÔNG tự đổi mức Thái độ để
+    tránh cảnh báo — thay vào đó dòng có mức Yếu/Trung bình kèm lời nhắc
+    `ATTITUDE_ALERT` (mỗi buổi đều báo phụ huynh khi duyệt; đã có 2 buổi
+    liên tiếp thì nhắc sắp chạm mốc cảnh báo 3 buổi), đọc từ
+    `StudentAttitudeAlertTrackingService#currentLowStreaks` (chỉ đọc).
+-   **Bổ sung 2026-09-29 (đã xác nhận với người dùng) — dùng điểm BTVN buổi
+    trước:** trợ lý đọc % tự động của bài online (backend tính) và điểm nhập
+    tay đang hiện trên bảng (kể cả chưa Lưu nháp, frontend gửi kèm), quy ra
+    LỜI bằng `HomeworkScoreInsight` theo ngưỡng đã chốt: ≥ 80% "làm tốt",
+    50–79% "làm được, cần cẩn thận hơn", < 50% "cần cố gắng", "Chưa làm bài"
+    → "chưa hoàn thành", "Đang chờ chấm" → không nhắc. Chỉ đưa cho AI kênh
+    NỔI BẬT (làm tốt/cần cố gắng/chưa hoàn thành) hoặc tăng/giảm rõ so với
+    buổi trước (so điểm nhập tay với điểm nhập tay, chênh ≥
+    `app.ai-comment-draft.homework-trend-points`, mặc định 20). AI KHÔNG
+    nhận con số và vẫn không được ghi số vào nhận xét; không ảnh hưởng mức
+    Thái độ; lời giáo viên khác dữ liệu thì theo lời giáo viên. Quy tắc cũ
+    "không nhắc BTVN" đổi thành "không ghi con số/hạn nộp".
+-   **Sửa 2026-09-30 (đã xác nhận với người dùng) — BTVN theo từng kỹ
+    năng:** (1) ngưỡng đổi thành: ≥ 85% "làm tốt", 51–84% "làm được" (không
+    nhắc), ≤ 50% "cần cố gắng" (tính cả đúng 50%); (2) mỗi cột "BTVN buổi trước"
+    quy về đúng 1 kỹ năng theo Loại giáo viên của buổi — kênh chính (ô
+    Offline + % tự động) là **ngữ pháp** (buổi GV Việt Nam) / **nghe** (buổi
+    GVNN), kênh video là **từ vựng** / **phản xạ nói**, Reading/Writing
+    (online + trên giấy) là **đọc**/**viết**; (3) dữ liệu đưa AI có dạng
+    "BTVN buổi trước theo kỹ năng: nghe — cần cố gắng; đọc — làm tốt", 2
+    nguồn cùng kỹ năng khác mức thì ghi rõ nguồn; (4) AI giữ nguyên ý giáo
+    viên và THÊM 1 câu về BTVN nêu đúng tên kỹ năng (VD "Thủy cần luyện tập
+    thêm về kỹ năng nghe", "Con làm bài đọc ở nhà rất tốt", "Con nhớ hoàn
+    thành bài luyện viết ở nhà nhé") thay cho câu chung "bài tập về nhà";
+    nhiều hơn 2 kỹ năng thì ưu tiên kỹ năng "cần cố gắng"/"chưa hoàn
+    thành". UC-75 (soát nhận xét chờ duyệt) dùng cùng cách quy kỹ năng để
+    phát hiện mâu thuẫn BTVN theo từng kỹ năng.
+-   **Bổ sung 2026-09-30 (đã xác nhận với người dùng) — thống kê BTVN nhiều
+    buổi (`HomeworkInsightService` + `HomeworkHistoryInsight`, chỉ dùng cho
+    trợ lý, giáo viên không xem trực tiếp số liệu):** xét tối đa 4 lần BTVN
+    gần nhất (bài giao ở 4 buổi trước, cùng lớp + cùng Loại giáo viên; %
+    tự động các Lô online kênh chính/Reading/Writing tính theo Bài như cột
+    "BTVN buổi trước" + điểm nhập tay ghi ở buổi sau đó; lần gần nhất dùng
+    điểm giáo viên đang gõ trên bảng). Quy ra lời, không có số:
+    (1) **xu hướng** — 3 lần gần nhất của 1 kỹ năng đều có điểm, tăng
+    (giảm) liên tục và chênh ≥ 20 điểm % → "tiến bộ đều / đi xuống";
+    (2) **điểm yếu/mạnh cụ thể** của BTVN buổi trước (lượt mới nhất): tỷ lệ
+    đúng theo dạng câu hỏi và theo độ khó (câu chấm tự động, nhóm ≥ 3 câu),
+    % từng tiêu chí chấm tự luận/nói (bản chấm hiện hành, bỏ tên tiêu chí
+    có chữ số) — ≤ 50% yếu, ≥ 85% mạnh; chỉ nêu 1 điểm yếu nhất, hoặc 1
+    điểm mạnh nhất khi không có điểm yếu (dạng câu/độ khó chỉ khen khi học
+    sinh có ≥ 2 nhóm cùng loại); (3) **thói quen** — Bài làm ≥ 2 lượt đã
+    chấm và lượt mới nhất cao hơn lượt đầu → khen chăm làm lại; 4 lần liên
+    tiếp làm đủ (có bài và không kỹ năng nào "Chưa làm bài") → khen đều
+    đặn; cùng 1 kỹ năng "Chưa làm bài" 2 lần liền → nhắc nhẹ; nộp muộn ≥ 2
+    trong 3 lần gần nhất → nhắc nhẹ. Các ý xếp theo ưu tiên bỏ bài/nộp muộn
+    → điểm yếu cụ thể → xu hướng → khen, đưa AI qua trường
+    `homeworkDetails`; phần BTVN trong 1 nhận xét tối đa 2 câu (gộp cả
+    trường `homework`). Kênh video (từ vựng/phản xạ nói) chỉ dùng điểm nhập
+    tay cho các lần cũ. Mọi truy vấn theo lô cho cả lớp.
+-   **Bổ sung 2026-09-30 (đã xác nhận với người dùng) — tín hiệu ngoài lời
+    giáo viên (`StudentSignalService` + `StudentSignalInsight`, chỉ đọc):**
+    (1) **Điểm danh buổi này**: Đi muộn/Về sớm từ 10 phút → nhắc nhẹ; điểm
+    danh không ghi số phút (ô không bắt buộc) → KHÔNG nhắc. (2) **Chuyên
+    cần** 8 buổi gần nhất của lớp (tính cả buổi này, mọi Loại giáo viên):
+    đủ 8 buổi đều Có mặt → khen; Vắng không phép ≥ 2 hoặc Đi muộn ≥ 3 →
+    nhắc nhẹ; Vắng có phép không tính. Tối đa 1 câu, không ghi số buổi/số
+    phút, không ghi lý do. Rubric đổi quy tắc cũ "không nhắc việc nghỉ học,
+    về sớm" thành "chỉ nhắc khi có dữ liệu điểm danh hoặc giáo viên tự
+    nói". (3) **Nhận xét buổi khác Loại giáo viên**: nhận xét (không bị từ
+    chối) ở buổi gần nhất trước buổi này của loại giáo viên kia, cùng lớp
+    (so theo cặp ngày + id như "buổi trước", nên lấy được cả buổi sáng
+    cùng ngày) — chỉ để giữ nhất quán và đem so trùng lặp (bước 7), KHÔNG
+    nhắc tới giáo viên/buổi đó. (4) **Lời mời họp phụ huynh vì thiếu
+    BTVN** (`homework_parent_meeting_invites` PENDING/APPROVED, tạo trong
+    30 ngày trước buổi học, đúng lớp) → chỉ là gợi ý giọng văn: không khen
+    phần BTVN đó, không nhắc chuyện mời họp. (5) **Thông tin học sinh**:
+    ngày vào lớp trong 30 ngày trước buổi học → được nhắc "mới vào lớp";
+    dưới 10 tuổi (theo ngày sinh) → chỉ chỉnh giọng văn đơn giản, ấm áp,
+    không ghi tuổi. Dữ liệu học sinh có thể chưa chính xác nên dòng nhận
+    xét nhắc tới "mới vào lớp/tham gia lớp…" hoặc "tuổi" được gắn cảnh báo
+    `STUDENT_INFO_CHECK` để giáo viên xác thực trước khi gửi.
+-   **Bổ sung 2026-09-29 (sau đánh giá rubric lần 3):** (1) kho kiểu câu
+    mở rộng lên 10 kiểu mở đầu (kiểu 10 — ghi nhận của giáo viên — chỉ dùng
+    khi có `teacherPronoun`) và 8 kiểu câu kết; bỏ quy tắc "mỗi kiểu 1 học
+    sinh/buổi" (không khả thi với lớp ~26 học sinh), thay bằng: 2 học sinh
+    LIỀN KỀ không cùng kiểu, mỗi lô viết dùng ≥ 4 kiểu mở đầu và ≥ 3 kiểu
+    kết; mỗi nhận xét có ít nhất 1 câu ngắn (≤ 8 từ); (2) rubric mục 6 thêm
+    câu mẫu theo từng mức Thái độ + "góp ý mềm", tổng hợp từ nhận xét cũ
+    (chỉ lấy văn phong, không chép), KHÔNG chứa "thầy/cô" — có
+    `CommentAiRubricTest` kiểm tra; (3) bước trích ý: 1 câu nêu tên nhiều
+    học sinh tách thành từng học sinh cùng dẫn chứng, ý của học sinh này
+    không được chứa tên học sinh khác, khớp tên không chắc thì đưa vào
+    danh sách chưa khớp; (4) prompt sửa theo lệnh có ví dụ lặp nguyên văn
+    và cách xử lý khi giáo viên đổi xưng hô; prompt gợi ý bản sửa (UC-75)
+    có danh sách 5 điểm tự kiểm trước khi trả kết quả.
+-   **Bổ sung 2026-09-29 (bảng tổng hợp 32 mục):** (1) rubric mục 4 định
+    nghĩa rõ dạng trường "homework" (các mức và câu gợi ý tương ứng), cấm
+    mọi dạng lộ điểm kể cả viết bằng chữ ("12/14", "đúng 41/49 câu", "3
+    sao"…), thêm ví dụ SAI khi nhắc tên bạn, cấm đe doạ/kỷ luật/phạt, nhắc
+    giáo viên khác, hoạt động ngoài giờ học; mục 6 thêm câu mẫu góp ý theo
+    lỗi cụ thể, khen có bằng chứng, ghi nhận tiến bộ, gợi ý cách luyện
+    (không đại từ, không chữ số); (2) bước trích ý trả thêm `sharedWith`
+    (studentId các bạn được nhận xét chung 1 câu, VD "An / Bình: …") —
+    backend lọc chỉ giữ học sinh trong danh sách, bước viết nhận
+    `sharedWithStudentIds` để diễn đạt khác nhau và không nhắc tên nhau;
+    (3) cảnh báo mới `PRONOUN_MISMATCH` (quy tắc, không cần AI): chưa rõ
+    giáo viên xưng thầy hay cô mà nhận xét có "thầy/cô", hoặc lẫn đại từ
+    còn lại; (4) UC-75 sửa theo lệnh: dữ liệu gửi AI kèm `commentDate`/
+    `classSessionId`, tên khớp nhiều nhận xét mà Quản lý không nói rõ buổi
+    nào thì AI hỏi lại thay vì đoán.
+-   **Bổ sung 2026-09-29 (đã xác nhận với người dùng):** (1) *chặn lặp kiểu
+    câu bằng code* (`CommentPatternCheck`): so "khoá" câu mở đầu (3 từ đầu
+    sau khi bỏ tên học sinh) và câu kết (3 từ đầu câu cuối). Trùng với bạn
+    liền trước, hoặc 1 kiểu vượt `app.ai-comment-draft.max-pattern-share`
+    (mặc định 0.3, tối thiểu 2 bạn) thì viết lại 1 lần cùng bước 7; vẫn
+    trùng thì cảnh báo `REPEATED_PATTERN` (không nhắc thêm nếu dòng đã có
+    `SIMILAR_IN_SESSION`). (2) *log chỉ số* (phương án A, không đổi schema):
+    mỗi lần soạn nháp/viết lại toàn bộ ghi 1 dòng log `COMMENT_AI_METRICS
+    {json}` gồm tỷ lệ lặp mở/kết, độ dài trung bình, số dòng có câu ngắn,
+    số dòng theo từng cảnh báo, số lần nhắc BTVN khi không có dữ liệu —
+    không chứa nội dung hay tên học sinh. `scripts/comment-ai-metrics.py`
+    tổng hợp theo tuần và đối chiếu ngưỡng đã thống nhất.
+-   **Bổ sung 2026-09-29 (tổng hợp nhận xét thật của 21 lớp):** (1) rubric
+    cấm thêm các dạng lộ điểm đã gặp (điểm thập phân, số lần xung phong,
+    bảng xếp hạng xung phong) và dạng "báo cáo điểm" liệt kê ("Điểm thể
+    hiện trên lớp: …"); cấm số trang/tên dạng bài, nghỉ học, đi thi, đá
+    bóng; thêm danh sách cụm sáo mòn (mỗi cụm tối đa 1–2 lần/lượt), 1 kiểu
+    câu kết và câu mẫu mới (đã bỏ đại từ, tên bài, tên giáo viên). (2) code
+    chặn thêm cụm sáo mòn (`CommentPatternCheck.OVERUSED_PHRASES`, vd "hơn
+    thế nữa", "mong con", "con ngoan"): cụm vượt cùng ngưỡng
+    `max-pattern-share` thì viết lại, vẫn vượt thì cảnh báo
+    `REPEATED_PATTERN`. Không đưa bảng xếp hạng giáo viên vào hệ thống.
+-   **Bổ sung 2026-09-29 (đã xác nhận với người dùng):** (1) cột mới
+    `student_comments.ai_drafted` (V201): Lưu nháp dòng giáo viên vừa áp
+    dụng từ trợ lý thì gửi kèm `aiDrafted=true`, backend bật cờ (không tắt
+    lại, giáo viên sửa tay sau đó vẫn giữ). `scripts/comment-ai-approved-metrics.sql`
+    so sánh nhận xét AI soạn với nhận xét tự viết trên dữ liệu đã gửi duyệt
+    (tỷ lệ duyệt, từng bị từ chối, độ dài, có chữ số, nhắc tên bài, tỷ lệ
+    Yếu/Trung bình) theo tuần. (2) Cảnh báo `REPEATED_PATTERN` chỉ nêu các
+    cụm sáo mòn thực sự vượt ngưỡng ở dòng đó. Đã chốt với người dùng các
+    ngưỡng: BTVN tăng/giảm rõ 20 điểm, lặp kiểu câu 30% lớp, trùng lặp cả
+    đoạn 50%, danh sách cụm sáo mòn hiện tại.
+
+---
+
 UC-22: Duyệt nhận xét
 
 +-----------------+----------------------------------------------------+
@@ -2081,6 +2552,210 @@ UC-22: Duyệt nhận xét
 > (đã xác nhận với người dùng, không cần thiết ở giai đoạn này). FE: nút
 > "Sửa" cạnh nút Duyệt/Từ chối ở `CommentApprovalByClass.tsx`, mở
 > `<textarea>` inline tại dòng, có nút Lưu/Hủy riêng.
+
+---
+
+UC-75: Trợ lý AI soát nhận xét chờ duyệt
+
++-----------------+----------------------------------------------------+
+| **Mã Use Case** | UC-75                                              |
++-----------------+----------------------------------------------------+
+| **Tên Use       | Trợ lý AI soát nhận xét chờ duyệt                  |
+| Case**          |                                                    |
++-----------------+----------------------------------------------------+
+| **Phân hệ**     | Phân hệ 6                                          |
++-----------------+----------------------------------------------------+
+| **Yêu cầu chức  | FR-LMS-09 (mở rộng UC-22 — bổ sung ngoài SDD gốc,  |
+| năng gốc**      | đã xác nhận với người dùng 2026-09-29)             |
++-----------------+----------------------------------------------------+
+| **Tác nhân**    | Quản lý điểm trường (actor có quyền                |
+|                 | academic.comment.approve, cùng rào với duyệt nhận  |
+|                 | xét của UC-22)                                     |
++-----------------+----------------------------------------------------+
+| **Mô tả tóm     | Ở tab "Chờ duyệt", Quản lý mở sidebar "Trợ lý      |
+| tắt**           | duyệt AI" bằng nút nổi (giống trợ lý soạn nháp của |
+|                 | Giáo viên, UC-74). Trong sidebar: chọn lớp, bấm    |
+|                 | "Soát lớp này" để hệ thống kiểm tra tự động + AI   |
+|                 | kiểm tra theo rubric và gắn cảnh báo lên từng      |
+|                 | dòng; xin AI đề xuất bản sửa cho dòng có cảnh báo; |
+|                 | hoặc ra yêu cầu sửa bằng giọng nói/chữ. Trợ lý chỉ |
+|                 | GỢI Ý: không duyệt, không từ chối, không tự sửa —  |
+|                 | mọi thay đổi do Quản lý bấm, lưu qua chức năng     |
+|                 | duyệt/sửa nội dung của UC-22.                      |
++-----------------+----------------------------------------------------+
+| **Sự kiện kích  | Quản lý bấm nút nổi Trợ lý duyệt AI ở tab Chờ      |
+| hoạt**          | duyệt, rồi bấm "Soát lớp này" hoặc gửi yêu cầu sửa |
+|                 | (không tự soát khi mở tab — tránh tốn token cho    |
+|                 | mọi lô).                                           |
++-----------------+----------------------------------------------------+
+| **Điều kiện     | - Quản lý có quyền academic.comment.approve và     |
+| tiên quyết (    |   được gán phụ trách điểm trường của lớp (giống    |
+| Precondition)** |   UC-22).                                          |
+|                 | - Các nhận xét được soát/sửa đang ở trạng thái Chờ |
+|                 |   duyệt (PENDING).                                 |
+|                 | - Hệ thống đã cấu hình 9Router (STT + combo model  |
+|                 |   của trợ lý nhận xét, dùng chung với UC-74).      |
++-----------------+----------------------------------------------------+
+| **Luồng sự kiện | 1.  Quản lý mở sidebar Trợ lý duyệt AI, chọn lớp   |
+| chính (Main     |     đang có nhận xét chờ duyệt, bấm "Soát lớp      |
+| Flow)**         |     này".                                          |
+|                 |                                                    |
+|                 | 2.  Hệ thống kiểm tra rào như duyệt nhận xét của   |
+|                 |     UC-22, nhận yêu cầu và xử lý bất đồng bộ (trả  |
+|                 |     mã công việc, giao diện tự hỏi lại trạng       |
+|                 |     thái).                                         |
+|                 |                                                    |
+|                 | 3.  Hệ thống kiểm tra tự động từng nhận xét: có    |
+|                 |     chữ số; dài quá khoảng 500 ký tự; để trống;    |
+|                 |     nhắc họ tên bạn cùng lớp; nhắc tên bài học của |
+|                 |     buổi; giống nhận xét của bạn khác cùng buổi    |
+|                 |     hoặc giống N nhận xét trước của chính học sinh |
+|                 |     (cùng thang đo và ngưỡng với UC-74).           |
+|                 |                                                    |
+|                 | 4.  AI kiểm tra theo rubric nhận xét, theo lô từng |
+|                 |     buổi: nhắc học sinh khác, nhắc BTVN/điểm/hạn   |
+|                 |     nộp, từ ngữ nặng nề, Thái độ lệch nội dung,    |
+|                 |     chủ đề không được viết, lỗi rõ ràng khác. Tên  |
+|                 |     bài học KHÔNG được gửi cho AI.                 |
+|                 |                                                    |
+|                 | 5.  Bảng nhận xét gắn cảnh báo lên từng dòng (kèm  |
+|                 |     nguồn: tự động hoặc AI); sidebar hiện tóm tắt, |
+|                 |     danh sách dòng có cảnh báo và nút "Duyệt N     |
+|                 |     dòng không có cảnh báo".                       |
+|                 |                                                    |
+|                 | 6.  Với dòng có cảnh báo, Quản lý bấm "AI đề xuất  |
+|                 |     bản sửa" (trong sidebar hoặc ngay trên bảng);  |
+|                 |     AI viết bản sửa chỉ khắc phục các cảnh báo đó, |
+|                 |     giữ nguyên ý và cách xưng của giáo viên, không |
+|                 |     tự đổi mức Thái độ (chưa ghi DB).              |
+|                 |                                                    |
+|                 | 7.  Quản lý chọn "Áp dụng" (lưu qua đúng chức năng |
+|                 |     sửa nội dung Chờ duyệt của UC-22), "Sửa tiếp"  |
+|                 |     (trên bảng, mở ô sửa với bản đề xuất) hoặc "Bỏ |
+|                 |     qua".                                          |
+|                 |                                                    |
+|                 | 8.  Quản lý Duyệt/Từ chối theo UC-22 như cũ.       |
+|                 |                                                    |
+|                 | 9.  (Tuỳ chọn) Quản lý ghi âm (tự dừng khi đủ 5    |
+|                 |     phút), tải file audio hoặc gõ yêu cầu sửa cho  |
+|                 |     lớp đang chọn (VD "bỏ cụm quậy phá trong nhận  |
+|                 |     xét của Đạt"); hệ thống chuyển audio thành chữ |
+|                 |     (tiếng Việt), AI đề xuất bản sửa chỉ cho các   |
+|                 |     nhận xét được nhắc tới; Quản lý bấm "Áp dụng"  |
+|                 |     từng bản hoặc "Áp dụng tất cả".                |
++-----------------+----------------------------------------------------+
+| **Luồng thay    | ***A1 — Không đủ quyền / không phụ trách điểm      |
+| thế / ngoại lệ  | trường***                                          |
+| (Alternate      |                                                    |
+| Flow)**         | 1.  Tại bước 2/9: từ chối đúng như UC-22 (403).    |
+|                 |                                                    |
+|                 | ***A2 — Nhận xét không còn chờ duyệt***            |
+|                 |                                                    |
+|                 | 1.  Tại bước 2/9, có nhận xét đã được duyệt/từ     |
+|                 |     chối (VD người khác vừa xử lý): từ chối (409), |
+|                 |     giao diện tải lại danh sách.                   |
+|                 |                                                    |
+|                 | ***A3 — Duyệt cả lớp khi còn cảnh báo***           |
+|                 |                                                    |
+|                 | 1.  Tại bước 8, Quản lý bấm "Duyệt cả lớp" khi lớp |
+|                 |     còn dòng có cảnh báo: hệ thống hỏi xác nhận    |
+|                 |     "còn X dòng có cảnh báo, vẫn duyệt?" — KHÔNG   |
+|                 |     chặn, Quản lý quyết định.                      |
+|                 |                                                    |
+|                 | ***A4 — STT/AI lỗi hoặc quá thời gian***           |
+|                 |                                                    |
+|                 | 1.  Tại bước 4: lô bị lỗi vẫn có kết quả kiểm tra  |
+|                 |     tự động ở bước 3, giao diện báo phần kiểm tra  |
+|                 |     theo rubric chưa hoàn tất. Tại bước 6/9: công  |
+|                 |     việc chuyển FAILED, nhận xét giữ nguyên, Quản  |
+|                 |     lý thử lại.                                    |
+|                 |                                                    |
+|                 | ***A5 — Bản đề xuất có vấn đề***                   |
+|                 |                                                    |
+|                 | 1.  Tại bước 6/9, bản sửa có chữ số hoặc giống hệt |
+|                 |     bản gốc: hiện cảnh báo trên bản đề xuất (bản   |
+|                 |     giống hệt ở bước 9 bị bỏ).                     |
+|                 |                                                    |
+|                 | ***A6 — Nội dung đã đổi sau khi soát***            |
+|                 |                                                    |
+|                 | 1.  Sau bước 7/9 (đã áp dụng/sửa nội dung), kết    |
+|                 |     quả soát cũ của dòng đó bị gỡ — Quản lý soát   |
+|                 |     lại nếu cần.                                   |
+|                 |                                                    |
+|                 | ***A7 — Yêu cầu sửa không hợp lệ***                |
+|                 |                                                    |
+|                 | 1.  Tại bước 9, không có audio lẫn chữ, file không |
+|                 |     phải audio hoặc vượt giới hạn dung lượng: từ   |
+|                 |     chối (422). Yêu cầu không phải sửa nội dung    |
+|                 |     (duyệt, từ chối, đổi Thái độ): trợ lý không đề |
+|                 |     xuất gì và nhắc Quản lý tự thao tác trên bảng. |
++-----------------+----------------------------------------------------+
+| **Hậu điều kiện | - Soát, đề xuất và yêu cầu sửa KHÔNG thay đổi      |
+| (P              |   trạng thái, nội dung hay Thái độ của nhận xét    |
+| ostcondition)** |   nào; kết quả chỉ nằm trong bộ nhớ (tự hết hạn);  |
+|                 |   audio không được lưu trữ.                        |
+|                 | - Chỉ khi Quản lý bấm "Áp dụng", nội dung nhận xét |
+|                 |   được cập nhật qua chức năng sửa nội dung Chờ     |
+|                 |   duyệt của UC-22 (ghi lịch sử phiên bản như cũ),  |
+|                 |   trạng thái vẫn là Chờ duyệt.                     |
++-----------------+----------------------------------------------------+
+
+Ghi chú kỹ thuật (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
+2026-09-29):
+
+-   Không thêm bảng/cột (không có migration). Endpoint (quyền
+    `academic.comment.approve`): `POST /api/comments/ai-review` +
+    `GET /api/comment-ai-reviews/{jobId}`; `POST /api/comments/{id}/ai-suggestion`
+    + `GET /api/comment-ai-suggestions/{jobId}` — đều trả 202 + mã công việc,
+    chạy nền qua `AiJobRegistry` dùng chung với UC-74.
+-   Kiểm tra theo rubric dùng chung file
+    `prompts/comment-ai-draft-rubric.md` với UC-74 — học vụ làm giàu 1 chỗ,
+    cả soạn lẫn soát cùng áp dụng.
+-   Yêu cầu sửa bằng audio/chữ (bước 9): `POST /api/comments/ai-instruction`
+    (multipart: `commentIds`, `audio`, `note`) + `GET /api/comment-ai-instructions/{jobId}`.
+    Sidebar dùng chung ô soạn tin (ghi âm/tải audio/gõ chữ) và nút nổi
+    với trợ lý của Giáo viên (`AiChatComposer`, `AiAssistantFab`).
+-   Tên bài học của buổi (`class_sessions.lesson_content`) không được đưa
+    vào nhận xét (đã xác nhận với người dùng 2026-09-29): cả UC-74 lẫn UC-75
+    không gửi trường này cho AI, rubric cấm nhắc, và kiểm tra tự động gắn
+    cảnh báo `LESSON_TITLE` nếu nhận xét vẫn chứa tên bài.
+-   Quản lý điểm trường thuần (không kiêm Giáo viên) vẫn KHÔNG dùng được trợ
+    lý soạn nháp của UC-74 (không có quyền `academic.comment.write`) — UC-75
+    là trợ lý riêng cho khâu duyệt.
+-   **Bổ sung 2026-09-29 (đã xác nhận với người dùng):**
+    (1) *Nhắc chuỗi Thái độ cho Quản lý* — `POST /api/comments/attitude-alert-preview`
+    (body `commentIds`, chỉ đọc, không gọi AI, cùng rào với soát): dòng Yếu/
+    Trung bình hiện nhãn "Sẽ báo phụ huynh" ngay ở cột Thái độ, dòng chạm
+    mốc cảnh báo 3 buổi liên tiếp hiện nhãn đỏ. Cách tính mô phỏng đúng
+    `StudentAttitudeAlertTrackingService#evaluateAndNotify`, nếu duyệt các
+    dòng của cùng học sinh theo thứ tự ngày. Bấm "Duyệt dòng không có cảnh
+    báo" hoặc "Duyệt cả lớp" mà nhóm có dòng như vậy thì hỏi xác nhận trước.
+    (2) *Lưu ý BTVN ngược dữ liệu* — bước soát gửi thêm kết quả BTVN buổi
+    trước đã lưu trên dòng (quy ra lời bằng `HomeworkScoreInsight`, không
+    kèm số); AI chỉ gắn `HOMEWORK_MISMATCH` khi nhận xét nói RÕ ngược dữ
+    liệu. Đây là *lưu ý* (`notices`), không phải lỗi: dòng vẫn tính là sạch.
+    Không có dữ liệu hoặc không nhắc BTVN thì không báo (giáo viên có thể
+    biết thông tin ngoài dữ liệu).
+    (3) *Tóm tắt lô* — kết quả soát có `summary` đếm bằng code: số dòng
+    sạch, số dòng theo từng loại lỗi, số dòng sẽ báo phụ huynh / chạm mốc 3
+    buổi, số dòng BTVN ngược dữ liệu; sidebar hiện thành các chip.
+    (4) *AI gợi ý lý do từ chối* — `POST /api/comments/{id}/ai-rejection-reason`
+    + `GET /api/comment-ai-rejection-reasons/{jobId}`: AI soạn 1–2 câu gửi
+    giáo viên dựa trên cảnh báo đã soát, rồi mở đúng hộp thoại Từ chối
+    với lý do điền sẵn. Quản lý sửa và tự bấm xác nhận; trợ lý không tự từ
+    chối.
+    (5) *Giáo viên lặp khuôn câu* (bổ sung 2026-09-29) — kiểm tra bằng code
+    theo từng buổi (cùng `CommentPatternCheck` với UC-74): dòng dùng chung câu
+    mở/kết hoặc cụm sáo mòn quá ngưỡng được gắn lưu ý `REPEATED_PATTERN`
+    (không chặn duyệt, không gắn nếu dòng đã có `SIMILAR_IN_SESSION`), tóm tắt
+    có `repeatedPatternCount`.
+    (6) *Bổ sung 2026-09-29:* lưu ý BTVN đọc thêm % tự động của bài online
+    (bài tập online/video khi chưa nhập tay, Reading/Writing online), đúng
+    các cột Quản lý thấy trên bảng duyệt. Duyệt gộp nhiều buổi của 1 học
+    sinh thì cảnh báo thái độ được tính theo THỨ TỰ NGÀY
+    (`StudentCommentService#decideComments`), khớp nhãn "Sẽ báo phụ huynh";
+    nhãn ghi rõ khi đã tính cả buổi Yếu/Trung bình cũ hơn còn chờ duyệt.
+    Sidebar gom các dòng "lặp khuôn câu" thành 1 dòng tóm tắt.
 
 ---
 
@@ -2531,7 +3206,19 @@ FIELD, tham chiếu cho bước 3 Main Flow — key công bố bởi resolver t�
     attendance_marks (điểm danh cấp buổi), student_comments (DAILY). Bảng
     động `[[TABLE:STUDENTS]]` là tên bảng DUY NHẤT được hỗ trợ, gồm 3
     field con STUDENT_NAME/ATTENDANCE_STATUS/STUDENT_COMMENT, sắp theo
-    tên học sinh A-Z.
+    tên học sinh A-Z. Cập nhật 2026-09-28: thêm ASSISTANT_TEACHER_NAME
+    (class_sessions.assistant_teacher_id, để trống nếu buổi không có trợ
+    giảng) và PRESENT_COUNT (Có mặt + Đi trễ + Về sớm); ABSENT_COUNT tính
+    cả Vắng có phép (ABSENT + EXCUSED). HS chưa điểm danh không nằm trong
+    cả 2 con số. Thêm ABSENT_STUDENT_NAMES (họ tên đúng nhóm HS của
+    ABSENT_COUNT, A-Z, cách nhau dấu phẩy), MISSING_HOMEWORK_STUDENT_NAMES
+    (HS có "BTVN buổi trước" kênh online Ngữ pháp/Nghe = "Chưa làm bài",
+    dùng đúng logic cột này ở bảng Nhận xét hàng ngày — nhập tay thắng,
+    fallback % tự động) và HOMEWORK_CONTENT (BTVN giao cho buổi sau, gộp
+    offline chữ tự do + tên Đề/Video online đã giao, bỏ trùng giữa các HS,
+    mỗi mục 1 dòng). Các key danh sách/trợ giảng để rỗng khi không có gì
+    (không coi là thiếu dữ liệu theo A1). Engine DOCX/HTML hỗ trợ giá trị
+    nhiều dòng (xuống dòng trong cùng ô).
 -   **STUDENT_PROFILE** (Hồ sơ học sinh) — StudentProfileReportDataResolver:
     students, users, parents, parent_student (is_primary_contact,
     is_financial_responsible).
@@ -2941,8 +3628,8 @@ job quét mỗi phút):
 
 | Mốc | Điều kiện | Gửi tới Quản lý điểm trường (site của lớp, `site_managers` đang hiệu lực) | Gửi tới giáo viên dạy buổi (primaryTeacher + cmTeacher nếu có) |
 |---|---|---|---|
-| **Chưa nhận lớp** (`CLASS_CHECKIN_LATE_ALERT`) | Đã qua giờ bắt đầu + `class_checkin_alert.late_after_minutes` (mặc định 5) mà chưa có bản ghi `class_session_check_ins` | PUSH (+ in-app): "Lớp X: giáo viên chưa nhận lớp — hãy kiểm tra" | EMAIL (+ in-app): báo đã tới giờ học nhưng chưa nhận lớp, nhận lúc này sẽ tính MUỘN |
-| **Không nhận lớp** (`CLASS_CHECKIN_ABSENT_ALERT`) | Đã qua giờ kết thúc buổi học mà vẫn chưa có bản ghi nhận lớp (đúng trạng thái `ABSENT` tính ra ở trên) | PUSH (+ in-app): "Lớp X: không có giáo viên nhận lớp — hãy kiểm tra" | EMAIL (+ in-app): báo buổi học được tính KHÔNG NHẬN LỚP |
+| **Chưa nhận lớp** (`CLASS_CHECKIN_LATE_ALERT`) | Đã qua giờ bắt đầu + `class_checkin_alert.late_after_minutes` (mặc định 5) mà chưa có bản ghi `class_session_check_ins` | PUSH (+ in-app): "Lớp X: giáo viên {tên GV} chưa nhận lớp — hãy kiểm tra" (tên GV nằm ngay trong tiêu đề) | EMAIL (+ in-app): báo đã tới giờ học nhưng chưa nhận lớp, nhận lúc này sẽ tính MUỘN |
+| **Không nhận lớp** (`CLASS_CHECKIN_ABSENT_ALERT`) | Đã qua giờ kết thúc buổi học mà vẫn chưa có bản ghi nhận lớp (đúng trạng thái `ABSENT` tính ra ở trên) | PUSH (+ in-app): "Lớp X: giáo viên {tên GV} không nhận lớp — hãy kiểm tra" (tên GV nằm ngay trong tiêu đề) | EMAIL (+ in-app): báo buổi học được tính KHÔNG NHẬN LỚP |
 
 - Kênh gửi được ÉP theo nghiệp vụ (bỏ qua `notification_preferences` cá
   nhân) — mục đích là Quản lý nhận push ngay trên điện thoại, giáo viên có

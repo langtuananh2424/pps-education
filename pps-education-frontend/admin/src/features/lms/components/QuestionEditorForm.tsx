@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Blocks, Check, CheckSquare, FileText, Headphones, Image as ImageIcon, ImagePlus, Images, ListOrdered, Mic, PenLine, Shuffle, SplitSquareHorizontal, Volume2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import Button from "@/components/ui/Button";
+import { useDialog } from "@/components/ui/DialogProvider";
 import FileUploadField from "@/components/ui/FileUploadField";
 import {
   CreateExamQuestionRequest,
@@ -93,15 +94,27 @@ function OptionalAudioFields({
   setAudioUrl,
   transcript,
   setTranscript,
-  label
+  label,
+  /** Bổ sung 2026-09-25 (đã xác nhận với người dùng) — chỉ hiện ở kind THẬT SỰ dùng field này cho mục
+   * đích khác ngoài phát âm khi không có audio (hiện tại chỉ FILL_IN_BLANK): giải thích thêm rằng "Tiêu
+   * đề / Đoạn văn tham chiếu" hiển thị phía trên cả nhóm câu hỏi trong bài làm của học sinh. */
+  transcriptHint
 }: {
   audioUrl: string;
   setAudioUrl: (v: string) => void;
   transcript: string;
   setTranscript: (v: string) => void;
   label: string;
+  transcriptHint?: string;
 }) {
   const { t } = useTranslation("lms-question-authoring");
+  // Bổ sung 2026-09-25 (đã xác nhận với người dùng) — field này dùng chung cho 2 mục đích khác hẳn
+  // nhau tùy có audio hay không (referencePassage): có audio = transcript đọc trong file, hiển thị
+  // cho GV kiểm tra khi chấm; KHÔNG có audio (đa số trường hợp thực tế ở FILL_IN_BLANK) = tiêu đề/đoạn
+  // văn tham chiếu hiển thị phía trên cả nhóm câu hỏi (xem GridQuestionBuilder import). Trước đây nhãn
+  // luôn cố định "Ghi chú phát âm/Transcript" khiến GV hiểu lầm khi dùng cho trường hợp thứ 2 — đổi
+  // nhãn/placeholder SỐNG theo audioUrl để khớp đúng ý nghĩa thật đang lưu.
+  const hasAudio = !!audioUrl.trim();
   return (
     <div className="bg-white/70 p-3 rounded-lg border border-slate-200 space-y-2">
       <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">{label}</span>
@@ -111,10 +124,19 @@ function OptionalAudioFields({
           <FileUploadField value={audioUrl} onChange={setAudioUrl} onUpload={(file) => uploadMedia(file, "LMS_QUESTION")} accept="audio/*" placeholder={t("common.chooseAudioFile")} />
         </div>
         <div>
-          <label className="block font-bold text-slate-600 mb-1 text-[9px] uppercase">{t("common.transcriptLabel")}</label>
+          <label className="block font-bold text-slate-600 mb-1 text-[9px] uppercase">
+            {hasAudio ? t("common.transcriptLabel") : t("questionEditorForm.referencePassageLabel")}
+          </label>
           {/* Fix bug thật (2026-09-08, đã xác nhận với người dùng) — <input> 1 dòng xoá sạch \n khi dán
               transcript nhiều dòng, mirror ListeningGroupBuilder.tsx đã sửa cùng đợt. */}
-          <textarea value={transcript} onChange={(e) => setTranscript(e.target.value)} placeholder={t("common.transcriptPlaceholder")} rows={3} className={inputClass} />
+          <textarea
+            value={transcript}
+            onChange={(e) => setTranscript(e.target.value)}
+            placeholder={hasAudio ? t("common.transcriptPlaceholder") : t("questionEditorForm.referencePassagePlaceholder")}
+            rows={3}
+            className={inputClass}
+          />
+          {!hasAudio && transcriptHint && <p className="text-[9px] text-slate-400 mt-1">{transcriptHint}</p>}
         </div>
       </div>
     </div>
@@ -237,6 +259,15 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { alertDialog } = useDialog();
+
+  // Dòng báo lỗi nằm đầu form, trong khi nút Lưu ở cuối modal (form dài, phải cuộn) — không tự cuộn
+  // thì GV bấm Lưu thất bại mà không thấy lỗi, tưởng đã lưu (QA 2026-09-30). Lỗi câu bị khoá dùng popup riêng.
+  // block "center" thay vì "nearest"/"start" — căn mép trên thì bị header sticky của Modal che mất.
+  const errorRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (error) errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [error]);
 
   /** Chuyển loại: reset số lựa chọn cho đúng (INLINE_CHOICE=2, MULTIPLE_CHOICE/VOICE=4 mặc định) khi tạo mới. */
   const handleSelectKind = (value: UiQuestionKind) => {
@@ -370,7 +401,19 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
           content: content.trim(),
           audioUrl: includeAudio ? audioUrl.trim() || undefined : undefined,
           imageUrl: supportsImage ? imageUrl.trim() || undefined : undefined,
-          referencePassage: includeAudio ? transcript.trim() || undefined : kind === "SPEAKING" ? phoneticKeywords.trim() || undefined : undefined,
+          // Fix bug thật (2026-09-25, đã xác nhận với người dùng) — trước đây gate theo `includeAudio`
+          // (chỉ true khi THẬT SỰ có audioUrl), nên FILL_IN_BLANK/WORD_BANK/SENTENCE_BUILDING/
+          // LETTER_SCRAMBLE không audio mà có referencePassage (dùng làm tiêu đề/đoạn văn cho cả nhóm —
+          // xem GridQuestionBuilder import) bị XÓA SẠCH referencePassage mỗi lần sửa+lưu câu hỏi đầu
+          // nhóm qua form này, dù ô "Ghi chú phát âm/Transcript" trên UI vẫn đang hiện đúng nội dung.
+          // Phải giữ transcript bất cứ khi nào field này còn hiện trên form (isVoiceOrListeningAudio
+          // hoặc supportsOptionalAudio), không phụ thuộc audio có được gắn hay không.
+          referencePassage:
+            isVoiceOrListeningAudio || supportsOptionalAudio
+              ? transcript.trim() || undefined
+              : kind === "SPEAKING"
+                ? phoneticKeywords.trim() || undefined
+                : undefined,
           explanation: explanation.trim() || undefined,
           correctAnswerText:
             kind === "FILL_IN_BLANK" || kind === "LISTENING_FILL_IN_BLANK" || kind === "FILL_IN_BLANK_PICTURE" ? correctAnswerText.trim() || undefined : undefined,
@@ -401,7 +444,13 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
           content: content.trim(),
           audioUrl: includeAudio ? audioUrl.trim() || undefined : undefined,
           imageUrl: supportsImage ? imageUrl.trim() || undefined : undefined,
-          referencePassage: includeAudio ? transcript.trim() || undefined : kind === "SPEAKING" ? phoneticKeywords.trim() || undefined : undefined,
+          // Xem giải thích ở nhánh update phía trên — cùng 1 lỗi, cùng cách fix.
+          referencePassage:
+            isVoiceOrListeningAudio || supportsOptionalAudio
+              ? transcript.trim() || undefined
+              : kind === "SPEAKING"
+                ? phoneticKeywords.trim() || undefined
+                : undefined,
           explanation: explanation.trim() || undefined,
           correctAnswerText:
             kind === "FILL_IN_BLANK" || kind === "LISTENING_FILL_IN_BLANK" || kind === "FILL_IN_BLANK_PICTURE" ? correctAnswerText.trim() || undefined : undefined,
@@ -419,8 +468,10 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
       }
       onCreated(result);
     } catch (err) {
-      if (err instanceof ApiError && (err.status === 409 || err.status === 400) && isEditing) {
-        setError(t("questionEditorForm.errors.lockedAfterSubmission"));
+      // QuestionLockedException trả 422 (GlobalExceptionHandler) — 400 là lỗi validate thường, không phải bị khoá.
+      // Chỉ bắn popup (không set error inline) — popup đã đủ để GV thấy, tránh báo trùng 2 chỗ.
+      if (err instanceof ApiError && err.status === 422 && isEditing) {
+        void alertDialog(t("questionEditorForm.errors.lockedAfterSubmission"));
       } else {
         setError(err instanceof ApiError ? err.message : t("questionEditorForm.errors.saveFailed"));
       }
@@ -431,7 +482,7 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div ref={errorRef} className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       <div>
         <label className={labelClass}>{t("questionEditorForm.kindLabel")}{isEditing && <span className="text-slate-400 font-normal"> {t("questionEditorForm.kindLockedHint")}</span>}</label>
@@ -911,6 +962,7 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
               transcript={transcript}
               setTranscript={setTranscript}
               label={t("questionEditorForm.optionalAudioLabel")}
+              transcriptHint={t("questionEditorForm.optionalAudioTranscriptFillInBlankHint")}
             />
           )}
           <div>

@@ -72,16 +72,37 @@ public class WritingV3PromptBuilder {
                 "TRẢ LỜI ĐÚNG FORMAT MARKDOWN SAU, không thêm gì khác:",
                 "",
                 "### 0. Kiểm đếm",
-                "<Dòng đầu N_total/N_copy/N_net/%: LẤY ĐÚNG số liệu hệ thống đã đo ở tin nhắn người dùng, chép nguyên, KHÔNG tự đếm lại.>",
+                "N_total: __ · N_copy: __ · N_net: __ · % so với yêu cầu: __%   (cả bốn số đã đo sẵn ở tin nhắn người dùng, chép nguyên, KHÔNG tự đếm lại)",
                 "N_sent: __ · N_complete: __ (__%) · N_verb_ok/N_verb: __/__ (__%)",
+                "   N_complete = số câu/mệnh đề ĐỦ CHỦ NGỮ VÀ ĐỘNG TỪ (dùng cho checkpoint ngữ pháp). Viết hoa và dấu câu KHÔNG xét ở đây.",
+                "   N_verb chỉ đếm các động từ CÓ MẶT trong bài. Câu THIẾU HẲN động từ (\"His name Mily\", \"My dog very beutiful\")",
+                "   KHÔNG tạo thêm một đơn vị trong N_verb — chỗ đó đã bị trừ ở câu cụt. Liệt kê từng động từ đã đếm kèm đúng/sai.",
+                "N_bound: __ (__%) — số câu vừa VIẾT HOA chữ đầu, vừa CÓ DẤU KẾT CÂU, vừa ĐỦ CHỦ NGỮ VÀ ĐỘNG TỪ.",
+                "   Câu cụt (\"Have brown ear.\", \"Very good dog.\", \"My dog very beutiful.\") KHÔNG tính, kể cả khi có dấu chấm.",
+                "   Liệt kê nguyên văn từng câu KHÔNG đạt và ghi lý do (thiếu chủ ngữ / thiếu động từ / không viết hoa / thiếu dấu kết / comma splice).",
+                "   N_bound CHỈ dùng cho checkpoint ranh giới câu của Organisation, KHÔNG dùng cho checkpoint ngữ pháp.",
                 "N_sp: __ · N_pu: __ · N_lex: __",
                 "Từ nối đúng: __ (liệt kê từng từ) · số loại: __ (liệt kê tên loại: bổ sung / tương phản / nguyên nhân / thời gian / kết quả…)",
+                "   CHỈ tính từ nối nối HAI HÀNH ĐỘNG / HAI MỆNH ĐỀ hoặc nối câu với câu. \"and\" nối hai danh từ hoặc hai tính từ",
+                "   (\"four leg and eye black\", \"small and wite\", \"cake and juice\") KHÔNG phải từ nối — không đưa vào danh sách này.",
                 "   Từ nối có bị dùng máy móc không: __ — nếu CÓ, phải chỉ ra ít nhất 2 đoạn mở đầu bằng từ nối",
                 "   mà nội dung phía sau không khác nhau về chức năng; không chỉ ra được thì coi như KHÔNG máy móc.",
-                "Đại từ/tham chiếu nối ý đúng: __ (liệt kê)",
+                "Đại từ/tham chiếu nối ý đúng: __ (liệt kê) · số phương tiện KHÁC NHAU: __",
+                "   Cùng một đại từ lặp lại chỉ tính MỘT phương tiện (\"We\" ×3 = 1). Đại từ dùng sai không tính.",
+                "   Số phương tiện khác nhau là con số dùng cho checkpoint tham chiếu / cohesion.",
+                "Từ, cụm lặp không cần thiết: __ — liệt kê từng mục kèm số lần.",
+                "   Chỉ tính: từ nội dung lặp ≥ 3 lần, hoặc cụm ≥ 2 từ lặp nguyên văn ≥ 2 lần,",
+                "   hoặc ≥ 2 câu mở đầu bằng cùng một cấu trúc. Từ chức năng (I, the, a, and…) không tính.",
+                "   Con số này dùng cho checkpoint kiểm soát lặp.",
                 "Câu mở rộng/phức đúng: __ (liệt kê) · số kiểu cấu trúc khác nhau: __ (gọi tên từng kiểu: mệnh đề quan hệ / điều kiện / nhượng bộ / thời gian / so sánh…)",
+                "   Một câu chỉ được tính khi có ÍT NHẤT HAI MỆNH ĐỀ ĐẦY ĐỦ, mỗi mệnh đề có chủ ngữ riêng và động từ riêng",
+                "   (\"we play and we eat\", \"We will eat cake, because the weather is sunny\"). Vị ngữ ghép chung một chủ ngữ",
+                "   (\"we will eat pizza and sing karaoke\", \"she said thank you and gave me two apples\") KHÔNG tính.",
+                "   Comma splice và run-on cũng KHÔNG tính là câu ghép đúng.",
                 "Lỗi chọn từ (N_lex): __ — trích nguyên văn TỪNG lỗi; không trích được thì không tính.",
                 "K_topic (từ/cụm hợp chủ đề theo ngữ cảnh đề bài, dùng đúng, KHÔNG có sẵn trong đề): <SỐ> — liệt kê nguyên văn từng mục.",
+                "   Ghi thêm: K_phrase = __ — trong số đó có bao nhiêu mục là CỤM từ 2 tiếng trở lên dùng đúng",
+                "   (a guided tour · took many photos · local food · get on the bus). Từ đơn lẻ KHÔNG tính vào K_phrase.",
                 "   Mỗi từ/cụm tính MỘT lần dù lặp lại. KHÔNG tính: từ có sẵn trong đề, từ chức năng (the, and, is, very…),",
                 "   từ dùng sai (đã tính ở N_lex), từ tiếng Việt. Dùng cho checkpoint độ đa dạng từ (IELTS L3 / Cambridge B1 L2).",
                 "P_para (chỗ nói lại ý của đề bằng lời khác): <SỐ> — ghi từng cặp: đề: \"…\" → bài: \"…\".",
@@ -89,6 +110,10 @@ public class WritingV3PromptBuilder {
                 "   Dùng cùng N_copy ở tin nhắn người dùng cho checkpoint Paraphrase (L5) của hệ IELTS.",
                 "Chỗ người đọc phải đoán nội dung: __ — trích nguyên văn TỪNG chỗ; không trích được thì tính là 0.",
                 "Chỗ đứt mạch: __ — trích câu đứng ngay trước và ngay sau mỗi chỗ; không trích được thì tính là 0.",
+                "   Tính là MỘT chỗ đứt mạch khi bài chuyển sang một NHÓM Ý MỚI (hoạt động → cảm xúc, ý này → ý khác,",
+                "   việc đã xảy ra → nhận xét chung) mà câu mới KHÔNG có từ nối, không có tham chiếu về câu trước,",
+                "   và cũng không có mốc thời gian. Ví dụ: \"...go to a boat. We eat chicken, I was a feeling tirred...\"",
+                "   Liệt kê bài chỉ gồm các câu đặt cạnh nhau, mỗi câu một việc, không có phương tiện nối nào → ≥ 2 chỗ đứt mạch.",
                 "Câu nối hai mệnh đề độc lập chỉ bằng dấu phẩy (comma splice) hoặc không có dấu gì (run-on): __ — trích nguyên văn TỪNG chỗ.",
                 "   Dấu hiệu: sau dấu phẩy là một chủ ngữ mới + động từ (\"..., it is ...\", \"..., they are ...\", \"..., therefore they ...\").",
                 "   MỖI chỗ = 1 lỗi dấu câu, đánh {{pu1|...}} ở mục 1, VÀ tính là 1 câu KHÔNG có ranh giới rõ",
@@ -105,6 +130,11 @@ public class WritingV3PromptBuilder {
                 "   Dạng ghi: \"<ý> — bằng chứng loại (a/b/c): <trích dẫn nguyên văn từ bài>\".",
                 "   Ý nào không trích dẫn được bằng chứng thuộc ba loại trên thì KHÔNG được tính là đã phát triển.",
                 "Ý bắt buộc của đề bị thiếu: __ (liệt kê)",
+                "R_total: __ · R_answered: __ — đếm số YÊU CẦU của đề và số yêu cầu bài ĐÃ TRẢ LỜI.",
+                "   Liệt kê TỪNG yêu cầu theo thứ tự đề ra, mỗi yêu cầu ghi: \"<yêu cầu> → <trích nguyên văn câu trả lời trong bài>\"",
+                "   hoặc \"<yêu cầu> → CHƯA TRẢ LỜI\". Không trích dẫn được câu trả lời thì tính là CHƯA TRẢ LỜI.",
+                "   Câu chỉ nhắc tới chủ đề mà không đáp đúng thứ đề hỏi thì vẫn là CHƯA TRẢ LỜI.",
+                "   Hai số này quyết định trần lạc đề, hệ thống sẽ tự áp — phải ghi đúng, không được bỏ trống.",
                 "Số từ nằm ngoài phạm vi đề: __ (__%)",
                 "Cổng kích hoạt: __ (G1/G2/G3/G4 hoặc: không)",
                 "Trần cứng kích hoạt: __",
@@ -263,12 +293,12 @@ public class WritingV3PromptBuilder {
 
     /** Phần RIÊNG từng bài — task, bài viết, số liệu đo bằng máy, kết luận cổng G1, bảng trần theo lỗi của đúng bài này. */
     public String userPrompt(WritingV3Grade grade, String task, String essay) {
-        int nTotal = WritingV3Scoring.countWords(essay);
-        WritingV3Scoring.CopiedResult copied = WritingV3Scoring.countCopied(essay, task);
-        int nExempt = grade.openingSentenceExempt() ? copied.opening() : 0;
-        int nNet = nTotal - copied.n() + nExempt;
-        int wordLimit = WritingV3Scoring.extractWordLimit(task, grade.defaultWordLimit());
-        double pct = WritingV3Scoring.percentOfRequirement(nNet, wordLimit);
+        WritingV3Scoring.LengthMeasure len = WritingV3Scoring.measureLength(grade, task, essay);
+        int nTotal = len.nTotal();
+        int nExempt = len.nExempt();
+        int nNet = len.nNet();
+        int wordLimit = len.wordLimit();
+        double pct = len.percent();
         boolean isG6 = "g6".equals(grade.code());
 
         List<String> lines = new ArrayList<>(List.of(
@@ -281,7 +311,7 @@ public class WritingV3PromptBuilder {
                 "=== HẾT BÀI VIẾT ===",
                 "",
                 "=== SỐ LIỆU ĐÃ ĐO SẴN BẰNG MÁY — KẾT LUẬN, KHÔNG PHẢI GỢI Ý ===",
-                "N_total = " + nTotal + " · N_copy = " + copied.n() + " · N_net = " + nNet,
+                "N_total = " + nTotal + " · N_copy = " + len.nCopy() + " · N_net = " + nNet,
                 "Số từ đề yêu cầu = " + wordLimit + " · N_net = " + fmtPct(pct) + "% yêu cầu",
                 "Ba con số trên do hệ thống đo, LUÔN ĐÚNG. Chép nguyên vào mục 0, KHÔNG tự đếm lại.",
                 "N_copy đã được máy tính bằng cách dò mọi chuỗi 5 từ liên tiếp trùng với đề."
@@ -290,7 +320,12 @@ public class WritingV3PromptBuilder {
             lines.add("Trong N_copy có " + nExempt + " từ nằm ở CÂU MỞ BÀI nhắc lại đề: ở khối này các từ đó KHÔNG bị trừ khỏi "
                     + "N_net (đã cộng lại vào N_net ở trên), nhưng VẪN tính là chép khi chấm L5 / paraphrase và không dùng làm bằng chứng từ vựng.");
         }
-        lines.add("N_copy dùng trực tiếp cho checkpoint Paraphrase (L5) nếu rubric có: N_copy = " + copied.n() + ".");
+        if (len.givenOpening()) {
+            lines.add("ĐỀ CHO SẴN CÂU MỞ ĐẦU (câu trong ngoặc kép). Câu đó là chữ của ĐỀ, không phải của học sinh: đã bị trừ khỏi N_net, "
+                    + "KHÔNG được tính là ý của học sinh, KHÔNG được dùng làm bằng chứng nội dung, từ vựng hay ngữ pháp, và KHÔNG được "
+                    + "tính vào 'Ý được phát triển'. Chỉ chấm phần học sinh tự viết thêm.");
+        }
+        lines.add("N_copy dùng trực tiếp cho checkpoint Paraphrase (L5) nếu rubric có: N_copy = " + len.nCopy() + ".");
         lines.add("");
         lines.add("KẾT LUẬN CỔNG G1 — áp đúng dòng này, không tự đánh giá lại độ dài:");
         lines.add("  " + WritingV3Scoring.gateG1Conclusion(nNet, wordLimit, pct));

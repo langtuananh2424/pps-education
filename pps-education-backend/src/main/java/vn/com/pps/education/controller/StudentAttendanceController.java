@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import java.util.List;
+import vn.com.pps.education.dto.AttendanceMarkHistoryResponse;
 import vn.com.pps.education.dto.AttendanceMarkResponse;
 import vn.com.pps.education.dto.AttendanceSessionResponse;
 import vn.com.pps.education.dto.MarkAttendanceRequest;
@@ -34,6 +36,12 @@ public class StudentAttendanceController {
     public ResponseEntity<AttendanceSessionResponse> getAttendanceSession(@PathVariable Long classSessionId,
                                                                            @AuthenticationPrincipal AuthenticatedUser actor) {
         return ResponseEntity.ok(studentAttendanceService.getAttendanceSession(classSessionId, actor.userId()));
+    }
+
+    @GetMapping("/history")
+    public ResponseEntity<List<AttendanceMarkHistoryResponse>> getAttendanceHistory(@PathVariable Long classSessionId,
+                                                                                      @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(studentAttendanceService.getAttendanceHistory(classSessionId, actor.userId()));
     }
 
     @PreAuthorize("hasPermission(null, 'academic.attendance.mark') or hasPermission(null, 'academic.attendance.create')")

@@ -49,6 +49,7 @@ import java.time.temporal.ChronoField;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * UC-30: Xem hóa đơn & thanh toán học phí (FR-FIN-01, FR-FIN-02). Xem
@@ -283,11 +284,28 @@ public class InvoiceService {
      * Main Flow bước 5-6: webhook ngân hàng xác nhận giao dịch thành công
      * (A13 — tự động, không có actor người dùng). Đối chiếu qua
      * invoiceNumber (đã gắn trong qr_code_data khi hiển thị QR).
+     *
+     * Bổ sung ngoài SDD gốc (rà soát bảo mật 2026-09-28, đã xác nhận với người dùng) — SDD không đặc tả
+     * các ràng buộc an toàn cho webhook, bổ sung tối thiểu:
+     * - Idempotent theo bankTransactionId: ngân hàng gửi lại cùng 1 giao dịch (retry) -> trả lại Payment
+     *   đã ghi, KHÔNG cộng tiền lần 2 (kèm UNIQUE index ở V197).
+     * - Không gạch nợ vào hóa đơn đã hủy (CANCELLED) hoặc đã xóa mềm - để Kế toán xử lý thủ công.
+     * - Khoá dòng hóa đơn trước khi cộng paid_amount (xem InvoiceRepository#findForUpdateByInvoiceNumber).
+     * (amount > 0 kiểm tra ở BankWebhookPaymentRequest.)
      */
     @Transactional
     public PaymentResponse confirmBankWebhook(BankWebhookPaymentRequest request) {
-        Invoice invoice = invoiceRepository.findByInvoiceNumber(request.invoiceNumber())
+        Optional<Payment> existing = paymentRepository.findByBankTransactionId(request.bankTransactionId());
+        if (existing.isPresent()) {
+            return toResponse(existing.get());
+        }
+
+        Invoice invoice = invoiceRepository.findForUpdateByInvoiceNumber(request.invoiceNumber())
+                .filter(i -> i.getDeletedAt() == null)
                 .orElseThrow(() -> new ResourceNotFoundException("error.invoice.notFoundByNumber", new Object[]{request.invoiceNumber()}, "Không tìm thấy hóa đơn số=" + request.invoiceNumber()));
+        if (invoice.getStatus() == Invoice.Status.CANCELLED) {
+            throw new IllegalArgumentException("Hóa đơn số=" + request.invoiceNumber() + " đã hủy, không thể ghi nhận thanh toán tự động.");
+        }
 
         Payment payment = new Payment();
         payment.setPaymentReference(generatePaymentReference());

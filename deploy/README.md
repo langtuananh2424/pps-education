@@ -77,7 +77,8 @@ service khác (`minio`, `postgres`...) vẫn phải làm tay trên server, xem m
 
 ```
 DB_PASSWORD=...
-JWT_SECRET=...
+JWT_SECRET=...          # BẮT BUỘC ngẫu nhiên ≥32 byte: openssl rand -base64 48. Giá trị mẫu/ngắn -> backend staging/production từ chối khởi động
+BANK_WEBHOOK_SECRET=     # webhook ngân hàng UC-30; để trống = webhook TẮT. Khi tích hợp thật: openssl rand -hex 32
 GOOGLE_OAUTH_CLIENT_IDS=...
 S3_ACCESS_KEY=...        # dùng chung cho MinIO root user + R2_ACCESS_KEY_ID trong compose
 S3_SECRET_KEY=...        # dùng chung cho MinIO root password + R2_SECRET_ACCESS_KEY trong compose
@@ -126,16 +127,36 @@ tiếp các tài khoản thật khác qua UI quản lý người dùng của app
 
 ## 3. MinIO (thay Cloudflare R2)
 
-Bucket `pps-media` + quyền `anonymous download` (giữ đúng hành vi bucket
-public của R2) được **service `minio-init` trong `docker-compose.*.yml` tự
-tạo** mỗi lần `docker compose up -d` — idempotent, và `backend` chờ nó chạy
-xong mới khởi động (`depends_on: service_completed_successfully`). Không cần
-thao tác tay.
+Bucket `pps-media` + policy đọc ẩn danh được **service `minio-init` trong
+`docker-compose.*.yml` tự tạo** mỗi lần `docker compose up -d` — idempotent, và
+`backend` chờ nó chạy xong mới khởi động (`depends_on:
+service_completed_successfully`). Không cần thao tác tay.
+
+Rà soát bảo mật 2026-09-28 (đã xác nhận với người dùng): policy **chỉ** cho
+đọc ẩn danh nội dung giảng dạy (`lms/questions/`, `lms/curriculum-documents/`,
+`lms/review-videos/`), **không** cho liệt kê bucket. Trước đây `anonymous set
+download` mở cả bucket kèm quyền liệt kê — ai mở `https://files.ppsvietnam.edu.vn/`
+cũng thấy toàn bộ key (ảnh đại diện, audio bài nộp, báo cáo) rồi tải về. File
+cá nhân giờ chỉ đọc được qua URL có chữ ký, hết hạn sau 60 phút
+(`R2_SIGNED_URL_ENDPOINT`, xem `MediaUrlSigner.java`) — cần Nginx `files*` có
+`location ^~ /pps-media/` (mục 4) **trước** khi deploy backend bản này, nếu
+không ảnh đại diện/audio/báo cáo sẽ không mở được.
+
+CD chỉ chạy `docker compose up -d --no-deps backend` nên **không** tự chạy lại
+`minio-init` — sau khi CD đồng bộ compose bản mới lên server, chạy tay 1 lần ở
+mỗi stack (staging trước):
+
+```bash
+cd /opt/pps-education/staging && docker compose up -d minio-init && docker compose logs minio-init | tail -3
+```
 
 Kiểm tra sau khi stack lên:
 
 ```bash
 docker compose -f docker-compose.yml logs minio-init   # thay "up" xanh: "bucket pps-media da san sang"
+# Kiểm tra policy: file cá nhân KHÔNG tải được khi không có chữ ký, gốc domain KHÔNG liệt kê key
+curl -s -o /dev/null -w "%{http_code}\n" https://files.ppsvietnam.edu.vn/            # 404
+curl -s -o /dev/null -w "%{http_code}\n" https://files.ppsvietnam.edu.vn/pps-media/  # 403
 ```
 
 Fallback thủ công (chỉ khi cần chạy lại ngoài luồng compose, VD sau khi xoá
@@ -147,8 +168,11 @@ Docker Hub không còn tồn tại):
 docker run --rm --network pps-staging_internal --entrypoint /bin/sh \
   -e MC_HOST_s="http://<S3_ACCESS_KEY>:<S3_SECRET_KEY>@minio:9000" \
   quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727 \
-  -c 'mc mb --ignore-existing s/pps-media && mc anonymous set download s/pps-media'
+  -c 'mc mb --ignore-existing s/pps-media && mc anonymous set none s/pps-media'
 ```
+
+Rồi chạy lại `docker compose up -d minio-init` để nạp đúng policy (chỉ nội dung
+giảng dạy) — KHÔNG dùng lại `mc anonymous set download` cho cả bucket.
 
 Nếu có dữ liệu cũ thật trên R2 cần giữ lại: dùng `rclone`/`mc mirror` chuyển
 1 lần trước khi cắt hẳn sang MinIO (không tự động, làm tay khi cần).
@@ -387,7 +411,28 @@ chỉ thao tác trên 6 subdomain dưới đây.
    và `cd-frontend.yml` (matrix `app: [admin, user]`) CHƯA đổi tên theo
    (quyết định phạm vi tối thiểu - chỉ đổi domain/nginx, không đổi code/CI).
 
-2. `ln -s` từng file vào `sites-enabled/`, `nginx -t && systemctl reload nginx`.
+2. Cài 2 file dùng chung (rà soát bảo mật 2026-09-28 — rate limit theo IP thật
+   `CF-Connecting-IP`, header bảo mật CSP/X-Frame-Options/nosniff/HSTS, sandbox
+   file HTML/SVG trên domain `files*`). Template bản mới `include`/dùng biến
+   của 2 file này nên phải cài **trước** khi nạp template, nếu không `nginx -t` lỗi:
+   ```bash
+   sudo cp deploy/nginx/pps-security.conf /etc/nginx/conf.d/pps-security.conf
+   sudo mkdir -p /etc/nginx/snippets
+   sudo cp deploy/nginx/pps-security-headers.conf /etc/nginx/snippets/pps-security-headers.conf
+   ```
+   Server đã cài template cũ: copy lại cả 6 file từ template bản mới (thay
+   placeholder theo bảng trên), `nginx -t && systemctl reload nginx` — làm
+   **trước** khi deploy backend có ký URL (xem mục 3), rồi purge cache
+   Cloudflare cho `files.ppsvietnam.edu.vn`/`files-staging...` 1 lần (edge có
+   thể còn giữ bản cache ảnh/audio cá nhân từ lúc bucket còn public).
+   Sau khi reload, kiểm tra nhanh:
+   ```bash
+   curl -sI https://admin.ppsvietnam.edu.vn/ | grep -i content-security-policy
+   ```
+   Nếu CSP chặn nhầm 1 tính năng (Console trình duyệt báo "Refused to load the
+   script ..."), thêm đúng domain đó vào `script-src` trong
+   `pps-security-headers.conf` rồi reload — không bỏ cả header.
+3. `ln -s` từng file vào `sites-enabled/`, `nginx -t && systemctl reload nginx`.
    - `admin*`/`student*` template có `client_max_body_size 210m` trong
      `location /api/` (upload media tới 200MB). Server đã cài trước bản này
      phải thêm dòng đó thủ công rồi reload, nếu không upload >1MB bị 413.
@@ -404,9 +449,9 @@ chỉ thao tác trên 6 subdomain dưới đây.
      (đã áp dụng trên server 2026-09-22); Cloudflare đã cache `sw.js` cũ ở
      edge với TTL mặc định 4h -> purge URL đó 1 lần sau khi reload nginx;
      người dùng đang bị kẹt cần xoá và thêm lại shortcut 1 lần cuối.
-3. Cài `cloudflared` (gói `.deb` chính thức Cloudflare), `cloudflared tunnel login`,
+4. Cài `cloudflared` (gói `.deb` chính thức Cloudflare), `cloudflared tunnel login`,
    `cloudflared tunnel create pps-education`.
-4. Tạo `~/.cloudflared/config.yml`:
+5. Tạo `~/.cloudflared/config.yml`:
    ```yaml
    tunnel: pps-education
    credentials-file: /root/.cloudflared/<TUNNEL_ID>.json
@@ -425,7 +470,7 @@ chỉ thao tác trên 6 subdomain dưới đây.
        service: http://localhost:80
      - service: http_status:404
    ```
-5. `cloudflared tunnel route dns pps-education <hostname>` cho từng hostname ở
+6. `cloudflared tunnel route dns pps-education <hostname>` cho từng hostname ở
    trên (6 lần) — tự động tạo/GHI ĐÈ record DNS đúng hostname đó thành CNAME
    trỏ vào tunnel (record `admin`/`user` cũ trỏ IP giả `192.0.2.1` sẽ được
    thay thế, 4 record còn lại là tạo mới). Domain `user`/`user-staging` đổi
@@ -433,8 +478,8 @@ chỉ thao tác trên 6 subdomain dưới đây.
    nếu tunnel/DNS trên server vẫn đang trỏ hostname `user` cũ, cần chạy lại
    `cloudflared tunnel route dns` cho hostname `student` mới rồi mới sửa
    `config.yml`, không tự động theo repo.
-6. `cloudflared service install && systemctl enable --now cloudflared`.
-7. Trên Cloudflare Dashboard: bật "Always Use HTTPS" + SSL/TLS mode "Full".
+7. `cloudflared service install && systemctl enable --now cloudflared`.
+8. Trên Cloudflare Dashboard: bật "Always Use HTTPS" + SSL/TLS mode "Full".
 
 ## 5. 9Router (chấm AI)
 
@@ -718,9 +763,10 @@ flowchart TD
 
 ```bash
 # 1. Tải script + systemd units từ GitHub (server KHÔNG có sẵn bản checkout
-#    repo) - REF = nhánh đã chứa các file này (develop sau khi merge PR, hoặc
-#    main khi đã lên staging). Chạy lại đúng khối này mỗi khi script đổi.
-REF=develop
+#    repo) - REF=production: đúng bản đang chạy trên production (script
+#    backup chỉ phục vụ production). Chỉ dùng develop/main khi cần thử bản
+#    chưa release. Chạy lại đúng khối này mỗi khi script đổi.
+REF=production
 RAW=https://raw.githubusercontent.com/langtuananh2424/pps-education/$REF/deploy
 for f in backup-db.sh backup-db-manual.sh restore-db.sh; do
   sudo curl -fsSL "$RAW/$f" -o /opt/pps-education/$f
@@ -877,7 +923,10 @@ rclone copy ppsserver:/opt/pps-education/backups/encrypted D:\pps-db-backups --p
 ```
 
 `rclone copy` chỉ tải file mới, không xoá bản cũ trên laptop — chạy lại lệnh
-cuối mỗi lần laptop ở trong mạng trung tâm. Giải mã khi cần (Git Bash, passphrase
+cuối mỗi lần laptop ở trong mạng trung tâm. Dùng hằng ngày: chép
+`deploy/laptop/tai-backup.cmd` vào `D:\pps-db-backups\` rồi bấm đúp. Script
+kéo DB (bản `.gpg`) và media (mục 11b, mã hoá trên laptop), khai báo SFTP ngay
+trong lệnh, không cần `rclone.conf`. Giải mã khi cần (Git Bash, passphrase
 lấy từ password manager):
 
 ```bash
@@ -885,6 +934,29 @@ gpg --pinentry-mode loopback -d -o restored.dump production_pps_education_<ts>.d
 ```
 
 ### Kiểm tra định kỳ
+
+**Báo cáo 1 màn hình** cho cả backup DB lẫn media: `deploy/check-backups.sh`
+(chỉ đọc). Cài 1 lần:
+
+```bash
+REF=production   # hoac develop neu chua release
+sudo curl -fsSL https://raw.githubusercontent.com/langtuananh2424/pps-education/$REF/deploy/check-backups.sh -o /opt/pps-education/check-backups.sh
+sudo chown deploy:deploy /opt/pps-education/check-backups.sh && sudo chmod 750 /opt/pps-education/check-backups.sh
+```
+
+Chạy (nên xem mỗi tuần, và sau mỗi lần deploy/sửa script backup):
+
+```bash
+sudo /opt/pps-education/check-backups.sh
+```
+
+Kiểm tra 2 timer (đang bật, lần chạy cuối + kết quả, lần kế tiếp); mỗi stack
+DB có bản daily mới (< 26 giờ) và bản `.gpg` khớp; kết quả lần chạy cuối
+trong `backup.log` / `backup-media.log`; LV `/mnt/pps-backup` đang mount; dung
+lượng các ổ (cảnh báo từ 85%). Dòng `[!!]` là cảnh báo, dòng cuối tóm tắt số
+cảnh báo; exit code 1 nếu có cảnh báo.
+
+Kiểm tra lẻ bằng tay:
 
 - `systemctl status pps-db-backup.timer` — timer phải `active (waiting)`.
 - `journalctl -u pps-db-backup.service --since -7d` — không có dòng `LOI`.
@@ -932,6 +1004,10 @@ sudo -u deploy /opt/pps-education/restore-db.sh production <file.dump|file.dump.
 hằng ngày **03:15** (sau backup DB 02:30), chỉ bucket `pps-media` của
 **production** (staging không backup).
 
+Trạng thái: **đã cài trên server 2026-09-24**. LV `lv-pps-backup` 150G, lần
+chạy đầu 31 file / 212M, đã kiểm tra tài khoản `pps-media-backup` ghi vào
+bucket bị `403 AccessDenied`.
+
 - Đọc qua **S3 API** bằng tài khoản MinIO **chỉ-đọc** `pps-media-backup`
   (không dùng root MinIO), KHÔNG copy thô `/mnt/pps-production/media` (định
   dạng nội bộ `xl.meta` của MinIO, copy lúc đang chạy có thể không nhất quán).
@@ -943,8 +1019,10 @@ hằng ngày **03:15** (sau backup DB 02:30), chỉ bucket `pps-media` của
   cùng kích thước (`rclone check --one-way --size-only`).
 - Lưu trên **LV riêng `/mnt/pps-backup`** — script từ chối chạy nếu LV chưa
   mount (tránh ghi thẳng lên `/`). LV này nằm **cùng SSD vật lý** với dữ liệu
-  gốc: chống xoá/ghi đè nhầm, lỗi app, KHÔNG chống hỏng ổ — bản off-site cho
-  media chưa có (dung lượng lớn, xem xét cùng lúc với cloud cho DB).
+  gốc: chống xoá/ghi đè nhầm, lỗi app, KHÔNG chống hỏng ổ. Bản ngoài server:
+  laptop kéo `current/` về qua LAN và **mã hoá ngay trên laptop** (mục
+  "Kéo media về laptop" bên dưới). Bản cloud chưa có (xem xét cùng lúc với
+  cloud cho DB).
 
 ### Cài đặt lần đầu
 
@@ -959,10 +1037,14 @@ sudo vgs ubuntu-vg   # cot VFree = dung luong con trong de cap
 **2. Tạo LV `/mnt/pps-backup`** (VD 150G):
 
 ```bash
+sudo cp /etc/fstab /etc/fstab.bak-$(date +%F)
 sudo lvcreate -L 150G -n lv-pps-backup ubuntu-vg
 sudo mkfs.ext4 /dev/ubuntu-vg/lv-pps-backup
 sudo mkdir -p /mnt/pps-backup
 echo "UUID=$(sudo blkid -s UUID -o value /dev/ubuntu-vg/lv-pps-backup)  /mnt/pps-backup  ext4  defaults  0 2" | sudo tee -a /etc/fstab
+tail -3 /etc/fstab        # dong cuoi phai co UUID=<khong rong>
+sudo findmnt --verify     # 0 errors (canh bao /swap.img + "systemd still uses the old version" la binh thuong)
+sudo systemctl daemon-reload
 sudo mount -a && df -h /mnt/pps-backup
 sudo install -d -o deploy -g deploy -m 700 /mnt/pps-backup/media
 ```
@@ -970,7 +1052,7 @@ sudo install -d -o deploy -g deploy -m 700 /mnt/pps-backup/media
 **3. Tải script + systemd units:**
 
 ```bash
-REF=develop
+REF=production
 RAW=https://raw.githubusercontent.com/langtuananh2424/pps-education/$REF/deploy
 sudo curl -fsSL "$RAW/backup-media.sh" -o /opt/pps-education/backup-media.sh
 sudo chown deploy:deploy /opt/pps-education/backup-media.sh
@@ -984,10 +1066,12 @@ done
 file credentials (không hiện ra màn hình):
 
 ```bash
-printf 'RCLONE_S3_ACCESS_KEY_ID=pps-media-backup\nRCLONE_S3_SECRET_ACCESS_KEY=%s\n' "$(openssl rand -hex 24)" \
-  | sudo tee /opt/pps-education/media-backup.env > /dev/null
+# 1 DONG DUY NHAT - dan tach dong (co dong trong sau "\") se in mat khau ra man
+# hinh ma khong ghi file.
+printf 'RCLONE_S3_ACCESS_KEY_ID=pps-media-backup\nRCLONE_S3_SECRET_ACCESS_KEY=%s\n' "$(openssl rand -hex 24)" | sudo tee /opt/pps-education/media-backup.env > /dev/null
 sudo chown deploy:deploy /opt/pps-education/media-backup.env
 sudo chmod 600 /opt/pps-education/media-backup.env
+sudo grep -c '^RCLONE_S3_' /opt/pps-education/media-backup.env   # phai ra 2
 
 # Tai khoan root MinIO lay tu CONTAINER dang chay (gia tri compose da resolve) -
 # KHONG doc thang .env: docker --env-file khong bo comment "# ..." cuoi dong
@@ -1024,6 +1108,49 @@ systemctl list-timers 'pps-*'
 Lần đầu tải toàn bộ bucket (lâu tuỳ dung lượng); các lần sau chỉ tải file
 mới/đổi. Kết quả đúng: `rclone copy OK`, `Doi chieu OK`, `Backup media hoan
 tat, khong loi`.
+
+Kiểm tra tài khoản backup thật sự chỉ-đọc (phải báo `AccessDenied`/`403`):
+
+```bash
+sudo -u deploy bash -c 'set -a; . /opt/pps-education/media-backup.env; set +a; echo test > /tmp/w.txt; RCLONE_S3_PROVIDER=Minio RCLONE_S3_ENDPOINT=http://127.0.0.1:9000 RCLONE_S3_ENV_AUTH=false rclone copyto /tmp/w.txt :s3:pps-media/_write_test.txt 2>&1 | tail -1; rm -f /tmp/w.txt'
+```
+
+### Kéo media về laptop (mã hoá rclone crypt)
+
+Media là ảnh/audio của học sinh (có trẻ em) nên laptop **không lưu dạng file
+thường**. `deploy/laptop/tai-backup.cmd` (bước 2/2) kéo
+`/mnt/pps-backup/media/current` qua SFTP bằng user chỉ-đọc `pps-backup-pull`
+(mục 11), rồi ghi vào `D:\pps-db-backups\media` qua **rclone crypt**: cả tên
+file/thư mục lẫn nội dung đều mã hoá. Mất laptop không lộ media nếu không có
+mật khẩu.
+
+- Server: `backup-media.sh` cấp quyền đọc **riêng `current/`** cho group
+  `pps-backup` sau mỗi lần chạy. `changed/` và log vẫn chỉ `deploy` đọc được.
+  Lần đầu sau khi cập nhật script, chạy tay 1 lần để cấp quyền ngay:
+  `sudo -u deploy /opt/pps-education/backup-media.sh`.
+- Mật khẩu mã hoá: tự đặt (≥ 12 ký tự), lưu **Google Password Manager** mục
+  `pps-media-backup-crypt`, **khác** passphrase GPG của DB. Script hỏi mỗi lần
+  chạy (gõ ẩn, lần đầu gõ 2 lần). Để trống thì bỏ qua media, DB vẫn tải.
+  Mất mật khẩu thì không đọc lại được bản media trên laptop: xoá thư mục
+  `media\` rồi kéo lại với mật khẩu mới.
+- Script giữ file kiểm tra `.pps-crypt-check` (đã mã hoá) trong `media\`. Gõ
+  sai mật khẩu thì dừng lại, **không** ghi thêm file mã hoá bằng khoá khác.
+- Chỉ tải file mới. Object bị ghi đè trên server được thay trên laptop (bản cũ
+  vẫn còn ở `changed/` trên server 90 ngày). Object bị xoá không bị xoá theo.
+
+Xem/khôi phục trên laptop (PowerShell, giải mã ra thư mục tạm, xem xong thì
+xoá):
+
+```powershell
+$env:RCLONE_CRYPT_PASSWORD = (Read-Host 'Mat khau' -AsSecureString | ForEach-Object { [Runtime.InteropServices.Marshal]::PtrToStringBSTR([Runtime.InteropServices.Marshal]::SecureStringToBSTR($_)) } | rclone obscure -)
+rclone ls ":crypt,remote='D:\pps-db-backups\media':" --exclude /.pps-crypt-check
+rclone copy ":crypt,remote='D:\pps-db-backups\media':lms/questions/audio" D:\restore-media --exclude /.pps-crypt-check
+Remove-Item Env:RCLONE_CRYPT_PASSWORD
+```
+
+Đẩy ngược lên MinIO khi mất cả server: giải mã ra thư mục như trên rồi làm
+theo `RUNBOOK-db-backup-restore.md` mục 4.5 (nguồn là thư mục đã giải mã
+thay cho `/mnt/pps-backup/media/current`).
 
 ### Kiểm tra định kỳ
 

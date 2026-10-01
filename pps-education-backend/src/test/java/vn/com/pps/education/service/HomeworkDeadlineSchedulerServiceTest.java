@@ -176,6 +176,8 @@ class HomeworkDeadlineSchedulerServiceTest extends AbstractIntegrationTest {
         // liệt kê "Chi tiết từng em" trong content nữa, chỉ giữ tỷ lệ hoàn thành; chi tiết xem qua nút
         // "Xem chi tiết" (deep-link sang trang thống kê BTVN).
         assertThat(created.getContent()).contains("1/2 học sinh (50%)");
+        // classId để email tra Hotline Quản lý điểm trường của lớp (EmailNotificationSender).
+        assertThat(((Number) created.getMetadata().get("classId")).longValue()).isEqualTo(assignment.getSchoolClass().getId());
 
         ExerciseAssignment reloaded = exerciseAssignmentRepository.findById(assignment.getId()).orElseThrow();
         assertThat(reloaded.getTeacherNotifiedAt()).isNotNull();

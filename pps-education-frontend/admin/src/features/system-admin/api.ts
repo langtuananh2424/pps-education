@@ -8,7 +8,11 @@ export interface RoleResponse {
   name: string;
   description: string | null;
   isSystem: boolean;
+  /** V202 — vai trò được xem dữ liệu của: tất cả điểm trường (ALL) / chỉ điểm trường mình phụ trách (SITE) / chỉ lớp mình dạy (CLASS); SELF = vai trò Portal. */
+  dataScope: DataScope;
 }
+
+export type DataScope = "ALL" | "SITE" | "CLASS" | "SELF";
 
 /** Khớp UserPermissionOverrideSummary thật — xem UserDetailResponse (UC-44 bước 3). */
 export interface UserPermissionOverrideSummary {
@@ -60,6 +64,8 @@ export interface UserSearchFilter {
   keyword?: string;
   departmentId?: number;
   status?: "ACTIVE" | "INACTIVE" | "SUSPENDED";
+  /** Lọc theo mã role ngay ở server (VD "TEACHER") — bổ sung ngoài SDD gốc, 2026-09-29. */
+  roleCode?: string;
 }
 
 /**
@@ -107,6 +113,7 @@ export function searchUsers(filter: UserSearchFilter, page: number, size: number
   if (filter.keyword) params.set("keyword", filter.keyword);
   if (filter.departmentId) params.set("departmentId", String(filter.departmentId));
   if (filter.status) params.set("status", filter.status);
+  if (filter.roleCode) params.set("roleCode", filter.roleCode);
   params.set("page", String(page));
   params.set("size", String(size));
   return apiRequest<Page<UserListItemResponse>>(`/users?${params.toString()}`);
@@ -120,6 +127,33 @@ export function getUserDetail(userId: number): Promise<UserDetailResponse> {
 /** UC-44 bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-09-05): lịch sử đăng nhập/thiết bị. */
 export function getUserLoginHistory(userId: number, page: number, size: number): Promise<Page<LoginHistoryItemResponse>> {
   return apiRequest<Page<LoginHistoryItemResponse>>(`/users/${userId}/login-history?page=${page}&size=${size}`);
+}
+
+/**
+ * Khớp UserSessionResponse thật (UC-44 bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-29) —
+ * 1 thiết bị đang đăng nhập (refresh token còn hiệu lực). lastActiveAt = lần hoạt động gần nhất.
+ */
+export interface UserSessionResponse {
+  id: number;
+  ipAddress: string | null;
+  deviceInfo: string | null;
+  lastActiveAt: string;
+  expiresAt: string;
+}
+
+/** Thiết bị đang đăng nhập của 1 tài khoản (quyền user.view). */
+export function getUserSessions(userId: number): Promise<UserSessionResponse[]> {
+  return apiRequest<UserSessionResponse[]>(`/users/${userId}/sessions`);
+}
+
+/** Gỡ 1 thiết bị đang đăng nhập (quyền user.update) — thiết bị đó bị đăng xuất ở lần gọi API kế tiếp. */
+export function revokeUserSession(userId: number, sessionId: number): Promise<void> {
+  return apiRequest<void>(`/users/${userId}/sessions/${sessionId}`, { method: "DELETE" });
+}
+
+/** Gỡ toàn bộ thiết bị đang đăng nhập của tài khoản (quyền user.update). */
+export function revokeAllUserSessions(userId: number): Promise<void> {
+  return apiRequest<void>(`/users/${userId}/sessions`, { method: "DELETE" });
 }
 
 /** UC-43: tạo tài khoản mới. */
@@ -173,6 +207,9 @@ export interface CreateRoleRequest {
   code: string;
   name: string;
   description?: string;
+  dataScope: DataScope;
+  /** V202 "Tạo từ mẫu" — sao chép toàn bộ quyền của vai trò này; bỏ trống thì vai trò bắt đầu không có quyền nào. */
+  copyFromRoleId?: number | null;
 }
 
 /** UC-03: danh sách 11 role hệ thống + role tùy chỉnh. */
@@ -201,6 +238,11 @@ export function updateRolePermissions(roleId: number, permissionIds: number[], c
     method: "PUT",
     body: JSON.stringify({ permissionIds, confirm })
   });
+}
+
+/** V202: đổi phạm vi dữ liệu của vai trò. */
+export function updateRoleDataScope(roleId: number, dataScope: DataScope): Promise<RoleResponse> {
+  return apiRequest<RoleResponse>(`/roles/${roleId}/data-scope`, { method: "PUT", body: JSON.stringify({ dataScope }) });
 }
 
 /** UC-46: gán 1 role cho 1 tài khoản. */
@@ -368,7 +410,14 @@ export const NOTIFICATION_TYPES = [
   "STUDENT_ATTITUDE_ESCALATION_PENDING_APPROVAL",
   "STUDENT_ATTITUDE_ESCALATION",
   "CLASS_CHECKIN_LATE_ALERT",
-  "CLASS_CHECKIN_ABSENT_ALERT"
+  "CLASS_CHECKIN_ABSENT_ALERT",
+  "SESSION_REPORT_DUE_SOON",
+  "SESSION_REPORT_OVERDUE",
+  "SESSION_REPORT_RESUBMIT_OVERDUE",
+  "SESSION_REPORT_APPROVAL_DUE_SOON",
+  "SESSION_REPORT_APPROVAL_OVERDUE",
+  "SESSION_REPORT_ESCALATION",
+  "SESSION_REPORT_DAILY_DIGEST"
 ] as const;
 export type NotificationTypeValue = (typeof NOTIFICATION_TYPES)[number];
 

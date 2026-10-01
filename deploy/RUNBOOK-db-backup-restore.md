@@ -1,7 +1,7 @@
 # Runbook — Backup & khôi phục database
 
-Các bước thao tác tay khi cần **backup thủ công** trước thay đổi lớn về DB và
-khi cần **khôi phục** DB. Phần cài đặt backup tự động hằng ngày (systemd
+Các bước thao tác tay khi cần **backup thủ công** trước thay đổi lớn về DB
+hoặc media, và khi cần **khôi phục** DB/media. Phần cài đặt backup tự động hằng ngày (systemd
 timer, GPG, rclone → Google Drive) và sơ đồ luồng của từng script nằm ở
 [`deploy/README.md` mục 11](README.md#11-backup-postgres-3-2-1) — runbook này
 giả định đã cài xong mục đó.
@@ -12,6 +12,7 @@ giả định đã cài xong mục đó.
 |---|---|
 | Sắp merge PR có migration Flyway "nguy hiểm" lên staging/production | [Mục 2](#2-backup-thủ-công-trước-thay-đổi-lớn-server) |
 | Sắp chạy SQL sửa dữ liệu tay / import hàng loạt trên server | [Mục 2](#2-backup-thủ-công-trước-thay-đổi-lớn-server) |
+| Sắp đổi image/phiên bản MinIO, xoá/sửa media hàng loạt, hoặc cần bản media mới nhất ngay | [Mục 2.1](#21-backup-media-thủ-công-minio-production) |
 | Thử migration mới / `docker compose down -v` trên máy dev | [Mục 3](#3-backup--khôi-phục-trên-máy-dev-local) |
 | Test restore định kỳ (mỗi quý) | [Mục 4.1](#41-test-restore-vào-db-scratch-không-ảnh-hưởng-gì) |
 | Dữ liệu bị xoá/sửa nhầm, schema không đổi | [Mục 4.2](#42-dữ-liệu-bị-xoásửa-nhầm) |
@@ -114,6 +115,66 @@ không phản ánh tình trạng DB.
 **Bước 4 — Nếu hỏng:** sang [mục 4.3](#43-rollback-migration-hỏng-db--image-backend)
 (do migration) hoặc [mục 4.2](#42-dữ-liệu-bị-xoásửa-nhầm) (do dữ liệu).
 Nếu ổn: giữ bản thủ công khoảng 7 ngày rồi dọn ([mục 5](#5-dọn-dẹp)).
+
+### 2.1 Backup media thủ công (MinIO production)
+
+Media (ảnh/audio/video) đã có backup tự động 03:15 hằng ngày (README mục 11b).
+Chạy thủ công khi:
+
+- sắp **đổi image/phiên bản MinIO** hoặc chuyển sang object storage khác;
+- sắp **xoá/sửa media hàng loạt** (script dọn file, import lại câu hỏi có
+  audio...);
+- vừa có nhiều file upload (VD giáo viên soạn nhiều câu hỏi audio) và muốn
+  có bản mới nhất ngay, không đợi 03:15 (hoặc trước khi kéo về laptop).
+
+Các lệnh media **không cần nhãn** (khác `backup-db-manual.sh`).
+
+**Cách A — chạy ngay backup tự động** (thường dùng, không gián đoạn app):
+
+```bash
+sudo systemctl start pps-media-backup.service
+sudo tail -n 5 /mnt/pps-backup/media/backup-media.log   # dong cuoi: "Backup media hoan tat, khong loi"
+```
+
+Đọc bucket `pps-media` qua S3 API bằng tài khoản chỉ-đọc, chỉ tải file mới/đổi.
+Kết quả là file thường đúng tên key trong `/mnt/pps-backup/media/current/`.
+Bản cũ của file bị ghi đè nằm ở `changed/<ts>/`, giữ 90 ngày. Khôi phục theo
+[mục 4.5](#45-khôi-phục-file-media-minio-production).
+
+**Cách B — copy thô dữ liệu MinIO** (chỉ trước khi **đổi image/phiên bản
+MinIO**, README mục 3b). Bản này giữ nguyên định dạng nội bộ (`xl.meta`,
+`.minio.sys`), là đường quay lại nếu MinIO bản mới làm hỏng hoặc nâng cấp định
+dạng dữ liệu. Phải **dừng MinIO** trong lúc copy (copy lúc đang chạy có thể
+không nhất quán) nên xem/upload media lỗi vài giây đến vài phút: làm ngoài giờ
+học.
+
+```bash
+sudo du -sh /mnt/pps-production/media          # dung luong can copy
+df -h /mnt/pps-backup                          # phai du cho (KHONG copy len "/")
+D=/mnt/pps-backup/media-raw-$(date +%F)
+sudo install -d -m 700 "$D"
+cd /opt/pps-education/production
+sudo -u deploy docker compose stop minio
+sudo rsync -aHAX /mnt/pps-production/media/ "$D/data/"   # vao thu muc con: "$D" giu quyen 700
+sudo -u deploy docker compose start minio
+docker ps --filter name=pps-production-minio-1 --format '{{.Status}}'   # phai la "Up ..."
+sudo du -sh "$D"
+```
+
+Chạy `diff -rq` giữa bản copy và thư mục gốc **sau khi** MinIO đã bật lại sẽ
+thấy khác ở `.minio.sys/tmp`, `.trash`, `.heal` (MinIO tự dọn khi khởi động)
+và ở file mới upload sau đó. Như vậy là bình thường.
+
+**Cách C — bản ngoài server:** trên laptop ở mạng trung tâm, bấm đúp
+`D:\pps-db-backups\tai-backup.cmd` (bước 2/2 kéo `current/` về, mã hoá bằng
+rclone crypt, README mục 11b). Nên chạy **sau** cách A để laptop có bản mới
+nhất.
+
+| Bản | Nằm ở | Tự dọn? |
+|---|---|---|
+| Cách A | `/mnt/pps-backup/media/current/` + `changed/<ts>/` | `changed/` > 90 ngày; `current/` không bao giờ xoá |
+| Cách B | `/mnt/pps-backup/media-raw-<ngày>/data/` | Không, xoá tay ([mục 5](#5-dọn-dẹp)) |
+| Cách C | `D:\pps-db-backups\media\` (laptop, đã mã hoá) | Không |
 
 ## 3. Backup & khôi phục trên máy dev (local)
 
@@ -348,7 +409,8 @@ Kiểm tra: mở lại trên app đúng bài học/bài nộp có file vừa kh�
 
 ## 5. Dọn dẹp
 
-Bản `manual/`, `pre-restore/` và image `pps-rollback/*` **không tự xoá**.
+Bản `manual/`, `pre-restore/`, image `pps-rollback/*` và bản copy thô media
+`/mnt/pps-backup/media-raw-*` (mục 2.1 cách B) **không tự xoá**.
 Sau khi thay đổi chạy ổn định khoảng 7 ngày:
 
 ```bash
@@ -356,6 +418,8 @@ ls -lh /opt/pps-education/backups/*/manual /opt/pps-education/backups/*/pre-rest
 sudo -u deploy rm /opt/pps-education/backups/production/manual/<ts>_<nhan>.*
 docker images 'pps-rollback/*'
 docker rmi pps-rollback/production-backend:<ts>-<nhan>
+sudo du -sh /mnt/pps-backup/media-raw-*
+sudo rm -rf /mnt/pps-backup/media-raw-<ngay>
 ```
 
 ## 6. Sau mỗi lần khôi phục thật

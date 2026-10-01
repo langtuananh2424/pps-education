@@ -28,6 +28,7 @@ import vn.com.pps.education.repository.StudentRepository;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -118,13 +119,13 @@ public class ReflexSequentialGradingService {
         progress.setWritingAttemptCount(progress.getWritingAttemptCount() + 1);
 
         Curriculum curriculum = question.getReviewVideo().getReviewVideoSet().getCurriculum();
-        Optional<ReflexV2Task> v2Task = reflexV2Task(curriculum, question, reflexV2Enabled);
+        Optional<ReflexV2Task> v2Task = reflexV2Task(curriculum, question, reflexV2Enabled, ReflexV2Task.CURRENT_RUBRIC_VERSION);
         if (v2Task.isPresent()) {
             ReflexV2AiGradingService.WritingResult v2Result =
-                    reflexV2GradingService.gradeWriting(v2Task.get(), question.getPrompt(), answerText);
+                    reflexV2GradingService.gradeWriting(v2Task.get(), gradingQuestionText(question, v2Task.get()), answerText);
             recordUsage(AiGradingTokenUsage.Step.WRITING, "chatJson",
                     v2Result == null ? null : v2Result.usage(), progress);
-            applyWritingResultV2(progress, v2Result, question);
+            applyWritingResultV2(progress, v2Result, question, v2Task.get());
         } else {
             progress.setRubricVersion(null);
             ReflexWritingGrammarAiGradingService.GradeResult result =
@@ -139,7 +140,15 @@ public class ReflexSequentialGradingService {
 
     /** Bước 2 — CHỈ chấp nhận khi bước 1 đã đạt: nộp audio, AI transcribe + chấm nội dung ngay. */
     @Transactional
-    public ReflexQuestionProgressResponse submitSpokenAnswer(Long questionId, Long assignmentId, String audioUrl, Long actorUserId) {
+    /**
+     * @param recordingFilter V199 — bản ghi đã qua bộ lọc thu âm của FE hay chưa (null = FE cũ); chỉ lưu lại để so
+     *                        sánh hai chế độ, không ảnh hưởng cách chấm.
+     */
+    public ReflexQuestionProgressResponse submitSpokenAnswer(Long questionId, Long assignmentId, String audioUrl,
+                                                             Boolean recordingFilter, Long actorUserId) {
+        // Chống SSRF: audioUrl do học sinh gửi lên, server sẽ tự tải file này để chấm AI -> chỉ nhận URL
+        // do chính hệ thống sinh ra lúc upload (xem MediaStorageService#requireStoredUrl).
+        mediaStorageService.requireStoredUrl(audioUrl);
         ReviewVideoQuestion question = getQuestionOrThrow(questionId);
         StudentAccess access = resolveStudentAccessForAssignment(question.getReviewVideo().getReviewVideoSet(), assignmentId, actorUserId);
         boolean late = requireNotPastDeadline(access.assignment());
@@ -166,23 +175,25 @@ public class ReflexSequentialGradingService {
             audioFile = null;
         }
         Curriculum curriculum = question.getReviewVideo().getReviewVideoSet().getCurriculum();
-        // Định tuyến theo CHÍNH rubricVersion của dòng (không theo cờ hiện tại): 1 câu đã chấm viết bằng v2 thì
-        // bước nói cũng phải v2 (cần điểm Ngữ pháp khoá + số lỗi đỏ) dù cờ có bị đổi giữa chừng.
-        Optional<ReflexV2Task> v2Task = "v2".equals(progress.getRubricVersion()) ? reflexV2Task(curriculum, question, true) : Optional.empty();
+        // Định tuyến theo CHÍNH rubricVersion của dòng (không theo cờ hiện tại): câu đã chấm viết bằng v2/v3 thì
+        // bước nói cũng dùng đúng bộ đó (cần điểm Ngữ pháp Bước 1 + bài viết làm mốc so đọc lệch) dù cờ hay
+        // version hiện hành có bị đổi giữa chừng — câu chấm viết bằng v2 trước khi lên v3 vẫn chấm nói bằng v2.
+        Optional<ReflexV2Task> v2Task = reflexV2Task(curriculum, question, true, progress.getRubricVersion());
         if (v2Task.isPresent() && progress.getWritingLockedGrammarPercent() != null) {
-            ReflexV2AiGradingService.LockedGrammar locked = new ReflexV2AiGradingService.LockedGrammar(
-                    progress.getWritingLockedGrammarPercent().intValue(),
-                    progress.getWritingRedErrorCount() == null ? 0 : progress.getWritingRedErrorCount(),
-                    progress.getAnswerText());
+            ReflexV2AiGradingService.Step1Anchor locked = new ReflexV2AiGradingService.Step1Anchor(
+                    progress.getWritingLockedGrammarPercent().intValue(), progress.getAnswerText());
             // ReflexAudioRejectedException (bản ghi không đọc được / nói khác bài viết) ném thẳng ra → HTTP 422,
             // giao dịch rollback nên KHÔNG tính lượt nộp và KHÔNG ghi điểm. Chi phí từng lượt AI được ghi qua sink
             // ngay khi AI trả về — kể cả khi sau đó bị từ chối / parse lỗi (recorder chạy REQUIRES_NEW nên không
             // bị rollback theo).
             ReflexQuestionProgress usageContext = progress;
             ReflexV2AiGradingService.SpeakingResult result = audioFile == null ? null
-                    : reflexV2GradingService.gradeSpeaking(v2Task.get(), question.getPrompt(), audioFile.bytes(), audioFile.contentType(), locked,
+                    : reflexV2GradingService.gradeSpeaking(v2Task.get(), gradingQuestionText(question, v2Task.get()), audioFile.bytes(), audioFile.contentType(), locked,
                             (step, usage) -> recordUsage(step, "chatWithAudioJson", usage, usageContext));
             applySpeakingResultV2(progress, result);
+            if (progress.getSpeakingAudit() != null && recordingFilter != null) {
+                progress.getSpeakingAudit().put("recordingFilter", recordingFilter);
+            }
         } else {
             ReflexSpeakingContentAiGradingService.GradeResult result =
                     audioFile == null ? null : speakingGradingService.grade(audioFile.bytes(), audioFile.contentType(), question.getPrompt(), curriculum);
@@ -190,7 +201,7 @@ public class ReflexSequentialGradingService {
             applySpeakingResult(progress, result);
         }
         progress = reflexQuestionProgressRepository.save(progress);
-        recordSpeakingHistory(progress);
+        recordSpeakingHistory(progress, recordingFilter);
         return toResponse(progress);
     }
 
@@ -240,12 +251,42 @@ public class ReflexSequentialGradingService {
         }
     }
 
-    private Optional<ReflexV2Task> reflexV2Task(Curriculum curriculum, ReviewVideoQuestion question, boolean enabled) {
+    /** Câu lệnh mặc định của dạng tả tranh khi giáo viên để trống đề (mirror kho đề PET Task 2 của mã tham chiếu). */
+    static final String DEFAULT_PICTURE_PROMPT = "Look at the photo. Describe what you can see.";
+
+    /**
+     * V200 — đề gửi vào lượt chấm VIẾT và chấm NÓI. Dạng tả tranh: kèm mô tả tranh giáo viên đã duyệt, CHỈ để xét
+     * đúng/lạc đề (rubric §C1 dạng PICTURE) — mirror {@code bank.gradingText} của mã tham chiếu. Lượt phiên âm không
+     * nhận đề nên mô tả không bao giờ lọt vào đó; học sinh cũng không thấy mô tả (xem ReviewVideoService#listQuestions).
+     */
+    static String gradingQuestionText(ReviewVideoQuestion question, ReflexV2Task task) {
+        boolean picture = "PICTURE".equals(task.rubricFormat());
+        String prompt = question.getPrompt() == null || question.getPrompt().isBlank()
+                ? (picture ? DEFAULT_PICTURE_PROMPT : "") : question.getPrompt().trim();
+        String brief = question.getPictureBrief();
+        if (!picture || brief == null || brief.isBlank()) {
+            return prompt;
+        }
+        StringBuilder sb = new StringBuilder(prompt)
+                .append("\n\nMÔ TẢ ẢNH (giáo viên nhập — chỉ dùng để xét đúng/lạc đề, học sinh không thấy):\n");
+        for (String line : brief.split("\\R")) {
+            String l = line.strip().replaceFirst("^[-•*]\\s*", "");
+            if (!l.isEmpty()) {
+                sb.append("- ").append(l).append("\n");
+            }
+        }
+        return sb.toString().stripTrailing();
+    }
+
+    /** @param rubricVersion version rubric ({@code null}/không hỗ trợ → luồng cũ). */
+    private Optional<ReflexV2Task> reflexV2Task(Curriculum curriculum, ReviewVideoQuestion question, boolean enabled,
+                                                String rubricVersion) {
         if (!enabled || curriculum == null) {
             return Optional.empty();
         }
-        Optional<ReflexV2Task> task = ReflexV2Task.forGradeTrack(curriculum.getGradeLevel(), curriculum.getTrack(),
-                question.getMaxRecordingSeconds());
+        // V200 — dạng đề giáo viên chọn (nếu có) quyết định dạng bài; câu hỏi cũ chưa chọn thì suy theo thời lượng.
+        Optional<ReflexV2Task> task = ReflexV2Task.forQuestion(curriculum.getGradeLevel(), curriculum.getTrack(),
+                question.getMaxRecordingSeconds(), question.getQuestionFormat(), rubricVersion);
         // Ngưỡng của rubric được hiệu chuẩn theo đúng thời lượng ghi âm của dạng bài (20/25/30/60/90 giây) —
         // giáo viên đặt lệch thì ngưỡng đếm từ/ý/chỗ ngắt sai; chỉ cảnh báo, không chặn.
         task.filter(t -> t.seconds() != question.getMaxRecordingSeconds()).ifPresent(t ->
@@ -256,13 +297,15 @@ public class ReflexSequentialGradingService {
 
     /**
      * Luồng v2 (2026-09-21, đã xác nhận với người dùng) — điểm Bước 1 = trung bình các tiêu chí chấm ở bước
-     * viết; điểm Ngữ pháp KHOÁ + số lỗi đỏ lưu lại cho bước nói. {@code writingFeedback} chứa nhận xét 2 câu
+     * viết; điểm Ngữ pháp Bước 1 + số lỗi đỏ ngữ pháp lưu lại cho bước nói (giữ nguyên khi nói giống bài viết,
+     * nói khác thì làm sàn điểm chấm lại — xem {@link ReflexV2AiGradingService}). {@code rubricVersion} ghi
+     * version của dạng bài vừa chấm để bước nói dùng đúng bộ đó. {@code writingFeedback} chứa nhận xét 2 câu
      * của AI cộng câu giải thích cổng chặn (backend soạn). Câu đã sửa (V141) sinh ở lệnh gọi RIÊNG và chỉ
      * khi đã nộp từ lần thứ 3 mà vẫn chưa đạt — đúng điều kiện FE mới hiện.
      */
     private void applyWritingResultV2(ReflexQuestionProgress progress, ReflexV2AiGradingService.WritingResult result,
-                                      ReviewVideoQuestion question) {
-        progress.setRubricVersion("v2");
+                                      ReviewVideoQuestion question, ReflexV2Task task) {
+        progress.setRubricVersion(task.rubricVersion());
         if (result == null) {
             progress.setWritingScore(null);
             progress.setWritingMaxScore(null);
@@ -273,6 +316,7 @@ public class ReflexSequentialGradingService {
             progress.setWritingLockedGrammarPercent(null);
             progress.setWritingRedErrorCount(null);
             progress.setWritingAudit(null);
+            progress.setWritingHint(null);
             return;
         }
         progress.setWritingScore(BigDecimal.valueOf(result.step1Percent()));
@@ -286,6 +330,7 @@ public class ReflexSequentialGradingService {
         }
         progress.setWritingFeedback(feedback.length() == 0 ? null : feedback.toString());
         progress.setWritingMarkedAnswer(result.markedText());
+        progress.setWritingHint(result.hint() == null || result.hint().isBlank() ? null : result.hint());
         progress.setWritingGradedAt(OffsetDateTime.now());
         progress.setWritingLockedGrammarPercent(BigDecimal.valueOf(result.grammarPercent()));
         progress.setWritingRedErrorCount(result.redCount());
@@ -315,6 +360,7 @@ public class ReflexSequentialGradingService {
             progress.setSpeakingCriteriaScores(null);
             progress.setSpeakingGradedAt(null);
             progress.setSpeakingAudit(null);
+            progress.setSpeakingHint(null);
             return;
         }
         progress.setSpeakingScore(BigDecimal.valueOf(result.unlockPercent()));
@@ -324,6 +370,7 @@ public class ReflexSequentialGradingService {
         progress.setSpeakingCriteriaScores(result.criteria());
         progress.setSpeakingGradedAt(OffsetDateTime.now());
         progress.setSpeakingAudit(result.audit());
+        progress.setSpeakingHint(result.hint() == null || result.hint().isBlank() ? null : result.hint());
     }
 
     private void applySpeakingResult(ReflexQuestionProgress progress, ReflexSpeakingContentAiGradingService.GradeResult result) {
@@ -362,12 +409,13 @@ public class ReflexSequentialGradingService {
         h.setMaxScore(progress.getWritingMaxScore());
         h.setFeedback(progress.getWritingFeedback());
         h.setMarkedAnswer(progress.getWritingMarkedAnswer());
+        h.setHint(progress.getWritingHint());
         h.setGradedAt(progress.getWritingGradedAt());
         reflexQuestionProgressHistoryRepository.save(h);
     }
 
     /** V191 — như {@link #recordWritingHistory}, cho bước ghi âm (có audioUrl/transcript/criteriaScores). */
-    private void recordSpeakingHistory(ReflexQuestionProgress progress) {
+    private void recordSpeakingHistory(ReflexQuestionProgress progress, Boolean recordingFilter) {
         ReflexQuestionProgressHistory h = new ReflexQuestionProgressHistory();
         h.setReflexQuestionProgress(progress);
         h.setReviewVideoQuestion(progress.getReviewVideoQuestion());
@@ -381,7 +429,16 @@ public class ReflexSequentialGradingService {
         h.setFeedback(progress.getSpeakingFeedback());
         h.setTranscript(progress.getSpeakingTranscript());
         h.setCriteriaScores(progress.getSpeakingCriteriaScores());
+        h.setHint(progress.getSpeakingHint());
         h.setGradedAt(progress.getSpeakingGradedAt());
+        h.setRecordingFilter(recordingFilter);
+        // V198 — cờ "cần giáo viên soát Ngữ pháp" lấy từ speaking_audit của CHÍNH lần chấm này (luồng cũ: không có).
+        Map<String, Object> audit = progress.getSpeakingAudit();
+        if (audit != null && Boolean.TRUE.equals(audit.get(ReflexV2AiGradingService.AUDIT_GRAMMAR_REVIEW_REQUIRED))) {
+            h.setGrammarReviewRequired(true);
+            Object quotes = audit.get(ReflexV2AiGradingService.AUDIT_GRAMMAR_REVIEW_QUOTES);
+            h.setGrammarReviewQuotes(quotes instanceof List<?> list ? list.stream().map(String::valueOf).toList() : List.of());
+        }
         reflexQuestionProgressHistoryRepository.save(h);
     }
 
@@ -446,6 +503,7 @@ public class ReflexSequentialGradingService {
                 p.getWritingScore() == null ? null : p.getWritingScore().intValue(),
                 p.getWritingFeedback(),
                 p.getWritingMarkedAnswer(),
+                p.getWritingHint(),
                 writingPassed,
                 p.getWritingAttemptCount(),
                 p.getWritingCorrectedAnswer(),
@@ -453,6 +511,7 @@ public class ReflexSequentialGradingService {
                 p.getSpeakingScore() == null ? null : p.getSpeakingScore().intValue(),
                 p.getSpeakingFeedback(),
                 p.getSpeakingTranscript(),
+                p.getSpeakingHint(),
                 p.getSpeakingCriteriaScores(),
                 speakingPassed,
                 p.getSpeakingAttemptCount(),

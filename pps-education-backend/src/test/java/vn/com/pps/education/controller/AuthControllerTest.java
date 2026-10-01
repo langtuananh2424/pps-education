@@ -54,6 +54,18 @@ class AuthControllerTest extends AbstractControllerTest {
                 .andExpect(status().isUnauthorized());
     }
 
+    /** Rà soát bảo mật 2026-09-28: tài khoản đã bị vô hiệu hoá không dùng tiếp access token còn hạn được. */
+    @Test
+    void me_security_deactivatedAccountWithValidJwt_returns401() throws Exception {
+        User teacher = userWithRole("teacher.deactivated", "TEACHER");
+        String token = bearerToken(teacher, "TEACHER");
+        teacher.setStatus(User.Status.INACTIVE);
+        userRepository.saveAndFlush(teacher);
+
+        mockMvc.perform(get("/api/auth/me").header("Authorization", token))
+                .andExpect(status().isUnauthorized());
+    }
+
     @Test
     void me_allowedForAnyRole_returnsOwnProfile() throws Exception {
         var student = userWithRole("student.forme", "STUDENT");

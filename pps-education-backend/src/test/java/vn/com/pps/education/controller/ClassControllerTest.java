@@ -22,8 +22,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * UC-18: xác nhận academic.class.manage (Hybrid PBAC — V28) chặn/cho phép
- * đúng qua HTTP thật, thay cho test Service-level cũ gọi thẳng
+ * UC-18: xác nhận quyền tạo lớp (academic.class.create — V202 tách từ
+ * academic.class.manage cũ) chặn/cho phép đúng qua HTTP thật, thay cho test Service-level cũ gọi thẳng
  * requireAuthorized() (đã xoá khỏi ClassService — xem GlobalExceptionHandler
  * cho format lỗi AuthorizationDeniedException).
  */
@@ -72,12 +72,24 @@ class ClassControllerTest extends AbstractControllerTest {
                 .andExpect(jsonPath("$.message").value("Tài khoản không có quyền thực hiện thao tác này."));
     }
 
+    /** V202 (Q9, đã xác nhận với người dùng 2026-09-30): tạo lớp chỉ còn Trưởng phòng đào tạo, Giáo vụ không còn quyền. */
     @Test
-    void create_allowedForStaff_returns200() throws Exception {
+    void create_deniedForStaffAfterV202_returns403() throws Exception {
         var staff = userWithRole("staff.access", "STAFF");
 
         mockMvc.perform(post("/api/classes")
                         .header("Authorization", bearerToken(staff, "STAFF"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(newClassRequest())))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void create_allowedForHeadAcademic_returns200() throws Exception {
+        var headAcademic = userWithRole("head.academic.create", "HEAD_ACADEMIC");
+
+        mockMvc.perform(post("/api/classes")
+                        .header("Authorization", bearerToken(headAcademic, "HEAD_ACADEMIC"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(newClassRequest())))
                 .andExpect(status().isOk());

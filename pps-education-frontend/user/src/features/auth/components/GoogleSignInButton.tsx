@@ -9,7 +9,7 @@ interface GoogleSignInButtonProps {
   onError: (message: string) => void;
   /**
    * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-09-19) — tài khoản Học sinh đã có phiên
-   * ACTIVE ở thiết bị khác (backend trả 409, xem AuthService#requireNoActiveSessionForStudent): thay
+   * ACTIVE ở thiết bị khác (backend trả 409, xem AuthService#enforceActiveSessionLimit): thay
    * vì hiện thẳng lỗi qua onError, giao lại cho LoginPage hiện banner xác nhận "Có muốn đăng xuất?".
    * `retry` gọi lại loginWithGoogle với chính idToken đã có (không cần mở lại popup Google) và
    * confirm=true nếu người dùng đồng ý.

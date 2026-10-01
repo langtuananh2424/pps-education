@@ -299,7 +299,9 @@ public class StudentCommentService {
     private final SiteManagerRepository siteManagerRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final SessionReportSettings sessionReportSettings;
     private final PermissionEvaluationService permissionEvaluationService;
+    private final DataScopeService dataScopeService;
     private final AcademicSettingsService academicSettingsService;
     private final ClassEnrollmentRepository classEnrollmentRepository;
     private final AttendanceSessionRepository attendanceSessionRepository;
@@ -328,7 +330,9 @@ public class StudentCommentService {
                                   SiteManagerRepository siteManagerRepository,
                                   UserRepository userRepository,
                                   NotificationService notificationService,
+                                  SessionReportSettings sessionReportSettings,
                                   PermissionEvaluationService permissionEvaluationService,
+                                  DataScopeService dataScopeService,
                                   AcademicSettingsService academicSettingsService,
                                   ClassEnrollmentRepository classEnrollmentRepository,
                                   AttendanceSessionRepository attendanceSessionRepository,
@@ -356,7 +360,9 @@ public class StudentCommentService {
         this.siteManagerRepository = siteManagerRepository;
         this.userRepository = userRepository;
         this.notificationService = notificationService;
+        this.sessionReportSettings = sessionReportSettings;
         this.permissionEvaluationService = permissionEvaluationService;
+        this.dataScopeService = dataScopeService;
         this.academicSettingsService = academicSettingsService;
         this.classEnrollmentRepository = classEnrollmentRepository;
         this.attendanceSessionRepository = attendanceSessionRepository;
@@ -513,6 +519,9 @@ public class StudentCommentService {
                         row.homeworkPreviousReadingScore(), row.homeworkPreviousWritingScore(),
                         row.homeworkNext(), row.homeworkNextReading(), row.homeworkNextWriting(), row.note());
                 comment.setStatus(StudentComment.Status.DRAFT);
+                if (Boolean.TRUE.equals(row.aiDrafted())) {
+                    comment.setAiDrafted(true);
+                }
                 actionByStudentId.put(student.getId(), existing != null ? StudentCommentHistory.Action.UPDATED : StudentCommentHistory.Action.CREATED);
                 toSave.add(comment);
             } catch (RuntimeException ex) {
@@ -691,9 +700,18 @@ public class StudentCommentService {
 
     // ===================== UC-22: Duyệt nhận xét (SITE_MANAGER) =====================
 
-    /** Main Flow bước 1: danh sách nhận xét Chờ duyệt của các điểm trường actor phụ trách. */
+    /**
+     * Main Flow bước 1: danh sách nhận xét Chờ duyệt của các điểm trường actor phụ trách.
+     * V202 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-30): tài khoản có phạm vi dữ liệu
+     * "Tất cả điểm trường" (VD Trưởng phòng đào tạo, Ban giám đốc) thấy nhận xét chờ duyệt của mọi điểm trường.
+     */
     @Transactional(readOnly = true)
     public List<StudentCommentResponse> listPendingForSite(Long actorUserId) {
+        if (dataScopeService.isUnrestricted(actorUserId)) {
+            return studentCommentRepository.findByStatusOrderBySubmittedAtAsc(StudentComment.Status.PENDING).stream()
+                    .map(this::toResponse)
+                    .toList();
+        }
         List<Long> siteIds = siteManagerRepository
                 .findByUserIdAndRoleTypeAndAssignedToIsNull(actorUserId, SiteManager.RoleType.SITE_MANAGER).stream()
                 .map(sm -> sm.getSite().getId()).toList();
@@ -753,7 +771,12 @@ public class StudentCommentService {
         } else {
             // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-12: cảnh báo thái độ học
             // tập chỉ tính trên nhận xét ĐÃ DUYỆT — xem StudentAttitudeAlertTrackingService.
-            saved.forEach(attitudeAlertTrackingService::evaluateAndNotify);
+            // Bổ sung 2026-09-29 (UC-75): tính theo THỨ TỰ NGÀY — duyệt gộp nhiều buổi của 1 học sinh thì chuỗi
+            // Yếu/Trung bình liên tiếp đúng trình tự buổi học (findAllById không bảo đảm thứ tự), khớp lời nhắc
+            // "Sẽ báo phụ huynh" của trợ lý duyệt (CommentAiReviewService#attitudeAlerts).
+            saved.stream()
+                    .sorted(java.util.Comparator.comparing(StudentComment::getCommentDate).thenComparing(StudentComment::getId))
+                    .forEach(attitudeAlertTrackingService::evaluateAndNotify);
         }
         return saved.stream().map(this::toResponse).toList();
     }
@@ -893,6 +916,25 @@ public class StudentCommentService {
                             writingPreviousProgressLabel(previous));
                 })
                 .toList();
+    }
+
+    /**
+     * UC-75 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-29) — % TỰ ĐỘNG "BTVN buổi trước" của từng
+     * nhận xét chờ duyệt (mirror đúng các cột tự động trên bảng duyệt), để trợ lý soát đối chiếu nhận xét nói về BTVN
+     * có ngược dữ liệu không. Chỉ đọc; người gọi đã qua rào {@link #requirePendingCommentsForAiReview}.
+     *
+     * @return commentId → % tự động (studentId trong phần tử là học sinh của nhận xét đó).
+     */
+    @Transactional(readOnly = true)
+    public Map<Long, AutoProgressPreviewResponse> previousAutoProgressOf(List<StudentComment> comments) {
+        Map<Long, AutoProgressPreviewResponse> result = new HashMap<>();
+        for (StudentComment comment : comments) {
+            StudentComment previous = previousComment(comment.getClassSession(), comment.getStudent().getId());
+            result.put(comment.getId(), new AutoProgressPreviewResponse(comment.getStudent().getId(),
+                    grammarPreviousProgressLabel(previous), videoPreviousProgressLabel(previous),
+                    readingPreviousProgressLabel(previous), writingPreviousProgressLabel(previous)));
+        }
+        return result;
     }
 
     @Transactional(readOnly = true)
@@ -1039,6 +1081,29 @@ public class StudentCommentService {
             return null;
         }
         return previous.getHomeworkNext();
+    }
+
+    /**
+     * UC-68 — báo cáo ngày (DAILY_REPORT, label MISSING_HOMEWORK_STUDENT_NAMES; bổ sung ngoài SDD gốc,
+     * đã xác nhận với người dùng 2026-09-28): trong {@code studentIds}, trả về id các học sinh có cột
+     * "BTVN buổi trước" kênh online Ngữ pháp/Nghe tại buổi {@code classSession} là
+     * {@link HomeworkProgressService#NOT_DONE_LABEL}. Dùng đúng {@link #resolvedGrammarPrevious} (nhập
+     * tay thắng, fallback % tự động theo buổi liền trước) như bảng Nhận xét hàng ngày để báo cáo không
+     * lệch với màn hình. Chỉ đọc, 2 truy vấn bulk (không N+1).
+     */
+    @Transactional(readOnly = true)
+    public Set<Long> studentIdsWithUndoneGrammarHomework(ClassSession classSession, List<Long> studentIds) {
+        if (studentIds.isEmpty()) {
+            return Set.of();
+        }
+        Map<Long, StudentComment> existingByStudentId = studentCommentRepository
+                .findByClassSessionIdAndStudentIdIn(classSession.getId(), studentIds).stream()
+                .collect(java.util.stream.Collectors.toMap(c -> c.getStudent().getId(), c -> c, (a, b) -> a));
+        Map<Long, StudentComment> previousByStudentId = previousCommentsByStudentIdForSession(classSession, studentIds);
+        return studentIds.stream()
+                .filter(id -> HomeworkProgressService.NOT_DONE_LABEL.equals(
+                        resolvedGrammarPrevious(existingByStudentId.get(id), previousByStudentId.get(id))))
+                .collect(java.util.stream.Collectors.toSet());
     }
 
     /** Ghi đè tay thắng — chỉ fallback về % tự động khi chưa có giá trị nhập tay. */
@@ -2125,6 +2190,41 @@ public class StudentCommentService {
      * xem Javadoc lớp). Ngược lại: phải là GV được phân công lớp (giữ
      * nguyên rào cũ) VÀ còn trong hạn X ngày kể từ ngày buổi học.
      */
+    /**
+     * UC-75 bước 2 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-29) — trợ lý AI soát nhận xét
+     * chờ duyệt dùng ĐÚNG rào của duyệt/sửa nội dung PENDING (UC-22, {@link #decideComments}/
+     * {@link #updatePendingCommentContent}): có quyền duyệt, phụ trách đúng điểm trường, nhận xét còn PENDING.
+     * Trả entity (gọi trong transaction của service gọi) — không đổi gì trên nhận xét.
+     */
+    public List<StudentComment> requirePendingCommentsForAiReview(List<Long> commentIds, Long actorUserId) {
+        if (!permissionEvaluationService.hasPermission(actorUserId, "academic.comment.approve")) {
+            throw new NotSiteManagerForSiteException("error.notSiteManagerForSite.noCommentApprovalPermission", new Object[]{}, "Tài khoản không có quyền duyệt nhận xét.");
+        }
+        List<StudentComment> comments = studentCommentRepository.findAllById(commentIds);
+        if (comments.size() != new HashSet<>(commentIds).size()) {
+            throw new ResourceNotFoundException("error.studentComment.commentIdsNotFound", new Object[]{}, "Có nhận xét không tồn tại trong danh sách commentIds.");
+        }
+        for (StudentComment comment : comments) {
+            requireSiteManagerForSite(comment.getSchoolClass().getSite().getId(), actorUserId);
+            if (comment.getStatus() != StudentComment.Status.PENDING) {
+                throw new ApprovalAlreadyDecidedException(
+                        "error.approvalAlreadyDecided.comment", new Object[]{comment.getStatus()},
+                        "Nhận xét này đã được quyết định (" + comment.getStatus() + ").");
+            }
+        }
+        return comments;
+    }
+
+    /**
+     * UC-74 bước 2 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-28) — trợ lý AI soạn nháp
+     * nhận xét dùng ĐÚNG rào của Lưu nháp (không có rào riêng), xem {@code CommentAiDraftService}.
+     */
+    public ClassSession requireCanWriteDailyCommentFor(Long classSessionId, Long actorUserId) {
+        ClassSession classSession = getClassSessionOrThrow(classSessionId);
+        requireCanWriteDailyComment(classSession, actorUserId);
+        return classSession;
+    }
+
     private void requireCanWriteDailyComment(ClassSession classSession, Long actorUserId) {
         if (permissionEvaluationService.hasPermission(actorUserId, "academic.comment.approve")
                 || permissionEvaluationService.hasPermission(actorUserId, PERM_COMMENT_MANAGE)) {
@@ -2294,7 +2394,14 @@ public class StudentCommentService {
         }
     }
 
+    /**
+     * Phụ trách đúng điểm trường của nhận xét — V202: tài khoản có phạm vi dữ liệu "Tất cả điểm trường"
+     * duyệt được ở mọi điểm trường (quyền academic.comment.approve vẫn kiểm tra riêng ở từng nơi gọi).
+     */
     private void requireSiteManagerForSite(Long siteId, Long actorUserId) {
+        if (dataScopeService.isUnrestricted(actorUserId)) {
+            return;
+        }
         if (!siteManagerRepository.existsBySiteIdAndUserIdAndRoleTypeAndAssignedToIsNull(
                 siteId, actorUserId, SiteManager.RoleType.SITE_MANAGER)) {
             throw new NotSiteManagerForSiteException(
@@ -2321,10 +2428,17 @@ public class StudentCommentService {
 
     private void notifyTeacherRejected(StudentComment comment) {
         String title = "Nhận xét học sinh bị từ chối";
-        String content = "Nhận xét cho học sinh %s (lớp %s, ngày %s) đã bị từ chối%s."
+        // V207 (bổ sung ngoài SDD gốc, xác nhận 2026-10-01) — kèm hạn gửi lại để giáo viên biết phải sửa trước
+        // lúc nào; quá hạn sẽ bị cảnh báo (SessionReportAlertSchedulerService).
+        OffsetDateTime resubmitDeadline = (comment.getApprovalFlow() != null && comment.getApprovalFlow().getDecidedAt() != null
+                ? comment.getApprovalFlow().getDecidedAt() : OffsetDateTime.now())
+                .plusHours(sessionReportSettings.resubmitDeadlineHours());
+        String content = "Nhận xét cho học sinh %s (lớp %s, ngày %s) đã bị từ chối%s. Hạn gửi lại: %s."
                 .formatted(comment.getStudent().getUser().getFullName(), comment.getSchoolClass().getName(),
                         comment.getCommentDate(),
-                        comment.getRejectionReason() == null ? "" : ": " + comment.getRejectionReason());
+                        comment.getRejectionReason() == null ? "" : ": " + comment.getRejectionReason(),
+                        resubmitDeadline.atZoneSameInstant(ZoneId.of("Asia/Ho_Chi_Minh"))
+                                .format(DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy")));
         Map<String, Object> metadata = new LinkedHashMap<>();
         metadata.put("studentName", comment.getStudent().getUser().getFullName());
         metadata.put("className", comment.getSchoolClass().getName());

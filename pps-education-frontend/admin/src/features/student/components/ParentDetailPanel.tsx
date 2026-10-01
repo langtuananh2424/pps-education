@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useApp } from "@/context/AppContext";
 import { Save, Search, UserPlus, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
@@ -44,6 +45,7 @@ export default function ParentDetailPanel({ parent, onChanged }: ParentDetailPan
 }
 
 function ProfileSection({ parentId, showToast }: { parentId: number; showToast: (msg: string) => void }) {
+  const { hasPermission } = useApp();
   const { t } = useTranslation("student");
   const [profile, setProfile] = useState<ParentResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -103,9 +105,11 @@ function ProfileSection({ parentId, showToast }: { parentId: number; showToast: 
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <span className="text-[10px] font-bold uppercase text-slate-500">{t("parentDetail.profile.sectionTitle")}</span>
-          <Button size="sm" variant="secondary" onClick={startEdit}>
-            {t("parentDetail.profile.editButton")}
-          </Button>
+          {hasPermission("student.parent.update") && (
+            <Button size="sm" variant="secondary" onClick={startEdit}>
+              {t("parentDetail.profile.editButton")}
+            </Button>
+          )}
         </div>
         {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
         {profile?.portraitUrl && (
@@ -159,6 +163,7 @@ function ChildrenSection({
   onChanged: () => void;
   showToast: (msg: string) => void;
 }) {
+  const { hasPermission } = useApp();
   const { t } = useTranslation("student");
   const [linking, setLinking] = useState(false);
   const [query, setQuery] = useState("");
@@ -222,10 +227,12 @@ function ChildrenSection({
     <div className="space-y-3 border-t border-slate-100 pt-4">
       <div className="flex items-center justify-between">
         <span className="text-[10px] font-bold uppercase text-slate-500">{t("parentDetail.children.sectionTitle", { count: parent.children.length })}</span>
-        <Button size="sm" variant="secondary" onClick={() => setLinking(true)}>
-          <UserPlus className="w-3.5 h-3.5" />
-          {t("parentDetail.children.linkButton")}
-        </Button>
+        {hasPermission("student.parent.link.create") && (
+          <Button size="sm" variant="secondary" onClick={() => setLinking(true)}>
+            <UserPlus className="w-3.5 h-3.5" />
+            {t("parentDetail.children.linkButton")}
+          </Button>
+        )}
       </div>
 
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
@@ -243,9 +250,11 @@ function ChildrenSection({
                 {c.isPrimaryContact && <Badge variant="brand">{t("parentDetail.children.primaryContactBadge")}</Badge>}
                 {c.isFinancialResponsible && <Badge variant="warning">{t("parentDetail.children.financialResponsibleBadge")}</Badge>}
               </div>
-              <button onClick={() => handleUnlink(c.studentId, c.parentStudentId)} className="text-rose-500 hover:text-rose-700">
-                <X className="w-3.5 h-3.5" />
-              </button>
+              {hasPermission("student.parent.link.delete") && (
+                <button onClick={() => handleUnlink(c.studentId, c.parentStudentId)} className="text-rose-500 hover:text-rose-700">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
           ))}
         </div>

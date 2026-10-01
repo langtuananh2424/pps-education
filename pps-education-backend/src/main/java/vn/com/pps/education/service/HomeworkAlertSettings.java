@@ -15,6 +15,8 @@ public class HomeworkAlertSettings {
     private static final String ENABLED = "homework_alert.enabled";
     private static final String REFLEX_PASS_THRESHOLD_PERCENT = "homework_alert.reflex_pass_threshold_percent";
     private static final String REMINDER_BEFORE_DUE_HOURS = "homework_alert.reminder_before_due_hours";
+    private static final String REMINDER_QUIET_START_HOUR = "homework_alert.reminder_quiet_start_hour";
+    private static final String REMINDER_QUIET_END_HOUR = "homework_alert.reminder_quiet_end_hour";
 
     private final SystemSettingRepository systemSettingRepository;
 
@@ -32,6 +34,16 @@ public class HomeworkAlertSettings {
 
     public int reminderBeforeDueHours() {
         return readSetting(REMINDER_BEFORE_DUE_HOURS).getSettingValue().asInt();
+    }
+
+    /** Giờ bắt đầu khung đêm không gửi nhắc hạn BTVN (V195, giờ VN 0-23). */
+    public int reminderQuietStartHour() {
+        return readSetting(REMINDER_QUIET_START_HOUR).getSettingValue().asInt();
+    }
+
+    /** Giờ kết thúc khung đêm không gửi nhắc hạn BTVN (V195, giờ VN 0-23). */
+    public int reminderQuietEndHour() {
+        return readSetting(REMINDER_QUIET_END_HOUR).getSettingValue().asInt();
     }
 
     private SystemSetting readSetting(String key) {

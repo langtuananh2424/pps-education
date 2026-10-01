@@ -21,7 +21,32 @@
     "empty": "Chưa có phòng ban nào.",
     "headLabel": "Trưởng phòng: {{name}}",
     "noHead": "Chưa có trưởng phòng",
-    "editButton": "Sửa"
+    "editButton": "Sửa",
+    "members": {
+      "toggleButton": "Thành viên",
+      "title": "Thành viên ({{count}})",
+      "addButton": "Thêm thành viên",
+      "empty": "Phòng ban chưa có thành viên nào.",
+      "headBadge": "Trưởng phòng",
+      "loadError": "Không tải được danh sách thành viên.",
+      "removeButton": "Gỡ khỏi phòng ban",
+      "removeConfirm": "Gỡ {{name}} khỏi {{department}}? Nhân sự sẽ không còn thuộc phòng ban nào.",
+      "removedToast": "Đã gỡ {{name}} khỏi phòng ban.",
+      "removeError": "Gỡ thành viên thất bại.",
+      "modalTitle": "Thêm thành viên — {{department}}",
+      "modalDescription": "Chọn một hoặc nhiều nhân sự. Nhân sự đang thuộc phòng khác sẽ được chuyển sang phòng này.",
+      "searchPlaceholder": "Tìm theo họ tên / mã nhân sự...",
+      "searchError": "Không tải được danh sách nhân sự.",
+      "noCandidates": "Không tìm thấy nhân sự phù hợp.",
+      "currentDepartment": "Đang ở: {{department}}",
+      "noDepartment": "Chưa có phòng ban",
+      "moveWarning": "{{count}} nhân sự đang thuộc phòng ban khác sẽ được chuyển sang phòng này.",
+      "cancel": "Hủy",
+      "saving": "Đang lưu...",
+      "confirmAdd": "Thêm {{count}} nhân sự",
+      "addedToast": "Đã thêm {{count}} nhân sự vào phòng ban.",
+      "addError": "Thêm thành viên thất bại."
+    }
   },
   "departmentForm": {
     "codeLabel": "Mã phòng ban *",

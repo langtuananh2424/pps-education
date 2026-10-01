@@ -10,7 +10,7 @@ interface ForceLogoutConfirmDialogProps {
 /**
  * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-09-19) — popup nổi (khác banner nội tuyến
  * trong form) hỏi xác nhận khi tài khoản Học sinh đã có phiên ACTIVE ở thiết bị khác (backend trả 409,
- * xem AuthService#requireNoActiveSessionForStudent). Style theo đúng pattern overlay + card căn giữa
+ * xem AuthService#enforceActiveSessionLimit). Style theo đúng pattern overlay + card căn giữa
  * đã dùng ở ChangePasswordModal.tsx/ProfileModal.tsx — tái dùng để nhất quán giao diện toàn app.
  */
 export default function ForceLogoutConfirmDialog({ submitting, onCancel, onConfirm }: ForceLogoutConfirmDialogProps) {

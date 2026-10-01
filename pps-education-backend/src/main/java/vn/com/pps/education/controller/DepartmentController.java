@@ -3,6 +3,7 @@ package vn.com.pps.education.controller;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -10,10 +11,14 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import vn.com.pps.education.dto.AddDepartmentMembersRequest;
 import vn.com.pps.education.dto.CreateDepartmentRequest;
+import vn.com.pps.education.dto.DepartmentMemberResponse;
 import vn.com.pps.education.dto.DepartmentResponse;
 import vn.com.pps.education.dto.UpdateDepartmentRequest;
+import vn.com.pps.education.security.AuthenticatedUser;
 import vn.com.pps.education.service.DepartmentService;
 
 import java.util.List;
@@ -62,6 +67,39 @@ public class DepartmentController {
     @PreAuthorize("hasPermission(null, 'hrm.department.delete')")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         departmentService.delete(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Thành viên phòng ban (bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-10-01) — xem Javadoc
+     * DepartmentService#listMembers. Xem cần quyền xem trang Phòng ban; thêm/gỡ dùng quyền sửa phòng ban.
+     */
+    @GetMapping("/{id}/members")
+    @PreAuthorize("hasPermission(null, 'hrm.department.view')")
+    public ResponseEntity<List<DepartmentMemberResponse>> listMembers(@PathVariable Long id) {
+        return ResponseEntity.ok(departmentService.listMembers(id));
+    }
+
+    @GetMapping("/{id}/member-candidates")
+    @PreAuthorize("hasPermission(null, 'hrm.department.update')")
+    public ResponseEntity<List<DepartmentMemberResponse>> searchMemberCandidates(@PathVariable Long id,
+                                                                                 @RequestParam(required = false) String query) {
+        return ResponseEntity.ok(departmentService.searchMemberCandidates(id, query));
+    }
+
+    @PostMapping("/{id}/members")
+    @PreAuthorize("hasPermission(null, 'hrm.department.update')")
+    public ResponseEntity<List<DepartmentMemberResponse>> addMembers(@PathVariable Long id,
+                                                                     @Valid @RequestBody AddDepartmentMembersRequest request,
+                                                                     @AuthenticationPrincipal AuthenticatedUser actor) {
+        return ResponseEntity.ok(departmentService.addMembers(id, request, actor.userId()));
+    }
+
+    @DeleteMapping("/{id}/members/{employeeId}")
+    @PreAuthorize("hasPermission(null, 'hrm.department.update')")
+    public ResponseEntity<Void> removeMember(@PathVariable Long id, @PathVariable Long employeeId,
+                                             @AuthenticationPrincipal AuthenticatedUser actor) {
+        departmentService.removeMember(id, employeeId, actor.userId());
         return ResponseEntity.noContent().build();
     }
 }

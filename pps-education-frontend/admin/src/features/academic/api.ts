@@ -594,6 +594,47 @@ export function getActualPeriodsGrid(params: {
   return apiRequest<ActualPeriodsGridResponse>(`/sites/${params.siteId}/actual-periods-grid?${query.toString()}`);
 }
 
+/** V203 — xuất Excel chế độ "Chi tiết" của báo cáo số tiết thực tế (cùng tham số getActualPeriodsStats). */
+export function exportActualPeriodsStats(params: {
+  siteId: number;
+  fromDate: string;
+  toDate: string;
+  periodType: EnrollmentMovementPeriodType | "WEEK";
+  periodLabel: string;
+  classId?: number;
+}): Promise<Blob> {
+  const query = new URLSearchParams({
+    fromDate: params.fromDate,
+    toDate: params.toDate,
+    periodType: params.periodType,
+    periodLabel: params.periodLabel
+  });
+  if (params.classId) query.set("classId", String(params.classId));
+  return apiRequestBlob(`/sites/${params.siteId}/actual-periods-stats/export?${query.toString()}`);
+}
+
+/** V203 — xuất Excel chế độ "Lưới tổng quan" của báo cáo số tiết thực tế (cùng tham số getActualPeriodsGrid). */
+export function exportActualPeriodsGrid(params: {
+  siteId: number;
+  periodType: EnrollmentMovementPeriodType;
+  year?: number;
+  classId?: number;
+}): Promise<Blob> {
+  const query = new URLSearchParams({ periodType: params.periodType });
+  if (params.year) query.set("year", String(params.year));
+  if (params.classId) query.set("classId", String(params.classId));
+  return apiRequestBlob(`/sites/${params.siteId}/actual-periods-grid/export?${query.toString()}`);
+}
+
+/** V203 — xuất Excel tổng hợp chuyên cần từng học sinh của 1 lớp; bỏ trống ngày = từ ngày bắt đầu lớp đến hôm nay. */
+export function exportClassAttendanceSummary(classId: number, fromDate?: string, toDate?: string): Promise<Blob> {
+  const qs = new URLSearchParams();
+  if (fromDate) qs.set("fromDate", fromDate);
+  if (toDate) qs.set("toDate", toDate);
+  const suffix = qs.toString() ? `?${qs.toString()}` : "";
+  return apiRequestBlob(`/classes/${classId}/attendance-summary/export${suffix}`);
+}
+
 // ===================== Năm học (V102, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-07) =====================
 // Danh mục DÙNG CHUNG TOÀN HỆ THỐNG (khác Kỳ học — giới hạn theo điểm trường). Nguồn cho
 // academicYearId trên classes/grade_entries/student_comments/class_enrollments/teaching_plans.
@@ -768,6 +809,8 @@ export interface RescheduleClassSessionRequest {
   reason?: string;
   /** Bỏ qua chặn trùng giờ Giáo viên chính — phục vụ lớp tách nhóm dùng chung 1 GV/1 khung giờ (bổ sung ngoài SDD gốc, 2026-09-16). Không ảnh hưởng chặn trùng phòng/trùng giờ trong lớp. */
   allowTeacherOverlap?: boolean;
+  /** Bỏ qua chặn trùng phòng — 2 nhóm lớp gộp học chung 1 phòng (bổ sung ngoài SDD gốc, 2026-09-29). Chỉ có ý nghĩa khi có newRoomId. */
+  allowRoomOverlap?: boolean;
 }
 
 /** Sửa nhanh tại chỗ 1 buổi SCHEDULED (bổ sung ngoài SDD gốc, xác nhận 2026-08-19) — phục vụ click-thẻ trên lưới thời khóa biểu. */
@@ -783,6 +826,15 @@ export interface UpdateSessionAssignmentRequest {
   actualTeacherName?: string;
   /** Bỏ qua chặn trùng giờ Giáo viên chính — phục vụ lớp tách nhóm dùng chung 1 GV/1 khung giờ (bổ sung ngoài SDD gốc, 2026-09-16). Không ảnh hưởng chặn trùng phòng/trùng giờ trong lớp. */
   allowTeacherOverlap?: boolean;
+  /** Bỏ qua chặn trùng phòng — 2 nhóm lớp gộp học chung 1 phòng (bổ sung ngoài SDD gốc, 2026-09-29). Chỉ có ý nghĩa khi có roomId. */
+  allowRoomOverlap?: boolean;
+  /** Lý do sửa — bắt buộc khi buổi đã IN_PROGRESS/COMPLETED (UC-48 A7, cần quyền academic.class-session.correct-past). */
+  correctionReason?: string;
+}
+
+/** Buổi đã tới giờ học (UC-48 A5) — hủy/sửa cần quyền academic.class-session.correct-past + lý do (A6/A7), không dời lịch được. */
+export function isSessionAlreadyHeld(s: Pick<ClassSessionResponse, "status">): boolean {
+  return s.status === "IN_PROGRESS" || s.status === "COMPLETED";
 }
 
 export function updateSessionAssignment(
@@ -847,6 +899,8 @@ export interface BulkCreateClassSessionRequest {
   actualTeacherName?: string;
   /** Bỏ qua chặn trùng giờ Giáo viên chính — phục vụ lớp tách nhóm dùng chung 1 GV/1 khung giờ (bổ sung ngoài SDD gốc, 2026-09-16). Không ảnh hưởng chặn trùng phòng/trùng giờ trong lớp. */
   allowTeacherOverlap?: boolean;
+  /** Bỏ qua chặn trùng phòng — 2 nhóm lớp gộp học chung 1 phòng cùng khung giờ (bổ sung ngoài SDD gốc, 2026-09-29). Chỉ có ý nghĩa khi có roomId. */
+  allowRoomOverlap?: boolean;
 }
 
 export interface BulkCreateClassSessionResponse {
@@ -975,6 +1029,23 @@ export function getAttendanceSession(classSessionId: number): Promise<Attendance
 
 export function markAttendance(classSessionId: number, request: MarkAttendanceRequest): Promise<AttendanceSessionResponse> {
   return apiRequest<AttendanceSessionResponse>(`/class-sessions/${classSessionId}/attendance`, { method: "POST", body: JSON.stringify(request) });
+}
+
+export interface AttendanceMarkHistoryResponse {
+  id: number;
+  studentId: number;
+  studentFullName: string;
+  studentCode: string;
+  status: AttendanceMarkResponse["status"];
+  action: "CREATED" | "UPDATED";
+  changedByUserId: number;
+  changedByName: string;
+  createdAt: string;
+}
+
+/** Lịch sử thao tác (Lưu/Sửa) của 1 buổi điểm danh, cũ→mới — bổ sung ngoài SDD gốc, 2026-10-01 (xem AttendanceHistoryPanel.tsx). */
+export function getAttendanceHistory(classSessionId: number): Promise<AttendanceMarkHistoryResponse[]> {
+  return apiRequest<AttendanceMarkHistoryResponse[]>(`/class-sessions/${classSessionId}/attendance/history`);
 }
 
 export function submitAttendance(classSessionId: number): Promise<AttendanceSessionResponse> {
@@ -1515,6 +1586,8 @@ export function updateComment(id: number, request: UpdateStudentCommentRequest):
  */
 export interface SaveDraftRowRequest extends UpdateStudentCommentRequest {
   studentId: number;
+  /** UC-74 (V201) — true khi dòng vừa áp dụng từ bản nháp trợ lý AI; bỏ trống thì BE giữ nguyên cờ đã lưu. */
+  aiDrafted?: boolean;
 }
 
 export interface SaveDraftCommentsRequest {
@@ -2180,3 +2253,250 @@ export function deleteEntranceAssessmentResult(id: number): Promise<void> {
 export function markEntranceAssessmentResultPlaced(id: number): Promise<EntranceAssessmentResultResponse> {
   return apiRequest<EntranceAssessmentResultResponse>(`/entrance-assessment-results/${id}/mark-placed`, { method: "POST" });
 }
+
+// ---- UC-74: Trợ lý AI soạn nháp nhận xét hàng ngày từ audio (bổ sung ngoài SDD gốc, 2026-09-28) ----
+
+export type CommentAttitude = NonNullable<StudentCommentResponse["attitude"]>;
+
+export interface CommentAiDraftWarning {
+  type: "SIMILAR_IN_SESSION" | "SIMILAR_TO_PREVIOUS" | "CONTAINS_DIGITS" | "NOT_WRITTEN" | "LESSON_TITLE" | "ATTITUDE_ALERT" | "PRONOUN_MISMATCH" | "REPEATED_PATTERN" | "STUDENT_INFO_CHECK";
+  message: string;
+  similarity: number | null;
+}
+
+/** Mirror CommentAiDraftResult (BE) — mỗi dòng CHỈ có Thái độ + Nhận xét, AI không có trường điểm/BTVN nào. */
+export interface CommentAiDraftRow {
+  studentId: number;
+  studentFullName: string;
+  attitude: CommentAttitude | null;
+  content: string | null;
+  source: "CLASS" | "INDIVIDUAL";
+  warnings: CommentAiDraftWarning[];
+}
+
+export interface CommentAiDraftExtraction {
+  classAttitude: CommentAttitude | null;
+  classPoints: string[];
+  individuals: { studentId: number; attitude: CommentAttitude | null; points: string[]; evidence: string | null; sharedWith?: number[] | null }[];
+  /** Đại từ giáo viên tự xưng lấy từ audio/ghi chú ("thầy"/"cô") — null thì AI viết "thầy/cô". */
+  teacherPronoun: "thầy" | "cô" | null;
+}
+
+export interface CommentAiDraftResult {
+  transcript: string;
+  assistantMessage: string;
+  extraction: CommentAiDraftExtraction | null;
+  rows: CommentAiDraftRow[];
+  unmatchedMentions: { quote: string; candidateStudentIds: number[] }[];
+  skippedStudents: { studentId: number; studentFullName: string; reason: string }[];
+}
+
+export interface CommentAiDraftJob {
+  jobId: string;
+  status: "RUNNING" | "DONE" | "FAILED";
+  errorMessage: string | null;
+  result: CommentAiDraftResult | null;
+}
+
+/** Điểm BTVN buổi trước đang nhập trên bảng (kể cả chưa Lưu nháp) — chỉ để trợ lý đọc, quy ra lời, không ghi số vào nhận xét. */
+export interface HomeworkScoreInput {
+  studentId: number;
+  offline: string | null;
+  speaking: string | null;
+  reading: string | null;
+  writing: string | null;
+}
+
+export interface ReviseCommentAiDraftRequest {
+  mode: "INSTRUCTION" | "REWRITE_ALL";
+  instruction?: string;
+  transcript?: string;
+  extraction?: CommentAiDraftExtraction | null;
+  currentRows: { studentId: number; attitude: CommentAttitude | null; content: string | null }[];
+  history?: { role: "teacher" | "assistant"; text: string }[];
+  homeworkScores?: HomeworkScoreInput[];
+}
+
+/** UC-74 bước 1-2 — gửi audio (≤ 5 phút, FE tự kiểm tra) và/hoặc ghi chú chữ; BE trả job chạy nền. */
+export function startCommentAiDraft(
+  classSessionId: number,
+  audio: Blob | null,
+  note: string,
+  homeworkScores: HomeworkScoreInput[] = []
+): Promise<CommentAiDraftJob> {
+  const formData = new FormData();
+  if (audio) {
+    const extension = audio.type.includes("mp4") || audio.type.includes("m4a") ? "m4a" : audio.type.includes("wav") ? "wav" : audio.type.includes("mpeg") ? "mp3" : "webm";
+    formData.append("audio", audio, `nhan-xet.${extension}`);
+  }
+  if (note.trim()) formData.append("note", note.trim());
+  if (homeworkScores.length > 0) {
+    formData.append("homeworkScores", new Blob([JSON.stringify(homeworkScores)], { type: "application/json" }));
+  }
+  return apiRequest<CommentAiDraftJob>(`/class-sessions/${classSessionId}/comments/ai-draft`, { method: "POST", body: formData });
+}
+
+/** UC-74 bước 9 — sửa bản nháp theo yêu cầu, hoặc viết lại câu chữ toàn bộ. */
+export function reviseCommentAiDraft(classSessionId: number, request: ReviseCommentAiDraftRequest): Promise<CommentAiDraftJob> {
+  return apiRequest<CommentAiDraftJob>(`/class-sessions/${classSessionId}/comments/ai-draft/revise`, {
+    method: "POST",
+    body: JSON.stringify(request)
+  });
+}
+
+export function getCommentAiDraftJob(jobId: string): Promise<CommentAiDraftJob> {
+  return apiRequest<CommentAiDraftJob>(`/comment-ai-drafts/${jobId}`);
+}
+
+/** Hỏi lại trạng thái job mỗi 2 giây tới khi xong/lỗi (tối đa ~5 phút) — dừng khi `signal` bị huỷ. */
+export async function waitForCommentAiDraftJob(job: CommentAiDraftJob, signal?: AbortSignal): Promise<CommentAiDraftJob> {
+  let current = job;
+  for (let i = 0; i < 150 && current.status === "RUNNING"; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    if (signal?.aborted) throw new DOMException("aborted", "AbortError");
+    current = await getCommentAiDraftJob(current.jobId);
+  }
+  return current;
+}
+
+// ---- UC-75: Trợ lý AI soát nhận xét chờ duyệt (bổ sung ngoài SDD gốc, 2026-09-29) ----
+
+export interface CommentAiReviewIssue {
+  type: string;
+  /** RULE = kiểm tra tự động bằng code; AI = kiểm tra theo rubric bằng AI. */
+  source: "RULE" | "AI";
+  message: string;
+}
+
+/** Lưu ý KHÔNG phải lỗi nội dung (dòng vẫn tính là sạch): ATTITUDE_ALERT (duyệt sẽ báo phụ huynh), HOMEWORK_MISMATCH, REPEATED_PATTERN. */
+export interface CommentAiReviewNotice {
+  type: "ATTITUDE_ALERT" | "HOMEWORK_MISMATCH" | "REPEATED_PATTERN" | string;
+  source: "RULE" | "AI";
+  message: string;
+}
+
+export interface CommentAiReview {
+  commentId: number;
+  studentFullName: string;
+  issues: CommentAiReviewIssue[];
+  notices: CommentAiReviewNotice[];
+}
+
+/** Tóm tắt cả lô (đếm bằng code) — bổ sung 2026-09-29. */
+export interface CommentAiReviewSummary {
+  cleanCount: number;
+  issueCounts: { type: string; count: number }[];
+  parentAlertCount: number;
+  escalationCount: number;
+  homeworkMismatchCount: number;
+  /** Số dòng dùng chung khuôn câu (câu mở/kết, cụm sáo mòn) với nhiều bạn — lưu ý, không chặn duyệt. */
+  repeatedPatternCount: number;
+}
+
+export interface CommentAiReviewResult {
+  message: string;
+  checkedCount: number;
+  flaggedCount: number;
+  aiCheckComplete: boolean;
+  reviews: CommentAiReview[];
+  summary: CommentAiReviewSummary;
+}
+
+/** UC-75 (bổ sung 2026-09-29) — dòng Yếu/Trung bình: duyệt sẽ báo phụ huynh; escalation = chạm mốc cảnh báo 3 buổi. */
+export interface CommentAttitudeAlert {
+  commentId: number;
+  consecutiveLowCount: number;
+  escalation: boolean;
+  message: string;
+}
+
+export interface CommentAiRejectionReasonResult {
+  commentId: number;
+  reason: string;
+}
+
+export interface CommentAiSuggestionResult {
+  commentId: number;
+  originalContent: string;
+  suggestedContent: string;
+  explanation: string;
+  warnings: string[];
+}
+
+export interface AiJob<T> {
+  jobId: string;
+  status: "RUNNING" | "DONE" | "FAILED";
+  errorMessage: string | null;
+  result: T | null;
+}
+
+/** UC-75 bước 1-2 — soát các nhận xét chờ duyệt (thường cả 1 lớp); chỉ trả cảnh báo, không đổi gì trên nhận xét. */
+export function startCommentAiReview(commentIds: number[]): Promise<AiJob<CommentAiReviewResult>> {
+  return apiRequest<AiJob<CommentAiReviewResult>>("/comments/ai-review", { method: "POST", body: JSON.stringify({ commentIds }) });
+}
+
+/** UC-75 bước 6 — AI đề xuất bản sửa cho 1 nhận xét chờ duyệt (chưa lưu; "Áp dụng" dùng updatePendingCommentContent). */
+export function startCommentAiSuggestion(commentId: number, issues: string[]): Promise<AiJob<CommentAiSuggestionResult>> {
+  return apiRequest<AiJob<CommentAiSuggestionResult>>(`/comments/${commentId}/ai-suggestion`, {
+    method: "POST",
+    body: JSON.stringify({ issues })
+  });
+}
+
+/** UC-75 (bổ sung 2026-09-29) — nhắc ngay trên bảng dòng nào duyệt sẽ gửi cảnh báo thái độ cho phụ huynh (chỉ đọc, không AI). */
+export function previewCommentAttitudeAlerts(commentIds: number[]): Promise<{ items: CommentAttitudeAlert[] }> {
+  return apiRequest<{ items: CommentAttitudeAlert[] }>("/comments/attitude-alert-preview", { method: "POST", body: JSON.stringify({ commentIds }) });
+}
+
+/** UC-75 (bổ sung 2026-09-29) — AI soạn sẵn lý do từ chối; FE điền vào hộp thoại, Quản lý sửa rồi tự bấm Từ chối. */
+export function startCommentAiRejectionReason(commentId: number, issues: string[]): Promise<AiJob<CommentAiRejectionReasonResult>> {
+  return apiRequest<AiJob<CommentAiRejectionReasonResult>>(`/comments/${commentId}/ai-rejection-reason`, {
+    method: "POST",
+    body: JSON.stringify({ issues })
+  });
+}
+
+/** Hỏi lại trạng thái job của trợ lý AI mỗi 2 giây tới khi xong/lỗi (tối đa ~5 phút). */
+export async function waitForAiJob<T>(job: AiJob<T>, path: (jobId: string) => string): Promise<AiJob<T>> {
+  let current = job;
+  for (let i = 0; i < 150 && current.status === "RUNNING"; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    current = await apiRequest<AiJob<T>>(path(current.jobId));
+  }
+  return current;
+}
+
+export const commentAiReviewJobPath = (jobId: string) => `/comment-ai-reviews/${jobId}`;
+export const commentAiSuggestionJobPath = (jobId: string) => `/comment-ai-suggestions/${jobId}`;
+export const commentAiRejectionReasonJobPath = (jobId: string) => `/comment-ai-rejection-reasons/${jobId}`;
+
+export interface CommentAiInstructionChange {
+  commentId: number;
+  studentFullName: string;
+  originalContent: string;
+  suggestedContent: string;
+  warnings: string[];
+}
+
+export interface CommentAiInstructionResult {
+  transcript: string;
+  assistantMessage: string;
+  changes: CommentAiInstructionChange[];
+}
+
+/**
+ * UC-75 bước 9 — Quản lý ra yêu cầu sửa bằng audio (≤ 5 phút) và/hoặc chữ cho các nhận xét chờ duyệt đang xem;
+ * trả bản sửa đề xuất (chưa lưu — "Áp dụng" dùng updatePendingCommentContent).
+ */
+export function startCommentAiInstruction(commentIds: number[], audio: Blob | null, note: string): Promise<AiJob<CommentAiInstructionResult>> {
+  const formData = new FormData();
+  commentIds.forEach((id) => formData.append("commentIds", String(id)));
+  if (audio) {
+    const extension = audio.type.includes("mp4") || audio.type.includes("m4a") ? "m4a" : audio.type.includes("wav") ? "wav" : audio.type.includes("mpeg") ? "mp3" : "webm";
+    formData.append("audio", audio, `yeu-cau.${extension}`);
+  }
+  if (note.trim()) formData.append("note", note.trim());
+  return apiRequest<AiJob<CommentAiInstructionResult>>("/comments/ai-instruction", { method: "POST", body: formData });
+}
+
+export const commentAiInstructionJobPath = (jobId: string) => `/comment-ai-instructions/${jobId}`;

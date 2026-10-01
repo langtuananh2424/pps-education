@@ -72,9 +72,10 @@
       "offline": "Offline"
     },
     "cancel": "Hủy",
-    "saveEdit": "Lưu sửa",
+    "saveEdit": "Lưu nội dung",
     "savingEdit": "Đang lưu...",
-    "actionEdit": "Sửa",
+    "actionEdit": "Sửa nội dung",
+    "editingHint": "Bạn đang sửa trực tiếp NỘI DUNG nhận xét của học sinh (thay cho nội dung giáo viên đã viết) — không phải nhập lý do từ chối. Muốn trả về cho giáo viên sửa, bấm Hủy rồi bấm \"Từ chối\".",
     "actionReject": "Từ chối",
     "actionApprove": "Duyệt",
     "deciding": "...",
@@ -87,6 +88,81 @@
       "decideAllFailed": "Duyệt tất cả thất bại.",
       "emptyContent": "Nội dung nhận xét không được để trống.",
       "saveEditFailed": "Sửa nội dung thất bại."
+    },
+    "aiReview": {
+      "approveClean": "Duyệt {{count}} dòng không có cảnh báo",
+      "approvedClean": "Đã duyệt {{count}} nhận xét không có cảnh báo.",
+      "confirmApproveAll": "Còn {{count}} dòng có cảnh báo của trợ lý AI. Vẫn duyệt cả lớp?",
+      "source": {
+        "RULE": "Tự động",
+        "AI": "AI"
+      },
+      "suggestButton": "AI đề xuất bản sửa",
+      "suggesting": "Đang đề xuất…",
+      "suggestionTitle": "Bản sửa AI đề xuất (chưa lưu)",
+      "dismiss": "Bỏ qua",
+      "editFirst": "Sửa tiếp",
+      "apply": "Áp dụng",
+      "applied": "Đã áp dụng bản sửa cho {{name}} — nhận xét vẫn đang chờ duyệt.",
+      "errors": {
+        "failed": "Trợ lý chưa soát được — vui lòng thử lại.",
+        "suggestFailed": "Trợ lý chưa đề xuất được bản sửa — vui lòng thử lại.",
+        "rejectReasonFailed": "Trợ lý chưa soạn được lý do từ chối — hãy tự nhập."
+      },
+      "notice": "Lưu ý",
+      "confirmApproveCleanAlerts": "Trong {{count}} dòng sắp duyệt có {{alerts}} dòng Thái độ Yếu/Trung bình — duyệt sẽ gửi cảnh báo thái độ cho phụ huynh{{escalationNote}}. Tiếp tục?",
+      "confirmApproveAllAlerts": "Lớp này có {{alerts}} dòng Thái độ Yếu/Trung bình — duyệt sẽ gửi cảnh báo thái độ cho phụ huynh{{escalationNote}}. Vẫn duyệt cả lớp?",
+      "escalationNote": " ({{count}} dòng chạm mốc cảnh báo 3 buổi liên tiếp)",
+      "attitudeAlert": {
+        "single": "Sẽ báo phụ huynh",
+        "escalation": "Chạm mốc cảnh báo 3 buổi"
+      },
+      "rejectReasonButton": "AI gợi ý lý do từ chối",
+      "rejectReasonLoading": "Đang soạn lý do…",
+      "summary": {
+        "clean": "{{count}} dòng sạch",
+        "issue": "{{count}} {{label}}",
+        "parentAlerts": "{{count}} sẽ báo phụ huynh",
+        "escalations": "{{count}} chạm mốc 3 buổi",
+        "homeworkMismatch": "{{count}} nhắc BTVN ngược dữ liệu",
+        "repeatedPattern": "{{count}} dòng lặp khuôn câu"
+      },
+      "issueType": {
+        "CONTAINS_DIGITS": "có chữ số",
+        "TOO_LONG": "quá dài",
+        "EMPTY": "để trống",
+        "OTHER_STUDENT_NAME": "nhắc bạn khác",
+        "OTHER_STUDENT": "nhắc bạn khác",
+        "LESSON_TITLE": "nhắc tên bài học",
+        "SIMILAR_IN_SESSION": "giống bạn khác",
+        "SIMILAR_TO_PREVIOUS": "giống buổi trước",
+        "HOMEWORK_OR_SCORE": "ghi điểm/hạn nộp",
+        "HARSH_WORDING": "từ ngữ nặng",
+        "ATTITUDE_MISMATCH": "Thái độ không khớp",
+        "FORBIDDEN_TOPIC": "chủ đề không nên nhắc",
+        "OTHER": "lỗi khác"
+      },
+      "repeatedPatternGroup": "{{count}} dòng dùng chung khuôn câu với nhiều bạn (câu mở/kết hoặc cụm lặp lại): {{names}}. Không chặn duyệt — nên nhắc giáo viên đa dạng cách viết."
+    },
+    "assistant": {
+      "openButton": "Trợ lý duyệt AI",
+      "title": "Trợ lý duyệt nhận xét",
+      "classOption": "{{className}} — {{count}} chờ duyệt",
+      "intro": "Chọn lớp rồi bấm \"Soát lớp này\" để trợ lý gắn cảnh báo lên từng nhận xét. Muốn sửa, hãy ghi âm hoặc gõ yêu cầu (VD \"bỏ cụm quậy phá trong nhận xét của Đạt\"), trợ lý đề xuất bản sửa để thầy/cô bấm Áp dụng.",
+      "permissionNote": "Trợ lý chỉ gợi ý — không tự duyệt, từ chối hay sửa. Bản sửa chỉ được lưu khi thầy/cô bấm Áp dụng, nhận xét vẫn ở trạng thái Chờ duyệt.",
+      "reviewChip": "Soát lớp này",
+      "recordChip": "Ghi âm yêu cầu sửa",
+      "reviewCommand": "Soát lớp {{className}}",
+      "reviewAgain": "Soát lại",
+      "classDone": "Lớp này đã được duyệt hết.",
+      "audioMessage": "🎙️ Yêu cầu bằng giọng nói ({{duration}})",
+      "heard": "Trợ lý nghe được: \"{{text}}\"",
+      "applied": "Đã áp dụng",
+      "applyAll": "Áp dụng tất cả",
+      "appliedAll": "Đã áp dụng {{count}} bản sửa — các nhận xét vẫn đang chờ duyệt.",
+      "noLongerPending": "Không còn chờ duyệt",
+      "working": "Trợ lý đang xử lý… (có thể mất tới 1 phút)",
+      "inputPlaceholder": "Yêu cầu sửa, VD: \"Nhận xét của Đạt viết nhẹ nhàng hơn\"…"
     }
   },
   "historyList": {
@@ -324,6 +400,77 @@
       "xlsxOnly": "Chỉ hỗ trợ file .xlsx.",
       "importFailed": "Nhập từ Excel thất bại.",
       "applyHomeworkFailed": "Giao BTVN cho cả lớp thất bại."
+    },
+    "viewMode": {
+      "table": "Bảng",
+      "cards": "Thẻ",
+      "cardsHint": "Dạng thẻ chỉ sửa Thái độ/Nhận xét/Ghi chú — nhập điểm, BTVN ở dạng Bảng."
+    },
+    "cardView": {
+      "aiBadge": "AI soạn",
+      "previousComment": "Nhận xét buổi trước",
+      "noPreviousComment": "Chưa có nhận xét buổi trước trong lớp.",
+      "similarToPrevious": "Giống buổi trước {{percent}}%",
+      "status": {
+        "DRAFT": "Nháp",
+        "PENDING": "Chờ duyệt",
+        "APPROVED": "Đã duyệt",
+        "REJECTED": "Bị từ chối"
+      },
+      "absentHint": "Vắng buổi này — khoá Thái độ/Nhận xét, trợ lý AI không soạn cho bạn này."
+    },
+    "aiAssistant": {
+      "openButton": "Trợ lý nhận xét AI",
+      "title": "Trợ lý nhận xét",
+      "noSession": "Chọn buổi học để bắt đầu",
+      "close": "Đóng trợ lý",
+      "intro": "Gõ nhận xét buổi học (hoặc ghi âm/tải audio tối đa 5 phút nếu tiện hơn): nhận xét chung cả lớp, rồi nhắc riêng các bạn cần nhận xét. Trợ lý sẽ soạn sẵn Thái độ + Nhận xét cho từng học sinh có mặt.",
+      "permissionNote": "Trợ lý chỉ điền Thái độ và Nhận xét, không đụng tới điểm/BTVN. Quyền lưu cao nhất là Lưu nháp — thầy/cô tự xem lại và Gửi duyệt.",
+      "suggestions": {
+        "record": "Ghi âm nhận xét",
+        "upload": "Tải file audio"
+      },
+      "audioMessage": "🎙️ Audio nhận xét ({{duration}})",
+      "recording": "Đang ghi âm {{elapsed}} / {{max}}",
+      "stopRecording": "Dừng",
+      "removeAudio": "Bỏ audio",
+      "inputPlaceholder": "Ghi chú thêm hoặc gõ nhận xét (Enter để gửi)…",
+      "inputPlaceholderRevise": "Yêu cầu sửa, VD: \"Bạn An hôm nay cho Trung bình\"…",
+      "send": "Gửi",
+      "working": "Trợ lý đang soạn nhận xét… (có thể mất tới 1–2 phút)",
+      "individualBadge": "Riêng",
+      "noAttitude": "chưa rõ thái độ",
+      "unmatchedTitle": "Chưa xác định được học sinh",
+      "unmatchedCandidates": "có thể là: {{names}}",
+      "skipped": "Bỏ qua: {{names}}",
+      "transcriptToggle": "Xem lời đã chép từ audio",
+      "actions": {
+        "apply": "Áp dụng vào bảng",
+        "saveDraft": "Lưu nháp",
+        "rewrite": "Viết lại cho đa dạng hơn"
+      },
+      "quickInstructionLabels": {
+        "shorter": "Ngắn gọn hơn",
+        "warmer": "Nhẹ nhàng hơn",
+        "changeAttitude": "Đổi thái độ 1 bạn…"
+      },
+      "quickInstructions": {
+        "shorter": "Viết ngắn gọn hơn cho tất cả các bạn.",
+        "warmer": "Viết giọng nhẹ nhàng, động viên hơn.",
+        "changeAttitude": "Bạn … hôm nay cho thái độ …"
+      },
+      "appliedMessage": "Đã điền Thái độ + Nhận xét cho {{count}} học sinh vào bảng (dòng đã gửi/vắng được giữ nguyên). Nhớ Lưu nháp trước khi rời trang.",
+      "savedMessage": "Đã áp dụng và Lưu nháp. Thầy/cô xem lại rồi bấm \"Gửi nhận xét\" khi sẵn sàng.",
+      "errors": {
+        "recordingUnsupported": "Trình duyệt không hỗ trợ ghi âm — hãy tải file audio.",
+        "microphoneDenied": "Không truy cập được micro — kiểm tra quyền micro của trình duyệt.",
+        "notAudio": "File đã chọn không phải audio.",
+        "tooLong": "File audio dài hơn 5 phút — hãy cắt ngắn hoặc chia làm nhiều lần.",
+        "generic": "Trợ lý gặp lỗi — vui lòng thử lại.",
+        "timeout": "Trợ lý xử lý quá lâu — vui lòng thử lại."
+      },
+      "pronounDetected": "Giáo viên xưng: {{pronoun}}",
+      "pronounUnknown": "Chưa nhận ra thầy hay cô — trợ lý viết câu không xưng hô (VD \"Mong con…\"). Gõ \"xưng thầy\" hoặc \"xưng cô\" để đổi."
     }
   },
   "commentsPage": {

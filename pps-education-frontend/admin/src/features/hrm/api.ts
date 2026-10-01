@@ -283,6 +283,43 @@ export function deleteDepartment(id: number): Promise<void> {
   return apiRequest<void>(`/departments/${id}`, { method: "DELETE" });
 }
 
+/**
+ * Thành viên phòng ban (bổ sung ngoài SDD gốc, xác nhận 2026-10-01) — vẫn là employees.department_id, cùng
+ * cột "Phòng ban" ở hồ sơ cán bộ. departmentId/departmentName = phòng hiện tại của nhân sự (ứng viên có thể
+ * đang thuộc phòng khác — thêm vào sẽ chuyển phòng).
+ */
+export interface DepartmentMemberResponse {
+  employeeId: number;
+  userId: number;
+  employeeCode: string;
+  fullName: string;
+  positionName: string | null;
+  employeeType: "TEACHER" | "STAFF" | "MANAGER";
+  status: "ACTIVE" | "ON_LEAVE" | "TERMINATED";
+  departmentId: number | null;
+  departmentName: string | null;
+}
+
+export function listDepartmentMembers(departmentId: number): Promise<DepartmentMemberResponse[]> {
+  return apiRequest<DepartmentMemberResponse[]>(`/departments/${departmentId}/members`);
+}
+
+export function searchDepartmentMemberCandidates(departmentId: number, query?: string): Promise<DepartmentMemberResponse[]> {
+  const qs = query?.trim() ? `?query=${encodeURIComponent(query.trim())}` : "";
+  return apiRequest<DepartmentMemberResponse[]>(`/departments/${departmentId}/member-candidates${qs}`);
+}
+
+export function addDepartmentMembers(departmentId: number, employeeIds: number[]): Promise<DepartmentMemberResponse[]> {
+  return apiRequest<DepartmentMemberResponse[]>(`/departments/${departmentId}/members`, {
+    method: "POST",
+    body: JSON.stringify({ employeeIds })
+  });
+}
+
+export function removeDepartmentMember(departmentId: number, employeeId: number): Promise<void> {
+  return apiRequest<void>(`/departments/${departmentId}/members/${employeeId}`, { method: "DELETE" });
+}
+
 // ===================== Chức vụ (Position) — đổ dropdown + gán role mặc định, bổ sung ngoài SDD gốc (V36) =====================
 
 export interface PositionResponse {
@@ -613,6 +650,45 @@ export function listAttendanceRecords(params: ListAttendanceRecordsParams): Prom
   if (params.employeeId != null) query.set("employeeId", String(params.employeeId));
   if (params.siteId != null) query.set("siteId", String(params.siteId));
   return apiRequest<AttendanceRecordAdminResponse[]>(`/attendance/records?${query.toString()}`);
+}
+
+/**
+ * UC-71: Nhận lớp — bổ sung ngoài SDD/SRS gốc, đã xác nhận với người dùng
+ * 2026-09-11. Khớp ClassSessionCheckInAdminResponse thật, xem GET
+ * /api/class-sessions/check-ins (ClassSessionCheckInController.java), gate
+ * chung quyền hrm.attendance.view-all với "Dữ liệu chấm công ca làm việc".
+ */
+export interface ClassSessionCheckInAdminResponse {
+  classSessionId: number;
+  teacherId: number;
+  teacherFullName: string;
+  teacherCode: string;
+  classId: number;
+  className: string;
+  sessionDate: string;
+  startTime: string;
+  endTime: string;
+  siteId: number;
+  siteName: string;
+  checkInTime: string | null;
+  /** NOT_YET_OPEN | PENDING | ON_TIME | LATE | ABSENT */
+  effectiveStatus: string;
+}
+
+export interface ListClassSessionCheckInsParams {
+  employeeId?: number;
+  siteId?: number;
+  from: string;
+  to: string;
+}
+
+export function listClassSessionCheckIns(params: ListClassSessionCheckInsParams): Promise<ClassSessionCheckInAdminResponse[]> {
+  const query = new URLSearchParams();
+  query.set("from", params.from);
+  query.set("to", params.to);
+  if (params.employeeId != null) query.set("employeeId", String(params.employeeId));
+  if (params.siteId != null) query.set("siteId", String(params.siteId));
+  return apiRequest<ClassSessionCheckInAdminResponse[]>(`/class-sessions/check-ins?${query.toString()}`);
 }
 
 // ===================== UC-70: Ca làm việc + Lịch làm việc/nghỉ lễ =====================

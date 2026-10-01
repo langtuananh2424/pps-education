@@ -106,7 +106,7 @@ public class ExerciseController {
      * V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — bật/tắt lại "Cho phép nộp
      * bài muộn" cho 1 bản giao ĐÃ tạo, gọi từ trang "Xem chi tiết" BTVN (Thống kê BTVN).
      */
-    @PreAuthorize("hasPermission(null, 'lms.exercise.update')")
+    @PreAuthorize("hasPermission(null, 'lms.exercise.deadline.confirm')")
     @PutMapping("/api/exercise-assignments/{id}/late-submission-allowed")
     public ResponseEntity<ExerciseAssignmentResponse> updateLateSubmissionAllowed(@PathVariable Long id,
                                                                                     @Valid @RequestBody UpdateLateSubmissionAllowedRequest request,

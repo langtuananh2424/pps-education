@@ -6,7 +6,7 @@ import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Select from "@/components/ui/Select";
 import DatePicker from "@/components/ui/DatePicker";
-import { ClassSessionResponse, rescheduleClassSession, UpdateSessionAssignmentRequest } from "../api";
+import { ClassSessionResponse, isSessionAlreadyHeld, rescheduleClassSession, UpdateSessionAssignmentRequest } from "../api";
 import PeriodMultiSelect from "./PeriodMultiSelect";
 import TeacherSearchSelect from "./TeacherSearchSelect";
 
@@ -32,6 +32,8 @@ interface SessionEditModalProps {
   onRescheduled: () => void;
   /** Buổi đang sửa là 1 mục "mới thêm, chưa lưu" trên lưới — chưa có sessionId thật nên ẩn tab "Dời lịch" (không có ý nghĩa trước khi Lưu), bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-08-21. */
   hideReschedule?: boolean;
+  /** Có quyền academic.class-session.correct-past — cho sửa buổi đã IN_PROGRESS/COMPLETED (UC-48 A7, bắt buộc lý do). */
+  canCorrectPast?: boolean;
 }
 
 /**
@@ -41,7 +43,7 @@ interface SessionEditModalProps {
  * xem ClassPeriodGrid), "Dời lịch" (đổi ngày) vẫn lưu ngay để giữ đúng ngữ
  * nghĩa RESCHEDULED. "Hủy buổi" đã chuyển ra menu chuột phải trên lưới.
  */
-export default function SessionEditModal({ session, siteId, rooms, onClose, onQueueUpdate, onRescheduled, hideReschedule }: SessionEditModalProps) {
+export default function SessionEditModal({ session, siteId, rooms, onClose, onQueueUpdate, onRescheduled, hideReschedule, canCorrectPast }: SessionEditModalProps) {
   const [mode, setMode] = useState<"edit" | "reschedule">("edit");
 
   const [roomId, setRoomId] = useState(session.roomId != null ? String(session.roomId) : "");
@@ -56,20 +58,30 @@ export default function SessionEditModal({ session, siteId, rooms, onClose, onQu
   const [dayPart, setDayPart] = useState<DayPart>(session.dayPart ?? "MORNING");
   const [selectedPeriods, setSelectedPeriods] = useState<Set<number>>(new Set(session.periodNumbers));
   const [allowTeacherOverlap, setAllowTeacherOverlap] = useState(false);
+  // Cho phép trùng phòng khi 2 nhóm lớp gộp học chung (bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-09-29).
+  const [allowRoomOverlap, setAllowRoomOverlap] = useState(false);
 
   const [newSessionDate, setNewSessionDate] = useState(session.sessionDate);
   const [newDayPart, setNewDayPart] = useState<DayPart>(session.dayPart ?? "MORNING");
   const [newPeriods, setNewPeriods] = useState<Set<number>>(new Set(session.periodNumbers));
   const [rescheduleReason, setRescheduleReason] = useState("");
+  const [correctionReason, setCorrectionReason] = useState("");
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const canEdit = session.status === "SCHEDULED";
+  // UC-48 A7: buổi đã diễn ra chỉ sửa được khi có quyền correct-past, bắt buộc lý do, không dời lịch.
+  const isCorrection = isSessionAlreadyHeld(session);
+  const canEdit = session.status === "SCHEDULED" || (isCorrection && !!canCorrectPast);
+  const showRescheduleTab = !hideReschedule && !isCorrection;
 
   const handleSaveAssignment = () => {
     if (!teacherType || !primaryTeacherId || !primaryTeacherName || selectedPeriods.size === 0) {
       setError("Vui lòng chọn đủ loại giáo viên, giáo viên chính, và tối thiểu 1 tiết.");
+      return;
+    }
+    if (isCorrection && !correctionReason.trim()) {
+      setError("Buổi học đã diễn ra — bắt buộc nhập lý do sửa.");
       return;
     }
     setError(null);
@@ -82,7 +94,9 @@ export default function SessionEditModal({ session, siteId, rooms, onClose, onQu
       dayPart,
       periodNumbers: Array.from(selectedPeriods),
       actualTeacherName: teacherType === "FOREIGN" && actualTeacherName.trim() ? actualTeacherName.trim() : undefined,
-      allowTeacherOverlap: allowTeacherOverlap || undefined
+      allowTeacherOverlap: allowTeacherOverlap || undefined,
+      allowRoomOverlap: (roomId !== "" && allowRoomOverlap) || undefined,
+      correctionReason: isCorrection ? correctionReason.trim() : undefined
     };
     onQueueUpdate(request, {
       roomName: roomId ? rooms.find((r) => r.id === Number(roomId))?.name ?? null : null,
@@ -107,7 +121,8 @@ export default function SessionEditModal({ session, siteId, rooms, onClose, onQu
         newPeriodNumbers: Array.from(newPeriods),
         newRoomId: roomId ? Number(roomId) : undefined,
         reason: rescheduleReason.trim() || undefined,
-        allowTeacherOverlap: allowTeacherOverlap || undefined
+        allowTeacherOverlap: allowTeacherOverlap || undefined,
+        allowRoomOverlap: (roomId !== "" && allowRoomOverlap) || undefined
       });
       onRescheduled();
     } catch (err) {
@@ -128,9 +143,15 @@ export default function SessionEditModal({ session, siteId, rooms, onClose, onQu
           </p>
         )}
 
+        {canEdit && isCorrection && (
+          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg p-2.5">
+            Buổi này đã diễn ra (<b>{session.status}</b>) — chỉ sửa thông tin cùng ngày, không dời lịch được, bắt buộc nhập lý do sửa.
+          </p>
+        )}
+
         {canEdit && (
           <>
-            {!hideReschedule && (
+            {showRescheduleTab && (
               <div className="flex border-b border-slate-200 gap-4">
                 <button
                   type="button"
@@ -150,7 +171,7 @@ export default function SessionEditModal({ session, siteId, rooms, onClose, onQu
               </div>
             )}
 
-            {mode === "edit" || hideReschedule ? (
+            {mode === "edit" || !showRescheduleTab ? (
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -237,6 +258,24 @@ export default function SessionEditModal({ session, siteId, rooms, onClose, onQu
                     </span>
                   </span>
                 </label>
+                {roomId !== "" && (
+                  <label className="flex items-start gap-2 text-xs text-slate-600 cursor-pointer">
+                    <input type="checkbox" checked={allowRoomOverlap} onChange={(e) => setAllowRoomOverlap(e.target.checked)} className="mt-0.5" />
+                    <span>
+                      Cho phép trùng phòng học với buổi khác
+                      <span className="block text-[10px] text-slate-400 italic">
+                        Dùng khi 2 nhóm lớp gộp lại học chung 1 phòng cùng khung giờ.
+                      </span>
+                    </span>
+                  </label>
+                )}
+
+                {isCorrection && (
+                  <div>
+                    <label className={labelClass}>Lý do sửa buổi đã diễn ra *</label>
+                    <input value={correctionReason} onChange={(e) => setCorrectionReason(e.target.value)} className={inputClass} />
+                  </div>
+                )}
 
                 <p className="text-[11px] text-slate-400 italic">Thay đổi chỉ hiện tạm trên lưới — bấm "Lưu" ở đầu lưới để ghi thật.</p>
 
@@ -283,6 +322,17 @@ export default function SessionEditModal({ session, siteId, rooms, onClose, onQu
                     </span>
                   </span>
                 </label>
+                {roomId !== "" && (
+                  <label className="flex items-start gap-2 text-xs text-slate-600 cursor-pointer">
+                    <input type="checkbox" checked={allowRoomOverlap} onChange={(e) => setAllowRoomOverlap(e.target.checked)} className="mt-0.5" />
+                    <span>
+                      Cho phép trùng phòng học với buổi khác
+                      <span className="block text-[10px] text-slate-400 italic">
+                        Dùng khi 2 nhóm lớp gộp lại học chung 1 phòng cùng khung giờ.
+                      </span>
+                    </span>
+                  </label>
+                )}
                 <div>
                   <label className={labelClass}>Lý do dời lịch (không bắt buộc)</label>
                   <input value={rescheduleReason} onChange={(e) => setRescheduleReason(e.target.value)} className={inputClass} />

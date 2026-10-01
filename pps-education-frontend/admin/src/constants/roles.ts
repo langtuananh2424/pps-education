@@ -29,6 +29,8 @@ export const adminAppRoles: UserRole[] = [
   UserRole.SITE_MANAGER,
   UserRole.HR_MANAGER,
   UserRole.STAFF,
+  UserRole.ACCOUNTANT,
+  UserRole.CONSULTANT,
   UserRole.OPS_MANAGER,
   UserRole.EXECUTIVE
 ];
@@ -64,9 +66,11 @@ export const rolePriorityOrder: UserRole[] = [
   UserRole.HEAD_ACADEMIC,
   UserRole.SITE_MANAGER,
   UserRole.HR_MANAGER,
+  UserRole.ACCOUNTANT,
   UserRole.OPS_MANAGER,
   UserRole.TEACHER,
   UserRole.STAFF,
+  UserRole.CONSULTANT,
   UserRole.PARTNER_REP,
   UserRole.PARENT,
   UserRole.STUDENT

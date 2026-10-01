@@ -108,6 +108,11 @@ spring:
 
 server:
   port: ${SERVER_PORT:8080}
+  # Rà soát bảo mật 2026-09-28 - lấy IP thật của người dùng từ X-Forwarded-For do Nginx đặt (Nginx lấy
+  # từ CF-Connecting-IP của Cloudflare, xem deploy/nginx/pps-security.conf). Tomcat chỉ tin header này khi
+  # request tới từ dải IP nội bộ (Nginx trên host -> container). Trước đây getRemoteAddr() luôn là IP
+  # gateway Docker -> login_attempts/audit log không có IP thật, không chặn được theo IP (LoginIpThrottle).
+  forward-headers-strategy: native
 
 # Health check cho Docker/Railway (NFR-TECH-06) - chỉ expose "health", không lộ
 # /actuator/env, /actuator/beans... ra ngoài (NFR-SEC-03)
@@ -127,6 +132,20 @@ app:
     brute-force:
       max-failed-attempts: 5
       lock-duration-minutes: 15
+      # Rà soát bảo mật 2026-09-28 - chặn đăng nhập sai hàng loạt theo IP (LoginIpThrottle). Rộng tay vì
+      # cả lớp học có thể dùng chung 1 IP công cộng.
+      ip-max-failed-attempts: ${LOGIN_IP_MAX_FAILED_ATTEMPTS:50}
+      ip-window-minutes: ${LOGIN_IP_WINDOW_MINUTES:15}
+    # Bổ sung ngoài SDD gốc (xác nhận với người dùng 2026-09-29) - số thiết bị (refresh token ACTIVE)
+    # tối đa đăng nhập cùng lúc; vượt giới hạn -> popup xác nhận đăng xuất thiết bị cũ nhất
+    # (AuthService#enforceActiveSessionLimit). Học sinh giữ 1 thiết bị để chống gian lận khi làm bài.
+    # Đổi 2026-10-01: tài khoản không phải Học sinh không giới hạn thiết bị (0 = không giới hạn).
+    session:
+      max-active-sessions: ${MAX_ACTIVE_SESSIONS:0}
+      student-max-active-sessions: ${STUDENT_MAX_ACTIVE_SESSIONS:1}
+      # Refresh token vừa xoay vòng trong khoảng này bị dùng lại (nhiều tab refresh cùng lúc) chỉ bị
+      # từ chối, không bị coi là đánh cắp token (không thu hồi toàn bộ phiên).
+      refresh-reuse-grace-seconds: 30
     google:
       # CSV client-id (Web/Mobile) dùng làm audience khi verify id_token (UC-01 A4).
       client-ids: ${GOOGLE_OAUTH_CLIENT_IDS:}
@@ -207,6 +226,12 @@ app:
       # R2 thật trên server production - xem R2StorageConfig). Để trống thì
       # giữ hành vi cũ (tự dựng URL R2 từ account-id).
       endpoint-url: ${R2_ENDPOINT_URL:}
+      # Rà soát bảo mật 2026-09-28 (đã xác nhận với người dùng) - file cá nhân (ảnh đại diện, bài nộp của
+      # Học sinh, mẫu/báo cáo đã sinh) chỉ đọc được qua URL có chữ ký, có hạn (xem MediaUrlSigner). Gốc URL
+      # mà trình duyệt gọi được và chuyển nguyên path + Host tới storage (production: https://files.
+      # ppsvietnam.edu.vn, Nginx proxy /pps-media/* vào MinIO). Để trống = tắt ký, URL trả nguyên (máy dev/CI).
+      signed-url-endpoint: ${R2_SIGNED_URL_ENDPOINT:}
+      signed-url-ttl-minutes: ${R2_SIGNED_URL_TTL_MINUTES:60}
   youtube:
     # UC-73 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-14) - dùng YouTube Data API v3
     # (videos.list?part=contentDetails) để tự động dò durationSeconds cho video import hàng loạt qua
@@ -287,6 +312,30 @@ app:
       # ffmpeg chuyển webm/mp4 -> WAV để đo tiếng nói (bộ chặn transcript bịa). Không có ffmpeg thì bộ chặn không chạy.
       ffmpeg-path: ${REFLEX_V2_FFMPEG_PATH:ffmpeg}
       ffmpeg-timeout-seconds: ${REFLEX_V2_FFMPEG_TIMEOUT_SECONDS:20}
+  ai-comment-draft:
+    # UC-74 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-28) - trợ lý AI soạn nháp nhận xét
+    # hàng ngày từ audio, xem CommentAiDraftService. STT dùng lại nine-router-stt-model ở trên.
+    # Combo RIÊNG trong Dashboard 9Router, CHỈ gồm model Claude (Claude không nhận audio nên luôn qua STT
+    # trước; response 9Router không cho biết member nào của combo đã trả lời, nên không trộn model khác).
+    model: ${COMMENT_AI_MODEL:comment-pps}
+    # Số nhận xét gần nhất/học sinh (mọi lớp) đem so để không lặp lại câu chữ giữa các buổi.
+    previous-comment-count: ${COMMENT_AI_PREVIOUS_COUNT:3}
+    previous-lookback-days: ${COMMENT_AI_PREVIOUS_LOOKBACK_DAYS:120}
+    # Tỷ lệ cụm 3 từ liên tiếp trùng nhau (0..1) từ mức này trở lên coi là trùng lặp máy móc - viết lại 1
+    # lần, vẫn trùng thì cảnh báo trên dòng. Ước lượng ban đầu, tinh chỉnh sau khi xem kết quả thật.
+    similarity-threshold: ${COMMENT_AI_SIMILARITY_THRESHOLD:0.5}
+    # Số học sinh mỗi lượt gọi AI viết câu - giữ mỗi lượt dưới timeout 90s của NineRouterAiClient.
+    write-batch-size: ${COMMENT_AI_WRITE_BATCH_SIZE:10}
+    # 20MB - FE giới hạn 5 phút/lần (ghi âm tự dừng), backend chặn thêm theo dung lượng.
+    max-audio-bytes: ${COMMENT_AI_MAX_AUDIO_BYTES:20971520}
+    worker-threads: ${COMMENT_AI_WORKER_THREADS:2}
+    job-ttl-minutes: ${COMMENT_AI_JOB_TTL_MINUTES:30}
+    # Chênh lệch tối thiểu (điểm %) giữa trung bình BTVN buổi trước và buổi trước nữa để AI được nhắc
+    # "tiến bộ rõ"/"giảm rõ" (bổ sung 2026-09-29) - ước lượng ban đầu, chỉnh qua biến môi trường.
+    homework-trend-points: ${COMMENT_AI_HOMEWORK_TREND_POINTS:20}
+    # Tỷ lệ tối đa học sinh trong 1 buổi được dùng chung 1 kiểu câu mở đầu/câu kết (bổ sung 2026-09-29) -
+    # vượt ngưỡng hoặc trùng với bạn liền trước thì viết lại 1 lần, vẫn trùng thì cảnh báo trên dòng.
+    max-pattern-share: ${COMMENT_AI_MAX_PATTERN_SHARE:0.3}
 
 springdoc:
   swagger-ui:

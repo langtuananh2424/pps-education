@@ -2,8 +2,10 @@ package vn.com.pps.education.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import vn.com.pps.education.domain.StudentAnswer;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -28,4 +30,8 @@ public interface StudentAnswerRepository extends JpaRepository<StudentAnswer, Lo
             ORDER BY sa.exerciseAttempt.submittedAt
             """)
     List<StudentAnswer> findPendingManualGrading();
+
+    /** UC-74 (bổ sung 2026-09-30) — câu trả lời kèm câu hỏi (dạng câu, độ khó) của nhiều lượt làm, 1 truy vấn. */
+    @Query("SELECT sa FROM StudentAnswer sa JOIN FETCH sa.question WHERE sa.exerciseAttempt.id IN :attemptIds")
+    List<StudentAnswer> findWithQuestionByExerciseAttemptIdIn(@Param("attemptIds") Collection<Long> attemptIds);
 }

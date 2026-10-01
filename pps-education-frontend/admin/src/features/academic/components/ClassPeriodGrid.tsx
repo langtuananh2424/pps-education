@@ -22,6 +22,7 @@ import {
   bulkCreateClassSessions,
   cancelClassSession,
   ClassSessionResponse,
+  isSessionAlreadyHeld,
   listSessionsForSiteTimetable,
   updateSessionAssignment,
   UpdateSessionAssignmentRequest
@@ -29,7 +30,7 @@ import {
 import TimetableSessionCard, { SessionPendingKind } from "./TimetableSessionCard";
 import SessionInfoModal from "./SessionInfoModal";
 import SessionEditModal, { SessionAssignmentPreview } from "./SessionEditModal";
-import CreateSessionModal, { CreateSessionModalPrefill, QueuedCreatePayload, weekdayOf } from "./CreateSessionModal";
+import CreateSessionModal, { CreateSessionModalPrefill, describeSkipped, QueuedCreatePayload, weekdayOf } from "./CreateSessionModal";
 
 const HEADER_ROW_HEIGHT = 44;
 const SECTION_ROW_HEIGHT = 24;
@@ -37,6 +38,12 @@ const PERIOD_ROW_HEIGHT = 96;
 const PERIOD_LABEL_COLUMN_WIDTH = 80;
 /** Độ rộng 1 lane (1 buổi học) trong cột ngày — cột tự giãn theo bội số này (bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-08-21). */
 const LANE_WIDTH = 170;
+/**
+ * Tổng bề rộng dải trống luôn chừa trong mỗi cột ngày (chia đều 2 bên trái/phải, thẻ căn giữa),
+ * thẻ buổi học không phủ lên — để vẫn bôi chọn ô tiết (kéo chuột) + chuột phải → "Xếp lịch" được
+ * cả khi ô đã có thẻ (bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-09-29).
+ */
+const SELECT_GUTTER_WIDTH = 48;
 
 interface ClassPeriodGridProps {
   siteId: number;
@@ -63,6 +70,7 @@ interface PendingCreate {
   primaryTeacherName: string;
   assistantTeacherName: string | null;
   cmTeacherName: string | null;
+  roomName: string | null;
 }
 
 interface PendingUpdate {
@@ -102,8 +110,14 @@ type DisplaySession = ClassSessionResponse & { pendingKind?: SessionPendingKind;
  * cho DailyCommentPanel).
  */
 export default function ClassPeriodGrid({ siteId, dates, classId, minLanes = DEFAULT_LANES }: ClassPeriodGridProps) {
-  const { setUnsavedChanges } = useApp();
+  const { setUnsavedChanges, hasPermission } = useApp();
   const { promptDialog } = useDialog();
+  // V202 — xếp buổi (popup "Xếp lịch", bôi đen ô + chuột phải) cần quyền xếp/sinh lịch; sửa, dời, hủy buổi
+  // (chuột phải vào thẻ) cần quyền dời lịch/hủy buổi. Không có quyền nào thì lưới chỉ để xem.
+  const canSchedule = hasPermission("academic.class-session.create") || hasPermission("academic.class-session.generate");
+  const canEditSessions = hasPermission("academic.class-session.reschedule") || hasPermission("academic.class-session.cancel");
+  // UC-48 A6/A7 — sửa/hủy buổi đã diễn ra (IN_PROGRESS/COMPLETED) cần thêm quyền này, bắt buộc lý do.
+  const canCorrectPast = hasPermission("academic.class-session.correct-past");
 
   const [periods, setPeriods] = useState<SitePeriodTemplateResponse[]>([]);
   const [sessions, setSessions] = useState<ClassSessionResponse[]>([]);
@@ -207,6 +221,7 @@ export default function ClassPeriodGrid({ siteId, dates, classId, minLanes = DEF
               request: {
                 ...c.request,
                 roomId: request.roomId,
+                allowRoomOverlap: request.allowRoomOverlap,
                 teacherType: request.teacherType,
                 primaryTeacherId: request.primaryTeacherId,
                 assistantTeacherId: request.assistantTeacherId,
@@ -216,7 +231,8 @@ export default function ClassPeriodGrid({ siteId, dates, classId, minLanes = DEF
               },
               primaryTeacherName: preview.primaryTeacherName,
               assistantTeacherName: preview.assistantTeacherName,
-              cmTeacherName: preview.cmTeacherName
+              cmTeacherName: preview.cmTeacherName,
+              roomName: preview.roomName
             }
           : c
       )
@@ -295,7 +311,7 @@ export default function ClassPeriodGrid({ siteId, dates, classId, minLanes = DEF
         try {
           const res = await bulkCreateClassSessions(pc.classId, pc.request);
           if (res.skippedCount > 0) {
-            errors.push(`${pc.className}: bỏ qua ${res.skippedCount}/${res.totalDates} ngày trùng lịch.`);
+            errors.push(`${pc.className}: ${describeSkipped(res)}`);
           }
         } catch (err) {
           errors.push(`${pc.className}: ${err instanceof ApiError ? err.message : "Tạo buổi thất bại."}`);
@@ -382,7 +398,7 @@ export default function ClassPeriodGrid({ siteId, dates, classId, minLanes = DEF
   };
 
   const handleCellMouseDown = (e: ReactMouseEvent, dateStr: string, dayPart: DayPart, periodNumber: number) => {
-    if (e.button !== 0) return;
+    if (e.button !== 0 || !canSchedule) return;
     draggingRef.current = true;
     setCellMenu(null);
     setCardMenu(null);
@@ -401,6 +417,7 @@ export default function ClassPeriodGrid({ siteId, dates, classId, minLanes = DEF
   const handleCellContextMenu = (e: ReactMouseEvent, dateStr: string, dayPart: DayPart, periodNumber: number) => {
     e.preventDefault();
     e.stopPropagation();
+    if (!canSchedule) return;
     draggingRef.current = false;
     const inSelection = cellSelection?.dateStr === dateStr && cellSelection.dayPart === dayPart && cellSelection.periods.has(periodNumber);
     const selPeriods = inSelection ? [...cellSelection!.periods].sort((a, b) => a - b) : [periodNumber];
@@ -419,13 +436,21 @@ export default function ClassPeriodGrid({ siteId, dates, classId, minLanes = DEF
   const handleCardContextMenu = (e: ReactMouseEvent, session: DisplaySession) => {
     e.preventDefault();
     e.stopPropagation();
+    if (!canEditSessions) return;
     draggingRef.current = false;
-    if (session.pendingKind !== "create" && session.status !== "SCHEDULED") return;
+    const editable = session.status === "SCHEDULED" || (canCorrectPast && isSessionAlreadyHeld(session));
+    if (session.pendingKind !== "create" && !editable) return;
     setCellMenu(null);
     setCardMenu({ x: e.clientX, y: e.clientY, session });
   };
 
   const handleCancelExisting = async (session: DisplaySession) => {
+    if (isSessionAlreadyHeld(session)) {
+      const reason = await promptDialog("Buổi học đã diễn ra — lý do hủy (bắt buộc):", { title: "Hủy buổi đã diễn ra", required: true });
+      if (!reason?.trim()) return;
+      queueCancelExisting(session, reason.trim());
+      return;
+    }
     const reason = await promptDialog("Lý do hủy buổi (không bắt buộc):", { title: "Hủy buổi học" });
     if (reason === null) return;
     queueCancelExisting(session, reason || undefined);
@@ -484,7 +509,7 @@ export default function ClassPeriodGrid({ siteId, dates, classId, minLanes = DEF
           dayPart: pc.request.dayPart,
           periodNumbers: pc.request.periodNumbers,
           roomId: pc.request.roomId ?? null,
-          roomName: null,
+          roomName: pc.roomName,
           primaryTeacherId: pc.request.primaryTeacherId,
           primaryTeacherName: pc.primaryTeacherName,
           assistantTeacherId: pc.request.assistantTeacherId ?? null,
@@ -582,28 +607,32 @@ export default function ClassPeriodGrid({ siteId, dates, classId, minLanes = DEF
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          <Button type="button" variant="secondary" size="sm" onClick={handleUndo} disabled={opStack.length === 0 || saving}>
-            <Undo2 className="w-3.5 h-3.5" />
-            Hoàn tác
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={() => {
-              setCreatePrefill(classId != null ? { classId } : undefined);
-              setCreateOpen(true);
-            }}
-          >
-            <CalendarPlus className="w-3.5 h-3.5" />
-            Xếp lịch
-          </Button>
-          <Button type="button" variant="primary" size="sm" onClick={handleSaveAll} disabled={!hasPending || saving}>
-            <Save className="w-3.5 h-3.5" />
-            {saving ? "Đang lưu..." : "Lưu"}
-          </Button>
-        </div>
+        {(canSchedule || canEditSessions) && (
+          <div className="flex items-center gap-2">
+            <Button type="button" variant="secondary" size="sm" onClick={handleUndo} disabled={opStack.length === 0 || saving}>
+              <Undo2 className="w-3.5 h-3.5" />
+              Hoàn tác
+            </Button>
+            {canSchedule && (
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setCreatePrefill(classId != null ? { classId } : undefined);
+                  setCreateOpen(true);
+                }}
+              >
+                <CalendarPlus className="w-3.5 h-3.5" />
+                Xếp lịch
+              </Button>
+            )}
+            <Button type="button" variant="primary" size="sm" onClick={handleSaveAll} disabled={!hasPending || saving}>
+              <Save className="w-3.5 h-3.5" />
+              {saving ? "Đang lưu..." : "Lưu"}
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Tự cuộn cả 2 chiều bên trong khung riêng (thay vì cuộn theo trang) — nút chức năng ở trên
@@ -614,7 +643,7 @@ export default function ClassPeriodGrid({ siteId, dates, classId, minLanes = DEF
         <div
           className="grid"
           style={{
-            gridTemplateColumns: `${PERIOD_LABEL_COLUMN_WIDTH}px ${laneCountByDate.map((n) => `${n * LANE_WIDTH}px`).join(" ")}`,
+            gridTemplateColumns: `${PERIOD_LABEL_COLUMN_WIDTH}px ${laneCountByDate.map((n) => `${n * LANE_WIDTH + SELECT_GUTTER_WIDTH}px`).join(" ")}`,
             gridTemplateRows: rowHeights.map((h) => `${h}px`).join(" ")
           }}
         >
@@ -660,7 +689,9 @@ export default function ClassPeriodGrid({ siteId, dates, classId, minLanes = DEF
               const dateStr = toISODate(d);
               const daySessions = sessionsByDateAndDayPart.get(`${dateStr}:${section.dayPart}`) ?? [];
               const lanes = laneAssignmentsByCell.get(`${dateStr}:${section.dayPart}`) ?? new Map();
-              const laneCount = laneCountByDate[dayIdx];
+              // Ô chỉ dùng đúng số lane của chính nó, căn giữa trong cột (cột rộng theo ô nhiều lane nhất
+              // trong ngày) — tránh thẻ dồn sát trái, để trống bên phải (xác nhận với người dùng 2026-09-29).
+              const cellLaneCount = Math.max(1, laneCountUsed(lanes));
 
               return (
                 <div
@@ -692,9 +723,12 @@ export default function ClassPeriodGrid({ siteId, dates, classId, minLanes = DEF
                     })}
                   </div>
                   <div
-                    className="grid absolute inset-0 gap-0.5 p-0.5 pointer-events-none"
+                    className="grid absolute inset-y-0 gap-0.5 py-0.5 pointer-events-none"
                     style={{
-                      gridTemplateColumns: `repeat(${laneCount}, 1fr)`,
+                      left: SELECT_GUTTER_WIDTH / 2,
+                      right: SELECT_GUTTER_WIDTH / 2,
+                      justifyContent: "center",
+                      gridTemplateColumns: `repeat(${cellLaneCount}, minmax(0, ${LANE_WIDTH}px))`,
                       gridTemplateRows: `repeat(${section.periods.length}, ${PERIOD_ROW_HEIGHT}px)`
                     }}
                   >
@@ -740,6 +774,7 @@ export default function ClassPeriodGrid({ siteId, dates, classId, minLanes = DEF
           siteId={siteId}
           rooms={rooms}
           hideReschedule={editSession.pendingKind === "create"}
+          canCorrectPast={canCorrectPast}
           onClose={() => setEditSession(null)}
           onQueueUpdate={(request, preview) => {
             if (editSession.pendingKind === "create") {

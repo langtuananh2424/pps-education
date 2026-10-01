@@ -6,13 +6,16 @@ import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.Employee;
 import vn.com.pps.education.domain.Task;
 import vn.com.pps.education.domain.User;
+import vn.com.pps.education.dto.AddDepartmentMembersRequest;
 import vn.com.pps.education.dto.CreateDepartmentRequest;
+import vn.com.pps.education.dto.DepartmentMemberResponse;
 import vn.com.pps.education.dto.DepartmentResponse;
 import vn.com.pps.education.dto.UpdateDepartmentRequest;
 import vn.com.pps.education.exception.DepartmentNotDeletableException;
 import vn.com.pps.education.exception.DuplicateDepartmentCodeException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.repository.DepartmentRepository;
+import vn.com.pps.education.repository.EmployeeHistoryRepository;
 import vn.com.pps.education.repository.EmployeeRepository;
 import vn.com.pps.education.repository.TaskRepository;
 import vn.com.pps.education.repository.UserRepository;
@@ -41,6 +44,7 @@ class DepartmentServiceTest extends AbstractIntegrationTest {
     @Autowired private UserRepository userRepository;
     @Autowired private EmployeeRepository employeeRepository;
     @Autowired private TaskRepository taskRepository;
+    @Autowired private EmployeeHistoryRepository employeeHistoryRepository;
 
     @Test
     void create_boSung_MainFlow_savesDepartment() {
@@ -168,6 +172,73 @@ class DepartmentServiceTest extends AbstractIntegrationTest {
     }
 
     // ===================== Helpers =====================
+
+    // ===================== Thành viên phòng ban (bổ sung 2026-10-01) =====================
+
+    @Test
+    void addMembers_boSung_MainFlow_assignsEmployeesAndWritesHistory() {
+        User actor = newUser("hr");
+        DepartmentResponse department = departmentService.create(new CreateDepartmentRequest(uniqueCode(), "Phòng Đào Tạo", null, null));
+        Employee first = newEmployee("first");
+        Employee second = newEmployee("second");
+
+        List<DepartmentMemberResponse> members = departmentService.addMembers(
+                department.id(), new AddDepartmentMembersRequest(List.of(first.getId(), second.getId())), actor.getId());
+
+        assertThat(members).extracting(DepartmentMemberResponse::employeeId).containsExactlyInAnyOrder(first.getId(), second.getId());
+        assertThat(employeeRepository.findById(first.getId()).orElseThrow().getDepartment().getId()).isEqualTo(department.id());
+        assertThat(employeeHistoryRepository.findByEmployeeIdOrderByCreatedAtDesc(first.getId()).get(0).getDetails())
+                .containsEntry("departmentName", "Phòng Đào Tạo");
+    }
+
+    @Test
+    void addMembers_boSung_movesEmployeeFromOtherDepartment() {
+        User actor = newUser("hr");
+        DepartmentResponse oldDepartment = departmentService.create(new CreateDepartmentRequest(uniqueCode(), "Phòng Cũ", null, null));
+        DepartmentResponse newDepartment = departmentService.create(new CreateDepartmentRequest(uniqueCode(), "Phòng Mới", null, null));
+        Employee employee = newEmployee("mover");
+        departmentService.addMembers(oldDepartment.id(), new AddDepartmentMembersRequest(List.of(employee.getId())), actor.getId());
+
+        departmentService.addMembers(newDepartment.id(), new AddDepartmentMembersRequest(List.of(employee.getId())), actor.getId());
+
+        assertThat(departmentService.listMembers(oldDepartment.id())).isEmpty();
+        assertThat(departmentService.listMembers(newDepartment.id()))
+                .extracting(DepartmentMemberResponse::employeeId).containsExactly(employee.getId());
+        assertThat(departmentService.searchMemberCandidates(newDepartment.id(), employee.getEmployeeCode())).isEmpty();
+    }
+
+    @Test
+    void removeMember_boSung_MainFlow_clearsDepartment() {
+        User actor = newUser("hr");
+        DepartmentResponse department = departmentService.create(new CreateDepartmentRequest(uniqueCode(), "Phòng Đào Tạo", null, null));
+        Employee employee = newEmployee("member");
+        departmentService.addMembers(department.id(), new AddDepartmentMembersRequest(List.of(employee.getId())), actor.getId());
+
+        departmentService.removeMember(department.id(), employee.getId(), actor.getId());
+
+        assertThat(employeeRepository.findById(employee.getId()).orElseThrow().getDepartment()).isNull();
+        assertThat(departmentService.listMembers(department.id())).isEmpty();
+    }
+
+    @Test
+    void removeMember_boSung_employeeNotInDepartment_throwsResourceNotFoundException() {
+        User actor = newUser("hr");
+        DepartmentResponse department = departmentService.create(new CreateDepartmentRequest(uniqueCode(), "Phòng Đào Tạo", null, null));
+        Employee outsider = newEmployee("outsider");
+
+        assertThatThrownBy(() -> departmentService.removeMember(department.id(), outsider.getId(), actor.getId()))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    private Employee newEmployee(String prefix) {
+        Employee employee = new Employee();
+        employee.setUser(newUser(prefix));
+        employee.setEmployeeCode("EMP-" + SEQ.incrementAndGet());
+        employee.setDateOfBirth(LocalDate.of(1995, 1, 1));
+        employee.setEmployeeType(Employee.EmployeeType.STAFF);
+        employee.setHireDate(LocalDate.now());
+        return employeeRepository.save(employee);
+    }
 
     private String uniqueCode() {
         return "DEPT-TEST-" + SEQ.incrementAndGet();

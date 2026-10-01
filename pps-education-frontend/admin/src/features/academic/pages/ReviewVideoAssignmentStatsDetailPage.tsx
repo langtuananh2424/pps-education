@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useApp } from "@/context/AppContext";
 import { useParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, ChevronDown, ChevronRight, Download, Eye, ShieldAlert, XCircle } from "lucide-react";
@@ -32,6 +33,9 @@ import Modal from "@/components/ui/Modal";
  * thêm tab "Phân tích câu hỏi" vì đã có sẵn dữ liệu đúng/sai thật.
  */
 export default function ReviewVideoAssignmentStatsDetailPage() {
+  // V202 — bật nộp muộn/xác nhận hạn chót và xuất thống kê đi theo quyền riêng.
+  const { hasPermission } = useApp();
+  const canConfirmDeadline = hasPermission("lms.exercise.deadline.confirm");
   const { t, i18n } = useTranslation("academic-homework");
   const reviewVideoTypeLabels: Record<string, string> = {
     REFLEX: t("shared.reviewVideoType.REFLEX"),
@@ -203,14 +207,14 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
             <input
               type="checkbox"
               checked={assignment.lateSubmissionAllowed}
-              disabled={togglingLateSubmission}
+              disabled={togglingLateSubmission || !canConfirmDeadline}
               onChange={(e) => handleToggleLateSubmissionAllowed(e.target.checked)}
               className="rounded border-slate-300"
             />
             {t("reviewVideoDetail.lateSubmissionAllowedLabel")}
           </label>
         </div>
-        {assignment.lateSubmissionAllowed && (
+        {assignment.lateSubmissionAllowed && canConfirmDeadline && (
           <div className="flex items-center gap-2 mt-2">
             <span className="text-xs font-semibold text-slate-500">{t("reviewVideoDetail.lateSubmissionDeadlineLabel")}</span>
             <DatePicker
@@ -346,7 +350,14 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
                           <Td className="text-center">
                             {s.lateSubmission && <Badge variant="warning">{t("reviewVideoDetail.table.lateSubmissionBadge")}</Badge>}
                           </Td>
-                          <Td className="text-center">
+                          <Td className="text-center whitespace-nowrap">
+                            {/* V198 — lần ghi âm cần giáo viên soát điểm Ngữ pháp (AI chỉ phiên âm 1 lượt, có thể nghe nhầm) */}
+                            {s.grammarReviewRequired && (
+                              <Badge variant="danger" className="mr-1.5">
+                                <ShieldAlert className="w-3 h-3 inline mr-0.5" />
+                                {t("reviewVideoDetail.table.grammarReviewBadge")}
+                              </Badge>
+                            )}
                             <button
                               type="button"
                               onClick={() => setViewingStudent({ id: s.studentId, name: s.studentFullName })}
@@ -521,10 +532,35 @@ function ReflexHistoryEntryRow({ entry, language }: { entry: ReflexQuestionProgr
       </div>
       {entry.gradedAt && <p className="text-[10px] text-slate-400">{t("reviewVideoDetail.reflexHistoryModal.gradedAt", { time: formatDateTime(entry.gradedAt, language) })}</p>}
 
+      {isSpeaking && entry.grammarReviewRequired && (
+        <div className="text-[11px] text-rose-700 bg-rose-50 border border-rose-100 rounded-md p-2 space-y-1">
+          <p className="font-semibold">
+            <ShieldAlert className="w-3.5 h-3.5 inline mr-1" />
+            {t("reviewVideoDetail.reflexHistoryModal.grammarReviewTitle")}
+          </p>
+          <p>{t("reviewVideoDetail.reflexHistoryModal.grammarReviewBody")}</p>
+          {entry.grammarReviewQuotes.length > 0 && (
+            <ul className="list-disc list-inside font-mono">
+              {entry.grammarReviewQuotes.map((q, i) => (
+                <li key={`${q}-${i}`}>{q}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
       {!isSpeaking && entry.answerText && (
         <p className="text-xs text-slate-700">
           <span className="font-semibold">{t("reviewVideoDetail.reflexHistoryModal.answerTextLabel")}: </span>
           {entry.answerText}
+        </p>
+      )}
+
+      {isSpeaking && entry.recordingFilter != null && (
+        <p className="text-[10px] text-slate-400">
+          {entry.recordingFilter
+            ? t("reviewVideoDetail.reflexHistoryModal.recordingFiltered")
+            : t("reviewVideoDetail.reflexHistoryModal.recordingRaw")}
         </p>
       )}
 
@@ -546,6 +582,15 @@ function ReflexHistoryEntryRow({ entry, language }: { entry: ReflexQuestionProgr
         <p className="text-xs text-slate-600">
           <span className="font-semibold">{t("reviewVideoDetail.reflexHistoryModal.feedbackLabel")}: </span>
           {entry.feedback}
+        </p>
+      )}
+
+      {/* V204 (bổ sung ngoài SDD gốc, bản bàn giao 30/9, §D.5) — "cách luyện" đã hiện cho học sinh ở lần
+          chấm này, tách khỏi feedback, để giáo viên đối chiếu khi cần. */}
+      {entry.hint && (
+        <p className="text-xs text-teal-700">
+          <span className="font-semibold">{t("reviewVideoDetail.reflexHistoryModal.hintLabel")}: </span>
+          {entry.hint}
         </p>
       )}
 

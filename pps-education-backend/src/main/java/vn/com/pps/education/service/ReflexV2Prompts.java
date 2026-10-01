@@ -21,7 +21,8 @@ import java.util.stream.Collectors;
  * chấm Speaking v2 (bộ tiêu chí Khối 6-7 do người training bàn giao), mirror {@code prompts.js} trong
  * {@code ma-nguon-tham-chieu/}. Ba lượt: (1) chấm bài viết, (2) phiên âm MÙ (không đề, không rubric, không
  * bài viết), (3) chấm bài nói trên transcript cố định. Rubric .md của người training nạp NGUYÊN VĂN từ
- * {@code resources/rubrics-v2/} (dữ liệu giáo viên/người training cung cấp — không tự sửa nội dung).
+ * {@code resources/rubrics-<version>/} theo {@link ReflexV2Task#rubricDir()} (dữ liệu giáo viên/người training
+ * cung cấp — không tự sửa nội dung; ngoại lệ duy nhất: §C.2 quy tắc chung ở v3, sửa theo người dùng 2026-09-29).
  *
  * Schema JSON được đính kèm dạng chữ trong system prompt (thay vì chỉ trông vào {@code response_format}) vì
  * qua 9Router field đó không ép cứng được định dạng.
@@ -39,9 +40,9 @@ public class ReflexV2Prompts {
         this.objectMapper = objectMapper;
     }
 
-    private String loadRubric(String file) {
-        return rubricCache.computeIfAbsent(file, f -> {
-            String classpath = "rubrics-v2/" + f;
+    /** @param dir thư mục classpath của bộ rubric, VD {@code "rubrics-v3/"} ({@link ReflexV2Task#rubricDir()}). */
+    private String loadRubric(String dir, String file) {
+        return rubricCache.computeIfAbsent(dir + file, classpath -> {
             try (InputStream in = getClass().getClassLoader().getResourceAsStream(classpath)) {
                 if (in == null) {
                     throw new IllegalStateException("ReflexV2Prompts: không tìm thấy " + classpath + " trên classpath.");
@@ -53,8 +54,8 @@ public class ReflexV2Prompts {
         });
     }
 
-    private String rubricSystem(String rubricFile) {
-        return loadRubric(COMMON_RULES_FILE) + "\n\n---\n\n" + loadRubric(rubricFile);
+    private String rubricSystem(ReflexV2Task task, String rubricFile) {
+        return loadRubric(task.rubricDir(), COMMON_RULES_FILE) + "\n\n---\n\n" + loadRubric(task.rubricDir(), rubricFile);
     }
 
     // ---------- Schema ----------
@@ -70,22 +71,37 @@ public class ReflexV2Prompts {
         ObjectNode suspect = props.putObject("suspect_words");
         suspect.put("type", "array");
         suspect.putObject("items").put("type", "string");
-        suspect.put("description", "Từ phát âm sai. Gồm HAI nhóm: (a) mọi từ đã ghi khác chính tả chuẩn; "
-                + "(b) từ ghi ĐÚNG chính tả nhưng nghe rõ là phát âm lệch — nghe \"tink\" mà ngữ cảnh quá rõ nên ghi \"think\", "
-                + "nghe \"fren\" mà ghi \"friend\", nghe mất âm cuối của danh từ số nhiều mà ghi đủ (\"tree\" → ghi \"trees\"). "
-                + "Ghi dạng \"nghe→đã ghi\", ví dụ \"tink→think\". "
-                + "TUYỆT ĐỐI KHÔNG đưa vào đây việc thiếu đuôi chia ĐỘNG TỪ (\"make\"→\"makes\", \"relax\"→\"relaxed\", \"depend\"→\"depends\") "
-                + "— đó là lỗi ngữ pháp, không phải lỗi phát âm; đưa vào đây sẽ khiến học sinh bị trừ hai lần. "
-                + "Rỗng nếu thật sự không có.");
+        suspect.put("description", "Từ phát âm LỆCH NHƯNG VẪN NHẬN RA, đã được ghi chính tả chuẩn trong transcript. "
+                + "Ghi dạng \"nghe→đã ghi\": \"scoo→school\", \"tink→think\", \"pan→pants\" (mất -s danh từ số nhiều). "
+                + "Từ lệch đến mức không nhận ra thì đã ghi theo âm trong transcript, không lặp lại ở đây. "
+                + "TUYỆT ĐỐI KHÔNG có mục đuôi chia ĐỘNG TỪ (\"make→makes\", \"help→helped\"): đuôi động từ không nghe thấy "
+                + "thì transcript phải ghi đúng như nói (\"he make\"), không bao giờ chuẩn hoá. "
+                + "Người nói rõ ràng → rỗng.");
+        // word_audit KHÔNG còn nối vào điểm (26/9) nhưng quy tắc phiên âm bắt buộc điền: ép model nghe lại từng từ
+        // nên khó "làm mượt" transcript hơn nhiều so với chỉ viết một câu đẹp.
+        ObjectNode audit = props.putObject("word_audit");
+        audit.put("type", "array");
+        audit.putObject("items").put("type", "string");
+        audit.put("description", "BẮT BUỘC. Mỗi từ tiếng Anh từ 3 chữ cái trở lên trong transcript là MỘT phần tử, "
+                + "đúng thứ tự xuất hiện, dạng \"TỪ CHUẨN|nghe được|âm cuối\". "
+                + "\"TỪ CHUẨN\" = từ tiếng Anh viết ĐÚNG CHÍNH TẢ mà học sinh đang định nói (đây là chỗ DUY NHẤT "
+                + "được phép viết chính tả chuẩn — transcript vẫn ghi theo âm). "
+                + "\"nghe được\" = chuỗi âm THỰC SỰ phát ra, chép đúng như trong transcript. "
+                + "\"âm cuối\" = phụ âm cuối thực sự nghe thấy; ghi 0 nếu không nghe thấy âm cuối nào. "
+                + "Ví dụ: \"protect|protec|0\", \"environment|environmen|n\", \"school|scoo|0\", \"friends|fren|n\", "
+                + "\"think|tink|k\", \"played|play|0\", \"badminton|badminton|n\" (từ cuối phát âm đủ nên hai cột trùng nhau). "
+                + "Hai cột đầu TRÙNG NHAU nghĩa là bạn xác nhận từ đó phát âm đủ mọi phụ âm — "
+                + "đừng chép máy móc, vì đó chính là điều làm điểm Phát âm sai. "
+                + "Không bỏ sót từ nào.");
         props.putObject("longest_pause_seconds").put("type", "number");
         props.putObject("audio_quality_insufficient").put("type", "boolean");
         ArrayNode required = schema.putArray("required");
-        List.of("transcript", "speech_seconds", "suspect_words", "longest_pause_seconds", "audio_quality_insufficient")
+        List.of("transcript", "speech_seconds", "suspect_words", "word_audit", "longest_pause_seconds", "audio_quality_insufficient")
                 .forEach(required::add);
         return schema;
     }
 
-    public ObjectNode gradingSchema(List<String> codes, boolean withNewRed) {
+    public ObjectNode gradingSchema(List<String> codes) {
         ObjectNode schema = objectMapper.createObjectNode();
         schema.put("type", "object");
         ObjectNode props = schema.putObject("properties");
@@ -143,36 +159,46 @@ public class ReflexV2Prompts {
         List.of("quote", "occurrence", "level", "tag").forEach(hRequired::add);
 
         props.putObject("feedback").put("type", "string").put("description",
-                "Nhận xét tiếng Việt: ĐÚNG 2 câu, tổng ≤50 từ. Câu 1 = 1 điểm làm được. Câu 2 = lỗi nặng nhất, khuôn \"Lỗi nặng nhất: <tên loại lỗi>.\". Không gợi ý sửa, không markdown.");
+                "Nhận xét tiếng Việt: tối đa 2 câu, tổng ≤50 từ. Câu 1 = 1 điểm làm được. Câu 2 = lỗi nặng nhất, khuôn \"Lỗi nặng nhất: <tên loại lỗi>.\" — "
+                        + "chỉ nêu loại lỗi ĐÃ TÔ trong highlights. Không có lỗi nào được tô → CHỈ viết câu 1, không viết \"Lỗi nặng nhất: Không có\". "
+                        + "Không gợi ý sửa, không markdown.");
+        // §D.5 quy tắc chung (30/9) — TÁCH khỏi feedback: feedback cấm gợi ý sửa (dành cho giáo viên),
+        // hint NGƯỢC LẠI bắt buộc là cách luyện (dành cho học sinh tự luyện trên LMS).
+        props.putObject("hint").put("type", "string").put("description",
+                "Cách luyện, cho học sinh tự luyện — theo §D.5 quy tắc chung. MỘT câu tiếng Việt ≤35 từ, chỉ về ĐÚNG loại lỗi nặng nhất "
+                        + "đã nêu ở câu 2 của feedback. BẮT BUỘC nêu đích danh những từ có thật trong transcript mắc lỗi đó (ví dụ \"ở post, friends\"), "
+                        + "không nói chung chung. Nội dung là THAO TÁC TẬP (đọc chậm từng từ, giữ hơi đến hết từ, tách âm tiết, thu lại nghe đối chiếu…), "
+                        + "KHÔNG phải đáp án. CẤM viết lại câu tiếng Anh đã sửa đúng. feedback không có câu 2 → trả chuỗi rỗng.");
 
         ArrayNode required = schema.putArray("required");
-        List.of("counting_notes", "gates_triggered", "insufficient_data", "criteria", "highlights", "feedback").forEach(required::add);
-        if (withNewRed) {
-            ObjectNode newRed = props.putObject("new_red_errors");
-            newRed.put("type", "array");
-            newRed.putObject("items").put("type", "string");
-            newRed.put("description", "Lỗi đỏ xuất hiện khi nói mà chỗ tương ứng trong bài viết không mắc (rubric khối §4). Trích nguyên văn từ transcript. Rỗng nếu không có.");
-            required.add("new_red_errors");
-        }
+        List.of("counting_notes", "gates_triggered", "insufficient_data", "criteria", "highlights", "feedback", "hint").forEach(required::add);
         return schema;
     }
 
     // ---------- Khối văn bản dùng chung ----------
 
-    private String highlightRules() {
+    /** Danh sách tag nặng/nhẹ phụ thuộc KHỐI (giới từ phá cụm chỉ nặng từ Khối 8) — vẫn cố định theo dạng bài nên không phá cache prompt. */
+    private String highlightRules(ReflexV2Task task) {
+        boolean prepositionSevere = task.grade() >= ReflexV2Tags.SEVERE_FROM_GRADE;
         String errors = ReflexV2Tags.ERROR_TAGS.entrySet().stream()
                 .map(e -> e.getKey() + " (" + e.getValue() + ")").collect(Collectors.joining("; "));
         String strengths = ReflexV2Tags.STRENGTH_TAGS.entrySet().stream()
                 .map(e -> e.getKey() + " (" + e.getValue() + ")").collect(Collectors.joining("; "));
         return "## QUY TẮC TÔ MÀU (bắt buộc)\n"
                 + "- **Không tự chọn mức độ.** Hệ thống suy ra đỏ/vàng từ \"tag\" theo quy tắc chung §C: chọn tag đúng loại lỗi là đủ.\n"
-                + "- Lỗi hỏng cấu trúc câu hoặc sai nghĩa dùng tag: thieu_thanh_phan, cau_truc_cau, trat_tu_tu, dung_tu, tu_loai, tieng_viet, khong_ro, lac_y.\n"
+                + "- Lỗi hỏng cấu trúc câu hoặc sai nghĩa dùng tag: thieu_thanh_phan, cau_truc_cau, trat_tu_tu, thi_de_an_dinh, "
+                + (prepositionSevere ? "gioi_tu_pha_cum, " : "") + "dung_tu, tu_loai, tieng_viet, khong_ro, lac_y.\n"
                 + "  Ví dụ: \"want buy\" → cau_truc_cau; \"will beautiful look\" → trat_tu_tu; \"me dress like girl\" → thieu_thanh_phan; \"two\" thay cho \"too\" → dung_tu; \"very relax\" → tu_loai.\n"
-                + "- Lỗi nhẹ hơn dùng tag: thi_dong_tu, hoa_hop_chu_vi, mao_tu, gioi_tu, so_it_so_nhieu, chinh_ta, phat_am, am_cuoi, trong_am, ngap_ngung, lap_lai.\n"
+                + "- **Thì:** đề ĐÃ ấn định thì (\"Did you… when you were a young child?\", \"What did you do yesterday?\") mà trả lời sang thì khác → thi_de_an_dinh. "
+                + "Đề KHÔNG ấn định thì mà chia sai thì/dạng động từ → thi_dong_tu.\n"
+                + "- **Giới từ:** thừa hoặc thiếu giới từ làm hỏng cụm (\"at here\", \"discuss about\", \"go to home\", \"listen music\") → gioi_tu_pha_cum; "
+                + "dùng nhầm một giới từ nhỏ (in/on/at) → gioi_tu.\n"
+                + "- Lỗi nhẹ hơn dùng tag: thi_dong_tu, hoa_hop_chu_vi, mao_tu, gioi_tu, " + (prepositionSevere ? "" : "gioi_tu_pha_cum, ")
+                + "so_it_so_nhieu, chinh_ta, phat_am, am_cuoi, trong_am, ngap_ngung, lap_lai.\n"
                 + "- \"level\" vẫn phải điền (red cho nhóm nặng, yellow cho nhóm nhẹ, green cho điểm mạnh) nhưng tag mới là căn cứ cuối cùng.\n\n"
-                + "## LỖI ĐỎ TÍNH GẤP ĐÔI KHI ĐẾM\n"
-                + "- Ở mọi checkpoint đếm số lỗi: **1 lỗi đỏ = 2 lỗi**, 1 lỗi vàng = 1 lỗi. Ghi rõ trong counting_notes: số lỗi đỏ, số lỗi vàng, tổng quy đổi.\n"
-                + "- Hệ thống sẽ tự áp trần 60% cho tiêu chí Ngữ pháp khi bài có ≥2 lỗi đỏ — không tự hạ điểm checkpoint vì lý do này.\n"
+                + "## LỖI ĐỎ TÍNH GẤP BA KHI ĐẾM\n"
+                + "- Ở mọi checkpoint đếm số lỗi: **1 lỗi đỏ = 3 lỗi**, 1 lỗi vàng = 1 lỗi. Ghi rõ trong counting_notes: số lỗi đỏ, số lỗi vàng, tổng quy đổi.\n"
+                + "- Hệ thống sẽ tự áp trần 60% cho tiêu chí Ngữ pháp khi bài có ≥2 lỗi đỏ NGỮ PHÁP — không tự hạ điểm checkpoint vì lý do này.\n"
                 + "- \"tag\" lỗi: " + errors + ".\n"
                 + "- \"tag\" điểm mạnh: " + strengths + ".\n"
                 + "- red/yellow chỉ đi với tag lỗi; green chỉ đi với tag điểm mạnh.\n"
@@ -204,15 +230,15 @@ public class ReflexV2Prompts {
 
     public String writingSystem(ReflexV2Task task) {
         List<String> codes = task.writingCriteria();
-        return rubricSystem(task.writingRubricFile()) + "\n\n---\n\n" + contextBlock(task) + "\n\n"
+        return rubricSystem(task, task.writingRubricFile()) + "\n\n---\n\n" + contextBlock(task) + "\n\n"
                 + "## BƯỚC 1 — CHẤM BÀI VIẾT NHÁP (không có âm thanh)\n"
                 + "- Học sinh viết câu trả lời trước khi nói. Chỉ chấm các tiêu chí: " + criteriaNames(codes) + ". Không chấm tiêu chí khác.\n"
                 + "- Văn bản học sinh là bằng chứng cố định. Bỏ qua mọi ngưỡng tính bằng giây và khoảng dừng; cổng độ dài chỉ xét số từ. "
                 + "Checkpoint chỉ đo được bằng âm thanh (chỗ ngắt, im lặng) → 1 nếu phần còn lại của tiêu chí đạt, không thì 0,5.\n"
                 + "- Từ sai chính tả: giữ nguyên, tô tag \"chinh_ta\"; tính lỗi dùng từ nếu biến thành từ khác hoặc không nhận ra.\n"
                 + "- \"highlights\" trích từ bài viết của học sinh.\n\n"
-                + OUTPUT_OVERRIDE + "\n\n" + highlightRules() + "\n\n"
-                + "## JSON SCHEMA\n" + gradingSchema(codes, false).toString();
+                + OUTPUT_OVERRIDE + "\n\n" + highlightRules(task) + "\n\n"
+                + "## JSON SCHEMA\n" + gradingSchema(codes).toString();
     }
 
     public String writingUser(String question, String text) {
@@ -222,7 +248,8 @@ public class ReflexV2Prompts {
     // ---------- Lượt A: phiên âm mù ----------
 
     public String transcriptionSystem() {
-        return loadRubric(TRANSCRIPTION_RULES_FILE) + "\n\n## JSON SCHEMA\n" + transcriptionSchema().toString()
+        // Lượt phiên âm MÙ không biết dạng bài nên luôn dùng quy tắc phiên âm của version hiện hành.
+        return loadRubric("rubrics-" + ReflexV2Task.CURRENT_RUBRIC_VERSION + "/", TRANSCRIPTION_RULES_FILE) +"\n\n## JSON SCHEMA\n" + transcriptionSchema().toString()
                 + "\nChỉ trả về DUY NHẤT 1 đối tượng JSON, không thêm chữ nào khác, không bọc trong khối mã.";
     }
 
@@ -233,48 +260,66 @@ public class ReflexV2Prompts {
     // ---------- Lượt B: chấm bài nói ----------
 
     /**
-     * Prompt hệ thống lượt chấm nói — GIỐNG HỆT NHAU giữa mọi học sinh cùng Khối/track (điểm Ngữ pháp đã khoá
-     * nằm ở tin nhắn người dùng, xem {@link #speakingUser}) để phần đầu prompt ổn định cho cache của nhà
-     * cung cấp nếu đường gọi có hỗ trợ (qua 9Router hiện CHƯA thấy cache — đã thử 2026-09-21).
+     * Prompt hệ thống lượt chấm nói — GIỐNG HỆT NHAU giữa mọi học sinh cùng Khối/track (mọi dữ liệu riêng của
+     * học sinh nằm ở tin nhắn người dùng, xem {@link #speakingUser}) để phần đầu prompt ổn định cho cache của
+     * nhà cung cấp nếu đường gọi có hỗ trợ (qua 9Router hiện CHƯA thấy cache — đã thử 2026-09-21).
+     *
+     * Từ 23/9 điểm Ngữ pháp KHÔNG còn khoá từ Bước 1: lượt này chấm lại TOÀN BỘ tiêu chí (kể cả Ngữ pháp) từ
+     * transcript nên nạp thêm cả rubric Bước 1 — rubric khối tự nói rõ điều này ở phần Ngữ pháp.
      */
     public String speakingSystem(ReflexV2Task task) {
         String grammar = task.grammarCode();
-        List<String> codes = task.criteria().stream().filter(c -> !c.equals(grammar)).toList();
-        String lockNote = "- **" + grammar + " (" + ReflexV2Tags.CRITERIA_EN.get(grammar) + ") đã được chấm ở Bước 1 (bài viết) — điểm đã khoá được nêu trong tin nhắn người dùng — "
-                + "và được giữ nguyên — KHÔNG chấm lại, không đưa " + grammar
-                + " vào \"criteria\".** Bước 2 chỉ chấm nội dung nói và phát âm theo các tiêu chí còn lại.\n"
-                + "- Vẫn tô lỗi ngữ pháp/dùng từ trong transcript để học sinh thấy.\n"
-                + "- So transcript với bài viết để liệt kê \"new_red_errors\" theo §4 của rubric khối.";
-        return rubricSystem(task.speakingRubricFile()) + "\n\n---\n\n" + contextBlock(task) + "\n\n"
+        List<String> codes = task.criteria();
+        String lockNote = "- **" + grammar + " (" + ReflexV2Tags.CRITERIA_EN.get(grammar) + ") được CHẤM LẠI từ transcript bài nói** theo đúng checkpoint của rubric Bước 1 đi kèm — **không** lấy lại điểm Bước 1. "
+                + "Học sinh có quyền sửa khi nói những gì đã viết sai: nói đúng thì được điểm đúng, nói sai thì bị trừ, kể cả khi bài viết đã đúng.\n"
+                + "- **Lỗi phát âm không phải lỗi ngữ pháp** (quy tắc chung §A.3): từ ghi sai chính tả mà vẫn nhận ra vẫn tính là từ đúng cho " + grammar
+                + "; thiếu -s ở danh từ số nhiều tính ở Phát âm, không tính ở " + grammar + ".\n"
+                + "- Từ đệm, nói vấp, lặp từ, tự sửa: không tính là lỗi ngữ pháp.";
+        return loadRubric(task.rubricDir(), COMMON_RULES_FILE) + "\n\n---\n\n" + loadRubric(task.rubricDir(), task.writingRubricFile()) + "\n\n---\n\n"
+                + loadRubric(task.rubricDir(), task.speakingRubricFile()) + "\n\n---\n\n" + contextBlock(task) + "\n\n"
                 + "## BƯỚC 2 — CHẤM BÀI NÓI\n"
                 + "- Tiêu chí chấm: " + criteriaNames(codes) + ".\n"
                 + lockNote + "\n"
                 + "- Transcript bên dưới do lượt phiên âm độc lập tạo ra và là **bằng chứng cố định** (quy tắc chung §A). Không sửa, không đổi từ viết sai thành từ đúng, không thêm từ.\n"
                 + "- Nghe audio chỉ để chấm phát âm, trọng âm, ngữ điệu, khoảng dừng.\n"
+                + "- **KHÔNG tự áp cổng độ dài (C3).** Số từ và thời gian nói đã được hệ thống đo chính xác và áp trần ở khâu tính điểm. "
+                + "Bạn chấm checkpoint theo đúng nội dung nghe được; đừng tự hạ điểm vì cho rằng bài ngắn.\n"
                 + "- \"highlights\" trích từ transcript. Từ phát âm sai tô bằng tag phát âm (phat_am, am_cuoi, trong_am, khong_ro); lỗi ngôn ngữ tô bằng tag ngữ pháp/từ vựng.\n\n"
-                + OUTPUT_OVERRIDE + "\n\n" + highlightRules() + "\n\n"
-                + "## JSON SCHEMA\n" + gradingSchema(codes, true).toString();
+                + OUTPUT_OVERRIDE + "\n\n" + highlightRules(task) + "\n\n"
+                + "## JSON SCHEMA\n" + gradingSchema(codes).toString();
     }
 
-    public String speakingUser(ReflexV2Task task, int lockedGrammarPercent, String question, String writtenText,
-                               String transcript, List<String> suspectWords,
+    /**
+     * @param suspectWords từ lệch nhưng nhận ra do lượt phiên âm khai (đã ghi chính tả chuẩn) — tính là NHẬN RA ở P1.
+     * @param deviantWords từ đọc lệch khi so transcript với bài viết Bước 1 ({@code "đã viết→nghe được"}) — chỉ để tô lỗi,
+     *                     KHÔNG làm căn cứ chấm checkpoint (điểm dải Phát âm theo bài viết do hệ thống tính).
+     */
+    public String speakingUser(ReflexV2Task task, String question, String writtenText, String transcript,
+                               List<String> suspectWords, List<String> deviantWords,
                                double durationSec, double speechSec, double longestPauseSec) {
         StringBuilder sb = new StringBuilder();
         if (task.rubricFormat() != null) {
             sb.append(">>> DÙNG CỘT NGƯỠNG **").append(task.rubricFormat()).append("** CỦA RUBRIC <<<\n\n");
         }
-        sb.append("ĐIỂM ĐÃ KHOÁ Ở BƯỚC 1: ").append(task.grammarCode()).append(" = ").append(lockedGrammarPercent)
-                .append("% (giữ nguyên, KHÔNG chấm lại, không đưa vào \"criteria\").\n\n");
         sb.append("ĐỀ BÀI:\n").append(question).append("\n\n");
-        sb.append("BÀI VIẾT CỦA HỌC SINH Ở BƯỚC 1 (chỉ để so lỗi đỏ mới, không chấm lại):\n===\n").append(writtenText).append("\n===\n\n");
+        if (writtenText != null && !writtenText.isBlank()) {
+            sb.append("BÀI VIẾT Ở BƯỚC 1 (chỉ để tham khảo — **chấm theo transcript**, học sinh được phép sửa lỗi khi nói):\n===\n")
+                    .append(writtenText).append("\n===\n\n");
+        }
         sb.append(String.format(Locale.ROOT,
-                "Thời lượng file: %.1f giây · Thời gian nói thật: %.1f giây · Im lặng dài nhất: %.1f giây.\n\n",
+                "Thời lượng file: %.1f giây · Thời gian nói thật (ước tính khi phiên âm): %.1f giây · Im lặng dài nhất: %.1f giây.\n\n",
                 durationSec, speechSec, longestPauseSec));
         sb.append("TRANSCRIPT CỐ ĐỊNH (giữa hai dòng ===):\n===\n").append(transcript).append("\n===\n");
         if (suspectWords != null && !suspectWords.isEmpty()) {
-            sb.append("\nTỪ PHÁT ÂM SAI DO LƯỢT PHIÊN ÂM GHI NHẬN (kể cả từ đã ghi đúng chính tả nhưng nghe lệch — dạng \"nghe→đã ghi\"):\n")
+            sb.append("\nTỪ PHÁT ÂM LỆCH NHƯNG VẪN NHẬN RA (đã ghi chính tả chuẩn trong transcript — dạng \"nghe→đã ghi\"):\n")
                     .append(String.join(", ", suspectWords))
-                    .append("\nCoi mọi từ trong danh sách này là PHÁT ÂM SAI khi chấm các checkpoint Phát âm.\n");
+                    .append("\nCác từ này TÍNH LÀ NHẬN RA ở checkpoint tỷ lệ từ nhận ra; chỉ trừ ở checkpoint âm cuối / thay âm theo đúng ô của rubric khối.\n");
+        }
+        if (deviantWords != null && !deviantWords.isEmpty()) {
+            sb.append("\nTỪ PHÁT ÂM LỆCH — BẢNG ĐỐI CHIẾU TỪNG TỪ CỦA LƯỢT PHIÊN ÂM (dạng \"đã ghi→nghe được\"):\n")
+                    .append(String.join(", ", deviantWords))
+                    .append("\nDùng danh sách này để TÔ LỖI trong transcript bằng tag phát âm, giúp học sinh thấy chỗ đọc lệch. "
+                            + "**KHÔNG lấy số lượng từ trong danh sách làm căn cứ chấm checkpoint Phát âm** — chấm theo đúng ô ngưỡng của rubric khối, dựa trên chính transcript.\n");
         }
         sb.append("\nFile âm thanh gốc:");
         return sb.toString();

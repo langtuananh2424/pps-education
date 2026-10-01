@@ -7,6 +7,7 @@
       "crm": "ADMISSIONS & CRM",
       "student": "STUDENT MANAGEMENT",
       "academic": "ACADEMIC MANAGEMENT",
+      "notifications": "PARENTS & FEEDBACK",
       "lms": "LMS MATERIALS & ASSESSMENT",
       "reports": "REPORTS & ANALYTICS",
       "finance": "FINANCE MANAGEMENT",
@@ -28,8 +29,8 @@
       "hrm-shifts": "Work Shifts",
       "hrm-work-calendar": "Work Calendar / Holidays",
       "hrm-employee-schedule": "Staff Schedule",
-      "hrm-leaves": "Leave Requests",
-      "hrm-payroll": "Payroll Calculation",
+      "hrm-leaves": "Leave & approvals",
+      "hrm-payroll": "Payroll",
       "crm-leads": "Leads",
       "stu-profile": "Student Records",
       "stu-parents": "Parent Management",
@@ -56,7 +57,11 @@
       "fac-rooms": "Rooms & Equipment",
       "fac-feedback": "Feedback",
       "part-syllabus": "Teaching Plan",
-      "part-portal": "Partnership Reports"
+      "part-portal": "Partnership Reports",
+      "acad-change-history": "Data change history",
+      "acad-teachers": "Teacher profiles",
+      "rep-teaching-stats": "Teaching stats by teacher",
+      "rep-session-reports": "Report submission & approval"
     }
   },
   "roles": {
@@ -67,7 +72,9 @@
     "SITE_MANAGER": "Site Manager",
     "TEACHER": "Teacher",
     "HR_MANAGER": "HR Manager",
-    "STAFF": "Staff",
+    "STAFF": "Academic Staff",
+    "ACCOUNTANT": "Accountant",
+    "CONSULTANT": "Admissions Consultant",
     "OPS_MANAGER": "Operations Manager",
     "PARTNER_REP": "Partner School Representative",
     "PARENT": "Parent",
@@ -104,6 +111,7 @@
       "checkIn": "Check in",
       "checkedInOut": "Checked in {{checkIn}} – {{checkOut}}",
       "checkedInOnly": "Checked in at {{checkIn}}",
+      "missing": "Missed check-in (window closed)",
       "modalTitle": "My attendance",
       "modalDescription": "Select a site and tap check-in/check-out — the system uses your current GPS location."
     },

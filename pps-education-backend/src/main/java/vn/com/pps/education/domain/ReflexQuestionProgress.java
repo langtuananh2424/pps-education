@@ -83,6 +83,15 @@ public class ReflexQuestionProgress extends BaseAuditEntity {
     @Column(name = "writing_graded_at")
     private OffsetDateTime writingGradedAt;
 
+    /**
+     * V204 (bổ sung ngoài SDD gốc, bản bàn giao 30/9, §D.5 quy tắc chung) — "cách luyện" cho học sinh tự
+     * luyện, TÁCH khỏi {@link #writingFeedback} (vẫn cấm gợi ý sửa, dành cho giáo viên). Rỗng/null khi bài
+     * không có lỗi hoặc chưa chấm được bằng rubric v3 trở lên (luồng cũ/v2 không có trường này). FE chỉ hiện
+     * từ lần nộp thứ 2 trở đi.
+     */
+    @Column(name = "writing_hint", columnDefinition = "TEXT")
+    private String writingHint;
+
     @Column(name = "writing_attempt_count", nullable = false)
     private int writingAttemptCount;
 
@@ -125,6 +134,10 @@ public class ReflexQuestionProgress extends BaseAuditEntity {
     @Column(name = "speaking_graded_at")
     private OffsetDateTime speakingGradedAt;
 
+    /** V204 — như {@link #writingHint}, cho bước nói. */
+    @Column(name = "speaking_hint", columnDefinition = "TEXT")
+    private String speakingHint;
+
     @Column(name = "speaking_attempt_count", nullable = false)
     private int speakingAttemptCount;
 
@@ -144,11 +157,11 @@ public class ReflexQuestionProgress extends BaseAuditEntity {
     @Column(name = "rubric_version", length = 10)
     private String rubricVersion;
 
-    /** V185 — điểm Ngữ pháp KHOÁ từ bước viết (luồng v2), mang sang bước nói. */
+    /** V185 — điểm Ngữ pháp từ bước viết (luồng v2), mang sang bước nói. Từ 23/9 chỉ làm SÀN (nửa điểm này), không còn khoá — tên cột giữ nguyên. */
     @Column(name = "writing_locked_grammar_percent", precision = 5, scale = 2)
     private BigDecimal writingLockedGrammarPercent;
 
-    /** V185 — số lỗi đỏ tô được trong bài viết (luồng v2), đầu vào của trần lỗi đỏ ở bước nói. */
+    /** V185 — số lỗi đỏ tô được trong bài viết (luồng v2), chỉ để đối chiếu (bước nói đếm lại lỗi đỏ từ transcript). */
     @Column(name = "writing_red_error_count")
     private Integer writingRedErrorCount;
 

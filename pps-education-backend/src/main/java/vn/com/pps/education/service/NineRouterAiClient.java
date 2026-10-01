@@ -189,6 +189,63 @@ public class NineRouterAiClient {
         return callWithConcurrencyLimit("chat", () -> doChat(systemPrompt, userMessage, resolvedModel));
     }
 
+    /**
+     * V200 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-29) — gửi kèm 1 ảnh (content part
+     * {@code image_url} dạng data URI, shape OpenAI multimodal chuẩn) để AI viết nháp mô tả tranh cho dạng tả tranh
+     * UC-23b. CHƯA kiểm chứng đường ảnh qua 9Router bằng gọi thật (bản 28/9 của người training ghi nhận endpoint định
+     * dạng Gemini của 9Router từng nuốt mất audio mà vẫn trả 200) — kết quả chỉ là NHÁP, giáo viên bắt buộc đối chiếu
+     * với ảnh và sửa trước khi lưu. Trả {@code null} nếu lỗi/rỗng.
+     */
+    public AiTextResponse chatWithImage(String systemPrompt, String userText, byte[] imageBytes, String mimeType, String model) {
+        if (imageBytes == null || imageBytes.length == 0 || model == null || model.isBlank()) {
+            return null;
+        }
+        return callWithConcurrencyLimit("chatWithImage", () -> doImageCall(systemPrompt, userText, imageBytes, mimeType, model));
+    }
+
+    private AiTextResponse doImageCall(String systemPrompt, String userText, byte[] imageBytes, String mimeType, String model) {
+        try {
+            ObjectNode payload = objectMapper.createObjectNode();
+            payload.put("model", model);
+            payload.put("stream", false);
+            payload.put("temperature", 0);
+            ArrayNode messages = payload.putArray("messages");
+            if (systemPrompt != null && !systemPrompt.isBlank()) {
+                ObjectNode systemMsg = messages.addObject();
+                systemMsg.put("role", "system");
+                systemMsg.put("content", systemPrompt);
+            }
+            ObjectNode userMsg = messages.addObject();
+            userMsg.put("role", "user");
+            ArrayNode parts = userMsg.putArray("content");
+            parts.addObject().put("type", "text").put("text", userText);
+            ObjectNode imagePart = parts.addObject();
+            imagePart.put("type", "image_url");
+            imagePart.putObject("image_url").put("url", "data:" + (mimeType == null ? "image/jpeg" : mimeType) + ";base64,"
+                    + java.util.Base64.getEncoder().encodeToString(imageBytes));
+            long startedAtMillis = System.currentTimeMillis();
+            HttpResponse<String> response = sendChatCompletions(objectMapper.writeValueAsString(payload));
+            if (response.statusCode() >= 300) {
+                log.warn("NineRouterAiClient: gọi 9Router (ảnh) lỗi (HTTP {}): {}", response.statusCode(), response.body());
+                return null;
+            }
+            JsonNode json = objectMapper.readTree(response.body());
+            AiTokenUsage usage = logUsage("chatWithImage", model, false, json, System.currentTimeMillis() - startedAtMillis);
+            String content = json.path("choices").path(0).path("message").path("content").asText(null);
+            if (content == null || content.isBlank()) {
+                usageSink.recordRejected("chatWithImage", model, usage);
+                return null;
+            }
+            return new AiTextResponse(content, usage);
+        } catch (IOException | InterruptedException e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            log.warn("NineRouterAiClient: gọi 9Router (ảnh) thất bại. {}", e.getMessage());
+            return null;
+        }
+    }
+
     private AiTextResponse doChat(String systemPrompt, String userMessage, String resolvedModel) {
         ChatResult result = doChatWithMeta(systemPrompt, userMessage, resolvedModel);
         if (result == null) {
@@ -459,6 +516,26 @@ public class NineRouterAiClient {
      *              dùng {@code app.ai-grading.nine-router-stt-model}.
      */
     public String transcribe(byte[] audioBytes, String mimeType, String model) {
+        return transcribe(audioBytes, mimeType, model, null);
+    }
+
+    /**
+     * UC-74 (bổ sung 2026-09-28, đã xác nhận với người dùng) — như {@link #transcribe(byte[], String, String)}
+     * nhưng gửi kèm field {@code prompt} chuẩn OpenAI/Whisper: đoạn văn gợi ý chính tả (VD danh sách họ
+     * tên học sinh của lớp) giúp STT viết đúng tên riêng tiếng Việt thay vì phiên âm sai. Để trống thì
+     * gửi y hệt overload cũ.
+     */
+    public String transcribe(byte[] audioBytes, String mimeType, String model, String spellingHint) {
+        return transcribe(audioBytes, mimeType, model, spellingHint, null);
+    }
+
+    /**
+     * UC-74 (bổ sung 2026-09-29, đã xác nhận với người dùng) — như trên, gửi thêm field {@code language} chuẩn
+     * OpenAI/Whisper (mã ISO-639-1, VD "vi") để STT không phải tự đoán ngôn ngữ: giáo viên nói tiếng Việt có
+     * chen từ tiếng Anh (tên bài, từ vựng) dễ khiến Whisper đoán lệch. Chỉ trợ lý nhận xét truyền "vi" — luồng
+     * phiên âm bài nói TIẾNG ANH của học sinh (UC-23b) vẫn gọi overload cũ, không gửi language.
+     */
+    public String transcribe(byte[] audioBytes, String mimeType, String model, String spellingHint, String language) {
         if (audioBytes == null || audioBytes.length == 0) {
             return null;
         }
@@ -467,13 +544,14 @@ public class NineRouterAiClient {
             log.warn("NineRouterAiClient: chưa cấu hình STT model (app.ai-grading.nine-router-stt-model hoặc tham số model).");
             return null;
         }
-        return callWithConcurrencyLimit("transcribe", () -> doTranscribe(audioBytes, mimeType, resolvedModel));
+        return callWithConcurrencyLimit("transcribe", () -> doTranscribe(audioBytes, mimeType, resolvedModel, spellingHint, language));
     }
 
-    private String doTranscribe(byte[] audioBytes, String mimeType, String resolvedModel) {
+    private String doTranscribe(byte[] audioBytes, String mimeType, String resolvedModel, String spellingHint,
+                                String language) {
         try {
             String boundary = "----ppsNineRouterBoundary" + UUID.randomUUID();
-            byte[] body = buildMultipartBody(boundary, resolvedModel, audioBytes, mimeType == null ? "audio/webm" : mimeType);
+            byte[] body = buildMultipartBody(boundary, resolvedModel, audioBytes, mimeType == null ? "audio/webm" : mimeType, spellingHint, language);
 
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(baseUrl + "/audio/transcriptions"))
@@ -560,6 +638,27 @@ public class NineRouterAiClient {
      * <p>Package-private (không private) để {@code NineRouterAiClientUsageTest} kiểm được từng shape
      * provider: dò sai tên field sẽ khiến số luôn ra 0 và dẫn tới kết luận ngược ("cache không chạy"),
      * mà lỗi kiểu này không hề lộ ra lúc chạy — log vẫn in đẹp, chỉ là in số sai.
+     *
+     * <p><b>XÁC NHẬN 2026-09-23 (đã gọi tay qua {@code /v1/chat/completions}, xem load test Writing ở
+     * {@code security-lab/loadtest_writing_submissions.py})</b> — KHÔNG PHẢI trường hợp "dò sai tên field"
+     * nói trên: trang Dashboard 9Router (biểu đồ request) báo cache thật rất cao (~81% — hợp lý vì load
+     * test gửi lặp lại system prompt + nội dung bài y hệt hàng chục lần), nhưng trang "Sử dụng token AI"
+     * của app lại luôn ra 0%. Gọi tay {@code /v1/chat/completions} 2 lần liên tiếp (cách nhau 2 giây) với
+     * ĐÚNG 1 system prompt dài ~1400 token giống hệt nhau — để ép cache hit ở lần gọi thứ 2 — nhưng
+     * {@code usage} ở CẢ 2 lần đều KHÔNG có bất kỳ field nào trong 3 field ở trên (không
+     * {@code prompt_tokens_details}, không {@code cache_read_input_tokens}, không
+     * {@code cachedContentTokenCount}), chỉ có {@code prompt_tokens}/{@code completion_tokens}/
+     * {@code total_tokens}/{@code completion_tokens_details.reasoning_tokens}.
+     *
+     * <p>Kết luận: endpoint {@code /v1/chat/completions} (OpenAI-compatible) của 9Router KHÔNG BAO GIỜ trả
+     * thông tin cache qua {@code usage}, dù cache có xảy ra thật hay không — số cache hiển thị trên
+     * Dashboard 9Router được 9Router tự tính/lưu nội bộ, KHÔNG đi qua API response mà client (app này)
+     * nhận được. Vì vậy hàm này sẽ MÃI MÃI trả 0 cho mọi lượt gọi qua {@link #chatWithFinishReason}/
+     * {@link #doChatWithMeta} bất kể cache thật có xảy ra không — không phải bug ở hàm này hay sai tên
+     * field, mà là giới hạn của chính 9Router API. Trang "Sử dụng token AI" của app do đó KHÔNG BAO GIỜ
+     * phản ánh đúng % cache thật — muốn có số đúng phải lấy từ Dashboard 9Router (hoặc 1 API
+     * analytics/usage riêng của 9Router, nếu có, KHÁC {@code /v1/chat/completions}) chứ không sửa được
+     * bằng cách thêm tên field mới vào hàm này.
      */
     int extractCachedTokens(JsonNode usage) {
         JsonNode openAiStyle = usage.path("prompt_tokens_details").path("cached_tokens");
@@ -619,10 +718,18 @@ public class NineRouterAiClient {
         }
     }
 
-    private byte[] buildMultipartBody(String boundary, String model, byte[] audioBytes, String mimeType) throws IOException {
+    /** Package-private để test kiểm tra đúng các field multipart gửi đi (prompt/language chỉ có khi được truyền). */
+    byte[] buildMultipartBody(String boundary, String model, byte[] audioBytes, String mimeType,
+                                      String spellingHint, String language) throws IOException {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         writeField(out, boundary, "model", model);
         writeField(out, boundary, "response_format", "json");
+        if (spellingHint != null && !spellingHint.isBlank()) {
+            writeField(out, boundary, "prompt", spellingHint);
+        }
+        if (language != null && !language.isBlank()) {
+            writeField(out, boundary, "language", language);
+        }
 
         out.write(("--" + boundary + "\r\n").getBytes(StandardCharsets.UTF_8));
         out.write(("Content-Disposition: form-data; name=\"file\"; filename=\"answer." + extensionFor(mimeType) + "\"\r\n")

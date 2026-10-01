@@ -3,6 +3,7 @@ package vn.com.pps.education.domain;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.DynamicUpdate;
 import vn.com.pps.education.common.BaseAuditEntity;
 
 import java.time.LocalDate;
@@ -14,9 +15,15 @@ import java.util.UUID;
  * Bảng class_sessions (SDD > Học thuật > Lịch dạy & Điểm danh > a) —
  * 1 buổi học vật lý tại 1 thời điểm cụ thể. UC-48: Xếp lịch buổi học
  * (FR-ACA-05, docs/uc/phan-he-06-hoc-thuat.md) — xem Javadoc ClassSessionService.
+ *
+ * {@code @DynamicUpdate} (UC-48 A5, xác nhận 2026-10-01): UPDATE chỉ ghi đúng cột đã đổi. Job
+ * ClassSessionStatusSchedulerService đổi status bằng lệnh UPDATE riêng — nếu không có annotation này,
+ * 1 luồng khác đang giữ entity cũ (VD lưu nhận xét, gán dạy thay, đánh dấu đã gửi cảnh báo nhận lớp)
+ * sẽ ghi đè lại status cũ khi lưu.
  */
 @Getter
 @Setter
+@DynamicUpdate
 @Entity
 @Table(name = "class_sessions")
 public class ClassSession extends BaseAuditEntity {
@@ -76,6 +83,7 @@ public class ClassSession extends BaseAuditEntity {
     @Column(name = "session_type", nullable = false, length = 20)
     private SessionType sessionType = SessionType.REGULAR;
 
+    /** SCHEDULED → IN_PROGRESS → COMPLETED tự động theo giờ (UC-48 A5, ClassSessionStatusSchedulerService). */
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private Status status = Status.SCHEDULED;
@@ -153,6 +161,26 @@ public class ClassSession extends BaseAuditEntity {
      */
     @Column(name = "checkin_late_alert_sent_at")
     private OffsetDateTime checkinLateAlertSentAt;
+
+    /**
+     * V207 (bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-10-01) — mốc đã gửi các cảnh báo nộp &
+     * duyệt báo cáo buổi học (gửi duyệt nhận xét). NULL = chưa gửi. Khâu duyệt/gửi lại có thể lặp nhiều
+     * vòng: được gửi lại khi vòng mới bắt đầu sau mốc này. Xem SessionReportAlertSchedulerService.
+     */
+    @Column(name = "report_due_soon_alert_sent_at")
+    private OffsetDateTime reportDueSoonAlertSentAt;
+
+    @Column(name = "report_overdue_alert_sent_at")
+    private OffsetDateTime reportOverdueAlertSentAt;
+
+    @Column(name = "report_approval_due_soon_alert_sent_at")
+    private OffsetDateTime reportApprovalDueSoonAlertSentAt;
+
+    @Column(name = "report_approval_overdue_alert_sent_at")
+    private OffsetDateTime reportApprovalOverdueAlertSentAt;
+
+    @Column(name = "report_resubmit_overdue_alert_sent_at")
+    private OffsetDateTime reportResubmitOverdueAlertSentAt;
 
     /** Mốc đã gửi cảnh báo "không nhận lớp" (hết giờ buổi học vẫn chưa nhận) — V184, cùng ngữ nghĩa trên. */
     @Column(name = "checkin_absent_alert_sent_at")

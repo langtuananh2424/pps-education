@@ -14,6 +14,11 @@ public interface AttendanceRecordRepository extends JpaRepository<AttendanceReco
 
     Optional<AttendanceRecord> findByEmployeeIdAndWorkDate(Long employeeId, LocalDate workDate);
 
+    // Bổ sung ngoài UC-09 gốc (xác nhận 2026-09-11) -- batch kiểm tra nhân sự nào ĐÃ có bản ghi (bất
+    // kể trạng thái) trong ngày, dùng ở AttendanceMissingSchedulerService để loại khỏi danh sách cần
+    // quét MISSING, tránh N+1 gọi findByEmployeeIdAndWorkDate() cho từng nhân sự.
+    List<AttendanceRecord> findByWorkDateAndEmployeeIdIn(LocalDate workDate, List<Long> employeeIds);
+
     // Bổ sung ngoài UC-09 gốc (xác nhận 2026-08-12) -- danh sách chấm công cho admin/HR xem tổng
     // hợp, xem AttendanceService.listRecords. JOIN FETCH employee+user+site để tránh N+1 khi map DTO.
     @Query("""

@@ -1,0 +1,321 @@
+{
+  "entityTypes": {
+    "CLASS": "Class",
+    "CLASS_SESSION": "Schedule (class session)",
+    "CLASS_ENROLLMENT": "Enrollment",
+    "CLASS_TEACHER": "Class teacher assignment",
+    "STUDENT": "Student",
+    "EMPLOYEE": "Teacher / staff",
+    "SESSION_REPORT": "Session report"
+  },
+  "actions": {
+    "CREATED": "Created",
+    "UPDATED": "Updated",
+    "SUBMITTED": "Submitted",
+    "RESUBMITTED": "Resubmitted",
+    "APPROVED": "Approved",
+    "REJECTED": "Rejected"
+  },
+  "fields": {
+    "classCode": "Class code",
+    "name": "Class name",
+    "maxStudents": "Max students",
+    "status": "Status",
+    "autoTransition": "Automatic status change",
+    "sessionDate": "Session date",
+    "startTime": "Start time",
+    "endTime": "End time",
+    "primaryTeacherId": "Session teacher",
+    "reason": "Reason",
+    "studentId": "Student",
+    "teacherUserId": "Teacher",
+    "teacherRole": "Role",
+    "teacherType": "Teacher type",
+    "assignedTo": "Assignment ended",
+    "studentCode": "Student code",
+    "dateOfBirth": "Date of birth",
+    "gender": "Gender",
+    "primarySiteId": "Campus",
+    "originalSchool": "Original school",
+    "originalClass": "Original class",
+    "enrollmentDate": "Enrollment date",
+    "employeeCode": "Employee code",
+    "employeeType": "Employee type",
+    "positionCode": "Position",
+    "hireDate": "Hire date",
+    "terminationDate": "Termination date",
+    "idCardNumber": "ID card number",
+    "departmentName": "Department",
+    "commentCount": "Comments"
+  },
+  "values": {
+    "PLANNED": "Planned",
+    "OPEN_ENROLLMENT": "Open for enrollment",
+    "IN_PROGRESS": "In progress",
+    "COMPLETED": "Completed",
+    "CANCELLED": "Cancelled",
+    "SCHEDULED": "Scheduled",
+    "RESCHEDULED": "Rescheduled",
+    "ACTIVE": "Active",
+    "WITHDRAWN": "Withdrawn",
+    "TRANSFERRED": "Transferred",
+    "SUSPENDED": "Suspended",
+    "EXPELLED": "Expelled",
+    "GRADUATED": "Graduated",
+    "DEFERRAL": "Deferred",
+    "ON_LEAVE": "On leave",
+    "TERMINATED": "Terminated",
+    "PRIMARY": "Primary teacher",
+    "ASSISTANT": "Assistant",
+    "SUBSTITUTE": "Substitute",
+    "CM": "Class manager (CM)",
+    "VIETNAMESE": "Vietnamese teacher",
+    "FOREIGN": "Foreign teacher",
+    "MALE": "Male",
+    "FEMALE": "Female",
+    "OTHER": "Other",
+    "TEACHER": "Teacher",
+    "STAFF": "Staff",
+    "MANAGER": "Manager",
+    "true": "Yes",
+    "false": "No",
+    "changeTeacher cascade": "Class teacher changed"
+  },
+  "changeHistory": {
+    "title": "Data change history",
+    "description": "Who created or edited classes, schedules, enrollments, class teachers, student and teacher profiles — when, and what changed.",
+    "departmentScopeHint": "Only changes made by you and staff in the departments you head are shown. If you do not head a department, only your own changes are shown.",
+    "scopeHint": "Filtered by the campus/class selected in the header.",
+    "filters": {
+      "entityType": "Data type",
+      "allTypes": "All",
+      "fromDate": "From",
+      "toDate": "To",
+      "keyword": "Search class, student, teacher, changed by",
+      "reset": "Reset"
+    },
+    "columns": {
+      "time": "Time",
+      "changedBy": "Changed by",
+      "type": "Type",
+      "subject": "Record",
+      "action": "Action",
+      "changes": "Details"
+    },
+    "sessionOf": "Session {{date}}",
+    "unchanged": "No change from the previous record",
+    "empty": "No changes in this period.",
+    "loadFailed": "Could not load the change history.",
+    "itemLabel": "changes",
+    "noPermission": "You do not have permission to view this page."
+  },
+  "teacherProfiles": {
+    "title": "Teacher profiles",
+    "description": "Work information, qualifications, commendations/discipline, assigned classes and teaching schedule of teachers.",
+    "privacyNote": "ID card, bank account, tax code, social insurance, contracts and salary are not shown.",
+    "searchPlaceholder": "Search by name, employee code, email",
+    "columns": {
+      "teacher": "Teacher",
+      "contact": "Contact",
+      "sites": "Campuses",
+      "position": "Position",
+      "activeClasses": "Active classes",
+      "status": "Status"
+    },
+    "status": {
+      "ACTIVE": "Working",
+      "ON_LEAVE": "On leave",
+      "TERMINATED": "Terminated"
+    },
+    "empty": "No matching teachers.",
+    "loadFailed": "Could not load teachers.",
+    "detailLoadFailed": "Could not load the teacher profile.",
+    "tabs": {
+      "info": "Information",
+      "qualifications": "Qualifications",
+      "commendations": "Commendations/Discipline",
+      "classes": "Classes",
+      "schedule": "Teaching schedule"
+    },
+    "info": {
+      "employeeCode": "Employee code",
+      "email": "Email",
+      "phone": "Phone",
+      "position": "Position",
+      "department": "Department",
+      "hireDate": "Hire date",
+      "sites": "Campuses",
+      "status": "Status"
+    },
+    "qualificationTypes": {
+      "DEGREE": "Degree",
+      "PEDAGOGY_CERT": "Teaching certificate",
+      "LANGUAGE_CERT": "Language certificate",
+      "OTHER": "Other"
+    },
+    "qualificationColumns": {
+      "type": "Type",
+      "title": "Title",
+      "issuer": "Issuer",
+      "issuedDate": "Issued",
+      "expiryDate": "Expires",
+      "file": "File"
+    },
+    "viewFile": "View",
+    "recordTypes": {
+      "COMMENDATION": "Commendation",
+      "DISCIPLINE": "Discipline"
+    },
+    "commendationColumns": {
+      "type": "Type",
+      "date": "Date",
+      "title": "Content"
+    },
+    "classColumns": {
+      "class": "Class",
+      "site": "Campus",
+      "role": "Role",
+      "from": "Assigned from",
+      "status": "Class status"
+    },
+    "scheduleColumns": {
+      "date": "Date",
+      "time": "Time",
+      "class": "Class",
+      "room": "Room",
+      "status": "Status"
+    },
+    "scheduleRange": "From {{from}} to {{to}}",
+    "previousWeeks": "Previous 2 weeks",
+    "nextWeeks": "Next 2 weeks",
+    "noQualifications": "No qualifications yet.",
+    "noCommendations": "No commendation or discipline records.",
+    "noClasses": "Not assigned to any class.",
+    "noSessions": "No sessions in this period.",
+    "noSchedulePermission": "You do not have permission to view teaching schedules (requires the Work schedule permission)."
+  },
+  "teachingStats": {
+    "title": "Teaching statistics by teacher",
+    "description": "Classes, sessions, periods taught and check-in status of each teacher in the selected period.",
+    "allSites": "All campuses in scope",
+    "fromDate": "From",
+    "toDate": "To",
+    "export": "Export Excel",
+    "exporting": "Exporting...",
+    "exportSuccess": "Excel file exported.",
+    "exportFailed": "Could not export the Excel file.",
+    "loadFailed": "Could not load teaching statistics.",
+    "empty": "No sessions in this period.",
+    "columns": {
+      "teacher": "Teacher",
+      "classes": "Classes",
+      "scheduled": "Scheduled",
+      "held": "Held",
+      "cancelled": "Cancelled",
+      "periods": "Periods taught",
+      "onTime": "On-time check-ins",
+      "late": "Late check-ins",
+      "missing": "No check-in",
+      "onTimeRate": "On-time rate"
+    },
+    "totals": "Total",
+    "notes": {
+      "held": "Held: not cancelled or rescheduled, and the start time has passed.",
+      "periods": "Periods taught: periods with their own teacher count for that teacher; the rest count for the session teacher.",
+      "checkIn": "Check-in data only exists since the Check-in feature went live — earlier sessions show as No check-in."
+    }
+  },
+  "sessionReportEvent": {
+    "onTime": "On time (due {{deadline}})",
+    "late": "Late by {{duration}} (due {{deadline}})"
+  },
+  "teachingStatsReport": {
+    "reportOnTime": "Reports on time",
+    "reportLate": "Reports late",
+    "reportMissing": "Reports missing"
+  },
+  "sessionReports": {
+    "title": "Report submission & approval",
+    "description": "Session report = the teacher submitting the session's comments for approval. Tracks 3 steps: teacher submits, site manager approves, teacher resubmits after a rejection.",
+    "deadlines": "Due {{submitHours}} h after the session ends · Approval within {{approvalHours}} h of submission · Resubmit within {{resubmitHours}} h of rejection (configurable in System settings).",
+    "fromDate": "From",
+    "toDate": "To",
+    "allSites": "All campuses in scope",
+    "export": "Export Excel",
+    "exporting": "Exporting...",
+    "exportSuccess": "Excel file exported.",
+    "exportFailed": "Could not export the Excel file.",
+    "loadFailed": "Could not load report submission & approval data.",
+    "empty": "No sessions requiring a report in this period.",
+    "tabs": {
+      "sessions": "By session",
+      "teachers": "By teacher",
+      "approvers": "By approver"
+    },
+    "filters": {
+      "all": "All sessions",
+      "problems": "Only sessions with issues",
+      "missing": "Not submitted",
+      "approvalOverdue": "Approval overdue",
+      "resubmitOverdue": "Resubmission overdue"
+    },
+    "summary": {
+      "sessions": "Sessions requiring a report",
+      "onTime": "Submitted on time",
+      "late": "Submitted late",
+      "missing": "Not submitted",
+      "approvalLate": "Approved late / overdue",
+      "resubmitLate": "Resubmitted late / overdue"
+    },
+    "columns": {
+      "session": "Session",
+      "teacher": "Teacher",
+      "submit": "Teacher submit",
+      "approval": "Approval",
+      "resubmit": "Resubmit",
+      "approvers": "Approvers",
+      "sessions": "Sessions",
+      "onTime": "On time",
+      "late": "Late",
+      "missing": "Missing",
+      "rejections": "Rejections",
+      "resubmitLate": "Late resubmits",
+      "onTimeRate": "On-time rate",
+      "approver": "Approver",
+      "decided": "Sessions handled",
+      "approvalLate": "Approved late",
+      "rejected": "Sessions rejected",
+      "avgWait": "Avg. wait"
+    },
+    "states": {
+      "NOT_DUE": "Not due",
+      "ON_TIME": "On time",
+      "LATE": "Late",
+      "MISSING": "Missing",
+      "NONE": "—",
+      "WAITING": "Waiting",
+      "OVERDUE": "Overdue"
+    },
+    "lateBy": "late by {{duration}}",
+    "rejectedTimes": "rejected {{count}} time(s)",
+    "deadlineAt": "Due {{deadline}}",
+    "viewTimeline": "View timeline",
+    "timelineTitle": "Report timeline — {{className}}",
+    "timelineEmpty": "The teacher has not submitted any comments for this session.",
+    "timelineLoadFailed": "Could not load the timeline.",
+    "events": {
+      "SUBMITTED": "{{actor}} submitted {{count}} comment(s)",
+      "RESUBMITTED": "{{actor}} resubmitted {{count}} comment(s)",
+      "APPROVED": "{{actor}} approved {{count}} comment(s)",
+      "REJECTED": "{{actor}} rejected {{count}} comment(s)"
+    },
+    "reason": "Reason: {{reason}}",
+    "minutes": "{{count}} min",
+    "hours": "{{hours}} h {{minutes}} min",
+    "days": "{{days}} d {{hours}} h",
+    "dashboardTitle": "Today's session reports",
+    "dashboardSummary": "{{missing}} not submitted · {{approvalOverdue}} approval overdue · {{resubmitOverdue}} not resubmitted",
+    "dashboardNone": "No overdue reports.",
+    "dashboardView": "View report submission & approval"
+  }
+}

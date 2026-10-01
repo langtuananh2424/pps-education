@@ -15,12 +15,15 @@ import vn.com.pps.education.repository.ExerciseAssignmentRepository;
 import vn.com.pps.education.repository.ParentStudentRepository;
 import vn.com.pps.education.repository.ReviewVideoAssignmentRepository;
 
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 
 /**
  * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-06: nhắc Phụ
@@ -33,6 +36,14 @@ import java.util.Map;
  * enrollment). Chỉ nhắc học sinh CHƯA đạt (tái dùng
  * {@link HomeworkProgressService#grammarPassed}/{@code videoPassed}) —
  * học sinh đã làm xong không cần nhắc.
+ * <p>
+ * Khung đêm (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-25,
+ * migration V195): nếu mốc nhắc (hạn nộp − reminder_before_due_hours) rơi vào
+ * khung [reminder_quiet_start_hour, reminder_quiet_end_hour) — mặc định
+ * 21:00–07:00 giờ VN — thì gửi SỚM hơn, lúc giờ bắt đầu khung đêm ngay trước
+ * đó (VD hạn 12:00 trưa: nhắc 21:00 tối hôm trước thay vì 0:00). Giao bài
+ * trong khung đêm mà mốc nhắc đã qua thì vẫn gửi ngay vì hạn đã gần. Xem
+ * {@link #reminderSendAt}.
  */
 @Service
 public class HomeworkDueSoonReminderSchedulerService {
@@ -74,15 +85,47 @@ public class HomeworkDueSoonReminderSchedulerService {
             return;
         }
         OffsetDateTime now = OffsetDateTime.now();
-        OffsetDateTime cutoff = now.plusHours(homeworkAlertSettings.reminderBeforeDueHours());
-        processExerciseAssignments(now, cutoff);
-        processReviewVideoAssignments(now, cutoff);
+        int beforeDueHours = homeworkAlertSettings.reminderBeforeDueHours();
+        int quietStartHour = homeworkAlertSettings.reminderQuietStartHour();
+        int quietEndHour = homeworkAlertSettings.reminderQuietEndHour();
+        // Quét rộng thêm độ dài khung đêm: mốc nhắc bị kéo sớm về giờ bắt đầu khung đêm có thể tới
+        // trước hạn nộp tối đa beforeDueHours + độ dài khung đêm. Lọc chính xác bằng reminderSendAt.
+        int quietLengthHours = Math.floorMod(quietEndHour - quietStartHour, 24);
+        OffsetDateTime cutoff = now.plusHours(beforeDueHours + quietLengthHours);
+        Predicate<OffsetDateTime> reminderDue = dueAt ->
+                !reminderSendAt(dueAt, beforeDueHours, quietStartHour, quietEndHour).isAfter(now);
+        processExerciseAssignments(now, cutoff, reminderDue);
+        processReviewVideoAssignments(now, cutoff, reminderDue);
     }
 
-    private void processExerciseAssignments(OffsetDateTime now, OffsetDateTime cutoff) {
+    /**
+     * Mốc gửi nhắc hạn BTVN: {@code dueAt − beforeDueHours}, nhưng nếu mốc đó rơi vào khung đêm
+     * [quietStartHour, quietEndHour) (giờ VN, có thể vắt qua nửa đêm) thì kéo sớm về quietStartHour
+     * của buổi tối ngay trước đó. quietStartHour = quietEndHour nghĩa là tắt khung đêm.
+     */
+    static OffsetDateTime reminderSendAt(OffsetDateTime dueAt, int beforeDueHours, int quietStartHour, int quietEndHour) {
+        ZonedDateTime base = dueAt.atZoneSameInstant(APP_ZONE).minusHours(beforeDueHours);
+        if (quietStartHour == quietEndHour) {
+            return base.toOffsetDateTime();
+        }
+        int hour = base.getHour();
+        boolean overMidnight = quietStartHour > quietEndHour;
+        boolean inQuiet = overMidnight
+                ? hour >= quietStartHour || hour < quietEndHour
+                : hour >= quietStartHour && hour < quietEndHour;
+        if (!inQuiet) {
+            return base.toOffsetDateTime();
+        }
+        // Phần sau nửa đêm của khung đêm (VD 0:00–6:59) thuộc buổi tối của ngày hôm trước.
+        LocalDate eveningDate = overMidnight && hour < quietEndHour ? base.toLocalDate().minusDays(1) : base.toLocalDate();
+        return eveningDate.atTime(quietStartHour, 0).atZone(APP_ZONE).toOffsetDateTime();
+    }
+
+    private void processExerciseAssignments(OffsetDateTime now, OffsetDateTime cutoff, Predicate<OffsetDateTime> reminderDue) {
         List<ExerciseAssignment> dueSoon = exerciseAssignmentRepository
                 .findByStatusAndDueAtBetweenAndParentReminderSentAtIsNull(ExerciseAssignment.Status.ACTIVE, now, cutoff).stream()
                 .filter(a -> a.getSchoolClass().getStatus() != SchoolClass.Status.CANCELLED)
+                .filter(a -> reminderDue.test(a.getDueAt()))
                 .toList();
         for (ExerciseAssignment assignment : dueSoon) {
             List<Student> students = homeworkDeadlineSchedulerService.targetStudents(assignment.getSchoolClass(), assignment.getTargetStudentIds());
@@ -100,10 +143,11 @@ public class HomeworkDueSoonReminderSchedulerService {
         }
     }
 
-    private void processReviewVideoAssignments(OffsetDateTime now, OffsetDateTime cutoff) {
+    private void processReviewVideoAssignments(OffsetDateTime now, OffsetDateTime cutoff, Predicate<OffsetDateTime> reminderDue) {
         List<ReviewVideoAssignment> dueSoon = reviewVideoAssignmentRepository
                 .findByStatusAndDueAtBetweenAndParentReminderSentAtIsNull(ReviewVideoAssignment.Status.ACTIVE, now, cutoff).stream()
                 .filter(a -> a.getSchoolClass().getStatus() != SchoolClass.Status.CANCELLED)
+                .filter(a -> reminderDue.test(a.getDueAt()))
                 .toList();
         for (ReviewVideoAssignment assignment : dueSoon) {
             List<Student> students = homeworkDeadlineSchedulerService.targetStudents(assignment.getSchoolClass(), assignment.getTargetStudentIds());

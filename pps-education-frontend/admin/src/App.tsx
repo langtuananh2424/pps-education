@@ -36,6 +36,8 @@ import EntranceAssessmentPage from "@/features/academic/pages/EntranceAssessment
 import GradesPage from "@/features/academic/pages/GradesPage";
 import CommentsPage from "@/features/academic/pages/CommentsPage";
 import HomeworkStatsPage from "@/features/academic/pages/HomeworkStatsPage";
+import TeacherProfilesPage from "@/features/academic/pages/TeacherProfilesPage";
+import ChangeHistoryPage from "@/features/academic/pages/ChangeHistoryPage";
 import AssignmentStatsDetailPage from "@/features/academic/pages/AssignmentStatsDetailPage";
 import BatchStatsDetailPage from "@/features/academic/pages/BatchStatsDetailPage";
 import ReviewVideoAssignmentStatsDetailPage from "@/features/academic/pages/ReviewVideoAssignmentStatsDetailPage";
@@ -60,6 +62,8 @@ import GradesAnalyticsPage from "@/features/reports/pages/GradesAnalyticsPage";
 import StudentProgressPage from "@/features/reports/pages/StudentProgressPage";
 import EnrollmentMovementStatsPage from "@/features/reports/pages/EnrollmentMovementStatsPage";
 import ActualPeriodsStatsPage from "@/features/reports/pages/ActualPeriodsStatsPage";
+import TeachingStatsPage from "@/features/reports/pages/TeachingStatsPage";
+import SessionReportsPage from "@/features/reports/pages/SessionReportsPage";
 export default function App() {
   return (
     <AppProvider>
@@ -106,6 +110,8 @@ export default function App() {
           <Route path="/academic/grades" element={<GradesPage />} />
           <Route path="/academic/comments" element={<CommentsPage />} />
           <Route path="/academic/homework-stats" element={<HomeworkStatsPage />} />
+          <Route path="/academic/teachers" element={<TeacherProfilesPage />} />
+          <Route path="/academic/change-history" element={<ChangeHistoryPage />} />
           <Route path="/academic/homework-stats/review-video/:assignmentId" element={<ReviewVideoAssignmentStatsDetailPage />} />
           <Route path="/academic/homework-stats/batch/:batchId" element={<BatchStatsDetailPage />} />
           <Route path="/academic/homework-stats/:assignmentId" element={<AssignmentStatsDetailPage />} />
@@ -132,6 +138,8 @@ export default function App() {
           <Route path="/reports/student-progress" element={<StudentProgressPage />} />
           <Route path="/reports/enrollment-movement" element={<EnrollmentMovementStatsPage />} />
           <Route path="/reports/actual-periods" element={<ActualPeriodsStatsPage />} />
+          <Route path="/reports/teaching-stats" element={<TeachingStatsPage />} />
+          <Route path="/reports/session-reports" element={<SessionReportsPage />} />
 
           <Route index element={<Navigate to="/dashboard" replace />} />
         </Route>

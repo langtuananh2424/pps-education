@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import vn.com.pps.education.domain.StudentComment;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -29,6 +30,19 @@ public interface StudentCommentRepository extends JpaRepository<StudentComment, 
     /** V65: toàn bộ nhận xét DAILY của 1 buổi học (mọi học sinh) — dùng kiểm tra xung đột lựa chọn BTVN buổi sau cùng buổi. */
     List<StudentComment> findByClassSessionId(Long classSessionId);
 
+    /**
+     * UC-74 bước 6-7 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-28) — nhận xét các buổi
+     * TRƯỚC của N học sinh trên MỌI lớp (giống trang hồ sơ học sinh giáo viên vẫn mở để đối chiếu trùng
+     * lặp), trong 1 query cho cả lớp. Mới nhất trước; service tự lấy N bản gần nhất/học sinh.
+     */
+    @Query("select c from StudentComment c join fetch c.student s where s.id in :studentIds"
+            + " and c.status <> :excludedStatus and c.commentDate >= :fromDate and c.commentDate < :beforeDate"
+            + " order by c.commentDate desc, c.id desc")
+    List<StudentComment> findRecentByStudentIds(@Param("studentIds") List<Long> studentIds,
+                                                @Param("excludedStatus") StudentComment.Status excludedStatus,
+                                                @Param("fromDate") java.time.LocalDate fromDate,
+                                                @Param("beforeDate") java.time.LocalDate beforeDate);
+
     /** UC-25 Portal Phụ huynh — nhận xét/cảnh báo: student_comments WHERE status=APPROVED (SDD). */
     List<StudentComment> findBySchoolClassIdAndStudentIdAndStatusOrderByCommentDateDesc(
             Long classId, Long studentId, StudentComment.Status status);
@@ -41,6 +55,9 @@ public interface StudentCommentRepository extends JpaRepository<StudentComment, 
             """)
     List<StudentComment> findByStatusAndSiteId(@Param("status") StudentComment.Status status, @Param("siteId") Long siteId);
 
+    /** V202 — nhận xét chờ duyệt của mọi điểm trường, cho tài khoản có phạm vi dữ liệu "Tất cả điểm trường". */
+    List<StudentComment> findByStatusOrderBySubmittedAtAsc(StudentComment.Status status);
+
     /** Bổ sung ngoài SDD gốc — StudentProfileService (FR-REP-04): JOIN FETCH lớp/buổi học để tránh N+1 khi gộp toàn bộ nhận xét của 1 học sinh qua mọi lớp. */
     @Query("""
             SELECT c FROM StudentComment c
@@ -50,4 +67,7 @@ public interface StudentCommentRepository extends JpaRepository<StudentComment, 
             ORDER BY c.commentDate DESC
             """)
     List<StudentComment> findByStudentIdWithContext(@Param("studentId") Long studentId);
+
+    /** V207 — nhận xét của nhiều buổi học cùng lúc (theo dõi nộp & duyệt báo cáo). */
+    List<StudentComment> findByClassSessionIdIn(Collection<Long> classSessionIds);
 }

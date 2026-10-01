@@ -88,6 +88,11 @@ export default function Header() {
     window.addEventListener(ATTENDANCE_CHECKED_EVENT, load);
     return () => window.removeEventListener(ATTENDANCE_CHECKED_EVENT, load);
   }, []);
+  // "Đã chấm công" xét theo checkInAt, KHÔNG theo id: AttendanceMissingSchedulerService tạo bản ghi
+  // status=MISSING (có id, checkInAt=null) khi cửa sổ chấm công đã đóng mà nhân sự chưa chấm --
+  // trước đây xét id != null nên pill hiện xanh "đã chấm công" sai (lỗi người dùng báo 2026-09-29).
+  const attendanceCheckedIn = myAttendance?.checkInAt != null;
+  const attendanceMissing = !attendanceCheckedIn && myAttendance?.status === "MISSING";
 
   // UC-71 "Nhận lớp" (bổ sung ngoài SDD gốc, xác nhận 2026-08-18) — pill Header giống pattern
   // "Chấm công" ở trên, nhưng theo TỪNG buổi dạy hôm nay thay vì 1 lần/ngày. Rỗng (mảng []) với
@@ -180,18 +185,13 @@ export default function Header() {
   // "chưa gán điểm trường" trước khi các API site_managers/site_teachers trả về.
   const [managedSitesLoading, setManagedSitesLoading] = useState(true);
 
-  // Vai trò bắt buộc gắn với (các) điểm trường cụ thể -- nếu tài khoản có 1 trong các
-  // vai trò này mà managedSites rỗng, đó là dấu hiệu CHƯA ĐƯỢC GÁN điểm trường (thiếu
-  // site_managers/site_teachers), không phải "không giới hạn site" như SYS_ADMIN/STAFF.
-  //
-  // Loại trừ tài khoản có academic.class.manage (đúng quyền BE dùng để bỏ giới hạn site
-  // ở ClassService.resolveAllowedSiteIds) — tài khoản demo "Super Admin" cố tình được gán
-  // ĐỦ mọi roleCodes (kể cả TEACHER/SITE_MANAGER) để test mọi màn hình, nhưng không thật
-  // sự được gán site_teachers/site_managers nào — nếu không loại trừ, tài khoản này bị
-  // hiểu lầm thành "chưa gán điểm trường" dù thực ra xem được hết mọi điểm trường.
-  const siteScopedRoles: string[] = [UserRole.SITE_MANAGER, UserRole.PARTNER_REP, UserRole.TEACHER];
-  const seesAllSites = hasPermission("academic.class.manage");
-  const isSiteScopedRole = !seesAllSites && (currentUser?.roleCodes ?? []).some((r) => siteScopedRoles.includes(r));
+  // V202 — phạm vi dữ liệu đọc từ roles.data_scope (vai trò rộng nhất thắng) thay vì đoán theo tên vai trò.
+  // "Tất cả điểm trường" (ALL) không khoá điểm trường; phạm vi hẹp hơn (SITE/CLASS) bắt buộc gắn với điểm
+  // trường cụ thể — managedSites rỗng nghĩa là CHƯA ĐƯỢC GÁN điểm trường (thiếu site_managers/site_teachers).
+  const seesAllSites = currentUser?.dataScope === "ALL";
+  const isSiteScopedRole =
+    !seesAllSites &&
+    (currentUser?.dataScope === "SITE" || currentUser?.dataScope === "CLASS" || (currentUser?.roleCodes ?? []).includes(UserRole.PARTNER_REP));
 
   useEffect(() => {
     if (!currentUser || sites.length === 0) {
@@ -200,7 +200,7 @@ export default function Header() {
     const roleCodes = currentUser.roleCodes ?? [];
     const tasks: Promise<SiteResponse[]>[] = [];
 
-    if (roleCodes.includes(UserRole.SITE_MANAGER)) {
+    if (!seesAllSites) {
       tasks.push(Promise.resolve(sites.filter((site) => site.currentManagerUserId === currentUser.id)));
     }
     if (roleCodes.includes(UserRole.PARTNER_REP)) {
@@ -210,7 +210,7 @@ export default function Header() {
           .catch(() => [] as SiteResponse[])
       );
     }
-    if (roleCodes.includes(UserRole.TEACHER)) {
+    if (!seesAllSites) {
       tasks.push(
         Promise.allSettled(sites.map((site) => listSiteTeachers(site.id).then((list) => ({ site, list }))))
           .then((results) =>
@@ -264,7 +264,7 @@ export default function Header() {
   // trường) — KHÔNG dùng roleCodes.includes(SITE_MANAGER) trực tiếp, vì tài khoản demo "Super
   // Admin" cố tình được gán roleCode SITE_MANAGER để test màn hình nhưng không thật sự quản lý
   // site nào (managedSites rỗng) — dùng roleCodes suông sẽ lại hiện nhầm pill cho tài khoản đó.
-  const isGenuineSiteManager = (currentUser?.roleCodes?.includes(UserRole.SITE_MANAGER) ?? false) && managedSites.length > 0;
+  const isGenuineSiteManager = currentUser?.dataScope === "SITE" && managedSites.length > 0;
   const { classes: eligibleClasses, myAssignedClassCount, loading: loadingEligibleClasses } = useEligibleClasses();
   // academic.class.view-all (V64, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-07-30):
   // permission RIÊNG cho "được xem/chọn mọi lớp", dành cho Trưởng phòng đào tạo/Quản trị viên —
@@ -295,8 +295,139 @@ export default function Header() {
     (canViewAllClasses && eligibleClasses.length > 0);
   const selectedEligibleClass = eligibleClasses.find((cls) => cls.id === selectedClassId) ?? null;
 
+  // Yêu cầu người dùng 2026-09-29 — trước đây 2 pill "Điểm trường"/"Lớp" chỉ có "hidden sm:block",
+  // trên mobile (<640px) biến mất hoàn toàn, GV không chọn được lớp nên không nhận xét/điểm danh
+  // được. Hàng đầu Header trên mobile đã kín chỗ (menu + chấm công + ngôn ngữ + chuông + hồ sơ) nên
+  // không nhét thêm vào đó -- render lại đúng 2 selector này ở 1 hàng RIÊNG ngay dưới (sm:hidden),
+  // mỗi pill co giãn chia đôi chiều rộng. compact=true: bỏ nhãn "Điểm trường"/"Lớp" (icon đã đủ
+  // nghĩa) để còn chỗ cho tên, panel dropdown đẩy xuống dưới hàng này để không che trigger.
+  const pillBase = "flex items-center gap-2 text-xs font-medium px-4 py-2 rounded-full shadow-soft border";
+  const mobilePanelTop = "top-[116px]";
+
+  const renderSiteSelector = (compact: boolean) => {
+    if (showUnassignedWarning) {
+      return (
+        <div className={cn(pillBase, "bg-amber-50 border-amber-200 text-amber-700", compact && "min-w-0 flex-1")}>
+          <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+          {!compact && <span className="font-semibold text-amber-700">{t("header.site.label")}</span>}
+          <span className="text-amber-700 font-semibold truncate">{t("header.site.unassignedWarning")}</span>
+        </div>
+      );
+    }
+    if (lockToManagedSites && managedSites.length === 1) {
+      return (
+        <div className={cn(pillBase, "bg-white border-slate-200/50 text-slate-500", compact && "min-w-0 flex-1")}>
+          <MapPin className="w-3.5 h-3.5 text-brand-orange shrink-0" />
+          {!compact && <span className="font-semibold text-slate-700">{t("header.site.label")}</span>}
+          <span className="flex items-center gap-1.5 min-w-0 text-slate-800 font-semibold">
+            <span className="truncate">{managedSites[0].name}</span>
+            <Lock className="w-3 h-3 text-slate-400 shrink-0" />
+          </span>
+        </div>
+      );
+    }
+    return (
+      <Dropdown
+        align="left"
+        className={compact ? "min-w-0 flex-1" : undefined}
+        mobileTopClassName={compact ? mobilePanelTop : undefined}
+        panelClassName="sm:w-64 py-1.5 max-h-80 overflow-y-auto"
+        trigger={
+          <button
+            className={cn(
+              pillBase,
+              "bg-white border-slate-200/50 hover:bg-slate-50 hover:border-brand-orange/30 text-slate-500 transition-all cursor-pointer",
+              compact && "w-full"
+            )}
+          >
+            <MapPin className="w-3.5 h-3.5 text-brand-orange shrink-0" />
+            {!compact && <span className="font-semibold text-slate-700">{t("header.site.label")}</span>}
+            <span className={cn("font-semibold text-slate-800 truncate", compact ? "flex-1 min-w-0 text-left" : "max-w-[200px]")}>
+              {currentCampusLabel}
+            </span>
+            <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+          </button>
+        }
+      >
+        <div className="p-1.5">
+          {!lockToManagedSites && (
+            <button
+              onClick={() => setSelectedCampusId("ALL")}
+              className={`w-full px-3 py-2.5 text-left text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+                selectedCampusId === "ALL" ? "bg-brand-orange/10 text-brand-orange" : "text-slate-700 hover:bg-slate-50"
+              }`}
+            >
+              {t("header.site.allSites")}
+            </button>
+          )}
+          {(lockToManagedSites ? managedSites : sites).map((site) => (
+            <button
+              key={site.id}
+              onClick={() => setSelectedCampusId(String(site.id))}
+              className={`w-full px-3 py-2.5 text-left text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+                selectedCampusId === String(site.id) ? "bg-brand-orange/10 text-brand-orange" : "text-slate-700 hover:bg-slate-50"
+              }`}
+            >
+              {site.name}
+            </button>
+          ))}
+        </div>
+      </Dropdown>
+    );
+  };
+
+  const renderClassSelector = (compact: boolean) => (
+    <Dropdown
+      align="left"
+      className={compact ? "min-w-0 flex-1" : undefined}
+      mobileTopClassName={compact ? mobilePanelTop : undefined}
+      panelClassName="sm:w-64 py-1.5 max-h-80 overflow-y-auto"
+      trigger={
+        <button
+          className={cn(
+            pillBase,
+            "bg-white border-slate-200/50 hover:bg-slate-50 hover:border-brand-orange/30 text-slate-500 transition-all cursor-pointer",
+            compact && "w-full",
+            // Chưa chọn lớp trên mobile: viền cam nhấn để GV thấy ngay chỗ cần bấm.
+            compact && !selectedEligibleClass && "border-brand-orange/50"
+          )}
+        >
+          <GraduationCap className="w-3.5 h-3.5 text-brand-orange shrink-0" />
+          {!compact && <span className="font-semibold text-slate-700">{t("header.class.label")}</span>}
+          <span className={cn("font-semibold text-slate-800 truncate", compact ? "flex-1 min-w-0 text-left" : "max-w-[160px]")}>
+            {selectedEligibleClass ? `${selectedEligibleClass.classCode} — ${selectedEligibleClass.name}` : t("header.class.placeholder")}
+          </span>
+          <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+        </button>
+      }
+    >
+      <div className="p-1.5">
+        <button
+          onClick={() => setSelectedClassId(null)}
+          className={`w-full px-3 py-2.5 text-left text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+            !selectedClassId ? "bg-brand-orange/10 text-brand-orange" : "text-slate-700 hover:bg-slate-50"
+          }`}
+        >
+          {t("header.class.placeholder")}
+        </button>
+        {eligibleClasses.map((cls) => (
+          <button
+            key={cls.id}
+            onClick={() => setSelectedClassId(cls.id)}
+            className={`w-full px-3 py-2.5 text-left text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+              selectedClassId === cls.id ? "bg-brand-orange/10 text-brand-orange" : "text-slate-700 hover:bg-slate-50"
+            }`}
+          >
+            {cls.classCode} — {cls.name}
+          </button>
+        ))}
+      </div>
+    </Dropdown>
+  );
+
   return (
-    <header className="sticky top-0 h-16 bg-brand-bg/85 backdrop-blur-md px-2 md:px-0 flex items-center justify-between z-30 mb-4 shrink-0">
+    <header className="sticky top-0 bg-brand-bg/85 backdrop-blur-md px-2 md:px-0 z-30 mb-4 shrink-0">
+      <div className="h-16 flex items-center justify-between">
       <div className="flex items-center gap-4">
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -330,102 +461,10 @@ export default function Header() {
           </div>
         </button>
 
-        {showUnassignedWarning ? (
-          <div className="hidden sm:flex items-center gap-2 text-xs font-medium px-4 py-2 rounded-full shadow-soft border bg-amber-50 border-amber-200 text-amber-700">
-            <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-            <span className="font-semibold text-amber-700">{t("header.site.label")}</span>
-            <span className="text-amber-700 font-semibold">{t("header.site.unassignedWarning")}</span>
-          </div>
-        ) : lockToManagedSites && managedSites.length === 1 ? (
-          <div className="hidden sm:flex items-center gap-2 text-xs font-medium px-4 py-2 rounded-full shadow-soft border bg-white border-slate-200/50 text-slate-500">
-            <MapPin className="w-3.5 h-3.5 text-brand-orange shrink-0" />
-            <span className="font-semibold text-slate-700">{t("header.site.label")}</span>
-            <span className="flex items-center gap-1.5 text-slate-800 font-semibold">
-              {managedSites[0].name}
-              <Lock className="w-3 h-3 text-slate-400" />
-            </span>
-          </div>
-        ) : (
-          <div className="hidden sm:block">
-            <Dropdown
-              align="left"
-              panelClassName="sm:w-64 py-1.5 max-h-80 overflow-y-auto"
-              trigger={
-                <button className="flex items-center gap-2 text-xs font-medium px-4 py-2 rounded-full shadow-soft border bg-white border-slate-200/50 hover:bg-slate-50 hover:border-brand-orange/30 text-slate-500 transition-all cursor-pointer">
-                  <MapPin className="w-3.5 h-3.5 text-brand-orange shrink-0" />
-                  <span className="font-semibold text-slate-700">{t("header.site.label")}</span>
-                  <span className="font-semibold text-slate-800 max-w-[200px] truncate">{currentCampusLabel}</span>
-                  <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                </button>
-              }
-            >
-              <div className="p-1.5">
-                {!lockToManagedSites && (
-                  <button
-                    onClick={() => setSelectedCampusId("ALL")}
-                    className={`w-full px-3 py-2.5 text-left text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
-                      selectedCampusId === "ALL" ? "bg-brand-orange/10 text-brand-orange" : "text-slate-700 hover:bg-slate-50"
-                    }`}
-                  >
-                    {t("header.site.allSites")}
-                  </button>
-                )}
-                {(lockToManagedSites ? managedSites : sites).map((site) => (
-                  <button
-                    key={site.id}
-                    onClick={() => setSelectedCampusId(String(site.id))}
-                    className={`w-full px-3 py-2.5 text-left text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
-                      selectedCampusId === String(site.id) ? "bg-brand-orange/10 text-brand-orange" : "text-slate-700 hover:bg-slate-50"
-                    }`}
-                  >
-                    {site.name}
-                  </button>
-                ))}
-              </div>
-            </Dropdown>
-          </div>
-        )}
-
-        {showClassSelector && (
-          <div className="hidden sm:block">
-            <Dropdown
-              align="left"
-              panelClassName="sm:w-64 py-1.5 max-h-80 overflow-y-auto"
-              trigger={
-                <button className="flex items-center gap-2 text-xs font-medium px-4 py-2 rounded-full shadow-soft border bg-white border-slate-200/50 hover:bg-slate-50 hover:border-brand-orange/30 text-slate-500 transition-all cursor-pointer">
-                  <GraduationCap className="w-3.5 h-3.5 text-brand-orange shrink-0" />
-                  <span className="font-semibold text-slate-700">{t("header.class.label")}</span>
-                  <span className="font-semibold text-slate-800 max-w-[160px] truncate">
-                    {selectedEligibleClass ? `${selectedEligibleClass.classCode} — ${selectedEligibleClass.name}` : t("header.class.placeholder")}
-                  </span>
-                  <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                </button>
-              }
-            >
-              <div className="p-1.5">
-                <button
-                  onClick={() => setSelectedClassId(null)}
-                  className={`w-full px-3 py-2.5 text-left text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
-                    !selectedClassId ? "bg-brand-orange/10 text-brand-orange" : "text-slate-700 hover:bg-slate-50"
-                  }`}
-                >
-                  {t("header.class.placeholder")}
-                </button>
-                {eligibleClasses.map((cls) => (
-                  <button
-                    key={cls.id}
-                    onClick={() => setSelectedClassId(cls.id)}
-                    className={`w-full px-3 py-2.5 text-left text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
-                      selectedClassId === cls.id ? "bg-brand-orange/10 text-brand-orange" : "text-slate-700 hover:bg-slate-50"
-                    }`}
-                  >
-                    {cls.classCode} — {cls.name}
-                  </button>
-                ))}
-              </div>
-            </Dropdown>
-          </div>
-        )}
+        <div className="hidden sm:flex items-center gap-4">
+          {renderSiteSelector(false)}
+          {showClassSelector && renderClassSelector(false)}
+        </div>
       </div>
 
       <div className="flex items-center gap-3 md:gap-5">
@@ -438,12 +477,16 @@ export default function Header() {
             // thái + ẩn phần chữ mô tả (span "hidden sm:inline" bên dưới) trên mobile để không vỡ
             // layout Header (đã chật chỗ với nút menu + các pill khác) — chạm vào vẫn mở modal đầy đủ.
             className={`flex items-center gap-1.5 text-xs font-medium px-3 sm:px-3.5 py-2 rounded-full shadow-soft border transition-all cursor-pointer ${
-              myAttendance.id == null
-                ? "bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100"
-                : "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
+              attendanceMissing
+                ? "bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100"
+                : !attendanceCheckedIn
+                  ? "bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100"
+                  : "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
             }`}
           >
-            {myAttendance.id == null ? (
+            {attendanceMissing ? (
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+            ) : !attendanceCheckedIn ? (
               <span className="relative flex w-2.5 h-2.5 shrink-0">
                 <span className="animate-ping absolute inline-flex w-full h-full rounded-full bg-amber-400 opacity-75" />
                 <span className="relative inline-flex w-2.5 h-2.5 rounded-full bg-amber-500" />
@@ -451,7 +494,9 @@ export default function Header() {
             ) : (
               <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
             )}
-            {myAttendance.id == null ? (
+            {attendanceMissing ? (
+              <span className="hidden sm:inline font-semibold">{t("header.attendance.missing")}</span>
+            ) : !attendanceCheckedIn ? (
               <span className="hidden sm:inline font-semibold">{t("header.attendance.checkIn")}</span>
             ) : myAttendance.checkOutAt ? (
               <span className="hidden sm:inline font-semibold">
@@ -503,6 +548,7 @@ export default function Header() {
 
         <Dropdown
           panelClassName="max-h-[70vh] sm:max-h-[420px] overflow-y-auto sm:w-80"
+          closeOnPanelClick={false}
           trigger={
             <button className="w-9 h-9 flex items-center justify-center rounded-full text-slate-500 hover:text-slate-800 bg-white border border-slate-200/50 hover:bg-slate-50 transition-colors relative shadow-soft">
               <Bell className="w-4 h-4" />
@@ -515,6 +561,8 @@ export default function Header() {
             </button>
           }
         >
+          {(closeNotifications) => (
+          <>
           <div className="px-4 py-3 bg-slate-50 border-b border-slate-100 flex items-center justify-between sticky top-0 z-10">
             <span className="text-xs font-semibold text-slate-700">{t("header.notifications.title")}</span>
             {unreadNotificationCount > 0 && (
@@ -558,7 +606,10 @@ export default function Header() {
                           {hasDetailTarget && (
                             <button
                               type="button"
-                              onClick={(e) => handleViewNotificationDetail(notif, e)}
+                              onClick={(e) => {
+                                handleViewNotificationDetail(notif, e);
+                                closeNotifications();
+                              }}
                               className="shrink-0 flex items-center gap-1 text-[10px] font-bold text-brand-red hover:underline"
                             >
                               {t("header.notifications.viewDetail")}
@@ -572,6 +623,8 @@ export default function Header() {
                 );
               })}
             </div>
+          )}
+          </>
           )}
         </Dropdown>
 
@@ -621,6 +674,12 @@ export default function Header() {
             </button>
           </div>
         </Dropdown>
+      </div>
+      </div>
+
+      <div className="sm:hidden flex items-center gap-2 pb-2">
+        {renderSiteSelector(true)}
+        {showClassSelector && renderClassSelector(true)}
       </div>
 
       {profileOpen && <ProfileModal onClose={() => setProfileOpen(false)} />}

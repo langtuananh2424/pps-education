@@ -190,4 +190,64 @@ FE: `LoginPage.tsx`/`GoogleSignInButton.tsx` (app `user`) — bắt HTTP 409 ở
 endpoint đăng nhập (duy nhất `ActiveSessionExistsException` trả 409 ở đây)
 để hiện banner xác nhận, gọi lại đúng API đăng nhập với `confirm: true`.
 
+**Bổ sung 2026-09-29 (đã xác nhận với người dùng) — giới hạn số thiết bị
+cho MỌI tài khoản, IP thật sau Cloudflare, Quản trị viên gỡ phiên**
+
+Sự cố thực tế: 1 phiên bỏ quên (đóng trình duyệt không bấm "Đăng xuất",
+refresh token còn sống tới 14 ngày) chiếm chỗ và chặn đăng nhập; mọi bản
+ghi `refresh_tokens`/`login_attempts` đều mang IP `172.28.0.1` (gateway
+Docker) nên không truy được thiết bị thật; Quản trị viên không có cách gỡ
+phiên ngoài sửa DB tay.
+
+-   Giới hạn số refresh token ACTIVE (= số thiết bị) theo vai trò: Học sinh
+    tối đa 1 (giữ nguyên quy tắc 2026-09-13), các vai trò khác (giáo viên,
+    nhân viên, phụ huynh, Quản trị viên) tối đa 3. Cấu hình
+    `app.security.session.max-active-sessions` /
+    `student-max-active-sessions`.
+-   Đăng nhập khi đã đủ giới hạn, `confirm == false` → HTTP 409, FE (cả app
+    `admin` lẫn `user`) hiện popup "Tài khoản của bạn đang đăng nhập ở thiết
+    bị khác. Bạn có muốn đăng xuất?". `confirm == true` → CHỈ thu hồi (các)
+    phiên cũ nhất (`issued_at` nhỏ nhất — token ACTIVE luôn là token vừa
+    xoay vòng gần nhất nên đây là thiết bị lâu không hoạt động nhất) đủ để
+    nhường chỗ; các thiết bị khác không bị ảnh hưởng. Với Học sinh (giới
+    hạn 1) kết quả trùng quy tắc 2026-09-19 (thu hồi hết phiên cũ).
+-   `POST /api/auth/refresh` — nhánh phát hiện reuse token chỉ thu hồi TOÀN
+    BỘ phiên khi token đã được xoay vòng (`last_used_at IS NOT NULL`) quá
+    `refresh-reuse-grace-seconds` (30 giây). Token bị thu hồi do đăng
+    xuất/vượt giới hạn/Quản trị viên gỡ, hoặc vừa bị tab khác xoay vòng
+    (nhiều tab dùng chung localStorage) chỉ bị từ chối, không kéo theo đăng
+    xuất các thiết bị khác.
+-   IP ghi vào `login_attempts`/`refresh_tokens`/`permission_audit_logs` và
+    dùng cho chặn đăng nhập sai theo IP lấy từ `CF-Connecting-IP` (rồi
+    `X-Forwarded-For`) khi request tới từ proxy nội bộ — xem
+    `ClientIpResolver`.
+-   Quản lý người dùng → Xem/Sửa có mục "Thiết bị đang đăng nhập": `GET
+    /api/users/{userId}/sessions` (`user.view`), gỡ 1 thiết bị `DELETE
+    /api/users/{userId}/sessions/{sessionId}` hoặc tất cả `DELETE
+    /api/users/{userId}/sessions` (`user.update`) — xem `UserSessionService`.
+
+Implementation: `AuthService#enforceActiveSessionLimit` (thay
+`requireNoActiveSessionForStudent`). Xem
+`AuthServiceTest#login_boSung_rejectsFourthDeviceForNonStudent` /
+`..._confirmOnFourthDeviceRevokesOnlyOldestSession` /
+`..._recordsRealClientIpFromCloudflareHeader`,
+`AuthServiceRefreshLogoutTest#refresh_boSung_*`, `UserSessionServiceTest`.
+
+**Đổi 2026-10-01 (đã xác nhận với người dùng) — bỏ giới hạn thiết bị cho
+tài khoản không phải Học sinh**
+
+-   Tài khoản không phải Học sinh (giáo viên, nhân viên, Quản trị viên —
+    người dùng trang admin — và phụ huynh) đăng nhập KHÔNG giới hạn số
+    thiết bị: `app.security.session.max-active-sessions` mặc định `0` (=
+    không giới hạn). Đăng nhập thiết bị mới không bao giờ trả 409 và không
+    đăng xuất thiết bị nào khác.
+-   Học sinh giữ nguyên giới hạn 1 thiết bị + popup xác nhận ở app `user`
+    (quy tắc 2026-09-13/2026-09-19).
+-   App `admin` bỏ popup "Tài khoản của bạn đang đăng nhập ở thiết bị
+    khác" (`LoginForm`/`GoogleSignInButton`), luôn gửi `confirm = false`.
+
+Xem `AuthServiceTest#login_boSung_nonStudentHasNoDeviceLimitAndKeepsAllSessions`
+(thay `..._rejectsFourthDeviceForNonStudent` /
+`..._confirmOnFourthDeviceRevokesOnlyOldestSession`).
+
 Phân hệ 2 --- Quản trị người dùng & Phân quyền

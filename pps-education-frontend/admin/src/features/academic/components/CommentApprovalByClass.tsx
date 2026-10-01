@@ -1,12 +1,24 @@
 import React, { useEffect, useState } from "react";
-import { Edit3, Check, CheckCheck, Flag, X } from "lucide-react";
+import { AlertTriangle, BellRing, Check, CheckCheck, Edit3, Flag, Info, Loader2, Sparkles, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import {
   ClassResponse,
   ClassSessionResponse,
+  CommentAiReview,
+  CommentAiReviewResult,
+  CommentAiSuggestionResult,
+  CommentAttitudeAlert,
   StudentCommentResponse,
+  commentAiRejectionReasonJobPath,
+  commentAiReviewJobPath,
+  commentAiSuggestionJobPath,
   decideComments,
+  previewCommentAttitudeAlerts,
+  startCommentAiRejectionReason,
+  startCommentAiReview,
+  startCommentAiSuggestion,
+  waitForAiJob,
   listClassEnrollments,
   listClassSessions,
   listClassTeachers,
@@ -20,6 +32,8 @@ import { useDialog } from "@/components/ui/DialogProvider";
 import NotificationBanner from "@/features/student/components/NotificationBanner";
 import { toLocaleTag } from "@/lib/i18nFormat";
 import StudentNameLink from "@/features/reports/components/StudentNameLink";
+import AiAssistantFab from "@/components/ai/AiAssistantFab";
+import CommentApprovalAssistantSidebar, { PendingClassOption } from "./CommentApprovalAssistantSidebar";
 
 // Đồng bộ đúng bố cục/tên cột với form Giáo viên điền & gửi (DailyCommentPanel.tsx) — bổ sung ngoài
 // SDD gốc, đã xác nhận với người dùng 2026-08-06. Nhãn 2 kênh BTVN ăn theo "Loại giáo viên" của buổi
@@ -36,16 +50,10 @@ type TeacherType = "VIETNAMESE" | "FOREIGN";
  * đúng width để tính left offset cộng dồn không bị lệch.
  */
 const STICKY_COL_WIDTHS = [110, 170, 110];
-const STICKY_COL_LEFT = [
-  0,
-  STICKY_COL_WIDTHS[0],
-  STICKY_COL_WIDTHS[0] + STICKY_COL_WIDTHS[1]
-];
-const STICKY_COL_STYLE: React.CSSProperties[] = STICKY_COL_WIDTHS.map((w, i) => ({
+const STICKY_COL_STYLE: React.CSSProperties[] = STICKY_COL_WIDTHS.map((w) => ({
   width: w,
   minWidth: w,
-  maxWidth: w,
-  left: STICKY_COL_LEFT[i]
+  maxWidth: w
 }));
 
 interface CommentApprovalByClassProps {
@@ -99,7 +107,141 @@ export default function CommentApprovalByClass({ items, loading, onDecided, high
   const [savingEditId, setSavingEditId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [decidedMessage, setDecidedMessage] = useState<string | null>(null);
-  const { promptDialog } = useDialog();
+  const { promptDialog, confirmDialog } = useDialog();
+  // UC-75 — trợ lý AI soát nhận xét chờ duyệt (chỉ gợi ý: cảnh báo + bản sửa đề xuất, không tự duyệt/sửa).
+  const [reviewByCommentId, setReviewByCommentId] = useState<Record<number, CommentAiReview>>({});
+  const [assistantOpen, setAssistantOpen] = useState(false);
+  const [assistantBusy, setAssistantBusy] = useState(false);
+  const [suggestionByCommentId, setSuggestionByCommentId] = useState<Record<number, CommentAiSuggestionResult>>({});
+  const [suggestingId, setSuggestingId] = useState<number | null>(null);
+  const [applyingSuggestionId, setApplyingSuggestionId] = useState<number | null>(null);
+  const [draftingReasonId, setDraftingReasonId] = useState<number | null>(null);
+  // Bổ sung 2026-09-29 — dòng Yếu/Trung bình: duyệt sẽ gửi cảnh báo thái độ cho phụ huynh (luôn hiện, không cần soát AI).
+  const [attitudeAlertById, setAttitudeAlertById] = useState<Record<number, CommentAttitudeAlert>>({});
+
+  const issuesOf = (commentId: number) => reviewByCommentId[commentId]?.issues ?? [];
+  /** Lưu ý từ AI (VD nhắc BTVN ngược dữ liệu) — cảnh báo phụ huynh đã hiện riêng ở cột Thái độ nên không lặp lại. */
+  const noticesOf = (commentId: number) => (reviewByCommentId[commentId]?.notices ?? []).filter((n) => n.type !== "ATTITUDE_ALERT");
+
+  /** Câu nhắc số dòng sẽ báo phụ huynh trong nhóm sắp duyệt; null nếu không có dòng nào. */
+  const alertNote = (rows: StudentCommentResponse[]) => {
+    const alerts = rows.filter((cm) => attitudeAlertById[cm.id]);
+    if (alerts.length === 0) return null;
+    const escalations = alerts.filter((cm) => attitudeAlertById[cm.id].escalation).length;
+    return {
+      alerts: alerts.length,
+      escalationNote: escalations > 0 ? t("approvalByClass.aiReview.escalationNote", { count: escalations }) : ""
+    };
+  };
+
+  /** A6 — nội dung đã đổi (áp dụng bản sửa/sửa tay) thì gỡ kết quả soát + đề xuất cũ của dòng đó. */
+  const forgetAiResults = (commentId: number) => {
+    setReviewByCommentId(({ [commentId]: _review, ...rest }) => rest);
+    setSuggestionByCommentId(({ [commentId]: _suggestion, ...rest }) => rest);
+  };
+
+  /** UC-75 bước 1-5 — gọi từ sidebar Trợ lý duyệt; kết quả gắn lên bảng + trả về để hiện trong khung chat. */
+  const handleAiReview = async (classItems: StudentCommentResponse[]): Promise<CommentAiReviewResult | null> => {
+    setError(null);
+    try {
+      const job = await waitForAiJob(await startCommentAiReview(classItems.map((cm) => cm.id)), commentAiReviewJobPath);
+      if (job.status === "DONE" && job.result) {
+        const result = job.result;
+        setReviewByCommentId((prev) => ({ ...prev, ...Object.fromEntries(result.reviews.map((r) => [r.commentId, r])) }));
+        return result;
+      }
+      setError(job.errorMessage ?? t("approvalByClass.aiReview.errors.failed"));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t("approvalByClass.aiReview.errors.failed"));
+      if (err instanceof ApiError && err.status === 409) onDecided();
+    }
+    return null;
+  };
+
+  const handleApproveClean = async (classId: number, classItems: StudentCommentResponse[]): Promise<number> => {
+    const cleanItems = classItems.filter((cm) => reviewByCommentId[cm.id] && issuesOf(cm.id).length === 0);
+    if (cleanItems.length === 0) return 0;
+    const note = alertNote(cleanItems);
+    if (note && !(await confirmDialog(t("approvalByClass.aiReview.confirmApproveCleanAlerts", { count: cleanItems.length, ...note })))) return 0;
+    setDecidingAllClassId(classId);
+    setError(null);
+    try {
+      await decideComments(cleanItems.map((cm) => cm.id), "APPROVED");
+      setDecidedMessage(t("approvalByClass.aiReview.approvedClean", { count: cleanItems.length }));
+      onDecided();
+      return cleanItems.length;
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t("approvalByClass.errors.decideAllFailed"));
+      return 0;
+    } finally {
+      setDecidingAllClassId(null);
+    }
+  };
+
+  const handleAiSuggest = async (cm: StudentCommentResponse) => {
+    setSuggestingId(cm.id);
+    setError(null);
+    try {
+      const job = await waitForAiJob(await startCommentAiSuggestion(cm.id, issuesOf(cm.id).map((i) => i.message)), commentAiSuggestionJobPath);
+      if (job.status === "DONE" && job.result) {
+        const result = job.result;
+        setSuggestionByCommentId((prev) => ({ ...prev, [cm.id]: result }));
+      } else {
+        setError(job.errorMessage ?? t("approvalByClass.aiReview.errors.suggestFailed"));
+      }
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t("approvalByClass.aiReview.errors.suggestFailed"));
+    } finally {
+      setSuggestingId(null);
+    }
+  };
+
+  /** Lưu 1 bản sửa (đề xuất của AI hoặc theo yêu cầu sửa trong sidebar) qua đúng chức năng sửa nội dung Chờ duyệt của UC-22. */
+  const handleApplyContent = async (commentId: number, content: string): Promise<boolean> => {
+    const cm = items.find((it) => it.id === commentId);
+    setApplyingSuggestionId(commentId);
+    setError(null);
+    try {
+      await updatePendingCommentContent(commentId, { content });
+      forgetAiResults(commentId);
+      setDecidedMessage(t("approvalByClass.aiReview.applied", { name: cm?.studentFullName ?? "" }));
+      onDecided();
+      return true;
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t("approvalByClass.errors.saveEditFailed"));
+      return false;
+    } finally {
+      setApplyingSuggestionId(null);
+    }
+  };
+
+  const handleApplySuggestion = async (cm: StudentCommentResponse): Promise<boolean> => {
+    const suggestion = suggestionByCommentId[cm.id];
+    return suggestion ? handleApplyContent(cm.id, suggestion.suggestedContent) : false;
+  };
+
+  const handleEditSuggestion = (cm: StudentCommentResponse) => {
+    const suggestion = suggestionByCommentId[cm.id];
+    if (!suggestion) return;
+    setEditingId(cm.id);
+    setEditingContent(suggestion.suggestedContent);
+    setSuggestionByCommentId(({ [cm.id]: _suggestion, ...rest }) => rest);
+  };
+
+  useEffect(() => {
+    const ids = items.map((it) => it.id);
+    if (ids.length === 0) {
+      setAttitudeAlertById({});
+      return;
+    }
+    // Endpoint nhận tối đa 300 id/lần — chia lô; lỗi thì chỉ mất nhãn nhắc, không chặn duyệt.
+    const chunks: number[][] = [];
+    for (let i = 0; i < ids.length; i += 300) chunks.push(ids.slice(i, i + 300));
+    Promise.all(chunks.map((chunk) => previewCommentAttitudeAlerts(chunk)))
+      .then((results) => setAttitudeAlertById(Object.fromEntries(results.flatMap((r) => r.items).map((a) => [a.commentId, a]))))
+      .catch(() => setAttitudeAlertById({}));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items.map((it) => `${it.id}:${it.attitude}`).join(",")]);
 
   useEffect(() => {
     listClasses()
@@ -161,10 +303,10 @@ export default function CommentApprovalByClass({ items, loading, onDecided, high
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items.map((it) => it.classId).join(",")]);
 
-  const handleDecide = async (comment: StudentCommentResponse, decision: "APPROVED" | "REJECTED") => {
+  const handleDecide = async (comment: StudentCommentResponse, decision: "APPROVED" | "REJECTED", defaultReason?: string) => {
     let reason: string | undefined;
     if (decision === "REJECTED") {
-      reason = (await promptDialog(t("approvalByClass.rejectReasonPrompt"), { required: true, multiline: true })) ?? undefined;
+      reason = (await promptDialog(t("approvalByClass.rejectReasonPrompt"), { required: true, multiline: true, defaultValue: defaultReason })) ?? undefined;
       if (!reason?.trim()) return;
     }
     setDecidingId(comment.id);
@@ -184,7 +326,32 @@ export default function CommentApprovalByClass({ items, loading, onDecided, high
     }
   };
 
+  /**
+   * UC-75 (bổ sung 2026-09-29) — AI soạn sẵn lý do từ chối rồi mở đúng hộp thoại Từ chối với lý do điền sẵn; Quản
+   * lý sửa và tự bấm xác nhận. AI lỗi thì vẫn mở hộp thoại trống như cũ.
+   */
+  const handleRejectWithAi = async (cm: StudentCommentResponse) => {
+    setDraftingReasonId(cm.id);
+    setError(null);
+    let reason: string | undefined;
+    try {
+      const job = await waitForAiJob(await startCommentAiRejectionReason(cm.id, issuesOf(cm.id).map((i) => i.message)), commentAiRejectionReasonJobPath);
+      if (job.status === "DONE" && job.result) reason = job.result.reason;
+      else setError(job.errorMessage ?? t("approvalByClass.aiReview.errors.rejectReasonFailed"));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t("approvalByClass.aiReview.errors.rejectReasonFailed"));
+    } finally {
+      setDraftingReasonId(null);
+    }
+    await handleDecide(cm, "REJECTED", reason);
+  };
+
   const handleDecideAllClass = async (classId: number, classItems: StudentCommentResponse[]) => {
+    // UC-75 A3 — còn dòng có cảnh báo của trợ lý AI thì hỏi lại, KHÔNG chặn (Quản lý quyết định).
+    const flaggedCount = classItems.filter((cm) => issuesOf(cm.id).length > 0).length;
+    if (flaggedCount > 0 && !(await confirmDialog(t("approvalByClass.aiReview.confirmApproveAll", { count: flaggedCount })))) return;
+    const note = alertNote(classItems);
+    if (note && !(await confirmDialog(t("approvalByClass.aiReview.confirmApproveAllAlerts", note)))) return;
     setDecidingAllClassId(classId);
     setError(null);
     try {
@@ -217,6 +384,7 @@ export default function CommentApprovalByClass({ items, loading, onDecided, high
     setError(null);
     try {
       await updatePendingCommentContent(id, { content: editingContent.trim() });
+      forgetAiResults(id);
       setEditingId(null);
       onDecided();
     } catch (err) {
@@ -234,6 +402,12 @@ export default function CommentApprovalByClass({ items, loading, onDecided, high
     const nameB = classesById[b]?.name ?? "";
     return nameA.localeCompare(nameB);
   });
+
+  const pendingClassOptions: PendingClassOption[] = classIdsInOrder.map((classId) => ({
+    classId,
+    label: classesById[classId] ? `${classesById[classId].name} (${classesById[classId].classCode})` : t("approvalByClass.classFallback", { id: classId }),
+    items: items.filter((it) => it.classId === classId)
+  }));
 
   return (
     <div className="space-y-4">
@@ -318,9 +492,9 @@ export default function CommentApprovalByClass({ items, loading, onDecided, high
                       {/* Border rõ giữa các cột/dòng header (bổ sung ngoài SDD gốc, đã xác nhận với
                           người dùng 2026-08-06) — Th mặc định không có border. */}
                       <tr className="border-b border-slate-300 [&>th]:text-center">
-                        <Th rowSpan={isVietnamese ? 3 : 2} style={STICKY_COL_STYLE[0]} className="sticky left-0 z-30 bg-slate-50 border-r border-b border-slate-300">{t("approvalByClass.columns.studentCode")}</Th>
-                        <Th rowSpan={isVietnamese ? 3 : 2} style={STICKY_COL_STYLE[1]} className="sticky z-30 bg-slate-50 border-r border-b border-slate-300">{t("approvalByClass.columns.fullName")}</Th>
-                        <Th rowSpan={isVietnamese ? 3 : 2} style={STICKY_COL_STYLE[2]} className="sticky z-30 bg-slate-50 border-r border-b border-slate-300">{t("approvalByClass.columns.dateOfBirth")}</Th>
+                        <Th rowSpan={isVietnamese ? 3 : 2} style={STICKY_COL_STYLE[0]} className="md:sticky left-0 z-30 bg-slate-50 border-r border-b border-slate-300">{t("approvalByClass.columns.studentCode")}</Th>
+                        <Th rowSpan={isVietnamese ? 3 : 2} style={STICKY_COL_STYLE[1]} className="sticky left-0 md:left-[110px] z-30 bg-slate-50 border-r border-b border-slate-300">{t("approvalByClass.columns.fullName")}</Th>
+                        <Th rowSpan={isVietnamese ? 3 : 2} style={STICKY_COL_STYLE[2]} className="md:sticky md:left-[280px] z-30 bg-slate-50 border-r border-b border-slate-300">{t("approvalByClass.columns.dateOfBirth")}</Th>
                         <Th rowSpan={isVietnamese ? 3 : 2} className="border-r border-b border-slate-300">{t("approvalByClass.columns.type")}</Th>
                         <Th colSpan={isVietnamese ? 6 : 3} className="text-center border-r border-b border-slate-300">{t("approvalByClass.columns.homeworkPrevious")}</Th>
                         <Th colSpan={isVietnamese ? 6 : 3} className="text-center border-r border-b border-slate-300">{t("dailyCommentPanel.columns.homeworkNextGroup")}</Th>
@@ -366,13 +540,13 @@ export default function CommentApprovalByClass({ items, loading, onDecided, high
                     </thead>
                     <tbody>
                       {dateItems.map((cm) => (
-                        <tr key={cm.id} className="hover:bg-slate-50/40">
-                          <Td style={STICKY_COL_STYLE[0]} className="sticky left-0 z-10 bg-white font-mono font-bold text-slate-500 border-r border-b border-slate-300">{studentCodeByClassAndStudent[`${cm.classId}-${cm.studentId}`] ?? "—"}</Td>
-                          <Td style={STICKY_COL_STYLE[1]} className="sticky z-10 bg-white font-bold text-slate-900 whitespace-nowrap border-r border-b border-slate-300">
+                        <tr key={cm.id} className={issuesOf(cm.id).length > 0 ? "bg-amber-50/50" : "hover:bg-slate-50/40"}>
+                          <Td style={STICKY_COL_STYLE[0]} className="md:sticky left-0 z-10 bg-white font-mono font-bold text-slate-500 border-r border-b border-slate-300">{studentCodeByClassAndStudent[`${cm.classId}-${cm.studentId}`] ?? "—"}</Td>
+                          <Td style={STICKY_COL_STYLE[1]} className="sticky left-0 md:left-[110px] z-10 bg-white font-bold text-slate-900 whitespace-nowrap border-r border-b border-slate-300">
                             <StudentNameLink studentId={cm.studentId} name={cm.studentFullName} />
                             {cm.isWarning && <Flag className="w-3 h-3 text-rose-500 inline ml-1.5" />}
                           </Td>
-                          <Td style={STICKY_COL_STYLE[2]} className="sticky z-10 bg-white whitespace-nowrap text-slate-500 border-r border-b border-slate-300">{cm.studentDateOfBirth ?? "—"}</Td>
+                          <Td style={STICKY_COL_STYLE[2]} className="md:sticky md:left-[280px] z-10 bg-white whitespace-nowrap text-slate-500 border-r border-b border-slate-300">{cm.studentDateOfBirth ?? "—"}</Td>
                           <Td className="border-r border-b border-slate-300">
                             <Badge variant="info">{t(`shared.commentType.${cm.commentType}`)}</Badge>
                           </Td>
@@ -409,10 +583,30 @@ export default function CommentApprovalByClass({ items, loading, onDecided, high
                           <Td className="min-w-[120px] whitespace-nowrap border-r border-b border-slate-300">
                             {cm.homeworkNextDueAt ? new Date(cm.homeworkNextDueAt).toLocaleString(toLocaleTag(i18n.language), { dateStyle: "short", timeStyle: "short" }) : "—"}
                           </Td>
-                          <Td className="min-w-[110px] border-r border-b border-slate-300">{cm.attitude ? t(`shared.attitude.${cm.attitude}`) : "—"}</Td>
+                          <Td className="min-w-[110px] border-r border-b border-slate-300">
+                            {cm.attitude ? t(`shared.attitude.${cm.attitude}`) : "—"}
+                            {attitudeAlertById[cm.id] && (
+                              <span
+                                title={attitudeAlertById[cm.id].message}
+                                className={`mt-1 flex items-center gap-1 w-fit text-[10px] font-bold border rounded px-1.5 py-0.5 whitespace-nowrap ${
+                                  attitudeAlertById[cm.id].escalation ? "text-rose-700 bg-rose-50 border-rose-200" : "text-amber-700 bg-amber-50 border-amber-200"
+                                }`}
+                              >
+                                <BellRing className="w-3 h-3" />
+                                {t(`approvalByClass.aiReview.attitudeAlert.${attitudeAlertById[cm.id].escalation ? "escalation" : "single"}`)}
+                              </span>
+                            )}
+                          </Td>
                           <Td className="min-w-[260px] border-r border-b border-slate-300">
+                            {/* Nút "Sửa nội dung" đặt ngay dưới nội dung, tách khỏi cụm Từ chối/Duyệt ở cột
+                                Hành động + nhắc rõ khi đang sửa (2026-09-25, theo phản hồi người dùng) —
+                                trước đây nút "Sửa" nằm sát "Từ chối", người duyệt bấm nhầm rồi gõ lý do từ
+                                chối vào đây, ghi đè mất nội dung nhận xét giáo viên đã viết. */}
                             {editingId === cm.id ? (
                               <div className="space-y-2">
+                                <p className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5 whitespace-normal leading-snug">
+                                  {t("approvalByClass.editingHint")}
+                                </p>
                                 <textarea
                                   value={editingContent}
                                   onChange={(e) => setEditingContent(e.target.value)}
@@ -436,20 +630,98 @@ export default function CommentApprovalByClass({ items, loading, onDecided, high
                                 </div>
                               </div>
                             ) : (
-                              <div className="whitespace-pre-wrap">{cm.content}</div>
+                              <div className="space-y-1.5">
+                                <div className="whitespace-pre-wrap">{cm.content}</div>
+                                {noticesOf(cm.id).map((notice, i) => (
+                                  <p key={`n${i}`} className="flex items-start gap-1 text-[10px] text-sky-800 whitespace-normal">
+                                    <Info className="w-3 h-3 mt-0.5 shrink-0" />
+                                    <span>
+                                      <span className="font-bold">{t("approvalByClass.aiReview.notice")}: </span>
+                                      {notice.message}
+                                    </span>
+                                  </p>
+                                ))}
+                                {issuesOf(cm.id).length > 0 && (
+                                  <div className="space-y-1 whitespace-normal">
+                                    {issuesOf(cm.id).map((issue, i) => (
+                                      <p key={i} className="flex items-start gap-1 text-[10px] text-amber-800">
+                                        <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
+                                        <span>
+                                          <span className="font-bold">{t(`approvalByClass.aiReview.source.${issue.source}`)}: </span>
+                                          {issue.message}
+                                        </span>
+                                      </p>
+                                    ))}
+                                    {!suggestionByCommentId[cm.id] && (
+                                      <button
+                                        onClick={() => handleAiSuggest(cm)}
+                                        disabled={suggestingId !== null}
+                                        className="flex items-center gap-1 text-[10px] font-bold text-violet-700 hover:underline disabled:opacity-50"
+                                      >
+                                        {suggestingId === cm.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                                        {suggestingId === cm.id ? t("approvalByClass.aiReview.suggesting") : t("approvalByClass.aiReview.suggestButton")}
+                                      </button>
+                                    )}
+                                    <button
+                                      onClick={() => void handleRejectWithAi(cm)}
+                                      disabled={draftingReasonId !== null || decidingId === cm.id}
+                                      className="flex items-center gap-1 text-[10px] font-bold text-rose-700 hover:underline disabled:opacity-50"
+                                    >
+                                      {draftingReasonId === cm.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
+                                      {draftingReasonId === cm.id ? t("approvalByClass.aiReview.rejectReasonLoading") : t("approvalByClass.aiReview.rejectReasonButton")}
+                                    </button>
+                                  </div>
+                                )}
+                                {suggestionByCommentId[cm.id] && (
+                                  <div className="border border-violet-200 bg-violet-50/70 rounded-lg p-2 space-y-1.5 whitespace-normal">
+                                    <p className="text-[10px] font-bold uppercase text-violet-700">{t("approvalByClass.aiReview.suggestionTitle")}</p>
+                                    <p className="whitespace-pre-wrap text-slate-800">{suggestionByCommentId[cm.id].suggestedContent}</p>
+                                    {suggestionByCommentId[cm.id].explanation && (
+                                      <p className="text-[10px] text-slate-500 italic">{suggestionByCommentId[cm.id].explanation}</p>
+                                    )}
+                                    {suggestionByCommentId[cm.id].warnings.map((w, i) => (
+                                      <p key={i} className="flex items-start gap-1 text-[10px] text-amber-700">
+                                        <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
+                                        {w}
+                                      </p>
+                                    ))}
+                                    <div className="flex flex-wrap gap-1.5 justify-end">
+                                      <button
+                                        onClick={() => setSuggestionByCommentId(({ [cm.id]: _s, ...rest }) => rest)}
+                                        className="px-2 py-1 text-slate-500 hover:bg-slate-100 text-[10px] font-bold rounded-lg"
+                                      >
+                                        {t("approvalByClass.aiReview.dismiss")}
+                                      </button>
+                                      <button
+                                        onClick={() => handleEditSuggestion(cm)}
+                                        className="px-2 py-1 border border-slate-300 text-slate-700 hover:bg-white text-[10px] font-bold rounded-lg"
+                                      >
+                                        {t("approvalByClass.aiReview.editFirst")}
+                                      </button>
+                                      <button
+                                        onClick={() => handleApplySuggestion(cm)}
+                                        disabled={applyingSuggestionId === cm.id}
+                                        className="px-2 py-1 bg-violet-600 hover:bg-violet-700 text-white text-[10px] font-bold rounded-lg disabled:opacity-50"
+                                      >
+                                        {applyingSuggestionId === cm.id ? t("approvalByClass.savingEdit") : t("approvalByClass.aiReview.apply")}
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                                <button
+                                  onClick={() => handleStartEdit(cm)}
+                                  disabled={decidingId === cm.id}
+                                  className="flex items-center gap-1 text-[10px] font-bold text-slate-500 hover:text-slate-800 hover:underline disabled:opacity-50"
+                                >
+                                  <Edit3 className="w-3 h-3" />
+                                  {t("approvalByClass.actionEdit")}
+                                </button>
+                              </div>
                             )}
                           </Td>
                           <Td className="min-w-[120px] border-r border-b border-slate-300">{cm.note || "—"}</Td>
                           <Td className="min-w-[230px] whitespace-nowrap border-b border-slate-300">
                             <div className="flex gap-1.5 flex-nowrap">
-                              <button
-                                onClick={() => handleStartEdit(cm)}
-                                disabled={decidingId === cm.id || editingId === cm.id}
-                                className="px-2 py-1 text-slate-600 hover:bg-slate-100 border border-slate-200 text-[11px] font-bold rounded-lg disabled:opacity-50"
-                              >
-                                <Edit3 className="w-3 h-3 inline mr-0.5" />
-                                {t("approvalByClass.actionEdit")}
-                              </button>
                               <button
                                 onClick={() => handleDecide(cm, "REJECTED")}
                                 disabled={decidingId === cm.id || editingId === cm.id}
@@ -479,6 +751,32 @@ export default function CommentApprovalByClass({ items, loading, onDecided, high
           </Card>
         );
       })}
+      <CommentApprovalAssistantSidebar
+        open={assistantOpen}
+        onClose={() => setAssistantOpen(false)}
+        classes={pendingClassOptions}
+        reviewByCommentId={reviewByCommentId}
+        suggestionByCommentId={suggestionByCommentId}
+        suggestingId={suggestingId}
+        applyingId={applyingSuggestionId}
+        decidingClassId={decidingAllClassId}
+        onReview={(classId) => handleAiReview(items.filter((it) => it.classId === classId))}
+        onApproveClean={(classId) => handleApproveClean(classId, items.filter((it) => it.classId === classId))}
+        onSuggest={handleAiSuggest}
+        onRejectWithAi={handleRejectWithAi}
+        draftingReasonId={draftingReasonId}
+        attitudeAlertById={attitudeAlertById}
+        onApplySuggestion={handleApplySuggestion}
+        onDismissSuggestion={(commentId) => setSuggestionByCommentId(({ [commentId]: _s, ...rest }) => rest)}
+        onApplyContent={handleApplyContent}
+        onBusyChange={setAssistantBusy}
+      />
+      <AiAssistantFab
+        label={t("approvalByClass.assistant.openButton")}
+        onClick={() => setAssistantOpen(true)}
+        busy={assistantBusy}
+        hidden={assistantOpen}
+      />
     </div>
   );
 }

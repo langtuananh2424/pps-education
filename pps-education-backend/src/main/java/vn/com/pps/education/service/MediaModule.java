@@ -43,24 +43,43 @@ package vn.com.pps.education.service;
  * =true) vì mẫu chỉ là DOCX/PDF, không nhận video.
  */
 public enum MediaModule {
-    LMS_QUESTION("lms/questions", true, true),
-    CURRICULUM_DOCUMENT("lms/curriculum-documents", true, true),
-    REVIEW_VIDEO("lms/review-videos", true, false),
-    REVIEW_VIDEO_SUBMISSION("lms/review-video-submissions", false, false),
-    EXERCISE_ANSWER_SUBMISSION("lms/exercise-answer-submissions", false, false),
-    STUDENT("profiles/students", false, false),
-    PARENT("profiles/parents", false, false),
-    EMPLOYEE("profiles/employees", false, false),
-    REPORT_TEMPLATE("academic/report-templates", false, true);
+    LMS_QUESTION("lms/questions", true, true, UploadAccess.STAFF, false),
+    CURRICULUM_DOCUMENT("lms/curriculum-documents", true, true, UploadAccess.STAFF, false),
+    REVIEW_VIDEO("lms/review-videos", true, false, UploadAccess.STAFF, false),
+    REVIEW_VIDEO_SUBMISSION("lms/review-video-submissions", false, false, UploadAccess.ANY_USER, true),
+    EXERCISE_ANSWER_SUBMISSION("lms/exercise-answer-submissions", false, false, UploadAccess.ANY_USER, true),
+    STUDENT("profiles/students", false, false, UploadAccess.ANY_USER, true),
+    PARENT("profiles/parents", false, false, UploadAccess.ANY_USER, true),
+    EMPLOYEE("profiles/employees", false, false, UploadAccess.STAFF, true),
+    REPORT_TEMPLATE("academic/report-templates", false, true, UploadAccess.SERVER_ONLY, true);
+
+    /**
+     * Rà soát bảo mật 2026-09-28 (đã xác nhận với người dùng) - ai được upload vào module này qua
+     * API dùng chung POST /api/media/upload. Trước đây mọi tài khoản đã đăng nhập (kể cả Học sinh)
+     * upload được vào MỌI module, kể cả thư mục nội dung giảng dạy và mẫu báo cáo.
+     */
+    public enum UploadAccess {
+        /** Mọi tài khoản đã đăng nhập (Học sinh/Phụ huynh nộp bài, đổi ảnh đại diện). */
+        ANY_USER,
+        /** Chỉ tài khoản nhân sự (có ít nhất 1 role ngoài STUDENT/PARENT/PARTNER_REP). */
+        STAFF,
+        /** Không nhận qua API dùng chung - chỉ luồng nghiệp vụ riêng gọi (VD UC-67 ReportTemplateService). */
+        SERVER_ONLY
+    }
 
     private final String folderPrefix;
     private final boolean acceptsVideo;
     private final boolean acceptsOfficeDocuments;
+    private final UploadAccess uploadAccess;
+    private final boolean privateFiles;
 
-    MediaModule(String folderPrefix, boolean acceptsVideo, boolean acceptsOfficeDocuments) {
+    MediaModule(String folderPrefix, boolean acceptsVideo, boolean acceptsOfficeDocuments,
+                UploadAccess uploadAccess, boolean privateFiles) {
         this.folderPrefix = folderPrefix;
         this.acceptsVideo = acceptsVideo;
         this.acceptsOfficeDocuments = acceptsOfficeDocuments;
+        this.uploadAccess = uploadAccess;
+        this.privateFiles = privateFiles;
     }
 
     public String folderPrefix() {
@@ -75,6 +94,20 @@ public enum MediaModule {
     /** true nếu module này được nhận thêm PDF/Word/Excel/PowerPoint ngoài audio/ảnh. */
     public boolean acceptsOfficeDocuments() {
         return acceptsOfficeDocuments;
+    }
+
+    public UploadAccess uploadAccess() {
+        return uploadAccess;
+    }
+
+    /**
+     * Rà soát bảo mật 2026-09-28 (đã xác nhận với người dùng): true nếu file của module này là dữ
+     * liệu cá nhân (ảnh đại diện, bài nộp của Học sinh, mẫu/báo cáo đã sinh) - KHÔNG đọc công khai
+     * được, chỉ truy cập qua URL có chữ ký, có hạn do backend cấp (xem MediaUrlSigner). Module
+     * false (nội dung giảng dạy) vẫn đọc công khai như trước.
+     */
+    public boolean privateFiles() {
+        return privateFiles;
     }
 
     public static MediaModule fromCode(String code) {

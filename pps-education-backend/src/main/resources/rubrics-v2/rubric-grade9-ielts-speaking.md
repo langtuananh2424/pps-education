@@ -13,7 +13,7 @@ BREAK = (a) im lặng ≥2 giây ở bất kỳ vị trí nào, hoặc
 LB = lexical breakdown: thiếu từ dẫn tới dừng dài, thay bằng tiếng Việt, bỏ ý, hoặc dùng sai từ làm mất nghĩa.
   Cụm **có từ nội dung** nhưng thiếu chủ ngữ hoặc động từ (§B.4), kèm BREAK ngay trước hoặc ngay sau ("(...4s) Shopping, no", "because (...4s) tired") = 1 LB. **Không tính**: từ nối đứng lẻ rồi bỏ dở ("And (...4s)"), lặp từ, tự sửa — những trường hợp đó tính ở checkpoint lặp / bỏ dở, không tính ở đây. Liệt kê từng LB rồi mới đếm.
 Content word = danh từ / động từ chính / tính từ / trạng từ / cụm mang nghĩa bằng tiếng Anh;
-  không tính từ lặp, từ lấy từ câu hỏi, từ không nhận ra.
+  không tính từ lặp, từ không nhận ra. Từ lấy lại từ câu hỏi **VẪN tính** khi nằm trong câu trả lời của học sinh — dùng lại chủ đề/khung thời gian của đề ("with my family", "at the weekend") là cách trả lời tự nhiên, không phải nghèo từ. Chỉ không tính khi học sinh **chép nguyên câu hỏi** thay cho câu trả lời.
 ```
 
 Chỉ chấm **những gì có trong transcript và nghe được**.
@@ -25,6 +25,7 @@ Chỉ chấm **những gì có trong transcript và nghe được**.
 |**C1 – Không đủ dữ liệu**|<18 từ|<35 từ|FC, LR, P tối đa **40%**|
 ||<7 từ|<15 từ|**0% – insufficient data**|
 |**C2 – Lạc đề / không tạo được thông điệp**|không tạo được thông điệp liên quan|như SHORT|FC, LR tối đa **20%**|
+|**C3 – Chưa đủ độ dài cho bài dài**|—|<70 từ tiếng Anh **hoặc** nói dưới 50% thời lượng cho phép|FC tối đa **60%**, LR tối đa **80%**|
 
 **Không dùng gate riêng cho:** accent, "đọc thuộc", tiếng Việt, phát âm khó nghe — đã xử lý trong checkpoint.
 Audio nhiễu/clipping làm mất đáng kể dữ liệu → ghi **audio quality insufficient**; không quy lỗi đó cho Phát âm.
@@ -42,7 +43,7 @@ Audio nhiễu/clipping làm mất đáng kể dữ liệu → ghi **audio qualit
 |**F2**|Số IU|≥4 / 3 / ≤2|≥6 và có 1 ý phát triển bằng ≥3 IU / 4–5 / ≤3|
 |**F3**|Số **từ nối khác nhau** đúng chức năng — danh sách đầy đủ và cách xác định "loại" ở §B.13 (tính cả when, after that, first, finally…)|≥4 thuộc ≥3 loại / 2–3 thuộc ≥2 loại / còn lại|≥6 thuộc ≥4 loại / 4–5 thuộc ≥3 loại / còn lại|
 |**F4**|Trình tự logic|rõ / 1 chỗ đứt mạch / rời rạc, hoặc <2 ý tiếng Anh nối được|bám các gợi ý thẻ đề, trình tự rõ / 1 chỗ nhảy ý hoặc bỏ sót phần lớn gợi ý / rời rạc|
-|**F5**|Lặp từ, bỏ dở, làm lại gây gián đoạn|0–1 / 2–3 / ≥4|0–2 / 3–5 / ≥6|
+|**F5**|Lặp từ, bỏ dở, làm lại, **và từ đệm (uh / um / ờ)** — đếm tất cả các chỗ trong transcript|0–1 / 2–3 / ≥4|0–2 / 3–5 / ≥6|
 
 ### B. Lexical Resource — LR
 
@@ -51,7 +52,7 @@ Audio nhiễu/clipping làm mất đáng kể dữ liệu → ghi **audio qualit
 |**L1**|Số LB|0 / 1 / ≥2|0–1 / 2 / ≥3|
 |**L2**|Số lỗi **dùng từ**. Không tính lỗi cấu trúc / thiếu thành phần / chêm tiếng Việt — những lỗi đó tính ở L1 và ở lỗi đỏ mới (§4)|0 / 1–2 / ≥3|0–2 / 3–4 / ≥5|
 |**L3**|Collocation / chunk dùng đúng|≥3 / 2 / ≤1|≥4 / 2–3 / ≤1|
-|**L4**|Từ nội dung khác nhau ngoài từ của câu hỏi|≥8 / 5–7 / ≤4|≥15 / 9–14 / ≤8|
+|**L4**|Từ nội dung khác nhau ngoài từ của câu hỏi — **khối 9 đòi cao hơn khối 8**. **Cụm bị lặp nguyên si** ("English book", "read book") chỉ tính **một lần**; lặp nguyên si một cụm từ ≥3 lần → ô này **tối đa 0,5**|≥8 / 5–7 / ≤4|≥15 / 9–14 / ≤8|
 |**L5**|Paraphrase khi bí từ|≥1 lần diễn đạt lại thành công, hoặc không bí từ và L4 = 1 / thử chưa trọn, hoặc không bí từ nhưng L4 < 1 / cần mà không thử, bỏ ý|như SHORT|
 
 Tiếng Việt thay cho từ tiếng Anh bị thiếu → tính là LB.
@@ -63,12 +64,20 @@ Tiếng Việt thay cho từ tiếng Anh bị thiếu → tính là LB.
 > - **Âm cuối:** chỉ tính mất âm cuối khi **transcript cho thấy điều đó** — từ ghi thiếu phụ âm cuối (fren, hep, understan, depen) hoặc thiếu -s/-es/-ed mà ngữ cảnh đòi hỏi. Từ ghi đúng chính tả → đã bật đủ âm cuối. Mẫu số khi tính tỷ lệ = mọi lượt xuất hiện của từ tiếng Anh kết thúc bằng phụ âm khi nói (kể cả /g/, /l/, /p/, /m/, /n/…; lặp lại tính mỗi lượt; không tính từ tiếng Việt).
 > - **P3 (trọng âm):** chỉ tính sai khi transcript ghi từ bị tách/biến dạng âm tiết (tog-da, bat-min-tun, in-tơ-res-ting).
 > - **Một từ vỡ thành nhiều mảnh** ("bat minet tum", "bot cus") = **MỘT** từ phát âm sai, kể cả khi tính tỷ lệ P1.
-> - **Danh sách `suspect_words` do lượt phiên âm gửi kèm là bằng chứng ngang hàng với transcript.** Mọi từ trong danh sách đó — **kể cả từ đã ghi đúng chính tả** (dạng `tink→think`, `fren→friend`) — đều tính là **phát âm sai** ở P1, P2 và P4. **Trừ** các mục chỉ khác nhau ở đuôi chia động từ (`make→makes`, `relax→relaxed`) — đó là lỗi ngữ pháp, bỏ qua ở đây, không trừ hai lần. Không có danh sách thì mới chỉ dựa vào chính tả trong transcript.
+> - **Danh sách `suspect_words` (quy tắc phiên âm v4) = từ phát âm lệch NHƯNG NHẬN RA**, đã ghi chính tả chuẩn trong transcript (dạng `scoo→school`). Các từ này **tính là nhận ra ở P1**; chỉ trừ ở P2 nếu độ lệch là mất âm cuối / thiếu -s danh từ, ở P4 nếu là thay âm. **Mỗi lỗi chỉ trừ ở một checkpoint.** Từ ghi theo âm trong transcript, `[?]` = không nhận ra → trừ ở P1. Mục chỉ khác ở đuôi chia động từ (`make→makes`) là lỗi ngữ pháp → bỏ qua.
 > - **P5** là checkpoint duy nhất chấm bằng tai.
 
+> **BẮT BUỘC — đếm bằng chứng phát âm trước khi cho điểm** (ghi vào `counting_notes`):
+> 1. Liệt kê **mọi từ trong transcript không đúng chính tả chuẩn** — `Zis`, `produc`, `fren`, `bát-mi`, `[?]`. Lượt phiên âm chỉ ghi khác chính tả khi **nghe thấy** âm bị thiếu hoặc bị thay.
+> 2. Tách thành **mất âm cuối** (`produc`, `fren`) và **thay âm** (`Zis` = /ð/→/z/, `wis` = /θ/→/s/).
+> 3. **Nghe audio**: chỗ nào người nghe phải căng tai hoặc đoán mới hiểu — dù transcript ghi đúng chính tả — cũng cộng vào danh sách.
+>
+> **Trần theo bằng chứng (áp cho tiêu chí Phát âm, sau khi tính checkpoint; ghi vào `cap_percent`):**
+> ≥2 từ lệch → **tối đa 80%**; ≥4 → **tối đa 60%**; ≥6 → **tối đa 40%**.
+> **Bài có từ ghi theo âm trong transcript thì không bao giờ được 100% Phát âm.**
 |ID|Checkpoint|SHORT: 1 / 0,5 / 0|PART2: 1 / 0,5 / 0|
 |-|-|-|-|
-|**P1**|Tỷ lệ **từ nội dung** nhận ra ngay. **Mẫu số chỉ gồm từ nội dung** (danh từ, động từ chính, tính từ, trạng từ — §B.11): **không** tính từ chức năng (a, the, and, is, I, my, to, at, when, not, very…), tên riêng, con số. Từ ghi đúng chính tả nhưng lệch với bài viết (§A.4b) **cũng không tính là nhận ra**. **Từ viết sai chính tả trong transcript = phát âm sai → không tính là nhận ra**; thiếu -s ở danh từ tính ở P2 **Mẫu số chỉ gồm từ tiếng Anh**: không tính từ tiếng Việt, từ đệm (um/uh/ờ) và `(...Ns)`.|≥90% / 75–89% / <75%|như SHORT|
+|**P1**|Tỷ lệ **từ nội dung** nhận ra ngay. **Từ trong `suspect_words` (lệch nhưng nhận ra) TÍNH LÀ NHẬN RA.** **Mẫu số chỉ gồm từ nội dung** (danh từ, động từ chính, tính từ, trạng từ — §B.11): **không** tính từ chức năng (a, the, and, is, I, my, to, at, when, not, very…), tên riêng, con số. Từ ghi đúng chính tả nhưng lệch với bài viết (§A.4b) **cũng không tính là nhận ra**. **Từ viết sai chính tả trong transcript = phát âm sai → không tính là nhận ra**; thiếu -s ở danh từ tính ở P2 **Mẫu số chỉ gồm từ tiếng Anh**: không tính từ tiếng Việt, từ đệm (um/uh/ờ) và `(...Ns)`.|≥90% / 75–89% / <75%|như SHORT|
 |**P2**|Số lỗi âm ở mức từ (gồm từ phát âm sai thành một từ tiếng Anh khác, §A.4b — đếm theo từng lượt) + thiếu âm cuối cần có|0–1 / 2–3 / ≥4|0–3 / 4–5 / ≥6|
 |**P3**|Tỷ lệ từ ≥2 âm tiết đúng trọng âm. **Mẫu số** = mọi từ tiếng Anh ≥2 âm tiết trong transcript; chỉ tính SAI khi transcript ghi từ bị tách/biến dạng âm tiết (tog-da, bat-min-tun). Từ ghi đúng chính tả = đúng trọng âm|≥80% **và** có ≥3 từ ≥2 âm tiết / 50–79%, hoặc chỉ có 1–2 từ ≥2 âm tiết / <50% hoặc không có|như SHORT|
 |**P4**|Số chỗ ngắt cụm không tự nhiên (gồm BREAK giữa câu)|≤1 / 2–3 / ≥4|≤2 / 3–5 / ≥6|
@@ -108,6 +117,7 @@ Chỉ dùng để kiểm tra chéo, **không chép vào đầu ra**. Vector = ch
 
 **Neo FC 10% · LR 10% · P 30% — FC [0,0,0,0,0.5] · LR [0,0.5,0,0,0] · P [1,0.5,0,0,0]**
 > Um (...3s) yes. Book um good. I read um (...4s) truyện tranh. Um my my sis-tơ book. (...3s) Yes.
+> **Từ 23/9/2026: điểm ngữ pháp KHÔNG còn khoá từ Bước 1.** Học sinh được quyền sửa lỗi khi nói, nên tiêu chí ngữ pháp được **chấm lại từ transcript** theo checkpoint trong file rubric Bước 1 (gửi kèm ở lượt này). Lỗi phát âm không phải lỗi ngữ pháp (§A.3); thiếu -s danh từ số nhiều tính ở Phát âm.
 - C1: 10 từ <18 → trần 40%; checkpoint đếm lỗi/lặp/ngắt tối đa 0,5 (quy tắc chung §B.9).
 - F1: ≥4 BREAK → 0. F2: 2 IU → 0. F3, F4: 0. F5: 2 → 0,5.
 - L1: 2 LB → 0. L2: 1 → 0,5. L3, L4, L5: 0.

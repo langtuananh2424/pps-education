@@ -121,7 +121,7 @@ export default function PartnerPortalPage() {
               <FileText className="w-5 h-5 text-brand-orange shrink-0" />
               <div>
                 <span className="font-bold text-slate-800 block">Bao_Cao_Nghia_Tan_Q1.pdf</span>
-                <span className="text-[10px] text-slate-400 font-normal">Tổng hợp bởi Phòng Đào tạo PPS Việt Nam</span>
+                <span className="text-[11px] text-slate-400 font-normal">Tổng hợp bởi Phòng Đào tạo PPS Việt Nam</span>
               </div>
             </div>
 

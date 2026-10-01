@@ -527,6 +527,24 @@ nhân đó mới được thao tác.*
         X ngày) — không tạo permission mới, tái dùng đúng
         `academic.comment.write`/`academic.comment.approve` đã có.
 
+        **Trợ lý AI soạn nháp nhận xét từ audio (UC-74, bổ sung ngoài SDD
+        gốc, đã xác nhận với người dùng 2026-09-28):** Giáo viên nói nhận
+        xét chung cả lớp + vài học sinh được nhắc riêng (audio ≤ 5 phút),
+        AI soạn sẵn Thái độ + Nhận xét cho từng học sinh có mặt (không
+        trùng lặp máy móc giữa các học sinh trong buổi và với các buổi
+        trước của cùng học sinh). AI không được điền điểm/trường cần con
+        số chính xác, quyền lưu cao nhất là Lưu nháp; Gửi duyệt vẫn do
+        Giáo viên. Màn hình Nhận xét học viên có thêm dạng xem Thẻ bên
+        cạnh dạng Bảng, và sidebar trò chuyện với trợ lý kèm nút gợi ý
+        thao tác (Áp dụng vào bảng, Lưu nháp, Viết lại).
+
+        **Trợ lý AI soát nhận xét chờ duyệt (UC-75, bổ sung ngoài SDD gốc,
+        đã xác nhận với người dùng 2026-09-29):** ở tab Chờ duyệt, Quản lý
+        điểm trường bấm "Soát bằng AI" cho từng lớp — hệ thống kiểm tra tự
+        động + AI theo rubric, gắn cảnh báo từng dòng, có nút duyệt các dòng
+        không cảnh báo và AI đề xuất bản sửa (Quản lý bấm Áp dụng mới lưu).
+        Trợ lý không tự duyệt/từ chối/sửa.
+
     -   **FR-ACA-05: Xếp lịch buổi học -** Nhân viên giáo vụ/Trưởng phòng
         đào tạo xếp lịch từng buổi học cụ thể (ngày, khung giờ, phòng,
         giáo viên phụ trách) cho 1 lớp đã khởi tạo (FR-ACA-02); hệ thống
@@ -942,7 +960,15 @@ CDN)**
   UC-21             Viết nhận xét học FR-ACA-04         6
                     sinh                                
 
+  UC-74             Trợ lý AI soạn    FR-ACA-04         6
+                    nháp nhận xét từ                    
+                    audio                               
+
   UC-22             Duyệt nhận xét    FR-LMS-09         6, 7
+
+  UC-75             Trợ lý AI soát    FR-LMS-09         6
+                    nhận xét chờ                        
+                    duyệt                               
 
   UC-23             Quản lý Kho Video FR-LMS-01         7
                     Ôn tập                              

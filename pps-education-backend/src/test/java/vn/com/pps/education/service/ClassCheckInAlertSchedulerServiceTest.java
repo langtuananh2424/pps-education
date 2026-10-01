@@ -103,7 +103,7 @@ class ClassCheckInAlertSchedulerServiceTest extends AbstractIntegrationTest {
         scheduler.runAlertScan(at(NOW));
 
         Notification managerNotif = single(manager, Notification.NotificationType.CLASS_CHECKIN_LATE_ALERT);
-        assertThat(managerNotif.getTitle()).contains(schoolClass.getName()).contains("chưa nhận lớp");
+        assertThat(managerNotif.getTitle()).contains(schoolClass.getName()).contains(teacher.getFullName()).contains("chưa nhận lớp");
         assertThat(channelsOf(managerNotif)).containsExactlyInAnyOrder(NotificationDelivery.Channel.IN_APP, NotificationDelivery.Channel.PUSH);
 
         Notification teacherNotif = single(teacher, Notification.NotificationType.CLASS_CHECKIN_LATE_ALERT);
@@ -167,7 +167,7 @@ class ClassCheckInAlertSchedulerServiceTest extends AbstractIntegrationTest {
         scheduler.runAlertScan(at(NOW));
 
         Notification managerNotif = single(manager, Notification.NotificationType.CLASS_CHECKIN_ABSENT_ALERT);
-        assertThat(managerNotif.getTitle()).contains("không có giáo viên nhận lớp");
+        assertThat(managerNotif.getTitle()).contains(teacher.getFullName()).contains("không nhận lớp");
         assertThat(channelsOf(managerNotif)).containsExactlyInAnyOrder(NotificationDelivery.Channel.IN_APP, NotificationDelivery.Channel.PUSH);
 
         Notification teacherNotif = single(teacher, Notification.NotificationType.CLASS_CHECKIN_ABSENT_ALERT);

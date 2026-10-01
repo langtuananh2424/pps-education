@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from "react";
+import { useApp } from "@/context/AppContext";
 import { ArrowRightLeft, FileText, History, Plus, Save, UserPlus, Users, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import AccountSelector, { AccountSelection } from "@/features/system-admin/components/AccountSelector";
 import {
   createParent,
+  getStudentProfile,
   linkParent,
   listSites,
   listStatusHistory,
@@ -15,6 +17,7 @@ import {
   RecordTransferRequest,
   searchParents,
   SiteOption,
+  StudentProfileEnrollment,
   StudentResponse,
   StudentStatusHistoryResponse,
   StudentTransferHistoryResponse,
@@ -34,6 +37,7 @@ import DatePicker from "@/components/ui/DatePicker";
 import AvatarUploadField from "@/components/ui/AvatarUploadField";
 import { uploadMedia } from "@/features/lms/api";
 import Select from "@/components/ui/Select";
+import { ClassResponse, listClasses } from "@/features/academic/api";
 
 const TODAY_ISO = new Date().toISOString().slice(0, 10);
 
@@ -92,7 +96,7 @@ export default function StudentDetailPanel({ student, onChanged }: StudentDetail
       <div className="flex-1 p-5 overflow-y-auto max-h-[560px]">
         {tab === "profile" && <ProfileTab student={student} onChanged={onChanged} showToast={showToast} />}
         {tab === "parents" && <ParentsTab studentId={student.id} showToast={showToast} />}
-        {tab === "transfer" && <TransferTab studentId={student.id} onChanged={onChanged} showToast={showToast} />}
+        {tab === "transfer" && <TransferTab student={student} onChanged={onChanged} showToast={showToast} />}
         {tab === "status" && <StatusTab student={student} onChanged={onChanged} showToast={showToast} />}
       </div>
 
@@ -110,6 +114,7 @@ function ProfileTab({
   onChanged: () => void;
   showToast: (msg: string) => void;
 }) {
+  const { hasPermission } = useApp();
   const { t } = useTranslation("student");
   const [form, setForm] = useState<UpdateStudentRequest>(() => toForm(student));
   const [saving, setSaving] = useState(false);
@@ -185,10 +190,12 @@ function ProfileTab({
         </div>
       </div>
       <p className="text-[10px] text-slate-400 italic">{t("studentDetail.profile.hint")}</p>
-      <Button type="submit" variant="primary" size="sm" disabled={saving}>
-        <Save className="w-3.5 h-3.5" />
-        {saving ? t("studentDetail.profile.saving") : t("studentDetail.profile.saveButton")}
-      </Button>
+      {hasPermission("student.profile.update") && (
+        <Button type="submit" variant="primary" size="sm" disabled={saving}>
+          <Save className="w-3.5 h-3.5" />
+          {saving ? t("studentDetail.profile.saving") : t("studentDetail.profile.saveButton")}
+        </Button>
+      )}
     </form>
   );
 }
@@ -205,6 +212,7 @@ function toForm(s: StudentResponse): UpdateStudentRequest {
 }
 
 function ParentsTab({ studentId, showToast }: { studentId: number; showToast: (msg: string) => void }) {
+  const { hasPermission } = useApp();
   const { t } = useTranslation("student");
   const [links, setLinks] = useState<ParentStudentResponse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -290,18 +298,22 @@ function ParentsTab({ studentId, showToast }: { studentId: number; showToast: (m
                 {l.isPrimaryContact && <Badge variant="brand">{t("studentDetail.parents.primaryContactBadge")}</Badge>}
                 {l.isFinancialResponsible && <Badge variant="warning">{t("studentDetail.parents.financialResponsibleBadge")}</Badge>}
               </div>
-              <button onClick={() => handleUnlink(l)} className="text-rose-500 hover:text-rose-700">
-                <X className="w-3.5 h-3.5" />
-              </button>
+              {hasPermission("student.parent.link.delete") && (
+                <button onClick={() => handleUnlink(l)} className="text-rose-500 hover:text-rose-700">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
           ))}
         </div>
       )}
 
-      <Button variant="secondary" size="sm" onClick={() => setAddingNew(true)}>
-        <UserPlus className="w-3.5 h-3.5" />
-        {t("studentDetail.parents.linkButton")}
-      </Button>
+      {hasPermission("student.parent.link.create") && (
+        <Button variant="secondary" size="sm" onClick={() => setAddingNew(true)}>
+          <UserPlus className="w-3.5 h-3.5" />
+          {t("studentDetail.parents.linkButton")}
+        </Button>
+      )}
 
       <Modal open={addingNew} onClose={() => setAddingNew(false)} title={t("studentDetail.parents.modalTitle")}>
         <form onSubmit={handleAdd} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
@@ -342,10 +354,19 @@ const TRANSFER_TYPE_KEYS: Record<string, string> = {
   BOTH: "studentDetail.transfer.typeBoth"
 };
 
-function TransferTab({ studentId, onChanged, showToast }: { studentId: number; onChanged: () => void; showToast: (msg: string) => void }) {
+/** BE chỉ cho chuyển tới lớp Đang tuyển sinh/Đang học — xem StudentService.recordTransfer. */
+const TRANSFER_TARGET_CLASS_STATUSES: ClassResponse["status"][] = ["OPEN_ENROLLMENT", "IN_PROGRESS"];
+
+function TransferTab({ student, onChanged, showToast }: { student: StudentResponse; onChanged: () => void; showToast: (msg: string) => void }) {
+  const { hasPermission } = useApp();
   const { t } = useTranslation("student");
+  const studentId = student.id;
   const [history, setHistory] = useState<StudentTransferHistoryResponse[]>([]);
   const [sites, setSites] = useState<SiteOption[]>([]);
+  // Chọn lớp qua dropdown thay cho gõ ID tay (góp ý người dùng 2026-09-29): lớp đang học lấy từ ghi danh
+  // ACTIVE của học sinh, lớp mới lấy theo điểm trường đích (hoặc điểm trường hiện tại khi chỉ chuyển lớp).
+  const [activeEnrollments, setActiveEnrollments] = useState<StudentProfileEnrollment[]>([]);
+  const [targetClasses, setTargetClasses] = useState<ClassResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ transferType: "SITE_CHANGE", toSiteId: "", fromClassId: "", toClassId: "", effectiveDate: "", reason: "" });
   const [submitting, setSubmitting] = useState(false);
@@ -362,6 +383,32 @@ function TransferTab({ studentId, onChanged, showToast }: { studentId: number; o
   useEffect(() => {
     listSites().then(setSites).catch(() => undefined);
   }, []);
+
+  const needsSite = form.transferType === "SITE_CHANGE" || form.transferType === "BOTH";
+  const needsClass = form.transferType === "CLASS_CHANGE" || form.transferType === "BOTH";
+  const targetSiteId = needsSite ? (form.toSiteId ? Number(form.toSiteId) : null) : student.primarySiteId;
+
+  useEffect(() => {
+    if (!showForm) return;
+    getStudentProfile(studentId)
+      .then((profile) => {
+        const active = profile.enrollments.filter((e) => e.status === "ACTIVE");
+        setActiveEnrollments(active);
+        // Chỉ đang học 1 lớp thì chọn sẵn — trường hợp phổ biến nhất.
+        if (active.length === 1) setForm((f) => (f.fromClassId ? f : { ...f, fromClassId: String(active[0].classId) }));
+      })
+      .catch(() => setActiveEnrollments([]));
+  }, [showForm, studentId]);
+
+  useEffect(() => {
+    if (!showForm || !needsClass || !targetSiteId) {
+      setTargetClasses([]);
+      return;
+    }
+    listClasses({ siteId: targetSiteId })
+      .then((classes) => setTargetClasses(classes.filter((c) => TRANSFER_TARGET_CLASS_STATUSES.includes(c.status))))
+      .catch(() => setTargetClasses([]));
+  }, [showForm, needsClass, targetSiteId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -393,17 +440,18 @@ function TransferTab({ studentId, onChanged, showToast }: { studentId: number; o
     }
   };
 
-  const needsSite = form.transferType === "SITE_CHANGE" || form.transferType === "BOTH";
-  const needsClass = form.transferType === "CLASS_CHANGE" || form.transferType === "BOTH";
+  const toClassOptions = targetClasses.filter((c) => String(c.id) !== form.fromClassId);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <span className="text-[10px] font-bold uppercase text-slate-500">{t("studentDetail.transfer.sectionTitle", { count: history.length })}</span>
-        <Button size="sm" variant="secondary" onClick={() => setShowForm(true)}>
-          <Plus className="w-3.5 h-3.5" />
-          {t("studentDetail.transfer.recordButton")}
-        </Button>
+        {hasPermission("student.transfer.create") && (
+          <Button size="sm" variant="secondary" onClick={() => setShowForm(true)}>
+            <Plus className="w-3.5 h-3.5" />
+            {t("studentDetail.transfer.recordButton")}
+          </Button>
+        )}
       </div>
 
       <Modal open={showForm} onClose={() => setShowForm(false)} title={t("studentDetail.transfer.modalTitle")}>
@@ -416,7 +464,7 @@ function TransferTab({ studentId, onChanged, showToast }: { studentId: number; o
           </Select>
           <div className="grid grid-cols-2 gap-3">
             {needsSite && (
-              <Select value={form.toSiteId} onChange={(e) => setForm({ ...form, toSiteId: e.target.value })} className={inputClass}>
+              <Select value={form.toSiteId} onChange={(e) => setForm({ ...form, toSiteId: e.target.value, toClassId: "" })} className={inputClass}>
                 <option value="">{t("studentDetail.transfer.newSitePlaceholder")}</option>
                 {sites.map((s) => (
                   <option key={s.id} value={s.id}>
@@ -427,18 +475,35 @@ function TransferTab({ studentId, onChanged, showToast }: { studentId: number; o
             )}
             {needsClass && (
               <>
-                <input
-                  value={form.fromClassId}
-                  onChange={(e) => setForm({ ...form, fromClassId: e.target.value.replace(/[^0-9]/g, "") })}
-                  placeholder={t("studentDetail.transfer.fromClassPlaceholder")}
-                  className={inputClass}
-                />
-                <input
+                <Select value={form.fromClassId} onChange={(e) => setForm({ ...form, fromClassId: e.target.value })} className={inputClass}>
+                  <option value="">
+                    {activeEnrollments.length === 0 ? t("studentDetail.transfer.noActiveClass") : t("studentDetail.transfer.fromClassPlaceholder")}
+                  </option>
+                  {activeEnrollments.map((e) => (
+                    <option key={e.classId} value={e.classId}>
+                      {e.className} ({e.classCode})
+                    </option>
+                  ))}
+                </Select>
+                <Select
                   value={form.toClassId}
-                  onChange={(e) => setForm({ ...form, toClassId: e.target.value.replace(/[^0-9]/g, "") })}
-                  placeholder={t("studentDetail.transfer.toClassPlaceholder")}
+                  onChange={(e) => setForm({ ...form, toClassId: e.target.value })}
+                  disabled={!targetSiteId}
                   className={inputClass}
-                />
+                >
+                  <option value="">
+                    {!targetSiteId
+                      ? t("studentDetail.transfer.selectSiteFirst")
+                      : toClassOptions.length === 0
+                        ? t("studentDetail.transfer.noTargetClass")
+                        : t("studentDetail.transfer.toClassPlaceholder")}
+                  </option>
+                  {toClassOptions.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.classCode})
+                    </option>
+                  ))}
+                </Select>
               </>
             )}
             <div>
@@ -475,6 +540,7 @@ function TransferTab({ studentId, onChanged, showToast }: { studentId: number; o
 const STUDENT_STATUS_OPTIONS = ["ACTIVE", "SUSPENDED", "EXPELLED", "GRADUATED", "WITHDRAWN", "DEFERRAL"] as const;
 
 function StatusTab({ student, onChanged, showToast }: { student: StudentResponse; onChanged: () => void; showToast: (msg: string) => void }) {
+  const { hasPermission } = useApp();
   const { t } = useTranslation("student");
   const [history, setHistory] = useState<StudentStatusHistoryResponse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -512,23 +578,25 @@ function StatusTab({ student, onChanged, showToast }: { student: StudentResponse
 
   return (
     <div className="space-y-4">
-      <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
-        <div className="grid grid-cols-2 gap-3">
-          <Select value={form.newStatus} onChange={(e) => setForm({ ...form, newStatus: e.target.value as StudentResponse["status"] })} className={inputClass}>
-            {STUDENT_STATUS_OPTIONS.map((value) => (
-              <option key={value} value={value}>
-                {studentStatusLabel(t, value)}
-              </option>
-            ))}
-          </Select>
-          <DatePicker value={form.effectiveDate} onChange={(v) => setForm({ ...form, effectiveDate: v })} />
-          <input value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} placeholder={t("studentDetail.status.reasonPlaceholder")} className={`${inputClass} col-span-2`} />
-        </div>
-        <Button type="submit" size="sm" variant="primary" disabled={submitting}>
-          {submitting ? t("studentDetail.status.saving") : t("studentDetail.status.changeButton")}
-        </Button>
-      </form>
+      {hasPermission("student.status.manage") && (
+        <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+          {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
+          <div className="grid grid-cols-2 gap-3">
+            <Select value={form.newStatus} onChange={(e) => setForm({ ...form, newStatus: e.target.value as StudentResponse["status"] })} className={inputClass}>
+              {STUDENT_STATUS_OPTIONS.map((value) => (
+                <option key={value} value={value}>
+                  {studentStatusLabel(t, value)}
+                </option>
+              ))}
+            </Select>
+            <DatePicker value={form.effectiveDate} onChange={(v) => setForm({ ...form, effectiveDate: v })} />
+            <input value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} placeholder={t("studentDetail.status.reasonPlaceholder")} className={`${inputClass} col-span-2`} />
+          </div>
+          <Button type="submit" size="sm" variant="primary" disabled={submitting}>
+            {submitting ? t("studentDetail.status.saving") : t("studentDetail.status.changeButton")}
+          </Button>
+        </form>
+      )}
 
       {loading ? (
         <p className="text-xs text-slate-500">{t("studentDetail.status.loading")}</p>

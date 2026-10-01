@@ -55,8 +55,9 @@ public class StudentController {
     @GetMapping
     public ResponseEntity<List<StudentResponse>> search(@RequestParam(required = false) String query,
                                                           @RequestParam(required = false) Long siteId,
+                                                          @RequestParam(required = false) Long classId,
                                                           @AuthenticationPrincipal AuthenticatedUser actor) {
-        return ResponseEntity.ok(studentService.search(query, siteId, actor.userId()));
+        return ResponseEntity.ok(studentService.search(query, siteId, classId, actor.userId()));
     }
 
     @PreAuthorize("hasPermission(null, 'student.profile.view')")
@@ -113,7 +114,7 @@ public class StudentController {
         return ResponseEntity.ok(studentService.listTransferHistory(id));
     }
 
-    @PreAuthorize("hasPermission(null, 'student.profile.update')")
+    @PreAuthorize("hasPermission(null, 'student.transfer.create')")
     @PostMapping("/{id}/transfers")
     public ResponseEntity<StudentTransferHistoryResponse> recordTransfer(@PathVariable Long id,
                                                                             @Valid @RequestBody RecordTransferRequest request,

@@ -10,9 +10,11 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import vn.com.pps.education.dto.ReflexQuestionProgressResponse;
+import vn.com.pps.education.dto.ReflexRecordingConfigResponse;
 import vn.com.pps.education.dto.SubmitReflexSpokenAnswerRequest;
 import vn.com.pps.education.dto.SubmitReflexWrittenAnswerRequest;
 import vn.com.pps.education.security.AuthenticatedUser;
+import vn.com.pps.education.service.ReflexRecordingSettings;
 import vn.com.pps.education.service.ReflexSequentialGradingService;
 
 import java.util.List;
@@ -28,9 +30,18 @@ import java.util.List;
 public class ReflexSequentialGradingController {
 
     private final ReflexSequentialGradingService reflexSequentialGradingService;
+    private final ReflexRecordingSettings reflexRecordingSettings;
 
-    public ReflexSequentialGradingController(ReflexSequentialGradingService reflexSequentialGradingService) {
+    public ReflexSequentialGradingController(ReflexSequentialGradingService reflexSequentialGradingService,
+                                             ReflexRecordingSettings reflexRecordingSettings) {
         this.reflexSequentialGradingService = reflexSequentialGradingService;
+        this.reflexRecordingSettings = reflexRecordingSettings;
+    }
+
+    /** V199 — màn ghi âm của học sinh hỏi có lọc bản ghi trước khi nộp không (công tắc ở Cài đặt hệ thống). */
+    @GetMapping("/api/reflex-recording-config")
+    public ResponseEntity<ReflexRecordingConfigResponse> recordingConfig() {
+        return ResponseEntity.ok(reflexRecordingSettings.config());
     }
 
     @PutMapping("/api/review-video-questions/{questionId}/reflex-progress/writing")
@@ -46,7 +57,7 @@ public class ReflexSequentialGradingController {
                                                                                @RequestParam Long assignmentId,
                                                                                @Valid @RequestBody SubmitReflexSpokenAnswerRequest request,
                                                                                @AuthenticationPrincipal AuthenticatedUser actor) {
-        return ResponseEntity.ok(reflexSequentialGradingService.submitSpokenAnswer(questionId, assignmentId, request.audioUrl(), actor.userId()));
+        return ResponseEntity.ok(reflexSequentialGradingService.submitSpokenAnswer(questionId, assignmentId, request.audioUrl(), request.recordingFilter(), actor.userId()));
     }
 
     @GetMapping("/api/review-video-assignments/{assignmentId}/reflex-progress")

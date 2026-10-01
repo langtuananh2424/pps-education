@@ -256,6 +256,47 @@ class AuthServiceTest extends AbstractIntegrationTest {
         assertThat(secondDevice.accessToken()).isNotBlank();
     }
 
+    /**
+     * Đổi 2026-10-01 (đã xác nhận với người dùng) — bỏ giới hạn 3 thiết bị cho tài khoản không phải Học
+     * sinh: thiết bị thứ 4, 5 vẫn đăng nhập được (không 409, không popup), và không thiết bị nào bị đăng xuất.
+     */
+    @Test
+    void login_boSung_nonStudentHasNoDeviceLimitAndKeepsAllSessions() {
+        for (int i = 0; i < 5; i++) {
+            LoginResponse device = authService.login(
+                    new LoginRequest(activeUser.getUsername(), RAW_PASSWORD, null, null, null, false), request());
+            assertThat(device.accessToken()).isNotBlank();
+        }
+
+        assertThat(tokensOf(activeUser)).hasSize(5).allMatch(t -> t.getRevokedAt() == null);
+    }
+
+    /**
+     * Sửa lỗi 2026-09-29 — sau Cloudflare Tunnel + Nginx, remoteAddr luôn là gateway Docker; IP thật
+     * lấy từ CF-Connecting-IP (xem ClientIpResolver) cho cả login_attempts lẫn refresh_tokens.
+     */
+    @Test
+    void login_boSung_recordsRealClientIpFromCloudflareHeader() {
+        MockHttpServletRequest proxied = new MockHttpServletRequest();
+        proxied.setRemoteAddr("172.28.0.1");
+        proxied.addHeader("User-Agent", "junit-test");
+        proxied.addHeader("CF-Connecting-IP", "113.160.10.20");
+        proxied.addHeader("X-Forwarded-For", "113.160.10.20, 127.0.0.1");
+
+        authService.login(new LoginRequest(activeUser.getUsername(), RAW_PASSWORD, null, null, null, false), proxied);
+
+        assertThat(attemptsFor(activeUser)).singleElement()
+                .extracting(LoginAttempt::getIpAddress).isEqualTo("113.160.10.20");
+        assertThat(tokensOf(activeUser)).singleElement()
+                .extracting(RefreshToken::getIpAddress).isEqualTo("113.160.10.20");
+    }
+
+    private List<RefreshToken> tokensOf(User user) {
+        return refreshTokenRepository.findAll().stream()
+                .filter(t -> t.getUser().getId().equals(user.getId()))
+                .toList();
+    }
+
     private void makeStudent(User user) {
         Role studentRole = roleRepository.findByCode("STUDENT").orElseThrow();
         UserRole userRole = new UserRole();

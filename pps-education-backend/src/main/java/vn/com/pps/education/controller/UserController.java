@@ -7,6 +7,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -24,9 +25,13 @@ import vn.com.pps.education.dto.UpdateUserStatusRequest;
 import vn.com.pps.education.dto.UserDetailResponse;
 import vn.com.pps.education.dto.UserListItemResponse;
 import vn.com.pps.education.dto.UserResponse;
+import vn.com.pps.education.dto.UserSessionResponse;
 import vn.com.pps.education.dto.UserSearchRequest;
 import vn.com.pps.education.security.AuthenticatedUser;
 import vn.com.pps.education.service.UserAccountService;
+import vn.com.pps.education.service.UserSessionService;
+
+import java.util.List;
 
 /**
  * UC-43: Khởi tạo tài khoản người dùng (FR-USR-01), UC-44: Xem/tra cứu danh
@@ -44,9 +49,11 @@ import vn.com.pps.education.service.UserAccountService;
 public class UserController {
 
     private final UserAccountService userAccountService;
+    private final UserSessionService userSessionService;
 
-    public UserController(UserAccountService userAccountService) {
+    public UserController(UserAccountService userAccountService, UserSessionService userSessionService) {
         this.userAccountService = userAccountService;
+        this.userSessionService = userSessionService;
     }
 
     @PreAuthorize("hasPermission(null, 'user.create')")
@@ -62,8 +69,9 @@ public class UserController {
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Long departmentId,
             @RequestParam(required = false) String status,
+            @RequestParam(required = false) String roleCode,
             @PageableDefault(size = 20) Pageable pageable) {
-        var filter = new UserSearchRequest(keyword, departmentId, status);
+        var filter = new UserSearchRequest(keyword, departmentId, status, roleCode);
         return ResponseEntity.ok(userAccountService.search(filter, pageable));
     }
 
@@ -80,6 +88,29 @@ public class UserController {
     public ResponseEntity<Page<LoginHistoryItemResponse>> getLoginHistory(
             @PathVariable Long userId, @PageableDefault(size = 10) Pageable pageable) {
         return ResponseEntity.ok(userAccountService.getLoginHistory(userId, pageable));
+    }
+
+    /** UC-44 bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-09-29): thiết bị đang đăng nhập. */
+    @PreAuthorize("hasPermission(null, 'user.view')")
+    @GetMapping("/{userId}/sessions")
+    public ResponseEntity<List<UserSessionResponse>> getActiveSessions(@PathVariable Long userId) {
+        return ResponseEntity.ok(userSessionService.getActiveSessions(userId));
+    }
+
+    /** Gỡ (thu hồi) 1 thiết bị đang đăng nhập — xem UserSessionService. */
+    @PreAuthorize("hasPermission(null, 'user.update')")
+    @DeleteMapping("/{userId}/sessions/{sessionId}")
+    public ResponseEntity<Void> revokeSession(@PathVariable Long userId, @PathVariable Long sessionId) {
+        userSessionService.revokeSession(userId, sessionId);
+        return ResponseEntity.noContent().build();
+    }
+
+    /** Gỡ toàn bộ thiết bị đang đăng nhập của tài khoản. */
+    @PreAuthorize("hasPermission(null, 'user.update')")
+    @DeleteMapping("/{userId}/sessions")
+    public ResponseEntity<Void> revokeAllSessions(@PathVariable Long userId) {
+        userSessionService.revokeAllSessions(userId);
+        return ResponseEntity.noContent().build();
     }
 
     /** UC-49: cập nhật hồ sơ tài khoản (họ tên/SĐT/phòng ban/is_management). */

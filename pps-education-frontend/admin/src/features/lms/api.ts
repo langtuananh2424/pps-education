@@ -1005,6 +1005,8 @@ export interface ReviewVideoAssignmentStudentRow {
   averageMaxScore: number | null;
   /** V165 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-07) — true nếu học sinh từng nộp muộn (mirror status "TRE_HAN" bên Exercise). Luôn false với CONNECTION. */
   lateSubmission: boolean;
+  /** V198 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-29) — REFLEX: lần ghi âm gần nhất của ít nhất 1 câu cần giáo viên soát điểm Ngữ pháp. Luôn false với CONNECTION. */
+  grammarReviewRequired: boolean;
 }
 
 export interface ReviewVideoAssignmentStudentStatsResponse {
@@ -1071,9 +1073,17 @@ export interface ReflexQuestionProgressHistoryEntry {
   maxScore: number | null;
   feedback: string | null;
   markedAnswer: string | null;
+  /** V204 — "cách luyện" (§D.5, bản 30/9) hiện cho học sinh ở lần chấm này; null = trước V204 hoặc rubric không hỗ trợ. */
+  hint: string | null;
   transcript: string | null;
   criteriaScores: { criterion: string; percent: number }[] | null;
   gradedAt: string | null;
+  /** V198 — lần ghi âm có ≥2 lỗi đỏ ngữ pháp ở nhánh chấm lại từ transcript: điểm Ngữ pháp chỉ là tham khảo, giáo viên cần soát. */
+  grammarReviewRequired: boolean;
+  /** V198 — các đoạn transcript bị tô đỏ ngữ pháp (chỗ cần nghe lại). */
+  grammarReviewQuotes: string[];
+  /** V199 — chế độ thu âm thực tế: true = đã lọc, false = thô, null = không rõ (trước V199 / bài viết). */
+  recordingFilter: boolean | null;
 }
 
 /** V191 — giáo viên nghe lại audio + xem kết quả AI chấm theo TỪNG lần làm của 1 học sinh (Video phản xạ). */
@@ -1189,6 +1199,12 @@ export interface ReviewVideoQuestionResponse {
   /** null = không giới hạn số lần nộp lại. */
   maxAttempts: number | null;
   displayOrder: number;
+  /** V200 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-29) — dạng đề; null = câu hỏi cũ (hệ thống suy theo thời lượng). */
+  questionFormat: ReflexQuestionFormat | null;
+  /** V200 — dạng tả tranh: ảnh tranh (chỉ giáo viên thấy). */
+  pictureImageUrl: string | null;
+  /** V200 — dạng tả tranh: mô tả tranh dùng để AI xét lạc đề (không trả cho học sinh). */
+  pictureBrief: string | null;
 }
 
 export interface AddReviewVideoQuestionRequest {
@@ -1197,6 +1213,43 @@ export interface AddReviewVideoQuestionRequest {
   maxRecordingSeconds: number;
   maxAttempts?: number;
   displayOrder?: number;
+  /** V200 — bỏ trống = để hệ thống suy dạng đề theo thời lượng như trước. */
+  questionFormat?: ReflexQuestionFormat;
+  pictureImageUrl?: string;
+  pictureBrief?: string;
+}
+
+/** V200 — dạng đề câu hỏi Video phản xạ (trùng cột ngưỡng rubric v3). */
+export type ReflexQuestionFormat = "SHORT" | "PART2" | "PET4" | "PICTURE";
+
+export interface ReflexQuestionFormatOption {
+  format: ReflexQuestionFormat;
+  /** Tên dạng đề theo bộ tiêu chí, VD "IELTS Speaking Part 2". */
+  label: string;
+  /** Thời gian ghi âm mà ngưỡng rubric được hiệu chuẩn theo — điền sẵn khi chọn dạng đề. */
+  recommendedSeconds: number;
+  requiresPictureBrief: boolean;
+}
+
+/** V200 — các dạng đề chọn được cho chương trình của bộ video; rỗng = chương trình chưa có bộ tiêu chí (luồng cũ). */
+export function getReflexQuestionFormats(curriculumId: number): Promise<ReflexQuestionFormatOption[]> {
+  return apiRequest<ReflexQuestionFormatOption[]>(`/reflex-question-formats?curriculumId=${curriculumId}`);
+}
+
+/** V200 — chụp khung hình của video (đã tải lên hệ thống) tại mốc câu hỏi. Video YouTube không chụp được. */
+export function captureReflexPicture(videoUrl: string, timestampSeconds: number): Promise<{ imageUrl: string }> {
+  return apiRequest<{ imageUrl: string }>("/reflex-picture/capture", { method: "POST", body: JSON.stringify({ videoUrl, timestampSeconds }) });
+}
+
+export interface ReflexPictureBriefDraft {
+  brief: string;
+  pictureFound: boolean;
+  aiAvailable: boolean;
+}
+
+/** V200 — AI viết NHÁP mô tả tranh 2–3 dòng; giáo viên bắt buộc đối chiếu với ảnh và sửa trước khi lưu. */
+export function draftReflexPictureBrief(imageUrl: string): Promise<ReflexPictureBriefDraft> {
+  return apiRequest<ReflexPictureBriefDraft>("/reflex-picture/brief", { method: "POST", body: JSON.stringify({ imageUrl }) });
 }
 
 export function addReviewVideoQuestion(videoId: number, request: AddReviewVideoQuestionRequest): Promise<ReviewVideoQuestionResponse> {

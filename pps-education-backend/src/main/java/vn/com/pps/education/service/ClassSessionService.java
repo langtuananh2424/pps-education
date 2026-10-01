@@ -24,6 +24,7 @@ import vn.com.pps.education.exception.ClassScheduleConflictException;
 import vn.com.pps.education.exception.ClassSessionOutsideClassPeriodException;
 import vn.com.pps.education.exception.InvalidClassSessionStatusTransitionException;
 import vn.com.pps.education.exception.MakeupSessionAlreadyLinkedException;
+import vn.com.pps.education.exception.NotAllowedToCorrectPastSessionException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.exception.RoomConflictException;
 import vn.com.pps.education.exception.TeacherScheduleConflictException;
@@ -40,9 +41,12 @@ import vn.com.pps.education.repository.SiteTeacherRepository;
 import vn.com.pps.education.repository.StudentRepository;
 import vn.com.pps.education.repository.UserRepository;
 
+import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -67,12 +71,17 @@ import java.util.stream.Stream;
  * từng buổi (primaryTeacherId bắt buộc, assistantTeacherId/cmTeacherId
  * tuỳ chọn), gán trực tiếp trên class_sessions (V128).
  *
- * Authorization qua @PreAuthorize("hasPermission(null,'academic.class.manage')")
- * ở ClassSessionController (Hybrid PBAC — V28, dùng chung permission với
- * UC-18 vì cùng tập role HEAD_ACADEMIC/STAFF).
+ * Authorization qua @PreAuthorize ở ClassSessionController theo từng nút
+ * (V202 tách academic.class.manage thành academic.class-session.create/
+ * generate/import/reschedule/cancel). Hủy/sửa buổi đã diễn ra (UC-48 A6/A7,
+ * V205) cần thêm academic.class-session.correct-past — kiểm tra ở Service vì
+ * dùng chung endpoint với hủy/sửa buổi chưa diễn ra.
  */
 @Service
 public class ClassSessionService {
+
+    private static final ZoneId APP_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
+    private static final String CORRECT_PAST_PERMISSION = "academic.class-session.correct-past";
 
     private final ClassSessionRepository classSessionRepository;
     private final SessionPeriodRepository sessionPeriodRepository;
@@ -84,9 +93,11 @@ public class ClassSessionService {
     private final SiteTeacherRepository siteTeacherRepository;
     private final SiteManagerRepository siteManagerRepository;
     private final PermissionEvaluationService permissionEvaluationService;
+    private final DataScopeService dataScopeService;
     private final ClassEnrollmentRepository classEnrollmentRepository;
     private final StudentRepository studentRepository;
     private final SitePeriodTemplateRepository sitePeriodTemplateRepository;
+    private final Clock clock;
 
     public ClassSessionService(ClassSessionRepository classSessionRepository,
                                 SessionPeriodRepository sessionPeriodRepository,
@@ -98,9 +109,11 @@ public class ClassSessionService {
                                 SiteTeacherRepository siteTeacherRepository,
                                 SiteManagerRepository siteManagerRepository,
                                 PermissionEvaluationService permissionEvaluationService,
+                                DataScopeService dataScopeService,
                                 ClassEnrollmentRepository classEnrollmentRepository,
                                 StudentRepository studentRepository,
-                                SitePeriodTemplateRepository sitePeriodTemplateRepository) {
+                                SitePeriodTemplateRepository sitePeriodTemplateRepository,
+                                Clock clock) {
         this.classSessionRepository = classSessionRepository;
         this.sessionPeriodRepository = sessionPeriodRepository;
         this.classSessionHistoryRepository = classSessionHistoryRepository;
@@ -111,9 +124,11 @@ public class ClassSessionService {
         this.siteTeacherRepository = siteTeacherRepository;
         this.siteManagerRepository = siteManagerRepository;
         this.permissionEvaluationService = permissionEvaluationService;
+        this.dataScopeService = dataScopeService;
         this.classEnrollmentRepository = classEnrollmentRepository;
         this.studentRepository = studentRepository;
         this.sitePeriodTemplateRepository = sitePeriodTemplateRepository;
+        this.clock = clock;
     }
 
     /** Giáo viên (không có academic.class.manage) chỉ thấy buổi học thuộc site được gán — xem ClassService.resolveAllowedSiteIds. */
@@ -181,13 +196,14 @@ public class ClassSessionService {
     }
 
     /**
-     * null = không giới hạn (actor có academic.class.manage); danh sách rỗng
+     * null = không giới hạn (phạm vi dữ liệu ALL — V202 — hoặc có academic.class.view-all); danh sách rỗng
      * = không thấy buổi/tiết học nào. Hợp nhất site_teachers VÀ site_managers
      * (bổ sung ngoài SDD gốc, đã xác nhận với người dùng — cùng lý do như
      * ClassService.resolveAllowedSiteIds).
      */
     private List<Long> resolveAllowedSiteIds(Long actorUserId) {
-        if (permissionEvaluationService.hasPermission(actorUserId, "academic.class.manage")) {
+        if (dataScopeService.isUnrestricted(actorUserId)
+                || permissionEvaluationService.hasPermission(actorUserId, "academic.class.view-all")) {
             return null;
         }
         return Stream.concat(
@@ -218,7 +234,7 @@ public class ClassSessionService {
 
         ClassSession session = createSessionEntity(schoolClass, request.sessionDate(), dayPart, request.periodNumbers(),
                 room, primaryTeacher, assistantTeacher, cmTeacher, sessionType, actor, teacherType, makeupForSession,
-                request.actualTeacherName(), Boolean.TRUE.equals(request.allowTeacherOverlap()));
+                request.actualTeacherName(), Boolean.TRUE.equals(request.allowTeacherOverlap()), false);
 
         return toResponse(session);
     }
@@ -303,7 +319,8 @@ public class ClassSessionService {
                 // makeupForSessionId không áp dụng cho sinh lịch hàng loạt — chỉ có nghĩa cho 1 buổi tạo lẻ (UC-48), ngoài phạm vi UC-56.
                 ClassSession session = createSessionEntity(schoolClass, date, dayPart, request.periodNumbers(),
                         room, primaryTeacher, assistantTeacher, cmTeacher, sessionType, actor, teacherType, null,
-                        request.actualTeacherName(), Boolean.TRUE.equals(request.allowTeacherOverlap()));
+                        request.actualTeacherName(), Boolean.TRUE.equals(request.allowTeacherOverlap()),
+                        Boolean.TRUE.equals(request.allowRoomOverlap()));
                 created.add(toResponse(session));
             } catch (RoomConflictException | TeacherScheduleConflictException | ClassScheduleConflictException
                     | ClassSessionOutsideClassPeriodException ex) {
@@ -345,7 +362,7 @@ public class ClassSessionService {
         // "Tên giáo viên giảng dạy" (actualTeacherName, bổ sung 2026-09-12) cũng chưa có cột riêng ở
         // Excel UC-57 — để trống, GV/CM tự nhập bổ sung sau qua Lịch làm việc/Nhận xét học viên.
         ClassSession session = createSessionEntity(schoolClass, sessionDate, parsedDayPart, periodNumbers, room, primaryTeacher, assistantTeacher, cmTeacher,
-                ClassSession.SessionType.valueOf(sessionType), actor, parsedTeacherType, null, null, false);
+                ClassSession.SessionType.valueOf(sessionType), actor, parsedTeacherType, null, null, false, false);
         return toResponse(session);
     }
 
@@ -415,7 +432,9 @@ public class ClassSessionService {
      * Lõi dùng chung: đã resolve đủ entity, chỉ check trùng phòng + trùng
      * giờ Giáo viên (bỏ qua nếu allowTeacherOverlap=true — bổ sung ngoài
      * SDD gốc, xác nhận với người dùng 2026-09-16, phục vụ lớp tách nhóm
-     * dùng chung 1 giáo viên/1 khung giờ) + trùng giờ trong cùng Lớp (2
+     * dùng chung 1 giáo viên/1 khung giờ; tương tự allowRoomOverlap bỏ qua
+     * chặn trùng phòng khi 2 nhóm lớp gộp học chung 1 phòng — xác nhận
+     * 2026-09-29, mở ở UC-56 + updateAssignment + reschedule) + trùng giờ trong cùng Lớp (2
      * chặn cuối bổ sung ngoài SDD gốc, đã xác nhận với người dùng
      * 2026-07-30) + save + history + sinh session_periods từ
      * site_period_templates (thay vì chia đều theo phút — đảo ngược
@@ -425,13 +444,14 @@ public class ClassSessionService {
                                               Room room, User primaryTeacher, User assistantTeacher, User cmTeacher,
                                               ClassSession.SessionType sessionType, User actor,
                                               ClassSession.TeacherType teacherType, ClassSession makeupForSession,
-                                              String actualTeacherName, boolean allowTeacherOverlap) {
+                                              String actualTeacherName, boolean allowTeacherOverlap,
+                                              boolean allowRoomOverlap) {
         checkWithinClassPeriod(schoolClass, sessionDate);
         List<SitePeriodTemplate> templates = resolvePeriodTemplates(schoolClass.getSite().getId(), dayPart, periodNumbers);
         LocalTime startTime = templates.get(0).getStartTime();
         LocalTime endTime = templates.get(templates.size() - 1).getEndTime();
 
-        if (room != null) {
+        if (room != null && !allowRoomOverlap) {
             checkRoomConflict(room, sessionDate, startTime, endTime, null);
         }
         if (!allowTeacherOverlap) {
@@ -472,18 +492,27 @@ public class ClassSessionService {
                         "Không tìm thấy lớp học id=" + classId));
     }
 
-    /** UC-48 A2: hủy 1 buổi đang SCHEDULED, giải phóng phòng khỏi ràng buộc trùng lịch. */
+    /**
+     * UC-48 A2: hủy 1 buổi đang SCHEDULED, giải phóng phòng khỏi ràng buộc trùng lịch.
+     * UC-48 A6 (bổ sung ngoài SDD gốc, xác nhận 2026-10-01): hủy buổi đã IN_PROGRESS/COMPLETED
+     * (thực tế không diễn ra) — cần thêm quyền academic.class-session.correct-past và bắt buộc lý do.
+     */
     @Transactional
     public ClassSessionResponse cancelSession(Long classId, Long sessionId, CancelClassSessionRequest request, Long actorUserId) {
         ClassSession session = getSessionOrThrow(classId, sessionId);
-        requireScheduled(session);
+        String correctionReason = null;
+        if (isAlreadyHeld(session)) {
+            correctionReason = requirePastSessionCorrection(actorUserId, request.reason());
+        } else {
+            requireScheduled(session);
+        }
         User actor = getUserOrThrow(actorUserId);
 
         session.setStatus(ClassSession.Status.CANCELLED);
-        session.setCancellationReason(request.reason());
+        session.setCancellationReason(correctionReason != null ? correctionReason : request.reason());
         session = classSessionRepository.save(session);
 
-        writeClassSessionHistory(session, actor, ClassSessionHistory.Action.UPDATED);
+        writeClassSessionHistory(session, actor, ClassSessionHistory.Action.UPDATED, correctionReason);
         return toResponse(session);
     }
 
@@ -509,7 +538,9 @@ public class ClassSessionService {
         Room newRoom = null;
         if (request.newRoomId() != null) {
             newRoom = getRoomOrThrow(request.newRoomId());
-            checkRoomConflict(newRoom, request.newSessionDate(), newStartTime, newEndTime, oldSession.getId());
+            if (!Boolean.TRUE.equals(request.allowRoomOverlap())) {
+                checkRoomConflict(newRoom, request.newSessionDate(), newStartTime, newEndTime, oldSession.getId());
+            }
         }
         if (!Boolean.TRUE.equals(request.allowTeacherOverlap())) {
             checkTeacherConflict(oldSession.getPrimaryTeacher(), request.newSessionDate(), newStartTime, newEndTime, oldSession.getId());
@@ -560,11 +591,21 @@ public class ClassSessionService {
      * phụ-CM/tiết CÙNG NGÀY cho 1 buổi đang SCHEDULED, không tạo buổi mới
      * (khác reschedule — đổi ngày phải đi qua reschedule để giữ đúng ngữ
      * nghĩa RESCHEDULED + audit trail).
+     *
+     * UC-48 A7 (bổ sung ngoài SDD gốc, xác nhận 2026-10-01): sửa buổi đã
+     * IN_PROGRESS/COMPLETED — cần thêm quyền academic.class-session.correct-past
+     * và bắt buộc correctionReason; sau khi sửa, trạng thái được tính lại theo
+     * giờ mới (deriveStatusByTime).
      */
     @Transactional
     public ClassSessionResponse updateAssignment(Long classId, Long sessionId, UpdateSessionAssignmentRequest request, Long actorUserId) {
         ClassSession session = getSessionOrThrow(classId, sessionId);
-        requireScheduled(session);
+        String correctionReason = null;
+        if (isAlreadyHeld(session)) {
+            correctionReason = requirePastSessionCorrection(actorUserId, request.correctionReason());
+        } else {
+            requireScheduled(session);
+        }
         User actor = getUserOrThrow(actorUserId);
 
         SitePeriodTemplate.DayPart dayPart = SitePeriodTemplate.DayPart.valueOf(request.dayPart());
@@ -577,7 +618,7 @@ public class ClassSessionService {
         User assistantTeacher = request.assistantTeacherId() == null ? null : getUserOrThrow(request.assistantTeacherId());
         User cmTeacher = request.cmTeacherId() == null ? null : getUserOrThrow(request.cmTeacherId());
 
-        if (newRoom != null) {
+        if (newRoom != null && !Boolean.TRUE.equals(request.allowRoomOverlap())) {
             checkRoomConflict(newRoom, session.getSessionDate(), newStartTime, newEndTime, session.getId());
         }
         if (!Boolean.TRUE.equals(request.allowTeacherOverlap())) {
@@ -598,6 +639,9 @@ public class ClassSessionService {
         // Lịch làm việc phát hiện có thay giáo viên ngoài kế hoạch, xác nhận 2026-09-12).
         session.setActualTeacherName(request.actualTeacherName());
         session.setOriginalTeacherName(request.actualTeacherName());
+        if (correctionReason != null) {
+            session.setStatus(deriveStatusByTime(session.getSessionDate(), newStartTime, newEndTime));
+        }
         session = classSessionRepository.save(session);
 
         // Phải xoá session_periods_history TRƯỚC (FK NOT NULL không cascade — V14), rồi mới xoá
@@ -611,7 +655,7 @@ public class ClassSessionService {
         sessionPeriodRepository.flush();
         generatePeriodsFromTemplate(session, templates, actor);
 
-        writeClassSessionHistory(session, actor, ClassSessionHistory.Action.UPDATED);
+        writeClassSessionHistory(session, actor, ClassSessionHistory.Action.UPDATED, correctionReason);
         return toResponse(session);
     }
 
@@ -689,8 +733,37 @@ public class ClassSessionService {
         }
     }
 
+    /** Buổi đã tới giờ học (UC-48 A5) — chỉ hủy/sửa được qua A6/A7. */
+    private boolean isAlreadyHeld(ClassSession session) {
+        return session.getStatus() == ClassSession.Status.IN_PROGRESS
+                || session.getStatus() == ClassSession.Status.COMPLETED;
+    }
+
+    /** UC-48 A6/A7: kiểm tra quyền academic.class-session.correct-past + lý do bắt buộc, trả lý do đã trim. */
+    private String requirePastSessionCorrection(Long actorUserId, String reason) {
+        if (!permissionEvaluationService.hasPermission(actorUserId, CORRECT_PAST_PERMISSION)) {
+            throw new NotAllowedToCorrectPastSessionException("error.notAllowedToCorrectPastSession.default", new Object[]{},
+                    "Buổi học đã diễn ra — cần quyền \"Hủy, sửa buổi học đã diễn ra\" để hủy hoặc sửa.");
+        }
+        if (reason == null || reason.isBlank()) {
+            throw new InvalidClassSessionStatusTransitionException("error.invalidClassSessionStatusTransition.correctionReasonRequired",
+                    new Object[]{}, "Hủy hoặc sửa buổi học đã diễn ra bắt buộc nhập lý do.");
+        }
+        return reason.trim();
+    }
+
+    /** Cùng quy tắc ClassSessionStatusSchedulerService (UC-48 A5), tính theo giờ Việt Nam. */
+    private ClassSession.Status deriveStatusByTime(LocalDate sessionDate, LocalTime startTime, LocalTime endTime) {
+        LocalDateTime now = LocalDateTime.ofInstant(clock.instant(), APP_ZONE);
+        if (now.isBefore(sessionDate.atTime(startTime))) {
+            return ClassSession.Status.SCHEDULED;
+        }
+        return now.isBefore(sessionDate.atTime(endTime)) ? ClassSession.Status.IN_PROGRESS : ClassSession.Status.COMPLETED;
+    }
+
+    /** Khoá dòng buổi học (UC-48 A5) — mọi thao tác hủy/dời/sửa đi qua đây trước khi kiểm tra trạng thái. */
     private ClassSession getSessionOrThrow(Long classId, Long sessionId) {
-        ClassSession session = classSessionRepository.findById(sessionId)
+        ClassSession session = classSessionRepository.findByIdForUpdate(sessionId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "error.classSession.sessionNotFound", new Object[]{sessionId},
                         "Không tìm thấy buổi học id=" + sessionId));
@@ -742,6 +815,11 @@ public class ClassSessionService {
     }
 
     private void writeClassSessionHistory(ClassSession session, User actor, ClassSessionHistory.Action action) {
+        writeClassSessionHistory(session, actor, action, null);
+    }
+
+    /** correctionReason khác null = hủy/sửa buổi đã diễn ra (UC-48 A6/A7) — ghi kèm retroactive + lý do. */
+    private void writeClassSessionHistory(ClassSession session, User actor, ClassSessionHistory.Action action, String correctionReason) {
         ClassSessionHistory history = new ClassSessionHistory();
         history.setClassSession(session);
         history.setChangedBy(actor);
@@ -751,6 +829,10 @@ public class ClassSessionService {
         snapshot.put("startTime", String.valueOf(session.getStartTime()));
         snapshot.put("endTime", String.valueOf(session.getEndTime()));
         snapshot.put("status", session.getStatus().name());
+        if (correctionReason != null) {
+            snapshot.put("retroactive", true);
+            snapshot.put("reason", correctionReason);
+        }
         history.setDetails(snapshot);
         classSessionHistoryRepository.save(history);
     }

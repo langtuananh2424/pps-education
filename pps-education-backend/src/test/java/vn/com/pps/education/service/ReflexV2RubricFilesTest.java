@@ -37,31 +37,42 @@ class ReflexV2RubricFilesTest {
         EXPECT.put("rubric-grade9-ielts-writing.md", List.of("L1", "L2", "L3", "L4", "L5", "R1", "R2", "R3", "R4", "R5"));
     }
 
-    private static String read(String file) throws Exception {
-        try (InputStream in = ReflexV2RubricFilesTest.class.getClassLoader().getResourceAsStream("rubrics-v2/" + file)) {
-            assertThat(in).as("thiếu file rubric " + file).isNotNull();
+    /** Mọi bộ rubric còn được nạp: v3 (hiện hành) và v2 (chấm nốt câu dở dang). */
+    private static final List<String> DIRS = List.of("rubrics-v2/", "rubrics-v3/");
+
+    private static String read(String dir, String file) throws Exception {
+        try (InputStream in = ReflexV2RubricFilesTest.class.getClassLoader().getResourceAsStream(dir + file)) {
+            assertThat(in).as("thiếu file rubric " + dir + file).isNotNull();
             return new String(in.readAllBytes(), StandardCharsets.UTF_8);
         }
     }
 
     @Test
     void everyRubricKeepsAllCheckpointRows_exactlyOnce() throws Exception {
-        for (Map.Entry<String, List<String>> e : EXPECT.entrySet()) {
-            String[] lines = read(e.getKey()).split("\n");
-            for (String id : e.getValue()) {
-                Pattern row = Pattern.compile("^\\|\\*{0,2}" + id + "\\*{0,2}\\|");
-                long hits = java.util.Arrays.stream(lines).filter(l -> row.matcher(l).find()).count();
-                assertThat(hits).as(e.getKey() + " — checkpoint " + id).isEqualTo(1);
+        for (String dir : DIRS) {
+            for (Map.Entry<String, List<String>> e : EXPECT.entrySet()) {
+                String[] lines = read(dir, e.getKey()).split("\n");
+                for (String id : e.getValue()) {
+                    Pattern row = Pattern.compile("^\\|\\*{0,2}" + id + "\\*{0,2}\\|");
+                    long hits = java.util.Arrays.stream(lines).filter(l -> row.matcher(l).find()).count();
+                    assertThat(hits).as(dir + e.getKey() + " — checkpoint " + id).isEqualTo(1);
+                }
             }
         }
     }
 
     @Test
     void everyTableRowHasSameColumnCountAsItsHeader() throws Exception {
+        for (String dir : DIRS) {
+            checkColumnCounts(dir);
+        }
+    }
+
+    private static void checkColumnCounts(String dir) throws Exception {
         for (String file : EXPECT.keySet()) {
             Integer header = null;
             int lineNo = 0;
-            for (String l : read(file).split("\n")) {
+            for (String l : read(dir, file).split("\n")) {
                 lineNo++;
                 if (!l.startsWith("|")) {
                     header = null;
@@ -74,7 +85,7 @@ class ReflexV2RubricFilesTest {
                 if (header == null) {
                     header = cols;
                 } else {
-                    assertThat(cols).as(file + " dòng " + lineNo + " lệch số cột so với tiêu đề").isEqualTo(header);
+                    assertThat(cols).as(dir + file + " dòng " + lineNo + " lệch số cột so với tiêu đề").isEqualTo(header);
                 }
             }
         }

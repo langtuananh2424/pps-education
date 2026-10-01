@@ -200,6 +200,7 @@
       "notGraded": "Chưa chấm",
       "lateSubmission": "Nộp muộn",
       "lateSubmissionBadge": "Trễ hạn",
+      "grammarReviewBadge": "Cần soát ngữ pháp",
       "viewDetail": "Xem chi tiết"
     },
     "questionRow": {
@@ -224,8 +225,13 @@
       "audioNotAvailable": "Không có audio",
       "transcriptLabel": "Transcript AI",
       "feedbackLabel": "Nhận xét",
+      "hintLabel": "Cách luyện đã hiện cho học sinh",
       "criteriaLabel": "Chi tiết theo tiêu chí",
-      "answerTextLabel": "Câu trả lời viết"
+      "answerTextLabel": "Câu trả lời viết",
+      "recordingFiltered": "Thu âm: đã qua bộ lọc",
+      "recordingRaw": "Thu âm: bản ghi thô",
+      "grammarReviewTitle": "Cần giáo viên soát điểm Ngữ pháp",
+      "grammarReviewBody": "Bài có từ 2 lỗi đỏ ngữ pháp nên điểm Ngữ pháp bị hạ. AI chỉ phiên âm một lần và có thể nghe nhầm — hãy nghe lại các chỗ dưới đây trước khi chốt điểm:"
     }
   }
 }

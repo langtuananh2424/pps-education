@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { AlertTriangle, CheckCircle2, Lightbulb, Loader2, Lock, Mic, Pause, PenLine, Play, RotateCcw, ShieldAlert, Square } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Dumbbell, Lightbulb, Loader2, Lock, Mic, Pause, PenLine, Play, RotateCcw, ShieldAlert, Square } from "lucide-react";
 import { friendlyApiErrorMessage } from "@/lib/apiClient";
 import {
   ReflexQuestionProgressResponse,
   ReviewVideoQuestionResponse,
   ReviewVideoResponse,
+  getReflexRecordingConfig,
   listMyReflexProgress,
   listReviewVideoQuestions,
   submitReflexSpokenAnswer,
@@ -13,6 +14,10 @@ import {
   uploadMedia
 } from "../api";
 import { useIntegrityMonitor } from "../hooks/useIntegrityMonitor";
+import { filterRecording, recordingFilterSupported } from "../lib/reflexRecordingFilter";
+
+/** V200 — mirror ReflexSequentialGradingService.DEFAULT_PICTURE_PROMPT ở backend. */
+const DEFAULT_PICTURE_PROMPT = "Look at the photo. Describe what you can see.";
 import { extractYouTubeVideoId, formatTimestamp, loadYouTubeIframeApi } from "../lib/youtubePlayer";
 import MonitoringBadge from "../components/MonitoringBadge";
 import { ScoreSticker } from "../components/ScoreSticker";
@@ -541,6 +546,13 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
   const [speakingPassedPopup, setSpeakingPassedPopup] = useState<{ scorePercent: number | null; feedback: string | null } | null>(null);
   const [writingPassedPopup, setWritingPassedPopup] = useState<{ scorePercent: number | null } | null>(null);
   const recorder = useAudioRecorder();
+  // V199 — công tắc bộ lọc thu âm (Quản trị hệ thống → Cài đặt hệ thống). Lỗi tải cấu hình → coi như tắt (bản thô).
+  const [recordingFilterEnabled, setRecordingFilterEnabled] = useState(false);
+  useEffect(() => {
+    getReflexRecordingConfig()
+      .then((c) => setRecordingFilterEnabled(c.filterEnabled))
+      .catch(() => setRecordingFilterEnabled(false));
+  }, []);
 
   const allQuestionsPassed = questions.length > 0 && questions.every((q) => progress[q.id]?.questionPassed);
 
@@ -934,9 +946,20 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
     setSpeakingSubmitting(true);
     setSpeakingError(null);
     try {
-      const file = new File([blob], "reflex-answer.webm", { type: blob.type || "audio/webm" });
+      // V199 — công tắc BẬT thì lọc bản ghi thành WAV 16 kHz trước khi nộp; lọc lỗi (trình duyệt không giải mã
+      // được) thì nộp bản thô và báo đúng chế độ đã dùng, để việc so sánh hai chế độ không bị lẫn.
+      let file = new File([blob], "reflex-answer.webm", { type: blob.type || "audio/webm" });
+      let filtered = false;
+      if (recordingFilterEnabled && recordingFilterSupported()) {
+        try {
+          file = new File([await filterRecording(blob)], "reflex-answer.wav", { type: "audio/wav" });
+          filtered = true;
+        } catch {
+          filtered = false;
+        }
+      }
       const { url } = await uploadMedia(file, "REVIEW_VIDEO_SUBMISSION");
-      const response = await submitReflexSpokenAnswer(activeQuestion.id, assignmentId, url);
+      const response = await submitReflexSpokenAnswer(activeQuestion.id, assignmentId, url, filtered);
       setProgress((prev) => ({ ...prev, [activeQuestion.id]: response }));
       // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — fix bug thật: trước đây pass thì
       // đóng câu ngay + video chạy tiếp lập tức, học sinh không kịp thấy điểm/nhận xét bước nói (khác
@@ -1349,9 +1372,10 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
               </div>
             )}
 
-            {displayQuestion.prompt && (
+            {/* V200 — câu tả tranh giáo viên để trống đề: hiện câu lệnh mặc định (khớp đề backend gửi AI chấm). */}
+            {(displayQuestion.prompt || displayQuestion.questionFormat === "PICTURE") && (
               <p className={`text-sm sm:text-base lg:text-lg font-bold text-ink ${displayStage !== "writing" ? "pr-40 sm:pr-72" : ""}`}>
-                {displayQuestion.prompt}
+                {displayQuestion.prompt || DEFAULT_PICTURE_PROMPT}
               </p>
             )}
 
@@ -1431,6 +1455,21 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                         <p className="font-medium normal-case whitespace-pre-line text-[13px] leading-relaxed">{displayProgress.writingFeedback}</p>
                       </div>
                     )}
+                  </div>
+                )}
+                {/*
+                 * V204 (bổ sung ngoài SDD gốc, bản bàn giao 30/9, §D.5) — "cách luyện" TÁCH khỏi
+                 * writingFeedback (feedback cấm gợi ý sửa, dành cho giáo viên; hint ngược lại BẮT BUỘC nêu
+                 * cách luyện cụ thể, dành cho học sinh tự luyện). Người training đề xuất chỉ hiện từ lần
+                 * nộp thứ 2 trở đi (lần 1 chưa cần — học sinh còn đang đọc feedback lần đầu).
+                 */}
+                {!displayProgress?.writingPassed && (displayProgress?.writingAttemptCount ?? 0) >= 2 && displayProgress?.writingHint && (
+                  <div className="flex items-start gap-2 rounded-xl border border-teal/20 bg-sky-2 p-3">
+                    <Dumbbell size={16} className="text-teal-deep shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-[11px] font-extrabold uppercase tracking-wide text-teal-deep">{t("reflexVideoTask.writingStage.hintTitle")}</p>
+                      <p className="font-medium normal-case whitespace-pre-line text-[13px] leading-relaxed text-ink">{displayProgress.writingHint}</p>
+                    </div>
                   </div>
                 )}
                 {/*
@@ -1667,6 +1706,21 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                         {displayProgress.speakingFeedback}
                       </p>
                     </div>
+
+                    {/*
+                     * V204 (bổ sung ngoài SDD gốc, bản bàn giao 30/9, §D.5) — "cách luyện" TÁCH khỏi
+                     * speakingFeedback, icon riêng (Dumbbell, khác Lightbulb của feedback) để không nhầm 2
+                     * ô. Chỉ hiện từ lần ghi âm thứ 2 trở đi, như writingHint.
+                     */}
+                    {!displayProgress.speakingPassed && (displayProgress?.speakingAttemptCount ?? 0) >= 2 && displayProgress.speakingHint && (
+                      <div className="flex items-start gap-2 rounded-xl border border-teal/20 bg-sky-2 p-3">
+                        <Dumbbell size={16} className="text-teal-deep shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-[11px] font-extrabold uppercase tracking-wide text-teal-deep">{t("reflexVideoTask.speakingStage.hintTitle")}</p>
+                          <p className="font-medium normal-case whitespace-pre-line text-[13px] leading-relaxed text-ink">{displayProgress.speakingHint}</p>
+                        </div>
+                      </div>
+                    )}
 
                     <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-line/60">
                       {!displayProgress.speakingPassed && !isReviewing ? (

@@ -3,9 +3,24 @@ import { cn } from "@/lib/cn";
 
 interface DropdownProps {
   trigger: React.ReactNode;
-  children: React.ReactNode;
+  /** Truyền hàm (close) => ... khi nội dung cần tự đóng panel (VD nút điều hướng trong panel thông báo). */
+  children: React.ReactNode | ((close: () => void) => React.ReactNode);
   align?: "left" | "right";
   panelClassName?: string;
+  /**
+   * Mặc định true — bấm bất kỳ đâu trong panel cũng đóng (hợp với menu chọn 1 mục rồi xong: đổi vai
+   * trò, menu hồ sơ). false cho panel đọc/tương tác nhiều lần như danh sách thông báo (2026-09-25,
+   * theo phản hồi người dùng: bấm 1 thông báo để đánh dấu đã đọc thì panel không được tắt, chỉ tắt khi
+   * bấm ra ngoài).
+   */
+  closeOnPanelClick?: boolean;
+  /** Class cho div gốc -- VD "min-w-0 flex-1" để trigger co giãn trong hàng flex trên mobile. */
+  className?: string;
+  /**
+   * Vị trí top của panel "fixed" dưới sm (mặc định ngay dưới Header 64px). Trigger nằm thấp hơn
+   * Header (VD hàng chọn Điểm trường/Lớp riêng cho mobile) cần đẩy panel xuống để không che trigger.
+   */
+  mobileTopClassName?: string;
 }
 
 /**
@@ -18,11 +33,12 @@ interface DropdownProps {
  * Từ sm trở lên GIỮ NGUYÊN hành vi cũ (absolute, neo theo trigger, rộng theo panelClassName) — không
  * đổi giao diện chính trên desktop.
  */
-export default function Dropdown({ trigger, children, align = "right", panelClassName }: DropdownProps) {
+export default function Dropdown({ trigger, children, align = "right", panelClassName, closeOnPanelClick = true, className, mobileTopClassName = "top-[72px]" }: DropdownProps) {
   const [open, setOpen] = useState(false);
+  const close = () => setOpen(false);
 
   return (
-    <div className="relative">
+    <div className={cn("relative", className)}>
       <div onClick={() => setOpen((v) => !v)}>{trigger}</div>
       {open && (
         <>
@@ -35,14 +51,15 @@ export default function Dropdown({ trigger, children, align = "right", panelClas
               // Tailwind SINH CSS sau mới thắng (không theo thứ tự viết ở đây), có lúc "right-auto" đè
               // mất "right-0" khiến panel mất neo, trôi lệch khỏi trigger. Gộp thẳng cặp
               // left/right-0/auto tương ứng theo align, không còn 2 class cùng thuộc tính chung breakpoint.
-              "fixed left-3 right-3 top-[72px] sm:absolute sm:top-auto sm:mt-2",
+              "fixed left-3 right-3 sm:absolute sm:top-auto sm:mt-2",
+              mobileTopClassName,
               "bg-white rounded-2xl sm:rounded-lg shadow-xl border border-slate-200 z-50 animate-in fade-in slide-in-from-top-3 sm:slide-in-from-top-2 duration-150 overflow-hidden",
               align === "right" ? "sm:left-auto sm:right-0" : "sm:right-auto sm:left-0",
               panelClassName
             )}
-            onClick={() => setOpen(false)}
+            onClick={closeOnPanelClick ? close : undefined}
           >
-            {children}
+            {typeof children === "function" ? children(close) : children}
           </div>
         </>
       )}

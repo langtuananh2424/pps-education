@@ -650,6 +650,8 @@ export interface ReviewVideoQuestionResponse {
   /** null = không giới hạn số lần nộp lại. */
   maxAttempts: number | null;
   displayOrder: number;
+  /** V200 — dạng đề (SHORT/PART2/PET4/PICTURE); null = câu hỏi cũ. Học sinh không bao giờ nhận ảnh/mô tả tranh. */
+  questionFormat?: "SHORT" | "PART2" | "PET4" | "PICTURE" | null;
 }
 
 export function listReviewVideoQuestions(videoId: number): Promise<ReviewVideoQuestionResponse[]> {
@@ -716,6 +718,12 @@ export interface ReflexQuestionProgressResponse {
    * đồng nhất cách hiển thị với speakingTranscript (V178). Thay cho feedback văn xuôi dài dòng trước đây.
    */
   writingMarkedAnswer: string | null;
+  /**
+   * V204 (bổ sung ngoài SDD gốc, bản bàn giao 30/9, §D.5) — "cách luyện" cho học sinh tự luyện, TÁCH khỏi
+   * writingFeedback (vẫn cấm gợi ý sửa, dành cho giáo viên). NULL khi bài không có lỗi hoặc chưa chấm được
+   * bằng rubric hỗ trợ trường này — chỉ hiện từ lần nộp thứ 2 trở đi (xem writingAttemptCount).
+   */
+  writingHint: string | null;
   writingPassed: boolean;
   writingAttemptCount: number;
   /**
@@ -733,6 +741,8 @@ export interface ReflexQuestionProgressResponse {
    * đỏ/gạch chân khi hiện ra, xem renderHighlightedErrors trong ReflexVideoTaskPage.tsx.
    */
   speakingTranscript: string | null;
+  /** V204 — như writingHint, cho bước nói. */
+  speakingHint: string | null;
   /** V178 — % từng tiêu chí rubric, tách riêng khỏi speakingFeedback (trước đây nhúng trong feedback). */
   speakingCriteriaScores: { criterion: string; percent: number }[] | null;
   speakingPassed: boolean;
@@ -751,11 +761,21 @@ export function submitReflexWrittenAnswer(questionId: number, assignmentId: numb
 }
 
 /** Bước 2 — CHỈ chấp nhận khi bước 1 đã đạt: nộp audio (đã upload sẵn qua uploadMedia), AI transcribe + chấm nội dung ngay. */
-export function submitReflexSpokenAnswer(questionId: number, assignmentId: number, audioUrl: string): Promise<ReflexQuestionProgressResponse> {
+/** @param recordingFilter V199 — bản ghi đã qua bộ lọc thu âm (true) hay là bản thô (false); lưu lại để so sánh hai chế độ. */
+export function submitReflexSpokenAnswer(questionId: number, assignmentId: number, audioUrl: string, recordingFilter: boolean): Promise<ReflexQuestionProgressResponse> {
   return apiRequest<ReflexQuestionProgressResponse>(`/review-video-questions/${questionId}/reflex-progress/speaking?assignmentId=${assignmentId}`, {
     method: "PUT",
-    body: JSON.stringify({ audioUrl })
+    body: JSON.stringify({ audioUrl, recordingFilter })
   });
+}
+
+/** V199 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-29) — công tắc bộ lọc thu âm ở Cài đặt hệ thống. */
+export interface ReflexRecordingConfig {
+  filterEnabled: boolean;
+}
+
+export function getReflexRecordingConfig(): Promise<ReflexRecordingConfig> {
+  return apiRequest<ReflexRecordingConfig>("/reflex-recording-config");
 }
 
 /** Tiến trình đã lưu của MỌI câu hỏi thuộc video này trong lần giao đang mở — dùng để dựng lại đúng trạng thái khoá/mở khi vào/tải lại trang. */

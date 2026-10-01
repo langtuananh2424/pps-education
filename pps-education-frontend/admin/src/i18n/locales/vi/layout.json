@@ -7,6 +7,7 @@
       "crm": "TUYỂN SINH & CRM",
       "student": "QUẢN LÝ HỌC SINH",
       "academic": "QUẢN LÝ HỌC THUẬT",
+      "notifications": "PHỤ HUYNH & PHẢN HỒI",
       "lms": "TÀI LIỆU & KHẢO THÍ LMS",
       "reports": "BÁO CÁO & THỐNG KÊ",
       "finance": "QUẢN LÝ TÀI CHÍNH",
@@ -28,8 +29,8 @@
       "hrm-shifts": "Ca làm việc",
       "hrm-work-calendar": "Lịch làm việc/Nghỉ lễ",
       "hrm-employee-schedule": "Lịch làm việc",
-      "hrm-leaves": "Xin nghỉ phép",
-      "hrm-payroll": "Tính toán bảng lương",
+      "hrm-leaves": "Nghỉ phép & duyệt đơn",
+      "hrm-payroll": "Bảng lương",
       "crm-leads": "Khách hàng tiềm năng",
       "stu-profile": "Hồ sơ học sinh",
       "stu-parents": "Quản lý phụ huynh",
@@ -56,7 +57,11 @@
       "fac-rooms": "Phòng học & thiết bị",
       "fac-feedback": "Ý kiến phản hồi",
       "part-syllabus": "Kế hoạch giảng dạy",
-      "part-portal": "Báo cáo liên kết"
+      "part-portal": "Báo cáo liên kết",
+      "acad-change-history": "Lịch sử thay đổi dữ liệu",
+      "acad-teachers": "Hồ sơ giáo viên",
+      "rep-teaching-stats": "Thống kê giảng dạy theo GV",
+      "rep-session-reports": "Nộp & duyệt báo cáo"
     }
   },
   "roles": {
@@ -67,7 +72,9 @@
     "SITE_MANAGER": "Quản Lý Điểm Trường",
     "TEACHER": "Giáo Viên Giảng Dạy",
     "HR_MANAGER": "Quản Lý Nhân Sự (HR)",
-    "STAFF": "Nhân Viên",
+    "STAFF": "Giáo Vụ",
+    "ACCOUNTANT": "Kế Toán",
+    "CONSULTANT": "Tư Vấn Tuyển Sinh",
     "OPS_MANAGER": "Quản Lý Vận Hành (Ops)",
     "PARTNER_REP": "Đại Diện Trường Liên Kết",
     "PARENT": "Phụ Huynh",
@@ -104,6 +111,7 @@
       "checkIn": "Chấm công",
       "checkedInOut": "Đã chấm công {{checkIn}} – {{checkOut}}",
       "checkedInOnly": "Đã chấm công vào lúc {{checkIn}}",
+      "missing": "Chưa chấm công (đã quá giờ)",
       "modalTitle": "Chấm công của tôi",
       "modalDescription": "Bấm chấm công vào/ra — hệ thống dùng vị trí GPS hiện tại."
     },

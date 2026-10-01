@@ -1,17 +1,66 @@
 package vn.com.pps.education.repository;
 
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import vn.com.pps.education.domain.ClassSession;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 public interface ClassSessionRepository extends JpaRepository<ClassSession, Long> {
 
     List<ClassSession> findBySchoolClassIdOrderBySessionDateAsc(Long classId);
+
+    /**
+     * UC-48 A5 (xác nhận 2026-10-01) — đọc + khoá dòng (SELECT ... FOR UPDATE) trước khi hủy/dời/sửa,
+     * để không chạy đè với lần chuyển trạng thái tự động: nếu job đang giữ dòng thì chờ job xong rồi đọc
+     * trạng thái mới; nếu thao tác người dùng giữ dòng trước thì lệnh UPDATE của job chờ, rồi PostgreSQL
+     * kiểm tra lại điều kiện status trên bản đã commit và bỏ qua dòng đã đổi trạng thái.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT s FROM ClassSession s WHERE s.id = :id")
+    Optional<ClassSession> findByIdForUpdate(@Param("id") Long id);
+
+    /**
+     * UC-48 A5 — khoá advisory theo transaction: chỉ 1 lần chạy job chuyển trạng thái tại 1 thời điểm
+     * kể cả khi nhiều phiên bản backend dùng chung DB. Trả false (không chờ) nếu đang có lần chạy khác;
+     * khoá tự nhả khi transaction kết thúc.
+     */
+    @Query(value = "SELECT pg_try_advisory_xact_lock(:lockKey)", nativeQuery = true)
+    boolean tryAdvisoryXactLock(@Param("lockKey") long lockKey);
+
+    /**
+     * UC-48 A5 — SCHEDULED → IN_PROGRESS khi đã tới giờ bắt đầu nhưng chưa qua giờ kết thúc (buổi đã qua
+     * giờ kết thúc để lệnh markCompleted chuyển thẳng COMPLETED). Điều kiện status = 'SCHEDULED' nằm trong
+     * chính lệnh UPDATE nên chạy lặp lại không đổi trùng. :now là giờ Việt Nam (LocalDateTime).
+     */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = """
+            UPDATE class_sessions SET status = 'IN_PROGRESS', updated_at = now()
+            WHERE status = 'SCHEDULED'
+              AND session_date <= CAST(:now AS date)
+              AND session_date + start_time <= :now
+              AND session_date + end_time > :now
+            """, nativeQuery = true)
+    int markStarted(@Param("now") LocalDateTime now);
+
+    /** UC-48 A5 — SCHEDULED/IN_PROGRESS → COMPLETED khi đã qua giờ kết thúc. Cùng nguyên tắc markStarted. */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = """
+            UPDATE class_sessions SET status = 'COMPLETED', updated_at = now()
+            WHERE status IN ('SCHEDULED', 'IN_PROGRESS')
+              AND session_date <= CAST(:now AS date)
+              AND session_date + end_time <= :now
+            """, nativeQuery = true)
+    int markCompleted(@Param("now") LocalDateTime now);
 
     /**
      * UC-21 mở rộng (BTVN theo buổi, V55): buổi học liền TRƯỚC 1 buổi,
@@ -118,6 +167,16 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, Long
     /** UC-09 A12/A13 (Chấm công GV — cửa sổ theo lịch dạy): tiết dạy trong ngày của 1 GV. */
     List<ClassSession> findByPrimaryTeacherIdAndSessionDateAndStatusNotIn(
             Long primaryTeacherId, LocalDate sessionDate, List<ClassSession.Status> excludedStatuses);
+
+    /**
+     * Bổ sung ngoài SDD gốc, xác nhận 2026-09-11 — bản batch của
+     * findByPrimaryTeacherIdAndSessionDateAndStatusNotIn, dùng ở
+     * AttendanceMissingSchedulerService để lấy 1 lần tiết dạy hôm nay của
+     * nhiều GV thay vì gọi lặp N lần (primaryTeacherIds là User.id, không
+     * phải employee.id, giống hệt tham số actorUserId ở AttendanceService).
+     */
+    List<ClassSession> findByPrimaryTeacherIdInAndSessionDateAndStatusNotIn(
+            List<Long> primaryTeacherIds, LocalDate sessionDate, List<ClassSession.Status> excludedStatuses);
 
     /**
      * UC-10 bước 3 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng
@@ -329,4 +388,150 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, Long
                                                        @Param("today") LocalDate today,
                                                        @Param("cutoffTime") LocalTime cutoffTime,
                                                        @Param("excludedStatuses") List<ClassSession.Status> excludedStatuses);
+
+    /**
+     * V203 — "Thống kê giảng dạy theo giáo viên" (bổ sung ngoài SDD gốc, xác nhận với người dùng
+     * 2026-09-30). Gom theo giáo viên phụ trách buổi (primary_teacher_id) trong [fromDate, toDate]:
+     * - scheduledSessions: buổi đã xếp, trừ buổi đã dời (RESCHEDULED — buổi mới được tính riêng);
+     * - heldSessions: buổi không huỷ/không dời và đã tới giờ bắt đầu (so với :now, giờ Việt Nam);
+     * - onTime/lateCheckIns: số lần nhận lớp đúng giờ/trễ (class_session_check_ins, V184);
+     * - missingCheckIns: buổi đã tới giờ mà không có lượt nhận lớp nào.
+     * Tham số "không lọc": siteId = 0, restrictSites = FALSE (xem ClassHistoryRepository).
+     */
+    @Query(value = """
+            SELECT cs.primary_teacher_id AS teacherUserId,
+                   COUNT(DISTINCT cs.class_id) AS classCount,
+                   COUNT(*) FILTER (WHERE cs.status <> 'RESCHEDULED') AS scheduledSessions,
+                   COUNT(*) FILTER (WHERE cs.status = 'CANCELLED') AS cancelledSessions,
+                   COUNT(*) FILTER (WHERE cs.status NOT IN ('CANCELLED', 'RESCHEDULED')
+                                      AND cs.session_date + cs.start_time <= :now) AS heldSessions,
+                   COUNT(ci.id) FILTER (WHERE ci.status = 'ON_TIME') AS onTimeCheckIns,
+                   COUNT(ci.id) FILTER (WHERE ci.status = 'LATE') AS lateCheckIns,
+                   COUNT(*) FILTER (WHERE cs.status NOT IN ('CANCELLED', 'RESCHEDULED')
+                                      AND cs.session_date + cs.start_time <= :now
+                                      AND ci.id IS NULL) AS missingCheckIns
+            FROM class_sessions cs
+            JOIN classes c ON c.id = cs.class_id AND c.deleted_at IS NULL
+            LEFT JOIN class_session_check_ins ci ON ci.class_session_id = cs.id
+            WHERE cs.session_date BETWEEN :fromDate AND :toDate
+              AND (:siteId = 0 OR c.site_id = :siteId)
+              AND (:restrictSites = FALSE OR c.site_id IN (:siteIds))
+            GROUP BY cs.primary_teacher_id
+            """, nativeQuery = true)
+    List<TeacherSessionStats> aggregateTeacherSessionStats(@Param("fromDate") LocalDate fromDate,
+                                                           @Param("toDate") LocalDate toDate,
+                                                           @Param("now") LocalDateTime now,
+                                                           @Param("siteId") long siteId,
+                                                           @Param("restrictSites") boolean restrictSites,
+                                                           @Param("siteIds") Collection<Long> siteIds);
+
+    /**
+     * V203 — số tiết đã dạy theo giáo viên: tiết có giáo viên riêng (session_periods.teacher_id) tính
+     * cho giáo viên đó, còn lại tính cho giáo viên phụ trách buổi. Chỉ tính buổi không huỷ/không dời
+     * và đã tới giờ bắt đầu — cùng điều kiện heldSessions ở aggregateTeacherSessionStats.
+     */
+    @Query(value = """
+            SELECT COALESCE(sp.teacher_id, cs.primary_teacher_id) AS teacherUserId, COUNT(sp.id) AS periodCount
+            FROM session_periods sp
+            JOIN class_sessions cs ON cs.id = sp.class_session_id
+            JOIN classes c ON c.id = cs.class_id AND c.deleted_at IS NULL
+            WHERE cs.session_date BETWEEN :fromDate AND :toDate
+              AND cs.status NOT IN ('CANCELLED', 'RESCHEDULED')
+              AND cs.session_date + cs.start_time <= :now
+              AND (:siteId = 0 OR c.site_id = :siteId)
+              AND (:restrictSites = FALSE OR c.site_id IN (:siteIds))
+            GROUP BY COALESCE(sp.teacher_id, cs.primary_teacher_id)
+            """, nativeQuery = true)
+    List<TeacherPeriodCount> countTaughtPeriodsByTeacher(@Param("fromDate") LocalDate fromDate,
+                                                         @Param("toDate") LocalDate toDate,
+                                                         @Param("now") LocalDateTime now,
+                                                         @Param("siteId") long siteId,
+                                                         @Param("restrictSites") boolean restrictSites,
+                                                         @Param("siteIds") Collection<Long> siteIds);
+
+    /** V203 — buổi học trong 1 ngày kèm trạng thái nhận lớp, cho dashboard Trưởng phòng đào tạo. */
+    @Query(value = """
+            SELECT cs.id AS sessionId, c.id AS classId, c.name AS className, c.class_code AS classCode,
+                   s.name AS siteName, u.full_name AS teacherName,
+                   TO_CHAR(cs.start_time, 'HH24:MI') AS startTime, TO_CHAR(cs.end_time, 'HH24:MI') AS endTime,
+                   cs.status AS status, ci.status AS checkInStatus,
+                   cs.session_date + cs.start_time <= :now AS started
+            FROM class_sessions cs
+            JOIN classes c ON c.id = cs.class_id AND c.deleted_at IS NULL
+            JOIN sites s ON s.id = c.site_id
+            JOIN users u ON u.id = cs.primary_teacher_id
+            LEFT JOIN class_session_check_ins ci ON ci.class_session_id = cs.id
+            WHERE cs.session_date = :date
+              AND cs.status <> 'RESCHEDULED'
+              AND (:siteId = 0 OR c.site_id = :siteId)
+              AND (:restrictSites = FALSE OR c.site_id IN (:siteIds))
+            ORDER BY cs.start_time, c.name
+            """, nativeQuery = true)
+    List<DailySessionOverview> findDailySessionOverview(@Param("date") LocalDate date,
+                                                        @Param("now") LocalDateTime now,
+                                                        @Param("siteId") long siteId,
+                                                        @Param("restrictSites") boolean restrictSites,
+                                                        @Param("siteIds") Collection<Long> siteIds);
+
+    interface TeacherSessionStats {
+        Long getTeacherUserId();
+        Long getClassCount();
+        Long getScheduledSessions();
+        Long getCancelledSessions();
+        Long getHeldSessions();
+        Long getOnTimeCheckIns();
+        Long getLateCheckIns();
+        Long getMissingCheckIns();
+    }
+
+    interface TeacherPeriodCount {
+        Long getTeacherUserId();
+        Long getPeriodCount();
+    }
+
+    interface DailySessionOverview {
+        Long getSessionId();
+        Long getClassId();
+        String getClassName();
+        String getClassCode();
+        String getSiteName();
+        String getTeacherName();
+        String getStartTime();
+        String getEndTime();
+        String getStatus();
+        String getCheckInStatus();
+        Boolean getStarted();
+    }
+
+    /**
+     * V207 — buổi học cần nộp báo cáo (gửi duyệt nhận xét) trong [fromDate, toDate]: không huỷ/không dời,
+     * lớp chưa xoá và có ít nhất 1 học sinh đang theo học vào ngày học (lớp trống không có gì để nhận xét).
+     * siteId null = mọi điểm trường; restrictSites/siteIds = phạm vi dữ liệu (DataScopeService).
+     */
+    @Query("""
+            SELECT cs FROM ClassSession cs
+            JOIN FETCH cs.schoolClass c
+            JOIN FETCH c.site
+            JOIN FETCH cs.primaryTeacher
+            WHERE cs.sessionDate BETWEEN :fromDate AND :toDate
+              AND cs.status NOT IN (
+                  vn.com.pps.education.domain.ClassSession.Status.CANCELLED,
+                  vn.com.pps.education.domain.ClassSession.Status.RESCHEDULED
+              )
+              AND c.deletedAt IS NULL
+              AND (:siteId IS NULL OR c.site.id = :siteId)
+              AND (:restrictSites = FALSE OR c.site.id IN :siteIds)
+              AND EXISTS (
+                  SELECT 1 FROM ClassEnrollment ce
+                  WHERE ce.schoolClass = c
+                    AND ce.enrolledDate <= cs.sessionDate
+                    AND (ce.withdrawnDate IS NULL OR ce.withdrawnDate > cs.sessionDate)
+              )
+            ORDER BY cs.sessionDate, cs.startTime
+            """)
+    List<ClassSession> findForReportTracking(@Param("fromDate") LocalDate fromDate,
+                                             @Param("toDate") LocalDate toDate,
+                                             @Param("siteId") Long siteId,
+                                             @Param("restrictSites") boolean restrictSites,
+                                             @Param("siteIds") Collection<Long> siteIds);
 }

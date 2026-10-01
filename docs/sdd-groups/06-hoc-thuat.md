@@ -871,6 +871,16 @@ a)  Bảng class_sessions --- Buổi học
 
 Có class_sessions_history.
 
+Vòng đời status (bổ sung ngoài SDD gốc, xác nhận với người dùng
+2026-10-01 — xem UC-48 A5–A7): SCHEDULED → IN_PROGRESS khi tới
+session_date + start_time, → COMPLETED khi qua session_date + end_time
+(giờ Việt Nam, job chạy mỗi phút, không ghi class_sessions_history).
+CANCELLED/RESCHEDULED chỉ từ SCHEDULED (UC-48 A2/A3); riêng buổi
+IN_PROGRESS/COMPLETED được hủy (→ CANCELLED) hoặc sửa phân công/tiết cùng
+ngày khi có quyền academic.class-session.correct-past và bắt buộc lý do.
+Index một phần idx_class_sessions_status_pending (session_date) WHERE
+status IN ('SCHEDULED', 'IN_PROGRESS') phục vụ job này (V205).
+
 Ràng buộc:
 
 ALTER TABLE class_sessions ADD CONSTRAINT chk_session_time CHECK
@@ -1654,6 +1664,7 @@ erDiagram
         BIGINT homework_next_exercise_assignment_id FK
         BIGINT homework_next_review_video_set_id FK
         TEXT note
+        BOOLEAN ai_drafted
     }
 ```
 
@@ -1729,6 +1740,18 @@ a)  Bảng student_comments --- Nhận xét học sinh
   visible_to_parent_at     TIMESTAMPTZ   NULL
 
   rejection_reason         TEXT          NULL
+
+  ai_drafted               BOOLEAN       NOT NULL, DEFAULT     (V201, bổ sung ngoài SDD gốc, đã
+                                        FALSE                  xác nhận với người dùng
+                                                                2026-09-29, UC-74) — TRUE nếu
+                                                                nội dung xuất phát từ bản nháp
+                                                                của trợ lý AI (giáo viên có thể
+                                                                đã sửa tay); chỉ bật lên khi Lưu
+                                                                nháp, không tắt lại. Dùng đo
+                                                                chất lượng nhận xét AI so với
+                                                                nhận xét tự viết
+                                                                (scripts/comment-ai-approved-
+                                                                metrics.sql)
 
   attitude                 VARCHAR(20)   NULL                  (V50, bổ sung ngoài SDD gốc, đã
                                                                 xác nhận với người dùng

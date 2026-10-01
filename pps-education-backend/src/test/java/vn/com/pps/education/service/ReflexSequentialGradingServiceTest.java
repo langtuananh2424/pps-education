@@ -1,11 +1,14 @@
 package vn.com.pps.education.service;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import vn.com.pps.education.common.AiTokenUsage;
+import vn.com.pps.education.common.ReflexV2Task;
 import vn.com.pps.education.domain.AiGradingTokenUsage;
 import vn.com.pps.education.domain.ClassEnrollment;
 import vn.com.pps.education.domain.Curriculum;
 import vn.com.pps.education.domain.ReflexQuestionProgress;
+import vn.com.pps.education.domain.ReflexQuestionProgressHistory;
 import vn.com.pps.education.domain.ReviewVideo;
 import vn.com.pps.education.domain.ReviewVideoAssignment;
 import vn.com.pps.education.domain.ReviewVideoQuestion;
@@ -21,12 +24,18 @@ import vn.com.pps.education.repository.ReviewVideoQuestionRepository;
 import vn.com.pps.education.repository.StudentRepository;
 
 import java.math.BigDecimal;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -79,7 +88,7 @@ class ReflexSequentialGradingServiceTest {
             throw new ReflexAudioRejectedException(ReflexV2AiGradingService.MSG_SPOKE_DIFFERENT);
         });
 
-        assertThatThrownBy(() -> service.submitSpokenAnswer(QUESTION_ID, ASSIGNMENT_ID, AUDIO_URL, ACTOR_USER_ID))
+        assertThatThrownBy(() -> service.submitSpokenAnswer(QUESTION_ID, ASSIGNMENT_ID, AUDIO_URL, true, ACTOR_USER_ID))
                 .isInstanceOf(ReflexAudioRejectedException.class)
                 .hasMessage(ReflexV2AiGradingService.MSG_SPOKE_DIFFERENT);
 
@@ -89,11 +98,62 @@ class ReflexSequentialGradingServiceTest {
         verify(progressRepository, never()).save(any());
     }
 
+    /**
+     * Bước nói định tuyến theo rubricVersion ĐÃ LƯU của dòng: câu chấm viết bằng v2 trước khi lên v3 vẫn chấm nói
+     * bằng v2 (thư mục rubrics-v2/, cấu hình v2); câu mới chấm bằng v3.
+     */
+    @Test
+    void submitSpokenAnswer_UC23b_routesByStoredRubricVersion() {
+        for (String version : List.of(ReflexV2Task.RUBRIC_V2, ReflexV2Task.RUBRIC_V3)) {
+            clearInvocations(reflexV2GradingService);
+            speakingFixture(version);
+            doThrow(new ReflexAudioRejectedException(ReflexV2AiGradingService.MSG_SPOKE_DIFFERENT))
+                    .when(reflexV2GradingService).gradeSpeaking(any(), any(), any(), any(), any(), any());
+
+            assertThatThrownBy(() -> service.submitSpokenAnswer(QUESTION_ID, ASSIGNMENT_ID, AUDIO_URL, true, ACTOR_USER_ID))
+                    .isInstanceOf(ReflexAudioRejectedException.class);
+
+            ArgumentCaptor<ReflexV2Task> task = ArgumentCaptor.forClass(ReflexV2Task.class);
+            verify(reflexV2GradingService).gradeSpeaking(task.capture(), any(), any(), any(), any(), any());
+            assertThat(task.getValue().rubricVersion()).isEqualTo(version);
+            assertThat(task.getValue().rubricDir()).isEqualTo("rubrics-" + version + "/");
+        }
+    }
+
+    /**
+     * V198 — lần ghi âm mà lượt chấm đánh dấu cần giáo viên soát Ngữ pháp (speaking_audit) phải để lại đúng cờ +
+     * các đoạn bị tô đỏ trong dòng lịch sử, để trang thống kê chỉ ra cho giáo viên.
+     */
+    @Test
+    void submitSpokenAnswer_UC23b_grammarReviewFlag_isCopiedIntoTheHistoryRow() {
+        speakingFixture(ReflexV2Task.RUBRIC_V3);
+        when(progressRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        Map<String, Object> audit = new HashMap<>();
+        audit.put(ReflexV2AiGradingService.AUDIT_GRAMMAR_REVIEW_REQUIRED, true);
+        audit.put(ReflexV2AiGradingService.AUDIT_GRAMMAR_REVIEW_QUOTES, List.of("often play", "really fun"));
+        when(reflexV2GradingService.gradeSpeaking(any(), any(), any(), any(), any(), any())).thenReturn(
+                new ReflexV2AiGradingService.SpeakingResult("marked", List.of(), 60, 65, "Em nói rõ ý.", "", List.of(), audit));
+
+        service.submitSpokenAnswer(QUESTION_ID, ASSIGNMENT_ID, AUDIO_URL, true, ACTOR_USER_ID);
+
+        ArgumentCaptor<ReflexQuestionProgressHistory> history = ArgumentCaptor.forClass(ReflexQuestionProgressHistory.class);
+        verify(historyRepository).save(history.capture());
+        assertThat(history.getValue().isGrammarReviewRequired()).isTrue();
+        assertThat(history.getValue().getGrammarReviewQuotes()).containsExactly("often play", "really fun");
+        // V199 — chế độ thu âm thực tế của lần ghi được lưu lại để so sánh hai chế độ
+        assertThat(history.getValue().getRecordingFilter()).isTrue();
+        assertThat(audit).containsEntry("recordingFilter", true);
+    }
+
     private record Fixture(ReviewVideoQuestion question, ReviewVideoAssignment assignment, Student student) {
     }
 
-    /** Câu hỏi REFLEX Khối 6, dòng tiến trình đã đạt Bước 1 bằng rubric v2 (có điểm Ngữ pháp khoá). */
     private Fixture v2SpeakingFixture() {
+        return speakingFixture(ReflexV2Task.RUBRIC_V2);
+    }
+
+    /** Câu hỏi REFLEX Khối 6, dòng tiến trình đã đạt Bước 1 bằng bộ rubric {@code rubricVersion}. */
+    private Fixture speakingFixture(String rubricVersion) {
         Curriculum curriculum = mock(Curriculum.class);
         when(curriculum.getGradeLevel()).thenReturn(Curriculum.GradeLevel.GRADE_6);
 
@@ -134,7 +194,7 @@ class ReflexSequentialGradingServiceTest {
         progress.setReviewVideoQuestion(question);
         progress.setStudent(student);
         progress.setReviewVideoAssignment(assignment);
-        progress.setRubricVersion("v2");
+        progress.setRubricVersion(rubricVersion);
         progress.setWritingScore(BigDecimal.valueOf(80));
         progress.setWritingLockedGrammarPercent(BigDecimal.valueOf(80));
         progress.setWritingRedErrorCount(0);

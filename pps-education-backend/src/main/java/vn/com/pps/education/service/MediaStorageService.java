@@ -8,9 +8,13 @@ import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import vn.com.pps.education.exception.MediaModuleNotAllowedException;
+import vn.com.pps.education.repository.UserRoleRepository;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.UncheckedIOException;
+import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 
@@ -38,8 +42,6 @@ import java.util.UUID;
 @Service
 public class MediaStorageService {
 
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(MediaStorageService.class);
-
     private static final long MAX_IMAGE_BYTES = 10L * 1024 * 1024;
     private static final long MAX_AUDIO_BYTES = 50L * 1024 * 1024;
     private static final long MAX_DOCUMENT_BYTES = 20L * 1024 * 1024;
@@ -52,31 +54,80 @@ public class MediaStorageService {
             "application/vnd.ms-excel",
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             "application/vnd.ms-powerpoint",
-            "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-            // UC-67: mẫu báo cáo dạng .html (REPORT_TEMPLATE) - đã xác nhận với người dùng (2026-08-09).
-            "text/html");
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation");
+
+    /**
+     * UC-67: mẫu báo cáo dạng .html - đã xác nhận với người dùng (2026-08-09). Rà soát bảo mật
+     * 2026-09-28: CHỈ nhận cho REPORT_TEMPLATE (module SERVER_ONLY, không upload qua API dùng chung) -
+     * trước đây nằm chung DOCUMENT_CONTENT_TYPES nên LMS_QUESTION/CURRICULUM_DOCUMENT cũng nhận HTML
+     * và phục vụ công khai như 1 trang web thật trên domain file của trung tâm.
+     */
+    private static final String HTML_CONTENT_TYPE = "text/html";
+
+    /**
+     * Rà soát bảo mật 2026-09-28: whitelist ảnh thay vì mọi image/* - image/svg+xml là tài liệu XML
+     * chạy được script khi mở trực tiếp trên trình duyệt.
+     */
+    private static final Set<String> IMAGE_CONTENT_TYPES = Set.of(
+            "image/jpeg", "image/png", "image/gif", "image/webp", "image/bmp",
+            "image/avif", "image/heic", "image/heif");
+
+    /** Role phía người học/đối tác - tài khoản CHỈ có các role này không phải nhân sự (MediaModule.UploadAccess.STAFF). */
+    private static final Set<String> NON_STAFF_ROLES = Set.of("STUDENT", "PARENT", "PARTNER_REP");
 
     private final S3Client r2Client;
+    private final UserRoleRepository userRoleRepository;
     private final String bucket;
     private final String publicBaseUrl;
 
     public MediaStorageService(S3Client r2Client,
+                                UserRoleRepository userRoleRepository,
                                 @Value("${app.media.r2.bucket}") String bucket,
                                 @Value("${app.media.r2.public-base-url}") String publicBaseUrl) {
         this.r2Client = r2Client;
+        this.userRoleRepository = userRoleRepository;
         this.bucket = bucket;
         this.publicBaseUrl = publicBaseUrl.endsWith("/")
                 ? publicBaseUrl.substring(0, publicBaseUrl.length() - 1)
                 : publicBaseUrl;
     }
 
-    /** Validate module/loại/kích thước file, upload lên Cloudflare R2, trả về URL công khai. */
+    /**
+     * POST /api/media/upload (API dùng chung). Rà soát bảo mật 2026-09-28 (đã xác nhận với người
+     * dùng): kiểm tra tài khoản có được upload vào module này không (MediaModule.UploadAccess) trước
+     * khi validate/lưu file - trước đây Học sinh upload được vào cả thư mục nội dung giảng dạy.
+     * Cố ý KHÔNG @Transactional: upload tới 200MB, không giữ kết nối DB suốt thời gian đẩy file.
+     */
+    public String storeUpload(MultipartFile file, String moduleCode, Long actorUserId) {
+        MediaModule module = MediaModule.fromCode(moduleCode);
+        boolean allowed = switch (module.uploadAccess()) {
+            case ANY_USER -> true;
+            case STAFF -> isStaff(actorUserId);
+            case SERVER_ONLY -> false;
+        };
+        if (!allowed) {
+            throw new MediaModuleNotAllowedException("error.media.moduleNotAllowed", new Object[]{module.name()},
+                    "Tài khoản không được tải tệp lên mục " + module.name() + ".");
+        }
+        return store(file, moduleCode);
+    }
+
+    private boolean isStaff(Long userId) {
+        return userRoleRepository.findRoleCodesByUserId(userId).stream()
+                .anyMatch(code -> !NON_STAFF_ROLES.contains(code));
+    }
+
+    /**
+     * Validate module/loại/kích thước file, upload lên Cloudflare R2, trả về URL công khai. KHÔNG kiểm
+     * tra quyền theo module - chỉ gọi trực tiếp từ luồng nghiệp vụ đã tự phân quyền (VD UC-67
+     * ReportTemplateService), request từ người dùng đi qua {@link #storeUpload}.
+     */
     public String store(MultipartFile file, String moduleCode) {
         MediaModule module = MediaModule.fromCode(moduleCode);
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("File không được để trống.");
         }
-        String contentType = file.getContentType();
+        String contentType = normalizeContentType(file.getContentType());
         if (contentType == null) {
             throw new IllegalArgumentException("Không xác định được loại tệp (Content-Type).");
         }
@@ -85,13 +136,14 @@ public class MediaStorageService {
         if (contentType.startsWith("audio/")) {
             category = "audio";
             maxBytes = MAX_AUDIO_BYTES;
-        } else if (contentType.startsWith("image/")) {
+        } else if (IMAGE_CONTENT_TYPES.contains(contentType)) {
             category = "images";
             maxBytes = MAX_IMAGE_BYTES;
         } else if (module.acceptsVideo() && contentType.startsWith("video/")) {
             category = "video";
             maxBytes = MAX_VIDEO_BYTES;
-        } else if (module.acceptsOfficeDocuments() && DOCUMENT_CONTENT_TYPES.contains(contentType)) {
+        } else if (module.acceptsOfficeDocuments() && (DOCUMENT_CONTENT_TYPES.contains(contentType)
+                || (module == MediaModule.REPORT_TEMPLATE && HTML_CONTENT_TYPE.equals(contentType)))) {
             category = "documents";
             maxBytes = MAX_DOCUMENT_BYTES;
         } else {
@@ -101,6 +153,7 @@ public class MediaStorageService {
             throw new IllegalArgumentException("Tệp vượt quá dung lượng tối đa cho phép ("
                     + (maxBytes / (1024 * 1024)) + "MB).");
         }
+        requireMatchingSignature(file, contentType);
 
         String key = module.folderPrefix() + "/" + category + "/" + UUID.randomUUID() + extensionOf(file.getOriginalFilename());
         try {
@@ -142,43 +195,56 @@ public class MediaStorageService {
      * cho AI đa phương thức) dùng hàm này thay vì {@link #download}.
      */
     public DownloadedFile downloadWithContentType(String publicUrl) {
-        if (publicUrl == null || publicUrl.isBlank()) {
+        String key = objectKeyOf(publicUrl);
+        try (var stream = r2Client.getObject(GetObjectRequest.builder().bucket(bucket).key(key).build())) {
+            return new DownloadedFile(stream.readAllBytes(), stream.response().contentType());
+        } catch (IOException ex) {
+            throw new UncheckedIOException("Không tải được file từ storage (key=" + key + ").", ex);
+        }
+    }
+
+    /**
+     * V200 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-29) — ghi thẳng object ra file tạm thay vì
+     * đọc hết vào bộ nhớ ({@link #downloadWithContentType}): video REFLEX tới 200MB, chỉ cần để ffmpeg chụp 1 khung
+     * hình (UC-23b dạng tả tranh). Cùng cơ chế chống SSRF — chỉ nhận URL hệ thống đã lưu, đọc qua S3 client.
+     *
+     * @param target file đích (sẽ bị ghi đè).
+     */
+    public void downloadToFile(String publicUrl, java.nio.file.Path target) {
+        String key = objectKeyOf(publicUrl);
+        try (var stream = r2Client.getObject(GetObjectRequest.builder().bucket(bucket).key(key).build())) {
+            java.nio.file.Files.copy(stream, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException ex) {
+            throw new UncheckedIOException("Không tải được file từ storage (key=" + key + ").", ex);
+        }
+    }
+
+    /**
+     * Validate URL media do người dùng gửi lên (VD audioUrl khi nộp bài) TRƯỚC khi lưu vào DB - chỉ
+     * nhận URL do chính hệ thống sinh ra qua {@link #store}. Ném IllegalArgumentException (400) nếu không.
+     */
+    public void requireStoredUrl(String publicUrl) {
+        objectKeyOf(publicUrl);
+    }
+
+    /**
+     * Chống SSRF (rà soát bảo mật 2026-09-28, đã xác nhận với người dùng): URL truyền vào có thể đến
+     * từ request của người dùng (VD audioUrl học sinh gửi khi nộp bài Video phản xạ - UC-23b), nên
+     * TUYỆT ĐỐI không mở kết nối tới địa chỉ trong URL. Chỉ chấp nhận URL do chính {@link #store}/
+     * {@link #storeGeneratedFile} sinh ra ({publicBaseUrl}/{key}), suy ngược ra object key rồi đọc qua
+     * S3 client - server không bao giờ tự đi tới host/scheme (http, file...) do người dùng chọn.
+     * Trước đây có nhánh fallback tải qua URLConnection + trả HTML mẫu giả lập khi lỗi - đã bỏ.
+     */
+    private String objectKeyOf(String publicUrl) {
+        if (publicUrl == null || !publicUrl.startsWith(publicBaseUrl + "/")) {
+            throw new IllegalArgumentException("URL file không thuộc kho lưu trữ của hệ thống.");
+        }
+        String key = publicUrl.substring(publicBaseUrl.length() + 1);
+        if (key.isBlank() || key.startsWith("/") || key.contains("..") || key.contains("\\")
+                || key.contains("?") || key.contains("#")) {
             throw new IllegalArgumentException("URL file không hợp lệ.");
         }
-        if (publicUrl.startsWith(publicBaseUrl + "/")) {
-            String key = publicUrl.substring(publicBaseUrl.length() + 1);
-            try (var stream = r2Client.getObject(GetObjectRequest.builder().bucket(bucket).key(key).build())) {
-                return new DownloadedFile(stream.readAllBytes(), stream.response().contentType());
-            } catch (Exception ex) {
-                log.warn("Không tải được từ R2 storage (key={}): {}, nỗ lực fallback...", key, ex.getMessage());
-            }
-        }
-        // Cho phép tải qua HTTP GET từ bên ngoài hoặc đọc mock fallback cho dữ liệu seed
-        try {
-            java.net.URL url = new java.net.URI(publicUrl).toURL();
-            java.net.URLConnection connection = url.openConnection();
-            try (java.io.InputStream in = connection.getInputStream()) {
-                return new DownloadedFile(in.readAllBytes(), connection.getContentType());
-            }
-        } catch (Exception e) {
-            // Trường hợp seed mock URL giả lập (storage.pps.edu.vn): trả về mẫu byte HTML/Text đại diện hợp lệ
-            String fallbackContent = "<html><body>"
-                    + "<h1>BÁO CÁO MẪU GIẢ LẬP ([CLASS_NAME])</h1>"
-                    + "<p>Năm học: [ACADEMIC_YEAR] - Ngày xuất: [GENERATED_DATE]</p>"
-                    + "<p>Giáo viên: [PRIMARY_TEACHER_NAME]</p>"
-                    + "<p>Học sinh: [STUDENT_NAME] ([STUDENT_CODE])</p>"
-                    + "<ul>"
-                    + "<li>Nói (Speaking): [SPEAKING_MID1]</li>"
-                    + "<li>Đọc (Reading): [READING_MID1]</li>"
-                    + "<li>Nghe (Listening): [LISTENING_MID1]</li>"
-                    + "<li>Viết (Writing): [WRITING_MID1]</li>"
-                    + "<li>Ngữ pháp (Grammar): [GRAMMAR_MID1]</li>"
-                    + "<li>Tổng kết (Overall): [OVERALL_MID1] - Xếp loại: [LEVEL_MID1]</li>"
-                    + "</ul>"
-                    + "<p><b>Nhận xét:</b> [COMMENT_MID1] [STUDENT_COMMENT]</p>"
-                    + "</body></html>";
-            return new DownloadedFile(fallbackContent.getBytes(java.nio.charset.StandardCharsets.UTF_8), "text/html");
-        }
+        return key;
     }
 
     /**
@@ -198,6 +264,85 @@ public class MediaStorageService {
                         .build(),
                 RequestBody.fromBytes(data));
         return publicBaseUrl + "/" + key;
+    }
+
+    /** Bỏ tham số (VD "; charset=utf-8") và chữ hoa để so khớp whitelist - "image/jpg" (không chuẩn) coi như image/jpeg. */
+    private static String normalizeContentType(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        String type = raw.split(";", 2)[0].trim().toLowerCase(Locale.ROOT);
+        return "image/jpg".equals(type) ? "image/jpeg" : type;
+    }
+
+    /**
+     * Rà soát bảo mật 2026-09-28: Content-Type do client tự khai, nên với ảnh và tài liệu văn phòng
+     * đối chiếu thêm vài byte đầu (magic bytes) - chặn file HTML/script đổi tên thành .png/.pdf. Audio/
+     * video có quá nhiều định dạng container (webm/mp4/ogg/mp3/wav...) nên không kiểm tra; khi phục vụ
+     * vẫn giữ nguyên Content-Type audio/video + header nosniff nên trình duyệt không chạy như trang web.
+     */
+    private void requireMatchingSignature(MultipartFile file, String contentType) {
+        FileSignature expected = FileSignature.forContentType(contentType);
+        if (expected == null) {
+            return;
+        }
+        byte[] head;
+        try (InputStream in = file.getInputStream()) {
+            head = in.readNBytes(16);
+        } catch (IOException ex) {
+            throw new UncheckedIOException("Không đọc được tệp tải lên.", ex);
+        }
+        if (!expected.matches(head)) {
+            throw new IllegalArgumentException("Nội dung tệp không khớp với loại tệp khai báo (" + contentType + ").");
+        }
+    }
+
+    /** Chữ ký đầu file theo nhóm định dạng - null nghĩa là không kiểm tra (audio/video, HTML mẫu báo cáo). */
+    private enum FileSignature {
+        JPEG, PNG, GIF, WEBP, BMP, ISO_MEDIA, PDF, OLE, ZIP;
+
+        static FileSignature forContentType(String contentType) {
+            return switch (contentType) {
+                case "image/jpeg" -> JPEG;
+                case "image/png" -> PNG;
+                case "image/gif" -> GIF;
+                case "image/webp" -> WEBP;
+                case "image/bmp" -> BMP;
+                case "image/avif", "image/heic", "image/heif" -> ISO_MEDIA;
+                case "application/pdf" -> PDF;
+                case "application/msword", "application/vnd.ms-excel", "application/vnd.ms-powerpoint" -> OLE;
+                case "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                     "application/vnd.openxmlformats-officedocument.presentationml.presentation" -> ZIP;
+                default -> null;
+            };
+        }
+
+        boolean matches(byte[] h) {
+            return switch (this) {
+                case JPEG -> startsWith(h, 0, 0xFF, 0xD8, 0xFF);
+                case PNG -> startsWith(h, 0, 0x89, 'P', 'N', 'G');
+                case GIF -> startsWith(h, 0, 'G', 'I', 'F', '8');
+                case WEBP -> startsWith(h, 0, 'R', 'I', 'F', 'F') && startsWith(h, 8, 'W', 'E', 'B', 'P');
+                case BMP -> startsWith(h, 0, 'B', 'M');
+                case ISO_MEDIA -> startsWith(h, 4, 'f', 't', 'y', 'p');
+                case PDF -> startsWith(h, 0, '%', 'P', 'D', 'F');
+                case OLE -> startsWith(h, 0, 0xD0, 0xCF, 0x11, 0xE0);
+                case ZIP -> startsWith(h, 0, 'P', 'K', 0x03, 0x04);
+            };
+        }
+
+        private static boolean startsWith(byte[] h, int offset, int... expected) {
+            if (h.length < offset + expected.length) {
+                return false;
+            }
+            for (int i = 0; i < expected.length; i++) {
+                if ((h[offset + i] & 0xFF) != expected[i]) {
+                    return false;
+                }
+            }
+            return true;
+        }
     }
 
     /** Chỉ giữ lại phần mở rộng gồm chữ/số (chặn path traversal/ký tự lạ từ tên file gốc). */

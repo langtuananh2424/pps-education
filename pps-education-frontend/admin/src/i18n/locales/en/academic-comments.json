@@ -72,9 +72,10 @@
       "offline": "Offline"
     },
     "cancel": "Cancel",
-    "saveEdit": "Save changes",
+    "saveEdit": "Save content",
     "savingEdit": "Saving...",
-    "actionEdit": "Edit",
+    "actionEdit": "Edit content",
+    "editingHint": "You are directly editing the student comment CONTENT (replacing what the teacher wrote) — this is not a rejection reason. To send it back to the teacher, click Cancel and then \"Reject\".",
     "actionReject": "Reject",
     "actionApprove": "Approve",
     "deciding": "...",
@@ -87,6 +88,81 @@
       "decideAllFailed": "Failed to approve all comments.",
       "emptyContent": "Comment content cannot be empty.",
       "saveEditFailed": "Failed to save the edited content."
+    },
+    "aiReview": {
+      "approveClean": "Approve {{count}} rows without warnings",
+      "approvedClean": "Approved {{count}} comments without warnings.",
+      "confirmApproveAll": "{{count}} rows still have AI assistant warnings. Approve the whole class anyway?",
+      "source": {
+        "RULE": "Auto",
+        "AI": "AI"
+      },
+      "suggestButton": "AI suggest a fix",
+      "suggesting": "Suggesting…",
+      "suggestionTitle": "AI suggested revision (not saved)",
+      "dismiss": "Dismiss",
+      "editFirst": "Edit first",
+      "apply": "Apply",
+      "applied": "Applied the revision for {{name}} — the comment is still pending.",
+      "errors": {
+        "failed": "The assistant could not review — please try again.",
+        "suggestFailed": "The assistant could not suggest a fix — please try again.",
+        "rejectReasonFailed": "The assistant could not draft a reason — please type it yourself."
+      },
+      "notice": "Note",
+      "confirmApproveCleanAlerts": "{{alerts}} of the {{count}} rows to approve have a Weak/Average attitude — approving sends an attitude alert to parents{{escalationNote}}. Continue?",
+      "confirmApproveAllAlerts": "This class has {{alerts}} rows with a Weak/Average attitude — approving sends an attitude alert to parents{{escalationNote}}. Approve the whole class anyway?",
+      "escalationNote": " ({{count}} rows reach the 3-session alert threshold)",
+      "attitudeAlert": {
+        "single": "Will alert parents",
+        "escalation": "Reaches 3-session alert"
+      },
+      "rejectReasonButton": "AI suggest a rejection reason",
+      "rejectReasonLoading": "Drafting reason…",
+      "summary": {
+        "clean": "{{count}} clean",
+        "issue": "{{count}} {{label}}",
+        "parentAlerts": "{{count}} will alert parents",
+        "escalations": "{{count}} reach 3-session alert",
+        "homeworkMismatch": "{{count}} homework remark contradicts data",
+        "repeatedPattern": "{{count}} reuse the same template"
+      },
+      "issueType": {
+        "CONTAINS_DIGITS": "contain digits",
+        "TOO_LONG": "too long",
+        "EMPTY": "empty",
+        "OTHER_STUDENT_NAME": "mention another student",
+        "OTHER_STUDENT": "mention another student",
+        "LESSON_TITLE": "mention the lesson title",
+        "SIMILAR_IN_SESSION": "similar to a classmate",
+        "SIMILAR_TO_PREVIOUS": "similar to a previous session",
+        "HOMEWORK_OR_SCORE": "scores/deadlines",
+        "HARSH_WORDING": "harsh wording",
+        "ATTITUDE_MISMATCH": "attitude mismatch",
+        "FORBIDDEN_TOPIC": "off-limits topic",
+        "OTHER": "other issues"
+      },
+      "repeatedPatternGroup": "{{count}} rows reuse the same sentence template (opening/closing or repeated phrase): {{names}}. Does not block approval — consider asking the teacher to vary the wording."
+    },
+    "assistant": {
+      "openButton": "AI review assistant",
+      "title": "Comment review assistant",
+      "classOption": "{{className}} — {{count}} pending",
+      "intro": "Pick a class and press \"Review this class\" to flag issues on each comment. To fix something, record or type a request (e.g. \"remove the phrase about disrupting in Dat's comment\"); the assistant proposes revisions for you to Apply.",
+      "permissionNote": "The assistant only suggests — it never approves, rejects or edits by itself. A revision is saved only when you press Apply; the comment stays pending.",
+      "reviewChip": "Review this class",
+      "recordChip": "Record a fix request",
+      "reviewCommand": "Review class {{className}}",
+      "reviewAgain": "Review again",
+      "classDone": "This class has no pending comments left.",
+      "audioMessage": "🎙️ Voice request ({{duration}})",
+      "heard": "The assistant heard: \"{{text}}\"",
+      "applied": "Applied",
+      "applyAll": "Apply all",
+      "appliedAll": "Applied {{count}} revisions — the comments are still pending.",
+      "noLongerPending": "No longer pending",
+      "working": "The assistant is working… (may take up to a minute)",
+      "inputPlaceholder": "Request a fix, e.g. \"Make Dat's comment gentler\"…"
     }
   },
   "historyList": {
@@ -315,6 +391,77 @@
       "saveDraftBeforeDownloadFailed": "Couldn't save the draft, so the file wasn't downloaded — {{reason}}",
       "xlsxOnly": "Only .xlsx files are supported.",
       "importFailed": "Failed to import from Excel."
+    },
+    "viewMode": {
+      "table": "Table",
+      "cards": "Cards",
+      "cardsHint": "Cards edit Attitude/Comment/Note only — enter scores and homework in Table view."
+    },
+    "cardView": {
+      "aiBadge": "AI draft",
+      "previousComment": "Previous comment",
+      "noPreviousComment": "No previous comment in this class.",
+      "similarToPrevious": "{{percent}}% similar to last time",
+      "status": {
+        "DRAFT": "Draft",
+        "PENDING": "Pending",
+        "APPROVED": "Approved",
+        "REJECTED": "Rejected"
+      },
+      "absentHint": "Absent this session — Attitude/Comment locked, the AI assistant skips this student."
+    },
+    "aiAssistant": {
+      "openButton": "AI comment assistant",
+      "title": "Comment assistant",
+      "noSession": "Select a session to start",
+      "close": "Close assistant",
+      "intro": "Type your feedback for the session (or record/upload audio up to 5 minutes if easier): a general comment for the class, then mention students who need specific feedback. The assistant drafts Attitude + Comment for every present student.",
+      "permissionNote": "The assistant only fills Attitude and Comment, never scores/homework. Its highest save level is Save draft — you review and submit.",
+      "suggestions": {
+        "record": "Record feedback",
+        "upload": "Upload audio file"
+      },
+      "audioMessage": "🎙️ Audio feedback ({{duration}})",
+      "recording": "Recording {{elapsed}} / {{max}}",
+      "stopRecording": "Stop",
+      "removeAudio": "Remove audio",
+      "inputPlaceholder": "Extra notes or type feedback (Enter to send)…",
+      "inputPlaceholderRevise": "Ask for changes, e.g. \"An gets Average today\"…",
+      "send": "Send",
+      "working": "The assistant is drafting comments… (may take 1–2 minutes)",
+      "individualBadge": "Specific",
+      "noAttitude": "attitude not mentioned",
+      "unmatchedTitle": "Student not identified",
+      "unmatchedCandidates": "maybe: {{names}}",
+      "skipped": "Skipped: {{names}}",
+      "transcriptToggle": "Show transcript",
+      "actions": {
+        "apply": "Apply to table",
+        "saveDraft": "Save draft",
+        "rewrite": "Rewrite with more variety"
+      },
+      "quickInstructionLabels": {
+        "shorter": "Shorter",
+        "warmer": "Warmer tone",
+        "changeAttitude": "Change one attitude…"
+      },
+      "quickInstructions": {
+        "shorter": "Make every comment shorter.",
+        "warmer": "Use a warmer, more encouraging tone.",
+        "changeAttitude": "Student … gets attitude … today"
+      },
+      "appliedMessage": "Filled Attitude + Comment for {{count}} students (submitted/absent rows unchanged). Remember to save a draft before leaving.",
+      "savedMessage": "Applied and saved as draft. Review and press \"Send comments\" when ready.",
+      "errors": {
+        "recordingUnsupported": "This browser cannot record — please upload an audio file.",
+        "microphoneDenied": "Cannot access the microphone — check browser permissions.",
+        "notAudio": "The selected file is not audio.",
+        "tooLong": "Audio longer than 5 minutes — trim it or send in parts.",
+        "generic": "The assistant ran into an error — please try again.",
+        "timeout": "The assistant took too long — please try again."
+      },
+      "pronounDetected": "Teacher refers to self as: {{pronoun}}",
+      "pronounUnknown": "Could not tell whether you are \"thầy\" or \"cô\" — the assistant writes without a teacher pronoun (e.g. \"Mong con…\"). Type \"xưng thầy\" or \"xưng cô\" to change."
     }
   },
   "commentsPage": {

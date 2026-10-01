@@ -33,6 +33,11 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.UNAUTHORIZED, ex);
     }
 
+    @ExceptionHandler(TooManyLoginAttemptsException.class)
+    public ResponseEntity<Object> handleTooManyLoginAttempts(TooManyLoginAttemptsException ex) {
+        return error(HttpStatus.TOO_MANY_REQUESTS, ex);
+    }
+
     @ExceptionHandler(AccountLockedException.class)
     public ResponseEntity<Object> handleAccountLocked(AccountLockedException ex) {
         return error(HttpStatus.LOCKED, ex);
@@ -107,14 +112,15 @@ public class GlobalExceptionHandler {
             LeadNotQualifiedException.class, InvalidLeadStatusTransitionException.class,
             InvalidFeedbackStatusTransitionException.class, InvalidClassSessionStatusTransitionException.class,
             OperatingExpenseAlreadyDecidedException.class, PartnerContractNotDeletableException.class,
-            TuitionPlanNotActiveException.class, RoleNotDeletableException.class,
+            TuitionPlanNotActiveException.class, RoleNotDeletableException.class, RoleLockedException.class,
             DepartmentNotDeletableException.class, PositionNotDeletableException.class,
             GradeComponentNotDeletableException.class, GradeComponentSetupNotDeletableException.class,
             MissingLessonContentException.class, MissingCommentContentException.class, HomeworkNextConflictException.class,
             NoUpcomingClassSessionException.class, VideoNotYetQualifiedException.class,
             QuizAlreadyCompletedException.class, ListeningHintNotUnlockedException.class,
             ClassSessionNotCheckableException.class, SitePeriodTemplateNotDeletableException.class,
-            EntranceAssessmentNotDeletableException.class, ReflexAudioRejectedException.class})
+            EntranceAssessmentNotDeletableException.class, ReflexAudioRejectedException.class,
+            CommentAiDraftRejectedException.class})
     public ResponseEntity<Object> handleClassSetupRejected(RuntimeException ex) {
         return error(HttpStatus.UNPROCESSABLE_ENTITY, ex);
     }
@@ -123,7 +129,8 @@ public class GlobalExceptionHandler {
             NotAssignedTeacherForClassException.class, NotAssignedTeacherForSessionException.class,
             AssigneeOutsideDepartmentException.class,
             NotTaskParticipantException.class, NotTaskCreatorException.class, NotAuthorizedForFeedbackException.class,
-            NotAuthorizedForTaskOverviewException.class})
+            NotAuthorizedForTaskOverviewException.class, MediaModuleNotAllowedException.class,
+            NotAllowedToCorrectPastSessionException.class})
     public ResponseEntity<Object> handleAcademicAuthorization(RuntimeException ex) {
         return error(HttpStatus.FORBIDDEN, ex);
     }
@@ -135,6 +142,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(ManagementExemptFromAttendanceException.class)
     public ResponseEntity<Object> handleManagementExempt(ManagementExemptFromAttendanceException ex) {
+        return error(HttpStatus.FORBIDDEN, ex);
+    }
+
+    @ExceptionHandler(PartTimeTeacherExemptFromAttendanceException.class)
+    public ResponseEntity<Object> handlePartTimeTeacherExempt(PartTimeTeacherExemptFromAttendanceException ex) {
         return error(HttpStatus.FORBIDDEN, ex);
     }
 

@@ -5,6 +5,7 @@ import vn.com.pps.education.domain.AttendanceMark;
 import vn.com.pps.education.domain.AttendanceSession;
 import vn.com.pps.education.domain.ClassEnrollment;
 import vn.com.pps.education.domain.ClassSession;
+import vn.com.pps.education.domain.HomeworkSkillBatch;
 import vn.com.pps.education.domain.ReportTemplate;
 import vn.com.pps.education.domain.StudentComment;
 import vn.com.pps.education.exception.ResourceNotFoundException;
@@ -16,13 +17,17 @@ import vn.com.pps.education.repository.StudentCommentRepository;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * UC-68: resolver cho {@link ReportTemplate.TemplateType#DAILY_REPORT}
@@ -49,17 +54,20 @@ public class DailyReportDataResolver implements ReportDataResolver {
     private final AttendanceSessionRepository attendanceSessionRepository;
     private final AttendanceMarkRepository attendanceMarkRepository;
     private final StudentCommentRepository studentCommentRepository;
+    private final StudentCommentService studentCommentService;
 
     public DailyReportDataResolver(ClassSessionRepository classSessionRepository,
                                      ClassEnrollmentRepository classEnrollmentRepository,
                                      AttendanceSessionRepository attendanceSessionRepository,
                                      AttendanceMarkRepository attendanceMarkRepository,
-                                     StudentCommentRepository studentCommentRepository) {
+                                     StudentCommentRepository studentCommentRepository,
+                                     StudentCommentService studentCommentService) {
         this.classSessionRepository = classSessionRepository;
         this.classEnrollmentRepository = classEnrollmentRepository;
         this.attendanceSessionRepository = attendanceSessionRepository;
         this.attendanceMarkRepository = attendanceMarkRepository;
         this.studentCommentRepository = studentCommentRepository;
+        this.studentCommentService = studentCommentService;
     }
 
     @Override
@@ -68,9 +76,23 @@ public class DailyReportDataResolver implements ReportDataResolver {
     }
 
     /**
-     * Key công bố: CLASS_NAME, CLASS_DATE, TEACHER_NAME, LESSON_TOPIC,
-     * TOTAL_STUDENTS, ABSENT_COUNT, GENERATED_DATE, và bảng động
-     * {@code [[TABLE:STUDENTS]]}.
+     * Key công bố: CLASS_NAME, CLASS_DATE, TEACHER_NAME,
+     * ASSISTANT_TEACHER_NAME, LESSON_TOPIC, TOTAL_STUDENTS, PRESENT_COUNT,
+     * ABSENT_COUNT, ABSENT_STUDENT_NAMES, MISSING_HOMEWORK_STUDENT_NAMES,
+     * HOMEWORK_CONTENT, GENERATED_DATE, và bảng động {@code [[TABLE:STUDENTS]]}.
+     *
+     * Quy tắc đếm (đã xác nhận với người dùng 2026-09-28): ABSENT_COUNT =
+     * Vắng (ABSENT) + Vắng có phép (EXCUSED); PRESENT_COUNT = Có mặt
+     * (PRESENT) + Đi trễ (LATE) + Về sớm (EARLY_LEAVE). Học sinh chưa được
+     * điểm danh không nằm trong cả 2 con số. ABSENT_STUDENT_NAMES liệt kê
+     * đúng các học sinh được đếm trong ABSENT_COUNT.
+     *
+     * BTVN (đã xác nhận với người dùng 2026-09-28): MISSING_HOMEWORK_STUDENT_NAMES
+     * = học sinh có "BTVN buổi trước" kênh online Ngữ pháp/Nghe là "Chưa làm
+     * bài" (xem StudentCommentService#studentIdsWithUndoneGrammarHomework);
+     * HOMEWORK_CONTENT = BTVN giao cho buổi sau, gộp mọi kênh, bỏ trùng giữa
+     * các học sinh, mỗi mục 1 dòng. 3 key danh sách này để rỗng khi không có
+     * mục nào (trường hợp bình thường, không phải thiếu dữ liệu — UC-68 A1).
      */
     @Override
     public Map<String, Object> buildContext(ReportGenerationParams params) {
@@ -86,6 +108,9 @@ public class DailyReportDataResolver implements ReportDataResolver {
         context.put("CLASS_DATE", session.getSessionDate().format(DATE_FORMAT));
         context.put("TEACHER_NAME", session.getActualTeacherName() != null
                 ? session.getActualTeacherName() : session.getPrimaryTeacher().getFullName());
+        // Buổi không có trợ giảng là trường hợp bình thường, không phải thiếu dữ liệu (UC-68 A1) — điền rỗng như LESSON_TOPIC.
+        context.put("ASSISTANT_TEACHER_NAME", session.getAssistantTeacher() != null
+                ? session.getAssistantTeacher().getFullName() : "");
         context.put("LESSON_TOPIC", session.getLessonContent() != null ? session.getLessonContent() : "");
         context.put("GENERATED_DATE", LocalDate.now().format(DATE_FORMAT));
 
@@ -98,11 +123,31 @@ public class DailyReportDataResolver implements ReportDataResolver {
                 .collect(Collectors.toMap(c -> c.getStudent().getId(), Function.identity(), (a, b) -> a));
 
         long absentCount = markByStudentId.values().stream()
-                .filter(m -> m.getStatus() == AttendanceMark.Status.ABSENT).count();
+                .filter(m -> isAbsent(m.getStatus())).count();
+        long presentCount = markByStudentId.values().stream()
+                .filter(m -> !isAbsent(m.getStatus())).count();
         context.put("ABSENT_COUNT", absentCount);
+        context.put("PRESENT_COUNT", presentCount);
+        context.put("ABSENT_STUDENT_NAMES", joinSortedNames(markByStudentId.values().stream()
+                .filter(m -> isAbsent(m.getStatus()))
+                .map(m -> m.getStudent().getUser().getFullName())));
 
-        List<Map<String, Object>> studentRows = activeEnrollments.stream()
+        List<Long> activeStudentIds = activeEnrollments.stream().map(e -> e.getStudent().getId()).toList();
+        Set<Long> missingHomeworkIds = studentCommentService.studentIdsWithUndoneGrammarHomework(session, activeStudentIds);
+        context.put("MISSING_HOMEWORK_STUDENT_NAMES", joinSortedNames(activeEnrollments.stream()
+                .filter(e -> missingHomeworkIds.contains(e.getStudent().getId()))
+                .map(e -> e.getStudent().getUser().getFullName())));
+
+        List<ClassEnrollment> sortedEnrollments = activeEnrollments.stream()
                 .sorted(Comparator.comparing(e -> e.getStudent().getUser().getFullName()))
+                .toList();
+        // Duyệt theo thứ tự tên A-Z để thứ tự dòng BTVN ổn định giữa các lần xuất.
+        context.put("HOMEWORK_CONTENT", homeworkContent(sortedEnrollments.stream()
+                .map(e -> commentByStudentId.get(e.getStudent().getId()))
+                .filter(java.util.Objects::nonNull)
+                .toList()));
+
+        List<Map<String, Object>> studentRows = sortedEnrollments.stream()
                 .map(enrollment -> {
                     Map<String, Object> row = new HashMap<>();
                     row.put("STUDENT_CODE", enrollment.getStudent().getStudentCode());
@@ -125,6 +170,44 @@ public class DailyReportDataResolver implements ReportDataResolver {
         }
         return attendanceMarkRepository.findByAttendanceSessionId(attendanceSession.get().getId()).stream()
                 .collect(Collectors.toMap(m -> m.getStudent().getId(), Function.identity()));
+    }
+
+    private String joinSortedNames(Stream<String> names) {
+        return names.sorted().collect(Collectors.joining(", "));
+    }
+
+    /**
+     * BTVN giao cho buổi sau, gộp mọi kênh — offline chữ tự do (homeworkNext/Reading/Writing) giữ
+     * nguyên văn GV gõ, online ghi tên Đề/Video đã giao (chỉ có sau khi Gửi nhận xét, xem V127).
+     */
+    private String homeworkContent(Collection<StudentComment> comments) {
+        Set<String> lines = new LinkedHashSet<>();
+        for (StudentComment c : comments) {
+            addLine(lines, null, c.getHomeworkNext());
+            addLine(lines, "Reading", c.getHomeworkNextReading());
+            addLine(lines, "Writing", c.getHomeworkNextWriting());
+            addLine(lines, "Online", batchTitle(c.getHomeworkNextGrammarBatch()));
+            addLine(lines, "Online Reading", batchTitle(c.getHomeworkNextReadingBatch()));
+            addLine(lines, "Online Writing", batchTitle(c.getHomeworkNextWritingBatch()));
+            if (c.getHomeworkNextReviewVideoAssignment() != null) {
+                addLine(lines, "Video", c.getHomeworkNextReviewVideoAssignment().getReviewVideoSet().getTitle());
+            }
+        }
+        return String.join("\n", lines);
+    }
+
+    private void addLine(Set<String> lines, String prefix, String value) {
+        if (value != null && !value.isBlank()) {
+            lines.add("- " + (prefix != null ? prefix + ": " : "") + value.strip());
+        }
+    }
+
+    private String batchTitle(HomeworkSkillBatch batch) {
+        return batch != null ? batch.getExam().getTitle() : null;
+    }
+
+    private boolean isAbsent(AttendanceMark.Status status) {
+        return status == AttendanceMark.Status.ABSENT || status == AttendanceMark.Status.EXCUSED;
     }
 
     private String attendanceStatusLabel(AttendanceMark.Status status) {

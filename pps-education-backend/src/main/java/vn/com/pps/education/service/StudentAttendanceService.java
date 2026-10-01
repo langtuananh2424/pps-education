@@ -16,6 +16,7 @@ import vn.com.pps.education.domain.SiteManager;
 import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.StudentComment;
 import vn.com.pps.education.domain.User;
+import vn.com.pps.education.dto.AttendanceMarkHistoryResponse;
 import vn.com.pps.education.dto.AttendanceMarkResponse;
 import vn.com.pps.education.dto.AttendanceSessionResponse;
 import vn.com.pps.education.dto.EnterAttendanceMarkRequest;
@@ -85,6 +86,7 @@ public class StudentAttendanceService {
     private final NotificationService notificationService;
     private final SiteTeacherRepository siteTeacherRepository;
     private final PermissionEvaluationService permissionEvaluationService;
+    private final DataScopeService dataScopeService;
     private final SchoolClassRepository schoolClassRepository;
     private final ClassEnrollmentRepository classEnrollmentRepository;
     private final SiteManagerRepository siteManagerRepository;
@@ -104,6 +106,7 @@ public class StudentAttendanceService {
                                      NotificationService notificationService,
                                      SiteTeacherRepository siteTeacherRepository,
                                      PermissionEvaluationService permissionEvaluationService,
+                                DataScopeService dataScopeService,
                                      SchoolClassRepository schoolClassRepository,
                                      ClassEnrollmentRepository classEnrollmentRepository,
                                      SiteManagerRepository siteManagerRepository,
@@ -122,6 +125,7 @@ public class StudentAttendanceService {
         this.notificationService = notificationService;
         this.siteTeacherRepository = siteTeacherRepository;
         this.permissionEvaluationService = permissionEvaluationService;
+        this.dataScopeService = dataScopeService;
         this.schoolClassRepository = schoolClassRepository;
         this.classEnrollmentRepository = classEnrollmentRepository;
         this.siteManagerRepository = siteManagerRepository;
@@ -405,7 +409,36 @@ public class StudentAttendanceService {
     }
 
     /**
-     * null = không giới hạn (actor có academic.class.manage); danh sách rỗng
+     * Lịch sử thao tác (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-01) — toàn bộ
+     * attendance_marks_history của buổi, cũ→mới. FE tự bucket các dòng gần nhau (cùng 1 lần bấm "Xác
+     * nhận & Lưu điểm danh" ghi N dòng, 1 dòng/học sinh, cùng actor + cùng thời điểm) thành 1 "đợt thao
+     * tác" (mirror SessionVersionHistoryModal.tsx bên Nhận xét, nhưng KHÔNG tái dựng lại toàn bộ bảng
+     * tại từng mốc — chỉ liệt kê timeline, theo đúng phạm vi "Timeline đơn giản" người dùng đã chọn).
+     * Cùng điều kiện phân quyền với getAttendanceSession (chỉ xem được buổi thuộc site được gán).
+     */
+    @Transactional(readOnly = true)
+    public List<AttendanceMarkHistoryResponse> getAttendanceHistory(Long classSessionId, Long actorUserId) {
+        AttendanceSession attendanceSession = attendanceSessionRepository.findByClassSessionId(classSessionId)
+                .orElseThrow(() -> new ResourceNotFoundException("error.studentAttendance.sessionNotFound", new Object[]{classSessionId}, "Chưa có bản ghi điểm danh cho buổi id=" + classSessionId));
+        List<Long> allowedSiteIds = resolveAllowedSiteIds(actorUserId);
+        Long siteId = attendanceSession.getClassSession().getSchoolClass().getSite().getId();
+        if (allowedSiteIds != null && !allowedSiteIds.contains(siteId)) {
+            throw new ResourceNotFoundException("error.studentAttendance.sessionNotFound", new Object[]{classSessionId}, "Chưa có bản ghi điểm danh cho buổi id=" + classSessionId);
+        }
+        return attendanceMarkHistoryRepository.findByAttendanceSessionIdOrderByCreatedAtAsc(attendanceSession.getId()).stream()
+                .map(this::toResponse).toList();
+    }
+
+    private AttendanceMarkHistoryResponse toResponse(AttendanceMarkHistory h) {
+        AttendanceMark mark = h.getAttendanceMark();
+        return new AttendanceMarkHistoryResponse(
+                h.getId(), mark.getStudent().getId(), mark.getStudent().getUser().getFullName(),
+                mark.getStudent().getStudentCode(), String.valueOf(h.getDetails().get("status")),
+                h.getAction().name(), h.getChangedBy().getId(), h.getChangedBy().getFullName(), h.getCreatedAt());
+    }
+
+    /**
+     * null = không giới hạn (phạm vi dữ liệu ALL — V202 — hoặc có academic.class.view-all); danh sách rỗng
      * = không thấy buổi điểm danh nào. Hợp nhất site_teachers VÀ
      * site_managers (bổ sung ngoài SDD gốc, đã xác nhận với người dùng —
      * cùng lý do như ClassService.resolveAllowedSiteIds; trước đây Quản lý
@@ -414,7 +447,8 @@ public class StudentAttendanceService {
      * đây, không nhất quán).
      */
     private List<Long> resolveAllowedSiteIds(Long actorUserId) {
-        if (permissionEvaluationService.hasPermission(actorUserId, "academic.class.manage")) {
+        if (dataScopeService.isUnrestricted(actorUserId)
+                || permissionEvaluationService.hasPermission(actorUserId, "academic.class.view-all")) {
             return null;
         }
         return Stream.concat(

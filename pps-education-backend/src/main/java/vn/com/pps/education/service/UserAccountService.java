@@ -14,6 +14,7 @@ import vn.com.pps.education.domain.Role;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.domain.UserHistory;
 import vn.com.pps.education.domain.UserPermissionOverride;
+import vn.com.pps.education.domain.UserRole;
 import vn.com.pps.education.dto.AdminChangePasswordRequest;
 import vn.com.pps.education.dto.ChangeOwnPasswordRequest;
 import vn.com.pps.education.dto.CreateUserRequest;
@@ -235,6 +236,17 @@ public class UserAccountService {
         if (filter.status() != null && !filter.status().isBlank()) {
             spec = spec.and((root, query, cb) -> cb.equal(root.get("status"), User.Status.valueOf(filter.status())));
         }
+        if (filter.roleCode() != null && !filter.roleCode().isBlank()) {
+            // Lọc ở DB (EXISTS user_roles) để phân trang đúng trên tập đã lọc role — xem Javadoc UserSearchRequest.roleCode.
+            spec = spec.and((root, query, cb) -> {
+                Subquery<Long> sq = query.subquery(Long.class);
+                var userRoleRoot = sq.from(UserRole.class);
+                sq.select(userRoleRoot.get("id"))
+                        .where(cb.equal(userRoleRoot.get("user"), root),
+                                cb.equal(userRoleRoot.get("role").get("code"), filter.roleCode()));
+                return cb.exists(sq);
+            });
+        }
         return spec;
     }
 
@@ -397,7 +409,8 @@ public class UserAccountService {
     }
 
     private RoleResponse toRoleResponse(Role role) {
-        return new RoleResponse(role.getId(), role.getCode(), role.getName(), role.getDescription(), role.isSystem());
+        return new RoleResponse(role.getId(), role.getCode(), role.getName(), role.getDescription(), role.isSystem(),
+                role.getDataScope().name());
     }
 
     private UserPermissionOverrideSummary toOverrideSummary(UserPermissionOverride o) {

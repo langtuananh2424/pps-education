@@ -21,7 +21,32 @@
     "empty": "No departments yet.",
     "headLabel": "Head: {{name}}",
     "noHead": "No head assigned",
-    "editButton": "Edit"
+    "editButton": "Edit",
+    "members": {
+      "toggleButton": "Members",
+      "title": "Members ({{count}})",
+      "addButton": "Add members",
+      "empty": "This department has no members yet.",
+      "headBadge": "Head",
+      "loadError": "Could not load members.",
+      "removeButton": "Remove from department",
+      "removeConfirm": "Remove {{name}} from {{department}}? The employee will no longer belong to any department.",
+      "removedToast": "Removed {{name}} from the department.",
+      "removeError": "Could not remove the member.",
+      "modalTitle": "Add members — {{department}}",
+      "modalDescription": "Select one or more employees. Employees in another department will be moved to this one.",
+      "searchPlaceholder": "Search by name / employee code...",
+      "searchError": "Could not load employees.",
+      "noCandidates": "No matching employees.",
+      "currentDepartment": "Currently in: {{department}}",
+      "noDepartment": "No department",
+      "moveWarning": "{{count}} employee(s) currently in another department will be moved to this one.",
+      "cancel": "Cancel",
+      "saving": "Saving...",
+      "confirmAdd": "Add {{count}} employee(s)",
+      "addedToast": "Added {{count}} employee(s) to the department.",
+      "addError": "Could not add members."
+    }
   },
   "departmentForm": {
     "codeLabel": "Department code *",
