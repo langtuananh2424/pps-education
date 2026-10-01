@@ -21,22 +21,7 @@
     "empty": "Chưa có phòng ban nào.",
     "headLabel": "Trưởng phòng: {{name}}",
     "noHead": "Chưa có trưởng phòng",
-    "editButton": "Sửa"
-  },
-  "departmentForm": {
-    "codeLabel": "Mã phòng ban *",
-    "codeImmutableHint": "Không sửa được mã sau khi tạo.",
-    "nameLabel": "Tên phòng ban *",
-    "parentLabel": "Phòng ban cấp trên",
-    "parentNoneOption": "-- Không có (phòng ban gốc) --",
-    "headLabel": "Trưởng phòng",
-    "headSearchPlaceholder": "Tìm theo họ tên / email...",
-    "cancelButton": "Hủy",
-    "saving": "Đang lưu...",
-    "createButton": "Tạo phòng ban",
-    "saveButton": "Lưu thay đổi",
-    "validationError": "Vui lòng điền đủ mã và tên phòng ban.",
-    "saveError": "Lưu phòng ban thất bại.",
+    "editButton": "Sửa",
     "members": {
       "toggleButton": "Thành viên",
       "title": "Thành viên ({{count}})",
@@ -62,6 +47,21 @@
       "addedToast": "Đã thêm {{count}} nhân sự vào phòng ban.",
       "addError": "Thêm thành viên thất bại."
     }
+  },
+  "departmentForm": {
+    "codeLabel": "Mã phòng ban *",
+    "codeImmutableHint": "Không sửa được mã sau khi tạo.",
+    "nameLabel": "Tên phòng ban *",
+    "parentLabel": "Phòng ban cấp trên",
+    "parentNoneOption": "-- Không có (phòng ban gốc) --",
+    "headLabel": "Trưởng phòng",
+    "headSearchPlaceholder": "Tìm theo họ tên / email...",
+    "cancelButton": "Hủy",
+    "saving": "Đang lưu...",
+    "createButton": "Tạo phòng ban",
+    "saveButton": "Lưu thay đổi",
+    "validationError": "Vui lòng điền đủ mã và tên phòng ban.",
+    "saveError": "Lưu phòng ban thất bại."
   },
   "positionsTab": {
     "sectionTitle": "Danh mục Chức vụ ({{count}})",
