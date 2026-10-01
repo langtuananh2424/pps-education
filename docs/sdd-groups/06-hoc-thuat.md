@@ -871,6 +871,16 @@ a)  Bảng class_sessions --- Buổi học
 
 Có class_sessions_history.
 
+Vòng đời status (bổ sung ngoài SDD gốc, xác nhận với người dùng
+2026-10-01 — xem UC-48 A5–A7): SCHEDULED → IN_PROGRESS khi tới
+session_date + start_time, → COMPLETED khi qua session_date + end_time
+(giờ Việt Nam, job chạy mỗi phút, không ghi class_sessions_history).
+CANCELLED/RESCHEDULED chỉ từ SCHEDULED (UC-48 A2/A3); riêng buổi
+IN_PROGRESS/COMPLETED được hủy (→ CANCELLED) hoặc sửa phân công/tiết cùng
+ngày khi có quyền academic.class-session.correct-past và bắt buộc lý do.
+Index một phần idx_class_sessions_status_pending (session_date) WHERE
+status IN ('SCHEDULED', 'IN_PROGRESS') phục vụ job này (V204).
+
 Ràng buộc:
 
 ALTER TABLE class_sessions ADD CONSTRAINT chk_session_time CHECK

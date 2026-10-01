@@ -1,6 +1,9 @@
 package vn.com.pps.education.repository;
 
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import vn.com.pps.education.domain.ClassSession;
@@ -10,10 +13,54 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 public interface ClassSessionRepository extends JpaRepository<ClassSession, Long> {
 
     List<ClassSession> findBySchoolClassIdOrderBySessionDateAsc(Long classId);
+
+    /**
+     * UC-48 A5 (xác nhận 2026-10-01) — đọc + khoá dòng (SELECT ... FOR UPDATE) trước khi hủy/dời/sửa,
+     * để không chạy đè với lần chuyển trạng thái tự động: nếu job đang giữ dòng thì chờ job xong rồi đọc
+     * trạng thái mới; nếu thao tác người dùng giữ dòng trước thì lệnh UPDATE của job chờ, rồi PostgreSQL
+     * kiểm tra lại điều kiện status trên bản đã commit và bỏ qua dòng đã đổi trạng thái.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT s FROM ClassSession s WHERE s.id = :id")
+    Optional<ClassSession> findByIdForUpdate(@Param("id") Long id);
+
+    /**
+     * UC-48 A5 — khoá advisory theo transaction: chỉ 1 lần chạy job chuyển trạng thái tại 1 thời điểm
+     * kể cả khi nhiều phiên bản backend dùng chung DB. Trả false (không chờ) nếu đang có lần chạy khác;
+     * khoá tự nhả khi transaction kết thúc.
+     */
+    @Query(value = "SELECT pg_try_advisory_xact_lock(:lockKey)", nativeQuery = true)
+    boolean tryAdvisoryXactLock(@Param("lockKey") long lockKey);
+
+    /**
+     * UC-48 A5 — SCHEDULED → IN_PROGRESS khi đã tới giờ bắt đầu nhưng chưa qua giờ kết thúc (buổi đã qua
+     * giờ kết thúc để lệnh markCompleted chuyển thẳng COMPLETED). Điều kiện status = 'SCHEDULED' nằm trong
+     * chính lệnh UPDATE nên chạy lặp lại không đổi trùng. :now là giờ Việt Nam (LocalDateTime).
+     */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = """
+            UPDATE class_sessions SET status = 'IN_PROGRESS', updated_at = now()
+            WHERE status = 'SCHEDULED'
+              AND session_date <= CAST(:now AS date)
+              AND session_date + start_time <= :now
+              AND session_date + end_time > :now
+            """, nativeQuery = true)
+    int markStarted(@Param("now") LocalDateTime now);
+
+    /** UC-48 A5 — SCHEDULED/IN_PROGRESS → COMPLETED khi đã qua giờ kết thúc. Cùng nguyên tắc markStarted. */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = """
+            UPDATE class_sessions SET status = 'COMPLETED', updated_at = now()
+            WHERE status IN ('SCHEDULED', 'IN_PROGRESS')
+              AND session_date <= CAST(:now AS date)
+              AND session_date + end_time <= :now
+            """, nativeQuery = true)
+    int markCompleted(@Param("now") LocalDateTime now);
 
     /**
      * UC-21 mở rộng (BTVN theo buổi, V55): buổi học liền TRƯỚC 1 buổi,

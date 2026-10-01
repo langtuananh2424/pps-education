@@ -48,7 +48,7 @@ function toISODateYmd(y: number, m: number, d: number): string {
 
 /**
  * Báo cáo "Số tiết thực tế theo lớp" (bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-08-20) —
- * số tiết ĐÃ DẠY thực tế (không tính buổi huỷ/đã dời) của từng lớp trong 1 điểm trường, lọc theo
+ * số tiết ĐÃ DẠY thực tế (chỉ tính buổi COMPLETED — đã qua giờ kết thúc, UC-48 A5) của từng lớp trong 1 điểm trường, lọc theo
  * tuần/tháng/học kỳ/năm. Mặc định hiển thị dạng LƯỚI (hàng đầu = tháng/kỳ/năm, cột đầu = lớp — xác
  * nhận với người dùng 2026-08-20, thay cho dạng danh sách 1 khoảng/lần), "Chi tiết" (1 khoảng cụ
  * thể, dùng được cả cho "Tuần") vẫn giữ làm chế độ phụ.

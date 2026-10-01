@@ -223,7 +223,7 @@ export default function MyTeachingSchedulePage() {
                                 </div>
                               )}
                               <div className="flex items-center justify-between gap-1 flex-wrap pt-0.5">
-                                {s.status !== "SCHEDULED" && <span className="text-[10px] text-rose-500 font-bold">{s.status}</span>}
+                                {(s.status === "CANCELLED" || s.status === "RESCHEDULED") && <span className="text-[10px] text-rose-500 font-bold">{s.status}</span>}
                                 {checkInStatus && s.status !== "CANCELLED" && s.status !== "RESCHEDULED" && (
                                   <Badge variant={checkInStatusVariants[checkInStatus.effectiveStatus] ?? "neutral"} className="text-[9px]">
                                     {checkInStatusLabel(tc, checkInStatus.effectiveStatus)}
