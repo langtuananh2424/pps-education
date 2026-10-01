@@ -92,3 +92,29 @@ Quy tắc phụ: một chỗ sai nhiều thứ thì lấy **mức nặng nhất*
 2. **Chỉ được gọi tên loại lỗi** ("lỗi chia động từ", "thiếu âm cuối", "câu thiếu thành phần").
 3. **Cấm:** đưa dạng đúng, thì đúng, từ đúng, cấu trúc đúng, ví dụ sửa; cấm "cần/nên + hành động sửa cụ thể" ("cần dùng quá khứ đơn", "nên thêm động từ", "hãy bật âm /s/", "tránh chêm tiếng Việt", "cần nói dài hơn").
 4. Không nêu tên học sinh, không emoji, không nhắc lại đề.
+
+### §D.5. Trường `hint` — cách luyện, TÁCH RIÊNG khỏi nhận xét
+
+Các mục §D.1–4 ở trên **không đổi**: `feedback` vẫn là nhận xét chấm, vẫn cấm gợi ý sửa. Quy tắc đó
+viết cho tình huống **có giáo viên kèm** — máy chẩn đoán, thầy cô chữa.
+
+Khi học sinh tự luyện trên LMS thì không có ai chữa: em thu lần 1 thấy "Lỗi nặng nhất: thiếu âm
+cuối", thu lần 5 vẫn thấy đúng câu đó, không có thông tin mới nào giữa các lần. Vì vậy sinh thêm
+**một trường riêng** `hint`, để hệ thống hiển thị tự quyết lúc nào đưa ra (LMS dự kiến: từ lần thu
+thứ 2 trở đi).
+
+Viết `hint` theo đúng các ràng buộc sau:
+
+- **Một câu, ≤35 từ, tiếng Việt.**
+- Chỉ nói về **đúng loại lỗi nặng nhất** đã nêu ở câu 2 của `feedback`. Không gộp nhiều lỗi.
+- **Phải nêu đích danh những từ có thật trong transcript** mắc lỗi đó — "ở *post*, *friends*",
+  không nói chung chung "một số từ".
+- Nội dung là **cách luyện**, không phải đáp án: chỉ ra âm/điểm cần chú ý và một thao tác tập cụ
+  thể (đọc chậm từng từ, giữ hơi đến hết từ, tách âm tiết, thu lại và nghe đối chiếu…).
+- **Cấm viết lại câu tiếng Anh đã sửa đúng.** Học sinh phải tự nói lại, không đọc theo bản chép sẵn.
+- `feedback` không có câu 2 (bài không lỗi) → `hint` để **chuỗi rỗng**.
+
+Ví dụ đạt: *"Âm cuối /t/ và /z/ bị nuốt ở post, friends; đọc chậm từng từ và giữ hơi đến hết từ rồi
+mới sang từ sau."*
+Ví dụ KHÔNG đạt: *"Em nên nói: I posted photos of my trip."* (chép sẵn đáp án) ·
+*"Cần luyện phát âm nhiều hơn."* (chung chung, không nêu từ nào).

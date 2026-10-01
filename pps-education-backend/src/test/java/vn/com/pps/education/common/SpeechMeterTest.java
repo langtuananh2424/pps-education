@@ -75,4 +75,42 @@ class SpeechMeterTest {
         assertThat(SpeechMeter.measure(null)).isEqualTo(Optional.empty());
         assertThat(SpeechMeter.measure(new byte[100])).isEqualTo(Optional.empty());
     }
+
+    /**
+     * V204 — bản ghi ồn suốt từ đầu tới cuối (không có quãng im lặng tương phản) có tín/tạp gần 1 (toàn dải
+     * cùng biên độ) → trước bản 30/9, ngưỡng {@code noise*3} tự vượt qua đỉnh, không khung nào qua được →
+     * hasSpeech SAI thành false dù biên độ rõ ràng là tiếng nói, không phải im lặng. Mirror ca thật người
+     * training đo được (tín/tạp 7,5 dB, 2/2481 khung "voiced").
+     */
+    @Test
+    void continuousLoudRecordingWithoutSilenceContrast_stillReportsHasSpeech() {
+        // 1 giây duy nhất, không có đoạn im lặng nào để đối chiếu — tín/tạp giữa các khung gần 1.
+        SpeechMeter.Measurement m = SpeechMeter.measure(wav(1)).orElseThrow();
+        assertThat(m.hasSpeech()).isTrue();
+    }
+
+    @Test
+    void quietHissBelowSpeechThreshold_correctlyReportsNoSpeech() {
+        // Biên độ rất nhỏ (peak < 0.01) nhưng vẫn liên tục/đồng nhất — không phải tiếng nói, không được báo có.
+        short[] samples = new short[RATE];
+        for (int i = 0; i < samples.length; i++) {
+            samples[i] = (short) (50 * Math.sin(2 * Math.PI * 300 * i / RATE));
+        }
+        ByteArrayOutputStream pcm = new ByteArrayOutputStream();
+        for (short v : samples) {
+            pcm.write(v & 0xFF);
+            pcm.write((v >> 8) & 0xFF);
+        }
+        byte[] data = pcm.toByteArray();
+        ByteBuffer h = ByteBuffer.allocate(44).order(ByteOrder.LITTLE_ENDIAN);
+        h.put("RIFF".getBytes()).putInt(36 + data.length).put("WAVE".getBytes());
+        h.put("fmt ".getBytes()).putInt(16).putShort((short) 1).putShort((short) 1).putInt(RATE).putInt(RATE * 2)
+                .putShort((short) 2).putShort((short) 16);
+        h.put("data".getBytes()).putInt(data.length);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        out.write(h.array(), 0, 44);
+        out.write(data, 0, data.length);
+        SpeechMeter.Measurement m = SpeechMeter.measure(out.toByteArray()).orElseThrow();
+        assertThat(m.hasSpeech()).isFalse();
+    }
 }

@@ -132,7 +132,7 @@ class ReflexSequentialGradingServiceTest {
         audit.put(ReflexV2AiGradingService.AUDIT_GRAMMAR_REVIEW_REQUIRED, true);
         audit.put(ReflexV2AiGradingService.AUDIT_GRAMMAR_REVIEW_QUOTES, List.of("often play", "really fun"));
         when(reflexV2GradingService.gradeSpeaking(any(), any(), any(), any(), any(), any())).thenReturn(
-                new ReflexV2AiGradingService.SpeakingResult("marked", List.of(), 60, 65, "Em nói rõ ý.", List.of(), audit));
+                new ReflexV2AiGradingService.SpeakingResult("marked", List.of(), 60, 65, "Em nói rõ ý.", "", List.of(), audit));
 
         service.submitSpokenAnswer(QUESTION_ID, ASSIGNMENT_ID, AUDIO_URL, true, ACTOR_USER_ID);
 

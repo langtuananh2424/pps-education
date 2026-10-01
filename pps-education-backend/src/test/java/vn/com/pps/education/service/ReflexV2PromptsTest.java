@@ -111,6 +111,22 @@ class ReflexV2PromptsTest {
         assertThat(prompts.gradingSchema(List.of("GV", "P")).path("properties").has("new_red_errors")).isFalse();
     }
 
+    /** Bản 30/9, §D.5 — "hint" (cách luyện cho học sinh tự luyện) là trường bắt buộc ở MỌI lượt chấm (viết và nói). */
+    @Test
+    void gradingSchema_requiresHintField() {
+        var schema = prompts.gradingSchema(List.of("GV"));
+        assertThat(schema.path("required").toString()).contains("hint");
+        assertThat(schema.path("properties").has("hint")).isTrue();
+    }
+
+    /** Rubric khối v3 phải mang theo quy tắc §D.5 (không phải chỉ mô tả schema) — AI cần biết cách viết hint. */
+    @Test
+    void writingAndSpeakingSystem_v3Task_carriesSectionD5HintRule() {
+        ReflexV2Task t = task(Curriculum.GradeLevel.GRADE_6, null);
+        assertThat(prompts.writingSystem(t)).contains("§D.5").contains("CẤM viết lại câu tiếng Anh đã sửa đúng");
+        assertThat(prompts.speakingSystem(t)).contains("§D.5");
+    }
+
     @Test
     void speakingSystem_isStableForTheSameTask_soPrefixIsCacheable() {
         ReflexV2Task t = task(Curriculum.GradeLevel.GRADE_6, null);

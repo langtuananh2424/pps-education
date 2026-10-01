@@ -26,6 +26,13 @@ public record ReflexQuestionProgressResponse(
          * đỏ/gạch chân, thay cho feedback văn xuôi dài dòng cũ. NULL khi chưa nộp/chưa chấm được.
          */
         String writingMarkedAnswer,
+        /**
+         * V204 (bổ sung ngoài SDD gốc, bản bàn giao 30/9, §D.5 quy tắc chung) — "cách luyện" cho học sinh
+         * tự luyện, TÁCH khỏi {@code writingFeedback} (vẫn cấm gợi ý sửa, dành cho giáo viên). NULL khi bài
+         * không có lỗi hoặc chưa chấm được bằng rubric có hỗ trợ trường này. FE chỉ hiện từ lần nộp thứ 2
+         * trở đi.
+         */
+        String writingHint,
         boolean writingPassed,
         int writingAttemptCount,
         /**
@@ -43,6 +50,8 @@ public record ReflexQuestionProgressResponse(
          * đánh dấu lỗi bằng markup {@code {{err}}...{{/err}}} — FE tự regex-split để bôi đỏ/gạch chân.
          */
         String speakingTranscript,
+        /** V204 — như {@code writingHint}, cho bước nói. */
+        String speakingHint,
         /** V178 — % từng tiêu chí rubric, tách riêng khỏi {@code speakingFeedback}. */
         List<CriteriaScoreItem> speakingCriteriaScores,
         boolean speakingPassed,

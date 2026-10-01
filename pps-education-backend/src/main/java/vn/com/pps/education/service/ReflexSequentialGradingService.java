@@ -316,6 +316,7 @@ public class ReflexSequentialGradingService {
             progress.setWritingLockedGrammarPercent(null);
             progress.setWritingRedErrorCount(null);
             progress.setWritingAudit(null);
+            progress.setWritingHint(null);
             return;
         }
         progress.setWritingScore(BigDecimal.valueOf(result.step1Percent()));
@@ -329,6 +330,7 @@ public class ReflexSequentialGradingService {
         }
         progress.setWritingFeedback(feedback.length() == 0 ? null : feedback.toString());
         progress.setWritingMarkedAnswer(result.markedText());
+        progress.setWritingHint(result.hint() == null || result.hint().isBlank() ? null : result.hint());
         progress.setWritingGradedAt(OffsetDateTime.now());
         progress.setWritingLockedGrammarPercent(BigDecimal.valueOf(result.grammarPercent()));
         progress.setWritingRedErrorCount(result.redCount());
@@ -358,6 +360,7 @@ public class ReflexSequentialGradingService {
             progress.setSpeakingCriteriaScores(null);
             progress.setSpeakingGradedAt(null);
             progress.setSpeakingAudit(null);
+            progress.setSpeakingHint(null);
             return;
         }
         progress.setSpeakingScore(BigDecimal.valueOf(result.unlockPercent()));
@@ -367,6 +370,7 @@ public class ReflexSequentialGradingService {
         progress.setSpeakingCriteriaScores(result.criteria());
         progress.setSpeakingGradedAt(OffsetDateTime.now());
         progress.setSpeakingAudit(result.audit());
+        progress.setSpeakingHint(result.hint() == null || result.hint().isBlank() ? null : result.hint());
     }
 
     private void applySpeakingResult(ReflexQuestionProgress progress, ReflexSpeakingContentAiGradingService.GradeResult result) {
@@ -405,6 +409,7 @@ public class ReflexSequentialGradingService {
         h.setMaxScore(progress.getWritingMaxScore());
         h.setFeedback(progress.getWritingFeedback());
         h.setMarkedAnswer(progress.getWritingMarkedAnswer());
+        h.setHint(progress.getWritingHint());
         h.setGradedAt(progress.getWritingGradedAt());
         reflexQuestionProgressHistoryRepository.save(h);
     }
@@ -424,6 +429,7 @@ public class ReflexSequentialGradingService {
         h.setFeedback(progress.getSpeakingFeedback());
         h.setTranscript(progress.getSpeakingTranscript());
         h.setCriteriaScores(progress.getSpeakingCriteriaScores());
+        h.setHint(progress.getSpeakingHint());
         h.setGradedAt(progress.getSpeakingGradedAt());
         h.setRecordingFilter(recordingFilter);
         // V198 — cờ "cần giáo viên soát Ngữ pháp" lấy từ speaking_audit của CHÍNH lần chấm này (luồng cũ: không có).
@@ -497,6 +503,7 @@ public class ReflexSequentialGradingService {
                 p.getWritingScore() == null ? null : p.getWritingScore().intValue(),
                 p.getWritingFeedback(),
                 p.getWritingMarkedAnswer(),
+                p.getWritingHint(),
                 writingPassed,
                 p.getWritingAttemptCount(),
                 p.getWritingCorrectedAnswer(),
@@ -504,6 +511,7 @@ public class ReflexSequentialGradingService {
                 p.getSpeakingScore() == null ? null : p.getSpeakingScore().intValue(),
                 p.getSpeakingFeedback(),
                 p.getSpeakingTranscript(),
+                p.getSpeakingHint(),
                 p.getSpeakingCriteriaScores(),
                 speakingPassed,
                 p.getSpeakingAttemptCount(),

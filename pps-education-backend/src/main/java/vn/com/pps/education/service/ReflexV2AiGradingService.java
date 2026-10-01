@@ -92,10 +92,11 @@ public class ReflexV2AiGradingService {
      * @param redCount       số lỗi đỏ NGỮ PHÁP trong bài viết ({@link ReflexV2Scoring#countRed}) — căn cứ trần 60%.
      * @param markedText     bài viết gốc đánh dấu lỗi bằng markup {@code {{err}}...{{/err}}} (FE hiện có).
      * @param gateNote       câu giải thích cổng chặn (backend soạn) — rỗng nếu không có cổng nào kích hoạt.
+     * @param hint           (bản 30/9, §D.5) cách luyện cho học sinh tự luyện, TÁCH khỏi {@code feedback} — rỗng khi bài không có lỗi.
      * @param usage          (V192) chi phí token của CHÍNH lượt chấm viết này, caller lưu kèm ngữ cảnh học sinh.
      */
     public record WritingResult(int step1Percent, int grammarPercent, int redCount, List<CriteriaScoreItem> criteria,
-                                String markedText, String feedback, String gateNote, List<String> gates,
+                                String markedText, String feedback, String hint, String gateNote, List<String> gates,
                                 Map<String, Object> audit, AiTokenUsage usage) {
     }
 
@@ -106,9 +107,10 @@ public class ReflexV2AiGradingService {
     /**
      * @param unlockPercent điểm dùng để mở khoá câu tiếp theo (mặc định KHÔNG gồm Phát âm).
      * @param finalPercent  điểm cuối theo công thức của người training (gồm cả Phát âm) — chỉ để tham khảo/audit.
+     * @param hint          (bản 30/9, §D.5) cách luyện cho học sinh tự luyện, TÁCH khỏi {@code feedback} — rỗng khi bài không có lỗi.
      */
     public record SpeakingResult(String markedTranscript, List<CriteriaScoreItem> criteria, int unlockPercent,
-                                 int finalPercent, String feedback, List<String> gates, Map<String, Object> audit) {
+                                 int finalPercent, String feedback, String hint, List<String> gates, Map<String, Object> audit) {
     }
 
     /**
@@ -164,6 +166,7 @@ public class ReflexV2AiGradingService {
             audit.put("countingNotes", data.path("counting_notes").asText(""));
             return new WritingResult(ReflexV2Scoring.average(capped), grammarPercent, redCount, items,
                     ReflexV2Scoring.toErrMarkup(text, highlights), ReflexV2Scoring.trimFeedback(data.path("feedback").asText(""), highlights),
+                    ReflexV2Scoring.trimHint(data.path("hint").asText(""), highlights),
                     ReflexV2Scoring.buildGateNote(task, scored.gates(), ReflexV2Scoring.wordCount(text)), scored.gates(), audit,
                     response.usage());
         } catch (IOException | IllegalStateException e) {
@@ -362,7 +365,7 @@ public class ReflexV2AiGradingService {
             audit.put("caps", capNotes(capped));
             audit.put("countingNotes", data.path("counting_notes").asText(""));
             return new SpeakingResult(ReflexV2Scoring.toErrMarkup(transcript, highlights), items, unlockPercent,
-                    finalPercent, feedback, scored.gates(), audit);
+                    finalPercent, feedback, ReflexV2Scoring.trimHint(data.path("hint").asText(""), highlights), scored.gates(), audit);
         } catch (IOException | IllegalStateException e) {
             log.warn("ReflexV2AiGradingService: parse kết quả chấm bài nói thất bại. {}", e.getMessage());
             return null;
