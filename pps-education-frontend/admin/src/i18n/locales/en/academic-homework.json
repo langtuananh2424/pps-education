@@ -225,6 +225,7 @@
       "audioNotAvailable": "No audio",
       "transcriptLabel": "AI transcript",
       "feedbackLabel": "Feedback",
+      "hintLabel": "Practice hint shown to the student",
       "criteriaLabel": "Criteria breakdown",
       "answerTextLabel": "Written answer",
       "recordingFiltered": "Recording: filtered",

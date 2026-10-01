@@ -24,6 +24,8 @@ public record ReflexQuestionProgressHistoryResponse(
         BigDecimal maxScore,
         String feedback,
         String markedAnswer,
+        /** V204 — "cách luyện" (§D.5, bản 30/9) của CHÍNH lần chấm này; null = trước V204 hoặc rubric không hỗ trợ. */
+        String hint,
         String transcript,
         List<CriteriaScoreItem> criteriaScores,
         OffsetDateTime gradedAt,

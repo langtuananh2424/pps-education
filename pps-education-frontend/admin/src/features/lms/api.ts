@@ -1073,6 +1073,8 @@ export interface ReflexQuestionProgressHistoryEntry {
   maxScore: number | null;
   feedback: string | null;
   markedAnswer: string | null;
+  /** V204 — "cách luyện" (§D.5, bản 30/9) hiện cho học sinh ở lần chấm này; null = trước V204 hoặc rubric không hỗ trợ. */
+  hint: string | null;
   transcript: string | null;
   criteriaScores: { criterion: string; percent: number }[] | null;
   gradedAt: string | null;

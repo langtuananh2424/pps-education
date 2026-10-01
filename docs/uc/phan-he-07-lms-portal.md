@@ -1107,6 +1107,48 @@ UC-24: Làm bài kiểm tra trực tuyến
 > hiện trong modal lịch sử và cột `loc_thu_am` của file xuất ZIP — để so độ chính xác
 > phiên âm giữa hai chế độ trên bài thật rồi mới quyết định. Không đổi cách chấm.
 
+> **Bổ sung V204 (bản bàn giao 30/9/2026, đã xác nhận với người dùng
+> 2026-10-01) — trường `hint` ("cách luyện") VÀ sửa lỗi đo tiếng nói bị chặn
+> nhầm. Không đổi rubric nội dung (12 file checkpoint y hệt bản 29/9) ngoài
+> việc thêm §D.5 vào `speaking-rubric-common-rules.md`.**
+> (a) §D.1–4 (nhận xét `feedback`, cấm gợi ý sửa) giữ nguyên — quy tắc đó viết
+> cho tình huống có giáo viên kèm. Khi học sinh tự luyện trên LMS không có ai
+> chữa giữa các lần thu, nên AI nay trả thêm trường RIÊNG `hint`: đúng 1 câu
+> tiếng Việt ≤35 từ, CHỈ nói về loại lỗi nặng nhất đã nêu ở `feedback`, BẮT
+> BUỘC nêu đích danh từ có thật trong transcript mắc lỗi đó, nội dung là
+> THAO TÁC TẬP (đọc chậm, giữ hơi, tách âm tiết, thu lại đối chiếu…), CẤM chép
+> sẵn câu tiếng Anh đã sửa đúng. Bài không có lỗi nào được tô → `hint` rỗng,
+> cùng điều kiện với việc `feedback` bỏ câu "Lỗi nặng nhất" — xem
+> `ReflexV2Scoring#trimHint`. Cột mới `reflex_question_progress.writing_hint`/
+> `speaking_hint` (và `reflex_question_progress_history.hint`, migration V204).
+> FE (`ReflexVideoTaskPage.tsx`) hiện "cách luyện" (icon quả tạ, tách khỏi ô
+> "mẹo" hiện có của `feedback`) từ lần nộp/ghi âm THỨ 2 trở đi và khi chưa đạt
+> — đề xuất của người training, vì lần đầu học sinh còn đang đọc nhận xét lần
+> đầu. Trang thống kê của giáo viên (`ReviewVideoReportService`) đã nhận
+> `hint` qua `ReflexQuestionProgressHistoryResponse` nhưng CHƯA hiện ra UI
+> (chưa làm — giáo viên vẫn xem `feedback`/transcript/`grammarReviewQuotes`
+> như trước).
+> (b) Sửa lỗi "chặn nhầm bài có tiếng nói" ở `SpeechMeter` (mirror bản sửa
+> cùng ngày của `audio.js`): bản ghi ồn (tín/tạp dưới ~9,5 dB) khiến ngưỡng
+> `noise × 3` tự vượt qua cả biên độ đỉnh — không khung nào qua được ngưỡng,
+> `hasSpeech` báo SAI thành `false` dù bản ghi nghe rõ tiếng nói, học sinh bị
+> bắt ghi âm lại oan và transcript hợp lệ bị xoá trắng (đo trên bản ghi thật
+> phòng đào tạo gửi 30/9: tín/tạp 7,5 dB, 2/2481 khung "voiced"). Sửa 2 lớp:
+> (1) thử lọc còn dải giọng nói 250–3500 Hz khi toàn dải không tách nổi (ồn
+> phòng học thường dồn năng lượng dưới 250 Hz); (2) vẫn không tách nổi thì
+> không còn tin "số khung vượt ngưỡng" — chỉ còn dám khẳng định có/không
+> tiếng nói qua biên độ đỉnh đơn thuần, nhường quyền quyết cho lượt phiên âm.
+> Bản ghi sạch (tín/tạp bình thường) không đổi số đo. Không liên quan tới bộ
+> lọc thu âm phía trình duyệt (`reflexRecordingFilter.ts`, V199) — đó là lọc
+> TRƯỚC khi nộp, còn đây là đo SAU khi nhận, hai cơ chế độc lập.
+> (c) Chưa làm (ngoài phạm vi đợt này, theo đúng báo cáo của người training):
+> điểm Trôi chảy (FC) vẫn chấm cao hơn thực tế 20–30 điểm ở nhiều bài — bốn
+> hướng sửa đã thử đều bị số đo bác bỏ (tốc độ nói, mật độ ngập ngừng, hạ
+> ngưỡng khoảng dừng, trần "FC ≤ Phát âm + 20") — xem `CALIBRATION.md` mục
+> "Điểm Trôi chảy (FC) rộng tay". Người training cũng nêu nghi vấn LMS và bộ
+> chấm tham chiếu của họ có thể đang cho điểm Phát âm NGƯỢC NHAU trên cùng 1
+> bài — CHƯA xác minh, cần đối chiếu lại nếu dùng dữ liệu hiệu chuẩn của họ.
+
 > **Bổ sung V200 (2026-09-29, đã xác nhận với người dùng) — DẠNG ĐỀ tường minh
 > cho câu hỏi Video phản xạ.** Trước đây dạng đề được SUY từ khối/tuyến + thời
 > gian ghi âm (≥60 giây = Part 2, chỉ Khối 8-9 IELTS) nên không phân biệt được PET

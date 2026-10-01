@@ -246,6 +246,7 @@
       "yourAnswerLabel": "Your answer",
       "scoreLabel": "grammar score {{score}}%",
       "attemptCount": "Submitted {{count}} time(s)",
+      "hintTitle": "How to practise",
       "suggestionTitle": "Suggested answer (grammar corrected)",
       "useSuggestionButton": "Fill answer box with this",
       "passedPopup": {
@@ -272,6 +273,7 @@
       "transcriptLabel": "Transcript (errors boxed in red)",
       "retryButton": "Record again",
       "attemptCount": "Recorded {{count}} time(s)",
+      "hintTitle": "How to practise",
       "passThresholdNote": "Goal: score {{threshold}}%+ to pass",
       "passedPopup": {
         "heading": "Passed — next question unlocked",

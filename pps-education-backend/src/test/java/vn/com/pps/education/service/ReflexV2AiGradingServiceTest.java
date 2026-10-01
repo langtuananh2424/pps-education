@@ -235,12 +235,33 @@ class ReflexV2AiGradingServiceTest {
     }
 
     private NineRouterAiClient.AiJsonResponse gradingResponse(String highlightsJson, int gvCheckpoint, int pCheckpoint) {
+        return gradingResponse(highlightsJson, gvCheckpoint, pCheckpoint, "");
+    }
+
+    private NineRouterAiClient.AiJsonResponse gradingResponse(String highlightsJson, int gvCheckpoint, int pCheckpoint, String hint) {
         String gv = "{\"code\":\"GV\",\"evidence\":\"\",\"checkpoints\":[" + String.join(",", java.util.Collections.nCopies(5, String.valueOf(gvCheckpoint))) + "],\"cap_percent\":100}";
         String p = "{\"code\":\"P\",\"evidence\":\"\",\"checkpoints\":[" + String.join(",", java.util.Collections.nCopies(5, String.valueOf(pCheckpoint))) + "],\"cap_percent\":100}";
         return new NineRouterAiClient.AiJsonResponse(
                 "{\"counting_notes\":\"\",\"gates_triggered\":[],\"insufficient_data\":false,\"criteria\":[" + gv + "," + p + "],\"highlights\":"
-                        + highlightsJson + ",\"feedback\":\"Em nói rõ ý.\"}",
+                        + highlightsJson + ",\"feedback\":\"Em nói rõ ý.\",\"hint\":\"" + hint + "\"}",
                 "gemini-3.6-flash-medium", gradingUsage);
+    }
+
+    /** Bản 30/9, §D.5 — hint chỉ giữ lại khi bài CÓ lỗi được tô; không có lỗi thì bị ép rỗng dù AI có điền gì. */
+    @Test
+    void gradeSpeaking_UC23b_MainFlow_hintKeptWhenErrorsHighlighted_droppedWhenNone() {
+        String highlights = "[" + highlight("sport", "am_cuoi") + "]";
+        when(aiClient.chatWithAudioJson(any(), any(), any(), any(), any(), any()))
+                .thenReturn(transcriptionResponse(WRITTEN))
+                .thenReturn(gradingResponse(highlights, 1, 1, "Âm cuối /t/ bị nuốt ở sport; đọc chậm và giữ hơi đến hết từ."));
+
+        ReflexV2AiGradingService.SpeakingResult result = grade();
+        assertThat(result.hint()).isEqualTo("Âm cuối /t/ bị nuốt ở sport; đọc chậm và giữ hơi đến hết từ.");
+
+        when(aiClient.chatWithAudioJson(any(), any(), any(), any(), any(), any()))
+                .thenReturn(transcriptionResponse(WRITTEN))
+                .thenReturn(gradingResponse("[]", 1, 1, "Luyện phát âm thêm."));
+        assertThat(grade().hint()).isEmpty();
     }
 
     private ReflexV2AiGradingService.SpeakingResult grade() {
