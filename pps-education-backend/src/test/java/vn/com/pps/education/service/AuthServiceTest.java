@@ -246,7 +246,7 @@ class AuthServiceTest extends AbstractIntegrationTest {
         assertThat(secondDevice.accessToken()).isNotBlank();
     }
 
-    /** Rào 1-thiết-bị CHỈ áp dụng cho tài khoản Học sinh — giáo viên/nhân viên vẫn đăng nhập nhiều thiết bị (tối đa 3) cùng lúc bình thường. */
+    /** Rào 1-thiết-bị CHỈ áp dụng cho tài khoản Học sinh — giáo viên/nhân viên vẫn đăng nhập nhiều thiết bị cùng lúc bình thường. */
     @Test
     void login_boSung_allowsMultipleDevicesForNonStudentRoles() {
         authService.login(new LoginRequest(activeUser.getUsername(), RAW_PASSWORD, null, null, null, false), request());
@@ -257,39 +257,18 @@ class AuthServiceTest extends AbstractIntegrationTest {
     }
 
     /**
-     * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-29 — tài khoản không phải Học sinh tối
-     * đa 3 thiết bị: thiết bị thứ 4 bị chặn 409 (FE hiện popup hỏi đăng xuất), 3 phiên cũ giữ nguyên.
+     * Đổi 2026-10-01 (đã xác nhận với người dùng) — bỏ giới hạn 3 thiết bị cho tài khoản không phải Học
+     * sinh: thiết bị thứ 4, 5 vẫn đăng nhập được (không 409, không popup), và không thiết bị nào bị đăng xuất.
      */
     @Test
-    void login_boSung_rejectsFourthDeviceForNonStudent() {
-        for (int i = 0; i < 3; i++) {
-            authService.login(new LoginRequest(activeUser.getUsername(), RAW_PASSWORD, null, null, null, false), request());
+    void login_boSung_nonStudentHasNoDeviceLimitAndKeepsAllSessions() {
+        for (int i = 0; i < 5; i++) {
+            LoginResponse device = authService.login(
+                    new LoginRequest(activeUser.getUsername(), RAW_PASSWORD, null, null, null, false), request());
+            assertThat(device.accessToken()).isNotBlank();
         }
 
-        assertThatThrownBy(() -> authService.login(
-                new LoginRequest(activeUser.getUsername(), RAW_PASSWORD, null, null, null, false), request()))
-                .isInstanceOf(ActiveSessionExistsException.class);
-
-        assertThat(tokensOf(activeUser)).hasSize(3).allMatch(t -> t.getRevokedAt() == null);
-    }
-
-    /** Xác nhận đăng xuất ở thiết bị thứ 4 → chỉ thu hồi phiên CŨ NHẤT, 2 thiết bị còn lại không bị ảnh hưởng. */
-    @Test
-    void login_boSung_confirmOnFourthDeviceRevokesOnlyOldestSession() {
-        for (int i = 0; i < 3; i++) {
-            authService.login(new LoginRequest(activeUser.getUsername(), RAW_PASSWORD, null, null, null, false), request());
-        }
-        Long oldestId = tokensOf(activeUser).stream().map(RefreshToken::getId).min(Long::compare).orElseThrow();
-
-        LoginResponse fourthDevice = authService.login(
-                new LoginRequest(activeUser.getUsername(), RAW_PASSWORD, null, null, null, true), request());
-        assertThat(fourthDevice.accessToken()).isNotBlank();
-
-        List<RefreshToken> tokens = tokensOf(activeUser);
-        assertThat(tokens).hasSize(4);
-        assertThat(tokens).filteredOn(t -> t.getRevokedAt() != null)
-                .extracting(RefreshToken::getId).containsExactly(oldestId);
-        assertThat(tokens).filteredOn(t -> t.getRevokedAt() == null).hasSize(3);
+        assertThat(tokensOf(activeUser)).hasSize(5).allMatch(t -> t.getRevokedAt() == null);
     }
 
     /**
