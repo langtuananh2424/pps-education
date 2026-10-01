@@ -162,6 +162,26 @@ public class ClassSession extends BaseAuditEntity {
     @Column(name = "checkin_late_alert_sent_at")
     private OffsetDateTime checkinLateAlertSentAt;
 
+    /**
+     * V207 (bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-10-01) — mốc đã gửi các cảnh báo nộp &
+     * duyệt báo cáo buổi học (gửi duyệt nhận xét). NULL = chưa gửi. Khâu duyệt/gửi lại có thể lặp nhiều
+     * vòng: được gửi lại khi vòng mới bắt đầu sau mốc này. Xem SessionReportAlertSchedulerService.
+     */
+    @Column(name = "report_due_soon_alert_sent_at")
+    private OffsetDateTime reportDueSoonAlertSentAt;
+
+    @Column(name = "report_overdue_alert_sent_at")
+    private OffsetDateTime reportOverdueAlertSentAt;
+
+    @Column(name = "report_approval_due_soon_alert_sent_at")
+    private OffsetDateTime reportApprovalDueSoonAlertSentAt;
+
+    @Column(name = "report_approval_overdue_alert_sent_at")
+    private OffsetDateTime reportApprovalOverdueAlertSentAt;
+
+    @Column(name = "report_resubmit_overdue_alert_sent_at")
+    private OffsetDateTime reportResubmitOverdueAlertSentAt;
+
     /** Mốc đã gửi cảnh báo "không nhận lớp" (hết giờ buổi học vẫn chưa nhận) — V184, cùng ngữ nghĩa trên. */
     @Column(name = "checkin_absent_alert_sent_at")
     private OffsetDateTime checkinAbsentAlertSentAt;

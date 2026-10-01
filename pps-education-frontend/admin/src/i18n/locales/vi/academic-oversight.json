@@ -5,11 +5,16 @@
     "CLASS_ENROLLMENT": "Ghi danh",
     "CLASS_TEACHER": "Giáo viên phụ trách lớp",
     "STUDENT": "Học sinh",
-    "EMPLOYEE": "Giáo viên / nhân sự"
+    "EMPLOYEE": "Giáo viên / nhân sự",
+    "SESSION_REPORT": "Báo cáo buổi học"
   },
   "actions": {
     "CREATED": "Tạo mới",
-    "UPDATED": "Cập nhật"
+    "UPDATED": "Cập nhật",
+    "SUBMITTED": "Gửi duyệt",
+    "RESUBMITTED": "Gửi lại",
+    "APPROVED": "Duyệt",
+    "REJECTED": "Từ chối"
   },
   "fields": {
     "classCode": "Mã lớp",
@@ -40,7 +45,8 @@
     "hireDate": "Ngày vào làm",
     "terminationDate": "Ngày nghỉ việc",
     "idCardNumber": "Số CCCD",
-    "departmentName": "Phòng ban"
+    "departmentName": "Phòng ban",
+    "commentCount": "Số nhận xét"
   },
   "values": {
     "PLANNED": "Dự kiến",
@@ -218,5 +224,98 @@
       "periods": "Số tiết đã dạy: tiết có giáo viên riêng tính cho giáo viên đó, còn lại tính cho giáo viên phụ trách buổi.",
       "checkIn": "Nhận lớp chỉ có dữ liệu từ khi áp dụng chức năng Nhận lớp — các buổi trước đó sẽ hiện là Không nhận lớp."
     }
+  },
+  "sessionReportEvent": {
+    "onTime": "Đúng hạn (hạn {{deadline}})",
+    "late": "Muộn {{duration}} (hạn {{deadline}})"
+  },
+  "teachingStatsReport": {
+    "reportOnTime": "Báo cáo đúng hạn",
+    "reportLate": "Báo cáo muộn",
+    "reportMissing": "Báo cáo chưa nộp"
+  },
+  "sessionReports": {
+    "title": "Tình hình nộp & duyệt báo cáo",
+    "description": "Báo cáo buổi học = giáo viên gửi duyệt nhận xét của buổi. Theo dõi 3 khâu: giáo viên nộp, Quản lý điểm trường duyệt, giáo viên gửi lại khi bị từ chối.",
+    "deadlines": "Hạn nộp {{submitHours}} giờ sau khi buổi học kết thúc · Hạn duyệt {{approvalHours}} giờ sau khi gửi · Hạn gửi lại {{resubmitHours}} giờ sau khi bị từ chối (chỉnh trong Cài đặt hệ thống).",
+    "fromDate": "Từ ngày",
+    "toDate": "Đến ngày",
+    "allSites": "Tất cả điểm trường trong phạm vi",
+    "export": "Xuất Excel",
+    "exporting": "Đang xuất...",
+    "exportSuccess": "Đã xuất file Excel.",
+    "exportFailed": "Không xuất được file Excel.",
+    "loadFailed": "Không tải được tình hình nộp & duyệt báo cáo.",
+    "empty": "Không có buổi học nào cần báo cáo trong khoảng này.",
+    "tabs": {
+      "sessions": "Theo buổi học",
+      "teachers": "Theo giáo viên",
+      "approvers": "Theo người duyệt"
+    },
+    "filters": {
+      "all": "Tất cả buổi",
+      "problems": "Chỉ buổi có vấn đề",
+      "missing": "Chưa nộp",
+      "approvalOverdue": "Quá hạn chưa duyệt",
+      "resubmitOverdue": "Quá hạn chưa gửi lại"
+    },
+    "summary": {
+      "sessions": "Buổi cần báo cáo",
+      "onTime": "Nộp đúng hạn",
+      "late": "Nộp muộn",
+      "missing": "Chưa nộp",
+      "approvalLate": "Duyệt muộn / quá hạn",
+      "resubmitLate": "Gửi lại muộn / quá hạn"
+    },
+    "columns": {
+      "session": "Buổi học",
+      "teacher": "Giáo viên",
+      "submit": "GV nộp",
+      "approval": "Duyệt",
+      "resubmit": "Gửi lại",
+      "approvers": "Người duyệt",
+      "sessions": "Số buổi",
+      "onTime": "Đúng hạn",
+      "late": "Muộn",
+      "missing": "Chưa nộp",
+      "rejections": "Lần bị từ chối",
+      "resubmitLate": "Gửi lại muộn",
+      "onTimeRate": "Tỷ lệ đúng hạn",
+      "approver": "Người duyệt",
+      "decided": "Buổi đã xử lý",
+      "approvalLate": "Duyệt muộn",
+      "rejected": "Buổi đã từ chối",
+      "avgWait": "Thời gian chờ TB"
+    },
+    "states": {
+      "NOT_DUE": "Chưa tới hạn",
+      "ON_TIME": "Đúng hạn",
+      "LATE": "Muộn",
+      "MISSING": "Chưa nộp",
+      "NONE": "—",
+      "WAITING": "Đang chờ",
+      "OVERDUE": "Quá hạn"
+    },
+    "lateBy": "muộn {{duration}}",
+    "rejectedTimes": "bị từ chối {{count}} lần",
+    "deadlineAt": "Hạn {{deadline}}",
+    "viewTimeline": "Xem dòng thời gian",
+    "timelineTitle": "Dòng thời gian báo cáo — {{className}}",
+    "timelineEmpty": "Giáo viên chưa gửi duyệt nhận xét nào cho buổi này.",
+    "timelineLoadFailed": "Không tải được dòng thời gian.",
+    "events": {
+      "SUBMITTED": "{{actor}} gửi duyệt {{count}} nhận xét",
+      "RESUBMITTED": "{{actor}} gửi lại {{count}} nhận xét",
+      "APPROVED": "{{actor}} duyệt {{count}} nhận xét",
+      "REJECTED": "{{actor}} từ chối {{count}} nhận xét"
+    },
+    "reason": "Lý do: {{reason}}",
+    "minutes": "{{count}} phút",
+    "hours": "{{hours}} giờ {{minutes}} phút",
+    "days": "{{days}} ngày {{hours}} giờ",
+    "dashboardTitle": "Báo cáo buổi học hôm nay",
+    "dashboardSummary": "{{missing}} chưa nộp · {{approvalOverdue}} chờ duyệt quá hạn · {{resubmitOverdue}} chưa gửi lại",
+    "dashboardNone": "Không có báo cáo nào quá hạn.",
+    "dashboardView": "Xem tình hình nộp & duyệt"
   }
 }

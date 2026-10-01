@@ -22,7 +22,8 @@ const ENTITY_TYPES: ChangeHistoryEntityType[] = [
   "CLASS_ENROLLMENT",
   "CLASS_TEACHER",
   "STUDENT",
-  "EMPLOYEE"
+  "EMPLOYEE",
+  "SESSION_REPORT"
 ];
 
 const ENTITY_BADGES: Record<ChangeHistoryEntityType, BadgeVariant> = {
@@ -31,7 +32,8 @@ const ENTITY_BADGES: Record<ChangeHistoryEntityType, BadgeVariant> = {
   CLASS_ENROLLMENT: "success",
   CLASS_TEACHER: "warning",
   STUDENT: "neutral",
-  EMPLOYEE: "danger"
+  EMPLOYEE: "danger",
+  SESSION_REPORT: "info"
 };
 
 /** Trường đã thể hiện ở cột "Đối tượng" — không lặp lại trong nội dung thay đổi. */
@@ -159,6 +161,7 @@ export default function ChangeHistoryPage() {
       case "CLASS":
         return <span className="font-medium text-slate-800">{classLabel}</span>;
       case "CLASS_SESSION":
+      case "SESSION_REPORT":
         return (
           <div>
             <p className="font-medium text-slate-800">{classLabel}</p>
@@ -184,7 +187,41 @@ export default function ChangeHistoryPage() {
     }
   };
 
+  /** V207 — mốc nộp/duyệt báo cáo: số nhận xét, lý do từ chối, đúng hạn/muộn so với hạn của khâu đó. */
+  const renderSessionReportEvent = (item: ChangeHistoryItem) => {
+    const d = item.details ?? {};
+    const formatAt = (value: unknown) =>
+      typeof value === "string" ? new Date(value).toLocaleString(toLocaleTag(i18n.language), { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" }) : "—";
+    const lateMinutes = typeof d.lateMinutes === "number" ? d.lateMinutes : 0;
+    const duration = lateMinutes < 60
+      ? t("sessionReports.minutes", { count: lateMinutes })
+      : lateMinutes < 1440
+        ? t("sessionReports.hours", { hours: Math.floor(lateMinutes / 60), minutes: lateMinutes % 60 })
+        : t("sessionReports.days", { days: Math.floor(lateMinutes / 1440), hours: Math.floor((lateMinutes % 1440) / 60) });
+    return (
+      <div className="space-y-0.5 text-[11px] leading-5">
+        <p>
+          <span className="text-slate-500">{t("fields.commentCount")}: </span>
+          <span className="font-semibold text-slate-700">{String(d.commentCount ?? "—")}</span>
+        </p>
+        {typeof d.reason === "string" && d.reason && (
+          <p>
+            <span className="text-slate-500">{t("fields.reason")}: </span>
+            <span className="text-slate-700">{d.reason}</span>
+          </p>
+        )}
+        {d.timeliness === "LATE" && (
+          <p className="text-amber-700">{t("sessionReportEvent.late", { duration, deadline: formatAt(d.deadline) })}</p>
+        )}
+        {d.timeliness === "ON_TIME" && (
+          <p className="text-emerald-700">{t("sessionReportEvent.onTime", { deadline: formatAt(d.deadline) })}</p>
+        )}
+      </div>
+    );
+  };
+
   const renderChanges = (item: ChangeHistoryItem) => {
+    if (item.entityType === "SESSION_REPORT") return renderSessionReportEvent(item);
     const { changes, nothingChanged } = computeChanges(item);
     if (changes.length === 0) return <span className="text-slate-400">—</span>;
     return (
@@ -308,7 +345,17 @@ export default function ChangeHistoryPage() {
                     </Td>
                     <Td>{renderSubject(item)}</Td>
                     <Td className="whitespace-nowrap">
-                      <Badge variant={item.action === "CREATED" ? "success" : "info"}>{t(`actions.${item.action}`)}</Badge>
+                      <Badge
+                        variant={
+                          item.action === "CREATED" || item.action === "APPROVED"
+                            ? "success"
+                            : item.action === "REJECTED"
+                              ? "danger"
+                              : "info"
+                        }
+                      >
+                        {t(`actions.${item.action}`)}
+                      </Badge>
                     </Td>
                     <Td className="min-w-[260px]">{renderChanges(item)}</Td>
                   </tr>

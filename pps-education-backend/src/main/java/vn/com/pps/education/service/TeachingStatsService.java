@@ -6,6 +6,7 @@ import vn.com.pps.education.common.ExcelExportHelper;
 import vn.com.pps.education.domain.Employee;
 import vn.com.pps.education.domain.Site;
 import vn.com.pps.education.domain.User;
+import vn.com.pps.education.dto.SessionReportStatusRow;
 import vn.com.pps.education.dto.TeacherTeachingStatsRow;
 import vn.com.pps.education.dto.TeachingStatsResponse;
 import vn.com.pps.education.exception.ResourceNotFoundException;
@@ -18,6 +19,7 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -46,6 +48,7 @@ public class TeachingStatsService {
     private final EmployeeRepository employeeRepository;
     private final SiteRepository siteRepository;
     private final DataScopeService dataScopeService;
+    private final SessionReportTrackingService sessionReportTrackingService;
     private final Clock clock;
 
     public TeachingStatsService(ClassSessionRepository classSessionRepository,
@@ -53,12 +56,14 @@ public class TeachingStatsService {
                                 EmployeeRepository employeeRepository,
                                 SiteRepository siteRepository,
                                 DataScopeService dataScopeService,
+                                SessionReportTrackingService sessionReportTrackingService,
                                 Clock clock) {
         this.classSessionRepository = classSessionRepository;
         this.userRepository = userRepository;
         this.employeeRepository = employeeRepository;
         this.siteRepository = siteRepository;
         this.dataScopeService = dataScopeService;
+        this.sessionReportTrackingService = sessionReportTrackingService;
         this.clock = clock;
     }
 
@@ -90,6 +95,21 @@ public class TeachingStatsService {
             periodsByTeacher.put(row.getTeacherUserId(), row.getPeriodCount());
         }
 
+        // V207 — nộp báo cáo (gửi duyệt nhận xét) theo giáo viên; bỏ qua khi khoảng ngày quá dài.
+        boolean withReports = ChronoUnit.DAYS.between(fromDate, toDate) < SessionReportTrackingService.MAX_RANGE_DAYS;
+        Map<Long, int[]> reportCountsByTeacher = new HashMap<>();
+        if (withReports) {
+            for (SessionReportStatusRow r : sessionReportTrackingService.computeRows(siteId, fromDate, toDate, actorUserId)) {
+                int[] counts = reportCountsByTeacher.computeIfAbsent(r.teacherUserId(), k -> new int[3]);
+                switch (r.submitState()) {
+                    case "ON_TIME" -> counts[0]++;
+                    case "LATE" -> counts[1]++;
+                    case "MISSING" -> counts[2]++;
+                    default -> { }
+                }
+            }
+        }
+
         Set<Long> teacherIds = new HashSet<>(sessionStatsByTeacher.keySet());
         teacherIds.addAll(periodsByTeacher.keySet());
         Map<Long, String> nameById = new HashMap<>();
@@ -112,7 +132,8 @@ public class TeachingStatsService {
                     periodsByTeacher.getOrDefault(teacherId, 0L),
                     s == null ? 0 : s.getOnTimeCheckIns(),
                     s == null ? 0 : s.getLateCheckIns(),
-                    s == null ? 0 : s.getMissingCheckIns()));
+                    s == null ? 0 : s.getMissingCheckIns(),
+                    withReports ? reportCountsByTeacher.getOrDefault(teacherId, new int[3]) : null));
         }
         rows.sort(Comparator.comparing(TeacherTeachingStatsRow::teacherName, String.CASE_INSENSITIVE_ORDER));
 
@@ -125,7 +146,11 @@ public class TeachingStatsService {
                 rows.stream().mapToLong(TeacherTeachingStatsRow::taughtPeriods).sum(),
                 rows.stream().mapToLong(TeacherTeachingStatsRow::onTimeCheckIns).sum(),
                 rows.stream().mapToLong(TeacherTeachingStatsRow::lateCheckIns).sum(),
-                rows.stream().mapToLong(TeacherTeachingStatsRow::missingCheckIns).sum());
+                rows.stream().mapToLong(TeacherTeachingStatsRow::missingCheckIns).sum(),
+                withReports ? new int[]{
+                        rows.stream().mapToInt(r -> r.reportOnTimeCount() == null ? 0 : r.reportOnTimeCount()).sum(),
+                        rows.stream().mapToInt(r -> r.reportLateCount() == null ? 0 : r.reportLateCount()).sum(),
+                        rows.stream().mapToInt(r -> r.reportMissingCount() == null ? 0 : r.reportMissingCount()).sum()} : null);
 
         return new TeachingStatsResponse(fromDate, toDate, siteId, siteName, rows, totals);
     }
@@ -135,7 +160,7 @@ public class TeachingStatsService {
         TeachingStatsResponse stats = getStats(siteId, fromDate, toDate, actorUserId);
         List<String> headers = List.of("Mã nhân sự", "Giáo viên", "Số lớp", "Buổi đã xếp", "Buổi đã diễn ra",
                 "Buổi bị huỷ", "Số tiết đã dạy", "Nhận lớp đúng giờ", "Nhận lớp trễ", "Không nhận lớp",
-                "Tỷ lệ đúng giờ (%)");
+                "Tỷ lệ đúng giờ (%)", "Báo cáo đúng hạn", "Báo cáo nộp muộn", "Báo cáo chưa nộp");
         List<List<Object>> rows = new ArrayList<>();
         for (TeacherTeachingStatsRow r : stats.teachers()) {
             rows.add(toExcelRow(r));
@@ -148,7 +173,9 @@ public class TeachingStatsService {
                 "Buổi đã diễn ra: buổi không huỷ/không dời và đã tới giờ bắt đầu.",
                 "Số tiết đã dạy: tiết có giáo viên riêng tính cho giáo viên đó, còn lại tính cho giáo viên phụ trách buổi.",
                 "Không nhận lớp: buổi đã diễn ra nhưng giáo viên chưa bấm Nhận lớp.",
-                "Tỷ lệ đúng giờ = Nhận lớp đúng giờ / Buổi đã diễn ra.");
+                "Tỷ lệ đúng giờ = Nhận lớp đúng giờ / Buổi đã diễn ra.",
+                "Báo cáo = gửi duyệt nhận xét của buổi, so với hạn nộp trong Cài đặt hệ thống (để trống nếu khoảng ngày quá "
+                        + SessionReportTrackingService.MAX_RANGE_DAYS + " ngày).");
         return ExcelExportHelper.buildWorkbook("Giảng dạy theo GV", headers, rows, notes);
     }
 
@@ -165,14 +192,21 @@ public class TeachingStatsService {
         row.add(r.lateCheckIns());
         row.add(r.missingCheckIns());
         row.add(r.onTimeRate());
+        row.add(r.reportOnTimeCount());
+        row.add(r.reportLateCount());
+        row.add(r.reportMissingCount());
         return row;
     }
 
     private static TeacherTeachingStatsRow buildRow(Long teacherUserId, String teacherName, String employeeCode,
                                                     long classCount, long scheduled, long held, long cancelled,
-                                                    long periods, long onTime, long late, long missing) {
+                                                    long periods, long onTime, long late, long missing,
+                                                    int[] reportCounts) {
         Double onTimeRate = held == 0 ? null : Math.round(onTime * 1000.0 / held) / 10.0;
         return new TeacherTeachingStatsRow(teacherUserId, teacherName, employeeCode, classCount, scheduled, held,
-                cancelled, periods, onTime, late, missing, onTimeRate);
+                cancelled, periods, onTime, late, missing, onTimeRate,
+                reportCounts == null ? null : reportCounts[0],
+                reportCounts == null ? null : reportCounts[1],
+                reportCounts == null ? null : reportCounts[2]);
     }
 }

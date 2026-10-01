@@ -12,6 +12,7 @@ import vn.com.pps.education.domain.Department;
 import vn.com.pps.education.domain.Site;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.dto.ChangeHistoryItemResponse;
+import vn.com.pps.education.dto.SessionReportTimelineEvent;
 import vn.com.pps.education.repository.ClassEnrollmentHistoryRepository;
 import vn.com.pps.education.repository.ClassHistoryRepository;
 import vn.com.pps.education.repository.ClassSessionHistoryRepository;
@@ -23,6 +24,7 @@ import vn.com.pps.education.repository.SiteRepository;
 import vn.com.pps.education.repository.StudentHistoryRepository;
 import vn.com.pps.education.repository.UserRepository;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -34,6 +36,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -55,7 +58,7 @@ public class ChangeHistoryService {
 
     private static final ZoneId APP_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
     private static final Set<String> ENTITY_TYPES =
-            Set.of("CLASS", "CLASS_SESSION", "CLASS_ENROLLMENT", "CLASS_TEACHER", "STUDENT", "EMPLOYEE");
+            Set.of("CLASS", "CLASS_SESSION", "CLASS_ENROLLMENT", "CLASS_TEACHER", "STUDENT", "EMPLOYEE", "SESSION_REPORT");
     private static final int MAX_PAGE_SIZE = 100;
     /** Snapshot nhân sự chứa số CCCD — chỉ người có quyền xem toàn bộ hồ sơ nhân sự mới thấy. */
     private static final Set<String> RESTRICTED_EMPLOYEE_KEYS = Set.of("idCardNumber");
@@ -78,6 +81,7 @@ public class ChangeHistoryService {
     private final DataScopeService dataScopeService;
     private final PermissionEvaluationService permissionEvaluationService;
     private final ObjectMapper objectMapper;
+    private final SessionReportTrackingService sessionReportTrackingService;
 
     public ChangeHistoryService(ClassHistoryRepository classHistoryRepository,
                                 ClassSessionHistoryRepository classSessionHistoryRepository,
@@ -91,7 +95,8 @@ public class ChangeHistoryService {
                                 EmployeeRepository employeeRepository,
                                 DataScopeService dataScopeService,
                                 PermissionEvaluationService permissionEvaluationService,
-                                ObjectMapper objectMapper) {
+                                ObjectMapper objectMapper,
+                                SessionReportTrackingService sessionReportTrackingService) {
         this.classHistoryRepository = classHistoryRepository;
         this.classSessionHistoryRepository = classSessionHistoryRepository;
         this.classEnrollmentHistoryRepository = classEnrollmentHistoryRepository;
@@ -105,6 +110,7 @@ public class ChangeHistoryService {
         this.dataScopeService = dataScopeService;
         this.permissionEvaluationService = permissionEvaluationService;
         this.objectMapper = objectMapper;
+        this.sessionReportTrackingService = sessionReportTrackingService;
     }
 
     /**
@@ -156,11 +162,44 @@ public class ChangeHistoryService {
                         sanitize(row.getEntityType(), findPreviousDetails(row), canViewAllEmployees)))
                 .toList();
         Map<String, String> labels = resolveValueLabels(withSnapshots);
+        enrichSessionReportEvents(withSnapshots);
 
         List<ChangeHistoryItemResponse> content = withSnapshots.stream()
                 .map(item -> toResponse(item, labels))
                 .toList();
         return new PageImpl<>(content, rows.getPageable(), rows.getTotalElements());
+    }
+
+    /**
+     * V207 — mốc nộp/duyệt báo cáo buổi học: gắn loại mốc (gửi lần đầu / gửi lại / duyệt / từ chối), hạn và
+     * đúng hạn/muộn bằng đúng dòng thời gian của trang theo dõi (SessionReportTrackingService) để 2 nơi luôn
+     * khớp nhau. Khớp theo cùng người + cùng phút như cách 2 bên gom mốc.
+     */
+    private void enrichSessionReportEvents(List<RowWithSnapshots> items) {
+        Map<Long, List<SessionReportTimelineEvent>> timelines = new HashMap<>();
+        for (RowWithSnapshots item : items) {
+            ClassHistoryRepository.ChangeHistoryRow row = item.row();
+            if (!"SESSION_REPORT".equals(row.getEntityType()) || item.details() == null) {
+                continue;
+            }
+            List<SessionReportTimelineEvent> timeline = timelines.computeIfAbsent(row.getEntityId(),
+                    sessionReportTrackingService::timelineForSession);
+            OffsetDateTime at = OffsetDateTime.ofInstant(Instant.ofEpochMilli(row.getCreatedAtMillis()), APP_ZONE);
+            boolean decision = "APPROVED".equals(row.getAction()) || "REJECTED".equals(row.getAction());
+            timeline.stream()
+                    .filter(ev -> Objects.equals(ev.actorUserId(), row.getChangedById()))
+                    .filter(ev -> decision ? ev.type().equals(row.getAction()) : ev.type().endsWith("SUBMITTED"))
+                    .filter(ev -> Math.abs(Duration.between(ev.at(), at).toSeconds()) < 60)
+                    .findFirst()
+                    .ifPresent(ev -> {
+                        item.details().put("event", ev.type());
+                        if (ev.deadline() != null) {
+                            item.details().put("deadline", ev.deadline().toString());
+                            item.details().put("timeliness", ev.timeliness());
+                            item.details().put("lateMinutes", ev.lateMinutes());
+                        }
+                    });
+        }
     }
 
     /** Người xem + nhân sự thuộc các phòng ban người xem đang làm trưởng phòng. */
@@ -272,7 +311,7 @@ public class ChangeHistoryService {
                 row.getEntityType() + "-" + row.getHistoryId(),
                 row.getEntityType(),
                 row.getEntityId(),
-                row.getAction(),
+                item.details() != null && item.details().get("event") instanceof String event ? event : row.getAction(),
                 row.getClassId(),
                 row.getClassName(),
                 row.getClassCode(),

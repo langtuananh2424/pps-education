@@ -7,14 +7,12 @@ import { ApiError } from "@/lib/apiClient";
 interface GoogleSignInButtonProps {
   /** Ô "Ghi nhớ đăng nhập" của LoginForm — áp dụng như đăng nhập bằng mật khẩu. */
   rememberMe: boolean;
-  /** Bọc lần gọi đăng nhập để hỏi xác nhận đăng xuất thiết bị cũ nhất khi backend trả 409 — xem LoginForm.runLogin. */
-  runLogin: (attempt: (confirm: boolean) => Promise<void>) => Promise<boolean>;
   onSuccess: () => void;
   onError: (message: string) => void;
 }
 
 /** UC-01 Main Flow bước 4 — Sign in with Google, trả về id_token (credential) gửi thẳng cho backend verify. */
-export default function GoogleSignInButton({ rememberMe, runLogin, onSuccess, onError }: GoogleSignInButtonProps) {
+export default function GoogleSignInButton({ rememberMe, onSuccess, onError }: GoogleSignInButtonProps) {
   const { t } = useTranslation("auth");
   const { loginWithGoogle } = useApp();
 
@@ -39,9 +37,8 @@ export default function GoogleSignInButton({ rememberMe, runLogin, onSuccess, on
             return;
           }
           try {
-            const idToken = credentialResponse.credential;
-            const loggedIn = await runLogin((confirm) => loginWithGoogle(idToken, rememberMe, confirm));
-            if (loggedIn) onSuccess();
+            await loginWithGoogle(credentialResponse.credential, rememberMe);
+            onSuccess();
           } catch (err) {
             onError(err instanceof ApiError ? err.message : t("errors.googleFailed"));
           }

@@ -1010,7 +1010,7 @@ export default function DailyLearningProgressTab({
               <div
                 role="dialog"
                 aria-label={t("filterDialogLabel")}
-                className="absolute right-0 top-full mt-2 z-30 w-[min(280px,calc(100vw-2.5rem))] bg-white border border-line rounded-2xl shadow-lg p-3 space-y-3"
+                className="absolute right-0 top-full mt-2 z-40 w-[min(280px,calc(100vw-2.5rem))] bg-white border border-line rounded-2xl shadow-lg p-3 space-y-3"
               >
                 <div className="flex items-center p-1 bg-slate-100 rounded-xl">
                   <button
@@ -1056,7 +1056,7 @@ export default function DailyLearningProgressTab({
               <div
                 role="dialog"
                 aria-label={t("sessionPickerDialogLabel")}
-                className="absolute right-0 top-full mt-2 z-30 w-[300px] bg-white border border-line rounded-2xl shadow-lg p-3 space-y-3"
+                className="absolute right-0 top-full mt-2 z-40 w-[300px] bg-white border border-line rounded-2xl shadow-lg p-3 space-y-3"
               >
                 {renderSessionPickerBody(closeCalendar)}
               </div>
@@ -1085,7 +1085,7 @@ export default function DailyLearningProgressTab({
               <div
                 role="dialog"
                 aria-label={t("rangePickerDialogLabel")}
-                className="absolute right-0 top-full mt-2 z-30 w-[min(92vw,580px)] bg-white border border-line rounded-2xl shadow-lg p-4 space-y-3"
+                className="absolute right-0 top-full mt-2 z-40 w-[min(92vw,580px)] bg-white border border-line rounded-2xl shadow-lg p-4 space-y-3"
               >
                 {renderRangePickerBody(() => setRangeOpen(false))}
               </div>
@@ -1110,7 +1110,7 @@ export default function DailyLearningProgressTab({
               <div
                 role="dialog"
                 aria-label="Chọn thái độ học tập"
-                className="absolute right-0 top-full mt-2 z-30 w-[220px] bg-white border border-line rounded-2xl shadow-lg p-1.5 space-y-0.5"
+                className="absolute right-0 top-full mt-2 z-40 w-[220px] bg-white border border-line rounded-2xl shadow-lg p-1.5 space-y-0.5"
               >
                 <button
                   type="button"
