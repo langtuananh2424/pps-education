@@ -253,7 +253,7 @@ class CommentAiDraftServiceTest {
     void startDraft_UC74_A3_rejectsWhenNoAudioAndNoNote() {
         assertThatThrownBy(() -> service.startDraft(SESSION_ID, null, "  ", null, ACTOR_ID))
                 .isInstanceOf(CommentAiDraftRejectedException.class);
-        verify(jobRegistry, never()).submit(any(), any());
+        verify(jobRegistry, never()).submit(any(), any(), any());
     }
 
     @Test
@@ -265,7 +265,7 @@ class CommentAiDraftServiceTest {
                 .isInstanceOf(CommentAiDraftRejectedException.class).hasMessageContaining("quá lớn");
         assertThatThrownBy(() -> service.startDraft(SESSION_ID, notAudio, null, null, ACTOR_ID))
                 .isInstanceOf(CommentAiDraftRejectedException.class).hasMessageContaining("không phải audio");
-        verify(jobRegistry, never()).submit(any(), any());
+        verify(jobRegistry, never()).submit(any(), any(), any());
     }
 
     @Test
@@ -468,7 +468,7 @@ class CommentAiDraftServiceTest {
 
         assertThatThrownBy(() -> service.startRevise(SESSION_ID, request, ACTOR_ID))
                 .isInstanceOf(CommentAiDraftRejectedException.class);
-        verify(jobRegistry, never()).submit(any(), any());
+        verify(jobRegistry, never()).submit(any(), any(), any());
     }
 
     @Test
@@ -492,6 +492,48 @@ class CommentAiDraftServiceTest {
         assertThat(result.rows().get(0).content()).isEqualTo("An tập trung tốt.");
         assertThat(result.rows().get(1).attitude()).isEqualTo("AVERAGE");
         assertThat(result.rows().get(1).content()).isEqualTo("Bình hôm nay còn lơ là, cần cố gắng hơn.");
+    }
+
+    @Test
+    void revise_UC74_Step7_rephrasesRevisedRowThatDuplicatesClassmateOnce() {
+        stubAi(CommentAiDraftService.REVISE_PROMPT, """
+                {"assistantMessage": "Đã viết lại nhận xét của Bình.",
+                 "changes": [{"studentId": 2, "content": "Hôm nay con tập trung rất tốt trong giờ học và hăng hái phát biểu."}]}""",
+                """
+                {"assistantMessage": "Đã diễn đạt lại.",
+                 "changes": [{"studentId": 2, "content": "Bình chú tâm suốt buổi, giơ tay phát biểu rất mạnh dạn."},
+                             {"studentId": 1, "content": "không được đổi dòng của An"}]}""");
+        ReviseCommentAiDraftRequest request = new ReviseCommentAiDraftRequest(ReviseCommentAiDraftRequest.Mode.INSTRUCTION,
+                "viết lại nhận xét của Bình", "transcript", null,
+                List.of(new ReviseCommentAiDraftRequest.CurrentRow(1L, "GOOD", "Hôm nay con tập trung rất tốt trong giờ học và hăng hái phát biểu."),
+                        new ReviseCommentAiDraftRequest.CurrentRow(2L, "GOOD", "Bình tập trung tốt.")),
+                List.of(), null);
+
+        CommentAiDraftResult result = service.revise(context(AN, BINH), request);
+
+        // Dòng vừa sửa trùng nguyên văn bạn An -> nhờ AI diễn đạt lại đúng 1 lần, chỉ nhận thay đổi của dòng đó.
+        assertThat(result.rows().get(1).content()).isEqualTo("Bình chú tâm suốt buổi, giơ tay phát biểu rất mạnh dạn.");
+        assertThat(result.rows().get(0).content()).isEqualTo("Hôm nay con tập trung rất tốt trong giờ học và hăng hái phát biểu.");
+        assertThat(result.rows()).allSatisfy(r -> assertThat(r.warnings()).isEmpty());
+        verify(aiClient, times(2)).chatWithFinishReason(eq(CommentAiDraftService.REVISE_PROMPT), anyString(), anyString(), anyDouble());
+        verify(aiClient).chatWithFinishReason(eq(CommentAiDraftService.REVISE_PROMPT),
+                org.mockito.ArgumentMatchers.contains("Diễn đạt lại câu chữ nhận xét của: Trần Thị Bình (studentId 2)"), anyString(), eq(0.7));
+    }
+
+    @Test
+    void revise_UC74_Step9_doesNotRephraseWhenRevisedRowIsDistinct() {
+        stubAi(CommentAiDraftService.REVISE_PROMPT, """
+                {"assistantMessage": "Đã sửa.", "changes": [{"studentId": 2, "content": "Bình hôm nay còn lơ là, cần cố gắng hơn."}]}""");
+        ReviseCommentAiDraftRequest request = new ReviseCommentAiDraftRequest(ReviseCommentAiDraftRequest.Mode.INSTRUCTION,
+                "Bình lơ là", "transcript", null,
+                List.of(new ReviseCommentAiDraftRequest.CurrentRow(1L, "GOOD", "An tập trung tốt."),
+                        new ReviseCommentAiDraftRequest.CurrentRow(2L, "GOOD", "Bình tập trung tốt.")),
+                List.of(), null);
+
+        service.revise(context(AN, BINH), request);
+
+        verify(aiClient, times(1)).chatWithFinishReason(eq(CommentAiDraftService.REVISE_PROMPT), anyString(), anyString(), anyDouble());
+        verify(aiClient).chatWithFinishReason(eq(CommentAiDraftService.REVISE_PROMPT), anyString(), anyString(), eq(0.0));
     }
 
     @Test

@@ -6,7 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import vn.com.pps.education.common.CommentPatternCheck;
-import vn.com.pps.education.common.CommentSimilarity;
+import vn.com.pps.education.common.CommentRuleCheck;
 import vn.com.pps.education.common.HomeworkScoreInsight;
 import vn.com.pps.education.domain.ClassEnrollment;
 import vn.com.pps.education.domain.ClassSession;
@@ -41,7 +41,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -81,7 +80,6 @@ public class CommentAiReviewService {
             Map.entry("SIMILAR_TO_PREVIOUS", "giống buổi trước"), Map.entry("HOMEWORK_OR_SCORE", "ghi điểm/hạn nộp"),
             Map.entry("HARSH_WORDING", "từ ngữ nặng"), Map.entry("ATTITUDE_MISMATCH", "Thái độ không khớp nội dung"),
             Map.entry("FORBIDDEN_TOPIC", "chủ đề không nên nhắc"), Map.entry("OTHER", "lỗi khác"));
-    private static final Pattern DIGIT = Pattern.compile("\\d");
     /** Rubric nhận xét đặt mức khoảng 400 ký tự — chỉ cảnh báo khi vượt rõ rệt. */
     static final int MAX_CONTENT_LENGTH = 500;
     private static final int REVIEW_BATCH_SIZE = 15;
@@ -160,7 +158,7 @@ public class CommentAiReviewService {
     @Transactional(readOnly = true)
     public CommentAiReviewJobResponse startReview(CommentAiReviewRequest request, Long actorUserId) {
         List<ReviewItem> items = loadItems(request.commentIds(), actorUserId);
-        return toReviewResponse(jobRegistry.submit(actorUserId, () -> review(items)));
+        return toReviewResponse(jobRegistry.submit(actorUserId, AiJobRegistry.Lane.REVIEW, () -> review(items)));
     }
 
     public CommentAiReviewJobResponse getReview(String jobId, Long actorUserId) {
@@ -173,7 +171,7 @@ public class CommentAiReviewService {
         ReviewItem item = loadItems(List.of(commentId), actorUserId).get(0);
         List<String> issues = request == null || request.issues() == null ? List.of()
                 : request.issues().stream().filter(i -> i != null && !i.isBlank()).toList();
-        return toSuggestionResponse(jobRegistry.submit(actorUserId, () -> suggest(item, issues)));
+        return toSuggestionResponse(jobRegistry.submit(actorUserId, AiJobRegistry.Lane.REVIEW, () -> suggest(item, issues)));
     }
 
     public CommentAiSuggestionJobResponse getSuggestion(String jobId, Long actorUserId) {
@@ -216,7 +214,7 @@ public class CommentAiReviewService {
         byte[] finalAudio = audioBytes;
         String finalMimeType = mimeType;
         String finalNote = hasNote ? note.trim() : null;
-        return toInstructionResponse(jobRegistry.submit(actorUserId, () -> instruct(items, finalAudio, finalMimeType, finalNote)));
+        return toInstructionResponse(jobRegistry.submit(actorUserId, AiJobRegistry.Lane.REVIEW, () -> instruct(items, finalAudio, finalMimeType, finalNote)));
     }
 
     public CommentAiInstructionJobResponse getInstruction(String jobId, Long actorUserId) {
@@ -244,7 +242,7 @@ public class CommentAiReviewService {
         ReviewItem item = loadItems(List.of(commentId), actorUserId).get(0);
         List<String> issues = request == null || request.issues() == null ? List.of()
                 : request.issues().stream().filter(i -> i != null && !i.isBlank()).toList();
-        return toRejectionReasonResponse(jobRegistry.submit(actorUserId, () -> rejectionReason(item, issues)));
+        return toRejectionReasonResponse(jobRegistry.submit(actorUserId, AiJobRegistry.Lane.REVIEW, () -> rejectionReason(item, issues)));
     }
 
     public CommentAiRejectionReasonJobResponse getRejectionReason(String jobId, Long actorUserId) {
@@ -410,7 +408,7 @@ public class CommentAiReviewService {
                         boolean similarFlagged = issuesById.get(item.commentId()).stream().anyMatch(i -> "SIMILAR_IN_SESSION".equals(i.type()));
                         if (patterns.all().contains(item.commentId()) && !similarFlagged) {
                             noticesById.get(item.commentId()).add(new CommentAiReviewResult.Notice("REPEATED_PATTERN", SOURCE_RULE,
-                                    CommentAiDraftService.repeatedPatternMessage(patterns, item.commentId())));
+                                    CommentRuleCheck.repeatedPatternMessage(patterns, item.commentId())));
                         }
                     }
                 });
@@ -519,13 +517,13 @@ public class CommentAiReviewService {
             issues.add(rule("EMPTY", "Nhận xét đang để trống."));
             return issues;
         }
-        if (DIGIT.matcher(content).find()) {
+        if (CommentRuleCheck.containsDigits(content)) {
             issues.add(rule("CONTAINS_DIGITS", "Nhận xét có chữ số — kiểm tra có nhắc điểm/số liệu không."));
         }
         if (content.length() > MAX_CONTENT_LENGTH) {
             issues.add(rule("TOO_LONG", "Nhận xét dài " + content.length() + " ký tự (rubric khoảng 400)."));
         }
-        if (CommentAiDraftService.mentionsLessonTitle(content, item.lessonContent())) {
+        if (CommentRuleCheck.mentionsLessonTitle(content, item.lessonContent())) {
             issues.add(rule("LESSON_TITLE", "Nhắc tên bài học \"" + item.lessonContent().trim() + "\" — thường không ghi tên bài vào nhận xét."));
         }
         String normalizedContent = normalize(content);
@@ -534,32 +532,16 @@ public class CommentAiReviewService {
                 issues.add(rule("OTHER_STUDENT_NAME", "Nhắc họ tên bạn khác trong lớp: \"" + classmate + "\"."));
             }
         }
-        double bestSession = 0;
-        String bestName = null;
-        for (ReviewItem other : all) {
-            if (other == item || other.classSessionId() == null || !other.classSessionId().equals(item.classSessionId())) {
-                continue;
-            }
-            double similarity = CommentSimilarity.similarity(content, other.content());
-            if (similarity > bestSession) {
-                bestSession = similarity;
-                bestName = other.studentFullName();
-            }
+        CommentRuleCheck.Match inSession = CommentRuleCheck.bestMatch(content, all.stream()
+                .filter(other -> other != item && other.classSessionId() != null && other.classSessionId().equals(item.classSessionId()))
+                .toList(), ReviewItem::content, ReviewItem::studentFullName);
+        if (inSession.atLeast(similarityThreshold)) {
+            issues.add(rule("SIMILAR_IN_SESSION", CommentRuleCheck.similarInSessionMessage(inSession)));
         }
-        if (bestSession >= similarityThreshold) {
-            issues.add(rule("SIMILAR_IN_SESSION", "Giống nhận xét của " + bestName + " " + Math.round(bestSession * 100) + "%."));
-        }
-        double bestPrevious = 0;
-        LocalDate bestDate = null;
-        for (CommentAiDraftService.PreviousComment previous : item.previousComments()) {
-            double similarity = CommentSimilarity.similarity(content, previous.content());
-            if (similarity > bestPrevious) {
-                bestPrevious = similarity;
-                bestDate = previous.date();
-            }
-        }
-        if (bestPrevious >= similarityThreshold) {
-            issues.add(rule("SIMILAR_TO_PREVIOUS", "Giống nhận xét buổi " + bestDate + " " + Math.round(bestPrevious * 100) + "%."));
+        CommentRuleCheck.Match previous = CommentRuleCheck.bestMatch(content, item.previousComments(),
+                CommentAiDraftService.PreviousComment::content, p -> String.valueOf(p.date()));
+        if (previous.atLeast(similarityThreshold)) {
+            issues.add(rule("SIMILAR_TO_PREVIOUS", CommentRuleCheck.similarToPreviousMessage(previous)));
         }
         return issues;
     }

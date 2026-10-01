@@ -149,7 +149,7 @@ class CommentAiReviewServiceTest {
 
         assertThatThrownBy(() -> service.startReview(new CommentAiReviewRequest(List.of(1L)), ACTOR_ID))
                 .isInstanceOf(NotSiteManagerForSiteException.class);
-        verify(jobRegistry, never()).submit(any(), any());
+        verify(jobRegistry, never()).submit(any(), any(), any());
     }
 
     @Test
@@ -159,7 +159,7 @@ class CommentAiReviewServiceTest {
 
         assertThatThrownBy(() -> service.startReview(new CommentAiReviewRequest(List.of(1L)), ACTOR_ID))
                 .isInstanceOf(ApprovalAlreadyDecidedException.class);
-        verify(jobRegistry, never()).submit(any(), any());
+        verify(jobRegistry, never()).submit(any(), any(), any());
     }
 
     @Test
@@ -249,7 +249,7 @@ class CommentAiReviewServiceTest {
                 .isInstanceOf(CommentAiDraftRejectedException.class).hasMessageContaining("quá lớn");
         assertThatThrownBy(() -> service.startInstruction(List.of(1L), notAudio, null, ACTOR_ID))
                 .isInstanceOf(CommentAiDraftRejectedException.class).hasMessageContaining("không phải audio");
-        verify(jobRegistry, never()).submit(any(), any());
+        verify(jobRegistry, never()).submit(any(), any(), any());
     }
 
     @Test

@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import vn.com.pps.education.common.CommentAiDraftMetrics;
 import vn.com.pps.education.common.CommentPatternCheck;
+import vn.com.pps.education.common.CommentRuleCheck;
 import vn.com.pps.education.common.CommentSimilarity;
 import vn.com.pps.education.common.HomeworkScoreInsight;
 import vn.com.pps.education.common.StudentSignalInsight;
@@ -93,7 +94,6 @@ public class CommentAiDraftService {
 
     private static final Map<String, String> ATTITUDE_LABELS = Map.of(
             "WEAK", "Yếu", "AVERAGE", "Trung bình", "FAIR", "Khá", "GOOD", "Tốt", "EXCELLENT", "Xuất sắc");
-    private static final Pattern DIGIT = Pattern.compile("\\d");
     private static final Pattern PRONOUN_THAY = Pattern.compile("(?iu)(?<!\\p{L})thầy(?!\\p{L})");
     private static final Pattern PRONOUN_CO = Pattern.compile("(?iu)(?<!\\p{L})cô(?!\\p{L})");
     private static final int MAX_AVOID_TEXTS = 30;
@@ -277,7 +277,7 @@ public class CommentAiDraftService {
         byte[] finalAudio = audioBytes;
         String finalMimeType = mimeType;
         String finalNote = hasNote ? note.trim() : null;
-        return toResponse(jobRegistry.submit(actorUserId, () -> generateDraft(context, finalAudio, finalMimeType, finalNote)));
+        return toResponse(jobRegistry.submit(actorUserId, AiJobRegistry.Lane.DRAFT, () -> generateDraft(context, finalAudio, finalMimeType, finalNote)));
     }
 
     /** UC-74 Main Flow bước 9 — giáo viên yêu cầu sửa/viết lại bản nháp. */
@@ -295,7 +295,7 @@ public class CommentAiDraftService {
             throw new CommentAiDraftRejectedException("Chưa có bản nháp để viết lại — hãy gửi audio trước.");
         }
         DraftContext context = loadContext(classSessionId, actorUserId, request.homeworkScores());
-        return toResponse(jobRegistry.submit(actorUserId, () -> revise(context, request)));
+        return toResponse(jobRegistry.submit(actorUserId, AiJobRegistry.Lane.DRAFT, () -> revise(context, request)));
     }
 
     public CommentAiDraftJobResponse getJob(String jobId, Long actorUserId) {
@@ -525,38 +525,20 @@ public class CommentAiDraftService {
     private CommentAiDraftResult reviseByInstruction(DraftContext context, ReviseCommentAiDraftRequest request,
                                                      Map<Long, ReviseCommentAiDraftRequest.CurrentRow> current) {
         Map<Long, RosterStudent> rosterById = context.rosterById();
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("transcript", request.transcript());
-        List<ReviseCommentAiDraftRequest.ChatTurn> history = request.history() == null ? List.of() : request.history();
-        payload.put("history", history.subList(Math.max(0, history.size() - MAX_HISTORY_TURNS), history.size()));
-        payload.put("instruction", request.instruction().trim());
-        String currentPronoun = request.extraction() == null ? null : normalizePronoun(request.extraction().teacherPronoun());
-        payload.put("teacherPronoun", currentPronoun);
-        List<Map<String, Object>> students = new ArrayList<>();
-        for (RosterStudent student : context.roster()) {
-            ReviseCommentAiDraftRequest.CurrentRow row = current.get(student.id());
-            Map<String, Object> item = new LinkedHashMap<>();
-            item.put("studentId", student.id());
-            item.put("fullName", student.fullName());
-            item.put("attitude", row == null ? null : normalizeAttitude(row.attitude()));
-            item.put("content", row == null ? null : row.content());
-            item.put("previousComments", student.previousComments().stream().map(PreviousComment::content).toList());
-            item.put("homework", student.homeworkNote());
-            student.putSignals(item);
-            students.add(item);
-        }
-        payload.put("students", students);
-
-        JsonNode response = callJson(REVISE_PROMPT, payload, REVISE_RUBRIC_SECTIONS, 0);
-        if (response == null) {
-            throw new CommentAiDraftFailedException("Trợ lý chưa xử lý được yêu cầu (AI lỗi hoặc quá thời gian) — vui lòng thử lại.");
-        }
         Map<Long, String> attitudes = new LinkedHashMap<>();
         Map<Long, String> contents = new LinkedHashMap<>();
         current.forEach((id, row) -> {
             attitudes.put(id, normalizeAttitude(row.attitude()));
             contents.put(id, row.content());
         });
+        String currentPronoun = request.extraction() == null ? null : normalizePronoun(request.extraction().teacherPronoun());
+        JsonNode response = callJson(REVISE_PROMPT,
+                revisePayload(context, request, attitudes, contents, request.instruction().trim(), currentPronoun),
+                REVISE_RUBRIC_SECTIONS, 0);
+        if (response == null) {
+            throw new CommentAiDraftFailedException("Trợ lý chưa xử lý được yêu cầu (AI lỗi hoặc quá thời gian) — vui lòng thử lại.");
+        }
+        Set<Long> contentChanged = new LinkedHashSet<>();
         int changed = 0;
         for (JsonNode change : response.path("changes")) {
             long id = change.path("studentId").asLong(0);
@@ -576,6 +558,7 @@ public class CommentAiDraftService {
             }
             if (change.hasNonNull("content")) {
                 contents.put(id, change.path("content").asText().trim());
+                contentChanged.add(id);
                 touched = true;
             }
             if (touched) {
@@ -602,8 +585,89 @@ public class CommentAiDraftService {
             extraction = new CommentAiDraftResult.Extraction(extraction.classAttitude(), extraction.classPoints(),
                     extraction.individuals(), newPronoun);
         }
-        List<CommentAiDraftResult.Row> rows = toRows(context, targets, contents, newPronoun != null ? newPronoun : currentPronoun);
+        String pronoun = newPronoun != null ? newPronoun : currentPronoun;
+        rephraseRepeatedAfterRevise(context, request, attitudes, contents, contentChanged, pronoun);
+        List<CommentAiDraftResult.Row> rows = toRows(context, targets, contents, pronoun);
         return new CommentAiDraftResult(request.transcript(), message, extraction, rows, List.of(), context.skipped());
+    }
+
+    private Map<String, Object> revisePayload(DraftContext context, ReviseCommentAiDraftRequest request, Map<Long, String> attitudes,
+                                              Map<Long, String> contents, String instruction, String teacherPronoun) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("transcript", request.transcript());
+        List<ReviseCommentAiDraftRequest.ChatTurn> history = request.history() == null ? List.of() : request.history();
+        payload.put("history", history.subList(Math.max(0, history.size() - MAX_HISTORY_TURNS), history.size()));
+        payload.put("instruction", instruction);
+        payload.put("teacherPronoun", teacherPronoun);
+        List<Map<String, Object>> students = new ArrayList<>();
+        for (RosterStudent student : context.roster()) {
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("studentId", student.id());
+            item.put("fullName", student.fullName());
+            item.put("attitude", attitudes.get(student.id()));
+            item.put("content", contents.get(student.id()));
+            item.put("previousComments", student.previousComments().stream().map(PreviousComment::content).toList());
+            item.put("homework", student.homeworkNote());
+            student.putSignals(item);
+            students.add(item);
+        }
+        payload.put("students", students);
+        return payload;
+    }
+
+    /**
+     * UC-74 bước 9 + bước 7 (bổ sung 2026-10-01, đã xác nhận với người dùng): dòng vừa sửa theo yêu cầu mà trùng câu
+     * chữ với bạn khác trong buổi hoặc với nhận xét cũ của chính học sinh đó, hoặc lặp kiểu câu mở đầu/câu kết/cụm sáo
+     * mòn, được nhờ AI diễn đạt lại ĐÚNG 1 lần — giữ nguyên ý và Thái độ, chỉ nhận thay đổi "content" của đúng các dòng
+     * đó. AI lỗi thì giữ bản đã sửa; cảnh báo trên dòng vẫn báo như cũ. Lượt này nhằm đa dạng câu chữ nên dùng nhiệt độ
+     * của bước viết.
+     */
+    private void rephraseRepeatedAfterRevise(DraftContext context, ReviseCommentAiDraftRequest request, Map<Long, String> attitudes,
+                                             Map<Long, String> contents, Set<Long> changedIds, String teacherPronoun) {
+        if (changedIds.isEmpty()) {
+            return;
+        }
+        Map<Long, RosterStudent> rosterById = context.rosterById();
+        CommentPatternCheck.Result patterns = CommentPatternCheck.check(contents.entrySet().stream()
+                .map(e -> new CommentPatternCheck.Entry(e.getKey(), rosterById.get(e.getKey()).fullName(), e.getValue()))
+                .toList(), settings.maxPatternShare());
+        List<Long> repeated = new ArrayList<>();
+        for (Long id : changedIds) {
+            String text = contents.get(id);
+            if (text == null || text.isBlank()) {
+                continue;
+            }
+            boolean similarInSession = CommentRuleCheck.bestMatch(text,
+                    contents.entrySet().stream().filter(e -> !e.getKey().equals(id)).toList(),
+                    Map.Entry::getValue, e -> rosterById.get(e.getKey()).fullName()).atLeast(settings.similarityThreshold());
+            boolean similarToPrevious = CommentRuleCheck.bestMatch(text, rosterById.get(id).previousComments(),
+                    PreviousComment::content, p -> String.valueOf(p.date())).atLeast(settings.similarityThreshold());
+            if (similarInSession || similarToPrevious || patterns.all().contains(id)) {
+                repeated.add(id);
+            }
+        }
+        if (repeated.isEmpty()) {
+            return;
+        }
+        String targetsText = repeated.stream().map(id -> rosterById.get(id).fullName() + " (studentId " + id + ")")
+                .collect(Collectors.joining(", "));
+        String instruction = "Diễn đạt lại câu chữ nhận xét của: " + targetsText + " — đang trùng câu chữ hoặc lặp kiểu câu mở"
+                + " đầu/câu kết với bạn khác trong buổi hoặc với nhận xét cũ của chính bạn đó. Giữ nguyên mọi ý và mức Thái độ,"
+                + " chỉ đổi cách diễn đạt; không sửa học sinh nào khác.";
+        JsonNode response = callJson(REVISE_PROMPT, revisePayload(context, request, attitudes, contents, instruction, teacherPronoun),
+                REVISE_RUBRIC_SECTIONS, settings.writeTemperature());
+        if (response == null) {
+            log.warn("CommentAiDraftService: diễn đạt lại {} dòng trùng sau khi sửa thất bại — giữ bản đã sửa.", repeated.size());
+            return;
+        }
+        Set<Long> allowed = new HashSet<>(repeated);
+        for (JsonNode change : response.path("changes")) {
+            long id = change.path("studentId").asLong(0);
+            String content = change.path("content").asText("").trim();
+            if (allowed.remove(id) && !content.isEmpty()) {
+                contents.put(id, content);
+            }
+        }
     }
 
     // ---- Bước 5: tách ý ----
@@ -809,21 +873,6 @@ public class CommentAiDraftService {
         return contents;
     }
 
-    /** Nội dung cảnh báo lặp kiểu câu — dùng chung cho trợ lý soạn nháp (UC-74) và trợ lý duyệt (UC-75). */
-    static String repeatedPatternMessage(CommentPatternCheck.Result patterns, Long id) {
-        List<String> parts = new ArrayList<>();
-        if (patterns.openingIds().contains(id)) {
-            parts.add("câu mở đầu");
-        }
-        if (patterns.closingIds().contains(id)) {
-            parts.add("câu kết");
-        }
-        if (patterns.phraseIds().contains(id)) {
-            parts.add("cụm \"" + String.join("\", \"", patterns.phrasesById().get(id)) + "\"");
-        }
-        return "Kiểu " + String.join(" và ", parts) + " giống nhiều bạn khác trong buổi — nên đổi cách viết.";
-    }
-
     private static List<CommentPatternCheck.Entry> patternEntries(List<Target> targets, Map<Long, String> contents) {
         return targets.stream()
                 .map(t -> new CommentPatternCheck.Entry(t.student().id(), t.student().fullName(), contents.get(t.student().id())))
@@ -880,48 +929,31 @@ public class CommentAiDraftService {
             if (content == null || content.isBlank()) {
                 warnings.add(new CommentAiDraftResult.Warning("NOT_WRITTEN", "Trợ lý chưa viết được nhận xét cho học sinh này.", null));
             } else {
-                double bestInSession = 0;
-                String bestName = null;
-                for (Target other : targets) {
-                    String otherContent = contents.get(other.student().id());
-                    if (other == target || otherContent == null) {
-                        continue;
-                    }
-                    double similarity = CommentSimilarity.similarity(content, otherContent);
-                    if (similarity > bestInSession) {
-                        bestInSession = similarity;
-                        bestName = other.student().fullName();
-                    }
-                }
-                if (bestInSession >= settings.similarityThreshold()) {
+                CommentRuleCheck.Match inSession = CommentRuleCheck.bestMatch(content,
+                        targets.stream().filter(other -> other != target).toList(),
+                        other -> contents.get(other.student().id()), other -> other.student().fullName());
+                if (inSession.atLeast(settings.similarityThreshold())) {
                     warnings.add(new CommentAiDraftResult.Warning("SIMILAR_IN_SESSION",
-                            "Giống nhận xét của " + bestName + " " + Math.round(bestInSession * 100) + "%.", bestInSession));
+                            CommentRuleCheck.similarInSessionMessage(inSession), inSession.similarity()));
                 }
-                double bestPrevious = 0;
-                LocalDate bestDate = null;
-                for (PreviousComment previous : target.student().previousComments()) {
-                    double similarity = CommentSimilarity.similarity(content, previous.content());
-                    if (similarity > bestPrevious) {
-                        bestPrevious = similarity;
-                        bestDate = previous.date();
-                    }
-                }
-                if (bestPrevious >= settings.similarityThreshold()) {
+                CommentRuleCheck.Match previous = CommentRuleCheck.bestMatch(content, target.student().previousComments(),
+                        PreviousComment::content, p -> String.valueOf(p.date()));
+                if (previous.atLeast(settings.similarityThreshold())) {
                     warnings.add(new CommentAiDraftResult.Warning("SIMILAR_TO_PREVIOUS",
-                            "Giống nhận xét buổi " + bestDate + " " + Math.round(bestPrevious * 100) + "%.", bestPrevious));
+                            CommentRuleCheck.similarToPreviousMessage(previous), previous.similarity()));
                 }
-                if (DIGIT.matcher(content).find()) {
+                if (CommentRuleCheck.containsDigits(content)) {
                     warnings.add(new CommentAiDraftResult.Warning("CONTAINS_DIGITS",
                             "Nhận xét có chữ số — kiểm tra lại, trợ lý không được ghi điểm/số liệu.", null));
                 }
-                if (mentionsLessonTitle(content, context.lessonContent())) {
+                if (CommentRuleCheck.mentionsLessonTitle(content, context.lessonContent())) {
                     warnings.add(new CommentAiDraftResult.Warning("LESSON_TITLE",
                             "Nhận xét nhắc tên bài học — giáo viên thường không ghi tên bài vào nhận xét.", null));
                 }
                 // Đã cảnh báo trùng cả đoạn thì không nhắc thêm trùng kiểu câu (tránh 2 cảnh báo cho cùng 1 lỗi).
-                boolean similarWarned = bestInSession >= settings.similarityThreshold();
-                if (!similarWarned && patterns.all().contains(id)) {
-                    warnings.add(new CommentAiDraftResult.Warning("REPEATED_PATTERN", repeatedPatternMessage(patterns, id), null));
+                if (!inSession.atLeast(settings.similarityThreshold()) && patterns.all().contains(id)) {
+                    warnings.add(new CommentAiDraftResult.Warning("REPEATED_PATTERN",
+                            CommentRuleCheck.repeatedPatternMessage(patterns, id), null));
                 }
                 CommentAiDraftResult.Warning pronounWarning = pronounMismatchWarning(content, teacherPronoun);
                 if (pronounWarning != null) {
@@ -978,20 +1010,6 @@ public class CommentAiDraftService {
 
     private JsonNode callJson(String promptFile, Object payload, Set<Integer> rubricSections, double temperature) {
         return jsonCaller.callJson(promptFile, payload, settings.model(), rubricSections, temperature);
-    }
-
-    /**
-     * Tên bài học (class_sessions.lesson_content, VD "Unit 1: Hello Friend") KHÔNG được đưa vào nhận xét (đã xác
-     * nhận với người dùng 2026-09-29) — trợ lý không còn gửi trường này cho AI; kiểm tra này bắt trường hợp AI
-     * vẫn tự viết ra (VD giáo viên đọc tên bài trong audio).
-     */
-    static boolean mentionsLessonTitle(String content, String lessonContent) {
-        if (content == null || lessonContent == null || lessonContent.trim().length() < 5) {
-            return false;
-        }
-        java.util.function.Function<String, String> norm = text -> java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFC)
-                .toLowerCase(Locale.forLanguageTag("vi")).replaceAll("[^\\p{L}\\p{N}]+", " ").trim();
-        return norm.apply(content).contains(norm.apply(lessonContent));
     }
 
     /**

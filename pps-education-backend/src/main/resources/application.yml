@@ -328,7 +328,11 @@ app:
     write-batch-size: ${COMMENT_AI_WRITE_BATCH_SIZE:10}
     # 20MB - FE giới hạn 5 phút/lần (ghi âm tự dừng), backend chặn thêm theo dung lượng.
     max-audio-bytes: ${COMMENT_AI_MAX_AUDIO_BYTES:20971520}
+    # Số luồng chạy nền của trợ lý: worker-threads cho giáo viên soạn nháp (UC-74), review-worker-threads cho
+    # Quản lý soát duyệt (UC-75) - 2 làn riêng (bổ sung 2026-10-01). Tổng nên nhỏ hơn nine-router-max-concurrent
+    # để còn suất cho luồng chấm bài học sinh.
     worker-threads: ${COMMENT_AI_WORKER_THREADS:2}
+    review-worker-threads: ${COMMENT_AI_REVIEW_WORKER_THREADS:1}
     job-ttl-minutes: ${COMMENT_AI_JOB_TTL_MINUTES:30}
     # Chênh lệch tối thiểu (điểm %) giữa trung bình BTVN buổi trước và buổi trước nữa để AI được nhắc
     # "tiến bộ rõ"/"giảm rõ" (bổ sung 2026-09-29) - ước lượng ban đầu, chỉnh qua biến môi trường.
