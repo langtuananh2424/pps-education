@@ -209,6 +209,8 @@ interface Row {
   note: string;
   /** UC-74 (V201) — dòng vừa áp dụng từ bản nháp trợ lý AI; gửi kèm khi Lưu nháp để BE đánh dấu ai_drafted (chỉ bật lên). */
   aiDrafted?: boolean;
+  /** UC-74 (V208) — nguyên văn Nhận xét trợ lý AI soạn lúc áp dụng, gửi kèm khi Lưu nháp để đo mức giáo viên sửa bản AI. */
+  aiDraftContent?: string;
 }
 
 /** Bổ sung ngoài SDD gốc, xác nhận 2026-08-17 — dùng cho "Lưu nháp": khác handleSend (chỉ cần content),
@@ -1096,7 +1098,8 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
     classId: number,
     session: ClassSessionResponse
   ): Promise<PromiseSettledResult<StudentCommentResponse>[]> => {
-    const rows = filled.map((r) => ({ studentId: r.studentId, ...buildCommentPayload(r), aiDrafted: r.aiDrafted || undefined }));
+    const rows = filled.map((r) => ({ studentId: r.studentId, ...buildCommentPayload(r), aiDrafted: r.aiDrafted || undefined,
+      aiDraftContent: r.aiDrafted ? r.aiDraftContent : undefined }));
     try {
       const response = await saveDraftBatch(classId, session.id, { commentDate: session.sessionDate, rows });
       const savedByStudentId = new Map(response.saved.map((s) => [s.studentId, s]));
@@ -1209,7 +1212,8 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
       const absent = attendanceByStudent[r.studentId] === "ABSENT" || attendanceByStudent[r.studentId] === "EXCUSED";
       if (!d || lockedIds.has(r.studentId) || absent || (!d.content && !d.attitude)) return r;
       appliedIds.push(r.studentId);
-      return { ...r, attitude: d.attitude ?? r.attitude, content: d.content ?? r.content, aiDrafted: true };
+      return { ...r, attitude: d.attitude ?? r.attitude, content: d.content ?? r.content, aiDrafted: true,
+        aiDraftContent: d.content ?? r.aiDraftContent };
     });
     return { next, appliedIds };
   };

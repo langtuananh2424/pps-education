@@ -1665,6 +1665,7 @@ erDiagram
         BIGINT homework_next_review_video_set_id FK
         TEXT note
         BOOLEAN ai_drafted
+        TEXT ai_draft_content
     }
 ```
 
@@ -1751,6 +1752,18 @@ a)  Bảng student_comments --- Nhận xét học sinh
                                                                 chất lượng nhận xét AI so với
                                                                 nhận xét tự viết
                                                                 (scripts/comment-ai-approved-
+                                                                metrics.sql)
+
+  ai_draft_content         TEXT          NULL                  (V208, bổ sung ngoài SDD gốc, đã
+                                                                xác nhận với người dùng
+                                                                2026-10-01, UC-74) — nguyên văn
+                                                                Nhận xét trợ lý AI soạn lúc
+                                                                giáo viên áp dụng (lần gần
+                                                                nhất); chỉ ghi khi Lưu nháp dòng
+                                                                ai_drafted, không trả ra API,
+                                                                không dùng khi duyệt. So với
+                                                                content để đo mức giáo viên sửa
+                                                                bản AI (comment-ai-approved-
                                                                 metrics.sql)
 
   attitude                 VARCHAR(20)   NULL                  (V50, bổ sung ngoài SDD gốc, đã

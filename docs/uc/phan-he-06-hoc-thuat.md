@@ -2455,7 +2455,16 @@ Ghi chú kỹ thuật (bổ sung ngoài SDD gốc, đã xác nhận với ngư�
     mục mỗi bước cần (theo tiêu đề `## N.`): tách ý ← mục 1; viết câu ← mục
     2–6; sửa theo yêu cầu giáo viên ← cả rubric; soát lỗi / lý do từ chối ←
     mục 1–4; đề xuất sửa / sửa theo yêu cầu Quản lý ← mục 2–4. Thiếu mục
-    nào thì gửi cả rubric (không bỏ mất quy tắc).
+    nào thì gửi cả rubric (không bỏ mất quy tắc). (3) Hàng đợi chạy nền tách
+    2 làn: soạn nháp của giáo viên (`worker-threads`, mặc định 2) và trợ lý
+    duyệt UC-75 (`review-worker-threads`, mặc định 1) — 2 bên không chờ
+    nhau. (4) Sửa theo yêu cầu (bước 9): dòng vừa sửa mà trùng câu chữ với
+    bạn khác/nhận xét cũ hoặc lặp kiểu câu thì nhờ AI diễn đạt lại đúng 1
+    lần (giữ ý, giữ Thái độ, chỉ nhận thay đổi của các dòng đó); AI lỗi thì
+    giữ bản đã sửa, cảnh báo trên dòng vẫn như cũ. (5) Cột mới
+    `student_comments.ai_draft_content` (V208): Lưu nháp dòng áp dụng từ
+    trợ lý gửi kèm nguyên văn bản AI; `scripts/comment-ai-approved-metrics.sql`
+    thêm % giữ nguyên, độ giống trung bình với bản AI, % sửa nhiều.
 
 ---
 

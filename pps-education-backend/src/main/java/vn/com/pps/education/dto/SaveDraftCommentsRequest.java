@@ -3,6 +3,7 @@ package vn.com.pps.education.dto;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
 import java.util.Map;
@@ -26,6 +27,8 @@ public record SaveDraftCommentsRequest(
      *
      * @param aiDrafted V201 (UC-74) — {@code true} khi dòng này vừa được áp dụng từ bản nháp của trợ lý AI; {@code null}/{@code false}
      *                  giữ nguyên giá trị đã lưu (cờ chỉ bật lên, không tắt lại).
+     * @param aiDraftContent V208 (UC-74) — nguyên văn Nhận xét trợ lý AI soạn lúc giáo viên áp dụng vào bảng; chỉ lưu khi
+     *                       {@code aiDrafted = true}, bỏ trống thì giữ giá trị đã lưu.
      */
     public record Row(
             @NotNull Long studentId,
@@ -42,6 +45,7 @@ public record SaveDraftCommentsRequest(
             String homeworkNextReading,
             String homeworkNextWriting,
             String note,
-            Boolean aiDrafted
+            Boolean aiDrafted,
+            @Size(max = 4000) String aiDraftContent
     ) {}
 }
