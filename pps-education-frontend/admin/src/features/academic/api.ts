@@ -1031,6 +1031,23 @@ export function markAttendance(classSessionId: number, request: MarkAttendanceRe
   return apiRequest<AttendanceSessionResponse>(`/class-sessions/${classSessionId}/attendance`, { method: "POST", body: JSON.stringify(request) });
 }
 
+export interface AttendanceMarkHistoryResponse {
+  id: number;
+  studentId: number;
+  studentFullName: string;
+  studentCode: string;
+  status: AttendanceMarkResponse["status"];
+  action: "CREATED" | "UPDATED";
+  changedByUserId: number;
+  changedByName: string;
+  createdAt: string;
+}
+
+/** Lịch sử thao tác (Lưu/Sửa) của 1 buổi điểm danh, cũ→mới — bổ sung ngoài SDD gốc, 2026-10-01 (xem AttendanceHistoryPanel.tsx). */
+export function getAttendanceHistory(classSessionId: number): Promise<AttendanceMarkHistoryResponse[]> {
+  return apiRequest<AttendanceMarkHistoryResponse[]>(`/class-sessions/${classSessionId}/attendance/history`);
+}
+
 export function submitAttendance(classSessionId: number): Promise<AttendanceSessionResponse> {
   return apiRequest<AttendanceSessionResponse>(`/class-sessions/${classSessionId}/attendance/submit`, { method: "POST" });
 }

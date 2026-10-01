@@ -232,6 +232,53 @@
     "title": "Attendance (SMS)",
     "description": "Teachers record attendance; absences automatically alert parents.",
     "notificationModalTitle": "Attendance report",
+    "tabs": {
+      "today": "Attendance",
+      "history": "Attendance history"
+    },
+    "sessionStatus": {
+      "DRAFT": "Draft",
+      "SUBMITTED": "Submitted",
+      "LOCKED": "Locked"
+    },
+    "history": {
+      "loadingClasses": "Loading classes...",
+      "noClasses": "You haven't been assigned to any class.",
+      "loading": "Loading attendance history...",
+      "loadFailed": "Couldn't load attendance history.",
+      "emptyNoHistory": "No session has been recorded yet.",
+      "emptyNoMatch": "No session matches the current filters.",
+      "allClasses": "All classes",
+      "allStatuses": "All statuses",
+      "fromDateLabel": "From",
+      "toDateConnector": "to",
+      "clearFilter": "Clear filters",
+      "countSummary": "{{filtered}}/{{total}} sessions",
+      "sessionCountBadge": "{{count}} sessions",
+      "sessionLabel": "Session {{date}} ({{weekday}})",
+      "presentCount": "{{count}} present",
+      "absentCount": "{{count}} absent",
+      "excusedCount": "{{count}} excused",
+      "lateCount": "{{count}} late",
+      "submittedAtLabel": "Submitted at {{time}}",
+      "notSubmittedYet": "Not submitted yet",
+      "openButton": "Reopen this session",
+      "columns": {
+        "studentCode": "Student code",
+        "fullName": "Full name",
+        "status": "Status",
+        "note": "Note"
+      },
+      "classFallback": "Class #{{id}}",
+      "timeline": {
+        "title": "Activity log",
+        "loading": "Loading activity log...",
+        "loadFailed": "Couldn't load the activity log.",
+        "empty": "No activity recorded yet.",
+        "createdLabel": "{{actor}} recorded attendance at {{time}} ({{count}} students)",
+        "updatedLabel": "{{actor}} edited attendance at {{time}} ({{count}} students)"
+      }
+    },
     "summaryExport": {
       "button": "Export attendance summary",
       "title": "Export attendance summary",

@@ -16,6 +16,7 @@ import vn.com.pps.education.domain.SiteManager;
 import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.StudentComment;
 import vn.com.pps.education.domain.User;
+import vn.com.pps.education.dto.AttendanceMarkHistoryResponse;
 import vn.com.pps.education.dto.AttendanceMarkResponse;
 import vn.com.pps.education.dto.AttendanceSessionResponse;
 import vn.com.pps.education.dto.EnterAttendanceMarkRequest;
@@ -405,6 +406,35 @@ public class StudentAttendanceService {
             throw new ResourceNotFoundException("error.studentAttendance.sessionNotFound", new Object[]{classSessionId}, "Chưa có bản ghi điểm danh cho buổi id=" + classSessionId);
         }
         return toResponse(attendanceSession);
+    }
+
+    /**
+     * Lịch sử thao tác (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-01) — toàn bộ
+     * attendance_marks_history của buổi, cũ→mới. FE tự bucket các dòng gần nhau (cùng 1 lần bấm "Xác
+     * nhận & Lưu điểm danh" ghi N dòng, 1 dòng/học sinh, cùng actor + cùng thời điểm) thành 1 "đợt thao
+     * tác" (mirror SessionVersionHistoryModal.tsx bên Nhận xét, nhưng KHÔNG tái dựng lại toàn bộ bảng
+     * tại từng mốc — chỉ liệt kê timeline, theo đúng phạm vi "Timeline đơn giản" người dùng đã chọn).
+     * Cùng điều kiện phân quyền với getAttendanceSession (chỉ xem được buổi thuộc site được gán).
+     */
+    @Transactional(readOnly = true)
+    public List<AttendanceMarkHistoryResponse> getAttendanceHistory(Long classSessionId, Long actorUserId) {
+        AttendanceSession attendanceSession = attendanceSessionRepository.findByClassSessionId(classSessionId)
+                .orElseThrow(() -> new ResourceNotFoundException("error.studentAttendance.sessionNotFound", new Object[]{classSessionId}, "Chưa có bản ghi điểm danh cho buổi id=" + classSessionId));
+        List<Long> allowedSiteIds = resolveAllowedSiteIds(actorUserId);
+        Long siteId = attendanceSession.getClassSession().getSchoolClass().getSite().getId();
+        if (allowedSiteIds != null && !allowedSiteIds.contains(siteId)) {
+            throw new ResourceNotFoundException("error.studentAttendance.sessionNotFound", new Object[]{classSessionId}, "Chưa có bản ghi điểm danh cho buổi id=" + classSessionId);
+        }
+        return attendanceMarkHistoryRepository.findByAttendanceSessionIdOrderByCreatedAtAsc(attendanceSession.getId()).stream()
+                .map(this::toResponse).toList();
+    }
+
+    private AttendanceMarkHistoryResponse toResponse(AttendanceMarkHistory h) {
+        AttendanceMark mark = h.getAttendanceMark();
+        return new AttendanceMarkHistoryResponse(
+                h.getId(), mark.getStudent().getId(), mark.getStudent().getUser().getFullName(),
+                mark.getStudent().getStudentCode(), String.valueOf(h.getDetails().get("status")),
+                h.getAction().name(), h.getChangedBy().getId(), h.getChangedBy().getFullName(), h.getCreatedAt());
     }
 
     /**
