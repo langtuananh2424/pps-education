@@ -39,11 +39,11 @@ const PERIOD_LABEL_COLUMN_WIDTH = 80;
 /** Độ rộng 1 lane (1 buổi học) trong cột ngày — cột tự giãn theo bội số này (bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-08-21). */
 const LANE_WIDTH = 170;
 /**
- * Dải trống luôn chừa bên phải mỗi cột ngày, thẻ buổi học không phủ lên — để vẫn bôi chọn ô tiết
- * (kéo chuột) + chuột phải → "Xếp lịch" được cả khi ô đã có thẻ chiếm hết bề ngang (bổ sung ngoài
- * SDD gốc, xác nhận với người dùng 2026-09-29).
+ * Tổng bề rộng dải trống luôn chừa trong mỗi cột ngày (chia đều 2 bên trái/phải, thẻ căn giữa),
+ * thẻ buổi học không phủ lên — để vẫn bôi chọn ô tiết (kéo chuột) + chuột phải → "Xếp lịch" được
+ * cả khi ô đã có thẻ (bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-09-29).
  */
-const SELECT_GUTTER_WIDTH = 36;
+const SELECT_GUTTER_WIDTH = 48;
 
 interface ClassPeriodGridProps {
   siteId: number;
@@ -689,7 +689,9 @@ export default function ClassPeriodGrid({ siteId, dates, classId, minLanes = DEF
               const dateStr = toISODate(d);
               const daySessions = sessionsByDateAndDayPart.get(`${dateStr}:${section.dayPart}`) ?? [];
               const lanes = laneAssignmentsByCell.get(`${dateStr}:${section.dayPart}`) ?? new Map();
-              const laneCount = laneCountByDate[dayIdx];
+              // Ô chỉ dùng đúng số lane của chính nó, căn giữa trong cột (cột rộng theo ô nhiều lane nhất
+              // trong ngày) — tránh thẻ dồn sát trái, để trống bên phải (xác nhận với người dùng 2026-09-29).
+              const cellLaneCount = Math.max(1, laneCountUsed(lanes));
 
               return (
                 <div
@@ -721,10 +723,12 @@ export default function ClassPeriodGrid({ siteId, dates, classId, minLanes = DEF
                     })}
                   </div>
                   <div
-                    className="grid absolute inset-y-0 left-0 gap-0.5 p-0.5 pointer-events-none"
+                    className="grid absolute inset-y-0 gap-0.5 py-0.5 pointer-events-none"
                     style={{
-                      right: SELECT_GUTTER_WIDTH,
-                      gridTemplateColumns: `repeat(${laneCount}, 1fr)`,
+                      left: SELECT_GUTTER_WIDTH / 2,
+                      right: SELECT_GUTTER_WIDTH / 2,
+                      justifyContent: "center",
+                      gridTemplateColumns: `repeat(${cellLaneCount}, minmax(0, ${LANE_WIDTH}px))`,
                       gridTemplateRows: `repeat(${section.periods.length}, ${PERIOD_ROW_HEIGHT}px)`
                     }}
                   >
