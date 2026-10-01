@@ -77,6 +77,14 @@ public class CommentAiDraftService {
     static final String REVISE_PROMPT = "comment-ai-draft-revise-system-prompt.txt";
     /** Rubric nhận xét — chèn vào chỗ {{RUBRIC}} của cả 3 prompt trên, xem {@link CommentAiJsonCaller}. */
     static final String RUBRIC_FILE = CommentAiJsonCaller.RUBRIC_FILE;
+    /**
+     * Mục rubric mỗi bước cần (bổ sung 2026-10-01, xem {@link CommentAiJsonCaller#selectRubricSections}): tách ý chỉ
+     * chọn Thái độ (mục 1); viết câu cần cấu trúc/văn phong/điều cấm/kiểu câu/mẫu câu (mục 2-6); sửa theo yêu cầu có
+     * thể đổi cả Thái độ lẫn câu chữ nên nhận cả rubric.
+     */
+    static final Set<Integer> EXTRACT_RUBRIC_SECTIONS = Set.of(1);
+    static final Set<Integer> WRITE_RUBRIC_SECTIONS = Set.of(2, 3, 4, 5, 6);
+    static final Set<Integer> REVISE_RUBRIC_SECTIONS = CommentAiJsonCaller.ALL_RUBRIC_SECTIONS;
     /** Giáo viên nói nhận xét bằng tiếng Việt — ép STT nhận dạng tiếng Việt thay vì tự đoán ngôn ngữ. */
     static final String STT_LANGUAGE = "vi";
 
@@ -115,10 +123,12 @@ public class CommentAiDraftService {
      * @param maxAudioBytes chặn dung lượng ở backend (giới hạn 5 phút kiểm tra ở FE, xem UC-74 A3).
      * @param maxPatternShare tỷ lệ tối đa số học sinh trong buổi được dùng chung 1 kiểu câu mở đầu/câu kết
      *                        (xem {@link CommentPatternCheck}).
+     * @param writeTemperature nhiệt độ AI ở bước VIẾT câu nhận xét, gồm cả "Viết lại toàn bộ" (bổ sung 2026-10-01) — tách
+     *                         ý và sửa theo yêu cầu luôn ở 0 để chỉ đổi đúng chỗ được yêu cầu.
      */
     public record Settings(String model, int previousCommentCount, int previousLookbackDays,
                            double similarityThreshold, int writeBatchSize, long maxAudioBytes, int homeworkTrendPoints,
-                           double maxPatternShare) {
+                           double maxPatternShare, double writeTemperature) {
     }
 
     public CommentAiDraftService(StudentCommentService studentCommentService,
@@ -139,7 +149,8 @@ public class CommentAiDraftService {
                                  @Value("${app.ai-comment-draft.write-batch-size:10}") int writeBatchSize,
                                  @Value("${app.ai-comment-draft.max-audio-bytes:20971520}") long maxAudioBytes,
                                  @Value("${app.ai-comment-draft.homework-trend-points:20}") int homeworkTrendPoints,
-                                 @Value("${app.ai-comment-draft.max-pattern-share:0.3}") double maxPatternShare) {
+                                 @Value("${app.ai-comment-draft.max-pattern-share:0.3}") double maxPatternShare,
+                                 @Value("${app.ai-comment-draft.write-temperature:0.7}") double writeTemperature) {
         this.studentCommentService = studentCommentService;
         this.attitudeAlertTrackingService = attitudeAlertTrackingService;
         this.classEnrollmentRepository = classEnrollmentRepository;
@@ -152,7 +163,8 @@ public class CommentAiDraftService {
         this.jsonCaller = jsonCaller;
         this.jobRegistry = jobRegistry;
         this.settings = new Settings(model, previousCommentCount, previousLookbackDays, similarityThreshold,
-                Math.max(1, writeBatchSize), maxAudioBytes, homeworkTrendPoints, maxPatternShare);
+                Math.max(1, writeBatchSize), maxAudioBytes, homeworkTrendPoints, maxPatternShare,
+                Math.max(0, Math.min(1, writeTemperature)));
     }
 
     // ---- Bản chụp dữ liệu buổi học (đọc trong request, dùng ở luồng nền) ----
@@ -535,7 +547,7 @@ public class CommentAiDraftService {
         }
         payload.put("students", students);
 
-        JsonNode response = callJson(REVISE_PROMPT, payload);
+        JsonNode response = callJson(REVISE_PROMPT, payload, REVISE_RUBRIC_SECTIONS, 0);
         if (response == null) {
             throw new CommentAiDraftFailedException("Trợ lý chưa xử lý được yêu cầu (AI lỗi hoặc quá thời gian) — vui lòng thử lại.");
         }
@@ -601,7 +613,7 @@ public class CommentAiDraftService {
         payload.put("students", context.roster().stream()
                 .map(s -> Map.<String, Object>of("studentId", s.id(), "fullName", s.fullName())).toList());
         payload.put("teacherText", teacherText);
-        JsonNode response = callJson(EXTRACT_PROMPT, payload);
+        JsonNode response = callJson(EXTRACT_PROMPT, payload, EXTRACT_RUBRIC_SECTIONS, 0);
         if (response == null) {
             throw new CommentAiDraftFailedException("Trợ lý chưa đọc được lời nhận xét (AI lỗi hoặc quá thời gian) — vui lòng thử lại.");
         }
@@ -839,7 +851,7 @@ public class CommentAiDraftService {
         }
         payload.put("students", students);
         payload.put("avoidTexts", avoid.subList(Math.max(0, avoid.size() - MAX_AVOID_TEXTS), avoid.size()));
-        JsonNode response = callJson(WRITE_PROMPT, payload);
+        JsonNode response = callJson(WRITE_PROMPT, payload, WRITE_RUBRIC_SECTIONS, settings.writeTemperature());
         Map<Long, String> written = new LinkedHashMap<>();
         if (response == null) {
             log.warn("CommentAiDraftService: lô viết {} học sinh thất bại (AI lỗi/quá thời gian/kết quả dở dang).", batch.size());
@@ -964,8 +976,8 @@ public class CommentAiDraftService {
 
     // ---- Tiện ích ----
 
-    private JsonNode callJson(String promptFile, Object payload) {
-        return jsonCaller.callJson(promptFile, payload, settings.model());
+    private JsonNode callJson(String promptFile, Object payload, Set<Integer> rubricSections, double temperature) {
+        return jsonCaller.callJson(promptFile, payload, settings.model(), rubricSections, temperature);
     }
 
     /**

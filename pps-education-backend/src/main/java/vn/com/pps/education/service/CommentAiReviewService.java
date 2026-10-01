@@ -85,6 +85,14 @@ public class CommentAiReviewService {
     /** Rubric nhận xét đặt mức khoảng 400 ký tự — chỉ cảnh báo khi vượt rõ rệt. */
     static final int MAX_CONTENT_LENGTH = 500;
     private static final int REVIEW_BATCH_SIZE = 15;
+    /**
+     * Mục rubric mỗi bước cần (bổ sung 2026-10-01, xem {@link CommentAiJsonCaller#selectRubricSections}): soát lỗi và
+     * soạn lý do từ chối cần tiêu chí Thái độ (mục 1, để bắt Thái độ lệch nội dung) + cấu trúc/văn phong/điều cấm
+     * (mục 2-4); đề xuất sửa và sửa theo yêu cầu Quản lý chỉ đổi câu chữ, không đổi Thái độ (mục 2-4). Mọi bước UC-75
+     * giữ nhiệt độ 0 — soát và sửa tối thiểu cần ổn định.
+     */
+    static final Set<Integer> REVIEW_RUBRIC_SECTIONS = Set.of(1, 2, 3, 4);
+    static final Set<Integer> EDIT_RUBRIC_SECTIONS = Set.of(2, 3, 4);
 
     private final StudentCommentService studentCommentService;
     private final StudentAttitudeAlertTrackingService attitudeAlertTrackingService;
@@ -574,7 +582,7 @@ public class CommentAiReviewService {
             comments.add(entry);
         }
         payload.put("comments", comments);
-        JsonNode response = jsonCaller.callJson(REVIEW_PROMPT, payload, model);
+        JsonNode response = jsonCaller.callJson(REVIEW_PROMPT, payload, model, REVIEW_RUBRIC_SECTIONS, 0);
         if (response == null) {
             return null;
         }
@@ -605,7 +613,7 @@ public class CommentAiReviewService {
         payload.put("teacherPronoun", CommentAiDraftService.detectPronoun(item.content()));
         payload.put("content", item.content());
         payload.put("issues", issues.isEmpty() ? ruleIssues(item, List.of(item)).stream().map(CommentAiReviewResult.Issue::message).toList() : issues);
-        JsonNode response = jsonCaller.callJson(SUGGEST_PROMPT, payload, model);
+        JsonNode response = jsonCaller.callJson(SUGGEST_PROMPT, payload, model, EDIT_RUBRIC_SECTIONS, 0);
         String suggested = response == null ? "" : response.path("content").asText("").trim();
         if (suggested.isEmpty()) {
             throw new CommentAiDraftFailedException("Trợ lý chưa đề xuất được bản sửa (AI lỗi hoặc quá thời gian) — vui lòng thử lại.");
@@ -625,7 +633,7 @@ public class CommentAiReviewService {
         payload.put("attitude", CommentAiDraftService.attitudeLabel(item.attitude()));
         payload.put("content", item.content());
         payload.put("issues", issues.isEmpty() ? ruleIssues(item, List.of(item)).stream().map(CommentAiReviewResult.Issue::message).toList() : issues);
-        JsonNode response = jsonCaller.callJson(REJECTION_REASON_PROMPT, payload, model);
+        JsonNode response = jsonCaller.callJson(REJECTION_REASON_PROMPT, payload, model, REVIEW_RUBRIC_SECTIONS, 0);
         String reason = response == null ? "" : response.path("reason").asText("").trim();
         if (reason.isEmpty()) {
             throw new CommentAiDraftFailedException("Trợ lý chưa soạn được lý do từ chối (AI lỗi hoặc quá thời gian) — vui lòng thử lại hoặc tự nhập.");
@@ -668,7 +676,7 @@ public class CommentAiReviewService {
             comments.add(entry);
         }
         payload.put("comments", comments);
-        JsonNode response = jsonCaller.callJson(INSTRUCTION_PROMPT, payload, model);
+        JsonNode response = jsonCaller.callJson(INSTRUCTION_PROMPT, payload, model, EDIT_RUBRIC_SECTIONS, 0);
         if (response == null) {
             throw new CommentAiDraftFailedException("Trợ lý chưa xử lý được yêu cầu (AI lỗi hoặc quá thời gian) — vui lòng thử lại.");
         }

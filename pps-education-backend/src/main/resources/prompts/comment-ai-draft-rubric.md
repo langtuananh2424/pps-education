@@ -4,6 +4,10 @@ File này được chèn nguyên văn vào prompt của cả 3 bước (tách ý
 Học vụ/giáo viên cứ bổ sung trực tiếp tại đây — sửa xong cần build và deploy lại backend mới có hiệu lực.
 Giữ file NGẮN GỌN (dưới ~1–2 trang): rubric đi kèm MỌI lượt gọi AI, càng dài càng tốn token.
 Phần trong thẻ comment này KHÔNG gửi cho AI.
+Mỗi bước chỉ nhận các mục nó cần (bổ sung 2026-10-01) — vì vậy GIỮ NGUYÊN dạng tiêu đề "## 1." … "## 6."
+và đặt quy tắc mới vào đúng mục: tách ý ← mục 1; viết câu ← mục 2–6; sửa theo yêu cầu của giáo viên ← cả rubric;
+soát lỗi / lý do từ chối (Quản lý) ← mục 1–4; đề xuất sửa / sửa theo yêu cầu của Quản lý ← mục 2–4.
+Thêm mục mới (## 7.) thì phải khai báo thêm trong code (CommentAiDraftService / CommentAiReviewService) mới được gửi đi.
 Những việc code đã tự chặn, KHÔNG cần viết vào đây: AI chỉ điền Thái độ + Nhận xét; không ghi chữ số;
 đại từ thầy/cô; chống trùng lặp giữa các học sinh và với các buổi trước.
 -->

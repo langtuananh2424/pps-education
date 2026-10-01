@@ -336,6 +336,9 @@ app:
     # Tỷ lệ tối đa học sinh trong 1 buổi được dùng chung 1 kiểu câu mở đầu/câu kết (bổ sung 2026-09-29) -
     # vượt ngưỡng hoặc trùng với bạn liền trước thì viết lại 1 lần, vẫn trùng thì cảnh báo trên dòng.
     max-pattern-share: ${COMMENT_AI_MAX_PATTERN_SHARE:0.3}
+    # Nhiệt độ AI ở bước VIẾT câu nhận xét (bổ sung 2026-10-01, đã xác nhận với người dùng) - 0 làm câu chữ cả lớp
+    # na ná nhau. Tách ý, sửa theo yêu cầu, trợ lý duyệt (UC-75) và chấm bài vẫn giữ 0. Khoảng hợp lệ 0..1.
+    write-temperature: ${COMMENT_AI_WRITE_TEMPERATURE:0.7}
 
 springdoc:
   swagger-ui:
