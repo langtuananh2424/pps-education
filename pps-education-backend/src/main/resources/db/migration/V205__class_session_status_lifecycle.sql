@@ -1,5 +1,5 @@
 -- =====================================================================
--- V204: Vòng đời trạng thái buổi học + hủy/sửa buổi đã diễn ra (UC-48 A5–A7).
+-- V205: Vòng đời trạng thái buổi học + hủy/sửa buổi đã diễn ra (UC-48 A5–A7).
 --
 -- Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-10-01:
 --   1. ClassSessionStatusSchedulerService chạy mỗi phút, chuyển
@@ -18,7 +18,7 @@
 -- =====================================================================
 
 INSERT INTO permissions (code, name, module, description) VALUES
-('academic.class-session.correct-past', 'Hủy, sửa buổi học đã diễn ra', 'ACADEMIC', 'V204 — hủy/sửa buổi IN_PROGRESS/COMPLETED, bắt buộc lý do')
+('academic.class-session.correct-past', 'Hủy, sửa buổi học đã diễn ra', 'ACADEMIC', 'V205 — hủy/sửa buổi IN_PROGRESS/COMPLETED, bắt buộc lý do')
 ON CONFLICT (code) DO NOTHING;
 
 INSERT INTO role_permissions (role_id, permission_id)

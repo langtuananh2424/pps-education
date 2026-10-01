@@ -1,6 +1,6 @@
 package vn.com.pps.education.exception;
 
-/** UC-48 A6/A7 (V204) — hủy/sửa buổi học đã IN_PROGRESS/COMPLETED cần quyền academic.class-session.correct-past. */
+/** UC-48 A6/A7 (V205) — hủy/sửa buổi học đã IN_PROGRESS/COMPLETED cần quyền academic.class-session.correct-past. */
 public class NotAllowedToCorrectPastSessionException extends RuntimeException implements LocalizedMessage {
 
     private final String messageKey;

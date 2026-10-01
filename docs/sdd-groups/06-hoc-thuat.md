@@ -879,7 +879,7 @@ CANCELLED/RESCHEDULED chỉ từ SCHEDULED (UC-48 A2/A3); riêng buổi
 IN_PROGRESS/COMPLETED được hủy (→ CANCELLED) hoặc sửa phân công/tiết cùng
 ngày khi có quyền academic.class-session.correct-past và bắt buộc lý do.
 Index một phần idx_class_sessions_status_pending (session_date) WHERE
-status IN ('SCHEDULED', 'IN_PROGRESS') phục vụ job này (V204).
+status IN ('SCHEDULED', 'IN_PROGRESS') phục vụ job này (V205).
 
 Ràng buộc:
 

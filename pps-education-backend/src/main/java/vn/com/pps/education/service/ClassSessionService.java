@@ -74,7 +74,7 @@ import java.util.stream.Stream;
  * Authorization qua @PreAuthorize ở ClassSessionController theo từng nút
  * (V202 tách academic.class.manage thành academic.class-session.create/
  * generate/import/reschedule/cancel). Hủy/sửa buổi đã diễn ra (UC-48 A6/A7,
- * V204) cần thêm academic.class-session.correct-past — kiểm tra ở Service vì
+ * V205) cần thêm academic.class-session.correct-past — kiểm tra ở Service vì
  * dùng chung endpoint với hủy/sửa buổi chưa diễn ra.
  */
 @Service
