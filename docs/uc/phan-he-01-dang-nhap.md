@@ -233,4 +233,21 @@ Implementation: `AuthService#enforceActiveSessionLimit` (thay
 `..._recordsRealClientIpFromCloudflareHeader`,
 `AuthServiceRefreshLogoutTest#refresh_boSung_*`, `UserSessionServiceTest`.
 
+**Đổi 2026-10-01 (đã xác nhận với người dùng) — bỏ giới hạn thiết bị cho
+tài khoản không phải Học sinh**
+
+-   Tài khoản không phải Học sinh (giáo viên, nhân viên, Quản trị viên —
+    người dùng trang admin — và phụ huynh) đăng nhập KHÔNG giới hạn số
+    thiết bị: `app.security.session.max-active-sessions` mặc định `0` (=
+    không giới hạn). Đăng nhập thiết bị mới không bao giờ trả 409 và không
+    đăng xuất thiết bị nào khác.
+-   Học sinh giữ nguyên giới hạn 1 thiết bị + popup xác nhận ở app `user`
+    (quy tắc 2026-09-13/2026-09-19).
+-   App `admin` bỏ popup "Tài khoản của bạn đang đăng nhập ở thiết bị
+    khác" (`LoginForm`/`GoogleSignInButton`), luôn gửi `confirm = false`.
+
+Xem `AuthServiceTest#login_boSung_nonStudentHasNoDeviceLimitAndKeepsAllSessions`
+(thay `..._rejectsFourthDeviceForNonStudent` /
+`..._confirmOnFourthDeviceRevokesOnlyOldestSession`).
+
 Phân hệ 2 --- Quản trị người dùng & Phân quyền

@@ -22,32 +22,7 @@ export default function LoginForm({ usernameOrEmail, onUsernameOrEmailChange, on
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
-  const { alertDialog, confirmDialog } = useDialog();
-
-  /**
-   * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-09-29) — tài khoản đã đăng nhập đủ số thiết bị
-   * tối đa: backend trả 409 (ActiveSessionExistsException, xem AuthService#enforceActiveSessionLimit —
-   * duy nhất lỗi này dùng 409 trên endpoint đăng nhập nên chỉ cần khớp status). Hỏi xác nhận rồi gọi lại
-   * với confirm=true để backend đăng xuất thiết bị cũ nhất. Trả false nếu người dùng chọn "Không".
-   * Dùng chung cho cả đăng nhập mật khẩu lẫn Google (idToken đã có sẵn, không cần mở lại popup Google).
-   */
-  const runLogin = async (attempt: (confirm: boolean) => Promise<void>): Promise<boolean> => {
-    try {
-      await attempt(false);
-      return true;
-    } catch (err) {
-      if (!(err instanceof ApiError && err.status === 409)) throw err;
-      const confirmed = await confirmDialog(t("forceLogout.message"), {
-        title: t("forceLogout.title"),
-        confirmLabel: t("forceLogout.confirm"),
-        cancelLabel: t("forceLogout.cancel"),
-        danger: true
-      });
-      if (!confirmed) return false;
-      await attempt(true);
-      return true;
-    }
-  };
+  const { alertDialog } = useDialog();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,8 +39,8 @@ export default function LoginForm({ usernameOrEmail, onUsernameOrEmailChange, on
 
     setLoading(true);
     try {
-      const loggedIn = await runLogin((confirm) => login(usernameOrEmail.trim(), password, rememberMe, confirm));
-      if (loggedIn) onLoginSuccess();
+      await login(usernameOrEmail.trim(), password, rememberMe);
+      onLoginSuccess();
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);
@@ -186,7 +161,6 @@ export default function LoginForm({ usernameOrEmail, onUsernameOrEmailChange, on
           <div className="mt-4">
             <GoogleSignInButton
               rememberMe={rememberMe}
-              runLogin={runLogin}
               onSuccess={onLoginSuccess}
               onError={(message) => setError(message)}
             />

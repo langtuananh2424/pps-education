@@ -91,3 +91,6 @@ e2e/.certs/
 # Dump DB local (deploy/RUNBOOK-db-backup-restore.md muc 3) - co the chua email that, khong commit
 backups-local/
 *.dump
+
+# Kịch bản/ảnh chụp quay video hướng dẫn — giữ cục bộ, không đưa lên repo
+video-tutorial/
