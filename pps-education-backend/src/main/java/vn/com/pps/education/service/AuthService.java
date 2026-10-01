@@ -94,7 +94,7 @@ public class AuthService {
                         @Value("${app.security.brute-force.max-failed-attempts}") int maxFailedAttempts,
                         @Value("${app.security.brute-force.lock-duration-minutes}") int lockDurationMinutes,
                         @Value("${app.jwt.refresh-token-ttl-days}") long refreshTokenTtlDays,
-                        @Value("${app.security.session.max-active-sessions:3}") int maxActiveSessions,
+                        @Value("${app.security.session.max-active-sessions:0}") int maxActiveSessions,
                         @Value("${app.security.session.student-max-active-sessions:1}") int studentMaxActiveSessions,
                         @Value("${app.security.session.refresh-reuse-grace-seconds:30}") long refreshReuseGraceSeconds) {
         this.userRepository = userRepository;
@@ -360,11 +360,19 @@ public class AuthService {
      * token vừa xoay vòng gần nhất nên issued_at chính là lần hoạt động gần nhất của thiết bị đó) đủ để
      * nhường chỗ cho thiết bị mới, các thiết bị khác đang dùng không bị ảnh hưởng. Với Học sinh (giới hạn
      * 1) kết quả trùng hành vi cũ: thu hồi hết phiên cũ.
+     *
+     * Đổi 2026-10-01 (đã xác nhận với người dùng) — bỏ giới hạn thiết bị cho tài khoản KHÔNG phải Học sinh
+     * (nhân viên/giáo viên/Quản trị viên dùng trang admin, phụ huynh): {@code maxActiveSessions} mặc định 0
+     * = không giới hạn, đăng nhập thiết bị mới không bao giờ bị 409 hay đẩy thiết bị khác ra. Học sinh giữ
+     * nguyên giới hạn {@code studentMaxActiveSessions}. Giá trị <= 0 ở cả 2 cấu hình đều nghĩa là không giới hạn.
      */
     private void enforceActiveSessionLimit(User user, boolean confirm) {
         int limit = studentRepository.findByUserId(user.getId()).isPresent()
                 ? studentMaxActiveSessions
                 : maxActiveSessions;
+        if (limit <= 0) {
+            return;
+        }
         OffsetDateTime now = OffsetDateTime.now();
         List<RefreshToken> activeTokens = refreshTokenRepository.findByUserIdAndRevokedAtIsNull(user.getId()).stream()
                 .filter(token -> token.getExpiresAt().isAfter(now))

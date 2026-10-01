@@ -28,9 +28,6 @@ function loginAsync(page: import("@playwright/test").Page, username: string, pas
     await page.locator('input[type="text"]').first().fill(username);
     await page.locator('input[type="password"]').fill(password);
     await page.locator('button[type="submit"]').click();
-    // Tài khoản demo đã đủ 3 thiết bị (các lần chạy trước không đăng xuất) → popup hỏi đăng xuất thiết bị cũ nhất.
-    const forceLogout = page.getByRole("button", { name: "Đăng xuất", exact: true });
-    if (await forceLogout.waitFor({ timeout: 3_000 }).then(() => true, () => false)) await forceLogout.click();
     await expect(page).toHaveURL(/\/dashboard/, { timeout: 15_000 });
   });
 }

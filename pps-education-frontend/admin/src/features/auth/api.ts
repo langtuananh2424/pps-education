@@ -36,26 +36,25 @@ function deviceMetadata() {
 }
 
 /**
- * confirm: bổ sung ngoài SDD gốc (đã xác nhận với người dùng 2026-09-29) — tài khoản đã đăng nhập đủ
- * số thiết bị tối đa (3; Học sinh 1) bị backend chặn 409 (ActiveSessionExistsException, xem
- * AuthService#enforceActiveSessionLimit). confirm=true xác nhận đăng xuất thiết bị cũ nhất rồi đăng nhập
- * tiếp — gọi lại sau khi người dùng bấm "Đăng xuất" ở popup xác nhận (xem LoginForm).
+ * Đổi 2026-10-01 (đã xác nhận với người dùng) — tài khoản dùng trang admin (không phải Học sinh) đăng nhập
+ * không giới hạn thiết bị (xem AuthService#enforceActiveSessionLimit) nên không còn popup "đăng nhập ở thiết
+ * bị khác" / confirm. Backend vẫn nhận confirm (app user dùng cho Học sinh), ở đây luôn gửi false.
  */
-export async function login(usernameOrEmail: string, password: string, rememberMe: boolean, confirm = false): Promise<void> {
+export async function login(usernameOrEmail: string, password: string, rememberMe: boolean): Promise<void> {
   const response = await apiRequest<LoginResponse>("/auth/login", {
     method: "POST",
     skipAuth: true,
-    body: JSON.stringify({ usernameOrEmail, password, confirm, ...deviceMetadata() })
+    body: JSON.stringify({ usernameOrEmail, password, confirm: false, ...deviceMetadata() })
   });
   setTokens(response.accessToken, response.refreshToken, rememberMe);
 }
 
 /** UC-01 Main Flow bước 4 — idToken lấy từ Google Identity Services (credential trả về của nút Sign in with Google). */
-export async function loginWithGoogle(idToken: string, rememberMe: boolean, confirm = false): Promise<void> {
+export async function loginWithGoogle(idToken: string, rememberMe: boolean): Promise<void> {
   const response = await apiRequest<LoginResponse>("/auth/login/google", {
     method: "POST",
     skipAuth: true,
-    body: JSON.stringify({ idToken, confirm, ...deviceMetadata() })
+    body: JSON.stringify({ idToken, confirm: false, ...deviceMetadata() })
   });
   setTokens(response.accessToken, response.refreshToken, rememberMe);
 }
