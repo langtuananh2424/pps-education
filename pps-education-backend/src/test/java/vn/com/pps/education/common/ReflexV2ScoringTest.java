@@ -137,6 +137,25 @@ class ReflexV2ScoringTest {
         assertThat(ReflexV2Scoring.trimFeedback("Em nói tốt. Lỗi nặng nhất: Không có.", null)).isEqualTo("Em nói tốt.");
     }
 
+    // ---------- §D.5 (bản 30/9) — hint tách khỏi feedback ----------
+
+    @Test
+    void trimHint_emptyWhenNoErrorHighlighted_evenIfAiFilledSomething() {
+        assertThat(ReflexV2Scoring.trimHint("Đọc chậm từng từ.", List.of())).isEmpty();
+        assertThat(ReflexV2Scoring.trimHint("Đọc chậm từng từ.", null)).isEmpty();
+        assertThat(ReflexV2Scoring.trimHint("Đọc chậm từng từ.", List.of(hl(0, 2, "green", "tu_vung")))).isEmpty();
+    }
+
+    @Test
+    void trimHint_stripsMarkdownAndCapsAt35Words_whenBagHasAnError() {
+        List<ReflexV2Scoring.Highlight> errored = List.of(hl(0, 2, "yellow", "am_cuoi"));
+        assertThat(ReflexV2Scoring.trimHint("**Đọc chậm** từng từ.", errored)).isEqualTo("Đọc chậm từng từ.");
+        String longText = "từ ".repeat(50).trim();
+        String trimmed = ReflexV2Scoring.trimHint(longText, errored);
+        assertThat(trimmed).endsWith("…");
+        assertThat(trimmed.split("\\s+")).hasSize(35);
+    }
+
     @Test
     void locateHighlights_matchesWholeWordsOnly_notInsideAnotherWord() throws Exception {
         String text = "I am planning to go in the morning";

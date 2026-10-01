@@ -224,6 +224,7 @@ public class ReviewVideoReportService {
                 h.getMaxScore(),
                 h.getFeedback(),
                 h.getMarkedAnswer(),
+                h.getHint(),
                 h.getTranscript(),
                 h.getCriteriaScores(),
                 h.getGradedAt(),

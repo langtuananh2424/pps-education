@@ -72,6 +72,10 @@ public class ReflexQuestionProgressHistory extends BaseAuditEntity {
     @Column(name = "marked_answer", columnDefinition = "TEXT")
     private String markedAnswer;
 
+    /** V204 — "cách luyện" (§D.5, bản 30/9) của CHÍNH lần chấm này; xem {@link ReflexQuestionProgress#getWritingHint()}. */
+    @Column(name = "hint", columnDefinition = "TEXT")
+    private String hint;
+
     @Column(name = "transcript", columnDefinition = "TEXT")
     private String transcript;
 

@@ -246,6 +246,7 @@
       "yourAnswerLabel": "Câu trả lời của bạn",
       "scoreLabel": "điểm ngữ pháp {{score}}%",
       "attemptCount": "Đã nộp {{count}} lần",
+      "hintTitle": "Cách luyện",
       "suggestionTitle": "Gợi ý câu trả lời (đã sửa lỗi ngữ pháp)",
       "useSuggestionButton": "Điền gợi ý vào ô trả lời",
       "passedPopup": {
@@ -272,6 +273,7 @@
       "transcriptLabel": "Bài nói đã chuyển thành chữ (phần lỗi được đóng khung đỏ)",
       "retryButton": "Ghi âm lại",
       "attemptCount": "Đã ghi âm {{count}} lần",
+      "hintTitle": "Cách luyện",
       "passThresholdNote": "Mục tiêu: đạt từ {{threshold}}% để vượt qua",
       "passedPopup": {
         "heading": "Đạt — mở khoá câu tiếp theo",

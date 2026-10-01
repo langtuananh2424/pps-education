@@ -225,6 +225,7 @@
       "audioNotAvailable": "Không có audio",
       "transcriptLabel": "Transcript AI",
       "feedbackLabel": "Nhận xét",
+      "hintLabel": "Cách luyện đã hiện cho học sinh",
       "criteriaLabel": "Chi tiết theo tiêu chí",
       "answerTextLabel": "Câu trả lời viết",
       "recordingFiltered": "Thu âm: đã qua bộ lọc",

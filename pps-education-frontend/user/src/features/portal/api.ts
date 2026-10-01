@@ -718,6 +718,12 @@ export interface ReflexQuestionProgressResponse {
    * đồng nhất cách hiển thị với speakingTranscript (V178). Thay cho feedback văn xuôi dài dòng trước đây.
    */
   writingMarkedAnswer: string | null;
+  /**
+   * V204 (bổ sung ngoài SDD gốc, bản bàn giao 30/9, §D.5) — "cách luyện" cho học sinh tự luyện, TÁCH khỏi
+   * writingFeedback (vẫn cấm gợi ý sửa, dành cho giáo viên). NULL khi bài không có lỗi hoặc chưa chấm được
+   * bằng rubric hỗ trợ trường này — chỉ hiện từ lần nộp thứ 2 trở đi (xem writingAttemptCount).
+   */
+  writingHint: string | null;
   writingPassed: boolean;
   writingAttemptCount: number;
   /**
@@ -735,6 +741,8 @@ export interface ReflexQuestionProgressResponse {
    * đỏ/gạch chân khi hiện ra, xem renderHighlightedErrors trong ReflexVideoTaskPage.tsx.
    */
   speakingTranscript: string | null;
+  /** V204 — như writingHint, cho bước nói. */
+  speakingHint: string | null;
   /** V178 — % từng tiêu chí rubric, tách riêng khỏi speakingFeedback (trước đây nhúng trong feedback). */
   speakingCriteriaScores: { criterion: string; percent: number }[] | null;
   speakingPassed: boolean;
