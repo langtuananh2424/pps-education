@@ -3,20 +3,27 @@ package vn.com.pps.education.service;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.Department;
+import vn.com.pps.education.domain.Employee;
+import vn.com.pps.education.domain.EmployeeHistory;
 import vn.com.pps.education.domain.User;
+import vn.com.pps.education.dto.AddDepartmentMembersRequest;
 import vn.com.pps.education.dto.CreateDepartmentRequest;
+import vn.com.pps.education.dto.DepartmentMemberResponse;
 import vn.com.pps.education.dto.DepartmentResponse;
 import vn.com.pps.education.dto.UpdateDepartmentRequest;
 import vn.com.pps.education.exception.DepartmentNotDeletableException;
 import vn.com.pps.education.exception.DuplicateDepartmentCodeException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.repository.DepartmentRepository;
+import vn.com.pps.education.repository.EmployeeHistoryRepository;
 import vn.com.pps.education.repository.EmployeeRepository;
 import vn.com.pps.education.repository.TaskRepository;
 import vn.com.pps.education.repository.UserRepository;
 
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Bổ sung ngoài UC cụ thể (tương tự RoleService#createRole/#deleteRole) —
@@ -34,15 +41,21 @@ public class DepartmentService {
     private final UserRepository userRepository;
     private final EmployeeRepository employeeRepository;
     private final TaskRepository taskRepository;
+    private final EmployeeHistoryRepository employeeHistoryRepository;
+
+    /** Số ứng viên tối đa trả về mỗi lần tìm khi thêm thành viên — đủ cho ô tìm kiếm, tránh trả toàn bộ nhân sự. */
+    private static final int MEMBER_CANDIDATE_LIMIT = 50;
 
     public DepartmentService(DepartmentRepository departmentRepository,
                               UserRepository userRepository,
                               EmployeeRepository employeeRepository,
-                              TaskRepository taskRepository) {
+                              TaskRepository taskRepository,
+                              EmployeeHistoryRepository employeeHistoryRepository) {
         this.departmentRepository = departmentRepository;
         this.userRepository = userRepository;
         this.employeeRepository = employeeRepository;
         this.taskRepository = taskRepository;
+        this.employeeHistoryRepository = employeeHistoryRepository;
     }
 
     @Transactional
@@ -111,7 +124,102 @@ public class DepartmentService {
         departmentRepository.delete(department);
     }
 
+    // ===================== Thành viên phòng ban =====================
+    // Bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-10-01: trước đây chỉ gán được phòng ban từng người
+    // trong Hồ sơ cán bộ (UC-08). Thành viên vẫn là employees.department_id — cùng cột Hồ sơ cán bộ, tổng quan
+    // công việc (TaskService) và lịch sử thay đổi theo phòng ban (ChangeHistoryService) đang dùng.
+
+    @Transactional(readOnly = true)
+    public List<DepartmentMemberResponse> listMembers(Long id) {
+        getDepartmentOrThrow(id);
+        return employeeRepository.findByDepartmentIdAndDeletedAtIsNull(id).stream()
+                .sorted(Comparator.comparing(e -> e.getUser().getFullName()))
+                .map(this::toMemberResponse)
+                .toList();
+    }
+
+    /** Nhân sự chưa thuộc phòng ban này, khớp tên/mã nhân sự (để trống = những người đầu danh sách). */
+    @Transactional(readOnly = true)
+    public List<DepartmentMemberResponse> searchMemberCandidates(Long id, String query) {
+        getDepartmentOrThrow(id);
+        List<Employee> employees = query == null || query.isBlank()
+                ? employeeRepository.findAllActive(null)
+                : employeeRepository.searchByQuery(query.trim(), null);
+        return employees.stream()
+                .filter(e -> e.getDepartment() == null || !e.getDepartment().getId().equals(id))
+                .limit(MEMBER_CANDIDATE_LIMIT)
+                .map(this::toMemberResponse)
+                .toList();
+    }
+
+    /**
+     * Thêm nhân sự vào phòng ban — nhân sự đang thuộc phòng khác sẽ chuyển sang phòng này (mỗi nhân sự chỉ
+     * thuộc 1 phòng ban, employees.department_id). Mỗi người được chuyển ghi 1 dòng employees_history.
+     */
+    @Transactional
+    public List<DepartmentMemberResponse> addMembers(Long id, AddDepartmentMembersRequest request, Long actorUserId) {
+        Department department = getDepartmentOrThrow(id);
+        User actor = getActorOrThrow(actorUserId);
+        for (Long employeeId : request.employeeIds().stream().distinct().toList()) {
+            Employee employee = employeeRepository.findByIdAndDeletedAtIsNull(employeeId)
+                    .orElseThrow(() -> new ResourceNotFoundException("error.department.memberNotFound", new Object[]{employeeId},
+                            "Không tìm thấy nhân sự id=" + employeeId));
+            if (employee.getDepartment() != null && employee.getDepartment().getId().equals(id)) {
+                continue;
+            }
+            employee.setDepartment(department);
+            employeeRepository.save(employee);
+            writeDepartmentChangeHistory(employee, department, actor);
+        }
+        return listMembers(id);
+    }
+
+    /** Gỡ nhân sự khỏi phòng ban (nhân sự không còn thuộc phòng ban nào, như "bỏ trống phòng ban" ở UC-08 A1). */
+    @Transactional
+    public void removeMember(Long id, Long employeeId, Long actorUserId) {
+        getDepartmentOrThrow(id);
+        Employee employee = employeeRepository.findByIdAndDeletedAtIsNull(employeeId)
+                .filter(e -> e.getDepartment() != null && e.getDepartment().getId().equals(id))
+                .orElseThrow(() -> new ResourceNotFoundException("error.department.memberNotInDepartment", new Object[]{employeeId},
+                        "Nhân sự id=" + employeeId + " không thuộc phòng ban này."));
+        employee.setDepartment(null);
+        employeeRepository.save(employee);
+        writeDepartmentChangeHistory(employee, null, getActorOrThrow(actorUserId));
+    }
+
     // ===================== Helpers =====================
+
+    private void writeDepartmentChangeHistory(Employee employee, Department department, User actor) {
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        snapshot.put("employeeCode", employee.getEmployeeCode());
+        snapshot.put("departmentName", department == null ? null : department.getName());
+        EmployeeHistory history = new EmployeeHistory();
+        history.setEmployee(employee);
+        history.setChangedBy(actor);
+        history.setAction(EmployeeHistory.Action.UPDATED);
+        history.setDetails(snapshot);
+        employeeHistoryRepository.save(history);
+    }
+
+    private User getActorOrThrow(Long actorUserId) {
+        return userRepository.findById(actorUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("error.employee.userNotFound", new Object[]{actorUserId},
+                        "Không tìm thấy tài khoản id=" + actorUserId));
+    }
+
+    private DepartmentMemberResponse toMemberResponse(Employee e) {
+        Department department = e.getDepartment();
+        return new DepartmentMemberResponse(
+                e.getId(),
+                e.getUser().getId(),
+                e.getEmployeeCode(),
+                e.getUser().getFullName(),
+                e.getPosition() == null ? null : e.getPosition().getName(),
+                e.getEmployeeType().name(),
+                e.getStatus().name(),
+                department == null ? null : department.getId(),
+                department == null ? null : department.getName());
+    }
 
     private User resolveHeadUser(Long headUserId) {
         if (headUserId == null) {
