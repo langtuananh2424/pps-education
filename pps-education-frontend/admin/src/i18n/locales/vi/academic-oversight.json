@@ -78,6 +78,7 @@
   "changeHistory": {
     "title": "Lịch sử thay đổi dữ liệu",
     "description": "Ai đã tạo/sửa lớp học, lịch học, ghi danh, giáo viên phụ trách, hồ sơ học sinh và giáo viên — lúc nào, đổi gì.",
+    "departmentScopeHint": "Chỉ hiển thị thay đổi do bạn và nhân sự thuộc phòng ban bạn làm trưởng phòng thực hiện. Chưa được đặt làm trưởng phòng thì chỉ thấy thay đổi của chính mình.",
     "scopeHint": "Đang lọc theo điểm trường/lớp chọn trên thanh Header.",
     "filters": {
       "entityType": "Loại dữ liệu",

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowRight, Filter, History, Search } from "lucide-react";
+import { ArrowRight, Filter, History, Search, Users } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { ApiError } from "@/lib/apiClient";
 import { toISODate } from "@/lib/calendarDates";
@@ -84,6 +84,8 @@ export default function ChangeHistoryPage() {
   const { t, i18n } = useTranslation("academic-oversight");
   const { selectedCampusId, selectedClassId, hasPermission } = useApp();
   const canView = hasPermission("academic.change-history.view");
+  // V206 — không có quyền xem toàn bộ thì backend chỉ trả thay đổi của mình + nhân sự phòng ban mình làm trưởng phòng.
+  const departmentScoped = !hasPermission("academic.change-history.view-all");
 
   const [entityType, setEntityType] = useState<ChangeHistoryEntityType | "">("");
   const [fromDate, setFromDate] = useState<string>(daysAgoIso(30));
@@ -224,6 +226,11 @@ export default function ChangeHistoryPage() {
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("changeHistory.title")}</h1>
         <p className="text-xs text-slate-500 mt-1">{t("changeHistory.description")}</p>
+        {departmentScoped && (
+          <p className="flex items-center gap-1.5 text-[11px] text-slate-400 mt-2">
+            <Users className="w-3.5 h-3.5" /> {t("changeHistory.departmentScopeHint")}
+          </p>
+        )}
       </div>
 
       <Card>

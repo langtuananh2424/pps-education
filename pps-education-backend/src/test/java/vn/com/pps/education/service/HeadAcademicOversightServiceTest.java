@@ -7,6 +7,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.transaction.annotation.Transactional;
 import vn.com.pps.education.domain.ClassHistory;
 import vn.com.pps.education.domain.ClassSession;
+import vn.com.pps.education.domain.Department;
 import vn.com.pps.education.domain.Employee;
 import vn.com.pps.education.domain.EmployeeHistory;
 import vn.com.pps.education.domain.Role;
@@ -29,6 +30,7 @@ import vn.com.pps.education.dto.UpdateCurriculumRequest;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.repository.ClassHistoryRepository;
 import vn.com.pps.education.repository.ClassSessionRepository;
+import vn.com.pps.education.repository.DepartmentRepository;
 import vn.com.pps.education.repository.EmployeeHistoryRepository;
 import vn.com.pps.education.repository.EmployeeRepository;
 import vn.com.pps.education.repository.RoleRepository;
@@ -78,6 +80,7 @@ class HeadAcademicOversightServiceTest extends AbstractIntegrationTest {
     @Autowired private SessionPeriodRepository sessionPeriodRepository;
     @Autowired private EmployeeRepository employeeRepository;
     @Autowired private EmployeeHistoryRepository employeeHistoryRepository;
+    @Autowired private DepartmentRepository departmentRepository;
 
     private User headAcademic;
     private Site site;
@@ -130,6 +133,51 @@ class HeadAcademicOversightServiceTest extends AbstractIntegrationTest {
         assertThat(latest.changedByName()).isEqualTo(headAcademic.getFullName());
         assertThat(page.getContent().get(1).action()).isEqualTo("CREATED");
         assertThat(page.getContent().get(1).previousDetails()).isNull();
+    }
+
+    @Test
+    void search_V206_departmentHeadSeesOwnAndSubordinateChangesOnly() {
+        User subordinate = newEmployee("subordinate", Employee.EmployeeType.STAFF).getUser();
+        User outsider = newUser("outsider");
+        Department department = newDepartment(headAcademic);
+        Employee subordinateEmployee = employeeRepository.findByUserId(subordinate.getId()).orElseThrow();
+        subordinateEmployee.setDepartment(department);
+        employeeRepository.save(subordinateEmployee);
+        saveClassHistory(subordinate, "COMPLETED");
+        saveClassHistory(outsider, "CANCELLED");
+
+        Page<ChangeHistoryItemResponse> page = changeHistoryService.search(
+                "CLASS", null, null, null, schoolClass.id(), null, null, 0, 20, headAcademic.getId());
+
+        assertThat(page.getContent()).extracting(ChangeHistoryItemResponse::changedById)
+                .contains(headAcademic.getId(), subordinate.getId())
+                .doesNotContain(outsider.getId());
+    }
+
+    @Test
+    void search_V206_nonDepartmentHeadSeesOnlyOwnChanges() {
+        User other = newUser("other");
+        saveClassHistory(other, "COMPLETED");
+
+        Page<ChangeHistoryItemResponse> page = changeHistoryService.search(
+                "CLASS", null, null, null, schoolClass.id(), null, null, 0, 20, headAcademic.getId());
+
+        assertThat(page.getContent()).extracting(ChangeHistoryItemResponse::changedById)
+                .containsOnly(headAcademic.getId());
+    }
+
+    @Test
+    void search_V206_viewAllPermissionSeesEveryonesChanges() {
+        User executive = newUser("executive");
+        assignRole(executive, "EXECUTIVE");
+        User other = newUser("other");
+        saveClassHistory(other, "COMPLETED");
+
+        Page<ChangeHistoryItemResponse> page = changeHistoryService.search(
+                "CLASS", null, null, null, schoolClass.id(), null, null, 0, 20, executive.getId());
+
+        assertThat(page.getContent()).extracting(ChangeHistoryItemResponse::changedById)
+                .contains(headAcademic.getId(), other.getId());
     }
 
     @Test
@@ -267,6 +315,25 @@ class HeadAcademicOversightServiceTest extends AbstractIntegrationTest {
 
     private SchoolClass classEntity() {
         return schoolClassRepository.findByIdAndDeletedAtIsNull(schoolClass.id()).orElseThrow();
+    }
+
+    private void saveClassHistory(User changedBy, String status) {
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        snapshot.put("status", status);
+        ClassHistory history = new ClassHistory();
+        history.setSchoolClass(classEntity());
+        history.setChangedBy(changedBy);
+        history.setAction(ClassHistory.Action.UPDATED);
+        history.setDetails(snapshot);
+        classHistoryRepository.save(history);
+    }
+
+    private Department newDepartment(User head) {
+        Department department = new Department();
+        department.setCode("DEPT-" + SEQ.incrementAndGet());
+        department.setName("Phòng đào tạo " + SEQ.get());
+        department.setHeadUser(head);
+        return departmentRepository.save(department);
     }
 
     private ClassSession newSession(User teacher, LocalDate date, ClassSession.Status status) {

@@ -271,7 +271,9 @@ export const PAGE_PERMISSIONS: Record<string, PagePermissions> = {
   // Học thuật · Lịch sử thay đổi dữ liệu (V203)
   "acad-change-history": {
     viewCodes: ["academic.change-history.view"],
-    actions: []
+    actions: [
+      { label: "Xem thay đổi của mọi nhân sự (không giới hạn phòng ban)", codes: ["academic.change-history.view-all"] },
+    ]
   },
   // Phụ huynh & phản hồi · Duyệt thư mời phụ huynh
   "noti-meeting-invites": {
