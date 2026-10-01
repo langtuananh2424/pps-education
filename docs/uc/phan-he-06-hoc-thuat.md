@@ -793,6 +793,73 @@ UC-48: Xếp lịch buổi học
 > server (`GET /api/users?roleCode=TEACHER&status=ACTIVE`, field
 > `UserSearchRequest.roleCode`) thay vì lọc ở client sau khi đã phân trang.
 
+> **Vòng đời trạng thái buổi học + hủy/sửa buổi đã diễn ra (bổ sung ngoài
+> SDD gốc, xác nhận với người dùng 2026-10-01):** trước đây không có luồng
+> nào chuyển `class_sessions` sang `IN_PROGRESS`/`COMPLETED` (2 trạng thái
+> này chỉ có trong SDD), nên buổi đã dạy xong vẫn ở `SCHEDULED` và vẫn
+> hủy/dời/sửa được — quy tắc chặn ở A2/A3 không có hiệu lực.
+>
+> ***A5 --- Tự chuyển trạng thái theo giờ***
+>
+> 1. Hệ thống định kỳ (mỗi phút, `ClassSessionStatusSchedulerService`,
+>    cấu hình `app.class-session-status.cron`) chuyển buổi `SCHEDULED` đã
+>    tới giờ bắt đầu (`session_date + start_time`, giờ Việt Nam) sang
+>    `IN_PROGRESS`, và buổi `SCHEDULED`/`IN_PROGRESS` đã qua giờ kết thúc
+>    (`session_date + end_time`) sang `COMPLETED`. Mốc là GIỜ, không phụ
+>    thuộc giáo viên có nhận lớp (UC-71) hay nộp điểm danh (UC-15) — việc đó
+>    đã có cảnh báo riêng.
+> 2. Mỗi lần chạy là 1 lệnh UPDATE có điều kiện trạng thái hiện tại (chỉ đổi
+>    dòng còn đúng trạng thái nguồn), nên chạy lặp lại hay nhiều phiên bản
+>    backend cùng chạy cũng không đổi trùng; có khoá advisory PostgreSQL để
+>    chỉ 1 lần chạy tại 1 thời điểm. Lần chạy bị lỗi thì lần sau tự bù (điều
+>    kiện là "đã qua giờ", không phải "qua giờ trong 1 phút vừa rồi"). Chuyển
+>    trạng thái tự động KHÔNG ghi `class_sessions_history` (suy ra được từ
+>    giờ học, tránh làm ngập trang "Lịch sử thay đổi dữ liệu").
+> 3. Hủy/dời/sửa buổi (A2/A3/A6/A7, "Sửa nhanh tại chỗ") khoá dòng buổi học
+>    (`SELECT ... FOR UPDATE`) trước khi kiểm tra trạng thái, để không chạy
+>    đè với lần chuyển trạng thái tự động. Các luồng khác chỉ ghi vài cột của
+>    buổi học (nhận xét, dạy thay, cảnh báo nhận lớp...) chỉ cập nhật đúng
+>    cột đã đổi (`@DynamicUpdate`), không ghi đè `status` cũ.
+>
+> Từ đây A2/A3/"Sửa nhanh tại chỗ" (quyền thường) chỉ còn áp dụng cho buổi
+> `SCHEDULED` (chưa tới giờ học) đúng như đặc tả.
+>
+> ***A6 --- Hủy buổi đã diễn ra***
+>
+> 1. Phát hiện sau giờ học rằng buổi thực tế không diễn ra (VD giáo viên
+>    vắng, không có người dạy thay). Người dùng có quyền
+>    `academic.class-session.cancel` VÀ `academic.class-session.correct-past`
+>    chọn hủy 1 buổi đang `IN_PROGRESS`/`COMPLETED`, BẮT BUỘC nhập lý do.
+> 2. Hệ thống chuyển buổi sang `CANCELLED`, lưu lý do vào
+>    `cancellation_reason`, ghi `class_sessions_history` (UPDATED, kèm
+>    `retroactive=true` và lý do). Buổi này không còn được tính vào số tiết
+>    thực tế và xuất hiện trong danh sách buổi hủy chờ tạo buổi bù (A4).
+> 3. Thiếu quyền `academic.class-session.correct-past` → từ chối (403).
+>    Thiếu lý do → từ chối. Buổi `CANCELLED`/`RESCHEDULED` → từ chối như A2.
+>
+> ***A7 --- Sửa buổi đã diễn ra***
+>
+> 1. Người dùng có quyền `academic.class-session.reschedule` VÀ
+>    `academic.class-session.correct-past` sửa phòng/loại GV/GV chính-phụ-
+>    CM/tên GV giảng dạy/tiết CÙNG NGÀY của 1 buổi `IN_PROGRESS`/`COMPLETED`
+>    (cùng API `PATCH .../assignment` với "Sửa nhanh tại chỗ"), BẮT BUỘC
+>    nhập lý do (`correctionReason`). Vẫn kiểm tra trùng phòng/trùng giờ GV/
+>    trùng giờ trong lớp như buổi thường. Không đổi ngày (dời lịch A3 không
+>    áp dụng cho buổi đã diễn ra).
+> 2. Hệ thống cập nhật buổi, sinh lại `session_periods`, ghi
+>    `class_sessions_history` (UPDATED, kèm `retroactive=true` và lý do),
+>    rồi tính lại trạng thái theo giờ mới (chưa tới giờ bắt đầu →
+>    `SCHEDULED`, đang trong giờ → `IN_PROGRESS`, đã qua giờ kết thúc →
+>    `COMPLETED`).
+> 3. Thiếu quyền `academic.class-session.correct-past` → từ chối (403).
+>    Thiếu lý do → từ chối.
+>
+> Quyền `academic.class-session.correct-past` ("Hủy, sửa buổi học đã diễn
+> ra") cấp mặc định cho Trưởng phòng đào tạo, Ban giám đốc, Quản trị viên.
+>
+> **Hậu điều kiện bổ sung:** báo cáo "Số tiết thực tế theo lớp" chỉ đếm tiết
+> của buổi `COMPLETED`.
+
 ---
 
 UC-56: Sinh lịch học hàng loạt theo mẫu lặp

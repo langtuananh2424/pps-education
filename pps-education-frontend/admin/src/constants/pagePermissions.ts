@@ -125,6 +125,7 @@ export const PAGE_PERMISSIONS: Record<string, PagePermissions> = {
     viewCodes: ["hrm.employee-schedule.view"],
     actions: [
       { label: "Xếp, kéo đổi buổi trên lưới, Hoàn tác, Lưu", codes: ["academic.class-session.create", "academic.class-session.reschedule"] },
+      { label: "Sửa, hủy buổi đã diễn ra (bắt buộc lý do)", codes: ["academic.class-session.correct-past"] },
     ]
   },
   // Nhân sự · Nghỉ phép & duyệt đơn
@@ -199,6 +200,7 @@ export const PAGE_PERMISSIONS: Record<string, PagePermissions> = {
       { label: "Tab Buổi học: Nhập lịch từ Excel", codes: ["academic.class-session.import"] },
       { label: "Tab Buổi học: Dời lịch", codes: ["academic.class-session.reschedule"] },
       { label: "Tab Buổi học: Hủy buổi", codes: ["academic.class-session.cancel"] },
+      { label: "Tab Buổi học: Hủy, sửa buổi đã diễn ra (bắt buộc lý do)", codes: ["academic.class-session.correct-past"] },
       { label: "Tab Buổi học: Điểm danh trong giờ", codes: ["academic.attendance.mark"] },
       { label: "Tab Buổi học: Điểm danh bổ sung sau giờ", codes: ["academic.attendance.create", "academic.attendance.update", "academic.attendance.delete"] },
       { label: "Tab Sổ điểm: xem, So sánh qua các kỳ", codes: ["academic.grade.view"] },

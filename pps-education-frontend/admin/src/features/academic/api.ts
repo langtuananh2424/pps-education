@@ -828,6 +828,13 @@ export interface UpdateSessionAssignmentRequest {
   allowTeacherOverlap?: boolean;
   /** Bỏ qua chặn trùng phòng — 2 nhóm lớp gộp học chung 1 phòng (bổ sung ngoài SDD gốc, 2026-09-29). Chỉ có ý nghĩa khi có roomId. */
   allowRoomOverlap?: boolean;
+  /** Lý do sửa — bắt buộc khi buổi đã IN_PROGRESS/COMPLETED (UC-48 A7, cần quyền academic.class-session.correct-past). */
+  correctionReason?: string;
+}
+
+/** Buổi đã tới giờ học (UC-48 A5) — hủy/sửa cần quyền academic.class-session.correct-past + lý do (A6/A7), không dời lịch được. */
+export function isSessionAlreadyHeld(s: Pick<ClassSessionResponse, "status">): boolean {
+  return s.status === "IN_PROGRESS" || s.status === "COMPLETED";
 }
 
 export function updateSessionAssignment(

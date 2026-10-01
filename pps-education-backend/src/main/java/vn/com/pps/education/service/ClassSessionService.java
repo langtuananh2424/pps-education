@@ -24,6 +24,7 @@ import vn.com.pps.education.exception.ClassScheduleConflictException;
 import vn.com.pps.education.exception.ClassSessionOutsideClassPeriodException;
 import vn.com.pps.education.exception.InvalidClassSessionStatusTransitionException;
 import vn.com.pps.education.exception.MakeupSessionAlreadyLinkedException;
+import vn.com.pps.education.exception.NotAllowedToCorrectPastSessionException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.exception.RoomConflictException;
 import vn.com.pps.education.exception.TeacherScheduleConflictException;
@@ -40,9 +41,12 @@ import vn.com.pps.education.repository.SiteTeacherRepository;
 import vn.com.pps.education.repository.StudentRepository;
 import vn.com.pps.education.repository.UserRepository;
 
+import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -69,10 +73,15 @@ import java.util.stream.Stream;
  *
  * Authorization qua @PreAuthorize ở ClassSessionController theo từng nút
  * (V202 tách academic.class.manage thành academic.class-session.create/
- * generate/import/reschedule/cancel).
+ * generate/import/reschedule/cancel). Hủy/sửa buổi đã diễn ra (UC-48 A6/A7,
+ * V205) cần thêm academic.class-session.correct-past — kiểm tra ở Service vì
+ * dùng chung endpoint với hủy/sửa buổi chưa diễn ra.
  */
 @Service
 public class ClassSessionService {
+
+    private static final ZoneId APP_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
+    private static final String CORRECT_PAST_PERMISSION = "academic.class-session.correct-past";
 
     private final ClassSessionRepository classSessionRepository;
     private final SessionPeriodRepository sessionPeriodRepository;
@@ -88,6 +97,7 @@ public class ClassSessionService {
     private final ClassEnrollmentRepository classEnrollmentRepository;
     private final StudentRepository studentRepository;
     private final SitePeriodTemplateRepository sitePeriodTemplateRepository;
+    private final Clock clock;
 
     public ClassSessionService(ClassSessionRepository classSessionRepository,
                                 SessionPeriodRepository sessionPeriodRepository,
@@ -102,7 +112,8 @@ public class ClassSessionService {
                                 DataScopeService dataScopeService,
                                 ClassEnrollmentRepository classEnrollmentRepository,
                                 StudentRepository studentRepository,
-                                SitePeriodTemplateRepository sitePeriodTemplateRepository) {
+                                SitePeriodTemplateRepository sitePeriodTemplateRepository,
+                                Clock clock) {
         this.classSessionRepository = classSessionRepository;
         this.sessionPeriodRepository = sessionPeriodRepository;
         this.classSessionHistoryRepository = classSessionHistoryRepository;
@@ -117,6 +128,7 @@ public class ClassSessionService {
         this.classEnrollmentRepository = classEnrollmentRepository;
         this.studentRepository = studentRepository;
         this.sitePeriodTemplateRepository = sitePeriodTemplateRepository;
+        this.clock = clock;
     }
 
     /** Giáo viên (không có academic.class.manage) chỉ thấy buổi học thuộc site được gán — xem ClassService.resolveAllowedSiteIds. */
@@ -480,18 +492,27 @@ public class ClassSessionService {
                         "Không tìm thấy lớp học id=" + classId));
     }
 
-    /** UC-48 A2: hủy 1 buổi đang SCHEDULED, giải phóng phòng khỏi ràng buộc trùng lịch. */
+    /**
+     * UC-48 A2: hủy 1 buổi đang SCHEDULED, giải phóng phòng khỏi ràng buộc trùng lịch.
+     * UC-48 A6 (bổ sung ngoài SDD gốc, xác nhận 2026-10-01): hủy buổi đã IN_PROGRESS/COMPLETED
+     * (thực tế không diễn ra) — cần thêm quyền academic.class-session.correct-past và bắt buộc lý do.
+     */
     @Transactional
     public ClassSessionResponse cancelSession(Long classId, Long sessionId, CancelClassSessionRequest request, Long actorUserId) {
         ClassSession session = getSessionOrThrow(classId, sessionId);
-        requireScheduled(session);
+        String correctionReason = null;
+        if (isAlreadyHeld(session)) {
+            correctionReason = requirePastSessionCorrection(actorUserId, request.reason());
+        } else {
+            requireScheduled(session);
+        }
         User actor = getUserOrThrow(actorUserId);
 
         session.setStatus(ClassSession.Status.CANCELLED);
-        session.setCancellationReason(request.reason());
+        session.setCancellationReason(correctionReason != null ? correctionReason : request.reason());
         session = classSessionRepository.save(session);
 
-        writeClassSessionHistory(session, actor, ClassSessionHistory.Action.UPDATED);
+        writeClassSessionHistory(session, actor, ClassSessionHistory.Action.UPDATED, correctionReason);
         return toResponse(session);
     }
 
@@ -570,11 +591,21 @@ public class ClassSessionService {
      * phụ-CM/tiết CÙNG NGÀY cho 1 buổi đang SCHEDULED, không tạo buổi mới
      * (khác reschedule — đổi ngày phải đi qua reschedule để giữ đúng ngữ
      * nghĩa RESCHEDULED + audit trail).
+     *
+     * UC-48 A7 (bổ sung ngoài SDD gốc, xác nhận 2026-10-01): sửa buổi đã
+     * IN_PROGRESS/COMPLETED — cần thêm quyền academic.class-session.correct-past
+     * và bắt buộc correctionReason; sau khi sửa, trạng thái được tính lại theo
+     * giờ mới (deriveStatusByTime).
      */
     @Transactional
     public ClassSessionResponse updateAssignment(Long classId, Long sessionId, UpdateSessionAssignmentRequest request, Long actorUserId) {
         ClassSession session = getSessionOrThrow(classId, sessionId);
-        requireScheduled(session);
+        String correctionReason = null;
+        if (isAlreadyHeld(session)) {
+            correctionReason = requirePastSessionCorrection(actorUserId, request.correctionReason());
+        } else {
+            requireScheduled(session);
+        }
         User actor = getUserOrThrow(actorUserId);
 
         SitePeriodTemplate.DayPart dayPart = SitePeriodTemplate.DayPart.valueOf(request.dayPart());
@@ -608,6 +639,9 @@ public class ClassSessionService {
         // Lịch làm việc phát hiện có thay giáo viên ngoài kế hoạch, xác nhận 2026-09-12).
         session.setActualTeacherName(request.actualTeacherName());
         session.setOriginalTeacherName(request.actualTeacherName());
+        if (correctionReason != null) {
+            session.setStatus(deriveStatusByTime(session.getSessionDate(), newStartTime, newEndTime));
+        }
         session = classSessionRepository.save(session);
 
         // Phải xoá session_periods_history TRƯỚC (FK NOT NULL không cascade — V14), rồi mới xoá
@@ -621,7 +655,7 @@ public class ClassSessionService {
         sessionPeriodRepository.flush();
         generatePeriodsFromTemplate(session, templates, actor);
 
-        writeClassSessionHistory(session, actor, ClassSessionHistory.Action.UPDATED);
+        writeClassSessionHistory(session, actor, ClassSessionHistory.Action.UPDATED, correctionReason);
         return toResponse(session);
     }
 
@@ -699,8 +733,37 @@ public class ClassSessionService {
         }
     }
 
+    /** Buổi đã tới giờ học (UC-48 A5) — chỉ hủy/sửa được qua A6/A7. */
+    private boolean isAlreadyHeld(ClassSession session) {
+        return session.getStatus() == ClassSession.Status.IN_PROGRESS
+                || session.getStatus() == ClassSession.Status.COMPLETED;
+    }
+
+    /** UC-48 A6/A7: kiểm tra quyền academic.class-session.correct-past + lý do bắt buộc, trả lý do đã trim. */
+    private String requirePastSessionCorrection(Long actorUserId, String reason) {
+        if (!permissionEvaluationService.hasPermission(actorUserId, CORRECT_PAST_PERMISSION)) {
+            throw new NotAllowedToCorrectPastSessionException("error.notAllowedToCorrectPastSession.default", new Object[]{},
+                    "Buổi học đã diễn ra — cần quyền \"Hủy, sửa buổi học đã diễn ra\" để hủy hoặc sửa.");
+        }
+        if (reason == null || reason.isBlank()) {
+            throw new InvalidClassSessionStatusTransitionException("error.invalidClassSessionStatusTransition.correctionReasonRequired",
+                    new Object[]{}, "Hủy hoặc sửa buổi học đã diễn ra bắt buộc nhập lý do.");
+        }
+        return reason.trim();
+    }
+
+    /** Cùng quy tắc ClassSessionStatusSchedulerService (UC-48 A5), tính theo giờ Việt Nam. */
+    private ClassSession.Status deriveStatusByTime(LocalDate sessionDate, LocalTime startTime, LocalTime endTime) {
+        LocalDateTime now = LocalDateTime.ofInstant(clock.instant(), APP_ZONE);
+        if (now.isBefore(sessionDate.atTime(startTime))) {
+            return ClassSession.Status.SCHEDULED;
+        }
+        return now.isBefore(sessionDate.atTime(endTime)) ? ClassSession.Status.IN_PROGRESS : ClassSession.Status.COMPLETED;
+    }
+
+    /** Khoá dòng buổi học (UC-48 A5) — mọi thao tác hủy/dời/sửa đi qua đây trước khi kiểm tra trạng thái. */
     private ClassSession getSessionOrThrow(Long classId, Long sessionId) {
-        ClassSession session = classSessionRepository.findById(sessionId)
+        ClassSession session = classSessionRepository.findByIdForUpdate(sessionId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "error.classSession.sessionNotFound", new Object[]{sessionId},
                         "Không tìm thấy buổi học id=" + sessionId));
@@ -752,6 +815,11 @@ public class ClassSessionService {
     }
 
     private void writeClassSessionHistory(ClassSession session, User actor, ClassSessionHistory.Action action) {
+        writeClassSessionHistory(session, actor, action, null);
+    }
+
+    /** correctionReason khác null = hủy/sửa buổi đã diễn ra (UC-48 A6/A7) — ghi kèm retroactive + lý do. */
+    private void writeClassSessionHistory(ClassSession session, User actor, ClassSessionHistory.Action action, String correctionReason) {
         ClassSessionHistory history = new ClassSessionHistory();
         history.setClassSession(session);
         history.setChangedBy(actor);
@@ -761,6 +829,10 @@ public class ClassSessionService {
         snapshot.put("startTime", String.valueOf(session.getStartTime()));
         snapshot.put("endTime", String.valueOf(session.getEndTime()));
         snapshot.put("status", session.getStatus().name());
+        if (correctionReason != null) {
+            snapshot.put("retroactive", true);
+            snapshot.put("reason", correctionReason);
+        }
         history.setDetails(snapshot);
         classSessionHistoryRepository.save(history);
     }
