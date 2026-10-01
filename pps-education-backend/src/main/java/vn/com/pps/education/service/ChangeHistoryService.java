@@ -8,6 +8,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.com.pps.education.domain.Department;
 import vn.com.pps.education.domain.Site;
 import vn.com.pps.education.domain.User;
 import vn.com.pps.education.dto.ChangeHistoryItemResponse;
@@ -15,7 +16,9 @@ import vn.com.pps.education.repository.ClassEnrollmentHistoryRepository;
 import vn.com.pps.education.repository.ClassHistoryRepository;
 import vn.com.pps.education.repository.ClassSessionHistoryRepository;
 import vn.com.pps.education.repository.ClassTeacherHistoryRepository;
+import vn.com.pps.education.repository.DepartmentRepository;
 import vn.com.pps.education.repository.EmployeeHistoryRepository;
+import vn.com.pps.education.repository.EmployeeRepository;
 import vn.com.pps.education.repository.SiteRepository;
 import vn.com.pps.education.repository.StudentHistoryRepository;
 import vn.com.pps.education.repository.UserRepository;
@@ -42,6 +45,10 @@ import java.util.Set;
  * Phạm vi dữ liệu theo DataScopeService#resolveAllowedSiteIds: phạm vi hẹp hơn ALL chỉ thấy lớp/học
  * sinh thuộc điểm trường được gán và không thấy lịch sử nhân sự (nhân sự không gắn điểm trường).
  * Không có hrm.employee.view thì chỉ thấy nhân sự là giáo viên và bị ẩn số CCCD trong snapshot.
+ *
+ * V206 (xác nhận với người dùng 2026-10-01): không có academic.change-history.view-all thì chỉ thấy
+ * thay đổi do chính mình và nhân sự thuộc phòng ban mình làm trưởng phòng thực hiện — cùng quy tắc
+ * trưởng phòng của TaskService#listOverview (departments.head_user_id, employees.department_id).
  */
 @Service
 public class ChangeHistoryService {
@@ -66,6 +73,8 @@ public class ChangeHistoryService {
     private final EmployeeHistoryRepository employeeHistoryRepository;
     private final UserRepository userRepository;
     private final SiteRepository siteRepository;
+    private final DepartmentRepository departmentRepository;
+    private final EmployeeRepository employeeRepository;
     private final DataScopeService dataScopeService;
     private final PermissionEvaluationService permissionEvaluationService;
     private final ObjectMapper objectMapper;
@@ -78,6 +87,8 @@ public class ChangeHistoryService {
                                 EmployeeHistoryRepository employeeHistoryRepository,
                                 UserRepository userRepository,
                                 SiteRepository siteRepository,
+                                DepartmentRepository departmentRepository,
+                                EmployeeRepository employeeRepository,
                                 DataScopeService dataScopeService,
                                 PermissionEvaluationService permissionEvaluationService,
                                 ObjectMapper objectMapper) {
@@ -89,6 +100,8 @@ public class ChangeHistoryService {
         this.employeeHistoryRepository = employeeHistoryRepository;
         this.userRepository = userRepository;
         this.siteRepository = siteRepository;
+        this.departmentRepository = departmentRepository;
+        this.employeeRepository = employeeRepository;
         this.dataScopeService = dataScopeService;
         this.permissionEvaluationService = permissionEvaluationService;
         this.objectMapper = objectMapper;
@@ -115,6 +128,8 @@ public class ChangeHistoryService {
         boolean restrictSites = allowedSiteIds != null;
         List<Long> siteIdsForQuery = allowedSiteIds == null || allowedSiteIds.isEmpty() ? List.of(-1L) : allowedSiteIds;
         boolean canViewAllEmployees = permissionEvaluationService.hasPermission(actorUserId, "hrm.employee.view");
+        boolean restrictChangedBy = !permissionEvaluationService.hasPermission(actorUserId, "academic.change-history.view-all");
+        Set<Long> changedByIds = restrictChangedBy ? resolveSubordinateUserIds(actorUserId) : Set.of(-1L);
 
         OffsetDateTime fromTs = (fromDate != null ? fromDate : LocalDate.of(2000, 1, 1))
                 .atStartOfDay(APP_ZONE).toOffsetDateTime();
@@ -131,6 +146,7 @@ public class ChangeHistoryService {
                 studentId == null ? 0L : studentId,
                 restrictSites, siteIdsForQuery,
                 !restrictSites, !canViewAllEmployees,
+                restrictChangedBy, changedByIds,
                 keywordPattern,
                 PageRequest.of(Math.max(page, 0), pageSize));
 
@@ -145,6 +161,19 @@ public class ChangeHistoryService {
                 .map(item -> toResponse(item, labels))
                 .toList();
         return new PageImpl<>(content, rows.getPageable(), rows.getTotalElements());
+    }
+
+    /** Người xem + nhân sự thuộc các phòng ban người xem đang làm trưởng phòng. */
+    private Set<Long> resolveSubordinateUserIds(Long actorUserId) {
+        Set<Long> userIds = new HashSet<>();
+        userIds.add(actorUserId);
+        List<Long> headedDepartmentIds = departmentRepository.findByHeadUserId(actorUserId).stream()
+                .map(Department::getId).toList();
+        if (!headedDepartmentIds.isEmpty()) {
+            employeeRepository.findByDepartmentIdInAndDeletedAtIsNull(headedDepartmentIds)
+                    .forEach(e -> userIds.add(e.getUser().getId()));
+        }
+        return userIds;
     }
 
     private record RowWithSnapshots(ClassHistoryRepository.ChangeHistoryRow row,

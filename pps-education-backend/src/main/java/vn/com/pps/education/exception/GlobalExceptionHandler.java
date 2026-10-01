@@ -129,7 +129,8 @@ public class GlobalExceptionHandler {
             NotAssignedTeacherForClassException.class, NotAssignedTeacherForSessionException.class,
             AssigneeOutsideDepartmentException.class,
             NotTaskParticipantException.class, NotTaskCreatorException.class, NotAuthorizedForFeedbackException.class,
-            NotAuthorizedForTaskOverviewException.class, MediaModuleNotAllowedException.class})
+            NotAuthorizedForTaskOverviewException.class, MediaModuleNotAllowedException.class,
+            NotAllowedToCorrectPastSessionException.class})
     public ResponseEntity<Object> handleAcademicAuthorization(RuntimeException ex) {
         return error(HttpStatus.FORBIDDEN, ex);
     }

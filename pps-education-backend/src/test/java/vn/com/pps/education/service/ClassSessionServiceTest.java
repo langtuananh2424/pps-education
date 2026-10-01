@@ -1,10 +1,13 @@
 package vn.com.pps.education.service;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
+import vn.com.pps.education.config.MutableClock;
 import vn.com.pps.education.domain.ClassSession;
+import vn.com.pps.education.domain.ClassSessionHistory;
 import vn.com.pps.education.domain.ClassTeacher;
 import vn.com.pps.education.domain.Employee;
 import vn.com.pps.education.domain.LeaveRequest;
@@ -35,9 +38,11 @@ import vn.com.pps.education.dto.UpdateCurriculumRequest;
 import vn.com.pps.education.dto.UpdateSessionAssignmentRequest;
 import vn.com.pps.education.exception.InvalidClassSessionStatusTransitionException;
 import vn.com.pps.education.exception.MakeupSessionAlreadyLinkedException;
+import vn.com.pps.education.exception.NotAllowedToCorrectPastSessionException;
 import vn.com.pps.education.exception.ResourceNotFoundException;
 import vn.com.pps.education.exception.RoomConflictException;
 import vn.com.pps.education.exception.TeacherScheduleConflictException;
+import vn.com.pps.education.repository.ClassSessionHistoryRepository;
 import vn.com.pps.education.repository.ClassSessionRepository;
 import vn.com.pps.education.repository.ClassTeacherRepository;
 import vn.com.pps.education.repository.EmployeeRepository;
@@ -45,6 +50,7 @@ import vn.com.pps.education.repository.LeaveRequestRepository;
 import vn.com.pps.education.repository.LeaveSubstitutionRepository;
 import vn.com.pps.education.repository.RoleRepository;
 import vn.com.pps.education.repository.RoomRepository;
+import vn.com.pps.education.repository.SessionPeriodRepository;
 import vn.com.pps.education.repository.SiteManagerRepository;
 import vn.com.pps.education.repository.SitePeriodTemplateRepository;
 import vn.com.pps.education.repository.SiteRepository;
@@ -56,6 +62,7 @@ import vn.com.pps.education.support.AbstractIntegrationTest;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -130,6 +137,18 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
     @Autowired
     private LeaveSubstitutionRepository leaveSubstitutionRepository;
 
+    @Autowired
+    private ClassSessionStatusSchedulerService classSessionStatusSchedulerService;
+
+    @Autowired
+    private ClassSessionHistoryRepository classSessionHistoryRepository;
+
+    @Autowired
+    private SessionPeriodRepository sessionPeriodRepository;
+
+    @Autowired
+    private MutableClock clock;
+
     private User headAcademic;
     private User teacher;
     private ClassResponse schoolClass;
@@ -152,6 +171,12 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
         room = newRoom(site, false);
         assignPrimaryTeacher(schoolClass, teacher, "VIETNAMESE");
         assignPrimaryTeacher(schoolClass, teacher, "FOREIGN");
+    }
+
+    /** clock là bean singleton dùng chung ApplicationContext — trả đồng hồ thật sau mỗi test (xem StudentAttendanceServiceTest). */
+    @AfterEach
+    void resetClock() {
+        clock.reset();
     }
 
     /** Gán teacher làm giáo viên chính (PRIMARY) loại teacherType cho 1 lớp — vẫn là điều kiện UC-18, KHÔNG còn là điều kiện bắt buộc để xếp lịch (xem test allowsManuallyChosenTeacher...). */
@@ -639,12 +664,12 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
                 headAcademic.getId());
 
         assertThatThrownBy(() -> classSessionService.updateAssignment(otherGroup.id(), otherSession.id(),
-                new UpdateSessionAssignmentRequest(room.getId(), "VIETNAMESE", otherTeacher.getId(), null, null, "MORNING", SLOT_A, null, null, null),
+                new UpdateSessionAssignmentRequest(room.getId(), "VIETNAMESE", otherTeacher.getId(), null, null, "MORNING", SLOT_A, null, null, null, null),
                 headAcademic.getId()))
                 .isInstanceOf(RoomConflictException.class);
 
         ClassSessionResponse updated = classSessionService.updateAssignment(otherGroup.id(), otherSession.id(),
-                new UpdateSessionAssignmentRequest(room.getId(), "VIETNAMESE", otherTeacher.getId(), null, null, "MORNING", SLOT_A, null, null, true),
+                new UpdateSessionAssignmentRequest(room.getId(), "VIETNAMESE", otherTeacher.getId(), null, null, "MORNING", SLOT_A, null, null, true, null),
                 headAcademic.getId());
         assertThat(updated.roomId()).isEqualTo(room.getId());
     }
@@ -834,7 +859,7 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
                 headAcademic.getId());
 
         ClassSessionResponse updated = classSessionService.updateAssignment(schoolClass.id(), session.id(),
-                new UpdateSessionAssignmentRequest(newRoom.getId(), "FOREIGN", newTeacher.getId(), assistant.getId(), null, "MORNING", SLOT_C, null, null, null),
+                new UpdateSessionAssignmentRequest(newRoom.getId(), "FOREIGN", newTeacher.getId(), assistant.getId(), null, "MORNING", SLOT_C, null, null, null, null),
                 headAcademic.getId());
 
         assertThat(updated.id()).isEqualTo(session.id());
@@ -856,7 +881,7 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
         classSessionService.cancelSession(schoolClass.id(), session.id(), new CancelClassSessionRequest(null), headAcademic.getId());
 
         assertThatThrownBy(() -> classSessionService.updateAssignment(schoolClass.id(), session.id(),
-                new UpdateSessionAssignmentRequest(room.getId(), "VIETNAMESE", teacher.getId(), null, null, "MORNING", SLOT_A, null, null, null),
+                new UpdateSessionAssignmentRequest(room.getId(), "VIETNAMESE", teacher.getId(), null, null, "MORNING", SLOT_A, null, null, null, null),
                 headAcademic.getId()))
                 .isInstanceOf(InvalidClassSessionStatusTransitionException.class);
     }
@@ -876,7 +901,7 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
                 headAcademic.getId());
 
         ClassSessionResponse updated = classSessionService.updateAssignment(schoolClass.id(), session.id(),
-                new UpdateSessionAssignmentRequest(room.getId(), "VIETNAMESE", teacher.getId(), null, null, "MORNING", List.of(2, 3), null, null, null),
+                new UpdateSessionAssignmentRequest(room.getId(), "VIETNAMESE", teacher.getId(), null, null, "MORNING", List.of(2, 3), null, null, null, null),
                 headAcademic.getId());
 
         assertThat(updated.id()).isEqualTo(session.id());
@@ -1107,6 +1132,188 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
     void listMySessionsForStudent_UC59_rejectsWhenActorHasNoStudentProfile() {
         assertThatThrownBy(() -> classSessionService.listMySessionsForStudent(teacher.getId(), null, null, null))
                 .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    // ===================== UC-48 A5–A7: vòng đời trạng thái buổi học (xác nhận 2026-10-01) =====================
+
+    private static final ZoneId APP_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
+
+    /** Ghim "now" = 09:00 giờ Việt Nam của ngày day — SLOT_A (8:00-9:40) đang diễn ra, SLOT_C (10:00-11:40) chưa tới giờ. */
+    private void fixNowAtNineAm(LocalDate day) {
+        clock.setFixedInstant(day.atTime(9, 0).atZone(APP_ZONE).toInstant(), APP_ZONE);
+    }
+
+    private ClassSessionResponse createMorningSession(LocalDate date, List<Integer> periods) {
+        return classSessionService.createSession(schoolClass.id(),
+                new CreateClassSessionRequest(date, "MORNING", periods, room.getId(), "REGULAR", "VIETNAMESE",
+                        teacher.getId(), null, null, null, null, null),
+                headAcademic.getId());
+    }
+
+    private ClassSession.Status statusOf(Long sessionId) {
+        return classSessionRepository.findById(sessionId).orElseThrow().getStatus();
+    }
+
+    /** Tạo 1 buổi ngày hôm trước + chạy job lúc 09:00 hôm nay → buổi đó COMPLETED. */
+    private ClassSessionResponse createCompletedSession(LocalDate today) {
+        ClassSessionResponse session = createMorningSession(today.minusDays(1), SLOT_A);
+        fixNowAtNineAm(today);
+        classSessionStatusSchedulerService.processSessionStatusTransitions();
+        assertThat(statusOf(session.id())).isEqualTo(ClassSession.Status.COMPLETED);
+        return session;
+    }
+
+    @Test
+    void processSessionStatusTransitions_UC48_A5_movesSessionsByTimeAndCountsOnlyCompletedPeriods() {
+        LocalDate today = LocalDate.now(APP_ZONE).plusDays(30);
+        ClassSessionResponse yesterday = createMorningSession(today.minusDays(1), SLOT_A);
+        ClassSessionResponse ongoing = createMorningSession(today, SLOT_A);
+        ClassSessionResponse later = createMorningSession(today, SLOT_C);
+        ClassSessionResponse cancelled = createMorningSession(today.minusDays(1), SLOT_C);
+        classSessionService.cancelSession(schoolClass.id(), cancelled.id(), new CancelClassSessionRequest("GV nghỉ"), headAcademic.getId());
+
+        fixNowAtNineAm(today);
+        classSessionStatusSchedulerService.processSessionStatusTransitions();
+
+        assertThat(statusOf(yesterday.id())).isEqualTo(ClassSession.Status.COMPLETED);
+        assertThat(statusOf(ongoing.id())).isEqualTo(ClassSession.Status.IN_PROGRESS);
+        assertThat(statusOf(later.id())).isEqualTo(ClassSession.Status.SCHEDULED);
+        assertThat(statusOf(cancelled.id())).isEqualTo(ClassSession.Status.CANCELLED);
+
+        // Báo cáo "Số tiết thực tế theo lớp" chỉ đếm 2 tiết của buổi COMPLETED.
+        Long siteId = classSessionRepository.findById(yesterday.id()).orElseThrow().getSchoolClass().getSite().getId();
+        List<SessionPeriodRepository.ClassActualPeriodCount> counts = sessionPeriodRepository.countActualPeriodsBySite(
+                siteId, today.minusDays(1), today, schoolClass.id());
+        assertThat(counts).singleElement().satisfies(row -> assertThat(row.getPeriodCount()).isEqualTo(2L));
+    }
+
+    @Test
+    void processSessionStatusTransitions_UC48_A5_runningAgainChangesNothingAndFinishesLaterSessions() {
+        LocalDate today = LocalDate.now(APP_ZONE).plusDays(30);
+        ClassSessionResponse ongoing = createMorningSession(today, SLOT_A);
+        fixNowAtNineAm(today);
+        classSessionStatusSchedulerService.processSessionStatusTransitions();
+        classSessionStatusSchedulerService.processSessionStatusTransitions();
+        assertThat(statusOf(ongoing.id())).isEqualTo(ClassSession.Status.IN_PROGRESS);
+
+        // Lượt sau (sau giờ kết thúc 9:40) tự hoàn tất — không cần lượt nào đúng lúc 9:40.
+        clock.setFixedInstant(today.atTime(13, 0).atZone(APP_ZONE).toInstant(), APP_ZONE);
+        classSessionStatusSchedulerService.processSessionStatusTransitions();
+        assertThat(statusOf(ongoing.id())).isEqualTo(ClassSession.Status.COMPLETED);
+    }
+
+    @Test
+    void cancelSession_UC48_A6_cancelsCompletedSessionWithReasonAndRecordsHistory() {
+        LocalDate today = LocalDate.now(APP_ZONE).plusDays(30);
+        ClassSessionResponse session = createCompletedSession(today);
+
+        ClassSessionResponse cancelled = classSessionService.cancelSession(schoolClass.id(), session.id(),
+                new CancelClassSessionRequest("  GV vắng, không có người dạy thay  "), headAcademic.getId());
+
+        assertThat(cancelled.status()).isEqualTo("CANCELLED");
+        assertThat(cancelled.cancellationReason()).isEqualTo("GV vắng, không có người dạy thay");
+        assertThat(classSessionService.listCancelledSessionsPendingMakeup(schoolClass.id(), headAcademic.getId()))
+                .extracting(ClassSessionResponse::id).contains(session.id());
+        List<ClassSessionHistory> history = classSessionHistoryRepository.findAll().stream()
+                .filter(h -> h.getClassSession().getId().equals(session.id()))
+                .filter(h -> Boolean.TRUE.equals(h.getDetails().get("retroactive")))
+                .toList();
+        assertThat(history).singleElement().satisfies(h -> {
+            assertThat(h.getDetails()).containsEntry("status", "CANCELLED");
+            assertThat(h.getDetails()).containsEntry("reason", "GV vắng, không có người dạy thay");
+        });
+    }
+
+    @Test
+    void cancelSession_UC48_A6_rejectsCompletedSessionWithoutCorrectPastPermission() {
+        LocalDate today = LocalDate.now(APP_ZONE).plusDays(30);
+        ClassSessionResponse session = createCompletedSession(today);
+
+        assertThatThrownBy(() -> classSessionService.cancelSession(schoolClass.id(), session.id(),
+                new CancelClassSessionRequest("GV vắng"), teacher.getId()))
+                .isInstanceOf(NotAllowedToCorrectPastSessionException.class);
+        assertThat(statusOf(session.id())).isEqualTo(ClassSession.Status.COMPLETED);
+    }
+
+    @Test
+    void cancelSession_UC48_A6_rejectsCompletedSessionWithoutReason() {
+        LocalDate today = LocalDate.now(APP_ZONE).plusDays(30);
+        ClassSessionResponse session = createCompletedSession(today);
+
+        assertThatThrownBy(() -> classSessionService.cancelSession(schoolClass.id(), session.id(),
+                new CancelClassSessionRequest("   "), headAcademic.getId()))
+                .isInstanceOf(InvalidClassSessionStatusTransitionException.class);
+    }
+
+    @Test
+    void rescheduleSession_UC48_A5_rejectsCompletedSession() {
+        LocalDate today = LocalDate.now(APP_ZONE).plusDays(30);
+        ClassSessionResponse session = createCompletedSession(today);
+
+        assertThatThrownBy(() -> classSessionService.rescheduleSession(schoolClass.id(), session.id(),
+                new RescheduleClassSessionRequest(today.plusDays(2), "MORNING", SLOT_A, room.getId(), null, null, null),
+                headAcademic.getId()))
+                .isInstanceOf(InvalidClassSessionStatusTransitionException.class);
+    }
+
+    @Test
+    void updateAssignment_UC48_A7_correctsCompletedSessionAndKeepsCompleted() {
+        LocalDate today = LocalDate.now(APP_ZONE).plusDays(30);
+        ClassSessionResponse session = createCompletedSession(today);
+        User substitute = newUser("teacher.substitute");
+        assignRole(substitute, "TEACHER");
+
+        ClassSessionResponse updated = classSessionService.updateAssignment(schoolClass.id(), session.id(),
+                new UpdateSessionAssignmentRequest(room.getId(), "VIETNAMESE", substitute.getId(), null, null, "MORNING",
+                        SLOT_C, null, null, null, "Ghi nhầm GV và tiết"),
+                headAcademic.getId());
+
+        assertThat(updated.status()).isEqualTo("COMPLETED");
+        assertThat(updated.primaryTeacherId()).isEqualTo(substitute.getId());
+        assertThat(updated.periodNumbers()).containsExactlyElementsOf(SLOT_C);
+        assertThat(classSessionHistoryRepository.findAll().stream()
+                .filter(h -> h.getClassSession().getId().equals(session.id()))
+                .anyMatch(h -> "Ghi nhầm GV và tiết".equals(h.getDetails().get("reason")))).isTrue();
+    }
+
+    @Test
+    void updateAssignment_UC48_A7_rederivesStatusWhenCorrectedToLaterPeriodsToday() {
+        LocalDate today = LocalDate.now(APP_ZONE).plusDays(30);
+        ClassSessionResponse ongoing = createMorningSession(today, SLOT_A);
+        fixNowAtNineAm(today);
+        classSessionStatusSchedulerService.processSessionStatusTransitions();
+        assertThat(statusOf(ongoing.id())).isEqualTo(ClassSession.Status.IN_PROGRESS);
+
+        ClassSessionResponse updated = classSessionService.updateAssignment(schoolClass.id(), ongoing.id(),
+                new UpdateSessionAssignmentRequest(room.getId(), "VIETNAMESE", teacher.getId(), null, null, "MORNING",
+                        SLOT_C, null, null, null, "Lớp học tiết 5-6, không phải tiết 1-2"),
+                headAcademic.getId());
+
+        assertThat(updated.status()).isEqualTo("SCHEDULED");
+    }
+
+    @Test
+    void updateAssignment_UC48_A7_rejectsCompletedSessionWithoutReason() {
+        LocalDate today = LocalDate.now(APP_ZONE).plusDays(30);
+        ClassSessionResponse session = createCompletedSession(today);
+
+        assertThatThrownBy(() -> classSessionService.updateAssignment(schoolClass.id(), session.id(),
+                new UpdateSessionAssignmentRequest(room.getId(), "VIETNAMESE", teacher.getId(), null, null, "MORNING",
+                        SLOT_A, null, null, null, null),
+                headAcademic.getId()))
+                .isInstanceOf(InvalidClassSessionStatusTransitionException.class);
+    }
+
+    @Test
+    void updateAssignment_UC48_A7_rejectsCompletedSessionWithoutCorrectPastPermission() {
+        LocalDate today = LocalDate.now(APP_ZONE).plusDays(30);
+        ClassSessionResponse session = createCompletedSession(today);
+
+        assertThatThrownBy(() -> classSessionService.updateAssignment(schoolClass.id(), session.id(),
+                new UpdateSessionAssignmentRequest(room.getId(), "VIETNAMESE", teacher.getId(), null, null, "MORNING",
+                        SLOT_A, null, null, null, "Sửa GV"),
+                teacher.getId()))
+                .isInstanceOf(NotAllowedToCorrectPastSessionException.class);
     }
 
     private Student enrollStudentIn(Long classId) {

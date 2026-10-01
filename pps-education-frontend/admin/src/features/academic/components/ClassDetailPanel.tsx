@@ -33,6 +33,7 @@ import {
   enrollStudent,
   getAttendanceSession,
   importClassEnrollments,
+  isSessionAlreadyHeld,
   listAcademicYears,
   listCancelledSessionsPendingMakeup,
   listClassEnrollments,
@@ -1063,6 +1064,7 @@ function EnrollStudentForm({
 
 export const sessionStatusVariants: Record<string, "success" | "warning" | "danger" | "info" | "neutral" | "brand"> = {
   SCHEDULED: "info",
+  IN_PROGRESS: "brand",
   COMPLETED: "success",
   CANCELLED: "danger",
   RESCHEDULED: "warning"
@@ -1138,6 +1140,8 @@ function SessionsTab({
   const { hasPermission } = useApp();
   const { promptDialog } = useDialog();
   const hasAttendanceOverride = hasPermission("academic.attendance.create") || hasPermission("academic.attendance.update");
+  // UC-48 A6 — hủy buổi đã diễn ra cần thêm quyền này + bắt buộc lý do.
+  const canCorrectPast = hasPermission("academic.class-session.correct-past");
   const gracePeriodMinutes = useAttendanceGracePeriodMinutes();
   const [sessions, setSessions] = useState<ClassSessionResponse[]>([]);
   const [attendanceStatusBySession, setAttendanceStatusBySession] = useState<Record<number, string>>({});
@@ -1163,8 +1167,11 @@ function SessionsTab({
   };
   useEffect(load, [classId]);
 
-  const handleCancel = async (sessionId: number) => {
-    const reason = await promptDialog(t("classDetail.sessions.cancelReasonPrompt"), { required: true });
+  const handleCancel = async (sessionId: number, alreadyHeld: boolean) => {
+    const reason = await promptDialog(
+      t(alreadyHeld ? "classDetail.sessions.cancelHeldReasonPrompt" : "classDetail.sessions.cancelReasonPrompt"),
+      { required: true }
+    );
     if (!reason?.trim()) return;
     try {
       await cancelClassSession(classId, sessionId, reason.trim());
@@ -1241,13 +1248,17 @@ function SessionsTab({
                       {attendanceStatusBySession[s.id] ? t("classDetail.sessions.viewAttendanceButton") : t("classDetail.sessions.takeAttendanceButton")}
                     </Button>
                   )}
-                  {canReschedule && s.status !== "CANCELLED" && (
+                  {canReschedule && s.status === "SCHEDULED" && (
                     <button onClick={() => setReschedulingSession(s)} title={t("classDetail.sessions.rescheduleTitle")} className="text-slate-500 hover:text-slate-800">
                       <CalendarClock className="w-3.5 h-3.5" />
                     </button>
                   )}
-                  {canCancel && s.status !== "CANCELLED" && (
-                    <button onClick={() => handleCancel(s.id)} title={t("classDetail.sessions.cancelSessionTitle")} className="text-rose-500 hover:text-rose-700">
+                  {canCancel && (s.status === "SCHEDULED" || (canCorrectPast && isSessionAlreadyHeld(s))) && (
+                    <button
+                      onClick={() => handleCancel(s.id, isSessionAlreadyHeld(s))}
+                      title={t(isSessionAlreadyHeld(s) ? "classDetail.sessions.cancelHeldSessionTitle" : "classDetail.sessions.cancelSessionTitle")}
+                      className="text-rose-500 hover:text-rose-700"
+                    >
                       <X className="w-3.5 h-3.5" />
                     </button>
                   )}

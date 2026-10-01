@@ -283,6 +283,43 @@ export function deleteDepartment(id: number): Promise<void> {
   return apiRequest<void>(`/departments/${id}`, { method: "DELETE" });
 }
 
+/**
+ * Thành viên phòng ban (bổ sung ngoài SDD gốc, xác nhận 2026-10-01) — vẫn là employees.department_id, cùng
+ * cột "Phòng ban" ở hồ sơ cán bộ. departmentId/departmentName = phòng hiện tại của nhân sự (ứng viên có thể
+ * đang thuộc phòng khác — thêm vào sẽ chuyển phòng).
+ */
+export interface DepartmentMemberResponse {
+  employeeId: number;
+  userId: number;
+  employeeCode: string;
+  fullName: string;
+  positionName: string | null;
+  employeeType: "TEACHER" | "STAFF" | "MANAGER";
+  status: "ACTIVE" | "ON_LEAVE" | "TERMINATED";
+  departmentId: number | null;
+  departmentName: string | null;
+}
+
+export function listDepartmentMembers(departmentId: number): Promise<DepartmentMemberResponse[]> {
+  return apiRequest<DepartmentMemberResponse[]>(`/departments/${departmentId}/members`);
+}
+
+export function searchDepartmentMemberCandidates(departmentId: number, query?: string): Promise<DepartmentMemberResponse[]> {
+  const qs = query?.trim() ? `?query=${encodeURIComponent(query.trim())}` : "";
+  return apiRequest<DepartmentMemberResponse[]>(`/departments/${departmentId}/member-candidates${qs}`);
+}
+
+export function addDepartmentMembers(departmentId: number, employeeIds: number[]): Promise<DepartmentMemberResponse[]> {
+  return apiRequest<DepartmentMemberResponse[]>(`/departments/${departmentId}/members`, {
+    method: "POST",
+    body: JSON.stringify({ employeeIds })
+  });
+}
+
+export function removeDepartmentMember(departmentId: number, employeeId: number): Promise<void> {
+  return apiRequest<void>(`/departments/${departmentId}/members/${employeeId}`, { method: "DELETE" });
+}
+
 // ===================== Chức vụ (Position) — đổ dropdown + gán role mặc định, bổ sung ngoài SDD gốc (V36) =====================
 
 export interface PositionResponse {

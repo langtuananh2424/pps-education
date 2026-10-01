@@ -22,6 +22,7 @@ import {
   bulkCreateClassSessions,
   cancelClassSession,
   ClassSessionResponse,
+  isSessionAlreadyHeld,
   listSessionsForSiteTimetable,
   updateSessionAssignment,
   UpdateSessionAssignmentRequest
@@ -115,6 +116,8 @@ export default function ClassPeriodGrid({ siteId, dates, classId, minLanes = DEF
   // (chuột phải vào thẻ) cần quyền dời lịch/hủy buổi. Không có quyền nào thì lưới chỉ để xem.
   const canSchedule = hasPermission("academic.class-session.create") || hasPermission("academic.class-session.generate");
   const canEditSessions = hasPermission("academic.class-session.reschedule") || hasPermission("academic.class-session.cancel");
+  // UC-48 A6/A7 — sửa/hủy buổi đã diễn ra (IN_PROGRESS/COMPLETED) cần thêm quyền này, bắt buộc lý do.
+  const canCorrectPast = hasPermission("academic.class-session.correct-past");
 
   const [periods, setPeriods] = useState<SitePeriodTemplateResponse[]>([]);
   const [sessions, setSessions] = useState<ClassSessionResponse[]>([]);
@@ -435,12 +438,19 @@ export default function ClassPeriodGrid({ siteId, dates, classId, minLanes = DEF
     e.stopPropagation();
     if (!canEditSessions) return;
     draggingRef.current = false;
-    if (session.pendingKind !== "create" && session.status !== "SCHEDULED") return;
+    const editable = session.status === "SCHEDULED" || (canCorrectPast && isSessionAlreadyHeld(session));
+    if (session.pendingKind !== "create" && !editable) return;
     setCellMenu(null);
     setCardMenu({ x: e.clientX, y: e.clientY, session });
   };
 
   const handleCancelExisting = async (session: DisplaySession) => {
+    if (isSessionAlreadyHeld(session)) {
+      const reason = await promptDialog("Buổi học đã diễn ra — lý do hủy (bắt buộc):", { title: "Hủy buổi đã diễn ra", required: true });
+      if (!reason?.trim()) return;
+      queueCancelExisting(session, reason.trim());
+      return;
+    }
     const reason = await promptDialog("Lý do hủy buổi (không bắt buộc):", { title: "Hủy buổi học" });
     if (reason === null) return;
     queueCancelExisting(session, reason || undefined);
@@ -760,6 +770,7 @@ export default function ClassPeriodGrid({ siteId, dates, classId, minLanes = DEF
           siteId={siteId}
           rooms={rooms}
           hideReschedule={editSession.pendingKind === "create"}
+          canCorrectPast={canCorrectPast}
           onClose={() => setEditSession(null)}
           onQueueUpdate={(request, preview) => {
             if (editSession.pendingKind === "create") {

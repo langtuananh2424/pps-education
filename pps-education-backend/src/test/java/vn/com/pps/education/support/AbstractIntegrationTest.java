@@ -49,7 +49,13 @@ import java.util.stream.Collectors;
 // Ngưỡng chặn đăng nhập sai theo IP (LoginIpThrottle) nâng rất cao cho cả suite: mọi test đều gọi từ
 // 127.0.0.1 và dùng chung 1 Spring context, bộ đếm trong bộ nhớ sẽ cộng dồn giữa các test class.
 // LoginIpThrottleControllerTest tự hạ ngưỡng để kiểm tra nhánh 429.
-@SpringBootTest(properties = "app.security.brute-force.ip-max-failed-attempts=1000000")
+// Tắt lịch chạy nền của job chuyển trạng thái buổi học (UC-48 A5, chạy mỗi phút): test gọi thẳng
+// ClassSessionStatusSchedulerService với clock ghim cố định — lượt chạy nền giữ khoá advisory đúng lúc
+// test gọi sẽ khiến lượt của test bị bỏ qua (flaky).
+@SpringBootTest(properties = {
+        "app.security.brute-force.ip-max-failed-attempts=1000000",
+        "app.class-session-status.cron=-"
+})
 public abstract class AbstractIntegrationTest {
 
     @ServiceConnection
