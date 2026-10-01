@@ -585,6 +585,15 @@ function ReflexHistoryEntryRow({ entry, language }: { entry: ReflexQuestionProgr
         </p>
       )}
 
+      {/* V204 (bổ sung ngoài SDD gốc, bản bàn giao 30/9, §D.5) — "cách luyện" đã hiện cho học sinh ở lần
+          chấm này, tách khỏi feedback, để giáo viên đối chiếu khi cần. */}
+      {entry.hint && (
+        <p className="text-xs text-teal-700">
+          <span className="font-semibold">{t("reviewVideoDetail.reflexHistoryModal.hintLabel")}: </span>
+          {entry.hint}
+        </p>
+      )}
+
       {isSpeaking && entry.criteriaScores && entry.criteriaScores.length > 0 && (
         <div className="text-[11px] text-slate-600">
           <span className="font-semibold">{t("reviewVideoDetail.reflexHistoryModal.criteriaLabel")}: </span>

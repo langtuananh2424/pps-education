@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { AlertTriangle, CheckCircle2, Lightbulb, Loader2, Lock, Mic, Pause, PenLine, Play, RotateCcw, ShieldAlert, Square } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Dumbbell, Lightbulb, Loader2, Lock, Mic, Pause, PenLine, Play, RotateCcw, ShieldAlert, Square } from "lucide-react";
 import { friendlyApiErrorMessage } from "@/lib/apiClient";
 import {
   ReflexQuestionProgressResponse,
@@ -1458,6 +1458,21 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                   </div>
                 )}
                 {/*
+                 * V204 (bổ sung ngoài SDD gốc, bản bàn giao 30/9, §D.5) — "cách luyện" TÁCH khỏi
+                 * writingFeedback (feedback cấm gợi ý sửa, dành cho giáo viên; hint ngược lại BẮT BUỘC nêu
+                 * cách luyện cụ thể, dành cho học sinh tự luyện). Người training đề xuất chỉ hiện từ lần
+                 * nộp thứ 2 trở đi (lần 1 chưa cần — học sinh còn đang đọc feedback lần đầu).
+                 */}
+                {!displayProgress?.writingPassed && (displayProgress?.writingAttemptCount ?? 0) >= 2 && displayProgress?.writingHint && (
+                  <div className="flex items-start gap-2 rounded-xl border border-teal/20 bg-sky-2 p-3">
+                    <Dumbbell size={16} className="text-teal-deep shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-[11px] font-extrabold uppercase tracking-wide text-teal-deep">{t("reflexVideoTask.writingStage.hintTitle")}</p>
+                      <p className="font-medium normal-case whitespace-pre-line text-[13px] leading-relaxed text-ink">{displayProgress.writingHint}</p>
+                    </div>
+                  </div>
+                )}
+                {/*
                  * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-23 — nộp sai từ lần thứ 3
                  * trở đi: hiện gợi ý câu trả lời đã sửa lỗi (AI CHỈ sửa lỗi trong câu học sinh viết, giữ
                  * nguyên cấu trúc/ý gốc — không phải câu mẫu tự bịa, xem systemPrompt ở
@@ -1691,6 +1706,21 @@ export default function ReflexVideoTaskPage({ video, assignmentId, onClose }: Re
                         {displayProgress.speakingFeedback}
                       </p>
                     </div>
+
+                    {/*
+                     * V204 (bổ sung ngoài SDD gốc, bản bàn giao 30/9, §D.5) — "cách luyện" TÁCH khỏi
+                     * speakingFeedback, icon riêng (Dumbbell, khác Lightbulb của feedback) để không nhầm 2
+                     * ô. Chỉ hiện từ lần ghi âm thứ 2 trở đi, như writingHint.
+                     */}
+                    {!displayProgress.speakingPassed && (displayProgress?.speakingAttemptCount ?? 0) >= 2 && displayProgress.speakingHint && (
+                      <div className="flex items-start gap-2 rounded-xl border border-teal/20 bg-sky-2 p-3">
+                        <Dumbbell size={16} className="text-teal-deep shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-[11px] font-extrabold uppercase tracking-wide text-teal-deep">{t("reflexVideoTask.speakingStage.hintTitle")}</p>
+                          <p className="font-medium normal-case whitespace-pre-line text-[13px] leading-relaxed text-ink">{displayProgress.speakingHint}</p>
+                        </div>
+                      </div>
+                    )}
 
                     <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-line/60">
                       {!displayProgress.speakingPassed && !isReviewing ? (

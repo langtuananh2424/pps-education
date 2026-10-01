@@ -1533,6 +1533,7 @@ mục "Bổ sung V139" trong `docs/uc/phan-he-07-lms-portal.md`)
 | writing_locked_grammar_percent | DECIMAL(5,2) | NULL | V185 — điểm Ngữ pháp từ bước viết (luồng v2). Từ bản bàn giao 26/9 (23/9 trở đi) KHÔNG còn khoá: bước Nói chấm lại Ngữ pháp từ transcript và dùng NỬA điểm này làm SÀN (tên cột giữ nguyên). Từ 29/9 (cách B): nói giống bài viết thì bước Nói GIỮ NGUYÊN điểm này |
 | writing_red_error_count | INT | NULL | V185 — số lỗi đỏ của bài viết (luồng v2), chỉ để đối chiếu; bước Nói tự đếm lại lỗi đỏ từ transcript (≥2 lỗi đỏ thì Ngữ pháp trần 60%). Từ 29/9 chỉ đếm lỗi đỏ NGỮ PHÁP (thiếu thành phần câu, sai cấu trúc câu, sai trật tự từ, sai thì mà đề đã ấn định, thừa/thiếu giới từ làm hỏng cụm ở Khối 8-9) |
 | writing_audit, speaking_audit | JSONB | NULL | V185 — bằng chứng chấm (model thực tế, cổng chặn, danh sách đếm, suspect_words, độ khớp nội dung, điểm gồm Phát âm...) để hiệu chuẩn; KHÔNG trả ra FE |
+| writing_hint, speaking_hint | TEXT | NULL | V204, bổ sung ngoài SDD gốc, bản bàn giao 30/9 (§D.5 quy tắc chung), đã xác nhận với người dùng 2026-10-01 — "cách luyện" cho học sinh TỰ LUYỆN, TÁCH khỏi writing_feedback/speaking_feedback (feedback vẫn cấm gợi ý sửa, dành cho giáo viên; hint ngược lại BẮT BUỘC là cách luyện cụ thể). NULL khi bài không có lỗi hoặc rubric không hỗ trợ trường này. FE chỉ hiện từ lần nộp/ghi âm thứ 2 trở đi |
 | created_at, updated_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | |
 | | UNIQUE(review_video_question_id, student_id, review_video_assignment_id) | | 1 dòng/(câu hỏi, học sinh, lần giao) — SỬA ĐÈ tại chỗ mỗi lần thử lại, KHÔNG giữ lịch sử từng lần |
 
@@ -1568,6 +1569,7 @@ train AI.
 | score, max_score | DECIMAL(5,2) | NULL | |
 | feedback | TEXT | NULL | |
 | marked_answer | TEXT | NULL | Chỉ có khi attempt_type=WRITING |
+| hint | TEXT | NULL | V204 — "cách luyện" (§D.5, bản 30/9) của CHÍNH lần chấm này; xem writing_hint/speaking_hint ở reflex_question_progress |
 | transcript | TEXT | NULL | Chỉ có khi attempt_type=SPEAKING |
 | criteria_scores | JSONB | NULL | Chỉ có khi attempt_type=SPEAKING |
 | graded_at | TIMESTAMPTZ | NULL | |

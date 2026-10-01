@@ -728,6 +728,29 @@ public final class ReflexV2Scoring {
     }
 
     /**
+     * §D.5 quy tắc chung (bản bàn giao 30/9) — "cách luyện" cho học sinh TỰ LUYỆN trên LMS, TÁCH khỏi
+     * {@code feedback} (vẫn cấm gợi ý sửa, dành cho giáo viên). Bài không có lỗi nào được tô (đỏ/vàng) thì
+     * không có gì để luyện → rỗng, cùng điều kiện với việc {@link #trimFeedback} bỏ câu "Lỗi nặng nhất".
+     * Giới hạn 1 câu ≤35 từ (feedback là 2 câu ≤50 từ) — rubric bắt buộc AI nêu đích danh từ mắc lỗi và một
+     * thao tác tập cụ thể, cấm chép sẵn câu tiếng Anh đã sửa đúng; backend chỉ cắt độ dài, không kiểm tra lại
+     * nội dung đó (tin tưởng rubric, giống cách {@code trimFeedback} không tự kiểm tra lại "2 câu").
+     */
+    public static String trimHint(String s, List<Highlight> highlights) {
+        if (highlights == null || highlights.stream().noneMatch(h -> h.level().equals("red") || h.level().equals("yellow"))) {
+            return "";
+        }
+        String plain = (s == null ? "" : s.replaceAll("\\*\\*|__|[*_`#>]", "")).trim();
+        if (plain.isEmpty()) {
+            return "";
+        }
+        String[] words = WHITESPACE.split(plain);
+        if (words.length <= 35) {
+            return String.join(" ", words);
+        }
+        return String.join(" ", Arrays.copyOf(words, 35)) + "…";
+    }
+
+    /**
      * Câu giải thích khi cổng chặn kích hoạt — do BACKEND tự soạn (bộ tiêu chí mới cấm AI đưa gợi ý vào
      * {@code feedback}, xem {@code TRA-LOI-TICH-HOP.md} mục F), giọng "Yêu cầu:" hướng dẫn, không phê phán
      * điểm số (đã xác nhận với người dùng V184). Trả rỗng nếu không cổng nào cần giải thích.

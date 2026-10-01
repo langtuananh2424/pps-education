@@ -162,9 +162,16 @@ public class ReflexV2Prompts {
                 "Nhận xét tiếng Việt: tối đa 2 câu, tổng ≤50 từ. Câu 1 = 1 điểm làm được. Câu 2 = lỗi nặng nhất, khuôn \"Lỗi nặng nhất: <tên loại lỗi>.\" — "
                         + "chỉ nêu loại lỗi ĐÃ TÔ trong highlights. Không có lỗi nào được tô → CHỈ viết câu 1, không viết \"Lỗi nặng nhất: Không có\". "
                         + "Không gợi ý sửa, không markdown.");
+        // §D.5 quy tắc chung (30/9) — TÁCH khỏi feedback: feedback cấm gợi ý sửa (dành cho giáo viên),
+        // hint NGƯỢC LẠI bắt buộc là cách luyện (dành cho học sinh tự luyện trên LMS).
+        props.putObject("hint").put("type", "string").put("description",
+                "Cách luyện, cho học sinh tự luyện — theo §D.5 quy tắc chung. MỘT câu tiếng Việt ≤35 từ, chỉ về ĐÚNG loại lỗi nặng nhất "
+                        + "đã nêu ở câu 2 của feedback. BẮT BUỘC nêu đích danh những từ có thật trong transcript mắc lỗi đó (ví dụ \"ở post, friends\"), "
+                        + "không nói chung chung. Nội dung là THAO TÁC TẬP (đọc chậm từng từ, giữ hơi đến hết từ, tách âm tiết, thu lại nghe đối chiếu…), "
+                        + "KHÔNG phải đáp án. CẤM viết lại câu tiếng Anh đã sửa đúng. feedback không có câu 2 → trả chuỗi rỗng.");
 
         ArrayNode required = schema.putArray("required");
-        List.of("counting_notes", "gates_triggered", "insufficient_data", "criteria", "highlights", "feedback").forEach(required::add);
+        List.of("counting_notes", "gates_triggered", "insufficient_data", "criteria", "highlights", "feedback", "hint").forEach(required::add);
         return schema;
     }
 
