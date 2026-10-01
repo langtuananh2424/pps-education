@@ -77,6 +77,7 @@
   "changeHistory": {
     "title": "Data change history",
     "description": "Who created or edited classes, schedules, enrollments, class teachers, student and teacher profiles — when, and what changed.",
+    "departmentScopeHint": "Only changes made by you and staff in the departments you head are shown. If you do not head a department, only your own changes are shown.",
     "scopeHint": "Filtered by the campus/class selected in the header.",
     "filters": {
       "entityType": "Data type",

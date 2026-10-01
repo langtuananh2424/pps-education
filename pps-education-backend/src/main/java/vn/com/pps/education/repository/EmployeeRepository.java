@@ -51,6 +51,9 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
             """)
     List<Employee> searchByQuery(@Param("query") String query, @Param("departmentId") Long departmentId);
 
+    /** V206 — nhân sự (chưa xoá) thuộc các phòng ban, VD nhân sự cấp dưới của 1 trưởng phòng. */
+    List<Employee> findByDepartmentIdInAndDeletedAtIsNull(Collection<Long> departmentIds);
+
     /** V203 — nhân sự đang làm việc (chưa xoá) theo loại, VD toàn bộ giáo viên cho trang Hồ sơ giáo viên. */
     @Query("""
             SELECT e FROM Employee e JOIN FETCH e.user u

@@ -78,6 +78,8 @@ public interface ClassHistoryRepository extends JpaRepository<ClassHistory, Long
      * classId/studentId = 0) — tránh lỗi Postgres không suy được kiểu tham số NULL trong native query.
      * siteId lọc lớp/học sinh theo điểm trường nhưng vẫn giữ nhân sự (không gắn điểm trường).
      * restrictSites = phạm vi dữ liệu hẹp hơn ALL — chỉ thấy dữ liệu của các điểm trường trong siteIds.
+     * restrictChangedBy (V206) = chỉ thấy thay đổi do các tài khoản trong changedByIds thực hiện
+     * (người xem + nhân sự thuộc phòng ban người xem làm trưởng phòng).
      */
     String CHANGE_HISTORY_FILTER = """
             FROM (""" + CHANGE_HISTORY_UNION + """
@@ -90,6 +92,7 @@ public interface ClassHistoryRepository extends JpaRepository<ClassHistory, Long
               AND (:studentId = 0 OR x.student_id = :studentId)
               AND (:restrictSites = FALSE OR x.site_id IN (:siteIds))
               AND (x.entity_type <> 'EMPLOYEE' OR (:includeEmployees = TRUE AND (:teacherOnly = FALSE OR x.is_teacher = TRUE)))
+              AND (:restrictChangedBy = FALSE OR x.changed_by_id IN (:changedByIds))
               AND (:keyword = '' OR LOWER(CONCAT_WS(' ', x.class_name, x.class_code, x.subject_name, x.subject_code, u.full_name)) LIKE :keyword)
             """;
 
@@ -115,6 +118,8 @@ public interface ClassHistoryRepository extends JpaRepository<ClassHistory, Long
                                                @Param("siteIds") Collection<Long> siteIds,
                                                @Param("includeEmployees") boolean includeEmployees,
                                                @Param("teacherOnly") boolean teacherOnly,
+                                               @Param("restrictChangedBy") boolean restrictChangedBy,
+                                               @Param("changedByIds") Collection<Long> changedByIds,
                                                @Param("keyword") String keyword,
                                                Pageable pageable);
 
