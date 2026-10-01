@@ -193,7 +193,8 @@ export const navSections: NavSection[] = [
       { id: "rep-student", label: "Hồ sơ học tập", path: "/reports/student-progress", icon: BookUser },
       { id: "rep-enrollment-movement", label: "Thống kê biến động học sinh", path: "/reports/enrollment-movement", icon: ArrowLeftRight },
       { id: "rep-actual-periods", label: "Số tiết thực tế theo lớp", path: "/reports/actual-periods", icon: BookOpenCheck },
-      { id: "rep-teaching-stats", label: "Thống kê giảng dạy theo GV", path: "/reports/teaching-stats", icon: BarChart3 }
+      { id: "rep-teaching-stats", label: "Thống kê giảng dạy theo GV", path: "/reports/teaching-stats", icon: BarChart3 },
+      { id: "rep-session-reports", label: "Nộp & duyệt báo cáo", path: "/reports/session-reports", icon: FileCheck2 }
     ]
   },
   {

@@ -103,6 +103,9 @@ export default function TeachingStatsPage() {
       <Td className={cn("text-right font-semibold", rateClass(r.onTimeRate))}>
         {r.onTimeRate == null ? "—" : `${r.onTimeRate}%`}
       </Td>
+      <Td className="text-right text-emerald-600">{r.reportOnTimeCount ?? "—"}</Td>
+      <Td className={cn("text-right", (r.reportLateCount ?? 0) > 0 && "text-amber-600")}>{r.reportLateCount ?? "—"}</Td>
+      <Td className={cn("text-right", (r.reportMissingCount ?? 0) > 0 && "text-rose-600")}>{r.reportMissingCount ?? "—"}</Td>
     </tr>
   );
 
@@ -153,6 +156,9 @@ export default function TeachingStatsPage() {
                 <Th className="text-right">{t("teachingStats.columns.late")}</Th>
                 <Th className="text-right">{t("teachingStats.columns.missing")}</Th>
                 <Th className="text-right">{t("teachingStats.columns.onTimeRate")}</Th>
+                <Th className="text-right">{t("teachingStatsReport.reportOnTime")}</Th>
+                <Th className="text-right">{t("teachingStatsReport.reportLate")}</Th>
+                <Th className="text-right">{t("teachingStatsReport.reportMissing")}</Th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">

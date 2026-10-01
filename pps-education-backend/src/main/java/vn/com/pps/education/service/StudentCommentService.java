@@ -299,6 +299,7 @@ public class StudentCommentService {
     private final SiteManagerRepository siteManagerRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final SessionReportSettings sessionReportSettings;
     private final PermissionEvaluationService permissionEvaluationService;
     private final DataScopeService dataScopeService;
     private final AcademicSettingsService academicSettingsService;
@@ -329,6 +330,7 @@ public class StudentCommentService {
                                   SiteManagerRepository siteManagerRepository,
                                   UserRepository userRepository,
                                   NotificationService notificationService,
+                                  SessionReportSettings sessionReportSettings,
                                   PermissionEvaluationService permissionEvaluationService,
                                   DataScopeService dataScopeService,
                                   AcademicSettingsService academicSettingsService,
@@ -358,6 +360,7 @@ public class StudentCommentService {
         this.siteManagerRepository = siteManagerRepository;
         this.userRepository = userRepository;
         this.notificationService = notificationService;
+        this.sessionReportSettings = sessionReportSettings;
         this.permissionEvaluationService = permissionEvaluationService;
         this.dataScopeService = dataScopeService;
         this.academicSettingsService = academicSettingsService;
@@ -2425,10 +2428,17 @@ public class StudentCommentService {
 
     private void notifyTeacherRejected(StudentComment comment) {
         String title = "Nhận xét học sinh bị từ chối";
-        String content = "Nhận xét cho học sinh %s (lớp %s, ngày %s) đã bị từ chối%s."
+        // V207 (bổ sung ngoài SDD gốc, xác nhận 2026-10-01) — kèm hạn gửi lại để giáo viên biết phải sửa trước
+        // lúc nào; quá hạn sẽ bị cảnh báo (SessionReportAlertSchedulerService).
+        OffsetDateTime resubmitDeadline = (comment.getApprovalFlow() != null && comment.getApprovalFlow().getDecidedAt() != null
+                ? comment.getApprovalFlow().getDecidedAt() : OffsetDateTime.now())
+                .plusHours(sessionReportSettings.resubmitDeadlineHours());
+        String content = "Nhận xét cho học sinh %s (lớp %s, ngày %s) đã bị từ chối%s. Hạn gửi lại: %s."
                 .formatted(comment.getStudent().getUser().getFullName(), comment.getSchoolClass().getName(),
                         comment.getCommentDate(),
-                        comment.getRejectionReason() == null ? "" : ": " + comment.getRejectionReason());
+                        comment.getRejectionReason() == null ? "" : ": " + comment.getRejectionReason(),
+                        resubmitDeadline.atZoneSameInstant(ZoneId.of("Asia/Ho_Chi_Minh"))
+                                .format(DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy")));
         Map<String, Object> metadata = new LinkedHashMap<>();
         metadata.put("studentName", comment.getStudent().getUser().getFullName());
         metadata.put("className", comment.getSchoolClass().getName());

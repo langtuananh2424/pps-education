@@ -340,6 +340,9 @@ public class NotificationService {
             // (VD STUDENT_ATTITUDE_ALERT) không có khoá này nên asLong tự trả null, không cần tách case.
             case "STUDENT_COMMENT" -> new NavigationHints(asLong(m.get("studentId")), asLong(m.get("classId")),
                     null, null, asLong(m.get("classSessionId")));
+            // V207 — cảnh báo nộp/duyệt báo cáo buổi học (và cảnh báo nhận lớp) gắn theo buổi: entityId là
+            // classSessionId, classId lấy từ metadata để FE mở đúng lớp/buổi.
+            case "CLASS_SESSION" -> new NavigationHints(null, asLong(m.get("classId")), null, null, n.getEntityId());
             default -> NavigationHints.NONE;
         };
     }

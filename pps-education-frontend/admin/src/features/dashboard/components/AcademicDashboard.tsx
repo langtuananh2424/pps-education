@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { AlertTriangle, CalendarCheck, ClipboardCheck, GraduationCap, UserRound, Users } from "lucide-react";
+import { AlertTriangle, CalendarCheck, ClipboardCheck, FileCheck2, GraduationCap, UserRound, Users } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useApp } from "@/context/AppContext";
 import { ApiError } from "@/lib/apiClient";
@@ -9,10 +9,12 @@ import StatCard from "@/components/ui/StatCard";
 import Badge, { BadgeVariant } from "@/components/ui/Badge";
 import { listClasses, listPendingComments, listUnpublishedGrades } from "@/features/academic/api";
 import { listPendingLeaveRequestsForApprover } from "@/features/hrm/api";
+import { toISODate } from "@/lib/calendarDates";
 import {
   AcademicDashboardResponse,
   DashboardCheckInState,
-  getAcademicDashboard
+  getAcademicDashboard,
+  getSessionReportTracking
 } from "@/features/academic/oversightApi";
 
 const CHECK_IN_BADGES: Record<DashboardCheckInState, BadgeVariant> = {
@@ -22,6 +24,13 @@ const CHECK_IN_BADGES: Record<DashboardCheckInState, BadgeVariant> = {
   NOT_STARTED: "neutral",
   CANCELLED: "neutral"
 };
+
+/** V207 — số báo cáo buổi học đang có vấn đề trong 7 ngày gần nhất (quá hạn ở bất kỳ khâu nào). */
+interface ReportCounts {
+  missing: number;
+  approvalOverdue: number;
+  resubmitOverdue: number;
+}
 
 interface PendingCounts {
   grades: number;
@@ -36,11 +45,14 @@ interface PendingCounts {
  */
 export default function AcademicDashboard() {
   const { t } = useTranslation("dashboard");
-  const { selectedCampusId } = useApp();
+  const { t: tReports } = useTranslation("academic-oversight");
+  const { selectedCampusId, hasPermission } = useApp();
+  const canViewReports = hasPermission("report.session-report.view");
   const siteId = selectedCampusId !== "ALL" ? Number(selectedCampusId) : undefined;
 
   const [data, setData] = useState<AcademicDashboardResponse | null>(null);
   const [pending, setPending] = useState<PendingCounts | null>(null);
+  const [reports, setReports] = useState<ReportCounts | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -72,10 +84,28 @@ export default function AcademicDashboard() {
       });
     });
 
+    if (canViewReports) {
+      const today = new Date();
+      const weekAgo = new Date();
+      weekAgo.setDate(today.getDate() - 6);
+      getSessionReportTracking({ siteId, fromDate: toISODate(weekAgo), toDate: toISODate(today) })
+        .then((res) => {
+          if (cancelled) return;
+          setReports({
+            missing: res.sessions.filter((r) => r.submitState === "MISSING").length,
+            approvalOverdue: res.sessions.filter((r) => r.approvalState === "OVERDUE").length,
+            resubmitOverdue: res.sessions.filter((r) => r.resubmitState === "OVERDUE").length
+          });
+        })
+        .catch(() => {
+          if (!cancelled) setReports(null);
+        });
+    }
+
     return () => {
       cancelled = true;
     };
-  }, [siteId, t]);
+  }, [siteId, t, canViewReports]);
 
   const sessions = data?.todaySessions ?? [];
   const countState = (state: DashboardCheckInState) => sessions.filter((s) => s.checkInState === state).length;
@@ -146,6 +176,25 @@ export default function AcademicDashboard() {
         </Card>
 
         <div className="space-y-6">
+          {canViewReports && (
+            <Card>
+              <div className="flex items-start justify-between gap-2">
+                <h3 className="text-sm font-bold text-slate-800 font-display">{tReports("sessionReports.dashboardTitle")}</h3>
+                <FileCheck2 className="w-5 h-5 text-slate-300 shrink-0" />
+              </div>
+              <p className={`text-xs mt-2 ${reports && reports.missing + reports.approvalOverdue + reports.resubmitOverdue > 0 ? "text-rose-600 font-semibold" : "text-slate-500"}`}>
+                {!reports
+                  ? "—"
+                  : reports.missing + reports.approvalOverdue + reports.resubmitOverdue === 0
+                    ? tReports("sessionReports.dashboardNone")
+                    : tReports("sessionReports.dashboardSummary", { ...reports })}
+              </p>
+              <Link to="/reports/session-reports" className="inline-block text-[11px] font-semibold text-brand-red hover:underline mt-3">
+                {tReports("sessionReports.dashboardView")}
+              </Link>
+            </Card>
+          )}
+
           <Card>
             <h3 className="text-sm font-bold text-slate-800 font-display mb-3">{t("academic.pendingTitle")}</h3>
             <div className="space-y-2">

@@ -381,6 +381,11 @@ export const PAGE_PERMISSIONS: Record<string, PagePermissions> = {
     viewCodes: ["report.teacher-stats.view"],
     actions: []
   },
+  // Báo cáo & thống kê · Nộp & duyệt báo cáo buổi học (V207) — xem, dòng thời gian, Xuất Excel dùng chung 1 mã
+  "rep-session-reports": {
+    viewCodes: ["report.session-report.view"],
+    actions: []
+  },
   // Tài chính · Thu phí & hoá đơn
   "fin-billing": {
     viewCodes: ["finance.invoice.view", "finance.tuition-plan.view"],
