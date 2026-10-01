@@ -1,5 +1,6 @@
 package vn.com.pps.education.repository;
 
+import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -15,4 +16,12 @@ public interface AttendanceMarkHistoryRepository extends JpaRepository<Attendanc
             WHERE h.attendanceMark.id IN (SELECT m.id FROM AttendanceMark m WHERE m.attendanceSession.id = :attendanceSessionId)
             """)
     void deleteByAttendanceSessionId(@Param("attendanceSessionId") Long attendanceSessionId);
+
+    /** Lịch sử thao tác (bổ sung ngoài SDD gốc, 2026-10-01) — toàn bộ đợt Lưu/Sửa điểm danh của 1 buổi, cũ→mới, để FE bucket thành timeline (mirror listStudentCommentHistoryForSession). */
+    @Query("""
+            SELECT h FROM AttendanceMarkHistory h
+            WHERE h.attendanceMark.attendanceSession.id = :attendanceSessionId
+            ORDER BY h.createdAt ASC
+            """)
+    List<AttendanceMarkHistory> findByAttendanceSessionIdOrderByCreatedAtAsc(@Param("attendanceSessionId") Long attendanceSessionId);
 }

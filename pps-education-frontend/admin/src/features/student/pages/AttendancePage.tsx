@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Download, Save } from "lucide-react";
+import { Download, History, PenLine, Save } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
@@ -17,8 +17,10 @@ import {
 } from "@/features/academic/api";
 import { useEligibleClasses } from "@/features/academic/hooks/useEligibleClasses";
 import { useAttendanceGracePeriodMinutes } from "@/features/academic/hooks/useAttendanceGracePeriodMinutes";
+import AttendanceHistoryPanel from "@/features/academic/components/AttendanceHistoryPanel";
 import StudentNameLink from "@/features/reports/components/StudentNameLink";
 import TableContainer, { Td, Th } from "@/components/ui/TableContainer";
+import Badge, { BadgeVariant } from "@/components/ui/Badge";
 import Select from "@/components/ui/Select";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
@@ -80,6 +82,12 @@ function formatTime(d: Date): string {
   return d.toTimeString().slice(0, 8);
 }
 
+const sessionStatusVariant: Record<string, BadgeVariant> = {
+  DRAFT: "warning",
+  SUBMITTED: "success",
+  LOCKED: "success"
+};
+
 export default function AttendancePage() {
   const { t } = useTranslation("student");
   const { hasPermission, selectedClassId: globalClassId } = useApp();
@@ -94,7 +102,23 @@ export default function AttendancePage() {
   const selectedClassId = classIdParam ? Number(classIdParam) : globalClassId;
   const selectedSessionId = sessionIdParam ? Number(sessionIdParam) : null;
 
-  const { classes } = useEligibleClasses();
+  // Bổ sung ngoài SDD gốc (xác nhận với người dùng 2026-10-01, bug): classId trên URL ưu tiên Header
+  // (xem comment trên) nhưng trước đây KHÔNG BAO GIỜ bị xoá — hễ đã chọn 1 buổi (pickSession ghi classId
+  // vào URL) thì đổi điểm trường/lớp ở Header sau đó không còn tác dụng gì trên trang này nữa, URL cũ
+  // ghim cứng mãi. globalClassId chỉ đổi khi Header TỰ reset (đổi điểm trường, xem AppContext#
+  // setSelectedCampusId) hoặc người dùng bấm chọn lớp khác ở Header (Header.tsx không có auto-select lớp
+  // nào khác) — ref chặn lần chạy đầu lúc mount để không xoá mất deep-link classId ban đầu (vd từ
+  // ClassDetailPanel/thông báo), chỉ xoá khi globalClassId THỰC SỰ đổi sau đó.
+  const globalClassIdRef = useRef(globalClassId);
+  useEffect(() => {
+    if (globalClassIdRef.current === globalClassId) return;
+    globalClassIdRef.current = globalClassId;
+    if (classIdParam || sessionIdParam) setSearchParams({});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [globalClassId]);
+
+  const { classes, loading: loadingClasses } = useEligibleClasses();
+  const [tab, setTab] = useState<"today" | "history">("today");
   const [sessions, setSessions] = useState<ClassSessionResponse[]>([]);
   const [rows, setRows] = useState<Row[]>([]);
   const [attendanceMode, setAttendanceMode] = useState<"SESSION_LEVEL" | "PERIOD_LEVEL">("SESSION_LEVEL");
@@ -180,6 +204,11 @@ export default function AttendancePage() {
     setSearchParams({ classId: String(selectedClassId), sessionId: id });
   };
 
+  const openSessionFromHistory = (classId: number, sessionId: number) => {
+    setTab("today");
+    setSearchParams({ classId: String(classId), sessionId: String(sessionId) });
+  };
+
   const handleSaveAttendance = async () => {
     if (!selectedSessionId || rows.length === 0) return;
     setSaving(true);
@@ -258,6 +287,26 @@ export default function AttendancePage() {
         )}
       </div>
 
+      <div className="flex border-b border-slate-200 gap-5">
+        {(
+          [
+            ["today", t("attendancePage.tabs.today"), PenLine],
+            ["history", t("attendancePage.tabs.history"), History]
+          ] as const
+        ).map(([key, label, Icon]) => (
+          <button
+            key={key}
+            onClick={() => setTab(key)}
+            className={`pb-2.5 text-xs font-bold border-b-2 flex items-center gap-1.5 transition-all ${
+              tab === key ? "border-brand-red text-brand-red" : "border-transparent text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            <Icon className="w-3.5 h-3.5" />
+            {label}
+          </button>
+        ))}
+      </div>
+
       <Modal
         open={summaryOpen}
         onClose={() => setSummaryOpen(false)}
@@ -302,6 +351,10 @@ export default function AttendancePage() {
           </div>
         </Modal>
       )}
+      {tab === "history" ? (
+        <AttendanceHistoryPanel classes={classes} loadingClasses={loadingClasses} onOpenSession={openSessionFromHistory} />
+      ) : (
+        <>
       {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
       <AttendanceReminderBanner />
 
@@ -327,6 +380,11 @@ export default function AttendancePage() {
                     </option>
                   ))}
                 </Select>
+              )}
+              {selectedSessionId && sessionStatus && (
+                <Badge variant={sessionStatusVariant[sessionStatus] ?? "neutral"}>
+                  {t(`attendancePage.sessionStatus.${sessionStatus}`)}
+                </Badge>
               )}
               <Select
                 value={attendanceMode}
@@ -430,6 +488,8 @@ export default function AttendancePage() {
             </div>
           )}
       </div>
+        </>
+      )}
     </div>
   );
 }
