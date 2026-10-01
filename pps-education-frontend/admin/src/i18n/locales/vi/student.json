@@ -232,6 +232,53 @@
     "title": "Điểm Danh Chuyên Cần (SMS)",
     "description": "Giảng viên lưu chuyên cần, vắng học tự động cảnh báo phụ huynh.",
     "notificationModalTitle": "Báo cáo chuyên cần",
+    "tabs": {
+      "today": "Điểm danh",
+      "history": "Lịch sử điểm danh"
+    },
+    "sessionStatus": {
+      "DRAFT": "Đã lưu nháp",
+      "SUBMITTED": "Đã nộp",
+      "LOCKED": "Đã khóa"
+    },
+    "history": {
+      "loadingClasses": "Đang tải danh sách lớp...",
+      "noClasses": "Bạn chưa được phân công lớp nào.",
+      "loading": "Đang tải lịch sử điểm danh...",
+      "loadFailed": "Không tải được lịch sử điểm danh.",
+      "emptyNoHistory": "Chưa có buổi nào được điểm danh.",
+      "emptyNoMatch": "Không có buổi nào khớp bộ lọc.",
+      "allClasses": "Tất cả các lớp",
+      "allStatuses": "Tất cả trạng thái",
+      "fromDateLabel": "Từ ngày",
+      "toDateConnector": "đến",
+      "clearFilter": "Xóa bộ lọc",
+      "countSummary": "{{filtered}}/{{total}} buổi",
+      "sessionCountBadge": "{{count}} buổi",
+      "sessionLabel": "Buổi {{date}} ({{weekday}})",
+      "presentCount": "{{count}} có mặt",
+      "absentCount": "{{count}} vắng",
+      "excusedCount": "{{count}} có phép",
+      "lateCount": "{{count}} trễ",
+      "submittedAtLabel": "Nộp lúc {{time}}",
+      "notSubmittedYet": "Chưa nộp",
+      "openButton": "Mở lại buổi này",
+      "columns": {
+        "studentCode": "Mã HS",
+        "fullName": "Họ và tên",
+        "status": "Trạng thái",
+        "note": "Ghi chú"
+      },
+      "classFallback": "Lớp #{{id}}",
+      "timeline": {
+        "title": "Lịch sử thao tác",
+        "loading": "Đang tải lịch sử thao tác...",
+        "loadFailed": "Không tải được lịch sử thao tác.",
+        "empty": "Chưa có thao tác nào được ghi nhận.",
+        "createdLabel": "{{actor}} đã điểm danh lúc {{time}} ({{count}} học sinh)",
+        "updatedLabel": "{{actor}} đã sửa điểm danh lúc {{time}} ({{count}} học sinh)"
+      }
+    },
     "summaryExport": {
       "button": "Xuất tổng hợp chuyên cần",
       "title": "Xuất tổng hợp chuyên cần",
