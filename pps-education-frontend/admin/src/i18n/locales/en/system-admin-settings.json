@@ -72,7 +72,14 @@
     "STUDENT_ATTITUDE_ESCALATION_PENDING_APPROVAL": "Attitude escalation pending approval (Site Manager)",
     "STUDENT_ATTITUDE_ESCALATION": "Learning attitude escalation (3 consecutive sessions)",
     "CLASS_CHECKIN_LATE_ALERT": "Teacher has not checked in to class (push to Site manager + email to teacher)",
-    "CLASS_CHECKIN_ABSENT_ALERT": "Teacher did not check in to class (push to Site manager + email to teacher)"
+    "CLASS_CHECKIN_ABSENT_ALERT": "Teacher did not check in to class (push to Site manager + email to teacher)",
+    "SESSION_REPORT_DUE_SOON": "Session report due soon (teacher)",
+    "SESSION_REPORT_OVERDUE": "Session report overdue (teacher)",
+    "SESSION_REPORT_RESUBMIT_OVERDUE": "Rejected report resubmission overdue (teacher)",
+    "SESSION_REPORT_APPROVAL_DUE_SOON": "Report approval due soon (site manager)",
+    "SESSION_REPORT_APPROVAL_OVERDUE": "Report approval overdue (site manager)",
+    "SESSION_REPORT_ESCALATION": "Overdue session report (to Head of Academics)",
+    "SESSION_REPORT_DAILY_DIGEST": "Daily report submission & approval digest (Head of Academics)"
   },
   "sendNotificationPage": {
     "title": "Send Notification",

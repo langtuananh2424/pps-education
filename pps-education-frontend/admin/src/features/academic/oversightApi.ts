@@ -15,13 +15,15 @@ export type ChangeHistoryEntityType =
   | "CLASS_ENROLLMENT"
   | "CLASS_TEACHER"
   | "STUDENT"
-  | "EMPLOYEE";
+  | "EMPLOYEE"
+  | "SESSION_REPORT";
 
 export interface ChangeHistoryItem {
   id: string;
   entityType: ChangeHistoryEntityType;
   entityId: number;
-  action: "CREATED" | "UPDATED";
+  /** SESSION_REPORT (V207): SUBMITTED / RESUBMITTED / APPROVED / REJECTED. */
+  action: "CREATED" | "UPDATED" | "SUBMITTED" | "RESUBMITTED" | "APPROVED" | "REJECTED";
   classId: number | null;
   className: string | null;
   classCode: string | null;
@@ -142,6 +144,10 @@ export interface TeacherTeachingStatsRow {
   lateCheckIns: number;
   missingCheckIns: number;
   onTimeRate: number | null;
+  /** V207 — số buổi nộp báo cáo đúng hạn / muộn / chưa nộp (null khi khoảng ngày quá 92 ngày). */
+  reportOnTimeCount: number | null;
+  reportLateCount: number | null;
+  reportMissingCount: number | null;
 }
 
 export interface TeachingStatsResponse {
@@ -207,4 +213,104 @@ export interface AcademicDashboardResponse {
 
 export function getAcademicDashboard(siteId?: number): Promise<AcademicDashboardResponse> {
   return apiRequest<AcademicDashboardResponse>(`/dashboard/academic-overview${siteId ? `?siteId=${siteId}` : ""}`);
+}
+
+// ===================== Theo dõi nộp & duyệt báo cáo buổi học (V207) =====================
+
+export type SessionReportSubmitState = "NOT_DUE" | "ON_TIME" | "LATE" | "MISSING";
+export type SessionReportFlowState = "NONE" | "WAITING" | "OVERDUE" | "ON_TIME" | "LATE";
+
+export interface SessionReportStatusRow {
+  sessionId: number;
+  classId: number;
+  className: string;
+  classCode: string;
+  siteId: number;
+  siteName: string;
+  sessionDate: string;
+  startTime: string;
+  endTime: string;
+  teacherUserId: number;
+  teacherName: string;
+  submitDeadline: string;
+  firstSubmittedAt: string | null;
+  submitState: SessionReportSubmitState;
+  submitLateMinutes: number;
+  commentCount: number;
+  approvedCount: number;
+  pendingCount: number;
+  rejectedCount: number;
+  approvalState: SessionReportFlowState;
+  approvalLateMinutes: number;
+  openApprovalSince: string | null;
+  approverNames: string[];
+  rejectionCount: number;
+  resubmitState: SessionReportFlowState;
+  resubmitLateMinutes: number;
+  openRejectionSince: string | null;
+  fullyApprovedAt: string | null;
+}
+
+export interface SessionReportTeacherSummary {
+  teacherUserId: number;
+  teacherName: string;
+  sessionCount: number;
+  onTimeCount: number;
+  lateCount: number;
+  missingCount: number;
+  rejectionCount: number;
+  resubmitLateCount: number;
+  onTimeRate: number | null;
+}
+
+export interface SessionReportApproverSummary {
+  approverUserId: number;
+  approverName: string;
+  decidedSessionCount: number;
+  lateSessionCount: number;
+  rejectedSessionCount: number;
+  averageWaitMinutes: number | null;
+}
+
+export interface SessionReportTrackingResponse {
+  fromDate: string;
+  toDate: string;
+  siteId: number | null;
+  siteName: string | null;
+  submitDeadlineHours: number;
+  approvalDeadlineHours: number;
+  resubmitDeadlineHours: number;
+  sessions: SessionReportStatusRow[];
+  teachers: SessionReportTeacherSummary[];
+  approvers: SessionReportApproverSummary[];
+}
+
+export interface SessionReportTimelineEvent {
+  type: "SUBMITTED" | "RESUBMITTED" | "APPROVED" | "REJECTED";
+  at: string;
+  actorUserId: number | null;
+  actorName: string | null;
+  commentCount: number;
+  reason: string | null;
+  deadline: string | null;
+  timeliness: "ON_TIME" | "LATE" | null;
+  lateMinutes: number;
+}
+
+function sessionReportQuery(params: { siteId?: number; fromDate: string; toDate: string }): string {
+  const qs = new URLSearchParams({ fromDate: params.fromDate, toDate: params.toDate });
+  if (params.siteId) qs.set("siteId", String(params.siteId));
+  return qs.toString();
+}
+
+export function getSessionReportTracking(params: { siteId?: number; fromDate: string; toDate: string }): Promise<SessionReportTrackingResponse> {
+  return apiRequest<SessionReportTrackingResponse>(`/reports/session-reports?${sessionReportQuery(params)}`);
+}
+
+export function exportSessionReportTracking(params: { siteId?: number; fromDate: string; toDate: string }): Promise<Blob> {
+  return apiRequestBlob(`/reports/session-reports/export?${sessionReportQuery(params)}`);
+}
+
+export function getSessionReportTimeline(sessionId: number): Promise<SessionReportTimelineEvent[]> {
+  return apiRequest<SessionReportTimelineEvent[]>(`/reports/session-reports/sessions/${sessionId}/timeline`);
 }

@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import vn.com.pps.education.domain.StudentComment;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -66,4 +67,7 @@ public interface StudentCommentRepository extends JpaRepository<StudentComment, 
             ORDER BY c.commentDate DESC
             """)
     List<StudentComment> findByStudentIdWithContext(@Param("studentId") Long studentId);
+
+    /** V207 — nhận xét của nhiều buổi học cùng lúc (theo dõi nộp & duyệt báo cáo). */
+    List<StudentComment> findByClassSessionIdIn(Collection<Long> classSessionIds);
 }

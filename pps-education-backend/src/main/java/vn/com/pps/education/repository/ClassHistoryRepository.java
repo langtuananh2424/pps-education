@@ -23,6 +23,12 @@ public interface ClassHistoryRepository extends JpaRepository<ClassHistory, Long
      * (lớp, buổi học, ghi danh, giáo viên phụ trách lớp, học sinh, nhân sự) thành 1 dòng thời gian
      * cho trang "Lịch sử thay đổi dữ liệu". site_id của học sinh = primary_site_id; nhân sự không
      * gắn điểm trường (site_id NULL).
+     *
+     * V207 (xác nhận với người dùng 2026-10-01) — thêm SESSION_REPORT: các mốc nộp/duyệt báo cáo buổi học
+     * dựng từ approval_flows của nhận xét (STUDENT_COMMENT): lượt gửi duyệt gom theo người gửi + phút,
+     * lượt duyệt/từ chối gom theo người duyệt + quyết định + phút (history_id âm để không trùng id mốc gửi).
+     * owner_user_id = giáo viên phụ trách buổi — dùng cho quy tắc phòng ban (thấy mốc của buổi có giáo viên
+     * thuộc phòng mình kể cả khi người duyệt là Quản lý điểm trường ngoài phòng).
      */
     String CHANGE_HISTORY_UNION = """
             SELECT 'CLASS' AS entity_type, h.id AS history_id, c.id AS entity_id,
@@ -30,20 +36,20 @@ public interface ClassHistoryRepository extends JpaRepository<ClassHistory, Long
                    CAST(NULL AS BIGINT) AS student_id, CAST(NULL AS VARCHAR) AS subject_name,
                    CAST(NULL AS VARCHAR) AS subject_code, CAST(NULL AS VARCHAR) AS session_date,
                    h.action AS action, CAST(h.details AS TEXT) AS details, h.changed_by AS changed_by_id,
-                   h.created_at AS created_at, FALSE AS is_teacher
+                   h.created_at AS created_at, FALSE AS is_teacher, CAST(NULL AS BIGINT) AS owner_user_id
             FROM classes_history h JOIN classes c ON c.id = h.class_id
             UNION ALL
             SELECT 'CLASS_SESSION', h.id, cs.id, c.id, c.name, c.class_code, c.site_id,
                    CAST(NULL AS BIGINT), CAST(NULL AS VARCHAR), CAST(NULL AS VARCHAR),
                    TO_CHAR(cs.session_date, 'YYYY-MM-DD'),
-                   h.action, CAST(h.details AS TEXT), h.changed_by, h.created_at, FALSE
+                   h.action, CAST(h.details AS TEXT), h.changed_by, h.created_at, FALSE, CAST(NULL AS BIGINT)
             FROM class_sessions_history h
             JOIN class_sessions cs ON cs.id = h.class_session_id
             JOIN classes c ON c.id = cs.class_id
             UNION ALL
             SELECT 'CLASS_ENROLLMENT', h.id, ce.id, c.id, c.name, c.class_code, c.site_id,
                    s.id, su.full_name, s.student_code, CAST(NULL AS VARCHAR),
-                   h.action, CAST(h.details AS TEXT), h.changed_by, h.created_at, FALSE
+                   h.action, CAST(h.details AS TEXT), h.changed_by, h.created_at, FALSE, CAST(NULL AS BIGINT)
             FROM class_enrollments_history h
             JOIN class_enrollments ce ON ce.id = h.class_enrollment_id
             JOIN classes c ON c.id = ce.class_id
@@ -52,7 +58,7 @@ public interface ClassHistoryRepository extends JpaRepository<ClassHistory, Long
             UNION ALL
             SELECT 'CLASS_TEACHER', h.id, ct.id, c.id, c.name, c.class_code, c.site_id,
                    CAST(NULL AS BIGINT), tu.full_name, CAST(NULL AS VARCHAR), CAST(NULL AS VARCHAR),
-                   h.action, CAST(h.details AS TEXT), h.changed_by, h.created_at, FALSE
+                   h.action, CAST(h.details AS TEXT), h.changed_by, h.created_at, FALSE, CAST(NULL AS BIGINT)
             FROM class_teachers_history h
             JOIN class_teachers ct ON ct.id = h.class_teacher_id
             JOIN classes c ON c.id = ct.class_id
@@ -60,17 +66,43 @@ public interface ClassHistoryRepository extends JpaRepository<ClassHistory, Long
             UNION ALL
             SELECT 'STUDENT', h.id, s.id, CAST(NULL AS BIGINT), CAST(NULL AS VARCHAR), CAST(NULL AS VARCHAR),
                    s.primary_site_id, s.id, su.full_name, s.student_code, CAST(NULL AS VARCHAR),
-                   h.action, CAST(h.details AS TEXT), h.changed_by, h.created_at, FALSE
+                   h.action, CAST(h.details AS TEXT), h.changed_by, h.created_at, FALSE, CAST(NULL AS BIGINT)
             FROM students_history h
             JOIN students s ON s.id = h.student_id
             JOIN users su ON su.id = s.user_id
             UNION ALL
             SELECT 'EMPLOYEE', h.id, e.id, CAST(NULL AS BIGINT), CAST(NULL AS VARCHAR), CAST(NULL AS VARCHAR),
                    CAST(NULL AS BIGINT), CAST(NULL AS BIGINT), eu.full_name, e.employee_code, CAST(NULL AS VARCHAR),
-                   h.action, CAST(h.details AS TEXT), h.changed_by, h.created_at, e.employee_type = 'TEACHER'
+                   h.action, CAST(h.details AS TEXT), h.changed_by, h.created_at, e.employee_type = 'TEACHER',
+                   CAST(NULL AS BIGINT)
             FROM employees_history h
             JOIN employees e ON e.id = h.employee_id
             JOIN users eu ON eu.id = e.user_id
+            UNION ALL
+            SELECT 'SESSION_REPORT', MIN(af.id), cs.id, c.id, c.name, c.class_code, c.site_id,
+                   CAST(NULL AS BIGINT), pt.full_name, CAST(NULL AS VARCHAR), TO_CHAR(cs.session_date, 'YYYY-MM-DD'),
+                   'SUBMITTED', CAST(json_build_object('commentCount', COUNT(*)) AS TEXT),
+                   af.submitted_by, MIN(af.submitted_at), FALSE, cs.primary_teacher_id
+            FROM approval_flows af
+            JOIN student_comments sc ON sc.id = af.entity_id
+            JOIN class_sessions cs ON cs.id = sc.class_session_id
+            JOIN classes c ON c.id = cs.class_id
+            JOIN users pt ON pt.id = cs.primary_teacher_id
+            WHERE af.entity_type = 'STUDENT_COMMENT'
+            GROUP BY cs.id, c.id, pt.full_name, af.submitted_by, DATE_TRUNC('minute', af.submitted_at)
+            UNION ALL
+            SELECT 'SESSION_REPORT', -MIN(af.id), cs.id, c.id, c.name, c.class_code, c.site_id,
+                   CAST(NULL AS BIGINT), pt.full_name, CAST(NULL AS VARCHAR), TO_CHAR(cs.session_date, 'YYYY-MM-DD'),
+                   af.decision, CAST(json_build_object('commentCount', COUNT(*), 'reason', MAX(af.comment)) AS TEXT),
+                   af.approver_id, MIN(af.decided_at), FALSE, cs.primary_teacher_id
+            FROM approval_flows af
+            JOIN student_comments sc ON sc.id = af.entity_id
+            JOIN class_sessions cs ON cs.id = sc.class_session_id
+            JOIN classes c ON c.id = cs.class_id
+            JOIN users pt ON pt.id = cs.primary_teacher_id
+            WHERE af.entity_type = 'STUDENT_COMMENT' AND af.decided_at IS NOT NULL
+              AND af.approver_id IS NOT NULL AND af.decision IS NOT NULL
+            GROUP BY cs.id, c.id, pt.full_name, af.approver_id, af.decision, DATE_TRUNC('minute', af.decided_at)
             """;
 
     /**
@@ -92,7 +124,7 @@ public interface ClassHistoryRepository extends JpaRepository<ClassHistory, Long
               AND (:studentId = 0 OR x.student_id = :studentId)
               AND (:restrictSites = FALSE OR x.site_id IN (:siteIds))
               AND (x.entity_type <> 'EMPLOYEE' OR (:includeEmployees = TRUE AND (:teacherOnly = FALSE OR x.is_teacher = TRUE)))
-              AND (:restrictChangedBy = FALSE OR x.changed_by_id IN (:changedByIds))
+              AND (:restrictChangedBy = FALSE OR x.changed_by_id IN (:changedByIds) OR x.owner_user_id IN (:changedByIds))
               AND (:keyword = '' OR LOWER(CONCAT_WS(' ', x.class_name, x.class_code, x.subject_name, x.subject_code, u.full_name)) LIKE :keyword)
             """;
 

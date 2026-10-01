@@ -502,4 +502,36 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, Long
         String getCheckInStatus();
         Boolean getStarted();
     }
+
+    /**
+     * V207 — buổi học cần nộp báo cáo (gửi duyệt nhận xét) trong [fromDate, toDate]: không huỷ/không dời,
+     * lớp chưa xoá và có ít nhất 1 học sinh đang theo học vào ngày học (lớp trống không có gì để nhận xét).
+     * siteId null = mọi điểm trường; restrictSites/siteIds = phạm vi dữ liệu (DataScopeService).
+     */
+    @Query("""
+            SELECT cs FROM ClassSession cs
+            JOIN FETCH cs.schoolClass c
+            JOIN FETCH c.site
+            JOIN FETCH cs.primaryTeacher
+            WHERE cs.sessionDate BETWEEN :fromDate AND :toDate
+              AND cs.status NOT IN (
+                  vn.com.pps.education.domain.ClassSession.Status.CANCELLED,
+                  vn.com.pps.education.domain.ClassSession.Status.RESCHEDULED
+              )
+              AND c.deletedAt IS NULL
+              AND (:siteId IS NULL OR c.site.id = :siteId)
+              AND (:restrictSites = FALSE OR c.site.id IN :siteIds)
+              AND EXISTS (
+                  SELECT 1 FROM ClassEnrollment ce
+                  WHERE ce.schoolClass = c
+                    AND ce.enrolledDate <= cs.sessionDate
+                    AND (ce.withdrawnDate IS NULL OR ce.withdrawnDate > cs.sessionDate)
+              )
+            ORDER BY cs.sessionDate, cs.startTime
+            """)
+    List<ClassSession> findForReportTracking(@Param("fromDate") LocalDate fromDate,
+                                             @Param("toDate") LocalDate toDate,
+                                             @Param("siteId") Long siteId,
+                                             @Param("restrictSites") boolean restrictSites,
+                                             @Param("siteIds") Collection<Long> siteIds);
 }

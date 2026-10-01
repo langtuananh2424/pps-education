@@ -63,6 +63,7 @@ import StudentProgressPage from "@/features/reports/pages/StudentProgressPage";
 import EnrollmentMovementStatsPage from "@/features/reports/pages/EnrollmentMovementStatsPage";
 import ActualPeriodsStatsPage from "@/features/reports/pages/ActualPeriodsStatsPage";
 import TeachingStatsPage from "@/features/reports/pages/TeachingStatsPage";
+import SessionReportsPage from "@/features/reports/pages/SessionReportsPage";
 export default function App() {
   return (
     <AppProvider>
@@ -138,6 +139,7 @@ export default function App() {
           <Route path="/reports/enrollment-movement" element={<EnrollmentMovementStatsPage />} />
           <Route path="/reports/actual-periods" element={<ActualPeriodsStatsPage />} />
           <Route path="/reports/teaching-stats" element={<TeachingStatsPage />} />
+          <Route path="/reports/session-reports" element={<SessionReportsPage />} />
 
           <Route index element={<Navigate to="/dashboard" replace />} />
         </Route>

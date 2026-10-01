@@ -5,11 +5,16 @@
     "CLASS_ENROLLMENT": "Enrollment",
     "CLASS_TEACHER": "Class teacher assignment",
     "STUDENT": "Student",
-    "EMPLOYEE": "Teacher / staff"
+    "EMPLOYEE": "Teacher / staff",
+    "SESSION_REPORT": "Session report"
   },
   "actions": {
     "CREATED": "Created",
-    "UPDATED": "Updated"
+    "UPDATED": "Updated",
+    "SUBMITTED": "Submitted",
+    "RESUBMITTED": "Resubmitted",
+    "APPROVED": "Approved",
+    "REJECTED": "Rejected"
   },
   "fields": {
     "classCode": "Class code",
@@ -40,7 +45,8 @@
     "hireDate": "Hire date",
     "terminationDate": "Termination date",
     "idCardNumber": "ID card number",
-    "departmentName": "Department"
+    "departmentName": "Department",
+    "commentCount": "Comments"
   },
   "values": {
     "PLANNED": "Planned",
@@ -218,5 +224,98 @@
       "periods": "Periods taught: periods with their own teacher count for that teacher; the rest count for the session teacher.",
       "checkIn": "Check-in data only exists since the Check-in feature went live — earlier sessions show as No check-in."
     }
+  },
+  "sessionReportEvent": {
+    "onTime": "On time (due {{deadline}})",
+    "late": "Late by {{duration}} (due {{deadline}})"
+  },
+  "teachingStatsReport": {
+    "reportOnTime": "Reports on time",
+    "reportLate": "Reports late",
+    "reportMissing": "Reports missing"
+  },
+  "sessionReports": {
+    "title": "Report submission & approval",
+    "description": "Session report = the teacher submitting the session's comments for approval. Tracks 3 steps: teacher submits, site manager approves, teacher resubmits after a rejection.",
+    "deadlines": "Due {{submitHours}} h after the session ends · Approval within {{approvalHours}} h of submission · Resubmit within {{resubmitHours}} h of rejection (configurable in System settings).",
+    "fromDate": "From",
+    "toDate": "To",
+    "allSites": "All campuses in scope",
+    "export": "Export Excel",
+    "exporting": "Exporting...",
+    "exportSuccess": "Excel file exported.",
+    "exportFailed": "Could not export the Excel file.",
+    "loadFailed": "Could not load report submission & approval data.",
+    "empty": "No sessions requiring a report in this period.",
+    "tabs": {
+      "sessions": "By session",
+      "teachers": "By teacher",
+      "approvers": "By approver"
+    },
+    "filters": {
+      "all": "All sessions",
+      "problems": "Only sessions with issues",
+      "missing": "Not submitted",
+      "approvalOverdue": "Approval overdue",
+      "resubmitOverdue": "Resubmission overdue"
+    },
+    "summary": {
+      "sessions": "Sessions requiring a report",
+      "onTime": "Submitted on time",
+      "late": "Submitted late",
+      "missing": "Not submitted",
+      "approvalLate": "Approved late / overdue",
+      "resubmitLate": "Resubmitted late / overdue"
+    },
+    "columns": {
+      "session": "Session",
+      "teacher": "Teacher",
+      "submit": "Teacher submit",
+      "approval": "Approval",
+      "resubmit": "Resubmit",
+      "approvers": "Approvers",
+      "sessions": "Sessions",
+      "onTime": "On time",
+      "late": "Late",
+      "missing": "Missing",
+      "rejections": "Rejections",
+      "resubmitLate": "Late resubmits",
+      "onTimeRate": "On-time rate",
+      "approver": "Approver",
+      "decided": "Sessions handled",
+      "approvalLate": "Approved late",
+      "rejected": "Sessions rejected",
+      "avgWait": "Avg. wait"
+    },
+    "states": {
+      "NOT_DUE": "Not due",
+      "ON_TIME": "On time",
+      "LATE": "Late",
+      "MISSING": "Missing",
+      "NONE": "—",
+      "WAITING": "Waiting",
+      "OVERDUE": "Overdue"
+    },
+    "lateBy": "late by {{duration}}",
+    "rejectedTimes": "rejected {{count}} time(s)",
+    "deadlineAt": "Due {{deadline}}",
+    "viewTimeline": "View timeline",
+    "timelineTitle": "Report timeline — {{className}}",
+    "timelineEmpty": "The teacher has not submitted any comments for this session.",
+    "timelineLoadFailed": "Could not load the timeline.",
+    "events": {
+      "SUBMITTED": "{{actor}} submitted {{count}} comment(s)",
+      "RESUBMITTED": "{{actor}} resubmitted {{count}} comment(s)",
+      "APPROVED": "{{actor}} approved {{count}} comment(s)",
+      "REJECTED": "{{actor}} rejected {{count}} comment(s)"
+    },
+    "reason": "Reason: {{reason}}",
+    "minutes": "{{count}} min",
+    "hours": "{{hours}} h {{minutes}} min",
+    "days": "{{days}} d {{hours}} h",
+    "dashboardTitle": "Today's session reports",
+    "dashboardSummary": "{{missing}} not submitted · {{approvalOverdue}} approval overdue · {{resubmitOverdue}} not resubmitted",
+    "dashboardNone": "No overdue reports.",
+    "dashboardView": "View report submission & approval"
   }
 }

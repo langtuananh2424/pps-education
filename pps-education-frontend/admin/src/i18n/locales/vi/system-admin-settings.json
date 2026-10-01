@@ -72,7 +72,14 @@
     "STUDENT_ATTITUDE_ESCALATION_PENDING_APPROVAL": "Cảnh báo thái độ liên tục chờ duyệt (báo Quản lý điểm trường)",
     "STUDENT_ATTITUDE_ESCALATION": "Cảnh báo thái độ học tập liên tục 3 buổi",
     "CLASS_CHECKIN_LATE_ALERT": "Cảnh báo GV chưa nhận lớp (push Quản lý điểm trường + email GV)",
-    "CLASS_CHECKIN_ABSENT_ALERT": "Cảnh báo GV không nhận lớp (push Quản lý điểm trường + email GV)"
+    "CLASS_CHECKIN_ABSENT_ALERT": "Cảnh báo GV không nhận lớp (push Quản lý điểm trường + email GV)",
+    "SESSION_REPORT_DUE_SOON": "Sắp hết hạn gửi báo cáo buổi học (GV)",
+    "SESSION_REPORT_OVERDUE": "Quá hạn gửi báo cáo buổi học (GV)",
+    "SESSION_REPORT_RESUBMIT_OVERDUE": "Quá hạn gửi lại báo cáo bị từ chối (GV)",
+    "SESSION_REPORT_APPROVAL_DUE_SOON": "Sắp hết hạn duyệt báo cáo (Quản lý điểm trường)",
+    "SESSION_REPORT_APPROVAL_OVERDUE": "Quá hạn duyệt báo cáo (Quản lý điểm trường)",
+    "SESSION_REPORT_ESCALATION": "Báo cáo buổi học quá hạn (báo Trưởng phòng đào tạo)",
+    "SESSION_REPORT_DAILY_DIGEST": "Tổng hợp nộp & duyệt báo cáo hằng ngày (Trưởng phòng đào tạo)"
   },
   "sendNotificationPage": {
     "title": "Gửi thông báo",

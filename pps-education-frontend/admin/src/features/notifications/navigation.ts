@@ -59,6 +59,23 @@ export function resolveAdminNotificationTarget(n: NotificationResponse): AdminNo
       if (n.studentId != null) params.set("studentId", String(n.studentId));
       return { kind: "route", url: `/academic/comments?${params.toString()}` };
     }
+    // V207 — nộp & duyệt báo cáo buổi học. GV: mở đúng lớp/buổi ở tab "Viết nhận xét"; Quản lý điểm trường:
+    // tab "Chờ duyệt" của lớp; Trưởng phòng đào tạo: trang theo dõi, mở sẵn ngày của buổi (hoặc ngày tổng hợp).
+    case "SESSION_REPORT_DUE_SOON":
+    case "SESSION_REPORT_OVERDUE":
+    case "SESSION_REPORT_RESUBMIT_OVERDUE": {
+      if (n.classId == null) return { kind: "route", url: "/academic/comments" };
+      const params = new URLSearchParams({ writeClassId: String(n.classId) });
+      if (n.classSessionId != null) params.set("sessionId", String(n.classSessionId));
+      return { kind: "route", url: `/academic/comments?${params.toString()}` };
+    }
+    case "SESSION_REPORT_APPROVAL_DUE_SOON":
+    case "SESSION_REPORT_APPROVAL_OVERDUE":
+      return { kind: "route", url: n.classId != null ? `/academic/comments?classId=${n.classId}` : "/academic/comments" };
+    case "SESSION_REPORT_ESCALATION":
+      return { kind: "route", url: n.classSessionId != null ? `/reports/session-reports?sessionId=${n.classSessionId}` : "/reports/session-reports" };
+    case "SESSION_REPORT_DAILY_DIGEST":
+      return { kind: "route", url: "/reports/session-reports" };
     default:
       return null;
   }
