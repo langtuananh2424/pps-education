@@ -39,7 +39,8 @@
     "positionCode": "Position",
     "hireDate": "Hire date",
     "terminationDate": "Termination date",
-    "idCardNumber": "ID card number"
+    "idCardNumber": "ID card number",
+    "departmentName": "Department"
   },
   "values": {
     "PLANNED": "Planned",

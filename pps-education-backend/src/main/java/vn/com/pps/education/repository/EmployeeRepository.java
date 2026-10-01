@@ -30,6 +30,9 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
     /** PositionService#updateDefaultRoles (UC-52 bước 5) — backfill vai trò cho nhân sự đang giữ chức vụ vừa cấu hình lại. */
     List<Employee> findByPositionIdAndDeletedAtIsNull(Long positionId);
 
+    /** Thành viên (nhân sự chưa xoá) của 1 phòng ban — màn Phòng ban & Chức vụ (2026-10-01). */
+    List<Employee> findByDepartmentIdAndDeletedAtIsNull(Long departmentId);
+
     /** :departmentId nullable — bổ sung filter theo phòng ban (trước đây không có, tham số bị FE truyền lên nhưng Controller không khai báo nên bị Spring MVC bỏ qua âm thầm). */
     @Query("""
             SELECT e FROM Employee e JOIN e.user u

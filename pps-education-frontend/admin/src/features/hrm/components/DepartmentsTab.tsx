@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Plus, Search, Trash2, X } from "lucide-react";
+import { Plus, Search, Trash2, Users, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
 import { searchUsers, UserListItemResponse } from "@/features/system-admin/api";
 import { createDepartment, deleteDepartment, DepartmentResponse, listDepartments, updateDepartment } from "../api";
@@ -10,6 +10,8 @@ import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import { useDialog } from "@/components/ui/DialogProvider";
 import Select from "@/components/ui/Select";
+import { useApp } from "@/context/AppContext";
+import DepartmentMembersPanel from "./DepartmentMembersPanel";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-xs p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
@@ -25,6 +27,8 @@ export default function DepartmentsTab() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const { message: toastMessage, showToast } = useToast();
   const { confirmDialog } = useDialog();
+  const { hasPermission } = useApp();
+  const canManageMembers = hasPermission("hrm.department.update");
 
   const load = () => {
     setLoading(true);
@@ -98,6 +102,8 @@ export default function DepartmentsTab() {
             load();
             showToast(t("departmentsTab.savedToast"));
           }}
+          canManageMembers={canManageMembers}
+          onMembersChanged={showToast}
         />
       )}
 
@@ -115,6 +121,8 @@ function DepartmentTreeLevel({
   onCancelEdit,
   onDelete,
   onChanged,
+  canManageMembers,
+  onMembersChanged,
   depth = 0
 }: {
   parentId: number | null;
@@ -125,10 +133,20 @@ function DepartmentTreeLevel({
   onCancelEdit: () => void;
   onDelete: (id: number) => void;
   onChanged: () => void;
+  canManageMembers: boolean;
+  onMembersChanged: (message: string) => void;
   depth?: number;
 }) {
   const { t } = useTranslation("hrm-org");
+  const [openMemberIds, setOpenMemberIds] = useState<Set<number>>(new Set());
   const nodes = childrenOf.get(parentId) ?? [];
+  const toggleMembers = (id: number) =>
+    setOpenMemberIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   if (nodes.length === 0) return null;
 
   return (
@@ -149,6 +167,13 @@ function DepartmentTreeLevel({
                 </p>
               </div>
               <div className="flex items-center gap-2">
+                <button
+                  onClick={() => toggleMembers(d.id)}
+                  className={`flex items-center gap-1 text-[11px] font-semibold ${openMemberIds.has(d.id) ? "text-brand-red" : "text-slate-500 hover:text-slate-800"}`}
+                >
+                  <Users className="w-3.5 h-3.5" />
+                  {t("departmentsTab.members.toggleButton")}
+                </button>
                 <button onClick={() => onEdit(d.id)} className="text-slate-500 hover:text-slate-800 text-[11px] font-semibold">
                   {t("departmentsTab.editButton")}
                 </button>
@@ -157,6 +182,9 @@ function DepartmentTreeLevel({
                 </button>
               </div>
             </div>
+          )}
+          {openMemberIds.has(d.id) && editingId !== d.id && (
+            <DepartmentMembersPanel department={d} canManage={canManageMembers} onChanged={onMembersChanged} />
           )}
           <DepartmentTreeLevel
             parentId={d.id}
@@ -167,6 +195,8 @@ function DepartmentTreeLevel({
             onCancelEdit={onCancelEdit}
             onDelete={onDelete}
             onChanged={onChanged}
+            canManageMembers={canManageMembers}
+            onMembersChanged={onMembersChanged}
             depth={depth + 1}
           />
         </div>

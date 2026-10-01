@@ -39,7 +39,8 @@
     "positionCode": "Chức vụ",
     "hireDate": "Ngày vào làm",
     "terminationDate": "Ngày nghỉ việc",
-    "idCardNumber": "Số CCCD"
+    "idCardNumber": "Số CCCD",
+    "departmentName": "Phòng ban"
   },
   "values": {
     "PLANNED": "Dự kiến",
