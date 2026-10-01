@@ -142,6 +142,15 @@ UC-07: Cập nhật tiến độ công việc
 | Flow)**         |     deadline nhưng chưa \'Hoàn thành\', gửi thông  |
 |                 |     báo nhắc nhở tới người nhận việc (FR-TSK-03).  |
 |                 |                                                    |
+|                 | 2.  (Bổ sung 2026-09-29, đã xác nhận với người     |
+|                 |     dùng) Khi công việc chuyển sang \'Quá hạn\'     |
+|                 |     (job đêm 01:00), hệ thống báo 1 lần tới        |
+|                 |     TRƯỞNG PHÒNG (`departments.head_user_id`) của  |
+|                 |     từng người nhận việc chưa hoàn thành — gộp     |
+|                 |     người cùng phòng vào 1 thông báo; bỏ qua nếu   |
+|                 |     phòng chưa có trưởng phòng hoặc người nhận     |
+|                 |     việc chính là trưởng phòng.                    |
+|                 |                                                    |
 |                 | ***A2 --- Người giao việc từ chối kết quả ở trạng  |
 |                 | thái \'Chờ duyệt\'***                              |
 |                 |                                                    |

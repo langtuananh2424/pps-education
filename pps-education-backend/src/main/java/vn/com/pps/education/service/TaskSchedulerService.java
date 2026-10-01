@@ -5,9 +5,13 @@ import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.com.pps.education.domain.Department;
+import vn.com.pps.education.domain.Employee;
 import vn.com.pps.education.domain.Notification;
 import vn.com.pps.education.domain.Task;
 import vn.com.pps.education.domain.TaskAssignment;
+import vn.com.pps.education.domain.User;
+import vn.com.pps.education.repository.EmployeeRepository;
 import vn.com.pps.education.repository.SystemSettingRepository;
 import vn.com.pps.education.repository.TaskAssignmentHistoryRepository;
 import vn.com.pps.education.repository.TaskAssignmentRepository;
@@ -17,6 +21,9 @@ import vn.com.pps.education.repository.TaskHistoryRepository;
 import vn.com.pps.education.repository.TaskRepository;
 
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,6 +36,14 @@ import java.util.Map;
  * Ngưỡng "sắp trễ hạn" (A1) không được SDD/UC nêu số giờ cụ thể — đã xác
  * nhận với user: đọc từ system_settings key task.due_soon_reminder_hours
  * (migration V23), không hard-code.
+ *
+ * Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-29: đúng lúc
+ * 1 task chuyển sang OVERDUE, báo trưởng phòng (departments.head_user_id —
+ * cùng khái niệm "trưởng phòng" TaskService dùng cho overview/giao việc)
+ * của từng người nhận việc chưa hoàn thành, để Trưởng phòng đào tạo theo
+ * dõi được cấp dưới trễ hạn. Chỉ gửi 1 lần (lúc chuyển trạng thái), gộp
+ * mọi người nhận việc cùng phòng vào 1 thông báo; bỏ qua khi người nhận
+ * việc chính là trưởng phòng.
  */
 @Service
 public class TaskSchedulerService {
@@ -36,6 +51,7 @@ public class TaskSchedulerService {
     private static final Logger log = LoggerFactory.getLogger(TaskSchedulerService.class);
     private static final String DUE_SOON_SETTING_KEY = "task.due_soon_reminder_hours";
     private static final List<Task.Status> OPEN_STATUSES = List.of(Task.Status.OPEN, Task.Status.IN_PROGRESS);
+    private static final DateTimeFormatter DUE_FMT = DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy");
 
     private final TaskRepository taskRepository;
     private final TaskAssignmentRepository taskAssignmentRepository;
@@ -46,6 +62,7 @@ public class TaskSchedulerService {
     private final SystemSettingRepository systemSettingRepository;
     private final TaskSettingsService taskSettingsService;
     private final NotificationService notificationService;
+    private final EmployeeRepository employeeRepository;
 
     public TaskSchedulerService(TaskRepository taskRepository,
                                  TaskAssignmentRepository taskAssignmentRepository,
@@ -55,7 +72,8 @@ public class TaskSchedulerService {
                                  TaskHistoryRepository taskHistoryRepository,
                                  SystemSettingRepository systemSettingRepository,
                                  TaskSettingsService taskSettingsService,
-                                 NotificationService notificationService) {
+                                 NotificationService notificationService,
+                                 EmployeeRepository employeeRepository) {
         this.taskRepository = taskRepository;
         this.taskAssignmentRepository = taskAssignmentRepository;
         this.taskAssignmentHistoryRepository = taskAssignmentHistoryRepository;
@@ -65,6 +83,7 @@ public class TaskSchedulerService {
         this.systemSettingRepository = systemSettingRepository;
         this.taskSettingsService = taskSettingsService;
         this.notificationService = notificationService;
+        this.employeeRepository = employeeRepository;
     }
 
     @Scheduled(cron = "0 0 1 * * *")
@@ -107,8 +126,44 @@ public class TaskSchedulerService {
             task.setStatus(Task.Status.OVERDUE);
         }
         taskRepository.saveAll(overdue);
+        for (Task task : overdue) {
+            notifyDepartmentHeadsOfOverdue(task);
+        }
         if (!overdue.isEmpty()) {
             log.info("TaskSchedulerService: đánh dấu OVERDUE {} task quá hạn.", overdue.size());
+        }
+    }
+
+    /** Bổ sung 2026-09-29: báo trưởng phòng của người nhận việc chưa hoàn thành khi task vừa quá hạn. */
+    private void notifyDepartmentHeadsOfOverdue(Task task) {
+        Map<Long, List<String>> assigneeNamesByHeadId = new LinkedHashMap<>();
+        for (TaskAssignment assignment : taskAssignmentRepository.findByTaskId(task.getId())) {
+            if (assignment.getStatus() == TaskAssignment.Status.COMPLETED
+                    || assignment.getStatus() == TaskAssignment.Status.DECLINED) {
+                continue;
+            }
+            User assignee = assignment.getAssignee();
+            User head = employeeRepository.findByUserId(assignee.getId())
+                    .map(Employee::getDepartment)
+                    .map(Department::getHeadUser)
+                    .orElse(null);
+            if (head == null || head.getId().equals(assignee.getId()) || head.getStatus() != User.Status.ACTIVE) {
+                continue;
+            }
+            assigneeNamesByHeadId.computeIfAbsent(head.getId(), k -> new ArrayList<>()).add(assignee.getFullName());
+        }
+        String due = task.getDueAt() == null ? "" : DUE_FMT.format(task.getDueAt().atZoneSameInstant(ZoneId.systemDefault()));
+        for (Map.Entry<Long, List<String>> e : assigneeNamesByHeadId.entrySet()) {
+            String names = String.join(", ", e.getValue());
+            Map<String, Object> metadata = new LinkedHashMap<>();
+            metadata.put("action", "OVERDUE_HEAD_ALERT");
+            metadata.put("taskTitle", task.getTitle());
+            metadata.put("dueAt", task.getDueAt());
+            metadata.put("assigneeNames", names);
+            notificationService.notify(e.getKey(), Notification.NotificationType.TASK_ASSIGNED,
+                    "Công việc quá hạn: " + task.getTitle(),
+                    "\"%s\" đã quá hạn (%s) — chưa hoàn thành: %s.".formatted(task.getTitle(), due, names),
+                    metadata, "TASK", task.getId(), Notification.Priority.HIGH, null);
         }
     }
 
