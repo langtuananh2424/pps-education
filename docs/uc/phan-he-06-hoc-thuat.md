@@ -2464,7 +2464,11 @@ Ghi chú kỹ thuật (bổ sung ngoài SDD gốc, đã xác nhận với ngư�
     giữ bản đã sửa, cảnh báo trên dòng vẫn như cũ. (5) Cột mới
     `student_comments.ai_draft_content` (V208): Lưu nháp dòng áp dụng từ
     trợ lý gửi kèm nguyên văn bản AI; `scripts/comment-ai-approved-metrics.sql`
-    thêm % giữ nguyên, độ giống trung bình với bản AI, % sửa nhiều.
+    thêm % giữ nguyên, độ giống trung bình với bản AI, % sửa nhiều. (6) Thêm
+    "mới vào lớp" vào danh sách cụm sáo mòn (`OVERUSED_PHRASES`) và rubric
+    mục 4–5: lớp mới mở thì chỉ 1–2 bạn mỗi lượt được nhắc "mới vào lớp",
+    vượt ngưỡng thì viết lại / cảnh báo `REPEATED_PATTERN` (gặp khi test thật
+    2026-10-01: cả 6 nhận xét đều nhắc "mới vào lớp").
 
 ---
 

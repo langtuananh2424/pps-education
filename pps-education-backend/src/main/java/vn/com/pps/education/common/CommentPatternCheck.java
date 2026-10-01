@@ -29,11 +29,14 @@ public final class CommentPatternCheck {
 
     /**
      * Cụm hay bị lặp nguyên khuôn cho cả lớp (tổng hợp từ nhận xét thật, 2026-09-29) — đã chuẩn hoá chữ thường, bỏ
-     * dấu câu như {@link CommentSimilarity#words}. Dùng được 1–2 lần/buổi, chỉ chặn khi lặp quá ngưỡng.
+     * dấu câu như {@link CommentSimilarity#words}. Dùng được 1–2 lần/buổi, chỉ chặn khi lặp quá ngưỡng. Bổ sung
+     * 2026-10-01 (đã xác nhận với người dùng): "mới vào lớp" — lớp mới mở thì cả lớp đều có tín hiệu studentInfo,
+     * nếu không chặn thì nhận xét nào cũng nhắc "mới vào lớp" (gặp khi test thật 2026-10-01).
      */
     static final List<String> OVERUSED_PHRASES = List.of(
             "hơn thế nữa", "về nhà luyện nói", "về nhà con luyện nói", "mong con", "con ngoan", "rất vui",
-            "rất ấn tượng", "con đã nắm được", "con có cố gắng", "con cần chú ý", "nhờ bố mẹ", "tiếp tục phát huy");
+            "rất ấn tượng", "con đã nắm được", "con có cố gắng", "con cần chú ý", "nhờ bố mẹ", "tiếp tục phát huy",
+            "mới vào lớp");
 
     private CommentPatternCheck() {
     }
