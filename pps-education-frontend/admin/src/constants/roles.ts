@@ -2,11 +2,13 @@ import { UserRole } from "@/types";
 
 /**
  * Nhãn vai trò dịch qua i18next namespace "layout" (key `roles.<UserRole>`) — xem
- * src/i18n/locales/{vi,en}/layout.json. Dùng `roleLabel(t, role)` thay vì tra map tĩnh cũ, vì nhãn giờ
+ * src/i18n/locales/{vi,en}/layout.json — luôn ghi rõ tiền tố "layout:" vì useTranslation([ns1, ns2]) của
+ * react-i18next chỉ tra ns đầu tiên, gọi từ component có ns khác đứng đầu (VD WrongPortalPage) sẽ hiện
+ * nguyên khoá "roles.X". Dùng `roleLabel(t, role)` thay vì tra map tĩnh cũ, vì nhãn giờ
  * phải đổi theo ngôn ngữ đang chọn (Phase 0, kế hoạch đồng bộ song ngữ).
  */
 export function roleLabel(t: (key: string) => string, role: UserRole): string {
-  return t(`roles.${role}`);
+  return t(`layout:roles.${role}`);
 }
 
 /**

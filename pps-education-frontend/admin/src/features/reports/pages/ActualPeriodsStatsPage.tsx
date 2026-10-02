@@ -21,6 +21,7 @@ import { cn } from "@/lib/cn";
 import { downloadBlob } from "@/lib/xlsxTemplate";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
+import FloatingError from "@/components/ui/FloatingError";
 
 type PeriodType = "WEEK" | "MONTH" | "TERM" | "YEAR";
 
@@ -292,7 +293,7 @@ export default function ActualPeriodsStatsPage() {
             )}
           </div>
 
-          {error && <div className="bg-rose-50 border border-rose-200/80 rounded-xl p-4 text-rose-700 text-sm">{error}</div>}
+          <FloatingError message={error} onClose={() => setError(null)} />
 
           {loadingGrid ? (
             <div className="text-center py-16 text-slate-400">
@@ -405,7 +406,7 @@ export default function ActualPeriodsStatsPage() {
             </div>
           </div>
 
-          {error && <div className="bg-rose-50 border border-rose-200/80 rounded-xl p-4 text-rose-700 text-sm">{error}</div>}
+          <FloatingError message={error} onClose={() => setError(null)} />
 
           {loadingStats ? (
             <div className="text-center py-16 text-slate-400">

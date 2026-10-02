@@ -31,6 +31,7 @@ import Toast from "@/components/ui/Toast";
 import { useDialog } from "@/components/ui/DialogProvider";
 import DatePicker from "@/components/ui/DatePicker";
 import Select from "@/components/ui/Select";
+import FloatingError from "@/components/ui/FloatingError";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
@@ -138,7 +139,7 @@ function ProfileTab({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className={labelClass}>{t("siteDetail.profile.nameLabel")}</label>
@@ -272,7 +273,7 @@ function ManagerTab({
 
   return (
     <div className="space-y-4">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-1">
         <span className="text-[10px] uppercase font-bold text-slate-500">{t("siteDetail.manager.currentManagerTitle")}</span>
@@ -383,7 +384,7 @@ function SiteTeachersTab({ siteId, showToast }: { siteId: number; showToast: (ms
         </Button>
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       {loading ? (
         <p className="text-xs text-slate-500">{t("siteDetail.teachers.loading")}</p>
@@ -530,7 +531,7 @@ function ContractsTab({ siteId, showToast }: { siteId: number; showToast: (msg: 
 
       <Modal open={showForm} onClose={() => setShowForm(false)} title={t("siteDetail.contracts.modalTitle")}>
         <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-          {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
+          <FloatingError message={error} onClose={() => setError(null)} />
           <div className="grid grid-cols-2 gap-3">
             <Select value={form.contractType} onChange={(e) => setForm({ ...form, contractType: e.target.value })} className={inputClass}>
               <option value="INITIAL">{t("contractType.INITIAL")}</option>

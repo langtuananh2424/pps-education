@@ -14,6 +14,7 @@ import FieldMappingsDrawer from "../components/FieldMappingsDrawer";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import { ApiError } from "@/lib/apiClient";
+import FloatingError from "@/components/ui/FloatingError";
 
 const FILE_FORMAT_COLORS: Record<string, string> = {
   DOCX: "bg-blue-100 text-blue-700",
@@ -98,7 +99,7 @@ export default function ReportTemplatesPage() {
         ))}
       </div>
 
-      {error && <div className="text-sm text-rose-500 bg-rose-50 p-3 rounded-lg border border-rose-100">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       <div className="bg-white rounded-xl border border-slate-200/60 shadow-sm overflow-hidden">
         <table className="w-full text-left text-sm">

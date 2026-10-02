@@ -16,6 +16,7 @@ import {
   getAcademicDashboard,
   getSessionReportTracking
 } from "@/features/academic/oversightApi";
+import FloatingError from "@/components/ui/FloatingError";
 
 const CHECK_IN_BADGES: Record<DashboardCheckInState, BadgeVariant> = {
   ON_TIME: "success",
@@ -118,7 +119,7 @@ export default function AcademicDashboard() {
         <p className="text-xs text-slate-500 mt-1">{t("academic.subtitle")}</p>
       </div>
 
-      {error && <div className="bg-rose-50 border border-rose-200/80 rounded-xl p-4 text-rose-700 text-sm">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <StatCard

@@ -9,6 +9,7 @@ import AssignUserModal from "./AssignUserModal";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import { useDialog } from "@/components/ui/DialogProvider";
+import FloatingError from "@/components/ui/FloatingError";
 
 const statusVariants: Record<string, BadgeVariant> = {
   ACTIVE: "success",
@@ -96,7 +97,7 @@ export default function RoleMembersPanel({ roleId, roleName, canAssign, canRevok
         )}
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       <AssignUserModal
         open={showAssignModal}

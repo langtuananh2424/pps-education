@@ -34,6 +34,7 @@ import {
   updateEntranceAssessmentSetup,
   upsertEntranceAssessmentResult
 } from "../api";
+import FloatingError from "@/components/ui/FloatingError";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
@@ -150,7 +151,7 @@ export default function EntranceAssessmentPage() {
   return (
     <div className="space-y-6">
       <PageHeader t={t} />
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* Danh sách bộ đề */}
@@ -599,7 +600,7 @@ function SetupFormModal({
   return (
     <Modal open onClose={onClose} title={isEdit ? t("entranceAssessment.editSetupTitle") : t("entranceAssessment.addSetupTitle")}>
       <div className="space-y-3">
-        {error && <p className="text-xs text-rose-600">{error}</p>}
+        <FloatingError message={error} onClose={() => setError(null)} />
         <div>
           <label className={labelClass}>{t("entranceAssessment.form.setupName")}</label>
           <input value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />
@@ -722,7 +723,7 @@ function ResultFormModal({
   return (
     <Modal open onClose={onClose} title={initial ? t("entranceAssessment.editResultTitle") : t("entranceAssessment.addResultTitle")} size="lg">
       <div className="space-y-3">
-        {error && <p className="text-xs text-rose-600">{error}</p>}
+        <FloatingError message={error} onClose={() => setError(null)} />
 
         <div className="flex gap-4 text-xs">
           <label className="flex items-center gap-1.5">

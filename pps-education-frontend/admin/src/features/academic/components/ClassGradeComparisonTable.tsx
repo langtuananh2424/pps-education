@@ -14,6 +14,7 @@ import {
   listGradeEvaluationComponents
 } from "../api";
 import TableContainer, { Td, Th } from "@/components/ui/TableContainer";
+import FloatingError from "@/components/ui/FloatingError";
 
 interface ClassGradeComparisonTableProps {
   classId: number;
@@ -113,7 +114,7 @@ export default function ClassGradeComparisonTable({ classId, enrollments, includ
 
   return (
     <div>
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 m-3 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
       <div className="overflow-x-auto">
         <TableContainer className="rounded-none border-0">
           <thead>

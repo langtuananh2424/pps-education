@@ -10,6 +10,7 @@ import { Td, Th } from "@/components/ui/TableContainer";
 import Select from "@/components/ui/Select";
 import DatePicker from "@/components/ui/DatePicker";
 import { formatDateTime, toLocaleTag } from "@/lib/i18nFormat";
+import FloatingError from "@/components/ui/FloatingError";
 
 // Đồng bộ đúng bố cục/tên cột với form Giáo viên điền & gửi (DailyCommentPanel.tsx) — bổ sung ngoài
 // SDD gốc, đã xác nhận với người dùng 2026-08-06. Nhãn 2 kênh BTVN ăn theo "Loại giáo viên" của buổi
@@ -194,7 +195,7 @@ export default function CommentHistoryPanel() {
         </span>
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       {loading ? (
         <p className="text-xs text-slate-500 p-4">{t("historyPanel.loading")}</p>

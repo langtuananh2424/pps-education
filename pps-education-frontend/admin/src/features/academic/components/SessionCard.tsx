@@ -9,6 +9,7 @@ import Button from "@/components/ui/Button";
 import { checkInStatusLabel, checkInStatusVariants, sessionStatusVariants, teacherTypeLabel } from "./ClassDetailPanel";
 import { checkInClassSession, ClassSessionCheckInStatusResponse, ClassSessionResponse } from "../api";
 import { getCmDisplayName, getDisplayTeacherName, hasTeacherSubstitution } from "../teacherDisplay";
+import FloatingError from "@/components/ui/FloatingError";
 
 interface SessionCardProps {
   session: ClassSessionResponse;
@@ -104,7 +105,7 @@ export default function SessionCard({ session, siteName, checkInStatus, onChecke
       {session.lessonContent && <p className="text-slate-500">{t("myTeachingSchedule.lessonContent", { content: session.lessonContent })}</p>}
       {canCheckIn && (
         <div className="pt-1">
-          {error && <p className="text-rose-500 mb-1.5">{error}</p>}
+          <FloatingError message={error} onClose={() => setError(null)} />
           <Button variant="primary" disabled={busy} onClick={handleCheckIn} className="w-full justify-center gap-1.5 py-2">
             <MapPinCheck className="w-3.5 h-3.5 shrink-0" />
             {busy ? t("sessionCard.checkingIn") : t("sessionCard.checkInButton")}

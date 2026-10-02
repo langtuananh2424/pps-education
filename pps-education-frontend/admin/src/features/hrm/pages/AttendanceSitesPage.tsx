@@ -7,6 +7,7 @@ import { Badge, Button, TableContainer, Td, Th } from "@/components/ui";
 import Toast from "@/components/ui/Toast";
 import { useToast } from "@/lib/useToast";
 import AttendanceSiteFormModal from "../components/AttendanceSiteFormModal";
+import FloatingError from "@/components/ui/FloatingError";
 
 const statusVariant: Record<SiteResponse["status"], "success" | "neutral" | "warning"> = {
   ACTIVE: "success",
@@ -59,7 +60,7 @@ export default function AttendanceSitesPage() {
         </Button>
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       <TableContainer>
         <thead>

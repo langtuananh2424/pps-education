@@ -31,6 +31,7 @@ import TimetableSessionCard, { SessionPendingKind } from "./TimetableSessionCard
 import SessionInfoModal from "./SessionInfoModal";
 import SessionEditModal, { SessionAssignmentPreview } from "./SessionEditModal";
 import CreateSessionModal, { CreateSessionModalPrefill, describeSkipped, QueuedCreatePayload, weekdayOf } from "./CreateSessionModal";
+import FloatingError from "@/components/ui/FloatingError";
 
 const HEADER_ROW_HEIGHT = 44;
 const SECTION_ROW_HEIGHT = 24;
@@ -601,11 +602,7 @@ export default function ClassPeriodGrid({ siteId, dates, classId, minLanes = DEF
               {pendingCount} thay đổi chưa lưu
             </span>
           )}
-          {saveError && (
-            <span className="text-[10px] text-rose-600 bg-rose-50 border border-rose-100 rounded-lg px-2 py-1 whitespace-pre-line max-w-md">
-              {saveError}
-            </span>
-          )}
+          <FloatingError message={saveError} onClose={() => setSaveError(null)} />
         </div>
         {(canSchedule || canEditSessions) && (
           <div className="flex items-center gap-2">

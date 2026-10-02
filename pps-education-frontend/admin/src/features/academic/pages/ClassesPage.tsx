@@ -11,6 +11,7 @@ import ClassPromotionModal from "../components/ClassPromotionModal";
 import Button from "@/components/ui/Button";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
+import FloatingError from "@/components/ui/FloatingError";
 
 export default function ClassesPage() {
   const { t } = useTranslation("academic-classes");
@@ -83,7 +84,7 @@ export default function ClassesPage() {
         )}
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       <div className={`grid grid-cols-1 ${isClassAdmin ? "lg:grid-cols-5" : ""} gap-6`}>
         {isClassAdmin && (

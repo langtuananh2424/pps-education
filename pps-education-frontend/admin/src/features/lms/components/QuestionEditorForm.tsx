@@ -3,7 +3,6 @@ import { Blocks, Check, CheckSquare, FileText, Headphones, Image as ImageIcon, I
 import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import Button from "@/components/ui/Button";
-import { useDialog } from "@/components/ui/DialogProvider";
 import FileUploadField from "@/components/ui/FileUploadField";
 import {
   CreateExamQuestionRequest,
@@ -22,6 +21,8 @@ import {
   uploadMedia
 } from "../api";
 import Select from "@/components/ui/Select";
+import FloatingError from "@/components/ui/FloatingError";
+import { notifyError } from "@/components/ui/FloatingBanner";
 
 const inputClass = "w-full bg-white border border-slate-200 text-xs px-3.5 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-red";
 const labelClass = "block font-bold text-slate-700 mb-1 uppercase tracking-wider text-[10px]";
@@ -259,7 +260,6 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { alertDialog } = useDialog();
 
   // Dòng báo lỗi nằm đầu form, trong khi nút Lưu ở cuối modal (form dài, phải cuộn) — không tự cuộn
   // thì GV bấm Lưu thất bại mà không thấy lỗi, tưởng đã lưu (QA 2026-09-30). Lỗi câu bị khoá dùng popup riêng.
@@ -469,9 +469,9 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
       onCreated(result);
     } catch (err) {
       // QuestionLockedException trả 422 (GlobalExceptionHandler) — 400 là lỗi validate thường, không phải bị khoá.
-      // Chỉ bắn popup (không set error inline) — popup đã đủ để GV thấy, tránh báo trùng 2 chỗ.
+      // Chỉ bắn banner nổi (không set error) — tránh báo trùng 2 chỗ.
       if (err instanceof ApiError && err.status === 422 && isEditing) {
-        void alertDialog(t("questionEditorForm.errors.lockedAfterSubmission"));
+        notifyError(t("questionEditorForm.errors.lockedAfterSubmission"));
       } else {
         setError(err instanceof ApiError ? err.message : t("questionEditorForm.errors.saveFailed"));
       }
@@ -482,7 +482,7 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-      {error && <div ref={errorRef} className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       <div>
         <label className={labelClass}>{t("questionEditorForm.kindLabel")}{isEditing && <span className="text-slate-400 font-normal"> {t("questionEditorForm.kindLockedHint")}</span>}</label>

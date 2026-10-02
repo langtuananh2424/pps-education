@@ -18,6 +18,8 @@ import Modal from "@/components/ui/Modal";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import { useDialog } from "@/components/ui/DialogProvider";
+import FloatingError from "@/components/ui/FloatingError";
+import FloatingBanner from "@/components/ui/FloatingBanner";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-xs p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
@@ -72,7 +74,7 @@ export default function PositionsTab() {
           </Button>
         </div>
 
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        <FloatingError message={error} onClose={() => setError(null)} />
 
         <Modal open={creating} onClose={() => setCreating(false)} title={t("positionsTab.modalTitle")}>
           <PositionForm
@@ -152,7 +154,7 @@ function PositionForm({ onDone, onCancel }: { onDone: () => void; onCancel: () =
 
   return (
     <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
       <div className="grid grid-cols-2 gap-2">
         <input value={code} onChange={(e) => setCode(e.target.value)} placeholder={t("positionForm.codePlaceholder")} className={`${inputClass} font-mono`} />
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("positionForm.namePlaceholder")} className={inputClass} />
@@ -221,8 +223,8 @@ function DefaultRolesPanel({ position }: { position: PositionResponse }) {
         <p className="text-[10px] text-slate-400 mt-1">{t("defaultRolesPanel.hint")}</p>
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
-      {success && <div className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-100 p-2.5 rounded-lg">{t("defaultRolesPanel.savedSuccess")}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
+      <FloatingBanner variant="success" message={success ? t("defaultRolesPanel.savedSuccess") : null} onClose={() => setSuccess(false)} />
 
       {loading ? (
         <p className="text-xs text-slate-500">{t("defaultRolesPanel.loading")}</p>

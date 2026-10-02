@@ -11,6 +11,8 @@ import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import Modal from "@/components/ui/Modal";
 import { useDialog } from "@/components/ui/DialogProvider";
+import FloatingError from "@/components/ui/FloatingError";
+import { notifyError } from "@/components/ui/FloatingBanner";
 
 export default function RolesPage() {
   const { t } = useTranslation("system-admin-roles");
@@ -29,7 +31,7 @@ export default function RolesPage() {
   const [roleSearchQuery, setRoleSearchQuery] = useState("");
   const [creatingNew, setCreatingNew] = useState(false);
   const { message: toastMessage, showToast } = useToast();
-  const { confirmDialog, alertDialog } = useDialog();
+  const { confirmDialog } = useDialog();
 
   const loadRoles = (selectId?: number) => {
     setLoading(true);
@@ -62,7 +64,7 @@ export default function RolesPage() {
       loadRoles();
       showToast(t("rolesPage.deleteSuccess"));
     } catch (err) {
-      await alertDialog(err instanceof ApiError ? err.message : t("rolesPage.deleteError"));
+      notifyError(err instanceof ApiError ? err.message : t("rolesPage.deleteError"));
     }
   };
 
@@ -78,7 +80,7 @@ export default function RolesPage() {
         </div>
       </div>
 
-      {listError && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{listError}</div>}
+      <FloatingError message={listError} onClose={() => setListError(null)} />
 
       <div className="flex flex-col md:flex-row border border-slate-200 bg-white rounded-xl shadow-soft overflow-hidden min-h-[620px] animate-in fade-in duration-200">
         <RoleListPanel

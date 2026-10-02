@@ -23,6 +23,7 @@ import GradePublishGroupList, { GradePublishGroup } from "../components/GradePub
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import Select from "@/components/ui/Select";
+import FloatingError from "@/components/ui/FloatingError";
 
 const inputClass = "bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none";
 
@@ -131,7 +132,7 @@ export default function GradesPage() {
         <p className="text-xs text-slate-500 mt-1">{t("gradesPage.description")}</p>
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       {isSiteManager && (
         <div className="space-y-4">

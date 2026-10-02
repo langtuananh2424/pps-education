@@ -9,6 +9,7 @@ import DatePicker from "@/components/ui/DatePicker";
 import { ClassSessionResponse, isSessionAlreadyHeld, rescheduleClassSession, UpdateSessionAssignmentRequest } from "../api";
 import PeriodMultiSelect from "./PeriodMultiSelect";
 import TeacherSearchSelect from "./TeacherSearchSelect";
+import FloatingError from "@/components/ui/FloatingError";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
@@ -135,7 +136,7 @@ export default function SessionEditModal({ session, siteId, rooms, onClose, onQu
   return (
     <Modal open onClose={onClose} title={`${session.className} — Buổi ${session.sessionNumber}`} description={`${session.sessionDate} · ${session.startTime}–${session.endTime}`} size="lg">
       <div className="space-y-4">
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        <FloatingError message={error} onClose={() => setError(null)} />
 
         {!canEdit && (
           <p className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-lg p-2.5">

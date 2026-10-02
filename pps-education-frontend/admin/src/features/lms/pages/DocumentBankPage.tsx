@@ -22,6 +22,7 @@ import FileUploadField from "@/components/ui/FileUploadField";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import Select from "@/components/ui/Select";
+import FloatingError from "@/components/ui/FloatingError";
 
 /** Khớp DOCUMENT_CONTENT_TYPES + audio/image/video của module CURRICULUM_DOCUMENT (xem MediaStorageService.java). */
 const DOCUMENT_UPLOAD_ACCEPT =
@@ -90,7 +91,7 @@ export default function DocumentBankPage() {
         <p className="text-xs text-slate-500 mt-1">{t("page.subtitle")}</p>
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       <Card className="flex flex-wrap items-center gap-3">
         <Select value={selectedCurriculumId ?? ""} onChange={(e) => setSelectedCurriculumId(e.target.value ? Number(e.target.value) : null)} className={`${inputClass} w-72`}>
@@ -209,7 +210,7 @@ function CreateDocumentModal({ curriculumId, onClose, onCreated }: { curriculumI
   return (
     <Modal open onClose={onClose} title={t("createModal.title")} size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        <FloatingError message={error} onClose={() => setError(null)} />
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className={labelClass}>{t("createModal.fields.title")}</label>
@@ -316,7 +317,7 @@ function EditDocumentModal({
   return (
     <Modal open onClose={onClose} title={t("editModal.title", { title: doc.title })} size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        <FloatingError message={error} onClose={() => setError(null)} />
         <div>
           <label className={labelClass}>{t("editModal.fields.title")}</label>
           <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className={inputClass} required />

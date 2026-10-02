@@ -27,5 +27,8 @@
     "timeout": "Định vị GPS quá thời gian chờ — thử lại ở nơi có tín hiệu GPS/Wi-Fi tốt hơn.",
     "unknownWithDetail": "Không lấy được vị trí GPS ({{detail}}) — vui lòng thử lại.",
     "unknown": "Không lấy được vị trí GPS — vui lòng thử lại."
+  },
+  "floatingError": {
+    "close": "Đóng thông báo"
   }
 }
