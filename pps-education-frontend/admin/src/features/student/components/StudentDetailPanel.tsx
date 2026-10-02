@@ -35,7 +35,7 @@ import Toast from "@/components/ui/Toast";
 import { useDialog } from "@/components/ui/DialogProvider";
 import DatePicker from "@/components/ui/DatePicker";
 import AvatarUploadField from "@/components/ui/AvatarUploadField";
-import { uploadMedia } from "@/features/lms/api";
+import { uploadAvatar } from "@/features/lms/api";
 import Select from "@/components/ui/Select";
 import { ClassResponse, listClasses } from "@/features/academic/api";
 import FloatingError from "@/components/ui/FloatingError";
@@ -150,7 +150,7 @@ function ProfileTab({
         <AvatarUploadField
           value={form.portraitUrl}
           onChange={(url) => setForm({ ...form, portraitUrl: url })}
-          onUpload={(file) => uploadMedia(file, "STUDENT")}
+          onUpload={(file) => uploadAvatar(file, "STUDENT")}
           fallbackName={student.fullName}
         />
       </div>

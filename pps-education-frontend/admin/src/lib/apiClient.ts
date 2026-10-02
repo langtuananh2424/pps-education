@@ -1,5 +1,5 @@
 import { clearTokens, getAccessToken, getRefreshToken, setTokens } from "./tokenStorage";
-import { LANGUAGE_STORAGE_KEY } from "@/i18n";
+import i18n, { LANGUAGE_STORAGE_KEY } from "@/i18n";
 
 /** Header Accept-Language theo ngôn ngữ đang chọn ở LanguageSwitcher — backend dùng để trả message lỗi
  *  song ngữ qua MessageSource (xem GlobalExceptionHandler.error(status, ex) phía backend). */
@@ -31,6 +31,9 @@ interface RequestOptions extends RequestInit {
   skipAuth?: boolean;
   /** Đánh dấu nội bộ để tránh refresh lặp vô hạn khi request retry sau refresh cũng bị 401. */
   isRetry?: boolean;
+  /** Huỷ request nếu quá số ms này (VD upload ảnh trên mạng di động chập chờn) — mặc định không giới hạn,
+   *  vì upload video/AI job có thể chạy lâu hợp lệ. Hết giờ thì ném ApiError 408 với message dễ hiểu. */
+  timeoutMs?: number;
 }
 
 let refreshPromise: Promise<string | null> | null = null;
@@ -72,8 +75,32 @@ async function parseBody<T>(res: Response): Promise<T> {
   return (text ? JSON.parse(text) : undefined) as T;
 }
 
+/** fetch kèm hạn chờ: fetch gốc không có timeout, mạng di động "treo" (gói tin rớt, không lỗi hẳn) sẽ chờ vô hạn. */
+async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs?: number): Promise<Response> {
+  if (!timeoutMs) return fetch(url, init);
+  const controller = new AbortController();
+  const callerSignal = init.signal;
+  const onCallerAbort = () => controller.abort();
+  if (callerSignal?.aborted) controller.abort();
+  callerSignal?.addEventListener("abort", onCallerAbort);
+  let timedOut = false;
+  const timer = window.setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (err) {
+    if (timedOut) throw new ApiError(408, i18n.t("common:errors.requestTimeout"));
+    throw err;
+  } finally {
+    window.clearTimeout(timer);
+    callerSignal?.removeEventListener("abort", onCallerAbort);
+  }
+}
+
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { skipAuth, isRetry, ...init } = options;
+  const { skipAuth, isRetry, timeoutMs, ...init } = options;
   // FormData (upload multipart, VD import Excel) không được tự set Content-Type json —
   // trình duyệt cần tự sinh header với boundary đúng, set thủ công sẽ làm BE không parse được multipart.
   const headers: Record<string, string> = {
@@ -87,7 +114,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
   }
 
-  const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
+  const res = await fetchWithTimeout(`${API_BASE}${path}`, { ...init, headers }, timeoutMs);
 
   if (res.status === 401 && !skipAuth && !isRetry) {
     const newAccessToken = await refreshAccessToken();

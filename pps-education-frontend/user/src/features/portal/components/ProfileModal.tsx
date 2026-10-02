@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Award, Camera, GraduationCap, Heart, KeyRound, Loader2, Lock, Phone, Sparkles, User, Users, X } from "lucide-react";
 import { ApiError } from "@/lib/apiClient";
-import { getMyParentProfile, getMyParents, getMyStudentProfile, updateMyParentProfile, updateMyStudentProfile, uploadMedia } from "../api";
+import { getMyParentProfile, getMyParents, getMyStudentProfile, updateMyParentProfile, updateMyStudentProfile, uploadAvatar } from "../api";
 import ChangePasswordModal from "./ChangePasswordModal";
 
 interface ProfileModalProps {
@@ -92,7 +92,7 @@ export default function ProfileModal({
     setUploadingAvatar(true);
     setAvatarError(null);
     try {
-      const { url } = await uploadMedia(file, "STUDENT");
+      const { url } = await uploadAvatar(file, "STUDENT");
       const updated = await updateMyStudentProfile({ portraitUrl: url });
       setStudentPortraitUrl(updated.portraitUrl);
       onPortraitUpdated?.(updated.portraitUrl);
@@ -108,7 +108,7 @@ export default function ProfileModal({
     setSavingParent(true);
     setParentError(null);
     try {
-      const { url } = await uploadMedia(file, "PARENT");
+      const { url } = await uploadAvatar(file, "PARENT");
       const updated = await updateMyParentProfile({ portraitUrl: url });
       setParentPortraitUrl(updated.portraitUrl);
     } catch (err) {
