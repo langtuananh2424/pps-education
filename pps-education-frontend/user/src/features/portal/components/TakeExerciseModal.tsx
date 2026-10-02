@@ -1846,8 +1846,13 @@ function WordBankBlock({
     setSelections((prev) => prev.map((s, i) => (i === idx ? value : s)));
   };
 
+  // Bổ sung 2026-10-02 (đã xác nhận với người dùng) — trước đây bắt BUỘC điền đủ mọi ô mới lưu, nên
+  // bài "Điền từ đoạn văn" có chỗ trống đúng ra "để trống" (VD mạo từ Ø — xem QuestionImportService,
+  // DIEN_TU_DOAN_VAN cho phép đáp án đúng là chuỗi rỗng) sẽ KHÔNG BAO GIỜ lưu được nếu học sinh cố tình
+  // bỏ trống đúng ô đó. Bỏ điều kiện "every" — lưu ngay mỗi lần rời khỏi ô, dù còn ô trống (hàm này chỉ
+  // dùng cho inputMode="text" tức DIEN_TU_DOAN_VAN, không ảnh hưởng dropdown WORD_BANK/DIEN_TU_HOP_TU_VUNG).
   const handleTypeBlur = () => {
-    if (selections.every((s) => s.trim())) onChange(selections.map((s) => s.trim()));
+    onChange(selections.map((s) => s.trim()));
   };
 
   // Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-09 — fix bug hiển thị thật: container
