@@ -16,7 +16,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /** UC-74/UC-75 — job chạy nền: DONE/FAILED, chỉ người tạo xem được, và chỉ qua đúng loại kết quả. */
 class AiJobRegistryTest {
 
-    private final AiJobRegistry registry = new AiJobRegistry(1, 30, Clock.systemUTC());
+    private final AiJobRegistry registry = new AiJobRegistry(1, 1, 30, Clock.systemUTC());
 
     @AfterEach
     void tearDown() {
@@ -38,7 +38,7 @@ class AiJobRegistryTest {
     void submit_UC74_MainFlow_jobCompletesWithResult() throws InterruptedException {
         CommentAiDraftResult result = new CommentAiDraftResult("t", "ok", null, List.of(), List.of(), List.of());
 
-        AiJobRegistry.Snapshot<CommentAiDraftResult> started = registry.submit(1L, () -> result);
+        AiJobRegistry.Snapshot<CommentAiDraftResult> started = registry.submit(1L, AiJobRegistry.Lane.DRAFT, () -> result);
         AiJobRegistry.Snapshot<CommentAiDraftResult> finished = awaitFinished(started.jobId(), 1L, CommentAiDraftResult.class);
 
         assertThat(finished.status()).isEqualTo("DONE");
@@ -47,7 +47,7 @@ class AiJobRegistryTest {
 
     @Test
     void submit_UC74_A5_failureBecomesFailedWithMessage() throws InterruptedException {
-        AiJobRegistry.Snapshot<CommentAiDraftResult> started = registry.submit(1L, () -> {
+        AiJobRegistry.Snapshot<CommentAiDraftResult> started = registry.submit(1L, AiJobRegistry.Lane.DRAFT, () -> {
             throw new CommentAiDraftFailedException("AI lỗi");
         });
 
@@ -60,7 +60,7 @@ class AiJobRegistryTest {
 
     @Test
     void get_UC74_otherUserCannotSeeJob() {
-        AiJobRegistry.Snapshot<Object> started = registry.submit(1L, () -> null);
+        AiJobRegistry.Snapshot<Object> started = registry.submit(1L, AiJobRegistry.Lane.DRAFT, () -> null);
 
         assertThatThrownBy(() -> registry.get(started.jobId(), 2L, Object.class)).isInstanceOf(ResourceNotFoundException.class);
     }
@@ -68,7 +68,7 @@ class AiJobRegistryTest {
     @Test
     void get_UC75_jobCannotBeReadAsAnotherResultType() throws InterruptedException {
         CommentAiDraftResult result = new CommentAiDraftResult("t", "ok", null, List.of(), List.of(), List.of());
-        AiJobRegistry.Snapshot<CommentAiDraftResult> started = registry.submit(1L, () -> result);
+        AiJobRegistry.Snapshot<CommentAiDraftResult> started = registry.submit(1L, AiJobRegistry.Lane.DRAFT, () -> result);
         awaitFinished(started.jobId(), 1L, CommentAiDraftResult.class);
 
         assertThatThrownBy(() -> registry.get(started.jobId(), 1L, CommentAiSuggestionResult.class))

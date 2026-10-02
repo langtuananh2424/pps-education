@@ -259,7 +259,11 @@ public final class ReflexV2Scoring {
                 int[] band = pronBandFor(ev.readback().ratio());
                 if (c.percent() > band[1]) {
                     c = c.with(band[1], "trần dải đọc lệch " + ev.readback().count() + "/" + ev.readback().total());
-                } else if (c.percent() < band[0]) {
+                } else if (c.percent() < band[0] && ev.readback().total() >= READBACK_MIN_FOR_FLOOR) {
+                    // Bản 1/10 — SÀN chỉ áp khi so được đủ từ. Mẫu nhỏ (VD 9 từ, lệch 2 = 22%) rơi vào dải
+                    // cao mà sàn vẫn kéo điểm lên — một em ngọng 2/9 từ được sàn 75% là hỏng ý nghĩa của dải.
+                    // Trần vẫn áp ở MỌI độ dài (đọc lệch nhiều thì dù ít từ cũng là bằng chứng thật) — bất
+                    // đối xứng CÓ CHỦ ĐÍCH: ít bằng chứng chỉ được dè dặt ở chiều NÂNG, không phải chiều HẠ.
                     c = c.with(band[0], "sàn dải đọc lệch " + ev.readback().count() + "/" + ev.readback().total());
                 }
             }
@@ -281,6 +285,9 @@ public final class ReflexV2Scoring {
         }
         return out;
     }
+
+    /** Bản 1/10 — dưới ngần này từ so được thì KHÔNG dùng dải đọc lệch để NÂNG điểm (xem {@link #applyErrorCaps}). */
+    public static final int READBACK_MIN_FOR_FLOOR = 30;
 
     /** Dải Phát âm theo TỶ LỆ từ đọc lệch (không theo số đếm tuyệt đối): [sàn, trần]. */
     static int[] pronBandFor(double ratio) {
@@ -377,19 +384,39 @@ public final class ReflexV2Scoring {
      */
     public static final int PART2_MIN_WORDS_GRADE_7 = 40;
     public static final double PART2_MIN_SPOKEN_SEC_GRADE_7 = 30;
+    /**
+     * Bản 1/10 — cổng độ dài cho đề NGẮN (SHORT, 25-30 giây): không một checkpoint Trôi chảy/Từ vựng nào đo
+     * được *lượng nói*, nên 1 câu duy nhất quét sạch mọi ô (phòng đào tạo gửi 2 bài khối 8: FC 90/70, chấm
+     * tay ~60, cả hai chỉ 1 câu — 18 và 23 từ). KHÁC Part 2: thời gian KHÔNG cứu được bài ít từ (bài đã ngắn
+     * sẵn, "nói hết 30 giây mà được 20 từ" chính là rề rà, không phải chịu khó). Mốc 25 lấy từ chính bộ điểm
+     * neo (18-36 từ không có mẫu hiệu chuẩn nào, nghiêng nhẹ tay).
+     */
+    public static final int SHORT_MIN_WORDS = 25;
 
-    /** Chỉ áp cho dạng PART2; các dạng khác trả {@code null}. {@code spokenSec} = thời gian nói thật đo từ tín hiệu (0 nếu không đo được). */
+    /**
+     * Áp cho dạng PART2 (word HOẶC giây nói) và dạng SHORT (CHỈ word, không có nhánh thời gian) — các dạng
+     * khác (PET4, PICTURE: chưa có điểm neo FC/LR) trả {@code null}. {@code spokenSec} = thời gian nói thật
+     * đo từ tín hiệu (0 nếu không đo được). Vô hại với tiêu chí không phải FC/LR (Cambridge GV/DM) vì
+     * {@link #applyErrorCaps} chỉ áp trần này cho đúng 2 mã đó.
+     */
     public static LengthEvidence lengthGate(ReflexV2Task task, String transcript, double spokenSec) {
-        if (!"PART2".equals(task.rubricFormat())) {
+        boolean part2 = "PART2".equals(task.rubricFormat());
+        boolean shortForm = "SHORT".equals(task.rubricFormat());
+        if (!part2 && !shortForm) {
             return null;
         }
         int words = (int) Arrays.stream(WHITESPACE.split(transcript == null ? "" : transcript))
                 .filter(w -> !w.isEmpty() && w.chars().anyMatch(ch -> (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z')) && w.charAt(0) != '(')
                 .count();
-        boolean grade7 = task.grade() == 7;
-        int minWords = grade7 ? PART2_MIN_WORDS_GRADE_7 : PART2_MIN_WORDS;
-        double minSpokenSec = grade7 ? PART2_MIN_SPOKEN_SEC_GRADE_7 : PART2_MIN_SPOKEN_SEC;
-        boolean enough = words >= minWords || spokenSec >= minSpokenSec;
+        boolean enough;
+        if (part2) {
+            boolean grade7 = task.grade() == 7;
+            int minWords = grade7 ? PART2_MIN_WORDS_GRADE_7 : PART2_MIN_WORDS;
+            double minSpokenSec = grade7 ? PART2_MIN_SPOKEN_SEC_GRADE_7 : PART2_MIN_SPOKEN_SEC;
+            enough = words >= minWords || spokenSec >= minSpokenSec;
+        } else {
+            enough = words >= SHORT_MIN_WORDS;
+        }
         return new LengthEvidence(words, Math.round(spokenSec * 10) / 10.0, enough, enough ? 100 : 60, enough ? 100 : 80);
     }
 
@@ -572,6 +599,25 @@ public final class ReflexV2Scoring {
         List<CriterionScore> out = new ArrayList<>();
         for (CriterionScore c : criteria) {
             out.add(c.code().equals(grammarCode) ? keptFromStep1(grammarCode, step1Percent) : c);
+        }
+        return out;
+    }
+
+    /**
+     * Bản 1/10 (phòng đào tạo xác nhận thầy cô chấm theo bội số của 10) — ÉP mọi điểm tiêu chí BÀI NÓI
+     * về lưới 10, LÀM TRÒN XUỐNG (chiều dè dặt: sàn nâng ít hơn, trần cho ít hơn, đúng chiều mọi phản hồi
+     * "chấm quá tay"). Checkpoint tự nhiên đã ra bội số 10 (5 ô × {{0;0,5;1}} × 20); lệch lưới chỉ sinh từ
+     * các trần/sàn không tròn chục: dải đọc lệch (sàn 85/75), {@link #fluencyCeiling} (85), và sàn nửa-điểm-
+     * Bước-1 khi Bước 1 lẻ chục ra số lẻ 5 (VD Bước 1 = 70 → sàn 35).
+     *
+     * CHỈ áp cho bài NÓI, gọi ở BƯỚC CUỐI (sau mọi trần/sàn khác, kể cả sàn Ngữ pháp/giữ điểm Bước 1) để
+     * không làm tròn rồi lại bị trần khác đạp lên — bài VIẾT không cần vì {@link ErrorEvidence#NONE} không
+     * có trần/sàn lẻ chục nào.
+     */
+    public static List<CriterionScore> snapToGrid10(List<CriterionScore> criteria) {
+        List<CriterionScore> out = new ArrayList<>();
+        for (CriterionScore c : criteria) {
+            out.add(c.percent() % 10 == 0 ? c : c.with(Math.floorDiv(c.percent(), 10) * 10, "ép lưới 10 (từ " + c.percent() + "%)"));
         }
         return out;
     }

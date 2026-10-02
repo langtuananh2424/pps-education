@@ -148,7 +148,7 @@ export default function SelectReportTemplateModal({
       }
     >
       {templates.length === 0 ? (
-        <div className="bg-amber-50 border border-amber-200/80 rounded-xl p-4 text-amber-800 text-xs flex items-start gap-2.5">
+        <div className="bg-amber-50 border border-amber-200/80 rounded-xl p-4 text-amber-800 text-sm flex items-start gap-2.5">
           <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
           <div>
             <p className="font-semibold">{t("selectTemplateModal.noTemplates.title")}</p>
@@ -162,14 +162,14 @@ export default function SelectReportTemplateModal({
           {/* Bộ chọn lọc định dạng file mẫu */}
           {availableFormats.length > 1 && (
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1.5 flex items-center gap-1">
+              <label className="block text-sm font-semibold text-slate-600 mb-1.5 flex items-center gap-1">
                 <Filter className="w-3.5 h-3.5 text-slate-400" /> {t("selectTemplateModal.filterLabel")}
               </label>
               <div className="flex items-center gap-1.5 flex-wrap">
                 <button
                   type="button"
                   onClick={() => setSelectedFormatFilter("ALL")}
-                  className={`text-xs px-2.5 py-1 rounded-lg border font-medium transition-all ${
+                  className={`text-sm px-2.5 py-1 rounded-lg border font-medium transition-all ${
                     selectedFormatFilter === "ALL"
                       ? "bg-brand-orange text-white border-brand-orange shadow-xs font-semibold"
                       : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
@@ -184,7 +184,7 @@ export default function SelectReportTemplateModal({
                       key={fmt}
                       type="button"
                       onClick={() => setSelectedFormatFilter(fmt)}
-                      className={`text-xs px-2.5 py-1 rounded-lg border font-medium transition-all flex items-center gap-1 ${
+                      className={`text-sm px-2.5 py-1 rounded-lg border font-medium transition-all flex items-center gap-1 ${
                         selectedFormatFilter === fmt
                           ? "bg-brand-orange text-white border-brand-orange shadow-xs font-semibold"
                           : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
@@ -202,7 +202,7 @@ export default function SelectReportTemplateModal({
           {/* Danh sách mẫu báo cáo */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-xs font-semibold text-slate-700">
+              <label className="block text-sm font-semibold text-slate-700">
                 {t("selectTemplateModal.availableTemplatesLabel", { count: filteredTemplates.length })}
               </label>
             </div>
@@ -226,7 +226,7 @@ export default function SelectReportTemplateModal({
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-sm font-semibold text-slate-900 truncate">{tpl.name}</span>
                         <span
-                          className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${getFormatBadgeClass(
+                          className={`text-[12px] font-bold px-1.5 py-0.5 rounded border ${getFormatBadgeClass(
                             tpl.fileFormat
                           )}`}
                         >
@@ -234,9 +234,9 @@ export default function SelectReportTemplateModal({
                         </span>
                       </div>
                       {tpl.description ? (
-                        <p className="text-xs text-slate-500 mt-1 line-clamp-2">{tpl.description}</p>
+                        <p className="text-sm text-slate-500 mt-1 line-clamp-2">{tpl.description}</p>
                       ) : (
-                        <p className="text-xs text-slate-400 mt-1 italic">{t("selectTemplateModal.originalFileLabel", { filename: tpl.originalFilename })}</p>
+                        <p className="text-sm text-slate-400 mt-1 italic">{t("selectTemplateModal.originalFileLabel", { filename: tpl.originalFilename })}</p>
                       )}
                     </div>
                     {isSelected && (
@@ -251,7 +251,7 @@ export default function SelectReportTemplateModal({
           {/* Chọn định dạng file đầu ra */}
           {selectedTemplate && (
             <div className="space-y-2 border-t border-slate-100 pt-3">
-              <label className="block text-xs font-semibold text-slate-700 flex items-center gap-1">
+              <label className="block text-sm font-semibold text-slate-700 flex items-center gap-1">
                 <FileType className="w-3.5 h-3.5 text-brand-orange" /> {t("selectTemplateModal.outputFormatLabel")}
               </label>
               <div className="grid grid-cols-2 gap-2">
@@ -272,10 +272,10 @@ export default function SelectReportTemplateModal({
                     </div>
                   </div>
                   <div className="min-w-0">
-                    <p className={`text-xs font-bold ${targetFormat === "DOCX" ? "text-brand-orange" : "text-slate-800"}`}>
+                    <p className={`text-sm font-bold ${targetFormat === "DOCX" ? "text-brand-orange" : "text-slate-800"}`}>
                       {t("selectTemplateModal.formatDocxTitle")}
                     </p>
-                    <p className="text-[10px] text-slate-500 mt-0.5">{t("selectTemplateModal.formatDocxDesc")}</p>
+                    <p className="text-[12px] text-slate-500 mt-0.5">{t("selectTemplateModal.formatDocxDesc")}</p>
                   </div>
                 </button>
 
@@ -296,10 +296,10 @@ export default function SelectReportTemplateModal({
                     </div>
                   </div>
                   <div className="min-w-0">
-                    <p className={`text-xs font-bold ${targetFormat === "PDF" ? "text-brand-orange" : "text-slate-800"}`}>
+                    <p className={`text-sm font-bold ${targetFormat === "PDF" ? "text-brand-orange" : "text-slate-800"}`}>
                       {t("selectTemplateModal.formatPdfTitle")}
                     </p>
-                    <p className="text-[10px] text-slate-500 mt-0.5">{t("selectTemplateModal.formatPdfDesc")}</p>
+                    <p className="text-[12px] text-slate-500 mt-0.5">{t("selectTemplateModal.formatPdfDesc")}</p>
                   </div>
                 </button>
               </div>
@@ -309,15 +309,15 @@ export default function SelectReportTemplateModal({
           {/* Chọn kỳ đánh giá (chỉ TRANSCRIPT/GRADE_REPORT — UC-68 bước 2) */}
           {needsPeriods && (
             <div className="space-y-2 border-t border-slate-100 pt-3">
-              <label className="block text-xs font-semibold text-slate-700 flex items-center gap-1">
+              <label className="block text-sm font-semibold text-slate-700 flex items-center gap-1">
                 <CalendarRange className="w-3.5 h-3.5 text-brand-orange" /> {t("selectTemplateModal.periodsLabel")}
               </label>
-              <p className="text-[11px] text-slate-500">
+              <p className="text-[13px] text-slate-500">
                 {t("selectTemplateModal.periodsHintPrefix")}{" "}
                 <code>[READING_MID1]</code> {t("selectTemplateModal.periodsHintMiddle")} <code>MID1</code>{t("selectTemplateModal.periodsHintSuffix")}
               </p>
               {academicTerms.length === 0 && (
-                <div className="bg-amber-50 border border-amber-200/80 rounded-lg p-2.5 text-xs text-amber-800 flex items-start gap-2">
+                <div className="bg-amber-50 border border-amber-200/80 rounded-lg p-2.5 text-sm text-amber-800 flex items-start gap-2">
                   <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                   {t("selectTemplateModal.noTermsWarning")}
                 </div>
@@ -330,12 +330,12 @@ export default function SelectReportTemplateModal({
                       value={row.label}
                       onChange={(e) => updatePeriodRow(idx, { label: e.target.value })}
                       placeholder={t("selectTemplateModal.labelPlaceholder")}
-                      className="w-28 border border-slate-300 rounded-lg text-xs p-1.5 focus:outline-none focus:ring-1 focus:ring-brand-orange"
+                      className="w-28 border border-slate-300 rounded-lg text-sm p-1.5 focus:outline-none focus:ring-1 focus:ring-brand-orange"
                     />
                     <Select
                       value={row.academicTermId}
                       onChange={(e) => updatePeriodRow(idx, { academicTermId: e.target.value ? Number(e.target.value) : "" })}
-                      className="flex-1 border border-slate-300 rounded-lg text-xs p-1.5 focus:outline-none focus:ring-1 focus:ring-brand-orange"
+                      className="flex-1 border border-slate-300 rounded-lg text-sm p-1.5 focus:outline-none focus:ring-1 focus:ring-brand-orange"
                     >
                       <option value="">{t("selectTemplateModal.termSelectPlaceholder")}</option>
                       {academicTerms.map((term) => (
@@ -345,7 +345,7 @@ export default function SelectReportTemplateModal({
                     <Select
                       value={row.evaluationType}
                       onChange={(e) => updatePeriodRow(idx, { evaluationType: e.target.value as PeriodRow["evaluationType"] })}
-                      className="w-28 border border-slate-300 rounded-lg text-xs p-1.5 focus:outline-none focus:ring-1 focus:ring-brand-orange"
+                      className="w-28 border border-slate-300 rounded-lg text-sm p-1.5 focus:outline-none focus:ring-1 focus:ring-brand-orange"
                     >
                       <option value="">{t("selectTemplateModal.evalTypeSelectPlaceholder")}</option>
                       {(["MID_TERM", "END_TERM"] as const).map((key) => (
@@ -367,7 +367,7 @@ export default function SelectReportTemplateModal({
               <button
                 type="button"
                 onClick={addPeriodRow}
-                className="text-xs text-brand-orange font-medium flex items-center gap-1 hover:underline"
+                className="text-sm text-brand-orange font-medium flex items-center gap-1 hover:underline"
               >
                 <Plus className="w-3.5 h-3.5" /> {t("selectTemplateModal.addPeriodButton")}
               </button>

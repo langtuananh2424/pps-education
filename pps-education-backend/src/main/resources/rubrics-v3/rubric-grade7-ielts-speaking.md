@@ -17,6 +17,7 @@
 |**C1 — Lạc đề / vô nghĩa**|Không trả lời câu hỏi, ghép từ không tạo thông điệp|**FC, LR trần 20%**|
 |**C2 — Không nghe ra**|>25% số từ là `[?]`/lằng nhằng/phát âm sai không nhận ra|**P trần 40%**. >50% → **P trần 20%**|
 |**C3 — Quá ngắn**|SHORT: <15 từ tiếng Anh nhận ra được. PART2: <30 từ (số từ là căn cứ chính)|**FC, LR, P trần 40%**. SHORT <5 từ / PART2 <12 từ → **0%**|
+|**C4 — Dừng quá lâu**|Im lặng dài nhất ≥3 giây|**FC trần 70%**. ≥5 giây → **50%**|
 
 ## §3. Checkpoint — mỗi ô 1 / 0,5 / 0
 > **Bắt buộc trước khi chấm:** ghi câu đầu tiên của `counting_notes` là `Cột ngưỡng: SHORT` hoặc `Cột ngưỡng: PART2` (lấy theo dạng đề nêu ở cuối đề bài). Mọi ô hai cột phải đọc **đúng cột đã tuyên bố**.

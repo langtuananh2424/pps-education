@@ -1,6 +1,7 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { Mic, Paperclip, Send, Square, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import FloatingError from "@/components/ui/FloatingError";
 
 /** Mỗi lần gửi audio tối đa 5 phút (UC-74 A3, dùng chung cho mọi trợ lý AI — đã xác nhận với người dùng 2026-09-28). */
 export const MAX_AUDIO_SECONDS = 300;
@@ -83,9 +84,11 @@ const AiChatComposer = forwardRef<AiChatComposerHandle, Props>(function AiChatCo
       setLocalError(t("dailyCommentPanel.aiAssistant.errors.recordingUnsupported"));
       return;
     }
+    let stream: MediaStream | null = null;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : undefined;
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Safari/iOS (kể cả app "Thêm vào Màn hình chính") chỉ ghi được audio/mp4 — chọn tường minh theo thứ tự ưu tiên.
+      const mimeType = ["audio/webm;codecs=opus", "audio/mp4", "audio/webm"].find((m) => MediaRecorder.isTypeSupported(m));
       const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
       chunksRef.current = [];
       recorder.ondataavailable = (e) => {
@@ -96,7 +99,8 @@ const AiChatComposer = forwardRef<AiChatComposerHandle, Props>(function AiChatCo
         const blob = new Blob(chunksRef.current, { type: (recorder.mimeType || "audio/webm").split(";")[0] });
         setPendingAudio({ blob, url: URL.createObjectURL(blob), seconds: Math.min(MAX_AUDIO_SECONDS, (Date.now() - startedAt) / 1000) });
       };
-      recorder.start(1000);
+      // Không truyền timeslice: Safari iOS cũ cắt mảnh MP4 theo timeslice rồi ghép lại dễ ra file không phát/giải mã được.
+      recorder.start();
       recorderRef.current = recorder;
       setRecordSeconds(0);
       setRecording(true);
@@ -105,8 +109,16 @@ const AiChatComposer = forwardRef<AiChatComposerHandle, Props>(function AiChatCo
         setRecordSeconds(elapsed);
         if (elapsed >= MAX_AUDIO_SECONDS) stopRecording();
       }, 250);
-    } catch {
-      setLocalError(t("dailyCommentPanel.aiAssistant.errors.microphoneDenied"));
+    } catch (error) {
+      stream?.getTracks().forEach((track) => track.stop());
+      const name = error instanceof DOMException ? error.name : "";
+      console.error("AI composer recording failed", error);
+      // Chỉ báo "bị từ chối quyền" khi đúng là bị từ chối; lỗi khác (không có micro, MediaRecorder lỗi...) hiện tên lỗi để dễ chẩn đoán.
+      setLocalError(
+        name === "NotAllowedError" || name === "SecurityError"
+          ? t("dailyCommentPanel.aiAssistant.errors.microphoneDenied")
+          : `${t("dailyCommentPanel.aiAssistant.errors.recordingUnsupported")} (${name || "unknown"})`
+      );
     }
   };
 
@@ -145,7 +157,7 @@ const AiChatComposer = forwardRef<AiChatComposerHandle, Props>(function AiChatCo
 
   return (
     <div className="border-t border-slate-100 p-3 space-y-2">
-      {localError && <p className="text-[13px] text-rose-600">{localError}</p>}
+      <FloatingError message={localError} onClose={() => setLocalError(null)} />
       {recording && (
         <div className="flex items-center justify-between gap-2 bg-rose-50 border border-rose-100 rounded-lg px-3 py-2">
           <span className="flex items-center gap-2 text-sm font-semibold text-rose-600">

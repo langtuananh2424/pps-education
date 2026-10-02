@@ -86,6 +86,7 @@ security-lab/sql_join_token_usage_with_loadtest.sql
 e2e/test-results/
 e2e/playwright-report/
 e2e/.certs/
+e2e/screenshots/
 
 
 # Dump DB local (deploy/RUNBOOK-db-backup-restore.md muc 3) - co the chua email that, khong commit

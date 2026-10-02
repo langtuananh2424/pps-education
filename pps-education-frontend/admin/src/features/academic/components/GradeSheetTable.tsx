@@ -18,6 +18,7 @@ import {
 import TableContainer, { Td, Th } from "@/components/ui/TableContainer";
 import Badge, { BadgeVariant } from "@/components/ui/Badge";
 import StudentNameLink from "@/features/reports/components/StudentNameLink";
+import FloatingError from "@/components/ui/FloatingError";
 
 type TFunc = (key: string, options?: Record<string, unknown>) => string;
 
@@ -259,26 +260,26 @@ export default function GradeSheetTable({ classId, setupId, scaleType, component
     }
   };
 
-  if (loading) return <p className="text-xs text-slate-400 italic p-6 text-center">{t("sheetTable.loading")}</p>;
+  if (loading) return <p className="text-sm text-slate-400 italic p-6 text-center">{t("sheetTable.loading")}</p>;
 
   return (
     <div>
       {editWindow && (
         <div className="px-5 pt-3 space-y-1">
-          <p className="text-[11px] text-slate-400 italic">{t("sheetTable.editWindowHint")}</p>
+          <p className="text-[13px] text-slate-400 italic">{t("sheetTable.editWindowHint")}</p>
         </div>
       )}
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 m-3 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
       {!readOnly && (
         <div className="px-5 py-3 space-y-2 border-b border-slate-200">
-          <label className="block text-xs font-semibold text-slate-700">{t("sheetTable.disclaimerLabel")}</label>
+          <label className="block text-sm font-semibold text-slate-700">{t("sheetTable.disclaimerLabel")}</label>
           <textarea
             value={disclaimerInput}
             onChange={(e) => setDisclaimerInput(e.target.value)}
             onBlur={handleBlurDisclaimer}
             disabled={savingKey === "disclaimer:all"}
             placeholder={t("sheetTable.disclaimerPlaceholder")}
-            className="w-full text-xs p-2 border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:opacity-50"
+            className="w-full text-sm p-2 border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:opacity-50"
             rows={3}
           />
         </div>
@@ -305,7 +306,7 @@ export default function GradeSheetTable({ classId, setupId, scaleType, component
           <tbody className="divide-y divide-slate-100">
             {activeStudents.length === 0 ? (
               <tr>
-                <td colSpan={components.length + 7} className="px-6 py-12 text-center text-xs text-slate-400 italic">
+                <td colSpan={components.length + 7} className="px-6 py-12 text-center text-sm text-slate-400 italic">
                   {t("sheetTable.noEnrollments")}
                 </td>
               </tr>
@@ -328,7 +329,7 @@ export default function GradeSheetTable({ classId, setupId, scaleType, component
                       return (
                         <Td key={c.id} className="text-center">
                           {readOnly || locked ? (
-                            <span className="text-xs font-semibold text-slate-700" title={locked ? t("sheetTable.lockedTitle") : undefined}>
+                            <span className="text-sm font-semibold text-slate-700" title={locked ? t("sheetTable.lockedTitle") : undefined}>
                               {existing ? existing.score : "—"}
                             </span>
                           ) : (
@@ -341,11 +342,11 @@ export default function GradeSheetTable({ classId, setupId, scaleType, component
                                 onBlur={() => handleBlurScore(en.studentId, c.id)}
                                 disabled={savingKey === key}
                                 title={rejected ? t("sheetTable.rejectedTitle") : undefined}
-                                className={`w-16 bg-slate-50 text-center border rounded py-1 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-brand-orange disabled:opacity-50 ${
+                                className={`w-16 bg-slate-50 text-center border rounded py-1 text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-brand-orange disabled:opacity-50 ${
                                   rejected ? "border-rose-400 ring-1 ring-rose-300" : ""
                                 }`}
                               />
-                              {rejected && <span className="text-[9px] font-bold text-rose-600 uppercase">{t("sheetTable.rejectedBadge")}</span>}
+                              {rejected && <span className="text-[11px] font-bold text-rose-600 uppercase">{t("sheetTable.rejectedBadge")}</span>}
                             </div>
                           )}
                         </Td>
@@ -353,7 +354,7 @@ export default function GradeSheetTable({ classId, setupId, scaleType, component
                     })}
                     <Td className="text-center">
                       {readOnly || resultLocked ? (
-                        <span className="text-xs font-semibold text-slate-700" title={resultLocked ? t("sheetTable.lockedTitle") : undefined}>
+                        <span className="text-sm font-semibold text-slate-700" title={resultLocked ? t("sheetTable.lockedTitle") : undefined}>
                           {result?.overallScore ?? "—"}
                         </span>
                       ) : (
@@ -365,17 +366,17 @@ export default function GradeSheetTable({ classId, setupId, scaleType, component
                             onChange={(e) => setOverallInput((prev) => ({ ...prev, [en.studentId]: e.target.value }))}
                             onBlur={() => handleBlurResult(en.studentId)}
                             title={result?.status === "REJECTED" ? t("sheetTable.rejectedTitle") : undefined}
-                            className={`w-16 bg-slate-50 text-center border rounded py-1 text-xs font-semibold focus:outline-none ${
+                            className={`w-16 bg-slate-50 text-center border rounded py-1 text-sm font-semibold focus:outline-none ${
                               result?.status === "REJECTED" ? "border-rose-400 ring-1 ring-rose-300" : ""
                             }`}
                           />
-                          {result?.status === "REJECTED" && <span className="text-[9px] font-bold text-rose-600 uppercase">{t("sheetTable.rejectedBadge")}</span>}
+                          {result?.status === "REJECTED" && <span className="text-[11px] font-bold text-rose-600 uppercase">{t("sheetTable.rejectedBadge")}</span>}
                         </div>
                       )}
                     </Td>
                     <Td className="text-center">
                       {readOnly || resultLocked ? (
-                        <span className="text-xs font-semibold text-slate-700">{result?.level ?? "—"}</span>
+                        <span className="text-sm font-semibold text-slate-700">{result?.level ?? "—"}</span>
                       ) : (
                         <input
                           type="text"
@@ -383,13 +384,13 @@ export default function GradeSheetTable({ classId, setupId, scaleType, component
                           value={levelInput[en.studentId] ?? ""}
                           onChange={(e) => setLevelInput((prev) => ({ ...prev, [en.studentId]: e.target.value }))}
                           onBlur={() => handleBlurResult(en.studentId)}
-                          className="w-20 bg-slate-50 text-center border rounded py-1 text-xs font-semibold focus:outline-none"
+                          className="w-20 bg-slate-50 text-center border rounded py-1 text-sm font-semibold focus:outline-none"
                         />
                       )}
                     </Td>
                     <Td className="text-center">
                       {readOnly || resultLocked ? (
-                        <span className="text-xs text-slate-700 whitespace-pre-wrap">{result?.comment ?? "—"}</span>
+                        <span className="text-sm text-slate-700 whitespace-pre-wrap">{result?.comment ?? "—"}</span>
                       ) : (
                         <input
                           type="text"
@@ -397,13 +398,13 @@ export default function GradeSheetTable({ classId, setupId, scaleType, component
                           value={commentInput[en.studentId] ?? ""}
                           onChange={(e) => setCommentInput((prev) => ({ ...prev, [en.studentId]: e.target.value }))}
                           onBlur={() => handleBlurResult(en.studentId)}
-                          className="w-32 bg-slate-50 border rounded py-1 px-1.5 text-xs focus:outline-none"
+                          className="w-32 bg-slate-50 border rounded py-1 px-1.5 text-sm focus:outline-none"
                         />
                       )}
                     </Td>
                     <Td className="text-center">
                       {readOnly || resultLocked ? (
-                        <span className="text-xs text-slate-700 whitespace-pre-wrap">{result?.note ?? "—"}</span>
+                        <span className="text-sm text-slate-700 whitespace-pre-wrap">{result?.note ?? "—"}</span>
                       ) : (
                         <input
                           type="text"
@@ -411,18 +412,18 @@ export default function GradeSheetTable({ classId, setupId, scaleType, component
                           value={noteInput[en.studentId] ?? ""}
                           onChange={(e) => setNoteInput((prev) => ({ ...prev, [en.studentId]: e.target.value }))}
                           onBlur={() => handleBlurResult(en.studentId)}
-                          className="w-28 bg-slate-50 border rounded py-1 px-1.5 text-xs focus:outline-none"
+                          className="w-28 bg-slate-50 border rounded py-1 px-1.5 text-sm focus:outline-none"
                         />
                       )}
                     </Td>
                     <Td className="text-center">
-                      {result ? <Badge variant="info">{sourceLabel(t, result.source)}</Badge> : <span className="text-[10px] text-slate-300 italic">—</span>}
+                      {result ? <Badge variant="info">{sourceLabel(t, result.source)}</Badge> : <span className="text-[12px] text-slate-300 italic">—</span>}
                     </Td>
                     <Td className="text-center">
                       {status ? (
                         <Badge variant={statusVariants[status]}>{statusLabel(t, status)}</Badge>
                       ) : (
-                        <span className="text-[10px] text-slate-300 italic">{t("sheetTable.notEntered")}</span>
+                        <span className="text-[12px] text-slate-300 italic">{t("sheetTable.notEntered")}</span>
                       )}
                     </Td>
                   </tr>

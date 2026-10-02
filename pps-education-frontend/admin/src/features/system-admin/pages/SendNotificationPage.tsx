@@ -16,11 +16,12 @@ import {
 } from "../api";
 import { Button } from "@/components/ui";
 import Select from "@/components/ui/Select";
+import FloatingError from "@/components/ui/FloatingError";
 
 const RESULT_LIMIT = 50;
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
+const labelClass = "text-[12px] uppercase font-bold text-slate-500 block mb-1";
 
 /** Nhãn loại thông báo dịch qua i18next namespace "system-admin-settings" — chỉ để hiển thị, giá trị gửi lên vẫn đúng enum backend. */
 function notificationTypeLabel(t: (key: string) => string, type: NotificationTypeValue): string {
@@ -130,10 +131,10 @@ export default function SendNotificationPage() {
   return (
     <div className="space-y-4 animate-in fade-in duration-200 max-w-3xl">
       <div>
-        <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider block">
+        <h2 className="text-lg font-bold text-slate-800 uppercase tracking-wider block">
           {t("sendNotificationPage.title")}
         </h2>
-        <p className="text-[10px] text-slate-400 mt-0.5">{t("sendNotificationPage.description")}</p>
+        <p className="text-[12px] text-slate-400 mt-0.5">{t("sendNotificationPage.description")}</p>
       </div>
 
       <form onSubmit={handleSend} className="bg-white p-4 rounded-xl border border-slate-200 shadow-soft space-y-4">
@@ -147,7 +148,7 @@ export default function SendNotificationPage() {
                 return (
                   <span
                     key={u.id}
-                    className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-100 text-emerald-700 text-[11px] font-semibold pl-2.5 pr-1.5 py-1 rounded-full"
+                    className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-100 text-emerald-700 text-[13px] font-semibold pl-2.5 pr-1.5 py-1 rounded-full"
                   >
                     <UserCheck className="w-3 h-3" />
                     {u.fullName}
@@ -172,7 +173,7 @@ export default function SendNotificationPage() {
             </div>
           )}
           {loadingDeviceTokens && (
-            <p className="text-[10px] text-slate-400 mb-2">{t("sendNotificationPage.deviceTokens.loading")}</p>
+            <p className="text-[12px] text-slate-400 mb-2">{t("sendNotificationPage.deviceTokens.loading")}</p>
           )}
 
           <div className="relative">
@@ -193,9 +194,9 @@ export default function SendNotificationPage() {
           {searchOpen && (
             <div className="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg max-h-64 overflow-y-auto">
               {searching ? (
-                <p className="px-3 py-2 text-xs text-slate-400">{t("sendNotificationPage.recipient.searching")}</p>
+                <p className="px-3 py-2 text-sm text-slate-400">{t("sendNotificationPage.recipient.searching")}</p>
               ) : results.length === 0 ? (
-                <p className="px-3 py-2 text-xs text-slate-400 italic">
+                <p className="px-3 py-2 text-sm text-slate-400 italic">
                   {t("sendNotificationPage.recipient.noResults")}
                 </p>
               ) : (
@@ -208,7 +209,7 @@ export default function SendNotificationPage() {
                         type="button"
                         disabled={alreadyAdded}
                         onClick={() => addUser(u)}
-                        className="w-full text-left px-3 py-2 hover:bg-slate-50 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="w-full text-left px-3 py-2 hover:bg-slate-50 text-sm disabled:opacity-40 disabled:cursor-not-allowed"
                       >
                         {u.fullName} <span className="text-slate-400">({u.username} · {u.email})</span>
                         {alreadyAdded && (
@@ -240,10 +241,10 @@ export default function SendNotificationPage() {
 
         <div>
           <label className={labelClass}>{t("sendNotificationPage.channels.label")}</label>
-          <p className="text-[10px] text-slate-400 mb-1.5">{t("sendNotificationPage.channels.hint")}</p>
+          <p className="text-[12px] text-slate-400 mb-1.5">{t("sendNotificationPage.channels.hint")}</p>
           <div className="flex flex-wrap gap-3">
             {NOTIFICATION_CHANNELS.map((channel) => (
-              <label key={channel} className="flex items-center gap-1.5 text-xs font-medium text-slate-700 cursor-pointer">
+              <label key={channel} className="flex items-center gap-1.5 text-sm font-medium text-slate-700 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={forcedChannels.includes(channel)}
@@ -271,11 +272,11 @@ export default function SendNotificationPage() {
           />
         </div>
 
-        {sendError && <div className="p-2.5 text-xs text-rose-600 bg-rose-50 border border-rose-100 rounded-lg">{sendError}</div>}
+        <FloatingError message={sendError} onClose={() => setSendError(null)} />
 
         {result && (
           <div
-            className={`p-2.5 text-xs rounded-lg border ${
+            className={`p-2.5 text-sm rounded-lg border ${
               result.failures.length === 0
                 ? "text-emerald-700 bg-emerald-50 border-emerald-100"
                 : "text-amber-700 bg-amber-50 border-amber-100"
@@ -288,7 +289,7 @@ export default function SendNotificationPage() {
             {result.failures.length > 0 && (
               <ul className="mt-1.5 space-y-0.5">
                 {result.failures.map((f) => (
-                  <li key={f.recipientUserId} className="text-[11px]">
+                  <li key={f.recipientUserId} className="text-[13px]">
                     {t("sendNotificationPage.result.failureItem", {
                       userId: f.recipientUserId,
                       reason: f.reason
@@ -304,7 +305,7 @@ export default function SendNotificationPage() {
                   {result.channelResults.map((cr, idx) => (
                     <li
                       key={`${cr.recipientUserId}-${cr.channel}-${idx}`}
-                      className={`text-[11px] ${cr.status === "SENT" ? "text-emerald-700" : cr.status === "FAILED" ? "text-rose-600" : ""}`}
+                      className={`text-[13px] ${cr.status === "SENT" ? "text-emerald-700" : cr.status === "FAILED" ? "text-rose-600" : ""}`}
                     >
                       {t("sendNotificationPage.result.channelResultItem", {
                         userId: cr.recipientUserId,

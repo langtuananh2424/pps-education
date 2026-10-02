@@ -12,10 +12,11 @@ import { useDialog } from "@/components/ui/DialogProvider";
 import Select from "@/components/ui/Select";
 import { useApp } from "@/context/AppContext";
 import DepartmentMembersPanel from "./DepartmentMembersPanel";
+import FloatingError from "@/components/ui/FloatingError";
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
-const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-xs p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
+const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-sm p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
+const labelClass = "text-[12px] uppercase font-bold text-slate-500 block mb-1";
 
 /** UC-08 bổ sung: danh mục Phòng ban (đổ dropdown "Phòng ban" ở hồ sơ nhân sự) — hiển thị dạng cây theo parentDepartmentId để xem tổng quan bộ máy. */
 export default function DepartmentsTab() {
@@ -64,14 +65,14 @@ export default function DepartmentsTab() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-bold uppercase text-slate-500">{t("departmentsTab.sectionTitle", { count: departments.length })}</span>
+        <span className="text-[12px] font-bold uppercase text-slate-500">{t("departmentsTab.sectionTitle", { count: departments.length })}</span>
         <Button size="sm" variant="secondary" onClick={() => setCreating(true)}>
           <Plus className="w-3.5 h-3.5" />
           {t("departmentsTab.addButton")}
         </Button>
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       <Modal open={creating} onClose={() => setCreating(false)} title={t("departmentsTab.modalTitle")}>
         <DepartmentForm
@@ -86,9 +87,9 @@ export default function DepartmentsTab() {
       </Modal>
 
       {loading ? (
-        <p className="text-xs text-slate-500">{t("departmentsTab.loading")}</p>
+        <p className="text-sm text-slate-500">{t("departmentsTab.loading")}</p>
       ) : departments.length === 0 ? (
-        <p className="text-xs text-slate-400 italic">{t("departmentsTab.empty")}</p>
+        <p className="text-sm text-slate-400 italic">{t("departmentsTab.empty")}</p>
       ) : (
         <DepartmentTreeLevel
           parentId={null}
@@ -156,25 +157,25 @@ function DepartmentTreeLevel({
           {editingId === d.id ? (
             <DepartmentForm initial={d} departments={departments} onDone={() => { onCancelEdit(); onChanged(); }} onCancel={onCancelEdit} />
           ) : (
-            <div className="border border-slate-200 rounded-lg p-3 text-xs flex items-center justify-between bg-white">
+            <div className="border border-slate-200 rounded-lg p-3 text-sm flex items-center justify-between bg-white">
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="font-mono font-bold text-brand-red bg-orange-50 border border-orange-100 px-1.5 py-0.5 rounded text-[10px]">{d.code}</span>
+                  <span className="font-mono font-bold text-brand-red bg-orange-50 border border-orange-100 px-1.5 py-0.5 rounded text-[12px]">{d.code}</span>
                   <span className="font-bold text-slate-800">{d.name}</span>
                 </div>
-                <p className="text-[10px] text-slate-400 mt-1">
+                <p className="text-[12px] text-slate-400 mt-1">
                   {d.headUserFullName ? t("departmentsTab.headLabel", { name: d.headUserFullName }) : t("departmentsTab.noHead")}
                 </p>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => toggleMembers(d.id)}
-                  className={`flex items-center gap-1 text-[11px] font-semibold ${openMemberIds.has(d.id) ? "text-brand-red" : "text-slate-500 hover:text-slate-800"}`}
+                  className={`flex items-center gap-1 text-[13px] font-semibold ${openMemberIds.has(d.id) ? "text-brand-red" : "text-slate-500 hover:text-slate-800"}`}
                 >
                   <Users className="w-3.5 h-3.5" />
                   {t("departmentsTab.members.toggleButton")}
                 </button>
-                <button onClick={() => onEdit(d.id)} className="text-slate-500 hover:text-slate-800 text-[11px] font-semibold">
+                <button onClick={() => onEdit(d.id)} className="text-slate-500 hover:text-slate-800 text-[13px] font-semibold">
                   {t("departmentsTab.editButton")}
                 </button>
                 <button onClick={() => onDelete(d.id)} className="text-rose-500 hover:text-rose-700">
@@ -270,7 +271,7 @@ function DepartmentForm({
 
   return (
     <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
       <div className="grid grid-cols-2 gap-2">
         <div>
           <label className={labelClass}>{t("departmentForm.codeLabel")}</label>
@@ -280,7 +281,7 @@ function DepartmentForm({
             disabled={!!initial}
             className={`${inputClass} font-mono disabled:opacity-50`}
           />
-          {initial && <p className="text-[10px] text-slate-400 mt-1">{t("departmentForm.codeImmutableHint")}</p>}
+          {initial && <p className="text-[12px] text-slate-400 mt-1">{t("departmentForm.codeImmutableHint")}</p>}
         </div>
         <div>
           <label className={labelClass}>{t("departmentForm.nameLabel")}</label>
@@ -305,7 +306,7 @@ function DepartmentForm({
       <div>
         <label className={labelClass}>{t("departmentForm.headLabel")}</label>
         {selectedHead ? (
-          <div className="flex items-center justify-between bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs font-semibold px-3 py-2 rounded-lg">
+          <div className="flex items-center justify-between bg-emerald-50 border border-emerald-100 text-emerald-700 text-sm font-semibold px-3 py-2 rounded-lg">
             <span>{selectedHead.fullName}</span>
             <button type="button" onClick={() => setSelectedHead(null)} className="text-emerald-600 hover:text-rose-600">
               <X className="w-3.5 h-3.5" />
@@ -326,7 +327,7 @@ function DepartmentForm({
                       setHeadResults([]);
                       setHeadQuery("");
                     }}
-                    className="w-full text-left px-3 py-2 hover:bg-slate-50 text-xs"
+                    className="w-full text-left px-3 py-2 hover:bg-slate-50 text-sm"
                   >
                     {u.fullName} <span className="text-slate-400">({u.username} · {u.email})</span>
                   </button>

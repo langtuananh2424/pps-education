@@ -5,6 +5,7 @@ import { ApiError } from "@/lib/apiClient";
 import { StudentCommentHistoryResponse, listStudentCommentHistory } from "../api";
 import Badge from "@/components/ui/Badge";
 import { toLocaleTag } from "@/lib/i18nFormat";
+import FloatingError from "@/components/ui/FloatingError";
 
 const statusVariants: Record<StudentCommentHistoryResponse["details"]["status"], "success" | "warning" | "danger" | "neutral"> = {
   DRAFT: "neutral",
@@ -55,7 +56,7 @@ export default function CommentVersionHistoryModal({ commentId, studentFullName,
             <History className="w-4 h-4 text-slate-500 shrink-0" />
             <div>
               <h3 className="text-sm font-bold font-display text-slate-900">{t("commentVersionHistoryModal.title")}</h3>
-              <p className="text-[11px] text-slate-500 mt-0.5">{t("commentVersionHistoryModal.subtitle", { name: studentFullName })}</p>
+              <p className="text-[13px] text-slate-500 mt-0.5">{t("commentVersionHistoryModal.subtitle", { name: studentFullName })}</p>
             </div>
           </div>
           <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-600 shrink-0">
@@ -64,11 +65,11 @@ export default function CommentVersionHistoryModal({ commentId, studentFullName,
         </div>
 
         <div className="p-5 space-y-2.5">
-          {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+          <FloatingError message={error} onClose={() => setError(null)} />
           {loading ? (
-            <p className="text-xs text-slate-400">{t("commentVersionHistoryModal.loading")}</p>
+            <p className="text-sm text-slate-400">{t("commentVersionHistoryModal.loading")}</p>
           ) : history.length === 0 ? (
-            <p className="text-xs text-slate-400 italic">{t("commentVersionHistoryModal.empty")}</p>
+            <p className="text-sm text-slate-400 italic">{t("commentVersionHistoryModal.empty")}</p>
           ) : (
             history.map((h, index) => {
               const expanded = expandedId === h.id;
@@ -81,20 +82,20 @@ export default function CommentVersionHistoryModal({ commentId, studentFullName,
                     className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left hover:bg-slate-50/60"
                   >
                     <div className="flex items-center gap-2 flex-wrap min-w-0">
-                      <span className="text-[11px] font-bold text-slate-800 whitespace-nowrap">
+                      <span className="text-[13px] font-bold text-slate-800 whitespace-nowrap">
                         {new Date(h.createdAt).toLocaleString(toLocaleTag(i18n.language), { dateStyle: "short", timeStyle: "medium" })}
                       </span>
                       {index === 0 && (
-                        <span className="px-1.5 py-0.5 rounded bg-teal/10 text-teal-deep text-[9px] font-black uppercase tracking-wide shrink-0">{t("commentVersionHistoryModal.latestBadge")}</span>
+                        <span className="px-1.5 py-0.5 rounded bg-teal/10 text-teal-deep text-[11px] font-black uppercase tracking-wide shrink-0">{t("commentVersionHistoryModal.latestBadge")}</span>
                       )}
-                      <span className="text-[10px] text-slate-400 truncate">
+                      <span className="text-[12px] text-slate-400 truncate">
                         {t("commentVersionHistoryModal.actionByLabel", { action: t(`commentVersionHistoryModal.action.${h.action}`), name: h.changedByName })}
                       </span>
                     </div>
                     <Badge variant={statusVariants[d.status]}>{t(`shared.status.${d.status}`)}</Badge>
                   </button>
                   {expanded && (
-                    <div className="px-3 pb-3 pt-1 border-t border-slate-100 space-y-1.5 text-[11px]">
+                    <div className="px-3 pb-3 pt-1 border-t border-slate-100 space-y-1.5 text-[13px]">
                       <p className="text-slate-700 whitespace-pre-wrap">{d.content || t("commentVersionHistoryModal.noContent")}</p>
                       {(d.attitude || d.homeworkPreviousScore || d.homeworkPreviousSpeakingScore) && (
                         <p className="text-slate-500">

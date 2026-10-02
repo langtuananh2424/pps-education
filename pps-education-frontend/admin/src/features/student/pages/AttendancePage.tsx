@@ -28,6 +28,7 @@ import DatePicker from "@/components/ui/DatePicker";
 import { downloadBlob } from "@/lib/xlsxTemplate";
 import { toISODate } from "@/lib/calendarDates";
 import AttendanceReminderBanner from "@/features/hrm/components/AttendanceReminderBanner";
+import FloatingError from "@/components/ui/FloatingError";
 
 type SimpleStatus = "PRESENT" | "ABSENT" | "EXCUSED" | "LATE";
 
@@ -278,7 +279,7 @@ export default function AttendancePage() {
       <div className="border-b border-slate-200 pb-4 flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("attendancePage.title")}</h1>
-          <p className="text-xs text-slate-500 mt-1">{t("attendancePage.description")}</p>
+          <p className="text-sm text-slate-500 mt-1">{t("attendancePage.description")}</p>
         </div>
         {selectedClass && (
           <Button type="button" variant="secondary" onClick={openSummaryExport}>
@@ -297,7 +298,7 @@ export default function AttendancePage() {
           <button
             key={key}
             onClick={() => setTab(key)}
-            className={`pb-2.5 text-xs font-bold border-b-2 flex items-center gap-1.5 transition-all ${
+            className={`pb-2.5 text-sm font-bold border-b-2 flex items-center gap-1.5 transition-all ${
               tab === key ? "border-brand-red text-brand-red" : "border-transparent text-slate-500 hover:text-slate-700"
             }`}
           >
@@ -315,18 +316,18 @@ export default function AttendancePage() {
         size="md"
       >
         <div className="space-y-4">
-          <p className="text-xs text-slate-600 leading-relaxed">{t("attendancePage.summaryExport.description")}</p>
+          <p className="text-sm text-slate-600 leading-relaxed">{t("attendancePage.summaryExport.description")}</p>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-slate-500 mb-1">{t("attendancePage.summaryExport.fromDate")}</label>
+              <label className="block text-sm text-slate-500 mb-1">{t("attendancePage.summaryExport.fromDate")}</label>
               <DatePicker value={summaryFrom} onChange={setSummaryFrom} max={summaryTo || undefined} />
             </div>
             <div>
-              <label className="block text-xs text-slate-500 mb-1">{t("attendancePage.summaryExport.toDate")}</label>
+              <label className="block text-sm text-slate-500 mb-1">{t("attendancePage.summaryExport.toDate")}</label>
               <DatePicker value={summaryTo} onChange={setSummaryTo} min={summaryFrom || undefined} />
             </div>
           </div>
-          {summaryError && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{summaryError}</div>}
+          <FloatingError message={summaryError} onClose={() => setSummaryError(null)} />
           <div className="flex justify-end gap-2">
             <Button type="button" variant="secondary" onClick={() => setSummaryOpen(false)}>
               {t("attendancePage.summaryExport.cancel")}
@@ -342,7 +343,7 @@ export default function AttendancePage() {
       {notification && (
         <Modal open onClose={() => setNotification(null)} title={t("attendancePage.notificationModalTitle")} size="md">
           <div className="space-y-4">
-            <div className="text-xs text-slate-700 leading-relaxed whitespace-pre-line">{notification}</div>
+            <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{notification}</div>
             <div className="flex justify-end">
               <Button type="button" variant="primary" onClick={() => setNotification(null)}>
                 {t("attendancePage.understood")}
@@ -355,14 +356,14 @@ export default function AttendancePage() {
         <AttendanceHistoryPanel classes={classes} loadingClasses={loadingClasses} onOpenSession={openSessionFromHistory} />
       ) : (
         <>
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
       <AttendanceReminderBanner />
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50">
             <div>
-              <span className="text-xs font-bold text-slate-700 font-display">{t("attendancePage.sectionTitle")}</span>
-              <p className="text-[10px] text-slate-400 mt-0.5">
+              <span className="text-sm font-bold text-slate-700 font-display">{t("attendancePage.sectionTitle")}</span>
+              <p className="text-[12px] text-slate-400 mt-0.5">
                 {selectedClass ? `${selectedClass.name} (${selectedClass.classCode})` : t("attendancePage.noClassSelected")}
               </p>
             </div>
@@ -371,7 +372,7 @@ export default function AttendancePage() {
                 <Select
                   value={selectedSessionId ?? ""}
                   onChange={(e) => pickSession(e.target.value)}
-                  className="bg-white border text-[10px] font-bold text-slate-700 px-2 py-1 rounded focus:outline-none"
+                  className="bg-white border text-[12px] font-bold text-slate-700 px-2 py-1 rounded focus:outline-none"
                 >
                   <option value="">{t("attendancePage.selectSessionPlaceholder")}</option>
                   {sessions.filter((s) => hasAttendanceOverride || (hasSessionStarted(s) && isToday(s))).map((s) => (
@@ -390,7 +391,7 @@ export default function AttendancePage() {
                 value={attendanceMode}
                 onChange={(e) => setAttendanceMode(e.target.value as "SESSION_LEVEL" | "PERIOD_LEVEL")}
                 disabled={locked || !canMark}
-                className="bg-white border text-[10px] font-bold text-slate-700 px-2 py-1 rounded focus:outline-none disabled:opacity-50"
+                className="bg-white border text-[12px] font-bold text-slate-700 px-2 py-1 rounded focus:outline-none disabled:opacity-50"
               >
                 <option value="SESSION_LEVEL">{t("attendancePage.modeSessionLevel")}</option>
                 <option value="PERIOD_LEVEL">{t("attendancePage.modePeriodLevel")}</option>
@@ -399,7 +400,7 @@ export default function AttendancePage() {
           </div>
 
           {locked && canMark && (
-            <div className="px-5 py-2.5 bg-amber-50 border-b border-amber-100 text-amber-700 text-[11px] font-semibold">
+            <div className="px-5 py-2.5 bg-amber-50 border-b border-amber-100 text-amber-700 text-[13px] font-semibold">
               {t("attendancePage.lockedNotice", {
                 reason: lockedReason,
                 start: selectedSession?.startTime,
@@ -425,19 +426,19 @@ export default function AttendancePage() {
             <tbody className="divide-y divide-slate-100">
               {!selectedSessionId ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-xs text-slate-400 italic">
+                  <td colSpan={6} className="px-6 py-12 text-center text-sm text-slate-400 italic">
                     {selectedClass ? t("attendancePage.selectSessionPrompt") : t("attendancePage.selectClassPrompt")}
                   </td>
                 </tr>
               ) : loadingRows ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-xs text-slate-400">
+                  <td colSpan={6} className="px-6 py-12 text-center text-sm text-slate-400">
                     {t("attendancePage.loading")}
                   </td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-xs text-slate-400 italic">
+                  <td colSpan={6} className="px-6 py-12 text-center text-sm text-slate-400 italic">
                     {t("attendancePage.noStudents")}
                   </td>
                 </tr>
@@ -480,7 +481,7 @@ export default function AttendancePage() {
                 onClick={handleSaveAttendance}
                 disabled={locked || !selectedSessionId || rows.length === 0 || saving}
                 title={locked ? lockedReason ?? undefined : undefined}
-                className="bg-brand-orange hover:bg-brand-orange/90 text-white font-semibold text-xs px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-soft transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-brand-orange"
+                className="bg-brand-orange hover:bg-brand-orange/90 text-white font-semibold text-sm px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-soft transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-brand-orange"
               >
                 <Save className="w-4 h-4 text-white" />
                 <span>{saving ? t("attendancePage.saving") : t("attendancePage.saveButton")}</span>

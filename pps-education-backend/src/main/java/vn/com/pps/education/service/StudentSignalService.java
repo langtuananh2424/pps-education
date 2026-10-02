@@ -26,7 +26,7 @@ import java.util.Set;
 /**
  * UC-74 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-30) — tín hiệu ngoài lời giáo viên cho trợ lý
  * nhận xét, gom theo lô cho cả lớp: điểm danh buổi này + chuyên cần {@link StudentSignalInsight#ATTENDANCE_WINDOW} buổi gần nhất, lời mời họp phụ huynh vì
- * thiếu BTVN (chỉ để chỉnh giọng văn), thông tin học sinh (mới vào lớp, độ tuổi) và nhận xét gần nhất của buổi
+ * thiếu BTVN (chỉ để chỉnh giọng văn), độ tuổi (chỉ để chỉnh giọng văn) và nhận xét gần nhất của buổi
  * KHÁC Loại giáo viên (chỉ để giữ nhất quán/tránh lặp, không nhắc giáo viên kia). Chỉ đọc, không ghi DB. Quy tắc:
  * xem {@link StudentSignalInsight}.
  */
@@ -58,12 +58,11 @@ public class StudentSignalService {
      *
      * @param attendance          ý về điểm danh/chuyên cần (được viết vào nhận xét).
      * @param toneHints           gợi ý giọng văn (KHÔNG viết vào nhận xét).
-     * @param studentInfo         thông tin học sinh được phép nhắc — dòng nhắc tới sẽ bị gắn cảnh báo cần xác thực.
      * @param otherTeacherComment nhận xét gần nhất ở buổi khác Loại giáo viên của cùng lớp, {@code null} nếu không có.
      */
-    public record Signals(List<String> attendance, List<String> toneHints, List<String> studentInfo,
+    public record Signals(List<String> attendance, List<String> toneHints,
                           OtherTeacherComment otherTeacherComment) {
-        public static final Signals EMPTY = new Signals(List.of(), List.of(), List.of(), null);
+        public static final Signals EMPTY = new Signals(List.of(), List.of(), null);
     }
 
     public record OtherTeacherComment(LocalDate date, String content) {
@@ -130,10 +129,7 @@ public class StudentSignalService {
             }
             StudentSignalInsight.ageTone(enrollment.getStudent().getDateOfBirth(), session.getSessionDate()).ifPresent(toneHints::add);
 
-            List<String> studentInfo = new ArrayList<>();
-            StudentSignalInsight.newStudent(enrollment.getEnrolledDate(), session.getSessionDate()).ifPresent(studentInfo::add);
-
-            Signals signals = new Signals(List.copyOf(attendance), List.copyOf(toneHints), List.copyOf(studentInfo),
+            Signals signals = new Signals(List.copyOf(attendance), List.copyOf(toneHints),
                     otherTeacherComments.get(studentId));
             if (!signals.equals(Signals.EMPTY)) {
                 result.put(studentId, signals);

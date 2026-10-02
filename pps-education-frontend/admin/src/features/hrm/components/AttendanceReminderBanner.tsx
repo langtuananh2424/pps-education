@@ -30,7 +30,7 @@ export default function AttendanceReminderBanner() {
   if (!myAttendance || myAttendance.checkInAt != null) return null;
 
   return (
-    <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-100 p-2.5 rounded-lg">
+    <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-100 p-2.5 rounded-lg">
       <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
       <span>
         {t("reminderBanner.prefix")}<strong>{t("reminderBanner.bold")}</strong>{t("reminderBanner.suffix")}

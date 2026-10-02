@@ -22,9 +22,10 @@ import CountBadge from "@/components/ui/CountBadge";
 import Select from "@/components/ui/Select";
 import Toast from "@/components/ui/Toast";
 import { useToast } from "@/lib/useToast";
+import FloatingError from "@/components/ui/FloatingError";
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
+const labelClass = "text-[12px] uppercase font-bold text-slate-500 block mb-1";
 
 interface QuestionInfo {
   prompt: string | null;
@@ -216,8 +217,8 @@ export default function ExamsPage() {
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("examsPage.title")}</h1>
-        <p className="text-xs text-slate-500 mt-1">{t("examsPage.subtitle")}</p>
-        <p className="text-[10px] text-slate-400 mt-1 italic">{t("examsPage.note")}</p>
+        <p className="text-sm text-slate-500 mt-1">{t("examsPage.subtitle")}</p>
+        <p className="text-[12px] text-slate-400 mt-1 italic">{t("examsPage.note")}</p>
 
         <div className="flex items-center gap-1 mt-4">
           <button
@@ -226,7 +227,7 @@ export default function ExamsPage() {
               setError(null);
               setMode("queue");
             }}
-            className={`px-3.5 py-2 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
+            className={`px-3.5 py-2 text-sm font-bold rounded-lg transition-colors cursor-pointer ${
               mode === "queue" ? "bg-brand-orange text-white shadow-soft" : "text-slate-500 hover:bg-slate-100"
             }`}
           >
@@ -238,7 +239,7 @@ export default function ExamsPage() {
               setError(null);
               setMode("legacy");
             }}
-            className={`px-3.5 py-2 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
+            className={`px-3.5 py-2 text-sm font-bold rounded-lg transition-colors cursor-pointer ${
               mode === "legacy" ? "bg-brand-orange text-white shadow-soft" : "text-slate-500 hover:bg-slate-100"
             }`}
           >
@@ -247,14 +248,14 @@ export default function ExamsPage() {
         </div>
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       {mode === "queue" ? (
         !queueClass ? (
           loadingLanding ? (
-            <p className="text-xs text-slate-500">{t("examsPage.queue.loadingLanding")}</p>
+            <p className="text-sm text-slate-500">{t("examsPage.queue.loadingLanding")}</p>
           ) : landingClasses.length === 0 ? (
-            <div className="h-40 border border-dashed rounded-xl flex flex-col items-center justify-center text-slate-400 text-xs italic gap-1.5 text-center p-4">
+            <div className="h-40 border border-dashed rounded-xl flex flex-col items-center justify-center text-slate-400 text-sm italic gap-1.5 text-center p-4">
               <GraduationCap className="w-6 h-6 text-slate-300" />
               <span>{t("examsPage.queue.emptyLanding")}</span>
             </div>
@@ -268,7 +269,7 @@ export default function ExamsPage() {
                   className="w-full flex items-center gap-3 p-3.5 rounded-xl border border-slate-200 bg-white hover:border-brand-orange/40 hover:bg-orange-50/40 transition-colors text-left cursor-pointer"
                 >
                   <GraduationCap className="w-4 h-4 text-brand-orange shrink-0" />
-                  <span className="text-xs font-bold text-slate-800 flex-1">
+                  <span className="text-sm font-bold text-slate-800 flex-1">
                     {c.classCode} — {c.className}
                   </span>
                   <CountBadge count={c.pendingSubmissionCount} />
@@ -281,7 +282,7 @@ export default function ExamsPage() {
             <button
               type="button"
               onClick={backToLanding}
-              className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-slate-800 cursor-pointer"
+              className="flex items-center gap-1.5 text-sm font-bold text-slate-500 hover:text-slate-800 cursor-pointer"
             >
               <ArrowLeft className="w-3.5 h-3.5" /> {t("examsPage.queue.backToClasses")}
             </button>
@@ -290,12 +291,12 @@ export default function ExamsPage() {
             </h2>
 
             {loadingQueueSubmissions ? (
-              <p className="text-xs text-slate-500">{t("examsPage.shared.loadingQueue")}</p>
+              <p className="text-sm text-slate-500">{t("examsPage.shared.loadingQueue")}</p>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                 <div className="space-y-2 max-h-[36rem] overflow-y-auto pr-1">
                   {queueStudentGroups.length === 0 ? (
-                    <div className="h-32 border border-dashed rounded-xl flex items-center justify-center text-slate-400 text-xs italic">
+                    <div className="h-32 border border-dashed rounded-xl flex items-center justify-center text-slate-400 text-sm italic">
                       <BookOpen className="w-4 h-4 mr-1.5" /> {t("examsPage.shared.emptySubmissions")}
                     </div>
                   ) : (
@@ -312,9 +313,9 @@ export default function ExamsPage() {
                           }`}
                         >
                           <div className="flex items-center justify-between gap-2">
-                            <span className="text-xs font-bold text-slate-800">{g.studentFullName}</span>
+                            <span className="text-sm font-bold text-slate-800">{g.studentFullName}</span>
                             <span
-                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                              className={`text-[12px] font-bold px-2 py-0.5 rounded-full ${
                                 allGraded ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"
                               }`}
                             >
@@ -329,13 +330,13 @@ export default function ExamsPage() {
 
                 <div className="space-y-4 max-h-[36rem] overflow-y-auto pr-1">
                   {!queueSelectedGroup ? (
-                    <div className="h-64 border border-dashed rounded-xl flex flex-col items-center justify-center text-slate-400 text-xs italic gap-1.5 text-center p-4">
+                    <div className="h-64 border border-dashed rounded-xl flex flex-col items-center justify-center text-slate-400 text-sm italic gap-1.5 text-center p-4">
                       <BookOpen className="w-6 h-6 text-slate-300" />
                       <span>{t("examsPage.shared.selectStudentPrompt")}</span>
                     </div>
                   ) : (
                     <>
-                      <h3 className="text-xs font-bold text-slate-800">
+                      <h3 className="text-sm font-bold text-slate-800">
                         {t("examsPage.shared.studentSubmittedCount", { name: queueSelectedGroup.studentFullName, count: queueSelectedGroup.submissions.length })}
                       </h3>
                       {queueSelectedGroup.submissions.map((s) => (
@@ -379,7 +380,7 @@ export default function ExamsPage() {
               <div className="w-64">
                 <label className={labelClass}>{t("examsPage.legacy.classLabel")}</label>
                 {assignedClasses.length === 0 ? (
-                  <p className="text-xs text-slate-400 italic pt-2">{t("examsPage.legacy.noAssignedClass")}</p>
+                  <p className="text-sm text-slate-400 italic pt-2">{t("examsPage.legacy.noAssignedClass")}</p>
                 ) : (
                   <Select value={classId ?? ""} onChange={(e) => setClassId(e.target.value ? Number(e.target.value) : null)} className={inputClass}>
                     <option value="">{t("examsPage.legacy.classPlaceholder")}</option>
@@ -395,14 +396,14 @@ export default function ExamsPage() {
           </div>
 
           {!setId ? (
-            <p className="text-xs text-slate-400 italic">{t("examsPage.legacy.selectSetPrompt")}</p>
+            <p className="text-sm text-slate-400 italic">{t("examsPage.legacy.selectSetPrompt")}</p>
           ) : loadingLegacy ? (
-            <p className="text-xs text-slate-500">{t("examsPage.shared.loadingQueue")}</p>
+            <p className="text-sm text-slate-500">{t("examsPage.shared.loadingQueue")}</p>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
               <div className="space-y-2 max-h-[36rem] overflow-y-auto pr-1">
                 {legacyStudentGroups.length === 0 ? (
-                  <div className="h-32 border border-dashed rounded-xl flex items-center justify-center text-slate-400 text-xs italic">
+                  <div className="h-32 border border-dashed rounded-xl flex items-center justify-center text-slate-400 text-sm italic">
                     <BookOpen className="w-4 h-4 mr-1.5" /> {t("examsPage.shared.emptySubmissions")}
                   </div>
                 ) : (
@@ -419,9 +420,9 @@ export default function ExamsPage() {
                         }`}
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <span className="text-xs font-bold text-slate-800">{g.studentFullName}</span>
+                          <span className="text-sm font-bold text-slate-800">{g.studentFullName}</span>
                           <span
-                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            className={`text-[12px] font-bold px-2 py-0.5 rounded-full ${
                               allGraded ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"
                             }`}
                           >
@@ -436,13 +437,13 @@ export default function ExamsPage() {
 
               <div className="space-y-4 max-h-[36rem] overflow-y-auto pr-1">
                 {!legacySelectedGroup ? (
-                  <div className="h-64 border border-dashed rounded-xl flex flex-col items-center justify-center text-slate-400 text-xs italic gap-1.5 text-center p-4">
+                  <div className="h-64 border border-dashed rounded-xl flex flex-col items-center justify-center text-slate-400 text-sm italic gap-1.5 text-center p-4">
                     <BookOpen className="w-6 h-6 text-slate-300" />
                     <span>{t("examsPage.shared.selectStudentPrompt")}</span>
                   </div>
                 ) : (
                   <>
-                    <h3 className="text-xs font-bold text-slate-800">
+                    <h3 className="text-sm font-bold text-slate-800">
                       {t("examsPage.shared.studentSubmittedCount", { name: legacySelectedGroup.studentFullName, count: legacySelectedGroup.submissions.length })}
                     </h3>
                     {legacySelectedGroup.submissions.map((s) => {

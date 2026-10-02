@@ -1588,6 +1588,8 @@ export interface SaveDraftRowRequest extends UpdateStudentCommentRequest {
   studentId: number;
   /** UC-74 (V201) — true khi dòng vừa áp dụng từ bản nháp trợ lý AI; bỏ trống thì BE giữ nguyên cờ đã lưu. */
   aiDrafted?: boolean;
+  /** UC-74 (V208) — nguyên văn Nhận xét trợ lý AI soạn lúc áp dụng; chỉ gửi kèm khi aiDrafted. */
+  aiDraftContent?: string;
 }
 
 export interface SaveDraftCommentsRequest {
@@ -2259,7 +2261,7 @@ export function markEntranceAssessmentResultPlaced(id: number): Promise<Entrance
 export type CommentAttitude = NonNullable<StudentCommentResponse["attitude"]>;
 
 export interface CommentAiDraftWarning {
-  type: "SIMILAR_IN_SESSION" | "SIMILAR_TO_PREVIOUS" | "CONTAINS_DIGITS" | "NOT_WRITTEN" | "LESSON_TITLE" | "ATTITUDE_ALERT" | "PRONOUN_MISMATCH" | "REPEATED_PATTERN" | "STUDENT_INFO_CHECK";
+  type: "SIMILAR_IN_SESSION" | "SIMILAR_TO_PREVIOUS" | "NOT_WRITTEN" | "LESSON_TITLE" | "ATTITUDE_ALERT" | "PRONOUN_MISMATCH" | "REPEATED_PATTERN" | "STUDENT_INFO_CHECK";
   message: string;
   similarity: number | null;
 }

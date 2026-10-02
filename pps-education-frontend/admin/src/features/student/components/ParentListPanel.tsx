@@ -35,8 +35,8 @@ export default function ParentListPanel({ parents, loading, selectedId, onSelect
     <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden flex flex-col h-full">
       <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3 bg-slate-50 shrink-0">
         <div className="space-y-0.5">
-          <span className="text-xs font-bold text-slate-700 font-display block">{t("parentList.title")}</span>
-          <p className="text-[10px] text-slate-400">{t("parentList.subtitle")}</p>
+          <span className="text-sm font-bold text-slate-700 font-display block">{t("parentList.title")}</span>
+          <p className="text-[12px] text-slate-400">{t("parentList.subtitle")}</p>
         </div>
         {hasPermission("student.parent.create") && (
           <Button variant="primary" size="sm" onClick={onCreate}>
@@ -52,13 +52,13 @@ export default function ParentListPanel({ parents, loading, selectedId, onSelect
           value={query}
           onChange={(e) => onQueryChange(e.target.value)}
           placeholder={t("parentList.searchPlaceholder")}
-          className="w-full bg-slate-50 border border-slate-200 text-xs pl-8 pr-3 py-2 rounded-lg focus:outline-none"
+          className="w-full bg-slate-50 border border-slate-200 text-sm pl-8 pr-3 py-2 rounded-lg focus:outline-none"
         />
       </div>
 
       <div className="divide-y divide-slate-100 overflow-y-auto max-h-[620px] lg:max-h-[680px]">
         {loading ? (
-          <div className="p-8 text-center text-slate-400 text-xs">{t("parentList.loading")}</div>
+          <div className="p-8 text-center text-slate-400 text-sm">{t("parentList.loading")}</div>
         ) : filtered.length === 0 ? (
           <EmptyState icon={Users} title={t("parentList.emptyTitle")} description={t("parentList.emptyDescription")} />
         ) : (
@@ -76,8 +76,8 @@ export default function ParentListPanel({ parents, loading, selectedId, onSelect
                     {p.parentFullName.charAt(0)}
                   </div>
                   <div>
-                    <h4 className="text-xs font-bold text-slate-900">{p.parentFullName}</h4>
-                    <div className="flex items-center gap-1.5 text-[10px] text-slate-400 mt-1">
+                    <h4 className="text-sm font-bold text-slate-900">{p.parentFullName}</h4>
+                    <div className="flex items-center gap-1.5 text-[12px] text-slate-400 mt-1">
                       {p.children.length === 0 ? (
                         <span className="italic">{t("parentList.noChildren")}</span>
                       ) : (

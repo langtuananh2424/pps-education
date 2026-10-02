@@ -31,6 +31,7 @@ import TimetableSessionCard, { SessionPendingKind } from "./TimetableSessionCard
 import SessionInfoModal from "./SessionInfoModal";
 import SessionEditModal, { SessionAssignmentPreview } from "./SessionEditModal";
 import CreateSessionModal, { CreateSessionModalPrefill, describeSkipped, QueuedCreatePayload, weekdayOf } from "./CreateSessionModal";
+import FloatingError from "@/components/ui/FloatingError";
 
 const HEADER_ROW_HEIGHT = 44;
 const SECTION_ROW_HEIGHT = 24;
@@ -582,11 +583,11 @@ export default function ClassPeriodGrid({ siteId, dates, classId, minLanes = DEF
   );
 
   if (loading && periods.length === 0) {
-    return <p className="text-xs text-slate-500 text-center py-8">Đang tải...</p>;
+    return <p className="text-sm text-slate-500 text-center py-8">Đang tải...</p>;
   }
   if (periods.length === 0) {
     return (
-      <p className="text-xs text-slate-400 italic text-center py-8">
+      <p className="text-sm text-slate-400 italic text-center py-8">
         Điểm trường này chưa cấu hình tiết học — vào Cơ sở vật chất &amp; Đối tác &gt; Điểm trường &gt; tab "Tiết học" để thêm.
       </p>
     );
@@ -597,15 +598,11 @@ export default function ClassPeriodGrid({ siteId, dates, classId, minLanes = DEF
       <div className="flex items-center justify-between gap-2 px-4 pt-4 pb-2 flex-wrap">
         <div className="flex items-center gap-2 flex-wrap">
           {hasPending && (
-            <span className="text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-200 rounded-full px-2.5 py-1">
+            <span className="text-[12px] font-bold text-purple-700 bg-purple-50 border border-purple-200 rounded-full px-2.5 py-1">
               {pendingCount} thay đổi chưa lưu
             </span>
           )}
-          {saveError && (
-            <span className="text-[10px] text-rose-600 bg-rose-50 border border-rose-100 rounded-lg px-2 py-1 whitespace-pre-line max-w-md">
-              {saveError}
-            </span>
-          )}
+          <FloatingError message={saveError} onClose={() => setSaveError(null)} />
         </div>
         {(canSchedule || canEditSessions) && (
           <div className="flex items-center gap-2">
@@ -655,7 +652,7 @@ export default function ClassPeriodGrid({ siteId, dates, classId, minLanes = DEF
               style={{ gridColumn: i + 2, gridRow: 1 }}
             >
               <span className="text-[13px] font-bold text-slate-700">{d.toLocaleDateString("vi-VN", { weekday: "short" })}</span>
-              <span className="text-[11px] text-slate-900 font-mono">{d.getDate()}/{d.getMonth() + 1}</span>
+              <span className="text-[13px] text-slate-900 font-mono">{d.getDate()}/{d.getMonth() + 1}</span>
             </div>
           ))}
 
@@ -677,7 +674,7 @@ export default function ClassPeriodGrid({ siteId, dates, classId, minLanes = DEF
                 style={{ gridColumn: 1, gridRow: section.rowIndex.get(p.periodNumber) }}
               >
                 <span className="text-[12px] font-bold text-slate-700">{p.label ?? `Tiết ${p.periodNumber}`}</span>
-                <span className="text-[10px] text-slate-900 font-mono">
+                <span className="text-[12px] text-slate-900 font-mono">
                   {p.startTime.slice(0, 5)}–{p.endTime.slice(0, 5)}
                 </span>
               </div>

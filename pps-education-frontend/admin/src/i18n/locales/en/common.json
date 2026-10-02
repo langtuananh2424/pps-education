@@ -27,5 +27,12 @@
     "timeout": "GPS location timed out — try again somewhere with a better GPS/Wi-Fi signal.",
     "unknownWithDetail": "Couldn't get your GPS location ({{detail}}) — please try again.",
     "unknown": "Couldn't get your GPS location — please try again."
+  },
+  "floatingError": {
+    "close": "Dismiss message"
+  },
+  "errors": {
+    "requestTimeout": "The network is slow or offline and the request timed out. Please try again.",
+    "imageTooLarge": "The image is too large (max {{maxMb}}MB). Please choose another one."
   }
 }

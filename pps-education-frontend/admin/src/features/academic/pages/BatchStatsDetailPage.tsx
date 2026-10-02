@@ -23,6 +23,7 @@ import { formatDateTime } from "@/lib/i18nFormat";
 import DatePicker from "@/components/ui/DatePicker";
 import Time24Input from "@/components/ui/Time24Input";
 import Modal from "@/components/ui/Modal";
+import FloatingError from "@/components/ui/FloatingError";
 
 const studentStatusVariants: Record<string, BadgeVariant> = {
   CHUA_LAM: "neutral",
@@ -190,7 +191,7 @@ export default function BatchStatsDetailPage() {
         </button>
         <Card>
           {error ? (
-            <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-lg">{error}</div>
+            <FloatingError message={error} />
           ) : loading ? (
             <p className="text-sm text-slate-500">{t("shared.loadingDetail")}</p>
           ) : (
@@ -215,14 +216,14 @@ export default function BatchStatsDetailPage() {
 
       <div>
         <h1 className="text-2xl font-bold font-display text-slate-900">{studentStats.assignment.exerciseTitle}</h1>
-        <p className="text-xs text-slate-500 mt-1">{studentStats.assignment.exerciseCode}</p>
+        <p className="text-sm text-slate-500 mt-1">{studentStats.assignment.exerciseCode}</p>
         <div className="flex items-center gap-3 mt-2">
           {studentStats.assignment.dueAt && (
-            <span className="text-xs text-slate-500">
+            <span className="text-sm text-slate-500">
               {t("exerciseDetail.dueAtLabel")}: {formatDateTime(studentStats.assignment.dueAt, i18n.language)}
             </span>
           )}
-          <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+          <label className="flex items-center gap-1.5 text-sm font-semibold text-slate-600">
             <input
               type="checkbox"
               checked={studentStats.assignment.lateSubmissionAllowed}
@@ -235,7 +236,7 @@ export default function BatchStatsDetailPage() {
         </div>
         {studentStats.assignment.lateSubmissionAllowed && canConfirmDeadline && (
           <div className="flex items-center gap-2 mt-2">
-            <span className="text-xs font-semibold text-slate-500">{t("exerciseDetail.lateSubmissionDeadlineLabel")}</span>
+            <span className="text-sm font-semibold text-slate-500">{t("exerciseDetail.lateSubmissionDeadlineLabel")}</span>
             <DatePicker
               value={deadlineDate}
               min={studentStats.assignment.dueAt ? studentStats.assignment.dueAt.slice(0, 10) : undefined}
@@ -253,7 +254,7 @@ export default function BatchStatsDetailPage() {
               value={deadlineTime}
               disabled={!deadlineDate || togglingLateSubmission}
               onChange={setDeadlineTime}
-              className="bg-white border border-slate-200 text-xs px-2 py-1.5 rounded-lg focus:outline-none disabled:opacity-40"
+              className="bg-white border border-slate-200 text-sm px-2 py-1.5 rounded-lg focus:outline-none disabled:opacity-40"
             />
             {hasPendingDeadlineChange && (
               <Button variant="primary" size="sm" onClick={() => setConfirmDeadlineOpen(true)} disabled={togglingLateSubmission}>
@@ -275,7 +276,7 @@ export default function BatchStatsDetailPage() {
         )}
       </div>
 
-      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       <Card padded={false} className="overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-100 bg-slate-50">
@@ -312,7 +313,7 @@ export default function BatchStatsDetailPage() {
                   {studentStats.students.map((s) => (
                     <tr key={s.studentId}>
                       <Td className="font-semibold text-slate-900">
-                        {s.studentFullName} <span className="text-slate-400 font-mono text-[10px]">({s.studentCode})</span>
+                        {s.studentFullName} <span className="text-slate-400 font-mono text-[12px]">({s.studentCode})</span>
                       </Td>
                       <Td>
                         <Badge variant={studentStatusVariants[s.status]}>{studentStatusLabels[s.status]}</Badge>
@@ -418,14 +419,14 @@ export default function BatchStatsDetailPage() {
           <>
             <button
               onClick={handleCancelDeadlineChange}
-              className="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold text-xs px-4 py-2 rounded-lg transition-all"
+              className="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold text-sm px-4 py-2 rounded-lg transition-all"
             >
               {t("exerciseDetail.confirmDeadline.cancel")}
             </button>
             <button
               onClick={handleConfirmDeadlineChange}
               disabled={togglingLateSubmission}
-              className="bg-brand-orange hover:bg-brand-orange/90 text-white font-semibold text-xs px-4 py-2 rounded-lg transition-all disabled:opacity-50"
+              className="bg-brand-orange hover:bg-brand-orange/90 text-white font-semibold text-sm px-4 py-2 rounded-lg transition-all disabled:opacity-50"
             >
               {t("exerciseDetail.confirmDeadline.confirmButton")}
             </button>
@@ -434,7 +435,7 @@ export default function BatchStatsDetailPage() {
       >
         <div className="flex items-start gap-3">
           <ShieldAlert className="w-8 h-8 text-amber-500 shrink-0" />
-          <div className="text-xs text-slate-600 leading-relaxed">
+          <div className="text-sm text-slate-600 leading-relaxed">
             {pendingDeadlineIso &&
               t("exerciseDetail.confirmDeadline.description", { deadline: formatDateTime(pendingDeadlineIso, i18n.language) })}
           </div>

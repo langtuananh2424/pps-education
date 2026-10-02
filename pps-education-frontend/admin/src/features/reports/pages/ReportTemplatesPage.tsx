@@ -14,6 +14,9 @@ import FieldMappingsDrawer from "../components/FieldMappingsDrawer";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import { ApiError } from "@/lib/apiClient";
+import FloatingError from "@/components/ui/FloatingError";
+import { notifyError } from "@/components/ui/FloatingBanner";
+import { useDialog } from "@/components/ui/DialogProvider";
 
 const FILE_FORMAT_COLORS: Record<string, string> = {
   DOCX: "bg-blue-100 text-blue-700",
@@ -34,6 +37,7 @@ export default function ReportTemplatesPage() {
   const [selectedTemplate, setSelectedTemplate] = useState<ReportTemplateResponse | null>(null);
 
   const { message: toastMessage, showToast } = useToast();
+  const { confirmDialog } = useDialog();
 
   const load = () => {
     setLoading(true);
@@ -48,13 +52,13 @@ export default function ReportTemplatesPage() {
   }, []);
 
   const handleDelete = async (id: number) => {
-    if (!confirm(t("reportTemplatesPage.confirmDelete"))) return;
+    if (!(await confirmDialog(t("reportTemplatesPage.confirmDelete"), { danger: true }))) return;
     try {
       await deleteReportTemplate(id);
       showToast(t("reportTemplatesPage.deleteSuccessToast"));
       load();
     } catch (err: any) {
-      alert(err.message || t("reportTemplatesPage.deleteErrorAlert"));
+      notifyError(err.message || t("reportTemplatesPage.deleteErrorAlert"));
     }
   };
 
@@ -68,7 +72,7 @@ export default function ReportTemplatesPage() {
       <div className="border-b border-slate-200 pb-4 flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("reportTemplatesPage.title")}</h1>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-sm text-slate-500 mt-1">
             {t("reportTemplatesPage.subtitle")}
           </p>
         </div>
@@ -92,17 +96,17 @@ export default function ReportTemplatesPage() {
             <div className="w-7 h-7 rounded-full bg-brand-orange text-white text-xs font-bold flex items-center justify-center shrink-0">{step}</div>
             <div>
               <p className="text-sm font-semibold text-slate-800">{title}</p>
-              <p className="text-xs text-slate-500 mt-0.5">{desc}</p>
+              <p className="text-sm text-slate-500 mt-0.5">{desc}</p>
             </div>
           </div>
         ))}
       </div>
 
-      {error && <div className="text-sm text-rose-500 bg-rose-50 p-3 rounded-lg border border-rose-100">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       <div className="bg-white rounded-xl border border-slate-200/60 shadow-sm overflow-hidden">
         <table className="w-full text-left text-sm">
-          <thead className="bg-slate-50/50 border-b border-slate-200/60 text-slate-500 font-medium text-xs">
+          <thead className="bg-slate-50/50 border-b border-slate-200/60 text-slate-500 font-medium text-sm">
             <tr>
               <th className="px-4 py-3">{t("reportTemplatesPage.table.name")}</th>
               <th className="px-4 py-3">{t("reportTemplatesPage.table.type")}</th>
@@ -120,28 +124,28 @@ export default function ReportTemplatesPage() {
                     <FileText className="w-4 h-4 text-brand-orange shrink-0" />
                     <div>
                       <span className="font-semibold text-slate-700 block text-sm">{tpl.name}</span>
-                      {tpl.description && <span className="text-xs text-slate-400">{tpl.description}</span>}
+                      {tpl.description && <span className="text-sm text-slate-400">{tpl.description}</span>}
                     </div>
                   </div>
                 </td>
                 <td className="px-4 py-3">
-                  <span className="text-xs text-slate-600 font-medium">
+                  <span className="text-sm text-slate-600 font-medium">
                     {REPORT_TEMPLATE_TYPE_LABELS[tpl.templateType] ?? tpl.templateType}
                   </span>
                 </td>
                 <td className="px-4 py-3">
-                  <span className={`px-2 py-0.5 rounded text-xs font-bold ${FILE_FORMAT_COLORS[tpl.fileFormat] ?? "bg-slate-100 text-slate-600"}`}>
+                  <span className={`px-2 py-0.5 rounded text-sm font-bold ${FILE_FORMAT_COLORS[tpl.fileFormat] ?? "bg-slate-100 text-slate-600"}`}>
                     {tpl.fileFormat}
                   </span>
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-1.5">
                     <FileType className="w-3.5 h-3.5 text-slate-400" />
-                    <span className="text-xs text-slate-500">{t("reportTemplatesPage.placeholderCount", { count: (tpl.placeholderKeys ?? []).length })}</span>
+                    <span className="text-sm text-slate-500">{t("reportTemplatesPage.placeholderCount", { count: (tpl.placeholderKeys ?? []).length })}</span>
                   </div>
                 </td>
                 <td className="px-4 py-3">
-                  <span className={`px-2 py-0.5 rounded text-xs font-semibold ${tpl.active ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
+                  <span className={`px-2 py-0.5 rounded text-sm font-semibold ${tpl.active ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
                     {tpl.active ? t("reportTemplatesPage.statusActive") : t("reportTemplatesPage.statusArchived")}
                   </span>
                 </td>
@@ -172,7 +176,7 @@ export default function ReportTemplatesPage() {
                 <td colSpan={6} className="px-4 py-10 text-center text-slate-500">
                   <ClipboardCheck className="w-10 h-10 mx-auto text-slate-200 mb-2" />
                   <p className="text-sm font-medium">{t("reportTemplatesPage.emptyTitle")}</p>
-                  <p className="text-xs text-slate-400 mt-1">{t("reportTemplatesPage.emptyHint")}</p>
+                  <p className="text-sm text-slate-400 mt-1">{t("reportTemplatesPage.emptyHint")}</p>
                 </td>
               </tr>
             )}

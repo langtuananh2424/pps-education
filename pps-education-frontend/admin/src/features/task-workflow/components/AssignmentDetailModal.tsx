@@ -20,6 +20,7 @@ import {
 import { assignmentActionLabel, ASSIGNMENT_STATUS_META, assignmentStatusLabel, ASSIGNEE_TRANSITIONS } from "../statusMeta";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
+import FloatingError from "@/components/ui/FloatingError";
 
 interface AssignmentDetailModalProps {
   assignment: TaskAssignmentResponse;
@@ -121,42 +122,42 @@ export default function AssignmentDetailModal({ assignment, onClose, onChanged }
       size="lg"
     >
       {loading ? (
-        <p className="text-xs text-slate-500">{t("assignmentDetail.loading")}</p>
+        <p className="text-sm text-slate-500">{t("assignmentDetail.loading")}</p>
       ) : (
         <div className="space-y-4">
-          {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+          <FloatingError message={error} onClose={() => setError(null)} />
 
           <div className="space-y-1">
-            <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block font-display">{t("assignmentDetail.descriptionLabel")}</span>
-            <p className="text-xs text-slate-700 leading-relaxed bg-slate-50 p-3 rounded-lg border border-slate-100">
+            <span className="text-[12px] uppercase font-bold tracking-wider text-slate-400 block font-display">{t("assignmentDetail.descriptionLabel")}</span>
+            <p className="text-sm text-slate-700 leading-relaxed bg-slate-50 p-3 rounded-lg border border-slate-100">
               {task?.description || t("assignmentDetail.noDescription")}
             </p>
           </div>
 
-          <div className="grid grid-cols-3 gap-3 bg-slate-50 p-3.5 rounded-lg border border-slate-100 text-xs">
+          <div className="grid grid-cols-3 gap-3 bg-slate-50 p-3.5 rounded-lg border border-slate-100 text-sm">
             <div>
-              <span className="text-[10px] text-slate-400 font-medium block">{t("assignmentDetail.statusLabel")}</span>
-              <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${meta.badge}`}>
+              <span className="text-[12px] text-slate-400 font-medium block">{t("assignmentDetail.statusLabel")}</span>
+              <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-[12px] font-bold ${meta.badge}`}>
                 {assignmentStatusLabel(t, assignment.assignmentStatus)}
               </span>
             </div>
             <div>
-              <span className="text-[10px] text-slate-400 font-medium block">{t("assignmentDetail.assignerLabel")}</span>
+              <span className="text-[12px] text-slate-400 font-medium block">{t("assignmentDetail.assignerLabel")}</span>
               <span className="font-bold text-slate-800 block mt-0.5">{task?.createdByFullName ?? "—"}</span>
             </div>
             <div>
-              <span className="text-[10px] text-slate-400 font-medium block">{t("assignmentDetail.dueLabel")}</span>
+              <span className="text-[12px] text-slate-400 font-medium block">{t("assignmentDetail.dueLabel")}</span>
               <span className="font-bold text-slate-800 block mt-0.5">
                 {task?.dueAt ? formatDateTime(task.dueAt, i18n.language) : t("assignmentDetail.noDueDate")}
               </span>
             </div>
             <div>
-              <span className="text-[10px] text-slate-400 font-medium block">{t("assignmentDetail.priorityLabel")}</span>
+              <span className="text-[12px] text-slate-400 font-medium block">{t("assignmentDetail.priorityLabel")}</span>
               <span className="font-bold text-slate-800 block mt-0.5">{task ? t(`priority.${task.priority}`) : "—"}</span>
             </div>
             {assignment.declineReason && (
               <div className="col-span-2">
-                <span className="text-[10px] text-rose-400 font-medium block">{t("assignmentDetail.declineReasonLabel")}</span>
+                <span className="text-[12px] text-rose-400 font-medium block">{t("assignmentDetail.declineReasonLabel")}</span>
                 <span className="font-semibold text-rose-600 block mt-0.5">{assignment.declineReason}</span>
               </div>
             )}
@@ -164,7 +165,7 @@ export default function AssignmentDetailModal({ assignment, onClose, onChanged }
 
           {(allowedTargets.length > 0 || declineTarget) && (
             <div className="space-y-2 border border-slate-100 rounded-lg p-3">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block font-display">{t("assignmentDetail.updateProgressLabel")}</span>
+              <span className="text-[12px] uppercase font-bold tracking-wider text-slate-400 block font-display">{t("assignmentDetail.updateProgressLabel")}</span>
               {declineTarget === "DECLINED" ? (
                 <div className="space-y-2">
                   <textarea
@@ -172,13 +173,13 @@ export default function AssignmentDetailModal({ assignment, onClose, onChanged }
                     onChange={(e) => setDeclineReason(e.target.value)}
                     placeholder={t("assignmentDetail.declineReasonPlaceholder")}
                     rows={2}
-                    className="w-full bg-white border border-rose-200 text-xs p-2.5 rounded-lg focus:outline-none"
+                    className="w-full bg-white border border-rose-200 text-sm p-2.5 rounded-lg focus:outline-none"
                   />
                   <div className="flex gap-2">
                     <button
                       type="button"
                       onClick={() => setDeclineTarget(null)}
-                      className="px-3 py-1.5 text-slate-500 hover:bg-slate-100 text-xs font-semibold rounded-lg"
+                      className="px-3 py-1.5 text-slate-500 hover:bg-slate-100 text-sm font-semibold rounded-lg"
                     >
                       {t("assignmentDetail.cancel")}
                     </button>
@@ -186,7 +187,7 @@ export default function AssignmentDetailModal({ assignment, onClose, onChanged }
                       type="button"
                       disabled={submittingStatus}
                       onClick={handleConfirmDecline}
-                      className="bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs px-3.5 py-1.5 rounded-lg"
+                      className="bg-rose-600 hover:bg-rose-700 text-white font-semibold text-sm px-3.5 py-1.5 rounded-lg"
                     >
                       {t("assignmentDetail.confirmDecline")}
                     </button>
@@ -200,7 +201,7 @@ export default function AssignmentDetailModal({ assignment, onClose, onChanged }
                       type="button"
                       disabled={submittingStatus}
                       onClick={() => (target === "DECLINED" ? setDeclineTarget("DECLINED") : handleChangeStatus(target))}
-                      className={`text-xs font-semibold px-3.5 py-1.5 rounded-lg ${
+                      className={`text-sm font-semibold px-3.5 py-1.5 rounded-lg ${
                         target === "DECLINED"
                           ? "bg-rose-50 text-rose-600 hover:bg-rose-100"
                           : "bg-brand-gradient hover:opacity-95 text-white"
@@ -215,7 +216,7 @@ export default function AssignmentDetailModal({ assignment, onClose, onChanged }
           )}
 
           <div className="space-y-2">
-            <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block font-display">{t("assignmentDetail.attachmentsLabel")}</span>
+            <span className="text-[12px] uppercase font-bold tracking-wider text-slate-400 block font-display">{t("assignmentDetail.attachmentsLabel")}</span>
             <div className="space-y-1.5">
               {attachments.map((a) => (
                 <a
@@ -223,46 +224,46 @@ export default function AssignmentDetailModal({ assignment, onClose, onChanged }
                   href={a.fileUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex items-center gap-1.5 text-xs text-brand-orange hover:underline"
+                  className="flex items-center gap-1.5 text-sm text-brand-orange hover:underline"
                 >
                   <Link2 className="w-3.5 h-3.5" />
                   {a.fileName}
                 </a>
               ))}
-              {attachments.length === 0 && <p className="text-xs text-slate-400 italic">{t("assignmentDetail.noAttachments")}</p>}
+              {attachments.length === 0 && <p className="text-sm text-slate-400 italic">{t("assignmentDetail.noAttachments")}</p>}
             </div>
             <form onSubmit={handleAddAttachment} className="flex gap-2">
               <input
                 value={attachName}
                 onChange={(e) => setAttachName(e.target.value)}
                 placeholder={t("assignmentDetail.attachmentNamePlaceholder")}
-                className="flex-1 bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none"
+                className="flex-1 bg-slate-50 border border-slate-200 text-sm px-3 py-2 rounded-lg focus:outline-none"
               />
               <input
                 value={attachUrl}
                 onChange={(e) => setAttachUrl(e.target.value)}
                 placeholder={t("assignmentDetail.attachmentUrlPlaceholder")}
-                className="flex-1 bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none"
+                className="flex-1 bg-slate-50 border border-slate-200 text-sm px-3 py-2 rounded-lg focus:outline-none"
               />
-              <button type="submit" className="bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-semibold px-3 py-2 rounded-lg shrink-0">
+              <button type="submit" className="bg-slate-100 hover:bg-slate-200 text-slate-600 text-sm font-semibold px-3 py-2 rounded-lg shrink-0">
                 {t("assignmentDetail.addButton")}
               </button>
             </form>
           </div>
 
           <div className="space-y-3">
-            <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block font-display">{t("assignmentDetail.historyLabel")}</span>
+            <span className="text-[12px] uppercase font-bold tracking-wider text-slate-400 block font-display">{t("assignmentDetail.historyLabel")}</span>
             <div className="space-y-2">
               {comments.map((cmt) => (
-                <div key={cmt.id} className="p-2.5 rounded-lg bg-slate-50 border border-slate-100 text-xs">
+                <div key={cmt.id} className="p-2.5 rounded-lg bg-slate-50 border border-slate-100 text-sm">
                   <div className="flex items-center justify-between font-semibold text-slate-700">
                     <span>{cmt.commenterFullName}</span>
-                    <span className="text-[9px] text-slate-400 font-mono">{formatDateTime(cmt.createdAt, i18n.language)}</span>
+                    <span className="text-[11px] text-slate-400 font-mono">{formatDateTime(cmt.createdAt, i18n.language)}</span>
                   </div>
                   <p className="text-slate-600 mt-1">{cmt.content}</p>
                 </div>
               ))}
-              {comments.length === 0 && <p className="text-xs text-slate-400 italic">{t("assignmentDetail.noComments")}</p>}
+              {comments.length === 0 && <p className="text-sm text-slate-400 italic">{t("assignmentDetail.noComments")}</p>}
             </div>
 
             <form onSubmit={handleAddComment} className="flex gap-2">
@@ -271,7 +272,7 @@ export default function AssignmentDetailModal({ assignment, onClose, onChanged }
                 placeholder={t("assignmentDetail.commentPlaceholder")}
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
-                className="flex-1 bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none"
+                className="flex-1 bg-slate-50 border border-slate-200 text-sm px-3 py-2 rounded-lg focus:outline-none"
               />
               <button type="submit" className="bg-brand-gradient hover:opacity-95 text-white p-2 rounded-lg shrink-0">
                 <Send className="w-4 h-4 text-white" />

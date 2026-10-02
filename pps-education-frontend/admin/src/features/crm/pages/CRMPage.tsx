@@ -3,7 +3,7 @@ import { Lead, Student } from "@/types";
 import { mockLeads, mockStudents } from "@/data/mockData";
 import Tabs from "@/components/ui/Tabs";
 import UnderDevelopment from "@/components/ui/UnderDevelopment";
-import { useDialog } from "@/components/ui/DialogProvider";
+import { notifySuccess } from "@/components/ui/FloatingBanner";
 // Cả LeadsPanel (UC-33) và ExcelImportPanel (UC-35) tạm ẩn theo yêu cầu người dùng (2026-07-23)
 // — sẽ phát triển tiếp ở giai đoạn sau, không xoá component, chỉ chưa hiển thị.
 // import LeadsPanel from "../components/LeadsPanel";
@@ -13,7 +13,6 @@ export default function CRMPage() {
   const [activeSubTab, setActiveSubTab] = useState<"leads" | "import">("leads");
   const [leads, setLeads] = useState<Lead[]>(mockLeads);
   const [students, setStudents] = useState<Student[]>(mockStudents);
-  const { alertDialog } = useDialog();
 
   const handleAddCallLog = (leadId: string, text: string, status: Lead["status"]) => {
     const timeString = new Date().toISOString().replace("T", " ").substring(0, 16);
@@ -43,7 +42,7 @@ export default function CRMPage() {
     };
 
     setStudents((prev) => [newStudent, ...prev]);
-    await alertDialog(
+    notifySuccess(
       `Chúc mừng! Đã thực hiện transaction chuyển đổi thành công:\n- Lead '${lead.fullName}' đổi trạng thái sang WON.\n- Đã tự động tạo mới hồ sơ học sinh '${lead.fullName}' trong Phân hệ Quản lý Học sinh.`
     );
   };
@@ -83,7 +82,7 @@ export default function CRMPage() {
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-200 pb-4">
         <div>
           <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Tuyển Sinh & Quản Lý Khách Hàng (CRM)</h1>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-sm text-slate-500 mt-1">
             Ghi nhận thông tin Lead đa kênh, chăm sóc khách hàng và đồng bộ tự động hóa thông tin nhập học chính thức.
           </p>
         </div>

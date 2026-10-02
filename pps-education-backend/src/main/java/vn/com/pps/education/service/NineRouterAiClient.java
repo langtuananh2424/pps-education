@@ -146,12 +146,22 @@ public class NineRouterAiClient {
      * ảnh hưởng các caller cũ ({@link ReflexWritingGrammarAiGradingService}...).
      */
     public ChatResult chatWithFinishReason(String systemPrompt, String userMessage, String model) {
+        return chatWithFinishReason(systemPrompt, userMessage, model, 0.0);
+    }
+
+    /**
+     * Như {@link #chatWithFinishReason(String, String, String)} nhưng tự chọn nhiệt độ — bổ sung 2026-10-01 (đã xác
+     * nhận với người dùng) CHỈ cho bước VIẾT câu nhận xét của trợ lý UC-74: viết văn cho cả lớp ở nhiệt độ 0 làm câu
+     * chữ các học sinh na ná nhau. Chấm bài (Writing/Speaking/Reflex) vẫn đi đường 3 tham số, giữ nhiệt độ 0.
+     */
+    public ChatResult chatWithFinishReason(String systemPrompt, String userMessage, String model, double temperature) {
         String resolvedModel = (model == null || model.isBlank()) ? defaultModel : model;
         if (resolvedModel == null || resolvedModel.isBlank()) {
             log.warn("NineRouterAiClient: chưa cấu hình model (app.ai-grading.nine-router-model hoặc tham số model).");
             return null;
         }
-        return callWithConcurrencyLimit("chatWithFinishReason", () -> doChatWithMeta(systemPrompt, userMessage, resolvedModel));
+        return callWithConcurrencyLimit("chatWithFinishReason",
+                () -> doChatWithMeta(systemPrompt, userMessage, resolvedModel, temperature));
     }
 
     public NineRouterAiClient(ObjectMapper objectMapper,
@@ -247,7 +257,7 @@ public class NineRouterAiClient {
     }
 
     private AiTextResponse doChat(String systemPrompt, String userMessage, String resolvedModel) {
-        ChatResult result = doChatWithMeta(systemPrompt, userMessage, resolvedModel);
+        ChatResult result = doChatWithMeta(systemPrompt, userMessage, resolvedModel, 0.0);
         if (result == null) {
             return null;
         }
@@ -262,19 +272,24 @@ public class NineRouterAiClient {
      * Bổ sung 2026-09-22 (đã xác nhận với người dùng) — thêm {@code temperature: 0}: MỌI rubric chấm AI
      * (Writing/Speaking/Reflex) người training bàn giao đều yêu cầu tuyệt đối "temperature 0" ở mục cấu
      * hình, nhưng trước đây field này chưa hề được gửi — đặt chung ở đây (không phải riêng lẻ từng
-     * service) vì không caller nào từng cần nhiệt độ khác 0. Đọc kèm {@code finish_reason} (field chuẩn
+     * service). Ngoại lệ duy nhất: bước viết câu nhận xét UC-74 truyền nhiệt độ riêng (bổ sung 2026-10-01, xem
+     * {@link #chatWithFinishReason(String, String, String, double)}). Đọc kèm {@code finish_reason} (field chuẩn
      * OpenAI-compat, đã xác nhận 9Router trả đúng field này bằng gọi thật 2026-09-22) để
      * {@link #chatWithFinishReason} dùng được, và {@code usage} (V192) để không mất số liệu chi phí trên
      * đường gọi này — {@link #doChat} chỉ lấy {@code content}/{@code usage}, bỏ qua {@code finishReason}.
      */
-    private ChatResult doChatWithMeta(String systemPrompt, String userMessage, String resolvedModel) {
+    private ChatResult doChatWithMeta(String systemPrompt, String userMessage, String resolvedModel, double temperature) {
         try {
             ObjectNode payload = objectMapper.createObjectNode();
             payload.put("model", resolvedModel);
             // 9Router mặc định trả SSE stream (nhiều dòng "data: {...}") nếu thiếu field này — HttpClient
             // đọc nguyên body như 1 JSON sẽ lỗi parse. Tắt stream để có 1 JSON response thường.
             payload.put("stream", false);
-            payload.put("temperature", 0);
+            if (temperature == 0) {
+                payload.put("temperature", 0);
+            } else {
+                payload.put("temperature", temperature);
+            }
             ArrayNode messages = payload.putArray("messages");
             if (systemPrompt != null && !systemPrompt.isBlank()) {
                 ObjectNode systemMsg = messages.addObject();

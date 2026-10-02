@@ -11,6 +11,7 @@ import {
   createReportTemplate,
 } from "@/features/academic/api";
 import { ApiError } from "@/lib/apiClient";
+import FloatingError from "@/components/ui/FloatingError";
 
 interface Props {
   onClose: () => void;
@@ -76,9 +77,7 @@ export default function UploadTemplateModal({ onClose, onSuccess }: Props) {
   return (
     <Modal open={true} size="lg" title={t("uploadTemplateModal.modalTitle")} description={t("uploadTemplateModal.modalDescription")} onClose={onClose}>
       <div className="space-y-4">
-        {error && (
-          <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-lg">{error}</div>
-        )}
+        <FloatingError message={error} onClose={() => setError(null)} />
 
         {/* File dropzone */}
         <div
@@ -101,7 +100,7 @@ export default function UploadTemplateModal({ onClose, onSuccess }: Props) {
               <FileText className="w-8 h-8 text-emerald-500 shrink-0" />
               <div className="text-left">
                 <p className="font-semibold text-slate-800 text-sm">{file.name}</p>
-                <p className="text-xs text-slate-500">{formatFileSize(file.size)}</p>
+                <p className="text-sm text-slate-500">{formatFileSize(file.size)}</p>
               </div>
               <button
                 className="ml-2 text-slate-400 hover:text-rose-500"
@@ -114,14 +113,14 @@ export default function UploadTemplateModal({ onClose, onSuccess }: Props) {
             <div>
               <UploadCloud className="w-10 h-10 text-slate-300 mx-auto mb-2" />
               <p className="text-sm text-slate-500">{t("uploadTemplateModal.dropzonePromptPrefix")} <span className="text-brand-orange font-semibold">{t("uploadTemplateModal.dropzonePromptEmphasis")}</span></p>
-              <p className="text-xs text-slate-400 mt-1">{t("uploadTemplateModal.dropzoneHint")}</p>
+              <p className="text-sm text-slate-400 mt-1">{t("uploadTemplateModal.dropzoneHint")}</p>
             </div>
           )}
         </div>
 
         {/* Tên mẫu */}
         <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1">
+          <label className="block text-sm font-semibold text-slate-700 mb-1">
             {t("uploadTemplateModal.nameLabel")} <span className="text-rose-500">*</span>
           </label>
           <input
@@ -135,7 +134,7 @@ export default function UploadTemplateModal({ onClose, onSuccess }: Props) {
 
         {/* Loại báo cáo */}
         <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1">
+          <label className="block text-sm font-semibold text-slate-700 mb-1">
             {t("uploadTemplateModal.typeLabel")} <span className="text-rose-500">*</span>
           </label>
           <Select
@@ -148,14 +147,14 @@ export default function UploadTemplateModal({ onClose, onSuccess }: Props) {
               <option key={key} value={key}>{label}</option>
             ))}
           </Select>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-sm text-slate-400 mt-1">
             {t("uploadTemplateModal.typeHint")}
           </p>
         </div>
 
         {/* Mô tả */}
         <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1">{t("uploadTemplateModal.descriptionLabel")}</label>
+          <label className="block text-sm font-semibold text-slate-700 mb-1">{t("uploadTemplateModal.descriptionLabel")}</label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -167,7 +166,7 @@ export default function UploadTemplateModal({ onClose, onSuccess }: Props) {
 
         {/* Thông tin sau upload */}
         {file && templateType && (
-          <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-xs text-blue-700 space-y-1">
+          <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-sm text-blue-700 space-y-1">
             <p className="font-semibold text-blue-800">{t("uploadTemplateModal.afterUploadTitle")}</p>
             <p>• {t("uploadTemplateModal.afterUploadLine1Prefix")} <code>[TEN_BIEN]</code> {t("uploadTemplateModal.afterUploadLine1Suffix")}</p>
             <p>• {t("uploadTemplateModal.afterUploadLine2Prefix")} <strong>{t("uploadTemplateModal.afterUploadLine2Bold")}</strong> {t("uploadTemplateModal.afterUploadLine2Suffix")}</p>

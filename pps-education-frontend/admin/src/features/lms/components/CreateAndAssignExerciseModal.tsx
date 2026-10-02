@@ -33,9 +33,10 @@ import {
   VIETNAMESE_SKILL_MODES,
   VietnameseSkillCategory
 } from "../skillCategoryKinds";
+import FloatingError from "@/components/ui/FloatingError";
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
+const labelClass = "text-[12px] uppercase font-bold text-slate-500 block mb-1";
 
 type Step = "info" | "questions" | "publish";
 
@@ -165,7 +166,7 @@ export default function CreateAndAssignExerciseModal({ examId, teacherType, onCl
 
   return (
     <Modal open onClose={onClose} title={t("assignModal.modalTitle")} size="lg">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       {step === "info" && (
         <ExerciseInfoStep
@@ -336,13 +337,13 @@ function ExerciseInfoStep({
           />
         </div>
         <div>
-          <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
+          <label className="flex items-center gap-1.5 text-[13px] font-bold text-slate-600">
             <input type="checkbox" checked={showCorrectAnswers} onChange={(e) => setShowCorrectAnswers(e.target.checked)} />
             {t("assignModal.infoStep.showCorrectAnswersCheckbox")}
           </label>
         </div>
         <div>
-          <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
+          <label className="flex items-center gap-1.5 text-[13px] font-bold text-slate-600">
             <input type="checkbox" checked={allowRetake} onChange={(e) => setAllowRetake(e.target.checked)} />
             {t("assignModal.infoStep.allowRetakeCheckbox")}
           </label>
@@ -594,13 +595,13 @@ export function ExerciseQuestionsStep({
   return (
     <div className="space-y-3">
       {exercise.hasEssayOrSpeaking && (
-        <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-100 p-2.5 rounded-lg">
+        <div className="text-[13px] text-amber-700 bg-amber-50 border border-amber-100 p-2.5 rounded-lg">
           {t("assignModal.questionsStep.essayOrSpeakingWarning")}
         </div>
       )}
 
       {/* {teacherType === "FOREIGN" && (
-        <p className="text-[11px] text-slate-400 italic">
+        <p className="text-[13px] text-slate-400 italic">
           {t("assignModal.questionsStep.foreignReflexPart1")}{" "}
           <Link to="/lms/lectures" target="_blank" rel="noreferrer" className="text-brand-red font-bold hover:underline">
             {t("assignModal.questionsStep.foreignReflexLinkLabel")}
@@ -615,7 +616,7 @@ export function ExerciseQuestionsStep({
             key={m}
             type="button"
             onClick={() => setMode(m)}
-            className={`text-[11px] font-bold px-3 py-1.5 rounded-md transition-all ${
+            className={`text-[13px] font-bold px-3 py-1.5 rounded-md transition-all ${
               mode === m ? "bg-white text-brand-red shadow-xs" : "text-slate-500 hover:text-slate-700"
             }`}
           >
@@ -634,7 +635,7 @@ export function ExerciseQuestionsStep({
               key={m}
               type="button"
               onClick={() => setComposeSubMode(m)}
-              className={`text-[11px] font-bold px-3 py-1.5 rounded-md transition-all ${
+              className={`text-[13px] font-bold px-3 py-1.5 rounded-md transition-all ${
                 composeSubMode === m ? "bg-white text-brand-red shadow-xs" : "text-slate-500 hover:text-slate-700"
               }`}
             >
@@ -692,9 +693,9 @@ export function ExerciseQuestionsStep({
 
       {attached.length > 0 && (
         <div className="border border-emerald-100 bg-emerald-50/50 rounded-lg divide-y divide-emerald-100 max-h-40 overflow-y-auto">
-          <div className="px-3 py-1.5 text-[10px] font-bold text-emerald-700 uppercase">{t("assignModal.questionsStep.attachedSectionTitle")}</div>
+          <div className="px-3 py-1.5 text-[12px] font-bold text-emerald-700 uppercase">{t("assignModal.questionsStep.attachedSectionTitle")}</div>
           {attached.map((a) => (
-            <div key={a.exerciseQuestionId} className="px-3 py-1.5 text-xs flex items-center justify-between gap-2">
+            <div key={a.exerciseQuestionId} className="px-3 py-1.5 text-sm flex items-center justify-between gap-2">
               <span className="flex-1 truncate">{a.content}</span>
               <input
                 key={`${a.exerciseQuestionId}-${a.points}`}
@@ -707,7 +708,7 @@ export function ExerciseQuestionsStep({
                   if (!Number.isNaN(value) && value !== a.points) handlePointsChange(a.exerciseQuestionId, value);
                 }}
                 title={t("assignModal.questionsStep.pointsInputTitle")}
-                className="w-16 text-[11px] text-right text-slate-600 border border-slate-200 rounded px-1 py-0.5 shrink-0 focus:outline-none"
+                className="w-16 text-[13px] text-right text-slate-600 border border-slate-200 rounded px-1 py-0.5 shrink-0 focus:outline-none"
               />
             </div>
           ))}
@@ -715,8 +716,8 @@ export function ExerciseQuestionsStep({
       )}
 
       <div className="flex justify-between items-center pt-2">
-        <span className="text-[11px] text-slate-500">{t("assignModal.questionsStep.attachedCount", { count: existingCount + attached.length })}</span>
-        <span className={`text-[11px] font-bold ${overTotalPoints ? "text-red-600" : "text-slate-500"}`}>
+        <span className="text-[13px] text-slate-500">{t("assignModal.questionsStep.attachedCount", { count: existingCount + attached.length })}</span>
+        <span className={`text-[13px] font-bold ${overTotalPoints ? "text-red-600" : "text-slate-500"}`}>
           {t("assignModal.questionsStep.totalPoints", { total: totalAttachedPoints, max: exercise.totalPoints })}
         </span>
         <Button type="button" variant="primary" size="sm" onClick={handleContinue} disabled={attached.length === 0 && existingCount === 0}>
@@ -761,7 +762,7 @@ function ExercisePublishStep({
     <div className="space-y-4">
       <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 flex items-start gap-3">
         <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
-        <div className="text-xs text-emerald-800">
+        <div className="text-sm text-emerald-800">
           <p className="font-bold">{t("assignModal.publishStep.readyBanner", { title: exercise.title, code: exercise.code })}</p>
           <p className="mt-1 text-emerald-700">
             {t("assignModal.publishStep.readyDescriptionPart1")}{" "}

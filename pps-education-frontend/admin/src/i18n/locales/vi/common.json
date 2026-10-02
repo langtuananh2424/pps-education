@@ -27,5 +27,12 @@
     "timeout": "Định vị GPS quá thời gian chờ — thử lại ở nơi có tín hiệu GPS/Wi-Fi tốt hơn.",
     "unknownWithDetail": "Không lấy được vị trí GPS ({{detail}}) — vui lòng thử lại.",
     "unknown": "Không lấy được vị trí GPS — vui lòng thử lại."
+  },
+  "floatingError": {
+    "close": "Đóng thông báo"
+  },
+  "errors": {
+    "requestTimeout": "Mạng chậm hoặc mất kết nối, yêu cầu đã quá thời gian chờ. Vui lòng thử lại.",
+    "imageTooLarge": "Ảnh quá lớn (tối đa {{maxMb}}MB). Vui lòng chọn ảnh khác."
   }
 }

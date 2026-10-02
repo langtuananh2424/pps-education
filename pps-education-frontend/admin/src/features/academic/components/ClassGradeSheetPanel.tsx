@@ -32,8 +32,9 @@ import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import Select from "@/components/ui/Select";
 import DatePicker from "@/components/ui/DatePicker";
+import FloatingError from "@/components/ui/FloatingError";
 
-const inputClass = "bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none";
+const inputClass = "bg-slate-50 border border-slate-200 text-sm p-2 rounded-lg focus:outline-none";
 
 type TFunc = (key: string, options?: Record<string, unknown>) => string;
 
@@ -100,7 +101,7 @@ export default function ClassGradeSheetPanel({ classId, siteId, readOnly = false
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <span className="text-xs font-bold text-slate-700 font-display">
+        <span className="text-sm font-bold text-slate-700 font-display">
           {showComparison ? t("sheetPanel.titleComparison") : t("sheetPanel.titleEntry")}
         </span>
         <div className="flex items-center gap-2">
@@ -147,7 +148,7 @@ export default function ClassGradeSheetPanel({ classId, siteId, readOnly = false
           ))}
         </div>
       ) : (
-        <p className="text-xs text-slate-400 italic p-6 text-center">{t("sheetPanel.selectTermPrompt")}</p>
+        <p className="text-sm text-slate-400 italic p-6 text-center">{t("sheetPanel.selectTermPrompt")}</p>
       )}
 
       <Toast message={toastMessage} />
@@ -254,7 +255,7 @@ function GradeSetupSection({
   return (
     <div className="border border-slate-200 rounded-2xl p-4 space-y-3">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <span className="text-xs font-bold text-slate-700 font-display">
+        <span className="text-sm font-bold text-slate-700 font-display">
           {evaluationTypeLabel(t, evaluationType)}
           {setup && <span className="ml-2 font-normal text-slate-400">— {scaleTypeLabel(t, setup.scaleType)}</span>}
         </span>
@@ -281,12 +282,12 @@ function GradeSetupSection({
         )}
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       {canManage && !readOnly && setup && gradeComponents.length > 0 && (
         <div className="flex gap-1.5 flex-wrap">
           {gradeComponents.map((c) => (
-            <span key={c.id} className="flex items-center gap-1 bg-slate-100 border border-slate-200 text-slate-600 text-[11px] font-semibold px-2 py-1 rounded-lg">
+            <span key={c.id} className="flex items-center gap-1 bg-slate-100 border border-slate-200 text-slate-600 text-[13px] font-semibold px-2 py-1 rounded-lg">
               {c.name} ({c.maxScore})
               <button type="button" onClick={() => handleDeleteComponent(c)} title={t("sheetPanel.deleteComponentTitle")} className="hover:text-rose-600">
                 <X className="w-3 h-3" />
@@ -329,12 +330,12 @@ function GradeSetupSection({
       </Modal>
 
       {!setup ? (
-        <p className="text-xs text-slate-400 italic p-4 text-center">
+        <p className="text-sm text-slate-400 italic p-4 text-center">
           {t("sheetPanel.noSetupPrefix", { label: evaluationTypeLabel(t, evaluationType) })}
           {canManage ? t("sheetPanel.noSetupWithPermission") : t("sheetPanel.noSetupWithoutPermission")}
         </p>
       ) : gradeComponents.length === 0 ? (
-        <p className="text-xs text-slate-400 italic p-4 text-center">
+        <p className="text-sm text-slate-400 italic p-4 text-center">
           {t("sheetPanel.noComponentsPrefix")}
           {canManage ? t("sheetPanel.noComponentsWithPermission") : t("sheetPanel.noComponentsWithoutPermission")}
         </p>
@@ -429,7 +430,7 @@ function CreateSetupForm({
 
   return (
     <form onSubmit={handleSubmit} className="bg-white border border-slate-200 rounded-lg p-3 space-y-2">
-      {error && <div className="text-[11px] text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
       <div className="grid grid-cols-2 gap-2">
         <Select
           value={form.scaleType}
@@ -442,7 +443,7 @@ function CreateSetupForm({
         </Select>
         <DatePicker value={form.rosterAsOfDate} onChange={(v) => setForm({ ...form, rosterAsOfDate: v })} />
       </div>
-      <label className="flex items-center gap-2 text-[11px] text-slate-600 cursor-pointer">
+      <label className="flex items-center gap-2 text-[13px] text-slate-600 cursor-pointer">
         <input type="checkbox" checked={form.commentRequired} onChange={(e) => setForm({ ...form, commentRequired: e.target.checked })} className="h-3.5 w-3.5" />
         {t("sheetPanel.commentRequiredCheckbox")}
       </label>
@@ -499,8 +500,8 @@ function CreateComponentForm({
 
   return (
     <form onSubmit={handleSubmit} className="bg-white border border-slate-200 rounded-lg p-3 space-y-2">
-      {error && <div className="text-[11px] text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
-      <p className="text-[11px] text-slate-500">
+      <FloatingError message={error} onClose={() => setError(null)} />
+      <p className="text-[13px] text-slate-500">
         {t("sheetPanel.scaleInfo", { scale: scaleTypeLabel(t, scaleType) })}
       </p>
       <div className="grid grid-cols-2 gap-2">

@@ -14,17 +14,17 @@ export default function LoginHeroPanel() {
       />
       <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-slate-950/30 flex flex-col justify-end p-10">
         <div className="flex items-center gap-2 mb-2.5">
-          <span className="text-[10px] bg-[#EA580C] text-white px-3 py-1 rounded font-extrabold uppercase tracking-wider">
+          <span className="text-[12px] bg-[#EA580C] text-white px-3 py-1 rounded font-extrabold uppercase tracking-wider">
             {t("hero.badge")}
           </span>
-          <span className="text-[10px] bg-white/20 text-white backdrop-blur-xs px-2.5 py-1 rounded font-bold uppercase tracking-wider">
+          <span className="text-[12px] bg-white/20 text-white backdrop-blur-xs px-2.5 py-1 rounded font-bold uppercase tracking-wider">
             {t("hero.cambridge")}
           </span>
         </div>
         <h3 className="text-white text-base md:text-lg font-extrabold tracking-tight leading-snug max-w-[340px]">
           {t("hero.title")}
         </h3>
-        <p className="text-slate-300 text-xs mt-1.5 font-medium max-w-[320px]">
+        <p className="text-slate-300 text-sm mt-1.5 font-medium max-w-[320px]">
           {t("hero.subtitle")}
         </p>
       </div>

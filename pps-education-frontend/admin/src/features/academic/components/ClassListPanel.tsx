@@ -93,8 +93,8 @@ export default function ClassListPanel({
     <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden flex flex-col h-full">
       <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3 bg-slate-50 shrink-0">
         <div className="space-y-0.5">
-          <span className="text-xs font-bold text-slate-700 font-display block">{t("classList.title")}</span>
-          <p className="text-[10px] text-slate-400">{t("classList.subtitle")}</p>
+          <span className="text-sm font-bold text-slate-700 font-display block">{t("classList.title")}</span>
+          <p className="text-[12px] text-slate-400">{t("classList.subtitle")}</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -102,7 +102,7 @@ export default function ClassListPanel({
             onClick={handleExport}
             disabled={classes.length === 0}
             title={t("classList.exportButtonTitle")}
-            className="flex items-center gap-1.5 border border-dashed border-slate-300 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold text-slate-600 hover:bg-white disabled:opacity-50"
+            className="flex items-center gap-1.5 border border-dashed border-slate-300 rounded-lg px-2.5 py-1.5 text-[13px] font-semibold text-slate-600 hover:bg-white disabled:opacity-50"
           >
             <Download className="w-3.5 h-3.5" />
             {t("classList.exportButton")}
@@ -123,13 +123,13 @@ export default function ClassListPanel({
             value={query}
             onChange={(e) => onQueryChange(e.target.value)}
             placeholder={t("classList.searchPlaceholder")}
-            className="w-full bg-slate-50 border border-slate-200 text-xs pl-8 pr-3 py-2 rounded-lg focus:outline-none"
+            className="w-full bg-slate-50 border border-slate-200 text-sm pl-8 pr-3 py-2 rounded-lg focus:outline-none"
           />
         </div>
         <Select
           value={academicYearFilter}
           onChange={(e) => onAcademicYearFilterChange(e.target.value)}
-          className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none"
+          className="w-full bg-slate-50 border border-slate-200 text-sm px-3 py-2 rounded-lg focus:outline-none"
         >
           <option value="">{t("classList.allAcademicYears")}</option>
           {academicYears.map((y) => (
@@ -142,7 +142,7 @@ export default function ClassListPanel({
 
       <div className="divide-y divide-slate-100 overflow-y-auto max-h-[560px] lg:max-h-[620px]">
         {loading ? (
-          <div className="p-8 text-center text-slate-400 text-xs">{t("common.loading")}</div>
+          <div className="p-8 text-center text-slate-400 text-sm">{t("common.loading")}</div>
         ) : classes.length === 0 ? (
           <EmptyState
             icon={GraduationCap}
@@ -162,13 +162,13 @@ export default function ClassListPanel({
               >
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-[10px] font-mono font-bold uppercase text-brand-red bg-orange-50 border border-orange-100 px-1.5 py-0.5 rounded">
+                    <span className="text-[12px] font-mono font-bold uppercase text-brand-red bg-orange-50 border border-orange-100 px-1.5 py-0.5 rounded">
                       {c.classCode}
                     </span>
                     <Badge variant={classStatusVariants[c.status]}>{classStatusLabel(t, c.status)}</Badge>
                   </div>
-                  <h4 className="text-xs font-bold text-slate-900 mt-1.5">{c.name}</h4>
-                  <p className="text-[10px] text-slate-400 mt-1">
+                  <h4 className="text-sm font-bold text-slate-900 mt-1.5">{c.name}</h4>
+                  <p className="text-[12px] text-slate-400 mt-1">
                     {c.siteName} · {c.classType === "LINKED" ? t("enums.classType.LINKED") : t("enums.classType.OPEN")}
                   </p>
                 </div>

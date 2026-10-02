@@ -2,6 +2,7 @@ import React from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AppProvider } from "@/context/AppContext";
 import { DialogProvider } from "@/components/ui/DialogProvider";
+import { FloatingBannerHost } from "@/components/ui/FloatingBanner";
 import { StudentProfileModalProvider } from "@/features/reports/context/StudentProfileModalContext";
 import AppShell from "@/components/layout/AppShell";
 import ProtectedRoute from "@/components/layout/ProtectedRoute";
@@ -146,6 +147,7 @@ export default function App() {
 
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
+      <FloatingBannerHost />
       </StudentProfileModalProvider>
       </DialogProvider>
     </AppProvider>

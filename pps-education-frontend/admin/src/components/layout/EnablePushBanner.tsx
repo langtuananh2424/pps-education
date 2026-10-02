@@ -46,8 +46,8 @@ export default function EnablePushBanner() {
       <div className="flex items-center gap-2 rounded-xl border-2 border-teal-200 bg-teal-50 px-3 py-2.5">
         <BellRing size={18} className="shrink-0 text-teal-700" aria-hidden="true" />
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-extrabold text-teal-700">{t("header.enablePush.title")}</p>
-          <p className="text-[11px] font-semibold text-slate-500">
+          <p className="text-sm font-extrabold text-teal-700">{t("header.enablePush.title")}</p>
+          <p className="text-[13px] font-semibold text-slate-500">
             {failed ? t("header.enablePush.failedHint") : t("header.enablePush.description")}
           </p>
         </div>
@@ -56,7 +56,7 @@ export default function EnablePushBanner() {
           onClick={handleEnable}
           disabled={busy}
           aria-label={t("header.enablePush.ariaLabel")}
-          className="shrink-0 rounded-lg bg-teal-600 px-3 py-1.5 text-[11px] font-extrabold text-white transition-colors hover:bg-teal-700 disabled:opacity-50"
+          className="shrink-0 rounded-lg bg-teal-600 px-3 py-1.5 text-[13px] font-extrabold text-white transition-colors hover:bg-teal-700 disabled:opacity-50"
         >
           {busy ? t("header.enablePush.enabling") : t("header.enablePush.button")}
         </button>

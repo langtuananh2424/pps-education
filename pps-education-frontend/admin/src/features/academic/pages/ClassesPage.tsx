@@ -11,6 +11,7 @@ import ClassPromotionModal from "../components/ClassPromotionModal";
 import Button from "@/components/ui/Button";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
+import FloatingError from "@/components/ui/FloatingError";
 
 export default function ClassesPage() {
   const { t } = useTranslation("academic-classes");
@@ -71,7 +72,7 @@ export default function ClassesPage() {
       <div className="border-b border-slate-200 pb-4 flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("classesPage.title")}</h1>
-          <p className="text-xs text-slate-500 mt-1">{t("classesPage.description")}</p>
+          <p className="text-sm text-slate-500 mt-1">{t("classesPage.description")}</p>
         </div>
         {canPromote && (
           <div className="flex items-center gap-2 flex-wrap">
@@ -83,7 +84,7 @@ export default function ClassesPage() {
         )}
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       <div className={`grid grid-cols-1 ${isClassAdmin ? "lg:grid-cols-5" : ""} gap-6`}>
         {isClassAdmin && (
@@ -111,7 +112,7 @@ export default function ClassesPage() {
             <GraduationCap className="w-12 h-12 text-slate-300" />
             <div>
               <h3 className="text-sm font-bold text-slate-700">{t("classesPage.emptyTitle")}</h3>
-              <p className="text-xs text-slate-400 mt-1">
+              <p className="text-sm text-slate-400 mt-1">
                 {isClassAdmin ? t("classesPage.emptyDescriptionAdmin") : t("classesPage.emptyDescriptionOther")}
               </p>
             </div>
