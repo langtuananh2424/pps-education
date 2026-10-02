@@ -25,6 +25,7 @@ import Toast from "@/components/ui/Toast";
 import { ApiError } from "@/lib/apiClient";
 import { downloadBlob } from "@/lib/xlsxTemplate";
 import { cn } from "@/lib/cn";
+import FloatingError from "@/components/ui/FloatingError";
 
 function StatCard({ icon, label, value, sub, color = "text-brand-orange" }: {
   icon: React.ReactNode; label: string; value: string | number; sub?: string; color?: string;
@@ -614,9 +615,7 @@ export default function EnrollmentMovementStatsPage() {
         </div>
       )}
 
-      {error && (
-        <div className="bg-rose-50 border border-rose-200/80 rounded-xl p-4 text-rose-700 text-sm">{error}</div>
-      )}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       {displayMode === "detail" && stats && !loadingStats && (
         <>

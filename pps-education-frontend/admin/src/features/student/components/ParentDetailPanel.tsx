@@ -14,6 +14,7 @@ import { useDialog } from "@/components/ui/DialogProvider";
 import AvatarUploadField from "@/components/ui/AvatarUploadField";
 import { uploadMedia } from "@/features/lms/api";
 import Select from "@/components/ui/Select";
+import FloatingError from "@/components/ui/FloatingError";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
@@ -111,7 +112,7 @@ function ProfileSection({ parentId, showToast }: { parentId: number; showToast: 
             </Button>
           )}
         </div>
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        <FloatingError message={error} onClose={() => setError(null)} />
         {profile?.portraitUrl && (
           <img src={profile.portraitUrl} alt="" className="w-16 h-16 rounded-full object-cover border-2 border-white shadow-soft" />
         )}
@@ -128,7 +129,7 @@ function ProfileSection({ parentId, showToast }: { parentId: number; showToast: 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
       <span className="text-[10px] font-bold uppercase text-slate-500">{t("parentDetail.profile.editSectionTitle")}</span>
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
       <AvatarUploadField
         value={form.portraitUrl}
         onChange={(url) => setForm({ ...form, portraitUrl: url })}
@@ -235,7 +236,7 @@ function ChildrenSection({
         )}
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       {parent.children.length === 0 ? (
         <p className="text-xs text-slate-400 italic">{t("parentDetail.children.empty")}</p>

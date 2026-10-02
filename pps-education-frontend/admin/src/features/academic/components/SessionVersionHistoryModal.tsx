@@ -5,6 +5,7 @@ import { ApiError } from "@/lib/apiClient";
 import { StudentCommentHistoryResponse, listStudentCommentHistoryForSession } from "../api";
 import Badge from "@/components/ui/Badge";
 import { toLocaleTag } from "@/lib/i18nFormat";
+import FloatingError from "@/components/ui/FloatingError";
 
 const statusVariants: Record<StudentCommentHistoryResponse["details"]["status"], "success" | "warning" | "danger" | "neutral"> = {
   DRAFT: "neutral",
@@ -149,7 +150,7 @@ export default function SessionVersionHistoryModal({ classSessionId, students, g
           </button>
         </div>
 
-        {error && <div className="mx-5 mt-3 text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg shrink-0">{error}</div>}
+        <FloatingError message={error} onClose={() => setError(null)} />
 
         {loading ? (
           <p className="p-5 text-xs text-slate-400">{t("sessionVersionHistoryModal.loading")}</p>

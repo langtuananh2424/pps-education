@@ -8,6 +8,7 @@ import { StudentCommentResponse, listPendingComments } from "../api";
 import DailyCommentPanel from "../components/DailyCommentPanel";
 import CommentApprovalByClass from "../components/CommentApprovalByClass";
 import CommentHistoryPanel from "../components/CommentHistoryPanel";
+import FloatingError from "@/components/ui/FloatingError";
 
 type SiteManagerTab = "write" | "pending" | "history";
 
@@ -86,7 +87,7 @@ export default function CommentsPage() {
         <p className="text-xs text-slate-500 mt-1">{t("commentsPage.subtitle")}</p>
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       {isSiteManager ? (
         <>

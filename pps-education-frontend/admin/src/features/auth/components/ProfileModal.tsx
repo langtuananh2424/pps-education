@@ -14,6 +14,7 @@ import Avatar from "@/components/ui/Avatar";
 import AvatarUploadField from "@/components/ui/AvatarUploadField";
 import Toast from "@/components/ui/Toast";
 import { useToast } from "@/lib/useToast";
+import FloatingError from "@/components/ui/FloatingError";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-xs p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
@@ -140,7 +141,7 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
               {t("profileModal.updateSectionTitle")}
             </span>
 
-            {profileError && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{profileError}</div>}
+            <FloatingError message={profileError} onClose={() => setProfileError(null)} />
 
             <div>
               <label className={labelClass}>{t("profileModal.permanentAddress")}</label>

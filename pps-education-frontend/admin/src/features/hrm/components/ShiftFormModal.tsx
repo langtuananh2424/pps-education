@@ -7,6 +7,7 @@ import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import Select from "@/components/ui/Select";
 import Time24Input from "@/components/ui/Time24Input";
+import FloatingError from "@/components/ui/FloatingError";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
@@ -112,7 +113,7 @@ export default function ShiftFormModal({ shift, onClose, onSaved }: ShiftFormMod
   return (
     <Modal open onClose={onClose} title={isEdit ? t("shiftForm.editTitle") : t("shiftForm.createTitle")} size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        <FloatingError message={error} onClose={() => setError(null)} />
 
         <div className="grid grid-cols-2 gap-3">
           <div>

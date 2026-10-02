@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import Button from "@/components/ui/Button";
 import { QuestionResponse, createExamQuestion } from "../api";
+import FloatingError from "@/components/ui/FloatingError";
 
 const inputClass = "w-full bg-white border border-slate-200 text-xs px-3.5 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-red";
 const labelClass = "block font-bold text-slate-700 mb-1 uppercase tracking-wider text-[10px]";
@@ -110,7 +111,7 @@ export default function GridQuestionBuilder({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
         <div className="flex items-center gap-1 text-slate-700 font-bold uppercase tracking-wider text-[9px]">

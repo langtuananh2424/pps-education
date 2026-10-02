@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import Button from "@/components/ui/Button";
 import { ClassScheduleImportResponse, importClassSchedule } from "../api";
+import FloatingError from "@/components/ui/FloatingError";
 
 interface ImportScheduleFormProps {
   classId: number;
@@ -40,7 +41,7 @@ export default function ImportScheduleForm({ classId, onDone, onCancel }: Import
 
   return (
     <form onSubmit={handleSubmit} className="bg-emerald-50/40 border border-emerald-200 rounded-xl p-4 space-y-3">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       <p className="text-[10px] text-slate-500 bg-white border border-slate-200 rounded-lg p-2.5">
         Định dạng cột (dòng 1 = tiêu đề, dữ liệu từ dòng 2): <b>A</b>=Ngày (dd/MM/yyyy), <b>B</b>=Tiết (VD "1-2" hoặc "1,3"),{" "}

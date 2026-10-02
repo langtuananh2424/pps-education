@@ -11,6 +11,7 @@ import {
 } from "../api";
 import { Button, EmptyState, Modal, TableContainer, Td, Th } from "@/components/ui";
 import Select from "@/components/ui/Select";
+import FloatingError from "@/components/ui/FloatingError";
 
 /** Nhãn danh mục dịch qua i18next namespace "system-admin-settings" — xem src/i18n/locales/{vi,en}/system-admin-settings.json. */
 function settingCategoryLabel(t: (key: string) => string, category: string): string {
@@ -122,7 +123,7 @@ export default function SystemSettingsPage() {
         <p className="text-[10px] text-slate-400 mt-0.5">{t("systemSettingsPage.description")}</p>
       </div>
 
-      {error && <div className="p-3 text-xs text-rose-600 bg-rose-50 border border-rose-100 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       {!loading && settings.length === 0 && !error ? (
         <EmptyState
@@ -209,7 +210,7 @@ export default function SystemSettingsPage() {
       >
         {editing && (
           <div className="space-y-3">
-            {saveError && <div className="p-2.5 text-xs text-rose-600 bg-rose-50 border border-rose-100 rounded-lg">{saveError}</div>}
+            <FloatingError message={saveError} onClose={() => setSaveError(null)} />
             <div>
               <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1">
                 {t("systemSettingsPage.editModal.currentValueLabel")}

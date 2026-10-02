@@ -51,6 +51,7 @@ import Select from "@/components/ui/Select";
 import DatePicker from "@/components/ui/DatePicker";
 import { formatTimeHm, toLocaleTag } from "@/lib/i18nFormat";
 import Time24Input from "@/components/ui/Time24Input";
+import FloatingError from "@/components/ui/FloatingError";
 
 const readOnlyFieldClass = "w-full bg-emerald-50/60 border border-emerald-200 text-xs p-2 rounded-lg text-slate-700 min-h-[34px]";
 /**
@@ -209,6 +210,8 @@ interface Row {
   note: string;
   /** UC-74 (V201) — dòng vừa áp dụng từ bản nháp trợ lý AI; gửi kèm khi Lưu nháp để BE đánh dấu ai_drafted (chỉ bật lên). */
   aiDrafted?: boolean;
+  /** UC-74 (V208) — nguyên văn Nhận xét trợ lý AI soạn lúc áp dụng, gửi kèm khi Lưu nháp để đo mức giáo viên sửa bản AI. */
+  aiDraftContent?: string;
 }
 
 /** Bổ sung ngoài SDD gốc, xác nhận 2026-08-17 — dùng cho "Lưu nháp": khác handleSend (chỉ cần content),
@@ -1096,7 +1099,8 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
     classId: number,
     session: ClassSessionResponse
   ): Promise<PromiseSettledResult<StudentCommentResponse>[]> => {
-    const rows = filled.map((r) => ({ studentId: r.studentId, ...buildCommentPayload(r), aiDrafted: r.aiDrafted || undefined }));
+    const rows = filled.map((r) => ({ studentId: r.studentId, ...buildCommentPayload(r), aiDrafted: r.aiDrafted || undefined,
+      aiDraftContent: r.aiDrafted ? r.aiDraftContent : undefined }));
     try {
       const response = await saveDraftBatch(classId, session.id, { commentDate: session.sessionDate, rows });
       const savedByStudentId = new Map(response.saved.map((s) => [s.studentId, s]));
@@ -1209,7 +1213,8 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
       const absent = attendanceByStudent[r.studentId] === "ABSENT" || attendanceByStudent[r.studentId] === "EXCUSED";
       if (!d || lockedIds.has(r.studentId) || absent || (!d.content && !d.attitude)) return r;
       appliedIds.push(r.studentId);
-      return { ...r, attitude: d.attitude ?? r.attitude, content: d.content ?? r.content, aiDrafted: true };
+      return { ...r, attitude: d.attitude ?? r.attitude, content: d.content ?? r.content, aiDrafted: true,
+        aiDraftContent: d.content ?? r.aiDraftContent };
     });
     return { next, appliedIds };
   };
@@ -1468,7 +1473,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
   return (
     <div className="space-y-4">
       <NotificationBanner message={notification} onClose={() => setNotification(null)} />
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
       <AttendanceReminderBanner />
 
       {/* Bỏ overflow-hidden ở đây (trước dùng để bo góc rounded-xl cho header bg-slate-50 bên dưới) —

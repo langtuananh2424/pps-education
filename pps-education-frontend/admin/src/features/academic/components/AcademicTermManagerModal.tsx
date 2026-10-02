@@ -14,6 +14,7 @@ import {
   listAcademicYears,
   updateAcademicTerm
 } from "../api";
+import FloatingError from "@/components/ui/FloatingError";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
@@ -58,7 +59,7 @@ export default function AcademicTermManagerModal({ siteId, siteName, onClose }: 
 
   return (
     <Modal open onClose={onClose} title={t("termManager.modalTitle", { siteName })} size="lg">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       <div className="flex items-center justify-between mb-3">
         <span className="text-[10px] font-bold uppercase text-slate-500">{t("termManager.createdCountLabel", { count: terms.length })}</span>
@@ -186,7 +187,7 @@ function TermForm({
 
   return (
     <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-      {error && <p className="text-xs text-rose-600">{error}</p>}
+      <FloatingError message={error} onClose={() => setError(null)} />
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className={labelClass}>{t("termManager.form.codeLabel")} {isEdit && <span className="normal-case font-normal text-slate-400">{t("termManager.form.codeNotEditable")}</span>}</label>

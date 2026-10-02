@@ -38,6 +38,7 @@ import AvatarUploadField from "@/components/ui/AvatarUploadField";
 import { uploadMedia } from "@/features/lms/api";
 import Select from "@/components/ui/Select";
 import { ClassResponse, listClasses } from "@/features/academic/api";
+import FloatingError from "@/components/ui/FloatingError";
 
 const TODAY_ISO = new Date().toISOString().slice(0, 10);
 
@@ -143,7 +144,7 @@ function ProfileTab({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
       <div>
         <label className={labelClass}>{t("studentDetail.profile.avatarLabel")}</label>
         <AvatarUploadField
@@ -282,7 +283,7 @@ function ParentsTab({ studentId, showToast }: { studentId: number; showToast: (m
 
   return (
     <div className="space-y-4">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       {loading ? (
         <p className="text-xs text-slate-500">{t("studentDetail.parents.loading")}</p>
@@ -456,7 +457,7 @@ function TransferTab({ student, onChanged, showToast }: { student: StudentRespon
 
       <Modal open={showForm} onClose={() => setShowForm(false)} title={t("studentDetail.transfer.modalTitle")}>
         <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-          {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
+          <FloatingError message={error} onClose={() => setError(null)} />
           <Select value={form.transferType} onChange={(e) => setForm({ ...form, transferType: e.target.value })} className={inputClass}>
             <option value="SITE_CHANGE">{t("studentDetail.transfer.typeSiteChange")}</option>
             <option value="CLASS_CHANGE">{t("studentDetail.transfer.typeClassChange")}</option>
@@ -580,7 +581,7 @@ function StatusTab({ student, onChanged, showToast }: { student: StudentResponse
     <div className="space-y-4">
       {hasPermission("student.status.manage") && (
         <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-          {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
+          <FloatingError message={error} onClose={() => setError(null)} />
           <div className="grid grid-cols-2 gap-3">
             <Select value={form.newStatus} onChange={(e) => setForm({ ...form, newStatus: e.target.value as StudentResponse["status"] })} className={inputClass}>
               {STUDENT_STATUS_OPTIONS.map((value) => (

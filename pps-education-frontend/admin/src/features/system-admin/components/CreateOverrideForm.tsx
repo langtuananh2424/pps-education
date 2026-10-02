@@ -5,6 +5,7 @@ import { ApiError } from "@/lib/apiClient";
 import { PermissionCatalogItem } from "../api";
 import DatePicker from "@/components/ui/DatePicker";
 import Select from "@/components/ui/Select";
+import FloatingError from "@/components/ui/FloatingError";
 
 const TODAY_ISO = new Date().toISOString().slice(0, 10);
 
@@ -50,7 +51,7 @@ export default function CreateOverrideForm({ permissions, onSubmit }: CreateOver
       <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block border-b pb-2">{t("createOverrideForm.title")}</span>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        {error && <div className="text-[11px] text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
+        <FloatingError message={error} onClose={() => setError(null)} />
 
         <div className="space-y-1">
           <label className="text-[10px] uppercase font-bold text-slate-500 block">{t("createOverrideForm.permissionLabel")}</label>

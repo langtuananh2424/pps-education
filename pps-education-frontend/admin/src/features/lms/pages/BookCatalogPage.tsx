@@ -28,6 +28,7 @@ import Toast from "@/components/ui/Toast";
 import { useToast } from "@/lib/useToast";
 import { useDialog } from "@/components/ui/DialogProvider";
 import BookCatalogImportModal from "../components/BookCatalogImportModal";
+import FloatingError from "@/components/ui/FloatingError";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 
@@ -87,7 +88,7 @@ export default function BookCatalogPage() {
         />
       )}
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         <div className="lg:col-span-3 bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden">
@@ -252,7 +253,7 @@ function BookListPanel({
           </Button>
         </div>
 
-        {error && <p className="px-5 pt-3 text-[11px] text-rose-600">{error}</p>}
+        <FloatingError message={error} onClose={() => setError(null)} />
 
         {loading ? (
           <p className="text-xs text-slate-500 p-6 text-center">{t("common.loading")}</p>
@@ -387,7 +388,7 @@ function UnitListPanel({
         </Button>
       </div>
 
-      {error && <p className="px-5 pt-3 text-[11px] text-rose-600">{error}</p>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       {loading ? (
         <p className="text-xs text-slate-500 p-6 text-center">{t("common.loading")}</p>
@@ -527,11 +528,10 @@ function UnitRow({ unit, showToast, onChanged }: { unit: UnitResponse; showToast
           </button>
         </div>
       )}
-      {error && !expanded && <p className="px-5 pb-2 -mt-1 text-[11px] text-rose-600">{error}</p>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       {expanded && (
         <div className="px-5 pb-3.5 pl-11 space-y-2">
-          {error && <p className="text-[11px] text-rose-600">{error}</p>}
           <div className="flex gap-2">
             <input
               value={newSubTopicTitle}
@@ -631,7 +631,7 @@ function SubTopicRow({
             <X className="w-3.5 h-3.5" />
           </button>
         </div>
-        {error && <p className="text-[10px] text-rose-600">{error}</p>}
+        <FloatingError message={error} onClose={() => setError(null)} />
       </div>
     );
   }
@@ -656,7 +656,7 @@ function SubTopicRow({
           </button>
         </span>
       </div>
-      {error && <p className="text-[10px] text-rose-600">{error}</p>}
+      <FloatingError message={error} onClose={() => setError(null)} />
     </div>
   );
 }

@@ -16,6 +16,7 @@ import {
 } from "../api";
 import { Button } from "@/components/ui";
 import Select from "@/components/ui/Select";
+import FloatingError from "@/components/ui/FloatingError";
 
 const RESULT_LIMIT = 50;
 
@@ -271,7 +272,7 @@ export default function SendNotificationPage() {
           />
         </div>
 
-        {sendError && <div className="p-2.5 text-xs text-rose-600 bg-rose-50 border border-rose-100 rounded-lg">{sendError}</div>}
+        <FloatingError message={sendError} onClose={() => setSendError(null)} />
 
         {result && (
           <div

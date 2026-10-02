@@ -17,6 +17,7 @@ import Modal from "@/components/ui/Modal";
 import Select from "@/components/ui/Select";
 import Time24Input from "@/components/ui/Time24Input";
 import { useDialog } from "@/components/ui/DialogProvider";
+import FloatingError from "@/components/ui/FloatingError";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
@@ -79,7 +80,7 @@ export default function SitePeriodTab({ siteId, showToast }: { siteId: number; s
         </Button>
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       {loading ? (
         <p className="text-xs text-slate-500">Đang tải...</p>
@@ -183,7 +184,7 @@ function SitePeriodFormModal({
   return (
     <Modal open onClose={onClose} title={existing ? `Sửa Tiết ${existing.periodNumber} buổi ${dayPartLabels[existing.dayPart]}` : "Thêm tiết học"}>
       <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        <FloatingError message={error} onClose={() => setError(null)} />
         {!existing && (
           <div className="grid grid-cols-2 gap-3">
             <div>

@@ -2,6 +2,7 @@ import React, { useRef, useState } from "react";
 import { Camera, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/cn";
+import FloatingError from "@/components/ui/FloatingError";
 
 interface AvatarUploadFieldProps {
   /** URL ảnh hiện tại (nếu đã có) — trống thì hiện chữ cái đầu tên thay thế. */
@@ -63,7 +64,7 @@ export default function AvatarUploadField({ value, onChange, onUpload, fallbackN
           {uploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Camera className="w-3 h-3" />}
         </button>
       </div>
-      {error && <p className="text-[10px] text-rose-600 font-semibold">{error}</p>}
+      <FloatingError message={error} onClose={() => setError(null)} />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { downloadBlob } from "@/lib/xlsxTemplate";
 import { GradeEvaluationComponentResponse, GradeImportResponse, downloadGradeImportTemplate, importGrades } from "../api";
+import FloatingError from "@/components/ui/FloatingError";
 
 interface GradeExcelImportPanelProps {
   classId: number;
@@ -92,7 +93,7 @@ export default function GradeExcelImportPanel({ classId, setupId, components, on
         </button>
         <input ref={inputRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => handleFile(e.target.files?.[0] ?? null)} />
 
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mt-4">{error}</div>}
+        <FloatingError message={error} onClose={() => setError(null)} />
 
         {result && (
           <div className="mt-4 space-y-3">

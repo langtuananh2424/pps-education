@@ -28,6 +28,7 @@ import DatePicker from "@/components/ui/DatePicker";
 import { downloadBlob } from "@/lib/xlsxTemplate";
 import { toISODate } from "@/lib/calendarDates";
 import AttendanceReminderBanner from "@/features/hrm/components/AttendanceReminderBanner";
+import FloatingError from "@/components/ui/FloatingError";
 
 type SimpleStatus = "PRESENT" | "ABSENT" | "EXCUSED" | "LATE";
 
@@ -326,7 +327,7 @@ export default function AttendancePage() {
               <DatePicker value={summaryTo} onChange={setSummaryTo} min={summaryFrom || undefined} />
             </div>
           </div>
-          {summaryError && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{summaryError}</div>}
+          <FloatingError message={summaryError} onClose={() => setSummaryError(null)} />
           <div className="flex justify-end gap-2">
             <Button type="button" variant="secondary" onClick={() => setSummaryOpen(false)}>
               {t("attendancePage.summaryExport.cancel")}
@@ -355,7 +356,7 @@ export default function AttendancePage() {
         <AttendanceHistoryPanel classes={classes} loadingClasses={loadingClasses} onOpenSession={openSessionFromHistory} />
       ) : (
         <>
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
       <AttendanceReminderBanner />
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden">

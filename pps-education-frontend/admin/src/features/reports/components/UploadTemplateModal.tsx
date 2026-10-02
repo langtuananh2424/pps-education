@@ -11,6 +11,7 @@ import {
   createReportTemplate,
 } from "@/features/academic/api";
 import { ApiError } from "@/lib/apiClient";
+import FloatingError from "@/components/ui/FloatingError";
 
 interface Props {
   onClose: () => void;
@@ -76,9 +77,7 @@ export default function UploadTemplateModal({ onClose, onSuccess }: Props) {
   return (
     <Modal open={true} size="lg" title={t("uploadTemplateModal.modalTitle")} description={t("uploadTemplateModal.modalDescription")} onClose={onClose}>
       <div className="space-y-4">
-        {error && (
-          <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-lg">{error}</div>
-        )}
+        <FloatingError message={error} onClose={() => setError(null)} />
 
         {/* File dropzone */}
         <div

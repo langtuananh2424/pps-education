@@ -6,6 +6,7 @@ import { CurriculumApprovalResponse, decideCurriculumApproval, listPendingCurric
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import { useDialog } from "@/components/ui/DialogProvider";
+import FloatingError from "@/components/ui/FloatingError";
 
 /** UC-17: Trưởng phòng đào tạo duyệt/từ chối bản tùy biến khung chương trình. */
 export default function CurriculumApprovalPanel() {
@@ -48,7 +49,7 @@ export default function CurriculumApprovalPanel() {
 
   return (
     <div className="space-y-3.5 max-h-[380px] overflow-y-auto">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
       {approvals.map((a) => (
         <div key={a.id} className="p-3.5 bg-slate-50 rounded-lg border border-slate-100 space-y-2">
           <div>
