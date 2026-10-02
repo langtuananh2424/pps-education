@@ -19,7 +19,7 @@ export default function LanguageSwitcher() {
   };
 
   return (
-    <div className="flex items-center gap-1 text-[11px] font-bold px-1.5 py-1 rounded-full bg-white border border-slate-200/50 shadow-soft">
+    <div className="flex items-center gap-1 text-[13px] font-bold px-1.5 py-1 rounded-full bg-white border border-slate-200/50 shadow-soft">
       <Languages className="w-3.5 h-3.5 text-slate-400 ml-1" />
       {LANGUAGES.map(({ code, label }) => (
         <button

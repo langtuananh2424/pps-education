@@ -37,12 +37,12 @@ export default function StatCard({ icon: Icon, label, value, trend, hint, tone =
         <Icon className="w-5 h-5" />
       </div>
       <div className="relative min-w-0 mt-4">
-        <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wide truncate">{label}</p>
+        <p className="text-[13px] font-bold text-slate-500 uppercase tracking-wide truncate">{label}</p>
         <p className="text-2xl font-bold font-display text-slate-900 mt-1.5 truncate">{value}</p>
         {trend && (
           <div
             className={cn(
-              "inline-flex items-center gap-1 mt-2 text-xs font-semibold",
+              "inline-flex items-center gap-1 mt-2 text-sm font-semibold",
               trend.direction === "up" ? "text-emerald-600" : "text-rose-500"
             )}
           >
@@ -54,7 +54,7 @@ export default function StatCard({ icon: Icon, label, value, trend, hint, tone =
             <span>{trend.value}</span>
           </div>
         )}
-        {!trend && hint && <p className="text-xs text-slate-400 mt-2 truncate">{hint}</p>}
+        {!trend && hint && <p className="text-sm text-slate-400 mt-2 truncate">{hint}</p>}
       </div>
     </Card>
   );

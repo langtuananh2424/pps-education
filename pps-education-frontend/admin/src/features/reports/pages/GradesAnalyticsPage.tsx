@@ -67,8 +67,8 @@ function StatCard({ icon, label, value, sub, color = "text-brand-orange" }: {
       <div className="p-2.5 bg-orange-50 rounded-lg">{icon}</div>
       <div>
         <p className={`text-2xl font-bold ${color}`}>{value}</p>
-        <p className="text-xs text-slate-500">{label}</p>
-        {sub && <p className="text-xs text-slate-400">{sub}</p>}
+        <p className="text-sm text-slate-500">{label}</p>
+        {sub && <p className="text-sm text-slate-400">{sub}</p>}
       </div>
     </div>
   );
@@ -81,12 +81,12 @@ function MiniBarChart({ data }: { data: { label: string; count: number; color: s
     <div className="flex items-end gap-3 h-24">
       {data.map((d) => (
         <div key={d.label} className="flex flex-col items-center gap-1 flex-1">
-          <span className="text-xs font-semibold text-slate-600">{d.count}</span>
+          <span className="text-sm font-semibold text-slate-600">{d.count}</span>
           <div
             className={`w-full rounded-t-md ${d.color} transition-all duration-500`}
             style={{ height: `${Math.max((d.count / max) * 72, d.count > 0 ? 4 : 0)}px` }}
           />
-          <span className="text-[10px] text-slate-500 text-center leading-tight">{d.label}</span>
+          <span className="text-[12px] text-slate-500 text-center leading-tight">{d.label}</span>
         </div>
       ))}
     </div>
@@ -285,7 +285,7 @@ export default function GradesAnalyticsPage() {
       <div className="border-b border-slate-200 pb-4 flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("gradesAnalyticsPage.title")}</h1>
-          <p className="text-xs text-slate-500 mt-1">{t("gradesAnalyticsPage.description")}</p>
+          <p className="text-sm text-slate-500 mt-1">{t("gradesAnalyticsPage.description")}</p>
         </div>
         {canExport && (
           <Button
@@ -304,18 +304,18 @@ export default function GradesAnalyticsPage() {
       {selectedClassId ? (
         <div className="bg-white rounded-xl border border-slate-200/60 shadow-sm p-4">
           <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
-            <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+            <div className="flex items-center gap-2 text-sm font-semibold text-slate-600">
               <Filter className="w-3.5 h-3.5" /> {t("gradesAnalyticsPage.filter.sectionTitle")}
             </div>
             {selectedClass && (
-              <div className="text-xs text-brand-orange font-medium bg-orange-50 px-2.5 py-1 rounded-md border border-orange-100">
+              <div className="text-sm text-brand-orange font-medium bg-orange-50 px-2.5 py-1 rounded-md border border-orange-100">
                 {t("gradesAnalyticsPage.filter.selectedClassLabel", { name: selectedClass.name, code: selectedClass.classCode })}
               </div>
             )}
           </div>
           <div className="flex flex-wrap gap-3">
             <div className="flex-1 min-w-[240px]">
-              <label className="block text-xs text-slate-500 mb-1">{t("gradesAnalyticsPage.filter.setupLabel")}</label>
+              <label className="block text-sm text-slate-500 mb-1">{t("gradesAnalyticsPage.filter.setupLabel")}</label>
               <Select
                 value={selectedSetupId}
                 onChange={(e) => setSelectedSetupId(e.target.value ? Number(e.target.value) : "")}
@@ -344,13 +344,13 @@ export default function GradesAnalyticsPage() {
           {/* Thẻ thông tin kỳ */}
           <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl p-5 text-white flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="text-xs opacity-75">
+              <p className="text-sm opacity-75">
                 {t("gradesAnalyticsPage.periodCard.subtitle", { className: selectedClass?.name, termName: selectedSetup.academicTermName })}
               </p>
               <h2 className="text-lg font-bold mt-1">
                 {t("gradesAnalyticsPage.periodCard.heading", { evalType: evalTypeLabel(t, selectedSetup.evaluationType), scaleType: scaleTypeLabel(t, selectedSetup.scaleType) })}
               </h2>
-              <p className="text-xs opacity-70 mt-1">{t("gradesAnalyticsPage.periodCard.rosterNote", { date: selectedSetup.rosterAsOfDate })}</p>
+              <p className="text-sm opacity-70 mt-1">{t("gradesAnalyticsPage.periodCard.rosterNote", { date: selectedSetup.rosterAsOfDate })}</p>
             </div>
           </div>
 
@@ -395,7 +395,7 @@ export default function GradesAnalyticsPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder={t("gradesAnalyticsPage.table.searchPlaceholder")}
-                className="text-xs border border-slate-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-brand-orange w-56"
+                className="text-sm border border-slate-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-brand-orange w-56"
               />
             </div>
             {loadingResults ? (
@@ -407,7 +407,7 @@ export default function GradesAnalyticsPage() {
               </div>
             ) : (
               <table className="w-full text-sm text-left">
-                <thead className="bg-slate-50 border-b border-slate-100 text-xs text-slate-500 font-medium">
+                <thead className="bg-slate-50 border-b border-slate-100 text-sm text-slate-500 font-medium">
                   <tr>
                     <th className="px-4 py-2.5">{t("gradesAnalyticsPage.table.columns.index")}</th>
                     <th
@@ -435,11 +435,11 @@ export default function GradesAnalyticsPage() {
                 <tbody className="divide-y divide-slate-100">
                   {displayResults.map((r, idx) => (
                     <tr key={r.id} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="px-4 py-3 text-slate-400 text-xs">{idx + 1}</td>
+                      <td className="px-4 py-3 text-slate-400 text-sm">{idx + 1}</td>
                       <td className="px-4 py-3">
                         <div>
                           <span className="font-medium text-slate-800">{r.studentFullName}</span>
-                          <span className="text-xs text-slate-400 ml-2">{r.studentCode}</span>
+                          <span className="text-sm text-slate-400 ml-2">{r.studentCode}</span>
                         </div>
                       </td>
                       <td className="px-4 py-3">
@@ -447,9 +447,9 @@ export default function GradesAnalyticsPage() {
                           {r.overallScore !== null ? r.overallScore : "—"}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-xs text-slate-500">{r.level ?? "—"}</td>
+                      <td className="px-4 py-3 text-sm text-slate-500">{r.level ?? "—"}</td>
                       <td className="px-4 py-3">
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${STATUS_COLORS[r.status] ?? ""}`}>
+                        <span className={`text-sm px-2 py-0.5 rounded-full font-semibold ${STATUS_COLORS[r.status] ?? ""}`}>
                           {resultStatusLabel(t, r.status) ?? r.status}
                         </span>
                       </td>

@@ -80,28 +80,28 @@ export default function OverridesPage() {
       <div className="bg-gradient-to-r from-orange-50 to-amber-50/50 border border-orange-200/60 p-4 rounded-xl flex items-start gap-3 shadow-sm">
         <Info className="w-5 h-5 text-brand-red shrink-0 mt-0.5" />
         <div className="space-y-1">
-          <span className="text-xs font-bold text-brand-red uppercase tracking-wider block">{t("overridesPage.banner.badge")}</span>
-          <p className="text-xs text-slate-600 leading-relaxed">{t("overridesPage.banner.description")}</p>
+          <span className="text-sm font-bold text-brand-red uppercase tracking-wider block">{t("overridesPage.banner.badge")}</span>
+          <p className="text-sm text-slate-600 leading-relaxed">{t("overridesPage.banner.description")}</p>
         </div>
       </div>
 
       <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-3">
-        <label className="text-[10px] uppercase font-bold text-slate-500 block">{t("overridesPage.step1Label")}</label>
+        <label className="text-[12px] uppercase font-bold text-slate-500 block">{t("overridesPage.step1Label")}</label>
         <div className="max-w-md">
           <UserSearchCombobox value={selectedUser} onChange={setSelectedUser} placeholder={t("overridesPage.searchPlaceholder")} />
         </div>
 
         {userDetail && (
-          <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs font-semibold px-3 py-2 rounded-lg w-fit">
+          <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-100 text-emerald-700 text-sm font-semibold px-3 py-2 rounded-lg w-fit">
             <UserCheck className="w-4 h-4" />
             {t("overridesPage.selectedUser", { fullName: userDetail.fullName, username: userDetail.username })}
           </div>
         )}
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
-      {loading && <p className="text-xs text-slate-500">{t("overridesPage.loading")}</p>}
+      {loading && <p className="text-sm text-slate-500">{t("overridesPage.loading")}</p>}
 
       {!selectedUserId && !loading && (
         <div className="bg-white border border-slate-200 rounded-xl shadow-soft">
@@ -116,15 +116,15 @@ export default function OverridesPage() {
       {userDetail && effective && !loading && (
         <>
           <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-2">
-            <span className="text-[10px] uppercase font-bold text-slate-500 block">
+            <span className="text-[12px] uppercase font-bold text-slate-500 block">
               {t("overridesPage.effectivePermissions.title", { count: effective.permissions.length })}
             </span>
             <div className="flex flex-wrap gap-1.5">
               {effective.permissions.length === 0 ? (
-                <span className="text-xs text-slate-400 italic">{t("overridesPage.effectivePermissions.empty")}</span>
+                <span className="text-sm text-slate-400 italic">{t("overridesPage.effectivePermissions.empty")}</span>
               ) : (
                 effective.permissions.map((code) => (
-                  <code key={code} className="text-[10px] font-mono font-bold text-brand-red bg-orange-50/60 border border-orange-100 px-1.5 py-0.5 rounded">
+                  <code key={code} className="text-[12px] font-mono font-bold text-brand-red bg-orange-50/60 border border-orange-100 px-1.5 py-0.5 rounded">
                     {code}
                   </code>
                 ))

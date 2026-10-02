@@ -10,9 +10,9 @@
     "loadError": "Không tải được danh sách tài khoản.",
     "search": {
       "placeholder": "Tìm theo username / email / họ tên...",
-      "allStatuses": "-- Mọi trạng thái --",
-      "allDepartments": "-- Mọi phòng ban --",
-      "allRoles": "-- Mọi vai trò --",
+      "allStatuses": "-- Tất cả trạng thái --",
+      "allDepartments": "-- Tất cả phòng ban --",
+      "allRoles": "-- Tất cả vai trò --",
       "submit": "Tìm kiếm"
     },
     "table": {

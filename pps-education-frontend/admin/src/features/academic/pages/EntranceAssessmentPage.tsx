@@ -35,8 +35,8 @@ import {
   upsertEntranceAssessmentResult
 } from "../api";
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
+const labelClass = "text-[12px] uppercase font-bold text-slate-500 block mb-1";
 const SCALES: EntranceScaleType[] = ["POINT_10", "PERCENT", "IELTS"];
 
 /**
@@ -106,7 +106,7 @@ export default function EntranceAssessmentPage() {
     return (
       <div className="space-y-6">
         <PageHeader t={t} />
-        <div className="text-xs text-amber-700 bg-amber-50 border border-amber-100 p-3 rounded-lg">
+        <div className="text-sm text-amber-700 bg-amber-50 border border-amber-100 p-3 rounded-lg">
           {t("entranceAssessment.selectSitePrompt")}
         </div>
       </div>
@@ -150,14 +150,14 @@ export default function EntranceAssessmentPage() {
   return (
     <div className="space-y-6">
       <PageHeader t={t} />
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* Danh sách bộ đề */}
         <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden flex flex-col min-h-[520px]">
           <div className="px-5 py-4 border-b border-slate-100 bg-slate-50 space-y-2">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-bold text-slate-700 font-display">{t("entranceAssessment.setupListTitle")}</span>
+              <span className="text-sm font-bold text-slate-700 font-display">{t("entranceAssessment.setupListTitle")}</span>
               {hasPermission("academic.entrance.setup.create") && (
                 <Button size="sm" variant="primary" onClick={() => setSetupModal({ mode: "create" })}>
                   <Plus className="w-3.5 h-3.5" />
@@ -176,9 +176,9 @@ export default function EntranceAssessmentPage() {
           </div>
           <div className="divide-y divide-slate-100 overflow-y-auto flex-1 max-h-[620px]">
             {loading ? (
-              <p className="p-6 text-xs text-slate-400">{t("entranceAssessment.loading")}</p>
+              <p className="p-6 text-sm text-slate-400">{t("entranceAssessment.loading")}</p>
             ) : setups.length === 0 ? (
-              <div className="p-8 text-center text-xs text-slate-400 italic flex flex-col items-center gap-2">
+              <div className="p-8 text-center text-sm text-slate-400 italic flex flex-col items-center gap-2">
                 <ClipboardList className="w-8 h-8 text-slate-300" />
                 {t("entranceAssessment.empty")}
               </div>
@@ -191,8 +191,8 @@ export default function EntranceAssessmentPage() {
                     s.id === selectedId ? "bg-slate-50/90 border-brand-orange" : "hover:bg-slate-50/40 border-transparent"
                   }`}
                 >
-                  <div className="text-xs font-bold text-slate-900">{s.name}</div>
-                  <div className="text-[10px] text-slate-400 mt-1">
+                  <div className="text-sm font-bold text-slate-900">{s.name}</div>
+                  <div className="text-[12px] text-slate-400 mt-1">
                     {s.academicYearCode} · {t(`entranceAssessment.scale.${s.scaleType}`)} · {s.components.length} {t("entranceAssessment.componentUnit")}
                   </div>
                 </button>
@@ -206,21 +206,21 @@ export default function EntranceAssessmentPage() {
           {!selectedSetup ? (
             <div className="flex-1 flex flex-col items-center justify-center p-12 text-center text-slate-400 space-y-3">
               <ClipboardList className="w-12 h-12 text-slate-300" />
-              <p className="text-xs">{t("entranceAssessment.pickSetupPrompt")}</p>
+              <p className="text-sm">{t("entranceAssessment.pickSetupPrompt")}</p>
             </div>
           ) : (
             <div className="flex-1 overflow-y-auto p-5 space-y-5 max-h-[720px]">
               <div className="flex items-start justify-between gap-2 flex-wrap">
                 <div>
                   <h2 className="text-sm font-bold text-slate-800">{selectedSetup.name}</h2>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
+                  <p className="text-[13px] text-slate-500 mt-0.5">
                     {selectedSetup.siteName} · {selectedSetup.academicYearCode} · {t(`entranceAssessment.scale.${selectedSetup.scaleType}`)}
                   </p>
                 </div>
                 {canConfig && (
                   <div className="flex gap-2">
                     {hasPermission("academic.entrance.setup.update") && (
-                      <button onClick={() => setSetupModal({ mode: "edit" })} className="text-brand-red text-[11px] font-bold hover:underline">
+                      <button onClick={() => setSetupModal({ mode: "edit" })} className="text-brand-red text-[13px] font-bold hover:underline">
                         {t("entranceAssessment.editSetup")}
                       </button>
                     )}
@@ -297,7 +297,7 @@ function PageHeader({ t }: { t: (k: string) => string }) {
   return (
     <div className="border-b border-slate-200 pb-4">
       <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("entranceAssessment.pageTitle")}</h1>
-      <p className="text-xs text-slate-500 mt-1">{t("entranceAssessment.pageDescription")}</p>
+      <p className="text-sm text-slate-500 mt-1">{t("entranceAssessment.pageDescription")}</p>
     </div>
   );
 }
@@ -357,7 +357,7 @@ function ComponentsSection({
   return (
     <section className="space-y-2">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-bold uppercase text-slate-500">{t("entranceAssessment.componentsTitle")}</span>
+        <span className="text-[12px] font-bold uppercase text-slate-500">{t("entranceAssessment.componentsTitle")}</span>
         {canConfig && !adding && (
           <Button size="sm" variant="secondary" onClick={() => setAdding(true)}>
             <Plus className="w-3.5 h-3.5" />
@@ -367,7 +367,7 @@ function ComponentsSection({
       </div>
 
       {setup.components.length === 0 && !adding && (
-        <p className="text-xs text-slate-400 italic">{t("entranceAssessment.noComponents")}</p>
+        <p className="text-sm text-slate-400 italic">{t("entranceAssessment.noComponents")}</p>
       )}
 
       <div className="space-y-2">
@@ -375,7 +375,7 @@ function ComponentsSection({
           editingId === c.id ? (
             <ComponentForm key={c.id} t={t} initial={c} onCancel={() => setEditingId(null)} onSubmit={(v) => submit(v, c)} />
           ) : (
-            <div key={c.id} className="border border-slate-200 rounded-lg p-3 flex items-center justify-between gap-2 text-xs">
+            <div key={c.id} className="border border-slate-200 rounded-lg p-3 flex items-center justify-between gap-2 text-sm">
               <div>
                 <span className="font-mono font-bold text-slate-800">{c.code}</span>
                 <span className="text-slate-600"> — {c.name}</span>
@@ -383,7 +383,7 @@ function ComponentsSection({
               </div>
               {canConfig && (
                 <div className="flex gap-2 shrink-0">
-                  <button onClick={() => setEditingId(c.id)} className="text-brand-red font-bold text-[11px] hover:underline">
+                  <button onClick={() => setEditingId(c.id)} className="text-brand-red font-bold text-[13px] hover:underline">
                     {t("entranceAssessment.edit")}
                   </button>
                   <button onClick={() => remove(c)} className="text-rose-500 hover:text-rose-700">
@@ -484,7 +484,7 @@ function ResultsSection({
   return (
     <section className="space-y-2 border-t border-slate-100 pt-4">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-bold uppercase text-slate-500">
+        <span className="text-[12px] font-bold uppercase text-slate-500">
           {t("entranceAssessment.resultsTitle", { count: results.length })}
         </span>
         {canScore && setup.components.length > 0 && (
@@ -496,13 +496,13 @@ function ResultsSection({
       </div>
 
       {setup.components.length === 0 ? (
-        <p className="text-xs text-amber-600 italic">{t("entranceAssessment.needComponentsFirst")}</p>
+        <p className="text-sm text-amber-600 italic">{t("entranceAssessment.needComponentsFirst")}</p>
       ) : results.length === 0 ? (
-        <p className="text-xs text-slate-400 italic">{t("entranceAssessment.noResults")}</p>
+        <p className="text-sm text-slate-400 italic">{t("entranceAssessment.noResults")}</p>
       ) : (
         <div className="space-y-2">
           {results.map((r) => (
-            <div key={r.id} className="border border-slate-200 rounded-lg p-3 text-xs space-y-1">
+            <div key={r.id} className="border border-slate-200 rounded-lg p-3 text-sm space-y-1">
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="font-bold text-slate-800">
                   {r.candidateName}
@@ -510,7 +510,7 @@ function ResultsSection({
                     {r.studentId ? t("entranceAssessment.subjectStudentTag") : t("entranceAssessment.subjectLeadTag")}
                   </span>
                   {r.placedFlag && (
-                    <span className="ml-2 text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded">
+                    <span className="ml-2 text-[12px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded">
                       {t("entranceAssessment.placedBadge")}
                     </span>
                   )}
@@ -518,12 +518,12 @@ function ResultsSection({
                 {canScore && (
                   <div className="flex items-center gap-2 shrink-0">
                     {!r.placedFlag && (
-                      <button onClick={() => onMarkPlaced(r)} className="text-emerald-600 hover:text-emerald-800 text-[11px] font-bold flex items-center gap-1">
+                      <button onClick={() => onMarkPlaced(r)} className="text-emerald-600 hover:text-emerald-800 text-[13px] font-bold flex items-center gap-1">
                         <ArrowRightCircle className="w-3.5 h-3.5" />
                         {t("entranceAssessment.toPlacement")}
                       </button>
                     )}
-                    <button onClick={() => onEdit(r)} className="text-brand-red font-bold text-[11px] hover:underline">
+                    <button onClick={() => onEdit(r)} className="text-brand-red font-bold text-[13px] hover:underline">
                       {t("entranceAssessment.edit")}
                     </button>
                     <button onClick={() => onDelete(r)} className="text-rose-500 hover:text-rose-700">
@@ -599,7 +599,7 @@ function SetupFormModal({
   return (
     <Modal open onClose={onClose} title={isEdit ? t("entranceAssessment.editSetupTitle") : t("entranceAssessment.addSetupTitle")}>
       <div className="space-y-3">
-        {error && <p className="text-xs text-rose-600">{error}</p>}
+        {error && <p className="text-sm text-rose-600">{error}</p>}
         <div>
           <label className={labelClass}>{t("entranceAssessment.form.setupName")}</label>
           <input value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />
@@ -722,9 +722,9 @@ function ResultFormModal({
   return (
     <Modal open onClose={onClose} title={initial ? t("entranceAssessment.editResultTitle") : t("entranceAssessment.addResultTitle")} size="lg">
       <div className="space-y-3">
-        {error && <p className="text-xs text-rose-600">{error}</p>}
+        {error && <p className="text-sm text-rose-600">{error}</p>}
 
-        <div className="flex gap-4 text-xs">
+        <div className="flex gap-4 text-sm">
           <label className="flex items-center gap-1.5">
             <input type="radio" checked={subjectKind === "STUDENT"} onChange={() => setSubjectKind("STUDENT")} />
             {t("entranceAssessment.form.subjectStudent")}
@@ -744,7 +744,7 @@ function ResultFormModal({
               placeholder={t("entranceAssessment.form.studentSearchPlaceholder")}
               className={inputClass}
             />
-            {studentId != null && <p className="text-[10px] text-emerald-600 mt-1">{t("entranceAssessment.form.studentPicked", { name: candidateName })}</p>}
+            {studentId != null && <p className="text-[12px] text-emerald-600 mt-1">{t("entranceAssessment.form.studentPicked", { name: candidateName })}</p>}
             {studentResults.length > 0 && (
               <div className="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg divide-y divide-slate-100 max-h-56 overflow-y-auto">
                 {studentResults.map((s) => (
@@ -757,7 +757,7 @@ function ResultFormModal({
                       setStudentResults([]);
                       setStudentQuery(s.fullName ?? s.studentCode);
                     }}
-                    className="w-full text-left px-3 py-2 hover:bg-slate-50 text-xs"
+                    className="w-full text-left px-3 py-2 hover:bg-slate-50 text-sm"
                   >
                     {s.fullName} <span className="text-slate-400">({s.studentCode})</span>
                   </button>
@@ -769,7 +769,7 @@ function ResultFormModal({
           <div>
             <label className={labelClass}>{t("entranceAssessment.form.leadId")}</label>
             <input value={leadId} onChange={(e) => setLeadId(e.target.value)} type="number" className={inputClass} />
-            <p className="text-[10px] text-slate-400 mt-1">{t("entranceAssessment.form.leadIdHint")}</p>
+            <p className="text-[12px] text-slate-400 mt-1">{t("entranceAssessment.form.leadIdHint")}</p>
           </div>
         )}
 
@@ -788,7 +788,7 @@ function ResultFormModal({
           <span className={labelClass}>{t("entranceAssessment.form.scores")}</span>
           <div className="space-y-1.5">
             {setup.components.map((c) => (
-              <div key={c.id} className="flex items-center gap-2 text-xs">
+              <div key={c.id} className="flex items-center gap-2 text-sm">
                 <span className="w-32 shrink-0 truncate">
                   {c.code} <span className="text-slate-400">/{c.maxScore}</span>
                 </span>
@@ -799,7 +799,7 @@ function ResultFormModal({
                   onChange={(e) => setScores({ ...scores, [c.id]: { score: e.target.value, absence: scores[c.id]?.absence ?? false } })}
                   className={`${inputClass} max-w-[110px]`}
                 />
-                <label className="flex items-center gap-1 text-[10px] text-slate-500">
+                <label className="flex items-center gap-1 text-[12px] text-slate-500">
                   <input
                     type="checkbox"
                     checked={scores[c.id]?.absence ?? false}

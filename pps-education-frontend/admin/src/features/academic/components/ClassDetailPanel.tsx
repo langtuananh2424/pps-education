@@ -61,9 +61,9 @@ import Toast from "@/components/ui/Toast";
 import DatePicker from "@/components/ui/DatePicker";
 import Select from "@/components/ui/Select";
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
-const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-xs p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
+const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-sm p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
+const labelClass = "text-[12px] uppercase font-bold text-slate-500 block mb-1";
 
 /** Khớp CLASS_COLOR_PALETTE ở backend (ClassService) — bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-08-21. */
 const CLASS_COLOR_PALETTE = [
@@ -106,11 +106,11 @@ export default function ClassDetailPanel({ schoolClass, onChanged }: ClassDetail
       <div className="p-5 border-b border-slate-200 space-y-3 bg-slate-50/20">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
-            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-brand-red bg-orange-50 border border-orange-100 px-2 py-0.5 rounded-md">
+            <span className="text-[12px] font-mono font-bold uppercase tracking-wider text-brand-red bg-orange-50 border border-orange-100 px-2 py-0.5 rounded-md">
               {schoolClass.classCode}
             </span>
             <h2 className="text-sm font-bold text-slate-800 mt-1">{schoolClass.name}</h2>
-            <p className="text-[10px] text-slate-400 mt-0.5">{schoolClass.siteName} · {schoolClass.curriculumCode}</p>
+            <p className="text-[12px] text-slate-400 mt-0.5">{schoolClass.siteName} · {schoolClass.curriculumCode}</p>
           </div>
           <Badge variant={classStatusVariants[schoolClass.status]}>{classStatusLabel(t, schoolClass.status)}</Badge>
         </div>
@@ -128,7 +128,7 @@ export default function ClassDetailPanel({ schoolClass, onChanged }: ClassDetail
             <button
               key={key}
               onClick={() => setTab(key)}
-              className={`pb-2.5 text-xs font-bold border-b-2 flex items-center gap-1.5 transition-all whitespace-nowrap ${
+              className={`pb-2.5 text-sm font-bold border-b-2 flex items-center gap-1.5 transition-all whitespace-nowrap ${
                 tab === key ? "border-brand-red text-brand-red" : "border-transparent text-slate-500 hover:text-slate-700"
               }`}
             >
@@ -229,9 +229,9 @@ function ProfileTab({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
       {!canManage && (
-        <div className="text-[11px] text-slate-500 bg-slate-50 border border-slate-200 p-2.5 rounded-lg">
+        <div className="text-[13px] text-slate-500 bg-slate-50 border border-slate-200 p-2.5 rounded-lg">
           {t("classDetail.profile.readOnlyNotice")}
         </div>
       )}
@@ -244,7 +244,7 @@ function ProfileTab({
             onBlur={() => setNameTouched(true)}
             className={nameInvalid ? inputErrorClass : inputClass}
           />
-          {nameInvalid && <p className="text-[10px] text-rose-600 mt-1">{t("classDetail.profile.nameRequired")}</p>}
+          {nameInvalid && <p className="text-[12px] text-rose-600 mt-1">{t("classDetail.profile.nameRequired")}</p>}
         </div>
         <div>
           <label className={labelClass}>{t("classDetail.profile.statusLabel")}</label>
@@ -266,7 +266,7 @@ function ProfileTab({
             onBlur={() => setMaxTouched(true)}
             className={maxInvalid ? inputErrorClass : inputClass}
           />
-          {maxInvalid && <p className="text-[10px] text-rose-600 mt-1">{t("classDetail.profile.maxStudentsRequired")}</p>}
+          {maxInvalid && <p className="text-[12px] text-rose-600 mt-1">{t("classDetail.profile.maxStudentsRequired")}</p>}
         </div>
         <div>
           <label className={labelClass}>{t("classDetail.profile.minStudentsLabel")}</label>
@@ -403,7 +403,7 @@ function TeachersTab({ classId, canManage, showToast }: { classId: number; canMa
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-bold uppercase text-slate-500">{t("classDetail.teachers.sectionTitle", { count: teachers.length })}</span>
+        <span className="text-[12px] font-bold uppercase text-slate-500">{t("classDetail.teachers.sectionTitle", { count: teachers.length })}</span>
         <div className="flex items-center gap-2">
           <Button size="sm" variant="secondary" onClick={() => setShowHistory(true)}>
             {t("classDetail.teachers.historyButton")}
@@ -417,16 +417,16 @@ function TeachersTab({ classId, canManage, showToast }: { classId: number; canMa
         </div>
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       {loading ? (
-        <p className="text-xs text-slate-500">{t("common.loading")}</p>
+        <p className="text-sm text-slate-500">{t("common.loading")}</p>
       ) : teachers.length === 0 ? (
-        <p className="text-xs text-slate-400 italic">{t("classDetail.teachers.empty")}</p>
+        <p className="text-sm text-slate-400 italic">{t("classDetail.teachers.empty")}</p>
       ) : (
         <div className="space-y-2">
           {teachers.map((teacher) => (
-            <div key={teacher.id} className="border border-slate-200 rounded-lg p-3 text-xs">
+            <div key={teacher.id} className="border border-slate-200 rounded-lg p-3 text-sm">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-bold text-slate-800">{teacher.teacherFullName}</span>
@@ -439,7 +439,7 @@ function TeachersTab({ classId, canManage, showToast }: { classId: number; canMa
                     {teacher.teacherRole === "PRIMARY" && (
                       <button
                         onClick={() => setChangingId(changingId === teacher.id ? null : teacher.id)}
-                        className="text-sky-600 hover:text-sky-800 text-[11px] font-semibold"
+                        className="text-sky-600 hover:text-sky-800 text-[13px] font-semibold"
                       >
                         {t("classDetail.teachers.changeTeacherAction")}
                       </button>
@@ -447,7 +447,7 @@ function TeachersTab({ classId, canManage, showToast }: { classId: number; canMa
                     <button
                       onClick={() => handleEndAssignment(teacher)}
                       disabled={endingId === teacher.id}
-                      className="text-rose-500 hover:text-rose-700 text-[11px] font-semibold disabled:opacity-50"
+                      className="text-rose-500 hover:text-rose-700 text-[13px] font-semibold disabled:opacity-50"
                     >
                       {endingId === teacher.id ? t("classDetail.teachers.endingInProgress") : t("classDetail.teachers.endAssignmentButton")}
                     </button>
@@ -514,17 +514,17 @@ function TeacherHistoryPanel({ classId }: { classId: number }) {
     return t("classDetail.teacherHistory.describeEnded", { name: h.teacherFullName, date: h.details.assignedTo ?? "?" });
   };
 
-  if (loading) return <p className="text-xs text-slate-500">{t("common.loading")}</p>;
-  if (error) return <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>;
-  if (history.length === 0) return <p className="text-xs text-slate-400 italic">{t("classDetail.teacherHistory.empty")}</p>;
+  if (loading) return <p className="text-sm text-slate-500">{t("common.loading")}</p>;
+  if (error) return <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>;
+  if (history.length === 0) return <p className="text-sm text-slate-400 italic">{t("classDetail.teacherHistory.empty")}</p>;
 
   return (
     <div className="space-y-2 max-h-96 overflow-y-auto">
       {history.map((h) => (
-        <div key={h.id} className="border border-slate-200 rounded-lg p-3 text-xs flex items-center justify-between gap-2">
+        <div key={h.id} className="border border-slate-200 rounded-lg p-3 text-sm flex items-center justify-between gap-2">
           <div>
             <p className="text-slate-800">{describe(h)}</p>
-            <p className="text-[10px] text-slate-400 mt-0.5">
+            <p className="text-[12px] text-slate-400 mt-0.5">
               {t("classDetail.teacherHistory.byLabel", { name: h.changedByName, date: formatDateTime(h.createdAt, i18n.language) })}
             </p>
           </div>
@@ -573,7 +573,7 @@ function AssignTeacherForm({ classId, onDone, onCancel }: { classId: number; onD
 
   return (
     <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
       <UserSearchCombobox
         value={selected}
         onChange={setSelected}
@@ -601,7 +601,7 @@ function AssignTeacherForm({ classId, onDone, onCancel }: { classId: number; onD
         )}
       </div>
       {teacherRole === "PRIMARY" && (
-        <p className="text-[10px] text-slate-400 italic">{t("classDetail.assignTeacherForm.primaryTypeHint")}</p>
+        <p className="text-[12px] text-slate-400 italic">{t("classDetail.assignTeacherForm.primaryTypeHint")}</p>
       )}
 
       <div className="flex gap-2">
@@ -655,8 +655,8 @@ function ChangeTeacherForm({
 
   return (
     <form onSubmit={handleSubmit} className="bg-sky-50 border border-sky-200 rounded-lg p-3 mt-2 space-y-2">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
-      <p className="text-[10px] text-slate-500">{t("classDetail.changeTeacherForm.cascadeHint")}</p>
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
+      <p className="text-[12px] text-slate-500">{t("classDetail.changeTeacherForm.cascadeHint")}</p>
       <UserSearchCombobox
         value={selected}
         onChange={setSelected}
@@ -797,14 +797,14 @@ function StudentsTab({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <span className="text-[10px] font-bold uppercase text-slate-500">{t("classDetail.students.sectionTitle", { count: enrollments.length })}</span>
+        <span className="text-[12px] font-bold uppercase text-slate-500">{t("classDetail.students.sectionTitle", { count: enrollments.length })}</span>
         <div className="flex items-center gap-2 flex-wrap">
           <button
             type="button"
             onClick={handleExportStudents}
             disabled={enrollments.length === 0}
             title={t("classDetail.students.exportButtonTitle")}
-            className="flex items-center gap-1.5 border border-dashed border-slate-300 rounded-lg px-3 py-1.5 text-[11px] font-semibold text-slate-600 hover:bg-white disabled:opacity-50"
+            className="flex items-center gap-1.5 border border-dashed border-slate-300 rounded-lg px-3 py-1.5 text-[13px] font-semibold text-slate-600 hover:bg-white disabled:opacity-50"
           >
             <Download className="w-3.5 h-3.5" />
             {t("classDetail.students.exportButton")}
@@ -821,7 +821,7 @@ function StudentsTab({
                 type="button"
                 onClick={handleDownloadTemplate}
                 disabled={downloadingTemplate}
-                className="flex items-center gap-1.5 border border-dashed border-slate-300 rounded-lg px-3 py-1.5 text-[11px] font-semibold text-slate-600 hover:bg-white disabled:opacity-50"
+                className="flex items-center gap-1.5 border border-dashed border-slate-300 rounded-lg px-3 py-1.5 text-[13px] font-semibold text-slate-600 hover:bg-white disabled:opacity-50"
               >
                 <Download className="w-3.5 h-3.5" />
                 {downloadingTemplate ? t("classDetail.students.downloading") : t("classDetail.students.downloadTemplateButton")}
@@ -830,7 +830,7 @@ function StudentsTab({
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={importing}
-                className="flex items-center gap-1.5 border-2 border-dashed border-slate-200 rounded-lg px-3 py-1.5 text-[11px] font-semibold text-slate-600 hover:border-brand-orange hover:bg-orange-50/30 disabled:opacity-50"
+                className="flex items-center gap-1.5 border-2 border-dashed border-slate-200 rounded-lg px-3 py-1.5 text-[13px] font-semibold text-slate-600 hover:border-brand-orange hover:bg-orange-50/30 disabled:opacity-50"
               >
                 <UploadCloud className="w-3.5 h-3.5 text-brand-orange" />
                 {importing ? t("classDetail.students.importing") : t("classDetail.students.importBatchButton")}
@@ -842,7 +842,7 @@ function StudentsTab({
       </div>
 
       {importResult && (
-        <div className="w-full flex flex-wrap items-center gap-2 text-[11px]">
+        <div className="w-full flex flex-wrap items-center gap-2 text-[13px]">
           <span className="bg-slate-100 border border-slate-200 text-slate-700 font-semibold px-2 py-1 rounded-lg">
             {t("classDetail.students.importResultTotal", { count: importResult.totalRows ?? "—" })}
           </span>
@@ -867,16 +867,16 @@ function StudentsTab({
         </div>
       )}
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       {loading ? (
-        <p className="text-xs text-slate-500">{t("common.loading")}</p>
+        <p className="text-sm text-slate-500">{t("common.loading")}</p>
       ) : enrollments.length === 0 ? (
-        <p className="text-xs text-slate-400 italic">{t("classDetail.students.empty")}</p>
+        <p className="text-sm text-slate-400 italic">{t("classDetail.students.empty")}</p>
       ) : (
         <div className="space-y-2">
           {enrollments.map((en) => (
-            <div key={en.id} className="border border-slate-200 rounded-lg p-3 text-xs flex items-center justify-between">
+            <div key={en.id} className="border border-slate-200 rounded-lg p-3 text-sm flex items-center justify-between">
               <div className="flex items-center gap-2 flex-wrap">
                 <StudentNameLink
                   studentId={en.studentId}
@@ -998,7 +998,7 @@ function EnrollStudentForm({
 
   return (
     <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       <div className="relative">
         <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-400" />
@@ -1010,7 +1010,7 @@ function EnrollStudentForm({
         />
       </div>
 
-      <label className="flex items-center gap-2 text-[11px] text-slate-500">
+      <label className="flex items-center gap-2 text-[13px] text-slate-500">
         <input type="checkbox" checked={showOtherSites} onChange={(e) => setShowOtherSites(e.target.checked)} />
         {t("classDetail.enrollForm.showOtherSitesLabel")} {siteName ? t("classDetail.enrollForm.showOtherSitesHint", { siteName }) : ""}
         {!showOtherSites && otherSitesCount > 0 && (
@@ -1020,18 +1020,18 @@ function EnrollStudentForm({
 
       <div className="border border-slate-200 rounded-lg bg-white max-h-64 overflow-y-auto">
         {loadingStudents ? (
-          <p className="text-xs text-slate-500 p-3">{t("classDetail.enrollForm.loadingStudents")}</p>
+          <p className="text-sm text-slate-500 p-3">{t("classDetail.enrollForm.loadingStudents")}</p>
         ) : filtered.length === 0 ? (
-          <p className="text-xs text-slate-400 italic p-3">{t("classDetail.enrollForm.noneAvailable")}</p>
+          <p className="text-sm text-slate-400 italic p-3">{t("classDetail.enrollForm.noneAvailable")}</p>
         ) : (
           <>
-            <label className="flex items-center gap-2 px-3 py-2 border-b border-slate-100 bg-slate-50 text-[11px] font-bold text-slate-600 cursor-pointer">
+            <label className="flex items-center gap-2 px-3 py-2 border-b border-slate-100 bg-slate-50 text-[13px] font-bold text-slate-600 cursor-pointer">
               <input type="checkbox" checked={allFilteredSelected} onChange={toggleAllFiltered} />
               {t("classDetail.enrollForm.selectAll", { count: filtered.length })}
             </label>
             <div className="divide-y divide-slate-100">
               {filtered.map((s) => (
-                <label key={s.id} className="flex items-center gap-2 px-3 py-2 text-xs hover:bg-slate-50 cursor-pointer">
+                <label key={s.id} className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50 cursor-pointer">
                   <input type="checkbox" checked={selectedIds.has(s.id)} onChange={() => toggleOne(s.id)} />
                   <span className="font-bold text-slate-800">{s.fullName}</span>
                   <span className="font-mono text-slate-400">{s.studentCode}</span>
@@ -1048,7 +1048,7 @@ function EnrollStudentForm({
       </div>
 
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[11px] text-slate-500">{t("classDetail.enrollForm.selectedCount", { count: selectedIds.size })}</span>
+        <span className="text-[13px] text-slate-500">{t("classDetail.enrollForm.selectedCount", { count: selectedIds.size })}</span>
         <div className="flex gap-2">
           <Button type="button" variant="secondary" size="sm" onClick={onCancel}>
             {t("common.cancelButton")}
@@ -1185,7 +1185,7 @@ function SessionsTab({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <span className="text-[10px] font-bold uppercase text-slate-500">{t("classDetail.sessions.sectionTitle", { count: sessions.length })}</span>
+        <span className="text-[12px] font-bold uppercase text-slate-500">{t("classDetail.sessions.sectionTitle", { count: sessions.length })}</span>
         {(canCreateSession || canGenerate || canImport) && (
           <div className="flex items-center gap-1.5">
             {canCreateSession && (
@@ -1210,16 +1210,16 @@ function SessionsTab({
         )}
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       {loading ? (
-        <p className="text-xs text-slate-500">{t("common.loading")}</p>
+        <p className="text-sm text-slate-500">{t("common.loading")}</p>
       ) : sessions.length === 0 ? (
-        <p className="text-xs text-slate-400 italic">{t("classDetail.sessions.empty")}</p>
+        <p className="text-sm text-slate-400 italic">{t("classDetail.sessions.empty")}</p>
       ) : (
         <div className="space-y-2">
           {sessions.map((s) => (
-            <div key={s.id} className="border border-slate-200 rounded-lg p-3 text-xs space-y-1.5">
+            <div key={s.id} className="border border-slate-200 rounded-lg p-3 text-sm space-y-1.5">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-slate-400 font-mono">{t("classDetail.sessions.sessionNumber", { number: s.sessionNumber })}</span>
@@ -1400,8 +1400,8 @@ function RescheduleSessionForm({
 
   return (
     <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
-      <p className="text-[11px] text-slate-500">
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <p className="text-[13px] text-slate-500">
         {t("classDetail.rescheduleForm.currentSchedulePrefix", { number: session.sessionNumber })}{" "}
         <span className="font-bold text-slate-700">{session.sessionDate} {session.startTime}–{session.endTime}</span>
       </p>
@@ -1434,7 +1434,7 @@ function RescheduleSessionForm({
       </div>
       {/* Đảo ngược 2026-08-13 (xác nhận lại 2026-08-19): giáo viên chính/phụ/CM GIỮ NGUYÊN từ buổi
           cũ khi dời lịch — sửa GV thì dùng nút "Sửa nhanh" (updateSessionAssignment) riêng. */}
-      <p className="text-[11px] text-slate-500">
+      <p className="text-[13px] text-slate-500">
         {t("classDetail.rescheduleForm.teacherAutoHint", {
           teacher: getDisplayTeacherName(session),
           type: session.teacherType ? ` — ${teacherTypeLabel(t, session.teacherType)}` : ""
@@ -1543,7 +1543,7 @@ function CreateSessionForm({ classId, siteId, onDone, onCancel }: { classId: num
 
   return (
     <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       <div>
         <label className={labelClass}>{t("classDetail.createSessionForm.sessionDateLabel")}</label>
@@ -1602,7 +1602,7 @@ function CreateSessionForm({ classId, siteId, onDone, onCancel }: { classId: num
             ))}
           </Select>
           {cancelledPendingMakeup.length === 0 && (
-            <p className="text-[10px] text-slate-400 italic mt-1">{t("classDetail.createSessionForm.noCancelledSessions")}</p>
+            <p className="text-[12px] text-slate-400 italic mt-1">{t("classDetail.createSessionForm.noCancelledSessions")}</p>
           )}
         </div>
       )}

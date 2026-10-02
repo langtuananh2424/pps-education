@@ -194,7 +194,7 @@ export default function RoleAccessEditor({ role, roles, onRoleChanged }: RoleAcc
     }
   };
 
-  if (loading) return <p className="text-xs text-slate-500">{t("roleAccessEditor.loading")}</p>;
+  if (loading) return <p className="text-sm text-slate-500">{t("roleAccessEditor.loading")}</p>;
 
   const q = query.trim().toLowerCase();
   const itemLabel = (id: string, fallback: string) => t(`layout:nav.items.${id}`, fallback);
@@ -208,9 +208,9 @@ export default function RoleAccessEditor({ role, roles, onRoleChanged }: RoleAcc
     <div className="@container">
       <div className="grid grid-cols-1 @4xl:grid-cols-[minmax(0,1fr)_220px] gap-5">
         <div className="space-y-5 min-w-0">
-          {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+          {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
           {locked && (
-            <div className="text-xs text-emerald-800 bg-emerald-50 border border-emerald-100 p-2.5 rounded-lg">{t("roleAccessEditor.lockedNotice")}</div>
+            <div className="text-sm text-emerald-800 bg-emerald-50 border border-emerald-100 p-2.5 rounded-lg">{t("roleAccessEditor.lockedNotice")}</div>
           )}
 
           {!locked && (
@@ -218,7 +218,7 @@ export default function RoleAccessEditor({ role, roles, onRoleChanged }: RoleAcc
               <Select
                 value={templateRoleId}
                 onChange={(e) => setTemplateRoleId(e.target.value)}
-                className="bg-white border border-slate-200 text-xs px-2 py-1.5 rounded-lg text-slate-700 w-auto"
+                className="bg-white border border-slate-200 text-sm px-2 py-1.5 rounded-lg text-slate-700 w-auto"
                 aria-label={t("roleAccessEditor.templatePlaceholder")}
               >
                 <option value="">{t("roleAccessEditor.templatePlaceholder")}</option>
@@ -254,8 +254,8 @@ export default function RoleAccessEditor({ role, roles, onRoleChanged }: RoleAcc
           )}
 
           <section className="space-y-2">
-            <h3 className="text-xs font-bold text-slate-800">{t("roleAccessEditor.scopeTitle")}</h3>
-            <p className="text-[11px] text-slate-500">{t("roleAccessEditor.scopeHint")}</p>
+            <h3 className="text-sm font-bold text-slate-800">{t("roleAccessEditor.scopeTitle")}</h3>
+            <p className="text-[13px] text-slate-500">{t("roleAccessEditor.scopeHint")}</p>
             <div className="grid grid-cols-1 @2xl:grid-cols-3 gap-2">
               {SCOPES.map((value) => (
                 <label
@@ -276,8 +276,8 @@ export default function RoleAccessEditor({ role, roles, onRoleChanged }: RoleAcc
                     className="mt-0.5 accent-brand-red"
                   />
                   <span>
-                    <span className="block text-xs font-bold text-slate-800">{t(`roleAccessEditor.scopes.${value}.title`)}</span>
-                    <span className="block text-[11px] text-slate-500">{t(`roleAccessEditor.scopes.${value}.description`)}</span>
+                    <span className="block text-sm font-bold text-slate-800">{t(`roleAccessEditor.scopes.${value}.title`)}</span>
+                    <span className="block text-[13px] text-slate-500">{t(`roleAccessEditor.scopes.${value}.description`)}</span>
                   </span>
                 </label>
               ))}
@@ -285,8 +285,8 @@ export default function RoleAccessEditor({ role, roles, onRoleChanged }: RoleAcc
           </section>
 
           <section className="space-y-2">
-            <h3 className="text-xs font-bold text-slate-800">{t("roleAccessEditor.treeTitle")}</h3>
-            <p className="text-[11px] text-slate-500">{t("roleAccessEditor.treeHint")}</p>
+            <h3 className="text-sm font-bold text-slate-800">{t("roleAccessEditor.treeTitle")}</h3>
+            <p className="text-[13px] text-slate-500">{t("roleAccessEditor.treeHint")}</p>
             <div className="flex flex-wrap items-center gap-3 bg-slate-50 p-2.5 rounded-xl border border-slate-200/60">
               <div className="relative w-full sm:w-60">
                 <Search className="absolute left-2.5 top-2 w-3.5 h-3.5 text-slate-400" />
@@ -295,14 +295,14 @@ export default function RoleAccessEditor({ role, roles, onRoleChanged }: RoleAcc
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder={t("roleAccessEditor.searchPlaceholder")}
-                  className="w-full bg-white border border-slate-200 text-xs pl-8 pr-3 py-1.5 rounded-lg focus:outline-none"
+                  className="w-full bg-white border border-slate-200 text-sm pl-8 pr-3 py-1.5 rounded-lg focus:outline-none"
                 />
               </div>
-              <label className="flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer">
+              <label className="flex items-center gap-1.5 text-sm text-slate-700 cursor-pointer">
                 <input type="checkbox" checked={onlyTicked} onChange={(e) => setOnlyTicked(e.target.checked)} className="accent-brand-red" />
                 {t("roleAccessEditor.onlyTicked")}
               </label>
-              <span className="text-xs text-slate-600 ml-auto">{t("roleAccessEditor.menuCount", { count: menuCount, total: menuTotal })}</span>
+              <span className="text-sm text-slate-600 ml-auto">{t("roleAccessEditor.menuCount", { count: menuCount, total: menuTotal })}</span>
             </div>
 
             <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-200">
@@ -319,7 +319,7 @@ export default function RoleAccessEditor({ role, roles, onRoleChanged }: RoleAcc
                 const onCount = section.items.filter((i) => menuOn(i.id)).length;
                 return (
                   <div key={section.id}>
-                    <label className="flex items-center gap-2 px-3 py-2 bg-slate-50 text-[11px] font-bold tracking-wider uppercase text-brand-red cursor-pointer">
+                    <label className="flex items-center gap-2 px-3 py-2 bg-slate-50 text-[13px] font-bold tracking-wider uppercase text-brand-red cursor-pointer">
                       <input
                         type="checkbox"
                         checked={onCount === section.items.length}
@@ -359,10 +359,10 @@ export default function RoleAccessEditor({ role, roles, onRoleChanged }: RoleAcc
                               onChange={(e) => setMenu(item.id, e.target.checked)}
                               className="accent-brand-red"
                             />
-                            <label htmlFor={`menu-${role.id}-${item.id}`} className={cn("text-xs font-semibold cursor-pointer", on ? "text-slate-800" : "text-slate-400")}>
+                            <label htmlFor={`menu-${role.id}-${item.id}`} className={cn("text-sm font-semibold cursor-pointer", on ? "text-slate-800" : "text-slate-400")}>
                               {itemLabel(item.id, item.label)}
                             </label>
-                            <span className={cn("ml-auto text-[10px] font-semibold rounded-full px-2", actionsOn ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500")}>
+                            <span className={cn("ml-auto text-[12px] font-semibold rounded-full px-2", actionsOn ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500")}>
                               {page.actions.length
                                 ? t("roleAccessEditor.actionCount", { count: actionsOn, total: page.actions.length })
                                 : t("roleAccessEditor.viewOnly")}
@@ -382,8 +382,8 @@ export default function RoleAccessEditor({ role, roles, onRoleChanged }: RoleAcc
                                       onChange={(e) => setAction(item.id, action.codes, e.target.checked)}
                                       className="accent-brand-red"
                                     />
-                                    <span className={cn("text-xs", aOn ? "text-slate-700" : "text-slate-400")}>{action.label}</span>
-                                    <code className="ml-auto text-[10px] font-mono text-slate-400 truncate max-w-[45%]">{action.codes.join(", ")}</code>
+                                    <span className={cn("text-sm", aOn ? "text-slate-700" : "text-slate-400")}>{action.label}</span>
+                                    <code className="ml-auto text-[12px] font-mono text-slate-400 truncate max-w-[45%]">{action.codes.join(", ")}</code>
                                   </label>
                                 );
                               })}
@@ -398,8 +398,8 @@ export default function RoleAccessEditor({ role, roles, onRoleChanged }: RoleAcc
 
           {otherItems.length > 0 && (
             <details className="border border-slate-200 rounded-xl p-3">
-              <summary className="text-xs font-bold text-slate-800 cursor-pointer">{t("roleAccessEditor.otherTitle", { count: otherItems.length })}</summary>
-              <p className="text-[11px] text-slate-500 mt-1 mb-3">{t("roleAccessEditor.otherHint")}</p>
+              <summary className="text-sm font-bold text-slate-800 cursor-pointer">{t("roleAccessEditor.otherTitle", { count: otherItems.length })}</summary>
+              <p className="text-[13px] text-slate-500 mt-1 mb-3">{t("roleAccessEditor.otherHint")}</p>
               <PermissionChecklist
                 items={otherItems.map((p) => ({ permissionId: p.permissionId, code: p.code, name: p.name, module: p.module }))}
                 selectedIds={new Set(otherItems.filter((p) => has(p.code)).map((p) => p.permissionId))}
@@ -412,17 +412,17 @@ export default function RoleAccessEditor({ role, roles, onRoleChanged }: RoleAcc
 
         <aside>
           <div className="@4xl:sticky top-4 bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-2">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{t("roleAccessEditor.previewTitle")}</p>
+            <p className="text-[12px] font-bold uppercase tracking-wider text-slate-400">{t("roleAccessEditor.previewTitle")}</p>
             <div className="bg-white border border-slate-200 rounded-xl p-2 space-y-1 max-h-[560px] overflow-y-auto">
-              {menuCount === 0 && <p className="text-[11px] text-slate-400 p-2">{t("roleAccessEditor.previewEmpty")}</p>}
+              {menuCount === 0 && <p className="text-[13px] text-slate-400 p-2">{t("roleAccessEditor.previewEmpty")}</p>}
               {TREE.map((section) => {
                 const shown = section.items.filter((i) => menuOn(i.id));
                 if (shown.length === 0) return null;
                 return (
                   <div key={section.id}>
-                    <p className="text-[10px] font-semibold text-slate-400 px-2 pt-1.5">{t(`layout:nav.sections.${section.id}`, section.title)}</p>
+                    <p className="text-[12px] font-semibold text-slate-400 px-2 pt-1.5">{t(`layout:nav.sections.${section.id}`, section.title)}</p>
                     {shown.map((item) => (
-                      <p key={item.id} className="text-xs text-slate-700 px-2 py-1 rounded-md">
+                      <p key={item.id} className="text-sm text-slate-700 px-2 py-1 rounded-md">
                         {itemLabel(item.id, item.label)}
                       </p>
                     ))}
@@ -430,7 +430,7 @@ export default function RoleAccessEditor({ role, roles, onRoleChanged }: RoleAcc
                 );
               })}
             </div>
-            <p className="text-[10px] text-slate-500">{t("roleAccessEditor.previewHint")}</p>
+            <p className="text-[12px] text-slate-500">{t("roleAccessEditor.previewHint")}</p>
           </div>
         </aside>
 

@@ -119,7 +119,7 @@ export default function LeavesPage() {
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("leavesPage.title")}</h1>
-        <p className="text-xs text-slate-500 mt-1">{t("leavesPage.subtitle")}</p>
+        <p className="text-sm text-slate-500 mt-1">{t("leavesPage.subtitle")}</p>
       </div>
 
       <div className={showSubmitForm && showApprovalQueue ? "grid grid-cols-1 lg:grid-cols-2 gap-6" : "grid grid-cols-1 gap-6"}>
@@ -149,14 +149,14 @@ export default function LeavesPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden">
           <div className="px-5 py-3 border-b border-slate-100 bg-slate-50">
-            <span className="text-xs font-bold text-slate-700 font-display block">{t("leavesPage.myHistory.title")}</span>
-            <p className="text-[10px] text-slate-400">{t("leavesPage.myHistory.subtitle")}</p>
+            <span className="text-sm font-bold text-slate-700 font-display block">{t("leavesPage.myHistory.title")}</span>
+            <p className="text-[12px] text-slate-400">{t("leavesPage.myHistory.subtitle")}</p>
           </div>
           <div className="divide-y divide-slate-100 max-h-96 overflow-y-auto">
             {mineLoading ? (
-              <div className="p-6 text-center text-xs text-slate-400">{t("leavesPage.myHistory.loading")}</div>
+              <div className="p-6 text-center text-sm text-slate-400">{t("leavesPage.myHistory.loading")}</div>
             ) : mine.length === 0 ? (
-              <div className="p-6 text-center text-xs text-slate-400">{t("leavesPage.myHistory.empty")}</div>
+              <div className="p-6 text-center text-sm text-slate-400">{t("leavesPage.myHistory.empty")}</div>
             ) : (
               mine.map((req) => (
                 <div
@@ -165,11 +165,11 @@ export default function LeavesPage() {
                   className={`p-3 space-y-1 transition-all ${justHighlightedId === req.id ? "ring-2 ring-inset ring-brand-red/50 bg-brand-red/5" : ""}`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-bold text-slate-800">{getLeaveTypeLabel(req.leaveType)}</span>
+                    <span className="text-sm font-bold text-slate-800">{getLeaveTypeLabel(req.leaveType)}</span>
                     <Badge variant={statusVariant[req.status]}>{leaveRequestStatusLabel(t, req.status)}</Badge>
                   </div>
-                  <p className="text-[11px] text-slate-500 italic">"{req.reason}"</p>
-                  <p className="text-[10px] text-slate-400">
+                  <p className="text-[13px] text-slate-500 italic">"{req.reason}"</p>
+                  <p className="text-[12px] text-slate-400">
                     {t("leavesPage.myHistory.dateRange", { startDate: req.startDate, endDate: req.endDate, totalDays: req.totalDays })}
                   </p>
                 </div>
@@ -182,18 +182,18 @@ export default function LeavesPage() {
           <div className="px-5 py-3 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
             <History className="w-3.5 h-3.5 text-slate-400 shrink-0" />
             <div>
-              <span className="text-xs font-bold text-slate-700 font-display block">{t("leavesPage.substituteHistory.title")}</span>
-              <p className="text-[10px] text-slate-400">{t("leavesPage.substituteHistory.subtitle")}</p>
+              <span className="text-sm font-bold text-slate-700 font-display block">{t("leavesPage.substituteHistory.title")}</span>
+              <p className="text-[12px] text-slate-400">{t("leavesPage.substituteHistory.subtitle")}</p>
             </div>
           </div>
           <div className="divide-y divide-slate-100 max-h-96 overflow-y-auto">
             {substitutions.length === 0 ? (
-              <div className="p-6 text-center text-xs text-slate-400">{t("leavesPage.substituteHistory.empty")}</div>
+              <div className="p-6 text-center text-sm text-slate-400">{t("leavesPage.substituteHistory.empty")}</div>
             ) : (
               substitutions.map((s) => (
                 <div key={s.id} className="p-3 space-y-1">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <span className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
                       <Repeat className="w-3 h-3 text-slate-400" />
                       {s.className}
                     </span>
@@ -201,10 +201,10 @@ export default function LeavesPage() {
                       {s.revokedAt ? t("substitutionStatus.revoked") : t("substitutionStatus.active")}
                     </Badge>
                   </div>
-                  <p className="text-[11px] text-slate-500">
+                  <p className="text-[13px] text-slate-500">
                     {s.substituteTeacherName} <span className="text-slate-400">{t("leavesPage.substituteHistory.substituteFor")}</span> {s.originalTeacherName}
                   </p>
-                  <p className="text-[10px] text-slate-400">{t("leavesPage.substituteHistory.sessionDate", { date: s.sessionDate })}</p>
+                  <p className="text-[12px] text-slate-400">{t("leavesPage.substituteHistory.sessionDate", { date: s.sessionDate })}</p>
                 </div>
               ))
             )}

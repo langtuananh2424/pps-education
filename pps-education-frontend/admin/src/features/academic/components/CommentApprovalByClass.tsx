@@ -394,8 +394,8 @@ export default function CommentApprovalByClass({ items, loading, onDecided, high
     }
   };
 
-  if (loading) return <p className="text-xs text-slate-500 p-4">{t("approvalByClass.loading")}</p>;
-  if (items.length === 0) return <p className="text-xs text-slate-400 italic text-center py-6">{t("approvalByClass.empty")}</p>;
+  if (loading) return <p className="text-sm text-slate-500 p-4">{t("approvalByClass.loading")}</p>;
+  if (items.length === 0) return <p className="text-sm text-slate-400 italic text-center py-6">{t("approvalByClass.empty")}</p>;
 
   const classIdsInOrder = Array.from(new Set(items.map((it) => it.classId))).sort((a, b) => {
     const nameA = classesById[a]?.name ?? "";
@@ -412,7 +412,7 @@ export default function CommentApprovalByClass({ items, loading, onDecided, high
   return (
     <div className="space-y-4">
       <NotificationBanner message={decidedMessage} onClose={() => setDecidedMessage(null)} />
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
       {classIdsInOrder.map((classId) => {
         const cls = classesById[classId];
         const classItems = items.filter((it) => it.classId === classId);
@@ -428,14 +428,14 @@ export default function CommentApprovalByClass({ items, loading, onDecided, high
             className={`overflow-hidden transition-all ${justHighlightedClassId === classId ? "ring-2 ring-brand-red/50 border-brand-red" : ""}`}
           >
             <div className="px-5 py-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between flex-wrap gap-2">
-              <span className="text-xs font-bold text-slate-700 font-display">
+              <span className="text-sm font-bold text-slate-700 font-display">
                 {cls ? `${cls.name} (${cls.classCode})` : t("approvalByClass.classFallback", { id: classId })}
               </span>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => handleDecideAllClass(classId, classItems)}
                   disabled={decidingAllClassId === classId}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded-lg disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[13px] font-bold rounded-lg disabled:opacity-50"
                 >
                   <CheckCheck className="w-3.5 h-3.5" />
                   {decidingAllClassId === classId ? t("approvalByClass.decidingAll") : t("approvalByClass.decideAllButton")}
@@ -463,20 +463,20 @@ export default function CommentApprovalByClass({ items, loading, onDecided, high
               return (
                 <div key={date} className="border-b border-slate-100 last:border-b-0">
                   <div className="px-5 py-2 bg-slate-50/60 flex items-center gap-2 flex-wrap">
-                    <span className="text-[11px] font-bold text-slate-600">
+                    <span className="text-[13px] font-bold text-slate-600">
                       {t("approvalByClass.sessionLabel", { date, weekday })}
                     </span>
-                    <span className="text-[10px] text-slate-400">{t("approvalByClass.studentCount", { count: dateItems.length })}</span>
+                    <span className="text-[12px] text-slate-400">{t("approvalByClass.studentCount", { count: dateItems.length })}</span>
                     {/* lessonContent giống nhau cho cả buổi (class_sessions.lesson_content) — chỉ cần lấy từ dòng đầu, 2026-07-30. */}
                     {dateItems[0]?.lessonContent && (
-                      <span className="text-[10px] text-amber-700 font-semibold">
+                      <span className="text-[12px] text-amber-700 font-semibold">
                         {t("approvalByClass.lessonContentPrefix", { content: dateItems[0].lessonContent })}
                       </span>
                     )}
                     {/* Đẩy tên GV gửi nhận xét sang bên phải hàng, song song với "Buổi ..." — đã xác nhận
                         với người dùng 2026-09-23 (trước đó dính liền ngay sau ngày/thứ). */}
                     {sessionTeacherName && (
-                      <span className="ml-auto text-[10px] text-slate-500">
+                      <span className="ml-auto text-[12px] text-slate-500">
                         {t("shared.sessionTeacherName", { name: sessionTeacherName })}
                       </span>
                     )}
@@ -487,7 +487,7 @@ export default function CommentApprovalByClass({ items, loading, onDecided, high
                       để sticky định vị đúng, viền vẫn liền mạch như border-collapse (spacing=0). Bọc thêm
                       max-h + overflow-y-auto để sticky top có 1 scroll container CỐ ĐỊNH ngay trong bảng. */}
                   <div className="overflow-x-auto overflow-y-auto max-h-[65vh]">
-                    <table className="w-full text-xs text-left border-separate border-spacing-0">
+                    <table className="w-full text-sm text-left border-separate border-spacing-0">
                     <thead className="sticky top-0 z-20 bg-slate-50">
                       {/* Border rõ giữa các cột/dòng header (bổ sung ngoài SDD gốc, đã xác nhận với
                           người dùng 2026-08-06) — Th mặc định không có border. */}
@@ -588,7 +588,7 @@ export default function CommentApprovalByClass({ items, loading, onDecided, high
                             {attitudeAlertById[cm.id] && (
                               <span
                                 title={attitudeAlertById[cm.id].message}
-                                className={`mt-1 flex items-center gap-1 w-fit text-[10px] font-bold border rounded px-1.5 py-0.5 whitespace-nowrap ${
+                                className={`mt-1 flex items-center gap-1 w-fit text-[12px] font-bold border rounded px-1.5 py-0.5 whitespace-nowrap ${
                                   attitudeAlertById[cm.id].escalation ? "text-rose-700 bg-rose-50 border-rose-200" : "text-amber-700 bg-amber-50 border-amber-200"
                                 }`}
                               >
@@ -604,26 +604,26 @@ export default function CommentApprovalByClass({ items, loading, onDecided, high
                                 chối vào đây, ghi đè mất nội dung nhận xét giáo viên đã viết. */}
                             {editingId === cm.id ? (
                               <div className="space-y-2">
-                                <p className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5 whitespace-normal leading-snug">
+                                <p className="text-[12px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5 whitespace-normal leading-snug">
                                   {t("approvalByClass.editingHint")}
                                 </p>
                                 <textarea
                                   value={editingContent}
                                   onChange={(e) => setEditingContent(e.target.value)}
                                   rows={4}
-                                  className="w-full bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-red"
+                                  className="w-full bg-white border border-slate-200 text-sm p-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-red"
                                 />
                                 <div className="flex justify-end gap-1.5">
                                   <button
                                     onClick={() => setEditingId(null)}
-                                    className="px-2 py-1 text-slate-500 hover:bg-slate-100 text-[10px] font-bold rounded-lg"
+                                    className="px-2 py-1 text-slate-500 hover:bg-slate-100 text-[12px] font-bold rounded-lg"
                                   >
                                     {t("approvalByClass.cancel")}
                                   </button>
                                   <button
                                     onClick={() => handleSaveEdit(cm.id)}
                                     disabled={savingEditId === cm.id}
-                                    className="px-2 py-1 bg-brand-red hover:bg-red-700 text-white text-[10px] font-bold rounded-lg disabled:opacity-50"
+                                    className="px-2 py-1 bg-brand-red hover:bg-red-700 text-white text-[12px] font-bold rounded-lg disabled:opacity-50"
                                   >
                                     {savingEditId === cm.id ? t("approvalByClass.savingEdit") : t("approvalByClass.saveEdit")}
                                   </button>
@@ -633,7 +633,7 @@ export default function CommentApprovalByClass({ items, loading, onDecided, high
                               <div className="space-y-1.5">
                                 <div className="whitespace-pre-wrap">{cm.content}</div>
                                 {noticesOf(cm.id).map((notice, i) => (
-                                  <p key={`n${i}`} className="flex items-start gap-1 text-[10px] text-sky-800 whitespace-normal">
+                                  <p key={`n${i}`} className="flex items-start gap-1 text-[12px] text-sky-800 whitespace-normal">
                                     <Info className="w-3 h-3 mt-0.5 shrink-0" />
                                     <span>
                                       <span className="font-bold">{t("approvalByClass.aiReview.notice")}: </span>
@@ -644,7 +644,7 @@ export default function CommentApprovalByClass({ items, loading, onDecided, high
                                 {issuesOf(cm.id).length > 0 && (
                                   <div className="space-y-1 whitespace-normal">
                                     {issuesOf(cm.id).map((issue, i) => (
-                                      <p key={i} className="flex items-start gap-1 text-[10px] text-amber-800">
+                                      <p key={i} className="flex items-start gap-1 text-[12px] text-amber-800">
                                         <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
                                         <span>
                                           <span className="font-bold">{t(`approvalByClass.aiReview.source.${issue.source}`)}: </span>
@@ -656,7 +656,7 @@ export default function CommentApprovalByClass({ items, loading, onDecided, high
                                       <button
                                         onClick={() => handleAiSuggest(cm)}
                                         disabled={suggestingId !== null}
-                                        className="flex items-center gap-1 text-[10px] font-bold text-violet-700 hover:underline disabled:opacity-50"
+                                        className="flex items-center gap-1 text-[12px] font-bold text-violet-700 hover:underline disabled:opacity-50"
                                       >
                                         {suggestingId === cm.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
                                         {suggestingId === cm.id ? t("approvalByClass.aiReview.suggesting") : t("approvalByClass.aiReview.suggestButton")}
@@ -665,7 +665,7 @@ export default function CommentApprovalByClass({ items, loading, onDecided, high
                                     <button
                                       onClick={() => void handleRejectWithAi(cm)}
                                       disabled={draftingReasonId !== null || decidingId === cm.id}
-                                      className="flex items-center gap-1 text-[10px] font-bold text-rose-700 hover:underline disabled:opacity-50"
+                                      className="flex items-center gap-1 text-[12px] font-bold text-rose-700 hover:underline disabled:opacity-50"
                                     >
                                       {draftingReasonId === cm.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
                                       {draftingReasonId === cm.id ? t("approvalByClass.aiReview.rejectReasonLoading") : t("approvalByClass.aiReview.rejectReasonButton")}
@@ -674,13 +674,13 @@ export default function CommentApprovalByClass({ items, loading, onDecided, high
                                 )}
                                 {suggestionByCommentId[cm.id] && (
                                   <div className="border border-violet-200 bg-violet-50/70 rounded-lg p-2 space-y-1.5 whitespace-normal">
-                                    <p className="text-[10px] font-bold uppercase text-violet-700">{t("approvalByClass.aiReview.suggestionTitle")}</p>
+                                    <p className="text-[12px] font-bold uppercase text-violet-700">{t("approvalByClass.aiReview.suggestionTitle")}</p>
                                     <p className="whitespace-pre-wrap text-slate-800">{suggestionByCommentId[cm.id].suggestedContent}</p>
                                     {suggestionByCommentId[cm.id].explanation && (
-                                      <p className="text-[10px] text-slate-500 italic">{suggestionByCommentId[cm.id].explanation}</p>
+                                      <p className="text-[12px] text-slate-500 italic">{suggestionByCommentId[cm.id].explanation}</p>
                                     )}
                                     {suggestionByCommentId[cm.id].warnings.map((w, i) => (
-                                      <p key={i} className="flex items-start gap-1 text-[10px] text-amber-700">
+                                      <p key={i} className="flex items-start gap-1 text-[12px] text-amber-700">
                                         <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
                                         {w}
                                       </p>
@@ -688,20 +688,20 @@ export default function CommentApprovalByClass({ items, loading, onDecided, high
                                     <div className="flex flex-wrap gap-1.5 justify-end">
                                       <button
                                         onClick={() => setSuggestionByCommentId(({ [cm.id]: _s, ...rest }) => rest)}
-                                        className="px-2 py-1 text-slate-500 hover:bg-slate-100 text-[10px] font-bold rounded-lg"
+                                        className="px-2 py-1 text-slate-500 hover:bg-slate-100 text-[12px] font-bold rounded-lg"
                                       >
                                         {t("approvalByClass.aiReview.dismiss")}
                                       </button>
                                       <button
                                         onClick={() => handleEditSuggestion(cm)}
-                                        className="px-2 py-1 border border-slate-300 text-slate-700 hover:bg-white text-[10px] font-bold rounded-lg"
+                                        className="px-2 py-1 border border-slate-300 text-slate-700 hover:bg-white text-[12px] font-bold rounded-lg"
                                       >
                                         {t("approvalByClass.aiReview.editFirst")}
                                       </button>
                                       <button
                                         onClick={() => handleApplySuggestion(cm)}
                                         disabled={applyingSuggestionId === cm.id}
-                                        className="px-2 py-1 bg-violet-600 hover:bg-violet-700 text-white text-[10px] font-bold rounded-lg disabled:opacity-50"
+                                        className="px-2 py-1 bg-violet-600 hover:bg-violet-700 text-white text-[12px] font-bold rounded-lg disabled:opacity-50"
                                       >
                                         {applyingSuggestionId === cm.id ? t("approvalByClass.savingEdit") : t("approvalByClass.aiReview.apply")}
                                       </button>
@@ -711,7 +711,7 @@ export default function CommentApprovalByClass({ items, loading, onDecided, high
                                 <button
                                   onClick={() => handleStartEdit(cm)}
                                   disabled={decidingId === cm.id}
-                                  className="flex items-center gap-1 text-[10px] font-bold text-slate-500 hover:text-slate-800 hover:underline disabled:opacity-50"
+                                  className="flex items-center gap-1 text-[12px] font-bold text-slate-500 hover:text-slate-800 hover:underline disabled:opacity-50"
                                 >
                                   <Edit3 className="w-3 h-3" />
                                   {t("approvalByClass.actionEdit")}
@@ -725,7 +725,7 @@ export default function CommentApprovalByClass({ items, loading, onDecided, high
                               <button
                                 onClick={() => handleDecide(cm, "REJECTED")}
                                 disabled={decidingId === cm.id || editingId === cm.id}
-                                className="px-2 py-1 text-rose-600 hover:bg-rose-50 border border-rose-200 text-[11px] font-bold rounded-lg disabled:opacity-50"
+                                className="px-2 py-1 text-rose-600 hover:bg-rose-50 border border-rose-200 text-[13px] font-bold rounded-lg disabled:opacity-50"
                               >
                                 <X className="w-3 h-3 inline mr-0.5" />
                                 {t("approvalByClass.actionReject")}
@@ -733,7 +733,7 @@ export default function CommentApprovalByClass({ items, loading, onDecided, high
                               <button
                                 onClick={() => handleDecide(cm, "APPROVED")}
                                 disabled={decidingId === cm.id || editingId === cm.id}
-                                className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded-lg disabled:opacity-50"
+                                className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[13px] font-bold rounded-lg disabled:opacity-50"
                               >
                                 <Check className="w-3 h-3 inline mr-0.5" />
                                 {decidingId === cm.id ? t("approvalByClass.deciding") : t("approvalByClass.actionApprove")}

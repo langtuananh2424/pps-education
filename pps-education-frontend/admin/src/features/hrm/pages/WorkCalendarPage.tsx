@@ -19,8 +19,8 @@ import {
   WorkCalendarResponse
 } from "../api";
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
+const labelClass = "text-[12px] uppercase font-bold text-slate-500 block mb-1";
 
 function dayTypeLabel(t: (key: string) => string, dayType: WorkCalendarResponse["dayType"]): string {
   return t(`workCalendarPage.dayType.${dayType}`);
@@ -91,7 +91,7 @@ export default function WorkCalendarPage() {
       <div className="border-b border-slate-200 pb-4 flex items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("workCalendarPage.title")}</h1>
-          <p className="text-xs text-slate-500 mt-1">{t("workCalendarPage.description")}</p>
+          <p className="text-sm text-slate-500 mt-1">{t("workCalendarPage.description")}</p>
         </div>
         {canCreate && (
           <Button variant="primary" onClick={() => setFormOpen(true)}>
@@ -105,13 +105,13 @@ export default function WorkCalendarPage() {
         <div className="w-36">
           <DatePicker value={from} onChange={setFrom} max={to || undefined} />
         </div>
-        <span className="text-[10px] text-slate-400">{t("workCalendarPage.rangeSeparator")}</span>
+        <span className="text-[12px] text-slate-400">{t("workCalendarPage.rangeSeparator")}</span>
         <div className="w-36">
           <DatePicker value={to} onChange={setTo} min={from || undefined} />
         </div>
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       <TableContainer>
         <thead>
@@ -232,7 +232,7 @@ function WorkCalendarFormModal({ onClose, onSaved }: { onClose: () => void; onSa
   return (
     <Modal open onClose={onClose} title={t("workCalendarPage.form.title")} size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
         <div className="grid grid-cols-2 gap-3">
           <div>

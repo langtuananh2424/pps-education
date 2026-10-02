@@ -57,23 +57,23 @@ export default function LeaveApprovalQueue({ leaveRequests, loading, onDecided, 
       )}
       <div className="px-5 py-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between gap-3">
         <div>
-          <span className="text-xs font-bold text-slate-700 font-display block">{t("leaveApprovalQueue.title")}</span>
-          <p className="text-[10px] text-slate-400">{t("leaveApprovalQueue.subtitle")}</p>
+          <span className="text-sm font-bold text-slate-700 font-display block">{t("leaveApprovalQueue.title")}</span>
+          <p className="text-[12px] text-slate-400">{t("leaveApprovalQueue.subtitle")}</p>
         </div>
-        <span className="px-2 py-1 rounded-full text-[10px] font-bold bg-brand-orange text-white shrink-0">{leaveRequests.length}</span>
+        <span className="px-2 py-1 rounded-full text-[12px] font-bold bg-brand-orange text-white shrink-0">{leaveRequests.length}</span>
       </div>
 
       <div className="divide-y divide-slate-100 max-h-[500px] overflow-y-auto">
         {loading ? (
-          <div className="p-8 text-center text-xs text-slate-400">{t("leaveApprovalQueue.loading")}</div>
+          <div className="p-8 text-center text-sm text-slate-400">{t("leaveApprovalQueue.loading")}</div>
         ) : leaveRequests.length === 0 ? (
           <div className="p-12 text-center space-y-3">
             <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mx-auto border border-slate-100 text-slate-400">
               <Clock className="w-6 h-6" />
             </div>
             <div className="space-y-1">
-              <h4 className="text-xs font-bold text-slate-700">{t("leaveApprovalQueue.emptyTitle")}</h4>
-              <p className="text-[11px] text-slate-400 max-w-xs mx-auto">{t("leaveApprovalQueue.emptyDescription")}</p>
+              <h4 className="text-sm font-bold text-slate-700">{t("leaveApprovalQueue.emptyTitle")}</h4>
+              <p className="text-[13px] text-slate-400 max-w-xs mx-auto">{t("leaveApprovalQueue.emptyDescription")}</p>
             </div>
           </div>
         ) : (
@@ -86,14 +86,14 @@ export default function LeaveApprovalQueue({ leaveRequests, loading, onDecided, 
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h4 className="text-xs font-bold text-slate-900">{req.employeeFullName}</h4>
-                    <span className="bg-slate-100 text-slate-600 text-[9px] font-bold px-2 py-0.5 rounded">{getLeaveTypeLabel(req.leaveType)}</span>
-                    {req.departmentName && <span className="text-[10px] text-slate-400">{req.departmentName}</span>}
+                    <h4 className="text-sm font-bold text-slate-900">{req.employeeFullName}</h4>
+                    <span className="bg-slate-100 text-slate-600 text-[13px] font-bold px-2 py-0.5 rounded">{getLeaveTypeLabel(req.leaveType)}</span>
+                    {req.departmentName && <span className="text-[12px] text-slate-400">{req.departmentName}</span>}
                   </div>
-                  <p className="text-[11px] text-slate-500 mt-1">
+                  <p className="text-[13px] text-slate-500 mt-1">
                     {t("leaveApprovalQueue.reasonLabel")} <span className="italic">"{req.reason}"</span>
                   </p>
-                  <p className="text-[10px] text-slate-400 mt-0.5">
+                  <p className="text-[12px] text-slate-400 mt-0.5">
                     {t("leaveApprovalQueue.timeLabel")} {t("leaveApprovalQueue.timeRange", { startDate: req.startDate, endDate: req.endDate })}
                     {req.startTime && req.endTime &&
                       t("leaveApprovalQueue.timeRangeWithHours", { startTime: req.startTime.slice(0, 5), endTime: req.endTime.slice(0, 5) })}
@@ -106,7 +106,7 @@ export default function LeaveApprovalQueue({ leaveRequests, loading, onDecided, 
 
               <div className="space-y-2 pt-1 border-t border-slate-100">
                 <div className="space-y-1">
-                  <label className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block font-mono">
+                  <label className="text-[12px] uppercase font-bold tracking-wider text-slate-400 block font-mono">
                     {t("leaveApprovalQueue.opinionLabel")}
                   </label>
                   <input
@@ -114,7 +114,7 @@ export default function LeaveApprovalQueue({ leaveRequests, loading, onDecided, 
                     placeholder={t("leaveApprovalQueue.opinionPlaceholder")}
                     value={opinionNotes[req.id] || ""}
                     onChange={(e) => setOpinionNotes((prev) => ({ ...prev, [req.id]: e.target.value }))}
-                    className="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1 text-xs focus:outline-none"
+                    className="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1 text-sm focus:outline-none"
                   />
                 </div>
 
@@ -130,7 +130,7 @@ export default function LeaveApprovalQueue({ leaveRequests, loading, onDecided, 
                       await decide(req, "REJECTED", notes);
                     }}
                     className={cn(
-                      "px-2.5 py-1 hover:bg-rose-50 text-rose-600 border border-rose-200 text-[10px] font-bold rounded",
+                      "px-2.5 py-1 hover:bg-rose-50 text-rose-600 border border-rose-200 text-[12px] font-bold rounded",
                       decidingId === req.id && "opacity-50"
                     )}
                   >
@@ -140,7 +140,7 @@ export default function LeaveApprovalQueue({ leaveRequests, loading, onDecided, 
                     disabled={decidingId === req.id}
                     onClick={() => decide(req, "APPROVED", opinionNotes[req.id]?.trim() || t("leaveApprovalQueue.defaultApproveComment"))}
                     className={cn(
-                      "px-3 py-1 bg-brand-gradient hover:opacity-95 text-white text-[10px] font-bold rounded flex items-center gap-1",
+                      "px-3 py-1 bg-brand-gradient hover:opacity-95 text-white text-[12px] font-bold rounded flex items-center gap-1",
                       decidingId === req.id && "opacity-50"
                     )}
                   >

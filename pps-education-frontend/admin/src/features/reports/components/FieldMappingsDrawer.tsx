@@ -305,7 +305,7 @@ export default function FieldMappingsDrawer({ template, onClose, onSuccess }: Pr
           )}
 
           {/* Hướng dẫn */}
-          <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-xs text-blue-700 space-y-1">
+          <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-sm text-blue-700 space-y-1">
             <p className="font-semibold text-blue-800 mb-1">{t("fieldMappingsDrawer.guideTitle")}</p>
             <p>• <strong>{t("fieldMappingsDrawer.guideLine1Bold")}</strong> {t("fieldMappingsDrawer.guideLine1Suffix")}</p>
             <p>• <strong>{t("fieldMappingsDrawer.guideLine2Bold")}</strong> {t("fieldMappingsDrawer.guideLine2Suffix")}</p>
@@ -316,7 +316,7 @@ export default function FieldMappingsDrawer({ template, onClose, onSuccess }: Pr
             <div className="text-center py-8 text-slate-400">
               <Tag className="w-8 h-8 mx-auto mb-2 opacity-40" />
               <p className="text-sm">{t("fieldMappingsDrawer.noPlaceholders.line1")}</p>
-              <p className="text-xs mt-1">{t("fieldMappingsDrawer.noPlaceholders.line2Prefix")} <code>[TEN_BIEN]</code></p>
+              <p className="text-sm mt-1">{t("fieldMappingsDrawer.noPlaceholders.line2Prefix")} <code>[TEN_BIEN]</code></p>
             </div>
           )}
 
@@ -336,13 +336,13 @@ export default function FieldMappingsDrawer({ template, onClose, onSuccess }: Pr
                       {row.placeholderKey}
                     </code>
                     {row.isNew && (
-                      <span className="text-xs text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">{t("fieldMappingsDrawer.newBadge")}</span>
+                      <span className="text-sm text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">{t("fieldMappingsDrawer.newBadge")}</span>
                     )}
                   </div>
                   <Select
                     value={row.fieldType}
                     onChange={(e) => updateRow(index, "fieldType", e.target.value)}
-                    className={`text-xs font-semibold px-2 py-1 rounded border-0 cursor-pointer ${FIELD_TYPE_COLORS[row.fieldType]}`}
+                    className={`text-sm font-semibold px-2 py-1 rounded border-0 cursor-pointer ${FIELD_TYPE_COLORS[row.fieldType]}`}
                   >
                     {(["FIELD", "FORMULA", "TABLE"] as FieldType[]).map((k) => (
                       <option key={k} value={k}>{fieldTypeLabel(t, k)}</option>
@@ -351,14 +351,14 @@ export default function FieldMappingsDrawer({ template, onClose, onSuccess }: Pr
                 </div>
 
                 <div>
-                  <label className="block text-xs text-slate-500 mb-1">{t("fieldMappingsDrawer.dataPathLabel")}</label>
+                  <label className="block text-sm text-slate-500 mb-1">{t("fieldMappingsDrawer.dataPathLabel")}</label>
                   {row.fieldType === "FORMULA" ? (
                     <input
                       type="text"
                       disabled
                       value=""
                       placeholder={t("fieldMappingsDrawer.formulaPlaceholder")}
-                      className="w-full border border-slate-300 rounded-md text-xs p-2 bg-slate-100 text-slate-400"
+                      className="w-full border border-slate-300 rounded-md text-sm p-2 bg-slate-100 text-slate-400"
                     />
                   ) : (
                     <div className="space-y-1.5">
@@ -371,7 +371,7 @@ export default function FieldMappingsDrawer({ template, onClose, onSuccess }: Pr
                             updateRow(index, "dataPath", "");
                           }
                         }}
-                        className="w-full border border-slate-300 rounded-md text-xs p-2 bg-white focus:outline-none focus:ring-1 focus:ring-brand-orange"
+                        className="w-full border border-slate-300 rounded-md text-sm p-2 bg-white focus:outline-none focus:ring-1 focus:ring-brand-orange"
                       >
                         <option value="">{t("fieldMappingsDrawer.dataPathSelectPlaceholder")}</option>
                         {displayOptions.map((s) => (
@@ -386,7 +386,7 @@ export default function FieldMappingsDrawer({ template, onClose, onSuccess }: Pr
                           value={row.dataPath}
                           onChange={(e) => updateRow(index, "dataPath", e.target.value)}
                           placeholder={t("fieldMappingsDrawer.customInputPlaceholder")}
-                          className="w-full border border-slate-300 rounded-md text-xs p-2 focus:outline-none focus:ring-1 focus:ring-brand-orange bg-white"
+                          className="w-full border border-slate-300 rounded-md text-sm p-2 focus:outline-none focus:ring-1 focus:ring-brand-orange bg-white"
                         />
                       )}
                     </div>
@@ -394,13 +394,13 @@ export default function FieldMappingsDrawer({ template, onClose, onSuccess }: Pr
                 </div>
 
                 <div>
-                  <label className="block text-xs text-slate-500 mb-1">{t("fieldMappingsDrawer.notesLabel")}</label>
+                  <label className="block text-sm text-slate-500 mb-1">{t("fieldMappingsDrawer.notesLabel")}</label>
                   <input
                     type="text"
                     value={row.description}
                     onChange={(e) => updateRow(index, "description", e.target.value)}
                     placeholder={t("fieldMappingsDrawer.notesPlaceholder")}
-                    className="w-full border border-slate-300 rounded-md text-xs p-2 focus:outline-none focus:ring-1 focus:ring-brand-orange"
+                    className="w-full border border-slate-300 rounded-md text-sm p-2 focus:outline-none focus:ring-1 focus:ring-brand-orange"
                   />
                 </div>
               </div>
@@ -410,7 +410,7 @@ export default function FieldMappingsDrawer({ template, onClose, onSuccess }: Pr
 
         {/* Footer */}
         <div className="p-6 border-t border-slate-200 flex items-center justify-between gap-3">
-          <p className="text-xs text-slate-500">
+          <p className="text-sm text-slate-500">
             {t("fieldMappingsDrawer.placeholderCount", { count: rows.length })}
           </p>
           <div className="flex gap-3">

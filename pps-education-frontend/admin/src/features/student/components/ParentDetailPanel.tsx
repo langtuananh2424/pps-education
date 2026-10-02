@@ -15,8 +15,8 @@ import AvatarUploadField from "@/components/ui/AvatarUploadField";
 import { uploadMedia } from "@/features/lms/api";
 import Select from "@/components/ui/Select";
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
+const labelClass = "text-[12px] uppercase font-bold text-slate-500 block mb-1";
 
 interface ParentDetailPanelProps {
   parent: ParentAggregate;
@@ -31,7 +31,7 @@ export default function ParentDetailPanel({ parent, onChanged }: ParentDetailPan
     <div className="lg:col-span-3 bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden flex flex-col">
       <div className="p-5 border-b border-slate-200 bg-slate-50/20">
         <h2 className="text-sm font-bold text-slate-800">{parent.parentFullName}</h2>
-        <p className="text-[10px] text-slate-400 mt-0.5">{t("parentDetail.idLabel", { id: parent.parentId })}</p>
+        <p className="text-[12px] text-slate-400 mt-0.5">{t("parentDetail.idLabel", { id: parent.parentId })}</p>
       </div>
 
       <div className="flex-1 p-5 overflow-y-auto max-h-[560px] space-y-6">
@@ -97,25 +97,25 @@ function ProfileSection({ parentId, showToast }: { parentId: number; showToast: 
   };
 
   if (loading) {
-    return <div className="text-xs text-slate-400">{t("parentDetail.profile.loading")}</div>;
+    return <div className="text-sm text-slate-400">{t("parentDetail.profile.loading")}</div>;
   }
 
   if (!editing) {
     return (
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <span className="text-[10px] font-bold uppercase text-slate-500">{t("parentDetail.profile.sectionTitle")}</span>
+          <span className="text-[12px] font-bold uppercase text-slate-500">{t("parentDetail.profile.sectionTitle")}</span>
           {hasPermission("student.parent.update") && (
             <Button size="sm" variant="secondary" onClick={startEdit}>
               {t("parentDetail.profile.editButton")}
             </Button>
           )}
         </div>
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
         {profile?.portraitUrl && (
           <img src={profile.portraitUrl} alt="" className="w-16 h-16 rounded-full object-cover border-2 border-white shadow-soft" />
         )}
-        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-lg p-3">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-slate-600 bg-slate-50 border border-slate-200 rounded-lg p-3">
           <span>{t("parentDetail.profile.occupationLabel")}<strong>{profile?.occupation || "—"}</strong></span>
           <span>{t("parentDetail.profile.workplaceLabel")}<strong>{profile?.workplace || "—"}</strong></span>
           <span className="col-span-2">{t("parentDetail.profile.addressLabel")}<strong>{profile?.address || "—"}</strong></span>
@@ -127,8 +127,8 @@ function ProfileSection({ parentId, showToast }: { parentId: number; showToast: 
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
-      <span className="text-[10px] font-bold uppercase text-slate-500">{t("parentDetail.profile.editSectionTitle")}</span>
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
+      <span className="text-[12px] font-bold uppercase text-slate-500">{t("parentDetail.profile.editSectionTitle")}</span>
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
       <AvatarUploadField
         value={form.portraitUrl}
         onChange={(url) => setForm({ ...form, portraitUrl: url })}
@@ -226,7 +226,7 @@ function ChildrenSection({
   return (
     <div className="space-y-3 border-t border-slate-100 pt-4">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-bold uppercase text-slate-500">{t("parentDetail.children.sectionTitle", { count: parent.children.length })}</span>
+        <span className="text-[12px] font-bold uppercase text-slate-500">{t("parentDetail.children.sectionTitle", { count: parent.children.length })}</span>
         {hasPermission("student.parent.link.create") && (
           <Button size="sm" variant="secondary" onClick={() => setLinking(true)}>
             <UserPlus className="w-3.5 h-3.5" />
@@ -235,14 +235,14 @@ function ChildrenSection({
         )}
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       {parent.children.length === 0 ? (
-        <p className="text-xs text-slate-400 italic">{t("parentDetail.children.empty")}</p>
+        <p className="text-sm text-slate-400 italic">{t("parentDetail.children.empty")}</p>
       ) : (
         <div className="space-y-2">
           {parent.children.map((c) => (
-            <div key={c.parentStudentId} className="border border-slate-200 rounded-lg p-3 text-xs flex items-center justify-between">
+            <div key={c.parentStudentId} className="border border-slate-200 rounded-lg p-3 text-sm flex items-center justify-between">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-bold text-slate-800">{c.studentName}</span>
                 <span className="font-mono text-slate-400">{c.studentCode}</span>
@@ -263,7 +263,7 @@ function ChildrenSection({
       <Modal open={linking} onClose={() => setLinking(false)} title={t("parentDetail.children.modalTitle")}>
         <form onSubmit={handleLink} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
           {selectedStudent ? (
-            <div className="flex items-center justify-between bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs font-semibold px-3 py-2 rounded-lg">
+            <div className="flex items-center justify-between bg-emerald-50 border border-emerald-100 text-emerald-700 text-sm font-semibold px-3 py-2 rounded-lg">
               <span>{selectedStudent.fullName} ({selectedStudent.studentCode})</span>
               <button type="button" onClick={() => setSelectedStudent(null)} className="text-emerald-600 hover:text-rose-600">
                 <X className="w-3.5 h-3.5" />
@@ -283,7 +283,7 @@ function ChildrenSection({
                         setSelectedStudent(s);
                         setResults([]);
                       }}
-                      className="w-full text-left px-3 py-2 hover:bg-slate-50 text-xs"
+                      className="w-full text-left px-3 py-2 hover:bg-slate-50 text-sm"
                     >
                       {s.fullName} <span className="text-slate-400">({s.studentCode})</span>
                     </button>
@@ -300,11 +300,11 @@ function ChildrenSection({
               <option value="GUARDIAN">{t("relationship.GUARDIAN")}</option>
               <option value="OTHER">{t("relationship.OTHER")}</option>
             </Select>
-            <label className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 pb-2.5">
+            <label className="flex items-center gap-1.5 text-[13px] font-semibold text-slate-700 pb-2.5">
               <input type="checkbox" checked={isPrimaryContact} onChange={(e) => setIsPrimaryContact(e.target.checked)} />
               {t("parentDetail.children.primaryContactCheckbox")}
             </label>
-            <label className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 pb-2.5">
+            <label className="flex items-center gap-1.5 text-[13px] font-semibold text-slate-700 pb-2.5">
               <input type="checkbox" checked={isFinancialResponsible} onChange={(e) => setIsFinancialResponsible(e.target.checked)} />
               {t("parentDetail.children.financialResponsibleCheckbox")}
             </label>

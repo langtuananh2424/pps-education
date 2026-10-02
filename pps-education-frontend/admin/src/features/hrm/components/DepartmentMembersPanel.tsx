@@ -56,7 +56,7 @@ export default function DepartmentMembersPanel({ department, canManage, onChange
   return (
     <div className="mt-2 border border-slate-100 rounded-lg bg-slate-50/60 p-3 space-y-2">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[10px] font-bold uppercase text-slate-500">
+        <span className="text-[12px] font-bold uppercase text-slate-500">
           {t("departmentsTab.members.title", { count: members?.length ?? 0 })}
         </span>
         {canManage && (
@@ -67,22 +67,22 @@ export default function DepartmentMembersPanel({ department, canManage, onChange
         )}
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
 
       {members == null ? (
-        <p className="text-[11px] text-slate-400">{t("departmentsTab.loading")}</p>
+        <p className="text-[13px] text-slate-400">{t("departmentsTab.loading")}</p>
       ) : members.length === 0 ? (
-        <p className="text-[11px] text-slate-400 italic">{t("departmentsTab.members.empty")}</p>
+        <p className="text-[13px] text-slate-400 italic">{t("departmentsTab.members.empty")}</p>
       ) : (
         <div className="divide-y divide-slate-100 bg-white border border-slate-100 rounded-lg">
           {members.map((m) => (
-            <div key={m.employeeId} className="flex items-center justify-between gap-2 px-3 py-2 text-xs">
+            <div key={m.employeeId} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
               <div className="min-w-0">
                 <span className="font-semibold text-slate-800">{m.fullName}</span>
-                <span className="text-[10px] text-slate-400 ml-2">{m.employeeCode}</span>
-                {m.positionName && <span className="text-[10px] text-slate-500 ml-2">· {m.positionName}</span>}
+                <span className="text-[12px] text-slate-400 ml-2">{m.employeeCode}</span>
+                {m.positionName && <span className="text-[12px] text-slate-500 ml-2">· {m.positionName}</span>}
                 {department.headUserId === m.userId && (
-                  <span className="ml-2 text-[10px] font-bold text-brand-red">{t("departmentsTab.members.headBadge")}</span>
+                  <span className="ml-2 text-[12px] font-bold text-brand-red">{t("departmentsTab.members.headBadge")}</span>
                 )}
               </div>
               {canManage && (
@@ -182,25 +182,25 @@ function AddMembersModal({
             value={queryInput}
             onChange={(e) => setQueryInput(e.target.value)}
             placeholder={t("departmentsTab.members.searchPlaceholder")}
-            className="w-full bg-slate-50 border border-slate-200 text-xs pl-8 pr-3 py-2.5 rounded-lg focus:outline-none"
+            className="w-full bg-slate-50 border border-slate-200 text-sm pl-8 pr-3 py-2.5 rounded-lg focus:outline-none"
           />
         </div>
 
         <div className="max-h-[45vh] overflow-y-auto border border-slate-100 rounded-lg divide-y divide-slate-100">
           {loading && candidates.length === 0 ? (
-            <p className="text-[11px] text-slate-400 p-3">{t("departmentsTab.loading")}</p>
+            <p className="text-[13px] text-slate-400 p-3">{t("departmentsTab.loading")}</p>
           ) : candidates.length === 0 ? (
-            <p className="text-[11px] text-slate-400 italic p-3">{t("departmentsTab.members.noCandidates")}</p>
+            <p className="text-[13px] text-slate-400 italic p-3">{t("departmentsTab.members.noCandidates")}</p>
           ) : (
             candidates.map((c) => (
-              <label key={c.employeeId} className="flex items-center gap-3 px-3 py-2 text-xs cursor-pointer hover:bg-slate-50">
+              <label key={c.employeeId} className="flex items-center gap-3 px-3 py-2 text-sm cursor-pointer hover:bg-slate-50">
                 <input type="checkbox" checked={selected.has(c.employeeId)} onChange={() => toggle(c)} />
                 <div className="min-w-0 flex-1">
                   <span className="font-semibold text-slate-800">{c.fullName}</span>
-                  <span className="text-[10px] text-slate-400 ml-2">{c.employeeCode}</span>
-                  {c.positionName && <span className="text-[10px] text-slate-500 ml-2">· {c.positionName}</span>}
+                  <span className="text-[12px] text-slate-400 ml-2">{c.employeeCode}</span>
+                  {c.positionName && <span className="text-[12px] text-slate-500 ml-2">· {c.positionName}</span>}
                 </div>
-                <span className={c.departmentName ? "text-[10px] text-amber-600 shrink-0" : "text-[10px] text-slate-400 shrink-0"}>
+                <span className={c.departmentName ? "text-[12px] text-amber-600 shrink-0" : "text-[12px] text-slate-400 shrink-0"}>
                   {c.departmentName
                     ? t("departmentsTab.members.currentDepartment", { department: c.departmentName })
                     : t("departmentsTab.members.noDepartment")}
@@ -211,11 +211,11 @@ function AddMembersModal({
         </div>
 
         {movingCount > 0 && (
-          <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-100 p-2 rounded-lg">
+          <p className="text-[13px] text-amber-700 bg-amber-50 border border-amber-100 p-2 rounded-lg">
             {t("departmentsTab.members.moveWarning", { count: movingCount })}
           </p>
         )}
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
+        {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
 
         <div className="flex justify-end gap-2">
           <Button variant="secondary" onClick={onClose}>{t("departmentsTab.members.cancel")}</Button>

@@ -76,7 +76,7 @@ export default function ShiftsPage() {
       <div className="border-b border-slate-200 pb-4 flex items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("shiftsPage.title")}</h1>
-          <p className="text-xs text-slate-500 mt-1">{t("shiftsPage.description")}</p>
+          <p className="text-sm text-slate-500 mt-1">{t("shiftsPage.description")}</p>
         </div>
         {canManageShift && (
           <Button
@@ -92,7 +92,7 @@ export default function ShiftsPage() {
         )}
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       <TableContainer>
         <thead>
@@ -300,16 +300,16 @@ function BulkAssignShiftPanel({ shifts, onAssigned }: { shifts: ShiftResponse[];
     <div className="bg-white rounded-xl border border-slate-200 shadow-soft p-5 space-y-4">
       <div className="flex items-center gap-2">
         <Users className="w-4 h-4 text-slate-400" />
-        <span className="text-xs font-bold text-slate-700 font-display">{t("shiftsPage.bulkAssign.title")}</span>
+        <span className="text-sm font-bold text-slate-700 font-display">{t("shiftsPage.bulkAssign.title")}</span>
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       <div className="flex flex-wrap items-center gap-2">
         <Select
           value={departmentId}
           onChange={(e) => setDepartmentId(e.target.value === "" ? "" : Number(e.target.value))}
-          className="bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none min-w-[180px]"
+          className="bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none min-w-[180px]"
         >
           <option value="">{t("shiftsPage.bulkAssign.allDepartments")}</option>
           {departments.map((d) => (
@@ -321,7 +321,7 @@ function BulkAssignShiftPanel({ shifts, onAssigned }: { shifts: ShiftResponse[];
         <Select
           value={shiftId}
           onChange={(e) => setShiftId(e.target.value === "" ? "" : Number(e.target.value))}
-          className="bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none min-w-[160px]"
+          className="bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none min-w-[160px]"
         >
           <option value="">{t("shiftsPage.bulkAssign.selectShiftPlaceholder")}</option>
           {shifts.map((s) => (
@@ -344,18 +344,18 @@ function BulkAssignShiftPanel({ shifts, onAssigned }: { shifts: ShiftResponse[];
       </div>
 
       <div className="border border-slate-200 rounded-lg max-h-64 overflow-y-auto">
-        <label className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-slate-600 bg-slate-50 border-b border-slate-200 sticky top-0 cursor-pointer">
+        <label className="flex items-center gap-2 px-3 py-2 text-sm font-semibold text-slate-600 bg-slate-50 border-b border-slate-200 sticky top-0 cursor-pointer">
           <input type="checkbox" checked={allFilteredSelected} onChange={toggleSelectAll} />
           {departmentId !== ""
             ? t("shiftsPage.bulkAssign.selectAllLabelFiltered", { count: filteredEmployees.length })
             : t("shiftsPage.bulkAssign.selectAllLabel", { count: filteredEmployees.length })}
         </label>
         {filteredEmployees.length === 0 ? (
-          <p className="text-xs text-slate-400 italic p-3">{t("shiftsPage.bulkAssign.noEmployeesMatch")}</p>
+          <p className="text-sm text-slate-400 italic p-3">{t("shiftsPage.bulkAssign.noEmployeesMatch")}</p>
         ) : (
           <div className="divide-y divide-slate-100">
             {filteredEmployees.map((emp) => (
-              <label key={emp.id} className="flex items-center gap-2 px-3 py-2 text-xs hover:bg-slate-50 cursor-pointer">
+              <label key={emp.id} className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50 cursor-pointer">
                 <input type="checkbox" checked={selectedIds.has(emp.id)} onChange={() => toggleEmployee(emp.id)} />
                 <span className="font-semibold text-slate-700">{emp.fullName}</span>
                 <span className="text-slate-400">({emp.employeeCode})</span>
@@ -367,10 +367,10 @@ function BulkAssignShiftPanel({ shifts, onAssigned }: { shifts: ShiftResponse[];
 
       {results.length > 0 && (
         <div className="pt-1">
-          <span className="text-[10px] font-bold uppercase text-slate-500">{t("shiftsPage.bulkAssign.resultsTitle")}</span>
+          <span className="text-[12px] font-bold uppercase text-slate-500">{t("shiftsPage.bulkAssign.resultsTitle")}</span>
           <div className="divide-y divide-slate-100 mt-1">
             {results.map((r) => (
-              <div key={r.employeeId} className="flex items-center justify-between py-1.5 text-xs">
+              <div key={r.employeeId} className="flex items-center justify-between py-1.5 text-sm">
                 <span className="font-semibold text-slate-700">{r.employeeName}</span>
                 {r.ok ? (
                   <Badge variant="success">{t("shiftsPage.bulkAssign.resultSuccess")}</Badge>

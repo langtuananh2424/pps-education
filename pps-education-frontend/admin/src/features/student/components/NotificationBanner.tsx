@@ -17,11 +17,11 @@ export default function NotificationBanner({ message, onClose, action }: Notific
   return (
     <div className="p-4 bg-brand-orange/10 text-brand-dark rounded-xl border border-brand-orange/30 shadow-soft flex items-start gap-3 animate-in fade-in slide-in-from-top-3 duration-200">
       <Smartphone className="w-5 h-5 text-brand-red mt-0.5 shrink-0 animate-bounce" />
-      <div className="text-xs font-medium leading-relaxed whitespace-pre-line flex-1">{message}</div>
+      <div className="text-sm font-medium leading-relaxed whitespace-pre-line flex-1">{message}</div>
       {action && (
         <button
           onClick={action.onClick}
-          className="shrink-0 px-2.5 py-1 bg-brand-red hover:bg-red-700 text-white text-[10px] font-bold rounded-lg whitespace-nowrap"
+          className="shrink-0 px-2.5 py-1 bg-brand-red hover:bg-red-700 text-white text-[12px] font-bold rounded-lg whitespace-nowrap"
         >
           {action.label}
         </button>

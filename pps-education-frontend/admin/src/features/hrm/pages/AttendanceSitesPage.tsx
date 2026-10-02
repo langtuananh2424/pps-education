@@ -45,7 +45,7 @@ export default function AttendanceSitesPage() {
       <div className="border-b border-slate-200 pb-4 flex items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("attendanceSitesPage.title")}</h1>
-          <p className="text-xs text-slate-500 mt-1">{t("attendanceSitesPage.description")}</p>
+          <p className="text-sm text-slate-500 mt-1">{t("attendanceSitesPage.description")}</p>
         </div>
         <Button
           variant="primary"
@@ -59,7 +59,7 @@ export default function AttendanceSitesPage() {
         </Button>
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       <TableContainer>
         <thead>
@@ -102,7 +102,7 @@ export default function AttendanceSitesPage() {
                 <Td className="text-slate-500">{s.address ?? "—"}</Td>
                 <Td>
                   {s.latitude != null && s.longitude != null ? (
-                    <span className="font-mono text-[11px] text-slate-600 flex items-center gap-1">
+                    <span className="font-mono text-[13px] text-slate-600 flex items-center gap-1">
                       <MapPin className="w-3 h-3 text-emerald-500 shrink-0" />
                       {s.latitude.toFixed(5)}, {s.longitude.toFixed(5)}
                     </span>

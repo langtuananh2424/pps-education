@@ -12,7 +12,7 @@ import Select from "@/components/ui/Select";
 import TableContainer, { Td, Th } from "@/components/ui/TableContainer";
 import { toLocaleTag } from "@/lib/i18nFormat";
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2 rounded-lg focus:outline-none";
 const statusVariants: Record<StudentCommentResponse["status"], "success" | "warning" | "danger" | "neutral"> = {
   DRAFT: "neutral",
   PENDING: "warning",
@@ -127,7 +127,7 @@ export default function CommentHistoryList({
   };
 
   if (history.length === 0) {
-    return <p className="text-xs text-slate-400 italic">{t("historyList.empty")}</p>;
+    return <p className="text-sm text-slate-400 italic">{t("historyList.empty")}</p>;
   }
 
   const renderEditForm = (h: StudentCommentResponse) => (
@@ -178,7 +178,7 @@ export default function CommentHistoryList({
                   <option value="CONCERN">{t("historyList.severity.CONCERN")}</option>
                   <option value="WARNING">{t("historyList.severity.WARNING")}</option>
                 </Select>
-                <label className="flex items-center gap-1.5 text-[10px] font-semibold text-slate-600">
+                <label className="flex items-center gap-1.5 text-[12px] font-semibold text-slate-600">
                   <input type="checkbox" checked={editIsWarning} onChange={(e) => setEditIsWarning(e.target.checked)} />
                   <Flag className="w-3 h-3 text-rose-500" />
                   {t("historyList.specialWarningLabel")}
@@ -250,7 +250,7 @@ export default function CommentHistoryList({
         type="button"
         onClick={() => setHistoryFor(h)}
         title={t("historyList.versionHistoryTitle")}
-        className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-slate-600"
+        className="inline-flex items-center gap-1 text-[12px] font-bold text-slate-400 hover:text-slate-600"
       >
         <History className="w-3.5 h-3.5" />
         {t("historyList.versionHistoryLabel")}
@@ -265,7 +265,7 @@ export default function CommentHistoryList({
     const COLUMN_COUNT = 14;
     return (
       <div className="space-y-2">
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
         <TableContainer>
           <thead>
             <tr className="border-b border-slate-300 [&>th]:text-center">
@@ -315,7 +315,7 @@ export default function CommentHistoryList({
                 </tr>
                 {h.status === "REJECTED" && h.rejectionReason && editingId !== h.id && (
                   <tr>
-                    <td colSpan={COLUMN_COUNT} className="px-4 pb-2 -mt-2 text-[11px] text-rose-500">
+                    <td colSpan={COLUMN_COUNT} className="px-4 pb-2 -mt-2 text-[13px] text-rose-500">
                       {t("historyList.rejectionReason", { reason: h.rejectionReason })}
                     </td>
                   </tr>
@@ -341,9 +341,9 @@ export default function CommentHistoryList({
 
   return (
     <div className="space-y-2">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
       {history.map((h) => (
-        <div key={h.id} className="border border-slate-200 rounded-lg p-2.5 text-[11px] space-y-1.5">
+        <div key={h.id} className="border border-slate-200 rounded-lg p-2.5 text-[13px] space-y-1.5">
           <div className="flex items-center justify-between gap-2">
             {showStudentName && <span className="font-bold text-slate-800">{h.studentFullName}</span>}
             <span className="text-slate-400">{h.commentDate}</span>

@@ -42,9 +42,9 @@ export default function ExecutiveDashboard({ totalPaid, totalExpenses, profit, a
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("executive.title")}</h1>
-          <p className="text-xs text-slate-500 mt-1">{t("executive.subtitle")}</p>
+          <p className="text-sm text-slate-500 mt-1">{t("executive.subtitle")}</p>
         </div>
-        <div className="flex items-center gap-2 text-xs font-medium text-slate-600 bg-white border border-slate-200 px-3 py-2 rounded-lg">
+        <div className="flex items-center gap-2 text-sm font-medium text-slate-600 bg-white border border-slate-200 px-3 py-2 rounded-lg">
           <Calendar className="w-4 h-4 text-brand-orange" />
           <span>{t("executive.reportPeriod")}</span>
         </div>
@@ -52,46 +52,46 @@ export default function ExecutiveDashboard({ totalPaid, totalExpenses, profit, a
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="relative overflow-hidden">
-          <span className="text-xs text-slate-400 font-bold block uppercase tracking-wider font-display">{t("executive.actualRevenue")}</span>
+          <span className="text-sm text-slate-400 font-bold block uppercase tracking-wider font-display">{t("executive.actualRevenue")}</span>
           <div className="flex items-baseline gap-1.5 mt-2">
             <span className="text-2xl font-bold text-slate-900 font-display">{totalPaid.toLocaleString("vi-VN")}</span>
-            <span className="text-xs font-semibold text-slate-500">VND</span>
+            <span className="text-sm font-semibold text-slate-500">VND</span>
           </div>
-          <div className="flex items-center gap-1 mt-2 text-[10px] font-semibold text-emerald-600">
+          <div className="flex items-center gap-1 mt-2 text-[12px] font-semibold text-emerald-600">
             <span>{t("executive.vsLastMonth")}</span>
           </div>
         </Card>
 
         <Card className="relative overflow-hidden">
-          <span className="text-xs text-slate-400 font-bold block uppercase tracking-wider font-display">{t("executive.operatingCost")}</span>
+          <span className="text-sm text-slate-400 font-bold block uppercase tracking-wider font-display">{t("executive.operatingCost")}</span>
           <div className="flex items-baseline gap-1.5 mt-2">
             <span className="text-2xl font-bold text-slate-900 font-display">{totalExpenses.toLocaleString("vi-VN")}</span>
-            <span className="text-xs font-semibold text-slate-500">VND</span>
+            <span className="text-sm font-semibold text-slate-500">VND</span>
           </div>
-          <div className="flex items-center gap-1 mt-2 text-[10px] font-semibold text-slate-500">
+          <div className="flex items-center gap-1 mt-2 text-[12px] font-semibold text-slate-500">
             <span>{t("executive.operatingCostNote")}</span>
           </div>
         </Card>
 
         <Card className="relative overflow-hidden">
-          <span className="text-xs text-slate-400 font-bold block uppercase tracking-wider font-display">{t("executive.profitMargin")}</span>
+          <span className="text-sm text-slate-400 font-bold block uppercase tracking-wider font-display">{t("executive.profitMargin")}</span>
           <div className="flex items-baseline gap-1.5 mt-2">
             <span className="text-2xl font-bold text-slate-900 font-display">
               {profit > 0 ? `+${((profit / totalPaid) * 100).toFixed(1)}%` : t("executive.pendingUpdate")}
             </span>
           </div>
-          <div className="flex items-center gap-1 mt-2 text-[10px] font-semibold text-brand-orange">
+          <div className="flex items-center gap-1 mt-2 text-[12px] font-semibold text-brand-orange">
             <span>{t("executive.onTargetNote")}</span>
           </div>
         </Card>
 
         <Card className="relative overflow-hidden">
-          <span className="text-xs text-slate-400 font-bold block uppercase tracking-wider font-display">{t("executive.activeStudents")}</span>
+          <span className="text-sm text-slate-400 font-bold block uppercase tracking-wider font-display">{t("executive.activeStudents")}</span>
           <div className="flex items-baseline gap-1.5 mt-2">
             <span className="text-2xl font-bold text-slate-900 font-display">{activeStudentsCount}</span>
-            <span className="text-xs font-medium text-slate-500">{t("executive.studentsUnit")}</span>
+            <span className="text-sm font-medium text-slate-500">{t("executive.studentsUnit")}</span>
           </div>
-          <div className="flex items-center gap-1 mt-2 text-[10px] font-semibold text-slate-500">
+          <div className="flex items-center gap-1 mt-2 text-[12px] font-semibold text-slate-500">
             <span>{t("executive.distributedAcross", { count: campusesCount })}</span>
           </div>
         </Card>
@@ -101,7 +101,7 @@ export default function ExecutiveDashboard({ totalPaid, totalExpenses, profit, a
         <Card className="lg:col-span-2 flex flex-col justify-between">
           <div>
             <h3 className="text-sm font-bold text-slate-800 font-display">{t("executive.revenueChartTitle")}</h3>
-            <p className="text-[11px] text-slate-400 mt-0.5">{t("executive.revenueChartSubtitle")}</p>
+            <p className="text-[13px] text-slate-400 mt-0.5">{t("executive.revenueChartSubtitle")}</p>
           </div>
 
           <div className="h-60 w-full mt-4 flex items-end justify-between relative px-2 border-b border-slate-100 pb-1 overflow-x-auto">
@@ -115,7 +115,7 @@ export default function ExecutiveDashboard({ totalPaid, totalExpenses, profit, a
                       style={{ height: `${inHeight}%` }}
                       className="w-3 sm:w-4 bg-brand-gradient rounded-t-xs transition-all duration-500 cursor-pointer hover:opacity-90 relative group"
                     >
-                      <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[9px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                      <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[13px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
                         {data.in.toFixed(0)}M VND
                       </div>
                     </div>
@@ -123,18 +123,18 @@ export default function ExecutiveDashboard({ totalPaid, totalExpenses, profit, a
                       style={{ height: `${outHeight}%` }}
                       className="w-3 sm:w-4 bg-slate-300 rounded-t-xs transition-all duration-500 cursor-pointer hover:bg-slate-400 relative group"
                     >
-                      <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[9px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                      <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[13px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
                         {data.out.toFixed(0)}M VND
                       </div>
                     </div>
                   </div>
-                  <span className="text-[10px] font-semibold text-slate-500 mt-1 font-sans whitespace-nowrap">{data.month}</span>
+                  <span className="text-[12px] font-semibold text-slate-500 mt-1 font-sans whitespace-nowrap">{data.month}</span>
                 </div>
               );
             })}
           </div>
 
-          <div className="flex items-center gap-5 mt-4 text-[11px] font-medium justify-center border-t border-slate-100 pt-3">
+          <div className="flex items-center gap-5 mt-4 text-[13px] font-medium justify-center border-t border-slate-100 pt-3">
             <div className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-brand-gradient" />
               <span className="text-slate-600">{t("executive.legendRevenue")}</span>
@@ -149,13 +149,13 @@ export default function ExecutiveDashboard({ totalPaid, totalExpenses, profit, a
         <Card className="flex flex-col justify-between">
           <div>
             <h3 className="text-sm font-bold text-slate-800 font-display">{t("executive.funnelTitle")}</h3>
-            <p className="text-[11px] text-slate-400 mt-0.5">{t("executive.funnelSubtitle")}</p>
+            <p className="text-[13px] text-slate-400 mt-0.5">{t("executive.funnelSubtitle")}</p>
           </div>
 
           <div className="space-y-3.5 my-4">
             {funnel.map((f) => (
               <div key={f.stage} className="space-y-1">
-                <div className="flex items-center justify-between text-xs font-semibold">
+                <div className="flex items-center justify-between text-sm font-semibold">
                   <span className="text-slate-600">{f.stage}</span>
                   <span className="text-slate-900 font-mono">{t("executive.studentsCount", { count: f.count })}</span>
                 </div>
@@ -177,8 +177,8 @@ export default function ExecutiveDashboard({ totalPaid, totalExpenses, profit, a
         <div className="flex items-start gap-3">
           <AlertTriangle className="w-5 h-5 text-brand-orange mt-0.5 shrink-0" />
           <div>
-            <h4 className="text-xs font-bold text-slate-800 font-display">{t("executive.renewalNoticeTitle")}</h4>
-            <p className="text-[11px] text-slate-600 mt-1">
+            <h4 className="text-sm font-bold text-slate-800 font-display">{t("executive.renewalNoticeTitle")}</h4>
+            <p className="text-[13px] text-slate-600 mt-1">
               {t("executive.renewalNoticePrefix")} <strong>Trường THCS Lê Quý Đôn</strong> {t("executive.renewalNoticeMiddle")}{" "}
               <strong>(31/08/2026)</strong>. {t("executive.renewalNoticeSuffix")}
             </p>

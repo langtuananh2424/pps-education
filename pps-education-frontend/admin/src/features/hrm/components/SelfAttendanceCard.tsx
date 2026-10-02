@@ -171,7 +171,7 @@ export default function SelfAttendanceCard({ todayRecord, onChecked, onRequestCl
           {currentUser?.fullName}
           {currentRoleLabel && <span className="font-normal text-slate-400"> ({currentRoleLabel})</span>}
         </p>
-        <p className="mt-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">{t("selfAttendance.currentTimeLabel")}</p>
+        <p className="mt-2 text-[12px] font-bold uppercase tracking-wider text-slate-400 mb-2">{t("selfAttendance.currentTimeLabel")}</p>
         <p className="text-2xl sm:text-3xl font-bold font-mono text-slate-800 tabular-nums">
           {now.toLocaleTimeString(toLocaleTag(i18n.language), { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
         </p>
@@ -225,10 +225,10 @@ export default function SelfAttendanceCard({ todayRecord, onChecked, onRequestCl
           {detectedSite && <span className="font-normal text-slate-500"> · {detectedSite.siteName}</span>}
         </p>
         {detecting ? (
-          <p className="text-xs text-slate-400 italic">{t("selfAttendance.detectingLocation")}</p>
+          <p className="text-sm text-slate-400 italic">{t("selfAttendance.detectingLocation")}</p>
         ) : (
           locationIssue && (
-            <p className="text-xs text-slate-400 flex items-center justify-center gap-1">
+            <p className="text-sm text-slate-400 flex items-center justify-center gap-1">
               <MapPin className="w-3 h-3 shrink-0" />
               {locationIssue === "outOfRange" ? t("selfAttendance.outOfRange") : t("selfAttendance.noSiteSelected")}
             </p>
@@ -237,7 +237,7 @@ export default function SelfAttendanceCard({ todayRecord, onChecked, onRequestCl
       </div>
 
       {(alreadyCheckedIn || alreadyCheckedOut) && lastRecord && (
-        <div className="flex items-center gap-3 text-xs text-slate-600 bg-slate-50 border border-slate-100 rounded-lg p-3">
+        <div className="flex items-center gap-3 text-sm text-slate-600 bg-slate-50 border border-slate-100 rounded-lg p-3">
           <span>
             {t("selfAttendance.checkInTimeLabel")}
             <strong>{formatAttendanceTime(lastRecord.checkInAt, i18n.language)}</strong> · {t("selfAttendance.checkOutTimeLabel")}

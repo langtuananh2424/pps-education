@@ -41,7 +41,7 @@ export default function ProfilesPage() {
       <div className="border-b border-slate-200 pb-4 flex flex-col sm:flex-row sm:items-end justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("profilesPage.title")}</h1>
-          <p className="text-xs text-slate-500 mt-1">{t("profilesPage.description")}</p>
+          <p className="text-sm text-slate-500 mt-1">{t("profilesPage.description")}</p>
         </div>
         <ImportExcelButton
           title={t("profilesPage.importTitle")}
@@ -54,7 +54,7 @@ export default function ProfilesPage() {
         />
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         <EmployeeListPanel
@@ -75,7 +75,7 @@ export default function ProfilesPage() {
             <Users className="w-12 h-12 text-slate-300" />
             <div>
               <h3 className="text-sm font-bold text-slate-700">{t("profilesPage.emptyTitle")}</h3>
-              <p className="text-xs text-slate-400 mt-1">{t("profilesPage.emptyDescription")}</p>
+              <p className="text-sm text-slate-400 mt-1">{t("profilesPage.emptyDescription")}</p>
             </div>
           </div>
         )}

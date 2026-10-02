@@ -5,8 +5,8 @@ import { ApiError } from "@/lib/apiClient";
 import Button from "@/components/ui/Button";
 import { QuestionResponse, createExamQuestion } from "../api";
 
-const inputClass = "w-full bg-white border border-slate-200 text-xs px-3.5 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-red";
-const labelClass = "block font-bold text-slate-700 mb-1 uppercase tracking-wider text-[10px]";
+const inputClass = "w-full bg-white border border-slate-200 text-sm px-3.5 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-red";
+const labelClass = "block font-bold text-slate-700 mb-1 uppercase tracking-wider text-[12px]";
 
 const MIN_OPTIONS = 2;
 const MAX_OPTIONS = 6;
@@ -131,12 +131,12 @@ export default function ClozeQuestionBuilder({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+    <form onSubmit={handleSubmit} className="space-y-4 text-sm">
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       <div>
         <label className={labelClass}>{t("clozeQuestionBuilder.passageLabel")}</label>
-        <p className="text-[9px] text-slate-400 mb-1">{t("clozeQuestionBuilder.passageHint")}</p>
+        <p className="text-[13px] text-slate-400 mb-1">{t("clozeQuestionBuilder.passageHint")}</p>
         <textarea
           required
           value={passage}
@@ -148,12 +148,12 @@ export default function ClozeQuestionBuilder({
       </div>
 
       <div className="space-y-2">
-        <span className="font-bold text-slate-700 uppercase tracking-wider text-[9px] block">{t("clozeQuestionBuilder.blanksSectionTitle")}</span>
+        <span className="font-bold text-slate-700 uppercase tracking-wider text-[13px] block">{t("clozeQuestionBuilder.blanksSectionTitle")}</span>
         <div className="border border-slate-200 rounded-lg divide-y divide-slate-100">
           {blanks.map((b, idx) => (
             <div key={idx} className="p-3 space-y-2">
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold text-slate-500 w-8 shrink-0">({idx + 1})</span>
+                <span className="text-[12px] font-bold text-slate-500 w-8 shrink-0">({idx + 1})</span>
                 <input
                   required
                   value={b.content}
@@ -198,7 +198,7 @@ export default function ClozeQuestionBuilder({
                   </div>
                 ))}
                 {b.options.length < MAX_OPTIONS && (
-                  <button type="button" onClick={() => addOption(idx)} className="text-[10px] font-bold text-brand-red hover:underline">
+                  <button type="button" onClick={() => addOption(idx)} className="text-[12px] font-bold text-brand-red hover:underline">
                     {t("clozeQuestionBuilder.addOption")}
                   </button>
                 )}

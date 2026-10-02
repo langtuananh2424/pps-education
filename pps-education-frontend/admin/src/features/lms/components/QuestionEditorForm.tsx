@@ -23,8 +23,8 @@ import {
 } from "../api";
 import Select from "@/components/ui/Select";
 
-const inputClass = "w-full bg-white border border-slate-200 text-xs px-3.5 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-red";
-const labelClass = "block font-bold text-slate-700 mb-1 uppercase tracking-wider text-[10px]";
+const inputClass = "w-full bg-white border border-slate-200 text-sm px-3.5 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-red";
+const labelClass = "block font-bold text-slate-700 mb-1 uppercase tracking-wider text-[12px]";
 
 /**
  * 12 loại — 5 loại gốc (theo bản thiết kế tham chiếu + Điền từ, bổ sung 2026-07-28 sau khi backend
@@ -117,14 +117,14 @@ function OptionalAudioFields({
   const hasAudio = !!audioUrl.trim();
   return (
     <div className="bg-white/70 p-3 rounded-lg border border-slate-200 space-y-2">
-      <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">{label}</span>
+      <span className="text-[13px] font-bold text-slate-500 uppercase tracking-wider">{label}</span>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div>
-          <label className="block font-bold text-slate-600 mb-1 text-[9px] uppercase">{t("common.audioFileLabel")}</label>
+          <label className="block font-bold text-slate-600 mb-1 text-[13px] uppercase">{t("common.audioFileLabel")}</label>
           <FileUploadField value={audioUrl} onChange={setAudioUrl} onUpload={(file) => uploadMedia(file, "LMS_QUESTION")} accept="audio/*" placeholder={t("common.chooseAudioFile")} />
         </div>
         <div>
-          <label className="block font-bold text-slate-600 mb-1 text-[9px] uppercase">
+          <label className="block font-bold text-slate-600 mb-1 text-[13px] uppercase">
             {hasAudio ? t("common.transcriptLabel") : t("questionEditorForm.referencePassageLabel")}
           </label>
           {/* Fix bug thật (2026-09-08, đã xác nhận với người dùng) — <input> 1 dòng xoá sạch \n khi dán
@@ -136,7 +136,7 @@ function OptionalAudioFields({
             rows={3}
             className={inputClass}
           />
-          {!hasAudio && transcriptHint && <p className="text-[9px] text-slate-400 mt-1">{transcriptHint}</p>}
+          {!hasAudio && transcriptHint && <p className="text-[13px] text-slate-400 mt-1">{transcriptHint}</p>}
         </div>
       </div>
     </div>
@@ -481,8 +481,8 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-      {error && <div ref={errorRef} className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+    <form onSubmit={handleSubmit} className="space-y-4 text-sm">
+      {error && <div ref={errorRef} className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       <div>
         <label className={labelClass}>{t("questionEditorForm.kindLabel")}{isEditing && <span className="text-slate-400 font-normal"> {t("questionEditorForm.kindLockedHint")}</span>}</label>
@@ -539,20 +539,20 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
       </div>
 
       {kind === "ESSAY" && !isEditing && (
-        <p className="text-[10px] text-slate-400 italic">{t("questionEditorForm.keyGrammar.saveFirstHint")}</p>
+        <p className="text-[12px] text-slate-400 italic">{t("questionEditorForm.keyGrammar.saveFirstHint")}</p>
       )}
 
       {kind === "ESSAY" && isEditing && (
         <div className="border-2 border-amber-200 bg-amber-50/60 rounded-xl p-3.5 space-y-2.5">
           <div className="flex items-center gap-2">
-            <span className="text-[11px] font-extrabold uppercase tracking-wide text-slate-800">{t("questionEditorForm.keyGrammar.title")}</span>
-            <span className="text-[10px] font-extrabold text-white bg-emerald-600 px-2 py-0.5 rounded-full">{t("questionEditorForm.keyGrammar.newBadge")}</span>
+            <span className="text-[13px] font-extrabold uppercase tracking-wide text-slate-800">{t("questionEditorForm.keyGrammar.title")}</span>
+            <span className="text-[12px] font-extrabold text-white bg-emerald-600 px-2 py-0.5 rounded-full">{t("questionEditorForm.keyGrammar.newBadge")}</span>
           </div>
-          <p className="text-xs text-slate-600 leading-relaxed">{t("questionEditorForm.keyGrammar.description")}</p>
+          <p className="text-sm text-slate-600 leading-relaxed">{t("questionEditorForm.keyGrammar.description")}</p>
           {loadingKeyGrammarOptions ? (
-            <p className="text-xs text-slate-500">{t("common.loading")}</p>
+            <p className="text-sm text-slate-500">{t("common.loading")}</p>
           ) : keyGrammarOptions.length === 0 ? (
-            <p className="text-xs text-slate-400 italic">{t("questionEditorForm.keyGrammar.noOptions")}</p>
+            <p className="text-sm text-slate-400 italic">{t("questionEditorForm.keyGrammar.noOptions")}</p>
           ) : (
             <>
               <div className="flex flex-col gap-1.5 max-h-52 overflow-y-auto pr-1">
@@ -562,7 +562,7 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
                   return (
                     <label
                       key={opt.id}
-                      className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border text-xs font-semibold cursor-pointer ${
+                      className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border text-sm font-semibold cursor-pointer ${
                         checked
                           ? "border-emerald-300 bg-emerald-50 text-slate-800"
                           : disabled
@@ -579,10 +579,10 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
                   );
                 })}
               </div>
-              <p className="text-[11px] text-slate-500">{t("questionEditorForm.keyGrammar.selectedCount", { count: keyGrammarIds.length })}</p>
+              <p className="text-[13px] text-slate-500">{t("questionEditorForm.keyGrammar.selectedCount", { count: keyGrammarIds.length })}</p>
             </>
           )}
-          <div className="bg-white border border-amber-200 rounded-lg px-3 py-2 text-[11px] leading-relaxed text-amber-900">
+          <div className="bg-white border border-amber-200 rounded-lg px-3 py-2 text-[13px] leading-relaxed text-amber-900">
             {t("questionEditorForm.keyGrammar.consequenceNote")}
           </div>
         </div>
@@ -590,7 +590,7 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
 
       {isVoiceOrListeningAudio && (
         <div className={`p-4 rounded-xl border space-y-3 ${AUDIO_SECTION_STYLE[kind]?.box ?? "bg-sky-50/40 border-sky-200"}`}>
-          <div className={`flex items-center gap-1 font-bold uppercase tracking-wider text-[9px] ${AUDIO_SECTION_STYLE[kind]?.title ?? "text-sky-900"}`}>
+          <div className={`flex items-center gap-1 font-bold uppercase tracking-wider text-[13px] ${AUDIO_SECTION_STYLE[kind]?.title ?? "text-sky-900"}`}>
             {(() => {
               const Icon = AUDIO_SECTION_STYLE[kind]?.icon ?? Headphones;
               return <Icon className={`w-4 h-4 ${AUDIO_SECTION_STYLE[kind]?.icon2 ?? "text-sky-600"}`} />;
@@ -598,21 +598,21 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
             <span>{t("questionEditorForm.audioSectionTitle")}</span>
           </div>
           {kind === "LISTENING_AUDIO_SUBMISSION" && (
-            <p className="text-[9px] text-slate-400">{t("questionEditorForm.listeningAudioSubmissionHint")}</p>
+            <p className="text-[13px] text-slate-400">{t("questionEditorForm.listeningAudioSubmissionHint")}</p>
           )}
           {kind === "LISTENING_FILL_IN_BLANK" && (
-            <p className="text-[9px] text-slate-400">{t("questionEditorForm.listeningFillInBlankHint")}</p>
+            <p className="text-[13px] text-slate-400">{t("questionEditorForm.listeningFillInBlankHint")}</p>
           )}
           {kind === "VOICE_PICTURE_CHOICE" && (
-            <p className="text-[9px] text-slate-400">{t("questionEditorForm.voicePictureChoiceHint")}</p>
+            <p className="text-[13px] text-slate-400">{t("questionEditorForm.voicePictureChoiceHint")}</p>
           )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label className="block font-bold text-slate-600 mb-1 text-[9px] uppercase">{t("common.audioFileLabel")}</label>
+              <label className="block font-bold text-slate-600 mb-1 text-[13px] uppercase">{t("common.audioFileLabel")}</label>
               <FileUploadField value={audioUrl} onChange={setAudioUrl} onUpload={(file) => uploadMedia(file, "LMS_QUESTION")} accept="audio/*" placeholder={t("common.chooseAudioFile")} />
             </div>
             <div>
-              <label className="block font-bold text-slate-600 mb-1 text-[9px] uppercase">{t("common.transcriptLabel")}</label>
+              <label className="block font-bold text-slate-600 mb-1 text-[13px] uppercase">{t("common.transcriptLabel")}</label>
               {/* Fix bug thật (2026-09-08, đã xác nhận với người dùng) — <input> 1 dòng xoá sạch \n khi
                   dán transcript nhiều dòng, mirror ListeningGroupBuilder.tsx đã sửa cùng đợt. */}
               <textarea value={transcript} onChange={(e) => setTranscript(e.target.value)} placeholder={t("common.transcriptPlaceholder")} rows={3} className={inputClass} />
@@ -624,11 +624,11 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
       {(kind === "MULTIPLE_CHOICE" || kind === "VOICE_MULTIPLE_CHOICE" || kind === "VOICE_PICTURE_CHOICE" || kind === "INLINE_CHOICE") && (
         <div className="space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-200">
           <div className="flex items-center justify-between mb-1">
-            <span className="font-bold text-slate-700 uppercase tracking-wider text-[9px]">{t("questionEditorForm.choicesSectionTitle", { count: options.length })}</span>
-            <span className="text-[9px] text-slate-400 font-bold">{t("questionEditorForm.choicesHint")}</span>
+            <span className="font-bold text-slate-700 uppercase tracking-wider text-[13px]">{t("questionEditorForm.choicesSectionTitle", { count: options.length })}</span>
+            <span className="text-[13px] text-slate-400 font-bold">{t("questionEditorForm.choicesHint")}</span>
           </div>
-          {kind === "INLINE_CHOICE" && <p className="text-[9px] text-slate-400">{t("questionEditorForm.inlineChoiceHint")}</p>}
-          {kind === "VOICE_PICTURE_CHOICE" && <p className="text-[9px] text-slate-400">{t("questionEditorForm.picChoiceHint")}</p>}
+          {kind === "INLINE_CHOICE" && <p className="text-[13px] text-slate-400">{t("questionEditorForm.inlineChoiceHint")}</p>}
+          {kind === "VOICE_PICTURE_CHOICE" && <p className="text-[13px] text-slate-400">{t("questionEditorForm.picChoiceHint")}</p>}
           <div className="space-y-2">
             {options.map((opt, idx) =>
               kind === "VOICE_PICTURE_CHOICE" ? (
@@ -700,11 +700,11 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
 
       {kind === "WORD_BANK" && (
         <div className="bg-orange-50/40 p-4 rounded-xl border border-orange-200 space-y-3">
-          <div className="text-orange-950 font-bold uppercase tracking-wider text-[9px] flex items-center gap-1">
+          <div className="text-orange-950 font-bold uppercase tracking-wider text-[13px] flex items-center gap-1">
             <Blocks className="w-4 h-4 text-orange-600" />
             <span>{t("questionEditorForm.wordBankSectionTitle")}</span>
           </div>
-          <p className="text-[9px] text-slate-400">{t("questionEditorForm.wordBankHint")}</p>
+          <p className="text-[13px] text-slate-400">{t("questionEditorForm.wordBankHint")}</p>
           {/*
            * Bổ sung 2026-08-28 (đã xác nhận với người dùng) — cảnh báo CHỈ đặt ở WORD_BANK/
            * WORD_BANK_PICTURE (không đặt ở FILL_IN_BLANK) vì chỉ 2 kind này cho phép nhồi NHIỀU chỗ
@@ -712,7 +712,7 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
            * all-or-nothing + số câu dính nhau) khớp toàn bộ buổi debug trước đó. FILL_IN_BLANK chỉ có
            * đúng 1 correctAnswerText nên không có nguy cơ này, không cần cảnh báo.
            */}
-          <p className="text-[9px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2">{t("questionEditorForm.wordBankMultiSentenceWarning")}</p>
+          <p className="text-[13px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2">{t("questionEditorForm.wordBankMultiSentenceWarning")}</p>
           {/* <OptionalAudioFields
             audioUrl={audioUrl}
             setAudioUrl={setAudioUrl}
@@ -723,7 +723,7 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
           <div className="space-y-2">
             {wordBankBlanks.map((b, idx) => (
               <div key={idx} className="flex items-center gap-2">
-                <span className="text-[10px] font-bold text-slate-500 w-20 shrink-0">{t("questionEditorForm.blankLabel", { index: idx + 1 })}</span>
+                <span className="text-[12px] font-bold text-slate-500 w-20 shrink-0">{t("questionEditorForm.blankLabel", { index: idx + 1 })}</span>
                 <input
                   required
                   value={b}
@@ -757,14 +757,14 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
        */}
       {kind === "WORD_BANK_PICTURE" && (
         <div className="bg-orange-50/40 p-4 rounded-xl border border-orange-200 space-y-3">
-          <div className="text-orange-950 font-bold uppercase tracking-wider text-[9px] flex items-center gap-1">
+          <div className="text-orange-950 font-bold uppercase tracking-wider text-[13px] flex items-center gap-1">
             <Images className="w-4 h-4 text-orange-700" />
             <span>{t("questionEditorForm.wordBankPictureSectionTitle")}</span>
           </div>
-          <p className="text-[9px] text-slate-400">{t("questionEditorForm.wordBankPictureHint")}</p>
-          <p className="text-[9px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2">{t("questionEditorForm.wordBankMultiSentenceWarning")}</p>
+          <p className="text-[13px] text-slate-400">{t("questionEditorForm.wordBankPictureHint")}</p>
+          <p className="text-[13px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2">{t("questionEditorForm.wordBankMultiSentenceWarning")}</p>
           <div>
-            <label className="block font-bold text-slate-600 mb-1 text-[9px] uppercase">{t("questionEditorForm.wordBankImageLabel")}</label>
+            <label className="block font-bold text-slate-600 mb-1 text-[13px] uppercase">{t("questionEditorForm.wordBankImageLabel")}</label>
             <FileUploadField
               value={imageUrl}
               onChange={setImageUrl}
@@ -783,7 +783,7 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
           <div className="space-y-2">
             {wordBankBlanks.map((b, idx) => (
               <div key={idx} className="flex items-center gap-2">
-                <span className="text-[10px] font-bold text-slate-500 w-20 shrink-0">{t("questionEditorForm.blankLabel", { index: idx + 1 })}</span>
+                <span className="text-[12px] font-bold text-slate-500 w-20 shrink-0">{t("questionEditorForm.blankLabel", { index: idx + 1 })}</span>
                 <input
                   required
                   value={b}
@@ -808,7 +808,7 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
           </Button>
 
           <div className="pt-2 border-t border-orange-200 space-y-2">
-            <p className="text-[9px] text-slate-400">{t("questionEditorForm.wordBankOptionsHint")}</p>
+            <p className="text-[13px] text-slate-400">{t("questionEditorForm.wordBankOptionsHint")}</p>
             {wordBankOptions.map((o, idx) => (
               <div key={idx} className="flex items-center gap-2">
                 <input
@@ -835,11 +835,11 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
 
       {kind === "SENTENCE_BUILDING" && (
         <div className="bg-cyan-50/40 p-4 rounded-xl border border-cyan-200 space-y-3">
-          <div className="text-cyan-950 font-bold uppercase tracking-wider text-[9px] flex items-center gap-1">
+          <div className="text-cyan-950 font-bold uppercase tracking-wider text-[13px] flex items-center gap-1">
             <ListOrdered className="w-4 h-4 text-cyan-600" />
             <span>{t("questionEditorForm.sentenceBuildingSectionTitle")}</span>
           </div>
-          <p className="text-[9px] text-slate-400">{t("questionEditorForm.sentenceBuildingHint")}</p>
+          <p className="text-[13px] text-slate-400">{t("questionEditorForm.sentenceBuildingHint")}</p>
           {/* <OptionalAudioFields
             audioUrl={audioUrl}
             setAudioUrl={setAudioUrl}
@@ -850,7 +850,7 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
           <div className="space-y-2">
             {sentenceChunks.map((c, idx) => (
               <div key={idx} className="flex items-center gap-2">
-                <span className="text-[10px] font-bold text-slate-500 w-12 shrink-0">#{idx + 1}</span>
+                <span className="text-[12px] font-bold text-slate-500 w-12 shrink-0">#{idx + 1}</span>
                 <input
                   value={c}
                   onChange={(e) => setSentenceChunks((prev) => prev.map((x, i) => (i === idx ? e.target.value : x)))}
@@ -882,13 +882,13 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
        */}
       {kind === "LETTER_SCRAMBLE" && (
         <div className="bg-cyan-50/40 p-4 rounded-xl border border-cyan-200 space-y-3">
-          <div className="text-cyan-950 font-bold uppercase tracking-wider text-[9px] flex items-center gap-1">
+          <div className="text-cyan-950 font-bold uppercase tracking-wider text-[13px] flex items-center gap-1">
             <Shuffle className="w-4 h-4 text-cyan-700" />
             <span>{t("questionEditorForm.letterScrambleSectionTitle")}</span>
           </div>
-          <p className="text-[9px] text-slate-400">{t("questionEditorForm.letterScrambleHint")}</p>
+          <p className="text-[13px] text-slate-400">{t("questionEditorForm.letterScrambleHint")}</p>
           <div>
-            <label className="block font-bold text-slate-600 mb-1 text-[9px] uppercase">{t("questionEditorForm.letterScrambleImageLabel")}</label>
+            <label className="block font-bold text-slate-600 mb-1 text-[13px] uppercase">{t("questionEditorForm.letterScrambleImageLabel")}</label>
             <FileUploadField
               value={imageUrl}
               onChange={setImageUrl}
@@ -907,7 +907,7 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
           <div className="space-y-2">
             {sentenceChunks.map((c, idx) => (
               <div key={idx} className="flex items-center gap-2">
-                <span className="text-[10px] font-bold text-slate-500 w-12 shrink-0">#{idx + 1}</span>
+                <span className="text-[12px] font-bold text-slate-500 w-12 shrink-0">#{idx + 1}</span>
                 <input
                   value={c}
                   onChange={(e) => setSentenceChunks((prev) => prev.map((x, i) => (i === idx ? e.target.value : x)))}
@@ -934,7 +934,7 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
 
       {(kind === "FILL_IN_BLANK" || kind === "LISTENING_FILL_IN_BLANK" || kind === "FILL_IN_BLANK_PICTURE") && (
         <div className="bg-amber-50/40 p-4 rounded-xl border border-amber-200 space-y-3">
-          <div className="text-amber-950 font-bold uppercase tracking-wider text-[9px] flex items-center gap-1">
+          <div className="text-amber-950 font-bold uppercase tracking-wider text-[13px] flex items-center gap-1">
             <PenLine className="w-4 h-4 text-amber-600" />
             <span>{t("questionEditorForm.fillInBlankSectionTitle")}</span>
           </div>
@@ -945,7 +945,7 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
            */}
           {kind === "FILL_IN_BLANK_PICTURE" && (
             <div>
-              <label className="block font-bold text-slate-600 mb-1 text-[9px] uppercase">{t("questionEditorForm.fillInBlankImageLabel")}</label>
+              <label className="block font-bold text-slate-600 mb-1 text-[13px] uppercase">{t("questionEditorForm.fillInBlankImageLabel")}</label>
               <FileUploadField
                 value={imageUrl}
                 onChange={setImageUrl}
@@ -966,7 +966,7 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
             />
           )}
           <div>
-            <label className="block font-bold text-slate-600 mb-1 text-[9px] uppercase">{t("questionEditorForm.correctAnswerLabel")}</label>
+            <label className="block font-bold text-slate-600 mb-1 text-[13px] uppercase">{t("questionEditorForm.correctAnswerLabel")}</label>
             <input
               required
               value={correctAnswerText}
@@ -974,19 +974,19 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
               placeholder={t("questionEditorForm.correctAnswerPlaceholder")}
               className={inputClass}
             />
-            <p className="text-[9px] text-slate-400 mt-1">{t("questionEditorForm.correctAnswerHint")}</p>
+            <p className="text-[13px] text-slate-400 mt-1">{t("questionEditorForm.correctAnswerHint")}</p>
           </div>
         </div>
       )}
 
       {kind === "ESSAY" && (
         <div className="bg-purple-50/40 p-4 rounded-xl border border-purple-200 space-y-3">
-          <div className="text-purple-950 font-bold uppercase tracking-wider text-[9px] flex items-center gap-1">
+          <div className="text-purple-950 font-bold uppercase tracking-wider text-[13px] flex items-center gap-1">
             <FileText className="w-4 h-4 text-purple-600" />
             <span>{t("questionEditorForm.essaySectionTitle")}</span>
           </div>
           <div>
-            <label className="block font-bold text-slate-600 mb-1 text-[9px] uppercase">{t("questionEditorForm.essayImageLabel")}</label>
+            <label className="block font-bold text-slate-600 mb-1 text-[13px] uppercase">{t("questionEditorForm.essayImageLabel")}</label>
             <FileUploadField
               value={imageUrl}
               onChange={setImageUrl}
@@ -1000,12 +1000,12 @@ export default function QuestionEditorForm({ questionBankId, examId, existingQue
 
       {kind === "SPEAKING" && (
         <div className="bg-rose-50/40 p-4 rounded-xl border border-rose-200 space-y-3">
-          <div className="text-rose-950 font-bold uppercase tracking-wider text-[9px] flex items-center gap-1">
+          <div className="text-rose-950 font-bold uppercase tracking-wider text-[13px] flex items-center gap-1">
             <Mic className="w-4 h-4 text-rose-600" />
             <span>{t("questionEditorForm.speakingSectionTitle")}</span>
           </div>
           <div>
-            <label className="block font-bold text-slate-600 mb-1 text-[9px] uppercase">{t("questionEditorForm.speakingKeywordsLabel")}</label>
+            <label className="block font-bold text-slate-600 mb-1 text-[13px] uppercase">{t("questionEditorForm.speakingKeywordsLabel")}</label>
             <input
               required
               value={phoneticKeywords}

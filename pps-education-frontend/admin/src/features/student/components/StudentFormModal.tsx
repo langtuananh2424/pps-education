@@ -13,9 +13,9 @@ import Select from "@/components/ui/Select";
 
 const TODAY_ISO = new Date().toISOString().slice(0, 10);
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
-const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-xs p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
+const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-sm p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
+const labelClass = "text-[12px] uppercase font-bold text-slate-500 block mb-1";
 
 interface StudentFormModalProps {
   onClose: () => void;
@@ -114,10 +114,10 @@ export default function StudentFormModal({ onClose, onCreated }: StudentFormModa
   return (
     <Modal open onClose={onClose} title={t("studentForm.modalTitle")} size="lg">
       <form onSubmit={handleSubmit} className="space-y-5">
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
         <div className="space-y-2 border-t border-slate-100 pt-4">
-          <span className="text-[10px] font-bold uppercase text-slate-500">{t("studentForm.avatarLabel")}</span>
+          <span className="text-[12px] font-bold uppercase text-slate-500">{t("studentForm.avatarLabel")}</span>
           <AvatarUploadField
             value={form.portraitUrl}
             onChange={(url) => setForm({ ...form, portraitUrl: url })}
@@ -127,12 +127,12 @@ export default function StudentFormModal({ onClose, onCreated }: StudentFormModa
         </div>
 
         <div className="space-y-2">
-          <span className="text-[10px] font-bold uppercase text-slate-500">{t("studentForm.accountSectionTitle")}</span>
+          <span className="text-[12px] font-bold uppercase text-slate-500">{t("studentForm.accountSectionTitle")}</span>
           <AccountSelector value={account} onChange={setAccount} submitAttempted={submitAttempted} />
         </div>
 
         <div className="space-y-3 border-t border-slate-100 pt-4">
-          <span className="text-[10px] font-bold uppercase text-slate-500">{t("studentForm.infoSectionTitle")}</span>
+          <span className="text-[12px] font-bold uppercase text-slate-500">{t("studentForm.infoSectionTitle")}</span>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelClass}>{t("studentForm.codeLabel")}</label>
@@ -142,7 +142,7 @@ export default function StudentFormModal({ onClose, onCreated }: StudentFormModa
                 onBlur={() => markTouched("studentCode")}
                 className={`${studentCodeInvalid ? inputErrorClass : inputClass} font-mono`}
               />
-              {studentCodeInvalid && <p className="text-[10px] text-rose-600 mt-1">{t("studentForm.codeRequired")}</p>}
+              {studentCodeInvalid && <p className="text-[12px] text-rose-600 mt-1">{t("studentForm.codeRequired")}</p>}
             </div>
             <div>
               <label className={labelClass}>{t("studentForm.genderLabel")}</label>
@@ -164,7 +164,7 @@ export default function StudentFormModal({ onClose, onCreated }: StudentFormModa
                 max={TODAY_ISO}
                 hasError={dateOfBirthInvalid}
               />
-              {dateOfBirthInvalid && <p className="text-[10px] text-rose-600 mt-1">{t("studentForm.dobRequired")}</p>}
+              {dateOfBirthInvalid && <p className="text-[12px] text-rose-600 mt-1">{t("studentForm.dobRequired")}</p>}
             </div>
             <div>
               <label className={labelClass}>{t("studentForm.enrollmentDateLabel")}</label>
@@ -176,7 +176,7 @@ export default function StudentFormModal({ onClose, onCreated }: StudentFormModa
                 }}
                 hasError={enrollmentDateInvalid}
               />
-              {enrollmentDateInvalid && <p className="text-[10px] text-rose-600 mt-1">{t("studentForm.enrollmentDateRequired")}</p>}
+              {enrollmentDateInvalid && <p className="text-[12px] text-rose-600 mt-1">{t("studentForm.enrollmentDateRequired")}</p>}
             </div>
             <div>
               <label className={labelClass}>{t("studentForm.primarySiteLabel")}</label>
@@ -205,7 +205,7 @@ export default function StudentFormModal({ onClose, onCreated }: StudentFormModa
         </div>
 
         <div className="border-t border-slate-100 pt-4 space-y-3">
-          <label className="flex items-center gap-2 text-xs font-bold text-slate-700 uppercase">
+          <label className="flex items-center gap-2 text-sm font-bold text-slate-700 uppercase">
             <input type="checkbox" checked={addParent} onChange={(e) => setAddParent(e.target.checked)} />
             {t("studentForm.linkParentCheckbox")}
           </label>
@@ -222,11 +222,11 @@ export default function StudentFormModal({ onClose, onCreated }: StudentFormModa
                     <option value="OTHER">{t("relationship.OTHER")}</option>
                   </Select>
                 </div>
-                <label className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 pb-2.5">
+                <label className="flex items-center gap-1.5 text-[13px] font-semibold text-slate-700 pb-2.5">
                   <input type="checkbox" checked={parentInfo.isPrimaryContact} onChange={(e) => setParentInfo({ ...parentInfo, isPrimaryContact: e.target.checked })} />
                   {t("studentForm.primaryContactCheckbox")}
                 </label>
-                <label className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 pb-2.5">
+                <label className="flex items-center gap-1.5 text-[13px] font-semibold text-slate-700 pb-2.5">
                   <input type="checkbox" checked={parentInfo.isFinancialResponsible} onChange={(e) => setParentInfo({ ...parentInfo, isFinancialResponsible: e.target.checked })} />
                   {t("studentForm.financialResponsibleCheckbox")}
                 </label>

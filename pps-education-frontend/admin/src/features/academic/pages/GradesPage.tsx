@@ -24,7 +24,7 @@ import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import Select from "@/components/ui/Select";
 
-const inputClass = "bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none";
+const inputClass = "bg-slate-50 border border-slate-200 text-sm p-2 rounded-lg focus:outline-none";
 
 export default function GradesPage() {
   const { t } = useTranslation("academic-grades");
@@ -128,14 +128,14 @@ export default function GradesPage() {
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("gradesPage.title")}</h1>
-        <p className="text-xs text-slate-500 mt-1">{t("gradesPage.description")}</p>
+        <p className="text-sm text-slate-500 mt-1">{t("gradesPage.description")}</p>
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       {isSiteManager && (
         <div className="space-y-4">
-          <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider font-display border-b border-slate-200 pb-2">
+          <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider font-display border-b border-slate-200 pb-2">
             {t("gradesPage.approveRejectSectionTitle")}
           </h2>
           <GradePublishDetail
@@ -150,7 +150,7 @@ export default function GradesPage() {
           />
           <Card padded={false} className="overflow-hidden">
             <div className="px-5 py-4 border-b border-slate-100 bg-slate-50">
-              <span className="text-xs font-bold text-slate-700 font-display">
+              <span className="text-sm font-bold text-slate-700 font-display">
                 {t("gradesPage.pendingListTitle", { count: pendingGroups.length })}
               </span>
             </div>
@@ -162,12 +162,12 @@ export default function GradesPage() {
             />
           </Card>
 
-          <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider font-display border-b border-slate-200 pb-2 pt-2">
+          <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider font-display border-b border-slate-200 pb-2 pt-2">
             {t("gradesPage.reviewSectionTitle")}
           </h2>
           <Card padded={false} className="overflow-hidden">
             <div className="px-5 py-4 border-b border-slate-100 bg-slate-50 grid grid-cols-1 sm:grid-cols-2 gap-2 items-center">
-              <span className="text-xs font-bold text-slate-700">
+              <span className="text-sm font-bold text-slate-700">
                 {selectedClass
                   ? t("gradesPage.classLabel", { classCode: selectedClass.classCode, className: selectedClass.name })
                   : t("gradesPage.noClassSelected")}
@@ -188,7 +188,7 @@ export default function GradesPage() {
             </div>
             {selectedClassId && selectedSetupId ? (
               gradeComponents.length === 0 ? (
-                <p className="text-xs text-slate-400 italic p-6 text-center">{t("gradesPage.noComponents")}</p>
+                <p className="text-sm text-slate-400 italic p-6 text-center">{t("gradesPage.noComponents")}</p>
               ) : (
                 <GradeSheetTable
                   key={`view-${selectedClassId}-${selectedSetupId}`}
@@ -201,7 +201,7 @@ export default function GradesPage() {
                 />
               )
             ) : (
-              <p className="text-xs text-slate-400 italic p-6 text-center">{t("gradesPage.selectClassAndSetupPrompt")}</p>
+              <p className="text-sm text-slate-400 italic p-6 text-center">{t("gradesPage.selectClassAndSetupPrompt")}</p>
             )}
           </Card>
         </div>
@@ -210,7 +210,7 @@ export default function GradesPage() {
       {showGradeSheet && (
         <Card padded={false} className="overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-100 bg-slate-50">
-            <span className="text-xs font-bold text-slate-700 font-display">
+            <span className="text-sm font-bold text-slate-700 font-display">
               {selectedClass
                 ? t("gradesPage.classLabel", { classCode: selectedClass.classCode, className: selectedClass.name })
                 : t("gradesPage.noClassSelected")}
@@ -220,7 +220,7 @@ export default function GradesPage() {
             {selectedClassId && selectedClass ? (
               <ClassGradeSheetPanel classId={selectedClassId} siteId={selectedClass.siteId} readOnly={!canEnterGrades} />
             ) : (
-              <p className="text-xs text-slate-400 italic p-6 text-center">{t("gradesPage.selectClassPrompt")}</p>
+              <p className="text-sm text-slate-400 italic p-6 text-center">{t("gradesPage.selectClassPrompt")}</p>
             )}
           </div>
         </Card>

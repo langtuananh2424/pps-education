@@ -63,7 +63,7 @@ export default function AvatarUploadField({ value, onChange, onUpload, fallbackN
           {uploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Camera className="w-3 h-3" />}
         </button>
       </div>
-      {error && <p className="text-[10px] text-rose-600 font-semibold">{error}</p>}
+      {error && <p className="text-[12px] text-rose-600 font-semibold">{error}</p>}
     </div>
   );
 }

@@ -8,9 +8,9 @@ import Button from "@/components/ui/Button";
 import Toast from "@/components/ui/Toast";
 import { useToast } from "@/lib/useToast";
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
-const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-xs p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
+const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-sm p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
+const labelClass = "text-[12px] uppercase font-bold text-slate-500 block mb-1";
 
 interface ChangePasswordModalProps {
   onClose: () => void;
@@ -62,12 +62,12 @@ export default function ChangePasswordModal({ onClose }: ChangePasswordModalProp
     <>
       <Modal open onClose={onClose} title={t("changePasswordModal.title")} size="md">
       <form onSubmit={handleSubmit} className="space-y-3">
-        <span className="text-[10px] font-bold uppercase text-slate-500 flex items-center gap-1.5">
+        <span className="text-[12px] font-bold uppercase text-slate-500 flex items-center gap-1.5">
           <KeyRound className="w-3.5 h-3.5" />
           {t("changePasswordModal.sectionTitle")}
         </span>
 
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
         <div>
           <label className={labelClass}>{t("changePasswordModal.currentPassword")}</label>
@@ -87,7 +87,7 @@ export default function ChangePasswordModal({ onClose }: ChangePasswordModalProp
             onChange={(e) => setNewPassword(e.target.value)}
             className={newPasswordInvalid ? inputErrorClass : inputClass}
           />
-          {newPasswordInvalid && <p className="text-[10px] text-rose-600 mt-1">{t("changePasswordModal.newPasswordTooShort")}</p>}
+          {newPasswordInvalid && <p className="text-[12px] text-rose-600 mt-1">{t("changePasswordModal.newPasswordTooShort")}</p>}
         </div>
         <div>
           <label className={labelClass}>{t("changePasswordModal.confirmPassword")}</label>
@@ -97,7 +97,7 @@ export default function ChangePasswordModal({ onClose }: ChangePasswordModalProp
             onChange={(e) => setConfirmPassword(e.target.value)}
             className={confirmMismatch ? inputErrorClass : inputClass}
           />
-          {confirmMismatch && <p className="text-[10px] text-rose-600 mt-1">{t("changePasswordModal.confirmMismatch")}</p>}
+          {confirmMismatch && <p className="text-[12px] text-rose-600 mt-1">{t("changePasswordModal.confirmMismatch")}</p>}
         </div>
 
         <div className="flex justify-end gap-2 pt-1">

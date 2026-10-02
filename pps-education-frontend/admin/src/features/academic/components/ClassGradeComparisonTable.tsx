@@ -108,12 +108,12 @@ export default function ClassGradeComparisonTable({ classId, enrollments, includ
     return <Minus className="w-3 h-3 text-slate-400 inline ml-1" aria-label={t("comparisonTable.trendFlat")} />;
   };
 
-  if (loading) return <p className="text-xs text-slate-400 italic p-6 text-center">{t("comparisonTable.loading")}</p>;
-  if (setups.length === 0) return <p className="text-xs text-slate-400 italic p-6 text-center">{t("comparisonTable.noSetups")}</p>;
+  if (loading) return <p className="text-sm text-slate-400 italic p-6 text-center">{t("comparisonTable.loading")}</p>;
+  if (setups.length === 0) return <p className="text-sm text-slate-400 italic p-6 text-center">{t("comparisonTable.noSetups")}</p>;
 
   return (
     <div>
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 m-3 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 m-3 rounded-lg">{error}</div>}
       <div className="overflow-x-auto">
         <TableContainer className="rounded-none border-0">
           <thead>
@@ -136,13 +136,13 @@ export default function ClassGradeComparisonTable({ classId, enrollments, includ
             <tr>
               {codeGroups.map((g) =>
                 setups.map((s, i) => (
-                  <Th key={`${g.code}-${s.id}`} className={`text-center text-[10px] font-semibold whitespace-nowrap ${i === 0 ? "border-l border-slate-200" : ""}`}>
+                  <Th key={`${g.code}-${s.id}`} className={`text-center text-[12px] font-semibold whitespace-nowrap ${i === 0 ? "border-l border-slate-200" : ""}`}>
                     {setupLabel(t, s)}
                   </Th>
                 ))
               )}
               {setups.map((s, i) => (
-                <Th key={`overall-${s.id}`} className={`text-center text-[10px] font-semibold whitespace-nowrap ${i === 0 ? "border-l border-slate-200" : ""}`}>
+                <Th key={`overall-${s.id}`} className={`text-center text-[12px] font-semibold whitespace-nowrap ${i === 0 ? "border-l border-slate-200" : ""}`}>
                   {setupLabel(t, s)}
                 </Th>
               ))}
@@ -151,7 +151,7 @@ export default function ClassGradeComparisonTable({ classId, enrollments, includ
           <tbody className="divide-y divide-slate-100">
             {activeStudents.length === 0 ? (
               <tr>
-                <td colSpan={2 + (codeGroups.length + 1) * setups.length} className="px-6 py-12 text-center text-xs text-slate-400 italic">
+                <td colSpan={2 + (codeGroups.length + 1) * setups.length} className="px-6 py-12 text-center text-sm text-slate-400 italic">
                   {t("comparisonTable.noEnrollments")}
                 </td>
               </tr>
@@ -167,7 +167,7 @@ export default function ClassGradeComparisonTable({ classId, enrollments, includ
                         {scores[i] == null ? (
                           <span className="text-slate-300">—</span>
                         ) : (
-                          <span className="text-xs font-semibold text-slate-700">
+                          <span className="text-sm font-semibold text-slate-700">
                             {scores[i]}
                             {i > 0 && <TrendIcon current={scores[i]} previous={scores[i - 1]} />}
                           </span>
@@ -182,7 +182,7 @@ export default function ClassGradeComparisonTable({ classId, enrollments, includ
                         {overalls[i] == null ? (
                           <span className="text-slate-300">—</span>
                         ) : (
-                          <span className="text-xs font-bold text-brand-orange">
+                          <span className="text-sm font-bold text-brand-orange">
                             {overalls[i]}
                             {i > 0 && <TrendIcon current={overalls[i]} previous={overalls[i - 1]} />}
                           </span>

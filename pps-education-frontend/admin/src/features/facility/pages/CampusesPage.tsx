@@ -38,12 +38,12 @@ export default function CampusesPage() {
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("campusesPage.title")}</h1>
-        <p className="text-xs text-slate-500 mt-1">
+        <p className="text-sm text-slate-500 mt-1">
           {t("campusesPage.description")}
         </p>
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         <SiteListPanel sites={sites} loading={loading} selectedId={selectedId} onSelect={setSelectedId} onCreate={() => setCreateOpen(true)} />
@@ -55,7 +55,7 @@ export default function CampusesPage() {
             <Building2 className="w-12 h-12 text-slate-300" />
             <div>
               <h3 className="text-sm font-bold text-slate-700">{t("campusesPage.emptyTitle")}</h3>
-              <p className="text-xs text-slate-400 mt-1">{t("campusesPage.emptyDescription")}</p>
+              <p className="text-sm text-slate-400 mt-1">{t("campusesPage.emptyDescription")}</p>
             </div>
           </div>
         )}

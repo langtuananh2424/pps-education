@@ -141,8 +141,8 @@ export default function AttendanceHistoryPanel({ classes, loadingClasses, onOpen
     (classesById[a]?.name ?? "").localeCompare(classesById[b]?.name ?? "")
   );
 
-  if (loadingClasses) return <p className="text-xs text-slate-500 p-4">{t("attendancePage.history.loadingClasses")}</p>;
-  if (classes.length === 0) return <p className="text-xs text-slate-400 italic text-center py-10">{t("attendancePage.history.noClasses")}</p>;
+  if (loadingClasses) return <p className="text-sm text-slate-500 p-4">{t("attendancePage.history.loadingClasses")}</p>;
+  if (classes.length === 0) return <p className="text-sm text-slate-400 italic text-center py-10">{t("attendancePage.history.noClasses")}</p>;
 
   return (
     <div className="space-y-4">
@@ -150,7 +150,7 @@ export default function AttendanceHistoryPanel({ classes, loadingClasses, onOpen
         <Select
           value={classFilter}
           onChange={(e) => setClassFilter(e.target.value === "ALL" ? "ALL" : Number(e.target.value))}
-          className="bg-white border border-slate-200 text-xs px-2.5 py-2 rounded-lg focus:outline-none"
+          className="bg-white border border-slate-200 text-sm px-2.5 py-2 rounded-lg focus:outline-none"
         >
           <option value="ALL">{t("attendancePage.history.allClasses")}</option>
           {classes.map((c) => (
@@ -162,18 +162,18 @@ export default function AttendanceHistoryPanel({ classes, loadingClasses, onOpen
         <Select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
-          className="bg-white border border-slate-200 text-xs px-2.5 py-2 rounded-lg focus:outline-none"
+          className="bg-white border border-slate-200 text-sm px-2.5 py-2 rounded-lg focus:outline-none"
         >
           <option value="ALL">{t("attendancePage.history.allStatuses")}</option>
           <option value="DRAFT">{t("attendancePage.sessionStatus.DRAFT")}</option>
           <option value="SUBMITTED">{t("attendancePage.sessionStatus.SUBMITTED")}</option>
           <option value="LOCKED">{t("attendancePage.sessionStatus.LOCKED")}</option>
         </Select>
-        <span className="text-[10px] uppercase font-bold text-slate-400">{t("attendancePage.history.fromDateLabel")}</span>
+        <span className="text-[12px] uppercase font-bold text-slate-400">{t("attendancePage.history.fromDateLabel")}</span>
         <div className="w-36">
           <DatePicker value={dateFrom} onChange={setDateFrom} max={dateTo || undefined} />
         </div>
-        <span className="text-xs text-slate-400">{t("attendancePage.history.toDateConnector")}</span>
+        <span className="text-sm text-slate-400">{t("attendancePage.history.toDateConnector")}</span>
         <div className="w-36">
           <DatePicker value={dateTo} onChange={setDateTo} min={dateFrom || undefined} />
         </div>
@@ -185,22 +185,22 @@ export default function AttendanceHistoryPanel({ classes, loadingClasses, onOpen
               setStatusFilter("ALL");
               setClassFilter("ALL");
             }}
-            className="text-[11px] font-semibold text-brand-red hover:underline"
+            className="text-[13px] font-semibold text-brand-red hover:underline"
           >
             {t("attendancePage.history.clearFilter")}
           </button>
         )}
-        <span className="text-[11px] text-slate-400 ml-auto">
+        <span className="text-[13px] text-slate-400 ml-auto">
           {t("attendancePage.history.countSummary", { filtered: filtered.length, total: entries.length })}
         </span>
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       {loading ? (
-        <p className="text-xs text-slate-500 p-4">{t("attendancePage.history.loading")}</p>
+        <p className="text-sm text-slate-500 p-4">{t("attendancePage.history.loading")}</p>
       ) : filtered.length === 0 ? (
-        <p className="text-xs text-slate-400 italic text-center py-10">
+        <p className="text-sm text-slate-400 italic text-center py-10">
           {entries.length === 0 ? t("attendancePage.history.emptyNoHistory") : t("attendancePage.history.emptyNoMatch")}
         </p>
       ) : (
@@ -213,7 +213,7 @@ export default function AttendanceHistoryPanel({ classes, loadingClasses, onOpen
             return (
               <Card key={classId} padded={false} className="overflow-hidden">
                 <div className="px-5 py-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between flex-wrap gap-2">
-                  <span className="text-xs font-bold text-slate-700 font-display">
+                  <span className="text-sm font-bold text-slate-700 font-display">
                     {cls ? `${cls.name} (${cls.classCode})` : t("attendancePage.history.classFallback", { id: classId })}
                   </span>
                   <Badge variant="neutral">{t("attendancePage.history.sessionCountBadge", { count: classEntries.length })}</Badge>
@@ -266,14 +266,14 @@ function SessionRow({ entry, onOpenSession }: { entry: SessionAttendanceEntry; o
         className="w-full px-5 py-2.5 bg-white hover:bg-slate-50/60 flex items-center gap-2 flex-wrap transition-colors text-left"
       >
         {expanded ? <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />}
-        <span className="text-[11px] font-bold text-slate-600">{t("attendancePage.history.sessionLabel", { date: session.sessionDate, weekday })}</span>
-        <span className="text-[10px] font-mono text-slate-400">{session.startTime.slice(0, 5)}–{session.endTime.slice(0, 5)}</span>
+        <span className="text-[13px] font-bold text-slate-600">{t("attendancePage.history.sessionLabel", { date: session.sessionDate, weekday })}</span>
+        <span className="text-[12px] font-mono text-slate-400">{session.startTime.slice(0, 5)}–{session.endTime.slice(0, 5)}</span>
         <Badge variant={sessionStatusVariant[attendance.status] ?? "neutral"}>{t(`attendancePage.sessionStatus.${attendance.status}`)}</Badge>
-        <span className="text-[10px] text-slate-400">
+        <span className="text-[12px] text-slate-400">
           {t("attendancePage.history.presentCount", { count: counts.present })} · {t("attendancePage.history.absentCount", { count: counts.absent })} · {t("attendancePage.history.excusedCount", { count: counts.excused })} · {t("attendancePage.history.lateCount", { count: counts.late })}
         </span>
         <span className="ml-auto flex items-center gap-2">
-          <span className="text-[10px] text-slate-400">
+          <span className="text-[12px] text-slate-400">
             {attendance.submittedAt ? t("attendancePage.history.submittedAtLabel", { time: formatDateTime(attendance.submittedAt, i18n.language) }) : t("attendancePage.history.notSubmittedYet")}
           </span>
           <Button
@@ -291,7 +291,7 @@ function SessionRow({ entry, onOpenSession }: { entry: SessionAttendanceEntry; o
       </button>
       {expanded && (
         <div className="overflow-x-auto max-h-[50vh] overflow-y-auto">
-          <table className="w-full text-xs text-left border-separate border-spacing-0">
+          <table className="w-full text-sm text-left border-separate border-spacing-0">
             <thead className="sticky top-0 z-10 bg-slate-50">
               <tr className="border-b border-slate-300">
                 <Th className="border-r border-b border-slate-300">{t("attendancePage.history.columns.studentCode")}</Th>
@@ -317,19 +317,19 @@ function SessionRow({ entry, onOpenSession }: { entry: SessionAttendanceEntry; o
       )}
       {expanded && (
         <div className="px-5 py-3 border-t border-slate-100 bg-slate-50/60">
-          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide flex items-center gap-1.5 mb-1.5">
+          <p className="text-[12px] font-bold text-slate-500 uppercase tracking-wide flex items-center gap-1.5 mb-1.5">
             <History className="w-3 h-3" />
             {t("attendancePage.history.timeline.title")}
           </p>
-          {historyError && <p className="text-[11px] text-rose-600">{historyError}</p>}
+          {historyError && <p className="text-[13px] text-rose-600">{historyError}</p>}
           {historyLoading ? (
-            <p className="text-[11px] text-slate-400">{t("attendancePage.history.timeline.loading")}</p>
+            <p className="text-[13px] text-slate-400">{t("attendancePage.history.timeline.loading")}</p>
           ) : timelineBuckets.length === 0 ? (
-            !historyError && <p className="text-[11px] text-slate-400 italic">{t("attendancePage.history.timeline.empty")}</p>
+            !historyError && <p className="text-[13px] text-slate-400 italic">{t("attendancePage.history.timeline.empty")}</p>
           ) : (
             <ul className="space-y-1">
               {timelineBuckets.map((b) => (
-                <li key={b.key} className="text-[11px] text-slate-600">
+                <li key={b.key} className="text-[13px] text-slate-600">
                   {t(b.action === "CREATED" ? "attendancePage.history.timeline.createdLabel" : "attendancePage.history.timeline.updatedLabel", {
                     actor: b.actor,
                     time: formatDateTime(b.timestamp, i18n.language),

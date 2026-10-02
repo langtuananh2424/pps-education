@@ -51,8 +51,8 @@ import Toast from "@/components/ui/Toast";
 import Pagination from "@/components/ui/Pagination";
 import { useDialog } from "@/components/ui/DialogProvider";
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
+const labelClass = "text-[12px] uppercase font-bold text-slate-500 block mb-1";
 
 const statusVariants: Record<ExerciseResponse["status"], "neutral" | "success" | "danger"> = {
   DRAFT: "neutral",
@@ -223,7 +223,7 @@ export default function ExerciseAssignPage() {
       <div className="border-b border-slate-200 pb-4 flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("assignPage.title")}</h1>
-          <p className="text-xs text-slate-500 mt-1">{t("assignPage.description")}</p>
+          <p className="text-sm text-slate-500 mt-1">{t("assignPage.description")}</p>
         </div>
         {canManage && (
           <Button variant="primary" size="sm" onClick={() => setCreateExamOpen(true)}>
@@ -233,7 +233,7 @@ export default function ExerciseAssignPage() {
         )}
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         <div className="lg:col-span-5 bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden flex flex-col">
@@ -294,11 +294,11 @@ export default function ExerciseAssignPage() {
           </div>
 
           {loadingExams ? (
-            <p className="text-xs text-slate-500 p-6 text-center">{t("common.loading")}</p>
+            <p className="text-sm text-slate-500 p-6 text-center">{t("common.loading")}</p>
           ) : unitFilteredExams.length === 0 ? (
             <div className="flex flex-col items-center justify-center p-12 text-center text-slate-400 space-y-3">
               <Layers className="w-12 h-12 text-slate-300" />
-              <p className="text-xs text-slate-400">
+              <p className="text-sm text-slate-400">
                 {unitFilter ? t("assignPage.noExamsInUnit") : curriculumFilter ? t("assignPage.noExamsFiltered") : t("assignPage.noExamsAll")}
               </p>
             </div>
@@ -311,17 +311,17 @@ export default function ExerciseAssignPage() {
                     onClick={() => setSelectedExamId(exam.id)}
                     className={`w-full text-left px-4 py-3 hover:bg-slate-50/60 ${selectedExamId === exam.id ? "bg-brand-red/5 border-l-2 border-brand-red" : ""}`}
                   >
-                    <p className="text-xs font-bold text-slate-800">{exam.title}</p>
-                    <p className="text-[10px] text-slate-400 mt-0.5 font-mono">{exam.code} · {exam.curriculumCode}</p>
+                    <p className="text-sm font-bold text-slate-800">{exam.title}</p>
+                    <p className="text-[12px] text-slate-400 mt-0.5 font-mono">{exam.code} · {exam.curriculumCode}</p>
                     {/* Bổ sung 2026-09-04 (đã xác nhận với người dùng) — fix bug thật: Lesson đánh số lặp lại
                         (Lesson 1, 2, 3...) giữa nhiều Unit/SubTopic khác nhau, trước đây chỉ hiện subTopicTitle
                         (không hiện unitTitle) nên vẫn dễ nhầm khi 2 Unit khác nhau có SubTopic cùng số/tên. */}
                     {(exam.unitTitle || exam.subTopicTitle) && (
-                      <p className="text-[10px] text-brand-red font-semibold mt-0.5">
+                      <p className="text-[12px] text-brand-red font-semibold mt-0.5">
                         {[exam.unitTitle, exam.subTopicTitle].filter(Boolean).join(" · ")}
                       </p>
                     )}
-                    <p className="text-[10px] text-slate-400 mt-0.5">
+                    <p className="text-[12px] text-slate-400 mt-0.5">
                       {t(`assignPage.teacherTypeLabels.${exam.teacherType}`)} · {t(`assignPage.examTypeLabels.${exam.examType}`)}
                     </p>
                   </button>
@@ -346,7 +346,7 @@ export default function ExerciseAssignPage() {
           {!selectedExam ? (
             <div className="bg-white rounded-xl border border-slate-200 shadow-soft flex flex-col items-center justify-center p-12 text-center text-slate-400 space-y-3">
               <ClipboardList className="w-12 h-12 text-slate-300" />
-              <p className="text-xs text-slate-400">{t("assignPage.selectExamPrompt")}</p>
+              <p className="text-sm text-slate-400">{t("assignPage.selectExamPrompt")}</p>
             </div>
           ) : (
             <ExamDetailPanel
@@ -424,7 +424,7 @@ function CreateExamModal({
 
   return (
     <Modal open onClose={onClose} title={t("assignPage.createExamModal.title")} size="md">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
           <label className={labelClass}>{t("assignPage.createExamModal.examCodeLabel")}</label>
@@ -523,7 +523,7 @@ function EditExamModal({
 
   return (
     <Modal open onClose={onClose} title={t("assignPage.editExamModal.modalTitle", { code: exam.code })} size="md">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
           <label className={labelClass}>{t("assignPage.editExamModal.examTitleLabel")}</label>
@@ -550,7 +550,7 @@ function EditExamModal({
           </Select>
         </div>
         <UnitSubTopicPicker curriculumId={exam.curriculumId} value={subTopicId} currentLabel={exam.subTopicTitle} onChange={setSubTopicId} />
-        <p className="text-[10px] text-slate-400 italic">
+        <p className="text-[12px] text-slate-400 italic">
           {t("assignPage.editExamModal.immutableHint", { code: exam.code, curriculumCode: exam.curriculumCode })}
         </p>
         <div className="flex justify-end gap-2 pt-2">
@@ -635,7 +635,7 @@ function EditExerciseModal({
 
   return (
     <Modal open onClose={onClose} title={t("assignPage.editExerciseModal.modalTitle", { code: exercise.code })} size="md">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
           <label className={labelClass}>{t("assignPage.editExerciseModal.exerciseTitleLabel")}</label>
@@ -667,7 +667,7 @@ function EditExerciseModal({
               )}
             </Select>
           )}
-          <p className="text-[10px] text-slate-400 italic mt-1">
+          <p className="text-[12px] text-slate-400 italic mt-1">
             {hasQuestions === null
               ? t("common.loading")
               : skillCategoryLocked
@@ -691,13 +691,13 @@ function EditExerciseModal({
           />
         </div>
         <div>
-          <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
+          <label className="flex items-center gap-1.5 text-[13px] font-bold text-slate-600">
             <input type="checkbox" checked={showCorrectAnswers} onChange={(e) => setShowCorrectAnswers(e.target.checked)} />
             {t("assignPage.editExerciseModal.showCorrectAnswersCheckbox")}
           </label>
         </div>
         <div>
-          <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
+          <label className="flex items-center gap-1.5 text-[13px] font-bold text-slate-600">
             <input type="checkbox" checked={allowRetake} onChange={(e) => setAllowRetake(e.target.checked)} />
             {t("assignPage.editExerciseModal.allowRetakeCheckbox")}
           </label>
@@ -708,7 +708,7 @@ function EditExerciseModal({
             <input type="number" min={1} value={maxAttempts} onChange={(e) => setMaxAttempts(e.target.value)} className={inputClass} />
           </div>
         )}
-        <p className="text-[10px] text-slate-400 italic">{t("assignPage.editExerciseModal.immutableHint", { code: exercise.code })}</p>
+        <p className="text-[12px] text-slate-400 italic">{t("assignPage.editExerciseModal.immutableHint", { code: exercise.code })}</p>
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="secondary" size="sm" onClick={onClose}>
             {t("common.cancelShort")}
@@ -745,7 +745,7 @@ function AddQuestionsModal({
 
   return (
     <Modal open onClose={onClose} title={t("assignPage.addQuestionsModal.modalTitle", { code: exercise.code })} size="lg">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
       <ExerciseQuestionsStep exercise={exercise} teacherType={teacherType} onDone={onDone} onError={setError} onClose={onClose} />
     </Modal>
   );
@@ -843,10 +843,10 @@ function ExamDetailPanel({
         <div className="flex items-start justify-between gap-2">
           <div>
             <p className="text-sm font-bold text-slate-800">{exam.title}</p>
-            <p className="text-[10px] text-slate-400 font-mono mt-0.5">{exam.code} · {exam.curriculumCode}</p>
+            <p className="text-[12px] text-slate-400 font-mono mt-0.5">{exam.code} · {exam.curriculumCode}</p>
             {/* Bổ sung 2026-09-04 — xem ghi chú ở danh sách Lesson bên trái: thêm unitTitle để phân biệt Lesson trùng tên giữa các Unit khác nhau. */}
             {(exam.unitTitle || exam.subTopicTitle) && (
-              <p className="text-[10px] text-brand-red font-semibold mt-0.5">{[exam.unitTitle, exam.subTopicTitle].filter(Boolean).join(" · ")}</p>
+              <p className="text-[12px] text-brand-red font-semibold mt-0.5">{[exam.unitTitle, exam.subTopicTitle].filter(Boolean).join(" · ")}</p>
             )}
           </div>
           {canManage && (
@@ -863,7 +863,7 @@ function ExamDetailPanel({
         <div className="flex items-center justify-between flex-wrap gap-2">
           <button
             onClick={() => setAssignClassOpen(true)}
-            className="flex items-center gap-1.5 text-[11px] font-bold text-brand-red hover:underline"
+            className="flex items-center gap-1.5 text-[13px] font-bold text-brand-red hover:underline"
           >
             <Users className="w-3.5 h-3.5" />
             {assignedClassCount == null
@@ -875,7 +875,7 @@ function ExamDetailPanel({
             <Select
               value={skillFilter}
               onChange={(e) => setSkillFilter(e.target.value as ExerciseSkillCategory | "")}
-              className="bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
+              className="bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none"
             >
               <option value="">{t("assignPage.examDetail.allSkillCategories")}</option>
               <option value="LISTENING">{t("assignModal.infoStep.skillCategoryListening")}</option>
@@ -905,14 +905,14 @@ function ExamDetailPanel({
         />
       )}
 
-      {error && <p className="px-5 pt-3 text-[11px] text-rose-600">{error}</p>}
+      {error && <p className="px-5 pt-3 text-[13px] text-rose-600">{error}</p>}
 
       {loadingExercises ? (
-        <p className="text-xs text-slate-500 p-6 text-center">{t("common.loading")}</p>
+        <p className="text-sm text-slate-500 p-6 text-center">{t("common.loading")}</p>
       ) : exercises.length === 0 ? (
-        <p className="text-xs text-slate-400 italic p-6 text-center">{t("assignPage.examDetail.noExercises")}</p>
+        <p className="text-sm text-slate-400 italic p-6 text-center">{t("assignPage.examDetail.noExercises")}</p>
       ) : filteredExercises.length === 0 ? (
-        <p className="text-xs text-slate-400 italic p-6 text-center">{t("assignPage.examDetail.noExercisesForSkill")}</p>
+        <p className="text-sm text-slate-400 italic p-6 text-center">{t("assignPage.examDetail.noExercisesForSkill")}</p>
       ) : (
         <div className="divide-y divide-slate-100">
           {filteredExercises.map((exercise) => (
@@ -1089,10 +1089,10 @@ function ExerciseRow({
         <button onClick={toggle} className="flex items-center gap-2 text-left flex-1 min-w-0">
           {expanded ? <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />}
           <div className="min-w-0">
-            <p className="text-xs font-bold text-slate-800">
+            <p className="text-sm font-bold text-slate-800">
               {exercise.title} <span className="font-mono text-slate-400 font-normal">({exercise.code})</span>
             </p>
-            <p className="text-[10px] text-slate-400 mt-0.5">
+            <p className="text-[12px] text-slate-400 mt-0.5">
               {t("assignPage.exerciseRow.totalPoints", { points: exercise.totalPoints })}
               {questions && (
                 <span className={questions.reduce((s, q) => s + q.points, 0) > exercise.totalPoints ? "text-rose-500 font-bold" : undefined}>
@@ -1126,7 +1126,7 @@ function ExerciseRow({
                 e.stopPropagation();
                 setAddQuestionsOpen(true);
               }}
-              className="text-[10px] font-bold text-brand-red hover:underline whitespace-nowrap"
+              className="text-[12px] font-bold text-brand-red hover:underline whitespace-nowrap"
             >
               {t("assignPage.exerciseRow.addQuestions")}
             </button>
@@ -1136,7 +1136,7 @@ function ExerciseRow({
               e.stopPropagation();
               setPreviewOpen(true);
             }}
-            className="text-[10px] font-bold text-brand-red hover:underline whitespace-nowrap"
+            className="text-[12px] font-bold text-brand-red hover:underline whitespace-nowrap"
           >
             {t("assignPage.exerciseRow.previewWithAnswers")}
           </button>
@@ -1145,7 +1145,7 @@ function ExerciseRow({
               e.stopPropagation();
               setStudentPreviewOpen(true);
             }}
-            className="text-[10px] font-bold text-brand-red hover:underline whitespace-nowrap"
+            className="text-[12px] font-bold text-brand-red hover:underline whitespace-nowrap"
           >
             {t("assignPage.exerciseRow.previewAsStudent")}
           </button>
@@ -1160,7 +1160,7 @@ function ExerciseRow({
             <button
               onClick={handlePublish}
               disabled={publishing}
-              className="text-[10px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 px-2.5 py-1 rounded-lg disabled:opacity-50 whitespace-nowrap"
+              className="text-[12px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 px-2.5 py-1 rounded-lg disabled:opacity-50 whitespace-nowrap"
             >
               {publishing ? t("assignPage.exerciseRow.publishing") : t("assignPage.exerciseRow.publish")}
             </button>
@@ -1168,7 +1168,7 @@ function ExerciseRow({
         </div>
       </div>
 
-      {error && <p className="px-5 pb-2 text-[11px] text-rose-600">{error}</p>}
+      {error && <p className="px-5 pb-2 text-[13px] text-rose-600">{error}</p>}
 
       {previewOpen && <ExercisePreviewModal exercise={exercise} onClose={() => setPreviewOpen(false)} />}
 
@@ -1229,15 +1229,15 @@ function ExerciseRow({
       {expanded && (
         <div className="px-5 pb-3.5 pl-11">
           {loading ? (
-            <p className="text-[11px] text-slate-400">{t("assignPage.exerciseRow.loadingQuestions")}</p>
+            <p className="text-[13px] text-slate-400">{t("assignPage.exerciseRow.loadingQuestions")}</p>
           ) : !questions || questions.length === 0 ? (
-            <p className="text-[11px] text-slate-400 italic">{t("assignPage.exerciseRow.noQuestions")}</p>
+            <p className="text-[13px] text-slate-400 italic">{t("assignPage.exerciseRow.noQuestions")}</p>
           ) : (
             <div className="space-y-1.5">
               {questions
                 .sort((a, b) => a.displayOrder - b.displayOrder)
                 .map((q) => (
-                  <div key={q.id} className="text-[11px] text-slate-600 flex items-center justify-between gap-3 border-b border-slate-50 pb-1">
+                  <div key={q.id} className="text-[13px] text-slate-600 flex items-center justify-between gap-3 border-b border-slate-50 pb-1">
                     <span className="truncate">
                       {q.displayOrder}. {q.questionContent}
                     </span>
@@ -1253,7 +1253,7 @@ function ExerciseRow({
                           disabled={savingPointsId === q.id}
                           onBlur={(e) => handlePointsChange(q, Number(e.target.value))}
                           title={t("assignPage.exerciseRow.pointsInputDraftOnlyTitle")}
-                          className="w-14 text-[11px] text-right text-slate-500 border border-slate-200 rounded px-1 py-0.5 disabled:opacity-50 focus:outline-none"
+                          className="w-14 text-[13px] text-right text-slate-500 border border-slate-200 rounded px-1 py-0.5 disabled:opacity-50 focus:outline-none"
                         />
                       ) : (
                         <span className="text-slate-400">{q.points}</span>
@@ -1330,16 +1330,16 @@ function AssignClassModal({ examId, onClose }: { examId: number; onClose: () => 
 
   return (
     <Modal open onClose={onClose} title={t("assignPage.assignClassModal.title")} size="md">
-      <p className="text-[11px] text-slate-500 mb-3">{t("assignPage.assignClassModal.description")}</p>
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
+      <p className="text-[13px] text-slate-500 mb-3">{t("assignPage.assignClassModal.description")}</p>
+      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
       {loading ? (
-        <p className="text-xs text-slate-500 p-3 text-center">{t("common.loading")}</p>
+        <p className="text-sm text-slate-500 p-3 text-center">{t("common.loading")}</p>
       ) : classes.length === 0 ? (
-        <p className="text-xs text-slate-400 italic p-3 text-center">{t("assignPage.assignClassModal.noClasses")}</p>
+        <p className="text-sm text-slate-400 italic p-3 text-center">{t("assignPage.assignClassModal.noClasses")}</p>
       ) : (
         <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 max-h-72 overflow-y-auto">
           {classes.map((c) => (
-            <label key={c.id} className="flex items-center gap-2 px-3 py-2 text-xs cursor-pointer hover:bg-slate-50">
+            <label key={c.id} className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-slate-50">
               <input
                 type="checkbox"
                 checked={assignedIds.has(c.id)}
@@ -1347,7 +1347,7 @@ function AssignClassModal({ examId, onClose }: { examId: number; onClose: () => 
                 onChange={() => toggle(c.id)}
               />
               <span className="flex-1">{c.classCode} — {c.name}</span>
-              {pendingId === c.id && <span className="text-[10px] text-slate-400">{t("assignPage.assignClassModal.savingLabel")}</span>}
+              {pendingId === c.id && <span className="text-[12px] text-slate-400">{t("assignPage.assignClassModal.savingLabel")}</span>}
             </label>
           ))}
         </div>

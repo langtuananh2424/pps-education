@@ -118,11 +118,11 @@ export default function SystemSettingsPage() {
   return (
     <div className="space-y-4 animate-in fade-in duration-200">
       <div>
-        <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider block">{t("systemSettingsPage.title")}</h2>
-        <p className="text-[10px] text-slate-400 mt-0.5">{t("systemSettingsPage.description")}</p>
+        <h2 className="text-lg font-bold text-slate-800 uppercase tracking-wider block">{t("systemSettingsPage.title")}</h2>
+        <p className="text-[12px] text-slate-400 mt-0.5">{t("systemSettingsPage.description")}</p>
       </div>
 
-      {error && <div className="p-3 text-xs text-rose-600 bg-rose-50 border border-rose-100 rounded-lg">{error}</div>}
+      {error && <div className="p-3 text-sm text-rose-600 bg-rose-50 border border-rose-100 rounded-lg">{error}</div>}
 
       {!loading && settings.length === 0 && !error ? (
         <EmptyState
@@ -134,7 +134,7 @@ export default function SystemSettingsPage() {
         grouped.map(([category, items]) => (
           <div key={category} className="bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden">
             <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-100">
-              <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
+              <h3 className="text-[13px] font-bold uppercase tracking-wider text-slate-600">
                 {settingCategoryLabel(t, category)}
               </h3>
             </div>
@@ -151,12 +151,12 @@ export default function SystemSettingsPage() {
               <tbody className="divide-y divide-slate-100">
                 {items.map((s) => (
                   <tr key={s.settingKey} className="hover:bg-slate-50/50 transition-colors">
-                    <Td className="font-mono text-[11px] font-bold text-slate-700">{s.settingKey}</Td>
-                    <Td className="text-[11px] text-slate-500 max-w-md">
+                    <Td className="font-mono text-[13px] font-bold text-slate-700">{s.settingKey}</Td>
+                    <Td className="text-[13px] text-slate-500 max-w-md">
                       {s.description ?? t("systemSettingsPage.noDescription")}
                     </Td>
                     <Td className="font-mono font-bold">{String(s.settingValue)}</Td>
-                    <Td className="text-[11px] text-slate-400">
+                    <Td className="text-[13px] text-slate-400">
                       {s.updatedByName ? (
                         <>
                           {s.updatedByName}
@@ -209,18 +209,18 @@ export default function SystemSettingsPage() {
       >
         {editing && (
           <div className="space-y-3">
-            {saveError && <div className="p-2.5 text-xs text-rose-600 bg-rose-50 border border-rose-100 rounded-lg">{saveError}</div>}
+            {saveError && <div className="p-2.5 text-sm text-rose-600 bg-rose-50 border border-rose-100 rounded-lg">{saveError}</div>}
             <div>
-              <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1">
+              <label className="text-[12px] uppercase font-bold text-slate-500 block mb-1">
                 {t("systemSettingsPage.editModal.currentValueLabel")}
               </label>
-              <p className="text-xs font-mono text-slate-400 mb-2">{String(editing.settingValue)}</p>
+              <p className="text-sm font-mono text-slate-400 mb-2">{String(editing.settingValue)}</p>
 
               {kindOf(editing.settingValue) === "boolean" ? (
                 <Select
                   value={draftValue}
                   onChange={(e) => setDraftValue(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none"
                 >
                   <option value="true">{t("systemSettingsPage.editModal.booleanOn")}</option>
                   <option value="false">{t("systemSettingsPage.editModal.booleanOff")}</option>
@@ -230,7 +230,7 @@ export default function SystemSettingsPage() {
                   type={kindOf(editing.settingValue) === "number" ? "number" : "text"}
                   value={draftValue}
                   onChange={(e) => setDraftValue(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none"
                 />
               )}
             </div>
@@ -245,19 +245,19 @@ export default function SystemSettingsPage() {
         size="lg"
       >
         {historyLoading ? (
-          <p className="text-xs text-slate-400">{t("systemSettingsPage.historyModal.loading")}</p>
+          <p className="text-sm text-slate-400">{t("systemSettingsPage.historyModal.loading")}</p>
         ) : history.length === 0 ? (
-          <p className="text-xs text-slate-400 italic">{t("systemSettingsPage.historyModal.empty")}</p>
+          <p className="text-sm text-slate-400 italic">{t("systemSettingsPage.historyModal.empty")}</p>
         ) : (
           <div className="space-y-2">
             {history.map((h) => (
-              <div key={h.id} className="flex items-center justify-between text-xs border border-slate-100 rounded-lg p-2.5">
+              <div key={h.id} className="flex items-center justify-between text-sm border border-slate-100 rounded-lg p-2.5">
                 <div className="flex items-center gap-2">
                   <span className="font-mono text-rose-500 line-through">{String(h.oldValue)}</span>
                   <span className="text-slate-300">→</span>
                   <span className="font-mono font-bold text-emerald-600">{String(h.newValue)}</span>
                 </div>
-                <div className="text-[10px] text-slate-400 text-right">
+                <div className="text-[12px] text-slate-400 text-right">
                   <div className="font-semibold text-slate-600">{h.changedByName}</div>
                   <div>{new Date(h.createdAt).toLocaleString("vi-VN")}</div>
                 </div>

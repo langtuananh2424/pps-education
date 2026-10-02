@@ -169,7 +169,7 @@ export default function StudentProgressPage() {
       {/* Header */}
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("studentProgressPage.title")}</h1>
-        <p className="text-xs text-slate-500 mt-1">{t("studentProgressPage.description")}</p>
+        <p className="text-sm text-slate-500 mt-1">{t("studentProgressPage.description")}</p>
       </div>
 
       {/* Tìm kiếm học sinh */}
@@ -208,11 +208,11 @@ export default function StudentProgressPage() {
                     )}
                     <div>
                       <p className="font-semibold text-slate-800 text-sm">{s.fullName}</p>
-                      <p className="text-xs text-slate-500">{s.studentCode} · {s.primarySiteName ?? "—"}</p>
+                      <p className="text-sm text-slate-500">{s.studentCode} · {s.primarySiteName ?? "—"}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${STATUS_COLORS[s.status] ?? ""}`}>
+                    <span className={`text-sm px-2 py-0.5 rounded-full font-semibold ${STATUS_COLORS[s.status] ?? ""}`}>
                       {studentStatusLabel(t, s.status)}
                     </span>
                     <ChevronRight className="w-4 h-4 text-slate-400" />
@@ -252,7 +252,7 @@ export default function StudentProgressPage() {
                 <h2 className="text-lg font-bold">{profile.student?.fullName ?? "..."}</h2>
                 <p className="text-sm opacity-75">{profile.student?.studentCode} · {profile.student?.primarySiteName ?? "—"}</p>
                 {profile.student && (
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-semibold mt-1 inline-block ${STATUS_COLORS[profile.student.status] ?? ""}`}>
+                  <span className={`text-sm px-2 py-0.5 rounded-full font-semibold mt-1 inline-block ${STATUS_COLORS[profile.student.status] ?? ""}`}>
                     {studentStatusLabel(t, profile.student.status) ?? profile.student.status}
                   </span>
                 )}
@@ -298,7 +298,7 @@ export default function StudentProgressPage() {
                   <button
                     key={tab.key}
                     onClick={() => setActiveTab(tab.key)}
-                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-semibold transition-all ${
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-sm font-semibold transition-all ${
                       activeTab === tab.key
                         ? "bg-white text-slate-800 shadow-sm"
                         : "text-slate-500 hover:text-slate-700"
@@ -316,38 +316,38 @@ export default function StudentProgressPage() {
                   <div className="bg-white border border-slate-200/60 rounded-xl p-4 shadow-sm">
                     <div className="flex items-center gap-2 mb-2">
                       <Users className="w-4 h-4 text-indigo-500" />
-                      <span className="text-xs font-semibold text-slate-600">{t("studentProgressPage.overview.classesLabel")}</span>
+                      <span className="text-sm font-semibold text-slate-600">{t("studentProgressPage.overview.classesLabel")}</span>
                     </div>
                     <p className="text-3xl font-bold text-indigo-600">{profile.enrollments.length}</p>
-                    <p className="text-xs text-slate-400 mt-1">{t("studentProgressPage.overview.classesUnit")}</p>
+                    <p className="text-sm text-slate-400 mt-1">{t("studentProgressPage.overview.classesUnit")}</p>
                   </div>
                   <div className="bg-white border border-slate-200/60 rounded-xl p-4 shadow-sm">
                     <div className="flex items-center gap-2 mb-2">
                       <Award className="w-4 h-4 text-amber-500" />
-                      <span className="text-xs font-semibold text-slate-600">{t("studentProgressPage.overview.avgScoreLabel")}</span>
+                      <span className="text-sm font-semibold text-slate-600">{t("studentProgressPage.overview.avgScoreLabel")}</span>
                     </div>
                     <p className="text-3xl font-bold text-amber-600">{avgScore ?? "—"}</p>
-                    <p className="text-xs text-slate-400 mt-1">{t("studentProgressPage.overview.avgScoreSub", { count: profile.allGrades.length })}</p>
+                    <p className="text-sm text-slate-400 mt-1">{t("studentProgressPage.overview.avgScoreSub", { count: profile.allGrades.length })}</p>
                   </div>
                   <div className="bg-white border border-slate-200/60 rounded-xl p-4 shadow-sm">
                     <div className="flex items-center gap-2 mb-2">
                       <BookOpen className="w-4 h-4 text-emerald-500" />
-                      <span className="text-xs font-semibold text-slate-600">{t("studentProgressPage.overview.commentsLabel")}</span>
+                      <span className="text-sm font-semibold text-slate-600">{t("studentProgressPage.overview.commentsLabel")}</span>
                     </div>
                     <p className="text-3xl font-bold text-emerald-600">{dailyComments.length}</p>
-                    <p className="text-xs text-slate-400 mt-1">{t("studentProgressPage.overview.commentsUnit")}</p>
+                    <p className="text-sm text-slate-400 mt-1">{t("studentProgressPage.overview.commentsUnit")}</p>
                   </div>
                   <div className="bg-white border border-slate-200/60 rounded-xl p-4 shadow-sm">
                     <div className="flex items-center gap-2 mb-2">
                       <Calendar className="w-4 h-4 text-rose-500" />
-                      <span className="text-xs font-semibold text-slate-600">{t("studentProgressPage.overview.attendanceLabel")}</span>
+                      <span className="text-sm font-semibold text-slate-600">{t("studentProgressPage.overview.attendanceLabel")}</span>
                     </div>
                     <p className="text-3xl font-bold text-rose-600">
                       {attendanceStats.total > 0
                         ? `${Math.round((attendanceStats.present / attendanceStats.total) * 100)}%`
                         : "—"}
                     </p>
-                    <p className="text-xs text-slate-400 mt-1">{t("studentProgressPage.overview.attendanceSub", { present: attendanceStats.present, total: attendanceStats.total })}</p>
+                    <p className="text-sm text-slate-400 mt-1">{t("studentProgressPage.overview.attendanceSub", { present: attendanceStats.present, total: attendanceStats.total })}</p>
                   </div>
 
                   {/* Danh sách lớp đã học */}
@@ -361,12 +361,12 @@ export default function StudentProgressPage() {
                           <div key={e.id} className="py-2 flex items-center justify-between gap-3">
                             <div>
                               <p className="text-sm font-medium text-slate-700">{e.className}</p>
-                              <p className="text-xs text-slate-400">
+                              <p className="text-sm text-slate-400">
                                 {t("studentProgressPage.overview.enrolledLabel", { date: e.enrolledDate })}
                                 {e.withdrawnDate ? t("studentProgressPage.overview.withdrawnLabel", { date: e.withdrawnDate }) : ""}
                               </p>
                             </div>
-                            <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${e.status === "ACTIVE" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
+                            <span className={`text-sm px-2 py-0.5 rounded-full font-semibold ${e.status === "ACTIVE" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
                               {e.status === "ACTIVE" ? t("studentProgressPage.overview.activeStatus") : e.status}
                             </span>
                           </div>
@@ -387,7 +387,7 @@ export default function StudentProgressPage() {
                     <div className="py-10 text-center text-sm text-slate-400">{t("studentProgressPage.grades.empty")}</div>
                   ) : (
                     <table className="w-full text-sm text-left">
-                      <thead className="bg-slate-50 border-b border-slate-100 text-xs text-slate-500 font-medium">
+                      <thead className="bg-slate-50 border-b border-slate-100 text-sm text-slate-500 font-medium">
                         <tr>
                           <th className="px-4 py-2.5">{t("studentProgressPage.grades.columns.term")}</th>
                           <th className="px-4 py-2.5">{t("studentProgressPage.grades.columns.type")}</th>
@@ -401,9 +401,9 @@ export default function StudentProgressPage() {
                           <tr key={g.id} className="hover:bg-slate-50/50">
                             <td className="px-4 py-3 text-slate-700">
                               {g.academicTermName}
-                              <span className="block text-[11px] text-slate-400">{g.className}</span>
+                              <span className="block text-[13px] text-slate-400">{g.className}</span>
                             </td>
-                            <td className="px-4 py-3 text-slate-500 text-xs">
+                            <td className="px-4 py-3 text-slate-500 text-sm">
                               {g.evaluationType === "MID_TERM" ? t("studentProgressPage.grades.midTerm") : t("studentProgressPage.grades.endTerm")}
                             </td>
                             <td className="px-4 py-3">
@@ -411,7 +411,7 @@ export default function StudentProgressPage() {
                             </td>
                             <td className="px-4 py-3 text-slate-500">{g.level ?? "—"}</td>
                             <td className="px-4 py-3">
-                              <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${g.status === "OFFICIAL" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
+                              <span className={`text-sm px-2 py-0.5 rounded-full font-semibold ${g.status === "OFFICIAL" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
                                 {commentGradeStatusLabel(t, g.status) ?? g.status}
                               </span>
                             </td>
@@ -433,21 +433,21 @@ export default function StudentProgressPage() {
                       <div key={c.id} className="bg-white border border-slate-200/60 rounded-xl p-4 shadow-sm">
                         <div className="flex items-center justify-between gap-2 mb-2">
                           <div className="flex items-center gap-2">
-                            <span className="text-xs text-slate-500">{c.commentDate}</span>
-                            <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${c.commentType === "DAILY" ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"}`}>
+                            <span className="text-sm text-slate-500">{c.commentDate}</span>
+                            <span className={`text-sm px-2 py-0.5 rounded-full font-semibold ${c.commentType === "DAILY" ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"}`}>
                               {c.commentType === "DAILY" ? t("studentProgressPage.comments.typeDaily") : c.commentType === "MID_TERM" ? t("studentProgressPage.comments.typeMidTerm") : t("studentProgressPage.comments.typeEndTerm")}
                             </span>
                           </div>
-                          <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${c.status === "APPROVED" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
+                          <span className={`text-sm px-2 py-0.5 rounded-full font-semibold ${c.status === "APPROVED" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
                             {commentGradeStatusLabel(t, c.status) ?? c.status}
                           </span>
                         </div>
                         <p className="text-sm text-slate-700">{c.content || t("studentProgressPage.comments.noContent")}</p>
                         {c.attitude && (
-                          <p className="text-xs text-slate-400 mt-1">{t("studentProgressPage.comments.attitudeLabel", { value: c.attitude })}</p>
+                          <p className="text-sm text-slate-400 mt-1">{t("studentProgressPage.comments.attitudeLabel", { value: c.attitude })}</p>
                         )}
                         {c.note && (
-                          <p className="text-xs text-slate-400 mt-1">{t("studentProgressPage.comments.noteLabel", { value: c.note })}</p>
+                          <p className="text-sm text-slate-400 mt-1">{t("studentProgressPage.comments.noteLabel", { value: c.note })}</p>
                         )}
                       </div>
                     ))
@@ -461,18 +461,18 @@ export default function StudentProgressPage() {
                   <div className="grid grid-cols-3 gap-4">
                     <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center">
                       <p className="text-2xl font-bold text-emerald-700">{attendanceStats.present}</p>
-                      <p className="text-xs text-emerald-600 mt-1">{t("studentProgressPage.attendance.present")}</p>
+                      <p className="text-sm text-emerald-600 mt-1">{t("studentProgressPage.attendance.present")}</p>
                     </div>
                     <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 text-center">
                       <p className="text-2xl font-bold text-rose-700">{attendanceStats.absent}</p>
-                      <p className="text-xs text-rose-600 mt-1">{t("studentProgressPage.attendance.absentUnexcused")}</p>
+                      <p className="text-sm text-rose-600 mt-1">{t("studentProgressPage.attendance.absentUnexcused")}</p>
                     </div>
                     <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-center">
                       <p className="text-2xl font-bold text-amber-700">{attendanceStats.excused}</p>
-                      <p className="text-xs text-amber-600 mt-1">{t("studentProgressPage.attendance.excusedAbsent")}</p>
+                      <p className="text-sm text-amber-600 mt-1">{t("studentProgressPage.attendance.excusedAbsent")}</p>
                     </div>
                   </div>
-                  <p className="text-xs text-slate-400 text-center">{t("studentProgressPage.attendance.recentNote")}</p>
+                  <p className="text-sm text-slate-400 text-center">{t("studentProgressPage.attendance.recentNote")}</p>
 
                   {profile.attendance.length === 0 && (
                     <div className="bg-white rounded-xl border border-slate-200 py-10 text-center text-sm text-slate-400">{t("studentProgressPage.attendance.empty")}</div>
@@ -491,7 +491,7 @@ export default function StudentProgressPage() {
                               {entry.sessionNumber ? t("studentProgressPage.attendance.sessionNumberLabel", { number: entry.sessionNumber }) : t("studentProgressPage.attendance.sessionIdLabel", { id: entry.classSessionId })} — {entry.sessionDate}
                             </span>
                           </div>
-                          <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+                          <span className={`text-sm px-2 py-0.5 rounded-full font-semibold ${
                             isPresent ? "bg-emerald-100 text-emerald-700" :
                             isAbsent ? "bg-rose-100 text-rose-700" :
                             "bg-amber-100 text-amber-700"

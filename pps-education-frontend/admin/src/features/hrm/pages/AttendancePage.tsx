@@ -38,7 +38,7 @@ export default function AttendancePage() {
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("attendancePage.title")}</h1>
-        <p className="text-xs text-slate-500 mt-1">{t("attendancePage.description")}</p>
+        <p className="text-sm text-slate-500 mt-1">{t("attendancePage.description")}</p>
       </div>
 
       {/* <div className="bg-white rounded-xl border border-slate-200 shadow-soft p-5">
@@ -112,21 +112,21 @@ function AttendanceAdminSummary({ sites }: { sites: SiteResponse[] }) {
     <div className="bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden">
       <div className="px-5 py-3 border-b border-slate-100 bg-slate-50 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <span className="text-xs font-bold text-slate-700 font-display block">{t("attendancePage.summaryTitle")}</span>
-          <p className="text-[10px] text-slate-400">{t("attendancePage.summarySubtitle")}</p>
+          <span className="text-sm font-bold text-slate-700 font-display block">{t("attendancePage.summaryTitle")}</span>
+          <p className="text-[12px] text-slate-400">{t("attendancePage.summarySubtitle")}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <div className="w-36">
             <DatePicker value={from} onChange={setFrom} max={to || undefined} />
           </div>
-          <span className="text-[10px] text-slate-400">{t("attendancePage.toLabel")}</span>
+          <span className="text-[12px] text-slate-400">{t("attendancePage.toLabel")}</span>
           <div className="w-36">
             <DatePicker value={to} onChange={setTo} min={from || undefined} />
           </div>
           <Select
             value={employeeId}
             onChange={(e) => setEmployeeId(e.target.value === "" ? "" : Number(e.target.value))}
-            className="bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none max-w-[160px]"
+            className="bg-white border border-slate-200 text-sm p-2 rounded-lg focus:outline-none max-w-[160px]"
           >
             <option value="">{t("attendancePage.allEmployees")}</option>
             {employees.map((e) => (
@@ -138,7 +138,7 @@ function AttendanceAdminSummary({ sites }: { sites: SiteResponse[] }) {
           <Select
             value={siteId}
             onChange={(e) => setSiteId(e.target.value === "" ? "" : Number(e.target.value))}
-            className="bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none max-w-[160px]"
+            className="bg-white border border-slate-200 text-sm p-2 rounded-lg focus:outline-none max-w-[160px]"
           >
             <option value="">{t("attendancePage.allSites")}</option>
             {sites.map((s) => (
@@ -150,7 +150,7 @@ function AttendanceAdminSummary({ sites }: { sites: SiteResponse[] }) {
         </div>
       </div>
 
-      {error && <div className="m-4 text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="m-4 text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       <TableContainer className="rounded-none border-0">
         <thead>
@@ -185,7 +185,7 @@ function AttendanceAdminSummary({ sites }: { sites: SiteResponse[] }) {
               <tr key={r.id} className="hover:bg-slate-50/50 transition-colors">
                 <Td className="font-bold text-slate-800">
                   {r.employeeFullName}
-                  <div className="text-[11px] text-slate-400 font-normal">{r.employeeCode}</div>
+                  <div className="text-[13px] text-slate-400 font-normal">{r.employeeCode}</div>
                 </Td>
                 <Td>{r.workDate}</Td>
                 <Td>{formatAttendanceTime(r.checkInAt, i18n.language)}</Td>
@@ -258,21 +258,21 @@ function ClassSessionCheckInAdminSummary({ sites }: { sites: SiteResponse[] }) {
     <div className="bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden">
       <div className="px-5 py-3 border-b border-slate-100 bg-slate-50 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <span className="text-xs font-bold text-slate-700 font-display block">{t("attendancePage.tabs.classSession")}</span>
-          <p className="text-[10px] text-slate-400">{t("attendancePage.summarySubtitle")}</p>
+          <span className="text-sm font-bold text-slate-700 font-display block">{t("attendancePage.tabs.classSession")}</span>
+          <p className="text-[12px] text-slate-400">{t("attendancePage.summarySubtitle")}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <div className="w-36">
             <DatePicker value={from} onChange={setFrom} max={to || undefined} />
           </div>
-          <span className="text-[10px] text-slate-400">{t("attendancePage.toLabel")}</span>
+          <span className="text-[12px] text-slate-400">{t("attendancePage.toLabel")}</span>
           <div className="w-36">
             <DatePicker value={to} onChange={setTo} min={from || undefined} />
           </div>
           <Select
             value={employeeId}
             onChange={(e) => setEmployeeId(e.target.value === "" ? "" : Number(e.target.value))}
-            className="bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none max-w-[160px]"
+            className="bg-white border border-slate-200 text-sm p-2 rounded-lg focus:outline-none max-w-[160px]"
           >
             <option value="">{t("attendancePage.allEmployees")}</option>
             {employees.map((e) => (
@@ -284,7 +284,7 @@ function ClassSessionCheckInAdminSummary({ sites }: { sites: SiteResponse[] }) {
           <Select
             value={siteId}
             onChange={(e) => setSiteId(e.target.value === "" ? "" : Number(e.target.value))}
-            className="bg-white border border-slate-200 text-xs p-2 rounded-lg focus:outline-none max-w-[160px]"
+            className="bg-white border border-slate-200 text-sm p-2 rounded-lg focus:outline-none max-w-[160px]"
           >
             <option value="">{t("attendancePage.allSites")}</option>
             {sites.map((s) => (
@@ -296,7 +296,7 @@ function ClassSessionCheckInAdminSummary({ sites }: { sites: SiteResponse[] }) {
         </div>
       </div>
 
-      {error && <div className="m-4 text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      {error && <div className="m-4 text-sm text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
 
       <TableContainer className="rounded-none border-0">
         <thead>
@@ -329,12 +329,12 @@ function ClassSessionCheckInAdminSummary({ sites }: { sites: SiteResponse[] }) {
               <tr key={r.classSessionId} className="hover:bg-slate-50/50 transition-colors">
                 <Td className="font-bold text-slate-800">
                   {r.teacherFullName}
-                  <div className="text-[11px] text-slate-400 font-normal">{r.teacherCode}</div>
+                  <div className="text-[13px] text-slate-400 font-normal">{r.teacherCode}</div>
                 </Td>
                 <Td>{r.sessionDate}</Td>
                 <Td>
                   {r.className}
-                  <div className="text-[11px] text-slate-400 font-normal">
+                  <div className="text-[13px] text-slate-400 font-normal">
                     {r.startTime}–{r.endTime}
                   </div>
                 </Td>
@@ -344,7 +344,7 @@ function ClassSessionCheckInAdminSummary({ sites }: { sites: SiteResponse[] }) {
                     <Badge variant={checkInStatusVariants[r.effectiveStatus] ?? "neutral"}>{checkInStatusLabel(tc, r.effectiveStatus)}</Badge>
                     {r.checkInTime && (
                       <span
-                        className={`text-xs font-bold tabular-nums ${
+                        className={`text-sm font-bold tabular-nums ${
                           r.effectiveStatus === "LATE" ? "text-amber-600" : "text-slate-500"
                         }`}
                       >
