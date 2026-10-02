@@ -30,5 +30,9 @@
   },
   "floatingError": {
     "close": "Dismiss message"
+  },
+  "errors": {
+    "requestTimeout": "The network is slow or offline and the request timed out. Please try again.",
+    "imageTooLarge": "The image is too large (max {{maxMb}}MB). Please choose another one."
   }
 }

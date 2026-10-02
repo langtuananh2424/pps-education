@@ -24,5 +24,9 @@
       "step3": "Bấm “Thêm” ở góc trên bên phải, rồi mở app từ icon vừa xuất hiện trên màn hình chính.",
       "whyBother": "Bắt buộc làm bước này thì iOS mới cho phép nhận thông báo đẩy — đây là quy định của Apple, không phải lỗi ứng dụng."
     }
+  },
+  "errors": {
+    "requestTimeout": "Mạng chậm hoặc mất kết nối, yêu cầu đã quá thời gian chờ. Vui lòng thử lại.",
+    "imageTooLarge": "Ảnh quá lớn (tối đa {{maxMb}}MB). Vui lòng chọn ảnh khác."
   }
 }

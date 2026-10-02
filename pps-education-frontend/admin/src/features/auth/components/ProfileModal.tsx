@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { ApiError } from "@/lib/apiClient";
 import { useApp } from "@/context/AppContext";
 import { EmployeeResponse, getMyEmployeeProfile, updateMyEmployeeProfile } from "@/features/hrm/api";
-import { uploadMedia } from "@/features/lms/api";
+import { uploadAvatar } from "@/features/lms/api";
 import { roleLabel } from "@/constants/roles";
 import { UserRole } from "@/types";
 import Modal from "@/components/ui/Modal";
@@ -92,7 +92,7 @@ export default function ProfileModal({ onClose }: ProfileModalProps) {
             <AvatarUploadField
               value={employeeForm.portraitUrl}
               onChange={handleAvatarChange}
-              onUpload={(file) => uploadMedia(file, "EMPLOYEE")}
+              onUpload={(file) => uploadAvatar(file, "EMPLOYEE")}
               fallbackName={currentUser?.fullName || "U"}
               size="md"
             />

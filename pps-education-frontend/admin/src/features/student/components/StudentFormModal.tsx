@@ -8,7 +8,7 @@ import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import DatePicker from "@/components/ui/DatePicker";
 import AvatarUploadField from "@/components/ui/AvatarUploadField";
-import { uploadMedia } from "@/features/lms/api";
+import { uploadAvatar } from "@/features/lms/api";
 import Select from "@/components/ui/Select";
 import FloatingError from "@/components/ui/FloatingError";
 
@@ -122,7 +122,7 @@ export default function StudentFormModal({ onClose, onCreated }: StudentFormModa
           <AvatarUploadField
             value={form.portraitUrl}
             onChange={(url) => setForm({ ...form, portraitUrl: url })}
-            onUpload={(file) => uploadMedia(file, "STUDENT")}
+            onUpload={(file) => uploadAvatar(file, "STUDENT")}
             fallbackName={account.newAccount?.fullName || t("studentForm.avatarFallback")}
           />
         </div>

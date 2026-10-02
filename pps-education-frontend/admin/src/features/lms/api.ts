@@ -1,4 +1,6 @@
-import { apiRequest, apiRequestBlob } from "@/lib/apiClient";
+import i18n from "@/i18n";
+import { compressImageForUpload } from "@/lib/imageCompression";
+import { ApiError, apiRequest, apiRequestBlob } from "@/lib/apiClient";
 import type { ClassResponse } from "@/features/academic/api";
 
 /**
@@ -14,6 +16,23 @@ export function uploadMedia(file: File, module: MediaUploadModule): Promise<{ ur
   formData.append("file", file);
   formData.append("module", module);
   return apiRequest<{ url: string }>("/media/upload", { method: "POST", body: formData });
+}
+
+/** Khớp MediaStorageService.MAX_IMAGE_BYTES phía backend — chặn sớm thay vì đợi gửi hết file mới bị từ chối. */
+const MAX_AVATAR_BYTES = 10 * 1024 * 1024;
+/** Ảnh đã nén chỉ còn vài trăm KB, 90 giây là dư kể cả mạng 3G — quá mức này coi như mạng treo, báo lỗi để thử lại. */
+const AVATAR_UPLOAD_TIMEOUT_MS = 90_000;
+
+/** Upload ảnh đại diện (UC-63): nén ảnh trên trình duyệt, kiểm tra dung lượng, rồi gọi API upload có hạn chờ. */
+export async function uploadAvatar(file: File, module: Extract<MediaUploadModule, "STUDENT" | "PARENT" | "EMPLOYEE">): Promise<{ url: string }> {
+  const compressed = await compressImageForUpload(file);
+  if (compressed.size > MAX_AVATAR_BYTES) {
+    throw new ApiError(413, i18n.t("common:errors.imageTooLarge", { maxMb: MAX_AVATAR_BYTES / 1024 / 1024 }));
+  }
+  const formData = new FormData();
+  formData.append("file", compressed);
+  formData.append("module", module);
+  return apiRequest<{ url: string }>("/media/upload", { method: "POST", body: formData, timeoutMs: AVATAR_UPLOAD_TIMEOUT_MS });
 }
 
 // ===================== Ngân hàng câu hỏi (UC-40 bước 1) =====================
