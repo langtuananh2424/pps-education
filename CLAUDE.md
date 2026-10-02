@@ -1,10 +1,27 @@
 # PPS Education — Ngữ cảnh dự án cho Claude Code
 
 ## Dự án
-Hệ thống quản lý trung tâm Anh ngữ PPS English, 10 phân hệ, kiến trúc
-Backend (Spring Boot, Controller-Service-Repository) + Frontend (React) tách
-biệt. Toàn bộ chi tiết nghiệp vụ nằm trong `docs/` — đọc file cụ thể theo
-việc đang làm, KHÔNG cần đọc hết mọi file mỗi phiên.
+Hệ thống quản lý trung tâm Anh ngữ PPS English, 10 phân hệ, đang chạy thật
+(staging + production). Kiến trúc Backend (Spring Boot, Controller-Service-
+Repository) + 2 Frontend React tách biệt. Toàn bộ chi tiết nghiệp vụ nằm
+trong `docs/` — đọc file cụ thể theo việc đang làm, KHÔNG cần đọc hết mọi
+file mỗi phiên.
+
+## Cấu trúc repo
+- `pps-education-backend/` — Spring Boot (JDK 21, Maven, chưa có Maven
+  Wrapper). Migration Flyway ở `src/main/resources/db/migration/`.
+- `pps-education-frontend/admin/` — React + Vite + TypeScript, app quản trị
+  cho nhân sự nội bộ (kể cả Giáo viên), dev ở `:3000`.
+- `pps-education-frontend/user/` — React + Vite + TypeScript, Portal Học sinh/
+  Phụ huynh, dev ở `:3001` (HTTPS nếu có cert mkcert trong `.certs/`).
+- `e2e/` — Playwright E2E chạy trên cả 2 app, dữ liệu dựng qua API thật
+  (xem `e2e/README.md`).
+- `deploy/` — compose staging/production, nginx, systemd backup, runbook
+  server vật lý (xem `deploy/README.md`).
+- `scripts/` — `gen-api-md.pl` sinh lại `API.md` từ OpenAPI; script đo chất
+  lượng trợ lý nhận xét AI.
+- `security-lab/` — script load test/kiểm thử bảo mật, không phải code app.
+- `API.md` — bản chụp toàn bộ endpoint, SINH TỰ ĐỘNG, không sửa tay.
 
 ## Quy tắc code — `.claude/rules/`
 - `architecture.md` — kiến trúc phân lớp Controller→Service→Repository,
@@ -51,12 +68,24 @@ việc đang làm, KHÔNG cần đọc hết mọi file mỗi phiên.
    bảng/cột/kiểu dữ liệu/ràng buộc đã thiết kế, không tự đặt lại.
 3. Nếu cần đổi schema: thêm file Flyway MỚI theo quy ước trong
    `CONTRIBUTING.md` (không sửa migration cũ).
-4. Code theo layer `controller/service/repository/domain/dto` — xem ví dụ
-   UC-01 đã có sẵn (`AuthController`/`AuthService`) làm khuôn mẫu.
+4. Code theo layer `controller/service/repository/domain/dto` — xem
+   `AuthController`/`AuthService` (UC-01) hoặc UC cùng phân hệ đã có làm
+   khuôn mẫu.
 
 ## Quy trình Git/CI/CD
-Xem `CONTRIBUTING.md` — nhánh `main`/`develop`/`feature/UC-xx-...`, PR bắt
-buộc CI xanh, không sửa migration Flyway đã tồn tại.
+Xem `CONTRIBUTING.md`. Luồng nhánh: `feature/UC-xx-...` (hoặc `fix/...`) →
+PR vào `develop` (chỉ chạy local, không deploy) → PR `develop` → `main`
+(auto-deploy staging) → PR `main` → `production` (auto-deploy production).
+`hotfix/*` merge vào cả `production` và `main`. PR bắt buộc CI xanh
+(`backend-ci.yml`, `frontend-ci.yml`), không sửa migration Flyway đã tồn tại.
+
+## Lệnh chạy/kiểm tra
+- Backend: `docker compose up -d postgres` rồi `cd pps-education-backend &&
+  mvn spring-boot:run`; test `mvn test` / `mvn clean verify` (Testcontainers,
+  cần Docker).
+- Frontend (mỗi app): `npm ci`, `npm run dev`, `npm run lint` (= `tsc
+  --noEmit`), `npm run build`.
+- E2E: backend chạy sẵn ở `:8080`, rồi `cd e2e && npm test`.
 
 ## Quy ước code
 - Package dùng chung `vn.com.pps.education.{config,controller,service,repository,domain,dto,security,exception,common}`
@@ -68,5 +97,13 @@ buộc CI xanh, không sửa migration Flyway đã tồn tại.
   nghiệp vụ dùng tiếng Việt bám sát thuật ngữ trong SRS/SDD để dễ đối chiếu.
 
 ## Trạng thái hiện tại
-Đã xong: Sprint 0 (setup hạ tầng) + khung Sprint 1 (UC-01 đăng nhập, chưa có
-nhánh Google OAuth/refresh/logout). Xem mục "Việc còn lại" trong `README.md`.
+Toàn bộ 10 phân hệ trong `docs/uc/` đã được triển khai (backend + 2
+frontend), đang chạy trên staging/production. Việc hiện tại chủ yếu là sửa
+lỗi và hoàn thiện theo góp ý người dùng thật — nguồn chân lý về tiến độ là
+nhánh `develop` + PR đã merge, không phải file này. Gap nghiệp vụ đã biết
+được ghi trong Javadoc Service liên quan (tìm "chưa làm"/"gap").
+
+## Skill riêng của dự án — `.claude/skills/`
+`pps-uc-lookup` (tra 1 UC theo mã), `pps-add-migration` (tạo Flyway
+migration đúng quy ước), `pps-docker-recovery` (khôi phục Docker/Postgres
+chết giữa phiên), `pps-cool-build` (giảm nhiệt máy dev trước build nặng).
