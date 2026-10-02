@@ -27,9 +27,9 @@ import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
 import Modal from "@/components/ui/Modal";
 import ProfileModal from "@/features/auth/components/ProfileModal";
 import ChangePasswordModal from "@/features/auth/components/ChangePasswordModal";
-import { useDialog } from "@/components/ui/DialogProvider";
 import { formatDateLong, formatDateTime, formatTimeHm } from "@/lib/i18nFormat";
 import { toISODate } from "@/lib/calendarDates";
+import { notifyInfo } from "@/components/ui/FloatingBanner";
 
 const NOTIFICATION_PAGE_SIZE = 15;
 
@@ -66,7 +66,6 @@ export default function Header() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [attendanceModalOpen, setAttendanceModalOpen] = useState(false);
-  const { alertDialog } = useDialog();
 
   useEffect(() => {
     listSites().then(setSites).catch(() => undefined);
@@ -657,7 +656,7 @@ export default function Header() {
               <span>{t("header.profileMenu.changePassword")}</span>
             </button>
             <button
-              onClick={() => alertDialog(t("header.profileMenu.settingsComingSoon"))}
+              onClick={() => notifyInfo(t("header.profileMenu.settingsComingSoon"))}
               className="w-full px-2.5 py-2 flex items-center gap-2.5 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer"
             >
               <Settings className="w-4 h-4 text-slate-400 shrink-0" />

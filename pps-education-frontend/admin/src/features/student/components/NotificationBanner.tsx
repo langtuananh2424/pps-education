@@ -9,8 +9,6 @@ interface NotificationBannerProps {
   variant?: FloatingBannerVariant;
 }
 
-const LEADING_EMOJI = /^\s*(?:\p{Extended_Pictographic}️?\s*)+/u;
-
 function inferVariant(message: string): FloatingBannerVariant {
   const text = message.trimStart();
   if (text.startsWith("⚠")) return "warning";
@@ -25,8 +23,7 @@ function inferVariant(message: string): FloatingBannerVariant {
 export default function NotificationBanner({ message, onClose, variant }: NotificationBannerProps) {
   if (!message) return null;
   const resolved = variant ?? inferVariant(message);
-  // Emoji đầu câu (✅/⚠️/📅...) chỉ để phân loại — banner đã có icon + màu riêng nên bỏ đi, tránh 2 biểu tượng cạnh nhau.
-  const text = message.replace(LEADING_EMOJI, "");
+  // Emoji đầu câu chỉ dùng để phân loại ở đây — FloatingBanner tự bỏ emoji khi hiển thị.
   // Câu thông báo ở đây thường dài hơn toast (VD "Đã gửi nhận xét N học sinh lên...") — thành công giữ 6s thay vì 4s.
-  return <FloatingBanner message={text} onClose={onClose} variant={resolved} autoHideMs={resolved === "success" ? 6000 : undefined} />;
+  return <FloatingBanner message={message} onClose={onClose} variant={resolved} autoHideMs={resolved === "success" ? 6000 : undefined} />;
 }

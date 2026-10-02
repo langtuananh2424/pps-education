@@ -8,6 +8,7 @@ import { usePendingGradingCount } from "@/features/lms/hooks/usePendingGradingCo
 import Avatar from "@/components/ui/Avatar";
 import CountBadge from "@/components/ui/CountBadge";
 import Modal from "@/components/ui/Modal";
+import FloatingError from "@/components/ui/FloatingError";
 import { cn } from "@/lib/cn";
 
 /** Tiêu đề nhóm mục Sidebar — trước đây xám trung tính (text-slate-400), giờ tông cam thương hiệu
@@ -42,9 +43,8 @@ export default function Sidebar() {
   // navigate() thật khi người dùng chọn 1 trong 2: lưu tạm rồi đi, hoặc bỏ qua rồi đi.
   const [pendingPath, setPendingPath] = useState<string | null>(null);
   const [savingBeforeLeave, setSavingBeforeLeave] = useState(false);
-  // Bổ sung 2026-08-17 — lý do KHÔNG lưu được (nếu có), hiện ngay trong popup xác nhận (luôn nổi giữa
-  // màn hình qua Modal/portal, không phụ thuộc vị trí cuộn trang — khác banner lỗi tĩnh trên từng trang
-  // dễ bị bỏ lỡ khi đang cuộn xuống làm việc). Reset mỗi lần mở popup mới / đóng popup.
+  // Bổ sung 2026-08-17 — lý do KHÔNG lưu được (nếu có). Từ 2026-10-02 hiện bằng banner lỗi nổi ở giữa phía
+  // trên (FloatingError, nằm trên lớp phủ popup) thay cho khối đỏ trong popup. Reset mỗi lần mở/đóng popup.
   const [saveFailureMessage, setSaveFailureMessage] = useState<string | null>(null);
 
   const toggleGroup = (group: string) => setExpandedGroups((prev) => ({ ...prev, [group]: !prev[group] }));
@@ -86,7 +86,7 @@ export default function Sidebar() {
       } else {
         // Bug đã xác nhận 2026-08-17 — trước đây điều hướng đi bất kể kết quả, làm mất âm thầm dữ liệu
         // không lưu được (VD chỉ điền Thái độ/BTVN mà chưa gõ Nhận xét). Giờ GIỮ NGUYÊN popup, hiện lý
-        // do ngay trong đó (luôn nổi giữa màn hình, không cần cuộn trang mới thấy như banner tĩnh cũ).
+        // do bằng banner lỗi nổi ở giữa phía trên (không cần cuộn trang mới thấy).
         setSaveFailureMessage(result.message ?? t("sidebar.unsavedModal.saveFailureFallback"));
       }
     } finally {
@@ -256,12 +256,8 @@ export default function Sidebar() {
       >
         <div className="space-y-2.5">
           <p className="text-[13px] text-slate-500">{t("sidebar.unsavedModal.warning")}</p>
-          {saveFailureMessage && (
-            <div className="text-[13px] font-semibold text-rose-700 bg-rose-50 border border-rose-100 rounded-lg p-2.5">
-              {saveFailureMessage}
-            </div>
-          )}
         </div>
+        <FloatingError message={saveFailureMessage} onClose={() => setSaveFailureMessage(null)} />
       </Modal>
     </>
   );

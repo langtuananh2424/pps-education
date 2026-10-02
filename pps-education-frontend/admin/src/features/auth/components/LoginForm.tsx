@@ -4,8 +4,8 @@ import { useTranslation } from "react-i18next";
 import { useApp } from "@/context/AppContext";
 import { ApiError } from "@/lib/apiClient";
 import GoogleSignInButton from "./GoogleSignInButton";
-import { useDialog } from "@/components/ui/DialogProvider";
 import FloatingError from "@/components/ui/FloatingError";
+import { notifyInfo } from "@/components/ui/FloatingBanner";
 
 const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
@@ -23,7 +23,6 @@ export default function LoginForm({ usernameOrEmail, onUsernameOrEmailChange, on
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
-  const { alertDialog } = useDialog();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -122,7 +121,7 @@ export default function LoginForm({ usernameOrEmail, onUsernameOrEmailChange, on
             href="#forgot"
             onClick={(e) => {
               e.preventDefault();
-              alertDialog(t("forgotPasswordAlert"));
+              notifyInfo(t("forgotPasswordAlert"));
             }}
             className="text-sm font-semibold text-slate-500 hover:text-[#EA580C] transition-colors"
           >

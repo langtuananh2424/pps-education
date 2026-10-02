@@ -10,6 +10,7 @@ const STACK_ID = "floating-banner-stack";
 export const DEFAULT_AUTO_HIDE_MS: Record<FloatingBannerVariant, number> = { error: 8000, success: 4000, warning: 10000, info: 8000 };
 /** Nội dung đang hiển thị → instance đang giữ banner đó (xem chống trùng trong FloatingBanner). */
 const activeMessages = new Map<string, symbol>();
+const LEADING_EMOJI = /^\s*(?:\p{Extended_Pictographic}️?\s*)+/u;
 
 /**
  * Ngăn xếp chung cố định ở giữa phía trên viewport — mọi banner (lỗi + thành công) portal vào đây nên
@@ -91,9 +92,13 @@ export default function FloatingBanner({ message, variant = "error", onClose, au
     return () => window.clearTimeout(timer);
   }, [message, hasMessage, hideAfter]);
 
-  // Cùng 1 state đôi khi được đặt ở 2 chỗ của 1 component (VD danh sách + modal con mở cùng lúc) — chỉ
-  // instance đầu tiên giữ banner cho mỗi nội dung chuỗi, tránh 2 banner y hệt chồng nhau.
-  const dedupeKey = visible && typeof message === "string" ? `${variant}:${message}` : null;
+  // Emoji đầu câu (✅/⚠️/📅... có sẵn trong nhiều câu i18n) bỏ đi — banner đã có icon + màu riêng.
+  const text = typeof message === "string" ? message.replace(LEADING_EMOJI, "") : message;
+
+  // Cùng 1 nội dung đôi khi được báo từ 2 nơi (VD danh sách + modal con mở cùng lúc; trang Nhận xét báo
+  // "lưu nháp lỗi" (vàng) đúng lúc popup Rời trang báo cùng câu đó (đỏ)) — chỉ instance đầu tiên giữ banner
+  // cho mỗi nội dung chữ, bất kể màu, tránh 2 banner y hệt chồng nhau.
+  const dedupeKey = visible && typeof text === "string" ? text.trim() : null;
   useLayoutEffect(() => {
     if (!dedupeKey) return;
     const id = instanceId.current;
@@ -127,7 +132,7 @@ export default function FloatingBanner({ message, variant = "error", onClose, au
       )}
     >
       <style.Icon className={cn("w-4 h-4 mt-0.5 shrink-0", style.icon)} />
-      <div className="flex-1 min-w-0 whitespace-pre-line break-words">{message}</div>
+      <div className="flex-1 min-w-0 whitespace-pre-line break-words">{text}</div>
       <button
         type="button"
         onClick={close}
@@ -169,6 +174,8 @@ function remove(id: number) {
 
 export const notifyError = (message: string) => push("error", message);
 export const notifySuccess = (message: string) => push("success", message);
+export const notifyWarning = (message: string) => push("warning", message);
+export const notifyInfo = (message: string) => push("info", message);
 
 function subscribe(listener: () => void) {
   listeners.add(listener);
