@@ -29,6 +29,13 @@ public interface ClassTeacherRepository extends JpaRepository<ClassTeacher, Long
     /** UC-23: GV được coi là "phụ trách khung chương trình" nếu đang dạy ít nhất 1 lớp dùng khung đó. */
     boolean existsBySchoolClass_CurriculumIdAndTeacherIdAndAssignedToIsNull(Long curriculumId, Long teacherId);
 
+    /** V209 — phân công "Dạy theo lịch" đang hiệu lực, cho job tự thu hồi (ScheduledTeacherAssignmentService). */
+    List<ClassTeacher> findByTeacherRoleAndAssignedToIsNull(ClassTeacher.TeacherRole teacherRole);
+
+    /** V209 — phân công "Dạy theo lịch" đang hiệu lực của 1 giáo viên ở 1 lớp (kết thúc khi giáo vụ gán tay UC-18). */
+    List<ClassTeacher> findBySchoolClassIdAndTeacherIdAndTeacherRoleAndAssignedToIsNull(
+            Long classId, Long teacherId, ClassTeacher.TeacherRole teacherRole);
+
     /** Chỉ giáo viên ĐANG phụ trách (không lấy cả giáo viên cũ đã thôi phụ trách) — dùng khi báo thông báo. */
     List<ClassTeacher> findBySchoolClassIdAndAssignedToIsNull(Long classId);
 

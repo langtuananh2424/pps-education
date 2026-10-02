@@ -97,6 +97,7 @@ public class ClassSessionService {
     private final ClassEnrollmentRepository classEnrollmentRepository;
     private final StudentRepository studentRepository;
     private final SitePeriodTemplateRepository sitePeriodTemplateRepository;
+    private final ScheduledTeacherAssignmentService scheduledTeacherAssignmentService;
     private final Clock clock;
 
     public ClassSessionService(ClassSessionRepository classSessionRepository,
@@ -113,6 +114,7 @@ public class ClassSessionService {
                                 ClassEnrollmentRepository classEnrollmentRepository,
                                 StudentRepository studentRepository,
                                 SitePeriodTemplateRepository sitePeriodTemplateRepository,
+                                ScheduledTeacherAssignmentService scheduledTeacherAssignmentService,
                                 Clock clock) {
         this.classSessionRepository = classSessionRepository;
         this.sessionPeriodRepository = sessionPeriodRepository;
@@ -128,6 +130,7 @@ public class ClassSessionService {
         this.classEnrollmentRepository = classEnrollmentRepository;
         this.studentRepository = studentRepository;
         this.sitePeriodTemplateRepository = sitePeriodTemplateRepository;
+        this.scheduledTeacherAssignmentService = scheduledTeacherAssignmentService;
         this.clock = clock;
     }
 
@@ -438,7 +441,8 @@ public class ClassSessionService {
      * chặn cuối bổ sung ngoài SDD gốc, đã xác nhận với người dùng
      * 2026-07-30) + save + history + sinh session_periods từ
      * site_period_templates (thay vì chia đều theo phút — đảo ngược
-     * 2026-08-13, xác nhận lại 2026-08-19).
+     * 2026-08-13, xác nhận lại 2026-08-19) + tự gán giáo viên của buổi vào
+     * lớp/điểm trường nếu chưa có (V209, ScheduledTeacherAssignmentService).
      */
     private ClassSession createSessionEntity(SchoolClass schoolClass, LocalDate sessionDate, SitePeriodTemplate.DayPart dayPart, List<Integer> periodNumbers,
                                               Room room, User primaryTeacher, User assistantTeacher, User cmTeacher,
@@ -478,6 +482,7 @@ public class ClassSessionService {
 
         writeClassSessionHistory(session, actor, ClassSessionHistory.Action.CREATED);
         generatePeriodsFromTemplate(session, templates, actor);
+        scheduledTeacherAssignmentService.ensureAssignedForSession(session, actor);
         return session;
     }
 
@@ -575,6 +580,7 @@ public class ClassSessionService {
         newSession = classSessionRepository.save(newSession);
         writeClassSessionHistory(newSession, actor, ClassSessionHistory.Action.CREATED);
         generatePeriodsFromTemplate(newSession, templates, actor);
+        scheduledTeacherAssignmentService.ensureAssignedForSession(newSession, actor);
 
         oldSession.setStatus(ClassSession.Status.RESCHEDULED);
         oldSession.setCancellationReason(request.reason());
@@ -656,6 +662,7 @@ public class ClassSessionService {
         generatePeriodsFromTemplate(session, templates, actor);
 
         writeClassSessionHistory(session, actor, ClassSessionHistory.Action.UPDATED, correctionReason);
+        scheduledTeacherAssignmentService.ensureAssignedForSession(session, actor);
         return toResponse(session);
     }
 
