@@ -397,6 +397,9 @@ d)  Bảng class_teachers --- Gán GV cho lớp
                                                                  gốc, xác
                                                                  nhận
                                                                  2026-08-13)
+                                                                 / SCHEDULED
+                                                                 (V209, xem
+                                                                 dưới bảng)
 
   teacher_type      VARCHAR(20)      NULL (bổ sung ngoài SDD    VIETNAMESE /
                                       gốc, xác nhận 2026-08-13,  FOREIGN,
@@ -432,6 +435,25 @@ WHERE teacher_role = 'PRIMARY' AND assigned_to IS NULL;
 cho cùng lớp/học phần — xem docs/uc/phan-he-06-hoc-thuat.md UC-18 để biết
 đầy đủ bối cảnh, cùng use case "đổi giáo viên chính" mới có cascade sang
 class_sessions.)
+
+**Vai trò SCHEDULED — "Dạy theo lịch"** (bổ sung ngoài SDD gốc, xác nhận với
+người dùng 2026-10-02, V209). `teacher_role` có thêm giá trị `SCHEDULED`
+(cột VARCHAR(20) không có CHECK nên không cần ALTER). Dòng SCHEDULED do hệ
+thống tự tạo — KHÔNG gán tay được qua UC-18:
+
+- Khi xếp/dời/sửa nhanh 1 buổi học (UC-48/56/57), mỗi giáo viên chính/phụ/CM
+  của buổi chưa có phân công nào đang hiệu lực ở lớp → tạo 1 dòng SCHEDULED
+  (+ `site_teachers` của điểm trường lớp nếu chưa có).
+- Job hằng đêm (02:30) kết thúc (`assigned_to` = hôm nay) dòng SCHEDULED khi
+  giáo viên không còn buổi học nào (không CANCELLED/RESCHEDULED) ở lớp có
+  `session_date >= hôm nay − academic.scheduled_teacher_revoke_days` (mặc định
+  30, `system_settings` nhóm ACADEMIC).
+- Giáo vụ gán tay giáo viên đó (UC-18 gán/đổi giáo viên) → dòng SCHEDULED
+  của giáo viên ở lớp kết thúc ngay, thay bằng phân công gán tay.
+- Phân công gán tay (PRIMARY/ASSISTANT/CM/SUBSTITUTE) không bao giờ bị job
+  đụng tới.
+- V209 backfill tạo dòng SCHEDULED cho các cặp (lớp, giáo viên) có buổi học
+  từ 30 ngày trước trở đi mà chưa có phân công đang hiệu lực.
 
 e)  Bảng class_enrollments --- Học sinh trong lớp
 

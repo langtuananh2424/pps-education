@@ -54,6 +54,7 @@ import vn.com.pps.education.repository.SessionPeriodRepository;
 import vn.com.pps.education.repository.SiteManagerRepository;
 import vn.com.pps.education.repository.SitePeriodTemplateRepository;
 import vn.com.pps.education.repository.SiteRepository;
+import vn.com.pps.education.repository.SiteTeacherRepository;
 import vn.com.pps.education.repository.StudentRepository;
 import vn.com.pps.education.repository.UserRepository;
 import vn.com.pps.education.repository.UserRoleRepository;
@@ -148,6 +149,12 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
 
     @Autowired
     private MutableClock clock;
+
+    @Autowired
+    private ScheduledTeacherAssignmentService scheduledTeacherAssignmentService;
+
+    @Autowired
+    private SiteTeacherRepository siteTeacherRepository;
 
     private User headAcademic;
     private User teacher;
@@ -1339,6 +1346,171 @@ class ClassSessionServiceTest extends AbstractIntegrationTest {
 
     private String curriculumCode() {
         return "CUR-" + SEQ.incrementAndGet();
+    }
+
+    // ===================== V209 — Tự gán giáo viên theo lịch dạy (bổ sung ngoài SDD gốc, xác nhận 2026-10-02) =====================
+
+    /** V209: GV chính/phụ/CM mới (chưa gán lớp) được xếp buổi → tự có phân công SCHEDULED + điểm trường của lớp. */
+    @Test
+    void createSession_V209_autoAssignsUnassignedPrimaryAssistantAndCmTeachersToClassAndSite() {
+        User newPrimary = newUser("teacher.v209.primary");
+        assignRole(newPrimary, "TEACHER");
+        User assistant = newUser("teacher.v209.assistant");
+        assignRole(assistant, "TEACHER");
+        User cm = newUser("teacher.v209.cm");
+        assignRole(cm, "TEACHER");
+
+        classSessionService.createSession(schoolClass.id(),
+                new CreateClassSessionRequest(LocalDate.now().plusDays(1), "MORNING", SLOT_B, room.getId(), "REGULAR", "FOREIGN",
+                        newPrimary.getId(), assistant.getId(), cm.getId(), null, null, true),
+                headAcademic.getId());
+
+        for (User u : List.of(newPrimary, assistant, cm)) {
+            assertThat(activeAssignments(u)).extracting(ClassTeacher::getTeacherRole)
+                    .containsExactly(ClassTeacher.TeacherRole.SCHEDULED);
+            assertThat(siteTeacherRepository.existsBySiteIdAndTeacherIdAndAssignedToIsNull(schoolClass.siteId(), u.getId())).isTrue();
+        }
+    }
+
+    /** V209: GV đã có phân công gán tay ở lớp → không tạo thêm dòng SCHEDULED. */
+    @Test
+    void createSession_V209_doesNotDuplicateWhenTeacherAlreadyAssigned() {
+        classSessionService.createSession(schoolClass.id(),
+                new CreateClassSessionRequest(LocalDate.now().plusDays(1), "MORNING", SLOT_A, room.getId(), "REGULAR", "VIETNAMESE",
+                        teacher.getId(), null, null, null, null, null),
+                headAcademic.getId());
+
+        assertThat(activeAssignments(teacher)).extracting(ClassTeacher::getTeacherRole)
+                .containsOnly(ClassTeacher.TeacherRole.PRIMARY);
+    }
+
+    /** V209: sinh lịch hàng loạt (UC-56) cho GV mới → đúng 1 phân công SCHEDULED dù nhiều buổi. */
+    @Test
+    void bulkCreateSessions_V209_createsSingleScheduledAssignmentForManySessions() {
+        User newTeacher = newUser("teacher.v209.bulk");
+        assignRole(newTeacher, "TEACHER");
+        LocalDate startDate = LocalDate.now().plusDays(1);
+
+        BulkCreateClassSessionResponse result = classSessionService.bulkCreateSessions(schoolClass.id(),
+                new BulkCreateClassSessionRequest(startDate, startDate.plusDays(13), List.of("MONDAY", "WEDNESDAY"), "MORNING", SLOT_A,
+                        room.getId(), "REGULAR", "VIETNAMESE", newTeacher.getId(), null, null, null, null, null),
+                headAcademic.getId());
+
+        assertThat(result.created()).hasSizeGreaterThan(1);
+        assertThat(activeAssignments(newTeacher)).hasSize(1);
+    }
+
+    /** V209: đổi GV trên Lịch làm việc (sửa nhanh) → GV mới tự được gán vào lớp. */
+    @Test
+    void updateAssignment_V209_autoAssignsNewTeacher() {
+        ClassSessionResponse session = classSessionService.createSession(schoolClass.id(),
+                new CreateClassSessionRequest(LocalDate.now().plusDays(1), "MORNING", SLOT_A, room.getId(), "REGULAR", "VIETNAMESE",
+                        teacher.getId(), null, null, null, null, null),
+                headAcademic.getId());
+        User replacement = newUser("teacher.v209.replacement");
+        assignRole(replacement, "TEACHER");
+
+        classSessionService.updateAssignment(schoolClass.id(), session.id(),
+                new UpdateSessionAssignmentRequest(room.getId(), "VIETNAMESE", replacement.getId(), null, null, "MORNING", SLOT_A,
+                        null, null, null, null),
+                headAcademic.getId());
+
+        assertThat(activeAssignments(replacement)).extracting(ClassTeacher::getTeacherRole)
+                .containsExactly(ClassTeacher.TeacherRole.SCHEDULED);
+    }
+
+    /** V209 job: không còn buổi nào trong 30 ngày gần nhất / sắp tới → kết thúc phân công SCHEDULED. */
+    @Test
+    void revokeStaleScheduledAssignments_V209_endsAssignmentWhenLastSessionOlderThanWindow() {
+        User rotating = newUser("teacher.v209.rotating");
+        assignRole(rotating, "TEACHER");
+        moveSessionTo(createSessionFor(rotating, 1), LocalDate.now().minusDays(31));
+
+        scheduledTeacherAssignmentService.revokeStaleScheduledAssignments();
+
+        assertThat(activeAssignments(rotating)).isEmpty();
+        assertThat(classTeacherRepository.findBySchoolClassId(schoolClass.id()))
+                .filteredOn(ct -> ct.getTeacher().getId().equals(rotating.getId()))
+                .singleElement()
+                .satisfies(ct -> assertThat(ct.getAssignedTo()).isEqualTo(LocalDate.now()));
+    }
+
+    /** V209 job: buổi cuối vẫn trong cửa sổ 30 ngày → giữ quyền để GV nhập nốt điểm/nhận xét. */
+    @Test
+    void revokeStaleScheduledAssignments_V209_keepsAssignmentWithinGraceWindow() {
+        User rotating = newUser("teacher.v209.grace");
+        assignRole(rotating, "TEACHER");
+        moveSessionTo(createSessionFor(rotating, 1), LocalDate.now().minusDays(29));
+
+        scheduledTeacherAssignmentService.revokeStaleScheduledAssignments();
+
+        assertThat(activeAssignments(rotating)).hasSize(1);
+    }
+
+    /** V209 job: buổi đã huỷ không tính là "còn dạy" → vẫn thu hồi. */
+    @Test
+    void revokeStaleScheduledAssignments_V209_ignoresCancelledSessions() {
+        User rotating = newUser("teacher.v209.cancelled");
+        assignRole(rotating, "TEACHER");
+        Long sessionId = createSessionFor(rotating, 3);
+        classSessionService.cancelSession(schoolClass.id(), sessionId, new CancelClassSessionRequest(null), headAcademic.getId());
+
+        scheduledTeacherAssignmentService.revokeStaleScheduledAssignments();
+
+        assertThat(activeAssignments(rotating)).isEmpty();
+    }
+
+    /** V209 job: phân công gán tay (PRIMARY) không bao giờ bị thu hồi tự động. */
+    @Test
+    void revokeStaleScheduledAssignments_V209_neverTouchesManualAssignments() {
+        scheduledTeacherAssignmentService.revokeStaleScheduledAssignments();
+
+        assertThat(activeAssignments(teacher)).hasSize(2);
+    }
+
+    /** V209: giáo vụ gán tay (UC-18) GV đang "Dạy theo lịch" → phân công SCHEDULED kết thúc, chỉ còn phân công gán tay. */
+    @Test
+    void assignTeacher_V209_endsScheduledAssignmentSupersededByManual() {
+        User rotating = newUser("teacher.v209.manual");
+        assignRole(rotating, "TEACHER");
+        createSessionFor(rotating, 1);
+
+        classService.assignTeacher(schoolClass.id(),
+                new AssignTeacherRequest(rotating.getId(), "ASSISTANT", null, LocalDate.now(), null), headAcademic.getId());
+
+        assertThat(activeAssignments(rotating)).extracting(ClassTeacher::getTeacherRole)
+                .containsExactly(ClassTeacher.TeacherRole.ASSISTANT);
+    }
+
+    /** V209: vai trò SCHEDULED chỉ do hệ thống tạo — gán tay bị từ chối. */
+    @Test
+    void assignTeacher_V209_rejectsManualScheduledRole() {
+        User other = newUser("teacher.v209.reject");
+        assignRole(other, "TEACHER");
+
+        assertThatThrownBy(() -> classService.assignTeacher(schoolClass.id(),
+                new AssignTeacherRequest(other.getId(), "SCHEDULED", null, LocalDate.now(), null), headAcademic.getId()))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    private Long createSessionFor(User primaryTeacher, int daysFromNow) {
+        return classSessionService.createSession(schoolClass.id(),
+                new CreateClassSessionRequest(LocalDate.now().plusDays(daysFromNow), "MORNING", SLOT_D, room.getId(), "REGULAR", "FOREIGN",
+                        primaryTeacher.getId(), null, null, null, null, true),
+                headAcademic.getId()).id();
+    }
+
+    /** Giả lập buổi đã qua: chỉnh sessionDate trực tiếp (tạo qua Service bị chặn trước ngày bắt đầu lớp). */
+    private void moveSessionTo(Long sessionId, LocalDate date) {
+        ClassSession session = classSessionRepository.findById(sessionId).orElseThrow();
+        session.setSessionDate(date);
+        classSessionRepository.saveAndFlush(session);
+    }
+
+    private List<ClassTeacher> activeAssignments(User user) {
+        return classTeacherRepository.findBySchoolClassIdAndAssignedToIsNull(schoolClass.id()).stream()
+                .filter(ct -> ct.getTeacher().getId().equals(user.getId()))
+                .toList();
     }
 
     private String classCode() {

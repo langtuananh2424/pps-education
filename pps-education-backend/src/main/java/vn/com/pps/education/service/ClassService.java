@@ -15,7 +15,6 @@ import vn.com.pps.education.domain.CurriculumSubject;
 import vn.com.pps.education.domain.SchoolClass;
 import vn.com.pps.education.domain.Site;
 import vn.com.pps.education.domain.SiteManager;
-import vn.com.pps.education.domain.SiteTeacher;
 import vn.com.pps.education.domain.Student;
 import vn.com.pps.education.domain.User;
 import java.util.ArrayList;
@@ -115,6 +114,7 @@ public class ClassService {
     private final ClassSessionRepository classSessionRepository;
     private final ClassSessionHistoryRepository classSessionHistoryRepository;
     private final LeaveSubstitutionRepository leaveSubstitutionRepository;
+    private final ScheduledTeacherAssignmentService scheduledTeacherAssignmentService;
 
     public ClassService(SchoolClassRepository schoolClassRepository,
                          AcademicYearRepository academicYearRepository,
@@ -134,7 +134,8 @@ public class ClassService {
                                 DataScopeService dataScopeService,
                          ClassSessionRepository classSessionRepository,
                          ClassSessionHistoryRepository classSessionHistoryRepository,
-                         LeaveSubstitutionRepository leaveSubstitutionRepository) {
+                         LeaveSubstitutionRepository leaveSubstitutionRepository,
+                         ScheduledTeacherAssignmentService scheduledTeacherAssignmentService) {
         this.schoolClassRepository = schoolClassRepository;
         this.academicYearRepository = academicYearRepository;
         this.classTeacherRepository = classTeacherRepository;
@@ -154,6 +155,7 @@ public class ClassService {
         this.classSessionRepository = classSessionRepository;
         this.classSessionHistoryRepository = classSessionHistoryRepository;
         this.leaveSubstitutionRepository = leaveSubstitutionRepository;
+        this.scheduledTeacherAssignmentService = scheduledTeacherAssignmentService;
     }
 
     /**
@@ -317,15 +319,20 @@ public class ClassService {
         ClassTeacher.TeacherRole teacherRole = request.teacherRole() == null
                 ? ClassTeacher.TeacherRole.PRIMARY
                 : ClassTeacher.TeacherRole.valueOf(request.teacherRole());
+        if (teacherRole == ClassTeacher.TeacherRole.SCHEDULED) {
+            // V209: "Dạy theo lịch" chỉ do hệ thống tự tạo khi xếp lịch (ScheduledTeacherAssignmentService).
+            throw new IllegalArgumentException("teacherRole=SCHEDULED do hệ thống tự gán theo lịch dạy, không gán tay được.");
+        }
         ClassSession.TeacherType teacherType = request.teacherType() == null
                 ? null
                 : ClassSession.TeacherType.valueOf(request.teacherType());
         CurriculumSubject subject = request.subjectId() == null ? null : curriculumSubjectOrThrow(request.subjectId());
 
+        scheduledTeacherAssignmentService.endScheduledAssignmentsSupersededByManual(schoolClass.getId(), teacher.getId(), actor);
         ClassTeacher classTeacher = createTeacherAssignmentInternal(
                 schoolClass, teacher, teacherRole, teacherType, subject, request.assignedFrom(), actor);
 
-        ensureTeacherAssignedToSite(schoolClass.getSite(), teacher, actor);
+        scheduledTeacherAssignmentService.ensureTeacherAssignedToSite(schoolClass, teacher, actor);
         return toResponse(classTeacher);
     }
 
@@ -372,9 +379,10 @@ public class ClassService {
         CurriculumSubject subject = oldAssignment.getSubject();
 
         endTeacherAssignmentInternal(oldAssignment, request.effectiveDate(), actor);
+        scheduledTeacherAssignmentService.endScheduledAssignmentsSupersededByManual(schoolClass.getId(), newTeacher.getId(), actor);
         ClassTeacher newAssignment = createTeacherAssignmentInternal(
                 schoolClass, newTeacher, ClassTeacher.TeacherRole.PRIMARY, teacherType, subject, request.effectiveDate(), actor);
-        ensureTeacherAssignedToSite(schoolClass.getSite(), newTeacher, actor);
+        scheduledTeacherAssignmentService.ensureTeacherAssignedToSite(schoolClass, newTeacher, actor);
 
         if (teacherType != null) {
             cascadeTeacherChangeToSessions(schoolClass.getId(), teacherType, newTeacher, actor);
@@ -453,24 +461,6 @@ public class ClassService {
         snapshot.put("assignedTo", classTeacher.getAssignedTo().toString());
         history.setDetails(snapshot);
         classTeacherHistoryRepository.save(history);
-    }
-
-    /**
-     * Bổ sung ngoài SDD gốc (đã xác nhận với người dùng, xem
-     * docs/sdd-groups/03-co-so-vat-chat-and-diem-truong.md): khi gán giáo
-     * viên vào 1 lớp, tự động tạo liên kết giáo viên↔site của lớp đó qua
-     * site_teachers nếu chưa có — im lặng bỏ qua nếu đã có sẵn.
-     */
-    private void ensureTeacherAssignedToSite(Site site, User teacher, User actor) {
-        if (siteTeacherRepository.existsBySiteIdAndTeacherIdAndAssignedToIsNull(site.getId(), teacher.getId())) {
-            return;
-        }
-        SiteTeacher link = new SiteTeacher();
-        link.setSite(site);
-        link.setTeacher(teacher);
-        link.setAssignedFrom(LocalDate.now());
-        link.setAssignedBy(actor);
-        siteTeacherRepository.save(link);
     }
 
     /**
