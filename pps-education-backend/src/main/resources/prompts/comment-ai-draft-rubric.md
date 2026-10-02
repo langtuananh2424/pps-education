@@ -8,7 +8,7 @@ Mỗi bước chỉ nhận các mục nó cần (bổ sung 2026-10-01) — vì v
 và đặt quy tắc mới vào đúng mục: tách ý ← mục 1; viết câu ← mục 2–6; sửa theo yêu cầu của giáo viên ← cả rubric;
 soát lỗi / lý do từ chối (Quản lý) ← mục 1–4; đề xuất sửa / sửa theo yêu cầu của Quản lý ← mục 2–4.
 Thêm mục mới (## 7.) thì phải khai báo thêm trong code (CommentAiDraftService / CommentAiReviewService) mới được gửi đi.
-Những việc code đã tự chặn, KHÔNG cần viết vào đây: AI chỉ điền Thái độ + Nhận xét; không ghi chữ số;
+Những việc code đã tự chặn, KHÔNG cần viết vào đây: AI chỉ điền Thái độ + Nhận xét; chỉ ghi con số giáo viên đã nói;
 đại từ thầy/cô; chống trùng lặp giữa các học sinh và với các buổi trước.
 -->
 # Rubric nhận xét hằng ngày — PPS English
@@ -61,7 +61,8 @@ Bảng này CHỈ dùng để chọn mức nội bộ — tuyệt đối không 
 ## 4. Những điều KHÔNG được viết
 - **Không nhắc tên, lỗi hay hành vi của học sinh khác** trong nhận xét của 1 bạn (VD giáo viên nói "An với Bình nói chuyện riêng" → nhận xét của An chỉ viết "con còn nói chuyện riêng trong giờ", không có tên Bình; SAI: "con nói chuyện riêng với Bình", "con và Bình còn làm việc riêng"). Mỗi nhận xét chỉ nói về đúng học sinh đó.
 - Không so sánh, xếp hạng với bạn khác hay cả lớp ("kém nhất lớp", "giỏi hơn các bạn"). ĐƯỢC so sánh với CHÍNH học sinh đó ở buổi trước (VD "lần này con đã mạnh dạn hơn") nhưng CHỈ khi giáo viên có nói về sự tiến bộ/thụt lùi đó.
-- Không ghi con số điểm/phần trăm, không nhắc hạn nộp hay giao bài mới — các thông tin này đã có ô riêng trên form. Cấm mọi dạng lộ điểm, kể cả viết bằng chữ: "4/5", "12/14", "đúng 41/49 câu", "được 8 điểm", "3 sao", "80%", "đúng mười hai trên mười bốn câu", "điểm tối đa", điểm thập phân ("6.5"), số lần xung phong, bảng xếp hạng xung phong.
+- Không nhắc hạn nộp hay giao bài mới — các thông tin này đã có ô riêng trên form.
+- Điểm/số liệu: CHỈ được ghi con số giáo viên đã nói ra (VD điểm hoạt động nhóm, điểm kiểm tra nhanh, số lần xung phong), giữ nguyên đúng như lời giáo viên và lồng vào câu văn. TUYỆT ĐỐI không tự tính, tự làm tròn, tự suy ra hay bịa con số nào giáo viên không nói. Con số trong dữ liệu hệ thống (BTVN, điểm danh…) vẫn viết bằng lời như các mục dưới. Không so sánh số điểm với bạn khác.
 - Nhận xét là ĐOẠN VĂN, không viết dạng báo cáo/liệt kê ("Điểm thể hiện trên lớp: …", "Điểm nói: …", "Điểm nghe: …", "Xung phong: … lần", "Kiểm tra đầu giờ: …").
 - Kết quả BTVN buổi trước: chỉ nhắc khi học sinh có trường "homework" (do hệ thống tính, đã chỉ giữ kỹ năng nổi bật hoặc tăng/giảm rõ). Dạng dữ liệu: "BTVN buổi trước theo kỹ năng: <kỹ năng> — <mức>; …" (kỹ năng là nghe / đọc / viết / ngữ pháp / từ vựng / phản xạ nói), có thể kèm "nhìn chung tiến bộ rõ/giảm rõ so với buổi trước". Luôn nêu ĐÚNG TÊN KỸ NĂNG, không viết chung chung "bài tập về nhà". Các mức và cách viết (VD với học sinh tên Thủy):
   - "cần cố gắng" (từ 50% trở xuống) → câu động viên, chỉ rõ kỹ năng cần luyện: "Thủy cần luyện tập thêm về kỹ năng nghe, con cố gắng nghe lại bài ở nhà nhé." / "Phần ngữ pháp con còn nhầm lẫn, cần ôn lại thêm."
@@ -79,7 +80,7 @@ Bảng này CHỈ dùng để chọn mức nội bộ — tuyệt đối không 
   Tên tiêu chí trong ngoặc kép (VD "Fluency and Coherence") thì diễn đạt lại bằng tiếng Việt dễ hiểu cho phụ huynh (độ trôi chảy, phát âm, ngữ pháp, từ vựng…).
 - Điểm danh & chuyên cần: trường "attendance" (nếu có) — VD "hôm nay đến lớp muộn", "hay đến lớp muộn trong các buổi gần đây", "nghỉ học không phép nhiều buổi gần đây", "đi học đầy đủ, đúng giờ nhiều buổi liên tiếp". Viết TỐI ĐA 1 CÂU, nhẹ nhàng, không trách móc, không suy đoán lý do, không ghi số buổi/số phút: "Con chú ý đến lớp đúng giờ hơn nhé." / "Con đi học rất chuyên cần, đáng khen." Không có trường này thì KHÔNG nhắc chuyện đi học/đi muộn.
 - Gợi ý giọng văn: trường "toneHints" (nếu có) CHỈ để điều chỉnh cách viết, TUYỆT ĐỐI KHÔNG đưa nội dung của nó vào nhận xét — không nhắc chuyện trung tâm mời họp/trao đổi với phụ huynh, không ghi tuổi. VD học sinh nhỏ tuổi → câu ngắn, từ ngữ đơn giản, ấm áp; đang có trao đổi với phụ huynh về BTVN → không khen phần BTVN đó, nhắc nhở nhẹ nhàng mang tính đồng hành.
-- Thông tin học sinh: trường "studentInfo" (nếu có, VD "mới vào lớp gần đây") được nhắc tối đa 1 vế và phải dùng đúng cụm "mới vào lớp" (VD "Con mới vào lớp nhưng đã bắt nhịp rất nhanh."). Nhiều bạn cùng có trường này (lớp mới mở) thì chỉ nhắc cho 1–2 bạn mỗi lượt viết, các bạn khác bỏ qua ý này. Dữ liệu này có thể chưa chính xác nên hệ thống sẽ gắn cảnh báo để giáo viên kiểm tra. Không có trường này thì KHÔNG tự suy ra học sinh mới/cũ.
+- Không tự suy ra học sinh mới hay cũ, không nhắc "mới vào lớp" trừ khi giáo viên tự nói ra.
 - Nhận xét buổi khác loại giáo viên: trường "otherTeacherComment" (nếu có) là nhận xét gần nhất ở buổi của loại giáo viên kia (VD buổi giáo viên nước ngoài). CHỈ dùng để giữ nhận xét nhất quán và KHÔNG lặp lại câu chữ của nó; không chép ý, không nhắc tới giáo viên/buổi học đó (xem quy tắc không nhắc giáo viên khác ở trên).
 - Giới hạn chung cho BTVN (gộp cả "homework" và "homeworkDetails"): vẫn giữ nguyên các ý giáo viên đã nói, THÊM TỐI ĐA 2 CÂU về BTVN. Chọn theo thứ tự ưu tiên: (1) bỏ bài / nộp muộn, (2) điểm yếu cụ thể và kỹ năng "cần cố gắng"/"chưa hoàn thành" trong "homework", (3) xu hướng, (4) lời khen. Có thể gộp 2 ý vào 1 câu (VD "Con làm bài đọc tốt nhưng cần luyện thêm kỹ năng nghe."). Không cần dùng hết mọi ý. Nếu giáo viên có nói riêng về BTVN của đúng kỹ năng đó mà khác dữ liệu thì theo lời giáo viên.
 - Không nhắc tên bài học/Unit của buổi (VD "Unit 1: Hello Friend", "bài Past simple", "bài Friendship") hay số trang/tên dạng bài cụ thể ("trang 18 phần B", "đề cương ôn tập") — kể cả khi giáo viên đọc tên bài trong lời nói.
@@ -110,11 +111,10 @@ Câu kết:
 2. Ghi nhận: "Sự cố gắng của con rất đáng ghi nhận."
 3. Định hướng cụ thể: "Buổi sau con thử giơ tay phát biểu trước nhé."
 4. Mong muốn: "Mong con giữ vững tinh thần này."
-5. Động viên ngắn: "Cố lên con!"
-6. Gợi ý ôn luyện: "Con ôn lại phần vừa học để buổi sau tự tin hơn nhé."
-7. Niềm tin: "Chắc chắn con sẽ tiến bộ nhanh."
-8. Giữ phong độ: "Hãy giữ vững phong độ này nhé."
-9. Không cần câu kết riêng khi nhận xét đã trọn ý (với nhận xét ngắn).
+5. Gợi ý ôn luyện: "Con ôn lại phần vừa học để buổi sau tự tin hơn nhé."
+6. Niềm tin: "Chắc chắn con sẽ tiến bộ nhanh."
+7. Giữ phong độ: "Hãy giữ vững phong độ này nhé."
+8. Không cần câu kết riêng khi nhận xét đã trọn ý (với nhận xét ngắn).
 
 ## 6. Mẫu câu tham khảo theo mức Thái độ
 Tổng hợp từ nhận xét cũ của trung tâm — chỉ lấy VĂN PHONG, KHÔNG chép nguyên văn. Mẫu viết "Con" cho gọn; khi viết thật, câu đầu dùng tên gọi. Mẫu cố ý KHÔNG có đại từ "thầy/cô" (đại từ chỉ dùng theo teacherPronoun).
