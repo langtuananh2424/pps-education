@@ -5,7 +5,7 @@ import { ApiError } from "@/lib/apiClient";
 import AccountSelector, { AccountSelection } from "@/features/system-admin/components/AccountSelector";
 import { createParent, ParentResponse } from "../api";
 import AvatarUploadField from "@/components/ui/AvatarUploadField";
-import { uploadMedia } from "@/features/lms/api";
+import { uploadAvatar } from "@/features/lms/api";
 import FloatingError from "@/components/ui/FloatingError";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
@@ -73,7 +73,7 @@ export default function ParentCreateModal({ onClose, onCreated }: ParentCreateMo
             <AvatarUploadField
               value={form.portraitUrl}
               onChange={(url) => setForm({ ...form, portraitUrl: url })}
-              onUpload={(file) => uploadMedia(file, "PARENT")}
+              onUpload={(file) => uploadAvatar(file, "PARENT")}
               fallbackName={account.newAccount?.fullName || t("parentCreateModal.avatarFallback")}
             />
           </div>

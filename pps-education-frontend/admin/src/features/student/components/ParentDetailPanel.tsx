@@ -12,7 +12,7 @@ import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import { useDialog } from "@/components/ui/DialogProvider";
 import AvatarUploadField from "@/components/ui/AvatarUploadField";
-import { uploadMedia } from "@/features/lms/api";
+import { uploadAvatar } from "@/features/lms/api";
 import Select from "@/components/ui/Select";
 import FloatingError from "@/components/ui/FloatingError";
 
@@ -133,7 +133,7 @@ function ProfileSection({ parentId, showToast }: { parentId: number; showToast: 
       <AvatarUploadField
         value={form.portraitUrl}
         onChange={(url) => setForm({ ...form, portraitUrl: url })}
-        onUpload={(file) => uploadMedia(file, "PARENT")}
+        onUpload={(file) => uploadAvatar(file, "PARENT")}
         fallbackName={profile?.fullName ?? t("parentDetail.profile.avatarFallback")}
       />
       <div className="grid grid-cols-2 gap-3">
