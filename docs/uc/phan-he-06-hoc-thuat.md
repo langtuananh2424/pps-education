@@ -2285,11 +2285,12 @@ UC-74: Trợ lý AI soạn nháp nhận xét hàng ngày từ audio
 |                 |     giống và nguồn (học sinh khác trong buổi /     |
 |                 |     buổi cũ ngày nào) để Giáo viên tự sửa.         |
 |                 |                                                    |
-|                 | ***A9 — Nội dung có chữ số***                      |
+|                 | ***A9 — Điểm/số liệu trong nhận xét***             |
 |                 |                                                    |
-|                 | 1.  Tại bước 6/9, Nhận xét AI viết có chứa chữ số: |
-|                 |     gắn cảnh báo để Giáo viên kiểm tra (AI không   |
-|                 |     được ghi điểm/số liệu).                        |
+|                 | 1.  Từ 2026-10-02: không còn cảnh báo chữ số. Giáo |
+|                 |     viên được tự ghi điểm hoạt động nhóm/kiểm tra  |
+|                 |     nhanh; AI chỉ ghi con số giáo viên đã nói, tuyệt|
+|                 |     đối không tự tính hay bịa số.                  |
 |                 |                                                    |
 |                 | ***A10 — Lưu nháp bị bỏ qua 1 số dòng***           |
 |                 |                                                    |
@@ -2416,12 +2417,21 @@ Ghi chú kỹ thuật (bổ sung ngoài SDD gốc, đã xác nhận với ngư�
     nhắc tới giáo viên/buổi đó. (4) **Lời mời họp phụ huynh vì thiếu
     BTVN** (`homework_parent_meeting_invites` PENDING/APPROVED, tạo trong
     30 ngày trước buổi học, đúng lớp) → chỉ là gợi ý giọng văn: không khen
-    phần BTVN đó, không nhắc chuyện mời họp. (5) **Thông tin học sinh**:
-    ngày vào lớp trong 30 ngày trước buổi học → được nhắc "mới vào lớp";
+    phần BTVN đó, không nhắc chuyện mời họp. (5) **Độ tuổi**:
     dưới 10 tuổi (theo ngày sinh) → chỉ chỉnh giọng văn đơn giản, ấm áp,
-    không ghi tuổi. Dữ liệu học sinh có thể chưa chính xác nên dòng nhận
-    xét nhắc tới "mới vào lớp/tham gia lớp…" hoặc "tuổi" được gắn cảnh báo
-    `STUDENT_INFO_CHECK` để giáo viên xác thực trước khi gửi.
+    không ghi tuổi. Dòng nhận xét nhắc tới "tuổi" được gắn cảnh báo
+    `STUDENT_INFO_CHECK` để giáo viên xác thực trước khi gửi. (Tín hiệu
+    "mới vào lớp" ban đầu ở đây đã bị bỏ ngày 2026-10-02, xem mục bổ sung
+    cuối.)
+-   **Bổ sung 2026-10-02 (giáo viên dùng thử góp ý, đã xác nhận với người
+    dùng):** (1) bỏ tín hiệu `studentInfo` và cụm "mới vào lớp" — giáo viên
+    thấy không cần thiết; AI chỉ nhắc khi giáo viên tự nói; (2) bỏ kiểu câu
+    kết "Động viên ngắn" (VD "Cố lên con!") vì nghe sượng, kho còn 7 kiểu
+    kết; (3) bỏ quy tắc cấm chữ số/điểm: giáo viên được tự ghi điểm hoạt
+    động nhóm, kiểm tra nhanh vào nhận xét. Bỏ cảnh báo `CONTAINS_DIGITS` ở
+    bước soạn (UC-74) và ở bước soát (UC-75). AI chỉ ghi con số giáo viên
+    đã nói, không tự tính/bịa; dữ liệu hệ thống (BTVN, điểm danh) vẫn viết
+    bằng lời. Vẫn cấm nhắc hạn nộp/giao bài mới.
 -   **Bổ sung 2026-09-29 (sau đánh giá rubric lần 3):** (1) kho kiểu câu
     mở rộng lên 10 kiểu mở đầu (kiểu 10 — ghi nhận của giáo viên — chỉ dùng
     khi có `teacherPronoun`) và 8 kiểu câu kết; bỏ quy tắc "mỗi kiểu 1 học
@@ -2664,7 +2674,7 @@ UC-75: Trợ lý AI soát nhận xét chờ duyệt
 |                 |     thái).                                         |
 |                 |                                                    |
 |                 | 3.  Hệ thống kiểm tra tự động từng nhận xét: có    |
-|                 |     chữ số; dài quá khoảng 500 ký tự; để trống;    |
+|                 |     dài quá khoảng 500 ký tự; để trống;            |
 |                 |     nhắc họ tên bạn cùng lớp; nhắc tên bài học của |
 |                 |     buổi; giống nhận xét của bạn khác cùng buổi    |
 |                 |     hoặc giống N nhận xét trước của chính học sinh |
@@ -2730,8 +2740,9 @@ UC-75: Trợ lý AI soát nhận xét chờ duyệt
 |                 |                                                    |
 |                 | ***A5 — Bản đề xuất có vấn đề***                   |
 |                 |                                                    |
-|                 | 1.  Tại bước 6/9, bản sửa có chữ số hoặc giống hệt |
-|                 |     bản gốc: hiện cảnh báo trên bản đề xuất (bản   |
+|                 | 1.  Tại bước 6/9, bản sửa vi phạm kiểm tra tự động |
+|                 |     hoặc giống hệt bản gốc: hiện cảnh báo trên bản |
+|                 |     đề xuất (bản                                   |
 |                 |     giống hệt ở bước 9 bị bỏ).                     |
 |                 |                                                    |
 |                 | ***A6 — Nội dung đã đổi sau khi soát***            |

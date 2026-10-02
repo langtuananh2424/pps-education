@@ -213,9 +213,6 @@ public class CommentAiDraftService {
             if (!signals.toneHints().isEmpty()) {
                 item.put("toneHints", signals.toneHints());
             }
-            if (!signals.studentInfo().isEmpty()) {
-                item.put("studentInfo", signals.studentInfo());
-            }
             if (signals.otherTeacherComment() != null) {
                 item.put("otherTeacherComment", signals.otherTeacherComment().content());
             }
@@ -942,10 +939,6 @@ public class CommentAiDraftService {
                     warnings.add(new CommentAiDraftResult.Warning("SIMILAR_TO_PREVIOUS",
                             CommentRuleCheck.similarToPreviousMessage(previous), previous.similarity()));
                 }
-                if (CommentRuleCheck.containsDigits(content)) {
-                    warnings.add(new CommentAiDraftResult.Warning("CONTAINS_DIGITS",
-                            "Nhận xét có chữ số — kiểm tra lại, trợ lý không được ghi điểm/số liệu.", null));
-                }
                 if (CommentRuleCheck.mentionsLessonTitle(content, context.lessonContent())) {
                     warnings.add(new CommentAiDraftResult.Warning("LESSON_TITLE",
                             "Nhận xét nhắc tên bài học — giáo viên thường không ghi tên bài vào nhận xét.", null));
@@ -959,11 +952,11 @@ public class CommentAiDraftService {
                 if (pronounWarning != null) {
                     warnings.add(pronounWarning);
                 }
-                // Bổ sung 2026-09-30 (đã xác nhận với người dùng): thông tin học sinh trên hệ thống (ngày vào lớp, ngày
-                // sinh) có thể chưa chính xác — dòng nào nhắc tới thì giáo viên phải xác thực lại trước khi gửi.
+                // Bổ sung 2026-09-30 (đã xác nhận với người dùng): độ tuổi trên hệ thống (ngày sinh) có thể chưa chính
+                // xác — dòng nào nhắc tới thì giáo viên phải xác thực lại trước khi gửi.
                 if (StudentSignalInsight.mentionsStudentInfo(content)) {
                     warnings.add(new CommentAiDraftResult.Warning("STUDENT_INFO_CHECK",
-                            "Nhận xét dùng thông tin học sinh trên hệ thống (mới vào lớp/độ tuổi) — dữ liệu có thể chưa chính xác, thầy/cô xác thực lại.", null));
+                            "Nhận xét dùng độ tuổi học sinh trên hệ thống — dữ liệu có thể chưa chính xác, thầy/cô xác thực lại.", null));
                 }
             }
             CommentAiDraftResult.Warning attitudeAlert = attitudeAlertWarning(target.attitude(), target.student().lowStreak());

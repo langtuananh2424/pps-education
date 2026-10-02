@@ -128,7 +128,6 @@
         "repeatedPattern": "{{count}} dòng lặp khuôn câu"
       },
       "issueType": {
-        "CONTAINS_DIGITS": "có chữ số",
         "TOO_LONG": "quá dài",
         "EMPTY": "để trống",
         "OTHER_STUDENT_NAME": "nhắc bạn khác",

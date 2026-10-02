@@ -6,16 +6,13 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.Function;
-import java.util.regex.Pattern;
 
 /**
  * Kiểm tra theo quy tắc (không gọi AI) dùng chung cho trợ lý soạn nháp nhận xét (UC-74) và trợ lý duyệt (UC-75) —
  * tách ra 2026-10-01 (đã xác nhận với người dùng) để 2 trợ lý luôn báo cùng 1 lỗi bằng cùng ngưỡng và cùng câu chữ,
- * thay vì mỗi service tự viết lại vòng so trùng/kiểm tra chữ số/tên bài.
+ * thay vì mỗi service tự viết lại vòng so trùng/kiểm tra tên bài.
  */
 public final class CommentRuleCheck {
-
-    private static final Pattern DIGIT = Pattern.compile("\\d");
 
     private CommentRuleCheck() {
     }
@@ -65,10 +62,6 @@ public final class CommentRuleCheck {
     /** Cảnh báo {@code SIMILAR_TO_PREVIOUS} — giống nhận xét buổi trước của chính học sinh đó. */
     public static String similarToPreviousMessage(Match match) {
         return "Giống nhận xét buổi " + match.source() + " " + match.percent() + "%.";
-    }
-
-    public static boolean containsDigits(String content) {
-        return content != null && DIGIT.matcher(content).find();
     }
 
     /**

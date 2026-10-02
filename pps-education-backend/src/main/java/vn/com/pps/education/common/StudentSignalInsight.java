@@ -2,14 +2,13 @@ package vn.com.pps.education.common;
 
 import java.time.LocalDate;
 import java.time.Period;
-import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
 /**
  * UC-74 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-30) — tín hiệu ngoài lời giáo viên cho trợ lý
- * nhận xét: điểm danh buổi này, chuyên cần nhiều buổi, thông tin học sinh (học sinh mới, độ tuổi). Thuần tính toán,
+ * nhận xét: điểm danh buổi này, chuyên cần nhiều buổi, độ tuổi. Thuần tính toán,
  * trả LỜI không kèm chữ số.
  *
  * <p>Quy tắc đã chốt:</p>
@@ -19,7 +18,6 @@ import java.util.regex.Pattern;
  *   <li>Chuyên cần {@link #ATTENDANCE_WINDOW} buổi gần nhất (tính cả buổi này, mọi Loại giáo viên): đủ
  *       {@link #ATTENDANCE_WINDOW} buổi đều Có mặt → khen; Vắng không phép ≥ 2 hoặc Đi muộn ≥ 3 → nhắc nhẹ. Vắng có
  *       phép không tính.</li>
- *   <li>Học sinh mới: ngày vào lớp trong {@link #NEW_STUDENT_DAYS} ngày trước buổi học.</li>
  *   <li>Độ tuổi: dưới {@link #YOUNG_AGE} tuổi → chỉ chỉnh giọng văn (đơn giản, ấm áp), KHÔNG ghi tuổi.</li>
  * </ul>
  */
@@ -29,15 +27,14 @@ public final class StudentSignalInsight {
     public static final int ATTENDANCE_WINDOW = 8;
     static final int ABSENT_REMIND_COUNT = 2;
     static final int LATE_REMIND_COUNT = 3;
-    static final int NEW_STUDENT_DAYS = 30;
     static final int YOUNG_AGE = 10;
 
     /**
-     * Nhận xét nói tới thông tin học sinh lấy từ hệ thống (mới vào lớp, tuổi) — dữ liệu có thể chưa chính xác nên
-     * dòng đó gắn cảnh báo cần xác thực (đã xác nhận với người dùng 2026-09-30).
+     * Nhận xét nói tới độ tuổi lấy từ hệ thống — dữ liệu có thể chưa chính xác nên dòng đó gắn cảnh báo cần xác
+     * thực. (2026-10-02, giáo viên test: bỏ hẳn việc nhắc "mới vào lớp" — không còn tín hiệu studentInfo.)
      */
     private static final Pattern STUDENT_INFO_MENTION = Pattern.compile(
-            "(?iu)mới\\s+(vào|gia nhập|chuyển\\s+(vào|đến|sang)|tham gia|đến)\\s+(lớp|học)|làm quen với lớp|(?<!\\p{L})tuổi(?!\\p{L})");
+            "(?iu)(?<!\\p{L})tuổi(?!\\p{L})");
 
     private StudentSignalInsight() {
     }
@@ -71,15 +68,6 @@ public final class StudentSignalInsight {
             return Optional.of("đi học đầy đủ, đúng giờ nhiều buổi liên tiếp (khen sự chuyên cần)");
         }
         return Optional.empty();
-    }
-
-    /** Học sinh mới vào lớp — nhắc được, nhưng dòng dùng thông tin này sẽ bị gắn cảnh báo cần xác thực. */
-    public static Optional<String> newStudent(LocalDate enrolledDate, LocalDate sessionDate) {
-        if (enrolledDate == null || sessionDate == null || enrolledDate.isAfter(sessionDate)) {
-            return Optional.empty();
-        }
-        return ChronoUnit.DAYS.between(enrolledDate, sessionDate) <= NEW_STUDENT_DAYS
-                ? Optional.of("mới vào lớp gần đây (theo dữ liệu hệ thống)") : Optional.empty();
     }
 
     /** Gợi ý giọng văn theo độ tuổi — không phải thông tin được viết vào nhận xét. */

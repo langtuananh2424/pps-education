@@ -69,7 +69,6 @@ class StudentSignalServiceTest {
         when(schoolClass.getId()).thenReturn(5L);
         ClassEnrollment enrollment = mock(ClassEnrollment.class);
         when(enrollment.getStudent()).thenReturn(student);
-        when(enrollment.getEnrolledDate()).thenReturn(DATE.minusDays(10));
         ClassSession current = session(100L, DATE);
         List<ClassSession> before = new ArrayList<>();
         for (int i = 1; i <= 7; i++) {
@@ -102,7 +101,6 @@ class StudentSignalServiceTest {
         assertThat(signals.toneHints()).hasSize(2);
         assertThat(signals.toneHints().get(0)).contains("Ngữ pháp").contains("KHÔNG nhắc chuyện mời họp");
         assertThat(signals.toneHints().get(1)).startsWith("học sinh nhỏ tuổi");
-        assertThat(signals.studentInfo()).containsExactly("mới vào lớp gần đây (theo dữ liệu hệ thống)");
         assertThat(signals.otherTeacherComment()).isEqualTo(new StudentSignalService.OtherTeacherComment(DATE, "Con phản xạ nhanh."));
     }
 
