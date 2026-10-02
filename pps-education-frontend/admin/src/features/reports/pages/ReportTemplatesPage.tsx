@@ -15,6 +15,8 @@ import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import { ApiError } from "@/lib/apiClient";
 import FloatingError from "@/components/ui/FloatingError";
+import { notifyError } from "@/components/ui/FloatingBanner";
+import { useDialog } from "@/components/ui/DialogProvider";
 
 const FILE_FORMAT_COLORS: Record<string, string> = {
   DOCX: "bg-blue-100 text-blue-700",
@@ -35,6 +37,7 @@ export default function ReportTemplatesPage() {
   const [selectedTemplate, setSelectedTemplate] = useState<ReportTemplateResponse | null>(null);
 
   const { message: toastMessage, showToast } = useToast();
+  const { confirmDialog } = useDialog();
 
   const load = () => {
     setLoading(true);
@@ -49,13 +52,13 @@ export default function ReportTemplatesPage() {
   }, []);
 
   const handleDelete = async (id: number) => {
-    if (!confirm(t("reportTemplatesPage.confirmDelete"))) return;
+    if (!(await confirmDialog(t("reportTemplatesPage.confirmDelete"), { danger: true }))) return;
     try {
       await deleteReportTemplate(id);
       showToast(t("reportTemplatesPage.deleteSuccessToast"));
       load();
     } catch (err: any) {
-      alert(err.message || t("reportTemplatesPage.deleteErrorAlert"));
+      notifyError(err.message || t("reportTemplatesPage.deleteErrorAlert"));
     }
   };
 

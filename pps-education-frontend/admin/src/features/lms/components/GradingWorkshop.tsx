@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Award, Mic, Play, Save } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { StudentExamSubmission } from "@/types";
-import { useDialog } from "@/components/ui/DialogProvider";
+import { notifyInfo } from "@/components/ui/FloatingBanner";
 
 interface GradingWorkshopProps {
   submission: StudentExamSubmission | null;
@@ -14,7 +14,6 @@ export default function GradingWorkshop({ submission, onClose, onSave }: Grading
   const { t } = useTranslation("lms-grading");
   const [score, setScore] = useState("8.5");
   const [feedback, setFeedback] = useState("");
-  const { alertDialog } = useDialog();
 
   if (!submission) {
     return (
@@ -51,7 +50,7 @@ export default function GradingWorkshop({ submission, onClose, onSave }: Grading
 
         <div className="p-2 bg-slate-900 text-white rounded flex items-center justify-between text-xs">
           <span className="font-mono text-[10px]">audiotrack_speech_sample.mp3</span>
-          <button onClick={() => alertDialog(t("gradingWorkshop.audio.playToast"))} className="p-1 rounded bg-brand-gradient hover:opacity-90 font-bold">
+          <button onClick={() => notifyInfo(t("gradingWorkshop.audio.playToast"))} className="p-1 rounded bg-brand-gradient hover:opacity-90 font-bold">
             <Play className="w-3 h-3 text-white fill-white" />
           </button>
         </div>

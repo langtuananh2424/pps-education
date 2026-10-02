@@ -210,13 +210,17 @@ test.describe.serial("Thông báo sau khi đăng nhập — Nhận xét & các t
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(`/academic/comments?writeClassId=${classId}`);
     await expect(page.getByPlaceholder("VD: Unit 3 - Free time activities")).toBeVisible();
+    // Chờ buổi học + danh sách học sinh tải xong — gõ sớm hơn sẽ bị reset khi dữ liệu về.
+    await page.waitForLoadState("networkidle");
   }
 
   const studentRow = (page: Page) => page.locator("tr", { hasText: studentName });
 
   test("09 Nhận xét — lưu Bài học hôm nay (thành công)", async ({ page }) => {
     await openComments(page);
-    await page.getByPlaceholder("VD: Unit 3 - Free time activities").fill(`Unit 1 - Hello (${Date.now()})`);
+    const lesson = page.getByPlaceholder("VD: Unit 3 - Free time activities");
+    await lesson.fill(`Unit 1 - Hello (${Date.now()})`);
+    await expect(lesson).toHaveValue(/Unit 1 - Hello/);
     await page.getByRole("button", { name: "Lưu", exact: true }).first().click();
     await expect(banner(page, "success")).toHaveText("Đã lưu Bài học hôm nay.");
     await expectBannerAtTopCenter(page);
@@ -282,4 +286,86 @@ test.describe.serial("Thông báo sau khi đăng nhập — Nhận xét & các t
     await page.unrouteAll();
     await api(page, "DELETE", `/roles/${role.id}`, admin).catch(() => undefined);
   });
+});
+
+/* ------------------------------------------------------------------------------------------------
+ * Đợt 2 (2026-10-02): các thông báo còn sót — popup "Rời trang khi chưa lưu", popup thông tin
+ * (Quên mật khẩu, Cài đặt), alert()/confirm() gốc trình duyệt ở Mẫu báo cáo. CRM chuyển đổi lead chưa test
+ * được vì trang CRM đang ẩn sau "Đang phát triển".
+ * ---------------------------------------------------------------------------------------------- */
+test.describe("Thông báo còn sót — đợt 2", () => {
+  test("15 Quên mật khẩu (popup thông tin cũ → banner xanh dương)", async ({ page }) => {
+    await page.goto("/login");
+    await page.getByRole("link", { name: "Quên mật khẩu" }).click();
+    await expect(banner(page, "info")).toContainText("Khôi phục mật khẩu đang khóa");
+    await expectBannerAtTopCenter(page);
+    await page.screenshot({ path: `${SHOT_DIR}/15-quen-mat-khau-thong-tin.png` });
+  });
+
+  test("16 Menu tài khoản → Cài đặt (popup thông tin cũ → banner xanh dương)", async ({ page }) => {
+    await loginAs(page, "sysadmin");
+    await page.goto("/system-admin/users");
+    await page.locator("header").getByText("Quản trị viên (Demo)").first().click();
+    await page.getByRole("button", { name: "Cài đặt", exact: true }).click();
+    await expect(banner(page, "info")).toHaveText("Tính năng Cài đặt đang được phát triển.");
+    await expectBannerAtTopCenter(page);
+    await page.screenshot({ path: `${SHOT_DIR}/16-cai-dat-thong-tin.png` });
+  });
+
+  test("17 Mẫu báo cáo — xoá thất bại (alert() gốc trình duyệt → banner đỏ, giả lập 500)", async ({ page }) => {
+    await loginAs(page, "sysadmin");
+    const fake = {
+      id: 999001, name: "Mẫu báo cáo E2E", templateType: "DAILY_REPORT", fileFormat: "DOCX", fileUrl: "", originalFilename: "mau-e2e.docx",
+      fileSizeBytes: 1024, description: "Mẫu giả lập cho e2e", active: true, placeholderKeys: [], createdBy: null, fieldMappings: []
+    };
+    await page.route("**/api/report-templates", (route) =>
+      route.request().method() === "GET" ? route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([fake]) }) : route.continue()
+    );
+    await page.route(`**/api/report-templates/${fake.id}`, (route) =>
+      route.request().method() === "DELETE"
+        ? route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ message: "Không xoá được mẫu báo cáo (lỗi máy chủ giả lập)." }) })
+        : route.continue()
+    );
+    let nativeDialog = false;
+    page.on("dialog", (d) => {
+      nativeDialog = true;
+      void d.dismiss();
+    });
+    await page.goto("/reports/templates");
+    await page.getByTitle("Xoá").first().click();
+    // Xác nhận xoá giờ là popup của app (confirmDialog), không còn confirm() gốc trình duyệt.
+    await page.getByRole("button", { name: "Xác nhận", exact: true }).last().click();
+    await expect(banner(page, "error")).toHaveText("Không xoá được mẫu báo cáo (lỗi máy chủ giả lập).");
+    expect(nativeDialog, "không được còn alert()/confirm() gốc trình duyệt").toBe(false);
+    await expectBannerAtTopCenter(page);
+    await page.screenshot({ path: `${SHOT_DIR}/17-mau-bao-cao-xoa-loi.png` });
+  });
+
+  test("18 Rời trang khi chưa lưu — 'Lưu tạm & rời đi' thất bại (khối đỏ trong popup → banner đỏ)", async ({ page }) => {
+    const { classId, studentName } = await seedCommentClass(page);
+    // "Lưu tạm & rời đi" lưu qua draft-batch (saveDraftBatch) — giả lập lỗi để popup giữ nguyên + hiện banner.
+    await page.route(`**/api/classes/${classId}/class-sessions/*/comments/draft-batch`, (route) =>
+      route.fulfill({ status: 400, contentType: "application/json", body: JSON.stringify({ message: "Không lưu được nhận xét (lỗi giả lập)." }) })
+    );
+    await loginAs(page, "teacher");
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(`/academic/comments?writeClassId=${classId}`);
+    await page.waitForLoadState("networkidle");
+    const content = page.locator("tr", { hasText: studentName }).getByPlaceholder("Viết nhận xét cho học sinh này...");
+    await content.fill("Nhận xét chưa lưu.");
+    await expect(content).toHaveValue("Nhận xét chưa lưu.");
+    await page.locator("aside").getByRole("link", { name: "Điểm danh" }).click();
+    await expect(page.getByText("Dữ liệu chưa hoàn tất")).toBeVisible();
+    await page.getByRole("button", { name: "Lưu tạm & rời đi" }).click();
+    // Trang Nhận xét (vàng) và popup Rời trang (đỏ) cùng báo 1 câu — chỉ được hiện 1 banner, không kèm emoji.
+    const failure = page.locator(`${STACK} > *`, { hasText: "Không lưu được nhận xét" });
+    await expect(failure).toHaveCount(1);
+    await expect(failure).not.toContainText("⚠");
+    // Lưu thất bại thì KHÔNG rời trang — popup vẫn mở, người dùng tự chọn Ở lại / Rời đi không lưu.
+    await expect(page.getByText("Dữ liệu chưa hoàn tất")).toBeVisible();
+    await expect(page).toHaveURL(/\/academic\/comments/);
+    await expectBannerAtTopCenter(page);
+    await page.screenshot({ path: `${SHOT_DIR}/18-roi-trang-luu-tam-that-bai.png` });
+  });
+
 });
