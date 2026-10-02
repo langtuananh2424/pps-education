@@ -33,6 +33,7 @@ import EmptyState from "@/components/ui/EmptyState";
 import DatePicker from "@/components/ui/DatePicker";
 import Time24Input from "@/components/ui/Time24Input";
 import Modal from "@/components/ui/Modal";
+import FloatingError from "@/components/ui/FloatingError";
 
 const studentStatusVariants: Record<string, any> = {
   CHUA_LAM: "neutral",
@@ -196,7 +197,7 @@ export default function AssignmentStatsDetailPage() {
         </button>
         <Card>
           {error ? (
-            <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-lg">{error}</div>
+            <FloatingError message={error} />
           ) : loading ? (
             <p className="text-sm text-slate-500">{t("shared.loadingDetail")}</p>
           ) : (
@@ -289,7 +290,7 @@ export default function AssignmentStatsDetailPage() {
         )}
       </div>
 
-      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       <Card padded={false} className="overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-100 bg-slate-50">
@@ -665,9 +666,7 @@ export function StudentDetailModal({
         )}
 
         <div className="p-6 space-y-6">
-          {studentError && (
-            <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{studentError}</div>
-          )}
+          <FloatingError message={studentError} />
           {loadingStudent || !student ? (
             <p className="text-sm text-slate-500">{t("shared.loading")}</p>
           ) : (
@@ -716,9 +715,7 @@ export function StudentDetailModal({
                   ? t("exerciseDetail.studentModal.history.titleMultiple")
                   : t("exerciseDetail.studentModal.history.titleSingle")}
               </h3>
-              {attemptsError && (
-                <div className="mb-3 text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{attemptsError}</div>
-              )}
+              <FloatingError message={attemptsError} />
               {loadingAttempts ? (
                 <p className="text-sm text-slate-500">{t("shared.loading")}</p>
               ) : (
@@ -766,9 +763,7 @@ export function StudentDetailModal({
                 </span>
               )}
             </h3>
-            {answerError && (
-              <div className="mb-3 text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{answerError}</div>
-            )}
+            <FloatingError message={answerError} />
             <div className="border border-slate-200 rounded-lg overflow-hidden">
               {loadingAnswers ? (
                 <div className="text-center p-4 text-sm text-slate-500">{t("shared.loading")}</div>
@@ -949,9 +944,7 @@ function AttemptHistoryRow({
                 {selecting ? t("exerciseDetail.studentModal.history.selecting") : t("exerciseDetail.studentModal.history.selectForGrading")}
               </button>
             )}
-            {selectError && (
-              <span className="text-[9px] text-red-600 font-medium">{selectError}</span>
-            )}
+            <FloatingError message={selectError} />
           </div>
         </td>
         <td className="text-center p-2">

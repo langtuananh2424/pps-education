@@ -12,6 +12,7 @@ import SessionCard from "../components/SessionCard";
 import { checkInStatusLabel, checkInStatusVariants } from "../components/ClassDetailPanel";
 import { ClassSessionCheckInStatusResponse, ClassSessionResponse, getMyClassSessionCheckInStatus, getMyTeachingSchedule, listClasses } from "../api";
 import { getCmDisplayName, getDisplayTeacherName } from "../teacherDisplay";
+import FloatingError from "@/components/ui/FloatingError";
 
 /** Thứ tự enum DayOfWeek dùng để tra nhãn qua `enums.weekday.<value>` / `enums.weekdayShort.<value>`
  * (namespace "academic-classes") — weekdayOrderSunFirst khớp Date.getDay() (0=CN), weekdayOrderMonFirst
@@ -152,7 +153,7 @@ export default function MyTeachingSchedulePage() {
           </button>
         </div>
 
-        {error && <div className="m-5 mb-0 text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        <FloatingError message={error} onClose={() => setError(null)} />
 
         <div className="p-5">
         {loading ? (

@@ -33,6 +33,7 @@ import {
   VIETNAMESE_SKILL_MODES,
   VietnameseSkillCategory
 } from "../skillCategoryKinds";
+import FloatingError from "@/components/ui/FloatingError";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
@@ -165,7 +166,7 @@ export default function CreateAndAssignExerciseModal({ examId, teacherType, onCl
 
   return (
     <Modal open onClose={onClose} title={t("assignModal.modalTitle")} size="lg">
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       {step === "info" && (
         <ExerciseInfoStep

@@ -32,6 +32,7 @@ import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
 import Select from "@/components/ui/Select";
 import DatePicker from "@/components/ui/DatePicker";
+import FloatingError from "@/components/ui/FloatingError";
 
 const inputClass = "bg-slate-50 border border-slate-200 text-xs p-2 rounded-lg focus:outline-none";
 
@@ -281,7 +282,7 @@ function GradeSetupSection({
         )}
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       {canManage && !readOnly && setup && gradeComponents.length > 0 && (
         <div className="flex gap-1.5 flex-wrap">
@@ -429,7 +430,7 @@ function CreateSetupForm({
 
   return (
     <form onSubmit={handleSubmit} className="bg-white border border-slate-200 rounded-lg p-3 space-y-2">
-      {error && <div className="text-[11px] text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
       <div className="grid grid-cols-2 gap-2">
         <Select
           value={form.scaleType}
@@ -499,7 +500,7 @@ function CreateComponentForm({
 
   return (
     <form onSubmit={handleSubmit} className="bg-white border border-slate-200 rounded-lg p-3 space-y-2">
-      {error && <div className="text-[11px] text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
       <p className="text-[11px] text-slate-500">
         {t("sheetPanel.scaleInfo", { scale: scaleTypeLabel(t, scaleType) })}
       </p>

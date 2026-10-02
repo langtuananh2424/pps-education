@@ -3,11 +3,11 @@ import { useTranslation } from "react-i18next";
 import { Check, Clock } from "lucide-react";
 import Badge from "@/components/ui/Badge";
 import { cn } from "@/lib/cn";
-import { useDialog } from "@/components/ui/DialogProvider";
 import { ApiError } from "@/lib/apiClient";
 import { decideLeaveRequest, LeaveRequestResponse } from "../api";
 import { useLeaveTypeLabel } from "../hooks/useLeaveTypeLabel";
 import NotificationBanner from "@/features/student/components/NotificationBanner";
+import { notifyError } from "@/components/ui/FloatingBanner";
 
 interface LeaveApprovalQueueProps {
   leaveRequests: LeaveRequestResponse[];
@@ -29,7 +29,6 @@ export default function LeaveApprovalQueue({ leaveRequests, loading, onDecided, 
   const [opinionNotes, setOpinionNotes] = useState<Record<number, string>>({});
   const [decidingId, setDecidingId] = useState<number | null>(null);
   const [decidedMessage, setDecidedMessage] = useState<string | null>(null);
-  const { alertDialog } = useDialog();
 
   const decide = async (req: LeaveRequestResponse, decision: "APPROVED" | "REJECTED", comment?: string) => {
     setDecidingId(req.id);
@@ -42,7 +41,7 @@ export default function LeaveApprovalQueue({ leaveRequests, loading, onDecided, 
       );
       onDecided();
     } catch (err) {
-      await alertDialog(err instanceof ApiError ? err.message : t("leaveApprovalQueue.decisionError"));
+      notifyError(err instanceof ApiError ? err.message : t("leaveApprovalQueue.decisionError"));
     } finally {
       setDecidingId(null);
     }
@@ -50,11 +49,7 @@ export default function LeaveApprovalQueue({ leaveRequests, loading, onDecided, 
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden">
-      {decidedMessage && (
-        <div className="p-3 border-b border-slate-100">
-          <NotificationBanner message={decidedMessage} onClose={() => setDecidedMessage(null)} />
-        </div>
-      )}
+      <NotificationBanner message={decidedMessage} onClose={() => setDecidedMessage(null)} />
       <div className="px-5 py-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between gap-3">
         <div>
           <span className="text-xs font-bold text-slate-700 font-display block">{t("leaveApprovalQueue.title")}</span>
@@ -124,7 +119,7 @@ export default function LeaveApprovalQueue({ leaveRequests, loading, onDecided, 
                     onClick={async () => {
                       const notes = opinionNotes[req.id]?.trim();
                       if (!notes) {
-                        await alertDialog(t("leaveApprovalQueue.missingRejectReason"));
+                        notifyError(t("leaveApprovalQueue.missingRejectReason"));
                         return;
                       }
                       await decide(req, "REJECTED", notes);

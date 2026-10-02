@@ -17,6 +17,7 @@ import GradeSheetTable from "./GradeSheetTable";
 import Select from "@/components/ui/Select";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
+import FloatingError from "@/components/ui/FloatingError";
 
 interface GradePublishDetailProps {
   classId: number | null;
@@ -144,7 +145,7 @@ export default function GradePublishDetail({ classId, classLabel, teacherName, o
         )}
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 m-4 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       {selectedSetupId && components.length > 0 ? (
         <GradeSheetTable

@@ -20,6 +20,7 @@ import {
 import { assignmentActionLabel, ASSIGNMENT_STATUS_META, assignmentStatusLabel, ASSIGNEE_TRANSITIONS } from "../statusMeta";
 import { useToast } from "@/lib/useToast";
 import Toast from "@/components/ui/Toast";
+import FloatingError from "@/components/ui/FloatingError";
 
 interface AssignmentDetailModalProps {
   assignment: TaskAssignmentResponse;
@@ -124,7 +125,7 @@ export default function AssignmentDetailModal({ assignment, onClose, onChanged }
         <p className="text-xs text-slate-500">{t("assignmentDetail.loading")}</p>
       ) : (
         <div className="space-y-4">
-          {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+          <FloatingError message={error} onClose={() => setError(null)} />
 
           <div className="space-y-1">
             <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block font-display">{t("assignmentDetail.descriptionLabel")}</span>

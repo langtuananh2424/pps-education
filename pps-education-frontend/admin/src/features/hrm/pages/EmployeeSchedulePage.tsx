@@ -26,6 +26,7 @@ import {
   getEmployeeScheduleOverview,
   listDepartments
 } from "../api";
+import FloatingError from "@/components/ui/FloatingError";
 
 function dayTypeLabel(t: (key: string) => string, dayType: WorkCalendarResponse["dayType"]): string {
   return t(`employeeSchedulePage.dayType.${dayType}`);
@@ -611,7 +612,7 @@ export default function EmployeeSchedulePage() {
             </div>
           </div>
 
-          {error && <div className="m-4 text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+          <FloatingError message={error} onClose={() => setError(null)} />
 
           {viewMode === "classGrid" ? (
             dateRange.length > MAX_CLASS_GRID_DAYS ? (

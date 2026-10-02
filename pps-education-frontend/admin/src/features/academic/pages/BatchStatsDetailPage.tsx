@@ -23,6 +23,7 @@ import { formatDateTime } from "@/lib/i18nFormat";
 import DatePicker from "@/components/ui/DatePicker";
 import Time24Input from "@/components/ui/Time24Input";
 import Modal from "@/components/ui/Modal";
+import FloatingError from "@/components/ui/FloatingError";
 
 const studentStatusVariants: Record<string, BadgeVariant> = {
   CHUA_LAM: "neutral",
@@ -190,7 +191,7 @@ export default function BatchStatsDetailPage() {
         </button>
         <Card>
           {error ? (
-            <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-lg">{error}</div>
+            <FloatingError message={error} />
           ) : loading ? (
             <p className="text-sm text-slate-500">{t("shared.loadingDetail")}</p>
           ) : (
@@ -275,7 +276,7 @@ export default function BatchStatsDetailPage() {
         )}
       </div>
 
-      {error && <div className="text-sm text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       <Card padded={false} className="overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-100 bg-slate-50">

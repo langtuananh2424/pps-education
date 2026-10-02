@@ -60,6 +60,7 @@ import ReviewVideoCatalogImportModal from "../components/ReviewVideoCatalogImpor
 import UnitSubTopicPicker from "../components/UnitSubTopicPicker";
 import ReflexQuestionFormatFields, { EMPTY_REFLEX_FORMAT, ReflexFormatValue, toFormatRequest } from "../components/ReflexQuestionFormatFields";
 import { useDialog } from "@/components/ui/DialogProvider";
+import FloatingError from "@/components/ui/FloatingError";
 
 const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
 const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
@@ -354,7 +355,7 @@ export function ReflexQuestionsBuilder({
         </div>
       )}
 
-      {draftError && <p className="text-[11px] text-rose-600 font-semibold">{draftError}</p>}
+      <FloatingError message={draftError} onClose={() => setDraftError(null)} />
 
       <ReflexQuestionFormatFields
         curriculumId={curriculumId}
@@ -487,7 +488,7 @@ function ConnectionQuizBuilder({ value, onChange }: { value: PendingConnectionQu
         </div>
       )}
 
-      {draftError && <p className="text-[11px] text-rose-600 font-semibold">{draftError}</p>}
+      <FloatingError message={draftError} onClose={() => setDraftError(null)} />
 
       <input value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder={t("lectures.common.promptPlaceholder")} className={inputClass} />
 
@@ -810,7 +811,7 @@ export default function LecturesPage() {
         </div>
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         <div className="lg:col-span-5 bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden flex flex-col">
@@ -1021,7 +1022,7 @@ function SetDetailPanel({
           </div>
           <Badge variant={statusVariants[set.status]}>{setStatusLabel(t, set.status)}</Badge>
         </div>
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        <FloatingError message={error} onClose={() => setError(null)} />
         <div className="flex items-center justify-between flex-wrap gap-2">
           <button
             onClick={() => setAssignClassOpen(true)}
@@ -1122,7 +1123,7 @@ function AssignClassModal({ setId, onClose }: { setId: number; onClose: () => vo
   return (
     <Modal open onClose={onClose} title={t("lectures.assignClass.title")} size="md">
       <p className="text-[11px] text-slate-500 mb-3">{t("lectures.assignClass.description")}</p>
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg mb-3">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
       {loading ? (
         <p className="text-xs text-slate-500 p-3 text-center">{t("lectures.common.loading")}</p>
       ) : classes.length === 0 ? (
@@ -1318,7 +1319,7 @@ function CreateSetModal({
   return (
     <Modal open onClose={onClose} title={t("lectures.createSet.title")} size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        <FloatingError message={error} onClose={() => setError(null)} />
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className={labelClass}>{t("lectures.createSet.fields.code")}</label>
@@ -1502,7 +1503,7 @@ function EditSetModal({
   return (
     <Modal open onClose={onClose} title={t("lectures.editSet.title", { code: set.code })} size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        <FloatingError message={error} onClose={() => setError(null)} />
         <div>
           <label className={labelClass}>{t("lectures.editSet.fields.title")}</label>
           <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className={inputClass} required />
@@ -1704,7 +1705,7 @@ function VideoListSection({ set }: { set: ReviewVideoSetResponse }) {
     <div className="px-5 py-4 border-b border-slate-100 space-y-4">
       <p className="text-xs font-bold text-slate-700 uppercase tracking-wide">{t("lectures.videoList.heading")}</p>
       <div className="space-y-4">
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        <FloatingError message={error} onClose={() => setError(null)} />
 
         {loading ? (
           <p className="text-xs text-slate-500">{t("lectures.common.loading")}</p>
@@ -1804,7 +1805,7 @@ function VideoListSection({ set }: { set: ReviewVideoSetResponse }) {
         }
       >
         <div className="space-y-3">
-          {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+          <FloatingError message={error} onClose={() => setError(null)} />
           <ConnectionThresholdFields value={editThresholds} onChange={setEditThresholds} videoType={set.videoType} />
         </div>
       </Modal>
@@ -2002,7 +2003,7 @@ function VideoQuestionsPanel({ videoId, curriculumId, video }: { videoId: number
 
   return (
     <div className="border-t border-slate-100 mt-2 pt-2 space-y-2">
-      {error && <div className="text-[11px] text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
       {loading ? (
         <p className="text-slate-400">{t("lectures.common.loadingQuestions")}</p>
       ) : questions.length === 0 ? (
@@ -2016,7 +2017,7 @@ function VideoQuestionsPanel({ videoId, curriculumId, video }: { videoId: number
                 onSubmit={(e) => handleUpdate(e, q.id, q.displayOrder)}
                 className="bg-white border border-brand-red/30 rounded-lg p-2.5 space-y-2"
               >
-                {editError && <div className="text-[11px] text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{editError}</div>}
+                <FloatingError message={editError} onClose={() => setEditError(null)} />
                 <ReflexQuestionFields value={editForm} onChange={setEditForm} curriculumId={curriculumId} video={video} />
                 <div className="flex justify-end gap-2">
                   <Button type="button" variant="secondary" size="sm" onClick={() => setEditingQuestionId(null)}>
@@ -2238,7 +2239,7 @@ function VideoMcqQuestionsPanel({ videoId }: { videoId: number }) {
 
   return (
     <div className="border-t border-slate-100 mt-2 pt-2 space-y-2">
-      {error && <div className="text-[11px] text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
       {loading ? (
         <p className="text-slate-400">{t("lectures.common.loadingQuestions")}</p>
       ) : questions.length === 0 ? (
@@ -2252,7 +2253,7 @@ function VideoMcqQuestionsPanel({ videoId }: { videoId: number }) {
                 onSubmit={(e) => handleUpdate(e, q.id, q.displayOrder)}
                 className="bg-white border border-brand-red/30 rounded-lg p-2.5 space-y-2"
               >
-                {editError && <div className="text-[11px] text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">{editError}</div>}
+                <FloatingError message={editError} onClose={() => setEditError(null)} />
                 <input value={editPrompt} onChange={(e) => setEditPrompt(e.target.value)} placeholder={t("lectures.common.promptPlaceholder")} className={inputClass} />
                 <div className="space-y-1.5">
                   {editChoices.map((c, idx) => (
@@ -2433,7 +2434,7 @@ function StatsModal({
   return (
     <Modal open onClose={onClose} title={t("lectures.stats.title", { title: set.title })} size="lg">
       <div className="space-y-4">
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        <FloatingError message={error} onClose={() => setError(null)} />
 
         {assignedClasses.length === 0 ? (
           <p className="text-xs text-slate-400 italic">{t("lectures.stats.notAssigned")}</p>

@@ -10,6 +10,7 @@ import DatePicker from "@/components/ui/DatePicker";
 import AvatarUploadField from "@/components/ui/AvatarUploadField";
 import { uploadMedia } from "@/features/lms/api";
 import Select from "@/components/ui/Select";
+import FloatingError from "@/components/ui/FloatingError";
 
 const TODAY_ISO = new Date().toISOString().slice(0, 10);
 
@@ -114,7 +115,7 @@ export default function StudentFormModal({ onClose, onCreated }: StudentFormModa
   return (
     <Modal open onClose={onClose} title={t("studentForm.modalTitle")} size="lg">
       <form onSubmit={handleSubmit} className="space-y-5">
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        <FloatingError message={error} onClose={() => setError(null)} />
 
         <div className="space-y-2 border-t border-slate-100 pt-4">
           <span className="text-[10px] font-bold uppercase text-slate-500">{t("studentForm.avatarLabel")}</span>

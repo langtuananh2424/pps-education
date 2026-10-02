@@ -5,6 +5,7 @@ import { ApiError } from "@/lib/apiClient";
 import Button from "@/components/ui/Button";
 import { formatDateTime } from "@/lib/i18nFormat";
 import { GradeReviewVideoSubmissionRequest, ReviewVideoSubmissionResponse, gradeReviewVideoSubmission } from "../api";
+import FloatingError from "@/components/ui/FloatingError";
 
 const DEFAULT_MAX_SCORE = 10;
 
@@ -89,7 +90,7 @@ export default function ReviewVideoGradingPanel({ submission, questionPrompt, vi
         <audio controls src={submission.audioUrl} className="w-full h-9" />
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       <form onSubmit={handleSubmit} className="space-y-4 pt-1">
         <div className="flex gap-3">

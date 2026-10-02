@@ -21,6 +21,7 @@ import {
   getTeacherProfile,
   listTeacherProfiles
 } from "../oversightApi";
+import FloatingError from "@/components/ui/FloatingError";
 
 const STATUS_BADGES: Record<TeacherProfileSummary["status"], BadgeVariant> = {
   ACTIVE: "success",
@@ -316,7 +317,7 @@ export default function TeacherProfilesPage() {
         />
       </div>
 
-      {error && <div className="bg-rose-50 border border-rose-200/80 rounded-xl p-4 text-rose-700 text-sm">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       <Card padded={false} className="overflow-hidden">
         {loading && teachers.length === 0 ? (
@@ -376,7 +377,7 @@ export default function TeacherProfilesPage() {
         size="lg"
       >
         {detailError ? (
-          <div className="bg-rose-50 border border-rose-200/80 rounded-xl p-4 text-rose-700 text-sm">{detailError}</div>
+          <FloatingError message={detailError} />
         ) : !detail ? (
           <div className="py-12 text-center text-slate-300"><IdCard className="w-10 h-10 mx-auto animate-pulse" /></div>
         ) : (

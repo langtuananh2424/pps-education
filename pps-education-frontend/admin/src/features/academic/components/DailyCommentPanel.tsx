@@ -51,6 +51,7 @@ import Select from "@/components/ui/Select";
 import DatePicker from "@/components/ui/DatePicker";
 import { formatTimeHm, toLocaleTag } from "@/lib/i18nFormat";
 import Time24Input from "@/components/ui/Time24Input";
+import FloatingError from "@/components/ui/FloatingError";
 
 const readOnlyFieldClass = "w-full bg-emerald-50/60 border border-emerald-200 text-xs p-2 rounded-lg text-slate-700 min-h-[34px]";
 /**
@@ -1472,7 +1473,7 @@ export default function DailyCommentPanel({ deepLinkSessionId = null, deepLinkSt
   return (
     <div className="space-y-4">
       <NotificationBanner message={notification} onClose={() => setNotification(null)} />
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
       <AttendanceReminderBanner />
 
       {/* Bỏ overflow-hidden ở đây (trước dùng để bo góc rounded-xl cho header bg-slate-50 bên dưới) —

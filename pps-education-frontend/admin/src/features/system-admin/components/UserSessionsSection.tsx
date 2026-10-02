@@ -8,6 +8,7 @@ import { useApp } from "@/context/AppContext";
 import { ApiError } from "@/lib/apiClient";
 import { formatDateTime } from "@/lib/i18nFormat";
 import { getUserSessions, revokeAllUserSessions, revokeUserSession, UserSessionResponse } from "../api";
+import FloatingError from "@/components/ui/FloatingError";
 
 /** Rút gọn User-Agent thành "Chrome · Windows" — chỉ nhận diện các trình duyệt/HĐH phổ biến, còn lại giữ nguyên chuỗi gốc ở tooltip. */
 function describeDevice(userAgent: string | null): { label: string; mobile: boolean } {
@@ -105,7 +106,7 @@ export default function UserSessionsSection({ userId, username }: { userId: numb
           </Button>
         )}
       </div>
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
       {loading ? (
         <p className="text-xs text-slate-500">{t("usersPage.detail.sessions.loading")}</p>
       ) : sessions.length === 0 ? (

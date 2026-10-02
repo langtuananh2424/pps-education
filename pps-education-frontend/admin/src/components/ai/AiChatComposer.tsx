@@ -1,6 +1,7 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { Mic, Paperclip, Send, Square, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import FloatingError from "@/components/ui/FloatingError";
 
 /** Mỗi lần gửi audio tối đa 5 phút (UC-74 A3, dùng chung cho mọi trợ lý AI — đã xác nhận với người dùng 2026-09-28). */
 export const MAX_AUDIO_SECONDS = 300;
@@ -145,7 +146,7 @@ const AiChatComposer = forwardRef<AiChatComposerHandle, Props>(function AiChatCo
 
   return (
     <div className="border-t border-slate-100 p-3 space-y-2">
-      {localError && <p className="text-[13px] text-rose-600">{localError}</p>}
+      <FloatingError message={localError} onClose={() => setLocalError(null)} />
       {recording && (
         <div className="flex items-center justify-between gap-2 bg-rose-50 border border-rose-100 rounded-lg px-3 py-2">
           <span className="flex items-center gap-2 text-sm font-semibold text-rose-600">

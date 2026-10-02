@@ -4,6 +4,8 @@ export type { BadgeVariant } from "./Badge";
 export { default as Card } from "./Card";
 export { default as StatCard } from "./StatCard";
 export { default as Modal } from "./Modal";
+export { default as FloatingError } from "./FloatingError";
+export { default as FloatingBanner, notifyError, notifySuccess } from "./FloatingBanner";
 export { default as TableContainer, Th, Td } from "./TableContainer";
 export { default as Tabs } from "./Tabs";
 export { default as Avatar } from "./Avatar";

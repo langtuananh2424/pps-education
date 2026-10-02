@@ -6,6 +6,7 @@ import Modal from "@/components/ui/Modal";
 import Select from "@/components/ui/Select";
 import { buildXlsxTemplateBlob, downloadBlob } from "@/lib/xlsxTemplate";
 import { BookCatalogImportResponse, ExamTeacherType, ExamType, importBookCatalog } from "../api";
+import FloatingError from "@/components/ui/FloatingError";
 
 const TEMPLATE_HEADERS = ["Tên sách", "Tên Unit", "Tên Sub Topic", "Mã Lesson", "Tên Lesson", "Loại giáo viên", "Mã exercise", "Tên exercise"];
 
@@ -148,7 +149,7 @@ export default function BookCatalogImportModal({ open, onClose, curriculumId, on
         </button>
         <input ref={inputRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => handleFile(e.target.files?.[0] ?? null)} />
 
-        {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+        <FloatingError message={error} onClose={() => setError(null)} />
 
         {result && (
           <div className="space-y-3">

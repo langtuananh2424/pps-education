@@ -5,6 +5,7 @@ import { UserPermissionOverrideSummary } from "../api";
 import TableContainer, { Td, Th } from "@/components/ui/TableContainer";
 import Badge from "@/components/ui/Badge";
 import { formatDateLong } from "@/lib/i18nFormat";
+import FloatingError from "@/components/ui/FloatingError";
 
 interface OverridesTableProps {
   overrides: UserPermissionOverrideSummary[];
@@ -33,7 +34,7 @@ export default function OverridesTable({ overrides, onRemove }: OverridesTablePr
       <div className="p-4 border-b bg-slate-50/20">
         <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block">{t("overridesTable.title", { count: overrides.length })}</span>
       </div>
-      {error && <div className="text-[11px] text-rose-600 bg-rose-50 border-b border-rose-100 p-2.5">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
       {overrides.length === 0 ? (
         <p className="text-xs text-slate-400 italic p-6 text-center">{t("overridesTable.empty")}</p>
       ) : (

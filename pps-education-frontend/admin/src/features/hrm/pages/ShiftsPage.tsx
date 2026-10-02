@@ -19,6 +19,7 @@ import {
   ShiftResponse
 } from "../api";
 import ShiftFormModal from "../components/ShiftFormModal";
+import FloatingError from "@/components/ui/FloatingError";
 
 function formatWeekdays(csv: string, t: (key: string) => string): string {
   return csv
@@ -92,7 +93,7 @@ export default function ShiftsPage() {
         )}
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       <TableContainer>
         <thead>
@@ -303,7 +304,7 @@ function BulkAssignShiftPanel({ shifts, onAssigned }: { shifts: ShiftResponse[];
         <span className="text-xs font-bold text-slate-700 font-display">{t("shiftsPage.bulkAssign.title")}</span>
       </div>
 
-      {error && <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-lg">{error}</div>}
+      <FloatingError message={error} onClose={() => setError(null)} />
 
       <div className="flex flex-wrap items-center gap-2">
         <Select
