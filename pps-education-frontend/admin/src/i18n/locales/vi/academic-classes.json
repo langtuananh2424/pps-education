@@ -15,7 +15,8 @@
       "PRIMARY": "Chính",
       "ASSISTANT": "Trợ giảng",
       "SUBSTITUTE": "Dạy thay",
-      "CM": "Quản lý lớp (CM)"
+      "CM": "Quản lý lớp (CM)",
+      "SCHEDULED": "Dạy theo lịch"
     },
     "teacherType": {
       "VIETNAMESE": "GV Việt Nam",

@@ -69,6 +69,7 @@
     "ASSISTANT": "Assistant",
     "SUBSTITUTE": "Substitute",
     "CM": "Class manager (CM)",
+    "SCHEDULED": "Scheduled teacher",
     "VIETNAMESE": "Vietnamese teacher",
     "FOREIGN": "Foreign teacher",
     "MALE": "Male",
@@ -196,7 +197,7 @@
   },
   "teachingStats": {
     "title": "Teaching statistics by teacher",
-    "description": "Classes, sessions, periods taught and check-in status of each teacher in the selected period.",
+    "description": "Classes, sessions, periods taught by role (primary / assistant / CM) and check-in status of each teacher in the selected period.",
     "allSites": "All campuses in scope",
     "fromDate": "From",
     "toDate": "To",
@@ -212,16 +213,27 @@
       "scheduled": "Scheduled",
       "held": "Held",
       "cancelled": "Cancelled",
-      "periods": "Periods taught",
+      "roles": "Roles",
+      "periods": "Periods as primary",
+      "assistantPeriods": "Periods as assistant",
+      "cmPeriods": "Periods as CM",
+      "totalPeriods": "Total periods",
       "onTime": "On-time check-ins",
       "late": "Late check-ins",
       "missing": "No check-in",
       "onTimeRate": "On-time rate"
     },
     "totals": "Total",
+    "roleLabels": {
+      "PRIMARY": "Primary",
+      "ASSISTANT": "Assistant",
+      "CM": "CM"
+    },
     "notes": {
       "held": "Held: not cancelled or rescheduled, and the start time has passed.",
-      "periods": "Periods taught: periods with their own teacher count for that teacher; the rest count for the session teacher.",
+      "roles": "Roles: the teacher's roles in sessions within the period — primary, assistant or CM.",
+      "periods": "Periods as primary: periods with their own teacher count for that teacher; the rest count for the session's primary teacher. Periods as assistant / CM: every period of a held session where the teacher is the assistant / CM.",
+      "primaryOnly": "Classes, sessions, check-ins and reports count the primary role only.",
       "checkIn": "Check-in data only exists since the Check-in feature went live — earlier sessions show as No check-in."
     }
   },

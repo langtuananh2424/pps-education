@@ -449,6 +449,57 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, Long
                                                          @Param("restrictSites") boolean restrictSites,
                                                          @Param("siteIds") Collection<Long> siteIds);
 
+    /**
+     * V209 (bổ sung ngoài SDD gốc, xác nhận với người dùng 2026-10-02) — số buổi và số tiết theo vai
+     * trò GIÁO VIÊN PHỤ (ASSISTANT) và CM của buổi học. Mỗi tiết của buổi tính trọn cho giáo viên phụ/CM
+     * (session_periods.teacher_id chỉ thay giáo viên CHÍNH của tiết). scheduledSessions/periodCount cùng
+     * điều kiện với aggregateTeacherSessionStats/countTaughtPeriodsByTeacher.
+     */
+    @Query(value = """
+            SELECT r.teacher_id AS teacherUserId, r.role AS role,
+                   COUNT(DISTINCT cs.id) FILTER (WHERE cs.status <> 'RESCHEDULED') AS scheduledSessions,
+                   COUNT(sp.id) FILTER (WHERE cs.status NOT IN ('CANCELLED', 'RESCHEDULED')
+                                          AND cs.session_date + cs.start_time <= :now) AS periodCount
+            FROM class_sessions cs
+            JOIN classes c ON c.id = cs.class_id AND c.deleted_at IS NULL
+            CROSS JOIN LATERAL (VALUES (cs.assistant_teacher_id, 'ASSISTANT'), (cs.cm_teacher_id, 'CM')) AS r(teacher_id, role)
+            LEFT JOIN session_periods sp ON sp.class_session_id = cs.id
+            WHERE r.teacher_id IS NOT NULL
+              AND cs.session_date BETWEEN :fromDate AND :toDate
+              AND (:siteId = 0 OR c.site_id = :siteId)
+              AND (:restrictSites = FALSE OR c.site_id IN (:siteIds))
+            GROUP BY r.teacher_id, r.role
+            """, nativeQuery = true)
+    List<TeacherSupportRoleStats> aggregateSupportRoleStats(@Param("fromDate") LocalDate fromDate,
+                                                            @Param("toDate") LocalDate toDate,
+                                                            @Param("now") LocalDateTime now,
+                                                            @Param("siteId") long siteId,
+                                                            @Param("restrictSites") boolean restrictSites,
+                                                            @Param("siteIds") Collection<Long> siteIds);
+
+    interface TeacherSupportRoleStats {
+        Long getTeacherUserId();
+        String getRole();
+        Long getScheduledSessions();
+        Long getPeriodCount();
+    }
+
+    /**
+     * V209 — giáo viên còn buổi học (chính/phụ/CM, không huỷ/không dời) ở lớp từ ngày sinceDate trở đi
+     * không — job tự thu hồi phân công "Dạy theo lịch" (ScheduledTeacherAssignmentService).
+     */
+    @Query(value = """
+            SELECT EXISTS (
+                SELECT 1 FROM class_sessions cs
+                WHERE cs.class_id = :classId
+                  AND :teacherId IN (cs.primary_teacher_id, cs.assistant_teacher_id, cs.cm_teacher_id)
+                  AND cs.status NOT IN ('CANCELLED', 'RESCHEDULED')
+                  AND cs.session_date >= :sinceDate)
+            """, nativeQuery = true)
+    boolean existsActiveSessionForTeacherSince(@Param("classId") Long classId,
+                                               @Param("teacherId") Long teacherId,
+                                               @Param("sinceDate") LocalDate sinceDate);
+
     /** V203 — buổi học trong 1 ngày kèm trạng thái nhận lớp, cho dashboard Trưởng phòng đào tạo. */
     @Query(value = """
             SELECT cs.id AS sessionId, c.id AS classId, c.name AS className, c.class_code AS classCode,

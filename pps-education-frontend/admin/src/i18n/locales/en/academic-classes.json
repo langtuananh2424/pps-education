@@ -15,7 +15,8 @@
       "PRIMARY": "Primary",
       "ASSISTANT": "Assistant",
       "SUBSTITUTE": "Substitute",
-      "CM": "Class Manager (CM)"
+      "CM": "Class Manager (CM)",
+      "SCHEDULED": "Scheduled teacher"
     },
     "teacherType": {
       "VIETNAMESE": "Vietnamese teacher",
