@@ -75,7 +75,7 @@ export default function PublicLeaveRequestForm({ onClose }: PublicLeaveRequestFo
         </button>
         <div>
           <h3 className="text-sm font-bold text-slate-850 uppercase tracking-wide">{t("publicLeave.title")}</h3>
-          <p className="text-[10px] text-slate-400 font-medium">{t("publicLeave.subtitle")}</p>
+          <p className="text-[12px] text-slate-400 font-medium">{t("publicLeave.subtitle")}</p>
         </div>
       </div>
 
@@ -85,8 +85,8 @@ export default function PublicLeaveRequestForm({ onClose }: PublicLeaveRequestFo
             <Check className="w-5 h-5 stroke-[3]" />
           </div>
           <div className="space-y-1">
-            <h4 className="text-xs font-bold text-slate-900 uppercase">{t("publicLeave.successTitle")}</h4>
-            <p className="text-[11px] text-slate-500 leading-relaxed font-medium">{t("publicLeave.successMessage")}</p>
+            <h4 className="text-sm font-bold text-slate-900 uppercase">{t("publicLeave.successTitle")}</h4>
+            <p className="text-[13px] text-slate-500 leading-relaxed font-medium">{t("publicLeave.successMessage")}</p>
           </div>
 
           <div className="pt-2 flex flex-col gap-2">
@@ -96,14 +96,14 @@ export default function PublicLeaveRequestForm({ onClose }: PublicLeaveRequestFo
                 setSuccess(false);
                 setReason("");
               }}
-              className="w-full bg-[#EA580C] hover:bg-[#D94E07] text-white font-bold text-xs py-2.5 rounded-full transition-all cursor-pointer text-center shadow-sm"
+              className="w-full bg-[#EA580C] hover:bg-[#D94E07] text-white font-bold text-sm py-2.5 rounded-full transition-all cursor-pointer text-center shadow-sm"
             >
               {t("publicLeave.submitAnother")}
             </button>
             <button
               type="button"
               onClick={onClose}
-              className="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs py-2.5 rounded-full transition-all cursor-pointer text-center"
+              className="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-sm py-2.5 rounded-full transition-all cursor-pointer text-center"
             >
               {t("publicLeave.backToLogin")}
             </button>
@@ -112,11 +112,11 @@ export default function PublicLeaveRequestForm({ onClose }: PublicLeaveRequestFo
       ) : (
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="space-y-1">
-            <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500 block">{t("publicLeave.selectEmployee")}</label>
+            <label className="text-[12px] uppercase font-bold tracking-wider text-slate-500 block">{t("publicLeave.selectEmployee")}</label>
             <Select
               value={empId}
               onChange={(e) => setEmpId(e.target.value)}
-              className="w-full bg-slate-50/50 border border-slate-200 text-xs px-4 py-2.5 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#EA580C]"
+              className="w-full bg-slate-50/50 border border-slate-200 text-sm px-4 py-2.5 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#EA580C]"
             >
               {mockEmployees.map((emp) => (
                 <option key={emp.id} value={emp.id}>
@@ -127,11 +127,11 @@ export default function PublicLeaveRequestForm({ onClose }: PublicLeaveRequestFo
           </div>
 
           <div className="space-y-1">
-            <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500 block">{t("publicLeave.leaveTypeLabel")}</label>
+            <label className="text-[12px] uppercase font-bold tracking-wider text-slate-500 block">{t("publicLeave.leaveTypeLabel")}</label>
             <Select
               value={leaveType}
               onChange={(e) => setLeaveType(e.target.value as "LEAVE" | "LATE" | "EARLY")}
-              className="w-full bg-slate-50/50 border border-slate-200 text-xs px-4 py-2.5 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#EA580C]"
+              className="w-full bg-slate-50/50 border border-slate-200 text-sm px-4 py-2.5 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#EA580C]"
             >
               <option value="LEAVE">{t("publicLeave.leaveTypeFull")}</option>
               <option value="LATE">{t("publicLeave.leaveTypeLate")}</option>
@@ -141,30 +141,30 @@ export default function PublicLeaveRequestForm({ onClose }: PublicLeaveRequestFo
 
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
-              <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500 block">{t("publicLeave.fromDate")}</label>
+              <label className="text-[12px] uppercase font-bold tracking-wider text-slate-500 block">{t("publicLeave.fromDate")}</label>
               <DatePicker value={startDate} onChange={setStartDate} max={endDate || undefined} />
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500 block">{t("publicLeave.toDate")}</label>
+              <label className="text-[12px] uppercase font-bold tracking-wider text-slate-500 block">{t("publicLeave.toDate")}</label>
               <DatePicker value={endDate} onChange={setEndDate} min={startDate || undefined} />
             </div>
           </div>
 
           <div className="space-y-1">
-            <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500 block">{t("publicLeave.reasonLabel")}</label>
+            <label className="text-[12px] uppercase font-bold tracking-wider text-slate-500 block">{t("publicLeave.reasonLabel")}</label>
             <textarea
               required
               rows={2}
               placeholder={t("publicLeave.reasonPlaceholder")}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              className="w-full bg-slate-50/50 border border-slate-200 text-xs px-4 py-2 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#EA580C] text-slate-850"
+              className="w-full bg-slate-50/50 border border-slate-200 text-sm px-4 py-2 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#EA580C] text-slate-850"
             />
           </div>
 
           <button
             type="submit"
-            className="w-full bg-[#EA580C] hover:bg-[#D94E07] text-white font-bold text-xs py-3 rounded-full flex items-center justify-center gap-1.5 shadow-md mt-4 transition-all"
+            className="w-full bg-[#EA580C] hover:bg-[#D94E07] text-white font-bold text-sm py-3 rounded-full flex items-center justify-center gap-1.5 shadow-md mt-4 transition-all"
           >
             <FileText className="w-4 h-4 text-white" />
             <span>{t("publicLeave.submit")}</span>

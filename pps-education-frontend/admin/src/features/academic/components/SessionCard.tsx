@@ -60,9 +60,9 @@ export default function SessionCard({ session, siteName, checkInStatus, onChecke
   const hasSubstitution = hasTeacherSubstitution(session);
 
   return (
-    <div className="border border-slate-150 rounded-lg p-2.5 space-y-1 text-xs">
+    <div className="border border-slate-150 rounded-lg p-2.5 space-y-1 text-sm">
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <span className="font-mono text-[10px] font-bold text-slate-600">{session.startTime.slice(0, 5)}–{session.endTime.slice(0, 5)}</span>
+        <span className="font-mono text-[12px] font-bold text-slate-600">{session.startTime.slice(0, 5)}–{session.endTime.slice(0, 5)}</span>
         <div className="flex items-center gap-1.5 flex-wrap justify-end">
           <Badge variant={sessionStatusVariants[session.status] ?? "neutral"}>{session.status}</Badge>
           {checkInStatus && session.status !== "CANCELLED" && session.status !== "RESCHEDULED" && (
@@ -74,18 +74,18 @@ export default function SessionCard({ session, siteName, checkInStatus, onChecke
         </div>
       </div>
       <p className="font-bold text-slate-800">{session.className}</p>
-      <p className="text-[11px] text-slate-500 flex items-center gap-1">
+      <p className="text-[13px] text-slate-500 flex items-center gap-1">
         <Building2 className="w-3 h-3 text-slate-400 shrink-0" />
         {siteName ?? t("myTeachingSchedule.loadingSite")}
       </p>
-      <p className="text-[11px] text-slate-500 flex items-center gap-1">
+      <p className="text-[13px] text-slate-500 flex items-center gap-1">
         <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
         {session.roomName ?? t("myTeachingSchedule.unassignedRoom")}
       </p>
       {hasSubstitution && (
-        <p className="text-[10px] font-bold line-through bg-amber-100 text-amber-700 px-1 rounded w-fit">{session.originalTeacherName}</p>
+        <p className="text-[12px] font-bold line-through bg-amber-100 text-amber-700 px-1 rounded w-fit">{session.originalTeacherName}</p>
       )}
-      <p className="text-[11px] font-bold text-green-600">
+      <p className="text-[13px] font-bold text-green-600">
         {t("myTeachingSchedule.teacherLine", {
           teacher: displayTeacherName,
           type: session.teacherType ? ` (${teacherTypeLabel(t, session.teacherType)})` : "",
@@ -93,7 +93,7 @@ export default function SessionCard({ session, siteName, checkInStatus, onChecke
         })}
       </p>
       {(session.assistantTeacherName || cmDisplayName) && (
-        <p className="text-[11px] text-slate-400">
+        <p className="text-[13px] text-slate-400">
           {session.assistantTeacherName && <>GV phụ: {session.assistantTeacherName}</>}
           {session.assistantTeacherName && cmDisplayName && " · "}
           {cmDisplayName && <>CM: {cmDisplayName}</>}

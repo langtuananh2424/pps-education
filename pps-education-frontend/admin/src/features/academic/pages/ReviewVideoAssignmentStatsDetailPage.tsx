@@ -197,14 +197,14 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
           <h1 className="text-2xl font-bold font-display text-slate-900">{assignment.reviewVideoSetTitle}</h1>
           <Badge variant="info">{reviewVideoTypeLabels[assignment.videoType]}</Badge>
         </div>
-        <p className="text-xs text-slate-500 mt-1">{assignment.reviewVideoSetCode}</p>
+        <p className="text-sm text-slate-500 mt-1">{assignment.reviewVideoSetCode}</p>
         <div className="flex items-center gap-3 mt-2">
           {assignment.dueAt && (
-            <span className="text-xs text-slate-500">
+            <span className="text-sm text-slate-500">
               {t("reviewVideoDetail.dueAtLabel")}: {formatDateTime(assignment.dueAt, i18n.language)}
             </span>
           )}
-          <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+          <label className="flex items-center gap-1.5 text-sm font-semibold text-slate-600">
             <input
               type="checkbox"
               checked={assignment.lateSubmissionAllowed}
@@ -217,7 +217,7 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
         </div>
         {assignment.lateSubmissionAllowed && canConfirmDeadline && (
           <div className="flex items-center gap-2 mt-2">
-            <span className="text-xs font-semibold text-slate-500">{t("reviewVideoDetail.lateSubmissionDeadlineLabel")}</span>
+            <span className="text-sm font-semibold text-slate-500">{t("reviewVideoDetail.lateSubmissionDeadlineLabel")}</span>
             <DatePicker
               value={deadlineDate}
               min={assignment.dueAt ? assignment.dueAt.slice(0, 10) : undefined}
@@ -235,7 +235,7 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
               value={deadlineTime}
               disabled={!deadlineDate || togglingLateSubmission}
               onChange={setDeadlineTime}
-              className="bg-white border border-slate-200 text-xs px-2 py-1.5 rounded-lg focus:outline-none disabled:opacity-40"
+              className="bg-white border border-slate-200 text-sm px-2 py-1.5 rounded-lg focus:outline-none disabled:opacity-40"
             />
             {hasPendingDeadlineChange && (
               <Button variant="primary" size="sm" onClick={() => setConfirmDeadlineOpen(true)} disabled={togglingLateSubmission}>
@@ -315,7 +315,7 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
                   {students.map((s) => (
                     <tr key={s.studentId}>
                       <Td className="font-semibold text-slate-900">
-                        {s.studentFullName} <span className="text-slate-400 font-mono text-[10px]">({s.studentCode})</span>
+                        {s.studentFullName} <span className="text-slate-400 font-mono text-[12px]">({s.studentCode})</span>
                       </Td>
                       <Td className="text-center">
                         {t("reviewVideoDetail.table.viewCountSuffix", { viewed: s.viewCount, required: s.requiredViewCount })}
@@ -408,14 +408,14 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
           <>
             <button
               onClick={handleCancelDeadlineChange}
-              className="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold text-xs px-4 py-2 rounded-lg transition-all"
+              className="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold text-sm px-4 py-2 rounded-lg transition-all"
             >
               {t("reviewVideoDetail.confirmDeadline.cancel")}
             </button>
             <button
               onClick={handleConfirmDeadlineChange}
               disabled={togglingLateSubmission}
-              className="bg-brand-orange hover:bg-brand-orange/90 text-white font-semibold text-xs px-4 py-2 rounded-lg transition-all disabled:opacity-50"
+              className="bg-brand-orange hover:bg-brand-orange/90 text-white font-semibold text-sm px-4 py-2 rounded-lg transition-all disabled:opacity-50"
             >
               {t("reviewVideoDetail.confirmDeadline.confirmButton")}
             </button>
@@ -424,7 +424,7 @@ export default function ReviewVideoAssignmentStatsDetailPage() {
       >
         <div className="flex items-start gap-3">
           <ShieldAlert className="w-8 h-8 text-amber-500 shrink-0" />
-          <div className="text-xs text-slate-600 leading-relaxed">
+          <div className="text-sm text-slate-600 leading-relaxed">
             {pendingDeadlineIso &&
               t("reviewVideoDetail.confirmDeadline.description", { deadline: formatDateTime(pendingDeadlineIso, i18n.language) })}
           </div>
@@ -495,7 +495,7 @@ function ReflexStudentHistoryModal({
         ) : (
           questionGroups.map((group) => (
             <div key={group.order} className="border border-slate-200 rounded-lg p-3 space-y-2">
-              <p className="text-xs font-semibold text-slate-700">
+              <p className="text-sm font-semibold text-slate-700">
                 {t("reviewVideoDetail.reflexHistoryModal.questionLabel", { order: group.order, prompt: group.prompt })}
               </p>
               <div className="space-y-2">
@@ -520,21 +520,21 @@ function ReflexHistoryEntryRow({ entry, language }: { entry: ReflexQuestionProgr
   return (
     <div className="bg-slate-50 border border-slate-100 rounded-lg p-2.5 space-y-1.5">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-semibold text-slate-600">
+        <span className="text-sm font-semibold text-slate-600">
           {isSpeaking
             ? t("reviewVideoDetail.reflexHistoryModal.speakingAttempt", { attempt: entry.attemptNumber })
             : t("reviewVideoDetail.reflexHistoryModal.writingAttempt", { attempt: entry.attemptNumber })}
         </span>
-        <span className="text-[11px] text-slate-500">
+        <span className="text-[13px] text-slate-500">
           {entry.score != null && entry.maxScore != null
             ? t("reviewVideoDetail.reflexHistoryModal.score", { score: entry.score, maxScore: entry.maxScore })
             : t("reviewVideoDetail.reflexHistoryModal.notGradedYet")}
         </span>
       </div>
-      {entry.gradedAt && <p className="text-[10px] text-slate-400">{t("reviewVideoDetail.reflexHistoryModal.gradedAt", { time: formatDateTime(entry.gradedAt, language) })}</p>}
+      {entry.gradedAt && <p className="text-[12px] text-slate-400">{t("reviewVideoDetail.reflexHistoryModal.gradedAt", { time: formatDateTime(entry.gradedAt, language) })}</p>}
 
       {isSpeaking && entry.grammarReviewRequired && (
-        <div className="text-[11px] text-rose-700 bg-rose-50 border border-rose-100 rounded-md p-2 space-y-1">
+        <div className="text-[13px] text-rose-700 bg-rose-50 border border-rose-100 rounded-md p-2 space-y-1">
           <p className="font-semibold">
             <ShieldAlert className="w-3.5 h-3.5 inline mr-1" />
             {t("reviewVideoDetail.reflexHistoryModal.grammarReviewTitle")}
@@ -551,14 +551,14 @@ function ReflexHistoryEntryRow({ entry, language }: { entry: ReflexQuestionProgr
       )}
 
       {!isSpeaking && entry.answerText && (
-        <p className="text-xs text-slate-700">
+        <p className="text-sm text-slate-700">
           <span className="font-semibold">{t("reviewVideoDetail.reflexHistoryModal.answerTextLabel")}: </span>
           {entry.answerText}
         </p>
       )}
 
       {isSpeaking && entry.recordingFilter != null && (
-        <p className="text-[10px] text-slate-400">
+        <p className="text-[12px] text-slate-400">
           {entry.recordingFilter
             ? t("reviewVideoDetail.reflexHistoryModal.recordingFiltered")
             : t("reviewVideoDetail.reflexHistoryModal.recordingRaw")}
@@ -569,18 +569,18 @@ function ReflexHistoryEntryRow({ entry, language }: { entry: ReflexQuestionProgr
         (entry.audioUrl ? (
           <audio controls src={entry.audioUrl} className="w-full h-8" />
         ) : (
-          <p className="text-[11px] text-slate-400 italic">{t("reviewVideoDetail.reflexHistoryModal.audioNotAvailable")}</p>
+          <p className="text-[13px] text-slate-400 italic">{t("reviewVideoDetail.reflexHistoryModal.audioNotAvailable")}</p>
         ))}
 
       {isSpeaking && entry.transcript && (
-        <p className="text-xs text-slate-700">
+        <p className="text-sm text-slate-700">
           <span className="font-semibold">{t("reviewVideoDetail.reflexHistoryModal.transcriptLabel")}: </span>
           {entry.transcript}
         </p>
       )}
 
       {entry.feedback && (
-        <p className="text-xs text-slate-600">
+        <p className="text-sm text-slate-600">
           <span className="font-semibold">{t("reviewVideoDetail.reflexHistoryModal.feedbackLabel")}: </span>
           {entry.feedback}
         </p>
@@ -589,14 +589,14 @@ function ReflexHistoryEntryRow({ entry, language }: { entry: ReflexQuestionProgr
       {/* V204 (bổ sung ngoài SDD gốc, bản bàn giao 30/9, §D.5) — "cách luyện" đã hiện cho học sinh ở lần
           chấm này, tách khỏi feedback, để giáo viên đối chiếu khi cần. */}
       {entry.hint && (
-        <p className="text-xs text-teal-700">
+        <p className="text-sm text-teal-700">
           <span className="font-semibold">{t("reviewVideoDetail.reflexHistoryModal.hintLabel")}: </span>
           {entry.hint}
         </p>
       )}
 
       {isSpeaking && entry.criteriaScores && entry.criteriaScores.length > 0 && (
-        <div className="text-[11px] text-slate-600">
+        <div className="text-[13px] text-slate-600">
           <span className="font-semibold">{t("reviewVideoDetail.reflexHistoryModal.criteriaLabel")}: </span>
           <ul className="list-disc list-inside">
             {entry.criteriaScores.map((c) => (
@@ -626,7 +626,7 @@ function QuestionRow({
       <button onClick={onToggle} className="w-full flex items-center justify-between gap-3 p-2.5 text-left hover:bg-slate-50">
         <div className="flex items-center gap-2 min-w-0">
           {expanded ? <ChevronDown className="w-3.5 h-3.5 shrink-0 text-slate-400" /> : <ChevronRight className="w-3.5 h-3.5 shrink-0 text-slate-400" />}
-          <span className="text-xs text-slate-700 truncate">
+          <span className="text-sm text-slate-700 truncate">
             {t("shared.questionRow.questionLabel", { order: question.displayOrder, text: question.prompt })}
             {question.reviewVideoTitle && (
               <span className="text-slate-400">
@@ -649,9 +649,9 @@ function QuestionRow({
       {expanded && (
         <div className="px-4 pb-3 pl-11">
           {question.wrongStudents.length === 0 ? (
-            <p className="text-[11px] text-slate-400 italic">{t("shared.questionRow.noWrongStudents")}</p>
+            <p className="text-[13px] text-slate-400 italic">{t("shared.questionRow.noWrongStudents")}</p>
           ) : (
-            <ul className="text-[11px] text-slate-600 space-y-1">
+            <ul className="text-[13px] text-slate-600 space-y-1">
               {question.wrongStudents.map((s) => (
                 <li key={s.studentId}>
                   {s.studentFullName} <span className="text-slate-400 font-mono">({s.studentCode})</span>

@@ -104,7 +104,7 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
           }
           size="md"
         >
-          <p className="text-xs text-slate-700 whitespace-pre-wrap leading-relaxed">{request.message}</p>
+          <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{request.message}</p>
 
           {request.kind === "prompt" &&
             (request.options?.multiline ? (
@@ -114,7 +114,7 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
                 onChange={(e) => setInputValue(e.target.value)}
                 placeholder={request.options?.placeholder}
                 rows={3}
-                className="w-full mt-3 bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
+                className="w-full mt-3 bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none"
               />
             ) : (
               <input
@@ -122,7 +122,7 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 placeholder={request.options?.placeholder}
-                className="w-full mt-3 bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none"
+                className="w-full mt-3 bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none"
               />
             ))}
 

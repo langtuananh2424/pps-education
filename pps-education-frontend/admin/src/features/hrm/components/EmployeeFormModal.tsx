@@ -14,9 +14,9 @@ import FloatingError from "@/components/ui/FloatingError";
 
 const TODAY_ISO = new Date().toISOString().slice(0, 10);
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
-const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-xs p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
+const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-sm p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
+const labelClass = "text-[12px] uppercase font-bold text-slate-500 block mb-1";
 
 interface EmployeeFormModalProps {
   onClose: () => void;
@@ -112,7 +112,7 @@ export default function EmployeeFormModal({ onClose, onCreated }: EmployeeFormMo
       <form onSubmit={handleSubmit} className="space-y-5">
         <FloatingError message={error} onClose={() => setError(null)} />
         <div className="space-y-2 border-t border-slate-100 pt-4">
-          <span className="text-[10px] font-bold uppercase text-slate-500">{t("employeeForm.avatarLabel")}</span>
+          <span className="text-[12px] font-bold uppercase text-slate-500">{t("employeeForm.avatarLabel")}</span>
           <AvatarUploadField
             value={form.portraitUrl}
             onChange={(url) => setForm({ ...form, portraitUrl: url })}
@@ -121,12 +121,12 @@ export default function EmployeeFormModal({ onClose, onCreated }: EmployeeFormMo
           />
         </div>
         <div className="space-y-2">
-          <span className="text-[10px] font-bold uppercase text-slate-500">{t("employeeForm.accountSectionTitle")}</span>
+          <span className="text-[12px] font-bold uppercase text-slate-500">{t("employeeForm.accountSectionTitle")}</span>
           <AccountSelector value={account} onChange={setAccount} submitAttempted={submitAttempted} />
         </div>
 
         <div className="space-y-3 border-t border-slate-100 pt-4">
-          <span className="text-[10px] font-bold uppercase text-slate-500">{t("employeeForm.infoSectionTitle")}</span>
+          <span className="text-[12px] font-bold uppercase text-slate-500">{t("employeeForm.infoSectionTitle")}</span>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelClass}>{t("employeeForm.codeLabel")}</label>
@@ -136,7 +136,7 @@ export default function EmployeeFormModal({ onClose, onCreated }: EmployeeFormMo
                 onBlur={() => markTouched("employeeCode")}
                 className={`${employeeCodeInvalid ? inputErrorClass : inputClass} font-mono`}
               />
-              {employeeCodeInvalid && <p className="text-[10px] text-rose-600 mt-1">{t("employeeForm.codeRequired")}</p>}
+              {employeeCodeInvalid && <p className="text-[12px] text-rose-600 mt-1">{t("employeeForm.codeRequired")}</p>}
             </div>
             <div>
               <label className={labelClass}>{t("employeeForm.employeeTypeLabel")}</label>
@@ -157,7 +157,7 @@ export default function EmployeeFormModal({ onClose, onCreated }: EmployeeFormMo
                 max={TODAY_ISO}
                 hasError={dateOfBirthInvalid}
               />
-              {dateOfBirthInvalid && <p className="text-[10px] text-rose-600 mt-1">{t("employeeForm.dobRequired")}</p>}
+              {dateOfBirthInvalid && <p className="text-[12px] text-rose-600 mt-1">{t("employeeForm.dobRequired")}</p>}
             </div>
             <div>
               <label className={labelClass}>{t("employeeForm.hireDateLabel")}</label>
@@ -169,7 +169,7 @@ export default function EmployeeFormModal({ onClose, onCreated }: EmployeeFormMo
                 }}
                 hasError={hireDateInvalid}
               />
-              {hireDateInvalid && <p className="text-[10px] text-rose-600 mt-1">{t("employeeForm.hireDateRequired")}</p>}
+              {hireDateInvalid && <p className="text-[12px] text-rose-600 mt-1">{t("employeeForm.hireDateRequired")}</p>}
             </div>
             <div>
               <label className={labelClass}>{t("employeeForm.positionLabel")}</label>
@@ -181,7 +181,7 @@ export default function EmployeeFormModal({ onClose, onCreated }: EmployeeFormMo
                   </option>
                 ))}
               </Select>
-              {positions.length === 0 && <p className="text-[10px] text-slate-400 mt-1">{t("employeeForm.positionEmptyHint")}</p>}
+              {positions.length === 0 && <p className="text-[12px] text-slate-400 mt-1">{t("employeeForm.positionEmptyHint")}</p>}
             </div>
             <div>
               <label className={labelClass}>{t("employeeForm.departmentLabel")}</label>
@@ -231,7 +231,7 @@ export default function EmployeeFormModal({ onClose, onCreated }: EmployeeFormMo
               <input value={form.socialInsuranceNumber} onChange={(e) => setForm({ ...form, socialInsuranceNumber: e.target.value })} className={inputClass} />
             </div>
           </div>
-          <label className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+          <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
             <input type="checkbox" checked={form.isManagement} onChange={(e) => setForm({ ...form, isManagement: e.target.checked })} />
             {t("employeeForm.managementExemptCheckbox")}
           </label>

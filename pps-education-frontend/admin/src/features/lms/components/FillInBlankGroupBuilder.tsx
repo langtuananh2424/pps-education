@@ -8,8 +8,8 @@ import Select from "@/components/ui/Select";
 import { QuestionResponse, createExamQuestion, uploadMedia } from "../api";
 import FloatingError from "@/components/ui/FloatingError";
 
-const inputClass = "w-full bg-white border border-slate-200 text-xs px-3.5 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-red";
-const labelClass = "block font-bold text-slate-700 mb-1 uppercase tracking-wider text-[10px]";
+const inputClass = "w-full bg-white border border-slate-200 text-sm px-3.5 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-red";
+const labelClass = "block font-bold text-slate-700 mb-1 uppercase tracking-wider text-[12px]";
 
 interface QuestionRow {
   content: string;
@@ -164,7 +164,7 @@ export default function FillInBlankGroupBuilder({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+    <form onSubmit={handleSubmit} className="space-y-4 text-sm">
       <FloatingError message={error} onClose={() => setError(null)} />
 
       {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-03 — chỉ hiện khi Bài đang soạn đã có sẵn ≥1 nhóm điền từ (existingGroups), cho GV chọn thêm câu vào nhóm cũ thay vì luôn tạo nhóm mới. */}
@@ -179,13 +179,13 @@ export default function FillInBlankGroupBuilder({
               </option>
             ))}
           </Select>
-          {isAppending && <p className="text-[10px] text-slate-400 mt-1">{t("fillInBlankGroupBuilder.appendTargetHint")}</p>}
+          {isAppending && <p className="text-[12px] text-slate-400 mt-1">{t("fillInBlankGroupBuilder.appendTargetHint")}</p>}
         </div>
       )}
 
       <div>
         <label className={labelClass}>{t("fillInBlankGroupBuilder.sharedNoteLabel")}</label>
-        <p className="text-[9px] text-slate-400 mb-1">{t("fillInBlankGroupBuilder.sharedNoteHint")}</p>
+        <p className="text-[13px] text-slate-400 mb-1">{t("fillInBlankGroupBuilder.sharedNoteHint")}</p>
         <textarea
           value={sharedNote}
           onChange={(e) => setSharedNote(e.target.value)}
@@ -198,7 +198,7 @@ export default function FillInBlankGroupBuilder({
 
       <div className="bg-amber-50/40 p-4 rounded-xl border border-amber-200 space-y-2">
         <label className={labelClass}>{t("fillInBlankGroupBuilder.wordBoxLabel")}</label>
-        <p className="text-[9px] text-slate-400 mb-1">{t("fillInBlankGroupBuilder.wordBoxHint")}</p>
+        <p className="text-[13px] text-slate-400 mb-1">{t("fillInBlankGroupBuilder.wordBoxHint")}</p>
         <div className="flex flex-wrap gap-1.5">
           {sharedWordBox.map((w, idx) => (
             <div key={idx} className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg pl-2.5 pr-1 py-1">
@@ -207,7 +207,7 @@ export default function FillInBlankGroupBuilder({
                 onChange={(e) => setSharedWordBox((prev) => prev.map((x, i) => (i === idx ? e.target.value : x)))}
                 placeholder={t("fillInBlankGroupBuilder.wordBoxItemPlaceholder")}
                 disabled={isAppending}
-                className="text-xs w-24 focus:outline-none disabled:opacity-60"
+                className="text-sm w-24 focus:outline-none disabled:opacity-60"
               />
               <button
                 type="button"
@@ -226,12 +226,12 @@ export default function FillInBlankGroupBuilder({
       </div>
 
       <div className="space-y-2">
-        <span className="font-bold text-slate-700 uppercase tracking-wider text-[9px] block">{t("fillInBlankGroupBuilder.questionsSectionTitle")}</span>
+        <span className="font-bold text-slate-700 uppercase tracking-wider text-[13px] block">{t("fillInBlankGroupBuilder.questionsSectionTitle")}</span>
         <div className="border border-slate-200 rounded-lg divide-y divide-slate-100">
           {questions.map((q, idx) => (
             <div key={idx} className="p-3 space-y-2">
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold text-slate-500 w-6 shrink-0">{idx + 1}.</span>
+                <span className="text-[12px] font-bold text-slate-500 w-6 shrink-0">{idx + 1}.</span>
                 <input
                   required
                   value={q.content}

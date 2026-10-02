@@ -65,7 +65,7 @@ export default function ContextMenu({ x, y, items, onClose }: ContextMenuProps) 
             item.onClick();
             onClose();
           }}
-          className={`w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-left hover:bg-slate-50 transition-colors ${
+          className={`w-full flex items-center gap-2 px-3 py-2 text-sm font-semibold text-left hover:bg-slate-50 transition-colors ${
             item.danger ? "text-rose-600" : "text-slate-700"
           }`}
         >

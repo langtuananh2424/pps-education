@@ -17,8 +17,8 @@ export default function SiteAcademicPeriodsTab({ siteId, siteName }: { siteId: n
   return (
     <div className="space-y-4">
       <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-1">
-        <span className="text-[10px] uppercase font-bold text-slate-500">Học kỳ (theo điểm trường này)</span>
-        <p className="text-xs text-slate-500">Quản lý danh sách kỳ học (mã, tên, khoảng ngày) riêng cho {siteName}.</p>
+        <span className="text-[12px] uppercase font-bold text-slate-500">Học kỳ (theo điểm trường này)</span>
+        <p className="text-sm text-slate-500">Quản lý danh sách kỳ học (mã, tên, khoảng ngày) riêng cho {siteName}.</p>
       </div>
       <Button size="sm" variant="secondary" onClick={() => setTermsOpen(true)}>
         <CalendarRange className="w-3.5 h-3.5" />
@@ -26,8 +26,8 @@ export default function SiteAcademicPeriodsTab({ siteId, siteName }: { siteId: n
       </Button>
 
       <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-1">
-        <span className="text-[10px] uppercase font-bold text-slate-500">Năm học (dùng chung toàn hệ thống)</span>
-        <p className="text-xs text-slate-500">Danh mục năm học dùng chung cho mọi điểm trường (lớp/điểm/nhận xét đều tham chiếu).</p>
+        <span className="text-[12px] uppercase font-bold text-slate-500">Năm học (dùng chung toàn hệ thống)</span>
+        <p className="text-sm text-slate-500">Danh mục năm học dùng chung cho mọi điểm trường (lớp/điểm/nhận xét đều tham chiếu).</p>
       </div>
       <Button size="sm" variant="secondary" onClick={() => setYearsOpen(true)}>
         <GraduationCap className="w-3.5 h-3.5" />

@@ -10,9 +10,9 @@ import DatePicker from "@/components/ui/DatePicker";
 import Select from "@/components/ui/Select";
 import FloatingError from "@/components/ui/FloatingError";
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
-const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-xs p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
+const inputErrorClass = "w-full bg-rose-50/40 border border-rose-400 text-sm p-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-300";
+const labelClass = "text-[12px] uppercase font-bold text-slate-500 block mb-1";
 
 interface ClassFormModalProps {
   onClose: () => void;
@@ -108,7 +108,7 @@ export default function ClassFormModal({ onClose, onCreated }: ClassFormModalPro
               onBlur={() => markTouched("classCode")}
               className={`${invalid.classCode ? inputErrorClass : inputClass} font-mono`}
             />
-            {invalid.classCode && <p className="text-[10px] text-rose-600 mt-1">{t("classForm.classCodeRequired")}</p>}
+            {invalid.classCode && <p className="text-[12px] text-rose-600 mt-1">{t("classForm.classCodeRequired")}</p>}
           </div>
           <div>
             <label className={labelClass}>{t("classForm.nameLabel")}</label>
@@ -118,7 +118,7 @@ export default function ClassFormModal({ onClose, onCreated }: ClassFormModalPro
               onBlur={() => markTouched("name")}
               className={invalid.name ? inputErrorClass : inputClass}
             />
-            {invalid.name && <p className="text-[10px] text-rose-600 mt-1">{t("classForm.nameRequired")}</p>}
+            {invalid.name && <p className="text-[12px] text-rose-600 mt-1">{t("classForm.nameRequired")}</p>}
           </div>
 
           <div>
@@ -132,7 +132,7 @@ export default function ClassFormModal({ onClose, onCreated }: ClassFormModalPro
               <option value="LINKED">{t("classForm.classTypeLinkedOption")}</option>
             </Select>
             {form.classType === "LINKED" && (
-              <p className="text-[10px] text-slate-400 mt-1">{t("classForm.classTypeLinkedHint")}</p>
+              <p className="text-[12px] text-slate-400 mt-1">{t("classForm.classTypeLinkedHint")}</p>
             )}
           </div>
           <div>
@@ -153,7 +153,7 @@ export default function ClassFormModal({ onClose, onCreated }: ClassFormModalPro
                 </option>
               ))}
             </Select>
-            {invalid.siteId && <p className="text-[10px] text-rose-600 mt-1">{t("classForm.siteRequired")}</p>}
+            {invalid.siteId && <p className="text-[12px] text-rose-600 mt-1">{t("classForm.siteRequired")}</p>}
           </div>
 
           <div className="col-span-2">
@@ -171,7 +171,7 @@ export default function ClassFormModal({ onClose, onCreated }: ClassFormModalPro
                 </option>
               ))}
             </Select>
-            {invalid.curriculumId && <p className="text-[10px] text-rose-600 mt-1">{t("classForm.curriculumRequired")}</p>}
+            {invalid.curriculumId && <p className="text-[12px] text-rose-600 mt-1">{t("classForm.curriculumRequired")}</p>}
           </div>
 
           <div>
@@ -184,7 +184,7 @@ export default function ClassFormModal({ onClose, onCreated }: ClassFormModalPro
               onBlur={() => markTouched("maxStudents")}
               className={invalid.maxStudents ? inputErrorClass : inputClass}
             />
-            {invalid.maxStudents && <p className="text-[10px] text-rose-600 mt-1">{t("classForm.maxStudentsRequired")}</p>}
+            {invalid.maxStudents && <p className="text-[12px] text-rose-600 mt-1">{t("classForm.maxStudentsRequired")}</p>}
           </div>
           <div>
             <label className={labelClass}>{t("classForm.minStudentsLabel")}</label>
@@ -202,7 +202,7 @@ export default function ClassFormModal({ onClose, onCreated }: ClassFormModalPro
               max={form.endDate || undefined}
               hasError={invalid.startDate}
             />
-            {invalid.startDate && <p className="text-[10px] text-rose-600 mt-1">{t("classForm.startDateRequired")}</p>}
+            {invalid.startDate && <p className="text-[12px] text-rose-600 mt-1">{t("classForm.startDateRequired")}</p>}
           </div>
           <div>
             <label className={labelClass}>{t("classForm.endDateLabel")}</label>

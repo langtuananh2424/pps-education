@@ -102,13 +102,13 @@ export default function MyTeachingSchedulePage() {
       <div className="border-b border-slate-200 pb-4 flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("myTeachingSchedule.title")}</h1>
-          <p className="text-xs text-slate-500 mt-1">{t("myTeachingSchedule.description")}</p>
+          <p className="text-sm text-slate-500 mt-1">{t("myTeachingSchedule.description")}</p>
         </div>
         <div className="flex items-center gap-1 bg-slate-100 border border-slate-200 rounded-xl p-1">
           <button
             onClick={() => setViewMode("week")}
             className={cn(
-              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-colors",
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-bold transition-colors",
               viewMode === "week" ? "bg-white text-brand-red shadow-xs" : "text-slate-500 hover:text-slate-700"
             )}
           >
@@ -118,7 +118,7 @@ export default function MyTeachingSchedulePage() {
           <button
             onClick={() => setViewMode("month")}
             className={cn(
-              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-colors",
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-bold transition-colors",
               viewMode === "month" ? "bg-white text-brand-red shadow-xs" : "text-slate-500 hover:text-slate-700"
             )}
           >
@@ -157,7 +157,7 @@ export default function MyTeachingSchedulePage() {
 
         <div className="p-5">
         {loading ? (
-          <p className="text-xs text-slate-500 text-center py-8">{t("common.loading")}</p>
+          <p className="text-sm text-slate-500 text-center py-8">{t("common.loading")}</p>
         ) : viewMode === "week" ? (
           <div className="flex gap-3 overflow-x-auto pb-1">
             {weekDates.map((dateObj, idx) => {
@@ -174,14 +174,14 @@ export default function MyTeachingSchedulePage() {
                 >
                   <div>
                     <div className="flex items-center justify-between border-b border-slate-150 pb-1.5 mb-2">
-                      <span className="text-[11px] font-bold text-slate-800">{t(`enums.weekday.${weekdayOrderSunFirst[dateObj.getDay()]}`)}</span>
-                      <span className={`text-[10px] font-mono font-bold ${isToday ? "text-brand-red" : "text-slate-400"}`}>
+                      <span className="text-[13px] font-bold text-slate-800">{t(`enums.weekday.${weekdayOrderSunFirst[dateObj.getDay()]}`)}</span>
+                      <span className={`text-[12px] font-mono font-bold ${isToday ? "text-brand-red" : "text-slate-400"}`}>
                         {dateObj.getDate()}/{dateObj.getMonth() + 1}
                       </span>
                     </div>
                     <div className="space-y-2">
                       {daySessions.length === 0 ? (
-                        <p className="py-6 text-center text-[10px] text-slate-400 italic">{t("myTeachingSchedule.emptyDay")}</p>
+                        <p className="py-6 text-center text-[12px] text-slate-400 italic">{t("myTeachingSchedule.emptyDay")}</p>
                       ) : (
                         daySessions.map((s) => {
                           const checkInStatus = checkInStatusBySessionId[s.id];
@@ -200,33 +200,33 @@ export default function MyTeachingSchedulePage() {
                               className="w-full text-left bg-white border border-slate-150 rounded-lg p-2 space-y-1.5 hover:border-brand-red/50 hover:bg-orange-50/40 transition-colors"
                             >
                               <div className="flex items-center justify-between">
-                                <span className="text-[10px] font-bold font-mono text-slate-600">{s.startTime.slice(0, 5)}–{s.endTime.slice(0, 5)}</span>
+                                <span className="text-[12px] font-bold font-mono text-slate-600">{s.startTime.slice(0, 5)}–{s.endTime.slice(0, 5)}</span>
                               </div>
-                              <p className="text-[11px] font-bold text-slate-800 flex items-center gap-1">
+                              <p className="text-[13px] font-bold text-slate-800 flex items-center gap-1">
                                 <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
                                 <span className="truncate">{s.className ?? t("myTeachingSchedule.unassignedClass")}</span>
                               </p>
-                              <p className="text-[10px] text-slate-400 flex items-center gap-1">
+                              <p className="text-[12px] text-slate-400 flex items-center gap-1">
                                 <Building2 className="w-3 h-3 text-slate-400 shrink-0" />
                                 <span className="truncate">{siteNameByClassId[s.classId] ?? t("myTeachingSchedule.loadingSite")}</span>
                               </p>
                               {(displayTeacherName || cmDisplayName) && (
                                 <div className="bg-emerald-50 border border-emerald-100 rounded-md px-1.5 py-1 space-y-0.5">
                                   {displayTeacherName && (
-                                    <p className="text-[11px] font-bold text-green-700 flex items-start gap-1">
+                                    <p className="text-[13px] font-bold text-green-700 flex items-start gap-1">
                                       <User className="w-3 h-3 text-green-600 shrink-0 mt-0.5" />
                                       <span className="break-words">{displayTeacherName}</span>
                                     </p>
                                   )}
                                   {cmDisplayName && (
-                                    <p className="text-[10px] text-emerald-700/80 break-words">CM: {cmDisplayName}</p>
+                                    <p className="text-[12px] text-emerald-700/80 break-words">CM: {cmDisplayName}</p>
                                   )}
                                 </div>
                               )}
                               <div className="flex items-center justify-between gap-1 flex-wrap pt-0.5">
-                                {(s.status === "CANCELLED" || s.status === "RESCHEDULED") && <span className="text-[10px] text-rose-500 font-bold">{s.status}</span>}
+                                {(s.status === "CANCELLED" || s.status === "RESCHEDULED") && <span className="text-[12px] text-rose-500 font-bold">{s.status}</span>}
                                 {checkInStatus && s.status !== "CANCELLED" && s.status !== "RESCHEDULED" && (
-                                  <Badge variant={checkInStatusVariants[checkInStatus.effectiveStatus] ?? "neutral"} className="text-[9px]">
+                                  <Badge variant={checkInStatusVariants[checkInStatus.effectiveStatus] ?? "neutral"} className="text-[11px]">
                                     {checkInStatusLabel(tc, checkInStatus.effectiveStatus)}
                                   </Badge>
                                 )}
@@ -238,7 +238,7 @@ export default function MyTeachingSchedulePage() {
                     </div>
                   </div>
                   {daySessions.length > 0 && (
-                    <span className="text-[9px] bg-brand-red/10 text-brand-red px-1.5 py-0.5 rounded-md font-bold text-center uppercase flex items-center justify-center gap-1">
+                    <span className="text-[11px] bg-brand-red/10 text-brand-red px-1.5 py-0.5 rounded-md font-bold text-center uppercase flex items-center justify-center gap-1">
                       <CalendarDays className="w-3 h-3" />
                       {t("myTeachingSchedule.sessionCount", { count: daySessions.length })}
                     </span>
@@ -251,7 +251,7 @@ export default function MyTeachingSchedulePage() {
           <div className="rounded-2xl border-2 border-slate-300 overflow-hidden">
             <div className="grid grid-cols-7 bg-orange-50/70 border-b-2 border-slate-300">
               {weekdayOrderMonFirst.map((day) => (
-                <div key={day} className="text-center text-[10px] font-bold text-brand-red uppercase tracking-wide py-2.5">
+                <div key={day} className="text-center text-[12px] font-bold text-brand-red uppercase tracking-wide py-2.5">
                   {t(`enums.weekdayShort.${day}`)}
                 </div>
               ))}
@@ -280,7 +280,7 @@ export default function MyTeachingSchedulePage() {
                       <div className="flex items-center justify-between gap-1">
                         <span
                           className={cn(
-                            "w-6 h-6 flex items-center justify-center rounded-full text-[11px] font-mono font-bold shrink-0",
+                            "w-6 h-6 flex items-center justify-center rounded-full text-[13px] font-mono font-bold shrink-0",
                             isToday
                               ? "bg-brand-gradient text-white shadow-glow"
                               : !inMonth
@@ -293,7 +293,7 @@ export default function MyTeachingSchedulePage() {
                           {dateObj.getDate()}
                         </span>
                         {hasSessions && (
-                          <span className="text-[9px] bg-brand-gradient text-white px-1.5 py-0.5 rounded-full font-bold shadow-xs shrink-0">
+                          <span className="text-[11px] bg-brand-gradient text-white px-1.5 py-0.5 rounded-full font-bold shadow-xs shrink-0">
                             {t("myTeachingSchedule.monthDayBadge", { count: daySessions.length })}
                           </span>
                         )}
@@ -308,13 +308,13 @@ export default function MyTeachingSchedulePage() {
                                 setHoverInfo({ session: s, top: rect.bottom + 6, left: rect.left });
                               }}
                               onMouseLeave={() => setHoverInfo(null)}
-                              className="text-[9px] font-mono font-bold text-brand-red bg-white border border-brand-red/25 rounded-md px-1 py-0.5 truncate hover:bg-brand-red/10 hover:border-brand-red/50"
+                              className="text-[11px] font-mono font-bold text-brand-red bg-white border border-brand-red/25 rounded-md px-1 py-0.5 truncate hover:bg-brand-red/10 hover:border-brand-red/50"
                             >
                               {s.startTime.slice(0, 5)}–{s.endTime.slice(0, 5)}
                             </span>
                           ))}
                           {daySessions.length > visibleSessions.length && (
-                            <span className="text-[9px] text-brand-red/70 font-semibold pl-0.5">
+                            <span className="text-[11px] text-brand-red/70 font-semibold pl-0.5">
                               {t("myTeachingSchedule.moreSessions", { count: daySessions.length - visibleSessions.length })}
                             </span>
                           )}
@@ -334,7 +334,7 @@ export default function MyTeachingSchedulePage() {
         createPortal(
           <div
             style={{ position: "fixed", top: hoverInfo.top, left: Math.min(hoverInfo.left, window.innerWidth - 220), zIndex: 100 }}
-            className="pointer-events-none max-w-[210px] bg-slate-900 text-white text-[10px] rounded-lg px-2.5 py-1.5 shadow-xl space-y-0.5"
+            className="pointer-events-none max-w-[210px] bg-slate-900 text-white text-[12px] rounded-lg px-2.5 py-1.5 shadow-xl space-y-0.5"
           >
             <p className="font-bold truncate">{hoverInfo.session.className}</p>
             <p className="text-slate-300 truncate">{siteNameByClassId[hoverInfo.session.classId] ?? t("myTeachingSchedule.loadingSite")}</p>

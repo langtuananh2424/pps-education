@@ -19,8 +19,8 @@ import Time24Input from "@/components/ui/Time24Input";
 import { useDialog } from "@/components/ui/DialogProvider";
 import FloatingError from "@/components/ui/FloatingError";
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
+const labelClass = "text-[12px] uppercase font-bold text-slate-500 block mb-1";
 
 /**
  * "Tiết học theo điểm trường" (bổ sung ngoài SDD gốc, xác nhận với người
@@ -73,7 +73,7 @@ export default function SitePeriodTab({ siteId, showToast }: { siteId: number; s
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-bold uppercase text-slate-500">Tiết học ({items.length})</span>
+        <span className="text-[12px] font-bold uppercase text-slate-500">Tiết học ({items.length})</span>
         <Button size="sm" variant="secondary" onClick={() => setEditing("new")}>
           <Plus className="w-3.5 h-3.5" />
           Thêm tiết
@@ -83,9 +83,9 @@ export default function SitePeriodTab({ siteId, showToast }: { siteId: number; s
       <FloatingError message={error} onClose={() => setError(null)} />
 
       {loading ? (
-        <p className="text-xs text-slate-500">Đang tải...</p>
+        <p className="text-sm text-slate-500">Đang tải...</p>
       ) : items.length === 0 ? (
-        <p className="text-xs text-slate-400 italic">
+        <p className="text-sm text-slate-400 italic">
           Điểm trường này chưa có tiết học nào — cần thêm trước khi xếp lịch buổi học ở phân hệ Học thuật.
         </p>
       ) : (
@@ -95,12 +95,12 @@ export default function SitePeriodTab({ siteId, showToast }: { siteId: number; s
             if (dpItems.length === 0) return null;
             return (
               <div key={dp} className="space-y-2">
-                <span className="text-[10px] font-bold uppercase text-brand-red">Buổi {dayPartLabels[dp]}</span>
+                <span className="text-[12px] font-bold uppercase text-brand-red">Buổi {dayPartLabels[dp]}</span>
                 {dpItems.map((item) => (
                   <div key={item.id} className="border border-slate-200 rounded-lg p-3 flex items-center justify-between gap-2">
                     <button type="button" onClick={() => setEditing(item)} className="text-left flex-1">
-                      <p className="text-xs font-bold text-slate-800">{item.label ?? `Tiết ${item.periodNumber}`}</p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">
+                      <p className="text-sm font-bold text-slate-800">{item.label ?? `Tiết ${item.periodNumber}`}</p>
+                      <p className="text-[12px] text-slate-400 mt-0.5">
                         {item.startTime.slice(0, 5)}–{item.endTime.slice(0, 5)}
                       </p>
                     </button>

@@ -25,8 +25,8 @@ import Select from "@/components/ui/Select";
 import { useDialog } from "@/components/ui/DialogProvider";
 import FloatingError from "@/components/ui/FloatingError";
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
+const labelClass = "text-[12px] uppercase font-bold text-slate-500 block mb-1";
 
 type Tab = "profile" | "subjects";
 
@@ -46,7 +46,7 @@ export default function CurriculumDetailPanel({ curriculum, onChanged }: Curricu
       <div className="p-5 border-b border-slate-200 space-y-3 bg-slate-50/20">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
-            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-brand-red bg-orange-50 border border-orange-100 px-2 py-0.5 rounded-md">
+            <span className="text-[12px] font-mono font-bold uppercase tracking-wider text-brand-red bg-orange-50 border border-orange-100 px-2 py-0.5 rounded-md">
               {curriculum.code}
             </span>
             <h2 className="text-sm font-bold text-slate-800 mt-1">{curriculum.name}</h2>
@@ -64,7 +64,7 @@ export default function CurriculumDetailPanel({ curriculum, onChanged }: Curricu
             <button
               key={key}
               onClick={() => setTab(key)}
-              className={`pb-2.5 text-xs font-bold border-b-2 flex items-center gap-1.5 transition-all ${
+              className={`pb-2.5 text-sm font-bold border-b-2 flex items-center gap-1.5 transition-all ${
                 tab === key ? "border-brand-red text-brand-red" : "border-transparent text-slate-500 hover:text-slate-700"
               }`}
             >
@@ -377,7 +377,7 @@ function SubjectsTab({ curriculumId, showToast }: { curriculumId: number; showTo
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-bold uppercase text-slate-500">{t("detail.subjects.countLabel", { count: subjects.length })}</span>
+        <span className="text-[12px] font-bold uppercase text-slate-500">{t("detail.subjects.countLabel", { count: subjects.length })}</span>
         {hasPermission("academic.curriculum.update") && (
           <Button size="sm" variant="secondary" onClick={() => setAdding(true)}>
             <Plus className="w-3.5 h-3.5" />
@@ -389,16 +389,16 @@ function SubjectsTab({ curriculumId, showToast }: { curriculumId: number; showTo
       <FloatingError message={error} onClose={() => setError(null)} />
 
       {loading ? (
-        <p className="text-xs text-slate-500">{t("detail.subjects.loading")}</p>
+        <p className="text-sm text-slate-500">{t("detail.subjects.loading")}</p>
       ) : subjects.length === 0 ? (
-        <p className="text-xs text-slate-400 italic">{t("detail.subjects.empty")}</p>
+        <p className="text-sm text-slate-400 italic">{t("detail.subjects.empty")}</p>
       ) : (
         <div className="space-y-2">
           {subjects
             .slice()
             .sort((a, b) => a.displayOrder - b.displayOrder)
             .map((s) => (
-              <div key={s.id} className="border border-slate-200 rounded-lg p-3 text-xs flex items-center justify-between">
+              <div key={s.id} className="border border-slate-200 rounded-lg p-3 text-sm flex items-center justify-between">
                 <div>
                   <span className="font-bold text-slate-800">{s.name}</span>
                   <span className="font-mono text-slate-400 ml-2">{s.subjectCode}</span>

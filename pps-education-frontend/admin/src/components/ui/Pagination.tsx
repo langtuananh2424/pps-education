@@ -25,7 +25,7 @@ export default function Pagination({ page, pageSize, totalElements, itemLabel, o
   const totalPages = Math.max(1, Math.ceil(totalElements / pageSize));
 
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-4 py-3 border-t border-slate-100 text-[11px] text-slate-500">
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-4 py-3 border-t border-slate-100 text-[13px] text-slate-500">
       <div className="flex items-center gap-2">
         <span>{t("pagination.total", { count: totalElements, itemLabel })}</span>
         <span className="text-slate-300">|</span>
@@ -34,7 +34,7 @@ export default function Pagination({ page, pageSize, totalElements, itemLabel, o
           <Select
             value={pageSize}
             onChange={(e) => onPageSizeChange(Number(e.target.value))}
-            className="bg-slate-50 border border-slate-200 text-[11px] px-1.5 py-1 rounded-md focus:outline-none cursor-pointer"
+            className="bg-slate-50 border border-slate-200 text-[13px] px-1.5 py-1 rounded-md focus:outline-none cursor-pointer"
           >
             {PAGE_SIZE_OPTIONS.map((size) => (
               <option key={size} value={size}>

@@ -131,7 +131,7 @@ export default function SessionVersionHistoryModal({ classSessionId, students, g
   const selectedBucket = buckets.find((b) => b.key === selectedBucketKey) ?? buckets[0] ?? null;
   const stateAsOf = selectedBucket ? reconstructAsOf(history, selectedBucket.timestamp) : new Map<number, StudentCommentHistoryResponse>();
 
-  const thClass = "bg-white text-[10px] font-bold uppercase text-slate-400 text-left px-2 py-2 border-b-2 border-r border-slate-200";
+  const thClass = "bg-white text-[12px] font-bold uppercase text-slate-400 text-left px-2 py-2 border-b-2 border-r border-slate-200";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -142,7 +142,7 @@ export default function SessionVersionHistoryModal({ classSessionId, students, g
             <History className="w-4 h-4 text-slate-500 shrink-0" />
             <div>
               <h3 className="text-sm font-bold font-display text-slate-900">{t("sessionVersionHistoryModal.title")}</h3>
-              <p className="text-[11px] text-slate-500 mt-0.5">{t("sessionVersionHistoryModal.subtitle")}</p>
+              <p className="text-[13px] text-slate-500 mt-0.5">{t("sessionVersionHistoryModal.subtitle")}</p>
             </div>
           </div>
           <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-600 shrink-0">
@@ -153,9 +153,9 @@ export default function SessionVersionHistoryModal({ classSessionId, students, g
         <FloatingError message={error} onClose={() => setError(null)} />
 
         {loading ? (
-          <p className="p-5 text-xs text-slate-400">{t("sessionVersionHistoryModal.loading")}</p>
+          <p className="p-5 text-sm text-slate-400">{t("sessionVersionHistoryModal.loading")}</p>
         ) : buckets.length === 0 ? (
-          <p className="p-5 text-xs text-slate-400 italic">{t("sessionVersionHistoryModal.empty")}</p>
+          <p className="p-5 text-sm text-slate-400 italic">{t("sessionVersionHistoryModal.empty")}</p>
         ) : (
           <div className="flex-1 flex min-h-0">
             {/* Timeline bên trái — mirror layout "Version history" của Google Sheets. */}
@@ -172,21 +172,21 @@ export default function SessionVersionHistoryModal({ classSessionId, students, g
                     }`}
                   >
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[11px] font-bold text-slate-800">
+                      <span className="text-[13px] font-bold text-slate-800">
                         {new Date(b.timestamp).toLocaleString(toLocaleTag(i18n.language), { dateStyle: "short", timeStyle: "short" })}
                       </span>
                       {index === 0 && (
-                        <span className="px-1.5 py-0.5 rounded bg-teal/10 text-teal-deep text-[9px] font-black uppercase tracking-wide shrink-0">{t("sessionVersionHistoryModal.latestBadge")}</span>
+                        <span className="px-1.5 py-0.5 rounded bg-teal/10 text-teal-deep text-[11px] font-black uppercase tracking-wide shrink-0">{t("sessionVersionHistoryModal.latestBadge")}</span>
                       )}
                     </div>
-                    <p className="text-[10px] text-slate-400 mt-0.5 truncate">{b.actors.join(", ")}</p>
-                    <p className="text-[10px] text-slate-400">{t("sessionVersionHistoryModal.studentsCount", { count: b.studentIds.size })}</p>
+                    <p className="text-[12px] text-slate-400 mt-0.5 truncate">{b.actors.join(", ")}</p>
+                    <p className="text-[12px] text-slate-400">{t("sessionVersionHistoryModal.studentsCount", { count: b.studentIds.size })}</p>
                   </button>
                 );
               })}
             </div>
             <div className="flex-1 overflow-auto p-0 mx-4">
-              <table className="text-[11px] text-left border-separate border-spacing-0">
+              <table className="text-[13px] text-left border-separate border-spacing-0">
                 <thead className="sticky top-0 z-20 bg-white shadow-sm">
                   <tr className="[&>th]:text-center">
                     <th rowSpan={isVietnamese ? 3 : 2} style={STICKY_COL_STYLE[0]} className={`${thClass} md:sticky left-0 z-30`}>

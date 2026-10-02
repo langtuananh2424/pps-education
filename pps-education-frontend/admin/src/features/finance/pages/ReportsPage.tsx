@@ -10,7 +10,7 @@ export default function ReportsPage() {
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">Quản Lý Tài Chính & Sổ Cái Kế Toán</h1>
-        <p className="text-xs text-slate-500 mt-1">Báo cáo dòng tiền tổng hợp & phân cấp theo cơ sở.</p>
+        <p className="text-sm text-slate-500 mt-1">Báo cáo dòng tiền tổng hợp & phân cấp theo cơ sở.</p>
       </div>
 
       <UnderDevelopment title="Báo cáo kế toán" />

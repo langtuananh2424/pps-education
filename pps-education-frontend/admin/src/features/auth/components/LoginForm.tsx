@@ -57,14 +57,14 @@ export default function LoginForm({ usernameOrEmail, onUsernameOrEmailChange, on
     <>
       <div className="space-y-2">
         <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight font-display uppercase leading-none">{t("welcomeBack")}</h2>
-        <p className="text-xs text-slate-400 font-medium">{t("welcomeBackSub")}</p>
+        <p className="text-sm text-slate-400 font-medium">{t("welcomeBackSub")}</p>
       </div>
 
       <FloatingError message={error} onClose={() => setError(null)} />
 
       <form onSubmit={handleSubmit} className="space-y-4 mt-6">
         <div className="space-y-1.5">
-          <label className="text-xs font-bold text-slate-700 tracking-wide block pl-0.5">{t("usernameOrEmailLabel")}</label>
+          <label className="text-sm font-bold text-slate-700 tracking-wide block pl-0.5">{t("usernameOrEmailLabel")}</label>
           <input
             type="text"
             required
@@ -79,7 +79,7 @@ export default function LoginForm({ usernameOrEmail, onUsernameOrEmailChange, on
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-xs font-bold text-slate-700 tracking-wide block pl-0.5">{t("passwordLabel")}</label>
+          <label className="text-sm font-bold text-slate-700 tracking-wide block pl-0.5">{t("passwordLabel")}</label>
           <div className="relative">
             <input
               type={showPassword ? "text" : "password"}
@@ -103,7 +103,7 @@ export default function LoginForm({ usernameOrEmail, onUsernameOrEmailChange, on
         </div>
 
         <div className="flex items-center justify-between pt-1">
-          <label className="flex items-center gap-2 text-xs text-slate-500 cursor-pointer select-none">
+          <label className="flex items-center gap-2 text-sm text-slate-500 cursor-pointer select-none">
             <input type="checkbox" checked={rememberMe} onChange={() => setRememberMe(!rememberMe)} className="sr-only" />
             <div
               className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${
@@ -124,7 +124,7 @@ export default function LoginForm({ usernameOrEmail, onUsernameOrEmailChange, on
               e.preventDefault();
               alertDialog(t("forgotPasswordAlert"));
             }}
-            className="text-xs font-semibold text-slate-500 hover:text-[#EA580C] transition-colors"
+            className="text-sm font-semibold text-slate-500 hover:text-[#EA580C] transition-colors"
           >
             {t("forgotPassword")}
           </a>
@@ -150,7 +150,7 @@ export default function LoginForm({ usernameOrEmail, onUsernameOrEmailChange, on
         <>
           <div className="flex items-center gap-3 mt-5">
             <div className="flex-1 h-px bg-slate-100" />
-            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">{t("or")}</span>
+            <span className="text-[12px] font-semibold text-slate-400 uppercase tracking-wider">{t("or")}</span>
             <div className="flex-1 h-px bg-slate-100" />
           </div>
 
