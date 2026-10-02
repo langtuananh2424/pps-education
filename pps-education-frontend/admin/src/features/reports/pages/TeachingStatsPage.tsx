@@ -92,11 +92,23 @@ export default function TeachingStatsPage() {
         <p className={cn("text-slate-800", !isTotal && "font-semibold")}>{isTotal ? t("teachingStats.totals") : r.teacherName}</p>
         {!isTotal && r.employeeCode && <p className="text-[11px] text-slate-400">{r.employeeCode}</p>}
       </Td>
+      <Td>
+        <div className="flex flex-wrap gap-1">
+          {r.roles.map((role) => (
+            <span key={role} className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600 whitespace-nowrap">
+              {t(`teachingStats.roleLabels.${role}`, { defaultValue: role })}
+            </span>
+          ))}
+        </div>
+      </Td>
       <Td className="text-right">{r.classCount}</Td>
       <Td className="text-right">{r.scheduledSessions}</Td>
       <Td className="text-right">{r.heldSessions}</Td>
       <Td className="text-right">{r.cancelledSessions}</Td>
       <Td className="text-right">{r.taughtPeriods}</Td>
+      <Td className="text-right">{r.assistantPeriods}</Td>
+      <Td className="text-right">{r.cmPeriods}</Td>
+      <Td className="text-right font-semibold">{r.totalPeriods}</Td>
       <Td className="text-right text-emerald-600">{r.onTimeCheckIns}</Td>
       <Td className={cn("text-right", r.lateCheckIns > 0 && "text-amber-600")}>{r.lateCheckIns}</Td>
       <Td className={cn("text-right", r.missingCheckIns > 0 && "text-rose-600")}>{r.missingCheckIns}</Td>
@@ -147,11 +159,15 @@ export default function TeachingStatsPage() {
             <thead>
               <tr>
                 <Th>{t("teachingStats.columns.teacher")}</Th>
+                <Th>{t("teachingStats.columns.roles")}</Th>
                 <Th className="text-right">{t("teachingStats.columns.classes")}</Th>
                 <Th className="text-right">{t("teachingStats.columns.scheduled")}</Th>
                 <Th className="text-right">{t("teachingStats.columns.held")}</Th>
                 <Th className="text-right">{t("teachingStats.columns.cancelled")}</Th>
                 <Th className="text-right">{t("teachingStats.columns.periods")}</Th>
+                <Th className="text-right">{t("teachingStats.columns.assistantPeriods")}</Th>
+                <Th className="text-right">{t("teachingStats.columns.cmPeriods")}</Th>
+                <Th className="text-right">{t("teachingStats.columns.totalPeriods")}</Th>
                 <Th className="text-right">{t("teachingStats.columns.onTime")}</Th>
                 <Th className="text-right">{t("teachingStats.columns.late")}</Th>
                 <Th className="text-right">{t("teachingStats.columns.missing")}</Th>
@@ -170,7 +186,7 @@ export default function TeachingStatsPage() {
       </Card>
 
       <div className="text-[11px] text-slate-500 space-y-1">
-        {(["held", "periods", "checkIn"] as const).map((key) => (
+        {(["held", "roles", "periods", "primaryOnly", "checkIn"] as const).map((key) => (
           <p key={key} className="flex items-start gap-1.5">
             <Info className="w-3 h-3 mt-0.5 shrink-0" /> {t(`teachingStats.notes.${key}`)}
           </p>

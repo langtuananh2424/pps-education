@@ -69,6 +69,7 @@
     "ASSISTANT": "Trợ giảng",
     "SUBSTITUTE": "Dạy thay",
     "CM": "Quản lý lớp (CM)",
+    "SCHEDULED": "Dạy theo lịch",
     "VIETNAMESE": "Giáo viên Việt Nam",
     "FOREIGN": "Giáo viên nước ngoài",
     "MALE": "Nam",
@@ -196,7 +197,7 @@
   },
   "teachingStats": {
     "title": "Thống kê giảng dạy theo giáo viên",
-    "description": "Số lớp, số buổi, số tiết đã dạy và tình hình nhận lớp của từng giáo viên trong khoảng thời gian chọn.",
+    "description": "Số lớp, số buổi, số tiết đã dạy theo từng vai trò (GV chính / GV phụ / CM) và tình hình nhận lớp của từng giáo viên trong khoảng thời gian chọn.",
     "allSites": "Tất cả điểm trường trong phạm vi",
     "fromDate": "Từ ngày",
     "toDate": "Đến ngày",
@@ -212,16 +213,27 @@
       "scheduled": "Buổi đã xếp",
       "held": "Buổi đã diễn ra",
       "cancelled": "Buổi huỷ",
-      "periods": "Số tiết đã dạy",
+      "roles": "Vai trò",
+      "periods": "Tiết GV chính",
+      "assistantPeriods": "Tiết GV phụ",
+      "cmPeriods": "Tiết CM",
+      "totalPeriods": "Tổng tiết",
       "onTime": "Nhận lớp đúng giờ",
       "late": "Nhận lớp trễ",
       "missing": "Không nhận lớp",
       "onTimeRate": "Tỷ lệ đúng giờ"
     },
     "totals": "Tổng cộng",
+    "roleLabels": {
+      "PRIMARY": "GV chính",
+      "ASSISTANT": "GV phụ",
+      "CM": "CM"
+    },
     "notes": {
       "held": "Buổi đã diễn ra: buổi không huỷ/không dời và đã tới giờ bắt đầu.",
-      "periods": "Số tiết đã dạy: tiết có giáo viên riêng tính cho giáo viên đó, còn lại tính cho giáo viên phụ trách buổi.",
+      "roles": "Vai trò: vai trò của giáo viên trong các buổi học của khoảng thời gian — GV chính, GV phụ hoặc CM.",
+      "periods": "Tiết GV chính: tiết có giáo viên riêng tính cho giáo viên đó, còn lại tính cho giáo viên chính của buổi. Tiết GV phụ / Tiết CM: mọi tiết của buổi đã diễn ra mà giáo viên được xếp làm GV phụ / CM.",
+      "primaryOnly": "Số lớp, buổi, nhận lớp và báo cáo chỉ tính theo vai trò GV chính.",
       "checkIn": "Nhận lớp chỉ có dữ liệu từ khi áp dụng chức năng Nhận lớp — các buổi trước đó sẽ hiện là Không nhận lớp."
     }
   },
