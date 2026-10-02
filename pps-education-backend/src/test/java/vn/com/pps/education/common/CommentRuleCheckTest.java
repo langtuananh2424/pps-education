@@ -30,9 +30,7 @@ class CommentRuleCheckTest {
     }
 
     @Test
-    void containsDigitsAndLessonTitle_UC75_ruleChecks() {
-        assertThat(CommentRuleCheck.containsDigits("Con được 8 điểm.")).isTrue();
-        assertThat(CommentRuleCheck.containsDigits("Con được tám điểm.")).isFalse();
+    void lessonTitle_UC75_ruleChecks() {
         assertThat(CommentRuleCheck.mentionsLessonTitle("Bài Unit 1: Hello Friend con học tốt.", "Unit 1 - Hello Friend")).isTrue();
         assertThat(CommentRuleCheck.mentionsLessonTitle("Con học tốt.", "Unit 1 - Hello Friend")).isFalse();
         assertThat(CommentRuleCheck.mentionsLessonTitle("Con học tốt.", "U1")).isFalse();

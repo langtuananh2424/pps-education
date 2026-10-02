@@ -74,7 +74,7 @@ public class CommentAiReviewService {
     private static final Set<String> AI_NOTICE_TYPES = Set.of("HOMEWORK_MISMATCH");
     /** Nhãn ngắn từng loại lỗi cho câu tóm tắt lô (UC-75 bổ sung 2026-09-29). */
     private static final Map<String, String> ISSUE_LABELS = Map.ofEntries(
-            Map.entry("CONTAINS_DIGITS", "có chữ số"), Map.entry("TOO_LONG", "quá dài"), Map.entry("EMPTY", "để trống"),
+            Map.entry("TOO_LONG", "quá dài"), Map.entry("EMPTY", "để trống"),
             Map.entry("OTHER_STUDENT_NAME", "nhắc bạn khác"), Map.entry("OTHER_STUDENT", "nhắc bạn khác"),
             Map.entry("LESSON_TITLE", "nhắc tên bài học"), Map.entry("SIMILAR_IN_SESSION", "giống bạn khác trong buổi"),
             Map.entry("SIMILAR_TO_PREVIOUS", "giống buổi trước"), Map.entry("HOMEWORK_OR_SCORE", "ghi điểm/hạn nộp"),
@@ -516,9 +516,6 @@ public class CommentAiReviewService {
         if (content.isEmpty()) {
             issues.add(rule("EMPTY", "Nhận xét đang để trống."));
             return issues;
-        }
-        if (CommentRuleCheck.containsDigits(content)) {
-            issues.add(rule("CONTAINS_DIGITS", "Nhận xét có chữ số — kiểm tra có nhắc điểm/số liệu không."));
         }
         if (content.length() > MAX_CONTENT_LENGTH) {
             issues.add(rule("TOO_LONG", "Nhận xét dài " + content.length() + " ký tự (rubric khoảng 400)."));

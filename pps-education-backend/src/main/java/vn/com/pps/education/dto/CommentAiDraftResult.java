@@ -43,8 +43,8 @@ public record CommentAiDraftResult(
 
     /**
      * @param type {@code SIMILAR_IN_SESSION} (giống học sinh khác trong buổi), {@code SIMILAR_TO_PREVIOUS}
-     *             (giống nhận xét buổi trước của chính học sinh), {@code LESSON_TITLE} (nhắc tên bài học), {@code CONTAINS_DIGITS} (có chữ số — AI
-     *             không được ghi điểm/số liệu), {@code NOT_WRITTEN} (AI không trả nhận xét cho học sinh này), {@code ATTITUDE_ALERT} (nhắc chuỗi Thái độ
+     *             (giống nhận xét buổi trước của chính học sinh), {@code LESSON_TITLE} (nhắc tên bài học), {@code STUDENT_INFO_CHECK} (nhắc độ tuổi — cần
+     *             xác thực), {@code NOT_WRITTEN} (AI không trả nhận xét cho học sinh này), {@code ATTITUDE_ALERT} (nhắc chuỗi Thái độ
      *             Yếu/Trung bình), {@code PRONOUN_MISMATCH} (xưng hô thầy/cô không khớp giáo viên).
      * @param similarity tỷ lệ trùng 0..1 (chỉ có với 2 loại SIMILAR_*).
      */

@@ -128,7 +128,6 @@
         "repeatedPattern": "{{count}} reuse the same template"
       },
       "issueType": {
-        "CONTAINS_DIGITS": "contain digits",
         "TOO_LONG": "too long",
         "EMPTY": "empty",
         "OTHER_STUDENT_NAME": "mention another student",

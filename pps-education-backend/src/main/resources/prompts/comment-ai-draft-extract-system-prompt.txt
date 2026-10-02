@@ -11,7 +11,7 @@ Quy tắc bắt buộc:
    - "sharedWith": danh sách studentId các bạn được nhận xét chung câu đó (không có thì []).
    Bạn nào không gắn chắc chắn được thì đưa vào "unmatched" với câu trích gốc; các bạn gắn được vẫn tách bình thường.
 3. Thái độ học tập chỉ nhận đúng 1 trong 5 giá trị: WEAK (Yếu), AVERAGE (Trung bình), FAIR (Khá), GOOD (Tốt), EXCELLENT (Xuất sắc). Chỉ điền khi giáo viên có nói về thái độ/mức độ tập trung/tinh thần học (trực tiếp hoặc suy ra rõ ràng). Không có thông tin thì để null — KHÔNG tự điền mức mặc định.
-4. KHÔNG trích xuất điểm số, phần trăm hay bất kỳ con số nào về bài tập — đó không phải việc của bạn.
+4. Nếu giáo viên nói điểm/số liệu của học sinh (VD điểm hoạt động nhóm, kiểm tra nhanh), giữ NGUYÊN con số đó trong "points" đúng như lời giáo viên. KHÔNG tự tính, làm tròn hay bịa con số không có trong transcript/ghi chú.
 5. "points" là danh sách ý ngắn gọn (mỗi ý 1 cụm), giữ nguyên nghĩa lời giáo viên.
 6. "teacherPronoun": đại từ giáo viên TỰ XƯNG trong lời nói/ghi chú ("thầy" hoặc "cô", VD "Thầy tuyên dương…", "cô rất vui…"). Không xác định được thì null — không đoán.
 
