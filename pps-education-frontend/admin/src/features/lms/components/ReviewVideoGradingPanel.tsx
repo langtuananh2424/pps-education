@@ -39,7 +39,7 @@ export default function ReviewVideoGradingPanel({ submission, questionPrompt, vi
 
   if (!submission) {
     return (
-      <div className="h-64 border border-dashed rounded-xl flex flex-col items-center justify-center text-slate-400 text-xs italic gap-1.5 text-center p-4">
+      <div className="h-64 border border-dashed rounded-xl flex flex-col items-center justify-center text-slate-400 text-sm italic gap-1.5 text-center p-4">
         <Award className="w-6 h-6 text-slate-300" />
         <span>{t("reviewVideoGradingPanel.emptyState")}</span>
       </div>
@@ -69,22 +69,22 @@ export default function ReviewVideoGradingPanel({ submission, questionPrompt, vi
     <div className="space-y-4">
       <div className="border-b border-slate-100 pb-2.5 flex items-center justify-between">
         <div>
-          <span className="text-[10px] font-mono font-bold text-slate-400">
+          <span className="text-[12px] font-mono font-bold text-slate-400">
             {t("reviewVideoGradingPanel.header.attemptLabel", { attemptNumber: submission.attemptNumber })}
           </span>
-          <h3 className="text-xs font-bold text-slate-800">{submission.studentFullName}</h3>
+          <h3 className="text-sm font-bold text-slate-800">{submission.studentFullName}</h3>
         </div>
         {submission.gradedAt && (
-          <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-600">
+          <span className="flex items-center gap-1 text-[12px] font-bold text-emerald-600">
             <CheckCircle2 className="w-3.5 h-3.5" /> {t("reviewVideoGradingPanel.header.gradedBadge")}
           </span>
         )}
       </div>
 
       <div className="p-3.5 bg-slate-50 rounded-lg border border-slate-100 space-y-2">
-        <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500">{videoTitle ?? t("reviewVideoGradingPanel.videoFallback")}</span>
-        {questionPrompt && <p className="text-xs font-semibold text-slate-800">{questionPrompt}</p>}
-        <p className="text-[10px] text-slate-400">
+        <span className="text-[12px] uppercase font-bold tracking-wider text-slate-500">{videoTitle ?? t("reviewVideoGradingPanel.videoFallback")}</span>
+        {questionPrompt && <p className="text-sm font-semibold text-slate-800">{questionPrompt}</p>}
+        <p className="text-[12px] text-slate-400">
           {t("reviewVideoGradingPanel.submittedAt", { time: formatDateTime(submission.submittedAt, i18n.language) })}
         </p>
         <audio controls src={submission.audioUrl} className="w-full h-9" />
@@ -95,7 +95,7 @@ export default function ReviewVideoGradingPanel({ submission, questionPrompt, vi
       <form onSubmit={handleSubmit} className="space-y-4 pt-1">
         <div className="flex gap-3">
           <div className="flex-1 space-y-1">
-            <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">{t("reviewVideoGradingPanel.scoreLabel")}</label>
+            <label className="text-[12px] uppercase font-bold tracking-wider text-slate-500">{t("reviewVideoGradingPanel.scoreLabel")}</label>
             <input
               type="number"
               required
@@ -103,11 +103,11 @@ export default function ReviewVideoGradingPanel({ submission, questionPrompt, vi
               step={0.1}
               value={score}
               onChange={(e) => setScore(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none"
+              className="w-full bg-slate-50 border border-slate-200 text-sm px-3 py-2 rounded-lg focus:outline-none"
             />
           </div>
           <div className="flex-1 space-y-1">
-            <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">{t("reviewVideoGradingPanel.maxScoreLabel")}</label>
+            <label className="text-[12px] uppercase font-bold tracking-wider text-slate-500">{t("reviewVideoGradingPanel.maxScoreLabel")}</label>
             <input
               type="number"
               required
@@ -115,19 +115,19 @@ export default function ReviewVideoGradingPanel({ submission, questionPrompt, vi
               step={0.1}
               value={maxScore}
               onChange={(e) => setMaxScore(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none"
+              className="w-full bg-slate-50 border border-slate-200 text-sm px-3 py-2 rounded-lg focus:outline-none"
             />
           </div>
         </div>
 
         <div className="space-y-1">
-          <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">{t("reviewVideoGradingPanel.feedbackLabel")}</label>
+          <label className="text-[12px] uppercase font-bold tracking-wider text-slate-500">{t("reviewVideoGradingPanel.feedbackLabel")}</label>
           <textarea
             placeholder={t("reviewVideoGradingPanel.feedbackPlaceholder")}
             value={feedback}
             onChange={(e) => setFeedback(e.target.value)}
             rows={3}
-            className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none"
+            className="w-full bg-slate-50 border border-slate-200 text-sm px-3 py-2 rounded-lg focus:outline-none"
           />
         </div>
 

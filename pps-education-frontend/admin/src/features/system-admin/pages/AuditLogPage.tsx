@@ -48,8 +48,8 @@ function getActionDisplay(t: (key: string) => string, log: PermissionAuditLogRes
   return { label: log.action, variant: "danger" };
 }
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
+const labelClass = "text-[12px] uppercase font-bold text-slate-500 block mb-1";
 
 export default function AuditLogPage() {
   const { t, i18n } = useTranslation("system-admin-overrides");
@@ -126,8 +126,8 @@ export default function AuditLogPage() {
     <div className="space-y-4 animate-in fade-in duration-200">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div>
-          <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider block">{t("auditLogPage.title")}</h2>
-          <p className="text-[10px] text-slate-400 mt-0.5">{t("auditLogPage.description")}</p>
+          <h2 className="text-lg font-bold text-slate-800 uppercase tracking-wider block">{t("auditLogPage.title")}</h2>
+          <p className="text-[12px] text-slate-400 mt-0.5">{t("auditLogPage.description")}</p>
         </div>
       </div>
 
@@ -198,7 +198,7 @@ export default function AuditLogPage() {
                     <Td>
                       <Badge variant={actionDisplay.variant}>{actionDisplay.label}</Badge>
                     </Td>
-                    <Td className="text-[11px] leading-relaxed max-w-lg">
+                    <Td className="text-[13px] leading-relaxed max-w-lg">
                       {role && <code className="font-mono font-bold text-brand-red">{role.code}</code>}
                       {permission && <code className="font-mono font-bold text-brand-red">{permission.code}</code>}
                       {detailReason && <span className="text-slate-500 italic ml-2">— {detailReason}</span>}
@@ -212,7 +212,7 @@ export default function AuditLogPage() {
         )}
 
         {rows.length > 0 && (
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-4 py-3 border-t border-slate-100 text-[11px] text-slate-500">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-4 py-3 border-t border-slate-100 text-[13px] text-slate-500">
             <div className="flex items-center gap-2">
               <span>{t("auditLogPage.pagination.totalRecords", { count: totalElements })}</span>
               <span className="text-slate-300">|</span>
@@ -224,7 +224,7 @@ export default function AuditLogPage() {
                     setPageSize(Number(e.target.value));
                     setPage(0);
                   }}
-                  className="bg-slate-50 border border-slate-200 text-[11px] px-1.5 py-1 rounded-md focus:outline-none cursor-pointer"
+                  className="bg-slate-50 border border-slate-200 text-[13px] px-1.5 py-1 rounded-md focus:outline-none cursor-pointer"
                 >
                   {PAGE_SIZE_OPTIONS.map((size) => (
                     <option key={size} value={size}>
@@ -280,7 +280,7 @@ function UserPicker({
     return (
       <div>
         <label className={labelClass}>{label}</label>
-        <div className="flex items-center justify-between bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg">
+        <div className="flex items-center justify-between bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg">
           <span className="truncate">
             {value.fullName} ({value.username})
           </span>
@@ -306,7 +306,7 @@ function UserPicker({
                 onChange(u);
                 setQuery("");
               }}
-              className="w-full text-left px-3 py-2 hover:bg-slate-50 text-xs"
+              className="w-full text-left px-3 py-2 hover:bg-slate-50 text-sm"
             >
               {u.fullName} <span className="text-slate-400">({u.username})</span>
             </button>

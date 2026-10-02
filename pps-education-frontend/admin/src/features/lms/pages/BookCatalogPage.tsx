@@ -30,7 +30,7 @@ import { useDialog } from "@/components/ui/DialogProvider";
 import BookCatalogImportModal from "../components/BookCatalogImportModal";
 import FloatingError from "@/components/ui/FloatingError";
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
 
 /**
  * "Danh mục sách" (V148, bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-24) — cấu hình
@@ -66,7 +66,7 @@ export default function BookCatalogPage() {
       <div className="border-b border-slate-200 pb-4 flex items-start justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("bookCatalogPage.title")}</h1>
-          <p className="text-xs text-slate-500 mt-1">{t("bookCatalogPage.description")}</p>
+          <p className="text-sm text-slate-500 mt-1">{t("bookCatalogPage.description")}</p>
         </div>
         <Button
           variant="secondary"
@@ -93,12 +93,12 @@ export default function BookCatalogPage() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         <div className="lg:col-span-3 bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden">
           <div className="px-4 py-2.5 border-b border-slate-100 bg-slate-50">
-            <p className="text-[10px] uppercase font-bold text-slate-500">{t("bookCatalogPage.curriculumColumnLabel")}</p>
+            <p className="text-[12px] uppercase font-bold text-slate-500">{t("bookCatalogPage.curriculumColumnLabel")}</p>
           </div>
           {curriculums.length === 0 ? (
             <div className="flex flex-col items-center justify-center p-8 text-center text-slate-400 space-y-2">
               <Library className="w-10 h-10 text-slate-300" />
-              <p className="text-xs text-slate-400">{t("bookCatalogPage.noCurriculums")}</p>
+              <p className="text-sm text-slate-400">{t("bookCatalogPage.noCurriculums")}</p>
             </div>
           ) : (
             <div className="divide-y divide-slate-100">
@@ -108,10 +108,10 @@ export default function BookCatalogPage() {
                   onClick={() => setSelectedCurriculumId(c.id)}
                   className={`w-full text-left px-4 py-3 hover:bg-slate-50/60 ${selectedCurriculumId === c.id ? "bg-brand-red/5 border-l-2 border-brand-red" : ""}`}
                 >
-                  <p className="text-xs font-bold text-slate-800">{c.name}</p>
-                  <p className="text-[10px] text-slate-400 mt-0.5 font-mono">{c.code}</p>
+                  <p className="text-sm font-bold text-slate-800">{c.name}</p>
+                  <p className="text-[12px] text-slate-400 mt-0.5 font-mono">{c.code}</p>
                   {(c.track || c.gradeLevel) && (
-                    <p className="text-[10px] text-slate-400 mt-0.5">
+                    <p className="text-[12px] text-slate-400 mt-0.5">
                       {[c.track, c.gradeLevel].filter(Boolean).join(" · ")}
                     </p>
                   )}
@@ -125,7 +125,7 @@ export default function BookCatalogPage() {
           {!selectedCurriculum ? (
             <div className="bg-white rounded-xl border border-slate-200 shadow-soft flex flex-col items-center justify-center p-12 text-center text-slate-400 space-y-3">
               <Layers className="w-12 h-12 text-slate-300" />
-              <p className="text-xs text-slate-400">{t("bookCatalogPage.selectCurriculumPrompt")}</p>
+              <p className="text-sm text-slate-400">{t("bookCatalogPage.selectCurriculumPrompt")}</p>
             </div>
           ) : (
             <BookListPanel curriculum={selectedCurriculum} showToast={showToast} reloadToken={reloadToken} />
@@ -237,7 +237,7 @@ function BookListPanel({
       <div className="bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-100 bg-slate-50 space-y-1">
           <p className="text-sm font-bold text-slate-800">{curriculum.name}</p>
-          <p className="text-[10px] text-slate-400 font-mono">{curriculum.code}</p>
+          <p className="text-[12px] text-slate-400 font-mono">{curriculum.code}</p>
         </div>
 
         <div className="px-5 py-3 border-b border-slate-100 flex gap-2">
@@ -256,9 +256,9 @@ function BookListPanel({
         <FloatingError message={error} onClose={() => setError(null)} />
 
         {loading ? (
-          <p className="text-xs text-slate-500 p-6 text-center">{t("common.loading")}</p>
+          <p className="text-sm text-slate-500 p-6 text-center">{t("common.loading")}</p>
         ) : books.length === 0 ? (
-          <p className="text-xs text-slate-400 italic p-6 text-center">{t("bookCatalogPage.noBooks")}</p>
+          <p className="text-sm text-slate-400 italic p-6 text-center">{t("bookCatalogPage.noBooks")}</p>
         ) : (
           <div className="flex flex-wrap gap-1.5 p-3">
             {books
@@ -272,7 +272,7 @@ function BookListPanel({
                       value={editBookTitle}
                       onChange={(e) => setEditBookTitle(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && handleSaveBook(book)}
-                      className="text-xs font-bold bg-white border border-slate-200 rounded px-2 py-1 w-40 focus:outline-none"
+                      className="text-sm font-bold bg-white border border-slate-200 rounded px-2 py-1 w-40 focus:outline-none"
                     />
                     <button
                       type="button"
@@ -295,7 +295,7 @@ function BookListPanel({
                         : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
                     }`}
                   >
-                    <button onClick={() => setSelectedBookId(book.id)} className="flex items-center gap-1.5 text-xs font-bold pl-3 pr-1.5 py-1.5">
+                    <button onClick={() => setSelectedBookId(book.id)} className="flex items-center gap-1.5 text-sm font-bold pl-3 pr-1.5 py-1.5">
                       <BookOpen className="w-3.5 h-3.5" />
                       {book.title}
                     </button>
@@ -391,9 +391,9 @@ function UnitListPanel({
       <FloatingError message={error} onClose={() => setError(null)} />
 
       {loading ? (
-        <p className="text-xs text-slate-500 p-6 text-center">{t("common.loading")}</p>
+        <p className="text-sm text-slate-500 p-6 text-center">{t("common.loading")}</p>
       ) : units.length === 0 ? (
-        <p className="text-xs text-slate-400 italic p-6 text-center">{t("bookCatalogPage.noUnits")}</p>
+        <p className="text-sm text-slate-400 italic p-6 text-center">{t("bookCatalogPage.noUnits")}</p>
       ) : (
         <div className="divide-y divide-slate-100">
           {units
@@ -506,7 +506,7 @@ function UnitRow({ unit, showToast, onChanged }: { unit: UnitResponse; showToast
         <div className="w-full px-5 py-3 flex items-center gap-2 hover:bg-slate-50/60">
           <button onClick={toggle} className="flex items-center gap-2 text-left flex-1 min-w-0">
             {expanded ? <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />}
-            <span className="text-xs font-bold text-slate-800">{unit.title}</span>
+            <span className="text-sm font-bold text-slate-800">{unit.title}</span>
           </button>
           <button
             type="button"
@@ -545,9 +545,9 @@ function UnitRow({ unit, showToast, onChanged }: { unit: UnitResponse; showToast
             </Button>
           </div>
           {loading ? (
-            <p className="text-[11px] text-slate-400">{t("common.loading")}</p>
+            <p className="text-[13px] text-slate-400">{t("common.loading")}</p>
           ) : !subTopics || subTopics.length === 0 ? (
-            <p className="text-[11px] text-slate-400 italic">{t("bookCatalogPage.noSubTopics")}</p>
+            <p className="text-[13px] text-slate-400 italic">{t("bookCatalogPage.noSubTopics")}</p>
           ) : (
             <div className="space-y-1">
               {subTopics
@@ -639,7 +639,7 @@ function SubTopicRow({
   return (
     <div className="border-b border-slate-50 pb-1 space-y-0.5">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[11px] text-slate-600 flex-1">{subTopic.title}</span>
+        <span className="text-[13px] text-slate-600 flex-1">{subTopic.title}</span>
         <span className="flex items-center gap-1 shrink-0">
           <button
             type="button"

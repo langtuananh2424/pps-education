@@ -190,7 +190,7 @@ export default function CommentAiAssistantSidebar({
             <Bot className="w-5 h-5 text-violet-600" />
             {t("dailyCommentPanel.aiAssistant.title")}
           </div>
-          <p className="text-xs text-slate-400 truncate">{sessionLabel || t("dailyCommentPanel.aiAssistant.noSession")}</p>
+          <p className="text-sm text-slate-400 truncate">{sessionLabel || t("dailyCommentPanel.aiAssistant.noSession")}</p>
         </div>
         <button type="button" onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-500" aria-label={t("dailyCommentPanel.aiAssistant.close")}>
           <X className="w-4 h-4" />
@@ -200,7 +200,7 @@ export default function CommentAiAssistantSidebar({
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
         <div className="text-sm text-slate-600 bg-violet-50 border border-violet-100 rounded-lg p-3 space-y-1.5">
           <p>{t("dailyCommentPanel.aiAssistant.intro")}</p>
-          <p className="text-xs text-violet-700">{t("dailyCommentPanel.aiAssistant.permissionNote")}</p>
+          <p className="text-sm text-violet-700">{t("dailyCommentPanel.aiAssistant.permissionNote")}</p>
         </div>
 
         {messages.length === 0 && classSessionId && (
@@ -301,7 +301,7 @@ function DraftCard({
   const nameById = new Map(draft.rows.map((r) => [r.studentId, r.studentFullName]));
   return (
     <div className={`space-y-2 ${active ? "" : "opacity-60"}`}>
-      <p className="text-xs text-slate-500">
+      <p className="text-sm text-slate-500">
         {draft.extraction?.teacherPronoun
           ? t("dailyCommentPanel.aiAssistant.pronounDetected", { pronoun: draft.extraction.teacherPronoun })
           : t("dailyCommentPanel.aiAssistant.pronounUnknown")}
@@ -312,17 +312,17 @@ function DraftCard({
             <div className="flex flex-wrap items-center gap-1">
               <span className="font-bold text-slate-800">{r.studentFullName}</span>
               {r.source === "INDIVIDUAL" && (
-                <span className="text-[11px] font-bold uppercase bg-brand-orange/10 text-brand-orange px-1.5 py-0.5 rounded">{t("dailyCommentPanel.aiAssistant.individualBadge")}</span>
+                <span className="text-[13px] font-bold uppercase bg-brand-orange/10 text-brand-orange px-1.5 py-0.5 rounded">{t("dailyCommentPanel.aiAssistant.individualBadge")}</span>
               )}
               {r.attitude ? (
-                <span className={`text-[11px] font-bold border px-1.5 py-0.5 rounded ${ATTITUDE_BADGE[r.attitude] ?? ""}`}>{t(`shared.attitudeWithPercent.${r.attitude}`)}</span>
+                <span className={`text-[13px] font-bold border px-1.5 py-0.5 rounded ${ATTITUDE_BADGE[r.attitude] ?? ""}`}>{t(`shared.attitudeWithPercent.${r.attitude}`)}</span>
               ) : (
-                <span className="text-[11px] text-slate-400 italic">{t("dailyCommentPanel.aiAssistant.noAttitude")}</span>
+                <span className="text-[13px] text-slate-400 italic">{t("dailyCommentPanel.aiAssistant.noAttitude")}</span>
               )}
             </div>
             <p className="text-slate-600 whitespace-pre-wrap">{r.content || "—"}</p>
             {r.warnings.map((w, i) => (
-              <p key={i} className="flex items-start gap-1 text-xs text-amber-700">
+              <p key={i} className="flex items-start gap-1 text-sm text-amber-700">
                 <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
                 {w.message}
               </p>
@@ -333,7 +333,7 @@ function DraftCard({
 
       {draft.unmatchedMentions.length > 0 && (
         <div className="bg-amber-50 border border-amber-100 rounded-lg p-2 space-y-1">
-          <p className="text-xs font-bold uppercase text-amber-700">{t("dailyCommentPanel.aiAssistant.unmatchedTitle")}</p>
+          <p className="text-sm font-bold uppercase text-amber-700">{t("dailyCommentPanel.aiAssistant.unmatchedTitle")}</p>
           {draft.unmatchedMentions.map((u, i) => (
             <p key={i} className="text-[13px] text-amber-800">
               “{u.quote}”
@@ -345,14 +345,14 @@ function DraftCard({
       )}
 
       {draft.skippedStudents.length > 0 && (
-        <p className="text-xs text-slate-400">
+        <p className="text-sm text-slate-400">
           {t("dailyCommentPanel.aiAssistant.skipped", { names: draft.skippedStudents.map((s) => `${s.studentFullName} (${s.reason})`).join(", ") })}
         </p>
       )}
 
       {draft.transcript && active && (
         <div>
-          <button type="button" onClick={onToggleTranscript} className="flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-slate-700">
+          <button type="button" onClick={onToggleTranscript} className="flex items-center gap-1 text-sm font-bold text-slate-500 hover:text-slate-700">
             {showTranscript ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
             {t("dailyCommentPanel.aiAssistant.transcriptToggle")}
           </button>
@@ -383,7 +383,7 @@ function DraftCard({
                 type="button"
                 onClick={() => onQuickInstruction(t(`dailyCommentPanel.aiAssistant.quickInstructions.${key}`))}
                 disabled={busy}
-                className="text-xs text-slate-500 border border-dashed border-slate-300 rounded-full px-2.5 py-1 hover:bg-white disabled:opacity-50"
+                className="text-sm text-slate-500 border border-dashed border-slate-300 rounded-full px-2.5 py-1 hover:bg-white disabled:opacity-50"
               >
                 {t(`dailyCommentPanel.aiAssistant.quickInstructionLabels.${key}`)}
               </button>

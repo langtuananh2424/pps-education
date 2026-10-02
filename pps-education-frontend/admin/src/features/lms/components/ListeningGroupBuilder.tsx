@@ -8,8 +8,8 @@ import Select from "@/components/ui/Select";
 import { QuestionResponse, QuestionType, createExamQuestion, uploadMedia } from "../api";
 import FloatingError from "@/components/ui/FloatingError";
 
-const inputClass = "w-full bg-white border border-slate-200 text-xs px-3.5 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-red";
-const labelClass = "block font-bold text-slate-700 mb-1 uppercase tracking-wider text-[10px]";
+const inputClass = "w-full bg-white border border-slate-200 text-sm px-3.5 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-red";
+const labelClass = "block font-bold text-slate-700 mb-1 uppercase tracking-wider text-[12px]";
 
 export type ListeningSubKind = "VOICE_MULTIPLE_CHOICE" | "VOICE_PICTURE_CHOICE" | "LISTENING_AUDIO_SUBMISSION" | "LISTENING_FILL_IN_BLANK";
 
@@ -246,7 +246,7 @@ export default function ListeningGroupBuilder({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+    <form onSubmit={handleSubmit} className="space-y-4 text-sm">
       <FloatingError message={error} onClose={() => setError(null)} />
 
       {/* Bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-09-03 — chỉ hiện khi Bài đang soạn đã có sẵn ≥1 nhóm nghe (existingGroups), cho GV chọn thêm câu vào nhóm cũ thay vì luôn tạo nhóm mới. */}
@@ -261,7 +261,7 @@ export default function ListeningGroupBuilder({
               </option>
             ))}
           </Select>
-          {isAppending && <p className="text-[10px] text-slate-400 mt-1">{t("listeningGroupBuilder.appendTargetHint")}</p>}
+          {isAppending && <p className="text-[12px] text-slate-400 mt-1">{t("listeningGroupBuilder.appendTargetHint")}</p>}
         </div>
       )}
 
@@ -290,13 +290,13 @@ export default function ListeningGroupBuilder({
       </div>
 
       <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
-        <div className="flex items-center gap-1 text-slate-700 font-bold uppercase tracking-wider text-[9px]">
+        <div className="flex items-center gap-1 text-slate-700 font-bold uppercase tracking-wider text-[13px]">
           <Headphones className="w-4 h-4 text-slate-500" />
           <span>{t("listeningGroupBuilder.audioSectionTitle")}</span>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
-            <label className="block font-bold text-slate-600 mb-1 text-[9px] uppercase">{t("common.audioFileLabel")}</label>
+            <label className="block font-bold text-slate-600 mb-1 text-[13px] uppercase">{t("common.audioFileLabel")}</label>
             <FileUploadField
               value={audioUrl}
               onChange={setAudioUrl}
@@ -307,7 +307,7 @@ export default function ListeningGroupBuilder({
             />
           </div>
           <div>
-            <label className="block font-bold text-slate-600 mb-1 text-[9px] uppercase">{t("common.transcriptLabel")}</label>
+            <label className="block font-bold text-slate-600 mb-1 text-[13px] uppercase">{t("common.transcriptLabel")}</label>
             {/* Fix bug thật (2026-09-08, đã xác nhận với người dùng) — trước đây <input> 1 dòng, dán
                 transcript nhiều lượt hội thoại bị trình duyệt xoá sạch \n trước khi React nhận được
                 giá trị, hiển thị dồn thành 1 đoạn. Đổi sang textarea, mirror ClozeQuestionBuilder/
@@ -325,12 +325,12 @@ export default function ListeningGroupBuilder({
       </div>
 
       <div className="space-y-2">
-        <span className="font-bold text-slate-700 uppercase tracking-wider text-[9px] block">{t("listeningGroupBuilder.questionsSectionTitle")}</span>
+        <span className="font-bold text-slate-700 uppercase tracking-wider text-[13px] block">{t("listeningGroupBuilder.questionsSectionTitle")}</span>
         <div className="border border-slate-200 rounded-lg divide-y divide-slate-100">
           {questions.map((q, idx) => (
             <div key={idx} className="p-3 space-y-2">
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold text-slate-500 w-6 shrink-0">{idx + 1}.</span>
+                <span className="text-[12px] font-bold text-slate-500 w-6 shrink-0">{idx + 1}.</span>
                 <input
                   required
                   value={q.content}
@@ -377,7 +377,7 @@ export default function ListeningGroupBuilder({
                     </div>
                   ))}
                   {q.options.length < MAX_OPTIONS && (
-                    <button type="button" onClick={() => addOption(idx)} className="text-[10px] font-bold text-brand-red hover:underline">
+                    <button type="button" onClick={() => addOption(idx)} className="text-[12px] font-bold text-brand-red hover:underline">
                       {t("questionEditorForm.addOption")}
                     </button>
                   )}
@@ -420,7 +420,7 @@ export default function ListeningGroupBuilder({
                     </div>
                   ))}
                   {q.imageUrls.length < MAX_OPTIONS && (
-                    <button type="button" onClick={() => addOption(idx)} className="text-[10px] font-bold text-brand-red hover:underline">
+                    <button type="button" onClick={() => addOption(idx)} className="text-[12px] font-bold text-brand-red hover:underline">
                       {t("questionEditorForm.addOption")}
                     </button>
                   )}
@@ -451,7 +451,7 @@ export default function ListeningGroupBuilder({
           ))}
         </div>
         {subKind === "LISTENING_AUDIO_SUBMISSION" && (
-          <p className="text-[9px] text-slate-400">{t("listeningGroupBuilder.audioSubmissionHint")}</p>
+          <p className="text-[13px] text-slate-400">{t("listeningGroupBuilder.audioSubmissionHint")}</p>
         )}
       </div>
 

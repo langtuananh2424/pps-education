@@ -11,8 +11,8 @@ import PeriodMultiSelect from "./PeriodMultiSelect";
 import TeacherSearchSelect from "./TeacherSearchSelect";
 import FloatingError from "@/components/ui/FloatingError";
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
-const labelClass = "text-[10px] uppercase font-bold text-slate-500 block mb-1";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
+const labelClass = "text-[12px] uppercase font-bold text-slate-500 block mb-1";
 
 export interface SessionAssignmentPreview {
   roomName: string | null;
@@ -139,13 +139,13 @@ export default function SessionEditModal({ session, siteId, rooms, onClose, onQu
         <FloatingError message={error} onClose={() => setError(null)} />
 
         {!canEdit && (
-          <p className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-lg p-2.5">
+          <p className="text-sm text-slate-500 bg-slate-50 border border-slate-200 rounded-lg p-2.5">
             Buổi này đang ở trạng thái <b>{session.status}</b> — chỉ sửa/hủy/dời được buổi đang SCHEDULED.
           </p>
         )}
 
         {canEdit && isCorrection && (
-          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg p-2.5">
+          <p className="text-sm text-amber-700 bg-amber-50 border border-amber-100 rounded-lg p-2.5">
             Buổi này đã diễn ra (<b>{session.status}</b>) — chỉ sửa thông tin cùng ngày, không dời lịch được, bắt buộc nhập lý do sửa.
           </p>
         )}
@@ -157,14 +157,14 @@ export default function SessionEditModal({ session, siteId, rooms, onClose, onQu
                 <button
                   type="button"
                   onClick={() => setMode("edit")}
-                  className={`pb-2 text-xs font-bold border-b-2 ${mode === "edit" ? "border-brand-red text-brand-red" : "border-transparent text-slate-500"}`}
+                  className={`pb-2 text-sm font-bold border-b-2 ${mode === "edit" ? "border-brand-red text-brand-red" : "border-transparent text-slate-500"}`}
                 >
                   Sửa thông tin
                 </button>
                 <button
                   type="button"
                   onClick={() => setMode("reschedule")}
-                  className={`pb-2 text-xs font-bold border-b-2 flex items-center gap-1 ${mode === "reschedule" ? "border-brand-red text-brand-red" : "border-transparent text-slate-500"}`}
+                  className={`pb-2 text-sm font-bold border-b-2 flex items-center gap-1 ${mode === "reschedule" ? "border-brand-red text-brand-red" : "border-transparent text-slate-500"}`}
                 >
                   <CalendarClock className="w-3.5 h-3.5" />
                   Dời lịch
@@ -243,28 +243,28 @@ export default function SessionEditModal({ session, siteId, rooms, onClose, onQu
                       placeholder="VD: Alex"
                       className={inputClass}
                     />
-                    <p className="text-[10px] text-slate-400 italic mt-1">
+                    <p className="text-[12px] text-slate-400 italic mt-1">
                       GVNN không có tài khoản hệ thống — nhập tên thật để hiển thị trên lưới, khớp với "Tên giáo viên
                       giảng dạy" ở Nhận xét học viên.
                     </p>
                   </div>
                 )}
 
-                <label className="flex items-start gap-2 text-xs text-slate-600 cursor-pointer">
+                <label className="flex items-start gap-2 text-sm text-slate-600 cursor-pointer">
                   <input type="checkbox" checked={allowTeacherOverlap} onChange={(e) => setAllowTeacherOverlap(e.target.checked)} className="mt-0.5" />
                   <span>
                     Cho phép giáo viên chính trùng giờ với buổi dạy khác
-                    <span className="block text-[10px] text-slate-400 italic">
+                    <span className="block text-[12px] text-slate-400 italic">
                       Dùng khi lớp tách nhóm (VD 7A4-1/7A4-2) dùng chung 1 giáo viên và dạy đồng thời cùng khung giờ.
                     </span>
                   </span>
                 </label>
                 {roomId !== "" && (
-                  <label className="flex items-start gap-2 text-xs text-slate-600 cursor-pointer">
+                  <label className="flex items-start gap-2 text-sm text-slate-600 cursor-pointer">
                     <input type="checkbox" checked={allowRoomOverlap} onChange={(e) => setAllowRoomOverlap(e.target.checked)} className="mt-0.5" />
                     <span>
                       Cho phép trùng phòng học với buổi khác
-                      <span className="block text-[10px] text-slate-400 italic">
+                      <span className="block text-[12px] text-slate-400 italic">
                         Dùng khi 2 nhóm lớp gộp lại học chung 1 phòng cùng khung giờ.
                       </span>
                     </span>
@@ -278,7 +278,7 @@ export default function SessionEditModal({ session, siteId, rooms, onClose, onQu
                   </div>
                 )}
 
-                <p className="text-[11px] text-slate-400 italic">Thay đổi chỉ hiện tạm trên lưới — bấm "Lưu" ở đầu lưới để ghi thật.</p>
+                <p className="text-[13px] text-slate-400 italic">Thay đổi chỉ hiện tạm trên lưới — bấm "Lưu" ở đầu lưới để ghi thật.</p>
 
                 <div className="flex justify-end pt-2 border-t border-slate-100">
                   <Button type="button" variant="primary" size="sm" onClick={handleSaveAssignment}>
@@ -313,22 +313,22 @@ export default function SessionEditModal({ session, siteId, rooms, onClose, onQu
                     ))}
                   </Select>
                 </div>
-                <p className="text-[11px] text-slate-500">Giáo viên chính giữ nguyên: {session.primaryTeacherName}.</p>
-                <label className="flex items-start gap-2 text-xs text-slate-600 cursor-pointer">
+                <p className="text-[13px] text-slate-500">Giáo viên chính giữ nguyên: {session.primaryTeacherName}.</p>
+                <label className="flex items-start gap-2 text-sm text-slate-600 cursor-pointer">
                   <input type="checkbox" checked={allowTeacherOverlap} onChange={(e) => setAllowTeacherOverlap(e.target.checked)} className="mt-0.5" />
                   <span>
                     Cho phép giáo viên chính trùng giờ với buổi dạy khác
-                    <span className="block text-[10px] text-slate-400 italic">
+                    <span className="block text-[12px] text-slate-400 italic">
                       Dùng khi lớp tách nhóm (VD 7A4-1/7A4-2) dùng chung 1 giáo viên và dạy đồng thời cùng khung giờ.
                     </span>
                   </span>
                 </label>
                 {roomId !== "" && (
-                  <label className="flex items-start gap-2 text-xs text-slate-600 cursor-pointer">
+                  <label className="flex items-start gap-2 text-sm text-slate-600 cursor-pointer">
                     <input type="checkbox" checked={allowRoomOverlap} onChange={(e) => setAllowRoomOverlap(e.target.checked)} className="mt-0.5" />
                     <span>
                       Cho phép trùng phòng học với buổi khác
-                      <span className="block text-[10px] text-slate-400 italic">
+                      <span className="block text-[12px] text-slate-400 italic">
                         Dùng khi 2 nhóm lớp gộp lại học chung 1 phòng cùng khung giờ.
                       </span>
                     </span>
@@ -338,7 +338,7 @@ export default function SessionEditModal({ session, siteId, rooms, onClose, onQu
                   <label className={labelClass}>Lý do dời lịch (không bắt buộc)</label>
                   <input value={rescheduleReason} onChange={(e) => setRescheduleReason(e.target.value)} className={inputClass} />
                 </div>
-                <p className="text-[11px] text-amber-600 italic">Dời lịch ghi lại ngay, không qua nút "Lưu" ở lưới.</p>
+                <p className="text-[13px] text-amber-600 italic">Dời lịch ghi lại ngay, không qua nút "Lưu" ở lưới.</p>
                 <div className="flex justify-end pt-2 border-t border-slate-100">
                   <Button type="button" variant="primary" size="sm" onClick={handleReschedule} disabled={submitting}>
                     {submitting ? "Đang lưu..." : "Dời lịch"}

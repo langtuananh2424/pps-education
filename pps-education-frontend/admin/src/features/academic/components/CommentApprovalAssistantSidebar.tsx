@@ -198,7 +198,7 @@ export default function CommentApprovalAssistantSidebar({
             <Select
               value={selectedClassId ?? ""}
               onChange={(e) => setSelectedClassId(Number(e.target.value))}
-              className="mt-1 bg-white border border-slate-200 text-xs font-semibold text-slate-700 px-2 py-1 rounded"
+              className="mt-1 bg-white border border-slate-200 text-sm font-semibold text-slate-700 px-2 py-1 rounded"
             >
               {classes.map((c) => (
                 <option key={c.classId} value={c.classId}>
@@ -216,7 +216,7 @@ export default function CommentApprovalAssistantSidebar({
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
         <div className="text-sm text-slate-600 bg-violet-50 border border-violet-100 rounded-lg p-3 space-y-1.5">
           <p>{t("approvalByClass.assistant.intro")}</p>
-          <p className="text-xs text-violet-700">{t("approvalByClass.assistant.permissionNote")}</p>
+          <p className="text-sm text-violet-700">{t("approvalByClass.assistant.permissionNote")}</p>
         </div>
 
         {selectedClass && (
@@ -250,11 +250,11 @@ export default function CommentApprovalAssistantSidebar({
                 <p className="whitespace-pre-wrap">{m.text}</p>
                 {m.summary && (
                   <div className="flex flex-wrap gap-1">
-                    <span className="text-[11px] font-semibold rounded-full px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <span className="text-[13px] font-semibold rounded-full px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200">
                       {t("approvalByClass.aiReview.summary.clean", { count: m.summary.cleanCount })}
                     </span>
                     {m.summary.issueCounts.map((c) => (
-                      <span key={c.type} className="text-[11px] font-semibold rounded-full px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-200">
+                      <span key={c.type} className="text-[13px] font-semibold rounded-full px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-200">
                         {t("approvalByClass.aiReview.summary.issue", {
                           count: c.count,
                           label: t(`approvalByClass.aiReview.issueType.${c.type}`, { defaultValue: c.type })
@@ -262,22 +262,22 @@ export default function CommentApprovalAssistantSidebar({
                       </span>
                     ))}
                     {m.summary.parentAlertCount > 0 && (
-                      <span className="text-[11px] font-semibold rounded-full px-2 py-0.5 bg-orange-50 text-orange-700 border border-orange-200">
+                      <span className="text-[13px] font-semibold rounded-full px-2 py-0.5 bg-orange-50 text-orange-700 border border-orange-200">
                         {t("approvalByClass.aiReview.summary.parentAlerts", { count: m.summary.parentAlertCount })}
                       </span>
                     )}
                     {m.summary.escalationCount > 0 && (
-                      <span className="text-[11px] font-semibold rounded-full px-2 py-0.5 bg-rose-50 text-rose-700 border border-rose-200">
+                      <span className="text-[13px] font-semibold rounded-full px-2 py-0.5 bg-rose-50 text-rose-700 border border-rose-200">
                         {t("approvalByClass.aiReview.summary.escalations", { count: m.summary.escalationCount })}
                       </span>
                     )}
                     {m.summary.repeatedPatternCount > 0 && (
-                      <span className="text-[11px] font-semibold rounded-full px-2 py-0.5 bg-sky-50 text-sky-700 border border-sky-200">
+                      <span className="text-[13px] font-semibold rounded-full px-2 py-0.5 bg-sky-50 text-sky-700 border border-sky-200">
                         {t("approvalByClass.aiReview.summary.repeatedPattern", { count: m.summary.repeatedPatternCount })}
                       </span>
                     )}
                     {m.summary.homeworkMismatchCount > 0 && (
-                      <span className="text-[11px] font-semibold rounded-full px-2 py-0.5 bg-sky-50 text-sky-700 border border-sky-200">
+                      <span className="text-[13px] font-semibold rounded-full px-2 py-0.5 bg-sky-50 text-sky-700 border border-sky-200">
                         {t("approvalByClass.aiReview.summary.homeworkMismatch", { count: m.summary.homeworkMismatchCount })}
                       </span>
                     )}
@@ -285,7 +285,7 @@ export default function CommentApprovalAssistantSidebar({
                 )}
                 {m.reviewClassId != null && m.id === latestReviewMessageId && (() => {
                   const cls = classes.find((c) => c.classId === m.reviewClassId);
-                  if (!cls) return <p className="text-xs text-slate-400 italic">{t("approvalByClass.assistant.classDone")}</p>;
+                  if (!cls) return <p className="text-sm text-slate-400 italic">{t("approvalByClass.assistant.classDone")}</p>;
                   // Lưu ý hiện riêng từng dòng (VD BTVN ngược dữ liệu). Cảnh báo phụ huynh hiện ở dòng riêng; "lặp khuôn câu"
                   // gom thành 1 dòng tóm tắt bên dưới để danh sách không dài ra với giáo viên viết theo khuôn.
                   const noticesOf = (id: number) =>
@@ -314,7 +314,7 @@ export default function CommentApprovalAssistantSidebar({
                         </button>
                       </div>
                       {repeated.length > 0 && (
-                        <p className="flex items-start gap-1 text-xs text-sky-800 bg-sky-50 border border-sky-100 rounded-lg p-2">
+                        <p className="flex items-start gap-1 text-sm text-sky-800 bg-sky-50 border border-sky-100 rounded-lg p-2">
                           <Info className="w-3 h-3 mt-0.5 shrink-0" />
                           {t("approvalByClass.aiReview.repeatedPatternGroup", {
                             count: repeated.length,
@@ -330,13 +330,13 @@ export default function CommentApprovalAssistantSidebar({
                               <li key={cm.id} className="bg-white border border-amber-200 rounded-lg p-2 space-y-1">
                                 <p className="font-bold text-slate-800">{cm.studentFullName}</p>
                                 {attitudeAlertById[cm.id] && (
-                                  <p className={`flex items-start gap-1 text-xs ${attitudeAlertById[cm.id].escalation ? "text-rose-700" : "text-orange-700"}`}>
+                                  <p className={`flex items-start gap-1 text-sm ${attitudeAlertById[cm.id].escalation ? "text-rose-700" : "text-orange-700"}`}>
                                     <BellRing className="w-3 h-3 mt-0.5 shrink-0" />
                                     {attitudeAlertById[cm.id].message}
                                   </p>
                                 )}
                                 {noticesOf(cm.id).map((notice, i) => (
-                                  <p key={`n${i}`} className="flex items-start gap-1 text-xs text-sky-800">
+                                  <p key={`n${i}`} className="flex items-start gap-1 text-sm text-sky-800">
                                     <Info className="w-3 h-3 mt-0.5 shrink-0" />
                                     <span>
                                       <span className="font-bold">{t("approvalByClass.aiReview.notice")}: </span>
@@ -345,7 +345,7 @@ export default function CommentApprovalAssistantSidebar({
                                   </p>
                                 ))}
                                 {reviewByCommentId[cm.id].issues.map((issue, i) => (
-                                  <p key={i} className="flex items-start gap-1 text-xs text-amber-800">
+                                  <p key={i} className="flex items-start gap-1 text-sm text-amber-800">
                                     <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
                                     <span>
                                       <span className="font-bold">{t(`approvalByClass.aiReview.source.${issue.source}`)}: </span>
@@ -355,24 +355,24 @@ export default function CommentApprovalAssistantSidebar({
                                 ))}
                                 {suggestion ? (
                                   <div className="border border-violet-200 bg-violet-50/70 rounded-lg p-2 space-y-1">
-                                    <p className="text-xs font-bold uppercase text-violet-700">{t("approvalByClass.aiReview.suggestionTitle")}</p>
+                                    <p className="text-sm font-bold uppercase text-violet-700">{t("approvalByClass.aiReview.suggestionTitle")}</p>
                                     <p className="whitespace-pre-wrap text-slate-800">{suggestion.suggestedContent}</p>
-                                    {suggestion.explanation && <p className="text-xs text-slate-500 italic">{suggestion.explanation}</p>}
+                                    {suggestion.explanation && <p className="text-sm text-slate-500 italic">{suggestion.explanation}</p>}
                                     {suggestion.warnings.map((w, i) => (
-                                      <p key={i} className="flex items-start gap-1 text-xs text-amber-700">
+                                      <p key={i} className="flex items-start gap-1 text-sm text-amber-700">
                                         <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
                                         {w}
                                       </p>
                                     ))}
                                     <div className="flex justify-end gap-1.5">
-                                      <button type="button" onClick={() => onDismissSuggestion(cm.id)} className="px-2 py-1 text-slate-500 hover:bg-slate-100 text-xs font-bold rounded-lg">
+                                      <button type="button" onClick={() => onDismissSuggestion(cm.id)} className="px-2 py-1 text-slate-500 hover:bg-slate-100 text-sm font-bold rounded-lg">
                                         {t("approvalByClass.aiReview.dismiss")}
                                       </button>
                                       <button
                                         type="button"
                                         onClick={() => void onApplySuggestion(cm)}
                                         disabled={applyingId === cm.id}
-                                        className="px-2 py-1 bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold rounded-lg disabled:opacity-50"
+                                        className="px-2 py-1 bg-violet-600 hover:bg-violet-700 text-white text-sm font-bold rounded-lg disabled:opacity-50"
                                       >
                                         {applyingId === cm.id ? t("approvalByClass.savingEdit") : t("approvalByClass.aiReview.apply")}
                                       </button>
@@ -384,7 +384,7 @@ export default function CommentApprovalAssistantSidebar({
                                       type="button"
                                       onClick={() => void onSuggest(cm)}
                                       disabled={suggestingId !== null}
-                                      className="flex items-center gap-1 text-xs font-bold text-violet-700 hover:underline disabled:opacity-50"
+                                      className="flex items-center gap-1 text-sm font-bold text-violet-700 hover:underline disabled:opacity-50"
                                     >
                                       {suggestingId === cm.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
                                       {suggestingId === cm.id ? t("approvalByClass.aiReview.suggesting") : t("approvalByClass.aiReview.suggestButton")}
@@ -393,7 +393,7 @@ export default function CommentApprovalAssistantSidebar({
                                       type="button"
                                       onClick={() => void onRejectWithAi(cm)}
                                       disabled={draftingReasonId !== null}
-                                      className="flex items-center gap-1 text-xs font-bold text-rose-700 hover:underline disabled:opacity-50"
+                                      className="flex items-center gap-1 text-sm font-bold text-rose-700 hover:underline disabled:opacity-50"
                                     >
                                       {draftingReasonId === cm.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
                                       {draftingReasonId === cm.id ? t("approvalByClass.aiReview.rejectReasonLoading") : t("approvalByClass.aiReview.rejectReasonButton")}
@@ -411,7 +411,7 @@ export default function CommentApprovalAssistantSidebar({
                 {m.instruction && m.instruction.changes.length > 0 && (
                   <div className="space-y-1.5">
                     {m.instruction.transcript && (
-                      <p className="text-xs text-slate-500 italic">{t("approvalByClass.assistant.heard", { text: m.instruction.transcript })}</p>
+                      <p className="text-sm text-slate-500 italic">{t("approvalByClass.assistant.heard", { text: m.instruction.transcript })}</p>
                     )}
                     <ul className="space-y-1.5 max-h-[28rem] overflow-y-auto pr-1">
                       {m.instruction.changes.map((change) => {
@@ -420,17 +420,17 @@ export default function CommentApprovalAssistantSidebar({
                         return (
                           <li key={change.commentId} className="bg-white border border-slate-200 rounded-lg p-2 space-y-1">
                             <p className="font-bold text-slate-800">{change.studentFullName}</p>
-                            <p className="text-xs text-slate-400 line-through whitespace-pre-wrap">{change.originalContent}</p>
+                            <p className="text-sm text-slate-400 line-through whitespace-pre-wrap">{change.originalContent}</p>
                             <p className="text-slate-800 whitespace-pre-wrap">{change.suggestedContent}</p>
                             {change.warnings.map((w, i) => (
-                              <p key={i} className="flex items-start gap-1 text-xs text-amber-700">
+                              <p key={i} className="flex items-start gap-1 text-sm text-amber-700">
                                 <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
                                 {w}
                               </p>
                             ))}
                             <div className="flex justify-end">
                               {applied ? (
-                                <span className="flex items-center gap-1 text-xs font-bold text-emerald-700">
+                                <span className="flex items-center gap-1 text-sm font-bold text-emerald-700">
                                   <Check className="w-3 h-3" />
                                   {t("approvalByClass.assistant.applied")}
                                 </span>
@@ -439,12 +439,12 @@ export default function CommentApprovalAssistantSidebar({
                                   type="button"
                                   onClick={() => void applyChange(change.commentId, change.suggestedContent)}
                                   disabled={applyingId === change.commentId}
-                                  className="px-2 py-1 bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold rounded-lg disabled:opacity-50"
+                                  className="px-2 py-1 bg-violet-600 hover:bg-violet-700 text-white text-sm font-bold rounded-lg disabled:opacity-50"
                                 >
                                   {applyingId === change.commentId ? t("approvalByClass.savingEdit") : t("approvalByClass.aiReview.apply")}
                                 </button>
                               ) : (
-                                <span className="text-xs text-slate-400 italic">{t("approvalByClass.assistant.noLongerPending")}</span>
+                                <span className="text-sm text-slate-400 italic">{t("approvalByClass.assistant.noLongerPending")}</span>
                               )}
                             </div>
                           </li>

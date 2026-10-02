@@ -9,7 +9,7 @@ interface ModalProps {
   description?: string;
   /** Override cỡ chữ tiêu đề -- mặc định "text-sm" (khá nhỏ), dùng khi 1 modal cụ thể cần tiêu đề nổi bật hơn. */
   titleClassName?: string;
-  /** Override cỡ chữ mô tả -- mặc định "text-[11px]". */
+  /** Override cỡ chữ mô tả -- mặc định "text-[13px]". */
   descriptionClassName?: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
@@ -28,7 +28,7 @@ export default function Modal({
   title,
   description,
   titleClassName = "text-sm",
-  descriptionClassName = "text-[11px]",
+  descriptionClassName = "text-[13px]",
   children,
   footer,
   size = "md"

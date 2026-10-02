@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import Select from "@/components/ui/Select";
 import { BookResponse, SubTopicResponse, UnitResponse, listBooks, listSubTopics, listUnits } from "../api";
 
-const inputClass = "w-full bg-slate-50 border border-slate-200 text-xs p-2.5 rounded-lg focus:outline-none";
+const inputClass = "w-full bg-slate-50 border border-slate-200 text-sm p-2.5 rounded-lg focus:outline-none";
 
 /**
  * V148 (bổ sung ngoài SDD gốc, đã xác nhận với người dùng 2026-08-24) — CHỌN Sách -&gt; Unit -&gt; Sub
@@ -91,16 +91,16 @@ export default function UnitSubTopicPicker({
 
   return (
     <div className="space-y-2 border border-slate-200 rounded-lg p-2.5 bg-slate-50/50">
-      <p className="text-[10px] uppercase font-bold text-slate-500">{t("assignPage.unitSubTopicPicker.label")}</p>
+      <p className="text-[12px] uppercase font-bold text-slate-500">{t("assignPage.unitSubTopicPicker.label")}</p>
       {currentLabel !== undefined && (
-        <p className="text-[10px] text-slate-400">
+        <p className="text-[12px] text-slate-400">
           {t("assignPage.unitSubTopicPicker.currentLabel", { label: currentLabel ?? t("assignPage.unitSubTopicPicker.unclassified") })}
         </p>
       )}
       {!curriculumId ? (
-        <p className="text-[10px] text-slate-400 italic">{t("assignPage.unitSubTopicPicker.selectCurriculumFirst")}</p>
+        <p className="text-[12px] text-slate-400 italic">{t("assignPage.unitSubTopicPicker.selectCurriculumFirst")}</p>
       ) : books.length === 0 ? (
-        <p className="text-[10px] text-slate-400 italic">{t("assignPage.unitSubTopicPicker.noBooksHint")}</p>
+        <p className="text-[12px] text-slate-400 italic">{t("assignPage.unitSubTopicPicker.noBooksHint")}</p>
       ) : (
         <>
           <Select
@@ -121,7 +121,7 @@ export default function UnitSubTopicPicker({
           </Select>
 
           {selectedBookId && units.length === 0 ? (
-            <p className="text-[10px] text-slate-400 italic">{t("assignPage.unitSubTopicPicker.noUnitsHint")}</p>
+            <p className="text-[12px] text-slate-400 italic">{t("assignPage.unitSubTopicPicker.noUnitsHint")}</p>
           ) : (
             selectedBookId && (
               <Select

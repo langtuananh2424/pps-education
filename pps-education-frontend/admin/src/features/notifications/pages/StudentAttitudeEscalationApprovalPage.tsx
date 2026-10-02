@@ -60,20 +60,20 @@ export default function StudentAttitudeEscalationApprovalPage() {
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-xl font-bold font-display tracking-tight text-slate-900">{t("attitudeEscalations.title")}</h1>
-        <p className="text-xs text-slate-500 mt-1">{t("attitudeEscalations.description")}</p>
+        <p className="text-sm text-slate-500 mt-1">{t("attitudeEscalations.description")}</p>
       </div>
 
       <FloatingError message={error} onClose={() => setError(null)} />
 
       <Card padded={false} className="overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-100 bg-slate-50">
-          <span className="text-xs font-bold text-slate-700 font-display">{t("attitudeEscalations.sectionTitle")}</span>
+          <span className="text-sm font-bold text-slate-700 font-display">{t("attitudeEscalations.sectionTitle")}</span>
         </div>
 
         {loading ? (
-          <p className="text-xs text-slate-500 font-medium p-5">{t("attitudeEscalations.loading")}</p>
+          <p className="text-sm text-slate-500 font-medium p-5">{t("attitudeEscalations.loading")}</p>
         ) : escalations.length === 0 ? (
-          <p className="text-xs text-slate-400 italic p-5">{t("attitudeEscalations.empty")}</p>
+          <p className="text-sm text-slate-400 italic p-5">{t("attitudeEscalations.empty")}</p>
         ) : (
           <TableContainer className="rounded-none border-0">
             <thead>
@@ -97,7 +97,7 @@ export default function StudentAttitudeEscalationApprovalPage() {
                       <button
                         onClick={() => handleDecide(escalation, "REJECTED")}
                         disabled={decidingId === escalation.id}
-                        className="px-2 py-1 text-rose-600 hover:bg-rose-50 border border-rose-200 text-[11px] font-bold rounded-lg disabled:opacity-50"
+                        className="px-2 py-1 text-rose-600 hover:bg-rose-50 border border-rose-200 text-[13px] font-bold rounded-lg disabled:opacity-50"
                       >
                         <X className="w-3 h-3 inline mr-0.5" />
                         {t("attitudeEscalations.actionReject")}
@@ -105,7 +105,7 @@ export default function StudentAttitudeEscalationApprovalPage() {
                       <button
                         onClick={() => handleDecide(escalation, "APPROVED")}
                         disabled={decidingId === escalation.id}
-                        className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded-lg disabled:opacity-50"
+                        className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[13px] font-bold rounded-lg disabled:opacity-50"
                       >
                         <Check className="w-3 h-3 inline mr-0.5" />
                         {decidingId === escalation.id ? t("attitudeEscalations.deciding") : t("attitudeEscalations.actionApprove")}
