@@ -1,9 +1,4 @@
 <!--
-PHIÊN BẢN: v2 (2026-10-02). Bản trước (v1, dùng tới 2026-10-02) giữ nguyên ở comment-ai-draft-rubric-v1.md — code KHÔNG nạp file đó,
-chỉ để đối chiếu; muốn quay lại v1 thì chép nội dung v1 đè lên file này rồi build + deploy lại. Sửa lớn lần sau: chép file này
-thành -v2.md rồi tăng số phiên bản ở đây.
-v2 so với v1: mục 2 cho phép 1–2 câu khi ý giáo viên quá ít + thứ tự ưu tiên khi quá 400 ký tự; mục 5 thêm cụm sáo mòn, gộp/thêm
-kiểu mở đầu/kết (bỏ kiểu dễ khiến AI bịa ý và kiểu có đại từ thầy/cô); mục 6 sửa câu mẫu tự dùng cụm sáo mòn, thêm 6b mẫu theo kỹ năng.
 UC-74 — RUBRIC NHẬN XÉT HẰNG NGÀY cho trợ lý AI (bổ sung ngoài SDD gốc, 2026-09-28; bổ sung mục 1–8 ngày 2026-09-29).
 File này được chèn nguyên văn vào prompt của cả 3 bước (tách ý / viết / sửa) tại chỗ {{RUBRIC}}.
 Học vụ/giáo viên cứ bổ sung trực tiếp tại đây — sửa xong cần build và deploy lại backend mới có hiệu lực.
@@ -37,12 +32,11 @@ Bảng này CHỈ dùng để chọn mức nội bộ — tuyệt đối không 
 - Câu ví dụ cho từng mức: xem mục 6.
 
 ## 2. Cấu trúc một nhận xét
-- 2–4 câu, tối đa khoảng 400 ký tự. Ý giáo viên quá ít (VD chỉ "con ngoan", "tập trung tốt") thì 1–2 câu là đủ — KHÔNG độn thêm lời khen/chê, kỹ năng hay sự việc giáo viên không nói.
+- 2–4 câu, tối đa khoảng 400 ký tự.
 1. Tình hình chung/tinh thần học của học sinh trong buổi.
 2. Điểm làm tốt (nếu giáo viên có nói).
 3. Điểm cần cải thiện (chỉ khi giáo viên có nói) — nêu nhẹ nhàng, mang tính xây dựng.
-4. Lời động viên hoặc định hướng ngắn cho buổi sau (khi còn chỗ; nhận xét ngắn không bắt buộc).
-- Nhiều ý vượt quá ~400 ký tự thì giữ theo thứ tự ưu tiên, bỏ từ dưới lên: (1) ý giáo viên nói riêng về học sinh, (2) ý chung của cả lớp, (3) BTVN (tối đa 2 câu, xem mục 4), (4) chuyên cần (tối đa 1 câu), (5) lời động viên/câu kết.
+4. Lời động viên hoặc định hướng ngắn cho buổi sau.
 
 ## 3. Văn phong
 - Người đọc là phụ huynh: lịch sự, gần gũi, tích cực; không phán xét.
@@ -96,9 +90,9 @@ Bảng này CHỈ dùng để chọn mức nội bộ — tuyệt đối không 
 - Không nhắc hoạt động ngoài giờ học tiếng Anh (tập văn nghệ, đá bóng, sự kiện, dã ngoại), đi thi hay thông báo lịch học. Việc nghỉ học, đi muộn, về sớm CHỈ được nhắc khi có trường "attendance" (dữ liệu điểm danh của hệ thống) hoặc khi giáo viên tự nói ra; không ghi lý do nghỉ/đi muộn (kể cả khi giáo viên kể lý do trong lời nói).
 
 ## 5. Gợi ý đa dạng câu mở đầu và câu kết
-Trong mỗi lượt viết: không dùng cùng 1 kiểu mở đầu (hoặc câu kết) cho 2 học sinh LIỀN KỀ; có ít nhất 4 kiểu mở đầu và 3 kiểu kết khác nhau. Chọn luân phiên, diễn đạt lại theo ý giáo viên — không chép nguyên câu gợi ý. Chỉ chọn kiểu khớp với ý giáo viên đã nói (kiểu nói về tiến bộ, kết quả, hoạt động nhóm… cần giáo viên có nói đúng việc đó); không kiểu nào khớp thì dùng kiểu 1.
+Trong mỗi lượt viết: không dùng cùng 1 kiểu mở đầu (hoặc câu kết) cho 2 học sinh LIỀN KỀ; có ít nhất 4 kiểu mở đầu và 3 kiểu kết khác nhau. Chọn luân phiên, diễn đạt lại theo ý giáo viên — không chép nguyên câu gợi ý.
 
-Cụm sáo mòn hay bị lặp cho cả lớp — mỗi cụm dùng tối đa 1–2 lần mỗi lượt viết: "Hơn thế nữa", "Về nhà (con) luyện nói…", "…mong con…", "Con ngoan…", "…rất vui…", "…rất ấn tượng…", "Con đã nắm được…", "Con có cố gắng…", "Con cần chú ý…", "…nhờ bố mẹ…", "Tiếp tục phát huy…", "…mới vào lớp…", "…rất đáng khen…", "Cần cố gắng thêm…", "Tin rằng con sẽ…", "Nếu con… thì…", "Chỉ cần con…", "Điều đáng mừng là…", "Không chỉ… mà còn…", "Thật tuyệt khi…", "Điểm sáng của buổi học là…".
+Cụm sáo mòn hay bị lặp cho cả lớp — mỗi cụm dùng tối đa 1–2 lần mỗi lượt viết: "Hơn thế nữa", "Về nhà (con) luyện nói…", "…mong con…", "Con ngoan…", "…rất vui…", "…rất ấn tượng…", "Con đã nắm được…", "Con có cố gắng…", "Con cần chú ý…", "…nhờ bố mẹ…", "Tiếp tục phát huy…", "…mới vào lớp…".
 
 Mở đầu:
 1. Tên + hành động: "An tập trung nghe giảng suốt buổi."
@@ -106,29 +100,27 @@ Mở đầu:
 3. Tinh thần học: "Tinh thần học của An hôm nay rất tích cực."
 4. Hoạt động cụ thể: "Ở phần hoạt động nhóm, An…"
 5. Điều cần lưu ý (khi ý chính là cần cải thiện): "An cần chú ý hơn…"
-6. Kỹ năng: "Phần Speaking hôm nay, An…" / "Ở phần Phonics, An…"
+6. Kỹ năng: "Phần Speaking hôm nay, An…"
 7. Thái độ với bạn bè: "An hợp tác rất tốt với các bạn trong nhóm."
-8. Sự thay đổi của chính học sinh (chỉ khi giáo viên có nói): "So với buổi trước, An đã mạnh dạn hơn." / "Buổi này An tiến bộ rõ ở phần phát âm."
+8. Sự thay đổi của chính học sinh (chỉ khi giáo viên có nói): "So với buổi trước, An đã mạnh dạn hơn."
 9. Câu ngắn gọn khởi đầu: "Một buổi học tích cực của An."
-10. Kết quả cụ thể (chỉ khi giáo viên nêu kết quả/điểm): "Bài kiểm tra nhanh hôm nay An làm tốt."
+10. Lời ghi nhận của giáo viên — CHỈ khi teacherPronoun có giá trị, dùng đúng đại từ đó (VD "[thầy/cô theo teacherPronoun] ghi nhận An…").
 
 Câu kết:
 1. Lời hẹn: "Hẹn gặp con ở buổi sau nhé."
 2. Ghi nhận: "Sự cố gắng của con rất đáng ghi nhận."
 3. Định hướng cụ thể: "Buổi sau con thử giơ tay phát biểu trước nhé."
-4. Hy vọng: "Hy vọng buổi sau con tự tin hơn nữa."
+4. Mong muốn: "Mong con giữ vững tinh thần này."
 5. Gợi ý ôn luyện: "Con ôn lại phần vừa học để buổi sau tự tin hơn nhé."
 6. Niềm tin: "Chắc chắn con sẽ tiến bộ nhanh."
 7. Giữ phong độ: "Hãy giữ vững phong độ này nhé."
-8. Luyện đúng kỹ năng giáo viên nêu cần cải thiện: "Con luyện thêm phần phát âm ở nhà nhé."
-9. Câu thật ngắn: "Cố lên con nhé."
-10. Không cần câu kết riêng khi nhận xét đã trọn ý (với nhận xét ngắn).
+8. Không cần câu kết riêng khi nhận xét đã trọn ý (với nhận xét ngắn).
 
 ## 6. Mẫu câu tham khảo theo mức Thái độ
 Tổng hợp từ nhận xét cũ của trung tâm — chỉ lấy VĂN PHONG, KHÔNG chép nguyên văn. Mẫu viết "Con" cho gọn; khi viết thật, câu đầu dùng tên gọi. Mẫu cố ý KHÔNG có đại từ "thầy/cô" (đại từ chỉ dùng theo teacherPronoun).
 
 Xuất sắc (EXCELLENT):
-- "Con sẵn sàng giúp các bạn chỉnh sửa khi phát âm chưa chính xác — tinh thần hợp tác rất đáng quý."
+- "Con sẵn sàng giúp các bạn chỉnh sửa khi phát âm chưa chính xác — tinh thần hợp tác này rất đáng khen."
 - "Con chủ động đặt câu hỏi khi chưa hiểu bài, cho thấy con thực sự muốn nắm chắc kiến thức."
 - "Con đọc bài tự tin, giọng rõ ràng, các âm khó đều phát âm dứt khoát và nhịp đọc trôi chảy."
 - "Con nói lưu loát, diễn đạt vượt ra ngoài phần gợi ý với nhiều ý tưởng sáng tạo."
@@ -141,28 +133,28 @@ Tốt (GOOD):
 - "Con đọc hiểu tốt, nắm được ý chính từng đoạn và tìm thông tin chi tiết khá nhanh."
 
 Khá (FAIR):
-- "Con hoàn thành bài đầy đủ, tuy đôi lúc còn cần nhắc nhở để tập trung hơn."
-- "Nhìn chung con học ổn, con mạnh dạn phát biểu thêm sẽ tiến bộ nhanh."
+- "Con ngoan và hoàn thành bài, tuy đôi lúc còn cần nhắc nhở để tập trung hơn."
+- "Nhìn chung con ổn, chỉ cần mạnh dạn phát biểu thêm là sẽ tiến bộ nhanh."
 - "Phát âm của con bước đầu có tiến bộ, nhưng vẫn còn lẫn ở một số âm khó, nhất là âm cuối."
 
 Trung bình (AVERAGE):
-- "Con còn nói chuyện riêng trong giờ, cần tập trung hơn để không bỏ lỡ bài học. Buổi sau con chú ý hơn nhé."
+- "Con còn nói chuyện riêng trong giờ, cần tập trung hơn để không bỏ lỡ bài học. Mong con chú ý hơn ở buổi sau."
 - "Con chưa tham gia xây dựng bài và còn làm việc riêng. Buổi sau con thử giơ tay phát biểu trước nhé."
 
 Yếu (WEAK):
-- "Con chưa hoàn thành nhiệm vụ trên lớp dù đã được nhắc. Buổi sau con chuẩn bị bài đầy đủ để bắt nhịp bài học tốt hơn nhé."
+- "Con chưa hoàn thành nhiệm vụ dù đã được nhắc. Mong con nghiêm túc hơn với việc học, bắt đầu từ việc chuẩn bị bài đầy đủ."
 - "Con cần tập trung ngay từ đầu giờ, tránh để việc riêng ảnh hưởng đến lớp. Hy vọng buổi sau con sẽ thay đổi."
 - "Con còn gặp nhiều khó khăn khi phát âm và chưa thật tự tin, cần luyện đọc thêm mỗi ngày."
 
 Góp ý mềm (dùng thay vì chê trực tiếp):
-- "Con ôn kỹ thêm phần ngữ pháp, kết quả sẽ còn tiến bộ hơn nữa."
-- "Con cẩn thận hơn một chút khi làm bài sẽ tránh được lỗi nhỏ."
+- "Nếu con ôn kỹ hơn phần ngữ pháp, kết quả sẽ còn tiến bộ hơn nữa."
+- "Chỉ cần cẩn thận hơn khi làm bài, con sẽ tránh được lỗi nhỏ."
 - "Con thử chú ý hơn đến các từ nối giữa các đoạn để nắm mạch bài nhé."
 - "Con cố gắng nói to hơn một chút để cả lớp nghe rõ hơn nhé."
 - "Với sự chăm chỉ rèn luyện, con hoàn toàn có thể nói lưu loát hơn nữa."
 
 Góp ý theo lỗi cụ thể (chỉ khi giáo viên nói đúng lỗi đó):
-- "Con lưu ý phân biệt is/am/are và have/has khi nói."
+- "Con cần chú ý phân biệt is/am/are và have/has khi nói."
 - "Con nhớ bật rõ âm cuối và thêm s cho danh từ số nhiều."
 - "Con ôn lại các từ mới để dùng chính xác hơn."
 
@@ -185,14 +177,4 @@ Gợi ý cách luyện (tối đa 1 gợi ý, đúng điểm cần cải thiện
 - "Con chuẩn bị trước vài ý về chủ đề buổi sau."
 - "Con luyện phát âm theo bảng IPA hoặc tra cách đọc trong từ điển."
 - "Con luyện thêm với video phản xạ để trả lời nhanh hơn."
-
-### 6b. Mẫu câu theo kỹ năng
-Chỉ dùng khi giáo viên có nói về đúng kỹ năng đó. Mỗi kỹ năng 1 câu khen (Tốt/Xuất sắc) / 1 câu góp ý (Khá/Trung bình). Mức Yếu là về thái độ (mục 1) nên không có câu riêng theo kỹ năng — kỹ năng còn yếu thì góp ý nhẹ như mức Trung bình.
-- Speaking: "Con tự tin mở rộng câu trả lời mà không cần gợi ý." / "Con nói được ý chính, đôi lúc còn ngập ngừng khi tìm từ."
-- Nghe: "Con nắm được ý chính ngay từ lần nghe đầu tiên." / "Con nghe được ý chính, vài chi tiết nhỏ còn cần nghe lại."
-- Đọc: "Con đoán nghĩa từ mới qua ngữ cảnh khá nhanh." / "Con đọc còn chậm ở đoạn dài, cần luyện thêm để hiểu bài nhanh hơn."
-- Viết: "Con viết mạch lạc, biết sắp xếp ý theo trình tự hợp lý." / "Bài viết của con đủ ý, cần soát lại lỗi chính tả nhỏ trước khi nộp."
-- Phát âm: "Con bật âm cuối rõ ràng, trọng âm từ chính xác." / "Con đọc đúng phần lớn bài, cần chú ý thêm âm cuối và trọng âm."
-- Từ vựng: "Con dùng từ mới đúng ngữ cảnh, ít nhầm lẫn." / "Con nhớ được khá nhiều từ mới, cần luyện dùng chúng trong câu."
-- Ngữ pháp: "Con dùng được cả cấu trúc nâng cao khi diễn đạt." / "Con nắm cấu trúc cơ bản, còn nhầm vài dạng câu khi làm bài."
-<!-- Học vụ có thể thay/bổ sung bằng câu thật đã được Quản lý duyệt. Quy tắc cho câu mẫu ở mục 5–6 (có test tự động kiểm tra — CommentAiRubricTest): KHÔNG chứa "thầy"/"cô", KHÔNG chứa cụm sáo mòn liệt kê ở mục 5 (AI hay chép mẫu nên mẫu dùng cụm sáo mòn sẽ làm cụm đó lặp cả lớp). -->
+<!-- Học vụ có thể thay/bổ sung bằng câu thật đã được Quản lý duyệt. Quy tắc: câu mẫu KHÔNG chứa "thầy"/"cô" (có test tự động kiểm tra — CommentAiRubricTest). -->
