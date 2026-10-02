@@ -24,5 +24,9 @@
       "step3": "Tap “Add” in the top-right corner, then open the app from the new icon on your home screen.",
       "whyBother": "This step is required before iOS will allow push notifications — it's Apple's rule, not an app issue."
     }
+  },
+  "errors": {
+    "requestTimeout": "The network is slow or offline and the request timed out. Please try again.",
+    "imageTooLarge": "The image is too large (max {{maxMb}}MB). Please choose another one."
   }
 }
