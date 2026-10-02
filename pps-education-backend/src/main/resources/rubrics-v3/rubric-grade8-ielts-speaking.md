@@ -25,7 +25,8 @@ Chỉ chấm **những gì có trong transcript và nghe được**. Không suy 
 |**C1 – Không đủ dữ liệu**|<15 từ|<30 từ|FC, LR, P tối đa **40%**|
 ||<6 từ|<12 từ|**0% – insufficient data**|
 |**C2 – Lạc đề / không tạo được thông điệp**|không tạo được thông điệp liên quan|như SHORT|FC, LR tối đa **20%**|
-|**C3 – Chưa đủ độ dài cho bài dài**|—|<70 từ tiếng Anh **hoặc** nói dưới 50% thời lượng cho phép|FC tối đa **60%**, LR tối đa **80%**|
+|**C3 – Chưa đủ độ dài**|<25 từ tiếng Anh|<70 từ tiếng Anh **hoặc** nói dưới 50% thời lượng cho phép|FC tối đa **60%**, LR tối đa **80%**|
+|**C4 – Dừng quá lâu**|im lặng dài nhất ≥3 giây|như SHORT|FC tối đa **70%**. ≥5 giây → **50%**|
 
 **Không dùng gate riêng cho:** accent, "đọc thuộc", tiếng Việt, phát âm khó nghe — đã xử lý trong checkpoint.
 Audio nhiễu/clipping làm mất đáng kể dữ liệu → ghi **audio quality insufficient**; không quy lỗi đó cho Phát âm.
